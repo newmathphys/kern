@@ -33,3 +33,6 @@ preds_gold.jsonl
 *.tmp
 *.swp
 *.kate-swp
+
+# Свидетельства бенчмарков (не игнорировать)
+!docs/evidence/*.jsonl
