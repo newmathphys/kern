@@ -10,7 +10,7 @@ echo "== core-only (Lean без Mathlib) =="
 "$LEAN" "$DIR/KernDfsTermination.lean"
 
 echo "== Mathlib =="
-for f in KernTalk KernTalkND KernConvergence KernZeroCopy; do
+for f in KernTalk KernTalkND KernConvergence KernZeroCopy KernSemanticGap; do
   ( cd "$MATHLIB_PROJ" && lake env lean "$DIR/$f.lean" )
 done
 

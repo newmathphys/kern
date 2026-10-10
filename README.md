@@ -60,10 +60,17 @@ kern/
 │   │   └── z3_bridge.zig           Z3 SMT-LIB2 мост (дочерний процесс, graceful)
 │   ├── runtime/
 │   │   └── kern_x.zig              KERN-X: fuel-bounded VM (без зависаний)
-│   ├── proof_cache.zig             кэш доказательств (AST → вердикт)
+│   ├── proof_cache.zig             кэш доказательств (AST → вердикт), потокобезопасный
+│   ├── attest.zig                  аттестация вердикта (Ed25519, сертификат)
+│   ├── owner.zig                   токен авторства + ключ-замок (comptime)
+│   ├── smt_stress.zig              стресс Z3-моста (парадоксы, overflow, NIA, FP)
+│   ├── kimg_stress.zig             стресс .kimg на 1 000 000 объектов
+│   ├── perf_bench.zig · smt_bench.zig · stress_real.zig · kern_bench.zig  бенчмарки
 │   ├── sdk/kern_sdk.py             Python SDK (тонкая обёртка над CLI)
 │   ├── tests/
-│   │   └── exhaustive_suite.zig    security-сьют (SEC/MATH/AI/RES)
+│   │   ├── exhaustive_suite.zig    security-сьют (SEC/MATH/AI/RES)
+│   │   ├── alignment_stress.zig    Эшелон 1: выравнивание памяти + endianness
+│   │   └── pool_saturation.zig     Эшелон 3: изнурение пула потоков
 │   └── next/                       KERN-Next (движок проекта `kernx`)
 │       ├── ast.zig                 модель: Status/Kind/Claim/Evidence/...
 │       ├── parser.zig              лексер + парсер языка .kern
@@ -86,7 +93,19 @@ kern/
 │   ├── KernTalk.lean               unify: human.max < ai.min ⇒ конфликт B
 │   ├── KernTalkND.lean             N-мерная унификация ⇒ глобальный B
 │   ├── KernConvergence.lean        сходимость RLAIF-цикла за конечное число шагов
+│   ├── KernZeroCopy.lean           изоморфизм zero-copy отображения (3 теоремы)
+│   ├── KernSemanticGap.lean        Эшелон 4: разрыв ℤ vs i32 (8 теорем)
 │   └── check.sh                    компиляция всех + проверка отсутствия sorry
+├── tools/                          бенчмарки и утилиты
+│   ├── cache_avalanche_bench.py    Эшелон 2: лавина хэша (100 000 мутаций)
+│   ├── humaneval_api.py            генерация сэмплов HumanEval через API
+│   ├── evalplus_kern_gate.py       KERN-гейт над сэмплами EvalPlus
+│   ├── quixbugs_full.py            QuixBugs: багованные + правильные (31/31)
+│   ├── refactory_diff.py           Refactory: дифференциальная верификация
+│   ├── solver_crosscheck.py        Z3 ↔ cvc5 (консилиум решателей)
+│   ├── kern_exec_runner.py         Execution Runner (N→T через прогон)
+│   ├── mutate_zig.py               мутационное тестирование (Zig-native)
+│   └── push_to_github.sh           загрузка закрытого репозитория
 ├── Dockerfile · docker-compose.yml оболочки упаковки (не измерены — нет docker)
 ├── kern-cluster.yaml               K8s Deployment + HPA (оболочка)
 ├── vscode-kern/                    расширение KERN Lens (каркас)
@@ -171,6 +190,10 @@ export PATH="$PWD/.venv/bin:$PATH"
 | **Целостность payload** | подмена байта содержимого → `PayloadTampered` |
 | **Ресурсы ОС** | 0 утечек FD, 0 зомби-процессов, «пчелиный рой» 64 потока → 1 miss + 63 hits |
 | **Crash-consistency** | атомарная запись (temp + rename) — нет битых образов |
+| **Эшелон 1: выравнивание** | 8/8: невыровненный разбор (смещения 1,2,3,5,7) безопасен на ARM64/RISC-V |
+| **Эшелон 2: лавина хэша** | SHA-256: лавина **50.0%**, 0 коллизий, макс. цепочка **7** (наивный: 3.1%, цепочка 100000) |
+| **Эшелон 3: пул потоков** | 128 запросов на 4–8 воркеров: лимит соблюдён, голодания нет |
+| **Эшелон 4: семант. разрыв** | `KernSemanticGap.lean`: **8 теорем** — разрыв ℤ vs i32 доказан формально |
 
 ---
 

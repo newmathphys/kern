@@ -345,3 +345,59 @@ test "РЕСУРСЫ: 50 запросов Z3 не текут FD и не плод
     // Зомби быть не должно: child.wait() их пожинает.
     try std.testing.expectEqual(@as(usize, 0), countZombieChildren());
 }
+
+// =====================================================================
+// ПУЛ РЕШАТЕЛЕЙ (Эшелон 3: изнурение планировщика)
+// =====================================================================
+//
+// Проблема: 128 одновременных `prove` на 8-ядерной машине породят 128
+// процессов Z3 → исчерпание PID/FD и паника ОС.
+//
+// Решение: ЖЁСТКИЙ лимит одновременно работающих решателей. Запросы сверх
+// лимита ВСТАЮТ В ОЧЕРЕДЬ на семафоре и выполняются по мере освобождения.
+// Никаких «бесконечных» системных процессов.
+
+pub const SolverPool = struct {
+    sem: std.Thread.Semaphore,
+    max_concurrent: usize,
+    active: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    peak: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    completed: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    acquired_total: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+
+    pub fn init(max_concurrent: usize) SolverPool {
+        return .{
+            .sem = std.Thread.Semaphore{ .permits = max_concurrent },
+            .max_concurrent = max_concurrent,
+        };
+    }
+
+    /// Занять слот решателя. Блокируется, пока все слоты заняты.
+    pub fn acquire(self: *SolverPool) void {
+        self.sem.wait();
+        _ = self.acquired_total.fetchAdd(1, .monotonic);
+        const now = self.active.fetchAdd(1, .acq_rel) + 1;
+        while (true) {
+            const cur = self.peak.load(.acquire);
+            if (now <= cur) break;
+            if (self.peak.cmpxchgWeak(cur, now, .acq_rel, .acquire) == null) break;
+        }
+    }
+
+    /// Освободить слот (обязательно вызывать даже при ошибке!).
+    pub fn release(self: *SolverPool) void {
+        _ = self.active.fetchSub(1, .acq_rel);
+        _ = self.completed.fetchAdd(1, .monotonic);
+        self.sem.post();
+    }
+
+    pub fn peakConcurrent(self: *SolverPool) usize {
+        return self.peak.load(.acquire);
+    }
+    pub fn completedCount(self: *SolverPool) usize {
+        return self.completed.load(.acquire);
+    }
+    pub fn currentlyActive(self: *SolverPool) usize {
+        return self.active.load(.acquire);
+    }
+};

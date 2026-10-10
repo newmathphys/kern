@@ -20,4 +20,6 @@ test {
     _ = @import("runtime/kern_x.zig");
     _ = @import("proof_cache.zig");
     _ = @import("tests/exhaustive_suite.zig");
+    _ = @import("tests/alignment_stress.zig");
+    _ = @import("tests/pool_saturation.zig");
 }
