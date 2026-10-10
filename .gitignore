@@ -1,0 +1,20 @@
+# Сборка Zig
+zig-out/
+.zig-cache/
+zig-cache/
+
+# Кэш компилятора в домашнем каталоге не наш — он общий
+
+# Артефакты, которые генерируются заново
+PROJECT_CANONICAL_SPEC.kern.md
+project.kbin
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Временное
+*.log
+*.tmp
