@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN SMT-бенчмарк: доказательство эквивалентности оптимизаций (Alive2 /
 //! Hacker's Delight) через РЕАЛЬНЫЙ Z3. Модель не нужна — чистая логика.
 //!

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: замер производительности конвейера .kimg (build / mount / read / Merkle).
 //! Запуск: zig run src/perf_bench.zig -O ReleaseFast
 const std = @import("std");

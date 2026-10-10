@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN-Next: движок конвейера (§6.1): parse → validate → catalog → snapshot
 //! → packet/report, с инкрементальным кэшем (§6.2).
 const std = @import("std");

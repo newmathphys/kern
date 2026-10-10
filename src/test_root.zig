@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 // Корень модуля для прогона ВСЕХ тестов ядра.
 //
 // ЗАЧЕМ: документированная команда `zig test src/tests/exhaustive_suite.zig`

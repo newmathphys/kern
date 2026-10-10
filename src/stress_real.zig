@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: УСИЛЕННЫЙ стресс-тест — бьёт по РЕАЛЬНЫМ модулям ядра.
 //! В отличие от tests/stress_1m.zig (где 0 FPR by construction), здесь
 //! «0 ложных пропусков» — настоящий результат: гоняются настоящие EQ2,

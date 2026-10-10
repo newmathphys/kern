@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN-Next: РЕЗОЛЮЦИЯ СТАТУСОВ по машинным свидетельствам исполнения.
 //!
 //! Закрывает эпистемический разрыв `empirical → N` → `tested → T (e=1)`.

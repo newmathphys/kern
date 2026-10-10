@@ -1,3 +1,6 @@
+-- Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+-- Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 -- KERN FOUNDATION: FORMAL TERMINATION OF PROVENANCE DAG TRAVERSAL
 -- Verified in Pure Lean 4 Core (no Mathlib, no 'sorry'). Самодостаточный файл.
 namespace Kern

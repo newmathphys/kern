@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: СТРЕСС .kimg на 1 000 000 объектов (Merkle + случайный доступ).
 //! Запуск: zig run src/kimg_stress.zig -O ReleaseFast
 const std = @import("std");

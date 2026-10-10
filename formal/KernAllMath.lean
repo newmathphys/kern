@@ -1,3 +1,6 @@
+-- Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+-- Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 -- =========================================================================
 -- KERN FOUNDATION: FULL MATHEMATICAL SPECIFICATION & THEOREM REPOSITORY
 -- Verified in Pure Lean 4 Core (Zero external dependencies, No 'sorry').

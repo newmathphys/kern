@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: АТТЕСТАЦИЯ ВЕРДИКТА (Remote Attestation, software-часть).
 //!
 //! Когда KERN выдаёт вердикт `e=1`, клиент в сети должен убедиться, что его

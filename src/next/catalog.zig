@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN-Next: SQLite-каталог (.kdb) — §9 спецификации.
 //!
 //! Таблицы §9.1, индексы §9.2, ограничения §9.3 (стабильные PK, внешние

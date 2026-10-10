@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN-X: изолированная fuel-bounded виртуальная машина (§ «Среда Исполнения»).
 //! Байткод исполняется прямо из образа, «топливо» списывается на каждой
 //! инструкции — бесконечные циклы невозможны физически (Уравнение V: Fuel).

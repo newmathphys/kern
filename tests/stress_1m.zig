@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: процедурный стресс-тест на 1 000 000 «проектов» (Тактика 3).
 //!
 //! ЧЕСТНАЯ ОГОВОРКА: `false_positives` здесь = 0 ПО ПОСТРОЕНИЮ — маппинг

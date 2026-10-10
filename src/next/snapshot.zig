@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN-Next: snapshot и diff (§10 .kbin-контейнер, §6.1 стадии Snapshot/Diff).
 //! Формат снапшота — детерминированный, отсортированный текст: воспроизводим
 //! побайтно и удобен для diff (критерии 4 и 7 из §20).

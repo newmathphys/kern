@@ -1,3 +1,6 @@
+-- Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+-- Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 -- KERN: ФОРМАЛЬНОЕ ДОКАЗАТЕЛЬСТВО ZERO-COPY ИЗОМОРФИЗМА.
 -- Доказывает, что zero-copy срез НЕ искажает данные: срез заголовка — это
 -- ровно префикс исходного буфера (mmap), и все байты среза присутствуют в нём.

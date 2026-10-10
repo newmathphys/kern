@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: ЗАЩИТА ОТ АППАРАТНЫХ СБОЕВ ПАМЯТИ (SIGBUS/SIGSEGV на mmap).
 //!
 //! Если страница mmap-региона физически недоступна (выдернутый диск, сбой

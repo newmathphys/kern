@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN-Next: экспорт — agent packet (§17) и human report (§14.1).
 const std = @import("std");
 const ast = @import("ast.zig");

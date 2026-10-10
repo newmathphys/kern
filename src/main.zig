@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 const std = @import("std");
 
 // Подсистемы L0-L5
@@ -151,6 +154,12 @@ pub fn main() !void {
         std.debug.print("  KERN-EQ2 : {s}\n", .{r.eq2_status.symbol()});
         std.debug.print("  e        : {d}\n", .{r.e_value});
         std.debug.print("  ВЕРДИКТ  : {s}\n", .{if (r.e_value == 1) "ДОКАЗАНО (допущено)" else "НЕ доказано (контрпример/таймаут)"});
+        return;
+    }
+
+    // ---- --version / version: авторство и лицензия ----
+    if (std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "version")) {
+        std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig 0.13)\nCopyright (c) 2026 mrbritneyxxx. All rights reserved.\nLicense: MIT (см. LICENSE)\n", .{});
         return;
     }
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: сборщик образа .kimg v1.3 (Zig-side). Раскладка идентична
 //! `tools/golden_v1_3.py`: заголовок 128 + таблица N*96 + пул строк + payload.
 //! `payload_offset` и `logical_path_offset` ОТНОСИТЕЛЬНЫ `data_payload_offset`.

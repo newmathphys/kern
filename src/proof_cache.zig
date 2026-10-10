@@ -1,3 +1,6 @@
+// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
 //! KERN: кэш доказательств (§ «Инкрементальный Кэш Пруфов»).
 //! Ключ — sha256(AST || контракт || свидетелль). Экономит повторные вызовы
 //! внешнего решателя (Z3/Lean) — это и есть «экономика токенов/Fuel».
