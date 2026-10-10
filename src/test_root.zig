@@ -17,6 +17,11 @@ test {
     _ = @import("owner.zig");
     _ = @import("verifier/admission_gate.zig");
     _ = @import("verifier/z3_bridge.zig");
+    _ = @import("verifier/unsat_core.zig");
+    _ = @import("verifier/array_theory.zig");
+    _ = @import("verifier/chc.zig");
+    _ = @import("verifier/string_theory.zig");
+    _ = @import("verifier/cegis.zig");
     _ = @import("runtime/kern_x.zig");
     _ = @import("proof_cache.zig");
     _ = @import("tests/exhaustive_suite.zig");

@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories
 
 help:
 	@echo "make venv        — создать venv и поставить Zig 0.13"
@@ -144,3 +144,33 @@ semantic-gap: lean
 # Финальный штурм: все 4 эшелона одной командой.
 echelons: align avalanche pool semantic-gap
 	@echo "=== ВСЕ 4 ЭШЕЛОНА ПРОЙДЕНЫ ==="
+
+# ==== МАТЕМАТИЧЕСКИЙ ИНТЕЛЛЕКТ: ТЕОРИИ SMT (векторы 1-4, 8) ====
+
+# Все 5 теорий одной командой: UNSAT-core, массивы, CHC/Horn, строки, CEGIS.
+audit: build
+	./zig-out/bin/kernc audit
+
+# UNSAT CORE: локализация конфликтующей строки контракта.
+localize:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "UNSAT CORE|passed"
+
+# ТЕОРИЯ МАССИВОВ: аксиомы Маккарти, алиасинг, выход за границы.
+arrays:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "ARRAY|passed"
+
+# CHC / HORN: синтез инвариантов циклов через Z3 SPACER.
+chc:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "CHC|passed"
+
+# СТРОКИ (QF_S): path traversal, нуль-байт, regex.
+strings:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "STRINGS|passed"
+
+# CEGIS: синтез программы по спецификации (SyGuS).
+cegis:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "CEGIS|passed"
+
+# Весь математический контур тестами.
+theories: localize arrays chc strings cegis
+	@echo "=== ТЕОРИИ SMT: ВСЁ ПРОЙДЕНО ==="

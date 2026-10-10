@@ -14,6 +14,11 @@ const ProofCertificate = @import("verifier/admission_gate.zig").ProofCertificate
 const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPolicy;
 const TrustedChecker = @import("verifier/admission_gate.zig").TrustedChecker;
 const z3b = @import("verifier/z3_bridge.zig");
+const unsat_core = @import("verifier/unsat_core.zig");
+const array_theory = @import("verifier/array_theory.zig");
+const chc = @import("verifier/chc.zig");
+const string_theory = @import("verifier/string_theory.zig");
+const cegis = @import("verifier/cegis.zig");
 const kparser = @import("next/parser.zig");
 const truth = @import("next/truth.zig");
 
@@ -26,6 +31,9 @@ const truth = @import("next/truth.zig");
 ///   run              KERN-X: исполнение байткода с топливом
 ///   handoff          agent_packet.json из образа
 ///   report           отчёт из образа
+///   prove            доказательство SMT-скрипта через реальный Z3
+///   audit            контур «математического интеллекта»: UNSAT-core,
+///                    теория массивов, CHC/Horn, строки (QF_S), CEGIS-синтез
 fn flagValue(args: []const [:0]u8, name: []const u8) ?[]const u8 {
     for (args, 0..) |a, i| {
         if (std.mem.eql(u8, a, name) and i + 1 < args.len) return args[i + 1];
@@ -154,6 +162,81 @@ pub fn main() !void {
         std.debug.print("  KERN-EQ2 : {s}\n", .{r.eq2_status.symbol()});
         std.debug.print("  e        : {d}\n", .{r.e_value});
         std.debug.print("  ВЕРДИКТ  : {s}\n", .{if (r.e_value == 1) "ДОКАЗАНО (допущено)" else "НЕ доказано (контрпример/таймаут)"});
+        return;
+    }
+
+    // ---- audit: контур «математического интеллекта» (SMT-теории) ----
+    if (std.mem.eql(u8, command, "audit")) {
+        var bridge = z3b.Z3Bridge.init(alloc);
+        bridge.timeout_ms = 10000;
+        if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+            std.debug.print("[!] z3 недоступен (uv pip install z3-solver).\n", .{});
+            return;
+        }
+        std.debug.print("=== KERN AUDIT: теории SMT (математический интеллект) ===\n\n", .{});
+
+        // [1] UNSAT CORE — локализация точной конфликтующей строки
+        {
+            var eng = unsat_core.UnsatCoreEngine.init(alloc);
+            const pres = [_]unsat_core.NamedAssertion{
+                .{ .name = "line_10_non_negative", .formula = "(>= x 0)" },
+                .{ .name = "line_12_upper_bound", .formula = "(<= x 100)" },
+            };
+            var core = try eng.localize(&bridge, "(declare-const x Int)", &pres, "(>= x 0)");
+            defer core.deinit();
+            std.debug.print("[1] UNSAT CORE (локализация ошибки): {s}\n", .{if (core.is_conflict) "КОНФЛИКТ" else "нет"});
+            std.debug.print("    виновные строки: ", .{});
+            for (core.conflicting) |n| std.debug.print("{s} ", .{n});
+            std.debug.print("\n\n", .{});
+        }
+
+        // [2] ТЕОРИЯ МАССИВОВ — отсутствие алиасинга доказано
+        {
+            var eng = array_theory.ArrayTheoryEngine.init(alloc);
+            const q = try eng.buildAliasingIndependenceQuery("i", "j");
+            defer alloc.free(q);
+            const st = bridge.executeQuery(q).status;
+            std.debug.print("[2] ARRAYS (аксиомы Маккарти): независимость ячеек при i≠j — {s}\n", .{if (st == .Unsat) "ДОКАЗАНО" else @tagName(st)});
+            const q2 = try eng.buildGuardedSafeQuery("i", 16);
+            defer alloc.free(q2);
+            const st2 = bridge.executeQuery(q2).status;
+            std.debug.print("    защищённая запись (0≤i<16): {s}\n\n", .{if (st2 == .Unsat) "БЕЗОПАСНО (доказано)" else @tagName(st2)});
+        }
+
+        // [3] CHC / HORN — инвариант цикла
+        {
+            var eng = chc.ChcEngine.init(alloc);
+            const st = eng.proveLoopSafety(&bridge, "(= x 0)", "(< x 10)", "(+ x 1)", "(>= x 10)");
+            std.debug.print("[3] CHC/HORN (инвариант цикла): while(x<10) x++ ⇒ x≥10 — {s}\n", .{if (st == .Sat) "ДОКАЗАНО (инвариант найден)" else @tagName(st)});
+            const st2 = eng.proveLoopSafety(&bridge, "(= x 0)", "(< x 10)", "(+ x 1)", "(< x 5)");
+            std.debug.print("    ложное постусловие x<5: {s}\n\n", .{if (st2 == .Unsat) "БАГ (инварианта нет)" else @tagName(st2)});
+        }
+
+        // [4] СТРОКИ (QF_S) — разрыв санитайзера
+        {
+            var eng = string_theory.StringTheoryEngine.init(alloc);
+            const q = try eng.buildSanitizerGapQuery("..", "/");
+            defer alloc.free(q);
+            const st = bridge.executeQuery(q).status;
+            std.debug.print("[4] STRINGS (QF_S): '..' проходит при вырезании '/' — {s}\n", .{if (st == .Sat) "УЯЗВИМОСТЬ (контрпример есть)" else @tagName(st)});
+            const q2 = try eng.buildZeroByteQuery();
+            defer alloc.free(q2);
+            const st2 = bridge.executeQuery(q2).status;
+            std.debug.print("    нуль-байтовая инъекция: {s}\n\n", .{if (st2 == .Sat) "ДОСТИЖИМА" else @tagName(st2)});
+        }
+
+        // [5] CEGIS — синтез программы по спецификации
+        {
+            var eng = cegis.CegisEngine.init(alloc, &bridge);
+            var out = try eng.synthesizeShiftMul(8);
+            defer out.deinit(alloc);
+            std.debug.print("[5] CEGIS (синтез кода): спецификация x*8\n", .{});
+            if (out.found) {
+                std.debug.print("    СИНТЕЗИРОВАНО: {s}  (проверок: {d}, контрпримеров: {d})\n", .{ out.expr, out.tried, out.counterexamples });
+            } else {
+                std.debug.print("    не найдено (честный отказ)\n", .{});
+            }
+        }
         return;
     }
 

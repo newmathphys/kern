@@ -57,7 +57,12 @@ kern/
 │   │   └── kernfs_router.zig       VFS: валидация путей, монтирование, AccessDenied
 │   ├── verifier/
 │   │   ├── admission_gate.zig      Врата Истины (e=1): вердикт ТОЛЬКО от внешнего чекера
-│   │   └── z3_bridge.zig           Z3 SMT-LIB2 мост (дочерний процесс, graceful)
+│   │   ├── z3_bridge.zig           Z3 SMT-LIB2 мост (дочерний процесс, graceful)
+│   │   ├── unsat_core.zig          локализация ошибки (get-unsat-core, :named)
+│   │   ├── array_theory.zig        QF_AX: аксиомы Маккарти, алиасинг, границы
+│   │   ├── chc.zig                 CHC/Horn: синтез инвариантов циклов (SPACER)
+│   │   ├── string_theory.zig       QF_S: инъекции, path traversal, нуль-байт
+│   │   └── cegis.zig               CEGIS/SyGuS: синтез кода по спецификации
 │   ├── runtime/
 │   │   └── kern_x.zig              KERN-X: fuel-bounded VM (без зависаний)
 │   ├── proof_cache.zig             кэш доказательств (AST → вердикт), потокобезопасный
@@ -145,6 +150,9 @@ zig build test-next        # требует libsqlite3
 uv pip install z3-solver                      # даёт бинарник .venv/bin/z3
 export PATH="$PWD/.venv/bin:$PATH"
 ./zig-out/bin/kernc prove formal/example.smt2 # e=1 ДОКАЗАНО / e=0 (контрпример)
+./zig-out/bin/kernc audit                    # 5 теорий: UNSAT-core, массивы, CHC, строки, CEGIS
+make theories                                # те же 5 теорий тестами
+make echelons                                # 4 эшелона: выравнивание, лавина, пул, семант. разрыв
 
 # 6b. Финальная спецификация: сборка, унификация, KERN-X, handoff
 ./zig-out/bin/kernc build examples/project.kern -o release.kimg
@@ -194,6 +202,11 @@ export PATH="$PWD/.venv/bin:$PATH"
 | **Эшелон 2: лавина хэша** | SHA-256: лавина **50.0%**, 0 коллизий, макс. цепочка **7** (наивный: 3.1%, цепочка 100000) |
 | **Эшелон 3: пул потоков** | 128 запросов на 4–8 воркеров: лимит соблюдён, голодания нет |
 | **Эшелон 4: семант. разрыв** | `KernSemanticGap.lean`: **8 теорем** — разрыв ℤ vs i32 доказан формально |
+| **UNSAT Core (локализация)** | `(get-unsat-core)` → точные имена конфликтующих строк (`line_10`, `goal`) |
+| **Теория массивов (QF_AX)** | аксиомы Маккарти: `select(store(a,i,v),i)=v` и независимость ячеек — **ДОКАЗАНО** |
+| **CHC / Horn (инварианты циклов)** | `set-logic HORN` (SPACER): `while(x<10) x++` ⇒ `x≥10` — **ДОКАЗАНО** |
+| **Строки (QF_S)** | санитайзер `/` без `..` → **УЯЗВИМОСТЬ**; нуль-байт достижим |
+| **CEGIS (синтез кода)** | по спецификации `x*8` **синтезировано `x<<3`** (доказано на 2³² входах) |
 
 ---
 

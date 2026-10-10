@@ -20,6 +20,13 @@ pub const SmtResponse = struct {
     witness_model: ?[]const u8 = null,
 };
 
+/// Полный ответ решателя (включая `(get-unsat-core)`, модели Horn-задач и т.п.).
+/// `stdout` — ВО ВЛАДЕНИИ вызывающего; освобождать через `allocator.free`.
+pub const CapturedResponse = struct {
+    status: SmtStatus,
+    stdout: []u8,
+};
+
 /// Контекст потока-убийцы (жёсткий таймаут решателя).
 const KillCtx = struct {
     child: *std.process.Child,
@@ -55,12 +62,27 @@ pub const Z3Bridge = struct {
     /// УСИЛЕНИЕ: ЖЁСТКИЙ ТАЙМАУТ (timeout_ms) через поток-убийцу. Раньше был
     /// только лимит размера вывода — зависший решатель не прерывался.
     pub fn executeQuery(self: *Z3Bridge, smt_script: []const u8) SmtResponse {
+        const cap = self.executeCapture(smt_script);
+        defer self.allocator.free(cap.stdout);
+        var witness: ?[]const u8 = null;
+        if (cap.status == .Sat) {
+            if (std.mem.indexOf(u8, cap.stdout, "(model")) |ms| {
+                witness = self.allocator.dupe(u8, cap.stdout[ms..]) catch null;
+            }
+        }
+        return .{ .status = cap.status, .witness_model = witness };
+    }
+
+    /// Как executeQuery, но возвращает ВЕСЬ вывод решателя (нужен для
+    /// `(get-unsat-core)`, Horn-моделей, `(get-value ...)` и т.п.).
+    /// Вызывающий ОБЯЗАН освободить `stdout` (пустой срез освобождать можно).
+    pub fn executeCapture(self: *Z3Bridge, smt_script: []const u8) CapturedResponse {
         var child = std.process.Child.init(&[_][]const u8{ self.z3_path, "-in" }, self.allocator);
         child.stdin_behavior = .Pipe;
         child.stdout_behavior = .Pipe;
         child.stderr_behavior = .Ignore;
 
-        child.spawn() catch return .{ .status = .ToolError };
+        child.spawn() catch return .{ .status = .ToolError, .stdout = &.{} };
 
         // Поток-убийца: если решатель завис — принудительно снимаем по таймауту.
         var kctx = KillCtx{ .child = &child, .done = std.atomic.Value(bool).init(false) };
@@ -70,18 +92,17 @@ pub const Z3Bridge = struct {
             kctx.done.store(true, .release);
             _ = child.kill() catch {};
             if (killer) |t| t.join();
-            return .{ .status = .ToolError };
+            return .{ .status = .ToolError, .stdout = &.{} };
         };
         child.stdin.?.close();
         child.stdin = null;
 
-        const stdout_data = child.stdout.?.readToEndAlloc(self.allocator, 1024 * 1024) catch {
+        const stdout_data = child.stdout.?.readToEndAlloc(self.allocator, 4 * 1024 * 1024) catch {
             kctx.done.store(true, .release);
             _ = child.kill() catch {};
             if (killer) |t| t.join();
-            return .{ .status = .ToolError };
+            return .{ .status = .ToolError, .stdout = &.{} };
         };
-        defer self.allocator.free(stdout_data);
 
         const term = child.wait() catch {
             // БАГ-ФИКС: при ошибке wait поток-убийца обязан быть остановлен и
@@ -89,27 +110,34 @@ pub const Z3Bridge = struct {
             kctx.done.store(true, .release);
             _ = child.kill() catch {};
             if (killer) |t| t.join();
-            return .{ .status = .ToolError };
+            self.allocator.free(stdout_data);
+            return .{ .status = .ToolError, .stdout = &.{} };
         };
         const timed_out = kctx.killed.load(.acquire);
         kctx.done.store(true, .release);
         if (killer) |t| t.join();
-        if (timed_out) return .{ .status = .Timeout };
+        if (timed_out) {
+            self.allocator.free(stdout_data);
+            return .{ .status = .Timeout, .stdout = &.{} };
+        }
         switch (term) {
-            .Exited => |code| if (code != 0) return .{ .status = .ToolError },
-            else => return .{ .status = .ToolError },
+            .Exited => |code| if (code != 0) {
+                self.allocator.free(stdout_data);
+                return .{ .status = .ToolError, .stdout = &.{} };
+            },
+            else => {
+                self.allocator.free(stdout_data);
+                return .{ .status = .ToolError, .stdout = &.{} };
+            },
         }
 
-        if (std.mem.startsWith(u8, stdout_data, "sat")) {
-            var witness: ?[]const u8 = null;
-            if (std.mem.indexOf(u8, stdout_data, "(model")) |ms| {
-                witness = self.allocator.dupe(u8, stdout_data[ms..]) catch null;
-            }
-            return .{ .status = .Sat, .witness_model = witness };
-        } else if (std.mem.startsWith(u8, stdout_data, "unsat")) {
-            return .{ .status = .Unsat };
-        }
-        return .{ .status = .Unknown };
+        const status: SmtStatus = if (std.mem.startsWith(u8, stdout_data, "sat"))
+            .Sat
+        else if (std.mem.startsWith(u8, stdout_data, "unsat"))
+            .Unsat
+        else
+            .Unknown;
+        return .{ .status = status, .stdout = stdout_data };
     }
 
     /// Двухфазная проверка контракта:
