@@ -108,7 +108,16 @@ test "AI-01: текстовый свидетель ≥8 байт НЕ отвер
     try std.testing.expectEqual(@as(u1, 0), res.e_value); // в прод НЕ пущен
 }
 
-test "AI-01b: короткий свидетель (<8 байт) отвергается с ошибкой" {
+/// Стаб внешнего чекера: возвращает заданный вердикт (для тестов L4).
+fn stubVacuous(ctx: ?*anyopaque, allocator: std.mem.Allocator,
+               ast: [32]u8, contract: [32]u8, proof: []const u8) gate.CheckerVerdict {
+    _ = .{ ctx, allocator, ast, contract, proof };
+    return .VacuousPrecondition;
+}
+
+test "AI-01b: короткий свидетель без внешнего чекера не допускается" {
+    // После ФИКСА АТАКИ 1 «отклонение фейка» — не отдельный механизм длины,
+    // а следствие того, что без внешнего чекера вердикта нет: e=0.
     const ast_hash = [_]u8{0x01} ** 32;
     const fake_cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
@@ -118,8 +127,10 @@ test "AI-01b: короткий свидетель (<8 байт) отвергае
     };
     const policy = gate.VerificationPolicy{ .require_anti_vacuity = true,
                                             .allowed_checkers = 2 };
-    try std.testing.expectError(gate.GateError.FakeWitnessRejected,
-        gate.AdmissionGate.verifyClaim(ast_hash, ast_hash, fake_cert, policy));
+    const res = try gate.AdmissionGate.verifyClaim(ast_hash, ast_hash,
+                                                   fake_cert, policy);
+    try std.testing.expectEqual(eq2.Eq2.N, res.eq2_status);
+    try std.testing.expectEqual(@as(u1, 0), res.e_value);
 }
 
 test "AI-02: устаревший сертификат (несовпадение хеша AST)" {
@@ -149,13 +160,14 @@ test "AI-03: вакуумное предусловие (анти-вакуумн�
     const policy = gate.VerificationPolicy{ .require_anti_vacuity = true,
                                             .allowed_checkers = 2 };
     try std.testing.expectError(gate.GateError.PolicyViolation,
-        gate.AdmissionGate.verifyClaim(ast_hash, ast_hash, vacuous_cert, policy));
+        gate.AdmissionGate.verifyClaimWithChecker(
+            std.testing.allocator, ast_hash, ast_hash, vacuous_cert, policy,
+            gate.TrustedChecker{ .runFn = stubVacuous }));
 }
 
-test "УЯЗВИМОСТЬ: ОДИН БАЙТ 0xAA даёт e=1 без доказательства" {
-    // Тест ЗЕЛЁНЫЙ — он ДОКУМЕНТИРУЕТ уязвимость. Когда шлюз исправят
-    // (вердикт будет приходить извне, а не из payload ИИ), этот тест станет
-    // КРАСНЫМ, и его надо заменить на expectError.
+test "ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA НЕ даёт e=1 (уязвимость закрыта)" {
+    // Раньше: шлюз читал вердикт из payload[0] → 0xAA давал e=1.
+    // Теперь: вердикт приходит только извне, 0xAA доказательством не является.
     const ast_hash = [_]u8{0x01} ** 32;
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
@@ -166,7 +178,8 @@ test "УЯЗВИМОСТЬ: ОДИН БАЙТ 0xAA даёт e=1 без дока�
     const policy = gate.VerificationPolicy{ .require_anti_vacuity = true,
                                             .allowed_checkers = 2 };
     const res = try gate.AdmissionGate.verifyClaim(ast_hash, ast_hash, cert, policy);
-    try std.testing.expectEqual(@as(u1, 1), res.e_value);
+    try std.testing.expectEqual(eq2.Eq2.N, res.eq2_status);
+    try std.testing.expectEqual(@as(u1, 0), res.e_value);
 }
 
 // =========================================================================

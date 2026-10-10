@@ -1,4 +1,5 @@
 const std = @import("std");
+const ObjectEntry = @import("object_entry.zig").ObjectEntry;
 
 pub const KimgError = error{
     BadMagic,
@@ -13,6 +14,9 @@ pub const KimgError = error{
     /// образ. Именно эту атаку ловит тест SEC-01 (подтверждено в ReleaseFast:
     /// образ с offset = MAX_U64−10 ПРИНИМАЛСЯ).
     OutOfBoundsOffset,
+    /// Пересчитанный Merkle-корень не совпал с `root_digest` заголовка.
+    /// Раньше был объявлен, но НИКОГДА не возвращался (README §6).
+    MerkleRootMismatch,
 };
 
 /// 128-байтный заголовок образа KIMG v1.2.
@@ -83,6 +87,39 @@ pub const KimgHeader = extern struct {
 
         return h;
     }
+
+    /// Пересчёт Merkle-корня по таблице объектов и сверка с `root_digest`.
+    /// Возвращает `MerkleRootMismatch` при несовпадении.
+    ///
+    /// Раньше `MerkleRootMismatch` был объявлен, но НИКОГДА не возвращался
+    /// (README §6). Теперь целостность действительно проверяется.
+    pub fn verifyMerkleRoot(file_bytes: []const u8, h: KimgHeader) !void {
+        // ЗАЩИТА: object_count не может превышать размер таблицы / 96.
+        // Иначе `i * 96` переполняется, а цикл превращается в DoS.
+        if (h.object_count > h.object_table_size / 96) return KimgError.TableOutOfBounds;
+
+        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+        hasher.update(&[_]u8{0x00});
+        hasher.update("KIMG-MERKLE-ROOT-V1\x00");
+
+        var i: u64 = 0;
+        while (i < h.object_count) : (i += 1) {
+            const delta = std.math.mul(u64, i, 96) catch return KimgError.OutOfBoundsOffset;
+            const start = std.math.add(u64, h.object_table_offset, delta) catch return KimgError.OutOfBoundsOffset;
+            const end = std.math.add(u64, start, 96) catch return KimgError.OutOfBoundsOffset;
+            if (end > file_bytes.len) return KimgError.TableOutOfBounds;
+            const entry: *const [96]u8 = @ptrCast(file_bytes.ptr + start);
+            var leaf: [32]u8 = undefined;
+            ObjectEntry.computeLeafHash(entry, &leaf);
+            hasher.update(&leaf);
+        }
+
+        var root: [32]u8 = undefined;
+        hasher.final(&root);
+        if (!std.mem.eql(u8, &root, &h.root_digest)) {
+            return KimgError.MerkleRootMismatch;
+        }
+    }
 };
 
 test "KimgHeader.parse: валидный заголовок" {
@@ -133,4 +170,51 @@ test "SEC-01: переполнение offset+size отвергается (не 
     std.mem.writeInt(u64, b[40..48], 100, .little);
     try std.testing.expectError(KimgError.OutOfBoundsOffset,
                                KimgHeader.parse(&b, 1024));
+}
+
+test "MERKLE: пересчёт корня совпадает и ловит подмену" {
+    var obj: [96]u8 = [_]u8{0} ** 96;
+    obj[56] = 0x02; // type_id = Source
+
+    var root: [32]u8 = undefined;
+    ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
+
+    var b: [128]u8 = [_]u8{0} ** 128;
+    @memcpy(b[0..8], "KIMG\r\n\x1a\n");
+    std.mem.writeInt(u16, b[8..10], 1, .little);
+    std.mem.writeInt(u32, b[12..16], 128, .little);
+    std.mem.writeInt(u64, b[32..40], 128, .little);
+    std.mem.writeInt(u64, b[40..48], 96, .little);
+    std.mem.writeInt(u64, b[48..56], 1, .little);
+    std.mem.writeInt(u64, b[56..64], 224, .little);
+    @memcpy(b[64..96], &root);
+
+    var file: [128 + 96]u8 = undefined;
+    @memcpy(file[0..128], &b);
+    @memcpy(file[128..224], &obj);
+
+    const h = try KimgHeader.parse(&b, file.len);
+    try KimgHeader.verifyMerkleRoot(&file, h); // корень совпадает
+
+    file[128 + 56] = 0x05; // подмена type_id в таблице
+    try std.testing.expectError(KimgError.MerkleRootMismatch,
+        KimgHeader.verifyMerkleRoot(&file, h));
+}
+
+test "SEC: гигантский object_count не вешает парсер (DoS-защита)" {
+    // Таблица заявляет 96 байт (1 объект), но count = 1e9 -> раньше цикл
+    // крутился бы вечность, а i*96 переполнялся.
+    var b: [128]u8 = [_]u8{0} ** 128;
+    @memcpy(b[0..8], "KIMG\r\n\x1a\n");
+    std.mem.writeInt(u32, b[12..16], 128, .little);
+    std.mem.writeInt(u64, b[32..40], 128, .little); // table offset
+    std.mem.writeInt(u64, b[40..48], 96, .little); // table size = 1 объект
+    std.mem.writeInt(u64, b[48..56], 1_000_000_000, .little); // ЛОЖНЫЙ count
+    std.mem.writeInt(u64, b[56..64], 224, .little);
+
+    const h = try KimgHeader.parse(&b, 320);
+    var file: [320]u8 = [_]u8{0} ** 320;
+    @memcpy(file[0..128], &b);
+    try std.testing.expectError(KimgError.TableOutOfBounds,
+        KimgHeader.verifyMerkleRoot(&file, h));
 }

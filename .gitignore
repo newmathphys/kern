@@ -3,18 +3,33 @@ zig-out/
 .zig-cache/
 zig-cache/
 
-# Кэш компилятора в домашнем каталоге не наш — он общий
+# Python-окружения (бенчмарки)
+.venv/
+.venv38/
+.venv-evalplus/
+__pycache__/
+*.pyc
 
 # Артефакты, которые генерируются заново
 PROJECT_CANONICAL_SPEC.kern.md
 project.kbin
+release.kimg
 
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
+# KERN-Next (kernx) — выходные артефакты конвейера
+.kernnext/
+report.md
+agent_packet.json
+
+# Датасеты/бенчмарки (скачиваются заново)
+.kern/
+samples*.jsonl
+evalplus_results/
+logs/
+swebench_lite.jsonl
+preds_gold.jsonl
 
 # Временное
 *.log
 *.tmp
+*.swp
+*.kate-swp

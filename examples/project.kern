@@ -1,0 +1,46 @@
+// KERN-Next: демонстрационный проект (§6 синтаксис).
+project "AI-Connector" {
+  version "1.0"
+  root "."
+}
+
+artifact "src/main.rs" {
+  kind "source"
+  hash "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+claim "throughput improved" {
+  status empirical
+  evidence "run:vllm_2026_10_09"
+  metric tok_per_s = 3832
+  context "batch=128"
+}
+
+claim "memory leak fixed" {
+  status proven
+  evidence "run:asan_2026_10_10"
+}
+
+claim "startup under 50ms" {
+  status hypothesis
+}
+
+proof "formal/RII_BrainCore.lean" {
+  system "Lean4"
+  theorem "commit_preserves_consistency"
+  status compiled
+}
+
+module "database_catalog" {
+  require "schema_version exists"
+  ensure "foreign_keys valid"
+  ensure "no secret values stored"
+}
+
+link "claim:throughput improved" -> "artifact:src/main.rs" {
+  relation "supported_by"
+}
+
+link "claim:memory leak fixed" -> "claim:startup under 50ms" {
+  relation "contradicts"
+}

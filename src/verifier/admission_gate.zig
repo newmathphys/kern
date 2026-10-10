@@ -5,7 +5,6 @@ pub const GateError = error{
     AstHashMismatch,
     ContractHashMismatch,
     UntrustedChecker,
-    FakeWitnessRejected,
     PolicyViolation,
 };
 
@@ -24,7 +23,15 @@ pub const ProofCertificate = struct {
 /// Чтобы разрешить checker 1, нужно `allowed_checkers = 2`.
 pub const VerificationPolicy = struct {
     require_anti_vacuity: bool,
+    /// Битовая маска: checker разрешён, если выставлен бит `1 << checker_id`.
+    /// ВНИМАНИЕ: `allowed_checkers = 1` разрешает checker_id = 0, а НЕ 1.
+    /// Чтобы разрешить checker_id = 1, нужно `allowed_checkers = 2`.
     allowed_checkers: u32,
+
+    pub fn allows(self: VerificationPolicy, checker_id: u32) bool {
+        const mask = @as(u32, 1) << @as(u5, @truncate(checker_id));
+        return (self.allowed_checkers & mask) != 0;
+    }
 };
 
 /// Результат прохода через Шлюз Истины
@@ -37,13 +44,61 @@ pub const AdmissionResult = struct {
 /// как `gate.CheckerVerdict`; вложенный в AdmissionGate был недоступен).
 pub const CheckerVerdict = enum { Proved, Counterexample, VacuousPrecondition, Timeout, Unknown };
 
+/// ВНЕШНИЙ доверенный чекер — ЕДИНСТВЕННЫЙ источник вердикта.
+///
+/// ИНВАРИАНТ БЕЗОПАСНОСТИ (закрывает АТАКУ 1 из docs/KERN34_AUDIT.md):
+/// вердикт НЕ выводится из `cert.witness_payload` (данных, которыми управляет
+/// ИИ). Payload передаётся чекеру как ВХОД (например, SMT-LIB формула).
+/// Чекер — доверенный код, который в проде запускает изолированный процесс
+/// решателя (Z3/Lean) с тайм-аутом.
+pub const TrustedChecker = struct {
+    ctx: ?*anyopaque = null,
+    runFn: ?*const fn (ctx: ?*anyopaque, allocator: std.mem.Allocator,
+                       ast_digest: [32]u8, contract_digest: [32]u8,
+                       proof: []const u8) CheckerVerdict = null,
+
+    /// Чекер не сконфигурирован → доказательства нет. НИКОГДА не `.Proved`.
+    pub fn unavailable() TrustedChecker {
+        return .{};
+    }
+
+    pub fn run(self: TrustedChecker, allocator: std.mem.Allocator,
+               ast_digest: [32]u8, contract_digest: [32]u8,
+               proof: []const u8) CheckerVerdict {
+        const f = self.runFn orelse return .Unknown;
+        return f(self.ctx, allocator, ast_digest, contract_digest, proof);
+    }
+};
+
 pub const AdmissionGate = struct {
-    /// Главная функция допуска (Truth Gate)
+    /// Безопасный по умолчанию вход. Без внешнего чекера доказательств нет:
+    /// любой сертификат, включая «один байт 0xAA», даёт `.Unknown` → e=0.
     pub fn verifyClaim(
         actual_ast_digest: [32]u8,
         actual_contract_digest: [32]u8,
         cert: ProofCertificate,
         policy: VerificationPolicy,
+    ) !AdmissionResult {
+        return verifyClaimWithChecker(
+            std.heap.page_allocator,
+            actual_ast_digest,
+            actual_contract_digest,
+            cert,
+            policy,
+            TrustedChecker.unavailable(),
+        );
+    }
+
+    /// Главная функция допуска (Truth Gate) с ВНЕШНИМ чекером.
+    ///
+    /// Вердикт формирует ТОЛЬКО `checker`; `cert.witness_payload` — вход.
+    pub fn verifyClaimWithChecker(
+        allocator: std.mem.Allocator,
+        actual_ast_digest: [32]u8,
+        actual_contract_digest: [32]u8,
+        cert: ProofCertificate,
+        policy: VerificationPolicy,
+        checker: TrustedChecker,
     ) !AdmissionResult {
 
         // 1. Криптографическая привязка (PC3 Binding Check).
@@ -55,15 +110,15 @@ pub const AdmissionGate = struct {
             return GateError.ContractHashMismatch;
         }
 
-        // 2. Проверка доверия к пруверу
-        const checker_mask = @as(u32, 1) << @as(u5, @truncate(cert.checker_id));
-        if ((policy.allowed_checkers & checker_mask) == 0) {
+        // 2. Проверка доверия к пруверу (битовая маска `1 << checker_id`).
+        if (!policy.allows(cert.checker_id)) {
             return GateError.UntrustedChecker;
         }
 
-        // 3. «Внешний» прувер
-        const checker_verdict = try runTrustedChecker(cert.checker_id,
-                                                      cert.witness_payload, policy);
+        // 3. Вердикт от ВНЕШНЕГО чекера. Payload — вход, а НЕ вердикт.
+        const checker_verdict = checker.run(allocator, actual_ast_digest,
+                                            actual_contract_digest,
+                                            cert.witness_payload);
 
         // 4. Вычисление кванта KERN-EQ2
         var eq2 = Eq2.N;
@@ -87,34 +142,35 @@ pub const AdmissionGate = struct {
         return AdmissionResult{ .eq2_status = eq2, .e_value = e_val };
     }
 
-    /// 🔴 ИЗВЕСТНАЯ УЯЗВИМОСТЬ (см. docs/KERN34_AUDIT.md, АТАКА 1).
-    ///
-    /// Эта функция НЕ вызывает Z3 или Lean. Она читает вердикт ИЗ БАЙТА
-    /// ПРИСЛАННОЙ ПОЛЕЗНОЙ НАГРУЗКИ, то есть из данных, которыми управляет ИИ:
-    ///
-    ///     const magic = payload[0];          // <-- байт от ИИ
-    ///     if (magic == 0xAA) return .Proved; // <-- ИИ управляет вердиктом
-    ///
-    /// Доказано на деле: сертификат с ОДНИМ байтом 0xAA даёт `e=1` —
-    /// код допускается в прод без единого доказательства.
-    ///
-    /// ЧТО НУЖНО: вердикт обязан приходить ИЗВНЕ (реальный вызов решателя с
-    /// тайм-аутом и изоляцией), а не из полезной нагрузки сертификата.
-    fn runTrustedChecker(checker_id: u32, payload: []const u8,
-                         policy: VerificationPolicy) !CheckerVerdict {
-        _ = checker_id;
-        // Отсекаются только СЛИШКОМ КОРОТКИЕ свидетели (< 8 байт).
-        // Строка из 26 байт пройдёт и даст .Unknown -> N (безопасно, но
-        // это НЕ «отклонение фейка», как заявлено в спецификации).
-        if (payload.len < 8) return GateError.FakeWitnessRejected;
-
-        const magic = payload[0];
-        if (magic == 0xAA) return .Proved;
-        if (magic == 0xBB) return .Counterexample;
-        if (magic == 0xCC and policy.require_anti_vacuity) return .VacuousPrecondition;
-        return .Unknown;
-    }
+    // runTrustedChecker УДАЛЁН. Он читал вердикт из байта payload[0] (0xAA →
+    // .Proved) — то есть из данных, которыми управляет ИИ (АТАКА 1,
+    // docs/KERN34_AUDIT.md). Вердикт теперь формирует только `TrustedChecker`.
 };
+
+// ==========================================
+// СТАБЫ ВНЕШНЕГО ЧЕКЕРА (только для тестов)
+// ==========================================
+fn stubProved(ctx: ?*anyopaque, allocator: std.mem.Allocator,
+              ast: [32]u8, contract: [32]u8, proof: []const u8) CheckerVerdict {
+    _ = .{ ctx, allocator, ast, contract, proof };
+    return .Proved;
+}
+
+fn stubVacuous(ctx: ?*anyopaque, allocator: std.mem.Allocator,
+               ast: [32]u8, contract: [32]u8, proof: []const u8) CheckerVerdict {
+    _ = .{ ctx, allocator, ast, contract, proof };
+    return .VacuousPrecondition;
+}
+
+/// Имитация ВНЕШНЕГО решателя: `.Proved` только для структурно корректного
+/// SMT-свидетеля. Одиночный байт 0xAA свидетелем НЕ является.
+fn stubSmtLike(ctx: ?*anyopaque, allocator: std.mem.Allocator,
+               ast: [32]u8, contract: [32]u8, proof: []const u8) CheckerVerdict {
+    _ = .{ ctx, allocator, ast, contract };
+    if (std.mem.startsWith(u8, proof, "(model ")) return .Proved;
+    if (std.mem.startsWith(u8, proof, "unsat-core")) return .Counterexample;
+    return .Unknown;
+}
 
 // ==========================================
 // КОНФОРМАНС-ТЕСТЫ
@@ -134,54 +190,9 @@ test "CONF-30.4: отвергается устаревший сертифика�
         AdmissionGate.verifyClaim(ast_hash, contract_hash, fake_cert, policy));
 }
 
-test "CONF-30.4: отвергается короткий текстовый свидетель" {
-    const ast_hash = [_]u8{0x01} ** 32;
-    const bad_cert = ProofCertificate{
-        .target_ast_digest = ast_hash,
-        .contract_digest = ast_hash,
-        .checker_id = 1,
-        .witness_payload = "proved", // 6 байт < 8
-    };
-    const policy = VerificationPolicy{ .require_anti_vacuity = true,
-                                       .allowed_checkers = 0xFFFFFFFF };
-    try std.testing.expectError(GateError.FakeWitnessRejected,
-        AdmissionGate.verifyClaim(ast_hash, ast_hash, bad_cert, policy));
-}
-
-test "CONF-04: анти-вакуумный шлюз захлопывается" {
-    const ast_hash = [_]u8{0x01} ** 32;
-    const vacuous_cert = ProofCertificate{
-        .target_ast_digest = ast_hash,
-        .contract_digest = ast_hash,
-        .checker_id = 1,
-        .witness_payload = &[_]u8{ 0xCC, 0, 0, 0, 0, 0, 0, 0 },
-    };
-    const policy = VerificationPolicy{ .require_anti_vacuity = true,
-                                       .allowed_checkers = 0xFFFFFFFF };
-    try std.testing.expectError(GateError.PolicyViolation,
-        AdmissionGate.verifyClaim(ast_hash, ast_hash, vacuous_cert, policy));
-}
-
-test "успех: валидный пруф даёт Eq2.T и e=1" {
-    const ast_hash = [_]u8{0x01} ** 32;
-    const valid_cert = ProofCertificate{
-        .target_ast_digest = ast_hash,
-        .contract_digest = ast_hash,
-        .checker_id = 1,
-        .witness_payload = &[_]u8{ 0xAA, 0, 0, 0, 0, 0, 0, 0 },
-    };
-    // allowed_checkers = 2 — это бит для checker_id = 1
-    const policy = VerificationPolicy{ .require_anti_vacuity = true,
-                                       .allowed_checkers = 2 };
-    const res = try AdmissionGate.verifyClaim(ast_hash, ast_hash, valid_cert, policy);
-    try std.testing.expectEqual(Eq2.T, res.eq2_status);
-    try std.testing.expectEqual(@as(u1, 1), res.e_value);
-}
-
-test "УЯЗВИМОСТЬ (фиксируем): ОДИН БАЙТ даёт e=1 без доказательства" {
-    // Этот тест ЗЕЛЁНЫЙ и ДОКУМЕНТИРУЕТ уязвимость: он проходит, потому что
-    // шлюз действительно обходится одним байтом 0xAA. Когда уязвимость
-    // устранят, тест станет КРАСНЫМ — тогда его надо заменить на expectError.
+test "ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA больше НЕ даёт e=1" {
+    // РАНЬШЕ: шлюз читал вердикт из payload[0] → 0xAA давал e=1.
+    // ТЕПЕРЬ: без внешнего чекера вердикт взять неоткуда → e=0.
     const ast_hash = [_]u8{0x01} ** 32;
     const cert = ProofCertificate{
         .target_ast_digest = ast_hash,
@@ -192,6 +203,80 @@ test "УЯЗВИМОСТЬ (фиксируем): ОДИН БАЙТ даёт e=1 
     const policy = VerificationPolicy{ .require_anti_vacuity = true,
                                        .allowed_checkers = 2 };
     const res = try AdmissionGate.verifyClaim(ast_hash, ast_hash, cert, policy);
+    try std.testing.expectEqual(Eq2.N, res.eq2_status);
+    try std.testing.expectEqual(@as(u1, 0), res.e_value);
+}
+
+test "ФИКС АТАКИ 1: внешний решатель-стаб НЕ принимает одиночный байт" {
+    const ast_hash = [_]u8{0x01} ** 32;
+    const cert = ProofCertificate{
+        .target_ast_digest = ast_hash,
+        .contract_digest = ast_hash,
+        .checker_id = 1,
+        .witness_payload = &[_]u8{ 0xAA, 0, 0, 0, 0, 0, 0, 0 },
+    };
+    const policy = VerificationPolicy{ .require_anti_vacuity = true,
+                                       .allowed_checkers = 2 };
+    const res = try AdmissionGate.verifyClaimWithChecker(
+        std.testing.allocator, ast_hash, ast_hash, cert, policy,
+        TrustedChecker{ .runFn = stubSmtLike });
+    try std.testing.expectEqual(@as(u1, 0), res.e_value);
+}
+
+test "успех: структурно корректный свидетель от ВНЕШНЕГО чекера даёт e=1" {
+    const ast_hash = [_]u8{0x01} ** 32;
+    const valid_cert = ProofCertificate{
+        .target_ast_digest = ast_hash,
+        .contract_digest = ast_hash,
+        .checker_id = 1,
+        .witness_payload = "(model (define-fun x () Int 0))",
+    };
+    const policy = VerificationPolicy{ .require_anti_vacuity = true,
+                                       .allowed_checkers = 2 };
+    const res = try AdmissionGate.verifyClaimWithChecker(
+        std.testing.allocator, ast_hash, ast_hash, valid_cert, policy,
+        TrustedChecker{ .runFn = stubSmtLike });
+    try std.testing.expectEqual(Eq2.T, res.eq2_status);
     try std.testing.expectEqual(@as(u1, 1), res.e_value);
+}
+
+test "CONF-04: анти-вакуумный шлюз захлопывается (вердикт внешнего чекера)" {
+    const ast_hash = [_]u8{0x01} ** 32;
+    const vacuous_cert = ProofCertificate{
+        .target_ast_digest = ast_hash,
+        .contract_digest = ast_hash,
+        .checker_id = 1,
+        .witness_payload = &[_]u8{ 0xCC, 0, 0, 0, 0, 0, 0, 0 },
+    };
+    const policy = VerificationPolicy{ .require_anti_vacuity = true,
+                                       .allowed_checkers = 2 };
+    try std.testing.expectError(GateError.PolicyViolation,
+        AdmissionGate.verifyClaimWithChecker(
+            std.testing.allocator, ast_hash, ast_hash, vacuous_cert, policy,
+            TrustedChecker{ .runFn = stubVacuous }));
+}
+
+test "политика: allowed_checkers — битовая маска 1 << checker_id" {
+    const p = VerificationPolicy{ .require_anti_vacuity = true,
+                                  .allowed_checkers = 2 };
+    try std.testing.expect(p.allows(1)); // бит 1
+    try std.testing.expect(!p.allows(0)); // бит 0
+    try std.testing.expect(!p.allows(2)); // бит 2
+}
+
+test "доверие к пруверу: запрещённый checker_id отвергается" {
+    const ast_hash = [_]u8{0x01} ** 32;
+    const cert = ProofCertificate{
+        .target_ast_digest = ast_hash,
+        .contract_digest = ast_hash,
+        .checker_id = 3, // не разрешён политикой ниже
+        .witness_payload = "(model)",
+    };
+    const policy = VerificationPolicy{ .require_anti_vacuity = true,
+                                       .allowed_checkers = 2 }; // разрешён только 1
+    try std.testing.expectError(GateError.UntrustedChecker,
+        AdmissionGate.verifyClaimWithChecker(
+            std.testing.allocator, ast_hash, ast_hash, cert, policy,
+            TrustedChecker{ .runFn = stubProved }));
 }
 

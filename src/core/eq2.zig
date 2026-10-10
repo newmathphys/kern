@@ -124,3 +124,10 @@ test "MATH: де Моргана для порядка истинности (по
         }
     }
 }
+
+test "MATH: таблица отрицания notB (закрывает выживший мутант |->&)" {
+    try std.testing.expectEqual(Eq2.N, notB(.N));
+    try std.testing.expectEqual(Eq2.F, notB(.T));
+    try std.testing.expectEqual(Eq2.T, notB(.F));
+    try std.testing.expectEqual(Eq2.B, notB(.B));
+}

@@ -59,6 +59,22 @@ pub const ObjectEntry = struct {
         hasher.update(bytes);
         hasher.final(out_hash);
     }
+
+    /// Merkle-корень: H(0x00 || "KIMG-MERKLE-ROOT-V1\0" || leaf_0 || ... || leaf_{n-1}).
+    ///
+    /// Раньше `MerkleRootMismatch` был объявлен, но НИКОГДА не возвращался
+    /// (см. README §6). Теперь корень пересчитывается и сверяется.
+    pub fn computeRootHash(entries: []const [96]u8, out_hash: *[32]u8) void {
+        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+        hasher.update(&[_]u8{0x00});
+        hasher.update("KIMG-MERKLE-ROOT-V1\x00");
+        for (entries) |*e| {
+            var leaf: [32]u8 = undefined;
+            computeLeafHash(e, &leaf);
+            hasher.update(&leaf);
+        }
+        hasher.final(out_hash);
+    }
 };
 
 test "CONF-15: ObjectEntry разбирается и держит 96-байтную раскладку" {

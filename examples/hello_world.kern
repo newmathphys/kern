@@ -1,0 +1,13 @@
+// Минимальный проект KERN-Next.
+project "hello_world" {
+  version "0.1"
+  root "."
+}
+
+artifact "examples/hello_world.kern" {
+  kind "source"
+}
+
+claim "hello world builds" {
+  status proven
+}

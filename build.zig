@@ -30,4 +30,26 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     b.installArtifact(atk);
+
+    // KERN-Next: движок проекта (`kernx`). Требует libc + libsqlite3 (§9).
+    const kernx = b.addExecutable(.{
+        .name = "kernx",
+        .root_source_file = b.path("src/next/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    kernx.linkLibC();
+    kernx.linkSystemLibrary("sqlite3");
+    b.installArtifact(kernx);
+
+    // Тесты KERN-Next (parser/validate/catalog/snapshot/export/cache/engine).
+    const tests_next = b.addTest(.{
+        .root_source_file = b.path("src/next/test_root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tests_next.linkLibC();
+    tests_next.linkSystemLibrary("sqlite3");
+    const run_tests_next = b.addRunArtifact(tests_next);
+    b.step("test-next", "Тесты KERN-Next").dependOn(&run_tests_next.step);
 }
