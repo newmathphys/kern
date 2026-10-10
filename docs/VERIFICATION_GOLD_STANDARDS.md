@@ -331,3 +331,66 @@ BugsInPy: тест PySnooper bug1 проходит и на buggy-коммите 
 | Кэш доказательств ↔ Z3-мост | повторный вызов не дёргает решатель (hits/misses) |
 | `kernx status` → статистика резолюции | видно N→T / N→F / N→B |
 | `src/perf_bench.zig` | измерение скорости (30 ГБ/с zero-copy) |
+
+---
+
+# 🏆 ОФИЦИАЛЬНЫЙ HumanEval / HumanEval+ (EvalPlus, NeurIPS) — через API
+
+Локальная модель не использовалась. Генерация — через **NVIDIA NIM API**
+(OpenAI-совместимый), оценка — официальным фреймворком `evalplus`.
+
+| Параметр | Значение |
+|:--|:--|
+| Датасет | `HumanEval+` (164 задачи), официальный |
+| Модель | `nvidia/nemotron-3.5-lightning-30b-a3b` (NVIDIA API) |
+| Сэмплов сгенерировано | **164/164 (0 ошибок)** |
+| Харнесс | `python -m evalplus.evaluate --dataset humaneval` |
+
+## Результат (официальный)
+
+| Поток | humaneval (base) | humaneval+ (edge) |
+|:--|:--:|:--:|
+| **RAW** (без гейта) | **0.524** | **0.500** |
+| **KERN-гейт** | **0.524** | **0.500** |
+
+**Дефектный зазор −2.4 п.п.** (0.524 → 0.500): решения, проходящие базовые тесты,
+но ломающиеся на краевых — это и есть полигон для KERN.
+
+## Точность KERN-гейта (главная метрика)
+
+Гейт прогоняет каждый сэмпл через `ast.parse` + анти-вакуум и заменяет
+заблокированные на `raise NotImplementedError`.
+
+| Метрика | Значение |
+|:--|:--:|
+| Заблокировано | **55** (51 SyntaxError + 4 Vacuous) |
+| из них реально падали на тестах | **55** ✅ |
+| из них были бы верны (ложные блокировки) | **0** ✅ |
+| **Точность блокировок** | **100.0%** |
+| Полнота (поймано падений) | 55/78 = **70.5%** |
+
+**Вывод (честный):** статический гейт **не поднимает pass@1** — он срабатывает
+раньше, чем тесты, и отсеивает заведомо битый код с **нулевым числом ложных
+срабатываний**. Чтобы ловить логические (не синтаксические) ошибки, нужен
+динамический раннер (см. `docs/EXECUTION_RUNNER.md`), а не статический анализ.
+
+## Как воспроизвести
+
+```bash
+export NVAPI_KEY='<ваш ключ NVIDIA>'
+./.venv-evalplus/bin/python tools/humaneval_api.py \
+    --model nvidia/nemotron-3.5-lightning-30b-a3b \
+    --dataset humaneval --out samples.jsonl --workers 10
+python -m evalplus.evaluate --dataset humaneval --samples samples.jsonl
+# KERN-гейт + сравнение:
+./.venv-evalplus/bin/python tools/evalplus_kern_gate.py \
+    --dataset humaneval --samples samples.jsonl --out samples_kern.jsonl
+python -m evalplus.evaluate --dataset humaneval --samples samples_kern.jsonl
+```
+
+## Что НЕ сделано
+
+* **MBPP+** (378 задач) — не сгенерирован (нужен ещё ~25 мин API-времени).
+* **Более сильная модель** — `nemotron-3-ultra-550b` работает, но слишком медленная
+  для полного прогона (164 задачи ≈ 50 мин).
+* Строковые (не-исполняемые) бенчмарки — вне профиля KERN (верификатора, не генератора).
