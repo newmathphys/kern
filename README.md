@@ -239,7 +239,7 @@ KERN и `nyuui-core` **не связаны кодом** — общая толь�
 
 ## Автор
 
-* **mrbritneyxxx** — создатель и главный архитектор KERN.
+* **Vital Kalinousky** — создатель и главный архитектор KERN.
 
 ## Лицензия
 
@@ -247,7 +247,7 @@ KERN и `nyuui-core` **не связаны кодом** — общая толь�
 [LICENSE](LICENSE).
 
 ```
-Copyright (c) 2026 mrbritneyxxx
+Copyright (c) 2026 Vital Kalinousky
 ```
 
 Каждый исходный файл (`src/**/*.zig`, `formal/*.lean`) содержит заголовок

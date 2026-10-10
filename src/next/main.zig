@@ -1,4 +1,4 @@
-// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 //! KERN-Next: CLI-оркестратор `kernx` (§13 спецификации KERN-Next).
@@ -43,7 +43,7 @@ pub fn main() !void {
     const cmd = args[1];
 
     if (std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "version")) {
-        std.debug.print("KERN-Next engine v1.3.0 (Zig 0.13)\nCopyright (c) 2026 mrbritneyxxx\nLicense: MIT (см. LICENSE)\n", .{});
+        std.debug.print("KERN-Next engine v1.3.0 (Zig 0.13)\nCopyright (c) 2026 Vital Kalinousky\nLicense: MIT (см. LICENSE)\n", .{});
         return;
     }
 

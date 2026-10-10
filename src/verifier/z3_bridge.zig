@@ -1,4 +1,4 @@
-// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 //! KERN: Z3 SMT-LIB2 мост (§ «Мост к Искусственному Интеллекту»).

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 const std = @import("std");
@@ -159,7 +159,12 @@ pub fn main() !void {
 
     // ---- --version / version: авторство и лицензия ----
     if (std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "version")) {
-        std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig 0.13)\nCopyright (c) 2026 mrbritneyxxx. All rights reserved.\nLicense: MIT (см. LICENSE)\n", .{});
+        const owner = @import("owner.zig");
+        std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig 0.13)\n", .{});
+        std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
+        std.debug.print("License: MIT (см. LICENSE)\n", .{});
+        std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});
+        std.debug.print("Ownership key-lock: {s}\n", .{if (owner.verifyOwnership()) "ВАЛИДЕН" else "НЕ подтверждён"});
         return;
     }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2026 mrbritneyxxx. All rights reserved.
+// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 // Корень модуля для прогона ВСЕХ тестов ядра.
@@ -14,6 +14,7 @@ test {
     _ = @import("core/kimg_writer.zig");
     _ = @import("core/mmap_guard.zig");
     _ = @import("attest.zig");
+    _ = @import("owner.zig");
     _ = @import("verifier/admission_gate.zig");
     _ = @import("verifier/z3_bridge.zig");
     _ = @import("runtime/kern_x.zig");
