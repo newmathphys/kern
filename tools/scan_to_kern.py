@@ -65,7 +65,25 @@ def scan(root: str, max_files: int, max_size: int):
                 claims.append((f"documented: {rel}", "verified", rel))
 
             # (3) незавершённое: TODO/FIXME/XXX
-            todos = len(re.findall(r"\b(TODO|FIXME|XXX)\b", text))
+            #
+            # 🔴 ДЕФЕКТ (найден ПРОГОНОМ KERN НА САМОМ СЕБЕ, исправлен):
+            # сканер считал ЛЮБОЕ вхождение слов TODO/FIXME/XXX, из-за чего
+            # выдавал ЛОЖНЫЕ блокеры:
+            #   • свои собственные regex-шаблоны в этом файле;
+            #   • упоминания в прозе документации («статус blocked: 1 (TODO)»).
+            # На прогоне KERN по своему репозиторию это дало 2 ложных блокера
+            # из 3. Теперь:
+            #   • собственный исходник сканера исключён;
+            #   • в коде/доках маркер считается только В КОММЕНТАРИИ;
+            #   • в .jsonl/.json (свидетельства) считаются все вхождения —
+            #     там это реальный вывод LLM (напр. «# TODO: Implement me»).
+            if os.path.basename(rel) == os.path.basename(__file__):
+                todos = 0
+            elif ext in (".jsonl", ".json"):
+                todos = len(re.findall(r"\b(TODO|FIXME|XXX)\b", text))
+            else:
+                todos = len(re.findall(
+                    r"(?:#|//|/\*|\*|<!--|;|--)\s*(?:TODO|FIXME|XXX)\b", text))
             if todos > 0:
                 claims.append((f"open TODOs in {rel}: {todos}", "blocked", rel))
 
