@@ -14,7 +14,7 @@ const c = @cImport({
     @cInclude("sqlite3.h");
 });
 
-pub const CatalogError = error{ SqlError, OpenFailed };
+pub const CatalogError = error{ SqlError, OpenFailed, UnknownTable };
 
 pub const Catalog = struct {
     db: *c.sqlite3,
@@ -37,7 +37,12 @@ pub const Catalog = struct {
     fn exec(self: *Catalog, sql: [*:0]const u8) !void {
         var errmsg: [*c]u8 = null;
         if (c.sqlite3_exec(self.db, sql, null, null, &errmsg) != c.SQLITE_OK) {
-            if (errmsg != null) c.sqlite3_free(errmsg);
+            // ДЕФЕКТ (исправлен): сообщение SQLite молча освобождалось —
+            // диагностика ошибок была невозможна. Теперь печатаем причину.
+            if (errmsg != null) {
+                std.debug.print("[!] SQLite: {s}\n", .{std.mem.span(errmsg)});
+                c.sqlite3_free(errmsg);
+            }
             return CatalogError.SqlError;
         }
     }
@@ -91,10 +96,12 @@ pub const Catalog = struct {
 
         const pname = try self.q(p.name);
         defer self.alloc.free(pname);
+        const pver = try self.q(p.version orelse "");
+        defer self.alloc.free(pver);
+        const proot = try self.q(p.root orelse "");
+        defer self.alloc.free(proot);
         try self.execFmt("INSERT OR REPLACE INTO projects(id,name,version,root) VALUES('project:main','{s}','{s}','{s}');", .{
-            pname,
-            p.version orelse "",
-            p.root orelse "",
+            pname, pver, proot,
         });
 
         for (p.artifacts) |a| {
@@ -114,7 +121,9 @@ pub const Catalog = struct {
             defer self.alloc.free(eid);
             const es = try self.q(e.source);
             defer self.alloc.free(es);
-            try self.execFmt("INSERT OR REPLACE INTO evidence(id,kind,source) VALUES('{s}','{s}','{s}');", .{ eid, e.kind, es });
+            const ek = try self.q(e.kind);
+            defer self.alloc.free(ek);
+            try self.execFmt("INSERT OR REPLACE INTO evidence(id,kind,source) VALUES('{s}','{s}','{s}');", .{ eid, ek, es });
         }
 
         for (p.claims) |cl| {
@@ -173,26 +182,34 @@ pub const Catalog = struct {
             defer self.alloc.free(w);
             const m = try self.q(dg.message);
             defer self.alloc.free(m);
+            const code = try self.q(dg.code);
+            defer self.alloc.free(code);
             try self.execFmt("INSERT INTO diagnostics(code,severity,where_clause,message) VALUES('{s}','{s}','{s}','{s}');", .{
-                dg.code, @tagName(dg.severity), w, m,
+                code, @tagName(dg.severity), w, m,
             });
         }
         try self.exec("COMMIT;");
     }
 
     pub fn recordSnapshot(self: *Catalog, id: []const u8, created_at: i64) !void {
-        try self.execFmt("INSERT OR REPLACE INTO snapshots(id,created_at) VALUES('{s}',{d});", .{ id, created_at });
+        const sid = try self.q(id);
+        defer self.alloc.free(sid);
+        try self.execFmt("INSERT OR REPLACE INTO snapshots(id,created_at) VALUES('{s}',{d});", .{ sid, created_at });
     }
 
     pub fn recordCacheEntry(self: *Catalog, content_hash: []const u8, path: []const u8) !void {
         const pth = try self.q(path);
         defer self.alloc.free(pth);
-        try self.execFmt("INSERT OR REPLACE INTO cache_entries(content_hash,path) VALUES('{s}','{s}');", .{ content_hash, pth });
+        const ch = try self.q(content_hash);
+        defer self.alloc.free(ch);
+        try self.execFmt("INSERT OR REPLACE INTO cache_entries(content_hash,path) VALUES('{s}','{s}');", .{ ch, pth });
     }
 
     /// Запрос: число утверждений по статусу (§9.2: индекс claim status).
     pub fn countClaimsByStatus(self: *Catalog, status: []const u8) !i64 {
-        const sql = try std.fmt.allocPrintZ(self.alloc, "SELECT COUNT(*) FROM claims WHERE status='{s}';\x00", .{status});
+        const st = try self.q(status);
+        defer self.alloc.free(st);
+        const sql = try std.fmt.allocPrintZ(self.alloc, "SELECT COUNT(*) FROM claims WHERE status='{s}';\x00", .{st});
         defer self.alloc.free(sql);
         var stmt: ?*c.sqlite3_stmt = null;
         if (c.sqlite3_prepare_v2(self.db, sql.ptr, -1, &stmt, null) != c.SQLITE_OK) return CatalogError.SqlError;
@@ -201,7 +218,26 @@ pub const Catalog = struct {
         return c.sqlite3_column_int64(stmt, 0);
     }
 
+    /// РАЗРЕШЁННЫЕ таблицы: имя таблицы НЕЛЬЗЯ экранировать кавычками
+    /// (это идентификатор, а не литерал), поэтому используем БЕЛЫЙ СПИСОК.
+    /// ДЕФЕКТ (был): произвольная подстановка `{s}` в имя таблицы — это
+    /// классический вектор SQL-инъекции через имя объекта.
+    const ALLOWED_TABLES = [_][]const u8{
+        "projects",   "artifacts", "modules",   "symbols", "claims",
+        "evidence",   "executions", "proofs",   "metrics", "relations",
+        "decisions",  "blockers",  "snapshots", "questions", "cache_entries",
+        "diagnostics",
+    };
+
     pub fn countTable(self: *Catalog, table: []const u8) !i64 {
+        var allowed = false;
+        for (ALLOWED_TABLES) |t| {
+            if (std.mem.eql(u8, t, table)) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) return CatalogError.UnknownTable;
         const sql = try std.fmt.allocPrintZ(self.alloc, "SELECT COUNT(*) FROM {s};\x00", .{table});
         defer self.alloc.free(sql);
         var stmt: ?*c.sqlite3_stmt = null;
@@ -255,6 +291,46 @@ test "CATALOG РЕГРЕССИЯ: одинарная кавычка в id/тек
     const res = try parser.parse(a, src);
     try cat.insertProject(res.project);
     try std.testing.expectEqual(@as(i64, 1), try cat.countTable("claims"));
+}
+
+test "SQL-ИНЪЕКЦИЯ: кавычки в version/root/kind/code экранируются" {
+    // ДЕФЕКТ (был): version, root, evidence.kind и diagnostics.code
+    // подставлялись в SQL БЕЗ экранирования (в отличие от id/statement).
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var cat = try Catalog.open(a, ":memory:");
+    defer cat.close();
+    try cat.initSchema();
+
+    const src =
+        \\project "p'x" {
+        \\  version "1'0"
+        \\  root "a'b"
+        \\}
+        \\artifact "a1" {
+        \\  path "src/x.zig"
+        \\  kind "source'kind"
+        \\}
+        \\claim "c" { status proven }
+    ;
+    const res = try parser.parse(a, src);
+    try cat.insertProject(res.project); // не должно падать
+    try std.testing.expectEqual(@as(i64, 1), try cat.countTable("projects"));
+    try std.testing.expectEqual(@as(i64, 1), try cat.countTable("artifacts"));
+
+    // Диагностика с кавычкой в коде тоже не должна ломать SQL.
+    const diags = [_]validate.Diagnostic{.{
+        .code = "V'001",
+        .severity = .warning,
+        .where = "w'here",
+        .message = "m'essage",
+    }};
+    try cat.insertDiagnostics(&diags);
+    try std.testing.expectEqual(@as(i64, 1), try cat.countTable("diagnostics"));
+
+    // Белый список таблиц: произвольное имя отвергается.
+    try std.testing.expectError(CatalogError.UnknownTable, cat.countTable("claims; DROP TABLE claims;--"));
 }
 
 test "PARSER РЕГРЕССИЯ: повторный evidence дедуплицируется" {
