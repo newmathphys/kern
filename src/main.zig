@@ -21,6 +21,9 @@ const string_theory = @import("verifier/string_theory.zig");
 const cegis = @import("verifier/cegis.zig");
 const kparser = @import("next/parser.zig");
 const truth = @import("next/truth.zig");
+const attest_mod = @import("attest.zig");
+const owner_mod = @import("owner.zig");
+const Ed25519 = std.crypto.sign.Ed25519;
 
 /// CLI-оркестратор KERN (§13 финальной спецификации).
 ///   build            .kern → .kimg (реальная сборка образа)
@@ -237,6 +240,95 @@ pub fn main() !void {
                 std.debug.print("    не найдено (честный отказ)\n", .{});
             }
         }
+        return;
+    }
+
+    // ---- attest: аттестация образа .kimg (Remote Attestation, Ed25519) ----
+    //   kernc attest sign   <image.kimg> -k <seed32.bin> -o <cert.bin>
+    //   kernc attest verify <image.kimg> <cert.bin>
+    if (std.mem.eql(u8, command, "attest")) {
+        if (args.len < 4) {
+            std.debug.print(
+                "Использование:\n  kernc attest sign   <image.kimg> -k <seed32.bin> -o <cert.bin>\n  kernc attest verify <image.kimg> <cert.bin>\n", .{});
+            return;
+        }
+        const mode = args[2];
+        const img = try std.fs.cwd().readFileAlloc(alloc, args[3], 64 << 20);
+        defer alloc.free(img);
+        if (img.len < 128) {
+            std.debug.print("[!] файл меньше 128-байтного заголовка\n", .{});
+            return;
+        }
+        const hdr_bytes: *const [128]u8 = @ptrCast(img.ptr);
+        const h = KimgHeader.parse(hdr_bytes, img.len) catch |e| {
+            std.debug.print("[!] заголовок невалиден: {s}\n", .{@errorName(e)});
+            return;
+        };
+        KimgHeader.verifyMerkleRoot(img, h) catch {
+            std.debug.print("[!] Merkle-корень НЕ совпал — аттестовать нельзя\n", .{});
+            return;
+        };
+        var digest: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(img, &digest, .{});
+
+        if (std.mem.eql(u8, mode, "sign")) {
+            const seed_path = flagValue(args, "-k") orelse {
+                std.debug.print("[!] нужен путь к ключу: -k <seed32.bin>\n", .{});
+                return;
+            };
+            const out_path = flagValue(args, "-o") orelse "attestation.cert";
+            const seed_raw = try std.fs.cwd().readFileAlloc(alloc, seed_path, 64);
+            defer alloc.free(seed_raw);
+            if (seed_raw.len != 32) {
+                std.debug.print("[!] seed должен быть ровно 32 байта (получено {d})\n", .{seed_raw.len});
+                return;
+            }
+            const kp = try Ed25519.KeyPair.create(seed_raw[0..32].*);
+            const cert = try attest_mod.attest(kp, digest, h.root_digest, .proved);
+            const bytes = attest_mod.toBytes(cert);
+            var f = try std.fs.cwd().createFile(out_path, .{});
+            defer f.close();
+            try f.writeAll(&bytes);
+            std.debug.print("[OK] ОБРАЗ АТТЕСТОВАН: {s}\n", .{owner_mod.AUTHOR});
+            std.debug.print("  образ    : {s} ({d} байт)\n", .{ args[3], img.len });
+            std.debug.print("  вердикт  : proved (Merkle-корень совпал)\n", .{});
+            std.debug.print("  сертификат: {s} ({d} байт, Ed25519)\n", .{ out_path, bytes.len });
+            return;
+        }
+
+        if (std.mem.eql(u8, mode, "verify")) {
+            if (args.len < 5) {
+                std.debug.print("[!] нужен путь к сертификату\n", .{});
+                return;
+            }
+            const raw = try std.fs.cwd().readFileAlloc(alloc, args[4], 4096);
+            defer alloc.free(raw);
+            if (raw.len != attest_mod.CERT_SIZE) {
+                std.debug.print("[!] размер сертификата {d} != {d}\n", .{ raw.len, attest_mod.CERT_SIZE });
+                return;
+            }
+            const cb: *const [attest_mod.CERT_SIZE]u8 = @ptrCast(raw.ptr);
+            const cert = attest_mod.fromBytes(cb) catch |e| {
+                std.debug.print("[!] сертификат повреждён: {s}\n", .{@errorName(e)});
+                return;
+            };
+            const pk = try Ed25519.PublicKey.fromBytes(owner_mod.OWNER_PUBLIC_KEY);
+            const sig_ok = attest_mod.verify(pk, cert);
+            const bind_ok = std.mem.eql(u8, &cert.contract_digest, &digest) and
+                std.mem.eql(u8, &cert.merkle_root, &h.root_digest);
+            if (sig_ok and bind_ok) {
+                std.debug.print("[OK] ОБРАЗ АТТЕСТОВАН: {s}\n", .{owner_mod.AUTHOR});
+                std.debug.print("  подпись владельца : ВАЛИДНА\n", .{});
+                std.debug.print("  привязка к образу : digest + Merkle-корень совпали\n", .{});
+            } else {
+                std.debug.print("[!] АТТЕСТАЦИЯ НЕ ПОДТВЕРЖДЕНА (подпись={s}, привязка={s})\n", .{
+                    if (sig_ok) "ok" else "НЕВЕРНА",
+                    if (bind_ok) "ok" else "НЕ СОВПАЛА",
+                });
+            }
+            return;
+        }
+        std.debug.print("[!] неизвестный режим: {s}\n", .{mode});
         return;
     }
 

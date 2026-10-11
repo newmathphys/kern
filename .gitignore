@@ -28,6 +28,12 @@ logs/
 swebench_lite.jsonl
 preds_gold.jsonl
 
+# Секреты и аттестация (НИКОГДА не коммитить!)
+.kern_seed.bin
+attestation.cert
+*.pem
+*.key
+
 # Временное
 *.log
 *.tmp

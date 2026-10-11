@@ -41,6 +41,49 @@ pub fn verify(pk: Ed25519.PublicKey, cert: Certificate) bool {
 }
 
 // =========================================================================
+// СЕРИАЛИЗАЦИЯ (для `kernc attest sign/verify` на файлах .kimg)
+// =========================================================================
+//
+// Раскладка (136 байт, little-endian, фиксированная):
+//   0   .. 4    magic "KATT"
+//   4   .. 5    version = 1
+//   5   .. 6    verdict (0=proved,1=refuted,2=unknown)
+//   6   .. 8    reserved (нули)
+//   8   .. 40   contract_digest
+//   40  .. 72   merkle_root
+//   72  .. 136  signature
+pub const CERT_SIZE: usize = 136;
+pub const CERT_MAGIC = "KATT";
+
+pub fn toBytes(cert: Certificate) [CERT_SIZE]u8 {
+    var b: [CERT_SIZE]u8 = [_]u8{0} ** CERT_SIZE;
+    @memcpy(b[0..4], CERT_MAGIC);
+    b[4] = 1;
+    b[5] = @intFromEnum(cert.verdict);
+    @memcpy(b[8..40], &cert.contract_digest);
+    @memcpy(b[40..72], &cert.merkle_root);
+    @memcpy(b[72..136], &cert.signature);
+    return b;
+}
+
+pub fn fromBytes(b: *const [CERT_SIZE]u8) !Certificate {
+    if (!std.mem.eql(u8, b[0..4], CERT_MAGIC)) return error.BadCertMagic;
+    if (b[4] != 1) return error.BadCertVersion;
+    const v: Verdict = switch (b[5]) {
+        0 => .proved,
+        1 => .refuted,
+        2 => .unknown,
+        else => return error.BadCertVerdict,
+    };
+    var cert: Certificate = undefined;
+    @memcpy(&cert.contract_digest, b[8..40]);
+    @memcpy(&cert.merkle_root, b[40..72]);
+    @memcpy(&cert.signature, b[72..136]);
+    cert.verdict = v;
+    return cert;
+}
+
+// =========================================================================
 // ТЕСТЫ
 // =========================================================================
 
@@ -74,4 +117,30 @@ test "АТТЕСТАЦИЯ: чужой ключ не подтверждает п
     const other = try Ed25519.KeyPair.create([_]u8{9} ** 32);
     const cert = try attest(kp, [_]u8{1} ** 32, [_]u8{2} ** 32, .proved);
     try std.testing.expect(!verify(other.public_key, cert));
+}
+
+test "АТТЕСТАЦИЯ: сериализация сертификата (round-trip) — 136 байт" {
+    const kp = try Ed25519.KeyPair.create([_]u8{5} ** 32);
+    const cert = try attest(kp, [_]u8{0xAA} ** 32, [_]u8{0xBB} ** 32, .proved);
+    const bytes = toBytes(cert);
+    try std.testing.expectEqual(@as(usize, CERT_SIZE), bytes.len);
+    try std.testing.expectEqualStrings("KATT", bytes[0..4]);
+
+    const back = try fromBytes(&bytes);
+    try std.testing.expectEqual(Verdict.proved, back.verdict);
+    try std.testing.expectEqualSlices(u8, &cert.contract_digest, &back.contract_digest);
+    try std.testing.expectEqualSlices(u8, &cert.signature, &back.signature);
+    // Подпись остаётся валидной после round-trip.
+    try std.testing.expect(verify(kp.public_key, back));
+}
+
+test "АТТЕСТАЦИЯ: битый сертификат отвергается (magic/версия)" {
+    const kp = try Ed25519.KeyPair.create([_]u8{5} ** 32);
+    const cert = try attest(kp, [_]u8{1} ** 32, [_]u8{2} ** 32, .proved);
+    var bytes = toBytes(cert);
+    bytes[0] = 'X';
+    try std.testing.expectError(error.BadCertMagic, fromBytes(&bytes));
+    bytes = toBytes(cert);
+    bytes[4] = 99;
+    try std.testing.expectError(error.BadCertVersion, fromBytes(&bytes));
 }

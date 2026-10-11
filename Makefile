@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench
 
 help:
 	@echo "make venv        — создать venv и поставить Zig 0.13"
@@ -174,3 +174,31 @@ cegis:
 # Весь математический контур тестами.
 theories: localize arrays chc strings cegis
 	@echo "=== ТЕОРИИ SMT: ВСЁ ПРОЙДЕНО ==="
+
+# ==== СБОИ ПАМЯТИ И АТТЕСТАЦИЯ ====
+
+# Инъекция аппаратных сбоев памяти (SIGBUS/SIGSEGV) — требует libc.
+test-fault:
+	$(ZIG) build test-fault
+
+# Извлечь 32-байтный seed владельца из PEM (для подписи аттестации).
+# Приватный ключ лежит ВНЕ репозитория: ~/kern_owner_private.pem
+attest-key:
+	@test -f $(HOME)/kern_owner_private.pem || { echo "[!] нет $(HOME)/kern_owner_private.pem"; exit 1; }
+	@openssl pkey -in $(HOME)/kern_owner_private.pem -outform DER 2>/dev/null | tail -c 32 > .kern_seed.bin
+	@echo "[OK] .kern_seed.bin (32 байта). НЕ КОММИТИТЬ!"
+
+# Аттестовать эталонный образ и проверить сертификат.
+attest: build attest-key
+	./zig-out/bin/kernc attest sign tests/fixtures/valid_v1_3.kimg -k .kern_seed.bin -o attestation.cert
+	./zig-out/bin/kernc attest verify tests/fixtures/valid_v1_3.kimg attestation.cert
+
+# Бенчмарк инвариантов циклов (CHC/Horn, стиль SV-COMP loop-lit / TermCOMP).
+chc-bench:
+	$(ZIG) run src/chc_bench.zig -O ReleaseFast
+
+# MBPP+ через API (генерация + официальная оценка EvalPlus).
+mbpp: 
+	$(PYTHON) tools/humaneval_api.py --dataset mbpp --model $${MODEL_NAME:-nvidia/nemotron-3-super-120b-a12b} \
+		--out samples_mbpp.jsonl --workers 8
+	./.venv-evalplus/bin/python -m evalplus.evaluate --dataset mbpp --samples samples_mbpp.jsonl

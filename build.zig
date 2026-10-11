@@ -52,4 +52,15 @@ pub fn build(b: *std.Build) void {
     tests_next.linkSystemLibrary("sqlite3");
     const run_tests_next = b.addRunArtifact(tests_next);
     b.step("test-next", "Тесты KERN-Next").dependOn(&run_tests_next.step);
+
+    // Инъекция аппаратных сбоев памяти (SIGBUS/SIGSEGV). Требует libc:
+    // sigsetjmp/siglongjmp для выхода из обработчика сигнала.
+    const fault_tests = b.addTest(.{
+        .root_source_file = b.path("src/fault_root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    fault_tests.linkLibC();
+    const run_fault_tests = b.addRunArtifact(fault_tests);
+    b.step("test-fault", "Инъекция сбоев памяти (SIGBUS/SIGSEGV)").dependOn(&run_fault_tests.step);
 }
