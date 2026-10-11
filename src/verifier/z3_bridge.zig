@@ -44,7 +44,16 @@ fn killAfter(ctx: *KillCtx, ms: u32) void {
     }
     if (!ctx.done.load(.acquire)) {
         ctx.killed.store(true, .release);
-        _ = ctx.child.kill() catch {};
+        // 🔴 ДЕФЕКТ (найден ПРОГОНОМ ОФИЦИАЛЬНОГО SMT-LIB, 2432 файла):
+        // здесь был `ctx.child.kill()`. В Zig 0.13 `Child.kill()` посылает
+        // сигнал И САМ ПОЖИНАЕТ процесс (внутри вызывает `wait()`).
+        // Если убийца сработал ровно тогда, когда главный поток уже стоял
+        // в `child.wait()`, второй `waitpid` получал `ECHILD`, а std
+        // трактует это как `unreachable` -> PANIC (SIGABRT, rc=134).
+        //
+        // ИСПРАВЛЕНО: посылаем сигнал НАПРЯМУЮ и НЕ пожинаем — пожинание
+        // остаётся единственной обязанностью главного потока.
+        std.posix.kill(ctx.child.id, std.posix.SIG.TERM) catch {};
     }
 }
 

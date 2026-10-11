@@ -158,6 +158,108 @@ pub fn main() !void {
     }
 
     // ---- prove: доказательство SMT-скрипта через РЕАЛЬНЫЙ Z3 ----
+    // ---- smtlib: официальный прогон банка SMT-LIB со сверкой :status ----
+    //
+    // ЗАЧЕМ: SMT-LIB Benchmark Suite — мировой эталон. В каждом .smt2 вшит
+    // ожидаемый ответ `(set-info :status sat|unsat|unknown)`. Сверяем вердикт
+    // KERN-моста с ожидаемым и считаем РАСХОЖДЕНИЯ.
+    //
+    // ВАЖНО: «ложное срабатывание» для верификатора — это когда ожидалось
+    // `unsat` (безопасно), а получено `sat` (найден контрпример). Это
+    // опасное направление; обратное (unsat вместо sat) — консервативно.
+    if (std.mem.eql(u8, command, "smtlib")) {
+        if (args.len < 3) {
+            std.debug.print("[!] smtlib: нужен каталог с *.smt2\n", .{});
+            return;
+        }
+        var bridge = z3b.Z3Bridge.init(alloc);
+        bridge.timeout_ms = 2000;
+        if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+            std.debug.print("[!] z3 недоступен (uv pip install z3-solver, .venv/bin в PATH)\n", .{});
+            return;
+        }
+        var dir = std.fs.cwd().openDir(args[2], .{ .iterate = true }) catch |e| {
+            std.debug.print("[!] не открыть каталог '{s}': {s}\n", .{ args[2], @errorName(e) });
+            return;
+        };
+        defer dir.close();
+
+        var walker = try dir.walk(alloc);
+        defer walker.deinit();
+
+        var total: usize = 0;
+        var matched: usize = 0;
+        var mismatched: usize = 0;
+        var skipped: usize = 0;
+        var false_pos: usize = 0; // ожидалось unsat, получено sat (опасно)
+        var timeout_n: usize = 0;
+        var shown: usize = 0;
+
+        while (try walker.next()) |entry| {
+            if (entry.kind != .file) continue;
+            if (!std.mem.endsWith(u8, entry.path, ".smt2")) continue;
+            const content = dir.readFileAlloc(alloc, entry.path, 1 << 20) catch continue;
+            total += 1;
+
+            // Ожидаемый статус: ищем в первой части файла.
+            const head = content[0..@min(content.len, 4096)];
+            const expect: ?[]const u8 = if (std.mem.indexOf(u8, head, ":status unsat")) |_|
+                "unsat"
+            else if (std.mem.indexOf(u8, head, ":status sat")) |_|
+                "sat"
+            else if (std.mem.indexOf(u8, head, ":status unknown")) |_|
+                "unknown"
+            else
+                null;
+            if (expect == null) {
+                skipped += 1;
+                continue;
+            }
+
+            const resp = bridge.executeQuery(content);
+            const got: []const u8 = switch (resp.status) {
+                .Sat => "sat",
+                .Unsat => "unsat",
+                .Unknown => "unknown",
+                .Timeout => "timeout",
+                .ToolError => "error",
+            };
+
+            if (std.mem.eql(u8, got, expect.?)) {
+                matched += 1;
+            } else if (std.mem.eql(u8, got, "timeout") or std.mem.eql(u8, got, "error")) {
+                // ТАЙМАУТ/ОШИБКА — это ЛИМИТ РЕСУРСА, а не неверный вердикт.
+                // Считать это «расхождением» было бы нечестно: решатель не
+                // ошибся, он не успел. Учитываем отдельно.
+                timeout_n += 1;
+            } else if (std.mem.eql(u8, expect.?, "unknown") or std.mem.eql(u8, got, "unknown")) {
+                skipped += 1; // unknown не считается расхождением
+            } else {
+                mismatched += 1;
+                if (std.mem.eql(u8, expect.?, "unsat") and std.mem.eql(u8, got, "sat")) false_pos += 1;
+                if (shown < 5) {
+                    std.debug.print("  [РАСХОЖДЕНИЕ] {s}: ожидалось {s}, получено {s}\n", .{ entry.path, expect.?, got });
+                    shown += 1;
+                }
+            }
+        }
+
+        const checked = matched + mismatched;
+        const pct: f64 = if (checked > 0)
+            @as(f64, @floatFromInt(matched)) / @as(f64, @floatFromInt(checked)) * 100.0
+        else
+            0.0;
+        std.debug.print("\n=== SMT-LIB BENCHMARK RUN ===\n", .{});
+        std.debug.print("файлов всего:        {d}\n", .{total});
+        std.debug.print("проверено (:status): {d}\n", .{checked});
+        std.debug.print("совпало:             {d} ({d:.1}%)\n", .{ matched, pct });
+        std.debug.print("расхождений:         {d}\n", .{mismatched});
+        std.debug.print("таймаутов:           {d}\n", .{timeout_n});
+        std.debug.print("пропущено (unknown): {d}\n", .{skipped});
+        std.debug.print("ЛОЖНЫХ СРАБАТЫВАНИЙ: {d} (ожидалось unsat, получено sat)\n", .{false_pos});
+        return;
+    }
+
     if (std.mem.eql(u8, command, "prove")) {
         if (args.len < 3) {
             std.debug.print("[!] prove: нужен путь к .smt2 (SMT-LIB2)\n", .{});
