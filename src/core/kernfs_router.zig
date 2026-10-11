@@ -319,6 +319,52 @@ test "ФИКС ФАЗ 1/3: mountFromBytes находит файл и отдаё�
         fs.read("/raw/missing.zig"));
 }
 
+test "🔴 МУТАНТ: getString отвергает смещение ЗА пределами пула строк" {
+    // Закрывает выжившего мутанта `offset >= len` -> `offset >> len`:
+    // без этого теста граница не проверялась ни одним сценарием.
+    // (Этот тест был ЗАТЁР прогоном tools/mutate_zig.py, который раньше
+    //  правил исходники на месте; мутатор исправлен — теперь он работает
+    //  на копии дерева.)
+    var img = std.ArrayList(u8).init(std.testing.allocator);
+    defer img.deinit();
+    try buildMinimalImage(img.writer());
+
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    defer fs.deinit();
+
+    try std.testing.expectEqualStrings("a.zig", fs.getString(0));
+
+    const len: u32 = @intCast(fs.payload_region.len);
+    try std.testing.expectEqualStrings("", fs.getString(len));
+    try std.testing.expectEqualStrings("", fs.getString(len + 1));
+    try std.testing.expectEqualStrings("", fs.getString(std.math.maxInt(u32)));
+}
+
+test "🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, objectPayload — проверяет" {
+    var img = std.ArrayList(u8).init(std.testing.allocator);
+    defer img.deinit();
+    try buildMinimalImage(img.writer());
+
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    defer fs.deinit();
+
+    const obj = fs.objects[0];
+    const safe = try fs.objectPayload(obj);
+    const raw = try fs.objectPayloadRaw(obj);
+    try std.testing.expectEqualStrings(safe, raw);
+
+    var copy = try std.testing.allocator.dupe(u8, img.items);
+    defer std.testing.allocator.free(copy);
+    const base: usize = 128 + 1 * 96;
+    copy[base + @as(usize, @intCast(obj.payload_offset))] ^= 0xFF;
+
+    var fs2 = try KernFS.mountFromBytes(std.testing.allocator, copy);
+    defer fs2.deinit();
+    const obj2 = fs2.objects[0];
+    try std.testing.expectError(KernFsError.PayloadTampered, fs2.objectPayload(obj2));
+    _ = try fs2.objectPayloadRaw(obj2);
+}
+
 test "ФИКС CONF-06: запись в KERNFS отвергается AccessDenied" {
     var fs = KernFS.init(std.testing.allocator, &.{}, &.{}, &.{});
     try std.testing.expectError(KernFsError.AccessDenied,

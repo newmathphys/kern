@@ -11,10 +11,14 @@ Mutation Score = KILLED / TOTAL * 100%.
 Пропускает блоки `test { ... }` и строковые литералы (иначе — шум).
 """
 import argparse
+import hashlib
 import os
 import random
 import re
+import shutil
 import subprocess
+import sys
+import tempfile
 
 TARGETS = [
     "src/core/eq2.zig",
@@ -66,10 +70,15 @@ def collect(root):
                 continue
             if line.lstrip().startswith("//"):
                 continue
+            # 🔴 ДЕФЕКТ (исправлен): мутация внутри ХВОСТОВОГО комментария
+            # (`PayloadTampered, // SHA-256 != digest`) ничего не меняет в
+            # поведении, но раньше попадала в отчёт как «выживший мутант» —
+            # ложная «дыра в тестах». Отрезаем часть строки после `//`.
+            code = line.split("//", 1)[0]
             for pat, rep, name in MUTATIONS:
-                if not re.search(pat, line):
+                if not re.search(pat, code):
                     continue
-                if name in BOOL_MUTS and '"' in line:
+                if name in BOOL_MUTS and '"' in code:
                     continue
                 sites.append((rel, ln, pat, rep, name))
     return sites
@@ -86,6 +95,56 @@ def run_tests(root):
     return "KILLED_TEST", out
 
 
+def tree_hash(root):
+    """Хэш всех файлов src/ — для проверки, что оригинал НЕ изменён."""
+    h = hashlib.sha256()
+    for dirpath, _, files in os.walk(os.path.join(root, "src")):
+        for f in sorted(files):
+            if not f.endswith(".zig"):
+                continue
+            p = os.path.join(dirpath, f)
+            h.update(os.path.relpath(p, root).encode())
+            h.update(open(p, "rb").read())
+    return h.hexdigest()
+
+
+LOCK = ".mutation.lock"
+
+
+def acquire_lock(root):
+    """🔴 ДЕФЕКТ (исправлен): старая версия правила ИСХОДНИКИ НА МЕСТЕ.
+
+    Последствия:
+      • параллельный запуск (или запуск тестов/сборки во время мутаций) видел
+        МУТАНТ вместо настоящего кода и давал ложные падения;
+      • мои собственные правки, сделанные во время прогона, ЗАТИРАЛИСЬ
+        восстановлением устаревшей копии файла;
+      • при аварии/`kill` мутант оставался в репозитории.
+
+    Теперь мутации идут ТОЛЬКО в копии дерева (см. main), а параллельный
+    запуск блокируется файлом-замком.
+    """
+    lp = os.path.join(root, LOCK)
+    if os.path.exists(lp):
+        try:
+            pid = open(lp).read().strip()
+        except OSError:
+            pid = "?"
+        print(f"[!] уже идёт мутационный прогон (PID {pid}). "
+              f"Удалите {LOCK}, если он устарел.", file=sys.stderr)
+        sys.exit(2)
+    with open(lp, "w") as f:
+        f.write(str(os.getpid()))
+    return lp
+
+
+def release_lock(lp):
+    try:
+        os.unlink(lp)
+    except OSError:
+        pass
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
@@ -100,28 +159,56 @@ def main():
     if len(sites) > args.max:
         sites = random.sample(sites, args.max)
 
-    killed = survived = kc = kt = 0
-    survivors = []
-    for idx, (rel, ln, pat, rep, name) in enumerate(sites, 1):
-        path = os.path.join(root, rel)
-        orig = open(path, encoding="utf-8").read()
-        lines = orig.split("\n")
-        lines[ln] = re.sub(pat, rep, lines[ln], count=1)
-        try:
-            open(path, "w", encoding="utf-8").write("\n".join(lines))
-            status, _ = run_tests(root)
-        finally:
-            open(path, "w", encoding="utf-8").write(orig)
-        if status == "SURVIVED":
-            survived += 1
-            survivors.append(f"{rel}:{ln+1} [{name}]")
-            mark = "SURVIVED ❌"
-        else:
-            killed += 1
-            kc += 1 if status == "KILLED_COMPILE" else 0
-            kt += 1 if status != "KILLED_COMPILE" else 0
-            mark = "killed ✅"
-        print(f"  [{idx}/{len(sites)}] {rel}:{ln+1} [{name}] -> {mark}", flush=True)
+    # БЛОКИРОВКА + СНИМОК ХЭША: гарантия, что оригинал не тронут.
+    lock_path = acquire_lock(root)
+    before = tree_hash(root)
+
+    # РАБОЧАЯ КОПИЯ: мутации вносятся ТОЛЬКО сюда. Оригинальное дерево
+    # не открывается на запись ни разу за весь прогон.
+    work = tempfile.mkdtemp(prefix="kern-mutants-")
+    try:
+        shutil.copytree(os.path.join(root, "src"), os.path.join(work, "src"))
+        # zig может искать build.zig — копируем, если есть.
+        for extra in ("build.zig", "build.zig.zon"):
+            src = os.path.join(root, extra)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(work, extra))
+
+        print(f"[i] рабочая копия: {work} (оригинал не изменяется)", flush=True)
+
+        killed = survived = kc = kt = 0
+        survivors = []
+        for idx, (rel, ln, pat, rep, name) in enumerate(sites, 1):
+            path = os.path.join(work, rel)
+            orig = open(path, encoding="utf-8").read()
+            lines = orig.split("\n")
+            lines[ln] = re.sub(pat, rep, lines[ln], count=1)
+            try:
+                open(path, "w", encoding="utf-8").write("\n".join(lines))
+                status, _ = run_tests(work)
+            finally:
+                open(path, "w", encoding="utf-8").write(orig)
+            if status == "SURVIVED":
+                survived += 1
+                survivors.append(f"{rel}:{ln+1} [{name}]")
+                mark = "SURVIVED ❌"
+            else:
+                killed += 1
+                kc += 1 if status == "KILLED_COMPILE" else 0
+                kt += 1 if status != "KILLED_COMPILE" else 0
+                mark = "killed ✅"
+            print(f"  [{idx}/{len(sites)}] {rel}:{ln+1} [{name}] -> {mark}", flush=True)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+        release_lock(lock_path)
+
+    # КОНТРОЛЬ ЦЕЛОСТНОСТИ ОРИГИНАЛА.
+    after = tree_hash(root)
+    if before != after:
+        print("\n[!!] КРИТИЧНО: исходники изменились во время прогона! "
+              "Проверьте `git status`.", file=sys.stderr)
+    else:
+        print(f"\n[i] целостность оригинала подтверждена (sha256 {before[:16]}…)")
 
     total = killed + survived
     score = (killed / total * 100.0) if total else 0.0

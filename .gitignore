@@ -1,3 +1,6 @@
+# Замок мутационного прогона (tools/mutate_zig.py)
+.mutation.lock
+
 # Сборка Zig
 zig-out/
 .zig-cache/
