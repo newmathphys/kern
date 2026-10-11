@@ -90,12 +90,19 @@ pub const Z3Bridge = struct {
 
         // Поток-убийца: если решатель завис — принудительно снимаем по таймауту.
         var kctx = KillCtx{ .child = &child, .done = std.atomic.Value(bool).init(false) };
-        const killer: ?std.Thread = std.Thread.spawn(.{}, killAfter, .{ &kctx, self.timeout_ms }) catch null;
+        // ДЕФЕКТ (исправлен): раньше при отказе spawn поток-убийцы запрос
+        // оставался БЕЗ таймаута — зависший решатель подвесил бы KERN
+        // навсегда. Теперь fail-closed: без гарантии таймаута НЕ запускаем.
+        const killer: std.Thread = std.Thread.spawn(.{}, killAfter, .{ &kctx, self.timeout_ms }) catch {
+            cov.hit(.z3_tool_error);
+            _ = child.kill() catch {};
+            return .{ .status = .ToolError, .stdout = &.{} };
+        };
 
         child.stdin.?.writeAll(smt_script) catch {
             kctx.done.store(true, .release);
             _ = child.kill() catch {};
-            if (killer) |t| t.join();
+            killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
         child.stdin.?.close();
@@ -104,7 +111,7 @@ pub const Z3Bridge = struct {
         const stdout_data = child.stdout.?.readToEndAlloc(self.allocator, 4 * 1024 * 1024) catch {
             kctx.done.store(true, .release);
             _ = child.kill() catch {};
-            if (killer) |t| t.join();
+            killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
 
@@ -113,13 +120,13 @@ pub const Z3Bridge = struct {
             // joined — иначе он держит указатель на стек `kctx` (use-after-free).
             kctx.done.store(true, .release);
             _ = child.kill() catch {};
-            if (killer) |t| t.join();
+            killer.join();
             self.allocator.free(stdout_data);
             return .{ .status = .ToolError, .stdout = &.{} };
         };
         const timed_out = kctx.killed.load(.acquire);
         kctx.done.store(true, .release);
-        if (killer) |t| t.join();
+        killer.join();
         if (timed_out) {
             self.allocator.free(stdout_data);
             return .{ .status = .Timeout, .stdout = &.{} };

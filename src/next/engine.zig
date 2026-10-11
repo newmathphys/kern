@@ -28,7 +28,13 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
     const hash = try cache.sha256Hex(allocator, source);
     defer allocator.free(hash);
 
-    std.fs.cwd().makePath(out_dir) catch {};
+    // ДЕФЕКТ (исправлен): раньше отказ создания каталога молча игнорировался,
+    // и падение происходило ПОЗЖЕ — на записи SQLite, с непонятной ошибкой.
+    // Теперь причина видна сразу.
+    std.fs.cwd().makePath(out_dir) catch |e| {
+        std.debug.print("[!] не удалось создать каталог вывода '{s}': {s}\n", .{ out_dir, @errorName(e) });
+        return e;
+    };
 
     const cache_path = try std.fmt.allocPrint(allocator, "{s}/.kerncache", .{out_dir});
     defer allocator.free(cache_path);

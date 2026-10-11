@@ -100,9 +100,20 @@ pub fn main() !void {
 
         var b = Builder.init(alloc);
         defer b.deinit();
+        // ДЕФЕКТ (исправлен): раньше непрочитанный артефакт молча давал
+        // ПУСТОЙ объект в образе (`catch ""`). Теперь каждый отказ виден,
+        // а итог выводится отдельной строкой — «тихая деградация» недопустима.
+        var unreadable: usize = 0;
         for (project.artifacts) |a| {
-            const content = std.fs.cwd().readFileAlloc(alloc, a.path, 1 << 20) catch "";
+            const content = std.fs.cwd().readFileAlloc(alloc, a.path, 1 << 20) catch blk: {
+                unreadable += 1;
+                std.debug.print("[!] артефакт НЕ прочитан: {s} (нет файла или > 1 МБ) — в образ пойдёт пустой объект\n", .{a.path});
+                break :blk "";
+            };
             try b.addSource(a.path, content);
+        }
+        if (unreadable > 0) {
+            std.debug.print("[!] ВНИМАНИЕ: {d} из {d} артефактов не прочитаны — образ НЕПОЛНЫЙ\n", .{ unreadable, project.artifacts.len });
         }
         for (project.claims) |c| {
             try b.addClaim(try claimPath(alloc, c.statement), "{}", statusBits(c.status));

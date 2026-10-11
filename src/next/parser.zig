@@ -229,7 +229,13 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) !ParseResult {
                         try evidence.append(.{ .id = eid, .kind = "run", .source = fl.value });
                     }
                 } else if (std.mem.eql(u8, fl.key, "metric")) {
-                    const v = std.fmt.parseFloat(f64, fl.extra) catch 0;
+                    // ДЕФЕКТ (исправлен): раньше `catch 0` превращал битое
+                    // число в ЛОЖНУЮ метрику «0». Нечисловое значение — это
+                    // ошибка данных, а не ноль: молчаливая подмена недопустима.
+                    const v = std.fmt.parseFloat(f64, fl.extra) catch {
+                        std.debug.print("[!] метрика '{s}' имеет нечисловое значение '{s}'\n", .{ fl.value, fl.extra });
+                        return error.ParseError;
+                    };
                     try metrics.append(.{ .name = fl.value, .value = v });
                 }
             }
@@ -400,4 +406,40 @@ test "ФАЗЗИНГ: случайные и битые .kern не паникую
     var d: usize = 0;
     while (d < 1000) : (d += 1) try deep.appendSlice("module \"m\" {");
     _ = parse(a, deep.items) catch {};
+}
+
+test "ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль" {
+    // Раньше `catch 0` превращал битое число в метрику со значением 0 —
+    // потребитель видел «измерение = 0» вместо «данные повреждены».
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    // ВНИМАНИЕ: `claim` — блок ВЕРХНЕГО уровня (не вложен в project).
+    const bad =
+        \\project "p" {
+        \\  version "1"
+        \\  root "."
+        \\}
+        \\claim "c" {
+        \\  status hypothesis
+        \\  metric p95 = "abc"
+        \\}
+    ;
+    try std.testing.expectError(error.ParseError, parse(a, bad));
+
+    // Корректное число — парсится.
+    const good =
+        \\project "p" {
+        \\  version "1"
+        \\  root "."
+        \\}
+        \\claim "c" {
+        \\  status hypothesis
+        \\  metric p95 = "12.5"
+        \\}
+    ;
+    const r = try parse(a, good);
+    try std.testing.expectEqual(@as(usize, 1), r.project.claims.len);
+    try std.testing.expectEqual(@as(f64, 12.5), r.project.claims[0].metrics[0].value);
 }

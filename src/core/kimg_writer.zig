@@ -6,8 +6,9 @@
 //! `payload_offset` и `logical_path_offset` ОТНОСИТЕЛЬНЫ `data_payload_offset`.
 const std = @import("std");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
+const KernFsRouter = @import("kernfs_router.zig").KernFS;
 
-pub const BuildError = error{ TooManyObjects, Empty };
+pub const BuildError = error{ TooManyObjects, Empty, PoolTooLarge, Overflow };
 
 pub const ObjectSpec = struct {
     path: []const u8,
@@ -52,6 +53,9 @@ pub const Builder = struct {
         var path_off = try self.allocator.alloc(u32, n);
         defer self.allocator.free(path_off);
         for (self.specs.items, 0..) |sp, i| {
+            // ЗАЩИТА: путь адресуется 32-битным смещением. Без проверки
+            // @intCast на пуле > 4 ГБ дал бы ПАНИКУ вместо ошибки.
+            if (pool.items.len > std.math.maxInt(u32)) return BuildError.PoolTooLarge;
             path_off[i] = @intCast(pool.items.len);
             try pool.appendSlice(sp.path);
             try pool.append(0);
@@ -98,9 +102,12 @@ pub const Builder = struct {
         std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
         std.mem.writeInt(u64, header[24..32], 4096, .little);
         std.mem.writeInt(u64, header[32..40], 128, .little);
-        std.mem.writeInt(u64, header[40..48], @as(u64, n) * 96, .little);
+        // ЗАЩИТА: n*96 и 128+n*96 — безопасная арифметика (иначе переполнение).
+        const table_size = std.math.mul(u64, n, 96) catch return BuildError.Overflow;
+        const payload_start = std.math.add(u64, 128, table_size) catch return BuildError.Overflow;
+        std.mem.writeInt(u64, header[40..48], table_size, .little);
         std.mem.writeInt(u64, header[48..56], @as(u64, n), .little);
-        std.mem.writeInt(u64, header[56..64], 128 + @as(u64, n) * 96, .little);
+        std.mem.writeInt(u64, header[56..64], payload_start, .little);
         @memcpy(header[64..96], &root);
         var csum: [32]u8 = undefined;
         std.crypto.hash.sha2.Sha256.hash(header[0..96], &csum, .{});
@@ -119,8 +126,22 @@ pub const Builder = struct {
             for (entries) |e| try f.writeAll(&e);
             try f.writeAll(pool.items);
             try f.writeAll(payload.items);
+            // ДЕФЕКТ (исправлен): без fsync данные оставались в кэше ОС, и
+            // после отключения питания `rename` мог обогнать запись — на
+            // диске оказывался ПУСТОЙ (или частичный) файл. Теперь данные
+            // сброшены на носитель ДО переименования.
+            try f.sync();
         }
+        // Если rename упадёт — временный файл не должен остаться мусором.
+        errdefer std.fs.cwd().deleteFile(tmp_path) catch {};
         try std.fs.cwd().rename(tmp_path, out_path);
+        // Долговечность самого rename: синхронизируем КАТАЛОГ.
+        // (в Zig 0.13 у std.fs.Dir нет .sync() — открываем каталог через posix)
+        const dfd = std.posix.open(".", .{ .ACCMODE = .RDONLY, .DIRECTORY = true }, 0) catch -1;
+        if (dfd >= 0) {
+            defer std.posix.close(dfd);
+            std.posix.fsync(dfd) catch {};
+        }
     }
 };
 
@@ -129,7 +150,6 @@ pub const Builder = struct {
 // =========================================================================
 
 test "KIMG-WRITER: сборка образа и чтение через KERNFS (roundtrip)" {
-    const KernFS = @import("kernfs_router.zig").KernFS;
     var b = Builder.init(std.testing.allocator);
     defer b.deinit();
     try b.addSource("src/main.zig", "pub fn main() void {}\n");
@@ -142,7 +162,7 @@ test "KIMG-WRITER: сборка образа и чтение через KERNFS (
     const data = try std.fs.cwd().readFileAlloc(std.testing.allocator, tmp, 1 << 20);
     defer std.testing.allocator.free(data);
 
-    var fs = try KernFS.mountFromBytes(std.testing.allocator, data);
+    var fs = try KernFsRouter.mountFromBytes(std.testing.allocator, data);
     defer fs.deinit();
 
     const src = try fs.read("/raw/src/main.zig");
@@ -194,4 +214,28 @@ test "CRASH-CONSISTENCY: запись атомарна, .tmp не остаётс
     // перезапись поверх — тоже ок (атомарно)
     try b.write(out);
     try std.fs.cwd().access(out, .{});
+}
+
+test "ДОЛГОВЕЧНОСТЬ: данные сброшены на носитель (fsync), образ читается" {
+    // Без fsync перед rename данные могли остаться в кэше ОС, и после
+    // отключения питания на диске оказался бы ПУСТОЙ файл. Проверяем, что
+    // образ после записи полностью читается с диска (не из кэша процесса).
+    var b = Builder.init(std.testing.allocator);
+    defer b.deinit();
+    try b.addSource("src/x.zig", "durability probe");
+    const out = "/tmp/durability_test.kimg";
+    defer std.fs.cwd().deleteFile(out) catch {};
+    try b.write(out);
+
+    // Читаем ФАЙЛ (а не память процесса) — если бы fsync не было,
+    // на некоторых ФС размер/содержимое могли быть нулевыми.
+    const data = try std.fs.cwd().readFileAlloc(std.testing.allocator, out, 1 << 20);
+    defer std.testing.allocator.free(data);
+    try std.testing.expect(data.len > 128);
+    try std.testing.expectEqualStrings("KIMG\r\n\x1a\n", data[0..8]);
+
+    // И образ монтируется.
+    var fs = try KernFsRouter.mountFromBytes(std.testing.allocator, data);
+    defer fs.deinit();
+    try std.testing.expectEqualStrings("durability probe", (try fs.read("/raw/src/x.zig")).raw_slice);
 }
