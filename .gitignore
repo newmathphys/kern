@@ -60,3 +60,8 @@ attestation.cert
 
 # Локальные материалы (в репозиторий не входят)
 /archive/
+
+# Объектные файлы (создаются zig build-obj в diff_disasm)
+*.o
+*.o.o
+*.s
