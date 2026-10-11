@@ -73,4 +73,53 @@ pub fn build(b: *std.Build) void {
     fault_tests.linkLibC();
     const run_fault_tests = b.addRunArtifact(fault_tests);
     b.step("test-fault", "Инъекция сбоев памяти (SIGBUS/SIGSEGV)").dependOn(&run_fault_tests.step);
+
+    // ---- C-ABI: libkern.so / libkern.a + include/kern.h -------------------
+    // Встраивание ядра в Python / Rust / Go / C++ без запуска CLI-процесса.
+    const capi_mod = b.createModule(.{
+        .root_source_file = b.path("src/capi.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    capi_mod.addImport("owner", owner_module);
+
+    const shared = b.addSharedLibrary(.{
+        .name = "kern",
+        .root_source_file = b.path("src/capi.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    shared.root_module.addImport("owner", owner_module);
+    shared.linkLibC();
+    shared.installHeader(b.path("include/kern.h"), "kern.h");
+    b.installArtifact(shared);
+
+    const static = b.addStaticLibrary(.{
+        .name = "kern",
+        .root_source_file = b.path("src/capi.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    static.root_module.addImport("owner", owner_module);
+    static.linkLibC();
+    b.installArtifact(static);
+
+    b.step("lib", "Собрать C-ABI библиотеку (libkern.so/.a + kern.h)").dependOn(&b.addInstallArtifact(shared, .{}).step);
+
+    // ---- Герметичная (воспроизводимая) сборка ----------------------------
+    // Статический musl-таргет: никаких системных библиотек, sha256 бинарника
+    // воспроизводим на любой машине (требование EAL7 / DO-330).
+    const musl_target = b.resolveTargetQuery(.{
+        .cpu_arch = .x86_64,
+        .os_tag = .linux,
+        .abi = .musl,
+    });
+    const hermetic_exe = b.addExecutable(.{
+        .name = "kernc-hermetic",
+        .root_source_file = b.path("src/main.zig"),
+        .target = musl_target,
+        .optimize = .ReleaseSafe,
+    });
+    const hermetic_install = b.addInstallArtifact(hermetic_exe, .{});
+    b.step("hermetic", "Герметичная статическая сборка (x86_64-linux-musl)").dependOn(&hermetic_install.step);
 }

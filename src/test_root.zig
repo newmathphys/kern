@@ -27,4 +27,11 @@ test {
     _ = @import("tests/exhaustive_suite.zig");
     _ = @import("tests/alignment_stress.zig");
     _ = @import("tests/pool_saturation.zig");
+    _ = @import("tests/oom_stress.zig");
+    _ = @import("tests/mcdc_gates_test.zig");
+    _ = @import("tests/z3_crash_test.zig");
+    _ = @import("tests/smt_incremental_test.zig");
+    // ВАЖНО: отчёт покрытия обязан идти ПОСЛЕДНИМ — он читает счётчики,
+    // набранные всеми предыдущими тестами.
+    _ = @import("tests/coverage_report_test.zig");
 }

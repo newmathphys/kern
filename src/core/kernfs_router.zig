@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 const std = @import("std");
+const cov = @import("../cov.zig");
 const kimg = @import("object_entry.zig"); // 96-байтный дескриптор
 const ObjectEntry = kimg.ObjectEntry;
 const KimgHeader = @import("kimg_reader.zig").KimgHeader;
@@ -53,7 +54,10 @@ pub const KernFS = struct {
         while (it.next()) |component| {
             if (component.len == 0) return KernFsError.InvalidPathFormat; // //
             if (std.mem.eql(u8, component, ".")) return KernFsError.InvalidPathFormat;
-            if (std.mem.eql(u8, component, "..")) return KernFsError.PathTraversalAttempt;
+            if (std.mem.eql(u8, component, "..")) {
+                cov.hit(.fs_traversal_denied);
+                return KernFsError.PathTraversalAttempt;
+            }
             if (std.mem.indexOfScalar(u8, component, 0) != null)
                 return KernFsError.InvalidPathFormat; // NUL-инъекция
         }
@@ -76,9 +80,14 @@ pub const KernFS = struct {
             obj.compressed_size
         else
             obj.uncompressed_size;
-        const end = std.math.add(u64, obj.payload_offset, size) catch
+        const end = std.math.add(u64, obj.payload_offset, size) catch {
+            cov.hit(.fs_not_found);
             return KernFsError.FileNotFound;
-        if (end > self.payload_region.len) return KernFsError.FileNotFound;
+        };
+        if (end > self.payload_region.len) {
+            cov.hit(.fs_not_found);
+            return KernFsError.FileNotFound;
+        }
         const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];
         // ЗАЩИТА ЦЕЛОСТНОСТИ PAYLOAD: Merkle-корень покрывает только ТАБЛИЦУ,
         // поэтому подмена содержимого файла иначе проходит незамеченной.
@@ -86,6 +95,7 @@ pub const KernFS = struct {
         var got: [32]u8 = undefined;
         std.crypto.hash.sha2.Sha256.hash(sl, &got, .{});
         if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;
+        cov.hit(.fs_hit);
         return sl;
     }
 
@@ -124,6 +134,7 @@ pub const KernFS = struct {
                     const obj_path = self.getString(obj.logical_path_offset);
                     if (std.mem.eql(u8, obj_path, target_path)) {
                         // ZERO-COPY: срез региона полезной нагрузки (без копии)
+                        cov.hit(.fs_hit);
                         return VfsNode{ .raw_slice = try self.payloadSlice(obj) };
                     }
                 }
@@ -175,6 +186,7 @@ pub const KernFS = struct {
     /// KERNFS — ТОЛЬКО ЧТЕНИЕ. Любая запись отвергается явно (CONF-06).
     /// Раньше `AccessDenied` был объявлен, но возвращался `FileNotFound`.
     pub fn write(_: *KernFS, _: []const u8, _: []const u8) KernFsError!void {
+        cov.hit(.fs_access_denied);
         return KernFsError.AccessDenied;
     }
 
@@ -456,4 +468,47 @@ test "ФИКС ЦЕЛОСТНОСТИ: подмена payload отвергает
     const idx = std.mem.indexOf(u8, data, "12345").?;
     data[idx] = '9';
     try std.testing.expectError(KernFsError.PayloadTampered, fs.read("/raw/secret.txt"));
+}
+
+test "ГРАНИЦЫ: payload_offset за пределами региона -> FileNotFound" {
+    // Образ валиден по Merkle, но дескриптор указывает ЗА пределы пула.
+    const content = "hello";
+    const pool = "a.zig\x00" ++ content;
+
+    var obj: [96]u8 = [_]u8{0} ** 96;
+    var dig: [32]u8 = undefined;
+    std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
+    @memcpy(obj[0..32], &dig);
+    std.mem.writeInt(u64, obj[32..40], 1000, .little); // СМЕЩЕНИЕ ВНЕ ПУЛА
+    std.mem.writeInt(u64, obj[40..48], content.len, .little);
+    std.mem.writeInt(u64, obj[48..56], content.len, .little);
+    std.mem.writeInt(u32, obj[56..60], 0x0002, .little); // Source
+    std.mem.writeInt(u16, obj[60..62], 0x0002, .little); // HAS_LOGICAL_PATH
+    std.mem.writeInt(u32, obj[64..68], 0, .little);
+    std.mem.writeInt(u32, obj[68..72], 1, .little);
+
+    var root: [32]u8 = undefined;
+    ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
+
+    var header: [128]u8 = [_]u8{0} ** 128;
+    @memcpy(header[0..8], "KIMG\r\n\x1a\n");
+    std.mem.writeInt(u16, header[8..10], 1, .little);
+    std.mem.writeInt(u16, header[10..12], 3, .little);
+    std.mem.writeInt(u32, header[12..16], 128, .little);
+    std.mem.writeInt(u64, header[32..40], 128, .little);
+    std.mem.writeInt(u64, header[40..48], 96, .little);
+    std.mem.writeInt(u64, header[48..56], 1, .little);
+    std.mem.writeInt(u64, header[56..64], 224, .little);
+    @memcpy(header[64..96], &root);
+
+    var img = std.ArrayList(u8).init(std.testing.allocator);
+    defer img.deinit();
+    try img.appendSlice(&header);
+    try img.appendSlice(&obj);
+    try img.appendSlice(pool);
+
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    defer fs.deinit();
+    // Смещение за пределами пула -> чтение отвергается, не паника.
+    try std.testing.expectError(KernFsError.FileNotFound, fs.read("/raw/a.zig"));
 }

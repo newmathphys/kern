@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 const std = @import("std");
+const cov = @import("../cov.zig");
 
 pub const KimgError = error{
     OutOfBounds,
@@ -41,7 +42,10 @@ pub const ObjectEntry = struct {
         // CONF-15: reserved-байты (72..95) обязаны быть строго нулевыми.
         // Иначе в них можно спрятать полезную нагрузку — стеганография.
         for (bytes[72..96]) |b| {
-            if (b != 0) return KimgError.InvalidReservedBytes;
+            if (b != 0) {
+                cov.hit(.obj_bad_reserved);
+                return KimgError.InvalidReservedBytes;
+            }
         }
 
         var entry: ObjectEntry = undefined;
@@ -56,6 +60,7 @@ pub const ObjectEntry = struct {
         entry.logical_path_offset = std.mem.readInt(u32, bytes[64..68], .little);
         entry.schema_version = std.mem.readInt(u32, bytes[68..72], .little);
 
+        cov.hit(.obj_ok);
         return entry;
     }
 

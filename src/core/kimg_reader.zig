@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 const std = @import("std");
+const cov = @import("../cov.zig");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
 
 pub const KimgError = error{
@@ -56,6 +57,7 @@ pub const KimgHeader = extern struct {
     /// заголовка, границы таблицы объектов и payload БЕЗОПАСНОЙ арифметикой.
     pub fn parse(bytes: *const [128]u8, file_size: u64) !KimgHeader {
         if (!std.mem.eql(u8, bytes[0..8], "KIMG\r\n\x1a\n")) {
+            cov.hit(.hdr_bad_magic);
             return KimgError.BadMagic;
         }
 
@@ -74,20 +76,33 @@ pub const KimgHeader = extern struct {
         @memcpy(&h.root_digest, bytes[64..96]);
         @memcpy(&h.header_checksum, bytes[96..128]);
 
-        if (h.header_size != 128) return KimgError.BadHeaderSize;
-        if (file_size < h.header_size) return KimgError.TooSmall;
+        if (h.header_size != 128) {
+            cov.hit(.hdr_bad_size);
+            return KimgError.BadHeaderSize;
+        }
+        if (file_size < h.header_size) {
+            cov.hit(.hdr_too_small);
+            return KimgError.TooSmall;
+        }
 
         // БЕЗОПАСНАЯ АРИФМЕТИКА: ловим переполнение явно.
         const t_end = std.math.add(u64, h.object_table_offset,
                                   h.object_table_size) catch
             return KimgError.OutOfBoundsOffset;
-        if (t_end > file_size) return KimgError.TableOutOfBounds;
+        if (t_end > file_size) {
+            cov.hit(.hdr_table_oob);
+            return KimgError.TableOutOfBounds;
+        }
 
         const p_end = std.math.add(u64, h.data_payload_offset,
                                    @as(u64, 0)) catch
             return KimgError.OutOfBoundsOffset;
-        if (p_end > file_size) return KimgError.PayloadOutOfBounds;
+        if (p_end > file_size) {
+            cov.hit(.hdr_payload_oob);
+            return KimgError.PayloadOutOfBounds;
+        }
 
+        cov.hit(.hdr_ok);
         return h;
     }
 
@@ -99,7 +114,10 @@ pub const KimgHeader = extern struct {
     pub fn verifyMerkleRoot(file_bytes: []const u8, h: KimgHeader) !void {
         // ЗАЩИТА: object_count не может превышать размер таблицы / 96.
         // Иначе `i * 96` переполняется, а цикл превращается в DoS.
-        if (h.object_count > h.object_table_size / 96) return KimgError.TableOutOfBounds;
+        if (h.object_count > h.object_table_size / 96) {
+            cov.hit(.merkle_count_guard);
+            return KimgError.TableOutOfBounds;
+        }
 
         var hasher = std.crypto.hash.sha2.Sha256.init(.{});
         hasher.update(&[_]u8{0x00});
@@ -120,8 +138,10 @@ pub const KimgHeader = extern struct {
         var root: [32]u8 = undefined;
         hasher.final(&root);
         if (!std.mem.eql(u8, &root, &h.root_digest)) {
+            cov.hit(.merkle_mismatch);
             return KimgError.MerkleRootMismatch;
         }
+        cov.hit(.merkle_ok);
     }
 };
 
@@ -220,4 +240,21 @@ test "SEC: гигантский object_count не вешает парсер (DoS
     @memcpy(file[0..128], &b);
     try std.testing.expectError(KimgError.TableOutOfBounds,
         KimgHeader.verifyMerkleRoot(&file, h));
+}
+
+test "KimgHeader.parse: неверный размер заголовка отвергается (BadHeaderSize)" {
+    var b: [128]u8 = [_]u8{0} ** 128;
+    @memcpy(b[0..8], "KIMG\r\n\x1a\n");
+    std.mem.writeInt(u32, b[12..16], 256, .little); // header_size != 128
+    try std.testing.expectError(KimgError.BadHeaderSize, KimgHeader.parse(&b, 512));
+}
+
+test "KimgHeader.parse: payload за границей файла отвергается (PayloadOutOfBounds)" {
+    var b: [128]u8 = [_]u8{0} ** 128;
+    @memcpy(b[0..8], "KIMG\r\n\x1a\n");
+    std.mem.writeInt(u32, b[12..16], 128, .little);
+    std.mem.writeInt(u64, b[32..40], 128, .little); // table offset
+    std.mem.writeInt(u64, b[40..48], 0, .little); // table size
+    std.mem.writeInt(u64, b[56..64], 9999, .little); // payload ЗА файлом
+    try std.testing.expectError(KimgError.PayloadOutOfBounds, KimgHeader.parse(&b, 256));
 }

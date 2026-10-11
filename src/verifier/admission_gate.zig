@@ -104,17 +104,22 @@ pub const AdmissionGate = struct {
         checker: TrustedChecker,
     ) !AdmissionResult {
 
+        const cov = @import("../cov.zig");
+
         // 1. Криптографическая привязка (PC3 Binding Check).
         // Если ИИ поменял код, но подсунул старый сертификат — отказ.
         if (!std.mem.eql(u8, &actual_ast_digest, &cert.target_ast_digest)) {
+            cov.hit(.gate_ast_mismatch);
             return GateError.AstHashMismatch;
         }
         if (!std.mem.eql(u8, &actual_contract_digest, &cert.contract_digest)) {
+            cov.hit(.gate_contract_mismatch);
             return GateError.ContractHashMismatch;
         }
 
         // 2. Проверка доверия к пруверу (битовая маска `1 << checker_id`).
         if (!policy.allows(cert.checker_id)) {
+            cov.hit(.gate_untrusted_checker);
             return GateError.UntrustedChecker;
         }
 
@@ -129,17 +134,26 @@ pub const AdmissionGate = struct {
 
         switch (checker_verdict) {
             .Proved => {
+                cov.hit(.gate_proved);
                 eq2 = .T;
                 e_val = 1; // GATE OPEN
             },
-            .Counterexample => eq2 = .F,
+            .Counterexample => {
+                cov.hit(.gate_counterexample);
+                eq2 = .F;
+            },
             .VacuousPrecondition => {
                 if (policy.require_anti_vacuity) {
+                    cov.hit(.gate_vacuous_policy_violation);
                     return GateError.PolicyViolation; // CONF-04
                 }
+                cov.hit(.gate_vacuous_allowed);
                 eq2 = .N;
             },
-            .Timeout, .Unknown => eq2 = .N, // тайм-аут не является опровержением
+            .Timeout, .Unknown => {
+                cov.hit(.gate_unknown_timeout);
+                eq2 = .N; // тайм-аут не является опровержением
+            },
         }
 
         return AdmissionResult{ .eq2_status = eq2, .e_value = e_val };

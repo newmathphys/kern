@@ -11,6 +11,7 @@
 //! строку, содержащую `(declare-const ...)`, что даёт НЕВАЛИДНЫЙ SMT-LIB2.
 //! Здесь объявления и выражения разделены.
 const std = @import("std");
+const cov = @import("../cov.zig");
 const gate = @import("admission_gate.zig");
 
 pub const SmtStatus = enum { Sat, Unsat, Unknown, Timeout, ToolError };
@@ -82,7 +83,10 @@ pub const Z3Bridge = struct {
         child.stdout_behavior = .Pipe;
         child.stderr_behavior = .Ignore;
 
-        child.spawn() catch return .{ .status = .ToolError, .stdout = &.{} };
+        child.spawn() catch {
+            cov.hit(.z3_tool_error);
+            return .{ .status = .ToolError, .stdout = &.{} };
+        };
 
         // Поток-убийца: если решатель завис — принудительно снимаем по таймауту.
         var kctx = KillCtx{ .child = &child, .done = std.atomic.Value(bool).init(false) };
@@ -122,21 +126,29 @@ pub const Z3Bridge = struct {
         }
         switch (term) {
             .Exited => |code| if (code != 0) {
+                // Сюда попадает и отсутствующий бинарник: Zig 0.13 не сообщает
+                // об ошибке exec в spawn(), потомок выходит с кодом 127.
+                cov.hit(.z3_tool_error);
                 self.allocator.free(stdout_data);
                 return .{ .status = .ToolError, .stdout = &.{} };
             },
             else => {
+                cov.hit(.z3_tool_error);
                 self.allocator.free(stdout_data);
                 return .{ .status = .ToolError, .stdout = &.{} };
             },
         }
 
-        const status: SmtStatus = if (std.mem.startsWith(u8, stdout_data, "sat"))
-            .Sat
-        else if (std.mem.startsWith(u8, stdout_data, "unsat"))
-            .Unsat
-        else
-            .Unknown;
+        const status: SmtStatus = if (std.mem.startsWith(u8, stdout_data, "sat")) blk: {
+            cov.hit(.z3_sat);
+            break :blk .Sat;
+        } else if (std.mem.startsWith(u8, stdout_data, "unsat")) blk: {
+            cov.hit(.z3_unsat);
+            break :blk .Unsat;
+        } else blk: {
+            cov.hit(.z3_unknown);
+            break :blk .Unknown;
+        };
         return .{ .status = status, .stdout = stdout_data };
     }
 

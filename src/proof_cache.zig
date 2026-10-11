@@ -5,6 +5,7 @@
 //! Ключ — sha256(AST || контракт || свидетелль). Экономит повторные вызовы
 //! внешнего решателя (Z3/Lean) — это и есть «экономика токенов/Fuel».
 const std = @import("std");
+const cov = @import("cov.zig");
 const gate = @import("verifier/admission_gate.zig");
 
 pub const ProofCache = struct {
@@ -49,9 +50,11 @@ pub const ProofCache = struct {
         self.mutex.lock();
         defer self.mutex.unlock();
         if (self.map.get(k)) |v| {
+            cov.hit(.cache_hit);
             self.hits += 1;
             return v;
         }
+        cov.hit(.cache_miss);
         self.misses += 1;
         return null;
     }
@@ -64,6 +67,7 @@ pub const ProofCache = struct {
             var it = self.map.keyIterator();
             if (it.next()) |key| {
                 _ = self.map.remove(key.*);
+                cov.hit(.cache_evict);
                 self.evictions += 1;
             }
         }

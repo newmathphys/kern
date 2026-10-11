@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m
 
 help:
 	@echo "make venv        — создать venv и поставить Zig 0.13"
@@ -196,6 +196,39 @@ attest: build attest-key
 # Бенчмарк инвариантов циклов (CHC/Horn, стиль SV-COMP loop-lit / TermCOMP).
 chc-bench:
 	$(ZIG) run src/chc_bench.zig -O ReleaseFast
+
+# ==== DO-178C / ISO 26262: ПОКРЫТИЕ, КВАЛИФИКАЦИЯ, ГЕРМЕТИЧНОСТЬ ====
+
+# Покрытие решений (self-instrumented: Zig 0.13 не умеет LLVM coverage).
+# Печатает отчёт по инструментированным решениям и падает при < 95 %.
+coverage:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -A40 'ПОКРЫТИЕ РЕШЕНИЙ'
+
+# C-ABI: libkern.so + libkern.a + include/kern.h (встраивание без CLI).
+lib:
+	$(ZIG) build lib
+	@echo "[OK] zig-out/lib/libkern.so + zig-out/include/kern.h"
+
+# Демонстрация C-ABI из Python (ctypes).
+capi-demo: lib
+	$(PYTHON) examples/capi_demo.py
+
+# Герметичная статическая сборка (x86_64-linux-musl) + проверка воспроизводимости.
+hermetic:
+	$(ZIG) build hermetic
+	@sha256sum zig-out/bin/kernc-hermetic
+	@file zig-out/bin/kernc-hermetic | cut -c1-90
+
+# Долгоживущая фаззинг-кампания: 1 000 000 мутаций (0 паник — критерий).
+fuzz-1m:
+	$(ZIG) run src/fuzz_ast.zig -O ReleaseFast
+
+# Нормативный пакет Tool Qualification (DO-330 / EAL7).
+cert:
+	@echo "=== TOOL QUALIFICATION PACKAGE ==="
+	@ls -1 formal/certification/
+	@echo
+	@echo "Требований в матрице трассируемости: $$(grep -c '^| TOR-' formal/certification/TRACEABILITY_MATRIX.md)"
 
 # MBPP+ через API (генерация + официальная оценка EvalPlus).
 mbpp: 
