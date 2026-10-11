@@ -23,13 +23,16 @@
 | Path-traversal / NUL-инъекция | TESTED | CONF-13, SEC-03 |
 | Запись запрещена (`AccessDenied`) | TESTED | CONF-06 |
 | Врата Истины: вердикт ТОЛЬКО внешний | TESTED | 0xAA → e=0 |
-| Z3-мост (SMT-LIB2, дочерний процесс) | SMOKE | z3 отсутствует → `ToolError`→`Unknown`→e=0 (graceful) |
+| Z3-мост (SMT-LIB2, дочерний процесс) | **MEASURED** | `z3-solver` установлен; `kernc prove` → **e=1 (ДОКАЗАНО)** и `e=0` (контрпример). Таймаут с потоком-убийцей. Без z3 — graceful `ToolError`→e=0 |
 | KERN-X VM (топливо, HALT, опкоды) | TESTED | OutOfFuel на 10k NOP |
-| Кэш доказательств (AST→вердикт) | TESTED | hits/misses |
-| CLI: build/check-integrity/ls/cat/verify/unify/run/handoff/report | MEASURED | все прогнаны |
+| Кэш доказательств (AST→вердикт) | TESTED | hits/misses, single-flight, eviction |
+| CLI: build/check-integrity/ls/cat/verify/unify/run/handoff/report/audit/prove | MEASURED | все прогнаны |
+| 5 теорий SMT (UNSAT-core, массивы, CHC, строки, CEGIS) | MEASURED | `kernc audit` → 5/5 отработали на реальном Z3 |
+| C-ABI (`libkern.so`, 7 функций) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) и C |
 
-**Числа:** `zig test src/test_root.zig` → **47/47 OK** (Debug И ReleaseFast).
-Эталон `valid_v1_3.kimg` → 410 байт, Merkle совпадает Python↔Zig.
+**Числа:** `zig test src/test_root.zig` → **188/188 OK** (Debug И ReleaseSafe).
+Эталон `valid_v1_3.kimg` → Merkle совпадает Python↔Zig (подтверждено в обе стороны).
+Покрытие решений → **100.0%** (30/30). Мутации → 92.5% (37/40; 3 эквивалентных).
 
 ---
 
@@ -37,14 +40,29 @@
 
 | Файл | Теоремы | Компиляция |
 |:--|:--|:--|
-| `formal/KernAllMath.lean` | де Морган ×2, инволюция, JOIN_K comm/assoc/idem, дистрибутивность, `contradiction_isolation : T⊔F=B`, анти-вакуум, тотальность fuel-DFS | ✅ Lean 4.34.0, **0 ошибок, 0 sorry** (Pure Core) |
-| `formal/KernDfsTermination.lean` | `traversal_terminates`, `fuel_bounded_always_terminates` | ✅ Pure Core |
+| `formal/KernAllMath.lean` | де Морган ×2, инволюция, JOIN_K comm/assoc/idem, дистрибутивность, `contradiction_isolation : T⊔F=B`, анти-вакуум, **`fuel_bounds_influence`** | ✅ Lean 4.34.0, **0 ошибок, 0 sorry** (Pure Core) |
+| `formal/KernDfsTermination.lean` | `traversal_terminates`, **`fuel_bounds_influence`** + своя лемма `foldl_congr_list` | ✅ Pure Core |
 | `formal/KernTalk.lean` | `ai_hallucination_yields_conflict`, `consistent_yields_truth` | ✅ Mathlib (ℝ) |
 | `formal/KernTalkND.lean` | `nd_violation_yields_conflict` (N-мерная унификация) | ✅ Mathlib |
-| `formal/KernConvergence.lean` | СИЛЬНАЯ `convergence_guaranteed` (итерация достигает успеха) + слабая из спеки | ✅ Mathlib |
+| `formal/KernConvergence.lean` | СИЛЬНАЯ `convergence_guaranteed` + `convergence_guaranteed_weak` (настоящее следствие) | ✅ Mathlib |
+| `formal/KernZeroCopy.lean` | `zero_copy_is_lossless`, `slice_subset`, `slice_idempotent` | ✅ Mathlib |
+| `formal/KernSemanticGap.lean` | разрыв ℤ ↔ i32 (8 теорем) | ✅ Mathlib |
 
 **Доказательство:** `./formal/check.sh` → `ALL LEAN PROOFS OK (0 errors, 0 sorry)`.
-**Важно:** в документе теорема `ai_hallucination_yields_conflict` содержала `sorry`
+
+**Честность (исправлено 2026-10-11).** Две теоремы были **ТАВТОЛОГИЯМИ** и
+заменены содержательными:
+* `fuel_bounded_dfs_always_terminates` имела вид `∃ res, f u = res := ⟨_, rfl⟩` —
+  в Lean все функции тотальны, поэтому такая «теорема» верна для ЛЮБОЙ функции
+  и ничего не доказывает. Заменена на `fuel_bounds_influence` (топливо
+  ограничивает зону влияния — реальная индукция).
+* `convergence_guaranteed_weak` доказывалась свидетелем `human_max`
+  (рефлексивность `≤`) и не зависела от `adapt` — теперь это настоящее
+  следствие сильной теоремы.
+* `traversal_terminates` честно помечена как разворот определения
+  (`WellFounded r` ≡ `∀ a, Acc r a`).
+
+Также: в документе теорема `ai_hallucination_yields_conflict` содержала `sorry`
 (заглушку). Здесь она доказана по-настоящему (через `le_max_right`/`min_le_left`).
 
 ---
@@ -139,23 +157,50 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
 
 ## 5. Что НЕ проверено ПО-НАСТОЯЩЕМУ (риски)
 
-1. **Z3-мост**: код запускает `z3` как дочерний процесс, но `z3` в окружении
-   отсутствует → реальное доказательство контракта не прогонялось. Проверено
-   только graceful-поведение (e=0).
-2. **Таймаут решателя**: `timeout_ms` объявлен, но жёсткий таймер не
-   реализован (нет прерывания зависшего Z3) — заявлено честно.
-3. **Docker/K8s/VS Code**: написаны как оболочки, не собирались.
+1. ~~**Z3-мост**~~ — **ЗАКРЫТО 2026-10-11**: установлен `z3-solver`, Врата
+   реально дают `e=1` (ДОКАЗАНО) и `e=0` (контрпример). Осталось: на машинах
+   БЕЗ z3 поведение прежнее (graceful e=0).
+2. ~~**Таймаут решателя**~~ — **ЗАКРЫТО**: жёсткий таймаут с потоком-убийцей
+   (`Z3Bridge`); крах решателя ловится (`z3_crash_test`), KERN жив.
+3. **Docker/K8s/VS Code**: `Dockerfile`, `docker-compose.yml`,
+   `kern-cluster.yaml`, `vscode-kern/` — оболочки, не собирались.
+   (SWE-bench Lite прогонялся в Docker успешно, но это не KERN-инфраструктура.)
 4. **BLAKE3 vs SHA-256**: спецификация называет BLAKE3, реализация — SHA-256
-   (зафиксирован ОДИН алгоритм, иначе рвётся сквозная сверка).
+   (зафиксирован ОДИН алгоритм, иначе рвётся сквозная сверка). Теперь
+   `hash_algo` **валидируется** (1=BLAKE3, 2=SHA-256), но вычисления идут SHA-256.
 5. **`libsqlite3`** — единственная системная зависимость KERN-Next.
+6. **Скорость чтения**: «76 ГБ/с» — это RAW-адресация; безопасное чтение
+   (со сверкой SHA-256) — **231 МБ/с** (330× медленнее). См. METRICS §4.
+7. **Compression**: `compression_codec` зарезервирован, но сжатие не
+   реализовано (ветка `!= 0` недостижима — это и объясняет один «выживший»
+   мутант).
+8. **Тест покрытия** читает глобальные счётчики: при `--test-filter` даёт
+   ложные 0%. `make coverage` запускает полный сьют (корректно).
 
 ---
 
-## 6. Итог
+## 6. Журнал дефектов, найденных аудитом 2026-10-11
+
+| # | Дефект | Класс |
+|:--:|:--|:--|
+| 1 | `KimgHeader.parse` не проверял `major` и `hash_algo` (требует спека) | корректность |
+| 2 | Маска `checker_id`: `@truncate` заворачивал 32→0 (**баг есть и в спеке**) | безопасность |
+| 3 | Поле 20..24 называлось `schema_version` вместо `hash_algo` | сверка со спекой |
+| 4 | `Eq2.encode(p,n)` отсутствовал (публичный API спеки) | полнота API |
+| 5 | 2 Lean-теоремы были **тавтологиями** (`∃ res, f = res`) | честность доказательств |
+| 6 | «51 ГБ/с» выдавалось за скорость чтения (это RAW-адресация) | честность метрик |
+| 7 | Мутатор правил исходники **на месте** (затирал правки, ломал параллель) | инструмент |
+| 8 | Мутатор мутировал **внутри комментариев** → ложные «выжившие» | инструмент |
+| 9 | C-ABI `kern_localize` был **невызываем** (одна строка = и объявления, и формула) | интерфейс |
+| 10 | `kernx build` падал **сырым traceback** вместо понятной ошибки | UX |
+
+---
+
+## 7. Итог
 
 **MEASURED/TESTED:** ядро KIMG (парсер, сборщик, Merkle, KERNFS, Врата,
-KERN-X, кэш) и KERN-Next (парсер, валидатор, SQLite, snapshot, diff, packet,
-report, кэш) — **60 тестов (47+13), все зелёные**.
+KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
+snapshot, diff, packet, report, кэш) — **188 + 25 тестов, все зелёные**.
 
-**FRAMEWORK/NOT IMPL:** облако, WASM, Lean, плагины, bundle, PQC, дашборд —
-это следующий слой; он НЕ заявлен как работающий.
+**FRAMEWORK/NOT IMPL:** облако, WASM, Lean-транспилятор, плагины, bundle,
+PQC, дашборд — это следующий слой; он НЕ заявлен как работающий.
