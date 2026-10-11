@@ -53,9 +53,20 @@ pub fn resolve(allocator: std.mem.Allocator, p: ast.Project) !struct { claims: [
     for (p.claims) |c| {
         for (c.metrics) |m| {
             if (std.mem.eql(u8, m.name, "exit_code")) {
-                // БАГ-ФИКС: NaN/inf из битого входа -> @intFromFloat паникует.
-                if (std.math.isFinite(m.value)) {
+                // БАГ-ФИКС №1: NaN/inf -> @intFromFloat паникует.
+                // 🔴 БАГ-ФИКС №2 (найден построчным аудитом): `isFinite`
+                // НЕ защищает от ОГРОМНЫХ КОНЕЧНЫХ значений! `1e300` —
+                // конечное число, но вне диапазона i64 -> @intFromFloat
+                // ПАНИКУЕТ. Битый .kern ронял инструмент (DoS).
+                // Теперь: вне диапазона i64 — свидетельством НЕ считается
+                // (fail-closed) и о факте сообщается.
+                const in_range = std.math.isFinite(m.value) and
+                    m.value >= -9.2233720368547758e18 and
+                    m.value <= 9.2233720368547758e18;
+                if (in_range) {
                     try exec_q.put(c.id, Bit.ofExit(@intFromFloat(m.value)));
+                } else {
+                    std.debug.print("[!] exit_code вне диапазона i64 ({d}) у '{s}' — свидетельство ИГНОРИРОВАНО\n", .{ m.value, c.id });
                 }
             }
         }
@@ -162,9 +173,18 @@ test "ФИКС: NaN/битая метрика exit_code не паникует" {
         \\claim "c" { status empirical }
         \\claim "exec nan" { status tested metric exit_code = nan }
         \\claim "exec inf" { status tested metric exit_code = inf }
+        \\claim "exec huge" { status tested metric exit_code = 999999999999999999999999999999999999 }
+        \\claim "exec big2" { status tested metric exit_code = 99999999999999999999999999 }
         \\link "claim:c" -> "claim:exec nan" { relation "supported_by" }
         \\link "claim:c" -> "claim:exec inf" { relation "supported_by" }
+        \\link "claim:c" -> "claim:exec huge" { relation "supported_by" }
+        \\link "claim:c" -> "claim:exec big2" { relation "supported_by" }
     ;
     const res = try parser.parse(a, src);
-    _ = try resolve(a, res.project); // раньше: паника @intFromFloat
+    const r = try resolve(a, res.project);
+    // ВСЕ четыре значения негодны как свидетельство -> статус НЕ меняется,
+    // паники @intFromFloat нет (раньше `1e300` РОНЯЛ инструмент).
+    try std.testing.expectEqual(@as(usize, 0), r.stats.to_tested);
+    try std.testing.expectEqual(@as(usize, 0), r.stats.to_refuted);
+    try std.testing.expectEqual(@as(usize, 0), r.stats.to_conflicted);
 }
