@@ -45,8 +45,21 @@ const Digest = struct {
     }
     /// Канонизация: округляем до 1e-12, чтобы исключить разницу порядков
     /// операций с плавающей точкой между уровнями оптимизации.
+    ///
+    /// ЗАЩИТА: `@intFromFloat` ПАНИКУЕТ на NaN/inf и на значениях вне
+    /// диапазона i64 (тот же класс, что DoS в truth.zig). Для нечисловых
+    /// результатов пишем различимую канарейку — она тоже детерминирована.
     fn addF64(self: *Digest, v: f64) void {
-        self.addI64(@intFromFloat(@round(v * 1e12)));
+        if (!std.math.isFinite(v)) {
+            self.addU64(0xDEAD_BEEF_DEAD_BEEF);
+            return;
+        }
+        const scaled = @round(v * 1e12);
+        if (!std.math.isFinite(scaled) or scaled > 9.2233720368547758e18 or scaled < -9.2233720368547758e18) {
+            self.addU64(0xCAFE_BABE_CAFE_BABE);
+            return;
+        }
+        self.addI64(@intFromFloat(scaled));
     }
     fn final(self: *Digest) [32]u8 {
         var out: [32]u8 = undefined;

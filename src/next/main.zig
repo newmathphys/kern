@@ -70,7 +70,8 @@ pub fn main() !void {
             std.debug.print("[!] diff: нужны два снапшота\n", .{});
             return;
         }
-        const d = try engine.diffFiles(alloc, args[2], args[3]);
+        var d = try engine.diffFiles(alloc, args[2], args[3]);
+        defer d.deinit(alloc); // результат diff владеет своими строками
         std.debug.print("[DIFF] +{d} / -{d}\n", .{ d.added.len, d.removed.len });
         for (d.added) |l| std.debug.print("  + {s}\n", .{l});
         for (d.removed) |l| std.debug.print("  - {s}\n", .{l});

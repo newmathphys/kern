@@ -90,8 +90,12 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
 }
 
 pub fn diffFiles(allocator: std.mem.Allocator, a: []const u8, b: []const u8) !snapshot.Diff {
-    const sa = try snapshot.readFile(allocator, a);
-    const sb = try snapshot.readFile(allocator, b);
+    // Оба снапшота освобождаются здесь: результат diff владеет СВОИМИ
+    // строками (см. diffSnapshots), поэтому висячих ссылок не остаётся.
+    var sa = try snapshot.readFile(allocator, a);
+    defer sa.deinit(allocator);
+    var sb = try snapshot.readFile(allocator, b);
+    defer sb.deinit(allocator);
     return snapshot.diffSnapshots(allocator, sa, sb);
 }
 
