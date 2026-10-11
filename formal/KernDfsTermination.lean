@@ -28,7 +28,11 @@ def Step (g : Graph) (v u : NodeId) : Prop := v ∈ g.adj u
 /-- Строгая ацикличность: отношение шага фундировано (нет бесконечных цепей). -/
 def IsAcyclic (g : Graph) : Prop := WellFounded (Step g)
 
-/-- ТЕОРЕМА 7: при фундированности графа обход доказательств завершается. -/
+/-- ТЕОРЕМА 7: при фундированности графа обход доказательств завершается.
+    ФОРМА: `WellFounded r` по определению есть `∀ a, Acc r a`, поэтому теорема
+    верна, но она — РАЗВОРОТ ОПРЕДЕЛЕНИЯ, а не самостоятельный результат.
+    Оставлена как явная фиксация связи «фундированность ⇒ доступность узла»;
+    содержательная гарантия завершения даётся теоремой 9 (граница топлива). -/
 theorem traversal_terminates (g : Graph) (h_acyclic : IsAcyclic g) :
     ∀ start : NodeId, Acc (Step g) start := by
   intro start
@@ -42,9 +46,56 @@ def fuelBoundedEvaluation (g : Graph) (evaluateNode : NodeId → Belnap) :
     let deps := g.adj u
     deps.foldl (fun acc v => andT acc (fuelBoundedEvaluation g evaluateNode fuel v)) T
 
-/-- ТЕОРЕМА 8: обход с топливом тотален — всегда возвращает значение. -/
-theorem fuel_bounded_always_terminates (g : Graph) (eval : NodeId → Belnap)
-    (fuel : Nat) (u : NodeId) :
-    ∃ res : Belnap, fuelBoundedEvaluation g eval fuel u = res := ⟨_, rfl⟩
+/-- Множество узлов, достижимых из `u` за НЕ БОЛЕЕ чем `n` шагов. -/
+def Within (adj : NodeId → List NodeId) : Nat → NodeId → NodeId → Prop
+  | 0, u, v => v = u
+  | n + 1, u, v => v = u ∨ ∃ w, w ∈ adj u ∧ Within adj n w v
+
+/-- Шаг достижимости монотонен по вложению: если `w` достижим из `v` за `n`
+    шагов и `v` — непосредственная зависимость `u`, то `w` достижим из `u`
+    за `n+1` шаг. -/
+theorem Within.step {adj : NodeId → List NodeId} {n v w u : NodeId}
+    (hw : Within adj n v w) (hv : v ∈ adj u) : Within adj (n + 1) u w :=
+  Or.inr ⟨v, hv, hw⟩
+
+/-- Вспомогательная лемма: если две свёртки совпадают поэлементно, то и
+    результаты `foldl` совпадают (при одинаковом начальном аккумуляторе).
+    В Lean Core нет `List.foldl_congr`, поэтому доказываем сами. -/
+theorem foldl_congr_list {α β : Type} (f g : β → α → β) :
+    ∀ (l : List α) (acc : β), (∀ x ∈ l, ∀ a, f a x = g a x) →
+      l.foldl f acc = l.foldl g acc
+  | [], _, _ => rfl
+  | x :: xs, acc, h => by
+    simp only [List.foldl_cons]
+    rw [h x (by simp) acc]
+    exact foldl_congr_list f g xs (g acc x) (fun y hy a => h y (by simp [hy]) a)
+
+/-- ТЕОРЕМА 8 (СОДЕРЖАТЕЛЬНАЯ): ТОПЛИВО ОГРАНИЧИВАЕТ ЗОНУ ВЛИЯНИЯ.
+
+    Если два графа совпадают на ВСЕХ узлах, достижимых из `u` за ≤ `fuel`
+    шагов, то fuel-bounded обход даёт ОДИНАКОВЫЙ результат.
+
+    Это и есть настоящая гарантия предсказуемости: работа с топливом `f`
+    зависит ТОЛЬКО от подграфа высоты `f` — части графа за пределами зоны
+    влияния на результат не влияют. Доказательство — индукция по топливу.
+
+    (Прежняя формулировка `∃ res, f = res` была ТАВТОЛОГИЕЙ: в Lean все
+    функции тотальны, и такая «теорема» верна для ЛЮБОЙ функции.) -/
+theorem fuel_bounds_influence
+    (adj adj' : NodeId → List NodeId) (eval : NodeId → Belnap) (u fuel : NodeId)
+    (h : ∀ v, Within adj fuel u v → adj v = adj' v) :
+    fuelBoundedEvaluation ⟨adj⟩ eval fuel u = fuelBoundedEvaluation ⟨adj'⟩ eval fuel u := by
+  induction fuel generalizing u with
+  | zero => rfl
+  | succ n ih =>
+    simp only [fuelBoundedEvaluation]
+    -- Зависимости узла u совпадают: u достижим из себя за 0 шагов.
+    have hu : adj u = adj' u := h u (Or.inl rfl)
+    rw [hu]
+    -- Поэлементное совпадение свёрток на глубине n.
+    apply foldl_congr_list
+    intro v hv a
+    have hv' : v ∈ adj u := by rw [hu]; exact hv
+    rw [ih v (fun w hw => h w (Within.step hw hv'))]
 
 end Kern

@@ -117,9 +117,49 @@ def FuelBoundedDfs (adj : Nat → List Nat) (eval : Nat → Belnap) : Nat → Na
     let deps := adj u
     deps.foldl (fun acc v => andT acc (FuelBoundedDfs adj eval fuel v)) (eval u)
 
-/-- ТЕОРЕМА: обход с топливом тотален — всегда возвращает значение. -/
-theorem fuel_bounded_dfs_always_terminates
-    (adj : Nat → List Nat) (eval : Nat → Belnap) (fuel u : Nat) :
-    ∃ res : Belnap, FuelBoundedDfs adj eval fuel u = res := ⟨_, rfl⟩
+/-- Узлы, достижимые из `u` за НЕ БОЛЕЕ чем `n` шагов. -/
+def Within (adj : Nat → List Nat) : Nat → Nat → Nat → Prop
+  | 0, u, v => v = u
+  | n + 1, u, v => v = u ∨ ∃ w, w ∈ adj u ∧ Within adj n w v
+
+/-- Шаг достижимости: `w` достижим из `u` за `n+1`, если он достижим за `n`
+    из какой-то непосредственной зависимости `v ∈ adj u`. -/
+theorem Within.step {adj : Nat → List Nat} {n v w u : Nat}
+    (hw : Within adj n v w) (hv : v ∈ adj u) : Within adj (n + 1) u w :=
+  Or.inr ⟨v, hv, hw⟩
+
+/-- Вспомогательная лемма: поэлементное совпадение свёрток ⇒ совпадение foldl. -/
+theorem foldl_congr_list {α β : Type} (f g : β → α → β) :
+    ∀ (l : List α) (acc : β), (∀ x ∈ l, ∀ a, f a x = g a x) →
+      l.foldl f acc = l.foldl g acc
+  | [], _, _ => rfl
+  | x :: xs, acc, h => by
+    simp only [List.foldl_cons]
+    rw [h x (by simp) acc]
+    exact foldl_congr_list f g xs (g acc x) (fun y hy a => h y (by simp [hy]) a)
+
+/-- ТЕОРЕМА (СОДЕРЖАТЕЛЬНАЯ): ТОПЛИВО ОГРАНИЧИВАЕТ ЗОНУ ВЛИЯНИЯ.
+
+    Если два графа совпадают на всех узлах, достижимых из `u` за ≤ `fuel`
+    шагов, то обход с этим топливом даёт ОДИНАКОВЫЙ результат: части графа
+    за пределами зоны влияния на результат НЕ влияют.
+
+    ⚠️ Прежняя формулировка `∃ res, FuelBoundedDfs … = res` была ТАВТОЛОГИЕЙ:
+    в Lean все функции тотальны, поэтому такая «теорема» верна для ЛЮБОЙ
+    функции и ничего не доказывает. Заменена на настоящую индукцию. -/
+theorem fuel_bounds_influence
+    (adj adj' : Nat → List Nat) (eval : Nat → Belnap) (u fuel : Nat)
+    (h : ∀ v, Within adj fuel u v → adj v = adj' v) :
+    FuelBoundedDfs adj eval fuel u = FuelBoundedDfs adj' eval fuel u := by
+  induction fuel generalizing u with
+  | zero => rfl
+  | succ n ih =>
+    simp only [FuelBoundedDfs]
+    have hu : adj u = adj' u := h u (Or.inl rfl)
+    rw [hu]
+    apply foldl_congr_list
+    intro v hv a
+    have hv' : v ∈ adj u := by rw [hu]; exact hv
+    rw [ih v (fun w hw => h w (Within.step hw hv'))]
 
 end KernMath

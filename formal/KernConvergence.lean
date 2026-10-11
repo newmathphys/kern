@@ -32,12 +32,19 @@ theorem convergence_guaranteed (human_max : ℕ) (adapt : ℕ → ℕ)
       rw [Function.iterate_succ_apply]
       exact hk
 
-/-- Исходная (слабая) формулировка из спецификации — как следствие. -/
-theorem convergence_guaranteed_weak (human_max : ℕ) :
-    ∀ _ai_min : ℕ, ∃ _steps : ℕ, ∀ adapt : ℕ → ℕ,
-      (∀ x, x > human_max → adapt x < x) →
-      ∃ final_val : ℕ, isSuccess final_val human_max := by
-  intro _ai_min
-  exact ⟨0, fun _ _ => ⟨human_max, Nat.le_refl _⟩⟩
+/-- Исходная (слабая) формулировка из спецификации — как НАСТОЯЩЕЕ следствие
+    сильной теоремы.
+
+    ⚠️ Прежняя версия доказывала `∃ final_val, isSuccess final_val human_max`
+    свидетелем `final_val = human_max` (рефлексивность `≤`) — то есть была
+    ТРИВИАЛЬНОЙ и НЕ зависела ни от `adapt`, ни от сильной теоремы, хотя была
+    помечена «как следствие». Теперь она действительно ВЫВОДИТСЯ из
+    `convergence_guaranteed`: берём достигнутое значение как свидетель. -/
+theorem convergence_guaranteed_weak (human_max : ℕ) (adapt : ℕ → ℕ)
+    (h_dec : ∀ x, x > human_max → adapt x < x) :
+    ∀ _ai_min : ℕ, ∃ final_val : ℕ, isSuccess final_val human_max := by
+  intro ai_min
+  obtain ⟨steps, hle⟩ := convergence_guaranteed human_max adapt h_dec ai_min
+  exact ⟨(adapt^[steps]) ai_min, hle⟩
 
 end KernConvergence
