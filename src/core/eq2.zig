@@ -18,6 +18,21 @@ pub const Eq2 = enum(u2) {
     F = 2,
     B = 3,
 
+    /// 🔴 СВЕРКА СО СПЕКОЙ: в спецификации есть `Eq2.encode(pos, neg)` —
+    /// каноническое КОДИРОВАНИЕ кванта `code = p | (n << 1)`. У нас функция
+    /// отсутствовала (никто не вызывал, но публичный API спеки был неполон).
+    pub fn encode(pos: u1, neg: u1) Eq2 {
+        return @enumFromInt(@as(u2, pos) | (@as(u2, neg) << 1));
+    }
+
+    /// Псевдонимы имён из спецификации: `p()` и `n()`.
+    pub fn p(self: Eq2) u1 {
+        return self.positive();
+    }
+    pub fn n(self: Eq2) u1 {
+        return self.negative();
+    }
+
     /// Слияние по порядку знаний: JOIN_K(a,b) = (p_a|p_b, n_a|n_b).
     /// Реализовано через побитовое OR — как и требует спецификация (1 такт).
     pub fn joinKnowledge(a: Eq2, b: Eq2) Eq2 {
@@ -98,6 +113,32 @@ test "EQ2: кодировка p | (n << 1)" {
     try std.testing.expectEqual(@as(u2, 1), @intFromEnum(Eq2.T));
     try std.testing.expectEqual(@as(u2, 2), @intFromEnum(Eq2.F));
     try std.testing.expectEqual(@as(u2, 3), @intFromEnum(Eq2.B));
+}
+
+test "🔴 СПЕКА: Eq2.encode(p,n) и псевдонимы p()/n() (полный API спеки)" {
+    // Из спецификации (16.1.7): code = p | (n << 1).
+    try std.testing.expectEqual(Eq2.N, Eq2.encode(0, 0));
+    try std.testing.expectEqual(Eq2.T, Eq2.encode(1, 0));
+    try std.testing.expectEqual(Eq2.F, Eq2.encode(0, 1));
+    try std.testing.expectEqual(Eq2.B, Eq2.encode(1, 1));
+
+    // Псевдонимы p()/n() из спеки совпадают с positive()/negative().
+    for ([_]Eq2{ .N, .T, .F, .B }) |v| {
+        try std.testing.expectEqual(v.positive(), v.p());
+        try std.testing.expectEqual(v.negative(), v.n());
+    }
+    try std.testing.expectEqual(@as(u1, 1), Eq2.F.n());
+    try std.testing.expectEqual(@as(u1, 0), Eq2.F.p());
+
+    // encode/разбор взаимно обратны (полный перебор).
+    // ВНИМАНИЕ: счётчик — u2, а НЕ u1: `pos += 1` при pos=1 переполнил бы u1.
+    for ([_]u1{ 0, 1 }) |pos| {
+        for ([_]u1{ 0, 1 }) |neg| {
+            const e = Eq2.encode(pos, neg);
+            try std.testing.expectEqual(pos, e.p());
+            try std.testing.expectEqual(neg, e.n());
+        }
+    }
 }
 
 test "EQ2: T JOIN F = B (изоляция противоречий)" {

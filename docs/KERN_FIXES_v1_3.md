@@ -130,6 +130,94 @@ $ kernc verify tests/fixtures/valid_v1_3.kimg
 
 ---
 
+## ФИКС 8: заворот маски `checker_id` (уязвимость ЕСТЬ И В САМОЙ СПЕКЕ)
+
+**Где:** `VerificationPolicy.allows()`.
+
+**Было (и в спецификации документа, и в нашем коде):**
+
+```zig
+const checker_mask = @as(u32, 1) << @as(u5, @truncate(cert.checker_id));
+```
+
+`@truncate(checker_id)` (u32 → u5) **заворачивает** индекс: 32 → 0, 64 → 0, …
+То есть недоверенный чекер с `checker_id = 32` получал **права чекера 0**.
+Если политика разрешала checker 0 — «checker 32» проходил Врата Истины.
+
+**Стало:**
+
+```zig
+if (checker_id >= 32) return false;              // fail-closed
+const mask = @as(u32, 1) << @as(u5, @intCast(checker_id));
+```
+
+**Доказательство:** тест `🔴 ФИКС: checker_id >= 32 НЕ получает прав checker 0`
+проверяет `allows(32) = allows(64) = allows(96) = allows(maxInt(u32)) = false`
+даже при `allowed_checkers = 0xFFFFFFFF`.
+
+> ВАЖНО: это дефект **самой спецификации**, а не только реализации. KERN
+> намеренно СТРОЖЕ спеки: то, что спека пропускает, KERN отвергает.
+
+---
+
+## ФИКС 9: парсер `.kimg` пропускал 2 обязательные проверки из спецификации
+
+**Где:** `KimgHeader.parse()`.
+
+Спецификация (раздел `src/core/kimg_reader.zig`) требует:
+
+```zig
+if (header.major != 1) return KimgError.UnsupportedVersion;
+if (header.hash_algo != 1 and header.hash_algo != 2) return KimgError.InvalidHashAlgo;
+```
+
+**Было:** поля читались, но **не проверялись**:
+* образ иной мажорной версии (другой расклад) разбирался по правилам v1 МОЛЧА;
+* образ с произвольным алгоритмом хэша принимался, а диагностика была **ЛОЖНОЙ**
+  («Merkle не совпал» вместо «алгоритм не тот»).
+
+**Стало:** обе проверки добавлены; ошибки `UnsupportedVersion` /
+`InvalidHashAlgo`; поле 20..24 переименовано `schema_version` → `hash_algo`
+(имя из спеки; значения совпадали: 2 = SHA-256).
+
+**Доказательство:** тесты `🔴 СПЕКА: мажорная версия != 1 отвергается` и
+`🔴 СПЕКА: hash_algo вне {1,2} отвергается`.
+
+**Побочно найдено:** 18 тестов падали после добавления проверок — их фикстуры
+собирали заголовок ВРУЧНУЮ и забывали поля. Введён единый конструктор
+`KimgHeader.fillValid()`, исключающий дрейф.
+
+---
+
+## ФИКС 10: отсутствовал `Eq2.encode(p, n)` из спецификации
+
+Публичный API спеки (16.1.7) содержит `Eq2.encode(pos, neg)` (`code = p | (n<<1)`)
+и методы `p()`/`n()`. У нас они отсутствовали (никто не вызывал, но API был
+неполон). Добавлены вместе с псевдонимами и тестом полного перебора.
+
+---
+
+## Подтверждена КРОСС-СОВМЕСТИМОСТЬ Python ↔ Zig
+
+```
+$ kernc check-integrity tests/fixtures/valid_v1_3.kimg   # образ собран Python
+[OK] Целостность: заголовок + Merkle-корень совпали. Эпоха: 1.3, объектов: 2
+
+$ kernc build examples/hello_world.kern -o /tmp/zig_made.kimg   # образ собран Zig
+$ python3 - <<'PY'   # разбор образа на Python
+magic      : b'KIMG\r\n\x1a\n'
+major/minor: 1 3
+header_size: 128 algo: 2
+checksum OK: True
+Merkle OK  : True
+PY
+```
+
+Формат и Merkle-домены (`\x00KIMG-ENTRY-LEAF-V1\x00`,
+`\x00KIMG-MERKLE-ROOT-V1\x00`) совпадают побайтно.
+
+---
+
 ## KERN-Next: критерии готовности (§20) — все 10 выполнены
 
 | # | Критерий | Доказательство |
