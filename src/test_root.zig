@@ -18,6 +18,7 @@ test {
     _ = @import("verifier/admission_gate.zig");
     _ = @import("verifier/z3_bridge.zig");
     _ = @import("verifier/unsat_core.zig");
+    _ = @import("verifier/proof_check.zig");
     _ = @import("verifier/array_theory.zig");
     _ = @import("verifier/chc.zig");
     _ = @import("verifier/string_theory.zig");
