@@ -61,6 +61,28 @@ pub const Z3Bridge = struct {
     allocator: std.mem.Allocator,
     z3_path: []const u8 = "z3",
     timeout_ms: u32 = 5000, // ЖЁСТКИЙ таймаут (поток-убийца), см. executeQuery.
+    /// ИНЪЕКЦИЯ СБОЕВ (только для тестов): вероятность отказа на КАЖДОМ шаге
+    /// взаимодействия с ОС, в процентах (0 = выключено).
+    ///
+    /// ЗАЧЕМ: LD_PRELOAD/strace недоступны (kernc — статический бинарник,
+    /// strace не установлен). Поэтому сбои `pipe`/`spawn`/`read`/`write`
+    /// моделируются ВНУТРИ, и мы проверяем, что мост:
+    ///   • не паникует;
+    ///   • освобождает память и дескрипторы на любом шаге;
+    ///   • возвращает fail-closed `ToolError`.
+    fault_pct: u8 = 0,
+    fault_rng: std.Random.DefaultPrng = std.Random.DefaultPrng.init(0xF0F0),
+    fault_hits: usize = 0,
+
+    /// Решение «уронить ли этот шаг». При fault_pct=0 всегда false.
+    fn fault(self: *Z3Bridge) bool {
+        if (self.fault_pct == 0) return false;
+        if (self.fault_rng.random().uintLessThan(u8, 100) < self.fault_pct) {
+            self.fault_hits += 1;
+            return true;
+        }
+        return false;
+    }
 
     pub fn init(allocator: std.mem.Allocator) Z3Bridge {
         return .{ .allocator = allocator };
@@ -87,6 +109,11 @@ pub const Z3Bridge = struct {
     /// `(get-unsat-core)`, Horn-моделей, `(get-value ...)` и т.п.).
     /// Вызывающий ОБЯЗАН освободить `stdout` (пустой срез освобождать можно).
     pub fn executeCapture(self: *Z3Bridge, smt_script: []const u8) CapturedResponse {
+        // ИНЪЕКЦИЯ СБОЕВ: моделируем отказ на шаге «создание процесса» (EAGAIN).
+        if (self.fault()) {
+            cov.hit(.z3_tool_error);
+            return .{ .status = .ToolError, .stdout = &.{} };
+        }
         var child = std.process.Child.init(&[_][]const u8{ self.z3_path, "-in" }, self.allocator);
         child.stdin_behavior = .Pipe;
         child.stdout_behavior = .Pipe;
@@ -104,13 +131,14 @@ pub const Z3Bridge = struct {
         // навсегда. Теперь fail-closed: без гарантии таймаута НЕ запускаем.
         const killer: std.Thread = std.Thread.spawn(.{}, killAfter, .{ &kctx, self.timeout_ms }) catch {
             cov.hit(.z3_tool_error);
-            _ = child.kill() catch {};
+            // ТА ЖЕ ГОНКА ECHILD, что и в killAfter: Child.kill() пожинает сам.
+            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
             return .{ .status = .ToolError, .stdout = &.{} };
         };
 
         child.stdin.?.writeAll(smt_script) catch {
             kctx.done.store(true, .release);
-            _ = child.kill() catch {};
+            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
             killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
@@ -119,7 +147,8 @@ pub const Z3Bridge = struct {
 
         const stdout_data = child.stdout.?.readToEndAlloc(self.allocator, 4 * 1024 * 1024) catch {
             kctx.done.store(true, .release);
-            _ = child.kill() catch {};
+            // ТА ЖЕ ГОНКА ECHILD, что и в killAfter: Child.kill() пожинает сам.
+            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
             killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
@@ -128,7 +157,8 @@ pub const Z3Bridge = struct {
             // БАГ-ФИКС: при ошибке wait поток-убийца обязан быть остановлен и
             // joined — иначе он держит указатель на стек `kctx` (use-after-free).
             kctx.done.store(true, .release);
-            _ = child.kill() catch {};
+            // ТА ЖЕ ГОНКА ECHILD, что и в killAfter: Child.kill() пожинает сам.
+            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
             killer.join();
             self.allocator.free(stdout_data);
             return .{ .status = .ToolError, .stdout = &.{} };

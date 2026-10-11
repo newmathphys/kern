@@ -174,6 +174,12 @@ pub fn main() !void {
         }
         var bridge = z3b.Z3Bridge.init(alloc);
         bridge.timeout_ms = 2000;
+        // Флаг --timeout-ms N: для ПОЛНОГО свипа банка нужен короткий лимит
+        // (иначе тяжёлые QF_AUFBV съедают всё время). Таймаут — это ЛИМИТ
+        // РЕСУРСА, он учитывается отдельно от расхождений.
+        if (flagValue(args, "--timeout-ms")) |ts| {
+            bridge.timeout_ms = std.fmt.parseInt(u32, ts, 10) catch 2000;
+        }
         if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
             std.debug.print("[!] z3 недоступен (uv pip install z3-solver, .venv/bin в PATH)\n", .{});
             return;

@@ -297,6 +297,14 @@ sim:
 	@echo "--- конкурентность (I5) ---"
 	$(ZIG) run src/sim_test.zig -O ReleaseFast -- --threads 32 --titers 500
 
+# ОС-стресс: пайпы, spawn-флуд, инъекция сбоев (границы «клея с ОС»).
+os-stress:
+	$(ZIG) test src/test_root.zig --test-filter "ОС-СТРЕСС"
+
+# Сигнальный флуд: каскадный штурм сигналами (внешние сигналы во время работы).
+flood:
+	$(PYTHON) tools/os_signal_flood.py
+
 # Независимая проверка выводов Z3 (Python, структурная + гигиена связываний).
 proof-check:
 	$(PYTHON) tools/proof_checker.py
