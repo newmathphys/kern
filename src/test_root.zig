@@ -23,6 +23,11 @@ test {
     _ = @import("verifier/chc.zig");
     _ = @import("verifier/string_theory.zig");
     _ = @import("verifier/cegis.zig");
+    _ = @import("verifier/dtmc.zig");
+    _ = @import("verifier/abstract_interp.zig");
+    _ = @import("verifier/noninterference.zig");
+    _ = @import("verifier/nra_quant.zig");
+    _ = @import("verifier/redos.zig");
     _ = @import("runtime/kern_x.zig");
     _ = @import("proof_cache.zig");
     _ = @import("tests/exhaustive_suite.zig");
@@ -32,6 +37,8 @@ test {
     _ = @import("tests/mcdc_gates_test.zig");
     _ = @import("tests/z3_crash_test.zig");
     _ = @import("tests/smt_incremental_test.zig");
+    _ = @import("tests/litmus_memory_test.zig");
+    _ = @import("concolic.zig");
     // ВАЖНО: отчёт покрытия обязан идти ПОСЛЕДНИМ — он читает счётчики,
     // набранные всеми предыдущими тестами.
     _ = @import("tests/coverage_report_test.zig");

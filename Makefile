@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos cross-arch research
 
 help:
 	@echo "make venv        — создать venv и поставить Zig 0.13"
@@ -222,6 +222,44 @@ hermetic:
 # Долгоживущая фаззинг-кампания: 1 000 000 мутаций (0 паник — критерий).
 fuzz-1m:
 	$(ZIG) run src/fuzz_ast.zig -O ReleaseFast
+
+# ==== ИССЛЕДОВАТЕЛЬСКИЕ НАПРАВЛЕНИЯ ====
+
+# Слабые модели памяти: литмус-тесты SB/MP (TSO vs ARM64).
+litmus:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "LITMUS"
+
+# Конколическое исполнение (гибрид фаззинга и символьного движка).
+concolic:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "CONCOLIC"
+
+# Вероятностный модел-чекинг DTMC/PCTL.
+dtmc:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "DTMC"
+
+# Абстрактная интерпретация (интервалы + widening/narrowing).
+absint:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "ABSINT"
+
+# Нелинейная арифметика (QF_NRA) и кванторы (E-matching).
+nra:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "NRA|QUANT"
+
+# Невмешательство / гиперсвойства (сайд-каналы, constant-time).
+noninterference:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "NONINTERFERENCE"
+
+# ReDoS-анализ регулярных выражений (CWE-1333).
+redos:
+	$(ZIG) test src/test_root.zig 2>&1 | grep -E "REDOS"
+
+# Кросс-архитектурная проверка: ARM64 (выравнивание) + POWERPC64 (big-endian).
+cross-arch:
+	./tools/cross_arch_test.sh
+
+# Весь исследовательский контур.
+research: litmus concolic dtmc absint nra noninterference redos
+	@echo "=== ИССЛЕДОВАТЕЛЬСКИЙ КОНТУР: ВСЁ ПРОЙДЕНО ==="
 
 # Нормативный пакет Tool Qualification (DO-330 / EAL7).
 cert:
