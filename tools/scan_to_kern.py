@@ -21,7 +21,17 @@ EXCLUDE_DIRS = {
     "books", "sites", "images", "_trash", ".models", ".pdfium", "logs",
     ".mypy_cache", ".pytest_cache", "dist", "build",
 }
-SOURCE_EXT = {".py", ".md", ".yaml", ".yml", ".json", ".sh", ".toml", ".cfg", ".ini"}
+# Source extensions that the scanner considers.
+#
+# ДЕФЕКТ (найден при попытке сканировать исходники Zig 0.17.0): в списке
+# НЕ было `.zig` — то есть KERN не видел файлы на ЯЗЫКЕ, НА КОТОРОМ САМ
+# НАПИСАН. Сканирование `/tmp/z170/.../lib` (885 .zig) дало 2 артефакта.
+# Добавлены также C/C++/Rust/TS/Lean — для анализа чужих репозиториев.
+SOURCE_EXT = {
+    ".py", ".md", ".yaml", ".yml", ".json", ".sh", ".toml", ".cfg", ".ini",
+    ".zig", ".lean", ".c", ".h", ".cpp", ".rs", ".ts", ".js",
+}
+
 
 
 def sha256(path: str) -> str:
