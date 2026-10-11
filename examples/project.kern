@@ -4,7 +4,7 @@ project "AI-Connector" {
   root "."
 }
 
-artifact "src/main.rs" {
+artifact "examples/ai_connector/src/main.rs" {
   kind "source"
   hash "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
@@ -37,7 +37,7 @@ module "database_catalog" {
   ensure "no secret values stored"
 }
 
-link "claim:throughput improved" -> "artifact:src/main.rs" {
+link "claim:throughput improved" -> "artifact:examples/ai_connector/src/main.rs" {
   relation "supported_by"
 }
 
