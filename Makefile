@@ -11,13 +11,25 @@ OUT      ?= .kernnext
 .PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos cross-arch research binlevel probe
 
 help:
-	@echo "make venv        — создать venv и поставить Zig 0.13"
-	@echo "make golden      — собрать эталонный образ .kimg v1.3"
-	@echo "make build       — собрать kernc / kern-attack / kernx"
-	@echo "make test        — тесты ядра (47)"
-	@echo "make test-next   — тесты KERN-Next (13)"
-	@echo "make demo        — сквозная демонстрация (kernc + kernx)"
-	@echo "make docker      — собрать Docker-образ"
+	@echo "KERN — цели Makefile"
+	@echo ""
+	@echo "Основные:"
+	@echo "  make venv        — создать venv и поставить Zig 0.13"
+	@echo "  make golden      — собрать эталонный образ .kimg v1.3"
+	@echo "  make build       — собрать kernc / kern-attack / kernx"
+	@echo "  make test        — тесты ядра (188)"
+	@echo "  make test-next   — тесты KERN-Next (25)"
+	@echo "  make demo        — сквозная демонстрация (kernc + kernx)"
+	@echo "  make coverage    — покрытие инструментированных решений"
+	@echo "  make mutate      — мутационное тестирование (работает на копии)"
+	@echo "  make perf        — производительность (.kimg, оба пути чтения)"
+	@echo "  make test-all    — полный контур проверок"
+	@echo "  make formal-ci   — ядро + Lean + бенчмарки"
+	@echo "  make echelons    — 4 эшелона финального штурма"
+	@echo ""
+	@echo "Все цели ($$(grep -cE '^[a-z][a-z0-9_-]*:' Makefile)):"
+	@grep -oE '^[a-z][a-z0-9_-]*:' Makefile | tr -d ':' | sort | column -c 96 2>/dev/null || \
+	 grep -oE '^[a-z][a-z0-9_-]*:' Makefile | tr -d ':' | sort | tr '\n' ' '
 
 venv:
 	uv venv $(VENV)
