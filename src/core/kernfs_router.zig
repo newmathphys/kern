@@ -99,6 +99,23 @@ pub const KernFS = struct {
         return sl;
     }
 
+    /// СЫРОЙ zero-copy срез БЕЗ сверки SHA-256.
+    ///
+    /// ⚠️ БЕЗОПАСНОСТЬ: НЕ проверяет целостность содержимого. Использовать
+    /// ТОЛЬКО для замеров производительности (perf_bench) и для внутренних
+    /// путей, где образ уже проверен целиком (`kernc check-integrity`).
+    /// Для чтения данных пользователем — `objectPayload` (с проверкой).
+    pub fn objectPayloadRaw(self: KernFS, obj: ObjectEntry) KernFsError![]const u8 {
+        const size: u64 = if (obj.compression_codec != 0)
+            obj.compressed_size
+        else
+            obj.uncompressed_size;
+        const end = std.math.add(u64, obj.payload_offset, size) catch
+            return KernFsError.FileNotFound;
+        if (end > self.payload_region.len) return KernFsError.FileNotFound;
+        return self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];
+    }
+
     /// Объект имеет путь, если выставлен бит 1 флагов и смещение пути не
     /// 0xFFFFFFFF (иначе объекта с путём нет).
     fn hasPath(obj: ObjectEntry) bool {

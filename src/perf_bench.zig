@@ -59,7 +59,7 @@ pub fn main() !void {
     t.reset();
     var bytes: usize = 0;
     for (fs.objects) |obj| {
-        const sl = try fs.objectPayload(obj);
+        const sl = try fs.objectPayloadRaw(obj); // чистый zero-copy, без хеша
         bytes += sl.len;
     }
     const t_read = t.read();
@@ -77,10 +77,38 @@ pub fn main() !void {
     std.debug.print("{s:<40} | {d:.3} ms\n", .{ "парсинг 128-байт заголовка", ms(t_parse) });
     std.debug.print("{s:<40} | {d:.3} ms\n", .{ "Merkle-корень (10000 листьев)", ms(t_merkle) });
     std.debug.print("{s:<40} | {d:.3} ms\n", .{ "монтирование (разбор таблицы)", ms(t_mount) });
-    std.debug.print("{s:<40} | {d:.3} ms\n", .{ "чтение всех объектов (zero-copy)", ms(t_read) });
-    std.debug.print("\nОбраз: {d} байт; прочитано payload: {d} байт\n", .{ data.len, bytes });
+    std.debug.print("{s:<40} | {d:.3} ms\n", .{ "чтение ВСЕХ объектов (raw-срез)", ms(t_read) });
+
+    // ЗАЧЕМ ДВА ЗАМЕРА: `objectPayload` теперь СВЕРЯЕТ SHA-256 содержимого с
+    // digest дескриптора (защита от подмены payload — ФИКС безопасности).
+    // Поэтому честный путь чтения включает хеш. Замеряем ОБА:
+    //   • raw-срез   — стоимость адресации без проверки (теоретический максимум);
+    //   • с проверкой — реальная стоимость безопасного чтения.
+    // Раньше в отчётах фигурировало только число из RAW-замера, из-за чего
+    // заявлялось «51 ГБ/с», а фактическое безопасное чтение шло со скоростью
+    // порядка сотен МБ/с (SHA-256 ~1.5 ГБ/с на этом CPU). Расхождение
+    // устранено: документируются ОБА числа.
+    var timer2 = try std.time.Timer.start();
+    var ver_bytes: usize = 0;
+    var mismatches: usize = 0;
+    for (fs.objects) |obj| {
+        const sl = fs.objectPayload(obj) catch {
+            mismatches += 1;
+            continue;
+        };
+        ver_bytes += sl.len;
+    }
+    const t_ver = timer2.read();
+
+    std.debug.print("{s:<40} | {d:.3} ms\n", .{ "чтение + сверка SHA-256 (безопасное)", ms(t_ver) });
+
+    std.debug.print("\nОбраз: {d} байт; прочитано payload: {d} байт; несовпадений: {d}\n", .{ data.len, bytes, mismatches });
     if (t_read > 0) {
         const mbps = (@as(f64, @floatFromInt(bytes)) / (1 << 20)) / (ms(t_read) / 1000.0);
-        std.debug.print("Скорость zero-copy чтения: {d:.1} МБ/с\n", .{mbps});
+        std.debug.print("RAW zero-copy (адресация без проверки): {d:.1} МБ/с\n", .{mbps});
+    }
+    if (t_ver > 0) {
+        const mbps = (@as(f64, @floatFromInt(ver_bytes)) / (1 << 20)) / (ms(t_ver) / 1000.0);
+        std.debug.print("Безопасное чтение (+SHA-256):           {d:.1} МБ/с\n", .{mbps});
     }
 }
