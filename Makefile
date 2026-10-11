@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos cross-arch research
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos cross-arch research binlevel probe
 
 help:
 	@echo "make venv        — создать venv и поставить Zig 0.13"
@@ -260,6 +260,15 @@ cross-arch:
 # Весь исследовательский контур.
 research: litmus concolic dtmc absint nra noninterference redos
 	@echo "=== ИССЛЕДОВАТЕЛЬСКИЙ КОНТУР: ВСЁ ПРОЙДЕНО ==="
+
+# BINARY-LEVEL SOUNDNESS: дифференциальный translation validation +
+# constant-time на ассемблере + дизассемблирование финального бинарника.
+binlevel:
+	./tools/binlevel_verify.sh
+
+# Только семантический зонд (дайджест одного уровня оптимизации).
+probe:
+	$(ZIG) run src/semantic_probe.zig -O ReleaseFast
 
 # Нормативный пакет Tool Qualification (DO-330 / EAL7).
 cert:
