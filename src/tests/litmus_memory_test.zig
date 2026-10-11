@@ -14,7 +14,16 @@
 //! корректных барьерах памяти (`SeqCst`/`release`+`acquire`).
 const std = @import("std");
 
-const ITER: usize = 3_000; // компромисс: значимо и для эмуляции (QEMU) достаточно быстро
+/// Число итераций. Под эмуляцией (QEMU) потоки идут в 10–50 раз медленнее,
+/// поэтому кросс-архитектурный прогон выставляет KERN_FAST=1 и получает
+/// уменьшенное, но всё ещё значимое число итераций.
+var g_iter: usize = 0;
+fn iters() usize {
+    if (g_iter == 0) {
+        g_iter = if (std.posix.getenv("KERN_FAST") != null) 200 else 3_000;
+    }
+    return g_iter;
+}
 
 /// SB (Store Buffering): x=1; r1=y  ||  y=1; r2=x
 /// Модель SC: r1=r2=0 НЕВОЗМОЖНО. TSO/ARM: возможно без барьеров.
@@ -49,26 +58,26 @@ fn sbTest(comptime order: std.builtin.AtomicOrder) [2]bool {
 test "LITMUS SB: SeqCst НЕ допускает исход r1=r2=0 (запрещён моделью SC)" {
     var forbidden: usize = 0;
     var i: usize = 0;
-    while (i < ITER) : (i += 1) {
+    while (i < iters()) : (i += 1) {
         const r = sbTest(.seq_cst);
         if (r[0] and r[1]) forbidden += 1;
     }
-    std.debug.print("\n[LITMUS SB/SeqCst] запрещённый исход r1=r2=0: {d} из {d}\n", .{ forbidden, ITER });
+    std.debug.print("\n[LITMUS SB/SeqCst] запрещённый исход r1=r2=0: {d} из {d}\n", .{ forbidden, iters() });
     try std.testing.expectEqual(@as(usize, 0), forbidden);
 }
 
 test "LITMUS SB: relaxed — исход возможен на слабой модели (отчёт, не приговор)" {
     var observed: usize = 0;
     var i: usize = 0;
-    while (i < ITER) : (i += 1) {
+    while (i < iters()) : (i += 1) {
         const r = sbTest(.monotonic);
         if (r[0] and r[1]) observed += 1;
     }
     // На x86 (TSO) обычно 0 — переупорядочивание ограничено. На ARM64 возможен.
     // Тест НЕ падает: он фиксирует факт для конкретной платформы.
     std.debug.print("[LITMUS SB/relaxed] r1=r2=0 наблюдён: {d} из {d} " ++
-        "(0 на x86/TSO; >0 возможно на ARM64)\n", .{ observed, ITER });
-    try std.testing.expect(observed <= ITER);
+        "(0 на x86/TSO; >0 возможно на ARM64)\n", .{ observed, iters() });
+    try std.testing.expect(observed <= iters());
 }
 
 /// MP (Message Passing): x=1; flag=1  ||  r1=flag; r2=x
@@ -106,24 +115,24 @@ fn mpTest(comptime st_ord: std.builtin.AtomicOrder, comptime ld_ord: std.builtin
 test "LITMUS MP: release/acquire НЕ допускает «флаг без данных»" {
     var violations: usize = 0;
     var i: usize = 0;
-    while (i < ITER) : (i += 1) {
+    while (i < iters()) : (i += 1) {
         if (mpTest(.release, .acquire)) violations += 1;
     }
-    std.debug.print("[LITMUS MP/rel-acq] нарушение (flag=1, data=0): {d} из {d}\n", .{ violations, ITER });
+    std.debug.print("[LITMUS MP/rel-acq] нарушение (flag=1, data=0): {d} из {d}\n", .{ violations, iters() });
     try std.testing.expectEqual(@as(usize, 0), violations);
 }
 
 test "LITMUS MP: relaxed ДОПУСКАЕТ нарушение (обоснование барьеров в KERN)" {
     var violations: usize = 0;
     var i: usize = 0;
-    while (i < ITER) : (i += 1) {
+    while (i < iters()) : (i += 1) {
         if (mpTest(.monotonic, .monotonic)) violations += 1;
     }
     // Именно поэтому ProofCache/SolverPool используют acquire/release,
     // а НЕ relaxed. Здесь фиксируем, что relaxed барьеров не даёт.
     std.debug.print("[LITMUS MP/relaxed] нарушение наблюдено: {d} из {d} " ++
-        "(вот почему в KERN стоят acquire/release)\n", .{ violations, ITER });
-    try std.testing.expect(violations <= ITER);
+        "(вот почему в KERN стоят acquire/release)\n", .{ violations, iters() });
+    try std.testing.expect(violations <= iters());
 }
 
 test "LITMUS: аксиоматика — допустимые исходы SC/TSO для SB" {

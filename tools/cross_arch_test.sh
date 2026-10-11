@@ -30,7 +30,9 @@ run_arch() { # $1 = zig target, $2 = qemu arch, $3 = описание
   ( cd "$ROOT" && "$ZIG" test src/test_root.zig -target "$target" -femit-bin="$bin" ) >/dev/null 2>&1
   if [ ! -x "$bin" ]; then echo "  [SKIP] сборка не удалась"; return; fi
   local q; q="$(fetch_qemu "$qarch")"
-  local out; out="$("$q" "$bin" 2>&1 | tail -3)"
+  # KERN_FAST=1: под эмуляцией потоки/таймеры идут в 10-50 раз медленнее,
+  # поэтому стрессовые итерации (литмус, замеры времени) уменьшаются.
+  local out; out="$(KERN_FAST=1 "$q" "$bin" 2>&1 | tail -3)"
   echo "$out" | sed 's/^/  /'
 }
 
