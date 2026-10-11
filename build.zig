@@ -31,6 +31,15 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(atk);
 
+    // Общий модуль авторства/аттестации: нужен и ядру (src/), и KERN-Next
+    // (src/next/). Прямой `@import("../owner.zig")` невозможен — файл вне
+    // корня модуля. Поэтому отдаём его как именованный модуль.
+    const owner_module = b.createModule(.{
+        .root_source_file = b.path("src/owner.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     // KERN-Next: движок проекта (`kernx`). Требует libc + libsqlite3 (§9).
     const kernx = b.addExecutable(.{
         .name = "kernx",
@@ -38,6 +47,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    kernx.root_module.addImport("owner", owner_module);
     kernx.linkLibC();
     kernx.linkSystemLibrary("sqlite3");
     b.installArtifact(kernx);

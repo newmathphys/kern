@@ -104,6 +104,18 @@ pub fn main() !void {
             }
             std.debug.print("  диагностик: {d} (ошибок: {d})\n", .{ diags.len, validate.countErrors(diags) });
             std.debug.print("  резолюция исполнений: N->T {d}, N->F {d}, N->B(конфликт) {d}\n", .{ resolved.stats.to_tested, resolved.stats.to_refuted, resolved.stats.to_conflicted });
+
+            // --auth: проверка авторства («ключ-замок» Ed25519, вшитый в бинарник).
+            if (hasFlag(args, "--auth")) {
+                const owner = @import("owner");
+                if (owner.verifyOwnership()) {
+                    std.debug.print("\n[АВТОРСТВО] ПОДТВЕРЖДЕНО: {s}\n", .{owner.AUTHOR});
+                    std.debug.print("  ключ-замок Ed25519 : ВАЛИДЕН\n", .{});
+                    std.debug.print("  токен владельца    : {s}\n", .{owner.OWNER_TOKEN_HEX});
+                } else {
+                    std.debug.print("\n[АВТОРСТВО] НЕ ПОДТВЕРЖДЕНО (ключ-замок не совпал)\n", .{});
+                }
+            }
         } else if (std.mem.eql(u8, cmd, "report")) {
             try exp.writeReport(alloc, "report.md", project, diags);
             std.debug.print("[OK] report.md\n\n", .{});
