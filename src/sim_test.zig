@@ -83,6 +83,89 @@ fn countUnchanged(fs: KernFS, originals: []const []const u8) usize {
     return same;
 }
 
+/// ---------------------------------------------------------------------------
+/// КОНКУРЕНТНОСТЬ (I5): N потоков одновременно монтируют и читают ОДИН образ.
+///
+/// ИНВАРИАНТ I5: параллельное чтение не должно давать паник, гонок или
+/// расхождений — результат каждого потока обязан совпасть с эталоном.
+/// ---------------------------------------------------------------------------
+const Shared = struct {
+    img: []const u8,
+    originals: []const []const u8,
+    /// Нарушения, замеченные потоками (atomic — без гонки на счётчике).
+    mismatches: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    panics: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+    reads: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
+};
+
+fn worker(sh: *Shared, iters: usize) void {
+    var i: usize = 0;
+    while (i < iters) : (i += 1) {
+        // Каждый поток монтирует СВОЮ копию метаданных поверх общего буфера.
+        var fs = KernFS.mountFromBytes(std.heap.page_allocator, sh.img) catch {
+            _ = sh.panics.fetchAdd(1, .monotonic);
+            continue;
+        };
+        defer fs.deinit();
+        for (fs.objects, 0..) |obj, idx| {
+            if (fs.objectPayload(obj)) |sl| {
+                _ = sh.reads.fetchAdd(1, .monotonic);
+                if (idx < sh.originals.len and
+                    !std.mem.eql(u8, sl, sh.originals[idx]))
+                {
+                    _ = sh.mismatches.fetchAdd(1, .monotonic);
+                }
+            } else |_| {
+                _ = sh.panics.fetchAdd(1, .monotonic);
+            }
+        }
+    }
+}
+
+fn runConcurrent(alloc: std.mem.Allocator, threads: usize, iters: usize) !void {
+    // Готовим ОДИН образ (детерминированно) и эталон содержимого.
+    var b = Builder.init(alloc);
+    defer b.deinit();
+    var payload: [128]u8 = undefined;
+    var prng = std.Random.DefaultPrng.init(0xC0FFEE);
+    const rnd = prng.random();
+    var originals = std.ArrayList([]const u8).init(alloc);
+    defer originals.deinit();
+    var k: usize = 0;
+    while (k < 8) : (k += 1) {
+        const len = rnd.intRangeAtMost(usize, 1, 64);
+        rnd.bytes(payload[0..len]);
+        const content = try alloc.dupe(u8, payload[0..len]);
+        var nb: [24]u8 = undefined;
+        try b.addSource(try std.fmt.bufPrint(&nb, "c{d}.bin", .{k}), content);
+        try originals.append(content);
+    }
+    var img = std.ArrayList(u8).init(alloc);
+    defer img.deinit();
+    try b.buildBytes(&img);
+
+    var sh = Shared{ .img = img.items, .originals = originals.items };
+    const ths = try alloc.alloc(std.Thread, threads);
+    defer alloc.free(ths);
+    var t: usize = 0;
+    while (t < threads) : (t += 1) ths[t] = try std.Thread.spawn(.{}, worker, .{ &sh, iters });
+    for (ths) |th| th.join();
+
+    const reads = sh.reads.load(.monotonic);
+    const bad = sh.mismatches.load(.monotonic);
+    const pan = sh.panics.load(.monotonic);
+    std.debug.print("  потоков {d} × итераций {d}: чтений {d}, расхождений {d}, сбоев {d}\n",
+        .{ threads, iters, reads, bad, pan });
+    std.debug.print("ИНВАРИАНТ I5 (гонки/расхождения при параллельном чтении): {d}",
+        .{bad + pan});
+    if (bad + pan == 0) {
+        std.debug.print("  -> OK\n", .{});
+    } else {
+        std.debug.print("  -> НАРУШЕН!\n", .{});
+        std.process.exit(1);
+    }
+}
+
 fn runSeed(alloc: std.mem.Allocator, seed: u64, ops: usize) !Stats {
     var prng = std.Random.DefaultPrng.init(seed);
     const rnd = prng.random();
@@ -240,6 +323,8 @@ pub fn main() !void {
     var seed: u64 = 0xDEADBEEF;
     var ops: usize = 20_000;
     var seeds_list: ?[]const u8 = null;
+    var nthreads: usize = 0;
+    var titers: usize = 200;
 
     var i: usize = 1;
     while (i < argv.len) : (i += 1) {
@@ -252,7 +337,20 @@ pub fn main() !void {
         } else if (std.mem.eql(u8, argv[i], "--seeds") and i + 1 < argv.len) {
             seeds_list = argv[i + 1];
             i += 1;
+        } else if (std.mem.eql(u8, argv[i], "--threads") and i + 1 < argv.len) {
+            nthreads = try std.fmt.parseInt(usize, argv[i + 1], 0);
+            i += 1;
+        } else if (std.mem.eql(u8, argv[i], "--titers") and i + 1 < argv.len) {
+            titers = try std.fmt.parseInt(usize, argv[i + 1], 0);
+            i += 1;
         }
+    }
+
+    // Режим конкурентности: N потоков на одном образе (инвариант I5).
+    if (nthreads > 0) {
+        std.debug.print("\n=== KERN: КОНКУРЕНТНОСТЬ (I5) ===\n", .{});
+        try runConcurrent(alloc, nthreads, titers);
+        return;
     }
 
     std.debug.print("\n=== KERN ДЕТЕРМИНИРОВАННЫЙ СИМУЛЯТОР (VOPR-стиль) ===\n", .{});

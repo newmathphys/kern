@@ -291,9 +291,29 @@ probe:
 	$(ZIG) run src/semantic_probe.zig -O ReleaseFast
 
 # Детерминированный симуляционный тест (VOPR-стиль, как TigerBeetle).
-# Тот же сид → та же история на любой машине. Инварианты I1-I4.
+# Тот же сид → та же история на любой машине. Инварианты I1-I4 + I5 (гонки).
 sim:
 	$(ZIG) run src/sim_test.zig -O ReleaseFast -- --seeds 1,2,3,0xDEADBEEF --ops 20000
+	@echo "--- конкурентность (I5) ---"
+	$(ZIG) run src/sim_test.zig -O ReleaseFast -- --threads 32 --titers 500
+
+# Независимая проверка выводов Z3 (Python, структурная + гигиена связываний).
+proof-check:
+	$(PYTHON) tools/proof_checker.py
+
+# Diff-Disasm: ассемблер Debug vs ReleaseFast — не вырезал ли оптимизатор
+# критические проверки (защита от Dead Code Elimination).
+disasm:
+	$(PYTHON) tools/diff_disasm.py
+
+# SLSA Provenance: аттестат цепочки сборки (бинарник ↔ коммит ↔ команда).
+slsa:
+	$(PYTHON) tools/slsa_provenance.py --no-build
+	@$(PYTHON) tools/slsa_provenance.py --check
+
+# Design by Contract: контракты @deal -> SMT-LIB -> вердикт Z3.
+deal:
+	$(PYTHON) tools/deal_contracts.py
 
 # Нормативный пакет Tool Qualification (DO-330 / EAL7).
 cert:
