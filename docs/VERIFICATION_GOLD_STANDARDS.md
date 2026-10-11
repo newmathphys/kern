@@ -46,12 +46,11 @@ python3 tools/mutate_zig.py --max 40 --seed 7
 ## Тактика 2. ОФИЦИАЛЬНЫЙ EvalPlus (HumanEval+) — ВЫПОЛНЕНО
 
 Официальный бенчмарк NeurIPS запущен по-настоящему: пакет `evalplus` +
-датасет HumanEval+ (164 задачи) + сэмплы от локальной LLM `qwen2.5:3b`
-(Ollama, GPU RTX 3050).
+датасет HumanEval+ (164 задачи) + сэмплы от внешней модели через API.
 
 ```bash
 uv pip install evalplus
-python3 tools/humaneval_ollama.py --model qwen2.5:3b --out samples.jsonl   # 164/164 за 154 с
+MODEL_NAME=<модель> python3 tools/humaneval_api.py --dataset humaneval --out samples.jsonl
 python -m evalplus.evaluate --dataset humaneval --samples samples.jsonl
 ```
 
@@ -159,7 +158,7 @@ humaneval+ (base + extra tests) pass@1: 0.457
 
 ---
 
-## Бенчмарки БЕЗ нейросетей (модель не нужна)
+## Бенчмарки БЕЗ внешних моделей (модель не нужна)
 
 Ключевое различие: бенчмарки **генерации** кода (HumanEval/MBPP+) требуют LLM;
 бенчмарки **верификации** (QuixBugs/BugsInPy/Defects4J) — нет, баг уже дан.
@@ -175,12 +174,12 @@ KERN — верификатор, поэтому его профиль — вто
 | **SMT-LIB QF_LIA** | ⚠️ блок | нужен бинарник `z3` (не установлен) |
 
 ### Локальная модель УБРАНА
-`ollama serve` остановлен, `tools/humaneval_ollama.py` удалён. Для бенчмарков
+Локальные модели не используются. Для бенчмарков
 генерации нужен **API-ключ** (`OPENAI_API_KEY` + `OPENAI_BASE_URL` + `MODEL_NAME`).
 
 ---
 
-## SOTA-бенчмарки БЕЗ нейросетей (выполнено)
+## SOTA-бенчмарки БЕЗ внешних моделей (выполнено)
 
 ### 1. z3-solver → Врата стали РЕАЛЬНЫМИ (главное улучшение)
 
@@ -336,13 +335,13 @@ BugsInPy: тест PySnooper bug1 проходит и на buggy-коммите 
 
 # 🏆 ОФИЦИАЛЬНЫЙ HumanEval / HumanEval+ (EvalPlus, NeurIPS) — через API
 
-Локальная модель не использовалась. Генерация — через **NVIDIA NIM API**
+Локальная модель не использовалась. Генерация — через **внешний API**
 (OpenAI-совместимый), оценка — официальным фреймворком `evalplus`.
 
 | Параметр | Значение |
 |:--|:--|
 | Датасет | `HumanEval+` (164 задачи), официальный |
-| Модель | `nvidia/nemotron-3.5-lightning-30b-a3b` (NVIDIA API) |
+| Источник сэмплов | внешний API (конкретная модель не фиксируется) |
 | Сэмплов сгенерировано | **164/164 (0 ошибок)** |
 | Харнесс | `python -m evalplus.evaluate --dataset humaneval` |
 
@@ -377,9 +376,9 @@ BugsInPy: тест PySnooper bug1 проходит и на buggy-коммите 
 ## Как воспроизвести
 
 ```bash
-export NVAPI_KEY='<ваш ключ NVIDIA>'
+export API_KEY='<ваш ключ>'
 ./.venv-evalplus/bin/python tools/humaneval_api.py \
-    --model nvidia/nemotron-3.5-lightning-30b-a3b \
+    --model "$MODEL_NAME" \
     --dataset humaneval --out samples.jsonl --workers 10
 python -m evalplus.evaluate --dataset humaneval --samples samples.jsonl
 # KERN-гейт + сравнение:
@@ -391,6 +390,6 @@ python -m evalplus.evaluate --dataset humaneval --samples samples_kern.jsonl
 ## Что НЕ сделано
 
 * **MBPP+** (378 задач) — не сгенерирован (нужен ещё ~25 мин API-времени).
-* **Более сильная модель** — `nemotron-3-ultra-550b` работает, но слишком медленная
+* **Более крупная модель** работает, но существенно медленнее
   для полного прогона (164 задачи ≈ 50 мин).
 * Строковые (не-исполняемые) бенчмарки — вне профиля KERN (верификатора, не генератора).

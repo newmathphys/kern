@@ -55,7 +55,7 @@ def main():
 
     src = Path(args.samples)
     if not src.exists():
-        print(f"[!] нет файла сэмплов {src}. Сначала: python3 tools/humaneval_ollama.py")
+        print(f"[!] нет файла сэмплов {src}. Сначала: MODEL_NAME=<модель> python3 tools/humaneval_api.py")
         sys.exit(1)
 
     out = Path(args.out_dir); out.mkdir(exist_ok=True)

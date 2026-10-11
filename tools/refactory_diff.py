@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Refactory: ДИФФЕРЕНЦИАЛЬНАЯ верификация БЕЗ нейросетей.
+"""Refactory: ДИФФЕРЕНЦИАЛЬНАЯ верификация БЕЗ внешних моделей.
 
 reference.py = СПЕЦИФИКАЦИЯ. Для каждого кандидата (wrong/ и correct/):
   * сравниваем выход с эталоном на множестве входов;
@@ -130,7 +130,7 @@ def main():
         cpct = f"{tc-dc}/{tc}" if tc else "-"
         print(f"{q.name:<12} | {"+".join(kinds):<12} | {wpct:<18} | {cpct:<22}", flush=True)
     print("-" * 78)
-    print(f"\n📊 Refactory (БЕЗ нейросетей):")
+    print(f"\n📊 Refactory (БЕЗ внешних моделей):")
     print(f"  Багованных (wrong) поймано:        {det_w}/{tot_w} ({det_w/tot_w*100:.1f}%)" if tot_w else "  wrong: нет")
     print(f"  Корректных (correct) подтверждено: {ok_c}/{tot_c} ({ok_c/tot_c*100:.1f}%)" if tot_c else "  correct: нет")
 

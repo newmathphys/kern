@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Генерация сэмплов для ОФИЦИАЛЬНОГО EvalPlus через API (NVIDIA, OpenAI-совместимый).
+"""Генерация сэмплов для ОФИЦИАЛЬНОГО EvalPlus через внешний API (OpenAI-совместимый).
 
 Формат сэмпла: {"task_id": "HumanEval/N", "completion": "<продолжение>"}.
 Полная программа = problem["prompt"] + completion.
@@ -12,8 +12,8 @@ import sys
 import time
 import urllib.request
 
-BASE = os.environ.get("API_BASE", "https://integrate.api.nvidia.com/v1")
-KEY = os.environ.get("NVAPI_KEY", "")
+BASE = os.environ.get("API_BASE", "")  # задайте API_BASE=<endpoint>/v1
+KEY = os.environ.get("API_KEY", "")
 
 SYS = ("You are an expert Python programmer. Complete the given function. "
        "Output ONLY the Python code (no markdown fences, no explanation).")
@@ -100,7 +100,7 @@ def gen(model: str, prompt: str, entry: str, max_tokens: int,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="nvidia/nemotron-3-ultra-550b-a55b")
+    ap.add_argument("--model", default=os.environ.get("MODEL_NAME", ""))
     ap.add_argument("--dataset", default="humaneval", choices=["humaneval", "mbpp"])
     ap.add_argument("--out", default="samples_api.jsonl")
     ap.add_argument("--limit", type=int, default=0)

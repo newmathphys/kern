@@ -4,7 +4,7 @@
 #
 # Устойчивое дозаполнение сэмплов MBPP+ при жёстких лимитах API (HTTP 429).
 #
-# Почему нужен цикл: NVIDIA NIM отдаёт 429 после серии запросов. Генератор
+# Почему нужен цикл: внешний API отдаёт 429 после серии запросов. Генератор
 # пишет ПУСТОЙ completion для упавших задач и больше их не повторяет, поэтому
 # между проходами пустые записи удаляются (tools/mbpp_retry.py), а следующий
 # проход дозаполняет только недостающие.
@@ -29,7 +29,7 @@ for i in $(seq 1 "$PASSES"); do
     exit 0
   fi
   "$PY" "${HERE}/humaneval_api.py" --dataset mbpp \
-      --model "${MODEL_NAME:-nvidia/nemotron-3-super-120b-a12b}" \
+      --model "${MODEL_NAME:?задайте MODEL_NAME}" \
       --out "$OUT" --workers "$WORKERS" --max-tokens 1024 >/dev/null 2>&1 || true
   sleep 45   # пауза, чтобы лимит API частично восстановился
 done

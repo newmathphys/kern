@@ -299,6 +299,6 @@ cert:
 
 # MBPP+ через API (генерация + официальная оценка EvalPlus).
 mbpp: 
-	$(PYTHON) tools/humaneval_api.py --dataset mbpp --model $${MODEL_NAME:-nvidia/nemotron-3-super-120b-a12b} \
+	$(PYTHON) tools/humaneval_api.py --dataset mbpp --model $${MODEL_NAME:?задайте MODEL_NAME=<модель>} \
 		--out samples_mbpp.jsonl --workers 8
 	./.venv-evalplus/bin/python -m evalplus.evaluate --dataset mbpp --samples samples_mbpp.jsonl

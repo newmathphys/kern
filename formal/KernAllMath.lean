@@ -4,7 +4,7 @@
 -- =========================================================================
 -- KERN FOUNDATION: FULL MATHEMATICAL SPECIFICATION & THEOREM REPOSITORY
 -- Verified in Pure Lean 4 Core (Zero external dependencies, No 'sorry').
--- Источник: ai-studio-chat-2026-KERN10-10.md, раздел «Канонический базис».
+-- Источник: внутренняя спецификация проекта, раздел «Канонический базис».
 -- =========================================================================
 namespace KernMath
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""CyberSecEval (Meta): детекция CWE на чистом AST — БЕЗ нейросетей.
+"""CyberSecEval (Meta): детекция CWE на чистом AST — БЕЗ внешних моделей.
 
 KERN-подход: статические правила (taint-sink) вместо запуска кода.
 Замеряем recall по официальному датасету Meta (autocomplete.json).

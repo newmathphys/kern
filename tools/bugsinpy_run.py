@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""BugsInPy: РЕАЛЬНЫЕ исторические баги без нейросетей.
+"""BugsInPy: РЕАЛЬНЫЕ исторические баги без внешних моделей.
 
 Для каждого бага:
   * buggy-коммит + тест → должен ПАДАТЬ → KERN: F (баг обнаружен)
@@ -63,7 +63,7 @@ def main():
         print(f"{b.name:<5} | {'FAIL' if buggy_fail else 'PASS':<18} | {'PASS' if fixed_pass else 'FAIL':<18} | {verdict}", flush=True)
     print("-" * 78)
     if tot:
-        print(f"\n📊 {PROJ} (без нейросетей): багов обнаружено {det}/{tot} ({det/tot*100:.0f}%), "
+        print(f"\n📊 {PROJ} (без внешних моделей): багов обнаружено {det}/{tot} ({det/tot*100:.0f}%), "
               f"исправленных подтверждено {okf}/{tot} ({okf/tot*100:.0f}%)")
 
 

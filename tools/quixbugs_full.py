@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""QuixBugs ПОЛНЫЙ differential-бенчмарк БЕЗ нейросетей.
+"""QuixBugs ПОЛНЫЙ differential-бенчмарк БЕЗ внешних моделей.
 
 Для каждой задачи:
   * багованная версия  → официальные тест-кейсы → должны ПАДАТЬ → KERN: F
@@ -79,7 +79,7 @@ def main():
         verdict = ("F (баг найден)" if det else "T (пропущен!)") + " / " + ("T (верно)" if okc else "F (ложно!)")
         print(f"{n:<32} | {len(cases):<7} | {fb:<14} | {fc:<15} | {verdict}")
     print("-" * 100)
-    print(f"\n📊 QuixBugs (БЕЗ нейросетей):")
+    print(f"\n📊 QuixBugs (БЕЗ внешних моделей):")
     print(f"  Багов обнаружено (buggy -> F):      {detected}/{total} ({detected / total * 100:.1f}%)")
     print(f"  Корректных подтверждено (correct -> T): {correct_ok}/{total} ({correct_ok / total * 100:.1f}%)")
 

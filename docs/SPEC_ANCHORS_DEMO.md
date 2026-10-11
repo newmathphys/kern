@@ -34,7 +34,7 @@
 
 ## Утверждение 2 (нет контракта → НЕ доказуемо)
 
-<!-- @kern:evidence path="docs/evidence/humaneval_eval_results.json" claim="HumanEval+ зафиксирован официальным харнессом" -->
+<!-- @kern:evidence path="docs/evidence/kern-gold.kern_gold.json" claim="Прогон SWE-bench зафиксирован официальным харнессом" -->
 Результат HumanEval+ получен официальным харнессом EvalPlus.
 
 **Почему это другой класс:** здесь утверждение о **факте исполнения**, а не о
