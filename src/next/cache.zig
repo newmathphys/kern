@@ -33,9 +33,25 @@ pub const Cache = struct {
         return .{ .allocator = allocator, .map = std.StringHashMap([]const u8).init(allocator) };
     }
 
+    /// Освободить кэш: карта хранит ДУБЛИКАТЫ строк (см. put/load), поэтому
+    /// их надо освободить, иначе утечка (арена в CLI маскировала её).
+    pub fn deinit(self: *Cache) void {
+        var it = self.map.iterator();
+        while (it.next()) |e| {
+            self.allocator.free(e.key_ptr.*);
+            self.allocator.free(e.value_ptr.*);
+        }
+        self.map.deinit();
+    }
+
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !Cache {
         var self = Cache.init(allocator);
+        errdefer self.deinit();
+        // 🔴 ДЕФЕКТ (найден аудитом, ИСПРАВЛЕН): `data` (до 16 МБ) читался и
+        // НИКОГДА не освобождался — утечка на каждую загрузку кэша.
+        // Строки дублируются в карту, поэтому буфер можно освободить сразу.
         const data = std.fs.cwd().readFileAlloc(allocator, path, 1 << 24) catch return self;
+        defer allocator.free(data);
         var it = std.mem.splitScalar(u8, data, '\n');
         while (it.next()) |line| {
             if (line.len == 0) continue;
@@ -72,6 +88,33 @@ pub const Cache = struct {
         try self.map.put(p, h);
     }
 };
+
+test "УТЕЧКИ: Cache.load/save полностью освобождаются (testing.allocator)" {
+    // ДЕФЕКТ (был): `data` (до 16 МБ) в load() не освобождался, и у Cache
+    // не было deinit — дубликаты строк в карте тоже текли.
+    const a = std.testing.allocator; // детектор утечек
+    const path = "/tmp/kern_cache_leak.ck";
+    defer std.fs.cwd().deleteFile(path) catch {};
+
+    {
+        var c = Cache.init(a);
+        defer c.deinit();
+        try c.put("a.kern", "deadbeef");
+        try c.put("b.kern", "cafebabe");
+        try c.save(path);
+    }
+    // Загрузка из файла: буфер данных должен быть освобождён.
+    var c2 = try Cache.load(a, path);
+    defer c2.deinit();
+    try std.testing.expect(c2.isUnchanged("a.kern", "deadbeef"));
+    try std.testing.expect(c2.isUnchanged("b.kern", "cafebabe"));
+    try std.testing.expect(!c2.isUnchanged("a.kern", "00000000"));
+
+    // Загрузка отсутствующего файла — пустой кэш, без утечек.
+    var c3 = try Cache.load(a, "/tmp/kern_cache_no_such_file.ck");
+    defer c3.deinit();
+    try std.testing.expect(!c3.isUnchanged("x", "y"));
+}
 
 test "CACHE: хэш стабилен, неизменённый файл распознаётся" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

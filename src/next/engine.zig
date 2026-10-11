@@ -39,6 +39,7 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
     const cache_path = try std.fmt.allocPrint(allocator, "{s}/.kerncache", .{out_dir});
     defer allocator.free(cache_path);
     var c = try cache.Cache.load(allocator, cache_path);
+    defer c.deinit(); // освобождаем дубликаты строк кэша
 
     const snap_path = try std.fmt.allocPrint(allocator, "{s}/project.ksnap", .{out_dir});
     defer allocator.free(snap_path);
