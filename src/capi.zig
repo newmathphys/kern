@@ -76,6 +76,8 @@ export fn kern_kimg_object_count(img: [*]const u8, len: usize) c_long {
 export fn kern_localize(
     decls: [*]const u8,
     decls_len: usize,
+    pre: [*]const u8,
+    pre_len: usize,
     goal: [*]const u8,
     goal_len: usize,
     out_buf: [*]u8,
@@ -86,11 +88,17 @@ export fn kern_localize(
     var bridge = z3b.Z3Bridge.init(alloc);
     var eng = unsat_core.UnsatCoreEngine.init(alloc);
 
-    // Одно предусловие `true` + цель: ядро покажет, какие имена виновны.
+    // 🔴 ИСПРАВЛЕНО: раньше ОДНА строка служила и объявлениями, и
+    // предусловием. Из-за этого корректный вызов был невозможен: строка
+    // `(declare-const x Int)` попадала в `(assert ...)`, а `x` оставался
+    // необъявленным — Z3 отвечал ошибкой, и функция возвращала КОНТРПРИМЕР
+    // с пустым списком виновников (ложная диагностика).
+    // Теперь: decls — только объявления; pre — предусловие; goal — цель.
     const pres = [_]unsat_core.NamedAssertion{
-        .{ .name = "decls", .formula = decls[0..decls_len] },
+        .{ .name = "pre", .formula = pre[0..pre_len] },
     };
-    var core = eng.localize(&bridge, "", &pres, goal[0..goal_len]) catch return KERN_TOOL_ERROR;
+    var core = eng.localize(&bridge, decls[0..decls_len], &pres, goal[0..goal_len]) catch
+        return KERN_TOOL_ERROR;
     defer core.deinit();
 
     var written: usize = 0;

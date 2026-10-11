@@ -45,10 +45,19 @@ def main() -> int:
     print("  tampered  :", lib.kern_kimg_valid(tbuf, len(tampered)), "(0 = отвергнут)")
 
     # 4. Локализация виновника (UNSAT core).
+    # ABI: decls (объявления) | pre (предусловие) | goal (цель).
+    # Скрипт: decls + pre + ¬goal. UNSAT означает, что ЦЕЛЬ СЛЕДУЕТ из pre,
+    # а ядро показывает, какие именно утверждения для этого нужны.
+    decls = b"(declare-const x Int)"
+    pre = b"(>= x 0)"
+    goal = b"(>= x -1)"  # pre ∧ ¬goal = (>= x 0) ∧ (< x -1) — НЕВЫПОЛНИМО
     out = ctypes.create_string_buffer(256)
     verdict = lib.kern_localize(
-        b"(>= x 0)", 8, b"(>= x 0)", 8, out, 256)
-    print("  localize  :", verdict, "-> виновники:", out.value.decode() or "(нет)")
+        decls, len(decls), pre, len(pre), goal, len(goal), out, 256)
+    names = {"0": "ДОКАЗАНО", "1": "КОНТРПРИМЕР", "2": "НЕИЗВЕСТНО",
+             "-1": "РЕШАТЕЛЬ НЕДОСТУПЕН"}
+    print("  localize  :", verdict, names.get(str(verdict), "?"),
+          "-> виновники:", out.value.decode() or "(нет)")
     return 0
 
 

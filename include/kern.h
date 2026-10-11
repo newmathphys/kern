@@ -44,11 +44,21 @@ int kern_kimg_valid(const unsigned char *img, unsigned long len);
 long kern_kimg_object_count(const unsigned char *img, unsigned long len);
 
 /* Доказательство с локализацией виновника (UNSAT core).
- * decls/decls_len   — объявления и факты;
- * goal/goal_len     — целевое утверждение;
- * out_buf/out_buf_len — куда записать имена конфликтующих строк (через пробел,
- *                       zero-terminated). Возвращает вердикт. */
+ *
+ * 🔴 ИСПРАВЛЕНО: раньше была ОДНА строка, которая одновременно служила и
+ * объявлениями, и предусловием — из-за чего корректный вызов был невозможен
+ * (SMT-скрипт содержал `(declare-const x Int)` как утверждение и не содержал
+ * объявления `x`). Теперь параметры разделены:
+ *
+ * decls/decls_len     — ТОЛЬКО объявления, напр. "(declare-const x Int)";
+ * pre/pre_len         — предусловие (именуется `pre` в UNSAT-ядре);
+ * goal/goal_len       — целевое утверждение (именуется `goal`);
+ * out_buf/out_buf_len — имена виновных утверждений через пробел (zero-terminated).
+ *
+ * Возвращает: 0 = ДОКАЗАНО (pre ∧ ¬goal невыполнимо), 1 = КОНТРПРИМЕР,
+ *             2 = неизвестно, -1 = решатель недоступен. */
 int kern_localize(const unsigned char *decls, unsigned long decls_len,
+                  const unsigned char *pre, unsigned long pre_len,
                   const unsigned char *goal, unsigned long goal_len,
                   char *out_buf, unsigned long out_buf_len);
 
