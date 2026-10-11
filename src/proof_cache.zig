@@ -10,6 +10,8 @@ const gate = @import("verifier/admission_gate.zig");
 
 pub const ProofCache = struct {
     map: std.AutoHashMap([32]u8, gate.CheckerVerdict),
+    /// Ключи, которые СЕЙЧАС считаются (per-key single-flight).
+    inflight: std.AutoHashMap([32]u8, void),
     hits: usize = 0,
     misses: usize = 0,
     evictions: usize = 0,
@@ -17,12 +19,14 @@ pub const ProofCache = struct {
     max_entries: usize = 10_000,
     /// ПОТОКОБЕЗОПАСНОСТЬ: без мьютекса параллельные get/put — гонка (race).
     mutex: std.Thread.Mutex = .{},
-    /// SINGLE-FLIGHT: не даёт N потокам одновременно звать решатель для ОДНОЙ
-    /// формулы («thundering herd»). Первый считает, остальные ждут и берут кэш.
-    flight: std.Thread.Mutex = .{},
+    /// Условная переменная для ожидания завершения чужого вычисления.
+    cond: std.Thread.Condition = .{},
 
     pub fn init(allocator: std.mem.Allocator) ProofCache {
-        return .{ .map = std.AutoHashMap([32]u8, gate.CheckerVerdict).init(allocator) };
+        return .{
+            .map = std.AutoHashMap([32]u8, gate.CheckerVerdict).init(allocator),
+            .inflight = std.AutoHashMap([32]u8, void).init(allocator),
+        };
     }
 
     /// Эффективность кэша: hits / (hits + misses) * 100%.
@@ -34,6 +38,7 @@ pub const ProofCache = struct {
 
     pub fn deinit(self: *ProofCache) void {
         self.map.deinit();
+        self.inflight.deinit();
     }
 
     pub fn keyOf(ast: [32]u8, contract: [32]u8, proof: []const u8) [32]u8 {
@@ -62,7 +67,13 @@ pub const ProofCache = struct {
     pub fn put(self: *ProofCache, k: [32]u8, v: gate.CheckerVerdict) !void {
         self.mutex.lock();
         defer self.mutex.unlock();
-        // ЭВИКЦИЯ: не даём кэшу расти бесконечно (защита от OOM).
+        self.evictIfNeededLocked(k);
+        try self.map.put(k, v);
+    }
+
+    /// ЭВИКЦИЯ (FIFO): не даём кэшу расти бесконечно (защита от OOM).
+    /// Вызывать ТОЛЬКО под захваченным `mutex`.
+    fn evictIfNeededLocked(self: *ProofCache, k: [32]u8) void {
         if (self.max_entries > 0 and self.map.count() >= self.max_entries and !self.map.contains(k)) {
             var it = self.map.keyIterator();
             if (it.next()) |key| {
@@ -71,7 +82,65 @@ pub const ProofCache = struct {
                 self.evictions += 1;
             }
         }
-        try self.map.put(k, v);
+    }
+
+    // =====================================================================
+    // SINGLE-FLIGHT ПО КЛЮЧУ (а не глобальный!)
+    // =====================================================================
+    //
+    // ДЕФЕКТ (исправлен): раньше single-flight был ОДИН мьютекс на весь кэш.
+    // Формально «пчелиный рой» (64 потока на ОДНУ формулу) он лечил, но
+    // попутно СЕРИАЛИЗОВАЛ работу над РАЗНЫМИ формулами: при 8 ядрах
+    // решатель вызывался только из одного потока за раз. Теперь in-flight
+    // отслеживается ПО КЛЮЧУ, и независимые формулы считаются параллельно.
+
+    pub const Begin = union(enum) {
+        /// Значение уже в кэше.
+        cached: gate.CheckerVerdict,
+        /// Этот поток обязан посчитать (ключ помечен in-flight).
+        compute,
+        /// Ключ уже считается другим потоком — надо подождать.
+        wait,
+    };
+
+    /// Начать работу с ключом: кэш / вычислить самому / подождать.
+    pub fn begin(self: *ProofCache, k: [32]u8) Begin {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        if (self.map.get(k)) |v| {
+            cov.hit(.cache_hit);
+            self.hits += 1;
+            return .{ .cached = v };
+        }
+        if (self.inflight.contains(k)) return .wait;
+        self.inflight.put(k, {}) catch {}; // OOM: считаем сами (без резервации)
+        cov.hit(.cache_miss);
+        self.misses += 1;
+        return .compute;
+    }
+
+    /// Завершить вычисление: записать результат и разбудить ожидающих.
+    pub fn finish(self: *ProofCache, k: [32]u8, v: gate.CheckerVerdict) void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        self.evictIfNeededLocked(k);
+        self.map.put(k, v) catch {};
+        _ = self.inflight.remove(k);
+        self.cond.broadcast();
+    }
+
+    /// Дождаться завершения чужого вычисления этого ключа.
+    pub fn waitFor(self: *ProofCache, k: [32]u8) void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        while (self.inflight.contains(k)) self.cond.wait(&self.mutex);
+    }
+
+    /// Число формул, считающихся ПРЯМО СЕЙЧАС (для тестов конкурентности).
+    pub fn inFlight(self: *ProofCache) usize {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        return self.inflight.count();
     }
 };
 
@@ -81,14 +150,26 @@ fn cachedFn(ctx: ?*anyopaque, allocator: std.mem.Allocator,
     const Ctx = struct { cache: *ProofCache, inner: gate.TrustedChecker };
     const c: *Ctx = @ptrCast(@alignCast(ctx.?));
     const k = ProofCache.keyOf(ast, contract, proof);
-    // SINGLE-FLIGHT: держим «flight» на время вычисления. Потоки с той же
-    // формулой ждут, затем берут готовый результат из кэша (1 miss, N-1 hits).
-    c.cache.flight.lock();
-    defer c.cache.flight.unlock();
-    if (c.cache.get(k)) |v| return v;
-    const v = c.inner.run(allocator, ast, contract, proof);
-    c.cache.put(k, v) catch {};
-    return v;
+
+    // SINGLE-FLIGHT ПО КЛЮЧУ: потоки с ОДНОЙ формулой ждут (1 miss, N-1 hits),
+    // а с РАЗНЫМИ — считаются параллельно (раньше был глобальный мьютекс).
+    switch (c.cache.begin(k)) {
+        .cached => |v| return v,
+        .compute => {
+            const v = c.inner.run(allocator, ast, contract, proof);
+            c.cache.finish(k, v);
+            return v;
+        },
+        .wait => {
+            c.cache.waitFor(k);
+            if (c.cache.get(k)) |v| return v;
+            // Редкий случай: вычисливший поток не сохранил результат (OOM) —
+            // считаем сами, чтобы НЕ вернуть пустой вердикт.
+            const v = c.inner.run(allocator, ast, contract, proof);
+            c.cache.finish(k, v);
+            return v;
+        },
+    }
 }
 
 pub fn cachedChecker(holder: *CtxHolder, cache: *ProofCache, inner: gate.TrustedChecker) gate.TrustedChecker {
@@ -181,6 +262,52 @@ fn countFn(counter: *std.atomic.Value(usize), ctx: ?*anyopaque, allocator: std.m
     _ = counter.fetchAdd(1, .monotonic);
     std.time.sleep(2 * std.time.ns_per_ms); // имитация «тяжёлого» решателя
     return .Proved;
+}
+
+test "SINGLE-FLIGHT ПО КЛЮЧУ: РАЗНЫЕ формулы считаются ПАРАЛЛЕЛЬНО" {
+    // ДЕФЕКТ (был): глобальный мьютекс сериализовал ВСЕ формулы — при 8 ядрах
+    // решатель вызывался из одного потока за раз. Проверяем, что при РАЗНЫХ
+    // ключах несколько потоков находятся in-flight ОДНОВРЕМЕННО.
+    var cache = ProofCache.init(std.testing.allocator);
+    defer cache.deinit();
+
+    const N = 8;
+    var active = std.atomic.Value(usize).init(0);
+    var peak = std.atomic.Value(usize).init(0);
+
+    const W = struct {
+        fn run(c: *ProofCache, i: usize, act: *std.atomic.Value(usize), pk: *std.atomic.Value(usize)) void {
+            var k: [32]u8 = [_]u8{0} ** 32;
+            k[0] = @intCast(i); // РАЗНЫЕ ключи
+            switch (c.begin(k)) {
+                .compute => {
+                    const now = act.fetchAdd(1, .acq_rel) + 1;
+                    while (true) {
+                        const cur = pk.load(.acquire);
+                        if (now <= cur) break;
+                        if (pk.cmpxchgWeak(cur, now, .acq_rel, .acquire) == null) break;
+                    }
+                    std.time.sleep(15 * std.time.ns_per_ms); // имитация работы решателя
+                    _ = act.fetchSub(1, .acq_rel);
+                    c.finish(k, .Proved);
+                },
+                .cached => {},
+                .wait => {},
+            }
+        }
+    };
+
+    var threads: [N]std.Thread = undefined;
+    for (0..N) |i| threads[i] = try std.Thread.spawn(.{}, W.run, .{ &cache, i, &active, &peak });
+    for (threads) |t| t.join();
+
+    const p = peak.load(.acquire);
+    std.debug.print("\n[SINGLE-FLIGHT] разных формул одновременно в работе: {d} (из {d})\n", .{ p, N });
+    // При глобальном мьютексе пик был бы 1. Требуем хотя бы 2.
+    try std.testing.expect(p >= 2);
+    // Все ключи записаны, in-flight пуст.
+    try std.testing.expectEqual(@as(usize, 0), cache.inFlight());
+    try std.testing.expectEqual(@as(usize, N), cache.map.count());
 }
 
 test "ПЧЕЛИНЫЙ РОЙ: 64 потока -> 1 miss + 63 hits (single-flight)" {
