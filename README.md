@@ -1,16 +1,113 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
+**Арбитражный шлюз истины для ИИ-агентов.** Заявление получает статус
+«доказано» **только при машинной опоре**: вердикт SMT-решателя (Z3), формальное
+доказательство (Lean 4) или подтверждённый прогон с кодом возврата.
+Всё остальное — честный отказ `e=0`.
+
+**Технологии:** Zig 0.13 (ядро, zero-copy) · Lean 4 (формальные доказательства) ·
+Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
+
+| Показатель | Значение |
+|:--|:--|
+| Тесты ядра | **188** (Debug + ReleaseSafe) |
+| Тесты KERN-Next | **25** |
+| Формальные доказательства | **7 файлов Lean 4**, 0 errors, 0 `sorry` |
+| Покрытие инструментированных решений | **100.0%** (30/30) |
+| Мутационный score | 92.5% (37/40; 3 эквивалентных → эффективно 100%) |
+| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **188/188** |
+| SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
+| QuixBugs | **31/31** багов реальным исполнением |
+| Фаззинг | **1 000 000** мутаций, 0 паник |
+| **Полный каталог тестов** | **[`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md)** |
+
 > **Отдельный проект.** Не часть `nyuui-core`. `nyuui` может им пользоваться,
 > но живёт и развивается самостоятельно.
 
-**Статус:** исследовательский прототип. Физика (mmap, zero-copy) работает и
-измерена. Эпистемическая часть (Врата Истины) **исправлена в v1.3** — обход
-«одним байтом» закрыт, вердикт приходит только от внешнего чекера
-(см. `docs/KERN_FIXES_v1_3.md`).
+**Статус:** рабочий прототип с измеренными свойствами. Эпистемическая часть
+(Врата Истины) исправлена в v1.3 — обход «одним байтом» закрыт, вердикт приходит
+только от внешнего чекера (см. `docs/KERN_FIXES_v1_3.md`).
 
 ---
 
-## 1. Зачем это
+## 0. Быстрый старт (5 минут)
+
+```bash
+# 1. Окружение: Zig 0.13 в локальный venv (системный Zig не нужен)
+make venv && export PATH="$PWD/.venv/bin:$PATH"
+
+# 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
+zig build
+
+# 3. Тесты ядра — 188 штук
+zig build test
+
+# 4. Эталонный образ и его проверка
+make golden
+./zig-out/bin/kernc check-integrity tests/fixtures/valid_v1_3.kimg
+
+# 5. Сквозная демонстрация (сборка образа, чтение, Врата, KERN-Next)
+make demo
+```
+
+**Увидеть вердикт `e=1` (ДОКАЗАНО)** — нужен Z3:
+```bash
+uv pip install --python .venv/bin/python z3-solver
+./zig-out/bin/kernc prove formal/example.smt2     # e=1 — доказано решателем
+make bridge                                        # мост «текст → контракт»
+```
+
+**Список всех 62 целей:** `make help`
+
+---
+
+## 1. Состав
+
+```
+kern/
+├── README.md                       этот файл
+├── LICENSE                         MIT
+├── OWNERSHIP.md                    защита авторства (токен, ключ-замок)
+├── Makefile                        62 цели: build/test/coverage/mutate/bridge/…
+├── build.zig                       сборка: kernc, kern-attack, kernx, libkern.so
+│
+├── docs/                           ДОКУМЕНТАЦИЯ (начните с docs/README.md)
+│   ├── README.md                   КАРТА документации — что где лежит
+│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 213 тестов + бенчмарки
+│   ├── METRICS.md                  ЖУРНАЛ ПОКАЗАТЕЛЕЙ (все цифры из прогонов)
+│   ├── KERN_FIXES_v1_3.md          16 устранённых дефектов, с доказательствами
+│   ├── VERIFICATION_GOLD_STANDARDS.md  мировые бенчмарки
+│   ├── EXECUTION_RUNNER.md         переход N→T через машинные свидетельства
+│   ├── SPEC_ANCHORS_DEMO.md        мост «текст → контракт» (@kern:spec)
+│   ├── KERN_TERMINOLOGY_v0.1.md    нормативная терминология
+│   ├── evidence/                   свидетельства прогонов (JSON/JSONL)
+│   └── archive/                    исторические аудиты (KERN*_AUDIT.md)
+│
+├── formal/                         ФОРМАЛЬНЫЕ ДОКАЗАТЕЛЬСТВА
+│   ├── check.sh                    компиляция всех теорем + проверка на 'sorry'
+│   ├── KernAllMath.lean            Белнап, де Морган, JOIN_K, анти-вакуум
+│   ├── KernDfsTermination.lean     завершаемость, граница топлива
+│   ├── KernTalk.lean / KernTalkND.lean   унификация требований
+│   ├── KernConvergence.lean        сходимость итерации
+│   ├── KernZeroCopy.lean           изоморфизм zero-copy
+│   ├── KernSemanticGap.lean        разрыв ℤ ↔ i32
+│   ├── gate_mask.smt2              контракт для моста (пример)
+│   └── certification/              TQD: трассируемость, soundness, security target
+│
+├── src/                            ИСХОДНИКИ
+├── tools/                          утилиты: сканер, бенчмарки, мутатор, раннер
+├── tests/                          фикстуры и внешние сьюты
+├── examples/                       примеры .kern, C-ABI демо
+├── archive/                        сырые материалы (лог чата-спецификации)
+└── REVISION/                       честный статус возможностей
+```
+
+**Карта документации:** [`docs/README.md`](docs/README.md)
+**Полный каталог тестов:** [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md)
+
+---
+
+## 2. Зачем это
 
 KERN — «таможня истины» между ИИ-агентом и реальным кодом. Идея:
 
@@ -31,90 +128,74 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 
 ---
 
-## 2. Состав
+### 1.1 Подробнее: `src/` и `tools/`
 
 ```
-kern/
-├── build.zig                       сборка (Zig 0.13): kernc, kern-attack, kernx, test, test-next
-├── docs/                           аудиты и отчёты — читать до кода
-│   ├── KERN_AUDIT.md               Фаза 1-2: Zig-компилятор
-│   ├── KERNFS_AUDIT.md             Фаза 3: виртуальная ФС, ZIP SLIP, память
-│   ├── KERN12_AUDIT.md             v1.2: BLAKE3 vs SHA-256, payload_offset
-│   ├── KERN34_AUDIT.md             Фазы 3-4 + CLI: АТАКА на шлюз
-│   ├── KERN9_SUITE_AUDIT.md        security-сьют: offset bomb
-│   ├── KERN_FIXES_v1_3.md          v1.3: доказательства устранения дефектов
-│   ├── VERIFICATION_GOLD_STANDARDS.md  бенчмарки (SWE-bench, SMT, QuixBugs, мутации)
-│   ├── METRICS.md                  ЖУРНАЛ ПОКАЗАТЕЛЕЙ (все цифры из прогонов)
-│   └── EXECUTION_RUNNER.md         переход N→T через машинные свидетельства
-├── src/
-│   ├── main.zig                    CLI kernc (читает образ .kimg)
-│   ├── attack.zig                  демонстрация: обе атаки закрыты
-│   ├── test_root.zig               корень тестов ядра
-│   ├── core/
-│   │   ├── eq2.zig                 KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
-│   │   ├── object_entry.zig        96-байтный дескриптор + Merkle-корень
-│   │   ├── kimg_reader.zig         128-байтный заголовок + безопасная арифметика + Merkle
-│   │   └── kernfs_router.zig       VFS: валидация путей, монтирование, AccessDenied
-│   ├── verifier/
-│   │   ├── admission_gate.zig      Врата Истины (e=1): вердикт ТОЛЬКО от внешнего чекера
-│   │   ├── z3_bridge.zig           Z3 SMT-LIB2 мост (дочерний процесс, graceful)
-│   │   ├── unsat_core.zig          локализация ошибки (get-unsat-core, :named)
-│   │   ├── array_theory.zig        QF_AX: аксиомы Маккарти, алиасинг, границы
-│   │   ├── chc.zig                 CHC/Horn: синтез инвариантов циклов (SPACER)
-│   │   ├── string_theory.zig       QF_S: инъекции, path traversal, нуль-байт
-│   │   └── cegis.zig               CEGIS/SyGuS: синтез кода по спецификации
-│   ├── runtime/
-│   │   └── kern_x.zig              KERN-X: fuel-bounded VM (без зависаний)
-│   ├── proof_cache.zig             кэш доказательств (AST → вердикт), потокобезопасный
-│   ├── attest.zig                  аттестация вердикта (Ed25519, сертификат)
-│   ├── owner.zig                   токен авторства + ключ-замок (comptime)
-│   ├── smt_stress.zig              стресс Z3-моста (парадоксы, overflow, NIA, FP)
-│   ├── kimg_stress.zig             стресс .kimg на 1 000 000 объектов
-│   ├── perf_bench.zig · smt_bench.zig · stress_real.zig · kern_bench.zig  бенчмарки
-│   ├── sdk/kern_sdk.py             Python SDK (тонкая обёртка над CLI)
-│   ├── tests/
-│   │   ├── exhaustive_suite.zig    security-сьют (SEC/MATH/AI/RES)
-│   │   ├── alignment_stress.zig    Эшелон 1: выравнивание памяти + endianness
-│   │   └── pool_saturation.zig     Эшелон 3: изнурение пула потоков
-│   └── next/                       KERN-Next (движок проекта `kernx`)
-│       ├── ast.zig                 модель: Status/Kind/Claim/Evidence/...
-│       ├── parser.zig              лексер + парсер языка .kern
-│       ├── validate.zig            валидатор (§8: 10 правил)
-│       ├── catalog.zig             SQLite-каталог .kdb (§9)
-│       ├── snapshot.zig            snapshot + diff (§10)
-│       ├── export.zig              agent packet (§17) + human report (§14.1)
-│       ├── cache.zig               хэш содержимого, инкрементальность (§11)
-│       ├── engine.zig              конвейер (§6.1)
-│       ├── main.zig                CLI kernx (§13)
-│       └── test_root.zig           корень тестов KERN-Next
-├── tools/golden_v1_3.py            сборка эталонного образа .kimg v1.3
-├── examples/project.kern           демонстрационный проект KERN-Next
-├── examples/hello_world.kern       минимальный проект
-├── tests/fixtures/valid_v1_3.kimg  эталонный образ (410 байт)
-├── Makefile                        единая точка входа (build/test/demo/docker/lean)
-├── formal/                         ФОРМАЛЬНЫЕ ДОКАЗАТЕЛЬСТВА Lean 4 (0 ошибок, 0 sorry)
-│   ├── KernAllMath.lean            Белнап B₄: де Морган, JOIN_K, анти-вакуум, fuel-DFS
-│   ├── KernDfsTermination.lean     завершимость обхода (фундированность)
-│   ├── KernTalk.lean               unify: human.max < ai.min ⇒ конфликт B
-│   ├── KernTalkND.lean             N-мерная унификация ⇒ глобальный B
-│   ├── KernConvergence.lean        сходимость RLAIF-цикла за конечное число шагов
-│   ├── KernZeroCopy.lean           изоморфизм zero-copy отображения (3 теоремы)
-│   ├── KernSemanticGap.lean        Эшелон 4: разрыв ℤ vs i32 (8 теорем)
-│   └── check.sh                    компиляция всех + проверка отсутствия sorry
-├── tools/                          бенчмарки и утилиты
-│   ├── cache_avalanche_bench.py    Эшелон 2: лавина хэша (100 000 мутаций)
-│   ├── humaneval_api.py            генерация сэмплов HumanEval через API
-│   ├── evalplus_kern_gate.py       KERN-гейт над сэмплами EvalPlus
-│   ├── quixbugs_full.py            QuixBugs: багованные + правильные (31/31)
-│   ├── refactory_diff.py           Refactory: дифференциальная верификация
-│   ├── solver_crosscheck.py        Z3 ↔ cvc5 (консилиум решателей)
+├── main.zig                        CLI kernc (читает образ .kimg)
+├── attack.zig                      демонстрация: обе атаки закрыты
+├── test_root.zig                   корень тестов ядра (188 тестов)
+├── core/
+│   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
+│   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
+│   ├── kimg_reader.zig             128-байтный заголовок + безопасная арифметика
+│   ├── kimg_writer.zig             сборка .kimg (атомарная запись + fsync)
+│   ├── kernfs_router.zig           VFS: валидация путей, монтирование, AccessDenied
+│   ├── mmap_guard.zig              перехват SIGBUS (обрыв mmap)
+│   └── sigbus_guard.zig            обработчик сигнала
+├── verifier/
+│   ├── admission_gate.zig          Врата Истины: вердикт ТОЛЬКО от внешнего чекера
+│   ├── z3_bridge.zig               Z3 SMT-LIB2 мост (таймаут, graceful)
+│   ├── unsat_core.zig              локализация ошибки (get-unsat-core)
+│   ├── array_theory.zig            QF_AX: аксиомы Маккарти, алиасинг
+│   ├── chc.zig                     CHC/Horn: инварианты циклов (SPACER)
+│   ├── string_theory.zig           QF_S: инъекции, path traversal
+│   ├── cegis.zig                   CEGIS/SyGuS: синтез кода
+│   ├── proof_check.zig             независимая проверка шагов Z3
+│   ├── dtmc.zig                    вероятностный анализ (PCTL)
+│   ├── abstract_interp.zig         абстрактная интерпретация (интервалы)
+│   ├── noninterference.zig         невмешательство (HyperLTL)
+│   ├── nra_quant.zig               нелинейная арифметика + кванторы
+│   └── redos.zig                   ReDoS-анализ регулярных выражений
+├── runtime/kern_x.zig              KERN-X: fuel-bounded VM (без зависаний)
+├── next/                           KERN-Next (движок `kernx`, 25 тестов)
+│   ├── ast.zig · parser.zig        модель + парсер языка .kern
+│   ├── validate.zig                валидатор (10 правил)
+│   ├── catalog.zig                 SQLite-каталог .kdb
+│   ├── snapshot.zig · cache.zig    снапшоты/diff + инкрементальность
+│   ├── export.zig · engine.zig     agent packet, отчёт, конвейер
+│   ├── truth.zig                   Белнап-аккумулятор (N→T/F/B)
+│   └── main.zig                    CLI kernx
+├── proof_cache.zig                 кэш доказательств (потокобезопасный)
+├── attest.zig · owner.zig          аттестация Ed25519 + токен авторства
+├── atomic_write.zig                атомарная запись (tmp+fsync+rename)
+├── capi.zig                        C-ABI (libkern.so, 7 функций)
+├── concolic.zig                    конколическое исполнение
+├── fuzz_ast.zig                    1 000 000 мутаций, 0 паник
+├── smt_stress.zig · kimg_stress.zig  стресс Z3 и .kimg (1 млн объектов)
+├── perf_bench.zig · smt_bench.zig · chc_bench.zig · stress_real.zig  бенчмарки
+└── tests/
+    ├── exhaustive_suite.zig        security-сьют (SEC/MATH/AI/RES)
+    ├── alignment_stress.zig        Эшелон 1: выравнивание + endianness
+    ├── pool_saturation.zig         Эшелон 3: изнурение пула потоков
+    ├── mcdc_gates_test.zig         MC/DC-векторы решений Врат
+    ├── litmus_memory_test.zig      слабые модели памяти
+    ├── oom_stress.zig · z3_crash_test.zig · smt_incremental_test.zig
+    ├── fault_injection_test.zig    сбои памяти (SIGBUS)
+    └── coverage_report_test.zig    покрытие инструментированных решений
+
+├── tools/
+│   ├── scan_to_kern.py             сканер проекта → .kern (+ якоря @kern:spec)
+│   ├── golden_v1_3.py              эталонный образ .kimg v1.3
 │   ├── kern_exec_runner.py         Execution Runner (N→T через прогон)
-│   ├── mutate_zig.py               мутационное тестирование (Zig-native)
-│   └── push_to_github.sh           загрузка закрытого репозитория
-├── Dockerfile · docker-compose.yml оболочки упаковки (не измерены — нет docker)
-├── kern-cluster.yaml               K8s Deployment + HPA (оболочка)
-├── vscode-kern/                    расширение KERN Lens (каркас)
-└── REVISION/HONEST_CAPABILITY_STATUS.md  ЧЕСТНЫЙ статус: что измерено, что нет
+│   ├── mutate_zig.py               мутационное тестирование (работает на копии)
+│   ├── quixbugs_full.py            QuixBugs 31/31
+│   ├── refactory_diff.py           Refactory (дифференциальный)
+│   ├── solver_crosscheck.py        Z3 ↔ cvc5
+│   ├── cache_avalanche_bench.py    лавина хэша (100 000 мутаций)
+│   ├── humaneval_api.py            HumanEval/HumanEval+ через API
+│   ├── binlevel_verify.py/.sh      бинарный уровень (translation validation)
+│   ├── cross_arch_test.sh          ARM64 + POWERPC64 под QEMU
+│   └── push_to_github.sh           выгрузка закрытого репозитория
 ```
 
 ---

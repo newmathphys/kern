@@ -56,7 +56,7 @@ pub const CheckerVerdict = enum { Proved, Counterexample, VacuousPrecondition, T
 
 /// ВНЕШНИЙ доверенный чекер — ЕДИНСТВЕННЫЙ источник вердикта.
 ///
-/// ИНВАРИАНТ БЕЗОПАСНОСТИ (закрывает АТАКУ 1 из docs/KERN34_AUDIT.md):
+/// ИНВАРИАНТ БЕЗОПАСНОСТИ (закрывает АТАКУ 1 из docs/archive/KERN34_AUDIT.md):
 /// вердикт НЕ выводится из `cert.witness_payload` (данных, которыми управляет
 /// ИИ). Payload передаётся чекеру как ВХОД (например, SMT-LIB формула).
 /// Чекер — доверенный код, который в проде запускает изолированный процесс
@@ -168,7 +168,7 @@ pub const AdmissionGate = struct {
 
     // runTrustedChecker УДАЛЁН. Он читал вердикт из байта payload[0] (0xAA →
     // .Proved) — то есть из данных, которыми управляет ИИ (АТАКА 1,
-    // docs/KERN34_AUDIT.md). Вердикт теперь формирует только `TrustedChecker`.
+    // docs/archive/KERN34_AUDIT.md). Вердикт теперь формирует только `TrustedChecker`.
 };
 
 // ==========================================

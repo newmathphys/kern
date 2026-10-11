@@ -37,6 +37,16 @@ attestation.cert
 *.pem
 *.key
 
+# Архивы и разовые артефакты — НЕ место в репозитории
+# (именно они раньше засоряли корень: kirin-ai-agent.zip и т.п.)
+*.zip
+*.tar.gz
+*.kern_gold.json
+
+# ИСКЛЮЧЕНИЕ: свидетельства бенчмарков коммитим (нужны как доказательства)
+!docs/evidence/*.jsonl
+!docs/evidence/*.json
+
 # Временное
 *.log
 *.tmp

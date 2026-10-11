@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     // Тесты ядра запускаются из ОБЩЕГО КОРНЯ: `zig test src/tests/...` НЕ
-    // РАБОТАЕТ (импорты `../core/...` вне модуля). См. docs/KERN9_SUITE_AUDIT.md.
+    // РАБОТАЕТ (импорты `../core/...` вне модуля). См. docs/archive/KERN9_SUITE_AUDIT.md.
     const tests = b.addTest(.{
         .root_source_file = b.path("src/test_root.zig"),
         .target = target,
