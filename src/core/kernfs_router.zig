@@ -272,6 +272,7 @@ fn buildMinimalImage(w: anytype) !void {
     var header: [128]u8 = [_]u8{0} ** 128;
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
+    std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, header[10..12], 3, .little);
     std.mem.writeInt(u32, header[12..16], 128, .little);
     std.mem.writeInt(u64, header[32..40], 128, .little);
@@ -493,6 +494,7 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     var header: [128]u8 = [_]u8{0} ** 128;
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
+    std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, header[10..12], 3, .little);
     std.mem.writeInt(u32, header[12..16], 128, .little);
     std.mem.writeInt(u64, header[32..40], 128, .little);

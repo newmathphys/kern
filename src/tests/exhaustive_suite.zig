@@ -50,6 +50,7 @@ test "SEC-01: атака переполнения в заголовке KIMG (of
     var raw_header = [_]u8{0} ** 128;
     std.mem.copyForwards(u8, raw_header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, raw_header[8..10], 1, .little);
+    std.mem.writeInt(u32, raw_header[20..24], 2, .little); // hash_algo = SHA-256
     std.mem.writeInt(u32, raw_header[12..16], 128, .little);
     std.mem.writeInt(u64, raw_header[32..40], std.math.maxInt(u64) - 10, .little);
     std.mem.writeInt(u64, raw_header[40..48], 100, .little);

@@ -60,6 +60,7 @@ fn makeHeader() [128]u8 {
     var b: [128]u8 = [_]u8{0} ** 128;
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);   // version_major
+    std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, b[10..12], 3, .little);  // version_minor
     std.mem.writeInt(u32, b[12..16], 128, .little); // header_size
     std.mem.writeInt(u64, b[24..32], 4096, .little); // block_size
@@ -148,14 +149,10 @@ test "ALIGN runtime: невыровненная таблица НЕ ломает
 // =====================================================================
 
 test "ENDIAN: многобайтные поля читаются Little-Endian" {
-    var b: [128]u8 = [_]u8{0} ** 128;
-    @memcpy(b[0..8], "KIMG\r\n\x1a\n");
-    std.mem.writeInt(u32, b[12..16], 128, .little);
+    var b: [128]u8 = undefined;
+    kimg.KimgHeader.fillValid(&b, 128, 0, 0, 128);
+    // Перезаписываем block_size специальным образцом для проверки LE.
     std.mem.writeInt(u64, b[24..32], 0x0102030405060708, .little);
-    std.mem.writeInt(u64, b[32..40], 128, .little);
-    std.mem.writeInt(u64, b[40..48], 0, .little);
-    std.mem.writeInt(u64, b[48..56], 0, .little);
-    std.mem.writeInt(u64, b[56..64], 128, .little);
 
     // Проверяем, что байты в файле лежат именно в LE-порядке
     try std.testing.expectEqual(@as(u8, 0x08), b[24]);
