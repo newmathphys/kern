@@ -22,6 +22,7 @@
 
 | Документ | Что внутри |
 |:--|:--|
+| **[CAPABILITIES.md](CAPABILITIES.md)** | **11 возможностей с доказательствами**: что подтверждено, что с оговоркой, что неверно |
 | **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: 213 тестов по модулям + 15 внешних бенчмарков |
 | **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§20): тесты, бенчмарки, мутации, производительность, найденные баги |
 | **[VERIFICATION_GOLD_STANDARDS.md](VERIFICATION_GOLD_STANDARDS.md)** | Мировые бенчмарки: SWE-bench, HumanEval+, QuixBugs, Refactory, CyberSecEval, мутации |
