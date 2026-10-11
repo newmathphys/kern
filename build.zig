@@ -40,6 +40,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Общий модуль атомарной записи: нужен и ядру (src/), и KERN-Next
+    // (src/next/). Как и owner, отдаём именованным модулем.
+    const atomic_module = b.createModule(.{
+        .root_source_file = b.path("src/atomic_write.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     // KERN-Next: движок проекта (`kernx`). Требует libc + libsqlite3 (§9).
     const kernx = b.addExecutable(.{
         .name = "kernx",
@@ -48,6 +56,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     kernx.root_module.addImport("owner", owner_module);
+    kernx.root_module.addImport("atomic", atomic_module);
     kernx.linkLibC();
     kernx.linkSystemLibrary("sqlite3");
     b.installArtifact(kernx);
@@ -58,6 +67,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    tests_next.root_module.addImport("atomic", atomic_module);
     tests_next.linkLibC();
     tests_next.linkSystemLibrary("sqlite3");
     const run_tests_next = b.addRunArtifact(tests_next);

@@ -4,6 +4,7 @@
 //! KERN-Next: экспорт — agent packet (§17) и human report (§14.1).
 const std = @import("std");
 const ast = @import("ast.zig");
+const atomic = @import("atomic");
 const validate = @import("validate.zig");
 
 fn isProven(s: ast.Status) bool {
@@ -39,8 +40,6 @@ fn jsonEscape(w: anytype, s: []const u8) !void {
 pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
                    p: ast.Project, diags: []const validate.Diagnostic,
                    scope: []const u8) !void {
-    const f = try std.fs.cwd().createFile(path, .{});
-    defer f.close();
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
     const w = buf.writer();
@@ -133,15 +132,14 @@ pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
     try w.print("  \"stats\": {{\"nodes\": {d}, \"claims\": {d}, \"proven\": {d}, \"blocked\": {d}, \"diagnostics\": {d}}}\n", .{ p.nodeCount(), p.claims.len, proven, blocked, diags.len });
     try w.writeAll("}\n");
 
-    try f.writeAll(buf.items);
+    // АТОМАРНО: tmp + fsync + rename (иначе обрыв -> обрезанный packet/report).
+    try atomic.writeFileAtomic(allocator, path, buf.items);
 }
 
 /// Human report (§14.1): summary, verified claims, blocked, contradictions,
 /// next steps.
 pub fn writeReport(allocator: std.mem.Allocator, path: []const u8,
                    p: ast.Project, diags: []const validate.Diagnostic) !void {
-    const f = try std.fs.cwd().createFile(path, .{});
-    defer f.close();
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
     const w = buf.writer();
@@ -192,7 +190,8 @@ pub fn writeReport(allocator: std.mem.Allocator, path: []const u8,
     }
     if (!any) try w.writeAll("- (нет)\n");
 
-    try f.writeAll(buf.items);
+    // АТОМАРНО: tmp + fsync + rename (иначе обрыв -> обрезанный packet/report).
+    try atomic.writeFileAtomic(allocator, path, buf.items);
 }
 
 // =========================================================================

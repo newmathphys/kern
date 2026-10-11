@@ -4,6 +4,7 @@
 //! KERN-Next: кэш (§11, §6.2 incremental). Хэш содержимого → пропуск
 //! повторной обработки неизменённых файлов (критерий 10 из §20).
 const std = @import("std");
+const atomic = @import("atomic");
 
 pub fn sha256Hex(allocator: std.mem.Allocator, data: []const u8) ![]u8 {
     var digest: [32]u8 = undefined;
@@ -47,8 +48,6 @@ pub const Cache = struct {
     }
 
     pub fn save(self: *Cache, path: []const u8) !void {
-        const f = try std.fs.cwd().createFile(path, .{});
-        defer f.close();
         var buf = std.ArrayList(u8).init(self.allocator);
         defer buf.deinit();
         var it = self.map.iterator();
@@ -58,7 +57,8 @@ pub const Cache = struct {
             try buf.appendSlice(e.key_ptr.*);
             try buf.append('\n');
         }
-        try f.writeAll(buf.items);
+        // АТОМАРНО: битый кэш -> неверное решение «файл не изменился».
+        try atomic.writeFileAtomic(self.allocator, path, buf.items);
     }
 
     pub fn isUnchanged(self: *Cache, path: []const u8, hash: []const u8) bool {
