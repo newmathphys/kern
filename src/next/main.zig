@@ -55,7 +55,15 @@ pub fn main() !void {
         const out_dir = flagValue(args, "--out") orelse ".kernnext";
         const scope = flagValue(args, "--scope") orelse "default";
         const force = hasFlag(args, "--force");
-        const r = try engine.build(alloc, args[2], out_dir, scope, force);
+        // ДЕФЕКТ (исправлен): при отсутствии/недоступности файла проект падал
+        // СЫРЫМ traceback'ом Zig. Теперь — понятное сообщение с причиной.
+        const r = engine.build(alloc, args[2], out_dir, scope, force) catch |e| {
+            std.debug.print("[!] build: не удалось обработать '{s}': {s}\n", .{ args[2], @errorName(e) });
+            if (e == error.FileNotFound) {
+                std.debug.print("    Проверьте путь к .kern (файл не найден или недоступен).\n", .{});
+            }
+            return;
+        };
         if (r.skipped) {
             std.debug.print("[=] Без изменений — обработка пропущена (кэш). Используйте --force.\n", .{});
         } else {
