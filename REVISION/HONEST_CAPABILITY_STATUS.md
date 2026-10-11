@@ -128,10 +128,7 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
 | Артефакт | Уровень | Почему не измерено |
 |:--|:--|:--|
 | `Dockerfile` | FRAMEWORK | в окружении нет `docker` |
-| `docker-compose.yml` | FRAMEWORK | нет `docker` |
-| `kern-cluster.yaml` | FRAMEWORK | нет кластера K8s |
 | `Makefile` | SMOKE | цели написаны; требуют `zig`/`docker` в PATH |
-| `vscode-kern/extension.ts` | FRAMEWORK | нет `npm`/`tsc`; НЕ компилировалось |
 | `src/sdk/kern_sdk.py` | MEASURED | обёртка над CLI: вызов реального `kernc` успешен |
 
 ---
@@ -162,8 +159,9 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
    БЕЗ z3 поведение прежнее (graceful e=0).
 2. ~~**Таймаут решателя**~~ — **ЗАКРЫТО**: жёсткий таймаут с потоком-убийцей
    (`Z3Bridge`); крах решателя ловится (`z3_crash_test`), KERN жив.
-3. **Docker/K8s/VS Code**: `Dockerfile`, `docker-compose.yml`,
-   `kern-cluster.yaml`, `vscode-kern/` — оболочки, не собирались.
+3. **Docker**: `Dockerfile` — рабочая оболочка, но сборка образа не проверялась
+   (в окружении нет docker). `docker-compose.yml`, `kern-cluster.yaml` и
+   `vscode-kern/` УДАЛЕНЫ из репозитория как непроверенные оболочки.
    (SWE-bench Lite прогонялся в Docker успешно, но это не KERN-инфраструктура.)
 4. **BLAKE3 vs SHA-256**: спецификация называет BLAKE3, реализация — SHA-256
    (зафиксирован ОДИН алгоритм, иначе рвётся сквозная сверка). Теперь
