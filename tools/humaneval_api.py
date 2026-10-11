@@ -38,8 +38,15 @@ def _strip_leading_docstring(code: str) -> str:
     return "\n".join(lines[i:])
 
 
-def _extract_body(txt: str, entry: str) -> str:
-    """Модель выдаёт размышления + код в markdown. Достаём только ТЕЛО функции."""
+def _extract_body(txt: str, entry: str, keep_def: bool = False) -> str:
+    """Модель выдаёт размышления + код в markdown.
+
+    HumanEval: промпт УЖЕ содержит `def f(...):` → нужен только ТЕЛО.
+    MBPP:      промпт — только docstring → нужна ПОЛНАЯ функция с `def`.
+
+    БАГ (найденный прогоном): без `keep_def` для MBPP срезалась сигнатура,
+    сэмпл становился невалидным кодом и pass@1 падал в 0.000.
+    """
     import re as _re
     blocks = _re.findall(r"```(?:python|py)?\s*(.*?)```", txt, _re.S)
     code = None
@@ -52,7 +59,14 @@ def _extract_body(txt: str, entry: str) -> str:
     if code is None:
         code = txt
     m = _re.search(r"^[ \t]*def\s+" + _re.escape(entry) + r"\s*\(", code, _re.M)
-    if m:
+    if m and keep_def:
+        # Оставляем функцию целиком, снимаем общий отступ.
+        code = code[m.start():]
+        lines = code.split("\n")
+        indents = [len(l) - len(l.lstrip()) for l in lines if l.strip()]
+        base = min(indents) if indents else 0
+        code = "\n".join(l[base:] if len(l) >= base else l for l in lines)
+    elif m:
         code = code[m.end():]
         nl = code.find("\n")
         if nl != -1:
@@ -61,12 +75,16 @@ def _extract_body(txt: str, entry: str) -> str:
     return code.rstrip() + "\n"
 
 
-def gen(model: str, prompt: str, entry: str, max_tokens: int, temperature: float) -> str:
+def gen(model: str, prompt: str, entry: str, max_tokens: int,
+        temperature: float, keep_def: bool = False) -> str:
+    instr = ("# Верни ПОЛНУЮ функцию (с `def {e}(...)`) и её телом, без пояснений."
+             .format(e=entry)) if keep_def else \
+            "# Заверши функцию. Верни ТОЛЬКО тело функции (строки с отступом), без def и docstring."
     body = json.dumps({
         "model": model,
         "messages": [
             {"role": "system", "content": SYS},
-            {"role": "user", "content": prompt + "\n\n# Заверши функцию. Верни ТОЛЬКО тело функции (строки с отступом), без def и docstring."},
+            {"role": "user", "content": prompt + "\n\n" + instr},
         ],
         "max_tokens": max_tokens,
         "temperature": temperature,
@@ -77,7 +95,7 @@ def gen(model: str, prompt: str, entry: str, max_tokens: int, temperature: float
                                           "Authorization": "Bearer " + KEY})
     with urllib.request.urlopen(req, timeout=300) as r:
         d = json.loads(r.read().decode("utf-8"))
-    return _extract_body(d["choices"][0]["message"]["content"], entry)
+    return _extract_body(d["choices"][0]["message"]["content"], entry, keep_def)
 
 
 def main():
@@ -111,10 +129,14 @@ def main():
     from concurrent.futures import ThreadPoolExecutor, as_completed
     ok = err = 0
 
+    # MBPP: промпт — только docstring, нужна ПОЛНАЯ функция (иначе 0.000).
+    keep_def = args.dataset == "mbpp"
+
     def work(tid):
         for attempt in range(4):  # РЕТРАИ (rate-limit 429 и сетевые сбои)
             try:
-                return tid, gen(args.model, problems[tid]["prompt"], problems[tid].get("entry_point", ""), args.max_tokens, args.temperature)
+                return tid, gen(args.model, problems[tid]["prompt"], problems[tid].get("entry_point", ""),
+                                args.max_tokens, args.temperature, keep_def)
             except Exception:
                 time.sleep(2 * (attempt + 1))
         return tid, None
