@@ -116,7 +116,14 @@ pub fn main() !void {
             std.debug.print("[!] ВНИМАНИЕ: {d} из {d} артефактов не прочитаны — образ НЕПОЛНЫЙ\n", .{ unreadable, project.artifacts.len });
         }
         for (project.claims) |c| {
-            try b.addClaim(try claimPath(alloc, c.statement), "{}", statusBits(c.status));
+            // АРХИТЕКТУРНЫЙ МОСТ «ТЕКСТ → КОНТРАКТ»:
+            // в `context` заявления сканер кладёт путь к привязанному
+            // машинному контракту (напр. `formal/bench_speed.smt2`) или к
+            // свидетельству исполнения (`.jsonl`). Пишем этот путь в payload
+            // объекта-заявления, чтобы `kernc verify` мог его найти в образе,
+            // прогнать через решатель и вынести вердикт ПО МАТЕМАТИКЕ,
+            // а не по буквам README.
+            try b.addClaim(try claimPath(alloc, c.statement), c.scope orelse "", statusBits(c.status));
         }
         for (project.proofs) |p| try b.addSource(p.path, p.theorem);
         if (flagValue(args, "--bytecode")) |bc| {
@@ -423,24 +430,78 @@ pub fn main() !void {
         };
         defer fs.deinit();
         var bridge = z3b.Z3Bridge.init(alloc);
-        const checker = z3b.makeChecker(&bridge);
         std.debug.print("[L4] Образ: {s}\n", .{image_path});
+
+        // АРХИТЕКТУРНЫЙ МОСТ «ТЕКСТ → КОНТРАКТ».
+        // У каждого заявления в payload записан путь к привязанному контракту
+        // (аннотация `<!-- @kern:spec path="..." -->` в Markdown, см.
+        // tools/scan_to_kern.py). Если контракт есть — он лежит в этом же
+        // образе как артефакт; читаем его и прогоняем через Z3. Вердикт
+        // выносится ПО ФОРМУЛЕ, а не по тексту заявления.
+        var proven: usize = 0;
+        var refuted: usize = 0;
+        var no_contract: usize = 0;
         for (fs.objects) |obj| {
             if (obj.type_id != 0x0005) continue;
             const id = fs.objectPath(obj);
             const bits: u2 = @intCast((obj.flags >> 2) & 0b11);
-            std.debug.print("  claim `{s}`: ЗАЯВЛЕННЫЙ статус = {s}\n", .{ id, statusSymbol(bits) });
-            const cert = ProofCertificate{
-                .target_ast_digest = obj.digest,
-                .contract_digest = obj.digest,
-                .checker_id = 1,
-                .witness_payload = "",
+            const contract_path = fs.objectPayload(obj) catch "";
+            std.debug.print("  claim `{s}`: заявленный статус = {s}\n", .{ id, statusSymbol(bits) });
+
+            if (contract_path.len == 0) {
+                no_contract += 1;
+                std.debug.print("    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства\n", .{});
+                continue;
+            }
+
+            var pb: [512]u8 = undefined;
+            const raw_path = std.fmt.bufPrint(&pb, "/raw/{s}", .{contract_path}) catch {
+                no_contract += 1;
+                continue;
             };
-            const policy = VerificationPolicy{ .require_anti_vacuity = true, .allowed_checkers = 0xFFFFFFFF };
-            const r = try AdmissionGate.verifyClaimWithChecker(alloc, obj.digest, obj.digest, cert, policy, checker);
-            std.debug.print("    Врата Истины (Z3-мост): e={d} ({s})\n", .{ r.e_value, r.eq2_status.symbol() });
+            const node = fs.read(raw_path) catch {
+                std.debug.print("    контракт `{s}` НЕ найден в образе -> e=0 (N)\n", .{contract_path});
+                no_contract += 1;
+                continue;
+            };
+
+            // ДВА КЛАССА УТВЕРЖДЕНИЙ (см. docs/SPEC_ANCHORS_DEMO.md):
+            //   • @kern:spec  -> .smt2  — МАТЕМАТИЧЕСКОЕ свойство, вердикт даёт Z3;
+            //   • @kern:evidence -> лог — ФАКТ исполнения, формулой не доказуется.
+            // Второй класс нельзя «прогнать через решатель»: это была бы подмена
+            // сути. Честно сообщаем, что проверка свидетельств не реализована.
+            if (!std.mem.endsWith(u8, contract_path, ".smt2")) {
+                std.debug.print("    свидетельство `{s}`: это ФАКТ исполнения, а не контракт SMT\n", .{contract_path});
+                std.debug.print("      -> e=0 (проверка логов исполнения не реализована — честно)\n", .{});
+                no_contract += 1;
+                continue;
+            }
+
+            const resp = bridge.executeQuery(node.raw_slice);
+            switch (resp.status) {
+                .Unsat => {
+                    // (assert ...) невыполнимо => утверждение ДОКАЗАНО.
+                    proven += 1;
+                    std.debug.print("    контракт `{s}`: UNSAT -> e=1 (T) ДОКАЗАНО\n", .{contract_path});
+                },
+                .Sat => {
+                    refuted += 1;
+                    std.debug.print("    контракт `{s}`: SAT -> e=0 (F) КОНТРПРИМЕР\n", .{contract_path});
+                },
+                .Timeout => {
+                    std.debug.print("    контракт `{s}`: ТАЙМАУТ -> e=0 (безопасно)\n", .{contract_path});
+                },
+                .ToolError => {
+                    std.debug.print("    контракт `{s}`: решатель недоступен -> e=0 (безопасно)\n", .{contract_path});
+                },
+                .Unknown => {
+                    std.debug.print("    контракт `{s}`: UNKNOWN -> e=0 (безопасно)\n", .{contract_path});
+                },
+            }
         }
-        std.debug.print("[i] Заявленный статус — это ЗАЯВЛЕНИЕ; допуск (e=1) требует внешнего решателя.\n", .{});
+        std.debug.print("[i] ИТОГ: доказано {d}, контрпримеров {d}, без контракта {d}\n", .{ proven, refuted, no_contract });
+        std.debug.print("[i] e=1 выставляется ТОЛЬКО по вердикту решателя. Заявления без\n", .{});
+        std.debug.print("    привязанного контракта остаются e=0 — это и есть честный статус.\n", .{});
 
     } else if (std.mem.eql(u8, command, "run")) {
         const fuel_s = flagValue(args, "--fuel") orelse "1000";

@@ -36,6 +36,84 @@ def clean(s: str) -> str:
     return s.replace('"', "'").replace("\\", "/").replace("\n", " ").strip()[:120]
 
 
+# ============================================================================
+# АРХИТЕКТУРНЫЙ МОСТ «ТЕКСТ → КОНТРАКТ» (Spec-Anchors)
+#
+# Заявление в свободном тексте (README/спецификация) НЕ доказать: это буквы.
+# Чтобы получить e=1, рядом с фразой ставится машинный якорь:
+#
+#   <!-- @kern:spec path="formal/bench_speed.smt2" -->
+#   Скорость чтения не менее 200 МБ/с.
+#
+#   <!-- @kern:evidence path="docs/evidence/arm64_run.json" -->
+#   Тесты проходят на ARM64 без утечек.
+#
+# Сканер НЕ понимает смысл фразы (иначе он превратился бы в ненадёжную LLM).
+# Он лишь СВЯЗЫВАЕТ текст с контрактом/свидетельством, а вердикт выносит
+# решатель в `kernc verify`: e=1 — только если Z3 доказал формулу.
+# ============================================================================
+
+ANCHOR_RE = re.compile(
+    r"<!--\s*@kern:(spec|evidence)\s+path=\"([^\"]+)\""
+    r"(?:\s+claim=\"([^\"]*)\")?\s*-->")
+
+
+def _next_text_line(lines, idx):
+    """Первая содержательная строка после якоря — текст заявления."""
+    for j in range(idx + 1, min(idx + 8, len(lines))):
+        s = lines[j].strip()
+        if not s or s.startswith("<!--") or s.startswith("#") or s.startswith("|"):
+            continue
+        return s.lstrip("-*> ").strip()
+    return ""
+
+
+def extract_anchors(rel, text, root):
+    """Возвращает (anchored_claims, proof_artifacts, proof_links).
+
+    anchored_claims: (текст, статус, источник, путь_контракта)
+    proof_artifacts: (путь, digest) — чтобы контракт попал в .kimg
+    proof_links:     (claim_ref, artifact_ref, relation)
+    """
+    anchored, proots, plinks = [], [], []
+    if "@kern:" not in text:
+        return anchored, proots, plinks
+    # Собственный исходник сканера содержит ЯКОРЬ-ПРИМЕР в docstring — это не
+    # настоящая аннотация (та же ловушка, что и с TODO). Исключаем.
+    if os.path.basename(rel) == os.path.basename(__file__):
+        return anchored, proots, plinks
+    lines = text.split("\n")
+    in_fence = False
+    for i, line in enumerate(lines):
+        # 🔴 ДЕФЕКТ (найден на первом же прогоне): якорь, показанный ВНУТРИ
+        # блока кода (```), — это ПРИМЕР синтаксиса, а не настоящая аннотация.
+        # Без этой проверки документация о мосте сама создавала ложное
+        # утверждение («Текст утверждения.» → context формально/gate_mask.smt2).
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = ANCHOR_RE.search(line)
+        if not m:
+            continue
+        kind, path, claim_attr = m.group(1), m.group(2).strip(), (m.group(3) or "").strip()
+        phrase = claim_attr or _next_text_line(lines, i)
+        if not phrase:
+            phrase = f"{kind}: {path}"
+        full = os.path.join(root, path)
+        if not os.path.exists(full):
+            # Якорь указывает на НЕСУЩЕСТВУЮЩИЙ контракт — это блокер,
+            # а не тихо проигнорированная строка.
+            anchored.append((f"anchor broken: {path} ({rel})", "blocked", rel, ""))
+            continue
+        proots.append((path, sha256(full)))
+        relation = "proved_by" if kind == "spec" else "supported_by"
+        anchored.append((phrase, "empirical", rel, path))
+        plinks.append((f"claim:{clean(phrase)}", f"artifact:{path}", relation))
+    return anchored, proots, plinks
+
+
 def scan(root: str, max_files: int, max_size: int):
     arts, claims, links = [], [], []
     root = os.path.abspath(root)
@@ -58,11 +136,11 @@ def scan(root: str, max_files: int, max_size: int):
 
             # (1) тесты: файл test_*.py или наличие def test_
             if re.search(r"(^|/)test_[^/]*\.py$", rel) or re.search(r"^\s*def test_\w+", text, re.M):
-                claims.append((f"tests present: {rel}", "tested", rel))
+                claims.append((f"tests present: {rel}", "tested", rel, ""))
 
             # (2) документация: .md в docs/ или корневой README
             if ext == ".md" and (rel.startswith("docs/") or rel == "README.md"):
-                claims.append((f"documented: {rel}", "verified", rel))
+                claims.append((f"documented: {rel}", "verified", rel, ""))
 
             # (3) незавершённое: TODO/FIXME/XXX
             #
@@ -85,13 +163,24 @@ def scan(root: str, max_files: int, max_size: int):
                 todos = len(re.findall(
                     r"(?:#|//|/\*|\*|<!--|;|--)\s*(?:TODO|FIXME|XXX)\b", text))
             if todos > 0:
-                claims.append((f"open TODOs in {rel}: {todos}", "blocked", rel))
+                claims.append((f"open TODOs in {rel}: {todos}", "blocked", rel, ""))
 
             # (4) self-claims из README (✅ ... проверено)
             if rel == "README.md":
                 for m in re.finditer(r"^\|\s*([^|]+)\|\s*`([^`]+)`\s*\|\s*(✅[^|]*)\|?", text, re.M):
                     step, mod, mark = m.group(1).strip(), m.group(2).strip(), m.group(3).strip()
-                    claims.append((f"README claims '{clean(step)}' via {mod}", "empirical", rel))
+                    claims.append((f"README claims '{clean(step)}' via {mod}", "empirical", rel, ""))
+
+            # (5) АРХИТЕКТУРНЫЙ МОСТ: якоря @kern:spec / @kern:evidence.
+            # Именно они превращают фразу в проверяемое утверждение.
+            a_claims, a_arts, a_links = extract_anchors(rel, text, root)
+            for c in a_claims:
+                claims.append(c)
+            for pa in a_arts:
+                if pa not in arts:
+                    arts.append(pa)
+            for lk in a_links:
+                links.append(lk)
 
             # связи: документ -> модуль (documents)
             if ext == ".md":
@@ -115,10 +204,15 @@ def emit(root, arts, claims, links) -> str:
         out.append(f'  hash "sha256:{digest}"')
         out.append('}')
         out.append('')
-    for text, status, src in claims:
+    for text, status, src, contract in claims:
         out.append(f'claim "{clean(text)}" {{')
         out.append(f'  status {status}')
         out.append(f'  evidence "file:{clean(src)}"')
+        # МОСТ: путь к машинному контракту. `kernc build` кладёт его в payload
+        # заявления, а `kernc verify` находит контракт в образе и прогоняет
+        # через Z3. Без этой строки утверждение остаётся e=0.
+        if contract:
+            out.append(f'  context "{clean(contract)}"')
         out.append('}')
         out.append('')
     seen = set()

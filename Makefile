@@ -10,6 +10,14 @@ OUT      ?= .kernnext
 
 .PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos cross-arch research binlevel probe
 
+# АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
+# якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
+# через Z3. Утверждение с доказанным контрактом получает e=1.
+bridge:
+	$(PYTHON) tools/scan_to_kern.py . -o /tmp/kern_bridge.kern
+	./zig-out/bin/kernc build /tmp/kern_bridge.kern -o /tmp/kern_bridge.kimg
+	./zig-out/bin/kernc verify /tmp/kern_bridge.kimg 2>&1 | grep -E "claim|контракт|свидетельство|ИТОГ" | head -40
+
 help:
 	@echo "KERN — цели Makefile"
 	@echo ""
