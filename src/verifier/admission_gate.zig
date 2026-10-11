@@ -32,7 +32,14 @@ pub const VerificationPolicy = struct {
     allowed_checkers: u32,
 
     pub fn allows(self: VerificationPolicy, checker_id: u32) bool {
-        const mask = @as(u32, 1) << @as(u5, @truncate(checker_id));
+        // 🔴 ДЕФЕКТ (найден построчным аудитом, ИСПРАВЛЕН):
+        // раньше здесь стояло `@truncate(checker_id)` (u32 -> u5). Для
+        // checker_id >= 32 индекс ЗАВОРАЧИВАЛСЯ: 32 -> 0, 64 -> 0, ...
+        // То есть «checker 32» получал ПРАВА checker 0 — и если политика
+        // разрешала checker 0, недоверенный чекер 32 проходил Врата.
+        // Теперь всё, что вне диапазона маски, ОТВЕРГАЕТСЯ (fail-closed).
+        if (checker_id >= 32) return false;
+        const mask = @as(u32, 1) << @as(u5, @intCast(checker_id));
         return (self.allowed_checkers & mask) != 0;
     }
 };
@@ -279,6 +286,23 @@ test "политика: allowed_checkers — битовая маска 1 << chec
     try std.testing.expect(p.allows(1)); // бит 1
     try std.testing.expect(!p.allows(0)); // бит 0
     try std.testing.expect(!p.allows(2)); // бит 2
+}
+
+test "🔴 ФИКС: checker_id >= 32 НЕ получает прав checker 0 (заворот маски)" {
+    // ДЕФЕКТ (был): `@truncate(checker_id)` (u32 -> u5) заворачивал индекс:
+    // 32 -> 0, 64 -> 0, ... То есть «checker 32» получал права checker 0.
+    const p = VerificationPolicy{ .require_anti_vacuity = true, .allowed_checkers = 1 }; // бит 0
+    try std.testing.expect(p.allows(0));
+    // Вне диапазона маски — ВСЕГДА отказ (fail-closed):
+    try std.testing.expect(!p.allows(32));
+    try std.testing.expect(!p.allows(64));
+    try std.testing.expect(!p.allows(96));
+    try std.testing.expect(!p.allows(std.math.maxInt(u32)));
+
+    // Даже маска «все биты» не расширяет диапазон за 0..31.
+    const q = VerificationPolicy{ .require_anti_vacuity = false, .allowed_checkers = 0xFFFFFFFF };
+    try std.testing.expect(q.allows(31));
+    try std.testing.expect(!q.allows(32));
 }
 
 test "доверие к пруверу: запрещённый checker_id отвергается" {
