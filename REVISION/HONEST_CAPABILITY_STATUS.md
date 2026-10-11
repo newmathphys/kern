@@ -49,6 +49,45 @@
 
 ---
 
+## 1c. Сертификационный контур (DO-178C / ISO 26262 / EAL7) — MEASURED
+
+| Возможность | Уровень | Доказательство |
+|:--|:--|:--|
+| Покрытие решений (self-instrumented) | MEASURED | `make coverage` → **100.0%** (30/30, порог 95%) |
+| MC/DC-векторы на решения Врат | TESTED | `src/tests/mcdc_gates_test.zig` (8 тестов) |
+| Инкрементальный SMT `push/pop` | MEASURED | 527 мс → 26 мс (**20×**), 0 ложных `proved` |
+| Крах решателя (SIGPIPE) | TESTED | `src/tests/z3_crash_test.zig` (4 теста), KERN жив |
+| Дефицит памяти (2 МБ) | TESTED | `src/tests/oom_stress.zig` → `error.OutOfMemory` |
+| Реальный SIGBUS на mmap | TESTED | `src/tests/fault_injection_test.zig` (2 теста) |
+| Фаззинг 1 000 000 мутаций | MEASURED | 362 мс, **0 паник** |
+| C-ABI (`libkern.so` + `kern.h`) | MEASURED | вызов из Python (`ctypes`) и C (`cc -lkern`) |
+| Герметичная сборка (musl, static) | MEASURED | sha256 **бит-в-бит** совпал при 2 сборках |
+| Tool Qualification Package | DONE | `formal/certification/`: 53 требования трассированы |
+| Proof Checker (структурный + MUS) | TESTED | `src/verifier/proof_check.zig` |
+
+**Ограничение (честно):** покрытие собрано **своими счётчиками**, а не LLVM
+source-based coverage — Zig 0.13 не поддерживает `--coverage`, `llvm-cov`/`kcov`
+в системе отсутствуют. Proof Checker — **структурный** (не полный Alethe/LFSC).
+
+### Внешние бенчмарки (без локальных моделей)
+
+| Бенчмарк | Результат |
+|:--|:--|
+| QuixBugs (реальное исполнение) | **31/31 (100%)** |
+| CHC-бенчмарк циклов (SV-COMP стиль) | **11/11**, 424 мс |
+| SMT (Alive2 / Hacker's Delight) | **8/8** |
+| Кросс-чек Z3 ↔ cvc5 | **9/9 согласие, 0 расхождений** |
+| SWE-bench Lite (Docker, официальный) | **3/3 resolved** |
+| Refactory (differential) | 1438/1782 (80.7%) |
+| HumanEval / HumanEval+ (официальный EvalPlus) | 0.524 / 0.500 |
+| MBPP+ | ⚠️ **заблокирован**: API отдаёт HTTP 429 (лимит исчерпан) |
+
+**Найдено и исправлено в генераторе MBPP:** у MBPP промпт — только docstring
+(без `def`), и старый экстрактор срезал сигнатуру → сэмпл становился невалидным
+кодом, `pass@1` падал в **0.000**. Это был дефект ИНСТРУМЕНТА, а не модели.
+
+---
+
 ## 2. Что ИЗМЕРЕНО (KERN-Next, `kernx`)
 
 | Возможность | Уровень | Доказательство |
