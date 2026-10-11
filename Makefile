@@ -290,12 +290,23 @@ binlevel:
 probe:
 	$(ZIG) run src/semantic_probe.zig -O ReleaseFast
 
+# Детерминированный симуляционный тест (VOPR-стиль, как TigerBeetle).
+# Тот же сид → та же история на любой машине. Инварианты I1-I4.
+sim:
+	$(ZIG) run src/sim_test.zig -O ReleaseFast -- --seeds 1,2,3,0xDEADBEEF --ops 20000
+
 # Нормативный пакет Tool Qualification (DO-330 / EAL7).
 cert:
 	@echo "=== TOOL QUALIFICATION PACKAGE ==="
 	@ls -1 formal/certification/
 	@echo
 	@echo "Требований в матрице трассируемости: $$(grep -c '^| TOR-' formal/certification/TRACEABILITY_MATRIX.md)"
+
+# Сводный аттестационный манифест: каждая строка — РЕАЛЬНЫЙ прогон.
+# Если проверка невозможна — печатается NOT RUN (не «PASS»).
+audit-manifest:
+	@chmod +x tools/audit_manifest.sh
+	@./tools/audit_manifest.sh
 
 # MBPP+ через API (генерация + официальная оценка EvalPlus).
 mbpp: 

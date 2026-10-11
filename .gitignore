@@ -46,6 +46,8 @@ attestation.cert
 # ИСКЛЮЧЕНИЕ: свидетельства бенчмарков коммитим (нужны как доказательства)
 !docs/evidence/*.jsonl
 !docs/evidence/*.json
+!docs/evidence/*.log
+!docs/evidence/*.txt
 
 # Временное
 *.log

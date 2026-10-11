@@ -30,6 +30,12 @@ pub const Builder = struct {
     }
 
     pub fn addSource(self: *Builder, path: []const u8, content: []const u8) !void {
+        // ⚠️ ВНИМАНИЕ (контракт вызова): `content` НЕ копируется —
+        // Builder хранит СРЕЗ и читает его в момент `buildBytes`/`write`.
+        // Если передать переиспользуемый буфер (например, стек-массив в
+        // цикле), ВСЕ объекты получат содержимое ПОСЛЕДНЕЙ итерации.
+        // Вызывающий обязан обеспечить время жизни `content` до записи.
+        // (Найдено детерминированным симулятором src/sim_test.zig.)
         try self.specs.append(.{ .path = path, .type_id = 0x0002, .flags = 0x0002, .content = content });
     }
 
@@ -43,7 +49,13 @@ pub const Builder = struct {
         try self.specs.append(.{ .path = name, .type_id = 0x0007, .flags = 0x0002, .content = code });
     }
 
-    pub fn write(self: *Builder, out_path: []const u8) !void {
+    /// Собирает образ .kimg В ПАМЯТИ (без записи на диск).
+    ///
+    /// ЗАЧЕМ: детерминированному симулятору (src/sim_test.zig) нужен
+    /// образ в буфере, а не файл. Логика сборки ЕДИНАЯ — `write`
+    /// вызывает этот метод, поэтому образ в памяти и на диске
+    /// побайтово совпадают.
+    pub fn buildBytes(self: *Builder, out: *std.ArrayList(u8)) !void {
         const n = self.specs.items.len;
         if (n == 0) return BuildError.Empty;
 
@@ -113,6 +125,19 @@ pub const Builder = struct {
         std.crypto.hash.sha2.Sha256.hash(header[0..96], &csum, .{});
         @memcpy(header[96..128], &csum);
 
+        // 5. Отдаём готовый образ вызывающему.
+        try out.appendSlice(&header);
+        for (entries) |e| try out.appendSlice(&e);
+        try out.appendSlice(pool.items);
+        try out.appendSlice(payload.items);
+    }
+
+    /// АТОМАРНАЯ запись на диск (crash-consistency): временный файл + rename.
+    pub fn write(self: *Builder, out_path: []const u8) !void {
+        var img = std.ArrayList(u8).init(self.allocator);
+        defer img.deinit();
+        try self.buildBytes(&img);
+
         // 5. АТОМАРНАЯ запись (crash-consistency): пишем во временный файл,
         // затем rename. При аварии (SIGKILL/отключение питания) целевой файл
         // либо старый целый, либо новый целый — НИКОГДА не битый посередине.
@@ -122,10 +147,7 @@ pub const Builder = struct {
             const f = try std.fs.cwd().createFile(tmp_path, .{});
             errdefer std.fs.cwd().deleteFile(tmp_path) catch {};
             defer f.close();
-            try f.writeAll(&header);
-            for (entries) |e| try f.writeAll(&e);
-            try f.writeAll(pool.items);
-            try f.writeAll(payload.items);
+            try f.writeAll(img.items);
             // ДЕФЕКТ (исправлен): без fsync данные оставались в кэше ОС, и
             // после отключения питания `rename` мог обогнать запись — на
             // диске оказывался ПУСТОЙ (или частичный) файл. Теперь данные

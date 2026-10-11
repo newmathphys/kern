@@ -1,0 +1,54 @@
+tor_id,category,requirement,evidence,status
+TOR-BEL-001,Формальная основа (Belnap B₄),Решётка Белнапа-Данна B₄: операции Join/Meet по полной таблице,`src/tests/exhaustive_suite.zig` :: `MATH-01: таблица Белнапа-Данна B4 (Join и Meet)`,✅
+TOR-BEL-002,Формальная основа (Belnap B₄),Законы де Моргана в порядке истинности,`src/tests/exhaustive_suite.zig` :: `MATH-02: законы де Моргана…`,✅
+TOR-BEL-003,Формальная основа (Belnap B₄),`joinK` коммутативен/ассоциативен/идемпотентен,"`formal/KernAllMath.lean` (Lean 4, 0 sorry)",✅
+TOR-BEL-004,Формальная основа (Belnap B₄),Изоляция конфликта: `T ⊔ F = B` (не перезапись!),`formal/KernAllMath.lean` :: `contradiction_isolation`,✅
+TOR-BEL-005,Формальная основа (Belnap B₄),Анти-вакуум: пустое предусловие не даёт `T`,`src/tests/exhaustive_suite.zig` :: `AI-03: вакуумное предусловие…`,✅
+TOR-GATE-001,Врата Истины (Admission Gate),Вердикт формирует ТОЛЬКО внешний чекер (не payload ИИ),`src/tests/exhaustive_suite.zig` :: `ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA НЕ даёт e=1`,✅
+TOR-GATE-002,Врата Истины (Admission Gate),Криптографическая привязка AST-дайджеста,`src/tests/exhaustive_suite.zig` :: `AI-02: устаревший сертификат…`,✅
+TOR-GATE-003,Врата Истины (Admission Gate),Маска доверия чекеров (`1 << checker_id`),`src/tests/mcdc_gates_test.zig` :: `MC/DC-8: таблица истинности VerificationPolicy.allows`,✅
+TOR-GATE-004,Врата Истины (Admission Gate),Анти-вакуумная политика инвертирует исход,"`src/tests/mcdc_gates_test.zig` :: `MC/DC-6`, `MC/DC-7`",✅
+TOR-GATE-005,Врата Истины (Admission Gate),Fail-closed: мёртвый решатель НЕ открывает Врата,`src/tests/z3_crash_test.zig` :: `Z3 CRASH: Врата НЕ открываются при мёртвом решателе`,✅
+TOR-GATE-006,Врата Истины (Admission Gate),MC/DC: каждое условие независимо влияет на исход,`src/tests/mcdc_gates_test.zig` :: `MC/DC-1 … MC/DC-7`,✅
+TOR-GATE-007,Врата Истины (Admission Gate),"Таймаут решателя — это `N`, а не `F`","`src/tests/exhaustive_suite.zig` :: `RES-01: исчерпание топлива — это N, а не F`",✅
+TOR-KIMG-001,Формат образа `.kimg` (L0),"Заголовок ровно 128 байт, выравнивание 8 (comptime)",`src/tests/alignment_stress.zig` :: `ALIGN comptime: заголовок .kimg — ровно 128 байт`,✅
+TOR-KIMG-002,Формат образа `.kimg` (L0),Безопасная арифметика: offset bomb отвергается,`src/tests/exhaustive_suite.zig` :: `SEC-01: атака переполнения в заголовке KIMG`,✅
+TOR-KIMG-003,Формат образа `.kimg` (L0),Merkle-корень пересчитывается и сверяется,`src/core/kimg_reader.zig` :: `KimgHeader.verifyMerkleRoot` + тесты,✅
+TOR-KIMG-004,Формат образа `.kimg` (L0),Порча байта → `MerkleRootMismatch` (монтирование блокируется),`src/core/kernfs_router.zig` :: TAMPER-тест,✅
+TOR-KIMG-005,Формат образа `.kimg` (L0),"Целостность СОДЕРЖИМОГО (payload), не только таблицы",`src/core/kernfs_router.zig` :: `PayloadTampered`,✅
+TOR-KIMG-006,Формат образа `.kimg` (L0),Little-Endian декодирование всех многобайтных полей,`src/tests/alignment_stress.zig` :: `ENDIAN: многобайтные поля читаются Little-Endian`,✅
+TOR-KIMG-007,Формат образа `.kimg` (L0),Невыровненный разбор безопасен (ARM64/RISC-V),"`src/tests/alignment_stress.zig` :: `ALIGN runtime: … смещения 1,2,3,5,7`",✅
+TOR-FS-001,Виртуальная ФС (KERNFS),Path traversal и NUL-инъекция отвергаются,`src/tests/exhaustive_suite.zig` :: `SEC-03`,✅
+TOR-FS-002,Виртуальная ФС (KERNFS),Запись запрещена (`AccessDenied`),`src/core/kernfs_router.zig` :: тест `AccessDenied`,✅
+TOR-FS-003,Виртуальная ФС (KERNFS),Zero-copy чтение объектов (без копирования),`src/perf_bench.zig` (51 ГБ/с),✅
+TOR-SMT-001,SMT-мост и теории,"Отсутствие решателя → `ToolError`, не паника",`src/verifier/z3_bridge.zig` :: `Z3BRIDGE: отсутствие z3 не роняет мост`,✅
+TOR-SMT-002,SMT-мост и теории,Жёсткий таймаут решателя (поток-убийца),`src/verifier/z3_bridge.zig` :: тесты таймаута,✅
+TOR-SMT-003,SMT-мост и теории,"Крах решателя → нет SIGPIPE, KERN жив",`src/tests/z3_crash_test.zig` :: `1 МБ в мёртвый пайп`,✅
+TOR-SMT-004,SMT-мост и теории,Инкрементальный `push/pop`: нет протечки контекста,`src/tests/smt_incremental_test.zig` :: `контекст ИЗОЛИРОВАН`,✅
+TOR-SMT-005,SMT-мост и теории,50 мутантов без ложных `proved`,`src/tests/smt_incremental_test.zig` :: `пачка из 50 «мутантов»`,✅
+TOR-THEORY-001,SMT-мост и теории,Теория массивов: аксиомы Маккарти доказаны,`src/verifier/array_theory.zig` :: `ARRAY (РЕАЛЬНЫЙ Z3)`,✅
+TOR-THEORY-002,SMT-мост и теории,CHC/Horn: синтез инвариантов циклов,`src/verifier/chc.zig` + `src/chc_bench.zig` (11/11),✅
+TOR-THEORY-003,SMT-мост и теории,Строки QF_S: разрыв санитайзера обнаруживается,`src/verifier/string_theory.zig` :: `STRINGS (РЕАЛЬНЫЙ Z3)`,✅
+TOR-THEORY-004,SMT-мост и теории,UNSAT-core: локализация виновной строки,`src/verifier/unsat_core.zig` :: `UNSAT CORE (РЕАЛЬНЫЙ Z3)`,✅
+TOR-THEORY-005,SMT-мост и теории,CEGIS: синтез доказан на всей области (2³²),`src/verifier/cegis.zig` :: `CEGIS (РЕАЛЬНЫЙ Z3)`,✅
+TOR-SMT-006,SMT-мост и теории,Независимый кросс-чек вторым решателем (cvc5),"`tools/solver_crosscheck.py` (9/9, 0 расхождений)",✅
+TOR-CACHE-001,Кэш доказательств,Ключ кэша криптографически зависит от payload,`src/proof_cache.zig` :: `ключ зависит от payload`,✅
+TOR-CACHE-002,Кэш доказательств,Потокобезопасность + single-flight (1 miss + 63 hits),`src/proof_cache.zig` :: `ПЧЕЛИНЫЙ РОЙ: 64 потока`,✅
+TOR-CACHE-003,Кэш доказательств,Эвикция при переполнении без утечек,`src/proof_cache.zig` :: `эвикция при переполнении`,✅
+TOR-CACHE-004,Кэш доказательств,"Устойчивость к Hash Flooding (лавина 50 %, цепочка ≤ 8)",`tools/cache_avalanche_bench.py`,✅
+TOR-OS-001,Ресурсы ОС и отказоустойчивость,Нет утечек файловых дескрипторов (50 запросов),`src/verifier/z3_bridge.zig` :: `РЕСУРСЫ: 50 запросов Z3 не текут FD`,✅
+TOR-OS-002,Ресурсы ОС и отказоустойчивость,Нет процессов-зомби (`wait()` пожинает),тот же тест (`countZombieChildren == 0`),✅
+TOR-OS-003,Ресурсы ОС и отказоустойчивость,Пул решателей: 128 запросов на 4–8 воркеров без голодания,`src/tests/pool_saturation.zig` (4 теста),✅
+TOR-OS-004,Ресурсы ОС и отказоустойчивость,"Дефицит памяти → `error.OutOfMemory`, не panic",`src/tests/oom_stress.zig` (3 теста),✅
+TOR-OS-005,Ресурсы ОС и отказоустойчивость,Реальный SIGBUS/SIGSEGV на mmap перехвачен (процесс жив),`src/tests/fault_injection_test.zig` (2 теста),✅
+TOR-OS-006,Ресурсы ОС и отказоустойчивость,Атомарная запись образа (crash-consistency),`src/core/kimg_writer.zig` :: тест crash-consistency,✅
+TOR-SEC-001,Безопасность и авторство,Троян в reserved-байтах отвергается,`src/tests/exhaustive_suite.zig` :: `SEC-02`,✅
+TOR-SEC-002,Безопасность и авторство,Фаззинг парсера: 0 паник на битых входах,`src/next/parser.zig` :: фаззинг-тест,✅
+TOR-SEC-003,Безопасность и авторство,"Аттестация вердикта (Ed25519), подмена отвергается",`src/attest.zig` (6 тестов),✅
+TOR-SEC-004,Безопасность и авторство,Аттестация `.kimg`: подмена образа/сертификата отвергается,`kernc attest verify` + `src/attest.zig`,✅
+TOR-SEC-005,Безопасность и авторство,Ключ-замок авторства валиден (вшитый публичный ключ),`src/owner.zig` :: `АВТОРСТВО: ключ-замок валиден`,✅
+TOR-SEC-006,Безопасность и авторство,Токен автора физически присутствует в бинарнике,`strings zig-out/bin/kernc \,grep ed53cd2f…` | ✅
+TOR-BUILD-001,Воспроизводимость сборки,Герметичная статическая сборка (x86_64-linux-musl),`zig build hermetic` → ELF static,✅
+TOR-BUILD-002,Воспроизводимость сборки,Бит-в-бит воспроизводимость sha256 при пересборке,2 сборки → `a2a09f14…` (идентичны),✅
+TOR-BUILD-003,Воспроизводимость сборки,C-ABI: встраивание без CLI-процесса,`zig build lib` → `libkern.so` + `include/kern.h`,✅
+TOR-BUILD-004,Воспроизводимость сборки,Отсутствие UB: тесты проходят в ReleaseSafe,`zig test -O ReleaseSafe src/test_root.zig`,✅

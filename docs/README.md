@@ -42,9 +42,12 @@
 | Документ | Что внутри |
 |:--|:--|
 | [`../formal/README.md`](../formal/README.md) | 7 файлов Lean 4, 32 теоремы, 0 `sorry` |
-| [`../formal/certification/TRACEABILITY_MATRIX.md`](../formal/certification/TRACEABILITY_MATRIX.md) | Матрица трассируемости TOR → тест (DO-330) |
-| [`../formal/certification/SOUNDNESS_ARGUMENT.md`](../formal/certification/SOUNDNESS_ARGUMENT.md) | Обоснование отсутствия ложных допусков |
-| [`../formal/certification/SECURITY_TARGET.md`](../formal/certification/SECURITY_TARGET.md) | Формальная модель безопасности |
+| [`../formal/certification/TOR.md`](../formal/certification/TOR.md) | **TOR**: назначение инструмента + 53 требования (DO-330 TQL-1) |
+| [`../formal/certification/TAS.md`](../formal/certification/TAS.md) | **TAS**: итоговый отчёт о выполнении для сертификационного офицера |
+| [`../formal/certification/TRACEABILITY_MATRIX.md`](../formal/certification/TRACEABILITY_MATRIX.md) | требования → тесты (человекочитаемо) + [`.csv`](../formal/certification/TRACEABILITY_MATRIX.csv) |
+| [`../formal/certification/SOUNDNESS_ARGUMENT.md`](../formal/certification/SOUNDNESS_ARGUMENT.md) | обоснование отсутствия ложных допусков |
+| [`../formal/certification/SECURITY_TARGET.md`](../formal/certification/SECURITY_TARGET.md) | формальная модель безопасности (Common Criteria) |
+| [`../formal/certification/KNOWN_LIMITATIONS.md`](../formal/certification/KNOWN_LIMITATIONS.md) | **реестр 25 ограничений** (все fail-closed) |
 
 ### Свидетельства (сырые данные)
 
@@ -58,8 +61,10 @@
 ## Быстрые ссылки на команды
 
 ```bash
-make help          # все 62 цели
+make help          # все цели
 make test-all      # полный контур проверок
+make audit-manifest # сводный аттестационный статус (все строки — прогоны)
+make sim           # детерминированный симулятор (VOPR-стиль)
 make coverage      # покрытие решений (100%)
 make mutate        # мутационное тестирование
 make bridge        # мост «текст → контракт»
