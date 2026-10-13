@@ -13,6 +13,7 @@
 const std = @import("std");
 const cov = @import("../cov.zig");
 const gate = @import("admission_gate.zig");
+const compat = @import("compat");
 
 pub const SmtStatus = enum { Sat, Unsat, Unknown, Timeout, ToolError };
 
@@ -379,7 +380,7 @@ test "ГРАНИЦА: мусорный SMT не роняет мост" {
 
 fn countFds() usize {
     var dir = std.fs.openDirAbsolute("/proc/self/fd", .{ .iterate = true }) catch return 0;
-    defer dir.close();
+    defer compat.dirClose(dir);
     var it = dir.iterate();
     var n: usize = 0;
     while (it.next() catch null) |_| n += 1;
@@ -390,7 +391,7 @@ fn countFds() usize {
 fn countZombieChildren() usize {
     const my_pid = std.os.linux.getpid();
     var dir = std.fs.openDirAbsolute("/proc", .{ .iterate = true }) catch return 0;
-    defer dir.close();
+    defer compat.dirClose(dir);
     var it = dir.iterate();
     var n: usize = 0;
     while (it.next() catch null) |entry| {

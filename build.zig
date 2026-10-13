@@ -49,6 +49,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Слой совместимости Zig 0.13 -> 0.17 (std.Io): файловый I/O теперь
+    // требует явный `io`, а `std.fs.cwd()`/`std.io` удалены. Модуль нужен
+    // и ядру (src/), и KERN-Next (src/next/), поэтому отдаём его именованным.
+    const compat_module = b.createModule(.{
+        .root_source_file = b.path("src/compat.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe_mod.addImport("compat", compat_module);
+    tests_mod.addImport("compat", compat_module);
+    atk_mod.addImport("compat", compat_module);
+
     // KERN-Next: движок проекта (`kernx`). Требует libc + libsqlite3 (§9).
     const kernx_mod = b.createModule(.{
         .root_source_file = b.path("src/next/main.zig"),
@@ -59,6 +71,7 @@ pub fn build(b: *std.Build) void {
     const kernx = b.addExecutable(.{ .name = "kernx", .root_module = kernx_mod });
     kernx.root_module.addImport("owner", owner_module);
     kernx.root_module.addImport("atomic", atomic_module);
+    kernx.root_module.addImport("compat", compat_module);
     kernx_mod.linkSystemLibrary("sqlite3", .{});
     b.installArtifact(kernx);
 
@@ -71,6 +84,7 @@ pub fn build(b: *std.Build) void {
     });
     const tests_next = b.addTest(.{ .root_module = tests_next_mod });
     tests_next.root_module.addImport("atomic", atomic_module);
+    tests_next.root_module.addImport("compat", compat_module);
     tests_next_mod.linkSystemLibrary("sqlite3", .{});
     const run_tests_next = b.addRunArtifact(tests_next);
     b.step("test-next", "Тесты KERN-Next").dependOn(&run_tests_next.step);
@@ -84,6 +98,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     const fault_tests = b.addTest(.{ .root_module = fault_tests_mod });
+    fault_tests.root_module.addImport("compat", compat_module);
     const run_fault_tests = b.addRunArtifact(fault_tests);
     b.step("test-fault", "Инъекция сбоев памяти (SIGBUS/SIGSEGV)").dependOn(&run_fault_tests.step);
 
@@ -95,6 +110,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     capi_mod.addImport("owner", owner_module);
+    capi_mod.addImport("compat", compat_module);
 
     const shared_mod = b.createModule(.{
         .root_source_file = b.path("src/capi.zig"),
@@ -104,6 +120,7 @@ pub fn build(b: *std.Build) void {
     });
     const shared = b.addLibrary(.{ .name = "kern", .root_module = shared_mod, .linkage = .dynamic });
     shared.root_module.addImport("owner", owner_module);
+    shared.root_module.addImport("compat", compat_module);
     shared.installHeader(b.path("include/kern.h"), "kern.h");
     b.installArtifact(shared);
 
@@ -115,6 +132,7 @@ pub fn build(b: *std.Build) void {
     });
     const static = b.addLibrary(.{ .name = "kern", .root_module = static_mod, .linkage = .static });
     static.root_module.addImport("owner", owner_module);
+    static.root_module.addImport("compat", compat_module);
     b.installArtifact(static);
 
     b.step("lib", "Собрать C-ABI библиотеку (libkern.so/.a + kern.h)").dependOn(&b.addInstallArtifact(shared, .{}).step);
@@ -132,6 +150,7 @@ pub fn build(b: *std.Build) void {
         .target = musl_target,
         .optimize = .ReleaseSafe,
     });
+    hermetic_exe_mod.addImport("compat", compat_module);
     const hermetic_exe = b.addExecutable(.{ .name = "kernc-hermetic", .root_module = hermetic_exe_mod });
     const hermetic_install = b.addInstallArtifact(hermetic_exe, .{});
     b.step("hermetic", "Герметичная статическая сборка (x86_64-linux-musl)").dependOn(&hermetic_install.step);

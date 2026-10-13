@@ -6,6 +6,7 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const atomic = @import("atomic");
 const validate = @import("validate.zig");
+const compat = @import("compat");
 
 fn isProven(s: ast.Status) bool {
     return s == .proven or s == .verified or s == .tested or s == .compiled;
@@ -211,8 +212,8 @@ test "EXPORT: agent packet содержит proven/blocked и валиден к�
     ;
     const res = try parser.parse(a, src);
     try writePacket(a, "/tmp/kern_packet_test.json", res.project, &.{}, "current-issue");
-    defer std.fs.cwd().deleteFile("/tmp/kern_packet_test.json") catch {};
-    const data = try std.fs.cwd().readFileAlloc(a, "/tmp/kern_packet_test.json", 1 << 20);
+    defer compat.deleteFile("/tmp/kern_packet_test.json") catch {};
+    const data = try compat.readFileAlloc(a, "/tmp/kern_packet_test.json", 1 << 20);
     try std.testing.expect(std.mem.indexOf(u8, data, "\"proven\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, data, "ok") != null);
     try std.testing.expect(std.mem.indexOf(u8, data, "\"blocked\"") != null);
@@ -226,8 +227,8 @@ test "EXPORT: human report содержит разделы" {
     const a = arena.allocator();
     const res = try parser.parse(a, "project \"P\" { version \"1\" }\nclaim \"ok\" { status proven }");
     try writeReport(a, "/tmp/kern_report_test.md", res.project, &.{});
-    defer std.fs.cwd().deleteFile("/tmp/kern_report_test.md") catch {};
-    const data = try std.fs.cwd().readFileAlloc(a, "/tmp/kern_report_test.md", 1 << 20);
+    defer compat.deleteFile("/tmp/kern_report_test.md") catch {};
+    const data = try compat.readFileAlloc(a, "/tmp/kern_report_test.md", 1 << 20);
     try std.testing.expect(std.mem.indexOf(u8, data, "## Доказанные утверждения") != null);
     try std.testing.expect(std.mem.indexOf(u8, data, "## Следующие шаги") != null);
 }
@@ -241,8 +242,8 @@ test "ФИКС JSON: управляющие символы экранируют�
     const src = "claim \"q\\\" b\\\\ t\x01 end\" { status proven }";
     const res = try parser.parse(a, src);
     try writePacket(a, "/tmp/json_esc_test.json", res.project, &.{}, "s\x01cope");
-    defer std.fs.cwd().deleteFile("/tmp/json_esc_test.json") catch {};
-    const data = try std.fs.cwd().readFileAlloc(a, "/tmp/json_esc_test.json", 1 << 20);
+    defer compat.deleteFile("/tmp/json_esc_test.json") catch {};
+    const data = try compat.readFileAlloc(a, "/tmp/json_esc_test.json", 1 << 20);
     // Сырой \x01 в JSON недопустим
     try std.testing.expect(std.mem.indexOfScalar(u8, data, 0x01) == null);
     try std.testing.expect(std.mem.indexOf(u8, data, "\\u0001") != null);

@@ -7,6 +7,7 @@
 const std = @import("std");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
 const KernFsRouter = @import("kernfs_router.zig").KernFS;
+const compat = @import("compat");
 
 pub const BuildError = error{ TooManyObjects, Empty, PoolTooLarge, Overflow };
 
@@ -144,25 +145,25 @@ pub const Builder = struct {
         const tmp_path = try std.fmt.allocPrint(self.allocator, "{s}.tmp", .{out_path});
         defer self.allocator.free(tmp_path);
         {
-            const f = try std.fs.cwd().createFile(tmp_path, .{});
-            errdefer std.fs.cwd().deleteFile(tmp_path) catch {};
-            defer f.close();
-            try f.writeAll(img.items);
+            const f = try compat.createFile(tmp_path, .{});
+            errdefer compat.deleteFile(tmp_path) catch {};
+            defer compat.fileClose(f);
+            try compat.fileWriteAll(f, img.items);
             // ДЕФЕКТ (исправлен): без fsync данные оставались в кэше ОС, и
             // после отключения питания `rename` мог обогнать запись — на
             // диске оказывался ПУСТОЙ (или частичный) файл. Теперь данные
             // сброшены на носитель ДО переименования.
-            try f.sync();
+            try compat.fileSync(f);
         }
         // Если rename упадёт — временный файл не должен остаться мусором.
-        errdefer std.fs.cwd().deleteFile(tmp_path) catch {};
-        try std.fs.cwd().rename(tmp_path, out_path);
+        errdefer compat.deleteFile(tmp_path) catch {};
+        try compat.rename(tmp_path, out_path);
         // Долговечность самого rename: синхронизируем КАТАЛОГ.
         // (в Zig 0.13 у std.fs.Dir нет .sync() — открываем каталог через posix)
-        const dfd = std.posix.open(".", .{ .ACCMODE = .RDONLY, .DIRECTORY = true }, 0) catch -1;
+        const dfd = std.posix.openat(std.posix.AT.FDCWD, ".", .{ .ACCMODE = .RDONLY, .DIRECTORY = true }, 0) catch -1;
         if (dfd >= 0) {
             defer std.posix.close(dfd);
-            std.posix.fsync(dfd) catch {};
+            std.posix.fdatasync(dfd) catch {};
         }
     }
 };
@@ -179,9 +180,9 @@ test "KIMG-WRITER: сборка образа и чтение через KERNFS (
 
     const tmp = "/tmp/kern_writer_test.kimg";
     try b.write(tmp);
-    defer std.fs.cwd().deleteFile(tmp) catch {};
+    defer compat.deleteFile(tmp) catch {};
 
-    const data = try std.fs.cwd().readFileAlloc(std.testing.allocator, tmp, 1 << 20);
+    const data = try compat.readFileAlloc(std.testing.allocator, tmp, 1 << 20);
     defer std.testing.allocator.free(data);
 
     var fs = try KernFsRouter.mountFromBytes(std.testing.allocator, data);
@@ -208,8 +209,8 @@ test "ГРАНИЦА: объект с пустым содержимым и дл�
     try b.addSource("x", "y");
     const tmp = "/tmp/edge_writer.kimg";
     try b.write(tmp);
-    defer std.fs.cwd().deleteFile(tmp) catch {};
-    const data = try std.fs.cwd().readFileAlloc(std.testing.allocator, tmp, 1 << 20);
+    defer compat.deleteFile(tmp) catch {};
+    const data = try compat.readFileAlloc(std.testing.allocator, tmp, 1 << 20);
     defer std.testing.allocator.free(data);
     const KernFS2 = @import("kernfs_router.zig").KernFS;
     var fs = try KernFS2.mountFromBytes(std.testing.allocator, data);
@@ -225,17 +226,17 @@ test "CRASH-CONSISTENCY: запись атомарна, .tmp не остаётс
     defer b.deinit();
     try b.addSource("a.zig", "content");
     const out = "/tmp/atomic_test.kimg";
-    defer std.fs.cwd().deleteFile(out) catch {};
+    defer compat.deleteFile(out) catch {};
     try b.write(out);
     // целевой файл есть
-    try std.fs.cwd().access(out, .{});
+    try compat.access(out, .{});
     // .tmp не осталось
     var tmp_buf: [64]u8 = undefined;
     const tmp = try std.fmt.bufPrint(&tmp_buf, "{s}.tmp", .{out});
-    try std.testing.expectError(error.FileNotFound, std.fs.cwd().access(tmp, .{}));
+    try std.testing.expectError(error.FileNotFound, compat.access(tmp, .{}));
     // перезапись поверх — тоже ок (атомарно)
     try b.write(out);
-    try std.fs.cwd().access(out, .{});
+    try compat.access(out, .{});
 }
 
 test "ДОЛГОВЕЧНОСТЬ: данные сброшены на носитель (fsync), образ читается" {
@@ -246,12 +247,12 @@ test "ДОЛГОВЕЧНОСТЬ: данные сброшены на носит�
     defer b.deinit();
     try b.addSource("src/x.zig", "durability probe");
     const out = "/tmp/durability_test.kimg";
-    defer std.fs.cwd().deleteFile(out) catch {};
+    defer compat.deleteFile(out) catch {};
     try b.write(out);
 
     // Читаем ФАЙЛ (а не память процесса) — если бы fsync не было,
     // на некоторых ФС размер/содержимое могли быть нулевыми.
-    const data = try std.fs.cwd().readFileAlloc(std.testing.allocator, out, 1 << 20);
+    const data = try compat.readFileAlloc(std.testing.allocator, out, 1 << 20);
     defer std.testing.allocator.free(data);
     try std.testing.expect(data.len > 128);
     try std.testing.expectEqualStrings("KIMG\r\n\x1a\n", data[0..8]);

@@ -30,7 +30,7 @@ fn solverAvailable(b: *z3b.Z3Bridge) bool {
 
 fn countOpenFds() usize {
     var dir = std.fs.openDirAbsolute("/proc/self/fd", .{ .iterate = true }) catch return 0;
-    defer dir.close();
+    defer compat.dirClose(dir);
     var n: usize = 0;
     var it = dir.iterate();
     while (it.next() catch null) |_| n += 1;

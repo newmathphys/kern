@@ -6,6 +6,7 @@ const AdmissionGate = @import("verifier/admission_gate.zig").AdmissionGate;
 const ProofCertificate = @import("verifier/admission_gate.zig").ProofCertificate;
 const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPolicy;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
+const compat = @import("compat");
 
 /// ВОСПРОИЗВОДИМАЯ ПРОВЕРКА ДВУХ АТАК — ПОСЛЕ ФИКСОВ ФАЗЫ 1.
 ///
@@ -45,7 +46,7 @@ pub fn main() !void {
     std.debug.print(
         "\n########## АТАКА 2: KERNFS на согласованном образе v1.3 ##########\n", .{});
 
-    const data = std.fs.cwd().readFileAlloc(
+    const data = compat.readFileAlloc(
         alloc, "tests/fixtures/valid_v1_3.kimg", 1 << 20) catch {
         std.debug.print("[i] образа нет — соберите: python3 tools/golden_v1_3.py\n", .{});
         return;

@@ -7,6 +7,7 @@ const std = @import("std");
 const Builder = @import("core/kimg_writer.zig").Builder;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
+const compat = @import("compat");
 
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}){};
@@ -34,9 +35,9 @@ pub fn main() !void {
     try b.write("/tmp/perf_bench.kimg");
     const t_write = t.read();
 
-    const data = try std.fs.cwd().readFileAlloc(alloc, "/tmp/perf_bench.kimg", 1 << 28);
+    const data = try compat.readFileAlloc(alloc, "/tmp/perf_bench.kimg", 1 << 28);
     defer alloc.free(data);
-    defer std.fs.cwd().deleteFile("/tmp/perf_bench.kimg") catch {};
+    defer compat.deleteFile("/tmp/perf_bench.kimg") catch {};
 
     // --- 2. ПАРСИНГ заголовка ---
     t.reset();

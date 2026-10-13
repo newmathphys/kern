@@ -82,6 +82,6 @@ pub fn report(writer: anytype) !void {
     });
     inline for (@typeInfo(Site).@"enum".field_names) |f| {
         const n = counters[f.value];
-        try writer.print("  {s:<32} {d:>7} {s}\n", .{ f.name, n, if (n == 0) " <-- НЕ ИСПОЛНЕНО" else "" });
+        try writer.print("  {s:<32} {d:>7} {s}\n", .{ f, n, if (n == 0) " <-- НЕ ИСПОЛНЕНО" else "" });
     }
 }

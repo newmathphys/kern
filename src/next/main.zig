@@ -9,32 +9,31 @@ const validate = @import("validate.zig");
 const exp = @import("export.zig");
 const ast = @import("ast.zig");
 const truth = @import("truth.zig");
+const compat = @import("compat");
 
-fn flagValue(args: []const [:0]u8, name: []const u8) ?[]const u8 {
+fn flagValue(args: []const [:0]const u8, name: []const u8) ?[]const u8 {
     for (args, 0..) |a, i| {
         if (std.mem.eql(u8, a, name) and i + 1 < args.len) return args[i + 1];
     }
     return null;
 }
 
-fn hasFlag(args: []const [:0]u8, name: []const u8) bool {
+fn hasFlag(args: []const [:0]const u8, name: []const u8) bool {
     for (args) |a| if (std.mem.eql(u8, a, name)) return true;
     return false;
 }
 
 fn printFile(alloc: std.mem.Allocator, path: []const u8) !void {
-    const data = try std.fs.cwd().readFileAlloc(alloc, path, 1 << 24);
+    const data = try compat.readFileAlloc(alloc, path, 1 << 24);
     defer alloc.free(data);
     try std.io.getStdOut().writeAll(data);
 }
 
-pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+pub fn main(init: std.process.Init) !void {
+    compat.setIo(init.io);
+    const alloc = init.arena.allocator();
 
-    const args = try std.process.argsAlloc(alloc);
-    defer std.process.argsFree(alloc, args);
+    const args = try std.process.Args.toSlice(init.minimal.args, alloc);
 
     if (args.len < 2) {
         printUsage();
@@ -91,7 +90,7 @@ pub fn main() !void {
             std.debug.print("[!] {s}: нужен путь к .kern\n", .{cmd});
             return;
         }
-        const src = try std.fs.cwd().readFileAlloc(alloc, args[2], 1 << 24);
+        const src = try compat.readFileAlloc(alloc, args[2], 1 << 24);
         defer alloc.free(src);
         const res = try parser.parse(alloc, src);
         var project = res.project;
@@ -106,10 +105,10 @@ pub fn main() !void {
             });
             inline for (@typeInfo(ast.Status).@"enum".field_names) |f| {
                 var n: usize = 0;
-                for (project.claims) |cl| if (std.mem.eql(u8, @tagName(cl.status), f.name)) {
+                for (project.claims) |cl| if (std.mem.eql(u8, @tagName(cl.status), f)) {
                     n += 1;
                 };
-                if (n > 0) std.debug.print("  статус {s}: {d}\n", .{ f.name, n });
+                if (n > 0) std.debug.print("  статус {s}: {d}\n", .{ f, n });
             }
             std.debug.print("  диагностик: {d} (ошибок: {d})\n", .{ diags.len, validate.countErrors(diags) });
             std.debug.print("  резолюция исполнений: N->T {d}, N->F {d}, N->B(конфликт) {d}\n", .{ resolved.stats.to_tested, resolved.stats.to_refuted, resolved.stats.to_conflicted });

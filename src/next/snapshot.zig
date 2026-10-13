@@ -8,6 +8,7 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const validate = @import("validate.zig");
 const atomic = @import("atomic");
+const compat = @import("compat");
 
 pub const Snapshot = struct {
     lines: [][]const u8,
@@ -66,7 +67,7 @@ pub fn writeFile(allocator: std.mem.Allocator, path: []const u8, snap: Snapshot)
 }
 
 pub fn readFile(allocator: std.mem.Allocator, path: []const u8) !Snapshot {
-    const data = try std.fs.cwd().readFileAlloc(allocator, path, 1 << 24);
+    const data = try compat.readFileAlloc(allocator, path, 1 << 24);
     var list = std.array_list.Managed([]const u8).init(allocator);
     var it = std.mem.splitScalar(u8, data, '\n');
     while (it.next()) |l| if (l.len > 0) {
@@ -149,8 +150,8 @@ test "УТЕЧКИ: Snapshot/Diff полностью освобождаются 
 
     const path_a = "/tmp/kern_snap_leak_a.ksnap";
     const path_b = "/tmp/kern_snap_leak_b.ksnap";
-    defer std.fs.cwd().deleteFile(path_a) catch {};
-    defer std.fs.cwd().deleteFile(path_b) catch {};
+    defer compat.deleteFile(path_a) catch {};
+    defer compat.deleteFile(path_b) catch {};
     try writeFile(a, path_a, s1);
     try writeFile(a, path_b, s2);
 

@@ -8,6 +8,7 @@ const ObjectEntry = kimg.ObjectEntry;
 const KimgHeader = @import("kimg_reader.zig").KimgHeader;
 const KimgError = @import("kimg_reader.zig").KimgError;
 const Eq2 = @import("eq2.zig").Eq2;       // KERN-EQ2 математика
+const compat = @import("compat");
 
 pub const KernFsError = error{
     PathTraversalAttempt, // CONF-13: запрет ..
@@ -48,7 +49,7 @@ pub const KernFS = struct {
     pub fn validatePath(path: []const u8) !void {
         if (path.len == 0 or path[0] != '/') return KernFsError.InvalidPathFormat;
 
-        var it = std.mem.split(u8, path, "/");
+        var it = std.mem.splitScalar(u8, path, 0x2F);
         _ = it.next(); // пропуск первого пустого токена (из-за ведущего слеша)
 
         while (it.next()) |component| {
@@ -161,7 +162,7 @@ pub const KernFS = struct {
 
         // 2. Семантическое пространство (/claims/...)
         if (std.mem.startsWith(u8, path, "/claims/")) {
-            var it = std.mem.split(u8, path[8..], "/");
+            var it = std.mem.splitScalar(u8, path[8..], 0x2F);
             const claim_id = it.next() orelse return KernFsError.FileNotFound;
             const view_type = it.next() orelse return KernFsError.FileNotFound;
 
@@ -466,9 +467,9 @@ test "TAMPER: порча 1 байта в середине .kimg блокируе
     }
     const tmp = "/tmp/tamper_test.kimg";
     try b.write(tmp);
-    defer std.fs.cwd().deleteFile(tmp) catch {};
+    defer compat.deleteFile(tmp) catch {};
 
-    var data = try std.fs.cwd().readFileAlloc(std.testing.allocator, tmp, 1 << 24);
+    var data = try compat.readFileAlloc(std.testing.allocator, tmp, 1 << 24);
     defer std.testing.allocator.free(data);
 
     // 1) валидный — монтируется
@@ -499,8 +500,8 @@ test "TRUNCATION: обрезанный образ отвергается без 
     try b.addSource("b.zig", "second");
     const tmp = "/tmp/trunc_test.kimg";
     try b.write(tmp);
-    defer std.fs.cwd().deleteFile(tmp) catch {};
-    const full = try std.fs.cwd().readFileAlloc(std.testing.allocator, tmp, 1 << 20);
+    defer compat.deleteFile(tmp) catch {};
+    const full = try compat.readFileAlloc(std.testing.allocator, tmp, 1 << 20);
     defer std.testing.allocator.free(full);
 
     // обрезаем по разным границам
@@ -518,8 +519,8 @@ test "ФИКС ЦЕЛОСТНОСТИ: подмена payload отвергает
     try b.addSource("secret.txt", "PASSWORD=12345");
     const tmp = "/tmp/payload_int.kimg";
     try b.write(tmp);
-    defer std.fs.cwd().deleteFile(tmp) catch {};
-    const data = try std.fs.cwd().readFileAlloc(std.testing.allocator, tmp, 1 << 20);
+    defer compat.deleteFile(tmp) catch {};
+    const data = try compat.readFileAlloc(std.testing.allocator, tmp, 1 << 20);
     defer std.testing.allocator.free(data);
 
     // 1) целостный — читается

@@ -11,6 +11,7 @@
 const std = @import("std");
 const posix = std.posix;
 const sigbus = @import("../core/sigbus_guard.zig");
+const compat = @import("compat");
 
 test "SIGBUS РЕАЛЬНЫЙ: чтение PROT_NONE перехвачено, процесс жив" {
     if (@import("builtin").os.tag != .linux) return;
@@ -47,11 +48,11 @@ test "SIGBUS РЕАЛЬНЫЙ: файл, обрезанный после mmap (�
 
     // 1. Создаём файл на 2 страницы и отображаем его в память.
     const path = "/tmp/kern_sigbus_probe.bin";
-    var f = try std.fs.cwd().createFile(path, .{ .read = true, .truncate = true });
-    defer f.close();
-    defer std.fs.cwd().deleteFile(path) catch {};
+    var f = try compat.createFile(path, .{ .read = true, .truncate = true });
+    defer compat.fileClose(f);
+    defer compat.deleteFile(path) catch {};
     try f.setEndPos(8192);
-    try f.writeAll(&(@as([8192]u8, @splat(0x5A))));
+    try compat.fileWriteAll(f, &(@as([8192]u8, @splat(0x5A))));
 
     const mapped = try posix.mmap(null, 8192, posix.PROT.READ, .{ .TYPE = .SHARED }, f.handle, 0);
     defer posix.munmap(mapped);

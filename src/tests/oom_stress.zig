@@ -13,6 +13,7 @@
 const std = @import("std");
 const Builder = @import("../core/kimg_writer.zig").Builder;
 const KimgHeader = @import("../core/kimg_reader.zig").KimgHeader;
+const compat = @import("compat");
 
 test "OOM: сборка образа на 2 МБ -> error.OutOfMemory (не паника)" {
     var buf: [2 * 1024 * 1024]u8 = undefined;
@@ -63,7 +64,7 @@ test "OOM: запись образа на 2 МБ -> контролируемая
         b.addSource(path, &content) catch break;
     }
     const out = "/tmp/kern_oom_probe.kimg";
-    defer std.fs.cwd().deleteFile(out) catch {};
+    defer compat.deleteFile(out) catch {};
 
     if (b.write(out)) |_| {
         // Хватило памяти — тоже валидный исход (лимит не достигнут).

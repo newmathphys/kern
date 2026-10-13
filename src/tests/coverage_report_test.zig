@@ -27,7 +27,7 @@ test "ПОКРЫТИЕ: отчёт по инструментированным �
     var total: usize = 0;
     var covered: usize = 0;
     inline for (@typeInfo(cov.Site).@"enum".field_names) |f| {
-        const is_z3 = std.mem.startsWith(u8, f.name, "z3_");
+        const is_z3 = std.mem.startsWith(u8, f, "z3_");
         // Без решателя решения z3_* недостижимы по дизайну — не считаем их.
         if (!(solver_absent and is_z3)) {
             total += 1;

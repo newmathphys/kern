@@ -23,7 +23,7 @@ pub const Status = enum {
 
     pub fn fromString(s: []const u8) ?Status {
         inline for (@typeInfo(Status).@"enum".field_names) |f| {
-            if (std.mem.eql(u8, s, f.name)) return @field(Status, f.name);
+            if (std.mem.eql(u8, s, f)) return @field(Status, f);
         }
         return null;
     }
@@ -50,7 +50,7 @@ pub const Kind = enum {
 
     pub fn fromString(s: []const u8) ?Kind {
         inline for (@typeInfo(Kind).@"enum".field_names) |f| {
-            if (std.mem.eql(u8, s, f.name)) return @field(Kind, f.name);
+            if (std.mem.eql(u8, s, f)) return @field(Kind, f);
         }
         return null;
     }
@@ -64,7 +64,7 @@ pub const RelationKind = enum {
 
     pub fn fromString(s: []const u8) ?RelationKind {
         inline for (@typeInfo(RelationKind).@"enum".field_names) |f| {
-            if (std.mem.eql(u8, s, f.name)) return @field(RelationKind, f.name);
+            if (std.mem.eql(u8, s, f)) return @field(RelationKind, f);
         }
         return null;
     }

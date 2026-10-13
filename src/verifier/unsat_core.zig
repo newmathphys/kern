@@ -52,9 +52,9 @@ pub const UnsatCoreEngine = struct {
         assertions: []const NamedAssertion,
         goal: []const u8,
     ) ![]u8 {
-        var buf = std.array_list.Managed(u8).init(self.allocator);
-        errdefer buf.deinit();
-        const w = buf.writer();
+        var aw: std.Io.Writer.Allocating = .init(self.allocator);
+        errdefer aw.deinit();
+        const w = &aw.writer;
         try w.writeAll("(set-option :produce-unsat-cores true)\n(set-logic ALL)\n");
         try w.writeAll(decls);
         try w.writeAll("\n");
@@ -63,7 +63,7 @@ pub const UnsatCoreEngine = struct {
         }
         try w.print("(assert (! (not {s}) :named goal))\n", .{goal});
         try w.writeAll("(check-sat)\n(get-unsat-core)\n");
-        return buf.toOwnedSlice();
+        return aw.toOwnedSlice();
     }
 
     /// Разбирает вывод Z3 вида `unsat\n(name1 name2 ...)\n`.

@@ -18,6 +18,7 @@ const unsat_core = @import("verifier/unsat_core.zig");
 const array_theory = @import("verifier/array_theory.zig");
 const chc = @import("verifier/chc.zig");
 const string_theory = @import("verifier/string_theory.zig");
+const compat = @import("compat");
 const cegis = @import("verifier/cegis.zig");
 const kparser = @import("next/parser.zig");
 const truth = @import("next/truth.zig");
@@ -37,7 +38,7 @@ const Ed25519 = std.crypto.sign.Ed25519;
 ///   prove            доказательство SMT-скрипта через реальный Z3
 ///   audit            контур «математического интеллекта»: UNSAT-core,
 ///                    теория массивов, CHC/Horn, строки (QF_S), CEGIS-синтез
-fn flagValue(args: []const [:0]u8, name: []const u8) ?[]const u8 {
+fn flagValue(args: []const [:0]const u8, name: []const u8) ?[]const u8 {
     for (args, 0..) |a, i| {
         if (std.mem.eql(u8, a, name) and i + 1 < args.len) return args[i + 1];
     }
@@ -70,13 +71,12 @@ fn claimPath(alloc: std.mem.Allocator, s: []const u8) ![]const u8 {
     return out;
 }
 
-pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует явный `io` — публикуем его в compat.
+    compat.setIo(init.io);
+    const alloc = init.arena.allocator();
 
-    const args = try std.process.argsAlloc(alloc);
-    defer std.process.argsFree(alloc, args);
+    const args = try std.process.Args.toSlice(init.minimal.args, alloc);
 
     if (args.len < 2) {
         printUsage();
@@ -90,7 +90,7 @@ pub fn main() !void {
             std.debug.print("[!] build: нужен путь к .kern\n", .{});
             return;
         }
-        const source = try std.fs.cwd().readFileAlloc(alloc, args[2], 1 << 24);
+        const source = try compat.readFileAlloc(alloc, args[2], 1 << 24);
         const res = try kparser.parse(alloc, source);
         var project = res.project;
         // РЕЗОЛЮЦИЯ: машинные свидетельства исполнения -> статус (Белнап-аккумулятор).
@@ -105,7 +105,7 @@ pub fn main() !void {
         // а итог выводится отдельной строкой — «тихая деградация» недопустима.
         var unreadable: usize = 0;
         for (project.artifacts) |a| {
-            const content = std.fs.cwd().readFileAlloc(alloc, a.path, 1 << 20) catch blk: {
+            const content = compat.readFileAlloc(alloc, a.path, 1 << 20) catch blk: {
                 unreadable += 1;
                 std.debug.print("[!] артефакт НЕ прочитан: {s} (нет файла или > 1 МБ) — в образ пойдёт пустой объект\n", .{a.path});
                 break :blk "";
@@ -127,7 +127,7 @@ pub fn main() !void {
         }
         for (project.proofs) |p| try b.addSource(p.path, p.theorem);
         if (flagValue(args, "--bytecode")) |bc| {
-            const code = try std.fs.cwd().readFileAlloc(alloc, bc, 1 << 20);
+            const code = try compat.readFileAlloc(alloc, bc, 1 << 20);
             try b.addBytecode("program.bcx", code);
         }
         if (b.specs.items.len == 0) {
@@ -184,11 +184,11 @@ pub fn main() !void {
             std.debug.print("[!] z3 недоступен (uv pip install z3-solver, .venv/bin в PATH)\n", .{});
             return;
         }
-        var dir = std.fs.cwd().openDir(args[2], .{ .iterate = true }) catch |e| {
+        var dir = compat.openDir(args[2], .{ .iterate = true }) catch |e| {
             std.debug.print("[!] не открыть каталог '{s}': {s}\n", .{ args[2], @errorName(e) });
             return;
         };
-        defer dir.close();
+        defer compat.dirClose(dir);
 
         var walker = try dir.walk(alloc);
         defer walker.deinit();
@@ -271,7 +271,7 @@ pub fn main() !void {
             std.debug.print("[!] prove: нужен путь к .smt2 (SMT-LIB2)\n", .{});
             return;
         }
-        const smt = try std.fs.cwd().readFileAlloc(alloc, args[2], 1 << 20);
+        const smt = try compat.readFileAlloc(alloc, args[2], 1 << 20);
         var bridge = z3b.Z3Bridge.init(alloc);
         if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
             std.debug.print("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
@@ -379,7 +379,7 @@ pub fn main() !void {
             return;
         }
         const mode = args[2];
-        const img = try std.fs.cwd().readFileAlloc(alloc, args[3], 64 << 20);
+        const img = try compat.readFileAlloc(alloc, args[3], 64 << 20);
         defer alloc.free(img);
         if (img.len < 128) {
             std.debug.print("[!] файл меньше 128-байтного заголовка\n", .{});
@@ -403,7 +403,7 @@ pub fn main() !void {
                 return;
             };
             const out_path = flagValue(args, "-o") orelse "attestation.cert";
-            const seed_raw = try std.fs.cwd().readFileAlloc(alloc, seed_path, 64);
+            const seed_raw = try compat.readFileAlloc(alloc, seed_path, 64);
             defer alloc.free(seed_raw);
             if (seed_raw.len != 32) {
                 std.debug.print("[!] seed должен быть ровно 32 байта (получено {d})\n", .{seed_raw.len});
@@ -412,9 +412,9 @@ pub fn main() !void {
             const kp = try Ed25519.KeyPair.create(seed_raw[0..32].*);
             const cert = try attest_mod.attest(kp, digest, h.root_digest, .proved);
             const bytes = attest_mod.toBytes(cert);
-            var f = try std.fs.cwd().createFile(out_path, .{});
-            defer f.close();
-            try f.writeAll(&bytes);
+            const f = try compat.createFile(out_path, .{});
+            defer compat.fileClose(f);
+            try compat.fileWriteAll(f, &bytes);
             std.debug.print("[OK] ОБРАЗ АТТЕСТОВАН: {s}\n", .{owner_mod.AUTHOR});
             std.debug.print("  образ    : {s} ({d} байт)\n", .{ args[3], img.len });
             std.debug.print("  вердикт  : proved (Merkle-корень совпал)\n", .{});
@@ -427,7 +427,7 @@ pub fn main() !void {
                 std.debug.print("[!] нужен путь к сертификату\n", .{});
                 return;
             }
-            const raw = try std.fs.cwd().readFileAlloc(alloc, args[4], 4096);
+            const raw = try compat.readFileAlloc(alloc, args[4], 4096);
             defer alloc.free(raw);
             if (raw.len != attest_mod.CERT_SIZE) {
                 std.debug.print("[!] размер сертификата {d} != {d}\n", .{ raw.len, attest_mod.CERT_SIZE });
@@ -479,7 +479,7 @@ pub fn main() !void {
         return;
     }
     const image_path = args[2];
-    const data = std.fs.cwd().readFileAlloc(alloc, image_path, 1 << 28) catch |e| {
+    const data = compat.readFileAlloc(alloc, image_path, 1 << 28) catch |e| {
         std.debug.print("[!] Не удалось прочитать {s}: {s}\n", .{ image_path, @errorName(e) });
         return;
     };
@@ -640,8 +640,8 @@ pub fn main() !void {
             return;
         };
         defer fs.deinit();
-        const f = try std.fs.cwd().createFile("agent_packet.json", .{});
-        defer f.close();
+        const f = try compat.createFile("agent_packet.json", .{});
+        defer compat.fileClose(f);
         var buf = std.array_list.Managed(u8).init(alloc);
         defer buf.deinit();
         const w = buf.writer();
@@ -658,7 +658,7 @@ pub fn main() !void {
         }
         try w.writeAll("\n  ],\n  \"stats\": {\n");
         try w.print("    \"objects\": {d}\n  }}\n}}\n", .{fs.objects.len});
-        try f.writeAll(buf.items);
+        try compat.fileWriteAll(f, buf.items);
         std.debug.print("[OK] agent_packet.json (из образа)\n", .{});
 
     } else if (std.mem.eql(u8, command, "report")) {
@@ -667,8 +667,8 @@ pub fn main() !void {
             return;
         };
         defer fs.deinit();
-        const out_file = try std.fs.cwd().createFile("PROJECT_CANONICAL_SPEC.kern.md", .{});
-        defer out_file.close();
+        const out_file = try compat.createFile("PROJECT_CANONICAL_SPEC.kern.md", .{});
+        defer compat.fileClose(out_file);
         var buf = std.array_list.Managed(u8).init(alloc);
         defer buf.deinit();
         const w = buf.writer();
@@ -676,7 +676,7 @@ pub fn main() !void {
         for (fs.objects) |obj| {
             try w.print("- `type=0x{X:0>4}` size={d} path=`{s}`\n", .{ obj.type_id, obj.uncompressed_size, fs.objectPath(obj) });
         }
-        try out_file.writeAll(buf.items);
+        try compat.fileWriteAll(out_file, buf.items);
         std.debug.print("[OK] Отчёт записан ИЗ ОБРАЗА: PROJECT_CANONICAL_SPEC.kern.md\n", .{});
 
     } else {

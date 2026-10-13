@@ -5,6 +5,7 @@
 //! повторной обработки неизменённых файлов (критерий 10 из §20).
 const std = @import("std");
 const atomic = @import("atomic");
+const compat = @import("compat");
 
 pub fn sha256Hex(allocator: std.mem.Allocator, data: []const u8) ![]u8 {
     var digest: [32]u8 = undefined;
@@ -19,7 +20,7 @@ pub fn sha256Hex(allocator: std.mem.Allocator, data: []const u8) ![]u8 {
 }
 
 pub fn hashFile(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
-    const data = try std.fs.cwd().readFileAlloc(allocator, path, 1 << 28);
+    const data = try compat.readFileAlloc(allocator, path, 1 << 28);
     defer allocator.free(data);
     return sha256Hex(allocator, data);
 }
@@ -50,7 +51,7 @@ pub const Cache = struct {
         // 🔴 ДЕФЕКТ (найден аудитом, ИСПРАВЛЕН): `data` (до 16 МБ) читался и
         // НИКОГДА не освобождался — утечка на каждую загрузку кэша.
         // Строки дублируются в карту, поэтому буфер можно освободить сразу.
-        const data = std.fs.cwd().readFileAlloc(allocator, path, 1 << 24) catch return self;
+        const data = compat.readFileAlloc(allocator, path, 1 << 24) catch return self;
         defer allocator.free(data);
         var it = std.mem.splitScalar(u8, data, '\n');
         while (it.next()) |line| {
@@ -94,7 +95,7 @@ test "УТЕЧКИ: Cache.load/save полностью освобождаютс�
     // не было deinit — дубликаты строк в карте тоже текли.
     const a = std.testing.allocator; // детектор утечек
     const path = "/tmp/kern_cache_leak.ck";
-    defer std.fs.cwd().deleteFile(path) catch {};
+    defer compat.deleteFile(path) catch {};
 
     {
         var c = Cache.init(a);

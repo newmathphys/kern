@@ -7,6 +7,7 @@ const std = @import("std");
 const Builder = @import("core/kimg_writer.zig").Builder;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
+const compat = @import("compat");
 
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}){};
@@ -31,9 +32,9 @@ pub fn main() !void {
     try b.write("/tmp/stress_1m.kimg");
     const t_write = t.read();
 
-    const data = try std.fs.cwd().readFileAlloc(alloc, "/tmp/stress_1m.kimg", 1 << 30);
+    const data = try compat.readFileAlloc(alloc, "/tmp/stress_1m.kimg", 1 << 30);
     defer alloc.free(data);
-    defer std.fs.cwd().deleteFile("/tmp/stress_1m.kimg") catch {};
+    defer compat.deleteFile("/tmp/stress_1m.kimg") catch {};
 
     var hb: [128]u8 = undefined;
     @memcpy(&hb, data[0..128]);

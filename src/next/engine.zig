@@ -12,6 +12,7 @@ const snapshot = @import("snapshot.zig");
 const exp = @import("export.zig");
 const truth = @import("truth.zig");
 const cache = @import("cache.zig");
+const compat = @import("compat");
 
 pub const BuildOutcome = struct {
     nodes: usize,
@@ -23,7 +24,7 @@ pub const BuildOutcome = struct {
 
 pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
              out_dir: []const u8, scope: []const u8, force: bool) !BuildOutcome {
-    const source = try std.fs.cwd().readFileAlloc(allocator, source_path, 1 << 24);
+    const source = try compat.readFileAlloc(allocator, source_path, 1 << 24);
     defer allocator.free(source);
     const hash = try cache.sha256Hex(allocator, source);
     defer allocator.free(hash);
@@ -31,7 +32,7 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
     // ДЕФЕКТ (исправлен): раньше отказ создания каталога молча игнорировался,
     // и падение происходило ПОЗЖЕ — на записи SQLite, с непонятной ошибкой.
     // Теперь причина видна сразу.
-    std.fs.cwd().makePath(out_dir) catch |e| {
+    compat.makePath(out_dir) catch |e| {
         std.debug.print("[!] не удалось создать каталог вывода '{s}': {s}\n", .{ out_dir, @errorName(e) });
         return e;
     };
@@ -45,7 +46,7 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
     defer allocator.free(snap_path);
 
     if (!force and c.isUnchanged(source_path, hash)) {
-        if (std.fs.cwd().access(snap_path, .{})) |_| {
+        if (compat.access(snap_path, .{})) |_| {
             return .{ .nodes = 0, .claims = 0, .diagnostics = 0, .errors = 0, .skipped = true };
         } else |_| {}
     }
@@ -57,7 +58,7 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
     project.claims = resolved.claims;
     const diags = try validate.validate(allocator, project);
 
-    const kdb_path = try std.fmt.allocPrintZ(allocator, "{s}/project.kdb", .{out_dir});
+    const kdb_path = try std.fmt.allocPrintSentinel(allocator, "{s}/project.kdb", .{out_dir}, 0);
     defer allocator.free(kdb_path);
     var cat = try catalog.Catalog.open(allocator, kdb_path.ptr);
     defer cat.close();
@@ -110,9 +111,9 @@ test "ENGINE: build пишет каталог, снапшот, packet и report"
     const a = arena.allocator();
 
     const dir = "/tmp/kernnext_engine_test";
-    std.fs.cwd().deleteTree(dir) catch {};
-    defer std.fs.cwd().deleteTree(dir) catch {};
-    try std.fs.cwd().makePath(dir);
+    compat.deleteTree(dir) catch {};
+    defer compat.deleteTree(dir) catch {};
+    try compat.makePath(dir);
     const src_path = "/tmp/kernnext_engine_test/p.kern";
     const src =
         \\project "P" { version "1" }
@@ -120,19 +121,19 @@ test "ENGINE: build пишет каталог, снапшот, packet и report"
         \\claim "ok" { status proven }
     ;
     {
-        const f = try std.fs.cwd().createFile(src_path, .{});
-        defer f.close();
-        try f.writeAll(src);
+        const f = try compat.createFile(src_path, .{});
+        defer compat.fileClose(f);
+        try compat.fileWriteAll(f, src);
     }
 
     const out1 = try build(a, src_path, dir, "issue-1", false);
     try std.testing.expect(!out1.skipped);
     try std.testing.expect(out1.claims == 1);
 
-    try std.fs.cwd().access("/tmp/kernnext_engine_test/project.kdb", .{});
-    try std.fs.cwd().access("/tmp/kernnext_engine_test/project.ksnap", .{});
-    try std.fs.cwd().access("/tmp/kernnext_engine_test/agent_packet.json", .{});
-    try std.fs.cwd().access("/tmp/kernnext_engine_test/report.md", .{});
+    try compat.access("/tmp/kernnext_engine_test/project.kdb", .{});
+    try compat.access("/tmp/kernnext_engine_test/project.ksnap", .{});
+    try compat.access("/tmp/kernnext_engine_test/agent_packet.json", .{});
+    try compat.access("/tmp/kernnext_engine_test/report.md", .{});
 
     // повторный запуск без изменений → пропуск (критерий 10)
     const out2 = try build(a, src_path, dir, "issue-1", false);
