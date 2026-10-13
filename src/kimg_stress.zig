@@ -65,6 +65,21 @@ pub fn main(init: std.process.Init) !void {
     }
     const t_rand = t.read();
 
+    // ДОП. ЗАМЕР (диагностика): тот же доступ БЕЗ сверки SHA-256 —
+    // только адресация среза (objectPayloadRaw). Разница между этим
+    // числом и `t_rand` = ЦЕНА ПРОВЕРКИ ЦЕЛОСТНОСТИ (ФИКС #14).
+    var prng2 = std.Random.DefaultPrng.init(0xC0FFEE);
+    const rand2 = prng2.random();
+    t = compat.Timer.start();
+    var total2: usize = 0;
+    k = 0;
+    while (k < 1000) : (k += 1) {
+        const idx = N / 2 + rand2.uintLessThan(usize, N / 4);
+        const sl = try fs.objectPayloadRaw(fs.objects[idx]);
+        total2 += sl.len;
+    }
+    const t_raw = t.read();
+
     const ms = struct {
         fn f(ns: u64) f64 {
             return @as(f64, @floatFromInt(ns)) / 1_000_000.0;
@@ -78,6 +93,7 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("{s:<38} | {d:.1} ms\n", .{ "Merkle (1e6 листьев)", ms(t_merkle) });
     std.debug.print("{s:<38} | {d:.1} ms\n", .{ "монтирование", ms(t_mount) });
     std.debug.print("{s:<38} | {d:.4} ms/чтение\n", .{ "1000 случайных чтений", ms(t_rand) / 1000.0 });
+    std.debug.print("{s:<38} | {d:.4} ms/чтение  <-- RAW, без SHA-256\n", .{ "1000 чтений (raw)", ms(t_raw) / 1000.0 });
     std.debug.print("\nОбраз: {d} МБ ({d} байт); прочитано {d} байт\n", .{ data.len / (1 << 20), data.len, total });
     const per = ms(t_rand) / 1000.0;
     std.debug.print("Случайный доступ: {d:.4} мс/объект (цель < 0.005) — {s}\n", .{ per, if (per < 0.005) "✅ ЦЕЛЬ ДОСТИГНУТА" else "⚠️ медленнее" });
