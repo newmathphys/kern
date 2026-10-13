@@ -142,7 +142,7 @@ formal-ci: build test test-next lean smt-stress
 
 # Ресурсы ОС: утечки FD и зомби-процессы (тесты в z3_bridge.zig).
 fd-check:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "РЕСУРСЫ|ПЧЕЛИНЫЙ|passed"
+	$(PYTHON) tools/run_filtered.py "РЕСУРСЫ|ПЧЕЛИНЫЙ"
 
 # ==== ЭШЕЛОНЫ 1-4: ФИНАЛЬНЫЙ ШТУРМ ====
 
@@ -195,23 +195,23 @@ audit: build
 
 # UNSAT CORE: локализация конфликтующей строки контракта.
 localize:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "UNSAT CORE|passed"
+	$(PYTHON) tools/run_filtered.py "UNSAT CORE"
 
 # ТЕОРИЯ МАССИВОВ: аксиомы Маккарти, алиасинг, выход за границы.
 arrays:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "ARRAY|passed"
+	$(PYTHON) tools/run_filtered.py "ARRAY"
 
 # CHC / HORN: синтез инвариантов циклов через Z3 SPACER.
 chc:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "CHC|passed"
+	$(PYTHON) tools/run_filtered.py "CHC"
 
 # СТРОКИ (QF_S): path traversal, нуль-байт, regex.
 strings:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "STRINGS|passed"
+	$(PYTHON) tools/run_filtered.py "STRINGS"
 
 # CEGIS: синтез программы по спецификации (SyGuS).
 cegis:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "CEGIS|passed"
+	$(PYTHON) tools/run_filtered.py "CEGIS"
 
 # Весь математический контур тестами.
 theories: localize arrays chc strings cegis
@@ -269,31 +269,31 @@ fuzz-1m:
 
 # Слабые модели памяти: литмус-тесты SB/MP (TSO vs ARM64).
 litmus:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "LITMUS"
+	$(PYTHON) tools/run_filtered.py "LITMUS"
 
 # Конколическое исполнение (гибрид фаззинга и символьного движка).
 concolic:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "CONCOLIC"
+	$(PYTHON) tools/run_filtered.py "CONCOLIC"
 
 # Вероятностный модел-чекинг DTMC/PCTL.
 dtmc:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "DTMC"
+	$(PYTHON) tools/run_filtered.py "DTMC"
 
 # Абстрактная интерпретация (интервалы + widening/narrowing).
 absint:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "ABSINT"
+	$(PYTHON) tools/run_filtered.py "ABSINT"
 
 # Нелинейная арифметика (QF_NRA) и кванторы (E-matching).
 nra:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "NRA|QUANT"
+	$(PYTHON) tools/run_filtered.py "NRA|QUANT"
 
 # Невмешательство / гиперсвойства (сайд-каналы, constant-time).
 noninterference:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "NONINTERFERENCE"
+	$(PYTHON) tools/run_filtered.py "NONINTERFERENCE"
 
 # ReDoS-анализ регулярных выражений (CWE-1333).
 redos:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "REDOS"
+	$(PYTHON) tools/run_filtered.py "REDOS"
 
 # Кросс-архитектурная проверка: ARM64 (выравнивание) + POWERPC64 (big-endian).
 cross-arch:

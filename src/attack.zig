@@ -40,11 +40,15 @@ pub fn main(init: std.process.Init) !void {
     const res = try AdmissionGate.verifyClaim(ast_hash, ast_hash, ai_cert, policy);
     std.debug.print("Вердикт: {s}, e={d}\n",
         .{ @tagName(res.eq2_status), res.e_value });
+    // ДЕФЕКТ #35 (найден can-fail): демонстратор ПЕЧАТАЛ «УЯЗВИМОСТЬ
+    // ВОЗВРАЩАЕТСЯ!», но завершался с кодом 0 — `make attack` оставался
+    // ЗЕЛЁНЫМ при реальной регрессии Врат. Теперь регрессия -> exit(2).
     if (res.e_value == 0) {
         std.debug.print(
             ">>> ИТОГ: код НЕ допущен — один байт больше не работает <<<\n", .{});
     } else {
         std.debug.print(">>> ИТОГ: УЯЗВИМОСТЬ ВОЗВРАЩАЕТСЯ! <<<\n", .{});
+        std.process.exit(2);
     }
 
     std.debug.print(

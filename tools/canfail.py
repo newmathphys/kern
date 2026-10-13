@@ -63,10 +63,41 @@ class Fault:
         return False
 
 
+FAULTABLE = [
+    "tools/cache_avalanche_bench.py",
+    "formal/KernAllMath.lean",
+    "src/verifier/noninterference.zig",
+    "src/binlevel_probe.zig",
+    "src/verifier/admission_gate.zig",
+    "src/verifier/array_theory.zig",
+    "src/tests/litmus_memory_test.zig",
+    "tests/fixtures/valid_v1_3.kimg",
+    "zig-out/bin/kernc",
+]
+
+
+def clean_slate() -> None:
+    """Возвращает все «ломаемые» файлы к состоянию git.
+
+    ЗАЧЕМ: если предыдущий прогон был прерван, повреждённый файл попадает в
+    backup следующего прогона и порча РАСПРОСТРАНЯЕТСЯ. Найдено на практике:
+    `core-gate` падал с `UnicodeDecodeError` из-за наложения прогонов.
+    """
+    for f in FAULTABLE:
+        subprocess.run(["git", "checkout", "--", f], cwd=str(ROOT),
+                       capture_output=True, text=True)
+
+
 def patch(path: str, old: str, new: str) -> None:
     """Замена подстроки в файле (падает, если подстрока не найдена)."""
     p = ROOT / path
-    s = p.read_text(encoding="utf-8")
+    try:
+        s = p.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        # Файл повреждён (прерванный прогон) — восстанавливаем и пробуем снова.
+        subprocess.run(["git", "checkout", "--", path], cwd=str(ROOT),
+                       capture_output=True, text=True)
+        s = p.read_text(encoding="utf-8")
     if old not in s:
         raise RuntimeError(f"шаблон не найден в {path}: {old[:60]!r}")
     p.write_text(s.replace(old, new, 1), encoding="utf-8")
@@ -142,14 +173,62 @@ def case_slsa_hash():
     return "python3 tools/slsa_provenance.py --check"
 
 
+def case_grep_vacuity():
+    """ГРЕП-ФИЛЬТР (#34). ЛОМАЕМ: переименовываем ARRAY-тесты.
+
+    Цель `make arrays` фильтровала вывод через `grep -E "ARRAY|passed"`.
+    Если ARRAY-тесты исчезли, слово `passed` из итоговой строки всё равно
+    совпадает -> цель остаётся ЗЕЛЁНОЙ, хотя проверять больше нечего.
+    Теперь цель ходит через `tools/run_filtered.py`, который ТРЕБУЕТ
+    наличия тестов по фильтру.
+    """
+    p = ROOT / "src" / "verifier" / "array_theory.zig"
+    s = p.read_text(encoding="utf-8")
+    if 'test "ARRAY' not in s:
+        return None
+    p.write_text(s.replace('test "ARRAY', 'test "ZZZ_'), encoding="utf-8")
+    return "make arrays"
+
+
+def case_grep_vacuity_litmus():
+    """ГРЕП-ФИЛЬТР (#34), вторая цель. ЛОМАЕМ: переименовываем LITMUS-тесты."""
+    p = ROOT / "src" / "tests" / "litmus_memory_test.zig"
+    if not p.exists():
+        return None
+    s = p.read_text(encoding="utf-8")
+    if 'test "LITMUS' not in s:
+        return None
+    p.write_text(s.replace('test "LITMUS', 'test "ZZZ_'), encoding="utf-8")
+    return "make litmus"
+
+
+def case_attack_regression():
+    """Демонстратор атак. ЛОМАЕМ: возвращаем обход Врат одним байтом."""
+    p = ROOT / "src" / "verifier" / "admission_gate.zig"
+    s = p.read_text(encoding="utf-8")
+    # Открываем Врата, если в payload есть байт 0xAA (та самая АТАКА 1).
+    old = "        switch (checker_verdict) {"
+    if old not in s:
+        return None
+    new = ("        if (cert.witness_payload.len > 0 and cert.witness_payload[0] == 0xAA) {\n"
+           "            return AdmissionResult{ .eq2_status = .T, .e_value = 1 }; // ЛОМАЕМ\n"
+           "        }\n"
+           "        switch (checker_verdict) {")
+    p.write_text(s.replace(old, new, 1), encoding="utf-8")
+    return "make attack"
+
+
 CASES = [
-    ("avalanche",   "лавина SHA-256 (Hash Flooding)",      case_avalanche),
-    ("lean-sorry",  "Lean: отсутствие `sorry`",             case_lean_sorry),
-    ("binlevel",    "constant-time (ранний выход)",         case_binlevel_earlyexit),
-    ("disasm",      "diff-disasm: потеря функции",          case_disasm_dce),
-    ("core-gate",   "Врата Истины (e=1 без чекера)",        case_core_invariant),
-    ("golden",      "Merkle эталонного образа",             case_golden_merkle),
-    ("slsa",        "SLSA: хэш бинарника",                  case_slsa_hash),
+    ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
+    ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
+    ("binlevel",      "constant-time (ранний выход)",          case_binlevel_earlyexit),
+    ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
+    ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),
+    ("golden",        "Merkle эталонного образа",              case_golden_merkle),
+    ("slsa",          "SLSA: хэш бинарника",                   case_slsa_hash),
+    ("grep-arrays",   "греп-фильтр: исчезли ARRAY-тесты",      case_grep_vacuity),
+    ("grep-litmus",   "греп-фильтр: исчезли LITMUS-тесты",     case_grep_vacuity_litmus),
+    ("attack",        "демонстратор атак: обход Врат",         case_attack_regression),
 ]
 
 
@@ -174,19 +253,15 @@ def main():
     print("=" * 70)
     print("Метод: ломаем инвариант -> цель ОБЯЗАНА покраснеть.\n")
 
+    clean_slate()
+
     ok = bad = skipped = 0
     for name, desc, fn in CASES:
         if args.only and args.only != name:
             continue
         t0 = time.time()
         try:
-            with Fault(["tools/cache_avalanche_bench.py",
-                        "formal/KernAllMath.lean",
-                        "src/verifier/noninterference.zig",
-                        "src/binlevel_probe.zig",
-                        "src/verifier/admission_gate.zig",
-                        "tests/fixtures/valid_v1_3.kimg",
-                        "zig-out/bin/kernc"]):
+            with Fault(FAULTABLE):
                 cmd = fn()
                 if cmd is None:
                     print(f"  [SKIP] {name:12s} {desc} (предусловие не выполнено)")
@@ -196,7 +271,9 @@ def main():
         except subprocess.TimeoutExpired:
             rc, out = 124, "TIMEOUT"
         except Exception as e:
+            import traceback
             print(f"  [ERR ] {name:12s} {desc}: {e}")
+            traceback.print_exc()
             skipped += 1
             continue
         dt = time.time() - t0
