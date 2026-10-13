@@ -33,11 +33,15 @@ run_arch() { # $1 = zig target, $2 = qemu arch, $3 = описание
   # чужую архитектуру.
   # KERN_FAST=1: под эмуляцией потоки/таймеры идут в 10-50 раз медленнее,
   # поэтому стрессовые итерации (литмус, замеры времени) уменьшаются.
+  # ⚠️ КРИТИЧНО: `-target` ОБЯЗАН идти ДО `-Mroot=`/`-Mcompat=`.
+  # Если поставить его ПОСЛЕ (как было раньше), Zig МОЛЧА игнорирует цель
+  # и собирает x86_64-бинарник — qemu отвечает «Invalid ELF image», а
+  # проверка выглядит «непрошедшей» или (хуже) подменяется нативной сборкой.
   ( cd "$ROOT" && KERN_FAST=1 "$ZIG" test \
+      -target "$target" \
       --dep compat \
       -Mroot=src/test_root.zig \
       -Mcompat=src/compat.zig \
-      -target "$target" \
       --test-cmd "$q" --test-cmd-bin 2>&1 | tail -3 ) | sed 's/^/  /'
 }
 

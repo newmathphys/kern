@@ -1660,3 +1660,78 @@ for i in $(seq 1 10); do /tmp/pb13; /tmp/pb17; done
 
 **Ошибка была в том, что я не прочитал собственную документацию** (§4 METRICS,
 ATTESTATION_PASSPORT), где причина уже была записана.
+
+---
+
+## §30. Сплошная проверка всех целей Makefile — 3 новых дефекта (#26–#28)
+
+Проверены цели, которые в этой сессии **не запускались**. Найдено **три**
+дефекта, два из которых — «молчаливо сломанные» проверки.
+
+| # | Дефект | Симптом | Фикс |
+|:--:|:--|:--|:--|
+| **26** | `tools/cross_arch_test.sh`: `-target` стоял **ПОСЛЕ** `-Mroot=` | Zig **молча игнорирует** цель → собирается x86_64-бинарник → qemu: `Invalid ELF image for this architecture`. **Кросс-арх проверка НИКОГДА не работала** | `-target` перенесён **перед** `-Mroot=` |
+| **27** | C-ABI (`libkern.so`) падал при вызове из чужого процесса | `compat.io()` → `@panic("setIo() не вызван")` → **segfault всего хост-процесса** (Python/ctypes). `make capi-demo` = RC 2, core dump | `compat.io()` в режиме библиотеки лениво создаёт собственный `std.Io.Threaded` вместо паники |
+| **28** | Резервный `Io.Threaded` создавался с **пустым `environ`** | `process.spawn` не находил `z3` по PATH → `kern_smt_verify` возвращал **-1 (ToolError)** вместо вердикта | окружение берётся из libc (`std.c.environ`) |
+
+### Доказательство исправления кросс-арх (#26)
+
+Было (до фикса):
+```
+qemu-aarch64-static: .zig-cache/o/d7547b86.../root: Invalid ELF image for this architecture
+```
+Один и тот же хэш бинарника подавался и для aarch64, и для ppc64 — признак того,
+что цель не применялась.
+
+Стало (`make cross-arch`):
+```
+=== ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
+  188 passed; 4 skipped; 0 failed.
+=== POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
+  188 passed; 4 skipped; 0 failed.
+EXIT=0
+```
+**Это первый раз, когда кросс-арх проверка реально исполняется** (через
+`qemu-user-static` из `/tmp`, скачанный ранее). Ранее заявление «ARM64 и
+POWERPC64: 188/188» было **непроверенным**.
+
+### Доказательство исправления C-ABI (#27, #28)
+
+Было:
+```
+thread ... panic: KERN: compat.setIo() не вызван в main до файлового вызова
+  smt prove : -1    smt refut : -1    localize : 1
+(make: Аварийный останов (сделан дамп памяти))
+```
+Стало (`make capi-demo`, RC 0):
+```
+=== KERN C-ABI (вызов из Python через ctypes) ===
+  version   : KERN v1.3.0 (C-ABI)
+  author    : Vital Kalinousky
+  ownership : 1 (ключ-замок валиден)
+  smt prove : 0 (0 = ДОКАЗАНО)
+  smt refut : 1 (1 = КОНТРПРИМЕР)
+  kimg valid: 1 (1 = валиден)
+  kimg objs : 2
+  tampered  : 0 (0 = отвергнут)
+  localize  : 0 ДОКАЗАНО -> виновники: pre goal
+```
+
+### Что проверено и РАБОТАЕТ (эта волна)
+
+| Цель | Результат |
+|:--|:--|
+| `cross-arch` | ✅ **188/188 ARM64 + 188/188 PPC64 (big-endian)**, EXIT=0 |
+| `slsa` | ✅ АТТЕСТАТ ВАЛИДЕН (3 субъекта, хэши и коммит совпали; подпись честно помечена как отсутствующая — нет cosign) |
+| `hermetic` | ✅ RC 0, `kernc-hermetic` (musl static) собран |
+| `lib` | ✅ RC 0, `libkern.so` + `libkern.a` + `kern.h` |
+| `capi-demo` | ✅ RC 0 (после фиксов #27–#28) |
+| `audit` | ✅ RC 0 (5 теорий SMT) |
+| `cert` | ✅ RC 0 (53 требования в матрице трассируемости) |
+| `deal` | ✅ RC 0 |
+| `proof-check` | ✅ RC 0 |
+
+### Итого по верификации 0.17
+
+**Дефекты #17–#28 — двенадцать штук.** Из них «молчаливо сломанные проверки»:
+#18 (11 бенчмарков), #23 (16 целей Makefile), #25, **#26 (кросс-арх)**, **#27 (C-ABI)**.

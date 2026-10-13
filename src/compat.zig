@@ -16,17 +16,50 @@ const builtin = @import("builtin");
 
 var g_io: ?std.Io = null;
 
+/// Резервный `Io` для режима БИБЛИОТЕКИ (C-ABI): в чужом процессе (Python,
+/// Rust, Go) нет Zig-функции `main`, поэтому `setIo()` вызвать некому.
+/// Раньше это приводило к ПАНИКЕ и падению всего хост-процесса
+/// (найдено `make capi-demo`: segfault в ctypes). Теперь при отсутствии
+/// `setIo` мы лениво создаём собственный потоковый `Io`.
+var g_fallback: ?std.Io.Threaded = null;
+var g_fallback_io: ?std.Io = null;
+var g_fallback_mu: std.atomic.Mutex = .unlocked;
+
 /// Установить процесс-глобальный `Io` (вызывается из `main`).
 pub fn setIo(io_val: std.Io) void {
     g_io = io_val;
 }
 
 /// Текущий `Io`: в CLI — установленный из `main(init)`, в тестах —
-/// `std.testing.io`. Паникует, если ни то, ни другое не доступно.
+/// `std.testing.io`, в режиме библиотеки (C-ABI) — собственный `Io.Threaded`.
+/// Паники здесь больше НЕТ: библиотека обязана быть безопасной для хоста.
 pub fn io() std.Io {
     if (g_io) |v| return v;
     if (builtin.is_test) return std.testing.io;
-    @panic("KERN: compat.setIo() не вызван в main до файлового вызова");
+    while (!g_fallback_mu.tryLock()) std.atomic.spinLoopHint();
+    defer g_fallback_mu.unlock();
+    if (g_fallback_io == null) {
+        // Environ ОБЯЗАТЕЛЕН: с пустым окружением `process.spawn` не может
+        // найти решатель по PATH (симптом: `kern_smt_verify` возвращал -1).
+        // В режиме библиотеки берём РЕАЛЬНОЕ окружение процесса через libc.
+        g_fallback = std.Io.Threaded.init(std.heap.page_allocator, .{
+            .environ = fallbackEnviron(),
+        });
+        g_fallback_io = g_fallback.?.io();
+    }
+    return g_fallback_io.?;
+}
+
+/// Окружение процесса для режима библиотеки.
+/// На POSIX — `environ` из libc (если библиотека слинкована с libc),
+/// иначе пустое (тогда spawn ищет бинарник только по абсолютному пути).
+fn fallbackEnviron() std.process.Environ {
+    if (builtin.link_libc) {
+        const envp: [*:null]?[*:0]u8 = std.c.environ;
+        const spanned = std.mem.span(envp);
+        return .{ .block = .{ .slice = @ptrCast(spanned) } };
+    }
+    return .empty;
 }
 
 pub fn cwd() std.Io.Dir {
