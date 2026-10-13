@@ -152,19 +152,29 @@ pub const Timer = struct {
     }
 };
 
-/// Читает весь файл из уже открытого дескриптора (замена
+/// Читает весь файл/пайп из уже открытого дескриптора (замена
 /// `File.readToEndAlloc` из 0.13).
+///
+/// ВАЖНО: используем `readStreaming`, а НЕ `readPositionalAll`. Позиционное
+/// чтение (`pread`) работает только на seekable-файлах; на **пайпе**
+/// (а stdout дочернего процесса Z3 — это именно пайп) оно падает.
+/// Дефект был найден прогоном `kernc prove`: мост возвращал `ToolError`,
+/// хотя `z3` присутствовал в PATH.
 pub fn fileReadToEndAlloc(file: std.Io.File, alloc: std.mem.Allocator, limit: usize) ![]u8 {
     var buf: [64 * 1024]u8 = undefined;
     var list = std.array_list.Managed(u8).init(alloc);
     errdefer list.deinit();
-    var offset: u64 = 0;
     while (true) {
-        const n = try file.readPositionalAll(io(), &buf, offset);
+        // ВАЖНО: при закрытии пайпа `readStreaming` возвращает `error.EndOfStream`,
+        // а НЕ `0` (как делал `readToEndAlloc` в 0.13). Без этой обработки
+        // чтение вывода Z3 обрывалось ошибкой и мост возвращал `ToolError`.
+        const n = file.readStreaming(io(), &.{&buf}) catch |e| switch (e) {
+            error.EndOfStream => break,
+            else => return e,
+        };
         if (n == 0) break;
         if (list.items.len + n > limit) return error.StreamTooLong;
         try list.appendSlice(buf[0..n]);
-        offset += n;
     }
     return list.toOwnedSlice();
 }

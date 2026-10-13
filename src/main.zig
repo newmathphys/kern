@@ -461,7 +461,7 @@ pub fn main(init: std.process.Init) !void {
     // ---- --version / version: авторство и лицензия ----
     if (std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "version")) {
         const owner = @import("owner.zig");
-        std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig 0.13)\n", .{});
+        std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig {s})\n", .{@import("builtin").zig_version_string});
         std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
         std.debug.print("License: MIT (см. LICENSE)\n", .{});
         std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});
