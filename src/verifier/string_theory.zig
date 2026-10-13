@@ -16,6 +16,7 @@
 //! нуль-байтовые обрывы строки; регулярки с катастрофическим возвратом.
 const std = @import("std");
 const z3 = @import("z3_bridge.zig");
+const compat = @import("compat");
 
 pub const StringTheoryEngine = struct {
     allocator: std.mem.Allocator,
@@ -26,7 +27,7 @@ pub const StringTheoryEngine = struct {
 
     /// Общая форма: переменная `p : String` + список ограничений.
     fn wrap(self: *StringTheoryEngine, constraints: []const []const u8, model: bool) ![]u8 {
-        var buf = std.array_list.Managed(u8).init(self.allocator);
+        var buf = compat.BufWriter.init(self.allocator);
         errdefer buf.deinit();
         const w = buf.writer();
         try w.writeAll("(set-logic QF_SLIA)\n(declare-const p String)\n");

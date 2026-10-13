@@ -41,7 +41,7 @@ fn jsonEscape(w: anytype, s: []const u8) !void {
 pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
                    p: ast.Project, diags: []const validate.Diagnostic,
                    scope: []const u8) !void {
-    var buf = std.array_list.Managed(u8).init(allocator);
+    var buf = compat.BufWriter.init(allocator);
     defer buf.deinit();
     const w = buf.writer();
 
@@ -134,14 +134,14 @@ pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
     try w.writeAll("}\n");
 
     // АТОМАРНО: tmp + fsync + rename (иначе обрыв -> обрезанный packet/report).
-    try atomic.writeFileAtomic(allocator, path, buf.items);
+    try atomic.writeFileAtomic(allocator, path, buf.items());
 }
 
 /// Human report (§14.1): summary, verified claims, blocked, contradictions,
 /// next steps.
 pub fn writeReport(allocator: std.mem.Allocator, path: []const u8,
                    p: ast.Project, diags: []const validate.Diagnostic) !void {
-    var buf = std.array_list.Managed(u8).init(allocator);
+    var buf = compat.BufWriter.init(allocator);
     defer buf.deinit();
     const w = buf.writer();
 
@@ -192,7 +192,7 @@ pub fn writeReport(allocator: std.mem.Allocator, path: []const u8,
     if (!any) try w.writeAll("- (нет)\n");
 
     // АТОМАРНО: tmp + fsync + rename (иначе обрыв -> обрезанный packet/report).
-    try atomic.writeFileAtomic(allocator, path, buf.items);
+    try atomic.writeFileAtomic(allocator, path, buf.items());
 }
 
 // =========================================================================

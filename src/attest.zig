@@ -89,7 +89,7 @@ pub fn fromBytes(b: *const [CERT_SIZE]u8) !Certificate {
 
 test "АТТЕСТАЦИЯ: валидный сертификат проверяется" {
     const seed = @as([32]u8, @splat(7));
-    const kp = try Ed25519.KeyPair.create(seed);
+    const kp = try Ed25519.KeyPair.generateDeterministic(seed);
     const cd = @as([32]u8, @splat(1));
     const mr = @as([32]u8, @splat(2));
     const cert = try attest(kp, cd, mr, .proved);
@@ -97,7 +97,7 @@ test "АТТЕСТАЦИЯ: валидный сертификат проверя
 }
 
 test "АТТЕСТАЦИЯ: подмена вердикта отвергается" {
-    const kp = try Ed25519.KeyPair.create(@as([32]u8, @splat(7)));
+    const kp = try Ed25519.KeyPair.generateDeterministic(@as([32]u8, @splat(7)));
     const cd = @as([32]u8, @splat(1));
     const mr = @as([32]u8, @splat(2));
     var cert = try attest(kp, cd, mr, .refuted);
@@ -106,21 +106,21 @@ test "АТТЕСТАЦИЯ: подмена вердикта отвергаетс
 }
 
 test "АТТЕСТАЦИЯ: подмена Merkle-корня отвергается" {
-    const kp = try Ed25519.KeyPair.create(@as([32]u8, @splat(7)));
+    const kp = try Ed25519.KeyPair.generateDeterministic(@as([32]u8, @splat(7)));
     var cert = try attest(kp, @as([32]u8, @splat(1)), @as([32]u8, @splat(2)), .proved);
     cert.merkle_root[0] ^= 0xFF;
     try std.testing.expect(!verify(kp.public_key, cert));
 }
 
 test "АТТЕСТАЦИЯ: чужой ключ не подтверждает подпись" {
-    const kp = try Ed25519.KeyPair.create(@as([32]u8, @splat(7)));
-    const other = try Ed25519.KeyPair.create(@as([32]u8, @splat(9)));
+    const kp = try Ed25519.KeyPair.generateDeterministic(@as([32]u8, @splat(7)));
+    const other = try Ed25519.KeyPair.generateDeterministic(@as([32]u8, @splat(9)));
     const cert = try attest(kp, @as([32]u8, @splat(1)), @as([32]u8, @splat(2)), .proved);
     try std.testing.expect(!verify(other.public_key, cert));
 }
 
 test "АТТЕСТАЦИЯ: сериализация сертификата (round-trip) — 136 байт" {
-    const kp = try Ed25519.KeyPair.create(@as([32]u8, @splat(5)));
+    const kp = try Ed25519.KeyPair.generateDeterministic(@as([32]u8, @splat(5)));
     const cert = try attest(kp, @as([32]u8, @splat(0xAA)), @as([32]u8, @splat(0xBB)), .proved);
     const bytes = toBytes(cert);
     try std.testing.expectEqual(@as(usize, CERT_SIZE), bytes.len);
@@ -135,7 +135,7 @@ test "АТТЕСТАЦИЯ: сериализация сертификата (rou
 }
 
 test "АТТЕСТАЦИЯ: битый сертификат отвергается (magic/версия)" {
-    const kp = try Ed25519.KeyPair.create(@as([32]u8, @splat(5)));
+    const kp = try Ed25519.KeyPair.generateDeterministic(@as([32]u8, @splat(5)));
     const cert = try attest(kp, @as([32]u8, @splat(1)), @as([32]u8, @splat(2)), .proved);
     var bytes = toBytes(cert);
     bytes[0] = 'X';

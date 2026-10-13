@@ -22,6 +22,7 @@
 //! Запуск: zig test src/tests/os_stress_test.zig
 const std = @import("std");
 const z3b = @import("../verifier/z3_bridge.zig");
+const compat = @import("compat");
 
 /// Есть ли решатель (иначе тесты бессмысленны — пропускаем).
 fn solverAvailable(b: *z3b.Z3Bridge) bool {
@@ -29,11 +30,11 @@ fn solverAvailable(b: *z3b.Z3Bridge) bool {
 }
 
 fn countOpenFds() usize {
-    var dir = std.fs.openDirAbsolute("/proc/self/fd", .{ .iterate = true }) catch return 0;
+    var dir = std.Io.Dir.openDirAbsolute(compat.io(), "/proc/self/fd", .{ .iterate = true }) catch return 0;
     defer compat.dirClose(dir);
     var n: usize = 0;
     var it = dir.iterate();
-    while (it.next() catch null) |_| n += 1;
+    while (it.next(compat.io()) catch null) |_| n += 1;
     return n;
 }
 

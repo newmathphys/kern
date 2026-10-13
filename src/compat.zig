@@ -90,6 +90,68 @@ pub fn dirClose(dir: std.Io.Dir) void {
     dir.close(io());
 }
 
+/// Сон на `ms` миллисекунд (замена `std.time.sleep`).
+pub fn sleepMs(ms: u64) void {
+    std.Io.sleep(io(), .fromMilliseconds(@intCast(ms)), .awake) catch {};
+}
+
+// ===== Сборка текста в память (замена ArrayList(u8).writer()) =====
+
+/// Замена `std.ArrayList(u8).writer()` из Zig 0.13.
+///
+/// В 0.17 у `ArrayList` больше нет `writer()`; идиоматичный способ —
+/// `std.Io.Writer.Allocating`. Обёртка сохраняет привычный API
+/// (`writer()` / `items()` / `toOwnedSlice()`), чтобы 16 мест в KERN
+/// менялись минимальным диффом.
+pub const BufWriter = struct {
+    aw: std.Io.Writer.Allocating,
+
+    pub fn init(allocator: std.mem.Allocator) BufWriter {
+        return .{ .aw = .init(allocator) };
+    }
+
+    pub fn deinit(self: *BufWriter) void {
+        self.aw.deinit();
+    }
+
+    /// Аналог `buf.writer()`.
+    pub fn writer(self: *BufWriter) *std.Io.Writer {
+        return &self.aw.writer;
+    }
+
+    /// Аналог `buf.items` (в 0.13 — поле, здесь — метод).
+    pub fn items(self: *BufWriter) []u8 {
+        return self.aw.written();
+    }
+
+    /// Аналог `buf.toOwnedSlice()`.
+    pub fn toOwnedSlice(self: *BufWriter) ![]u8 {
+        return self.aw.toOwnedSlice();
+    }
+
+    /// Аналог `buf.appendSlice()`.
+    pub fn appendSlice(self: *BufWriter, bytes: []const u8) !void {
+        return self.aw.writer.writeAll(bytes);
+    }
+};
+
+// ===== Замер длительности (замена std.time.Timer) =====
+
+/// Замена `std.time.Timer` из Zig 0.13 (в 0.17 он удалён).
+pub const Timer = struct {
+    start_ns: i96,
+
+    pub fn start() Timer {
+        return .{ .start_ns = std.Io.Clock.now(.awake, io()).nanoseconds };
+    }
+
+    /// Наносекунды с момента `start()`.
+    pub fn read(self: *Timer) u64 {
+        const d = std.Io.Clock.now(.awake, io()).nanoseconds - self.start_ns;
+        return @intCast(d);
+    }
+};
+
 /// Читает весь файл из уже открытого дескриптора (замена
 /// `File.readToEndAlloc` из 0.13).
 pub fn fileReadToEndAlloc(file: std.Io.File, alloc: std.mem.Allocator, limit: usize) ![]u8 {
@@ -98,7 +160,7 @@ pub fn fileReadToEndAlloc(file: std.Io.File, alloc: std.mem.Allocator, limit: us
     errdefer list.deinit();
     var offset: u64 = 0;
     while (true) {
-        const n = try file.readPositionalAll(&buf, offset);
+        const n = try file.readPositionalAll(io(), &buf, offset);
         if (n == 0) break;
         if (list.items.len + n > limit) return error.StreamTooLong;
         try list.appendSlice(buf[0..n]);

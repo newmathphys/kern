@@ -12,6 +12,7 @@
 //! реально исполнено, и ПАДАЕТ, если покрытие ниже порога (95 %).
 const std = @import("std");
 const cov = @import("../cov.zig");
+const compat = @import("compat");
 
 /// Порог покрытия решений (DO-178C DAL A ориентируется на 100 %; для
 /// инструментированного подмножества фиксируем 95 % как gate).
@@ -26,17 +27,20 @@ test "ПОКРЫТИЕ: отчёт по инструментированным �
 
     var total: usize = 0;
     var covered: usize = 0;
-    inline for (@typeInfo(cov.Site).@"enum".field_names) |f| {
+    inline for (@typeInfo(cov.Site).@"enum".field_names, 0..) |f, fidx| {
         const is_z3 = std.mem.startsWith(u8, f, "z3_");
         // Без решателя решения z3_* недостижимы по дизайну — не считаем их.
         if (!(solver_absent and is_z3)) {
             total += 1;
-            if (cov.counters[f.value] > 0) covered += 1;
+            if (cov.counters[fidx] > 0) covered += 1;
         }
     }
     const pct = @as(f64, @floatFromInt(covered)) / @as(f64, @floatFromInt(total)) * 100.0;
 
-    try cov.report(std.io.getStdErr().writer());
+    var cbuf = compat.BufWriter.init(std.testing.allocator);
+    defer cbuf.deinit();
+    try cov.report(cbuf.writer());
+    std.debug.print("{s}", .{cbuf.items()});
     if (solver_absent) {
         std.debug.print("\n  [i] решатель недоступен (чужая архитектура):\n", .{});
         std.debug.print("      решения z3_* исключены из знаменателя (недостижимы по дизайну)\n", .{});

@@ -11,7 +11,7 @@ const posix = std.posix;
 
 var g_fault: std.atomic.Value(bool) = std.atomic.Value(bool).init(false);
 
-fn handler(sig: c_int, info: *const posix.siginfo_t, ctx: ?*anyopaque) callconv(.C) void {
+fn handler(sig: std.posix.SIG, info: *const posix.siginfo_t, ctx: ?*anyopaque) callconv(.c) void {
     _ = .{ sig, info, ctx };
     g_fault.store(true, .release);
 }
@@ -20,11 +20,11 @@ fn handler(sig: c_int, info: *const posix.siginfo_t, ctx: ?*anyopaque) callconv(
 pub fn install() void {
     var act = posix.Sigaction{
         .handler = .{ .sigaction = handler },
-        .mask = posix.empty_sigset,
+        .mask = posix.sigemptyset(),
         .flags = posix.SA.SIGINFO,
     };
-    posix.sigaction(posix.SIG.BUS, &act, null) catch {};
-    posix.sigaction(posix.SIG.SEGV, &act, null) catch {};
+    posix.sigaction(posix.SIG.BUS, &act, null);
+    posix.sigaction(posix.SIG.SEGV, &act, null);
 }
 
 /// Был ли сбой памяти с момента сброса.
@@ -55,7 +55,7 @@ test "SIGBUS: обработчик устанавливается, флаг сб
 
 test "SIGBUS: страница PROT_NONE создаётся и освобождается (инфраструктура)" {
     if (@import("builtin").os.tag == .windows) return;
-    const page = try posix.mmap(null, 4096, posix.PROT.NONE,
+    const page = try posix.mmap(null, 4096, posix.PROT{},
         .{ .TYPE = .PRIVATE, .ANONYMOUS = true }, -1, 0);
     posix.munmap(page); // освобождение без сбоя
 }

@@ -20,6 +20,7 @@
 const std = @import("std");
 const z3 = @import("z3_bridge.zig");
 const unsat_core = @import("unsat_core.zig");
+const compat = @import("compat");
 
 pub const ProofVerdict = struct {
     is_unsat: bool = false,
@@ -72,7 +73,7 @@ pub fn check(
     var v = ProofVerdict{};
 
     // --- 1. Запрос вывода ---
-    var buf = std.array_list.Managed(u8).init(allocator);
+    var buf = compat.BufWriter.init(allocator);
     defer buf.deinit();
     const w = buf.writer();
     try w.writeAll("(set-option :produce-proofs true)\n(set-logic ALL)\n");
@@ -82,7 +83,7 @@ pub fn check(
     try w.print("(assert (not {s}))\n", .{goal});
     try w.writeAll("(check-sat)\n(get-proof)\n");
 
-    const cap = bridge.executeCapture(buf.items);
+    const cap = bridge.executeCapture(buf.items());
     defer allocator.free(cap.stdout);
 
     v.is_unsat = cap.status == .Unsat;
@@ -110,7 +111,7 @@ pub fn check(
         var all_needed = true;
         for (core.conflicting) |drop| {
             if (std.mem.eql(u8, drop, "goal")) continue; // цель всегда нужна
-            var b2 = std.array_list.Managed(u8).init(allocator);
+            var b2 = compat.BufWriter.init(allocator);
             defer b2.deinit();
             const w2 = b2.writer();
             try w2.writeAll("(set-logic ALL)\n");
@@ -122,7 +123,7 @@ pub fn check(
             }
             try w2.print("(assert (not {s}))\n", .{goal});
             try w2.writeAll("(check-sat)\n");
-            const r2 = bridge.executeQuery(b2.items);
+            const r2 = bridge.executeQuery(b2.items());
             if (r2.witness_model) |m| allocator.free(m);
             if (r2.status != .Sat) all_needed = false; // без него всё ещё UNSAT
         }

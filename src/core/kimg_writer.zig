@@ -162,7 +162,8 @@ pub const Builder = struct {
         // (в Zig 0.13 у std.fs.Dir нет .sync() — открываем каталог через posix)
         const dfd = std.posix.openat(std.posix.AT.FDCWD, ".", .{ .ACCMODE = .RDONLY, .DIRECTORY = true }, 0) catch -1;
         if (dfd >= 0) {
-            defer std.posix.close(dfd);
+            // Zig 0.17: `std.posix.close` удалён — оборачиваем fd в `Io.File`.
+            defer compat.fileClose(.{ .handle = dfd, .flags = .{ .nonblocking = false } });
             std.posix.fdatasync(dfd) catch {};
         }
     }

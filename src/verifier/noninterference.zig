@@ -15,6 +15,7 @@
 //!   * MEMORY_INDEX  — адрес памяти зависит от секрета (cache timing);
 //!   * VARIABLE_TIME — операция переменной длительности над секретом.
 const std = @import("std");
+const compat = @import("compat");
 
 pub const Var = u32;
 
@@ -148,7 +149,7 @@ fn minNanos(comptime f: fn () void, n: usize) u64 {
     var best: u64 = std.math.maxInt(u64);
     var i: usize = 0;
     while (i < n) : (i += 1) {
-        var t = std.time.Timer.start() catch return best;
+        var t = compat.Timer.start();
         f();
         const d = t.read();
         if (d < best) best = d;

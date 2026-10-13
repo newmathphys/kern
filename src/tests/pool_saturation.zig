@@ -12,6 +12,7 @@
 
 const std = @import("std");
 const z3 = @import("../verifier/z3_bridge.zig");
+const compat = @import("compat");
 
 const N: usize = 128;
 
@@ -19,7 +20,7 @@ const N: usize = 128;
 fn heavyWork(pool: *z3.SolverPool, done: *std.atomic.Value(u8), idx: usize, ms: u64) void {
     pool.acquire();
     defer pool.release();
-    std.time.sleep(ms * std.time.ns_per_ms);
+    compat.sleepMs(ms);
     done.* = std.atomic.Value(u8).init(1);
     _ = idx;
 }

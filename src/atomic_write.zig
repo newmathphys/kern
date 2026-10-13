@@ -35,10 +35,11 @@ pub fn writeFileAtomic(allocator: std.mem.Allocator, path: []const u8, data: []c
     try compat.rename(tmp, path);
 
     // Долговечность записи в каталоге.
-    const dfd = std.posix.open(".", .{ .ACCMODE = .RDONLY, .DIRECTORY = true }, 0) catch -1;
+    // Zig 0.17: `std.posix.open/close/fsync` удалены → `openat` + `Io.File`.
+    const dfd = std.posix.openat(std.posix.AT.FDCWD, ".", .{ .ACCMODE = .RDONLY, .DIRECTORY = true }, 0) catch -1;
     if (dfd >= 0) {
-        defer std.posix.close(dfd);
-        std.posix.fsync(dfd) catch {};
+        defer compat.fileClose(.{ .handle = dfd, .flags = .{ .nonblocking = false } });
+        std.posix.fdatasync(dfd) catch {};
     }
 }
 

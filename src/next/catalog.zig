@@ -10,9 +10,9 @@ const ast = @import("ast.zig");
 const Project = ast.Project;
 const validate = @import("validate.zig");
 
-const c = @cImport({
-    @cInclude("sqlite3.h");
-});
+// Zig 0.17: `@cImport` удалён. Модуль `c_sqlite` создаётся в build.zig
+// через `addTranslateC` из include/sqlite3_bridge.h.
+const c = @import("c_sqlite");
 
 pub const CatalogError = error{ SqlError, OpenFailed, UnknownTable };
 
@@ -48,7 +48,7 @@ pub const Catalog = struct {
     }
 
     fn execFmt(self: *Catalog, comptime fmt: []const u8, args: anytype) !void {
-        const sql = try std.fmt.allocPrintZ(self.alloc, fmt, args);
+        const sql = try std.fmt.allocPrintSentinel(self.alloc, fmt, args, 0);
         defer self.alloc.free(sql);
         try self.exec(sql.ptr);
     }
@@ -209,7 +209,7 @@ pub const Catalog = struct {
     pub fn countClaimsByStatus(self: *Catalog, status: []const u8) !i64 {
         const st = try self.q(status);
         defer self.alloc.free(st);
-        const sql = try std.fmt.allocPrintZ(self.alloc, "SELECT COUNT(*) FROM claims WHERE status='{s}';\x00", .{st});
+        const sql = try std.fmt.allocPrintSentinel(self.alloc, "SELECT COUNT(*) FROM claims WHERE status='{s}';", .{st}, 0);
         defer self.alloc.free(sql);
         var stmt: ?*c.sqlite3_stmt = null;
         if (c.sqlite3_prepare_v2(self.db, sql.ptr, -1, &stmt, null) != c.SQLITE_OK) return CatalogError.SqlError;
@@ -238,7 +238,7 @@ pub const Catalog = struct {
             }
         }
         if (!allowed) return CatalogError.UnknownTable;
-        const sql = try std.fmt.allocPrintZ(self.alloc, "SELECT COUNT(*) FROM {s};\x00", .{table});
+        const sql = try std.fmt.allocPrintSentinel(self.alloc, "SELECT COUNT(*) FROM {s};", .{table}, 0);
         defer self.alloc.free(sql);
         var stmt: ?*c.sqlite3_stmt = null;
         if (c.sqlite3_prepare_v2(self.db, sql.ptr, -1, &stmt, null) != c.SQLITE_OK) return CatalogError.SqlError;

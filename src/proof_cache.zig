@@ -7,6 +7,7 @@
 const std = @import("std");
 const cov = @import("cov.zig");
 const gate = @import("verifier/admission_gate.zig");
+const compat = @import("compat");
 
 pub const ProofCache = struct {
     map: std.AutoHashMap([32]u8, gate.CheckerVerdict),
@@ -18,9 +19,9 @@ pub const ProofCache = struct {
     /// Лимит записей. При переполнении вытесняется самая старая (FIFO).
     max_entries: usize = 10_000,
     /// ПОТОКОБЕЗОПАСНОСТЬ: без мьютекса параллельные get/put — гонка (race).
-    mutex: std.Thread.Mutex = .{},
+    mutex: std.Io.Mutex = std.Io.Mutex.init,
     /// Условная переменная для ожидания завершения чужого вычисления.
-    cond: std.Thread.Condition = .{},
+    cond: std.Io.Condition = std.Io.Condition.init,
 
     pub fn init(allocator: std.mem.Allocator) ProofCache {
         return .{
@@ -52,8 +53,8 @@ pub const ProofCache = struct {
     }
 
     pub fn get(self: *ProofCache, k: [32]u8) ?gate.CheckerVerdict {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.mutex.lockUncancelable(compat.io());
+        defer self.mutex.unlock(compat.io());
         if (self.map.get(k)) |v| {
             cov.hit(.cache_hit);
             self.hits += 1;
@@ -65,8 +66,8 @@ pub const ProofCache = struct {
     }
 
     pub fn put(self: *ProofCache, k: [32]u8, v: gate.CheckerVerdict) !void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.mutex.lockUncancelable(compat.io());
+        defer self.mutex.unlock(compat.io());
         self.evictIfNeededLocked(k);
         try self.map.put(k, v);
     }
@@ -105,8 +106,8 @@ pub const ProofCache = struct {
 
     /// Начать работу с ключом: кэш / вычислить самому / подождать.
     pub fn begin(self: *ProofCache, k: [32]u8) Begin {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.mutex.lockUncancelable(compat.io());
+        defer self.mutex.unlock(compat.io());
         if (self.map.get(k)) |v| {
             cov.hit(.cache_hit);
             self.hits += 1;
@@ -121,25 +122,25 @@ pub const ProofCache = struct {
 
     /// Завершить вычисление: записать результат и разбудить ожидающих.
     pub fn finish(self: *ProofCache, k: [32]u8, v: gate.CheckerVerdict) void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.mutex.lockUncancelable(compat.io());
+        defer self.mutex.unlock(compat.io());
         self.evictIfNeededLocked(k);
         self.map.put(k, v) catch {};
         _ = self.inflight.remove(k);
-        self.cond.broadcast();
+        self.cond.broadcast(compat.io());
     }
 
     /// Дождаться завершения чужого вычисления этого ключа.
     pub fn waitFor(self: *ProofCache, k: [32]u8) void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        while (self.inflight.contains(k)) self.cond.wait(&self.mutex);
+        self.mutex.lockUncancelable(compat.io());
+        defer self.mutex.unlock(compat.io());
+        while (self.inflight.contains(k)) self.cond.wait(compat.io(), &self.mutex) catch {};
     }
 
     /// Число формул, считающихся ПРЯМО СЕЙЧАС (для тестов конкурентности).
     pub fn inFlight(self: *ProofCache) usize {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.mutex.lockUncancelable(compat.io());
+        defer self.mutex.unlock(compat.io());
         return self.inflight.count();
     }
 };
@@ -260,7 +261,7 @@ fn countFn(counter: *std.atomic.Value(usize), ctx: ?*anyopaque, allocator: std.m
            ast: [32]u8, contract: [32]u8, proof: []const u8) gate.CheckerVerdict {
     _ = .{ ctx, allocator, ast, contract, proof };
     _ = counter.fetchAdd(1, .monotonic);
-    std.time.sleep(2 * std.time.ns_per_ms); // имитация «тяжёлого» решателя
+    compat.sleepMs(2); // имитация «тяжёлого» решателя
     return .Proved;
 }
 
@@ -287,7 +288,7 @@ test "SINGLE-FLIGHT ПО КЛЮЧУ: РАЗНЫЕ формулы считают�
                         if (now <= cur) break;
                         if (pk.cmpxchgWeak(cur, now, .acq_rel, .acquire) == null) break;
                     }
-                    std.time.sleep(15 * std.time.ns_per_ms); // имитация работы решателя
+                    compat.sleepMs(15); // имитация работы решателя
                     _ = act.fetchSub(1, .acq_rel);
                     c.finish(k, .Proved);
                 },

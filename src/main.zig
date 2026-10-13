@@ -201,10 +201,10 @@ pub fn main(init: std.process.Init) !void {
         var timeout_n: usize = 0;
         var shown: usize = 0;
 
-        while (try walker.next()) |entry| {
+        while (try walker.next(compat.io())) |entry| {
             if (entry.kind != .file) continue;
             if (!std.mem.endsWith(u8, entry.path, ".smt2")) continue;
-            const content = dir.readFileAlloc(alloc, entry.path, 1 << 20) catch continue;
+            const content = dir.readFileAlloc(compat.io(), entry.path, alloc, .limited(1 << 20)) catch continue;
             total += 1;
 
             // Ожидаемый статус: ищем в первой части файла.
@@ -409,7 +409,7 @@ pub fn main(init: std.process.Init) !void {
                 std.debug.print("[!] seed должен быть ровно 32 байта (получено {d})\n", .{seed_raw.len});
                 return;
             }
-            const kp = try Ed25519.KeyPair.create(seed_raw[0..32].*);
+            const kp = try Ed25519.KeyPair.generateDeterministic(seed_raw[0..32].*);
             const cert = try attest_mod.attest(kp, digest, h.root_digest, .proved);
             const bytes = attest_mod.toBytes(cert);
             const f = try compat.createFile(out_path, .{});
@@ -642,7 +642,7 @@ pub fn main(init: std.process.Init) !void {
         defer fs.deinit();
         const f = try compat.createFile("agent_packet.json", .{});
         defer compat.fileClose(f);
-        var buf = std.array_list.Managed(u8).init(alloc);
+        var buf = compat.BufWriter.init(alloc);
         defer buf.deinit();
         const w = buf.writer();
         try w.writeAll("{\n  \"v\": \"1.3\",\n  \"task\": \"handoff\",\n  \"truth_rule\": \"e=1_only_after_required_verification\",\n");
@@ -658,7 +658,7 @@ pub fn main(init: std.process.Init) !void {
         }
         try w.writeAll("\n  ],\n  \"stats\": {\n");
         try w.print("    \"objects\": {d}\n  }}\n}}\n", .{fs.objects.len});
-        try compat.fileWriteAll(f, buf.items);
+        try compat.fileWriteAll(f, buf.items());
         std.debug.print("[OK] agent_packet.json (из образа)\n", .{});
 
     } else if (std.mem.eql(u8, command, "report")) {
@@ -669,14 +669,14 @@ pub fn main(init: std.process.Init) !void {
         defer fs.deinit();
         const out_file = try compat.createFile("PROJECT_CANONICAL_SPEC.kern.md", .{});
         defer compat.fileClose(out_file);
-        var buf = std.array_list.Managed(u8).init(alloc);
+        var buf = compat.BufWriter.init(alloc);
         defer buf.deinit();
         const w = buf.writer();
         try w.print("# КАНОНИЧЕСКИЙ ПАСПОРТ KERN\n\n> Сгенерировано kernc ИЗ ОБРАЗА `{s}` ({d} байт).\n\n**Объектов:** {d}\n\n", .{ image_path, data.len, fs.objects.len });
         for (fs.objects) |obj| {
             try w.print("- `type=0x{X:0>4}` size={d} path=`{s}`\n", .{ obj.type_id, obj.uncompressed_size, fs.objectPath(obj) });
         }
-        try compat.fileWriteAll(out_file, buf.items);
+        try compat.fileWriteAll(out_file, buf.items());
         std.debug.print("[OK] Отчёт записан ИЗ ОБРАЗА: PROJECT_CANONICAL_SPEC.kern.md\n", .{});
 
     } else {

@@ -13,6 +13,7 @@
 //! `(get-value ...)` от Z3 на каждом шаге.
 const std = @import("std");
 const z3 = @import("verifier/z3_bridge.zig");
+const compat = @import("compat");
 
 /// Одна неудовлетворённая ветвь: какой байт ожидался и что было.
 pub const Branch = struct { idx: usize, want: u8, got: u8 };
@@ -47,7 +48,7 @@ pub const ConcolicEngine = struct {
     /// Просит у Z3 конкретное значение байта, которое ПРОЙДЁТ ветвь `b`,
     /// при уже удовлетворённых ветвях префикса `prefix`.
     fn solveByte(self: *ConcolicEngine, prefix: []const Branch, b: Branch, len: usize) ?u8 {
-        var buf = std.array_list.Managed(u8).init(self.allocator);
+        var buf = compat.BufWriter.init(self.allocator);
         defer buf.deinit();
         const w = buf.writer();
         w.writeAll("(set-logic QF_BV)\n") catch return null;
@@ -57,7 +58,7 @@ pub const ConcolicEngine = struct {
         w.print("(get-value (b{d}))\n", .{b.idx}) catch return null;
 
         self.solver_calls += 1;
-        const cap = self.bridge.executeCapture(buf.items);
+        const cap = self.bridge.executeCapture(buf.items());
         defer self.allocator.free(cap.stdout);
         if (cap.status != .Sat) return null;
 

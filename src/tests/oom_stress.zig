@@ -36,7 +36,6 @@ test "OOM: сборка образа на 2 МБ -> error.OutOfMemory (не па
                 got_oom = true;
                 break;
             },
-            else => return e,
         };
     }
     try std.testing.expect(got_oom);

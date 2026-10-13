@@ -65,7 +65,9 @@ pub fn build(allocator: std.mem.Allocator, source_path: []const u8,
     try cat.initSchema();
     try cat.insertProject(project);
     try cat.insertDiagnostics(diags);
-    try cat.recordSnapshot("snapshot:latest", std.time.timestamp());
+    // Zig 0.17: `std.time.timestamp()` удалён — время берём через `std.Io.Clock`.
+    const now_ns = std.Io.Clock.now(.real, compat.io()).nanoseconds;
+    try cat.recordSnapshot("snapshot:latest", @intCast(@divTrunc(now_ns, std.time.ns_per_s)));
     try cat.recordCacheEntry(hash, source_path);
 
     const snap = try snapshot.build(allocator, project, diags);

@@ -60,6 +60,16 @@ pub fn build(b: *std.Build) void {
     exe_mod.addImport("compat", compat_module);
     tests_mod.addImport("compat", compat_module);
     atk_mod.addImport("compat", compat_module);
+    atomic_module.addImport("compat", compat_module);
+
+    // Zig 0.17: `@cImport` удалён. C-заголовок SQLite транслируется
+    // сборочной системой в отдельный кэшируемый модуль `c_sqlite`.
+    const sqlite_c = b.addTranslateC(.{
+        .root_source_file = b.path("include/sqlite3_bridge.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const sqlite_mod = sqlite_c.createModule();
 
     // KERN-Next: движок проекта (`kernx`). Требует libc + libsqlite3 (§9).
     const kernx_mod = b.createModule(.{
@@ -72,6 +82,7 @@ pub fn build(b: *std.Build) void {
     kernx.root_module.addImport("owner", owner_module);
     kernx.root_module.addImport("atomic", atomic_module);
     kernx.root_module.addImport("compat", compat_module);
+    kernx_mod.addImport("c_sqlite", sqlite_mod);
     kernx_mod.linkSystemLibrary("sqlite3", .{});
     b.installArtifact(kernx);
 
@@ -85,6 +96,7 @@ pub fn build(b: *std.Build) void {
     const tests_next = b.addTest(.{ .root_module = tests_next_mod });
     tests_next.root_module.addImport("atomic", atomic_module);
     tests_next.root_module.addImport("compat", compat_module);
+    tests_next_mod.addImport("c_sqlite", sqlite_mod);
     tests_next_mod.linkSystemLibrary("sqlite3", .{});
     const run_tests_next = b.addRunArtifact(tests_next);
     b.step("test-next", "Тесты KERN-Next").dependOn(&run_tests_next.step);

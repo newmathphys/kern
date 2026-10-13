@@ -69,8 +69,8 @@ pub fn reset() void {
 /// Отчёт: сколько инструментированных решений исполнено и сколько раз.
 pub fn report(writer: anytype) !void {
     var covered: usize = 0;
-    inline for (@typeInfo(Site).@"enum".field_names) |f| {
-        const n = counters[f.value];
+    inline for (@typeInfo(Site).@"enum".field_names, 0..) |_, fidx| {
+        const n = counters[fidx];
         if (n > 0) covered += 1;
     }
     const total: usize = N;
@@ -80,8 +80,8 @@ pub fn report(writer: anytype) !void {
     try writer.print("  ПОКРЫТИЕ РЕШЕНИЙ:             {d:.1}%\n\n", .{
         @as(f64, @floatFromInt(covered)) / @as(f64, @floatFromInt(total)) * 100.0,
     });
-    inline for (@typeInfo(Site).@"enum".field_names) |f| {
-        const n = counters[f.value];
+    inline for (@typeInfo(Site).@"enum".field_names, 0..) |f, fidx| {
+        const n = counters[fidx];
         try writer.print("  {s:<32} {d:>7} {s}\n", .{ f, n, if (n == 0) " <-- НЕ ИСПОЛНЕНО" else "" });
     }
 }

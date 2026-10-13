@@ -31,17 +31,21 @@ pub const CapturedResponse = struct {
 
 /// Контекст потока-убийцы (жёсткий таймаут решателя).
 const KillCtx = struct {
-    child: *std.process.Child,
     done: std.atomic.Value(bool),
     killed: std.atomic.Value(bool) = std.atomic.Value(bool).init(false),
 };
 
-fn killAfter(ctx: *KillCtx, ms: u32) void {
+/// Поток-убийца по таймауту (Zig 0.17).
+///
+/// В 0.17 pid передаётся **значением**, а не указателем на `Child`, поэтому
+/// исчезает и риск use-after-free (указатель на стек `child`), и необходимость
+/// держать `*std.process.Child`.
+fn killAfterPid(pid: std.posix.pid_t, ctx: *KillCtx, ms: u32) void {
     var elapsed: u64 = 0;
     const step: u64 = 5; // мс
     while (elapsed < ms) : (elapsed += step) {
         if (ctx.done.load(.acquire)) return;
-        std.time.sleep(step * std.time.ns_per_ms);
+        std.Io.sleep(compat.io(), .fromMilliseconds(@intCast(step)), .awake) catch {};
     }
     if (!ctx.done.load(.acquire)) {
         ctx.killed.store(true, .release);
@@ -54,7 +58,7 @@ fn killAfter(ctx: *KillCtx, ms: u32) void {
         //
         // ИСПРАВЛЕНО: посылаем сигнал НАПРЯМУЮ и НЕ пожинаем — пожинание
         // остаётся единственной обязанностью главного потока.
-        std.posix.kill(ctx.child.id, std.posix.SIG.TERM) catch {};
+        std.posix.kill(pid, std.posix.SIG.TERM) catch {};
     }
 }
 
@@ -115,51 +119,62 @@ pub const Z3Bridge = struct {
             cov.hit(.z3_tool_error);
             return .{ .status = .ToolError, .stdout = &.{} };
         }
-        var child = std.process.Child.init(&[_][]const u8{ self.z3_path, "-in" }, self.allocator);
-        child.stdin_behavior = .Pipe;
-        child.stdout_behavior = .Pipe;
-        child.stderr_behavior = .Ignore;
-
-        child.spawn() catch {
+        const io = compat.io();
+        var child = std.process.spawn(io, .{
+            .argv = &[_][]const u8{ self.z3_path, "-in" },
+            .stdin = .pipe,
+            .stdout = .pipe,
+            .stderr = .ignore,
+        }) catch {
+            cov.hit(.z3_tool_error);
+            return .{ .status = .ToolError, .stdout = &.{} };
+        };
+        // pid нужен потоку-убийце; после wait он станет null.
+        const pid = child.id orelse {
             cov.hit(.z3_tool_error);
             return .{ .status = .ToolError, .stdout = &.{} };
         };
 
         // Поток-убийца: если решатель завис — принудительно снимаем по таймауту.
-        var kctx = KillCtx{ .child = &child, .done = std.atomic.Value(bool).init(false) };
+        var kctx = KillCtx{ .done = std.atomic.Value(bool).init(false) };
         // ДЕФЕКТ (исправлен): раньше при отказе spawn поток-убийцы запрос
         // оставался БЕЗ таймаута — зависший решатель подвесил бы KERN
         // навсегда. Теперь fail-closed: без гарантии таймаута НЕ запускаем.
-        const killer: std.Thread = std.Thread.spawn(.{}, killAfter, .{ &kctx, self.timeout_ms }) catch {
+        const killer: std.Thread = std.Thread.spawn(.{}, killAfterPid, .{ pid, &kctx, self.timeout_ms }) catch {
             cov.hit(.z3_tool_error);
-            // ТА ЖЕ ГОНКА ECHILD, что и в killAfter: Child.kill() пожинает сам.
-            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
+            std.posix.kill(pid, std.posix.SIG.TERM) catch {};
             return .{ .status = .ToolError, .stdout = &.{} };
         };
 
-        child.stdin.?.writeAll(smt_script) catch {
+        if (child.stdin) |sin| {
+            sin.writeStreamingAll(io, smt_script) catch {
+                kctx.done.store(true, .release);
+                std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+                killer.join();
+                return .{ .status = .ToolError, .stdout = &.{} };
+            };
+            sin.close(io);
+            child.stdin = null;
+        }
+
+        const sout = child.stdout orelse {
             kctx.done.store(true, .release);
-            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
+            std.posix.kill(pid, std.posix.SIG.TERM) catch {};
             killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
-        child.stdin.?.close();
-        child.stdin = null;
-
-        const stdout_data = child.stdout.?.readToEndAlloc(self.allocator, 4 * 1024 * 1024) catch {
+        const stdout_data = compat.fileReadToEndAlloc(sout, self.allocator, 4 * 1024 * 1024) catch {
             kctx.done.store(true, .release);
-            // ТА ЖЕ ГОНКА ECHILD, что и в killAfter: Child.kill() пожинает сам.
-            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
+            std.posix.kill(pid, std.posix.SIG.TERM) catch {};
             killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
 
-        const term = child.wait() catch {
+        const term = child.wait(io) catch {
             // БАГ-ФИКС: при ошибке wait поток-убийца обязан быть остановлен и
             // joined — иначе он держит указатель на стек `kctx` (use-after-free).
             kctx.done.store(true, .release);
-            // ТА ЖЕ ГОНКА ECHILD, что и в killAfter: Child.kill() пожинает сам.
-            std.posix.kill(child.id, std.posix.SIG.TERM) catch {};
+            std.posix.kill(pid, std.posix.SIG.TERM) catch {};
             killer.join();
             self.allocator.free(stdout_data);
             return .{ .status = .ToolError, .stdout = &.{} };
@@ -172,9 +187,9 @@ pub const Z3Bridge = struct {
             return .{ .status = .Timeout, .stdout = &.{} };
         }
         switch (term) {
-            .Exited => |code| if (code != 0) {
-                // Сюда попадает и отсутствующий бинарник: Zig 0.13 не сообщает
-                // об ошибке exec в spawn(), потомок выходит с кодом 127.
+            .exited => |code| if (code != 0) {
+                // Сюда попадает и отсутствующий бинарник: об ошибке exec
+                // сообщает ненулевой код возврата потомка.
                 cov.hit(.z3_tool_error);
                 self.allocator.free(stdout_data);
                 return .{ .status = .ToolError, .stdout = &.{} };
@@ -379,30 +394,30 @@ test "ГРАНИЦА: мусорный SMT не роняет мост" {
 // =========================================================================
 
 fn countFds() usize {
-    var dir = std.fs.openDirAbsolute("/proc/self/fd", .{ .iterate = true }) catch return 0;
+    var dir = std.Io.Dir.openDirAbsolute(compat.io(), "/proc/self/fd", .{ .iterate = true }) catch return 0;
     defer compat.dirClose(dir);
     var it = dir.iterate();
     var n: usize = 0;
-    while (it.next() catch null) |_| n += 1;
+    while (it.next(compat.io()) catch null) |_| n += 1;
     return n;
 }
 
 /// Считает процессы-зомби (<defunct>), чей родитель — текущий процесс.
 fn countZombieChildren() usize {
     const my_pid = std.os.linux.getpid();
-    var dir = std.fs.openDirAbsolute("/proc", .{ .iterate = true }) catch return 0;
+    var dir = std.Io.Dir.openDirAbsolute(compat.io(), "/proc", .{ .iterate = true }) catch return 0;
     defer compat.dirClose(dir);
     var it = dir.iterate();
     var n: usize = 0;
-    while (it.next() catch null) |entry| {
+    while (it.next(compat.io()) catch null) |entry| {
         if (entry.kind != .directory) continue;
         const pid = std.fmt.parseInt(i32, entry.name, 10) catch continue;
         var buf: [256]u8 = undefined;
         var path_buf: [64]u8 = undefined;
         const path = std.fmt.bufPrint(&path_buf, "/proc/{d}/stat", .{pid}) catch continue;
-        const f = std.fs.openFileAbsolute(path, .{}) catch continue;
-        defer f.close();
-        const nread = f.readAll(&buf) catch continue;
+        const f = std.Io.Dir.openFileAbsolute(compat.io(), path, .{}) catch continue;
+        defer compat.fileClose(f);
+        const nread = f.readStreaming(compat.io(), &.{&buf}) catch continue;
         const data = buf[0..nread];
         // формат: pid (comm) state ppid ...
         const rp = std.mem.lastIndexOfScalar(u8, data, ')') orelse continue;
@@ -445,7 +460,7 @@ test "РЕСУРСЫ: 50 запросов Z3 не текут FD и не плод
 // Никаких «бесконечных» системных процессов.
 
 pub const SolverPool = struct {
-    sem: std.Thread.Semaphore,
+    sem: std.Io.Semaphore,
     max_concurrent: usize,
     active: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
     peak: std.atomic.Value(usize) = std.atomic.Value(usize).init(0),
@@ -454,14 +469,14 @@ pub const SolverPool = struct {
 
     pub fn init(max_concurrent: usize) SolverPool {
         return .{
-            .sem = std.Thread.Semaphore{ .permits = max_concurrent },
+            .sem = std.Io.Semaphore{ .permits = max_concurrent },
             .max_concurrent = max_concurrent,
         };
     }
 
     /// Занять слот решателя. Блокируется, пока все слоты заняты.
     pub fn acquire(self: *SolverPool) void {
-        self.sem.wait();
+        self.sem.waitUncancelable(compat.io());
         _ = self.acquired_total.fetchAdd(1, .monotonic);
         const now = self.active.fetchAdd(1, .acq_rel) + 1;
         while (true) {
@@ -475,7 +490,7 @@ pub const SolverPool = struct {
     pub fn release(self: *SolverPool) void {
         _ = self.active.fetchSub(1, .acq_rel);
         _ = self.completed.fetchAdd(1, .monotonic);
-        self.sem.post();
+        self.sem.post(compat.io());
     }
 
     pub fn peakConcurrent(self: *SolverPool) usize {

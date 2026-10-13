@@ -26,7 +26,7 @@ fn hasFlag(args: []const [:0]const u8, name: []const u8) bool {
 fn printFile(alloc: std.mem.Allocator, path: []const u8) !void {
     const data = try compat.readFileAlloc(alloc, path, 1 << 24);
     defer alloc.free(data);
-    try std.io.getStdOut().writeAll(data);
+    try std.Io.File.stdout().writeStreamingAll(compat.io(), data);
 }
 
 pub fn main(init: std.process.Init) !void {

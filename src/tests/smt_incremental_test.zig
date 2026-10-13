@@ -15,6 +15,7 @@
 //!   * один процесс с N запросами быстрее, чем N отдельных процессов.
 const std = @import("std");
 const z3 = @import("../verifier/z3_bridge.zig");
+const compat = @import("compat");
 
 /// Разбирает ВСЕ строки статуса из вывода решателя (sat/unsat/unknown).
 fn parseAll(allocator: std.mem.Allocator, out: []const u8) ![]z3.SmtStatus {
@@ -65,7 +66,7 @@ test "SMT push/pop: пачка из 50 «мутантов» — нет ложн�
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
 
-    var buf = std.array_list.Managed(u8).init(std.testing.allocator);
+    var buf = compat.BufWriter.init(std.testing.allocator);
     defer buf.deinit();
     const w = buf.writer();
     try w.writeAll("(set-logic ALL)\n(declare-const x Int)\n(assert (>= x 0))\n"); // база
@@ -76,7 +77,7 @@ test "SMT push/pop: пачка из 50 «мутантов» — нет ложн�
             if (i % 2 == 0) "(<= x 10)" else "(< x 0)",
         });
     }
-    const cap = bridge.executeCapture(buf.items);
+    const cap = bridge.executeCapture(buf.items());
     defer std.testing.allocator.free(cap.stdout);
     const st = try parseAll(std.testing.allocator, cap.stdout);
     defer std.testing.allocator.free(st);
@@ -93,7 +94,7 @@ test "SMT push/pop: 30 запросов в ОДНОМ процессе быст�
     if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
 
     // (а) 30 отдельных процессов
-    var t_sep = try std.time.Timer.start();
+    var t_sep = compat.Timer.start();
     var k: usize = 0;
     while (k < 30) : (k += 1) {
         const r = bridge.executeQuery("(set-logic ALL)\n(declare-const x Int)\n(assert (> x 0))\n(check-sat)\n");
@@ -102,7 +103,7 @@ test "SMT push/pop: 30 запросов в ОДНОМ процессе быст�
     const sep_ms = t_sep.read() / std.time.ns_per_ms;
 
     // (б) один процесс, 30 запросов через push/pop
-    var buf = std.array_list.Managed(u8).init(std.testing.allocator);
+    var buf = compat.BufWriter.init(std.testing.allocator);
     defer buf.deinit();
     const w = buf.writer();
     try w.writeAll("(set-logic ALL)\n(declare-const x Int)\n");
@@ -110,8 +111,8 @@ test "SMT push/pop: 30 запросов в ОДНОМ процессе быст�
     while (k < 30) : (k += 1) {
         try w.writeAll("(push 1)\n(assert (> x 0))\n(check-sat)\n(pop 1)\n");
     }
-    var t_inc = try std.time.Timer.start();
-    const cap = bridge.executeCapture(buf.items);
+    var t_inc = compat.Timer.start();
+    const cap = bridge.executeCapture(buf.items());
     defer std.testing.allocator.free(cap.stdout);
     const inc_ms = t_inc.read() / std.time.ns_per_ms;
 

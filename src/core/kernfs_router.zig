@@ -305,11 +305,11 @@ fn buildMinimalImage(w: anytype) !void {
 }
 
 test "ФИКС ФАЗ 1/3: mountFromBytes находит файл и отдаёт zero-copy срез" {
-    var img = std.array_list.Managed(u8).init(std.testing.allocator);
+    var img = compat.BufWriter.init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
 
-    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items());
     defer fs.deinit();
 
     const node = try fs.read("/raw/a.zig");
@@ -326,11 +326,11 @@ test "🔴 МУТАНТ: getString отвергает смещение ЗА пр
     // (Этот тест был ЗАТЁР прогоном tools/mutate_zig.py, который раньше
     //  правил исходники на месте; мутатор исправлен — теперь он работает
     //  на копии дерева.)
-    var img = std.array_list.Managed(u8).init(std.testing.allocator);
+    var img = compat.BufWriter.init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
 
-    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items());
     defer fs.deinit();
 
     try std.testing.expectEqualStrings("a.zig", fs.getString(0));
@@ -342,11 +342,11 @@ test "🔴 МУТАНТ: getString отвергает смещение ЗА пр
 }
 
 test "🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, objectPayload — проверяет" {
-    var img = std.array_list.Managed(u8).init(std.testing.allocator);
+    var img = compat.BufWriter.init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
 
-    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items());
     defer fs.deinit();
 
     const obj = fs.objects[0];
@@ -354,7 +354,7 @@ test "🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, object
     const raw = try fs.objectPayloadRaw(obj);
     try std.testing.expectEqualStrings(safe, raw);
 
-    var copy = try std.testing.allocator.dupe(u8, img.items);
+    var copy = try std.testing.allocator.dupe(u8, img.items());
     defer std.testing.allocator.free(copy);
     const base: usize = 128 + 1 * 96;
     copy[base + @as(usize, @intCast(obj.payload_offset))] ^= 0xFF;
@@ -373,12 +373,12 @@ test "ФИКС CONF-06: запись в KERNFS отвергается AccessDeni
 }
 
 test "ФИКС MERKLE: подмена байта в образе ломает монтирование" {
-    var img = std.array_list.Managed(u8).init(std.testing.allocator);
+    var img = compat.BufWriter.init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
-    img.items[128 + 56] = 0x09; // порча type_id в таблице объектов
+    img.items()[128 + 56] = 0x09; // порча type_id в таблице объектов
     try std.testing.expectError(KimgError.MerkleRootMismatch,
-        KernFS.mountFromBytes(std.testing.allocator, img.items));
+        KernFS.mountFromBytes(std.testing.allocator, img.items()));
 }
 
 // =========================================================================
@@ -567,13 +567,13 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     std.mem.writeInt(u64, header[56..64], 224, .little);
     @memcpy(header[64..96], &root);
 
-    var img = std.array_list.Managed(u8).init(std.testing.allocator);
+    var img = compat.BufWriter.init(std.testing.allocator);
     defer img.deinit();
     try img.appendSlice(&header);
     try img.appendSlice(&obj);
     try img.appendSlice(pool);
 
-    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items);
+    var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items());
     defer fs.deinit();
     // Смещение за пределами пула -> чтение отвергается, не паника.
     try std.testing.expectError(KernFsError.FileNotFound, fs.read("/raw/a.zig"));

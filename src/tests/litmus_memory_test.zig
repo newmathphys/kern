@@ -20,7 +20,7 @@ const std = @import("std");
 var g_iter: usize = 0;
 fn iters() usize {
     if (g_iter == 0) {
-        g_iter = if (std.posix.getenv("KERN_FAST") != null) 200 else 3_000;
+        g_iter = 3_000; // Zig 0.17: std.posix.getenv удалён — фиксированное число итераций
     }
     return g_iter;
 }
