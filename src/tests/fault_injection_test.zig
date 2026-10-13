@@ -18,7 +18,7 @@ test "SIGBUS РЕАЛЬНЫЙ: чтение PROT_NONE перехвачено, п
     sigbus.install();
     const before = sigbus.faultCount();
 
-    const page = try posix.mmap(null, 4096, posix.PROT.NONE,
+    const page = try posix.mmap(null, 4096, posix.PROT{},
         .{ .TYPE = .PRIVATE, .ANONYMOUS = true }, -1, 0);
     defer posix.munmap(page);
 
@@ -48,17 +48,17 @@ test "SIGBUS РЕАЛЬНЫЙ: файл, обрезанный после mmap (�
 
     // 1. Создаём файл на 2 страницы и отображаем его в память.
     const path = "/tmp/kern_sigbus_probe.bin";
-    var f = try compat.createFile(path, .{ .read = true, .truncate = true });
+    const f = try compat.createFile(path, .{ .read = true, .truncate = true });
     defer compat.fileClose(f);
     defer compat.deleteFile(path) catch {};
-    try f.setEndPos(8192);
+    try f.setLength(compat.io(), 8192);
     try compat.fileWriteAll(f, &(@as([8192]u8, @splat(0x5A))));
 
-    const mapped = try posix.mmap(null, 8192, posix.PROT.READ, .{ .TYPE = .SHARED }, f.handle, 0);
+    const mapped = try posix.mmap(null, 8192, posix.PROT{ .READ = true }, .{ .TYPE = .SHARED }, f.handle, 0);
     defer posix.munmap(mapped);
 
     // 2. «Выдёргиваем носитель»: обрезаем файл до нуля при живом отображении.
-    try posix.ftruncate(f.handle, 0);
+    try f.setLength(compat.io(), 0);
 
     // 3. Чтение второй страницы обязано дать SIGBUS — и быть перехваченным.
     const base: [*]const u8 = @ptrCast(mapped.ptr);

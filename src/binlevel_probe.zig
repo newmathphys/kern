@@ -14,12 +14,12 @@ const nonint = @import("verifier/noninterference.zig");
 
 /// Constant-time сравнение n байт. Инвариант: НИ ОДНОГО условного перехода
 /// внутри цикла — время не должно зависеть от данных.
-pub export fn kern_ct_equal(a: [*]const u8, b: [*]const u8, n: usize) callconv(.C) bool {
+pub export fn kern_ct_equal(a: [*]const u8, b: [*]const u8, n: usize) callconv(.c) bool {
     return nonint.constantTimeEqual(a[0..n], b[0..n]);
 }
 
 /// Контрольный пример: ранний выход (для контраста в анализе ассемблера).
-pub export fn kern_early_exit_equal(a: [*]const u8, b: [*]const u8, n: usize) callconv(.C) bool {
+pub export fn kern_early_exit_equal(a: [*]const u8, b: [*]const u8, n: usize) callconv(.c) bool {
     return nonint.earlyExitEqual(a[0..n], b[0..n]);
 }
 

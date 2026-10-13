@@ -36,7 +36,7 @@ var g_jmpbuf: JmpBuf = undefined;
 var g_jmp: ?*JmpBuf = null;
 var g_faults: std.atomic.Value(u32) = std.atomic.Value(u32).init(0);
 
-fn handler(sig: c_int, info: *const posix.siginfo_t, ctx: ?*anyopaque) callconv(.C) void {
+fn handler(sig: posix.SIG, info: *const posix.siginfo_t, ctx: ?*anyopaque) callconv(.c) void {
     _ = .{ sig, info, ctx };
     _ = g_faults.fetchAdd(1, .monotonic);
     if (g_jmp) |j| {
@@ -50,11 +50,11 @@ fn handler(sig: c_int, info: *const posix.siginfo_t, ctx: ?*anyopaque) callconv(
 pub fn install() void {
     var act = posix.Sigaction{
         .handler = .{ .sigaction = handler },
-        .mask = posix.empty_sigset,
+        .mask = posix.sigemptyset(),
         .flags = posix.SA.SIGINFO,
     };
-    posix.sigaction(posix.SIG.BUS, &act, null) catch {};
-    posix.sigaction(posix.SIG.SEGV, &act, null) catch {};
+    posix.sigaction(posix.SIG.BUS, &act, null);
+    posix.sigaction(posix.SIG.SEGV, &act, null);
 }
 
 /// Установить точку возврата. `true` — обычный ход; `false` — вернулись из сбоя.

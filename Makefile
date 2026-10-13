@@ -121,8 +121,8 @@ memcheck:
 
 # Детектор UB: ReleaseSafe сохраняет проверки границ/переполнений.
 ubsafe:
-	$(ZIG) test -O ReleaseSafe src/test_root.zig
-	$(ZIG) test -O ReleaseSafe src/next/test_root.zig -lc -lsqlite3
+	$(ZIG) test -O ReleaseSafe --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig
+	$(ZIG) build test-next -Doptimize=ReleaseSafe
 
 # Стресс .kimg на 1 000 000 объектов (Merkle + случайный доступ).
 stress-kimg:
@@ -142,7 +142,7 @@ formal-ci: build test test-next lean smt-stress
 
 # Ресурсы ОС: утечки FD и зомби-процессы (тесты в z3_bridge.zig).
 fd-check:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "РЕСУРСЫ|ПЧЕЛИНЫЙ|passed"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "РЕСУРСЫ|ПЧЕЛИНЫЙ|passed"
 
 # ==== ЭШЕЛОНЫ 1-4: ФИНАЛЬНЫЙ ШТУРМ ====
 
@@ -174,23 +174,23 @@ audit: build
 
 # UNSAT CORE: локализация конфликтующей строки контракта.
 localize:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "UNSAT CORE|passed"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "UNSAT CORE|passed"
 
 # ТЕОРИЯ МАССИВОВ: аксиомы Маккарти, алиасинг, выход за границы.
 arrays:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "ARRAY|passed"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "ARRAY|passed"
 
 # CHC / HORN: синтез инвариантов циклов через Z3 SPACER.
 chc:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "CHC|passed"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "CHC|passed"
 
 # СТРОКИ (QF_S): path traversal, нуль-байт, regex.
 strings:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "STRINGS|passed"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "STRINGS|passed"
 
 # CEGIS: синтез программы по спецификации (SyGuS).
 cegis:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "CEGIS|passed"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "CEGIS|passed"
 
 # Весь математический контур тестами.
 theories: localize arrays chc strings cegis
@@ -223,7 +223,7 @@ chc-bench:
 # Покрытие решений (self-instrumented: Zig 0.13 не умеет LLVM coverage).
 # Печатает отчёт по инструментированным решениям и падает при < 95 %.
 coverage:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -A40 'ПОКРЫТИЕ РЕШЕНИЙ'
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -A40 'ПОКРЫТИЕ РЕШЕНИЙ'
 
 # C-ABI: libkern.so + libkern.a + include/kern.h (встраивание без CLI).
 lib:
@@ -248,31 +248,31 @@ fuzz-1m:
 
 # Слабые модели памяти: литмус-тесты SB/MP (TSO vs ARM64).
 litmus:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "LITMUS"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "LITMUS"
 
 # Конколическое исполнение (гибрид фаззинга и символьного движка).
 concolic:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "CONCOLIC"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "CONCOLIC"
 
 # Вероятностный модел-чекинг DTMC/PCTL.
 dtmc:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "DTMC"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "DTMC"
 
 # Абстрактная интерпретация (интервалы + widening/narrowing).
 absint:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "ABSINT"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "ABSINT"
 
 # Нелинейная арифметика (QF_NRA) и кванторы (E-matching).
 nra:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "NRA|QUANT"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "NRA|QUANT"
 
 # Невмешательство / гиперсвойства (сайд-каналы, constant-time).
 noninterference:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "NONINTERFERENCE"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "NONINTERFERENCE"
 
 # ReDoS-анализ регулярных выражений (CWE-1333).
 redos:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "REDOS"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -E "REDOS"
 
 # Кросс-архитектурная проверка: ARM64 (выравнивание) + POWERPC64 (big-endian).
 cross-arch:
@@ -300,7 +300,7 @@ sim:
 
 # ОС-стресс: пайпы, spawn-флуд, инъекция сбоев (границы «клея с ОС»).
 os-stress:
-	$(ZIG) test src/test_root.zig --test-filter "ОС-СТРЕСС"
+	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig --test-filter "ОС-СТРЕСС"
 
 # Сигнальный флуд: каскадный штурм сигналами (внешние сигналы во время работы).
 flood:
