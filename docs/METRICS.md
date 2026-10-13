@@ -1796,3 +1796,45 @@ thread ... panic: KERN: compat.setIo() не вызван в main до файло
 утверждение теперь опирается на РАЗЛИЧАЮЩУЮ проверку, а не на вакуумную.
 
 **Дефекты #17–#30 — четырнадцать штук.**
+
+---
+
+## §32. Дефект #31: `diff_disasm.py` тоже был сломан
+
+`make disasm` падал с RC=2 («не удалось собрать Debug-ассемблер»).
+
+| Что было | Симптом | Фикс |
+|:--|:--|:--|
+| `zig build-obj src/binlevel_probe.zig -femit-asm=…` | модуль `compat` не передан → сборка падает | `zig build-exe --dep compat --dep owner --dep atomic … -Mroot=…` |
+| тот же `-femit-asm` | в этом тулчейне **молча no-op** | ассемблер через `objdump -d -M intel` |
+| анализировались только `kern_*` | обёртки с 0 ветвлений → проверка вакуумна (см. #30) | добавлены РЕАЛЬНЫЕ `verifier.noninterference.*` |
+| `import os` отсутствовал | `NameError` | добавлен |
+
+### Результат (`make disasm`, RC=0)
+
+```
+verifier.noninterference.constantTimeEqual:   условных переходов Debug 3 -> ReleaseFast 3
+verifier.noninterference.earlyExitEqual:      условных переходов Debug 4 -> ReleaseFast 4
+kern_ct_equal (обёртка):                      условных переходов Debug 0 -> ReleaseFast 0
+kern_early_exit_equal (обёртка):              условных переходов Debug 0 -> ReleaseFast 0
+ВСЁ ЧИСТО: критических вырезаний не найдено
+```
+Последние две строки — прямое подтверждение дефекта #30: экспорт-обёртки
+содержат НОЛЬ ветвлений, поэтому анализ на них был вакуумным.
+
+---
+
+## §33. ИТОГ: все цели Makefile проверены (сплошной прогон)
+
+| Цель | RC |
+|:--|:--:|
+| `golden` `arrays` `chc` `strings` `cegis` `theories` `localize` `verify` `next` `demo` | 0 |
+| `audit-manifest` `coverage` `probe` `sim` `attest-key` `attest` `memcheck` | 0 |
+| `os-stress` `flood` `fuzz-1m` `research` `echelons` | 0 |
+| `cross-arch` `slsa` `hermetic` `lib` `capi-demo` `audit` `cert` `deal` `proof-check` | 0 |
+| `binlevel` `disasm` | 0 *(после фиксов #29–#31)* |
+| `align` `pool` `avalanche` `semantic-gap` `test-fault` `test-next` | 0 |
+
+**Дефекты #17–#31 — пятнадцать штук**, из них **пять «молчаливо сломанных
+проверок»** (#18, #23, #25, #26, #30) — то есть проверки, которые выглядели
+работающими, но не проверяли ничего.

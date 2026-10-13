@@ -34,6 +34,7 @@ constant-time сравнении). Семантический зонд (`src/sem
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -42,13 +43,57 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PROBE = ROOT / "src" / "binlevel_probe.zig"
-FUNCS = ["kern_ct_equal", "kern_early_exit_equal"]
+ZIG = os.environ.get("ZIG", "zig")
+# ⚠️ ФИКС (#30/#31): анализируем РЕАЛЬНЫЕ функции сравнения, а не экспорт-
+# обёртки `kern_*` (их тело — только `call`, 0 ветвлений → проверка вакуумна).
+FUNCS = [
+    "verifier.noninterference.constantTimeEqual",
+    "verifier.noninterference.earlyExitEqual",
+    "kern_ct_equal",
+    "kern_early_exit_equal",
+]
 
 
 def emit_asm(opt: str, out_path: Path) -> bool:
-    cmd = ["zig", "build-obj", str(PROBE), f"-O{opt}", "-femit-asm=" + str(out_path)]
+    """Собирает зонд и ДИЗАССЕМБЛИРУЕТ его.
+
+    ⚠️ ФИКС (#31): `zig build-obj … -femit-asm` не работает по ДВУМ причинам:
+      (1) модули `compat`/`owner`/`atomic` передаёт только сборочная система;
+      (2) `-femit-asm` в этом тулчейне МОЛЧА ничего не создаёт.
+    Поэтому собираем исполняемый файл и берём ассемблер через `objdump -M intel`.
+    """
+    bin_path = out_path.with_suffix(".bin")
+    cmd = [
+        ZIG, "build-exe",
+        "--dep", "compat", "--dep", "owner", "--dep", "atomic",
+        "-Mroot=" + str(PROBE),
+        "-Mcompat=" + str(ROOT / "src" / "compat.zig"),
+        "-Mowner=" + str(ROOT / "src" / "owner.zig"),
+        "-Matomic=" + str(ROOT / "src" / "atomic_write.zig"),
+        f"-O{opt}", "-femit-bin=" + str(bin_path),
+    ]
     r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
-    return r.returncode == 0 and out_path.exists()
+    if r.returncode != 0 or not bin_path.exists():
+        return False
+    d = subprocess.run(
+        ["objdump", "-d", "-M", "intel", "--no-show-raw-insn", str(bin_path)],
+        capture_output=True, text=True)
+    if d.returncode != 0:
+        return False
+    # Приводим вывод к формату «name:» + инструкции без адресов.
+    out_lines = []
+    for ln in d.stdout.splitlines():
+        m = re.match(r"^[0-9a-f]+ <(.+)>:$", ln)
+        if m:
+            name = m.group(1)
+            name = re.sub(r"^[A-Za-z_][A-Za-z0-9_]*\.(kern_[A-Za-z0-9_]*)$", r"\1", name)
+            out_lines.append(name + ":")
+            continue
+        m2 = re.match(r"^\s+[0-9a-f]+:\t(.*)$", ln)
+        if m2:
+            out_lines.append(m2.group(1).rstrip())
+    out_path.write_text("\n".join(out_lines) + "\n")
+    return True
 
 
 def extract(text: str, name: str) -> str:
