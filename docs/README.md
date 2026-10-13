@@ -13,6 +13,7 @@
 | Увидеть все тесты (213) | [`TEST_CATALOG.md`](TEST_CATALOG.md) |
 | Узнать, что **не** сделано | [`../REVISION/HONEST_CAPABILITY_STATUS.md`](../REVISION/HONEST_CAPABILITY_STATUS.md) |
 | Узнать, какие дефекты исправлены | [`KERN_FIXES_v1_3.md`](KERN_FIXES_v1_3.md) |
+| **Миграция на Zig 0.17.0** | [`VERIFICATION_0_17.md`](VERIFICATION_0_17.md) + [`MIGRATION_REPORT_0_17.md`](MIGRATION_REPORT_0_17.md) |
 
 ---
 
@@ -27,6 +28,8 @@
 | **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: 213 тестов по модулям + 15 внешних бенчмарков |
 | **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§20): тесты, бенчмарки, мутации, производительность, найденные баги |
 | **[VERIFICATION_GOLD_STANDARDS.md](VERIFICATION_GOLD_STANDARDS.md)** | Мировые бенчмарки: SWE-bench, HumanEval+, QuixBugs, Refactory, CyberSecEval, мутации |
+| **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: сборка, 188 тестов, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
+| **[MIGRATION_REPORT_0_17.md](MIGRATION_REPORT_0_17.md)** | Отчёт о миграции 0.13→0.17: точная карта изменений, стратегия двух треков |
 
 ### Устройство и исправления
 

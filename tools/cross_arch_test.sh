@@ -25,15 +25,20 @@ fetch_qemu() { # $1 = arch (aarch64|ppc64|s390x)
 
 run_arch() { # $1 = zig target, $2 = qemu arch, $3 = описание
   local target="$1" qarch="$2" desc="$3"
-  local bin="/tmp/kern_test_${qarch}"
   echo "=== $desc ($target) ==="
-  ( cd "$ROOT" && "$ZIG" test src/test_root.zig -target "$target" -femit-bin="$bin" ) >/dev/null 2>&1
-  if [ ! -x "$bin" ]; then echo "  [SKIP] сборка не удалась"; return; fi
   local q; q="$(fetch_qemu "$qarch")"
+  # Zig 0.17: `compat` — именованный модуль, поэтому `zig test` запускаем с
+  # `--dep compat -Mcompat=...`, а сам бинарник исполняем через QEMU
+  # (`--test-cmd … --test-cmd-bin`), иначе Zig отказывается запускать
+  # чужую архитектуру.
   # KERN_FAST=1: под эмуляцией потоки/таймеры идут в 10-50 раз медленнее,
   # поэтому стрессовые итерации (литмус, замеры времени) уменьшаются.
-  local out; out="$(KERN_FAST=1 "$q" "$bin" 2>&1 | tail -3)"
-  echo "$out" | sed 's/^/  /'
+  ( cd "$ROOT" && KERN_FAST=1 "$ZIG" test \
+      --dep compat \
+      -Mroot=src/test_root.zig \
+      -Mcompat=src/compat.zig \
+      -target "$target" \
+      --test-cmd "$q" --test-cmd-bin 2>&1 | tail -3 ) | sed 's/^/  /'
 }
 
 run_arch aarch64-linux-musl aarch64 "ARM64 (little-endian, строгое выравнивание)"

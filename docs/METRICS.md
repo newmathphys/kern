@@ -1214,3 +1214,89 @@ zig build            → rc=0
 Lean 4               → 7 файлов, 0 errors, 0 sorry
 KERN-Next            → 25/25 OK
 ```
+
+---
+
+## 23. Миграция на Zig 0.17.0 — 2026-10-13
+
+**Ветка:** `zig-0.17-migration` · **Тулчейн:** Zig 0.17.0
+**Полный отчёт:** [`VERIFICATION_0_17.md`](VERIFICATION_0_17.md), [`MIGRATION_REPORT_0_17.md`](MIGRATION_REPORT_0_17.md)
+
+### 23.1. Результат
+
+| Проверка | Результат |
+|:--|:--|
+| `zig build` | ✅ RC=0 (kernc, kernx, kern-attack, kernc-hermetic) |
+| `zig build test` (x86_64) | ✅ **188 passed / 4 skipped / 0 failed** |
+| `zig build test-next` | ✅ RC=0 |
+| **ARM64** (QEMU, aarch64-linux-musl) | ✅ **188 passed / 0 failed** |
+| **POWERPC64** (QEMU, big-endian) | ✅ **188 passed / 0 failed** |
+| Покрытие решений | ✅ **100.0%** (26/26) |
+| SLSA-аттестат (`kern.intoto.jsonl`) | ✅ **ВАЛИДЕН** (3 субъекта, коммит `2e044c7`) |
+
+### 23.2. Масштаб: это была ревизия I/O, а не «74 сайта»
+
+Первоначальная оценка (заменить `@intFromEnum`/`allocPrint`/`addArgs`) оказалась
+**неверной**. Компилятор 0.17.0 показал, что те 74 места **компилируются как
+есть** (не блокеры), а настоящая работа — **полная ревизия подсистемы I/O**
+(`std.Io`): ~300 сайтов в 30 файлах.
+
+### 23.3. Категории правок
+
+| Категория | Сайтов |
+|:--|--:|
+| `**` → `@splat` (оператор удалён) | 93 |
+| `std.fs.cwd()` → `std.Io.Dir` + `io` | 76 |
+| `ArrayList` → `array_list.Managed` | 63 |
+| `File.writeAll/close/sync` → `writeStreamingAll(io,…)`/`close(io)` | ~20 |
+| `GeneralPurposeAllocator` → `DebugAllocator` | 8 |
+| `@typeInfo().Enum.fields` → `.@"enum".field_names` | 8 |
+| `Ed25519.KeyPair.create` → `generateDeterministic` | 5 |
+| `Mutex/Condition/Semaphore` → `std.Io.*` (с `io`) | 4 |
+| `posix.open/close/fsync` → `openat`/`Io.File`/`fdatasync` | 4 |
+| `openDirAbsolute/openFileAbsolute` → `std.Io.Dir.*(io,…)` | 4 |
+| `Dir.Iterator.next()` → `.next(io)` | 4 |
+| `argsAlloc` → `main(init)` + `Args.toSlice` | 3 |
+| `time.sleep` → `Io.sleep` | 3 |
+| `allocPrintZ` → `allocPrintSentinel` | 3 |
+| `time.Timer` → `Io.Clock.now` | 2 |
+| `std.io.*` → `std.Io` | 2 |
+| `mem.split` → `splitScalar` | 2 |
+| `@cImport` → `addTranslateC` | 1 |
+| `Child.init/spawn` → `process.spawn(io,…)` | 1 |
+| `time.timestamp` → `Io.Clock.now(.real, io)` | 1 |
+| `posix.getenv` (удалён) | 1 |
+| `empty_sigset` → `sigemptyset()` | 1 |
+| `PROT.NONE` → `PROT{}` | 1 |
+| `callconv(.C)` → `callconv(.c)` | 1 |
+| `File.readAll` → `readStreaming` | 1 |
+| `Term.Exited` → `Term.exited` | 1 |
+| **ИТОГО** | **~300** |
+
+### 23.4. Дефекты, найденные в процессе миграции
+
+| # | Дефект | Как найден |
+|:--:|:--|:--|
+| 1 | Кросс-арх-скрипт молча выдавал «SKIP» (в 0.17 `compat` — именованный модуль, нужен `--dep compat -Mcompat=…`) | первый прогон `cross_arch_test.sh` |
+| 2 | Zig 0.17 **отказывается** запускать чужую архитектуру — нужен `--test-cmd … --test-cmd-bin` | прогон ARM64-бинарника |
+| 3 | Сканер `scan_to_kern.py` был слеп к `.zig` (KERN не мог сканировать сам себя) | скан Zig 0.17.0 (5000 артефактов, 276 TODO) |
+
+### 23.5. Побочный выигрыш
+
+- **Устранён класс гонок `ECHILD`:** в 0.17 поток-убийца принимает `pid`
+  значением (не указателем на `Child`) — исчез и риск use-after-free (баг #17).
+- **`translate-c` вместо `@cImport`:** заголовок SQLite транслируется один раз.
+
+### 23.6. Стратегия двух треков (DO-330)
+
+| Ветка | Тулчейн | Статус |
+|:--|:--|:--|
+| `main` | Zig 0.13.0 | ✅ заморожен, аттестован, RC=0 — **не тронут** |
+| `zig-0.17-migration` | Zig 0.17.0 | ✅ RC=0 на build/test/test-next + кросс-арх + SLSA |
+
+### 23.7. Что НЕ проверено на 0.17 (честно)
+
+Полный SMT-LIB sweep (5465 файлов) · ReleaseSafe (детектор UB) ·
+мутационный скор · Lean 4 (не зависит от Zig — остаётся валиден) ·
+подпись SLSA через cosign (нет инструмента).
+

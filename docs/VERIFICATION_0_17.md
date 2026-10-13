@@ -1,0 +1,200 @@
+# KERN на Zig 0.17.0 — верификация и документация
+
+> Copyright (c) 2026 Vital Kalinousky. All rights reserved.
+> Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+
+**Ветка:** `zig-0.17-migration` · **Тулчейн:** Zig 0.17.0
+**Дата:** 2026-10-13 · **Связанный документ:** `docs/MIGRATION_REPORT_0_17.md`
+
+---
+
+## 1. Итог: миграция завершена и верифицирована
+
+```
+zig build            → RC=0   kernc · kernx · kern-attack · kernc-hermetic
+zig build test       → RC=0   188 passed, 4 skipped, 0 failed
+zig build test-next  → RC=0
+```
+
+| Проверка | Результат |
+|:--|:--|
+| Сборка всех артефактов | ✅ RC=0 |
+| Тесты ядра (x86_64) | ✅ **188 passed / 0 failed** |
+| Тесты KERN-Next | ✅ RC=0 |
+| **ARM64** (aarch64-linux-musl, QEMU) | ✅ **188 passed / 0 failed** |
+| **POWERPC64** (big-endian, QEMU) | ✅ **188 passed / 0 failed** |
+| Покрытие решений | ✅ **100.0%** (26/26) |
+| SLSA-аттестат | ✅ **АТТЕСТАТ ВАЛИДЕН** (коммит `2e044c7`) |
+
+---
+
+## 2. Кросс-архитектурная аттестация на 0.17
+
+Запуск: `tools/cross_arch_test.sh` (обновлён под новый API).
+
+```bash
+zig test --dep compat \
+  -Mroot=src/test_root.zig \
+  -Mcompat=src/compat.zig \
+  -target <target> \
+  --test-cmd /tmp/qemu-<arch>-static --test-cmd-bin
+```
+
+| Платформа | Свойство | Результат |
+|:--|:--|:--|
+| **x86_64** (host) | TSO-модель памяти | 188/188 |
+| **ARM64** | строгое выравнивание (нет `Bus Error`) | 188/188 |
+| **POWERPC64** | **big-endian** (порядок байт) | 188/188 |
+
+Подтверждает: формат `.kimg` (128-байтный заголовок, 96-байтные дескрипторы,
+Merkle-корень) и весь KERNFS читаются корректно независимо от выравнивания
+и порядка байт.
+
+**Дефект, найденный при миграции:** старый скрипт вызывал `zig test` напрямую —
+в 0.17 `compat` это **именованный модуль**, поэтому нужен
+`--dep compat -Mcompat=...`. Плюс Zig 0.17 **отказывается** запускать чужую
+архитектуру — требуется `--test-cmd … --test-cmd-bin`. Оба исправления внесены.
+
+---
+
+## 3. SLSA-аттестат для 0.17
+
+```
+$ python3 tools/slsa_provenance.py --no-build
+[OK] kern.intoto.jsonl — субъектов 3, коммит 2e044c7461a7, dirty=False
+     ПОДПИСЬ НЕ ВЫПОЛНЕНА (нет cosign) — честно записано в kern:notes.
+
+$ python3 tools/slsa_provenance.py --check
+  [OK] kernc: sha256 совпал (005ada082df94e45…)
+  [OK] kernx: sha256 совпал (2af939a8c401d11d…)
+  [OK] kern-attack: sha256 совпал (880a021746b3987d…)
+  [OK] коммит совпал: 2e044c7461a7
+АТТЕСТАТ ВАЛИДЕН
+```
+
+**Честная граница:** аттестат **не подписан** (нет `cosign`) — это корректный
+по структуре неподписанный attestation, а **не** SLSA Level 3.
+
+---
+
+## 4. Полная карта изменений API (Zig 0.13 → 0.17)
+
+### 4.1. Язык и встроенные функции
+
+| 0.13 | 0.17 | Сайтов |
+|:--|:--|--:|
+| `[_]u8{v} ** N` | `@as([N]u8, @splat(v))` | 93 |
+| `@typeInfo(T).Enum.fields` | `@typeInfo(T).@"enum".field_names` (строки) | 8 |
+| `callconv(.C)` | `callconv(.c)` | 1 |
+| `@cImport` | `addTranslateC` в `build.zig` | 1 |
+
+### 4.2. Стандартная библиотека
+
+| 0.13 | 0.17 | Сайтов |
+|:--|:--|--:|
+| `std.heap.GeneralPurposeAllocator` | `std.heap.DebugAllocator` | 8 |
+| `std.ArrayList(T).init(a)` | `std.array_list.Managed(T).init(a)` | 63 |
+| `std.fs.cwd()` | `std.Io.Dir.cwd()` + `io` | 76 |
+| `std.io.*` | `std.Io` | 2 |
+| `std.process.argsAlloc` | `main(init)` + `Args.toSlice` | 3 |
+| `std.process.Child.init/spawn` | `std.process.spawn(io, …)` | 1 |
+| `std.Thread.Mutex/Condition/Semaphore` | `std.Io.Mutex/Condition/Semaphore` (с `io`) | 4 |
+| `std.time.sleep` | `std.Io.sleep(io, duration, clock)` | 3 |
+| `std.time.Timer` | `std.Io.Clock.now()` | 2 |
+| `std.time.timestamp` | `std.Io.Clock.now(.real, io)` | 1 |
+| `std.posix.open/close/fsync` | `openat` / `Io.File` / `fdatasync` | 4 |
+| `std.fs.openDirAbsolute/openFileAbsolute` | `std.Io.Dir.*(io, …)` | 4 |
+| `Dir.Iterator.next()` | `.next(io)` | 4 |
+| `std.posix.getenv` | удалён | 1 |
+| `std.posix.empty_sigset` | `sigemptyset()` | 1 |
+| `posix.PROT.NONE` | `posix.PROT{}` | 1 |
+| `std.fmt.allocPrintZ` | `allocPrintSentinel` | 3 |
+| `std.mem.split` | `splitScalar` / `splitSequence` | 2 |
+| `File.writeAll/close/sync` | `writeStreamingAll(io,…)` / `close(io)` / `sync(io)` | ~20 |
+| `File.readAll` | `readStreaming(io, &.{&buf})` | 1 |
+| `Child.Term.Exited` | `Term.exited` | 1 |
+| `Ed25519.KeyPair.create` | `generateDeterministic` | 5 |
+
+**Всего правок: ~300 сайтов в 30 файлах.**
+
+### 4.3. Сборочная система
+
+| 0.13 | 0.17 |
+|:--|:--|
+| `b.addExecutable(.{ .root_source_file, .target, .optimize })` | `b.addExecutable(.{ .root_module })` |
+| `Compile.linkLibC()` | поле `.link_libc` в `createModule` |
+| `Compile.linkSystemLibrary("x")` | `Module.linkSystemLibrary("x", .{})` |
+| `b.addSharedLibrary/addStaticLibrary` | `b.addLibrary(.{ .linkage })` |
+| `addTest(.{ .name })` | `addTest(.{ .root_module })` (без имени) |
+| `std.builtin.OptimizeMode` | `std.builtin.Optimize` |
+
+---
+
+## 5. Ключевое архитектурное решение: `src/compat.zig`
+
+Слой совместимости, который держит процесс-глобальный `std.Io`:
+
+- в CLI — устанавливается в `main(init)` через `compat.setIo(init.io)`;
+- в тестах — берётся `std.testing.io` (автоматически, без вызова).
+
+Обёртки: `readFileAlloc`, `writeFile`, `deleteFile`, `access`, `createFile`,
+`rename`, `makePath`, `deleteTree`, `openDir`, `fileWriteAll`, `fileClose`,
+`fileSync`, `fileReadToEndAlloc`, `dirClose`, `sleepMs`, а также
+`BufWriter` (замена `ArrayList.writer()`) и `Timer` (замена `std.time.Timer`).
+
+**Почему это правильно:** без шима пришлось бы менять сигнатуры сотен функций
+(`fn parse(...)` → `fn parse(io: std.Io, ...)`), что сделало бы дифф
+неуправляемым. С шимом замена 76 файловых вызовов и 16 сайтов Writer стала
+**механической**, а вся работа с `io` сосредоточена в одном файле.
+
+**Требование детерминизма выполнено:** в тестах `io` берётся строго из
+`std.testing.io`, поэтому детекция утечек (`DebugAllocator`) продолжает работать.
+
+---
+
+## 6. Побочный выигрыш от миграции
+
+1. **Устранён класс гонок `ECHILD`.** В 0.17 поток-убийца принимает `pid`
+   **значением**, а не указателем на `Child` — исчез и риск use-after-free
+   (баг #17 в 0.13, найденный прогоном SMT-LIB).
+2. **`translate-c` вместо `@cImport`** — заголовок SQLite транслируется
+   один раз в кэшируемый артефакт сборки.
+3. **Найден дефект кросс-арх-скрипта** (см. §2) — до миграции он молча
+   выдавал «SKIP».
+4. **Найден дефект KERN** (уже в `main`): сканер был слеп к `.zig` —
+   KERN не мог просканировать сам себя.
+
+---
+
+## 7. Что НЕ проверено на 0.17 (честно)
+
+| Пункт | Статус |
+|:--|:--|
+| Полный SMT-LIB sweep (5465 файлов) | ⏳ запущен |
+| Формальные доказательства Lean 4 | не зависят от Zig — остаются валидны |
+| ReleaseSafe (детектор UB) | не перепроверен на 0.17 |
+| Мутационный скор | не перепроверен на 0.17 |
+| SLSA-подпись (cosign) | нет инструмента |
+| Слияние в `main` | по правилу DO-330 — только после полного зелёного контура |
+
+---
+
+## 8. Воспроизведение
+
+```bash
+export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PWD/.venv/bin:$PATH"
+
+zig build              # → kernc, kernx, kern-attack, kernc-hermetic
+zig build test         # → 188 passed, 0 failed
+zig build test-next    # → RC=0
+
+# Кросс-архитектура (QEMU)
+./tools/cross_arch_test.sh
+
+# SLSA-аттестат
+python3 tools/slsa_provenance.py --no-build && python3 tools/slsa_provenance.py --check
+
+# SMT-LIB (нужен z3 в PATH и каталог с *.smt2)
+./zig-out/bin/kernc smtlib <каталог> --timeout-ms 500
+```
+
