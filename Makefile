@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -165,6 +165,19 @@ semantic-gap: lean
 # Финальный штурм: все 4 эшелона одной командой.
 echelons: align avalanche pool semantic-gap
 	@echo "=== ВСЕ 4 ЭШЕЛОНА ПРОЙДЕНЫ ==="
+
+# ==== СТРОГИЙ ЗАМЕР КОМПИЛЯТОРОВ (0.13 vs 0.17 на ИДЕНТИЧНОМ коде) ====
+# См. docs/METRICS.md §26. Бенчмарк не зависит от KERN-модулей (только std +
+# libc clock_gettime), поэтому собирается ОБОИМИ компиляторами без правок.
+ZIG13 ?= .venv/bin/zig
+
+portable-bench:
+	@$(ZIG) build-exe bench/portable_merkle.zig -O ReleaseFast -lc -femit-bin=/tmp/pb17
+	@echo "=== Zig 0.17 ==="; /tmp/pb17
+	@if [ -x "$(ZIG13)" ]; then \
+	  $(ZIG13) build-exe bench/portable_merkle.zig -O ReleaseFast -lc -femit-bin=/tmp/pb13; \
+	  echo "=== Zig 0.13 ==="; /tmp/pb13; \
+	else echo "[i] $(ZIG13) нет — сравнение только на 0.17"; fi
 
 # ==== МАТЕМАТИЧЕСКИЙ ИНТЕЛЛЕКТ: ТЕОРИИ SMT (векторы 1-4, 8) ====
 
