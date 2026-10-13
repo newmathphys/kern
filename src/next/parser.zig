@@ -101,7 +101,7 @@ const Parser = struct {
     allocator: std.mem.Allocator,
     lex: Lexer,
     cur: Token,
-    diags: *std.ArrayList(Diagnostic),
+    diags: *std.array_list.Managed(Diagnostic),
 
     fn advance(self: *Parser) void {
         self.cur = self.lex.next();
@@ -123,7 +123,7 @@ const Parser = struct {
 
     fn readBlock(self: *Parser) ![]Field {
         _ = try self.expect(.lbrace, "'{'");
-        var fields = std.ArrayList(Field).init(self.allocator);
+        var fields = std.array_list.Managed(Field).init(self.allocator);
         while (self.cur.tag != .rbrace and self.cur.tag != .eof) {
             if (self.cur.tag != .ident) {
                 try self.err(self.cur.line, "в блоке ожидался ключ");
@@ -165,17 +165,17 @@ const Parser = struct {
 };
 
 pub fn parse(allocator: std.mem.Allocator, source: []const u8) !ParseResult {
-    var diags = std.ArrayList(Diagnostic).init(allocator);
+    var diags = std.array_list.Managed(Diagnostic).init(allocator);
 
     var p = Parser{ .allocator = allocator, .lex = .{ .src = source }, .cur = undefined, .diags = &diags };
     p.advance();
 
-    var artifacts = std.ArrayList(ast.Artifact).init(allocator);
-    var claims = std.ArrayList(ast.Claim).init(allocator);
-    var evidence = std.ArrayList(ast.Evidence).init(allocator);
-    var proofs = std.ArrayList(ast.Proof).init(allocator);
-    var modules = std.ArrayList(ast.Module).init(allocator);
-    var links = std.ArrayList(ast.Link).init(allocator);
+    var artifacts = std.array_list.Managed(ast.Artifact).init(allocator);
+    var claims = std.array_list.Managed(ast.Claim).init(allocator);
+    var evidence = std.array_list.Managed(ast.Evidence).init(allocator);
+    var proofs = std.array_list.Managed(ast.Proof).init(allocator);
+    var modules = std.array_list.Managed(ast.Module).init(allocator);
+    var links = std.array_list.Managed(ast.Link).init(allocator);
 
     var name: []const u8 = "<unnamed>";
     var version: ?[]const u8 = null;
@@ -210,8 +210,8 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) !ParseResult {
                 try p.err(kwline, "неизвестный статус утверждения");
                 break :blk ast.Status.unknown;
             };
-            var ev_ids = std.ArrayList([]const u8).init(allocator);
-            var metrics = std.ArrayList(ast.Metric).init(allocator);
+            var ev_ids = std.array_list.Managed([]const u8).init(allocator);
+            var metrics = std.array_list.Managed(ast.Metric).init(allocator);
             for (f) |fl| {
                 if (std.mem.eql(u8, fl.key, "evidence")) {
                     const eid = try ast.stableId(allocator, .evidence, fl.value);
@@ -258,8 +258,8 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) !ParseResult {
         } else if (std.mem.eql(u8, kw, "module")) {
             const nm = try p.expect(.string, "имя модуля");
             const f = try p.readBlock();
-            var reqs = std.ArrayList([]const u8).init(allocator);
-            var ens = std.ArrayList([]const u8).init(allocator);
+            var reqs = std.array_list.Managed([]const u8).init(allocator);
+            var ens = std.array_list.Managed([]const u8).init(allocator);
             for (f) |fl| {
                 if (std.mem.eql(u8, fl.key, "require")) try reqs.append(fl.value);
                 if (std.mem.eql(u8, fl.key, "ensure")) try ens.append(fl.value);
@@ -372,7 +372,7 @@ test "ФАЗЗИНГ: случайные и битые .kern не паникую
     // 1) чисто случайные байты (печатные)
     var i: usize = 0;
     while (i < 3000) : (i += 1) {
-        var buf = std.ArrayList(u8).init(a);
+        var buf = std.array_list.Managed(u8).init(a);
         const n = rand.uintLessThan(usize, 300);
         var j: usize = 0;
         while (j < n) : (j += 1) {
@@ -402,7 +402,7 @@ test "ФАЗЗИНГ: случайные и битые .kern не паникую
         _ = parse(a, src) catch {};
     }
     // 3) глубокая вложенность (не должна ронять стек бесконечно)
-    var deep = std.ArrayList(u8).init(a);
+    var deep = std.array_list.Managed(u8).init(a);
     var d: usize = 0;
     while (d < 1000) : (d += 1) try deep.appendSlice("module \"m\" {");
     _ = parse(a, deep.items) catch {};

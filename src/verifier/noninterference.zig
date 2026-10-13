@@ -40,7 +40,7 @@ pub const Finding = struct {
 pub fn analyze(allocator: std.mem.Allocator, program: []const Instr) ![]Finding {
     var tainted = std.AutoHashMap(Var, void).init(allocator);
     defer tainted.deinit();
-    var out = std.ArrayList(Finding).init(allocator);
+    var out = std.array_list.Managed(Finding).init(allocator);
     errdefer out.deinit();
 
     for (program, 0..) |instr, i| {

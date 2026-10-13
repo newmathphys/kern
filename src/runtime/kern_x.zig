@@ -23,8 +23,8 @@ pub const ExecError = error{
 ///   0xFF HALT       — успешное завершение
 pub const KernX = struct {
     fuel: u32,
-    memory: [4096]u8 = [_]u8{0} ** 4096,
-    stack: [256]u8 = [_]u8{0} ** 256,
+    memory: [4096]u8 = @as([4096]u8, @splat(0)),
+    stack: [256]u8 = @as([256]u8, @splat(0)),
     sp: usize = 0,
     pc: usize = 0,
     trace: bool = false,
@@ -98,7 +98,7 @@ test "KERN-X: HALT завершает, топливо остаётся" {
 
 test "KERN-X: исчерпание топлива невозможно обойти (бесконечный цикл)" {
     // Байткод без HALT: 10 000 NOP, топливо 5 → OutOfFuel, не зависание.
-    var code: [10_000]u8 = [_]u8{0x00} ** 10_000;
+    var code: [10_000]u8 = @as([10_000]u8, @splat(0x00));
     var vm = KernX.init(5);
     try std.testing.expectError(ExecError.OutOfFuel, vm.execute(&code));
 }

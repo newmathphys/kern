@@ -104,7 +104,7 @@ pub fn main() !void {
             std.debug.print("  узлов: {d}, утверждений: {d}, свидетельств: {d}, доказательств: {d}, связей: {d}\n", .{
                 project.nodeCount(), project.claims.len, project.evidence.len, project.proofs.len, project.links.len,
             });
-            inline for (@typeInfo(ast.Status).Enum.fields) |f| {
+            inline for (@typeInfo(ast.Status).@"enum".field_names) |f| {
                 var n: usize = 0;
                 for (project.claims) |cl| if (std.mem.eql(u8, @tagName(cl.status), f.name)) {
                     n += 1;

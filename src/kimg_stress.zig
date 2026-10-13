@@ -9,7 +9,7 @@ const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 

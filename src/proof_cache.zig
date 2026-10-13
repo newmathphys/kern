@@ -196,8 +196,8 @@ test "PROOF-CACHE: второй вызов берётся из кэша" {
     var holder: CtxHolder = undefined;
     const chk = cachedChecker(&holder, &cache, gate.TrustedChecker{ .runFn = stubProved });
 
-    const ast = [_]u8{0x01} ** 32;
-    const con = [_]u8{0x02} ** 32;
+    const ast = @as([32]u8, @splat(0x01));
+    const con = @as([32]u8, @splat(0x02));
     const v1 = chk.run(std.testing.allocator, ast, con, "proof-x");
     const v2 = chk.run(std.testing.allocator, ast, con, "proof-x");
     try std.testing.expectEqual(gate.CheckerVerdict.Proved, v1);
@@ -211,14 +211,14 @@ test "PROOF-CACHE: второй вызов берётся из кэша" {
 }
 
 test "PROOF-CACHE: ключ зависит от payload" {
-    const a = ProofCache.keyOf([_]u8{1} ** 32, [_]u8{2} ** 32, "a");
-    const b = ProofCache.keyOf([_]u8{1} ** 32, [_]u8{2} ** 32, "b");
+    const a = ProofCache.keyOf(@as([32]u8, @splat(1)), @as([32]u8, @splat(2)), "a");
+    const b = ProofCache.keyOf(@as([32]u8, @splat(1)), @as([32]u8, @splat(2)), "b");
     try std.testing.expect(!std.mem.eql(u8, &a, &b));
 }
 
 test "КЭШ: ключ детерминирован (нет коллизий разных формул)" {
-    const ast = [_]u8{0x01} ** 32;
-    const con = [_]u8{0x02} ** 32;
+    const ast = @as([32]u8, @splat(0x01));
+    const con = @as([32]u8, @splat(0x02));
     // одинаковые входы -> одинаковый ключ
     try std.testing.expectEqual(ProofCache.keyOf(ast, con, "(= x 1)"),
         ProofCache.keyOf(ast, con, "(= x 1)"));
@@ -248,8 +248,8 @@ test "КЭШ: efficiencyPct считает правильно" {
     defer cache.deinit();
     var holder: CtxHolder = undefined;
     const chk = cachedChecker(&holder, &cache, gate.TrustedChecker{ .runFn = stubProved });
-    const ast = [_]u8{0x01} ** 32;
-    const con = [_]u8{0x02} ** 32;
+    const ast = @as([32]u8, @splat(0x01));
+    const con = @as([32]u8, @splat(0x02));
     _ = chk.run(std.testing.allocator, ast, con, "p"); // miss
     _ = chk.run(std.testing.allocator, ast, con, "p"); // hit
     _ = chk.run(std.testing.allocator, ast, con, "p"); // hit
@@ -277,7 +277,7 @@ test "SINGLE-FLIGHT ПО КЛЮЧУ: РАЗНЫЕ формулы считают�
 
     const W = struct {
         fn run(c: *ProofCache, i: usize, act: *std.atomic.Value(usize), pk: *std.atomic.Value(usize)) void {
-            var k: [32]u8 = [_]u8{0} ** 32;
+            var k: [32]u8 = @as([32]u8, @splat(0));
             k[0] = @intCast(i); // РАЗНЫЕ ключи
             switch (c.begin(k)) {
                 .compute => {
@@ -327,8 +327,8 @@ test "ПЧЕЛИНЫЙ РОЙ: 64 потока -> 1 miss + 63 hits (single-fligh
     var holder: CtxHolder = undefined;
     const cached = cachedChecker(&holder, &cache, chk);
 
-    const ast = [_]u8{0x11} ** 32;
-    const con = [_]u8{0x22} ** 32;
+    const ast = @as([32]u8, @splat(0x11));
+    const con = @as([32]u8, @splat(0x22));
     var threads: [64]std.Thread = undefined;
     var results: [64]gate.CheckerVerdict = undefined;
     for (&threads, 0..) |*th, i| {

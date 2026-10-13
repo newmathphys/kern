@@ -51,7 +51,7 @@ test "SIGBUS РЕАЛЬНЫЙ: файл, обрезанный после mmap (�
     defer f.close();
     defer std.fs.cwd().deleteFile(path) catch {};
     try f.setEndPos(8192);
-    try f.writeAll(&([_]u8{0x5A} ** 8192));
+    try f.writeAll(&(@as([8192]u8, @splat(0x5A))));
 
     const mapped = try posix.mmap(null, 8192, posix.PROT.READ, .{ .TYPE = .SHARED }, f.handle, 0);
     defer posix.munmap(mapped);

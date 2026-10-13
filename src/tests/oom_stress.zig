@@ -74,7 +74,7 @@ test "OOM: запись образа на 2 МБ -> контролируемая
 
 test "OOM: парсер заголовка не аллоцирует (zero-copy) — работает при любом лимите" {
     // .kimg парсится БЕЗ выделений памяти: даже нулевой аллокатор не мешает.
-    var buf: [128]u8 = [_]u8{0} ** 128;
+    var buf: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(buf[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, buf[8..10], 1, .little); // version_major
     std.mem.writeInt(u32, buf[20..24], 2, .little); // hash_algo = SHA-256

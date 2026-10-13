@@ -86,7 +86,7 @@ const CASES = [_]Case{
 };
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
     var bridge = z3b.Z3Bridge.init(alloc);

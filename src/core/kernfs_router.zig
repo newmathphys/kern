@@ -271,7 +271,7 @@ fn buildMinimalImage(w: anytype) !void {
     const content = "hello";
     const pool = "a.zig\x00" ++ content; // 11 байт: пул (6) + payload (5)
 
-    var obj: [96]u8 = [_]u8{0} ** 96;
+    var obj: [96]u8 = @as([96]u8, @splat(0));
     var dig: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
     @memcpy(obj[0..32], &dig); // digest payload (сверяется при чтении)
@@ -286,7 +286,7 @@ fn buildMinimalImage(w: anytype) !void {
     var root: [32]u8 = undefined;
     ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
 
-    var header: [128]u8 = [_]u8{0} ** 128;
+    var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
     std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
@@ -304,7 +304,7 @@ fn buildMinimalImage(w: anytype) !void {
 }
 
 test "ФИКС ФАЗ 1/3: mountFromBytes находит файл и отдаёт zero-copy срез" {
-    var img = std.ArrayList(u8).init(std.testing.allocator);
+    var img = std.array_list.Managed(u8).init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
 
@@ -325,7 +325,7 @@ test "🔴 МУТАНТ: getString отвергает смещение ЗА пр
     // (Этот тест был ЗАТЁР прогоном tools/mutate_zig.py, который раньше
     //  правил исходники на месте; мутатор исправлен — теперь он работает
     //  на копии дерева.)
-    var img = std.ArrayList(u8).init(std.testing.allocator);
+    var img = std.array_list.Managed(u8).init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
 
@@ -341,7 +341,7 @@ test "🔴 МУТАНТ: getString отвергает смещение ЗА пр
 }
 
 test "🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, objectPayload — проверяет" {
-    var img = std.ArrayList(u8).init(std.testing.allocator);
+    var img = std.array_list.Managed(u8).init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
 
@@ -372,7 +372,7 @@ test "ФИКС CONF-06: запись в KERNFS отвергается AccessDeni
 }
 
 test "ФИКС MERKLE: подмена байта в образе ломает монтирование" {
-    var img = std.ArrayList(u8).init(std.testing.allocator);
+    var img = std.array_list.Managed(u8).init(std.testing.allocator);
     defer img.deinit();
     try buildMinimalImage(img.writer());
     img.items[128 + 56] = 0x09; // порча type_id в таблице объектов
@@ -539,7 +539,7 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     const content = "hello";
     const pool = "a.zig\x00" ++ content;
 
-    var obj: [96]u8 = [_]u8{0} ** 96;
+    var obj: [96]u8 = @as([96]u8, @splat(0));
     var dig: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
     @memcpy(obj[0..32], &dig);
@@ -554,7 +554,7 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     var root: [32]u8 = undefined;
     ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
 
-    var header: [128]u8 = [_]u8{0} ** 128;
+    var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
     std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
@@ -566,7 +566,7 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     std.mem.writeInt(u64, header[56..64], 224, .little);
     @memcpy(header[64..96], &root);
 
-    var img = std.ArrayList(u8).init(std.testing.allocator);
+    var img = std.array_list.Managed(u8).init(std.testing.allocator);
     defer img.deinit();
     try img.appendSlice(&header);
     try img.appendSlice(&obj);

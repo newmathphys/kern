@@ -19,10 +19,10 @@ pub const ObjectSpec = struct {
 
 pub const Builder = struct {
     allocator: std.mem.Allocator,
-    specs: std.ArrayList(ObjectSpec),
+    specs: std.array_list.Managed(ObjectSpec),
 
     pub fn init(allocator: std.mem.Allocator) Builder {
-        return .{ .allocator = allocator, .specs = std.ArrayList(ObjectSpec).init(allocator) };
+        return .{ .allocator = allocator, .specs = std.array_list.Managed(ObjectSpec).init(allocator) };
     }
 
     pub fn deinit(self: *Builder) void {
@@ -55,12 +55,12 @@ pub const Builder = struct {
     /// образ в буфере, а не файл. Логика сборки ЕДИНАЯ — `write`
     /// вызывает этот метод, поэтому образ в памяти и на диске
     /// побайтово совпадают.
-    pub fn buildBytes(self: *Builder, out: *std.ArrayList(u8)) !void {
+    pub fn buildBytes(self: *Builder, out: *std.array_list.Managed(u8)) !void {
         const n = self.specs.items.len;
         if (n == 0) return BuildError.Empty;
 
         // 1. Пул строк + payload
-        var pool = std.ArrayList(u8).init(self.allocator);
+        var pool = std.array_list.Managed(u8).init(self.allocator);
         defer pool.deinit();
         var path_off = try self.allocator.alloc(u32, n);
         defer self.allocator.free(path_off);
@@ -75,7 +75,7 @@ pub const Builder = struct {
         const pool_len = pool.items.len;
         var payload_off = try self.allocator.alloc(u64, n);
         defer self.allocator.free(payload_off);
-        var payload = std.ArrayList(u8).init(self.allocator);
+        var payload = std.array_list.Managed(u8).init(self.allocator);
         defer payload.deinit();
         for (self.specs.items, 0..) |sp, i| {
             payload_off[i] = pool_len + payload.items.len;
@@ -86,7 +86,7 @@ pub const Builder = struct {
         const entries = try self.allocator.alloc([96]u8, n);
         defer self.allocator.free(entries);
         for (self.specs.items, 0..) |sp, i| {
-            var e: [96]u8 = [_]u8{0} ** 96;
+            var e: [96]u8 = @as([96]u8, @splat(0));
             var digest: [32]u8 = undefined;
             std.crypto.hash.sha2.Sha256.hash(sp.content, &digest, .{});
             @memcpy(e[0..32], &digest);
@@ -105,7 +105,7 @@ pub const Builder = struct {
         ObjectEntry.computeRootHash(entries, &root);
 
         // 4. Заголовок
-        var header: [128]u8 = [_]u8{0} ** 128;
+        var header: [128]u8 = @as([128]u8, @splat(0));
         @memcpy(header[0..8], "KIMG\r\n\x1a\n");
         std.mem.writeInt(u16, header[8..10], 1, .little);
         std.mem.writeInt(u16, header[10..12], 3, .little);
@@ -134,7 +134,7 @@ pub const Builder = struct {
 
     /// АТОМАРНАЯ запись на диск (crash-consistency): временный файл + rename.
     pub fn write(self: *Builder, out_path: []const u8) !void {
-        var img = std.ArrayList(u8).init(self.allocator);
+        var img = std.array_list.Managed(u8).init(self.allocator);
         defer img.deinit();
         try self.buildBytes(&img);
 
@@ -216,7 +216,7 @@ test "ГРАНИЦА: объект с пустым содержимым и дл�
     defer fs.deinit();
     const n = try fs.read("/raw/x");
     try std.testing.expectEqualStrings("y", n.raw_slice);
-    const e = try fs.read("/raw/" ++ "a" ** 200);
+    const e = try fs.read("/raw/" ++ @as([200]u8, @splat('a')));
     try std.testing.expectEqualStrings("", e.raw_slice);
 }
 

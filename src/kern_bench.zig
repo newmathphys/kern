@@ -51,7 +51,7 @@ pub fn main() !void {
         var cert_ast = ast;
         if (cat == 2) cert_ast[0] ^= 0xFF; // подмена хэша (poison)
 
-        const payload = [_]u8{0x01} ** 8;
+        const payload = @as([8]u8, @splat(0x01));
         const cert = gate.ProofCertificate{
             .target_ast_digest = cert_ast,
             .contract_digest = ast,

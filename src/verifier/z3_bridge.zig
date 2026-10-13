@@ -262,7 +262,7 @@ test "Z3BRIDGE: без Z3 контракт НЕ подтверждается (ve
 
 test "Z3BRIDGE → ВРАТА: без Z3 один байт 0xAA даёт e=0" {
     var bridge = Z3Bridge.init(std.testing.allocator);
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -302,7 +302,7 @@ test "Z3 РЕАЛЬНЫЙ: неверный контракт отвергает�
 test "ВРАТА + РЕАЛЬНЫЙ Z3: корректный контракт даёт e=1 (ПЕРВЫЙ РАЗ!)" {
     var bridge = Z3Bridge.init(std.testing.allocator);
     if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     // Payload — запрос КОРРЕКТНОСТИ: Pre ∧ ¬Post. Z3 докажет UNSAT => нет контрпримеров.
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
@@ -320,7 +320,7 @@ test "ВРАТА + РЕАЛЬНЫЙ Z3: корректный контракт д
 test "ВРАТА + РЕАЛЬНЫЙ Z3: багованный контракт даёт e=0 (контрпример)" {
     var bridge = Z3Bridge.init(std.testing.allocator);
     if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
-    const ast_hash = [_]u8{0x02} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x02));
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -343,7 +343,7 @@ test "Z3 + КЭШ ДОКАЗАТЕЛЬСТВ: второй вызов не дё�
     var holder: pc.CtxHolder = undefined;
     const chk = pc.cachedChecker(&holder, &cache, makeChecker(&bridge));
 
-    const ast = [_]u8{0x03} ** 32;
+    const ast = @as([32]u8, @splat(0x03));
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast,
         .contract_digest = ast,

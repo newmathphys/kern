@@ -186,7 +186,7 @@ pub const KimgHeader = extern struct {
 };
 
 test "KimgHeader.parse: валидный заголовок" {
-    var b: [128]u8 = [_]u8{0} ** 128;
+    var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);
     std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
@@ -245,7 +245,7 @@ test "🔴 СПЕКА: hash_algo вне {1,2} отвергается (InvalidHas
 }
 
 test "KimgHeader.parse: битый magic отвергается" {
-    var b: [128]u8 = [_]u8{0} ** 128;
+    var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "XXXXXXXX");
     try std.testing.expectError(KimgError.BadMagic, KimgHeader.parse(&b, 280));
 }
@@ -271,13 +271,13 @@ test "SEC-01: переполнение offset+size отвергается (не 
 }
 
 test "MERKLE: пересчёт корня совпадает и ловит подмену" {
-    var obj: [96]u8 = [_]u8{0} ** 96;
+    var obj: [96]u8 = @as([96]u8, @splat(0));
     obj[56] = 0x02; // type_id = Source
 
     var root: [32]u8 = undefined;
     ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
 
-    var b: [128]u8 = [_]u8{0} ** 128;
+    var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);
     std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
@@ -307,7 +307,7 @@ test "SEC: гигантский object_count не вешает парсер (DoS
     KimgHeader.fillValid(&b, 128, 96, 1_000_000_000, 224); // ЛОЖНЫЙ count
 
     const h = try KimgHeader.parse(&b, 320);
-    var file: [320]u8 = [_]u8{0} ** 320;
+    var file: [320]u8 = @as([320]u8, @splat(0));
     @memcpy(file[0..128], &b);
     try std.testing.expectError(KimgError.TableOutOfBounds,
         KimgHeader.verifyMerkleRoot(&file, h));

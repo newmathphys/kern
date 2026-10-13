@@ -47,7 +47,7 @@ test "SEC-01: атака переполнения в заголовке KIMG (of
     // `offset + size` переполняется, даёт 89 < file_size, и вредоносный образ
     // ПРИНИМАЕТСЯ (подтверждено в ReleaseFast). Исправлено безопасной
     // арифметикой в kimg_reader.zig.
-    var raw_header = [_]u8{0} ** 128;
+    var raw_header = @as([128]u8, @splat(0));
     std.mem.copyForwards(u8, raw_header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, raw_header[8..10], 1, .little);
     std.mem.writeInt(u32, raw_header[20..24], 2, .little); // hash_algo = SHA-256
@@ -60,7 +60,7 @@ test "SEC-01: атака переполнения в заголовке KIMG (of
 }
 
 test "SEC-02: троян в reserved-байтах (CONF-15)" {
-    var raw_obj = [_]u8{0} ** 96;
+    var raw_obj = @as([96]u8, @splat(0));
     raw_obj[80] = 0x90; // NOP
     try std.testing.expectError(obj.KimgError.InvalidReservedBytes,
         obj.ObjectEntry.parseSafe(&raw_obj));
@@ -97,7 +97,7 @@ test "AI-01: текстовый свидетель ≥8 байт НЕ отвер
     //
     // Безопасность НЕ нарушена (код не допущен), но заявленный механизм иной.
     // Тест фиксирует ФАКТИЧЕСКОЕ поведение, а не желаемое.
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const fake_cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -122,7 +122,7 @@ fn stubVacuous(ctx: ?*anyopaque, allocator: std.mem.Allocator,
 test "AI-01b: короткий свидетель без внешнего чекера не допускается" {
     // После ФИКСА АТАКИ 1 «отклонение фейка» — не отдельный механизм длины,
     // а следствие того, что без внешнего чекера вердикта нет: e=0.
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const fake_cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -138,9 +138,9 @@ test "AI-01b: короткий свидетель без внешнего чек
 }
 
 test "AI-02: устаревший сертификат (несовпадение хеша AST)" {
-    const old_ast = [_]u8{0xAA} ** 32;
-    const new_ast = [_]u8{0xBB} ** 32;
-    const contract = [_]u8{0x02} ** 32;
+    const old_ast = @as([32]u8, @splat(0xAA));
+    const new_ast = @as([32]u8, @splat(0xBB));
+    const contract = @as([32]u8, @splat(0x02));
     const stolen_cert = gate.ProofCertificate{
         .target_ast_digest = old_ast,
         .contract_digest = contract,
@@ -154,7 +154,7 @@ test "AI-02: устаревший сертификат (несовпадение
 }
 
 test "AI-03: вакуумное предусловие (анти-вакуумный шлюз)" {
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const vacuous_cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -172,7 +172,7 @@ test "AI-03: вакуумное предусловие (анти-вакуумн�
 test "ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA НЕ даёт e=1 (уязвимость закрыта)" {
     // Раньше: шлюз читал вердикт из payload[0] → 0xAA давал e=1.
     // Теперь: вердикт приходит только извне, 0xAA доказательством не является.
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,

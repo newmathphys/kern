@@ -53,7 +53,7 @@ test "Z3 CRASH: Врата НЕ открываются при мёртвом р�
     const gate = @import("../verifier/admission_gate.zig");
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     bridge.z3_path = "/bin/false";
-    const d = [_]u8{0x42} ** 32;
+    const d = @as([32]u8, @splat(0x42));
     const cert = gate.ProofCertificate{
         .target_ast_digest = d,
         .contract_digest = d,

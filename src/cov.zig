@@ -54,8 +54,8 @@ pub const Site = enum {
     z3_unknown,
 };
 
-const N = @typeInfo(Site).Enum.fields.len;
-pub var counters: [N]u32 = [_]u32{0} ** N;
+const N = @typeInfo(Site).@"enum".field_names.len;
+pub var counters: [N]u32 = @as([N]u32, @splat(0));
 
 /// Отметить исполнение точки решения. Inline — нулевая цена вызова.
 pub inline fn hit(s: Site) void {
@@ -63,13 +63,13 @@ pub inline fn hit(s: Site) void {
 }
 
 pub fn reset() void {
-    counters = [_]u32{0} ** N;
+    counters = @as([N]u32, @splat(0));
 }
 
 /// Отчёт: сколько инструментированных решений исполнено и сколько раз.
 pub fn report(writer: anytype) !void {
     var covered: usize = 0;
-    inline for (@typeInfo(Site).Enum.fields) |f| {
+    inline for (@typeInfo(Site).@"enum".field_names) |f| {
         const n = counters[f.value];
         if (n > 0) covered += 1;
     }
@@ -80,7 +80,7 @@ pub fn report(writer: anytype) !void {
     try writer.print("  ПОКРЫТИЕ РЕШЕНИЙ:             {d:.1}%\n\n", .{
         @as(f64, @floatFromInt(covered)) / @as(f64, @floatFromInt(total)) * 100.0,
     });
-    inline for (@typeInfo(Site).Enum.fields) |f| {
+    inline for (@typeInfo(Site).@"enum".field_names) |f| {
         const n = counters[f.value];
         try writer.print("  {s:<32} {d:>7} {s}\n", .{ f.name, n, if (n == 0) " <-- НЕ ИСПОЛНЕНО" else "" });
     }

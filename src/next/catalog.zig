@@ -55,7 +55,7 @@ pub const Catalog = struct {
 
     /// Экранирование строкового литерала (одинарные кавычки удваиваются).
     fn q(self: *Catalog, s: []const u8) ![]u8 {
-        var out = std.ArrayList(u8).init(self.alloc);
+        var out = std.array_list.Managed(u8).init(self.alloc);
         for (s) |ch| {
             if (ch == '\'') try out.append('\'');
             try out.append(ch);

@@ -26,7 +26,7 @@ pub const StringTheoryEngine = struct {
 
     /// Общая форма: переменная `p : String` + список ограничений.
     fn wrap(self: *StringTheoryEngine, constraints: []const []const u8, model: bool) ![]u8 {
-        var buf = std.ArrayList(u8).init(self.allocator);
+        var buf = std.array_list.Managed(u8).init(self.allocator);
         errdefer buf.deinit();
         const w = buf.writer();
         try w.writeAll("(set-logic QF_SLIA)\n(declare-const p String)\n");

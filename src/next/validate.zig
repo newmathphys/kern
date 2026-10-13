@@ -34,10 +34,10 @@ fn hashOk(h: []const u8) bool {
 }
 
 pub fn validate(allocator: std.mem.Allocator, p: Project) ![]Diagnostic {
-    var d = std.ArrayList(Diagnostic).init(allocator);
+    var d = std.array_list.Managed(Diagnostic).init(allocator);
 
     const add = struct {
-        fn f(list: *std.ArrayList(Diagnostic), code: []const u8, sev: Severity, where: []const u8, msg: []const u8) !void {
+        fn f(list: *std.array_list.Managed(Diagnostic), code: []const u8, sev: Severity, where: []const u8, msg: []const u8) !void {
             try list.append(.{ .code = code, .severity = sev, .where = where, .message = msg });
         }
     }.f;

@@ -26,8 +26,8 @@ fn vVacuous(ctx: ?*anyopaque, allocator: std.mem.Allocator, ast: [32]u8, contrac
     return .VacuousPrecondition;
 }
 
-const D: [32]u8 = [_]u8{0x11} ** 32;
-const E: [32]u8 = [_]u8{0x22} ** 32;
+const D: [32]u8 = @as([32]u8, @splat(0x11));
+const E: [32]u8 = @as([32]u8, @splat(0x22));
 
 /// Тип функции внешнего чекера (совпадает с полем `TrustedChecker.runFn`).
 const RunFn = *const fn (ctx: ?*anyopaque, allocator: std.mem.Allocator, ast_digest: [32]u8, contract_digest: [32]u8, proof: []const u8) gate.CheckerVerdict;
@@ -47,8 +47,8 @@ fn runVector(ast_ok: bool, contract_ok: bool, allowed: bool, runFn: RunFn) !gate
     const checker = gate.TrustedChecker{ .ctx = null, .runFn = runFn };
     return gate.AdmissionGate.verifyClaimWithChecker(
         std.testing.allocator,
-        if (ast_ok) D else [_]u8{0x99} ** 32,
-        if (contract_ok) E else [_]u8{0x88} ** 32,
+        if (ast_ok) D else @as([32]u8, @splat(0x99)),
+        if (contract_ok) E else @as([32]u8, @splat(0x88)),
         cert,
         policy,
         checker,

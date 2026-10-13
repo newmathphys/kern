@@ -19,7 +19,7 @@ pub const Branch = struct { idx: usize, want: u8, got: u8 };
 
 /// ЦЕЛЕВАЯ функция-«жертва»: проверка магических байт (как в парсерах).
 /// Инструментирована: записывает первую неудовлетворённую ветвь.
-pub fn victim(input: []const u8, log: *std.ArrayList(Branch)) bool {
+pub fn victim(input: []const u8, log: *std.array_list.Managed(Branch)) bool {
     const magic = "KERN";
     if (input.len < magic.len) {
         log.append(.{ .idx = 0, .want = magic[0], .got = 0 }) catch {};
@@ -47,7 +47,7 @@ pub const ConcolicEngine = struct {
     /// Просит у Z3 конкретное значение байта, которое ПРОЙДЁТ ветвь `b`,
     /// при уже удовлетворённых ветвях префикса `prefix`.
     fn solveByte(self: *ConcolicEngine, prefix: []const Branch, b: Branch, len: usize) ?u8 {
-        var buf = std.ArrayList(u8).init(self.allocator);
+        var buf = std.array_list.Managed(u8).init(self.allocator);
         defer buf.deinit();
         const w = buf.writer();
         w.writeAll("(set-logic QF_BV)\n") catch return null;
@@ -74,13 +74,13 @@ pub const ConcolicEngine = struct {
 
         var rounds: usize = 0;
         while (rounds < 64) : (rounds += 1) {
-            var log = std.ArrayList(Branch).init(self.allocator);
+            var log = std.array_list.Managed(Branch).init(self.allocator);
             defer log.deinit();
             if (victim(input, &log)) return input; // прошли
             if (log.items.len == 0) return input;
 
             const b = log.items[0];
-            var prefix = std.ArrayList(Branch).init(self.allocator);
+            var prefix = std.array_list.Managed(Branch).init(self.allocator);
             defer prefix.deinit();
             for (log.items) |it| if (it.idx < b.idx) try prefix.append(it);
 
@@ -96,7 +96,7 @@ pub const ConcolicEngine = struct {
 // =========================================================================
 
 test "CONCOLIC: обычный перебор НЕ находит магические байты (2^32 вариантов)" {
-    var log = std.ArrayList(Branch).init(std.testing.allocator);
+    var log = std.array_list.Managed(Branch).init(std.testing.allocator);
     defer log.deinit();
     var prng = std.Random.DefaultPrng.init(1);
     const rnd = prng.random();
@@ -122,7 +122,7 @@ test "CONCOLIC (РЕАЛЬНЫЙ Z3): магическая строка за ч�
     const sol = try eng.solve(4);
     defer std.testing.allocator.free(sol);
 
-    var log = std.ArrayList(Branch).init(std.testing.allocator);
+    var log = std.array_list.Managed(Branch).init(std.testing.allocator);
     defer log.deinit();
     try std.testing.expect(victim(sol, &log));
     try std.testing.expectEqualStrings("KERN", sol);
@@ -136,7 +136,7 @@ test "CONCOLIC: без решателя движок не падает (фолб
     var eng = ConcolicEngine.init(std.testing.allocator, &bridge);
     const sol = try eng.solve(4);
     defer std.testing.allocator.free(sol);
-    var log = std.ArrayList(Branch).init(std.testing.allocator);
+    var log = std.array_list.Managed(Branch).init(std.testing.allocator);
     defer log.deinit();
     try std.testing.expect(victim(sol, &log)); // цель достигнута и без Z3
 }

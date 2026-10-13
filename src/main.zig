@@ -642,7 +642,7 @@ pub fn main() !void {
         defer fs.deinit();
         const f = try std.fs.cwd().createFile("agent_packet.json", .{});
         defer f.close();
-        var buf = std.ArrayList(u8).init(alloc);
+        var buf = std.array_list.Managed(u8).init(alloc);
         defer buf.deinit();
         const w = buf.writer();
         try w.writeAll("{\n  \"v\": \"1.3\",\n  \"task\": \"handoff\",\n  \"truth_rule\": \"e=1_only_after_required_verification\",\n");
@@ -669,7 +669,7 @@ pub fn main() !void {
         defer fs.deinit();
         const out_file = try std.fs.cwd().createFile("PROJECT_CANONICAL_SPEC.kern.md", .{});
         defer out_file.close();
-        var buf = std.ArrayList(u8).init(alloc);
+        var buf = std.array_list.Managed(u8).init(alloc);
         defer buf.deinit();
         const w = buf.writer();
         try w.print("# КАНОНИЧЕСКИЙ ПАСПОРТ KERN\n\n> Сгенерировано kernc ИЗ ОБРАЗА `{s}` ({d} байт).\n\n**Объектов:** {d}\n\n", .{ image_path, data.len, fs.objects.len });

@@ -72,7 +72,7 @@ pub fn check(
     var v = ProofVerdict{};
 
     // --- 1. Запрос вывода ---
-    var buf = std.ArrayList(u8).init(allocator);
+    var buf = std.array_list.Managed(u8).init(allocator);
     defer buf.deinit();
     const w = buf.writer();
     try w.writeAll("(set-option :produce-proofs true)\n(set-logic ALL)\n");
@@ -110,7 +110,7 @@ pub fn check(
         var all_needed = true;
         for (core.conflicting) |drop| {
             if (std.mem.eql(u8, drop, "goal")) continue; // цель всегда нужна
-            var b2 = std.ArrayList(u8).init(allocator);
+            var b2 = std.array_list.Managed(u8).init(allocator);
             defer b2.deinit();
             const w2 = b2.writer();
             try w2.writeAll("(set-logic ALL)\n");

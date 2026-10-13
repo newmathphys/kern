@@ -14,7 +14,7 @@ const KernFS = @import("core/kernfs_router.zig").KernFS;
 ///   (2) KERNFS не находил ни одного файла в образе v1.2.
 /// Теперь обе атаки НЕ проходят (см. вывод).
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 
@@ -22,7 +22,7 @@ pub fn main() !void {
         "\n########## АТАКА 1: ИИ присылает ОДИН БАЙТ вместо доказательства ##########\n",
         .{});
 
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const ai_cert = ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,

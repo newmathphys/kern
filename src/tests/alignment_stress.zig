@@ -57,7 +57,7 @@ test "ALIGN comptime: ObjectEntry — ЛОГИЧЕСКАЯ структура (7
 
 /// Строит корректный 128-байтный заголовок .kimg.
 fn makeHeader() [128]u8 {
-    var b: [128]u8 = [_]u8{0} ** 128;
+    var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);   // version_major
     std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
@@ -73,7 +73,7 @@ fn makeHeader() [128]u8 {
 
 /// Разбирает заголовок, лежащий по НЕвыровненному адресу `shift`.
 fn parseAtShift(shift: usize) !kimg.KimgHeader {
-    var buf: [128 + 16]u8 = [_]u8{0} ** (128 + 16);
+    var buf: [128 + 16]u8 = @as([(128 + 16)]u8, @splat(0));
     const hdr = makeHeader();
     @memcpy(buf[shift .. shift + 128], &hdr);
     const p: *const [128]u8 = @ptrCast(buf[shift .. shift + 128].ptr);
@@ -95,13 +95,13 @@ test "ALIGN runtime: разбор при смещениях 0..7 — одина�
 }
 
 test "ALIGN runtime: записи таблицы читаются при смещениях 1,2,3,5,7" {
-    var entry_bytes: [96]u8 = [_]u8{0} ** 96;
+    var entry_bytes: [96]u8 = @as([96]u8, @splat(0));
     std.mem.writeInt(u64, entry_bytes[32..40], 0x1122334455667788, .little);
     std.mem.writeInt(u32, entry_bytes[56..60], 5, .little);      // type_id
     std.mem.writeInt(u16, entry_bytes[60..62], 0x0003, .little); // flags
     entry_bytes[62] = 1; // compression_codec
 
-    var buf: [96 + 16]u8 = [_]u8{0} ** (96 + 16);
+    var buf: [96 + 16]u8 = @as([(96 + 16)]u8, @splat(0));
     for ([_]usize{ 1, 2, 3, 5, 7 }) |shift| {
         @memset(&buf, 0);
         @memcpy(buf[shift .. shift + 96], &entry_bytes);
@@ -118,9 +118,9 @@ test "ALIGN runtime: невыровненная таблица НЕ ломает
     // Собираем образ со СМЕЩЁННОЙ таблицей объектов (offset = 129, не кратно 8)
     // и проверяем, что Merkle-корень всё равно сходится.
     const table_off: u64 = 129;
-    var file: [129 + 96]u8 = [_]u8{0} ** (129 + 96);
+    var file: [129 + 96]u8 = @as([(129 + 96)]u8, @splat(0));
 
-    var entry: [96]u8 = [_]u8{0} ** 96;
+    var entry: [96]u8 = @as([96]u8, @splat(0));
     std.mem.writeInt(u64, entry[32..40], 225, .little);
     std.mem.writeInt(u64, entry[40..48], 4, .little);
     std.mem.writeInt(u64, entry[48..56], 4, .little);

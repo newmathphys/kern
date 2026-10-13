@@ -22,7 +22,7 @@ pub const Status = enum {
     conflicted,
 
     pub fn fromString(s: []const u8) ?Status {
-        inline for (@typeInfo(Status).Enum.fields) |f| {
+        inline for (@typeInfo(Status).@"enum".field_names) |f| {
             if (std.mem.eql(u8, s, f.name)) return @field(Status, f.name);
         }
         return null;
@@ -49,7 +49,7 @@ pub const Kind = enum {
     cache_entry,
 
     pub fn fromString(s: []const u8) ?Kind {
-        inline for (@typeInfo(Kind).Enum.fields) |f| {
+        inline for (@typeInfo(Kind).@"enum".field_names) |f| {
             if (std.mem.eql(u8, s, f.name)) return @field(Kind, f.name);
         }
         return null;
@@ -63,7 +63,7 @@ pub const RelationKind = enum {
     derived_from, blocked_by,
 
     pub fn fromString(s: []const u8) ?RelationKind {
-        inline for (@typeInfo(RelationKind).Enum.fields) |f| {
+        inline for (@typeInfo(RelationKind).@"enum".field_names) |f| {
             if (std.mem.eql(u8, s, f.name)) return @field(RelationKind, f.name);
         }
         return null;

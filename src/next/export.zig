@@ -40,7 +40,7 @@ fn jsonEscape(w: anytype, s: []const u8) !void {
 pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
                    p: ast.Project, diags: []const validate.Diagnostic,
                    scope: []const u8) !void {
-    var buf = std.ArrayList(u8).init(allocator);
+    var buf = std.array_list.Managed(u8).init(allocator);
     defer buf.deinit();
     const w = buf.writer();
 
@@ -140,7 +140,7 @@ pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
 /// next steps.
 pub fn writeReport(allocator: std.mem.Allocator, path: []const u8,
                    p: ast.Project, diags: []const validate.Diagnostic) !void {
-    var buf = std.ArrayList(u8).init(allocator);
+    var buf = std.array_list.Managed(u8).init(allocator);
     defer buf.deinit();
     const w = buf.writer();
 

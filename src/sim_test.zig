@@ -129,7 +129,7 @@ fn runConcurrent(alloc: std.mem.Allocator, threads: usize, iters: usize) !void {
     var payload: [128]u8 = undefined;
     var prng = std.Random.DefaultPrng.init(0xC0FFEE);
     const rnd = prng.random();
-    var originals = std.ArrayList([]const u8).init(alloc);
+    var originals = std.array_list.Managed([]const u8).init(alloc);
     defer originals.deinit();
     var k: usize = 0;
     while (k < 8) : (k += 1) {
@@ -140,7 +140,7 @@ fn runConcurrent(alloc: std.mem.Allocator, threads: usize, iters: usize) !void {
         try b.addSource(try std.fmt.bufPrint(&nb, "c{d}.bin", .{k}), content);
         try originals.append(content);
     }
-    var img = std.ArrayList(u8).init(alloc);
+    var img = std.array_list.Managed(u8).init(alloc);
     defer img.deinit();
     try b.buildBytes(&img);
 
@@ -172,10 +172,10 @@ fn runSeed(alloc: std.mem.Allocator, seed: u64, ops: usize) !Stats {
     var st = Stats{};
 
     var payload: [256]u8 = undefined;
-    var img = std.ArrayList(u8).init(alloc);
+    var img = std.array_list.Managed(u8).init(alloc);
     defer img.deinit();
     // Эталон содержимого объектов текущего образа (для проверки I3).
-    var originals = std.ArrayList([]const u8).init(alloc);
+    var originals = std.array_list.Managed([]const u8).init(alloc);
     defer {
         for (originals.items) |o| alloc.free(o);
         originals.deinit();

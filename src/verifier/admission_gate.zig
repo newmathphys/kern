@@ -200,10 +200,10 @@ fn stubSmtLike(ctx: ?*anyopaque, allocator: std.mem.Allocator,
 // КОНФОРМАНС-ТЕСТЫ
 // ==========================================
 test "CONF-30.4: отвергается устаревший сертификат (несовпадение AST)" {
-    const ast_hash = [_]u8{0x01} ** 32;
-    const contract_hash = [_]u8{0x02} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
+    const contract_hash = @as([32]u8, @splat(0x02));
     const fake_cert = ProofCertificate{
-        .target_ast_digest = [_]u8{0xFF} ** 32,
+        .target_ast_digest = @as([32]u8, @splat(0xFF)),
         .contract_digest = contract_hash,
         .checker_id = 1,
         .witness_payload = &[_]u8{ 0xAA, 0, 0, 0, 0, 0, 0, 0 },
@@ -217,7 +217,7 @@ test "CONF-30.4: отвергается устаревший сертифика�
 test "ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA больше НЕ даёт e=1" {
     // РАНЬШЕ: шлюз читал вердикт из payload[0] → 0xAA давал e=1.
     // ТЕПЕРЬ: без внешнего чекера вердикт взять неоткуда → e=0.
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const cert = ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -232,7 +232,7 @@ test "ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA больше НЕ даёт e
 }
 
 test "ФИКС АТАКИ 1: внешний решатель-стаб НЕ принимает одиночный байт" {
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const cert = ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -248,7 +248,7 @@ test "ФИКС АТАКИ 1: внешний решатель-стаб НЕ пр�
 }
 
 test "успех: структурно корректный свидетель от ВНЕШНЕГО чекера даёт e=1" {
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const valid_cert = ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -265,7 +265,7 @@ test "успех: структурно корректный свидетель �
 }
 
 test "CONF-04: анти-вакуумный шлюз захлопывается (вердикт внешнего чекера)" {
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const vacuous_cert = ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,
@@ -306,7 +306,7 @@ test "🔴 ФИКС: checker_id >= 32 НЕ получает прав checker 0 (
 }
 
 test "доверие к пруверу: запрещённый checker_id отвергается" {
-    const ast_hash = [_]u8{0x01} ** 32;
+    const ast_hash = @as([32]u8, @splat(0x01));
     const cert = ProofCertificate{
         .target_ast_digest = ast_hash,
         .contract_digest = ast_hash,

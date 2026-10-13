@@ -96,7 +96,7 @@ pub const ObjectEntry = struct {
 };
 
 test "CONF-15: ObjectEntry разбирается и держит 96-байтную раскладку" {
-    var raw_bytes = [_]u8{0} ** 96;
+    var raw_bytes = @as([96]u8, @splat(0));
     raw_bytes[56] = 0x05; // type_id = claim
     raw_bytes[64] = 0xFF; // logical_path_offset = 0xFFFFFFFF
     raw_bytes[65] = 0xFF;
@@ -109,7 +109,7 @@ test "CONF-15: ObjectEntry разбирается и держит 96-байтн�
 }
 
 test "CONF-15: мусор в reserved-байтах отвергается" {
-    var raw_bytes = [_]u8{0} ** 96;
+    var raw_bytes = @as([96]u8, @splat(0));
     raw_bytes[95] = 0x01;
     try std.testing.expectError(KimgError.InvalidReservedBytes,
                                ObjectEntry.parseSafe(&raw_bytes));

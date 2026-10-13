@@ -39,7 +39,7 @@ fn contains(hay: []const []const u8, needle: []const u8) bool {
 }
 
 pub fn build(allocator: std.mem.Allocator, p: ast.Project, diags: []const validate.Diagnostic) !Snapshot {
-    var list = std.ArrayList([]const u8).init(allocator);
+    var list = std.array_list.Managed([]const u8).init(allocator);
     try list.append(try std.fmt.allocPrint(allocator, "project\t{s}\t{s}\t{s}", .{ p.name, p.version orelse "-", p.root orelse "-" }));
     for (p.artifacts) |a| try list.append(try std.fmt.allocPrint(allocator, "artifact\t{s}\t{s}\t{s}\t{s}", .{ a.id, a.path, a.kind, a.hash orelse "-" }));
     for (p.evidence) |e| try list.append(try std.fmt.allocPrint(allocator, "evidence\t{s}\t{s}", .{ e.id, e.source }));
@@ -54,7 +54,7 @@ pub fn build(allocator: std.mem.Allocator, p: ast.Project, diags: []const valida
 }
 
 pub fn writeFile(allocator: std.mem.Allocator, path: []const u8, snap: Snapshot) !void {
-    var buf = std.ArrayList(u8).init(allocator);
+    var buf = std.array_list.Managed(u8).init(allocator);
     defer buf.deinit();
     for (snap.lines) |l| {
         try buf.appendSlice(l);
@@ -67,7 +67,7 @@ pub fn writeFile(allocator: std.mem.Allocator, path: []const u8, snap: Snapshot)
 
 pub fn readFile(allocator: std.mem.Allocator, path: []const u8) !Snapshot {
     const data = try std.fs.cwd().readFileAlloc(allocator, path, 1 << 24);
-    var list = std.ArrayList([]const u8).init(allocator);
+    var list = std.array_list.Managed([]const u8).init(allocator);
     var it = std.mem.splitScalar(u8, data, '\n');
     while (it.next()) |l| if (l.len > 0) {
         try list.append(l);
@@ -91,8 +91,8 @@ pub const Diff = struct {
 };
 
 pub fn diffSnapshots(allocator: std.mem.Allocator, a: Snapshot, b: Snapshot) !Diff {
-    var added = std.ArrayList([]const u8).init(allocator);
-    var removed = std.ArrayList([]const u8).init(allocator);
+    var added = std.array_list.Managed([]const u8).init(allocator);
+    var removed = std.array_list.Managed([]const u8).init(allocator);
     // КОПИРУЕМ строки: результат diff не должен зависеть от времени жизни
     // снапшотов (иначе после их освобождения получим висячие указатели).
     for (b.lines) |l| if (!contains(a.lines, l)) {

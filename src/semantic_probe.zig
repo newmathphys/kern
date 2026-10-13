@@ -71,7 +71,7 @@ const Digest = struct {
 fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
     const content = "hello probe";
     const pool = "a.zig\x00" ++ content;
-    var obj: [96]u8 = [_]u8{0} ** 96;
+    var obj: [96]u8 = @as([96]u8, @splat(0));
     var dig: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
     @memcpy(obj[0..32], &dig);
@@ -86,7 +86,7 @@ fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
     var root: [32]u8 = undefined;
     ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
 
-    var header: [128]u8 = [_]u8{0} ** 128;
+    var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
     std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
@@ -98,7 +98,7 @@ fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
     std.mem.writeInt(u64, header[56..64], 224, .little);
     @memcpy(header[64..96], &root);
 
-    var out = std.ArrayList(u8).init(alloc);
+    var out = std.array_list.Managed(u8).init(alloc);
     try out.appendSlice(&header);
     try out.appendSlice(&obj);
     try out.appendSlice(pool);
@@ -106,7 +106,7 @@ fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 

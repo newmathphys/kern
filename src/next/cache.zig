@@ -64,7 +64,7 @@ pub const Cache = struct {
     }
 
     pub fn save(self: *Cache, path: []const u8) !void {
-        var buf = std.ArrayList(u8).init(self.allocator);
+        var buf = std.array_list.Managed(u8).init(self.allocator);
         defer buf.deinit();
         var it = self.map.iterator();
         while (it.next()) |e| {

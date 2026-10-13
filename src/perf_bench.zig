@@ -9,12 +9,12 @@ const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 
     const N: usize = 10_000; // объектов
-    const content = "x" ** 200; // 200 байт на объект
+    const content = @as([200]u8, @splat('x')); // 200 байт на объект
 
     std.debug.print("📈 KERN perf: {d} объектов по {d} байт\n\n", .{ N, content.len });
 

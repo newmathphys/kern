@@ -43,7 +43,7 @@ test "ОС-СТРЕСС 1: вывод > 64 КБ (буфер пайпа) — вз
     if (!solverAvailable(&b)) return error.SkipZigTest;
 
     // Формула, чей ответ (модель) заметно больше 64 КБ.
-    var q = std.ArrayList(u8).init(std.testing.allocator);
+    var q = std.array_list.Managed(u8).init(std.testing.allocator);
     defer q.deinit();
     try q.appendSlice("(set-logic QF_LIA)\n");
     var buf: [64]u8 = undefined;
@@ -66,7 +66,7 @@ test "ОС-СТРЕСС 2: вывод > лимита 4 МБ — аккуратн
     if (!solverAvailable(&b)) return error.SkipZigTest;
 
     // Просим Z3 напечатать гигантский терм (>> 4 МБ).
-    var q = std.ArrayList(u8).init(std.testing.allocator);
+    var q = std.array_list.Managed(u8).init(std.testing.allocator);
     defer q.deinit();
     try q.appendSlice("(set-logic QF_LIA)\n(declare-const x Int)\n");
     try q.appendSlice("(assert (= x (+ 1 (+ 1 (+ 1 (+ 1 (+ 1 (+ 1 (+ 1 (+ 1 (+ 1 0)))))))))))\n");

@@ -52,7 +52,7 @@ pub const UnsatCoreEngine = struct {
         assertions: []const NamedAssertion,
         goal: []const u8,
     ) ![]u8 {
-        var buf = std.ArrayList(u8).init(self.allocator);
+        var buf = std.array_list.Managed(u8).init(self.allocator);
         errdefer buf.deinit();
         const w = buf.writer();
         try w.writeAll("(set-option :produce-unsat-cores true)\n(set-logic ALL)\n");
@@ -68,7 +68,7 @@ pub const UnsatCoreEngine = struct {
 
     /// Разбирает вывод Z3 вида `unsat\n(name1 name2 ...)\n`.
     pub fn parseCore(self: *UnsatCoreEngine, stdout: []const u8) !UnsatCore {
-        var list = std.ArrayList([]const u8).init(self.allocator);
+        var list = std.array_list.Managed([]const u8).init(self.allocator);
         errdefer {
             for (list.items) |n| self.allocator.free(n);
             list.deinit();
