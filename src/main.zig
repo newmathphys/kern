@@ -38,6 +38,18 @@ const Ed25519 = std.crypto.sign.Ed25519;
 ///   prove            доказательство SMT-скрипта через реальный Z3
 ///   audit            контур «математического интеллекта»: UNSAT-core,
 ///                    теория массивов, CHC/Horn, строки (QF_S), CEGIS-синтез
+/// Аварийное завершение CLI с НЕНУЛЕВЫМ кодом возврата.
+///
+/// ДЕФЕКТ #32 (найден can-fail харнессом): команды печатали `[!] ...`
+/// и делали `return` — то есть процесс завершался с кодом 0. Автоматика
+/// (CI, скрипты, `&&`) считала проваленную проверку УСПЕШНОЙ.
+/// Найдено так: порча байта в эталонном образе -> `check-integrity`
+/// печатал `MerkleRootMismatch`, но `echo $?` давал 0.
+pub fn fail(comptime fmt: []const u8, args: anytype) noreturn {
+    std.debug.print(fmt, args);
+    std.process.exit(2);
+}
+
 fn flagValue(args: []const [:0]const u8, name: []const u8) ?[]const u8 {
     for (args, 0..) |a, i| {
         if (std.mem.eql(u8, a, name) and i + 1 < args.len) return args[i + 1];
@@ -486,18 +498,15 @@ pub fn main(init: std.process.Init) !void {
 
     if (std.mem.eql(u8, command, "check-integrity")) {
         if (data.len < 128) {
-            std.debug.print("[!] Образ слишком мал: {d} байт\n", .{data.len});
-            return;
+            fail("[!] Образ слишком мал: {d} байт\n", .{data.len});
         }
         var hb: [128]u8 = undefined;
         @memcpy(&hb, data[0..128]);
         const h = KimgHeader.parse(&hb, data.len) catch |e| {
-            std.debug.print("[!] Образ НЕВАЛИДЕН: {s}\n", .{@errorName(e)});
-            return;
+            fail("[!] Образ НЕВАЛИДЕН: {s}\n", .{@errorName(e)});
         };
         KimgHeader.verifyMerkleRoot(data, h) catch |e| {
-            std.debug.print("[!] Merkle-корень НЕ совпал: {s}\n", .{@errorName(e)});
-            return;
+            fail("[!] Merkle-корень НЕ совпал: {s}\n", .{@errorName(e)});
         };
         std.debug.print("[OK] Целостность: заголовок + Merkle-корень совпали. Эпоха: {d}.{d}, объектов: {d}\n", .{ h.version_major, h.version_minor, h.object_count });
 

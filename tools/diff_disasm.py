@@ -150,7 +150,12 @@ def main() -> int:
     for fn in FUNCS:
         dbody, rbody = extract(dtext, fn), extract(rtext, fn)
         if not dbody:
-            print(f"  [—] {fn}: нет в Debug (пропуск)")
+            # ⚠️ ФИКС (#33): раньше отсутствие функции в Debug было «пропуском».
+            # Это делало проверку ВАКУУМНОЙ: если зонд-функция исчезла (или её
+            # переименовали), цель оставалась ЗЕЛЁНОЙ. Найдено can-fail
+            # харнессом (tools/canfail.py). Теперь это ОШИБКА.
+            print(f"  [КРАСНОЕ] {fn}: ОТСУТСТВУЕТ в Debug — зонд не экспортирует функцию")
+            bad += 1
             continue
         if not rbody:
             print(f"  [КРАСНОЕ] {fn}: ЕСТЬ в Debug, ОТСУТСТВУЕТ в ReleaseFast (DCE?)")

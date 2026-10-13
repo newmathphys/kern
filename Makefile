@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -178,6 +178,14 @@ portable-bench:
 	  $(ZIG13) build-exe bench/portable_merkle.zig -O ReleaseFast -lc -femit-bin=/tmp/pb13; \
 	  echo "=== Zig 0.13 ==="; /tmp/pb13; \
 	else echo "[i] $(ZIG13) нет — сравнение только на 0.17"; fi
+
+# ==== CAN-FAIL: доказательство, что проверки СПОСОБНЫ УПАСТЬ ====
+# Для каждой проверки искусственно ломается её инвариант; цель ОБЯЗАНА
+# покраснеть. Вакуумная проверка тоже даёт RC=0 — этот харнесс это ловит.
+# Найдено так: дефекты #32 (CLI возвращал 0 при провале) и #33 (disasm
+# молча пропускал исчезнувшую функцию).
+canfail:
+	$(PYTHON) tools/canfail.py
 
 # ==== МАТЕМАТИЧЕСКИЙ ИНТЕЛЛЕКТ: ТЕОРИИ SMT (векторы 1-4, 8) ====
 
