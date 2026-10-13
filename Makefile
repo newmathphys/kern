@@ -85,24 +85,25 @@ lean:
 
 # Тактика 3: стресс-тесты (1M + усиленный по реальному коду).
 stress:
-	$(ZIG) run tests/stress_1m.zig -O ReleaseFast
-	$(ZIG) run src/stress_real.zig -O ReleaseFast
+	$(ZIG) build bench-stress-1m
+	$(ZIG) build bench-stress-real
 
 # Тактика 2: KERN-native бенчмарк (методология EvalPlus).
 bench:
-	$(ZIG) run src/kern_bench.zig -O ReleaseFast
+	$(ZIG) build bench-kern
 
 # Производительность конвейера .kimg (zero-copy).
 perf:
-	$(ZIG) run src/perf_bench.zig -O ReleaseFast
+	$(ZIG) build bench-perf
 
 # SMT-эквивалентность оптимизаций (Alive2 / Hacker's Delight) через Z3.
 smt:
-	$(ZIG) run src/smt_bench.zig -O ReleaseFast
+	$(ZIG) build bench-smt
 
 # Доказательство SMT-скрипта через реальный Z3 (e=1).
 prove:
-	$(ZIG) run src/main.zig -- prove formal/example.smt2
+	$(ZIG) build
+	./zig-out/bin/kernc prove formal/example.smt2
 
 # Тактика 1: Zig-native мутационное тестирование (аналог cargo-mutants).
 mutate:
@@ -125,11 +126,11 @@ ubsafe:
 
 # Стресс .kimg на 1 000 000 объектов (Merkle + случайный доступ).
 stress-kimg:
-	$(ZIG) run src/kimg_stress.zig -O ReleaseFast
+	$(ZIG) build bench-kimg-stress
 
 # Логический стресс Z3-моста (парадоксы, overflow, NIA, Alive2).
 smt-stress:
-	$(ZIG) run src/smt_stress.zig -O ReleaseFast
+	$(ZIG) build bench-smt-stress
 
 # Полный контур: всё, одной командой.
 test-all: build test test-next ubsafe smt-stress perf smt stress bench mutate
@@ -147,7 +148,7 @@ fd-check:
 
 # Эшелон 1: строгое выравнивание памяти и endianness (ARM64/RISC-V safety).
 align:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "ALIGN|ENDIAN|passed"
+	$(ZIG) build test-align
 
 # Эшелон 2: лавинный штурм хэш-таблицы (100 000 мутаций, защита от Hash Flooding).
 avalanche:
@@ -155,7 +156,7 @@ avalanche:
 
 # Эшелон 3: изнурение пула потоков (128 запросов на 4-8 воркеров, без голодания).
 pool:
-	$(ZIG) test src/test_root.zig 2>&1 | grep -E "POOL|passed"
+	$(ZIG) build test-pool
 
 # Эшелон 4: семантический разрыв Lean vs Zig (границы i32/i64).
 semantic-gap: lean
@@ -215,7 +216,7 @@ attest: build attest-key
 
 # Бенчмарк инвариантов циклов (CHC/Horn, стиль SV-COMP loop-lit / TermCOMP).
 chc-bench:
-	$(ZIG) run src/chc_bench.zig -O ReleaseFast
+	$(ZIG) build bench-chc
 
 # ==== DO-178C / ISO 26262: ПОКРЫТИЕ, КВАЛИФИКАЦИЯ, ГЕРМЕТИЧНОСТЬ ====
 
@@ -241,7 +242,7 @@ hermetic:
 
 # Долгоживущая фаззинг-кампания: 1 000 000 мутаций (0 паник — критерий).
 fuzz-1m:
-	$(ZIG) run src/fuzz_ast.zig -O ReleaseFast
+	$(ZIG) build bench-fuzz-ast
 
 # ==== ИССЛЕДОВАТЕЛЬСКИЕ НАПРАВЛЕНИЯ ====
 
@@ -288,14 +289,14 @@ binlevel:
 
 # Только семантический зонд (дайджест одного уровня оптимизации).
 probe:
-	$(ZIG) run src/semantic_probe.zig -O ReleaseFast
+	$(ZIG) build bench-semantic
 
 # Детерминированный симуляционный тест (VOPR-стиль, как TigerBeetle).
 # Тот же сид → та же история на любой машине. Инварианты I1-I4 + I5 (гонки).
 sim:
-	$(ZIG) run src/sim_test.zig -O ReleaseFast -- --seeds 1,2,3,0xDEADBEEF --ops 20000
+	$(ZIG) build sim-seeds
 	@echo "--- конкурентность (I5) ---"
-	$(ZIG) run src/sim_test.zig -O ReleaseFast -- --threads 32 --titers 500
+	$(ZIG) build sim-threads
 
 # ОС-стресс: пайпы, spawn-флуд, инъекция сбоев (границы «клея с ОС»).
 os-stress:

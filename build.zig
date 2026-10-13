@@ -59,6 +59,88 @@ pub fn build(b: *std.Build) void {
     });
     exe_mod.addImport("compat", compat_module);
     tests_mod.addImport("compat", compat_module);
+
+    // ---- Фильтрованные прогоны (Эшелоны 1 и 3) ---------------------------
+    // ВАЖНО: прямой `zig test src/test_root.zig` НЕ РАБОТАЕТ — модуль `compat`
+    // (слой совместимости 0.13→0.17) передаётся только сборочной системой.
+    // Поэтому цели `make align` / `make pool` ходят сюда, а не в `zig test`.
+    const align_tests_mod = b.createModule(.{
+        .root_source_file = b.path("src/test_root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    align_tests_mod.addImport("compat", compat_module);
+    const align_tests = b.addTest(.{
+        .root_module = align_tests_mod,
+        .filters = &.{ "ALIGN", "ENDIAN" },
+    });
+    const run_align_tests = b.addRunArtifact(align_tests);
+    b.step("test-align", "Эшелон 1: выравнивание памяти и endianness").dependOn(&run_align_tests.step);
+
+    const pool_tests_mod = b.createModule(.{
+        .root_source_file = b.path("src/test_root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    pool_tests_mod.addImport("compat", compat_module);
+    const pool_tests = b.addTest(.{
+        .root_module = pool_tests_mod,
+        .filters = &.{"POOL"},
+    });
+    const run_pool_tests = b.addRunArtifact(pool_tests);
+    b.step("test-pool", "Эшелон 3: изнурение пула решателей").dependOn(&run_pool_tests.step);
+
+    // ---- Бенчмарки и стресс-утилиты --------------------------------------
+    // ВАЖНО (найдено при верификации 0.17): `zig run src/X.zig` НЕ РАБОТАЕТ,
+    // если X или его транзитивные зависимости импортируют ИМЕНОВАННЫЕ модули
+    // (`compat`/`owner`/`atomic`) — их передаёт только сборочная система.
+    // Регистрируем каждый бенчмарк как исполняемый файл: `zig build bench-<имя>`.
+    const Bench = struct { name: []const u8, file: []const u8, desc: []const u8 };
+    const benches = [_]Bench{
+        .{ .name = "perf", .file = "src/perf_bench.zig", .desc = "Скорость конвейера .kimg" },
+        .{ .name = "kimg-stress", .file = "src/kimg_stress.zig", .desc = "Стресс 1 млн объектов" },
+        .{ .name = "smt", .file = "src/smt_bench.zig", .desc = "SMT: Alive2 / Hacker's Delight" },
+        .{ .name = "smt-stress", .file = "src/smt_stress.zig", .desc = "SMT-стресс (парадоксы, overflow, NIA)" },
+        .{ .name = "kern", .file = "src/kern_bench.zig", .desc = "KERN-native бенчмарк" },
+        .{ .name = "stress-real", .file = "src/stress_real.zig", .desc = "Стресс на реальном коде" },
+        .{ .name = "stress-1m", .file = "tests/stress_1m.zig", .desc = "1 млн проектов в памяти" },
+        .{ .name = "fuzz-ast", .file = "src/fuzz_ast.zig", .desc = "Фаззинг AST-парсера" },
+        .{ .name = "chc", .file = "src/chc_bench.zig", .desc = "CHC/Horn бенчмарк" },
+        .{ .name = "semantic", .file = "src/semantic_probe.zig", .desc = "Семантический зонд" },
+        .{ .name = "sim", .file = "src/sim_test.zig", .desc = "Симуляция конкурентности" },
+    };
+    inline for (benches) |it| {
+        const bench_mod = b.createModule(.{
+            .root_source_file = b.path(it.file),
+            .target = target,
+            .optimize = .ReleaseFast,
+        });
+        bench_mod.addImport("compat", compat_module);
+        bench_mod.addImport("owner", owner_module);
+        bench_mod.addImport("atomic", atomic_module);
+        const bench_exe = b.addExecutable(.{ .name = "kern-bench-" ++ it.name, .root_module = bench_mod });
+        const bench_run = b.addRunArtifact(bench_exe);
+        b.step("bench-" ++ it.name, it.desc).dependOn(&bench_run.step);
+    }
+
+    // Симуляция конкурентности: два фиксированных профиля (аргументы задаются
+    // здесь, т.к. в Zig 0.17 у `std.Build` нет поля `b.args`).
+    const sim_mod = b.createModule(.{
+        .root_source_file = b.path("src/sim_test.zig"),
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
+    sim_mod.addImport("compat", compat_module);
+    const sim_seeds = b.addExecutable(.{ .name = "kern-sim-seeds", .root_module = sim_mod });
+    const run_sim_seeds = b.addRunArtifact(sim_seeds);
+    run_sim_seeds.addArgs(&.{ "--seeds", "1,2,3,0xDEADBEEF", "--ops", "20000" });
+    b.step("sim-seeds", "Симуляция: детерминизм по 4 сидам").dependOn(&run_sim_seeds.step);
+
+    const sim_threads = b.addExecutable(.{ .name = "kern-sim-threads", .root_module = sim_mod });
+    const run_sim_threads = b.addRunArtifact(sim_threads);
+    run_sim_threads.addArgs(&.{ "--threads", "32", "--titers", "500" });
+    b.step("sim-threads", "Симуляция: 32 потока").dependOn(&run_sim_threads.step);
+
     atk_mod.addImport("compat", compat_module);
     atomic_module.addImport("compat", compat_module);
 

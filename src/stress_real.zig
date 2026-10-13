@@ -7,6 +7,7 @@
 //! AdmissionGate и KimgHeader на случайных входах.
 //! Запуск: zig run src/stress_real.zig -O ReleaseFast
 const std = @import("std");
+const compat = @import("compat");
 const eq2 = @import("core/eq2.zig");
 const Eq2 = eq2.Eq2;
 const gate = @import("verifier/admission_gate.zig");
@@ -19,12 +20,14 @@ fn rndEq2(rand: std.Random) Eq2 {
     return @enumFromInt(@as(u2, @truncate(rand.uintLessThan(u8, 4))));
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var prng = std.Random.DefaultPrng.init(0xDEADBEEF);
     const rand = prng.random();
 
     std.debug.print("🔬 УСИЛЕННЫЙ стресс-тест: {d} итераций на каждый модуль\n\n", .{N});
-    var timer = try std.time.Timer.start();
+    var timer = compat.Timer.start();
 
     // --- 1. АЛГЕБРА БЕЛНАПА: законы решётки на случайных тройках ---
     var law_violations: usize = 0;

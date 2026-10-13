@@ -15,6 +15,7 @@
 //!
 //! Зонд детерминирован: без времени, адресов, рандома и внешнего решателя.
 const std = @import("std");
+const compat = @import("compat");
 const eq2 = @import("core/eq2.zig");
 const Eq2 = eq2.Eq2;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
@@ -105,7 +106,9 @@ fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
     return out.toOwnedSlice();
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();

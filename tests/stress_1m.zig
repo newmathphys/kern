@@ -9,15 +9,18 @@
 //! Настоящая проверка безопасности — в tests/stress_real.zig (бьёт по реальным
 //! модулям EQ2 / AdmissionGate / KimgHeader).
 const std = @import("std");
+const compat = @import("compat");
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     const total_projects: usize = 1_000_000;
     var prng = std.Random.DefaultPrng.init(0x1337);
     const rand = prng.random();
 
     std.debug.print("🚀 Стресс-тест на 1,000,000 проектов в памяти...\n", .{});
 
-    var timer = try std.time.Timer.start();
+    var timer = compat.Timer.start();
     var legitimate_passes: usize = 0;
     var caught_vacuous: usize = 0;
     var caught_conflicts: usize = 0;

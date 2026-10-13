@@ -9,7 +9,10 @@ const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 const compat = @import("compat");
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // БАГ-ФИКС 0.17: файловый I/O требует setIo() до первого вызова,
+    // иначе compat паникует (этот стресс читает /tmp/stress_1m.kimg).
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
@@ -17,7 +20,7 @@ pub fn main() !void {
     const N: usize = 1_000_000;
     std.debug.print("🗄️  Стресс .kimg: {d} объектов\n\n", .{N});
 
-    var t = try std.time.Timer.start();
+    var t = compat.Timer.start();
     var b = Builder.init(alloc);
     defer b.deinit();
     var nb: [32]u8 = undefined;
@@ -28,7 +31,7 @@ pub fn main() !void {
     }
     const t_build = t.read();
 
-    t.reset();
+    t = compat.Timer.start();
     try b.write("/tmp/stress_1m.kimg");
     const t_write = t.read();
 
@@ -40,11 +43,11 @@ pub fn main() !void {
     @memcpy(&hb, data[0..128]);
     const h = try KimgHeader.parse(&hb, data.len);
 
-    t.reset();
+    t = compat.Timer.start();
     try KimgHeader.verifyMerkleRoot(data, h);
     const t_merkle = t.read();
 
-    t.reset();
+    t = compat.Timer.start();
     var fs = try KernFS.mountFromBytes(alloc, data);
     defer fs.deinit();
     const t_mount = t.read();
@@ -52,7 +55,7 @@ pub fn main() !void {
     // Случайный доступ: 1000 чтений из середины
     var prng = std.Random.DefaultPrng.init(0xC0FFEE);
     const rand = prng.random();
-    t.reset();
+    t = compat.Timer.start();
     var k: usize = 0;
     var total: usize = 0;
     while (k < 1000) : (k += 1) {

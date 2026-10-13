@@ -85,8 +85,13 @@ def collect(root):
 
 
 def run_tests(root):
-    p = subprocess.run(["zig", "test", "src/test_root.zig"], cwd=root,
-                       capture_output=True, text=True)
+    # Zig 0.17: `compat` — ИМЕНОВАННЫЙ модуль, поэтому прямой `zig test
+    # src/test_root.zig` не соберётся («no module named 'compat'»). Передаём
+    # зависимость флагами `--dep compat -Mcompat=...`.
+    p = subprocess.run(
+        ["zig", "test", "--dep", "compat",
+         "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"],
+        cwd=root, capture_output=True, text=True)
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode == 0:
         return "SURVIVED", out

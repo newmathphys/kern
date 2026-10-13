@@ -12,6 +12,7 @@
 //!
 //! Запуск: `zig run src/fuzz_ast.zig -O ReleaseFast` (или `make fuzz-1m`).
 const std = @import("std");
+const compat = @import("compat");
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 const ObjectEntry = @import("core/object_entry.zig").ObjectEntry;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
@@ -58,7 +59,9 @@ fn buildValidImage(alloc: std.mem.Allocator) ![]u8 {
     return out.toOwnedSlice();
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
@@ -74,7 +77,7 @@ pub fn main() !void {
 
     std.debug.print("=== KERN ФАЗЗИНГ: {d} мутаций (образ + парсер) ===\n\n", .{ITERATIONS});
 
-    var timer = try std.time.Timer.start();
+    var timer = compat.Timer.start();
     var parse_errors: usize = 0;
     var mount_ok: usize = 0;
     var mount_err: usize = 0;

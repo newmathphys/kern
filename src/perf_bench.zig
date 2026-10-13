@@ -9,7 +9,10 @@ const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 const compat = @import("compat");
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // БАГ-ФИКС 0.17: файловый I/O требует setIo() до первого вызова,
+    // иначе compat паникует (этот бенчмарк читает /tmp/perf_bench.kimg).
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
@@ -20,18 +23,18 @@ pub fn main() !void {
     std.debug.print("📈 KERN perf: {d} объектов по {d} байт\n\n", .{ N, content.len });
 
     // --- 1. СБОРКА образа ---
-    var t = try std.time.Timer.start();
+    var t = compat.Timer.start();
     var b = Builder.init(alloc);
     defer b.deinit();
     var name_buf: [64]u8 = undefined;
     var i: usize = 0;
     while (i < N) : (i += 1) {
         const nm = try std.fmt.bufPrint(&name_buf, "src/file_{d}.zig", .{i});
-        try b.addSource(try alloc.dupe(u8, nm), content);
+        try b.addSource(try alloc.dupe(u8, nm), &content);
     }
     const t_build_b = t.read();
 
-    t.reset();
+    t = compat.Timer.start();
     try b.write("/tmp/perf_bench.kimg");
     const t_write = t.read();
 
@@ -40,24 +43,24 @@ pub fn main() !void {
     defer compat.deleteFile("/tmp/perf_bench.kimg") catch {};
 
     // --- 2. ПАРСИНГ заголовка ---
-    t.reset();
+    t = compat.Timer.start();
     var hb: [128]u8 = undefined;
     @memcpy(&hb, data[0..128]);
     const h = try KimgHeader.parse(&hb, data.len);
     const t_parse = t.read();
 
     // --- 3. MERKLE ---
-    t.reset();
+    t = compat.Timer.start();
     try KimgHeader.verifyMerkleRoot(data, h);
     const t_merkle = t.read();
 
     // --- 4. МОНТИРОВАНИЕ + ЧТЕНИЕ ВСЕХ объектов (zero-copy) ---
-    t.reset();
+    t = compat.Timer.start();
     var fs = try KernFS.mountFromBytes(alloc, data);
     defer fs.deinit();
     const t_mount = t.read();
 
-    t.reset();
+    t = compat.Timer.start();
     var bytes: usize = 0;
     for (fs.objects) |obj| {
         const sl = try fs.objectPayloadRaw(obj); // чистый zero-copy, без хеша
@@ -89,7 +92,7 @@ pub fn main() !void {
     // заявлялось «51 ГБ/с», а фактическое безопасное чтение шло со скоростью
     // порядка сотен МБ/с (SHA-256 ~1.5 ГБ/с на этом CPU). Расхождение
     // устранено: документируются ОБА числа.
-    var timer2 = try std.time.Timer.start();
+    var timer2 = compat.Timer.start();
     var ver_bytes: usize = 0;
     var mismatches: usize = 0;
     for (fs.objects) |obj| {

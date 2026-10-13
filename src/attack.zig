@@ -14,7 +14,11 @@ const compat = @import("compat");
 ///   (1) Врата Истины обходились ОДНИМ БАЙТОМ 0xAA -> e=1;
 ///   (2) KERNFS не находил ни одного файла в образе v1.2.
 /// Теперь обе атаки НЕ проходят (см. вывод).
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует явный `io` — публикуем его в compat.
+    // БАГ-ФИКС: раньше здесь было `pub fn main() !void` без setIo, из-за чего
+    // `kern-attack` падал с panic «compat.setIo() не вызван» на АТАКЕ 2.
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();

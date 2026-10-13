@@ -12,6 +12,7 @@
 //!
 //! Запуск: `zig run src/chc_bench.zig -O ReleaseFast` (нужен z3 в PATH).
 const std = @import("std");
+const compat = @import("compat");
 const z3 = @import("verifier/z3_bridge.zig");
 const chc = @import("verifier/chc.zig");
 
@@ -39,7 +40,9 @@ const CASES = [_]Case{
     .{ .name = "БАГ: countdown x:=10; while(x>0) x-- => x=1", .init = "(= x 10)", .guard = "(> x 0)", .step = "(- x 1)", .post = "(= x 1)", .expect = .Unsat },
 };
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
@@ -56,7 +59,7 @@ pub fn main() !void {
     var pass: usize = 0;
     var total_ms: u64 = 0;
     for (CASES) |c| {
-        var timer = try std.time.Timer.start();
+        var timer = compat.Timer.start();
         const st = eng.proveLoopSafety(&bridge, c.init, c.guard, c.step, c.post);
         const ms = timer.read() / std.time.ns_per_ms;
         total_ms += ms;

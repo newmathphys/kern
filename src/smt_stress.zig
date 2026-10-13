@@ -7,6 +7,7 @@
 //! арифметику (NIA), мёртвые ветки, Alive2-пары оптимизаций.
 //! Запуск: PATH=".venv/bin:$PATH" zig run src/smt_stress.zig -O ReleaseFast
 const std = @import("std");
+const compat = @import("compat");
 const z3b = @import("verifier/z3_bridge.zig");
 
 const Kind = enum { proved, refuted, vacuous, unknown };
@@ -85,7 +86,9 @@ const CASES = [_]Case{
        .pre = "true", .post = "(= (div x 0) x)" },
 };
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
@@ -98,7 +101,7 @@ pub fn main() !void {
 
     std.debug.print("🔬 ЛОГИЧЕСКИЙ СТРЕСС Z3-моста ({} кейсов)\n\n", .{CASES.len});
     var ok_n: usize = 0;
-    var timer = try std.time.Timer.start();
+    var timer = compat.Timer.start();
 
     std.debug.print("{s:<40} | {s:<9} | {s:<9} | {s}\n", .{ "Кейс", "получено", "ожидалось", "" });
     std.debug.print("{s:-<40}-+-{s:-<9}-+-{s:-<9}-+-{s:-<8}\n", .{ "", "", "", "" });

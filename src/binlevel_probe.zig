@@ -9,6 +9,7 @@
 //!     (иначе компилятор вернул ранний выход и вернул timing-утечку!);
 //!   * функция-«жертва» конколики содержит ожидаемые проверки.
 const std = @import("std");
+const compat = @import("compat");
 const nonint = @import("verifier/noninterference.zig");
 
 /// Constant-time сравнение n байт. Инвариант: НИ ОДНОГО условного перехода
@@ -22,4 +23,7 @@ pub export fn kern_early_exit_equal(a: [*]const u8, b: [*]const u8, n: usize) ca
     return nonint.earlyExitEqual(a[0..n], b[0..n]);
 }
 
-pub fn main() void {}
+pub fn main(init: std.process.Init) void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
+    _ = init;}

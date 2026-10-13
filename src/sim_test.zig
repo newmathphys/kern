@@ -24,6 +24,7 @@
 //!   zig run src/sim_test.zig -O ReleaseFast -- --seeds 1,2,3,4,5
 
 const std = @import("std");
+const compat = @import("compat");
 const kimg = @import("core/kimg_writer.zig");
 const Builder = kimg.Builder;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
@@ -314,12 +315,15 @@ fn runSeed(alloc: std.mem.Allocator, seed: u64, ops: usize) !Stats {
     return st;
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const argv = try std.process.argsAlloc(alloc);
+    // Zig 0.17: `std.process.argsAlloc` удалён. Аргументы берём из `init`.
+    const argv = try std.process.Args.toSlice(init.minimal.args, alloc);
     var seed: u64 = 0xDEADBEEF;
     var ops: usize = 20_000;
     var seeds_list: ?[]const u8 = null;
@@ -357,7 +361,7 @@ pub fn main() !void {
     std.debug.print("Инварианты: I1 нет паник · I2 целый образ читается · " ++
         "I3 порча замечена · I4 усечение отвергнуто\n\n", .{});
 
-    var timer = try std.time.Timer.start();
+    var timer = compat.Timer.start();
     var total = Stats{};
     var seeds_ok: usize = 0;
 

@@ -6,6 +6,7 @@
 //!
 //! Запуск: PATH=".venv/bin:$PATH" zig run src/smt_bench.zig -O ReleaseFast
 const std = @import("std");
+const compat = @import("compat");
 const z3b = @import("verifier/z3_bridge.zig");
 
 const Claim = struct {
@@ -67,7 +68,9 @@ const CLAIMS = [_]Claim{
     },
 };
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();

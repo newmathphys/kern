@@ -9,6 +9,7 @@
 //! НАИВНЫЙ верификатор (только хэш) с РЕАЛЬНЫМИ Вратами KERN.
 //! Запуск: zig run src/kern_bench.zig -O ReleaseFast
 const std = @import("std");
+const compat = @import("compat");
 const gate = @import("verifier/admission_gate.zig");
 
 const N: usize = 1_000_000;
@@ -26,12 +27,14 @@ fn truthChecker(ctx: ?*anyopaque, allocator: std.mem.Allocator,
     };
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    // Zig 0.17: файловый I/O требует setIo() до первого вызова.
+    compat.setIo(init.io);
     var prng = std.Random.DefaultPrng.init(0xABCDEF);
     const rand = prng.random();
 
     std.debug.print("📊 KERN-бенчмарк: {d} синтетических сабмишенов (6 категорий)\n\n", .{N});
-    var timer = try std.time.Timer.start();
+    var timer = compat.Timer.start();
 
     var legit_total: usize = 0;
     var naive_admit: usize = 0;
