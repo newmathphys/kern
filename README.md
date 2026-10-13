@@ -5,8 +5,16 @@
 доказательство (Lean 4) или подтверждённый прогон с кодом возврата.
 Всё остальное — честный отказ `e=0`.
 
-**Технологии:** Zig 0.13 (ядро, zero-copy) · Lean 4 (формальные доказательства) ·
+**Технологии:** Zig (ядро, zero-copy) · Lean 4 (формальные доказательства) ·
 Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
+
+> ⚠️ **ВЕТКА И ТУЛЧЕЙН — ЧИТАЙТЕ ПЕРВЫМ.**
+> Этот README открыт на ветке **`zig-0.17-migration`** → нужен **Zig 0.17.0**
+> (`~/opt/zig-x86_64-linux-0.17.0/zig`).
+> **Zig 0.13 на этой ветке НЕ СОБИРАЕТСЯ**: `src/compat.zig` использует `std.Io`,
+> которого в 0.13 нет (ошибка `no module named 'compat'` / `no field 'Io'`).
+> Ветка **`main`** заморожена на **Zig 0.13.0** и аттестована отдельно —
+> карта миграции: [`docs/MIGRATION_REPORT_0_17.md`](docs/MIGRATION_REPORT_0_17.md).
 
 | Показатель | Значение |
 |:--|:--|
@@ -35,8 +43,9 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 ## 0. Быстрый старт (5 минут)
 
 ```bash
-# 1. Окружение: Zig 0.13 в локальный venv (системный Zig не нужен)
-make venv && export PATH="$PWD/.venv/bin:$PATH"
+# 1. Окружение: Zig 0.17.0 (ветка zig-0.17-migration)
+export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
+#    (ветка main: make venv && export PATH="$PWD/.venv/bin:$PATH" — там Zig 0.13)
 
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
@@ -229,10 +238,13 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ## 3. Запуск
 
 ```bash
-# 1. Компилятор Zig 0.13 (более новые версии НЕ подходят)
-uv venv .venv
-uv pip install --python .venv/bin/python ziglang==0.13.0
-export PATH="$PWD/.venv/bin:$PATH"
+# 1. Компилятор Zig 0.17.0 (ветка zig-0.17-migration; 0.13 здесь НЕ подходит)
+export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
+zig version   # должно быть 0.17.0
+#
+# Для ветки `main` (замороженный baseline) — наоборот, Zig 0.13:
+#   uv venv .venv && uv pip install --python .venv/bin/python ziglang==0.13.0
+#   export PATH="$PWD/.venv/bin:$PATH"
 
 # 2. Эталонный образ
 python3 tools/golden_v1_3.py
