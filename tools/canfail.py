@@ -71,19 +71,34 @@ FAULTABLE = [
     "src/verifier/admission_gate.zig",
     "src/verifier/array_theory.zig",
     "src/tests/litmus_memory_test.zig",
+    "src/smt_bench.zig",
+    "src/kimg_stress.zig",
+    "src/main.zig",
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
 ]
 
 
 def clean_slate() -> None:
-    """Возвращает все «ломаемые» файлы к состоянию git.
+    """Восстанавливает ТОЛЬКО повреждённые файлы из списка ломаемых.
 
-    ЗАЧЕМ: если предыдущий прогон был прерван, повреждённый файл попадает в
-    backup следующего прогона и порча РАСПРОСТРАНЯЕТСЯ. Найдено на практике:
-    `core-gate` падал с `UnicodeDecodeError` из-за наложения прогонов.
+    ⚠️ ВАЖНО: нельзя делать слепой `git checkout --` по всему списку — это
+    СТИРАЕТ законные незакоммиченные правки (проверено на практике: так
+    пропали фиксы #36/#37). Поэтому восстанавливаем файл, только если он
+    РЕАЛЬНО повреждён (не читается как UTF-8 или пуст).
     """
     for f in FAULTABLE:
+        p = ROOT / f
+        if not p.exists():
+            continue
+        if p.suffix in (".kimg",) or p.name == "kernc":
+            continue  # бинарные — не проверяем на UTF-8
+        try:
+            if p.read_bytes():
+                p.read_text(encoding="utf-8")
+                continue  # валиден — не трогаем
+        except UnicodeDecodeError:
+            pass
         subprocess.run(["git", "checkout", "--", f], cwd=str(ROOT),
                        capture_output=True, text=True)
 
@@ -218,6 +233,39 @@ def case_attack_regression():
     return "make attack"
 
 
+def case_smt_bench():
+    """SMT-бенчмарк. ЛОМАЕМ: подменяем ОЖИДАНИЕ на противоположное.
+
+    `bench-smt` сверяет вердикт Z3 с таблицей `expect`. Раньше несовпадение
+    только печаталось («❌ НЕ совпало») и не влияло на код возврата (#37).
+    """
+    patch("src/smt_bench.zig",
+          '.{ .name = "Alive2: x*2 == x<<1 (u32)", .expect = "unsat", .script =',
+          '.{ .name = "Alive2: x*2 == x<<1 (u32)", .expect = "sat", .script =')
+    return "zig build bench-smt"
+
+
+def case_stress_threshold():
+    """Порог стресса. ЛОМАЕМ: делаем норматив недостижимым.
+
+    Проверяем, что порог (`< 0.005 мс`) РЕАЛЬНО связан с кодом возврата,
+    а не только с текстом «⚠️ медленнее» (дефект #36).
+    """
+    patch("src/kimg_stress.zig",
+          "    if (!(per < 0.005)) {",
+          "    if (!(per < 0.0000001)) { // ЛОМАЕМ: недостижимый порог")
+    return "zig build bench-kimg-stress"
+
+
+def case_build_syntax():
+    """Сборка. ЛОМАЕМ: синтаксическая ошибка в ядре.
+
+    Базовая проверка: цель `build` не является no-op и реально компилирует.
+    """
+    patch("src/main.zig", "fn flagValue(", "fn flagValue_BROKEN(")
+    return "zig build"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -229,6 +277,9 @@ CASES = [
     ("grep-arrays",   "греп-фильтр: исчезли ARRAY-тесты",      case_grep_vacuity),
     ("grep-litmus",   "греп-фильтр: исчезли LITMUS-тесты",     case_grep_vacuity_litmus),
     ("attack",        "демонстратор атак: обход Врат",         case_attack_regression),
+    ("smt-bench",     "SMT-бенчмарк: несовпадение ожидания",   case_smt_bench),
+    ("stress-thresh", "порог стресса связан с кодом возврата", case_stress_threshold),
+    ("build-syntax",  "сборка не является no-op",              case_build_syntax),
 ]
 
 

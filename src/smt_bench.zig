@@ -82,6 +82,7 @@ pub fn main(init: std.process.Init) !void {
     var proved: usize = 0;
     var refuted: usize = 0;
     var errors: usize = 0;
+    var mismatched: usize = 0;
 
     std.debug.print("{s:<58} | {s:<8} | {s}\n", .{ "Оптимизация", "Z3", "вердикт" });
     std.debug.print("{s:-<58}-+-{s:-<8}-+-{s:-<26}\n", .{ "", "", "" });
@@ -100,6 +101,9 @@ pub fn main(init: std.process.Init) !void {
         if (r.status == .ToolError) errors += 1;
         if (r.status == .Unsat) proved += 1;
         if (r.status == .Sat) refuted += 1;
+        // ДЕФЕКТ #37: несовпадение только ПЕЧАТАЛОСЬ и не влияло на код
+        // возврата — автоматика видела успех. Теперь считаем и падаем.
+        if (!ok) mismatched += 1;
         std.debug.print("{s:<58} | {s:<8} | {s}\n", .{
             c.name, got,
             if (ok) "✅ совпало" else "❌ НЕ совпало",
@@ -111,4 +115,9 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("Доказано эквивалентными (unsat): {d}\n", .{proved});
     std.debug.print("Найдены контрпримеры (sat):      {d}\n", .{refuted});
     std.debug.print("Ошибок решателя:                 {d}\n", .{errors});
+    std.debug.print("НЕ СОВПАЛО с ожиданием:          {d}\n", .{mismatched});
+    if (mismatched != 0) {
+        std.debug.print("[!] ЕСТЬ НЕСОВПАДЕНИЯ — проверка ПРОВАЛЕНА\n", .{});
+        std.process.exit(2);
+    }
 }
