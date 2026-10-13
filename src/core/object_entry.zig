@@ -38,14 +38,22 @@ pub const ObjectEntry = struct {
     schema_version: u32,
 
     /// Парсинг с проверкой Little-Endian и reserved-байтов (CONF-15).
+    ///
+    /// ОПТИМИЗАЦИЯ (SWAR): 24 reserved-байта (72..95) читаются как ТРИ
+    /// машинных слова `u64` и объединяются побитовым `OR` → ОДНА ветвь
+    /// вместо 24 итераций с 24 ветвями. Семантика идентична побайтовому
+    /// циклу (проверено тестом CONF-15 ниже).
+    ///
+    /// ⚠️ ВАЖНО: запись — РОВНО 96 байт (`*const [96]u8`), НЕ 128.
+    /// Reserved-область — 24 байта, НЕ 56. (Раньше в обсуждении фигурировал
+    /// патч на `[128]u8` с чтением `bytes[96..128]` — это выход за границы.)
     pub fn parseSafe(bytes: *const [96]u8) !ObjectEntry {
-        // CONF-15: reserved-байты (72..95) обязаны быть строго нулевыми.
-        // Иначе в них можно спрятать полезную нагрузку — стеганография.
-        for (bytes[72..96]) |b| {
-            if (b != 0) {
-                cov.hit(.obj_bad_reserved);
-                return KimgError.InvalidReservedBytes;
-            }
+        const r0 = std.mem.readInt(u64, bytes[72..80], .little);
+        const r1 = std.mem.readInt(u64, bytes[80..88], .little);
+        const r2 = std.mem.readInt(u64, bytes[88..96], .little);
+        if ((r0 | r1 | r2) != 0) {
+            cov.hit(.obj_bad_reserved);
+            return KimgError.InvalidReservedBytes;
         }
 
         var entry: ObjectEntry = undefined;
