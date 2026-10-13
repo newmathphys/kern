@@ -98,6 +98,22 @@ def analyze(body):
         if op == "jmp":
             continue
 
+        # ⚠️ ФИКС (#30): блок распространения taint для загрузок ОБЯЗАН идти
+        # ДО проверки NO_FLAGS. `mov` входит в NO_FLAGS (он не пишет флаги),
+        # поэтому прежний порядок делал распространение taint НЕДОСТИЖИМЫМ
+        # кодом: tainted всегда оставался пустым, и анализ не находил НИ ОДНОГО
+        # нарушения — проверка constant-time была ВАКУУМНОЙ.
+        # Загрузки/пересылки: распространяем taint (Intel-синтаксис: dst, src).
+        if LOAD.match(op) and len(ops) >= 2:
+            dst, src = ops[0], ops[-1]
+            if base(dst).startswith(("r", "e", "x", "y", "z")):
+                if "[" in src:
+                    tainted.add(base(dst))
+                elif base(src) in tainted:
+                    tainted.add(base(dst))
+            # mov НЕ пишет флаги — состояние `flags_from_data` сохраняется.
+            continue
+
         # Инструкции без записи флагов и метки — состояние сохраняется.
         if op.startswith("set") or op in NO_FLAGS:
             continue
@@ -115,16 +131,6 @@ def analyze(body):
             elif op in ("or", "and") and len(ops) >= 2:
                 if base(ops[0]) in tainted or base(ops[-1]) in tainted:
                     tainted.add(base(ops[0]))
-            continue
-
-        # Загрузки/пересылки: распространяем taint (Intel-синтаксис: dst, src).
-        if LOAD.match(op) and len(ops) >= 2:
-            dst, src = ops[0], ops[-1]
-            if base(dst).startswith(("r", "e", "x", "y", "z")):
-                if "[" in src:
-                    tainted.add(base(dst))
-                elif base(src) in tainted:
-                    tainted.add(base(dst))
             continue
     return violations
 
@@ -159,8 +165,20 @@ def main():
             rc = 1
             continue
         v = analyze(body)
-        kind = "constant-time" if "ct_" in fn else "ранний выход"
+        # ВАЖНО: tainted-анализ даёт ЛОЖНЫЕ СРАБАТЫВАНИЯ на проверках ДЛИНЫ
+        # (длина публична, но анализатор видит в ней «данные»). Поэтому
+        # дополнительно считаем ОБЩЕЕ число условных переходов: у честной
+        # constant-time функции их должно быть СТРОГО МЕНЬШЕ, чем у версии
+        # с ранним выходом (лишний переход = ранний выход внутри цикла).
+        jcc = 0
+        for line in body:
+            ln = line.split("#")[0].split(";")[0].strip()
+            m2 = re.match(r"^([a-z0-9.]+)", ln)
+            if m2 and JCC.match(m2.group(1)):
+                jcc += 1
+        kind = "constant-time" if ("ct_" in fn or "constantTime" in fn) else "ранний выход"
         print(f"[{fn}] ({kind}): инструкций {len(body)}, "
+              f"условных переходов {jcc}, "
               f"ветвлений от ДАННЫХ: {len(v)}")
         for i, ins in v[:5]:
             print(f"    строка {i}: {ins}")

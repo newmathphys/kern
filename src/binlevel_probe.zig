@@ -26,4 +26,4 @@ pub export fn kern_early_exit_equal(a: [*]const u8, b: [*]const u8, n: usize) ca
 pub fn main(init: std.process.Init) void {
     // Zig 0.17: файловый I/O требует setIo() до первого вызова.
     compat.setIo(init.io);
-    _ = init;}
+}
