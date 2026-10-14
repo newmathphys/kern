@@ -80,6 +80,9 @@ FAULTABLE = [
     "src/verifier/cegis.zig",
     "src/verifier/nra_quant.zig",
     "src/verifier/z3_bridge.zig",
+    "src/verifier/redos.zig",
+    "src/verifier/abstract_interp.zig",
+    "src/concolic.zig",
     "src/verifier/string_theory.zig",
     "src/tests/alignment_stress.zig",
     "src/core/kernfs_router.zig",
@@ -434,6 +437,36 @@ def case_gate_invariant_stress():
     return "zig build bench-kern"
 
 
+def case_redos_vuln():
+    """ReDoS. ЛОМАЕМ: вложенный квантор не распознаётся."""
+    patch("src/verifier/redos.zig",
+          "        .star, .plus, .opt => {\n            const c = inner(n);\n            if (isQuantified(c)) return true;",
+          "        .star, .plus, .opt => {\n            const c = inner(n);\n            if (isQuantified(c)) return false; // ЛОМАЕМ: не распознаём")
+    return "make redos"
+
+
+def case_concolic_victim():
+    """Конколика. ЛОМАЕМ: подменяем «магическую» строку."""
+    patch("src/concolic.zig",
+          '    const magic = "KERN";',
+          '    const magic = "ZZZZ"; // ЛОМАЕМ: не та цель')
+    return "make concolic"
+
+
+def case_absint_inv():
+    """Абстрактная интерпретация. ЛОМАЕМ: состояние ВЫХОДА цикла.
+
+    ⚠️ Первая попытка подменяла `init` на 0 — и была СЕМАНТИЧЕСКИ
+    НЕЙТРАЛЬНОЙ: тесты вызывают `analyzeLinearLoop(0, 1, 10)`, где init и так
+    0. Цель осталась зелёной (честный результат). Правильная мишень —
+    вычисление `exit_state`: убираем прибавление шага.
+    """
+    patch("src/verifier/abstract_interp.zig",
+          "    const exit_state = inv.restrictLt(bound).addConst(step).restrictGe(bound);",
+          "    const exit_state = inv.restrictLt(bound).addConst(0).restrictGe(bound); // ЛОМАЕМ")
+    return "make absint"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -458,6 +491,9 @@ CASES = [
     ("noninterf",     "Невлияние: утечка не регистрируется",    case_noninterference_taint),
     ("perf-threshold", "K2: порог безопасного чтения",          case_perf_threshold),
     ("kern-invariant", "K2: инвариант Врат в kern_bench",       case_gate_invariant_stress),
+    ("redos-vuln",    "ReDoS: вложенный квантор не распознан",   case_redos_vuln),
+    ("concolic-victim", "Конколика: подмена цели",              case_concolic_victim),
+    ("absint-inv",    "Абстрактная интерпретация: инвариант",    case_absint_inv),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

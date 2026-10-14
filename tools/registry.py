@@ -85,6 +85,9 @@ CASE_TARGET = {
     "noninterf": "noninterference",
     "perf-threshold": "perf",
     "kern-invariant": "kern",
+    "redos-vuln": "redos",
+    "concolic-victim": "concolic",
+    "absint-inv": "absint",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }

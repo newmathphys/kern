@@ -145,6 +145,12 @@ test "ABSINT: widening гарантирует завершение (растущ
 
 test "ABSINT: цикл x:=0; while(x<10) x+=1 — инвариант [0,9], выход x>=10" {
     const r = analyzeLinearLoop(0, 1, 10);
+    // ДЕФЕКТ #39 (найден can-fail): проверка `lo >= 10` проходила и для
+    // ПУСТОГО интервала (lo=10, hi=9): meet([0,9],[10,∞]) даёт lo>hi.
+    // Значит утверждение НЕ проверяло, что состояние выхода вообще достижимо.
+    // Добавлена явная проверка непустоты.
+    try std.testing.expect(!r.invariant.isEmpty());
+    try std.testing.expect(!r.exit_state.isEmpty());
     try std.testing.expect(r.invariant.lo >= 0);
     try std.testing.expect(r.invariant.hi <= 9);
     try std.testing.expect(r.exit_state.lo >= 10);
