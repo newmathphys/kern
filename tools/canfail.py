@@ -83,6 +83,10 @@ FAULTABLE = [
     "src/verifier/redos.zig",
     "src/verifier/abstract_interp.zig",
     "src/concolic.zig",
+    "src/attest.zig",
+    "src/verifier/unsat_core.zig",
+    "src/verifier/proof_check.zig",
+    "tools/proof_checker.py",
     "src/verifier/string_theory.zig",
     "src/tests/alignment_stress.zig",
     "src/core/kernfs_router.zig",
@@ -467,6 +471,52 @@ def case_absint_inv():
     return "make absint"
 
 
+def case_attest_sign():
+    """Аттестация. ЛОМАЕМ: подпись НЕ проверяется (всегда «валидна»)."""
+    patch("src/attest.zig",
+          "    const sig = Ed25519.Signature.fromBytes(cert.signature);\n    sig.verify(&payload(cert.contract_digest, cert.merkle_root, cert.verdict), pk) catch return false;\n    return true;",
+          "    _ = pk;\n    return true; // ЛОМАЕМ: подпись не проверяется")
+    return "make attest"
+
+
+def case_localize_core():
+    """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
+    patch("src/verifier/unsat_core.zig",
+          '        if (std.mem.startsWith(u8, stdout, "unsat")) {\n            is_conflict = true;',
+          '        if (std.mem.startsWith(u8, stdout, "unsat")) {\n            is_conflict = false; // ЛОМАЕМ: конфликт не распознан')
+    return "make localize"
+
+
+def case_sim_invariant():
+    """Симуляция (I2: целый образ читается). ЛОМАЕМ: чтение отдаёт НЕ тот срез.
+
+    ⚠️ Урок: одиночная подмена среза НЕ ломает инвариант — её ловит
+    проверка целостности (`PayloadTampered`), и sim корректно считает это
+    ошибкой чтения, а не ложным допуском. Чтобы нарушить I2, нужно
+    ОДНОВРЕМЕННО отключить проверку целостности И подменить срез.
+    """
+    patch("src/core/kernfs_router.zig",
+          "        var got: [32]u8 = undefined;\n        std.crypto.hash.sha2.Sha256.hash(sl, &got, .{});\n        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
+          "        // ЛОМАЕМ: проверка целостности отключена")
+    patch("src/core/kernfs_router.zig",
+          "        const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];",
+          "        const sl = self.payload_region[0..@min(@as(usize, @intCast(end)), self.payload_region.len)]; // ЛОМАЕМ: не тот срез")
+    return "zig build sim-seeds"
+
+
+def case_proof_check():
+    """Независимый proof-checker (Python). ЛОМАЕМ: баланс скобок всегда «ок».
+
+    ⚠️ `make proof-check` запускает `tools/proof_checker.py` — независимый
+    чекер на Python, а НЕ Zig-тесты. Первая попытка правила
+    `src/verifier/proof_check.zig` и вообще не влияла на цель.
+    """
+    patch("tools/proof_checker.py",
+          "def balanced(s: str) -> bool:",
+          "def balanced(s: str) -> bool:\n    return False  # ЛОМАЕМ: баланс всегда «нарушен»\n\n\ndef balanced_orig(s: str) -> bool:")
+    return "make proof-check"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -494,6 +544,10 @@ CASES = [
     ("redos-vuln",    "ReDoS: вложенный квантор не распознан",   case_redos_vuln),
     ("concolic-victim", "Конколика: подмена цели",              case_concolic_victim),
     ("absint-inv",    "Абстрактная интерпретация: инвариант",    case_absint_inv),
+    ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
+    ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
+    ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
+    ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

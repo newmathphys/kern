@@ -88,6 +88,10 @@ CASE_TARGET = {
     "redos-vuln": "redos",
     "concolic-victim": "concolic",
     "absint-inv": "absint",
+    "attest-sign": "attest",
+    "localize-core": "localize",
+    "sim-invariant": "sim",
+    "proof-check": "proof-check",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }
