@@ -40,8 +40,13 @@ echo
 echo "[KERN QUALIFICATION AUDIT SUITE v1.3.1]"
 echo "─────────────────────────────────────────────────────────────────────────────"
 
+# ДЕФЕКТ #53: здесь был синтаксис Zig 0.13 (`zig test src/test_root.zig`).
+# В 0.17 `compat` — ИМЕНОВАННЫЙ модуль, поэтому нужны флаги
+# `--dep compat -Mroot=... -Mcompat=...`. Без них манифест показывал
+# ЛОЖНЫЙ FAIL для Core (Debug), Memory Safety и Decision Coverage.
+
 # --- 1. Ядро (Debug) ---------------------------------------------------------
-core_out="$($ZIG test src/test_root.zig 2>&1 | tail -2)"
+core_out="$($ZIG test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | tail -2)"
 if echo "$core_out" | grep -q 'All .* tests passed'; then
   n=$(echo "$core_out" | grep -oE '[0-9]+' | head -1)
   line "Core (Debug)" "$(ok) — $n/$n tests"
@@ -50,7 +55,7 @@ else
 fi
 
 # --- 2. ReleaseSafe (детектор UB) -------------------------------------------
-rs_out="$($ZIG test src/test_root.zig -O ReleaseSafe 2>&1 | tail -2)"
+rs_out="$($ZIG test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe 2>&1 | tail -2)"
 if echo "$rs_out" | grep -q 'All .* tests passed'; then
   line "Memory Safety" "$(ok) — ReleaseSafe, 0 UB"
 else
@@ -108,7 +113,7 @@ else
 fi
 
 # --- 7. Покрытие решений -----------------------------------------------------
-cov="$($ZIG test src/test_root.zig 2>&1 | grep -oE 'ФАКТ: [0-9.]+%' | head -1)"
+cov="$($ZIG test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -oE 'ФАКТ: [0-9.]+%' | head -1)"
 if [ -n "$cov" ]; then
   line "Decision Coverage" "$(ok) — $cov (порог 95%)"
 else
