@@ -83,13 +83,35 @@ stage "attack (нет уязвимости)" bash -c './zig-out/bin/kern-attack 
 
 # --- 7. Формальные доказательства -------------------------------------------
 if [ "$FAST" = "0" ]; then
-  stage "Lean 4 (0 errors, 0 sorry)" bash -c './formal/check.sh 2>&1 | tail -3'
+  # ДЕФЕКТ #49: было `./formal/check.sh 2>&1 | tail -3` — RC брался от `tail`,
+  # поэтому ПРОВАЛ check.sh (например, найденный `sorry`) НЕ ронял стадию.
+  # Именно так `sorry` в formal/KernAllMath.lean дожил до коммита f418c87,
+  # а CI оставался зелёным. Теперь RC берётся от самого check.sh.
+  stage "Lean 4 (0 errors, 0 sorry)" bash -c 'out=$(./formal/check.sh 2>&1); rc=$?; echo "$out" | tail -3; exit $rc'
 fi
 
 # --- 8. CAN-FAIL: доказательство, что проверки СПОСОБНЫ упасть ---------------
 if [ "$FAST" = "0" ]; then
   stage "canfail --selftest (мета)" python3 tools/canfail.py --selftest
   stage "canfail (полный контур)" python3 tools/canfail.py
+
+  # --- 8b. НЕТ СЛЕДОВ ХАРНЕССА (дефекты #38/#46/#48) ----------------------
+  # Харнесс ломает файлы и обязан их откатывать. Если он оставит след,
+  # `git add -A` закоммитит ДИВЕРСИЮ. Так уже было трижды:
+  #   #38 — диверсия в z3_bridge.zig ушла в коммит 8c1e540;
+  #   #46 — удаление TRACEABILITY_MATRIX.md ушло в 92bf484;
+  #   #48 — `theorem CANFAIL_PROBE : True := by sorry` ушёл в f418c87
+  #         (и CI был зелёным, потому что стадия Lean глушила RC — #49).
+  stage "нет следов харнесса в дереве" bash -c '
+    bad=0
+    if [ -n "$(git status --porcelain)" ]; then
+      echo "[!] дерево ГРЯЗНОЕ после харнесса:"; git status --short | head -10; bad=1
+    fi
+    if grep -rn "CANFAIL_PROBE" formal/ src/ tools/ Makefile 2>/dev/null; then
+      echo "[!] найден след харнесса CANFAIL_PROBE"; bad=1
+    fi
+    exit $bad
+  '
 fi
 
 # --- СВОДКА -----------------------------------------------------------------

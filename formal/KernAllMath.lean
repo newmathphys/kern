@@ -163,5 +163,3 @@ theorem fuel_bounds_influence
     rw [ih v (fun w hw => h w (Within.step hw hv'))]
 
 end KernMath
-
-theorem CANFAIL_PROBE : True := by sorry
