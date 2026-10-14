@@ -94,6 +94,7 @@ FAULTABLE = [
     "src/core/kimg_reader.zig",
     "Makefile",
     "formal/KernSemanticGap.lean",
+    "formal/certification/TRACEABILITY_MATRIX.md",
     "src/core/sigbus_guard.zig",
     "src/cov.zig",
     "src/next/truth.zig",
@@ -147,6 +148,26 @@ def snapshot_faultable() -> dict:
     return out
 
 
+def restore_missing() -> list:
+    """Восстанавливает файлы, которые кейс УДАЛИЛ (а не испортил).
+
+    ⚠️ ЗАЧЕМ (ДЕФЕКТ #46, найден на практике): кейс `cert` делал
+    `unlink()` для `formal/certification/TRACEABILITY_MATRIX.md`.
+    `verify_restored()` проверял только СУЩЕСТВУЮЩИЕ файлы, поэтому
+    удаление не заметил — и оно попало в КОММИТ `92bf484` (тот же класс,
+    что дефект #38). Теперь отсутствие файла из FAULTABLE — это ОШИБКА,
+    и файл немедленно восстанавливается из git.
+    """
+    missing = []
+    for f in FAULTABLE:
+        p = ROOT / f
+        if not p.exists():
+            missing.append(f)
+            subprocess.run(["git", "checkout", "--", f], cwd=str(ROOT),
+                           capture_output=True)
+    return missing
+
+
 def verify_restored(snap: dict) -> list:
     """Проверяет, что после прогона НИ ОДИН исходник не остался испорченным.
 
@@ -154,9 +175,12 @@ def verify_restored(snap: dict) -> list:
     не откатывается. Так `z3_bridge.zig` остался с диверсией кейса
     `pool-limit` — и она попала в КОММИТ (8c1e540). Этот контроль ловит
     такой класс ошибок: харнесс не должен оставлять следов в дереве.
+
+    ДЕФЕКТ #46: проверялись только существующие файлы, поэтому УДАЛЕНИЕ
+    (`unlink()`) не замечалось. Теперь отсутствие — тоже ошибка.
     """
     import hashlib
-    bad = []
+    bad = list(restore_missing())
     for f, h in snap.items():
         p = ROOT / f
         cur = hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
@@ -771,15 +795,19 @@ def case_fuzz_1m():
 
 
 def case_cert():
-    """Пакет квалификации. ЛОМАЕМ: удаляем файл матрицы трассируемости.
+    """Пакет квалификации. ЛОМАЕМ: обнуляем файл матрицы трассируемости.
 
     ДЕФЕКТ #43: цель `cert` использовала `@grep -c`, где `@` ГЛУШИТ ошибку —
     при отсутствии файла цель оставалась зелёной.
+
+    ⚠️ ДЕФЕКТ #46: сначала кейс делал `unlink()` — и удаление файла попало
+    в КОММИТ (харнесс не проверял отсутствие). Теперь файл ОБНУЛЯЕТСЯ:
+    `test -s` падает (цель краснеет), а `git checkout` восстанавливает.
     """
     p = ROOT / "formal" / "certification" / "TRACEABILITY_MATRIX.md"
     if not p.exists():
         return None
-    p.unlink()
+    p.write_text("", encoding="utf-8")
     return "make cert"
 
 
@@ -860,7 +888,7 @@ CASES = [
     ("ubsafe",        "ReleaseSafe: переполнение без проверки",  case_ubsafe),
     ("mutate",        "Мутатор: ложный вердикт",                case_mutate),
     ("fuzz-1m",       "Фаззинг AST: паника в парсере",           case_fuzz_1m),
-    ("cert",          "Пакет квалификации: файл удалён",         case_cert),
+    ("cert",          "Пакет квалификации: файл обнулён",        case_cert),
     ("attest-key",    "Ключ владельца: несуществующий путь",     case_attest_key),
     ("audit-manifest","Манифест: битый эталонный образ",        case_audit_manifest),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
