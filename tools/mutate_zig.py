@@ -95,7 +95,9 @@ def run_tests(root):
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode == 0:
         return "SURVIVED", out
-    return "SURVIVED", out  # ЛОМАЕМ: любой мутант «выживает»
+    if "error:" in out and "FAIL" not in out and "expected" not in out:
+        return "KILLED_COMPILE", out
+    return "KILLED_TEST", out
 
 
 def tree_hash(root):
@@ -130,12 +132,30 @@ def acquire_lock(root):
     lp = os.path.join(root, LOCK)
     if os.path.exists(lp):
         try:
-            pid = open(lp).read().strip()
+            pid = int(open(lp).read().strip())
+        except (OSError, ValueError):
+            pid = None
+        # ДЕФЕКТ #50: раньше устаревший замок (после `kill`) БЛОКИРОВАЛ
+        # мутационное тестирование НАВСЕГДА — приходилось удалять вручную.
+        # Теперь проверяем, жив ли процесс-владелец.
+        alive = False
+        if pid:
+            try:
+                os.kill(pid, 0)  # сигнал 0 = только проверка существования
+                alive = True
+            except ProcessLookupError:
+                alive = False
+            except PermissionError:
+                alive = True  # чужой процесс — считаем живым
+        if alive:
+            print(f"[!] уже идёт мутационный прогон (PID {pid}).", file=sys.stderr)
+            sys.exit(2)
+        print(f"[i] найден УСТАРЕВШИЙ замок (PID {pid} не существует) — снимаю",
+              flush=True)
+        try:
+            os.unlink(lp)
         except OSError:
-            pid = "?"
-        print(f"[!] уже идёт мутационный прогон (PID {pid}). "
-              f"Удалите {LOCK}, если он устарел.", file=sys.stderr)
-        sys.exit(2)
+            pass
     with open(lp, "w") as f:
         f.write(str(os.getpid()))
     return lp

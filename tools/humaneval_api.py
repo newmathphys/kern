@@ -89,13 +89,36 @@ def gen(model: str, prompt: str, entry: str, max_tokens: int,
         "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": 0.95,
+        # ДЕФЕКТ #51 (найден при прогоне MBPP+): модели с РАССУЖДЕНИЕМ
+        # (`nemotron-3.5-lightning`, reasoning-режим) тратят ВЕСЬ бюджет
+        # max_tokens на поле `reasoning_content`, а `content` возвращают
+        # `null` (finish_reason="length"). Инструмент падал с
+        # `TypeError: 'NoneType' object is not subscriptable` -> все сэмплы
+        # помечались ошибкой -> pass@1 = 0.000 (дефект ИНСТРУМЕНТА).
+        # Отключаем «размышления» — модель отвечает кодом сразу.
+        "chat_template_kwargs": {"enable_thinking": False},
     }).encode("utf-8")
     req = urllib.request.Request(BASE + "/chat/completions", data=body,
                                  headers={"Content-Type": "application/json",
                                           "Authorization": "Bearer " + KEY})
     with urllib.request.urlopen(req, timeout=300) as r:
         d = json.loads(r.read().decode("utf-8"))
-    return _extract_body(d["choices"][0]["message"]["content"], entry, keep_def)
+    msg = d["choices"][0]["message"]
+    txt = msg.get("content")
+    if not txt:
+        # Резерв: если провайдер всё равно ушёл в reasoning-режим, берём
+        # `reasoning_content` (лучше частичный код, чем потерянный сэмпл),
+        # и сообщаем об этом явно — молча терять сэмплы НЕЛЬЗЯ.
+        txt = msg.get("reasoning_content") or ""
+        if txt:
+            print(f"[i] {entry}: content=null -> взят reasoning_content "
+                  f"({len(txt)} б, finish={d['choices'][0].get('finish_reason')})",
+                  file=sys.stderr, flush=True)
+    if not txt:
+        raise RuntimeError(
+            f"пустой ответ модели (finish={d['choices'][0].get('finish_reason')}); "
+            f"вероятно, весь бюджет ушёл в reasoning")
+    return _extract_body(txt, entry, keep_def)
 
 
 def main():

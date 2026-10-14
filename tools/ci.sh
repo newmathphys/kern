@@ -116,6 +116,16 @@ if [ "$FAST" = "0" ]; then
     if grep -rn "CANFAIL_PROBE" formal/ src/ tools/ Makefile 2>/dev/null; then
       echo "[!] найден след харнесса CANFAIL_PROBE"; bad=1
     fi
+    # ДЕФЕКТ #52 (критичный): маркер диверсии «ЛОМАЕМ» остался в
+    # tools/mutate_zig.py и был ЗАКОММИЧЕН (3915e76) — мутационное
+    # тестирование стало всегда возвращать «выжил» (score 0%).
+    # Ищем маркер во ВСЕХ отслеживаемых файлах, КРОМЕ тех, где он
+    # встречается законно (сам харнесс и этот скрипт — в комментариях).
+    hit=$(git ls-files | grep -vE "^(tools/canfail.py|tools/ci.sh|docs/|archive/)" | \
+          xargs -r grep -ln "ЛОМАЕМ" 2>/dev/null || true)
+    if [ -n "$hit" ]; then
+      echo "[!] найден МАРКЕР ДИВЕРСИИ «ЛОМАЕМ» в отслеживаемых файлах:"; echo "$hit"; bad=1
+    fi
     exit $bad
   '
 fi
