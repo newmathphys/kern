@@ -64,6 +64,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "tools/canfail.py",
     "tools/cache_avalanche_bench.py",
     "formal/KernAllMath.lean",
     "src/verifier/noninterference.zig",
@@ -266,6 +267,32 @@ def case_build_syntax():
     return "zig build"
 
 
+def case_sanity_control():
+    """Заведомо БЕЗОПАСНАЯ правка: добавляем комментарий в файл.
+
+    Семантику НЕ меняет -> `make arrays` обязан остаться ЗЕЛЁНЫМ.
+    Ожидаемый результат харнесса: «ВАКУМНА» (то есть он РАБОТАЕТ).
+    Если харнесс скажет «PASS» — он сломан, и все доказательства фиктивны.
+    """
+    p = ROOT / "src" / "verifier" / "array_theory.zig"
+    with p.open("a", encoding="utf-8") as f:
+        f.write("\n// KERN canfail: мета-контроль — семантику НЕ меняет\n")
+    return "make arrays"
+
+
+def case_meta_broken_verdict():
+    """K4, ВТОРОЙ УРОВЕНЬ: ломаем САМ ВЕРДИКТ харнесса.
+
+    Если вердикт всегда говорит PASS, то ВСЕ доказательства фиктивны.
+    `--selftest` обязан это заметить и вернуть ненулевой код.
+    Это и есть ответ на «кто проверит проверяющего».
+    """
+    patch("tools/canfail.py",
+          '    if rc != 0:\n        return True, "NOT_VACUOUS"        # проверка покраснела — она работает\n    return False, "VACUOUS"               # поломка внесена, цель зелёная — ВАКУУМ',
+          '    return True, "NOT_VACUOUS"  # ЛОМАЕМ: всегда PASS')
+    return "python3 tools/canfail.py --selftest"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -280,18 +307,71 @@ CASES = [
     ("smt-bench",     "SMT-бенчмарк: несовпадение ожидания",   case_smt_bench),
     ("stress-thresh", "порог стресса связан с кодом возврата", case_stress_threshold),
     ("build-syntax",  "сборка не является no-op",              case_build_syntax),
+    # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
+    # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
+    # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть
+    # и сказать «ВАКУУМНА». Если харнесс вместо этого скажет «PASS» —
+    # значит он сломан и ВСЕ остальные доказательства фиктивны.
+    ("sanity-control", "МЕТА: харнесс обязан поймать вакуум",   case_sanity_control, True),
+    # K4, второй уровень: ломаем САМ ВЕРДИКТ и требуем, чтобы self-test упал.
+    ("meta-verdict",  "МЕТА-2: сломанный вердикт ловится",      case_meta_broken_verdict),
 ]
+
+
+def verdict(rc: int, expect_vacuous: bool) -> tuple:
+    """ЧИСТАЯ функция вердикта харнесса. Выделена, чтобы её можно было
+    ПРОВЕРИТЬ (K4): сломанный вердикт = все доказательства фиктивны.
+
+    Возвращает (is_pass: bool, kind: str).
+    """
+    if expect_vacuous:
+        # Мета-контроль: правка безопасна, цель ОБЯЗАНА остаться зелёной.
+        if rc == 0:
+            return True, "META_OK"        # харнесс корректно увидел вакуум
+        return False, "META_FALSE_ALARM"  # ложное срабатывание
+    if rc != 0:
+        return True, "NOT_VACUOUS"        # проверка покраснела — она работает
+    return False, "VACUOUS"               # поломка внесена, цель зелёная — ВАКУУМ
+
+
+def selftest() -> int:
+    """K4: самопроверка ЛОГИКИ харнесса на синтетических входах.
+
+    Без неё «харнесс работает» — такое же голословное утверждение, как
+    `RC=0` у любой другой проверки.
+    """
+    cases = [
+        # (rc, expect_vacuous, ожидаемый is_pass, что проверяем)
+        (1, False, True,  "цель покраснела -> PASS (не вакуумна)"),
+        (0, False, False, "цель зелёная при поломке -> FAIL (ВАКУУМ)"),
+        (0, True,  True,  "мета: безопасная правка, цель зелёная -> PASS"),
+        (1, True,  False, "мета: безопасная правка, а цель красная -> FAIL"),
+    ]
+    bad = 0
+    for rc, ev, want, what in cases:
+        got, kind = verdict(rc, ev)
+        mark = "OK" if got == want else "ПРОВАЛ"
+        if got != want:
+            bad += 1
+        print(f"  [{mark}] rc={rc} expect_vacuous={int(ev)} -> {kind:16s} | {what}")
+    print(f"\nСАМОПРОВЕРКА ХАРНЕССА: {'ПРОЙДЕНА' if bad == 0 else 'ПРОВАЛЕНА'}")
+    return 1 if bad else 0
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--selftest", action="store_true",
+                    help="K4: проверить ЛОГИКУ харнесса на синтетических входах")
     args = ap.parse_args()
 
+    if args.selftest:
+        return selftest()
+
     if args.list:
-        for n, d, _ in CASES:
-            print(f"  {n:12s} {d}")
+        for c in CASES:
+            print(f"  {c[0]:14s} {c[1]}")
         return 0
 
     env = dict(os.environ)
@@ -307,7 +387,9 @@ def main():
     clean_slate()
 
     ok = bad = skipped = 0
-    for name, desc, fn in CASES:
+    for c in CASES:
+        name, desc, fn = c[0], c[1], c[2]
+        expect_vacuous = c[3] if len(c) > 3 else False
         if args.only and args.only != name:
             continue
         t0 = time.time()
@@ -315,7 +397,7 @@ def main():
             with Fault(FAULTABLE):
                 cmd = fn()
                 if cmd is None:
-                    print(f"  [SKIP] {name:12s} {desc} (предусловие не выполнено)")
+                    print(f"  [SKIP] {name:14s} {desc} (предусловие не выполнено)")
                     skipped += 1
                     continue
                 rc, out = sh_out(cmd, 900)
@@ -323,17 +405,27 @@ def main():
             rc, out = 124, "TIMEOUT"
         except Exception as e:
             import traceback
-            print(f"  [ERR ] {name:12s} {desc}: {e}")
+            print(f"  [ERR ] {name:14s} {desc}: {e}")
             traceback.print_exc()
             skipped += 1
             continue
         dt = time.time() - t0
-        if rc != 0:
-            print(f"  [PASS] {name:12s} {desc}")
+        is_pass, kind = verdict(rc, expect_vacuous)
+        if kind == "META_OK":
+            print(f"  [PASS] {name:14s} {desc}")
+            print(f"         харнесс КОРРЕКТНО увидел вакуум (цель осталась зелёной) за {dt:.0f} с")
+            ok += 1
+        elif kind == "META_FALSE_ALARM":
+            print(f"  [FAIL] {name:14s} {desc}")
+            print(f"         ХАРНЕСС СЛОМАН: безопасная правка, а цель покраснела (rc={rc})"
+                  f" — ложное срабатывание")
+            bad += 1
+        elif kind == "NOT_VACUOUS":
+            print(f"  [PASS] {name:14s} {desc}")
             print(f"         проверка ПОКРАСНЕЛА (rc={rc}) за {dt:.0f} с — она не вакуумна")
             ok += 1
-        else:
-            print(f"  [FAIL] {name:12s} {desc}")
+        else:  # VACUOUS
+            print(f"  [FAIL] {name:14s} {desc}")
             print(f"         ВАКУУМНА: поломка внесена, а цель осталась ЗЕЛЁНОЙ (rc=0)!")
             bad += 1
 
