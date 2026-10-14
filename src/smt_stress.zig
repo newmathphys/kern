@@ -125,4 +125,10 @@ pub fn main(init: std.process.Init) !void {
     }
     const ns = timer.read();
     std.debug.print("\n=== ИТОГ: {d}/{d} совпало за {d:.1} мс ===\n", .{ ok_n, CASES.len, @as(f64, @floatFromInt(ns)) / 1e6 });
+    // ДЕФЕКТ #42 (найден can-fail): «X/Y совпало» печаталось, но НЕ влияло
+    // на код возврата — `make smt-stress` оставался зелёным при несовпадениях.
+    if (ok_n != CASES.len) {
+        std.debug.print("[!] ЕСТЬ НЕСОВПАДЕНИЯ: {d} из {d} — проверка ПРОВАЛЕНА\n", .{ CASES.len - ok_n, CASES.len });
+        std.process.exit(2);
+    }
 }

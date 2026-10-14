@@ -73,6 +73,7 @@ FAULTABLE = [
     "src/verifier/array_theory.zig",
     "src/tests/litmus_memory_test.zig",
     "src/smt_bench.zig",
+    "src/smt_stress.zig",
     "src/kimg_stress.zig",
     "src/main.zig",
     "src/verifier/chc.zig",
@@ -98,6 +99,8 @@ FAULTABLE = [
     "src/next/truth.zig",
     "tools/deal_contracts.py",
     "tools/os_signal_flood.py",
+    "src/core/eq2.zig",
+    "src/core/kimg_writer.zig",
     "src/kern_bench.zig",
     "src/perf_bench.zig",
     "src/stress_real.zig",
@@ -656,6 +659,66 @@ def case_flood():
     return "make flood"
 
 
+def case_bench_target():
+    """Цель `bench` (kern_bench). ЛОМАЕМ: Врата открываются по тайм-ауту."""
+    patch("src/verifier/admission_gate.zig",
+          "                cov.hit(.gate_unknown_timeout);\n                eq2 = .N; // тайм-аут не является опровержением",
+          "                cov.hit(.gate_unknown_timeout);\n                eq2 = .T; e_val = 1; // ЛОМАЕМ")
+    return "zig build bench-kern"
+
+
+def case_stress_target():
+    """Цель `stress`. ЛОМАЕМ: нарушение закона Белнапа в stress_real."""
+    patch("src/core/eq2.zig",
+          "pub fn joinK(a: Eq2, b: Eq2) Eq2 {",
+          "pub fn joinK(a: Eq2, b: Eq2) Eq2 {\n    _ = a;\n    return b; // ЛОМАЕМ: перезапись вместо join")
+    return "zig build bench-stress-real"
+
+
+def case_theories_target():
+    """Цель `theories` (мета: 5 теорий). ЛОМАЕМ: CHC-теорию."""
+    patch("src/verifier/chc.zig",
+          "        return bridge.executeQuery(q).status;\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ",
+          "        _ = bridge.executeQuery(q);\n        return .Sat; // ЛОМАЕМ\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ")
+    return "make theories"
+
+
+def case_audit_target():
+    """Цель `audit` (CLI `kernc audit`). ЛОМАЕМ: запрос разрыва санитайзера.
+
+    ⚠️ Первая попытка правила `buildContainsQuery` — а `kernc audit`
+    использует `buildSanitizerGapQuery`. Мишень исправлена.
+    """
+    patch("src/verifier/string_theory.zig",
+          'const c1 = try std.fmt.allocPrint(self.allocator, "(str.contains p \\"{s}\\")", .{danger});',
+          'const c1 = try std.fmt.allocPrint(self.allocator, "(str.contains p \\"ZZZ\\")", .{danger}); // ЛОМАЕМ')
+    return "make audit"
+
+
+def case_smt_stress_target():
+    """Цель `smt-stress`. ЛОМАЕМ: подменяем ОЖИДАНИЕ в его таблице CASES.
+
+    ⚠️ Две неверные попытки: (1) паттерн NRA с двойным бэкслешем;
+    (2) `nra_quant.zig` — но `smt_stress.zig` имеет СВОЮ таблицу CASES
+    с инлайн-SMT и движок NRA не использует. Правильная мишень — ожидание.
+    """
+    patch("src/smt_stress.zig",
+          '.{ .name = "NIA: x*x >= 0", .expect = .proved,',
+          '.{ .name = "NIA: x*x >= 0", .expect = .refuted, // ЛОМАЕМ: неверное ожидание')
+    return "make smt-stress"
+
+
+def case_memcheck_ubsafe():
+    """Цели `memcheck`/`ubsafe`. ЛОМАЕМ: утечка памяти в ядре.
+
+    Оба режима (Debug-GPA и ReleaseSafe) обязаны это заметить.
+    """
+    patch("src/core/kimg_writer.zig",
+          "    pub fn deinit(self: *Builder) void {",
+          "    pub fn deinit(self: *Builder) void {\n        return; // ЛОМАЕМ: ресурсы не освобождаются")
+    return "make memcheck"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -699,6 +762,12 @@ CASES = [
     ("deal",          "DbC: ложное постусловие стало верным",    case_deal_contracts),
     ("os-stress",     "Ресурсы ОС: лимит вывода снят",          case_os_stress),
     ("flood",         "Флуд: воркер не считает успехи",         case_flood),
+    ("bench",         "Цель bench: инвариант Врат",             case_bench_target),
+    ("stress",        "Цель stress: закон Белнапа",              case_stress_target),
+    ("theories",      "Цель theories: CHC-теория",               case_theories_target),
+    ("audit",         "Цель audit: строковая теория",            case_audit_target),
+    ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
+    ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

@@ -104,6 +104,13 @@ CASE_TARGET = {
     "deal": "deal",
     "os-stress": "os-stress",
     "flood": "flood",
+    "bench": "bench",
+    "stress": "stress",
+    "theories": "theories",
+    "audit": "audit",
+    "smt-stress": "smt-stress",
+    "memcheck": "memcheck",
+    "ubsafe": "ubsafe",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }
