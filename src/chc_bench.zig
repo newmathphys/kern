@@ -80,4 +80,11 @@ pub fn main(init: std.process.Init) !void {
         });
     }
     std.debug.print("\n=== ИТОГ: {d}/{d} совпало с ожиданием; суммарно {d} мс ===\n", .{ pass, CASES.len, total_ms });
+    // ДЕФЕКТ #47 (найден can-fail, класс #42/#36): «X/Y совпало» печаталось,
+    // но НЕ влияло на код возврата — `make chc-bench` оставался зелёным
+    // при несовпадениях с ожиданием.
+    if (pass != CASES.len) {
+        std.debug.print("[!] ЕСТЬ НЕСОВПАДЕНИЯ: {d} из {d} — проверка ПРОВАЛЕНА\n", .{ CASES.len - pass, CASES.len });
+        std.process.exit(2);
+    }
 }

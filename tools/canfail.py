@@ -74,6 +74,9 @@ FAULTABLE = [
     "src/tests/litmus_memory_test.zig",
     "src/smt_bench.zig",
     "src/smt_stress.zig",
+    "src/chc_bench.zig",
+    "src/semantic_probe.zig",
+    "bench/portable_merkle.zig",
     "src/kimg_stress.zig",
     "src/main.zig",
     "src/verifier/chc.zig",
@@ -835,6 +838,42 @@ def case_audit_manifest():
     return "make audit-manifest"
 
 
+def case_chc_bench():
+    """Цель `chc-bench`. ЛОМАЕМ: неверное ожидание в таблице CASES.
+
+    ДЕФЕКТ #47: «X/Y совпало» печаталось, но код возврата не менялся.
+    """
+    patch("src/chc_bench.zig",
+          '.{ .name = "countdown: x:=10; while(x>0) x-- => x<=0", .init = "(= x 10)", .guard = "(> x 0)", .step = "(- x 1)", .post = "(<= x 0)", .expect = .Sat },',
+          '.{ .name = "countdown: x:=10; while(x>0) x-- => x<=0", .init = "(= x 10)", .guard = "(> x 0)", .step = "(- x 1)", .post = "(<= x 0)", .expect = .Unsat }, // ЛОМАЕМ')
+    return "make chc-bench"
+
+
+def case_probe():
+    """Цель `probe`. ЛОМАЕМ: дайджест становится НЕдетерминированным.
+
+    K2: цель была MEASURE (печатала дайджест). Теперь проверяется
+    детерминизм: два прогона обязаны дать один SHA-256.
+    """
+    patch("src/semantic_probe.zig",
+          "    std.debug.print(\"SEMANTIC_DIGEST={s}\\n\", .{hex});",
+          "    std.debug.print(\"SEMANTIC_DIGEST={s}{d}\\n\", .{ hex, @as(u8, @truncate(@as(u64, @intCast(std.time.nanoTimestamp())))) }); // ЛОМАЕМ: недетерминизм")
+    return "make probe"
+
+
+def case_portable_bench():
+    """Цель `portable-bench`. ЛОМАЕМ: `acc` становится вырожденным (0).
+
+    K2: цель была MEASURE (печатала времена). Теперь она проверяет
+    СЕМАНТИЧЕСКУЮ ЭКВИВАЛЕНТНОСТЬ компиляторов (root0/acc) — и вырожденный
+    `acc` обязан её уронить (иначе загрузки выброшены оптимизатором).
+    """
+    patch("bench/portable_merkle.zig",
+          "        acc +%= buf[off + 32];",
+          "        // ЛОМАЕМ: загрузка выброшена — acc вырожден")
+    return "make portable-bench"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -891,6 +930,9 @@ CASES = [
     ("cert",          "Пакет квалификации: файл обнулён",        case_cert),
     ("attest-key",    "Ключ владельца: несуществующий путь",     case_attest_key),
     ("audit-manifest","Манифест: битый эталонный образ",        case_audit_manifest),
+    ("chc-bench",     "CHC-бенчмарк: неверное ожидание",         case_chc_bench),
+    ("probe",         "Семантический дайджест: недетерминизм",    case_probe),
+    ("portable-bench","Кросс-компилятор: вырожденный acc",       case_portable_bench),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

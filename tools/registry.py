@@ -44,8 +44,8 @@ CLASS = {
     "disasm": "CHECK", "slsa": "CHECK", "deal": "CHECK", "cert": "CHECK",
     "audit-manifest": "CHECK", "fd-check": "CHECK", "canfail": "CHECK",
     # --- измерения: упасть НЕ могут -----------------------------------------
-    "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "MEASURE",
-    "portable-bench": "MEASURE", "smt": "CHECK", "chc-bench": "MEASURE",
+    "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
+    "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",
     "stress-real": "CHECK", "kern": "CHECK",
     # --- сборка -------------------------------------------------------------
     "lib": "BUILD", "hermetic": "BUILD", "next": "BUILD", "demo": "BUILD",
@@ -117,6 +117,9 @@ CASE_TARGET = {
     "cert": "cert",
     "attest-key": "attest-key",
     "audit-manifest": "audit-manifest",
+    "chc-bench": "chc-bench",
+    "probe": "probe",
+    "portable-bench": "portable-bench",
     "ubsafe": "ubsafe",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса

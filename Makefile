@@ -175,12 +175,7 @@ echelons: align avalanche pool semantic-gap
 ZIG13 ?= .venv/bin/zig
 
 portable-bench:
-	@$(ZIG) build-exe bench/portable_merkle.zig -O ReleaseFast -lc -femit-bin=/tmp/pb17
-	@echo "=== Zig 0.17 ==="; /tmp/pb17
-	@if [ -x "$(ZIG13)" ]; then \
-	  $(ZIG13) build-exe bench/portable_merkle.zig -O ReleaseFast -lc -femit-bin=/tmp/pb13; \
-	  echo "=== Zig 0.13 ==="; /tmp/pb13; \
-	else echo "[i] $(ZIG13) нет — сравнение только на 0.17"; fi
+	@$(PYTHON) tools/portable_check.py
 
 # ==== CAN-FAIL: доказательство, что проверки СПОСОБНЫ УПАСТЬ ====
 # Для каждой проверки искусственно ломается её инвариант; цель ОБЯЗАНА
@@ -328,7 +323,7 @@ binlevel:
 
 # Только семантический зонд (дайджест одного уровня оптимизации).
 probe:
-	$(ZIG) build bench-semantic
+	$(PYTHON) tools/probe_check.py
 
 # Детерминированный симуляционный тест (VOPR-стиль, как TigerBeetle).
 # Тот же сид → та же история на любой машине. Инварианты I1-I4 + I5 (гонки).
