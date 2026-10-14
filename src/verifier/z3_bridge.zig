@@ -476,7 +476,7 @@ pub const SolverPool = struct {
 
     /// Занять слот решателя. Блокируется, пока все слоты заняты.
     pub fn acquire(self: *SolverPool) void {
-        // ЛОМАЕМ: слот не занимается, лимит не соблюдается
+        self.sem.waitUncancelable(compat.io());
         _ = self.acquired_total.fetchAdd(1, .monotonic);
         const now = self.active.fetchAdd(1, .acq_rel) + 1;
         while (true) {

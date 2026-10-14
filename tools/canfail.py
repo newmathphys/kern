@@ -79,6 +79,7 @@ FAULTABLE = [
     "src/verifier/dtmc.zig",
     "src/verifier/cegis.zig",
     "src/verifier/nra_quant.zig",
+    "src/verifier/z3_bridge.zig",
     "src/verifier/string_theory.zig",
     "src/tests/alignment_stress.zig",
     "tests/fixtures/valid_v1_3.kimg",
@@ -110,8 +111,46 @@ def clean_slate() -> None:
                        capture_output=True, text=True)
 
 
+def snapshot_faultable() -> dict:
+    """SHA-256 «ломаемых» файлов на момент старта."""
+    import hashlib
+    out = {}
+    for f in FAULTABLE:
+        p = ROOT / f
+        if p.exists():
+            out[f] = hashlib.sha256(p.read_bytes()).hexdigest()
+    return out
+
+
+def verify_restored(snap: dict) -> list:
+    """Проверяет, что после прогона НИ ОДИН исходник не остался испорченным.
+
+    ⚠️ ЗАЧЕМ (найдено на практике, КРИТИЧНО): файл, которого НЕТ в FAULTABLE,
+    не откатывается. Так `z3_bridge.zig` остался с диверсией кейса
+    `pool-limit` — и она попала в КОММИТ (8c1e540). Этот контроль ловит
+    такой класс ошибок: харнесс не должен оставлять следов в дереве.
+    """
+    import hashlib
+    bad = []
+    for f, h in snap.items():
+        p = ROOT / f
+        cur = hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+        if cur != h:
+            bad.append(f)
+    return bad
+
+
 def patch(path: str, old: str, new: str) -> None:
-    """Замена подстроки в файле (падает, если подстрока не найдена)."""
+    """Замена подстроки в файле (падает, если подстрока не найдена).
+
+    ⚠️ ПРЕДОХРАНИТЕЛЬ (найден на практике): если файла НЕТ в FAULTABLE,
+    его правка НЕ будет откачена и останется в дереве. Именно так
+    `z3_bridge.zig` остался испорченным после кейса `pool-limit`.
+    """
+    if path not in FAULTABLE:
+        raise RuntimeError(
+            f"{path} отсутствует в FAULTABLE — правка НЕ будет откачена! "
+            f"Добавьте файл в FAULTABLE.")
     p = ROOT / path
     try:
         s = p.read_text(encoding="utf-8")
@@ -468,6 +507,7 @@ def main():
     print("Метод: ломаем инвариант -> цель ОБЯЗАНА покраснеть.\n")
 
     clean_slate()
+    snap = snapshot_faultable()
 
     ok = bad = skipped = 0
     for c in CASES:
@@ -512,8 +552,19 @@ def main():
             print(f"         ВАКУУМНА: поломка внесена, а цель осталась ЗЕЛЁНОЙ (rc=0)!")
             bad += 1
 
+    # --- КОНТРОЛЬ ЦЕЛОСТНОСТИ: харнесс не должен оставлять следов -----------
+    dirty = verify_restored(snap)
+
     print()
     print("=" * 70)
+    if dirty:
+        print("[31m[!] ХАРНЕСС ОСТАВИЛ ИЗМЕНЕНИЯ В ДЕРЕВЕ:[0m")
+        for f in dirty:
+            print(f"      - {f}")
+        print("      Это значит, что файла не было в FAULTABLE и откат не сработал.")
+        bad += 1
+    else:
+        print("[32m[OK] дерево чистое: все правки откачены[0m")
     print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | пропущено {skipped}")
     print("=" * 70)
     return 1 if bad else 0
