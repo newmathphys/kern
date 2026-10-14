@@ -77,10 +77,20 @@ pub const KernFS = struct {
     /// Zero-copy срез полезной нагрузки объекта. Границы проверяются
     /// безопасной арифметикой (в отличие от первой версии Фазы 3).
     fn payloadSlice(self: KernFS, obj: ObjectEntry) ![]const u8 {
-        const size: u64 = if (obj.compression_codec == 0)
-            obj.compressed_size
-        else
-            obj.uncompressed_size;
+        // ДЕФЕКТ #55 (найден мутационным тестированием + аудитом 2026-10-14):
+        // `payloadSlice` (путь чтения) и `objectPayloadRaw` (сырой путь)
+        // выбирали размер ПРОТИВОПОЛОЖНО:
+        //     payloadSlice:      codec == 0 ? compressed_size : uncompressed_size
+        //     objectPayloadRaw:  codec != 0 ? compressed_size : uncompressed_size
+        // При compressed_size != uncompressed_size они вернули бы РАЗНЫЕ срезы.
+        // Дефект был невидим, потому что писатель (`kimg_writer`) и Python-
+        // генератор ставят оба поля равными длине содержимого.
+        //
+        // ПРАВИЛО (единое для обоих): читатель возвращает СТОЛЬКО БАЙТ,
+        // СКОЛЬКО ЛЕЖИТ В ОБРАЗЕ, то есть `compressed_size` — размер на диске.
+        // `uncompressed_size` нужен только для будущей распаковки
+        // (сжатие пока не реализовано — см. KNOWN_LIMITATIONS).
+        const size: u64 = obj.compressed_size;
         const end = std.math.add(u64, obj.payload_offset, size) catch {
             cov.hit(.fs_not_found);
             return KernFsError.FileNotFound;
@@ -107,10 +117,12 @@ pub const KernFS = struct {
     /// путей, где образ уже проверен целиком (`kernc check-integrity`).
     /// Для чтения данных пользователем — `objectPayload` (с проверкой).
     pub fn objectPayloadRaw(self: KernFS, obj: ObjectEntry) KernFsError![]const u8 {
-        const size: u64 = if (obj.compression_codec != 0)
-            obj.compressed_size
-        else
-            obj.uncompressed_size;
+        // ЕДИНОЕ ПРАВИЛО с `payloadSlice` (дефект #55): читаем столько байт,
+        // сколько лежит в образе, то есть `compressed_size`.
+        // Раньше здесь было `if (codec != 0) compressed_size else
+        // uncompressed_size` — ПРОТИВОПОЛОЖНО `payloadSlice`, из-за чего
+        // безопасный и сырой пути могли вернуть РАЗНЫЕ срезы.
+        const size: u64 = obj.compressed_size;
         const end = std.math.add(u64, obj.payload_offset, size) catch
             return KernFsError.FileNotFound;
         if (end > self.payload_region.len) return KernFsError.FileNotFound;
@@ -366,6 +378,48 @@ test "🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, object
     _ = try fs2.objectPayloadRaw(obj2);
 }
 
+test "ФИКС МУТАНТ #2: objectPayloadRaw читает ровно compressed_size" {
+    // Убивает выживший мутант в выборе размера: раньше здесь было
+    // `if (codec != 0) compressed_size else uncompressed_size` —
+    // ПРОТИВОПОЛОЖНО `payloadSlice` (дефект #55). Теперь правило единое:
+    // читаем `compressed_size` (размер на диске) независимо от кодека.
+    var region: [16]u8 = "a.zig\x00abcdefghij".*; // пул(6) + данные(10)
+
+    var e0 = std.mem.zeroes(ObjectEntry);
+    e0.payload_offset = 6;
+    e0.compression_codec = 0;
+    e0.compressed_size = 3;
+    e0.uncompressed_size = 9; // НАМЕРЕННО не равен compressed_size
+    var objs0 = [_]ObjectEntry{e0};
+    var fs0 = KernFS.init(std.testing.allocator, &region, &objs0, &region);
+    try std.testing.expectEqualStrings("abc", try fs0.objectPayloadRaw(e0));
+
+    // Ненулевой кодек НЕ меняет правило: всё равно compressed_size.
+    var e1 = e0;
+    e1.compression_codec = 1;
+    var objs1 = [_]ObjectEntry{e1};
+    var fs1 = KernFS.init(std.testing.allocator, &region, &objs1, &region);
+    try std.testing.expectEqualStrings("abc", try fs1.objectPayloadRaw(e1));
+
+    // Если взять uncompressed_size (9) — получится ДРУГОЙ срез ("abcdefghi").
+    // Тест фиксирует, что этого НЕ происходит.
+    e1.compressed_size = 9;
+    var objs2 = [_]ObjectEntry{e1};
+    var fs2 = KernFS.init(std.testing.allocator, &region, &objs2, &region);
+    try std.testing.expectEqualStrings("abcdefghi", try fs2.objectPayloadRaw(e1));
+}
+
+test "ГРАНИЦА: objectPayloadRaw отвергает выход за пределы payload" {
+    var region: [8]u8 = "abcdefgh".*;
+    var e = std.mem.zeroes(ObjectEntry);
+    e.payload_offset = 6;
+    e.compression_codec = 0;
+    e.compressed_size = 100; // 6 + 100 > 8 (читается именно compressed_size)
+    var objs = [_]ObjectEntry{e};
+    var fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+    try std.testing.expectError(KernFsError.FileNotFound, fs.objectPayloadRaw(e));
+}
+
 test "ФИКС CONF-06: запись в KERNFS отвергается AccessDenied" {
     var fs = KernFS.init(std.testing.allocator, &.{}, &.{}, &.{});
     try std.testing.expectError(KernFsError.AccessDenied,
@@ -385,7 +439,7 @@ test "ФИКС MERKLE: подмена байта в образе ломает м
 // ТЕСТЫ, ЗАКРЫВАЮЩИЕ ВЫЖИВШИЕ МУТАНТЫ (мутационное тестирование)
 // =========================================================================
 
-test "ФИКС МУТАНТ: payloadSlice выбирает размер по compression_codec" {
+test "ФИКС МУТАНТ: payloadSlice читает ровно compressed_size (единое правило #55)" {
     var region: [16]u8 = "a.zig\x00abcdefghij".*; // пул(6) + данные(10)
 
     var e0 = std.mem.zeroes(ObjectEntry);
@@ -394,20 +448,53 @@ test "ФИКС МУТАНТ: payloadSlice выбирает размер по com
     e0.flags = 0x0002;
     e0.logical_path_offset = 0;
     e0.payload_offset = 6;
-    e0.compression_codec = 0; // → compressed_size
-    e0.compressed_size = 3;
-    e0.uncompressed_size = 99;
+    e0.compression_codec = 0;
+    e0.compressed_size = 3; // ← читается ВСЕГДА (размер на диске)
+    e0.uncompressed_size = 99; // не влияет на чтение
     var objs0 = [_]ObjectEntry{e0};
     var fs0 = KernFS.init(std.testing.allocator, &region, &objs0, &region);
     try std.testing.expectEqualStrings("abc", (try fs0.read("/raw/a.zig")).raw_slice);
 
+    // ДЕФЕКТ #55: раньше при codec != 0 размер брался из `uncompressed_size`,
+    // из-за чего чтение расходилось с `objectPayloadRaw`. Теперь правило
+    // ОДНО для обоих путей — `compressed_size`, независимо от codec.
     var e1 = e0;
-    e1.compression_codec = 1; // → uncompressed_size
+    e1.compression_codec = 1;
     e1.uncompressed_size = 3;
-    e1.compressed_size = 99;
+    e1.compressed_size = 3; // ← по-прежнему размер на диске
     var objs1 = [_]ObjectEntry{e1};
     var fs1 = KernFS.init(std.testing.allocator, &region, &objs1, &region);
     try std.testing.expectEqualStrings("abc", (try fs1.read("/raw/a.zig")).raw_slice);
+
+    // Обратная проверка: если объявить compressed_size БОЛЬШЕ содержимого,
+    // чтение обязано отказать (а не молча вернуть чужой кусок памяти).
+    var e2 = e0;
+    e2.compressed_size = 100; // 6 + 100 > 16
+    var objs2 = [_]ObjectEntry{e2};
+    var fs2 = KernFS.init(std.testing.allocator, &region, &objs2, &region);
+    try std.testing.expectError(KernFsError.FileNotFound, fs2.read("/raw/a.zig"));
+}
+
+test "ДЕФЕКТ #55: payloadSlice и objectPayloadRaw дают ОДИН срез" {
+    // Суть дефекта: два пути выбирали размер ПРОТИВОПОЛОЖНО. Теперь правило
+    // единое, и при compressed_size != uncompressed_size результаты совпадают.
+    var region: [16]u8 = "a.zig\x00abcdefghij".*;
+    var e = std.mem.zeroes(ObjectEntry);
+    std.crypto.hash.sha2.Sha256.hash("abc", &e.digest, .{});
+    e.type_id = 0x0002;
+    e.flags = 0x0002;
+    e.logical_path_offset = 0;
+    e.payload_offset = 6;
+    e.compression_codec = 1; // НЕНУЛЕВОЙ кодек — именно здесь пути расходились
+    e.compressed_size = 3;
+    e.uncompressed_size = 9; // НЕ равен compressed_size
+    var objs = [_]ObjectEntry{e};
+    var fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+
+    const safe = try fs.objectPayload(e); // = payloadSlice (с SHA-256)
+    const raw = try fs.objectPayloadRaw(e); // без SHA-256
+    try std.testing.expectEqualStrings(safe, raw);
+    try std.testing.expectEqualStrings("abc", raw);
 }
 
 test "ФИКС МУТАНТ: hasPath требует флаг HAS_LOGICAL_PATH (бит 1)" {

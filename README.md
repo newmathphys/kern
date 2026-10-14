@@ -108,7 +108,7 @@ kern/
 │
 ├── docs/                           ДОКУМЕНТАЦИЯ (начните с docs/README.md)
 │   ├── README.md                   КАРТА документации — что где лежит
-│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 213 тестов + бенчмарки
+│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 230 тестов + бенчмарки
 │   ├── METRICS.md                  ЖУРНАЛ ПОКАЗАТЕЛЕЙ (все цифры из прогонов)
 │   ├── KERN_FIXES_v1_3.md          16 устранённых дефектов, с доказательствами
 │   ├── VERIFICATION_GOLD_STANDARDS.md  мировые бенчмарки
@@ -252,7 +252,7 @@ python3 tools/golden_v1_3.py
 # 3. Сборка (kernc, kern-attack, kernx)
 zig build
 
-# 4. Тесты: ядро (36) и KERN-Next (12)
+# 4. Тесты: ядро (188) и KERN-Next (37)
 zig build test
 zig build test-next        # требует libsqlite3
 
