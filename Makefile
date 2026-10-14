@@ -22,7 +22,7 @@ help:
 	@echo "KERN — цели Makefile"
 	@echo ""
 	@echo "Основные:"
-	@echo "  make venv        — создать venv и поставить Zig 0.13"
+	@echo "  make venv        — venv с Zig 0.13 (только для main/portable-bench)"
 	@echo "  make golden      — собрать эталонный образ .kimg v1.3"
 	@echo "  make build       — собрать kernc / kern-attack / kernx"
 	@echo "  make test        — тесты ядра (188)"
@@ -40,6 +40,9 @@ help:
 	 grep -oE '^[a-z][a-z0-9_-]*:' Makefile | tr -d ':' | sort | tr '\n' ' '
 
 venv:
+	@echo "[i] ВНИМАНИЕ: на ветке zig-0.17-migration нужен Zig 0.17.0."
+	@echo "    Этот venv (Zig 0.13) — ТОЛЬКО для ветки main и для portable-bench."
+	@echo "    Рабочий тулчейн: ~/opt/zig-x86_64-linux-0.17.0/zig"
 	uv venv $(VENV)
 	uv pip install --python $(VENV)/bin/python ziglang==0.13.0
 
