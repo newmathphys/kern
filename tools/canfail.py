@@ -95,6 +95,9 @@ FAULTABLE = [
     "formal/KernSemanticGap.lean",
     "src/core/sigbus_guard.zig",
     "src/cov.zig",
+    "src/next/truth.zig",
+    "tools/deal_contracts.py",
+    "tools/os_signal_flood.py",
     "src/kern_bench.zig",
     "src/perf_bench.zig",
     "src/stress_real.zig",
@@ -607,6 +610,52 @@ def case_coverage_counter():
     return "make coverage"
 
 
+def case_test_next():
+    """KERN-Next. ЛОМАЕМ: `status()` всегда возвращает `tested` (T)."""
+    patch("src/next/truth.zig",
+          "        if (self.p and !self.n) return .tested; // T",
+          "        return .tested; // ЛОМАЕМ: всегда T")
+    return "zig build test-next"
+
+
+def case_deal_contracts():
+    """Design-by-Contract. ЛОМАЕМ: подменяем ОЖИДАНИЕ вердикта.
+
+    ⚠️ Первая попытка правила декоратор `@deal.post` — но скрипт выносит
+    вердикт по ЗАРАНЕЕ СОБРАННОЙ SMT-строке, а не по декоратору. Правильная
+    мишень — ожидание в таблице CASES.
+    """
+    patch("tools/deal_contracts.py",
+          '        "(assert (not (> (* x 2) 100)))(check-sat)",\n        "sat",  # контрпример существует',
+          '        "(assert (not (> (* x 2) 100)))(check-sat)",\n        "unsat",  # ЛОМАЕМ: неверное ожидание')
+    return "make deal"
+
+
+def case_os_stress():
+    """Ресурсы ОС. ЛОМАЕМ: лимит вывода решателя снят (нет аккуратного отказа).
+
+    ⚠️ Первая попытка искала `readToEndAlloc` — в 0.17 функция называется
+    `compat.fileReadToEndAlloc` с лимитом 4 МБ.
+    """
+    patch("src/verifier/z3_bridge.zig",
+          "compat.fileReadToEndAlloc(sout, self.allocator, 4 * 1024 * 1024)",
+          "compat.fileReadToEndAlloc(sout, self.allocator, 1024 * 1024 * 1024) // ЛОМАЕМ: лимит снят")
+    return "make os-stress"
+
+
+def case_flood():
+    """Флуд запросов. ЛОМАЕМ: детектор паник всегда «чисто».
+
+    ⚠️ Замечание: сделать CLI реально паникующим нельзя — это сломает
+    ВСЕ остальные цели. Поэтому проверяем, что детектор паник СВЯЗАН с
+    кодом возврата: если он сообщает о паниках, цель обязана покраснеть.
+    """
+    patch("tools/os_signal_flood.py",
+          "    bad = len(real_panics)",
+          "    bad = len(real_panics) + 1  # ЛОМАЕМ: якобы найдена паника")
+    return "make flood"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -646,6 +695,10 @@ CASES = [
     ("test-align",    "Цель test-align: выравнивание",          case_test_align_target),
     ("test-fault",    "Цель test-fault: SIGBUS-обработчик",     case_test_fault_target),
     ("coverage",      "Покрытие решений: счётчик не растёт",     case_coverage_counter),
+    ("test-next",     "KERN-Next: status всегда T",              case_test_next),
+    ("deal",          "DbC: ложное постусловие стало верным",    case_deal_contracts),
+    ("os-stress",     "Ресурсы ОС: лимит вывода снят",          case_os_stress),
+    ("flood",         "Флуд: воркер не считает успехи",         case_flood),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

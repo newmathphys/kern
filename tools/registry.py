@@ -100,6 +100,10 @@ CASE_TARGET = {
     "test-align": "test-align",
     "test-fault": "test-fault",
     "coverage": "coverage",
+    "test-next": "test-next",
+    "deal": "deal",
+    "os-stress": "os-stress",
+    "flood": "flood",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }
