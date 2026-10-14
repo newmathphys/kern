@@ -18,12 +18,12 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 
 | Показатель | Значение |
 |:--|:--|
-| Тесты ядра | **188** (Debug + ReleaseSafe) |
-| Тесты KERN-Next | **25** |
+| Тесты ядра | **191** (Debug + ReleaseSafe) |
+| Тесты KERN-Next | **37** |
 | Формальные доказательства | **7 файлов Lean 4**, 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | 92.5% (37/40; 3 эквивалентных → эффективно 100%) |
-| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **188/188** |
+| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **191/191** |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs | **31/31** багов реальным исполнением |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -50,7 +50,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
 
-# 3. Тесты ядра — 188 штук
+# 3. Тесты ядра — 191 штука
 zig build test
 
 # 4. Эталонный образ и его проверка
@@ -76,7 +76,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 188/188 tests
+Core (Debug)          : PASS — 191/191 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (7 files, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -168,7 +168,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ```
 ├── main.zig                        CLI kernc (читает образ .kimg)
 ├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (188 тестов)
+├── test_root.zig                   корень тестов ядра (191 тест)
 ├── core/
 │   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
 │   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
@@ -192,7 +192,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 │   ├── nra_quant.zig               нелинейная арифметика + кванторы
 │   └── redos.zig                   ReDoS-анализ регулярных выражений
 ├── runtime/kern_x.zig              KERN-X: fuel-bounded VM (без зависаний)
-├── next/                           KERN-Next (движок `kernx`, 25 тестов)
+├── next/                           KERN-Next (движок `kernx`, 37 тестов)
 │   ├── ast.zig · parser.zig        модель + парсер языка .kern
 │   ├── validate.zig                валидатор (10 правил)
 │   ├── catalog.zig                 SQLite-каталог .kdb
@@ -252,7 +252,7 @@ python3 tools/golden_v1_3.py
 # 3. Сборка (kernc, kern-attack, kernx)
 zig build
 
-# 4. Тесты: ядро (188) и KERN-Next (37)
+# 4. Тесты: ядро (191) и KERN-Next (37)
 zig build test
 zig build test-next        # требует libsqlite3
 
@@ -345,7 +345,7 @@ make echelons                                # 4 эшелона: выравни�
 | **Кванторы (E-matching)** | триггеры; Matching Loop DoS обезврежен таймаутом |
 | **Невмешательство (HyperLTL)** | taint: ветвление/индекс по секрету → **утечка**; constant-time ~1.0× |
 | **ReDoS (CWE-1333)** | `(a+)+`, `(a|a)*` → **уязвимы**; `(a|b)*` — нет |
-| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **188/188** каждый |
+| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **191/191** каждый |
 | **Мост «текст → контракт»** | `make bridge`: фраза из Markdown → `.smt2` → **`e=1` ДОКАЗАНО** |
 | **Binary-level soundness** | дайджест одинаков на Debug/ReleaseSafe/ReleaseFast (translation validation) |
 | **Constant-time на ассемблере** | taint-анализ: **0** ветвлений от данных (контроль: 1 обнаружен) |
@@ -495,7 +495,7 @@ snapshot → packet/report`, с инкрементальным кэшем.
 ## 7. Ограничения (честно)
 
 - **Тулчейн**: аттестованный эталон собран на **Zig 0.13.0** (ветка `main`).
-  Ветка **`zig-0.17-migration`** доведена до **RC=0** (сборка, 188 тестов,
+  Ветка **`zig-0.17-migration`** доведена до **RC=0** (сборка, 191 тест,
   ARM64/PPC64 через QEMU, ReleaseSafe, SLSA-аттестат). Миграция потребовала
   **~300 правок** — это ревизия подсистемы I/O (`std.Io`), а не косметика.
   См. [`docs/VERIFICATION_0_17.md`](docs/VERIFICATION_0_17.md).

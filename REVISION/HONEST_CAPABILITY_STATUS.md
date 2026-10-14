@@ -30,7 +30,7 @@
 | 5 теорий SMT (UNSAT-core, массивы, CHC, строки, CEGIS) | MEASURED | `kernc audit` → 5/5 отработали на реальном Z3 |
 | C-ABI (`libkern.so`, 7 функций) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) и C |
 
-**Числа:** `zig test src/test_root.zig` → **188/188 OK** (Debug И ReleaseSafe).
+**Числа:** `zig test src/test_root.zig` → **191/191 OK** (Debug И ReleaseSafe).
 Эталон `valid_v1_3.kimg` → Merkle совпадает Python↔Zig (подтверждено в обе стороны).
 Покрытие решений → **100.0%** (30/30). Мутации → 92.5% (37/40; 3 эквивалентных).
 
@@ -119,7 +119,7 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
 | Инкрементальный кэш (пропуск неизменённых) | MEASURED | повторный build → «пропущено» |
 | Стабильные ID | TESTED | повторный разбор → тот же id |
 
-**Числа:** `zig build test-next` → **25/25 OK** (в `docs/TEST_CATALOG.md` — 24 именованных теста + 1 агрегирующий; каталог генерируется из исходников).
+**Числа:** `zig build test-next` → **37/37 OK** (в `docs/TEST_CATALOG.md` — 24 именованных теста + 1 агрегирующий; каталог генерируется из исходников).
 
 ---
 
@@ -199,7 +199,7 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
 
 **MEASURED/TESTED:** ядро KIMG (парсер, сборщик, Merkle, KERNFS, Врата,
 KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
-snapshot, diff, packet, report, кэш) — **188 + 25 тестов, все зелёные**.
+snapshot, diff, packet, report, кэш) — **191 + 37 тестов, все зелёные**.
 
 **FRAMEWORK/NOT IMPL:** облако, WASM, Lean-транспилятор, плагины, bundle,
 PQC, дашборд — это следующий слой; он НЕ заявлен как работающий.

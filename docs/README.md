@@ -29,7 +29,7 @@
 | **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **218 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
 | **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§40): тесты, бенчмарки, мутации, производительность, **реестр 48 дефектов**, разбор «почему просела скорость», закрытие K1/K2 |
 | **[VERIFICATION_GOLD_STANDARDS.md](VERIFICATION_GOLD_STANDARDS.md)** | Мировые бенчмарки: SWE-bench, HumanEval+, QuixBugs, Refactory, CyberSecEval, мутации |
-| **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: сборка, 188 тестов, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
+| **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: сборка, 191 тест, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
 | **[MIGRATION_REPORT_0_17.md](MIGRATION_REPORT_0_17.md)** | Отчёт о миграции 0.13→0.17: точная карта изменений, стратегия двух треков |
 
 ### Устройство и исправления

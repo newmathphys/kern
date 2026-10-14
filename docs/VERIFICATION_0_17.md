@@ -12,17 +12,17 @@
 
 ```
 zig build            → RC=0   kernc · kernx · kern-attack · kernc-hermetic
-zig build test       → RC=0   188 passed, 4 skipped, 0 failed
+zig build test       → RC=0   191 passed, 4 skipped, 0 failed
 zig build test-next  → RC=0
 ```
 
 | Проверка | Результат |
 |:--|:--|
 | Сборка всех артефактов | ✅ RC=0 |
-| Тесты ядра (x86_64) | ✅ **188 passed / 0 failed** |
+| Тесты ядра (x86_64) | ✅ **191 passed / 0 failed** |
 | Тесты KERN-Next | ✅ RC=0 |
-| **ARM64** (aarch64-linux-musl, QEMU) | ✅ **188 passed / 0 failed** |
-| **POWERPC64** (big-endian, QEMU) | ✅ **188 passed / 0 failed** |
+| **ARM64** (aarch64-linux-musl, QEMU) | ✅ **191 passed / 0 failed** |
+| **POWERPC64** (big-endian, QEMU) | ✅ **191 passed / 0 failed** |
 | Покрытие решений | ✅ **100.0%** (26/26) |
 | SLSA-аттестат | ✅ **АТТЕСТАТ ВАЛИДЕН** (коммит `2e044c7`) |
 
@@ -42,9 +42,9 @@ zig test --dep compat \
 
 | Платформа | Свойство | Результат |
 |:--|:--|:--|
-| **x86_64** (host) | TSO-модель памяти | 188/188 |
-| **ARM64** | строгое выравнивание (нет `Bus Error`) | 188/188 |
-| **POWERPC64** | **big-endian** (порядок байт) | 188/188 |
+| **x86_64** (host) | TSO-модель памяти | 191/191 |
+| **ARM64** | строгое выравнивание (нет `Bus Error`) | 191/191 |
+| **POWERPC64** | **big-endian** (порядок байт) | 191/191 |
 
 Подтверждает: формат `.kimg` (128-байтный заголовок, 96-байтные дескрипторы,
 Merkle-корень) и весь KERNFS читаются корректно независимо от выравнивания
@@ -197,7 +197,7 @@ $ python3 tools/slsa_provenance.py --check
 |:--|:--|
 | Полный SMT-LIB sweep (5111 файлов) | ✅ **ПРОЙДЕН**: 1104/1104 совпало (100%), **0 расхождений**, **0 ложных срабатываний** |
 | Формальные доказательства Lean 4 | ✅ не зависят от Zig — `ALL LEAN PROOFS OK (0 errors, 0 sorry)` |
-| ReleaseSafe (детектор UB) | ✅ **188 passed / 0 failed** (UB не обнаружено) |
+| ReleaseSafe (детектор UB) | ✅ **191 passed / 0 failed** (UB не обнаружено) |
 | Мутационный скор | ⏳ не перепроверен на 0.17 |
 | SLSA-подпись (cosign) | нет инструмента |
 | Слияние в `main` | по правилу DO-330 — только после полного зелёного контура |
@@ -225,11 +225,11 @@ $ python3 tools/slsa_provenance.py --check
 | Проверка | Результат |
 |:--|:--|
 | `zig build` | ✅ RC=0 |
-| `zig build test` | ✅ 188 passed / 0 failed |
+| `zig build test` | ✅ 191 passed / 0 failed |
 | `zig build test-next` | ✅ RC=0 |
-| ARM64 (QEMU) | ✅ 188 / 0 |
-| POWERPC64 big-endian (QEMU) | ✅ 188 / 0 |
-| ReleaseSafe | ✅ 188 / 0 (0 UB) |
+| ARM64 (QEMU) | ✅ 191 / 0 |
+| POWERPC64 big-endian (QEMU) | ✅ 191 / 0 |
+| ReleaseSafe | ✅ 191 / 0 (0 UB) |
 | Lean 4 | ✅ 7 файлов, 32 теоремы, 0 `sorry` |
 | SMT-LIB | ✅ 1104 / 1104 (100%), 0 ложных |
 | SLSA-аттестат | ✅ ВАЛИДЕН |
@@ -242,7 +242,7 @@ $ python3 tools/slsa_provenance.py --check
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PWD/.venv/bin:$PATH"
 
 zig build              # → kernc, kernx, kern-attack, kernc-hermetic
-zig build test         # → 188 passed, 0 failed
+zig build test         # → 191 passed, 0 failed
 zig build test-next    # → RC=0
 
 # Кросс-архитектура (QEMU)

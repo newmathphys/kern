@@ -467,7 +467,7 @@
 | **HumanEval / HumanEval+** (EvalPlus, NeurIPS) | `tools/humaneval_api.py` + `evalplus.evaluate` | base **0.524**, plus **0.500** | **да (API)** |
 | **CyberSecEval** (Meta) | `python3 tools/cyberseceval_check.py` | 28/351 (8.0%) — простые правила | нет |
 | **SMT-LIB / cvc5 cross-check** | `python3 tools/solver_crosscheck.py` | 9/9 согласие, 0 расхождений | нет |
-| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **188/188** | нет |
+| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **191/191** | нет |
 | **Мутационное тестирование** | `python3 tools/mutate_zig.py` | 40 мутантов: 37 убито, 3 эквивалентных | нет |
 | **Фаззинг парсера** | `zig run src/fuzz_ast.zig` | **1 000 000** мутаций, 0 паник / 0 SIGSEGV | нет |
 | **Стресс .kimg** | `zig run src/kimg_stress.zig` | 1 млн объектов, случайный доступ 0.0006 мс | нет |
@@ -486,7 +486,7 @@ make formal-ci         # ядро + Lean-доказательства
 make echelons          # 4 эшелона: выравнивание, лавина хэша, пул, семантика
 
 # --- Ядро ---
-zig build test         # 188 тестов ядра (Debug)
+zig build test         # 191 тест ядра (Debug)
 zig test src/test_root.zig -O ReleaseSafe   # без UB
 zig build test-next    # 25 тестов KERN-Next
 zig build test-fault   # сбои памяти (реальный SIGBUS)

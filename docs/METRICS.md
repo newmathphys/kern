@@ -10,7 +10,7 @@
 
 | Набор | Debug | ReleaseFast |
 |:--|:--:|:--:|
-| Ядро (`src/test_root.zig`) | **188/188** | **188/188** (ReleaseSafe) |
+| Ядро (`src/test_root.zig`) | **191/191** | **191/191** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **25/25** | **25/25** (ReleaseSafe) |
 | Lean 4 (`formal/check.sh`) | **7 файлов, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 атаки закрыты | — |
@@ -1208,7 +1208,7 @@ claim `HumanEval+ зафиксирован официальным харнесс
 
 ```
 zig build            → rc=0
-ядро                 → 188/188 OK
+ядро                 → 191/191 OK
 покрытие решений     → 100.0% (30/30, порог 95%)
 мутации              → 92.5% (37/40; 3 эквивалентных → эффективно 100%)
 Lean 4               → 7 файлов, 0 errors, 0 sorry
@@ -1227,10 +1227,10 @@ KERN-Next            → 25/25 OK
 | Проверка | Результат |
 |:--|:--|
 | `zig build` | ✅ RC=0 (kernc, kernx, kern-attack, kernc-hermetic) |
-| `zig build test` (x86_64) | ✅ **188 passed / 4 skipped / 0 failed** |
+| `zig build test` (x86_64) | ✅ **191 passed / 4 skipped / 0 failed** |
 | `zig build test-next` | ✅ RC=0 |
-| **ARM64** (QEMU, aarch64-linux-musl) | ✅ **188 passed / 0 failed** |
-| **POWERPC64** (QEMU, big-endian) | ✅ **188 passed / 0 failed** |
+| **ARM64** (QEMU, aarch64-linux-musl) | ✅ **191 passed / 0 failed** |
+| **POWERPC64** (QEMU, big-endian) | ✅ **191 passed / 0 failed** |
 | Покрытие решений | ✅ **100.0%** (26/26) |
 | SLSA-аттестат (`kern.intoto.jsonl`) | ✅ **ВАЛИДЕН** (3 субъекта, коммит `2e044c7`) |
 
@@ -1298,10 +1298,10 @@ KERN-Next            → 25/25 OK
 
 | Проверка | Результат |
 |:--|:--|
-| `zig build` / `test` / `test-next` | ✅ RC=0 · 188 passed / 0 failed |
-| ARM64 (QEMU) | ✅ 188 / 0 |
-| POWERPC64 big-endian (QEMU) | ✅ 188 / 0 |
-| ReleaseSafe (детектор UB) | ✅ 188 / 0 — **0 UB** |
+| `zig build` / `test` / `test-next` | ✅ RC=0 · 191 passed / 0 failed |
+| ARM64 (QEMU) | ✅ 191 / 0 |
+| POWERPC64 big-endian (QEMU) | ✅ 191 / 0 |
+| ReleaseSafe (детектор UB) | ✅ 191 / 0 — **0 UB** |
 | Lean 4 | ✅ 7 файлов, 32 теоремы, **0 sorry** |
 | **SMT-LIB** (официальный банк) | ✅ **1104 / 1104 (100%)**, 0 расхождений, **0 ложных срабатываний** |
 | SLSA-аттестат | ✅ ВАЛИДЕН (3 субъекта) |
@@ -1402,13 +1402,13 @@ KERN-Next            → 25/25 OK
 | Проверка | Команда | Результат |
 |:--|:--|:--|
 | Сборка | `zig build` | RC 0 |
-| Ядро | `zig test --dep compat ...` | **188 passed, 4 skipped, 0 failed** |
+| Ядро | `zig test --dep compat ...` | **191 passed, 4 skipped, 0 failed** |
 | KERN-Next | `zig build test-next` | RC 0 (25 тестов) |
 | Эшелон 1 | `zig build test-align` | **9/9 tests passed** |
 | Эшелон 3 | `zig build test-pool` | **5/5 tests passed** |
 | Инъекция сбоев | `zig build test-fault` | **3/3 tests passed** |
 | Атаки | `kern-attack` | обе выполняются до конца (2 ИТОГа) |
-| ReleaseSafe | `make ubsafe` | RC 0, 188 passed / 0 failed |
+| ReleaseSafe | `make ubsafe` | RC 0, 191 passed / 0 failed |
 
 ### ⚠️ Поправка к сравнению 0.13 → 0.17
 
@@ -1553,7 +1553,7 @@ for i in $(seq 1 10); do /tmp/pb13; /tmp/pb17; done
 ### Тем не менее патч применён (в корректном виде) и измерен
 
 Реализация: 24 reserved-байта как **3 × u64**, объединённые `OR` → одна ветвь
-вместо 24. Семантика идентична (188 тестов проходят).
+вместо 24. Семантика идентична (191 тест проходят).
 
 | | n | медиана | мин | макс | ст.откл |
 |:--|:--:|--:|--:|--:|--:|
@@ -1686,14 +1686,14 @@ qemu-aarch64-static: .zig-cache/o/d7547b86.../root: Invalid ELF image for this a
 Стало (`make cross-arch`):
 ```
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
-  188 passed; 4 skipped; 0 failed.
+  191 passed; 4 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  188 passed; 4 skipped; 0 failed.
+  191 passed; 4 skipped; 0 failed.
 EXIT=0
 ```
 **Это первый раз, когда кросс-арх проверка реально исполняется** (через
 `qemu-user-static` из `/tmp`, скачанный ранее). Ранее заявление «ARM64 и
-POWERPC64: 188/188» было **непроверенным**.
+POWERPC64: 191/191» было **непроверенным**.
 
 ### Доказательство исправления C-ABI (#27, #28)
 
@@ -1721,7 +1721,7 @@ thread ... panic: KERN: compat.setIo() не вызван в main до файло
 
 | Цель | Результат |
 |:--|:--|
-| `cross-arch` | ✅ **188/188 ARM64 + 188/188 PPC64 (big-endian)**, EXIT=0 |
+| `cross-arch` | ✅ **191/191 ARM64 + 191/191 PPC64 (big-endian)**, EXIT=0 |
 | `slsa` | ✅ АТТЕСТАТ ВАЛИДЕН (3 субъекта, хэши и коммит совпали; подпись честно помечена как отсутствующая — нет cosign) |
 | `hermetic` | ✅ RC 0, `kernc-hermetic` (musl static) собран |
 | `lib` | ✅ RC 0, `libkern.so` + `libkern.a` + `kern.h` |
@@ -1927,13 +1927,13 @@ arrays:
 	zig test ... 2>&1 | grep -E "ARRAY|passed"
 ```
 **Почему вакуумно:** шаблон содержит `passed`. Если ARRAY-тесты удалить,
-переименовать или отключить, итоговая строка `188 passed; 4 skipped; 0 failed.`
+переименовать или отключить, итоговая строка `191 passed; 4 skipped; 0 failed.`
 ВСЁ РАВНО совпадёт с шаблоном -> `grep` вернёт 0 -> цель ЗЕЛЁНАЯ,
 хотя проверять больше нечего.
 
 **Доказательство (can-fail кейс `grep-arrays`):**
 ```
--- старый grep-подход:   grep -E "ARRAY|passed" -> "188 passed..." -> RC=0  ← ЗЕЛЕНО!
+-- старый grep-подход:   grep -E "ARRAY|passed" -> "191 passed..." -> RC=0  ← ЗЕЛЕНО!
 -- новый run_filtered:   [!] ВАКУУМНО: ни одного теста по фильтру 'ARRAY' не найдено
 ```
 
@@ -2428,7 +2428,7 @@ mutation score был бы **0 %**, а инструмент — бесполез
 
 | Область | Что проверено | Найдено |
 |:--|:--|:--|
-| Код | сборка, 188 тестов, 25 KERN-Next, Lean | #48, #49, #52 |
+| Код | сборка, 191 тест, 25 KERN-Next, Lean | #48, #49, #52 |
 | Инструменты | canfail, mutate, humaneval_api, registry | #50, #51 |
 | Документация | каталог тестов, индекс, паспорт, honest-status | каталог отставал на 5 тестов; счётчики 13→25, «нет docker» |
 | Свидетельства | cross_arch, mutation, smtlib, SWE-bench | мутации: 90 % (свежий) vs 92.5 % (README) — расхождение зафиксировано |
