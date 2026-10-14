@@ -55,7 +55,7 @@ CLASS = {
     # --- мета ---------------------------------------------------------------
     "help": "META", "venv": "META", "zig": "META", "clean": "META",
     "echelons": "META", "research": "META", "formal-ci": "META", "test-all": "META",
-    "mutate": "CHECK", "prove": "CHECK", "ci": "META", "ci-fast": "META",
+    "mutate": "CHECK", "prove": "CHECK", "ci": "META", "ci-fast": "META", "registry": "CHECK",
 }
 
 
@@ -79,6 +79,10 @@ CASE_TARGET = {
     "dtmc-theory": "dtmc",
     "cegis-theory": "cegis",
     "nra-theory": "nra",
+    "align-inv": "align",
+    "pool-limit": "pool",
+    "strings-theory": "strings",
+    "noninterf": "noninterference",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }

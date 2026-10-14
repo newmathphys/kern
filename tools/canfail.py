@@ -79,6 +79,8 @@ FAULTABLE = [
     "src/verifier/dtmc.zig",
     "src/verifier/cegis.zig",
     "src/verifier/nra_quant.zig",
+    "src/verifier/string_theory.zig",
+    "src/tests/alignment_stress.zig",
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
 ]
@@ -329,6 +331,43 @@ def case_nra_theory():
     return "make nra"
 
 
+def case_align_invariant():
+    """Эшелон 1 (выравнивание). ЛОМАЕМ: isStrictlyAligned всегда истинна."""
+    patch("src/tests/alignment_stress.zig",
+          "pub fn isStrictlyAligned(h: kimg.KimgHeader) bool {\n    return h.object_table_offset % 8 == 0 and h.data_payload_offset % 8 == 0;\n}",
+          "pub fn isStrictlyAligned(h: kimg.KimgHeader) bool {\n    _ = h;\n    return true; // ЛОМАЕМ: всегда «выровнено»\n}")
+    return "make align"
+
+
+def case_pool_limit():
+    """Эшелон 3 (пул). ЛОМАЕМ: acquire НЕ ждёт слот (лимит не соблюдается)."""
+    patch("src/verifier/z3_bridge.zig",
+          "    pub fn acquire(self: *SolverPool) void {\n        self.sem.waitUncancelable(compat.io());",
+          "    pub fn acquire(self: *SolverPool) void {\n        // ЛОМАЕМ: слот не занимается, лимит не соблюдается")
+    return "make pool"
+
+
+def case_strings_theory():
+    """Строковая теория. ЛОМАЕМ: подменяем needle на константу."""
+    patch("src/verifier/string_theory.zig",
+          'const c = try std.fmt.allocPrint(self.allocator, "(str.contains p \\"{s}\\")", .{needle});',
+          'const c = try std.fmt.allocPrint(self.allocator, "(str.contains p \\"ZZZ\\")", .{needle}); // ЛОМАЕМ')
+    return "make strings"
+
+
+def case_noninterference_taint():
+    """Невлияние (тайнтинг). ЛОМАЕМ: утечка НЕ регистрируется.
+
+    ⚠️ Первая попытка била в `constantTimeEqual` — и цель осталась ЗЕЛЁНОЙ
+    (это честный результат: тесты NONINTERFERENCE проверяют АНАЛИЗАТОР
+    тайнтов, а не саму функцию сравнения). Правильная мишень — `analyze`.
+    """
+    patch("src/verifier/noninterference.zig",
+          "            .branch_on => |v| if (tainted.contains(v)) {\n                try out.append(.{ .leak = .branch, .at = i });\n            },",
+          "            .branch_on => |v| if (tainted.contains(v)) {\n                // ЛОМАЕМ: утечка не регистрируется\n            },")
+    return "make noninterference"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -347,6 +386,10 @@ CASES = [
     ("dtmc-theory",   "DTMC: стохастичность всегда ложна",     case_dtmc_theory),
     ("cegis-theory",  "CEGIS: перебор только k=0",             case_cegis_theory),
     ("nra-theory",    "NRA: линейная логика вместо нелинейной", case_nra_theory),
+    ("align-inv",     "Эшелон 1: isStrictlyAligned всегда истинна", case_align_invariant),
+    ("pool-limit",    "Эшелон 3: лимит пула не соблюдается",     case_pool_limit),
+    ("strings-theory", "Строковая теория: подмена needle",       case_strings_theory),
+    ("noninterf",     "Невлияние: утечка не регистрируется",    case_noninterference_taint),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть
