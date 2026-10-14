@@ -10,9 +10,10 @@
 |:--|:--|
 | Понять, что такое KERN (5 мин) | [`../README.md`](../README.md) — раздел «Быстрый старт» |
 | Увидеть все цифры и замеры | [`METRICS.md`](METRICS.md) |
-| Увидеть все тесты (213) | [`TEST_CATALOG.md`](TEST_CATALOG.md) |
+| Увидеть все тесты (218) | [`TEST_CATALOG.md`](TEST_CATALOG.md) |
 | Узнать, что **не** сделано | [`../REVISION/HONEST_CAPABILITY_STATUS.md`](../REVISION/HONEST_CAPABILITY_STATUS.md) |
-| Узнать, какие дефекты исправлены | [`KERN_FIXES_v1_3.md`](KERN_FIXES_v1_3.md) |
+| Узнать, какие дефекты исправлены | [`KERN_FIXES_v1_3.md`](KERN_FIXES_v1_3.md) + [`METRICS.md`](METRICS.md) §39–§40 |
+| **Убедиться, что проверки не вакуумны** | [`../README.md`](../README.md) §5b + `make canfail` |
 | **Миграция на Zig 0.17.0** | [`VERIFICATION_0_17.md`](VERIFICATION_0_17.md) + [`MIGRATION_REPORT_0_17.md`](MIGRATION_REPORT_0_17.md) |
 
 ---
@@ -25,8 +26,8 @@
 |:--|:--|
 | **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок |
 | **[CAPABILITIES.md](CAPABILITIES.md)** | **11 возможностей с доказательствами**: что подтверждено, что с оговоркой, что неверно |
-| **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: 213 тестов по модулям + 15 внешних бенчмарков |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§20): тесты, бенчмарки, мутации, производительность, найденные баги |
+| **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **218 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§40): тесты, бенчмарки, мутации, производительность, **реестр 48 дефектов**, разбор «почему просела скорость», закрытие K1/K2 |
 | **[VERIFICATION_GOLD_STANDARDS.md](VERIFICATION_GOLD_STANDARDS.md)** | Мировые бенчмарки: SWE-bench, HumanEval+, QuixBugs, Refactory, CyberSecEval, мутации |
 | **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: сборка, 188 тестов, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
 | **[MIGRATION_REPORT_0_17.md](MIGRATION_REPORT_0_17.md)** | Отчёт о миграции 0.13→0.17: точная карта изменений, стратегия двух треков |
@@ -64,16 +65,23 @@
 ## Быстрые ссылки на команды
 
 ```bash
-make help          # все цели
+make help          # все цели (75)
 make test-all      # полный контур проверок
 make audit-manifest # сводный аттестационный статус (все строки — прогоны)
 make sim           # детерминированный симулятор (VOPR-стиль)
-make coverage      # покрытие решений (100%)
+make coverage      # покрытие решений (порог 100%)
 make mutate        # мутационное тестирование
 make bridge        # мост «текст → контракт»
 make audit         # 5 теорий SMT на реальном Z3
 make perf          # производительность (RAW vs безопасное чтение)
-./formal/check.sh  # Lean-доказательства
+./formal/check.sh  # Lean-доказательства (0 errors, 0 sorry)
+
+# --- Доказательство, что проверки СПОСОБНЫ упасть (K1–K5) ---
+make canfail           # 60 кейсов: ломаем инвариант -> цель обязана покраснеть
+make canfail-selftest  # кто проверит проверяющего: мета-проверка харнесса
+make registry          # реестр 75 целей + предохранитель от «молчаливых» новых
+make ci                # единый контур (12+ стадий); make ci-fast — быстрый
+python3 tools/gen_test_catalog.py --check   # каталог тестов не отстал от кода
 ```
 
 ---
