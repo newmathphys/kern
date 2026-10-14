@@ -75,6 +75,10 @@ CASE_TARGET = {
     "smt-bench": "smt",
     "stress-thresh": "stress-kimg",
     "build-syntax": "build",
+    "chc-theory": "chc",
+    "dtmc-theory": "dtmc",
+    "cegis-theory": "cegis",
+    "nra-theory": "nra",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }

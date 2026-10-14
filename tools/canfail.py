@@ -75,6 +75,10 @@ FAULTABLE = [
     "src/smt_bench.zig",
     "src/kimg_stress.zig",
     "src/main.zig",
+    "src/verifier/chc.zig",
+    "src/verifier/dtmc.zig",
+    "src/verifier/cegis.zig",
+    "src/verifier/nra_quant.zig",
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
 ]
@@ -293,6 +297,38 @@ def case_meta_broken_verdict():
     return "python3 tools/canfail.py --selftest"
 
 
+def case_chc_theory():
+    """CHC/Horn. ЛОМАЕМ: всегда сообщаем «баг найден» (Sat)."""
+    patch("src/verifier/chc.zig",
+          "        return bridge.executeQuery(q).status;\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ",
+          "        _ = bridge.executeQuery(q);\n        return .Sat; // ЛОМАЕМ: всегда «баг найден»\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ")
+    return "make chc"
+
+
+def case_dtmc_theory():
+    """DTMC. ЛОМАЕМ: стохастичность всегда ложна."""
+    patch("src/verifier/dtmc.zig",
+          "            if (@abs(s - 1.0) > 1e-9) return false;\n        }\n        return true;",
+          "            if (@abs(s - 1.0) > 1e-9) return false;\n        }\n        return false; // ЛОМАЕМ: всегда не стохастична")
+    return "make dtmc"
+
+
+def case_cegis_theory():
+    """CEGIS-синтез. ЛОМАЕМ: перебираем только k=0 вместо 0..31."""
+    patch("src/verifier/cegis.zig",
+          "        var k: usize = 0;\n        while (k < 32) : (k += 1) {",
+          "        var k: usize = 0;\n        while (k < 1) : (k += 1) { // ЛОМАЕМ: только k=0")
+    return "make cegis"
+
+
+def case_nra_theory():
+    """NRA. ЛОМАЕМ: объявляем ЛИНЕЙНУЮ логику вместо нелинейной."""
+    patch("src/verifier/nra_quant.zig",
+          "            \\\\(set-logic QF_NRA)",
+          "            \\\\(set-logic QF_LIA) // ЛОМАЕМ: нелинейность не поддержана")
+    return "make nra"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -307,6 +343,10 @@ CASES = [
     ("smt-bench",     "SMT-бенчмарк: несовпадение ожидания",   case_smt_bench),
     ("stress-thresh", "порог стресса связан с кодом возврата", case_stress_threshold),
     ("build-syntax",  "сборка не является no-op",              case_build_syntax),
+    ("chc-theory",    "CHC/Horn: ложный «баг найден»",         case_chc_theory),
+    ("dtmc-theory",   "DTMC: стохастичность всегда ложна",     case_dtmc_theory),
+    ("cegis-theory",  "CEGIS: перебор только k=0",             case_cegis_theory),
+    ("nra-theory",    "NRA: линейная логика вместо нелинейной", case_nra_theory),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть
