@@ -93,6 +93,8 @@ FAULTABLE = [
     "src/core/kimg_reader.zig",
     "Makefile",
     "formal/KernSemanticGap.lean",
+    "src/core/sigbus_guard.zig",
+    "src/cov.zig",
     "src/kern_bench.zig",
     "src/perf_bench.zig",
     "src/stress_real.zig",
@@ -572,6 +574,39 @@ def case_semantic_gap():
     return "make semantic-gap"
 
 
+def case_test_pool_target():
+    """Цель `test-pool`. ЛОМАЕМ: тот же лимит пула, но проверяем ИМЕННО
+    эту цель (у неё свой фильтр прогона)."""
+    patch("src/verifier/z3_bridge.zig",
+          "    pub fn acquire(self: *SolverPool) void {\n        self.sem.waitUncancelable(compat.io());",
+          "    pub fn acquire(self: *SolverPool) void {\n        // ЛОМАЕМ: лимит не соблюдается")
+    return "zig build test-pool"
+
+
+def case_test_align_target():
+    """Цель `test-align`. ЛОМАЕМ: инвариант выравнивания."""
+    patch("src/tests/alignment_stress.zig",
+          "pub fn isStrictlyAligned(h: kimg.KimgHeader) bool {\n    return h.object_table_offset % 8 == 0 and h.data_payload_offset % 8 == 0;\n}",
+          "pub fn isStrictlyAligned(h: kimg.KimgHeader) bool {\n    _ = h;\n    return true; // ЛОМАЕМ")
+    return "zig build test-align"
+
+
+def case_test_fault_target():
+    """Цель `test-fault` (SIGBUS). ЛОМАЕМ: обработчик не регистрируется."""
+    patch("src/core/sigbus_guard.zig",
+          "    posix.sigaction(posix.SIG.BUS, &act, null);\n    posix.sigaction(posix.SIG.SEGV, &act, null);",
+          "    _ = act; // ЛОМАЕМ: обработчики не установлены")
+    return "zig build test-fault"
+
+
+def case_coverage_counter():
+    """Покрытие решений. ЛОМАЕМ: счётчик НЕ инкрементируется."""
+    patch("src/cov.zig",
+          "pub inline fn hit(s: Site) void {\n    counters[@intFromEnum(s)] += 1;\n}",
+          "pub inline fn hit(s: Site) void {\n    _ = s; // ЛОМАЕМ: счётчик не растёт\n}")
+    return "make coverage"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -607,6 +642,10 @@ CASES = [
     ("prove-cli",     "CLI prove: мост всегда ToolError",       case_prove_cli),
     ("registry-fuse", "K5: предохранитель ловит новую цель",     case_registry_fuse),
     ("semantic-gap",  "Эшелон 4: sorry в Lean-файле",           case_semantic_gap),
+    ("test-pool",     "Цель test-pool: лимит пула",             case_test_pool_target),
+    ("test-align",    "Цель test-align: выравнивание",          case_test_align_target),
+    ("test-fault",    "Цель test-fault: SIGBUS-обработчик",     case_test_fault_target),
+    ("coverage",      "Покрытие решений: счётчик не растёт",     case_coverage_counter),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

@@ -96,6 +96,10 @@ CASE_TARGET = {
     "prove-cli": "prove",
     "registry-fuse": "registry",
     "semantic-gap": "semantic-gap",
+    "test-pool": "test-pool",
+    "test-align": "test-align",
+    "test-fault": "test-fault",
+    "coverage": "coverage",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }

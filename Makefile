@@ -262,7 +262,7 @@ chc-bench:
 # Покрытие решений (self-instrumented: Zig 0.13 не умеет LLVM coverage).
 # Печатает отчёт по инструментированным решениям и падает при < 95 %.
 coverage:
-	$(ZIG) test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1 | grep -A40 'ПОКРЫТИЕ РЕШЕНИЙ'
+	$(PYTHON) tools/coverage_check.py 100
 
 # C-ABI: libkern.so + libkern.a + include/kern.h (встраивание без CLI).
 lib:
