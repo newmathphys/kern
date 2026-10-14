@@ -84,13 +84,18 @@ fi
 
 # --- 5. Кросс-архитектура (по сохранённому логу, если есть) ------------------
 if [ -f docs/evidence/cross_arch.log ]; then
-  # Лог содержит строки «All 188 tests passed» на каждую архитектуру.
-  arches="$(grep -c 'All .* tests passed' docs/evidence/cross_arch.log)"
+  # ДЕФЕКТ #56: шаблон был только «All N tests passed». В Zig 0.17 тест-раннер
+  # печатает «N passed; M skipped; K failed», поэтому счётчик давал 0 и
+  # манифест показывал ЛОЖНЫЙ FAIL при живых свидетельствах. Принимаем оба вида.
+  arches="$(grep -cE '(All [0-9]+ tests passed)|([0-9]+ passed; [0-9]+ skipped; [0-9]+ failed)' docs/evidence/cross_arch.log)"
+  # Провал внутри лога («N failed», N > 0) отменяет зачёт платформы.
+  # ⚠️ Нельзя писать `[0-9]+ failed` — строка «0 failed» тоже совпадёт.
+  fails="$(grep -cE '[1-9][0-9]* failed' docs/evidence/cross_arch.log || true)"
   names="$(grep -oE '^=== [A-Za-z0-9]+' docs/evidence/cross_arch.log | sed 's/=== //' | paste -sd' ' -)"
-  if [ "$arches" -ge 2 ]; then
+  if [ "$arches" -ge 2 ] && [ "$fails" -eq 0 ]; then
     line "Target Systems" "$(ok) — $arches платформы: $names"
   else
-    line "Target Systems" "$(bad) — пройдено платформ: $arches"
+    line "Target Systems" "$(bad) — пройдено платформ: $arches (провалов: $fails)"
   fi
 elif [ -x /tmp/qemu-aarch64-static ] || command -v qemu-aarch64-static >/dev/null 2>&1; then
   line "Target Systems" "$(skip) — запустите ./tools/cross_arch_test.sh"
