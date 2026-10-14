@@ -1,0 +1,57 @@
+# KERN CI (GitHub Actions).
+#
+# ЗАЧЕМ: за одну сессию найдено 21 дефект, из них 11 «молчаливо сломанных
+# проверок». Без автоматизации они вернутся при первом же рефакторинге.
+#
+# Контур: build -> test -> test-next -> эшелоны -> Lean -> canfail (вкл. мета).
+# Красный CI = мержить нельзя.
+name: KERN CI
+
+on:
+  push:
+    branches: [ main, zig-0.17-migration ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # Zig 0.17 (ветка zig-0.17-migration). Действие ставит нужную версию.
+      - name: Установка Zig 0.17.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # z3 нужен для SMT-теорий и kernc prove; ставится через pip (без apt).
+      - name: z3-solver (без системного apt)
+        run: pip install z3-solver
+
+      # Lean 4 + Mathlib для формальных доказательств (7 файлов, 0 sorry).
+      - name: Lean 4 (elan)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain leanprover/lean4:v4.34.0
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: CI-контур (быстрый: без Lean/canfail)
+        run: ./tools/ci.sh --fast
+
+      # Lean и canfail — самая долгая часть; запускаются отдельно,
+      # чтобы падение было видно по имени стадии.
+      - name: Lean 4 (0 errors, 0 sorry)
+        run: ./formal/check.sh
+
+      - name: CAN-FAIL (проверки СПОСОБНЫ упасть, вкл. мета)
+        run: |
+          python3 tools/canfail.py --selftest
+          python3 tools/canfail.py
