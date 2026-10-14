@@ -113,18 +113,24 @@ if [ "$FAST" = "0" ]; then
     if [ -n "$(git status --porcelain)" ]; then
       echo "[!] дерево ГРЯЗНОЕ после харнесса:"; git status --short | head -10; bad=1
     fi
-    if grep -rn "CANFAIL_PROBE" formal/ src/ tools/ Makefile 2>/dev/null; then
-      echo "[!] найден след харнесса CANFAIL_PROBE"; bad=1
+    # Сканируем ТОЛЬКО отслеживаемые git файлы и исключаем тех, где маркеры
+    # встречаются ЗАКОННО: сам харнесс, этот скрипт и документация (в ней
+    # маркер цитируется при описании дефектов #38/#46/#48/#52).
+    # ⚠️ Первая версия сканировала рабочий каталог целиком и ловила
+    # ЛОЖНЫЕ срабатывания на untracked `tools/__pycache__/*.pyc`.
+    scan=$(git ls-files | grep -vE "^(tools/canfail\.py|tools/ci\.sh)$" | grep -vE "\.md$")
+    if echo "$scan" | xargs -r grep -ln "CANFAIL_PROBE" 2>/dev/null | grep -q .; then
+      echo "[!] найден след харнесса CANFAIL_PROBE:"
+      echo "$scan" | xargs -r grep -ln "CANFAIL_PROBE" 2>/dev/null
+      bad=1
     fi
     # ДЕФЕКТ #52 (критичный): маркер диверсии «ЛОМАЕМ» остался в
     # tools/mutate_zig.py и был ЗАКОММИЧЕН (3915e76) — мутационное
     # тестирование стало всегда возвращать «выжил» (score 0%).
-    # Ищем маркер во ВСЕХ отслеживаемых файлах, КРОМЕ тех, где он
-    # встречается законно (сам харнесс и этот скрипт — в комментариях).
-    hit=$(git ls-files | grep -vE "^(tools/canfail.py|tools/ci.sh|docs/|archive/)" | \
-          xargs -r grep -ln "ЛОМАЕМ" 2>/dev/null || true)
-    if [ -n "$hit" ]; then
-      echo "[!] найден МАРКЕР ДИВЕРСИИ «ЛОМАЕМ» в отслеживаемых файлах:"; echo "$hit"; bad=1
+    if echo "$scan" | xargs -r grep -ln "ЛОМАЕМ" 2>/dev/null | grep -q .; then
+      echo "[!] найден МАРКЕР ДИВЕРСИИ «ЛОМАЕМ» в отслеживаемых файлах:"
+      echo "$scan" | xargs -r grep -ln "ЛОМАЕМ" 2>/dev/null
+      bad=1
     fi
     exit $bad
   '
