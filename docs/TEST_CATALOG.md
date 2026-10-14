@@ -465,6 +465,7 @@
 | **Hacker's Delight / Alive2** | `zig run src/smt_bench.zig` | **8/8** (6 доказано, 2 контрпримера) | нет |
 | **CHC / Horn (стиль SV-COMP)** | `zig run src/chc_bench.zig` | **11/11** совпало с ожиданием | нет |
 | **HumanEval / HumanEval+** (EvalPlus, NeurIPS) | `tools/humaneval_api.py` + `evalplus.evaluate` | base **0.524**, plus **0.500** | **да (API)** |
+| **MBPP / MBPP+** (EvalPlus, 378 задач) | то же + `--dataset mbpp` | base **0.812**, plus **0.698** | **да (API)** |
 | **CyberSecEval** (Meta) | `python3 tools/cyberseceval_check.py` | 28/351 (8.0%) — простые правила | нет |
 | **SMT-LIB / cvc5 cross-check** | `python3 tools/solver_crosscheck.py` | 9/9 согласие, 0 расхождений | нет |
 | **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **191/191** | нет |

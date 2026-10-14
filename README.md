@@ -358,6 +358,8 @@ make echelons                                # 4 эшелона: выравни�
 |:--|:--|:--:|
 | **HumanEval** (EvalPlus, NeurIPS) | **pass@1 = 0.524** | да (API) |
 | **HumanEval+** (edge-cases) | **pass@1 = 0.500** | да (API) |
+| **MBPP** (EvalPlus, 378 задач) | **pass@1 = 0.812** | да (API) |
+| **MBPP+** (edge-cases) | **pass@1 = 0.698** | да (API) |
 | **KERN-гейт: точность блокировок** | **100.0%** (55/55, 0 ложных) | нет |
 | **SWE-bench Lite** (официальный, Docker) | **3/3 resolved**, 0 infra-failures | нет |
 | **QuixBugs** (реальное исполнение) | **31/31 багов (100%)** | нет |
