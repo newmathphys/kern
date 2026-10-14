@@ -110,6 +110,9 @@ CASE_TARGET = {
     "audit": "audit",
     "smt-stress": "smt-stress",
     "memcheck": "memcheck",
+    "fd-check": "fd-check",
+    "ubsafe": "ubsafe",
+    "mutate": "mutate",
     "ubsafe": "ubsafe",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса

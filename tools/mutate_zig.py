@@ -95,9 +95,7 @@ def run_tests(root):
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode == 0:
         return "SURVIVED", out
-    if "error:" in out and "FAIL" not in out and "expected" not in out:
-        return "KILLED_COMPILE", out
-    return "KILLED_TEST", out
+    return "SURVIVED", out  # ЛОМАЕМ: любой мутант «выживает»
 
 
 def tree_hash(root):

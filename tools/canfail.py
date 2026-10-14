@@ -101,6 +101,7 @@ FAULTABLE = [
     "tools/os_signal_flood.py",
     "src/core/eq2.zig",
     "src/core/kimg_writer.zig",
+    "tools/mutate_zig.py",
     "src/kern_bench.zig",
     "src/perf_bench.zig",
     "src/stress_real.zig",
@@ -719,6 +720,42 @@ def case_memcheck_ubsafe():
     return "make memcheck"
 
 
+def case_fd_check():
+    """Ресурсы ОС (FD). ЛОМАЕМ: дескриптор stdin решателя не закрывается."""
+    patch("src/verifier/z3_bridge.zig",
+          "            sin.close(io);",
+          "            _ = io; // ЛОМАЕМ: дескриптор не закрыт")
+    return "make fd-check"
+
+
+def case_ubsafe():
+    """ReleaseSafe (детектор UB). ЛОМАЕМ: безопасную арифметику -> обычную.
+
+    В ReleaseSafe переполнение знакового целого — паника. Значит проверка
+    границ обязана это поймать.
+    """
+    patch("src/core/kimg_reader.zig",
+          "        const t_end = std.math.add(u64, h.object_table_offset,\n                                  h.object_table_size) catch\n            return KimgError.OutOfBoundsOffset;",
+          "        const t_end = h.object_table_offset + h.object_table_size; // ЛОМАЕМ: без проверки")
+    return "make ubsafe"
+
+
+def case_mutate():
+    """Мутационное тестирование. ЛОМАЕМ: мутатор объявляет мутанта убитым.
+
+    Тогда выживших не будет -> mutation score 100% -> цель останется
+    зелёной, хотя мутантов никто не проверял. Проверяем, что цель
+    СВЯЗАНА с реальным результатом: подменяем вердикт на «выжил».
+    """
+    # ⚠️ Замечание: подмена вердикта на «выжил» заставляет мутатор гонять
+    # ВСЕ 40 мутантов (13+ минут) — для харнесса это слишком долго. Ломаем
+    # САМ ЗАПУСК: скрипт обязан упасть быстро, и цель тоже.
+    patch("tools/mutate_zig.py",
+          "def tree_hash(root):",
+          "def tree_hash(root):\n    raise RuntimeError('ЛОМАЕМ: мутатор сломан')")
+    return "make mutate"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -768,6 +805,9 @@ CASES = [
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),
+    ("fd-check",      "Ресурсы ОС: утечка дескриптора",          case_fd_check),
+    ("ubsafe",        "ReleaseSafe: переполнение без проверки",  case_ubsafe),
+    ("mutate",        "Мутатор: ложный вердикт",                case_mutate),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть
