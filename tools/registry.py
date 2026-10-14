@@ -43,6 +43,7 @@ CLASS = {
     "sim": "CHECK", "os-stress": "CHECK", "flood": "CHECK", "proof-check": "CHECK",
     "disasm": "CHECK", "slsa": "CHECK", "deal": "CHECK", "cert": "CHECK",
     "audit-manifest": "CHECK", "fd-check": "CHECK", "canfail": "CHECK",
+    "canfail-selftest": "META",
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",

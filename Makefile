@@ -185,6 +185,12 @@ portable-bench:
 canfail:
 	$(PYTHON) tools/canfail.py
 
+# КТО ПРОВЕРИТ ПРОВЕРЯЮЩЕГО: мета-проверка самого харнесса.
+# Синтетические входы проверяют, что вердикт не «врёт в обе стороны»:
+#   NOT_VACUOUS / VACUOUS / META_OK / META_FALSE_ALARM.
+canfail-selftest:
+	$(PYTHON) tools/canfail.py --selftest
+
 # ==== РЕЕСТР ЦЕЛЕЙ (K5) + ПРЕДОХРАНИТЕЛЬ ====
 # Падает, если появилась цель, не отнесённая ни к CHECK/MEASURE/BUILD/META/EXTERNAL.
 registry:
