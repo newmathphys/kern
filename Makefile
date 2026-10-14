@@ -368,7 +368,15 @@ cert:
 	@echo "=== TOOL QUALIFICATION PACKAGE ==="
 	@ls -1 formal/certification/
 	@echo
-	@echo "Требований в матрице трассируемости: $$(grep -c '^| TOR-' formal/certification/TRACEABILITY_MATRIX.md)"
+	@# ДЕФЕКТ #43 (найден can-fail): префикс `@` ГЛУШИЛ ошибку — при
+	@# отсутствии файла цель оставалась ЗЕЛЁНОЙ. Теперь файлы проверяются.
+	@for f in TRACEABILITY_MATRIX.md TOR.md TAS.md SOUNDNESS_ARGUMENT.md \
+	          SECURITY_TARGET.md KNOWN_LIMITATIONS.md; do \
+	  test -s "formal/certification/$$f" || { echo "[!] ОТСУТСТВУЕТ или пуст: $$f"; exit 1; }; \
+	done
+	@n=$$(grep -c '^| TOR-' formal/certification/TRACEABILITY_MATRIX.md); \
+	 echo "Требований в матрице трассируемости: $$n"; \
+	 test "$$n" -gt 0 || { echo "[!] матрица трассируемости ПУСТА"; exit 1; }
 
 # Сводный аттестационный манифест: каждая строка — РЕАЛЬНЫЙ прогон.
 # Если проверка невозможна — печатается NOT RUN (не «PASS»).

@@ -97,6 +97,7 @@ FAULTABLE = [
     "src/core/sigbus_guard.zig",
     "src/cov.zig",
     "src/next/truth.zig",
+    "src/next/parser.zig",
     "tools/deal_contracts.py",
     "tools/os_signal_flood.py",
     "src/core/eq2.zig",
@@ -756,6 +757,56 @@ def case_mutate():
     return "make mutate"
 
 
+def case_fuzz_1m():
+    """Фаззинг AST. ЛОМАЕМ: паника в парсере.
+
+    ДЕФЕКТ #44: `fuzz_ast.zig` печатал «ПАНИК/SIGSEGV: 0» ЛИТЕРАЛОМ, а не
+    измеренным значением. Единственный способ цели упасть — реальный крах
+    процесса, что и проверяем.
+    """
+    patch("src/next/parser.zig",
+          "pub fn parse(allocator: std.mem.Allocator, source: []const u8) !ParseResult {",
+          "pub fn parse(allocator: std.mem.Allocator, source: []const u8) !ParseResult {\n    if (source.len > 0) @panic(\"ЛОМАЕМ: паника в парсере\");")
+    return "zig build bench-fuzz-ast"
+
+
+def case_cert():
+    """Пакет квалификации. ЛОМАЕМ: удаляем файл матрицы трассируемости.
+
+    ДЕФЕКТ #43: цель `cert` использовала `@grep -c`, где `@` ГЛУШИТ ошибку —
+    при отсутствии файла цель оставалась зелёной.
+    """
+    p = ROOT / "formal" / "certification" / "TRACEABILITY_MATRIX.md"
+    if not p.exists():
+        return None
+    p.unlink()
+    return "make cert"
+
+
+def case_attest_key():
+    """Ключ владельца. ЛОМАЕМ: указываем несуществующий путь к ключу.
+
+    Цель обязана упасть (у неё есть `test -f ... || exit 1`).
+    """
+    patch("Makefile",
+          "@test -f $(HOME)/kern_owner_private.pem || { echo \"[!] нет $(HOME)/kern_owner_private.pem\"; exit 1; }",
+          "@test -f /nonexistent/kern_owner_private.pem || { echo \"[!] нет ключа\"; exit 1; }")
+    return "make attest-key"
+
+
+def case_audit_manifest():
+    """Аттестационный манифест. ЛОМАЕМ: эталонный образ становится битым.
+
+    ДЕФЕКТ #45: скрипт печатал FAIL, но ВСЕГДА выходил с 0. Теперь
+    считает провалы и возвращает 1.
+    """
+    p = ROOT / "tests" / "fixtures" / "valid_v1_3.kimg"
+    b = bytearray(p.read_bytes())
+    b[len(b) // 2] ^= 0xFF  # портим 1 байт в середине
+    p.write_bytes(bytes(b))
+    return "make audit-manifest"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -808,6 +859,10 @@ CASES = [
     ("fd-check",      "Ресурсы ОС: утечка дескриптора",          case_fd_check),
     ("ubsafe",        "ReleaseSafe: переполнение без проверки",  case_ubsafe),
     ("mutate",        "Мутатор: ложный вердикт",                case_mutate),
+    ("fuzz-1m",       "Фаззинг AST: паника в парсере",           case_fuzz_1m),
+    ("cert",          "Пакет квалификации: файл удалён",         case_cert),
+    ("attest-key",    "Ключ владельца: несуществующий путь",     case_attest_key),
+    ("audit-manifest","Манифест: битый эталонный образ",        case_audit_manifest),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

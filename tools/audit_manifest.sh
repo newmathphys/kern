@@ -25,10 +25,16 @@ else
 fi
 
 ok()   { printf '%sPASS%s' "$GREEN" "$OFF"; }
-bad()  { printf '%sFAIL%s' "$RED" "$OFF"; }
+bad()  { printf '%sFAIL%s' "$RED" "$OFF"; echo x >> "$FAILFILE"; }
 skip() { printf '%sNOT RUN%s' "$YEL" "$OFF"; }
 
 line() { printf '%-22s: %s\n' "$1" "$2"; }
+
+# ДЕФЕКТ #45 (найден can-fail): скрипт печатал FAIL, но ВСЕГДА выходил с 0.
+# ⚠️ Счётчик — ФАЙЛ, а не переменная: bad() вызывается внутри $(...),
+# то есть в ПОДОБОЛОЧКЕ, где инкремент переменной теряется.
+FAILFILE="$(mktemp)"
+trap 'rm -f "$FAILFILE"' EXIT
 
 echo
 echo "[KERN QUALIFICATION AUDIT SUITE v1.3.1]"
@@ -146,4 +152,10 @@ echo "Трассируемость     : formal/certification/TRACEABILITY_MATRI
 echo "Полный статус      : docs/ATTESTATION_PASSPORT.md"
 echo "─────────────────────────────────────────────────────────────────────────────"
 echo "ВЕРДИКТ: определяется ПРОГОНАМИ выше. Строки NOT RUN не считаются PASS."
+NFALL=$(wc -l < "$FAILFILE" 2>/dev/null || echo 0)
+if [ "$NFALL" -gt 0 ]; then
+  echo "[!] ПРОВАЛОВ: $NFALL — аттестационный манифест НЕ пройден"
+  exit 1
+fi
+echo "[OK] провалов: 0"
 echo

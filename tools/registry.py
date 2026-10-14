@@ -113,6 +113,10 @@ CASE_TARGET = {
     "fd-check": "fd-check",
     "ubsafe": "ubsafe",
     "mutate": "mutate",
+    "fuzz-1m": "fuzz-1m",
+    "cert": "cert",
+    "attest-key": "attest-key",
+    "audit-manifest": "audit-manifest",
     "ubsafe": "ubsafe",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
@@ -145,8 +149,10 @@ def main() -> int:
     ext = sorted(t for t in targets if CLASS.get(t) == "EXTERNAL")
     meta = sorted(t for t in targets if CLASS.get(t) == "META")
 
-    # Какие проверки реально покрыты can-fail — по ЯВНОЙ таблице CASE_TARGET.
-    covered = {CASE_TARGET[c] for c in cases if c in CASE_TARGET}
+    # Какие ПРОВЕРКИ реально покрыты can-fail — по ЯВНОЙ таблице CASE_TARGET.
+    # ⚠️ Пересекаем с `checks`: среди целей есть META (`canfail`), которая не
+    # входит в знаменатель, поэтому без пересечения счётчик давал «54/53».
+    covered = {CASE_TARGET[c] for c in cases if c in CASE_TARGET} & set(checks)
 
     if "--json" in sys.argv:
         print(json.dumps({
