@@ -90,6 +90,9 @@ FAULTABLE = [
     "src/verifier/string_theory.zig",
     "src/tests/alignment_stress.zig",
     "src/core/kernfs_router.zig",
+    "src/core/kimg_reader.zig",
+    "Makefile",
+    "formal/KernSemanticGap.lean",
     "src/kern_bench.zig",
     "src/perf_bench.zig",
     "src/stress_real.zig",
@@ -526,6 +529,49 @@ def case_proof_check():
     return "make proof-check"
 
 
+def case_verify_cli():
+    """CLI `verify`. ЛОМАЕМ: Merkle-корень всегда «не совпал».
+
+    Тогда `kernc check-integrity` на ВАЛИДНОМ образе вернёт ошибку ->
+    цель `make verify` обязана покраснеть.
+    """
+    patch("src/core/kimg_reader.zig",
+          "        if (!std.mem.eql(u8, &root, &h.root_digest)) {\n            cov.hit(.merkle_mismatch);\n            return KimgError.MerkleRootMismatch;\n        }\n        cov.hit(.merkle_ok);",
+          "        cov.hit(.merkle_mismatch);\n        return KimgError.MerkleRootMismatch; // ЛОМАЕМ: всегда несовпадение")
+    return "make verify"
+
+
+def case_prove_cli():
+    """CLI `prove`. ЛОМАЕМ: SMT-мост всегда сообщает ToolError."""
+    patch("src/verifier/z3_bridge.zig",
+          "    pub fn executeQuery(self: *Z3Bridge, smt_script: []const u8) SmtResponse {",
+          "    pub fn executeQuery(self: *Z3Bridge, smt_script: []const u8) SmtResponse {\n        if (true) return .{ .status = .ToolError }; // ЛОМАЕМ: решатель «недоступен»")
+    return "make prove"
+
+
+def case_registry_fuse():
+    """Реестр (K5). ЛОМАЕМ: добавляем НЕКЛАССИФИЦИРОВАННУЮ цель.
+
+    Предохранитель обязан это заметить и вернуть ненулевой код.
+    """
+    p = ROOT / "Makefile"
+    s = p.read_text(encoding="utf-8")
+    marker = "registry:\n"
+    if marker not in s:
+        raise RuntimeError("цель registry не найдена в Makefile")
+    s = s.replace(marker, "canfail-probe-unclassified-target:\n\t@true\n\n" + marker, 1)
+    p.write_text(s, encoding="utf-8")
+    return "make registry"
+
+
+def case_semantic_gap():
+    """Эшелон 4 (Lean). ЛОМАЕМ: добавляем `sorry` в KernSemanticGap.lean."""
+    p = ROOT / "formal" / "KernSemanticGap.lean"
+    with p.open("a", encoding="utf-8") as f:
+        f.write("\ntheorem CANFAIL_GAP_PROBE : True := by sorry\n")
+    return "make semantic-gap"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -557,6 +603,10 @@ CASES = [
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
+    ("verify-cli",    "CLI verify: Merkle всегда не совпал",     case_verify_cli),
+    ("prove-cli",     "CLI prove: мост всегда ToolError",       case_prove_cli),
+    ("registry-fuse", "K5: предохранитель ловит новую цель",     case_registry_fuse),
+    ("semantic-gap",  "Эшелон 4: sorry в Lean-файле",           case_semantic_gap),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть

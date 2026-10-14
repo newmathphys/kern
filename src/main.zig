@@ -286,7 +286,7 @@ pub fn main(init: std.process.Init) !void {
         const smt = try compat.readFileAlloc(alloc, args[2], 1 << 20);
         var bridge = z3b.Z3Bridge.init(alloc);
         if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
-            std.debug.print("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
+            fail("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
             return;
         }
         var ast: [32]u8 = undefined;
@@ -303,6 +303,12 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("  KERN-EQ2 : {s}\n", .{r.eq2_status.symbol()});
         std.debug.print("  e        : {d}\n", .{r.e_value});
         std.debug.print("  ВЕРДИКТ  : {s}\n", .{if (r.e_value == 1) "ДОКАЗАНО (допущено)" else "НЕ доказано (контрпример/таймаут)"});
+        // ДЕФЕКТ #40 (найден can-fail): CLI печатал «НЕ доказано», но
+        // завершался с кодом 0 — `make prove` оставался ЗЕЛЁНЫМ при провале
+        // доказательства. Теперь не-доказательство -> exit(2).
+        if (r.e_value != 1) {
+            fail("[!] КОНТРАКТ НЕ ДОКАЗАН — проверка ПРОВАЛЕНА\n", .{});
+        }
         return;
     }
 

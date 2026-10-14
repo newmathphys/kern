@@ -92,6 +92,10 @@ CASE_TARGET = {
     "localize-core": "localize",
     "sim-invariant": "sim",
     "proof-check": "proof-check",
+    "verify-cli": "verify",
+    "prove-cli": "prove",
+    "registry-fuse": "registry",
+    "semantic-gap": "semantic-gap",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }
