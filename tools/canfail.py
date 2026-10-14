@@ -164,13 +164,22 @@ def patch(path: str, old: str, new: str) -> None:
             f"{path} отсутствует в FAULTABLE — правка НЕ будет откачена! "
             f"Добавьте файл в FAULTABLE.")
     p = ROOT / path
-    try:
-        s = p.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        # Файл повреждён (прерванный прогон) — восстанавливаем и пробуем снова.
-        subprocess.run(["git", "checkout", "--", path], cwd=str(ROOT),
-                       capture_output=True, text=True)
-        s = p.read_text(encoding="utf-8")
+    # Ретрай: возможна ГОНКА — файл читается, пока его пишет предыдущая
+    # операция отката (найдено на практике: транзиентный UnicodeDecodeError
+    # в кейсе pool-limit при полном прогоне).
+    s = None
+    for attempt in range(5):
+        try:
+            s = p.read_text(encoding="utf-8")
+            break
+        except UnicodeDecodeError:
+            if attempt == 0:
+                # Первая попытка: файл мог быть повреждён прерванным прогоном.
+                subprocess.run(["git", "checkout", "--", path], cwd=str(ROOT),
+                               capture_output=True, text=True)
+            time.sleep(0.2)
+    if s is None:
+        raise RuntimeError(f"не удалось прочитать {path} как UTF-8 после 5 попыток")
     if old not in s:
         raise RuntimeError(f"шаблон не найден в {path}: {old[:60]!r}")
     p.write_text(s.replace(old, new, 1), encoding="utf-8")
