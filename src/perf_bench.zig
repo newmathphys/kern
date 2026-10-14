@@ -115,4 +115,27 @@ pub fn main(init: std.process.Init) !void {
         const mbps = (@as(f64, @floatFromInt(ver_bytes)) / (1 << 20)) / (ms(t_ver) / 1000.0);
         std.debug.print("Безопасное чтение (+SHA-256):           {d:.1} МБ/с\n", .{mbps});
     }
+
+    // ---- K2: ПОРОГИ. Без них цель «печатает» и не может упасть -------------
+    // Значения выбраны с запасом: замеры дают ~50 ГБ/с RAW и ~150-175 МБ/с
+    // безопасного чтения. Порог должен ловить ДЕГРАДАЦИЮ (регрессию), а не
+    // колебания стенда.
+    const RAW_MIN_MBPS: f64 = 30_000.0; // 30 ГБ/с
+    const SAFE_MIN_MBPS: f64 = 100.0;   // 100 МБ/с
+    var violated = false;
+    if (t_read > 0) {
+        const raw_mbps = (@as(f64, @floatFromInt(bytes)) / (1 << 20)) / (ms(t_read) / 1000.0);
+        if (raw_mbps < RAW_MIN_MBPS) {
+            std.debug.print("[!] ПОРОГ RAW НЕ ВЫПОЛНЕН: {d:.1} < {d:.0} МБ/с\n", .{ raw_mbps, RAW_MIN_MBPS });
+            violated = true;
+        }
+    }
+    if (t_ver > 0) {
+        const ver_mbps = (@as(f64, @floatFromInt(ver_bytes)) / (1 << 20)) / (ms(t_ver) / 1000.0);
+        if (ver_mbps < SAFE_MIN_MBPS) {
+            std.debug.print("[!] ПОРОГ БЕЗОПАСНОГО ЧТЕНИЯ НЕ ВЫПОЛНЕН: {d:.1} < {d:.0} МБ/с\n", .{ ver_mbps, SAFE_MIN_MBPS });
+            violated = true;
+        }
+    }
+    if (violated) std.process.exit(2);
 }

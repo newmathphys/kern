@@ -106,4 +106,9 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("[2] KIMG-заголовок: принято {d}, отвергнуто {d} (паник нет)\n", .{ hdr_ok, hdr_rej });
     std.debug.print("[3] Дескриптор:     принято {d}, отвергнуто {d} (паник нет)\n", .{ obj_ok, obj_rej });
     std.debug.print("[4] Врата: закрыто {d}, ОТКРЫТО без доказательства: {d} (СТРОГО 0)\n", .{ gate_closed, gate_open });
+    // K2: «СТРОГО 0» — теперь инвариант с кодом возврата, а не текст.
+    if (law_violations != 0 or gate_open != 0) {
+        std.debug.print("[!] ИНВАРИАНТ НАРУШЕН: нарушений законов {d}, открытий Врат без доказательства {d}\n", .{ law_violations, gate_open });
+        std.process.exit(2);
+    }
 }

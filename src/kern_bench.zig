@@ -100,4 +100,10 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("  допущено всего:            {d} ({d:.1}%)\n", .{ kern_admit, f(kern_admit, N) });
     std.debug.print("  ЛОЖНЫХ ПРОПУСКОВ (дефекты): {d} ({d:.1}%)  <- СТРОГО 0\n", .{ kern_false_pass, f(kern_false_pass, N) });
     std.debug.print("  ДОПУЩЕНО ЛЕГИТИМНЫХ:        {d}/{d} ({d:.1}%)\n", .{ kern_admit - kern_false_pass, legit_total, f(kern_admit - kern_false_pass, legit_total) });
+    // K2 (дефект #36-класса): «СТРОГО 0» было только ТЕКСТОМ. Теперь это
+    // инвариант, связанный с кодом возврата: ложный пропуск -> ПРОВАЛ.
+    if (kern_false_pass != 0) {
+        std.debug.print("[!] ИНВАРИАНТ НАРУШЕН: Врата KERN пропустили {d} дефектов (ожидалось 0)\n", .{kern_false_pass});
+        std.process.exit(2);
+    }
 }

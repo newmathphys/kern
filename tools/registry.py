@@ -44,9 +44,9 @@ CLASS = {
     "disasm": "CHECK", "slsa": "CHECK", "deal": "CHECK", "cert": "CHECK",
     "audit-manifest": "CHECK", "fd-check": "CHECK", "canfail": "CHECK",
     # --- измерения: упасть НЕ могут -----------------------------------------
-    "perf": "MEASURE", "bench": "MEASURE", "stress": "MEASURE", "probe": "MEASURE",
+    "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "MEASURE",
     "portable-bench": "MEASURE", "smt": "CHECK", "chc-bench": "MEASURE",
-    "stress-real": "MEASURE", "kern": "MEASURE",
+    "stress-real": "CHECK", "kern": "CHECK",
     # --- сборка -------------------------------------------------------------
     "lib": "BUILD", "hermetic": "BUILD", "next": "BUILD", "demo": "BUILD",
     "bridge": "BUILD", "capi-demo": "BUILD", "docker": "EXTERNAL",
@@ -83,6 +83,8 @@ CASE_TARGET = {
     "pool-limit": "pool",
     "strings-theory": "strings",
     "noninterf": "noninterference",
+    "perf-threshold": "perf",
+    "kern-invariant": "kern",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }

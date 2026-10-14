@@ -64,4 +64,9 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("Отловлено подмен AST:     {d}\n", .{caught_poison});
     std.debug.print("Изолировано конфликтов:   {d}\n", .{caught_conflicts});
     std.debug.print("ЛОЖНЫЕ ПРОПУСКИ (БАГИ):   {d}\n", .{false_positives});
+    // K2: ложные пропуски — инвариант, а не текст.
+    if (false_positives != 0) {
+        std.debug.print("[!] ИНВАРИАНТ НАРУШЕН: {d} ложных пропусков (ожидалось 0)\n", .{false_positives});
+        std.process.exit(2);
+    }
 }

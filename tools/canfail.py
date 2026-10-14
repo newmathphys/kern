@@ -82,6 +82,11 @@ FAULTABLE = [
     "src/verifier/z3_bridge.zig",
     "src/verifier/string_theory.zig",
     "src/tests/alignment_stress.zig",
+    "src/core/kernfs_router.zig",
+    "src/kern_bench.zig",
+    "src/perf_bench.zig",
+    "src/stress_real.zig",
+    "tests/stress_1m.zig",
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
 ]
@@ -407,6 +412,28 @@ def case_noninterference_taint():
     return "make noninterference"
 
 
+def case_perf_threshold():
+    """K2: пороги производительности. ЛОМАЕМ: замедляем безопасное чтение.
+
+    Добавляем занятой цикл в горячий путь `payloadSlice` — пропускная
+    способность безопасного чтения падает ниже порога 100 МБ/с,
+    и цель ОБЯЗАНА покраснеть.
+    """
+    patch("src/core/kernfs_router.zig",
+          "        const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];",
+          "        var spin: u64 = 0;\n        while (spin < 50_000) : (spin += 1) {\n            asm volatile (\"\" : : \"r\" (spin)); // ЛОМАЕМ: замедление\n        }\n        const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];")
+    return "zig build bench-perf"
+
+
+def case_gate_invariant_stress():
+    """K2: инвариант «СТРОГО 0» в стрессах. ЛОМАЕМ: Врата открываются без
+    доказательства (по тайм-ауту)."""
+    patch("src/verifier/admission_gate.zig",
+          "                cov.hit(.gate_unknown_timeout);\n                eq2 = .N; // тайм-аут не является опровержением",
+          "                cov.hit(.gate_unknown_timeout);\n                eq2 = .T; e_val = 1; // ЛОМАЕМ")
+    return "zig build bench-kern"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
@@ -429,6 +456,8 @@ CASES = [
     ("pool-limit",    "Эшелон 3: лимит пула не соблюдается",     case_pool_limit),
     ("strings-theory", "Строковая теория: подмена needle",       case_strings_theory),
     ("noninterf",     "Невлияние: утечка не регистрируется",    case_noninterference_taint),
+    ("perf-threshold", "K2: порог безопасного чтения",          case_perf_threshold),
+    ("kern-invariant", "K2: инвариант Врат в kern_bench",       case_gate_invariant_stress),
     # --- МЕТА-КОНТРОЛЬ (K4): проверка САМОГО харнесса ---------------------
     # Подсовываем заведомо БЕЗОПАСНУЮ правку (комментарий, семантику не
     # меняет). Цель ОБЯЗАНА остаться зелёной, и харнесс ОБЯЗАН это увидеть
