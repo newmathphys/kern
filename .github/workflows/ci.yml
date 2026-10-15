@@ -43,12 +43,22 @@ jobs:
             | sh -s -- -y --default-toolchain leanprover/lean4:v4.34.0
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: CI-контур (быстрый: без Lean/canfail)
+      - name: "CI-контур (быстрый: без Lean/canfail)"
         run: ./tools/ci.sh --fast
 
       # Lean и canfail — самая долгая часть; запускаются отдельно,
       # чтобы падение было видно по имени стадии.
+      #
+      # Mathlib: 5 из 7 файлов импортируют Mathlib. Собирать его из исходников
+      # часами нельзя, поэтому берём ПРЕДСОБРАННЫЙ кэш (lake exe cache get).
+      - name: Mathlib (prebuilt cache)
+        run: ./formal/setup_mathlib.sh "$HOME/mathlib_proj"
+
+      # KERN_REQUIRE_MATHLIB=1: если Mathlib недоступен, стадия ПАДАЕТ,
+      # а не рапортует «0 errors, 0 sorry» по 2 из 7 файлов.
       - name: Lean 4 (0 errors, 0 sorry)
+        env:
+          KERN_REQUIRE_MATHLIB: "1"
         run: ./formal/check.sh
 
       - name: CAN-FAIL (проверки СПОСОБНЫ упасть, вкл. мета)
