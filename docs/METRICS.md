@@ -10,7 +10,7 @@
 
 | Набор | Debug | ReleaseFast |
 |:--|:--:|:--:|
-| Ядро (`src/test_root.zig`) | **191/191** | **191/191** (ReleaseSafe) |
+| Ядро (`src/test_root.zig`) | **198/198** | **198/198** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **25/25** | **25/25** (ReleaseSafe) |
 | Lean 4 (`formal/check.sh`) | **7 файлов, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 атаки закрыты | — |

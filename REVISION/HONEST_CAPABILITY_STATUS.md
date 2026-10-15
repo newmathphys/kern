@@ -30,7 +30,7 @@
 | 5 теорий SMT (UNSAT-core, массивы, CHC, строки, CEGIS) | MEASURED | `kernc audit` → 5/5 отработали на реальном Z3 |
 | C-ABI (`libkern.so`, 7 функций) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) и C |
 
-**Числа:** `zig test src/test_root.zig` → **191/191 OK** (Debug И ReleaseSafe).
+**Числа:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` → **198/198 OK** (Debug И ReleaseSafe); без `z3` в PATH — 194 passed + 4 skipped.
 Эталон `valid_v1_3.kimg` → Merkle совпадает Python↔Zig (подтверждено в обе стороны).
 Покрытие решений → **100.0%** (30/30). Мутации → 92.5% (37/40; 3 эквивалентных).
 
@@ -260,7 +260,8 @@ Zig 0.17) — это ограничение компилятора, а не де
 
 **MEASURED/TESTED:** ядро KIMG (парсер, сборщик, Merkle, KERNFS, Врата,
 KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
-snapshot, diff, packet, report, кэш) — **191 + 37 тестов, все зелёные**.
+snapshot, diff, packet, report, кэш) — **198 + 37 тестов, все зелёные**
+(с `z3` в PATH; без него — 194 passed + 4 skipped, пропуск решателе-зависимых).
 
 **FRAMEWORK/NOT IMPL:** облако, WASM, Lean-транспилятор, плагины, bundle,
 PQC, дашборд — это следующий слой; он НЕ заявлен как работающий.

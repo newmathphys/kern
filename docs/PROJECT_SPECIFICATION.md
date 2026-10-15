@@ -835,8 +835,8 @@ canfail --selftest → canfail (60 кейсов) → каталог синхро
 
 | Метрика | Значение | Команда |
 |:--|:--|:--|
-| Тесты ядра | **191 passed, 4 skipped, 0 failed** | `zig build test` |
-| Тесты ядра (ReleaseSafe) | 191 passed, **0 UB** | `make ubsafe` |
+| Тесты ядра | **194 passed, 4 skipped, 0 failed** | `zig build test` |
+| Тесты ядра (ReleaseSafe) | 194 passed, **0 UB** | `make ubsafe` |
 | Тесты KERN-Next | **37 passed** | `zig build test-next` |
 | Каталог тестов | **233** | `python3 tools/gen_test_catalog.py --check` |
 | Покрытие решений | **100.0 %** (26/26, порог 95 %) | `make coverage` |
@@ -867,9 +867,9 @@ canfail --selftest → canfail (60 кейсов) → каталог синхро
 
 | Платформа | Что доказывает | Результат |
 |:--|:--|:--|
-| x86_64 (host, TSO) | базовая линия | **191/191** ✅ |
-| **ARM64** (строгое выравнивание) | 0 Bus Errors — чтение побайтово (`u8, align 1`) | **191/191** ✅ |
-| **POWERPC64** (BIG-ENDIAN) | Merkle, числа, дайджесты без искажений | **191/191** ✅ |
+| x86_64 (host, TSO) | базовая линия | **198 / 198** ✅ |
+| **ARM64** (строгое выравнивание) | 0 Bus Errors — чтение побайтово (`u8, align 1`) | **198 / 198** ✅ |
+| **POWERPC64** (BIG-ENDIAN) | Merkle, числа, дайджесты без искажений | **198 / 198** ✅ |
 
 ## 13.4 Официальные мировые бенчмарки
 
@@ -1054,7 +1054,7 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 
 zig build                      # kernc, kernx, kern-attack
-zig build test                 # 191 тест ядра
+zig build test                 # 198 тестов ядра
 zig build test-next            # 37 тестов KERN-Next
 ./formal/check.sh              # Lean 4: 0 errors, 0 sorry
 
@@ -1183,10 +1183,10 @@ docs/                           # 15 документов
 | Область | Доказательство |
 |:--|:--|
 | Математика ядра | Lean 4: 32 теоремы, 0 `sorry` |
-| Поведение кода | 191 + 37 тестов, 100 % покрытие решений |
+| Поведение кода | 198 + 37 тестов, 100 % покрытие решений |
 | Качество тестов | Мутации 92.5 % (100 % эффективно) |
 | **Не-вакуумность проверок** | **56/56 CHECK доказанно способны упасть** |
-| Переносимость | ARM64 + POWERPC64 (big-endian): 191/191 |
+| Переносимость | ARM64 + POWERPC64 (big-endian): 198 / 198 |
 | Целостность | Merkle + SHA-256 содержимого |
 | Реальные баги | QuixBugs 31/31, SWE-bench 3/3, Refactory 80.7 % |
 | Эквивалентность компиляторов | 0.13 и 0.17: `root0`/`acc` совпали |

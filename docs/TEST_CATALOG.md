@@ -5,13 +5,13 @@
 > Пропусков и «планируемых» тестов нет. Рассинхрон с кодом ловит
 > `python3 tools/gen_test_catalog.py --check` (стадия CI).
 
-**Всего объявлений тестов:** 233
+**Всего объявлений тестов:** 236
 
 | Группа | Файлов | Тестов |
 |:--|--:|--:|
 | Ядро формата и ФС (L0/L3) | 6 | 44 |
 | Верификатор (Врата, SMT, теории) | 13 | 72 |
-| Специализированные сьюты | 11 | 53 |
+| Специализированные сьюты | 12 | 56 |
 | KERN-Next (парсер, каталог, конвейер) | 9 | 36 |
 | Среда исполнения | 1 | 5 |
 | Корень `src/` | 6 | 23 |
@@ -293,6 +293,13 @@
 - ОС-СТРЕСС 3: флуд spawn (12 потоков × 8 запросов) — без паник и утечек FD
 
 
+### `src/tests/pipe_stress_test.zig` — 3
+
+- REG-017-6B: fileReadToEndAlloc на РЕАЛЬНОМ пайпе — не seekable, EndOfStream, без потери хвоста
+- REG-017-6B: пустой пайп (немедленный EOF) — пустой срез, НЕ ошибка
+- REG-017-6B: превышение лимита на пайпе — error.StreamTooLong, не паника
+
+
 ### `src/tests/pool_saturation.zig` — 4
 
 - POOL: 128 запросов на пуле из 4 — лимит соблюдён, все выполнены
@@ -468,7 +475,7 @@
 | **MBPP / MBPP+** (EvalPlus, 378 задач) | то же + `--dataset mbpp` | base **0.812**, plus **0.698** | **да (API)** |
 | **CyberSecEval** (Meta) | `python3 tools/cyberseceval_check.py` | 28/351 (8.0%) — простые правила | нет |
 | **SMT-LIB / cvc5 cross-check** | `python3 tools/solver_crosscheck.py` | 9/9 согласие, 0 расхождений | нет |
-| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **191/191** | нет |
+| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **198/198** | нет |
 | **Мутационное тестирование** | `python3 tools/mutate_zig.py` | 40 мутантов: 37 убито, 3 эквивалентных | нет |
 | **Фаззинг парсера** | `zig run src/fuzz_ast.zig` | **1 000 000** мутаций, 0 паник / 0 SIGSEGV | нет |
 | **Стресс .kimg** | `zig run src/kimg_stress.zig` | 1 млн объектов, случайный доступ 0.0006 мс | нет |
@@ -487,7 +494,7 @@ make formal-ci         # ядро + Lean-доказательства
 make echelons          # 4 эшелона: выравнивание, лавина хэша, пул, семантика
 
 # --- Ядро ---
-zig build test         # 191 тест ядра (Debug)
+zig build test         # 198 тестов ядра (Debug)
 zig test src/test_root.zig -O ReleaseSafe   # без UB
 zig build test-next    # 25 тестов KERN-Next
 zig build test-fault   # сбои памяти (реальный SIGBUS)
