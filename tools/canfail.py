@@ -45,8 +45,116 @@ def sh_out(cmd: str, timeout: int = 600):
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
+# ============================================================================
+#  ИНФРАСТРУКТУРА ОТКАТА И ВЗАИМОИСКЛЮЧЕНИЯ
+# ============================================================================
+# ЗАЧЕМ. Харнесс пишет прямо в рабочие файлы. Нужно три гарантии:
+#   1) откат возвращает ТОЧНО то, что было (включая незакоммиченные правки);
+#   2) откат не затирает правку, сделанную третьей стороной во время прогона;
+#   3) два экземпляра харнесса не могут работать одновременно.
+
+# Относительные пути файлов, которые ТЕКУЩИЙ кейс реально изменил.
+# Заполняется через touch()/patch(). Откат трогает только их.
+TOUCHED: set[str] = set()
+
+# Байтовый снимок FAULTABLE-файлов на момент СТАРТА прогона.
+# Именно он — источник истины для восстановления: он захватывает и
+# незакоммиченные правки, поэтому `git checkout --` больше не нужен.
+ORIG_SNAPSHOT: dict[str, bytes] = {}
+ORIG_HASHES: dict[str, str] = {}
+
+# 🔴 Держатель файлового объекта блокировки. Без ссылки из модуля Python
+# соберёт локальный объект сборщиком мусора, закроет fd и СНИМЕТ flock —
+# блокировка «исчезнет» сразу после выхода из функции.
+_LOCK_HOLDER: list = []
+
+
+def touch(rel: str) -> None:
+    """Помечает файл как изменённый текущим кейсом (разрешает откат)."""
+    TOUCHED.add(rel)
+
+
+def write_atomic(p: Path, data: bytes) -> None:
+    """Атомарная запись: tmp в том же каталоге + os.replace.
+
+    Прямая `write_bytes` при прерывании (SIGKILL, таймаут) может оставить
+    файл полузаписанным. os.replace в пределах одной ФС атомарен.
+    """
+    tmp = p.with_name(p.name + ".canfail_tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, p)
+
+
+def capture_snapshot() -> None:
+    """Считывает байты всех FAULTABLE-файлов ДО прогона."""
+    import hashlib
+    ORIG_SNAPSHOT.clear()
+    ORIG_HASHES.clear()
+    for rel in FAULTABLE:
+        p = ROOT / rel
+        if p.exists():
+            data = p.read_bytes()
+            ORIG_SNAPSHOT[rel] = data
+            ORIG_HASHES[rel] = hashlib.sha256(data).hexdigest()
+
+
+def restore_file(rel: str) -> bool:
+    """Восстанавливает файл из снимка СТАРТА прогона (без git checkout).
+
+    Возвращает True, если файл действительно был восстановлен.
+    Если снимка нет (файла не было на старте) — удаляем созданный файл.
+    """
+    import hashlib
+    p = ROOT / rel
+    if rel in ORIG_SNAPSHOT:
+        write_atomic(p, ORIG_SNAPSHOT[rel])
+        ok = hashlib.sha256(p.read_bytes()).hexdigest() == ORIG_HASHES[rel]
+        if not ok:
+            print(f"  [!] ОТКАТ НЕ СОШЁЛСЯ по хешу: {rel}")
+        return ok
+    if p.exists():
+        p.unlink()  # файла не было на старте — значит его создал кейс
+        return True
+    return False
+
+
+def acquire_run_lock():
+    """Эксклюзивная блокировка прогона через fcntl.flock (ядро снимает её
+    даже при SIGKILL — в отличие от файла-флага, дефект #50).
+
+    Возвращает открытый файловый дескриптор (держать до конца процесса)
+    либо None, если блокировка уже занята.
+    """
+    try:
+        import fcntl
+    except ImportError:  # не POSIX
+        return None
+    f = open("/tmp/kern_canfail.lock", "w")
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (BlockingIOError, OSError):
+        f.close()
+        return "BUSY"
+    return f
+
+
 class Fault:
-    """Контекстный менеджер: ломает файл(ы) и ГАРАНТИРОВАННО откатывает."""
+    """Контекстный менеджер: ломает файл(ы) и ГАРАНТИРОВАННО откатывает.
+
+    🔴 ДЕФЕКТ #71 (найден на практике, уточняет #63/#69). Раньше `__exit__`
+    восстанавливал ВСЕ файлы из переданного списка, а не только те, которые
+    кейс РЕАЛЬНО менял. Последствие: если во время кейса файл правил кто-то
+    ещё (редактор, другой инструмент), откат возвращал СТАРЫЙ бэкап и молча
+    уничтожал эту правку. Именно так была стёрта правка `tools/canfail.py`
+    (кейс `svg-overflow`), сделанная во время прогона `make evidence`.
+
+    ИСПРАВЛЕНО:
+      * откатываются ТОЛЬКО файлы, помеченные как изменённые (`TOUCHED`);
+      * если файл из списка изменился, но кейс его НЕ трогал — это правка
+        третьей стороны: печатаем предупреждение и НЕ перезаписываем;
+      * запись атомарная (tmp + os.replace), чтобы откат не оставил
+       полузаписанный файл при прерывании.
+    """
 
     def __init__(self, files):
         self.files = [ROOT / f for f in files]
@@ -60,7 +168,16 @@ class Fault:
 
     def __exit__(self, *exc):
         for f, data in self.backup.items():
-            f.write_bytes(data)
+            rel = str(f.relative_to(ROOT))
+            cur = f.read_bytes() if f.exists() else None
+            if cur == data:
+                continue  # кейс файл не менял — трогать нечего
+            if rel not in TOUCHED:
+                print(f"  [!] ВНИМАНИЕ: {rel} изменился во время кейса, "
+                      f"но кейс его НЕ трогал — похоже на правку третьей "
+                      f"стороны. НЕ перезаписываю (сохранена).")
+                continue
+            write_atomic(f, data)
         return False
 
 
@@ -143,9 +260,8 @@ def clean_slate() -> None:
     for f in FAULTABLE:
         p = ROOT / f
         if not p.exists():
-            # удалён — восстановим (дефект #46)
-            subprocess.run(["git", "checkout", "--", f], cwd=str(ROOT),
-                           capture_output=True)
+            # удалён — восстановим из снимка (дефект #46)
+            restore_file(f)
             continue
         if p.suffix in (".kimg",) or p.name == "kernc":
             continue  # бинарные — не сравниваем текстом
@@ -190,8 +306,7 @@ def restore_missing() -> list:
         p = ROOT / f
         if not p.exists():
             missing.append(f)
-            subprocess.run(["git", "checkout", "--", f], cwd=str(ROOT),
-                           capture_output=True)
+            restore_file(f)
     return missing
 
 
@@ -227,6 +342,7 @@ def patch(path: str, old: str, new: str) -> None:
         raise RuntimeError(
             f"{path} отсутствует в FAULTABLE — правка НЕ будет откачена! "
             f"Добавьте файл в FAULTABLE.")
+    touch(path)
     p = ROOT / path
     # Ретрай: возможна ГОНКА — файл читается, пока его пишет предыдущая
     # операция отката (найдено на практике: транзиентный UnicodeDecodeError
@@ -239,8 +355,7 @@ def patch(path: str, old: str, new: str) -> None:
         except UnicodeDecodeError:
             if attempt == 0:
                 # Первая попытка: файл мог быть повреждён прерванным прогоном.
-                subprocess.run(["git", "checkout", "--", path], cwd=str(ROOT),
-                               capture_output=True, text=True)
+                restore_file(path)
             time.sleep(0.2)
     if s is None:
         raise RuntimeError(f"не удалось прочитать {path} как UTF-8 после 5 попыток")
@@ -264,6 +379,7 @@ def case_avalanche():
 def case_lean_sorry():
     """Lean без sorry. ЛОМАЕМ: добавляем `sorry` в доказательство."""
     p = ROOT / "formal" / "KernAllMath.lean"
+    touch("formal/KernAllMath.lean")
     with p.open("a", encoding="utf-8") as f:
         f.write("\ntheorem CANFAIL_PROBE : True := by sorry\n")
     return "bash formal/check.sh"
@@ -292,6 +408,7 @@ def case_svg_overflow():
     видит — подпись «уезжает» в соседнюю панель. Именно так выглядел баннер.
     """
     p = ROOT / "docs" / "kern-architecture.svg"
+    touch("docs/kern-architecture.svg")
     s2 = p.read_text(encoding="utf-8")
     s2 = s2.replace(
         '<text x="303" y="171" class="lbl">BLAKE3 default / raw ~90 GB/s</text>',
@@ -310,6 +427,7 @@ def case_evidence_gate():
     провал рядом с заявлением об успехе».
     """
     p = ROOT / "docs" / "evidence" / "bench_smt.log"
+    touch("docs/evidence/bench_smt.log")
     with p.open("a", encoding="utf-8") as f:
         f.write("\nRC=1\n")
     return "make evidence-gate"
@@ -330,6 +448,7 @@ def case_core_invariant():
 def case_golden_merkle():
     """Эталонный образ. ЛОМАЕМ: портим байт в golden-фикстуре."""
     p = ROOT / "tests" / "fixtures" / "valid_v1_3.kimg"
+    touch("tests/fixtures/valid_v1_3.kimg")
     if not p.exists():
         return None
     b = bytearray(p.read_bytes())
@@ -359,6 +478,7 @@ def case_grep_vacuity():
     наличия тестов по фильтру.
     """
     p = ROOT / "src" / "verifier" / "array_theory.zig"
+    touch("src/verifier/array_theory.zig")
     s = p.read_text(encoding="utf-8")
     if 'test "ARRAY' not in s:
         return None
@@ -369,6 +489,7 @@ def case_grep_vacuity():
 def case_grep_vacuity_litmus():
     """ГРЕП-ФИЛЬТР (#34), вторая цель. ЛОМАЕМ: переименовываем LITMUS-тесты."""
     p = ROOT / "src" / "tests" / "litmus_memory_test.zig"
+    touch("src/tests/litmus_memory_test.zig")
     if not p.exists():
         return None
     s = p.read_text(encoding="utf-8")
@@ -381,6 +502,7 @@ def case_grep_vacuity_litmus():
 def case_attack_regression():
     """Демонстратор атак. ЛОМАЕМ: возвращаем обход Врат одним байтом."""
     p = ROOT / "src" / "verifier" / "admission_gate.zig"
+    touch("src/verifier/admission_gate.zig")
     s = p.read_text(encoding="utf-8")
     # Открываем Врата, если в payload есть байт 0xAA (та самая АТАКА 1).
     old = "        switch (checker_verdict) {"
@@ -452,6 +574,7 @@ def case_evidence_propagates():
     превращается в декорацию.
     """
     p = ROOT / "formal" / "KernAllMath.lean"
+    touch("formal/KernAllMath.lean")
     with p.open("a", encoding="utf-8") as f:
         f.write("\ntheorem CANFAIL_PROBE : True := by sorry\n")
     return "make evidence-fast"
@@ -464,6 +587,7 @@ def case_telemetry_detects():
     фикция). Проверяем на быстром режиме (та же логика начисления).
     """
     p = ROOT / "formal" / "KernAllMath.lean"
+    touch("formal/KernAllMath.lean")
     with p.open("a", encoding="utf-8") as f:
         f.write("\ntheorem CANFAIL_PROBE : True by sorry\n".replace("True", "True := by"))
     return "make telemetry-quick"
@@ -490,6 +614,7 @@ def case_sanity_control():
     Если харнесс скажет «PASS» — он сломан, и все доказательства фиктивны.
     """
     p = ROOT / "src" / "verifier" / "array_theory.zig"
+    touch("src/verifier/array_theory.zig")
     with p.open("a", encoding="utf-8") as f:
         f.write("\n// KERN canfail: мета-контроль — семантику НЕ меняет\n")
     return "make arrays"
@@ -701,6 +826,7 @@ def case_registry_fuse():
     Предохранитель обязан это заметить и вернуть ненулевой код.
     """
     p = ROOT / "Makefile"
+    touch("Makefile")
     s = p.read_text(encoding="utf-8")
     marker = "registry:\n"
     if marker not in s:
@@ -713,6 +839,7 @@ def case_registry_fuse():
 def case_semantic_gap():
     """Эшелон 4 (Lean). ЛОМАЕМ: добавляем `sorry` в KernSemanticGap.lean."""
     p = ROOT / "formal" / "KernSemanticGap.lean"
+    touch("formal/KernSemanticGap.lean")
     with p.open("a", encoding="utf-8") as f:
         f.write("\ntheorem CANFAIL_GAP_PROBE : True := by sorry\n")
     return "make semantic-gap"
@@ -917,6 +1044,7 @@ def case_cert():
     `test -s` падает (цель краснеет), а `git checkout` восстанавливает.
     """
     p = ROOT / "formal" / "certification" / "TRACEABILITY_MATRIX.md"
+    touch("formal/certification/TRACEABILITY_MATRIX.md")
     if not p.exists():
         return None
     p.write_text("", encoding="utf-8")
@@ -941,6 +1069,7 @@ def case_audit_manifest():
     считает провалы и возвращает 1.
     """
     p = ROOT / "tests" / "fixtures" / "valid_v1_3.kimg"
+    touch("tests/fixtures/valid_v1_3.kimg")
     b = bytearray(p.read_bytes())
     b[len(b) // 2] ^= 0xFF  # портим 1 байт в середине
     p.write_bytes(bytes(b))
@@ -1166,10 +1295,24 @@ def main():
     # ДЕФЕКТ #63: ПРЕДОХРАНИТЕЛЬ. Харнесс восстанавливает FAULTABLE-файлы через
     # `git checkout --`, поэтому незакоммиченные правки в них будут УТЕРЯНЫ.
     # Отказываемся работать, пока дерево не закоммичено (или явный --allow-dirty).
-    if not args.allow_dirty:
-        rc_guard = guard_dirty_faultable()
-        if rc_guard != 0:
-            return rc_guard
+    # 🔴 ДЕФЕКТ #71: взаимное исключение через fcntl.flock. Ядро снимает
+    # блокировку даже при SIGKILL — в отличие от файла-флага (дефект #50),
+    # который после аварии остаётся и блокирует все будущие прогоны.
+    lock = acquire_run_lock()
+    _LOCK_HOLDER.append(lock)  # держим ссылку: иначе GC снимет flock
+    if lock == "BUSY":
+        print("[!] ОТКАЗ: другой экземпляр canfail.py уже выполняется.")
+        print("    Харнесс пишет прямо в рабочие файлы, поэтому два прогона")
+        print("    одновременно недопустимы. Дождитесь завершения первого.")
+        return 1
+
+    # ПРЕДУПРЕЖДЕНИЕ (не отказ). Дефект #63 отказывал при незакоммиченных
+    # правках, потому что откат шёл через `git checkout --`. Теперь откат
+    # идёт из байтового снимка, СДЕЛАННОГО С ТЕКУЩЕГО СОСТОЯНИЯ, поэтому
+    # незакоммиченные правки переживают прогон — и отказывать незачем.
+    rc_guard = guard_dirty_faultable()
+    if rc_guard != 0 and not args.allow_dirty:
+        print("    Продолжаю: откат идёт из снимка текущего состояния, а не из git.")
 
     env = dict(os.environ)
     env["PATH"] = (f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:"
@@ -1182,6 +1325,7 @@ def main():
     print("Метод: ломаем инвариант -> цель ОБЯЗАНА покраснеть.\n")
 
     clean_slate()
+    capture_snapshot()   # дефект #71: байтовый снимок = источник истины для отката
     snap = snapshot_faultable()
 
     ok = bad = meta_bad = skipped = 0
