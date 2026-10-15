@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo run-example torture telemetry telemetry-quick docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo run-example torture telemetry telemetry-quick evidence evidence-fast docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -118,6 +118,15 @@ telemetry:
 # Быстрый вариант стенда (без двух сборок, мутаций и фаззинга).
 telemetry-quick:
 	$(PYTHON) tools/measure_all_kern.py --quick --out telemetry_report.json
+
+# СБОРЩИК СВИДЕТЕЛЬСТВ: прогоняет все проверки и сохраняет их ПОЛНЫЕ логи
+# в docs/evidence/ (у каждого заявления — доказательство, а не только запись).
+evidence:
+	bash tools/collect_evidence.sh
+
+# То же без тяжёлых проверок (мутации, фаззинг, QEMU).
+evidence-fast:
+	bash tools/collect_evidence.sh --fast
 
 # Формальные доказательства Lean 4 (0 ошибок, 0 sorry).
 lean:

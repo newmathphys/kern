@@ -1,0 +1,20 @@
+=== KERN EVIDENCE: kern_attack ===
+=== команда: ./zig-out/bin/kern-attack ===
+=== дата: 2026-10-15T18:18:15Z ===
+
+
+########## АТАКА 1: ИИ присылает ОДИН БАЙТ вместо доказательства ##########
+Вердикт: N, e=0
+>>> ИТОГ: код НЕ допущен — один байт больше не работает <<<
+
+########## АТАКА 2: KERNFS на согласованном образе v1.3 ##########
+  /raw/src/main.zig -> НАЙДЕНО (22 б): pub fn main() void {}
+
+  /claims/L0_AlignmentInvariant.kern/status -> НАЙДЕНО (view): T
+
+  /claims/L0_AlignmentInvariant.kern/contract.json -> НАЙДЕНО (28 б): {"pre":"true","post":"true"}
+  запись -> ошибка: AccessDenied (ожидаем AccessDenied)
+>>> ИТОГ: роутер находит объекты — Фазы 1 и 3 согласованы <<<
+
+
+RC=0

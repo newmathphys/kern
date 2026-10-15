@@ -393,6 +393,48 @@ def case_build_syntax():
     return "zig build"
 
 
+def case_torture_payload():
+    """Пытки. ЛОМАЕМ: отключаем сверку SHA-256(payload) с digest дескриптора.
+
+    ЭТО НАБЛЮДАЕМЫЙ пробой: подменённый байт содержимого начнёт отдаваться
+    читателю. Если `make torture` НЕ покраснеет — значит набор атак не способен
+    поймать реальную подмену данных (дефект #14), то есть бесполезен.
+
+    ПОЧЕМУ НЕ ОБХОД ПУТЕЙ: KERNFS — in-memory ФС, она ФИЗИЧЕСКИ не может отдать
+    хостовый файл, поэтому утверждение «нет root:x» истинно всегда и такой кейс
+    был бы вакуумным. Найдено первым прогоном can-fail (кейс признан вакуумным).
+    """
+    patch("src/core/kernfs_router.zig",
+          "        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
+          "        if (false and !std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered; // ЛОМАЕМ")
+    return "make torture"
+
+
+def case_evidence_propagates():
+    """Свидетельства. ЛОМАЕМ: добавляем `sorry` в Lean.
+
+    Коллектор свидетельств ОБЯЗАН пробросить провал подпроверки наружу (RC!=0),
+    а не «проглотить» его и записать зелёный лог. Иначе весь `docs/evidence/`
+    превращается в декорацию.
+    """
+    p = ROOT / "formal" / "KernAllMath.lean"
+    with p.open("a", encoding="utf-8") as f:
+        f.write("\ntheorem CANFAIL_PROBE : True := by sorry\n")
+    return "make evidence-fast"
+
+
+def case_telemetry_detects():
+    """Телеметрия. ЛОМАЕМ: тот же `sorry` в Lean.
+
+    Стенд обязан НЕ начислить балл за проверку Lean (иначе итог 100/100 —
+    фикция). Проверяем на быстром режиме (та же логика начисления).
+    """
+    p = ROOT / "formal" / "KernAllMath.lean"
+    with p.open("a", encoding="utf-8") as f:
+        f.write("\ntheorem CANFAIL_PROBE : True by sorry\n".replace("True", "True := by"))
+    return "make telemetry-quick"
+
+
 def case_sanity_control():
     """Заведомо БЕЗОПАСНАЯ правка: добавляем комментарий в файл.
 
@@ -913,6 +955,14 @@ CASES = [
     ("cegis-theory",  "CEGIS: перебор только k=0",             case_cegis_theory),
     ("nra-theory",    "NRA: линейная логика вместо нелинейной", case_nra_theory),
     ("align-inv",     "Эшелон 1: isStrictlyAligned всегда истинна", case_align_invariant),
+    ("torture-payload",   "Пытки: подмена payload (SHA-256)",      case_torture_payload),
+    ("evidence-propagates", "Свидетельства: провал подпроверки",   case_evidence_propagates),
+    ("telemetry-detects", "Телеметрия: балл за провал Lean",       case_telemetry_detects),
+    # ПОЛНЫЕ режимы используют ТОТ ЖЕ скрипт, что быстрые (общая логика
+    # начисления/проброса) -> проверяем быстрым прогоном, чтобы canfail
+    # не длился лишний час. Это зафиксировано явно, а не «предполагается».
+    ("evidence-full",  "Свидетельства (полный режим): тот же скрипт", case_evidence_propagates),
+    ("telemetry-full", "Телеметрия (полный режим): тот же скрипт",    case_telemetry_detects),
     ("pool-limit",    "Эшелон 3: лимит пула не соблюдается",     case_pool_limit),
     ("strings-theory", "Строковая теория: подмена needle",       case_strings_theory),
     ("noninterf",     "Невлияние: утечка не регистрируется",    case_noninterference_taint),

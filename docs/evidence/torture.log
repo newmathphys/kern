@@ -1,0 +1,71 @@
+=== KERN EVIDENCE: torture ===
+=== команда: bash tools/torture_kern.sh ===
+=== дата: 2026-10-15T18:18:04Z ===
+
+
+[1m=== 0. Сборка эталонного образа ===[0m
+  образ: 4605 байт
+
+[1m=== 1. Атаки на заголовок .kimg (128 байт) ===[0m
+  [32m[ОТБИТО][0m битый magic отвергнут
+  [32m[ОТБИТО][0m header_size != 128 отвергнут
+  [32m[ОТБИТО][0m hash_algo вне {1,2} отвергнут
+
+[1m=== 2. Атаки на смещения (переполнение u64) ===[0m
+  [32m[ОТБИТО][0m offset=0xFFFF...FF отвергнут (нет OOB)
+  [32m[ОТБИТО][0m payload_offset за файлом отвергнут
+  [32m[ОТБИТО][0m object_count=1e9 отвергнут за 7 мс (нет зависания)
+
+[1m=== 3. Подмена содержимого payload (SHA-256 сверка) ===[0m
+  [32m[ОТБИТО][0m подмена байта payload обнаружена (PayloadTampered)
+
+[1m=== 4. Атаки на KERNFS (path traversal, NUL) ===[0m
+  [32m[ОТБИТО][0m отвергнут путь: /raw/../../etc/passwd
+  [32m[ОТБИТО][0m отвергнут путь: /raw/./proj.kern
+  [32m[ОТБИТО][0m отвергнут путь: /raw//proj.kern
+  [32m[ОТБИТО][0m отвергнут путь: /etc/passwd
+  [32m[ОТБИТО][0m отвергнут путь: /raw
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "/usr/lib/python3.14/subprocess.py", line 555, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1875, in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                      p2cread, p2cwrite,
+                      ^^^^^^^^^^^^^^^^^^
+                      c2pread, c2pwrite,
+                      ^^^^^^^^^^^^^^^^^^
+                      errread, errwrite)
+                      ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1819, in _posix_spawn
+    self.pid = os.posix_spawn(executable, args, env, **kwargs)
+               ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: embedded null byte
+  [31m[ПРОШЛО][0m ПРОБОЙ через NUL-байт — содержимое хостовой ФС получено!
+
+[1m=== 5. Z3-мост: бомба зависания ===[0m
+  [32m[ОТБИТО][0m fail-closed: 5105 мс, зомби нет, e=0
+
+[1m=== 6. Логика Белнапа: конфликт не схлопывается ===[0m
+  [32m[ОТБИТО][0m конфликт/опровержение -> e=0 (не схлопнулось в доказательство)
+
+[1m=== 7. Целостность дерева (защита от диверсий харнесса) ===[0m
+  [i] дерево уже грязное — пропуск (не наша ответственность в этом прогоне)
+
+════════════════════════════════════════════════════════════════
+  ОТБИТО АТАК: 14    |    ПРОШЛО АТАК (БАГИ): 1
+════════════════════════════════════════════════════════════════
+
+RC=1

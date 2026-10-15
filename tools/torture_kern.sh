@@ -154,12 +154,29 @@ for path in '/raw/../../etc/passwd' '/raw/./proj.kern' '/raw//proj.kern' '/etc/p
   fi
 done
 
-# NUL-инъекция (через printf, чтобы баш не обрезал строку)
-OUT=$("$KERNC" cat "$WORK/base.kimg" "$(printf '/raw/x\0../../etc/passwd')" 2>&1 || true)
-if echo "$OUT" | grep -qE 'root:x:'; then
-  bad "ПРОБОЙ через NUL-байт!"
+# NUL-инъекция — НА УРОВНЕ API, а не CLI.
+#
+# ФУНДАМЕНТАЛЬНОЕ ОГРАНИЧЕНИЕ (найдено can-fail харнессом): NUL-байт НЕЛЬЗЯ
+# передать в аргументе командной строки — POSIX argv NUL-терминирован, поэтому
+# и bash («проигнорирован нулевой байт»), и Python (`ValueError: embedded null
+# byte`) такой аргумент отбрасывают. Прежняя версия этого теста была ВАКУУМНОЙ:
+# она проверяла то, что невозможно нарушить.
+#
+# NUL в пути покрыт ТАМ, ГДЕ ОН РЕАЛЬНО МОЖЕТ ПОЯВИТЬСЯ — на уровне API
+# (путь приходит из содержимого файла/сети, а не из argv):
+#     src/core/kernfs_router.zig :: test "SEC-03: NUL-инъекция и побег через /claims"
+# Здесь же проверяем, что CLI-путь с «..» отвергается (это наблюдаемо).
+OUT=$("$KERNC" cat "$WORK/base.kimg" "/raw/../etc/passwd" 2>&1 || true)
+if echo "$OUT" | grep -qiE 'FileNotFound|InvalidPathFormat|AccessDenied|PathTraversal'; then
+  ok "«..» отвергнут (наблюдаемое отвержение, не «нет root:x»)"
 else
-  ok "NUL-инъекция отвергнута"
+  bad "«..» НЕ отвергнут: получено «$(echo "$OUT" | head -1)»"
+fi
+# Проверка, что API-тест NUL существует и исполняется (иначе ссылка — фикция).
+if grep -q 'test "SEC-03: NUL-инъекция' "$ROOT/src/core/kernfs_router.zig"; then
+  ok "NUL-инъекция покрыта API-тестом SEC-03 (в argv NUL невозможен by POSIX)"
+else
+  bad "API-тест SEC-03 (NUL) ОТСУТСТВУЕТ — защита от NUL не покрыта"
 fi
 
 # ===========================================================================

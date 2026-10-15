@@ -1,0 +1,19 @@
+=== KERN EVIDENCE: lean_proofs ===
+=== команда: bash formal/check.sh ===
+=== дата: 2026-10-15T18:16:59Z ===
+
+== core-only (Lean без Mathlib) ==
+  [OK]   KernAllMath.lean
+  [OK]   KernDfsTermination.lean
+== Mathlib (/home/mrbritneyxxx/mathlib_proj) ==
+  [OK]   KernTalk.lean
+  [OK]   KernTalkND.lean
+  [OK]   KernConvergence.lean
+  [OK]   KernZeroCopy.lean
+  [OK]   KernSemanticGap.lean
+== проверка отсутствия 'sorry' (без учёта комментариев) ==
+ОШИБКА: найден sorry:
+160:/home/mrbritneyxxx/Рабочий стол/kern/formal/KernAllMath.lean:theorem CANFAIL_PROBE : True := by sorry
+LEAN PROOFS: ПРОВАЛ (проверено 7/7 файлов)
+
+RC=1

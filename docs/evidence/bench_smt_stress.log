@@ -1,0 +1,30 @@
+=== KERN EVIDENCE: bench_smt_stress ===
+=== команда: zig build bench-smt-stress ===
+=== дата: 2026-10-15T18:18:16Z ===
+
+🔬 ЛОГИЧЕСКИЙ СТРЕСС Z3-моста (18 кейсов)
+
+Кейс                                 | получено | ожидалось | 
+-----------------------------------------+-----------+-----------+---------
+Парадокс: pre = (x>5 ∧ x<2)    | vacuous   | vacuous   | ✅
+Overflow: x+1 > x (i32)                  | refuted   | refuted   | ✅
+Int (без границ): x+1 > x       | proved    | proved    | ✅
+NIA: x*x >= 0                            | proved    | proved    | ✅
+Alive2: x*8 == x<<3 (u32)                | proved    | proved    | ✅
+Alive2(ложная): x/2 == x>>1 знаковое | refuted   | refuted   | ✅
+Мёртвая ветка: pre = (x*x < 0) | vacuous   | vacuous   | ✅
+Контракт: x>0 => x+1>1           | proved    | proved    | ✅
+Контракт(ложный): x>0 => x+1>5 | refuted   | refuted   | ✅
+BitVec(1024): x*2 == x<<1 (нет усечения) | proved    | proved    | ✅
+BitVec(1024): x+1 == 1+x                 | proved    | proved    | ✅
+BitVec(1024): x+1 == x (ЛОЖНО)      | refuted   | refuted   | ✅
+FP: `=` рефлексивно даже для NaN (SMT-семантика) | proved    | proved    | ✅
+FP: fp.eq(x,x) ЛОЖНО для NaN (IEEE) | refuted   | refuted   | ✅
+FP: fp.eq(-0.0, +0.0) ИСТИННО (IEEE) | proved    | proved    | ✅
+FP: `=` различает -0.0 и +0.0 (битовые шаблоны) | refuted   | refuted   | ✅
+FP: x + 0.0 == x ЛОЖНО (контрпример -0.0) | refuted   | refuted   | ✅
+Деление на ноль: (= (div x 0) x) — SMT определён | refuted   | refuted   | ✅
+
+=== ИТОГ: 18/18 совпало за 877.6 мс ===
+
+RC=0

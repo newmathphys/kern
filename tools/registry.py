@@ -43,6 +43,9 @@ CLASS = {
     "sim": "CHECK", "os-stress": "CHECK", "flood": "CHECK", "proof-check": "CHECK",
     "disasm": "CHECK", "slsa": "CHECK", "deal": "CHECK", "cert": "CHECK",
     "audit-manifest": "CHECK", "fd-check": "CHECK", "canfail": "CHECK",
+    "torture": "CHECK", "telemetry": "CHECK", "evidence": "CHECK",
+    "telemetry-quick": "CHECK", "evidence-fast": "CHECK",
+    "run-example": "META",   # демонстрация (не проверка); свой can-fail не нужен
     "canfail-selftest": "META",
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
@@ -122,6 +125,11 @@ CASE_TARGET = {
     "probe": "probe",
     "portable-bench": "portable-bench",
     "ubsafe": "ubsafe",
+    "torture-payload": "torture",
+    "evidence-full": "evidence",
+    "telemetry-full": "telemetry",
+    "evidence-propagates": "evidence-fast",
+    "telemetry-detects": "telemetry-quick",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
 }

@@ -106,6 +106,7 @@ pub fn build(b: *std.Build) void {
         .{ .name = "stress-1m", .file = "tests/stress_1m.zig", .desc = "1 млн проектов в памяти" },
         .{ .name = "fuzz-ast", .file = "src/fuzz_ast.zig", .desc = "Фаззинг AST-парсера" },
         .{ .name = "chc", .file = "src/chc_bench.zig", .desc = "CHC/Horn бенчмарк" },
+        .{ .name = "hash", .file = "src/hash_bench.zig", .desc = "SHA-256 vs BLAKE3 (узкое место Safe-чтения)" },
         .{ .name = "semantic", .file = "src/semantic_probe.zig", .desc = "Семантический зонд" },
         .{ .name = "sim", .file = "src/sim_test.zig", .desc = "Симуляция конкурентности" },
     };

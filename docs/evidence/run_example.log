@@ -1,0 +1,40 @@
+=== KERN EVIDENCE: run_example ===
+=== команда: make run-example ===
+=== дата: 2026-10-15T18:18:15Z ===
+
+make[1]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
+zig build
+=== [1] Обычный CI: pytest на «тесте» агента ===
+python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
+ echo "(pytest не установлен — вакуумный тест всё равно не имеет assert)"
+.                                                                        [100%]
+1 passed in 0.01s
+
+=== [2] KERN: сборка образа доказательств ===
+./zig-out/bin/kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg
+[OK] Образ собран: toy.kimg (5 объектов)
+
+=== [3] KERN: Врата Истины (вердикт даёт Z3) ===
+./zig-out/bin/kernc verify toy.kimg
+[L4] Образ: toy.kimg
+  claim `withdraw never increases the balance`: заявленный статус = N
+    контракт `examples/toy_ai_hallucination/contract_refuted.smt2`: SAT -> e=0 (F) КОНТРПРИМЕР
+  claim `fixed withdraw never increases the balance`: заявленный статус = T
+    контракт `examples/toy_ai_hallucination/contract_fixed.smt2`: UNSAT -> e=1 (T) ДОКАЗАНО
+[i] ИТОГ: доказано 1, контрпримеров 1, без контракта 0
+[i] e=1 выставляется ТОЛЬКО по вердикту решателя. Заявления без
+    привязанного контракта остаются e=0 — это и есть честный статус.
+
+=== [4] Чтение через KERNFS (виртуальная ФС образа) ===
+./zig-out/bin/kernc ls toy.kimg
+[L3] Объектов в образе: 5
+  type=0x0002 size=1395 path=`examples/toy_ai_hallucination/withdraw.py`
+  type=0x0002 size=1183 path=`examples/toy_ai_hallucination/contract_refuted.smt2`
+  type=0x0002 size=1095 path=`examples/toy_ai_hallucination/contract_fixed.smt2`
+  type=0x0005 size=51 path=`withdraw never increases the balance`
+  type=0x0005 size=49 path=`fixed withdraw never increases the balance`
+
+ИТОГ: заявление агента ОПРОВЕРГНУТО (e=0), исправленная версия ДОКАЗАНА (e=1).
+make[1]: выход из каталога «/home/mrbritneyxxx/Рабочий стол/kern»
+
+RC=0

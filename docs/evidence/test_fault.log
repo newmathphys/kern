@@ -1,0 +1,6 @@
+=== KERN EVIDENCE: test_fault ===
+=== команда: zig build test-fault ===
+=== дата: 2026-10-15T18:16:59Z ===
+
+
+RC=0
