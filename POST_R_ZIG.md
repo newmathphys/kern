@@ -21,7 +21,7 @@ We just finished migrating the codebase from Zig 0.13 to **Zig 0.17.0** — the
 mechanical migration commit alone touched 44 files (291 insertions), and 58 of the
 69 Zig files under `src/` needed changes across the whole effort.
 
-Repo (MIT): https://github.com/newmathphys/kern
+Repo (AGPL-3.0): https://github.com/newmathphys/kern
 
 ### Highlights of the Zig implementation
 
@@ -83,10 +83,10 @@ or the Belnap lattice implementation.
 
 # Вариант без ссылки на релиз (если тег не восстанавливать)
 
-Замените строку `Repo (MIT): ...` на:
+Замените строку `Repo (AGPL-3.0): ...` на:
 
 ```
-Repo (MIT): https://github.com/newmathphys/kern
+Repo (AGPL-3.0): https://github.com/newmathphys/kern
 ```
 
 и удалите любое упоминание тега `v2.1.0` — остальной текст не меняется.

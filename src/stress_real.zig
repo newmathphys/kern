@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+// Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+// (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 
 //! KERN: УСИЛЕННЫЙ стресс-тест — бьёт по РЕАЛЬНЫМ модулям ядра.
 //! В отличие от tests/stress_1m.zig (где 0 FPR by construction), здесь

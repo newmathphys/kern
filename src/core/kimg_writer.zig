@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+// Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+// (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 
 //! KERN: сборщик образа .kimg v1.3 (Zig-side). Раскладка идентична
 //! `tools/golden_v1_3.py`: заголовок 128 + таблица N*96 + пул строк + payload.

@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+// Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+// (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 //! KERN: слой совместимости Zig 0.13 -> 0.17 (`std.Io`).
 //!
 //! В Zig 0.17 файловый ввод-вывод переведён на интерфейс `std.Io`:

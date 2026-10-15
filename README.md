@@ -9,7 +9,7 @@
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-64%2F65-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-204%2F204-informational)](#cross-architecture)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: AGPL-3.0 / Commercial](https://img.shields.io/badge/License-AGPL--3.0_%7C_Commercial-blue.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
 repository. It replaces the boolean result of "tests passed" with a four-valued
@@ -439,7 +439,24 @@ Security issues: see [`SECURITY.md`](SECURITY.md).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 
-Copyright (c) 2026 Vital Kalinousky.
+KERN is dual-licensed under the **GNU Affero General Public License v3.0
+(`AGPL-3.0-only`)** and a **commercial license**:
 
+1. **Open source (`AGPL-3.0-only`).** You may use, modify and distribute KERN
+   under the terms of the [GNU Affero General Public License v3.0](LICENSE).
+   Under Section 13 of the AGPL-3.0, if you modify KERN or operate it (including
+   the HTTP guardrail proxy, or any service linking `libkern.so`) so that users
+   interact with it over a network, you must offer those users the complete
+   corresponding source code of your version under the same license.
+2. **Commercial / proprietary.** Organizations embedding `libkern.so`, `kernc`,
+   `kernx` or the verification gateway into closed-source software, internal
+   enterprise CI/CD appliances, or commercial SaaS products without the
+   source-disclosure obligations of the AGPL-3.0 can obtain a separate
+   commercial license from the copyright holder (**Vital Kalinousky**).
+
+SPDX-License-Identifier: `AGPL-3.0-only OR LicenseRef-KERN-Commercial`
+
+Contributions are accepted under the terms described in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) (dual-licensing grant).

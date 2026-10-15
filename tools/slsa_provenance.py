@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+# Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+# (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 """slsa_provenance.py — аттестат цепочки сборки (SLSA Provenance v1).
 
 **Что делает.** Формирует `kern.intoto.jsonl` в формате in-toto Statement v1 /

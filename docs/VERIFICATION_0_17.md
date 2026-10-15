@@ -1,7 +1,8 @@
 # KERN на Zig 0.17.0 — верификация и документация
 
 > Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-> Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+> Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+> (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 
 **Ветка:** `zig-0.17-migration` · **Тулчейн:** Zig 0.17.0
 **Дата:** 2026-10-13 · **Связанный документ:** `docs/MIGRATION_REPORT_0_17.md`

@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+// Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+// (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 
 const std = @import("std");
 
@@ -509,7 +510,7 @@ pub fn main(init: std.process.Init) !void {
         const owner = @import("owner.zig");
         std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig {s})\n", .{@import("builtin").zig_version_string});
         std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
-        std.debug.print("License: MIT (см. LICENSE)\n", .{});
+        std.debug.print("License: AGPL-3.0-only / Commercial (см. LICENSE)\n", .{});
         std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});
         std.debug.print("Ownership key-lock: {s}\n", .{if (owner.verifyOwnership()) "ВАЛИДЕН" else "НЕ подтверждён"});
         return;

@@ -1,7 +1,8 @@
 # KERN — что это за проект и что было сделано
 
 > Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-> Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
+> Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
+> (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
 
 Этот документ — полное, без сокращений, описание проекта KERN: зачем он нужен,
 как устроен, что именно реализовано, какие измерения это подтверждают и что
