@@ -81,24 +81,13 @@ or the Belnap lattice implementation.
 
 ---
 
-# Вариант без ссылки на релиз (если тег не восстанавливать)
-
-Замените строку `Repo (AGPL-3.0): ...` на:
-
-```
-Repo (AGPL-3.0): https://github.com/newmathphys/kern
-```
-
-и удалите любое упоминание тега `v2.1.0` — остальной текст не меняется.
-
----
-
 # Что было исправлено относительно исходного черновика
 
 | Было | Стало | Почему |
 |:--|:--|:--|
 | `https://github.com` (голый) | `https://github.com/newmathphys/kern` | ссылка вела в никуда |
-| `https://github.com/releases/tag/v2.1.0` | ссылка убрана (тег удалён) | этот URL даёт 404 — путь без владельца и репозитория |
+| `https://github.com/releases/tag/v2.1.0` | **ссылка убрана** | этот URL даёт 404 — путь без владельца и репозитория. Репозиторий не использует теги/релизы: ссылаемся только на репозиторий |
+| `Repo (MIT)` | `Repo (AGPL-3.0)` | проект переведён на dual license: `AGPL-3.0-only` + коммерческая |
 | `End-to-end verified read (/safe/, ...)` | `Verified read, end-to-end, ...` | **пути `/safe/` в KERNFS не существует** — есть только `/raw/` и `/claims/`; проверка хеша происходит внутри `/raw/` через `objectPayload()` |
 | `~30 files, ~300 call sites` | `44 files (291 insertions)`, 58 из 69 | проверено `git show --stat`; занижение |
 | `In 0.17, our killer thread passes pid by value...` | `Removing an ECHILD race... Zig 0.13's Child.kill() reaps internally` | это **наш** фикс, а не свойство Zig 0.17; формулировка «нам повезло с апгрейдом» слабее реальной истории с найденным багом |
