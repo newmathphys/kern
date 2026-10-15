@@ -105,8 +105,12 @@ class GuardrailHandler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found", "hint": "GET /health, POST /verify"})
 
     def do_POST(self):
+        if self.path.startswith("/verify_multi"):
+            self._verify_multi()
+            return
         if not self.path.startswith("/verify"):
-            self._send(404, {"error": "not found", "hint": "POST /verify"})
+            self._send(404, {"error": "not found",
+                             "hint": "POST /verify | /verify_multi | GET /health"})
             return
         try:
             n = int(self.headers.get("Content-Length", "0"))
@@ -118,16 +122,71 @@ class GuardrailHandler(BaseHTTPRequestHandler):
 
         smt = req.get("smt") or DEFAULT_CONTRACT
         label = req.get("label", "agent-fix")
+        rc, name = self._check(smt, label)
+        if rc is None:
+            return  # ответ уже отправлен (fail-closed)
+        self._verdict_single(rc, name, label)
 
+    # --- Белнап-аккумулятор: несколько контрактов -> возможен КОНФЛИКТ (B) ----
+    def _verify_multi(self) -> None:
         try:
-            rc, name = verify_smt(self.kern, smt)
-        except Exception as e:  # noqa: BLE001 — прокси не должен падать
-            # Fail-closed: не смогли проверить -> НЕ пропускаем.
+            n = int(self.headers.get("Content-Length", "0"))
+            raw = self.rfile.read(n) if n else b"{}"
+            req = json.loads(raw.decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError) as e:
+            self._send(400, {"error": f"bad JSON: {e}"})
+            return
+        contracts = req.get("contracts") or []
+        label = req.get("label", "agent-fix")
+        if not isinstance(contracts, list) or not contracts:
+            self._send(400, {"error": "нужен непустой список 'contracts'"})
+            return
+
+        # p = положительная поддержка, n = отрицательная (Белнап B4).
+        p = n_neg = 0
+        details = []
+        for i, smt in enumerate(contracts):
+            rc, name = self._check(smt, f"{label}#{i}")
+            if rc is None:
+                return
+            details.append({"i": i, "checker": name})
+            if rc == KERN_PROVED:
+                p = 1
+            elif rc == KERN_REFUTED:
+                n_neg = 1
+        # JOIN_K: (p, n) -> T/F/B/N. Конфликт НЕ схлопывается в доказательство.
+        if p and n_neg:
+            self._send(409, {
+                "verdict": "e=0", "belnap_state": "B", "status": 409,
+                "label": label, "p": p, "n": n_neg, "details": details,
+                "error": "CONFLICT: положительные и отрицательные свидетельства "
+                         "сосуществуют (JOIN_K(T,F)=B)",
+                "action": "BLOCKED — конфликт не разрешается в пользу доказательства",
+            })
+        elif p:
+            self._send(200, {"verdict": "e=1", "belnap_state": "T", "status": 200,
+                             "label": label, "p": p, "n": n_neg, "details": details,
+                             "action": "ADMITTED"})
+        elif n_neg:
+            self._send(422, {"verdict": "e=0", "belnap_state": "F", "status": 422,
+                             "label": label, "p": p, "n": n_neg, "details": details,
+                             "action": "BLOCKED — все контракты опровергнуты"})
+        else:
+            self._send(422, {"verdict": "e=0", "belnap_state": "N", "status": 422,
+                             "label": label, "p": p, "n": n_neg, "details": details,
+                             "action": "BLOCKED (fail-closed)"})
+
+    def _check(self, smt: str, label: str):
+        """Общий вызов Врат. При недоступности решателя — fail-closed ответ."""
+        try:
+            return verify_smt(self.kern, smt)
+        except Exception as e:  # noqa: BLE001
             self._send(503, {"verdict": "e=0", "belnap_state": "N", "status": 503,
                              "label": label, "error": f"verifier unavailable: {e!r}",
                              "action": "BLOCKED (fail-closed)"})
-            return
+            return None, None
 
+    def _verdict_single(self, rc: int, name: str, label: str) -> None:
         if rc == KERN_PROVED:
             self._send(200, {
                 "verdict": "e=1", "belnap_state": "T", "status": 200,
@@ -135,28 +194,113 @@ class GuardrailHandler(BaseHTTPRequestHandler):
                 "action": "ADMITTED — контракт доказан на всей области определения",
             })
         elif rc == KERN_REFUTED:
-            self._send(409, {
-                "verdict": "e=0", "belnap_state": "B", "status": 409,
+            # 422 Unprocessable Entity: запрос ПОНЯТ, но семантически неверен —
+            # контракт опровергнут, предъявлен контрпример (Белнап F).
+            # 409 зарезервирован за КОНФЛИКТ (B) — см. /verify_multi.
+            self._send(422, {
+                "verdict": "e=0", "belnap_state": "F", "status": 422,
                 "label": label, "checker": name,
-                "error": "Truth Gate blocked AI hallucination: contract violation",
+                "error": "contract refuted: counterexample exists",
                 "counterexample_hint": "amount < 0 -> баланс УВЕЛИЧИВАЕТСЯ при списании",
-                "action": "BLOCKED — контрпример предъявлен",
+                "action": "BLOCKED — контракт опровергнут (контрпример)",
             })
         else:
-            # UNKNOWN / TOOL_ERROR — тоже НЕ пропускаем (fail-closed).
-            self._send(409, {
-                "verdict": "e=0", "belnap_state": "N", "status": 409,
+            # UNKNOWN / TOOL_ERROR -> тоже НЕ пропускаем (fail-closed).
+            self._send(422, {
+                "verdict": "e=0", "belnap_state": "N", "status": 422,
                 "label": label, "checker": name,
                 "error": "verdict undecided (timeout / solver unavailable)",
                 "action": "BLOCKED (fail-closed): неизвестность не является доказательством",
             })
 
 
+def self_test() -> int:
+    """Автономная проверка прокси: поднимает сервер на ЭФЕМЕРНОМ порту,
+    отправляет 4 запроса и ПРОВЕРЯЕТ коды ответов. Пишет лог и возвращает
+    код возврата (0 = все ожидания совпали).
+
+    Используется `make evidence` — так прокси становится MEASURED, а не
+    «написано, но не проверено».
+    """
+    import threading
+    import urllib.request
+
+    try:
+        kern, lib = load_kern()
+    except FileNotFoundError as e:
+        print(f"[!] {e}")
+        return 1
+    GuardrailHandler.kern = kern
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), GuardrailHandler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def post(path: str, payload: dict) -> tuple[int, dict]:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}{path}",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.status, json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read().decode())
+
+    PROVED_SMT = ('(set-logic QF_LIA)(declare-const x Int)'
+                  '(assert (> x 10))(assert (< x 5))(check-sat)')
+    cases = [
+        ("health",         lambda: urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/health", timeout=10).status, 200, None),
+        ("доказано (T)",   lambda: post("/verify", {"smt": PROVED_SMT}), 200, "T"),
+        ("опровергнуто (F)", lambda: post("/verify", {"label": "buggy"}), 422, "F"),
+        ("конфликт (B)",   lambda: post("/verify_multi", {"contracts": [PROVED_SMT, DEFAULT_CONTRACT]}), 409, "B"),
+    ]
+
+    fails = 0
+    print("=" * 74)
+    print(f"KERN GUARDRAIL SELF-TEST (порт {port}, {lib})")
+    print("=" * 74)
+    for name, fn, want_code, want_belnap in cases:
+        try:
+            res = fn()
+        except Exception as e:  # noqa: BLE001
+            print(f"  [ПРОВАЛ] {name:<20} исключение: {e!r}")
+            fails += 1
+            continue
+        if isinstance(res, tuple):
+            code, body = res
+        else:
+            code, body = res, {}
+        got_belnap = body.get("belnap_state")
+        ok_code = code == want_code
+        ok_bel = (want_belnap is None) or (got_belnap == want_belnap)
+        if ok_code and ok_bel:
+            print(f"  [OK]   {name:<20} HTTP {code} belnap={got_belnap}")
+        else:
+            print(f"  [ПРОВАЛ] {name:<18} ждали HTTP {want_code}/belnap={want_belnap}, "
+                  f"получили HTTP {code}/belnap={got_belnap}")
+            fails += 1
+    srv.shutdown()
+    print("=" * 74)
+    if fails:
+        print(f"ПРОВАЛОВ: {fails}")
+        return 1
+    print("ВСЁ ПРОЙДЕНО: 200(T) · 422(F) · 409(B) — семантика HTTP соответствует Белнапу B4")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8731)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--self-test", action="store_true",
+                    help="автономная проверка (эфемерный порт, 4 запроса)")
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     try:
         kern, lib = load_kern()

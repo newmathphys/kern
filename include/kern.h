@@ -31,6 +31,12 @@ const char *kern_author(void);
 /* Проверка «ключа-замка» авторства: 1 = валиден, 0 = нет. */
 int kern_ownership_ok(void);
 
+/* Хеш данных тем же алгоритмом, что и ядро (спецификация §5.3).
+ * algo = 1 (BLAKE3-256) или 2 (SHA2-256); data/len — вход (не zero-terminated);
+ * out32 — буфер вызывающего ровно на 32 байта. 0 = успех, -1 = неизвестный algo. */
+int kern_hash(unsigned int algo, const unsigned char *data, unsigned long len,
+              unsigned char *out32);
+
 /* Проверка SMT-LIB2 контракта через реальный Z3.
  * smt/len — скрипт SMT-LIB2 (может содержать несколько команд).
  * Возвращает KERN_PROVED / KERN_REFUTED / KERN_UNKNOWN / KERN_TOOL_ERROR. */

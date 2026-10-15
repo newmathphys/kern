@@ -124,7 +124,7 @@ telemetry-quick:
 # печатала их — то есть не могла упасть (вакуумная проверка, найдено can-fail
 # кейсом guardrail-verdict).
 guardrail: build lib
-	@bash tools/guardrail_smoke.sh
+	$(PYTHON) examples/guardrail_proxy.py --self-test
 
 # СБОРЩИК СВИДЕТЕЛЬСТВ: прогоняет все проверки и сохраняет их ПОЛНЫЕ логи
 # в docs/evidence/ (у каждого заявления — доказательство, а не только запись).

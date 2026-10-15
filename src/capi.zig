@@ -10,6 +10,7 @@
 //! Все функции `export` имеют C-совместимые типы (только целые и указатели).
 const std = @import("std");
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
+const hash_algo = @import("core/hash_algo.zig");
 const z3b = @import("verifier/z3_bridge.zig");
 const owner = @import("owner.zig");
 
@@ -20,6 +21,26 @@ pub const KERN_UNKNOWN: c_int = 2;
 pub const KERN_TOOL_ERROR: c_int = -1;
 
 /// Версия ядра.
+/// Хеш данных тем же алгоритмом, что и ядро (спецификация §5.3).
+///
+/// ЗАЧЕМ В C-ABI. Клиенты (Python SDK, Rust, Go) обязаны считать хеши ТЕМ ЖЕ
+/// кодом, что и ядро: иначе возможен рассинхрон реализаций. До этой функции
+/// `tools/golden_v1_3.py` использовал сторонний pip-пакет `blake3` — то есть
+/// Python и Zig считали хеш РАЗНЫМИ библиотеками. Теперь источник один.
+///
+///   algo   — 1 = BLAKE3-256, 2 = SHA2-256 (значения из спецификации);
+///   data/len — входные байты (НЕ zero-terminated: длина передаётся явно);
+///   out32  — буфер вызывающего ровно на 32 байта.
+///
+/// Возвращает: 0 = успех, -1 = неизвестный алгоритм (out32 не тронут).
+export fn kern_hash(algo: c_uint, data: [*]const u8, len: usize, out32: [*]u8) c_int {
+    const a = hash_algo.HashAlgo.fromInt(algo) orelse return KERN_TOOL_ERROR;
+    var out: [32]u8 = undefined;
+    a.hash(data[0..len], &out);
+    @memcpy(out32[0..32], &out);
+    return 0;
+}
+
 export fn kern_version() [*:0]const u8 {
     return "KERN v1.3.0 (C-ABI)";
 }

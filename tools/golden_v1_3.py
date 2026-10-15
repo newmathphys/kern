@@ -23,6 +23,7 @@
 """
 
 import hashlib
+from pathlib import Path
 import os
 import struct
 
@@ -35,23 +36,67 @@ LEAF_DOMAIN = b"\x00KIMG-ENTRY-LEAF-V1\x00"
 ROOT_DOMAIN = b"\x00KIMG-MERKLE-ROOT-V1\x00"
 
 
+# ===========================================================================
+#  ХЕШ: ИСТОЧНИК — ЯДРО (0 внешних pip-зависимостей)
+# ===========================================================================
+# ЗАМЕЧАНИЕ РЕВЬЮ (принято): в стандартном `hashlib` BLAKE3 НЕТ (только
+# blake2b/blake2s), поэтому `hashlib.new("blake3")` упал бы с ValueError.
+# Прежняя версия брала сторонний pip-пакет `blake3` — то есть Python и Zig
+# считали хеш РАЗНЫМИ библиотеками (риск расхождения).
+#
+# ТЕПЕРЬ: приоритет — вызов `kern_hash` из `libkern.so` через ctypes. Это
+# ГАРАНТИРУЕТ, что Python и Zig используют ОДИН И ТОТ ЖЕ код ядра.
+# Порядок: C-ABI ядра -> pip blake3 -> SHA-256 (hash_algo = 2).
+#
+# hash_algo из спецификации §5.3: 1 = BLAKE3-256, 2 = SHA2-256.
+HASH_ALGO = 2  # переопределяется ниже, если доступен BLAKE3
+
+ROOT = Path(__file__).resolve().parent.parent
+_kern_lib = None
+_lib_candidates = [
+    ROOT / "zig-out" / "lib" / "libkern.so",
+    ROOT / "libkern.so",
+]
+for _p in _lib_candidates:
+    if _p.exists():
+        try:
+            import ctypes as _ct
+            _kern_lib = _ct.CDLL(str(_p))
+            _kern_lib.kern_hash.restype = _ct.c_int
+            _kern_lib.kern_hash.argtypes = [_ct.c_uint, _ct.c_char_p,
+                                            _ct.c_ulong, _ct.c_char_p]
+            _buf = _ct.create_string_buffer(32)
+            if _kern_lib.kern_hash(1, b"", 0, _buf) == 0:
+                HASH_ALGO = 1
+                break
+            _kern_lib = None
+        except (OSError, AttributeError):
+            _kern_lib = None
+
 try:
-    import blake3 as _blake3  # pip install blake3
+    import blake3 as _blake3  # pip install blake3 (запасной путь)
     _HAS_BLAKE3 = True
 except ImportError:
     _HAS_BLAKE3 = False
-
-# hash_algo из спецификации §5.3: 1 = BLAKE3-256, 2 = SHA2-256.
-# Генератор ДОЛЖЕН совпадать с Zig-writer по умолчанию (BLAKE3).
-HASH_ALGO = 1 if _HAS_BLAKE3 else 2
+if _kern_lib is None and _HAS_BLAKE3:
+    HASH_ALGO = 1
 
 
 def content_hash(data: bytes) -> bytes:
-    """Хэш содержимого: BLAKE3 (hash_algo = 1), либо SHA-256 как fallback.
+    """Хэш содержимого тем же алгоритмом, что и ядро KERN.
+
+    Приоритет источников:
+      1) `kern_hash` из libkern.so (ctypes) — ОДИН код с Zig, 0 зависимостей;
+      2) pip-пакет `blake3` — если библиотеки нет;
+      3) SHA-256 (`hash_algo = 2`) — если BLAKE3 недоступен вовсе.
 
     Измерено (`make bench-hash`): BLAKE3 быстрее SHA-256 в среднем в 5.79x
     (до 8.92x на блоках 64 КБ) — см. docs/evidence/hash_bench.log.
     """
+    if _kern_lib is not None:
+        buf = _ct.create_string_buffer(32)
+        if _kern_lib.kern_hash(HASH_ALGO, data, len(data), buf) == 0:
+            return buf.raw[:32]
     if _HAS_BLAKE3:
         return _blake3.blake3(data).digest()
     return hashlib.sha256(data).digest()
