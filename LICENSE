@@ -129,33 +129,3 @@ software under these terms.
 
 **Use** means anything you do with the software requiring one
 of your licenses.
-
-===============================================================================
-
-KERN — source-available, dual-licensed
-Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-
-This project is available under EITHER of the following, at your option:
-
-  1. PolyForm Noncommercial License 1.0.0 (the license text above).
-     SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-
-     Free of charge for any NONCOMMERCIAL purpose: personal use, hobby
-     projects, study, research, teaching, and use by charitable
-     organizations, educational institutions and public research bodies.
-
-  2. A commercial license from the copyright holder (Vital Kalinousky),
-     required for ANY commercial use. This includes, without limitation:
-
-       * use by a for-profit organization of any size;
-       * running kernc / kernx / libkern.so in an internal CI/CD pipeline
-         or build appliance, even if nothing is exposed to the public;
-       * embedding the verification gateway into a commercial product or
-         a paid service;
-       * consulting or contract work whose deliverable depends on KERN.
-
-Note: this is a source-available license, NOT an open-source license as
-defined by the OSI. Commercial use without a commercial license is not
-permitted. For commercial licensing, contact the copyright holder.
-
-SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 OR LicenseRef-KERN-Commercial
