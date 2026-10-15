@@ -17,6 +17,7 @@ __pycache__/
 PROJECT_CANONICAL_SPEC.kern.md
 project.kbin
 release.kimg
+toy.kimg
 
 # KERN-Next (kernx) — выходные артефакты конвейера
 .kernnext/
@@ -60,6 +61,7 @@ attestation.cert
 
 # Локальные материалы (в репозиторий не входят)
 /archive/
+*.zip
 
 # Объектные файлы (создаются zig build-obj в diff_disasm)
 *.o

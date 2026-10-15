@@ -1,0 +1,51 @@
+// KERN toy example: спецификация «проекта» с багом и вакуумным тестом.
+//
+// Запуск:  make run-example
+//   (kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg
+//    kernc verify toy.kimg)
+//
+// Ключевое: `context` привязывает утверждение к МАШИННОМУ контракту (.smt2).
+// Без контракта утверждение остаётся текстом и получает e=0 (N) — как и
+// должно быть: написанное слово не является доказательством.
+
+project "toy-ai-hallucination" {
+  version "1.0"
+  root "."
+}
+
+artifact "examples/toy_ai_hallucination/withdraw.py" {
+  kind "source"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+// Контракт обязан быть ОБЪЯВЛЕН как артефакт — иначе он не попадёт в образ
+// и утверждение не сможет быть проверено (останется e=0, как текст).
+artifact "examples/toy_ai_hallucination/contract_refuted.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "examples/toy_ai_hallucination/contract_fixed.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+// Утверждение агента: «функция корректна».
+// Привязано к контракту, который ОПРОВЕРГАЕТСЯ (Z3 находит amount = -1).
+claim "withdraw never increases the balance" {
+  status empirical
+  evidence "test:test_withdraw_looks_fine"
+  context "examples/toy_ai_hallucination/contract_refuted.smt2"
+}
+
+// То же свойство для ИСПРАВЛЕННОЙ функции: контрпримера нет -> e=1 (T).
+// Показывает обе стороны Врат: F (опровергнуто) и T (доказано).
+claim "fixed withdraw never increases the balance" {
+  status proven
+  evidence "contract:examples/toy_ai_hallucination/contract_fixed.smt2"
+  context "examples/toy_ai_hallucination/contract_fixed.smt2"
+}
+
+link "claim:withdraw never increases the balance" -> "artifact:examples/toy_ai_hallucination/withdraw.py" {
+  relation "supported_by"
+}

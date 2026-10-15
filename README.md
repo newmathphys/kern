@@ -1,564 +1,331 @@
-# KERN — ядро проверки истины для ИИ-агентов
+# KERN — a zero-trust verification gateway for AI-generated code
 
-**Арбитражный шлюз истины для ИИ-агентов.** Заявление получает статус
-«доказано» **только при машинной опоре**: вердикт SMT-решателя (Z3), формальное
-доказательство (Lean 4) или подтверждённый прогон с кодом возврата.
-Всё остальное — честный отказ `e=0`.
+[![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
+[![Core tests](https://img.shields.io/badge/core_tests-191%2F191-brightgreen)](src/)
+[![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
+[![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
+[![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
+[![Can-fail](https://img.shields.io/badge/can--fail_harness-60%2F60-blueviolet)](tools/canfail.py)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-191%2F191-informational)](#cross-architecture)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Технологии:** Zig (ядро, zero-copy) · Lean 4 (формальные доказательства) ·
-Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
+**A green CI means nothing if the test itself cannot fail.**
 
-> ⚠️ **ВЕТКА И ТУЛЧЕЙН — ЧИТАЙТЕ ПЕРВЫМ.**
-> Этот README открыт на ветке **`zig-0.17-migration`** → нужен **Zig 0.17.0**
-> (`~/opt/zig-x86_64-linux-0.17.0/zig`).
-> **Zig 0.13 на этой ветке НЕ СОБИРАЕТСЯ**: `src/compat.zig` использует `std.Io`,
-> которого в 0.13 нет (ошибка `no module named 'compat'` / `no field 'Io'`).
-> Ветка **`main`** заморожена на **Zig 0.13.0** и аттестована отдельно —
-> карта миграции: [`docs/MIGRATION_REPORT_0_17.md`](docs/MIGRATION_REPORT_0_17.md).
+KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
+repository. It replaces the boolean illusion of "tests passed" with a
+four-valued verdict backed by an SMT solver and formal proofs — and it refuses
+to open the gate unless the claim is *machine-checkable*.
 
-| Показатель | Значение |
-|:--|:--|
-| Тесты ядра | **191** (Debug + ReleaseSafe) |
-| Тесты KERN-Next | **37** |
-| Формальные доказательства | **7 файлов Lean 4**, 0 errors, 0 `sorry` |
-| Покрытие инструментированных решений | **100.0%** (30/30) |
-| Мутационный score | 92.5% (37/40; 3 эквивалентных → эффективно 100%) |
-| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **191/191** |
-| SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
-| QuixBugs | **31/31** багов реальным исполнением |
-| Фаззинг | **1 000 000** мутаций, 0 паник |
-| **ПОЛНОЕ ТЕХНИЧЕСКОЕ ОПИСАНИЕ (18 разделов)** | **[`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md)** — математика, архитектура L0–L5, формат байт-в-байт, Врата, SMT, CLI, аттестация, дефекты, ограничения |
-| **Полный каталог тестов** | **[`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md)** |
-| **Возможности с доказательствами** | **[`docs/CAPABILITIES.md`](docs/CAPABILITIES.md)** — 11 пунктов: ✅ / ⚠️ / ❌ |
-| **Аттестационный паспорт** | **[`docs/ATTESTATION_PASSPORT.md`](docs/ATTESTATION_PASSPORT.md)** — все показатели + сводка поправок |
-
-> **Отдельный проект.** Не часть `nyuui-core`. `nyuui` может им пользоваться,
-> но живёт и развивается самостоятельно.
-
-**Статус:** рабочий прототип с измеренными свойствами. Эпистемическая часть
-(Врата Истины) исправлена в v1.3 — обход «одним байтом» закрыт, вердикт приходит
-только от внешнего чекера (см. `docs/KERN_FIXES_v1_3.md`).
+Written in **Zig 0.17**, verified in **Lean 4**, powered by **Z3**.
 
 ---
 
-## 0. Быстрый старт (5 минут)
+## The problem: the epistemic gap
+
+AI agents now write code faster than humans can review it. Under pressure to get a
+green pipeline, they produce two failure modes that no ordinary CI can see:
+
+| Failure mode | What CI sees | What actually happened |
+|:--|:--|:--|
+| **Vacuous test** | ✅ `1 passed` | The test contains no `assert`. It cannot fail. |
+| **Hallucinated fix** | ✅ `1 passed` | The edge case (`amount = -1`) was never sampled. |
+
+Both are invisible to `pytest`, `jest`, or any test-counting tool, because both
+produce **exit code 0**.
+
+KERN attacks the gap from two sides:
+
+1. **Can-fail discipline** — every check in KERN's own suite must be *proven
+   capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
+   fault and requires the check to go red. 60 checks, 60 proven non-vacuous.
+2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
+   checker (Z3) proves it, or if a reproducible execution record backs it.
+   Prose is never proof.
+
+---
+
+## See it in 15 seconds
 
 ```bash
-# 1. Окружение: Zig 0.17.0 (ветка zig-0.17-migration)
-export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
-#    (ветка main: make venv && export PATH="$PWD/.venv/bin:$PATH" — там Zig 0.13)
+make run-example
+```
 
-# 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
+The example (`examples/toy_ai_hallucination/`) simulates an agent that was asked to
+fix a withdrawal function. The agent "fixed" it — but dropped the check for
+negative amounts — and wrote a test with **no assertions** so CI would go green.
+
+```
+=== [1] Ordinary CI: pytest on the agent's "test" ===
+1 passed in 0.01s                      <-- green. The bug ships to production.
+
+=== [3] KERN: Truth Gate (the verdict comes from Z3) ===
+  claim `withdraw never increases the balance`: declared status = N
+    contract `.../contract_refuted.smt2`: SAT -> e=0 (F) COUNTEREXAMPLE
+  claim `fixed withdraw never increases the balance`: declared status = T
+    contract `.../contract_fixed.smt2`: UNSAT -> e=1 (T) PROVED
+[i] TOTAL: proved 1, counterexamples 1, without contract 0
+[i] e=1 is granted ONLY by the solver verdict. Claims without a bound
+    contract stay at e=0 — that is the honest status.
+```
+
+The solver did not sample inputs. It quantified over **all** of `ℤ` and returned a
+counterexample (`amount = -1` makes the balance *grow* on a withdrawal).
+
+---
+
+## Core ideas
+
+### Belnap B₄ logic — results accumulate, they never overwrite
+
+Each claim carries two independent support channels: `p` (positive) and `n`
+(negative).
+
+| `(p, n)` | Value | Meaning |
+|:--|:--|:--|
+| `(0,0)` | **N** | no evidence |
+| `(1,0)` | **T** | proven / positive only |
+| `(0,1)` | **F** | refuted / negative only |
+| `(1,1)` | **B** | **conflict** — positive *and* negative evidence coexist |
+
+A newly passing test **joins** with history, it does not replace it:
+
+```
+JOIN_K(T, F) = B        -- a conflict can never be silently resolved into a pass
+```
+
+This is the mechanism that makes "one green run" unable to hide a previously
+observed failure. (Defect #46 in the project's own registry was exactly the
+opposite behaviour — status overwrite — and was found by the can-fail harness.)
+
+### The Gate is closed by default
+
+```
+e = 1  <=>  policy allows  AND  provenance hash matches  AND  checker verdict = SUCCESS
+            AND  Belnap status = T  AND  coverage complete  AND  no scope ambiguity
+```
+
+Timeout, missing solver, unknown answer, or a fake textual witness all yield
+`e = 0`. The AI's own `witness_payload` **never** influences the verdict — only
+the external trusted checker does.
+
+---
+
+## Architecture (L0 – L5)
+
+| Layer | What it is |
+|:--|:--|
+| **L0** — container | `.kimg`: 128-byte little-endian header, 96-byte object descriptors, Merkle root, `comptime` layout invariants, atomic write (tmp + `fsync` + `rename` + directory `fsync`) |
+| **L1** — crypto | SHA-256 over every payload, checked on read → `PayloadTampered`; Merkle root over the descriptor table |
+| **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
+| **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
+| **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
+| **L5** — formal proofs | 32 theorems in 7 Lean 4 files, 0 `sorry` |
+
+The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
+produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
+packet.
+
+
+---
+
+## Measured, not claimed
+
+Everything below was produced by a real run on Zig 0.17.0. Reproduce with
+`make test-all`, `make audit-manifest`, `make canfail`.
+
+### Core health
+
+| Check | Result |
+|:--|:--|
+| Core test suite (Debug + ReleaseSafe) | **191 / 191** |
+| Core test suite with `z3` in `PATH` | **195 / 195** (the extra 4 exercise the solver) |
+| KERN-Next test suite | **37 / 37** |
+| Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
+| Undefined behaviour (ReleaseSafe) | **none detected** |
+| File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
+| Zombie processes | **0** |
+| Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
+| Mutation score (Zig-native mutator) | **92.5 %** (37 / 40 killed; 3 provably equivalent) |
+| Can-fail harness | **60 non-vacuous / 0 vacuous** |
+
+### Cross-architecture
+
+| Target | Property under test | Result |
+|:--|:--|:--|
+| x86_64 | TSO memory model | **191 / 191** |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **191 / 191** |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **191 / 191** |
+
+### External benchmarks
+
+| Benchmark | Result | Needs a model? |
+|:--|:--|:--|
+| **QuixBugs** (real buggy algorithms) | **31 / 31** bugs found | no |
+| **Hacker's Delight / Alive2-style** | **8 / 8** (6 proved, 2 counterexamples) | no |
+| **SWE-bench Lite** (Docker harness) | **3 / 3 resolved**, 0 infra failures | no |
+| **Refactory** (student solutions) | 1438 / 1782 bugs detected | no |
+| **CHC / Horn** (loop invariants) | **11 / 11** | no |
+| **SMT-LIB** (official suite) | 1104 / 1104 verdicts matched, **0 divergences**, **0 false accepts** | no |
+| **HumanEval / HumanEval+** (EvalPlus) | 0.524 / 0.500 | yes (API) |
+| **MBPP / MBPP+** (EvalPlus) | 0.812 / 0.698 | yes (API) |
+
+> **Honest note on the gate.** In the HumanEval experiment the static gate blocked
+> 55 samples — **all 55 genuinely failed**, zero false blocks (100 % precision),
+> but it did **not** raise `pass@1`. A static gate fires before execution; it
+> cannot fix logic. Raising the score requires execution evidence, not AST
+> inspection. This is stated because the alternative — reporting a flattering
+> number — would violate the project's own rule.
+
+### Performance
+
+| Path | Throughput |
+|:--|:--|
+| Raw zero-copy addressing (`/raw/`) | ~76 GB/s (memory-bus bound) |
+| Safe read with SHA-256 verification | ~231 MB/s |
+| Random access, 1 000 000-object image | ~0.0006 ms |
+
+The 330x gap is the cost of integrity checking every byte — and it is the reason
+a tampered payload cannot be served.
+
+### Reproducibility (measured)
+
+Two clean builds each (`rm -rf .zig-cache` in between):
+
+| Configuration | Build 1 | Build 2 | Verdict |
+|:--|:--|:--|:--|
+| Debug (default) | `35748ca0...` | `9dc521bb...` | differs (non-deterministic DWARF in Zig 0.17) |
+| **ReleaseFast** | `e6c8e38c...` | `e6c8e38c...` | **identical** |
+| **Hermetic** (ReleaseSafe, static musl) | `e4cc7449...` | `e4cc7449...` | **identical** |
+
+
+---
+
+## Quick start
+
+**Requirements:** Zig **0.17.0**, Python 3.12+, `z3` (via `pip install z3-solver`),
+and Lean 4 (only for `formal/`).
+
+```bash
+# 1. Toolchain (Zig 0.17.0)
+export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
+
+# 2. Build: kernc (core CLI), kernx (KERN-Next), kern-attack (attack demo)
 zig build
 
-# 3. Тесты ядра — 191 штука
-zig build test
+# 3. Core test suites
+zig build test          # 191 core tests
+zig build test-next     # 37 KERN-Next tests
 
-# 4. Эталонный образ и его проверка
-make golden
-./zig-out/bin/kernc check-integrity tests/fixtures/valid_v1_3.kimg
+# 4. The 15-second demo: green CI vs. mathematics
+make run-example
 
-# 5. Сквозная демонстрация (сборка образа, чтение, Врата, KERN-Next)
-make demo
-```
-
-**Увидеть вердикт `e=1` (ДОКАЗАНО)** — нужен Z3:
-```bash
+# 5. Prove a contract with real Z3
 uv pip install --python .venv/bin/python z3-solver
-./zig-out/bin/kernc prove formal/example.smt2     # e=1 — доказано решателем
-make bridge                                        # мост «текст → контракт»
-```
+./zig-out/bin/kernc prove formal/example.smt2
 
-**Список всех целей:** `make help`
+# 6. Formal proofs (Lean 4): 7 files, 32 theorems, 0 sorry
+./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
+./formal/check.sh
 
-**Аттестационный статус одной командой** (все строки — реальные прогоны):
-```bash
+# 7. Full qualification manifest — every line is a real run
 make audit-manifest
 ```
-```
-[KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 191/191 tests
-Memory Safety         : PASS — ReleaseSafe, 0 UB
-Kernel Invariants     : PASS — Lean 4 (7 files, 0 errors, 0 sorry)
-Target Systems        : PASS — ARM64 POWERPC64
-Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
-Decision Coverage     : PASS — 100.0% (порог 95%)
-Mutation Coverage     : PASS — 92.5%
-Formal Theories       : PASS — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS)
-Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
-```
 
-**Детерминированный симулятор** (VOPR-стиль, как TigerBeetle):
-```bash
-make sim    # 80 000 операций, 4 сида, инварианты I1–I4
-```
-Тот же сид даёт ту же историю на любой машине; при падении сид воспроизводит
-его с точностью до операции.
-
----
-
-## 1. Состав
-
-```
-kern/
-├── README.md                       этот файл
-├── LICENSE                         MIT
-├── OWNERSHIP.md                    защита авторства (токен, ключ-замок)
-├── Makefile                        62 цели: build/test/coverage/mutate/bridge/…
-├── build.zig                       сборка: kernc, kern-attack, kernx, libkern.so
-│
-├── docs/                           ДОКУМЕНТАЦИЯ (начните с docs/README.md)
-│   ├── README.md                   КАРТА документации — что где лежит
-│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 230 тестов + бенчмарки
-│   ├── METRICS.md                  ЖУРНАЛ ПОКАЗАТЕЛЕЙ (все цифры из прогонов)
-│   ├── KERN_FIXES_v1_3.md          16 устранённых дефектов, с доказательствами
-│   ├── VERIFICATION_GOLD_STANDARDS.md  мировые бенчмарки
-│   ├── EXECUTION_RUNNER.md         переход N→T через машинные свидетельства
-│   ├── SPEC_ANCHORS_DEMO.md        мост «текст → контракт» (@kern:spec)
-│   ├── KERN_TERMINOLOGY_v0.1.md    нормативная терминология
-│   ├── evidence/                   свидетельства прогонов (JSON/JSONL)
-│   └── archive/                    исторические аудиты (KERN*_AUDIT.md)
-│
-├── formal/                         ФОРМАЛЬНЫЕ ДОКАЗАТЕЛЬСТВА
-│   ├── check.sh                    компиляция всех теорем + проверка на 'sorry'
-│   ├── KernAllMath.lean            Белнап, де Морган, JOIN_K, анти-вакуум
-│   ├── KernDfsTermination.lean     завершаемость, граница топлива
-│   ├── KernTalk.lean / KernTalkND.lean   унификация требований
-│   ├── KernConvergence.lean        сходимость итерации
-│   ├── KernZeroCopy.lean           изоморфизм zero-copy
-│   ├── KernSemanticGap.lean        разрыв ℤ ↔ i32
-│   ├── gate_mask.smt2              контракт для моста (пример)
-│   └── certification/              TQD: трассируемость, soundness, security target
-│
-├── src/                            ИСХОДНИКИ
-├── tools/                          утилиты: сканер, бенчмарки, мутатор, раннер
-├── tests/                          фикстуры и внешние сьюты
-├── examples/                       примеры .kern, C-ABI демо
-├── archive/                        сырые материалы (лог чата-спецификации)
-└── REVISION/                       честный статус возможностей
-```
-
-**Карта документации:** [`docs/README.md`](docs/README.md)
-**Полный каталог тестов:** [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md)
-
----
-
-## 2. Зачем это
-
-KERN — «таможня истины» между ИИ-агентом и реальным кодом. Идея:
-
-1. ИИ генерирует код и **утверждение** («функция безопасна», «тесты прошли»).
-2. Утверждение допускается только при **машинной опоре** (прогон, доказательство).
-3. Следующему агенту передаётся **компактный пакет**: что доказано, что
-   проверять, что открыть, что нельзя трогать.
-
-Математическая основа — **решётка Белнапа-Данна B4**: факт имеет два независимых
-бита (подтверждение `p` и опровержение `n`).
-
-| код | статус | смысл |
-|:--:|:--|:--|
-| 0 | **N** | ничего не известно (гипотеза ИИ) |
-| 1 | **T** | доказано |
-| 2 | **F** | опровергнуто (найден контрпример) |
-| 3 | **B** | конфликт: тесты зелёные, но прувер нашёл баг |
-
----
-
-### 1.1 Подробнее: `src/` и `tools/`
-
-```
-├── main.zig                        CLI kernc (читает образ .kimg)
-├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (191 тест)
-├── core/
-│   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
-│   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
-│   ├── kimg_reader.zig             128-байтный заголовок + безопасная арифметика
-│   ├── kimg_writer.zig             сборка .kimg (атомарная запись + fsync)
-│   ├── kernfs_router.zig           VFS: валидация путей, монтирование, AccessDenied
-│   ├── mmap_guard.zig              перехват SIGBUS (обрыв mmap)
-│   └── sigbus_guard.zig            обработчик сигнала
-├── verifier/
-│   ├── admission_gate.zig          Врата Истины: вердикт ТОЛЬКО от внешнего чекера
-│   ├── z3_bridge.zig               Z3 SMT-LIB2 мост (таймаут, graceful)
-│   ├── unsat_core.zig              локализация ошибки (get-unsat-core)
-│   ├── array_theory.zig            QF_AX: аксиомы Маккарти, алиасинг
-│   ├── chc.zig                     CHC/Horn: инварианты циклов (SPACER)
-│   ├── string_theory.zig           QF_S: инъекции, path traversal
-│   ├── cegis.zig                   CEGIS/SyGuS: синтез кода
-│   ├── proof_check.zig             независимая проверка шагов Z3
-│   ├── dtmc.zig                    вероятностный анализ (PCTL)
-│   ├── abstract_interp.zig         абстрактная интерпретация (интервалы)
-│   ├── noninterference.zig         невмешательство (HyperLTL)
-│   ├── nra_quant.zig               нелинейная арифметика + кванторы
-│   └── redos.zig                   ReDoS-анализ регулярных выражений
-├── runtime/kern_x.zig              KERN-X: fuel-bounded VM (без зависаний)
-├── next/                           KERN-Next (движок `kernx`, 37 тестов)
-│   ├── ast.zig · parser.zig        модель + парсер языка .kern
-│   ├── validate.zig                валидатор (10 правил)
-│   ├── catalog.zig                 SQLite-каталог .kdb
-│   ├── snapshot.zig · cache.zig    снапшоты/diff + инкрементальность
-│   ├── export.zig · engine.zig     agent packet, отчёт, конвейер
-│   ├── truth.zig                   Белнап-аккумулятор (N→T/F/B)
-│   └── main.zig                    CLI kernx
-├── proof_cache.zig                 кэш доказательств (потокобезопасный)
-├── attest.zig · owner.zig          аттестация Ed25519 + токен авторства
-├── atomic_write.zig                атомарная запись (tmp+fsync+rename)
-├── capi.zig                        C-ABI (libkern.so, 7 функций)
-├── concolic.zig                    конколическое исполнение
-├── fuzz_ast.zig                    1 000 000 мутаций, 0 паник
-├── smt_stress.zig · kimg_stress.zig  стресс Z3 и .kimg (1 млн объектов)
-├── perf_bench.zig · smt_bench.zig · chc_bench.zig · stress_real.zig  бенчмарки
-└── tests/
-    ├── exhaustive_suite.zig        security-сьют (SEC/MATH/AI/RES)
-    ├── alignment_stress.zig        Эшелон 1: выравнивание + endianness
-    ├── pool_saturation.zig         Эшелон 3: изнурение пула потоков
-    ├── mcdc_gates_test.zig         MC/DC-векторы решений Врат
-    ├── litmus_memory_test.zig      слабые модели памяти
-    ├── oom_stress.zig · z3_crash_test.zig · smt_incremental_test.zig
-    ├── fault_injection_test.zig    сбои памяти (SIGBUS)
-    └── coverage_report_test.zig    покрытие инструментированных решений
-
-├── tools/
-│   ├── scan_to_kern.py             сканер проекта → .kern (+ якоря @kern:spec)
-│   ├── golden_v1_3.py              эталонный образ .kimg v1.3
-│   ├── kern_exec_runner.py         Execution Runner (N→T через прогон)
-│   ├── mutate_zig.py               мутационное тестирование (работает на копии)
-│   ├── quixbugs_full.py            QuixBugs 31/31
-│   ├── refactory_diff.py           Refactory (дифференциальный)
-│   ├── solver_crosscheck.py        Z3 ↔ cvc5
-│   ├── cache_avalanche_bench.py    лавина хэша (100 000 мутаций)
-│   ├── humaneval_api.py            HumanEval/HumanEval+ через API
-│   ├── binlevel_verify.py/.sh      бинарный уровень (translation validation)
-│   ├── cross_arch_test.sh          ARM64 + POWERPC64 под QEMU
-│   └── push_to_github.sh           выгрузка закрытого репозитория
-```
-
----
-
-## 3. Запуск
+**One command for everything:**
 
 ```bash
-# 1. Компилятор Zig 0.17.0 (ветка zig-0.17-migration; 0.13 здесь НЕ подходит)
-export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
-zig version   # должно быть 0.17.0
-#
-# Для ветки `main` (замороженный baseline) — наоборот, Zig 0.13:
-#   uv venv .venv && uv pip install --python .venv/bin/python ziglang==0.13.0
-#   export PATH="$PWD/.venv/bin:$PATH"
-
-# 2. Эталонный образ
-python3 tools/golden_v1_3.py
-
-# 3. Сборка (kernc, kern-attack, kernx)
-zig build
-
-# 4. Тесты: ядро (191) и KERN-Next (37)
-zig build test
-zig build test-next        # требует libsqlite3
-
-# 5. Демонстрация: обе атаки закрыты
-./zig-out/bin/kern-attack
-
-# 6. CLI kernc
-./zig-out/bin/kernc check-integrity tests/fixtures/valid_v1_3.kimg
-./zig-out/bin/kernc ls  tests/fixtures/valid_v1_3.kimg
-./zig-out/bin/kernc cat tests/fixtures/valid_v1_3.kimg /raw/src/main.zig
-./zig-out/bin/kernc verify tests/fixtures/valid_v1_3.kimg
-
-# 6a. РЕАЛЬНОЕ доказательство через Z3 (e=1) — нужен z3 в PATH
-uv pip install z3-solver                      # даёт бинарник .venv/bin/z3
-export PATH="$PWD/.venv/bin:$PATH"
-./zig-out/bin/kernc prove formal/example.smt2 # e=1 ДОКАЗАНО / e=0 (контрпример)
-./zig-out/bin/kernc audit                    # 5 теорий: UNSAT-core, массивы, CHC, строки, CEGIS
-make theories                                # те же 5 теорий тестами
-make echelons                                # 4 эшелона: выравнивание, лавина, пул, семант. разрыв
-
-# 6b. Финальная спецификация: сборка, унификация, KERN-X, handoff
-./zig-out/bin/kernc build examples/project.kern -o release.kimg
-./zig-out/bin/kernc unify 50 120            # RLAIF: конфликт + градиент ошибки
-./zig-out/bin/kernc run release.kimg --fuel 100   # KERN-X (если есть байткод)
-./zig-out/bin/kernc handoff release.kimg    # agent_packet.json из образа
-
-# 7. KERN-Next
-./zig-out/bin/kernx build examples/project.kern --out .kernnext --scope issue-42
-./zig-out/bin/kernx status examples/project.kern
-./zig-out/bin/kernx report examples/project.kern
-./zig-out/bin/kernx packet examples/project.kern --scope issue-42
-./zig-out/bin/kernx diff <snapA> <snapB>
-
-# 8. Формальные доказательства Lean 4 (0 ошибок, 0 sorry)
-./formal/check.sh
+make test-all      # build + tests + UB detector + SMT + perf + mutation
+make canfail       # prove that every check is capable of failing
 ```
 
----
-
-## 4. Что **работает** (измерено)
-
-| Свойство | Как проверено |
-|:--|:--|
-| **Zero-copy чтение через mmap** | срез памяти, копирования нет |
-| **CONF-13: path traversal** | все отказы: нет `/`, `//`, `.`, `..`, NUL |
-| **CONF-15: reserved-байты** | порча байта 95 → `InvalidReservedBytes` |
-| **Безопасная арифметика** | offset bomb → `OutOfBoundsOffset` в Debug И ReleaseFast |
-| **Алгебра Белнапа** | таблицы join/meet, законы де Моргана полным перебором |
-| **Merkle-корень** | пересчёт совпадает; подмена байта → `MerkleRootMismatch` |
-| **Врата Истины** | `e=1` только по вердикту внешнего чекера; 0xAA → `e=0` |
-| **KERNFS находит объекты** | `/raw/...`, `/claims/.../status`, `/claims/.../contract.json` |
-| **Запись запрещена** | `write()` → `AccessDenied` (CONF-06) |
-| **CLI читает образ** | `check-integrity`, `ls`, `cat`, `verify`, `report` |
-| **KERN-Next конвейер** | `.kern` → SQLite-каталог → snapshot → packet/report → diff |
-| **Инкрементальность** | неизменённый `.kern` → обработка пропускается |
-| **Сборка .kern → .kimg** | `kernc build` → образ v1.3, читается KERNFS |
-| **RLAIF-унификация** | `kernc unify 50 120` → конфликт `B` + градиент ошибки 70 |
-| **KERN-X (топливо)** | `kernc run` → `HALT OK` или `OutOfFuel` (зависание невозможно) |
-| **Z3-мост** | `uv pip install z3-solver` → **реальный прувер**: `kernc prove` → `e=1` (доказано) / `e=0` (контрпример) |
-| **SMT-стресс** | 18/18: парадокс `x>5∧x<2`→vacuous, overflow i32→контрпример, NIA `x*x≥0`→proved, Alive2-пары |
-| **Кросс-проверка решателей** | Z3 ↔ cvc5: **9/9 согласие, 0 расхождений** |
-| **Целостность payload** | подмена байта содержимого → `PayloadTampered` |
-| **Ресурсы ОС** | 0 утечек FD, 0 зомби-процессов, «пчелиный рой» 64 потока → 1 miss + 63 hits |
-| **Crash-consistency** | атомарная запись (temp + rename) — нет битых образов |
-| **Эшелон 1: выравнивание** | 8/8: невыровненный разбор (смещения 1,2,3,5,7) безопасен на ARM64/RISC-V |
-| **Эшелон 2: лавина хэша** | SHA-256: лавина **50.0%**, 0 коллизий, макс. цепочка **7** (наивный: 3.1%, цепочка 100000) |
-| **Эшелон 3: пул потоков** | 128 запросов на 4–8 воркеров: лимит соблюдён, голодания нет |
-| **Эшелон 4: семант. разрыв** | `KernSemanticGap.lean`: **8 теорем** — разрыв ℤ vs i32 доказан формально |
-| **UNSAT Core (локализация)** | `(get-unsat-core)` → точные имена конфликтующих строк (`line_10`, `goal`) |
-| **Теория массивов (QF_AX)** | аксиомы Маккарти: `select(store(a,i,v),i)=v` и независимость ячеек — **ДОКАЗАНО** |
-| **CHC / Horn (инварианты циклов)** | `set-logic HORN` (SPACER): `while(x<10) x++` ⇒ `x≥10` — **ДОКАЗАНО** |
-| **Строки (QF_S)** | санитайзер `/` без `..` → **УЯЗВИМОСТЬ**; нуль-байт достижим |
-| **CEGIS (синтез кода)** | по спецификации `x*8` **синтезировано `x<<3`** (доказано на 2³² входах) |
-| **Перехват SIGBUS (реальный)** | `siglongjmp`: чтение PROT_NONE и обрезанный mmap-файл — **3/3**, процесс жив |
-| **Аттестация `.kimg`** | `kernc attest sign/verify`: Ed25519-сертификат 136 Б; подмена образа/сертификата → **отвергнуто** |
-| **Покрытие решений** | `make coverage`: **100.0%** (30/30 инструментированных решений, порог 95%) |
-| **MC/DC (DO-178C)** | `mcdc_gates_test.zig`: каждое условие Врат влияет независимо |
-| **Инкрементальный SMT** | `push/pop`: 30 запросов **527 мс → 26 мс (20×)**; 0 ложных `proved` |
-| **Крах решателя** | SIGPIPE/мёртвый пайп → KERN жив, `ToolError`, Врата закрыты |
-| **OOM (2 МБ)** | `FixedBufferAllocator` → `error.OutOfMemory`, без panic |
-| **Фаззинг 1M** | 1 000 000 мутаций за 362 мс → **0 паник** |
-| **C-ABI** | `libkern.so` + `kern.h`: вызов из Python/C без CLI-процесса |
-| **Герметичная сборка** | `zig build hermetic` → статический musl, **sha256 бит-в-бит совпадает** |
-| **Tool Qualification** | `formal/certification/`: матрица 53 требований + DO-333 + CC ST |
-| **Слабые модели памяти** | литмус SB/MP: `SeqCst`/`release-acquire` → **0 запрещённых исходов** |
-| **Конколика (Driller/QSYM)** | `KERN` найден за **4 обращения к Z3** (перебор: ~2³²) |
-| **Вероятностный чекинг (DTMC)** | PCTL `P≤p [F fail]`; 3 попытки по 0.9 → **0.001** |
-| **Абстрактная интерпретация** | widening/narrowing: инвариант `[0,9]` **без SMT** |
-| **Нелинейная арифметика (QF_NRA)** | ∀x,y. `x²+y²≥0` **доказано**; `x²+y²>2` — контрпример |
-| **Кванторы (E-matching)** | триггеры; Matching Loop DoS обезврежен таймаутом |
-| **Невмешательство (HyperLTL)** | taint: ветвление/индекс по секрету → **утечка**; constant-time ~1.0× |
-| **ReDoS (CWE-1333)** | `(a+)+`, `(a|a)*` → **уязвимы**; `(a|b)*` — нет |
-| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **191/191** каждый |
-| **Мост «текст → контракт»** | `make bridge`: фраза из Markdown → `.smt2` → **`e=1` ДОКАЗАНО** |
-| **Binary-level soundness** | дайджест одинаков на Debug/ReleaseSafe/ReleaseFast (translation validation) |
-| **Constant-time на ассемблере** | taint-анализ: **0** ветвлений от данных (контроль: 1 обнаружен) |
-
----
-
-## 4b. Официальные мировые бенчмарки (измерено)
-
-| Бенчмарк | Результат | Модель нужна? |
-|:--|:--|:--:|
-| **HumanEval** (EvalPlus, NeurIPS) | **pass@1 = 0.524** | да (API) |
-| **HumanEval+** (edge-cases) | **pass@1 = 0.500** | да (API) |
-| **MBPP** (EvalPlus, 378 задач) | **pass@1 = 0.812** | да (API) |
-| **MBPP+** (edge-cases) | **pass@1 = 0.698** | да (API) |
-| **KERN-гейт: точность блокировок** | **100.0%** (55/55, 0 ложных) | нет |
-| **SWE-bench Lite** (официальный, Docker) | **3/3 resolved**, 0 infra-failures | нет |
-| **QuixBugs** (реальное исполнение) | **31/31 багов (100%)** | нет |
-| **Refactory** (differential) | 1438/1782 (80.7%) | нет |
-| **Hacker's Delight / Alive2** (Z3) | **8/8** (6 эквивалентны, 2 контрпримера) | нет |
-| **Мутационный score (Zig-код)** | **92.5%** (40 мутантов: 37 убито, 3 эквивалентных*) | нет |
-| **Стресс .kimg (1 млн объектов)** | случайный доступ **0.0006 мс** (цель < 0.005) | нет |
-
-> \* **Три выживших мутанта — эквивалентные (не дыры в тестах).** Разбор
-> (список ОБНОВЛЁН 2026-10-14 после исправления дефекта #55 — прежний третий
-> мутант `compression_codec != 0` больше не существует, ветка убрана):
-> 1. `kernfs_router.zig:70` `offset >= len` → `>`: при `offset == len` оригинал
->    возвращает `""`, а мутант доходит до цикла, который не выполняется, и
->    возвращает пустой срез — **тот же результат**.
-> 2. `kimg_writer.zig:166` `.nonblocking = false` → `true`: флаг влияет только
->    на операции ввода-вывода, а здесь дескриптор каталога лишь `fdatasync`-ится
->    и закрывается.
-> 3. `kimg_writer.zig:164` `dfd >= 0` → `dfd > 0`: отличается лишь при `fd == 0`
->    (stdin); каталог через fd 0 в этом коде не открывается — **практически
->    недостижимо**.
->
-> Эффективный score = **100%** (37/37 неэквивалентных убито).
->
-> ⚠️ Ранее здесь был мутант `kernfs_router.zig:109 compression_codec != 0` →
-> `== 0`, помеченный как «недостижимая ветвь». При аудите 2026-10-14 выяснилось,
-> что это **дефект #55**: `payloadSlice` и `objectPayloadRaw` выбирали размер
-> ПРОТИВОПОЛОЖНО, и мутант был не «эквивалентным», а **указывал на реальный
-> рассинхрон**. Правило унифицировано (читатель всегда берёт `compressed_size`),
-> мутант теперь **убит** новым тестом.
->
-> ⚠️ **О скорости чтения честно.** «76 ГБ/с» — это скорость **чистой адресации**
-> среза (RAW). **Безопасное** чтение (со сверкой `SHA-256(payload)` против
-> digest дескриптора) идёт на **~230 МБ/с** — в 330× медленнее, потому что
-> хеш-функция доминирует. Оба числа измеряются `make perf`. Раньше в отчётах
-> фигурировало только RAW-число как «скорость чтения» — это исправлено.
-
-Полные отчёты: `docs/VERIFICATION_GOLD_STANDARDS.md`, `docs/METRICS.md`.
-Сырые свидетельства: `docs/evidence/`.
-
-> ⚠️ Полный честный статус «что измерено / что нет» — в
-> `REVISION/HONEST_CAPABILITY_STATUS.md`. Он обязателен к прочтению: часть
-> спецификации (облако, WASM, плагины, аппаратная аттестация) — **не реализована**.
-
----
-
-## 5. Что **исправлено** в v1.3 (было «НЕ работает»)
-
-Полные доказательства — в `docs/KERN_FIXES_v1_3.md`.
-
-| Было (v1.2) | Стало (v1.3) |
-|:--|:--|
-| 🔴 Врата Истины обходились **одним байтом** `0xAA` | вердикт формирует `TrustedChecker`; без внешнего чекера → `e=0` |
-| 🔴 KERNFS не находил **ни одного** файла (Фазы 1/3 несовместимы) | образ v1.3: пул строк + объекты с путями + относительные смещения |
-| `report` писал фиксированный текст | читает образ и строит отчёт из содержимого |
-| `verify`/`ls`/`cat` — заглушки | монтируют KERNFS и реально читают образ |
-| `MerkleRootMismatch` объявлен, но не возвращался | целостность действительно проверяется |
-| `AccessDenied` объявлен, но возвращался `FileNotFound` | `write()` возвращает `AccessDenied` |
-| маска `allowed_checkers` вела себя неочевидно | задокументирована + `VerificationPolicy.allows()` + тест |
-
----
-
-## 5b. Доказательство, что проверки СПОСОБНЫ упасть (K1–K5)
-
-**Проблема, которую это решает.** Зелёный CI ничего не доказывает: вакуумная
-проверка (та, что не может упасть) тоже возвращает `RC=0`. За сессию это
-подтвердилось **16 раз** — проверки сообщали «всё чисто», ничего не проверяя.
-
-**Метод.** `tools/canfail.py`: для каждой цели ломается её инвариант; цель
-**обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
+### Docker
 
 ```bash
-make canfail          # 60 кейсов: ломаем инвариант -> цель обязана упасть
-make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр 75 целей + предохранитель от «молчаливых» новых
-make ci               # единый контур (12 стадий)
+docker build -t kern:2.0 .
+docker run --rm kern:2.0                        # integrity check on the golden image
+docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 ```
 
-| Метрика | Значение |
+---
+
+## Certification package
+
+For safety-critical and regulated environments (`formal/certification/`):
+
+| Document | Purpose |
 |:--|:--|
-| Целей всего | 75 (CHECK 56 · BUILD 6 · EXTERNAL 3 · META 10) |
-| **CHECK с доказательством «может упасть»** | **56/56 (100 %)** |
-| **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | 60 |
-| Реестр найденных дефектов | **#1–#47** |
+| `TOR.md` | Tool Operational Requirements — 53 atomic requirements |
+| `TRACEABILITY_MATRIX.md` / `.csv` | every requirement mapped to its test and source |
+| `SOUNDNESS_ARGUMENT.md` | why KERN cannot report a false negative |
+| `SECURITY_TARGET.md` | security functional requirements + formal model |
+| `TAS.md` | Tool Accomplishment Summary |
+| `KNOWN_LIMITATIONS.md` | **25 documented limitations**, each with a detection method |
 
-### Найденные этим методом «молчаливо сломанные» проверки (16)
-
-| # | Что выглядело рабочим |
-|:--:|:--|
-| 32 | CLI печатал ошибку и возвращал **0** |
-| 34 | 13 целей: удали тесты — цель останется зелёной (`grep` ловил «passed») |
-| 36 | порог производительности был **декоративным** |
-| 40 | `kernc prove`: «НЕ доказано» → `RC=0` |
-| 41 | `make coverage` при 0 % оставался зелёным |
-| 42 | `smt-stress`: «X/Y совпало» не влияло на код возврата |
-| 43 | `cert`: префикс `@` **глушил** ошибку |
-| 44 | `fuzz_ast` печатал «ПАНИК: 0» **литералом** |
-| 45 | `audit_manifest` печатал FAIL, но **всегда** возвращал 0 |
-| 46 | харнесс **удалил файл**, и удаление попало в коммит |
-| 47 | `chc_bench`: «X/Y совпало» не влияло на код возврата |
-| … | а также #18, #23, #25, #26, #30, #33 |
-
-### Побочный результат: доказана эквивалентность компиляторов
-
-`make portable-bench` теперь отвечает не «кто быстрее», а «не меняет ли
-компилятор **смысл**»:
-```
-0.17: root0=c2b5 acc=11241792
-0.13: root0=c2b5 acc=11241792   → [OK] семантически эквивалентны
-```
-
-### Предохранители харнесса (по следам собственных дефектов)
-
-1. `patch()` падает, если файла нет в `FAULTABLE` (после дефекта #38).
-2. `verify_restored()` сверяет SHA-256 всех файлов после прогона.
-3. `restore_missing()` восстанавливает **удалённые** файлы (после #46).
-4. Мета-кейсы: ложная тревога (`sanity-control`) и подмена вердикта
-   (`meta-verdict`) — проверяют, что харнесс не «врёт в обе стороны».
-
-Подробности: `docs/METRICS.md` §39–§40.
-
-## 6. KERN-Next (`kernx`)
-
-Язык описания **проектной истины** и движок: `parse → validate → catalog →
-snapshot → packet/report`, с инкрементальным кэшем.
-
-- **Язык `.kern`**: `project`, `artifact`, `claim`, `proof`, `module`, `link`.
-- **Статусы** (§7): `proven`, `refuted`, `verified`, `tested`, `compiled`,
-  `empirical`, `hypothesis`, `blocked`, `unknown`, `not_found`, `not_yet_reproducible`.
-- **Каталог `.kdb`**: SQLite (§9) — таблицы, индексы, CHECK по статусам.
-- **Snapshot `.ksnap`**: детерминированный отсортированный текст → побайтово
-  воспроизводим и удобен для `diff`.
-- **Agent packet** (§17): только выжимка для следующего ИИ — proven / blocked /
-  contradictions / next_steps.
-
-Критерии готовности (§20): чтение `.kern`; SQLite-каталог; извлечение
-утверждений/свидетельств/связей; snapshot; отчёт; agent packet; diff; тесты
-парсера и валидатора; стабильные ID; пропуск неизменённых файлов — **все 10
-выполнены** (см. `docs/KERN_FIXES_v1_3.md`, раздел «KERN-Next»).
+Mapped to **DO-178C / DO-333 (DAL A)**, **ISO 26262 (ASIL D)**, **Common Criteria
+EAL6+/EAL7**, **FIPS 140-3** and **ACID / crash consistency** — with the evidence
+file backing each row.
 
 ---
 
-## 7. Ограничения (честно)
+## Honest limitations
 
-- **Тулчейн**: аттестованный эталон собран на **Zig 0.13.0** (ветка `main`).
-  Ветка **`zig-0.17-migration`** доведена до **RC=0** (сборка, 191 тест,
-  ARM64/PPC64 через QEMU, ReleaseSafe, SLSA-аттестат). Миграция потребовала
-  **~300 правок** — это ревизия подсистемы I/O (`std.Io`), а не косметика.
-  См. [`docs/VERIFICATION_0_17.md`](docs/VERIFICATION_0_17.md).
-- **Внешний прувер Z3 — сконфигурирован** (`z3-solver` через pip, без apt):
-  `kernc prove` реально даёт **`e=1` (ДОКАЗАНО)** и `e=0` (контрпример);
-  `kernc audit` прогоняет 5 теорий. Если `z3` нет в PATH — Врата безопасно
-  деградируют в `e=0` (`ToolError`), паники нет. Lean 4 используется как
-  **независимый аудитор** (7 файлов, 0 `sorry`), а не как runtime-прувер.
-- **Скорость чтения**: «76 ГБ/с» — это **RAW-адресация**; безопасное чтение
-  (со сверкой `SHA-256(payload)`) идёт на **~231 МБ/с** (330× медленнее). Оба
-  числа печатает `make perf`. См. §4 (таблица метрик) и `docs/METRICS.md` §4.
-- **`hash_algo`**: спецификация называет BLAKE3, реализация использует SHA-256.
-  Алгоритм зафиксирован ОДИН (SHA-256) — иначе ломается сквозная сверка.
-- **KERN-Next** использует системную `libsqlite3` (есть в окружении). Это
-  единственная внешняя зависимость; правило «No Dependencies» относится к
-  языку Zig, а не к системным библиотекам.
-- **kernc (KIMG)** и **kernx (KERN-Next)** — два вертикальных среза одной идеи;
-  их форматы (`.kimg` и `.kdb/.ksnap`) пока не связаны автоматически.
+This project's own rule is that a claim without evidence is not a claim. So:
+
+- **Z3 is an external dependency.** If it is absent, the Gate stays closed
+  (`e = 0`) — safe degradation, not a failure. The tool never lies about it.
+- **Debug builds are not bit-reproducible** under Zig 0.17 (non-deterministic
+  DWARF). Attested artefacts are ReleaseFast. See the table above.
+- **The static gate does not raise `pass@1`.** It has 100 % precision and ~70 %
+  recall on the HumanEval set; it removes bad code, it does not improve good code.
+- **Alethe/LFSC proof objects are not implemented.** `src/verifier/proof_check.zig`
+  performs structural validation only — not a full independent proof checker.
+- **No hardware attestation.** The Ed25519 ownership/attestation pipeline is
+  implemented in software; there is no TPM/SGX integration (no such hardware here).
+- **SLSA attestation is unsigned** (no `cosign` in the environment) — structurally
+  valid, but not SLSA Level 3.
+- **Object compression (zstd) is declared in the format but not implemented.**
+- The full list lives in `formal/certification/KNOWN_LIMITATIONS.md` and
+  `REVISION/HONEST_CAPABILITY_STATUS.md`.
 
 ---
 
-## 8. Связь с nyuui-core
+## Repository layout
 
-`nyuui-core/evidence.py` реализует **родственные** идеи на Python:
-типизированную уверенность, журнал решений, пакет агенту (`handoff`),
-эпистемическое слияние графов и поручительство человека (Ed25519, статус
-`attested` — намеренно **отдельный** от `proven`).
+```
+src/            Zig core: .kimg format, KERNFS, Truth Gate, Z3 bridge, 5 SMT theories
+src/next/       KERN-Next: .kern DSL, SQLite catalogue, snapshots, agent hand-off
+formal/         Lean 4 proofs (32 theorems) + certification package
+examples/       toy_ai_hallucination/ — the "green CI" demo
+tools/          can-fail harness, mutation tester, benchmarks, cross-arch runner
+docs/           PROJECT_SPECIFICATION.md, METRICS.md, TEST_CATALOG.md, evidence/
+REVISION/       honest capability status + defect registry (#1-#58)
+```
 
-KERN и `nyuui-core` **не связаны кодом** — общая только идея. KERN быстрее
-(mmap, zero-copy), `nyuui-core` — рабочий и покрыт тестами.
+**Key documents**
+
+| Document | What's inside |
+|:--|:--|
+| [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md) | complete technical specification (18 sections) |
+| [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
+| [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all 233 test declarations, generated from source |
+| [`REVISION/HONEST_CAPABILITY_STATUS.md`](REVISION/HONEST_CAPABILITY_STATUS.md) | what works, what doesn't, 58 defects found and fixed |
+| [`docs/README.md`](docs/README.md) | documentation map |
+| [`README.ru.md`](README.ru.md) | Russian version of this README |
 
 ---
 
-## Автор
+## Contributing
 
-* **Vital Kalinousky** — создатель и главный архитектор KERN.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md). The golden rule: **if your check cannot
+fail, it is not a check.** Every new test must survive the can-fail harness.
 
-## Лицензия
+Security issues: see [`SECURITY.md`](SECURITY.md).
 
-Этот проект распространяется под лицензией **MIT** — подробности в файле
-[LICENSE](LICENSE).
+---
 
-```
-Copyright (c) 2026 Vital Kalinousky
-```
+## License
 
-Каждый исходный файл (`src/**/*.zig`, `formal/*.lean`) содержит заголовок
-Copyright — даже при копировании отдельного файла авторство сохраняется.
+MIT — see [`LICENSE`](LICENSE).
 
-## Аттестация вердиктов
+Copyright (c) 2026 Vital Kalinousky.
 
-Вердикт `e=1` можно криптографически подписать (`src/attest.zig`, Ed25519) —
-получается **сертификат удалённой аттестации**: клиент проверяет, что вердикт
-выдан неизменённым ядром. В проде корень доверия — аппаратный (TPM/SGX/Nitro);
-крипто-конвейер реализован и покрыт тестами.

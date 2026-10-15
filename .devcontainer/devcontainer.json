@@ -1,0 +1,21 @@
+{
+  "name": "KERN (Zig 0.17.0 + Z3 + Lean 4)",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "target": "build"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ziglang.vscode-zig",
+        "leanprover.lean4",
+        "ms-python.python"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "postCreateCommand": "zig version && zig build && zig build test",
+  "remoteUser": "root"
+}

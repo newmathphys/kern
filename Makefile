@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo run-example docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -81,6 +81,30 @@ demo: golden build next
 
 docker:
 	docker build -t kern:1.3 .
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  TOY EXAMPLE: «зелёный CI» против математики.
+#
+#  Агент «починил» списание со счёта (потеряв проверку amount <= 0) и написал
+#  тест БЕЗ единого assert, чтобы CI стал зелёным. Обычный pytest: exit 0.
+#  KERN: находит контрпример к контракту (amount = -1) и закрывает Врата.
+#  Запуск: make run-example   (нужен z3 в PATH)
+# ─────────────────────────────────────────────────────────────────────────────
+run-example: build
+	@echo "=== [1] Обычный CI: pytest на «тесте» агента ==="
+	-$(PYTHON) -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
+	 echo "(pytest не установлен — вакуумный тест всё равно не имеет assert)"
+	@echo
+	@echo "=== [2] KERN: сборка образа доказательств ==="
+	./zig-out/bin/kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg
+	@echo
+	@echo "=== [3] KERN: Врата Истины (вердикт даёт Z3) ==="
+	./zig-out/bin/kernc verify toy.kimg
+	@echo
+	@echo "=== [4] Чтение через KERNFS (виртуальная ФС образа) ==="
+	./zig-out/bin/kernc ls toy.kimg
+	@echo
+	@echo "ИТОГ: заявление агента ОПРОВЕРГНУТО (e=0), исправленная версия ДОКАЗАНА (e=1)."
 
 # Формальные доказательства Lean 4 (0 ошибок, 0 sorry).
 lean:
