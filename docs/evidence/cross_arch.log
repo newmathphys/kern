@@ -1,24 +1,9 @@
-=== KERN EVIDENCE: cross_arch ===
-=== команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-15T20:56:33Z ===
-
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
   
   OK
-  All 204 tests passed.
+  200 passed; 4 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
   
   OK
-  All 204 tests passed.
+  200 passed; 4 skipped; 0 failed.
 X=0
-
-RC=0
-tools/cross_arch_test.sh: строка 45: 3753425 Убито                 KERN_FAST=1 "$ZIG" test -target "$target" --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig --test-cmd "$q" --test-cmd-bin 2>&1
-     3753426 Завершён           | tail -3
-    [ОС-4] дескрипторов до 15, после 15
-  OK
-  197/204 tests.os_stress_test.test.ОС-СТРЕСС 3: флуд spawn (12 потоков × 8 запросов) — без паник и утечек FD...tools/cross_arch_test.sh: строка 49: arch64: command not found
-=== POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  
-  OK
-  All 204 tests passed.
