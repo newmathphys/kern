@@ -27,7 +27,7 @@ fn buildValidImage(alloc: std.mem.Allocator) ![]u8 {
 
     var obj: [96]u8 = @as([96]u8, @splat(0));
     var dig: [32]u8 = undefined;
-    std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
+    std.crypto.hash.Blake3.hash(content, dig[0..32], .{});
     @memcpy(obj[0..32], &dig);
     std.mem.writeInt(u64, obj[32..40], 6, .little);
     std.mem.writeInt(u64, obj[40..48], content.len, .little);
@@ -43,7 +43,7 @@ fn buildValidImage(alloc: std.mem.Allocator) ![]u8 {
     var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
-    std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
+    std.mem.writeInt(u32, header[20..24], 1, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, header[10..12], 3, .little);
     std.mem.writeInt(u32, header[12..16], 128, .little);
     std.mem.writeInt(u64, header[32..40], 128, .little);

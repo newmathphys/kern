@@ -45,6 +45,7 @@ CLASS = {
     "audit-manifest": "CHECK", "fd-check": "CHECK", "canfail": "CHECK",
     "torture": "CHECK", "telemetry": "CHECK", "evidence": "CHECK",
     "telemetry-quick": "CHECK", "evidence-fast": "CHECK",
+    "guardrail": "CHECK",
     "run-example": "META",   # демонстрация (не проверка); свой can-fail не нужен
     "canfail-selftest": "META",
     # --- измерения: упасть НЕ могут -----------------------------------------
@@ -126,6 +127,7 @@ CASE_TARGET = {
     "portable-bench": "portable-bench",
     "ubsafe": "ubsafe",
     "torture-payload": "torture",
+    "guardrail-verdict": "guardrail",
     "evidence-full": "evidence",
     "telemetry-full": "telemetry",
     "evidence-propagates": "evidence-fast",

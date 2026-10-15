@@ -54,12 +54,23 @@ def git(*args: str) -> str:
         return ""
 
 
+# Аттестат — ГЕНЕРИРУЕМЫЙ файл: он не должен входить в собственный отпечаток
+# (иначе `tree_sha256` самореферентен и меняется от одной лишь перегенерации).
+SELF = "kern.intoto.jsonl"
+
+
 def tree_digest() -> dict:
-    """Хэш содержимого репозитория: git-коммит + хэш рабочего дерева."""
+    """Отпечаток ИСХОДНОГО состояния: хэш рабочего дерева + коммит.
+
+    ВАЖНО: сам аттестат (`kern.intoto.jsonl`) ИСКЛЮЧЁН из хэша. Дефект #62:
+    раньше он входил в отпечаток, из-за чего значение зависело от себя же.
+    """
     commit = git("rev-parse", "HEAD")
     dirty = bool(git("status", "--porcelain"))
     h = hashlib.sha256()
     for rel in sorted(git("ls-files").splitlines()):
+        if rel == SELF:
+            continue
         p = ROOT / rel
         if p.is_file():
             h.update(rel.encode())
@@ -95,12 +106,25 @@ def main() -> int:
                 bad += 1
         dep = st["predicate"]["buildDefinition"]["resolvedDependencies"][0]
         cur = git("rev-parse", "HEAD")
-        if dep["digest"].get("gitCommit") == cur:
-            print(f"  [OK] коммит совпал: {cur[:12]}")
+        # ДЕФЕКТ #62: сравнивать СЫРОЙ коммит нельзя — сам аттестат лежит в
+        # коммите, поэтому любой коммит (даже правка документации) ломает
+        # проверку, хотя исходники не менялись. Сравниваем ОТПЕЧАТОК ИСХОДНИКОВ
+        # (tree_sha256 без самого аттестата) — он привязан к содержимому, а не
+        # к хэшу коммита, в котором лежит аттестат.
+        exp_tree = dep["digest"].get("tree_sha256")
+        got_tree = tree_digest()["tree_sha256"]
+        if exp_tree == got_tree:
+            print(f"  [OK] отпечаток исходников совпал ({got_tree[:16]}…)")
         else:
-            print(f"  [РАСХОЖДЕНИЕ] коммит: аттестат "
-                  f"{dep['digest'].get('gitCommit','')[:12]}, факт {cur[:12]}")
+            print(f"  [РАСХОЖДЕНИЕ] исходники: аттестат {str(exp_tree)[:16]}…, "
+                  f"факт {got_tree[:16]}…")
             bad += 1
+        rec = dep["digest"].get("gitCommit", "")
+        if rec and rec != cur:
+            print(f"  [i] аттестат собран из коммита {rec[:12]} (текущий {cur[:12]}) — "
+                  f"это нормально, привязка идёт по отпечатку исходников")
+        else:
+            print(f"  [OK] коммит совпал: {cur[:12]}")
         print("\nАТТЕСТАТ ВАЛИДЕН" if bad == 0 else f"\nАТТЕСТАТ НЕ СОВПАЛ: {bad}")
         return 0 if bad == 0 else 1
 

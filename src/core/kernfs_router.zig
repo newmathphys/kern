@@ -6,6 +6,7 @@ const cov = @import("../cov.zig");
 const kimg = @import("object_entry.zig"); // 96-байтный дескриптор
 const ObjectEntry = kimg.ObjectEntry;
 const KimgHeader = @import("kimg_reader.zig").KimgHeader;
+const HashAlgo = @import("hash_algo.zig").HashAlgo;
 const KimgError = @import("kimg_reader.zig").KimgError;
 const Eq2 = @import("eq2.zig").Eq2;       // KERN-EQ2 математика
 const compat = @import("compat");
@@ -32,6 +33,9 @@ pub const KernFS = struct {
     /// И `logical_path_offset` (пул строк), и `payload_offset` ОТНОСИТЕЛЬНЫ
     /// начала этого среза — ровно как в спецификации KIMG.
     payload_region: []const u8,
+    /// Алгоритм хеша образа (из поля `hash_algo` заголовка). Нужен для сверки
+    /// SHA-256/BLAKE3 содержимого объекта при чтении.
+    hash_algo: HashAlgo = HashAlgo.DEFAULT,
 
     pub fn init(allocator: std.mem.Allocator, mmap_slice: []const u8,
                 objects: []const ObjectEntry, payload_region: []const u8) KernFS {
@@ -104,7 +108,7 @@ pub const KernFS = struct {
         // поэтому подмена содержимого файла иначе проходит незамеченной.
         // Сверяем SHA-256(payload) с digest из дескриптора.
         var got: [32]u8 = undefined;
-        std.crypto.hash.sha2.Sha256.hash(sl, &got, .{});
+        self.hash_algo.hash(sl, &got);
         if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;
         cov.hit(.fs_hit);
         return sl;
@@ -246,7 +250,11 @@ pub const KernFS = struct {
                 return KernFsError.FileNotFound;
         }
         const payload = file_bytes[@intCast(h.data_payload_offset)..];
-        return KernFS.init(allocator, file_bytes, objs, payload);
+        var fs = KernFS.init(allocator, file_bytes, objs, payload);
+        // Алгоритм из заголовка: образ на SHA-256 (старый) читается так же,
+        // как новый на BLAKE3 — диспетчеризация по полю, а не хардкод.
+        fs.hash_algo = HashAlgo.fromInt(h.hash_algo) orelse return KernFsError.FileNotFound;
+        return fs;
     }
 };
 
@@ -286,7 +294,7 @@ fn buildMinimalImage(w: anytype) !void {
 
     var obj: [96]u8 = @as([96]u8, @splat(0));
     var dig: [32]u8 = undefined;
-    std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
+    std.crypto.hash.Blake3.hash(content, dig[0..32], .{});
     @memcpy(obj[0..32], &dig); // digest payload (сверяется при чтении)
     std.mem.writeInt(u64, obj[32..40], 6, .little);           // payload_offset
     std.mem.writeInt(u64, obj[40..48], content.len, .little); // uncompressed_size
@@ -302,7 +310,7 @@ fn buildMinimalImage(w: anytype) !void {
     var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
-    std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
+    std.mem.writeInt(u32, header[20..24], 1, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, header[10..12], 3, .little);
     std.mem.writeInt(u32, header[12..16], 128, .little);
     std.mem.writeInt(u64, header[32..40], 128, .little);
@@ -443,7 +451,7 @@ test "ФИКС МУТАНТ: payloadSlice читает ровно compressed_siz
     var region: [16]u8 = "a.zig\x00abcdefghij".*; // пул(6) + данные(10)
 
     var e0 = std.mem.zeroes(ObjectEntry);
-    std.crypto.hash.sha2.Sha256.hash("abc", &e0.digest, .{}); // digest = SHA256("abc")
+    std.crypto.hash.Blake3.hash("abc", e0.digest[0..32], .{}); // digest = SHA256("abc")
     e0.type_id = 0x0002;
     e0.flags = 0x0002;
     e0.logical_path_offset = 0;
@@ -480,7 +488,7 @@ test "ДЕФЕКТ #55: payloadSlice и objectPayloadRaw дают ОДИН ср�
     // единое, и при compressed_size != uncompressed_size результаты совпадают.
     var region: [16]u8 = "a.zig\x00abcdefghij".*;
     var e = std.mem.zeroes(ObjectEntry);
-    std.crypto.hash.sha2.Sha256.hash("abc", &e.digest, .{});
+    std.crypto.hash.Blake3.hash("abc", e.digest[0..32], .{});
     e.type_id = 0x0002;
     e.flags = 0x0002;
     e.logical_path_offset = 0;
@@ -629,7 +637,7 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
 
     var obj: [96]u8 = @as([96]u8, @splat(0));
     var dig: [32]u8 = undefined;
-    std.crypto.hash.sha2.Sha256.hash(content, &dig, .{});
+    std.crypto.hash.Blake3.hash(content, dig[0..32], .{});
     @memcpy(obj[0..32], &dig);
     std.mem.writeInt(u64, obj[32..40], 1000, .little); // СМЕЩЕНИЕ ВНЕ ПУЛА
     std.mem.writeInt(u64, obj[40..48], content.len, .little);
@@ -645,7 +653,7 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
-    std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
+    std.mem.writeInt(u32, header[20..24], 1, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, header[10..12], 3, .little);
     std.mem.writeInt(u32, header[12..16], 128, .little);
     std.mem.writeInt(u64, header[32..40], 128, .little);

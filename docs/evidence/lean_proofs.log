@@ -1,6 +1,6 @@
 === KERN EVIDENCE: lean_proofs ===
 === команда: bash formal/check.sh ===
-=== дата: 2026-10-15T18:16:59Z ===
+=== дата: 2026-10-15T18:32:40Z ===
 
 == core-only (Lean без Mathlib) ==
   [OK]   KernAllMath.lean

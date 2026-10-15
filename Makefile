@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo run-example torture telemetry telemetry-quick evidence evidence-fast docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo run-example torture telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -118,6 +118,20 @@ telemetry:
 # Быстрый вариант стенда (без двух сборок, мутаций и фаззинга).
 telemetry-quick:
 	$(PYTHON) tools/measure_all_kern.py --quick --out telemetry_report.json
+
+# GUARDRAIL-ПРОКСИ: живой перехватчик галлюцинаций (HTTP 409 при конфликте).
+# Поднимает сервер, прогоняет 3 сценария и проверяет коды ответов.
+# Критерий: 200 для доказанного контракта, 409 для опровергнутого.
+guardrail: build lib
+	$(PYTHON) examples/guardrail_proxy.py --port 8731 & \
+	  sleep 3; \
+	  echo "--- health ---"; curl -s localhost:8731/health; \
+	  echo "--- багованный контракт (ждём 409) ---"; \
+	  curl -s -o /dev/null -w 'HTTP %{http_code}\n' -X POST localhost:8731/verify -d '{"label":"buggy"}'; \
+	  echo "--- доказанный контракт (ждём 200) ---"; \
+	  curl -s -o /dev/null -w 'HTTP %{http_code}\n' -X POST localhost:8731/verify \
+	    -d '{"smt":"(set-logic QF_LIA)(declare-const x Int)(assert (> x 10))(assert (< x 5))(check-sat)"}'; \
+	  pkill -f guardrail_proxy.py
 
 # СБОРЩИК СВИДЕТЕЛЬСТВ: прогоняет все проверки и сохраняет их ПОЛНЫЕ логи
 # в docs/evidence/ (у каждого заявления — доказательство, а не только запись).

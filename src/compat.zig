@@ -25,17 +25,39 @@ var g_fallback: ?std.Io.Threaded = null;
 var g_fallback_io: ?std.Io = null;
 var g_fallback_mu: std.atomic.Mutex = .unlocked;
 
+/// 🔴 ДЕФЕКТ #64: THREAD-LOCAL FAST PATH.
+///
+/// ПРОБЛЕМА (была). В режиме библиотеки `g_io == null`, поэтому КАЖДЫЙ вызов
+/// `io()` из КАЖДОГО потока брал глобальный спинлок `g_fallback_mu`. При 16
+/// воркерах C-ABI это давало конкуренцию на горячем пути: каждый файловый или
+/// пайповый вызов (а мост Z3 делает их тысячи) упирался в один атомик.
+///
+/// РЕШЕНИЕ. Кэшируем разрешённый `Io` в TLS потока: мьютекс берётся РОВНО ОДИН
+/// раз за время жизни потока, а дальше `io()` — это чтение TLS (FS/GS-регистр),
+/// без атомиков и блокировок. Сигнатуры проекта НЕ меняются.
+threadlocal var tls_io: ?std.Io = null;
+
 /// Установить процесс-глобальный `Io` (вызывается из `main`).
 pub fn setIo(io_val: std.Io) void {
+    tls_io = io_val; // текущий поток получает значение без гонки
     g_io = io_val;
 }
 
 /// Текущий `Io`: в CLI — установленный из `main(init)`, в тестах —
 /// `std.testing.io`, в режиме библиотеки (C-ABI) — собственный `Io.Threaded`.
 /// Паники здесь больше НЕТ: библиотека обязана быть безопасной для хоста.
+///
+/// Порядок ветвлений — от самого дешёвого к самому дорогому:
+///   1) TLS потока (без атомиков) — сюда попадает ВСЁ после первого вызова;
+///   2) процесс-глобальный `Io` (CLI), кэшируется в TLS;
+///   3) холодный путь: один раз на поток берём мьютекс и создаём `Io.Threaded`.
 pub fn io() std.Io {
-    if (g_io) |v| return v;
+    if (tls_io) |v| return v; // ← горячий путь: чтение TLS, 0 блокировок
     if (builtin.is_test) return std.testing.io;
+    if (g_io) |v| {
+        tls_io = v;
+        return v;
+    }
     while (!g_fallback_mu.tryLock()) std.atomic.spinLoopHint();
     defer g_fallback_mu.unlock();
     if (g_fallback_io == null) {
@@ -47,7 +69,9 @@ pub fn io() std.Io {
         });
         g_fallback_io = g_fallback.?.io();
     }
-    return g_fallback_io.?;
+    const resolved = g_fallback_io.?;
+    tls_io = resolved; // запомнили в TLS: этот поток больше в спинлок не зайдёт
+    return resolved;
 }
 
 /// Окружение процесса для режима библиотеки.

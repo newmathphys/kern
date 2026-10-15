@@ -1,6 +1,6 @@
 === KERN EVIDENCE: core_tests_relsafe ===
 === команда: zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe ===
-=== дата: 2026-10-15T18:16:47Z ===
+=== дата: 2026-10-15T18:32:29Z ===
 
 1/198 test_root.test_0...OK
 2/198 core.eq2.test.EQ2: кодировка p | (n << 1)...OK
@@ -118,7 +118,7 @@
 114/198 verifier.noninterference.test.NONINTERFERENCE: constant-time НЕ зависит от позиции отличия (ранний выход — ЗАВИСИТ)...
 [NONINTERFERENCE] отношение времён (позиция отличия 1 vs 16):
   constant-time: 1.01x  (должно ~1)
-  ранний выход : 1.21x  (зависит от позиции)
+  ранний выход : 1.22x  (зависит от позиции)
 OK
 115/198 verifier.nra_quant.test.NRA: x² < 0 неразрешимо (квадрат вещественного неотрицателен)...OK
 116/198 verifier.nra_quant.test.NRA (∀): x² + y² ≥ 0 доказано для ВСЕХ вещественных...OK

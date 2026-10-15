@@ -435,6 +435,19 @@ def case_telemetry_detects():
     return "make telemetry-quick"
 
 
+
+def case_guardrail_refuted_as_proved():
+    """Guardrail. ЛОМАЕМ: C-ABI объявляет ОПРОВЕРГНУТЫЙ контракт доказанным.
+
+    Если `make guardrail` не покраснеет, значит прокси не различает вердикты
+    и пропускает галлюцинации — то есть он бесполезен как фильтр.
+    """
+    patch("src/capi.zig",
+          "        .Sat => KERN_REFUTED,",
+          "        .Sat => KERN_PROVED, // ЛОМАЕМ: контрпример объявлен доказательством")
+    return "make guardrail"
+
+
 def case_sanity_control():
     """Заведомо БЕЗОПАСНАЯ правка: добавляем комментарий в файл.
 
@@ -958,6 +971,7 @@ CASES = [
     ("torture-payload",   "Пытки: подмена payload (SHA-256)",      case_torture_payload),
     ("evidence-propagates", "Свидетельства: провал подпроверки",   case_evidence_propagates),
     ("telemetry-detects", "Телеметрия: балл за провал Lean",       case_telemetry_detects),
+    ("guardrail-verdict", "Guardrail: опровергнутое как доказанное", case_guardrail_refuted_as_proved),
     # ПОЛНЫЕ режимы используют ТОТ ЖЕ скрипт, что быстрые (общая логика
     # начисления/проброса) -> проверяем быстрым прогоном, чтобы canfail
     # не длился лишний час. Это зафиксировано явно, а не «предполагается».
@@ -1054,12 +1068,55 @@ def selftest() -> int:
     return 1 if bad else 0
 
 
+def guard_dirty_faultable() -> int:
+    """🔴 ДЕФЕКТ #63: ПРЕДОХРАНИТЕЛЬ — не запускаться на «грязных» FAULTABLE.
+
+    ПОЧЕМУ ЭТО КРИТИЧНО. Харнесс вносит диверсию в файл и ПОСЛЕ прогона
+    восстанавливает его из git (`git checkout -- <файл>`). Если у файла были
+    НЕзакоммиченные правки разработчика, восстановление их УНИЧТОЖАЕТ молча.
+
+    Дефект найден на практике: во время работы над BLAKE3-диспетчеризацией
+    `make evidence` запустил canfail, и правки в `src/core/kimg_reader.zig` и
+    `src/core/kimg_writer.zig` были стёрты восстановлением из git. Пришлось
+    переделывать.
+
+    Теперь: если хотя бы один FAULTABLE-файл имеет незакоммиченные изменения —
+    харнесс отказывается работать и объясняет, что делать.
+    """
+    dirty = []
+    for f in FAULTABLE:
+        p = ROOT / f
+        if not p.exists():
+            continue
+        r = subprocess.run(["git", "status", "--porcelain", "--", f],
+                           cwd=str(ROOT), capture_output=True, text=True)
+        if r.stdout.strip():
+            dirty.append(f)
+    if not dirty:
+        return 0
+    print("=" * 70)
+    print("\033[31m[ПРЕДОХРАНИТЕЛЬ #63] ОТКАЗ: у FAULTABLE-файлов есть")
+    print("незакоммиченные правки — харнесс СТЁР БЫ ИХ при восстановлении.\033[0m")
+    print("=" * 70)
+    for f in dirty:
+        print(f"    M {f}")
+    print("\nЧТО ДЕЛАТЬ:")
+    print("  1) закоммитьте свои правки:   git add -A && git commit -m '...'")
+    print("  2) либо временно уберите файл из FAULTABLE в tools/canfail.py")
+    print("\nПочему так: харнесс восстанавливает файлы через `git checkout --`,")
+    print("поэтому незакоммиченная работа в них не переживёт прогон.")
+    return 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--selftest", action="store_true",
                     help="K4: проверить ЛОГИКУ харнесса на синтетических входах")
+    ap.add_argument("--allow-dirty", action="store_true",
+                    help="ОПАСНО: разрешить прогон при грязных FAULTABLE "
+                         "(ваши правки в них будут утеряны)")
     args = ap.parse_args()
 
     if args.selftest:
@@ -1069,6 +1126,14 @@ def main():
         for c in CASES:
             print(f"  {c[0]:14s} {c[1]}")
         return 0
+
+    # ДЕФЕКТ #63: ПРЕДОХРАНИТЕЛЬ. Харнесс восстанавливает FAULTABLE-файлы через
+    # `git checkout --`, поэтому незакоммиченные правки в них будут УТЕРЯНЫ.
+    # Отказываемся работать, пока дерево не закоммичено (или явный --allow-dirty).
+    if not args.allow_dirty:
+        rc_guard = guard_dirty_faultable()
+        if rc_guard != 0:
+            return rc_guard
 
     env = dict(os.environ)
     env["PATH"] = (f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:"

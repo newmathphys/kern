@@ -1,9 +1,14 @@
+=== KERN EVIDENCE: cross_arch ===
+=== команда: bash tools/cross_arch_test.sh ===
+=== дата: 2026-10-15T18:40:01Z ===
+
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
-  
-  OK
-  All 198 tests passed.
+  src/core/object_entry.zig:113:56: note: type 'crypto.sha2.Sha2x32(.{ 1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225 },256)' here
+              .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  
-  OK
-  All 198 tests passed.
-RC=0
+  src/core/object_entry.zig:113:56: note: type 'crypto.sha2.Sha2x32(.{ 1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225 },256)' here
+              .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
+
+RC=1

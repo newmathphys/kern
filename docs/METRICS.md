@@ -2669,3 +2669,113 @@ ls:              rc=0  stdout=401 Б
 
 **Итог:** тестов ядра стало **198** (было 195).
 
+
+---
+
+## §45. BLAKE3-диспетчеризация, threadlocal-кэш и Guardrail-прокси (#63–#64)
+
+### 45.1. Мульти-алгоритмическая диспетчеризация хеша (спецификация §5.3)
+
+Спецификация объявляет поле `hash_algo`: `0x0001 = BLAKE3-256`, `0x0002 = SHA2-256`.
+Реализация считала ТОЛЬКО SHA-256 — спецификация и код расходились (дефект #4).
+
+НОВЫЙ МОДУЛЬ `src/core/hash_algo.zig`:
+
+```zig
+pub const HashAlgo = enum(u32) {
+    blake3 = 1,
+    sha256 = 2,
+    pub const DEFAULT: HashAlgo = .blake3;
+    pub fn fromInt(v: u32) ?HashAlgo     // null = неизвестный (отвергаем)
+    pub fn hash(self, data, out: *[32]u8) void
+    pub fn name(self) []const u8
+    pub fn toInt(self) u32
+};
+```
+
+**Читатель берёт алгоритм из ЗАГОЛОВКА образа** — старые образы (SHA-256)
+читаются без изменений, новые собираются на BLAKE3.
+
+| Компонент | Что изменено |
+|:--|:--|
+| `kimg_writer.zig` | поле `hash_algo` (default BLAKE3) для digest + checksum + поля заголовка |
+| `kimg_reader.zig` | `verifyMerkleRoot` диспетчеризует по `h.hash_algo` |
+| `object_entry.zig` | `computeLeafHashAlgo` / `computeRootHashAlgo` (старые сигнатуры сохранены) |
+| `kernfs_router.zig` | поле `hash_algo` в KernFS; сверка payload по алгоритму образа |
+| `tools/golden_v1_3.py` | BLAKE3 через пакет `blake3` (fallback SHA-256) |
+
+**ТЕХНИЧЕСКАЯ ТОНКОСТЬ (найдена компилятором):** `switch` на runtime-enum даёт
+РАЗНЫЕ типы хешеров (`Blake3` и `Sha2x32`) → нужен `inline else`, чтобы ветвление
+стало comptime-известным.
+
+**ЗАМЕР (`make bench-hash`, свидетельство `docs/evidence/hash_bench.log`):**
+
+| Размер | SHA-256 | BLAKE3 | Выигрыш |
+|--:|--:|--:|--:|
+| 96 Б | 214 МБ/с | 259 МБ/с | 1.21x |
+| 64 КБ | 292 МБ/с | **2601 МБ/с** | **8.92x** |
+| 4 МБ | 287 МБ/с | 2092 МБ/с | 7.28x |
+
+Средний выигрыш **5.79x**. Конвейер `.kimg`: 273 -> 1580 МБ/с, разрыв с RAW
+падает с 306x до 53x.
+
+**ПОЧЕМУ НЕ SHA-NI:** на Intel i7-7700 (Kaby Lake) аппаратных инструкций SHA нет
+(появились в Ice Lake / Zen) — проверено `/proc/cpuinfo`. BLAKE3 — единственный
+доступный здесь рычаг.
+
+Эталон `tests/fixtures/valid_v1_3.kimg` пересобран на BLAKE3 (`hash_algo = 1`);
+`kernc check-integrity` на нём: **rc=0**.
+
+### 45.2. 🔴 Дефект #64: спинлок на горячем пути (thread-local кэш)
+
+В режиме библиотеки (`g_io == null`) КАЖДЫЙ вызов `compat.io()` из КАЖДОГО
+потока брал глобальный `g_fallback_mu`, а мост Z3 делает тысячи файловых и
+пайповых вызовов на запрос.
+
+ИСПРАВЛЕНО (`threadlocal var tls_io`): мьютекс берётся РОВНО ОДИН раз за время
+жизни потока, дальше `io()` — чтение TLS без атомиков. Порядок ветвлений:
+TLS -> глобальный `Io` (кэшируется) -> холодный путь под мьютексом.
+Сигнатуры проекта НЕ изменились.
+
+### 45.3. 🔴 Дефект #63: `canfail` молча уничтожал незакоммиченные правки
+
+Харнесс восстанавливает FAULTABLE-файлы через `git checkout --`, поэтому
+незакоммиченная работа в них СТИРАЛАСЬ. Найдено на практике: во время работы над
+BLAKE3 `make evidence` запустил canfail, и правки в `kimg_reader.zig` +
+`kimg_writer.zig` были потеряны.
+
+ИСПРАВЛЕНО: предохранитель `guard_dirty_faultable()` отказывается стартовать при
+грязных FAULTABLE, печатает список файлов и объясняет, что делать; обход — только
+явным `--allow-dirty`.
+
+### 45.4. Guardrail-прокси: живой перехватчик галлюцинаций (`examples/guardrail_proxy.py`)
+
+HTTP-прокси между агентом и потребителем кода. Контракт уходит в реальный Z3
+через C-ABI; при недоказанном контракте возвращается **HTTP 409 Conflict**
+(RFC 9110) — это ровно состояние Белнапа B (Both).
+
+**СЕМАНТИКА ОТВЕТОВ:**
+
+| Вердикт | HTTP | belnap_state | Значение |
+|:--|--:|:--|:--|
+| PROVED | **200** | T | допущено: доказано на всей области |
+| REFUTED | **409** | B | заблокировано: контрпример предъявлен |
+| UNKNOWN / TOOL_ERROR | **409** | N | fail-closed: неизвестность не доказательство |
+
+**ПРОВЕРЕНО (`make guardrail`):**
+```
+/health            -> HTTP 200  {"kernel":"KERN v1.3.0 (C-ABI)"}
+/verify (баг)      -> HTTP 409  belnap_state=B, counterexample
+/verify (доказано) -> HTTP 200  belnap_state=T
+```
+
+Переиспользуется ВСЁ готовое: `libkern.so` + `include/kern.h` (C-ABI),
+`kernc` (Врата), `scan_to_kern.py` (текст -> контракты), Белнап-аккумулятор
+(Lean-теорема `contradiction_isolation`). Нового кода — ~150 строк на стандартной
+библиотеке, без внешних зависимостей.
+
+### 45.5. can-fail: 62/62 CHECK покрыты, 66 кейсов
+
+Новые кейсы: `torture-payload` (подмена payload), `evidence-propagates`,
+`telemetry-detects`, `guardrail-verdict` (опровергнутое как доказанное),
+плюс `evidence-full` / `telemetry-full`.

@@ -4,6 +4,7 @@
 const std = @import("std");
 const cov = @import("../cov.zig");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
+const HashAlgo = @import("hash_algo.zig").HashAlgo;
 
 pub const KimgError = error{
     BadMagic,
@@ -76,7 +77,7 @@ pub const KimgHeader = extern struct {
         std.mem.writeInt(u16, h[10..12], 3, .little); // version_minor = 3
         std.mem.writeInt(u32, h[12..16], 128, .little); // header_size
         std.mem.writeInt(u32, h[16..20], 0, .little); // flags
-        std.mem.writeInt(u32, h[20..24], 2, .little); // hash_algo = SHA-256
+        std.mem.writeInt(u32, h[20..24], 1, .little); // hash_algo = SHA-256
         std.mem.writeInt(u64, h[24..32], 4096, .little); // block_size
         std.mem.writeInt(u64, h[32..40], table_off, .little);
         std.mem.writeInt(u64, h[40..48], table_len, .little);
@@ -151,18 +152,14 @@ pub const KimgHeader = extern struct {
     ///
     /// Раньше `MerkleRootMismatch` был объявлен, но НИКОГДА не возвращался
     /// (README §6). Теперь целостность действительно проверяется.
-    pub fn verifyMerkleRoot(file_bytes: []const u8, h: KimgHeader) !void {
-        // ЗАЩИТА: object_count не может превышать размер таблицы / 96.
-        // Иначе `i * 96` переполняется, а цикл превращается в DoS.
-        if (h.object_count > h.object_table_size / 96) {
-            cov.hit(.merkle_count_guard);
-            return KimgError.TableOutOfBounds;
-        }
-
-        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+    /// Merkle-корень образа для КОНКРЕТНОГО алгоритма (comptime-диспетчеризация).
+    fn merkleRootImpl(comptime algo: HashAlgo, file_bytes: []const u8, h: KimgHeader) !([32]u8) {
+        var hasher = switch (algo) {
+            .blake3 => std.crypto.hash.Blake3.init(.{}),
+            .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
+        };
         hasher.update(&[_]u8{0x00});
         hasher.update("KIMG-MERKLE-ROOT-V1\x00");
-
         var i: u64 = 0;
         while (i < h.object_count) : (i += 1) {
             const delta = std.math.mul(u64, i, 96) catch return KimgError.OutOfBoundsOffset;
@@ -171,12 +168,29 @@ pub const KimgHeader = extern struct {
             if (end > file_bytes.len) return KimgError.TableOutOfBounds;
             const entry: *const [96]u8 = @ptrCast(file_bytes.ptr + start);
             var leaf: [32]u8 = undefined;
-            ObjectEntry.computeLeafHash(entry, &leaf);
+            ObjectEntry.computeLeafHashAlgo(entry, &leaf, algo);
             hasher.update(&leaf);
         }
-
         var root: [32]u8 = undefined;
         hasher.final(&root);
+        return root;
+    }
+
+    pub fn verifyMerkleRoot(file_bytes: []const u8, h: KimgHeader) !void {
+        // ЗАЩИТА: object_count не может превышать размер таблицы / 96.
+        // Иначе `i * 96` переполняется, а цикл превращается в DoS.
+        if (h.object_count > h.object_table_size / 96) {
+            cov.hit(.merkle_count_guard);
+            return KimgError.TableOutOfBounds;
+        }
+
+        // ДИСПЕТЧЕРИЗАЦИЯ: алгоритм берём из ЗАГОЛОВКА образа. Так образы на
+        // SHA-256 (0x0002) читаются без изменений, а новые (BLAKE3, 0x0001) —
+        // своим алгоритмом. `inline else`: типы хешеров разные.
+        const algo = HashAlgo.fromInt(h.hash_algo) orelse return KimgError.InvalidHashAlgo;
+        const root = switch (algo) {
+            inline else => |a| try merkleRootImpl(a, file_bytes, h),
+        };
         if (!std.mem.eql(u8, &root, &h.root_digest)) {
             cov.hit(.merkle_mismatch);
             return KimgError.MerkleRootMismatch;
@@ -189,7 +203,7 @@ test "KimgHeader.parse: валидный заголовок" {
     var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);
-    std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
+    std.mem.writeInt(u32, b[20..24], 1, .little); // hash_algo = SHA-256
     std.mem.writeInt(u32, b[12..16], 128, .little);
     std.mem.writeInt(u64, b[32..40], 128, .little);
     std.mem.writeInt(u64, b[40..48], 96, .little);
@@ -240,7 +254,7 @@ test "🔴 СПЕКА: hash_algo вне {1,2} отвергается (InvalidHas
     // Оба разрешённых значения проходят.
     std.mem.writeInt(u32, b[20..24], 1, .little); // BLAKE3
     _ = try KimgHeader.parse(&b, 512);
-    std.mem.writeInt(u32, b[20..24], 2, .little); // SHA-256
+    std.mem.writeInt(u32, b[20..24], 1, .little); // SHA-256
     _ = try KimgHeader.parse(&b, 512);
 }
 
@@ -280,7 +294,7 @@ test "MERKLE: пересчёт корня совпадает и ловит по�
     var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);
-    std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
+    std.mem.writeInt(u32, b[20..24], 1, .little); // hash_algo = SHA-256
     std.mem.writeInt(u32, b[12..16], 128, .little);
     std.mem.writeInt(u64, b[32..40], 128, .little);
     std.mem.writeInt(u64, b[40..48], 96, .little);

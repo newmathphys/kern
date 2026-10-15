@@ -5,11 +5,11 @@
 > Пропусков и «планируемых» тестов нет. Рассинхрон с кодом ловит
 > `python3 tools/gen_test_catalog.py --check` (стадия CI).
 
-**Всего объявлений тестов:** 236
+**Всего объявлений тестов:** 242
 
 | Группа | Файлов | Тестов |
 |:--|--:|--:|
-| Ядро формата и ФС (L0/L3) | 6 | 44 |
+| Ядро формата и ФС (L0/L3) | 7 | 50 |
 | Верификатор (Врата, SMT, теории) | 13 | 72 |
 | Специализированные сьюты | 12 | 56 |
 | KERN-Next (парсер, каталог, конвейер) | 9 | 36 |
@@ -29,6 +29,16 @@
 - EQ2: биты p и n независимы
 - MATH: де Моргана для порядка истинности (полный перебор)
 - MATH: таблица отрицания notB (закрывает выживший мутант |->&)
+
+
+### `src/core/hash_algo.zig` — 6
+
+- HASH-ALGO: разбор значений заголовка (ровно 1 или 2)
+- HASH-ALGO: BLAKE3 и SHA-256 дают РАЗНЫЕ хеши (не подменяют друг друга)
+- HASH-ALGO: BLAKE3-256 совпадает с эталонным вектором
+- HASH-ALGO: SHA-256 совпадает с эталонным вектором
+- HASH-ALGO: имена и числовые коды согласованы со спецификацией
+- HASH-ALGO: SPEC-тест — hash_algo=3 (неизвестный) отвергается
 
 
 ### `src/core/kernfs_router.zig` — 18
@@ -475,7 +485,7 @@
 | **MBPP / MBPP+** (EvalPlus, 378 задач) | то же + `--dataset mbpp` | base **0.812**, plus **0.698** | **да (API)** |
 | **CyberSecEval** (Meta) | `python3 tools/cyberseceval_check.py` | 28/351 (8.0%) — простые правила | нет |
 | **SMT-LIB / cvc5 cross-check** | `python3 tools/solver_crosscheck.py` | 9/9 согласие, 0 расхождений | нет |
-| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **198/198** | нет |
+| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **204 / 204** | нет |
 | **Мутационное тестирование** | `python3 tools/mutate_zig.py` | 40 мутантов: 37 убито, 3 эквивалентных | нет |
 | **Фаззинг парсера** | `zig run src/fuzz_ast.zig` | **1 000 000** мутаций, 0 паник / 0 SIGSEGV | нет |
 | **Стресс .kimg** | `zig run src/kimg_stress.zig` | 1 млн объектов, случайный доступ 0.0006 мс | нет |
@@ -494,7 +504,7 @@ make formal-ci         # ядро + Lean-доказательства
 make echelons          # 4 эшелона: выравнивание, лавина хэша, пул, семантика
 
 # --- Ядро ---
-zig build test         # 198 тестов ядра (Debug)
+zig build test         # 204 тестов ядра (Debug)
 zig test src/test_root.zig -O ReleaseSafe   # без UB
 zig build test-next    # 25 тестов KERN-Next
 zig build test-fault   # сбои памяти (реальный SIGBUS)

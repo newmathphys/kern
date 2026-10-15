@@ -8,6 +8,7 @@
 // отвергаются как выход за пределы модуля. Обёртка в `src/` делает корнем `src/`.
 test {
     _ = @import("core/eq2.zig");
+    _ = @import("core/hash_algo.zig");
     _ = @import("core/object_entry.zig");
     _ = @import("core/kimg_reader.zig");
     _ = @import("core/kernfs_router.zig");

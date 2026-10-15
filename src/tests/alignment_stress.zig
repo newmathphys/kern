@@ -60,7 +60,7 @@ fn makeHeader() [128]u8 {
     var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);   // version_major
-    std.mem.writeInt(u32, b[20..24], 2, .little); // hash_algo = SHA-256
+    std.mem.writeInt(u32, b[20..24], 1, .little); // hash_algo = SHA-256
     std.mem.writeInt(u16, b[10..12], 3, .little);  // version_minor
     std.mem.writeInt(u32, b[12..16], 128, .little); // header_size
     std.mem.writeInt(u64, b[24..32], 4096, .little); // block_size

@@ -35,8 +35,25 @@ LEAF_DOMAIN = b"\x00KIMG-ENTRY-LEAF-V1\x00"
 ROOT_DOMAIN = b"\x00KIMG-MERKLE-ROOT-V1\x00"
 
 
+try:
+    import blake3 as _blake3  # pip install blake3
+    _HAS_BLAKE3 = True
+except ImportError:
+    _HAS_BLAKE3 = False
+
+# hash_algo из спецификации §5.3: 1 = BLAKE3-256, 2 = SHA2-256.
+# Генератор ДОЛЖЕН совпадать с Zig-writer по умолчанию (BLAKE3).
+HASH_ALGO = 1 if _HAS_BLAKE3 else 2
+
+
 def content_hash(data: bytes) -> bytes:
-    """Хэш содержимого. ФАКТИЧЕСКИ SHA-256 (hash_algo = 2)."""
+    """Хэш содержимого: BLAKE3 (hash_algo = 1), либо SHA-256 как fallback.
+
+    Измерено (`make bench-hash`): BLAKE3 быстрее SHA-256 в среднем в 5.79x
+    (до 8.92x на блоках 64 КБ) — см. docs/evidence/hash_bench.log.
+    """
+    if _HAS_BLAKE3:
+        return _blake3.blake3(data).digest()
     return hashlib.sha256(data).digest()
 
 
@@ -119,7 +136,7 @@ def build_golden_v1_3(out_path: str = "tests/fixtures/valid_v1_3.kimg") -> dict:
         3,                            # minor_version (v1.3)
         128,                          # header_size
         0,                            # flags
-        2,                            # hash_algo = SHA-256
+        HASH_ALGO,                    # hash_algo: 1=BLAKE3, 2=SHA-256
         4096,                         # block_size
         obj_table_offset,
         obj_table_size,

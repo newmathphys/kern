@@ -1,0 +1,58 @@
+=== KERN EVIDENCE: mutate ===
+=== команда: python3 tools/mutate_zig.py --max 40 --seed 7 ===
+=== дата: 2026-10-15T18:39:25Z ===
+
+[i] найдено сайтов мутации: 44; берём не более 40
+[i] найден УСТАРЕВШИЙ замок (PID 1486481 не существует) — снимаю
+[i] рабочая копия: /tmp/kern-mutants-z_5v6bnt (оригинал не изменяется)
+  [1/40] src/core/kernfs_router.zig:50 [!=->==] -> killed ✅
+  [2/40] src/core/eq2.zig:106 [==->!=] -> killed ✅
+  [3/40] src/core/kernfs_router.zig:70 [>=->>] -> killed ✅
+  [4/40] src/core/eq2.zig:54 [&->|] -> killed ✅
+  [5/40] src/core/eq2.zig:58 [&->|] -> killed ✅
+  [6/40] src/core/kernfs_router.zig:182 [and->or] -> killed ✅
+  [7/40] src/core/eq2.zig:75 [&->|] -> killed ✅
+  [8/40] src/core/kernfs_router.zig:56 [==->!=] -> killed ✅
+  [9/40] src/core/kimg_writer.zig:45 [|->&] -> killed ✅
+  [10/40] src/core/kernfs_router.zig:163 [and->or] -> killed ✅
+  [11/40] src/core/kimg_reader.zig:61 [==->!=] -> killed ✅
+  [12/40] src/core/eq2.zig:50 [&->|] -> killed ✅
+  [13/40] src/core/eq2.zig:74 [&->|] -> killed ✅
+  [14/40] src/core/kernfs_router.zig:182 [==->!=] -> killed ✅
+  [15/40] src/core/kernfs_router.zig:135 [and->or] -> killed ✅
+  [16/40] src/verifier/admission_gate.zig:43 [!=->==] -> killed ✅
+  [17/40] src/core/eq2.zig:76 [|->&] -> killed ✅
+  [18/40] src/core/kernfs_router.zig:135 [!=->==] -> killed ✅
+  [19/40] src/core/kimg_reader.zig:117 [!=->==] -> killed ✅
+  [20/40] src/core/kernfs_router.zig:135 [&->|] -> killed ✅
+  [21/40] src/core/eq2.zig:39 [|->&] -> killed ✅
+  [22/40] src/core/kimg_reader.zig:117 [and->or] -> killed ✅
+  [23/40] src/core/kernfs_router.zig:189 [&->|] -> killed ✅
+  [24/40] src/core/kernfs_router.zig:73 [!=->==] -> killed ✅
+  [25/40] src/core/kernfs_router.zig:50 [or->and] -> killed ✅
+  [26/40] src/verifier/admission_gate.zig:41 [>=->>] -> killed ✅
+  [27/40] src/core/kimg_reader.zig:60 [==->!=] -> killed ✅
+  [28/40] src/core/kimg_reader.zig:119 [!=->==] -> killed ✅
+  [29/40] src/core/kimg_writer.zig:166 [false->true] -> killed ✅
+  [30/40] src/core/eq2.zig:25 [|->&] -> killed ✅
+  [31/40] src/core/eq2.zig:93 [==->!=] -> killed ✅
+  [32/40] src/core/kernfs_router.zig:72 [and->or] -> killed ✅
+  [33/40] src/verifier/admission_gate.zig:43 [&->|] -> killed ✅
+  [34/40] src/verifier/admission_gate.zig:41 [false->true] -> killed ✅
+  [35/40] src/core/kimg_writer.zig:61 [==->!=] -> killed ✅
+  [36/40] src/core/kernfs_router.zig:62 [!=->==] -> killed ✅
+  [37/40] src/core/kimg_reader.zig:116 [!=->==] -> killed ✅
+  [38/40] src/core/object_entry.zig:55 [|->&] -> killed ✅
+  [39/40] src/core/kimg_writer.zig:164 [>=->>] -> killed ✅
+  [40/40] src/core/object_entry.zig:55 [!=->==] -> killed ✅
+
+[i] целостность оригинала подтверждена (sha256 d42d461dd375588f…)
+
+=== МУТАЦИОННОЕ ТЕСТИРОВАНИЕ KERN ===
+Всего мутантов:      40
+Killed (compile):    40
+Killed (test):       0
+Survived (ДЫРЫ):     0
+MUTATION SCORE:      100.0%
+
+RC=0

@@ -1,6 +1,6 @@
 === KERN EVIDENCE: core_tests ===
 === команда: zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig ===
-=== дата: 2026-10-15T18:16:34Z ===
+=== дата: 2026-10-15T18:32:18Z ===
 
 1/198 test_root.test_0...OK
 2/198 core.eq2.test.EQ2: кодировка p | (n << 1)...OK
@@ -117,8 +117,8 @@
 113/198 verifier.noninterference.test.NONINTERFERENCE: constant-time сравнение эквивалентно обычному...OK
 114/198 verifier.noninterference.test.NONINTERFERENCE: constant-time НЕ зависит от позиции отличия (ранний выход — ЗАВИСИТ)...
 [NONINTERFERENCE] отношение времён (позиция отличия 1 vs 16):
-  constant-time: 1.01x  (должно ~1)
-  ранний выход : 1.23x  (зависит от позиции)
+  constant-time: 1.00x  (должно ~1)
+  ранний выход : 1.20x  (зависит от позиции)
 OK
 115/198 verifier.nra_quant.test.NRA: x² < 0 неразрешимо (квадрат вещественного неотрицателен)...OK
 116/198 verifier.nra_quant.test.NRA (∀): x² + y² ≥ 0 доказано для ВСЕХ вещественных...OK
@@ -192,12 +192,12 @@ OK
 180/198 tests.smt_incremental_test.test.SMT push/pop: контекст ИЗОЛИРОВАН (нет протечки между мутантами)...OK
 181/198 tests.smt_incremental_test.test.SMT push/pop: пачка из 50 «мутантов» — нет ложных proved...OK
 182/198 tests.smt_incremental_test.test.SMT push/pop: 30 запросов в ОДНОМ процессе быстрее 30 отдельных...
-[ИНКРЕМЕНТ] 30 отдельных процессов: 517 мс; один процесс: 16 мс
+[ИНКРЕМЕНТ] 30 отдельных процессов: 486 мс; один процесс: 16 мс
 OK
 183/198 tests.litmus_memory_test.test.LITMUS SB: SeqCst НЕ допускает исход r1=r2=0 (запрещён моделью SC)...
 [LITMUS SB/SeqCst] запрещённый исход r1=r2=0: 0 из 3000
 OK
-184/198 tests.litmus_memory_test.test.LITMUS SB: relaxed — исход возможен на слабой модели (отчёт, не приговор)...[LITMUS SB/relaxed] r1=r2=0 наблюдён: 0 из 3000 (0 на x86/TSO; >0 возможно на ARM64)
+184/198 tests.litmus_memory_test.test.LITMUS SB: relaxed — исход возможен на слабой модели (отчёт, не приговор)...[LITMUS SB/relaxed] r1=r2=0 наблюдён: 1 из 3000 (0 на x86/TSO; >0 возможно на ARM64)
 OK
 185/198 tests.litmus_memory_test.test.LITMUS MP: release/acquire НЕ допускает «флаг без данных»...[LITMUS MP/rel-acq] нарушение (flag=1, data=0): 0 из 3000
 OK

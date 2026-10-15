@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 
 const std = @import("std");
+const HashAlgo = @import("hash_algo.zig").HashAlgo;
 const cov = @import("../cov.zig");
 
 pub const KimgError = error{
@@ -78,8 +79,27 @@ pub const ObjectEntry = struct {
     /// и этот код используют **SHA-256**. Замена на BLAKE3 ЛОМАЕТ совместимость
     /// (проверено: сквозная сверка падает). Алгоритм обязан быть зафиксирован
     /// ОДИН — сейчас это SHA-256.
+    /// Лист Merkle-дерева: H(0x00 || "KIMG-ENTRY-LEAF-V1\0" || entry[96]).
+    /// Алгоритм по умолчанию (BLAKE3). Для чтения чужого образа используйте
+    /// `computeLeafHashAlgo` с алгоритмом из заголовка.
     pub fn computeLeafHash(bytes: *const [96]u8, out_hash: *[32]u8) void {
-        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+        computeLeafHashAlgo(bytes, out_hash, HashAlgo.DEFAULT);
+    }
+
+    /// То же, но с ЯВНЫМ алгоритмом (диспетчеризация по `hash_algo` заголовка).
+    pub fn computeLeafHashAlgo(bytes: *const [96]u8, out_hash: *[32]u8, algo: HashAlgo) void {
+        // `inline else`: типы хешеров РАЗНЫЕ (Blake3 / Sha2x32), поэтому
+        // ветвление обязано быть comptime-известным.
+        switch (algo) {
+            inline else => |a| leafImpl(a, bytes, out_hash),
+        }
+    }
+
+    fn leafImpl(comptime algo: HashAlgo, bytes: *const [96]u8, out_hash: *[32]u8) void {
+        var hasher = switch (algo) {
+            .blake3 => std.crypto.hash.Blake3.init(.{}),
+            .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
+        };
         hasher.update(&[_]u8{0x00});
         hasher.update("KIMG-ENTRY-LEAF-V1\x00");
         hasher.update(bytes);
@@ -91,12 +111,26 @@ pub const ObjectEntry = struct {
     /// Раньше `MerkleRootMismatch` был объявлен, но НИКОГДА не возвращался
     /// (см. README §6). Теперь корень пересчитывается и сверяется.
     pub fn computeRootHash(entries: []const [96]u8, out_hash: *[32]u8) void {
-        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+        computeRootHashAlgo(entries, out_hash, HashAlgo.DEFAULT);
+    }
+
+    /// То же, но с ЯВНЫМ алгоритмом (диспетчеризация по `hash_algo` заголовка).
+    pub fn computeRootHashAlgo(entries: []const [96]u8, out_hash: *[32]u8, algo: HashAlgo) void {
+        switch (algo) {
+            inline else => |a| rootImpl(a, entries, out_hash),
+        }
+    }
+
+    fn rootImpl(comptime algo: HashAlgo, entries: []const [96]u8, out_hash: *[32]u8) void {
+        var hasher = switch (algo) {
+            .blake3 => std.crypto.hash.Blake3.init(.{}),
+            .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
+        };
         hasher.update(&[_]u8{0x00});
         hasher.update("KIMG-MERKLE-ROOT-V1\x00");
         for (entries) |*e| {
             var leaf: [32]u8 = undefined;
-            computeLeafHash(e, &leaf);
+            leafImpl(algo, e, &leaf);
             hasher.update(&leaf);
         }
         hasher.final(out_hash);

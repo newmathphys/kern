@@ -6,6 +6,7 @@
 //! `payload_offset` и `logical_path_offset` ОТНОСИТЕЛЬНЫ `data_payload_offset`.
 const std = @import("std");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
+const HashAlgo = @import("hash_algo.zig").HashAlgo;
 const KernFsRouter = @import("kernfs_router.zig").KernFS;
 const compat = @import("compat");
 
@@ -21,6 +22,9 @@ pub const ObjectSpec = struct {
 pub const Builder = struct {
     allocator: std.mem.Allocator,
     specs: std.array_list.Managed(ObjectSpec),
+    /// Алгоритм хеша образа (спецификация §5.3). По умолчанию BLAKE3 (0x0001);
+    /// `.sha256` — для совместимости и сравнительных прогонов.
+    hash_algo: HashAlgo = HashAlgo.DEFAULT,
 
     pub fn init(allocator: std.mem.Allocator) Builder {
         return .{ .allocator = allocator, .specs = std.array_list.Managed(ObjectSpec).init(allocator) };
@@ -89,7 +93,7 @@ pub const Builder = struct {
         for (self.specs.items, 0..) |sp, i| {
             var e: [96]u8 = @as([96]u8, @splat(0));
             var digest: [32]u8 = undefined;
-            std.crypto.hash.sha2.Sha256.hash(sp.content, &digest, .{});
+            self.hash_algo.hash(sp.content, &digest);
             @memcpy(e[0..32], &digest);
             std.mem.writeInt(u64, e[32..40], payload_off[i], .little);
             std.mem.writeInt(u64, e[40..48], sp.content.len, .little);
@@ -112,7 +116,7 @@ pub const Builder = struct {
         std.mem.writeInt(u16, header[10..12], 3, .little);
         std.mem.writeInt(u32, header[12..16], 128, .little);
         std.mem.writeInt(u32, header[16..20], 0, .little);
-        std.mem.writeInt(u32, header[20..24], 2, .little); // hash_algo = SHA-256
+        std.mem.writeInt(u32, header[20..24], self.hash_algo.toInt(), .little); // 1=BLAKE3, 2=SHA-256
         std.mem.writeInt(u64, header[24..32], 4096, .little);
         std.mem.writeInt(u64, header[32..40], 128, .little);
         // ЗАЩИТА: n*96 и 128+n*96 — безопасная арифметика (иначе переполнение).
@@ -123,7 +127,7 @@ pub const Builder = struct {
         std.mem.writeInt(u64, header[56..64], payload_start, .little);
         @memcpy(header[64..96], &root);
         var csum: [32]u8 = undefined;
-        std.crypto.hash.sha2.Sha256.hash(header[0..96], &csum, .{});
+        self.hash_algo.hash(header[0..96], &csum);
         @memcpy(header[96..128], &csum);
 
         // 5. Отдаём готовый образ вызывающему.
