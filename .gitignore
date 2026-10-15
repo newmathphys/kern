@@ -77,3 +77,6 @@ attestation.cert
 # Телеметрический отчёт (генерируется)
 telemetry_report.json
 
+
+# Временные файлы атомарного отката canfail (не часть проекта)
+*.canfail_tmp
