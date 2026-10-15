@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry ci ci-fast cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check ci ci-fast cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -248,6 +248,13 @@ canfail-selftest:
 # Падает, если появилась цель, не отнесённая ни к CHECK/MEASURE/BUILD/META/EXTERNAL.
 registry:
 	$(PYTHON) tools/registry.py
+
+# Геометрия SVG-баннера: подписи не выходят за панели.
+# XML-валидность НЕ ловит этот дефект: строка шире контейнера просто
+# «уезжает» в соседнюю панель, оставаясь валидным XML. Инструмент умеет
+# падать (проверено возвратом длинной строки -> rc=1).
+svg-check:
+	$(PYTHON) tools/svg_check.py
 
 # ==== CI: ЕДИНЫЙ КОНТУР ПРОВЕРКИ ====
 # Обязательный набор стадий. Красный CI = мержить нельзя.
