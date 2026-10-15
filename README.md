@@ -448,7 +448,7 @@ KERN is **source-available**, dual-licensed:
    projects, study, research, teaching, and use by charitable organizations,
    educational institutions and public research bodies. Full text in
    [`LICENSE`](LICENSE).
-2. **Commercial license** from the copyright holder (**Vital Kalinousky**) —
+2. **Commercial license** from the copyright holder (**Vital Kalinousky**, newmathphys@gmail.com) —
    required for **any** commercial use. This explicitly includes running
    `kernc`, `kernx` or `libkern.so` in a company's **internal CI/CD pipeline**,
    even when nothing is exposed to the public, as well as embedding the
