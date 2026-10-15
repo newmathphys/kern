@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 270" width="100%" height="270" role="img" aria-label="KERN architecture and measured baseline">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 30px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #f0f6fc; letter-spacing: 1.5px; }
+      .sub   { font: 400 12.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #8b949e; }
+      .badge { font: 600 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #3fb950; }
+      .hdr   { font: 700 11.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #c9d1d9; letter-spacing: 0.5px; }
+      .val   { font: 700 13.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #3fb950; }
+      .lbl   { font: 400 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #8b949e; }
+      .node  { font: 700 11.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #f0f6fc; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="960" height="270" rx="10" fill="url(#bg)" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Header -->
+  <text x="32" y="48" class="title">KERN</text>
+  <rect x="128" y="29" width="186" height="22" rx="4" fill="#0f2d1e" stroke="#238636" stroke-width="1"/>
+  <text x="138" y="44" class="badge">ZIG 0.17 · Z3 · LEAN 4</text>
+  <text x="32" y="72" class="sub">L0-L5 verification gateway · sealed .kimg container · Belnap B4 truth gate · C-ABI (libkern.so) · HTTP guardrail</text>
+
+  <!-- Panel 1: Belnap B4 -->
+  <rect x="32" y="94" width="215" height="148" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="48" y="115" class="hdr">BELNAP B4 ACCUMULATOR</text>
+  <line x1="139" y1="138" x2="99" y2="172" stroke="#f85149" stroke-width="1.5"/>
+  <line x1="139" y1="138" x2="179" y2="172" stroke="#3fb950" stroke-width="1.5"/>
+  <line x1="99" y1="172" x2="139" y2="206" stroke="#484f58" stroke-width="1.5"/>
+  <line x1="179" y1="172" x2="139" y2="206" stroke="#484f58" stroke-width="1.5"/>
+  <circle cx="139" cy="138" r="12" fill="#3d1318" stroke="#f85149" stroke-width="1.5"/>
+  <text x="139" y="142" class="node">B</text>
+  <circle cx="99" cy="172" r="12" fill="#161b22" stroke="#f85149" stroke-width="1.2"/>
+  <text x="99" y="176" class="node">F</text>
+  <circle cx="179" cy="172" r="12" fill="#0f2d1e" stroke="#3fb950" stroke-width="1.2"/>
+  <text x="179" y="176" class="node">T</text>
+  <circle cx="139" cy="206" r="12" fill="#161b22" stroke="#6e7681" stroke-width="1.2"/>
+  <text x="139" y="210" class="node">N</text>
+  <text x="48" y="232" class="lbl">JOIN_K(T, F) = B  ->  e = 0</text>
+
+  <!-- Connector -->
+  <path d="M 247 168 L 275 168" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Panel 2: L0-L5 pipeline -->
+  <rect x="275" y="94" width="325" height="148" rx="6" fill="#0d1117" stroke="#30363d"/>
+  <text x="291" y="115" class="hdr">L0-L5 ENGINE AND TRUTH GATE</text>
+  <rect x="291" y="128" width="293" height="44" rx="4" fill="#161b22" stroke="#21262d"/>
+  <text x="303" y="145" class="badge">L0-L2: .kimg + KERNFS + Merkle</text>
+  <text x="303" y="162" class="lbl">hash_algo 0x0001 = BLAKE3 (default), 0x0002 = SHA-256</text>
+  <rect x="291" y="182" width="293" height="46" rx="4" fill="#161b22" stroke="#21262d"/>
+  <text x="303" y="199" class="badge">L3-L5: Z3 bridge (5 theories) + Lean 4</text>
+  <text x="303" y="216" class="lbl">verdict from external checker only: e=1 proved | e=0</text>
+
+  <!-- Connector -->
+  <path d="M 600 168 L 628 168" stroke="#30363d" stroke-width="2"/>
+
+  <!-- Panel 3: measured baseline -->
+  <rect x="628" y="94" width="300" height="148" rx="6" fill="#0d1117" stroke="#238636" stroke-width="1.2"/>
+  <text x="644" y="115" class="hdr">MEASURED BASELINE</text>
+  <text x="644" y="140" class="val">204 / 204</text>
+  <text x="742" y="140" class="lbl">core tests (x86_64, ARM64, PPC64)</text>
+  <text x="644" y="162" class="val">32 / 0</text>
+  <text x="742" y="162" class="lbl">Lean 4 theorems / 0 sorry</text>
+  <text x="644" y="184" class="val">100.0%</text>
+  <text x="742" y="184" class="lbl">decision coverage (30/30)</text>
+  <text x="644" y="206" class="val">92.5%</text>
+  <text x="742" y="206" class="lbl">mutation score · 1M fuzz</text>
+  <text x="644" y="228" class="val">64 / 65</text>
+  <text x="742" y="228" class="lbl">non-vacuous can-fail checks</text>
+</svg>

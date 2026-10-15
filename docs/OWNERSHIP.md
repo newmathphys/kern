@@ -2,7 +2,7 @@
 
 **Автор:** Vital Kalinousky
 **Год:** 2026
-**Лицензия:** MIT (см. [LICENSE](LICENSE))
+**Лицензия:** MIT (см. [LICENSE](../LICENSE))
 
 ---
 

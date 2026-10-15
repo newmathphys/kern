@@ -4,7 +4,7 @@
 
 СТАТУС (честно): рабочий скелет. Он вызывает РЕАЛЬНЫЕ бинарники через
 subprocess и разбирает их вывод. Чего НЕТ: HTTP-демона, LLM-оркестратора,
-RLAIF-цикла — см. REVISION/HONEST_CAPABILITY_STATUS.md.
+RLAIF-цикла — см. docs/CAPABILITY_STATUS.md.
 """
 from __future__ import annotations
 

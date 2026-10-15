@@ -67,7 +67,7 @@ trusted checker may produce `e = 1`.
 
 Numbers in documentation are claims. If you change behaviour, update the number —
 `docs/METRICS.md`, `docs/ATTESTATION_PASSPORT.md`, `README.md` and
-`REVISION/HONEST_CAPABILITY_STATUS.md` are cross-checked in review.
+`docs/CAPABILITY_STATUS.md` are cross-checked in review.
 
 `docs/TEST_CATALOG.md` is generated. Regenerate it instead of editing it:
 

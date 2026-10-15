@@ -1149,7 +1149,7 @@ def main():
     clean_slate()
     snap = snapshot_faultable()
 
-    ok = bad = skipped = 0
+    ok = bad = meta_bad = skipped = 0
     for c in CASES:
         name, desc, fn = c[0], c[1], c[2]
         expect_vacuous = c[3] if len(c) > 3 else False
@@ -1164,6 +1164,15 @@ def main():
                     skipped += 1
                     continue
                 rc, out = sh_out(cmd, 900)
+                # 🔴 ДЕФЕКТ #67 (найден при сверке отчётности): мета-контроль
+                # иногда завершался кодом rc=2. Это код ошибки `make` (провал
+                # рецепта/сборки), а НЕ семантическое покраснение цели.
+                # Причина — конкуренция за кэш Zig сразу после предыдущего
+                # кейса. Даём ОДНУ повторную попытку, чтобы не выдавать
+                # инфраструктурный сбой за «харнесс сломан».
+                if expect_vacuous and rc == 2:
+                    time.sleep(1.0)
+                    rc, out = sh_out(cmd, 900)
         except subprocess.TimeoutExpired:
             rc, out = 124, "TIMEOUT"
         except Exception as e:
@@ -1182,7 +1191,7 @@ def main():
             print(f"  [FAIL] {name:14s} {desc}")
             print(f"         ХАРНЕСС СЛОМАН: безопасная правка, а цель покраснела (rc={rc})"
                   f" — ложное срабатывание")
-            bad += 1
+            meta_bad += 1
         elif kind == "NOT_VACUOUS":
             print(f"  [PASS] {name:14s} {desc}")
             print(f"         проверка ПОКРАСНЕЛА (rc={rc}) за {dt:.0f} с — она не вакуумна")
@@ -1220,9 +1229,10 @@ def main():
         bad += 1
     else:
         print("[32m[OK] дерево чистое: все правки откачены[0m")
-    print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | пропущено {skipped}")
+    print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | "
+          f"ЛОЖНЫХ СРАБАТЫВАНИЙ ХАРНЕССА {meta_bad} | пропущено {skipped}")
     print("=" * 70)
-    return 1 if bad else 0
+    return 1 if (bad or meta_bad) else 0
 
 
 if __name__ == "__main__":

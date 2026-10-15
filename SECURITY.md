@@ -58,7 +58,7 @@ If that channel is unavailable, contact the maintainer listed in
 | Public disclosure | coordinated, after a fix is available |
 
 Credit will be given in the defect registry
-(`REVISION/HONEST_CAPABILITY_STATUS.md`) unless you prefer to stay anonymous.
+(`docs/CAPABILITY_STATUS.md`) unless you prefer to stay anonymous.
 
 ## Known limitations that are NOT vulnerabilities
 

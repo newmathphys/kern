@@ -1,26 +1,27 @@
 # KERN — a zero-trust verification gateway for AI-generated code
 
+![KERN architecture and measured baseline](docs/kern-architecture.svg)
+
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
 [![Core tests](https://img.shields.io/badge/core_tests-204%2F204-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
-[![Can-fail](https://img.shields.io/badge/can--fail_harness-60%2F60-blueviolet)](tools/canfail.py)
+[![Can-fail](https://img.shields.io/badge/can--fail_harness-64%2F65-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-204%2F204-informational)](#cross-architecture)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**A green CI means nothing if the test itself cannot fail.**
-
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
-repository. It replaces the boolean illusion of "tests passed" with a
-four-valued verdict backed by an SMT solver and formal proofs — and it refuses
-to open the gate unless the claim is *machine-checkable*.
+repository. It replaces the boolean result of "tests passed" with a four-valued
+verdict backed by an SMT solver and formal proofs, and it keeps the gate closed
+unless the claim is machine-checkable.
 
-Written in **Zig 0.17**, verified in **Lean 4**, powered by **Z3**.
+Written in **Zig 0.17**, verified in **Lean 4**, powered by **Z3**. Exposes a
+**C-ABI** (`libkern.so`, 8 functions) and an HTTP guardrail proxy.
 
 ---
 
-## The problem: the epistemic gap
+## The problem
 
 AI agents now write code faster than humans can review it. Under pressure to get a
 green pipeline, they produce two failure modes that no ordinary CI can see:
@@ -37,10 +38,10 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 60 checks, 60 proven non-vacuous.
+   fault and requires the check to go red. 65 checks; 64 proven non-vacuous.
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
-   Prose is never proof.
+   Text is not evidence.
 
 ---
 
@@ -65,11 +66,11 @@ negative amounts — and wrote a test with **no assertions** so CI would go gree
     contract `.../contract_fixed.smt2`: UNSAT -> e=1 (T) PROVED
 [i] TOTAL: proved 1, counterexamples 1, without contract 0
 [i] e=1 is granted ONLY by the solver verdict. Claims without a bound
-    contract stay at e=0 — that is the honest status.
+    contract stay at e=0.
 ```
 
-The solver did not sample inputs. It quantified over **all** of `ℤ` and returned a
-counterexample (`amount = -1` makes the balance *grow* on a withdrawal).
+Z3 did not sample inputs. It quantified over all of `ℤ` and returned a
+counterexample: `amount = -1` makes the balance *grow* on a withdrawal.
 
 ---
 
@@ -112,10 +113,56 @@ the external trusted checker does.
 
 ## Architecture (L0 – L5)
 
+```mermaid
+flowchart LR
+    Agent["AI agent / PR<br/>(code + @kern:spec)"]
+
+    subgraph KERN ["KERN verification gateway (Zig 0.17, libkern.so)"]
+        direction LR
+        L0["L0-L2: .kimg + KERNFS<br/>Merkle, BLAKE3 default"]
+        L4["L4: Z3 SMT bridge<br/>QF_LIA/BV/AX/S/FP, CHC"]
+
+        T["T (1,0)<br/>proved"]
+        F["F (0,1)<br/>refuted"]
+        N["N (0,0)<br/>no evidence"]
+
+        B4["L3: Belnap B4<br/>JOIN_K(T,F) = B"]
+        Gate{"Truth gate<br/>policy + provenance"}
+
+        L0 --> L4
+        L4 -->|"UNSAT"| T
+        L4 -->|"SAT (counterexample)"| F
+        L4 -->|"timeout / no contract"| N
+
+        T --> B4
+        F --> B4
+        N --> B4
+        B4 --> Gate
+    end
+
+    Admit["e = 1 : admitted<br/>HTTP 200"]
+    Reject["e = 0 : rejected<br/>HTTP 409 (B) / 422 (F, N)"]
+
+    Agent --> L0
+    Gate -->|"status == T"| Admit
+    Gate -->|"status in {B, F, N}"| Reject
+    Reject -.->|"counterexample, agent_packet.json"| Agent
+
+    classDef darkBox fill:#0d1117,stroke:#30363d,stroke-width:1.5px,color:#c9d1d9
+    classDef gateBox fill:#161b22,stroke:#58a6ff,stroke-width:1.5px,color:#f0f6fc
+    classDef passBox fill:#0f2d1e,stroke:#238636,stroke-width:1.5px,color:#3fb950
+    classDef failBox fill:#3d1318,stroke:#f85149,stroke-width:1.5px,color:#ff7b72
+
+    class Agent,L0,L4,N,B4 darkBox
+    class Gate gateBox
+    class T,Admit passBox
+    class F,Reject failBox
+```
+
 | Layer | What it is |
 |:--|:--|
 | **L0** — container | `.kimg`: 128-byte little-endian header, 96-byte object descriptors, Merkle root, `comptime` layout invariants, atomic write (tmp + `fsync` + `rename` + directory `fsync`) |
-| **L1** — crypto | SHA-256 over every payload, checked on read → `PayloadTampered`; Merkle root over the descriptor table |
+| **L1** — crypto | `hash_algo = 0x0001` **BLAKE3-256** (default) or `0x0002` SHA-256, selected by the header and verified on every read → `PayloadTampered`; Merkle root over the descriptor table |
 | **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
 | **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
 | **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
@@ -124,6 +171,32 @@ the external trusted checker does.
 The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
 produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
 packet.
+
+### Embedding
+
+```c
+/* include/kern.h — 8 exported functions */
+int kern_smt_verify(const unsigned char *smt, unsigned long len);
+int kern_kimg_valid(const unsigned char *img, unsigned long len);
+long kern_kimg_object_count(const unsigned char *img, unsigned long len);
+int kern_localize(const unsigned char *decls, unsigned long decls_len, ...);
+int kern_hash(unsigned int algo, const unsigned char *data, unsigned long len,
+              unsigned char *out32);
+```
+
+`kern_hash` is the single source of truth for digests: the Python tooling calls it
+through `ctypes`, so client and kernel cannot diverge (verified: kernel BLAKE3 and
+the reference implementation produce identical digests).
+
+The HTTP guardrail (`examples/guardrail_proxy.py`, stdlib only) maps the Belnap
+lattice onto HTTP status codes:
+
+| Verdict | HTTP | Belnap |
+|:--|--:|:--|
+| proved | **200** | T |
+| refuted (counterexample) | **422** | F |
+| undecided / solver unavailable | **422** | N (fail-closed) |
+| **conflict** (proved and refuted) | **409** | B |
 
 
 ---
@@ -146,7 +219,7 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **92.5 %** (37 / 40 killed; 3 provably equivalent) |
-| Can-fail harness | **60 non-vacuous / 0 vacuous** |
+| Can-fail harness | **64 non-vacuous / 0 vacuous / 1 meta-control** (see note) |
 
 ### Cross-architecture
 
@@ -169,23 +242,31 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | **HumanEval / HumanEval+** (EvalPlus) | 0.524 / 0.500 | yes (API) |
 | **MBPP / MBPP+** (EvalPlus) | 0.812 / 0.698 | yes (API) |
 
-> **Honest note on the gate.** In the HumanEval experiment the static gate blocked
-> 55 samples — **all 55 genuinely failed**, zero false blocks (100 % precision),
-> but it did **not** raise `pass@1`. A static gate fires before execution; it
-> cannot fix logic. Raising the score requires execution evidence, not AST
-> inspection. This is stated because the alternative — reporting a flattering
-> number — would violate the project's own rule.
+> **Scope of the static gate.** In the HumanEval experiment the static gate blocked
+> 55 samples; all 55 genuinely failed (100 % precision), but it did **not** raise
+> `pass@1`. A static gate fires before execution and cannot repair logic. Raising
+> the score requires execution evidence, not AST inspection.
 
 ### Performance
 
-| Path | Throughput |
-|:--|:--|
-| Raw zero-copy addressing (`/raw/`) | ~76 GB/s (memory-bus bound) |
-| Safe read with SHA-256 verification | ~231 MB/s |
-| Random access, 1 000 000-object image | ~0.0006 ms |
+| Path | Throughput | Notes |
+|:--|:--|:--|
+| Raw zero-copy addressing (`/raw/`) | **~90 GB/s** | address arithmetic only, no integrity check |
+| Safe read, **BLAKE3** verification | **~390 MB/s** | end-to-end, 10 000 objects × 200 B |
+| Random access, 1 000 000-object image | ~0.0006 ms | 50× under the 0.005 ms target |
 
-The 330x gap is the cost of integrity checking every byte — and it is the reason
-a tampered payload cannot be served.
+Hash primitive in isolation (`make bench-hash`, `docs/evidence/hash_bench.log`):
+
+| Block size | SHA-256 | BLAKE3 | Speed-up |
+|--:|--:|--:|--:|
+| 96 B | 214 MB/s | 259 MB/s | 1.21× |
+| 64 KiB | 292 MB/s | **2601 MB/s** | **8.92×** |
+| 4 MiB | 287 MB/s | 2092 MB/s | 7.28× |
+
+The ~230× gap between raw addressing and verified read is the cost of hashing every
+byte — and it is the reason a tampered payload cannot be served. SHA-NI is not
+available on the reference CPU (Intel i7-7700, Kaby Lake), so the primitive speed
+comes from BLAKE3's AVX2 path.
 
 ### Reproducibility (measured)
 
@@ -219,15 +300,18 @@ zig build test-next     # 37 KERN-Next tests
 # 4. The 15-second demo: green CI vs. mathematics
 make run-example
 
-# 5. Prove a contract with real Z3
+# 5. HTTP guardrail: Belnap lattice on status codes (200 / 422 / 409)
+make guardrail
+
+# 6. Prove a contract with real Z3
 uv pip install --python .venv/bin/python z3-solver
 ./zig-out/bin/kernc prove formal/example.smt2
 
-# 6. Formal proofs (Lean 4): 7 files, 32 theorems, 0 sorry
+# 7. Formal proofs (Lean 4): 7 files, 32 theorems, 0 sorry
 ./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
 ./formal/check.sh
 
-# 7. Full qualification manifest — every line is a real run
+# 8. Full qualification manifest — every line is a real run
 make audit-manifest
 ```
 
@@ -236,6 +320,7 @@ make audit-manifest
 ```bash
 make test-all      # build + tests + UB detector + SMT + perf + mutation
 make canfail       # prove that every check is capable of failing
+make evidence      # re-run every check and store its log in docs/evidence/
 ```
 
 ### Docker
@@ -267,12 +352,12 @@ file backing each row.
 
 ---
 
-## Honest limitations
+## Known limitations
 
-This project's own rule is that a claim without evidence is not a claim. So:
+A claim without evidence is not a claim. Applying that rule to this project:
 
 - **Z3 is an external dependency.** If it is absent, the Gate stays closed
-  (`e = 0`) — safe degradation, not a failure. The tool never lies about it.
+  (`e = 0`) — safe degradation, not a failure.
 - **Debug builds are not bit-reproducible** under Zig 0.17 (non-deterministic
   DWARF). Attested artefacts are ReleaseFast. See the table above.
 - **The static gate does not raise `pass@1`.** It has 100 % precision and ~70 %
@@ -284,8 +369,10 @@ This project's own rule is that a claim without evidence is not a claim. So:
 - **SLSA attestation is unsigned** (no `cosign` in the environment) — structurally
   valid, but not SLSA Level 3.
 - **Object compression (zstd) is declared in the format but not implemented.**
+- **One can-fail meta-control case can report `rc=2`** under Zig cache contention;
+  the harness retries once and reports it separately from real vacuous checks.
 - The full list lives in `formal/certification/KNOWN_LIMITATIONS.md` and
-  `REVISION/HONEST_CAPABILITY_STATUS.md`.
+  `docs/CAPABILITY_STATUS.md`.
 
 ---
 
@@ -295,10 +382,9 @@ This project's own rule is that a claim without evidence is not a claim. So:
 src/            Zig core: .kimg format, KERNFS, Truth Gate, Z3 bridge, 5 SMT theories
 src/next/       KERN-Next: .kern DSL, SQLite catalogue, snapshots, agent hand-off
 formal/         Lean 4 proofs (32 theorems) + certification package
-examples/       toy_ai_hallucination/ — the "green CI" demo
+examples/       toy_ai_hallucination/ demo, guardrail_proxy.py HTTP guardrail
 tools/          can-fail harness, mutation tester, benchmarks, cross-arch runner
-docs/           PROJECT_SPECIFICATION.md, METRICS.md, TEST_CATALOG.md, evidence/
-REVISION/       honest capability status + defect registry (#1-#59)
+docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, evidence/
 ```
 
 **Key documents**
@@ -306,9 +392,10 @@ REVISION/       honest capability status + defect registry (#1-#59)
 | Document | What's inside |
 |:--|:--|
 | [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md) | complete technical specification (18 sections) |
+| [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
-| [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all 233 test declarations, generated from source |
-| [`REVISION/HONEST_CAPABILITY_STATUS.md`](REVISION/HONEST_CAPABILITY_STATUS.md) | what works, what doesn't, 60 defects found and fixed |
+| [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#67 |
 | [`docs/README.md`](docs/README.md) | documentation map |
 | [`README.ru.md`](README.ru.md) | Russian version of this README |
 

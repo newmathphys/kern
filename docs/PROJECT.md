@@ -8,12 +8,12 @@
 сознательно **не** сделано.
 
 Сопутствующие документы:
-[`README.md`](README.md) (английский, краткий),
-[`README.ru.md`](README.ru.md) (русский, эксплуатация),
-[`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md) (техническая
+[`README.md`](../README.md) (английский, краткий),
+[`README.ru.md`](../README.ru.md) (русский, эксплуатация),
+[`docs/PROJECT_SPECIFICATION.md`](PROJECT_SPECIFICATION.md) (техническая
 спецификация, 18 разделов),
-[`docs/METRICS.md`](docs/METRICS.md) (все измерения),
-[`REVISION/HONEST_CAPABILITY_STATUS.md`](REVISION/HONEST_CAPABILITY_STATUS.md)
+[`docs/METRICS.md`](METRICS.md) (все измерения),
+[`docs/CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md)
 (честный статус + реестр дефектов).
 
 ---
@@ -430,7 +430,7 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 ## 10. Реестр дефектов: #1–#59
 
 Главный критерий качества тестов — не их количество, а **число найденных
-дефектов**. Полный журнал — в `REVISION/HONEST_CAPABILITY_STATUS.md` и
+дефектов**. Полный журнал — в `docs/CAPABILITY_STATUS.md` и
 `docs/METRICS.md`. Ниже — важнейшие классы.
 
 ### 10.1. Безопасность и целостность

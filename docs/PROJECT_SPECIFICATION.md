@@ -950,7 +950,7 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 
 **Реестр: #1–#56.** Из них **20** — «молчаливо сломанные проверки» (класс,
 против которого построен весь проект). Полный журнал — `docs/METRICS.md`
-§24–§42 и `REVISION/HONEST_CAPABILITY_STATUS.md`.
+§24–§42 и `docs/CAPABILITY_STATUS.md`.
 
 ## 15.1 Самые показательные
 
@@ -1194,7 +1194,7 @@ docs/                           # 15 документов
 ## Что НЕ доказано
 
 Облако, WASM, плагины, PQC, дашборд, аппаратная аттестация — **не заявлены
-как работающие**. Полный список: `REVISION/HONEST_CAPABILITY_STATUS.md`.
+как работающие**. Полный список: `docs/CAPABILITY_STATUS.md`.
 
 ## Главный принцип
 

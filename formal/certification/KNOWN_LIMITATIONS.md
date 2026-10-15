@@ -76,7 +76,7 @@ HTTP/REST демон · WASM/WASI песочница · Lean-транспиля�
 `.kern.bundle` · PQC-подписи · дифференциальный Datalog · SIMD-Белнап ·
 `vacuum`/GC · ECC-RAM scrubbing · Token-ROI дашборд · LLM-оркестратор.
 
-Полный статус: `REVISION/HONEST_CAPABILITY_STATUS.md`
+Полный статус: `docs/CAPABILITY_STATUS.md`
 
 ---
 

@@ -12,7 +12,7 @@
 | Понять, что такое KERN (5 мин) | [`../README.md`](../README.md) — раздел «Быстрый старт» |
 | Увидеть все цифры и замеры | [`METRICS.md`](METRICS.md) |
 | Увидеть все тесты (233) | [`TEST_CATALOG.md`](TEST_CATALOG.md) |
-| Узнать, что **не** сделано | [`../REVISION/HONEST_CAPABILITY_STATUS.md`](../REVISION/HONEST_CAPABILITY_STATUS.md) |
+| Узнать, что **не** сделано | [`../docs/CAPABILITY_STATUS.md`](../docs/CAPABILITY_STATUS.md) |
 | Узнать, какие дефекты исправлены | [`KERN_FIXES_v1_3.md`](KERN_FIXES_v1_3.md) + [`METRICS.md`](METRICS.md) §39–§40 |
 | **Убедиться, что проверки не вакуумны** | [`../README.md`](../README.md) §5b + `make canfail` |
 | **Миграция на Zig 0.17.0** | [`VERIFICATION_0_17.md`](VERIFICATION_0_17.md) + [`MIGRATION_REPORT_0_17.md`](MIGRATION_REPORT_0_17.md) |
