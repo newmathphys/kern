@@ -1,3 +1,7 @@
+=== KERN EVIDENCE: cross_arch ===
+=== команда: bash tools/cross_arch_test.sh ===
+=== дата: 2026-10-15T20:56:33Z ===
+
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
   
   OK
@@ -7,3 +11,5 @@
   OK
   All 204 tests passed.
 X=0
+
+RC=0

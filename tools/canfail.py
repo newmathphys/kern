@@ -78,6 +78,7 @@ FAULTABLE = [
     "src/chc_bench.zig",
     "src/semantic_probe.zig",
     "docs/kern-architecture.svg",
+    "docs/evidence/bench_smt.log",
     "bench/portable_merkle.zig",
     "src/kimg_stress.zig",
     "src/main.zig",
@@ -298,6 +299,19 @@ def case_svg_overflow():
     )
     p.write_text(s2, encoding="utf-8")
     return "make svg-check"
+
+
+def case_evidence_gate():
+    """Жёсткий гейт свидетельств. ЛОМАЕМ: дописываем RC=1 в опубликованный лог.
+
+    Гейт обязан это заметить: каталог docs/evidence/ — то, что аудитор
+    открывает первым, и лог с ненулевым кодом означает «проект публикует
+    провал рядом с заявлением об успехе».
+    """
+    p = ROOT / "docs" / "evidence" / "bench_smt.log"
+    with p.open("a", encoding="utf-8") as f:
+        f.write("\nRC=1\n")
+    return "make evidence-gate"
 
 
 def case_core_invariant():
@@ -973,6 +987,7 @@ CASES = [
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
     ("binlevel",      "constant-time (ранний выход)",          case_binlevel_earlyexit),
     ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),
+    ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),
     ("golden",        "Merkle эталонного образа",              case_golden_merkle),

@@ -1,3 +1,6 @@
+=== KERN EVIDENCE: smtlib_full ===
+=== команда: ./zig-out/bin/kernc smtlib <полный банк> --timeout-ms 700 ===
+=== дата: 2026-10-15T20:56:33Z ===
 
 === SMT-LIB BENCHMARK RUN ===
 файлов всего:        2432
@@ -7,3 +10,5 @@
 таймаутов:           628
 пропущено (unknown): 8
 ЛОЖНЫХ СРАБАТЫВАНИЙ: 0 (ожидалось unsat, получено sat)
+
+RC=0

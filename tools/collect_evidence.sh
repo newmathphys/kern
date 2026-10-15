@@ -102,6 +102,8 @@ collect bench_smt           zig build bench-smt
 collect bench_smt_stress    zig build bench-smt-stress
 collect bench_chc           zig build bench-chc
 collect bench_semantic      zig build bench-semantic
+# Хеш-примитив: SHA-256 vs BLAKE3 по размерам блоков (README ссылается на этот лог).
+collect hash_bench          zig build bench-hash
 
 # --- 7. Тяжёлые (пропускаются в --fast) -------------------------------------
 if [ "$FAST" = 1 ]; then
@@ -149,3 +151,6 @@ if [ "$BAD" -gt 0 ]; then
   exit 1
 fi
 echo "Все прогоны сохранены в docs/evidence/ — заявления подкреплены логами."
+
+# --- 10. ЖЁСТКИЙ ГЕЙТ: ни одного лога с RC!=0 --------------------------------
+collect evidence_gate      python3 tools/evidence_gate.py

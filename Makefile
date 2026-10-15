@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check ci ci-fast cross-arch research binlevel probe
+.PHONY: help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -132,6 +132,12 @@ evidence:
 	bash tools/collect_evidence.sh
 
 # То же без тяжёлых проверок (мутации, фаззинг, QEMU).
+# Жёсткий гейт: ни один лог в docs/evidence/ не заканчивается RC!=0.
+# Наивный grep даёт ложные срабатывания (в canfail.log FAIL намеренны),
+# поэтому проверяется финальная строка RC=<n> каждого лога.
+evidence-gate:
+	$(PYTHON) tools/evidence_gate.py
+
 evidence-fast:
 	bash tools/collect_evidence.sh --fast
 
