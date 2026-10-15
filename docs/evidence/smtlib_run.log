@@ -1,0 +1,5 @@
+  [РАСХОЖДЕНИЕ] non-incremental/QF_AUFBV/20240117-hevm-msoos/minivat.sol.MiniVatTest/query-14-abstracted.smt2: ожидалось unsat, получено timeout
+  [РАСХОЖДЕНИЕ] non-incremental/QF_AUFBV/20240117-hevm-msoos/calldata-unsafe.sol.CalldataPropertiesUnsafe/query-1-abstracted.smt2: ожидалось sat, получено timeout
+  [РАСХОЖДЕНИЕ] non-incremental/QF_AUFBV/20240117-hevm-msoos/arith-unsafe.sol.ArithmeticPropertiesCheckedUnsafe/query-3-abstracted.smt2: ожидалось sat, получено timeout
+  [РАСХОЖДЕНИЕ] non-incremental/QF_AUFBV/20240117-hevm-msoos/arith-safe.sol.SignedModuloProperties/query-9-abstracted.smt2: ожидалось unsat, получено timeout
+  [РАСХОЖДЕНИЕ] non-incremental/QF_AUFBV/20240117-hevm-msoos/arith-safe.sol.SignedDivisionProperties/query-1-abstracted.smt2: ожидалось unsat, получено timeout

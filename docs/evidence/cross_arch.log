@@ -1,0 +1,9 @@
+=== ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
+  
+  OK
+  All 198 tests passed.
+=== POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
+  
+  OK
+  All 198 tests passed.
+RC=0
