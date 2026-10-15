@@ -459,7 +459,7 @@
 
 | Бенчмарк | Команда | Результат | Модель нужна? |
 |:--|:--|:--|:--:|
-| **SWE-bench Lite** (Принстон/OpenAI, Docker) | `swebench.harness.run_evaluation` | **3/3 resolved**, 0 infra-failures | нет |
+| **SWE-bench Lite** (Принстон, Docker) | `swebench.harness.run_evaluation` | **3/3 resolved**, 0 infra-failures | нет |
 | **QuixBugs** (31 алгоритм с багами) | `python3 tools/quixbugs_full.py` | **31/31 багов** реальным исполнением | нет |
 | **Refactory** (дифференциальный) | `python3 tools/refactory_diff.py` | 1438/1782 (80.7%) | нет |
 | **Hacker's Delight / Alive2** | `zig run src/smt_bench.zig` | **8/8** (6 доказано, 2 контрпримера) | нет |

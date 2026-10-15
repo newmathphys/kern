@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Генерация сэмплов для ОФИЦИАЛЬНОГО EvalPlus через внешний API (OpenAI-совместимый).
+"""Генерация сэмплов для ОФИЦИАЛЬНОГО EvalPlus через внешний API (chat-completions).
 
 Формат сэмпла: {"task_id": "HumanEval/N", "completion": "<продолжение>"}.
 Полная программа = problem["prompt"] + completion.
@@ -90,7 +90,7 @@ def gen(model: str, prompt: str, entry: str, max_tokens: int,
         "temperature": temperature,
         "top_p": 0.95,
         # ДЕФЕКТ #51 (найден при прогоне MBPP+): модели с РАССУЖДЕНИЕМ
-        # (`nemotron-3.5-lightning`, reasoning-режим) тратят ВЕСЬ бюджет
+        # (reasoning-режим) тратят ВЕСЬ бюджет
         # max_tokens на поле `reasoning_content`, а `content` возвращают
         # `null` (finish_reason="length"). Инструмент падал с
         # `TypeError: 'NoneType' object is not subscriptable` -> все сэмплы

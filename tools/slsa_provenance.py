@@ -105,10 +105,19 @@ def main() -> int:
         return 0 if bad == 0 else 1
 
     # --- СБОРКА + АТТЕСТАЦИЯ ------------------------------------------------
+    # ДЕФЕКТ (найден проверкой воспроизводимости): раньше сборка шла с
+    # параметрами по умолчанию (Debug). Debug-бинарники Zig 0.17 НЕ
+    # бит-воспроизводимы: DWARF-секции (.debug_info/.debug_str) содержат
+    # недетерминированные наборы имён error-set, поэтому хэш менялся от
+    # сборки к сборке и аттестат не мог сойтись НИКОГДА.
+    # Замер: Debug 2× → разные хэши; ReleaseFast 2× → одинаковые;
+    #        hermetic (ReleaseSafe musl) 2× → одинаковые.
+    # Поэтому аттестуем ВОСПРОИЗВОДИМУЮ конфигурацию ReleaseFast.
+    BUILD_CMD = ["zig", "build", "-Doptimize=ReleaseFast"]
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if not args.no_build:
-        print("[i] сборка: zig build")
-        r = subprocess.run(["zig", "build"], cwd=str(ROOT), capture_output=True, text=True)
+        print("[i] сборка (воспроизводимая): " + " ".join(BUILD_CMD))
+        r = subprocess.run(BUILD_CMD, cwd=str(ROOT), capture_output=True, text=True)
         if r.returncode != 0:
             print("[!] сборка не удалась:", r.stderr[-300:])
             return 1
@@ -132,7 +141,8 @@ def main() -> int:
             "buildDefinition": {
                 "buildType": "https://kern.dev/buildtypes/zig-v1",
                 "externalParameters": {
-                    "command": ["zig", "build"],
+                    "command": BUILD_CMD,
+                    "optimize": "ReleaseFast",
                     "zig_version": (subprocess.run(["zig", "version"], capture_output=True,
                                                    text=True).stdout.strip() or "unknown"),
                     "targets": SUBJECTS,
@@ -155,6 +165,9 @@ def main() -> int:
                 "ATTESTATION NOT SIGNED: cosign/sigstore недоступны в окружении.",
                 "builder.id = local (для SLSA L3 требуется хостируемый билдер).",
                 "Воспроизводимость: make hermetic (сборка бит-в-бит).",
+                "Аттестуются артефакты ReleaseFast: эта конфигурация "
+                "бит-воспроизводима (проверено 2 сборками). Debug-сборки Zig 0.17 "
+                "содержат недетерминированную DWARF-информацию и НЕ аттестуются.",
             ],
         },
     }
