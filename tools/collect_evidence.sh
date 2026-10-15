@@ -8,7 +8,7 @@
 #  ЗАЧЕМ. Принцип проекта — MEASURED: у каждого ЗАЯВЛЕНИЯ должно быть
 #  СВИДЕТЕЛЬСТВО (лог прогона), а не только запись в документации. До этого
 #  скрипта в `docs/evidence/` лежало 9 логов из ~25 проверок: результаты
-#  canfail, torture, hardcore C-ABI, бенчмарков и cross-check НЕ сохранялись,
+#  canfail, adversarial, capability C-ABI, бенчмарков и cross-check НЕ сохранялись,
 #  то есть были недоказуемы для внешнего читателя.
 #
 #  ЧТО ДЕЛАЕТ. Прогоняет каждую проверку и сохраняет ЕЁ ПОЛНЫЙ вывод в
@@ -80,8 +80,8 @@ collect registry            python3 tools/registry.py
 collect slsa_check          python3 tools/slsa_provenance.py --check
 
 # --- 4. Атаки и хардкор ------------------------------------------------------
-collect torture             bash tools/torture_kern.sh
-collect hardcore_capi       python3 tests/hardcore_capi_smt.py
+collect adversarial             bash tools/adversarial_suite.sh
+collect capi_cli       python3 tests/capi_cli_suite.py
 collect kern_attack         ./zig-out/bin/kern-attack
 
 # --- 4b. Guardrail-прокси (живой перехватчик галлюцинаций) --------------------

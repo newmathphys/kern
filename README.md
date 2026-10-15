@@ -72,6 +72,27 @@ negative amounts — and wrote a test with **no assertions** so CI would go gree
 Z3 did not sample inputs. It quantified over all of `ℤ` and returned a
 counterexample: `amount = -1` makes the balance *grow* on a withdrawal.
 
+### HTTP guardrail proxy
+
+`examples/guardrail_proxy.py` (stdlib only) exposes `libkern.so` over HTTP and maps
+the Belnap B₄ lattice onto distinct RFC 9110 status codes:
+
+| Solver / gate verdict | Belnap | HTTP | Meaning |
+|:--|:--:|:--:|:--|
+| `PROVED` (`UNSAT`) | **T** `(1,0)` | `200 OK` | contract holds across the entire domain (`e = 1`) |
+| `REFUTED` (`SAT`) | **F** `(0,1)` | `422 Unprocessable Entity` | counterexample found (`e = 0`) |
+| `UNKNOWN` / `TOOL_ERR` | **N** `(0,0)` | `422 Unprocessable Entity` | timeout or missing solver; fail-closed (`e = 0`) |
+| `CONFLICT` (`T ⊔ F`) | **B** `(1,1)` | `409 Conflict` | contradictory evidence across contracts in `/verify_multi` (`e = 0`) |
+
+`/verify_multi` is what exposes the lattice: when one contract returns `T` and
+another returns `F` on the same code, a boolean pipeline either overwrites the
+status with the last result or conflates an error with a timeout. KERN computes
+`JOIN_K(T, F) = B` and answers `409 Conflict`.
+
+```bash
+make guardrail      # self-test on an ephemeral port: 200(T) / 422(F) / 409(B)
+```
+
 ---
 
 ## Core ideas
@@ -140,23 +161,29 @@ flowchart LR
         B4 --> Gate
     end
 
-    Admit["e = 1 : admitted<br/>HTTP 200"]
-    Reject["e = 0 : rejected<br/>HTTP 409 (B) / 422 (F, N)"]
+    HTTP200["e = 1 : HTTP 200 OK<br/>belnap = T (admitted)"]
+    HTTP422["e = 0 : HTTP 422 Unprocessable<br/>belnap = F | N (refuted / fail-closed)"]
+    HTTP409["e = 0 : HTTP 409 Conflict<br/>belnap = B (T and F coexist)"]
 
     Agent --> L0
-    Gate -->|"status == T"| Admit
-    Gate -->|"status in {B, F, N}"| Reject
-    Reject -.->|"counterexample, agent_packet.json"| Agent
+    Gate -->|"status == T"| HTTP200
+    Gate -->|"status in {F, N}"| HTTP422
+    Gate -->|"status == B"| HTTP409
+
+    HTTP422 -.->|"Z3 counterexample"| Agent
+    HTTP409 -.->|"conflict diagnostic"| Agent
 
     classDef darkBox fill:#0d1117,stroke:#30363d,stroke-width:1.5px,color:#c9d1d9
     classDef gateBox fill:#161b22,stroke:#58a6ff,stroke-width:1.5px,color:#f0f6fc
     classDef passBox fill:#0f2d1e,stroke:#238636,stroke-width:1.5px,color:#3fb950
+    classDef warnBox fill:#2d210f,stroke:#d29922,stroke-width:1.5px,color:#e3b341
     classDef failBox fill:#3d1318,stroke:#f85149,stroke-width:1.5px,color:#ff7b72
 
     class Agent,L0,L4,N,B4 darkBox
     class Gate gateBox
-    class T,Admit passBox
-    class F,Reject failBox
+    class T,HTTP200 passBox
+    class F,HTTP422 warnBox
+    class HTTP409 failBox
 ```
 
 | Layer | What it is |

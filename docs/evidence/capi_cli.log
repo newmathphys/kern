@@ -1,9 +1,9 @@
-=== KERN EVIDENCE: hardcore_capi ===
-=== команда: python3 tests/hardcore_capi_smt.py ===
+=== KERN EVIDENCE: capi_cli ===
+=== команда: python3 tests/capi_cli_suite.py ===
 === дата: 2026-10-15T18:33:44Z ===
 
 ====================================================================================
-KERN HARDCORE: C-ABI + Z3-МОСТ ПОД ДАВЛЕНИЕМ
+KERN: C-ABI + Z3 BRIDGE UNDER LOAD
 ====================================================================================
   библиотека: /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so
   версия: KERN v1.3.0 (C-ABI)  автор: Vital Kalinousky  ключ-замок: валиден

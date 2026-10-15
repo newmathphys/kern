@@ -43,7 +43,7 @@ CLASS = {
     "sim": "CHECK", "os-stress": "CHECK", "flood": "CHECK", "proof-check": "CHECK",
     "disasm": "CHECK", "slsa": "CHECK", "deal": "CHECK", "cert": "CHECK",
     "audit-manifest": "CHECK", "fd-check": "CHECK", "canfail": "CHECK",
-    "torture": "CHECK", "telemetry": "CHECK", "evidence": "CHECK",
+    "adversarial": "CHECK", "telemetry": "CHECK", "evidence": "CHECK",
     "telemetry-quick": "CHECK", "evidence-fast": "CHECK",
     "guardrail": "CHECK",
     "run-example": "META",   # демонстрация (не проверка); свой can-fail не нужен
@@ -126,7 +126,7 @@ CASE_TARGET = {
     "probe": "probe",
     "portable-bench": "portable-bench",
     "ubsafe": "ubsafe",
-    "torture-payload": "torture",
+    "adversarial-payload": "adversarial",
     "guardrail-verdict": "guardrail",
     "evidence-full": "evidence",
     "telemetry-full": "telemetry",

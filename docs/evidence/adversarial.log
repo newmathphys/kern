@@ -1,5 +1,5 @@
-=== KERN EVIDENCE: torture ===
-=== команда: bash tools/torture_kern.sh ===
+=== KERN EVIDENCE: adversarial ===
+=== команда: bash tools/adversarial_suite.sh ===
 === дата: 2026-10-15T18:33:39Z ===
 
 

@@ -87,7 +87,7 @@ fn claimPath(alloc: std.mem.Allocator, s: []const u8) ![]const u8 {
 //  ВЫВОД ДАННЫХ (дефект CLI: данные уходили в stderr)
 // ===========================================================================
 //
-// 🔴 ДЕФЕКТ (найден hardcore-тестом C-ABI/CLI): `kernc cat`/`ls` печатали
+// 🔴 ДЕФЕКТ (найден тест C-ABI/CLIом C-ABI/CLI): `kernc cat`/`ls` печатали
 // ДАННЫЕ через `std.debug.print`, который пишет в **stderr**. Следствия для
 // автоматизации:
 //   * `kernc cat img /raw/f > out.txt` давал ПУСТОЙ файл;

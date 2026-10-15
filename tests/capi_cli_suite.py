@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 # Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 """
-KERN HARDCORE: C-ABI + Z3-мост под давлением.
+KERN: C-ABI and Z3 bridge under load.
 
 ЗАЧЕМ. Ядро встраивается в чужие системы через C-ABI (`include/kern.h`,
 `libkern.so`) — без запуска CLI. Этот тест проверяет ABI на самых опасных
@@ -24,7 +24,7 @@ KERN HARDCORE: C-ABI + Z3-мост под давлением.
 
   E. Локализация: `kern_localize` возвращает имена виновных утверждений.
 
-Запуск:  python3 tests/hardcore_capi_smt.py
+Запуск:  python3 tests/capi_cli_suite.py
 Критерий: все проверки пройдены; скрипт возвращает 0.
 """
 from __future__ import annotations
@@ -351,7 +351,7 @@ def scenario_f_cli_contract() -> None:
 
 def main() -> int:
     print("=" * 84)
-    print("KERN HARDCORE: C-ABI + Z3-МОСТ ПОД ДАВЛЕНИЕМ")
+    print("KERN: C-ABI + Z3 BRIDGE UNDER LOAD")
     print("=" * 84)
     try:
         lib = find_lib()

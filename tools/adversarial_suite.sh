@@ -3,12 +3,12 @@
 # Use of this source code is governed by a MIT-style license that can be found in the LICENSE file.
 #
 # ============================================================================
-#  KERN TORTURE — прицельные атаки на самые опасные узлы ядра.
+#  KERN — прицельные атаки на самые опасные узлы ядра.
 #
 #  Каждая атака ОБЯЗАНА быть отбита; если атака проходит — скрипт падает.
 #  Это не «демонстрация», а проверка с критерием (fail = баг).
 #
-#  Запуск:  make torture        (нужны собранные бинарники + z3)
+#  Запуск:  make adversarial        (нужны собранные бинарники + z3)
 # ============================================================================
 set -uo pipefail
 
@@ -17,7 +17,7 @@ cd "$ROOT"
 export PATH="${ZIG_DIR:-$HOME/opt/zig-x86_64-linux-0.17.0}:$ROOT/.venv/bin:$PATH"
 
 KERNC="$ROOT/zig-out/bin/kernc"
-WORK="$(mktemp -d /tmp/kern_torture.XXXXXX)"
+WORK="$(mktemp -d /tmp/kern_adversarial.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
 PASS=0

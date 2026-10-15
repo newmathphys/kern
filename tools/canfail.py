@@ -394,11 +394,11 @@ def case_build_syntax():
     return "zig build"
 
 
-def case_torture_payload():
+def case_adversarial_payload():
     """Пытки. ЛОМАЕМ: отключаем сверку SHA-256(payload) с digest дескриптора.
 
     ЭТО НАБЛЮДАЕМЫЙ пробой: подменённый байт содержимого начнёт отдаваться
-    читателю. Если `make torture` НЕ покраснеет — значит набор атак не способен
+    читателю. Если `make adversarial` НЕ покраснеет — значит набор атак не способен
     поймать реальную подмену данных (дефект #14), то есть бесполезен.
 
     ПОЧЕМУ НЕ ОБХОД ПУТЕЙ: KERNFS — in-memory ФС, она ФИЗИЧЕСКИ не может отдать
@@ -408,7 +408,7 @@ def case_torture_payload():
     patch("src/core/kernfs_router.zig",
           "        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
           "        if (false and !std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered; // ЛОМАЕМ")
-    return "make torture"
+    return "make adversarial"
 
 
 def case_evidence_propagates():
@@ -969,7 +969,7 @@ CASES = [
     ("cegis-theory",  "CEGIS: перебор только k=0",             case_cegis_theory),
     ("nra-theory",    "NRA: линейная логика вместо нелинейной", case_nra_theory),
     ("align-inv",     "Эшелон 1: isStrictlyAligned всегда истинна", case_align_invariant),
-    ("torture-payload",   "Пытки: подмена payload (SHA-256)",      case_torture_payload),
+    ("adversarial-payload",   "Подмена payload (SHA-256)",      case_adversarial_payload),
     ("evidence-propagates", "Свидетельства: провал подпроверки",   case_evidence_propagates),
     ("telemetry-detects", "Телеметрия: балл за провал Lean",       case_telemetry_detects),
     ("guardrail-verdict", "Guardrail: опровергнутое как доказанное", case_guardrail_refuted_as_proved),
