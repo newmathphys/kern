@@ -21,7 +21,7 @@
   <text x="32" y="48" class="title">KERN</text>
   <rect x="128" y="29" width="186" height="22" rx="4" fill="#0f2d1e" stroke="#238636" stroke-width="1"/>
   <text x="138" y="44" class="badge">ZIG 0.17 · Z3 · LEAN 4</text>
-  <text x="32" y="72" class="sub">L0-L5 verification gateway · sealed .kimg container · Belnap B4 truth gate · C-ABI (libkern.so) · HTTP guardrail</text>
+  <text x="32" y="72" class="sub">L0-L5 verification gateway · sealed .kimg container · Belnap B4 truth gate · C-ABI (8 fn) and HTTP guardrail</text>
 
   <!-- Panel 1: Belnap B4 -->
   <rect x="32" y="94" width="215" height="148" rx="6" fill="#0d1117" stroke="#30363d"/>
@@ -38,7 +38,7 @@
   <text x="179" y="176" class="node">T</text>
   <circle cx="139" cy="206" r="12" fill="#161b22" stroke="#6e7681" stroke-width="1.2"/>
   <text x="139" y="210" class="node">N</text>
-  <text x="48" y="232" class="lbl">JOIN_K(T, F) = B  ->  e = 0</text>
+  <text x="48" y="232" class="lbl">200 (T) · 422 (F/N) · 409 (B)</text>
 
   <!-- Connector -->
   <path d="M 247 168 L 275 168" stroke="#30363d" stroke-width="2"/>
@@ -48,7 +48,7 @@
   <text x="291" y="115" class="hdr">L0-L5 ENGINE AND TRUTH GATE</text>
   <rect x="291" y="128" width="293" height="44" rx="4" fill="#161b22" stroke="#21262d"/>
   <text x="303" y="145" class="badge">L0-L2: .kimg + KERNFS + Merkle</text>
-  <text x="303" y="162" class="lbl">hash_algo 0x0001 = BLAKE3 (default), 0x0002 = SHA-256</text>
+  <text x="303" y="162" class="lbl">BLAKE3 default · raw ~90 GB/s · safe 390 MB/s (2.6 GB/s @64K)</text>
   <rect x="291" y="182" width="293" height="46" rx="4" fill="#161b22" stroke="#21262d"/>
   <text x="303" y="199" class="badge">L3-L5: Z3 bridge (5 theories) + Lean 4</text>
   <text x="303" y="216" class="lbl">verdict from external checker only: e=1 proved | e=0</text>
@@ -67,6 +67,6 @@
   <text x="742" y="184" class="lbl">decision coverage (30/30)</text>
   <text x="644" y="206" class="val">92.5%</text>
   <text x="742" y="206" class="lbl">mutation score · 1M fuzz</text>
-  <text x="644" y="228" class="val">64 / 65</text>
+  <text x="644" y="228" class="val">64 + 1</text>
   <text x="742" y="228" class="lbl">non-vacuous can-fail checks</text>
 </svg>
