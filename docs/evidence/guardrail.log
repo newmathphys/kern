@@ -1,0 +1,20 @@
+=== KERN EVIDENCE: guardrail ===
+=== команда: (повторный чистый прогон) ===
+=== дата: 2026-10-15T20:50:37Z ===
+
+  [proxy] "GET /health HTTP/1.1" 200 -
+  [proxy] "POST /verify HTTP/1.1" 200 -
+  [proxy] "POST /verify HTTP/1.1" 422 -
+  [proxy] "POST /verify_multi HTTP/1.1" 409 -
+==========================================================================
+KERN GUARDRAIL SELF-TEST (порт 41821, /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so)
+==========================================================================
+  [OK]   health               HTTP 200 belnap=None
+  [OK]   доказано (T)         HTTP 200 belnap=T
+  [OK]   опровергнуто (F)     HTTP 422 belnap=F
+  [OK]   конфликт (B)         HTTP 409 belnap=B
+==========================================================================
+ВСЁ ПРОЙДЕНО: 200(T) · 422(F) · 409(B) — семантика HTTP соответствует Белнапу B4
+G=0
+
+RC=0

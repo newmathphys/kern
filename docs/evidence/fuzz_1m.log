@@ -1,39 +1,15 @@
 === KERN EVIDENCE: fuzz_1m ===
 === команда: zig build bench-fuzz-ast ===
-=== дата: 2026-10-15T18:39:58Z ===
+=== дата: 2026-10-15T20:32:28Z ===
 
-bench-fuzz-ast
-+- run exe kern-bench-fuzz-ast
-   +- compile exe kern-bench-fuzz-ast fast native 2 errors
-src/core/object_entry.zig:91:22: error: incompatible types: 'crypto.blake3.Blake3' and 'crypto.sha2.Sha2x32(.{ 1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225 },256)'
-        var hasher = switch (algo) {
-                     ^~~~~~
-src/core/object_entry.zig:92:51: note: type 'crypto.blake3.Blake3' here
-            .blake3 => std.crypto.hash.Blake3.init(.{}),
-                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
-src/core/object_entry.zig:93:56: note: type 'crypto.sha2.Sha2x32(.{ 1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225 },256)' here
-            .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
-                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
-referenced by:
-    computeLeafHash: src/core/object_entry.zig:86:28
-    verifyMerkleRoot: src/core/kimg_reader.zig:174:40
-    6 reference(s) hidden; use '-freference-trace=8' to see all references
-src/core/object_entry.zig:111:22: error: incompatible types: 'crypto.blake3.Blake3' and 'crypto.sha2.Sha2x32(.{ 1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225 },256)'
-        var hasher = switch (algo) {
-                     ^~~~~~
-src/core/object_entry.zig:112:51: note: type 'crypto.blake3.Blake3' here
-            .blake3 => std.crypto.hash.Blake3.init(.{}),
-                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
-src/core/object_entry.zig:113:56: note: type 'crypto.sha2.Sha2x32(.{ 1779033703, 3144134277, 1013904242, 2773480762, 1359893119, 2600822924, 528734635, 1541459225 },256)' here
-            .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
-                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~
-error: 2 compilation errors
-failed command: /home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/zig build-exe -Ofast --dep compat --dep owner --dep atomic -Mroot=src/fuzz_ast.zig -Odebug -Mcompat=src/compat.zig -Odebug -Mowner=src/owner.zig -Odebug --dep compat -Matomic=src/atomic_write.zig --cache-dir .zig-cache --global-cache-dir /home/mrbritneyxxx/.cache/zig --build-root . --name kern-bench-fuzz-ast --zig-lib-dir /home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/ --listen=-
+=== KERN ФАЗЗИНГ: 1000000 мутаций (образ + парсер) ===
 
-Build Summary: 0/3 steps succeeded (1 failed)
-bench-fuzz-ast transitive failure
-+- run exe kern-bench-fuzz-ast transitive failure
-   +- compile exe kern-bench-fuzz-ast fast native 2 errors
+=== РЕЗУЛЬТАТЫ (0 паник — процесс жив) ===
+  итераций:            1000000
+  время:               297 мс (3367 тыс. мутаций/сек)
+  отвергнуто парсером: 964930
+  монтирований OK:     3473
+  монтирований err:    96527
+  ПАНИК/SIGSEGV:       0
 
-
-RC=1
+RC=0

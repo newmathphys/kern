@@ -1,7 +1,7 @@
 === KERN EVIDENCE: bench_semantic ===
 === команда: zig build bench-semantic ===
-=== дата: 2026-10-15T18:33:52Z ===
+=== дата: 2026-10-15T20:18:41Z ===
 
-SEMANTIC_DIGEST=b01d3e77dd8de79b146cf9a11aef7ac726b526507728e4dce14e6909cc7c8a34
+SEMANTIC_DIGEST=19b1bbeacfccb1eac0862a27cd7612f4c09be24737b81b31d50736cef3b8f502
 
 RC=0

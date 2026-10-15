@@ -77,6 +77,7 @@ FAULTABLE = [
     "src/smt_stress.zig",
     "src/chc_bench.zig",
     "src/semantic_probe.zig",
+    "docs/kern-architecture.svg",
     "bench/portable_merkle.zig",
     "src/kimg_stress.zig",
     "src/main.zig",
@@ -280,6 +281,23 @@ def case_disasm_dce():
           "pub export fn kern_early_exit_equal(",
           "pub fn kern_early_exit_equal_disabled(")
     return "make disasm"
+
+
+def case_svg_overflow():
+    """Геометрия SVG-баннера. ЛОМАЕМ: подставляем строку шире панели.
+
+    XML остаётся ВАЛИДНЫМ, поэтому проверка XML-валидности такой дефект не
+    видит — подпись «уезжает» в соседнюю панель. Именно так выглядел баннер.
+    """
+    p = ROOT / "docs" / "kern-architecture.svg"
+    s2 = p.read_text(encoding="utf-8")
+    s2 = s2.replace(
+        '<text x="303" y="171" class="lbl">BLAKE3 default / raw ~90 GB/s</text>',
+        '<text x="303" y="171" class="lbl">BLAKE3 default / raw ~90 GB/s / safe 390 MB/s (2.6 GB/s @64K) / extra</text>',
+        1,
+    )
+    p.write_text(s2, encoding="utf-8")
+    return "make svg-check"
 
 
 def case_core_invariant():
@@ -954,6 +972,7 @@ CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
     ("binlevel",      "constant-time (ранний выход)",          case_binlevel_earlyexit),
+    ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),
     ("golden",        "Merkle эталонного образа",              case_golden_merkle),

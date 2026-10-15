@@ -1,6 +1,6 @@
 === KERN EVIDENCE: run_example ===
 === команда: make run-example ===
-=== дата: 2026-10-15T18:33:50Z ===
+=== дата: 2026-10-15T20:18:38Z ===
 
 make[2]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
 zig build

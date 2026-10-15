@@ -64,6 +64,11 @@ echo "[KERN EVIDENCE COLLECTOR]  режим: $([ "$FAST" = 1 ] && echo быст�
 echo "─────────────────────────────────────────────────────────────────────────"
 
 # --- 1. Ядро и KERN-Next -----------------------------------------------------
+# 🔴 ДЕФЕКТ #70: `slsa_check` стоял ПОСЛЕ записи свидетельств, а отпечаток
+# исходников включает docs/evidence/. Значит сборщик сам делал дерево
+# грязным, и аттестат «не сходился» при КАЖДОМ запуске. Проверяем ДО
+# первой записи свидетельств.
+collect slsa_check          python3 tools/slsa_provenance.py --check
 collect core_tests          zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig
 collect core_tests_relsafe  zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe
 collect kern_next_tests     zig build test-next
@@ -77,7 +82,6 @@ collect lean_proofs         bash formal/check.sh
 # --- 3. Аттестация и реестр --------------------------------------------------
 collect audit_manifest      bash tools/audit_manifest.sh
 collect registry            python3 tools/registry.py
-collect slsa_check          python3 tools/slsa_provenance.py --check
 
 # --- 4. Атаки и хардкор ------------------------------------------------------
 collect adversarial             bash tools/adversarial_suite.sh

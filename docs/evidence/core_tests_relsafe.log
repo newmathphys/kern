@@ -1,228 +1,234 @@
 === KERN EVIDENCE: core_tests_relsafe ===
 === команда: zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe ===
-=== дата: 2026-10-15T18:32:29Z ===
+=== дата: 2026-10-15T20:17:10Z ===
 
-1/198 test_root.test_0...OK
-2/198 core.eq2.test.EQ2: кодировка p | (n << 1)...OK
-3/198 core.eq2.test.🔴 СПЕКА: Eq2.encode(p,n) и псевдонимы p()/n() (полный API спеки)...OK
-4/198 core.eq2.test.EQ2: T JOIN F = B (изоляция противоречий)...OK
-5/198 core.eq2.test.EQ2: биты p и n независимы...OK
-6/198 core.eq2.test.MATH: де Моргана для порядка истинности (полный перебор)...OK
-7/198 core.eq2.test.MATH: таблица отрицания notB (закрывает выживший мутант |->&)...OK
-8/198 core.object_entry.test.CONF-15: ObjectEntry разбирается и держит 96-байтную раскладку...OK
-9/198 core.object_entry.test.CONF-15: мусор в reserved-байтах отвергается...OK
-10/198 core.kimg_reader.test.KimgHeader.parse: валидный заголовок...OK
-11/198 core.kimg_reader.test.🔴 СПЕКА: мажорная версия != 1 отвергается (UnsupportedVersion)...OK
-12/198 core.kimg_reader.test.🔴 СПЕКА: hash_algo вне {1,2} отвергается (InvalidHashAlgo)...OK
-13/198 core.kimg_reader.test.KimgHeader.parse: битый magic отвергается...OK
-14/198 core.kimg_reader.test.KimgHeader.parse: таблица за пределами файла отвергается...OK
-15/198 core.kimg_reader.test.KimgHeader.parse: слишком короткий файл отвергается...OK
-16/198 core.kimg_reader.test.SEC-01: переполнение offset+size отвергается (не паника, не приём)...OK
-17/198 core.kimg_reader.test.MERKLE: пересчёт корня совпадает и ловит подмену...OK
-18/198 core.kimg_reader.test.SEC: гигантский object_count не вешает парсер (DoS-защита)...OK
-19/198 core.kimg_reader.test.KimgHeader.parse: неверный размер заголовка отвергается (BadHeaderSize)...OK
-20/198 core.kimg_reader.test.KimgHeader.parse: payload за границей файла отвергается (PayloadOutOfBounds)...OK
-21/198 core.kernfs_router.test.CONF-13: path traversal и валидация формата...OK
-22/198 core.kernfs_router.test.SEC-03: NUL-инъекция и побег через /claims...OK
-23/198 core.kernfs_router.test.ФИКС ФАЗ 1/3: mountFromBytes находит файл и отдаёт zero-copy срез...OK
-24/198 core.kernfs_router.test.🔴 МУТАНТ: getString отвергает смещение ЗА пределами пула строк...OK
-25/198 core.kernfs_router.test.🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, objectPayload — проверяет...OK
-26/198 core.kernfs_router.test.ФИКС МУТАНТ #2: objectPayloadRaw читает ровно compressed_size...OK
-27/198 core.kernfs_router.test.ГРАНИЦА: objectPayloadRaw отвергает выход за пределы payload...OK
-28/198 core.kernfs_router.test.ФИКС CONF-06: запись в KERNFS отвергается AccessDenied...OK
-29/198 core.kernfs_router.test.ФИКС MERKLE: подмена байта в образе ломает монтирование...OK
-30/198 core.kernfs_router.test.ФИКС МУТАНТ: payloadSlice читает ровно compressed_size (единое правило #55)...OK
-31/198 core.kernfs_router.test.ДЕФЕКТ #55: payloadSlice и objectPayloadRaw дают ОДИН срез...OK
-32/198 core.kernfs_router.test.ФИКС МУТАНТ: hasPath требует флаг HAS_LOGICAL_PATH (бит 1)...OK
-33/198 core.kernfs_router.test.ФИКС МУТАНТ: /raw/ ищет только объекты типа Source (0x0002)...OK
-34/198 core.kernfs_router.test.ФИКС МУТАНТ: /claims/ ищет только объекты типа Claim (0x0005)...OK
-35/198 core.kernfs_router.test.TAMPER: порча 1 байта в середине .kimg блокирует монтирование...OK
-36/198 core.kernfs_router.test.TRUNCATION: обрезанный образ отвергается без паники...OK
-37/198 core.kernfs_router.test.ФИКС ЦЕЛОСТНОСТИ: подмена payload отвергается (digest-сверка)...OK
-38/198 core.kernfs_router.test.ГРАНИЦЫ: payload_offset за пределами региона -> FileNotFound...OK
-39/198 core.kimg_writer.test.KIMG-WRITER: сборка образа и чтение через KERNFS (roundtrip)...OK
-40/198 core.kimg_writer.test.ГРАНИЦА: пустой Builder -> BuildError.Empty...OK
-41/198 core.kimg_writer.test.ГРАНИЦА: объект с пустым содержимым и длинным путём...OK
-42/198 core.kimg_writer.test.CRASH-CONSISTENCY: запись атомарна, .tmp не остаётся...OK
-43/198 core.kimg_writer.test.ДОЛГОВЕЧНОСТЬ: данные сброшены на носитель (fsync), образ читается...OK
-44/198 core.mmap_guard.test.SIGBUS: обработчик устанавливается, флаг сбрасывается/читается...OK
-45/198 core.mmap_guard.test.SIGBUS: страница PROT_NONE создаётся и освобождается (инфраструктура)...OK
-46/198 attest.test.АТТЕСТАЦИЯ: валидный сертификат проверяется...OK
-47/198 attest.test.АТТЕСТАЦИЯ: подмена вердикта отвергается...OK
-48/198 attest.test.АТТЕСТАЦИЯ: подмена Merkle-корня отвергается...OK
-49/198 attest.test.АТТЕСТАЦИЯ: чужой ключ не подтверждает подпись...OK
-50/198 attest.test.АТТЕСТАЦИЯ: сериализация сертификата (round-trip) — 136 байт...OK
-51/198 attest.test.АТТЕСТАЦИЯ: битый сертификат отвергается (magic/версия)...OK
-52/198 owner.test.АВТОРСТВО: ключ-замок валиден (подпись соответствует публичному ключу)...OK
-53/198 owner.test.АВТОРСТВО: подмена подписи отвергается...OK
-54/198 owner.test.АВТОРСТВО: tokenHex даёт ожидаемую строку...OK
-55/198 verifier.admission_gate.test.CONF-30.4: отвергается устаревший сертификат (несовпадение AST)...OK
-56/198 verifier.admission_gate.test.ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA больше НЕ даёт e=1...OK
-57/198 verifier.admission_gate.test.ФИКС АТАКИ 1: внешний решатель-стаб НЕ принимает одиночный байт...OK
-58/198 verifier.admission_gate.test.успех: структурно корректный свидетель от ВНЕШНЕГО чекера даёт e=1...OK
-59/198 verifier.admission_gate.test.CONF-04: анти-вакуумный шлюз захлопывается (вердикт внешнего чекера)...OK
-60/198 verifier.admission_gate.test.политика: allowed_checkers — битовая маска 1 << checker_id...OK
-61/198 verifier.admission_gate.test.🔴 ФИКС: checker_id >= 32 НЕ получает прав checker 0 (заворот маски)...OK
-62/198 verifier.admission_gate.test.доверие к пруверу: запрещённый checker_id отвергается...OK
-63/198 verifier.z3_bridge.test.Z3BRIDGE: отсутствие z3 не роняет мост (graceful degradation)...OK
-64/198 verifier.z3_bridge.test.Z3BRIDGE: без Z3 контракт НЕ подтверждается (verifyContract=false)...OK
-65/198 verifier.z3_bridge.test.Z3BRIDGE → ВРАТА: без Z3 один байт 0xAA даёт e=0...OK
-66/198 verifier.z3_bridge.test.Z3 РЕАЛЬНЫЙ: валидный контракт подтверждается...OK
-67/198 verifier.z3_bridge.test.Z3 РЕАЛЬНЫЙ: неверный контракт отвергается (контрпример)...OK
-68/198 verifier.z3_bridge.test.ВРАТА + РЕАЛЬНЫЙ Z3: корректный контракт даёт e=1 (ПЕРВЫЙ РАЗ!)...OK
-69/198 verifier.z3_bridge.test.ВРАТА + РЕАЛЬНЫЙ Z3: багованный контракт даёт e=0 (контрпример)...OK
-70/198 verifier.z3_bridge.test.Z3 + КЭШ ДОКАЗАТЕЛЬСТВ: второй вызов не дёргает решатель...OK
-71/198 verifier.z3_bridge.test.ГРАНИЦА: мусорный SMT не роняет мост...OK
-72/198 verifier.z3_bridge.test.РЕСУРСЫ: 50 запросов Z3 не текут FD и не плодят зомби...OK
-73/198 verifier.unsat_core.test.UNSAT CORE (mock): извлечение имён ядра из вывода Z3...OK
-74/198 verifier.unsat_core.test.UNSAT CORE (mock): sat не даёт ядра...OK
-75/198 verifier.unsat_core.test.UNSAT CORE (скрипт): содержит :named и get-unsat-core...OK
-76/198 verifier.unsat_core.test.UNSAT CORE (РЕАЛЬНЫЙ Z3): локализация точной конфликтующей строки...OK
-77/198 verifier.proof_check.test.PROOF: баланс скобок распознаёт битый вывод...OK
-78/198 verifier.proof_check.test.PROOF: счётчик шагов вывода...OK
-79/198 verifier.proof_check.test.PROOF (РЕАЛЬНЫЙ Z3): вывод получен, структурно корректен, ядро минимально...OK
-80/198 verifier.proof_check.test.PROOF (РЕАЛЬНЫЙ Z3): выполнимая формула НЕ даёт подтверждения...OK
-81/198 verifier.array_theory.test.ARRAY: скрипт содержит аксиому Маккарти (select(store))...OK
-82/198 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): select(store(a,i,v),i) = v доказано (unsat)...OK
-83/198 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): независимость ячеек при i≠j доказана (unsat)...OK
-84/198 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): защищённая запись безопасна (unsat = доказано)...OK
-85/198 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): OOB-индекс достижим (sat = уязвимость видна)...OK
-86/198 verifier.chc.test.CHC: скрипт содержит индуктивную схему (inv, forall, HORN)...OK
-87/198 verifier.chc.test.CHC (РЕАЛЬНЫЙ Z3): цикл x:=0; while(x<10) x++; даёт x>=10 — ДОКАЗАНО (sat)...OK
-88/198 verifier.chc.test.CHC (РЕАЛЬНЫЙ Z3): ложное постусловие x<5 — инварианта НЕТ (unsat = БАГ)...OK
-89/198 verifier.chc.test.CHC (РЕАЛЬНЫЙ Z3): инвариант чётности x:=0; while(x<10) x+=2 — чётность ДОКАЗАНА...OK
-90/198 verifier.string_theory.test.STRINGS: скрипт содержит строковые ограничения SMT-LIB...OK
-91/198 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): строка с '..' существует (sat)...OK
-92/198 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): УЯЗВИМОСТЬ — '..' проходит при вырезании '/' (sat)...OK
-93/198 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): нуль-байтовая инъекция достижима (sat)...OK
-94/198 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): regex a* корректно исключает 'b' (unsat)...OK
-95/198 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≡ x<<3 доказано на ВСЕЙ области (unsat)...OK
-96/198 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≢ x<<2 — контрпример найден (sat)...OK
-97/198 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*8 → найдено (bvshl x 3)...OK
-98/198 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*16 → найдено (bvshl x 4)...OK
-99/198 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): x*3 невыразим сдвигом → НЕ найдено (честный отказ)...OK
-100/198 verifier.dtmc.test.DTMC: смещённая монета — P(провал) = 0.01...OK
-101/198 verifier.dtmc.test.DTMC: 3 попытки с p=0.9 — P(провал) = 0.1³ = 0.001...OK
-102/198 verifier.dtmc.test.DTMC PCTL: проверка порога P≤0.01 [ F fail ]...OK
-103/198 verifier.dtmc.test.DTMC: нестохастическая матрица отвергается (модель некорректна)...OK
-104/198 verifier.abstract_interp.test.ABSINT: widening гарантирует завершение (растущий счётчик -> +inf)...OK
-105/198 verifier.abstract_interp.test.ABSINT: цикл x:=0; while(x<10) x+=1 — инвариант [0,9], выход x>=10...OK
-106/198 verifier.abstract_interp.test.ABSINT: шаг 2 — инвариант [0,9], выход x>=10...OK
-107/198 verifier.abstract_interp.test.ABSINT: интервалы — join/meet/widen/narrow корректны...OK
-108/198 verifier.abstract_interp.test.ABSINT: уход к переполнению — widening видит +∞ (потенциальный overflow)...OK
-109/198 verifier.noninterference.test.NONINTERFERENCE: ветвление по секрету = УТЕЧКА (Spectre-класс)...OK
-110/198 verifier.noninterference.test.NONINTERFERENCE: индекс массива по секрету = УТЕЧКА (cache-timing)...OK
-111/198 verifier.noninterference.test.NONINTERFERENCE: constant-time select НЕ даёт утечки ветвления...OK
-112/198 verifier.noninterference.test.NONINTERFERENCE: taint распространяется через присваивания...OK
-113/198 verifier.noninterference.test.NONINTERFERENCE: constant-time сравнение эквивалентно обычному...OK
-114/198 verifier.noninterference.test.NONINTERFERENCE: constant-time НЕ зависит от позиции отличия (ранний выход — ЗАВИСИТ)...
+1/204 test_root.test_0...OK
+2/204 core.eq2.test.EQ2: кодировка p | (n << 1)...OK
+3/204 core.eq2.test.🔴 СПЕКА: Eq2.encode(p,n) и псевдонимы p()/n() (полный API спеки)...OK
+4/204 core.eq2.test.EQ2: T JOIN F = B (изоляция противоречий)...OK
+5/204 core.eq2.test.EQ2: биты p и n независимы...OK
+6/204 core.eq2.test.MATH: де Моргана для порядка истинности (полный перебор)...OK
+7/204 core.eq2.test.MATH: таблица отрицания notB (закрывает выживший мутант |->&)...OK
+8/204 core.hash_algo.test.HASH-ALGO: разбор значений заголовка (ровно 1 или 2)...OK
+9/204 core.hash_algo.test.HASH-ALGO: BLAKE3 и SHA-256 дают РАЗНЫЕ хеши (не подменяют друг друга)...OK
+10/204 core.hash_algo.test.HASH-ALGO: BLAKE3-256 совпадает с эталонным вектором...OK
+11/204 core.hash_algo.test.HASH-ALGO: SHA-256 совпадает с эталонным вектором...OK
+12/204 core.hash_algo.test.HASH-ALGO: имена и числовые коды согласованы со спецификацией...OK
+13/204 core.hash_algo.test.HASH-ALGO: SPEC-тест — hash_algo=3 (неизвестный) отвергается...OK
+14/204 core.object_entry.test.CONF-15: ObjectEntry разбирается и держит 96-байтную раскладку...OK
+15/204 core.object_entry.test.CONF-15: мусор в reserved-байтах отвергается...OK
+16/204 core.kimg_reader.test.KimgHeader.parse: валидный заголовок...OK
+17/204 core.kimg_reader.test.🔴 СПЕКА: мажорная версия != 1 отвергается (UnsupportedVersion)...OK
+18/204 core.kimg_reader.test.🔴 СПЕКА: hash_algo вне {1,2} отвергается (InvalidHashAlgo)...OK
+19/204 core.kimg_reader.test.KimgHeader.parse: битый magic отвергается...OK
+20/204 core.kimg_reader.test.KimgHeader.parse: таблица за пределами файла отвергается...OK
+21/204 core.kimg_reader.test.KimgHeader.parse: слишком короткий файл отвергается...OK
+22/204 core.kimg_reader.test.SEC-01: переполнение offset+size отвергается (не паника, не приём)...OK
+23/204 core.kimg_reader.test.MERKLE: пересчёт корня совпадает и ловит подмену...OK
+24/204 core.kimg_reader.test.SEC: гигантский object_count не вешает парсер (DoS-защита)...OK
+25/204 core.kimg_reader.test.KimgHeader.parse: неверный размер заголовка отвергается (BadHeaderSize)...OK
+26/204 core.kimg_reader.test.KimgHeader.parse: payload за границей файла отвергается (PayloadOutOfBounds)...OK
+27/204 core.kernfs_router.test.CONF-13: path traversal и валидация формата...OK
+28/204 core.kernfs_router.test.SEC-03: NUL-инъекция и побег через /claims...OK
+29/204 core.kernfs_router.test.ФИКС ФАЗ 1/3: mountFromBytes находит файл и отдаёт zero-copy срез...OK
+30/204 core.kernfs_router.test.🔴 МУТАНТ: getString отвергает смещение ЗА пределами пула строк...OK
+31/204 core.kernfs_router.test.🔴 МУТАНТ: objectPayloadRaw не проверяет хеш, objectPayload — проверяет...OK
+32/204 core.kernfs_router.test.ФИКС МУТАНТ #2: objectPayloadRaw читает ровно compressed_size...OK
+33/204 core.kernfs_router.test.ГРАНИЦА: objectPayloadRaw отвергает выход за пределы payload...OK
+34/204 core.kernfs_router.test.ФИКС CONF-06: запись в KERNFS отвергается AccessDenied...OK
+35/204 core.kernfs_router.test.ФИКС MERKLE: подмена байта в образе ломает монтирование...OK
+36/204 core.kernfs_router.test.ФИКС МУТАНТ: payloadSlice читает ровно compressed_size (единое правило #55)...OK
+37/204 core.kernfs_router.test.ДЕФЕКТ #55: payloadSlice и objectPayloadRaw дают ОДИН срез...OK
+38/204 core.kernfs_router.test.ФИКС МУТАНТ: hasPath требует флаг HAS_LOGICAL_PATH (бит 1)...OK
+39/204 core.kernfs_router.test.ФИКС МУТАНТ: /raw/ ищет только объекты типа Source (0x0002)...OK
+40/204 core.kernfs_router.test.ФИКС МУТАНТ: /claims/ ищет только объекты типа Claim (0x0005)...OK
+41/204 core.kernfs_router.test.TAMPER: порча 1 байта в середине .kimg блокирует монтирование...OK
+42/204 core.kernfs_router.test.TRUNCATION: обрезанный образ отвергается без паники...OK
+43/204 core.kernfs_router.test.ФИКС ЦЕЛОСТНОСТИ: подмена payload отвергается (digest-сверка)...OK
+44/204 core.kernfs_router.test.ГРАНИЦЫ: payload_offset за пределами региона -> FileNotFound...OK
+45/204 core.kimg_writer.test.KIMG-WRITER: сборка образа и чтение через KERNFS (roundtrip)...OK
+46/204 core.kimg_writer.test.ГРАНИЦА: пустой Builder -> BuildError.Empty...OK
+47/204 core.kimg_writer.test.ГРАНИЦА: объект с пустым содержимым и длинным путём...OK
+48/204 core.kimg_writer.test.CRASH-CONSISTENCY: запись атомарна, .tmp не остаётся...OK
+49/204 core.kimg_writer.test.ДОЛГОВЕЧНОСТЬ: данные сброшены на носитель (fsync), образ читается...OK
+50/204 core.mmap_guard.test.SIGBUS: обработчик устанавливается, флаг сбрасывается/читается...OK
+51/204 core.mmap_guard.test.SIGBUS: страница PROT_NONE создаётся и освобождается (инфраструктура)...OK
+52/204 attest.test.АТТЕСТАЦИЯ: валидный сертификат проверяется...OK
+53/204 attest.test.АТТЕСТАЦИЯ: подмена вердикта отвергается...OK
+54/204 attest.test.АТТЕСТАЦИЯ: подмена Merkle-корня отвергается...OK
+55/204 attest.test.АТТЕСТАЦИЯ: чужой ключ не подтверждает подпись...OK
+56/204 attest.test.АТТЕСТАЦИЯ: сериализация сертификата (round-trip) — 136 байт...OK
+57/204 attest.test.АТТЕСТАЦИЯ: битый сертификат отвергается (magic/версия)...OK
+58/204 owner.test.АВТОРСТВО: ключ-замок валиден (подпись соответствует публичному ключу)...OK
+59/204 owner.test.АВТОРСТВО: подмена подписи отвергается...OK
+60/204 owner.test.АВТОРСТВО: tokenHex даёт ожидаемую строку...OK
+61/204 verifier.admission_gate.test.CONF-30.4: отвергается устаревший сертификат (несовпадение AST)...OK
+62/204 verifier.admission_gate.test.ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA больше НЕ даёт e=1...OK
+63/204 verifier.admission_gate.test.ФИКС АТАКИ 1: внешний решатель-стаб НЕ принимает одиночный байт...OK
+64/204 verifier.admission_gate.test.успех: структурно корректный свидетель от ВНЕШНЕГО чекера даёт e=1...OK
+65/204 verifier.admission_gate.test.CONF-04: анти-вакуумный шлюз захлопывается (вердикт внешнего чекера)...OK
+66/204 verifier.admission_gate.test.политика: allowed_checkers — битовая маска 1 << checker_id...OK
+67/204 verifier.admission_gate.test.🔴 ФИКС: checker_id >= 32 НЕ получает прав checker 0 (заворот маски)...OK
+68/204 verifier.admission_gate.test.доверие к пруверу: запрещённый checker_id отвергается...OK
+69/204 verifier.z3_bridge.test.Z3BRIDGE: отсутствие z3 не роняет мост (graceful degradation)...OK
+70/204 verifier.z3_bridge.test.Z3BRIDGE: без Z3 контракт НЕ подтверждается (verifyContract=false)...OK
+71/204 verifier.z3_bridge.test.Z3BRIDGE → ВРАТА: без Z3 один байт 0xAA даёт e=0...OK
+72/204 verifier.z3_bridge.test.Z3 РЕАЛЬНЫЙ: валидный контракт подтверждается...OK
+73/204 verifier.z3_bridge.test.Z3 РЕАЛЬНЫЙ: неверный контракт отвергается (контрпример)...OK
+74/204 verifier.z3_bridge.test.ВРАТА + РЕАЛЬНЫЙ Z3: корректный контракт даёт e=1 (ПЕРВЫЙ РАЗ!)...OK
+75/204 verifier.z3_bridge.test.ВРАТА + РЕАЛЬНЫЙ Z3: багованный контракт даёт e=0 (контрпример)...OK
+76/204 verifier.z3_bridge.test.Z3 + КЭШ ДОКАЗАТЕЛЬСТВ: второй вызов не дёргает решатель...OK
+77/204 verifier.z3_bridge.test.ГРАНИЦА: мусорный SMT не роняет мост...OK
+78/204 verifier.z3_bridge.test.РЕСУРСЫ: 50 запросов Z3 не текут FD и не плодят зомби...OK
+79/204 verifier.unsat_core.test.UNSAT CORE (mock): извлечение имён ядра из вывода Z3...OK
+80/204 verifier.unsat_core.test.UNSAT CORE (mock): sat не даёт ядра...OK
+81/204 verifier.unsat_core.test.UNSAT CORE (скрипт): содержит :named и get-unsat-core...OK
+82/204 verifier.unsat_core.test.UNSAT CORE (РЕАЛЬНЫЙ Z3): локализация точной конфликтующей строки...OK
+83/204 verifier.proof_check.test.PROOF: баланс скобок распознаёт битый вывод...OK
+84/204 verifier.proof_check.test.PROOF: счётчик шагов вывода...OK
+85/204 verifier.proof_check.test.PROOF (РЕАЛЬНЫЙ Z3): вывод получен, структурно корректен, ядро минимально...OK
+86/204 verifier.proof_check.test.PROOF (РЕАЛЬНЫЙ Z3): выполнимая формула НЕ даёт подтверждения...OK
+87/204 verifier.array_theory.test.ARRAY: скрипт содержит аксиому Маккарти (select(store))...OK
+88/204 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): select(store(a,i,v),i) = v доказано (unsat)...OK
+89/204 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): независимость ячеек при i≠j доказана (unsat)...OK
+90/204 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): защищённая запись безопасна (unsat = доказано)...OK
+91/204 verifier.array_theory.test.ARRAY (РЕАЛЬНЫЙ Z3): OOB-индекс достижим (sat = уязвимость видна)...OK
+92/204 verifier.chc.test.CHC: скрипт содержит индуктивную схему (inv, forall, HORN)...OK
+93/204 verifier.chc.test.CHC (РЕАЛЬНЫЙ Z3): цикл x:=0; while(x<10) x++; даёт x>=10 — ДОКАЗАНО (sat)...OK
+94/204 verifier.chc.test.CHC (РЕАЛЬНЫЙ Z3): ложное постусловие x<5 — инварианта НЕТ (unsat = БАГ)...OK
+95/204 verifier.chc.test.CHC (РЕАЛЬНЫЙ Z3): инвариант чётности x:=0; while(x<10) x+=2 — чётность ДОКАЗАНА...OK
+96/204 verifier.string_theory.test.STRINGS: скрипт содержит строковые ограничения SMT-LIB...OK
+97/204 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): строка с '..' существует (sat)...OK
+98/204 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): УЯЗВИМОСТЬ — '..' проходит при вырезании '/' (sat)...OK
+99/204 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): нуль-байтовая инъекция достижима (sat)...OK
+100/204 verifier.string_theory.test.STRINGS (РЕАЛЬНЫЙ Z3): regex a* корректно исключает 'b' (unsat)...OK
+101/204 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≡ x<<3 доказано на ВСЕЙ области (unsat)...OK
+102/204 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≢ x<<2 — контрпример найден (sat)...OK
+103/204 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*8 → найдено (bvshl x 3)...OK
+104/204 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*16 → найдено (bvshl x 4)...OK
+105/204 verifier.cegis.test.CEGIS (РЕАЛЬНЫЙ Z3): x*3 невыразим сдвигом → НЕ найдено (честный отказ)...OK
+106/204 verifier.dtmc.test.DTMC: смещённая монета — P(провал) = 0.01...OK
+107/204 verifier.dtmc.test.DTMC: 3 попытки с p=0.9 — P(провал) = 0.1³ = 0.001...OK
+108/204 verifier.dtmc.test.DTMC PCTL: проверка порога P≤0.01 [ F fail ]...OK
+109/204 verifier.dtmc.test.DTMC: нестохастическая матрица отвергается (модель некорректна)...OK
+110/204 verifier.abstract_interp.test.ABSINT: widening гарантирует завершение (растущий счётчик -> +inf)...OK
+111/204 verifier.abstract_interp.test.ABSINT: цикл x:=0; while(x<10) x+=1 — инвариант [0,9], выход x>=10...OK
+112/204 verifier.abstract_interp.test.ABSINT: шаг 2 — инвариант [0,9], выход x>=10...OK
+113/204 verifier.abstract_interp.test.ABSINT: интервалы — join/meet/widen/narrow корректны...OK
+114/204 verifier.abstract_interp.test.ABSINT: уход к переполнению — widening видит +∞ (потенциальный overflow)...OK
+115/204 verifier.noninterference.test.NONINTERFERENCE: ветвление по секрету = УТЕЧКА (Spectre-класс)...OK
+116/204 verifier.noninterference.test.NONINTERFERENCE: индекс массива по секрету = УТЕЧКА (cache-timing)...OK
+117/204 verifier.noninterference.test.NONINTERFERENCE: constant-time select НЕ даёт утечки ветвления...OK
+118/204 verifier.noninterference.test.NONINTERFERENCE: taint распространяется через присваивания...OK
+119/204 verifier.noninterference.test.NONINTERFERENCE: constant-time сравнение эквивалентно обычному...OK
+120/204 verifier.noninterference.test.NONINTERFERENCE: constant-time НЕ зависит от позиции отличия (ранний выход — ЗАВИСИТ)...
 [NONINTERFERENCE] отношение времён (позиция отличия 1 vs 16):
-  constant-time: 1.01x  (должно ~1)
-  ранний выход : 1.22x  (зависит от позиции)
+  constant-time: 1.00x  (должно ~1)
+  ранний выход : 1.21x  (зависит от позиции)
 OK
-115/198 verifier.nra_quant.test.NRA: x² < 0 неразрешимо (квадрат вещественного неотрицателен)...OK
-116/198 verifier.nra_quant.test.NRA (∀): x² + y² ≥ 0 доказано для ВСЕХ вещественных...OK
-117/198 verifier.nra_quant.test.NRA: единичный круг — точка (0.9, 0) внутри (sat)...OK
-118/198 verifier.nra_quant.test.NRA: x² + y² > 2 недоказуемо (контрпример x=y=0 есть)...OK
-119/198 verifier.nra_quant.test.QUANT: с явным триггером — противоречивый контракт (unsat)...OK
-120/198 verifier.nra_quant.test.QUANT: квантор без триггера ограничен таймаутом (Matching Loop обезврежен)...
+121/204 verifier.nra_quant.test.NRA: x² < 0 неразрешимо (квадрат вещественного неотрицателен)...OK
+122/204 verifier.nra_quant.test.NRA (∀): x² + y² ≥ 0 доказано для ВСЕХ вещественных...OK
+123/204 verifier.nra_quant.test.NRA: единичный круг — точка (0.9, 0) внутри (sat)...OK
+124/204 verifier.nra_quant.test.NRA: x² + y² > 2 недоказуемо (контрпример x=y=0 есть)...OK
+125/204 verifier.nra_quant.test.QUANT: с явным триггером — противоречивый контракт (unsat)...OK
+126/204 verifier.nra_quant.test.QUANT: квантор без триггера ограничен таймаутом (Matching Loop обезврежен)...
 [QUANT] без триггера: Sat (таймаут 3000 мс — Matching Loop обезврежен)
 OK
-121/198 verifier.redos.test.REDOS: (a+)+ распознан как уязвимый (вложенный квантор)...OK
-122/198 verifier.redos.test.REDOS: (a*)* распознан как уязвимый...OK
-123/198 verifier.redos.test.REDOS: (a|a)* — неоднозначная альтернатива под квантором...OK
-124/198 verifier.redos.test.REDOS: безопасная регулярка (a|b)* — НЕ уязвима...OK
-125/198 verifier.redos.test.REDOS: простой литерал без кванторов безопасен...OK
-126/198 verifier.redos.test.REDOS (РЕАЛЬНЫЙ Z3): уязвимая регулярка принимает экспоненциальный вход...OK
-127/198 runtime.kern_x.test.KERN-X: HALT завершает, топливо остаётся...OK
-128/198 runtime.kern_x.test.KERN-X: исчерпание топлива невозможно обойти (бесконечный цикл)...OK
-129/198 runtime.kern_x.test.KERN-X: неизвестный опкод отвергается...OK
-130/198 runtime.kern_x.test.KERN-X: PUSH/STORE/LOAD/ADD работают...OK
-131/198 runtime.kern_x.test.KERN-X: STORE за границей памяти отвергается...OK
-132/198 proof_cache.test.PROOF-CACHE: второй вызов берётся из кэша...OK
-133/198 proof_cache.test.PROOF-CACHE: ключ зависит от payload...OK
-134/198 proof_cache.test.КЭШ: ключ детерминирован (нет коллизий разных формул)...OK
-135/198 proof_cache.test.КЭШ: эвикция при переполнении (без утечек)...OK
-136/198 proof_cache.test.КЭШ: efficiencyPct считает правильно...OK
-137/198 proof_cache.test.SINGLE-FLIGHT ПО КЛЮЧУ: РАЗНЫЕ формулы считаются ПАРАЛЛЕЛЬНО...
+127/204 verifier.redos.test.REDOS: (a+)+ распознан как уязвимый (вложенный квантор)...OK
+128/204 verifier.redos.test.REDOS: (a*)* распознан как уязвимый...OK
+129/204 verifier.redos.test.REDOS: (a|a)* — неоднозначная альтернатива под квантором...OK
+130/204 verifier.redos.test.REDOS: безопасная регулярка (a|b)* — НЕ уязвима...OK
+131/204 verifier.redos.test.REDOS: простой литерал без кванторов безопасен...OK
+132/204 verifier.redos.test.REDOS (РЕАЛЬНЫЙ Z3): уязвимая регулярка принимает экспоненциальный вход...OK
+133/204 runtime.kern_x.test.KERN-X: HALT завершает, топливо остаётся...OK
+134/204 runtime.kern_x.test.KERN-X: исчерпание топлива невозможно обойти (бесконечный цикл)...OK
+135/204 runtime.kern_x.test.KERN-X: неизвестный опкод отвергается...OK
+136/204 runtime.kern_x.test.KERN-X: PUSH/STORE/LOAD/ADD работают...OK
+137/204 runtime.kern_x.test.KERN-X: STORE за границей памяти отвергается...OK
+138/204 proof_cache.test.PROOF-CACHE: второй вызов берётся из кэша...OK
+139/204 proof_cache.test.PROOF-CACHE: ключ зависит от payload...OK
+140/204 proof_cache.test.КЭШ: ключ детерминирован (нет коллизий разных формул)...OK
+141/204 proof_cache.test.КЭШ: эвикция при переполнении (без утечек)...OK
+142/204 proof_cache.test.КЭШ: efficiencyPct считает правильно...OK
+143/204 proof_cache.test.SINGLE-FLIGHT ПО КЛЮЧУ: РАЗНЫЕ формулы считаются ПАРАЛЛЕЛЬНО...
 [SINGLE-FLIGHT] разных формул одновременно в работе: 8 (из 8)
 OK
-138/198 proof_cache.test.ПЧЕЛИНЫЙ РОЙ: 64 потока -> 1 miss + 63 hits (single-flight)...OK
-139/198 atomic_write.test.ATOMIC: файл записан целиком, .tmp не остаётся...OK
-140/198 atomic_write.test.ATOMIC: перезапись поверх — старое содержимое не смешивается с новым...OK
-141/198 atomic_write.test.ATOMIC: пустые данные — валидный пустой файл...OK
-142/198 tests.exhaustive_suite.test.MATH-01: таблица Белнапа-Данна B4 (Join и Meet)...OK
-143/198 tests.exhaustive_suite.test.MATH-02: законы де Моргана в порядке истинности...OK
-144/198 tests.exhaustive_suite.test.SEC-01: атака переполнения в заголовке KIMG (offset bomb)...OK
-145/198 tests.exhaustive_suite.test.SEC-02: троян в reserved-байтах (CONF-15)...OK
-146/198 tests.exhaustive_suite.test.SEC-03: path traversal и NUL-инъекция...OK
-147/198 tests.exhaustive_suite.test.AI-01: текстовый свидетель ≥8 байт НЕ отвергается (реальное поведение)...OK
-148/198 tests.exhaustive_suite.test.AI-01b: короткий свидетель без внешнего чекера не допускается...OK
-149/198 tests.exhaustive_suite.test.AI-02: устаревший сертификат (несовпадение хеша AST)...OK
-150/198 tests.exhaustive_suite.test.AI-03: вакуумное предусловие (анти-вакуумный шлюз)...OK
-151/198 tests.exhaustive_suite.test.ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA НЕ даёт e=1 (уязвимость закрыта)...OK
-152/198 tests.exhaustive_suite.test.RES-01: исчерпание топлива — это N, а не F...OK
-153/198 tests.alignment_stress.test.ALIGN comptime: заголовок .kimg — ровно 128 байт, выравнивание 8...OK
-154/198 tests.alignment_stress.test.ALIGN comptime: записи таблицы читаются как [96]u8 (alignment = 1)...OK
-155/198 tests.alignment_stress.test.ALIGN comptime: ObjectEntry — ЛОГИЧЕСКАЯ структура (72 байта), НЕ раскладка диска...OK
-156/198 tests.alignment_stress.test.ALIGN runtime: разбор при смещениях 0..7 — одинаковый результат...OK
-157/198 tests.alignment_stress.test.ALIGN runtime: записи таблицы читаются при смещениях 1,2,3,5,7...OK
-158/198 tests.alignment_stress.test.ALIGN runtime: невыровненная таблица НЕ ломает Merkle (полный образ)...OK
-159/198 tests.alignment_stress.test.ENDIAN: многобайтные поля читаются Little-Endian...OK
-160/198 tests.alignment_stress.test.ALIGN strict: isStrictlyAligned различает выровненные и нет...OK
-161/198 tests.pool_saturation.test.POOL: 128 запросов на пуле из 4 — лимит соблюдён, все выполнены...OK
-162/198 tests.pool_saturation.test.POOL: пик не превышает лимит при 8 воркерах и 128 запросах...OK
-163/198 tests.pool_saturation.test.POOL: пул из 1 сериализует (никогда не более 1)...OK
-164/198 tests.pool_saturation.test.POOL + РЕАЛЬНЫЙ Z3: 16 независимых формул через пул из 4...OK
-165/198 tests.oom_stress.test.OOM: сборка образа на 2 МБ -> error.OutOfMemory (не паника)...OK
-166/198 tests.oom_stress.test.OOM: запись образа на 2 МБ -> контролируемая ошибка...OK
-167/198 tests.oom_stress.test.OOM: парсер заголовка не аллоцирует (zero-copy) — работает при любом лимите...OK
-168/198 tests.mcdc_gates_test.test.MC/DC-1: базовый вектор — все условия T -> e=1 (Врата открыты)...OK
-169/198 tests.mcdc_gates_test.test.MC/DC-2: ТОЛЬКО ast_ok=F (остальные T) -> AstHashMismatch (условие независимо)...OK
-170/198 tests.mcdc_gates_test.test.MC/DC-3: ТОЛЬКО contract_ok=F (остальные T) -> ContractHashMismatch (независимо)...OK
-171/198 tests.mcdc_gates_test.test.MC/DC-4: ТОЛЬКО allowed=F (остальные T) -> UntrustedChecker (независимо)...OK
-172/198 tests.mcdc_gates_test.test.MC/DC-5: ТОЛЬКО вердикт=Counterexample -> e=0, F (независимо)...OK
-173/198 tests.mcdc_gates_test.test.MC/DC-6: VacuousPrecondition + require_anti_vacuity=true -> PolicyViolation...OK
-174/198 tests.mcdc_gates_test.test.MC/DC-7: анти-вакуумность ИНВЕРТИРУЕТ исход при прочих равных...OK
-175/198 tests.mcdc_gates_test.test.MC/DC-8: таблица истинности VerificationPolicy.allows (все 32 бита)...OK
-176/198 tests.z3_crash_test.test.Z3 CRASH: решатель завершается сразу -> ToolError, KERN жив...OK
-177/198 tests.z3_crash_test.test.Z3 CRASH: 1 МБ в мёртвый пайп -> нет SIGPIPE, ToolError...OK
-178/198 tests.z3_crash_test.test.Z3 CRASH: несуществующий бинарник решателя -> ToolError (spawn fail)...OK
-179/198 tests.z3_crash_test.test.Z3 CRASH: Врата НЕ открываются при мёртвом решателе (fail-closed)...OK
-180/198 tests.smt_incremental_test.test.SMT push/pop: контекст ИЗОЛИРОВАН (нет протечки между мутантами)...OK
-181/198 tests.smt_incremental_test.test.SMT push/pop: пачка из 50 «мутантов» — нет ложных proved...OK
-182/198 tests.smt_incremental_test.test.SMT push/pop: 30 запросов в ОДНОМ процессе быстрее 30 отдельных...
-[ИНКРЕМЕНТ] 30 отдельных процессов: 486 мс; один процесс: 16 мс
+144/204 proof_cache.test.ПЧЕЛИНЫЙ РОЙ: 64 потока -> 1 miss + 63 hits (single-flight)...OK
+145/204 atomic_write.test.ATOMIC: файл записан целиком, .tmp не остаётся...OK
+146/204 atomic_write.test.ATOMIC: перезапись поверх — старое содержимое не смешивается с новым...OK
+147/204 atomic_write.test.ATOMIC: пустые данные — валидный пустой файл...OK
+148/204 tests.exhaustive_suite.test.MATH-01: таблица Белнапа-Данна B4 (Join и Meet)...OK
+149/204 tests.exhaustive_suite.test.MATH-02: законы де Моргана в порядке истинности...OK
+150/204 tests.exhaustive_suite.test.SEC-01: атака переполнения в заголовке KIMG (offset bomb)...OK
+151/204 tests.exhaustive_suite.test.SEC-02: троян в reserved-байтах (CONF-15)...OK
+152/204 tests.exhaustive_suite.test.SEC-03: path traversal и NUL-инъекция...OK
+153/204 tests.exhaustive_suite.test.AI-01: текстовый свидетель ≥8 байт НЕ отвергается (реальное поведение)...OK
+154/204 tests.exhaustive_suite.test.AI-01b: короткий свидетель без внешнего чекера не допускается...OK
+155/204 tests.exhaustive_suite.test.AI-02: устаревший сертификат (несовпадение хеша AST)...OK
+156/204 tests.exhaustive_suite.test.AI-03: вакуумное предусловие (анти-вакуумный шлюз)...OK
+157/204 tests.exhaustive_suite.test.ФИКС АТАКИ 1: ОДИН БАЙТ 0xAA НЕ даёт e=1 (уязвимость закрыта)...OK
+158/204 tests.exhaustive_suite.test.RES-01: исчерпание топлива — это N, а не F...OK
+159/204 tests.alignment_stress.test.ALIGN comptime: заголовок .kimg — ровно 128 байт, выравнивание 8...OK
+160/204 tests.alignment_stress.test.ALIGN comptime: записи таблицы читаются как [96]u8 (alignment = 1)...OK
+161/204 tests.alignment_stress.test.ALIGN comptime: ObjectEntry — ЛОГИЧЕСКАЯ структура (72 байта), НЕ раскладка диска...OK
+162/204 tests.alignment_stress.test.ALIGN runtime: разбор при смещениях 0..7 — одинаковый результат...OK
+163/204 tests.alignment_stress.test.ALIGN runtime: записи таблицы читаются при смещениях 1,2,3,5,7...OK
+164/204 tests.alignment_stress.test.ALIGN runtime: невыровненная таблица НЕ ломает Merkle (полный образ)...OK
+165/204 tests.alignment_stress.test.ENDIAN: многобайтные поля читаются Little-Endian...OK
+166/204 tests.alignment_stress.test.ALIGN strict: isStrictlyAligned различает выровненные и нет...OK
+167/204 tests.pool_saturation.test.POOL: 128 запросов на пуле из 4 — лимит соблюдён, все выполнены...OK
+168/204 tests.pool_saturation.test.POOL: пик не превышает лимит при 8 воркерах и 128 запросах...OK
+169/204 tests.pool_saturation.test.POOL: пул из 1 сериализует (никогда не более 1)...OK
+170/204 tests.pool_saturation.test.POOL + РЕАЛЬНЫЙ Z3: 16 независимых формул через пул из 4...OK
+171/204 tests.oom_stress.test.OOM: сборка образа на 2 МБ -> error.OutOfMemory (не паника)...OK
+172/204 tests.oom_stress.test.OOM: запись образа на 2 МБ -> контролируемая ошибка...OK
+173/204 tests.oom_stress.test.OOM: парсер заголовка не аллоцирует (zero-copy) — работает при любом лимите...OK
+174/204 tests.mcdc_gates_test.test.MC/DC-1: базовый вектор — все условия T -> e=1 (Врата открыты)...OK
+175/204 tests.mcdc_gates_test.test.MC/DC-2: ТОЛЬКО ast_ok=F (остальные T) -> AstHashMismatch (условие независимо)...OK
+176/204 tests.mcdc_gates_test.test.MC/DC-3: ТОЛЬКО contract_ok=F (остальные T) -> ContractHashMismatch (независимо)...OK
+177/204 tests.mcdc_gates_test.test.MC/DC-4: ТОЛЬКО allowed=F (остальные T) -> UntrustedChecker (независимо)...OK
+178/204 tests.mcdc_gates_test.test.MC/DC-5: ТОЛЬКО вердикт=Counterexample -> e=0, F (независимо)...OK
+179/204 tests.mcdc_gates_test.test.MC/DC-6: VacuousPrecondition + require_anti_vacuity=true -> PolicyViolation...OK
+180/204 tests.mcdc_gates_test.test.MC/DC-7: анти-вакуумность ИНВЕРТИРУЕТ исход при прочих равных...OK
+181/204 tests.mcdc_gates_test.test.MC/DC-8: таблица истинности VerificationPolicy.allows (все 32 бита)...OK
+182/204 tests.z3_crash_test.test.Z3 CRASH: решатель завершается сразу -> ToolError, KERN жив...OK
+183/204 tests.z3_crash_test.test.Z3 CRASH: 1 МБ в мёртвый пайп -> нет SIGPIPE, ToolError...OK
+184/204 tests.z3_crash_test.test.Z3 CRASH: несуществующий бинарник решателя -> ToolError (spawn fail)...OK
+185/204 tests.z3_crash_test.test.Z3 CRASH: Врата НЕ открываются при мёртвом решателе (fail-closed)...OK
+186/204 tests.smt_incremental_test.test.SMT push/pop: контекст ИЗОЛИРОВАН (нет протечки между мутантами)...OK
+187/204 tests.smt_incremental_test.test.SMT push/pop: пачка из 50 «мутантов» — нет ложных proved...OK
+188/204 tests.smt_incremental_test.test.SMT push/pop: 30 запросов в ОДНОМ процессе быстрее 30 отдельных...
+[ИНКРЕМЕНТ] 30 отдельных процессов: 489 мс; один процесс: 16 мс
 OK
-183/198 tests.litmus_memory_test.test.LITMUS SB: SeqCst НЕ допускает исход r1=r2=0 (запрещён моделью SC)...
+189/204 tests.litmus_memory_test.test.LITMUS SB: SeqCst НЕ допускает исход r1=r2=0 (запрещён моделью SC)...
 [LITMUS SB/SeqCst] запрещённый исход r1=r2=0: 0 из 3000
 OK
-184/198 tests.litmus_memory_test.test.LITMUS SB: relaxed — исход возможен на слабой модели (отчёт, не приговор)...[LITMUS SB/relaxed] r1=r2=0 наблюдён: 0 из 3000 (0 на x86/TSO; >0 возможно на ARM64)
+190/204 tests.litmus_memory_test.test.LITMUS SB: relaxed — исход возможен на слабой модели (отчёт, не приговор)...[LITMUS SB/relaxed] r1=r2=0 наблюдён: 0 из 3000 (0 на x86/TSO; >0 возможно на ARM64)
 OK
-185/198 tests.litmus_memory_test.test.LITMUS MP: release/acquire НЕ допускает «флаг без данных»...[LITMUS MP/rel-acq] нарушение (flag=1, data=0): 0 из 3000
+191/204 tests.litmus_memory_test.test.LITMUS MP: release/acquire НЕ допускает «флаг без данных»...[LITMUS MP/rel-acq] нарушение (flag=1, data=0): 0 из 3000
 OK
-186/198 tests.litmus_memory_test.test.LITMUS MP: relaxed ДОПУСКАЕТ нарушение (обоснование барьеров в KERN)...[LITMUS MP/relaxed] нарушение наблюдено: 0 из 3000 (вот почему в KERN стоят acquire/release)
+192/204 tests.litmus_memory_test.test.LITMUS MP: relaxed ДОПУСКАЕТ нарушение (обоснование барьеров в KERN)...[LITMUS MP/relaxed] нарушение наблюдено: 0 из 3000 (вот почему в KERN стоят acquire/release)
 OK
-187/198 tests.litmus_memory_test.test.LITMUS: аксиоматика — допустимые исходы SC/TSO для SB...OK
-188/198 tests.os_stress_test.test.ОС-СТРЕСС 1: вывод > 64 КБ (буфер пайпа) — взаимной блокировки НЕТ...OK
-189/198 tests.os_stress_test.test.ОС-СТРЕСС 2: вывод > лимита 4 МБ — аккуратный отказ, НЕ паника...OK
-190/198 tests.os_stress_test.test.ОС-СТРЕСС 4: инъекция сбоев 5% (pipe/spawn/read) — нет паник, нет утечек FD...
+193/204 tests.litmus_memory_test.test.LITMUS: аксиоматика — допустимые исходы SC/TSO для SB...OK
+194/204 tests.os_stress_test.test.ОС-СТРЕСС 1: вывод > 64 КБ (буфер пайпа) — взаимной блокировки НЕТ...OK
+195/204 tests.os_stress_test.test.ОС-СТРЕСС 2: вывод > лимита 4 МБ — аккуратный отказ, НЕ паника...OK
+196/204 tests.os_stress_test.test.ОС-СТРЕСС 4: инъекция сбоев 5% (pipe/spawn/read) — нет паник, нет утечек FD...
   [ОС-4] запросов 200: успешно 184, отказов 16, срабатываний инъекции 16
   [ОС-4] дескрипторов до 9, после 9
 OK
-191/198 tests.os_stress_test.test.ОС-СТРЕСС 3: флуд spawn (12 потоков × 8 запросов) — без паник и утечек FD...
+197/204 tests.os_stress_test.test.ОС-СТРЕСС 3: флуд spawn (12 потоков × 8 запросов) — без паник и утечек FD...
   [ОС-3] успешно 96, отказов 0
 OK
-192/198 tests.pipe_stress_test.test.REG-017-6B: fileReadToEndAlloc на РЕАЛЬНОМ пайпе — не seekable, EndOfStream, без потери хвоста...  [OK] пайп: записано 131073 Б, прочитано 131073 Б, побайтово совпало (чанков по 64 КБ: 3)
+198/204 tests.pipe_stress_test.test.REG-017-6B: fileReadToEndAlloc на РЕАЛЬНОМ пайпе — не seekable, EndOfStream, без потери хвоста...  [OK] пайп: записано 131073 Б, прочитано 131073 Б, побайтово совпало (чанков по 64 КБ: 3)
 OK
-193/198 tests.pipe_stress_test.test.REG-017-6B: пустой пайп (немедленный EOF) — пустой срез, НЕ ошибка...OK
-194/198 tests.pipe_stress_test.test.REG-017-6B: превышение лимита на пайпе — error.StreamTooLong, не паника...OK
-195/198 concolic.test.CONCOLIC: обычный перебор НЕ находит магические байты (2^32 вариантов)...OK
-196/198 concolic.test.CONCOLIC (РЕАЛЬНЫЙ Z3): магическая строка за число шагов = длине...
+199/204 tests.pipe_stress_test.test.REG-017-6B: пустой пайп (немедленный EOF) — пустой срез, НЕ ошибка...OK
+200/204 tests.pipe_stress_test.test.REG-017-6B: превышение лимита на пайпе — error.StreamTooLong, не паника...OK
+201/204 concolic.test.CONCOLIC: обычный перебор НЕ находит магические байты (2^32 вариантов)...OK
+202/204 concolic.test.CONCOLIC (РЕАЛЬНЫЙ Z3): магическая строка за число шагов = длине...
 [CONCOLIC] найдено `KERN` за 4 обращений к Z3 (перебор: ~2^32)
 OK
-197/198 concolic.test.CONCOLIC: без решателя движок не падает (фолбэк по ветви)...OK
-198/198 tests.coverage_report_test.test.ПОКРЫТИЕ: отчёт по инструментированным решениям...=== ПОКРЫТИЕ РЕШЕНИЙ (self-instrumented) ===
+203/204 concolic.test.CONCOLIC: без решателя движок не падает (фолбэк по ветви)...OK
+204/204 tests.coverage_report_test.test.ПОКРЫТИЕ: отчёт по инструментированным решениям...=== ПОКРЫТИЕ РЕШЕНИЙ (self-instrumented) ===
   инструментированных решений: 30
   исполнено тестами:            30
   ПОКРЫТИЕ РЕШЕНИЙ:             100.0%
@@ -261,6 +267,6 @@ OK
   ПОРОГ: 95%  ФАКТ: 100.0% (30/30)  -> PASS
 
 OK
-All 198 tests passed.
+All 204 tests passed.
 
 RC=0
