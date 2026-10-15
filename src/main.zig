@@ -83,6 +83,34 @@ fn claimPath(alloc: std.mem.Allocator, s: []const u8) ![]const u8 {
     return out;
 }
 
+// ===========================================================================
+//  ВЫВОД ДАННЫХ (дефект CLI: данные уходили в stderr)
+// ===========================================================================
+//
+// 🔴 ДЕФЕКТ (найден hardcore-тестом C-ABI/CLI): `kernc cat`/`ls` печатали
+// ДАННЫЕ через `std.debug.print`, который пишет в **stderr**. Следствия для
+// автоматизации:
+//   * `kernc cat img /raw/f > out.txt` давал ПУСТОЙ файл;
+//   * `kernc cat img /raw/f | grep x` не видел ничего.
+// В терминале это незаметно (оба потока видны) — классическая «молчаливо
+// сломанная проверка» в конвейере.
+//
+// ПРАВИЛО: ДАННЫЕ команды -> stdout; ДИАГНОСТИКА -> stderr; ОТКАЗ -> fail().
+// (Механизм ненулевого кода возврата уже есть — `fail()` ниже, дефект #32.)
+
+/// Вывод ДАННЫХ (результат команды) в stdout.
+fn emit(data: []const u8) void {
+    std.Io.File.stdout().writeStreamingAll(compat.io(), data) catch {};
+}
+
+/// Форматированный вывод ДАННЫХ в stdout.
+fn emitFmt(comptime fmt: []const u8, args: anytype) void {
+    const s = std.fmt.allocPrint(std.heap.page_allocator, fmt, args) catch return;
+    defer std.heap.page_allocator.free(s);
+    emit(s);
+}
+
+
 pub fn main(init: std.process.Init) !void {
     // Zig 0.17: файловый I/O требует явный `io` — публикуем его в compat.
     compat.setIo(init.io);
@@ -518,32 +546,30 @@ pub fn main(init: std.process.Init) !void {
 
     } else if (std.mem.eql(u8, command, "ls")) {
         var fs = KernFS.mountFromBytes(alloc, data) catch |e| {
-            std.debug.print("[!] монтирование не удалось: {s}\n", .{@errorName(e)});
-            return;
+            fail("[!] монтирование не удалось: {s}\n", .{@errorName(e)});
         };
         defer fs.deinit();
-        std.debug.print("[L3] Объектов в образе: {d}\n", .{fs.objects.len});
+        // ДАННЫЕ команды -> stdout (иначе `kernc ls img > f` даёт пустой файл).
+        emitFmt("[L3] Объектов в образе: {d}\n", .{fs.objects.len});
         for (fs.objects) |obj| {
-            std.debug.print("  type=0x{X:0>4} size={d} path=`{s}`\n", .{ obj.type_id, obj.uncompressed_size, fs.objectPath(obj) });
+            emitFmt("  type=0x{X:0>4} size={d} path=`{s}`\n", .{ obj.type_id, obj.uncompressed_size, fs.objectPath(obj) });
         }
 
     } else if (std.mem.eql(u8, command, "cat")) {
         if (args.len < 4) {
-            std.debug.print("[!] cat: нужен путь, напр. /raw/src/main.zig\n", .{});
-            return;
+            fail("[!] cat: нужен путь, напр. /raw/src/main.zig\n", .{});
         }
         var fs = KernFS.mountFromBytes(alloc, data) catch |e| {
-            std.debug.print("[!] монтирование не удалось: {s}\n", .{@errorName(e)});
-            return;
+            fail("[!] монтирование не удалось: {s}\n", .{@errorName(e)});
         };
         defer fs.deinit();
         const node = fs.read(args[3]) catch |e| {
-            std.debug.print("[!] {s}: {s}\n", .{ args[3], @errorName(e) });
-            return;
+            fail("[!] {s}: {s}\n", .{ args[3], @errorName(e) });
         };
+        // СОДЕРЖИМОЕ -> stdout. Это данные, а не диагностика.
         switch (node) {
-            .raw_slice => |s| std.debug.print("{s}", .{s}),
-            .virtual_view => |s| std.debug.print("{s}", .{s}),
+            .raw_slice => |s| emit(s),
+            .virtual_view => |s| emit(s),
         }
 
     } else if (std.mem.eql(u8, command, "verify")) {

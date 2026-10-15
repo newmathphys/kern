@@ -67,3 +67,6 @@ attestation.cert
 *.o
 *.o.o
 *.s
+
+# Телеметрический отчёт (генерируется)
+telemetry_report.json

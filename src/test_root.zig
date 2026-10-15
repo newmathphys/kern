@@ -40,6 +40,7 @@ test {
     _ = @import("tests/smt_incremental_test.zig");
     _ = @import("tests/litmus_memory_test.zig");
     _ = @import("tests/os_stress_test.zig");
+    _ = @import("tests/pipe_stress_test.zig");
     _ = @import("concolic.zig");
     // ВАЖНО: отчёт покрытия обязан идти ПОСЛЕДНИМ — он читает счётчики,
     // набранные всеми предыдущими тестами.

@@ -1,12 +1,12 @@
 # KERN — a zero-trust verification gateway for AI-generated code
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-191%2F191-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-198%2F198-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-60%2F60-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-191%2F191-informational)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-198%2F198-informational)](#cross-architecture)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **A green CI means nothing if the test itself cannot fail.**
@@ -137,8 +137,8 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **191 / 191** |
-| Core test suite with `z3` in `PATH` | **195 / 195** (the extra 4 exercise the solver) |
+| Core test suite (Debug + ReleaseSafe) | **198 / 198** |
+| Core test suite **without** `z3` in `PATH` | **194 passed + 4 skipped** (solver tests skip by design) |
 | KERN-Next test suite | **37 / 37** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
@@ -152,9 +152,9 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **191 / 191** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **191 / 191** |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **191 / 191** |
+| x86_64 | TSO memory model | **198 / 198** |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **198 / 198** |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **198 / 198** |
 
 ### External benchmarks
 
@@ -213,7 +213,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 zig build
 
 # 3. Core test suites
-zig build test          # 191 core tests
+zig build test          # 198 core tests
 zig build test-next     # 37 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics
