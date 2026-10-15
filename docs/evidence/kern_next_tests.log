@@ -1,6 +1,15 @@
 === KERN EVIDENCE: kern_next_tests ===
 === команда: zig build test-next ===
-=== дата: 2026-10-15T20:17:22Z ===
+=== дата: 2026-10-15T21:27:29Z ===
+
+test-next
++- run test w
+[!] метрика 'p95' имеет нечисловое значение 'abc'
+[!] exit_code вне диапазона i64 (nan) у 'claim:exec nan' — свидетельство ИГНОРИРОВАНО
+[!] exit_code вне диапазона i64 (inf) у 'claim:exec inf' — свидетельство ИГНОРИРОВАНО
+[!] exit_code вне диапазона i64 (1000000000000000000000000000000000000) у 'claim:exec huge' — свидетельство ИГНОРИРОВАНО
+[!] exit_code вне диапазона i64 (100000000000000000000000000) у 'claim:exec big2' — свидетельство ИГНОРИРОВАНО
+failed command: ./.zig-cache/o/88aa20b8c384f92302d93903217ce34b/test --cache-dir=./.zig-cache --seed=0xc0d472e5 --listen=-
 
 
 RC=0

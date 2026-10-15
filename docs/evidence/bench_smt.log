@@ -1,6 +1,6 @@
 === KERN EVIDENCE: bench_smt ===
 === команда: zig build bench-smt ===
-=== дата: 2026-10-15T20:18:39Z ===
+=== дата: 2026-10-15T21:38:20Z ===
 
 🔬 KERN SMT-бенчмарк: эквивалентность оптимизаций (Alive2 / Hacker's Delight)
    Решатель: z3

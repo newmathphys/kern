@@ -1,6 +1,6 @@
 === KERN EVIDENCE: audit_manifest ===
-=== команда: (повторный чистый прогон) ===
-=== дата: 2026-10-15T20:53:22Z ===
+=== команда: bash tools/audit_manifest.sh ===
+=== дата: 2026-10-15T21:32:45Z ===
 
 
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
@@ -9,7 +9,7 @@ Core (Debug)          : PASS — 204/204 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 KERN-Next             : PASS
 Kernel Invariants     : PASS — Lean 4 (7 files, 0 errors, 0 sorry)
-Target Systems        : PASS — 2 платформы: ARM64 POWERPC64
+Target Systems        : PASS — 2 платформы: KERN ARM64 POWERPC64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — ФАКТ: 100.0% (порог 95%)
 Mutation Coverage     : PASS — MUTATION SCORE:      92.5% (docs/evidence/mutation_017.log)
@@ -23,6 +23,5 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 ВЕРДИКТ: определяется ПРОГОНАМИ выше. Строки NOT RUN не считаются PASS.
 [OK] провалов: 0
 
-A=0
 
 RC=0

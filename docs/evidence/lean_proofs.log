@@ -1,6 +1,6 @@
 === KERN EVIDENCE: lean_proofs ===
-=== команда: (повторный чистый прогон) ===
-=== дата: 2026-10-15T20:50:37Z ===
+=== команда: bash formal/check.sh ===
+=== дата: 2026-10-15T21:27:32Z ===
 
 == core-only (Lean без Mathlib) ==
   [OK]   KernAllMath.lean
@@ -13,6 +13,5 @@
   [OK]   KernSemanticGap.lean
 == проверка отсутствия 'sorry' (без учёта комментариев) ==
 ALL LEAN PROOFS OK (7/7 файлов, 0 errors, 0 sorry)
-L=0
 
 RC=0

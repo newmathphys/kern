@@ -1,6 +1,6 @@
 === KERN EVIDENCE: core_tests_relsafe ===
 === команда: zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe ===
-=== дата: 2026-10-15T20:17:10Z ===
+=== дата: 2026-10-15T21:27:17Z ===
 
 1/204 test_root.test_0...OK
 2/204 core.eq2.test.EQ2: кодировка p | (n << 1)...OK
@@ -123,7 +123,7 @@
 119/204 verifier.noninterference.test.NONINTERFERENCE: constant-time сравнение эквивалентно обычному...OK
 120/204 verifier.noninterference.test.NONINTERFERENCE: constant-time НЕ зависит от позиции отличия (ранний выход — ЗАВИСИТ)...
 [NONINTERFERENCE] отношение времён (позиция отличия 1 vs 16):
-  constant-time: 1.00x  (должно ~1)
+  constant-time: 1.02x  (должно ~1)
   ранний выход : 1.21x  (зависит от позиции)
 OK
 121/204 verifier.nra_quant.test.NRA: x² < 0 неразрешимо (квадрат вещественного неотрицателен)...OK
@@ -198,7 +198,7 @@ OK
 186/204 tests.smt_incremental_test.test.SMT push/pop: контекст ИЗОЛИРОВАН (нет протечки между мутантами)...OK
 187/204 tests.smt_incremental_test.test.SMT push/pop: пачка из 50 «мутантов» — нет ложных proved...OK
 188/204 tests.smt_incremental_test.test.SMT push/pop: 30 запросов в ОДНОМ процессе быстрее 30 отдельных...
-[ИНКРЕМЕНТ] 30 отдельных процессов: 489 мс; один процесс: 16 мс
+[ИНКРЕМЕНТ] 30 отдельных процессов: 491 мс; один процесс: 16 мс
 OK
 189/204 tests.litmus_memory_test.test.LITMUS SB: SeqCst НЕ допускает исход r1=r2=0 (запрещён моделью SC)...
 [LITMUS SB/SeqCst] запрещённый исход r1=r2=0: 0 из 3000
@@ -259,7 +259,7 @@ OK
   cache_hit                             67 
   cache_miss                            13 
   cache_evict                          900 
-  z3_tool_error                         35 
+  z3_tool_error                         34 
   z3_sat                               182 
   z3_unsat                             314 
   z3_unknown                             1 
