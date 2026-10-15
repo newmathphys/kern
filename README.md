@@ -308,7 +308,7 @@ REVISION/       honest capability status + defect registry (#1-#59)
 | [`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md) | complete technical specification (18 sections) |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all 233 test declarations, generated from source |
-| [`REVISION/HONEST_CAPABILITY_STATUS.md`](REVISION/HONEST_CAPABILITY_STATUS.md) | what works, what doesn't, 59 defects found and fixed |
+| [`REVISION/HONEST_CAPABILITY_STATUS.md`](REVISION/HONEST_CAPABILITY_STATUS.md) | what works, what doesn't, 60 defects found and fixed |
 | [`docs/README.md`](docs/README.md) | documentation map |
 | [`README.ru.md`](README.ru.md) | Russian version of this README |
 
