@@ -1,4 +1,5 @@
 # KERN — ядро проверки истины для ИИ-агентов
+[![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 **Арбитражный шлюз истины для ИИ-агентов.** Заявление получает статус
 «доказано» **только при машинной опоре**: вердикт SMT-решателя (Z3), формальное
