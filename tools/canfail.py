@@ -67,6 +67,7 @@ FAULTABLE = [
     "tools/canfail.py",
     "tools/cache_avalanche_bench.py",
     "formal/KernAllMath.lean",
+    "src/capi.zig",
     "src/verifier/noninterference.zig",
     "src/binlevel_probe.zig",
     "src/verifier/admission_gate.zig",

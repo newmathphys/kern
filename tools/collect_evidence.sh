@@ -84,6 +84,14 @@ collect torture             bash tools/torture_kern.sh
 collect hardcore_capi       python3 tests/hardcore_capi_smt.py
 collect kern_attack         ./zig-out/bin/kern-attack
 
+# --- 4b. Guardrail-прокси (живой перехватчик галлюцинаций) --------------------
+# Поднимает HTTP-сервер, проверяет 3 сценария (health / баг / доказано).
+if command -v curl >/dev/null 2>&1; then
+  collect guardrail         bash -c 'zig build lib >/dev/null 2>&1; python3 examples/guardrail_proxy.py --port 8732 & sleep 3; curl -s localhost:8732/health; curl -s -o /dev/null -w " buggy=HTTP %{http_code}" -X POST localhost:8732/verify -d "{\"label\":\"buggy\"}"; curl -s -o /dev/null -w " proved=HTTP %{http_code}\n" -X POST localhost:8732/verify -d "{\"smt\":\"(set-logic QF_LIA)(declare-const x Int)(assert (> x 10))(assert (< x 5))(check-sat)\"}"; pkill -f "guardrail_proxy.py --port 8732"'
+else
+  skip guardrail "нет curl"
+fi
+
 # --- 5. Демонстрация «зелёный CI против математики» --------------------------
 collect run_example         make run-example
 
