@@ -1,29 +1,3 @@
-KERN — dual-licensed
-Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-
-This project is available under EITHER of the following licenses, at your option:
-
-  1. GNU Affero General Public License v3.0 ONLY (AGPL-3.0-only)
-     The full, unmodified license text follows below.
-     SPDX-License-Identifier: AGPL-3.0-only
-
-  2. A commercial license from the copyright holder (Vital Kalinousky),
-     for use in closed-source products, internal enterprise CI/CD pipelines,
-     or commercial SaaS offerings without the source-disclosure obligations
-     of the AGPL-3.0 (in particular Section 13, network interaction).
-
-Note on the AGPL-3.0 Section 13: if you run a modified version of KERN, or
-operate KERN (including the HTTP guardrail proxy or any service linking
-libkern.so) so that users interact with it over a network, you must offer
-those users the complete corresponding source code of your version under
-this same license.
-
-For commercial licensing, contact the copyright holder.
-
-SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-KERN-Commercial
-
-===============================================================================
-
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -685,3 +659,28 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+===============================================================================
+
+KERN — dual-licensed
+Copyright (c) 2026 Vital Kalinousky. All rights reserved.
+
+This project is available under EITHER of the following licenses, at your option:
+
+  1. GNU Affero General Public License v3.0 ONLY (AGPL-3.0-only)
+     The complete license text is above.
+     SPDX-License-Identifier: AGPL-3.0-only
+
+  2. A commercial license from the copyright holder (Vital Kalinousky),
+     for use in closed-source products, internal enterprise CI/CD pipelines,
+     or commercial SaaS offerings without the source-disclosure obligations
+     of the AGPL-3.0 (in particular Section 13, network interaction).
+
+Note on Section 13: if you run a modified version of KERN, or operate KERN
+(including the HTTP guardrail proxy, or any service linking libkern.so) so that
+users interact with it over a network, you must offer those users the complete
+corresponding source code of your version under this same license.
+
+For commercial licensing, contact the copyright holder.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-KERN-Commercial
