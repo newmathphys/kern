@@ -20,9 +20,43 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
 
-# Тулейн: Zig 0.17 (ветка zig-0.17-migration) + venv (z3, python-обёртки).
-ZIG_DIR="${ZIG_DIR:-$HOME/opt/zig-x86_64-linux-0.17.0}"
-export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+# Тулейн: Zig 0.17 + venv (z3, python-обёртки).
+#
+# 🔴 ДЕФЕКТ #75 (найден по логу CI, раны #48-#51): путь к Zig был ЗАШИТ под
+# локальную раскладку ($HOME/opt/zig-x86_64-linux-0.17.0). На GitHub Actions
+# `mlugg/setup-zig` кладёт бинарник в PATH, а не в ~/opt, поэтому каждый прогон
+# падал на шаге 7 с «[!] нет Zig по пути /home/runner/opt/... — задайте ZIG_DIR=».
+#
+# Теперь порядок поиска: ZIG_DIR -> zig из PATH -> локальная раскладка.
+if [ -n "${ZIG_DIR:-}" ]; then
+  export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+elif command -v zig >/dev/null 2>&1; then
+  # GitHub Actions и любой CI: zig уже в PATH.
+  # ⚠️ ZIG_DIR ОБЯЗАН идти ПЕРВЫМ и здесь: `make venv` кладёт в .venv/bin
+  # собственную копию Zig 0.13, и без явного приоритета она перехватывает
+  # 0.17 -> сборка падает на `no field named 'root_module'` (проверено
+  # локальным прогоном ci.sh: 6 провалов из 6).
+  ZIG_DIR="$(dirname "$(command -v zig)")"
+  export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+elif [ -x "$HOME/opt/zig-x86_64-linux-0.17.0/zig" ]; then
+  ZIG_DIR="$HOME/opt/zig-x86_64-linux-0.17.0"
+  export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+else
+  echo "[!] zig не найден: ни ZIG_DIR, ни в PATH, ни в ~/opt." >&2
+  echo "    Установите Zig 0.17.0 или задайте ZIG_DIR=/путь/к/zig" >&2
+  exit 2
+fi
+
+# Контроль версии: 0.13 и 0.17 несовместимы (в 0.17 `addExecutable` требует
+# `root_module`, в 0.13 — `root_source_file`). Лучше упасть здесь с понятным
+# сообщением, чем получить 6 невнятных провалов ниже.
+ZIG_VER="$("$ZIG_DIR/zig" version 2>/dev/null || echo '?')"
+case "$ZIG_VER" in
+  0.17*) : ;;
+  *) echo "[!] найден Zig $ZIG_VER, а проекту нужен 0.17.x (ZIG_DIR=$ZIG_DIR)" >&2
+     echo "    Задайте ZIG_DIR=/путь/к/zig-0.17" >&2
+     exit 2 ;;
+esac
 
 export KERN_FAST="${KERN_FAST:-1}"
 FAILED=()

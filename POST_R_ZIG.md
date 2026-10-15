@@ -35,9 +35,7 @@ would have touched almost every signature in the codebase. Instead we isolated
 * **In the C-ABI shared library (`libkern.so`, 8 exported functions):** C and Python
   callers have no Zig `main`. A mutex-guarded `std.Io.Threaded` fallback initialises
   once per process, and each worker thread caches the resolved handle in
-  `threadlocal var tls_io: ?std.Io = null`, keeping later I/O calls lock-free. The
-  file descriptor is held by a module-level holder, otherwise the GC closes it and
-  releases the lock.
+  `threadlocal var tls_io: ?std.Io = null`, keeping later I/O calls lock-free.
 
 ### 2. Fixing `Child.kill()` `ECHILD` panics (`src/verifier/z3_bridge.zig:53`) and 0.17 pipe EOF semantics
 
