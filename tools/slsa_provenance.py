@@ -64,18 +64,34 @@ def tree_digest() -> dict:
 
     ВАЖНО: сам аттестат (`kern.intoto.jsonl`) ИСКЛЮЧЁН из хэша. Дефект #62:
     раньше он входил в отпечаток, из-за чего значение зависело от себя же.
+
+    🔴 ДЕФЕКТ #68: список файлов брался из `git ls-files`, а он возвращает
+    только ОТСЛЕЖИВАЕМЫЕ файлы. Если аттестат сгенерирован до коммита, когда
+    новый файл ещё untracked, отпечаток считался по НЕПОЛНОМУ набору — и после
+    коммита уже не мог совпасть никогда (симптом: `--check` давал
+    «[РАСХОЖДЕНИЕ] исходники»). Найдено на практике: аттестат собран, пока
+    `tools/svg_check.py` был ещё не добавлен в индекс.
+
+    Исправление: берём ОБЪЕДИНЕНИЕ отслеживаемых и неотслеживаемых (но не
+    игнорируемых) файлов. Набор не меняется от коммита, поэтому отпечаток
+    стабилен до и после него.
     """
     commit = git("rev-parse", "HEAD")
     dirty = bool(git("status", "--porcelain"))
+    # tracked + untracked-but-not-ignored, без дубликатов
+    tracked = git("ls-files").splitlines()
+    untracked = git("ls-files", "--others", "--exclude-standard").splitlines()
+    files = sorted(set(tracked) | set(untracked))
     h = hashlib.sha256()
-    for rel in sorted(git("ls-files").splitlines()):
+    for rel in files:
         if rel == SELF:
             continue
         p = ROOT / rel
         if p.is_file():
             h.update(rel.encode())
             h.update(bytes.fromhex(sha256_file(p)))
-    return {"commit": commit, "tree_sha256": h.hexdigest(), "dirty": dirty}
+    return {"commit": commit, "tree_sha256": h.hexdigest(), "dirty": dirty,
+            "files": len(files)}
 
 
 def main() -> int:
