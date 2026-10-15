@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Use of this source code is governed by the GNU Affero General Public License v3.0 ONLY
-// (AGPL-3.0-only), or a commercial license from the copyright holder. See LICENSE.
+// Licensed under the PolyForm Noncommercial License 1.0.0.
+// Commercial use requires a license from the copyright holder. See LICENSE.
 
 //! KERN-Next: CLI-оркестратор `kernx` (§13 спецификации KERN-Next).
 const std = @import("std");
@@ -43,7 +43,7 @@ pub fn main(init: std.process.Init) !void {
     const cmd = args[1];
 
     if (std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "version")) {
-        std.debug.print("KERN-Next engine v1.3.0 (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: AGPL-3.0-only / Commercial (см. LICENSE)\n", .{@import("builtin").zig_version_string});
+        std.debug.print("KERN-Next engine v1.3.0 (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{@import("builtin").zig_version_string});
         return;
     }
 

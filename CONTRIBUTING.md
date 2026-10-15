@@ -109,15 +109,15 @@ License (see [`LICENSE`](LICENSE)).
 
 ## Contributor License Agreement (dual-licensing grant)
 
-KERN is dual-licensed under the GNU Affero General Public License v3.0
-(`AGPL-3.0-only`) and a commercial license managed by the copyright holder
-(Vital Kalinousky).
+KERN is dual-licensed under the PolyForm Noncommercial License 1.0.0
+(`PolyForm-Noncommercial-1.0.0`) and a commercial license managed by the
+copyright holder (Vital Kalinousky).
 
 By submitting a pull request or any other contribution to this repository, you
 grant the copyright holder a perpetual, worldwide, non-exclusive, royalty-free,
 irrevocable license to use, reproduce, modify, sublicense, relicense and
-distribute your contribution under both the `AGPL-3.0` and any commercial or
-proprietary license terms.
+distribute your contribution under both the `PolyForm-Noncommercial-1.0.0` and
+any commercial or proprietary license terms.
 
 Without this grant a contribution could not be included: the project must stay
 relicensable as a whole, otherwise the commercial license could no longer cover

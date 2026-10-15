@@ -9,7 +9,7 @@
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-64%2F65-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-204%2F204-informational)](#cross-architecture)
-[![License: AGPL-3.0 / Commercial](https://img.shields.io/badge/License-AGPL--3.0_%7C_Commercial-blue.svg)](LICENSE)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
 repository. It replaces the boolean result of "tests passed" with a four-valued
@@ -441,22 +441,23 @@ Security issues: see [`SECURITY.md`](SECURITY.md).
 
 Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 
-KERN is dual-licensed under the **GNU Affero General Public License v3.0
-(`AGPL-3.0-only`)** and a **commercial license**:
+KERN is **source-available**, dual-licensed:
 
-1. **Open source (`AGPL-3.0-only`).** You may use, modify and distribute KERN
-   under the terms of the [GNU Affero General Public License v3.0](LICENSE).
-   Under Section 13 of the AGPL-3.0, if you modify KERN or operate it (including
-   the HTTP guardrail proxy, or any service linking `libkern.so`) so that users
-   interact with it over a network, you must offer those users the complete
-   corresponding source code of your version under the same license.
-2. **Commercial / proprietary.** Organizations embedding `libkern.so`, `kernc`,
-   `kernx` or the verification gateway into closed-source software, internal
-   enterprise CI/CD appliances, or commercial SaaS products without the
-   source-disclosure obligations of the AGPL-3.0 can obtain a separate
-   commercial license from the copyright holder (**Vital Kalinousky**).
+1. **PolyForm Noncommercial License 1.0.0** (`PolyForm-Noncommercial-1.0.0`) —
+   free of charge for any **noncommercial** purpose: personal use, hobby
+   projects, study, research, teaching, and use by charitable organizations,
+   educational institutions and public research bodies. Full text in
+   [`LICENSE`](LICENSE).
+2. **Commercial license** from the copyright holder (**Vital Kalinousky**) —
+   required for **any** commercial use. This explicitly includes running
+   `kernc`, `kernx` or `libkern.so` in a company's **internal CI/CD pipeline**,
+   even when nothing is exposed to the public, as well as embedding the
+   verification gateway into a commercial product or a paid service.
 
-SPDX-License-Identifier: `AGPL-3.0-only OR LicenseRef-KERN-Commercial`
+Note: this is **not** an open-source license as defined by the OSI. Commercial
+use without a commercial license is not permitted.
 
-Contributions are accepted under the terms described in
-[`CONTRIBUTING.md`](CONTRIBUTING.md) (dual-licensing grant).
+SPDX-License-Identifier: `PolyForm-Noncommercial-1.0.0 OR LicenseRef-KERN-Commercial`
+
+Contributions are accepted under the terms in [`CONTRIBUTING.md`](CONTRIBUTING.md)
+(dual-licensing grant).

@@ -21,7 +21,7 @@ We just finished migrating the codebase from Zig 0.13 to **Zig 0.17.0** — the
 mechanical migration commit alone touched 44 files (291 insertions), and 58 of the
 69 Zig files under `src/` needed changes across the whole effort.
 
-Repo (AGPL-3.0): https://github.com/newmathphys/kern
+Repo (PolyForm Noncommercial 1.0.0): https://github.com/newmathphys/kern
 
 ### Highlights of the Zig implementation
 
@@ -87,7 +87,7 @@ or the Belnap lattice implementation.
 |:--|:--|:--|
 | `https://github.com` (голый) | `https://github.com/newmathphys/kern` | ссылка вела в никуда |
 | `https://github.com/releases/tag/v2.1.0` | **ссылка убрана** | этот URL даёт 404 — путь без владельца и репозитория. Репозиторий не использует теги/релизы: ссылаемся только на репозиторий |
-| `Repo (MIT)` | `Repo (AGPL-3.0)` | проект переведён на dual license: `AGPL-3.0-only` + коммерческая |
+| `Repo (MIT)` | `Repo (PolyForm Noncommercial 1.0.0)` | проект переведён на dual license: `PolyForm-Noncommercial-1.0.0` + коммерческая |
 | `End-to-end verified read (/safe/, ...)` | `Verified read, end-to-end, ...` | **пути `/safe/` в KERNFS не существует** — есть только `/raw/` и `/claims/`; проверка хеша происходит внутри `/raw/` через `objectPayload()` |
 | `~30 files, ~300 call sites` | `44 files (291 insertions)`, 58 из 69 | проверено `git show --stat`; занижение |
 | `In 0.17, our killer thread passes pid by value...` | `Removing an ECHILD race... Zig 0.13's Child.kill() reaps internally` | это **наш** фикс, а не свойство Zig 0.17; формулировка «нам повезло с апгрейдом» слабее реальной истории с найденным багом |
