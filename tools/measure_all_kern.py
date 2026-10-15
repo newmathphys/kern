@@ -213,6 +213,47 @@ def check_kimg_throughput() -> tuple[int, dict, str]:
 
 
 
+def own_zombies() -> list[tuple[int, str]]:
+    """Зомби ТОЛЬКО среди наших потомков (а не общесистемные).
+
+    🔴 ДЕФЕКТ #73. Прежняя проверка была `ps -eo stat= | grep -c '^Z'` — она
+    считала ВСЕ зомби системы. Любой посторонний процесс в состоянии Z
+    (например, `[qemu-aarch64] <defunct>`, оставшийся от кросс-архитектурного
+    прогона) обнулял вес проверки Z3-моста, хотя к нему отношения не имеет.
+
+    Здесь мы строим карту pid -> ppid и оставляем только зомби, чья цепочка
+    родителей ведёт к текущему процессу.
+    """
+    me = os.getpid()
+    out = subprocess.run(["ps", "-eo", "pid=,ppid=,stat=,comm="],
+                         capture_output=True, text=True).stdout
+    procs: dict[int, tuple[int, str, str]] = {}
+    for line in out.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 4:
+            continue
+        try:
+            pid, ppid = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        procs[pid] = (ppid, parts[2], parts[3])
+
+    def is_ours(pid: int) -> bool:
+        seen: set[int] = set()
+        while pid in procs and pid not in seen:
+            seen.add(pid)
+            ppid = procs[pid][0]
+            if ppid == me:
+                return True
+            if ppid <= 1:
+                return False
+            pid = ppid
+        return False
+
+    return [(p, procs[p][2]) for p in procs
+            if procs[p][1].startswith("Z") and is_ours(p)]
+
+
 def check_z3_bridge_stress() -> tuple[int, dict, str]:
     """Таймаут решателя + отсутствие зомби и утечек дескрипторов."""
     w = WEIGHTS["z3_bridge_stress"]
@@ -226,10 +267,15 @@ def check_z3_bridge_stress() -> tuple[int, dict, str]:
     t0 = time.perf_counter()
     r = run("prove-bomb", [str(bin_path("kernc")), "prove", str(bomb)], timeout=120)
     dt_ms = round((time.perf_counter() - t0) * 1000.0, 1)
-    zout = subprocess.run(["bash", "-lc", "ps -eo stat= | grep -c '^Z' || true"],
-                          capture_output=True, text=True).stdout
-    zombies = int(zout.strip() or 0)
+    # 🔴 ДЕФЕКТ #73: раньше считались ВСЕ зомби системы
+    # (`ps -eo stat= | grep -c '^Z'`). Любой посторонний зомби — например
+    # `[qemu-aarch64] <defunct>`, оставшийся от cross_arch_test.sh, — обнулял
+    # вес этой проверки, хотя к Z3-мосту он отношения не имеет. Теперь
+    # считаются зомби только среди НАШИХ потомков.
+    own = own_zombies()
+    zombies = len(own)
     m = {"elapsed_ms": dt_ms, "rc": r["rc"], "zombies": zombies,
+         "zombies_own": [f"{c}(pid={p})" for p, c in own],
          "fail_closed": bool(re.search(r"e\s*:\s*0", r["output"])
                             or "ToolError" in r["output"]
                             or "НЕ доказано" in r["output"]
@@ -237,9 +283,9 @@ def check_z3_bridge_stress() -> tuple[int, dict, str]:
          "proved_falsely": bool(re.search(r"e\s*:\s*1", r["output"]))}
     # ВАЖНО: на недоказанном контракте `kernc prove` ЗАКОННО выходит с НЕНУЛЕВЫМ
     # кодом (fail-closed). Поэтому rc != 0 здесь — ожидаемое поведение, а не сбой.
-    # Критерий: нет зомби, вердикт e=0, и НЕ выдано ложное e=1.
+    # Критерий: нет СВОИХ зомби, вердикт e=0, и НЕ выдано ложное e=1.
     ok = zombies == 0 and m["fail_closed"] and not m["proved_falsely"]
-    return (w if ok else 0), m, f"{dt_ms} мс, зомби={zombies}, e=0, ложного e=1 нет"
+    return (w if ok else 0), m, f"{dt_ms} мс, зомби(свои)={zombies}, e=0, ложного e=1 нет"
 
 
 def check_memory_fuzz() -> tuple[int, dict, str]:
