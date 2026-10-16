@@ -234,6 +234,7 @@ FAULTABLE = [
     "tests/stress_1m.zig",
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
+    "src/core/blake3_simd8.zig",
 ]
 
 
