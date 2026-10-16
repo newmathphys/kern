@@ -55,6 +55,17 @@ else
   line "Core (Debug)" "$(bad)"
 fi
 
+# --- 1b. Цепочка релизного артефакта (дефект #82) ---------------------------
+# Сверяет README <-> локальную сборку <-> asset в релизе. Тесты этого не
+# ловят: расходится не логика, а ПУБЛИКАЦИЯ.
+if python3 tools/artifact_check.py >/dev/null 2>&1; then
+  line "Artifact chain" "$(ok) — README == build == release asset"
+elif python3 tools/artifact_check.py --offline >/dev/null 2>&1; then
+  line "Artifact chain" "$(skip) — README == build (сеть недоступна)"
+else
+  line "Artifact chain" "$(bad)"
+fi
+
 # --- 2. ReleaseSafe (детектор UB) -------------------------------------------
 rs_out="$($ZIG test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe 2>&1 | tail -2)"
 if echo "$rs_out" | grep -q 'All .* tests passed'; then
