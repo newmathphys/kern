@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe
+.PHONY: contracts artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -173,6 +173,12 @@ mutate:
 
 clean:
 	rm -rf zig-out .zig-cache $(OUT) release.kimg report.md agent_packet.json PROJECT_CANONICAL_SPEC.kern.md
+
+# Контракты прямо в Python-коде: @kern:requires / @kern:ensures -> SMT-LIB2 -> Z3.
+# Демонстрация: make contracts  (корректная функция ДОКАЗАНА, багованная НАРУШЕНА)
+contracts: build
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py || true
+	@echo "(ожидаемо: withdraw ДОКАЗАНО, withdraw_buggy НАРУШЕН, sum_to_n SKIP)"
 
 # Сквозной аудит релизного артефакта (защита от дефекта #82): сверяет хеш,
 # объявленный в README, с локальной сборкой и с asset'ом в релизе.

@@ -34,6 +34,7 @@ CLASS = {
     # --- проверки: есть утверждение -----------------------------------------
     "golden": "CHECK", "build": "CHECK", "test": "CHECK", "test-next": "CHECK",
     "artifact-check": "CHECK", "artifact-check-offline": "CHECK",
+    "contracts": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
@@ -143,6 +144,7 @@ CASE_TARGET = {
     "proof-binding": "core_tests",
     "artifact-check": "evidence-gate",
     "artifact-check-offline": "evidence-gate",
+    "contracts": "run-example",
 }
 
 
