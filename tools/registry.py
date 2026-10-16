@@ -35,6 +35,7 @@ CLASS = {
     "golden": "CHECK", "build": "CHECK", "test": "CHECK", "test-next": "CHECK",
     "artifact-check": "CHECK", "artifact-check-offline": "CHECK",
     "contracts": "CHECK",
+    "mcp-selftest": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",

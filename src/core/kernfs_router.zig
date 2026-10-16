@@ -8,6 +8,7 @@ const kimg = @import("object_entry.zig"); // 96-байтный дескрипт�
 const ObjectEntry = kimg.ObjectEntry;
 const KimgHeader = @import("kimg_reader.zig").KimgHeader;
 const HashAlgo = @import("hash_algo.zig").HashAlgo;
+const codec = @import("codec.zig");
 const KimgError = @import("kimg_reader.zig").KimgError;
 const Eq2 = @import("eq2.zig").Eq2;       // KERN-EQ2 математика
 const compat = @import("compat");
@@ -18,6 +19,11 @@ pub const KernFsError = error{
     FileNotFound,
     AccessDenied,         // CONF-06: запрет на запись
     PayloadTampered,      // SHA-256(payload) != digest дескриптора
+    /// Объект СЖАТ: zero-copy срез невозможен в принципе (нужен буфер для
+    /// распаковки). ЯВНАЯ ошибка вместо тихой выдачи сжатых байт как данных.
+    /// Используйте `decompressObject`.
+    CompressedNeedsDecompress,
+    OutOfMemory,
 };
 
 /// Результат запроса к виртуальной ФС
@@ -136,6 +142,9 @@ pub const KernFS = struct {
             cov.hit(.fs_not_found);
             return KernFsError.FileNotFound;
         }
+        // СЖАТЫЙ объект: zero-copy невозможен (распаковка требует буфера).
+        // Возвращаем ЯВНУЮ ошибку, а не сжатые байты под видом содержимого.
+        if (obj.compression_codec != 0) return KernFsError.CompressedNeedsDecompress;
         const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];
         // ЗАЩИТА ЦЕЛОСТНОСТИ PAYLOAD: Merkle-корень покрывает только ТАБЛИЦУ,
         // поэтому подмена содержимого файла иначе проходит незамеченной.
@@ -178,6 +187,37 @@ pub const KernFS = struct {
         return self.getString(obj.logical_path_offset);
     }
 
+    /// Прочитать содержимое объекта ЛЮБОГО кодека.
+    ///
+    /// `raw`     — копия zero-copy среза (память выделяется);
+    /// `deflate` — распаковка в буфер (вызывающий освобождает).
+    ///
+    /// БЕЗОПАСНОСТЬ. Дайджест сверяется по РАСПАКОВАННОМУ содержимому — так же,
+    /// как его считал писатель. Порядок важен: сначала распаковка РОВНО в
+    /// `uncompressed_size` байт (защита от «zip-бомбы»), затем сверка хеша.
+    pub fn decompressObject(
+        self: KernFS,
+        allocator: std.mem.Allocator,
+        obj: ObjectEntry,
+    ) ![]u8 {
+        const c = codec.Codec.fromInt(obj.compression_codec) orelse
+            return KernFsError.FileNotFound;
+        if (c == .raw) {
+            const sl = try self.payloadSlice(obj);
+            const buf = allocator.alloc(u8, sl.len) catch return KernFsError.OutOfMemory;
+            @memcpy(buf, sl);
+            return buf;
+        }
+        const stored = try self.objectPayloadRaw(obj);
+        const out = codec.decompress(allocator, c, stored, @intCast(obj.uncompressed_size)) catch
+            return KernFsError.PayloadTampered;
+        errdefer allocator.free(out);
+        var got: [32]u8 = undefined;
+        self.hash_algo.hash(out, &got);
+        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;
+        return out;
+    }
+
     /// Публичный доступ к полезной нагрузке объекта (для CLI/KERN-X).
     pub fn objectPayload(self: KernFS, obj: ObjectEntry) ![]const u8 {
         return self.payloadSlice(obj);
@@ -214,7 +254,9 @@ pub const KernFS = struct {
         if (group == 8) {
             var all_small = true;
             for (self.objects[base .. base + 8]) |o| {
-                if (o.compressed_size > HashAlgo.batchMaxLen()) {
+                // Сжатые объекты исключаются: их содержимое не равно байтам
+                // в образе, а кэш подтверждает именно байты образа.
+                if (o.compression_codec != 0 or o.compressed_size > HashAlgo.batchMaxLen()) {
                     all_small = false;
                     break;
                 }
@@ -609,15 +651,29 @@ test "ФИКС МУТАНТ: payloadSlice читает ровно compressed_siz
     try std.testing.expectEqualStrings("abc", (try fs0.read("/raw/a.zig")).raw_slice);
 
     // ДЕФЕКТ #55: раньше при codec != 0 размер брался из `uncompressed_size`,
-    // из-за чего чтение расходилось с `objectPayloadRaw`. Теперь правило
-    // ОДНО для обоих путей — `compressed_size`, независимо от codec.
+    // из-за чего чтение расходилось с `objectPayloadRaw`. Правило ОДНО для
+    // обоих путей — `compressed_size` (размер на диске). Проверяем на
+    // ВРАЖДЕБНОМ входе: размеры расходятся (99 против 3), объект raw.
     var e1 = e0;
-    e1.compression_codec = 1;
-    e1.uncompressed_size = 3;
-    e1.compressed_size = 3; // ← по-прежнему размер на диске
+    e1.compression_codec = 0;
+    e1.uncompressed_size = 99; // ложь во вредоносном образе
+    e1.compressed_size = 3; // ← читается ВСЕГДА
     var objs1 = [_]ObjectEntry{e1};
     var fs1 = KernFS.init(std.testing.allocator, &region, &objs1, &region);
     try std.testing.expectEqualStrings("abc", (try fs1.read("/raw/a.zig")).raw_slice);
+
+    // СЖАТЫЙ объект: zero-copy НЕВОЗМОЖЕН в принципе. `payloadSlice` обязан
+    // вернуть ЯВНУЮ ошибку, а не сжатые байты под видом содержимого.
+    var ec = e0;
+    ec.compression_codec = 2; // deflate
+    ec.compressed_size = 3;
+    ec.uncompressed_size = 50;
+    var objsc = [_]ObjectEntry{ec};
+    var fsc = KernFS.init(std.testing.allocator, &region, &objsc, &region);
+    try std.testing.expectError(KernFsError.CompressedNeedsDecompress,
+        fsc.read("/raw/a.zig"));
+    // Сырой путь по-прежнему отдаёт БАЙТЫ ОБРАЗА (это его назначение).
+    try std.testing.expectEqualStrings("abc", try fsc.objectPayloadRaw(ec));
 
     // Обратная проверка: если объявить compressed_size БОЛЬШЕ содержимого,
     // чтение обязано отказать (а не молча вернуть чужой кусок памяти).
@@ -638,14 +694,18 @@ test "ДЕФЕКТ #55: payloadSlice и objectPayloadRaw дают ОДИН ср�
     e.flags = 0x0002;
     e.logical_path_offset = 0;
     e.payload_offset = 6;
-    e.compression_codec = 1; // НЕНУЛЕВОЙ кодек — именно здесь пути расходились
-    e.compressed_size = 3;
-    e.uncompressed_size = 9; // НЕ равен compressed_size
+    // РАНЬШЕ здесь стоял codec = 1 как синтетический маркер. Теперь 1 — это
+    // РЕАЛЬНЫЙ кодек (zstd), а для сжатых объектов zero-copy запрещён явно
+    // (см. `CompressedNeedsDecompress`). Инвариант #55 проверяем на ВРАЖДЕБНОМ
+    // входе: кодек raw, но `uncompressed_size` лжёт (9 вместо 3).
+    e.compression_codec = 0;
+    e.compressed_size = 3; // ← размер на диске, читается ВСЕГДА
+    e.uncompressed_size = 9; // ← ложь во вредоносном образе
     var objs = [_]ObjectEntry{e};
     var fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
 
-    const safe = try fs.objectPayload(e); // = payloadSlice (с SHA-256)
-    const raw = try fs.objectPayloadRaw(e); // без SHA-256
+    const safe = try fs.objectPayload(e); // = payloadSlice (со сверкой хеша)
+    const raw = try fs.objectPayloadRaw(e); // без сверки хеша
     try std.testing.expectEqualStrings(safe, raw);
     try std.testing.expectEqualStrings("abc", raw);
 }

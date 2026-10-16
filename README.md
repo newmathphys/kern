@@ -458,7 +458,16 @@ A claim without evidence is not a claim. Applying that rule to this project:
   implemented in software; there is no TPM/SGX integration (no such hardware here).
 - **SLSA attestation is unsigned** (no `cosign` in the environment) — structurally
   valid, but not SLSA Level 3.
-- **Object compression (zstd) is declared in the format but not implemented.**
+- **Object compression.** `deflate` (codec `0x02`) is implemented via Zig's own
+  `std.compress.flate` and covered by end-to-end tests; `compression_codec`,
+  `compressed_size` and `uncompressed_size` are now real fields, not placeholders.
+  **`zstd` (codec `0x01`) remains declared but NOT implemented** — Zig std ships a
+  zstd *decompressor* only, and no static `libzstd.a` exists here, so linking it
+  would break the hermetic musl build. Requesting it returns
+  `error.CodecUnsupported` rather than failing silently.
+  Note that compression and zero-copy are mutually exclusive by nature: reading a
+  compressed object requires a buffer, so `payloadSlice` refuses it explicitly
+  (`CompressedNeedsDecompress`) and callers use `decompressObject`.
 - **One can-fail meta-control case can report `rc=2`** under Zig cache contention;
   the harness retries once and reports it separately from real vacuous checks.
 - The full list lives in `formal/certification/KNOWN_LIMITATIONS.md` and

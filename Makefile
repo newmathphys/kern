@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: contracts artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe
+.PHONY: contracts artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -179,6 +179,13 @@ clean:
 contracts: build
 	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py || true
 	@echo "(ожидаемо: withdraw ДОКАЗАНО, withdraw_buggy НАРУШЕН, sum_to_n SKIP)"
+
+# MCP-сервер: живая проверка протокола (JSON-RPC 2.0 поверх stdio).
+# Запускает examples/kern_mcp_server.py как ДОЧЕРНИЙ ПРОЦЕСС и проверяет 9 пунктов:
+# initialize, отсутствие ответа на уведомление, tools/list, доказуемый и
+# опровергаемый контракт, сводку пруф-чекера, JOIN_K(T,F)=B, ошибки -32601/-32700.
+mcp-selftest: build
+	@$(PYTHON) tools/mcp_selftest.py
 
 # Сквозной аудит релизного артефакта (защита от дефекта #82): сверяет хеш,
 # объявленный в README, с локальной сборкой и с asset'ом в релизе.

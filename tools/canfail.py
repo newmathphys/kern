@@ -182,6 +182,8 @@ class Fault:
 
 
 FAULTABLE = [
+    "src/core/codec.zig",
+    "examples/kern_mcp_server.py",
     "tools/canfail.py",
     "tools/cache_avalanche_bench.py",
     "formal/KernAllMath.lean",
@@ -510,6 +512,32 @@ def case_evidence_gate():
     with p.open("a", encoding="utf-8") as f:
         f.write("\nRC=1\n")
     return "make evidence-gate"
+
+
+def case_mcp_server():
+    """MCP-сервер: конфликт Белнапа схлопывается в доказательство.
+
+    ЛОМАЕМ: в JOIN_K убираем ветку конфликта, и при p=1, n=1 сервер отвечает
+    `T` вместо `B`. Это ровно тот класс дефекта, против которого построен
+    проект: противоречие выдаётся за доказательство. Живой self-test
+    (tools/mcp_selftest.py) обязан это заметить.
+    """
+    patch("examples/kern_mcp_server.py",
+          'state = "B" if (p and n) else ("T" if p else ("F" if n else "N"))',
+          'state = ("T" if p else ("F" if n else "N"))')
+    return "make mcp-selftest"
+
+
+def case_codec_dispatch():
+    """Кодеки: сжатый объект читается как СЫРОЙ (диспетчер отключён).
+
+    ЛОМАЕМ: в `Codec.fromInt` код 0x02 возвращает `.raw`. Тогда сжатый объект
+    начнёт выдаваться как обычный payload — содержимое станет мусором, а
+    защита от подмены потеряет смысл. Тест «СЖАТИЕ: сквозной roundtrip»
+    обязан это заметить.
+    """
+    patch("src/core/codec.zig", "            0x02 => .deflate,", "            0x02 => .raw,")
+    return "make test"
 
 
 def case_core_invariant():
@@ -1203,6 +1231,8 @@ CASES = [
     ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
     ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
+    ("mcp-server",     "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),
+    ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),

@@ -7,17 +7,22 @@
 //! `payload_offset` и `logical_path_offset` ОТНОСИТЕЛЬНЫ `data_payload_offset`.
 const std = @import("std");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
+const codec = @import("codec.zig");
 const HashAlgo = @import("hash_algo.zig").HashAlgo;
 const KernFsRouter = @import("kernfs_router.zig").KernFS;
+const KernFsError = @import("kernfs_router.zig").KernFsError;
 const compat = @import("compat");
 
-pub const BuildError = error{ TooManyObjects, Empty, PoolTooLarge, Overflow };
+pub const BuildError = error{ TooManyObjects, Empty, PoolTooLarge, Overflow, CodecUnsupported, OutOfMemory };
 
 pub const ObjectSpec = struct {
     path: []const u8,
     type_id: u32,
     flags: u16,
     content: []const u8,
+    /// Кодек СЖАТИЯ объекта. `.raw` — объект хранится как есть (zero-copy).
+    /// `.deflate` — содержимое сжимается при сборке (см. `Builder.compress`).
+    codec: codec.Codec = .raw,
 };
 
 pub const Builder = struct {
@@ -26,6 +31,10 @@ pub const Builder = struct {
     /// Алгоритм хеша образа (спецификация §5.3). По умолчанию BLAKE3 (0x0001);
     /// `.sha256` — для совместимости и сравнительных прогонов.
     hash_algo: HashAlgo = HashAlgo.DEFAULT,
+    /// Кодек сжатия для ВСЕХ добавляемых объектов (`.raw` = без сжатия).
+    /// Сжатие применяется только там, где оно РЕАЛЬНО уменьшает объект:
+    /// иначе объект остаётся `raw` (см. `codec.compress`, возвращает null).
+    compress: codec.Codec = .raw,
 
     pub fn init(allocator: std.mem.Allocator) Builder {
         return .{ .allocator = allocator, .specs = std.array_list.Managed(ObjectSpec).init(allocator) };
@@ -42,17 +51,17 @@ pub const Builder = struct {
         // цикле), ВСЕ объекты получат содержимое ПОСЛЕДНЕЙ итерации.
         // Вызывающий обязан обеспечить время жизни `content` до записи.
         // (Найдено детерминированным симулятором src/sim_test.zig.)
-        try self.specs.append(.{ .path = path, .type_id = 0x0002, .flags = 0x0002, .content = content });
+        try self.specs.append(.{ .path = path, .type_id = 0x0002, .flags = 0x0002, .content = content, .codec = self.compress });
     }
 
     /// status_bits: биты 2-3 (0=N, 1=T, 2=F, 3=B). Бит 1 = HAS_LOGICAL_PATH.
     pub fn addClaim(self: *Builder, id: []const u8, contract: []const u8, status_bits: u2) !void {
-        try self.specs.append(.{ .path = id, .type_id = 0x0005, .flags = 0x0002 | (@as(u16, status_bits) << 2), .content = contract });
+        try self.specs.append(.{ .path = id, .type_id = 0x0005, .flags = 0x0002 | (@as(u16, status_bits) << 2), .content = contract, .codec = self.compress });
     }
 
     /// Байткод для KERN-X (тип 0x0007).
     pub fn addBytecode(self: *Builder, name: []const u8, code: []const u8) !void {
-        try self.specs.append(.{ .path = name, .type_id = 0x0007, .flags = 0x0002, .content = code });
+        try self.specs.append(.{ .path = name, .type_id = 0x0007, .flags = 0x0002, .content = code, .codec = self.compress });
     }
 
     /// Собирает образ .kimg В ПАМЯТИ (без записи на диск).
@@ -81,11 +90,38 @@ pub const Builder = struct {
         const pool_len = pool.items.len;
         var payload_off = try self.allocator.alloc(u64, n);
         defer self.allocator.free(payload_off);
+        // СЖАТИЕ: для каждого объекта храним, что реально легло в payload.
+        // Если `codec.compress` вернул null (нет выигрыша или кодек raw),
+        // объект остаётся `raw`, и `compressed_size == uncompressed_size`.
+        var stored_codec = try self.allocator.alloc(codec.Codec, n);
+        defer self.allocator.free(stored_codec);
+        var stored_len = try self.allocator.alloc(usize, n);
+        defer self.allocator.free(stored_len);
+        var owned: std.array_list.Managed([]u8) = .init(self.allocator);
+        defer {
+            for (owned.items) |b| self.allocator.free(b);
+            owned.deinit();
+        }
         var payload = std.array_list.Managed(u8).init(self.allocator);
         defer payload.deinit();
         for (self.specs.items, 0..) |sp, i| {
             payload_off[i] = pool_len + payload.items.len;
-            try payload.appendSlice(sp.content);
+            var body: []const u8 = sp.content;
+            stored_codec[i] = .raw;
+            if (sp.codec != .raw) {
+                const c = codec.compress(self.allocator, sp.codec, sp.content) catch |e| switch (e) {
+                    // Честный отказ: кодек объявлен, но не реализован.
+                    error.CodecUnsupported => return BuildError.CodecUnsupported,
+                    else => return BuildError.OutOfMemory,
+                };
+                if (c) |buf| {
+                    try owned.append(buf);
+                    body = buf;
+                    stored_codec[i] = sp.codec;
+                }
+            }
+            stored_len[i] = body.len;
+            try payload.appendSlice(body);
         }
 
         // 2. Таблица объектов
@@ -97,10 +133,15 @@ pub const Builder = struct {
             self.hash_algo.hash(sp.content, &digest);
             @memcpy(e[0..32], &digest);
             std.mem.writeInt(u64, e[32..40], payload_off[i], .little);
+            // uncompressed_size — длина СОДЕРЖИМОГО (по ней распаковывать);
+            // compressed_size   — сколько байт реально лежит в образе.
+            // Для `raw` они равны. Поля перестали быть фикцией: путь сжатия
+            // реализован (см. src/core/codec.zig), а на этих полях был #55.
             std.mem.writeInt(u64, e[40..48], sp.content.len, .little);
-            std.mem.writeInt(u64, e[48..56], sp.content.len, .little);
+            std.mem.writeInt(u64, e[48..56], stored_len[i], .little);
             std.mem.writeInt(u32, e[56..60], sp.type_id, .little);
             std.mem.writeInt(u16, e[60..62], sp.flags, .little);
+            e[62] = @intFromEnum(stored_codec[i]);
             std.mem.writeInt(u32, e[64..68], path_off[i], .little);
             std.mem.writeInt(u32, e[68..72], 1, .little);
             entries[i] = e;
@@ -267,4 +308,80 @@ test "ДОЛГОВЕЧНОСТЬ: данные сброшены на носит�
     var fs = try KernFsRouter.mountFromBytes(std.testing.allocator, data);
     defer fs.deinit();
     try std.testing.expectEqualStrings("durability probe", (try fs.read("/raw/src/x.zig")).raw_slice);
+}
+
+test "СЖАТИЕ: сквозной roundtrip через .kimg (deflate) + подмена ловится" {
+    // ЗАЧЕМ: до этого модуля поля compressed_size/uncompressed_size были
+    // фикцией (путь сжатия не существовал). Здесь проверяется, что сжатие
+    // реально работает И что целостность при этом НЕ ослаблена.
+    const alloc = std.testing.allocator;
+    var b = Builder.init(alloc);
+    defer b.deinit();
+    b.compress = .deflate;
+
+    // Сжимаемое содержимое >= min_compress_len (128 байт).
+    var content: [920]u8 = undefined;
+    const pat = "KERN compression roundtrip ";
+    for (&content, 0..) |*ch, i| ch.* = pat[i % pat.len];
+    try b.addSource("big.txt", &content);
+
+    var img = std.array_list.Managed(u8).init(alloc);
+    defer img.deinit();
+    try b.buildBytes(&img);
+
+    var fs = try KernFsRouter.mountFromBytes(alloc, img.items);
+    defer fs.deinit();
+    try std.testing.expectEqual(@as(usize, 1), fs.objects.len);
+    const obj = fs.objects[0];
+
+    // 1. Писатель РЕАЛЬНО сжал: кодек deflate, размер на диске меньше.
+    try std.testing.expectEqual(@as(u8, 2), obj.compression_codec);
+    try std.testing.expect(obj.compressed_size < obj.uncompressed_size);
+    try std.testing.expectEqual(@as(u64, content.len), obj.uncompressed_size);
+
+    // 2. Zero-copy для сжатого объекта ЗАПРЕЩЁН явно (а не тихая выдача).
+    try std.testing.expectError(KernFsError.CompressedNeedsDecompress,
+        fs.objectPayload(obj));
+
+    // 3. Распаковка даёт ИСХОДНОЕ содержимое.
+    const out = try fs.decompressObject(alloc, obj);
+    defer alloc.free(out);
+    try std.testing.expectEqualSlices(u8, &content, out);
+}
+
+test "СЖАТИЕ: подмена в СЖАТОМ объекте -> PayloadTampered" {
+    const alloc = std.testing.allocator;
+    var b = Builder.init(alloc);
+    defer b.deinit();
+    b.compress = .deflate;
+    var content: [600]u8 = undefined;
+    for (&content, 0..) |*ch, i| ch.* = @truncate('a' + (i % 7));
+    try b.addSource("c.txt", &content);
+    var img = std.array_list.Managed(u8).init(alloc);
+    defer img.deinit();
+    try b.buildBytes(&img);
+
+    // Смонтируем ДО порчи, чтобы узнать относительное смещение данных.
+    var fs0 = try KernFsRouter.mountFromBytes(alloc, img.items);
+    defer fs0.deinit();
+
+    // Портим ОДИН байт в области payload.
+    // ВНИМАНИЕ (та же ловушка, что документирована в §49): `payload_offset`
+    // дескриптора ОТНОСИТЕЛЕН `data_payload_offset`, и РЕГИОН начинается с
+    // пула строк. Порча по `data_payload_offset + 1` попадает в ПУЛ (в путь),
+    // а не в данные — первая версия теста делала именно это и «проходила»
+    // зря. Адрес данных = data_payload_offset + entry.payload_offset.
+    const KH = @import("kimg_reader.zig").KimgHeader;
+    const h = KH.parse(img.items[0..128], img.items.len) catch
+        return error.TestUnexpectedResult;
+    const poff: usize = @intCast(h.data_payload_offset);
+    const rel: usize = @intCast(fs0.objects[0].payload_offset);
+    img.items[poff + rel + 1] ^= 0xFF;
+
+    var fs = try KernFsRouter.mountFromBytes(alloc, img.items);
+    defer fs.deinit();
+    // Распаковка повреждённого потока ЛИБО сорвётся, ЛИБО даст другой текст —
+    // в обоих случаях объект НЕ принят (PayloadTampered).
+    const res = fs.decompressObject(alloc, fs.objects[0]);
+    try std.testing.expectError(KernFsError.PayloadTampered, res);
 }
