@@ -276,9 +276,13 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 >    false-positive side.
 > 2. `tools/refactory_suite.py` uses the dataset's **own** test suite
 >    (`ans/input_NNN.txt` + `output_NNN.txt`), which is what the labels are
->    defined by. Against that oracle: buggy 1736/1782 (97.4%), correct
->    2442/2442 - but this is close to tautological, since the labels *are* the
->    suite.
+>    defined by. Against that oracle, one and the same run gives:
+>    **buggy 1705/1782 (95.7%)** with **0 false positives** on the correct set
+>    (**2442/2442**). This is close to tautological, since the labels *are* the
+>    suite. (An earlier intermediate run reported 1736/1782, but that was
+>    measured before two harness bugs were fixed - shared mutable arguments and
+>    `repr()`-based comparison instead of the dataset's `==` semantics - and on
+>    that run the correct side was broken, 290/2442. See `docs/METRICS.md` 50.3.)
 >
 > Conclusion: the Refactory numbers describe an external Python harness, not
 > the formal verifier, and are therefore not listed as a core metric.
