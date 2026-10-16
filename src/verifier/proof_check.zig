@@ -512,6 +512,156 @@ fn linDiffZero(c: *const Ctx, l: Sexp, r: Sexp) ?bool {
     return d.varsCancel() and d.constant == 0;
 }
 
+// =========================================================================
+// Булева нормализация: закрываем `rewrite` на СВЯЗКАХ
+// =========================================================================
+
+/// Канонический текст выражения (для сортировки операндов).
+fn writeSexp(w: anytype, e: Sexp) !void {
+    if (e.atom) |a| {
+        try w.writeAll(a);
+        return;
+    }
+    try w.writeByte('(');
+    for (e.items, 0..) |it, i| {
+        if (i > 0) try w.writeByte(' ');
+        try writeSexp(w, it);
+    }
+    try w.writeByte(')');
+}
+
+fn sexpKey(c: *const Ctx, e: Sexp) ?[]const u8 {
+    var b = compat.BufWriter.init(c.arena);
+    writeSexp(b.writer(), e) catch return null;
+    return b.items();
+}
+
+fn mkList1(c: *const Ctx, head: []const u8, x: Sexp) Sexp {
+    const it = c.arena.alloc(Sexp, 2) catch return x;
+    it[0] = .{ .atom = head };
+    it[1] = x;
+    return .{ .items = it };
+}
+
+fn mkList2(c: *const Ctx, head: []const u8, x: Sexp, y: Sexp) Sexp {
+    const it = c.arena.alloc(Sexp, 3) catch return x;
+    it[0] = .{ .atom = head };
+    it[1] = x;
+    it[2] = y;
+    return .{ .items = it };
+}
+
+fn mkCmp(c: *const Ctx, head: []const u8, x: Sexp, y: Sexp) Sexp {
+    return mkList2(c, head, x, y);
+}
+
+const Keyed = struct { key: []const u8, e: Sexp };
+
+/// Соединить ДВА выражения связкой с учётом `neg` (де Морган).
+fn normConn(c: *const Ctx, conn: []const u8, pair: [2]Sexp, neg: bool, depth: u32) ?Sexp {
+    const a = boolNorm(c, pair[0], neg, depth + 1) orelse return null;
+    const b = boolNorm(c, pair[1], neg, depth + 1) orelse return null;
+    // ¬(A ∧ B) = ¬A ∨ ¬B — при `neg` связка меняется на противоположную
+    const real: []const u8 = if (neg) (if (std.mem.eql(u8, conn, "and")) "or" else "and") else conn;
+    return normConnN(c, real, &[_]Sexp{ a, b }, false, depth + 1);
+}
+
+/// Соединить N выражений: flatten + сортировка операндов.
+fn normConnN(c: *const Ctx, conn: []const u8, items: []const Sexp, neg: bool, depth: u32) ?Sexp {
+    const real: []const u8 = if (neg) (if (std.mem.eql(u8, conn, "and")) "or" else "and") else conn;
+    var parts = std.array_list.Managed(Keyed).init(c.arena);
+    for (items) |it| {
+        const n = boolNorm(c, it, neg, depth + 1) orelse return null;
+        if (n.isList() and n.items.len >= 2) {
+            if (n.headAtom()) |hh| {
+                if (std.mem.eql(u8, hh, real)) {
+                    for (n.items[1..]) |q| {
+                        const k = sexpKey(c, q) orelse return null;
+                        parts.append(.{ .key = k, .e = q }) catch return null;
+                    }
+                    continue;
+                }
+            }
+        }
+        const k = sexpKey(c, n) orelse return null;
+        parts.append(.{ .key = k, .e = n }) catch return null;
+    }
+    if (parts.items.len == 0) return null;
+    if (parts.items.len == 1) return parts.items[0].e;
+    std.mem.sort(Keyed, parts.items, {}, struct {
+        fn lt(_: void, x: Keyed, y: Keyed) bool {
+            return std.mem.lessThan(u8, x.key, y.key);
+        }
+    }.lt);
+    const out = c.arena.alloc(Sexp, parts.items.len + 1) catch return null;
+    out[0] = .{ .atom = real };
+    for (parts.items, 0..) |p, i| out[i + 1] = p.e;
+    return .{ .items = out };
+}
+
+/// Привести булево выражение к нормальной форме: NNF + плоские связки +
+/// сортировка операндов. `neg` — нужно ли отрицание результата.
+///
+/// ПРАВИЛА (законы классической логики, ничего эвристического):
+///   `(not X)`           -> рекурсия с инвертированным `neg`;
+///   сравнения           -> канонизация через `normCmp`;
+///   `(= A B)` для целых -> `(and (>= A B) (>= B A))`   [A, B линейны];
+///   `(= A B)` иначе     -> `(and (=> A B) (=> B A))`   [булева эквивалентность];
+///   `(=> A B)`          -> `(or (not A) B)`;
+///   `and` / `or`        -> де Морган при `neg`, flatten, сортировка.
+///
+/// ЗВУЧНОСТЬ: нормализатор НЕПОЛОН (нет дистрибутивности), поэтому он может
+/// только ПОДТВЕРДИТЬ равенство, но никогда не объявить подделку — иначе
+/// неполнота давала бы ложные отказы на верных выводах.
+fn boolNorm(c: *const Ctx, e0: Sexp, neg: bool, depth: u32) ?Sexp {
+    if (depth > 48) return null;
+    const e = expand(c, e0, 0);
+    if (e.atom != null) return if (neg) mkList1(c, "not", e) else e;
+
+    const h = e.items[0].atom orelse return null;
+
+    if (std.mem.eql(u8, h, "not") and e.items.len == 2) {
+        return boolNorm(c, e.items[1], !neg, depth + 1);
+    }
+
+    if (normCmp(e)) |n| {
+        const eff_neg = n.neg != neg;
+        const base = mkCmp(c, ">=", n.a, n.b);
+        return if (eff_neg) mkList1(c, "not", base) else base;
+    }
+
+    if (std.mem.eql(u8, h, "=") and e.items.len == 3) {
+        const a = e.items[1];
+        const b = e.items[2];
+        var pa = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+        var pb = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+        if (parseLin(c, a, 1, &pa) and parseLin(c, b, 1, &pb)) {
+            return normConn(c, "and", .{ mkCmp(c, ">=", a, b), mkCmp(c, ">=", b, a) }, neg, depth);
+        }
+        return normConn(c, "and", .{
+            mkList2(c, "=>", a, b),
+            mkList2(c, "=>", b, a),
+        }, neg, depth);
+    }
+
+    if (std.mem.eql(u8, h, "=>") and e.items.len == 3) {
+        return boolNorm(c, mkList2(c, "or", mkList1(c, "not", e.items[1]), e.items[2]), neg, depth + 1);
+    }
+
+    if (std.mem.eql(u8, h, "and") or std.mem.eql(u8, h, "or")) {
+        return normConnN(c, h, e.items[1..], neg, depth);
+    }
+    return null;
+}
+
+/// Равны ли две БУЛЕВЫЕ формулы с точностью до булевой нормализации.
+/// `true` — только при ПОЛНОЙ нормализации обеих сторон.
+fn boolEqual(c: *const Ctx, x: Sexp, y: Sexp) bool {
+    const nx = boolNorm(c, x, false, 0) orelse return false;
+    const ny = boolNorm(c, y, false, 0) orelse return false;
+    return sexpEq(nx, ny);
+}
+
 /// Трёхзначный итог проверки шага `rewrite`:
 ///   verified     — равенство ДОКАЗАНО нормализацией;
 ///   bad          — обе стороны нормализуются, но НЕ равны -> подделка;
@@ -545,8 +695,11 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // Обе стороны — ТЕРМЫ (не сравнения): проверяем арифметическое тождество.
     if (nl == null and nr == null) {
         if (linDiffZero(c, l, r)) |z| return if (z) .verified else .bad;
-        return .unverifiable;
     }
+    // БУЛЕВА НОРМАЛИЗАЦИЯ (де Морган, раскрытие `=`): закрывает rewrite на
+    // СВЯЗКАХ. Возвращает ТОЛЬКО .verified: нормализатор неполон, поэтому
+    // объявлять подделку он не имеет права (иначе — ложные отказы).
+    if (boolEqual(c, l, r)) return .verified;
     return .unverifiable;
 }
 
@@ -1381,4 +1534,37 @@ test "PROOF: подстановка и and-elim на разборе термов
     const got = subst(&c, src, from, to, 0).?;
     const want = try parseSexp(a, "(and (> (+ 1 x) 1) q)");
     try std.testing.expect(sexpEq(got, want));
+}
+
+test "PROOF: булева нормализация — де Морган, раскрытие =, порядок операндов" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+
+    // 1. Раскрытие целочисленного равенства в конъюнкцию неравенств:
+    //    (= x 3)  <=>  (and (<= x 3) (>= x 3))
+    const eq = try parseSexp(a, "(rewrite (= (= x 3) (and (<= x 3) (>= x 3))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, eq));
+
+    // 2. Закон де Моргана для связок:
+    //    (and A B)  <=>  (not (or (not A) (not B)))
+    const dm = try parseSexp(a, "(rewrite (= (and (<= x 3) (>= x 3)) (not (or (not (<= x 3)) (not (>= x 3))))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, dm));
+
+    // 3. Порядок операндов не значим (коммутативность конъюнкции).
+    const comm = try parseSexp(a, "(rewrite (= (and (>= x 3) (<= x 3)) (and (<= x 3) (>= x 3))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, comm));
+
+    // 4. Двойное отрицание.
+    const dn = try parseSexp(a, "(rewrite (= (not (not (<= x 3))) (<= x 3)))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, dn));
+
+    // 5. НЕРАВНЫЕ формулы не подтверждаются (и не объявляются подделкой —
+    //    нормализатор неполон, значит обязан честно молчать).
+    const bad = try parseSexp(a, "(rewrite (= (<= x 3) (<= x 4)))");
+    try std.testing.expectEqual(RwResult.bad, checkRewrite(&c, bad));
+    const neq = try parseSexp(a, "(rewrite (= (and (<= x 3) (>= x 3)) (and (<= x 3) (>= x 4))))");
+    const r = checkRewrite(&c, neq);
+    try std.testing.expect(r == .bad or r == .unverifiable);
 }
