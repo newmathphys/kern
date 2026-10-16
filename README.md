@@ -389,8 +389,15 @@ A claim without evidence is not a claim. Applying that rule to this project:
   DWARF). Attested artefacts are ReleaseFast. See the table above.
 - **The static gate does not raise `pass@1`.** It has 100 % precision and ~70 %
   recall on the HumanEval set; it removes bad code, it does not improve good code.
-- **Alethe/LFSC proof objects are not implemented.** `src/verifier/proof_check.zig`
-  performs structural validation only — not a full independent proof checker.
+- **The solver proof is re-checked, but Alethe is not available.**
+  `src/verifier/proof_check.zig` parses the proof Z3 actually emits and re-checks
+  it: hole rejection, premise binding against the contract, `mp` structure,
+  `unit-resolution` literal coverage, and Farkas arithmetic certificates. Two
+  honest limits remain: (a) Alethe/LFSC is **not** produced by this Z3 build
+  (`strings z3 | grep -ic alethe` -> 0, no `proof.format` option), so only the
+  native format is checked; (b) `rewrite` steps cannot be re-verified without
+  reimplementing Z3's rewriter, so they are counted separately as
+  `trusted_steps` and are never reported as verified.
 - **No hardware attestation.** The Ed25519 ownership/attestation pipeline is
   implemented in software; there is no TPM/SGX integration (no such hardware here).
 - **SLSA attestation is unsigned** (no `cosign` in the environment) — structurally

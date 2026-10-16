@@ -453,18 +453,12 @@ def case_proof_checker_hole():
     """
     patch(
         "src/verifier/proof_check.zig",
-        [
-            (
-                """fn isHole(r: []const u8) bool {
-    for (HOLE_RULES) |h| if (std.mem.eql(u8, h, r)) return true;
-    return false;
-}""",
-                """fn isHole(r: []const u8) bool {
-    _ = r;
-    return false; // ДЫРА: запрет дыр отключён
-}""",
-            ),
-        ],
+        "fn isHole(r: []const u8) bool {\n"
+        "    for (HOLE_RULES) |h| if (std.mem.eql(u8, h, r)) return true;\n"
+        "    return false;\n}",
+        "fn isHole(r: []const u8) bool {\n"
+        "    _ = r;\n"
+        "    return false; // ДЫРА: запрет дыр отключён\n}",
     )
     return "zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig"
 
@@ -478,13 +472,9 @@ def case_proof_checker_binding():
     """
     patch(
         "src/verifier/proof_check.zig",
-        [
-            (
-                "            if (found) v.premises_bound += 1 else v.premises_unbound += 1;",
-                "            v.premises_bound += 1; // ДЫРА: привязка не проверяется\n"
-                "            _ = found;",
-            ),
-        ],
+        "            if (found) v.premises_bound += 1 else v.premises_unbound += 1;",
+        "            v.premises_bound += 1; // ДЫРА: привязка не проверяется\n"
+        "            _ = found;",
     )
     return "zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig"
 

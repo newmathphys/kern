@@ -14,7 +14,7 @@
 | # | Ограничение | Что это значит | Как обнаружить |
 |:--:|:--|:--|:--|
 | A1 | **Z3 — не верифицирован формально** | KERN доверяет вердиктам Z3 (`unsat`/`sat`). Баг в самом Z3 → ложный вердикт | `tools/solver_crosscheck.py` (сверка с cvc5) |
-| A2 | **Proof-checker неполный** | `proof_check.zig` проверяет наличие вывода `(get-proof)`, но **не каждый шаг дедукции** (не полный Alethe/LFSC) | см. `src/verifier/proof_check.zig`, шапка файла |
+| A2 | **Proof-checker разбирает вывод Z3, но не Alethe** | `proof_check.zig` перепроверяет вывод математически: запрет дыр (`hole`/`trust`/`sorry`), привязка каждого `asserted` к клаузе контракта, структура `mp`, покрытие литерал в `unit-resolution`, арифметика сертификата Фаркаша, обязательный корень `false`. ОСТАЁТСЯ: (а) Alethe/LFSC этой сборкой Z3 не порождается (`strings z3 \| grep -ic alethe` = 0, параметра `proof.format` нет) — проверяется только нативный формат; (б) шаги `rewrite` не перепроверяемы без реписания рерайтера Z3 и учитываются отдельно как `trusted_steps` | `src/verifier/proof_check.zig`; `docs/METRICS.md` §48 |
 | A3 | **Нелинейная вещественная арифметика** | Z3 неполон для QF_NRA: возможен ответ `unknown` → трактуется как `e=0` (безопасно) | `src/verifier/nra_quant.zig` |
 | A4 | **Кванторы** | Для формул с `forall`/`exists` возможен `unknown`/таймаут | `src/verifier/nra_quant.zig` |
 | A5 | **Рекурсия/циклы** | Глубина обхода ограничена топливом (`fuel`). Циклы доказываются через CHC, но не любой формы | `src/verifier/chc.zig`, `src/runtime/kern_x.zig` |
