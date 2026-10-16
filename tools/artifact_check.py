@@ -86,6 +86,25 @@ def detect_version() -> str:
     return m.group(1)
 
 
+def unpublished_commits(version: str) -> int | None:
+    """Сколько коммитов HEAD ОПЕРЕЖАЕТ тег релиза. None — определить не удалось.
+
+    ЗАЧЕМ. Пока изменения не опубликованы, локальная сборка ФИЗИЧЕСКИ не может
+    совпасть с объявленным в README хешем — это не расхождение, а ожидаемое
+    состояние. Раньше проверка этого не различала и давала ложный красный.
+    Если тег определить НЕ удалось — возвращаем None, и проверка остаётся
+    СТРОГОЙ (fail-closed): незнание не является оправданием.
+    """
+    try:
+        r = subprocess.run(["git", "rev-list", "--count", f"{version}..HEAD"],
+                           cwd=str(ROOT), capture_output=True, text=True, timeout=15)
+        if r.returncode != 0:
+            return None
+        return int(r.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
 def newest_source_mtime() -> float:
     """Время самой свежей правки в исходниках, влияющих на бинарник."""
     newest = 0.0
@@ -144,11 +163,21 @@ def main() -> int:
         print("      пересоберите: zig build hermetic  (иначе проверка сравнивает")
         print("      бинарник САМ С СОБОЙ и может ложно показать согласованность)")
         return 1
+    ahead = unpublished_commits(args.version)
     if LOCAL_BIN.exists():
         got = sha256_file(LOCAL_BIN)
-        mark = "OK" if got == want else "РАСХОЖДЕНИЕ"
-        print(f"  локальная сборка: {got[:32]}...  [{mark}]")
-        if got != want:
+        if got == want:
+            print(f"  локальная сборка: {got[:32]}...  [OK]")
+        elif ahead is not None and ahead > 0:
+            # ОЖИДАЕМО: исходники опережают релиз. Это НЕ провал проверки,
+            # но и НЕ PASS — состояние называется прямо.
+            print(f"  локальная сборка: {got[:32]}...  "
+                  f"[ОПЕРЕЖАЕТ РЕЛИЗ {args.version} на {ahead} коммит(ов)]")
+            print("      расхождение с README ОЖИДАЕМО: сборка включает")
+            print("      неопубликованные изменения. При выпуске: обновить README")
+            print("      и перезалить asset (METRICS §63.3).")
+        else:
+            print(f"  локальная сборка: {got[:32]}...  [РАСХОЖДЕНИЕ]")
             problems.append(
                 "локальная сборка не совпадает с README: пересоберите "
                 "`zig build hermetic` и обновите хеш в README")
@@ -181,7 +210,14 @@ def main() -> int:
         for p in problems:
             print(f"  - {p}")
         return 1
-    print("ЦЕПОЧКА СОГЛАСОВАНА: README == сборка == asset")
+    if ahead is not None and ahead > 0 and LOCAL_BIN.exists() \
+            and sha256_file(LOCAL_BIN) != want:
+        print("ОПУБЛИКОВАННОЕ СОСТОЯНИЕ СОГЛАСОВАНО (README == asset).")
+        print(f"Сборка ОПЕРЕЖАЕТ релиз {args.version} на {ahead} коммит(ов) — "
+              "это НЕ провал, но и НЕ «всё совпало»:")
+        print("обновить README и перезалить asset при выпуске (METRICS §63.3).")
+    else:
+        print("ЦЕПОЧКА СОГЛАСОВАНА: README == сборка == asset")
     return 0
 
 

@@ -182,6 +182,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "tools/artifact_check.py",
     "README.md",
     "tools/kern_contracts.py",
     "src/next/truth.zig",
@@ -547,7 +548,22 @@ def case_artifact_check():
 
 
 def case_artifact_check_offline():
-    """То же без сети: README <-> локальная сборка."""
+    """То же без сети: версия релиза НЕОПРЕДЕЛИМА -> проверка обязана быть СТРОГОЙ.
+
+    ЛОМАЕМ: `detect_version()` возвращает несуществующий тег, поэтому
+    `unpublished_commits()` не может определить, опережает ли сборка релиз.
+    По правилу fail-closed НЕЗНАНИЕ не оправдывает: расхождение сборки с README
+    обязано остаться ПРОВАЛОМ (а не «ожидаемым опережением»).
+    """
+    # Якорь ОБЯЗАН быть уникальным: `patch()` меняет ПЕРВОЕ вхождение,
+    # а `return m.group(1)` встречается дважды (declared_hash и detect_version).
+    # Собираем многострочный якорь через chr(10), чтобы не путаться с \n.
+    _nl = chr(10)
+    _anchor = ('        raise SystemExit("[!] в README.md нет ссылки '
+               'releases/download/vX.Y.Z")' + _nl + '    return m.group(1)')
+    _fault = ('        raise SystemExit("[!] в README.md нет ссылки '
+              'releases/download/vX.Y.Z")' + _nl + '    return "v0.0.0"')
+    patch("tools/artifact_check.py", _anchor, _fault)
     patch("README.md",
           "# 4360a1cb301063d3f7a8485957b463711507524b506f215d502cadf6ef32220f",
           "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")

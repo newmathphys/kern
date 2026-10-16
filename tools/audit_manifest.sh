@@ -58,8 +58,16 @@ fi
 # --- 1b. Цепочка релизного артефакта (дефект #82) ---------------------------
 # Сверяет README <-> локальную сборку <-> asset в релизе. Тесты этого не
 # ловят: расходится не логика, а ПУБЛИКАЦИЯ.
-if python3 tools/artifact_check.py >/dev/null 2>&1; then
-  line "Artifact chain" "$(ok) — README == build == release asset"
+# Описание строки берётся ИЗ САМОГО ВЕРДИКТА: если сборка опережает релиз
+# (есть неопубликованные коммиты), писать «README == build == asset» НЕЛЬЗЯ —
+# это было бы неточным описанием зелёного результата.
+ac_out="$(python3 tools/artifact_check.py 2>&1)"
+if [ $? -eq 0 ]; then
+  if printf '%s' "$ac_out" | grep -q 'ОПЕРЕЖАЕТ'; then
+    line "Artifact chain" "$(ok) — опубликованное состояние согласовано (README == asset); сборка опережает релиз"
+  else
+    line "Artifact chain" "$(ok) — README == build == release asset"
+  fi
 elif python3 tools/artifact_check.py --offline >/dev/null 2>&1; then
   line "Artifact chain" "$(skip) — README == build (сеть недоступна)"
 else
