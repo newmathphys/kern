@@ -283,11 +283,31 @@ def clean_slate() -> None:
         print("    Иначе `git add -A` после харнесса может закоммитить диверсию (#48).")
 
 
+def is_build_output(rel: str) -> bool:
+    """Артефакт сборки (выход `zig build`), а не исходник.
+
+    🔴 ДЕФЕКТ #76: `zig-out/bin/kernc` входил в снимок целостности. Кейс
+    `slsa-hash` дописывает в бинарник байты, харнесс затем ПЕРЕСОБИРАЕТ
+    артефакты — а Debug-сборка Zig 0.17 не бит-воспроизводима (дефект #56,
+    недетерминированный порядок error-set в .debug_info/.debug_str).
+    Поэтому после финальной пересборки хеш артефакта не совпадал со снимком,
+    и `verify_restored` ложно сообщал «харнесс оставил изменения» ->
+    `canfail` выходил с кодом 1 -> КРАСНЫЙ CI (KERN CI #53-#54).
+
+    Проверка целостности существует ради ИСХОДНИКОВ: «харнесс не оставил
+    следов в дереве». Выходы сборки к этому не относятся — их всё равно
+    перезаписывает следующий `zig build`.
+    """
+    return rel.startswith("zig-out/") or rel.startswith(".zig-cache/")
+
+
 def snapshot_faultable() -> dict:
-    """SHA-256 «ломаемых» файлов на момент старта."""
+    """SHA-256 «ломаемых» ИСХОДНИКОВ на момент старта (артефакты сборки — нет)."""
     import hashlib
     out = {}
     for f in FAULTABLE:
+        if is_build_output(f):
+            continue
         p = ROOT / f
         if p.exists():
             out[f] = hashlib.sha256(p.read_bytes()).hexdigest()
@@ -306,6 +326,8 @@ def restore_missing() -> list:
     """
     missing = []
     for f in FAULTABLE:
+        if is_build_output(f):
+            continue
         p = ROOT / f
         if not p.exists():
             missing.append(f)
@@ -465,6 +487,10 @@ def case_slsa_hash():
     rc, _ = sh_out("zig build && python3 tools/slsa_provenance.py --no-build", 300)
     if rc != 0:
         return None
+    # touch(): кейс РЕАЛЬНО меняет этот файл -> Fault.__exit__ обязан его вернуть.
+    # Без пометки механизм «откат только изменённых» (дефект #71) счёл бы
+    # правку третьей стороной и НЕ восстановил бинарник.
+    touch("zig-out/bin/kernc")
     with open("/tmp/kernc_pad", "ab") as f:
         f.write(b"\x00" * 8)
     sh("cat /tmp/kernc_pad >> zig-out/bin/kernc", 60)
