@@ -113,58 +113,48 @@ def tree_hash(root):
     return h.hexdigest()
 
 
-LOCK = ".mutation.lock"
+# 🔴 ДЕФЕКТ #88b (исправлен): раньше замок был ФАЙЛОМ с PID (`.mutation.lock`),
+# а `tools/canfail.py` использует `fcntl.flock`. Два РАЗНЫХ механизма не мешали
+# мутатору и харнессу идти ВНАХЛЁСТ: `measure_all_kern.py` запускает мутатор
+# внутри телеметрии, и если в этот момент стартует canfail, оба патчат одни и
+# те же исходники — свидетельства становятся ЛОЖНЫМИ.
+#
+# Теперь ОБА инструмента берут ОДИН И ТОТ ЖЕ flock. Ядро снимает его даже при
+# SIGKILL, поэтому класс «мёртвый замок блокирует навсегда» (дефект #50)
+# невозможен по построению.
+SHARED_LOCK = "/tmp/kern_mutation.lock"
+_lock_holder = []  # держим ссылку: иначе GC закроет fd и снимет flock
 
 
 def acquire_lock(root):
-    """🔴 ДЕФЕКТ (исправлен): старая версия правила ИСХОДНИКИ НА МЕСТЕ.
+    """Эксклюзивная блокировка прогона (ОБЩАЯ с canfail.py).
 
-    Последствия:
-      • параллельный запуск (или запуск тестов/сборки во время мутаций) видел
-        МУТАНТ вместо настоящего кода и давал ложные падения;
-      • мои собственные правки, сделанные во время прогона, ЗАТИРАЛИСЬ
-        восстановлением устаревшей копии файла;
-      • при аварии/`kill` мутант оставался в репозитории.
-
-    Теперь мутации идут ТОЛЬКО в копии дерева (см. main), а параллельный
-    запуск блокируется файлом-замком.
+    Мутации идут ТОЛЬКО в копии дерева (см. main), а параллельный запуск
+    (в том числе из телеметрии) блокируется общим flock.
     """
-    lp = os.path.join(root, LOCK)
-    if os.path.exists(lp):
-        try:
-            pid = int(open(lp).read().strip())
-        except (OSError, ValueError):
-            pid = None
-        # ДЕФЕКТ #50: раньше устаревший замок (после `kill`) БЛОКИРОВАЛ
-        # мутационное тестирование НАВСЕГДА — приходилось удалять вручную.
-        # Теперь проверяем, жив ли процесс-владелец.
-        alive = False
-        if pid:
-            try:
-                os.kill(pid, 0)  # сигнал 0 = только проверка существования
-                alive = True
-            except ProcessLookupError:
-                alive = False
-            except PermissionError:
-                alive = True  # чужой процесс — считаем живым
-        if alive:
-            print(f"[!] уже идёт мутационный прогон (PID {pid}).", file=sys.stderr)
-            sys.exit(2)
-        print(f"[i] найден УСТАРЕВШИЙ замок (PID {pid} не существует) — снимаю",
-              flush=True)
-        try:
-            os.unlink(lp)
-        except OSError:
-            pass
-    with open(lp, "w") as f:
-        f.write(str(os.getpid()))
-    return lp
-
-
-def release_lock(lp):
+    import fcntl
+    f = open(SHARED_LOCK, "w")
     try:
-        os.unlink(lp)
-    except OSError:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        f.close()
+        print("[!] уже идёт мутационный прогон или canfail (общий замок занят).",
+              file=sys.stderr)
+        print("    Дождитесь завершения — параллельные прогоны искажают исходники.",
+              file=sys.stderr)
+        sys.exit(2)
+    f.write(str(os.getpid()))
+    f.flush()
+    _lock_holder.append(f)  # без ссылки GC закроет fd и снимет замок
+    return f
+
+
+def release_lock(lock_obj):
+    try:
+        import fcntl
+        fcntl.flock(lock_obj, fcntl.LOCK_UN)
+        lock_obj.close()
+    except Exception:
         pass
 
 

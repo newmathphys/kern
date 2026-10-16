@@ -228,6 +228,30 @@ def main() -> int:
         print("  Классифицируйте их в tools/registry.py (CHECK/MEASURE/BUILD/META/EXTERNAL).")
         return 1
 
+    # --- Реестр дефектов: ДУБЛИКАТЫ НОМЕРОВ ---------------------------------
+    # Дефект #88 (найден при добавлении записи): номер #83 оказался занят, и
+    # новая строка создала ДУБЛИКАТ — два разных дефекта под одним номером.
+    # Ничем не проверялось. Теперь проверяется: номера в таблице
+    # `docs/CAPABILITY_STATUS.md` обязаны быть уникальны.
+    dup_fail = False
+    cap = ROOT / "docs" / "CAPABILITY_STATUS.md"
+    if cap.exists():
+        nums = re.findall(r"^\| \*\*(\d+)\*\*", cap.read_text(encoding="utf-8"), re.M)
+        seen: dict[str, int] = {}
+        for n in nums:
+            seen[n] = seen.get(n, 0) + 1
+        dups = sorted((n for n, c in seen.items() if c > 1), key=int)
+        if dups:
+            dup_fail = True
+            print("  \033[31m[ПРЕДОХРАНИТЕЛЬ] ДУБЛИКАТЫ НОМЕРОВ ДЕФЕКТОВ:\033[0m")
+            for n in dups:
+                print(f"    - #{n} встречается {seen[n]} раза")
+            print("  Перенумеруйте одну из строк (следующий свободный номер).")
+        else:
+            print(f"  \033[32m[OK] номера дефектов уникальны ({len(nums)} строк)\033[0m")
+    if dup_fail:
+        return 1
+
     print("  \033[32m[OK] все цели классифицированы\033[0m")
     return 0
 

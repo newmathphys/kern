@@ -129,7 +129,7 @@ def acquire_run_lock():
         import fcntl
     except ImportError:  # не POSIX
         return None
-    f = open("/tmp/kern_canfail.lock", "w")
+    f = open("/tmp/kern_mutation.lock", "w")
     try:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except (BlockingIOError, OSError):
@@ -182,6 +182,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "docs/CAPABILITY_STATUS.md",
     "tools/artifact_check.py",
     "README.md",
     "tools/kern_contracts.py",
@@ -1012,7 +1013,7 @@ def case_sim_invariant():
     ОДНОВРЕМЕННО отключить проверку целостности И подменить срез.
     """
     patch("src/core/kernfs_router.zig",
-          "        var got: [32]u8 = undefined;\n        std.crypto.hash.sha2.Sha256.hash(sl, &got, .{});\n        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
+          "        var got: [32]u8 = undefined;\n        self.hash_algo.hash(sl, &got);\n        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
           "        // ЛОМАЕМ: проверка целостности отключена")
     patch("src/core/kernfs_router.zig",
           "        const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];",
@@ -1067,6 +1068,42 @@ def case_registry_fuse():
     s = s.replace(marker, "canfail-probe-unclassified-target:\n\t@true\n\n" + marker, 1)
     p.write_text(s, encoding="utf-8")
     return "make registry"
+
+
+def case_registry_dup_numbers():
+    """Реестр (K5b). ЛОМАЕМ: дублируем НОМЕР дефекта в таблице.
+
+    Дефект #88: при добавлении записи я создал дубликат #83 (номер был занят).
+    Предохранитель обязан поймать повтор и вернуть ненулевой код.
+    """
+    p = ROOT / "docs" / "CAPABILITY_STATUS.md"
+    touch("docs/CAPABILITY_STATUS.md")
+    s = p.read_text(encoding="utf-8")
+    import re as _re
+    m = _re.search(r"^\| \*\*(\d+)\*\*", s, _re.M)
+    if not m:
+        raise RuntimeError("в таблице дефектов нет ни одной строки")
+    n = m.group(1)
+    # Вторую по счёту строку делаем дубликатом первой.
+    idxs = [mm.start() for mm in _re.finditer(r"^\| \*\*\d+\*\*", s, _re.M)]
+    if len(idxs) < 2:
+        raise RuntimeError("нужно минимум 2 строки дефектов")
+    j = idxs[1]
+    s = s[:j] + f"| **{n}** |" + s[j + len(f"| **{m.group(1)}** |"):]
+    p.write_text(s, encoding="utf-8")
+    return "make registry"
+
+
+def case_evidence_guard():
+    """Предохранитель #88. ЛОМАЕМ: правим FAULTABLE-файл ПОСЛЕ снимка.
+
+    Сверка обязана заметить внешнюю правку и вернуть НЕНУЛЕВОЙ код. Без этого
+    свидетельства, снятые при пропатченных исходниках, выглядели бы валидными.
+    """
+    touch("README.md")
+    return ("python3 tools/evidence_guard.py --snapshot /tmp/guard_probe.json && "
+            "sed -i '1s/^/ /' README.md && "
+            "python3 tools/evidence_guard.py --verify /tmp/guard_probe.json")
 
 
 def case_semantic_gap():
@@ -1403,6 +1440,8 @@ CASES = [
     ("verify-cli",    "CLI verify: Merkle всегда не совпал",     case_verify_cli),
     ("prove-cli",     "CLI prove: мост всегда ToolError",       case_prove_cli),
     ("registry-fuse", "K5: предохранитель ловит новую цель",     case_registry_fuse),
+    ("registry-dup-numbers", "K5b: предохранитель ловит ДУБЛИКАТ номера дефекта", case_registry_dup_numbers),
+    ("evidence-guard", "#88: предохранитель ловит ВНЕШНЮЮ правку во время прогона", case_evidence_guard),
     ("semantic-gap",  "Эшелон 4: sorry в Lean-файле",           case_semantic_gap),
     ("test-pool",     "Цель test-pool: лимит пула",             case_test_pool_target),
     ("test-align",    "Цель test-align: выравнивание",          case_test_align_target),
@@ -1577,7 +1616,7 @@ def main():
     capture_snapshot()   # дефект #71: байтовый снимок = источник истины для отката
     snap = snapshot_faultable()
 
-    ok = bad = meta_bad = skipped = 0
+    ok = bad = meta_bad = skipped = err_bad = 0
     for c in CASES:
         name, desc, fn = c[0], c[1], c[2]
         expect_vacuous = c[3] if len(c) > 3 else False
@@ -1604,10 +1643,21 @@ def main():
         except subprocess.TimeoutExpired:
             rc, out = 124, "TIMEOUT"
         except Exception as e:
+            # 🔴 ДЕФЕКТ #89 (найден на практике): здесь стояло `skipped += 1`,
+            # то есть ОШИБКА КЕЙСА молча превращала его в «пропущенный».
+            # Симптом: после рефакторинга BLAKE3 шаблон патча в кейсе
+            # `sim-invariant` устарел, кейс падал с RuntimeError, попадал в
+            # «пропущено 1» — и харнесс отчитывался об УСПЕХЕ, хотя
+            # CHECK-цель осталась БЕЗ доказательства «может упасть».
+            # Это ровно класс «молчаливо сломанных проверок», против которого
+            # построен проект. Теперь ошибка кейса — ЖЁСТКИЙ ПРОВАЛ.
             import traceback
-            print(f"  [ERR ] {name:14s} {desc}: {e}")
+            print(f"  [FAIL] {name:14s} {desc}")
+            print(f"         ОШИБКА КЕЙСА: {e}")
+            print("         Похоже, шаблон патча устарел после рефактора —")
+            print("         сверьте кейс с текущим кодом цели.")
             traceback.print_exc()
-            skipped += 1
+            err_bad += 1
             continue
         dt = time.time() - t0
         is_pass, kind = verdict(rc, expect_vacuous)
@@ -1658,9 +1708,15 @@ def main():
     else:
         print("[32m[OK] дерево чистое: все правки откачены[0m")
     print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | "
-          f"ЛОЖНЫХ СРАБАТЫВАНИЙ ХАРНЕССА {meta_bad} | пропущено {skipped}")
+          f"ЛОЖНЫХ СРАБАТЫВАНИЙ ХАРНЕССА {meta_bad} | "
+          f"ОШИБОК КЕЙСОВ {err_bad} | пропущено {skipped}")
+    if err_bad:
+        print()
+        print("🔴 ОШИБКИ КЕЙСОВ — это НЕ «пропуск»: цель осталась без доказательства")
+        print("   «может упасть». Обновите устаревшие шаблоны патчей.")
     print("=" * 70)
-    return 1 if (bad or meta_bad) else 0
+    # Дефект #89: err_bad обязан ронять прогон (раньше он молча шёл в skipped).
+    return 1 if (bad or meta_bad or err_bad) else 0
 
 
 if __name__ == "__main__":

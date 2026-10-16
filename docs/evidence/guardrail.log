@@ -1,19 +1,20 @@
 === KERN EVIDENCE: guardrail ===
 === команда: python3 examples/guardrail_proxy.py --self-test ===
-=== дата: 2026-10-16T14:06:31Z ===
+=== дата: 2026-10-16T16:49:29Z ===
 
   [proxy] "GET /health HTTP/1.1" 200 -
   [proxy] "POST /verify HTTP/1.1" 200 -
-  [proxy] "POST /verify HTTP/1.1" 200 -
-  [proxy] "POST /verify_multi HTTP/1.1" 200 -
+  [proxy] "POST /verify HTTP/1.1" 422 -
+  [proxy] "POST /verify_multi HTTP/1.1" 409 -
 ==========================================================================
-KERN GUARDRAIL SELF-TEST (порт 34181, /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so)
+KERN GUARDRAIL SELF-TEST (порт 35605, /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so)
 ==========================================================================
   [OK]   health               HTTP 200 belnap=None
   [OK]   доказано (T)         HTTP 200 belnap=T
-  [ПРОВАЛ] опровергнуто (F)   ждали HTTP 422/belnap=F, получили HTTP 200/belnap=T
-  [ПРОВАЛ] конфликт (B)       ждали HTTP 409/belnap=B, получили HTTP 200/belnap=T
+  [OK]   опровергнуто (F)     HTTP 422 belnap=F
+  [OK]   конфликт (B)         HTTP 409 belnap=B
 ==========================================================================
-ПРОВАЛОВ: 2
+ВСЁ ПРОЙДЕНО: 200(T) · 422(F) · 409(B) — семантика HTTP соответствует Белнапу B4
 
-RC=1
+RC=0
+[guard] FAULTABLE без изменений (59 файлов) — прогон чист

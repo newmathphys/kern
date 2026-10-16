@@ -27,6 +27,15 @@ export PATH="${ZIG_DIR:-$HOME/opt/zig-x86_64-linux-0.17.0}:$ROOT/.venv/bin:$HOME
 EV="$ROOT/docs/evidence"
 mkdir -p "$EV"
 
+# --- ПРЕДОХРАНИТЕЛЬ #88: снимок FAULTABLE-файлов на СТАРТЕ -------------------
+# Харнесс canfail и мутатор НАМЕРЕННО меняют исходники и восстанавливают их.
+# Но если файл правит КТО-ТО ЕЩЁ (человек/IDE/параллельный агент) во время
+# прогона, свидетельства снимаются при ПРОПАТЧЕННЫХ исходниках и ЛОЖНЫ.
+# Снимок + сверка после каждого шага превращают это из «непонятного RC=1 в
+# конце» в ТОЧНЫЙ диагноз сразу.
+GUARD="${GUARD:-/tmp/kern_evidence_guard.json}"
+python3 tools/evidence_guard.py --snapshot "$GUARD" || exit 1
+
 FAST=0
 for a in "$@"; do [ "$a" = "--fast" ] && FAST=1; done
 
@@ -49,6 +58,17 @@ collect() { # $1 = имя лога, $2... = команда
   local rc=$?
   { echo; echo "RC=$rc"; } >> "$out"
   local dt=$(( $(date +%s) - t0 ))
+
+  # --- ПРЕДОХРАНИТЕЛЬ #88: сверка после КАЖДОГО шага ----------------------
+  # Пока шаг вернул управление, все FAULTABLE-файлы обязаны побайтово
+  # совпадать со стартовым снимком. Иначе свидетельство НЕДЕЙСТВИТЕЛЬНО.
+  if ! python3 tools/evidence_guard.py --verify "$GUARD" >> "$out" 2>&1; then
+    printf 'FAIL  %4d с  ->  %s (ВНЕШНЯЯ ПРАВКА ФАЙЛА!)
+' "$dt" "$(basename "$out")"
+    BAD=$((BAD+1)); FAILED_LIST+=("$name(guard)")
+    return
+  fi
+
   if [ "$rc" = "0" ]; then
     printf 'OK    %4d с  ->  %s\n' "$dt" "$(basename "$out")"
     OK=$((OK+1))

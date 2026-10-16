@@ -1,6 +1,7 @@
 === KERN EVIDENCE: kern_next_tests ===
 === команда: zig build test-next ===
-=== дата: 2026-10-16T14:05:18Z ===
+=== дата: 2026-10-16T16:47:31Z ===
 
 
 RC=0
+[guard] FAULTABLE без изменений (59 файлов) — прогон чист

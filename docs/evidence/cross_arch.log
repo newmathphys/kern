@@ -1,14 +1,14 @@
 === KERN EVIDENCE: cross_arch ===
 === команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-16T14:22:30Z ===
+=== дата: 2026-10-16T15:56:52Z ===
 
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
   
   OK
-  232 passed; 4 skipped; 0 failed.
+  240 passed; 4 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
   
   OK
-  232 passed; 4 skipped; 0 failed.
+  240 passed; 4 skipped; 0 failed.
 
 RC=0
