@@ -67,6 +67,7 @@ pub const ProofVerdict = struct {
     rewrite_verified: usize = 0, // rewrite, ДОКАЗАННЫЕ нормализацией сравнений
     rewrite_bad: usize = 0, // rewrite, где обе стороны сравнения, но равенства НЕТ
     eq_verified: usize = 0, // refl / symm / trans — проверены структурно
+    bool_verified: usize = 0, // and-elim / monotonicity — проверены подстановкой
     trusted_steps: usize = 0, // что осталось непроверяемым — честно посчитано
     reject: []const u8 = "", // причина отказа ("" = нет)
 
@@ -540,30 +541,79 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     return .unverifiable;
 }
 
-/// Проверить `refl` / `symm` / `trans` структурно.
+/// Подставить `from -> to` в дерево. `null` — глубина превышена.
+fn subst(c: *const Ctx, e: Sexp, from: Sexp, to: Sexp, depth: u32) ?Sexp {
+    if (depth > 64) return null;
+    if (sexpEq(e, from)) return to;
+    if (!e.isList()) return e;
+    const out = c.arena.alloc(Sexp, e.items.len) catch return null;
+    for (e.items, 0..) |it, i| out[i] = subst(c, it, from, to, depth + 1) orelse return null;
+    return .{ .items = out };
+}
+
+/// Проверить `refl` / `symm` / `trans`.
+///
+/// 🔴 ДЕФЕКТ (найден прогоном `kernc prove`): посылки — это ССЫЛКИ на шаги
+/// (`@x41`), а не термы. `expand` их не раскрывает (он знает только сокращения
+/// `$x..`), поэтому `isEq3(@x41)` давал false и `trans` уходил в доверенные.
+/// Теперь посылки разрешаются через `premiseTerm`.
 fn verifyEqRule(c: *const Ctx, r: []const u8, st: Sexp) bool {
     const n = st.items.len;
     if (std.mem.eql(u8, r, "refl")) {
         if (n < 2) return false;
-        const eq = expand(c, st.items[n - 1], 0);
+        const eq = premiseTerm(c, st.items[n - 1]);
         return isEq3(eq) and sexpEq(eq.items[1], eq.items[2]);
     }
     if (std.mem.eql(u8, r, "symm")) {
         if (n < 3) return false;
-        const p = expand(c, st.items[n - 2], 0);
-        const q = expand(c, st.items[n - 1], 0);
+        const p = premiseTerm(c, st.items[n - 2]);
+        const q = premiseTerm(c, st.items[n - 1]);
         if (!isEq3(p) or !isEq3(q)) return false;
         return sexpEq(p.items[1], q.items[2]) and sexpEq(p.items[2], q.items[1]);
     }
     if (std.mem.eql(u8, r, "trans")) {
         if (n < 4) return false;
-        const p1 = expand(c, st.items[1], 0);
-        const p2 = expand(c, st.items[2], 0);
-        const q = expand(c, st.items[n - 1], 0);
+        const p1 = premiseTerm(c, st.items[1]);
+        const p2 = premiseTerm(c, st.items[2]);
+        const q = premiseTerm(c, st.items[n - 1]);
         if (!isEq3(p1) or !isEq3(p2) or !isEq3(q)) return false;
         // p1: a=b, p2: b=c, q: a=c — средний терм обязан совпасть.
         return sexpEq(p1.items[2], p2.items[1]) and
             sexpEq(p1.items[1], q.items[1]) and sexpEq(p2.items[2], q.items[2]);
+    }
+    return false;
+}
+
+/// `(and-elim P A)`: из доказанного `(and A ...)` следует конъюнкт `A`.
+fn verifyAndElim(c: *const Ctx, st: Sexp) bool {
+    if (st.items.len < 3) return false;
+    const src = premiseTerm(c, st.items[1]);
+    const concl = expand(c, proved(st), 0);
+    if (!src.isList() or src.items.len < 2) return false;
+    const h = src.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "and")) return false;
+    for (src.items[1..]) |part| {
+        if (sexpEq(part, concl)) return true;
+    }
+    return false;
+}
+
+/// `(monotonicity P (= X Y))`, где `P` доказывает `(= A B)`: вывод обязан
+/// получаться ПОДСТАНОВКОЙ `A -> B` в один из термов заключения.
+fn verifyMonotonicity(c: *const Ctx, st: Sexp) bool {
+    if (st.items.len < 3) return false;
+    const p = premiseTerm(c, st.items[1]);
+    const q = expand(c, proved(st), 0);
+    if (!isEq3(p) or !isEq3(q)) return false;
+    const a = p.items[1];
+    const b = p.items[2];
+    const x = q.items[1];
+    const y = q.items[2];
+    if (subst(c, x, a, b, 0)) |s| {
+        if (sexpEq(s, y)) return true;
+    }
+    if (subst(c, y, a, b, 0)) |s| {
+        if (sexpEq(s, x)) return true;
     }
     return false;
 }
@@ -922,6 +972,10 @@ pub fn verifyProof(
             std.mem.eql(u8, r, "trans"))
         {
             if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else v.trusted_steps += 1;
+        } else if (std.mem.eql(u8, r, "and-elim")) {
+            if (verifyAndElim(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
+        } else if (std.mem.eql(u8, r, "monotonicity")) {
+            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
         } else {
             // Прочие правила (elim-правила, кванторы): перепроверить нельзя,
             // учитываем как «доверенные», а не как «проверенные».
@@ -1008,6 +1062,7 @@ pub fn check(
     v.rewrite_verified = deep.rewrite_verified;
     v.rewrite_bad = deep.rewrite_bad;
     v.eq_verified = deep.eq_verified;
+    v.bool_verified = deep.bool_verified;
     v.trusted_steps = deep.trusted_steps;
     v.reject = deep.reject;
     if (!deep.checksPass() or !deep.proof_concludes_false) return v;
@@ -1246,4 +1301,38 @@ test "PROOF: линейная нормализация закрывает ари
     try std.testing.expectEqual(RwResult.unverifiable, checkRewrite(&c, un1));
     const un2 = try parseSexp(a, "(rewrite (= (* x x) 4))");
     try std.testing.expectEqual(RwResult.unverifiable, checkRewrite(&c, un2));
+}
+
+test "PROOF: and-elim / monotonicity / trans через ССЫЛКИ на шаги проверяются" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+
+    // Посылки здесь — СИМВОЛЫ (@r1, @m1, @a1). Раньше `expand` их не раскрывал,
+    // поэтому trans уходил в trusted. Теперь посылки разрешаются через
+    // premiseTerm -> proved.
+    const t = try parseSexp(a, "(trans @m1 @r2 (= (> (+ x 1) 1) (not (<= (+ 1 x) 1))))");
+    try std.testing.expectEqual(@as(usize, 4), t.items.len);
+
+    // and-elim: из (and A B) следует ИМЕННО конъюнкт A.
+    const ae = try parseSexp(a, "(and-elim @a1 $x25)");
+    try std.testing.expectEqualStrings("and-elim", ruleOf(ae).?);
+
+    // monotonicity: вывод обязан получаться подстановкой A->B.
+    const mo = try parseSexp(a, "(monotonicity @r1 (= (> (+ x 1) 1) (> (+ 1 x) 1)))");
+    try std.testing.expectEqualStrings("monotonicity", ruleOf(mo).?);
+}
+
+test "PROOF: подстановка и and-elim на разборе термов" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // subst: заменить (+ x 1) на (+ 1 x) внутри (and (> (+ x 1) 1) q)
+    const src = try parseSexp(a, "(and (> (+ x 1) 1) q)");
+    const from = try parseSexp(a, "(+ x 1)");
+    const to = try parseSexp(a, "(+ 1 x)");
+    const got = subst(&c, src, from, to, 0).?;
+    const want = try parseSexp(a, "(and (> (+ 1 x) 1) q)");
+    try std.testing.expect(sexpEq(got, want));
 }

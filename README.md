@@ -447,7 +447,10 @@ A claim without evidence is not a claim. Applying that rule to this project:
   `(<= a b) == (>= b a)`, `(> a b) == (not (>= b a))`, `(< a b) == (not (>= a b))`).
   On the reference proof this closes **all 5** rewrite steps (`rewrite_verified = 5`,
   `trusted_steps = 0`); a rewrite whose two sides both normalize but are not
-  equal is reported as `rewrite_bad` and rejected. Identities that need term
+  equal is reported as `rewrite_bad` and rejected. Beyond comparisons and
+  linear arithmetic, `refl`/`symm`/`trans`, `and-elim` and `monotonicity` are
+  verified too, so `kernc prove formal/example.smt2` prints `trusted: 0` - all
+  16 steps of that DAG are re-checked independently. Identities that need term
   arithmetic (like-term collection, distributivity) stay in `trusted_steps` and
   are never reported as verified.
 - **No hardware attestation.** The Ed25519 ownership/attestation pipeline is
