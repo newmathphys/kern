@@ -20,6 +20,11 @@ import subprocess
 import sys
 import tempfile
 
+# 🔴 ДЕФЕКТ #93 (хардкор-аудит): список был ЖЁСТКИМ из 6 файлов, поэтому модули,
+# добавленные в v2.2-v2.4, НЕ МУТИРОВАЛИСЬ ВООБЩЕ: `blake3_simd8`,
+# `hash_algo`, `capi`, `proof_check`, `model_extract`, `unsat_core`, `compat`.
+# То есть мутационный скор 97.5% считался по СТАРОМУ ядру и ничего не говорил
+# о новом коде. Список расширен.
 TARGETS = [
     "src/core/eq2.zig",
     "src/core/object_entry.zig",
@@ -27,6 +32,15 @@ TARGETS = [
     "src/core/kernfs_router.zig",
     "src/verifier/admission_gate.zig",
     "src/core/kimg_writer.zig",
+    # --- добавлено хардкор-аудитом ---
+    "src/core/hash_algo.zig",
+    "src/core/blake3_simd8.zig",
+    "src/capi.zig",
+    "src/compat.zig",
+    "src/verifier/proof_check.zig",
+    "src/verifier/model_extract.zig",
+    "src/verifier/unsat_core.zig",
+    "src/verifier/z3_bridge.zig",
 ]
 
 MUTATIONS = [
@@ -84,7 +98,45 @@ def collect(root):
     return sites
 
 
-def run_tests(root):
+# 🔴 ДЕФЕКТ #103 (хардкор-аудит): мутации в `src/capi.zig` выживали, потому что
+# `zig build test` НЕ запускает C-тесты (`tests/c_abi_test.c`,
+# `tests/c_abi_threads.c`). То есть публичный C-интерфейс был ВНЕ мутационного
+# покрытия. Теперь для мутаций в файлах, которые эти тесты проверяют,
+# дополнительно собирается библиотека и прогоняются ОБА C-теста.
+C_ABI_TARGETS = ("src/capi.zig", "src/compat.zig", "src/core/hash_algo.zig")
+
+
+def run_c_abi_tests(root):
+    """Собрать libkern.so из МУТИРОВАННЫХ исходников и прогнать C-тесты.
+
+    Возвращает (rc, вывод): rc != 0 означает, что мутант ПОЙМАН.
+    """
+    out = ""
+    r = subprocess.run(["zig", "build", "lib"], cwd=root,
+                       capture_output=True, text=True)
+    out += (r.stdout or "") + (r.stderr or "")
+    if r.returncode != 0:
+        return r.returncode, out
+    for src_c, exe in (("tests/c_abi_test.c", "kern_cabi_t"),
+                       ("tests/c_abi_threads.c", "kern_cabi_th")):
+        c = subprocess.run(
+            ["zig", "cc", "-Wall", "-Wextra", "-Werror", "-pedantic",
+             "-std=c11", "-pthread", "-Iinclude", src_c,
+             "-Lzig-out/lib", "-lkern", "-o", f"/tmp/{exe}"],
+            cwd=root, capture_output=True, text=True)
+        out += (c.stdout or "") + (c.stderr or "")
+        if c.returncode != 0:
+            return c.returncode, out
+        e = subprocess.run([f"/tmp/{exe}"], cwd=root, capture_output=True,
+                           text=True, timeout=300,
+                           env={**os.environ, "LD_LIBRARY_PATH": "zig-out/lib"})
+        out += (e.stdout or "") + (e.stderr or "")
+        if e.returncode != 0:
+            return e.returncode, out
+    return 0, out
+
+
+def run_tests(root, rel=None):
     # Zig 0.17: `compat` — ИМЕНОВАННЫЙ модуль, поэтому прямой `zig test
     # src/test_root.zig` не соберётся («no module named 'compat'»). Передаём
     # зависимость флагами `--dep compat -Mcompat=...`.
@@ -93,11 +145,18 @@ def run_tests(root):
          "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"],
         cwd=root, capture_output=True, text=True)
     out = (p.stdout or "") + (p.stderr or "")
-    if p.returncode == 0:
-        return "SURVIVED", out
-    if "error:" in out and "FAIL" not in out and "expected" not in out:
-        return "KILLED_COMPILE", out
-    return "KILLED_TEST", out
+    if p.returncode != 0:
+        if "error:" in out and "FAIL" not in out and "expected" not in out:
+            return "KILLED_COMPILE", out
+        return "KILLED_TEST", out
+
+    # Дефект #103: C-ABI вне покрытия -> добиваем C-тестами.
+    if rel in C_ABI_TARGETS:
+        rc, cout = run_c_abi_tests(root)
+        out += cout
+        if rc != 0:
+            return "KILLED_TEST", out
+    return "SURVIVED", out
 
 
 def tree_hash(root):
@@ -198,7 +257,7 @@ def main():
             lines[ln] = re.sub(pat, rep, lines[ln], count=1)
             try:
                 open(path, "w", encoding="utf-8").write("\n".join(lines))
-                status, _ = run_tests(work)
+                status, _ = run_tests(work, rel)
             finally:
                 open(path, "w", encoding="utf-8").write(orig)
             if status == "SURVIVED":

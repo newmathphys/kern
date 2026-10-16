@@ -116,6 +116,8 @@ collect guardrail         python3 examples/guardrail_proxy.py --self-test
 
 # --- 5. Демонстрация «зелёный CI против математики» --------------------------
 collect run_example         make run-example
+collect c_abi               make c-abi-test
+collect c_abi_threads       make c-abi-threads
 
 # --- 6. Бенчмарки ------------------------------------------------------------
 collect bench_perf          zig build bench-perf

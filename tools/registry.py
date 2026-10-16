@@ -68,6 +68,8 @@ CLASS = {
     "help": "META", "venv": "META", "zig": "META", "clean": "META",
     "echelons": "META", "research": "META", "formal-ci": "META", "test-all": "META",
     "mutate": "CHECK", "prove": "CHECK", "ci": "META", "ci-fast": "META", "registry": "CHECK",
+    # хардкор-аудит C-ABI: ОБЕ обязаны уметь падать (проверено can-fail кейсами)
+    "c-abi-test": "CHECK", "c-abi-threads": "CHECK",
 }
 
 
@@ -78,7 +80,10 @@ CASE_TARGET = {
     "lean-sorry": "lean",
     "binlevel": "binlevel",
     "svg-overflow": "svg-check",
-    "evidence-gate": "evidence-gate",
+    "evidence-guard": "evidence-gate",
+    # хардкор-аудит C-ABI (дефект #103): публичный интерфейс теперь под покрытием
+    "c-abi-null": "c-abi-test",
+    "c-abi-hash": "c-abi-threads",
     "disasm": "disasm",
     "core-gate": "test",
     "golden": "golden",

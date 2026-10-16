@@ -67,7 +67,7 @@ long kern_kimg_object_count(const unsigned char *img, unsigned long len);
 int kern_localize(const unsigned char *decls, unsigned long decls_len,
                   const unsigned char *pre, unsigned long pre_len,
                   const unsigned char *goal, unsigned long goal_len,
-                  char *out_buf, unsigned long out_buf_len);
+                  unsigned char *out_buf, unsigned long out_buf_len);
 
 #ifdef __cplusplus
 }

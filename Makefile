@@ -375,6 +375,20 @@ lib:
 	@echo "[OK] zig-out/lib/libkern.so + zig-out/include/kern.h"
 
 # Демонстрация C-ABI из Python (ctypes).
+# ==== ХАРДКОР-АУДИТ C-ABI (чистый C, строгие флаги) =========================
+# Проверяет NULL-указатели, нулевые длины и многопоточность ЧЕРЕЗ РЕАЛЬНУЮ
+# библиотеку (в тестовой сборке Zig ветка is_test замыкает compat.io(),
+# поэтому tls_io там не проверяется в принципе).
+c-abi-test: lib
+	@zig cc -Wall -Wextra -Werror -pedantic -std=c11 -Iinclude \
+		tests/c_abi_test.c -Lzig-out/lib -lkern -o /tmp/kern_cabi_test
+	@LD_LIBRARY_PATH=zig-out/lib /tmp/kern_cabi_test
+
+c-abi-threads: lib
+	@zig cc -Wall -Wextra -Werror -pedantic -std=c11 -pthread -Iinclude \
+		tests/c_abi_threads.c -Lzig-out/lib -lkern -o /tmp/kern_cabi_th
+	@LD_LIBRARY_PATH=zig-out/lib /tmp/kern_cabi_th
+
 capi-demo: lib
 	$(PYTHON) examples/capi_demo.py
 

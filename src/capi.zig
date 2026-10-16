@@ -34,7 +34,17 @@ pub const KERN_TOOL_ERROR: c_int = -1;
 ///   out32  — буфер вызывающего ровно на 32 байта.
 ///
 /// Возвращает: 0 = успех, -1 = неизвестный алгоритм (out32 не тронут).
+
+/// ЗАЩИТА ОТ NULL (хардкор-аудит). В C вызывающий МОЖЕТ передать NULL, хотя
+/// тип Zig `[*]const u8` этого не допускает. Без проверки `img[0]` по NULL
+/// даёт SIGSEGV. Проверяем через @intFromPtr.
+inline fn isNull(ptr: anytype) bool {
+    return @intFromPtr(ptr) == 0;
+}
+
 export fn kern_hash(algo: c_uint, data: [*]const u8, len: usize, out32: [*]u8) c_int {
+    if (isNull(out32)) return KERN_TOOL_ERROR;
+    if (isNull(data) and len != 0) return KERN_TOOL_ERROR;
     const a = hash_algo.HashAlgo.fromInt(algo) orelse return KERN_TOOL_ERROR;
     var out: [32]u8 = undefined;
     a.hash(data[0..len], &out);
@@ -61,7 +71,7 @@ export fn kern_ownership_ok() c_int {
 ///   KERN_REFUTED (1) — найден контрпример (sat);
 ///   KERN_UNKNOWN (2) — таймаут/неизвестно; KERN_TOOL_ERROR (-1) — нет решателя.
 export fn kern_smt_verify(smt: [*]const u8, len: usize) c_int {
-    if (len == 0) return KERN_TOOL_ERROR;
+    if (isNull(smt) or len == 0) return KERN_TOOL_ERROR;
     const alloc = std.heap.c_allocator;
     var bridge = z3b.Z3Bridge.init(alloc);
     const r = bridge.executeQuery(smt[0..len]);
@@ -77,7 +87,7 @@ export fn kern_smt_verify(smt: [*]const u8, len: usize) c_int {
 /// Проверка целостности образа .kimg (заголовок + Merkle-корень).
 /// 1 = валиден, 0 = нет. НЕ аллоцирует память (zero-copy).
 export fn kern_kimg_valid(img: [*]const u8, len: usize) c_int {
-    if (len < 128) return 0;
+    if (isNull(img) or len < 128) return 0;
     const hdr: *const [128]u8 = @ptrCast(img);
     const h = KimgHeader.parse(hdr, len) catch return 0;
     KimgHeader.verifyMerkleRoot(img[0..len], h) catch return 0;
@@ -86,7 +96,7 @@ export fn kern_kimg_valid(img: [*]const u8, len: usize) c_int {
 
 /// Число объектов в образе (-1 при ошибке).
 export fn kern_kimg_object_count(img: [*]const u8, len: usize) c_long {
-    if (len < 128) return -1;
+    if (isNull(img) or len < 128) return -1;
     const hdr: *const [128]u8 = @ptrCast(img);
     const h = KimgHeader.parse(hdr, len) catch return -1;
     return @intCast(h.object_count);
@@ -105,6 +115,10 @@ export fn kern_localize(
     out_buf: [*]u8,
     out_buf_len: usize,
 ) c_int {
+    if (isNull(decls) or isNull(pre) or isNull(goal) or isNull(out_buf)) return KERN_TOOL_ERROR;
+    if (decls_len == 0 or pre_len == 0 or goal_len == 0 or out_buf_len == 0) {
+        return KERN_TOOL_ERROR;
+    }
     const alloc = std.heap.c_allocator;
     const unsat_core = @import("verifier/unsat_core.zig");
     var bridge = z3b.Z3Bridge.init(alloc);

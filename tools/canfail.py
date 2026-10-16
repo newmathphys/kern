@@ -183,6 +183,8 @@ class Fault:
 
 FAULTABLE = [
     "docs/CAPABILITY_STATUS.md",
+    "src/compat.zig",
+    "src/core/hash_algo.zig",
     "tools/artifact_check.py",
     "README.md",
     "tools/kern_contracts.py",
@@ -1106,6 +1108,29 @@ def case_evidence_guard():
             "python3 tools/evidence_guard.py --verify /tmp/guard_probe.json")
 
 
+def case_c_abi_null():
+    """Хардкор-аудит C-ABI. ЛОМАЕМ: убираем NULL-защиту в `kern_kimg_valid`.
+
+    C-тест передаёт NULL при len=200. Без проверки это SIGSEGV -> ненулевой код.
+    """
+    patch("src/capi.zig",
+          "    if (isNull(img) or len < 128) return 0;",
+          "    if (len < 128) return 0; // ЛОМАЕМ: NULL-защита убрана")
+    return "make c-abi-test"
+
+
+def case_c_abi_hash():
+    """Хардкор-аудит C-ABI. ЛОМАЕМ: хэшируем только ПЕРВЫЙ байт входа.
+
+    Тест потоков сверяет результат с КОНСТАНТОЙ (независимый BLAKE3),
+    поэтому такой мутант обязан упасть.
+    """
+    patch("src/capi.zig",
+          "    a.hash(data[0..len], &out);",
+          "    a.hash(data[0..@min(len, 1)], &out); // ЛОМАЕМ: не весь вход")
+    return "make c-abi-threads"
+
+
 def case_semantic_gap():
     """Эшелон 4 (Lean). ЛОМАЕМ: добавляем `sorry` в KernSemanticGap.lean."""
     p = ROOT / "formal" / "KernSemanticGap.lean"
@@ -1442,6 +1467,8 @@ CASES = [
     ("registry-fuse", "K5: предохранитель ловит новую цель",     case_registry_fuse),
     ("registry-dup-numbers", "K5b: предохранитель ловит ДУБЛИКАТ номера дефекта", case_registry_dup_numbers),
     ("evidence-guard", "#88: предохранитель ловит ВНЕШНЮЮ правку во время прогона", case_evidence_guard),
+    ("c-abi-null", "C-ABI: NULL-указатель -> SIGSEGV (защита обязана ловить)", case_c_abi_null),
+    ("c-abi-hash", "C-ABI: хэш не всего входа ловится КОНСТАНТОЙ эталона", case_c_abi_hash),
     ("semantic-gap",  "Эшелон 4: sorry в Lean-файле",           case_semantic_gap),
     ("test-pool",     "Цель test-pool: лимит пула",             case_test_pool_target),
     ("test-align",    "Цель test-align: выравнивание",          case_test_align_target),

@@ -120,7 +120,21 @@ pub const Sexp = struct {
     }
 };
 
-pub const ParseError = error{ UnexpectedClose, UnexpectedEof, OutOfMemory };
+/// 🔴 ХАРДКОР-АУДИТ (Deep Nesting Bomb): добавлена ошибка ПРЕВЫШЕНИЯ ГЛУБИНЫ.
+///
+/// ИЗМЕРЕНО: `parseList` вызывает `parse()` рекурсивно, поэтому вход
+/// `'(' * N` даёт N кадров стека. 50 000 скобок тест-раннер переживает
+/// (большой стек), а **2 000 000 -> SIGSEGV** («terminated with signal SEGV»).
+/// Это классический stack-overflow на НЕДОВЕРЕННОМ входе (вывод решателя),
+/// то есть отказ в обслуживании одним файлом .smt2.
+///
+/// Исправление: жёсткий лимит глубины вложенности в парсере.
+pub const ParseError = error{ UnexpectedClose, UnexpectedEof, OutOfMemory, TooDeep };
+
+/// Предел вложенности S-выражений. Реальные выводы Z3 укладываются в единицы
+/// уровней (в эталонном — 14 шагов, глубина < 20). 4096 — с большим запасом,
+/// но при этом 4096 кадров стека безопасны.
+pub const MAX_SEXP_DEPTH: u32 = 4096;
 
 /// Разборщик S-выражений. Строки в кавычках сохраняются как атомы целиком
 /// (содержимое для проверок не нужно, но границы ломать нельзя).
@@ -128,6 +142,7 @@ const SexprParser = struct {
     src: []const u8,
     i: usize = 0,
     arena: std.mem.Allocator,
+    depth: u32 = 0, // текущая глубина вложенности (лимит MAX_SEXP_DEPTH)
 
     fn skipWs(self: *SexprParser) void {
         while (self.i < self.src.len) {
@@ -151,6 +166,10 @@ const SexprParser = struct {
     }
 
     fn parseList(self: *SexprParser) ParseError!Sexp {
+        // ЗАЩИТА ОТ STACK OVERFLOW (хардкор-аудит): рекурсия ограничена.
+        if (self.depth >= MAX_SEXP_DEPTH) return ParseError.TooDeep;
+        self.depth += 1;
+        defer self.depth -= 1;
         self.i += 1; // '('
         var list = std.array_list.Managed(Sexp).init(self.arena);
         while (true) {
@@ -506,7 +525,16 @@ pub fn extractAsserts(allocator: std.mem.Allocator, text: []const u8) ![]const [
         }
         const e = end orelse break;
         const inner = std.mem.trim(u8, text[after..e], " \t\r\n");
-        if (inner.len > 0) try out.append(try allocator.dupe(u8, inner));
+        if (inner.len > 0) {
+            // 🔴 ХАРДКОР-АУДИТ (инъекция отказов аллокатора) НАШЁЛ УТЕЧКУ:
+            // здесь было `try out.append(try allocator.dupe(u8, inner))`.
+            // Если `append` падал по OutOfMemory, результат `dupe` уже был
+            // выделен и НИКЕМ не освобождался. Правильный порядок — выделить,
+            // зарегистрировать errdefer, и только затем добавить в список.
+            const dup = try allocator.dupe(u8, inner);
+            errdefer allocator.free(dup);
+            try out.append(dup);
+        }
         i = e;
     }
     return out.toOwnedSlice();
@@ -1664,4 +1692,130 @@ test "PROOF: булева нормализация — де Морган, рас
     const neq = try parseSexp(a, "(rewrite (= (and (<= x 3) (>= x 3)) (and (<= x 3) (>= x 4))))");
     const r = checkRewrite(&c, neq);
     try std.testing.expect(r == .bad or r == .unverifiable);
+}
+
+test "ХАРДКОР: Deep Nesting Bomb ('(' * 50000) не должен ронять процесс" {
+    // ДО ФИКСА: `parseList` вызывает `parse()` рекурсивно БЕЗ лимита глубины,
+    // поэтому 50000 открывающих скобок дают 50000 кадров стека -> SIGSEGV.
+    // ПОСЛЕ ФИКСА: должен вернуться error (TooDeep), а процесс остаться живым.
+    const n = 2_000_000;
+    const buf = try std.testing.allocator.alloc(u8, n);
+    defer std.testing.allocator.free(buf);
+    @memset(buf, '(');
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const r = parseSexp(arena.allocator(), buf);
+    try std.testing.expectError(ParseError.TooDeep, r);
+}
+
+// =========================================================================
+//  ХАРДКОР-АУДИТ: инъекция отказов аллокатора
+//  `checkAllAllocationFailures` прогоняет функцию СТОЛЬКО раз, сколько в ней
+//  выделений, отказывая на каждом по очереди, и проверяет, что при частичном
+//  OutOfMemory НЕТ УТЕЧЕК и нет паники.
+// =========================================================================
+
+fn faultParseSexp(allocator: std.mem.Allocator) !void {
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    defer arena.deinit();
+    // ВАЖНО: ошибку НЕ глотаем — харнесс должен видеть error.OutOfMemory,
+    // иначе он сообщает SwallowedOutOfMemoryError (и он прав: проглоченный
+    // OOM скрывает, была ли уборка ресурсов).
+    _ = try parseSexp(arena.allocator(), "(a (b c) (d (e f)) ((g) h))");
+}
+
+test "ХАРДКОР: инъекция отказов аллокатора в parseSexp (0 утечек)" {
+    try std.testing.checkAllAllocationFailures(std.testing.allocator, faultParseSexp, .{});
+}
+
+fn faultExtractAsserts(allocator: std.mem.Allocator) !void {
+    const src = "(assert (and (> x 10) (< x 5)))";
+    const got = try extractAsserts(allocator, src);
+    defer {
+        for (got) |g| allocator.free(g);
+        allocator.free(got);
+    }
+}
+
+test "ХАРДКОР: инъекция отказов аллокатора в extractAsserts (0 утечек)" {
+    try std.testing.checkAllAllocationFailures(std.testing.allocator, faultExtractAsserts, .{});
+}
+
+// =========================================================================
+//  ХАРДКОР-АУДИТ: тесты ВНУТРЕННИХ правил (убивают выживших мутантов)
+//  Мутатор показал, что правила trans/symm/and-elim/monotonicity не покрыты
+//  тестами: мутации в их логике выживали.
+// =========================================================================
+
+test "ХАРДКОР: verifyEqRule — trans проверяется по СУЩЕСТВУ" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@x1", try parseSexp(a, "(asserted (= a b))"));
+    try c.stepexpr.put("@x2", try parseSexp(a, "(asserted (= b c))"));
+    try c.stepexpr.put("@x3", try parseSexp(a, "(asserted (= a c))"));
+    try c.stepexpr.put("@y1", try parseSexp(a, "(asserted (= z c))"));
+
+    // Совпадающий средний терм -> TRUE.
+    // Убивает мутанта `if (n < 4) return false` -> `if (true)`: он отверг бы
+    // ЛЮБОЙ trans, и этот тест упал бы.
+    try std.testing.expect(verifyEqRule(&c, "trans",
+        try parseSexp(a, "(trans @x1 @x2 @x3)")));
+    // НЕсовпадающий средний терм -> FALSE.
+    try std.testing.expect(!verifyEqRule(&c, "trans",
+        try parseSexp(a, "(trans @x1 @y1 @x3)")));
+}
+
+test "ХАРДКОР: verifyEqRule — symm и защита от не-равенств" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@x1", try parseSexp(a, "(asserted (= a b))"));
+    try c.stepexpr.put("@x4", try parseSexp(a, "(asserted (= b a))"));
+    try c.stepexpr.put("@x5", try parseSexp(a, "(asserted true)"));
+
+    try std.testing.expect(verifyEqRule(&c, "symm",
+        try parseSexp(a, "(symm @x1 @x4)")));
+    // ЗАЩИТА: q — НЕ равенство. Корректный код обязан вернуть false.
+    // Убивает мутанта `!isEq3(p) or !isEq3(q)` -> `and`: он прошёл бы дальше
+    // и обратился к `q.items[2]` у АТОМА -> паника (выход за границы).
+    try std.testing.expect(!verifyEqRule(&c, "symm",
+        try parseSexp(a, "(symm @x1 @x5)")));
+}
+
+test "ХАРДКОР: verifyAndElim — конъюнкт из and выводится" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@x1", try parseSexp(a, "(asserted (and A B))"));
+    // A выводится, C — нет.
+    try std.testing.expect(verifyAndElim(&c,
+        try parseSexp(a, "(and-elim @x1 A)")));
+    try std.testing.expect(!verifyAndElim(&c,
+        try parseSexp(a, "(and-elim @x1 C)")));
+}
+
+test "ХАРДКОР: verifyMonotonicity — подстановка A -> B проверяется" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@x1", try parseSexp(a, "(asserted (= a b))"));
+
+    // (= (f a) (f b)) получается подстановкой a->b -> TRUE.
+    // Убивает мутанта `if (sexpEq(s, y)) return true` -> `return false`.
+    try std.testing.expect(verifyMonotonicity(&c,
+        try parseSexp(a, "(monotonicity @x1 (= (f a) (f b)))")));
+    // (= (f a) (f c)) НЕ получается -> FALSE.
+    try std.testing.expect(!verifyMonotonicity(&c,
+        try parseSexp(a, "(monotonicity @x1 (= (f a) (f c)))")));
+    // ЗАЩИТА (строка 864): заключение — НЕ равенство. Корректный код обязан
+    // вернуть false ДО обращения к `q.items[1]`.
+    // Убивает мутанта `!isEq3(p) or !isEq3(q)` -> `and`: он прошёл бы дальше и
+    // обратился к полям АТОМА -> паника (выход за границы).
+    try std.testing.expect(!verifyMonotonicity(&c,
+        try parseSexp(a, "(monotonicity @x1 just_an_atom)")));
 }
