@@ -72,12 +72,52 @@ def fetch_asset(version: str) -> Path | None:
     return tmp
 
 
+def detect_version() -> str:
+    """Версия релиза, ОБЪЯВЛЕННАЯ в README (строка `releases/download/vX.Y.Z`).
+
+    ДЕФЕКТ #94: версия была ЗАШИТА (`default="v2.2.0"`) и устарела, поэтому
+    проверка сверялась с ЧУЖИМ релизом и могла показать «согласовано» или
+    «расхождение» не по делу. Теперь источник — сам README.
+    """
+    txt = (ROOT / "README.md").read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"releases/download/(v[0-9]+[.][0-9]+[.][0-9]+)/", txt)
+    if not m:
+        raise SystemExit("[!] в README.md нет ссылки releases/download/vX.Y.Z")
+    return m.group(1)
+
+
+def newest_source_mtime() -> float:
+    """Время самой свежей правки в исходниках, влияющих на бинарник."""
+    newest = 0.0
+    for pat in ("src/**/*.zig", "build.zig", "include/*.h"):
+        for p in ROOT.glob(pat):
+            if p.is_file():
+                newest = max(newest, p.stat().st_mtime)
+    return newest
+
+
+def binary_is_stale() -> bool:
+    """УСТАРЕЛ ли `kernc-hermetic` относительно исходников.
+
+    ДЕФЕКТ #93: цель `artifact-check` зависела только от `build`, а `zig build`
+    НЕ собирает `kernc-hermetic` (отдельный шаг). Проверялся старый бинарник,
+    и цепочка «сходилась» сама с собой, хотя исходники ушли вперёд —
+    ЛОЖНОЕ СРАБАТЫВАНИЕ ровно того класса, против которого построен проект.
+    """
+    if not LOCAL_BIN.exists():
+        return False  # отсутствие обрабатывается отдельно
+    return LOCAL_BIN.stat().st_mtime < newest_source_mtime()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--offline", action="store_true",
                     help="не скачивать asset (только README vs локальная сборка)")
-    ap.add_argument("--version", default="v2.2.0")
+    ap.add_argument("--version", default=None,
+                    help="версия релиза; по умолчанию берётся из README.md")
     args = ap.parse_args()
+    if args.version is None:
+        args.version = detect_version()
 
     print("=" * 74)
     print("KERN: аудит релизного артефакта (README <-> сборка <-> asset)")
@@ -98,6 +138,12 @@ def main() -> int:
     problems: list[str] = []
 
     # --- 2. локальная сборка -------------------------------------------------
+    # ПРЕДОХРАНИТЕЛЬ: устаревший бинарник делает проверку бессмысленной.
+    if binary_is_stale():
+        print("  [!] ЛОКАЛЬНАЯ СБОРКА УСТАРЕЛА: kernc-hermetic старше исходников")
+        print("      пересоберите: zig build hermetic  (иначе проверка сравнивает")
+        print("      бинарник САМ С СОБОЙ и может ложно показать согласованность)")
+        return 1
     if LOCAL_BIN.exists():
         got = sha256_file(LOCAL_BIN)
         mark = "OK" if got == want else "РАСХОЖДЕНИЕ"

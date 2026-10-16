@@ -197,10 +197,14 @@ kimg-deflate: build
 
 # Сквозной аудит релизного артефакта (защита от дефекта #82): сверяет хеш,
 # объявленный в README, с локальной сборкой и с asset'ом в релизе.
-artifact-check: build
+# ДЕФЕКТ #93: цель зависела только от `build`, а `zig build` НЕ собирает
+# `kernc-hermetic` (это отдельный шаг). Поэтому проверялся УСТАРЕВШИЙ
+# бинарник, и цепочка «сходилась» сама с собой, даже когда исходники ушли
+# вперёд. Теперь цель сначала СОБИРАЕТ герметичный бинарник.
+artifact-check: hermetic
 	@$(PYTHON) tools/artifact_check.py
 
-artifact-check-offline:
+artifact-check-offline: hermetic
 	@$(PYTHON) tools/artifact_check.py --offline
 
 # ==== РАСШИРЕННЫЙ КОНТУР ВЕРИФИКАЦИИ ====
