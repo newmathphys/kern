@@ -69,6 +69,7 @@ pub const ProofVerdict = struct {
     eq_verified: usize = 0, // refl / symm / trans — проверены структурно
     bool_verified: usize = 0, // and-elim / monotonicity — проверены подстановкой
     trusted_steps: usize = 0, // что осталось непроверяемым — честно посчитано
+    first_trusted: []const u8 = "", // правило первого непроверенного шага
     reject: []const u8 = "", // причина отказа ("" = нет)
 
     /// Все ли проверки прошли.
@@ -912,6 +913,13 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) bool {
 // Входная точка: аудит текста вывода
 // =========================================================================
 
+/// Пометить шаг как непроверенный и запомнить ПРАВИЛО первого такого шага.
+/// Без этого нельзя понять, что именно осталось доверенным (METRICS 55.5).
+fn markTrusted(v: *ProofVerdict, rule: []const u8) void {
+    v.trusted_steps += 1;
+    if (v.first_trusted.len == 0) v.first_trusted = rule;
+}
+
 /// Математический аудит вывода. `contract` — исходные утверждения контракта
 /// (строки SMT-LIB внутри `(assert ...)`) — по ним проверяется привязка
 /// посылок.
@@ -1001,22 +1009,22 @@ pub fn verifyProof(
             switch (checkRewrite(&c, st)) {
                 .verified => v.rewrite_verified += 1,
                 .bad => v.rewrite_bad += 1,
-                .unverifiable => v.trusted_steps += 1,
+                .unverifiable => markTrusted(&v, r),
             }
         } else if (std.mem.eql(u8, r, "refl") or std.mem.eql(u8, r, "symm") or
             std.mem.eql(u8, r, "trans"))
         {
-            if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else v.trusted_steps += 1;
+            if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else markTrusted(&v, r);
         } else if (std.mem.eql(u8, r, "and-elim")) {
-            if (verifyAndElim(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
+            if (verifyAndElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
         } else if (std.mem.eql(u8, r, "not-or-elim")) {
-            if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
+            if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
-            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
+            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
         } else {
             // Прочие правила (elim-правила, кванторы): перепроверить нельзя,
             // учитываем как «доверенные», а не как «проверенные».
-            v.trusted_steps += 1;
+            markTrusted(&v, r);
         }
     }
 
@@ -1101,6 +1109,7 @@ pub fn check(
     v.eq_verified = deep.eq_verified;
     v.bool_verified = deep.bool_verified;
     v.trusted_steps = deep.trusted_steps;
+    v.first_trusted = deep.first_trusted;
     v.reject = deep.reject;
     if (!deep.checksPass() or !deep.proof_concludes_false) return v;
 
