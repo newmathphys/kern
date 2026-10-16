@@ -444,6 +444,51 @@ def case_svg_overflow():
     return "make svg-check"
 
 
+def case_proof_checker_hole():
+    """Независимый пруф-чекер. ЛОМАЕМ: отключаем запрет дыр в выводе.
+
+    Если проверка `isHole` перестанет срабатывать, подделанный сертификат с
+    правилом `hole` пройдёт как «доказанный» — то есть KERN снова начнёт верить
+    решателю на слово. Тест «правило-дыра hole отвергается» обязан покраснеть.
+    """
+    patch(
+        "src/verifier/proof_check.zig",
+        [
+            (
+                """fn isHole(r: []const u8) bool {
+    for (HOLE_RULES) |h| if (std.mem.eql(u8, h, r)) return true;
+    return false;
+}""",
+                """fn isHole(r: []const u8) bool {
+    _ = r;
+    return false; // ДЫРА: запрет дыр отключён
+}""",
+            ),
+        ],
+    )
+    return "zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig"
+
+
+def case_proof_checker_binding():
+    """Независимый пруф-чекер. ЛОМАЕМ: отключаем привязку посылок к контракту.
+
+    Тогда `(asserted (< x 999))` — формула, которой в задаче НЕ было, — пройдёт
+    как законная посылка. Тест «подменённая посылка (fake assume) отвергается»
+    обязан покраснеть.
+    """
+    patch(
+        "src/verifier/proof_check.zig",
+        [
+            (
+                "            if (found) v.premises_bound += 1 else v.premises_unbound += 1;",
+                "            v.premises_bound += 1; // ДЫРА: привязка не проверяется\n"
+                "            _ = found;",
+            ),
+        ],
+    )
+    return "zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig"
+
+
 def case_evidence_gate():
     """Жёсткий гейт свидетельств. ЛОМАЕМ: дописываем RC=1 в опубликованный лог.
 
@@ -1147,6 +1192,8 @@ CASES = [
     ("binlevel",      "constant-time (ранний выход)",          case_binlevel_earlyexit),
     ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),
     ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
+    ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
+    ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),
     ("golden",        "Merkle эталонного образа",              case_golden_merkle),

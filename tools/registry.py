@@ -138,6 +138,8 @@ CASE_TARGET = {
     "telemetry-detects": "telemetry-quick",
     "sanity-control": "canfail",   # мета: проверяет сам харнесс
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
+    "proof-hole": "core_tests",
+    "proof-binding": "core_tests",
 }
 
 
