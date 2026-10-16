@@ -1,12 +1,12 @@
 === KERN EVIDENCE: slsa_check ===
 === команда: python3 tools/slsa_provenance.py --check ===
-=== дата: 2026-10-16T11:00:12Z ===
+=== дата: 2026-10-16T11:06:27Z ===
 
   [OK] kernc: sha256 совпал (259c4681297233ec…)
   [OK] kernx: sha256 совпал (7d3e7a951ab86a84…)
   [OK] kern-attack: sha256 совпал (a477d0ab5e2cbf3b…)
-  [OK] отпечаток исходников совпал (fe0bc212dc4a0ee2…)
-  [OK] коммит совпал: 42088538d7d1
+  [OK] отпечаток исходников совпал (e73a5ced5dcbb0ab…)
+  [OK] коммит совпал: 1cc194dadf7d
 
 АТТЕСТАТ ВАЛИДЕН
 
