@@ -184,6 +184,7 @@ class Fault:
 FAULTABLE = [
     "README.md",
     "tools/kern_contracts.py",
+    "src/next/truth.zig",
     "src/main.zig",
     "src/verifier/model_extract.zig",
     "src/core/codec.zig",
@@ -564,6 +565,19 @@ def case_contracts():
           'if "ДОКАЗАНО" in out and r.returncode == 0:',
           'if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным')
     return "make contracts"
+
+
+def case_skip_exit_n():
+    """kernx: `exit 2` (SKIP) снова считается ОПРОВЕРЖЕНИЕМ (F), а не N.
+
+    ЛОМАЕМ: убираем ветку пропуска в `Bit.ofExit`, и код 2 снова даёт `n = true`
+    (F). Тест «SKIP (exit 2) -> N» обязан покраснеть: пропущенная проверка
+    не является ни доказательством, ни опровержением (дефект #96).
+    """
+    patch("src/next/truth.zig",
+          "        if (exit_code == skip_exit_code) return .{}; // N: нет свидетельства",
+          "        if (false) return .{};  // ДИВЕРСИЯ: SKIP снова даёт F")
+    return "make test-next"
 
 
 def case_kimg_deflate():
@@ -1318,6 +1332,7 @@ CASES = [
     ("model-negative",  "Контрпример: (- N) не свёрнут",      case_model_negative),
     ("contracts-branches", "Ветвления: if отброшен",           case_contracts_branches),
     ("kimg-deflate",    "Сжатие: --deflate не сжимает",     case_kimg_deflate),
+    ("skip-exit-n",     "kernx: SKIP (exit 2) -> F вместо N",  case_skip_exit_n),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),

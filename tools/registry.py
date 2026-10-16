@@ -152,6 +152,7 @@ CASE_TARGET = {
     "contracts": "contracts",
     "contracts-branches": "contracts",  # ветвления if -> ite
     "kimg-deflate": "kimg-deflate",   # сжатие 0x02 в CLI
+    "skip-exit-n": "test-next",       # SKIP exit 2 -> N (боевой фидбек)
     "mcp-selftest": "mcp-selftest",
     "model-negative": "core_tests",   # парсер модели: свёртка (- N)
 }

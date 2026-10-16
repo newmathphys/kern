@@ -240,12 +240,15 @@ def expect_demo(alloc_out: list) -> int:
         problems.append("withdraw_buggy НЕ отвергнут (ожидался НАРУШЕН)")
     if "sum_to_n" not in text or "SKIP" not in text:
         problems.append("sum_to_n не помечен SKIP (цикл вне подмножества)")
-    # ВЕТВЛЕНИЯ: доказанное, но непроверяемое пруф-чекером обязано быть SKIP,
-    # а НЕ FAIL (код корректен) и НЕ PASS (независимо не проверено).
-    if "[SKIP] withdraw_fixed" not in text:
-        problems.append("withdraw_fixed не помечен SKIP (пруф-чекер не покрывает ite)")
-    if "[SKIP] withdraw_ternary" not in text:
-        problems.append("withdraw_ternary не помечен SKIP")
+    # ВЕТВЛЕНИЯ: после дефекта #95 (частичная резолюция + трёхзначный
+    # результат unit-resolution) пруф-чекер ПОКРЫВАЕТ выводы с `ite`,
+    # поэтому корректные функции с ветвлениями обязаны быть PASS,
+    # а НЕ SKIP. Раньше здесь ожидался SKIP — ожидание было записано,
+    # когда чекер такие выводы отвергал.
+    if "[PASS] withdraw_fixed" not in text:
+        problems.append("withdraw_fixed НЕ доказан (ожидался PASS + PROOF VERIFIED)")
+    if "[PASS] withdraw_ternary" not in text:
+        problems.append("withdraw_ternary НЕ доказан (ожидался PASS)")
     # БАГ ОБЯЗАН БЫТЬ НАЙДЕН с контрпримером.
     if "[FAIL] withdraw_missing_neg" not in text:
         problems.append("withdraw_missing_neg НЕ отвергнут (баг не найден!)")

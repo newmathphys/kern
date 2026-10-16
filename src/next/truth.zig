@@ -21,8 +21,31 @@ pub const Bit = struct {
         return .{ .p = a.p or b.p, .n = a.n or b.n };
     }
 
+    /// Код возврата проверки -> двухбитовый квант Белнапа.
+    ///
+    /// ТРИ исхода, а не два:
+    ///   `0`  -> подтверждение (p) -> T (tested, e = 1);
+    ///   `2`  -> КОНВЕНЦИЯ SKIP/NO_EVIDENCE -> НИ p, НИ n -> N (нет свидетельства,
+    ///          Врата остаются ЗАКРЫТЫМИ, e = 0);
+    ///   иное -> опровержение (n) -> F (refuted, e = 0).
+    ///
+    /// ДЕФЕКТ #96 (боевой фидбек со второго проекта, где работает kernx):
+    /// раньше ЛЮБОЙ ненулевой код давал `n = true`, поэтому ПРОПУЩЕННАЯ по
+    /// сети проверка (`exit 2`, SKIP) выглядела как ОПРОВЕРГНУТАЯ (F), а тест
+    /// с `assert`, ушедший в SKIP-ветку, мог получить `T` — оба варианта
+    /// неверны по Белнапу: пропуск не является ни доказательством, ни
+    /// опровержением. Правильный статус — `N (0,0)`.
+    pub const skip_exit_code: i64 = 2;
+
     pub fn ofExit(exit_code: i64) Bit {
-        return if (exit_code == 0) .{ .p = true } else .{ .n = true };
+        if (exit_code == 0) return .{ .p = true };
+        if (exit_code == skip_exit_code) return .{}; // N: нет свидетельства
+        return .{ .n = true };
+    }
+
+    /// Пропуск ли это (SKIP / нет свидетельства).
+    pub fn isSkip(self: Bit) bool {
+        return !self.p and !self.n;
     }
 
     pub fn status(self: Bit) ?ast.Status {
@@ -188,4 +211,38 @@ test "ФИКС: NaN/битая метрика exit_code не паникует" {
     try std.testing.expectEqual(@as(usize, 0), r.stats.to_tested);
     try std.testing.expectEqual(@as(usize, 0), r.stats.to_refuted);
     try std.testing.expectEqual(@as(usize, 0), r.stats.to_conflicted);
+}
+
+test "TRUTH: SKIP (exit 2) -> N (0,0), НЕ F и НЕ T (боевой фидбек #96)" {
+    const alloc = std.testing.allocator;
+    // Сценарий со второго проекта: тест СОДЕРЖИТ assert (анти-вакуум молчит),
+    // но во время исполнения ушёл в SKIP-ветку (нет сети) и вернул код 2.
+    // Такой пропуск не является ни доказательством, ни опровержением:
+    // по Белнапу это N (0,0), и Врата обязаны остаться ЗАКРЫТЫМИ.
+    const src =
+        \\project "skip" { version "1" mode "truth" root "." }
+        \\claim "execution: run net-test" { status empirical metric exit_code = 2 }
+    ;
+    var arena = std.heap.ArenaAllocator.init(alloc);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const parsed = try @import("parser.zig").parse(a, src);
+    const r = try resolve(a, parsed.project);
+
+    // Главное: НЕ стало tested (T) и НЕ стало refuted (F).
+    try std.testing.expectEqual(@as(usize, 0), r.stats.to_tested);
+    try std.testing.expectEqual(@as(usize, 0), r.stats.to_refuted);
+    // Статус остался «не доказан» (empirical/unknown), e = 0.
+    for (r.claims) |c| {
+        try std.testing.expect(c.status != .tested);
+        try std.testing.expect(c.status != .refuted);
+    }
+
+    // Прямая проверка кванта: exit 2 -> пустой квант (N).
+    const b2 = Bit.ofExit(2);
+    try std.testing.expect(b2.isSkip());
+    try std.testing.expect(b2.status() == null); // N: статус не присваивается
+    // Контроль: 0 -> T, 1 -> F (поведение не изменилось).
+    try std.testing.expect(Bit.ofExit(0).status() == .tested);
+    try std.testing.expect(Bit.ofExit(1).status() == .refuted);
 }

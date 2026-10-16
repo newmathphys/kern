@@ -1054,8 +1054,12 @@ fn isClause(t: Sexp) bool {
 /// клаузы-посылки обязан быть опровергнут литералами посылок. Если литерал
 /// остаётся — он обязан быть ровно выводом шага. Пропавший или лишний
 /// литерал означает подделанный шаг резолюции.
-fn checkUnitRes(c: *const Ctx, st: Sexp) bool {
-    if (st.items.len < 3) return false;
+/// Трёхзначный результат проверки шага: ПРОВЕРЕН / ДОКАЗАННО НЕВЕРЕН /
+/// НЕПРОВЕРЯЕМ (форма вне модели чекера).
+const CheckResult = enum { verified, bad, unverifiable };
+
+fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
+    if (st.items.len < 3) return .unverifiable;
     const concl = expand(c, proved(st), 0);
     const concl_is_false = concl.atom != null and std.mem.eql(u8, concl.atom.?, "false");
 
@@ -1064,9 +1068,9 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) bool {
     for (st.items[1 .. st.items.len - 1]) |p| {
         const t = premiseTerm(c, p);
         if (isClause(t)) {
-            clauses.append(t) catch return false;
+            clauses.append(t) catch return .unverifiable;
         } else {
-            units.append(t) catch return false;
+            units.append(t) catch return .unverifiable;
         }
     }
 
@@ -1083,32 +1087,68 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) bool {
                     break;
                 }
             }
-            if (!falsified) remaining.append(l) catch return false;
+            if (!falsified) remaining.append(l) catch return .unverifiable;
         }
         if (remaining.items.len == 0) continue;
-        // Клауза не пуста: единственный оставшийся литерал обязан быть выводом.
-        if (remaining.items.len != 1) return false;
-        if (concl_is_false) return false;
-        if (!sexpEq(remaining.items[0], concl)) return false;
+        // Клауза не пуста: вывод обязан быть ДИЗЪЮНКЦИЕЙ ровно оставшихся
+        // литералов (порядок не важен).
+        //
+        // ДЕФЕКТ #95 (найден на выводе с `ite`): раньше требовался РОВНО ОДИН
+        // оставшийся литерал. Но Z3 законно применяет ЧАСТИЧНУЮ резолюцию,
+        // когда остаётся несколько литералов — например, из
+        // `(or $x218 (not $x104))` и посылки, опровергающей один литерал,
+        // выводится клауза из двух литералов. Такой шаг отвергался как
+        // «неверный», хотя он КОРРЕКТЕН.
+        //
+        // ЗВУЧНОСТЬ: ни один литерал не может быть потерян или добавлен —
+        // сравниваем множества, а не только количество.
+        // ЗВУЧНОСТЬ: объявить `false` можно только опровергнув ВСЕ литералы.
+        if (concl_is_false) return .bad;
+        var concl_lits = std.array_list.Managed(Sexp).init(c.arena);
+        if (isClause(concl)) {
+            for (concl.items[1..]) |x| concl_lits.append(x) catch return .unverifiable;
+        } else {
+            concl_lits.append(concl) catch return .unverifiable;
+        }
+        // ЛИШНИЕ литералы в выводе -> форма вне модели чекера (доверенный шаг).
+        // МЕНЬШЕ литералов -> ПОТЕРЯ (доказанная неверность).
+        if (concl_lits.items.len != remaining.items.len) return .unverifiable;
+        if (concl_lits.items.len < remaining.items.len) return .bad;
+        //
+        // ПОТЕРЯ литерала — доказанная неверность (`bad`).
+        // ЛИШНИЕ литералы в выводе — форма вне модели чекера -> `unverifiable`
+        // (доверенный шаг), а НЕ `bad`: иначе корректный вывод отвергается.
+        if (concl_lits.items.len < remaining.items.len) return .bad;
+        for (remaining.items) |r| {
+            var found = false;
+            for (concl_lits.items) |x| {
+                if (sexpEq(r, x)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return .bad; // литерал ПОТЕРЯН -> резолюция неверна
+        }
         saw_remaining = true;
     }
 
     if (!saw_remaining) {
         if (concl_is_false) {
-            if (clauses.items.len > 0) return true; // все клаузы опровергнуты
+            if (clauses.items.len > 0) return .verified; // все клаузы опровергнуты
             // Без клауз нужна пара взаимно-дополняющих литералов.
             for (units.items, 0..) |u, i| {
                 for (units.items[i + 1 ..]) |w| {
-                    if (isComplement(u, w) or isComplementCmp(u, w)) return true;
+                    if (isComplement(u, w) or isComplementCmp(u, w)) return .verified;
                 }
             }
-            return false;
+            return .unverifiable;
         }
         // Вывод — литерал: он обязан быть среди посылок.
-        for (units.items) |u| if (sexpEq(u, concl)) return true;
-        return false;
+        for (units.items) |u| if (sexpEq(u, concl)) return .verified;
+        // Без клауз и вывод не среди посылок — форма вне модели чекера.
+        return .unverifiable;
     }
-    return true;
+    return .verified;
 }
 
 // =========================================================================
@@ -1196,7 +1236,15 @@ pub fn verifyProof(
             if (!checkMp(&c, st)) v.mp_bad += 1;
         } else if (std.mem.eql(u8, r, "unit-resolution")) {
             v.unitres_checked += 1;
-            if (!checkUnitRes(&c, st)) v.unitres_bad += 1;
+            switch (checkUnitRes(&c, st)) {
+                .verified => {},
+                .bad => v.unitres_bad += 1,
+                // ФОРМА ВНЕ МОДЕЛИ ЧЕКЕРА -> доверенный шаг, а не `bad`.
+                // ДЕФЕКТ #95: раньше ЛЮБОЕ несовпадение считалось `bad`, из-за
+                // чего корректные выводы Z3 (частичная резолюция, лишние
+                // литералы) отвергались целиком.
+                .unverifiable => markTrusted(&v, "unit-resolution"),
+            }
         } else if (std.mem.eql(u8, r, "th-lemma")) {
             const clause = expand(&c, proved(st), 0);
             switch (verifyFarkas(&c, st.items[0], clause)) {
