@@ -26,6 +26,38 @@ pub const VfsNode = union(enum) {
     virtual_view: []const u8, // сгенерированный ответ (для статусов и отчётов)
 };
 
+/// Битовая маска ПРОВЕРЕННЫХ объектов: 1 бит на объект.
+///
+/// Для 10 000 объектов это 1250 байт — ничтожная цена за то, что одиночные
+/// чтения внутри одного кластера из 8 соседей перестают хешировать повторно.
+/// Кэш валиден только для ИММУТАБЕЛЬНОГО образа (mmap запечатанного файла).
+pub const ClusterCache = struct {
+    bits: []u8,
+
+    pub fn init(alloc: std.mem.Allocator, n_objects: usize) !ClusterCache {
+        const nbytes = (n_objects + 7) / 8;
+        const bits = try alloc.alloc(u8, if (nbytes == 0) 1 else nbytes);
+        @memset(bits, 0);
+        return .{ .bits = bits };
+    }
+
+    pub fn deinit(self: ClusterCache, alloc: std.mem.Allocator) void {
+        alloc.free(self.bits);
+    }
+
+    pub fn isVerified(self: ClusterCache, idx: usize) bool {
+        const byte = idx / 8;
+        if (byte >= self.bits.len) return false;
+        return (self.bits[byte] >> @intCast(idx % 8)) & 1 == 1;
+    }
+
+    pub fn mark(self: *ClusterCache, idx: usize) void {
+        const byte = idx / 8;
+        if (byte >= self.bits.len) return;
+        self.bits[byte] |= @as(u8, 1) << @intCast(idx % 8);
+    }
+};
+
 pub const KernFS = struct {
     allocator: std.mem.Allocator,
     mmap_slice: []const u8,
@@ -149,6 +181,62 @@ pub const KernFS = struct {
     /// Публичный доступ к полезной нагрузке объекта (для CLI/KERN-X).
     pub fn objectPayload(self: KernFS, obj: ObjectEntry) ![]const u8 {
         return self.payloadSlice(obj);
+    }
+
+    /// ЧТЕНИЕ ПО ОДНОМУ ОБЪЕКТУ с кластерным кэшем проверки.
+    ///
+    /// ПРОБЛЕМА. `objectPayload` считает хеш ОДНОГО объекта — 8 полос SIMD
+    /// загрузить нечем, и цикл из 10 000 одиночных чтений работает на скорости
+    /// поштучного хеша (~356 МБ/с).
+    ///
+    /// РЕШЕНИЕ. При первом обращении к объекту `idx` проверяется весь КЛАСТЕР
+    /// из 8 соседних объектов (`base = idx & ~7`) одним векторным проходом, а
+    /// результат запоминается в битовой маске (1 бит на объект: для 10 000
+    /// объектов это 1250 байт). Последующие 7 обращений к тому же кластеру
+    /// идут без повторного хеширования.
+    ///
+    /// БЕЗОПАСНОСТЬ. Кэш корректен ТОЛЬКО потому, что образ иммутабелен: это
+    /// mmap запечатанного файла, содержимое не может измениться под нами.
+    /// Каждый объект кластера по-прежнему сверяется со СВОИМ `entry.digest`,
+    /// и при несовпадении возвращается `error.PayloadTampered` (биты при этом
+    /// НЕ выставляются).
+    pub fn objectPayloadCached(
+        self: KernFS,
+        idx: usize,
+        cache: *ClusterCache,
+    ) KernFsError![]const u8 {
+        if (idx >= self.objects.len) return KernFsError.FileNotFound;
+        if (cache.isVerified(idx)) return self.objectPayloadRaw(self.objects[idx]);
+
+        const base = idx & ~@as(usize, 7);
+        const room = self.objects.len - base;
+        const group: usize = @min(room, 8);
+        if (group == 8) {
+            var all_small = true;
+            for (self.objects[base .. base + 8]) |o| {
+                if (o.compressed_size > HashAlgo.batchMaxLen()) {
+                    all_small = false;
+                    break;
+                }
+            }
+            if (all_small) {
+                var ins: [8][]const u8 = undefined;
+                for (0..8) |k| ins[k] = try self.objectPayloadRaw(self.objects[base + k]);
+                var outs: [8][32]u8 = undefined;
+                self.hash_algo.hashBatch8(ins, &outs);
+                for (0..8) |k| {
+                    if (!std.mem.eql(u8, &outs[k], &self.objects[base + k].digest)) {
+                        return KernFsError.PayloadTampered;
+                    }
+                }
+                for (0..8) |k| cache.mark(base + k);
+                return self.objectPayloadRaw(self.objects[idx]);
+            }
+        }
+        // Кластер неполный или объект крупный — честный поштучный путь.
+        const sl = try self.payloadSlice(self.objects[idx]);
+        cache.mark(idx);
+        return sl;
     }
 
     /// ПАКЕТНАЯ верификация всех объектов образа: группы по 8 объектов
@@ -729,4 +817,76 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     defer fs.deinit();
     // Смещение за пределами пула -> чтение отвергается, не паника.
     try std.testing.expectError(KernFsError.FileNotFound, fs.read("/raw/a.zig"));
+}
+
+test "КЛАСТЕРНЫЙ КЭШ: подмена в СОСЕДНЕМ объекте кластера ловится при первом чтении" {
+    const Builder = @import("kimg_writer.zig").Builder;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const ta = arena.allocator();
+    var b = Builder.init(ta);
+    defer b.deinit();
+    // 16 объектов по 200 Б — два полных кластера по 8.
+    var payloads: [16][]const u8 = undefined;
+    var i: usize = 0;
+    var nb: [48]u8 = undefined;
+    while (i < 16) : (i += 1) {
+        const nm = try std.fmt.bufPrint(&nb, "o{d}", .{i});
+        const body = try ta.alloc(u8, 200);
+        for (body, 0..) |*c, k| c.* = @truncate((i * 31 + k * 7) & 0xFF);
+        payloads[i] = body;
+        try b.addSource(try ta.dupe(u8, nm), body);
+    }
+    var out = std.array_list.Managed(u8).init(ta);
+    try b.buildBytes(&out);
+    const img = out.items;
+
+    // Портим 1 байт в объекте 7 (он в ТОМ ЖЕ кластере, что и объект 3).
+    const fs_ok = try KernFS.mountFromBytes(ta, img);
+    // ВАЖНО: `payload_offset` в дескрипторе ОТНОСИТЕЛЬНЫЙ — прибавляем
+    // абсолютное начало пула из заголовка (поле 56..64). Именно на этой
+    // ловушке спотыкаются тесты подмены, которые «портят» не то место.
+    const pool_base = std.mem.readInt(u64, img[56..64], .little);
+    const off7 = @as(usize, @intCast(pool_base + fs_ok.objects[7].payload_offset));
+    img[off7 + 5] ^= 0x01;
+
+    var cache = try ClusterCache.init(std.testing.allocator, fs_ok.objects.len);
+    defer cache.deinit(std.testing.allocator);
+    // Обращаемся к объекту 3: кластер проверяется целиком, подмена в 7 обязана
+    // быть обнаружена, и биты НЕ выставляются.
+    try std.testing.expectError(KernFsError.PayloadTampered, fs_ok.objectPayloadCached(3, &cache));
+    try std.testing.expect(!cache.isVerified(3));
+    try std.testing.expect(!cache.isVerified(7));
+}
+
+test "КЛАСТЕРНЫЙ КЭШ: корректный образ — содержимое и повторное чтение совпадают" {
+    const Builder = @import("kimg_writer.zig").Builder;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const ta = arena.allocator();
+    var b = Builder.init(ta);
+    defer b.deinit();
+    var i: usize = 0;
+    var nb: [48]u8 = undefined;
+    while (i < 8) : (i += 1) {
+        const nm = try std.fmt.bufPrint(&nb, "p{d}", .{i});
+        const body = try ta.alloc(u8, 100 + i * 9);
+        for (body, 0..) |*c, k| c.* = @truncate((i * 17 + k * 3 + 1) & 0xFF);
+        try b.addSource(try ta.dupe(u8, nm), body);
+    }
+    var out = std.array_list.Managed(u8).init(ta);
+    try b.buildBytes(&out);
+    const img = out.items;
+    const fs = try KernFS.mountFromBytes(ta, img);
+
+    var cache = try ClusterCache.init(std.testing.allocator, fs.objects.len);
+    defer cache.deinit(std.testing.allocator);
+    // Первое чтение проверяет весь кластер и взводит 8 бит.
+    const first = try fs.objectPayloadCached(0, &cache);
+    for (0..8) |k| try std.testing.expect(cache.isVerified(k));
+    // Повторное чтение отдаёт те же байты.
+    const again = try fs.objectPayloadCached(0, &cache);
+    try std.testing.expectEqualSlices(u8, first, again);
+    // И остальные объекты кластера тоже отдаются (из кэша).
+    for (1..8) |k| _ = try fs.objectPayloadCached(k, &cache);
 }

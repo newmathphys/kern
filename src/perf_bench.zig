@@ -9,6 +9,7 @@ const Builder = @import("core/kimg_writer.zig").Builder;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 const compat = @import("compat");
+const router = @import("core/kernfs_router.zig");
 
 pub fn main(init: std.process.Init) !void {
     // БАГ-ФИКС 0.17: файловый I/O требует setIo() до первого вызова,
@@ -137,6 +138,34 @@ pub fn main(init: std.process.Init) !void {
         if (t_bat > 0 and bat_ok > 0 and ver_bytes > 0) {
             const bm = (@as(f64, @floatFromInt(ver_bytes)) / (1 << 20)) / (ms(t_bat) / 1000.0);
             std.debug.print("Безопасное чтение ПАКЕТНО (SIMD-8):{s}{d:.1} МБ/с  (объектов {d})\n", .{ "  ", bm, bat_ok });
+        }
+    }
+
+    // ---- ЗАМЕР №3: цикл ОДИНОЧНЫХ чтений (как `kernfs.read("/raw/...")` по одному)
+    if (fs.objects.len >= 8) {
+        var t_one = compat.Timer.start();
+        var one_bytes: usize = 0;
+        for (0..fs.objects.len) |oi| {
+            const sl = fs.objectPayload(fs.objects[oi]) catch continue;
+            one_bytes += sl.len;
+        }
+        const dt_one = t_one.read();
+
+        var cache = try router.ClusterCache.init(alloc, fs.objects.len);
+        defer cache.deinit(alloc);
+        var t_cl = compat.Timer.start();
+        var cl_bytes: usize = 0;
+        for (0..fs.objects.len) |ci| {
+            const sl = fs.objectPayloadCached(ci, &cache) catch continue;
+            cl_bytes += sl.len;
+        }
+        const dt_cl = t_cl.read();
+
+        if (dt_one > 0 and dt_cl > 0 and one_bytes > 0) {
+            const one_m = (@as(f64, @floatFromInt(one_bytes)) / (1 << 20)) / (ms(dt_one) / 1000.0);
+            const cl_m = (@as(f64, @floatFromInt(cl_bytes)) / (1 << 20)) / (ms(dt_cl) / 1000.0);
+            std.debug.print("одиночные чтения (поштучно):{s}{d:.1} МБ/с\n", .{ "        ", one_m });
+            std.debug.print("одиночные чтения (кластерный кэш):{s}{d:.1} МБ/с  -> {d:.2}x\n", .{ "  ", cl_m, cl_m / one_m });
         }
     }
 
