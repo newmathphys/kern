@@ -14,6 +14,7 @@ const AdmissionGate = @import("verifier/admission_gate.zig").AdmissionGate;
 const ProofCertificate = @import("verifier/admission_gate.zig").ProofCertificate;
 const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPolicy;
 const TrustedChecker = @import("verifier/admission_gate.zig").TrustedChecker;
+const proof_check = @import("verifier/proof_check.zig");
 const z3b = @import("verifier/z3_bridge.zig");
 const unsat_core = @import("verifier/unsat_core.zig");
 const array_theory = @import("verifier/array_theory.zig");
@@ -332,6 +333,45 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("  KERN-EQ2 : {s}\n", .{r.eq2_status.symbol()});
         std.debug.print("  e        : {d}\n", .{r.e_value});
         std.debug.print("  ВЕРДИКТ  : {s}\n", .{if (r.e_value == 1) "ДОКАЗАНО (допущено)" else "НЕ доказано (контрпример/таймаут)"});
+        // ---- НЕЗАВИСИМАЯ ПЕРЕПРОВЕРКА ВЫВОДА Z3 (пруф-чекер) ----------
+        // Не верим `unsat` на слово: разбираем DAG вывода и перепроверяем
+        // дыры, привязку посылок, mp, резолюцию, Фаркаша и rewrite.
+        {
+            var q = compat.BufWriter.init(alloc);
+            defer q.deinit();
+            const wq = q.writer();
+            try wq.writeAll("(set-option :produce-proofs true)\n");
+            try wq.writeAll(smt);
+            try wq.writeAll("\n(check-sat)\n(get-proof)\n");
+            const cap = bridge.executeCapture(q.items());
+            defer alloc.free(cap.stdout);
+            if (cap.status == .Unsat) {
+                // Файл .smt2 может содержать СВОЙ `(check-sat)` — тогда ответов
+                // несколько, и первый newline не отделяет вывод. Берём блок
+                // вывода после ПОСЛЕДНЕГО `unsat`.
+                const up = std.mem.lastIndexOf(u8, cap.stdout, "unsat") orelse 0;
+                const st = std.mem.indexOfScalarPos(u8, cap.stdout, up, '(') orelse cap.stdout.len;
+                const proof = cap.stdout[st..];
+                var ar = std.heap.ArenaAllocator.init(alloc);
+                defer ar.deinit();
+                const ta = ar.allocator();
+                const contract = try proof_check.extractAsserts(ta, smt);
+                const pv = try proof_check.verifyProof(ta, proof, contract);
+                std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок привязано {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | доверенных {d} | дыр {d}\n", .{
+                    pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
+                    pv.unitres_checked, pv.farkas_checked, pv.rewrite_verified,
+                    pv.trusted_steps, pv.holes,
+                });
+                if (pv.checksPass() and pv.proof_concludes_false) {
+                    std.debug.print("  [PROOF VERIFIED] steps: {d} | premises bound: {d}/{d} | mp: {d} | rewrite (linear): {d} | farkas: {d} | trusted: {d} | holes: {d}\n", .{
+                        pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
+                        pv.rewrite_verified, pv.farkas_checked, pv.trusted_steps, pv.holes,
+                    });
+                } else {
+                    fail("[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя\n", .{});
+                }
+            }
+        }
         // ДЕФЕКТ #40 (найден can-fail): CLI печатал «НЕ доказано», но
         // завершался с кодом 0 — `make prove` оставался ЗЕЛЁНЫМ при провале
         // доказательства. Теперь не-доказательство -> exit(2).

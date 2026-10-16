@@ -409,6 +409,59 @@ fn normCmp(e: Sexp) ?NormCmp {
     return null;
 }
 
+/// Извлечь тела всех `(assert ...)` из текста SMT-LIB2.
+///
+/// Нужно для CLI: чтобы независимо перепроверить вывод, чекеру требуется список
+/// клауз контракта — по ним проверяется привязка посылок (`asserted`).
+/// Скан по скобкам: находим `(assert`, идём до парной закрывающей скобки,
+/// возвращаем внутренний текст без внешних скобок и без `assert`.
+pub fn extractAsserts(allocator: std.mem.Allocator, text: []const u8) ![]const []const u8 {
+    var out = std.array_list.Managed([]const u8).init(allocator);
+    errdefer out.deinit();
+    var i: usize = 0;
+    while (i + 7 <= text.len) : (i += 1) {
+        if (text[i] != '(') continue;
+        // `(assert` + разделитель
+        if (!std.mem.startsWith(u8, text[i..], "(assert")) continue;
+        const after = i + 7;
+        if (after >= text.len) break;
+        const c = text[after];
+        if (c != ' ' and c != '\t' and c != '\n' and c != '\r') continue;
+        // идём до парной скобки
+        var depth: i64 = 0;
+        var j = i;
+        var end: ?usize = null;
+        var in_str = false;
+        while (j < text.len) : (j += 1) {
+            const ch = text[j];
+            if (in_str) {
+                if (ch == '\\') {
+                    j += 1;
+                } else if (ch == '"') in_str = false;
+                continue;
+            }
+            if (ch == '"') {
+                in_str = true;
+            } else if (ch == ';') {
+                while (j < text.len and text[j] != '\n') j += 1;
+            } else if (ch == '(') {
+                depth += 1;
+            } else if (ch == ')') {
+                depth -= 1;
+                if (depth == 0) {
+                    end = j;
+                    break;
+                }
+            }
+        }
+        const e = end orelse break;
+        const inner = std.mem.trim(u8, text[after..e], " \t\r\n");
+        if (inner.len > 0) try out.append(try allocator.dupe(u8, inner));
+        i = e;
+    }
+    return out.toOwnedSlice();
+}
+
 /// Равны ли два булевых литерала с точностью до нормализации сравнений.
 pub fn sameLiteral(a: Sexp, b: Sexp) bool {
     if (sexpEq(a, b)) return true;
