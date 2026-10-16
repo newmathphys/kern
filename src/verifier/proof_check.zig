@@ -64,14 +64,18 @@ pub const ProofVerdict = struct {
     farkas_checked: usize = 0, // проверено арифметически
     farkas_structural: usize = 0, // разобрана только структура
     farkas_bad: usize = 0,
-    trusted_steps: usize = 0, // rewrite и пр. — не перепроверяемы
+    rewrite_verified: usize = 0, // rewrite, ДОКАЗАННЫЕ нормализацией сравнений
+    rewrite_bad: usize = 0, // rewrite, где обе стороны сравнения, но равенства НЕТ
+    eq_verified: usize = 0, // refl / symm / trans — проверены структурно
+    trusted_steps: usize = 0, // что осталось непроверяемым — честно посчитано
     reject: []const u8 = "", // причина отказа ("" = нет)
 
     /// Все ли проверки прошли.
     pub fn checksPass(self: ProofVerdict) bool {
         return self.holes == 0 and self.premises_unbound == 0 and
             self.mp_bad == 0 and self.unitres_bad == 0 and
-            self.farkas_bad == 0 and self.reject.len == 0;
+            self.farkas_bad == 0 and self.rewrite_bad == 0 and
+            self.reject.len == 0;
     }
 };
 
@@ -361,6 +365,116 @@ fn resolvePremise(c: *const Ctx, p: Sexp) Sexp {
         if (c.stepexpr.get(a)) |v| return v;
     }
     return p;
+}
+
+// =========================================================================
+// Нормализация сравнений: закрываем шаги `rewrite`
+// =========================================================================
+
+/// Сравнение в канонической форме: `neg ? ¬(a >= b) : (a >= b)`.
+///
+/// ЗАЧЕМ. Z3 оформляет элементарные тождества как шаги `rewrite`, и раньше они
+/// целиком уходили в `trusted_steps` — то есть принимались без проверки.
+/// Между тем это не произвольный рерайтер: на эталонном выводе все 5 шагов
+/// сводятся к двум правилам, которые проверяются точно:
+///
+///   1. РЕФЛЕКСИВНОСТЬ: `(= X X)` — верно по определению равенства.
+///   2. НОРМАЛИЗАЦИЯ СРАВНЕНИЙ (перестановка сторон и смена знака):
+///        `(<= a b)` == `(>= b a)`
+///        `(>  a b)` == `(not (>= b a))`
+///        `(<  a b)` == `(not (>= a b))`
+///        `(not X)`  — инвертирует признак отрицания.
+///
+/// ЧТО ЭТО НЕ ЗАКРЫВАЕТ (честно): тождества, требующие арифметики термов
+/// (приведение подобных, дистрибутивность, булевы законы вне сравнений),
+/// нормализатор не проверяет — такие шаги остаются в `trusted_steps`.
+const NormCmp = struct { neg: bool, a: Sexp, b: Sexp };
+
+fn normCmp(e: Sexp) ?NormCmp {
+    if (!e.isList() or e.items.len == 0) return null;
+    const h = e.items[0].atom orelse return null;
+    if (std.mem.eql(u8, h, "not") and e.items.len == 2) {
+        if (normCmp(e.items[1])) |n| {
+            return .{ .neg = !n.neg, .a = n.a, .b = n.b };
+        }
+        return null;
+    }
+    if (e.items.len != 3) return null;
+    const a = e.items[1];
+    const b = e.items[2];
+    if (std.mem.eql(u8, h, ">=")) return .{ .neg = false, .a = a, .b = b };
+    if (std.mem.eql(u8, h, "<=")) return .{ .neg = false, .a = b, .b = a };
+    if (std.mem.eql(u8, h, ">")) return .{ .neg = true, .a = b, .b = a };
+    if (std.mem.eql(u8, h, "<")) return .{ .neg = true, .a = a, .b = b };
+    return null;
+}
+
+/// Равны ли два булевых литерала с точностью до нормализации сравнений.
+pub fn sameLiteral(a: Sexp, b: Sexp) bool {
+    if (sexpEq(a, b)) return true;
+    const na = normCmp(a) orelse return false;
+    const nb = normCmp(b) orelse return false;
+    return na.neg == nb.neg and sexpEq(na.a, nb.a) and sexpEq(na.b, nb.b);
+}
+
+fn isEq3(e: Sexp) bool {
+    if (!e.isList() or e.items.len != 3) return false;
+    const h = e.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, "=");
+}
+
+/// Трёхзначный итог проверки шага `rewrite`:
+///   verified     — равенство ДОКАЗАНО нормализацией;
+///   bad          — обе стороны нормализуются, но НЕ равны -> подделка;
+///   unverifiable — нормализатор не покрывает эти термы, шаг доверенный.
+const RwResult = enum { verified, bad, unverifiable };
+
+fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
+    if (st.items.len < 2) return .unverifiable;
+    const eq = expand(c, st.items[1], 0);
+    if (!isEq3(eq)) return .unverifiable;
+    const l = eq.items[1];
+    const r = eq.items[2];
+    if (sexpEq(l, r)) return .verified; // рефлексивность: (= X X)
+    const nl = normCmp(l);
+    const nr = normCmp(r);
+    if (nl != null and nr != null) {
+        const a = nl.?;
+        const b = nr.?;
+        if (a.neg == b.neg and sexpEq(a.a, b.a) and sexpEq(a.b, b.b)) return .verified;
+        // Обе стороны — сравнения, значит нормализатор их ПОКРЫВАЕТ,
+        // но равенства нет: это доказанная подделка, а не «непроверяемость».
+        return .bad;
+    }
+    return .unverifiable;
+}
+
+/// Проверить `refl` / `symm` / `trans` структурно.
+fn verifyEqRule(c: *const Ctx, r: []const u8, st: Sexp) bool {
+    const n = st.items.len;
+    if (std.mem.eql(u8, r, "refl")) {
+        if (n < 2) return false;
+        const eq = expand(c, st.items[n - 1], 0);
+        return isEq3(eq) and sexpEq(eq.items[1], eq.items[2]);
+    }
+    if (std.mem.eql(u8, r, "symm")) {
+        if (n < 3) return false;
+        const p = expand(c, st.items[n - 2], 0);
+        const q = expand(c, st.items[n - 1], 0);
+        if (!isEq3(p) or !isEq3(q)) return false;
+        return sexpEq(p.items[1], q.items[2]) and sexpEq(p.items[2], q.items[1]);
+    }
+    if (std.mem.eql(u8, r, "trans")) {
+        if (n < 4) return false;
+        const p1 = expand(c, st.items[1], 0);
+        const p2 = expand(c, st.items[2], 0);
+        const q = expand(c, st.items[n - 1], 0);
+        if (!isEq3(p1) or !isEq3(p2) or !isEq3(q)) return false;
+        // p1: a=b, p2: b=c, q: a=c — средний терм обязан совпасть.
+        return sexpEq(p1.items[2], p2.items[1]) and
+            sexpEq(p1.items[1], q.items[1]) and sexpEq(p2.items[2], q.items[2]);
+    }
+    return false;
 }
 
 // =========================================================================
@@ -704,8 +818,21 @@ pub fn verifyProof(
                 .structural_only => v.farkas_structural += 1,
                 .bad => v.farkas_bad += 1,
             }
+        } else if (std.mem.eql(u8, r, "rewrite")) {
+            // Элементарные тождества: если равенство доказано нормализацией
+            // сравнений (или рефлексивностью) — шаг ПРОВЕРЕН, иначе остаётся
+            // доверенным. Никогда не выдаём непроверенное за проверенное.
+            switch (checkRewrite(&c, st)) {
+                .verified => v.rewrite_verified += 1,
+                .bad => v.rewrite_bad += 1,
+                .unverifiable => v.trusted_steps += 1,
+            }
+        } else if (std.mem.eql(u8, r, "refl") or std.mem.eql(u8, r, "symm") or
+            std.mem.eql(u8, r, "trans"))
+        {
+            if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else v.trusted_steps += 1;
         } else {
-            // rewrite / trans / symm / elim-правила: перепроверить нельзя,
+            // Прочие правила (elim-правила, кванторы): перепроверить нельзя,
             // учитываем как «доверенные», а не как «проверенные».
             v.trusted_steps += 1;
         }
@@ -787,6 +914,9 @@ pub fn check(
     v.farkas_checked = deep.farkas_checked;
     v.farkas_structural = deep.farkas_structural;
     v.farkas_bad = deep.farkas_bad;
+    v.rewrite_verified = deep.rewrite_verified;
+    v.rewrite_bad = deep.rewrite_bad;
+    v.eq_verified = deep.eq_verified;
     v.trusted_steps = deep.trusted_steps;
     v.reject = deep.reject;
     if (!deep.checksPass() or !deep.proof_concludes_false) return v;
@@ -891,10 +1021,13 @@ test "PROOF (РЕАЛЬНЫЙ ВЫВОД Z3): все проверки прохо
     try std.testing.expectEqual(@as(usize, 0), v.unitres_bad);
     try std.testing.expectEqual(@as(usize, 1), v.farkas_checked);
     try std.testing.expectEqual(@as(usize, 0), v.farkas_bad);
-    // Измерено на этом выводе: 14 шагов = 2 asserted + 5 rewrite (доверенные)
-    // + 5 mp + 1 unit-resolution + 1 th-lemma.
+    // Измерено на этом выводе: 14 шагов = 2 asserted + 5 rewrite + 5 mp
+    // + 1 unit-resolution + 1 th-lemma. Все 5 rewrite ДОКАЗАНЫ нормализацией
+    // сравнений (2 рефлексивных + 3 перестановки сторон), поэтому
+    // trusted_steps = 0: непроверяемых шагов на эталоне не осталось.
     try std.testing.expectEqual(@as(usize, 14), v.proof_steps);
-    try std.testing.expectEqual(@as(usize, 5), v.trusted_steps);
+    try std.testing.expectEqual(@as(usize, 5), v.rewrite_verified);
+    try std.testing.expectEqual(@as(usize, 0), v.trusted_steps);
     try std.testing.expect(v.checksPass());
 }
 
@@ -966,4 +1099,33 @@ test "PROOF (РЕАЛЬНЫЙ Z3): выполнимая формула НЕ да
     const v = try check(std.testing.allocator, &bridge, "(declare-const x Int)", &pres, "(< x 0)");
     try std.testing.expect(!v.is_unsat);
     try std.testing.expect(!v.confirmed);
+}
+
+test "PROOF-АТАКА: подделанный rewrite между двумя сравнениями отвергается" {
+    // Обе стороны нормализуются, значит нормализатор их ПОКРЫВАЕТ. Если
+    // равенства нет — это доказанная подделка, а не «непроверяемость».
+    // Меняем (= (< x 5) (not (<= 5 x)))  на  (= (< x 5) (<= 5 x)):
+    //   (< x 5)  -> neg=true,  a=x, b=5
+    //   (<= 5 x) -> neg=false, a=x, b=5   -> признаки отрицания РАЗНЫЕ
+    const bad = try std.mem.replaceOwned(u8, std.testing.allocator, REAL_LIA_PROOF, "(rewrite (= (< x 5) $x36))", "(rewrite (= (< x 5) (<= 5 x)))");
+    defer std.testing.allocator.free(bad);
+    const v = try verifyProof(std.testing.allocator, bad, &REAL_LIA_CONTRACT);
+    try std.testing.expect(v.rewrite_bad >= 1);
+    try std.testing.expect(!v.checksPass());
+}
+
+test "PROOF: нормализация сравнений — рефлексивность и перестановка сторон" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    const p1 = try parseSexp(a, "(< x 5)");
+    const p2 = try parseSexp(a, "(not (>= x 5))");
+    const p3 = try parseSexp(a, "(<= 5 x)");
+    const p4 = try parseSexp(a, "(>= x 5)");
+    const p5 = try parseSexp(a, "(> x 5)");
+    try std.testing.expect(sameLiteral(p1, p2)); // (< x 5) == ¬(x >= 5)
+    try std.testing.expect(sameLiteral(p3, p4)); // (<= 5 x) == (x >= 5)
+    try std.testing.expect(!sameLiteral(p1, p4)); // x<5 НЕ равно x>=5
+    try std.testing.expect(!sameLiteral(p1, p5)); // x<5 НЕ равно x>5
+    try std.testing.expect(sameLiteral(p1, p1)); // рефлексивность
 }

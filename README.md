@@ -418,9 +418,14 @@ A claim without evidence is not a claim. Applying that rule to this project:
   `unit-resolution` literal coverage, and Farkas arithmetic certificates. Two
   honest limits remain: (a) Alethe/LFSC is **not** produced by this Z3 build
   (`strings z3 | grep -ic alethe` -> 0, no `proof.format` option), so only the
-  native format is checked; (b) `rewrite` steps cannot be re-verified without
-  reimplementing Z3's rewriter, so they are counted separately as
-  `trusted_steps` and are never reported as verified.
+  native format is checked; (b) `rewrite` steps are re-verified **only where the
+  normalizer covers them** - elementary comparison identities (reflexivity,
+  `(<= a b) == (>= b a)`, `(> a b) == (not (>= b a))`, `(< a b) == (not (>= a b))`).
+  On the reference proof this closes **all 5** rewrite steps (`rewrite_verified = 5`,
+  `trusted_steps = 0`); a rewrite whose two sides both normalize but are not
+  equal is reported as `rewrite_bad` and rejected. Identities that need term
+  arithmetic (like-term collection, distributivity) stay in `trusted_steps` and
+  are never reported as verified.
 - **No hardware attestation.** The Ed25519 ownership/attestation pipeline is
   implemented in software; there is no TPM/SGX integration (no such hardware here).
 - **SLSA attestation is unsigned** (no `cosign` in the environment) — structurally
