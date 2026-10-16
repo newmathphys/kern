@@ -36,7 +36,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "kern.intoto.jsonl"
-SUBJECTS = ["kernc", "kernx", "kern-attack"]
+# 🔴 ДЕФЕКТ #92 (найден на практике): раньше здесь стояли `kernc`, `kernx`,
+# `kern-attack` — это файлы, которые ПЕРЕЗАПИСЫВАЕТ любой `zig build`
+# (по умолчанию Debug). Аттестат собирался в ReleaseFast, но следующий
+# обычный `zig build` (например, внутри `make evidence`) подменял бинарники
+# Debug-версиями — и `--check` начинал сообщать «[РАСХОЖДЕНИЕ] kernc»,
+# хотя ИСХОДНИКИ не менялись (отпечаток исходников совпадал!).
+#
+# Аттестуем АРТЕФАКТ РЕЛИЗА: `kernc-hermetic` (ReleaseSafe, статический musl).
+# Он лежит по ОТДЕЛЬНОМУ имени, обычным `zig build` не перезаписывается,
+# и именно он публикуется как `kernc-x86_64-linux-musl`.
+SUBJECTS = ["kernc-hermetic"]
 
 
 def sha256_file(p: Path) -> str:
@@ -176,7 +186,10 @@ def main() -> int:
     # Замер: Debug 2× → разные хэши; ReleaseFast 2× → одинаковые;
     #        hermetic (ReleaseSafe musl) 2× → одинаковые.
     # Поэтому аттестуем ВОСПРОИЗВОДИМУЮ конфигурацию ReleaseFast.
-    BUILD_CMD = ["zig", "build", "-Doptimize=ReleaseFast"]
+    # Дефект #92: собираем ИМЕННО герметичный артефакт (ReleaseSafe musl) —
+    # он воспроизводим (проверено: 2 сборки -> одинаковый sha256) и не
+    # перезаписывается обычным `zig build`.
+    BUILD_CMD = ["zig", "build", "hermetic"]
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if not args.no_build:
         print("[i] сборка (воспроизводимая): " + " ".join(BUILD_CMD))
