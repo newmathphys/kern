@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CLASS = {
     # --- проверки: есть утверждение -----------------------------------------
     "golden": "CHECK", "build": "CHECK", "test": "CHECK", "test-next": "CHECK",
+    "artifact-check": "CHECK", "artifact-check-offline": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
@@ -140,6 +141,8 @@ CASE_TARGET = {
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
     "proof-hole": "core_tests",
     "proof-binding": "core_tests",
+    "artifact-check": "evidence-gate",
+    "artifact-check-offline": "evidence-gate",
 }
 
 
