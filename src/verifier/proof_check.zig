@@ -353,7 +353,15 @@ fn proved(e: Sexp) Sexp {
         return e;
     }
     if (std.mem.eql(u8, r, "th-lemma")) {
-        if (e.items.len >= 2) return e.items[1];
+        // ДВЕ ИЗМЕРЕННЫЕ ФОРМЫ (дефект найден прогоном на выводе с not-or-elim):
+        //   ((_ th-lemma arith farkas 1 1) (or $x42 $x27))   — лемма-КЛАУЗА
+        //       (2 элемента: голова + клауза) -> доказывается items[1]
+        //   ((_ th-lemma arith) P1 P2 ... false)             — ШАГ ВЫВОДА
+        //       (>=3 элемента) -> вывод = ПОСЛЕДНИЙ аргумент
+        // Раньше всегда брался items[1], поэтому корень такого вывода не
+        // распознавался как `false` и чекер отвергал ВЕРНЫЙ вывод.
+        if (e.items.len == 2) return e.items[1];
+        if (e.items.len >= 3) return e.items[e.items.len - 1];
         return e;
     }
     if (e.items.len >= 2) return e.items[e.items.len - 1];
@@ -594,6 +602,33 @@ fn verifyAndElim(c: *const Ctx, st: Sexp) bool {
     if (!std.mem.eql(u8, h, "and")) return false;
     for (src.items[1..]) |part| {
         if (sexpEq(part, concl)) return true;
+    }
+    return false;
+}
+
+/// `(not-or-elim P C)`: `P` доказывает `(not (or D1 D2 ...))`, а `C` обязано быть
+/// ОТРИЦАНИЕМ одного из дизъюнктов (закон де Моргана: ¬(A ∨ B) ⊨ ¬A).
+///
+/// Форма измерена на реальном выводе Z3 (QF_LIA, `(+ x y) = 3 ∧ x > 5 ∧ y > 5`):
+///   $x58 = (<= ?x25 3)
+///   $x66 = (not (or (not $x58) (not (>= ?x25 3))))
+///   (@x72 (not-or-elim <доказательство $x66> $x58))   <- ¬(¬A ∨ ¬B) ⊨ A
+///
+/// ⚠️ `or-elim` НЕ реализован намеренно: в проверенных выводах Z3 (QF_LIA, QF_BV,
+/// QF_UF, QF_LRA, CNF, NIA) это правило ни разу не встретилось, а писать проверку
+/// для формы, которую не наблюдал, — значит рисковать ложной верификацией.
+fn verifyNotOrElim(c: *const Ctx, st: Sexp) bool {
+    if (st.items.len < 3) return false;
+    const src = premiseTerm(c, st.items[1]);
+    const concl = expand(c, proved(st), 0);
+    const inner = asNot(src) orelse return false;
+    if (!inner.isList() or inner.items.len < 2) return false;
+    const h = inner.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "or")) return false;
+    for (inner.items[1..]) |disj| {
+        if (asNot(disj)) |n| {
+            if (sexpEq(n, concl)) return true;
+        }
     }
     return false;
 }
@@ -974,6 +1009,8 @@ pub fn verifyProof(
             if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else v.trusted_steps += 1;
         } else if (std.mem.eql(u8, r, "and-elim")) {
             if (verifyAndElim(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
+        } else if (std.mem.eql(u8, r, "not-or-elim")) {
+            if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
         } else if (std.mem.eql(u8, r, "monotonicity")) {
             if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else v.trusted_steps += 1;
         } else {
