@@ -1,0 +1,32 @@
+name: 'KERN verification gate'
+description: 'Zero-trust gate: a claim is admitted only with machine evidence (Z3 / Lean 4). Downloads the static kernc binary.'
+author: 'Vital Kalinousky'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  args:
+    description: 'Arguments passed to kernc (e.g. "verify --image project.kimg")'
+    required: false
+    default: '--version'
+  version:
+    description: 'KERN release tag to download the static binary from'
+    required: false
+    default: 'v2.2.0'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download static kernc
+      shell: bash
+      run: |
+        set -euo pipefail
+        url="https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}/kernc-x86_64-linux-musl"
+        curl -fsSL -o "$RUNNER_TEMP/kernc" "$url"
+        chmod +x "$RUNNER_TEMP/kernc"
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+        "$RUNNER_TEMP/kernc" --version
+    - name: Run kernc
+      shell: bash
+      run: kernc ${{ inputs.args }}

@@ -423,6 +423,32 @@ fn isEq3(e: Sexp) bool {
     return std.mem.eql(u8, h, "=");
 }
 
+/// Линейная разность `(l1 - r1) - (l2 - r2)`. `null` — термы не линейны.
+/// `true` — разность тождественно нулевая.
+///
+/// ЭТО СЛИЯНИЕ С НОРМАЛИЗАТОРОМ ФАРКАША. `parseLin` уже умеет раскладывать
+/// `(+ a b)`, `(- a b)`, `(* c x)` и литералы в `Σ ci·xi + c0`. Пропуская через
+/// него РАЗНОСТЬ сторон равенства, мы получаем проверку арифметических
+/// тождеств бесплатно:
+///     `(= (+ x (+ y x)) (+ (* 2 x) y))`  ->  коэфф. сокращаются, константа 0
+///     `(= (<= (- x y) 5) (<= x (+ y 5)))` ->  обе части дают `x - y - 5 <= 0`
+fn linCmpEq(c: *const Ctx, l1: Sexp, r1: Sexp, l2: Sexp, r2: Sexp) ?bool {
+    var d = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (!parseLin(c, l1, 1, &d)) return null;
+    if (!parseLin(c, r1, -1, &d)) return null;
+    if (!parseLin(c, l2, -1, &d)) return null;
+    if (!parseLin(c, r2, 1, &d)) return null;
+    return d.varsCancel() and d.constant == 0;
+}
+
+/// `(= L R)` для термов: тождественна ли разность `L - R` нулю.
+fn linDiffZero(c: *const Ctx, l: Sexp, r: Sexp) ?bool {
+    var d = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (!parseLin(c, l, 1, &d)) return null;
+    if (!parseLin(c, r, -1, &d)) return null;
+    return d.varsCancel() and d.constant == 0;
+}
+
 /// Трёхзначный итог проверки шага `rewrite`:
 ///   verified     — равенство ДОКАЗАНО нормализацией;
 ///   bad          — обе стороны нормализуются, но НЕ равны -> подделка;
@@ -442,9 +468,21 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
         const a = nl.?;
         const b = nr.?;
         if (a.neg == b.neg and sexpEq(a.a, b.a) and sexpEq(a.b, b.b)) return .verified;
-        // Обе стороны — сравнения, значит нормализатор их ПОКРЫВАЕТ,
-        // но равенства нет: это доказанная подделка, а не «непроверяемость».
-        return .bad;
+        // СИНТАКСИЧЕСКИ разные сравнения: пробуем ЛИНЕЙНУЮ нормализацию
+        // (слияние с нормализатором Фаркаша). Пример, который ловит Z3:
+        //   (= (<= (- x y) 5) (<= x (+ y 5)))   ->   обе части дают x - y - 5 <= 0
+        if (a.neg != b.neg) return .bad;
+        if (linCmpEq(c, a.a, a.b, b.a, b.b)) |z| {
+            // Обе стороны ЛИНЕЙНЫ -> нормализатор их ПОКРЫВАЕТ.
+            // Расхождение канонических форм = доказанная подделка.
+            return if (z) .verified else .bad;
+        }
+        return .unverifiable;
+    }
+    // Обе стороны — ТЕРМЫ (не сравнения): проверяем арифметическое тождество.
+    if (nl == null and nr == null) {
+        if (linDiffZero(c, l, r)) |z| return if (z) .verified else .bad;
+        return .unverifiable;
     }
     return .unverifiable;
 }
@@ -1128,4 +1166,31 @@ test "PROOF: нормализация сравнений — рефлексив�
     try std.testing.expect(!sameLiteral(p1, p4)); // x<5 НЕ равно x>=5
     try std.testing.expect(!sameLiteral(p1, p5)); // x<5 НЕ равно x>5
     try std.testing.expect(sameLiteral(p1, p1)); // рефлексивность
+}
+
+test "PROOF: линейная нормализация закрывает арифметические тождества" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+
+    // Тождества, которые синтаксический normCmp НЕ берёт, а линейная форма — берёт.
+    const t1 = try parseSexp(a, "(rewrite (= (+ x (+ y x)) (+ (* 2 x) y)))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, t1));
+    const t2 = try parseSexp(a, "(rewrite (= (- x x) 0))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, t2));
+    const t3 = try parseSexp(a, "(rewrite (= (<= (- x y) 5) (<= x (+ y 5))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, t3));
+
+    // Обе стороны ЛИНЕЙНЫ, но тождества нет -> доказанная подделка.
+    const b1 = try parseSexp(a, "(rewrite (= (<= x 5) (<= x 6)))");
+    try std.testing.expectEqual(RwResult.bad, checkRewrite(&c, b1));
+    const b2 = try parseSexp(a, "(rewrite (= x (* 2 x)))");
+    try std.testing.expectEqual(RwResult.bad, checkRewrite(&c, b2));
+
+    // Нелинейное/неинтерпретированное -> честно unverifiable, НЕ bad.
+    const un1 = try parseSexp(a, "(rewrite (= (select arr i) 5))");
+    try std.testing.expectEqual(RwResult.unverifiable, checkRewrite(&c, un1));
+    const un2 = try parseSexp(a, "(rewrite (= (* x x) 4))");
+    try std.testing.expectEqual(RwResult.unverifiable, checkRewrite(&c, un2));
 }
