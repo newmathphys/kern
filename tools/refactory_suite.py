@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 
 import importlib.util
@@ -111,20 +112,38 @@ def run_suite(fn_map, cases):
     # `sequential_search` вместо `search`), поэтому если по имени не нашли —
     # берём единственную публичную функцию модуля.
     fallback = list(fn_map.values())[0] if len(fn_map) == 1 else None
+    # Датасет сравнивает значения оператором == (в Python False == 0 и
+    # True == 1). Отдельно считаем строгое несовпадение типа — оно нужно как
+    # вторая, более требовательная метрика.
+    strict_mismatch = 0
     for fname, args, want in cases:
         fn = fn_map.get(fname) or fallback
         if fn is None:
             if first_fail is None:
                 first_fail = f"нет функции {fname}"
             continue
+        # КРИТИЧНО: студенческие решения из q3/q4 МУТИРУЮТ входной список
+        # (.sort(), .pop(), .remove()), а объект `args` общий для всех файлов.
+        # Без deepcopy первый же мутирующий файл разрушает вход для остальных —
+        # именно поэтому correct давал 0 на вопросах со СПИСКАМИ и работал на
+        # question_2, где входы — КОРТЕЖИ (неизменяемые).
         with contextlib.redirect_stdout(io.StringIO()):
-            kind, val = call_safe(fn, args)
+            kind, val = call_safe(fn, copy.deepcopy(args))
         got = repr(val) if kind == "ok" else f"<{kind}:{val}>"
-        if kind == "ok" and got == want:
+        passed = False
+        if kind == "ok":
+            try:
+                want_val = eval(want)  # noqa: S307 — значение из датасета
+                passed = (val == want_val)
+                if passed and type(val) is not type(want_val):
+                    strict_mismatch += 1
+            except Exception:  # noqa: BLE001
+                passed = (got == want)
+        if passed:
             ok += 1
         elif first_fail is None:
             first_fail = f"{fname}{args} -> {got[:40]}, ждали {want[:20]}"
-    return ok, len(cases), first_fail
+    return ok, len(cases), first_fail, strict_mismatch
 
 
 def main() -> int:
@@ -148,7 +167,7 @@ def main() -> int:
             if not fm:
                 continue
             q_w += 1
-            ok, tot, _ = run_suite(fm, cases)
+            ok, tot, _, _ = run_suite(fm, cases)
             if ok < tot:
                 q_wc += 1
         for f in sorted((q / "code" / "correct").glob("*.py")):
@@ -159,7 +178,7 @@ def main() -> int:
             if not fm:
                 continue
             q_c += 1
-            ok, tot, _ = run_suite(fm, cases)
+            ok, tot, _, _ = run_suite(fm, cases)
             if ok == tot:
                 q_cc += 1
         tw += q_w

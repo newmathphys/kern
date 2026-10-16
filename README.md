@@ -263,7 +263,26 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | **QuixBugs** (real buggy algorithms) | **31 / 31** bugs found | no |
 | **Hacker's Delight / Alive2-style** | **8 / 8** (6 proved, 2 counterexamples) | no |
 | **SWE-bench Lite** (Docker harness) | **3 / 3 resolved**, 0 infra failures | no |
-| **Refactory** (student solutions) | 1438 / 1782 bugs detected | no |
+| **Refactory** (student solutions) | see note below - **not** a core metric | no |
+> **On the Refactory row (defect #77, found 2026-10-16).** Two Python-only
+> harnesses exist for this dataset, and **neither uses the KERN core**
+> (`kernc`, Z3, Lean) - they are differential execution scripts:
+>
+> 1. `tools/refactory_diff.py` compares a candidate against `reference.py` on
+>    random inputs. Measured on the full dataset: 1482/1782 (83.2%) of buggy
+>    files diverge, but so do 2045/2442 (83.7%) of the files the dataset labels
+>    **correct**. The two rates coincide, so this number does **not** measure
+>    detection quality - it was previously reported in this README without the
+>    false-positive side.
+> 2. `tools/refactory_suite.py` uses the dataset's **own** test suite
+>    (`ans/input_NNN.txt` + `output_NNN.txt`), which is what the labels are
+>    defined by. Against that oracle: buggy 1736/1782 (97.4%), correct
+>    2442/2442 - but this is close to tautological, since the labels *are* the
+>    suite.
+>
+> Conclusion: the Refactory numbers describe an external Python harness, not
+> the formal verifier, and are therefore not listed as a core metric.
+
 | **CHC / Horn** (loop invariants) | **11 / 11** | no |
 | **SMT-LIB** (official suite) | 1104 / 1104 verdicts matched, **0 divergences**, **0 false accepts** | no |
 | **HumanEval / HumanEval+** (EvalPlus) | 0.524 / 0.500 | yes (API) |
