@@ -95,6 +95,49 @@ make guardrail      # self-test on an ephemeral port: 200(T) / 422(F) / 409(B)
 
 ---
 
+## Verify your own code without writing SMT-LIB
+
+Contracts live in ordinary comments next to the function. No `.smt2` files, no
+solver syntax.
+
+```python
+# @kern:requires balance >= 0
+# @kern:ensures  result <= balance and result >= 0
+def withdraw(balance: int, amount: int) -> int:
+    if amount < 0:
+        return balance          # if / elif / else are translated to SMT `ite`
+    if amount > balance:
+        return balance
+    return balance - amount
+```
+
+```bash
+make contracts
+# [PASS] withdraw_fixed:      ДОКАЗАНО  (proof checker: trusted: 0)
+# [FAIL] withdraw_missing_neg: КОНТРАКТ НАРУШЕН
+#        [КОНТРПРИМЕР] balance = 0, amount = -1, result = 1
+# sum_to_n: SKIP — out of the supported subset (loops)
+```
+
+When a contract is refuted, KERN prints the **Z3 counterexample** (`get-model`):
+the exact input values that break it. Out-of-subset code is reported as `SKIP`
+with a reason — never as a silent pass.
+
+For AI agents, `examples/kern_mcp_server.py` exposes the gate over the **Model
+Context Protocol** (4 tools: `kern_verify_smt`, `kern_prove_with_checker`,
+`kern_verify_multi_belnap`, `kern_verify_python`):
+
+```json
+{"mcpServers": {"kern": {"command": "python3",
+  "args": ["/path/to/kern/examples/kern_mcp_server.py"]}}}
+```
+
+```bash
+make mcp-selftest   # drives the server over stdio and asserts 200/422/409 semantics
+```
+
+---
+
 ## Core ideas
 
 ### Belnap B₄ logic — results accumulate, they never overwrite
@@ -245,8 +288,12 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **92.5 %** (37 / 40 killed; 3 provably equivalent) |
-| Can-fail harness | **64 non-vacuous / 0 vacuous / 1 meta-control** (see note) |
+| Mutation score (Zig-native mutator) | **77.5 %** (31 / 40 killed) over **14 files / 427 sites**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so this lower number is a **wider, honest** measurement, not a regression — the surviving mutants are all in modules added in v2.2–v2.4 |
+| Can-fail harness | **72 / 72 CHECK targets** have a proven-can-fail case (**85 fault-injection cases**) |
+| C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
+| 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
+| OOM fault injection (`checkAllAllocationFailures`) | **0 bytes leaked** on every partial-failure path |
+| Parser depth guard (untrusted solver output) | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 parens give an error, not a crash |
 
 ### Cross-architecture
 
@@ -302,8 +349,11 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | Path | Throughput | Notes |
 |:--|:--|:--|
 | Raw zero-copy addressing (`/raw/`) | **~90 GB/s** | address arithmetic only, no integrity check |
-| Safe read, **BLAKE3** verification | **~390 MB/s** | end-to-end, 10 000 objects × 200 B |
+| Safe read, **BLAKE3** verification, per object | **~300 MB/s** | end-to-end, 10 000 objects × 200 B |
+| Safe read, **8-lane SIMD-8 batch** | **~1 200 MB/s** | one `@Vector(8, u32)` pass per 8 objects |
+| Safe read, single calls through **cluster cache** | **~1 700 MB/s** | 1 bit per object (1 250 B per 10 000) |
 | Random access, 1 000 000-object image | ~0.0006 ms | 50× under the 0.005 ms target |
+| `kernc build --deflate` (codec `0x02`) | **3.23× smaller** | 153 541 B → 47 567 B on the reference corpus |
 
 Hash primitive in isolation (`make bench-hash`, `docs/evidence/hash_bench.log`):
 

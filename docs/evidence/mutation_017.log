@@ -1,13 +1,21 @@
 === KERN EVIDENCE: mutation_017 ===
-=== команда: python3 tools/mutate_zig.py --max 40 --seed 7 ===
-=== дата: 2026-10-16T15:14:42Z ===
+=== команда: python3 tools/mutate_zig.py --max 40 --seed 5 ===
+=== дата: 2026-10-16T18:13:15Z ===
 
 === МУТАЦИОННОЕ ТЕСТИРОВАНИЕ KERN ===
 Всего мутантов:      40
-Killed (compile):    7
-Killed (test):       32
-Survived (ДЫРЫ):     1
-MUTATION SCORE:      97.5%
+Killed (compile):    3
+Killed (test):       28
+Survived (ДЫРЫ):     9
+MUTATION SCORE:      77.5%
 Выжившие мутанты (усилить тесты):
-  - src/core/kernfs_router.zig:113 [>=->>]
+  - src/verifier/proof_check.zig:1064 [and->or]
+  - src/verifier/proof_check.zig:515 [and->or]
+  - src/verifier/proof_check.zig:805 [false->true]
+  - src/verifier/model_extract.zig:117 [<=-<]
+  - src/verifier/proof_check.zig:809 [false->true]
+  - src/verifier/proof_check.zig:933 [false->true]
+  - src/verifier/proof_check.zig:975 [or->and]
+  - src/verifier/z3_bridge.zig:106 [==->!=]
+  - src/verifier/proof_check.zig:1062 [true->false]
 RC=0

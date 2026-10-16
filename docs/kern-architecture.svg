@@ -49,7 +49,7 @@
   <rect x="291" y="136" width="293" height="58" rx="4" fill="#161b22" stroke="#21262d"/>
   <text x="303" y="154" class="badge">L0-L2: .kimg + KERNFS + Merkle</text>
   <text x="303" y="171" class="lbl">BLAKE3 default / raw ~90 GB/s</text>
-  <text x="303" y="186" class="lbl">safe: 390 MB/s @200B / 2.6 GB/s @64K</text>
+  <text x="303" y="186" class="lbl">safe 300 MB/s / SIMD-8 1.2 GB/s</text>
   <rect x="291" y="202" width="293" height="50" rx="4" fill="#161b22" stroke="#21262d"/>
   <text x="303" y="220" class="badge">L3-L5: Z3 bridge (5 theories) + Lean 4</text>
   <text x="303" y="237" class="lbl">external checker verdict: e=1 | e=0</text>
@@ -59,14 +59,14 @@
   <!-- Panel 3: measured baseline -->
   <rect x="628" y="104" width="300" height="152" rx="6" fill="#0d1117" stroke="#238636" stroke-width="1.2"/>
   <text x="644" y="125" class="hdr">MEASURED BASELINE</text>
-  <text x="644" y="150" class="val">204 / 204</text>
+  <text x="644" y="150" class="val">251 / 251</text>
   <text x="742" y="150" class="lbl">core (x86_64, ARM64, PPC64)</text>
   <text x="644" y="172" class="val">32 / 0</text>
   <text x="742" y="172" class="lbl">Lean 4 theorems / 0 sorry</text>
   <text x="644" y="194" class="val">100.0%</text>
   <text x="742" y="194" class="lbl">decision coverage (30/30)</text>
-  <text x="644" y="216" class="val">92.5%</text>
+  <text x="644" y="216" class="val">77.5%</text>
   <text x="742" y="216" class="lbl">mutation score / 1M fuzz</text>
-  <text x="644" y="238" class="val">64 + 1</text>
-  <text x="742" y="238" class="lbl">non-vacuous can-fail checks</text>
+  <text x="644" y="238" class="val">72 / 72</text>
+  <text x="742" y="238" class="lbl">can-fail CHECK targets</text>
 </svg>
