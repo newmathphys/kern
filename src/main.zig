@@ -554,7 +554,7 @@ pub fn main(init: std.process.Init) !void {
     // ---- --version / version: авторство и лицензия ----
     if (std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "version")) {
         const owner = @import("owner.zig");
-        std.debug.print("KERN Compiler & Formal Engine v1.3.0 (Zig {s})\n", .{@import("builtin").zig_version_string});
+        std.debug.print("KERN Compiler & Formal Engine v2.3.0 (Zig {s})\n", .{@import("builtin").zig_version_string});
         std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
         std.debug.print("License: PolyForm Noncommercial 1.0.0 / Commercial\n", .{});
         std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});

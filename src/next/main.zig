@@ -43,7 +43,7 @@ pub fn main(init: std.process.Init) !void {
     const cmd = args[1];
 
     if (std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "version")) {
-        std.debug.print("KERN-Next engine v1.3.0 (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{@import("builtin").zig_version_string});
+        std.debug.print("KERN-Next engine v2.3.0 (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{@import("builtin").zig_version_string});
         return;
     }
 
