@@ -184,6 +184,7 @@ class Fault:
 FAULTABLE = [
     "README.md",
     "tools/kern_contracts.py",
+    "src/main.zig",
     "src/verifier/model_extract.zig",
     "src/core/codec.zig",
     "examples/kern_mcp_server.py",
@@ -563,6 +564,19 @@ def case_contracts():
           'if "ДОКАЗАНО" in out and r.returncode == 0:',
           'if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным')
     return "make contracts"
+
+
+def case_kimg_deflate():
+    """Сжатие: флаг `--deflate` печатает «включено», но НЕ сжимает.
+
+    ЛОМАЕМ: кодек остаётся `raw`, хотя сообщение о сжатии выводится. Это
+    ровно класс «молчаливо сломанная проверка»: инструмент ЗАЯВЛЯЕТ сжатие,
+    а образ не уменьшается. `make kimg-deflate` обязан покраснеть.
+    """
+    patch("src/main.zig",
+          "            b.compress = .deflate;",
+          "            b.compress = .raw;  // ДИВЕРСИЯ: заявляем сжатие, не сжимаем")
+    return "make kimg-deflate"
 
 
 def case_contracts_branches():
@@ -1303,6 +1317,7 @@ CASES = [
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
     ("model-negative",  "Контрпример: (- N) не свёрнут",      case_model_negative),
     ("contracts-branches", "Ветвления: if отброшен",           case_contracts_branches),
+    ("kimg-deflate",    "Сжатие: --deflate не сжимает",     case_kimg_deflate),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),

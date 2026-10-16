@@ -7,6 +7,7 @@ const std = @import("std");
 // Подсистемы L0-L5
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
+const KernFsError = @import("core/kernfs_router.zig").KernFsError;
 const Eq2 = @import("core/eq2.zig").Eq2;
 const Builder = @import("core/kimg_writer.zig").Builder;
 const KernX = @import("runtime/kern_x.zig").KernX;
@@ -16,6 +17,7 @@ const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPo
 const TrustedChecker = @import("verifier/admission_gate.zig").TrustedChecker;
 const proof_check = @import("verifier/proof_check.zig");
 const model_extract = @import("verifier/model_extract.zig");
+const codec = @import("core/codec.zig");
 const z3b = @import("verifier/z3_bridge.zig");
 const unsat_core = @import("verifier/unsat_core.zig");
 const array_theory = @import("verifier/array_theory.zig");
@@ -51,6 +53,17 @@ const Ed25519 = std.crypto.sign.Ed25519;
 pub fn fail(comptime fmt: []const u8, args: anytype) noreturn {
     std.debug.print(fmt, args);
     std.process.exit(2);
+}
+
+/// Есть ли БУЛЕВ флаг (без значения) в аргументах.
+///
+/// ЗАЧЕМ ОТДЕЛЬНО от `flagValue`: тот требует значение ПОСЛЕ флага
+/// (`-o out.kimg`). Для флага без значения (`--deflate` последним аргументом)
+/// `flagValue` вернул бы null, и флаг молча НЕ СРАБОТАЛ БЫ — именно это
+/// произошло при первом прогоне `kernc build --deflate`.
+fn hasFlag(args: []const [:0]const u8, name: []const u8) bool {
+    for (args) |a| if (std.mem.eql(u8, a, name)) return true;
+    return false;
 }
 
 fn flagValue(args: []const [:0]const u8, name: []const u8) ?[]const u8 {
@@ -160,6 +173,14 @@ pub fn main(init: std.process.Init) !void {
 
         var b = Builder.init(alloc);
         defer b.deinit();
+        // СЖАТИЕ (флаг `--deflate`): пейлоады объектов пакуются кодеком 0x02.
+        // Дайджест считается по ОРИГИНАЛЬНОМУ содержимому (спецификация §5.3) —
+        // целостность не ослабляется, меняется только размер на диске.
+        const want_deflate = hasFlag(args, "--deflate") or hasFlag(args, "--compress");
+        if (want_deflate) {
+            b.compress = .deflate;
+            std.debug.print("[i] сжатие включено: кодек deflate (0x02)\n", .{});
+        }
         // ДЕФЕКТ (исправлен): раньше непрочитанный артефакт молча давал
         // ПУСТОЙ объект в образе (`catch ""`). Теперь каждый отказ виден,
         // а итог выводится отдельной строкой — «тихая деградация» недопустима.
@@ -195,7 +216,28 @@ pub fn main(init: std.process.Init) !void {
             return;
         }
         try b.write(out);
+        // Отчёт: сколько объектов РЕАЛЬНО сжалось и насколько. Без этого
+        // `--deflate` выглядел бы включённым, даже когда выигрыша нет
+        // (`codec.compress` возвращает null, если сжатие не уменьшило объект).
         std.debug.print("[OK] Образ собран: {s} ({d} объектов)\n", .{ out, b.specs.items.len });
+        if (b.compress != .raw) {
+            var n_comp: usize = 0;
+            var raw_total: usize = 0;
+            var stored_total: usize = 0;
+            for (b.specs.items) |sp| {
+                raw_total += sp.content.len;
+                var used: usize = sp.content.len;
+                if (codec.compress(alloc, b.compress, sp.content) catch null) |buf| {
+                    alloc.free(buf);
+                    used = buf.len;
+                    n_comp += 1;
+                }
+                stored_total += used;
+            }
+            std.debug.print("[i] сжато объектов: {d} из {d} | пейлоад {d} -> {d} байт\n", .{
+                n_comp, b.specs.items.len, raw_total, stored_total,
+            });
+        }
         return;
     }
 
@@ -675,6 +717,26 @@ pub fn main(init: std.process.Init) !void {
         };
         defer fs.deinit();
         const node = fs.read(args[3]) catch |e| {
+            // ПРОЗРАЧНАЯ РАСПАКОВКА: сжатый объект нельзя отдать zero-copy
+            // срезом (распаковка требует буфера), поэтому `payloadSlice`
+            // возвращает `CompressedNeedsDecompress`. Для пользователя это
+            // НЕ должно быть ошибкой: `kernc cat` распаковывает сам.
+            if (e == KernFsError.CompressedNeedsDecompress) {
+                const want = if (std.mem.startsWith(u8, args[3], "/raw/"))
+                    args[3][5..]
+                else
+                    args[3];
+                for (fs.objects) |obj| {
+                    if (!std.mem.eql(u8, fs.objectPath(obj), want)) continue;
+                    const out_buf = fs.decompressObject(alloc, obj) catch |e2| {
+                        fail("[!] распаковка не удалась: {s}\n", .{@errorName(e2)});
+                    };
+                    defer alloc.free(out_buf);
+                    emit(out_buf);
+                    return;
+                }
+                fail("[!] сжатый объект не найден по пути: {s}\n", .{args[3]});
+            }
             fail("[!] {s}: {s}\n", .{ args[3], @errorName(e) });
         };
         // СОДЕРЖИМОЕ -> stdout. Это данные, а не диагностика.
