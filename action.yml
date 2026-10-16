@@ -13,7 +13,7 @@ inputs:
   version:
     description: 'KERN release tag to download the static binary from'
     required: false
-    default: 'v2.2.0'
+    default: 'v2.4.0'
 
 runs:
   using: 'composite'

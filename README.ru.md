@@ -19,12 +19,12 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 
 | Показатель | Значение |
 |:--|:--|
-| Тесты ядра | **204** (Debug + ReleaseSafe) |
+| Тесты ядра | **251** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **37** |
 | Формальные доказательства | **7 файлов Lean 4**, 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | 92.5% (37/40; 3 эквивалентных → эффективно 100%) |
-| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **204 / 204** |
+| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **251 / 251** |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs | **31/31** багов реальным исполнением |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -78,7 +78,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 204 / 204 tests
+Core (Debug)          : PASS — 251 / 251 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (7 files, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -169,7 +169,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ```
 ├── main.zig                        CLI kernc (читает образ .kimg)
 ├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (204 тестов)
+├── test_root.zig                   корень тестов ядра (251 тестов)
 ├── core/
 │   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
 │   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
@@ -346,7 +346,7 @@ make echelons                                # 4 эшелона: выравни�
 | **Кванторы (E-matching)** | триггеры; Matching Loop DoS обезврежен таймаутом |
 | **Невмешательство (HyperLTL)** | taint: ветвление/индекс по секрету → **утечка**; constant-time ~1.0× |
 | **ReDoS (CWE-1333)** | `(a+)+`, `(a|a)*` → **уязвимы**; `(a|b)*` — нет |
-| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **204 / 204** каждый |
+| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **251 / 251** каждый |
 | **Мост «текст → контракт»** | `make bridge`: фраза из Markdown → `.smt2` → **`e=1` ДОКАЗАНО** |
 | **Binary-level soundness** | дайджест одинаков на Debug/ReleaseSafe/ReleaseFast (translation validation) |
 | **Constant-time на ассемблере** | taint-анализ: **0** ветвлений от данных (контроль: 1 обнаружен) |
@@ -506,7 +506,7 @@ snapshot → packet/report`, с инкрементальным кэшем.
 ## 7. Ограничения (честно)
 
 - **Тулчейн**: аттестованный эталон собран на **Zig 0.13.0** (ветка `main`).
-  Ветка **`zig-0.17-migration`** доведена до **RC=0** (сборка, 204 тестов,
+  Ветка **`zig-0.17-migration`** доведена до **RC=0** (сборка, 251 тестов,
   ARM64/PPC64 через QEMU, ReleaseSafe, SLSA-аттестат). Миграция потребовала
   **~300 правок** — это ревизия подсистемы I/O (`std.Io`), а не косметика.
   См. [`docs/VERIFICATION_0_17.md`](docs/VERIFICATION_0_17.md).

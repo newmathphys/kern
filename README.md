@@ -3,12 +3,12 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-204%2F204-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-251%2F251-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-64%2F65-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-204%2F204-informational)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-251%2F251-informational)](#cross-architecture)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
@@ -237,7 +237,7 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **204 / 204** |
+| Core test suite (Debug + ReleaseSafe) | **251 / 251** |
 | Core test suite **without** `z3` in `PATH` | **194 passed + 4 skipped** (solver tests skip by design) |
 | KERN-Next test suite | **37 / 37** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
@@ -252,9 +252,9 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **204 / 204** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **204 / 204** |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **204 / 204** |
+| x86_64 | TSO memory model | **251 / 251** |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **251 / 251** |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **251 / 251** |
 
 ### External benchmarks
 
@@ -344,7 +344,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 zig build
 
 # 3. Core test suites
-zig build test          # 204 core tests
+zig build test          # 251 core tests
 zig build test-next     # 37 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics
@@ -385,21 +385,21 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 
 ### Prebuilt static binary and GitHub Action
 
-No toolchain needed. Release `v2.3.0` ships a statically linked `x86_64-linux-musl`
-binary (5,944,704 bytes), so `kernc` runs on any x86-64 Linux without Zig:
+No toolchain needed. Release `v2.4.0` ships a statically linked `x86_64-linux-musl`
+binary (6,033,336 bytes), so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
 curl -fsSL -o kernc \
-  https://github.com/newmathphys/kern/releases/download/v2.3.0/kernc-x86_64-linux-musl
+  https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
 chmod +x kernc && ./kernc --version
 # verify the download first:
-# 4360a1cb301063d3f7a8485957b463711507524b506f215d502cadf6ef32220f  kernc-x86_64-linux-musl
+# f03ab8e6a4eddf32a8fa326d7e5ce12c3a9c45b6e31938ae795e04ebde562aed  kernc-x86_64-linux-musl
 ```
 
 Or use it as a step in your own workflow:
 
 ```yaml
-- uses: newmathphys/kern@v2.3.0
+- uses: newmathphys/kern@v2.4.0
   with:
     args: verify --image project.kimg
 ```
@@ -494,7 +494,7 @@ docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, e
 | [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
-| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#67 |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#103 |
 | [`docs/README.md`](docs/README.md) | documentation map |
 | [`README.ru.md`](README.ru.md) | Russian version of this README |
 

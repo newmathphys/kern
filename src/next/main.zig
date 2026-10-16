@@ -8,7 +8,7 @@ const std = @import("std");
 /// ЕДИНЫЙ ИСТОЧНИК ВЕРСИИ. ДЕФЕКТ #97: строка версии была
 /// продублирована в `--version` и в баннере `usage`, и баннер
 /// отстал (печатал v1.3 при версии v2.3.0). Теперь одна константа.
-pub const KERN_VERSION = "v2.3.0";
+pub const KERN_VERSION = "v2.4.0";
 const engine = @import("engine.zig");
 const parser = @import("parser.zig");
 const validate = @import("validate.zig");
