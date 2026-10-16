@@ -1,53 +1,60 @@
 === KERN EVIDENCE: capi_cli ===
 === команда: python3 tests/capi_cli_suite.py ===
-=== дата: 2026-10-15T21:38:13Z ===
+=== дата: 2026-10-16T14:06:26Z ===
 
 ====================================================================================
 KERN: C-ABI + Z3 BRIDGE UNDER LOAD
 ====================================================================================
   библиотека: /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so
-  версия: KERN v1.3.0 (C-ABI)  автор: Vital Kalinousky  ключ-замок: валиден
+  версия: KERN v2.3.0 (C-ABI)  автор: Vital Kalinousky  ключ-замок: валиден
   [32m[OK][0m   ключ-замок авторства подтверждён
 
 === A. Семантический разрыв: Z (Int) vs BitVec32 ===
   Int   (x>0 AND x+1<0): PROVED
-  BV32  (то же, 32 бита): REFUTED
+  BV32  (то же, 32 бита): PROVED
   [32m[OK][0m   Z: невыполнимо -> PROVED (переполнения в Z не существует)
-  [32m[OK][0m   BV32: выполнимо -> REFUTED (контрпример x = 0x7FFFFFFF)
-  [32m[OK][0m   РАЗРЫВ ПОДТВЕРЖДЁН: один предикат даёт разные вердикты
+  [31m[FAIL][0m BV32: ожидался REFUTED, получено PROVED
+  [31m[FAIL][0m разрыв НЕ обнаружен — типы перепутаны
 
 === B. Бомба зависания (таймаут, fail-closed) ===
-  вердикт: UNKNOWN  за 5103 мс
+  вердикт: UNKNOWN  за 5125 мс
   [32m[OK][0m   fail-closed: UNKNOWN (не PROVED) — безопасная деградация
   [32m[OK][0m   зомби-процессов не осталось (до=0, после=0)
 
 === C. Конкурентность: 16 потоков × 4 раунда ===
-  [32m[OK][0m   64 вызовов ABI из 16 потоков за 407 мс, без паник
-  вердикты: PROVED=32 REFUTED=32 прочие=0
-  [32m[OK][0m   оба типа вердиктов получены под нагрузкой (нет залипания состояния)
+  [32m[OK][0m   64 вызовов ABI из 16 потоков за 239 мс, без паник
+  вердикты: PROVED=64 REFUTED=0 прочие=0
 
 === D. Целостность .kimg через C-ABI ===
-  валидный образ: valid=1 объектов=5 (4605 Б)
-  [32m[OK][0m   валидный образ принят, объекты посчитаны
-  [32m[OK][0m   испорченный payload отвергнут (целостность работает)
-  обрезка: файл 2302 Б, последний payload начинается на 4556
-  [32m[OK][0m   чтение объекта за границей файла отвергнуто (rc=2)
-  kern_kimg_valid на обрезке: 1 (контракт: заголовок+Merkle, не границы payload)
+Traceback (most recent call last):
+  File "/home/mrbritneyxxx/Рабочий стол/kern/tests/capi_cli_suite.py", line 389, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/mrbritneyxxx/Рабочий стол/kern/tests/capi_cli_suite.py", line 376, in main
+    scenario_d_kimg(k)
+    ~~~~~~~~~~~~~~~^^^
+  File "/home/mrbritneyxxx/Рабочий стол/kern/tests/capi_cli_suite.py", line 222, in scenario_d_kimg
+    subprocess.run([str(kernc), "build",
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+                    str(ROOT / "examples" / "toy_ai_hallucination" / "project.kern"),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "-o", str(img_path)], cwd=str(ROOT), capture_output=True, text=True)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 555, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1990, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+PermissionError: [Errno 13] Permission denied: '/home/mrbritneyxxx/Рабочий стол/kern/zig-out/bin/kernc'
 
-=== E. Локализация виновника (UNSAT core) ===
-  pre=(>= x 0)  goal=(>= x 0)  ->  PROVED  ядро: `pre goal`
-  [32m[OK][0m   противоречие pre AND NOT goal обнаружено (PROVED)
-  [32m[OK][0m   ABI вернул имена утверждений ядра: pre goal
-  [32m[OK][0m   ложная цель даёт REFUTED (проверка не вакуумна)
-
-=== F. Контракт CLI: данные -> stdout, отказ -> rc != 0 ===
-  [32m[OK][0m   cat: данные в stdout (956 Б), rc=0
-  [32m[OK][0m   cat на несуществующий путь: rc=2 (проверка способна упасть)
-  [32m[OK][0m   конвейер видит данные (совпадений: 3)
-  [32m[OK][0m   ls: данные в stdout (401 Б)
-
-====================================================================================
-ИТОГ: пройдено 18, провалено 0
-====================================================================================
-
-RC=0
+RC=1

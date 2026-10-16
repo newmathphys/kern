@@ -385,3 +385,41 @@ test "СЖАТИЕ: подмена в СЖАТОМ объекте -> PayloadTamp
     const res = fs.decompressObject(alloc, fs.objects[0]);
     try std.testing.expectError(KernFsError.PayloadTampered, res);
 }
+/// Открыт ли дескриптор `fd`? Через СЫРОЙ системный вызов (без libc):
+/// `fcntl(fd, F_GETFD)` возвращает `-EBADF`, если дескриптор закрыт.
+fn fdIsOpen(fd: std.posix.fd_t) bool {
+    const F_GETFD: i32 = 1;
+    const raw = std.os.linux.fcntl(fd, F_GETFD, 0);
+    const signed: isize = @bitCast(raw);
+    return signed >= 0;
+}
+
+test "МУТАНТ >=->>: каталог синхронизируется и при fd == 0 (нет утечки)" {
+    // `openat` возвращает МИНИМАЛЬНЫЙ свободный дескриптор. Если закрыть fd 0,
+    // каталог получит ровно 0. Мутация `if (dfd >= 0)` -> `if (dfd > 0)`
+    // пропускает и fdatasync, и ЗАКРЫТИЕ дескриптора — fd 0 остаётся занятым
+    // каталогом (утечка дескриптора).
+    //
+    // Наблюдаемое следствие: после записи fd 0 обязан быть ЗАКРЫТ (корректный
+    // код закрывает каталог через defer). У мутанта fd 0 остаётся открытым.
+    //
+    // fd 0 спасаем и восстанавливаем, чтобы не сломать раннер тестов.
+    const saved = std.os.linux.dup(0);
+    const saved_i: isize = @bitCast(saved);
+    try std.testing.expect(saved_i >= 0);
+    defer {
+        _ = std.os.linux.dup2(@intCast(saved_i), 0);
+        _ = std.os.linux.close(@intCast(saved_i));
+    }
+    _ = std.os.linux.close(0);
+
+    var b = Builder.init(std.testing.allocator);
+    defer b.deinit();
+    try b.addSource("src/y.zig", "fd0 probe");
+    const out = "/tmp/kern_fd0_test.kimg";
+    defer compat.deleteFile(out) catch {};
+    try b.write(out);
+
+    // fd 0 обязан быть закрыт.
+    try std.testing.expect(!fdIsOpen(0));
+}

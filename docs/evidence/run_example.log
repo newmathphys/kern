@@ -1,8 +1,8 @@
 === KERN EVIDENCE: run_example ===
 === команда: make run-example ===
-=== дата: 2026-10-15T21:38:19Z ===
+=== дата: 2026-10-16T14:06:32Z ===
 
-make[1]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
+make[2]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
 zig build
 === [1] Обычный CI: pytest на «тесте» агента ===
 python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
@@ -35,6 +35,6 @@ python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 ||
   type=0x0005 size=49 path=`fixed withdraw never increases the balance`
 
 ИТОГ: заявление агента ОПРОВЕРГНУТО (e=0), исправленная версия ДОКАЗАНА (e=1).
-make[1]: выход из каталога «/home/mrbritneyxxx/Рабочий стол/kern»
+make[2]: выход из каталога «/home/mrbritneyxxx/Рабочий стол/kern»
 
 RC=0

@@ -1,27 +1,27 @@
 === KERN EVIDENCE: audit_manifest ===
 === команда: bash tools/audit_manifest.sh ===
-=== дата: 2026-10-15T21:32:45Z ===
+=== дата: 2026-10-16T14:05:34Z ===
 
 
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
 ─────────────────────────────────────────────────────────────────────────────
-Core (Debug)          : PASS — 204/204 tests
+Core (Debug)          : PASS — 236/236 tests
+Artifact chain        : FAIL
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 KERN-Next             : PASS
-Kernel Invariants     : PASS — Lean 4 (7 files, 0 errors, 0 sorry)
-Target Systems        : PASS — 2 платформы: KERN ARM64 POWERPC64 POWERPC64
+Kernel Invariants     : FAIL
+Target Systems        : PASS — 2 платформы: KERN ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — ФАКТ: 100.0% (порог 95%)
 Mutation Coverage     : PASS — MUTATION SCORE:      92.5% (docs/evidence/mutation_017.log)
-Formal Theories       : PASS — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS)
-Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
+Formal Theories       : NOT RUN
+Payload Integrity     : NOT RUN
 ─────────────────────────────────────────────────────────────────────────────
 Реестр ограничений : formal/certification/KNOWN_LIMITATIONS.md
 Трассируемость     : formal/certification/TRACEABILITY_MATRIX.md (TOR-требования)
 Полный статус      : docs/ATTESTATION_PASSPORT.md
 ─────────────────────────────────────────────────────────────────────────────
 ВЕРДИКТ: определяется ПРОГОНАМИ выше. Строки NOT RUN не считаются PASS.
-[OK] провалов: 0
+[!] ПРОВАЛОВ: 2 — аттестационный манифест НЕ пройден
 
-
-RC=0
+RC=1

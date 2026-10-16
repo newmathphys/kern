@@ -950,3 +950,140 @@ test "КЛАСТЕРНЫЙ КЭШ: корректный образ — соде�
     // И остальные объекты кластера тоже отдаются (из кэша).
     for (1..8) |k| _ = try fs.objectPayloadCached(k, &cache);
 }
+
+// =========================================================================
+//  ТЕСТЫ ПРОТИВ ВЫЖИВШИХ МУТАНТОВ (мутационный скор 82.5% -> цель >= 90%)
+//  Каждый тест убивает КОНКРЕТНЫЙ мутант из отчёта tools/mutate_zig.py.
+// =========================================================================
+
+test "МУТАНТ ==->!=: кэш кластера работает и во ВТОРОМ байте (n=16)" {
+    // Мутация `if (nbytes == 0) 1 else nbytes` -> `!= 0` выделяет ОДИН байт
+    // вместо nbytes. Для n=16 нужен второй байт: отметка индекса 12 молча
+    // теряется, и кэш перестаёт кэшировать (корректность не страдает, но
+    // эффективность падает — тестами это не ловилось).
+    const alloc = std.testing.allocator;
+    var c = try ClusterCache.init(alloc, 16);
+    defer c.deinit(alloc);
+    try std.testing.expect(!c.isVerified(12));
+    c.mark(12);
+    try std.testing.expect(c.isVerified(12)); // <- убивает мутанта
+    try std.testing.expect(!c.isVerified(11));
+    try std.testing.expect(!c.isVerified(13));
+}
+
+test "МУТАНТ >=->>: индекс РОВНО на границе байта не читает память" {
+    // `if (byte >= self.bits.len) return` -> `>`: при byte == len происходит
+    // чтение ЗА границей среза. n=8 даёт ровно 1 байт, поэтому idx=8..15
+    // попадают на границу — мутант либо паникует, либо читает мусор.
+    const alloc = std.testing.allocator;
+    var c = try ClusterCache.init(alloc, 8);
+    defer c.deinit(alloc);
+    c.mark(8); // byte == len
+    try std.testing.expect(!c.isVerified(8));
+    c.mark(1_000_000);
+    try std.testing.expect(!c.isVerified(1_000_000));
+}
+
+test "МУТАНТ >=->>: objectPayloadCached отвергает idx == objects.len" {
+    // `if (idx >= self.objects.len) return FileNotFound` -> `>`: при idx == len
+    // проверка пропускается и происходит обращение за границей массива.
+    var region: [11]u8 = "a.zig\x00hello".*;
+    var e = std.mem.zeroes(ObjectEntry);
+    std.crypto.hash.Blake3.hash("hello", e.digest[0..32], .{});
+    e.type_id = 0x0002;
+    e.flags = 0x0002;
+    e.payload_offset = 6;
+    e.compressed_size = 5;
+    e.uncompressed_size = 5;
+    var objs = [_]ObjectEntry{e};
+    const fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+    var cache = try ClusterCache.init(std.testing.allocator, objs.len);
+    defer cache.deinit(std.testing.allocator);
+
+    // Корректный индекс работает.
+    try std.testing.expectEqualStrings("hello", try fs.objectPayloadCached(0, &cache));
+    // idx == objects.len ОБЯЗАН быть отвергнут (мутант пропустит проверку).
+    try std.testing.expectError(KernFsError.FileNotFound,
+        fs.objectPayloadCached(objs.len, &cache));
+}
+
+test "МУТАНТ or->and: СЖАТЫЙ объект в кластере НЕ идёт в пакетный путь" {
+    // `if (codec != 0 or size > batchMax)` -> `and`: для сжатого, но МАЛОГО
+    // объекта условие станет ложным, и он попадёт в пакетный путь. Там его
+    // СЫРЫЕ байты сверяются с дайджестом РАСПАКОВАННОГО содержимого ->
+    // PayloadTampered на КОРРЕКТНОМ образе.
+    var region: [16]u8 = "c.bin\x00ABCDEFGHIJ".*;
+    var e = std.mem.zeroes(ObjectEntry);
+    std.crypto.hash.Blake3.hash("ABCDEFGHIJ", e.digest[0..32], .{});
+    e.type_id = 0x0002;
+    e.flags = 0x0002;
+    e.payload_offset = 6;
+    e.compressed_size = 10;
+    e.uncompressed_size = 10;
+    e.compression_codec = 2; // deflate: содержимое != байтам образа
+    var objs = [_]ObjectEntry{e};
+    const fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+    var cache = try ClusterCache.init(std.testing.allocator, objs.len);
+    defer cache.deinit(std.testing.allocator);
+
+    // Одиночный объект кластера неполный (1 < 8), поэтому идёт поштучный путь
+    // и сжатый объект отвергается ЯВНОЙ ошибкой, а не PayloadTampered.
+    try std.testing.expectError(KernFsError.CompressedNeedsDecompress,
+        fs.objectPayloadCached(0, &cache));
+}
+
+test "МУТАНТ false->true: СЖАТЫЙ объект в ПОЛНОМ кластере не идёт в пакет" {
+    // 8 объектов в одном кластере, один из них сжат. Мутация
+    // `all_small = false` -> `all_small = true` заставит взять пакетный путь,
+    // где СЫРЫЕ байты сжатого объекта сверяются с дайджестом РАСПАКОВАННОГО
+    // содержимого -> вместо честного CompressedNeedsDecompress получим
+    // PayloadTampered на КОРРЕКТНОМ образе.
+    var region: [80]u8 = undefined;
+    for (&region, 0..) |*b, i| b.* = @truncate(i + 1);
+    var objs: [8]ObjectEntry = undefined;
+    for (&objs, 0..) |*o, k| {
+        o.* = std.mem.zeroes(ObjectEntry);
+        o.type_id = 0x0002;
+        o.flags = 0x0002;
+        o.payload_offset = @intCast(k * 10);
+        o.compressed_size = 10;
+        o.uncompressed_size = 10;
+        std.crypto.hash.Blake3.hash(region[k * 10 .. k * 10 + 10], o.digest[0..32], .{});
+    }
+    objs[3].compression_codec = 2; // deflate
+    const fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+    var cache = try ClusterCache.init(std.testing.allocator, objs.len);
+    defer cache.deinit(std.testing.allocator);
+
+    // Обращаемся к ДРУГОМУ (несжатому) объекту кластера: именно тогда
+    // проверяется весь кластер. Корректное поведение — УСПЕХ: сжатый сосед
+    // лишь исключает кластер из пакетного пути. Мутант пойдёт пакетным путём
+    // и вернёт PayloadTampered, потому что сырые байты сжатого объекта не
+    // совпадут с дайджестом распакованного содержимого.
+    const got = try fs.objectPayloadCached(5, &cache);
+    try std.testing.expectEqualSlices(u8, region[50..60], got);
+}
+
+test "МУТАНТ >=->>: КРУПНЫЙ объект (>1024) в кластере идёт поштучным путём" {
+    // compressed_size = 2048 > batchMaxLen (1024). Мутация `all_small = false`
+    // -> `true` отправит 2048-байтный вход в hashBatch8, где
+    // `std.debug.assert(len <= MAX_SMALL_LEN)` паникует.
+    const big = 2048;
+    var region: [8 * big]u8 = undefined;
+    for (&region, 0..) |*b, i| b.* = @truncate(i * 7 + 3);
+    var objs: [8]ObjectEntry = undefined;
+    for (&objs, 0..) |*o, k| {
+        o.* = std.mem.zeroes(ObjectEntry);
+        o.type_id = 0x0002;
+        o.flags = 0x0002;
+        o.payload_offset = @intCast(k * big);
+        o.compressed_size = big;
+        o.uncompressed_size = big;
+        std.crypto.hash.Blake3.hash(region[k * big .. (k + 1) * big], o.digest[0..32], .{});
+    }
+    const fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+
+    // verifyAllBatch обязан пройти поштучно (без паники) и проверить все 8.
+    const n = try fs.verifyAllBatch();
+    try std.testing.expectEqual(@as(usize, 8), n);
+}
