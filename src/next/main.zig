@@ -4,6 +4,11 @@
 
 //! KERN-Next: CLI-оркестратор `kernx` (§13 спецификации KERN-Next).
 const std = @import("std");
+
+/// ЕДИНЫЙ ИСТОЧНИК ВЕРСИИ. ДЕФЕКТ #97: строка версии была
+/// продублирована в `--version` и в баннере `usage`, и баннер
+/// отстал (печатал v1.3 при версии v2.3.0). Теперь одна константа.
+pub const KERN_VERSION = "v2.3.0";
 const engine = @import("engine.zig");
 const parser = @import("parser.zig");
 const validate = @import("validate.zig");
@@ -43,7 +48,7 @@ pub fn main(init: std.process.Init) !void {
     const cmd = args[1];
 
     if (std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "version")) {
-        std.debug.print("KERN-Next engine v2.3.0 (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{@import("builtin").zig_version_string});
+        std.debug.print("{s} (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{ KERN_VERSION, @import("builtin").zig_version_string });
         return;
     }
 
@@ -145,7 +150,7 @@ pub fn main(init: std.process.Init) !void {
 fn printUsage() void {
     std.debug.print(
         \\=======================================================
-        \\  KERN-Next engine (kernx) v1.3
+        \\  KERN-Next engine (kernx) {s}
         \\=======================================================
         \\Использование: kernx <команда> <файл.kern> [опции]
         \\
@@ -155,5 +160,5 @@ fn printUsage() void {
         \\  report <file>                                   человеческий отчёт
         \\  packet <file> [--scope S]                       agent packet
         \\
-    , .{});
+    , .{KERN_VERSION});
 }

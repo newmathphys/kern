@@ -37,6 +37,7 @@ CLASS = {
     "contracts": "CHECK",
     "mcp-selftest": "CHECK",
     "kimg-deflate": "CHECK",
+    "version-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
@@ -153,6 +154,7 @@ CASE_TARGET = {
     "contracts-branches": "contracts",  # ветвления if -> ite
     "kimg-deflate": "kimg-deflate",   # сжатие 0x02 в CLI
     "skip-exit-n": "test-next",       # SKIP exit 2 -> N (боевой фидбек)
+    "version-consistency": "version-check", # версия в баннере/--version/README
     "mcp-selftest": "mcp-selftest",
     "model-negative": "core_tests",   # парсер модели: свёртка (- N)
 }

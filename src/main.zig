@@ -4,6 +4,11 @@
 
 const std = @import("std");
 
+/// ЕДИНЫЙ ИСТОЧНИК ВЕРСИИ. ДЕФЕКТ #97: строка версии была
+/// продублирована в `--version` и в баннере `usage`, и баннер
+/// отстал (печатал v1.3 при версии v2.3.0). Теперь одна константа.
+pub const KERN_VERSION = "v2.3.0";
+
 // Подсистемы L0-L5
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
 const KernFS = @import("core/kernfs_router.zig").KernFS;
@@ -660,7 +665,7 @@ pub fn main(init: std.process.Init) !void {
     // ---- --version / version: авторство и лицензия ----
     if (std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "version")) {
         const owner = @import("owner.zig");
-        std.debug.print("KERN Compiler & Formal Engine v2.3.0 (Zig {s})\n", .{@import("builtin").zig_version_string});
+        std.debug.print("{s} (Zig {s})\n", .{ KERN_VERSION, @import("builtin").zig_version_string });
         std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
         std.debug.print("License: PolyForm Noncommercial 1.0.0 / Commercial\n", .{});
         std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});
@@ -902,7 +907,7 @@ pub fn main(init: std.process.Init) !void {
 fn printUsage() void {
     std.debug.print(
         \\=======================================================
-        \\  KERN Compiler & Formal Engine v1.3
+        \\  KERN Compiler & Formal Engine {s}
         \\=======================================================
         \\Использование: kernc <команда> <файл> [опции]
         \\
@@ -917,5 +922,5 @@ fn printUsage() void {
         \\  handoff <file.kimg>                             agent_packet.json
         \\  report <file.kimg>                              отчёт из образа
         \\
-    , .{});
+    , .{KERN_VERSION});
 }

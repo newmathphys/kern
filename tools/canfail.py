@@ -567,6 +567,19 @@ def case_contracts():
     return "make contracts"
 
 
+def case_version_consistency():
+    """Версия: баннер `usage` отстал от `--version` (дефект #97).
+
+    ЛОМАЕМ: в баннере возвращаем старую версию. `make version-check` обязан
+    покраснеть: пользователь, запустивший `kernc` без аргументов, увидел бы
+    ДРУГУЮ версию, чем `kernc --version`.
+    """
+    patch("src/main.zig",
+          'pub const KERN_VERSION = "v2.3.0";',
+          'pub const KERN_VERSION = "v1.3";')
+    return "make version-check"
+
+
 def case_skip_exit_n():
     """kernx: `exit 2` (SKIP) снова считается ОПРОВЕРЖЕНИЕМ (F), а не N.
 
@@ -1333,6 +1346,7 @@ CASES = [
     ("contracts-branches", "Ветвления: if отброшен",           case_contracts_branches),
     ("kimg-deflate",    "Сжатие: --deflate не сжимает",     case_kimg_deflate),
     ("skip-exit-n",     "kernx: SKIP (exit 2) -> F вместо N",  case_skip_exit_n),
+    ("version-consistency", "Версия: баннер != --version",      case_version_consistency),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),

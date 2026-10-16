@@ -8,7 +8,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: contracts artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate
+.PHONY: contracts artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate version-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -194,6 +194,11 @@ mcp-selftest: build
 # падает, если содержимое не совпало побайтово или порча не поймана.
 kimg-deflate: build
 	@bash tools/kimg_deflate_check.sh
+
+# СОГЛАСОВАННОСТЬ ВЕРСИИ (дефект #97): `--version`, баннер `usage` и README
+# обязаны называть ОДНУ версию. Падает при любом расхождении.
+version-check: build
+	@bash tools/version_check.sh
 
 # Сквозной аудит релизного артефакта (защита от дефекта #82): сверяет хеш,
 # объявленный в README, с локальной сборкой и с asset'ом в релизе.
