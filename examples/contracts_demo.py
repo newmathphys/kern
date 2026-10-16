@@ -38,3 +38,56 @@ def sum_to_n(n: int) -> int:
     for i in range(n):
         total = total + i
     return total
+
+
+# @kern:requires True
+# @kern:ensures  result <= balance
+def withdraw_fixed(balance: int, amount: int) -> int:
+    """ВЕТВЛЕНИЯ: два `if` с `return` -> SMT `(ite ...)`.
+
+    СПЕЦИФИКАЦИЯ: списание НЕ МОЖЕТ увеличить баланс (`result <= balance`).
+    Функция отвергает и отрицательную сумму, и сумму больше баланса ->
+    обязана ДОКАЗАТЬСЯ.
+    """
+    if amount < 0:
+        return balance
+    if amount > balance:
+        return balance
+    return balance - amount
+
+
+# @kern:requires True
+# @kern:ensures  result <= balance
+def withdraw_missing_neg(balance: int, amount: int) -> int:
+    """БАГ: проверен только `amount > balance`, ЗАБЫТ `amount < 0`.
+
+    При `amount = -1` функция возвращает `balance + 1`, то есть УВЕЛИЧИВАЕТ
+    баланс -> обязан быть НАЙДЕН КОНТРПРИМЕР.
+
+    ВНИМАНИЕ: первая версия контракта здесь была
+    `result == balance - amount or result == balance` — и она ВЫПОЛНЯЕТСЯ
+    при `amount = -1` (функция честно вычислила `balance - amount`), поэтому
+    Z3 доказывал «всё хорошо» и БАГ НЕ ЛОВИЛСЯ. Контракт переписан на
+    настоящую спецификацию списания.
+    """
+    if amount > balance:
+        return balance
+    return balance - amount
+
+
+# @kern:requires amount > 0
+# @kern:ensures  result <= balance
+def withdraw_ternary(balance: int, amount: int) -> int:
+    """Тернарный оператор `A if cond else B` -> SMT `ite`."""
+    return balance if amount > balance else balance - amount
+
+
+# @kern:requires amount >= 0
+# @kern:ensures  result >= 0
+def no_return_path(balance: int, amount: int) -> int:
+    """БАГ: путь без `return` при `amount == 0` -> функция вернула бы None.
+
+    Обязана быть честно отвергнута (NoReturn), а НЕ объявлена доказанной.
+    """
+    if amount > 0:
+        return balance - amount

@@ -149,6 +149,7 @@ CASE_TARGET = {
     "artifact-check": "artifact-check",
     "artifact-check-offline": "artifact-check-offline",
     "contracts": "contracts",
+    "contracts-branches": "contracts",  # ветвления if -> ite
     "mcp-selftest": "mcp-selftest",
     "model-negative": "core_tests",   # парсер модели: свёртка (- N)
 }

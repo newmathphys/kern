@@ -391,7 +391,7 @@ pub fn main(init: std.process.Init) !void {
                         pv.rewrite_verified, pv.farkas_checked, pv.trusted_steps, pv.holes,
                     });
                 } else {
-                    std.debug.print("  [!] причина: {s}\n", .{pv.reject});
+                    std.debug.print("  [!] причина: {s}\n", .{pv.failureReason()});
                     fail("[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя\n", .{});
                 }
             }

@@ -50,8 +50,17 @@ class Unsupported(Exception):
     pass
 
 
-def expr_to_smt(node: ast.AST) -> str:
-    """Python-выражение (подмножество) -> SMT-LIB2."""
+class NoReturn(Exception):
+    """Путь исполнения доходит до конца функции без `return` (неявный None)."""
+
+
+def expr_smt(node: ast.AST, env: dict) -> str:
+    """Python-выражение (подмножество) -> SMT-LIB2 с учётом локальных имён.
+
+    `env` отображает имена локальных переменных в их SMT-выражения (результат
+    символьного исполнения присваиваний). Имена, которых нет в env, считаются
+    параметрами функции и печатаются как есть.
+    """
     if isinstance(node, ast.Constant):
         if isinstance(node.value, bool):
             return "true" if node.value else "false"
@@ -59,16 +68,20 @@ def expr_to_smt(node: ast.AST) -> str:
             return str(node.value)
         raise Unsupported(f"литерал {node.value!r}")
     if isinstance(node, ast.Name):
-        return node.id
+        return env.get(node.id, node.id)
+    # Тернарный оператор `A if cond else B` -> SMT `ite`.
+    if isinstance(node, ast.IfExp):
+        return (f"(ite {expr_smt(node.test, env)} "
+                f"{expr_smt(node.body, env)} {expr_smt(node.orelse, env)})")
     if isinstance(node, ast.BoolOp):
         op = "and" if isinstance(node.op, ast.And) else "or"
-        parts = " ".join(expr_to_smt(v) for v in node.values)
+        parts = " ".join(expr_smt(v, env) for v in node.values)
         return f"({op} {parts})"
     if isinstance(node, ast.UnaryOp):
         if isinstance(node.op, ast.Not):
-            return f"(not {expr_to_smt(node.operand)})"
+            return f"(not {expr_smt(node.operand, env)})"
         if isinstance(node.op, ast.USub):
-            return f"(- {expr_to_smt(node.operand)})"
+            return f"(- {expr_smt(node.operand, env)})"
         raise Unsupported("унарный оператор")
     if isinstance(node, ast.BinOp):
         if isinstance(node.op, ast.Add):
@@ -83,20 +96,70 @@ def expr_to_smt(node: ast.AST) -> str:
             op = "*"
         else:
             raise Unsupported("бинарный оператор (только + - *)")
-        return f"({op} {expr_to_smt(node.left)} {expr_to_smt(node.right)})"
+        return f"({op} {expr_smt(node.left, env)} {expr_smt(node.right, env)})"
     if isinstance(node, ast.Compare):
         if len(node.ops) != 1:
             raise Unsupported("цепочка сравнений")
         opname = type(node.ops[0]).__name__
         if opname not in CMP:
             raise Unsupported(f"сравнение {opname}")
-        return (f"({CMP[opname]} {expr_to_smt(node.left)} "
-                f"{expr_to_smt(node.comparators[0])})")
+        return (f"({CMP[opname]} {expr_smt(node.left, env)} "
+                f"{expr_smt(node.comparators[0], env)})")
     raise Unsupported(f"узел {type(node).__name__}")
 
 
+def body_smt(stmts, env: dict) -> str:
+    """Символьно исполнить тело функции и вернуть SMT-выражение её результата.
+
+    ПОДДЕРЖИВАЕТСЯ (ациклический код):
+      * `return <expr>` — значение функции;
+      * `if cond: ... [else: ...]` — транслируется в `(ite cond THEN ELSE)`;
+      * `x = <expr>` — локальное присваивание (подстановка в `env`);
+      * `elif` — это вложенный `if` в `orelse`, обрабатывается рекурсивно.
+
+    ЧЕСТНЫЕ ОТКАЗЫ:
+      * `NoReturn` — путь доходит до конца функции без `return` (неявный None).
+        Ветка НЕ глотается: без этого функция с забытым `return` считалась бы
+        корректной;
+      * `Unsupported` — циклы, вызовы, всё прочее вне подмножества.
+
+    Если у `if` нет `else`, роль else играют ОСТАВШИЕСЯ операторы после него.
+    """
+    for i, st in enumerate(stmts):
+        if isinstance(st, ast.Assign):
+            if len(st.targets) != 1 or not isinstance(st.targets[0], ast.Name):
+                raise Unsupported("присваивание не в простую переменную")
+            # Подстановка: имя запоминается как SMT-выражение (символьное значение).
+            env[st.targets[0].id] = expr_smt(st.value, env)
+            continue
+        if isinstance(st, ast.If):
+            then_env = dict(env)
+            then_expr = body_smt(st.body, then_env)
+            rest = stmts[i + 1:]
+            else_env = dict(env)
+            if st.orelse:
+                else_expr = body_smt(st.orelse, else_env)
+            elif rest:
+                # Нет `else` -> при ложном условии исполняются оставшиеся операторы.
+                else_expr = body_smt(rest, else_env)
+            else:
+                # Нет `else` и нет остатка -> путь без `return` (неявный None).
+                else_expr = None
+            if then_expr is None or else_expr is None:
+                raise NoReturn(
+                    f"путь без `return` (стр. {getattr(st, 'lineno', '?')}): "
+                    f"функция вернула бы None")
+            return f"(ite {expr_smt(st.test, env)} {then_expr} {else_expr})"
+        if isinstance(st, ast.Return):
+            if st.value is None:
+                raise NoReturn("`return` без значения (неявный None)")
+            return expr_smt(st.value, env)
+        raise Unsupported(f"оператор {type(st).__name__} (циклы/вызовы вне подмножества)")
+    return None  # дошли до конца -> неявный None
+
+
 def parse_file(path: Path):
-    """Вернуть список (имя, params, requires, ensures, body_expr, lineno)."""
+    """Вернуть список (имя, params, requires, ensures, body_smt, lineno, причина)."""
     src = path.read_text(encoding="utf-8", errors="replace")
     lines = src.splitlines()
     anchors: dict[int, dict[str, str]] = {}
@@ -111,6 +174,7 @@ def parse_file(path: Path):
             continue
         # контракт: якоря в нескольких строках НАД функцией
         req = ens = None
+        skip_reason = None
         for k in range(max(1, node.lineno - 6), node.lineno):
             if k in anchors:
                 req = anchors[k].get("requires", req)
@@ -130,22 +194,29 @@ def parse_file(path: Path):
                      and isinstance(st.value, ast.Constant)
                      and isinstance(st.value.value, str))
         ]
-        if (len(stmts) == 1 and isinstance(stmts[0], ast.Return)
-                and stmts[0].value is not None):
-            body = stmts[0].value
+        # СИМВОЛЬНОЕ ИСПОЛНЕНИЕ: поддерживаются ветвления (`ite`) и локальные
+        # присваивания. Путь без `return` -> NoReturn (не глотаем ветку!),
+        # циклы/вызовы -> Unsupported.
+        try:
+            body = body_smt(stmts, {})
+        except (NoReturn, Unsupported) as e:
+            body = None
+            skip_reason = str(e)
         params = [a.arg for a in node.args.args if a.arg != "self"]
-        out.append((node.name, params, req, ens, body, node.lineno))
+        out.append((node.name, params, req, ens, body, node.lineno, skip_reason))
     return out
 
 
-def build_smt(params, req, ens, body) -> str:
+def build_smt(params, req, ens, body_smt_text: str) -> str:
+    """Собрать SMT-LIB2: параметры, requires, `result = <тело>`, отрицание ensures."""
     decls = "\n".join(f"(declare-const {p} Int)" for p in params)
     lines = ["(set-logic ALL)", decls, "(declare-const result Int)"]
+    env: dict = {}  # в requires/ensures локальных имён нет — только параметры
     if req:
-        lines.append(f"(assert {expr_to_smt(ast.parse(req, mode='eval').body)})")
-    lines.append(f"(assert (= result {expr_to_smt(body)}))")
+        lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
+    lines.append(f"(assert (= result {body_smt_text}))")
     if ens:
-        e = expr_to_smt(ast.parse(ens, mode='eval').body)
+        e = expr_smt(ast.parse(ens, mode='eval').body, env)
         lines.append(f"(assert (not {e}))")
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
@@ -169,6 +240,17 @@ def expect_demo(alloc_out: list) -> int:
         problems.append("withdraw_buggy НЕ отвергнут (ожидался НАРУШЕН)")
     if "sum_to_n" not in text or "SKIP" not in text:
         problems.append("sum_to_n не помечен SKIP (цикл вне подмножества)")
+    # ВЕТВЛЕНИЯ: доказанное, но непроверяемое пруф-чекером обязано быть SKIP,
+    # а НЕ FAIL (код корректен) и НЕ PASS (независимо не проверено).
+    if "[SKIP] withdraw_fixed" not in text:
+        problems.append("withdraw_fixed не помечен SKIP (пруф-чекер не покрывает ite)")
+    if "[SKIP] withdraw_ternary" not in text:
+        problems.append("withdraw_ternary не помечен SKIP")
+    # БАГ ОБЯЗАН БЫТЬ НАЙДЕН с контрпримером.
+    if "[FAIL] withdraw_missing_neg" not in text:
+        problems.append("withdraw_missing_neg НЕ отвергнут (баг не найден!)")
+    if "КОНТРПРИМЕР" not in text:
+        problems.append("контрпример не предъявлен")
     if problems:
         print("[!] ДЕМО НЕ СООТВЕТСТВУЕТ ОЖИДАНИЮ:")
         for x in problems:
@@ -222,10 +304,12 @@ def _demo(args) -> int:
         if not funcs:
             print(f"  {p}: нет функций с аннотациями @kern:")
             continue
-        for name, params, req, ens, body, ln in funcs:
+        for name, params, req, ens, body, ln, skip_reason in funcs:
             total += 1
             if body is None:
-                print(f"  {name} (стр. {ln}): SKIP — нет единственного `return`")
+                # Причина ОТКАЗА печатается как есть: «нет return» и «цикл»
+                # требуют разных действий, а раньше сообщение было одно.
+                print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
                 skipped += 1
                 continue
             try:
@@ -241,6 +325,22 @@ def _demo(args) -> int:
             r = subprocess.run([str(kernc), "prove", sp],
                                capture_output=True, text=True, timeout=120)
             out = r.stdout + r.stderr
+            # ТРИ РАЗЛИЧНЫХ ИСХОДА (раньше два). Различие принципиально:
+            #   PASS — Z3 доказал И пруф-чекер перепроверил вывод;
+            #   SKIP — Z3 доказал, но пруф-чекер НЕ ПОКРЫВАЕТ такую форму вывода
+            #          (например, с `ite`). Код не виноват, но и «проверено»
+            #          сказать нельзя — поэтому НЕ PASS и НЕ FAIL;
+            #   FAIL — контракт опровергнут (предъявлен контрпример).
+            if "ДОКАЗАНО" in out and r.returncode != 0:
+                reason = ""
+                for line in out.splitlines():
+                    if "причина:" in line:
+                        reason = line.split("причина:", 1)[1].strip()
+                        break
+                print(f"  [SKIP] {name}: Z3 доказал, но пруф-чекер не покрывает "
+                      f"вывод ({reason or 'причина не указана'})")
+                skipped += 1
+                continue
             if "ДОКАЗАНО" in out and r.returncode == 0:
                 proof = ""
                 for line in out.splitlines():

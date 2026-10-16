@@ -72,6 +72,22 @@ TOOLS = [
             "required": ["contracts"],
         },
     },
+    {
+        "name": "kern_verify_python",
+        "description": ("Проверить Python-код с контрактами в комментариях "
+                        "(`# @kern:requires` / `# @kern:ensures`). Поддерживаются "
+                        "ветвления if/elif/else и локальные присваивания: они "
+                        "транслируются в SMT `ite`. Для каждой функции возвращается "
+                        "статус (PASS/FAIL/SKIP), вердикт Белнапа и КОНТРПРИМЕР при "
+                        "нарушении контракта. Циклы и вызовы -> честный SKIP."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"python_source": {
+                "type": "string",
+                "description": "Исходник Python с аннотациями @kern:"}},
+            "required": ["python_source"],
+        },
+    },
 ]
 
 
@@ -118,6 +134,36 @@ def run_prove(smt: str) -> dict:
     return res
 
 
+def run_python_contracts(src: str) -> str:
+    """Проверить Python-исходник с аннотациями `# @kern:` через экстрактор контрактов.
+
+    Переиспользуется `tools/kern_contracts.py` (тот же код, что в `make contracts`):
+    дублировать трансляцию Python -> SMT здесь нельзя — разошлись бы версии.
+    """
+    tool = ROOT / "tools" / "kern_contracts.py"
+    if not tool.exists():
+        return f"[!] не найден экстрактор контрактов: {tool}"
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as tf:
+        tf.write(src)
+        path = tf.name
+    try:
+        r = subprocess.run([sys.executable, str(tool), path],
+                           capture_output=True, text=True, timeout=300,
+                           cwd=str(ROOT))
+    except subprocess.TimeoutExpired:
+        return "[!] таймаут проверки контрактов"
+    out = (r.stdout + r.stderr).strip()
+    # Возвращаем структурный итог: строки вердиктов + контрпримеры.
+    keep = []
+    for line in out.splitlines():
+        t = line.strip()
+        if (t.startswith("[PASS]") or t.startswith("[FAIL]") or t.startswith("[SKIP]")
+                or t.startswith("[КОНТРПРИМЕР]") or t.startswith("ИТОГО:")
+                or "SKIP —" in t):
+            keep.append(t)
+    return "\n".join(keep) if keep else out
+
+
 def text_result(s: str, is_error: bool = False) -> dict:
     return {"content": [{"type": "text", "text": s}], "isError": is_error}
 
@@ -142,6 +188,12 @@ def call_tool(name: str, args: dict) -> dict:
         if r.get("counterexample"):
             lines.append(f"counterexample: {r['counterexample']}")
         return text_result("\n".join(lines))
+
+    if name == "kern_verify_python":
+        src = args.get("python_source", "")
+        if not src.strip():
+            return text_result("нужен непустой параметр 'python_source'", True)
+        return text_result(run_python_contracts(src))
 
     if name == "kern_verify_multi_belnap":
         contracts = args.get("contracts") or []

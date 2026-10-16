@@ -13,6 +13,7 @@ stdin, читает строки JSON из stdout.
   5. `kern_verify_smt` на ОПРОВЕРГАЕМОМ -> «НЕ доказано», e=0;
   6. `kern_prove_with_checker` -> есть строка `PROOF VERIFIED`;
   7. `kern_verify_multi_belnap` [T, F] -> `JOIN_K: B` (конфликт не схлопывается);
+  7b. kern_verify_python (ветвления -> ite) -> контрпример;
   8. неизвестный метод -> -32601; битый JSON -> -32700.
 
 Запуск: python3 tools/mcp_selftest.py
@@ -110,7 +111,7 @@ def main() -> int:
     c.send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     r = c.read_one()
     names = [t["name"] for t in r["result"]["tools"]] if r else []
-    check("tools/list", len(names) == 3, ", ".join(names))
+    check("tools/list", len(names) == 4, ", ".join(names))
 
     # 4. доказуемый контракт
     c.send({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -153,6 +154,23 @@ def main() -> int:
     check("Белнап: T ⊔ F = B (конфликт)",
           "JOIN_K" in txt and "B" in first and "p=1" in first and "n=1" in first,
           first)
+
+    # 7b. Python-контракты: ветвления -> SMT ite, контрпример при баге.
+    PY = ("# @kern:requires True\n"
+          "# @kern:ensures  result <= balance\n"
+          "def withdraw_missing_neg(balance: int, amount: int) -> int:\n"
+          "    if amount > balance:\n"
+          "        return balance\n"
+          "    return balance - amount\n")
+    c.send({"jsonrpc": "2.0", "id": 8, "method": "tools/call",
+            "params": {"name": "kern_verify_python",
+                       "arguments": {"python_source": PY}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    ok = ("[FAIL] withdraw_missing_neg" in txt and "КОНТРПРИМЕР" in txt
+          and "amount = -1" in txt)
+    check("kern_verify_python: ветвления + контрпример", ok,
+          ([l for l in txt.splitlines() if "КОНТРПРИМЕР" in l] or [""])[0])
 
     # 8a. неизвестный метод
     c.send({"jsonrpc": "2.0", "id": 7, "method": "no/such/method"})

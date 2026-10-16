@@ -565,6 +565,20 @@ def case_contracts():
     return "make contracts"
 
 
+def case_contracts_branches():
+    """Ветвления: `if` НЕ транслируется в `ite` (ветка отброшена).
+
+    ЛОМАЕМ: `ast.If` перестаёт обрабатываться, поэтому функции с ветвлениями
+    уходят в SKIP. Тогда `withdraw_missing_neg` (баг с отрицательной суммой)
+    НЕ будет найден, и `--expect-demo` обязан покраснеть: проверка, которая
+    не ловит баг, не должна оставаться зелёной.
+    """
+    patch("tools/kern_contracts.py",
+          "    if isinstance(st, ast.If):",
+          "    if False and isinstance(st, ast.If):  # ДИВЕРСИЯ: ветки отброшены")
+    return "make contracts"
+
+
 def case_model_negative():
     """Контрпример: в модель попадают ФУНКЦИИ С АРГУМЕНТАМИ.
 
@@ -1288,6 +1302,7 @@ CASES = [
     ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
     ("model-negative",  "Контрпример: (- N) не свёрнут",      case_model_negative),
+    ("contracts-branches", "Ветвления: if отброшен",           case_contracts_branches),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),

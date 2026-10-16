@@ -79,6 +79,26 @@ pub const ProofVerdict = struct {
             self.farkas_bad == 0 and self.rewrite_bad == 0 and
             self.reject.len == 0;
     }
+
+    /// ЧЕЛОВЕКОЧИТАЕМАЯ ПРИЧИНА ОТКАЗА.
+    ///
+    /// ДЕФЕКТ #89 (найден при работе над ветвлениями): отказ мог прийти не от
+    /// явного `reject`, а от счётчика (`premises_unbound`, `mp_bad`, ...), и
+    /// тогда CLI печатал `[!] причина: ` с ПУСТЫМ текстом — пользователь видел
+    /// «ПРУФ-ЧЕКЕР ОТВЕРГ», но не знал, что именно не так.
+    /// Здесь причина всегда называется.
+    pub fn failureReason(self: ProofVerdict) []const u8 {
+        if (self.reject.len != 0) return self.reject;
+        if (self.holes != 0) return "в выводе есть правило-дыра (hole/trust/sorry)";
+        if (self.premises_unbound != 0) return "посылки не привязаны к контракту (premises_unbound)";
+        if (self.mp_bad != 0) return "неверная структура mp";
+        if (self.unitres_bad != 0) return "неверный шаг unit-resolution";
+        if (self.farkas_bad != 0) return "неверный сертификат Фаркаша";
+        if (self.rewrite_bad != 0) return "подделанный rewrite (обе стороны линейны и НЕ равны)";
+        if (!self.proof_concludes_false) return "вывод не завершается `false`";
+        if (self.trusted_steps != 0) return "остались непроверенные шаги (trusted)";
+        return "неизвестная причина отказа";
+    }
 };
 
 // =========================================================================
@@ -230,6 +250,13 @@ const KNOWN_RULES = [_][]const u8{
     "distributivity",  "definition",  "monotonicity", "bind",
     "pull-quant",      "sk",          "nnf-pos",    "nnf-neg",
     "quant-inst",      "quant-intro", "elim",       "asserted-commutativity",
+    // ДЕФЕКТ #90 (найден при работе над ветвлениями `ite`): этих правил не было
+    // в списке, поэтому `isStepExpr` НЕ считал их шагами, и `premiseTerm`
+    // возвращал САМ шаг (`(intro-def X)`) вместо доказываемой формулы (`X`).
+    // Из-за этого `mp` не сходился и чекер отвергал ВЕРНЫЙ вывод.
+    // `def-axiom` — определение (аксиома), поэтому шаг попадает в `trusted`
+    // и НЕ выдаётся за проверенный.
+    "intro-def",       "def-axiom",
 };
 
 fn isHole(r: []const u8) bool {
@@ -417,6 +444,19 @@ fn normCmp(e: Sexp) ?NormCmp {
     if (std.mem.eql(u8, h, ">")) return .{ .neg = true, .a = b, .b = a };
     if (std.mem.eql(u8, h, "<")) return .{ .neg = true, .a = a, .b = b };
     return null;
+}
+
+/// СЕМАНТИЧЕСКАЯ дополнительность сравнений.
+///
+/// ДЕФЕКТ #91 (найден на выводе с `ite`): `isComplement` сравнивает СТРУКТУРНО,
+/// поэтому `(not (<= a b))` и `(>= b a)` не считались взаимно-дополняющими,
+/// хотя это одно и то же. Из-за этого `unit-resolution` не мог опровергнуть
+/// литерал и чекер отвергал ВЕРНЫЙ вывод.
+/// Здесь сравниваются КАНОНИЧЕСКИЕ формы: совпадают (a, b) и противоположны `neg`.
+fn isComplementCmp(a: Sexp, b: Sexp) bool {
+    const na = normCmp(a) orelse return false;
+    const nb = normCmp(b) orelse return false;
+    return na.neg != nb.neg and sexpEq(na.a, nb.a) and sexpEq(na.b, nb.b);
 }
 
 /// Извлечь тела всех `(assert ...)` из текста SMT-LIB2.
@@ -992,6 +1032,14 @@ fn checkMp(c: *const Ctx, st: Sexp) bool {
     if (!is_eq and !std.mem.eql(u8, h, "=>")) return false;
     if (sexpEq(p2.items[1], p1) and sexpEq(p2.items[2], q)) return true;
     if (is_eq and sexpEq(p2.items[2], p1) and sexpEq(p2.items[1], q)) return true;
+    std.debug.print("  [DBG mp] p1: head={s} n={d} | p2[1]: head={s} n={d} | p2[2]: head={s} n={d}\n", .{
+        if (p1.isList() and p1.items.len > 0) (p1.items[0].atom orelse "?") else "-",
+        if (p1.isList()) p1.items.len else 0,
+        if (p2.items[1].isList() and p2.items[1].items.len > 0) (p2.items[1].items[0].atom orelse "?") else "-",
+        if (p2.items[1].isList()) p2.items[1].items.len else 0,
+        if (p2.items[2].isList() and p2.items[2].items.len > 0) (p2.items[2].items[0].atom orelse "?") else "-",
+        if (p2.items[2].isList()) p2.items[2].items.len else 0,
+    });
     return false;
 }
 
@@ -1029,7 +1077,8 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) bool {
             const l = expand(c, lit, 0);
             var falsified = false;
             for (units.items) |u| {
-                if (isComplement(l, u)) {
+                // Структурная ЛИБО семантическая (по канонической форме) пара.
+                if (isComplement(l, u) or isComplementCmp(l, u)) {
                     falsified = true;
                     break;
                 }
@@ -1050,7 +1099,7 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) bool {
             // Без клауз нужна пара взаимно-дополняющих литералов.
             for (units.items, 0..) |u, i| {
                 for (units.items[i + 1 ..]) |w| {
-                    if (isComplement(u, w)) return true;
+                    if (isComplement(u, w) or isComplementCmp(u, w)) return true;
                 }
             }
             return false;
