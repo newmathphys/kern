@@ -27,6 +27,7 @@
 //! без изменений, а новые собираются на BLAKE3.
 
 const std = @import("std");
+const simd8 = @import("blake3_simd8.zig");
 
 pub const HashAlgo = enum(u32) {
     /// 0x0001 — BLAKE3-256 (алгоритм по умолчанию при СБОРКЕ).
@@ -56,6 +57,26 @@ pub const HashAlgo = enum(u32) {
             inline else => |a| hashComptime(a, data, out),
         }
     }
+
+    /// Пакетный хеш 8 объектов произвольной длины (каждый <= 1024 Б).
+    ///
+    /// Для BLAKE3 используется 8-полосный SIMD (`@Vector(8, u32)`), для
+    /// SHA-256 — 8 обычных вызовов. Результат БИТ-В-БИТ совпадает с
+    /// поштучным хешированием тем же алгоритмом (проверено тестами).
+    pub fn hashBatch8(self: HashAlgo, inputs: [8][]const u8, outputs: *[8][32]u8) void {
+        switch (self) {
+            .blake3 => simd8.hash8SmallObjects(inputs, outputs),
+            inline else => |a| for (inputs, 0..) |in, lane| {
+                a.hash(in, &outputs[lane]);
+            },
+        }
+    }
+
+    /// Максимальная длина объекта, для которой пакетный путь применим.
+    pub fn batchMaxLen() usize {
+        return simd8.MAX_SMALL_LEN;
+    }
+
 
     fn hashComptime(comptime algo: HashAlgo, data: []const u8, out: *[32]u8) void {
         switch (algo) {

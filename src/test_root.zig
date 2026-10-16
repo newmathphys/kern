@@ -10,6 +10,7 @@
 test {
     _ = @import("core/eq2.zig");
     _ = @import("core/hash_algo.zig");
+    _ = @import("core/blake3_simd8.zig");
     _ = @import("core/object_entry.zig");
     _ = @import("core/kimg_reader.zig");
     _ = @import("core/kernfs_router.zig");

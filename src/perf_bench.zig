@@ -128,6 +128,16 @@ pub fn main(init: std.process.Init) !void {
         // Имя алгоритма берётся из заголовка образа (дефект #66): раньше здесь
         // была жёстко зашита строка «SHA-256», хотя по умолчанию уже BLAKE3.
         std.debug.print("Безопасное чтение (+{s}):{s}{d:.1} МБ/с\n", .{ algo_name, "           ", mbps });
+        // ЗАМЕР №2: та же проверка, но ПАКЕТНО (группы по 8 объектов за один
+        // векторный проход @Vector(8,u32)). Проверяются те же объекты, поэтому
+        // сравнивать МБ/с корректно.
+        var timer3 = compat.Timer.start();
+        const bat_ok = fs.verifyAllBatch() catch 0;
+        const t_bat = timer3.read();
+        if (t_bat > 0 and bat_ok > 0 and ver_bytes > 0) {
+            const bm = (@as(f64, @floatFromInt(ver_bytes)) / (1 << 20)) / (ms(t_bat) / 1000.0);
+            std.debug.print("Безопасное чтение ПАКЕТНО (SIMD-8):{s}{d:.1} МБ/с  (объектов {d})\n", .{ "  ", bm, bat_ok });
+        }
     }
 
     // ---- K2: ПОРОГИ. Без них цель «печатает» и не может упасть -------------

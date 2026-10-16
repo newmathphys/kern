@@ -444,6 +444,24 @@ def case_svg_overflow():
     return "make svg-check"
 
 
+def case_simd8_masking():
+    """Пакетный SIMD-8 BLAKE3. ЛОМАЕМ: убираем ПОЛОСНОЕ маскирование.
+
+    В одной пачке длины объектов разные (0..1024), поэтому число блоков у полос
+    разное. `@select(u32, active, next_cv, cv[i])` не даёт «лишним» полосам
+    испортить своё состояние. Если маскирование убрать, дайджесты коротких
+    объектов перестанут совпадать со `std.Blake3` — тест бит-в-бит обязан
+    покраснеть.
+    """
+    patch(
+        "src/core/blake3_simd8.zig",
+        "        cv[i] = @select(u32, active, next_cv, cv[i]);",
+        "        cv[i] = next_cv; // ДЫРА: неактивные полосы тоже перезаписаны\n"
+        "        _ = active;",
+    )
+    return "zig test src/core/blake3_simd8.zig"
+
+
 def case_proof_checker_hole():
     """Независимый пруф-чекер. ЛОМАЕМ: отключаем запрет дыр в выводе.
 
@@ -1183,6 +1201,7 @@ CASES = [
     ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),
     ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
+    ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),

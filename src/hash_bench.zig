@@ -23,6 +23,7 @@
 
 const std = @import("std");
 const compat = @import("compat");
+const simd8 = @import("core/blake3_simd8.zig");
 
 /// Обёртки приводят РАЗНЫЕ сигнатуры std к одному виду `(data, out: []u8)`.
 fn sha256Wrap(data: []const u8, out: []u8) void {
@@ -45,6 +46,36 @@ fn benchHash(
     var i: usize = 0;
     while (i < iters) : (i += 1) {
         hashFn(data, &out);
+        std.mem.doNotOptimizeAway(&out);
+    }
+    return t.read();
+}
+
+/// Пакетный замер: 8 объектов за один векторный проход.
+fn benchBatch8(data: []const u8, obj_len: usize, iters: usize) u64 {
+    var slices: [8][]const u8 = undefined;
+    for (&slices, 0..) |*s, i| s.* = data[i * obj_len ..][0..obj_len];
+    var outs: [8][32]u8 = undefined;
+    simd8.hash8SmallObjects(slices, &outs); // прогрев
+    var t = compat.Timer.start();
+    var i: usize = 0;
+    while (i < iters) : (i += 1) {
+        simd8.hash8SmallObjects(slices, &outs);
+        std.mem.doNotOptimizeAway(&outs);
+    }
+    return t.read();
+}
+
+/// Поштучный замер тех же 8 объектов (для честного сравнения).
+fn benchOneByOne(data: []const u8, obj_len: usize, iters: usize) u64 {
+    var out: [32]u8 = undefined;
+    std.crypto.hash.Blake3.hash(data[0..obj_len], &out, .{});
+    var t = compat.Timer.start();
+    var i: usize = 0;
+    while (i < iters) : (i += 1) {
+        inline for (0..8) |k| {
+            std.crypto.hash.Blake3.hash(data[k * obj_len ..][0..obj_len], &out, .{});
+        }
         std.mem.doNotOptimizeAway(&out);
     }
     return t.read();
@@ -103,6 +134,25 @@ pub fn main() !void {
     std.debug.print("\nКОНВЕЙЕР ЧТЕНИЯ .kimg (RAW = {d:.0} МБ/с):\n", .{raw_mbs});
     std.debug.print("  сейчас (SHA-256): {d:.0} МБ/с  ->  разрыв {d:.0}x от RAW\n", .{ sha_safe, raw_mbs / sha_safe });
     std.debug.print("  с BLAKE3:         {d:.0} МБ/с  ->  разрыв {d:.0}x от RAW\n", .{ blake_safe, raw_mbs / blake_safe });
+    // ---- ЗАМЕР №1: пакетный SIMD-8 против поштучного BLAKE3 ----
+    std.debug.print("\nпакетный SIMD-8 BLAKE3 (@Vector(8,u32)) против поштучного:\n", .{});
+    std.debug.print("---------------------------------------------------------------------------\n", .{});
+    std.debug.print("{s:>10} | {s:>16} | {s:>16} | {s:>8}\n", .{ "объект", "поштучно МБ/с", "пакетно МБ/с", "выигрыш" });
+    const OBJ_N = 10000;
+    for ([_]usize{ 96, 200, 512, 1024 }) |obj_len| {
+        const total = OBJ_N * obj_len;
+        const buf = try alloc.alloc(u8, total);
+        defer alloc.free(buf);
+        for (buf, 0..) |*b, i| b.* = @truncate((i * 31 + 7) & 0xFF);
+
+        const groups = OBJ_N / 8;
+        const one_ns = benchOneByOne(buf, obj_len, groups) + 1;
+        const bat_ns = benchBatch8(buf, obj_len, groups) + 1;
+        const one_mbs = @as(f64, @floatFromInt(groups * 8 * obj_len)) / @as(f64, @floatFromInt(one_ns)) * 1000.0;
+        const bat_mbs = @as(f64, @floatFromInt(groups * 8 * obj_len)) / @as(f64, @floatFromInt(bat_ns)) * 1000.0;
+        std.debug.print("{d:>10} | {d:>16.1} | {d:>16.1} | {d:>7.2}x\n", .{ obj_len, one_mbs, bat_mbs, bat_mbs / one_mbs });
+    }
+
     std.debug.print(
         \\
         \\ВЫВОД: SHA-NI недоступен на Kaby Lake (появился в Ice Lake / Zen),

@@ -151,6 +151,62 @@ pub const KernFS = struct {
         return self.payloadSlice(obj);
     }
 
+    /// ПАКЕТНАЯ верификация всех объектов образа: группы по 8 объектов
+    /// проверяются одним векторным проходом (`HashAlgo.hashBatch8`).
+    ///
+    /// ЗАЧЕМ. На мелких объектах (96–200 Б) BLAKE3 работает в одну полосу и
+    /// упирается в накладные расходы. Замер (`make bench-hash`): 352 МБ/с
+    /// поштучно против 1939 МБ/с пакетно на 96 Б. Здесь те же 8 полос AVX2
+    /// загружаются на 8 СОСЕДНИХ объектов.
+    ///
+    /// БЕЗОПАСНОСТЬ НЕ ОСЛАБЛЯЕТСЯ. Каждый из 8 результатов сверяется со СВОИМ
+    /// 32-байтным `obj.digest` из таблицы дескрипторов. Порча одного байта в
+    /// любой полосе даёт несовпадение -> `error.PayloadTampered`. Формат
+    /// `.kimg` при этом не меняется ни на байт.
+    ///
+    /// Возвращает число проверенных объектов.
+    pub fn verifyAllBatch(self: KernFS) KernFsError!usize {
+        const batch_max = HashAlgo.batchMaxLen();
+        var i: usize = 0;
+        var verified: usize = 0;
+        while (i < self.objects.len) {
+            const room = self.objects.len - i;
+            const group: usize = @min(room, 8);
+
+            // Пакетный путь применим, если набралось ровно 8 объектов и все они
+            // помещаются в один чанк. Иначе — честный поштучный путь.
+            var all_small = group == 8;
+            if (all_small) {
+                for (self.objects[i .. i + 8]) |obj| {
+                    if (obj.compressed_size > batch_max) {
+                        all_small = false;
+                        break;
+                    }
+                }
+            }
+            if (!all_small) {
+                const sl = try self.payloadSlice(self.objects[i]);
+                _ = sl;
+                verified += 1;
+                i += 1;
+                continue;
+            }
+
+            var ins: [8][]const u8 = undefined;
+            for (0..8) |k| ins[k] = try self.objectPayloadRaw(self.objects[i + k]);
+            var outs: [8][32]u8 = undefined;
+            self.hash_algo.hashBatch8(ins, &outs);
+            for (0..8) |k| {
+                if (!std.mem.eql(u8, &outs[k], &self.objects[i + k].digest)) {
+                    return KernFsError.PayloadTampered;
+                }
+            }
+            verified += 8;
+            i += 8;
+        }
+        return verified;
+    }
+
     /// Главный метод роутинга.
     ///
     /// 🔴 ИЗВЕСТНОЕ РАСХОЖДЕНИЕ (см. docs/archive/KERN34_AUDIT.md): роутер ищет
