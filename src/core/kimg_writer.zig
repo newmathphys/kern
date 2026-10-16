@@ -411,6 +411,11 @@ test "МУТАНТ >=->>: каталог синхронизируется и п�
         _ = std.os.linux.dup2(@intCast(saved_i), 0);
         _ = std.os.linux.close(@intCast(saved_i));
     }
+    // ВЕТКА 1: ОТКРЫТЫЙ дескриптор без флагов -> `fcntl(F_GETFD)` вернёт 0.
+    // Мутация `>= 0` -> `> 0` в `fdIsOpen` вернёт здесь false и тест упадёт.
+    // (`dup` по POSIX сбрасывает FD_CLOEXEC, поэтому флаги действительно 0.)
+    try std.testing.expect(fdIsOpen(@intCast(saved_i)));
+
     _ = std.os.linux.close(0);
 
     var b = Builder.init(std.testing.allocator);

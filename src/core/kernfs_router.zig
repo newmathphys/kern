@@ -1051,6 +1051,10 @@ test "МУТАНТ false->true: СЖАТЫЙ объект в ПОЛНОМ кла
         std.crypto.hash.Blake3.hash(region[k * 10 .. k * 10 + 10], o.digest[0..32], .{});
     }
     objs[3].compression_codec = 2; // deflate
+    // ВАЖНО: у СЖАТОГО объекта дайджест считается по РАСПАКОВАННОМУ
+    // содержимому, а в образе лежат ДРУГИЕ (сжатые) байты. Именно поэтому
+    // пакетный путь (он хеширует СЫРЫЕ байты) для него недопустим.
+    std.crypto.hash.Blake3.hash("compressed-content-differs", objs[3].digest[0..32], .{});
     const fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
     var cache = try ClusterCache.init(std.testing.allocator, objs.len);
     defer cache.deinit(std.testing.allocator);
@@ -1086,4 +1090,26 @@ test "МУТАНТ >=->>: КРУПНЫЙ объект (>1024) в кластер�
     // verifyAllBatch обязан пройти поштучно (без паники) и проверить все 8.
     const n = try fs.verifyAllBatch();
     try std.testing.expectEqual(@as(usize, 8), n);
+}
+
+test "ГРАНИЦА: logical_path_offset ровно на границе пула не читает память" {
+    // Проверка `if (offset >= self.payload_region.len) return ""` в `getString`.
+    //
+    // ЭКВИВАЛЕНТНЫЙ МУТАНТ (задокументировано в METRICS §66.5): замена `>=` на
+    // `>` здесь НЕ наблюдаема, потому что следующий за ней цикл
+    // `while (offset + len < self.payload_region.len ...)` дублирует ту же
+    // границу. Тест закрепляет поведение на границе, но мутанта не убивает —
+    // и это честный факт, а не пропуск.
+    var region: [11]u8 = "a.zig\x00hello".*;
+    var e = std.mem.zeroes(ObjectEntry);
+    e.type_id = 0x0002;
+    e.flags = 0x0002; // HAS_LOGICAL_PATH
+    e.logical_path_offset = 11; // РОВНО region.len
+    e.payload_offset = 6;
+    e.compressed_size = 5;
+    e.uncompressed_size = 5;
+    var objs = [_]ObjectEntry{e};
+    var fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
+    // Имя пустое -> объект не адресуем по /raw/ (и НЕ должно быть паники).
+    try std.testing.expectError(KernFsError.FileNotFound, fs.read("/raw/a.zig"));
 }
