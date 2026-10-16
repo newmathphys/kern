@@ -15,6 +15,7 @@ const ProofCertificate = @import("verifier/admission_gate.zig").ProofCertificate
 const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPolicy;
 const TrustedChecker = @import("verifier/admission_gate.zig").TrustedChecker;
 const proof_check = @import("verifier/proof_check.zig");
+const model_extract = @import("verifier/model_extract.zig");
 const z3b = @import("verifier/z3_bridge.zig");
 const unsat_core = @import("verifier/unsat_core.zig");
 const array_theory = @import("verifier/array_theory.zig");
@@ -112,6 +113,23 @@ fn emitFmt(comptime fmt: []const u8, args: anytype) void {
     emit(s);
 }
 
+
+/// Записать контракт в writer, ВЫРЕЗАЯ `(exit)`.
+///
+/// ЗАЧЕМ: если в `.smt2` есть `(exit)`, решатель завершится сразу после него,
+/// и добавленные нами `(check-sat)` / `(get-model)` не выполнятся — контрпример
+/// получить не удастся. Вырезаем `(exit)` и его возможные пробелы.
+fn writeWithoutExit(w: anytype, smt: []const u8) !void {
+    var i: usize = 0;
+    while (i < smt.len) {
+        if (std.mem.startsWith(u8, smt[i..], "(exit)")) {
+            i += "(exit)".len;
+            continue;
+        }
+        try w.writeByte(smt[i]);
+        i += 1;
+    }
+}
 
 pub fn main(init: std.process.Init) !void {
     // Zig 0.17: файловый I/O требует явный `io` — публикуем его в compat.
@@ -375,6 +393,52 @@ pub fn main(init: std.process.Init) !void {
                 } else {
                     std.debug.print("  [!] причина: {s}\n", .{pv.reject});
                     fail("[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя\n", .{});
+                }
+            }
+        }
+        // ---- КОНТРПРИМЕР Z3: при `sat` показываем КОНКРЕТНЫЕ значения ------
+        // ЗАЧЕМ. Без этого при опровергнутом контракте пользователь и ИИ-агент
+        // видят только «НЕ доказано» — но не видят, КАКИЕ входы сломали
+        // контракт. Вердикт `F` без контрпримера нельзя использовать.
+        //
+        // ЛОВУШКА (учтена): запрашивать `(get-model)` при `unsat` НЕЛЬЗЯ —
+        // Z3 ответит `(error "model is not available")`. Поэтому запрос идёт
+        // ОТДЕЛЬНО и только когда вердикт не «доказано».
+        if (r.e_value != 1) {
+            var qm = compat.BufWriter.init(alloc);
+            defer qm.deinit();
+            const wm = qm.writer();
+            try wm.writeAll("(set-option :produce-models true)\n");
+            // `(exit)` в исходном контракте оборвал бы вывод до `(get-model)`.
+            try writeWithoutExit(wm, smt);
+            try wm.writeAll("\n(check-sat)\n(get-model)\n");
+            const cm = bridge.executeCapture(qm.items());
+            defer alloc.free(cm.stdout);
+            if (cm.status == .Sat) {
+                // ВАЖНО (измерено): Z3 5.1.0 печатает модель БЕЗ обёртки
+                // `(model ...)` — сразу `(` и `define-fun`. Поиск по строке
+                // "(model" не находил ничего, и контрпример молча получался
+                // «пустым». Берём всё после ПОСЛЕДНЕГО `sat`: контракт может
+                // содержать СВОЙ `(check-sat)`, и тогда ответов несколько.
+                const sp = std.mem.lastIndexOf(u8, cm.stdout, "sat") orelse 0;
+                const after = cm.stdout[@min(sp + 3, cm.stdout.len)..];
+                var ar2 = std.heap.ArenaAllocator.init(alloc);
+                defer ar2.deinit();
+                const bindings = model_extract.extract(ar2.allocator(), after) catch &.{};
+                if (bindings.len > 0) {
+                    std.debug.print("  [КОНТРПРИМЕР] ", .{});
+                    for (bindings, 0..) |b, k| {
+                        if (k > 0) std.debug.print(", ", .{});
+                        std.debug.print("{s} = {s}", .{ b.name, b.value });
+                    }
+                    std.debug.print("\n  [COUNTEREXAMPLE] ", .{});
+                    for (bindings, 0..) |b, k| {
+                        if (k > 0) std.debug.print(", ", .{});
+                        std.debug.print("{s} = {s}", .{ b.name, b.value });
+                    }
+                    std.debug.print("\n", .{});
+                } else {
+                    std.debug.print("  [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет)\n", .{});
                 }
             }
         }

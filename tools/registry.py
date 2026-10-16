@@ -150,6 +150,7 @@ CASE_TARGET = {
     "artifact-check-offline": "artifact-check-offline",
     "contracts": "contracts",
     "mcp-selftest": "mcp-selftest",
+    "model-negative": "core_tests",   # парсер модели: свёртка (- N)
 }
 
 

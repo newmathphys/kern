@@ -94,7 +94,7 @@ def run_prove(smt: str) -> dict:
         return {"verdict": "timeout", "e": 0, "belnap": "N", "proof": None}
     out = r.stdout + r.stderr
     res = {"rc": r.returncode, "e": 0, "verdict": "НЕ доказано",
-           "proof": None, "belnap": "N"}
+           "proof": None, "belnap": "N", "counterexample": None}
     for line in out.splitlines():
         s = line.strip()
         if s.startswith("e ") and ":" in s:
@@ -106,6 +106,9 @@ def run_prove(smt: str) -> dict:
             res["verdict"] = s.split(":", 1)[1].strip()
         elif "PROOF VERIFIED" in s:
             res["proof"] = s
+        elif "[КОНТРПРИМЕР]" in s:
+            # Конкретные значения, сломавшие контракт (модель Z3).
+            res["counterexample"] = s.split("]", 1)[1].strip()
         elif "KERN-EQ2" in s:
             sym = s.split(":")[-1].strip()
             if sym in ("T", "F", "B", "N"):
@@ -134,6 +137,10 @@ def call_tool(name: str, args: dict) -> dict:
             lines.append(f"вывод   : {r['proof']}")
         elif name == "kern_prove_with_checker":
             lines.append("пруф-чекер: сводка недоступна (вывод не получен)")
+        # КОНТРПРИМЕР: при опровергнутом контракте агент получает КОНКРЕТНЫЕ
+        # значения входов — их можно сразу подать модели для исправления.
+        if r.get("counterexample"):
+            lines.append(f"counterexample: {r['counterexample']}")
         return text_result("\n".join(lines))
 
     if name == "kern_verify_multi_belnap":

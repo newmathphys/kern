@@ -255,6 +255,12 @@ def _demo(args) -> int:
                 for line in out.splitlines():
                     if "ВЕРДИКТ" in line or "KERN-EQ2" in line:
                         print(f"         {line.strip()}")
+                # КОНТРПРИМЕР Z3: конкретные значения, сломавшие контракт.
+                # Без них вердикт F бесполезен — непонятно, что именно чинить.
+                for line in out.splitlines():
+                    if "КОНТРПРИМЕР" in line:
+                        print(f"         {line.strip()}")
+                        break
                 failed += 1
     print("-" * 74)
     print(f"ИТОГО: доказано {ok} | нарушено {failed} | вне подмножества "

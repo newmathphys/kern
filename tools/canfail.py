@@ -184,6 +184,7 @@ class Fault:
 FAULTABLE = [
     "README.md",
     "tools/kern_contracts.py",
+    "src/verifier/model_extract.zig",
     "src/core/codec.zig",
     "examples/kern_mcp_server.py",
     "tools/canfail.py",
@@ -562,6 +563,20 @@ def case_contracts():
           'if "ДОКАЗАНО" in out and r.returncode == 0:',
           'if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным')
     return "make contracts"
+
+
+def case_model_negative():
+    """Контрпример: в модель попадают ФУНКЦИИ С АРГУМЕНТАМИ.
+
+    ЛОМАЕМ: снимаем фильтр 0-арности. Тогда в контрпример попадают не только
+    значения входа, но и определения вида `(define-fun f ((x Int)) Int ...)` —
+    пользователь видит мусор вместо значений, сломавших контракт (дефект #88).
+    Тест «функции С АРГУМЕНТАМИ пропускаются» обязан это заметить.
+    """
+    patch("src/verifier/model_extract.zig",
+          "if (args.len != 0) continue;",
+          "if (false) continue;  # ДИВЕРСИЯ: функции с аргументами тоже берём")
+    return "make test"
 
 
 def case_codec_dispatch():
@@ -1272,6 +1287,7 @@ CASES = [
     ("artifact-check-offline", "Артефакт: README != сборка",   case_artifact_check_offline),
     ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
+    ("model-negative",  "Контрпример: (- N) не свёрнут",      case_model_negative),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
     ("core-gate",     "Врата Истины (e=1 без чекера)",         case_core_invariant),
