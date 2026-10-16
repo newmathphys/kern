@@ -176,9 +176,11 @@ clean:
 
 # Контракты прямо в Python-коде: @kern:requires / @kern:ensures -> SMT-LIB2 -> Z3.
 # Демонстрация: make contracts  (корректная функция ДОКАЗАНА, багованная НАРУШЕНА)
+# ПРОВЕРКА, а не демо: --expect-demo падает, если вердикты разошлись с ожиданием.
+# РАНЬШЕ здесь стоял `|| true`, поэтому цель НЕ МОГЛА УПАСТЬ — «молчаливо
+# сломанная проверка» в самой цели (закрыто can-fail кейсом `contracts`).
 contracts: build
-	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py || true
-	@echo "(ожидаемо: withdraw ДОКАЗАНО, withdraw_buggy НАРУШЕН, sum_to_n SKIP)"
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py --expect-demo
 
 # MCP-сервер: живая проверка протокола (JSON-RPC 2.0 поверх stdio).
 # Запускает examples/kern_mcp_server.py как ДОЧЕРНИЙ ПРОЦЕСС и проверяет 9 пунктов:

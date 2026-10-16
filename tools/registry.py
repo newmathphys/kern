@@ -143,9 +143,13 @@ CASE_TARGET = {
     "meta-verdict": "canfail",     # мета: ломает вердикт харнесса
     "proof-hole": "core_tests",
     "proof-binding": "core_tests",
-    "artifact-check": "evidence-gate",
-    "artifact-check-offline": "evidence-gate",
-    "contracts": "run-example",
+    # ДЕФЕКТ #87: здесь стояло "evidence-gate" — кейс указывал на ЧУЖУЮ цель,
+    # из-за чего счётчик «покрыто» считал evidence-gate покрытым дважды, а
+    # artifact-check оставался без доказательства. Указываем РЕАЛЬНУЮ цель.
+    "artifact-check": "artifact-check",
+    "artifact-check-offline": "artifact-check-offline",
+    "contracts": "contracts",
+    "mcp-selftest": "mcp-selftest",
 }
 
 

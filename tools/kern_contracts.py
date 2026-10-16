@@ -35,6 +35,7 @@ import argparse
 import ast
 import re
 import subprocess
+import io
 import sys
 import tempfile
 from pathlib import Path
@@ -150,13 +151,57 @@ def build_smt(params, req, ens, body) -> str:
     return "\n".join(lines) + "\n"
 
 
+def expect_demo(alloc_out: list) -> int:
+    """Проверить, что демо дало РОВНО ожидаемые вердикты.
+
+    ЗАЧЕМ. Цель `contracts` была ДЕМО: печатала PASS и FAIL и всегда
+    завершалась успешно (`|| true` в Makefile), то есть НЕ МОГЛА УПАСТЬ —
+    классическая «молчаливо сломанная проверка». Теперь она проверяет, что
+    демо воспроизводит ожидаемое поведение, и падает, если нет.
+
+    Ожидание: withdraw -> ДОКАЗАНО, withdraw_buggy -> НАРУШЕН, sum_to_n -> SKIP.
+    """
+    text = "\n".join(alloc_out)
+    problems = []
+    if "[PASS] withdraw:" not in text:
+        problems.append("withdraw НЕ доказан (ожидался ДОКАЗАНО)")
+    if "[FAIL] withdraw_buggy:" not in text:
+        problems.append("withdraw_buggy НЕ отвергнут (ожидался НАРУШЕН)")
+    if "sum_to_n" not in text or "SKIP" not in text:
+        problems.append("sum_to_n не помечен SKIP (цикл вне подмножества)")
+    if problems:
+        print("[!] ДЕМО НЕ СООТВЕТСТВУЕТ ОЖИДАНИЮ:")
+        for x in problems:
+            print(f"      - {x}")
+        return 1
+    print("[OK] демо воспроизвело ожидаемые вердикты")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--expect-demo", action="store_true",
+                    help="проверить, что демо дало ОЖИДАЕМЫЕ вердикты "
+                         "(превращает цель в ПРОВЕРКУ: падает при расхождении)")
     args = ap.parse_args()
 
+    if args.expect_demo:
+        cap = io.StringIO()
+        old = sys.stdout
+        sys.stdout = cap
+        try:
+            _demo(args)
+        finally:
+            sys.stdout = old
+        print(cap.getvalue(), end="")
+        return expect_demo(cap.getvalue().splitlines())
+    return _demo(args)
+
+
+def _demo(args) -> int:
     kernc = Path(args.kernc)
     if not kernc.exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")

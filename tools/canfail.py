@@ -182,6 +182,8 @@ class Fault:
 
 
 FAULTABLE = [
+    "README.md",
+    "tools/kern_contracts.py",
     "src/core/codec.zig",
     "examples/kern_mcp_server.py",
     "tools/canfail.py",
@@ -526,6 +528,40 @@ def case_mcp_server():
           'state = "B" if (p and n) else ("T" if p else ("F" if n else "N"))',
           'state = ("T" if p else ("F" if n else "N"))')
     return "make mcp-selftest"
+
+
+def case_artifact_check():
+    """Артефакт релиза: README объявляет ЧУЖОЙ хеш.
+
+    ЛОМАЕМ: подменяем объявленный sha256 статического бинарника. Цепочка
+    README <-> сборка <-> asset обязана разорваться — это ровно дефект #82
+    (пользователь скачивал бинарник, не совпадающий с заявленным).
+    """
+    patch("README.md",
+          "# 4360a1cb301063d3f7a8485957b463711507524b506f215d502cadf6ef32220f",
+          "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+    return "make artifact-check"
+
+
+def case_artifact_check_offline():
+    """То же без сети: README <-> локальная сборка."""
+    patch("README.md",
+          "# 4360a1cb301063d3f7a8485957b463711507524b506f215d502cadf6ef32220f",
+          "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+    return "make artifact-check-offline"
+
+
+def case_contracts():
+    """Контракты: нарушение контракта объявляется ДОКАЗАННЫМ.
+
+    ЛОМАЕМ: снимаем условие вердикта, поэтому ЛЮБОЙ контракт печатается как
+    `[PASS] ... ДОКАЗАНО`. Тогда `withdraw_buggy` (в котором списание уходит
+    в минус) перестаёт быть отвергнутым, и `--expect-demo` обязан покраснеть.
+    """
+    patch("tools/kern_contracts.py",
+          'if "ДОКАЗАНО" in out and r.returncode == 0:',
+          'if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным')
+    return "make contracts"
 
 
 def case_codec_dispatch():
@@ -1231,7 +1267,10 @@ CASES = [
     ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
     ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
-    ("mcp-server",     "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),
+    ("mcp-selftest",   "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),
+    ("artifact-check",  "Артефакт: README объявляет чужой хеш", case_artifact_check),
+    ("artifact-check-offline", "Артефакт: README != сборка",   case_artifact_check_offline),
+    ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
     ("proof-binding",  "Пруф-чекер: привязка посылок",        case_proof_checker_binding),
     ("disasm",        "diff-disasm: потеря функции",           case_disasm_dce),
