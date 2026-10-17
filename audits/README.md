@@ -164,8 +164,16 @@ someone's code. "SKIP" is an honest refusal (see #118).
   `SKIP — invalid syntax (<unknown>, line 1)`: a Python parser error leaking into a Zig
   diagnostic. Fixed: the reason now names the construct (`zig-выражение вне подмножества: ...`).
 * **#118** — on the Ghostty `gridColumns` obligation the proof checker rejects a certificate
-  that Z3 produced (`unit-resolution` step not covered). The verdict degrades to SKIP, i.e. the
-  gate is conservative, never silently optimistic. Recorded in `docs/CAPABILITY_STATUS.md`.
+  that Z3 produced. Diagnosis with the **actual Z3 proof** (`(set-option :produce-proofs true)`):
+  the derivation needs `def-axiom` (the `ite` axiom — the `@max(1, …)` unfolding), `trans*`,
+  `th-lemma arith triangle-eq`, and reflexive rewrites on boolean atoms. The checker's model
+  covers comparisons, connectives and Farkas/linear rewrites, but not those rules — so the
+  verdict degrades to SKIP. Measured shape: 17 steps, 3 rewrites unverifiable, 0 holes. In
+  `QF_BV` (forced via `@kern:bitvec32`) the same obligation is not even parseable as an
+  S-expression by the checker. **Deliberately not "fixed"**: accepting those steps on trust
+  would produce a false `verified` — the one outcome this project exists to prevent. Open work:
+  implement the `ite` axiom rule and `trans*` soundly, then re-run the corpus.
+  Recorded in `docs/CAPABILITY_STATUS.md`.
 * **#119** — building the corpus exposed a real core-path defect: with `--deflate` the Truth
   Gate could not read **any** contract, because `/raw/` returns a zero-copy slice — for a
   compressed object that is the *compressed* bytes. Every claim silently fell back to `e=0`,

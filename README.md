@@ -213,6 +213,32 @@ make contracts
 > via `@kern:bitvec32` / `@kern:bitvec64`. The same statement parser is reused, so the same
 > code is checked. In this theory overflow is the *semantics* (the machine wraps), so the
 > overflow obligation is not asserted there; the contract and division-by-zero still are.
+
+### Evidence on real production code (`make audits`)
+
+Nine functions transcribed from four projects, checked by the core (Z3 + the Zig proof
+checker). The table is printed by `tools/audits_run.py` — not written by hand — and the corpus
+is sealed into `audits/real_code_corpus.kimg` (`--deflate`). Full method, scope and the
+generated output: [`audits/`](audits/README.md), [`audits/EVIDENCE.md`](audits/EVIDENCE.md).
+
+| Real code | Function | Theory | Verdict |
+|:--|:--|:--|:--|
+| `andrewrk/zig-general-purpose-allocator` `gpda.zig:1065` | `addr & ~(alignment - 1)` vs `addr % alignment` | QF_BV 32 | **PROVEN** (all 2³² addresses, power-of-two alignment) |
+| same, with the classic `alignment - 2` | control | QF_BV 32 | **REFUTED** — `addr = #xc0000001, alignment = #x40000000` |
+| `ziglang/zig` `lib/std/mem.zig:4826` (`alignBackward`) | `masked == addr - addr % alignment` | QF_BV 32 | **PROVEN** |
+| `ziglang/zig` `lib/std/mem.zig:4693` (`alignForward`) | `addr + (alignment - 1)` | QF_LIA | **REFUTED** — u32 overflow at `addr = 4294967295, alignment = 2` (the doc comment warns the caller must prevent it) |
+| `tigerbeetle/tigerbeetle` `src/stdx/stdx.zig:67` (`div_ceil`) | `(n + d - 1) / d` | QF_LIA | **PROVEN** — `[PROOF VERIFIED]`, 98 steps, `holes: 0` |
+| same, as `n / d + 1` | control | QF_LIA | **REFUTED** — i32 overflow at `n = 2147483647, d = 1` |
+| `ghostty-org/ghostty` `src/renderer/size.zig:253` (`GridSize.update`) | grid is never empty (`columns >= 1`) | QF_LIA | **SKIP — honest refusal** (see below) |
+| same, clamp `@max(1, …)` removed | control | QF_LIA | **REFUTED** — `screen_width = 0, cell_width = 1` |
+
+**Why one row says SKIP and that is the point.** For the Ghostty invariant Z3 *does* return
+UNSAT, but its proof uses `def-axiom` (the `ite` axiom), `trans*` and
+`th-lemma arith triangle-eq` — rules KERN's proof checker does not model yet. The gate refuses
+to print "verified" for a certificate it cannot re-check (defect #118), instead of accepting it
+on the solver's word. "Fixing" that by trusting those steps would manufacture exactly the false
+green tick this project exists to prevent. Every other row was re-checked independently.
+
 > See [`audits/`](audits/README.md) for the real third-party functions this was built against.
 
 
