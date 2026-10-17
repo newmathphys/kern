@@ -358,6 +358,9 @@ lattice onto HTTP status codes:
 Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 `make test-all`, `make audit-manifest`, `make canfail`.
 
+**Website:** <https://newmathphys.github.io/kern/> — landing page with the quickstart,
+the measured numbers and the "verify what you downloaded" step.
+
 ### Core health
 
 | Check | Result |
