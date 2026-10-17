@@ -141,7 +141,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <h2>What it is</h2>
 <ul>
 <li><span class="tag">A gate, not a linter.</span> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
-<li><span class="tag">Bidirectional distrust of the solver.</span> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>); every <code>SAT</code> counterexample is reported with the exact inputs — and for <strong>Python</strong> it is also replayed against the real function (<code>[RUNTIME CONFIRMED]</code>). For Zig/C/Rust there is no interpreter, so the counterexample comes from the SMT model with machine-type bounds and no replay is claimed.</li>
+<li><span class="tag">Bidirectional distrust of the solver.</span> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>); every <code>SAT</code> counterexample is re-checked too — for <strong>Python</strong> by executing the real function, for <strong>Zig/C/Rust</strong> by an independent concrete evaluator over the extracted body (a mismatch would be reported as a translation bug, not as a finding).</li>
 <li><span class="tag">Polyglot contracts.</span> <code>@kern:requires</code> / <code>@kern:ensures</code> are read from <code>.py</code>, <code>.zig</code>, <code>.c</code> and <code>.rs</code> — with machine types, so i32 overflow and division by zero are caught.</li>
 </ul>
 

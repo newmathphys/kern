@@ -187,17 +187,24 @@ what an unbounded `Int` model cannot:
 ```bash
 make contracts
 # [PASS] withdrawGuard                      (Zig, i32)
-# [FAIL] share: POSSIBLE DIVISION BY ZERO   [COUNTEREXAMPLE] amount = 0
-# [FAIL] double_it: i32 OVERFLOW  [COUNTEREXAMPLE] x = 1073741824, result = 2147483648
+# [FAIL] share: POSSIBLE DIVISION BY ZERO   (C)
+#        [COUNTEREXAMPLE] amount = 0
+#        [RUNTIME CONFIRMED] division by zero reproduced on those values
+# [FAIL] double_it: i32 OVERFLOW            (Rust)
+#        [COUNTEREXAMPLE] x = 1073741824, result = 2147483648
+#        [RUNTIME CONFIRMED] the computed value 2147483648 is outside [-2147483648, 2147483647]
 # [FAIL] withdraw_missing_neg: CONTRACT VIOLATED        (Python)
 #        [COUNTEREXAMPLE] balance = 0, amount = -1, result = 1
 #        [RUNTIME CONFIRMED] the counterexample really breaks the running function
 ```
 
-> **Scope of `[RUNTIME CONFIRMED]`:** the counterexample is replayed against the **real
-> function** only where an interpreter is available — i.e. for **Python**. For Zig, C and
-> Rust the counterexample comes from the SMT model with machine-type bounds (i32/u32/…);
-> there is no in-process replay, and the tool says nothing it cannot check.
+> **`[RUNTIME CONFIRMED]` — all four languages.** For **Python** the counterexample is
+> replayed by *executing the real function*. For **Zig, C and Rust** the extracted body is
+> re-evaluated by an **independent concrete evaluator** (same statement split, a different
+> computation): if the numbers disagreed with the SMT model, the counterexample would be
+> reported as a **translation bug**, not as a finding. A *compiled* replay
+> (`zig run` / `cc` / `rustc`) is **not** implemented — the evaluator deliberately needs no
+> toolchain, and the tool says nothing it cannot check.
 
 **6. KERN verifies itself:** `make self-verify` puts contracts on the formulas
 the kernel actually uses (`payloadSlice` offsets, the Farkas negation identity

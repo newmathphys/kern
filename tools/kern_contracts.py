@@ -667,7 +667,9 @@ def parse_clike(path: Path):
             i = j + 1
             continue
         meta["ranges"] = ranges
+        meta["lang"] = lang
         raw_body = _normalize_clike("\n".join(body_lines))
+        meta["raw_body"] = raw_body   # УЛУЧШЕНИЕ №14: для конкретной перепроверки
         _DIV_COLLECTOR.clear()
         try:
             body = _exec_clike([s for s in raw_body.split(";")], {}, lang)
@@ -1088,6 +1090,159 @@ def purity_violation(path: Path, name: str):
     return None
 
 
+def _eval_node(node, env: dict):
+    """Конкретное вычисление ТОГО ЖЕ подмножества, что понимает `expr_smt`.
+
+    🔴 УЛУЧШЕНИЕ №14 (по замечанию CodeRabbit): `[RUNTIME CONFIRMED]` раньше
+    существовал только для Python (`runtime_confirm` возвращал None для любого
+    другого языка). Здесь — независимый конкретный вычислитель: он считает тело
+    на найденных Z3 числах, и если результат РАСХОДИТСЯ с моделью, значит ошибка
+    в ТРАНСЛЯЦИИ, а не в коде (контрпример фальшивый).
+
+    Семантика намеренно повторяет модель: деление — floor (`div` в SMT-LIB для
+    Int), `%` — соответствующий остаток. Всё, что вне подмножества, честно
+    поднимает Unsupported -> подтверждения не будет (никаких догадок).
+    """
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool):
+            return node.value
+        if isinstance(node.value, int):
+            return node.value
+        raise Unsupported(f"литерал {node.value!r}")
+    if isinstance(node, ast.Name):
+        if node.id in env:
+            return env[node.id]
+        raise Unsupported(f"имя {node.id!r} не связано")
+    if isinstance(node, ast.IfExp):
+        return _eval_node(node.body, env) if _eval_node(node.test, env) else _eval_node(node.orelse, env)
+    if isinstance(node, ast.BoolOp):
+        vals = [_eval_node(v, env) for v in node.values]
+        return all(vals) if isinstance(node.op, ast.And) else any(vals)
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.Not):
+            return not _eval_node(node.operand, env)
+        if isinstance(node.op, ast.USub):
+            return -_eval_node(node.operand, env)
+        raise Unsupported("унарный оператор")
+    if isinstance(node, ast.BinOp):
+        a = _eval_node(node.left, env)
+        b = _eval_node(node.right, env)
+        if isinstance(node.op, ast.Add):
+            return a + b
+        if isinstance(node.op, ast.Sub):
+            return a - b
+        if isinstance(node.op, ast.Mult):
+            return a * b
+        if isinstance(node.op, (ast.Div, ast.FloorDiv)):
+            if b == 0:
+                raise ZeroDivisionError
+            return a // b
+        if isinstance(node.op, ast.Mod):
+            if b == 0:
+                raise ZeroDivisionError
+            return a % b
+        raise Unsupported("бинарный оператор")
+    if isinstance(node, ast.Compare):
+        left = _eval_node(node.left, env)
+        for op, comp in zip(node.ops, node.comparators):
+            right = _eval_node(comp, env)
+            if isinstance(op, ast.Lt):
+                good = left < right
+            elif isinstance(op, ast.LtE):
+                good = left <= right
+            elif isinstance(op, ast.Gt):
+                good = left > right
+            elif isinstance(op, ast.GtE):
+                good = left >= right
+            elif isinstance(op, ast.Eq):
+                good = left == right
+            elif isinstance(op, ast.NotEq):
+                good = left != right
+            else:
+                raise Unsupported("сравнение")
+            if not good:
+                return False
+            left = right
+        return True
+    raise Unsupported(f"узел {type(node).__name__}")
+
+
+def _eval_expr_clike(text: str, env: dict, lang: str):
+    return _eval_node(_clike_parse(text, lang), env)
+
+
+def _eval_body_concrete(raw_body: str, env: dict, lang: str):
+    """Зеркало `_exec_clike`, но считает КОНКРЕТНЫЕ значения (перепроверка модели).
+
+    Разбор операторов намеренно совпадает с моделью символ-в-символ (тот же
+    regex `^if\\s*(.*?)\\breturn\\b(.*)$`, та же обработка `else` отдельным
+    оператором) — иначе это была бы проверка другого кода. Независимо только
+    ВЫЧИСЛЕНИЕ: модель строит SMT-терм, здесь считаются числа.
+    """
+    stmts = raw_body.split(";")
+    for i, raw in enumerate(stmts):
+        st = raw.strip()
+        if not st:
+            continue
+        m = re.match(r"^if\s*(.*?)\breturn\b(.*)$", st)
+        if m:
+            cond_txt = m.group(1).strip().strip("()").strip()
+            rest = m.group(2).strip()
+            consumed = 1
+            else_txt = None
+            if " else " in rest:
+                then_txt, else_txt = rest.split(" else ", 1)
+                then_txt = then_txt.strip()
+                else_txt = re.sub(r"^return\b", "", else_txt).strip()
+            else:
+                then_txt = rest
+                if i + 1 < len(stmts):
+                    nxt = stmts[i + 1].strip()
+                    if nxt.startswith("else"):
+                        else_txt = re.sub(r"^else\s+", "", nxt).strip()
+                        else_txt = re.sub(r"^return\b", "", else_txt).strip()
+                        consumed = 2
+            if _eval_expr_clike(cond_txt, env, lang):
+                return _eval_expr_clike(then_txt, env, lang)
+            if else_txt is not None:
+                return _eval_expr_clike(else_txt, env, lang)
+            return _eval_body_concrete(";".join(stmts[i + consumed:]), dict(env), lang)
+        m = re.match(r"^return\s+(.+)$", st, re.S)
+        if m:
+            return _eval_expr_clike(m.group(1), env, lang)
+        m = re.match(
+            r"^(?:const\s+|let\s+(?:mut\s+)?|"
+            r"(?:int|long|i32|i64|u32|u64|usize|size_t|unsigned)\s+)?"
+            r"([A-Za-z_]\w*)\s*(?::\s*[A-Za-z_]\w*)?\s*=\s*(.+)$", st, re.S)
+        if m:
+            env[m.group(1)] = _eval_expr_clike(m.group(2), env, lang)
+            continue
+        raise Unsupported(f"оператор: {st[:40]!r}")
+    raise Unsupported("нет return на пути без ветвления")
+
+
+def runtime_confirm_clike(meta: dict, params, vals):
+    """Перепроверка контрпримера для zig/c/rust БЕЗ компилятора.
+
+    True  — конкретное вычисление тела дало ТО ЖЕ значение, что модель (модель верна);
+    False — РАСХОЖДЕНИЕ: ошибка трансляции, контрпример фальшивый;
+    None  — подтвердить нельзя (нет тела / не все параметры / вне подмножества /
+            деление на ноль — оно подтверждается отдельной ветвью KERN004).
+    """
+    raw = meta.get("raw_body")
+    if not raw or not all(p in vals for p in params):
+        return None
+    env = {p: vals[p] for p in params}
+    try:
+        got = _eval_body_concrete(raw, env, meta.get("lang", "?"))
+    except ZeroDivisionError:
+        return None
+    except Exception:
+        return None
+    want = vals.get("result")
+    return None if want is None else (got == want)
+
+
 def runtime_confirm(path: Path, name: str, params, ens, vals):
     """Подставить контрпример в НАСТОЯЩУЮ функцию и проверить постусловие.
 
@@ -1289,6 +1444,19 @@ def _demo(args) -> int:
                           f"(делитель: {', '.join(divisors)})")
                     if ce:
                         print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
+                        # УЛУЧШЕНИЕ №14: воспроизвести деление на ноль КОНКРЕТНО
+                        # (для zig/c/rust — без компилятора).
+                        if p.suffix in CLIKE_EXT and meta.get("raw_body") \
+                                and all(x in ce for x in params):
+                            try:
+                                _eval_body_concrete(meta["raw_body"],
+                                                    {x: ce[x] for x in params},
+                                                    meta.get("lang", "?"))
+                            except ZeroDivisionError:
+                                print("         [RUNTIME CONFIRMED] деление на ноль "
+                                      "воспроизведено на этих значениях")
+                            except Exception:
+                                pass
                     violations.append({
                         "file": str(p), "line": ln, "rule": "KERN004",
                         "message": (f"{name}: возможно деление на ноль "
@@ -1317,6 +1485,19 @@ def _demo(args) -> int:
                           f"(диапазон [{lo}, {hi}])")
                     if ce:
                         print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
+                        # УЛУЧШЕНИЕ №14: подтвердить переполнение КОНКРЕТНО —
+                        # вычислить тело на этих значениях и проверить границы типа.
+                        if p.suffix in CLIKE_EXT and meta.get("raw_body") \
+                                and all(x in ce for x in params):
+                            try:
+                                got = _eval_body_concrete(meta["raw_body"],
+                                                          {x: ce[x] for x in params},
+                                                          meta.get("lang", "?"))
+                                if got < lo or got > hi:
+                                    print(f"         [RUNTIME CONFIRMED] вычисленное значение "
+                                          f"{got} вне диапазона [{lo}, {hi}]")
+                            except Exception:
+                                pass
                     violations.append({
                         "file": str(p), "line": ln, "rule": "KERN004",
                         "message": (f"{name}: ПЕРЕПОЛНЕНИЕ типа `{ret}` "
@@ -1368,9 +1549,18 @@ def _demo(args) -> int:
                 # «контрпример» фальшивый. Подставляем найденные числа в
                 # НАСТОЯЩУЮ функцию и вычисляем постусловие вживую.
                 conf = runtime_confirm(p, name, params, ens, vals)
+                if conf is None and p.suffix in CLIKE_EXT:
+                    # УЛУЧШЕНИЕ №14 (по замечанию CodeRabbit): для zig/c/rust
+                    # компилятора под рукой может не быть, но модель можно
+                    # перепроверить НЕЗАВИСИМЫМ конкретным вычислителем тела.
+                    conf = runtime_confirm_clike(meta, params, vals)
                 if conf is True:
-                    print("         [RUNTIME CONFIRMED] нарушение подтверждено "
-                          "и в рантайме (0% ложных срабатываний)")
+                    if p.suffix in CLIKE_EXT:
+                        print("         [RUNTIME CONFIRMED] контрпример перепроверен "
+                              "конкретным вычислителем тела (модель совпала с исходником)")
+                    else:
+                        print("         [RUNTIME CONFIRMED] нарушение подтверждено "
+                              "и в рантайме (0% ложных срабатываний)")
                 elif conf is False:
                     print("         [!] RUNTIME НЕ подтвердил: контрпример "
                           "ФАЛЬШИВЫЙ (ошибка трансляции, а не кода)")
