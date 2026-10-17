@@ -1,0 +1,77 @@
+name: KERN Code Scanning (SARIF)
+
+# Publishes KERN's contract verdicts into GitHub's Security -> Code scanning, so a refuted
+# contract appears as an alert ON THE EXACT LINE, with the Z3 counterexample in the message
+# (and as annotations on the pull request that introduced it).
+#
+# Free for public repositories. Requires the `security-events: write` permission below.
+#
+# Note: `|| true` on the check step is deliberate — a refuted contract must produce a
+# FINDING (a SARIF alert), not a red build. The gate that blocks a merge is the pre-commit
+# hook / the CAN-FAIL job, not this report.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'      # weekly, so the alerts stay fresh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # to upload SARIF
+      actions: read            # required by codeql-action for private repos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: z3-solver (the Gate needs a solver; without it the checks would skip)
+        run: pip install z3-solver
+
+      - name: Zig 0.17.0
+        run: |
+          curl -fsSL https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz -o /tmp/zig.tar.xz
+          mkdir -p "$HOME/opt" && tar -C "$HOME/opt" -xf /tmp/zig.tar.xz
+          echo "$HOME/opt/zig-x86_64-linux-0.17.0" >> "$GITHUB_PATH"
+
+      - name: Build kernc
+        run: zig build
+
+      - name: KERN contracts -> SARIF
+        run: |
+          python3 tools/kern_contracts.py \
+            examples/contracts_demo.py \
+            examples/edge_cases.py \
+            examples/contracts_demo.zig \
+            examples/contracts_demo.c \
+            examples/contracts_demo.rs \
+            --sarif kern-contracts.sarif || true
+
+      - name: Job summary (human-readable verdicts)
+        if: always()
+        run: |
+          {
+            echo '### KERN contract verdicts'
+            echo
+            echo '```'
+            python3 tools/kern_contracts.py examples/contracts_demo.py examples/edge_cases.py 2>&1 | tail -25 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: kern-contracts.sarif
+          category: kern-contracts
