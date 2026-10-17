@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://newmathphys.github.io/kern/sitemap.xml

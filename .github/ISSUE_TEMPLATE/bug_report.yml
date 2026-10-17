@@ -1,0 +1,46 @@
+name: Bug report
+description: Something in KERN behaves differently from what the evidence claims
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        KERN's rule is simple: **a claim is admitted only with machine evidence**.
+        Please paste the exact command and its output — not a description of it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected vs. what you actually got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Exact command(s) and output
+      description: Copy-paste, do not paraphrase. Include the exit code.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KERN version / commit
+      placeholder: "v2.4.0 + sha256 of the binary, or `git rev-parse --short HEAD`"
+    validations:
+      required: true
+  - type: input
+    id: toolchain
+    attributes:
+      label: Toolchain
+      placeholder: "zig 0.17.0 · z3 5.1.0 (or 'no z3 in PATH') · OS / arch"
+    validations:
+      required: true
+  - type: textarea
+    id: should_catch
+    attributes:
+      label: Which check do you think should have caught this?
+      description: e.g. a unit test, `make mutate`, a can-fail case, the proof checker, the Gate.
+    validations:
+      required: false

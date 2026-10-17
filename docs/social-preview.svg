@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/><stop offset="1" stop-color="#1a1040"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#g)"/>
+  <rect x="0" y="0" width="1280" height="8" fill="#7c5cff"/>
+  <g font-family="DejaVu Sans, sans-serif" fill="#e6edf3">
+    <text x="72" y="170" font-size="104" font-weight="bold" letter-spacing="2">KERN</text>
+    <text x="76" y="222" font-size="30" fill="#8b949e">zero-trust verification gateway for AI-written code</text>
+    <text x="76" y="272" font-size="26" fill="#7c5cff" font-weight="bold">Zig 0.17 · native Z3 proof-DAG checker · Belnap B4 · Lean 4 (0 sorry) · BLAKE3 .kimg</text>
+    <text x="76" y="330" font-size="27" fill="#e6edf3">A claim is admitted only with machine evidence.</text>
+    <g font-size="25">
+      <text x="76" y="420" fill="#3fb950" font-weight="bold">279 / 279</text>
+      <text x="76" y="452" fill="#8b949e" font-size="20">core tests (Debug + ReleaseSafe)</text>
+      <text x="376" y="420" fill="#3fb950" font-weight="bold">95.0 %</text>
+      <text x="376" y="452" fill="#8b949e" font-size="20">mutation score (38/40)</text>
+      <text x="616" y="420" fill="#3fb950" font-weight="bold">78 / 78</text>
+      <text x="616" y="452" fill="#8b949e" font-size="20">can-fail CHECK targets</text>
+      <text x="916" y="420" fill="#3fb950" font-weight="bold">42 theorems</text>
+      <text x="916" y="452" fill="#8b949e" font-size="20">Lean 4, 0 sorry</text>
+    </g>
+    <text x="76" y="540" font-size="24" fill="#8b949e">github.com/newmathphys/kern</text>
+    <text x="76" y="580" font-size="20" fill="#8b949e">POLYFORM NONCOMMERCIAL 1.0.0 · © 2026 Vital Kalinousky</text>
+  </g>
+</svg>

@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a capability, a check, or an integration
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: `docs/CAPABILITY_STATUS.en.md` lists what is **not implemented** on
+        purpose (cloud, WASM, Lean transpiler, plugins, PQC, dashboard).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem this solves
+      description: What is impossible or unsafe today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: What should KERN do, and what would the user type?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: How could this be PROVEN (not just claimed)?
+      description: |
+        KERN requires every check to be provably capable of failing. What would the
+        can-fail case look like, and what would the falsifiable number be?
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer does this belong to?
+      options:
+        - L0–L1 container / KERNFS
+        - L2–L3 verification (SMT, proof checker, theories)
+        - L4–L5 evidence / attestation / certification
+        - Contract tooling (kern_contracts.py, polyglot)
+        - AI-agent integration (MCP, GitHub Action, pre-commit hook)
+        - Other / not sure
+    validations:
+      required: true

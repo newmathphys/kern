@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question, idea, or "is this a bug?"
+    url: https://github.com/newmathphys/kern/discussions
+    about: Ask in Discussions instead of opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/newmathphys/kern/security/advisories/new
+    about: Please report privately — see SECURITY.md for the policy.
+  - name: What is actually measured (read first)
+    url: https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md
+    about: What works, what is not implemented, and what is not verified for real.
