@@ -12,6 +12,8 @@
 [![GitHub Action](https://img.shields.io/badge/GitHub_Action-KERN_verification_gate-238636?logo=githubactions&logoColor=white)](action.yml)
 [![Release downloads](https://img.shields.io/github/downloads/newmathphys/kern/total?color=3fb950&label=release%20downloads)](https://github.com/newmathphys/kern/releases)
 [![Deterministic benchmark](https://img.shields.io/badge/benchmark-per--commit%20chart-3fb950)](https://newmathphys.github.io/kern/bench/)
+[![Code Scanning](https://github.com/newmathphys/kern/actions/workflows/code-scanning.yml/badge.svg)](https://github.com/newmathphys/kern/actions/workflows/code-scanning.yml)
+[![Code scanning alerts](https://img.shields.io/badge/code%20scanning-KERN%20SARIF%20%2B%20Z3-3fb950?logo=github)](https://github.com/newmathphys/kern/security/code-scanning)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
@@ -187,8 +189,15 @@ make contracts
 # [PASS] withdrawGuard                      (Zig, i32)
 # [FAIL] share: POSSIBLE DIVISION BY ZERO   [COUNTEREXAMPLE] amount = 0
 # [FAIL] double_it: i32 OVERFLOW  [COUNTEREXAMPLE] x = 1073741824, result = 2147483648
-# [RUNTIME CONFIRMED] the counterexample really breaks the running function
+# [FAIL] withdraw_missing_neg: CONTRACT VIOLATED        (Python)
+#        [COUNTEREXAMPLE] balance = 0, amount = -1, result = 1
+#        [RUNTIME CONFIRMED] the counterexample really breaks the running function
 ```
+
+> **Scope of `[RUNTIME CONFIRMED]`:** the counterexample is replayed against the **real
+> function** only where an interpreter is available — i.e. for **Python**. For Zig, C and
+> Rust the counterexample comes from the SMT model with machine-type bounds (i32/u32/…);
+> there is no in-process replay, and the tool says nothing it cannot check.
 
 **6. KERN verifies itself:** `make self-verify` puts contracts on the formulas
 the kernel actually uses (`payloadSlice` offsets, the Farkas negation identity
@@ -659,7 +668,8 @@ docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, e
 | [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
-| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#115 |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#117 |
+| [`audits/README.md`](audits/README.md) | shadow-contract audits: hand-written SMT models of real expressions from third-party projects (one **PROVEN**, one control **REFUTED**) — and the measurement showing why a naive "run KERN over 50 repos" produces zeros |
 | [`docs/README.md`](docs/README.md) | documentation map |
 | [`README.ru.md`](README.ru.md) | Russian version of this README |
 

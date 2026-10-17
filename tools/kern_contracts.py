@@ -533,6 +533,25 @@ def _normalize_clike(body: str) -> str:
     return re.sub(r"\s+", " ", body).strip()
 
 
+def _clike_parse(text: str, lang: str):
+    """C-подобное выражение (Zig/C/Rust) -> Python-AST для `expr_smt`.
+
+    🔴 ДЕФЕКТ #117 (найден теневым контрактом на реальном коде: `@mod` в Zig).
+    Раньше здесь стоял голый `ast.parse(clike_to_python(...))`, поэтому незнакомый
+    конструктив (Zig-встроенная `@mod`, `@rem`, срез, приведение типа) падал
+    Python-исключением `invalid syntax (<unknown>, line 1)` — и ЭТО сообщение уходило
+    в SKIP как «причина». Диагностика обязана называть язык и конструктив, а не
+    показывать ошибку чужого парсера.
+    """
+    converted = clike_to_python(text)
+    try:
+        return ast.parse(converted, mode="eval").body
+    except SyntaxError as e:
+        raise Unsupported(
+            f"{lang}-выражение вне подмножества: {text.strip()[:48]!r} "
+            f"(поддерживаются только + - * / // % и сравнения)") from e
+
+
 def _exec_clike(stmts, env: dict, lang: str):
     """Символьно исполнить операторы; вернуть SMT-выражение результата или None."""
     for i, raw in enumerate(stmts):
@@ -560,13 +579,10 @@ def _exec_clike(stmts, env: dict, lang: str):
                         else_txt = re.sub(r"^else\s+", "", nxt).strip()
                         else_txt = re.sub(r"^return\b", "", else_txt).strip()
                         consumed = 2
-            cond_smt = expr_smt(ast.parse(clike_to_python(cond_txt),
-                                          mode="eval").body, env)
-            then_v = expr_smt(ast.parse(clike_to_python(then_txt),
-                                        mode="eval").body, dict(env))
+            cond_smt = expr_smt(_clike_parse(cond_txt, lang), env)
+            then_v = expr_smt(_clike_parse(then_txt, lang), dict(env))
             if else_txt is not None:
-                else_v = expr_smt(ast.parse(clike_to_python(else_txt),
-                                            mode="eval").body, dict(env))
+                else_v = expr_smt(_clike_parse(else_txt, lang), dict(env))
             else:
                 tail = _exec_clike(stmts[i + consumed:], dict(env), lang)
                 if tail is None:
@@ -575,15 +591,13 @@ def _exec_clike(stmts, env: dict, lang: str):
             return f"(ite {cond_smt} {then_v} {else_v})"
         m = re.match(r"^return\s+(.+)$", st, re.S)
         if m:
-            return expr_smt(ast.parse(clike_to_python(m.group(1)),
-                                      mode="eval").body, env)
+            return expr_smt(_clike_parse(m.group(1), lang), env)
         m = re.match(
             r"^(?:const\s+|let\s+(?:mut\s+)?|"
             r"(?:int|long|i32|i64|u32|u64|usize|size_t|unsigned)\s+)?"
             r"([A-Za-z_]\w*)\s*(?::\s*[A-Za-z_]\w*)?\s*=\s*(.+)$", st, re.S)
         if m:
-            env[m.group(1)] = expr_smt(
-                ast.parse(clike_to_python(m.group(2)), mode="eval").body, env)
+            env[m.group(1)] = expr_smt(_clike_parse(m.group(2), lang), env)
             continue
         raise Unsupported(f"оператор {lang}: {st[:40]!r}")
     return None

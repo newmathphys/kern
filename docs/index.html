@@ -141,7 +141,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <h2>What it is</h2>
 <ul>
 <li><span class="tag">A gate, not a linter.</span> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
-<li><span class="tag">Bidirectional distrust of the solver.</span> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>); every <code>SAT</code> counterexample is replayed against the real function before it is reported.</li>
+<li><span class="tag">Bidirectional distrust of the solver.</span> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>); every <code>SAT</code> counterexample is reported with the exact inputs — and for <strong>Python</strong> it is also replayed against the real function (<code>[RUNTIME CONFIRMED]</code>). For Zig/C/Rust there is no interpreter, so the counterexample comes from the SMT model with machine-type bounds and no replay is claimed.</li>
 <li><span class="tag">Polyglot contracts.</span> <code>@kern:requires</code> / <code>@kern:ensures</code> are read from <code>.py</code>, <code>.zig</code>, <code>.c</code> and <code>.rs</code> — with machine types, so i32 overflow and division by zero are caught.</li>
 </ul>
 
@@ -229,7 +229,7 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">74 entries, #1–#116</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">75 entries, #1–#117</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -252,7 +252,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>74 defects this project found in itself</strong> (#1–#116).
+together with the <strong>75 defects this project found in itself</strong> (#1–#117).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 

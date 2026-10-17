@@ -299,9 +299,10 @@ is generated from the sources).
 | 114 | `canfail` POLLUTED COMMITTED EVIDENCE (found by a FULL run) | tooling (a run spoils the artefacts it protects) |
 | 115 | A VACUOUS `slsa` case: the injection went into a NON-attested binary | tooling (the case proved something else) |
 | 116 | "Edit during a run" was closed INCOMPLETELY: a file the case ITSELF edited was restored from the case-start backup | tooling (silent loss of work) |
+| 117 | **SKIP diagnostics leaked a foreign parser's error** (found by a shadow contract on REAL third-party code): checking the real `isAligned` from `andrewrk/zig-general-purpose-allocator` gave a correct `SKIP — binary operator`, but a Zig builtin (`@mod`) produced `SKIP — invalid syntax (<unknown>, line 1)` — a Python parser message inside a Zig diagnostic, violating the rule that a SKIP must name its reason. Fixed with `_clike_parse(text, lang)` (5 call sites) which reports `zig-expression outside the subset: 'addr - @mod(addr, alignment)'`; locked in by an edge case and verified by `canfail --only edge-cases` | tooling (misleading diagnostics) |
 
 > **Scope of this index.** The table above is a complete index of **all 74 numbered
-> entries** (#1–#10, #48–#58, #59–#92, #98–#116). The FULL text of every entry — the
+> entries** (#1–#10, #48–#58, #59–#92, #98–#117). The FULL text of every entry — the
 > mechanism, the evidence and the fix — is in the Russian original
 > [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md) §6–§6d.
 
