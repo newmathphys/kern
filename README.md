@@ -8,7 +8,7 @@
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-78%2F78-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_204%2F204_%28rerun_pending%29-informational)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_240_passed_%2F_4_skipped_%28rerun_pending%29-informational)](#cross-architecture)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
