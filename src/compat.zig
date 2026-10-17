@@ -84,6 +84,58 @@ pub fn io() std.Io {
 /// Окружение процесса для режима библиотеки.
 /// На POSIX — `environ` из libc (если библиотека слинкована с libc),
 /// иначе пустое (тогда spawn ищет бинарник только по абсолютному пути).
+/// Значение переменной окружения или `null`.
+///
+/// ЗАЧЕМ. Конфигурация рантайма без изменения сигнатур. Пример:
+/// `KERN_Z3_TIMEOUT_MS` — жёсткий таймаут решателя. Малый таймаут нужен
+/// тестам и мутационному прогону, чтобы ветка «зависший решатель»
+/// проверялась за миллисекунды, а не за 5 секунд на каждый запрос.
+///
+/// 🔴 ДЕФЕКТ #111 (найден замером). В ТЕСТОВОМ бинарнике libc НЕ слинкована
+/// (`build.zig`: `link_libc` стоит только у exe), а стартовый код Zig без
+/// libc даёт ПУСТОЙ `environ` — поэтому `envVar` в тестах ВСЕГДА возвращал
+/// `null`, и переменные `KERN_Z3_TIMEOUT_MS` / `KERN_MUTATE_FAST` МОЛЧА не
+/// действовали: тесты нельзя было ускорить, а таймаут решателя — уменьшить.
+/// На Linux окружение процесса доступно через `/proc/self/environ`.
+pub fn envVar(key: []const u8) ?[]const u8 {
+    if (std.process.Environ.getPosix(fallbackEnviron(), key)) |v| return v;
+    if (builtin.os.tag != .linux) return null;
+    var rest = procfsEnviron();
+    while (rest.len > 0) {
+        const end = std.mem.indexOfScalar(u8, rest, 0) orelse rest.len;
+        const entry = rest[0..end];
+        rest = rest[@min(end + 1, rest.len)..];
+        if (entry.len > key.len and std.mem.startsWith(u8, entry, key) and
+            entry[key.len] == '=')
+            return entry[key.len + 1 ..];
+    }
+    return null;
+}
+
+/// Окружение из `/proc/self/environ` (Linux, БЕЗ libc). Кэшируется в
+/// статическом буфере: переменные процесса не меняются за время прогона.
+var g_env_buf: [32 * 1024]u8 = undefined;
+var g_env_len: usize = 0;
+var g_env_loaded: bool = false;
+
+fn procfsEnviron() []const u8 {
+    if (!g_env_loaded) {
+        g_env_loaded = true;
+        g_env_len = 0;
+        const f = std.Io.Dir.openFileAbsolute(io(), "/proc/self/environ", .{}) catch
+            return g_env_buf[0..0];
+        defer f.close(io());
+        var total: usize = 0;
+        while (total < g_env_buf.len) {
+            const n = f.readStreaming(io(), &.{g_env_buf[total..]}) catch break;
+            if (n == 0) break;
+            total += n;
+        }
+        g_env_len = total;
+    }
+    return g_env_buf[0..g_env_len];
+}
+
 fn fallbackEnviron() std.process.Environ {
     if (builtin.link_libc) {
         const envp: [*:null]?[*:0]u8 = std.c.environ;

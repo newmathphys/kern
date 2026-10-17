@@ -3,7 +3,7 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-251%2F251-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-279%2F279-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
@@ -280,15 +280,15 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **251 / 251** |
-| Core test suite **without** `z3` in `PATH` | **194 passed + 4 skipped** (solver tests skip by design) |
+| Core test suite (Debug + ReleaseSafe) | **279 / 279** |
+| Core test suite **without** `z3` in `PATH` | **271 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
 | KERN-Next test suite | **37 / 37** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **77.5 %** (31 / 40 killed) over **14 files / 427 sites**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so this lower number is a **wider, honest** measurement, not a regression — the surviving mutants are all in modules added in v2.2–v2.4 |
+| Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
 | Can-fail harness | **72 / 72 CHECK targets** have a proven-can-fail case (**85 fault-injection cases**) |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -394,7 +394,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 zig build
 
 # 3. Core test suites
-zig build test          # 251 core tests
+zig build test          # 279 core tests
 zig build test-next     # 37 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics

@@ -97,8 +97,8 @@ test "POOL + РЕАЛЬНЫЙ Z3: 16 независимых формул чер�
                 "(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x {d}))\n(assert (< x {d}))\n(check-sat)\n",
                 .{ i, i + 1 }) catch return;
             defer c.allocator.free(script);
-            const r = br.executeQuery(script);
-            if (r.status == .Unsat) _ = c.unsat.fetchAdd(1, .monotonic);
+            const st = br.executeStatus(script);
+            if (st == .Unsat) _ = c.unsat.fetchAdd(1, .monotonic);
             _ = c.results.fetchAdd(1, .monotonic);
         }
     };

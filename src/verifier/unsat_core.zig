@@ -146,7 +146,7 @@ test "UNSAT CORE (скрипт): содержит :named и get-unsat-core" {
 
 test "UNSAT CORE (РЕАЛЬНЫЙ Z3): локализация точной конфликтующей строки" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
     var eng = UnsatCoreEngine.init(std.testing.allocator);
     const pres = [_]NamedAssertion{
         .{ .name = "line_10_non_negative", .formula = "(>= x 0)" },

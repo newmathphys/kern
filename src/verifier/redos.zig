@@ -178,7 +178,7 @@ test "REDOS: простой литерал без кванторов безоп�
 test "REDOS (РЕАЛЬНЫЙ Z3): уязвимая регулярка принимает экспоненциальный вход" {
     const z3 = @import("z3_bridge.zig");
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     // Строка из одних 'a' длиной 30 ПРИНИМАЕТСЯ регуляркой (a+)+ —
     // значит вход существует, и бэктрекинг на нём неизбежен.
     const q =
@@ -189,5 +189,5 @@ test "REDOS (РЕАЛЬНЫЙ Z3): уязвимая регулярка прин�
         \\(check-sat)
         \\
     ;
-    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeStatus(q));
 }

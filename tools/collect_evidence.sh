@@ -24,6 +24,22 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export PATH="${ZIG_DIR:-$HOME/opt/zig-x86_64-linux-0.17.0}:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
 
+# 🔴 ДЕФЕКТ #110: мутационный прогон БЕЗ решателя считает скор по УСЕЧЁННОМУ
+# набору тестов — 8 из них уходят в `SkipZigTest` (`263 passed; 8 skipped`
+# вместо `272 passed`), то есть СВИДЕТЕЛЬСТВО ЛОЖНО, а скор невоспроизводим.
+# Если `z3` не в PATH — ищем его в типовых местах (в т.ч. venv с z3-solver).
+if ! command -v z3 >/dev/null 2>&1; then
+  for c in "$HOME"/*/.venv/bin/z3 "$HOME"/.venv/bin/z3 "$HOME"/.local/bin/z3 \
+           /usr/local/bin/z3 /usr/bin/z3; do
+    if [ -x "$c" ]; then
+      export KERN_Z3_PATH="$c"
+      export PATH="$(dirname "$c"):$PATH"
+      echo "[i] решатель найден вне PATH: $c (дефект #110)"
+      break
+    fi
+  done
+fi
+
 EV="$ROOT/docs/evidence"
 mkdir -p "$EV"
 
@@ -45,6 +61,16 @@ declare -a FAILED_LIST=()
 # --- один прогон: имя, команда -------------------------------------------------
 collect() { # $1 = имя лога, $2... = команда
   local name="$1"; shift
+  # ONLY=<имя>[,<имя>] — точечная пересборка ТОЛЬКО указанных свидетельств.
+  # ЗАЧЕМ: после правки одного инструмента незачем ждать полные ~25 минут,
+  # но свидетельство обязано быть снято ТЕМ ЖЕ способом (заголовок, команда,
+  # дата, RC) — иначе оно перестанет быть свидетельством.
+  if [ -n "${ONLY:-}" ]; then
+    case ",$ONLY," in
+      *",$name,"*) ;;
+      *) printf '  %-28s NOT RUN (ONLY=%s)\n' "$name" "$ONLY"; SKIP=$((SKIP+1)); return 0 ;;
+    esac
+  fi
   local out="$EV/$name.log"
   printf '  %-28s ' "$name"
   local t0; t0=$(date +%s)
@@ -138,7 +164,9 @@ if [ "$FAST" = 1 ]; then
   skip cross_arch "--fast (QEMU долго)"
 else
   collect canfail            python3 tools/canfail.py
-  collect mutate             python3 tools/mutate_zig.py --max 40 --seed 7
+  # --require-solver: без решателя скор считался бы по УСЕЧЁННОМУ набору
+  # (8 тестов -> SkipZigTest) и свидетельство было бы ЛОЖНЫМ (дефект #110).
+  collect mutate             python3 tools/mutate_zig.py --max 40 --seed 7 --jobs 4 --require-solver
   collect fuzz_1m            zig build bench-fuzz-ast
   collect kimg_1m            zig build bench-kimg-stress
   collect avalanche          python3 tools/cache_avalanche_bench.py

@@ -1060,14 +1060,9 @@ fn checkMp(c: *const Ctx, st: Sexp) bool {
     if (!is_eq and !std.mem.eql(u8, h, "=>")) return false;
     if (sexpEq(p2.items[1], p1) and sexpEq(p2.items[2], q)) return true;
     if (is_eq and sexpEq(p2.items[2], p1) and sexpEq(p2.items[1], q)) return true;
-    std.debug.print("  [DBG mp] p1: head={s} n={d} | p2[1]: head={s} n={d} | p2[2]: head={s} n={d}\n", .{
-        if (p1.isList() and p1.items.len > 0) (p1.items[0].atom orelse "?") else "-",
-        if (p1.isList()) p1.items.len else 0,
-        if (p2.items[1].isList() and p2.items[1].items.len > 0) (p2.items[1].items[0].atom orelse "?") else "-",
-        if (p2.items[1].isList()) p2.items[1].items.len else 0,
-        if (p2.items[2].isList() and p2.items[2].items.len > 0) (p2.items[2].items[0].atom orelse "?") else "-",
-        if (p2.items[2].isList()) p2.items[2].items.len else 0,
-    });
+    // Отладочный вывод `[DBG mp]` УДАЛЁН (хардкор-аудит): он печатал
+    // внутреннее состояние в stdout ПРОДАКШН-пути и попадал в логи
+    // CLI (`kernc prove`) при каждом неразобранном `mp`.
     return false;
 }
 
@@ -1543,7 +1538,7 @@ test "PROOF-АТАКА: корень выводит не false" {
 test "PROOF (РЕАЛЬНЫЙ Z3): подтверждение требует разбора вывода и минимального ядра" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     bridge.timeout_ms = 10000;
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
 
     const pres = [_]unsat_core.NamedAssertion{
         .{ .name = "p1", .formula = "(> x 5)" },
@@ -1561,7 +1556,7 @@ test "PROOF (РЕАЛЬНЫЙ Z3): подтверждение требует р�
 
 test "PROOF (РЕАЛЬНЫЙ Z3): выполнимая формула НЕ даёт подтверждения" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
 
     const pres = [_]unsat_core.NamedAssertion{
         .{ .name = "p1", .formula = "(> x 5)" },
@@ -1819,3 +1814,285 @@ test "ХАРДКОР: verifyMonotonicity — подстановка A -> B пр�
     try std.testing.expect(!verifyMonotonicity(&c,
         try parseSexp(a, "(monotonicity @x1 just_an_atom)")));
 }
+
+// =========================================================================
+//  ХАРДКОР-АУДИТ: тесты на БИТЫЕ входы (убивают оставшихся мутантов)
+//  Мутатор показал, что защиты от НЕКОРРЕКТНЫХ данных не покрыты:
+//  нормальный путь тестировался, а ветки отказа — нет.
+// =========================================================================
+
+test "ХАРДКОР: extractAsserts пропускает `;`-комментарии (стр. 515)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    // Комментарий ПЕРЕД assert содержит скобки и перевод строки.
+    // Убивает мутанта `while (j < len and text[j] != '\n')` -> `or`:
+    // с `or` цикл ушёл бы за конец строки и «съел» следующие assert.
+    const src = "; (ignore (this) \n(assert (= a b))\n;";
+    const got = try extractAsserts(a, src);
+    try std.testing.expectEqual(@as(usize, 1), got.len);
+    try std.testing.expectEqualStrings("(= a b)", got[0]);
+}
+
+test "ХАРДКОР: trans с БИТЫМ числом посылок отвергается (стр. 805, 809)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@x1", try parseSexp(a, "(asserted (= a b))"));
+    try c.stepexpr.put("@x2", try parseSexp(a, "(asserted (= b c))"));
+    try c.stepexpr.put("@x3", try parseSexp(a, "(asserted (= a c))"));
+    try c.stepexpr.put("@n1", try parseSexp(a, "(asserted true)"));
+
+    // Валидный trans -> true (нормальный путь).
+    try std.testing.expect(verifyEqRule(&c, "trans",
+        try parseSexp(a, "(trans @x1 @x2 @x3)")));
+    // (a) МАЛО посылок (n=3 < 4) -> false.
+    // Убивает мутанта `if (n < 4) return false` -> `return true`.
+    try std.testing.expect(!verifyEqRule(&c, "trans",
+        try parseSexp(a, "(trans @x1 @x2)")));
+    // (b) посылка — НЕ равенство -> false.
+    // Убивает мутанта `!isEq3(p1) or !isEq3(p2) or !isEq3(q)` -> `and`.
+    try std.testing.expect(!verifyEqRule(&c, "trans",
+        try parseSexp(a, "(trans @x1 @n1 @x3)")));
+}
+
+test "ХАРДКОР: parseLin отвергает список без атомарной головы (стр. 933)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    var lin = Lin{ .terms = std.array_list.Managed(Term).init(a) };
+    // Голова — СПИСОК, а не атом: разобрать как линейную форму нельзя.
+    // Убивает мутанта `e.items[0].atom orelse return false` -> `true`
+    // (с ним функция пошла бы дальше и упала/приняла мусор).
+    const e = try parseSexp(a, "((x) 1)");
+    try std.testing.expect(!parseLin(&c, e, 1, &lin));
+}
+
+test "ХАРДКОР: negLiteralAsLeZero отвергает атом и неверную длину (стр. 975)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    var d = Lin{ .terms = std.array_list.Managed(Term).init(a) };
+    // Атом (не список) -> false.
+    try std.testing.expect(!negLiteralAsLeZero(&c, try parseSexp(a, "x"), &d));
+    // Список не из 3 элементов -> false.
+    try std.testing.expect(!negLiteralAsLeZero(&c, try parseSexp(a, "(<= x)"), &d));
+}
+
+test "ХАРДКОР: mp с ОБРАТНЫМ равенством принимается (стр. 1062)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // p2 = (= Q P1) — обратный порядок допустим ТОЛЬКО для равенства.
+    // Убивает мутанта `if (is_eq and ...) return true` -> `return false`.
+    // P1 = x, P2 = (= y x) — ОБРАТНЫЙ порядок, Q = y.
+    try std.testing.expect(checkMp(&c, try parseSexp(a, "(mp x (= y x) y)")));
+    // Прямой порядок P2 = (= x y) тоже принимается.
+    try std.testing.expect(checkMp(&c, try parseSexp(a, "(mp x (= x y) y)")));
+    // НЕравенство в обратном порядке НЕ принимается (=>  только прямой).
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp x (=> y x) y)")));
+}
+
+test "ХАРДКОР: mp отвергает посылку, НЕ совпадающую с заключением (стр. 1061)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Убивает мутанта `sexpEq(P2[1],P1) and sexpEq(P2[2],Q)` -> `or`:
+    // при `or` достаточно совпадения ЛЮБОЙ ОДНОЙ половины, и обе строки ниже
+    // были бы ПРИНЯТЫ как корректный modus ponens, хотя посылка не та.
+    // (а) антецедент совпал, ЗАКЛЮЧЕНИЕ — нет.
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp x (=> x z) y)")));
+    // (б) заключение совпало, АНТЕЦЕДЕНТ — нет.
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp x (=> z y) y)")));
+    // Контроль: полное совпадение ОБЕИХ половин — шаг принимается.
+    try std.testing.expect(checkMp(&c, try parseSexp(a, "(mp x (=> x y) y)")));
+}
+
+test "ХАРДКОР: линейный путь равенства требует ЛИНЕЙНОСТИ ОБЕИХ сторон (стр. 706)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+
+    // (1) ОБЕ стороны линейны -> ЛИНЕЙНЫЙ путь: форма содержит `>=`.
+    const ok = boolNorm(&c, try parseSexp(a, "(= x (+ y 1))"), false, 0);
+    try std.testing.expect(ok != null);
+    const ok_s = sexpKey(&c, ok.?) orelse return error.SkipZigTest;
+    try std.testing.expect(std.mem.indexOf(u8, ok_s, ">=") != null);
+
+    // (2) Правая сторона НЕЛИНЕЙНА (x*x) -> линейный путь НЕДОПУСТИМ.
+    // Убивает мутанта `parseLin(a) and parseLin(b)` -> `or`: с `or` условие
+    // стало бы ИСТИННЫМ, и нелинейное равенство получило бы ЛИНЕЙНУЮ форму
+    // `(and (>= x (* x x)) (>= (* x x) x))` вместо честного `null`.
+    try std.testing.expect(boolNorm(&c, try parseSexp(a, "(= x (* x x))"), false, 0) == null);
+}
+
+test "ХАРДКОР: `;`-комментарий ВНУТРИ assert с несбалансированной скобкой (стр. 515)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    // Комментарий ВНУТРИ формы содержит одиночную `(`, которая без пропуска
+    // сломала бы подсчёт глубины.
+    // Убивает мутанта `while (j < text.len and text[j] != '\n')` -> `or`:
+    // с `or` пропуск ушёл бы ЗА конец строки (до конца текста), и `(assert ...)`
+    // не был бы найден вовсе — 0 вместо 1.
+    const src = "(assert\n  ; comment with ( unbalanced paren\n  (= a b))\n";
+    const got = try extractAsserts(a, src);
+    try std.testing.expectEqual(@as(usize, 1), got.len);
+}
+
+test "ХАРДКОР: and-elim с НЕДОСТАТОЧНЫМ числом аргументов отвергается (стр. 819)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Убивает мутанта `if (st.items.len < 3) return false` -> `return true`.
+    // С мутантом `(and-elim @x1)` (без конъюнкта) был бы ПРИНЯТ — это ДЫРА
+    // В ЗВУЧНОСТИ: чекер подтвердил бы шаг, которого не проверял.
+    try std.testing.expect(!verifyAndElim(&c, try parseSexp(a, "(and-elim @x1)")));
+    try std.testing.expect(!verifyAndElim(&c, try parseSexp(a, "(and-elim)")));
+}
+
+test "ХАРДКОР: negLiteralAsLeZero отвергает НЕ-сравнение (стр. 990)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    var out = Lin{ .terms = std.array_list.Managed(Term).init(a) };
+    // Убивает мутанта `} else return false;` -> `return true`.
+    // С мутантом произвольный терм (не сравнение) принимался бы как ЛИНЕЙНЫЙ
+    // литерал — дыра в звучности сертификата Фаркаша.
+    try std.testing.expect(!negLiteralAsLeZero(&c, try parseSexp(a, "$x42"), &out));
+    try std.testing.expect(!negLiteralAsLeZero(&c, try parseSexp(a, "(foo x y)"), &out));
+    // Контроль непустоты: НАСТОЯЩЕЕ сравнение принимается.
+    try std.testing.expect(negLiteralAsLeZero(&c, try parseSexp(a, "(>= x 5)"), &out));
+}
+
+test "ХАРДКОР: not-or-elim отвергает ЧУЖОЕ заключение (стр. 855)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Посылка доказывает ¬(¬P ∨ ¬Q); законный вывод — P или Q.
+    try c.stepexpr.put("@p", try parseSexp(a, "(asserted (not (or (not P) (not Q))))"));
+    // ЧУЖОЕ заключение R (нет среди дизъюнктов) -> ОБЯЗАН быть отказ.
+    // Убивает мутанта `return false` -> `return true` (с ним чужое
+    // заключение принималось бы — ДЫРА В ЗВУЧНОСТИ).
+    try std.testing.expect(!verifyNotOrElim(&c, try parseSexp(a, "(not-or-elim @p R)")));
+    // Контроль непустоты: СВОЙ дизъюнкт P принимается.
+    try std.testing.expect(verifyNotOrElim(&c, try parseSexp(a, "(not-or-elim @p P)")));
+    // Q тоже принимается.
+    try std.testing.expect(verifyNotOrElim(&c, try parseSexp(a, "(not-or-elim @p Q)")));
+}
+
+test "ХАРДКОР: unit-resolution с парой (not P), P -> verified (стр. 1164)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@p1", try parseSexp(a, "(asserted (not P))"));
+    try c.stepexpr.put("@p2", try parseSexp(a, "(asserted P)"));
+    // Пара комплементарна СТРУКТУРНО (`isComplement`), но `P` — не сравнение,
+    // поэтому `isComplementCmp` даёт false.
+    // Убивает мутанта `isComplement(u,w) or isComplementCmp(u,w)` -> `and`:
+    // с `and` условие ложно, и шаг стал бы `.unverifiable` вместо `.verified`.
+    try std.testing.expectEqual(CheckResult.verified,
+        checkUnitRes(&c, try parseSexp(a, "(unit-resolution @p1 @p2 false)")));
+}
+
+test "ХАРДКОР: not-or-elim с МАЛЫМ числом аргументов отвергается (стр. 843)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Убивает мутанта `if (st.items.len < 3) return false` -> `return true`:
+    // с ним шаг БЕЗ заключения (2 элемента) был бы ПРИНЯТ (дыра в звучности).
+    try std.testing.expect(!verifyNotOrElim(&c, try parseSexp(a, "(not-or-elim @p)")));
+    try std.testing.expect(!verifyNotOrElim(&c, try parseSexp(a, "(not-or-elim)")));
+}
+
+// =========================================================================
+//  ХАРДКОР-АУДИТ (мутационный прогон seed=7, 2026-10-16): 7 выживших мутантов.
+//  Каждый тест убивает КОНКРЕТНЫЙ мутант — в комментарии указан номер строки
+//  и суть подмены. Все они — НЕПОКРЫТЫЕ ВЕТКИ ОТКАЗА: нормальный путь
+//  тестировался, а «данные не той формы» — нет.
+// =========================================================================
+
+test "ХАРДКОР: ruleOf не падает на ПУСТОМ списке в голове (стр. 309)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    // Убивает мутанта `h.isList() and h.items.len >= 2` -> `or`: при `or`
+    // для головы-ПУСТОГО-СПИСКА условие истинно, и `h.items[0]` — выход за
+    // границы (паника вместо `null`).
+    try std.testing.expect(ruleOf(try parseSexp(a, "(())")) == null);
+    // Контроль: голова-список ДОСТАТОЧНОЙ длины по-прежнему разбирается.
+    try std.testing.expectEqualStrings("th-lemma",
+        ruleOf(try parseSexp(a, "((_ th-lemma arith farkas 1 1) cl)")).?);
+}
+
+test "ХАРДКОР: isComplementCmp отвергает СОВПАДАЮЩИЕ сравнения (стр. 478)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    // Убивает мутанта `na.neg != nb.neg` -> `==`: с ним два ОДИНАКОВЫХ
+    // сравнения считались бы взаимно-дополняющими (дыра в `unit-resolution`).
+    const x = try parseSexp(a, "(<= p q)");
+    try std.testing.expect(!isComplementCmp(x, x));
+    // Контроль: настоящая пара (литерал и его отрицание) — комплементарна.
+    try std.testing.expect(isComplementCmp(try parseSexp(a, "(>= p q)"),
+                                           try parseSexp(a, "(< p q)")));
+}
+
+test "ХАРДКОР: verifyEqRule symm требует >= 3 элементов (стр. 798)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Убивает мутанта `if (n < 3) return false` -> `return true`: шаг `(symm)`
+    // БЕЗ пары равенств был бы ПРИНЯТ (дыра в звучности).
+    try std.testing.expect(!verifyEqRule(&c, "symm", try parseSexp(a, "(symm)")));
+    try std.testing.expect(!verifyEqRule(&c, "symm", try parseSexp(a, "(symm x)")));
+}
+
+test "ХАРДКОР: negLiteralAsLeZero отвергает НЕРАЗБИРАЕМЫЙ операнд (стр. 978)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    var d = Lin{ .terms = std.array_list.Managed(Term).init(a) };
+    // Убивает мутанта `if (!parseLin(...)) return false` -> `return true`:
+    // литерал с НЕлинейным первым операндом считался бы линейным, и
+    // `arith`-шаг принимался бы без проверки.
+    try std.testing.expect(!negLiteralAsLeZero(&c, try parseSexp(a, "(<= (<= x 5) 5)"), &d));
+    try std.testing.expect(!negLiteralAsLeZero(&c, try parseSexp(a, "(>= 5 (<= x 5))"), &d));
+}
+
+test "ХАРДКОР: mp отвергает шаг из МЕНЕЕ 4 элементов (стр. 1053)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Убивает мутанта `if (st.items.len < 4) return false` -> `return true`:
+    // обрубок `(mp x)` принимался бы как корректный modus ponens.
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp x)")));
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp x y)")));
+}
+
+test "ХАРДКОР: mp отвергает ЧУЖУЮ голову посылки (стр. 1060)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Убивает мутанта `if (!is_eq and !eql(h,"=>")) return false` -> `return true`:
+    // `(mp x (foo x y) y)` был бы ПРИНЯТ, хотя `foo` — ни импликация, ни равенство.
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp x (foo x y) y)")));
+    // Контроль: настоящая импликация с тем же заключением принимается.
+    try std.testing.expect(checkMp(&c, try parseSexp(a, "(mp x (=> x y) y)")));
+}
+

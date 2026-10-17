@@ -4,6 +4,11 @@
 # =========================================================================
 
 ZIG      ?= zig
+
+# Решатель для мутационного прогона. Без него 8 тестов уходят в `SkipZigTest`,
+# и мутационный скор считается по УСЕЧЁННОМУ набору (дефект #110). Уважаем PATH;
+# если `z3` там нет — ищем в типовых местах (в т.ч. venv с пакетом z3-solver).
+KERN_Z3_PATH ?= $(firstword $(wildcard $(HOME)/*/.venv/bin/z3 $(HOME)/.venv/bin/z3 $(HOME)/.local/bin/z3 /usr/local/bin/z3 /usr/bin/z3))
 PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
@@ -168,8 +173,15 @@ prove:
 	./zig-out/bin/kernc prove formal/example.smt2
 
 # Тактика 1: Zig-native мутационное тестирование (аналог cargo-mutants).
+# --jobs: параллельные воркеры (у каждого СВОЯ копия дерева и свой кэш).
+# Вердикты и скор от параллелизма НЕ зависят (проверено: --jobs 1 и --jobs 3
+# дали идентичный результат), меняется только время: замер 6 мутантов
+# 59.6 с -> 27.7 с (2.15x).
+# --require-solver: без `z3` 8 тестов уходят в SkipZigTest, и скор считается
+# по УСЕЧЁННОМУ набору (дефект #110) -> прогон обязан падать, а не врать.
 mutate:
-	$(PYTHON) tools/mutate_zig.py --max 40 --seed 7
+	KERN_ZIG="$(ZIG)" $(PYTHON) tools/mutate_zig.py --max 40 --seed 7 --jobs 4 \
+		--require-solver --z3-path "$(KERN_Z3_PATH)"
 
 clean:
 	rm -rf zig-out .zig-cache $(OUT) release.kimg report.md agent_packet.json PROJECT_CANONICAL_SPEC.kern.md

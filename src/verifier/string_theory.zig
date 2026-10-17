@@ -99,37 +99,37 @@ test "STRINGS: скрипт содержит строковые ограниче
 
 test "STRINGS (РЕАЛЬНЫЙ Z3): строка с '..' существует (sat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = StringTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildContainsQuery("..");
     defer std.testing.allocator.free(q);
-    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeStatus(q));
 }
 
 test "STRINGS (РЕАЛЬНЫЙ Z3): УЯЗВИМОСТЬ — '..' проходит при вырезании '/' (sat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = StringTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildSanitizerGapQuery("..", "/");
     defer std.testing.allocator.free(q);
     // Санитайзер, вырезающий только '/', НЕ защищает от '..' → sat (баг найден).
-    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeStatus(q));
 }
 
 test "STRINGS (РЕАЛЬНЫЙ Z3): нуль-байтовая инъекция достижима (sat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = StringTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildZeroByteQuery();
     defer std.testing.allocator.free(q);
-    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeStatus(q));
 }
 
 test "STRINGS (РЕАЛЬНЫЙ Z3): regex a* корректно исключает 'b' (unsat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = StringTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildRegexContainsQuery("(re.* (str.to_re \"a\"))", "b");
     defer std.testing.allocator.free(q);
-    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeStatus(q));
 }

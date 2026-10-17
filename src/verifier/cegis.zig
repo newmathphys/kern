@@ -56,7 +56,7 @@ pub const CegisEngine = struct {
             \\
         , .{ decls, cand, spec }) catch return .ToolError;
         defer self.allocator.free(q);
-        return self.bridge.executeQuery(q).status;
+        return self.bridge.executeStatus(q);
     }
 
     /// Обобщённый синтез: перебор грамматики с Z3-верификацией каждого
@@ -117,7 +117,7 @@ pub const CegisEngine = struct {
 
 test "CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≡ x<<3 доказано на ВСЕЙ области (unsat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = CegisEngine.init(std.testing.allocator, &bridge);
     const st = eng.verifyEquivalence(
         "(declare-const x (_ BitVec 32))",
@@ -129,7 +129,7 @@ test "CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≡ x<<3 доказано на ВСЕЙ �
 
 test "CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≢ x<<2 — контрпример найден (sat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = CegisEngine.init(std.testing.allocator, &bridge);
     const st = eng.verifyEquivalence(
         "(declare-const x (_ BitVec 32))",
@@ -141,7 +141,7 @@ test "CEGIS (РЕАЛЬНЫЙ Z3): x*8 ≢ x<<2 — контрпример на�
 
 test "CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*8 → найдено (bvshl x 3)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = CegisEngine.init(std.testing.allocator, &bridge);
     var out = try eng.synthesizeShiftMul(8);
     defer out.deinit(std.testing.allocator);
@@ -154,7 +154,7 @@ test "CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*8 → найдено (bvshl x 
 
 test "CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*16 → найдено (bvshl x 4)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = CegisEngine.init(std.testing.allocator, &bridge);
     var out = try eng.synthesizeShiftMul(16);
     defer out.deinit(std.testing.allocator);
@@ -164,7 +164,7 @@ test "CEGIS (РЕАЛЬНЫЙ Z3): СИНТЕЗ x*16 → найдено (bvshl x
 
 test "CEGIS (РЕАЛЬНЫЙ Z3): x*3 невыразим сдвигом → НЕ найдено (честный отказ)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = CegisEngine.init(std.testing.allocator, &bridge);
     var out = try eng.synthesizeShiftMul(3);
     defer out.deinit(std.testing.allocator);

@@ -118,7 +118,7 @@ test "CONCOLIC: обычный перебор НЕ находит магичес
 
 test "CONCOLIC (РЕАЛЬНЫЙ Z3): магическая строка за число шагов = длине" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
 
     var eng = ConcolicEngine.init(std.testing.allocator, &bridge);
     const sol = try eng.solve(4);

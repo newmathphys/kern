@@ -213,3 +213,43 @@ test "MODEL: незакрытое значение не даёт мусорно�
     defer free(alloc, b);
     try std.testing.expectEqual(@as(usize, 0), b.len);
 }
+
+test "ХАРДКОР: define-fun БЕЗ значения пропускается (стр. 117)" {
+    const alloc = std.testing.allocator;
+    // После сорта значение ОТСУТСТВУЕТ (сразу закрывающая скобка).
+    // Убивает мутанта `if (i <= val_start) continue` -> `<`:
+    // с `<` пропуск не срабатывает, и `renderValue` получает ПУСТОЙ срез —
+    // в результат попало бы связывание с пустым значением.
+    const text = "sat\n(model\n  (define-fun x () Int)\n)\n";
+    const got = try extract(alloc, text);
+    defer free(alloc, got);
+    try std.testing.expectEqual(@as(usize, 0), got.len);
+}
+
+test "ГРАНИЦА: skipSexpr на КОНЦЕ ввода не читает память (стр. 43)" {
+    const text = "abc";
+    // i РОВНО на границе среза.
+    // Убивает мутанта `if (i.* >= text.len ...)` -> `>`: с ним проверка
+    // пропускается и `text[i.*]` читает ЗА границей — в Safe-режимах это
+    // паника (выход за границы среза), то есть тест падает.
+    var i: usize = text.len;
+    try std.testing.expect(!skipSexpr(text, &i));
+    // Не-скобка тоже отвергается (граница «ниже»).
+    i = 0;
+    try std.testing.expect(!skipSexpr(text, &i));
+    // Контроль непустоты: корректная скобка принимается.
+    const ok_text = "(a b) c";
+    var j: usize = 0;
+    try std.testing.expect(skipSexpr(ok_text, &j));
+}
+
+test "ГРАНИЦА: extract на УСЕЧЁННОМ define-fun не читает память (стр. 95)" {
+    const alloc = std.testing.allocator;
+    // Имя есть, а списка аргументов НЕТ (ввод кончился).
+    // Убивает мутанта `if (i >= text.len or text[i] != '(') continue;` -> `and`:
+    // с `and` при `i == text.len` вычисляется `text[i]` — чтение ЗА границей
+    // среза (паника в Safe-режимах).
+    const got = try extract(alloc, "(define-fun x");
+    defer free(alloc, got);
+    try std.testing.expectEqual(@as(usize, 0), got.len);
+}

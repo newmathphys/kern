@@ -95,7 +95,7 @@ pub fn main(init: std.process.Init) !void {
     const alloc = gpa.allocator();
     var bridge = z3b.Z3Bridge.init(alloc);
 
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
         std.debug.print("[!] z3 недоступен: добавьте .venv/bin в PATH\n", .{});
         return;
     }

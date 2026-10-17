@@ -287,7 +287,7 @@ pub fn main(init: std.process.Init) !void {
         if (flagValue(args, "--timeout-ms")) |ts| {
             bridge.timeout_ms = std.fmt.parseInt(u32, ts, 10) catch 2000;
         }
-        if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+        if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
             std.debug.print("[!] z3 недоступен (uv pip install z3-solver, .venv/bin в PATH)\n", .{});
             return;
         }
@@ -329,8 +329,11 @@ pub fn main(init: std.process.Init) !void {
                 continue;
             }
 
-            const resp = bridge.executeQuery(content);
-            const got: []const u8 = switch (resp.status) {
+            // ДЕФЕКТ #105: раньше здесь брался `resp.status`, а владеемая
+            // модель (`witness_model`) НЕ освобождалась. `executeStatus`
+            // освобождает её внутри — утечка невозможна по построению.
+            const status = bridge.executeStatus(content);
+            const got: []const u8 = switch (status) {
                 .Sat => "sat",
                 .Unsat => "unsat",
                 .Unknown => "unknown",
@@ -380,7 +383,7 @@ pub fn main(init: std.process.Init) !void {
         }
         const smt = try compat.readFileAlloc(alloc, args[2], 1 << 20);
         var bridge = z3b.Z3Bridge.init(alloc);
-        if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+        if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
             fail("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
             return;
         }
@@ -502,7 +505,7 @@ pub fn main(init: std.process.Init) !void {
     if (std.mem.eql(u8, command, "audit")) {
         var bridge = z3b.Z3Bridge.init(alloc);
         bridge.timeout_ms = 10000;
-        if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+        if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
             std.debug.print("[!] z3 недоступен (uv pip install z3-solver).\n", .{});
             return;
         }
@@ -528,11 +531,11 @@ pub fn main(init: std.process.Init) !void {
             var eng = array_theory.ArrayTheoryEngine.init(alloc);
             const q = try eng.buildAliasingIndependenceQuery("i", "j");
             defer alloc.free(q);
-            const st = bridge.executeQuery(q).status;
+            const st = bridge.executeStatus(q);
             std.debug.print("[2] ARRAYS (аксиомы Маккарти): независимость ячеек при i≠j — {s}\n", .{if (st == .Unsat) "ДОКАЗАНО" else @tagName(st)});
             const q2 = try eng.buildGuardedSafeQuery("i", 16);
             defer alloc.free(q2);
-            const st2 = bridge.executeQuery(q2).status;
+            const st2 = bridge.executeStatus(q2);
             std.debug.print("    защищённая запись (0≤i<16): {s}\n\n", .{if (st2 == .Unsat) "БЕЗОПАСНО (доказано)" else @tagName(st2)});
         }
 
@@ -550,11 +553,11 @@ pub fn main(init: std.process.Init) !void {
             var eng = string_theory.StringTheoryEngine.init(alloc);
             const q = try eng.buildSanitizerGapQuery("..", "/");
             defer alloc.free(q);
-            const st = bridge.executeQuery(q).status;
+            const st = bridge.executeStatus(q);
             std.debug.print("[4] STRINGS (QF_S): '..' проходит при вырезании '/' — {s}\n", .{if (st == .Sat) "УЯЗВИМОСТЬ (контрпример есть)" else @tagName(st)});
             const q2 = try eng.buildZeroByteQuery();
             defer alloc.free(q2);
-            const st2 = bridge.executeQuery(q2).status;
+            const st2 = bridge.executeStatus(q2);
             std.debug.print("    нуль-байтовая инъекция: {s}\n\n", .{if (st2 == .Sat) "ДОСТИЖИМА" else @tagName(st2)});
         }
 
@@ -804,8 +807,9 @@ pub fn main(init: std.process.Init) !void {
                 continue;
             }
 
-            const resp = bridge.executeQuery(node.raw_slice);
-            switch (resp.status) {
+            // ДЕФЕКТ #105: только вердикт -> `executeStatus` (без владеемой модели).
+            const status = bridge.executeStatus(node.raw_slice);
+            switch (status) {
                 .Unsat => {
                     // (assert ...) невыполнимо => утверждение ДОКАЗАНО.
                     proven += 1;

@@ -27,7 +27,20 @@ const compat = @import("compat");
 
 /// Есть ли решатель (иначе тесты бессмысленны — пропускаем).
 fn solverAvailable(b: *z3b.Z3Bridge) bool {
-    return b.executeQuery("(check-sat)\n").status != .ToolError;
+    return b.executeStatus("(check-sat)\n") != .ToolError;
+}
+
+/// РЕЖИМ МУТАТОРА (`KERN_MUTATE_FAST=1`, ставит `tools/mutate_zig.py`).
+///
+/// 🔴 ДЕФЕКТ #111 (найден замером). ОС-СТРЕСС 4 делает 200 запросов к решателю
+/// (каждый — спавн процесса Z3) и стоит ~3.0 с; ОС-СТРЕСС 3 — 96 спавнов.
+/// Это НАГРУЗКА на стык «KERN <-> ОС», а не логика ядра: логический мутант
+/// (`while (true)` -> `while (false)`, `==` -> `!=`) наблюдается на первых же
+/// итерациях. Поэтому в режиме мутатора число итераций уменьшается, но
+/// НИ ОДНА проверка не отключается — включая «нет утечек FD» и
+/// «инъекция сбоев реально срабатывала».
+fn fastMode() bool {
+    return compat.envVar("KERN_MUTATE_FAST") != null;
 }
 
 fn countOpenFds() usize {
@@ -96,8 +109,8 @@ fn floodWorker(ctx: *FloodCtx, iters: usize) void {
     b.timeout_ms = 10_000;
     var i: usize = 0;
     while (i < iters) : (i += 1) {
-        const r = b.executeQuery("(set-logic QF_LIA)(declare-const x Int)(assert (> x 5))(assert (< x 2))(check-sat)\n");
-        switch (r.status) {
+        const st = b.executeStatus("(set-logic QF_LIA)(declare-const x Int)(assert (> x 5))(assert (< x 2))(check-sat)\n");
+        switch (st) {
             .ToolError, .Timeout => _ = ctx.err.fetchAdd(1, .monotonic),
             else => _ = ctx.ok.fetchAdd(1, .monotonic),
         }
@@ -113,16 +126,19 @@ test "ОС-СТРЕСС 4: инъекция сбоев 5% (pipe/spawn/read) — 
     const before = countOpenFds();
     var b = z3b.Z3Bridge.init(std.testing.allocator);
     b.timeout_ms = 8_000;
-    b.fault_pct = 5; // 5% — как в требовании
+    // В режиме мутатора доля отказов ВЫШЕ: при малом N 5 % почти всегда дали бы
+    // `fault_hits == 0`, а проверка «инъекция реально срабатывала» обязана
+    // оставаться НЕПУСТОЙ (иначе тест вакуумный и мутанта не убивает).
+    b.fault_pct = if (fastMode()) 25 else 5; // требование: 5 % на полном прогоне
 
-    const N = 200;
+    const N: usize = if (fastMode()) 8 else 200;
     var ok: usize = 0;
     var failed: usize = 0;
     var i: usize = 0;
     while (i < N) : (i += 1) {
-        const r = b.executeQuery(
+        const st = b.executeStatus(
             "(set-logic QF_LIA)(declare-const x Int)(assert (> x 5))(assert (< x 2))(check-sat)\n");
-        switch (r.status) {
+        switch (st) {
             .ToolError, .Timeout => failed += 1,
             else => ok += 1,
         }
@@ -148,18 +164,19 @@ test "ОС-СТРЕСС 3: флуд spawn (12 потоков × 8 запросо
 
     const before = countOpenFds();
     var ctx = FloodCtx{};
-    const N = 12;
+    const N: usize = if (fastMode()) 2 else 12;
+    const per: usize = if (fastMode()) 2 else 8; // запросов на поток
     const threads = try std.testing.allocator.alloc(std.Thread, N);
     defer std.testing.allocator.free(threads);
     var t: usize = 0;
-    while (t < N) : (t += 1) threads[t] = try std.Thread.spawn(.{}, floodWorker, .{ &ctx, 8 });
+    while (t < N) : (t += 1) threads[t] = try std.Thread.spawn(.{}, floodWorker, .{ &ctx, per });
     for (threads) |th| th.join();
 
     const ok = ctx.ok.load(.monotonic);
     const err = ctx.err.load(.monotonic);
     std.debug.print("\n  [ОС-3] успешно {d}, отказов {d}\n", .{ ok, err });
     try std.testing.expect(ok > 0); // хотя бы часть прошла
-    try std.testing.expect(ok + err == N * 8); // все учтены
+    try std.testing.expect(ok + err == N * per); // все учтены
 
     // Утечек дескрипторов быть не должно (допускаем ±3 на служебные).
     const after = countOpenFds();

@@ -147,10 +147,13 @@ fi
 
 # --- 8. Мутации (по сохранённому отчёту) ------------------------------------
 # ДЕФЕКТ: манифест читал ТОЛЬКО docs/evidence/mutation_report.txt (артефакт
-# эпохи Zig 0.13). После миграции актуальный отчёт — mutation_017.log.
-# Берём самый свежий из существующих, чтобы строка не «зеленела» по старому.
+# эпохи Zig 0.13). После миграции актуальный отчёт пишет `collect_evidence.sh`
+# (`collect mutate ...`) в `docs/evidence/mutate.log` — ЭТО имя первично.
+# `mutation_report.txt` оставлен как самый старый запасной вариант.
+# (Устаревший дубль `mutation_017.log` с прежним скором 77.5% УДАЛЁН —
+#  иначе строка «Mutation Coverage» могла зеленеть по нему.)
 MUT_REPORT=""
-for f in docs/evidence/mutation_017.log docs/evidence/mutation_report.txt; do
+for f in docs/evidence/mutate.log docs/evidence/mutation_report.txt; do
   if [ -f "$f" ]; then MUT_REPORT="$f"; break; fi
 done
 if [ -n "$MUT_REPORT" ]; then

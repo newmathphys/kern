@@ -63,10 +63,33 @@ fn killAfterPid(pid: std.posix.pid_t, ctx: *KillCtx, ms: u32) void {
     }
 }
 
+/// ЕДИНАЯ точка аварийного выхода из `executeCapture`: остановить поток-убийцу
+/// и снять решатель.
+///
+/// ЗАЧЕМ (дефект, найден мутационным прогоном). Один и тот же блок
+/// (`done.store(true)` + `kill(SIGTERM)` + `killer.join()`) был СКОПИРОВАН в
+/// три ветки отказа: (1) не удалось записать скрипт в stdin, (2) нет
+/// `child.stdout`, (3) не удалось прочитать вывод. Мутант `true` -> `false`
+/// в ЛЮБОЙ из копий выживал: например, ветка (2) НЕДОСТИЖИМА (spawn всегда
+/// ставит `.stdout = .pipe`), а копии (1) и (3) не проверялись по ЛАТЕНТНОСТИ.
+///
+/// Теперь ветка одна, и она покрыта тестом «лимит вывода -> возврат МНОГО
+/// БЫСТРЕЕ таймаута» (`max_stdout = 8`): без `done.store(true)` поток-убийца
+/// ждёт весь `timeout_ms`, и тест падает по времени. Мутант УБИТ, а не «выжил
+/// как эквивалентный».
+fn abortSolver(pid: std.posix.pid_t, kctx: *KillCtx) void {
+    kctx.done.store(true, .release);
+    std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+}
+
 pub const Z3Bridge = struct {
     allocator: std.mem.Allocator,
     z3_path: []const u8 = "z3",
     timeout_ms: u32 = 5000, // ЖЁСТКИЙ таймаут (поток-убийца), см. executeQuery.
+    /// ЛИМИТ ВЫВОДА решателя. Сделано ПОЛЕМ (а не константой), чтобы тесты
+    /// могли дёшево и ДЕТЕРМИНИРОВАННО войти в ветку отказа чтения:
+    /// иначе пришлось бы генерировать вывод > 4 МБ (медленно и нестабильно).
+    max_stdout: usize = 4 * 1024 * 1024,
     /// ИНЪЕКЦИЯ СБОЕВ (только для тестов): вероятность отказа на КАЖДОМ шаге
     /// взаимодействия с ОС, в процентах (0 = выключено).
     ///
@@ -91,7 +114,17 @@ pub const Z3Bridge = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator) Z3Bridge {
-        return .{ .allocator = allocator };
+        var b = Z3Bridge{ .allocator = allocator };
+        // Переменная окружения позволяет ЗАДАТЬ таймаут снаружи. Нужна
+        // мутационному прогону: там мутант может вызвать дедлок пайпа, и с
+        // дефолтными 5000 мс прогон растягивается на минуты (200 запросов
+        // ОС-СТРЕСС 4 x 5 с = 16 минут). При 300 мс это секунды.
+        if (compat.envVar("KERN_Z3_TIMEOUT_MS")) |v| {
+            if (std.fmt.parseInt(u32, v, 10)) |ms| {
+                if (ms > 0) b.timeout_ms = ms;
+            } else |_| {}
+        }
+        return b;
     }
 
     /// Отправляет SMT-LIB2 скрипт в Z3 и парсит ответ.
@@ -104,8 +137,22 @@ pub const Z3Bridge = struct {
         defer self.allocator.free(cap.stdout);
         var witness: ?[]const u8 = null;
         if (cap.status == .Sat) {
-            if (std.mem.indexOf(u8, cap.stdout, "(model")) |ms| {
-                witness = self.allocator.dupe(u8, cap.stdout[ms..]) catch null;
+            // 🔴 ДЕФЕКТ #104 (найден хардкор-аудитом): раньше здесь искался
+            // префикс `"(model"`. Но `(get-model)` в Z3 5.1.0 выдаёт ГОЛЫЙ
+            // список — БЕЗ слова `model`:
+            //     sat
+            //     (
+            //       (define-fun x () Int
+            //         6)
+            //     )
+            // Поэтому `indexOf("(model")` не находил НИЧЕГО, и поле
+            // `witness_model` было ВСЕГДА null. (CLI-контрпример не страдал: он
+            // делает отдельный запрос и разбирает вывод через model_extract.)
+            // Теперь модель ищется по `define-fun`, а её начало — первая `(`.
+            if (std.mem.indexOf(u8, cap.stdout, "define-fun") != null) {
+                if (std.mem.indexOfScalar(u8, cap.stdout, '(')) |ms| {
+                    witness = self.allocator.dupe(u8, cap.stdout[ms..]) catch null;
+                }
             }
         }
         return .{ .status = cap.status, .witness_model = witness };
@@ -149,8 +196,7 @@ pub const Z3Bridge = struct {
 
         if (child.stdin) |sin| {
             sin.writeStreamingAll(io, smt_script) catch {
-                kctx.done.store(true, .release);
-                std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+                abortSolver(pid, &kctx);
                 killer.join();
                 return .{ .status = .ToolError, .stdout = &.{} };
             };
@@ -159,17 +205,26 @@ pub const Z3Bridge = struct {
         }
 
         const sout = child.stdout orelse {
-            kctx.done.store(true, .release);
-            std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+            abortSolver(pid, &kctx);
             killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
-        const stdout_data = compat.fileReadToEndAlloc(sout, self.allocator, 4 * 1024 * 1024) catch {
-            kctx.done.store(true, .release);
-            std.posix.kill(pid, std.posix.SIG.TERM) catch {};
+        const stdout_data = compat.fileReadToEndAlloc(sout, self.allocator, self.max_stdout) catch {
+            abortSolver(pid, &kctx);
             killer.join();
             return .{ .status = .ToolError, .stdout = &.{} };
         };
+
+        // ЗАКРЫВАЕМ читающий конец пайпа ДО `child.wait()`.
+        //
+        // ЗАЧЕМ (найдено «медленным мутантом» `compat.zig:231`: цикл чтения
+        // -> `while (false)`): если вывод НЕ дочитан, буфер пайпа (64 КБ)
+        // переполняется, Z3 блокируется в `write()`, а `wait()` ждёт его
+        // завершения — ДЕДЛОК, разрываемый только потоком-убийцей: 5 с на
+        // КАЖДЫЙ запрос (200 запросов ОС-СТРЕСС 4 = 16 минут).
+        // Закрытие читающего конца даёт потомку `EPIPE`/`SIGPIPE` мгновенно.
+        sout.close(io);
+        child.stdout = null;
 
         const term = child.wait(io) catch {
             // БАГ-ФИКС: при ошибке wait поток-убийца обязан быть остановлен и
@@ -213,6 +268,23 @@ pub const Z3Bridge = struct {
             break :blk .Unknown;
         };
         return .{ .status = status, .stdout = stdout_data };
+    }
+
+    /// Только ВЕРДИКТ, без владеемой модели.
+    ///
+    /// ЗАЧЕМ ОТДЕЛЬНАЯ ФУНКЦИЯ (дефект #105). `executeQuery` возвращает
+    /// `witness_model` — ВЛАДЕЕМУЮ строку, которую вызывающий обязан
+    /// освободить. На практике 40+ мест писали `b.executeStatus(q)`,
+    /// отбрасывая результат: пока модель была всегда `null` (дефект #104),
+    /// утечки не было. Как только #104 исправили, эти вызовы начали течь
+    /// (замер: 3 теста, 40/40/43 байта).
+    ///
+    /// Эта функция освобождает модель ВНУТРИ, поэтому забыть её невозможно.
+    /// Используйте её везде, где нужен только статус.
+    pub fn executeStatus(self: *Z3Bridge, smt_script: []const u8) SmtStatus {
+        const r = self.executeQuery(smt_script);
+        if (r.witness_model) |w| self.allocator.free(w);
+        return r.status;
     }
 
     /// Двухфазная проверка контракта:
@@ -310,7 +382,7 @@ test "Z3 РЕАЛЬНЫЙ: валидный контракт подтвержд�
 
 test "Z3 РЕАЛЬНЫЙ: неверный контракт отвергается (контрпример)" {
     var bridge = Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     // x > 0  =>  x + 1 > 5   (неверно: x=1)
     const ok = try bridge.verifyContract("(declare-const x Int)", "(> x 0)", "(> (+ x 1) 5)");
     try std.testing.expect(!ok);
@@ -318,7 +390,7 @@ test "Z3 РЕАЛЬНЫЙ: неверный контракт отвергает�
 
 test "ВРАТА + РЕАЛЬНЫЙ Z3: корректный контракт даёт e=1 (ПЕРВЫЙ РАЗ!)" {
     var bridge = Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
     const ast_hash = @as([32]u8, @splat(0x01));
     // Payload — запрос КОРРЕКТНОСТИ: Pre ∧ ¬Post. Z3 докажет UNSAT => нет контрпримеров.
     const cert = gate.ProofCertificate{
@@ -336,7 +408,7 @@ test "ВРАТА + РЕАЛЬНЫЙ Z3: корректный контракт д
 
 test "ВРАТА + РЕАЛЬНЫЙ Z3: багованный контракт даёт e=0 (контрпример)" {
     var bridge = Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     const ast_hash = @as([32]u8, @splat(0x02));
     const cert = gate.ProofCertificate{
         .target_ast_digest = ast_hash,
@@ -353,7 +425,7 @@ test "ВРАТА + РЕАЛЬНЫЙ Z3: багованный контракт д
 test "Z3 + КЭШ ДОКАЗАТЕЛЬСТВ: второй вызов не дёргает решатель" {
     const pc = @import("../proof_cache.zig");
     var bridge = Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
 
     var cache = pc.ProofCache.init(std.testing.allocator);
     defer cache.deinit();
@@ -433,7 +505,7 @@ fn countZombieChildren() usize {
 
 test "РЕСУРСЫ: 50 запросов Z3 не текут FD и не плодят зомби" {
     var bridge = Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
 
     const fd_before = countFds();
     var i: usize = 0;
@@ -504,3 +576,120 @@ pub const SolverPool = struct {
         return self.active.load(.acquire);
     }
 };
+
+test "ХАРДКОР: при SAT извлекается модель-свидетель (стр. 106)" {
+    var bridge = Z3Bridge.init(std.testing.allocator);
+    const r = bridge.executeQuery(
+        "(set-logic ALL)\n(declare-const x Int)\n(assert (> x 5))\n" ++
+            "(check-sat)\n(get-model)\n");
+    defer if (r.witness_model) |w| std.testing.allocator.free(w);
+    // Без z3 проверять нечего — это не провал, а пропуск.
+    if (r.status != .Sat) return error.SkipZigTest;
+    // Убивает мутанта `if (cap.status == .Sat)` -> `!=`:
+    // при SAT свидетель НЕ извлёкся бы, и проверка ниже упала бы.
+    try std.testing.expect(r.witness_model != null);
+    // ВАЖНО: проверяем `define-fun`, а НЕ слово `model` — `(get-model)`
+    // выдаёт голый список без ключевого слова `model` (дефект #104).
+    try std.testing.expect(std.mem.indexOf(u8, r.witness_model.?, "define-fun") != null);
+}
+
+test "ДЕФЕКТ #105: executeStatus НЕ оставляет владеемой модели (нет утечки)" {
+    var b = Z3Bridge.init(std.testing.allocator);
+    if (b.executeStatus("(check-sat)\n") == .ToolError) return error.SkipZigTest;
+    // Формула, дающая МОДЕЛЬ (sat + define-fun). Если бы `executeStatus`
+    // не освобождала `witness_model`, `std.testing.allocator` зафиксировал
+    // бы утечку и тест упал бы.
+    //
+    // ЗАЧЕМ ТЕСТ. Дефект #104 сделал `witness_model` не-null в новых
+    // случаях, и 61 вызов вида `executeQuery(q).status` начал течь.
+    // `executeStatus` закрывает класс навсегда: владеемой памяти наружу
+    // не отдаётся вообще.
+    try std.testing.expectEqual(SmtStatus.Sat, b.executeStatus(
+        "(set-logic ALL)\n(declare-const x Int)\n(assert (> x 5))\n(check-sat)\n(get-model)\n"));
+}
+
+test "ИНЪЕКЦИЯ: fault_pct=0 НЕ расходует энтропию PRNG (стр. 85)" {
+    var b = Z3Bridge.init(std.testing.allocator);
+    b.fault_pct = 0;
+    var i: usize = 0;
+    while (i < 50) : (i += 1) try std.testing.expect(!b.fault());
+    // Убивает мутанта `if (self.fault_pct == 0)` -> `!=`.
+    // С `!=` защита не сработала бы, и КАЖДЫЙ из 50 вызовов двигал бы PRNG,
+    // хотя инъекция выключена. Сверяем состояние с ЭТАЛОННЫМ PRNG того же seed:
+    // при верной защите последовательности совпадают.
+    var ref = std.Random.DefaultPrng.init(0xF0F0);
+    try std.testing.expectEqual(
+        ref.random().uintLessThan(u8, 100),
+        b.fault_rng.random().uintLessThan(u8, 100));
+    // Инъекция по-прежнему РАБОТАЕТ, когда включена (тест не пустой).
+    b.fault_pct = 100;
+    try std.testing.expect(b.fault());
+    try std.testing.expect(b.fault_hits > 0);
+}
+
+test "ИНЪЕКЦИЯ: отказ чтения вывода возвращает управление НЕМЕДЛЕННО (стр. 182)" {
+    // Доступность решателя проверяем ОТДЕЛЬНЫМ мостом с нормальным лимитом.
+    var probe = Z3Bridge.init(std.testing.allocator);
+    if (probe.executeStatus("(check-sat)\n") == .ToolError) return error.SkipZigTest;
+
+    var b = Z3Bridge.init(std.testing.allocator);
+    b.timeout_ms = 20_000; // БОЛЬШОЙ таймаут
+    // Лимит МЕНЬШЕ вывода (ответ ~35 Б) -> чтение ГАРАНТИРОВАННО падает
+    // с error.StreamTooLong, и мы попадаем в ветку отказа (стр. 182).
+    b.max_stdout = 8;
+
+    var timer = compat.Timer.start(); // std.time.Timer удалён в 0.17
+    const cap = b.executeCapture(
+        "(set-logic ALL)\n(declare-const x Int)\n(assert (> x 5))\n(check-sat)\n(get-model)\n");
+    defer std.testing.allocator.free(cap.stdout);
+    const ms = timer.read() / 1_000_000; // нс -> мс
+
+    try std.testing.expectEqual(SmtStatus.ToolError, cap.status);
+    // Убивает мутанта `kctx.done.store(true, .release)` -> `false` на пути
+    // отказа чтения (стр. 182): с ним поток-убийца НЕ увидел бы флаг,
+    // `killer.join()` ждал бы ВЕСЬ timeout_ms (20 с), и вызов вернулся бы
+    // не за миллисекунды, а за 20 секунд.
+    try std.testing.expect(ms < 5_000);
+}
+
+test "ЗВУЧНОСТЬ: вакуумное предусловие НЕ признаётся доказанным (стр. 262)" {
+    var b = Z3Bridge.init(std.testing.allocator);
+    if (b.executeStatus("(check-sat)\n") == .ToolError) return error.SkipZigTest;
+
+    // Предусловие НЕВЫПОЛНИМО (x > 10 и x < 5) -> контракт ВАКУУМНЫЙ.
+    // Убивает мутанта `if (ir.status != .Sat) return false` -> `return true`:
+    // с ним вакуумный контракт был бы признан ДОКАЗАННЫМ, то есть KERN
+    // подтвердил бы свойство, которое НЕ проверялось (дыра в звучности).
+    try std.testing.expect(!try b.verifyContract(
+        "(declare-const x Int)", "(and (> x 10) (< x 5))", "(= x x)"));
+
+    // Контроль непустоты: ВЫПОЛНИМОЕ предусловие + верное постусловие -> true.
+    try std.testing.expect(try b.verifyContract(
+        "(declare-const x Int)", "(> x 0)", "(> x -1)"));
+
+    // И ложное постусловие при выполнимом предусловии -> false.
+    try std.testing.expect(!try b.verifyContract(
+        "(declare-const x Int)", "(> x 0)", "(> x 100)"));
+}
+
+test "ХАРДКОР: countZombieChildren ВИДИТ реального зомби (стр. 486)" {
+    // Убивает мутанта `entry.kind != .directory` -> `==`: с ним функция
+    // пропускает ВСЕ каталоги `/proc/<pid>` и ВСЕГДА возвращает 0 — то есть
+    // проверка «50 запросов Z3 не плодят зомби» выше становится ВАКУУМНОЙ
+    // и перестаёт что-либо доказывать.
+    // Здесь зомби создаётся НАМЕРЕННО: потомок завершается, но мы его
+    // НЕ пожинаем до замера.
+    const before = countZombieChildren();
+    var child = std.process.spawn(compat.io(), .{
+        .argv = &[_][]const u8{"/bin/true"},
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    }) catch return error.SkipZigTest; // нет /bin/true — проверить нельзя
+    // Даём потомку завершиться: до `wait()` он остаётся ЗОМБИ.
+    compat.sleepMs(100);
+    const during = countZombieChildren();
+    _ = child.wait(compat.io()) catch {}; // пожинаем, чтобы не оставлять мусор
+    try std.testing.expect(during > before);
+}
+

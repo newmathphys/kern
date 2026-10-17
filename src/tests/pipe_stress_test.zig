@@ -65,7 +65,8 @@ test "REG-017-6B: fileReadToEndAlloc на РЕАЛЬНОМ пайпе — не s
 
     const read_file = std.Io.File{ .handle = fds[0], .flags = .{ .nonblocking = false } };
     const write_file = std.Io.File{ .handle = fds[1], .flags = .{ .nonblocking = false } };
-    defer compat.fileClose(read_file);
+    // ВНИМАНИЕ: `defer compat.fileClose(read_file)` здесь НЕЛЬЗЯ — читающий
+    // конец закрывается ЯВНО до `join()` (см. ниже), иначе двойное закрытие.
 
     // Детерминированная нагрузка (не кратна 4096 и > 64 КБ буфера пайпа).
     const expected = try allocator.alloc(u8, PAYLOAD_LEN);
@@ -85,12 +86,24 @@ test "REG-017-6B: fileReadToEndAlloc на РЕАЛЬНОМ пайпе — не s
     // ЧИТАЕМ, ПОКА ПИСАТЕЛЬ РАБОТАЕТ: ровно сценарий Z3 (мост читает stdout
     // ДО `wait()` — иначе возможна взаимная блокировка).
     const actual = compat.fileReadToEndAlloc(read_file, allocator, 8 * 1024 * 1024) catch |e| {
+        // ЗАКРЫВАЕМ ЧИТАЮЩИЙ КОНЕЦ ДО `join()`: иначе писатель, заблокированный
+        // на ПОЛНОМ пайпе (64 КБ), не получит EPIPE и `join()` повиснет.
+        compat.fileClose(read_file);
         t.join();
         std.debug.print("  [ПРОВАЛ] чтение пайпа вернуло ошибку: {s}\n", .{@errorName(e)});
         return e;
     };
     defer allocator.free(actual);
 
+    // ЗЕРКАЛИМ z3_bridge: читающий конец закрывается ДО ожидания писателя.
+    // ЗАЧЕМ (дефект #108). Если код под тестом СЛОМАН (например, мутация
+    // `while (true)` -> `while (false)` в `fileReadToEndAlloc`), чтение
+    // возвращает пусто, писатель остаётся заблокированным на полном пайпе,
+    // и `t.join()` виснет НАВСЕГДА. Зависший тест хуже падающего: он
+    // останавливает весь прогон (и мутационный тоже).
+    // Закрытие читающего конца даёт писателю EPIPE -> он выходит -> join
+    // вернётся, и тест ЧЕСТНО УПАДЁТ на проверке длины ниже.
+    compat.fileClose(read_file);
     t.join();
 
     // I1: пайп не seekable — но ошибки нет (иначе не дошли бы сюда).

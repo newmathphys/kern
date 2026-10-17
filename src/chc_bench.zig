@@ -50,7 +50,7 @@ pub fn main(init: std.process.Init) !void {
 
     var bridge = z3.Z3Bridge.init(alloc);
     bridge.timeout_ms = 15000;
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) {
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
         std.debug.print("[!] z3 недоступен. Добавьте .venv/bin в PATH.\n", .{});
         return;
     }

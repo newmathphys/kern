@@ -31,7 +31,7 @@ fn parseAll(allocator: std.mem.Allocator, out: []const u8) ![]z3.SmtStatus {
 
 test "SMT push/pop: контекст ИЗОЛИРОВАН (нет протечки между мутантами)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return; // z3 нет
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
 
     const script =
         \\(set-logic ALL)
@@ -65,7 +65,7 @@ test "SMT push/pop: контекст ИЗОЛИРОВАН (нет протечк
 
 test "SMT push/pop: пачка из 50 «мутантов» — нет ложных proved" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
 
     var buf = compat.BufWriter.init(std.testing.allocator);
     defer buf.deinit();
@@ -92,7 +92,7 @@ test "SMT push/pop: пачка из 50 «мутантов» — нет ложн�
 
 test "SMT push/pop: 30 запросов в ОДНОМ процессе быстрее 30 отдельных" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
 
     // (а) 30 отдельных процессов
     var t_sep = compat.Timer.start();

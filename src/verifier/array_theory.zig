@@ -112,37 +112,37 @@ test "ARRAY: скрипт содержит аксиому Маккарти (sele
 
 test "ARRAY (РЕАЛЬНЫЙ Z3): select(store(a,i,v),i) = v доказано (unsat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ArrayTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildSameIndexQuery("i", "v");
     defer std.testing.allocator.free(q);
-    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeStatus(q));
 }
 
 test "ARRAY (РЕАЛЬНЫЙ Z3): независимость ячеек при i≠j доказана (unsat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ArrayTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildAliasingIndependenceQuery("i", "j");
     defer std.testing.allocator.free(q);
-    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeStatus(q));
 }
 
 test "ARRAY (РЕАЛЬНЫЙ Z3): защищённая запись безопасна (unsat = доказано)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ArrayTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildGuardedSafeQuery("i", 16);
     defer std.testing.allocator.free(q);
-    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeStatus(q));
 }
 
 test "ARRAY (РЕАЛЬНЫЙ Z3): OOB-индекс достижим (sat = уязвимость видна)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ArrayTheoryEngine.init(std.testing.allocator);
     const q = try eng.buildOobQuery("i", 16);
     defer std.testing.allocator.free(q);
     // Без guard индекс может быть любым => sat (KERN покажет контрпример).
-    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Sat, bridge.executeStatus(q));
 }

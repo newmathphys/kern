@@ -38,7 +38,7 @@ pub const NraEngine = struct {
             \\
         , .{formula}) catch return .ToolError;
         defer self.allocator.free(q);
-        return bridge.executeQuery(q).status;
+        return bridge.executeStatus(q);
     }
 
     /// ∀-проверка: ищем контрпример ¬φ.
@@ -53,7 +53,7 @@ pub const NraEngine = struct {
             \\
         , .{formula}) catch return .ToolError;
         defer self.allocator.free(q);
-        return bridge.executeQuery(q).status;
+        return bridge.executeStatus(q);
     }
 };
 
@@ -107,14 +107,14 @@ pub const QuantEngine = struct {
 
 test "NRA: x² < 0 неразрешимо (квадрат вещественного неотрицателен)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = NraEngine.init(std.testing.allocator);
     try std.testing.expectEqual(z3.SmtStatus.Unsat, eng.check(&bridge, "(< (* x x) 0)"));
 }
 
 test "NRA (∀): x² + y² ≥ 0 доказано для ВСЕХ вещественных" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = NraEngine.init(std.testing.allocator);
     try std.testing.expectEqual(z3.SmtStatus.Unsat,
         eng.proveForAll(&bridge, "(>= (+ (* x x) (* y y)) 0)"));
@@ -122,7 +122,7 @@ test "NRA (∀): x² + y² ≥ 0 доказано для ВСЕХ веществ
 
 test "NRA: единичный круг — точка (0.9, 0) внутри (sat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = NraEngine.init(std.testing.allocator);
     try std.testing.expectEqual(z3.SmtStatus.Sat,
         eng.check(&bridge, "(and (= y 0) (< (* x x) 1) (> x 0.5))"));
@@ -130,7 +130,7 @@ test "NRA: единичный круг — точка (0.9, 0) внутри (sat
 
 test "NRA: x² + y² > 2 недоказуемо (контрпример x=y=0 есть)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = NraEngine.init(std.testing.allocator);
     try std.testing.expectEqual(z3.SmtStatus.Sat,
         eng.proveForAll(&bridge, "(> (+ (* x x) (* y y)) 2)"));
@@ -138,7 +138,7 @@ test "NRA: x² + y² > 2 недоказуемо (контрпример x=y=0 е
 
 test "QUANT: с явным триггером — противоречивый контракт (unsat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     // ∀x. f(x) > x  ∧  f(0) = 0  — противоречие.
     const q =
         \\(set-logic ALL)
@@ -148,19 +148,19 @@ test "QUANT: с явным триггером — противоречивый �
         \\(check-sat)
         \\
     ;
-    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeQuery(q).status);
+    try std.testing.expectEqual(z3.SmtStatus.Unsat, bridge.executeStatus(q));
 }
 
 test "QUANT: квантор без триггера ограничен таймаутом (Matching Loop обезврежен)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     bridge.timeout_ms = 3000; // жёсткий предел
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = QuantEngine.init(std.testing.allocator);
     const q = try eng.buildForallNoTrigger(
         "(declare-fun g (Int Int) Int)", "x", "Int",
         "(= (g x x) (+ x 1))");
     defer std.testing.allocator.free(q);
-    const st = bridge.executeQuery(q).status;
+    const st = bridge.executeStatus(q);
     // Любой исход, КРОМЕ падения/зависания: таймаут-убийца гарантирует
     // завершение, а Врата при Timeout/Unknown НЕ открываются.
     try std.testing.expect(st == .Sat or st == .Unsat or st == .Unknown or st == .Timeout);

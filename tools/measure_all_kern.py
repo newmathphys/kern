@@ -185,7 +185,12 @@ def check_mutation_integrity() -> tuple[int, dict, str]:
     """
     w = WEIGHTS["mutation_integrity"]
     before = run("git-status-before", ["git", "status", "--porcelain"])["output"]
-    r = run("mutate", ["python3", "tools/mutate_zig.py", "--max", "40", "--seed", "7"], timeout=1800)
+    # --jobs 4: параллельные воркеры (вердикты не зависят от параллелизма);
+    # --require-solver: без решателя 8 тестов молча пропускаются, и скор
+    # считается по УСЕЧЁННОМУ набору — метрика была бы ЛОЖНОЙ (дефект #110).
+    # CI ставит z3 через `pip install z3-solver`, поэтому бинарь есть в PATH.
+    r = run("mutate", ["python3", "tools/mutate_zig.py", "--max", "40", "--seed", "7",
+                       "--jobs", "4", "--require-solver"], timeout=1800)
     after = run("git-status-after", ["git", "status", "--porcelain"])["output"]
     score = num(r"MUTATION SCORE:\s*([0-9.]+)%", r["output"])
     killed = num(r"Killed \(compile\):\s*(\d+)", r["output"], 0)

@@ -13,12 +13,28 @@ Mutation Score = KILLED / TOTAL * 100%.
 import argparse
 import hashlib
 import os
+import queue
 import random
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+# Исполняемый файл zig: уважаем переменную окружения KERN_ZIG (Makefile передаёт
+# туда $(ZIG)) — иначе мутатор требует `zig` в PATH, чего на машине может не
+# быть (дефект #110, тот же класс, что отсутствие решателя).
+ZIG = os.environ.get("KERN_ZIG", "zig")
+
+# Окружение ДОЧЕРНИХ прогонов (тесты и C-ABI). Заполняется в main():
+#   KERN_MUTATE_FAST=1 — уменьшить ЧИСЛО итераций стресс-циклов (дефект #111):
+#                        логический мутант наблюдается на первых итерациях,
+#                        а 200 спавнов Z3 и 24 000 спавнов потоков — это
+#                        НАГРУЗКА, а не покрытие. Ни один тест не отключается.
+#   PATH               — с добавленным каталогом решателя (--z3-path/KERN_Z3_PATH).
+CHILD_ENV = dict(os.environ)
 
 # 🔴 ДЕФЕКТ #93 (хардкор-аудит): список был ЖЁСТКИМ из 6 файлов, поэтому модули,
 # добавленные в v2.2-v2.4, НЕ МУТИРОВАЛИСЬ ВООБЩЕ: `blake3_simd8`,
@@ -59,6 +75,29 @@ MUTATIONS = [
 BOOL_MUTS = ("true->false", "false->true")
 
 
+def _in_string(code, pos):
+    """True, если позиция `pos` находится ВНУТРИ строкового/символьного литерала.
+
+    ЗАЧЕМ (дефект найден прогоном): мутатор менял `and` -> `or` ВНУТРИ строки
+    теста (`const src = "(assert (and ...))"`). Поведение при этом не меняется,
+    но мутант попадал в отчёт как «выживший» — ЛОЖНАЯ дыра в тестах.
+    """
+    q = None
+    i = 0
+    while i < pos:
+        c = code[i]
+        if q is not None:
+            if c == "\\":
+                i += 2
+                continue
+            if c == q:
+                q = None
+        elif c == '"' or c == "'":
+            q = c
+        i += 1
+    return q is not None
+
+
 def collect(root):
     """Сайты мутации; пропускаем блоки `test { }` и строковые литералы."""
     sites = []
@@ -90,9 +129,13 @@ def collect(root):
             # ложная «дыра в тестах». Отрезаем часть строки после `//`.
             code = line.split("//", 1)[0]
             for pat, rep, name in MUTATIONS:
-                if not re.search(pat, code):
+                m = re.search(pat, code)
+                if not m:
                     continue
-                if name in BOOL_MUTS and '"' in code:
+                # Мутация ВНУТРИ строкового литерала не меняет поведение —
+                # это ШУМ, а не «выживший мутант». Раньше отсекались только
+                # `true`/`false`; теперь — все виды мутаций.
+                if _in_string(code, m.start()):
                     continue
                 sites.append((rel, ln, pat, rep, name))
     return sites
@@ -112,7 +155,7 @@ def run_c_abi_tests(root):
     Возвращает (rc, вывод): rc != 0 означает, что мутант ПОЙМАН.
     """
     out = ""
-    r = subprocess.run(["zig", "build", "lib"], cwd=root,
+    r = subprocess.run([ZIG, "build", "lib"], cwd=root, env=CHILD_ENV,
                        capture_output=True, text=True)
     out += (r.stdout or "") + (r.stderr or "")
     if r.returncode != 0:
@@ -120,16 +163,16 @@ def run_c_abi_tests(root):
     for src_c, exe in (("tests/c_abi_test.c", "kern_cabi_t"),
                        ("tests/c_abi_threads.c", "kern_cabi_th")):
         c = subprocess.run(
-            ["zig", "cc", "-Wall", "-Wextra", "-Werror", "-pedantic",
+            [ZIG, "cc", "-Wall", "-Wextra", "-Werror", "-pedantic",
              "-std=c11", "-pthread", "-Iinclude", src_c,
              "-Lzig-out/lib", "-lkern", "-o", f"/tmp/{exe}"],
-            cwd=root, capture_output=True, text=True)
+            cwd=root, env=CHILD_ENV, capture_output=True, text=True)
         out += (c.stdout or "") + (c.stderr or "")
         if c.returncode != 0:
             return c.returncode, out
         e = subprocess.run([f"/tmp/{exe}"], cwd=root, capture_output=True,
                            text=True, timeout=300,
-                           env={**os.environ, "LD_LIBRARY_PATH": "zig-out/lib"})
+                           env={**CHILD_ENV, "LD_LIBRARY_PATH": "zig-out/lib"})
         out += (e.stdout or "") + (e.stderr or "")
         if e.returncode != 0:
             return e.returncode, out
@@ -140,10 +183,24 @@ def run_tests(root, rel=None):
     # Zig 0.17: `compat` — ИМЕНОВАННЫЙ модуль, поэтому прямой `zig test
     # src/test_root.zig` не соберётся («no module named 'compat'»). Передаём
     # зависимость флагами `--dep compat -Mcompat=...`.
-    p = subprocess.run(
-        ["zig", "test", "--dep", "compat",
-         "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"],
-        cwd=root, capture_output=True, text=True)
+    # ЖЁСТКИЙ ЛИМИТ НА ОДИН МУТАНТ.
+    #
+    # ЗАЧЕМ (найдено прогоном). Некоторые мутации вызывают ДЕДЛОК (пример:
+    # `compat.zig`: `while (true)` -> `while (false)` в `fileReadToEndAlloc` —
+    # вывод решателя не вычитывается, буфер пайпа переполняется, потомок
+    # блокируется в `write()`). Такой прогон шёл >12 минут вместо 15 секунд.
+    #
+    # В мутационном тестировании `TimeoutExpired` — это ШТАТНЫЙ результат:
+    # мутация, вызвавшая зависание, доказанно сломала поведение, поэтому
+    # засчитывается как KILLED (так же поступает cargo-mutants).
+    # 120 с — с большим запасом над нормальным прогоном (~15 с).
+    try:
+        p = subprocess.run(
+            [ZIG, "test", "--dep", "compat",
+             "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"],
+            cwd=root, env=CHILD_ENV, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        return "KILLED_TIMEOUT", "прогон не уложился в 120 с (зависание/дедлок)"
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode != 0:
         if "error:" in out and "FAIL" not in out and "expected" not in out:
@@ -217,62 +274,211 @@ def release_lock(lock_obj):
         pass
 
 
+def sample_stratified(sites, total, per_file_min, seed):
+    """Стратифицированная выборка мутантов (дефект: перекос на один файл).
+
+    ЗАЧЕМ. `random.sample` по ВСЕМ сайтам даёт перекос: в `proof_check.zig`
+    266 из 416 сайтов (64%), поэтому ~26 из 40 мутантов приходились на ОДИН
+    файл, а на `eq2.zig`, `kimg_reader.zig`, `hash_algo.zig` — по 0-1.
+    Такой скор описывает один файл, а не покрытие всего кода.
+
+    Схема: (1) гарантированный минимум на каждый файл; (2) остаток —
+    пропорционально размеру файла.
+    """
+    rng = random.Random(seed)
+    by_file = {}
+    for s in sites:
+        by_file.setdefault(s[0], []).append(s)
+
+    picked = []
+    for rel in sorted(by_file):
+        lst = by_file[rel]
+        picked.extend(rng.sample(lst, min(per_file_min, len(lst))))
+
+    rest = total - len(picked)
+    if rest > 0:
+        chosen = set(map(id, picked))
+        pool = [s for s in sites if id(s) not in chosen]
+        picked.extend(rng.sample(pool, min(rest, len(pool))))
+    rng.shuffle(picked)
+    return picked[:total]
+
+
+def solver_available():
+    """Есть ли `z3` в PATH.
+
+    ЗАЧЕМ (найдено ЗАМЕРОМ 2026-10-16, дефект #110). Если решателя нет,
+    ВОСЕМЬ тестов возвращают `error.SkipZigTest`, и мутационный скор считается
+    по УСЕЧЁННОМУ набору:
+
+        без z3: `263 passed; 8 skipped`   (z3_sat/unsat/unknown = 0)
+        с  z3:  `271 passed`              (z3_sat 190, z3_unsat 315)
+
+    Пропущенный тест НЕ МОЖЕТ убить мутанта -> появляются ЛОЖНЫЕ выжившие,
+    и скор перестаёт быть воспроизводимым: он зависит от PATH машины, а не
+    от кода. Это ровно тот класс, против которого построен проект.
+    """
+    return shutil.which("z3", path=CHILD_ENV.get("PATH", "")) is not None
+
+
+def zig_available():
+    """Есть ли компилятор (`zig` или `KERN_ZIG`) — тот же класс, что дефект #110.
+
+    Мутатор вызывает `zig` по имени; если его нет в PATH, прогон падает с
+    `FileNotFoundError` ПОСЛЕ того, как снят замок, — то есть диагностика
+    хуже, чем могла бы быть.
+    """
+    return shutil.which(ZIG, path=CHILD_ENV.get("PATH", "")) is not None
+
+
+def make_work_copy(root):
+    """Изолированная рабочая копия дерева (мутации идут ТОЛЬКО сюда).
+
+    Каждому воркеру (--jobs) — СВОЯ копия и, значит, свой `.zig-cache`:
+    так параллельные прогоны не мешают друг другу и не гоняют лишнюю
+    компиляцию.
+    """
+    work = tempfile.mkdtemp(prefix="kern-mutants-")
+    shutil.copytree(os.path.join(root, "src"), os.path.join(work, "src"))
+    # zig может искать build.zig — копируем, если есть.
+    for extra in ("build.zig", "build.zig.zon"):
+        src = os.path.join(root, extra)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(work, extra))
+    return work
+
+
+def run_one(work, site):
+    """Один мутант: внести мутацию в копии, прогнать тесты, ОТКАТИТЬ.
+
+    Возвращает статус (`KILLED_COMPILE` / `KILLED_TEST` / `KILLED_TIMEOUT` /
+    `SURVIVED`). Откат в `finally` — копия обязана вернуться в исходное
+    состояние даже при исключении, иначе следующий мутант наложится на этот.
+    """
+    rel, ln, pat, rep, _name = site
+    path = os.path.join(work, rel)
+    orig = open(path, encoding="utf-8").read()
+    lines = orig.split("\n")
+    lines[ln] = re.sub(pat, rep, lines[ln], count=1)
+    try:
+        open(path, "w", encoding="utf-8").write("\n".join(lines))
+        status, _ = run_tests(work, rel)
+    finally:
+        open(path, "w", encoding="utf-8").write(orig)
+    return status
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
     ap.add_argument("--max", type=int, default=40)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--per-file-min", type=int, default=2,
+                    help="минимум мутантов на КАЖДЫЙ файл (стратификация)")
+    ap.add_argument("--jobs", type=int, default=1,
+                    help="параллельных воркеров; у каждого СВОЯ копия и свой кэш")
+    ap.add_argument("--require-solver", action="store_true",
+                    help="выйти с кодом 2, если z3 нет в PATH (скор иначе несопоставим)")
+    ap.add_argument("--full-stress", action="store_true",
+                    help="НЕ включать KERN_MUTATE_FAST (полные стресс-циклы: медленно)")
+    ap.add_argument("--z3-path", default=os.environ.get("KERN_Z3_PATH", ""),
+                    help="путь к бинарнику z3 (каталог добавляется в PATH детей)")
     args = ap.parse_args()
     root = os.path.abspath(args.root)
+
+    # Режим ускорения стресс-тестов (дефект #111): уменьшает ЧИСЛО итераций
+    # нагружающих циклов, НЕ отключая ни одного теста и не теряя покрытия.
+    if not args.full_stress:
+        CHILD_ENV["KERN_MUTATE_FAST"] = "1"
+    # Каталог решателя -> в PATH ДОЧЕРНИХ прогонов (дефект #110).
+    if args.z3_path and os.path.exists(args.z3_path):
+        CHILD_ENV["PATH"] = (os.path.dirname(os.path.abspath(args.z3_path))
+                             + os.pathsep + CHILD_ENV.get("PATH", ""))
+
+    if not zig_available():
+        print(f"[!] компилятор `{ZIG}` не найден: прогон невозможен. "
+              "Задайте KERN_ZIG=<путь к zig>.", file=sys.stderr)
+        sys.exit(2)
+
+    # 🔴 ДЕФЕКТ #110 (найден ЗАМЕРОМ): БЕЗ РЕШАТЕЛЯ 8 тестов МОЛЧА пропускаются,
+    # и скор считается по УСЕЧЁННОМУ набору -> он невоспроизводим и занижен.
+    # Замер: без z3 `263 passed; 8 skipped`, с z3 `271 passed`.
+    if not solver_available():
+        print("[!] `z3` НЕ найден в PATH: 8 тестов вернут SkipZigTest, и "
+              "мутационный скор будет посчитан по УСЕЧЁННОМУ набору "
+              "(ложные выжившие). Добавьте решатель в PATH.", file=sys.stderr)
+        if args.require_solver:
+            print("    --require-solver: выход (скор несопоставим).", file=sys.stderr)
+            sys.exit(2)
 
     sites = collect(root)
     print(f"[i] найдено сайтов мутации: {len(sites)}; берём не более {args.max}", flush=True)
     random.seed(args.seed)
     if len(sites) > args.max:
-        sites = random.sample(sites, args.max)
+        sites = sample_stratified(sites, args.max, args.per_file_min, args.seed)
+        dist = {}
+        for s in sites:
+            dist[s[0]] = dist.get(s[0], 0) + 1
+        print("[i] стратифицированная выборка (>= " + str(args.per_file_min) + " на файл):", flush=True)
+        for rel in sorted(dist):
+            print(f"      {dist[rel]:>3}  {rel}", flush=True)
 
     # БЛОКИРОВКА + СНИМОК ХЭША: гарантия, что оригинал не тронут.
     lock_path = acquire_lock(root)
     before = tree_hash(root)
 
-    # РАБОЧАЯ КОПИЯ: мутации вносятся ТОЛЬКО сюда. Оригинальное дерево
+    # РАБОЧИЕ КОПИИ: мутации вносятся ТОЛЬКО сюда. Оригинальное дерево
     # не открывается на запись ни разу за весь прогон.
-    work = tempfile.mkdtemp(prefix="kern-mutants-")
+    jobs = max(1, args.jobs)
+    works = [make_work_copy(root) for _ in range(jobs)]
+    dir_q = queue.Queue()
+    for w in works:
+        dir_q.put(w)
+    print(f"[i] рабочих копий: {jobs} (оригинал не изменяется)", flush=True)
+
+    results = [None] * len(sites)
+    done = [0]
+    print_lock = threading.Lock()
+
+    def job(idx, site):
+        w = dir_q.get()
+        try:
+            status = run_one(w, site)
+        finally:
+            dir_q.put(w)
+        rel, ln, _pat, _rep, name = site
+        with print_lock:
+            done[0] += 1
+            results[idx] = (site, status)
+            mark = {"KILLED_COMPILE": "killed (compile) ✅",
+                    "KILLED_TEST": "killed ✅",
+                    "KILLED_TIMEOUT": "killed (timeout) ✅",
+                    "SURVIVED": "SURVIVED ❌"}[status]
+            print(f"  [{done[0]}/{len(sites)}] {rel}:{ln+1} [{name}] -> {mark}",
+                  flush=True)
+
     try:
-        shutil.copytree(os.path.join(root, "src"), os.path.join(work, "src"))
-        # zig может искать build.zig — копируем, если есть.
-        for extra in ("build.zig", "build.zig.zon"):
-            src = os.path.join(root, extra)
-            if os.path.exists(src):
-                shutil.copy2(src, os.path.join(work, extra))
-
-        print(f"[i] рабочая копия: {work} (оригинал не изменяется)", flush=True)
-
-        killed = survived = kc = kt = 0
-        survivors = []
-        for idx, (rel, ln, pat, rep, name) in enumerate(sites, 1):
-            path = os.path.join(work, rel)
-            orig = open(path, encoding="utf-8").read()
-            lines = orig.split("\n")
-            lines[ln] = re.sub(pat, rep, lines[ln], count=1)
-            try:
-                open(path, "w", encoding="utf-8").write("\n".join(lines))
-                status, _ = run_tests(work, rel)
-            finally:
-                open(path, "w", encoding="utf-8").write(orig)
-            if status == "SURVIVED":
-                survived += 1
-                survivors.append(f"{rel}:{ln+1} [{name}]")
-                mark = "SURVIVED ❌"
-            else:
-                killed += 1
-                kc += 1 if status == "KILLED_COMPILE" else 0
-                kt += 1 if status != "KILLED_COMPILE" else 0
-                mark = "killed ✅"
-            print(f"  [{idx}/{len(sites)}] {rel}:{ln+1} [{name}] -> {mark}", flush=True)
+        with ThreadPoolExecutor(max_workers=jobs) as ex:
+            list(ex.map(lambda p: job(*p), enumerate(sites)))
     finally:
-        shutil.rmtree(work, ignore_errors=True)
+        for w in works:
+            shutil.rmtree(w, ignore_errors=True)
         release_lock(lock_path)
+
+    killed = survived = kc = kt = 0
+    survivors = []
+    for site, status in results:
+        rel, ln, _pat, _rep, name = site
+        if status == "KILLED_TIMEOUT":
+            killed += 1
+            kt += 1
+        elif status == "SURVIVED":
+            survived += 1
+            survivors.append(f"{rel}:{ln+1} [{name}]")
+        else:
+            killed += 1
+            kc += 1 if status == "KILLED_COMPILE" else 0
+            kt += 1 if status != "KILLED_COMPILE" else 0
 
     # КОНТРОЛЬ ЦЕЛОСТНОСТИ ОРИГИНАЛА.
     after = tree_hash(root)

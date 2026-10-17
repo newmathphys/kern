@@ -63,7 +63,7 @@ pub const ChcEngine = struct {
     ) z3.SmtStatus {
         const q = self.buildHornQuery(init_cond, guard, step, post) catch return .ToolError;
         defer self.allocator.free(q);
-        return bridge.executeQuery(q).status;
+        return bridge.executeStatus(q);
     }
 };
 
@@ -83,7 +83,7 @@ test "CHC: скрипт содержит индуктивную схему (inv,
 test "CHC (РЕАЛЬНЫЙ Z3): цикл x:=0; while(x<10) x++; даёт x>=10 — ДОКАЗАНО (sat)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     bridge.timeout_ms = 10000;
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ChcEngine.init(std.testing.allocator);
     const st = eng.proveLoopSafety(&bridge, "(= x 0)", "(< x 10)", "(+ x 1)", "(>= x 10)");
     try std.testing.expectEqual(z3.SmtStatus.Sat, st);
@@ -92,7 +92,7 @@ test "CHC (РЕАЛЬНЫЙ Z3): цикл x:=0; while(x<10) x++; даёт x>=10 
 test "CHC (РЕАЛЬНЫЙ Z3): ложное постусловие x<5 — инварианта НЕТ (unsat = БАГ)" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     bridge.timeout_ms = 10000;
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ChcEngine.init(std.testing.allocator);
     const st = eng.proveLoopSafety(&bridge, "(= x 0)", "(< x 10)", "(+ x 1)", "(< x 5)");
     try std.testing.expectEqual(z3.SmtStatus.Unsat, st);
@@ -101,7 +101,7 @@ test "CHC (РЕАЛЬНЫЙ Z3): ложное постусловие x<5 — и�
 test "CHC (РЕАЛЬНЫЙ Z3): инвариант чётности x:=0; while(x<10) x+=2 — чётность ДОКАЗАНА" {
     var bridge = z3.Z3Bridge.init(std.testing.allocator);
     bridge.timeout_ms = 10000;
-    if (bridge.executeQuery("(check-sat)\n").status == .ToolError) return;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
     var eng = ChcEngine.init(std.testing.allocator);
     // post: (= (mod x 2) 0) — чётность сохраняется на выходе
     const st = eng.proveLoopSafety(&bridge, "(= x 0)", "(< x 10)", "(+ x 2)", "(= (mod x 2) 0)");
