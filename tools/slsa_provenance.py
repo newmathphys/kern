@@ -28,8 +28,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -47,6 +49,72 @@ OUT = ROOT / "kern.intoto.jsonl"
 # Он лежит по ОТДЕЛЬНОМУ имени, обычным `zig build` не перезаписывается,
 # и именно он публикуется как `kernc-x86_64-linux-musl`.
 SUBJECTS = ["kernc-hermetic"]
+
+# ---- Ed25519-ПОДПИСЬ АТТЕСТАТА (УЛУЧШЕНИЕ №13) -----------------------------
+# ЗАЧЕМ. Аттестат SLSA был НЕ подписан («нет cosign») — то есть его мог
+# подменить любой, у кого есть доступ к файлу, а `--check` этого не заметил бы.
+# В ядре KERN Ed25519 уже есть (`src/attest.zig`, `attestation.cert`), поэтому
+# подписываем ТЕМ ЖЕ ключом владельца через `openssl pkeyutl` — 0 внешних
+# зависимостей (OpenSSL есть в системе), 0 новых пакетов Python.
+#
+# Подпись лежит ОТДЕЛЬНЫМ файлом: если бы она была полем внутри JSON, то
+# подписывала бы саму себя (порочный круг, ровно как в дефекте #87).
+OWNER_KEY = Path(os.environ.get("KERN_OWNER_KEY",
+                                Path.home() / "kern_owner_private.pem"))
+OWNER_PUB = Path(os.environ.get("KERN_OWNER_PUB",
+                                Path.home() / "kern_owner_public.pem"))
+SIG = ROOT / "kern.intoto.sig"
+
+
+def sign_attestation() -> int:
+    """Подписать `kern.intoto.jsonl` ключом владельца (Ed25519).
+
+    Возвращает 0 всегда: ОТСУТСТВИЕ ключа — не ошибка сборки (CI без секретов
+    обязан работать), но факт «не подписано» печатается ЧЕСТНО.
+    """
+    if not OWNER_KEY.exists():
+        print(f"     ПОДПИСЬ НЕ ВЫПОЛНЕНА: нет ключа владельца {OWNER_KEY}")
+        print("     (в CI ключа нет — аттестат без подписи, и это видно здесь)")
+        return 0
+    r = subprocess.run(["openssl", "pkeyutl", "-sign", "-rawin",
+                        "-inkey", str(OWNER_KEY), "-in", str(OUT)],
+                       capture_output=True)
+    if r.returncode != 0 or not r.stdout:
+        print(f"[!] не удалось подписать аттестат: "
+              f"{r.stderr.decode(errors='replace').strip()[:160]}")
+        return 0
+    SIG.write_text(r.stdout.hex() + "\n", encoding="utf-8")
+    print(f"[OK] Ed25519-подпись: {SIG.name} ({len(r.stdout)} байт)")
+    return 0
+
+
+def verify_attestation_signature() -> bool | None:
+    """Проверить Ed25519-подпись аттестата. None = подписи нет."""
+    if not SIG.exists():
+        return None
+    if not OWNER_PUB.exists():
+        print(f"  [!] есть подпись, но нет открытого ключа {OWNER_PUB}")
+        return False
+    try:
+        raw = bytes.fromhex(SIG.read_text(encoding="utf-8").strip())
+    except ValueError:
+        print("  [!] подпись не читается как hex")
+        return False
+    with tempfile.NamedTemporaryFile(delete=False) as tf:
+        tf.write(raw)
+        sp = tf.name
+    try:
+        r = subprocess.run(["openssl", "pkeyutl", "-verify", "-rawin",
+                            "-pubin", "-inkey", str(OWNER_PUB),
+                            "-in", str(OUT), "-sigfile", sp],
+                           capture_output=True)
+    finally:
+        Path(sp).unlink(missing_ok=True)
+    if r.returncode == 0:
+        print(f"  [OK] Ed25519-подпись аттестата верна ({OWNER_PUB.name})")
+        return True
+    print("  [РАСХОЖДЕНИЕ] Ed25519-подпись аттестата НЕВЕРНА — файл подменён")
+    return False
 
 
 def sha256_file(p: Path) -> str:
@@ -117,7 +185,11 @@ def tree_digest() -> dict:
         #     Теперь отпечаток зависит ТОЛЬКО от исходников и потому стабилен.
         #     Целостность самих свидетельств проверяет `make evidence-gate`,
         #     а их неизменность обеспечивает git.
-        if rel in (SELF, SELF_LOG) or rel.startswith("docs/evidence/"):
+        #  4. `kern.intoto.sig` — ПОДПИСЬ аттестата (УЛУЧШЕНИЕ №13). Тот же
+        #     порочный круг, что и у самого аттестата: подпись создаётся ПОСЛЕ
+        #     вычисления отпечатка, поэтому её нельзя включать в отпечаток —
+        #     иначе `--check` краснел бы всегда, сразу после подписания.
+        if rel in (SELF, SELF_LOG, "kern.intoto.sig") or rel.startswith("docs/evidence/"):
             continue
         p = ROOT / rel
         if p.is_file():
@@ -174,6 +246,14 @@ def main() -> int:
                   f"это нормально, привязка идёт по отпечатку исходников")
         else:
             print(f"  [OK] коммит совпал: {cur[:12]}")
+        # УЛУЧШЕНИЕ №13: КРИПТОГРАФИЧЕСКАЯ проверка подписи аттестата.
+        # Порча ЛЮБОГО байта подписи обязана ронять `--check` (кейс `slsa-bad-sig`).
+        sig_ok = verify_attestation_signature()
+        if sig_ok is False:
+            bad += 1
+        elif sig_ok is None:
+            print("  [i] подписи нет (kern.intoto.sig отсутствует) — аттестат "
+                  "без Ed25519; это НЕ ошибка, но и не «подписано»")
         print("\nАТТЕСТАТ ВАЛИДЕН" if bad == 0 else f"\nАТТЕСТАТ НЕ СОВПАЛ: {bad}")
         return 0 if bad == 0 else 1
 
@@ -251,7 +331,8 @@ def main() -> int:
     OUT.write_text(json.dumps(stmt, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"[OK] {OUT.name} — субъектов {len(subjects)}, коммит {td['commit'][:12]}, "
           f"dirty={td['dirty']}")
-    print("     ПОДПИСЬ НЕ ВЫПОЛНЕНА (нет cosign) — честно записано в kern:notes.")
+    # УЛУЧШЕНИЕ №13: подписываем аттестат ключом владельца (Ed25519).
+    sign_attestation()
     return 0
 
 

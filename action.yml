@@ -1,5 +1,5 @@
 name: 'KERN verification gate'
-description: 'Zero-trust gate: a claim is admitted only with machine evidence (Z3 / Lean 4). Downloads the static kernc binary.'
+description: 'Zero-trust gate: a claim is admitted only with machine evidence (Z3 / Lean 4). Downloads the static kernc binary and VERIFIES its SHA-256 before running it.'
 author: 'Vital Kalinousky'
 branding:
   icon: 'shield'
@@ -15,18 +15,33 @@ inputs:
     required: false
     default: 'v2.4.0'
 
+outputs:
+  sarif-file:
+    description: 'Path to the SARIF 2.1.0 report; feed it to github/codeql-action/upload-sarif'
+    value: ${{ steps.download.outputs.sarif }}
+
 runs:
   using: 'composite'
   steps:
-    - name: Download static kernc
+    - name: Download kernc + SHA256SUMS and VERIFY checksum
+      id: download
       shell: bash
       run: |
         set -euo pipefail
-        url="https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}/kernc-x86_64-linux-musl"
-        curl -fsSL -o "$RUNNER_TEMP/kernc" "$url"
+        base="https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}"
+        curl -fsSL -o "$RUNNER_TEMP/kernc" "$base/kernc-x86_64-linux-musl"
+        curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
+        # SUPPLY-CHAIN: бинарник НЕ запускается, пока не сверена контрольная
+        # сумма. `SHA256SUMS` объявляет имя asset'а, поэтому переименовываем
+        # строку под локальное имя файла (kernc) и проверяем строго.
+        ( cd "$RUNNER_TEMP"
+          grep ' kernc-x86_64-linux-musl$' SHA256SUMS \
+            | sed 's#  kernc-x86_64-linux-musl$#  kernc#' > SHA256SUMS.kernc
+          sha256sum -c SHA256SUMS.kernc )
         chmod +x "$RUNNER_TEMP/kernc"
         echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
         "$RUNNER_TEMP/kernc" --version
+        echo "sarif=$RUNNER_TEMP/kern.sarif" >> "$GITHUB_OUTPUT"
     - name: Run kernc
       shell: bash
       run: kernc ${{ inputs.args }}

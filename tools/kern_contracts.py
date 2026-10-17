@@ -47,6 +47,10 @@ ANNOT = re.compile(r"^\s*#\s*@kern:(requires|ensures)\s+(.+?)\s*$")
 CMP = {"Eq": "=", "NotEq": "distinct", "Lt": "<", "LtE": "<=",
        "Gt": ">", "GtE": ">="}
 
+# Делители, встреченные при трансляции выражения (для обязательства
+# «делитель ≠ 0»): в SMT `div`/`mod` тотальны, поэтому ноль надо ловить отдельно.
+_DIV_COLLECTOR: list = []
+
 
 class Unsupported(Exception):
     pass
@@ -96,8 +100,17 @@ def expr_smt(node: ast.AST, env: dict) -> str:
                 if not (isinstance(l, ast.Constant) and isinstance(l.value, int)):
                     raise Unsupported("нелинейное умножение")
             op = "*"
+        elif isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+            # ДЕЛЕНИЕ/ОСТАТОК. В SMT `div`/`mod` — ТОТАЛЬНЫЕ функции: Z3 просто
+            # доопределяет `div(x, 0)`, поэтому сам по себе ноль НЕ ловится.
+            # Собираем делители и отдельно доказываем `делитель ≠ 0`
+            # (обязательство безопасности, см. `build_divzero_smt`).
+            op = "mod" if isinstance(node.op, ast.Mod) else "div"
+            d = expr_smt(node.right, env)
+            _DIV_COLLECTOR.append(d)
+            return f"({op} {expr_smt(node.left, env)} {d})"
         else:
-            raise Unsupported("бинарный оператор (только + - *)")
+            raise Unsupported("бинарный оператор (только + - * / // %)")
         return f"({op} {expr_smt(node.left, env)} {expr_smt(node.right, env)})"
     if isinstance(node, ast.Compare):
         if len(node.ops) != 1:
@@ -199,27 +212,79 @@ def parse_file(path: Path):
         # СИМВОЛЬНОЕ ИСПОЛНЕНИЕ: поддерживаются ветвления (`ite`) и локальные
         # присваивания. Путь без `return` -> NoReturn (не глотаем ветку!),
         # циклы/вызовы -> Unsupported.
+        _DIV_COLLECTOR.clear()
         try:
             body = body_smt(stmts, {})
         except (NoReturn, Unsupported) as e:
             body = None
             skip_reason = str(e)
+        # Делители, встреченные при трансляции -> обязательство «делитель ≠ 0».
+        divs = list(dict.fromkeys(_DIV_COLLECTOR))
         params = [a.arg for a in node.args.args if a.arg != "self"]
-        out.append((node.name, params, req, ens, body, node.lineno, skip_reason))
+        out.append((node.name, params, req, ens, body, node.lineno, skip_reason,
+                    {"ranges": {}, "ret": None, "divisors": divs}))
     return out
 
 
-def build_smt(params, req, ens, body_smt_text: str) -> str:
-    """Собрать SMT-LIB2: параметры, requires, `result = <тело>`, отрицание ensures."""
+def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
+    """SMT-LIB2: параметры, МАШИННЫЕ ГРАНИЦЫ, requires, `result = <тело>`, ¬ensures.
+
+    `ranges` (Zig/C/Rust) ограничивает ВХОДЫ типом (`i32` -> [-2^31, 2^31-1]),
+    поэтому контрпример всегда лежит в машинном домене функции. Диапазон
+    РЕЗУЛЬТАТА здесь НЕ ограничивается: переполнение ловит отдельное
+    обязательство (`build_overflow_smt`), иначе оно «спряталось» бы в UNSAT.
+    """
     decls = "\n".join(f"(declare-const {p} Int)" for p in params)
     lines = ["(set-logic ALL)", decls, "(declare-const result Int)"]
     env: dict = {}  # в requires/ensures локальных имён нет — только параметры
+    for p, (lo, hi) in (ranges or {}).items():
+        lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
     if req:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
     lines.append(f"(assert (= result {body_smt_text}))")
     if ens:
         e = expr_smt(ast.parse(ens, mode='eval').body, env)
         lines.append(f"(assert (not {e}))")
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range) -> str:
+    """Обязательство ПЕРЕПОЛНЕНИЯ: `requires ∧ result ∉ [lo, hi]` -> SAT = баг.
+
+    ЗАЧЕМ (машинные типы Zig/C/Rust). Python-контракты живут в ℤ и переполнения
+    не видят вовсе; здесь тип возврата известен, поэтому `i32`-функция, чей
+    результат выходит за [-2^31, 2^31-1], отвергается с контрпримером.
+    """
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    lines = ["(set-logic ALL)", decls, "(declare-const result Int)"]
+    env: dict = {}
+    for p, (lo, hi) in (ranges or {}).items():
+        lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
+    if req:
+        lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
+    lines.append(f"(assert (= result {body_smt_text}))")
+    lo, hi = res_range
+    lines.append(f"(assert (or (< result {lo}) (> result {hi})))")
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def build_divzero_smt(params, req, divisors, ranges) -> str:
+    """Обязательство ДЕЛЕНИЯ НА НОЛЬ: `requires ∧ (делитель = 0)` -> SAT = баг.
+
+    ЗАЧЕМ. В SMT-LIB2 `div`/`mod` — ТОТАЛЬНЫЕ функции: `(div x 0)` просто
+    доопределён, поэтому наивный чекер ноль НЕ видит, а в рантайме будет
+    `ZeroDivisionError` / аппаратное исключение. Проверяем каждый делитель.
+    """
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    lines = ["(set-logic ALL)", decls]
+    env: dict = {}
+    for p, (lo, hi) in (ranges or {}).items():
+        lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
+    if req:
+        lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
+    lines.append("(assert (or " + " ".join(f"(= {d} 0)" for d in divisors) + "))")
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
 
@@ -336,6 +401,256 @@ def parse_counterexample(out: str) -> dict:
     return vals
 
 
+# =========================================================================
+#  ПОЛИГЛОТ-ЭКСТРАКТОР: Zig / C / Rust (ациклическое арифметическое подмножество)
+# =========================================================================
+# ЗАЧЕМ. Ядро KERN (`kernc prove`, пруф-чекер, `libkern.so`) ЯЗЫКОНЕЗАВИСИМО:
+# оно принимает SMT-LIB2. Ограничение «только Python» было ровно в одном
+# месте — в этом удобном экстракторе (`ast.parse`). Теперь он полиглотный.
+#
+# ЧТО ДАЁТ ПОЛИГЛОТ. У Zig/C/Rust у КАЖДОГО параметра известен машинный тип
+# (`i32`, `u32`, `usize`, `int`), поэтому KERN автоматически проверяет
+# ПЕРЕПОЛНЕНИЕ целых и уход беззнакового в минус — то, чего `Int` из Python
+# в принципе не видит.
+
+CLIKE_EXT = {".zig", ".c", ".h", ".cpp", ".cc", ".rs"}
+
+# `/// @kern:...`, `// @kern:...`, `# @kern:...`
+ANNOT = re.compile(r"^\s*(?:///|//|#)\s*@kern:(requires|ensures)\s+(.+?)\s*$")
+
+# Машинные диапазоны типов: (минимум, максимум) в терминах ℤ.
+TYPE_RANGE = {
+    "i8": (-2**7, 2**7 - 1), "u8": (0, 2**8 - 1),
+    "i16": (-2**15, 2**15 - 1), "u16": (0, 2**16 - 1),
+    "i32": (-2**31, 2**31 - 1), "int": (-2**31, 2**31 - 1),
+    "int32_t": (-2**31, 2**31 - 1), "uint32_t": (0, 2**32 - 1),
+    "u32": (0, 2**32 - 1), "unsigned": (0, 2**32 - 1),
+    "i64": (-2**63, 2**63 - 1), "long": (-2**63, 2**63 - 1),
+    "int64_t": (-2**63, 2**63 - 1), "uint64_t": (0, 2**64 - 1),
+    "u64": (0, 2**64 - 1), "usize": (0, 2**64 - 1), "size_t": (0, 2**64 - 1),
+}
+
+RE_FN_FN = re.compile(
+    # Zig: `pub fn name(a: i32) i32 {`   Rust: `pub fn name(a: i32) -> i32 {`
+    r"^\s*(?:pub\s+)?(?:extern\s+)?fn\s+(\w+)\s*\(([^)]*)\)"
+    r"\s*(?:->\s*)?([\w:]+)?\s*\{")
+RE_FN_C = re.compile(
+    r"^\s*(?:static\s+|inline\s+|const\s+)*"
+    r"(void|char|short|int|long|unsigned|size_t|"
+    r"int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t)"
+    r"\s+(\w+)\s*\(([^)]*)\)\s*\{")
+
+
+def clike_params(raw: str, lang: str):
+    """Разобрать список параметров C-подобной функции -> [(имя, тип)]."""
+    out = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part or part == "void":
+            continue
+        if lang == "c":
+            m = re.match(r"^(?:const\s+)?([A-Za-z_]\w*)\s+\**([A-Za-z_]\w*)$", part)
+            if m:
+                out.append((m.group(2), m.group(1)))
+                continue
+        else:
+            m = re.match(r"^(?:mut\s+)?([A-Za-z_]\w*)\s*:\s*&?\s*([A-Za-z_]\w*)$", part)
+            if m:
+                out.append((m.group(1), m.group(2)))
+                continue
+        raise Unsupported(f"параметр {lang}: {part!r}")
+    return out
+
+
+def convert_ternary(s: str) -> str:
+    """`cond ? a : b` -> `(a if cond else b)` (рекурсивно)."""
+    depth = 0
+    q = -1
+    for i, c in enumerate(s):
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        elif c == "?" and depth == 0:
+            q = i
+            break
+    if q < 0:
+        return s
+    depth = 0
+    cpos = -1
+    for j in range(q + 1, len(s)):
+        c = s[j]
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        elif c == ":" and depth == 0:
+            cpos = j
+            break
+    if cpos < 0:
+        raise Unsupported("тернарный оператор без ':'")
+    cond, a, b = s[:q], s[q + 1:cpos], s[cpos + 1:]
+    return (f"({convert_ternary(a)} if {convert_ternary(cond)} "
+            f"else {convert_ternary(b)})")
+
+
+def clike_to_python(s: str) -> str:
+    """C-подобное выражение -> Python-выражение (переиспользуем expr_smt)."""
+    s = s.strip().rstrip(";").strip()
+    s = s.replace("&&", " and ").replace("||", " or ")
+    s = re.sub(r"!(?![=])", " not ", s)
+    s = re.sub(r"\btrue\b", "True", s)
+    s = re.sub(r"\bfalse\b", "False", s)
+    s = re.sub(r"\b(\d+)[uU]\b", r"\1", s)          # 5u -> 5
+    s = re.sub(r"\b(\d+)[iI]\d*\b", r"\1", s)       # 5i32 -> 5
+    return convert_ternary(s)
+
+
+def _normalize_clike(body: str) -> str:
+    """Убрать комментарии и фигурные скобки вокруг одиночных операторов."""
+    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
+    body = re.sub(r"//[^\n]*", " ", body)
+    # `{ return X; }` -> ` return X; `  (ветвь без вложенности)
+    body = re.sub(r"\{\s*(return\s+[^;{}]+;?)\s*\}", r" \1 ", body)
+    body = body.replace("{", " ").replace("}", " ")
+    return re.sub(r"\s+", " ", body).strip()
+
+
+def _exec_clike(stmts, env: dict, lang: str):
+    """Символьно исполнить операторы; вернуть SMT-выражение результата или None."""
+    for i, raw in enumerate(stmts):
+        st = raw.strip()
+        if not st:
+            continue
+        m = re.match(r"^if\s*(.*?)\breturn\b(.*)$", st)
+        if m:
+            cond_txt = m.group(1).strip().strip("()").strip()
+            rest = m.group(2).strip()
+            else_txt = None
+            if " else " in rest:
+                then_txt, else_txt = rest.split(" else ", 1)
+                then_txt = then_txt.strip()
+                else_txt = re.sub(r"^return\b", "", else_txt).strip()
+            else:
+                then_txt = rest
+            cond_smt = expr_smt(ast.parse(clike_to_python(cond_txt),
+                                          mode="eval").body, env)
+            then_v = expr_smt(ast.parse(clike_to_python(then_txt),
+                                        mode="eval").body, dict(env))
+            if else_txt is not None:
+                else_v = expr_smt(ast.parse(clike_to_python(else_txt),
+                                            mode="eval").body, dict(env))
+            else:
+                tail = _exec_clike(stmts[i + 1:], dict(env), lang)
+                if tail is None:
+                    raise NoReturn("нет `return` на пути без ветвления")
+                else_v = tail
+            return f"(ite {cond_smt} {then_v} {else_v})"
+        m = re.match(r"^return\s+(.+)$", st, re.S)
+        if m:
+            return expr_smt(ast.parse(clike_to_python(m.group(1)),
+                                      mode="eval").body, env)
+        m = re.match(
+            r"^(?:const\s+|let\s+(?:mut\s+)?|"
+            r"(?:int|long|i32|i64|u32|u64|usize|size_t|unsigned)\s+)?"
+            r"([A-Za-z_]\w*)\s*(?::\s*[A-Za-z_]\w*)?\s*=\s*(.+)$", st, re.S)
+        if m:
+            env[m.group(1)] = expr_smt(
+                ast.parse(clike_to_python(m.group(2)), mode="eval").body, env)
+            continue
+        raise Unsupported(f"оператор {lang}: {st[:40]!r}")
+    return None
+
+
+def parse_clike(path: Path):
+    """Функции Zig/C/Rust с контрактами -> формат `parse_file` + диапазоны типов."""
+    src = path.read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    lang = ("rust" if path.suffix == ".rs"
+            else ("c" if path.suffix in {".c", ".h", ".cpp", ".cc"} else "zig"))
+    out = []
+    i, n = 0, len(lines)
+    while i < n:
+        m = (RE_FN_FN.match(lines[i]) if lang in ("zig", "rust")
+             else RE_FN_C.match(lines[i]))
+        if not m:
+            i += 1
+            continue
+        if lang in ("zig", "rust"):
+            name, praw, ret = m.group(1), m.group(2), m.group(3)
+        else:
+            ret, name, praw = m.group(1), m.group(2), m.group(3)
+        meta = {"ranges": {}, "ret": ret}
+        req = ens = None
+        for k in range(max(0, i - 6), i):
+            am = ANNOT.match(lines[k])
+            if am:
+                if am.group(1) == "requires":
+                    req = am.group(2)
+                else:
+                    ens = am.group(2)
+        if req is None and ens is None:
+            i += 1
+            continue
+        # тело: от первой `{` до парной `}`
+        depth = 0
+        body_lines = []
+        started = False
+        j = i
+        while j < n:
+            for ch in lines[j]:
+                if ch == "{":
+                    depth += 1
+                    if depth == 1:
+                        started = True
+                        continue
+                elif ch == "}":
+                    depth -= 1
+            if started and depth >= 1 and j > i:
+                body_lines.append(lines[j])
+            if started and depth == 0:
+                break
+            j += 1
+        try:
+            params = clike_params(praw, lang)
+        except Unsupported as e:
+            out.append((name, [], req, ens, None, i + 1, str(e), meta))
+            i = j + 1
+            continue
+        names = [p[0] for p in params]
+        ranges = {p[0]: TYPE_RANGE[p[1]] for p in params if p[1] in TYPE_RANGE}
+        unknown = [p[1] for p in params if p[1] not in TYPE_RANGE]
+        if unknown:
+            out.append((name, names, req, ens, None, i + 1,
+                        f"тип вне таблицы диапазонов: {unknown}", meta))
+            i = j + 1
+            continue
+        meta["ranges"] = ranges
+        raw_body = _normalize_clike("\n".join(body_lines))
+        _DIV_COLLECTOR.clear()
+        try:
+            body = _exec_clike([s for s in raw_body.split(";")], {}, lang)
+        except (NoReturn, Unsupported, SyntaxError) as e:
+            out.append((name, names, req, ens, None, i + 1, str(e), meta))
+            i = j + 1
+            continue
+        meta["divisors"] = list(dict.fromkeys(_DIV_COLLECTOR))
+        out.append((name, names, req, ens, body, i + 1, None, meta))
+        i = j + 1
+    return out
+
+
+def parse_any(path: Path):
+    """Диспетчер по расширению: `.py` -> ast, Zig/C/Rust -> полиглот-парсер.
+
+    ВСЕГДА возвращает 8-кортежи; последний элемент — `meta` с МАШИННЫМИ
+    диапазонами параметров, типом возврата и собранными делителями.
+    """
+    if path.suffix in CLIKE_EXT:
+        return parse_clike(path)
+    return parse_file(path)
+
+
 def expect_demo(alloc_out: list) -> int:
     """Проверить, что демо дало РОВНО ожидаемые вердикты.
 
@@ -375,6 +690,17 @@ def expect_demo(alloc_out: list) -> int:
         problems.append("withdraw_vacuous НЕ пойман (вакуумное предусловие!)")
     if "B4: N, e = 0" not in text:
         problems.append("вакуумный контракт не помечен `B4: N, e = 0`")
+    # ПОЛИГЛОТ (Этап 2): те же контракты в Zig/C/Rust + машинные типы.
+    if "[PASS] withdrawGuard" not in text:
+        problems.append("Zig: withdrawGuard НЕ доказан (полиглот не работает)")
+    if "[FAIL] share" not in text or "ДЕЛЕНИЕ НА НОЛЬ" not in text:
+        problems.append("C: деление на ноль НЕ поймано")
+    if "[FAIL] double_it" not in text or "ПЕРЕПОЛНЕНИЕ" not in text:
+        problems.append("Rust: переполнение i32 НЕ поймано")
+    # Zero-Trust к Z3 (пункт 11): контрпример обязан подтверждаться РАНТАЙМОМ.
+    if "[RUNTIME CONFIRMED]" not in text:
+        problems.append("контрпример НЕ подтверждён рантаймом "
+                        "([RUNTIME CONFIRMED] отсутствует)")
     if problems:
         print("[!] ДЕМО НЕ СООТВЕТСТВУЕТ ОЖИДАНИЮ:")
         for x in problems:
@@ -392,7 +718,8 @@ def emit_pytest(out_path: str, examples: list, files) -> int:
     тестом: разработчик запускает `pytest` и видит КРАСНЫЙ тест с теми же
     числами, что предъявил решатель.
     """
-    src = Path(files[0]).resolve() if files else Path(".")
+    src = (Path(examples[0]["file"]).resolve() if examples
+           else (Path(files[0]).resolve() if files else Path(".")))
     lines = [
         "# АВТОГЕНЕРАЦИЯ KERN: регрессионные тесты из КОНТРПРИМЕРОВ Z3.",
         "# КАЖДЫЙ тест ПАДАЕТ на текущем коде — это и есть найденный баг.",
@@ -447,6 +774,8 @@ def cmd_verify_lock(files, lock_path: str) -> int:
     except (OSError, ValueError) as e:
         print(f"[!] не читается замок {lock_path}: {e}")
         return 2
+    if not files:
+        files = list(data.keys())  # список берём ИЗ ЗАМКА (для pre-commit-хука)
     bad = 0
     for f in files:
         cur = contract_fingerprints(Path(f))
@@ -505,6 +834,98 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     return 0 if diverged == 0 else 1
 
 
+ROOT = Path(__file__).resolve().parent.parent
+
+HOOK_BODY = """#!/bin/sh
+# KERN pre-commit шлюз (установлен `kern_contracts.py --install-hook`).
+# Блокирует коммит, если ИИ-агент или разработчик оставляет код с нарушенным
+# контрактом, вакуумным предусловием, делением на ноль / переполнением
+# ИЛИ ослабил запечатанный контракт. Обход (осознанный): git commit --no-verify
+set -u
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
+PY="${PYTHON:-python3}"
+if [ -f docs/contracts.lock.json ]; then
+  "$PY" tools/kern_contracts.py --verify-lock docs/contracts.lock.json || {
+    echo "[KERN] КОММИТ ЗАБЛОКИРОВАН: запечатанный контракт изменён или удалён."
+    exit 1; }
+fi
+"$PY" tools/kern_contracts.py --git-diff HEAD --github-annotations || {
+  echo "[KERN] КОММИТ ЗАБЛОКИРОВАН: нарушен контракт, вакуумное предусловие"
+  echo "       или найдено деление на ноль / переполнение типа."
+  exit 1; }
+exit 0
+"""
+
+
+def changed_contract_files(ref: str):
+    """Файлы с аннотациями `@kern:`, которые войдут в коммит.
+
+    Набор = ПРОИНДЕКСИРОВАННЫЕ (`git diff --cached`) + НОВЫЕ (untracked).
+    Именно это проверяет pre-commit: «что сейчас закоммитится». `--cached`
+    работает и на ПЕРВОМ коммите, когда `HEAD` ещё не существует.
+    """
+    names: list[str] = []
+    cmds = [["git", "diff", "--name-only", "--cached"]]
+    if ref not in ("HEAD", "STAGED"):
+        cmds.append(["git", "diff", "--name-only", ref])
+    cmds.append(["git", "ls-files", "--others", "--exclude-standard"])
+    for cmd in cmds:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30,
+                               cwd=str(ROOT))
+            names += [n.strip() for n in r.stdout.splitlines() if n.strip()]
+        except (OSError, subprocess.SubprocessError):
+            continue
+    out = []
+    for n in names:
+        fp = ROOT / n
+        if not fp.is_file():
+            continue
+        if fp.suffix not in CLIKE_EXT and fp.suffix != ".py":
+            continue
+        try:
+            # ВАЖНО: проверяем ПОСТРОЧНО. `ANNOT.search(весь_файл)` без
+            # `re.MULTILINE` сработал бы только на первой строке файла, и
+            # pre-commit молча пропускал бы сломанные контракты ниже.
+            txt = fp.read_text(encoding="utf-8", errors="replace")
+            if any(ANNOT.match(ln) for ln in txt.splitlines()):
+                out.append(n)
+        except OSError:
+            continue
+    return out
+
+
+def cmd_git_diff(ref: str, kernc: str, sarif=None, annotations=False) -> int:
+    """Проверить ТОЛЬКО изменённые файлы (быстрый шлюз для pre-commit)."""
+    files = changed_contract_files(ref)
+    if not files:
+        print(f"[OK] изменённых файлов с @kern:-контрактами нет (ref={ref})")
+        return 0
+    print(f"[i] проверяю изменённые файлы ({len(files)}): {', '.join(files)}")
+    ns = argparse.Namespace(files=files, kernc=kernc, sarif=sarif,
+                            github_annotations=annotations, emit_pytest=None)
+    return _demo(ns)
+
+
+def cmd_install_hook(repo_dir: str) -> int:
+    """Поставить `.git/hooks/pre-commit` одной командой."""
+    gitdir = Path(repo_dir).resolve() / ".git"
+    if not gitdir.is_dir():
+        print(f"[!] не найден каталог git: {gitdir}")
+        return 2
+    hooks = gitdir / "hooks"
+    hooks.mkdir(exist_ok=True)
+    hook = hooks / "pre-commit"
+    hook.write_text(HOOK_BODY, encoding="utf-8")
+    hook.chmod(0o755)
+    print(f"[OK] установлен {hook}")
+    print("     `git commit` теперь блокируется, если контракт нарушен,")
+    print("     предусловие вакуумно, найдено деление на ноль / переполнение")
+    print("     или ослаблен docs/contracts.lock.json.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="*")
@@ -523,8 +944,25 @@ def main() -> int:
     ap.add_argument("--diff-equiv", nargs=2, default=None,
                     metavar=("OLD.py", "NEW.py"),
                     help="доказать эквивалентность рефакторинга (без контрактов)")
+    ap.add_argument("--sarif", default=None, metavar="OUT.sarif",
+                    help="экспорт нарушений в SARIF 2.1.0 (GitHub Code Scanning)")
+    ap.add_argument("--github-annotations", action="store_true",
+                    help="нативные плашки GitHub Actions "
+                         "(`::error file=...,line=...,title=...`)")
+    ap.add_argument("--git-diff", nargs="?", const="HEAD", default=None,
+                    metavar="REF",
+                    help="проверить ТОЛЬКО изменённые файлы с контрактами")
+    ap.add_argument("--install-hook", nargs="?", const=".", default=None,
+                    metavar="DIR",
+                    help="установить .git/hooks/pre-commit (блокирует коммит "
+                         "при нарушенном контракте)")
     args = ap.parse_args()
 
+    if args.install_hook is not None:
+        return cmd_install_hook(args.install_hook)
+    if args.git_diff is not None:
+        return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
+                            args.github_annotations)
     if args.diff_equiv:
         return cmd_diff_equiv(args.diff_equiv[0], args.diff_equiv[1],
                               Path(args.kernc))
@@ -534,9 +972,8 @@ def main() -> int:
             return 2
         return cmd_lock(args.files, args.lock)
     if args.verify_lock:
-        if not args.files:
-            print("[!] --verify-lock требует список файлов")
-            return 2
+        # Без списка файлов берём их ИЗ САМОГО ЗАМКА — так pre-commit-хук
+        # работает без знания о том, какие файлы были запечатаны.
         return cmd_verify_lock(args.files, args.verify_lock)
     if not args.files:
         ap.error("нужен файл (или --diff-equiv / --lock / --verify-lock)")
@@ -554,31 +991,187 @@ def main() -> int:
     return _demo(args)
 
 
+IMPURE_MODULES = ("os", "sys", "subprocess", "socket", "random", "time",
+                  "shutil", "pathlib", "requests", "urllib", "secrets", "uuid")
+IMPURE_BUILTINS = ("open", "input", "print", "exec", "eval", "compile",
+                   "__import__", "exit", "quit")
+
+
+def purity_violation(path: Path, name: str):
+    """Функция с контрактом обязана быть ЧИСТОЙ. Вернуть причину нарушения.
+
+    ЗАЧЕМ (referential transparency). Если внутри «математической» функции
+    спрятать `random.randint` или `os.system`, то доказанное свойство относится
+    не к коду, а к фантазии: тело перестаёт быть функцией от аргументов.
+
+    Для `.py` проверяем AST (`global`/`nonlocal`, модули ввода-вывода и
+    недетерминизма, мутирующие методы, `open`/`exec`). Для Zig/C/Rust чистота
+    обеспечена ПО ПОСТРОЕНИЮ: полиглот-парсер принимает только присваивания,
+    `if` и `return` — вызовы он отвергает как «вне подмножества».
+    """
+    if path.suffix != ".py":
+        return None
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.FunctionDef) and node.name == name):
+            continue
+        for sub in ast.walk(node):
+            if isinstance(sub, (ast.Global, ast.Nonlocal)):
+                return f"`{type(sub).__name__.lower()}` — изменение внешнего состояния"
+            if isinstance(sub, ast.Attribute):
+                base = sub.value
+                if isinstance(base, ast.Name) and base.id in IMPURE_MODULES:
+                    return f"обращение к модулю `{base.id}.{sub.attr}`"
+            if isinstance(sub, ast.Call):
+                f = sub.func
+                if isinstance(f, ast.Name) and f.id in IMPURE_BUILTINS:
+                    return f"вызов `{f.id}`"
+                if isinstance(f, ast.Attribute) and f.attr in (
+                        "append", "pop", "sort", "insert", "remove", "extend",
+                        "clear", "update", "write", "read", "flush"):
+                    return f"мутирующий метод `{f.attr}()`"
+        return None
+    return None
+
+
+def runtime_confirm(path: Path, name: str, params, ens, vals):
+    """Подставить контрпример в НАСТОЯЩУЮ функцию и проверить постусловие.
+
+    ЗАЧЕМ (УЛУЧШЕНИЕ №11, Zero-Trust к САМОМУ Z3). При `UNSAT` вывод решателя
+    перепроверяет пруф-чекер, а при `SAT` мы раньше верили модели на слово.
+    Ошибка в ТРАНСЛЯЦИИ Python -> SMT дала бы ФАЛЬШИВЫЙ контрпример. Здесь
+    найденные числа подставляются в живую функцию, и постусловие вычисляется
+    реально — это 0 % ложных срабатываний по построению.
+
+    Возвращает True (нарушение подтверждено), False (контрпример фальшивый)
+    или None (подтвердить нельзя: не Python / не все параметры связаны).
+
+    ВНИМАНИЕ: выполняется КОД ИЗ ПРОВЕРЯЕМОГО ФАЙЛА — инструмент локальный и
+    проверяет код того же разработчика (как это делает любой тест-раннер).
+    """
+    if path.suffix != ".py" or not ens or not all(p in vals for p in params):
+        return None
+    ns: dict = {}
+    try:
+        exec(compile(path.read_text(encoding="utf-8", errors="replace"),
+                     str(path), "exec"), ns)  # noqa: S102
+        fn = ns.get(name)
+        if not callable(fn):
+            return None
+        res = fn(*[vals[p] for p in params])
+    except Exception:
+        return None
+    env = {p: vals[p] for p in params}
+    env["result"] = res
+    try:
+        ok = eval(ens, {"__builtins__": {}}, env)  # noqa: S307
+    except Exception:
+        return None
+    return not bool(ok)
+
+
+def fmt_ce(vals: dict) -> str:
+    """`{a: 1, b: -2}` -> `a = 1, b = -2` (для печати контрпримера)."""
+    return ", ".join(f"{k} = {v}" for k, v in vals.items())
+
+
+KERN_VERSION = "2.4.0"
+
+SARIF_RULES = [
+    ("KERN001", "ContractViolation",
+     "Contract violated (Belnap F, e=0). The Z3 counterexample below shows the "
+     "exact inputs that break the postcondition."),
+    ("KERN002", "VacuousPrecondition",
+     "Precondition is unsatisfiable (empty domain): `false => anything` would "
+     "have declared any body proved."),
+    ("KERN003", "EquivalenceDivergence",
+     "Refactoring changed behaviour: the two versions differ on the given input."),
+    ("KERN004", "SafetyObligation",
+     "Safety obligation violated: division by zero or machine-integer overflow."),
+]
+
+
+def write_sarif(path: str, violations: list) -> int:
+    """Экспорт нарушений в стандарт SARIF 2.1.0 (GitHub Code Scanning).
+
+    ЗАЧЕМ. Без этого контрпример Z3 виден только в терминале. SARIF рисует
+    красную плашку ПРЯМО ПОД строкой с багом в Pull Request, а `--github-
+    annotations` делает то же через нативные `::error`-команды GitHub Actions
+    (они работают даже на приватных репозиториях без Advanced Security).
+    """
+    rules = [{"id": rid, "name": rn, "shortDescription": {"text": rn},
+              "fullDescription": {"text": desc},
+              "defaultConfiguration": {"level": "error"}}
+             for rid, rn, desc in SARIF_RULES]
+    results = []
+    for v in violations:
+        results.append({
+            "ruleId": v["rule"],
+            "level": "error",
+            "message": {"text": v["message"]},
+            "locations": [{"physicalLocation": {
+                "artifactLocation": {"uri": v["file"]},
+                "region": {"startLine": max(1, int(v["line"]))}}}],
+        })
+    doc = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "KERN",
+                "version": KERN_VERSION,
+                "informationUri": "https://github.com/newmathphys/kern",
+                "rules": rules}},
+            "results": results,
+        }],
+    }
+    Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                          encoding="utf-8")
+    print(f"  [i] SARIF 2.1.0: {path} ({len(results)} находок, "
+          f"{len(rules)} правил)")
+    return 0
+
+
+def print_annotations(violations: list) -> int:
+    """Нативные плашки GitHub Actions: `::error file=...,line=...,title=...::...`."""
+    for v in violations:
+        title = f"KERN {v['rule']}"
+        msg = v["message"].replace("\n", " ").replace("%", "%25")
+        print(f"::error file={v['file']},line={max(1, int(v['line']))},"
+              f"title={title}::{msg}")
+    return 0
+
+
 def _demo(args) -> int:
     kernc = Path(args.kernc)
     if not kernc.exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 1
 
-    total = ok = failed = skipped = vacuous = 0
+    total = ok = failed = skipped = vacuous = safety_failed = 0
     # Контрпримеры для `--emit-pytest` (УЛУЧШЕНИЕ №4): найденный Z3 баг обязан
     # превращаться в ОБЫЧНЫЙ падающий pytest, а не только в строку в логе.
     examples: list[dict] = []
+    # Нарушения для `--sarif` (Code Scanning) и `--github-annotations`.
+    violations: list[dict] = []
     print("=" * 74)
     print("KERN: контракты из комментариев (@kern:requires / @kern:ensures)")
     print("=" * 74)
     for f in args.files:
         p = Path(f)
         try:
-            funcs = parse_file(p)
+            funcs = parse_any(p)
         except SyntaxError as e:
-            print(f"  {p}: SKIP (синтаксис Python: {e})")
+            print(f"  {p}: SKIP (синтаксис: {e})")
             skipped += 1
             continue
         if not funcs:
             print(f"  {p}: нет функций с аннотациями @kern:")
             continue
-        for name, params, req, ens, body, ln, skip_reason in funcs:
+        for name, params, req, ens, body, ln, skip_reason, meta in funcs:
             total += 1
             if body is None:
                 # Причина ОТКАЗА печатается как есть: «нет return» и «цикл»
@@ -586,12 +1179,23 @@ def _demo(args) -> int:
                 print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
                 skipped += 1
                 continue
+            # ---- ДЕТЕКТОР ЧИСТОТЫ (referential transparency) --------------
+            # Функция с контрактом обязана быть ЧИСТОЙ математической функцией:
+            # иначе «доказанное» свойство относится не к коду, а к фантазии.
+            impure = purity_violation(p, name)
+            if impure:
+                print(f"  [IMPURE] {name} (стр. {ln}): {impure} -> контракт "
+                      f"не проверяется (функция НЕ чистая)")
+                skipped += 1
+                continue
             try:
-                smt = build_smt(params, req, ens, body)
+                smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
             except Unsupported as e:
                 print(f"  {name} (стр. {ln}): SKIP — вне подмножества: {e}")
                 skipped += 1
                 continue
+            # Делители собраны ПРИ ПАРСИНГЕ (трансляция тела уже выполнена).
+            divisors = meta.get("divisors") or []
             # ---- УЛУЧШЕНИЕ №1: ДЕТЕКТОР ВАКУУМНЫХ ПРЕДУСЛОВИЙ ------------
             # ЛОВУШКА `false => anything`: при ПРОТИВОРЕЧИВОМ `requires`
             # обязательство `requires ∧ ¬ensures` тривиально UNSAT, и любая
@@ -606,7 +1210,66 @@ def _demo(args) -> int:
                     print(f"  [VACUOUS] {name}: предусловие ПРОТИВОРЕЧИВО "
                           f"(пустой домен) -> B4: N, e = 0")
                     print(f"         requires: {req}")
+                    violations.append({
+                        "file": str(p), "line": ln, "rule": "KERN002",
+                        "message": (f"{name}: предусловие ПРОТИВОРЕЧИВО (пустой "
+                                    f"домен) — `false => anything` объявило бы "
+                                    f"любое тело доказанным; requires: {req}")})
                     vacuous += 1
+                    continue
+            # ---- ОБЯЗАТЕЛЬСТВО БЕЗОПАСНОСТИ: ДЕЛЕНИЕ НА НОЛЬ ---------------
+            # В SMT-LIB2 `div`/`mod` — ТОТАЛЬНЫЕ функции: `(div x 0)` просто
+            # доопределён, поэтому наивный чекер ноль НЕ видит, а в рантайме
+            # будет `ZeroDivisionError` / аппаратное исключение. Проверяем
+            # ОТДЕЛЬНО: `requires ∧ (делитель = 0)` — SAT означает баг.
+            if divisors:
+                try:
+                    _rcd, outd = run_kernc(
+                        kernc, build_divzero_smt(params, req, divisors,
+                                                 meta.get("ranges")))
+                except (Unsupported, subprocess.SubprocessError, OSError):
+                    outd = ""
+                if "ДОКАЗАНО" not in outd:
+                    ce = parse_counterexample(outd)
+                    print(f"  [FAIL] {name}: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ "
+                          f"(делитель: {', '.join(divisors)})")
+                    if ce:
+                        print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
+                    violations.append({
+                        "file": str(p), "line": ln, "rule": "KERN004",
+                        "message": (f"{name}: возможно деление на ноль "
+                                    f"(делитель: {', '.join(divisors)})"
+                                    + (f"; контрпример: {fmt_ce(ce)}" if ce else ""))})
+                    failed += 1
+                    safety_failed += 1
+                    continue
+            # ---- ОБЯЗАТЕЛЬСТВО ПЕРЕПОЛНЕНИЯ (машинные типы Zig/C/Rust) ------
+            # У Python тип один — ℤ, и переполнения там нет. У Zig/C/Rust тип
+            # возврата известен, поэтому `result ∉ [lo, hi]` — это БАГ, который
+            # обязан быть предъявлен с контрпримером.
+            ret = meta.get("ret")
+            if ret in TYPE_RANGE:
+                try:
+                    _rco, outo = run_kernc(
+                        kernc, build_overflow_smt(params, req, body,
+                                                  meta.get("ranges"),
+                                                  TYPE_RANGE[ret]))
+                except (Unsupported, subprocess.SubprocessError, OSError):
+                    outo = ""
+                if "ДОКАЗАНО" not in outo:
+                    ce = parse_counterexample(outo)
+                    lo, hi = TYPE_RANGE[ret]
+                    print(f"  [FAIL] {name}: ПЕРЕПОЛНЕНИЕ типа `{ret}` "
+                          f"(диапазон [{lo}, {hi}])")
+                    if ce:
+                        print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
+                    violations.append({
+                        "file": str(p), "line": ln, "rule": "KERN004",
+                        "message": (f"{name}: ПЕРЕПОЛНЕНИЕ типа `{ret}` "
+                                    f"(диапазон [{lo}, {hi}])"
+                                    + (f"; контрпример: {fmt_ce(ce)}" if ce else ""))})
+                    failed += 1
+                    safety_failed += 1
                     continue
             rc, out = run_kernc(kernc, smt)
             # ТРИ РАЗЛИЧНЫХ ИСХОДА (раньше два). Различие принципиально:
@@ -646,17 +1309,41 @@ def _demo(args) -> int:
                     if "КОНТРПРИМЕР" in line:
                         print(f"         {line.strip()}")
                         break
+                # УЛУЧШЕНИЕ №11: РАНТАЙМ-ПОДТВЕРЖДЕНИЕ контрпримера.
+                # Z3 мог ошибиться в ТРАНСЛЯЦИИ (Python -> SMT) — тогда
+                # «контрпример» фальшивый. Подставляем найденные числа в
+                # НАСТОЯЩУЮ функцию и вычисляем постусловие вживую.
+                conf = runtime_confirm(p, name, params, ens, vals)
+                if conf is True:
+                    print("         [RUNTIME CONFIRMED] нарушение подтверждено "
+                          "и в рантайме (0% ложных срабатываний)")
+                elif conf is False:
+                    print("         [!] RUNTIME НЕ подтвердил: контрпример "
+                          "ФАЛЬШИВЫЙ (ошибка трансляции, а не кода)")
                 # УЛУЧШЕНИЕ №4: сохраняем контрпример для генерации pytest.
                 if ens and all(p in vals for p in params):
                     examples.append({"name": name, "params": list(params),
-                                     "ens": ens, "vals": vals, "line": ln})
+                                     "ens": ens, "vals": vals, "line": ln,
+                                     "file": str(p)})
+                violations.append({
+                    "file": str(p), "line": ln, "rule": "KERN001",
+                    "message": (f"{name}: КОНТРАКТ НАРУШЕН (Belnap F, e=0)"
+                                + (f"; контрпример Z3: {fmt_ce(vals)}" if vals else ""))})
                 failed += 1
     print("-" * 74)
-    print(f"ИТОГО: доказано {ok} | нарушено {failed} | ВАКУУМНЫХ {vacuous} | "
+    print(f"ИТОГО: доказано {ok} | нарушено {failed} (из них "
+          f"безопасность: {safety_failed}) | ВАКУУМНЫХ {vacuous} | "
           f"вне подмножества {skipped} | всего {total}")
     # ---- УЛУЧШЕНИЕ №4: ПАДАЮЩИЙ PYTEST ИЗ КОНТРПРИМЕРА Z3 ----------------
     if getattr(args, "emit_pytest", None):
         emit_pytest(args.emit_pytest, examples, args.files)
+    # ---- ЭКСПОРТ ДЛЯ GITHUB (Этап 1) -------------------------------------
+    # SARIF 2.1.0 -> красные плашки в Code Scanning / Pull Request;
+    # ::error-аннотации -> работают даже без GitHub Advanced Security.
+    if getattr(args, "sarif", None):
+        write_sarif(args.sarif, violations)
+    if getattr(args, "github_annotations", False):
+        print_annotations(violations)
     return 0 if (failed == 0 and vacuous == 0) else 1
 
 

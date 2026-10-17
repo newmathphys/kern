@@ -5,7 +5,7 @@
 точно так же, как реальный клиент (Claude Code, Cursor): пишет строки JSON в
 stdin, читает строки JSON из stdout.
 
-ПРОВЕРЯЕТСЯ (10 пунктов):
+ПРОВЕРЯЕТСЯ (14 пунктов):
   1. `initialize`      — протокол и serverInfo;
   2. уведомление (без `id`) — ответа быть НЕ ДОЛЖНО;
   3. `tools/list`      — ПЯТЬ инструментов;
@@ -175,6 +175,34 @@ def main() -> int:
           and "amount = -1" in txt)
     check("kern_verify_python: ветвления + контрпример", ok,
           ([l for l in txt.splitlines() if "КОНТРПРИМЕР" in l] or [""])[0])
+
+    # 7b-2. ВАКУУМНОЕ ПРЕДУСЛОВИЕ через MCP (УЛУЧШЕНИЕ №1).
+    PY_VAC = ("# @kern:requires x > 10 and x < 5\n"
+              "# @kern:ensures  result == x\n"
+              "def broken(x: int) -> int:\n"
+              "    return x + 1\n")
+    c.send({"jsonrpc": "2.0", "id": 11, "method": "tools/call",
+            "params": {"name": "kern_verify_python",
+                       "arguments": {"python_source": PY_VAC}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_verify_python: [VACUOUS] ловится через MCP",
+          "[VACUOUS] broken" in txt and "B4: N, e = 0" in txt,
+          ([l for l in txt.splitlines() if "VACUOUS" in l] or [""])[0])
+
+    # 7b-3. ДЕЛЕНИЕ НА НОЛЬ через MCP (Этап 2).
+    PY_DIV = ("# @kern:requires balance >= 0\n"
+              "# @kern:ensures  result >= 0\n"
+              "def share(balance: int, amount: int) -> int:\n"
+              "    return balance // amount\n")
+    c.send({"jsonrpc": "2.0", "id": 12, "method": "tools/call",
+            "params": {"name": "kern_verify_python",
+                       "arguments": {"python_source": PY_DIV}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_verify_python: деление на ноль ловится через MCP",
+          "ДЕЛЕНИЕ НА НОЛЬ" in txt and "amount = 0" in txt,
+          ([l for l in txt.splitlines() if "ДЕЛЕНИЕ" in l] or [""])[0])
 
     # 7c. ЭКВИВАЛЕНТНОСТЬ РЕФАКТОРИНГА (5-й инструмент, УЛУЧШЕНИЕ №3).
     OLD_SRC = ("def charge(balance: int, amount: int) -> int:\n"

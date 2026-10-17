@@ -255,6 +255,7 @@ FAULTABLE = [
     "examples/contracts_demo.py",
     "examples/refactor_before.py",
     "examples/refactor_after.py",
+    "examples/self_verify.zig",
 ]
 
 
@@ -732,6 +733,67 @@ def case_diff_equiv():
           '        if "ДОКАЗАНО" in out:',
           '        if True:  # ДИВЕРСИЯ: любая пара объявляется эквивалентной')
     return "make diff-equiv"
+
+
+def case_self_verify():
+    """Самоверификация: контракт СВОЕГО кода перестаёт доказываться.
+
+    ЛОМАЕМ: в `examples/self_verify.zig` меняем `len - off` на `len + off` —
+    остаток полезной нагрузки становится отрицательным, и `ensures result >= 0`
+    обязано покраснеть. Цель `self-verify` — ПРОВЕРКА: если она остаётся
+    зелёной, значит KERN «доказывает» что угодно про себя (Этап 2).
+    """
+    patch("examples/self_verify.zig",
+          "    return len - off;",
+          "    return len + off;  // ДИВЕРСИЯ: остаток может стать отрицательным")
+    return "make self-verify"
+
+
+def case_sarif_output():
+    """SARIF: отчёт пуст, хотя нарушения ЕСТЬ (плашки в PR исчезнут молча).
+
+    ЛОМАЕМ: `write_sarif` пишет пустой список `results`. Цель `sarif-check`
+    обязана покраснеть: отчёт без находок бесполезен для Code Scanning
+    (Этап 1).
+    """
+    patch("tools/kern_contracts.py",
+          '            "results": results,',
+          '            "results": [],  # ДИВЕРСИЯ: находки выброшены')
+    return "make sarif-check"
+
+
+def case_hook_gate():
+    """Git-шлюз: pre-commit пропускает СЛОМАННЫЙ контракт.
+
+    ЛОМАЕМ: в теле хука снимаем проверку (`exit 0` вместо вызова проверки).
+    Цель `hook-check` обязана покраснеть: хук, который ничего не блокирует, —
+    декорация (Этап 1).
+    """
+    patch("tools/kern_contracts.py",
+          '"$PY" tools/kern_contracts.py --git-diff HEAD --github-annotations || {',
+          'exit 0  # ДИВЕРСИЯ: проверку контрактов пропускаем\n'
+          'if false; then')
+    return "make hook-check"
+
+
+def case_slsa_bad_sig():
+    """SLSA: Ed25519-подпись аттестата ПОДМЕНЕНА (портится 1 байт).
+
+    ЛОМАЕМ: портим первый байт `kern.intoto.sig`. Проверка `--check` обязана
+    покраснеть — иначе аттестат можно подменить незаметно, и «подпись» была бы
+    декорацией (УЛУЧШЕНИЕ №13, закрытие ограничения «unsigned (no cosign)»).
+
+    Запускаем ИМЕННО `--check`: `make slsa` пересобирает и ПЕРЕПОДПИСЫВАЕТ
+    аттестат, поэтому порча подписи там «самолечилась» бы.
+    """
+    p = ROOT / "kern.intoto.sig"
+    if not p.exists():
+        return None  # нет ключа владельца -> подписи нет, кейс неприменим
+    touch("kern.intoto.sig")
+    txt = p.read_text(encoding="utf-8").strip()
+    p.write_text(("f" if txt[0] != "f" else "0") + txt[1:] + "\n",
+                 encoding="utf-8")
+    return "python3 tools/slsa_provenance.py --check"
 
 
 def case_model_negative():
@@ -1548,6 +1610,10 @@ CASES = [
     ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
+    ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
+    ("sarif-output",   "SARIF: находки выброшены из отчёта", case_sarif_output),
+    ("hook-gate",      "Git-шлюз: сломанный контракт пропущен", case_hook_gate),
+    ("slsa-bad-sig",   "SLSA: Ed25519-подпись аттестата подменена", case_slsa_bad_sig),
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
     ("model-negative",  "Контрпример: (- N) не свёрнут",      case_model_negative),
     ("contracts-branches", "Ветвления: if отброшен",           case_contracts_branches),

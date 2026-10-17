@@ -25,7 +25,7 @@ LAKE="${LAKE:-$HOME/.elan/bin/lake}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/.." && pwd)"
 
-CORE_FILES=(KernAllMath KernDfsTermination)
+CORE_FILES=(KernAllMath KernDfsTermination FarkasSoundness)
 MATHLIB_FILES=(KernTalk KernTalkND KernConvergence KernZeroCopy KernSemanticGap)
 
 fail=0

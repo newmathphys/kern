@@ -182,8 +182,11 @@ def run_python_contracts(src: str) -> str:
     for line in out.splitlines():
         t = line.strip()
         if (t.startswith("[PASS]") or t.startswith("[FAIL]") or t.startswith("[SKIP]")
-                or t.startswith("[КОНТРПРИМЕР]") or t.startswith("ИТОГО:")
-                or "SKIP —" in t):
+                or t.startswith("[VACUOUS]") or t.startswith("[IMPURE]")
+                or t.startswith("[КОНТРПРИМЕР]") or t.startswith("[RUNTIME CONFIRMED]")
+                or t.startswith("ИТОГО:")
+                or "SKIP —" in t or "ДЕЛЕНИЕ НА НОЛЬ" in t or "ПЕРЕПОЛНЕНИЕ" in t
+                or "RUNTIME НЕ подтвердил" in t):
             keep.append(t)
     return "\n".join(keep) if keep else out
 

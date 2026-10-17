@@ -5,9 +5,9 @@
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
 [![Core tests](https://img.shields.io/badge/core_tests-279%2F279-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
-[![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
+[![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
-[![Can-fail](https://img.shields.io/badge/can--fail_harness-74%2F74-blueviolet)](tools/canfail.py)
+[![Can-fail](https://img.shields.io/badge/can--fail_harness-77%2F77-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_204%2F204_%28rerun_pending%29-informational)](#cross-architecture)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
@@ -170,6 +170,38 @@ python3 tools/kern_contracts.py examples/contracts_demo.py --emit-pytest out_tes
 #     assert (result <= balance)      # FAILS: 1 <= 0 is false
 ```
 
+### Polyglot contracts, machine types and the GitHub line
+
+**5. The extractor is polyglot — the core never was Python-only.** `kernc prove`,
+the proof checker and `libkern.so` always took plain SMT-LIB2; only the
+*convenience* extractor was Python-only. It now reads the same annotations from
+`.py`, `.zig`, `.c` and `.rs`, and because machine types are known it catches
+what an unbounded `Int` model cannot:
+
+```bash
+make contracts
+# [PASS] withdrawGuard                      (Zig, i32)
+# [FAIL] share: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ   [КОНТРПРИМЕР] amount = 0
+# [FAIL] double_it: ПЕРЕПОЛНЕНИЕ типа i32  [КОНТРПРИМЕР] x = 1073741824, result = 2147483648
+# [RUNTIME CONFIRMED] the counterexample really breaks the running function
+```
+
+**6. KERN verifies itself:** `make self-verify` puts contracts on the formulas
+the kernel actually uses (`payloadSlice` offsets, the Farkas negation identity
+`¬(l ≤ r) ↔ r - l + 1 ≤ 0` from `proof_check.zig`) and proves them with Z3.
+
+**7. The GitHub line and a Git gate:**
+
+```bash
+make sarif-check   # SARIF 2.1.0 -> Code Scanning / red squiggle under the buggy line
+make hook-check    # self-test of the pre-commit gate
+python3 tools/kern_contracts.py --install-hook   # blocks `git commit` on a broken contract
+```
+
+The released attestation is **signed with Ed25519** (`kern.intoto.sig`, the
+owner key already used by `src/attest.zig`), so `slsa_provenance.py --check`
+detects a substituted attestation — the old “unsigned (no cosign)” gap is closed.
+
 For AI agents, `examples/kern_mcp_server.py` exposes the gate over the **Model
 Context Protocol** (5 tools: `kern_verify_smt`, `kern_prove_with_checker`,
 `kern_verify_multi_belnap`, `kern_verify_python`, `kern_check_equivalence` —
@@ -285,7 +317,7 @@ flowchart LR
 | **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
 | **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
 | **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
-| **L5** — formal proofs | 32 theorems in 7 Lean 4 files, 0 `sorry` |
+| **L5** — formal proofs | 42 theorems in 8 Lean 4 files, 0 `sorry` |
 
 The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
 produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
@@ -338,7 +370,7 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **74 / 74 CHECK targets (100 %)** have a proven-can-fail case (**88 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 67 literal anchors verified in ~1 s) |
+| Can-fail harness | **77 / 77 CHECK targets (100 %)** have a proven-can-fail case (**92 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 67 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -457,7 +489,7 @@ make guardrail
 uv pip install --python .venv/bin/python z3-solver
 ./zig-out/bin/kernc prove formal/example.smt2
 
-# 7. Formal proofs (Lean 4): 7 files, 32 theorems, 0 sorry
+# 7. Formal proofs (Lean 4): 8 files, 42 theorems, 0 sorry
 ./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
 ./formal/check.sh
 
@@ -486,14 +518,14 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 ### Prebuilt static binary and GitHub Action
 
 No toolchain needed. Release `v2.4.0` ships a statically linked `x86_64-linux-musl`
-binary (6,033,648 bytes), so `kernc` runs on any x86-64 Linux without Zig:
+binary (6,041,776 bytes), so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
 curl -fsSL -o kernc \
   https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
 chmod +x kernc && ./kernc --version
 # verify the download first:
-# dfac1aae044af0aed452ed3b77a702db90e0cde18570f1b68273a63501507b82  kernc-x86_64-linux-musl
+# 75b1a8a00404a23e95889e49503d741e65f0ed84235077f4f370b3501ea0b9a5  kernc-x86_64-linux-musl
 ```
 
 Or use it as a step in your own workflow:

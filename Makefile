@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: contracts contracts-lock contracts-lock-check diff-equiv artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate version-check
+.PHONY: contracts contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate version-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -37,6 +37,9 @@ help:
 	@echo "  make mutate      — мутационное тестирование (работает на копии)"
 	@echo "  make contracts-lock-check — замок контрактов (агент не ослабил спецификацию)"
 	@echo "  make diff-equiv  — эквивалентность рефакторинга без контрактов"
+	@echo "  make self-verify — KERN проверяет СВОЙ код (Zig) + полиглот C/Rust"
+	@echo "  make sarif-check — SARIF 2.1.0 для GitHub Code Scanning"
+	@echo "  make hook-check  — самотест Git pre-commit шлюза"
 	@echo "  make perf        — производительность (.kimg, оба пути чтения)"
 	@echo "  make test-all    — полный контур проверок"
 	@echo "  make formal-ci   — ядро + Lean + бенчмарки"
@@ -194,7 +197,32 @@ clean:
 # РАНЬШЕ здесь стоял `|| true`, поэтому цель НЕ МОГЛА УПАСТЬ — «молчаливо
 # сломанная проверка» в самой цели (закрыто can-fail кейсом `contracts`).
 contracts: build
-	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py --expect-demo
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py \
+		examples/contracts_demo.zig examples/contracts_demo.c \
+		examples/contracts_demo.rs --expect-demo
+
+# --- ЭТАП 2: САМОВЕРИФИКАЦИЯ (KERN проверяет СВОЙ код) ---------------------
+# Только файл самоверификации: в `contracts_demo.*` лежат НАМЕРЕННЫЕ баги
+# (деление на ноль, переполнение) — их место в `make contracts`, а не здесь.
+self-verify: build
+	@$(PYTHON) tools/kern_contracts.py examples/self_verify.zig
+
+# --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
+# SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
+# Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.
+SARIF_OUT ?= /tmp/kern.sarif
+
+sarif-check: build
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.c \
+		--sarif $(SARIF_OUT) --github-annotations >/dev/null 2>&1 || true
+	@$(PYTHON) tools/check_sarif.py $(SARIF_OUT)
+
+# --- ЭТАП 1: ПОЛЬЗОВАТЕЛЬСКИЙ GIT-ШЛЮЗ -------------------------------------
+# Установка: python3 tools/kern_contracts.py --install-hook
+# Здесь — САМОТЕСТ: корректный контракт проходит, сломанный/деление на ноль
+# блокируются.
+hook-check:
+	@bash tools/hook_selftest.sh
 
 # --- УЛУЧШЕНИЕ №2: ЗАМОК КОНТРАКТОВ (Contract Lock) --------------------------
 # ЗАЧЕМ. Самый простой чит ИИ-агента, которому не удаётся починить код под

@@ -168,11 +168,26 @@ pub const Z3Bridge = struct {
             return .{ .status = .ToolError, .stdout = &.{} };
         }
         const io = compat.io();
+        // ---- ПЕСОЧНИЦА ДЛЯ Z3 (УЛУЧШЕНИЕ №12, Zero-Trust к внешнему процессу) --
+        // Z3 — большой внешний C++-бинарник, которому подаются НЕДОВЕРЕННЫЕ
+        // `.smt2` (в том числе сгенерированные ИИ-агентом). Две меры:
+        //   1) ОКРУЖЕНИЕ РЕБЁНКА ОЧИЩАЕТСЯ до PATH/HOME/LC_ALL — при любой
+        //      уязвимости в Z3 он НЕ получит `GITHUB_TOKEN`, `AWS_*`, `SSH_*`,
+        //      `OPENAI_*` и прочие секреты родительского процесса;
+        //   2) `-memory:256` — жёсткий лимит памяти: «взбесившийся» решатель
+        //      отказывает по памяти вместо того, чтобы съесть ОЗУ сервера.
+        var sandbox = std.process.Environ.Map.init(self.allocator);
+        defer sandbox.deinit();
+        const keep = [_][]const u8{ "PATH", "HOME", "LC_ALL", "LANG", "TMPDIR" };
+        for (keep) |k| {
+            if (compat.envVar(k)) |v| sandbox.put(k, v) catch {};
+        }
         var child = std.process.spawn(io, .{
-            .argv = &[_][]const u8{ self.z3_path, "-in" },
+            .argv = &[_][]const u8{ self.z3_path, "-memory:256", "-in" },
             .stdin = .pipe,
             .stdout = .pipe,
             .stderr = .ignore,
+            .environ_map = &sandbox,
         }) catch {
             cov.hit(.z3_tool_error);
             return .{ .status = .ToolError, .stdout = &.{} };
