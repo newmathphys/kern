@@ -16,9 +16,9 @@
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **279 / 279** (without `z3` in `PATH` — 271 passed + 8 skipped),
-> KERN-Next **38 / 38**, can-fail **79 / 79 CHECK** (94 non-vacuous cases, 0 errors),
+> KERN-Next **38 / 38**, can-fail **81 / 81 CHECK** (95 non-vacuous cases, 0 errors),
 > registry **102 targets**, mutation score **95.0 %** (38/40), Lean 4 **8 files /
-> 42 theorems / 0 sorry**, test catalogue **318**. Also closed since then: the default
+> 42 theorems / 0 sorry**, test catalogue **322**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
 > §1–§8 below (these are current).
@@ -52,7 +52,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **94 cases, 79/79 CHECK**, 0 vacuous |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **95 cases, 81/81 CHECK**, 0 vacuous |
 | `make registry` | ✅ *(snapshot: 75 targets)* — current: **102 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)

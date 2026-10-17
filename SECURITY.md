@@ -122,7 +122,7 @@ For context when assessing a report:
 - `comptime` layout assertions on every on-disk structure.
 - Atomic image writes (tmp + `fsync` + `rename` + directory `fsync`).
 - A hard timeout and FD/zombie discipline around every solver subprocess.
-- Can-fail harness proving that all **79 CHECK targets** are able to fail (94 non-vacuous
+- Can-fail harness proving that all **81 CHECK targets** are able to fail (95 non-vacuous
   cases, 0 vacuous, 0 case errors) — a check that cannot go red is treated as a defect here.
 
 Thank you for helping keep KERN honest.

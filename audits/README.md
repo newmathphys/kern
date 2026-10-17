@@ -156,24 +156,40 @@ with `kernc prove audits/smt2/<fn>.smt2`.
 checker re-checked Z3's certificate. "REFUTED" on a `*Buggy` row is the **control** — the same
 setup catching a deliberately broken variant. On the real functions it means a *safety
 obligation* fired (overflow), which is a boundary of applicability, not a claim of a bug in
-someone's code. "SKIP" is an honest refusal (see #118).
+someone's code. "SKIP" is an honest refusal (see #123).
 
 ## Known limitations found while doing this
 
 * **#117** — feeding the extractor a Zig builtin (`@mod`, `@rem`) used to produce
   `SKIP — invalid syntax (<unknown>, line 1)`: a Python parser error leaking into a Zig
   diagnostic. Fixed: the reason now names the construct (`zig-выражение вне подмножества: ...`).
-* **#118** — on the Ghostty `gridColumns` obligation the proof checker rejects a certificate
-  that Z3 produced. Diagnosis with the **actual Z3 proof** (`(set-option :produce-proofs true)`):
-  the derivation needs `def-axiom` (the `ite` axiom — the `@max(1, …)` unfolding), `trans*`,
-  `th-lemma arith triangle-eq`, and reflexive rewrites on boolean atoms. The checker's model
-  covers comparisons, connectives and Farkas/linear rewrites, but not those rules — so the
-  verdict degrades to SKIP. Measured shape: 17 steps, 3 rewrites unverifiable, 0 holes. In
-  `QF_BV` (forced via `@kern:bitvec32`) the same obligation is not even parseable as an
-  S-expression by the checker. **Deliberately not "fixed"**: accepting those steps on trust
-  would produce a false `verified` — the one outcome this project exists to prevent. Open work:
-  implement the `ite` axiom rule and `trans*` soundly, then re-run the corpus.
-  Recorded in `docs/CAPABILITY_STATUS.md`.
+* **#118 — CLOSED.** On the Ghostty `gridColumns` obligation the proof checker used to reject a
+  certificate that Z3 produced. Diagnosis with the **actual Z3 proof**
+  (`(set-option :produce-proofs true)`): the derivation needs `def-axiom` (the `ite` axiom — the
+  `@max(1, …)` unfolding) and `trans*` (a chain of equalities). Both rules are now implemented
+  **soundly**: `verifyTransStar` checks that the right-hand side of step *i* is the left-hand side
+  of step *i+1* (a broken chain is a refusal), and `verifyDefAxiom` checks the clause has exactly
+  the defining shape (`(or (not C) (= T (ite C T E)))` or `(or C (= E (ite C T E)))`). Result:
+  the Ghostty row is now **PROVEN**. The temptation to accept `def-axiom` on faith was rejected —
+  that would turn `holes: 0` into fiction (defect #81).
+* **#120** — the solver's `N` (UNKNOWN) verdict was printed as `КОНТРАКТ НАРУШЕН` ("contract
+  violated"). On `zcallocSizeBounded` (non-linear multiplication in BV32 — Z3 returns `unknown`
+  on timeout) the tool reported a violation although there was neither a proof nor a
+  counterexample. Fixed: a separate `N` branch, a `НЕ РЕШЕНО` counter, and the verdict `UNKNOWN`
+  in `--json`/SARIF/`--emit-pytest`.
+* **#121** — a **false rejection** by the proof checker: in the source `.smt2` a negative number is
+  an *atom* (`(>= a -2147483648)`), while Z3 prints it in the proof as a *list*
+  (`(>= a (- 2147483648))`), so the premise never bound to the contract clause. Fixed by
+  normalising during binding (`sexpEqNum`). Sound: `-N` and `(- N)` are the same number.
+* **#122** — an `Int`/`Bool` sort error in the emitted formula: a function whose body is a *bare*
+  comparison was translated as `(= result (<= …))`. Z3 accepted it only by lenient coercion and
+  the checker could not bind the premise. Fixed by an explicit `ite` coercion (`value_of`).
+* **#123 — OPEN (deliberately not "fixed").** Z3's proof for musl `abs` uses `unit-resolution`
+  over `(_ th-lemma arith)` lemmas; the checker cannot parse such premises and refuses. Accepting
+  them on trust would be the false-green-tick failure mode. The gate stays conservative: the
+  control mutation is REFUTED, the original is honestly not confirmed. Open work: distinguish
+  "the step is definitely wrong" from "the step is unverifiable because a premise is trusted"
+  (the latter should count as `trusted`, not as an error).
 * **#119** — building the corpus exposed a real core-path defect: with `--deflate` the Truth
   Gate could not read **any** contract, because `/raw/` returns a zero-copy slice — for a
   compressed object that is the *compressed* bytes. Every claim silently fell back to `e=0`,

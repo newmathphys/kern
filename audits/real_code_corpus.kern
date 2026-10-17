@@ -5,6 +5,16 @@ project "kern-open-source-audits" {
   root "."
 }
 
+artifact "audits/smt2/abs_kern_abs.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/abs_kern_absBroken.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/align_alignBackwardBuggy.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -48,6 +58,48 @@ artifact "audits/smt2/grid_columns_gridColumns.smt2" {
 artifact "audits/smt2/grid_columns_gridColumnsBuggy.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/midpoint_midpoint.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/midpoint_midpointMutated.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/saturating_add_saturatingAdd.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/saturating_add_saturatingAddBuggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/zcalloc_zcallocSize.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/zcalloc_zcallocSizeBounded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+claim "audit:abs_kern_abs" {
+  status proven
+  evidence "contract:audits/smt2/abs_kern_abs.smt2"
+  context "audits/smt2/abs_kern_abs.smt2"
+}
+
+claim "audit:abs_kern_absBroken" {
+  status proven
+  evidence "contract:audits/smt2/abs_kern_absBroken.smt2"
+  context "audits/smt2/abs_kern_absBroken.smt2"
 }
 
 claim "audit:align_alignBackwardBuggy" {
@@ -102,4 +154,40 @@ claim "audit:grid_columns_gridColumnsBuggy" {
   status proven
   evidence "contract:audits/smt2/grid_columns_gridColumnsBuggy.smt2"
   context "audits/smt2/grid_columns_gridColumnsBuggy.smt2"
+}
+
+claim "audit:midpoint_midpoint" {
+  status proven
+  evidence "contract:audits/smt2/midpoint_midpoint.smt2"
+  context "audits/smt2/midpoint_midpoint.smt2"
+}
+
+claim "audit:midpoint_midpointMutated" {
+  status proven
+  evidence "contract:audits/smt2/midpoint_midpointMutated.smt2"
+  context "audits/smt2/midpoint_midpointMutated.smt2"
+}
+
+claim "audit:saturating_add_saturatingAdd" {
+  status proven
+  evidence "contract:audits/smt2/saturating_add_saturatingAdd.smt2"
+  context "audits/smt2/saturating_add_saturatingAdd.smt2"
+}
+
+claim "audit:saturating_add_saturatingAddBuggy" {
+  status proven
+  evidence "contract:audits/smt2/saturating_add_saturatingAddBuggy.smt2"
+  context "audits/smt2/saturating_add_saturatingAddBuggy.smt2"
+}
+
+claim "audit:zcalloc_zcallocSize" {
+  status proven
+  evidence "contract:audits/smt2/zcalloc_zcallocSize.smt2"
+  context "audits/smt2/zcalloc_zcallocSize.smt2"
+}
+
+claim "audit:zcalloc_zcallocSizeBounded" {
+  status proven
+  evidence "contract:audits/smt2/zcalloc_zcallocSizeBounded.smt2"
+  context "audits/smt2/zcalloc_zcallocSizeBounded.smt2"
 }

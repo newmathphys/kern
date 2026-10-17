@@ -235,6 +235,60 @@ pub fn sexpEq(a: Sexp, b: Sexp) bool {
     return true;
 }
 
+/// Числовой литерал-атом вида `-N` (N — цифры).
+///
+/// ДЕФЕКТ #121 (найден на теневом контракте Rust `saturating_add`).
+/// ИЗМЕРЕНО: в исходном `.smt2` отрицательное число печатается АТОМОМ
+/// (`(>= a -2147483648)`), а Z3 в выводе печатает его СПИСКОМ
+/// (`(>= a (- 2147483648))`). Сравнение посылки с клаузой контракта не
+/// совпадало, `premises_unbound` увеличивался, и чекер **ложно отвергал**
+/// корректный вывод: `[!] причина: посылки не привязаны к контракту`.
+/// Это ЛОЖНЫЙ ОТКАЗ (не ослабление): `-N` и `(- N)` — одно и то же число.
+fn isNegNumAtom(s: []const u8) ?[]const u8 {
+    if (s.len < 2 or s[0] != '-') return null;
+    for (s[1..]) |ch| {
+        if (ch < '0' or ch > '9') return null;
+    }
+    return s[1..];
+}
+
+/// ЭТО СПИСОК `(- N)`? Возвращает цифры `N`.
+fn isNegNumList(e: Sexp) ?[]const u8 {
+    if (!e.isList() or e.items.len != 2) return null;
+    const h = e.items[0].atom orelse return null;
+    if (!std.mem.eql(u8, h, "-")) return null;
+    const d = e.items[1].atom orelse return null;
+    for (d) |ch| {
+        if (ch < '0' or ch > '9') return null;
+    }
+    return d;
+}
+
+/// Равенство термов С НОРМАЛИЗАЦИЕЙ ЧИСЛОВЫХ ЛИТЕРАЛОВ.
+///
+/// Отличие от `sexpEq`: атом `-N` считается равным списку `(- N)`.
+/// Применяется ТОЛЬКО при привязке посылок к контракту (граница «вывод Z3 ↔
+/// исходный .smt2»), где эта разница и возникает. Внутри самого вывода Z3
+/// печатает литералы единообразно, поэтому остальные проверки не меняются.
+fn sexpEqNum(a: Sexp, b: Sexp) bool {
+    if (a.atom) |aa| {
+        if (isNegNumAtom(aa)) |digits| {
+            if (isNegNumList(b)) |d2| return std.mem.eql(u8, digits, d2);
+            return false;
+        }
+        if (b.atom) |bb| return std.mem.eql(u8, aa, bb);
+        return false;
+    }
+    if (isNegNumAtom(b.atom orelse "")) |digits| {
+        if (isNegNumList(a)) |d2| return std.mem.eql(u8, digits, d2);
+        return false;
+    }
+    if (b.atom != null) return false;
+    if (a.items.len != b.items.len) return false;
+    for (a.items, b.items) |x, y| if (!sexpEqNum(x, y)) return false;
+    return true;
+}
+
 /// Является ли выражение отрицанием: `(not X)`.
 fn asNot(e: Sexp) ?Sexp {
     if (!e.isList() or e.items.len != 2) return null;
@@ -264,6 +318,7 @@ const HOLE_RULES = [_][]const u8{ "hole", "trust", "sorry", "unknown" };
 const KNOWN_RULES = [_][]const u8{
     "asserted",        "hypothesis",  "mp",         "rewrite",
     "unit-resolution", "lemma",       "th-lemma",   "trans",
+    "trans*",          "def-axiom",
     "symm",            "refl",        "not-or-elim", "and-elim",
     "or-elim",         "not-elim",    "iff-elim",   "commutativity",
     "distributivity",  "definition",  "monotonicity", "bind",
@@ -768,7 +823,135 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // СВЯЗКАХ. Возвращает ТОЛЬКО .verified: нормализатор неполон, поэтому
     // объявлять подделку он не имеет права (иначе — ложные отказы).
     if (boolEqual(c, l, r)) return .verified;
+    // ЭКВИВАЛЕНТНОСТЬ С `ite` (дефект #118): условия эквивалентны/противоположны
+    // и ветви совпадают/переставлены — это тавтология, шаг ДОКАЗАН.
+    if (iteEq(l, r, 0)) return .verified;
     return .unverifiable;
+}
+
+/// ЯВЛЯЕТСЯ ЛИ ТЕРМ `(not X)` / `(ite C T E)` / равенством из трёх элементов.
+fn isNotT(t: Sexp) bool {
+    if (!t.isList() or t.items.len != 2) return false;
+    const h = t.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, "not");
+}
+
+fn isIteT(t: Sexp) bool {
+    if (!t.isList() or t.items.len != 4) return false;
+    const h = t.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, "ite");
+}
+
+/// `trans*`: ЦЕПОЧКА равенств (в отличие от `trans`, их может быть больше двух).
+///
+/// ИЗ ЧЕГО СЛЕДУЕТ (математика, без доверия решателю): из `a1=a2, a2=a3, ...,
+/// a_{k-1}=a_k` следует `a1=a_k`. Проверка ЧИСТО СТРУКТУРНАЯ: правое плечо шага
+/// i обязано совпасть с левым плечом шага i+1, а вывод — с (левое первого,
+/// правое последнего). Разрыв цепочки = подделка.
+///
+/// ЗАЧЕМ (дефект #118): без этого правила `trans*` уходил в доверенные шаги,
+/// из-за чего корректные выводы Z3 с `ite` не принимались.
+fn verifyTransStar(c: *const Ctx, st: Sexp) bool {
+    const n = st.items.len;
+    if (n < 4) return false; // правило + >=2 посылки + вывод
+    const q = premiseTerm(c, st.items[n - 1]);
+    if (!isEq3(q)) return false;
+    var prev_right: ?Sexp = null;
+    var first_left: ?Sexp = null;
+    var count: usize = 0;
+    for (st.items[1 .. n - 1]) |p| {
+        const t = premiseTerm(c, p);
+        if (!isEq3(t)) return false;
+        if (prev_right) |pr| {
+            if (!sexpEq(pr, t.items[1])) return false; // разрыв цепочки
+        } else {
+            first_left = t.items[1];
+        }
+        prev_right = t.items[2];
+        count += 1;
+    }
+    if (count < 2) return false;
+    return sexpEq(first_left.?, q.items[1]) and sexpEq(prev_right.?, q.items[2]);
+}
+
+/// `def-axiom` для `ite`: Z3 вводит ДВЕ ОПРЕДЕЛЯЮЩИЕ тавтологии
+///   `(or (not C) (= T (ite C T E)))` — если C истинно, значение ite есть T;
+///   `(or C       (= E (ite C T E)))` — если C ложно,  значение ite есть E.
+/// Обе — логические тавтологии. Проверяем ИМЕННО ЭТУ ФОРМУ структурно: тогда
+/// шаг ДОКАЗАН, а не принят на слово. Любая другая форма -> шаг остаётся
+/// доверенным (никогда не «проверенным»).
+fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
+    const t = expand(c, proved(st), 0);
+    if (!t.isList() or t.items.len != 3) return false;
+    const h = t.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "or")) return false;
+    return verifyIteDisjunct(t.items[1], t.items[2]) or
+        verifyIteDisjunct(t.items[2], t.items[1]);
+}
+
+/// Один дизъюнкт — отрицание условия, другой — равенство с тем же `ite`.
+fn verifyIteDisjunct(cond_side: Sexp, eq_side: Sexp) bool {
+    if (!isEq3(eq_side)) return false;
+    const a = eq_side.items[1];
+    const b = eq_side.items[2];
+    const ite = if (isIteT(a)) a else if (isIteT(b)) b else return false;
+    const other = if (isIteT(a)) b else a;
+    const cond = ite.items[1];
+    const then_v = ite.items[2];
+    const else_v = ite.items[3];
+    if (isNotT(cond_side)) {
+        // (or (not C) (= T (ite C T E)))
+        if (!sexpEq(cond_side.items[1], cond)) return false;
+        return sexpEq(other, then_v);
+    }
+    // (or C (= E (ite C T E)))
+    if (!sexpEq(cond_side, cond)) return false;
+    return sexpEq(other, else_v);
+}
+
+/// ЭКВИВАЛЕНТНОСТЬ (или ПРОТИВОПОЛОЖНОСТЬ) условий через уже существующий
+/// звучимый нормализатор `normCmp`. Если он форму не покрывает — `false`
+/// (шаг останется доверенным, а не «проверенным»).
+fn condEquiv(a: Sexp, b: Sexp, opposite: bool) bool {
+    if (opposite) {
+        if (isNotT(a) and sexpEq(a.items[1], b)) return true;
+        if (isNotT(b) and sexpEq(b.items[1], a)) return true;
+    }
+    const na = normCmp(a) orelse return false;
+    const nb = normCmp(b) orelse return false;
+    const want_neg = if (opposite) !na.neg else na.neg;
+    return want_neg == nb.neg and sexpEq(na.a, nb.a) and sexpEq(na.b, nb.b);
+}
+
+/// ЭКВИВАЛЕНТНОСТЬ с участием `ite` — закрывает оставшиеся шаги `rewrite`
+/// (дефект #118). Каждый случай — ТАВТОЛОГИЯ, а не эвристика:
+///   * `(= X Y) == (= X Y')`, если `Y == Y'` (и симметрично);
+///   * `(ite C T E) == (ite C' T E)`, если условия ЭКВИВАЛЕНТНЫ;
+///   * `(ite C T E) == (ite C' E T)`, если условия ПРОТИВОПОЛОЖНЫ
+///     (ветви переставлены — это ровно одно и то же значение).
+fn iteEq(l: Sexp, r: Sexp, depth: u32) bool {
+    if (depth > 16) return false;
+    if (sexpEq(l, r)) return true;
+    if (isEq3(l) and isEq3(r)) {
+        if (sexpEq(l.items[1], r.items[1]) and iteEq(l.items[2], r.items[2], depth + 1))
+            return true;
+        if (sexpEq(l.items[2], r.items[2]) and iteEq(l.items[1], r.items[1], depth + 1))
+            return true;
+        return false;
+    }
+    if (isIteT(l) and isIteT(r)) {
+        const cl = l.items[1];
+        const tl = l.items[2];
+        const el = l.items[3];
+        const cr = r.items[1];
+        const tr = r.items[2];
+        const er = r.items[3];
+        const same_branches = sexpEq(tl, tr) and sexpEq(el, er);
+        const swapped = sexpEq(tl, er) and sexpEq(el, tr);
+        if (same_branches and condEquiv(cl, cr, false)) return true;
+        if (swapped and condEquiv(cl, cr, true)) return true;
+    }
+    return false;
 }
 
 /// Подставить `from -> to` в дерево. `null` — глубина превышена.
@@ -1246,7 +1429,11 @@ pub fn verifyProof(
             const t = expand(&c, proved(st), 0);
             var found = false;
             for (contract_terms.items) |ct| {
-                if (sexpEq(t, ct)) {
+                // `sexpEqNum`, а не `sexpEq`: числовой литерал в исходнике
+                // записан атомом (`-2147483648`), а Z3 в выводе — списком
+                // (`(- 2147483648)`). Без нормализации корректный вывод
+                // отвергался как «посылки не привязаны» (дефект #122).
+                if (sexpEqNum(t, ct)) {
                     found = true;
                     break;
                 }
@@ -1288,6 +1475,14 @@ pub fn verifyProof(
             std.mem.eql(u8, r, "trans"))
         {
             if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else markTrusted(&v, r);
+        } else if (std.mem.eql(u8, r, "trans*")) {
+            // ДЕФЕКТ #118: цепочка равенств проверяется СТРУКТУРНО (см.
+            // `verifyTransStar`) — это математическая проверка, а не доверие.
+            if (verifyTransStar(&c, st)) v.eq_verified += 1 else markTrusted(&v, r);
+        } else if (std.mem.eql(u8, r, "def-axiom")) {
+            // ДЕФЕКТ #118: аксиома определения `ite` проверяется по ФОРМЕ
+            // (две определяющие тавтологии). Иная форма -> доверенный шаг.
+            if (verifyDefAxiom(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
         } else if (std.mem.eql(u8, r, "and-elim")) {
             if (verifyAndElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
         } else if (std.mem.eql(u8, r, "not-or-elim")) {
@@ -1494,6 +1689,43 @@ test "PROOF (РЕАЛЬНЫЙ ВЫВОД Z3): все проверки прохо
     try std.testing.expectEqual(@as(usize, 5), v.rewrite_verified);
     try std.testing.expectEqual(@as(usize, 0), v.trusted_steps);
     try std.testing.expect(v.checksPass());
+}
+
+test "PROOF-АТАКА: разорванная цепочка trans* отвергается (дефект #118)" {
+    // Цепочка равенств с РАЗРЫВОМ: a=b, c=d  =>  a=d. Средний терм не совпал,
+    // значит шаг подделан и обязан уйти в ДОВЕРЕННЫЕ, а не в проверенные.
+    const p = "((set-logic QF_UF)(proof (let (($a (= x y)))(let (($b (= z w)))(let (($q (= x w)))(trans* $a $b $q))))))";
+    const v = try verifyProof(std.testing.allocator, p, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v.eq_verified);
+    try std.testing.expect(v.trusted_steps >= 1);
+}
+
+test "PROOF-АТАКА: подделанная аксиома ite (def-axiom) отвергается (дефект #118)" {
+    // Форма НЕ является определяющей тавтологией `ite`: равенство требует ветвь
+    // ELSE при истинном условии. Такая «аксиома» не доказана -> доверенный шаг.
+    const p = "((set-logic QF_UF)(proof (def-axiom (or (not (= a b)) (= c (ite (= a b) d c))))))";
+    const v = try verifyProof(std.testing.allocator, p, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v.bool_verified);
+    try std.testing.expect(v.trusted_steps >= 1);
+}
+
+test "PROOF-АТАКА: ЛОЖНАЯ ite-эквивалентность в rewrite отвергается (дефект #118)" {
+    // Условия НЕ эквивалентны и НЕ противоположны ((< x 1) и (< x 2)): равенство
+    // НЕ тавтология. Чекер обязан не считать его проверенным.
+    const p = "((set-logic QF_UF)(proof (rewrite (= (ite (< x 1) a b) (ite (< x 2) a b)))))";
+    const v = try verifyProof(std.testing.allocator, p, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v.rewrite_verified);
+}
+
+test "ПОЗИТИВ: цепочка trans* и аксиома ite ПРОВЕРЯЮТСЯ (дефект #118)" {
+    // Корректная цепочка: x=y, y=w  =>  x=w.
+    const chain = "((set-logic QF_UF)(proof (let (($a (= x y)))(let (($b (= y w)))(let (($q (= x w)))(trans* $a $b $q))))))";
+    const v1 = try verifyProof(std.testing.allocator, chain, &.{});
+    try std.testing.expectEqual(@as(usize, 1), v1.eq_verified);
+    // Корректная определяющая аксиома: (or (not C) (= T (ite C T E))).
+    const ax = "((set-logic QF_UF)(proof (def-axiom (or (not (= a b)) (= c (ite (= a b) c d))))))";
+    const v2 = try verifyProof(std.testing.allocator, ax, &.{});
+    try std.testing.expectEqual(@as(usize, 1), v2.bool_verified);
 }
 
 test "PROOF-АТАКА: подменённая посылка (fake assume) отвергается" {

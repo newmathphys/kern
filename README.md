@@ -42,8 +42,8 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 79 CHECK targets; 79 proven non-vacuous
-   (94 fault-injection cases).
+   fault and requires the check to go red. 81 CHECK targets; 81 proven non-vacuous
+   (95 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
@@ -216,10 +216,11 @@ make contracts
 
 ### Evidence on real production code (`make audits`)
 
-Nine functions transcribed from four projects, checked by the core (Z3 + the Zig proof
-checker). The table is printed by `tools/audits_run.py` — not written by hand — and the corpus
-is sealed into `audits/real_code_corpus.kimg` (`--deflate`). Full method, scope and the
-generated output: [`audits/`](audits/README.md), [`audits/EVIDENCE.md`](audits/EVIDENCE.md).
+Functions transcribed from six projects across three languages (Zig, Rust, C), checked by the
+core (Z3 + the Zig proof checker). The table is printed by `tools/audits_run.py` — not written
+by hand — and the corpus is sealed into `audits/real_code_corpus.kimg` (`--deflate`). Full
+method, scope and the generated output: [`audits/`](audits/README.md),
+[`audits/EVIDENCE.md`](audits/EVIDENCE.md).
 
 | Real code | Function | Theory | Verdict |
 |:--|:--|:--|:--|
@@ -229,15 +230,25 @@ generated output: [`audits/`](audits/README.md), [`audits/EVIDENCE.md`](audits/E
 | `ziglang/zig` `lib/std/mem.zig:4693` (`alignForward`) | `addr + (alignment - 1)` | QF_LIA | **REFUTED** — u32 overflow at `addr = 4294967295, alignment = 2` (the doc comment warns the caller must prevent it) |
 | `tigerbeetle/tigerbeetle` `src/stdx/stdx.zig:67` (`div_ceil`) | `(n + d - 1) / d` | QF_LIA | **PROVEN** — `[PROOF VERIFIED]`, 98 steps, `holes: 0` |
 | same, as `n / d + 1` | control | QF_LIA | **REFUTED** — i32 overflow at `n = 2147483647, d = 1` |
-| `ghostty-org/ghostty` `src/renderer/size.zig:253` (`GridSize.update`) | grid is never empty (`columns >= 1`) | QF_LIA | **SKIP — honest refusal** (see below) |
+| `ghostty-org/ghostty` `src/renderer/size.zig:253` (`GridSize.update`) | grid is never empty (`columns >= 1`) | QF_LIA | **PROVEN** — defect #118 closed |
 | same, clamp `@max(1, …)` removed | control | QF_LIA | **REFUTED** — `screen_width = 0, cell_width = 1` |
+| `rust-lang/rust` `library/core/src/num/mod.rs` (`saturating_add`) | a saturating add never decreases its input | QF_LIA | **PROVEN** |
+| same, guard removed (`a + rhs`) | control | QF_LIA | **REFUTED** — i32 overflow at `a = 2147483647, rhs = 1` |
+| `rust-lang/rust` (`midpoint`, Hacker's Delight) | `((a ^ b) >> 1) + (a & b)` equals the true mean | QF_BV 32 | **SKIP — honest refusal** (see below) |
+| same, shift by 2 instead of 1 | control | QF_BV 32 | **REFUTED** — `a = #x7fd5723f, b = #x28f8ee8b` |
+| `musl` `src/stdlib/abs.c` (`abs`) | `a < 0 ? -a : a` is never negative | QF_LIA | **SKIP — honest refusal** |
+| same, negative branch removed (`return a`) | control | QF_LIA | **REFUTED** — `a = -2147483647` |
+| `zlib` `zutil.c` (`zcalloc`) | `items * size` in 32-bit unsigned | QF_BV 32 | **REFUTED** — the product wraps: `items = #x8e0ff0f1, size = #x5ffeffef` |
 
-**Why one row says SKIP and that is the point.** For the Ghostty invariant Z3 *does* return
-UNSAT, but its proof uses `def-axiom` (the `ite` axiom), `trans*` and
-`th-lemma arith triangle-eq` — rules KERN's proof checker does not model yet. The gate refuses
-to print "verified" for a certificate it cannot re-check (defect #118), instead of accepting it
-on the solver's word. "Fixing" that by trusting those steps would manufacture exactly the false
-green tick this project exists to prevent. Every other row was re-checked independently.
+**Why two rows still say SKIP — and that is the point.** The Ghostty row *was* a SKIP; defect
+#118 was closed by verifying `trans*` and the `ite` `def-axiom` **structurally** (not by trusting
+them), and the row became PROVEN. The two remaining SKIPs fail for a different reason: Z3's proof
+for them is *not structurally checkable* — `midpoint` yields a bit-blasted proof (thousands of
+`let`/`declare-fun` bindings) and `abs` uses `unit-resolution` over `(_ th-lemma arith)` lemmas
+(defect #123). The gate refuses to print "verified" for a certificate it cannot re-check, instead
+of accepting it on the solver's word. "Fixing" that by trusting those steps would manufacture
+exactly the false green tick this project exists to prevent (see #81, #118, #123). Every other
+row was re-checked independently.
 
 > See [`audits/`](audits/README.md) for the real third-party functions this was built against.
 
@@ -436,7 +447,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **80 / 80 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 73 literal anchors verified in ~1 s) |
+| Can-fail harness | **81 / 81 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 74 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -603,14 +614,14 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 ### Prebuilt static binary and GitHub Action
 
 No toolchain needed. Release `v2.4.0` ships a statically linked `x86_64-linux-musl`
-binary (6,041,776 bytes), so `kernc` runs on any x86-64 Linux without Zig:
+binary (6,055,928 bytes), so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
 curl -fsSL -o kernc \
   https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
 chmod +x kernc && ./kernc --version
 # verify the download first:
-# 75b1a8a00404a23e95889e49503d741e65f0ed84235077f4f370b3501ea0b9a5  kernc-x86_64-linux-musl
+# 33f8fae44173e0bfd5c8d17ba269965b9d6a9badd115a8f51df25cc3ac671ec9  kernc-x86_64-linux-musl
 ```
 
 Or use it as a step in your own workflow:
@@ -713,7 +724,7 @@ docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, e
 | [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
-| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#117 |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#123 |
 | [`audits/README.md`](audits/README.md) | shadow-contract audits on **real code** from four projects (Zig std, TigerBeetle, Ghostty, andrewrk's allocator): 9 functions, **3 PROVEN / 5 REFUTED / 1 honest SKIP**, regenerated by `make audits` into [`EVIDENCE.md`](audits/EVIDENCE.md) and sealed into `audits/real_code_corpus.kimg` — plus the measurement showing why a naive "run KERN over 50 repos" produces zeros |
 | [`docs/README.md`](docs/README.md) | documentation map |
 | [`README.ru.md`](README.ru.md) | Russian version of this README |

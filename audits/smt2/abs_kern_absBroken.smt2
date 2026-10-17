@@ -1,0 +1,8 @@
+(set-logic ALL)
+(declare-const a Int)
+(declare-const result Int)
+(assert (and (>= a -2147483648) (<= a 2147483647)))
+(assert (> a (- 2147483648)))
+(assert (= result a))
+(assert (not (>= result 0)))
+(check-sat)

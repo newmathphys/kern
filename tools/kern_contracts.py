@@ -243,6 +243,40 @@ def parse_file(path: Path):
     return out
 
 
+# Головы SMT-операторов, возвращающих ЛОГИЧЕСКОЕ значение (Bool), а не число.
+_BOOL_HEADS = {
+    "<=", "<", ">=", ">", "=", "distinct", "and", "or", "not", "=>",
+    "bvult", "bvule", "bvugt", "bvuge", "bvslt", "bvsle", "bvsgt", "bvsge",
+}
+
+
+def value_of(smt: str, *, bitvec_width=None) -> str:
+    """Привести ВОЗВРАЩАЕМОЕ ЗНАЧЕНИЕ функции к числу (`Int` или `BitVec`).
+
+    ДЕФЕКТ #122 (найден теневым контрактом C `safeFits`).
+    ИЗМЕРЕНО: функция, тело которой — «голое» СРАВНЕНИЕ
+    (`return len <= size - offset;`), транслировалась в
+    `(assert (= result (<= len (- size offset))))` — равенство между `Int` и
+    `Bool`. Z3 принимал такую формулу ТОЛЬКО по снисходительной коэрции, а
+    пруф-чекер такую посылку к контракту не привязывал (`premises_unbound`) и
+    КОРРЕКТНЫЙ вывод отвергался. В C/C++/Rust/Zig логическое значение в позиции
+    целого — это 0/1, поэтому приводим его ЯВНО через `ite`, не полагаясь на
+    недокументированное поведение решателя.
+    """
+    head = smt.lstrip()
+    if not head:
+        return smt
+    if head[0] == "(":
+        name = head[1:].split(None, 1)[0].rstrip(")")
+    else:
+        name = head.split(None, 1)[0]
+    if name not in _BOOL_HEADS and name not in ("true", "false"):
+        return smt
+    if bitvec_width is None:
+        return f"(ite {smt} 1 0)"
+    return f"(ite {smt} (_ bv1 {bitvec_width}) (_ bv0 {bitvec_width}))"
+
+
 def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
     """SMT-LIB2: параметры, МАШИННЫЕ ГРАНИЦЫ, requires, `result = <тело>`, ¬ensures.
 
@@ -258,7 +292,7 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
         lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
     if req:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
-    lines.append(f"(assert (= result {body_smt_text}))")
+    lines.append(f"(assert (= result {value_of(body_smt_text)}))")
     if ens:
         e = expr_smt(ast.parse(ens, mode='eval').body, env)
         lines.append(f"(assert (not {e}))")
@@ -280,7 +314,7 @@ def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range) -> st
         lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
     if req:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
-    lines.append(f"(assert (= result {body_smt_text}))")
+    lines.append(f"(assert (= result {value_of(body_smt_text)}))")
     lo, hi = res_range
     lines.append(f"(assert (or (< result {lo}) (> result {hi})))")
     lines.append("(check-sat)")
@@ -686,7 +720,10 @@ def parse_clike(path: Path):
             # но ЯДРО KERN штатно работает с QF_BV. Если причина отказа — именно
             # битовая операция, помечаем функцию как «BV-кандидата»: тело будет
             # пересобрано в теории битовых векторов в `_demo` (а не отправлено в SKIP).
-            if _needs_bitvec(raw_body, req, ens):
+            if _needs_bitvec(raw_body, req, ens) or "нелинейное умножение" in str(e):
+                # УЛУЧШЕНИЕ №16: `a * b` ДВУХ ПЕРЕМЕННЫХ нелинейно в Int (QF_LIA
+                # его не решает), но в QF_BV это обычный `bvmul` — решаемый.
+                # Поэтому такая функция идёт BV-кандидатом, а не в SKIP.
                 meta["divisors"] = []
                 out.append((name, names, req, ens, "BV_PENDING", i + 1, None, meta))
             else:
@@ -1383,7 +1420,7 @@ def build_smt_bv(params, req, ens, body_bv: str, w: int, signed: bool, lang: str
     env: dict = {}
     if req:
         lines.append(f"(assert {expr_smt_bv(_clike_parse(req, lang), env, w, signed)})")
-    lines.append(f"(assert (= result {body_bv}))")
+    lines.append(f"(assert (= result {value_of(body_bv, bitvec_width=w)}))")
     if ens:
         lines.append(f"(assert (not {expr_smt_bv(_clike_parse(ens, lang), env, w, signed)}))")
     lines.append("(check-sat)")
@@ -1530,7 +1567,7 @@ def _demo(args) -> int:
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 1
 
-    total = ok = failed = skipped = vacuous = safety_failed = 0
+    total = ok = failed = skipped = vacuous = safety_failed = unknown = 0
     # Контрпримеры для `--emit-pytest` (УЛУЧШЕНИЕ №4): найденный Z3 баг обязан
     # превращаться в ОБЫЧНЫЙ падающий pytest, а не только в строку в логе.
     examples: list[dict] = []
@@ -1775,6 +1812,15 @@ def _demo(args) -> int:
                     print(f"         {proof}")
                 f_funcs.append({"name": name, "line": ln, "verdict": "PROVEN"})
                 ok += 1
+            elif "KERN-EQ2 : N" in out or " : N" in out:
+                # ДЕФЕКТ #120: вердикт решателя `N` (UNKNOWN — таймаут или
+                # неразрешённая теория) печатался как «КОНТРАКТ НАРУШЕН».
+                # Это НЕ опровержение: контрпример не найден, доказательства
+                # тоже нет. Честный трёхзначный вердикт — «НЕ РЕШЕНО».
+                print(f"  [N] {name}: НЕ РЕШЕНО (решатель вернул unknown — "
+                      f"ни доказательства, ни контрпримера)")
+                f_funcs.append({"name": name, "line": ln, "verdict": "UNKNOWN"})
+                unknown += 1
             else:
                 print(f"  [FAIL] {name}: КОНТРАКТ НАРУШЕН")
                 for line in out.splitlines():
@@ -1826,7 +1872,8 @@ def _demo(args) -> int:
                 failed += 1
     print("-" * 74)
     print(f"ИТОГО: доказано {ok} | нарушено {failed} (из них "
-          f"безопасность: {safety_failed}) | ВАКУУМНЫХ {vacuous} | "
+          f"безопасность: {safety_failed}) | НЕ РЕШЕНО {unknown} | "
+          f"ВАКУУМНЫХ {vacuous} | "
           f"вне подмножества {skipped} | всего {total}")
     # ---- УЛУЧШЕНИЕ №4: ПАДАЮЩИЙ PYTEST ИЗ КОНТРПРИМЕРА Z3 ----------------
     if getattr(args, "emit_pytest", None):

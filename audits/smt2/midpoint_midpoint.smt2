@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-const a (_ BitVec 32))
+(declare-const b (_ BitVec 32))
+(declare-const result (_ BitVec 32))
+(assert (and (bvule a (_ bv2147483647 32)) (bvule b (_ bv2147483647 32))))
+(assert (= result (bvadd (bvlshr (bvxor a b) (_ bv1 32)) (bvand a b))))
+(assert (not (= result (bvudiv (bvadd a b) (_ bv2 32)))))
+(check-sat)
