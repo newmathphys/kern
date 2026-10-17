@@ -72,14 +72,16 @@ li{margin:6px 0}
 .tag{color:var(--ok);font-weight:700}
 footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding-top:16px;font-size:13px}
 /* --- terminal demo (data = a real `make run-example` transcript) --- */
-.term{background:#010409;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.term{background:#010409;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  box-shadow:0 10px 30px rgba(1,4,9,.55)}
 .termbar{display:flex;align-items:center;gap:6px;background:var(--card);
   border-bottom:1px solid var(--line);padding:8px 12px}
 .termbar .d{width:11px;height:11px;border-radius:50%;display:inline-block}
 .termbar .r{background:#f85149}.termbar .y{background:#d29922}.termbar .g{background:#3fb950}
 .termtitle{margin-left:8px;color:var(--dim);font-size:12px}
-.termscreen{margin:0;padding:16px;min-height:290px;background:transparent;border:0;
-  border-radius:0;font-size:13.5px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.termscreen{margin:0;padding:16px 18px;min-height:384px;background:transparent;border:0;
+  border-radius:0;font-size:13.5px;line-height:1.55;white-space:pre-wrap;
+  overflow-wrap:anywhere;tab-size:8}
 .termscreen .prompt{color:var(--ok)}
 .termscreen .cmd{color:#79c0ff}
 .termscreen .ok{color:var(--ok)}
@@ -126,7 +128,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <div class="panel">
   <div class="term">
     <div class="termbar"><i class="d r"></i><i class="d y"></i><i class="d g"></i>
-      <span class="termtitle">kern — green CI vs. mathematics</span></div>
+      <span class="termtitle">bash — make run-example (real transcript)</span></div>
     <pre class="termscreen" id="termscreen"><span class="cursor">█</span></pre>
   </div>
   <p class="lbl" style="margin:12px 0 0">Transcript of a real <code>make run-example</code> run.
@@ -265,69 +267,102 @@ This page is served from <code>/docs</code> of the
 </div>
 <script>
 /* Terminal demo. The transcript is a REAL `make run-example` run
-   (see docs/METRICS.md); verdict tokens and numbers are verbatim. */
+   (see docs/METRICS.md); verdict tokens and numbers are verbatim.
+   Each entry below is ONE visual line, so the output appears line by line
+   instead of flashing past. Click the terminal to replay. */
 (function () {
   var el = document.getElementById('termscreen');
   if (!el) return;
 
+  var TYPE_MS = 45;        // per typed character
+  var LINE_MS = 240;       // pause between revealed output lines
+  var AFTER_CMD_MS = 450;  // pause after a command finished typing
+  var HOLD_MS = 5000;      // hold the finished transcript
+  var RESTART_MS = 700;
+
   var LINES = [
     { c: 'prompt', t: '$ ' },
-    { c: 'cmd',    t: 'python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py', type: true },
-    { c: 'ok',     t: '\n.                                                        [100%]\n1 passed in 0.02s\n' },
-    { c: 'gloss',  t: '# the "test" contains no assert — it cannot fail. CI is green.\n' },
-    { c: 'prompt', t: '\n$ ' },
-    { c: 'cmd',    t: 'kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg', type: true },
-    { c: 'ok',     t: '\n[OK] toy.kimg built (5 objects)\n' },
-    { c: 'prompt', t: '\n$ ' },
-    { c: 'cmd',    t: 'kernc verify toy.kimg', type: true },
-    { c: 'dim',    t: '\n  claim `withdraw never increases the balance`\n' },
-    { c: 'bad',    t: '    SAT -> e=0 (F) ' },
-    { c: 'gloss',  t: 'COUNTEREXAMPLE — the claim is refuted\n' },
-    { c: 'dim',    t: '  claim `fixed withdraw never increases the balance`\n' },
-    { c: 'ok',     t: '    UNSAT -> e=1 (T) ' },
-    { c: 'gloss',  t: 'PROVEN by Z3, re-checked by the proof checker\n' },
-    { c: 'dim',    t: '\n[i] proven 1, counterexamples 1, no contract 0\n' },
-    { c: 'gloss',  t: '[i] e=1 is assigned ONLY from a solver verdict.\n' },
-    { c: '',       t: '', pause: 3000 }
+    { c: 'cmd', t: 'python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py', type: true },
+    { c: 'ok', t: '\n.                                                        [100%]' },
+    { c: 'ok', t: '\n1 passed in 0.02s' },
+    { c: 'gloss', t: '\n# the "test" contains no assert — it cannot fail. CI is green.' },
+
+    { c: 'prompt', t: '\n\n$ ' },
+    { c: 'cmd', t: 'kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg', type: true },
+    { c: 'ok', t: '\n[OK] toy.kimg built (5 objects)' },
+
+    { c: 'prompt', t: '\n\n$ ' },
+    { c: 'cmd', t: 'kernc verify toy.kimg', type: true },
+    { c: 'dim', t: '\n  claim `withdraw never increases the balance`' },
+    { c: 'bad', t: '\n    SAT -> e=0 (F) ' },
+    { c: 'gloss', t: 'COUNTEREXAMPLE — the claim is refuted' },
+    { c: 'dim', t: '\n  claim `fixed withdraw never increases the balance`' },
+    { c: 'ok', t: '\n    UNSAT -> e=1 (T) ' },
+    { c: 'gloss', t: 'PROVEN by Z3, re-checked by the proof checker' },
+    { c: 'dim', t: '\n\n[i] proven 1, counterexamples 1, no contract 0' },
+    { c: 'gloss', t: '\n[i] e=1 is assigned ONLY from a solver verdict.' }
   ];
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var cur = document.createElement('span');
   var cursor = document.createElement('span');
   cursor.className = 'cursor';
   cursor.textContent = '\u2588';
 
-  function paint() { el.textContent = ''; el.appendChild(cur); el.appendChild(cursor); }
+  /* Append spans — never wipe the screen mid-transcript (the previous version did,
+     which is why lines seemed to "flash past" one at a time). */
+  function paint(spans) {
+    el.textContent = '';
+    for (var k = 0; k < spans.length; k++) el.appendChild(spans[k]);
+    el.appendChild(cursor);
+  }
 
-  if (reduce) {                                   // no animation: show it all at once
+  if (reduce) {                        // no animation: print the whole transcript at once
+    var all = [];
     LINES.forEach(function (l) {
       var s = document.createElement('span');
       if (l.c) s.className = l.c;
       s.textContent = l.t;
-      cur.appendChild(s);
+      all.push(s);
     });
-    paint();
+    paint(all);
     return;
   }
 
-  var i = 0, j = 0, started = false;
-  function step() {
-    if (i >= LINES.length) {                      // loop
-      i = 0; j = 0; cur = document.createElement('span'); paint();
-      setTimeout(step, 900); return;
-    }
-    var l = LINES[i];
-    if (!started) { cur = document.createElement('span'); if (l.c) cur.className = l.c; paint(); started = true; }
-    if (l.type && j < l.t.length) {                // type the command char by char
-      cur.textContent += l.t[j++];
-      setTimeout(step, 26 + Math.random() * 34);
+  var spans = [], idx = 0, timer = null;
+
+  function stop() { if (timer) { clearTimeout(timer); timer = null; } }
+
+  function typeInto(span, text, done) {
+    var j = 0;
+    (function tick() {
+      if (j >= text.length) { timer = setTimeout(done, AFTER_CMD_MS); return; }
+      span.textContent += text.charAt(j++);
+      timer = setTimeout(tick, TYPE_MS);
+    })();
+  }
+
+  function next() {
+    if (idx >= LINES.length) {         // hold, then wipe and replay
+      timer = setTimeout(function () {
+        spans = []; idx = 0; paint(spans);
+        timer = setTimeout(next, RESTART_MS);
+      }, HOLD_MS);
       return;
     }
-    if (!l.type) cur.textContent = l.t;            // reveal output at once
-    j = 0; i += 1; started = false;
-    setTimeout(step, l.pause || (l.type ? 120 : 80));
+    var l = LINES[idx++];
+    var span = document.createElement('span');
+    if (l.c) span.className = l.c;
+    spans.push(span);
+    paint(spans);
+    if (l.type) { typeInto(span, l.t, next); }
+    else { span.textContent = l.t; timer = setTimeout(next, LINE_MS); }
   }
-  setTimeout(step, 500);
+
+  function start() { stop(); spans = []; idx = 0; paint(spans); timer = setTimeout(next, 600); }
+
+  el.addEventListener('click', start);   // click to replay
+  el.style.cursor = 'pointer';
+  start();
 })();
 </script>
 </body>
