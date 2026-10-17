@@ -36,3 +36,16 @@ pub fn u32NoUnderflow(x: u32, y: u32) u32 {
 pub fn modBuiltin(n: i32, d: i32) i32 {
     return @mod(n, d);   // встроенная функция Zig -> SKIP с ЯЗЫКОВОЙ причиной (дефект #117)
 }
+
+// УЛУЧШЕНИЕ №15: битовые операции -> теория QF_BV (`_ BitVec 32`).
+// Реальный приём из системного кода (andrewrk/zig-general-purpose-allocator):
+// проверка выравнивания через `addr & ~(alignment - 1)`.
+/// @kern:requires alignment > 0 and (alignment & (alignment - 1)) == 0
+/// @kern:ensures  result == 0
+pub fn bitAlignedAgrees(addr: i32, alignment: i32) i32 {
+    const bit_test = addr & ~(alignment - 1);
+    const arithmetic = addr % alignment;
+    if (bit_test == addr) return arithmetic;
+    if (arithmetic == 0) return 1;
+    return 0;
+}

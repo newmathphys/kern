@@ -552,8 +552,16 @@ def _clike_parse(text: str, lang: str):
             f"(поддерживаются только + - * / // % и сравнения)") from e
 
 
-def _exec_clike(stmts, env: dict, lang: str):
-    """Символьно исполнить операторы; вернуть SMT-выражение результата или None."""
+def _exec_clike(stmts, env: dict, lang: str, expr_fn=None):
+    """Символьно исполнить операторы; вернуть SMT-выражение результата или None.
+
+    `expr_fn` (УЛУЧШЕНИЕ №15) позволяет переиспользовать ЭТОТ ЖЕ разбор операторов
+    для теории битовых векторов (`expr_smt_bv`), не дублируя логику: иначе
+    BV-режим проверял бы другой код.
+    """
+    if expr_fn is None:
+        def expr_fn(node, env_):
+            return expr_smt(node, env_)
     for i, raw in enumerate(stmts):
         st = raw.strip()
         if not st:
@@ -579,25 +587,25 @@ def _exec_clike(stmts, env: dict, lang: str):
                         else_txt = re.sub(r"^else\s+", "", nxt).strip()
                         else_txt = re.sub(r"^return\b", "", else_txt).strip()
                         consumed = 2
-            cond_smt = expr_smt(_clike_parse(cond_txt, lang), env)
-            then_v = expr_smt(_clike_parse(then_txt, lang), dict(env))
+            cond_smt = expr_fn(_clike_parse(cond_txt, lang), env)
+            then_v = expr_fn(_clike_parse(then_txt, lang), dict(env))
             if else_txt is not None:
-                else_v = expr_smt(_clike_parse(else_txt, lang), dict(env))
+                else_v = expr_fn(_clike_parse(else_txt, lang), dict(env))
             else:
-                tail = _exec_clike(stmts[i + consumed:], dict(env), lang)
+                tail = _exec_clike(stmts[i + consumed:], dict(env), lang, expr_fn)
                 if tail is None:
                     raise NoReturn("нет `return` на пути без ветвления")
                 else_v = tail
             return f"(ite {cond_smt} {then_v} {else_v})"
         m = re.match(r"^return\s+(.+)$", st, re.S)
         if m:
-            return expr_smt(_clike_parse(m.group(1), lang), env)
+            return expr_fn(_clike_parse(m.group(1), lang), env)
         m = re.match(
             r"^(?:const\s+|let\s+(?:mut\s+)?|"
             r"(?:int|long|i32|i64|u32|u64|usize|size_t|unsigned)\s+)?"
             r"([A-Za-z_]\w*)\s*(?::\s*[A-Za-z_]\w*)?\s*=\s*(.+)$", st, re.S)
         if m:
-            env[m.group(1)] = expr_smt(_clike_parse(m.group(2), lang), env)
+            env[m.group(1)] = expr_fn(_clike_parse(m.group(2), lang), env)
             continue
         raise Unsupported(f"оператор {lang}: {st[:40]!r}")
     return None
@@ -674,7 +682,15 @@ def parse_clike(path: Path):
         try:
             body = _exec_clike([s for s in raw_body.split(";")], {}, lang)
         except (NoReturn, Unsupported, SyntaxError) as e:
-            out.append((name, names, req, ens, None, i + 1, str(e), meta))
+            # УЛУЧШЕНИЕ №15: Int-теория не знает битовых операций (`& | ^ ~ << >>`),
+            # но ЯДРО KERN штатно работает с QF_BV. Если причина отказа — именно
+            # битовая операция, помечаем функцию как «BV-кандидата»: тело будет
+            # пересобрано в теории битовых векторов в `_demo` (а не отправлено в SKIP).
+            if _needs_bitvec(raw_body, req, ens):
+                meta["divisors"] = []
+                out.append((name, names, req, ens, "BV_PENDING", i + 1, None, meta))
+            else:
+                out.append((name, names, req, ens, None, i + 1, str(e), meta))
             i = j + 1
             continue
         meta["divisors"] = list(dict.fromkeys(_DIV_COLLECTOR))
@@ -1243,6 +1259,143 @@ def runtime_confirm_clike(meta: dict, params, vals):
     return None if want is None else (got == want)
 
 
+_BITWISE = re.compile(r"<<|>>|(?<![&|])[&|^~](?![&|])")
+_BV_CMP = {
+    (ast.Lt, True): "bvslt", (ast.LtE, True): "bvsle", (ast.Gt, True): "bvsgt", (ast.GtE, True): "bvsge",
+    (ast.Lt, False): "bvult", (ast.LtE, False): "bvule", (ast.Gt, False): "bvugt", (ast.GtE, False): "bvuge",
+}
+
+
+def _needs_bitvec(raw_body: str, req, ens, forced: bool = False) -> bool:
+    """Есть ли битовые операции (или явная аннотация @kern:bitvec32/64)."""
+    if forced:
+        return True
+    return any(_BITWISE.search(x or "") for x in (raw_body, req, ens))
+
+
+def _bv_shape(ranges: dict):
+    """(width, signed) из МАШИННЫХ диапазонов: i32 -> (32, True), u64 -> (64, False)."""
+    width, signed = 32, False
+    for lo, hi in (ranges or {}).values():
+        if lo < 0:
+            signed = True
+        if hi > 2**32 - 1 or lo < -2**31:
+            width = 64
+    return width, signed
+
+
+def expr_smt_bv(node, env: dict, w: int, signed: bool) -> str:
+    """Трансляция подмножества в QF_BV: арифметика + БИТОВЫЕ операции.
+
+    Зеркало `expr_smt`, но вместо `Int` — `(_ BitVec w)`: `&`->`bvand`,
+    `|`->`bvor`, `^`->`bvxor`, `~`->`bvnot`, `<<`->`bvshl`, `>>`->`bvlshr`/`bvashr`,
+    `+`->`bvadd`, `-`->`bvsub`, `*`->`bvmul`, `/`->`bvudiv`/`bvsdiv`,
+    `%`->`bvurem`/`bvsrem`, сравнения -> `bvult`/`bvslt`/`=`.
+    """
+    mask = 2**w - 1
+
+    def bv(v: int) -> str:
+        return f"(_ bv{v & mask} {w})"
+
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool):
+            return "true" if node.value else "false"
+        if isinstance(node.value, int):
+            return bv(node.value)
+        raise Unsupported(f"литерал {node.value!r}")
+    if isinstance(node, ast.Name):
+        return env.get(node.id, node.id)
+    if isinstance(node, ast.IfExp):
+        return (f"(ite {expr_smt_bv(node.test, env, w, signed)} "
+                f"{expr_smt_bv(node.body, env, w, signed)} "
+                f"{expr_smt_bv(node.orelse, env, w, signed)})")
+    if isinstance(node, ast.BoolOp):
+        op = "and" if isinstance(node.op, ast.And) else "or"
+        return f"({op} " + " ".join(expr_smt_bv(v, env, w, signed) for v in node.values) + ")"
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.Not):
+            return f"(not {expr_smt_bv(node.operand, env, w, signed)})"
+        if isinstance(node.op, ast.USub):
+            return f"(bvneg {expr_smt_bv(node.operand, env, w, signed)})"
+        if isinstance(node.op, ast.Invert):
+            return f"(bvnot {expr_smt_bv(node.operand, env, w, signed)})"
+        raise Unsupported("унарный оператор")
+    if isinstance(node, ast.BinOp):
+        left = expr_smt_bv(node.left, env, w, signed)
+        right = expr_smt_bv(node.right, env, w, signed)
+        o = node.op
+        simple = {ast.BitAnd: "bvand", ast.BitOr: "bvor", ast.BitXor: "bvxor",
+                  ast.LShift: "bvshl", ast.Add: "bvadd", ast.Sub: "bvsub", ast.Mult: "bvmul"}
+        for cls, name in simple.items():
+            if isinstance(o, cls):
+                return f"({name} {left} {right})"
+        if isinstance(o, ast.RShift):
+            return f"({'bvashr' if signed else 'bvlshr'} {left} {right})"
+        if isinstance(o, (ast.Div, ast.FloorDiv, ast.Mod)):
+            _DIV_COLLECTOR.append(right)
+            if isinstance(o, ast.Mod):
+                name = "bvsrem" if signed else "bvurem"
+            else:
+                name = "bvsdiv" if signed else "bvudiv"
+            return f"({name} {left} {right})"
+        raise Unsupported("бинарный оператор")
+    if isinstance(node, ast.Compare):
+        if len(node.ops) != 1:
+            raise Unsupported("цепочка сравнений")
+        o = node.ops[0]
+        left = expr_smt_bv(node.left, env, w, signed)
+        right = expr_smt_bv(node.comparators[0], env, w, signed)
+        if isinstance(o, ast.Eq):
+            return f"(= {left} {right})"
+        if isinstance(o, ast.NotEq):
+            return f"(not (= {left} {right}))"
+        name = _BV_CMP.get((type(o), signed))
+        if not name:
+            raise Unsupported("сравнение")
+        return f"({name} {left} {right})"
+    raise Unsupported(f"узел {type(node).__name__}")
+
+
+def build_smt_bv(params, req, ens, body_bv: str, w: int, signed: bool, lang: str) -> str:
+    """SMT-LIB2 в теории БИТОВЫХ ВЕКТОРОВ: `(_ BitVec w)`, арифметика + битовые операции.
+
+    ЗАЧЕМ (УЛУЧШЕНИЕ №15, найдено теневыми контрактами на РЕАЛЬНОМ коде).
+    Реальные системные функции почти всегда используют `& | ^ ~ << >>` — например
+    `isAligned` из `andrewrk/zig-general-purpose-allocator`:
+    `(addr & ~(alignment - 1)) == addr`. В математических `Int` таких операций нет,
+    поэтому экстрактор отправлял их в SKIP — хотя ЯДРО KERN (`kernc` + `proof_check.zig`)
+    штатно работает с QF_BV, что доказано рукописной моделью
+    `audits/andrewrk-gpa/isAligned.smt2` (ДОКАЗАНО на всех 2^32 значениях).
+
+    ВАЖНО (честно): в BV-режиме переполнение — это СЕМАНТИКА (машина заворачивает),
+    поэтому обязательство «нет переполнения» здесь НЕ проверяется: проверяются
+    контракт и деление на ноль. Это документировано в METRICS §77.
+    """
+    decls = "\n".join(f"(declare-const {p} (_ BitVec {w}))" for p in params)
+    lines = ["(set-logic QF_BV)", decls, f"(declare-const result (_ BitVec {w}))"]
+    env: dict = {}
+    if req:
+        lines.append(f"(assert {expr_smt_bv(_clike_parse(req, lang), env, w, signed)})")
+    lines.append(f"(assert (= result {body_bv}))")
+    if ens:
+        lines.append(f"(assert (not {expr_smt_bv(_clike_parse(ens, lang), env, w, signed)}))")
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def build_divzero_smt_bv(params, req, divisors, w: int, signed: bool, lang: str) -> str:
+    """Обязательство «делитель ≠ 0» в BV-режиме (`bvudiv`/`bvsdiv` тотальны в SMT)."""
+    decls = "\n".join(f"(declare-const {p} (_ BitVec {w}))" for p in params)
+    lines = ["(set-logic QF_BV)", decls]
+    env: dict = {}
+    if req:
+        lines.append(f"(assert {expr_smt_bv(_clike_parse(req, lang), env, w, signed)})")
+    zero = f"(_ bv0 {w})"
+    lines.append("(assert (or " + " ".join(f"(= {d} {zero})" for d in divisors) + "))")
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
 def runtime_confirm(path: Path, name: str, params, ens, vals):
     """Подставить контрпример в НАСТОЯЩУЮ функцию и проверить постусловие.
 
@@ -1377,6 +1530,10 @@ def _demo(args) -> int:
         if not funcs:
             print(f"  {p}: нет функций с аннотациями @kern:")
             continue
+        try:
+            ftext = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            ftext = ""
         for name, params, req, ens, body, ln, skip_reason, meta in funcs:
             total += 1
             # ---- ДЕТЕКТОР ЧИСТОТЫ (referential transparency) --------------
@@ -1397,9 +1554,32 @@ def _demo(args) -> int:
                 print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
                 skipped += 1
                 continue
+            forced_bv = ("@kern:bitvec32" in ftext) or ("@kern:bitvec64" in ftext)
+            use_bv = (p.suffix in CLIKE_EXT
+                      and (body == "BV_PENDING"
+                           or _needs_bitvec(meta.get("raw_body"), req, ens, forced_bv)))
             try:
-                smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
-            except Unsupported as e:
+                if use_bv:
+                    # УЛУЧШЕНИЕ №15: битовые операции -> QF_BV. Пересобираем тело в BV-теории
+                    # ТЕМ ЖЕ разбором операторов (`_exec_clike` с другим `expr_fn`).
+                    w, signed = _bv_shape(meta.get("ranges"))
+                    if "@kern:bitvec32" in ftext:
+                        w = 32
+                    elif "@kern:bitvec64" in ftext:
+                        w = 64
+                    _DIV_COLLECTOR.clear()
+                    bv_body = _exec_clike(meta["raw_body"].split(";"), {},
+                                          meta.get("lang", "zig"),
+                                          lambda node, env_: expr_smt_bv(node, env_, w, signed))
+                    meta["divisors"] = list(dict.fromkeys(_DIV_COLLECTOR))
+                    meta["bv"] = (w, signed)
+                    smt = build_smt_bv(params, req, ens, bv_body, w, signed,
+                                       meta.get("lang", "zig"))
+                    print(f"  [BV] {name} (стр. {ln}): теория битовых векторов "
+                          f"(_ BitVec {w}, {'знаковый' if signed else 'беззнаковый'})")
+                else:
+                    smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
+            except (Unsupported, NoReturn) as e:
                 print(f"  {name} (стр. {ln}): SKIP — вне подмножества: {e}")
                 skipped += 1
                 continue
@@ -1433,9 +1613,14 @@ def _demo(args) -> int:
             # ОТДЕЛЬНО: `requires ∧ (делитель = 0)` — SAT означает баг.
             if divisors:
                 try:
-                    _rcd, outd = run_kernc(
-                        kernc, build_divzero_smt(params, req, divisors,
-                                                 meta.get("ranges")))
+                    if meta.get("bv"):
+                        _w, _s = meta["bv"]
+                        smt_d = build_divzero_smt_bv(params, req, divisors, _w, _s,
+                                                     meta.get("lang", "zig"))
+                    else:
+                        smt_d = build_divzero_smt(params, req, divisors,
+                                                  meta.get("ranges"))
+                    _rcd, outd = run_kernc(kernc, smt_d)
                 except (Unsupported, subprocess.SubprocessError, OSError):
                     outd = ""
                 if "ДОКАЗАНО" not in outd:
@@ -1470,7 +1655,10 @@ def _demo(args) -> int:
             # возврата известен, поэтому `result ∉ [lo, hi]` — это БАГ, который
             # обязан быть предъявлен с контрпримером.
             ret = meta.get("ret")
-            if ret in TYPE_RANGE:
+            # УЛУЧШЕНИЕ №15: в BV-режиме переполнение — это СЕМАНТИКА (машина
+            # заворачивает), поэтому обязательство «нет переполнения» неприменимо:
+            # проверяются контракт и деление на ноль (см. METRICS §77).
+            if ret in TYPE_RANGE and not meta.get("bv"):
                 try:
                     _rco, outo = run_kernc(
                         kernc, build_overflow_smt(params, req, body,

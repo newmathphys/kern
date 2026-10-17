@@ -242,7 +242,7 @@ is generated from the sources).
 
 ---
 
-## 6d. Registry of defects from the audits of 2026-10-16/17 (#59–#116)
+## 6d. Registry of defects from the audits of 2026-10-16/17 (#59–#118)
 
 | # | Defect | Class |
 |:--:|:--|:--|
@@ -298,6 +298,8 @@ is generated from the sources).
 | 113 | CI #68/#69 went RED because of a HARD-CODED HASH in a test (root cause found via the cloud API) | tooling (a test broke on a legitimate data change) |
 | 114 | `canfail` POLLUTED COMMITTED EVIDENCE (found by a FULL run) | tooling (a run spoils the artefacts it protects) |
 | 115 | A VACUOUS `slsa` case: the injection went into a NON-attested binary | tooling (the case proved something else) |
+| 117 | The SKIP reason for a Zig builtin was a FOREIGN parser error (`invalid syntax`) instead of a language-level reason | tooling (misleading diagnostic) |
+| 118 | The proof checker rejected a valid Z3 certificate (`unit-resolution` step not covered) -> verdict degraded to SKIP: the gate is conservative, never silently optimistic. Open: coverage gap | tooling (proof-checker coverage) |
 | 116 | "Edit during a run" was closed INCOMPLETELY: a file the case ITSELF edited was restored from the case-start backup | tooling (silent loss of work) |
 | 117 | **SKIP diagnostics leaked a foreign parser's error** (found by a shadow contract on REAL third-party code): checking the real `isAligned` from `andrewrk/zig-general-purpose-allocator` gave a correct `SKIP — binary operator`, but a Zig builtin (`@mod`) produced `SKIP — invalid syntax (<unknown>, line 1)` — a Python parser message inside a Zig diagnostic, violating the rule that a SKIP must name its reason. Fixed with `_clike_parse(text, lang)` (5 call sites) which reports `zig-expression outside the subset: 'addr - @mod(addr, alignment)'`; locked in by an edge case and verified by `canfail --only edge-cases` | tooling (misleading diagnostics) |
 

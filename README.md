@@ -13,7 +13,6 @@
 [![Release downloads](https://img.shields.io/github/downloads/newmathphys/kern/total?color=3fb950&label=release%20downloads)](https://github.com/newmathphys/kern/releases)
 [![Deterministic benchmark](https://img.shields.io/badge/benchmark-per--commit%20chart-3fb950)](https://newmathphys.github.io/kern/bench/)
 [![Code Scanning](https://github.com/newmathphys/kern/actions/workflows/code-scanning.yml/badge.svg)](https://github.com/newmathphys/kern/actions/workflows/code-scanning.yml)
-[![Code scanning alerts](https://img.shields.io/badge/code%20scanning-KERN%20SARIF%20%2B%20Z3-3fb950?logo=github)](https://github.com/newmathphys/kern/security/code-scanning)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
@@ -43,8 +42,8 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 78 CHECK targets; 78 proven non-vacuous
-   (93 fault-injection cases).
+   fault and requires the check to go red. 79 CHECK targets; 79 proven non-vacuous
+   (94 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
@@ -205,6 +204,17 @@ make contracts
 > reported as a **translation bug**, not as a finding. A *compiled* replay
 > (`zig run` / `cc` / `rustc`) is **not** implemented — the evaluator deliberately needs no
 > toolchain, and the tool says nothing it cannot check.
+
+> **Bit-vector theory (`QF_BV`) for real systems code.** Real functions are full of
+> `& | ^ ~ << >>`, which do not exist in `Int` — so `addr & ~(alignment - 1)`, the alignment
+> trick from `andrewrk/zig-general-purpose-allocator`, used to be skipped. KERN's core has
+> always handled bit-vectors, so the extractor now switches to `(_ BitVec 32/64)`
+> (`bvand`, `bvnot`, `bvshl`, `bvult`, ...) — automatically on `& | ^ ~ << >>`, or explicitly
+> via `@kern:bitvec32` / `@kern:bitvec64`. The same statement parser is reused, so the same
+> code is checked. In this theory overflow is the *semantics* (the machine wraps), so the
+> overflow obligation is not asserted there; the contract and division-by-zero still are.
+> See [`audits/`](audits/README.md) for the real third-party functions this was built against.
+
 
 **6. KERN verifies itself:** `make self-verify` puts contracts on the formulas
 the kernel actually uses (`payloadSlice` offsets, the Farkas negation identity
@@ -663,6 +673,7 @@ src/            Zig core: .kimg format, KERNFS, Truth Gate, Z3 bridge, 5 SMT the
 src/next/       KERN-Next: .kern DSL, SQLite catalogue, snapshots, agent hand-off
 formal/         Lean 4 proofs (42 theorems) + certification package
 examples/       toy_ai_hallucination/ demo, guardrail_proxy.py HTTP guardrail
+audits/         shadow contracts: hand-written SMT models of real third-party expressions
 tools/          can-fail harness, mutation tester, benchmarks, cross-arch runner
 docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, evidence/
 ```
