@@ -73,7 +73,42 @@ These are documented, deliberate boundaries (see
   prover for arbitrary code.
 - **`proof_check.zig` performs structural validation only** — it is not a full
   Alethe/LFSC proof checker.
-- **The SLSA attestation is unsigned** in this environment (no `cosign`).
+- **The SLSA attestation is Ed25519-signed by the owner key** (`kern.intoto.sig`,
+  verified by `python3 tools/slsa_provenance.py --check`). It is **not** signed through a
+  cloud Sigstore/cosign OIDC builder, so it does not claim SLSA Level 3 builder isolation.
+
+## Scope
+
+**In scope** — anything that can make KERN accept what it should reject, or crash on
+untrusted input:
+
+| Surface | What is trusted? |
+|:--|:--|
+| `.kimg` container (header, descriptor table, Merkle root, payload digests) | **untrusted** |
+| `.kern` project DSL, `.smt2` contracts | **untrusted** |
+| Solver output (S-expressions, models, proofs) | **untrusted** — parsed by `proof_check.zig` |
+| `libkern.so` C-ABI (NULL pointers, lengths, OOM) | called by **untrusted** callers |
+| Release assets + `SHA256SUMS` + `kern.intoto.jsonl`/`.sig` | supply chain |
+| `tools/*.py` (contract extractor, mutator, harness) | developer-side tooling |
+
+**Out of scope:** bugs in upstream Z3 / Lean 4 / `libsqlite3` (report them upstream — but
+tell us if KERN's use of them is unsafe); the quality of AI models KERN checks; licence
+questions (see `LICENSE`); anything requiring a malicious local root user.
+
+## Verifying a release you downloaded
+
+The gate is only as trustworthy as the binary you run, so this is the intended path:
+
+```bash
+curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
+curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/SHA256SUMS
+sha256sum -c SHA256SUMS                      # must print: OK
+python3 tools/slsa_provenance.py --check     # Ed25519 signature + source fingerprint
+```
+
+The release binary is built hermetically (`zig build hermetic`, static musl); the attestation
+binds the binary digest to the source fingerprint, and `make artifact-check` fails if the
+README, the local build and the published asset ever disagree.
 
 ## Hardening already in place
 
@@ -87,6 +122,7 @@ For context when assessing a report:
 - `comptime` layout assertions on every on-disk structure.
 - Atomic image writes (tmp + `fsync` + `rename` + directory `fsync`).
 - A hard timeout and FD/zombie discipline around every solver subprocess.
-- Can-fail harness proving that all 60 checks are able to fail.
+- Can-fail harness proving that all **78 CHECK targets** are able to fail (93 non-vacuous
+  cases, 0 vacuous, 0 case errors) — a check that cannot go red is treated as a defect here.
 
 Thank you for helping keep KERN honest.

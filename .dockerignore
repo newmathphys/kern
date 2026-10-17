@@ -1,0 +1,15 @@
+# Never ship build artefacts, caches or VCS data into the build context.
+# Without this file the context is ~1.4 GB (Python venvs + .zig-cache), which makes
+# the first `docker build` needlessly slow for a user who only wants to try KERN.
+.git
+.github
+.zig-cache
+zig-out
+.venv*
+__pycache__/
+*.pyc
+*.kimg
+*.tar.xz
+logs
+docs/evidence
+.rii

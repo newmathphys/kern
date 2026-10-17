@@ -50,6 +50,11 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 ## 0. Быстрый старт (5 минут)
 
 ```bash
+# 0. Попробовать без тулчейна (проверено 2026-10-17, образ 364 МБ)
+docker build -t kern:2.4.0 .                        # контекст ~4.3 МБ (.dockerignore)
+docker run --rm kern:2.4.0                          # целостность: заголовок + Merkle-корень
+docker run --rm kern:2.4.0 verify /kern/toy.kimg    # Врата Истины: SAT -> e=0 (F), UNSAT -> e=1 (T)
+
 # 1. Окружение: Zig 0.17.0 (ветка zig-0.17-migration)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 #    (ветка main: make venv && export PATH="$PWD/.venv/bin:$PATH" — там Zig 0.13)
@@ -57,7 +62,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
 
-# 3. Тесты ядра — 198 штук
+# 3. Тесты ядра — 279 штук
 zig build test
 
 # 4. Эталонный образ и его проверка
@@ -105,6 +110,13 @@ make sim    # 80 000 операций, 4 сида, инварианты I1–I4
 
 **Сайт:** <https://newmathphys.github.io/kern/> — лендинг с быстрым стартом,
 измеренными числами и шагом «проверь то, что скачал».
+
+**K.E.R.N.** — *Knowledge Evaluation and Resolution Node* (Узел оценки и резолюции знаний):
+**K**nowledge — всё, что генерирует ИИ-агент (код, контракты, тесты); **E**valuation —
+математическая проверка этих заявок (Z3 SMT + независимый пруф-чекер на Zig + теоремы
+Lean 4); **R**esolution — разрешение конфликтов в четырёхзначной логике Белнапа
+(`T ⊔ F = B`, противоречие не перезаписывается); **N**ode — единый шлюз L0–L5:
+`e = 1` проходит в продакшен, `e = 0` блокируется.
 
 ## 1. Состав
 

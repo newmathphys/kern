@@ -71,6 +71,24 @@ ul{padding-left:20px;margin:10px 0}
 li{margin:6px 0}
 .tag{color:var(--ok);font-weight:700}
 footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding-top:16px;font-size:13px}
+/* --- terminal demo (data = a real `make run-example` transcript) --- */
+.term{background:#010409;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.termbar{display:flex;align-items:center;gap:6px;background:var(--card);
+  border-bottom:1px solid var(--line);padding:8px 12px}
+.termbar .d{width:11px;height:11px;border-radius:50%;display:inline-block}
+.termbar .r{background:#f85149}.termbar .y{background:#d29922}.termbar .g{background:#3fb950}
+.termtitle{margin-left:8px;color:var(--dim);font-size:12px}
+.termscreen{margin:0;padding:16px;min-height:290px;background:transparent;border:0;
+  border-radius:0;font-size:13.5px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.termscreen .prompt{color:var(--ok)}
+.termscreen .cmd{color:#79c0ff}
+.termscreen .ok{color:var(--ok)}
+.termscreen .bad{color:#ff7b72;font-weight:700}
+.termscreen .dim{color:var(--dim)}
+.termscreen .gloss{color:var(--mut);font-style:italic}
+.cursor{color:var(--ok);animation:blink 1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.cursor{animation:none}}
 </style>
 </head>
 <body>
@@ -93,6 +111,31 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
      alt="KERN architecture: Belnap B4 accumulator, L0-L5 engine and truth gate, measured baseline">
 </div>
 
+<h2>What K.E.R.N. stands for</h2>
+<div class="panel">
+  <div class="hdr">K.E.R.N. — KNOWLEDGE EVALUATION AND RESOLUTION NODE</div>
+  <div class="stat">
+    <span class="val">K</span><span class="lbl"><strong style="color:var(--ink)">Knowledge</strong> — everything an AI agent produces: code, contracts, tests, AST trees. KERN treats it as a <em>claim</em>, not as a fact.</span>
+    <span class="val">E</span><span class="lbl"><strong style="color:var(--ink)">Evaluation</strong> — mathematical checking of that claim: Z3 SMT, an independent proof-DAG checker written in Zig, and theorems in Lean 4.</span>
+    <span class="val">R</span><span class="lbl"><strong style="color:var(--ink)">Resolution</strong> — resolving the conflict between old and new knowledge in Belnap's four-valued logic, where a contradiction is kept as <code>T ⊔ F = B</code> instead of being silently overwritten.</span>
+    <span class="val">N</span><span class="lbl"><strong style="color:var(--ink)">Node</strong> — the single gateway (an L0–L5 firewall): code either reaches production with <code>e = 1</code> or is blocked with <code>e = 0</code>.</span>
+  </div>
+</div>
+
+<h2>See it in 15 seconds</h2>
+<div class="panel">
+  <div class="term">
+    <div class="termbar"><i class="d r"></i><i class="d y"></i><i class="d g"></i>
+      <span class="termtitle">kern — green CI vs. mathematics</span></div>
+    <pre class="termscreen" id="termscreen"><span class="cursor">█</span></pre>
+  </div>
+  <p class="lbl" style="margin:12px 0 0">Transcript of a real <code>make run-example</code> run.
+  Command lines, verdict tokens (<code>SAT</code>/<code>UNSAT</code>, <code>e=0</code>/<code>e=1</code>,
+  <code>(F)</code>/<code>(T)</code>) and numbers are printed verbatim; the surrounding prose is shown in
+  English for readability — the tool itself prints Russian verdict words, and the can-fail gates
+  depend on those exact strings.</p>
+</div>
+
 <h2>What it is</h2>
 <ul>
 <li><span class="tag">A gate, not a linter.</span> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
@@ -100,7 +143,25 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <li><span class="tag">Polyglot contracts.</span> <code>@kern:requires</code> / <code>@kern:ensures</code> are read from <code>.py</code>, <code>.zig</code>, <code>.c</code> and <code>.rs</code> — with machine types, so i32 overflow and division by zero are caught.</li>
 </ul>
 
-<h2>Quickstart — and verify what you downloaded</h2>
+<h2>Try it in one line — no Zig required</h2>
+<div class="panel ok">
+  <div class="hdr">DOCKER · VERIFIED 2026-10-17 · IMAGE 364 MB</div>
+<pre>docker build -t kern:2.4.0 .                       # context ~4.3 MB (.dockerignore)
+docker run --rm kern:2.4.0                         # integrity check: header + Merkle root
+docker run --rm kern:2.4.0 verify /kern/toy.kimg   # the Truth Gate
+
+# the last command really prints (verdict tokens verbatim):
+#   claim `withdraw never increases the balance`
+#     SAT -> e=0 (F)    COUNTEREXAMPLE — the agent's claim is refuted
+#   claim `fixed withdraw never increases the balance`
+#     UNSAT -> e=1 (T)  PROVEN by Z3, re-checked by the proof checker</pre>
+  <p class="lbl" style="margin:12px 0 0">Built and executed with Docker Engine 29.8.1
+  (overlayfs) — the two outputs above come from that run. The build is multi-stage:
+  Zig 0.17.0 compiles <code>kernc</code>; the runtime stage ships it together with
+  <code>z3</code> and a pre-built toy image.</p>
+</div>
+
+<h2>Or the static binary — and verify what you downloaded</h2>
 <pre># 1. Download the static binary (musl) and VERIFY its checksum before running it
 curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
 curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/SHA256SUMS
@@ -159,6 +220,29 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
 <br><code>uses: newmathphys/kern@v2.4.0</code></p>
 </div>
 
+<h2>Defect Journal — when the checks themselves lied</h2>
+<div class="panel">
+<p class="lbl" style="margin:0 0 14px">Short entries from
+<a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
+the full registry is
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">74 entries, #1–#116</a>.
+Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
+
+<p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
+<p class="lbl" style="margin:0 0 14px"><em>Symptom:</em> the score "dropped" to 77.5 % after the mutator was pointed at 14 files instead of 6.
+<em>Found by measuring, not guessing:</em> without <code>z3</code> in <code>PATH</code> the suite reports <code>263 passed; 8 skipped</code> — and a skipped test cannot kill a mutant. One of those 8 tests had been written specifically to kill the mutant that "survived".
+<em>Fix:</em> the mutator now requires a solver (<code>--require-solver</code>); the honest score is <strong>95.0 % (38/40)</strong>.</p>
+
+<p style="margin:0 0 4px"><strong style="color:var(--ink)">#107 — 64 % of the mutants came from a single file.</strong></p>
+<p class="lbl" style="margin:0 0 14px"><em>Symptom:</em> "mutation coverage over 14 files" — but <code>proof_check.zig</code> holds 266 of the 420 sites, so a uniform sample put ~25 mutants in one file and 0–1 in the others.
+<em>Fix:</em> stratified sampling with a guaranteed minimum per file, a fixed recorded seed, and the site distribution published in the defect entry.</p>
+
+<p style="margin:0 0 4px"><strong style="color:var(--ink)">#116 — the harness rollback silently discarded an edit made during a run.</strong></p>
+<p class="lbl" style="margin:0"><em>Symptom:</em> a README edit vanished, and the file stayed syntactically valid, so nothing looked broken.
+<em>Found by comparing content, not exit codes:</em> the can-fail harness restores patched files from a byte snapshot taken at the start of each case — and for files the case <em>itself</em> patched, a third-party edit in between was overwritten without a word.
+<em>Fix:</em> the harness records the hash of what it wrote and refuses to restore when the file changed afterwards; per-case state is reset. Verified by a targeted 3/3 test.</p>
+</div>
+
 <h2>Honest status</h2>
 <div class="panel">
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
@@ -177,6 +261,73 @@ This page is served from <code>/docs</code> of the
 </footer>
 
 </div>
+<script>
+/* Terminal demo. The transcript is a REAL `make run-example` run
+   (see docs/METRICS.md); verdict tokens and numbers are verbatim. */
+(function () {
+  var el = document.getElementById('termscreen');
+  if (!el) return;
+
+  var LINES = [
+    { c: 'prompt', t: '$ ' },
+    { c: 'cmd',    t: 'python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py', type: true },
+    { c: 'ok',     t: '\n.                                                        [100%]\n1 passed in 0.02s\n' },
+    { c: 'gloss',  t: '# the "test" contains no assert — it cannot fail. CI is green.\n' },
+    { c: 'prompt', t: '\n$ ' },
+    { c: 'cmd',    t: 'kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg', type: true },
+    { c: 'ok',     t: '\n[OK] toy.kimg built (5 objects)\n' },
+    { c: 'prompt', t: '\n$ ' },
+    { c: 'cmd',    t: 'kernc verify toy.kimg', type: true },
+    { c: 'dim',    t: '\n  claim `withdraw never increases the balance`\n' },
+    { c: 'bad',    t: '    SAT -> e=0 (F) ' },
+    { c: 'gloss',  t: 'COUNTEREXAMPLE — the claim is refuted\n' },
+    { c: 'dim',    t: '  claim `fixed withdraw never increases the balance`\n' },
+    { c: 'ok',     t: '    UNSAT -> e=1 (T) ' },
+    { c: 'gloss',  t: 'PROVEN by Z3, re-checked by the proof checker\n' },
+    { c: 'dim',    t: '\n[i] proven 1, counterexamples 1, no contract 0\n' },
+    { c: 'gloss',  t: '[i] e=1 is assigned ONLY from a solver verdict.\n' },
+    { c: '',       t: '', pause: 3000 }
+  ];
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var cur = document.createElement('span');
+  var cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  cursor.textContent = '\u2588';
+
+  function paint() { el.textContent = ''; el.appendChild(cur); el.appendChild(cursor); }
+
+  if (reduce) {                                   // no animation: show it all at once
+    LINES.forEach(function (l) {
+      var s = document.createElement('span');
+      if (l.c) s.className = l.c;
+      s.textContent = l.t;
+      cur.appendChild(s);
+    });
+    paint();
+    return;
+  }
+
+  var i = 0, j = 0, started = false;
+  function step() {
+    if (i >= LINES.length) {                      // loop
+      i = 0; j = 0; cur = document.createElement('span'); paint();
+      setTimeout(step, 900); return;
+    }
+    var l = LINES[i];
+    if (!started) { cur = document.createElement('span'); if (l.c) cur.className = l.c; paint(); started = true; }
+    if (l.type && j < l.t.length) {                // type the command char by char
+      cur.textContent += l.t[j++];
+      setTimeout(step, 26 + Math.random() * 34);
+      return;
+    }
+    if (!l.type) cur.textContent = l.t;            // reveal output at once
+    j = 0; i += 1; started = false;
+    setTimeout(step, l.pause || (l.type ? 120 : 80));
+  }
+  setTimeout(step, 500);
+})();
+</script>
 </body>
 </html>
 

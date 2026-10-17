@@ -361,6 +361,12 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 **Website:** <https://newmathphys.github.io/kern/> — landing page with the quickstart,
 the measured numbers and the "verify what you downloaded" step.
 
+**K.E.R.N.** — *Knowledge Evaluation and Resolution Node*: **K**nowledge (whatever an AI
+agent produces — code, contracts, tests), **E**valuation (Z3 SMT + an independent proof-DAG
+checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is kept as
+`T ⊔ F = B`, never overwritten), **N**ode (the L0–L5 gateway: `e = 1` reaches production,
+`e = 0` is blocked).
+
 ### Core health
 
 | Check | Result |
@@ -474,6 +480,11 @@ Two clean builds each (`rm -rf .zig-cache` in between):
 and Lean 4 (only for `formal/`).
 
 ```bash
+# 0. Try it with no toolchain at all (verified 2026-10-17, image 364 MB)
+docker build -t kern:2.4.0 .                        # context ~4.3 MB (.dockerignore)
+docker run --rm kern:2.4.0                          # integrity check: header + Merkle root
+docker run --rm kern:2.4.0 verify /kern/toy.kimg    # the Truth Gate: SAT -> e=0 (F), UNSAT -> e=1 (T)
+
 # 1. Toolchain (Zig 0.17.0)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 

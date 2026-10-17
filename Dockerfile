@@ -1,13 +1,16 @@
 # ============================================================================
 #  KERN — reproducible multi-stage build (Zig 0.17.0 core + libsqlite3 + z3).
 #
-#  Build:  docker build -t kern:2.0 .
-#  Use:    docker run --rm kern:2.0                      # integrity check
-#          docker run --rm kern:2.0 verify /kern/toy.kimg # the Truth Gate
+#  Build:  docker build -t kern:2.4.0 .          # context is ~4.3 MB (.dockerignore)
+#  Use:    docker run --rm kern:2.4.0                      # integrity check
+#          docker run --rm kern:2.4.0 verify /kern/toy.kimg # the Truth Gate
 #
-#  HONEST STATUS: this Dockerfile is written but NOT verified in the
-#  development environment (no Docker daemon there). Treat it as a starting
-#  point, not as a measured artifact. See formal/certification/KNOWN_LIMITATIONS.md
+#  STATUS: VERIFIED 2026-10-17. Built with Docker Engine 29.8.1 (overlayfs) and BOTH
+#  commands above were executed: the integrity check printed
+#  `[OK] Целостность: заголовок + Merkle-корень совпали`, and `verify` printed
+#  `SAT -> e=0 (F) КОНТРПРИМЕР` for the refuted claim and `UNSAT -> e=1 (T) ДОКАЗАНО`
+#  for the fixed one. Image size 364 MB. (Earlier revisions of this file were honest
+#  about being unverified — the daemon is available now, so it is verified.)
 # ============================================================================
 FROM debian:bookworm-slim AS build
 
