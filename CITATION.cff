@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use KERN in academic work, please cite it as below."
+title: "KERN: a zero-trust L0-L5 verification gateway for machine-checked claims"
+abstract: >-
+  KERN admits a claim about code only when it is confirmed by a machine —
+  an SMT solver, a formal proof, or a reproducible execution fact — and never
+  because of text, documentation or a green CI. It ships a Zig 0.17 core with a
+  native Z3 proof-DAG checker (independent re-verification of every solver
+  step), Belnap B4 four-valued logic, Lean 4 proofs (0 errors, 0 sorry), a
+  content-addressed .kimg container with Merkle integrity, contracts written as
+  plain Python comments, a Model Context Protocol server for AI agents, and a
+  can-fail harness that proves every check is capable of failing.
+authors:
+  - family-names: "Kalinousky"
+    given-names: "Vital"
+version: "2.4.0"
+date-released: "2026-10-17"
+license: PolyForm-Noncommercial-1.0.0
+repository-code: "https://github.com/newmathphys/kern"
+url: "https://github.com/newmathphys/kern"
+keywords:
+  - zig
+  - formal-verification
+  - z3
+  - smt
+  - lean4
+  - belnap-logic
+  - ai-safety
+  - mcp-server
+  - mutation-testing
+  - blake3

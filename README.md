@@ -8,7 +8,7 @@
 [![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-74%2F74-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-251%2F251-informational)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_204%2F204_%28rerun_pending%29-informational)](#cross-architecture)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 KERN is an L0–L5 verification gateway that sits between an AI coding agent and your
@@ -123,6 +123,53 @@ When a contract is refuted, KERN prints the **Z3 counterexample** (`get-model`):
 the exact input values that break it. Out-of-subset code is reported as `SKIP`
 with a reason — never as a silent pass.
 
+### Four traps an AI agent falls into — and how KERN refuses them
+
+**1. The vacuous precondition (`false ⟹ anything`).** A contradictory
+`requires` makes the obligation `requires ∧ ¬ensures` trivially UNSAT, so *any*
+broken body would be reported as **proved**:
+
+```python
+# @kern:requires amount > 10 and amount < 5      # empty domain
+# @kern:ensures  result == balance - amount
+def withdraw_vacuous(balance: int, amount: int) -> int:
+    return balance + amount                      # deliberately wrong
+```
+```bash
+make contracts
+# [VACUOUS] withdraw_vacuous: предусловие ПРОТИВОРЕЧИВО (пустой домен) -> B4: N, e = 0
+```
+
+**2. Weakening the specification instead of fixing the code.** The cheapest
+cheat is to delete the `# @kern:ensures` line that fails. Every contract is
+fingerprinted; any removal or edit is a hard error:
+
+```bash
+make contracts-lock-check
+# [SECURITY] контракт УДАЛЁН: examples/contracts_demo.py:withdraw:ensures
+# rc = 2   (fingerprints are sealed in docs/contracts.lock.json)
+```
+
+**3. A refactoring that silently changes behaviour.** No contracts required:
+KERN checks `∃x: f_old(x) ≠ f_new(x)` over all of ℤ and prints the exact input
+where the two versions disagree:
+
+```bash
+make diff-equiv
+# [DIVERGED] charge: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ!
+#            [КОНТРПРИМЕР] amount = 1, res_old = 0, res_new = 2, balance = 1
+```
+
+**4. A counterexample that lives only in a log.** `--emit-pytest` turns it into
+a real regression test that **fails** on the current code:
+
+```bash
+python3 tools/kern_contracts.py examples/contracts_demo.py --emit-pytest out_test.py
+# def test_counterexample_withdraw_missing_neg():
+#     result = withdraw_missing_neg(balance=0, amount=-1)
+#     assert (result <= balance)      # FAILS: 1 <= 0 is false
+```
+
 For AI agents, `examples/kern_mcp_server.py` exposes the gate over the **Model
 Context Protocol** (5 tools: `kern_verify_smt`, `kern_prove_with_checker`,
 `kern_verify_multi_belnap`, `kern_verify_python`, `kern_check_equivalence` —
@@ -135,7 +182,7 @@ contracts**):
 ```
 
 ```bash
-make mcp-selftest   # drives the server over stdio and asserts 200/422/409 semantics
+make mcp-selftest   # drives the server over stdio: 12 live checks, all 5 tools
 ```
 
 ---
@@ -291,7 +338,8 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **72 / 72 CHECK targets** have a proven-can-fail case (**85 fault-injection cases**) |
+| Can-fail harness | **74 / 74 CHECK targets (100 %)** have a proven-can-fail case (**88 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 67 literal anchors verified in ~1 s) |
+| Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
 | OOM fault injection (`checkAllAllocationFailures`) | **0 bytes leaked** on every partial-failure path |
@@ -301,9 +349,9 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **251 / 251** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **251 / 251** |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **251 / 251** |
+| x86_64 | TSO memory model | **279 / 279** |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | ⚠️ last QEMU run: **204 / 204**; re-run pending (suite grew to 279, `docs/evidence/cross_arch.log`) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | ⚠️ last QEMU run: **204 / 204**; re-run pending (same reason) |
 
 ### External benchmarks
 
@@ -438,14 +486,14 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 ### Prebuilt static binary and GitHub Action
 
 No toolchain needed. Release `v2.4.0` ships a statically linked `x86_64-linux-musl`
-binary (6,033,336 bytes), so `kernc` runs on any x86-64 Linux without Zig:
+binary (6,033,648 bytes), so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
 curl -fsSL -o kernc \
   https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
 chmod +x kernc && ./kernc --version
 # verify the download first:
-# f03ab8e6a4eddf32a8fa326d7e5ce12c3a9c45b6e31938ae795e04ebde562aed  kernc-x86_64-linux-musl
+# dfac1aae044af0aed452ed3b77a702db90e0cde18570f1b68273a63501507b82  kernc-x86_64-linux-musl
 ```
 
 Or use it as a step in your own workflow:

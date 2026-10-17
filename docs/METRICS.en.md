@@ -12,7 +12,7 @@
 
 | Suite | Debug | ReleaseFast |
 |:--|:--:|:--:|
-| Core (`src/test_root.zig`) | **204/204** | **204/204** (ReleaseSafe) |
+| Core (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **25/25** | **25/25** (ReleaseSafe) |
 | Lean 4 (`formal/check.sh`) | **7 files, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 attacks blocked | — |
@@ -25,7 +25,7 @@
 > journal). Current numbers live only in §1 and in the latest section.
 >
 > Note on translation: where a number in §1 was stale at translation time, the
-> current measured value is used (core suite 198 → 204; `docs/evidence/core_tests.log`).
+> current measured value is used (core suite 198 → 279; `docs/evidence/core_tests.log`).
 
 ## 2. Official benchmarks (no local models)
 

@@ -26,7 +26,7 @@
 | Target Systems | **PASS** — 2 платформы: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA-обход закрыт, KERNFS согласован) |
 | Decision Coverage | **PASS** — 100.0 % (порог 95 %) |
-| Mutation Coverage | **PASS** — 92.5 % (37/40; 3 эквивалентных) |
+| Mutation Coverage | **PASS** — 95.0 % (38/40; 2 доказанно эквивалентных) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
