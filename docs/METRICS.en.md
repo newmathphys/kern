@@ -134,3 +134,38 @@ format change (v2).
 | Dead branch `x*x < 0` | vacuous ✅ |
 | Contract `x>0 => x+1>1` | proved ✅ |
 | Contract (false) `x>0 => x+1>5` | refuted ✅ |
+
+---
+
+## 22. Build-runner notes (Zig 0.17) — read this before "fixing" a red log
+
+**`failed command: ./.zig-cache/o/<hash>/test --cache-dir=./.zig-cache --seed=0x… --listen=-`
+is printed even when ALL tests pass.** This was misread once (as a "flake under load") and
+is documented here so it is not misread again.
+
+Mechanism: since late 0.13 and in 0.17, `zig build` runs the tests as a SEPARATE child
+process that talks to the parent over an IPC protocol (`--listen=-`, `-` = over
+stdout/pipe). The parent takes the STEP VERDICT from the PROTOCOL, while the
+`failed command:` line is emitted from the child's exit/pipes closing. So "a line in the
+log" and "the step verdict" are different things.
+
+Evidence that the run is fine (three independent facts):
+
+1. **Zig never caches a failed step.** Minimal project check: a failing step is re-run on
+   every invocation (rc=1 again), a passing step is cached (no output). For KERN a fresh
+   `zig build test --summary all` reports **`Build Summary: 3/3 steps succeeded`**,
+   **`test success`**, **`run test cached`**.
+2. **Running the test binary directly** prints `All 279 tests passed` (and `All 38 tests
+   passed` for KERN-Next) with rc=0 and NO `failed command` line at all
+   (341 output lines vs 65 via `zig build`).
+3. **CI #72 / #73** (same contour: build/test/test-next/test-fault + Lean + CAN-FAIL) —
+   `success` on every step.
+
+**Rule:** judge a build by its exit code and `zig build … --summary all` — never by
+grepping the log.
+
+**Do not `rm -rf .zig-cache/o`.** That directory holds not only artifacts but also the
+`addTranslateC`-GENERATED module `sqlite3_bridge.zig` (the SQLite C header is translated
+there). Deleting it breaks the build (`FileNotFound … sqlite3_bridge.zig`) until a full
+`rm -rf .zig-cache` + rebuild. Cleaning the whole `.zig-cache` is safe; deleting only
+`o/` is not.

@@ -499,6 +499,19 @@ uv pip install --python .venv/bin/python z3-solver
 make audit-manifest
 ```
 
+> **Build notes (Zig 0.17) — read before "fixing" a red-looking log.**
+> A fresh `zig build test` prints
+> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 279 tests
+> pass**: `zig build` runs the tests as a separate child that reports over an IPC
+> protocol (`--listen=-`), and the step verdict comes from the protocol, not from that
+> line. Judge a build by its exit code and `zig build … --summary all` — never by
+> grepping the log. (This was misread once; see `docs/METRICS.md` §75.5 and §22 of
+> `docs/METRICS.en.md`.)
+>
+> Also: do **not** `rm -rf .zig-cache/o` — that directory holds the `addTranslateC`-
+> generated `sqlite3_bridge.zig` (translated from the SQLite C header), and deleting it
+> breaks the build until a full `rm -rf .zig-cache` + rebuild.
+
 **One command for everything:**
 
 ```bash
