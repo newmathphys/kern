@@ -4,7 +4,7 @@
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
 [![Core tests](https://img.shields.io/badge/core_tests-279%2F279-brightgreen)](src/)
-[![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
+[![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-38%2F38-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-78%2F78-blueviolet)](tools/canfail.py)
@@ -38,7 +38,8 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 65 checks; 64 proven non-vacuous.
+   fault and requires the check to go red. 78 CHECK targets; 78 proven non-vacuous
+   (93 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
@@ -113,9 +114,9 @@ def withdraw(balance: int, amount: int) -> int:
 
 ```bash
 make contracts
-# [PASS] withdraw_fixed:      ДОКАЗАНО  (proof checker: trusted: 0)
-# [FAIL] withdraw_missing_neg: КОНТРАКТ НАРУШЕН
-#        [КОНТРПРИМЕР] balance = 0, amount = -1, result = 1
+# [PASS] withdraw_fixed:      PROVEN  (proof checker: trusted: 0)
+# [FAIL] withdraw_missing_neg: CONTRACT VIOLATED
+#        [COUNTEREXAMPLE] balance = 0, amount = -1, result = 1
 # sum_to_n: SKIP — out of the supported subset (loops)
 ```
 
@@ -137,7 +138,7 @@ def withdraw_vacuous(balance: int, amount: int) -> int:
 ```
 ```bash
 make contracts
-# [VACUOUS] withdraw_vacuous: предусловие ПРОТИВОРЕЧИВО (пустой домен) -> B4: N, e = 0
+# [VACUOUS] withdraw_vacuous: precondition is unsatisfiable (empty domain) -> B4: N, e = 0
 ```
 
 **2. Weakening the specification instead of fixing the code.** The cheapest
@@ -146,7 +147,7 @@ fingerprinted; any removal or edit is a hard error:
 
 ```bash
 make contracts-lock-check
-# [SECURITY] контракт УДАЛЁН: examples/contracts_demo.py:withdraw:ensures
+# [SECURITY] sealed contract REMOVED: examples/contracts_demo.py:withdraw:ensures
 # rc = 2   (fingerprints are sealed in docs/contracts.lock.json)
 ```
 
@@ -156,8 +157,8 @@ where the two versions disagree:
 
 ```bash
 make diff-equiv
-# [DIVERGED] charge: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ!
-#            [КОНТРПРИМЕР] amount = 1, res_old = 0, res_new = 2, balance = 1
+# [DIVERGED] charge: REFACTORING CHANGED BEHAVIOUR
+#            [COUNTEREXAMPLE] amount = 1, res_old = 0, res_new = 2, balance = 1
 ```
 
 **4. A counterexample that lives only in a log.** `--emit-pytest` turns it into
@@ -181,8 +182,8 @@ what an unbounded `Int` model cannot:
 ```bash
 make contracts
 # [PASS] withdrawGuard                      (Zig, i32)
-# [FAIL] share: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ   [КОНТРПРИМЕР] amount = 0
-# [FAIL] double_it: ПЕРЕПОЛНЕНИЕ типа i32  [КОНТРПРИМЕР] x = 1073741824, result = 2147483648
+# [FAIL] share: POSSIBLE DIVISION BY ZERO   [COUNTEREXAMPLE] amount = 0
+# [FAIL] double_it: i32 OVERFLOW  [COUNTEREXAMPLE] x = 1073741824, result = 2147483648
 # [RUNTIME CONFIRMED] the counterexample really breaks the running function
 ```
 
@@ -214,7 +215,7 @@ contracts**):
 ```
 
 ```bash
-make mcp-selftest   # drives the server over stdio: 12 live checks, all 5 tools
+make mcp-selftest   # drives the server over stdio: 14 live checks, all 5 tools
 ```
 
 ---
@@ -363,7 +364,7 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 |:--|:--|
 | Core test suite (Debug + ReleaseSafe) | **279 / 279** |
 | Core test suite **without** `z3` in `PATH` | **271 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
-| KERN-Next test suite | **37 / 37** |
+| KERN-Next test suite | **38 / 38** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
@@ -382,8 +383,8 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | Target | Property under test | Result |
 |:--|:--|:--|
 | x86_64 | TSO memory model | **279 / 279** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | ⚠️ last QEMU run: **204 / 204**; re-run pending (suite grew to 279, `docs/evidence/cross_arch.log`) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | ⚠️ last QEMU run: **204 / 204**; re-run pending (same reason) |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **240 passed / 4 skipped / 0 failed** (QEMU log 2026-10-16, `docs/evidence/cross_arch.log`; host suite has since grown to 279 / 279, re-run pending) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **240 passed / 4 skipped / 0 failed** (same QEMU log; host suite has since grown to 279 / 279, re-run pending) |
 
 ### External benchmarks
 
@@ -393,6 +394,11 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | **Hacker's Delight / Alive2-style** | **8 / 8** (6 proved, 2 counterexamples) | no |
 | **SWE-bench Lite** (Docker harness) | **3 / 3 resolved**, 0 infra failures | no |
 | **Refactory** (student solutions) | see note below - **not** a core metric | no |
+| **CHC / Horn** (loop invariants) | **11 / 11** | no |
+| **SMT-LIB** (official suite) | 1104 / 1104 verdicts matched, **0 divergences**, **0 false accepts** | no |
+| **HumanEval / HumanEval+** (EvalPlus) | 0.524 / 0.500 | yes (API) |
+| **MBPP / MBPP+** (EvalPlus) | 0.812 / 0.698 | yes (API) |
+
 > **On the Refactory row (defect #77, found 2026-10-16).** Two Python-only
 > harnesses exist for this dataset, and **neither uses the KERN core**
 > (`kernc`, Z3, Lean) - they are differential execution scripts:
@@ -416,10 +422,6 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 > Conclusion: the Refactory numbers describe an external Python harness, not
 > the formal verifier, and are therefore not listed as a core metric.
 
-| **CHC / Horn** (loop invariants) | **11 / 11** | no |
-| **SMT-LIB** (official suite) | 1104 / 1104 verdicts matched, **0 divergences**, **0 false accepts** | no |
-| **HumanEval / HumanEval+** (EvalPlus) | 0.524 / 0.500 | yes (API) |
-| **MBPP / MBPP+** (EvalPlus) | 0.812 / 0.698 | yes (API) |
 
 > **Scope of the static gate.** In the HumanEval experiment the static gate blocked
 > 55 samples; all 55 genuinely failed (100 % precision), but it did **not** raise
@@ -477,7 +479,7 @@ zig build
 
 # 3. Core test suites
 zig build test          # 279 core tests
-zig build test-next     # 37 KERN-Next tests
+zig build test-next     # 38 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics
 make run-example
@@ -588,8 +590,9 @@ A claim without evidence is not a claim. Applying that rule to this project:
   are never reported as verified.
 - **No hardware attestation.** The Ed25519 ownership/attestation pipeline is
   implemented in software; there is no TPM/SGX integration (no such hardware here).
-- **SLSA attestation is unsigned** (no `cosign` in the environment) — structurally
-  valid, but not SLSA Level 3.
+- **SLSA attestation is signed with the owner key (Ed25519).** `kern.intoto.sig` is
+  verified by `slsa_provenance.py --check`; it does not use a cloud Sigstore/cosign
+  OIDC builder (no SLSA Level 3 builder isolation).
 - **Object compression.** `deflate` (codec `0x02`) is implemented via Zig's own
   `std.compress.flate` and covered by end-to-end tests; `compression_codec`,
   `compressed_size` and `uncompressed_size` are now real fields, not placeholders.
@@ -626,7 +629,7 @@ docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, e
 | [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
-| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#103 |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#115 |
 | [`docs/README.md`](docs/README.md) | documentation map |
 | [`README.ru.md`](README.ru.md) | Russian version of this README |
 

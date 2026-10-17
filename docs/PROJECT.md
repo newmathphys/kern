@@ -369,8 +369,8 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 | Проверка | Результат |
 |:--|:--|
 | Тесты ядра (Debug + ReleaseSafe) | **279 / 279** |
-| Тесты ядра без `z3` в PATH | **194 passed + 4 skipped** (пропуск решателе-зависимых) |
-| Тесты KERN-Next | **37 / 37** |
+| Тесты ядра без `z3` в PATH | **271 passed + 8 skipped** (пропуск решателе-зависимых) |
+| Тесты KERN-Next | **38 / 38** |
 | Утечки памяти (GeneralPurposeAllocator) | **0 байт** |
 | Undefined Behaviour (ReleaseSafe) | **не обнаружено** |
 | Утечки дескрипторов (50 запросов, `NOFILE=20`) | **0** |

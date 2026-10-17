@@ -573,7 +573,7 @@
 | **MBPP / MBPP+** (EvalPlus, 378 задач) | то же + `--dataset mbpp` | base **0.812**, plus **0.698** | **да (API)** |
 | **CyberSecEval** (Meta) | `python3 tools/cyberseceval_check.py` | 28/351 (8.0%) — простые правила | нет |
 | **SMT-LIB / cvc5 cross-check** | `python3 tools/solver_crosscheck.py` | 9/9 согласие, 0 расхождений | нет |
-| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **279 / 279** | нет |
+| **Кросс-архитектура** | `./tools/cross_arch_test.sh` | ARM64 и POWERPC64 (big-endian): **240 passed / 4 skipped / 0 failed** (лог 2026-10-16; нужен повторный — набор вырос до 279) | нет |
 | **Мутационное тестирование** | `python3 tools/mutate_zig.py` | 40 мутантов: 37 убито, 3 эквивалентных | нет |
 | **Фаззинг парсера** | `zig run src/fuzz_ast.zig` | **1 000 000** мутаций, 0 паник / 0 SIGSEGV | нет |
 | **Стресс .kimg** | `zig run src/kimg_stress.zig` | 1 млн объектов, случайный доступ 0.0006 мс | нет |

@@ -835,10 +835,10 @@ canfail --selftest → canfail (60 кейсов) → каталог синхро
 
 | Метрика | Значение | Команда |
 |:--|:--|:--|
-| Тесты ядра | **194 passed, 4 skipped, 0 failed** | `zig build test` |
-| Тесты ядра (ReleaseSafe) | 194 passed, **0 UB** | `make ubsafe` |
-| Тесты KERN-Next | **37 passed** | `zig build test-next` |
-| Каталог тестов | **233** | `python3 tools/gen_test_catalog.py --check` |
+| Тесты ядра | **279 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip) | `zig build test` |
+| Тесты ядра (ReleaseSafe) | 279 passed, **0 UB** | `make ubsafe` |
+| Тесты KERN-Next | **38 passed** (37 именованных + 1 агрегирующий) | `zig build test-next` |
+| Каталог тестов | **318** | `python3 tools/gen_test_catalog.py --check` |
 | Покрытие решений | **100.0 %** (26/26, порог 95 %) | `make coverage` |
 | Мутационный score | **92.5 %** (37/40; 3 эквивалентных → 100 % эффективно) | `make mutate` |
 | Фаззинг AST | **1 000 000** мутаций, 0 паник | `make fuzz-1m` |
@@ -1160,7 +1160,7 @@ tools/                          # контур доверия и бенчмар�
 docs/                           # 15 документов
 ├── PROJECT_SPECIFICATION.md    #   ← ЭТОТ ДОКУМЕНТ
 ├── METRICS.md                  #   журнал измерений (§1–§42)
-├── TEST_CATALOG.md             #   каталог 233 тестов (генерируется)
+├── TEST_CATALOG.md             #   каталог 318 тестов (генерируется)
 ├── ATTESTATION_PASSPORT.md     #   аттестационный паспорт
 ├── CAPABILITIES.md             #   11 возможностей с доказательствами
 ├── VERIFICATION_GOLD_STANDARDS.md

@@ -849,7 +849,7 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
                   f"эквивалентен на всём домене Z{extra}")
             same += 1
         else:
-            print(f"  [DIVERGED] {name}: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ!")
+            print(f"  [DIVERGED] {name}: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ")
             for line in out.splitlines():
                 if "КОНТРПРИМЕР" in line:
                     print(f"         {line.strip()}")
