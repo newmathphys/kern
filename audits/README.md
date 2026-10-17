@@ -126,6 +126,38 @@ python3 tools/kern_contracts.py audits/tigerbeetle/div_ceil.zig
 python3 tools/kern_contracts.py audits/ghostty/grid_columns.zig
 ```
 
+## Generated evidence table (`make audits`)
+
+The table below is printed by `tools/audits_run.py`, not written by hand — it is the tool's own
+output over the corpus. `make audits` also seals the corpus into one container
+(`audits/real_code_corpus.kimg`, `--deflate`): L0 header + Merkle (BLAKE3), L2 KERNFS objects,
+L4 Z3 verdicts. Formulas are exported by the **deterministic** frontend (`--emit-smt2`), so any
+file under `audits/smt2/` is exactly the SMT that was handed to the solver — re-check it yourself
+with `kernc prove audits/smt2/<fn>.smt2`.
+
+<!-- BEGIN GENERATED (make audits) -->
+| Project / file | Function | Theory | Verdict | Counterexample | Runtime |
+|:--|:--|:--|:--|:--|:--|
+| `audits/andrewrk-gpa/alignment_bitvec.zig` | `alignmentAgrees` | QF_BV 32 signed | **PROVEN** | — | — |
+| `audits/andrewrk-gpa/alignment_bitvec.zig` | `alignmentAgreesBuggy` | QF_BV 32 signed | **REFUTED** | `addr = #xc0000001, alignment = #x40000000` | — |
+| `audits/ghostty/grid_columns.zig` | `gridColumns` | QF_LIA (Int) | SKIP | — | — |
+| `audits/ghostty/grid_columns.zig` | `gridColumnsBuggy` | QF_LIA (Int) | **REFUTED** | `cell_width = 1, screen_width = 0` | yes |
+| `audits/tigerbeetle/div_ceil.zig` | `divCeil` | QF_LIA (Int) | **PROVEN** | — | — |
+| `audits/tigerbeetle/div_ceil.zig` | `divCeilBuggy` | QF_LIA (Int) | **REFUTED** (i32 overflow) | `numerator = 2147483647, denominator = 1` | yes |
+| `audits/zig-std/align.zig` | `alignBackwardEqMod` | QF_BV 32 unsigned | **PROVEN** | — | — |
+| `audits/zig-std/align.zig` | `alignBackwardBuggy` | QF_BV 32 unsigned | **REFUTED** | `addr = #xffffbffc, alignment = #x00000001` | — |
+| `audits/zig-std/align.zig` | `alignForwardAdd` | QF_LIA (Int) | **REFUTED** (u32 overflow) | `addr = 4294967295, alignment = 2` | yes |
+
+9 functions: **3 PROVEN, 5 REFUTED, 1 SKIP**, 3 with runtime confirmation. Full output:
+[`EVIDENCE.md`](EVIDENCE.md).
+<!-- END GENERATED -->
+
+**Reading the table honestly.** "PROVEN" means the obligation is unsatisfiable and the proof
+checker re-checked Z3's certificate. "REFUTED" on a `*Buggy` row is the **control** — the same
+setup catching a deliberately broken variant. On the real functions it means a *safety
+obligation* fired (overflow), which is a boundary of applicability, not a claim of a bug in
+someone's code. "SKIP" is an honest refusal (see #118).
+
 ## Known limitations found while doing this
 
 * **#117** — feeding the extractor a Zig builtin (`@mod`, `@rem`) used to produce
@@ -134,4 +166,12 @@ python3 tools/kern_contracts.py audits/ghostty/grid_columns.zig
 * **#118** — on the Ghostty `gridColumns` obligation the proof checker rejects a certificate
   that Z3 produced (`unit-resolution` step not covered). The verdict degrades to SKIP, i.e. the
   gate is conservative, never silently optimistic. Recorded in `docs/CAPABILITY_STATUS.md`.
+* **#119** — building the corpus exposed a real core-path defect: with `--deflate` the Truth
+  Gate could not read **any** contract, because `/raw/` returns a zero-copy slice — for a
+  compressed object that is the *compressed* bytes. Every claim silently fell back to `e=0`,
+  even in the toy example. Fixed in the CLI `verify` (objects are looked up directly and
+  decompressed via `decompressObject`, which re-checks the digest), and `make kimg-deflate`
+  now has a regression step that fails if `verify` on a deflated image reports "contract not
+  found". Recorded in `docs/CAPABILITY_STATUS.md`.
+
 

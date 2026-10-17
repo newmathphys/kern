@@ -220,6 +220,7 @@ FAULTABLE = [
     "tools/artifact_check.py",
     "README.md",
     "tools/kern_contracts.py",
+    "tools/audits_run.py",
     "src/next/truth.zig",
     "src/main.zig",
     "src/verifier/model_extract.zig",
@@ -860,6 +861,20 @@ def case_edge_cases():
           "    return x - y;   // u32: при y > x результат уходит в минус -> underflow",
           "    return x;       // ДИВЕРСИЯ: underflow убран")
     return "make edge-cases"
+
+
+def case_audits():
+    """Золотой корпус аудитов: цель `audits` перестаёт видеть ядро.
+
+    ЛОМАЕМ: путь к `kernc` в раннере указывает на несуществующий файл. Раннер
+    ОБЯЗАН вернуть rc != 0, а не «напечатать таблицу и сделать вид, что всё
+    проверено». Цель `audits` обязана покраснеть — иначе она не проверяет
+    корпус, а просто печатает текст.
+    """
+    patch("tools/audits_run.py",
+          'KERNC = ROOT / "zig-out" / "bin" / "kernc"',
+          'KERNC = ROOT / "zig-out" / "bin" / "kernc-nonexistent"')
+    return "make audits"
 
 
 def case_model_negative():
@@ -1679,6 +1694,7 @@ CASES = [
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
     ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
+    ("audits",         "Аудиты: раннер перестал видеть ядро", case_audits),
     ("sarif-output",   "SARIF: находки выброшены из отчёта", case_sarif_output),
     ("hook-gate",      "Git-шлюз: сломанный контракт пропущен", case_hook_gate),
     ("slsa-bad-sig",   "SLSA: Ed25519-подпись аттестата подменена", case_slsa_bad_sig),

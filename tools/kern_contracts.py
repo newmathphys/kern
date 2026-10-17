@@ -1003,6 +1003,9 @@ def main() -> int:
     ap.add_argument("--expect-demo", action="store_true",
                     help="проверить, что демо дало ОЖИДАЕМЫЕ вердикты "
                          "(превращает цель в ПРОВЕРКУ: падает при расхождении)")
+    ap.add_argument("--emit-smt2", default=None, metavar="DIR",
+                    help="записать каждую проверяемую формулу в DIR/<fn>.smt2 "
+                         "(детерминированный фронтенд -> файлы для kernc prove и .kimg)")
     ap.add_argument("--emit-pytest", default=None, metavar="OUT.py",
                     help="сгенерировать ПАДАЮЩИЙ pytest из контрпримеров Z3")
     ap.add_argument("--lock", default=None, metavar="LOCK.json",
@@ -1585,6 +1588,17 @@ def _demo(args) -> int:
                 continue
             # Делители собраны ПРИ ПАРСИНГЕ (трансляция тела уже выполнена).
             divisors = meta.get("divisors") or []
+            # ---- ДЕТЕРМИНИРОВАННЫЙ ФРОНТЕНД: выгрузка формулы -----------------
+            # `--emit-smt2 DIR`: формула, которую РЕАЛЬНО проверяет ядро, пишется
+            # файлом. Это позволяет (а) перепроверить её `kernc prove` вручную,
+            # (б) запечатать в .kimg-корпус аудитов. Никакой генерации «по мотивам»:
+            # файл — это ровно тот SMT, что был отправлен в решатель.
+            if args.emit_smt2:
+                outdir = Path(args.emit_smt2)
+                outdir.mkdir(parents=True, exist_ok=True)
+                stem = f"{p.stem}_{name}"
+                (outdir / f"{stem}.smt2").write_text(smt, encoding="utf-8")
+                meta["smt_path"] = str(outdir / f"{stem}.smt2")
             # ---- УЛУЧШЕНИЕ №1: ДЕТЕКТОР ВАКУУМНЫХ ПРЕДУСЛОВИЙ ------------
             # ЛОВУШКА `false => anything`: при ПРОТИВОРЕЧИВОМ `requires`
             # обязательство `requires ∧ ¬ensures` тривиально UNSAT, и любая

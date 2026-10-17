@@ -54,6 +54,33 @@ done
 note "cat побайтово совпал: $ok, различий: $badn"
 [ "$badn" -eq 0 ] || fails=$((fails + 1))
 
+# ДЕФЕКТ #119 (регрессия): Врата L4 обязаны ЧИТАТЬ КОНТРАКТ из СЖАТОГО образа.
+# Раньше `/raw/` отдавал zero-copy срез (сжатые байты), контракт «не находился»,
+# и `verify` молча деградировал в e=0 на любом образе с `--deflate`. Проверка:
+# заявление с привязанным .smt2 обязано получить вердикт РЕШАТЕЛЯ (e=1), а не
+# «контракт НЕ найден».
+python3 - "$TMP/v.kern" "$TMP/proof.smt2" <<'PY'
+import pathlib, sys
+# Тривиально несовместное обязательство: UNSAT -> e=1 (T) ДОКАЗАНО.
+pathlib.Path(sys.argv[2]).write_text(
+    "(set-logic ALL)\n(declare-const x Int)\n(assert (> x 0))\n"
+    "(assert (not (> x 0)))\n(check-sat)\n", encoding="utf-8")
+pathlib.Path(sys.argv[1]).write_text(
+    'project "verify-deflate" {\n  version "1.0"\n  root "."\n}\n'
+    f'artifact "{sys.argv[2]}" {{\n  kind "contract"\n  hash "sha256:pending"\n}}\n'
+    'claim "deflated contract is reachable" {\n  status proven\n'
+    f'  evidence "contract:{sys.argv[2]}"\n  context "{sys.argv[2]}"\n}}\n', encoding="utf-8")
+PY
+"$KERNC" build "$TMP/v.kern" -o "$TMP/v.kimg" --deflate >/dev/null 2>&1
+vout=$("$KERNC" verify "$TMP/v.kimg" 2>&1)
+if echo "$vout" | grep -q "НЕ найден в образе"; then
+  bad "verify на СЖАТОМ образе не видит контракт (дефект #119 вернулся)"
+elif echo "$vout" | grep -q "e=1 (T)"; then
+  note "verify на сжатом образе: контракт найден и доказан (e=1)"
+else
+  bad "verify на сжатом образе не дал вердикта: $(echo "$vout" | tail -2 | tr '\n' ' ')"
+fi
+
 # Порча байта ВНУТРИ сжатого потока объекта 0 -> обязана быть обнаружена.
 OBJ=$(python3 - "$TMP/def.kimg" "$TMP/tamper.kimg" <<'PY'
 import struct, sys, pathlib

@@ -784,16 +784,31 @@ pub fn main(init: std.process.Init) !void {
                 continue;
             }
 
-            var pb: [512]u8 = undefined;
-            const raw_path = std.fmt.bufPrint(&pb, "/raw/{s}", .{contract_path}) catch {
-                no_contract += 1;
-                continue;
+            // ДЕФЕКТ #119: `/raw/` отдаёт ZERO-COPY срез, а для СЖАТОГО объекта
+            // (codec 0x02) это сжатые байты — контракт «не находился», и Врата
+            // молча деградировали в e=0 на ЛЮБОМ образе с `--deflate`. Поэтому
+            // объект ищется напрямую, а при сжатии распаковывается
+            // (`decompressObject` сверяет дайджест по распакованному содержимому).
+            var owned_payload: ?[]u8 = null;
+            defer if (owned_payload) |o| alloc.free(o);
+            const payload: []const u8 = blk: {
+                for (fs.objects) |co| {
+                    if (co.type_id != 0x0002) continue;
+                    const cp = fs.objectPath(co);
+                    if (!std.mem.eql(u8, cp, contract_path)) continue;
+                    if (co.compression_codec != 0) {
+                        owned_payload = fs.decompressObject(alloc, co) catch break :blk "";
+                        break :blk owned_payload.?;
+                    }
+                    break :blk fs.objectPayload(co) catch break :blk "";
+                }
+                break :blk "";
             };
-            const node = fs.read(raw_path) catch {
+            if (payload.len == 0) {
                 std.debug.print("    контракт `{s}` НЕ найден в образе -> e=0 (N)\n", .{contract_path});
                 no_contract += 1;
                 continue;
-            };
+            }
 
             // ДВА КЛАССА УТВЕРЖДЕНИЙ (см. docs/SPEC_ANCHORS_DEMO.md):
             //   • @kern:spec  -> .smt2  — МАТЕМАТИЧЕСКОЕ свойство, вердикт даёт Z3;
@@ -808,7 +823,7 @@ pub fn main(init: std.process.Init) !void {
             }
 
             // ДЕФЕКТ #105: только вердикт -> `executeStatus` (без владеемой модели).
-            const status = bridge.executeStatus(node.raw_slice);
+            const status = bridge.executeStatus(payload);
             switch (status) {
                 .Unsat => {
                     // (assert ...) невыполнимо => утверждение ДОКАЗАНО.

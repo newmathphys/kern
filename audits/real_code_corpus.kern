@@ -1,0 +1,105 @@
+// СГЕНЕРИРОВАНО tools/audits_run.py — не редактировать вручную.
+// Золотой корпус: формулы реальных функций, выгруженные детерминированным фронтендом.
+project "kern-open-source-audits" {
+  version "1.0"
+  root "."
+}
+
+artifact "audits/smt2/align_alignBackwardBuggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/align_alignBackwardEqMod.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/align_alignForwardAdd.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/alignment_bitvec_alignmentAgrees.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/div_ceil_divCeil.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/div_ceil_divCeilBuggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/grid_columns_gridColumns.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/grid_columns_gridColumnsBuggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+claim "audit:align_alignBackwardBuggy" {
+  status proven
+  evidence "contract:audits/smt2/align_alignBackwardBuggy.smt2"
+  context "audits/smt2/align_alignBackwardBuggy.smt2"
+}
+
+claim "audit:align_alignBackwardEqMod" {
+  status proven
+  evidence "contract:audits/smt2/align_alignBackwardEqMod.smt2"
+  context "audits/smt2/align_alignBackwardEqMod.smt2"
+}
+
+claim "audit:align_alignForwardAdd" {
+  status proven
+  evidence "contract:audits/smt2/align_alignForwardAdd.smt2"
+  context "audits/smt2/align_alignForwardAdd.smt2"
+}
+
+claim "audit:alignment_bitvec_alignmentAgrees" {
+  status proven
+  evidence "contract:audits/smt2/alignment_bitvec_alignmentAgrees.smt2"
+  context "audits/smt2/alignment_bitvec_alignmentAgrees.smt2"
+}
+
+claim "audit:alignment_bitvec_alignmentAgreesBuggy" {
+  status proven
+  evidence "contract:audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2"
+  context "audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2"
+}
+
+claim "audit:div_ceil_divCeil" {
+  status proven
+  evidence "contract:audits/smt2/div_ceil_divCeil.smt2"
+  context "audits/smt2/div_ceil_divCeil.smt2"
+}
+
+claim "audit:div_ceil_divCeilBuggy" {
+  status proven
+  evidence "contract:audits/smt2/div_ceil_divCeilBuggy.smt2"
+  context "audits/smt2/div_ceil_divCeilBuggy.smt2"
+}
+
+claim "audit:grid_columns_gridColumns" {
+  status proven
+  evidence "contract:audits/smt2/grid_columns_gridColumns.smt2"
+  context "audits/smt2/grid_columns_gridColumns.smt2"
+}
+
+claim "audit:grid_columns_gridColumnsBuggy" {
+  status proven
+  evidence "contract:audits/smt2/grid_columns_gridColumnsBuggy.smt2"
+  context "audits/smt2/grid_columns_gridColumnsBuggy.smt2"
+}

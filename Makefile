@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: contracts edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate version-check
+.PHONY: contracts edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits version-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -213,6 +213,12 @@ self-verify: build
 # детектор чистоты. Цель — ПРОВЕРКА: падает, если форма перестала разбираться.
 edge-cases:
 	@bash tools/edge_cases_check.sh
+
+# ЗОЛОТОЙ КОРПУС АУДИТОВ: РЕАЛЬНЫЕ функции чужих проектов -> таблица вердиктов
+# (генерирует инструмент) + запечатанный .kimg (L0 заголовок/Merkle, L2 KERNFS,
+# L4 доказательства Z3). Формулы выгружает ДЕТЕРМИНИРОВАННЫЙ фронтенд (не LLM).
+audits: build
+	@$(PYTHON) tools/audits_run.py --emit-md audits/EVIDENCE.md
 
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
