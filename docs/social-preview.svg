@@ -1,27 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="KERN - zero-trust verification gateway, measured baseline">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0d1117"/><stop offset="1" stop-color="#1a1040"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
     </linearGradient>
+    <style>
+      .title { font: 700 92px DejaVu Sans Mono, ui-monospace, monospace; fill: #f0f6fc; letter-spacing: 4px; }
+      .sub   { font: 400 21px DejaVu Sans Mono, ui-monospace, monospace; fill: #8b949e; }
+      .badge { font: 600 18px DejaVu Sans Mono, ui-monospace, monospace; fill: #3fb950; }
+      .hdr   { font: 700 19px DejaVu Sans Mono, ui-monospace, monospace; fill: #c9d1d9; letter-spacing: 1px; }
+      .val   { font: 700 27px DejaVu Sans Mono, ui-monospace, monospace; fill: #3fb950; }
+      .lbl   { font: 400 17px DejaVu Sans Mono, ui-monospace, monospace; fill: #8b949e; }
+      .node  { font: 700 20px DejaVu Sans Mono, ui-monospace, monospace; fill: #f0f6fc; }
+    </style>
   </defs>
-  <rect width="1280" height="640" fill="url(#g)"/>
-  <rect x="0" y="0" width="1280" height="8" fill="#7c5cff"/>
-  <g font-family="DejaVu Sans, sans-serif" fill="#e6edf3">
-    <text x="72" y="170" font-size="104" font-weight="bold" letter-spacing="2">KERN</text>
-    <text x="76" y="222" font-size="30" fill="#8b949e">zero-trust verification gateway for AI-written code</text>
-    <text x="76" y="272" font-size="26" fill="#7c5cff" font-weight="bold">Zig 0.17 · native Z3 proof-DAG checker · Belnap B4 · Lean 4 (0 sorry) · BLAKE3 .kimg</text>
-    <text x="76" y="330" font-size="27" fill="#e6edf3">A claim is admitted only with machine evidence.</text>
-    <g font-size="25">
-      <text x="76" y="420" fill="#3fb950" font-weight="bold">279 / 279</text>
-      <text x="76" y="452" fill="#8b949e" font-size="20">core tests (Debug + ReleaseSafe)</text>
-      <text x="376" y="420" fill="#3fb950" font-weight="bold">95.0 %</text>
-      <text x="376" y="452" fill="#8b949e" font-size="20">mutation score (38/40)</text>
-      <text x="616" y="420" fill="#3fb950" font-weight="bold">78 / 78</text>
-      <text x="616" y="452" fill="#8b949e" font-size="20">can-fail CHECK targets</text>
-      <text x="916" y="420" fill="#3fb950" font-weight="bold">42 theorems</text>
-      <text x="916" y="452" fill="#8b949e" font-size="20">Lean 4, 0 sorry</text>
-    </g>
-    <text x="76" y="540" font-size="24" fill="#8b949e">github.com/newmathphys/kern</text>
-    <text x="76" y="580" font-size="20" fill="#8b949e">POLYFORM NONCOMMERCIAL 1.0.0 · © 2026 Vital Kalinousky</text>
-  </g>
+  <rect width="1280" height="640" fill="url(#bg)" stroke="#30363d" stroke-width="2"/>
+
+  <text x="56" y="128" class="title">KERN</text>
+  <rect x="380" y="88" width="330" height="44" rx="8" fill="#0f2d1e" stroke="#238636" stroke-width="1.5"/>
+  <text x="404" y="118" class="badge">ZIG 0.17 / Z3 / LEAN 4</text>
+
+  <text x="56" y="176" class="sub">L0-L5 verification gateway / sealed .kimg container</text>
+  <text x="56" y="206" class="sub">Belnap B4 truth gate / polyglot @kern: contracts / MCP server</text>
+
+  <rect x="56" y="238" width="1168" height="46" rx="6" fill="#161b22" stroke="#21262d"/>
+  <text x="76" y="268" class="hdr">A CLAIM IS ADMITTED ONLY WITH MACHINE EVIDENCE</text>
+  <text x="700" y="268" class="lbl">text is not a contract / e=1 only by Z3 + re-checked proof DAG</text>
+
+  <rect x="56" y="306" width="1168" height="182" rx="6" fill="#0d1117" stroke="#238636" stroke-width="1.5"/>
+  <text x="76" y="336" class="hdr">MEASURED BASELINE</text>
+  <text x="76" y="386" class="val">279 / 279</text>
+  <text x="240" y="386" class="lbl">core tests (Debug + ReleaseSafe)</text>
+  <text x="76" y="424" class="val">95.0 %</text>
+  <text x="240" y="424" class="lbl">mutation score (38/40 killed, 2 equivalent)</text>
+  <text x="76" y="462" class="val">78 / 78</text>
+  <text x="240" y="462" class="lbl">can-fail CHECK targets (93 non-vacuous cases)</text>
+  <text x="700" y="386" class="val">42 / 0</text>
+  <text x="820" y="386" class="lbl">Lean 4 theorems / 0 sorry</text>
+  <text x="700" y="424" class="val">100.0 %</text>
+  <text x="820" y="424" class="lbl">decision coverage (30/30)</text>
+  <text x="700" y="462" class="val">240/4/0</text>
+  <text x="820" y="462" class="lbl">QEMU ARM64+PPC64 passed/skip/fail</text>
+
+  <text x="56" y="540" class="node">github.com/newmathphys/kern</text>
+  <text x="56" y="576" class="lbl">POLYFORM NONCOMMERCIAL 1.0.0 / (c) 2026 VITAL KALINOUSKY</text>
+  <text x="700" y="576" class="lbl">every number is produced by a command you can run</text>
 </svg>

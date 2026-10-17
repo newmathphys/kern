@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KERN — zero-trust verification gateway for AI-written code (Zig + Z3 + Lean 4)</title>
-<meta name="description" content="KERN is a zero-trust L0–L5 verification gateway in Zig 0.17: a native Z3 proof-DAG checker, Belnap B4 logic, 42 Lean 4 theorems (0 sorry), 8-lane SIMD BLAKE3 .kimg containers, contract checking for Python/Zig/C/Rust and an MCP server for AI agents.">
+<meta name="description" content="KERN is a zero-trust L0–L5 verification gateway in Zig 0.17: a native Z3 proof-DAG checker, Belnap B4 logic, 42 Lean 4 theorems (0 sorry), 8-lane SIMD BLAKE3 .kimg containers, polyglot contract checking and an MCP server for AI agents.">
 <meta name="keywords" content="formal verification, Z3, SMT, Lean 4, Zig, Belnap logic, AI safety, mutation testing, BLAKE3, proof checker, MCP server, static analysis">
 <link rel="canonical" href="https://newmathphys.github.io/kern/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KERN — zero-trust verification gateway (Zig + Z3 + Lean 4)">
-<meta property="og:description" content="A claim is admitted only with machine evidence. 279/279 core tests, 95.0% mutation score, 78/78 can-fail targets, 42 Lean 4 theorems (0 sorry).">
+<meta property="og:description" content="A claim is admitted only with machine evidence. 279/279 core tests · 95.0% mutation score · 78/78 can-fail targets · 42 Lean 4 theorems (0 sorry).">
 <meta property="og:url" content="https://newmathphys.github.io/kern/">
 <meta property="og:image" content="https://newmathphys.github.io/kern/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -18,9 +18,8 @@
 <meta name="twitter:image" content="https://newmathphys.github.io/kern/social-preview.png">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication",
- "name":"KERN","alternateName":"KERN verification gateway",
- "applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS",
- "programmingLanguage":["Zig","Python","Lean"],
+ "name":"KERN","applicationCategory":"DeveloperApplication",
+ "operatingSystem":"Linux, macOS","programmingLanguage":["Zig","Python","Lean"],
  "description":"Zero-trust L0-L5 verification gateway: native Z3 proof-DAG checker, Belnap B4 logic, Lean 4 proofs (0 sorry), 8-lane SIMD BLAKE3 .kimg containers, polyglot contract checking and an MCP server.",
  "codeRepository":"https://github.com/newmathphys/kern",
  "license":"https://github.com/newmathphys/kern/blob/main/LICENSE",
@@ -29,54 +28,76 @@
  "author":{"@type":"Person","name":"Vital Kalinousky"}}
 </script>
 <style>
-:root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#7c5cff;--ok:#3fb950;--card:#161b22;--br:#30363d}
+/* Palette and typography mirror docs/kern-architecture.svg */
+:root{
+  --bg0:#0d1117; --bg1:#161b22; --card:#161b22; --line:#30363d; --line2:#21262d;
+  --ink:#f0f6fc; --ink2:#c9d1d9; --mut:#8b949e; --dim:#6e7681;
+  --ok:#3fb950; --okdark:#238636; --okbg:#0f2d1e;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-.wrap{max-width:960px;margin:0 auto;padding:40px 20px}
-h1{font-size:2.1rem;margin:0 0 8px}
-h2{font-size:1.3rem;margin:40px 0 12px;border-bottom:1px solid var(--br);padding-bottom:6px}
-a{color:var(--acc)}
-.tag{color:var(--mut);font-size:1.05rem;margin:0 0 18px}
-.badges img{height:20px;margin:0 6px 6px 0;vertical-align:middle}
-.cta{margin:22px 0}
-.btn{display:inline-block;padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:600;margin:0 8px 8px 0}
-.p{background:var(--acc);color:#fff}
-.s{background:var(--card);color:var(--fg);border:1px solid var(--br)}
-code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-pre{background:var(--card);border:1px solid var(--br);border-radius:8px;padding:14px;overflow-x:auto;font-size:14px}
-table{width:100%;border-collapse:collapse;margin:10px 0}
-th,td{border:1px solid var(--br);padding:8px 10px;text-align:left;font-size:15px}
-th{background:var(--card)}
-.ok{color:var(--ok)}
-ul{padding-left:20px}
-footer{color:var(--mut);border-top:1px solid var(--br);margin-top:48px;padding-top:18px;font-size:14px}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink2);
+  background:linear-gradient(135deg,var(--bg0) 0%,var(--bg1) 100%) fixed;
+  font:400 15px/1.65 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.wrap{max-width:1060px;margin:0 auto;padding:34px 20px 60px}
+a{color:var(--ok);text-decoration:none}
+a:hover{text-decoration:underline}
+h1{font-weight:700;font-size:46px;line-height:1;color:var(--ink);letter-spacing:2.5px;margin:0 0 14px}
+.sub{color:var(--mut);margin:0 0 4px;font-size:14px}
+.pill{display:inline-block;padding:5px 12px;border-radius:6px;background:var(--okbg);
+  border:1px solid var(--okdark);color:var(--ok);font-weight:600;font-size:12px;
+  letter-spacing:.5px;margin:0 0 14px}
+.panel{background:var(--bg0);border:1px solid var(--line);border-radius:6px;padding:20px 22px;margin:22px 0}
+.panel.ok{border-color:var(--okdark)}
+.hdr{font-weight:700;font-size:12.5px;letter-spacing:.8px;color:var(--ink2);
+  text-transform:uppercase;margin:0 0 14px}
+h2{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.9px;
+  color:var(--ink);border-top:1px solid var(--line);padding-top:18px;margin:38px 0 12px}
+.stat{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:baseline}
+.val{font-weight:700;font-size:17px;color:var(--ok);white-space:nowrap}
+.lbl{color:var(--mut);font-size:14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:0 34px}
+@media(max-width:760px){.cols{grid-template-columns:1fr}h1{font-size:34px}}
+pre{background:var(--bg0);border:1px solid var(--line);border-radius:6px;
+  padding:14px 16px;overflow-x:auto;font-size:13px;margin:12px 0}
+code{font-family:inherit;color:var(--ink)}
+.badgeimg{display:block;width:100%;height:auto;border-radius:6px}
+.btn{display:inline-block;padding:10px 16px;border-radius:6px;font-weight:600;
+  font-size:13.5px;margin:0 8px 8px 0}
+.btn.p{background:var(--okdark);border:1px solid var(--ok);color:var(--ink)}
+.btn.p:hover{background:var(--ok);color:#04170b;text-decoration:none}
+.btn.s{background:var(--card);border:1px solid var(--line);color:var(--ink2)}
+ul{padding-left:20px;margin:10px 0}
+li{margin:6px 0}
+.tag{color:var(--ok);font-weight:700}
+footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding-top:16px;font-size:13px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <h1>KERN</h1>
-<p class="tag">Zero-trust L0–L5 verification gateway for AI-written code — <strong>a claim is admitted only with machine evidence</strong>.</p>
+<span class="pill">ZIG 0.17 / Z3 / LEAN 4</span>
+<p class="sub">L0-L5 verification gateway / sealed .kimg container</p>
+<p class="sub">Belnap B4 truth gate / polyglot <code>@kern:</code> contracts / MCP server</p>
+<p class="sub" style="margin-top:12px"><strong style="color:var(--ink)">A claim is admitted only with machine evidence.</strong></p>
 
-<p class="badges">
-<img alt="core tests 279/279" src="https://img.shields.io/badge/core_tests-279%2F279-brightgreen">
-<img alt="KERN-Next tests 38/38" src="https://img.shields.io/badge/KERN--Next_tests-38%2F38-brightgreen">
-<img alt="Lean 4: 8 files, 42 theorems, 0 sorry" src="https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue">
-<img alt="can-fail harness 78/78" src="https://img.shields.io/badge/can--fail_harness-78%2F78-blue">
-<img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange">
-</p>
-
-<div class="cta">
+<div style="margin:20px 0 6px">
 <a class="btn p" href="https://github.com/newmathphys/kern/releases/latest">Download static binary (v2.4.0)</a>
 <a class="btn s" href="https://github.com/newmathphys/kern#readme">Read the README</a>
 <a class="btn s" href="https://github.com/newmathphys/kern/tree/main/docs">Documentation</a>
 </div>
 
+<div class="panel">
+<img class="badgeimg" src="kern-architecture.svg" width="960" height="290"
+     alt="KERN architecture: Belnap B4 accumulator, L0-L5 engine and truth gate, measured baseline">
+</div>
+
 <h2>What it is</h2>
 <ul>
-<li><strong>A gate, not a linter.</strong> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
-<li><strong>Bidirectional distrust of the solver.</strong> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>), and every <code>SAT</code> counterexample is replayed against the contract before it is reported.</li>
-<li><strong>Polyglot contract checking.</strong> <code>@kern:requires</code> / <code>@kern:ensures</code> annotations are read from <code>.py</code>, <code>.zig</code>, <code>.c</code> and <code>.rs</code> — with machine types, so i32 overflow and division by zero are caught.</li>
+<li><span class="tag">A gate, not a linter.</span> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
+<li><span class="tag">Bidirectional distrust of the solver.</span> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>); every <code>SAT</code> counterexample is replayed against the real function before it is reported.</li>
+<li><span class="tag">Polyglot contracts.</span> <code>@kern:requires</code> / <code>@kern:ensures</code> are read from <code>.py</code>, <code>.zig</code>, <code>.c</code> and <code>.rs</code> — with machine types, so i32 overflow and division by zero are caught.</li>
 </ul>
 
 <h2>Quickstart — and verify what you downloaded</h2>
@@ -87,44 +108,72 @@ sha256sum -c SHA256SUMS          # supply-chain check, no trust required
 chmod +x kernc-x86_64-linux-musl
 
 # 2. Prove a contract with real Z3
-./kernc-x86_64-linux-musl prove formal/example.smt2      # -> e=1 PROVEN / e=0 counterexample
+./kernc-x86_64-linux-musl prove formal/example.smt2   # e=1 PROVEN / e=0 counterexample
 
-# 3. From source: build, test, check contracts, run the formal proofs
+# 3. From source
 git clone https://github.com/newmathphys/kern &amp;&amp; cd kern
-zig build &amp;&amp; zig build test        # 279 core tests
-make contracts                      # polyglot @kern: contracts (Python / Zig / C / Rust)
-./formal/check.sh                   # Lean 4: 8 files, 42 theorems, 0 sorry</pre>
+zig build &amp;&amp; zig build test   # 279 core tests
+make contracts                 # polyglot @kern: contracts (Python / Zig / C / Rust)
+./formal/check.sh              # Lean 4: 8 files, 42 theorems, 0 sorry</pre>
 
 <h2>Measured, not claimed</h2>
-<table>
-<tr><th>Metric</th><th>Result</th><th>How</th></tr>
-<tr><td>Core test suite</td><td class="ok">279 / 279</td><td><code>zig build test</code> (Debug + ReleaseSafe)</td></tr>
-<tr><td>KERN-Next test suite</td><td class="ok">38 / 38</td><td><code>zig build test-next</code></td></tr>
-<tr><td>Mutation score</td><td class="ok">95.0 % (38/40)</td><td><code>make mutate</code> — 2 survivors proven equivalent, over 14 files / 420 sites</td></tr>
-<tr><td>Can-fail harness</td><td class="ok">78 / 78 CHECK targets</td><td><code>make canfail</code> — every check must be proven capable of failing (93 non-vacuous cases, 0 vacuous)</td></tr>
-<tr><td>Lean 4 proofs</td><td class="ok">8 files · 42 theorems · 0 sorry</td><td><code>./formal/check.sh</code></td></tr>
-<tr><td>Cross-architecture</td><td>240 passed / 4 skipped / 0 failed</td><td>QEMU ARM64 + POWERPC64 (big-endian), <code>docs/evidence/cross_arch.log</code>; re-run pending</td></tr>
-<tr><td>Hermetic release binary</td><td class="ok">6 041 776 bytes, sha256 verified</td><td><code>make artifact-check</code> — README == build == release asset</td></tr>
-</table>
+<div class="panel ok">
+  <div class="hdr">MEASURED BASELINE</div>
+  <div class="cols">
+    <div class="stat">
+      <span class="val">279 / 279</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
+      <span class="val">38 / 38</span><span class="lbl">KERN-Next tests</span>
+      <span class="val">95.0 %</span><span class="lbl">mutation score — 38/40 killed, 2 proven equivalent (14 files / 420 sites)</span>
+      <span class="val">78 / 78</span><span class="lbl">can-fail CHECK targets — 93 non-vacuous cases, 0 vacuous</span>
+    </div>
+    <div class="stat">
+      <span class="val">42 / 0</span><span class="lbl">Lean 4 theorems / 0 sorry (8 files)</span>
+      <span class="val">100.0 %</span><span class="lbl">decision coverage (30/30)</span>
+      <span class="val">240/4/0</span><span class="lbl">QEMU ARM64 + POWERPC64 passed / skipped / failed (re-run pending)</span>
+      <span class="val">6 041 776 B</span><span class="lbl">hermetic release binary, sha256 verified (README == build == asset)</span>
+    </div>
+  </div>
+  <p class="lbl" style="margin:14px 0 0">Every number above is produced by a command you can run yourself — see
+  <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.en.md">docs/METRICS.en.md</a> and
+  <a href="https://github.com/newmathphys/kern/tree/main/docs/evidence">docs/evidence/</a>.</p>
+</div>
 
 <h2>Four traps an AI agent falls into — and how KERN refuses them</h2>
+<div class="panel">
 <ul>
-<li><strong>Vacuous precondition</strong> (<code>false ⟹ anything</code>): a contradictory <code>requires</code> would make any broken body "provable" → KERN reports <code>[VACUOUS] precondition is unsatisfiable (empty domain)</code> and keeps the gate closed.</li>
-<li><strong>Weakening the specification</strong>: deleting a failing <code>@kern:ensures</code> is the cheapest cheat → every contract is fingerprinted in <code>docs/contracts.lock.json</code>, and any removal or edit is a hard error (<code>rc = 2</code>).</li>
-<li><strong>Silent behaviour change during refactoring</strong>: no contracts required → KERN checks <code>∃x: f_old(x) ≠ f_new(x)</code> over all of ℤ and prints the exact input where the two versions disagree.</li>
-<li><strong>A counterexample that lives only in a log</strong>: <code>--emit-pytest</code> turns it into a real regression test that fails on the current code, and <code>--sarif</code> / <code>--github-annotations</code> put it on the exact line inside a pull request.</li>
+<li><span class="tag">Vacuous precondition</span> (<code>false ⟹ anything</code>): a contradictory <code>requires</code> would make any broken body "provable" → KERN answers <code>[VACUOUS] precondition is unsatisfiable (empty domain)</code> and keeps the gate closed.</li>
+<li><span class="tag">Weakening the specification</span>: deleting a failing <code>@kern:ensures</code> is the cheapest cheat → every contract is fingerprinted in <code>docs/contracts.lock.json</code>, and any removal or edit is a hard error (<code>rc = 2</code>).</li>
+<li><span class="tag">Silent behaviour change during refactoring</span>: no contracts required → KERN checks <code>∃x: f_old(x) ≠ f_new(x)</code> over all of ℤ and prints the exact input where the two versions disagree.</li>
+<li><span class="tag">A counterexample that lives only in a log</span>: <code>--emit-pytest</code> turns it into a real regression test that fails on the current code, while <code>--sarif</code> / <code>--github-annotations</code> put it on the exact line inside a pull request.</li>
 </ul>
+</div>
 
-<h2>For AI agents (MCP)</h2>
-<p>Five tools are exposed over stdio for Claude Code / Cursor and any MCP client, with 14 live self-checks
-(<code>make mcp-selftest</code>): <code>kern_verify_smt</code>, <code>kern_verify_python</code>,
-<code>kern_check_contracts</code>, <code>kern_prove_contract</code>, <code>kern_check_equivalence</code>.</p>
+<h2>For AI agents (MCP) and CI</h2>
+<div class="panel">
+<p style="margin:0 0 10px">Five tools over stdio for Claude Code / Cursor and any MCP client, with 14 live self-checks
+(<code>make mcp-selftest</code>):
+<code>kern_verify_smt</code> · <code>kern_verify_python</code> · <code>kern_check_contracts</code> ·
+<code>kern_prove_contract</code> · <code>kern_check_equivalence</code>.</p>
+<p class="lbl" style="margin:0">In CI, the reusable Action verifies the downloaded binary against
+<code>SHA256SUMS</code> before running it, and can emit a SARIF 2.1.0 report for GitHub Code Scanning:
+<br><code>uses: newmathphys/kern@v2.4.0</code></p>
+</div>
+
+<h2>Honest status</h2>
+<div class="panel">
+<p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
+what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
+together with the <strong>74 defects this project found in itself</strong> (#1–#116).
+A check that cannot go red is treated as a defect here, not as coverage.</p>
+</div>
 
 <footer>
-<p><strong>KERN</strong> · © 2026 Vital Kalinousky · Licensed under the PolyForm Noncommercial License 1.0.0
-(commercial use requires a license from the copyright holder).
-This site is served from <code>/docs</code> of the <a href="https://github.com/newmathphys/kern">main repository</a>;
-every number above is produced by a command you can run yourself.</p>
+<p><strong>KERN</strong> · © 2026 Vital Kalinousky · PolyForm Noncommercial License 1.0.0
+(commercial use requires a license from the copyright holder).<br>
+This page is served from <code>/docs</code> of the
+<a href="https://github.com/newmathphys/kern">main repository</a>; the banner above is
+<code>docs/kern-architecture.svg</code> — the same file the README uses.</p>
 </footer>
 
 </div>
