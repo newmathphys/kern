@@ -13,7 +13,7 @@
 
 | Возможность | Уровень | Доказательство |
 |:--|:--|:--|
-| Сборка на Zig 0.13.0 | MEASURED | `zig build` → exit 0 |
+| Сборка на Zig 0.17.0 | MEASURED | `zig build` → exit 0 |
 | Алгебра Белнапа B4 (join/meet/де Морган) | TESTED | полный перебор, тесты OK |
 | Заголовок .kimg (128 б) + безопасная арифметика | TESTED | SEC-01 offset bomb |
 | Дескриптор .kimg (96 б) + reserved-байты | TESTED | CONF-15 |
@@ -148,7 +148,8 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
 | Lean 4 транспилятор (KERN-D → Lean) | NOT IMPL (но сами инварианты доказаны и компилируются — см. §1b) |
 | C-ABI плагины (`include/kern_plugin.h`, `plugin_loader.zig`) | NOT IMPL |
 | Формат `.kern.bundle` (Markdown+Binary+ZIP) | NOT IMPL |
-| PQC-подписи (Dilithium) / `attest` (break-glass) | NOT IMPL |
+| PQC-подписи (Dilithium) | NOT IMPL |
+| ~~`attest` (break-glass)~~ | **РЕАЛИЗОВАНО**: `make attest` → Ed25519-подпись образа ВАЛИДНА (см. §1c и `docs/ATTESTATION_PASSPORT.md` §0.2) |
 | Дифференциальный Datalog (Δ) в графе | NOT IMPL |
 | SIMD-реализация Белнапа | NOT IMPL |
 | `vacuum`/GC, `merge` веток .kbin | NOT IMPL |
@@ -170,15 +171,22 @@ source-based coverage — Zig 0.13 не поддерживает `--coverage`, `
    → **3/3 resolved**, 0 infra-failures). `docker-compose.yml`,
    `kern-cluster.yaml` и `vscode-kern/` УДАЛЕНЫ из репозитория как
    непроверенные оболочки.
-4. **BLAKE3 vs SHA-256**: спецификация называет BLAKE3, реализация — SHA-256
-   (зафиксирован ОДИН алгоритм, иначе рвётся сквозная сверка). Теперь
-   `hash_algo` **валидируется** (1=BLAKE3, 2=SHA-256), но вычисления идут SHA-256.
+4. **BLAKE3 vs SHA-256** — **ЗАКРЫТО**: `HashAlgo.DEFAULT = .blake3`
+   (`src/core/hash_algo.zig`), то есть по умолчанию считает **BLAKE3** (8-полосный
+   SIMD-вариант); SHA-256 поддержан вторым алгоритмом (2). Поле `hash_algo`
+   **валидируется** (1=BLAKE3, 2=SHA-256, иное → отказ), а имя алгоритма берётся
+   ИЗ ЗАГОЛОВКА образа — поэтому подпись отчёта не может разойтись с тем, что
+   реально проверялось (дефект #66).
 5. **`libsqlite3`** — единственная системная зависимость KERN-Next.
 6. **Скорость чтения**: «76 ГБ/с» — это RAW-адресация; безопасное чтение
    (со сверкой SHA-256) — **231 МБ/с** (330× медленнее). См. METRICS §4.
-7. **Compression**: `compression_codec` зарезервирован, но сжатие не
-   реализовано (ветка `!= 0` недостижима — это и объясняет один «выживший»
-   мутант).
+7. **Compression** — **ЧАСТИЧНО ЗАКРЫТО**: `deflate` (кодек `0x02`) реализован
+   через `std.compress.flate` и покрыт сквозными тестами; `compression_codec`,
+   `compressed_size` и `uncompressed_size` — реальные поля, а не заглушки.
+   `zstd` (кодек `0x01`) объявлен, но НЕ реализован: в Zig std есть только
+   декомпрессор, а статической `libzstd.a` в окружении нет — линковка сломала бы
+   герметичную сборку musl. Запрос даёт честный `error.CodecUnsupported`, а не
+   тихую ошибку.
 8. **Тест покрытия** читает глобальные счётчики: при `--test-filter` даёт
    ложные 0%. `make coverage` запускает полный сьют (корректно).
 
