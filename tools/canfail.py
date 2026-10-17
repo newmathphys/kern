@@ -814,6 +814,19 @@ def case_sarif_output():
     return "make sarif-check"
 
 
+def case_contracts_json():
+    """JSON-отчёт контрактов: функции выброшены из отчёта (пустой `files`).
+
+    ЛОМАЕМ: `write_json_report` пишет пустой список `files`. Цель
+    `contracts-json` обязана покраснеть: пустой JSON-отчёт при реальных
+    нарушениях ослепляет CI и агентов.
+    """
+    patch("tools/kern_contracts.py",
+          '        "files": json_files,',
+          '        "files": [],  # ДИВЕРСИЯ: функции выброшены из JSON')
+    return "make contracts-json"
+
+
 def case_hook_gate():
     """Git-шлюз: pre-commit пропускает СЛОМАННЫЙ контракт.
 
@@ -1680,6 +1693,7 @@ CASES = [
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
     ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
     ("sarif-output",   "SARIF: находки выброшены из отчёта", case_sarif_output),
+    ("contracts-json", "JSON контрактов: функции выброшены из отчёта", case_contracts_json),
     ("hook-gate",      "Git-шлюз: сломанный контракт пропущен", case_hook_gate),
     ("slsa-bad-sig",   "SLSA: Ed25519-подпись аттестата подменена", case_slsa_bad_sig),
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),

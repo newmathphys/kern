@@ -933,7 +933,8 @@ def changed_contract_files(ref: str):
     return out
 
 
-def cmd_git_diff(ref: str, kernc: str, sarif=None, annotations=False) -> int:
+def cmd_git_diff(ref: str, kernc: str, sarif=None, annotations=False,
+                 json_out=None) -> int:
     """Проверить ТОЛЬКО изменённые файлы (быстрый шлюз для pre-commit)."""
     files = changed_contract_files(ref)
     if not files:
@@ -941,7 +942,8 @@ def cmd_git_diff(ref: str, kernc: str, sarif=None, annotations=False) -> int:
         return 0
     print(f"[i] проверяю изменённые файлы ({len(files)}): {', '.join(files)}")
     ns = argparse.Namespace(files=files, kernc=kernc, sarif=sarif,
-                            github_annotations=annotations, emit_pytest=None)
+                            github_annotations=annotations, emit_pytest=None,
+                            json=json_out)
     return _demo(ns)
 
 
@@ -983,6 +985,8 @@ def main() -> int:
                     help="доказать эквивалентность рефакторинга (без контрактов)")
     ap.add_argument("--sarif", default=None, metavar="OUT.sarif",
                     help="экспорт нарушений в SARIF 2.1.0 (GitHub Code Scanning)")
+    ap.add_argument("--json", default=None, metavar="OUT.json",
+                    help="машиночитаемый JSON-отчёт по всем функциям и сводке")
     ap.add_argument("--github-annotations", action="store_true",
                     help="нативные плашки GitHub Actions "
                          "(`::error file=...,line=...,title=...`)")
@@ -999,7 +1003,7 @@ def main() -> int:
         return cmd_install_hook(args.install_hook)
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
-                            args.github_annotations)
+                            args.github_annotations, args.json)
     if args.diff_equiv:
         return cmd_diff_equiv(args.diff_equiv[0], args.diff_equiv[1],
                               Path(args.kernc))
@@ -1172,6 +1176,19 @@ def write_sarif(path: str, violations: list) -> int:
     return 0
 
 
+def write_json_report(path: str, json_files: list, summary: dict) -> int:
+    """Экспорт машиночитаемого отчёта в JSON (`--json <out.json>`)."""
+    doc = {
+        "tool": "KERN",
+        "version": KERN_VERSION,
+        "files": json_files,
+        "summary": summary,
+    }
+    Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                          encoding="utf-8")
+    return 0
+
+
 def print_annotations(violations: list) -> int:
     """Нативные плашки GitHub Actions: `::error file=...,line=...,title=...::...`."""
     for v in violations:
@@ -1194,11 +1211,15 @@ def _demo(args) -> int:
     examples: list[dict] = []
     # Нарушения для `--sarif` (Code Scanning) и `--github-annotations`.
     violations: list[dict] = []
+    # Функции по файлам для `--json` (машиночитаемая сводка для CI и агентов).
+    json_files: list[dict] = []
     print("=" * 74)
     print("KERN: контракты из комментариев (@kern:requires / @kern:ensures)")
     print("=" * 74)
     for f in args.files:
         p = Path(f)
+        f_funcs: list[dict] = []
+        json_files.append({"path": str(p), "functions": f_funcs})
         try:
             funcs = parse_any(p)
         except SyntaxError as e:
@@ -1220,18 +1241,24 @@ def _demo(args) -> int:
             if impure:
                 print(f"  [IMPURE] {name} (стр. {ln}): {impure} -> контракт "
                       f"не проверяется (функция НЕ чистая)")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": f"impure: {impure}"})
                 skipped += 1
                 continue
             if body is None:
                 # Причина ОТКАЗА печатается как есть: «нет return» и «цикл»
                 # требуют разных действий, а раньше сообщение было одно.
                 print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": skip_reason or "вне подмножества"})
                 skipped += 1
                 continue
             try:
                 smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
             except Unsupported as e:
                 print(f"  {name} (стр. {ln}): SKIP — вне подмножества: {e}")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": f"вне подмножества: {e}"})
                 skipped += 1
                 continue
             # Делители собраны ПРИ ПАРСИНГЕ (трансляция тела уже выполнена).
@@ -1250,6 +1277,7 @@ def _demo(args) -> int:
                     print(f"  [VACUOUS] {name}: предусловие ПРОТИВОРЕЧИВО "
                           f"(пустой домен) -> B4: N, e = 0")
                     print(f"         requires: {req}")
+                    f_funcs.append({"name": name, "line": ln, "verdict": "VACUOUS"})
                     violations.append({
                         "file": str(p), "line": ln, "rule": "KERN002",
                         "message": (f"{name}: предусловие ПРОТИВОРЕЧИВО (пустой "
@@ -1275,6 +1303,11 @@ def _demo(args) -> int:
                           f"(делитель: {', '.join(divisors)})")
                     if ce:
                         print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
+                    fn_entry: dict = {"name": name, "line": ln,
+                                      "verdict": "CONTRACT_VIOLATED"}
+                    if ce:
+                        fn_entry["counterexample"] = ce
+                    f_funcs.append(fn_entry)
                     violations.append({
                         "file": str(p), "line": ln, "rule": "KERN004",
                         "message": (f"{name}: возможно деление на ноль "
@@ -1303,6 +1336,11 @@ def _demo(args) -> int:
                           f"(диапазон [{lo}, {hi}])")
                     if ce:
                         print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
+                    fn_entry = {"name": name, "line": ln,
+                                "verdict": "CONTRACT_VIOLATED"}
+                    if ce:
+                        fn_entry["counterexample"] = ce
+                    f_funcs.append(fn_entry)
                     violations.append({
                         "file": str(p), "line": ln, "rule": "KERN004",
                         "message": (f"{name}: ПЕРЕПОЛНЕНИЕ типа `{ret}` "
@@ -1326,6 +1364,8 @@ def _demo(args) -> int:
                         break
                 print(f"  [SKIP] {name}: Z3 доказал, но пруф-чекер не покрывает "
                       f"вывод ({reason or 'причина не указана'})")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": reason or "пруф-чекер не покрывает вывод"})
                 skipped += 1
                 continue
             if "ДОКАЗАНО" in out and rc == 0:
@@ -1336,6 +1376,7 @@ def _demo(args) -> int:
                 print(f"  [PASS] {name}: ДОКАЗАНО")
                 if proof:
                     print(f"         {proof}")
+                f_funcs.append({"name": name, "line": ln, "verdict": "PROVEN"})
                 ok += 1
             else:
                 print(f"  [FAIL] {name}: КОНТРАКТ НАРУШЕН")
@@ -1360,6 +1401,13 @@ def _demo(args) -> int:
                 elif conf is False:
                     print("         [!] RUNTIME НЕ подтвердил: контрпример "
                           "ФАЛЬШИВЫЙ (ошибка трансляции, а не кода)")
+                fn_entry = {"name": name, "line": ln,
+                            "verdict": "CONTRACT_VIOLATED"}
+                if vals:
+                    fn_entry["counterexample"] = vals
+                if conf is not None:
+                    fn_entry["runtime_confirmed"] = conf
+                f_funcs.append(fn_entry)
                 # УЛУЧШЕНИЕ №4: сохраняем контрпример для генерации pytest.
                 if ens and all(p in vals for p in params):
                     examples.append({"name": name, "params": list(params),
@@ -1382,6 +1430,13 @@ def _demo(args) -> int:
     # ::error-аннотации -> работают даже без GitHub Advanced Security.
     if getattr(args, "sarif", None):
         write_sarif(args.sarif, violations)
+    if getattr(args, "json", None):
+        write_json_report(args.json, json_files, {
+            "proven": ok,
+            "violated": failed,
+            "vacuous": vacuous,
+            "skipped": skipped,
+        })
     if getattr(args, "github_annotations", False):
         print_annotations(violations)
     return 0 if (failed == 0 and vacuous == 0) else 1

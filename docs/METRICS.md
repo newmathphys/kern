@@ -5517,3 +5517,25 @@ CAPABILITY_STATUS.md, METRICS.md/en.md; в §1 добавлено пояснен
 СГЕНЕРИРОВАННЫЙ модуль `sqlite3_bridge.zig` (`addTranslateC`) — поэтому `rm -rf .zig-cache/o`
 ломает сборку (`FileNotFound … sqlite3_bridge.zig`). Чистить можно только `.zig-cache`
 целиком, с последующей полной пересборкой.
+
+---
+
+## §76. МАШИНОЧИТАЕМЫЙ ОТЧЁТ КОНТРАКТОВ (`--json`, Issue #4)
+
+### 76.1. Что добавлено
+
+Флаг `python3 tools/kern_contracts.py <files> --json <out.json>` записывает
+машиночитаемую сводку по всем функциям и вердиктам (`PROVEN`,
+`CONTRACT_VIOLATED`, `VACUOUS`, `SKIP`), включая контрпример Z3
+(`counterexample`) и рантайм-подтверждение (`runtime_confirmed`), не меняя
+текстовый вывод инструмента.
+
+### 76.2. Проверка и доказательство невакуумности
+
+| Команда | Результат прогона |
+|:--|:--|
+| `make contracts-json` (`tools/check_contracts_json.py`) | `[OK] JSON-отчёт контрактов валиден: файлов 1, функций 9 (proven=4, violated=2, vacuous=1, skipped=2)` (`rc=0`) |
+| `python3 tools/canfail.py --only contracts-json` | `[PASS] contracts-json` — при выброшенных функциях (`"files": []`) цель краснеет (`rc=2`) |
+| `python3 tools/canfail.py --check-anchors` | `[OK] якоря применимы: 73 литеральных` (`rc=0`) |
+| `python3 tools/registry.py` | **103 цели**, **80/80 CHECK** с доказательством «может упасть» (100 %), **95 can-fail кейсов** (`rc=0`) |
+
