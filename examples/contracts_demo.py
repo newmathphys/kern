@@ -91,3 +91,16 @@ def no_return_path(balance: int, amount: int) -> int:
     """
     if amount > 0:
         return balance - amount
+
+
+# @kern:requires amount > 10 and amount < 5
+# @kern:ensures  result == balance - amount
+def withdraw_vacuous(balance: int, amount: int) -> int:
+    """ВАКУУМНЫЙ КОНТРАКТ: `requires` ПРОТИВОРЕЧИВО (пустой домен).
+
+    Ловушка `false => anything`: обязательство `requires ∧ ¬ensures` при таком
+    предусловии тривиально UNSAT, поэтому БЕЗ отдельной проверки ВЫПОЛНИМОСТИ
+    самого `requires` любое тело — даже намеренно сломанное ниже — объявлялось
+    бы ДОКАЗАННЫМ. Детектор обязан выдать `[VACUOUS] ... -> B4: N, e = 0`.
+    """
+    return balance + amount  # тело НАМЕРЕННО неверное — «доказаться» не должно

@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
+import json
 import re
 import subprocess
 import io
@@ -222,6 +224,118 @@ def build_smt(params, req, ens, body_smt_text: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def requires_only_smt(params, req: str) -> str:
+    """SMT только из ПРЕДУСЛОВИЯ — для проверки его ВЫПОЛНИМОСТИ.
+
+    ЗАЧЕМ (УЛУЧШЕНИЕ №1: детектор вакуумных предусловий). Обязательство
+    проверяется от противного: `requires ∧ body=result ∧ ¬ensures`. Если сам
+    `requires` ПРОТИВОРЕЧИВ (`x > 10 and x < 5`), то эта конъюнкция тривиально
+    UNSAT, и KERN объявил бы ДОКАЗАННОЙ ЛЮБУЮ сломанную функцию — классическая
+    ловушка `false => anything`.
+
+    `kernc prove` доказывает UNSAT входного файла, поэтому «ДОКАЗАНО» на файле
+    из одного `requires` означает: предусловие НЕВЫПОЛНИМО (домен пуст).
+    """
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    r = expr_smt(ast.parse(req, mode="eval").body, {})
+    return f"(set-logic ALL)\n{decls}\n(assert {r})\n(check-sat)\n"
+
+
+def run_kernc(kernc, smt: str):
+    """Прогнать `kernc prove` на SMT-тексте. Возвращает (rc, вывод)."""
+    with tempfile.NamedTemporaryFile("w", suffix=".smt2", delete=False) as tf:
+        tf.write(smt)
+        sp = tf.name
+    r = subprocess.run([str(kernc), "prove", sp],
+                       capture_output=True, text=True, timeout=120)
+    return r.returncode, r.stdout + r.stderr
+
+
+def parse_bodies(path: Path):
+    """Все функции файла БЕЗ требования контракта: (имя, params, body_smt, строка).
+
+    Нужна для УЛУЧШЕНИЯ №3 (`--diff-equiv`): эквивалентность рефакторинга
+    доказывается по ТЕЛАМ, контракты писать не требуется.
+    """
+    src = path.read_text(encoding="utf-8", errors="replace")
+    tree = ast.parse(src)
+    out = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        stmts = [
+            st for st in node.body
+            if not isinstance(st, ast.Pass)
+            and not (isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant)
+                     and isinstance(st.value.value, str))
+        ]
+        try:
+            body = body_smt(stmts, {})
+        except (NoReturn, Unsupported):
+            continue
+        params = [a.arg for a in node.args.args if a.arg != "self"]
+        out.append((node.name, params, body, node.lineno))
+    return out
+
+
+def diff_equiv_smt(params, body_old: str, body_new: str) -> str:
+    """SMT для проверки `∃x: f_old(x) != f_new(x)` (УЛУЧШЕНИЕ №3).
+
+    Оба тела исполняются на ОДНИХ И ТЕХ ЖЕ символьных аргументах. Если
+    конъюнкция с `(distinct res_old res_new)` UNSAT — поведение не изменилось.
+    """
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    return ("(set-logic ALL)\n"
+            f"{decls}\n"
+            "(declare-const res_old Int)\n"
+            "(declare-const res_new Int)\n"
+            f"(assert (= res_old {body_old}))\n"
+            f"(assert (= res_new {body_new}))\n"
+            "(assert (distinct res_old res_new))\n"
+            "(check-sat)\n")
+
+
+def contract_fingerprints(path: Path) -> dict:
+    """Отпечатки ВСЕХ запечатанных контрактов файла (УЛУЧШЕНИЕ №2).
+
+    Ключ — `<имя_функции>:requires|ensures`, значение — SHA-256 ТЕКСТА
+    контракта. Сравнение отпечатков ловит УДАЛЕНИЕ или ОСЛАБЛЕНИЕ строки
+    `# @kern:ensures` — самый простой чит ИИ-агента, которому не удаётся
+    починить код под `make contracts`.
+    """
+    src = path.read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    anchors: dict[int, dict[str, str]] = {}
+    for i, ln in enumerate(lines, 1):
+        m = ANNOT.match(ln)
+        if m:
+            anchors.setdefault(i, {})[m.group(1)] = m.group(2)
+    out: dict[str, str] = {}
+    for node in ast.walk(ast.parse(src)):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for k in range(max(1, node.lineno - 6), node.lineno):
+            if k not in anchors:
+                continue
+            for kind, text in anchors[k].items():
+                out[f"{node.name}:{kind}"] = hashlib.sha256(
+                    text.encode("utf-8")).hexdigest()
+    return out
+
+
+def parse_counterexample(out: str) -> dict:
+    """Разобрать строку `[КОНТРПРИМЕР] x = 11, y = -3` в словарь (УЛУЧШЕНИЕ №4)."""
+    vals: dict[str, int] = {}
+    for line in out.splitlines():
+        if "КОНТРПРИМЕР" not in line:
+            continue
+        body = line.split("КОНТРПРИМЕР", 1)[1]
+        for m in re.finditer(r"([A-Za-z_][A-Za-z_0-9]*)\s*=\s*(-?\d+)", body):
+            vals[m.group(1)] = int(m.group(2))
+        break
+    return vals
+
+
 def expect_demo(alloc_out: list) -> int:
     """Проверить, что демо дало РОВНО ожидаемые вердикты.
 
@@ -254,6 +368,13 @@ def expect_demo(alloc_out: list) -> int:
         problems.append("withdraw_missing_neg НЕ отвергнут (баг не найден!)")
     if "КОНТРПРИМЕР" not in text:
         problems.append("контрпример не предъявлен")
+    # ВАКУУМНЫЙ КОНТРАКТ обязан ловиться ОТДЕЛЬНЫМ вердиктом (УЛУЧШЕНИЕ №1):
+    # без этой проверки ловушка `false => anything` объявила бы НАМЕРЕННО
+    # сломанное тело `withdraw_vacuous` ДОКАЗАННЫМ.
+    if "[VACUOUS] withdraw_vacuous" not in text:
+        problems.append("withdraw_vacuous НЕ пойман (вакуумное предусловие!)")
+    if "B4: N, e = 0" not in text:
+        problems.append("вакуумный контракт не помечен `B4: N, e = 0`")
     if problems:
         print("[!] ДЕМО НЕ СООТВЕТСТВУЕТ ОЖИДАНИЮ:")
         for x in problems:
@@ -263,15 +384,162 @@ def expect_demo(alloc_out: list) -> int:
     return 0
 
 
+def emit_pytest(out_path: str, examples: list, files) -> int:
+    """УЛУЧШЕНИЕ №4: превратить контрпример Z3 в ПАДАЮЩИЙ pytest.
+
+    ЗАЧЕМ. Найденный Z3 баг (`balance = 0, amount = -1`) был всего лишь
+    строкой в логе и нигде не воспроизводился. Теперь он становится обычным
+    тестом: разработчик запускает `pytest` и видит КРАСНЫЙ тест с теми же
+    числами, что предъявил решатель.
+    """
+    src = Path(files[0]).resolve() if files else Path(".")
+    lines = [
+        "# АВТОГЕНЕРАЦИЯ KERN: регрессионные тесты из КОНТРПРИМЕРОВ Z3.",
+        "# КАЖДЫЙ тест ПАДАЕТ на текущем коде — это и есть найденный баг.",
+        f"# Запуск: pytest {out_path}",
+        "import sys",
+        f'sys.path.insert(0, r"{src.parent}")',
+        f"from {src.stem} import *  # noqa: F401,F403",
+        "",
+    ]
+    for ex in examples:
+        args = ", ".join(f"{p}={ex['vals'][p]}" for p in ex["params"])
+        lines += [
+            "",
+            f"def test_counterexample_{ex['name']}():",
+            f"    # KERN/Z3: контрпример к `ensures` (стр. {ex['line']})",
+            f"    # ensures: {ex['ens']}",
+            f"    result = {ex['name']}({args})",
+            f"    assert ({ex['ens']}), (",
+            f"        'KERN: контракт нарушен при {args}')",
+        ]
+    if not examples:
+        lines += ["", "def test_no_counterexamples():",
+                  "    # Z3 не нашёл контрпримеров — регрессий нет.",
+                  "    assert True"]
+    Path(out_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"  [i] pytest из контрпримеров: {out_path} ({len(examples)} тест(ов))")
+    return 0
+
+
+def cmd_lock(files, out_path: str) -> int:
+    """УЛУЧШЕНИЕ №2: запечатать отпечатки контрактов (Contract Lock)."""
+    data = {}
+    for f in files:
+        data[str(f)] = contract_fingerprints(Path(f))
+    Path(out_path).write_text(
+        json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8")
+    n = sum(len(v) for v in data.values())
+    print(f"  [i] запечатано контрактов: {n} -> {out_path}")
+    return 0
+
+
+def cmd_verify_lock(files, lock_path: str) -> int:
+    """УЛУЧШЕНИЕ №2: проверить, что ни один запечатанный контракт не изменён.
+
+    ЭТО ЗАЩИТА ОТ ИИ-АГЕНТА: когда починить код под `make contracts` не
+    получается, самый простой чит — УДАЛИТЬ или ОСЛАБИТЬ строку
+    `# @kern:ensures`. Здесь такое изменение даёт `rc = 2`.
+    """
+    try:
+        data = json.loads(Path(lock_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"[!] не читается замок {lock_path}: {e}")
+        return 2
+    bad = 0
+    for f in files:
+        cur = contract_fingerprints(Path(f))
+        old = data.get(str(f), {})
+        for key, h in old.items():
+            if key not in cur:
+                print(f"  [SECURITY] контракт УДАЛЁН: {f}:{key}")
+                bad += 1
+            elif cur[key] != h:
+                print(f"  [SECURITY] контракт ИЗМЕНЁН: {f}:{key}")
+                bad += 1
+        for key in cur:
+            if key not in old:
+                print(f"  [i] новый контракт (не запечатан): {f}:{key}")
+    if bad:
+        print(f"[!] ЗАПЕЧАТАННЫЕ КОНТРАКТЫ НАРУШЕНЫ: {bad}")
+        return 2
+    print("[OK] замок контрактов цел: ни один запечатанный контракт не изменён")
+    return 0
+
+
+def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
+    """УЛУЧШЕНИЕ №3: доказать эквивалентность рефакторинга БЕЗ контрактов."""
+    if not Path(kernc).exists():
+        print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
+        return 2
+    a = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(old_file))}
+    b2 = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(new_file))}
+    common = [n for n in a if n in b2]
+    if not common:
+        print("[!] нет одноимённых функций в подмножестве — сравнивать нечего")
+        return 2
+    diverged = same = 0
+    for name in sorted(common):
+        pa, ba, _ = a[name]
+        pb, bnew, _ = b2[name]
+        if pa != pb:
+            print(f"  [SKIP] {name}: разные наборы параметров {pa} / {pb}")
+            continue
+        rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
+        if "ДОКАЗАНО" in out:
+            extra = "" if rc == 0 else " (пруф-чекер не покрывает форму вывода)"
+            print(f"  [EQUIVALENT] {name}: рефакторинг математически "
+                  f"эквивалентен на всём домене Z{extra}")
+            same += 1
+        else:
+            print(f"  [DIVERGED] {name}: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ!")
+            for line in out.splitlines():
+                if "КОНТРПРИМЕР" in line:
+                    print(f"         {line.strip()}")
+                    break
+            diverged += 1
+    print("-" * 74)
+    print(f"ИТОГО: эквивалентных {same} | разошедшихся {diverged} | "
+          f"всего {len(common)}")
+    return 0 if diverged == 0 else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("files", nargs="+")
+    ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
     ap.add_argument("--expect-demo", action="store_true",
                     help="проверить, что демо дало ОЖИДАЕМЫЕ вердикты "
                          "(превращает цель в ПРОВЕРКУ: падает при расхождении)")
+    ap.add_argument("--emit-pytest", default=None, metavar="OUT.py",
+                    help="сгенерировать ПАДАЮЩИЙ pytest из контрпримеров Z3")
+    ap.add_argument("--lock", default=None, metavar="LOCK.json",
+                    help="запечатать отпечатки контрактов (Contract Lock)")
+    ap.add_argument("--verify-lock", default=None, metavar="LOCK.json",
+                    help="проверить, что запечатанные контракты НЕ изменены "
+                         "(rc=2 при удалении/ослаблении контракта)")
+    ap.add_argument("--diff-equiv", nargs=2, default=None,
+                    metavar=("OLD.py", "NEW.py"),
+                    help="доказать эквивалентность рефакторинга (без контрактов)")
     args = ap.parse_args()
+
+    if args.diff_equiv:
+        return cmd_diff_equiv(args.diff_equiv[0], args.diff_equiv[1],
+                              Path(args.kernc))
+    if args.lock:
+        if not args.files:
+            print("[!] --lock требует список файлов")
+            return 2
+        return cmd_lock(args.files, args.lock)
+    if args.verify_lock:
+        if not args.files:
+            print("[!] --verify-lock требует список файлов")
+            return 2
+        return cmd_verify_lock(args.files, args.verify_lock)
+    if not args.files:
+        ap.error("нужен файл (или --diff-equiv / --lock / --verify-lock)")
 
     if args.expect_demo:
         cap = io.StringIO()
@@ -292,7 +560,10 @@ def _demo(args) -> int:
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 1
 
-    total = ok = failed = skipped = 0
+    total = ok = failed = skipped = vacuous = 0
+    # Контрпримеры для `--emit-pytest` (УЛУЧШЕНИЕ №4): найденный Z3 баг обязан
+    # превращаться в ОБЫЧНЫЙ падающий pytest, а не только в строку в логе.
+    examples: list[dict] = []
     print("=" * 74)
     print("KERN: контракты из комментариев (@kern:requires / @kern:ensures)")
     print("=" * 74)
@@ -321,20 +592,30 @@ def _demo(args) -> int:
                 print(f"  {name} (стр. {ln}): SKIP — вне подмножества: {e}")
                 skipped += 1
                 continue
-            with tempfile.NamedTemporaryFile("w", suffix=".smt2",
-                                             delete=False) as tf:
-                tf.write(smt)
-                sp = tf.name
-            r = subprocess.run([str(kernc), "prove", sp],
-                               capture_output=True, text=True, timeout=120)
-            out = r.stdout + r.stderr
+            # ---- УЛУЧШЕНИЕ №1: ДЕТЕКТОР ВАКУУМНЫХ ПРЕДУСЛОВИЙ ------------
+            # ЛОВУШКА `false => anything`: при ПРОТИВОРЕЧИВОМ `requires`
+            # обязательство `requires ∧ ¬ensures` тривиально UNSAT, и любая
+            # сломанная функция выглядела бы ДОКАЗАННОЙ. Поэтому сначала
+            # проверяем ВЫПОЛНИМОСТЬ самого `requires` (отдельным запросом).
+            if req:
+                try:
+                    _rcv, outv = run_kernc(kernc, requires_only_smt(params, req))
+                except (Unsupported, subprocess.SubprocessError, OSError):
+                    outv = ""
+                if "ДОКАЗАНО" in outv:
+                    print(f"  [VACUOUS] {name}: предусловие ПРОТИВОРЕЧИВО "
+                          f"(пустой домен) -> B4: N, e = 0")
+                    print(f"         requires: {req}")
+                    vacuous += 1
+                    continue
+            rc, out = run_kernc(kernc, smt)
             # ТРИ РАЗЛИЧНЫХ ИСХОДА (раньше два). Различие принципиально:
             #   PASS — Z3 доказал И пруф-чекер перепроверил вывод;
             #   SKIP — Z3 доказал, но пруф-чекер НЕ ПОКРЫВАЕТ такую форму вывода
             #          (например, с `ite`). Код не виноват, но и «проверено»
             #          сказать нельзя — поэтому НЕ PASS и НЕ FAIL;
             #   FAIL — контракт опровергнут (предъявлен контрпример).
-            if "ДОКАЗАНО" in out and r.returncode != 0:
+            if "ДОКАЗАНО" in out and rc != 0:
                 reason = ""
                 for line in out.splitlines():
                     if "причина:" in line:
@@ -344,7 +625,7 @@ def _demo(args) -> int:
                       f"вывод ({reason or 'причина не указана'})")
                 skipped += 1
                 continue
-            if "ДОКАЗАНО" in out and r.returncode == 0:
+            if "ДОКАЗАНО" in out and rc == 0:
                 proof = ""
                 for line in out.splitlines():
                     if "PROOF VERIFIED" in line:
@@ -360,15 +641,23 @@ def _demo(args) -> int:
                         print(f"         {line.strip()}")
                 # КОНТРПРИМЕР Z3: конкретные значения, сломавшие контракт.
                 # Без них вердикт F бесполезен — непонятно, что именно чинить.
+                vals = parse_counterexample(out)
                 for line in out.splitlines():
                     if "КОНТРПРИМЕР" in line:
                         print(f"         {line.strip()}")
                         break
+                # УЛУЧШЕНИЕ №4: сохраняем контрпример для генерации pytest.
+                if ens and all(p in vals for p in params):
+                    examples.append({"name": name, "params": list(params),
+                                     "ens": ens, "vals": vals, "line": ln})
                 failed += 1
     print("-" * 74)
-    print(f"ИТОГО: доказано {ok} | нарушено {failed} | вне подмножества "
-          f"{skipped} | всего {total}")
-    return 0 if failed == 0 else 1
+    print(f"ИТОГО: доказано {ok} | нарушено {failed} | ВАКУУМНЫХ {vacuous} | "
+          f"вне подмножества {skipped} | всего {total}")
+    # ---- УЛУЧШЕНИЕ №4: ПАДАЮЩИЙ PYTEST ИЗ КОНТРПРИМЕРА Z3 ----------------
+    if getattr(args, "emit_pytest", None):
+        emit_pytest(args.emit_pytest, examples, args.files)
+    return 0 if (failed == 0 and vacuous == 0) else 1
 
 
 if __name__ == "__main__":

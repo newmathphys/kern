@@ -35,6 +35,8 @@ CLASS = {
     "golden": "CHECK", "build": "CHECK", "test": "CHECK", "test-next": "CHECK",
     "artifact-check": "CHECK", "artifact-check-offline": "CHECK",
     "contracts": "CHECK",
+    "contracts-lock-check": "CHECK",
+    "diff-equiv": "CHECK",
     "mcp-selftest": "CHECK",
     "kimg-deflate": "CHECK",
     "version-check": "CHECK",
@@ -54,6 +56,7 @@ CLASS = {
     "telemetry-quick": "CHECK", "evidence-fast": "CHECK",
     "guardrail": "CHECK",
     "run-example": "META",   # демонстрация (не проверка); свой can-fail не нужен
+    "contracts-lock": "META",  # ЗАПИСЬ замка (не проверка); проверяет contracts-lock-check
     "canfail-selftest": "META",
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
@@ -77,6 +80,10 @@ CLASS = {
 # Явная таблица (а не эвристика по подстроке): иначе покрытие считается неверно.
 CASE_TARGET = {
     "avalanche": "avalanche",
+    # УЛУЧШЕНИЯ v2.5: can-fail доказательства для новых целей.
+    "vacuous-requires": "contracts",
+    "contract-lock": "contracts-lock-check",
+    "diff-equiv": "diff-equiv",
     "lean-sorry": "lean",
     "binlevel": "binlevel",
     "svg-overflow": "svg-check",

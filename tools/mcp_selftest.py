@@ -5,15 +5,17 @@
 точно так же, как реальный клиент (Claude Code, Cursor): пишет строки JSON в
 stdin, читает строки JSON из stdout.
 
-ПРОВЕРЯЕТСЯ (8 пунктов):
+ПРОВЕРЯЕТСЯ (10 пунктов):
   1. `initialize`      — протокол и serverInfo;
   2. уведомление (без `id`) — ответа быть НЕ ДОЛЖНО;
-  3. `tools/list`      — три инструмента;
+  3. `tools/list`      — ПЯТЬ инструментов;
   4. `kern_verify_smt` на ДОКАЗУЕМОМ контракте -> «ДОКАЗАНО», e=1;
   5. `kern_verify_smt` на ОПРОВЕРГАЕМОМ -> «НЕ доказано», e=0;
   6. `kern_prove_with_checker` -> есть строка `PROOF VERIFIED`;
   7. `kern_verify_multi_belnap` [T, F] -> `JOIN_K: B` (конфликт не схлопывается);
   7b. kern_verify_python (ветвления -> ite) -> контрпример;
+  7c. `kern_check_equivalence`: эквивалентный рефакторинг -> `[EQUIVALENT]`,
+      расходящийся -> `[DIVERGED]` + контрпример (УЛУЧШЕНИЕ №3);
   8. неизвестный метод -> -32601; битый JSON -> -32700.
 
 Запуск: python3 tools/mcp_selftest.py
@@ -111,7 +113,9 @@ def main() -> int:
     c.send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     r = c.read_one()
     names = [t["name"] for t in r["result"]["tools"]] if r else []
-    check("tools/list", len(names) == 4, ", ".join(names))
+    check("tools/list (5 инструментов)",
+          len(names) == 5 and "kern_check_equivalence" in names,
+          ", ".join(names))
 
     # 4. доказуемый контракт
     c.send({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -171,6 +175,30 @@ def main() -> int:
           and "amount = -1" in txt)
     check("kern_verify_python: ветвления + контрпример", ok,
           ([l for l in txt.splitlines() if "КОНТРПРИМЕР" in l] or [""])[0])
+
+    # 7c. ЭКВИВАЛЕНТНОСТЬ РЕФАКТОРИНГА (5-й инструмент, УЛУЧШЕНИЕ №3).
+    OLD_SRC = ("def charge(balance: int, amount: int) -> int:\n"
+               "    return balance - amount\n")
+    EQ_SRC = ("def charge(balance: int, amount: int) -> int:\n"
+              "    return -amount + balance\n")
+    DIV_SRC = ("def charge(balance: int, amount: int) -> int:\n"
+               "    return balance + amount\n")
+    c.send({"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+            "params": {"name": "kern_check_equivalence",
+                       "arguments": {"old_source": OLD_SRC, "new_source": EQ_SRC}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_check_equivalence: эквивалент", "[EQUIVALENT] charge" in txt,
+          ([l for l in txt.splitlines() if "EQUIVALENT" in l] or [""])[0])
+
+    c.send({"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+            "params": {"name": "kern_check_equivalence",
+                       "arguments": {"old_source": OLD_SRC, "new_source": DIV_SRC}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_check_equivalence: расхождение + контрпример",
+          "[DIVERGED] charge" in txt and "КОНТРПРИМЕР" in txt,
+          ([l for l in txt.splitlines() if "DIVERGED" in l] or [""])[0])
 
     # 8a. неизвестный метод
     c.send({"jsonrpc": "2.0", "id": 7, "method": "no/such/method"})

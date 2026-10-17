@@ -246,6 +246,10 @@ FAULTABLE = [
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
     "src/core/blake3_simd8.zig",
+    # УЛУЧШЕНИЯ v2.5: фикстуры и цели, которые canfail обязан уметь ломать.
+    "examples/contracts_demo.py",
+    "examples/refactor_before.py",
+    "examples/refactor_after.py",
 ]
 
 
@@ -637,6 +641,50 @@ def case_contracts_branches():
           "    if isinstance(st, ast.If):",
           "    if False and isinstance(st, ast.If):  # ДИВЕРСИЯ: ветки отброшены")
     return "make contracts"
+
+
+def case_vacuous_requires():
+    """Вакуумное предусловие: `false => anything` объявляется ДОКАЗАННЫМ.
+
+    ЛОМАЕМ: снимаем отдельную проверку ВЫПОЛНИМОСТИ `requires`. Тогда
+    `withdraw_vacuous` (противоречивое `amount > 10 and amount < 5` и
+    НАМЕРЕННО сломанное тело) проходит как ДОКАЗАННЫЙ, а `--expect-demo`
+    обязан покраснеть: детектор вакуумных контрактов не должен быть
+    декоративным (УЛУЧШЕНИЕ №1).
+    """
+    patch("tools/kern_contracts.py",
+          '                if "ДОКАЗАНО" in outv:',
+          '                if False:  # ДИВЕРСИЯ: вакуумный requires не проверяем')
+    return "make contracts"
+
+
+def case_contract_lock():
+    """Замок контрактов: ОСЛАБЛЕНИЕ спецификации не замечается.
+
+    ЛОМАЕМ: удаляем строку `# @kern:ensures` из демо-файла — ровно тот чит,
+    которым ИИ-агент «проходит» `make contracts`, не чиня код. Цель
+    `contracts-lock-check` ОБЯЗАНА покраснеть (rc=2); если остаётся зелёной,
+    замок бесполезен (УЛУЧШЕНИЕ №2).
+    """
+    patch("examples/contracts_demo.py",
+          "# @kern:ensures  result == balance - amount and result < balance\n"
+          "def withdraw(",
+          "def withdraw(")
+    return "make contracts-lock-check"
+
+
+def case_diff_equiv():
+    """Эквивалентность рефакторинга: РАСХОЖДЕНИЕ объявляется эквивалентным.
+
+    ЛОМАЕМ: считаем «ДОКАЗАНО» всегда, поэтому пара `refactor_before/after`
+    со ПЕРЕПУТАННЫМ знаком проходит как EQUIVALENT. Цель `diff-equiv`
+    обязана покраснеть: доказательство эквивалентности, не отличающее
+    сломанный рефакторинг от корректного, — фикция (УЛУЧШЕНИЕ №3).
+    """
+    patch("tools/kern_contracts.py",
+          '        if "ДОКАЗАНО" in out:',
+          '        if True:  # ДИВЕРСИЯ: любая пара объявляется эквивалентной')
+    return "make diff-equiv"
 
 
 def case_model_negative():
@@ -1419,6 +1467,9 @@ CASES = [
     ("artifact-check",  "Артефакт: README объявляет чужой хеш", case_artifact_check),
     ("artifact-check-offline", "Артефакт: README != сборка",   case_artifact_check_offline),
     ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
+    ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
+    ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
+    ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("codec-dispatch",  "Кодеки: сжатый объект как raw",        case_codec_dispatch),
     ("model-negative",  "Контрпример: (- N) не свёрнут",      case_model_negative),
     ("contracts-branches", "Ветвления: if отброшен",           case_contracts_branches),

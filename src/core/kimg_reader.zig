@@ -192,7 +192,12 @@ pub const KimgHeader = extern struct {
         const root = switch (algo) {
             inline else => |a| try merkleRootImpl(a, file_bytes, h),
         };
-        if (!std.mem.eql(u8, &root, &h.root_digest)) {
+        // КОНСТАНТНО-ВРЕМЕННАЯ СВЕРКА (УЛУЧШЕНИЕ №5, FIPS 140-3).
+        // Обычный `std.mem.eql` выходит на ПЕРВОМ несовпавшем байте, поэтому
+        // время сравнения выдаёт число совпавших байт — это Timing
+        // Side-Channel: подбирая дайджест побайтово, атакующий получает
+        // оракул. `timing_safe.eql` сравнивает ВСЕ 32 байта всегда.
+        if (!std.crypto.timing_safe.eql([32]u8, root, h.root_digest)) {
             cov.hit(.merkle_mismatch);
             return KimgError.MerkleRootMismatch;
         }

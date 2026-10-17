@@ -8,6 +8,12 @@
   kern_verify_smt           — проверить SMT-LIB2 контракт через Z3 + пруф-чекер;
   kern_prove_with_checker   — то же, но с ПОЛНОЙ разбивкой пруф-чекера;
   kern_verify_multi_belnap  — несколько контрактов -> аккумуляция Белнапа
+                              (конфликт T+F не схлопывается в «доказано»);
+  kern_verify_python        — контракты ПРЯМО В Python-КОДЕ (@kern:requires /
+                              @kern:ensures), с контрпримером при нарушении;
+  kern_check_equivalence    — доказать ЭКВИВАЛЕНТНОСТЬ рефакторинга БЕЗ
+                              контрактов: `∃x: f_old(x) != f_new(x)` -> UNSAT
+                              = [EQUIVALENT], SAT = [DIVERGED] + контрпример.
                               (T / F / B / N): T ⊔ F = B (конфликт).
 
 ПОДКЛЮЧЕНИЕ (Claude Code / Cursor):
@@ -88,6 +94,24 @@ TOOLS = [
             "required": ["python_source"],
         },
     },
+    {
+        "name": "kern_check_equivalence",
+        "description": ("Доказать ЭКВИВАЛЕНТНОСТЬ рефакторинга БЕЗ написания "
+                        "контрактов: для одноимённых функций двух исходников "
+                        "проверяется `∃x: f_old(x) != f_new(x)`. UNSAT -> "
+                        "[EQUIVALENT] (поведение не изменилось), SAT -> "
+                        "[DIVERGED] + КОНТРПРИМЕР, на котором старая и новая "
+                        "функции дают РАЗНЫЙ ответ. Циклы/вызовы -> честный SKIP."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "old_source": {"type": "string",
+                               "description": "Исходник ДО рефакторинга"},
+                "new_source": {"type": "string",
+                               "description": "Исходник ПОСЛЕ рефакторинга"}},
+            "required": ["old_source", "new_source"],
+        },
+    },
 ]
 
 
@@ -164,6 +188,29 @@ def run_python_contracts(src: str) -> str:
     return "\n".join(keep) if keep else out
 
 
+def run_diff_equiv(old_src: str, new_src: str) -> str:
+    """Доказать эквивалентность рефакторинга (УЛУЧШЕНИЕ №3) через тот же
+    `tools/kern_contracts.py` — версии трансляции Python -> SMT не расходятся.
+    """
+    tool = ROOT / "tools" / "kern_contracts.py"
+    if not tool.exists():
+        return f"[!] не найден экстрактор контрактов: {tool}"
+    paths = []
+    try:
+        for src in (old_src, new_src):
+            with tempfile.NamedTemporaryFile("w", suffix=".py",
+                                             delete=False) as tf:
+                tf.write(src)
+                paths.append(tf.name)
+        r = subprocess.run([sys.executable, str(tool), "--diff-equiv",
+                            paths[0], paths[1]],
+                           capture_output=True, text=True, timeout=300,
+                           cwd=str(ROOT))
+    except subprocess.TimeoutExpired:
+        return "[!] таймаут проверки эквивалентности"
+    return (r.stdout + r.stderr).strip()
+
+
 def text_result(s: str, is_error: bool = False) -> dict:
     return {"content": [{"type": "text", "text": s}], "isError": is_error}
 
@@ -194,6 +241,13 @@ def call_tool(name: str, args: dict) -> dict:
         if not src.strip():
             return text_result("нужен непустой параметр 'python_source'", True)
         return text_result(run_python_contracts(src))
+
+    if name == "kern_check_equivalence":
+        old_src = args.get("old_source", "")
+        new_src = args.get("new_source", "")
+        if not old_src.strip() or not new_src.strip():
+            return text_result("нужны непустые 'old_source' и 'new_source'", True)
+        return text_result(run_diff_equiv(old_src, new_src))
 
     if name == "kern_verify_multi_belnap":
         contracts = args.get("contracts") or []

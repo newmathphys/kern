@@ -151,7 +151,10 @@ pub const KernFS = struct {
         // Сверяем SHA-256(payload) с digest из дескриптора.
         var got: [32]u8 = undefined;
         self.hash_algo.hash(sl, &got);
-        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;
+        // КОНСТАНТНО-ВРЕМЕННАЯ СВЕРКА (УЛУЧШЕНИЕ №5, FIPS 140-3): обычный
+        // `mem.eql` выдаёт число совпавших байт по времени сравнения.
+        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))
+            return KernFsError.PayloadTampered;
         cov.hit(.fs_hit);
         return sl;
     }
@@ -214,7 +217,9 @@ pub const KernFS = struct {
         errdefer allocator.free(out);
         var got: [32]u8 = undefined;
         self.hash_algo.hash(out, &got);
-        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;
+        // Константно-временная сверка (УЛУЧШЕНИЕ №5, FIPS 140-3).
+        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))
+            return KernFsError.PayloadTampered;
         return out;
     }
 
@@ -267,7 +272,9 @@ pub const KernFS = struct {
                 var outs: [8][32]u8 = undefined;
                 self.hash_algo.hashBatch8(ins, &outs);
                 for (0..8) |k| {
-                    if (!std.mem.eql(u8, &outs[k], &self.objects[base + k].digest)) {
+                    // Константно-временная сверка (УЛУЧШЕНИЕ №5, FIPS 140-3).
+                    if (!std.crypto.timing_safe.eql([32]u8, outs[k],
+                            self.objects[base + k].digest)) {
                         return KernFsError.PayloadTampered;
                     }
                 }
@@ -327,7 +334,9 @@ pub const KernFS = struct {
             var outs: [8][32]u8 = undefined;
             self.hash_algo.hashBatch8(ins, &outs);
             for (0..8) |k| {
-                if (!std.mem.eql(u8, &outs[k], &self.objects[i + k].digest)) {
+                // Константно-временная сверка (УЛУЧШЕНИЕ №5, FIPS 140-3).
+                if (!std.crypto.timing_safe.eql([32]u8, outs[k],
+                        self.objects[i + k].digest)) {
                     return KernFsError.PayloadTampered;
                 }
             }

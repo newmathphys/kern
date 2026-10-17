@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: contracts artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate version-check
+.PHONY: contracts contracts-lock contracts-lock-check diff-equiv artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate version-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -35,6 +35,8 @@ help:
 	@echo "  make demo        — сквозная демонстрация (kernc + kernx)"
 	@echo "  make coverage    — покрытие инструментированных решений"
 	@echo "  make mutate      — мутационное тестирование (работает на копии)"
+	@echo "  make contracts-lock-check — замок контрактов (агент не ослабил спецификацию)"
+	@echo "  make diff-equiv  — эквивалентность рефакторинга без контрактов"
 	@echo "  make perf        — производительность (.kimg, оба пути чтения)"
 	@echo "  make test-all    — полный контур проверок"
 	@echo "  make formal-ci   — ядро + Lean + бенчмарки"
@@ -193,6 +195,32 @@ clean:
 # сломанная проверка» в самой цели (закрыто can-fail кейсом `contracts`).
 contracts: build
 	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py --expect-demo
+
+# --- УЛУЧШЕНИЕ №2: ЗАМОК КОНТРАКТОВ (Contract Lock) --------------------------
+# ЗАЧЕМ. Самый простой чит ИИ-агента, которому не удаётся починить код под
+# `make contracts`, — УДАЛИТЬ или ОСЛАБИТЬ строку `# @kern:ensures`.
+# Замок хранит SHA-256 отпечатки всех спецификаций; `contracts-lock-check`
+# ловит удаление/изменение и падает с rc=2.
+KERN_CONTRACTS_LOCK ?= docs/contracts.lock.json
+
+contracts-lock:
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py \
+		--lock $(KERN_CONTRACTS_LOCK)
+
+contracts-lock-check:
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py \
+		--verify-lock $(KERN_CONTRACTS_LOCK)
+
+# --- УЛУЧШЕНИЕ №3: ЭКВИВАЛЕНТНОСТЬ РЕФАКТОРИНГА -----------------------------
+# Цель — ПРОВЕРКА, а не демонстрация: расходящаяся пара (перепутан знак)
+# ОБЯЗАНА быть поймана, иначе цель падает. Доказательство эквивалентности,
+# не отличающее сломанный рефакторинг от корректного, — фикция.
+diff-equiv: build
+	@$(PYTHON) tools/kern_contracts.py --diff-equiv \
+		examples/refactor_before.py examples/refactor_after.py; \
+	rc=$$?; if [ $$rc -eq 1 ]; then \
+		echo "[OK] расхождение обнаружено (rc=1) — доказательство не фиктивно"; \
+	else echo "[!] РАСХОЖДЕНИЕ НЕ ОБНАРУЖЕНО (rc=$$rc)"; exit 1; fi
 
 # MCP-сервер: живая проверка протокола (JSON-RPC 2.0 поверх stdio).
 # Запускает examples/kern_mcp_server.py как ДОЧЕРНИЙ ПРОЦЕСС и проверяет 9 пунктов:
