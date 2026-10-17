@@ -46,7 +46,7 @@ CLASS = {
     "version-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
-    "align": "CHECK", "avalanche": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
+    "align": "CHECK", "avalanche": "CHECK", "bench-json": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
     "audit": "CHECK", "localize": "CHECK", "arrays": "CHECK", "chc": "CHECK",
     "strings": "CHECK", "cegis": "CHECK", "theories": "CHECK", "test-fault": "CHECK",
     "attest-key": "CHECK", "attest": "CHECK", "coverage": "CHECK", "fuzz-1m": "CHECK",
@@ -85,6 +85,7 @@ CLASS = {
 # Явная таблица (а не эвристика по подстроке): иначе покрытие считается неверно.
 CASE_TARGET = {
     "avalanche": "avalanche",
+    "bench-json": "bench-json",
     # УЛУЧШЕНИЯ v2.5: can-fail доказательства для новых целей.
     "vacuous-requires": "contracts",
     "contract-lock": "contracts-lock-check",

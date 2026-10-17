@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Python tooling (z3-solver, pytest) — keeps the solver used by the Gate current and
+  # makes the dependency visible in GitHub's Dependency Graph.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels: ["tooling", "dependencies"]
+
+  # GitHub Actions used by CI and the benchmark workflow.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels: ["tooling", "ci"]

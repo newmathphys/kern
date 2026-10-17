@@ -3,7 +3,7 @@ description: 'Zero-trust gate: a claim is admitted only with machine evidence (Z
 author: 'Vital Kalinousky'
 branding:
   icon: 'shield'
-  color: 'purple'
+  color: 'green'
 
 inputs:
   args:

@@ -271,6 +271,7 @@ FAULTABLE = [
     "src/core/eq2.zig",
     "src/core/kimg_writer.zig",
     "tools/mutate_zig.py",
+    "tools/bench_json.py",
     "src/kern_bench.zig",
     "src/perf_bench.zig",
     "src/stress_real.zig",
@@ -459,6 +460,19 @@ def case_avalanche():
           "    return h.digest()",
           "    return weak_key(proof)")
     return "make avalanche"
+
+
+def case_bench_json():
+    """Детерминированный бенчмарк. ЛОМАЕМ: считаем «наивный» хэш основным ключом.
+
+    Тогда лавина перестаёт быть ~50 % (становится ~3 %), цепочка коллизий вырастает до
+    размера таблицы, и вердикт инструмента ОБЯЗАН стать FAIL (ненулевой код возврата).
+    Если цель останется зелёной — значит бенчмарк перестал что-либо проверять.
+    """
+    patch("tools/bench_json.py",
+          "    kern = measure(args.n, kern_key)",
+          "    kern = measure(args.n, weak_key)")
+    return "make bench-json"
 
 
 def case_lean_sorry():
@@ -1649,6 +1663,7 @@ def case_portable_bench():
 
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
+    ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
     ("lean-sorry",    "Lean: отсутствие `sorry`",              case_lean_sorry),
     ("binlevel",      "constant-time (ранний выход)",          case_binlevel_earlyexit),
     ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),

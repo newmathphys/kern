@@ -1,0 +1,52 @@
+name-template: 'KERN $NEXT_PATCH_VERSION'
+tag-template: 'v$NEXT_PATCH_VERSION'
+categories:
+  - title: '🚀 Features and capabilities'
+    labels: ['enhancement', 'feature']
+  - title: '🛡️ Verification and security'
+    labels: ['verification', 'security', 'formal-verification']
+  - title: '🐛 Bug fixes'
+    labels: ['bug', 'fix']
+  - title: '🧪 Formal verification (Lean 4)'
+    labels: ['lean', 'lean4']
+  - title: '⚙️ Tooling (contracts, mutator, harness)'
+    labels: ['tooling', 'ci']
+  - title: '📊 Metrics and evidence'
+    labels: ['metrics', 'evidence', 'documentation']
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+no-changes-template: '- No changes in this range.'
+version-resolver:
+  major:
+    labels: ['major', 'breaking']
+  minor:
+    labels: ['minor', 'enhancement', 'feature']
+  patch:
+    labels: ['patch', 'bug', 'fix', 'documentation', 'tooling']
+  default: patch
+template: |
+  ## What changed
+
+  $CHANGES
+
+  ## Evidence
+
+  KERN's rule: **a claim is admitted only with machine evidence.** Before using this
+  release, check the numbers yourself:
+
+  ```bash
+  zig build test                              # 279 / 279 core tests
+  make canfail                                # every CHECK target provably able to fail
+  python3 tools/slsa_provenance.py --check    # Ed25519 signature + source fingerprint
+  ```
+
+  The release binary is verified against `SHA256SUMS`:
+
+  ```bash
+  curl -fsSLO https://github.com/newmathphys/kern/releases/download/$RESOLVED_VERSION/kernc-x86_64-linux-musl
+  curl -fsSLO https://github.com/newmathphys/kern/releases/download/$RESOLVED_VERSION/SHA256SUMS
+  sha256sum -c SHA256SUMS
+  ```
+
+  See `docs/CAPABILITY_STATUS.en.md` for what is measured, what is not implemented, and
+  the full defect registry (including the defects this project found in itself).

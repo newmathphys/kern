@@ -67,6 +67,6 @@
   <text x="742" y="194" class="lbl">decision coverage (30/30)</text>
   <text x="644" y="216" class="val">95.0%</text>
   <text x="742" y="216" class="lbl">mutation score / 1M fuzz</text>
-  <text x="644" y="238" class="val">78 / 78</text>
+  <text x="644" y="238" class="val">79 / 79</text>
   <text x="742" y="238" class="lbl">can-fail CHECK targets</text>
 </svg>

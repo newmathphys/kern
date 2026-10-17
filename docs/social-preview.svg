@@ -33,8 +33,8 @@
   <text x="240" y="386" class="lbl">core tests (Debug + ReleaseSafe)</text>
   <text x="76" y="424" class="val">95.0 %</text>
   <text x="240" y="424" class="lbl">mutation score (38/40 killed, 2 equivalent)</text>
-  <text x="76" y="462" class="val">78 / 78</text>
-  <text x="240" y="462" class="lbl">can-fail CHECK targets (93 non-vacuous cases)</text>
+  <text x="76" y="462" class="val">79 / 79</text>
+  <text x="240" y="462" class="lbl">can-fail CHECK targets (94 non-vacuous cases)</text>
   <text x="700" y="386" class="val">42 / 0</text>
   <text x="820" y="386" class="lbl">Lean 4 theorems / 0 sorry</text>
   <text x="700" y="424" class="val">100.0 %</text>

@@ -1,0 +1,10 @@
+# Python tooling dependencies of KERN (the Zig core has none).
+#
+# This file exists so that GitHub's Dependency Graph / Dependabot can SEE the toolchain
+# KERN's verification scripts rely on — and so that a user can reproduce the tooling in
+# one command:  python3 -m pip install -r requirements.txt
+#
+# Note: GitHub does not parse Zig build dependencies, so this list covers the Python side
+# only (contract extraction, mutator, can-fail harness, evidence gates, benchmarks).
+z3-solver>=4.12          # the solver behind `kernc prove` and every SMT test
+pytest>=7.0              # used by `make run-example` (the "green CI" demo) and the gates

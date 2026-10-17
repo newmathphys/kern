@@ -1,0 +1,59 @@
+name: Benchmark (deterministic)
+
+# Why deterministic metrics and not GB/s: throughput depends on the runner, so a CI chart of
+# GB/s would chart the CI machine, not the code. These four numbers are exact and must stay
+# exact on every commit — a drift is a real defect. The tool exits non-zero on a drift, so
+# this workflow is a GATE, not a decorative graph.
+#
+# The chart page is regenerated into docs/bench/index.html and uploaded as an artifact. It is
+# NOT committed from CI on purpose: our Pages site is served from main:/docs, and a bot commit
+# per push would fight with that (and re-trigger CI). To publish the chart, run locally:
+#     python3 tools/bench_json.py --html docs/bench/index.html
+# (If you ever want the standard benchmark-action charts, it needs a gh-pages branch — a
+# different Pages source than the one this repository uses.)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Deterministic benchmark (avalanche / collision chain / chi-square)
+        run: |
+          python3 tools/bench_json.py --n 100000 --json bench.json --html docs/bench/index.html
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '### KERN deterministic benchmark'
+            echo
+            echo 'Exact metrics — a drift here is a defect, not runner noise.'
+            echo
+            echo '```'
+            python3 tools/bench_json.py --n 100000 | sed 's/^/  /'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kern-benchmark
+          path: |
+            bench.json
+            docs/bench/index.html
+          if-no-files-found: warn

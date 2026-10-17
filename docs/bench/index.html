@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KERN — deterministic benchmark (per commit)</title>
+<meta name="description" content="KERN proof-cache hash quality measured on every commit: avalanche, collision chain, chi-square uniformity.">
+<style>
+:root{--bg0:#0d1117;--bg1:#161b22;--line:#30363d;--ink:#f0f6fc;--ink2:#c9d1d9;--mut:#8b949e;
+--dim:#6e7681;--ok:#3fb950;--okdark:#238636;--bad:#f85149}
+body{margin:0;background:linear-gradient(135deg,var(--bg0),var(--bg1)) fixed;color:var(--ink2);
+font:400 15px/1.6 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.wrap{max-width:960px;margin:0 auto;padding:32px 20px 60px}
+h1{color:var(--ink);font-size:32px;letter-spacing:2px;margin:0 0 6px}
+a{color:var(--ok)} .mut{color:var(--mut)} .dim{color:var(--dim)}
+.panel{background:var(--bg0);border:1px solid var(--line);border-radius:6px;padding:18px 20px;margin:20px 0}
+.panel.ok{border-color:var(--okdark)}
+.hdr{font-weight:700;font-size:12.5px;letter-spacing:.8px;text-transform:uppercase;margin:0 0 12px}
+.row{display:grid;grid-template-columns:300px 1fr 80px;gap:10px;align-items:center;margin:6px 0}
+.bar{height:12px;background:var(--bg1);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar.bad i{background:#f85149}
+.val{color:var(--ok);font-weight:700;text-align:right}
+.val.bad{color:#f85149}
+code{color:var(--ink)}
+table{border-collapse:collapse}
+td{padding:2px 14px 2px 0}
+</style></head><body><div class="wrap">
+<h1>KERN — deterministic benchmark</h1>
+<p class="mut">Proof-cache hash quality, regenerated per commit with
+<code>python3 tools/bench_json.py --html docs/bench/index.html</code>.</p>
+
+<div class="panel ok">
+  <div class="hdr">MEASURED</div>
+  <div class="row"><span class="mut">avalanche % (SHA-256 key)</span><span class="bar"><i style="width:50.0%"></i></span><span class="val">50.01 %</span></div><div class="row"><span></span><span class="dim" style="font-size:12.5px">target: 45-55 % (ideal 50)</span><span></span></div><div class="row"><span class="mut">max collision chain</span><span class="bar"><i style="width:17.5%"></i></span><span class="val">7</span></div><div class="row"><span></span><span class="dim" style="font-size:12.5px">target: <= 8 links</span><span></span></div><div class="row"><span class="mut">chi-square uniformity</span><span class="bar"><i style="width:80.0%"></i></span><span class="val">99952</span></div><div class="row"><span></span><span class="dim" style="font-size:12.5px">target: ~= 100000 (buckets)</span><span></span></div><div class="row"><span class="mut">collisions</span><span class="bar"><i style="width:1.0%"></i></span><span class="val">0</span></div><div class="row"><span></span><span class="dim" style="font-size:12.5px">target: 0</span><span></span></div><div class="row"><span class="mut">avalanche % (naive hash, CONTROL)</span><span class="bar bad"><i style="width:3.1%"></i></span><span class="val bad">3.06 %</span></div><div class="row"><span></span><span class="dim" style="font-size:12.5px">target: expected bad</span><span></span></div><div class="row"><span class="mut">max collision chain (naive, CONTROL)</span><span class="bar bad"><i style="width:100.0%"></i></span><span class="val bad">100000</span></div><div class="row"><span></span><span class="dim" style="font-size:12.5px">target: expected bad</span><span></span></div>
+</div>
+
+<div class="panel">
+  <div class="hdr">WHY THESE METRICS (AND NOT GB/s)</div>
+  <p class="mut" style="margin:0">Throughput depends on the machine: a CI chart of GB/s would chart the
+  runner, not the code. These numbers are exact and must stay exact on every commit — a drift is a real
+  defect, not noise. The last two rows are a <strong>control</strong>: a naive sum-of-bytes hash, which
+  must look bad (and does). Local throughput numbers are in the README, measured on the author's machine.</p>
+</div>
+
+<div class="panel">
+  <div class="hdr">PROVENANCE</div>
+  <table><tr><td class="dim">date</td><td>2026-10-17T17:40:19Z</td></tr><tr><td class="dim">commit</td><td>6893063</td></tr><tr><td class="dim">python</td><td>3.14.7</td></tr><tr><td class="dim">machine</td><td>Linux x86_64</td></tr><tr><td class="dim">cpu</td><td>unknown</td></tr><tr><td class="dim">formulas</td><td>100000</td></tr><tr><td class="dim">hash</td><td>SHA-256 (ProofCache.keyOf)</td></tr></table>
+</div>
+
+<p class="dim">Back to <a href="../">the landing page</a> ·
+<a href="https://github.com/newmathphys/kern">repository</a></p>
+</div></body></html>
