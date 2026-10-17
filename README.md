@@ -7,7 +7,7 @@
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
-[![Can-fail](https://img.shields.io/badge/can--fail_harness-77%2F77-blueviolet)](tools/canfail.py)
+[![Can-fail](https://img.shields.io/badge/can--fail_harness-78%2F78-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_204%2F204_%28rerun_pending%29-informational)](#cross-architecture)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
@@ -370,7 +370,7 @@ Everything below was produced by a real run on Zig 0.17.0. Reproduce with
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **77 / 77 CHECK targets (100 %)** have a proven-can-fail case (**92 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 67 literal anchors verified in ~1 s) |
+| Can-fail harness | **78 / 78 CHECK targets (100 %)** have a proven-can-fail case (**93 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 71 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |

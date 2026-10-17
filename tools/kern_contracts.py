@@ -60,6 +60,23 @@ class NoReturn(Exception):
     """Путь исполнения доходит до конца функции без `return` (неявный None)."""
 
 
+def _int_literal(node: ast.AST, env: dict) -> bool:
+    """Целое-литерал ИЛИ имя локальной константы, чьё значение — литерал.
+
+    ЗАЧЕМ (найдено крайним случаем `const k = 2; return x * k;`). Проверка
+    «нелинейное умножение» смотрела ТОЛЬКО на `ast.Constant`, поэтому
+    умножение на локальную константу отвергалось, хотя `k` уже подставлен
+    в `env` как литерал `"2"`.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) \
+            and not isinstance(node.value, bool):
+        return True
+    if isinstance(node, ast.Name) and node.id in env:
+        v = env[node.id].strip()
+        return v.lstrip("-").isdigit()
+    return False
+
+
 def expr_smt(node: ast.AST, env: dict) -> str:
     """Python-выражение (подмножество) -> SMT-LIB2 с учётом локальных имён.
 
@@ -95,10 +112,10 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         elif isinstance(node.op, ast.Sub):
             op = "-"
         elif isinstance(node.op, ast.Mult):
-            l, r = node.left, node.right
-            if not (isinstance(r, ast.Constant) and isinstance(r.value, int)):
-                if not (isinstance(l, ast.Constant) and isinstance(l.value, int)):
-                    raise Unsupported("нелинейное умножение")
+            # Умножение разрешено, если ХОТЯ БЫ один множитель — константа
+            # (в том числе локальная: `const k = 2; x * k`).
+            if not _int_literal(node.right, env) and not _int_literal(node.left, env):
+                raise Unsupported("нелинейное умножение")
             op = "*"
         elif isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
             # ДЕЛЕНИЕ/ОСТАТОК. В SMT `div`/`mod` — ТОТАЛЬНЫЕ функции: Z3 просто
@@ -526,6 +543,7 @@ def _exec_clike(stmts, env: dict, lang: str):
         if m:
             cond_txt = m.group(1).strip().strip("()").strip()
             rest = m.group(2).strip()
+            consumed = 1
             else_txt = None
             if " else " in rest:
                 then_txt, else_txt = rest.split(" else ", 1)
@@ -533,6 +551,15 @@ def _exec_clike(stmts, env: dict, lang: str):
                 else_txt = re.sub(r"^return\b", "", else_txt).strip()
             else:
                 then_txt = rest
+                # КРАЙНИЙ СЛУЧАЙ (найден `if (n >= 0) return n; else return -n;`):
+                # после разбиения по `;` ветвь `else` оказывается ОТДЕЛЬНЫМ
+                # оператором, а не хвостом первого. Поглощаем её.
+                if i + 1 < len(stmts):
+                    nxt = stmts[i + 1].strip()
+                    if nxt.startswith("else"):
+                        else_txt = re.sub(r"^else\s+", "", nxt).strip()
+                        else_txt = re.sub(r"^return\b", "", else_txt).strip()
+                        consumed = 2
             cond_smt = expr_smt(ast.parse(clike_to_python(cond_txt),
                                           mode="eval").body, env)
             then_v = expr_smt(ast.parse(clike_to_python(then_txt),
@@ -541,7 +568,7 @@ def _exec_clike(stmts, env: dict, lang: str):
                 else_v = expr_smt(ast.parse(clike_to_python(else_txt),
                                             mode="eval").body, dict(env))
             else:
-                tail = _exec_clike(stmts[i + 1:], dict(env), lang)
+                tail = _exec_clike(stmts[i + consumed:], dict(env), lang)
                 if tail is None:
                     raise NoReturn("нет `return` на пути без ветвления")
                 else_v = tail
@@ -878,6 +905,7 @@ def changed_contract_files(ref: str):
         except (OSError, subprocess.SubprocessError):
             continue
     out = []
+    skipped_demo = []
     for n in names:
         fp = ROOT / n
         if not fp.is_file():
@@ -890,9 +918,18 @@ def changed_contract_files(ref: str):
             # pre-commit молча пропускал бы сломанные контракты ниже.
             txt = fp.read_text(encoding="utf-8", errors="replace")
             if any(ANNOT.match(ln) for ln in txt.splitlines()):
+                # ДЕМО-ФИКСТУРЫ с НАМЕРЕННЫМИ нарушениями (их контракты обязаны
+                # падать) помечаются маркером `@kern:expect-violations` —
+                # иначе собственный pre-commit блокировал бы их коммит.
+                if "@kern:expect-violations" in txt:
+                    skipped_demo.append(n)
+                    continue
                 out.append(n)
         except OSError:
             continue
+    if skipped_demo:
+        print(f"[i] пропущены демо-фикстуры с намеренными нарушениями "
+              f"(@kern:expect-violations): {', '.join(skipped_demo)}")
     return out
 
 
@@ -1173,19 +1210,22 @@ def _demo(args) -> int:
             continue
         for name, params, req, ens, body, ln, skip_reason, meta in funcs:
             total += 1
-            if body is None:
-                # Причина ОТКАЗА печатается как есть: «нет return» и «цикл»
-                # требуют разных действий, а раньше сообщение было одно.
-                print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
-                skipped += 1
-                continue
             # ---- ДЕТЕКТОР ЧИСТОТЫ (referential transparency) --------------
-            # Функция с контрактом обязана быть ЧИСТОЙ математической функцией:
-            # иначе «доказанное» свойство относится не к коду, а к фантазии.
+            # ВАЖНО: проверяется ПЕРВОЙ. Раньше он стоял после проверки
+            # подмножества и был НЕДОСТИЖИМ: `random.randint(...)` или
+            # `global x` отвергались как «вне подмножества», и пользователь
+            # не узнавал НАСТОЯЩУЮ причину. Теперь вердикт однозначен:
+            # функция не чистая — контракт к ней неприменим.
             impure = purity_violation(p, name)
             if impure:
                 print(f"  [IMPURE] {name} (стр. {ln}): {impure} -> контракт "
                       f"не проверяется (функция НЕ чистая)")
+                skipped += 1
+                continue
+            if body is None:
+                # Причина ОТКАЗА печатается как есть: «нет return» и «цикл»
+                # требуют разных действий, а раньше сообщение было одно.
+                print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
                 skipped += 1
                 continue
             try:

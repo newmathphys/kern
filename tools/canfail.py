@@ -256,6 +256,8 @@ FAULTABLE = [
     "examples/refactor_before.py",
     "examples/refactor_after.py",
     "examples/self_verify.zig",
+    "examples/edge_cases.zig",
+    "examples/edge_cases.py",
 ]
 
 
@@ -794,6 +796,20 @@ def case_slsa_bad_sig():
     p.write_text(("f" if txt[0] != "f" else "0") + txt[1:] + "\n",
                  encoding="utf-8")
     return "python3 tools/slsa_provenance.py --check"
+
+
+def case_edge_cases():
+    """Крайние случаи парсера: цель `edge-cases` перестаёт видеть форму.
+
+    ЛОМАЕМ: в `examples/edge_cases.zig` заменяем `x - y` на `x` — u32-underflow
+    исчезает, и ожидаемый вердикт «ПЕРЕПОЛНЕНИЕ типа u32» больше не появляется.
+    Цель `edge-cases` ОБЯЗАНА покраснеть: иначе она не проверяет парсер, а
+    просто печатает текст.
+    """
+    patch("examples/edge_cases.zig",
+          "    return x - y;   // u32: при y > x результат уходит в минус -> underflow",
+          "    return x;       // ДИВЕРСИЯ: underflow убран")
+    return "make edge-cases"
 
 
 def case_model_negative():
@@ -1611,6 +1627,7 @@ CASES = [
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
+    ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
     ("sarif-output",   "SARIF: находки выброшены из отчёта", case_sarif_output),
     ("hook-gate",      "Git-шлюз: сломанный контракт пропущен", case_hook_gate),
     ("slsa-bad-sig",   "SLSA: Ed25519-подпись аттестата подменена", case_slsa_bad_sig),
