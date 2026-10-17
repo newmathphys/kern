@@ -246,11 +246,12 @@ green tick this project exists to prevent. Every other row was re-checked indepe
 the kernel actually uses (`payloadSlice` offsets, the Farkas negation identity
 `¬(l ≤ r) ↔ r - l + 1 ≤ 0` from `proof_check.zig`) and proves them with Z3.
 
-**7. The GitHub line and a Git gate:**
+**7. The GitHub line, JSON export and a Git gate:**
 
 ```bash
-make sarif-check   # SARIF 2.1.0 -> Code Scanning / red squiggle under the buggy line
-make hook-check    # self-test of the pre-commit gate
+make sarif-check      # SARIF 2.1.0 -> Code Scanning / red squiggle under the buggy line
+make contracts-json   # machine-readable JSON report (--json out.json) for CI and agents
+make hook-check       # self-test of the pre-commit gate
 python3 tools/kern_contracts.py --install-hook   # blocks `git commit` on a broken contract
 ```
 
@@ -435,7 +436,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **79 / 79 CHECK targets (100 %)** have a proven-can-fail case (**94 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 72 literal anchors verified in ~1 s) |
+| Can-fail harness | **80 / 80 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 73 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |

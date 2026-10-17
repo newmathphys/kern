@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: contracts edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits version-check
+.PHONY: contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits version-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -36,6 +36,7 @@ help:
 	@echo "  make coverage    — покрытие инструментированных решений"
 	@echo "  make mutate      — мутационное тестирование (работает на копии)"
 	@echo "  make contracts-lock-check — замок контрактов (агент не ослабил спецификацию)"
+	@echo "  make contracts-json — JSON-отчёт контрактов (--json)"
 	@echo "  make diff-equiv  — эквивалентность рефакторинга без контрактов"
 	@echo "  make self-verify — KERN проверяет СВОЙ код (Zig) + полиглот C/Rust"
 	@echo "  make sarif-check — SARIF 2.1.0 для GitHub Code Scanning"
@@ -224,11 +225,17 @@ audits: build
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.
 SARIF_OUT ?= /tmp/kern.sarif
+CONTRACTS_JSON_OUT ?= /tmp/kern_contracts.json
 
 sarif-check: build
 	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.c \
 		--sarif $(SARIF_OUT) --github-annotations >/dev/null 2>&1 || true
 	@$(PYTHON) tools/check_sarif.py $(SARIF_OUT)
+
+contracts-json: build
+	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py \
+		--json $(CONTRACTS_JSON_OUT) >/dev/null 2>&1 || true
+	@$(PYTHON) tools/check_contracts_json.py $(CONTRACTS_JSON_OUT)
 
 # --- ЭТАП 1: ПОЛЬЗОВАТЕЛЬСКИЙ GIT-ШЛЮЗ -------------------------------------
 # Установка: python3 tools/kern_contracts.py --install-hook

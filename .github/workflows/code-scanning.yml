@@ -29,10 +29,10 @@ jobs:
       security-events: write   # to upload SARIF
       actions: read            # required by codeql-action for private repos
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
