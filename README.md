@@ -612,7 +612,7 @@ A claim without evidence is not a claim. Applying that rule to this project:
 ```
 src/            Zig core: .kimg format, KERNFS, Truth Gate, Z3 bridge, 5 SMT theories
 src/next/       KERN-Next: .kern DSL, SQLite catalogue, snapshots, agent hand-off
-formal/         Lean 4 proofs (32 theorems) + certification package
+formal/         Lean 4 proofs (42 theorems) + certification package
 examples/       toy_ai_hallucination/ demo, guardrail_proxy.py HTTP guardrail
 tools/          can-fail harness, mutation tester, benchmarks, cross-arch runner
 docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, evidence/

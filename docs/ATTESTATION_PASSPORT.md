@@ -22,7 +22,7 @@
 | Core (Debug) | **PASS** — 195/195 тестов |
 | Memory Safety (ReleaseSafe, детектор UB) | **PASS** — 0 UB |
 | KERN-Next | **PASS** |
-| Kernel Invariants | **PASS** — Lean 4, 7 файлов, 0 errors, 0 `sorry` |
+| Kernel Invariants | **PASS** — Lean 4, 8 файлов, 0 errors, 0 `sorry` |
 | Target Systems | **PASS** — 2 платформы: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA-обход закрыт, KERNFS согласован) |
 | Decision Coverage | **PASS** — 100.0 % (порог 95 %) |
@@ -121,7 +121,7 @@
 
 ## 5. Математические доказательства (Lean 4)
 
-**7 файлов, 32 теоремы, 0 errors, 0 sorry** — `./formal/check.sh` ✅
+**8 файлов, 42 теоремы, 0 errors, 0 sorry** — `./formal/check.sh` ✅
 
 | Теорема | Что доказано |
 |:--|:--|
@@ -246,7 +246,7 @@
 ⚠️ кросс-архитектура (ARM64 / POWERPC64) требует ПОВТОРНОГО прогона под QEMU:
 2/2 атаки · crash-consistency · лавина 50% / 0 коллизий / цепочка 7 ·
 1 000 000 фаззинг-итераций без паник · Thundering Herd 1+63 · эвикция 900/900 ·
-SolverPool 128/4 · Lean 4: 7 файлов / 32 теоремы / 0 sorry · QuixBugs 31/31 ·
+SolverPool 128/4 · Lean 4: 8 файлов / 42 теоремы / 0 sorry · QuixBugs 31/31 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · конколика 4 вызова ·
 DTMC 0.001 · абстрактная интерпретация `[0,9]` · самоаудит e=0.
 
