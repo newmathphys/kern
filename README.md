@@ -7,7 +7,7 @@
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-37%2F37-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-7_files_%C2%B7_32_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
-[![Can-fail](https://img.shields.io/badge/can--fail_harness-64%2F65-blueviolet)](tools/canfail.py)
+[![Can-fail](https://img.shields.io/badge/can--fail_harness-74%2F74-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-251%2F251-informational)](#cross-architecture)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
@@ -124,8 +124,10 @@ the exact input values that break it. Out-of-subset code is reported as `SKIP`
 with a reason — never as a silent pass.
 
 For AI agents, `examples/kern_mcp_server.py` exposes the gate over the **Model
-Context Protocol** (4 tools: `kern_verify_smt`, `kern_prove_with_checker`,
-`kern_verify_multi_belnap`, `kern_verify_python`):
+Context Protocol** (5 tools: `kern_verify_smt`, `kern_prove_with_checker`,
+`kern_verify_multi_belnap`, `kern_verify_python`, `kern_check_equivalence` —
+the last one proves a refactoring preserves behaviour **without writing any
+contracts**):
 
 ```json
 {"mcpServers": {"kern": {"command": "python3",

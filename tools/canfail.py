@@ -245,6 +245,11 @@ FAULTABLE = [
     "tests/stress_1m.zig",
     "tests/fixtures/valid_v1_3.kimg",
     "zig-out/bin/kernc",
+    # 🔴 ДЕФЕКТ #115: аттестуется НЕ `kernc`, а `kernc-hermetic` (`SUBJECTS`
+    # в tools/slsa_provenance.py). Кейс `slsa` подсаживал неаттестуемый файл,
+    # цель оставалась зелёной -> кейс был ВАКУУМНЫМ. Файл обязан быть здесь,
+    # иначе `touch()` откажет и правка не будет откачена.
+    "zig-out/bin/kernc-hermetic",
     "src/core/blake3_simd8.zig",
     # УЛУЧШЕНИЯ v2.5: фикстуры и цели, которые canfail обязан уметь ломать.
     "examples/contracts_demo.py",
@@ -541,6 +546,29 @@ def case_mcp_server():
     return "make mcp-selftest"
 
 
+def readme_hash_anchor() -> str:
+    """Строка объявленного в README sha256 — её и «ломает» кейс артефакта.
+
+    🔴 ДЕФЕКТ, НАЙДЕННЫЙ CI #68/#69 (коммиты 7c44115 и ac6ed4f, шаг CAN-FAIL).
+    Здесь был ЖЁСТКО ЗАПИСАН хеш `4360a1cb…`. При релизе v2.4.0 артефакт был
+    ЗАКОННО пересобран, README получил новый хеш `f03ab8e6…`, строка-якорь
+    исчезла, и `patch()` упал с «подстрока не найдена» -> КЕЙС ОШИБСЯ ->
+    `python3 tools/canfail.py` вернул 1 -> шаг CAN-FAIL покраснел в CI,
+    хотя ни одна проверка проекта не была нарушена.
+
+    УРОК: тест не должен зависеть от КОНКРЕТНОГО значения данных, которыми он
+    не владеет. Теперь якорь берётся ИЗ README, поэтому пересборка релиза
+    кейс не ломает.
+    """
+    import re as _re
+    txt = (ROOT / "README.md").read_text(encoding="utf-8", errors="replace")
+    m = _re.search(r"#\s*[0-9a-f]{64}", txt)
+    if not m:
+        raise RuntimeError("в README.md нет объявленного sha256 (64 hex) — "
+                           "кейс артефакта не может быть применён")
+    return m.group(0)
+
+
 def case_artifact_check():
     """Артефакт релиза: README объявляет ЧУЖОЙ хеш.
 
@@ -548,8 +576,7 @@ def case_artifact_check():
     README <-> сборка <-> asset обязана разорваться — это ровно дефект #82
     (пользователь скачивал бинарник, не совпадающий с заявленным).
     """
-    patch("README.md",
-          "# 4360a1cb301063d3f7a8485957b463711507524b506f215d502cadf6ef32220f",
+    patch("README.md", readme_hash_anchor(),
           "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
     return "make artifact-check"
 
@@ -571,8 +598,7 @@ def case_artifact_check_offline():
     _fault = ('        raise SystemExit("[!] в README.md нет ссылки '
               'releases/download/vX.Y.Z")' + _nl + '    return "v0.0.0"')
     patch("tools/artifact_check.py", _anchor, _fault)
-    patch("README.md",
-          "# 4360a1cb301063d3f7a8485957b463711507524b506f215d502cadf6ef32220f",
+    patch("README.md", readme_hash_anchor(),
           "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
     return "make artifact-check-offline"
 
@@ -584,10 +610,31 @@ def case_contracts():
     `[PASS] ... ДОКАЗАНО`. Тогда `withdraw_buggy` (в котором списание уходит
     в минус) перестаёт быть отвергнутым, и `--expect-demo` обязан покраснеть.
     """
+    # ЯКОРЬ ОБЯЗАН БЫТЬ СИНХРОНЕН С КОДОМ. Здесь стояло
+    # `if "ДОКАЗАНО" in out and r.returncode == 0:` — после рефакторинга
+    # `_demo()` (переход на общий `run_kernc`, возвращающий `rc`) шаблон
+    # исчез, и кейс ОШИБСЯ. Найдено ПОЛНЫМ локальным прогоном canfail —
+    # то есть ровно тем шагом, который краснел в облачном CI.
     patch("tools/kern_contracts.py",
-          'if "ДОКАЗАНО" in out and r.returncode == 0:',
+          'if "ДОКАЗАНО" in out and rc == 0:',
           'if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным')
     return "make contracts"
+
+
+def kern_version_anchor() -> str:
+    """Строка объявления версии в `src/main.zig` — её и «ломает» кейс версии.
+
+    🔴 ТОТ ЖЕ КЛАСС, ЧТО ДЕФЕКТ #113 (и ещё один корень красного CI #68/#69).
+    Здесь была ЖЁСТКО ЗАПИСАНА версия `v2.3.0`. Релиз v2.4.0 обновил строку,
+    якорь исчез, `patch()` упал -> КЕЙС ОШИБСЯ -> шаг CAN-FAIL покраснел.
+    Теперь версия берётся ИЗ КОДА, поэтому ЛЮБОЙ будущий релиз кейс не ломает.
+    """
+    import re as _re
+    txt = (ROOT / "src" / "main.zig").read_text(encoding="utf-8", errors="replace")
+    m = _re.search(r'pub const KERN_VERSION = "[^"]+";', txt)
+    if not m:
+        raise RuntimeError("в src/main.zig нет `pub const KERN_VERSION = \"...\";`")
+    return m.group(0)
 
 
 def case_version_consistency():
@@ -598,7 +645,7 @@ def case_version_consistency():
     ДРУГУЮ версию, чем `kernc --version`.
     """
     patch("src/main.zig",
-          'pub const KERN_VERSION = "v2.3.0";',
+          kern_version_anchor(),
           'pub const KERN_VERSION = "v1.3";')
     return "make version-check"
 
@@ -737,18 +784,39 @@ def case_golden_merkle():
     return "zig build && ./zig-out/bin/kernc check-integrity tests/fixtures/valid_v1_3.kimg"
 
 
+def slsa_subject_path() -> str:
+    """Путь к АТТЕСТУЕМОМУ бинарнику — из `SUBJECTS` самого чекера.
+
+    🔴 ДЕФЕКТ #115 (найден ПОЛНЫМ прогоном canfail). Кейс `slsa` подсаживал
+    `zig-out/bin/kernc`, а аттестуется ДРУГОЙ файл — `kernc-hermetic`
+    (дефект #92 перевёл `SUBJECTS` на артефакт релиза, а кейс не обновили).
+    Подсадка в НЕаттестуемый файл ничего не ломала: цель оставалась ЗЕЛЁНОЙ,
+    кейс был ВАКУУМНЫМ, и у проверки SLSA НЕ БЫЛО доказательства, что она
+    СПОСОБНА упасть. Имя берём из `SUBJECTS`, чтобы оно не разошлось снова.
+    """
+    import re as _re
+    txt = (ROOT / "tools" / "slsa_provenance.py").read_text(encoding="utf-8")
+    m = _re.search(r"SUBJECTS\s*=\s*\[([^\]]*)\]", txt)
+    names = _re.findall(r'"([^"]+)"', m.group(1)) if m else []
+    if not names:
+        raise RuntimeError("в tools/slsa_provenance.py нет SUBJECTS — "
+                           "кейс `slsa` не знает, ЧТО аттестуется")
+    return f"zig-out/bin/{names[0]}"
+
+
 def case_slsa_hash():
-    """SLSA. ЛОМАЕМ: подменяем бинарник ПОСЛЕ аттестации."""
+    """SLSA. ЛОМАЕМ: подменяем АТТЕСТУЕМЫЙ бинарник ПОСЛЕ аттестации."""
     rc, _ = sh_out("zig build && python3 tools/slsa_provenance.py --no-build", 300)
     if rc != 0:
         return None
     # touch(): кейс РЕАЛЬНО меняет этот файл -> Fault.__exit__ обязан его вернуть.
     # Без пометки механизм «откат только изменённых» (дефект #71) счёл бы
     # правку третьей стороной и НЕ восстановил бинарник.
-    touch("zig-out/bin/kernc")
+    target = slsa_subject_path()
+    touch(target)
     with open("/tmp/kernc_pad", "ab") as f:
         f.write(b"\x00" * 8)
-    sh("cat /tmp/kernc_pad >> zig-out/bin/kernc", 60)
+    sh(f"cat /tmp/kernc_pad >> {target}", 60)
     return "python3 tools/slsa_provenance.py --check"
 
 
@@ -845,8 +913,8 @@ def case_adversarial_payload():
     был бы вакуумным. Найдено первым прогоном can-fail (кейс признан вакуумным).
     """
     patch("src/core/kernfs_router.zig",
-          "        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
-          "        if (false and !std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered; // ЛОМАЕМ")
+          "        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))\n            return KernFsError.PayloadTampered;",
+          "        if (false and !std.crypto.timing_safe.eql([32]u8, got, obj.digest))\n            return KernFsError.PayloadTampered; // ЛОМАЕМ")
     return "make adversarial"
 
 
@@ -856,12 +924,22 @@ def case_evidence_propagates():
     Коллектор свидетельств ОБЯЗАН пробросить провал подпроверки наружу (RC!=0),
     а не «проглотить» его и записать зелёный лог. Иначе весь `docs/evidence/`
     превращается в декорацию.
+
+    🔴 ДЕФЕКТ #114 (найден ПОЛНЫМ локальным прогоном canfail). Кейс запускал
+    `make evidence-fast`, а тот пишет ~20 логов ПРЯМО В `docs/evidence/`.
+    `Fault` восстанавливает только `formal/KernAllMath.lean`, поэтому ЛОГИ
+    оставались снятыми В СОСТОЯНИИ ПРОБЫ (`sorry` в `lean_proofs.log`,
+    провал Lean в `audit_manifest.log`) — ровно сценарий дефекта #70,
+    только источник другой. В CI это незаметно (раннер эфемерный), локально
+    же загрязняло ЗАКОММИЧЕННЫЕ свидетельства. Теперь коллектор пишет во
+    ВРЕМЕННЫЙ каталог (`KERN_EVIDENCE_DIR`), репозиторий не трогается.
     """
     p = ROOT / "formal" / "KernAllMath.lean"
     touch("formal/KernAllMath.lean")
     with p.open("a", encoding="utf-8") as f:
         f.write("\ntheorem CANFAIL_PROBE : True := by sorry\n")
-    return "make evidence-fast"
+    return ("KERN_EVIDENCE_DIR=/tmp/kern-canfail-evidence "
+            "make evidence-fast")
 
 
 def case_telemetry_detects():
@@ -920,8 +998,8 @@ def case_meta_broken_verdict():
 def case_chc_theory():
     """CHC/Horn. ЛОМАЕМ: всегда сообщаем «баг найден» (Sat)."""
     patch("src/verifier/chc.zig",
-          "        return bridge.executeQuery(q).status;\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ",
-          "        _ = bridge.executeQuery(q);\n        return .Sat; // ЛОМАЕМ: всегда «баг найден»\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ")
+          "        return bridge.executeStatus(q);\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ",
+          "        _ = bridge.executeStatus(q);\n        return .Sat; // ЛОМАЕМ: всегда «баг найден»\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ")
     return "make chc"
 
 
@@ -1063,7 +1141,7 @@ def case_sim_invariant():
     ОДНОВРЕМЕННО отключить проверку целостности И подменить срез.
     """
     patch("src/core/kernfs_router.zig",
-          "        var got: [32]u8 = undefined;\n        self.hash_algo.hash(sl, &got);\n        if (!std.mem.eql(u8, &got, &obj.digest)) return KernFsError.PayloadTampered;",
+          "        var got: [32]u8 = undefined;\n        self.hash_algo.hash(sl, &got);\n        // КОНСТАНТНО-ВРЕМЕННАЯ СВЕРКА (УЛУЧШЕНИЕ №5, FIPS 140-3): обычный\n        // `mem.eql` выдаёт число совпавших байт по времени сравнения.\n        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))\n            return KernFsError.PayloadTampered;",
           "        // ЛОМАЕМ: проверка целостности отключена")
     patch("src/core/kernfs_router.zig",
           "        const sl = self.payload_region[@intCast(obj.payload_offset)..@intCast(end)];",
@@ -1091,7 +1169,7 @@ def case_verify_cli():
     цель `make verify` обязана покраснеть.
     """
     patch("src/core/kimg_reader.zig",
-          "        if (!std.mem.eql(u8, &root, &h.root_digest)) {\n            cov.hit(.merkle_mismatch);\n            return KimgError.MerkleRootMismatch;\n        }\n        cov.hit(.merkle_ok);",
+          "        if (!std.crypto.timing_safe.eql([32]u8, root, h.root_digest)) {\n            cov.hit(.merkle_mismatch);\n            return KimgError.MerkleRootMismatch;\n        }\n        cov.hit(.merkle_ok);",
           "        cov.hit(.merkle_mismatch);\n        return KimgError.MerkleRootMismatch; // ЛОМАЕМ: всегда несовпадение")
     return "make verify"
 
@@ -1249,7 +1327,7 @@ def case_os_stress():
     `compat.fileReadToEndAlloc` с лимитом 4 МБ.
     """
     patch("src/verifier/z3_bridge.zig",
-          "compat.fileReadToEndAlloc(sout, self.allocator, 4 * 1024 * 1024)",
+          "compat.fileReadToEndAlloc(sout, self.allocator, self.max_stdout)",
           "compat.fileReadToEndAlloc(sout, self.allocator, 1024 * 1024 * 1024) // ЛОМАЕМ: лимит снят")
     return "make os-stress"
 
@@ -1286,8 +1364,8 @@ def case_stress_target():
 def case_theories_target():
     """Цель `theories` (мета: 5 теорий). ЛОМАЕМ: CHC-теорию."""
     patch("src/verifier/chc.zig",
-          "        return bridge.executeQuery(q).status;\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ",
-          "        _ = bridge.executeQuery(q);\n        return .Sat; // ЛОМАЕМ\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ")
+          "        return bridge.executeStatus(q);\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ",
+          "        _ = bridge.executeStatus(q);\n        return .Sat; // ЛОМАЕМ\n    }\n};\n\n// =========================================================================\n// ТЕСТЫ")
     return "make theories"
 
 
@@ -1639,16 +1717,67 @@ def guard_dirty_faultable() -> int:
     return 1
 
 
+def check_anchors() -> int:
+    """Проверить, что ВСЕ литеральные якоря canfail применимы к текущим файлам.
+
+    🔴 ЗАЧЕМ (дефект #113, красный CI #68/#69). Кейсы правят файлы
+    ЛИТЕРАЛЬНЫМИ подстроками. Как только код вокруг якоря меняется
+    (пересборка релиза обновила хеш в README, релиз сменил версию в
+    `main.zig`, рефакторинг заменил `r.returncode` на `rc`), `patch()` падает
+    «подстрока не найдена», и ВЕСЬ шаг CAN-FAIL краснеет — при том что ни одна
+    проверка проекта нарушена не была. Полный прогон идёт ~15 минут, а узнать
+    об этом хочется за секунду, а не в конце.
+
+    Якоря разбираются СТАТИЧЕСКИ (AST) и сверяются с файлами. Якоря, которые
+    вычисляются в рантайме (`readme_hash_anchor()`, `kern_version_anchor()`),
+    пропускаются — они не могут «устареть».
+    """
+    import ast as _ast
+    src = Path(__file__).read_text(encoding="utf-8")
+    bad: list[tuple[str, int, str]] = []
+    total = 0
+    for node in _ast.walk(_ast.parse(src)):
+        if not (isinstance(node, _ast.Call) and isinstance(node.func, _ast.Name)
+                and node.func.id == "patch" and len(node.args) >= 2):
+            continue
+        p, o = node.args[0], node.args[1]
+        if not (isinstance(p, _ast.Constant) and isinstance(o, _ast.Constant)
+                and isinstance(p.value, str) and isinstance(o.value, str)):
+            continue
+        total += 1
+        t = ROOT / p.value
+        if not t.exists():
+            bad.append((p.value, node.lineno, "ФАЙЛА НЕТ"))
+        elif o.value not in t.read_text(encoding="utf-8", errors="replace"):
+            bad.append((p.value, node.lineno, o.value[:64]))
+    if bad:
+        print("[!] ЯКОРЯ НЕ ПРИМЕНИМЫ — кейсы ОШИБНУТСЯ (дефект #113):")
+        for f, ln, frag in bad:
+            print(f"      {f} (canfail.py:{ln}): {frag!r}")
+        print("      Поправьте якорь под текущий код ЛИБО сделайте его "
+              "динамическим (см. readme_hash_anchor).")
+        return 1
+    print(f"[OK] якоря применимы: {total} литеральных "
+          f"(динамические проверяются в рантайме)")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--selftest", action="store_true",
                     help="K4: проверить ЛОГИКУ харнесса на синтетических входах")
+    ap.add_argument("--check-anchors", action="store_true",
+                    help="быстро проверить, что все якоря canfail применимы "
+                         "(дефект #113: устаревший якорь роняет весь шаг CI)")
     ap.add_argument("--allow-dirty", action="store_true",
                     help="совместимость: отказ при грязных FAULTABLE отменён, "
                          "флаг оставлен для обратной совместимости")
     args = ap.parse_args()
+
+    if args.check_anchors:
+        return check_anchors()
 
     if args.selftest:
         return selftest()
@@ -1688,6 +1817,13 @@ def main():
     print("=" * 70)
     print("KERN: CAN-FAIL — проверка, что проверки СПОСОБНЫ УПАСТЬ")
     print("=" * 70)
+
+    # 🔴 БЫСТРЫЙ ОТКАЗ (дефект #113, красный CI #68/#69): если хоть один якорь
+    # устарел, кейс ОШИБНЕТСЯ, и ВЕСЬ шаг CI покраснеет — но только через
+    # ~15 минут. Проверяем за секунду и называем файл + фрагмент.
+    if check_anchors() != 0:
+        return 1
+
     print("Метод: ломаем инвариант -> цель ОБЯЗАНА покраснеть.\n")
 
     clean_slate()

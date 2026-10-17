@@ -40,7 +40,7 @@ if ! command -v z3 >/dev/null 2>&1; then
   done
 fi
 
-EV="$ROOT/docs/evidence"
+EV="${KERN_EVIDENCE_DIR:-$ROOT/docs/evidence}"
 mkdir -p "$EV"
 
 # --- ПРЕДОХРАНИТЕЛЬ #88: снимок FAULTABLE-файлов на СТАРТЕ -------------------
