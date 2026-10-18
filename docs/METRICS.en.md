@@ -444,3 +444,25 @@ which by construction is neither bound nor unbound.
 * **5C**: disjunctive `¬concl` in `checkBySplitting` + `(not (= X Y))` as a 2-literal clause
   `(X-Y+1<=0) ∨ (Y-X+1<=0)` -> two-way rewrite equivalence for the boolean-arithmetic case;
 * **5D**: the 4 remaining term-level `rewrite`s, by their exact dump.
+
+### 23.17 Micro-step 5B — `lemma` proved (trusted 8 -> 7); a defect found in hypothesis collection
+
+`verifyLemma` implements hypothesis discharge (RAA / disjunction introduction). Two conditions,
+both proofs:
+1. the subtree referenced by the first argument really derives `false`;
+2. EVERY `(hypothesis H)` inside that subtree is refuted by the conclusion: after `flattenOr`
+   its disjuncts contain `¬H` — structurally or by canonical comparison form.
+The subtree is walked over `@xN` references through `c.stepexpr` with a `seen` set (the proof is
+a DAG, not a tree) and a depth cap of 96.
+
+**Defect found by measurement** (`[dbg-lemma]` printed `гипотез 1, дизъюнктов 1; заключение:
+(not (>= (+ a z3name!1) 0)) / гипотеза: $x121`): the first version collected hypotheses
+UNEXPANDED (`$x121` as an atom) while the conclusion was compared EXPANDED, so nothing matched
+and the step stayed trusted. Fixed: hypotheses are collected through `expand`, like the
+conclusion. Tests added (+2): a subtree deriving `false` from `(>= a 0)` with conclusion
+`(not (>= a 0))` is ACCEPTED; a conclusion `(not (<= a 5))` that does not negate the
+assumption is REJECTED.
+
+**Trajectory so far:** 15 -> 14 -> 13 -> 11 -> 9 -> 8 -> **7** (`5 rewrite | 2 unit-resolution`).
+**Not yet closed:** the 2 dependent `unit-resolution` need canonical `$x89 = ¬$x121` matching
+in `checkUnitRes` — that is the remainder of step 5B.
