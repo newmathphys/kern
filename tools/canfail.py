@@ -221,6 +221,7 @@ FAULTABLE = [
     "tools/pcc_check.py",
     "tools/xray_check.sh",
     "tools/gen_tests_check.sh",
+    "tools/simplify_check.sh",
     "examples/xray_demo.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
@@ -1714,6 +1715,18 @@ def case_model_verify_spurious():
 
 
 
+def case_simplify_check():
+    """ПУНКТ 17. ЛОМАЕМ: решатель объявляет ЛЮБУЮ ветку недостижимой ->
+    --simplify вырежет ЖИВЫЕ ветки, и НЕЗАВИСИМАЯ рантайм-сверка обязана
+    это поймать (цель краснеет)."""
+    patch(
+        "tools/kern_contracts.py",
+        "    if \"НЕ доказано\" in out or \"КОНТРПРИМЕР\" in out:",
+        "    if False:  # ЛОМАЕМ: SAT объявляем UNSAT (все ветки «мёртвые»)",
+    )
+    return "make simplify-check"
+
+
 def case_xray_check():
     """ПУНКТ 13. ЛОМАЕМ: подмена порога в условии фикстуры делает мёртвую ветку
     ЖИВОЙ, поэтому --xray ОБЯЗАН перестать её находить и цель покраснеть."""
@@ -1926,6 +1939,7 @@ CASES = [
     ("pcc-check",      "PCC: подделка сертификата отвергается",    case_pcc_check),
     ("xray-check",     "XRAY: находки без аннотаций",           case_xray_check),
     ("gen-tests-check","SBST: сгенерированные тесты проходят",    case_gen_tests_check),
+    ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

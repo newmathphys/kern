@@ -261,6 +261,11 @@ xray-check: build
 gen-tests-check: build
 	@bash tools/gen_tests_check.sh
 
+# ЭШЕЛОН 3, ПУНКТ 17: упрощение с ДОКАЗАТЕЛЬСТВОМ эквивалентности
+# (Z3 UNSAT) + НЕЗАВИСИМАЯ рантайм-сверка поведения на сетке входов.
+simplify-check: build
+	@bash tools/simplify_check.sh
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.
