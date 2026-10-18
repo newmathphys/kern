@@ -1712,15 +1712,16 @@ def case_model_verify_spurious():
 
 
 def case_pcc_check():
-    """ПУНКТ 9. ЛОМАЕМ: пруф-чекер объявляет ЛЮБОЙ сертификат верным.
+    """ПУНКТ 9. ЛОМАЕМ: PCC принимает ЛЮБОЙ сертификат (условие приёмки -> true).
 
-    Тогда подделанный `<stem>.proof` внутри .kimg будет ПРИНЯТ, и
-    `make pcc-check` обязан покраснеть.
+    ИЗМЕРЕНО (первая версия кейса была ВАКУУМНОЙ): поломка `checksPass()`
+    НЕ отключала поимку — подделку ловил `proof_concludes_false`, поэтому цель
+    оставалась зелёной. Правильная поломка — именно условие приёмки в PCC.
     """
     patch(
-        "src/verifier/proof_check.zig",
-        "        if (self.proof_steps == 0) return false;",
-        "        if (self.proof_steps > 0) return true; // ЛОМАЕМ: любой сертификат принят",
+        "src/main.zig",
+        "                            if (v.checksPass() and v.proof_concludes_false and v.trusted_steps == 0) {",
+        "                            if (true) { // ЛОМАЕМ: любой сертификат принят",
     )
     return "make pcc-check"
 
