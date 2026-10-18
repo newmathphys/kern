@@ -579,12 +579,15 @@ def main():
     print(f"Survived (ДЫРЫ):     {survived}")
     equiv = sum(1 for site, status in results
                 if status == "SURVIVED" and is_known_equivalent(site[0], site[5]))
+    # ФОРМУЛА (DO-178C / IEEE): Score = Killed / (Total - Equivalent).
+    # ИЗМЕРЕНО на прогоне: прежняя версия делила ВЫЖИВШИХ на знаменатель и
+    # печатала 10.8% вместо 97.3% — считаем именно УБИТЫХ.
     eff_total = len(results) - equiv
-    eff = (len(results) - killed) / eff_total * 100 if eff_total else 100.0
+    eff = killed / eff_total * 100 if eff_total else 100.0
     print(f"MUTATION SCORE (сырой):            {score:.1f}%  "
-          f"({len(results) - killed}/{len(results)} выживших)")
+          f"(убито {killed}/{len(results)})")
     print(f"ЭФФЕКТИВНЫЙ СКОР (без доказанно эквивалентных): {eff:.1f}%  "
-          f"({len(results) - killed - equiv}/{eff_total})")
+          f"(убито {killed}/{eff_total})")
     if equiv:
         print(f"  из выживших ДОКАЗАННО ЭКВИВАЛЕНТНЫ: {equiv}")
     if survivors:

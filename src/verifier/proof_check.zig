@@ -3820,3 +3820,19 @@ test "МУТАНТ 1892: pushLin при отказе аллокатора воз
     // `pushLin` (`c.arena.alloc`) упадёт -> обязан вернуться `false`.
     try std.testing.expect(!pushLin(&c, l, &out));
 }
+
+// Убивает `proof_check.zig:1267 [false->true]` — `isNegOfTerm`: если ГОЛОВА
+// терма не атом (вложенный список), вернуть `true` («это минус Y») нельзя —
+// это ложное срабатывание. Мутант `orelse return true` именно это и делал.
+test "МУТАНТ 1267: isNegOfTerm отвергает НЕ-атомную голову" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    const y = try parseSexp(a, "b");
+    // Голова `(a)` — список, а не атом.
+    try std.testing.expect(!isNegOfTerm(try parseSexp(a, "((a) b)"), y));
+    // Контроль: настоящий «минус Y» принимается.
+    try std.testing.expect(isNegOfTerm(try parseSexp(a, "(- b)"), y));
+    try std.testing.expect(isNegOfTerm(try parseSexp(a, "(* -1 b)"), y));
+    try std.testing.expect(!isNegOfTerm(try parseSexp(a, "(+ b c)"), y));
+}

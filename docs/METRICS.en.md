@@ -709,3 +709,26 @@ order; (c) scaling by `k = 3 > 0` (`sum + c <= 0` <=> `3*sum + 3*c <= 0`) also
 exercises gcd reduction. The verdict must be STRICTLY the same; the test also
 checks the base verdict against the EXPECTED one (10 unsat / 10 sat), otherwise
 "invariance" would degenerate into "always unknown".
+
+**GATE 4 CONTROL MEASUREMENT (dual score) — MEASURED.** Canonical
+`make mutate` (`--max 40 --seed 7 --jobs 6 --require-solver`): raw **90.0 %**
+(36/40 killed), effective (excluding 3 proven-equivalent) **97.3 %** (36/37).
+
+**A BUG IN MY OWN REPORT was found and fixed:** the first version printed
+`effective 10.8 % (1/37)` — the formula divided SURVIVORS by the denominator
+instead of KILLED. The correct formula (DO-178C / IEEE) is
+`Score = Killed / (Total - Equivalent)`; after the fix the measurement is
+**97.3 %**.
+
+**The fourth survivor turned out NOT to be equivalent** — and that is a real
+finding: `proof_check.zig:1267 [false->true]` is
+`const h = t.items[0].atom orelse return false;` in `isNegOfTerm`. The mutant
+`orelse return true` produces a FALSE "this is minus Y" when the head of the
+term is a nested list rather than an atom. A targeted test was added
+(`isNegOfTerm(((a) b), b) == false` plus 3 controls), **verified by APPLYING the
+mutation: 1 test fails**. Tests 327/327.
+
+**HONEST GATE 4 OUTCOME:** raw 90.0 % (36/40) — the formal >= 95 % raw threshold
+is NOT met; the effective score (excluding 3 proven-equivalent) is 97.3 %. The
+remaining survivors `blake3_simd8.zig:154`, `kimg_writer.zig:212`,
+`z3_bridge.zig:283` are proven equivalent (§81.18).
