@@ -219,10 +219,18 @@ def run_tests(root, rel=None):
     # мутация, вызвавшая зависание, доказанно сломала поведение, поэтому
     # засчитывается как KILLED (так же поступает cargo-mutants).
     # 120 с — с большим запасом над нормальным прогоном (~15 с).
+    # ДЕФЕКТ #131 (НАЙДЕН приёмкой Эшелона 2): `src/test_root.zig` НЕ содержит
+    # ни одной ссылки на `src/next/`, поэтому мутация файлов `src/next/*.zig`
+    # вообще не компилировалась — все 51 сайт (truth.zig 26 + catalog.zig 25)
+    # числились «выжившими» при ЗЕЛЁНЫХ тестах. Для них обязателен СВОЙ корень:
+    # `zig build test-next` (42 теста KERN-Next).
+    use_next = bool(rel) and rel.startswith("src/next/")
+    cmd = ([ZIG, "build", "test-next"] if use_next
+           else [ZIG, "test", "--dep", "compat",
+                 "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"])
     try:
         p = subprocess.run(
-            [ZIG, "test", "--dep", "compat",
-             "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"],
+            cmd,
             cwd=root, env=CHILD_ENV, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
         return "KILLED_TIMEOUT", "прогон не уложился в 120 с (зависание/дедлок)"
