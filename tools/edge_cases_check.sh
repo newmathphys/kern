@@ -35,6 +35,31 @@ chk "[IMPURE] impure_global"       "детектор чистоты: global"
 chk "zig-выражение вне подмножества" "Zig: встроенная @mod -> понятная причина SKIP (дефект #117)"
 chk "вычисленное значение -1 вне диапазона" "Zig: u32 underflow подтверждён конкретным вычислителем (№14)"
 chk "[BV] bitAlignedAgrees"        "Zig: битовые операции (& ~) -> теория QF_BV, доказано (№15)"
+
+# --- ПУНКТ 5 ПЛАНА v2.5: МИНИМИЗАЦИЯ КОНТРПРИМЕРА ---------------------------
+# Проверяем ГРАНИЦУ ЗВУЧИМОСТИ, а не «красоту» вывода: суженный SMT обязан
+# содержать ВСЕ исходные `(assert ...)` ПЛЮС ровно одно ограничение окна.
+# Если сужение потеряет исходные условия, «уменьшенный контрпример» перестанет
+# быть контрпримером — и проверка обязана покраснеть.
+mini="$("$PY" - <<'PYX'
+import importlib.util
+spec = importlib.util.spec_from_file_location('kc', 'tools/kern_contracts.py')
+kc = importlib.util.module_from_spec(spec); spec.loader.exec_module(kc)
+smt = ('(set-logic ALL)\n(declare-const x Int)\n(assert (>= x 1000000))\n'
+       '(assert (not (<= x 500)))\n(check-sat)\n')
+b = kc._bound_smt(smt, ['x'])
+o = [l for l in smt.splitlines() if l.startswith('(assert')]
+n = [l for l in b.splitlines() if l.startswith('(assert')]
+print('MINIMIZE_OK' if (all(l in n for l in o) and len(n) == len(o) + 1)
+      else 'MINIMIZE_BROKEN')
+PYX
+)"
+if printf '%s' "$mini" | grep -qF "MINIMIZE_OK"; then
+  echo "  [OK]   минимизация контрпримера: сужение ТОЛЬКО добавляет ограничения (№5)"
+else
+  echo "  [FAIL] минимизация потеряла исходные ограничения (нарушена звучимость)"
+  fail=1
+fi
 echo "───────────────────────────────────────────────────────────────────────"
 if [ "$fail" = 0 ]; then
   echo "[OK] все крайние случаи воспроизведены"
