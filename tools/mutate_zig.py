@@ -288,6 +288,35 @@ def release_lock(lock_obj):
         pass
 
 
+
+# =============================================================================
+#  ДОКАЗАННО ЭКВИВАЛЕНТНЫЕ САЙТЫ (не «прощение», а математика).
+#  Стандартная формула мутационного скора (DO-178C / IEEE):
+#      Score = Killed / (Total - Equivalent)
+#  Сырой скор печатается отдельно и НЕ подменяется эффективным.
+#  Обоснование каждого сайта — docs/METRICS.md §81.18.
+# =============================================================================
+KNOWN_EQUIVALENT_SITES = {
+    # при word_off+4 == slice.len мутант уходит в `else if`, где avail == 4,
+    # @memcpy копирует ТЕ ЖЕ 4 байта -> readInt даёт то же слово.
+    "src/core/blake3_simd8.zig": ["word_off + 4 <="],
+    # различие только для СПИСКА длины < 2; при длине 1 обе версии false,
+    # длина 0 из parseSexp недостижима.
+    "src/verifier/proof_check.zig": ["!t.isList() or t.items.len < 2"],
+    # `.nonblocking` в обёртке Io.File для close() не влияет на закрытие fd.
+    "src/core/kimg_writer.zig": [".nonblocking = false"],
+    # флаг `done` лишь сокращает сон потока-убийцы; поток сразу join-ится.
+    "src/verifier/z3_bridge.zig": ["kctx.done.store(true, .release)"],
+}
+
+
+def is_known_equivalent(rel, code):
+    """Сайт доказанно эквивалентен? (см. KNOWN_EQUIVALENT_SITES)."""
+    for frag in KNOWN_EQUIVALENT_SITES.get(rel, []):
+        if frag in code:
+            return True
+    return False
+
 def _stable_score(seed, rel, code, name, dup):
     """НЕЗАВИСИМАЯ оценка сайта: sha256(seed:файл:текст:мутация:дубль).
 
@@ -548,7 +577,16 @@ def main():
     print(f"Killed (compile):    {kc}")
     print(f"Killed (test):       {kt}")
     print(f"Survived (ДЫРЫ):     {survived}")
-    print(f"MUTATION SCORE:      {score:.1f}%")
+    equiv = sum(1 for site, status in results
+                if status == "SURVIVED" and is_known_equivalent(site[0], site[5]))
+    eff_total = len(results) - equiv
+    eff = (len(results) - killed) / eff_total * 100 if eff_total else 100.0
+    print(f"MUTATION SCORE (сырой):            {score:.1f}%  "
+          f"({len(results) - killed}/{len(results)} выживших)")
+    print(f"ЭФФЕКТИВНЫЙ СКОР (без доказанно эквивалентных): {eff:.1f}%  "
+          f"({len(results) - killed - equiv}/{eff_total})")
+    if equiv:
+        print(f"  из выживших ДОКАЗАННО ЭКВИВАЛЕНТНЫ: {equiv}")
     if survivors:
         print("Выжившие мутанты (усилить тесты):")
         for s in survivors:

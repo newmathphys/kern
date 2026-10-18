@@ -74,7 +74,15 @@ pub const ProofVerdict = struct {
     reject: []const u8 = "", // причина отказа ("" = нет)
 
     /// Все ли проверки прошли.
+    ///
+    /// ДЕФЕКТ #125 (найден тестом мутанта 49): функция проверяла ТОЛЬКО
+    /// счётчики ошибок и `reject`, поэтому ПУСТОЙ вердикт `ProofVerdict{}`
+    /// (0 проверенных шагов) формально возвращал `true`. Все три текущих
+    /// вызова дополнительно требуют `proof_concludes_false`, так что ворот
+    /// дефект НЕ открывал — но функция обязана быть самодостаточной: ноль
+    /// проверенных шагов не является успехом ни при каких условиях.
     pub fn checksPass(self: ProofVerdict) bool {
+        if (self.proof_steps == 0) return false;
         return self.holes == 0 and self.premises_unbound == 0 and
             self.mp_bad == 0 and self.unitres_bad == 0 and
             self.farkas_bad == 0 and self.rewrite_bad == 0 and
