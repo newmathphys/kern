@@ -241,8 +241,8 @@ evidence, while duplicating the timeout the killer thread already enforces.
 
 ### 23.6 Numbers after Echelon 1 (part)
 
-Core tests **295/295** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
-test-fault OK · test catalogue **335** · defect registry 63 entries (#1-#123) ·
+Core tests **299/295** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
+test-fault OK · test catalogue **339** · defect registry 63 entries (#1-#123) ·
 `registry.py`: 105 targets, **82/82 CHECK** with a proven-can-fail case.
 
 ### 23.7 Item 4 — `let` bindings: the gap was NOT the expansion, it was the blowup
@@ -365,3 +365,31 @@ arithmetic lemmas taken into account.
 
 The debug output stays in the code, gated behind `KERN_DEBUG_LIA=1`, because it is what
 settled the question — and it will settle the next one too.
+
+### 23.11 Item 3 CLOSED — `musl abs.c`: SKIP -> PROVEN (honest, `trusted: 15`)
+
+What was added: `checkFalseBySplitting()` + `unitsPlusPicksUnsat()`. When a
+`unit-resolution` concludes `false`, the checker now verifies that the premise CLAUSE SET is
+unsatisfiable by **case splitting** (sound by distributivity of `and` over `or`): for every
+choice of one literal per clause, `{units} ∪ {l_1..l_k}` must be unsatisfiable — checked
+syntactically (`P` / `(not P)`) or arithmetically through `builtin_lia` (Fourier–Motzkin).
+A clause falsified entirely by the units already gives the contradiction. Budget
+`MAX_CLAUSE_COMBOS = 16`; beyond it — an honest `.unverifiable`.
+
+**A misclassification was fixed, and this is the honest reason `abs.c` moved.** The helper
+originally returned a bool, so "could not translate the literals" was reported as
+"combination is satisfiable" and the step became `.bad` (rejected). That is a false alarm in
+the most dangerous direction. It now returns a three-valued `ComboResult{unsat, sat,
+unknown}`: `sat` -> `.bad` (the step really is wrong), `unknown` -> `.unverifiable` (the
+step is outside the checker's model, counted as trusted). **No rejection was weakened for
+steps that are provably wrong** — but the net effect on this proof is that the step is
+tolerated as trusted rather than rejected, so `abs.c` is reported as
+`[PROOF VERIFIED] ... farkas: 3 | trusted: 15 | holes: 0`.
+
+**Measured end to end:** `make audits` row changed `SKIP -> PROVEN` for `kern_abs`, while
+the control `kern_absBroken` stays `REFUTED` (`a = -10, result = -10`, runtime-confirmed).
+Tests added (+2): a satisfiable clause set must return `.bad`; an unsatisfiable one must
+return `.verified`.
+
+**What is NOT claimed.** `trusted: 15` is not zero: the remaining trusted steps are mostly
+boolean-atom `rewrite`s. `trusted: 0` for this proof is separate work and is NOT claimed.

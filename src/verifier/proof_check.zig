@@ -1457,6 +1457,110 @@ fn isClause(t: Sexp) bool {
 /// НЕПРОВЕРЯЕМ (форма вне модели чекера).
 const CheckResult = enum { verified, bad, unverifiable };
 
+/// БЮДЖЕТ ПЕРЕБОРА КОМБИНАЦИЙ КЛАУЗ (пункт 3 плана v2.5).
+/// Число комбинаций = произведение длин клауз, поэтому без бюджета — взрыв.
+/// За бюджетом — честный `.unverifiable` (не «ок» и не «неверно»).
+const MAX_CLAUSE_COMBOS: usize = 16;
+
+/// ТРЁХЗНАЧНЫЙ результат проверки комбинации: `unsat` (доказано несовместной),
+/// `sat` (НАЙДЕНА совместная — шаг неверен), `unknown` (перевести не удалось).
+const ComboResult = enum { unsat, sat, unknown };
+
+/// `{units} ∪ {picks}` — несовместно?
+///   1) синтаксическая пара `P` и `(not P)` внутри объединения; ЛИБО
+///   2) арифметическая несовместность через встроенный решатель (Фурье — Моцкин).
+///
+/// ВАЖНО: «не удалось перевести» — это `unknown`, а НЕ `sat`. Иначе чекер
+/// объявлял бы шаг НЕВЕРНЫМ там, где он просто вне его модели (это была бы
+/// ложная тревога в самую опасную сторону).
+fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp) ComboResult {
+    var all = std.array_list.Managed(Sexp).init(c.arena);
+    for (units) |u| all.append(u) catch return .unknown;
+    for (picks) |p| all.append(p) catch return .unknown;
+    for (all.items, 0..) |a, i| {
+        for (all.items[i + 1 ..]) |b| {
+            if (isComplement(a, b) or isComplementCmp(a, b)) return .unsat;
+        }
+    }
+    var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+    for (all.items) |l| {
+        if (!asLeZero(c, l, &cons)) return .unknown;
+    }
+    var s = builtin_lia.Solver.init(c.arena);
+    defer s.deinit();
+    return switch (builtin_lia.checkUnsat(&s, cons.items)) {
+        .unsat => .unsat,
+        .sat => .sat,
+        .unknown => .unknown,
+    };
+}
+
+/// Проверить ЗАКЛЮЧЕНИЕ `false` РАСЩЕПЛЕНИЕМ ПО СЛУЧАЯМ.
+///
+/// ЗВУЧНО (дистрибутивность `and` над `or`): `C1 ∧ … ∧ Ck ∧ U` несовместно
+/// ⟺ для КАЖДОГО выбора по одному литералу `l_i` из `C_i` система
+/// `U ∪ {l_1..l_k}` несовместна. Если какая-то клауза опровергнута юнитами
+/// ЦЕЛИКОМ — противоречие уже есть: клауза утверждается, а юниты делают её
+/// ложной.
+///
+/// Возвращает `.verified` (все комбинации несовместны), `.bad` (нашлась
+/// СОВМЕСТНАЯ комбинация — шаг неверен), `.unverifiable` (комбинаций больше
+/// бюджета или перевод не удался).
+fn checkFalseBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp) CheckResult {
+    var rems = std.array_list.Managed(std.array_list.Managed(Sexp)).init(c.arena);
+    for (clauses) |cl| {
+        var rem = std.array_list.Managed(Sexp).init(c.arena);
+        for (cl.items[1..]) |lit| {
+            const l = expand(c, lit, 0);
+            var falsified = false;
+            for (units) |u| {
+                if (isComplement(l, u) or isComplementCmp(l, u)) {
+                    falsified = true;
+                    break;
+                }
+            }
+            if (!falsified) rem.append(l) catch return .unverifiable;
+        }
+        if (rem.items.len == 0) return .verified; // клауза ложна под юнитами
+        rems.append(rem) catch return .unverifiable;
+    }
+    var total: usize = 1;
+    for (rems.items) |r| {
+        total = std.math.mul(usize, total, r.items.len) catch return .unverifiable;
+    }
+    if (total > MAX_CLAUSE_COMBOS) return .unverifiable;
+    if (compat.envVar("KERN_DEBUG_LIA") != null) {
+        std.debug.print("[dbg-split] клауз={d} комбинаций={d}\n", .{ rems.items.len, total });
+    }
+    var idx: usize = 0;
+    while (idx < total) : (idx += 1) {
+        var pick = std.array_list.Managed(Sexp).init(c.arena);
+        var remn = idx;
+        for (rems.items) |r| {
+            pick.append(r.items[remn % r.items.len]) catch return .unverifiable;
+            remn /= r.items.len;
+        }
+        // ЛЮБАЯ СОВМЕСТНАЯ комбинация => шаг НЕ доказан (`.bad`).
+        // «Не удалось перевести» => честный `.unverifiable`, а НЕ `.bad`.
+        switch (unitsPlusPicksUnsat(c, units, pick.items)) {
+            .unsat => {},
+            .sat => {
+                if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                    std.debug.print("[dbg-split] комбинация #{d} СОВМЕСТНА -> .bad\n", .{idx});
+                }
+                return .bad;
+            },
+            .unknown => {
+                if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                    std.debug.print("[dbg-split] комбинация #{d} не переведена -> .unverifiable\n", .{idx});
+                }
+                return .unverifiable;
+            },
+        }
+    }
+    return .verified;
+}
+
 fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
     if (st.items.len < 3) return .unverifiable;
     const concl = expand(c, proved(st), 0);
@@ -1504,7 +1608,7 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         // ЗВУЧНОСТЬ: ни один литерал не может быть потерян или добавлен —
         // сравниваем множества, а не только количество.
         // ЗВУЧНОСТЬ: объявить `false` можно только опровергнув ВСЕ литералы.
-        if (concl_is_false) return .bad;
+        if (concl_is_false) return checkFalseBySplitting(c, units.items, clauses.items);
         var concl_lits = std.array_list.Managed(Sexp).init(c.arena);
         if (isClause(concl)) {
             for (concl.items[1..]) |x| concl_lits.append(x) catch return .unverifiable;
@@ -2586,4 +2690,28 @@ test "ПУНКТ 3: ФАЛЬШИВНАЯ невесовая th-lemma ОТВЕР�
     const st = try parseSexp(a, "((_ th-lemma arith) @x10 (<= x 3))");
     const clause = expand(&c, proved(st), 0);
     try std.testing.expectEqual(FarkasResult.structural_only, verifyThLemmaArith(&c, st, clause));
+}
+
+test "ПУНКТ 3: расщепление — СОВМЕСТНЫЙ набор клауз ОТВЕРГАЕТСЯ (.bad)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Клауза (or (>= x 0) (<= x 5)), юнитов нет. Комбинация (>= x 0)
+    // СОВМЕСТНА (x = 0), значит заключение `false` НЕ доказано.
+    const cls = [_]Sexp{try parseSexp(a, "(or (>= x 0) (<= x 5))")};
+    const units = [_]Sexp{};
+    try std.testing.expectEqual(CheckResult.bad, checkFalseBySplitting(&c, &units, &cls));
+}
+
+test "ПУНКТ 3: расщепление — НЕСОВМЕСТНЫЙ набор клауз ДОКАЗЫВАЕТСЯ (.verified)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Клауза (or (<= x -1) (<= x -2)) и юнит (>= x 0): ОБЕ комбинации
+    // несовместны с юнитом (x >= 0 противоречит и x <= -1, и x <= -2).
+    const cls = [_]Sexp{try parseSexp(a, "(or (<= x -1) (<= x -2))")};
+    const units = [_]Sexp{try parseSexp(a, "(>= x 0)")};
+    try std.testing.expectEqual(CheckResult.verified, checkFalseBySplitting(&c, &units, &cls));
 }

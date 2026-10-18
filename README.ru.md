@@ -19,12 +19,12 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 
 | Показатель | Значение |
 |:--|:--|
-| Тесты ядра | **295** (Debug + ReleaseSafe) |
+| Тесты ядра | **299** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **38** |
 | Формальные доказательства | **8 файлов Lean 4** (42 теоремы), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | **95.0%** (38/40 убито), охват **14 файлов / 420 сайтов**, выжившие **доказанно эквивалентны**. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`) |
-| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **240 passed / 4 skipped / 0 failed** (лог QEMU 2026-10-16, `docs/evidence/cross_arch.log`); набор ядра с тех пор вырос до **295 / 295**, нужен повторный прогон |
+| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **240 passed / 4 skipped / 0 failed** (лог QEMU 2026-10-16, `docs/evidence/cross_arch.log`); набор ядра с тех пор вырос до **299 / 299**, нужен повторный прогон |
 | C-ABI на чистом C11 (`-Werror -pedantic`) | **20 / 20** — NULL и нулевые длины отвергаются без краха |
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
@@ -62,7 +62,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
 
-# 3. Тесты ядра — 295 штук
+# 3. Тесты ядра — 299 штук
 zig build test
 
 # 4. Эталонный образ и его проверка
@@ -88,7 +88,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 295 / 295 tests
+Core (Debug)          : PASS — 299 / 299 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (8 files, 42 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -130,7 +130,7 @@ kern/
 │
 ├── docs/                           ДОКУМЕНТАЦИЯ (начните с docs/README.md)
 │   ├── README.md                   КАРТА документации — что где лежит
-│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 335 тестов + бенчмарки
+│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 339 тестов + бенчмарки
 │   ├── METRICS.md                  ЖУРНАЛ ПОКАЗАТЕЛЕЙ (все цифры из прогонов)
 │   ├── KERN_FIXES_v1_3.md          16 устранённых дефектов, с доказательствами
 │   ├── VERIFICATION_GOLD_STANDARDS.md  мировые бенчмарки
@@ -189,7 +189,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ```
 ├── main.zig                        CLI kernc (читает образ .kimg)
 ├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (295 тестов)
+├── test_root.zig                   корень тестов ядра (299 тестов)
 ├── core/
 │   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
 │   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
@@ -366,7 +366,7 @@ make echelons                                # 4 эшелона: выравни�
 | **Кванторы (E-matching)** | триггеры; Matching Loop DoS обезврежен таймаутом |
 | **Невмешательство (HyperLTL)** | taint: ветвление/индекс по секрету → **утечка**; constant-time ~1.0× |
 | **ReDoS (CWE-1333)** | `(a+)+`, `(a|a)*` → **уязвимы**; `(a|b)*` — нет |
-| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **240 passed / 4 skipped / 0 failed** (лог 2026-10-16, `docs/evidence/cross_arch.log`); набор ядра вырос до **295 / 295** — нужен повторный прогон |
+| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **240 passed / 4 skipped / 0 failed** (лог 2026-10-16, `docs/evidence/cross_arch.log`); набор ядра вырос до **299 / 299** — нужен повторный прогон |
 | **Мост «текст → контракт»** | `make bridge`: фраза из Markdown → `.smt2` → **`e=1` ДОКАЗАНО** |
 | **Binary-level soundness** | дайджест одинаков на Debug/ReleaseSafe/ReleaseFast (translation validation) |
 | **Constant-time на ассемблере** | taint-анализ: **0** ветвлений от данных (контроль: 1 обнаружен) |
