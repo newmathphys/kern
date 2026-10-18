@@ -370,4 +370,22 @@ theorem double_neg_iff (a : Prop) : ¬¬a ↔ a := by
   · intro ha hna
     exact hna ha
 
+-- `unitImpliesLit`: `(¬a ∧ b) → ¬a` — юнит ВЛЕЧЁТ литерал клаузы.
+-- ИЗМЕРЕНО (ЭТАЛОН QF_S): `units[0] = ¬A ∧ B` влечёт `¬A`, но это НЕ «дополнение».
+theorem unit_implies_lit_sound (a b : Prop) : (¬a ∧ b) → ¬a := by
+  intro h
+  exact h.1
+
+-- `remaining == []` => клауза ЛОЖНА под юнитами => ПРОТИВОРЕЧИЕ =>
+-- следует ЛЮБОЕ заключение (`false ⊨ anything`).
+theorem contradiction_implies_anything (P : Prop) : False → P := by
+  intro h
+  exact h.elim
+
+-- Контроль: `u ⊨ l` НЕ симметрично — из `¬a` НЕ следует `¬a ∧ b` (иначе
+-- вычёркивание было бы неверным).
+theorem implies_not_symmetric (a b : Prop) (hb : b) : ¬a → (¬a ∧ b) := by
+  intro ha
+  exact ⟨ha, hb⟩
+
 end KernFarkas

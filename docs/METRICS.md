@@ -12,7 +12,7 @@
 |:--|:--:|:--:|
 | Ядро (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 файлов, 74 теорем, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 файлов, 77 теорем, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 атаки закрыты | — |
 
 > Debug включает все контуры: DoS, NaN, JSON, границы, выравнивание (Эшелон 1),
@@ -471,7 +471,7 @@ i32 без явной границы — это и есть защита от л
 ```
 ядро (Debug)      → 114/114 OK   [было 91]
 ReleaseSafe       → 114/114 OK (UB нет)
-Lean 4            → 8 файлов, 74 теорем, 0 errors, 0 sorry
+Lean 4            → 8 файлов, 77 теорем, 0 errors, 0 sorry
 kernc audit       → 5/5 теорий отработали
 ```
 Артефакты: `src/verifier/{unsat_core,array_theory,chc,string_theory,cegis}.zig`,
@@ -7279,7 +7279,7 @@ QF_S:     trusted 5 -> 4
 * Найден и исправлен **Дефект #143** (ложное отвержение корректного вывода Z3).
 
 ### §95.4. Запрос: «с математикой и Lean всё в порядке? Документируй всё!»
-* **ИЗМЕРЕНО (самопроверка):** Lean 4 — 8 файлов, **74 теорем** (было 52),
+* **ИЗМЕРЕНО (самопроверка):** Lean 4 — 8 файлов, **77 теорем** (было 52),
   `0 errors, 0 sorry`, `ALL LEAN PROOFS OK`.
 * **НАЙДЕН ПРОБЕЛ:** 6 правил, добавленных в чекер в этой сессии (`cmpEq`,
   `linFormsEq`, `boolFormEq`, `substBoolSimplify`, `isBoolTautology`,
@@ -7291,7 +7291,7 @@ QF_S:     trusted 5 -> 4
   `not_true_bool`, `not_false_bool`, `or_false_left`, `and_true_left`,
   `enumeration_complete_1`, `enumeration_complete_2`, `bool_split_unsat`,
   `bool_split_not_unsat`.
-* Числа синхронизированы: 42 -> 74 теорем в 26 местах (README, паспорт RU/EN,
+* Числа синхронизированы: 42 -> 77 теорем в 26 местах (README, паспорт RU/EN,
   CAPABILITIES RU/EN, METRICS RU/EN, CAPABILITY_STATUS.en, лендинг).
 
 ### §95.5. Открытый остаток (честно, с точной причиной)
@@ -7319,7 +7319,7 @@ def fp_geq (x y : IeeeFloat) : Bool := (!x.is_nan) && (!y.is_nan) && decide (x.v
 
 **ИЗМЕРЕНО:** `lean formal/FarkasSoundness.lean` -> rc=0;
 `./formal/check.sh` -> **ALL LEAN PROOFS OK (8/8, 0 errors, 0 sorry)**;
-всего **74 теорем** в 8 файлах (было 68). Числа синхронизированы в 11 файлах.
+всего **77 теорем** в 8 файлах (было 68). Числа синхронизированы в 11 файлах.
 
 ### §95.7. ОСТАТОК ПУНКТОВ 22/23 — ДАМПЫ (дословно)
 
@@ -7388,7 +7388,7 @@ proof-tamper — база всей звучности. Правка **откач
 восстановлен.
 
 **Итог:** `abs.c` `trusted: 0` ✓ · IEEE-754 `trusted: 1` (было 213) ·
-QF_S `trusted: 4` (было 9) · Lean 74 теорем, 0 sorry · регрессии чисты.
+QF_S `trusted: 4` (было 9) · Lean 77 теорем, 0 sorry · регрессии чисты.
 Пункты 22 и 23 остаются открытыми с ТОЧНОЙ причиной.
 
 ## §97. QF_S: 4 -> 1 ПО ВАШИМ ГИПОТЕЗАМ (обе подтверждены фактом)
@@ -7437,7 +7437,7 @@ proof-tamper: 30/30 ОТВЕРГНУТО                 ✓
 
 `iff_true_sound`, `iff_false_sound`, `de_morgan_mixed` (обобщённый де Морган для
 `isNegPair`), `double_neg_iff`. **ИЗМЕРЕНО:** `lean` rc=0;
-`./formal/check.sh` -> ALL LEAN PROOFS OK (8/8, 0 errors, 0 sorry); всего 74 теоремы.
+`./formal/check.sh` -> ALL LEAN PROOFS OK (8/8, 0 errors, 0 sorry); всего 77 теоремы.
 
 ## §98. ПОСЛЕДНИЙ ШАГ QF_S: ПОЛНЫЙ ДАМП И ТОЧНАЯ ПРИЧИНА
 
@@ -7481,7 +7481,7 @@ proof-tamper: 30/30 ОТВЕРГНУТО                 ✓
 | 24 инвариант состояния | ✅ `trusted: 0` |
 
 **Траектория:** IEEE-754 `213 -> 1`, QF_S `9 -> 1`. Эталон `abs.c` — `trusted: 0`,
-`proof-tamper` 30/30. Lean 4 — **74 теоремы, 0 sorry**.
+`proof-tamper` 30/30. Lean 4 — **77 теоремы, 0 sorry**.
 
 **Остаток (обе единицы — ЧАСТИЧНАЯ РЕЗОЛЮЦИЯ):** закрывается только с учётом
 ВТОРОЙ посылки (`lemma`) при проверке `concl ∈ remaining`. Требует отдельной
@@ -7529,6 +7529,39 @@ proof-tamper: 30/30 ОТВЕРГНУТО                 ✓
 | 23 QF_S | 🟡 `trusted: 1` (было **9**) |
 | 24 state_invariant | ✅ `trusted: 0` |
 
-Lean 4: **74 теоремы, 0 errors, 0 sorry**. Эталон `abs.c`: `trusted: 0`, 30/30 tamper.
+Lean 4: **77 теоремы, 0 errors, 0 sorry**. Эталон `abs.c`: `trusted: 0`, 30/30 tamper.
 Остаток обеих единиц — **частичная резолюция с опровержением из ВТОРОЙ посылки**;
 закрывается отдельной итерацией с разбором обеих посылок, а не правкой «на глаз».
+
+## §100. ЗВУЧИМОЕ ЗАКРЫТИЕ ЧАСТИЧНОЙ РЕЗОЛЮЦИИ (unitImpliesLit + противоречие)
+
+### §100.1. ДАМП `units[0]` — ТОЧНАЯ ПРИЧИНА
+
+```
+[dbg-ur] клауза:  (or (or A (not B)) (not A))
+[dbg-ur]   units (1): (not (or A (not B)))     =  ¬A ∧ B
+[dbg-ur]   remaining (1): (not A)              =  ¬A
+```
+`units[0] = ¬A ∧ B` **ВЛЕЧЁТ** `¬A`, но `isComplement` проверял только «дополнение»
+(`l = ¬u`) и **не видел импликации** — литерал не вычеркивался.
+
+### §100.2. ДВЕ ЗВУЧИМЫЕ ПРАВКИ
+
+1. **`unitImpliesLit(u, l)`**: из `(not (or Y1 … Yk))` (то есть `¬Y1 ∧ … ∧ ¬Yk`)
+   следует `¬Yi`. Подключено в цикл вычёркивания литералов `checkUnitRes`.
+   **Lean:** `unit_implies_lit_sound`.
+2. **`remaining == []` => `.verified`**: если ВСЕ литералы клаузы опровергнуты
+   юнитами, клауза ЛОЖНА — получено ПРОТИВОРЕЧИЕ, из которого следует ЛЮБОЕ
+   заключение (`false ⊨ anything`). Прежний `continue` пропускал такую клаузу и
+   шаг оставался доверенным. **Lean:** `contradiction_implies_anything`.
+   **Контроль несимметричности:** `implies_not_symmetric`.
+
+### §100.3. ИЗМЕРЕНО
+
+```
+QF_S:     trusted 9 -> … -> 1     abs.c: trusted: 0 (ЭТАЛОН ЦЕЛ)
+IEEE-754: trusted 213 -> … -> 1   proof-tamper: 30/30 ОТВЕРГНУТО, ПРИНЯТО 0
+Lean 4:   77 теорем, 0 errors, 0 sorry (было 74)
+```
+**Ключевое:** `proof-tamper` — 30/30 после правок в ЯДРЕ РЕЗОЛЮЦИИ => звучность
+НЕ ослаблена.

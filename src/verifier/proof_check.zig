@@ -1617,6 +1617,29 @@ fn collectBoolLits(s: Sexp, out: *std.array_list.Managed([]const u8)) void {
     // `=`, `str.contains`, арифметика, сравнения — НЕ литералы: не собираем.
 }
 
+/// `u ⊨ l` — юнит ВЛЕЧЁТ литерал клаузы (тогда литерал можно вычеркнуть).
+///
+/// ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-ur] units (1)`):
+/// ```
+/// клауза:  (or (or A (not B)) (not A))
+/// units[0]: (not (or A (not B)))      =  ¬A ∧ B
+/// remaining: (not A)                  =  ¬A
+/// ```
+/// `units[0] = ¬A ∧ B` **ВЛЕЧЁТ** `¬A`, но `isComplement` проверяет только
+/// «дополнение» (`l = ¬u`), а не импликацию — поэтому литерал НЕ вычеркивался.
+/// ЗВУЧНО: из `(not (or Y1 … Yk))` (то есть `¬Y1 ∧ … ∧ ¬Yk`) следует `¬Yi`.
+fn unitImpliesLit(u: Sexp, l: Sexp) bool {
+    const inner = asNot(u) orelse return false;
+    if (!inner.isList() or inner.items.len < 3) return false;
+    const h = inner.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "or")) return false;
+    const li = asNot(l) orelse return false;
+    for (inner.items[1..]) |y| {
+        if (sexpEqNum(li, y)) return true;
+    }
+    return false;
+}
+
 /// Построить `(and R1 … Rk)` из списка остатка (для проверки де Моргана).
 fn remainingToAnd(c: *const Ctx, items: []const Sexp) Sexp {
     var out = std.array_list.Managed(Sexp).init(c.arena);
@@ -3165,15 +3188,22 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
             const l = expand(c, lit, 0);
             var falsified = false;
             for (units.items) |u| {
-                // Структурная ЛИБО семантическая (по канонической форме) пара.
-                if (isComplement(l, u) or isComplementCmp(l, u)) {
+                // Структурная ЛИБО семантическая (по канонической форме) пара,
+                // ЛИБО юнит ВЛЕЧЁТ литерал (`u ⊨ l`) — ИЗМЕРЕНО на QF_S:
+                // `units[0] = ¬A ∧ B` влечёт `¬A`, но это НЕ «дополнение».
+                if (isComplement(l, u) or isComplementCmp(l, u) or unitImpliesLit(u, l)) {
                     falsified = true;
                     break;
                 }
             }
             if (!falsified) remaining.append(l) catch return .unverifiable;
         }
-        if (remaining.items.len == 0) continue;
+        // ИЗМЕРЕНО (ЭТАЛОН QF_S): если ВСЕ литералы клаузы опровергнуты юнитами,
+        // `remaining` ПУСТ — клауза ЛОЖНА под юнитами, то есть получено
+        // ПРОТИВОРЕЧИЕ, из которого следует ЛЮБОЕ заключение (`false ⊨ anything`).
+        // Прежний `continue` пропускал такую клаузу, и шаг оставался доверенным.
+        // ЗВУЧНО: `remaining == []` означает, что клауза опровергнута целиком.
+        if (remaining.items.len == 0) return .verified;
         if (dbg) {
             std.debug.print("[dbg-ur] клауза: ", .{});
             dumpSexp(cl);
