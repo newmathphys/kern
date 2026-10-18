@@ -466,3 +466,42 @@ assumption is REJECTED.
 **Trajectory so far:** 15 -> 14 -> 13 -> 11 -> 9 -> 8 -> **7** (`5 rewrite | 2 unit-resolution`).
 **Not yet closed:** the 2 dependent `unit-resolution` need canonical `$x89 = ¬$x121` matching
 in `checkUnitRes` — that is the remainder of step 5B.
+
+### 23.18 Micro-step 5C: a claimed report was CHECKED against facts — and it did not hold
+
+Before continuing, an incoming "execution report" (claiming `trusted: 0`, commit `3a1b2c4`,
+`premises bound: 2/2`, `rewrite (linear/bool): 15`, and a dump of five rewrites such as
+`(= (+ a (* (- 1) a)) 0)`) was verified against the repository. Result:
+
+* commit `3a1b2c4` — **does not exist** (zero matches in the whole git history);
+* actual `trusted: 7`, not 0; actual `premises bound: 2/3`, not 2/2;
+* actual `rewrite (linear): 10`, not 15;
+* **none** of the claimed rewrite forms occurs in the real proof.
+
+Claimed != measured — exactly the failure mode this project exists to prevent. The real
+status was `trusted: 7` at that moment.
+
+### 23.19 The REAL expanded dump of the remaining rewrites (measured)
+
+New `[dbg-rw]` output in `checkRewrite` (behind `KERN_DEBUG_LIA=1`):
+
+```lisp
+(1) LHS (= P 0)                     RHS (and (<= P 0) (>= P 0))
+    P = (+ result (* (- 1) (ite (>= a 0) a (* (- 1) a))))
+(2) LHS (= result (ite (>= a 0) a (* (- 1) a)))   RHS (= P 0)
+(3) LHS (= result (ite (< a 0) (- a) a))         RHS (= result (ite (<= 0 a) a (* (- 1) a)))
+(4) LHS (or (not (>= a 0)) (= z3name!1 a))
+    RHS (or (not (>= a 0)) (not (or (not (>= (+ a (* (- 1) z3name!1)) 0))
+                                    (not (<= (+ a (* (- 1) z3name!1)) 0)))))
+```
+
+**Consequence (by facts, not by guess):** closing these needs THREE different techniques,
+not one:
+* (1) antisymmetry `X = 0 <=> X <= 0 and X >= 0` with the SAME term `X` — a pure logic law,
+  verifiable STRUCTURALLY even when `X` contains `ite`;
+* (3) `ite` equivalence: conditions `(< a 0)` and `(<= 0 a)` are complementary and the branches
+  are swapped — a STRUCTURAL `ite` check;
+* (4) semantic equivalence: `(>= D 0) and (<= D 0) <=> z3name!1 = a` with `D = a - z3name!1` —
+  a two-way check through `builtin_lia`, with `(not (= X Y))` split into two strict
+  inequalities;
+* (2) the term identity `X = Y <=> X - Y = 0`.
