@@ -32,11 +32,11 @@
 | **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§21) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
 | **[bench/index.html](bench/index.html)** | **Детерминированный бенчмарк** (график на сайте): лавина, цепочка коллизий, χ². Генерируется `python3 tools/bench_json.py --html docs/bench/index.html`; цель `make bench-json` (can-fail доказана) |
 | **[../audits/README.md](../audits/README.md)** | **Тень-контракты на чужом коде**: рукописные SMT-модели реальных выражений из сторонних проектов (например `isAligned` из `andrewrk/zig-general-purpose-allocator` — ДОКАЗАНО, и контрольная ломаная версия — КОНТРПРИМЕР) + замер, почему «прогон KERN по 50 репозиториям» даёт нули |
-| **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **339 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
+| **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **348 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
 | **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§81): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#123 (63 записи)**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[ROADMAP.md](ROADMAP.md)** | **План v2.5** (40 пунктов, 8 эшелонов) + **ИЗМЕРЕННАЯ инвентаризация**: какие пункты уже реализованы (5 теорий SMT, песочница Z3, guardrail-прокси), какие частично, какие новые — с доказательствами прогонами |
 | **[VERIFICATION_GOLD_STANDARDS.md](VERIFICATION_GOLD_STANDARDS.md)** | Мировые бенчмарки: SWE-bench, HumanEval+, QuixBugs, Refactory, CyberSecEval, мутации |
-| **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: сборка, 299 тестов, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
+| **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: сборка, 308 тестов, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
 | **[MIGRATION_REPORT_0_17.md](MIGRATION_REPORT_0_17.md)** | Отчёт о миграции 0.13→0.17: точная карта изменений, стратегия двух треков |
 
 ### Устройство и исправления

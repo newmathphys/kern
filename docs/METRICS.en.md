@@ -545,3 +545,40 @@ Implemented:
 
 **Measured:** `rewrite (linear): 13 -> 14`, `trusted: 4 -> 3`.
 **Trajectory:** 15 -> 14 -> 13 -> 11 -> 9 -> 8 -> 7 -> 4 -> **3** (`2 unit-resolution | 1 rewrite`).
+
+### 23.22 Micro-step 5G-3: `musl abs.c` reaches `trusted: 0 | holes: 0`
+
+`[PROOF VERIFIED] steps: 51 | premises bound: 2/3 | mp: 7 | rewrite (linear): 15 |
+farkas: 3 | trusted: 0 | holes: 0`.
+
+Trusted-step trajectory (every step closed by a PROOF, never "forgiven" via `.unverifiable`):
+`15 -> 14 -> 13 -> 11 -> 9 -> 8 -> 7 -> 4 -> 3 -> 1 -> 0`.
+
+The last three steps were closed by:
+
+1. **Recursive splitting on a DISJUNCTIVE literal** (`unitsPlusPicksUnsat`). MEASURED
+   (`[dbg-combo]`): a clause-combination contained the disjunctive literal
+   `(or (not (>= D 0)) (not (<= D 0)))`, which cannot be converted into a conjunction of
+   constraints. SOUND (case split): a combination is unsatisfiable iff EVERY branch
+   (substituting one disjunct) is unsatisfiable. This closed **both** remaining
+   `unit-resolution` steps (3 -> 1).
+2. **De Morgan for `and`** (`andDeMorganEq`). MEASURED (`[dbg-rw0]`):
+   `(and X Y) <=> (not (or (not X) (not Y)))`. The identity is PROPOSITIONAL, so it is
+   checked STRUCTURALLY (`sexpEq`) — no solver, no term analysis.
+3. **Unfolding a PROVEN `intro-def` definition** (`eqUpToDefs` + a pre-pass). MEASURED
+   (`[dbg-rw1]`): the last trusted `rewrite` is
+   `(= (>= (result - ite(...)) 0) (>= (result - z3name!1) 0))`, i.e. unfolding the name
+   `z3name!1` into its definition. SOUND: a name is unfolded ONLY when its definition was
+   proven by an `intro-def` step (fresh name + two `ite` definition clauses).
+
+**Ordering matters:** the checked `rewrite` comes BEFORE its `intro-def` (step #1), so the
+definition map is filled by a PRE-PASS over `intro-def` steps — and only for those whose
+structural check passed. Otherwise the unfolding would rely on an unverified definition
+(unsound).
+
+Negative counterparts: a de Morgan rewrite with a SUBSTITUTED disjunct is rejected; and
+`eqUpToDefs` in a context WITHOUT the definition refuses to unfold.
+
+`premises bound: 2/3` is NOT a defect: `total` includes local `hypothesis` entries that are
+removed by the `lemma` rule; `premises_unbound == 0`, which is exactly what `checksPass()`
+requires.

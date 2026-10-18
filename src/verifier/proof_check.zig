@@ -371,20 +371,33 @@ pub fn ruleOf(e: Sexp) ?[]const u8 {
 }
 
 /// Контекст разбора одного вывода.
+/// Определение `ite`, введённое ПРОВЕРЕННЫМ шагом `intro-def`:
+/// `z3name!k = (ite cond a b)`. Хранится, чтобы разворачивать имя в его
+/// определение при проверке последующих шагов (`rewrite`/`unit-resolution`).
+const DefIte = struct { cond: Sexp, a: Sexp, b: Sexp };
+
 pub const Ctx = struct {
     arena: std.mem.Allocator,
     abbrev: std.StringHashMap(Sexp),
     stepexpr: std.StringHashMap(Sexp),
     steps: std.array_list.Managed(Sexp),
     root: ?Sexp = null,
+    /// ИЗМЕРЕНО на `musl abs.c`: последний доверенный `rewrite` — это
+    /// `(= (>= (result − ite(…)) 0) (>= (result − z3name!1) 0))`, то есть
+    /// ПОДСТАНОВКА определения `z3name!1`. ЗВУЧНО разворачивать имя можно
+    /// только если само определение доказано шагом `intro-def`.
+    defs: *std.StringHashMap(DefIte),
 };
 
 fn newCtx(arena: std.mem.Allocator) Ctx {
+    const defs = arena.create(std.StringHashMap(DefIte)) catch unreachable;
+    defs.* = std.StringHashMap(DefIte).init(arena);
     return .{
         .arena = arena,
         .abbrev = std.StringHashMap(Sexp).init(arena),
         .stepexpr = std.StringHashMap(Sexp).init(arena),
         .steps = std.array_list.Managed(Sexp).init(arena),
+        .defs = defs,
     };
 }
 
@@ -826,10 +839,20 @@ const RwResult = enum { verified, bad, unverifiable };
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
+    if (compat.envVar("KERN_DEBUG_LIA") != null) {
+        std.debug.print("[dbg-rw0] раскрыто: ", .{});
+        dumpSexp(eq);
+        std.debug.print("\n", .{});
+    }
     if (!isEq3(eq)) return .unverifiable;
     const l = eq.items[1];
     const r = eq.items[2];
     if (sexpEq(l, r)) return .verified; // рефлексивность: (= X X)
+    // ПОДСТАНОВКА ПРОВЕРЕННЫХ ОПРЕДЕЛЕНИЙ `intro-def`: ИЗМЕРЕНО на `musl abs.c`
+    // (последний доверенный шаг) — `(= (>= (result − ite(…)) 0) (>= (result −
+    // z3name!1) 0))`, где `z3name!1` уже определён верифицированным `intro-def`.
+    // ЗВУЧНО: разворачиваем имя ТОЛЬКО в доказанное определение.
+    if (eqUpToDefs(c, l, r, 0)) return .verified;
     const nl = normCmp(l);
     const nr = normCmp(r);
     if (nl != null and nr != null) {
@@ -844,6 +867,13 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
             // Обе стороны ЛИНЕЙНЫ -> нормализатор их ПОКРЫВАЕТ.
             // Расхождение канонических форм = доказанная подделка.
             return if (z) .verified else .bad;
+        }
+        if (compat.envVar("KERN_DEBUG_LIA") != null) {
+            std.debug.print("[dbg-rw1] выход по normCmp-ветке: LHS=", .{});
+            dumpSexp(l);
+            std.debug.print(" RHS=", .{});
+            dumpSexp(r);
+            std.debug.print("\n", .{});
         }
         return .unverifiable;
     }
@@ -872,6 +902,15 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // ФОРМА (4) ИЗ ДАМПА `[dbg-rw]` (микро-шаг 5Г-2): КОНГРУЭНЦИЯ `or` с
     // двусторонней линейной проверкой вторых дизъюнктов.
     if (orCongruence(c, l, r)) return .verified;
+    // ПРЯМАЯ ДВУСТОРОННЯЯ ЛИНЕЙНАЯ ЭКВИВАЛЕНТНОСТЬ (пункт 3 v2.5): тот же
+    // механизм, что в `orCongruence`, но БЕЗ внешней обёртки `(or A …)`.
+    // Если `lhs ⊨ rhs` И `rhs ⊨ lhs` доказаны в линейном фрагменте — это
+    // эквивалентность, шаг ДОКАЗАН. Не удалось перевести -> `false`, и шаг
+    // остаётся доверенным.
+    if (impliesLinear(c, l, r) and impliesLinear(c, r, l)) return .verified;
+    // ЗАКОН ДЕ МОРГАНА для `and` (последний доверенный шаг `abs.c`):
+    // `(and X Y) <=> (not (or (not X) (not Y)))` — структурно.
+    if (andDeMorganEq(l, r)) return .verified;
     if (compat.envVar("KERN_DEBUG_LIA") != null) {
         std.debug.print("[dbg-rw] не проверено: LHS=", .{});
         dumpSexp(l);
@@ -1047,6 +1086,48 @@ fn verifyIntroDef(c: *const Ctx, st: Sexp) bool {
     const p = introDefParts(t.items[1], t.items[2]) orelse
         introDefParts(t.items[2], t.items[1]) orelse return false;
     if (occurs(p.z, p.cond) or occurs(p.z, p.a) or occurs(p.z, p.b)) return false;
+    // ЗАПОМИНАЕМ определение: `z3name!k = (ite cond a b)`. Оно доказано этим
+    // шагом (свежее имя + консервативное расширение), поэтому разворачивать его
+    // в последующих шагах ЗВУЧНО.
+    c.defs.put(p.z, .{ .cond = p.cond, .a = p.a, .b = p.b }) catch {};
+    return true;
+}
+
+/// РАВЕНСТВО «С ТОЧНОСТЬЮ ДО ОПРЕДЕЛЕНИЙ»: структурное сравнение, при котором
+/// атом, для которого ЕСТЬ проверенное определение `intro-def`, может быть
+/// развёрнут в `(ite cond a b)`. Глубина ограничена (защита от разрастания).
+fn eqUpToDefs(c: *const Ctx, a: Sexp, b: Sexp, depth: u32) bool {
+    if (depth > 32) return false;
+    if (sexpEq(a, b)) return true;
+    if (a.atom) |x| {
+        if (c.defs.get(x)) |d| {
+            if (b.isList() and b.items.len == 4) {
+                if (b.items[0].atom) |bh| {
+                    if (std.mem.eql(u8, bh, "ite") and
+                        eqUpToDefs(c, d.cond, b.items[1], depth + 1) and
+                        eqUpToDefs(c, d.a, b.items[2], depth + 1) and
+                        eqUpToDefs(c, d.b, b.items[3], depth + 1)) return true;
+                }
+            }
+        }
+    }
+    if (b.atom) |y| {
+        if (c.defs.get(y)) |d| {
+            if (a.isList() and a.items.len == 4) {
+                if (a.items[0].atom) |ah| {
+                    if (std.mem.eql(u8, ah, "ite") and
+                        eqUpToDefs(c, d.cond, a.items[1], depth + 1) and
+                        eqUpToDefs(c, d.a, a.items[2], depth + 1) and
+                        eqUpToDefs(c, d.b, a.items[3], depth + 1)) return true;
+                }
+            }
+        }
+    }
+    if (!a.isList() or !b.isList()) return false;
+    if (a.items.len != b.items.len) return false;
+    for (a.items, b.items) |x, y| {
+        if (!eqUpToDefs(c, x, y, depth + 1)) return false;
+    }
     return true;
 }
 
@@ -1370,6 +1451,34 @@ fn isOr2(e: Sexp) bool {
     if (!e.isList() or e.items.len != 3) return false;
     const h = e.items[0].atom orelse return false;
     return std.mem.eql(u8, h, "or");
+}
+
+/// `(and X Y) <=> (not (or (not X) (not Y)))` — ЗАКОН ДЕ МОРГАНА.
+///
+/// ИЗМЕРЕНО на `musl abs.c` (последний доверенный шаг): правая часть — это
+/// ровно отрицание дизъюнкции отрицаний. Тождество ПРОПОЗИЦИОНАЛЬНОЕ, поэтому
+/// доказывается СТРУКТУРНО (по `sexpEq`), без решателя и без разбора термов.
+fn andDeMorganEq(l: Sexp, r: Sexp) bool {
+    return andDeMorganOne(l, r) or andDeMorganOne(r, l);
+}
+
+fn andDeMorganOne(and_side: Sexp, not_or_side: Sexp) bool {
+    if (!and_side.isList() or and_side.items.len != 3) return false;
+    const ah = and_side.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, ah, "and")) return false;
+    const x = and_side.items[1];
+    const y = and_side.items[2];
+    if (!isNotT(not_or_side)) return false;
+    const inner = not_or_side.items[1];
+    if (!inner.isList() or inner.items.len != 3) return false;
+    const ih = inner.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, ih, "or")) return false;
+    const nx = inner.items[1];
+    const ny = inner.items[2];
+    if (!isNotT(nx) or !isNotT(ny)) return false;
+    const x2 = nx.items[1];
+    const y2 = ny.items[1];
+    return (sexpEq(x, x2) and sexpEq(y, y2)) or (sexpEq(x, y2) and sexpEq(y, x2));
 }
 
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
@@ -2003,6 +2112,27 @@ const ComboResult = enum { unsat, sat, unknown };
 /// объявлял бы шаг НЕВЕРНЫМ там, где он просто вне его модели (это была бы
 /// ложная тревога в самую опасную сторону).
 fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, neg_concl: ?Sexp) ComboResult {
+    // РАСЩЕПЛЕНИЕ ПО ДИЗЪЮНКТИВНОМУ «pick». ИЗМЕРЕНО на `musl abs.c`: в
+    // комбинацию попадает литерал-ДИЗЪЮНКЦИЯ
+    // `(or (not (>= D 0)) (not (<= D 0)))`, который нельзя перевести в
+    // конъюнкцию ограничений. ЗВУЧНО (расщепление по случаям): комбинация
+    // несовместна  <=>  КАЖДАЯ ветвь (подстановка одного дизъюнкта) несовместна.
+    for (picks, 0..) |p, i| {
+        if (p.isList() and p.items.len >= 2) {
+            const h = p.items[0].atom orelse continue;
+            if (std.mem.eql(u8, h, "or")) {
+                for (p.items[1..]) |d| {
+                    var np = std.array_list.Managed(Sexp).init(c.arena);
+                    for (picks, 0..) |q, j| {
+                        np.append(if (j == i) d else q) catch return .unknown;
+                    }
+                    const r = unitsPlusPicksUnsat(c, units, np.items, neg_concl);
+                    if (r != .unsat) return r;
+                }
+                return .unsat;
+            }
+        }
+    }
     var all = std.array_list.Managed(Sexp).init(c.arena);
     for (units) |u| all.append(u) catch return .unknown;
     for (picks) |p| all.append(p) catch return .unknown;
@@ -2018,10 +2148,24 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, 
         if (!negateAsLeZero(c, nc, &cons)) return .unknown;
     }
     for (units) |l| {
-        if (!asLeZero(c, l, &cons)) return .unknown;
+        if (!asLeZero(c, l, &cons)) {
+            if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                std.debug.print("[dbg-combo] unit НЕ переведён: ", .{});
+                dumpSexp(l);
+                std.debug.print("\n", .{});
+            }
+            return .unknown;
+        }
     }
     for (picks) |l| {
-        if (!asLeZero(c, l, &cons)) return .unknown;
+        if (!asLeZero(c, l, &cons)) {
+            if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                std.debug.print("[dbg-combo] pick НЕ переведён: ", .{});
+                dumpSexp(l);
+                std.debug.print("\n", .{});
+            }
+            return .unknown;
+        }
     }
     var s = builtin_lia.Solver.init(c.arena);
     defer s.deinit();
@@ -2281,6 +2425,17 @@ pub fn verifyProof(
     for (contract) |a| {
         const s = parseSexp(arena, a) catch continue;
         try contract_terms.append(s);
+    }
+
+    // ПРЕДВАРИТЕЛЬНЫЙ ПРОХОД ПО `intro-def`: собрать определения `z3name!k`.
+    // ИЗМЕРЕНО на `musl abs.c`: проверяемый `rewrite` идёт РАНЬШЕ своего
+    // `intro-def` (шаг #1), поэтому карту определений надо заполнить ДО обхода.
+    // ЗВУЧНО: определение записывается только если сам структурный чек
+    // `intro-def` прошёл (свежее имя + две клаузы определения `ite`).
+    for (c.steps.items) |st| {
+        if (st.headAtom()) |h| {
+            if (std.mem.eql(u8, h, "intro-def")) _ = verifyIntroDef(&c, st);
+        }
     }
 
     for (c.steps.items) |st| {
@@ -3398,4 +3553,34 @@ test "ПУНКТ 3: rewrite (3) переворот ite под равенство
         try parseSexp(a, "(= result (ite (< a 0) (- a) a))"),
         try parseSexp(a, "(= result (ite (< a 0) a (* (- 1) a)))"),
     ));
+}
+
+test "ПУНКТ 3 (5Г-3): and-де-Морган ПРИНИМАЕТСЯ, подделка ОТВЕРГАЕТСЯ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    // Ровно форма из дампа abs.c: (and X Y) <=> (not (or (not X) (not Y))).
+    const lhs = try parseSexp(a, "(and (>= a 0) (<= a 5))");
+    const rhs = try parseSexp(a, "(not (or (not (>= a 0)) (not (<= a 5))))");
+    try std.testing.expect(andDeMorganEq(lhs, rhs));
+    // Подделка: во втором дизъюнкте другая формула -> ОТВЕРГАЕТСЯ.
+    const bad = try parseSexp(a, "(not (or (not (>= a 0)) (not (<= a 4))))");
+    try std.testing.expect(!andDeMorganEq(lhs, bad));
+}
+
+test "ПУНКТ 3 (5Г-3): подстановка ПРОВЕРЕННОГО определения intro-def" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Определение, доказанное intro-def: z3name!1 = ite(a >= 0, a, -a).
+    const def_st = try parseSexp(a, "(intro-def (and (or (not (>= a 0)) (= z3name!1 a)) (or (>= a 0) (= z3name!1 (* (- 1) a)))))");
+    try std.testing.expect(verifyIntroDef(&c, def_st));
+    // Ровно последний доверенный шаг abs.c: имя z3name!1 vs его определение.
+    const l = try parseSexp(a, "(>= (+ result (* (- 1) z3name!1)) 0)");
+    const r = try parseSexp(a, "(>= (+ result (* (- 1) (ite (>= a 0) a (* (- 1) a)))) 0)");
+    try std.testing.expect(eqUpToDefs(&c, l, r, 0));
+    // БЕЗ определения (другой контекст) — разворачивать НЕЛЬЗЯ: отказ.
+    var c2 = newCtx(a);
+    try std.testing.expect(!eqUpToDefs(&c2, l, r, 0));
 }
