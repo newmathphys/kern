@@ -1588,6 +1588,14 @@ fn andDeMorganEq(l: Sexp, r: Sexp) bool {
     return andDeMorganOne(l, r) or andDeMorganOne(r, l);
 }
 
+/// Построить `(and R1 … Rk)` из списка остатка (для проверки де Моргана).
+fn remainingToAnd(c: *const Ctx, items: []const Sexp) Sexp {
+    var out = std.array_list.Managed(Sexp).init(c.arena);
+    out.append(Sexp{ .atom = "and" }) catch return items[0];
+    for (items) |it| out.append(it) catch return items[0];
+    return Sexp{ .items = out.items };
+}
+
 /// `X` и `D` — контрарная пара: `X = (not D)` ИЛИ `D = (not X)`.
 ///
 /// ИЗМЕРЕНО (ЭТАЛОН QF_S): `(and (not A) B) <=> (not (or A (not B)))` — в `or`
@@ -3179,6 +3187,13 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         // ЛИШНИЕ литералы в выводе -> форма вне модели чекера (доверенный шаг).
         // МЕНЬШЕ литералов -> ПОТЕРЯ (доказанная неверность).
         if (concl_lits.items.len != remaining.items.len) {
+            // ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-ur]`): `remaining` = 2 литерала,
+            // а `concl` = ОДНА формула `(not (or …))` — это ЗАКОН ДЕ МОРГАНА для
+            // конъюнкции остатка: `(and R1 R2) <=> (not (or (not R1) (not R2)))`.
+            // Раньше такой шаг уходил в `checkBySplitting` и оставался доверенным.
+            if (concl_lits.items.len == 1 and remaining.items.len >= 2) {
+                if (andDeMorganEq(remainingToAnd(c, remaining.items), concl)) return .verified;
+            }
             // ОБОБЩЕНИЕ (пункт 3 v2.5): то же РАСЩЕПЛЕНИЕ ПО СЛУЧАЯМ, но для
             // ПРОИЗВОЛЬНОГО заключения: посылки ⊨ concl <=> для каждой
             // комбинации `{units} ∪ {picks} ∪ {¬concl}` несовместно.
