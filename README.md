@@ -3,7 +3,7 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-279%2F279-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-283%2F283-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-38%2F38-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
@@ -438,8 +438,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **279 / 279** |
-| Core test suite **without** `z3` in `PATH` | **271 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
+| Core test suite (Debug + ReleaseSafe) | **283 / 283** |
+| Core test suite **without** `z3` in `PATH` | **275 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
 | KERN-Next test suite | **38 / 38** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
@@ -458,9 +458,9 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **279 / 279** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **240 passed / 4 skipped / 0 failed** (QEMU log 2026-10-16, `docs/evidence/cross_arch.log`; host suite has since grown to 279 / 279, re-run pending) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **240 passed / 4 skipped / 0 failed** (same QEMU log; host suite has since grown to 279 / 279, re-run pending) |
+| x86_64 | TSO memory model | **283 / 283** |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **240 passed / 4 skipped / 0 failed** (QEMU log 2026-10-16, `docs/evidence/cross_arch.log`; host suite has since grown to 283 / 283, re-run pending) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **240 passed / 4 skipped / 0 failed** (same QEMU log; host suite has since grown to 283 / 283, re-run pending) |
 
 ### External benchmarks
 
@@ -559,7 +559,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 zig build
 
 # 3. Core test suites
-zig build test          # 279 core tests
+zig build test          # 283 core tests
 zig build test-next     # 38 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics
@@ -582,7 +582,7 @@ make audit-manifest
 
 > **Build notes (Zig 0.17) — read before "fixing" a red-looking log.**
 > A fresh `zig build test` prints
-> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 279 tests
+> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 283 tests
 > pass**: `zig build` runs the tests as a separate child that reports over an IPC
 > protocol (`--listen=-`), and the step verdict comes from the protocol, not from that
 > line. Judge a build by its exit code and `zig build … --summary all` — never by

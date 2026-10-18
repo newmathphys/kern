@@ -56,7 +56,78 @@ pub const Bit = struct {
     }
 };
 
-/// Итог резолюции: сколько утверждений переведено и как.
+/// ПУНКТ 7 ПЛАНА v2.5 — АППАРАТНО-УСТОЙЧИВОЕ КОДИРОВАНИЕ ДОПУСКА.
+///
+/// ЧТО ЭТО. Допуск Врат (`e = 1` пропущено / `e = 0` закрыто) хранится не как
+/// один бит, а как 64-битное слово-константа. Две константы —
+/// **точные поразрядные дополнения** друг друга, поэтому расстояние Хэмминга
+/// между ними равно ровно 64 битам.
+///
+/// ЧТО ЭТО ДАЁТ (и что это ДАЁТ ПРОВЕРЯЕМО): при допуске до `TOLERANCE` =
+/// 8 инвертированных бит решение НЕ может перевернуться. Формально: слово,
+/// отстоящее от `DENY_CODE` на d ≤ 8 бит, отстоит от `ALLOW_CODE` на 64 − d ≥ 56
+/// бит, то есть остаётся `DENY`. Одно искажённое бит-поле не превращает
+/// «закрыто» в «пропущено» — это свойство закреплено тестами ниже.
+///
+/// ЧЕГО ЭТО НЕ ДЕЛАЕТ (честно, чтобы не было самообмана):
+///   * это **НЕ** доказанное свойство ядра и **НЕ** «защита от космических
+///     лучей»: реальную частоту SEU мы измерить не можем, а DO-178C такого
+///     кодирования не требует;
+///   * это **защитная избыточность**, а не верификация: она снижает
+///     вероятность тихого переворота решения при одиночном/кратном сбое
+///     памяти, и только;
+///   * тип `e` в ядре (`admission_gate.zig`, `u1`) НЕ меняется — примитив
+///     изолирован, чтобы не тянуть 64-битное представление через все вызовы.
+///
+/// ПОВЕДЕНИЕ ПРИ НЕОПОЗНАВАЕМОМ СЛОВЕ: `decode` возвращает `null`
+/// (fail-closed). Вызывающий обязан трактовать `null` как `e = 0`.
+pub const AdmissionCode = struct {
+    /// Допуск: до стольких инвертированных бит решение обязано сохраниться.
+    /// Должно быть строго меньше 32, иначе константы станут неразличимы.
+    pub const TOLERANCE: u6 = 8;
+
+    /// `e = 1` — пропущено в прод.
+    pub const ALLOW_CODE: u64 = 0xA55A_3C3C_C3C3_5AA5;
+    /// `e = 0` — Врата закрыты. Точное дополнение `ALLOW_CODE`.
+    pub const DENY_CODE: u64 = 0x5AA5_C3C3_3C3C_A55A;
+
+    comptime {
+        // Инвариант кодирования: константы — дополнения, расстояние ровно 64.
+        if (ALLOW_CODE ^ DENY_CODE != ~@as(u64, 0)) {
+            @compileError("AdmissionCode: константы обязаны быть поразрядными дополнениями");
+        }
+        if (TOLERANCE >= 32) {
+            @compileError("AdmissionCode: TOLERANCE >= 32 делает константы неразличимыми");
+        }
+    }
+
+    /// Сколько бит различаются.
+    pub fn distance(a: u64, b: u64) u7 {
+        return @popCount(a ^ b);
+    }
+
+    /// Закодировать допуск: `e` — это `u1` (0 или 1), как в ядре.
+    pub fn encode(e: u1) u64 {
+        return if (e == 1) ALLOW_CODE else DENY_CODE;
+    }
+
+    /// Раскодировать допуск. `null` = слово повреждено сверх допуска
+    /// (fail-closed: вызывающий обязан закрыть Врата).
+    pub fn decode(word: u64) ?u1 {
+        const d_allow = distance(word, ALLOW_CODE);
+        const d_deny = distance(word, DENY_CODE);
+        if (d_allow <= TOLERANCE) return 1;
+        if (d_deny <= TOLERANCE) return 0;
+        return null;
+    }
+
+    /// Раскодировать с ЗАКРЫТИЕМ по умолчанию: любое сомнение -> `e = 0`.
+    /// Это и есть «fail-closed» на границе: неопознанное слово не пропускает.
+    pub fn decodeOrDeny(word: u64) u1 {
+        return decode(word) orelse 0;
+    }
+};
+
 pub const Resolution = struct {
     to_tested: usize = 0,
     to_refuted: usize = 0,
@@ -246,3 +317,46 @@ test "TRUTH: SKIP (exit 2) -> N (0,0), НЕ F и НЕ T (боевой фидбе
     try std.testing.expect(Bit.ofExit(0).status() == .tested);
     try std.testing.expect(Bit.ofExit(1).status() == .refuted);
 }
+
+// ПУНКТ 7 ПЛАНА v2.5: проверяемое свойство кодирования допуска.
+//
+// Проверяем ИМЕННО ТО, что обещано в комментарии к `AdmissionCode`:
+// константы — дополнения (расстояние 64), до `TOLERANCE` бит решение не
+// переворачивается, за порогом решение НЕ выдумывается (`null`), а
+// `decodeOrDeny` закрывает Врата. Никаких заявлений о SEU здесь нет.
+test "AdmissionCode: дополнение 64 бита, допуск 8 бит, fail-closed за порогом" {
+    const A = AdmissionCode;
+
+    // 1. Константы — точные поразрядные дополнения: расстояние ровно 64.
+    try std.testing.expectEqual(@as(u7, 64), A.distance(A.ALLOW_CODE, A.DENY_CODE));
+    try std.testing.expect(A.ALLOW_CODE != A.DENY_CODE);
+
+    // 2. Круговой прогон кодирования.
+    try std.testing.expectEqual(@as(?u1, 1), A.decode(A.encode(1)));
+    try std.testing.expectEqual(@as(?u1, 0), A.decode(A.encode(0)));
+
+    // 3. До TOLERANCE инвертированных бит решение НЕ переворачивается.
+    var i: u6 = 0;
+    while (i < A.TOLERANCE) : (i += 1) {
+        const flip = @as(u64, 1) << i;
+        try std.testing.expectEqual(@as(?u1, 1), A.decode(A.ALLOW_CODE ^ flip));
+        try std.testing.expectEqual(@as(?u1, 0), A.decode(A.DENY_CODE ^ flip));
+    }
+
+    // 4. Ровно 9 бит — за порогом: решение не выдумывается, Врата закрываются.
+    const nine_off = A.ALLOW_CODE ^ @as(u64, 0x1FF);
+    try std.testing.expectEqual(@as(u7, 9), A.distance(nine_off, A.ALLOW_CODE));
+    try std.testing.expectEqual(@as(?u1, null), A.decode(nine_off));
+    try std.testing.expectEqual(@as(u1, 0), A.decodeOrDeny(nine_off));
+
+    // 5. Середина диапазона (32 бита) — тоже `null`: при TOLERANCE >= 32
+    //    константы были бы неразличимы, поэтому порог ограничен comptime-ом.
+    const half = A.ALLOW_CODE ^ @as(u64, 0xFFFF_FFFF);
+    try std.testing.expectEqual(@as(u7, 32), A.distance(half, A.ALLOW_CODE));
+    try std.testing.expectEqual(@as(?u1, null), A.decode(half));
+    try std.testing.expectEqual(@as(u1, 0), A.decodeOrDeny(half));
+
+    // 6. Полностью инвертированное слово — это ровно DENY_CODE.
+    try std.testing.expectEqual(@as(?u1, 0), A.decode(~A.ALLOW_CODE));
+}
+
