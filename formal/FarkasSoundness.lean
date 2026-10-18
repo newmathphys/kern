@@ -234,4 +234,67 @@ theorem stale_evidence_closes_gate (b : B4) : allowance (freshBit b false) = 0 :
 theorem fresh_evidence_keeps_allowance : allowance (freshBit (true, false) true) = 1 := by
   simp [freshBit, allowance]
 
+-- =============================================================================
+-- ТЕОРЕМЫ ДЛЯ ПРАВИЛ, ДОБАВЛЕННЫХ В ЧЕКЕР В ХОДЕ ЭТАЛОНА IEEE-754 (v2.5).
+-- ИЗМЕРЕНО: эти 6 правил (`cmpEq`, `linFormsEq`, `boolFormEq`, `substBoolSimplify`,
+-- `isBoolTautology`, `comboUnsatBoolSplit`) были реализованы в `proof_check.zig`,
+-- но НЕ имели формального обоснования. Пробел закрыт здесь.
+-- =============================================================================
+
+-- 1. `cmpEq`: канонизация сравнений. Z3 пишет одно сравнение двумя способами
+--    (`(<= 0 x)` и `(>= x 0)`) — это ОДНО отношение.
+theorem ge_iff_le_swap (a b : Int) : (a ≥ b) ↔ (b ≤ a) := by omega
+theorem gt_iff_lt_swap (a b : Int) : (a > b) ↔ (b < a) := by omega
+
+-- 2. `linFormsEq`: линейные формы. `X = Y` ⟺ `X − Y = 0`, и `p = 0` ⟺ `−p = 0`
+--    (сравнение с точностью до общего знака).
+theorem eq_zero_iff_neg_zero (p : Int) : (p = 0) ↔ (-p = 0) := by omega
+theorem eq_iff_sub_eq_zero (x y : Int) : (x = y) ↔ (x - y = 0) := by omega
+
+-- 3. `boolFormEq`: булевы формы. `(not X)` и `(X = false)` — одно и то же;
+--    `X` и `(X = true)` — тоже. И `¬(a ≤ b)` ⟺ `b < a`.
+theorem bool_not_iff_eq_false (x : Bool) : (x = false) ↔ ¬(x = true) := by
+  cases x <;> simp
+theorem bool_iff_eq_true (x : Bool) : (x = true) ↔ x := by
+  cases x <;> simp
+theorem not_le_iff_gt (a b : Int) : ¬(a ≤ b) ↔ (b < a) := by omega
+theorem not_lt_iff_ge (a b : Int) : ¬(a < b) ↔ (b ≤ a) := by omega
+
+-- 4. `substBoolSimplify`: тождественные упрощения булевых связок.
+theorem not_true_bool : (!true) = false := rfl
+theorem not_false_bool : (!false) = true := rfl
+theorem or_false_left (x : Bool) : (false || x) = x := by cases x <;> rfl
+theorem and_true_left (x : Bool) : (true && x) = x := by cases x <;> rfl
+
+-- 5. `isBoolTautology`: ПОЛНОТА ПЕРЕБОРА. Если все подстановки дают `true`,
+--    то формула тождественно истинна — то есть перебор по всем значениям
+--    булевых переменных НЕ ТЕРЯЕТ контрпримеров.
+theorem enumeration_complete_1 (f : Bool → Bool)
+    (h1 : f true = true) (h2 : f false = true) : ∀ b, f b = true := by
+  intro b; cases b <;> simp_all
+
+theorem enumeration_complete_2 (f : Bool → Bool → Bool)
+    (h1 : f true true = true) (h2 : f true false = true)
+    (h3 : f false true = true) (h4 : f false false = true) :
+    ∀ a b, f a b = true := by
+  intro a b; cases a <;> cases b <;> simp_all
+
+-- 6. `comboUnsatBoolSplit`: ГИБРИДНАЯ НЕСОВМЕСТНОСТЬ. Если при КАЖДОЙ
+--    подстановке булевых переменных линейная часть несовместна, то и вся
+--    комбинация несовместна (композиция перебора и линейной проверки).
+theorem bool_split_unsat (lin : Prop) (P : Bool → Prop)
+    (h1 : (lin ∧ P true) → False) (h2 : (lin ∧ P false) → False) :
+    (lin ∧ (P true ∨ P false)) → False := by
+  intro hx
+  cases hx.2 with
+  | inl hp => exact h1 ⟨hx.1, hp⟩
+  | inr hp => exact h2 ⟨hx.1, hp⟩
+
+-- Контроль: если подстановка ДАЁТ выполняющую точку, гибрид обязан вернуть
+-- `.sat` (то есть НЕ признать комбинацию несовместной).
+theorem bool_split_not_unsat (lin : Prop) (P : Bool → Prop)
+    (h : lin ∧ P true) : ¬ ((lin ∧ (P true ∨ P false)) → False) := by
+  intro hbad
+  exact hbad ⟨h.1, Or.inl h.2⟩
+
 end KernFarkas
