@@ -344,6 +344,13 @@ fn isNegNumList(e: Sexp) ?[]const u8 {
 /// исходный .smt2»), где эта разница и возникает. Внутри самого вывода Z3
 /// печатает литералы единообразно, поэтому остальные проверки не меняются.
 fn sexpEqNum(a: Sexp, b: Sexp) bool {
+    // ПРИЧИНА №1 (измерено/разобрано): сравнение составных формул уходит в этот
+    // рекурсивный обход, и на вложенном подтерме `.atom` `"../"` vs `.list`
+    // `(str.++ (seq.unit …))` срабатывало отсечение «atom vs list» ДО проверки
+    // константных строк. Из-за этого `trans*`, `symm`, `lemma`, `unit-resolution`
+    // не видели равенства внутри `(str.contains s …)`.
+    // ЗВУЧНО: сверяем СВОРАЧИВАЕМЫЕ байты константных строк.
+    if (strConstEq(a, b)) return true;
     if (a.atom) |aa| {
         if (isNegNumAtom(aa)) |digits| {
             if (isNegNumList(b)) |d2| return std.mem.eql(u8, digits, d2);
@@ -1577,8 +1584,12 @@ fn strLitOf(s: Sexp) ?[]const u8 {
 fn evalStrPred(s: Sexp) ?bool {
     if (!s.isList() or s.items.len != 3) return null;
     const op = s.items[0].atom orelse return null;
-    const a = strLitOf(s.items[1]) orelse return null;
-    const b = strLitOf(s.items[2]) orelse return null;
+    // ПРИЧИНА №2: аргументы сворачиваются через `evalConstStr`, а НЕ через
+    // `strLitOf` (тот видел только кавычки `"…"` и не понимал `(str.++ …)`).
+    var ba: [256]u8 = undefined;
+    var bb: [256]u8 = undefined;
+    const a = evalConstStr(s.items[1], &ba) orelse return null;
+    const b = evalConstStr(s.items[2], &bb) orelse return null;
     if (std.mem.eql(u8, op, "str.contains")) return std.mem.indexOf(u8, a, b) != null;
     if (std.mem.eql(u8, op, "str.prefixof")) return std.mem.startsWith(u8, a, b);
     if (std.mem.eql(u8, op, "str.suffixof")) return std.mem.endsWith(u8, a, b);
@@ -1640,6 +1651,10 @@ fn evalBoolConst(s: Sexp) ?bool {
         }
         return acc;
     }
+    // ПРИЧИНА №2 (продолжение): ЛИСТОВОЙ булев атом — строковый предикат над
+    // константами. Без этого `(= (str.contains "safe" …) true)` не вычислялся,
+    // и последний `rewrite` не сходился.
+    if (evalStrPred(s)) |v| return v;
     return null;
 }
 
