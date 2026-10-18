@@ -1296,13 +1296,62 @@ fn pushLin(c: *const Ctx, l: Lin, out: *std.array_list.Managed(builtin_lia.Lin))
 }
 
 /// ЛИТЕРАЛ как `<= 0` (БЕЗ отрицания). `(not X)` -> это `¬X`.
+///
+/// ВАЖНО (найдено при разборе `musl abs.c`): положительное РАВЕНСТВО
+/// `(= X Y)` — это КОНЪЮНКЦИЯ ДВУХ нестрогих неравенств:
+///     `X - Y <= 0`  И  `Y - X <= 0`
+/// Раньше равенство не переводилось вовсе, поэтому в `checkFalseBySplitting`
+/// комбинации с `(= result a)` теряли связь между `result` и `a`, давали
+/// «совместно» и шаг помечался `unknown` -> `unverifiable` (доверенным), хотя
+/// по существу он доказуем (например, `result <= -1 ∧ result = a ∧ result = -a`
+/// даёт `2*result = 0`, то есть `result = 0`, что противоречит `result <= -1`).
 fn asLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
-    var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
-    if (asNot(lit)) |inner| {
-        if (!negLiteralAsLeZero(c, inner, &l)) return false;
-    } else {
-        if (!literalAsLeZero(c, lit, &l)) return false;
+    if (lit.isList() and lit.items.len >= 2) {
+        const h = lit.items[0].atom orelse "";
+        // КОНЪЮНКЦИЯ `(and X1..Xk)` — добавляем каждую часть.
+        if (std.mem.eql(u8, h, "and")) {
+            for (lit.items[1..]) |x| if (!asLeZero(c, x, out)) return false;
+            return true;
+        }
+        // `(not (or Y1..Yk))` == `¬Y1 ∧ … ∧ ¬Yk` — по закону де Моргана.
+        // ИЗМЕРЕНО на `musl abs.c`: именно такая форма пришла из клаузы
+        // (`(not (or (not (>= …)) (not (<= …))))`) и раньше НЕ переводилась,
+        // из-за чего комбинация уходила в `unknown`.
+        if (std.mem.eql(u8, h, "not") and lit.items.len == 2) {
+            const inner = lit.items[1];
+            if (inner.isList() and inner.items.len >= 2) {
+                if (inner.items[0].atom) |ih| {
+                    if (std.mem.eql(u8, ih, "or")) {
+                        for (inner.items[1..]) |y| {
+                            if (!negateAsLeZero(c, y, out)) return false;
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
     }
+    if (asNot(lit)) |inner| {
+        var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+        if (!negLiteralAsLeZero(c, inner, &l)) return false;
+        return pushLin(c, l, out);
+    }
+    if (lit.isList() and lit.items.len == 3) {
+        if (lit.items[0].atom) |h| {
+            if (std.mem.eql(u8, h, "=")) {
+                var d1 = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+                if (!parseLin(c, lit.items[1], 1, &d1)) return false;
+                if (!parseLin(c, lit.items[2], -1, &d1)) return false;
+                var d2 = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+                if (!parseLin(c, lit.items[2], 1, &d2)) return false;
+                if (!parseLin(c, lit.items[1], -1, &d2)) return false;
+                if (!pushLin(c, d1, out)) return false;
+                return pushLin(c, d2, out);
+            }
+        }
+    }
+    var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (!literalAsLeZero(c, lit, &l)) return false;
     return pushLin(c, l, out);
 }
 
@@ -1484,7 +1533,14 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp) 
     }
     var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
     for (all.items) |l| {
-        if (!asLeZero(c, l, &cons)) return .unknown;
+        if (!asLeZero(c, l, &cons)) {
+            if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                std.debug.print("[dbg-combo] литерал НЕ переведён: ", .{});
+                dumpSexp(l);
+                std.debug.print("\n", .{});
+            }
+            return .unknown;
+        }
     }
     var s = builtin_lia.Solver.init(c.arena);
     defer s.deinit();
@@ -1660,11 +1716,30 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
 // Входная точка: аудит текста вывода
 // =========================================================================
 
+/// ПЕЧАТЬ S-ВЫРАЖЕНИЯ (для диагностики доверенных шагов).
+/// Включается `KERN_DEBUG_TRUSTED=1`. Нужна, чтобы видеть ТОЧНЫЙ вид шага,
+/// который чекер не смог проверить (а не догадываться о нём).
+fn dumpSexp(e: Sexp) void {
+    if (e.atom) |a| {
+        std.debug.print("{s}", .{a});
+        return;
+    }
+    std.debug.print("(", .{});
+    for (e.items, 0..) |it, i| {
+        if (i > 0) std.debug.print(" ", .{});
+        dumpSexp(it);
+    }
+    std.debug.print(")", .{});
+}
+
 /// Пометить шаг как непроверенный и запомнить ПРАВИЛО первого такого шага.
 /// Без этого нельзя понять, что именно осталось доверенным (METRICS 55.5).
 fn markTrusted(v: *ProofVerdict, rule: []const u8) void {
     v.trusted_steps += 1;
     if (v.first_trusted.len == 0) v.first_trusted = rule;
+    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print("[dbg-trusted] шаг #{d} правило={s}\n", .{ v.trusted_steps, rule });
+    }
 }
 
 /// Математический аудит вывода. `contract` — исходные утверждения контракта
