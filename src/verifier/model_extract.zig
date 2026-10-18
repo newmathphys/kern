@@ -133,6 +133,208 @@ pub fn free(allocator: std.mem.Allocator, bindings: []Binding) void {
 }
 
 // ===========================================================================
+//  ПРОВЕРКА SAT-МОДЕЛИ ВНУТРИ ЯДРА (пункт 2 плана v2.5)
+// ===========================================================================
+// ЗАЧЕМ. Для `UNSAT` мы не верим решателю на слово — вывод перепроверяет
+// `proof_check.zig`. Для `SAT` модель до сих пор принималась КАК НАПЕЧАТАНО.
+// Если ошибётся Z3 или НАША трансляция Python->SMT, пользователю предъявят
+// ФАЛЬШИВЫЙ контрпример, и он пойдёт «чинить» корректный код.
+//
+// ЧТО ДЕЛАЕМ. Подставляем значения из `(get-model)` обратно в `(assert ...)`
+// контракта и вычисляем КАЖДЫЙ ассерт НЕЗАВИСИМЫМ вычислителем на Zig.
+// Хотя бы один ложный ассерт -> модель отвергается как `SpuriousModel`.
+//
+// ГРАНИЦА ЧЕСТНО. Поддержан целочисленно-линейный фрагмент и булевы связки:
+// `+ - * / div mod`, сравнения, `and/or/not`, `ite`. Термы с битовыми
+// векторами (`#x...`, `bv*`) НЕ поддержаны: вместо догадки возвращается
+// `unsupported`, и вызывающий ОБЯЗАН сообщить, что проверка модели не
+// выполнена. Непроверенное не выдаётся за проверенное (fail-closed).
+pub const ModelCheck = union(enum) {
+    /// Все ассерты вычислены и истинны (значение — их количество).
+    ok: usize,
+    /// Ассерт ЛОЖЕН под этой моделью -> модель фальшивая.
+    spurious: struct { index: usize, term: []const u8 },
+    /// Проверить нельзя (вне фрагмента) — честный отказ, не «ок».
+    unsupported: []const u8,
+};
+
+const Val = union(enum) { int: i128, boolean: bool };
+const EvalError = error{ Unsupported, Malformed, OutOfRange };
+
+fn lookupInt(bindings: []const Binding, name: []const u8) EvalError!i128 {
+    for (bindings) |b| {
+        if (!std.mem.eql(u8, b.name, name)) continue;
+        if (b.value.len > 0 and b.value[0] == '#') return EvalError.Unsupported;
+        return std.fmt.parseInt(i128, b.value, 10) catch EvalError.Unsupported;
+    }
+    return EvalError.Malformed; // имя не связано моделью
+}
+
+fn asInt(v: Val) EvalError!i128 {
+    return switch (v) {
+        .int => |n| n,
+        else => EvalError.Malformed,
+    };
+}
+
+fn asBool(v: Val) EvalError!bool {
+    return switch (v) {
+        .boolean => |b| b,
+        else => EvalError.Malformed,
+    };
+}
+
+fn inRange(x: i128) EvalError!i128 {
+    if (x > std.math.maxInt(i64) or x < std.math.minInt(i64)) return EvalError.OutOfRange;
+    return x;
+}
+
+/// Деление как в SMT-LIB для `Int`: округление ВНИЗ (пол).
+fn floorDiv(a: i128, b: i128) EvalError!i128 {
+    if (b == 0) return EvalError.Malformed;
+    var q = @divTrunc(a, b);
+    if (@rem(a, b) != 0 and ((a < 0) != (b < 0))) q -= 1;
+    return q;
+}
+
+/// Остаток как в SMT-LIB `mod`: знак берётся у ДЕЛИТЕЛЯ.
+fn smtMod(a: i128, b: i128) EvalError!i128 {
+    if (b == 0) return EvalError.Malformed;
+    const r = @rem(a, b);
+    return if (r != 0 and ((r < 0) != (b < 0))) r + b else r;
+}
+
+fn skipWs(t: []const u8, i: *usize) void {
+    while (i.* < t.len and isSpace(t[i.*])) : (i.* += 1) {}
+}
+
+fn readAtom(t: []const u8, i: *usize) []const u8 {
+    const s = i.*;
+    while (i.* < t.len and !isSpace(t[i.*]) and t[i.*] != '(' and t[i.*] != ')') : (i.* += 1) {}
+    return t[s..i.*];
+}
+
+/// Вычислить терм под моделью. Рекурсивный спуск БЕЗ аллокаций: `i` указывает
+/// на начало терма, после вызова — сразу за ним.
+fn evalTerm(t: []const u8, i: *usize, b: []const Binding, depth: u32) EvalError!Val {
+    if (depth > 64) return EvalError.Malformed;
+    skipWs(t, i);
+    if (i.* >= t.len) return EvalError.Malformed;
+
+    if (t[i.*] != '(') {
+        const a = readAtom(t, i);
+        if (a.len == 0) return EvalError.Malformed;
+        if (std.mem.eql(u8, a, "true")) return Val{ .boolean = true };
+        if (std.mem.eql(u8, a, "false")) return Val{ .boolean = false };
+        if (std.fmt.parseInt(i128, a, 10)) |n| {
+            return Val{ .int = n };
+        } else |_| {}
+        if (a[0] == '#') return EvalError.Unsupported;
+        return Val{ .int = try lookupInt(b, a) };
+    }
+
+    i.* += 1;
+    skipWs(t, i);
+    const head = readAtom(t, i);
+    if (head.len == 0) return EvalError.Malformed;
+
+    var args: [8]Val = undefined;
+    var n: usize = 0;
+    while (true) {
+        skipWs(t, i);
+        if (i.* >= t.len) return EvalError.Malformed;
+        if (t[i.*] == ')') {
+            i.* += 1;
+            break;
+        }
+        if (n >= args.len) return EvalError.Unsupported;
+        args[n] = try evalTerm(t, i, b, depth + 1);
+        n += 1;
+    }
+
+    if (std.mem.eql(u8, head, "+")) {
+        var s: i128 = 0;
+        for (args[0..n]) |v| s += try asInt(v);
+        return Val{ .int = try inRange(s) };
+    }
+    if (std.mem.eql(u8, head, "-")) {
+        if (n == 0) return EvalError.Malformed;
+        var s: i128 = try asInt(args[0]);
+        if (n == 1) return Val{ .int = try inRange(-s) };
+        for (args[1..n]) |v| s -= try asInt(v);
+        return Val{ .int = try inRange(s) };
+    }
+    if (std.mem.eql(u8, head, "*")) {
+        var s: i128 = 1;
+        for (args[0..n]) |v| s *= try asInt(v);
+        return Val{ .int = try inRange(s) };
+    }
+    if (std.mem.eql(u8, head, "/") or std.mem.eql(u8, head, "div")) {
+        if (n != 2) return EvalError.Malformed;
+        return Val{ .int = try inRange(try floorDiv(try asInt(args[0]), try asInt(args[1]))) };
+    }
+    if (std.mem.eql(u8, head, "mod")) {
+        if (n != 2) return EvalError.Malformed;
+        return Val{ .int = try inRange(try smtMod(try asInt(args[0]), try asInt(args[1]))) };
+    }
+    if (std.mem.eql(u8, head, "<") or std.mem.eql(u8, head, "<=") or
+        std.mem.eql(u8, head, ">") or std.mem.eql(u8, head, ">=") or
+        std.mem.eql(u8, head, "="))
+    {
+        if (n != 2) return EvalError.Malformed;
+        const a = try asInt(args[0]);
+        const c = try asInt(args[1]);
+        const r = if (std.mem.eql(u8, head, "<")) a < c else if (std.mem.eql(u8, head, "<=")) a <= c else if (std.mem.eql(u8, head, ">")) a > c else if (std.mem.eql(u8, head, ">=")) a >= c else a == c;
+        return Val{ .boolean = r };
+    }
+    if (std.mem.eql(u8, head, "and")) {
+        for (args[0..n]) |v| if (!try asBool(v)) return Val{ .boolean = false };
+        return Val{ .boolean = true };
+    }
+    if (std.mem.eql(u8, head, "or")) {
+        for (args[0..n]) |v| if (try asBool(v)) return Val{ .boolean = true };
+        return Val{ .boolean = false };
+    }
+    if (std.mem.eql(u8, head, "not")) {
+        if (n != 1) return EvalError.Malformed;
+        return Val{ .boolean = !(try asBool(args[0])) };
+    }
+    if (std.mem.eql(u8, head, "ite")) {
+        if (n != 3) return EvalError.Malformed;
+        return if (try asBool(args[0])) args[1] else args[2];
+    }
+    return EvalError.Unsupported;
+}
+
+/// ПРОВЕРИТЬ МОДЕЛЬ ПРОТИВ АССЕРТОВ КОНТРАКТА (независимо от Z3).
+pub fn verifyModelAgainstSmt(smt: []const u8, bindings: []const Binding) ModelCheck {
+    var i: usize = 0;
+    var checked: usize = 0;
+    while (std.mem.indexOfPos(u8, smt, i, "(assert")) |pos| {
+        i = pos + 7;
+        if (i < smt.len and !isSpace(smt[i]) and smt[i] != '(') continue;
+        var j = i;
+        skipWs(smt, &j);
+        if (j >= smt.len or smt[j] != '(') continue;
+        var k = j;
+        if (!skipSexpr(smt, &k)) return .{ .unsupported = "ассерт не закрыт" };
+        const term = smt[j..k];
+        var p: usize = 0;
+        const v = evalTerm(term, &p, bindings, 0) catch |e| switch (e) {
+            EvalError.Unsupported => return .{ .unsupported = "терм вне фрагмента (BitVec/неизвестная операция)" },
+            else => return .{ .spurious = .{ .index = checked, .term = term } },
+        };
+        const truth = switch (v) {
+            .boolean => |x| x,
+            .int => return .{ .unsupported = "ассерт не булев" },
+        };
+        if (!truth) return .{ .spurious = .{ .index = checked, .term = term } };
+        checked += 1;
+    }
+    return .{ .ok = checked };
+}
+
+// ===========================================================================
 //  ТЕСТЫ
 // ===========================================================================
 
@@ -253,3 +455,66 @@ test "ГРАНИЦА: extract на УСЕЧЁННОМ define-fun не читае
     defer free(alloc, got);
     try std.testing.expectEqual(@as(usize, 0), got.len);
 }
+
+// ===========================================================================
+//  ПУНКТ 2 ПЛАНА v2.5: ПРОВЕРКА SAT-МОДЕЛИ ПРОТИВ АССЕРТОВ КОНТРАКТА
+// ===========================================================================
+
+test "MODEL CHECK: модель удовлетворяет всем ассертам -> ok" {
+    const b = [_]Binding{
+        .{ .name = "x", .value = "-1" },
+        .{ .name = "y", .value = "5" },
+    };
+    const smt = "(set-logic ALL)\n(declare-const x Int)\n(declare-const y Int)\n" ++
+        "(assert (and (>= x -10) (<= x 10)))\n" ++
+        "(assert (<= (+ x y) 4))\n(check-sat)\n";
+    const r = verifyModelAgainstSmt(smt, &b);
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).ok, std.meta.activeTag(r));
+    try std.testing.expectEqual(@as(usize, 2), r.ok);
+}
+
+test "MODEL CHECK: ЛОЖНЫЙ ассерт -> spurious (модель ОТВЕРГНУТА)" {
+    // Значение x = 100 несовместимо с (<= x 10): значит модель фальшивая,
+    // и предъявлять её пользователю как контрпример НЕЛЬЗЯ.
+    const b = [_]Binding{
+        .{ .name = "x", .value = "100" },
+        .{ .name = "y", .value = "5" },
+    };
+    const smt = "(assert (and (>= x -10) (<= x 10)))\n";
+    const r = verifyModelAgainstSmt(smt, &b);
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).spurious, std.meta.activeTag(r));
+}
+
+test "MODEL CHECK: BitVec вне фрагмента -> unsupported (это НЕ «ок»)" {
+    const b = [_]Binding{.{ .name = "x", .value = "#x0000000a" }};
+    const smt = "(assert (= x #x0000000a))\n";
+    const r = verifyModelAgainstSmt(smt, &b);
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).unsupported, std.meta.activeTag(r));
+}
+
+test "MODEL CHECK: div/mod по правилам SMT-LIB (пол и знак делителя)" {
+    const b = [_]Binding{
+        .{ .name = "a", .value = "-7" },
+        .{ .name = "d", .value = "2" },
+    };
+    // SMT-LIB для Int: div(-7,2) = -4 (округление ВНИЗ), mod(-7,2) = 1.
+    const smt = "(assert (= (div a d) -4))\n(assert (= (mod a d) 1))\n";
+    const r = verifyModelAgainstSmt(smt, &b);
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).ok, std.meta.activeTag(r));
+    try std.testing.expectEqual(@as(usize, 2), r.ok);
+}
+
+test "MODEL CHECK: несвязанное имя -> ассерт не подтверждён (spurious)" {
+    const b = [_]Binding{.{ .name = "x", .value = "1" }};
+    const smt = "(assert (<= y 10))\n"; // y в модели отсутствует
+    const r = verifyModelAgainstSmt(smt, &b);
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).spurious, std.meta.activeTag(r));
+}
+
+test "MODEL CHECK: пустой контракт -> ok с нулём проверенных" {
+    const b = [_]Binding{.{ .name = "x", .value = "1" }};
+    const r = verifyModelAgainstSmt("(check-sat)\n", &b);
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).ok, std.meta.activeTag(r));
+    try std.testing.expectEqual(@as(usize, 0), r.ok);
+}
+

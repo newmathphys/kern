@@ -1689,6 +1689,22 @@ def case_portable_bench():
     return "make portable-bench"
 
 
+def case_model_verify_spurious():
+    """Проверка SAT-модели (пункт 2 плана v2.5). ЛОМАЕМ: ЛЮБАЯ модель верна.
+
+    Если falsifiable-тест «ЛОЖНЫЙ ассерт -> spurious» исчезнет, фальшивый
+    контрпример снова дойдёт до пользователя: KERN предъявит значения, которые
+    контракт НЕ нарушают, и человек пойдёт «чинить» корректный код. Тест
+    `MODEL CHECK: ЛОЖНЫЙ ассерт -> spurious` обязан покраснеть.
+    """
+    patch(
+        "src/verifier/model_extract.zig",
+        "        if (!truth) return .{ .spurious = .{ .index = checked, .term = term } };",
+        "        if (!truth) return .{ .ok = checked }; // ЛОМАЕМ: ложный ассерт верен",
+    )
+    return "make test"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -1774,6 +1790,7 @@ CASES = [
     ("bench",         "Цель bench: инвариант Врат",             case_bench_target),
     ("stress",        "Цель stress: закон Белнапа",              case_stress_target),
     ("theories",      "Цель theories: CHC-теория",               case_theories_target),
+    ("model-verify",  "Модель: ложный ассерт объявлен верным",    case_model_verify_spurious),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

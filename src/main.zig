@@ -476,17 +476,49 @@ pub fn main(init: std.process.Init) !void {
                 defer ar2.deinit();
                 const bindings = model_extract.extract(ar2.allocator(), after) catch &.{};
                 if (bindings.len > 0) {
-                    std.debug.print("  [КОНТРПРИМЕР] ", .{});
-                    for (bindings, 0..) |b, k| {
-                        if (k > 0) std.debug.print(", ", .{});
-                        std.debug.print("{s} = {s}", .{ b.name, b.value });
+                    // ПУНКТ 2 ПЛАНА v2.5: НЕЗАВИСИМАЯ ПРОВЕРКА SAT-МОДЕЛИ.
+                    // Для `UNSAT` мы не верим решателю (proof_check.zig); для
+                    // `SAT` тоже не должны: подставляем значения из (get-model)
+                    // обратно в `(assert ...)` контракта и вычисляем их в Zig.
+                    // Если ассерт ЛОЖЕН — модель фальшивая (ошибка решателя или
+                    // НАШЕЙ трансляции), и предъявлять её как контрпример нельзя.
+                    var model_ok = true;
+                    switch (model_extract.verifyModelAgainstSmt(smt, bindings)) {
+                        .ok => |n| std.debug.print(
+                            "  [MODEL VERIFIED] все ассерты контракта истинны на модели ({d})\n",
+                            .{n},
+                        ),
+                        .unsupported => |why| std.debug.print(
+                            "  [i] проверка модели НЕ выполнена: {s}\n",
+                            .{why},
+                        ),
+                        .spurious => |bad| {
+                            model_ok = false;
+                            std.debug.print(
+                                "  [!] SPURIOUS MODEL: ассерт #{d} ЛОЖЕН на этой модели\n",
+                                .{bad.index},
+                            );
+                            std.debug.print("      ассерт: {s}\n", .{bad.term});
+                        },
                     }
-                    std.debug.print("\n  [COUNTEREXAMPLE] ", .{});
-                    for (bindings, 0..) |b, k| {
-                        if (k > 0) std.debug.print(", ", .{});
-                        std.debug.print("{s} = {s}", .{ b.name, b.value });
+                    if (model_ok) {
+                        std.debug.print("  [КОНТРПРИМЕР] ", .{});
+                        for (bindings, 0..) |b, k| {
+                            if (k > 0) std.debug.print(", ", .{});
+                            std.debug.print("{s} = {s}", .{ b.name, b.value });
+                        }
+                        std.debug.print("\n  [COUNTEREXAMPLE] ", .{});
+                        for (bindings, 0..) |b, k| {
+                            if (k > 0) std.debug.print(", ", .{});
+                            std.debug.print("{s} = {s}", .{ b.name, b.value });
+                        }
+                        std.debug.print("\n", .{});
+                    } else {
+                        std.debug.print(
+                            "  [i] контрпример НЕ предъявляется: он не проходит независимую проверку.\n",
+                            .{},
+                        );
                     }
-                    std.debug.print("\n", .{});
                 } else {
                     std.debug.print("  [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет)\n", .{});
                 }
