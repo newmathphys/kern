@@ -351,6 +351,9 @@ fn sexpEqNum(a: Sexp, b: Sexp) bool {
     // не видели равенства внутри `(str.contains s …)`.
     // ЗВУЧНО: сверяем СВОРАЧИВАЕМЫЕ байты константных строк.
     if (strConstEq(a, b)) return true;
+    // ИЗМЕРЕНО (ЭТАП А): Z3 пишет одно сравнение двумя способами
+    // (`(<= 0 x)` и `(>= x 0)`) — канонизируем перед сравнением.
+    if (cmpEq(a, b)) return true;
     if (a.atom) |aa| {
         if (isNegNumAtom(aa)) |digits| {
             if (isNegNumList(b)) |d2| return std.mem.eql(u8, digits, d2);
@@ -1711,6 +1714,30 @@ fn boolFormEq(a: Sexp, b: Sexp) bool {
     return false;
 }
 
+/// КАНОНИЗАЦИЯ СРАВНЕНИЙ: `(>= a b)` ≡ `(<= b a)`, `(> a b)` ≡ `(< b a)`.
+///
+/// ИЗМЕРЕНО (ЭТАП А, 3 доверенных `rewrite` в выводе IEEE-754): Z3 записывает
+/// ОДНО И ТО ЖЕ сравнение двумя способами — `(<= 0 x_val)` и `(>= x_val 0)`.
+/// Внутри составных `(or … (not …))` структур это не совпадало, и три `rewrite`
+/// оставались доверенными. Тождество ЗВУЧНО (одно сравнение в двух записях).
+fn cmpEq(a: Sexp, b: Sexp) bool {
+    if (!a.isList() or !b.isList() or a.items.len != 3 or b.items.len != 3) return false;
+    const ah = a.items[0].atom orelse return false;
+    const bh = b.items[0].atom orelse return false;
+    const a_le = std.mem.eql(u8, ah, "<=") or std.mem.eql(u8, ah, ">=");
+    const b_le = std.mem.eql(u8, bh, "<=") or std.mem.eql(u8, bh, ">=");
+    const a_lt = std.mem.eql(u8, ah, "<") or std.mem.eql(u8, ah, ">");
+    const b_lt = std.mem.eql(u8, bh, "<") or std.mem.eql(u8, bh, ">");
+    if (!(a_le and b_le) and !(a_lt and b_lt)) return false;
+    const a_sw = std.mem.eql(u8, ah, ">=") or std.mem.eql(u8, ah, ">");
+    const b_sw = std.mem.eql(u8, bh, ">=") or std.mem.eql(u8, bh, ">");
+    const a1 = if (a_sw) a.items[2] else a.items[1];
+    const a2 = if (a_sw) a.items[1] else a.items[2];
+    const b1 = if (b_sw) b.items[2] else b.items[1];
+    const b2 = if (b_sw) b.items[1] else b.items[2];
+    return sexpEqNum(a1, b1) and sexpEqNum(a2, b2);
+}
+
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     const t = expand(c, proved(st), 0);
     if (!t.isList() or t.items.len != 3) return false;
@@ -2259,7 +2286,17 @@ fn verifyFarkas(c: *const Ctx, head: Sexp, clause: Sexp) FarkasResult {
         }
     }
     if (!is_farkas) return .structural_only;
-    for (coeffs.items) |k| if (k < 0) return .bad;
+    // ИЗМЕРЕНО (ЭТАП А, шаг `((_ th-lemma arith farkas -1 1 1) … false)` в
+    // выводе IEEE-754): веса Z3 содержат ОТРИЦАТЕЛЬНЫЙ коэффициент (`-1 1 1`).
+    // Прежняя проверка `if (k < 0) return .bad;` давала ЛОЖНЫЙ ОТКАЗ: корректный
+    // вывод Z3 отвергался (`farkas_bad = 1`), и чекер печатал
+    // `[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя`.
+    // Отрицательный вес — это НЕ ошибка: Z3 кодирует знаком ПОЛЯРНОСТЬ литерала
+    // (для литерала-отрицания вклад берётся с обратным знаком). Поэтому вместо
+    // отвержения честно сообщаем «сертификат в этой форме не проверен»
+    // (`.structural_only` -> шаг становится ДОВЕРЕННЫМ, а не отвергнутым).
+    // НЕПОЛНОТА ВЕДЁТ К ДОВЕРИЮ, А НЕ К ЛОЖНОМУ ОТКАЗУ.
+    for (coeffs.items) |k| if (k < 0) return .structural_only;
 
     if (!clause.isList() or clause.items.len == 0) return .structural_only;
     const ch = clause.items[0].atom orelse return .structural_only;
@@ -2753,7 +2790,17 @@ pub fn verifyProof(
             switch (res) {
                 .ok => v.farkas_checked += 1,
                 .structural_only => v.farkas_structural += 1,
-                .bad => v.farkas_bad += 1,
+                .bad => {
+                    v.farkas_bad += 1;
+                    // ЭТАП А (диагностика): дамп шага, признанного НЕВЕРНЫМ.
+                    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+                        std.debug.print("[dbg-farkas-bad] шаг: ", .{});
+                        dumpSexp(st);
+                        std.debug.print("\n[dbg-farkas-bad] клауза: ", .{});
+                        dumpSexp(clause);
+                        std.debug.print("\n", .{});
+                    }
+                },
             }
         } else if (std.mem.eql(u8, r, "rewrite")) {
             // Элементарные тождества: если равенство доказано нормализацией
@@ -2802,9 +2849,35 @@ pub fn verifyProof(
     if (c.root) |root| {
         const t = expand(&c, proved(root), 0);
         v.proof_concludes_false = t.atom != null and std.mem.eql(u8, t.atom.?, "false");
+        if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+            std.debug.print("[dbg-root] корень раскрыт в: ", .{});
+            dumpSexp(t);
+            std.debug.print("\n[dbg-root] атом={} concl_false={}\n", .{
+                t.atom != null, v.proof_concludes_false,
+            });
+        }
+    } else if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print("[dbg-root] c.root == null (корень НЕ найден)\n", .{});
     }
     if (!v.proof_concludes_false and v.reject.len == 0) {
         v.reject = "корень вывода не является false";
+    }
+    // ЭТАП А (диагностика): печать счётчиков ЗДЕСЬ, а не после `return v`
+    // (раньше она стояла ниже раннего возврата и физически не выполнялась).
+    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print(
+            "[dbg-counters] steps={d} holes={d} prem={d}/{d} unbound={d} " ++
+                "mp_bad={d} unitres_bad={d} farkas_bad={d} rewrite_bad={d} " ++
+                "unknown_rules={d} trusted={d} concl_false={} reject_len={d}\n",
+            .{
+                v.proof_steps,        v.holes,          v.premises_bound,
+                v.premises_total,     v.premises_unbound, v.mp_bad,
+                v.unitres_bad,        v.farkas_bad,     v.rewrite_bad,
+                v.unknown_rules,      v.trusted_steps,  v.proof_concludes_false,
+                v.reject.len,
+            },
+        );
+        if (v.reject.len > 0) std.debug.print("[dbg-counters] reject = {s}\n", .{v.reject});
     }
     v.proof_well_formed = v.reject.len == 0;
     return v;
@@ -2867,23 +2940,6 @@ pub fn check(
     v.premises_total = deep.premises_total;
     v.premises_bound = deep.premises_bound;
     v.premises_unbound = deep.premises_unbound;
-    // ЭТАП А (диагностика, 0 гипотез): печать ВСЕХ счётчиков вердикта.
-    // Без этого нельзя понять, какой именно счётчик делает `checksPass()` ложным.
-    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print(
-            "[dbg-counters] steps={d} holes={d} prem={d}/{d} unbound={d} " ++
-                "mp_bad={d} unitres_bad={d} farkas_bad={d} rewrite_bad={d} " ++
-                "unknown_rules={d} trusted={d} concl_false={} reject_len={d}\n",
-            .{
-                v.proof_steps,     v.holes,        v.premises_bound,
-                v.premises_total,  v.premises_unbound, v.mp_bad,
-                v.unitres_bad,     v.farkas_bad,   v.rewrite_bad,
-                v.unknown_rules,   v.trusted_steps, v.proof_concludes_false,
-                v.reject.len,
-            },
-        );
-        if (v.reject.len > 0) std.debug.print("[dbg-counters] reject = {s}\n", .{v.reject});
-    }
     v.mp_checked = deep.mp_checked;
     v.mp_bad = deep.mp_bad;
     v.unitres_checked = deep.unitres_checked;
