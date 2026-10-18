@@ -1029,6 +1029,87 @@ fn verifyIntroDef(c: *const Ctx, st: Sexp) bool {
     return true;
 }
 
+/// Собрать все `(hypothesis H)` в поддереве узла, идя по ссылкам `@xN`.
+/// `seen` защищает от повторного обхода (граф — DAG, не дерево).
+fn collectHypotheses(c: *const Ctx, node: Sexp, out: *std.array_list.Managed(Sexp), seen: *std.array_list.Managed([]const u8), depth: u32) void {
+    if (depth > 96) return;
+    if (node.atom) |a| {
+        for (seen.items) |s| if (std.mem.eql(u8, s, a)) return;
+        seen.append(a) catch return;
+        if (c.stepexpr.get(a)) |se| collectHypotheses(c, se, out, seen, depth + 1);
+        return;
+    }
+    if (!node.isList()) return;
+    if (node.headAtom()) |h| {
+        if (std.mem.eql(u8, h, "hypothesis")) {
+            // ВАЖНО: гипотезу собираем РАСКРЫТОЙ (`expand`), иначе сравнение с
+            // раскрытым заключением не сработает: в выводе стоит имя `$x121`,
+            // а в заключении — уже его формула.
+            if (node.items.len >= 2) out.append(expand(c, node.items[1], 0)) catch {};
+            return;
+        }
+    }
+    for (node.items) |it| collectHypotheses(c, it, out, seen, depth + 1);
+}
+
+/// ПРОВЕРКА `(lemma P C)` — РАЗРЯДКА ГИПОТЕЗ (RAA / введение дизъюнкции).
+///
+/// КАК ЭТО РАБОТАЕТ В Z3. `P` — поддерево, которое ВЫВОДИТ `false`, опираясь на
+/// временные допущения `(hypothesis H_1) … (hypothesis H_m)`. Заключение `C` —
+/// дизъюнкция отрицаний этих гипотез (или одиночный литерал, если гипотеза одна).
+/// Это ровно правило «из опровержения при допущениях H следует ¬H_1 ∨ … ∨ ¬H_m».
+///
+/// ПРОВЕРЯЕТСЯ ДВА УСЛОВИЯ (оба — доказательства, не догадки):
+///   1) `P` действительно выводит `false`;
+///   2) КАЖДАЯ гипотеза `H` из поддерева опровергается в заключении: его
+///      дизъюнкты (после `flattenOr`) содержат `¬H` — структурно ИЛИ по
+///      канонической форме сравнений (`isComplementCmp`).
+/// Нарушение любого -> `false` (шаг остаётся доверенным, НЕ «ок»).
+fn verifyLemma(c: *const Ctx, st: Sexp) bool {
+    if (st.items.len < 3) return false;
+    const pref = st.items[1];
+    const concl = expand(c, st.items[2], 0);
+    // 1) Поддерево обязано выводить `false`.
+    const pf = resolvePremise(c, pref);
+    if (!isStepExpr(pf)) return false;
+    const pc = expand(c, proved(pf), 0);
+    if (!(pc.atom != null and std.mem.eql(u8, pc.atom.?, "false"))) return false;
+    // 2) Каждая гипотеза поддерева обязана быть опровергнута в заключении.
+    var hyps = std.array_list.Managed(Sexp).init(c.arena);
+    var seen = std.array_list.Managed([]const u8).init(c.arena);
+    collectHypotheses(c, pref, &hyps, &seen, 0);
+    if (hyps.items.len == 0) return false; // нечего разряжать — не наш случай
+    var lits = std.array_list.Managed(Sexp).init(c.arena);
+    flattenOr(concl, &lits);
+    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print("[dbg-lemma] гипотез {d}, дизъюнктов {d}; заключение: ", .{ hyps.items.len, lits.items.len });
+        dumpSexp(concl);
+        std.debug.print("\n", .{});
+        for (hyps.items) |h| {
+            std.debug.print("[dbg-lemma]   гипотеза: ", .{});
+            dumpSexp(h);
+            std.debug.print("\n", .{});
+        }
+    }
+    for (hyps.items) |h| {
+        var found = false;
+        for (lits.items) |l| {
+            if (asNot(l)) |inner| {
+                if (sexpEq(inner, h) or isComplementCmp(inner, h)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (isComplement(l, h) or isComplementCmp(l, h)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     const t = expand(c, proved(st), 0);
     if (!t.isList() or t.items.len != 3) return false;
@@ -2050,6 +2131,11 @@ pub fn verifyProof(
             if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
             if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+        } else if (std.mem.eql(u8, r, "lemma")) {
+            // ПУНКТ 3 v2.5: разрядка гипотез (RAA) проверяется СТРУКТУРНО
+            // (см. verifyLemma): поддерево выводит `false`, и каждая его
+            // гипотеза отрицается в заключении.
+            if (verifyLemma(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "intro-def")) {
             // ПУНКТ 3 v2.5: консервативное введение определения проверяется
             // СТРУКТУРНО + по СВЕЖЕСТИ имени (см. verifyIntroDef).
@@ -2991,4 +3077,27 @@ test "ПУНКТ 3: intro-def — САМОРЕФЕРЕНТНОЕ определ�
     // быть консервативным расширением, шаг не принимается.
     const st = try parseSexp(a, "(intro-def (and (or (not (>= a 0)) (= z3name!1 a)) (or (>= a 0) (= z3name!1 z3name!1))))");
     try std.testing.expect(!verifyIntroDef(&c, st));
+}
+
+test "ПУНКТ 3: lemma — разрядка гипотезы ПРИНИМАЕТСЯ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Поддерево выводит `false`, опираясь на допущение (>= a 0).
+    try c.stepexpr.put("@x10", try parseSexp(a, "(unit-resolution (hypothesis (>= a 0)) (asserted (not (>= a 0))) false)"));
+    // Заключение леммы — отрицание этого допущения.
+    const st = try parseSexp(a, "(lemma @x10 (not (>= a 0)))");
+    try std.testing.expect(verifyLemma(&c, st));
+}
+
+test "ПУНКТ 3: lemma — НЕразряженная гипотеза ОТВЕРГАЕТСЯ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    try c.stepexpr.put("@x10", try parseSexp(a, "(unit-resolution (hypothesis (>= a 0)) (asserted (not (>= a 0))) false)"));
+    // Заключение НЕ содержит отрицания допущения -> правило неприменимо.
+    const st = try parseSexp(a, "(lemma @x10 (not (<= a 5)))");
+    try std.testing.expect(!verifyLemma(&c, st));
 }
