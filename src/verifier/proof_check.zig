@@ -1588,6 +1588,35 @@ fn andDeMorganEq(l: Sexp, r: Sexp) bool {
     return andDeMorganOne(l, r) or andDeMorganOne(r, l);
 }
 
+/// Собрать ТОЛЬКО булевы ЛИТЕРАЛЫ: атомы в позиции литерала
+/// (`(or X …)`, `(not X)`, голый атом) — и НЕ трогать переменные внутри
+/// `=`, `str.contains`, арифметики.
+///
+/// ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-boolsplit] булевых переменных 3: result Char s`):
+/// прежний сбор (все переменные минус арифметические) ошибочно включал
+/// **String-переменные** `result`, `s` и имя типа `Char`. Гибрид подставлял им
+/// `true`/`false` — это БЕССМЫСЛЕННАЯ подстановка и РИСК ЗВУЧНОСТИ.
+fn collectBoolLits(s: Sexp, out: *std.array_list.Managed([]const u8)) void {
+    if (s.atom) |a| {
+        if (std.fmt.parseInt(i64, a, 10)) |_| return else |_| {}
+        if (std.mem.eql(u8, a, "true") or std.mem.eql(u8, a, "false")) return;
+        for (out.items) |n| if (std.mem.eql(u8, n, a)) return;
+        if (out.items.len < MAX_BOOL_VARS) out.append(a) catch {};
+        return;
+    }
+    if (s.items.len == 0) return;
+    const h = s.items[0].atom orelse return;
+    if (std.mem.eql(u8, h, "not") and s.items.len == 2) {
+        collectBoolLits(s.items[1], out);
+        return;
+    }
+    if ((std.mem.eql(u8, h, "or") or std.mem.eql(u8, h, "and")) and s.items.len >= 3) {
+        for (s.items[1..]) |it| collectBoolLits(it, out);
+        return;
+    }
+    // `=`, `str.contains`, арифметика, сравнения — НЕ литералы: не собираем.
+}
+
 /// Построить `(and R1 … Rk)` из списка остатка (для проверки де Моргана).
 fn remainingToAnd(c: *const Ctx, items: []const Sexp) Sexp {
     var out = std.array_list.Managed(Sexp).init(c.arena);
@@ -2858,19 +2887,12 @@ fn comboUnsatBoolSplit(c: *const Ctx, lits: []const Sexp, neg_concl: ?Sexp) Comb
     for (lits) |l| all.append(l) catch return .unknown;
     if (neg_concl) |nc| all.append(nc) catch return .unknown;
 
-    var allv = std.array_list.Managed([]const u8).init(c.arena);
-    defer allv.deinit();
-    var arith = std.array_list.Managed([]const u8).init(c.arena);
-    defer arith.deinit();
-    for (all.items) |l| collectAllVars(l, &allv);
-    for (all.items) |l| collectArithVars(l, &arith, false);
-
+    // ИЗМЕРЕНО: собираем ТОЛЬКО булевы ЛИТЕРАЛЫ (см. `collectBoolLits`).
+    // Прежний сбор «все переменные минус арифметические» ошибочно включал
+    // String-переменные (`result`, `s`) и имя типа `Char`.
     var bnames = std.array_list.Managed([]const u8).init(c.arena);
     defer bnames.deinit();
-    for (allv.items) |v| {
-        if (isArithVar(arith.items, v)) continue;
-        bnames.append(v) catch return .unknown;
-    }
+    for (all.items) |l| collectBoolLits(l, &bnames);
     if (compat.envVar("KERN_DEBUG_LIA") != null) {
         std.debug.print("[dbg-boolsplit] булевых переменных {d}: ", .{bnames.items.len});
         for (bnames.items) |n| std.debug.print("{s} ", .{n});
@@ -3155,6 +3177,11 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         if (dbg) {
             std.debug.print("[dbg-ur] клауза: ", .{});
             dumpSexp(cl);
+            std.debug.print("\n[dbg-ur]   units ({d}): ", .{units.items.len});
+            for (units.items) |u| {
+                dumpSexp(u);
+                std.debug.print(" | ", .{});
+            }
             std.debug.print("\n[dbg-ur]   remaining ({d}): ", .{remaining.items.len});
             for (remaining.items) |r| {
                 dumpSexp(r);
@@ -3187,6 +3214,40 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         // ЛИШНИЕ литералы в выводе -> форма вне модели чекера (доверенный шаг).
         // МЕНЬШЕ литералов -> ПОТЕРЯ (доказанная неверность).
         if (concl_lits.items.len != remaining.items.len) {
+            // ИЗМЕРЕНО (ЭТАЛОН QF_S, полный дамп `[dbg-ur]`):
+            //   remaining = [R1, R2];  concl = R1 (заключение совпадает с ОДНИМ
+            //   из остатка), и `R2` опровергается ЮНИТОМ.
+            // Это ЧАСТИЧНАЯ резолюция. ЗВУЧНОЕ правило:
+            //   (or R1 R2) ∧ ¬R2  ⊨  R1.
+            // Требуем: `concl` совпадает с одним из остатка, а КАЖДЫЙ другой
+            // литерал остатка опровергнут юнитом. Иначе — НЕ «ок» (не угадываем).
+            if (concl_lits.items.len == 1 and remaining.items.len >= 2) {
+                var match_idx: ?usize = null;
+                for (remaining.items, 0..) |r, mj| {
+                    if (sexpEqNum(r, concl)) {
+                        match_idx = mj;
+                        break;
+                    }
+                }
+                if (match_idx) |mi| {
+                    var all_falsified = true;
+                    for (remaining.items, 0..) |r, j| {
+                        if (j == mi) continue;
+                        var falsified = false;
+                        for (units.items) |u| {
+                            if (isComplement(r, u) or isComplementCmp(r, u)) {
+                                falsified = true;
+                                break;
+                            }
+                        }
+                        if (!falsified) {
+                            all_falsified = false;
+                            break;
+                        }
+                    }
+                    if (all_falsified) return .verified;
+                }
+            }
             // ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-ur]`): `remaining` = 2 литерала,
             // а `concl` = ОДНА формула `(not (or …))` — это ЗАКОН ДЕ МОРГАНА для
             // конъюнкции остатка: `(and R1 R2) <=> (not (or (not R1) (not R2)))`.
