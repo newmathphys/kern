@@ -2635,7 +2635,9 @@ const CheckResult = enum { verified, bad, unverifiable };
 /// БЮДЖЕТ ПЕРЕБОРА КОМБИНАЦИЙ КЛАУЗ (пункт 3 плана v2.5).
 /// Число комбинаций = произведение длин клауз, поэтому без бюджета — взрыв.
 /// За бюджетом — честный `.unverifiable` (не «ок» и не «неверно»).
-const MAX_CLAUSE_COMBOS: usize = 16;
+/// ИЗМЕРЕНО (ЭТАЛОН IEEE-754): после добавления `¬concl` КЛАУЗОЙ комбинаций
+/// стало 8 * 3 = 24 — прежний бюджет 16 отсекал шаг раньше проверки.
+const MAX_CLAUSE_COMBOS: usize = 64;
 
 /// ТРЁХЗНАЧНЫЙ результат проверки комбинации: `unsat` (доказано несовместной),
 /// `sat` (НАЙДЕНА совместная — шаг неверен), `unknown` (перевести не удалось).
@@ -2878,7 +2880,14 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, 
     var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
     // ЗАКЛЮЧЕНИЕ берётся С ОТРИЦАНИЕМ: `¬concl` — часть проверяемой системы.
     if (neg_concl) |nc| {
-        if (!negateAsLeZero(c, nc, &cons)) return .unknown;
+        if (!negateAsLeZero(c, nc, &cons)) {
+            if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                std.debug.print("[dbg-combo] ЗАКЛЮЧЕНИЕ (¬concl) НЕ переведено: ", .{});
+                dumpSexp(nc);
+                std.debug.print("\n", .{});
+            }
+            return .unknown;
+        }
     }
     for (units) |l| {
         if (!asLeZero(c, l, &cons)) {
@@ -2902,7 +2911,20 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, 
     }
     var s = builtin_lia.Solver.init(c.arena);
     defer s.deinit();
-    return switch (builtin_lia.checkUnsat(&s, cons.items)) {
+    const res = builtin_lia.checkUnsat(&s, cons.items);
+    if (compat.envVar("KERN_DEBUG_LIA") != null) {
+        std.debug.print("[dbg-lia2] ограничений {d} -> {s}\n", .{ cons.items.len, @tagName(res) });
+        if (res == .unknown) {
+            for (cons.items) |lin| {
+                std.debug.print("[dbg-lia2]   ограничение: ", .{});
+                for (lin.terms) |tm| {
+                    std.debug.print("{d}*{s} ", .{ tm.coeff, tm.name });
+                }
+                std.debug.print("| const {d}\n", .{lin.constant});
+            }
+        }
+    }
+    return switch (res) {
         .unsat => .unsat,
         .sat => .sat,
         .unknown => .unknown,
@@ -2928,6 +2950,31 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
         break :blk concl;
     };
     var rems = std.array_list.Managed(std.array_list.Managed(Sexp)).init(c.arena);
+    // ИЗМЕРЕНО (дамп `[dbg-combo] ЗАКЛЮЧЕНИЕ (¬concl) НЕ переведено`):
+    // `concl = (not (or Y1 … Yk))` => `¬concl = (or Y1 … Yk)` — ДИЗЪЮНКЦИЯ,
+    // которую нельзя добавить конъюнкцией ограничений. Её нужно добавить КЛАУЗОЙ
+    // и расщепить.
+    // ВАЖНО (найденный мой дефект): добавлять клаузой именно `¬concl` = `Y1…Yk`
+    // (то, что внутри `not`), а НЕ сам `concl`. Первая версия добавляла `concl`
+    // для ЛЮБОГО `or`, что давало ЛОЖНЫЙ `.bad` на эталоне `abs.c`
+    // (`[dbg-split] комбинация #1 СОВМЕСТНА`, `unitres_bad = 2`).
+    var neg_concl_eff = neg_concl;
+    if (neg_concl) |nc| {
+        if (asNot(nc)) |inner| {
+            if (inner.isList() and inner.items.len >= 3) {
+                const h = inner.items[0].atom orelse "";
+                if (std.mem.eql(u8, h, "or")) {
+                    var rem = std.array_list.Managed(Sexp).init(c.arena);
+                    for (inner.items[1..]) |lit| {
+                        rem.append(expand(c, lit, 0)) catch return .unverifiable;
+                    }
+                    if (rem.items.len == 0) return .verified;
+                    rems.append(rem) catch return .unverifiable;
+                    neg_concl_eff = null; // учтено клаузой
+                }
+            }
+        }
+    }
     for (clauses) |cl| {
         var rem = std.array_list.Managed(Sexp).init(c.arena);
         for (cl.items[1..]) |lit| {
@@ -2962,7 +3009,7 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
         }
         // ЛЮБАЯ СОВМЕСТНАЯ комбинация => шаг НЕ доказан (`.bad`).
         // «Не удалось перевести» => честный `.unverifiable`, а НЕ `.bad`.
-        switch (unitsPlusPicksUnsat(c, units, pick.items, neg_concl)) {
+        switch (unitsPlusPicksUnsat(c, units, pick.items, neg_concl_eff)) {
             .unsat => {},
             .sat => {
                 if (compat.envVar("KERN_DEBUG_LIA") != null) {
