@@ -500,9 +500,6 @@ fn buildMinimalImage(w: anytype) !void {
     std.mem.writeInt(u32, obj[64..68], 0, .little);           // path offset
     std.mem.writeInt(u32, obj[68..72], 1, .little);           // schema_version
 
-    var root: [32]u8 = undefined;
-    ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
-
     var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
@@ -513,11 +510,15 @@ fn buildMinimalImage(w: anytype) !void {
     std.mem.writeInt(u64, header[40..48], 96, .little);
     std.mem.writeInt(u64, header[48..56], 1, .little);
     std.mem.writeInt(u64, header[56..64], 224, .little);
-    @memcpy(header[64..96], &root);
-
-    try w.writeAll(&header);
-    try w.writeAll(&obj);
-    try w.writeAll(pool);
+    // ДЕФЕКТ #128: корень ЗАПЕЧАТЫВАЕТСЯ по ГОТОВОМУ буферу ТОЙ ЖЕ функцией,
+    // что у читателя (единый источник истины) — иначе тесты расходились
+    // с писателем/читателем.
+    var buf: [128 + 96 + 11]u8 = undefined;
+    @memcpy(buf[0..128], &header);
+    @memcpy(buf[128..224], &obj);
+    @memcpy(buf[224..235], pool);
+    try KimgHeader.sealImageRoot(&buf);
+    try w.writeAll(&buf);
 }
 
 test "ФИКС ФАЗ 1/3: mountFromBytes находит файл и отдаёт zero-copy срез" {
@@ -861,9 +862,6 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     std.mem.writeInt(u32, obj[64..68], 0, .little);
     std.mem.writeInt(u32, obj[68..72], 1, .little);
 
-    var root: [32]u8 = undefined;
-    ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
-
     var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
@@ -874,13 +872,14 @@ test "ГРАНИЦЫ: payload_offset за пределами региона -> F
     std.mem.writeInt(u64, header[40..48], 96, .little);
     std.mem.writeInt(u64, header[48..56], 1, .little);
     std.mem.writeInt(u64, header[56..64], 224, .little);
-    @memcpy(header[64..96], &root);
 
     var img = compat.BufWriter.init(std.testing.allocator);
     defer img.deinit();
     try img.appendSlice(&header);
     try img.appendSlice(&obj);
     try img.appendSlice(pool);
+    // ДЕФЕКТ #128: корень по ГОТОВОМУ буферу (единый источник истины).
+    try KimgHeader.sealImageRoot(img.items());
 
     var fs = try KernFS.mountFromBytes(std.testing.allocator, img.items());
     defer fs.deinit();

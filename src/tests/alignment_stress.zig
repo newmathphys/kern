@@ -132,11 +132,9 @@ test "ALIGN runtime: невыровненная таблица НЕ ломает
     std.mem.writeInt(u64, hdr[32..40], table_off, .little);
     @memcpy(file[0..128], &hdr);
 
-    var root: [32]u8 = undefined;
-    obj.ObjectEntry.computeRootHash(&[_][96]u8{entry}, &root);
-    std.mem.writeInt(u64, hdr[32..40], table_off, .little);
-    @memcpy(hdr[64..96], &root);
-    @memcpy(file[0..128], &hdr);
+    // ДЕФЕКТ #128: корень считается по ГОТОВОМУ буферу ТОЙ ЖЕ функцией,
+    // что у читателя (единый источник истины).
+    try kimg.KimgHeader.sealImageRoot(&file);
 
     const hp: *const [128]u8 = @ptrCast(file[0..128].ptr);
     const h = try kimg.KimgHeader.parse(hp, file.len);

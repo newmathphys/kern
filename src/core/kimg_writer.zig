@@ -7,6 +7,7 @@
 //! `payload_offset` и `logical_path_offset` ОТНОСИТЕЛЬНЫ `data_payload_offset`.
 const std = @import("std");
 const ObjectEntry = @import("object_entry.zig").ObjectEntry;
+const KimgHeader = @import("kimg_reader.zig").KimgHeader;
 const codec = @import("codec.zig");
 const HashAlgo = @import("hash_algo.zig").HashAlgo;
 const KernFsRouter = @import("kernfs_router.zig").KernFS;
@@ -177,6 +178,15 @@ pub const Builder = struct {
         for (entries) |e| try out.appendSlice(&e);
         try out.appendSlice(pool.items);
         try out.appendSlice(payload.items);
+
+        // 6. ЕДИНЫЙ ИСТОЧНИК ИСТИНЫ (дефект #128). Корень считается по УЖЕ
+        //    СОБРАННОМУ буферу ТОЙ ЖЕ функцией, что вызывает читатель
+        //    (`KimgHeader.computeImageMerkleRoot`). Писатель и читатель
+        //    выполняют один код над одними байтами -> расхождение невозможно.
+        //    Имя объекта входит в корень через `logical_path_offset` -> пул
+        //    строк (см. merkleRootImpl), поэтому подмена ПЕЧАТНОГО символа в
+        //    имени тоже ловится, а формат 128/96 байт НЕ меняется.
+        KimgHeader.sealImageRoot(out.items) catch return BuildError.Overflow;
     }
 
     /// АТОМАРНАЯ запись на диск (crash-consistency): временный файл + rename.

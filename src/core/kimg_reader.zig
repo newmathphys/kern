@@ -160,7 +160,7 @@ pub const KimgHeader = extern struct {
             .sha256 => std.crypto.hash.sha2.Sha256.init(.{}),
         };
         hasher.update(&[_]u8{0x00});
-        hasher.update("KIMG-MERKLE-ROOT-V1\x00");
+        hasher.update("KIMG-MERKLE-ROOT-V2\x00");
         var i: u64 = 0;
         while (i < h.object_count) : (i += 1) {
             const delta = std.math.mul(u64, i, 96) catch return KimgError.OutOfBoundsOffset;
@@ -171,10 +171,64 @@ pub const KimgHeader = extern struct {
             var leaf: [32]u8 = undefined;
             ObjectEntry.computeLeafHashAlgo(entry, &leaf, algo);
             hasher.update(&leaf);
+            // ДЕФЕКТ #128: ИМЯ объекта входит в корень. Формат НЕ меняется
+            // (Header 128, ObjectEntry 96): байты имени берутся из пула строк
+            // по `logical_path_offset`. Благодаря ЕДИНОЙ функции
+            // (`computeImageMerkleRoot`) писатель и читатель считают корень
+            // одним кодом по одним байтам.
+            hasher.update(&[_]u8{0x01});
+            const path_off = std.mem.readInt(u32, entry[64..68], .little);
+            const flags = std.mem.readInt(u16, entry[60..62], .little);
+            // ВАЖНО: `path_off == 0` — ВАЛИДНОЕ смещение (первая строка пула)!
+            // «Нет пути» определяется флагом 0x0002 и сентинелом 0xFFFFFFFF
+            // (та же логика, что в `hasPath`). Первая версия пропускала
+            // объект с offset 0 — и подмена буквы в ЕГО имени не ловилась.
+            if ((flags & 0x0002) != 0 and path_off != 0xFFFFFFFF) {
+                const nm_abs = std.math.add(u64, h.data_payload_offset, path_off) catch
+                    return KimgError.OutOfBoundsOffset;
+                if (nm_abs < file_bytes.len) {
+                    const s: usize = @intCast(nm_abs);
+                    var j: usize = s;
+                    while (j < file_bytes.len and file_bytes[j] != 0 and (j - s) < 512) j += 1;
+                    hasher.update(file_bytes[s..j]);
+                }
+            }
         }
         var root: [32]u8 = undefined;
         hasher.final(&root);
         return root;
+    }
+
+    /// ЕДИНЫЙ ИСТОЧНИК ИСТИНЫ (дефект #128): корень по УЖЕ СОБРАННОМУ образу.
+    ///
+    /// Эту функцию обязан вызывать и ПИСАТЕЛЬ (после того как весь буфер
+    /// разложен), и ЧИТАТЕЛЬ при проверке. Тогда они выполняют ОДИН код над
+    /// ОДНИМИ байтами, и расхождение корней невозможно по построению.
+    pub fn computeImageMerkleRoot(image_bytes: []const u8) ![32]u8 {
+        if (image_bytes.len < 128) return KimgError.TableOutOfBounds;
+        var hb: [128]u8 = undefined;
+        @memcpy(&hb, image_bytes[0..128]);
+        const h = KimgHeader.parse(&hb, image_bytes.len) catch
+            return KimgError.TableOutOfBounds;
+        const algo = HashAlgo.fromInt(h.hash_algo) orelse return KimgError.InvalidHashAlgo;
+        return switch (algo) {
+            inline else => |a| merkleRootImpl(a, image_bytes, h),
+        };
+    }
+
+    /// ЗАПЕЧАТАТЬ КОРЕНЬ в ГОТОВОМ буфере: вычислить по буферу и записать
+    /// в заголовок (root + контрольная сумма). ЕДИНЫЙ путь для писателя и для
+    /// тестов, собирающих образ вручную (дефект #128: раньше тесты считали
+    /// корень СТАРОЙ формулой и расходились с читателем).
+    pub fn sealImageRoot(image_bytes: []u8) !void {
+        if (image_bytes.len < 128) return KimgError.TableOutOfBounds;
+        const root = try computeImageMerkleRoot(image_bytes);
+        @memcpy(image_bytes[64..96], &root);
+        const algo = HashAlgo.fromInt(std.mem.readInt(u32, image_bytes[20..24], .little)) orelse
+            return KimgError.InvalidHashAlgo;
+        var csum: [32]u8 = undefined;
+        algo.hash(image_bytes[0..96], &csum);
+        @memcpy(image_bytes[96..128], &csum);
     }
 
     pub fn verifyMerkleRoot(file_bytes: []const u8, h: KimgHeader) !void {
@@ -294,9 +348,6 @@ test "MERKLE: пересчёт корня совпадает и ловит по�
     var obj: [96]u8 = @as([96]u8, @splat(0));
     obj[56] = 0x02; // type_id = Source
 
-    var root: [32]u8 = undefined;
-    ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
-
     var b: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(b[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, b[8..10], 1, .little);
@@ -306,13 +357,13 @@ test "MERKLE: пересчёт корня совпадает и ловит по�
     std.mem.writeInt(u64, b[40..48], 96, .little);
     std.mem.writeInt(u64, b[48..56], 1, .little);
     std.mem.writeInt(u64, b[56..64], 224, .little);
-    @memcpy(b[64..96], &root);
-
     var file: [128 + 96]u8 = undefined;
     @memcpy(file[0..128], &b);
     @memcpy(file[128..224], &obj);
+    // Корень считается по ГОТОВОМУ буферу (дефект #128).
+    try KimgHeader.sealImageRoot(&file);
 
-    const h = try KimgHeader.parse(&b, file.len);
+    const h = try KimgHeader.parse(file[0..128], file.len);
     try KimgHeader.verifyMerkleRoot(&file, h); // корень совпадает
 
     file[128 + 56] = 0x05; // подмена type_id в таблице
