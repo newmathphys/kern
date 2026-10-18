@@ -2648,6 +2648,202 @@ const ComboResult = enum { unsat, sat, unknown };
 /// ВАЖНО: «не удалось перевести» — это `unknown`, а НЕ `sat`. Иначе чекер
 /// объявлял бы шаг НЕВЕРНЫМ там, где он просто вне его модели (это была бы
 /// ложная тревога в самую опасную сторону).
+/// Собрать АРИФМЕТИЧЕСКИЕ переменные (внутри `+ - * <= >= < >`).
+/// Нужны, чтобы отличить булевы переменные (`r_nan`, `x_nan`) от целых (`r_val`).
+fn collectArithVars(s: Sexp, out: *std.array_list.Managed([]const u8), inside: bool) void {
+    if (s.atom) |a| {
+        if (inside) {
+            if (std.fmt.parseInt(i64, a, 10)) |_| return else |_| {}
+            if (std.mem.eql(u8, a, "true") or std.mem.eql(u8, a, "false")) return;
+            for (out.items) |n| if (std.mem.eql(u8, n, a)) return;
+            out.append(a) catch {};
+        }
+        return;
+    }
+    if (s.items.len == 0) return;
+    const h = s.items[0].atom orelse "";
+    const arith = std.mem.eql(u8, h, "+") or std.mem.eql(u8, h, "-") or
+        std.mem.eql(u8, h, "*") or std.mem.eql(u8, h, "<=") or std.mem.eql(u8, h, ">=") or
+        std.mem.eql(u8, h, "<") or std.mem.eql(u8, h, ">") or std.mem.eql(u8, h, "=");
+    // `=` неоднозначен (может быть булевым равенством) -> в арифметику не берём.
+    const arith_strict = arith and !std.mem.eql(u8, h, "=");
+    for (s.items[1..]) |it| collectArithVars(it, out, inside or arith_strict);
+}
+
+fn collectAllVars(s: Sexp, out: *std.array_list.Managed([]const u8)) void {
+    if (s.atom) |a| {
+        if (std.fmt.parseInt(i64, a, 10)) |_| return else |_| {}
+        if (std.mem.eql(u8, a, "true") or std.mem.eql(u8, a, "false")) return;
+        for (out.items) |n| if (std.mem.eql(u8, n, a)) return;
+        out.append(a) catch {};
+        return;
+    }
+    // ИЗМЕРЕНО: обход `s.items` (включая ГОЛОВУ) собирал СЛУЖЕБНЫЕ слова
+    // (`not`, `or`, `>=`, `=`, `+`) как «переменные» — 10 вместо 2.
+    // Голова — это оператор, а не переменная: обходим только `items[1..]`.
+    for (s.items[1..]) |it| collectAllVars(it, out);
+}
+
+fn isArithVar(arith: []const []const u8, a: []const u8) bool {
+    for (arith) |n| if (std.mem.eql(u8, n, a)) return true;
+    return false;
+}
+
+fn boolAtom(v: bool) Sexp {
+    return Sexp{ .atom = if (v) "true" else "false" };
+}
+
+/// ПОДСТАНОВКА булевых переменных С УПРОЩЕНИЕМ булевых связок.
+///
+/// ИЗМЕРЕНО (ЭТАЛОН IEEE-754): `[dbg-combo] unit НЕ переведён:
+/// (not (or r_nan (>= x_val 0) (not (>= r_val 0)) (not (<= r_val 0))))` —
+/// `evalBoolSubst` не может вычислить литерал ЦЕЛИКОМ (внутри есть `>=`),
+/// поэтому нужна ЧАСТИЧНАЯ подстановка: заменить булевы переменные на
+/// `true`/`false`, затем упростить `not`/`and`/`or`.
+/// ЗВУЧНО: это тождественные преобразования булевой логики.
+fn substBoolSimplify(c: *const Ctx, s: Sexp, names: []const []const u8, vals: []const bool) Sexp {
+    if (s.atom) |a| {
+        if (lookupVar(names, vals, a)) |v| return boolAtom(v);
+        return s;
+    }
+    if (s.items.len == 0) return s;
+    const h = s.items[0].atom orelse return s;
+    if (std.mem.eql(u8, h, "not") and s.items.len == 2) {
+        const x = substBoolSimplify(c, s.items[1], names, vals);
+        if (x.atom) |xa| {
+            if (std.mem.eql(u8, xa, "true")) return boolAtom(false);
+            if (std.mem.eql(u8, xa, "false")) return boolAtom(true);
+        }
+        if (asNot(x)) |inner| return inner;
+        var out = std.array_list.Managed(Sexp).init(c.arena);
+        out.append(s.items[0]) catch return s;
+        out.append(x) catch return s;
+        return Sexp{ .items = out.items };
+    }
+    if (std.mem.eql(u8, h, "=") and s.items.len == 3) {
+        const x = substBoolSimplify(c, s.items[1], names, vals);
+        const y = substBoolSimplify(c, s.items[2], names, vals);
+        if (x.atom) |xa| {
+            if (y.atom) |ya| {
+                const xb = std.mem.eql(u8, xa, "true") or std.mem.eql(u8, xa, "false");
+                const yb = std.mem.eql(u8, ya, "true") or std.mem.eql(u8, ya, "false");
+                if (xb and yb) {
+                    return boolAtom(std.mem.eql(u8, xa, "true") == std.mem.eql(u8, ya, "true"));
+                }
+            }
+        }
+        var out = std.array_list.Managed(Sexp).init(c.arena);
+        out.append(s.items[0]) catch return s;
+        out.append(x) catch return s;
+        out.append(y) catch return s;
+        return Sexp{ .items = out.items };
+    }
+    if ((std.mem.eql(u8, h, "or") or std.mem.eql(u8, h, "and")) and s.items.len >= 3) {
+        const is_or = std.mem.eql(u8, h, "or");
+        var kept = std.array_list.Managed(Sexp).init(c.arena);
+        for (s.items[1..]) |it| {
+            const x = substBoolSimplify(c, it, names, vals);
+            if (x.atom) |xa| {
+                if (std.mem.eql(u8, xa, "true")) {
+                    if (is_or) return boolAtom(true);
+                    continue;
+                }
+                if (std.mem.eql(u8, xa, "false")) {
+                    if (is_or) continue;
+                    return boolAtom(false);
+                }
+            }
+            kept.append(x) catch return s;
+        }
+        if (kept.items.len == 0) return boolAtom(!is_or);
+        if (kept.items.len == 1) return kept.items[0];
+        var out = std.array_list.Managed(Sexp).init(c.arena);
+        out.append(s.items[0]) catch return s;
+        for (kept.items) |k| out.append(k) catch return s;
+        return Sexp{ .items = out.items };
+    }
+    return s;
+}
+
+/// ГИБРИДНАЯ проверка несовместности комбинации: ПЕРЕБОР булевых переменных
+/// + Фурье — Моцкин для линейного остатка.
+///
+/// ИЗМЕРЕНО (ЭТАЛОН IEEE-754): `[dbg-split] комбинация #0 не переведена ->
+/// .unverifiable` — в комбинацию попадают БУЛЕВЫ переменные (`r_nan`, `x_nan`),
+/// которые `asLeZero` (Int-арифметика) перевести не может.
+/// ЗВУЧНО: несовместность комбинации проверяется по всем значениям булевых
+/// переменных; при каждой подстановке линейный остаток проверяется решателем.
+fn comboUnsatBoolSplit(c: *const Ctx, lits: []const Sexp, neg_concl: ?Sexp) ComboResult {
+    var all = std.array_list.Managed(Sexp).init(c.arena);
+    for (lits) |l| all.append(l) catch return .unknown;
+    if (neg_concl) |nc| all.append(nc) catch return .unknown;
+
+    var allv = std.array_list.Managed([]const u8).init(c.arena);
+    defer allv.deinit();
+    var arith = std.array_list.Managed([]const u8).init(c.arena);
+    defer arith.deinit();
+    for (all.items) |l| collectAllVars(l, &allv);
+    for (all.items) |l| collectArithVars(l, &arith, false);
+
+    var bnames = std.array_list.Managed([]const u8).init(c.arena);
+    defer bnames.deinit();
+    for (allv.items) |v| {
+        if (isArithVar(arith.items, v)) continue;
+        bnames.append(v) catch return .unknown;
+    }
+    if (compat.envVar("KERN_DEBUG_LIA") != null) {
+        std.debug.print("[dbg-boolsplit] булевых переменных {d}: ", .{bnames.items.len});
+        for (bnames.items) |n| std.debug.print("{s} ", .{n});
+        std.debug.print("\n", .{});
+    }
+    if (bnames.items.len == 0 or bnames.items.len > MAX_BOOL_VARS) return .unknown;
+
+    var vals: [MAX_BOOL_VARS]bool = undefined;
+    const total: usize = @as(usize, 1) << @intCast(bnames.items.len);
+    var mask: usize = 0;
+    while (mask < total) : (mask += 1) {
+        for (0..bnames.items.len) |i| vals[i] = (mask >> @intCast(i)) & 1 == 1;
+        // Упрощаем литералы при данной подстановке булевых переменных.
+        var simp = std.array_list.Managed(Sexp).init(c.arena);
+        var dead = false;
+        for (all.items) |l| {
+            if (evalBoolSubst(l, bnames.items, vals[0..bnames.items.len])) |v| {
+                if (!v) {
+                    dead = true; // литерал ЛОЖЕН -> комбинация невыполнима
+                    break;
+                }
+                continue; // литерал ИСТИНЕН -> ограничения не даёт
+            }
+            // ЧАСТИЧНАЯ подстановка с упрощением булевых связок (не только
+            // вычисление целиком): литерал может содержать и `>=`, и булевы.
+            const sl = substBoolSimplify(c, l, bnames.items, vals[0..bnames.items.len]);
+            if (sl.atom) |sa| {
+                if (std.mem.eql(u8, sa, "false")) {
+                    dead = true; // литерал стал ЛОЖНЫМ -> ветка невыполнима
+                    break;
+                }
+                if (std.mem.eql(u8, sa, "true")) continue; // литерал истинен
+            }
+            simp.append(sl) catch return .unknown;
+        }
+        if (dead) continue;
+        // ВАЖНО: отрицание заключения тоже участвует в комбинации — его нельзя
+        // терять (иначе комбинация ошибочно становится СОВМЕСТНОЙ -> ложный .bad).
+        var nc_s: ?Sexp = null;
+        if (neg_concl) |nc| {
+            const sn = substBoolSimplify(c, nc, bnames.items, vals[0..bnames.items.len]);
+            if (sn.atom) |sa| {
+                if (std.mem.eql(u8, sa, "false")) continue; // ¬concl ложен -> ветка невыполнима
+                if (!std.mem.eql(u8, sa, "true")) nc_s = sn;
+            } else nc_s = sn;
+        }
+        // Линейный остаток проверяем СУЩЕСТВУЮЩИМ механизмом (Фурье — Моцкин).
+        const r = unitsPlusPicksUnsat(c, simp.items, &.{}, nc_s);
+        if (r != .unsat) return r;
+    }
+    return .unsat;
+}
+
 fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, neg_concl: ?Sexp) ComboResult {
     // РАСЩЕПЛЕНИЕ ПО ДИЗЪЮНКТИВНОМУ «pick». ИЗМЕРЕНО на `musl abs.c`: в
     // комбинацию попадает литерал-ДИЗЪЮНКЦИЯ
@@ -2775,10 +2971,22 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
                 return .bad;
             },
             .unknown => {
-                if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                    std.debug.print("[dbg-split] комбинация #{d} не переведена -> .unverifiable\n", .{idx});
+                // ГИБРИД (ЭТАЛОН IEEE-754): в комбинацию попадают БУЛЕВЫ
+                // переменные (`r_nan`, `x_nan`), которые `asLeZero` перевести не
+                // может. Пробуем ПЕРЕБОР булевых + Фурье — Моцкин для остатка.
+                var all = std.array_list.Managed(Sexp).init(c.arena);
+                for (units) |u| all.append(u) catch return .unverifiable;
+                for (pick.items) |p| all.append(p) catch return .unverifiable;
+                switch (comboUnsatBoolSplit(c, all.items, neg_concl)) {
+                    .unsat => {},
+                    .sat => return .bad,
+                    .unknown => {
+                        if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                            std.debug.print("[dbg-split] комбинация #{d} не переведена -> .unverifiable\n", .{idx});
+                        }
+                        return .unverifiable;
+                    },
                 }
-                return .unverifiable;
             },
         }
     }
@@ -2819,6 +3027,18 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
             if (!falsified) remaining.append(l) catch return .unverifiable;
         }
         if (remaining.items.len == 0) continue;
+        if (dbg) {
+            std.debug.print("[dbg-ur] клауза: ", .{});
+            dumpSexp(cl);
+            std.debug.print("\n[dbg-ur]   remaining ({d}): ", .{remaining.items.len});
+            for (remaining.items) |r| {
+                dumpSexp(r);
+                std.debug.print(" | ", .{});
+            }
+            std.debug.print("\n[dbg-ur]   concl: ", .{});
+            dumpSexp(concl);
+            std.debug.print("\n", .{});
+        }
         // Клауза не пуста: вывод обязан быть ДИЗЪЮНКЦИЕЙ ровно оставшихся
         // литералов (порядок не важен).
         //
