@@ -329,3 +329,39 @@ targets with a proven-can-fail case.
 **CLI:** `kernc lia <file>` — lines of the form `LE c1:name1 c2:name2 ... k`
 (meaning `sum + k <= 0`), printing exactly one of `UNSAT` / `SAT name=value ...` /
 `UNKNOWN <reason>`.
+
+### 23.10 Variant B, measured first: the premise extraction was NOT the blocker
+
+The proposal for closing `#123` was: make `checkUnitRes` resolve INLINE sub-steps (e.g.
+`(unit-resolution ... $x160)`, `((_ th-lemma arith) ... $x61)`) to their conclusion (the
+last element), so the outer `unit-resolution` can see the clauses of the inner ones.
+
+**Measured before changing anything** (diagnostics under `KERN_DEBUG_LIA=1` on the real
+`abs.c` proof): the premise extraction ALREADY does this. `premiseTerm()` ->
+`resolvePremise()` resolves `@xN` through `c.stepexpr`, and for any node that
+`isStepExpr()` accepts it returns `expand(proved(step))` — i.e. exactly the last element of
+the sub-step. The diagnostic print in `checkUnitRes` confirms it with numbers:
+
+```
+[dbg-ur] посылок: units=1 clauses=2 concl_false=true     <- outer unit-resolution
+```
+
+The outer step really does see both clauses (`$x168`, `$x160`) and the unit (`$x61`). So the
+"~15 lines in the premise helper" fix would change nothing.
+
+**What actually blocks it.** With `units=1` and `clauses=2`, syntactic literal
+complementation cannot empty both clauses, so `remaining.len != 0` while the conclusion is
+`false`, and the rule `if (concl_is_false) return .bad;` fires. Z3's `unit-resolution` here
+is stronger than the checker's model: the premises are jointly contradictory only with the
+arithmetic lemmas taken into account.
+
+**Honest options (not applied without a decision).**
+* classify as `.unverifiable` (trusted) — rejected: it weakens refusals;
+* **extend the model soundly**: for a `false` conclusion, verify the CLAUSE SET is
+  unsatisfiable by enumerating one literal per clause (bounded) and requiring every
+  combination to be arithmetically UNSAT through `builtin_lia` — sound and complete for
+  small sets, `.unverifiable` beyond the enumeration budget;
+* leave it as an honest `SKIP`.
+
+The debug output stays in the code, gated behind `KERN_DEBUG_LIA=1`, because it is what
+settled the question — and it will settle the next one too.

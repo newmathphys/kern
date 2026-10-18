@@ -1474,6 +1474,8 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
     }
 
     var saw_remaining = false;
+    const dbg = compat.envVar("KERN_DEBUG_LIA") != null;
+    if (dbg) std.debug.print("[dbg-ur] посылок: units={d} clauses={d} concl_false={}\n", .{ units.items.len, clauses.items.len, concl_is_false });
     for (clauses.items) |cl| {
         var remaining = std.array_list.Managed(Sexp).init(c.arena);
         for (cl.items[1..]) |lit| {
