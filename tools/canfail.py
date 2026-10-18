@@ -1715,6 +1715,17 @@ def case_model_verify_spurious():
 
 
 
+def case_bounds_check():
+    """ПУНКТ 21. ЛОМАЕМ детектор границ: контрпримеры игнорируются ->
+    get_unsafe перестаёт обвиняться -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        "            if ce is not None:",
+        "            if False:  # ЛОМАЕМ: игнорируем контрпримеры границ",
+    )
+    return "make xray-check"
+
+
 def case_simplify_check():
     """ПУНКТ 17. ЛОМАЕМ: решатель объявляет ЛЮБУЮ ветку недостижимой ->
     --simplify вырежет ЖИВЫЕ ветки, и НЕЗАВИСИМАЯ рантайм-сверка обязана
@@ -1946,6 +1957,7 @@ CASES = [
     ("xray-check",     "XRAY: находки без аннотаций",           case_xray_check),
     ("gen-tests-check","SBST: сгенерированные тесты проходят",    case_gen_tests_check),
     ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),
+    ("bounds-check",    "BOUNDS: границы arr[i] проверены",       case_bounds_check),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

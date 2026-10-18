@@ -887,3 +887,28 @@ fixing the case: **`1 non-vacuous | 0 vacuous`**.
 
 **Conclusion (fourth case in a row):** a vacuous case is not a rarity but a SYSTEMIC
 hazard, detectable ONLY by mandatory `canfail --only <target>` with `0 vacuous`.
+
+### 23.27 Echelon 4, Item 21 — ARRAY BOUNDS (`arr[i]` -> `0 <= i < len`)
+
+`--xray` gained a **`[BOUNDS PATH]`** detector. The array length is supplied by
+`# @kern:len(arr) = N`; the safety obligation `0 <= i < N` is emitted **WITH path
+conditions** (guards `if i < 0 ... if i >= N ...` make the function safe — and this is
+**proved**, not assumed). Without the directive an honest
+**`[BOUNDS] ... length UNKNOWN, bounds NOT checked`** is printed.
+
+**MEASURED** on `examples/array_bounds.py`: `get_unsafe` -> `[BOUNDS PATH]` with
+counterexample `i = -1` (bounds `0..7`); `get_safe` (guarded) -> **no finding**;
+`get_unknown_len` -> honest `[BOUNDS]`.
+
+**Defect #134 (mine):** the first version also accused `get_safe` — statements AFTER
+`if` were processed with the ORIGINAL (empty) path, so `if i < 0: return 0` was lost.
+Fixed by narrowing the path with `NOT cond` when the THEN block always exits.
+A **false positive** is more dangerous than a miss: it discredits the tool.
+
+**Defect #135:** `@kern:len` directives were read file-wide, so a second function
+declaring the same variable overwrote the first (`0..3` instead of `0..7`). Fixed:
+lengths are read from the comment block immediately preceding `def`.
+
+`make xray-check` now asserts three things (unsafe accused; safe NOT accused; unknown
+length reported honestly). canfail case `bounds-check`: breaking the detector turns the
+target red. MEASURED: `1 non-vacuous, 0 vacuous`.

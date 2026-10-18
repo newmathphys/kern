@@ -2107,6 +2107,97 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                                      f"возможно деление на ноль: {div} == 0")
 
 
+
+# =============================================================================
+# ЭШЕЛОН 4, ПУНКТ 21 — ГРАНИЦЫ МАССИВОВ (`arr[i]` -> `0 <= i < len(arr)`).
+#
+# БЕЗ АННОТАЦИЙ @kern: длина неизвестна -> честно «НЕ проверено» (не молчим!).
+# С директивой `# @kern:len(arr) = N` выставляется обязательство безопасности
+# `0 <= i AND i < N` С УЧЁТОМ путевых условий (гард `if 0 <= i < N` делает
+# функцию безопасной, и это доказывается, а не предполагается).
+# =============================================================================
+
+_LEN_RE = re.compile(r"@kern:len\(\s*(\w+)\s*\)\s*=\s*(\d+)")
+
+
+def _declared_lengths_for(lines: list[str], lineno: int) -> dict[str, int]:
+    """Длины из блока комментариев НЕПОСРЕДСТВЕННО перед `def` (строка lineno).
+
+    ИЗМЕРЕНО: чтение директив по всему файлу давало НЕВЕРНУЮ длину, если две
+    функции объявляли одну и ту же переменную с разными длинами (8 -> 4).
+    """
+    out: dict[str, int] = {}
+    i = lineno - 2
+    while i >= 0:
+        s = lines[i].strip()
+        if not s or not s.startswith("#"):
+            break
+        for m in _LEN_RE.finditer(s):
+            out[m.group(1)] = int(m.group(2))
+        i -= 1
+    return out
+
+
+def _smt_counterexample(kernc, params, asserts) -> str | None:
+    """Контрпример для набора ограничений; None, если невыполним (безопасно)."""
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    body = "\n".join(f"(assert {a})" for a in asserts)
+    smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
+    _rc, out = run_kernc(kernc, smt)
+    if "КОНТРПРИМЕР" in out:
+        for ln in out.splitlines():
+            if "КОНТРПРИМЕР" in ln:
+                return ln.strip()[:110]
+        return "SAT (модель не извлечена)"
+    return None
+
+
+def _block_exits(body) -> bool:
+    """Завершается ли блок безусловно (return/raise)?"""
+    return bool(body) and isinstance(body[-1], (ast.Return, ast.Raise))
+
+
+def _walk_bounds(body, path, params, lens, kernc, found, fname):
+    """Обход тела с накоплением путевых условий (Пункт 21)."""
+    for st in body:
+        if isinstance(st, ast.If):
+            try:
+                cond = expr_smt(st.test, {})
+            except (Unsupported, NoReturn, Exception):
+                cond = None
+            _walk_bounds(st.body, path + ([cond] if cond else []), params, lens,
+                         kernc, found, fname)
+            neg = f"(not {cond})" if cond else None
+            _walk_bounds(st.orelse, path + ([neg] if neg else []), params, lens,
+                         kernc, found, fname)
+            # ИЗМЕРЕНО: операторы ПОСЛЕ `if` раньше теряли путевое условие, и
+            # `get_safe` (с гардами) ЛОЖНО обвинялся в выходе за границы.
+            # Если ветка THEN безусловно завершается, то всё последующее
+            # выполняется при `NOT cond` -> сужаем путь.
+            if neg and _block_exits(st.body):
+                path = path + [neg]
+            continue
+        for sub in [n for n in ast.walk(st) if isinstance(n, ast.Subscript)]:
+            if not isinstance(sub.value, ast.Name):
+                continue
+            arr = sub.value.id
+            if arr not in lens:
+                found.append(f"[BOUNDS] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
+                             f"длина НЕ известна, границы НЕ проверены "
+                             f"(укажите `# @kern:len({arr}) = N`)")
+                continue
+            n = lens[arr]
+            try:
+                idx = expr_smt(sub.slice, {})
+            except (Unsupported, NoReturn, Exception):
+                continue
+            bad = f"(not (and (>= {idx} 0) (< {idx} {n})))"
+            ce = _smt_counterexample(kernc, params, path + [bad])
+            if ce is not None:
+                found.append(f"[BOUNDS PATH] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+                             f"возможен выход за границы 0..{n - 1}; контрпример: {ce}")
+
+
 def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     """ПУНКТ 13: рентген кода БЕЗ аннотаций."""
     if not Path(kernc).exists():
@@ -2115,6 +2206,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     p = Path(path)
     src = p.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
+    src_lines = src.splitlines()  # ПУНКТ 21: директивы `# @kern:len(arr) = N`
     fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
     found: list[str] = []
     skipped: list[str] = []
@@ -2143,6 +2235,8 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         for s in smells:
             found.append(f"[SMELL] {fn.name}: {s}")
         _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name)
+        lens = _declared_lengths_for(src_lines, fn.lineno)
+        _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name)
 
     print("-" * 74)
     for f in found:
