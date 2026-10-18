@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-const addr (_ BitVec 32))
+(declare-const alignment (_ BitVec 32))
+(declare-const result (_ BitVec 32))
+(assert (and (bvsgt alignment (_ bv0 32)) (= (bvand alignment (bvsub alignment (_ bv1 32))) (_ bv0 32))))
+(assert (= result (ite (= (bvand addr (bvnot (bvsub alignment (_ bv2 32)))) addr) (bvsrem addr alignment) (ite (= (bvsrem addr alignment) (_ bv0 32)) (_ bv1 32) (_ bv0 32)))))
+(assert (not (= result (_ bv0 32))))
+(check-sat)

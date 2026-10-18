@@ -233,13 +233,77 @@ pub fn parseSexp(arena: std.mem.Allocator, text: []const u8) ParseError!Sexp {
 
 /// Структурное равенство: пробелы и переводы строк внутри списков не значимы
 /// (сравнение по дереву, а не по байтам).
+/// КАНОНИЧЕСКАЯ СВЁРТКА КОНСТАНТНОЙ СТРОКИ В БАЙТЫ (Пункт 23 / QF_S).
+///
+/// ИЗМЕРЕНО (дамп `KERN_DEBUG_TRUSTED=1`): Z3 представляет литерал `"../"` как
+///   `(str.++ (seq.unit (_ Char 46)) (seq.unit (_ Char 46)) (seq.unit (_ Char 47)))`
+/// где 46 = '.', 47 = '/'. Без свёртки НЕ сходятся 4 `rewrite` и зависящие от них
+/// `trans*`, `symm`, `lemma`, `unit-resolution` (8 доверенных шагов).
+///
+/// Звучимость: вычисление функции над КОНСТАНТАМИ — константа; сверяем байты
+/// в самом Zig (`std.mem`), никаких доверенных шагов не требуется.
+fn evalConstStr(s: Sexp, buf: []u8) ?[]const u8 {
+    if (s.atom) |a| {
+        _ = a;
+        const lit = strLitOf(s) orelse return null;
+        if (lit.len > buf.len) return null;
+        @memcpy(buf[0..lit.len], lit);
+        return buf[0..lit.len];
+    }
+    if (s.items.len < 2) return null;
+    const op = s.items[0].atom orelse return null;
+    if (std.mem.eql(u8, op, "seq.unit")) {
+        const arg = s.items[1];
+        if (!arg.isList()) return null;
+        var nSexp: Sexp = undefined;
+        if (arg.items.len == 3) {
+            const a0 = arg.items[0].atom orelse return null;
+            const a1 = arg.items[1].atom orelse return null;
+            if (!std.mem.eql(u8, a0, "_") or !std.mem.eql(u8, a1, "Char")) return null;
+            nSexp = arg.items[2];
+        } else if (arg.items.len == 2) {
+            const a0 = arg.items[0].atom orelse return null;
+            if (!std.mem.eql(u8, a0, "Char")) return null;
+            nSexp = arg.items[1];
+        } else return null;
+        const nAtom = nSexp.atom orelse return null;
+        const code = std.fmt.parseInt(u32, nAtom, 10) catch return null;
+        if (code > 255 or buf.len < 1) return null;
+        buf[0] = @intCast(code);
+        return buf[0..1];
+    }
+    if (std.mem.eql(u8, op, "str.++")) {
+        var pos: usize = 0;
+        for (s.items[1..]) |it| {
+            const part = evalConstStr(it, buf[pos..]) orelse return null;
+            pos += part.len;
+        }
+        return buf[0..pos];
+    }
+    return null;
+}
+
+/// Два подтерма равны, если оба — КОНСТАНТНЫЕ строки с ОДНИМИ байтами.
+/// ИЗМЕРЕНО: именно так `"../"` совпадает со своей развёрнутой формой `str.++`.
+fn strConstEq(a: Sexp, b: Sexp) bool {
+    var ba: [256]u8 = undefined;
+    var bb: [256]u8 = undefined;
+    const x = evalConstStr(a, &ba) orelse return false;
+    const y = evalConstStr(b, &bb) orelse return false;
+    return std.mem.eql(u8, x, y);
+}
+
 pub fn sexpEq(a: Sexp, b: Sexp) bool {
     if (a.atom) |aa| {
-        if (b.atom) |bb| return std.mem.eql(u8, aa, bb);
-        return false;
+        if (b.atom) |bb| {
+            if (std.mem.eql(u8, aa, bb)) return true;
+            // Пункт 23 / QF_S: константные строки в разных формах — одно значение.
+            return strConstEq(a, b);
+        }
+        return strConstEq(a, b);
     }
-    if (b.atom != null) return false;
-    if (a.items.len != b.items.len) return false;
+    if (b.atom != null) return strConstEq(a, b);
+    if (a.items.len != b.items.len) return strConstEq(a, b);
     for (a.items, b.items) |x, y| if (!sexpEq(x, y)) return false;
     return true;
 }
@@ -854,6 +918,11 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     const l = eq.items[1];
     const r = eq.items[2];
     if (sexpEq(l, r)) return .verified; // рефлексивность: (= X X)
+    // ВЫЧИСЛЕНИЕ КОНСТАНТ (Пункты 22/23) ДО раннего возврата для не-атомарных
+    // сравнений: `(= (= false true) false)` — обе стороны НЕ атомы, и раньше
+    // управление уходило в `return .unverifiable`, не доходя до этих проверок.
+    if (constStrEq(l, r)) return .verified;
+    if (constBoolEq(l, r)) return .verified;
     // ПОДСТАНОВКА ПРОВЕРЕННЫХ ОПРЕДЕЛЕНИЙ `intro-def`: ИЗМЕРЕНО на `musl abs.c`
     // (последний доверенный шаг) — `(= (>= (result − ite(…)) 0) (>= (result −
     // z3name!1) 0))`, где `z3name!1` уже определён верифицированным `intro-def`.
