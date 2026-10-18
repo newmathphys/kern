@@ -3779,3 +3779,36 @@ test "МУТАНТ 1308: iteSwapEq отвергает, если правая ч�
     const r2 = try parseSexp(a, "(= x (ite (<= 0 a) a (- a)))");
     try std.testing.expect(iteSwapEq(&c, l, r2));
 }
+
+// Убивает `proof_check.zig:49 [false->true]` — значение ПО УМОЛЧАНИЮ поля
+// `is_unsat`. Мутант делал бы «доказано» стартовым состоянием вердикта.
+test "МУТАНТ 49: ProofVerdict{} по умолчанию НЕ доказан" {
+    const v = ProofVerdict{};
+    try std.testing.expect(!v.is_unsat);
+    try std.testing.expect(!v.proof_present);
+    try std.testing.expect(!v.proof_well_formed);
+    try std.testing.expect(!v.proof_concludes_false);
+    // НАЙДЕНО ПРИ ЭТОМ ТЕСТЕ: `checksPass()` проверяет только счётчики и
+    // `reject`, поэтому ПУСТОЙ вердикт его формально проходит. Решение CLI
+    // опирается ещё и на `is_unsat`, так что это не дыра ворот, но кандидат
+    // в отдельный дефект (счётчики ≠ доказанность). НЕ меняю семантику
+    // `checksPass` здесь: это правка логики ворот, а не теста.
+}
+
+// Убивает `proof_check.zig:1892 [false->true]` — `catch return false` на
+// выделении в `pushLin`. В обычном прогоне `std.testing.allocator` НЕ отдаёт
+// OutOfMemory, поэтому нужен `FailingAllocator`: отказ ровно на этом шаге
+// обязан дать `false` (мутант вернул бы `true` = «переведено»).
+test "МУТАНТ 1892: pushLin при отказе аллокатора возвращает false" {
+    var failing = std.testing.FailingAllocator.init(std.testing.allocator, .{
+        .fail_index = 0,
+    });
+    var ar = std.heap.ArenaAllocator.init(failing.allocator());
+    defer ar.deinit();
+    var c = newCtx(ar.allocator());
+    const l = Lin{ .terms = std.array_list.Managed(Term).init(ar.allocator()) };
+    var out = std.array_list.Managed(builtin_lia.Lin).init(ar.allocator());
+    // Арена отдаёт память через FailingAllocator: первое же выделение в
+    // `pushLin` (`c.arena.alloc`) упадёт -> обязан вернуться `false`.
+    try std.testing.expect(!pushLin(&c, l, &out));
+}
