@@ -967,6 +967,68 @@ fn isTautologyClause(c: *const Ctx, clause: Sexp) bool {
     };
 }
 
+/// Встречается ли атом `name` внутри терма `e`? (для проверки СВЕЖЕСТИ имени)
+fn occurs(name: []const u8, e: Sexp) bool {
+    if (e.atom) |a| return std.mem.eql(u8, a, name);
+    for (e.items) |it| if (occurs(name, it)) return true;
+    return false;
+}
+
+/// Разобранное определение `z = ite(C, A, B)` из двух клауз `intro-def`.
+const IntroDefParts = struct { cond: Sexp, z: []const u8, a: Sexp, b: Sexp };
+
+/// Разобрать пару дизъюнктов определения:
+///   `(or (not C) (= z A))` и `(or C (= z B))`.
+fn introDefParts(neg_side: Sexp, pos_side: Sexp) ?IntroDefParts {
+    if (!neg_side.isList() or neg_side.items.len != 3) return null;
+    if (!pos_side.isList() or pos_side.items.len != 3) return null;
+    const nh = neg_side.items[0].atom orelse return null;
+    const ph = pos_side.items[0].atom orelse return null;
+    if (!std.mem.eql(u8, nh, "or") or !std.mem.eql(u8, ph, "or")) return null;
+    const neg_c = asNot(neg_side.items[1]) orelse return null;
+    const cond = pos_side.items[1];
+    if (!sexpEq(neg_c, cond)) return null;
+    const eq_a = neg_side.items[2];
+    const eq_b = pos_side.items[2];
+    if (!isEq3(eq_a) or !isEq3(eq_b)) return null;
+    const za = eq_a.items[1].atom orelse eq_a.items[2].atom orelse return null;
+    const zb = eq_b.items[1].atom orelse eq_b.items[2].atom orelse return null;
+    if (!std.mem.eql(u8, za, zb)) return null;
+    const a = if (eq_a.items[1].atom) |x| (if (std.mem.eql(u8, x, za)) eq_a.items[2] else eq_a.items[1]) else eq_a.items[1];
+    const b = if (eq_b.items[1].atom) |x| (if (std.mem.eql(u8, x, zb)) eq_b.items[2] else eq_b.items[1]) else eq_b.items[1];
+    return .{ .cond = cond, .z = za, .a = a, .b = b };
+}
+
+/// ПРОВЕРКА `(intro-def D)`: КОНСЕРВАТИВНОЕ ВВЕДЕНИЕ ОПРЕДЕЛЕНИЯ.
+///
+/// ЧТО ЭТО. Z3 вводит СВЕЖЕЕ имя (`z3name!k`) для подвыражения и записывает
+/// определение как конъюнкцию двух клауз:
+///   (and (or (not C) (= z A)) (or C (= z B)))      т.е. z = ite(C, A, B)
+/// ИЗМЕРЕНО на `musl abs.c`:
+///   (and (or (not (>= a 0)) (= z3name!1 a))
+///        (or (>= a 0)      (= z3name!1 (* (- 1) a))))
+/// — это ровно определение `z3name!1 = ite(a >= 0, a, -a)` (тело `abs`).
+///
+/// ЗВУЧНОСТЬ. Введение определения для СВЕЖЕГО имени — консервативное
+/// расширение: оно не меняет выполнимость формул, в которых имени нет. Поэтому
+/// проверяются ДВА условия, и оба обязательны:
+///   1) СТРУКТУРА: две клаузы с ОДНИМ И ТЕМ ЖЕ именем `z`, противоположными
+///      условиями (`¬C` и `C`) и равенствами `(= z A)` / `(= z B)`;
+///   2) СВЕЖЕСТЬ: `z` НЕ встречается ни в `C`, ни в `A`, ни в `B` (иначе это
+///      не определение, а самореферентное утверждение — и расширение уже
+///      неконсервативно).
+/// Нарушение любого условия -> `false` (шаг остаётся доверенным, НЕ «ок»).
+fn verifyIntroDef(c: *const Ctx, st: Sexp) bool {
+    const t = expand(c, proved(st), 0);
+    if (!t.isList() or t.items.len != 3) return false;
+    const h = t.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "and")) return false;
+    const p = introDefParts(t.items[1], t.items[2]) orelse
+        introDefParts(t.items[2], t.items[1]) orelse return false;
+    if (occurs(p.z, p.cond) or occurs(p.z, p.a) or occurs(p.z, p.b)) return false;
+    return true;
+}
+
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     const t = expand(c, proved(st), 0);
     if (!t.isList() or t.items.len != 3) return false;
@@ -1918,6 +1980,16 @@ pub fn verifyProof(
                 }
             }
             if (found) v.premises_bound += 1 else v.premises_unbound += 1;
+            if (!found and compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+                std.debug.print("[dbg-unbound] НЕ привязана: ", .{});
+                dumpSexp(t);
+                std.debug.print("\n", .{});
+                for (contract_terms.items) |ct| {
+                    std.debug.print("[dbg-unbound]   контракт: ", .{});
+                    dumpSexp(ct);
+                    std.debug.print("\n", .{});
+                }
+            }
         } else if (std.mem.eql(u8, r, "hypothesis")) {
             v.premises_total += 1; // локальная посылка, снимается правилом lemma
         } else if (std.mem.eql(u8, r, "mp")) {
@@ -1978,6 +2050,10 @@ pub fn verifyProof(
             if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
             if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+        } else if (std.mem.eql(u8, r, "intro-def")) {
+            // ПУНКТ 3 v2.5: консервативное введение определения проверяется
+            // СТРУКТУРНО + по СВЕЖЕСТИ имени (см. verifyIntroDef).
+            if (verifyIntroDef(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else {
             // Прочие правила (elim-правила, кванторы): перепроверить нельзя,
             // учитываем как «доверенные», а не как «проверенные».
@@ -2894,4 +2970,25 @@ test "ПУНКТ 3: расщепление — НЕСОВМЕСТНЫЙ набо
     const cls = [_]Sexp{try parseSexp(a, "(or (<= x -1) (<= x -2))")};
     const units = [_]Sexp{try parseSexp(a, "(>= x 0)")};
     try std.testing.expectEqual(CheckResult.verified, checkBySplitting(&c, &units, &cls, try parseSexp(a, "false")));
+}
+
+test "ПУНКТ 3: intro-def — корректное определение ПРИНИМАЕТСЯ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Ровно та форма, что измерена на musl abs.c: z3name!1 = ite(a >= 0, a, -a).
+    const st = try parseSexp(a, "(intro-def (and (or (not (>= a 0)) (= z3name!1 a)) (or (>= a 0) (= z3name!1 (* (- 1) a)))))");
+    try std.testing.expect(verifyIntroDef(&c, st));
+}
+
+test "ПУНКТ 3: intro-def — САМОРЕФЕРЕНТНОЕ определение ОТВЕРГАЕТСЯ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Имя z3name!1 встречается в СВОЁМ ЖЕ определении -> введение перестаёт
+    // быть консервативным расширением, шаг не принимается.
+    const st = try parseSexp(a, "(intro-def (and (or (not (>= a 0)) (= z3name!1 a)) (or (>= a 0) (= z3name!1 z3name!1))))");
+    try std.testing.expect(!verifyIntroDef(&c, st));
 }
