@@ -858,6 +858,13 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // ЭКВИВАЛЕНТНОСТЬ С `ite` (дефект #118): условия эквивалентны/противоположны
     // и ветви совпадают/переставлены — это тавтология, шаг ДОКАЗАН.
     if (iteEq(l, r, 0)) return .verified;
+    if (compat.envVar("KERN_DEBUG_LIA") != null) {
+        std.debug.print("[dbg-rw] не проверено: LHS=", .{});
+        dumpSexp(l);
+        std.debug.print("  RHS=", .{});
+        dumpSexp(r);
+        std.debug.print("\n", .{});
+    }
     return .unverifiable;
 }
 
