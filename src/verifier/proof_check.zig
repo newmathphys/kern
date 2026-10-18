@@ -912,13 +912,78 @@ fn verifyTransStar(c: *const Ctx, st: Sexp) bool {
 /// Обе — логические тавтологии. Проверяем ИМЕННО ЭТУ ФОРМУ структурно: тогда
 /// шаг ДОКАЗАН, а не принят на слово. Любая другая форма -> шаг остаётся
 /// доверенным (никогда не «проверенным»).
+/// СГЛАДИТЬ вложенные `or` в плоский список литералов.
+fn flattenOr(e: Sexp, out: *std.array_list.Managed(Sexp)) void {
+    if (e.isList() and e.items.len >= 2) {
+        if (e.items[0].atom) |h| {
+            if (std.mem.eql(u8, h, "or")) {
+                for (e.items[1..]) |x| flattenOr(x, out);
+                return;
+            }
+        }
+    }
+    out.append(e) catch {};
+}
+
+/// ТАВТОЛОГИЯ ЛИ КЛАУЗА `C`? (пункт 3 плана v2.5)
+///
+/// ЗАЧЕМ. `(def-axiom C)` — аксиома определения: она обязана быть ТАВТОЛОГИЕЙ.
+/// Для `ite` форма проверяется структурно (`verifyIteDisjunct`), но Z3 вводит
+/// так и другие определяющие клаузы.
+///
+/// ДВА ЗВУЧИМЫХ СПОСОБА (оба — доказательства, а не догадки):
+///   1) ПРОПОЗИЦИОНАЛЬНЫЙ: сглаживаем вложенные `or` и ищем пару `l` / `¬l`.
+///      Клауза, содержащая литерал и его отрицание, — тавтология.
+///      ИЗМЕРЕНО на `musl abs.c`: клауза имеет вид `(or (or (not A) (not B)) B)`
+///      — после сглаживания там есть и `B`, и `(not B)`.
+///   2) АРИФМЕТИЧЕСКИЙ: `¬C = ¬L1 ∧ … ∧ ¬Lk` обязано быть НЕСОВМЕСТНО
+///      (проверяется встроенным решателем, Фурье — Моцкин).
+///
+/// `true` — только при ДОКАЗАННОЙ тавтологии; иначе `false` (честный отказ).
+fn isTautologyClause(c: *const Ctx, clause: Sexp) bool {
+    if (!clause.isList() or clause.items.len < 2) return false;
+    const h = clause.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "or")) return false;
+
+    // 1) Пропозициональная тавтология: `l` и `¬l` в одном дизъюнкте.
+    var lits = std.array_list.Managed(Sexp).init(c.arena);
+    flattenOr(clause, &lits);
+    for (lits.items, 0..) |a, i| {
+        for (lits.items[i + 1 ..]) |b| {
+            if (isComplement(a, b) or isComplementCmp(a, b)) return true;
+        }
+    }
+
+    // 2) Арифметическая тавтология: отрицание клаузы несовместно.
+    var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+    for (lits.items) |lit| {
+        if (!negateAsLeZero(c, lit, &cons)) return false;
+    }
+    var s = builtin_lia.Solver.init(c.arena);
+    defer s.deinit();
+    return switch (builtin_lia.checkUnsat(&s, cons.items)) {
+        .unsat => true,
+        else => false,
+    };
+}
+
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     const t = expand(c, proved(st), 0);
     if (!t.isList() or t.items.len != 3) return false;
     const h = t.items[0].atom orelse return false;
     if (!std.mem.eql(u8, h, "or")) return false;
-    return verifyIteDisjunct(t.items[1], t.items[2]) or
-        verifyIteDisjunct(t.items[2], t.items[1]);
+    if (verifyIteDisjunct(t.items[1], t.items[2]) or
+        verifyIteDisjunct(t.items[2], t.items[1])) return true;
+    // ПУНКТ 3 v2.5: аксиома определения обязана быть ТАВТОЛОГИЕЙ. Кроме формы
+    // `ite` Z3 вводит так и другие определяющие клаузы — их тавтологичность
+    // проверяем НЕСОВМЕСТНОСТЬЮ ОТРИЦАНИЯ через встроенный решатель.
+    if (isTautologyClause(c, t)) return true;
+    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print("[dbg-defax] раскрытая клауза: ", .{});
+        dumpSexp(t);
+        std.debug.print("\n", .{});
+    }
+    return false;
 }
 
 /// Один дизъюнкт — отрицание условия, другой — равенство с тем же `ite`.
