@@ -1707,6 +1707,35 @@ def case_model_verify_spurious():
 
 
 
+def case_binary_audit():
+    """АППАРАТНО-БИНАРНЫЙ АУДИТ. ЛОМАЕМ: инвертируем проверку флагов стека.
+
+    Тогда неисполняемый стек (`GNU_STACK RW` без `E`) будет объявлен ПРОВАЛОМ —
+    цель обязана покраснеть. Это доказывает, что путь отказа ВЕДЁТ к rc != 0,
+    то есть аудит реально способен упасть.
+    """
+    patch(
+        "tools/hw_binary_audit.py",
+        "        if \"E\" in flags:",
+        "        if \"E\" not in flags:  # ЛОМАЕМ: RW объявляем провалом",
+    )
+    return "make binary-audit"
+
+
+def case_tree_lock():
+    """ДЕФЕКТ #126. ЛОМАЕМ: при занятом замке второй экземпляр НЕ выходит.
+
+    Тогда он начнёт править дерево параллельно — ровно та гонка, которая
+    оставила мутации в файле (§81.23). Проверка обязана покраснеть.
+    """
+    patch(
+        "tools/tree_lock.py",
+        "        sys.exit(2)",
+        "        return  # ЛОМАЕМ: выхода нет, второй экземпляр пойдёт править",
+    )
+    return "make tree-lock"
+
+
 def case_proof_tamper():
     """ИСПЫТАНИЕ А. ЛОМАЕМ: пруф-чекер объявляет ЛЮБОЙ вывод подтверждённым.
 
@@ -1828,6 +1857,8 @@ CASES = [
     ("model-verify",  "Модель: ложный ассерт объявлен верным",    case_model_verify_spurious),
     ("lia-soundness",  "LIA: незвучивый решатель ловится гейтом",  case_lia_soundness),
     ("proof-tamper",   "ФАЗЗЕР: подделка вывода ловится чекером",  case_proof_tamper),
+    ("tree-lock",      "ЗАМОК: гонка патчащих дерево запрещена",    case_tree_lock),
+    ("binary-audit",   "АУДИТ: AVX2/NX/латентность измеряются",     case_binary_audit),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),
