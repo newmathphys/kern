@@ -845,3 +845,25 @@ DELETION (a gap in the monotonic `seq`). Three tests pass in
 substitution of `seq=2` -> `.broken{seq:2}`, deletion of `seq=2` ->
 `.broken{seq:3}`. The negative tests FAIL if detection breaks, so they prove
 detection, not merely functionality.
+
+**ECHELON 2 ACCEPTANCE: two defects found by the check.**
+
+**DEFECT #129: `kernc verify` returned `rc = 0` with a REFUTED contract.** The
+command counted `proven`/`refuted`/`no_contract` and printed a summary, but the
+exit code was ALWAYS 0 — so CI, a pre-commit hook or a script saw "success" even
+when a contract was refuted (the gate is formally closed, but there is no signal).
+FIXED: `refuted > 0 -> rc = 1`. Found while implementing Item 9 (PCC), whose
+acceptance criterion requires `rc != 0` on a forged certificate.
+
+**DEFECT #130: the `canfail` case for `pcc-check` was VACUOUS.** The first version
+broke `ProofVerdict.checksPass()` (always true). MEASURED with
+`canfail --only pcc-check`: **`VACUOUS 1`** — the fault was injected but the target
+stayed GREEN, because the forged certificate was caught by `proof_concludes_false`,
+not by `checksPass()`. FIXED: the case now breaks exactly the PCC acceptance
+condition (`if (v.checksPass() and v.proof_concludes_false and v.trusted_steps == 0)`
+-> `if (true)`); afterwards **non-vacuous 1 | vacuous 0**.
+
+**LESSON.** A vacuous case is a FALSE proof: it looks like a check but verifies
+nothing. That is why "every new CHECK must be run through `canfail --only`" is not
+a formality — checking the four new targets (`pcc-check`, `bitrot-chaos`,
+`tree-lock`, `binary-audit`) exposed exactly such a case.

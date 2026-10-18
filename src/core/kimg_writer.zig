@@ -438,3 +438,72 @@ test "МУТАНТ >=->>: каталог синхронизируется и п�
     // fd 0 обязан быть закрыт.
     try std.testing.expect(!fdIsOpen(0));
 }
+
+// =========================================================================
+//  ДЕФЕКТ #128: СВОЙСТВО ЗАЩИТЫ ИМЁН ПИННИТСЯ В САМОМ `zig build test`.
+//
+//  ЗАЧЕМ ОТДЕЛЬНЫЙ ТЕСТ. Мутатор показал выживших именно здесь
+//  (`flags & 0x0002`, `path_off != 0xFFFFFFFF`, `and`): поломка ЭТИХ условий
+//  отключает покрытие имён корнем, но writer и reader остаются согласованы
+//  (оба вызывают одну функцию), поэтому `check-integrity` продолжает
+//  проходить. Без теста защита #128 могла бы исчезнуть незамеченной.
+// =========================================================================
+test "ДЕФЕКТ #128: подмена ПЕЧАТНОЙ буквы в ИМЕНИ ловится Merkle-корнем" {
+    var b = Builder.init(std.testing.allocator);
+    defer b.deinit();
+    try b.addSource("a.zig", "hello");
+    try b.addSource("b.zig", "world");
+    var img = std.array_list.Managed(u8).init(std.testing.allocator);
+    defer img.deinit();
+    try b.buildBytes(&img);
+
+    // ПОЗИТИВНЫЙ КОНТРОЛЬ: нетронутый образ проходит проверку.
+    const hp: *const [128]u8 = @ptrCast(img.items[0..128].ptr);
+    const h = try KimgHeader.parse(hp, img.items.len);
+    try KimgHeader.verifyMerkleRoot(img.items, h);
+
+    // ПОДМЕНА ИМЕНИ: 'a' -> 'z' (обе — ПЕЧАТАЕМЫЕ ASCII; проверка печатаемости
+    // такую подмену НЕ ловит — обязан ловить именно Merkle-корень).
+    const pos = std.mem.indexOf(u8, img.items, "a.zig") orelse return error.TestUnexpectedResult;
+    img.items[pos] = 'z';
+    try std.testing.expectError(@import("kimg_reader.zig").KimgError.MerkleRootMismatch,
+        KimgHeader.verifyMerkleRoot(img.items, h));
+}
+
+test "ДЕФЕКТ #128: корень ХЕШИРУЕТ имя ТОЛЬКО при флаге пути (свойство)" {
+    // ЗАЧЕМ. Мутации `flags & 0x0002` -> `|` и `and` -> `or` НЕ ловятся
+    // проверкой целостности: писатель и читатель вызывают ОДНУ функцию и
+    // остаются согласованы. Ловим их СВОЙСТВОМ:
+    //   * при выставленном флаге пути корень ОБЯЗАН зависеть от имени;
+    //   * без флага пути корень от имени зависеть НЕ ДОЛЖЕН.
+    // Любая из двух мутаций ломает одно из этих утверждений.
+    const name_a = "aaa";
+    const name_z = "zzz";
+    const with_flag = try rootOfEntry(0x0002, name_a);
+    const with_flag2 = try rootOfEntry(0x0002, name_z);
+    try std.testing.expect(!std.crypto.timing_safe.eql([32]u8, with_flag, with_flag2));
+
+    const no_flag = try rootOfEntry(0x0001, name_a);
+    const no_flag2 = try rootOfEntry(0x0001, name_z);
+    try std.testing.expect(std.crypto.timing_safe.eql([32]u8, no_flag, no_flag2));
+}
+
+/// Собрать минимальный образ: 1 объект с заданными `flags` и пул из `name`.
+fn rootOfEntry(flags: u16, name: []const u8) ![32]u8 {
+    const total = 128 + 96 + name.len + 1;
+    var buf: [128 + 96 + 16]u8 = @as([128 + 96 + 16]u8, @splat(0));
+    @memcpy(buf[0..8], "KIMG\r\n\x1a\n");
+    std.mem.writeInt(u16, buf[8..10], 1, .little);
+    std.mem.writeInt(u16, buf[10..12], 3, .little);
+    std.mem.writeInt(u32, buf[12..16], 128, .little);
+    std.mem.writeInt(u32, buf[20..24], 1, .little); // BLAKE3
+    std.mem.writeInt(u64, buf[32..40], 128, .little);
+    std.mem.writeInt(u64, buf[40..48], 96, .little);
+    std.mem.writeInt(u64, buf[48..56], 1, .little);
+    std.mem.writeInt(u64, buf[56..64], 224, .little);
+    buf[128 + 56] = 0x02; // type_id
+    std.mem.writeInt(u16, buf[128 + 60 .. 128 + 62], flags, .little);
+    std.mem.writeInt(u32, buf[128 + 64 .. 128 + 68], 0, .little); // path_off = 0
+    @memcpy(buf[224 .. 224 + name.len], name);
+    return KimgHeader.computeImageMerkleRoot(buf[0..total]);
+}

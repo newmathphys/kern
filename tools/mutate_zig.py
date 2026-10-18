@@ -59,6 +59,9 @@ TARGETS = [
     "src/verifier/z3_bridge.zig",
     # --- Эшелон 1 v2.5: встроенный LIA-решатель (Фурье — Моцкин) ---
     "src/verifier/builtin_lia.zig",
+    # --- Эшелон 2: контейнер, kernx-цепочка и Evidence Decay ---
+    "src/next/truth.zig",
+    "src/next/catalog.zig",
 ]
 
 MUTATIONS = [
