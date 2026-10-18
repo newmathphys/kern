@@ -1667,6 +1667,50 @@ fn constBoolEq(l: Sexp, r: Sexp) bool {
     return false;
 }
 
+/// Канонизация БУЛЕВЫХ ФОРМ (Пункт 22, IEEE-754).
+///
+/// ИЗМЕРЕНО: в 56-шаговом выводе IEEE-754 (модель `(is_nan : Bool, val : Int)`)
+/// печаталось `посылок 3/4` — 4-я посылка не привязывалась, `premises_unbound`
+/// становился 1, `checksPass()` давал false, и чекер **ОТВЕРГАЛ** корректный
+/// вывод (`[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя`).
+/// Причина: для сорта Bool `(not X)` и `(= X false)` — ОДНО И ТО ЖЕ, а `X`
+/// и `(= X true)` — тоже. Z3 выбирает разные написания.
+/// ЗВУЧНО: это тождества булевой логики, ослабления нет.
+fn isEqBoolLit(s: Sexp, lit: []const u8) ?Sexp {
+    if (!s.isList() or s.items.len != 3) return null;
+    const h = s.items[0].atom orelse return null;
+    if (!std.mem.eql(u8, h, "=")) return null;
+    const other = blk: {
+        if (s.items[2].atom) |a2| {
+            if (std.mem.eql(u8, a2, lit)) break :blk s.items[1];
+        }
+        if (s.items[1].atom) |a1| {
+            if (std.mem.eql(u8, a1, lit)) break :blk s.items[2];
+        }
+        return null;
+    };
+    // Не сворачиваем константные свёртки вида `(= false true)`.
+    if (other.atom) |ao| {
+        if (std.mem.eql(u8, ao, "true") or std.mem.eql(u8, ao, "false")) return null;
+    }
+    return other;
+}
+
+fn boolFormEq(a: Sexp, b: Sexp) bool {
+    if (asNot(a)) |x| {
+        if (asNot(b)) |y| return boolFormEq(x, y);
+        if (isEqBoolLit(b, "false")) |y| return boolFormEq(x, y);
+        return false;
+    }
+    if (asNot(b)) |y| {
+        if (isEqBoolLit(a, "false")) |x| return boolFormEq(x, y);
+        return false;
+    }
+    if (isEqBoolLit(a, "true")) |x| return boolFormEq(x, b);
+    if (isEqBoolLit(b, "true")) |y| return boolFormEq(a, y);
+    return false;
+}
+
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     const t = expand(c, proved(st), 0);
     if (!t.isList() or t.items.len != 3) return false;
@@ -2656,6 +2700,13 @@ pub fn verifyProof(
                 // (`(- 2147483648)`). Без нормализации корректный вывод
                 // отвергался как «посылки не привязаны» (дефект #122).
                 if (sexpEqNum(t, ct)) {
+                    found = true;
+                    break;
+                }
+                // ПУНКТ 22: булевы формы `(not X)` и `(= X false)` — одно и то же
+                // для сорта Bool. Без этого 4-я посылка IEEE-754 не привязывалась
+                // (`посылок 3/4`) и чекер ОТВЕРГАЛ корректный вывод.
+                if (boolFormEq(t, ct)) {
                     found = true;
                     break;
                 }
