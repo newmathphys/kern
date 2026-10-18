@@ -831,3 +831,17 @@ a non-printable byte is rejected with precise diagnostics. This is NOT a complet
 fix — a flip to another printable character still slips through. The complete fix
 is to include the name region in the Merkle root (a container format change),
 left as an open item. After the mitigation: **0 REAL GAPS**.
+
+**ECHELON 2, ITEM 11: TAMPER-EVIDENT MERKLE AUDIT CHAIN** (`src/next/catalog.zig`,
+the Belnap verdict journal in SQLite). Each record is chained to the previous one:
+`hash_i = BLAKE3(prev_hash_i || record_i)`; the schema is
+`audit_chain(seq INTEGER PRIMARY KEY AUTOINCREMENT, record, prev_hash, hash)`, and
+the first record uses 64 zeros as `prev_hash` (fixed 64-hex length makes the
+concatenation unambiguous). API: `appendAudit(record)` and
+`verifyAudit() -> AuditStatus` (`.ok: N` | `.broken: {seq, why}`). Two attack
+classes are caught: RECORD SUBSTITUTION (recomputed hash mismatch) and RECORD
+DELETION (a gap in the monotonic `seq`). Three tests pass in
+`zig build test-next` (42/42): positive control (3 records -> `.ok: 3`),
+substitution of `seq=2` -> `.broken{seq:2}`, deletion of `seq=2` ->
+`.broken{seq:3}`. The negative tests FAIL if detection breaks, so they prove
+detection, not merely functionality.

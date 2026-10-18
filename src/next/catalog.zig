@@ -83,6 +83,7 @@ pub const Catalog = struct {
             \\CREATE TABLE IF NOT EXISTS agent_packets(id TEXT PRIMARY KEY, scope TEXT);
             \\CREATE TABLE IF NOT EXISTS cache_entries(content_hash TEXT PRIMARY KEY, path TEXT);
             \\CREATE TABLE IF NOT EXISTS diagnostics(id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT, severity TEXT, where_clause TEXT, message TEXT);
+            \\CREATE TABLE IF NOT EXISTS audit_chain(seq INTEGER PRIMARY KEY AUTOINCREMENT, record TEXT NOT NULL, prev_hash TEXT NOT NULL, hash TEXT NOT NULL);
             \\CREATE INDEX IF NOT EXISTS idx_claim_status ON claims(status);
             \\CREATE INDEX IF NOT EXISTS idx_metric_claim ON metrics(claim_id);
             \\CREATE INDEX IF NOT EXISTS idx_rel_from ON relations(from_id);
@@ -247,11 +248,118 @@ pub const Catalog = struct {
         if (c.sqlite3_step(stmt) != c.SQLITE_ROW) return CatalogError.SqlError;
         return c.sqlite3_column_int64(stmt, 0);
     }
+    // =====================================================================
+    //  ЭШЕЛОН 2, ПУНКТ 11: TAMPER-EVIDENT MERKLE AUDIT CHAIN
+    //
+    //  ЗАЧЕМ. Журнал вердиктов Белнапа — это аудиторский след (требование
+    //  EU AI Act): задним числом нельзя ни подменить запись, ни удалить
+    //  неудобный провал `F`. Каждая запись связывается с предыдущей:
+    //
+    //      hash_i = BLAKE3(prev_hash_i || record_i)
+    //
+    //  Подмена или удаление ЛЮБОЙ записи ломает цепочку (и разрыв в `seq`).
+    // =====================================================================
+
+    pub const AuditStatus = union(enum) {
+        ok: usize,
+        broken: struct { seq: i64, why: []const u8 },
+    };
+
+    fn hex32(digest: [32]u8, out: *[64]u8) []const u8 {
+        const hexd = "0123456789abcdef";
+        for (digest, 0..) |b, i| {
+            out[i * 2] = hexd[b >> 4];
+            out[i * 2 + 1] = hexd[b & 0x0f];
+        }
+        return out[0..64];
+    }
+
+    /// Хеш ЗАПИСИ: BLAKE3(prev_hash || record). Разделитель не нужен: длина
+    /// `prev_hash` фиксирована (64 hex-символа), поэтому склейка однозначна.
+    fn chainHash(prev_hash: []const u8, record: []const u8, out: *[64]u8) []const u8 {
+        var h = std.crypto.hash.Blake3.init(.{});
+        h.update(prev_hash);
+        h.update(record);
+        var d: [32]u8 = undefined;
+        h.final(&d);
+        return hex32(d, out);
+    }
+
+    /// Последний `hash` цепочки (или 64 нуля, если журнал пуст).
+    fn lastChainHash(self: *Catalog, buf: *[64]u8) ![]const u8 {
+        const sql = "SELECT hash FROM audit_chain ORDER BY seq DESC LIMIT 1;";
+        var stmt: ?*c.sqlite3_stmt = null;
+        if (c.sqlite3_prepare_v2(self.db, sql, -1, &stmt, null) != c.SQLITE_OK) return error.Sql;
+        defer _ = c.sqlite3_finalize(stmt);
+        const rc = c.sqlite3_step(stmt);
+        if (rc == c.SQLITE_ROW) {
+            const txt = c.sqlite3_column_text(stmt, 0);
+            const n = c.sqlite3_column_bytes(stmt, 0);
+            if (txt != null and n == 64) {
+                @memcpy(buf, txt[0..64]);
+                return buf[0..64];
+            }
+        }
+        @memset(buf, '0');
+        return buf[0..64];
+    }
+
+    /// ДОБАВИТЬ ЗАПИСЬ В ЖУРНАЛ (аудит-след вердикта).
+    pub fn appendAudit(self: *Catalog, record: []const u8) !void {
+        var pb: [64]u8 = undefined;
+        const prev = try self.lastChainHash(&pb);
+        var hb: [64]u8 = undefined;
+        const h = chainHash(prev, record, &hb);
+        const r = try self.q(record);
+        defer self.alloc.free(r);
+        try self.execFmt("INSERT INTO audit_chain(record,prev_hash,hash) VALUES('{s}','{s}','{s}');", .{ r, prev, h });
+    }
+
+    /// ПРОВЕРИТЬ ЦЕЛОСТНОСТЬ ЖУРНАЛА: пересчитать всю цепочку.
+    ///
+    /// Ловит и ПОДМЕНУ записи (несовпадение хеша), и УДАЛЕНИЕ (разрыв `seq`).
+    pub fn verifyAudit(self: *Catalog) !AuditStatus {
+        const sql = "SELECT seq,record,prev_hash,hash FROM audit_chain ORDER BY seq;";
+        var stmt: ?*c.sqlite3_stmt = null;
+        if (c.sqlite3_prepare_v2(self.db, sql, -1, &stmt, null) != c.SQLITE_OK) return error.Sql;
+        defer _ = c.sqlite3_finalize(stmt);
+        var prev_buf: [64]u8 = undefined;
+        @memset(&prev_buf, '0');
+        var count: usize = 0;
+        var expect_seq: i64 = 1;
+        while (c.sqlite3_step(stmt) == c.SQLITE_ROW) {
+            const seq = c.sqlite3_column_int64(stmt, 0);
+            const rt = c.sqlite3_column_text(stmt, 1);
+            const rn: usize = @intCast(c.sqlite3_column_bytes(stmt, 1));
+            const pt = c.sqlite3_column_text(stmt, 2);
+            const pn: usize = @intCast(c.sqlite3_column_bytes(stmt, 2));
+            const ht = c.sqlite3_column_text(stmt, 3);
+            const hn: usize = @intCast(c.sqlite3_column_bytes(stmt, 3));
+            if (seq != expect_seq) return .{ .broken = .{ .seq = seq, .why = "разрыв в seq — запись УДАЛЕНА" } };
+            expect_seq += 1;
+            const record = if (rt != null) rt[0..rn] else "";
+            const prev = if (pt != null) pt[0..pn] else "";
+            const stored = if (ht != null) ht[0..hn] else "";
+            if (!std.mem.eql(u8, prev, prev_buf[0..])) {
+                return .{ .broken = .{ .seq = seq, .why = "prev_hash не совпал с предыдущей записью" } };
+            }
+            var hb: [64]u8 = undefined;
+            const h = chainHash(prev, record, &hb);
+            if (!std.mem.eql(u8, h, stored)) {
+                return .{ .broken = .{ .seq = seq, .why = "hash не совпал — запись ПОДМЕНЕНА" } };
+            }
+            @memcpy(&prev_buf, stored[0..64]);
+            count += 1;
+        }
+        return .{ .ok = count };
+    }
+
 };
 
 // =========================================================================
 // ТЕСТЫ (§15.2: каталог)
 // =========================================================================
+
 
 test "CATALOG: схема, вставка проекта и запрос по статусу" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -347,4 +455,43 @@ test "PARSER РЕГРЕССИЯ: повторный evidence дедуплици�
     try std.testing.expectEqual(@as(usize, 1), res.project.evidence.len);
     const diags = try validate.validate(a, res.project);
     try std.testing.expectEqual(@as(usize, 0), validate.countErrors(diags));
+}
+
+test "АУДИТ-ЦЕПОЧКА: 3 записи проходят проверку (позитивный контроль)" {
+    var cat = try Catalog.open(std.testing.allocator, ":memory:");
+    defer cat.close();
+    try cat.initSchema();
+    try cat.appendAudit("verdict: T (1,0) claim=a");
+    try cat.appendAudit("verdict: F (0,1) claim=b");
+    try cat.appendAudit("verdict: B (1,1) claim=c");
+    const st = try cat.verifyAudit();
+    try std.testing.expect(st == .ok);
+    try std.testing.expectEqual(@as(usize, 3), st.ok);
+}
+
+test "АУДИТ-ЦЕПОЧКА: ПОДМЕНА записи ловится" {
+    var cat = try Catalog.open(std.testing.allocator, ":memory:");
+    defer cat.close();
+    try cat.initSchema();
+    try cat.appendAudit("verdict: T (1,0) claim=a");
+    try cat.appendAudit("verdict: F (0,1) claim=b");
+    try cat.appendAudit("verdict: T (1,0) claim=c");
+    // Задним числом «улучшаем» провал F -> T (ровно то, против чего строим).
+    try cat.exec("UPDATE audit_chain SET record='verdict: T (1,0) claim=b' WHERE seq=2;");
+    const st = try cat.verifyAudit();
+    try std.testing.expect(st == .broken);
+    try std.testing.expectEqual(@as(i64, 2), st.broken.seq);
+}
+
+test "АУДИТ-ЦЕПОЧКА: УДАЛЕНИЕ записи ловится (разрыв seq)" {
+    var cat = try Catalog.open(std.testing.allocator, ":memory:");
+    defer cat.close();
+    try cat.initSchema();
+    try cat.appendAudit("verdict: T (1,0) claim=a");
+    try cat.appendAudit("verdict: F (0,1) claim=b");
+    try cat.appendAudit("verdict: T (1,0) claim=c");
+    try cat.exec("DELETE FROM audit_chain WHERE seq=2;");
+    const st = try cat.verifyAudit();
+    try std.testing.expect(st == .broken);
+    try std.testing.expectEqual(@as(i64, 3), st.broken.seq);
 }
