@@ -224,6 +224,7 @@ FAULTABLE = [
     "tools/simplify_check.sh",
     "tools/bounds_check.sh",
     "tools/loop_check.sh",
+    "tools/state_inv_check.sh",
     "examples/xray_demo.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
@@ -1717,6 +1718,20 @@ def case_model_verify_spurious():
 
 
 
+def case_state_inv_check():
+    """ПУНКТ 24. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта
+    перестаёт ловиться -> цель обязана покраснеть."""
+    # ИЗМЕРЕНО (5-й вакуумный кейс): я патчил `_smt_counterexample`, но Пункт 24
+    # использует ТРЁХЗНАЧНЫЙ `_smt_verdict` -> патч не влиял -> цель зелёная.
+    # Правильный якорь — строка FAIL-сообщения в `cmd_state_inv`.
+    patch(
+        "tools/kern_contracts.py",
+        "                out.append(f\"[FAIL] {fn.name}: STATE INVARIANT VIOLATED at line {ln}; \"",
+        "                out.append(f\"[INFO] {fn.name}: STATE INVARIANT VIOLATED at line {ln}; \"",
+    )
+    return "make state-inv-check"
+
+
 def case_loop_check():
     """ПУНКТ 20. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта и
     незавершающийся цикл перестают ловиться -> цель обязана покраснеть."""
@@ -1976,6 +1991,7 @@ CASES = [
     ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),
     ("bounds-check",    "BOUNDS: границы arr[i] проверены",       case_bounds_check),
     ("loop-check",      "LOOPS: инвариант и остановка циклов",   case_loop_check),
+    ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

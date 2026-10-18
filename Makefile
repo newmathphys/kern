@@ -276,6 +276,10 @@ bounds-check: build
 loop-check: build
 	@bash tools/loop_check.sh
 
+# ЭШЕЛОН 4, ПУНКТ 24: инвариант состояния (защита от двойного возврата).
+state-inv-check: build
+	@bash tools/state_inv_check.sh
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.

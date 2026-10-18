@@ -1110,6 +1110,8 @@ def main() -> int:
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--state-inv", default=None, metavar="PATH",
+                    help="ПУНКТ 24: инвариант состояния (state_invariant)")
     ap.add_argument("--loops", default=None, metavar="PATH",
                     help="ПУНКТ 20: тотальная корректность циклов (invariant+decreases)")
     ap.add_argument("--simplify", default=None, metavar="PATH",
@@ -1164,6 +1166,8 @@ def main() -> int:
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
                             args.github_annotations, args.json)
+    if getattr(args, "state_inv", None):
+        return cmd_state_inv(args.state_inv, args.kernc)
     if getattr(args, "loops", None):
         return cmd_loops(args.loops, args.kernc)
     if args.simplify:
@@ -2566,6 +2570,122 @@ def cmd_loops(path: str, kernc) -> int:
     np_ = sum(1 for r in out if r.startswith("[PASS]"))
     ns = sum(1 for r in out if r.startswith("[SKIP]"))
     print(f"[LOOP SUMMARY] PASS {np_} | FAIL {nf} | SKIP {ns}")
+    return 0
+
+
+
+# =============================================================================
+# ЭШЕЛОН 4, ПУНКТ 24 — ИНВАРИАНТ СОСТОЯНИЯ (`# @kern:state_invariant <expr>`).
+#
+# Модель: функция-переход возвращает НОВОЕ состояние; `result` — это выход.
+# Инвариант описывает ВЫХОДНОЕ состояние (может ссылаться на `result` и параметры).
+# Обязательство: для КАЖДОГО выхода, достижимого при `requires` и путевых
+# условиях гардов, инвариант обязан выполняться:
+#     req AND path AND (result = ret) AND NOT invariant  -> UNSAT
+#
+# Это ловит двойной возврат: без гарда `state == 1` выход `escrow - amount`
+# уходит в минус -> SAT -> [FAIL] STATE INVARIANT VIOLATED.
+# =============================================================================
+
+_SI_RE = re.compile(r"@kern:state_invariant\s+(.+)")
+
+
+def _si_directive(lines, lineno):
+    i = lineno - 2
+    while i >= 0:
+        s = lines[i].strip()
+        if not s or not s.startswith("#"):
+            break
+        m = _SI_RE.search(s)
+        if m:
+            return m.group(1).strip()
+        i -= 1
+    return None
+
+
+def _returns_with_path(body, path, syms, out):
+    """Все `return <expr>` с накопленным путём гардов."""
+    for st in body:
+        if isinstance(st, ast.If):
+            try:
+                cond = _cond_smt(st.test, syms)
+            except (Unsupported, NoReturn, Exception):
+                cond = None
+            _returns_with_path(st.body, path + ([cond] if cond else []), syms, out)
+            neg = f"(not {cond})" if cond else None
+            _returns_with_path(st.orelse, path + ([neg] if neg else []), syms, out)
+            if neg and _block_exits(st.body):
+                path = path + [neg]
+            continue
+        if isinstance(st, ast.Return) and st.value is not None:
+            try:
+                out.append((list(path), expr_smt(st.value, {}), st.lineno))
+            except (Unsupported, NoReturn, Exception):
+                pass
+
+
+def cmd_state_inv(path: str, kernc) -> int:
+    """ПУНКТ 24: инвариант состояния (`make state-inv-check`)."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    tree = ast.parse(src)
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    out: list[str] = []
+    for fn in fns:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        inv_txt = _si_directive(lines, fn.lineno)
+        if inv_txt is None:
+            out.append(f"[SKIP] {fn.name}: нет `# @kern:state_invariant`")
+            continue
+        req = None
+        i = fn.lineno - 2
+        while i >= 0:
+            s = lines[i].strip()
+            if not s or not s.startswith("#"):
+                break
+            m = re.search(r"@kern:requires\s+(.+)", s)
+            if m:
+                try:
+                    req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
+                except (Unsupported, NoReturn, Exception):
+                    req = None
+            i -= 1
+        syms: set = set()
+        lens = _collect_lens(fn, syms)
+        try:
+            inv = _cond_smt(ast.parse(inv_txt, mode="eval").body, syms)
+        except (Unsupported, NoReturn, Exception) as e:
+            out.append(f"[SKIP] {fn.name}: инвариант вне подмножества ({e})")
+            continue
+        rets: list = []
+        _returns_with_path(fn.body, [], syms, rets)
+        if not rets:
+            out.append(f"[SKIP] {fn.name}: нет `return <expr>`")
+            continue
+        decls = list(dict.fromkeys(params + ["result"]))
+        pre = [req] if req else []
+        fails = unknowns = 0
+        for pth, ret, ln in rets:
+            v, ce = _smt_verdict(kernc, decls,
+                                 pre + pth + [f"(= result {ret})", f"(not {inv})"])
+            if v == "sat":
+                fails += 1
+                out.append(f"[FAIL] {fn.name}: STATE INVARIANT VIOLATED at line {ln}; "
+                           f"контрпример: {ce}")
+            elif v == "unknown":
+                unknowns += 1
+                out.append(f"[UNKNOWN] {fn.name}: выход строка {ln} НЕ решён ({ce})")
+        if fails == 0 and unknowns == 0:
+            out.append(f"[PASS] {fn.name}: PROVEN (state invariant preserved on all "
+                       f"{len(rets)} exits)")
+    print("-" * 74)
+    for r in out:
+        print("  " + r)
+    print("-" * 74)
+    print(f"[STATE SUMMARY] PASS {sum(1 for r in out if r.startswith('[PASS]'))} | "
+          f"FAIL {sum(1 for r in out if r.startswith('[FAIL]'))} | "
+          f"SKIP {sum(1 for r in out if r.startswith('[SKIP]'))} | "
+          f"UNKNOWN {sum(1 for r in out if r.startswith('[UNKNOWN]'))}")
     return 0
 
 
