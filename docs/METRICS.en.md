@@ -505,3 +505,24 @@ not one:
   a two-way check through `builtin_lia`, with `(not (= X Y))` split into two strict
   inequalities;
 * (2) the term identity `X = Y <=> X - Y = 0`.
+
+### 23.20 Micro-step 5G-1: three STRUCTURAL rewrite identities (trusted 7 -> 4)
+
+The real `[dbg-rw]` dump showed that three of the remaining rewrites contain `ite` INSIDE a
+term, so `builtin_lia` cannot touch them — but they do not need a solver at all:
+
+* **(1) antisymmetry of zero**: `(= P 0) <=> (and (<= P 0) (>= P 0))` for ANY term `P`
+  (even containing `ite`). It is a pure order law over Z, so nothing inside `P` is inspected:
+  `P` must be byte-identical (`sexpEq`) and the two conjuncts must compare `P` with zero in
+  OPPOSITE directions (all four spellings handled: `(<= p 0)`, `(>= p 0)`, `(<= 0 p)`, `(>= 0 p)`).
+* **(2) transfer across equality**: `(= X Y) <=> (= (+ X (* (- 1) Y)) 0)` for ANY terms `X`, `Y`
+  (operands in any order; `(* -1 Y)` and `(- Y)` both accepted).
+* **(3) `ite` swap under equality**: `(= X (ite C1 T1 E1)) <=> (= X (ite C2 T2 E2))` with the same
+  `X`, complementary conditions (`C1 = ¬C2`) and swapped branches (`T1 ≡ E2`, `E1 ≡ T2`,
+  compared structurally OR linearly, so `(- a)` matches `(* (- 1) a)`).
+
+**Measured:** `rewrite (linear): 10 -> 13`, `trusted: 7 -> 4`. Tests added (+3), each with a
+NEGATIVE counterpart: identical directions (`(and (<= x 0) (<= x 0))`) rejected; a different
+right-hand term rejected; non-complementary `ite` conditions rejected.
+
+**Trajectory:** 15 -> 14 -> 13 -> 11 -> 9 -> 8 -> 7 -> **4** (`2 unit-resolution | 2 rewrite`).

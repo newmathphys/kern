@@ -858,6 +858,17 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // ЭКВИВАЛЕНТНОСТЬ С `ite` (дефект #118): условия эквивалентны/противоположны
     // и ветви совпадают/переставлены — это тавтология, шаг ДОКАЗАН.
     if (iteEq(l, r, 0)) return .verified;
+    // ФОРМЫ ИЗ РЕАЛЬНОГО ДАМПА `[dbg-rw]` (микро-шаг 5Г-1): СТРУКТУРНЫЕ
+    // тождества, в которые НЕ нужно заглядывать внутрь термов — поэтому они
+    // работают и тогда, когда внутри стоит `ite` (а линейный решатель там
+    // бессилен):
+    //   (1) `(= P 0) <=> (and (<= P 0) (>= P 0))`  — антисимметричность;
+    //   (2) `(= X Y) <=> (= (+ X (* (- 1) Y)) 0)`  — перенос через равенство;
+    //   (3) `(= X (ite C1 T1 E1)) <=> (= X (ite C2 T2 E2))` при `C1 = ¬C2`
+    //       и переставленных ветвях.
+    if (antisymmetryZero(l, r)) return .verified;
+    if (eqTransferZero(l, r)) return .verified;
+    if (iteSwapEq(c, l, r)) return .verified;
     if (compat.envVar("KERN_DEBUG_LIA") != null) {
         std.debug.print("[dbg-rw] не проверено: LHS=", .{});
         dumpSexp(l);
@@ -1115,6 +1126,119 @@ fn verifyLemma(c: *const Ctx, st: Sexp) bool {
         if (!found) return false;
     }
     return true;
+}
+
+/// Атом-ноль? (`0` — единственная допустимая запись нуля в выводе Z3)
+fn isZeroAtom(e: Sexp) bool {
+    return e.atom != null and std.mem.eql(u8, e.atom.?, "0");
+}
+
+/// Сравнение терма `p` с нулём: возвращает `?bool` — `true` = «p <= 0», `false` = «p >= 0».
+/// Поддержаны все четыре написания: `(<= p 0)`, `(>= p 0)`, `(<= 0 p)`, `(>= 0 p)`.
+fn cmpWithZero(cmp: Sexp, p: Sexp) ?bool {
+    if (!cmp.isList() or cmp.items.len != 3) return null;
+    const h = cmp.items[0].atom orelse return null;
+    const le = std.mem.eql(u8, h, "<=");
+    const ge = std.mem.eql(u8, h, ">=");
+    if (!le and !ge) return null;
+    if (sexpEq(cmp.items[1], p) and isZeroAtom(cmp.items[2])) return le; // p <= 0 / p >= 0
+    if (isZeroAtom(cmp.items[1]) and sexpEq(cmp.items[2], p)) return !le; // 0 <= p / 0 >= p
+    return null;
+}
+
+/// ФОРМА (1) ИЗ ДАМПА `[dbg-rw]`: АНТИСИММЕТРИЧНОСТЬ НУЛЯ.
+///   `(= P 0)`  <=>  `(and (<= P 0) (>= P 0))`   для ЛЮБОГО терма `P`
+/// (даже содержащего `ite`): это чистый закон порядка над Z, поэтому внутрь `P`
+/// заглядывать НЕ нужно — достаточно, чтобы `P` был ПОБАЙТОВО тем же (`sexpEq`),
+/// а две части конъюнкции сравнивали `P` с нулём в ПРОТИВОПОЛОЖНЫХ направлениях.
+fn antisymmetryZero(l: Sexp, r: Sexp) bool {
+    return antisymOne(l, r) or antisymOne(r, l);
+}
+
+fn antisymOne(eq_side: Sexp, and_side: Sexp) bool {
+    if (!isEq3(eq_side)) return false;
+    const p = if (isZeroAtom(eq_side.items[1]))
+        eq_side.items[2]
+    else if (isZeroAtom(eq_side.items[2]))
+        eq_side.items[1]
+    else
+        return false;
+    if (!and_side.isList() or and_side.items.len != 3) return false;
+    const h = and_side.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "and")) return false;
+    const d1 = cmpWithZero(and_side.items[1], p) orelse return false;
+    const d2 = cmpWithZero(and_side.items[2], p) orelse return false;
+    return d1 != d2; // нужны ОБА направления: p <= 0 И p >= 0
+}
+
+/// `(* (- 1) Y)`, `(* -1 Y)` или `(- Y)` — это «минус Y»?
+fn isNegOfTerm(t: Sexp, y: Sexp) bool {
+    if (!t.isList() or t.items.len < 2) return false;
+    const h = t.items[0].atom orelse return false;
+    if (std.mem.eql(u8, h, "-") and t.items.len == 2) return sexpEq(t.items[1], y);
+    if (std.mem.eql(u8, h, "*") and t.items.len == 3) {
+        const c1 = numOf(t.items[1]);
+        const c2 = numOf(t.items[2]);
+        const other = if (c1 != null) t.items[2] else if (c2 != null) t.items[1] else return false;
+        const c = c1 orelse c2.?;
+        return c == -1 and sexpEq(other, y);
+    }
+    return false;
+}
+
+/// ФОРМА (2) ИЗ ДАМПА `[dbg-rw]`: ПЕРЕНОС ЧЕРЕЗ РАВЕНСТВО.
+///   `(= X Y)`  <=>  `(= (+ X (* (- 1) Y)) 0)`   для ЛЮБЫХ термов X, Y
+/// (слагаемые могут стоять в любом порядке). Внутрь X и Y заглядывать не нужно.
+fn eqTransferZero(l: Sexp, r: Sexp) bool {
+    return eqTransferOne(l, r) or eqTransferOne(r, l);
+}
+
+fn eqTransferOne(eq_side: Sexp, diff_side: Sexp) bool {
+    if (!isEq3(eq_side) or !isEq3(diff_side)) return false;
+    const x = eq_side.items[1];
+    const y = eq_side.items[2];
+    const d = if (isZeroAtom(diff_side.items[1]))
+        diff_side.items[2]
+    else if (isZeroAtom(diff_side.items[2]))
+        diff_side.items[1]
+    else
+        return false;
+    if (!d.isList() or d.items.len != 3) return false;
+    const h = d.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "+")) return false;
+    const a = d.items[1];
+    const b = d.items[2];
+    if (sexpEq(a, x) and isNegOfTerm(b, y)) return true;
+    if (sexpEq(b, x) and isNegOfTerm(a, y)) return true;
+    return false;
+}
+
+/// ФОРМА (3) ИЗ ДАМПА `[dbg-rw]`: ПЕРЕВОРОТ `ite` ПОД РАВЕНСТВОМ.
+///   `(= X (ite C1 T1 E1))` <=> `(= X (ite C2 T2 E2))`
+/// при ОДНОМ и том же `X`, ПРОТИВОПОЛОЖНЫХ условиях (`C1 = ¬C2`) и
+/// переставленных ветвях (`T1 ≡ E2`, `E1 ≡ T2`). Ветви сравниваются структурно
+/// ИЛИ линейно (`linDiffZero`), поэтому `(- a)` и `(* (- 1) a)` совпадают.
+fn iteSwapEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    if (!isEq3(l) or !isEq3(r)) return false;
+    if (!sexpEq(l.items[1], r.items[1])) return false; // один и тот же X
+    const t1 = l.items[2];
+    const t2 = r.items[2];
+    if (!isIteT(t1) or !isIteT(t2)) return false;
+    const c1 = t1.items[1];
+    const a1 = t1.items[2];
+    const b1 = t1.items[3];
+    const c2 = t2.items[1];
+    const a2 = t2.items[2];
+    const b2 = t2.items[3];
+    if (!(isComplement(c1, c2) or isComplementCmp(c1, c2))) return false;
+    return termEqLinear(c, a1, b2) and termEqLinear(c, b1, a2);
+}
+
+/// Равенство термов: структурно ИЛИ линейно (обе стороны — линейные формы).
+fn termEqLinear(c: *const Ctx, a: Sexp, b: Sexp) bool {
+    if (sexpEq(a, b)) return true;
+    if (linDiffZero(c, a, b)) |z| return z;
+    return false;
 }
 
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
@@ -3107,4 +3231,51 @@ test "ПУНКТ 3: lemma — НЕразряженная гипотеза ОТВ
     // Заключение НЕ содержит отрицания допущения -> правило неприменимо.
     const st = try parseSexp(a, "(lemma @x10 (not (<= a 5)))");
     try std.testing.expect(!verifyLemma(&c, st));
+}
+
+test "ПУНКТ 3: rewrite (1) антисимметричность (= P 0) <=> (and (<= P 0) (>= P 0))" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    // P СОДЕРЖИТ `ite` — линейный решатель бессилен, структурная проверка работает.
+    try std.testing.expect(antisymmetryZero(
+        try parseSexp(a, "(= (+ result (* (- 1) (ite (>= a 0) a (* (- 1) a)))) 0)"),
+        try parseSexp(a, "(and (<= (+ result (* (- 1) (ite (>= a 0) a (* (- 1) a)))) 0) (>= (+ result (* (- 1) (ite (>= a 0) a (* (- 1) a)))) 0))"),
+    ));
+    // НЕГАТИВ: ОБА направления одинаковы -> это НЕ антисимметричность.
+    try std.testing.expect(!antisymmetryZero(
+        try parseSexp(a, "(= x 0)"),
+        try parseSexp(a, "(and (<= x 0) (<= x 0))"),
+    ));
+}
+
+test "ПУНКТ 3: rewrite (2) перенос (= X Y) <=> (= (+ X (* (- 1) Y)) 0)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    try std.testing.expect(eqTransferZero(
+        try parseSexp(a, "(= result (ite (>= a 0) a (* (- 1) a)))"),
+        try parseSexp(a, "(= (+ result (* (- 1) (ite (>= a 0) a (* (- 1) a)))) 0)"),
+    ));
+    // НЕГАТИВ: справа ДРУГОЙ терм.
+    try std.testing.expect(!eqTransferZero(
+        try parseSexp(a, "(= x y)"),
+        try parseSexp(a, "(= (+ x (* (- 1) z)) 0)"),
+    ));
+}
+
+test "ПУНКТ 3: rewrite (3) переворот ite под равенством" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    try std.testing.expect(iteSwapEq(&c,
+        try parseSexp(a, "(= result (ite (< a 0) (- a) a))"),
+        try parseSexp(a, "(= result (ite (<= 0 a) a (* (- 1) a)))"),
+    ));
+    // НЕГАТИВ: условия НЕ противоположны.
+    try std.testing.expect(!iteSwapEq(&c,
+        try parseSexp(a, "(= result (ite (< a 0) (- a) a))"),
+        try parseSexp(a, "(= result (ite (< a 0) a (* (- 1) a)))"),
+    ));
 }
