@@ -1,0 +1,7 @@
+(set-logic QF_SLIA)
+(declare-const s String)
+(declare-const result String)
+(assert (or (and (str.contains s "../") (= result "safe"))
+            (and (not (str.contains s "../")) (= result s))))
+(assert (str.contains result "../"))
+(check-sat)

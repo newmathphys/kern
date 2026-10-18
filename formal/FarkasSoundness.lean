@@ -405,4 +405,20 @@ theorem clause_cancel_needs_truth (P : Prop) (h : ¬P) : ¬¬¬P := by
   intro hnnp
   exact hnnp h
 
+-- `unit-res` с несколькими клаузами: если ОСТАТОК ОДНОЙ клаузы совпал с
+-- заключением, шаг ДОКАЗАН, и результат НЕ зависит от остальных клауз.
+-- ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-ur-mismatch]`): цикл продолжался после
+-- успеха, и остаток ПОСЛЕДНЕЙ клаузы перезаписывал результат.
+theorem unit_res_remaining_is_concl (concl rest : Prop) :
+    (concl ∨ rest) → ¬rest → concl := by
+  intro h hnr
+  cases h with
+  | inl hc => exact hc
+  | inr hr => exact False.elim (hnr hr)
+
+theorem clause_derivation_independent (C1 C2 concl : Prop) (h : C1 → concl) :
+    (C1 ∧ C2) → concl := by
+  intro hx
+  exact h hx.1
+
 end KernFarkas

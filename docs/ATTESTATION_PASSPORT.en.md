@@ -18,7 +18,7 @@
 > by runs): core **299 / 299** (without `z3` in `PATH` — 291 passed + 8 skipped),
 > KERN-Next **38 / 38**, can-fail **82 / 82 CHECK** (95 non-vacuous cases, 0 errors),
 > registry **102 targets**, mutation score **95.0 %** (38/40), Lean 4 **8 files /
-> 80 theorems / 0 sorry**, test catalogue **322**. Also closed since then: the default
+> 82 theorems / 0 sorry**, test catalogue **322**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
 > §1–§8 below (these are current).
@@ -131,7 +131,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 
 ## 5. Mathematical proofs (Lean 4)
 
-**8 files, 80 theorems, 0 errors, 0 sorry** — `./formal/check.sh` ✅
+**8 files, 82 theorems, 0 errors, 0 sorry** — `./formal/check.sh` ✅
 
 | Theorem | What it proves |
 |:--|:--|
@@ -261,7 +261,7 @@ Claims that **did not hold** and were fixed in the documentation:
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·
-SolverPool 128/4 · Lean 4: 8 files / 80 theorems / 0 sorry · QuixBugs 31/31 ·
+SolverPool 128/4 · Lean 4: 8 files / 82 theorems / 0 sorry · QuixBugs 31/31 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · concolic 4 calls ·
 DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 

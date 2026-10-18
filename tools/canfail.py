@@ -225,6 +225,8 @@ FAULTABLE = [
     "tools/bounds_check.sh",
     "tools/loop_check.sh",
     "tools/state_inv_check.sh",
+    "tools/float_nan_check.sh",
+    "tools/string_contracts_check.sh",
     "examples/xray_demo.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
@@ -1718,6 +1720,27 @@ def case_model_verify_spurious():
 
 
 
+def case_float_nan_check():
+    """ПУНКТ 22. ЛОМАЕМ: доверенный шаг выдаём за проверенный ->
+    цель обязана покраснеть (требует trusted: 0)."""
+    patch(
+        "src/verifier/proof_check.zig",
+        "        saw_remaining = true;",
+        "        saw_remaining = false;  # ЛОМАЕМ: доверенный шаг за проверенный",
+    )
+    return "make float-nan-check"
+
+
+def case_string_contracts_check():
+    """ПУНКТ 23. ЛОМАЕМ: то же правило резолюции -> цель краснеет."""
+    patch(
+        "src/verifier/proof_check.zig",
+        "        saw_remaining = true;",
+        "        saw_remaining = false;  # ЛОМАЕМ: доверенный шаг за проверенный",
+    )
+    return "make string-contracts-check"
+
+
 def case_state_inv_check():
     """ПУНКТ 24. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта
     перестаёт ловиться -> цель обязана покраснеть."""
@@ -1992,6 +2015,8 @@ CASES = [
     ("bounds-check",    "BOUNDS: границы arr[i] проверены",       case_bounds_check),
     ("loop-check",      "LOOPS: инвариант и остановка циклов",   case_loop_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
+    ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),
+    ("string-contracts-check", "STRINGS: QF_S, trusted: 0",      case_string_contracts_check),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

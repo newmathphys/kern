@@ -280,6 +280,14 @@ loop-check: build
 state-inv-check: build
 	@bash tools/state_inv_check.sh
 
+# ЭШЕЛОН 4, ПУНКТ 22: модель IEEE-754 с NaN (trusted: 0 | holes: 0).
+float-nan-check: build
+	@bash tools/float_nan_check.sh
+
+# ЭШЕЛОН 4, ПУНКТ 23: строковые контракты QF_S (trusted: 0 | holes: 0).
+string-contracts-check: build
+	@bash tools/string_contracts_check.sh
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.

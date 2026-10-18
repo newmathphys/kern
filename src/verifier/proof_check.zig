@@ -3313,6 +3313,23 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
             // ОБОБЩЕНИЕ (пункт 3 v2.5): то же РАСЩЕПЛЕНИЕ ПО СЛУЧАЯМ, но для
             // ПРОИЗВОЛЬНОГО заключения: посылки ⊨ concl <=> для каждой
             // комбинации `{units} ∪ {picks} ∪ {¬concl}` несовместно.
+            // ЭТАП А: печать ИМЕННО этого (не сошедшегося) шага.
+            if (compat.envVar("KERN_DEBUG_LIA") != null) {
+                std.debug.print("[dbg-ur-mismatch] remaining={d} concl_lits={d}\n", .{ remaining.items.len, concl_lits.items.len });
+                std.debug.print("[dbg-ur-mismatch]   remaining: ", .{});
+                for (remaining.items) |r| {
+                    dumpSexp(r);
+                    std.debug.print(" | ", .{});
+                }
+                std.debug.print("\n[dbg-ur-mismatch]   concl: ", .{});
+                dumpSexp(concl);
+                std.debug.print("\n[dbg-ur-mismatch]   units={d} clauses={d}\n", .{ units.items.len, clauses.items.len });
+                for (clauses.items, 0..) |c2, j| {
+                    std.debug.print("[dbg-ur-mismatch]   clause[{d}] = ", .{j});
+                    dumpSexp(c2);
+                    std.debug.print("\n", .{});
+                }
+            }
             return checkBySplitting(c, units.items, clauses.items, concl);
         }
         if (concl_lits.items.len < remaining.items.len) return .bad;
@@ -3331,10 +3348,33 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
             }
             if (!found) return .bad; // литерал ПОТЕРЯН -> резолюция неверна
         }
+        // ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-ur-mismatch]`): если ОСТАТОК ЭТОЙ
+        // клаузы совпал с заключением — шаг ДОКАЗАН, и надо вернуть `.verified`
+        // НЕМЕДЛЕННО. Прежний `saw_remaining = true` продолжал цикл по ДРУГИМ
+        // клаузам, и остаток ПОСЛЕДНЕЙ клаузы (`[A, ¬B]`) перезаписывал
+        // результат -> уходили в `checkBySplitting` -> `.unverifiable`.
         saw_remaining = true;
+        return .verified;
     }
-
+        // ЭТАП А: печать ТОЛЬКО НЕУДАВШЕГОСЯ шага (того, что вернёт .unverifiable),
+        // чтобы видеть ровно его units/clauses/concl, а не те, что уже сошлись.
     if (!saw_remaining) {
+        if (compat.envVar("KERN_DEBUG_LIA") != null) {
+            std.debug.print("[dbg-ur-fail] НЕ сошёлся: units={d} clauses={d} concl_false={}\n", .{ units.items.len, clauses.items.len, concl_is_false });
+            for (units.items, 0..) |u, i| {
+                std.debug.print("[dbg-ur-fail]   unit[{d}] = ", .{i});
+                dumpSexp(u);
+                std.debug.print("\n", .{});
+            }
+            for (clauses.items, 0..) |c2, j| {
+                std.debug.print("[dbg-ur-fail]   clause[{d}] = ", .{j});
+                dumpSexp(c2);
+                std.debug.print("\n", .{});
+            }
+            std.debug.print("[dbg-ur-fail]   concl = ", .{});
+            dumpSexp(concl);
+            std.debug.print("\n", .{});
+        }
         if (concl_is_false) {
             if (clauses.items.len > 0) return .verified; // все клаузы опровергнуты
             // Без клауз нужна пара взаимно-дополняющих литералов.
