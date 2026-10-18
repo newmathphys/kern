@@ -435,14 +435,45 @@ fn collectStepsRec(c: *Ctx, e: Sexp) !void {
 
 /// Развернуть сокращения `let` (`$x42` -> его терм). Ограничение глубины
 /// защищает от циклов в подделанном выводе.
+/// БЮДЖЕТ РАСКРЫТИЯ `let`-СОКРАЩЕНИЙ (пункт 4 плана v2.5).
+///
+/// ЗАЧЕМ. Z3 сжимает DAG доказательства в дерево через `let`, поэтому один и
+/// тот же терм может быть назван МНОГО раз. Наивное раскрытие каждого имени в
+/// его тело даёт ЭКСПОНЕНЦИАЛЬНЫЙ рост: цепочка `$a0 = (+ $a1 $a1)`,
+/// `$a1 = (+ $a2 $a2)`, ... даёт 2^N узлов. Лимит ГЛУБИНЫ (128) от этого НЕ
+/// спасает — он ограничивает вложенность, а не общее число узлов.
+///
+/// ЧТО ДЕЛАЕМ. Считаем раскрытые узлы и при исчерпании бюджета ПРЕКРАЩАЕМ
+/// раскрытие, возвращая терм как есть. Это КОНСЕРВАТИВНО: нераскрытое имя
+/// не совпадёт с клаузой контракта, посылка окажется непривязанной, и вывод
+/// будет ОТКЛОНЁН (`premises_unbound`). То есть неполнота ведёт к отказу, а не
+/// к ложному «проверено».
+const EXPAND_NODE_BUDGET: usize = 200_000;
+
+/// Счётчик раскрытия: `left` — остаток бюджета, `used` — сколько узлов раскрыто.
+const ExpandBudget = struct {
+    left: usize = EXPAND_NODE_BUDGET,
+    used: usize = 0,
+};
+
 fn expand(c: *const Ctx, e: Sexp, depth: u32) Sexp {
+    var b = ExpandBudget{};
+    return expandB(c, e, depth, &b);
+}
+
+fn expandB(c: *const Ctx, e: Sexp, depth: u32, b: *ExpandBudget) Sexp {
     if (depth > 128) return e;
+    // Бюджет исчерпан: НЕ раскрываем дальше (консервативно — вывод будет
+    // отклонён как непривязанный, а не принят на веру).
+    if (b.left == 0) return e;
+    b.left -= 1;
+    b.used += 1;
     if (e.atom) |a| {
-        if (c.abbrev.get(a)) |v| return expand(c, v, depth + 1);
+        if (c.abbrev.get(a)) |v| return expandB(c, v, depth + 1, b);
         return e;
     }
     const out = c.arena.alloc(Sexp, e.items.len) catch return e;
-    for (e.items, 0..) |it, i| out[i] = expand(c, it, depth + 1);
+    for (e.items, 0..) |it, i| out[i] = expandB(c, it, depth + 1, b);
     return .{ .items = out };
 }
 
@@ -2328,3 +2359,30 @@ test "ХАРДКОР: mp отвергает ЧУЖУЮ голову посылк
     try std.testing.expect(checkMp(&c, try parseSexp(a, "(mp x (=> x y) y)")));
 }
 
+
+test "PROOF: let-БОМБА не раздувает память — бюджет раскрытия держит" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Цепочка `$a0 = (+ $a1 $a1)`, `$a1 = (+ $a2 $a2)`, ..., `$a40 = 1`.
+    // НАИВНОЕ раскрытие дало бы 2^40 узлов (терабайты памяти) — здесь обязан
+    // сработать БЮДЖЕТ, и вызов обязан ЗАВЕРШИТЬСЯ без OOM и без SEGV.
+    const N = 40;
+    var i: usize = 0;
+    while (i < N) : (i += 1) {
+        const nm = try std.fmt.allocPrint(a, "$a{d}", .{i});
+        const body = try std.fmt.allocPrint(a, "(+ $a{d} $a{d})", .{ i + 1, i + 1 });
+        try c.abbrev.put(nm, try parseSexp(a, body));
+    }
+    try c.abbrev.put("$a40", try parseSexp(a, "1"));
+    const root = try parseSexp(a, "$a0");
+    var b = ExpandBudget{};
+    const out = expandB(&c, root, 0, &b);
+    // 1) вызов ВЕРНУЛСЯ (иначе тест упал бы по таймауту/OOM);
+    // 2) бюджет соблюдён — раскрыто не больше, чем разрешено;
+    // 3) бюджет реально ИСЧЕРПАН (значит защита включилась, а не «повезло»).
+    try std.testing.expect(out.isList() or out.atom != null);
+    try std.testing.expect(b.used <= EXPAND_NODE_BUDGET);
+    try std.testing.expectEqual(@as(usize, 0), b.left);
+}

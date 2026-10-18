@@ -241,6 +241,51 @@ evidence, while duplicating the timeout the killer thread already enforces.
 
 ### 23.6 Numbers after Echelon 1 (part)
 
-Core tests **289/289** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
-test-fault OK · test catalogue **329** · defect registry 63 entries (#1-#123) ·
+Core tests **290/290** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
+test-fault OK · test catalogue **330** · defect registry 63 entries (#1-#123) ·
 `registry.py`: 104 targets, **81/81 CHECK** with a proven-can-fail case.
+
+### 23.7 Item 4 — `let` bindings: the gap was NOT the expansion, it was the blowup
+
+Measured first: `proof_check.zig` **already** walks `let` bindings (`collect()` fills
+`c.abbrev` / `c.stepexpr`, and `expand()` resolves them with a depth limit of 128). So the
+"support `let`" part of the item was done before this sprint.
+
+The REAL gap is the one the operator warned about: a depth limit bounds nesting, not the
+**total node count**. Z3 compresses a proof DAG into a tree via `let`, so the same term can
+be named many times; expanding every name into its body gives exponential growth (the chain
+`$a0 = (+ $a1 $a1)`, `$a1 = (+ $a2 $a2)`, ... needs 2^N nodes).
+
+Implemented: an explicit **expansion budget** (`EXPAND_NODE_BUDGET = 200_000`, counter
+`ExpandBudget{left, used}`). When the budget runs out, expansion STOPS and the term is
+returned as-is. This is **conservative**: an unexpanded name will not match a contract
+clause, so the premise becomes unbound and the proof is REJECTED (`premises_unbound`) —
+incompleteness leads to a refusal, never to a false "verified".
+Test: a 40-level `let` bomb (2^40 nodes if expanded naively) returns within the budget, and
+the test asserts the budget was actually EXHAUSTED (`left == 0`) — so the protection fired,
+rather than the input being small by luck.
+
+### 23.8 Items 3 and 1 are the SAME piece of work (measured finding)
+
+Raw proof dump for `audits/musl/abs.c` (3001 bytes, QF_LIA) shows the blocking shape:
+
+```lisp
+(unit-resolution @x210 (unit-resolution @x150 ((_ th-lemma arith) @x224 @x141 @x90 $x159) $x160)
+                         ((_ th-lemma arith) @x141 @x224 @x90 $x61) false)
+```
+
+Note: `(_ th-lemma arith)` here has **NO `farkas` keyword and NO weights**. The checker's
+`verifyFarkas()` verifies a certificate only when explicit non-negative weights are present;
+without them it returns `structural_only` (counted as trusted), which is exactly why the
+`abs` row is SKIP.
+
+A weightless arithmetic lemma can only be verified by **our own linear-arithmetic
+procedure**: negate the literals, conjoin them, and prove the system unsatisfiable.
+Fourier–Motzkin elimination gives a **sound** UNSAT answer (rationals ⊇ integers, so an
+unsatisfiable relaxation implies an unsatisfiable integer system), and is complete enough
+for the conjunctive fragment.
+
+So item 3 (#123) and item 1 (`builtin_lia.zig`) are **one piece of work**: build the FM core
+first, then use it to verify weightless `(_ th-lemma arith)` steps. Doing item 3 by
+"accepting those steps on trust" was rejected on purpose: it would turn `holes: 0` into
+fiction (defect #81).
