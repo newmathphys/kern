@@ -39,6 +39,7 @@ const std = @import("std");
 const z3 = @import("z3_bridge.zig");
 const unsat_core = @import("unsat_core.zig");
 const compat = @import("compat");
+const builtin_lia = @import("builtin_lia.zig");
 
 /// Итог аудита вывода.
 pub const ProofVerdict = struct {
@@ -1122,6 +1123,31 @@ const Lin = struct {
     }
 };
 
+/// Числовое значение литерала: атом `-1` ИЛИ список `(- 1)`.
+///
+/// ДЕФЕКТ (найден при работе над #123 на РЕАЛЬНОМ выводе Z3 для musl `abs.c`):
+/// Z3 печатает отрицательные множители как `(* (- 1) z3name!0)`, то есть
+/// числовой множитель — СПИСОК `(- 1)`, а не атом `-1`. `parseLin` искал только
+/// атом, поэтому такой множитель считался «второй нечисловой» и весь разбор
+/// падал -> лемма не переводилась -> `structural_only`. Здесь распознаются оба
+/// написания (это одно и то же число, никакого ослабления).
+fn numOf(e: Sexp) ?i64 {
+    if (!e.isList()) {
+        const a = e.atom orelse return null;
+        return std.fmt.parseInt(i64, a, 10) catch null;
+    }
+    if (e.items.len == 2) {
+        const h = e.items[0].atom orelse return null;
+        if (std.mem.eql(u8, h, "-")) {
+            if (e.items[1].atom) |a| {
+                const n = std.fmt.parseInt(i64, a, 10) catch return null;
+                return -n;
+            }
+        }
+    }
+    return null;
+}
+
 fn linAdd(dst: *Lin, src: *const Lin) bool {
     for (src.terms.items) |t| dst.add(t.name, t.coeff) catch return false;
     dst.constant += src.constant;
@@ -1161,14 +1187,10 @@ fn parseLin(c: *const Ctx, e: Sexp, sign: i64, out: *Lin) bool {
         var rest: ?Sexp = null;
         var count_num: usize = 0;
         for (e.items[1..]) |it| {
-            if (!it.isList()) {
-                if (it.atom) |a| {
-                    if (std.fmt.parseInt(i64, a, 10)) |n| {
-                        k *= n;
-                        count_num += 1;
-                        continue;
-                    } else |_| {}
-                }
+            if (numOf(it)) |n| {
+                k *= n;
+                count_num += 1;
+                continue;
             }
             if (rest != null) return false; // два нечисловых множителя
             rest = it;
@@ -1209,6 +1231,146 @@ fn negLiteralAsLeZero(c: *const Ctx, lit: Sexp, out: *Lin) bool {
 }
 
 pub const FarkasResult = enum { ok, structural_only, bad };
+
+// ---------------------------------------------------------------------------
+//  ПУНКТ 3 ПЛАНА v2.5: ЗВУЧИМАЯ ПРОВЕРКА НЕВЕСОВОЙ `(_ th-lemma arith)`
+// ---------------------------------------------------------------------------
+// ЗАЧЕМ. Z3 выдаёт арифметические леммы БЕЗ весов Фаркаша:
+//     ((_ th-lemma arith) @x224 @x141 @x90 $x159)
+// Раньше такие шаги оставались `structural_only` (доверенными), из-за чего
+// `musl src/stdlib/abs.c` в таблице аудитов висел в `SKIP` (дефект #123).
+//
+// ЧТО ДЕЛАЕМ (от противного). Шаг доказывает `p1 ∧ … ∧ pm ⊢ concl`.
+// Собираем систему: КАЖДАЯ ПОСЫЛКА КАК ЕСТЬ (`asLeZero(p_i)`, БЕЗ отрицания)
+// и ЗАКЛЮЧЕНИЕ С ОТРИЦАНИЕМ (`¬concl`). Несовместность системы = доказательство
+// импликации. Если `concl == false`, отрицание не добавляет ничего.
+//
+// ЗВУЧНОСТЬ. `{p1..pm} ∪ {¬concl}` несовместно ⟺ `p1 ∧ … ∧ pm ⇒ concl` —
+// тавтология. UNSAT встроенного решателя звучим (см. builtin_lia.zig:
+// несовместность над Q влечёт несовместность над Z). Если хотя бы одну формулу
+// перевести НЕ удалось — честный `structural_only`, а НЕ «ок».
+
+/// Формула, ДОКАЗАННАЯ узлом вывода.
+///   * ссылка `@xN` -> выражение из `stepexpr`, затем его заключение;
+///   * инлайновый шаг -> его заключение (`proved`);
+///   * литерал -> сам литерал.
+/// `null` — узел неизвестен (тогда лемма не проверяется).
+fn formulaOf(c: *const Ctx, node: Sexp) ?Sexp {
+    if (node.atom) |a| {
+        const se = c.stepexpr.get(a) orelse return null;
+        return proved(se);
+    }
+    if (isStepExpr(node)) return proved(node);
+    return node;
+}
+
+/// ПОЛОЖИТЕЛЬНАЯ форма литерала как `<= 0` (посылка берётся КАК ЕСТЬ):
+///   `(<= a b)` -> `a - b <= 0`;  `(< a b)` -> `a - b + 1 <= 0`
+///   `(>= a b)` -> `b - a <= 0`;  `(> a b)` -> `b - a + 1 <= 0`
+/// Равенство (`=`) НЕ переводим: оно требует ДВУХ неравенств, а потеря одного
+/// дала бы неполную систему. Честный отказ вместо тихой потери информации.
+fn literalAsLeZero(c: *const Ctx, lit: Sexp, out: *Lin) bool {
+    if (!lit.isList() or lit.items.len != 3) return false;
+    const h = lit.items[0].atom orelse return false;
+    var d = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (std.mem.eql(u8, h, "<=") or std.mem.eql(u8, h, "<")) {
+        if (!parseLin(c, lit.items[1], 1, &d)) return false;
+        if (!parseLin(c, lit.items[2], -1, &d)) return false;
+        if (std.mem.eql(u8, h, "<")) d.constant += 1;
+    } else if (std.mem.eql(u8, h, ">=") or std.mem.eql(u8, h, ">")) {
+        if (!parseLin(c, lit.items[2], 1, &d)) return false;
+        if (!parseLin(c, lit.items[1], -1, &d)) return false;
+        if (std.mem.eql(u8, h, ">")) d.constant += 1;
+    } else return false;
+    out.terms = d.terms;
+    out.constant = d.constant;
+    return true;
+}
+
+/// Перевести `Lin` чекера во встроенный решатель.
+fn pushLin(c: *const Ctx, l: Lin, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
+    const arr = c.arena.alloc(builtin_lia.Term, l.terms.items.len) catch return false;
+    for (l.terms.items, 0..) |t, i| arr[i] = .{ .name = t.name, .coeff = t.coeff };
+    out.append(.{ .terms = arr, .constant = l.constant }) catch return false;
+    return true;
+}
+
+/// ЛИТЕРАЛ как `<= 0` (БЕЗ отрицания). `(not X)` -> это `¬X`.
+fn asLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
+    var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (asNot(lit)) |inner| {
+        if (!negLiteralAsLeZero(c, inner, &l)) return false;
+    } else {
+        if (!literalAsLeZero(c, lit, &l)) return false;
+    }
+    return pushLin(c, l, out);
+}
+
+/// ОТРИЦАНИЕ литерала как `<= 0` (заключение берётся С ОТРИЦАНИЕМ).
+fn negateAsLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
+    var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (asNot(lit)) |inner| {
+        if (!literalAsLeZero(c, inner, &l)) return false;
+    } else {
+        if (!negLiteralAsLeZero(c, lit, &l)) return false;
+    }
+    return pushLin(c, l, out);
+}
+
+/// ПРОВЕРИТЬ НЕВЕСОВУЮ `((_ th-lemma arith) p1 … pm concl)`.
+fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
+    var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+    const dbg = compat.envVar("KERN_DEBUG_LIA") != null;
+    if (dbg) std.debug.print("[dbg-lia] шаг: аргументов {d}\n", .{st.items.len});
+    // Посылки — ВСЕ аргументы, кроме последнего (последний есть заключение).
+    if (st.items.len >= 2) {
+        for (st.items[1 .. st.items.len - 1]) |pnode| {
+            const f = formulaOf(c, pnode) orelse {
+                if (dbg) std.debug.print("[dbg-lia] посылка НЕ разрешена (нет формулы)\n", .{});
+                return .structural_only;
+            };
+            const fe = expand(c, f, 0);
+            if (!asLeZero(c, fe, &cons)) {
+                if (dbg) {
+                    const h = if (fe.isList() and fe.items.len > 0)
+                        (fe.items[0].atom orelse "list-head")
+                    else
+                        "atom";
+                    std.debug.print("[dbg-lia] посылка не переведена: форма={s} элементов={d}\n", .{ h, fe.items.len });
+                }
+                return .structural_only;
+            }
+            if (dbg) std.debug.print("[dbg-lia] посылка OK\n", .{});
+        }
+    }
+    // Заключение — С ОТРИЦАНИЕМ.
+    if (clause.isList()) {
+        const h = clause.items[0].atom orelse return .structural_only;
+        if (std.mem.eql(u8, h, "or")) {
+            for (clause.items[1..]) |lit| {
+                if (!negateAsLeZero(c, lit, &cons)) return .structural_only;
+            }
+        } else if (!negateAsLeZero(c, clause, &cons)) return .structural_only;
+    } else {
+        // Атом: допустим только `false` (его отрицание — пустое).
+        const a = clause.atom orelse return .structural_only;
+        if (!std.mem.eql(u8, a, "false")) return .structural_only;
+    }
+
+    var s = builtin_lia.Solver.init(c.arena);
+    defer s.deinit();
+    const vres = builtin_lia.checkUnsat(&s, cons.items);
+    if (dbg) {
+        std.debug.print("[dbg-lia] ограничений {d} -> {s}\n", .{
+            cons.items.len, @tagName(std.meta.activeTag(vres)),
+        });
+    }
+    return switch (vres) {
+        .unsat => .ok,
+        else => .structural_only,
+    };
+}
+
 
 /// Проверить сертификат Фаркаша: коэффициенты, число литерал и арифметику.
 fn verifyFarkas(c: *const Ctx, head: Sexp, clause: Sexp) FarkasResult {
@@ -1488,7 +1650,17 @@ pub fn verifyProof(
             }
         } else if (std.mem.eql(u8, r, "th-lemma")) {
             const clause = expand(&c, proved(st), 0);
-            switch (verifyFarkas(&c, st.items[0], clause)) {
+            var res = verifyFarkas(&c, st.items[0], clause);
+            if (res == .structural_only) {
+                // ПУНКТ 3 ПЛАНА v2.5 (дефект #123): весов Фаркаша в выводе НЕТ
+                // (`((_ th-lemma arith) p1 … pm concl)`), поэтому сертификат не
+                // проверить напрямую. Пробуем доказать лемму САМИ: посылки как
+                // есть + отрицание заключения -> несовместность через
+                // Фурье — Моцкина. `.ok` ставится ТОЛЬКО если система доказана
+                // несовместной; иначе шаг остаётся доверенным (не «ок»).
+                res = verifyThLemmaArith(&c, st, clause);
+            }
+            switch (res) {
                 .ok => v.farkas_checked += 1,
                 .structural_only => v.farkas_structural += 1,
                 .bad => v.farkas_bad += 1,
@@ -2385,4 +2557,31 @@ test "PROOF: let-БОМБА не раздувает память — бюдже�
     try std.testing.expect(out.isList() or out.atom != null);
     try std.testing.expect(b.used <= EXPAND_NODE_BUDGET);
     try std.testing.expectEqual(@as(usize, 0), b.left);
+}
+
+test "ПУНКТ 3: ВЕРНАЯ невесовая th-lemma принимается (система несовместна)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Посылка (<= x 3) и заключение (<= x 5): импликация — ТАВТОЛОГИЯ.
+    // Система {x<=3} ∪ {¬(x<=5)} = {x<=3, x>=6} НЕСОВМЕСТНА.
+    try c.stepexpr.put("@x10", try parseSexp(a, "(asserted (<= x 3))"));
+    const st = try parseSexp(a, "((_ th-lemma arith) @x10 (<= x 5))");
+    const clause = expand(&c, proved(st), 0);
+    try std.testing.expectEqual(FarkasResult.ok, verifyThLemmaArith(&c, st, clause));
+}
+
+test "ПУНКТ 3: ФАЛЬШИВНАЯ невесовая th-lemma ОТВЕРГАЕТСЯ (система совместна)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Посылка (<= x 5), заключение (<= x 3): импликация НЕ тавтология (x = 4).
+    // Система {x<=5} ∪ {¬(x<=3)} = {x<=5, x>=4} СОВМЕСТНА, поэтому шаг НЕ
+    // должен быть принят как доказанный — иначе чекер верил бы на слово.
+    try c.stepexpr.put("@x10", try parseSexp(a, "(asserted (<= x 5))"));
+    const st = try parseSexp(a, "((_ th-lemma arith) @x10 (<= x 3))");
+    const clause = expand(&c, proved(st), 0);
+    try std.testing.expectEqual(FarkasResult.structural_only, verifyThLemmaArith(&c, st, clause));
 }
