@@ -393,3 +393,54 @@ return `.verified`.
 
 **What is NOT claimed.** `trusted: 15` is not zero: the remaining trusted steps are mostly
 boolean-atom `rewrite`s. `trusted: 0` for this proof is separate work and is NOT claimed.
+
+### 23.12 Closing the gap to `trusted: 0` — measured trajectory 15 -> 8
+
+`abs.c` is accepted as `[PROOF VERIFIED]`, but with trusted steps left. The goal set by the
+operator is `trusted: 0`. Work proceeds **one rule at a time**, each step preceded by a dump
+(`dumpSexp`) and each step committed separately. Every step below was closed by **proving**
+it, never by relaxing `.bad` to `.unverifiable`.
+
+| Step | What was measured first | What was fixed | trusted |
+|:--|:--|:--|--:|
+| 1 | `[dbg-combo]` printed the exact untranslatable literal: `(not (or (not A) (not B)))` — a CONJUNCTION by De Morgan | `asLeZero`: `(= X Y)` -> TWO inequalities `X-Y<=0` and `Y-X<=0`; `(and …)`; `(not (or …))` -> De Morgan | 14 |
+| 2 | splitting was wired only to `concl == false` | `unitsPlusPicksUnsat(..., neg_concl)`; `checkBySplitting(..., concl)`; fallback for arbitrary conclusions | 13 |
+| 3 | `[dbg-trusted]` showed `monotonicity` failing | `verifyMonotonicity` used ONLY the first premise; now accumulates substitutions over ALL premises to a fixed point (8 rounds max) | 11 |
+| 4 | `[dbg-defax]` printed the expanded clause `(or (or (not A) (not B)) B)` — a PROPOSITIONAL tautology, not an arithmetic one | `isTautologyClause`: `flattenOr` + search for a `l` / `¬l` pair (structural OR canonical comparison) + arithmetic path | 9 |
+| 5A | `[dbg-introdef]` printed `(and (or (not (>= a 0)) (= z3name!1 a)) (or (>= a 0) (= z3name!1 (* (- 1) a))))` — the definition `z3name!1 = ite(a>=0, a, -a)` | `verifyIntroDef`: STRUCTURE (two clauses, same name, opposite conditions, `(= z A)` / `(= z B)`) + FRESHNESS (`z` does not occur in `C`, `A`, `B`) | 8 |
+
+### 23.13 A metric that was read wrong: `premises bound: 2/3` is NOT a defect
+
+The counter prints `bound/total` where **`total` includes both `asserted` AND `hypothesis`**
+(local assumptions). In `abs.c`: `asserted = 2` (BOTH bound), `hypothesis = 1`. Therefore
+`premises_unbound = 0` already, which is exactly what `checksPass()` requires. Proof: the new
+`[dbg-unbound]` diagnostic (prints the unbound premise plus every contract clause) **never
+fired**. The `3/3` target came from misreading the metric — the third element is a hypothesis,
+which by construction is neither bound nor unbound.
+
+### 23.14 Two hypotheses were DISPROVEN by measurement (recorded, not hidden)
+
+* *"`premiseTerm` does not resolve inline sub-steps"* — it does: `[dbg-ur]` printed
+  `units=1 clauses=2`, i.e. both clauses and the unit were seen. The real blocker was
+  `ComboResult.unknown` being reported as `sat` ("could not translate" treated as "satisfiable"),
+  which made the step `.bad` — a false alarm in the most dangerous direction.
+* *"`def-axiom` is a linear tautology"* — it is a **propositional** one; the first, purely
+  linear attempt changed nothing, and only the dump showed why.
+
+### 23.15 Diagnostic tooling that settled every question (kept in the code)
+
+* `KERN_DEBUG_TRUSTED=1` — prints EVERY trusted step with its rule AND its S-expression;
+* `KERN_DEBUG_LIA=1` — prints premise translation, clause combinations and the exact
+  untranslatable literal;
+* `dumpSexp()` — prints any S-expression (used in the `[dbg-*]` lines above).
+
+### 23.16 What remains (9 -> 8 done; 8 left)
+
+`5 rewrite | 2 unit-resolution | 1 lemma`. Planned as separate micro-steps:
+* **5B**: dump the `@x214` subtree, implement `verifyLemma` (walk the subtree over `@xN`
+  references with a `visited` set; require `proved(@x214) == false`; every `(hypothesis H)`
+  inside must have its negation in `flattenOr($x89)`) + canonical `$x89 = ¬$x121` matching —
+  this should also close the 2 dependent `unit-resolution`;
+* **5C**: disjunctive `¬concl` in `checkBySplitting` + `(not (= X Y))` as a 2-literal clause
+  `(X-Y+1<=0) ∨ (Y-X+1<=0)` -> two-way rewrite equivalence for the boolean-arithmetic case;
+* **5D**: the 4 remaining term-level `rewrite`s, by their exact dump.
