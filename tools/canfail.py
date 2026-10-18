@@ -222,6 +222,7 @@ FAULTABLE = [
     "tools/xray_check.sh",
     "tools/gen_tests_check.sh",
     "tools/simplify_check.sh",
+    "tools/bounds_check.sh",
     "examples/xray_demo.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
@@ -1723,7 +1724,7 @@ def case_bounds_check():
         "            if ce is not None:",
         "            if False:  # ЛОМАЕМ: игнорируем контрпримеры границ",
     )
-    return "make xray-check"
+    return "make bounds-check"
 
 
 def case_simplify_check():

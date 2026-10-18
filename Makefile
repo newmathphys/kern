@@ -266,6 +266,11 @@ gen-tests-check: build
 simplify-check: build
 	@bash tools/simplify_check.sh
 
+# ЭШЕЛОН 4, ПУНКТ 21: границы массивов (включая проверку ОТСУТСТВИЯ
+# ложного срабатывания на функции с гардами).
+bounds-check: build
+	@bash tools/bounds_check.sh
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.
