@@ -641,3 +641,30 @@ not change any verdict).
 **HONEST STATUS: the >= 95 % target is NOT met.** This is an open acceptance
 item, not a pass: 4 of 7 survivors live in the NEW Echelon 1 code and need
 targeted tests in a follow-up iteration.
+
+**GATE 4 — ATTEMPT TO CLOSE SURVIVORS: honest outcome.** Four targeted tests
+were added and each kill was VERIFIED BY APPLYING the mutation manually:
+`proof_check.zig:288 [false->true]` (sexpEqNum: lists of DIFFERENT length are not
+equal -> 1 test fails), `:1920 [>=->>]` (asLeZero handles `(not (or Y))` with a
+SINGLE disjunct), `model_extract.zig:66 [and->or]` (renderValue must NOT fold
+`(- 42 7)` because it contains a space), `model_extract.zig:245 [>=->>]`
+(truncated input -> `Malformed`, no out-of-bounds read). The diagnostic line
+`proof_check.zig:1184 [!=->==]` is now EXCLUDED from mutation (same class as
+defect #106: a debug print cannot change a verdict).
+
+**CORRECTION to §23.23: the score did NOT rise — it is 80.0 % (32/40)**, and the
+survivors CHANGED (`1937`, `z3_bridge:52`, `model_extract:295`,
+`kimg_writer:209`, `2070`, `1203`, `2084`; only the last two of the previous set
+remained).
+
+**KEY FINDING (a tool defect requiring its own iteration):** `sample_stratified`
+with a fixed `seed` RE-DRAWS sites after any edit, because the site set changed.
+So ">= 95 %" is a MOVING target: closing some sites PUSHES others into the
+sample. Scores are not comparable across runs until sampling is STABLE (e.g. a
+canonical site ordering plus a deterministic fraction), or until new files are
+mutated over the FULL site set without sampling.
+
+**HONEST STATUS: the >= 95 % target is NOT met (80.0 %).** Open acceptance item.
+The added tests are real improvements (4 mutants killed, verified by applying the
+mutations), but systematically closing ALL defensive branches of the new code
+requires a stable sample — otherwise the task is not well-posed.

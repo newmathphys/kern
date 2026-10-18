@@ -518,3 +518,30 @@ test "MODEL CHECK: пустой контракт -> ok с нулём прове�
     try std.testing.expectEqual(@as(usize, 0), r.ok);
 }
 
+
+// =========================================================================
+//  РУБЕЖ 4 (мутационный обстрел): тесты, УБИВАЮЩИЕ выживших мутантов.
+// =========================================================================
+
+// Убивает `model_extract.zig:66 [and->or]`: значение `(- 42 7)` содержит
+// ПРОБЕЛ внутри, поэтому сворачивать его в `-42 7` НЕЛЬЗЯ (это уже не одно
+// число). Мутант `or` сделал бы условие истинным и испортил значение.
+test "МУТАНТ 66: renderValue НЕ сворачивает (- 42 7) — внутри пробел" {
+    const got = try renderValue(std.testing.allocator, "(- 42 7)");
+    defer std.testing.allocator.free(got);
+    try std.testing.expectEqualStrings("(- 42 7)", got);
+    // Контроль: одиночное число сворачивается штатно.
+    const ok = try renderValue(std.testing.allocator, "(- 42)");
+    defer std.testing.allocator.free(ok);
+    try std.testing.expectEqualStrings("-42", ok);
+}
+
+// Убивает `model_extract.zig:245 [>=->>]` — проверка ДОСТИЖЕНИЯ КОНЦА входа
+// (`i >= t.len`). На ОБОРВАННОМ терме обязан вернуться честный `Malformed`;
+// мутант `>` пошёл бы читать `t[i]` за границей среза (panic).
+test "МУТАНТ 245: обрыв входа -> Malformed (без выхода за границы)" {
+    var i: usize = 0;
+    try std.testing.expectError(EvalError.Malformed, evalTerm("(+ 1", &i, &.{}, 0));
+    var j: usize = 0;
+    try std.testing.expectError(EvalError.Malformed, evalTerm("(- 3", &j, &.{}, 0));
+}

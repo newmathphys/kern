@@ -3658,14 +3658,19 @@ fn faultVerifyProof(allocator: std.mem.Allocator) !void {
 //  `tools/mutate_zig.py --max 60 --seed 7`.
 // =========================================================================
 
-// Убивает `proof_check.zig:288 [false->true]` — `sexpEqNum`: атом против
-// списка НЕ равен, даже если внутри списка тот же текст.
-test "МУТАНТ 288: sexpEqNum(список, атом) = false" {
+// Убивает `proof_check.zig:288 [false->true]` — `sexpEqNum`: СПИСКИ РАЗНОЙ
+// ДЛИНЫ не равны. (Проверка длины — единственный барьер между сравнением
+// поэлементно и ложным «равно».)
+test "МУТАНТ 288: sexpEqNum — списки РАЗНОЙ длины не равны" {
     var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer ar.deinit();
     const a = ar.allocator();
+    // 4 элемента против 5 — длины разные.
+    try std.testing.expect(!sexpEqNum(try parseSexp(a, "(<= a 0)"), try parseSexp(a, "(<= a 0 0)")));
+    // Атом против списка тоже НЕ равен.
     try std.testing.expect(!sexpEqNum(try parseSexp(a, "(<= a 0)"), try parseSexp(a, "x")));
     try std.testing.expect(!sexpEqNum(try parseSexp(a, "x"), try parseSexp(a, "(<= a 0)")));
+    // Контроль: числовая нормализация работает.
     try std.testing.expect(sexpEqNum(try parseSexp(a, "(- 5)"), try parseSexp(a, "-5")));
 }
 
@@ -3708,4 +3713,17 @@ test "МУТАНТ 2140: контрарная пара НЕ-сравнений -
     const nc = try parseSexp(a, "(not p)");
     try std.testing.expectEqual(ComboResult.unsat,
         unitsPlusPicksUnsat(&c, &units, &picks, nc));
+}
+
+// Убивает `proof_check.zig:1920 [>=->>]`: де-Морган для `(not (or Y))`
+// обязан работать и при ОДНОМ дизъюнкте (внутренний список из ДВУХ элементов).
+// Мутант `> 2` пропустил бы такую форму и вернул `false`.
+test "МУТАНТ 1920: asLeZero обрабатывает (not (or Y)) с одним дизъюнктом" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    var out = std.array_list.Managed(builtin_lia.Lin).init(a);
+    const lit = try parseSexp(a, "(not (or (not (>= x 0))))");
+    try std.testing.expect(asLeZero(&c, lit, &out));
 }
