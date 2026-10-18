@@ -526,3 +526,22 @@ NEGATIVE counterpart: identical directions (`(and (<= x 0) (<= x 0))`) rejected;
 right-hand term rejected; non-complementary `ite` conditions rejected.
 
 **Trajectory:** 15 -> 14 -> 13 -> 11 -> 9 -> 8 -> 7 -> **4** (`2 unit-resolution | 2 rewrite`).
+
+### 23.21 Micro-step 5G-2: form (4) via `or`-congruence with disjunctive negation (trusted 4 -> 3)
+
+The last rewrite of form (4) is `(or A L2) <=> (or A R2)` with the SAME first disjunct `A`
+(byte-identical, `sexpEq`). So it suffices to prove `L2 <=> R2`, which needs TWO implications.
+The obstacle was measured: `negateAsLeZero(R2)` failed, because `¬R2` is a DISJUNCTION
+(`¬(not (or …)) = (or …)`), not a conjunction.
+
+Implemented:
+* `negAlternatives()` — decomposes `¬to` into ALTERNATIVES (`¬to = OR(alts)`), each an
+  alternative being a conjunction of constraints:
+  `(not (or Y1..Yk))` -> one alternative per `Yi`; `(and X1..Xk)` -> one per `¬Xi`;
+  `(= X Y)` -> two strict inequalities `(X-Y+1<=0)`, `(Y-X+1<=0)`; otherwise one `¬to`;
+* `impliesLinear()` — checks `{from} ∧ ¬to` unsatisfiable by verifying EVERY alternative
+  (the distributivity law), through `builtin_lia`;
+* `orCongruence()` — same first disjunct, then two-way `impliesLinear` on the second.
+
+**Measured:** `rewrite (linear): 13 -> 14`, `trusted: 4 -> 3`.
+**Trajectory:** 15 -> 14 -> 13 -> 11 -> 9 -> 8 -> 7 -> 4 -> **3** (`2 unit-resolution | 1 rewrite`).

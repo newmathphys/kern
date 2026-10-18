@@ -869,6 +869,9 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (antisymmetryZero(l, r)) return .verified;
     if (eqTransferZero(l, r)) return .verified;
     if (iteSwapEq(c, l, r)) return .verified;
+    // ФОРМА (4) ИЗ ДАМПА `[dbg-rw]` (микро-шаг 5Г-2): КОНГРУЭНЦИЯ `or` с
+    // двусторонней линейной проверкой вторых дизъюнктов.
+    if (orCongruence(c, l, r)) return .verified;
     if (compat.envVar("KERN_DEBUG_LIA") != null) {
         std.debug.print("[dbg-rw] не проверено: LHS=", .{});
         dumpSexp(l);
@@ -1239,6 +1242,134 @@ fn termEqLinear(c: *const Ctx, a: Sexp, b: Sexp) bool {
     if (sexpEq(a, b)) return true;
     if (linDiffZero(c, a, b)) |z| return z;
     return false;
+}
+
+/// ОТРИЦАНИЕ литерала как `<= 0` (заключение берётся С ОТРИЦАНИЕМ).
+fn negateAsLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
+    // `(or X1..Xk)`: `¬(X1 ∨ … ∨ Xk) = ¬X1 ∧ … ∧ ¬Xk` — КОНЪЮНКЦИЯ, поэтому
+    // добавляем отрицание КАЖДОГО дизъюнкта. ИЗМЕРЕНО на `musl abs.c`: именно
+    // эта форма стоит в правой части rewrite формы (4)
+    // (`(not (or (not C) (not D)))`), и без неё двусторонняя проверка не
+    // переводила отрицание.
+    if (lit.isList() and lit.items.len >= 2) {
+        if (lit.items[0].atom) |h| {
+            if (std.mem.eql(u8, h, "or")) {
+                for (lit.items[1..]) |x| {
+                    if (!negateAsLeZero(c, x, out)) return false;
+                }
+                return true;
+            }
+        }
+    }
+    var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (asNot(lit)) |inner| {
+        if (!literalAsLeZero(c, inner, &l)) return false;
+    } else {
+        if (!negLiteralAsLeZero(c, lit, &l)) return false;
+    }
+    return pushLin(c, l, out);
+}
+
+/// Альтернативы для ОТРИЦАНИЯ формулы `to`: `¬to = OR(альтернатив)`, каждая
+/// альтернатива — НАБОР ограничений (конъюнкция). Возвращает `false`, если
+/// разложить нельзя (тогда шаг остаётся доверенным).
+///   * `(not (or Y1..Yk))` -> `¬to = (or Y1..Yk)` -> альтернативы по одной `Yi`;
+///   * `(and X1..Xk)`       -> `¬to = ¬X1 ∨ … ∨ ¬Xk`;
+///   * `(= X Y)`            -> `¬to = (X<Y) ∨ (X>Y)` -> две строгие неравенства;
+///   * иначе                -> одна альтернатива `¬to` (как конъюнкция).
+fn negAlternatives(c: *const Ctx, to: Sexp, alts: *std.array_list.Managed(std.array_list.Managed(builtin_lia.Lin))) bool {
+    if (isNotT(to)) {
+        const inner = to.items[1];
+        if (inner.isList() and inner.items.len >= 2) {
+            if (inner.items[0].atom) |h| {
+                if (std.mem.eql(u8, h, "or")) {
+                    for (inner.items[1..]) |y| {
+                        var g = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+                        if (!asLeZero(c, y, &g)) return false;
+                        alts.append(g) catch return false;
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+    if (to.isList() and to.items.len >= 2) {
+        if (to.items[0].atom) |h| {
+            if (std.mem.eql(u8, h, "and")) {
+                for (to.items[1..]) |x| {
+                    var g = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+                    if (!negateAsLeZero(c, x, &g)) return false;
+                    alts.append(g) catch return false;
+                }
+                return true;
+            }
+        }
+    }
+    if (isEq3(to)) {
+        // ¬(X = Y) над Z:  (X - Y + 1 <= 0) ∨ (Y - X + 1 <= 0)
+        var g1 = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+        var d1 = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+        if (!parseLin(c, to.items[1], 1, &d1)) return false;
+        if (!parseLin(c, to.items[2], -1, &d1)) return false;
+        d1.constant += 1;
+        if (!pushLin(c, d1, &g1)) return false;
+        var g2 = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+        var d2 = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+        if (!parseLin(c, to.items[2], 1, &d2)) return false;
+        if (!parseLin(c, to.items[1], -1, &d2)) return false;
+        d2.constant += 1;
+        if (!pushLin(c, d2, &g2)) return false;
+        alts.append(g1) catch return false;
+        alts.append(g2) catch return false;
+        return true;
+    }
+    var g = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+    if (!negateAsLeZero(c, to, &g)) return false;
+    alts.append(g) catch return false;
+    return true;
+}
+
+/// `from ⊨ to` для ЛИНЕЙНОГО фрагмента: `{from} ∧ ¬to` НЕСОВМЕСТНО.
+/// Отрицание `to` может быть ДИЗЪЮНКЦИЕЙ — тогда проверяем КАЖДУЮ альтернативу
+/// (это закон дистрибутивности: `¬to = ∨ альтернатив`).
+/// Звучимо: несовместность каждой альтернативы даёт встроенный решатель.
+fn impliesLinear(c: *const Ctx, from: Sexp, to: Sexp) bool {
+    var base = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+    if (!asLeZero(c, from, &base)) return false;
+    var alts = std.array_list.Managed(std.array_list.Managed(builtin_lia.Lin)).init(c.arena);
+    if (!negAlternatives(c, to, &alts)) return false;
+    if (alts.items.len == 0) return false;
+    for (alts.items) |g| {
+        var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+        for (base.items) |x| cons.append(x) catch return false;
+        for (g.items) |x| cons.append(x) catch return false;
+        var s = builtin_lia.Solver.init(c.arena);
+        defer s.deinit();
+        const v = builtin_lia.checkUnsat(&s, cons.items);
+        if (std.meta.activeTag(v) != .unsat) return false;
+    }
+    return true;
+}
+
+/// ФОРМА (4) ИЗ ДАМПА `[dbg-rw]`: КОНГРУЭНЦИЯ ДИЗЪЮНКЦИИ.
+///   `(or A L2)` <=> `(or A R2)` при ПОБАЙТОВО одинаковом `A` (`sexpEq`).
+/// Достаточно доказать `L2 <=> R2` в линейном фрагменте — ДВУМЯ проверками:
+/// `L2 ⊨ R2` и `R2 ⊨ L2`. Это и есть случай `(or A (= z3name!1 T))` против
+/// `(or A (not (or (not (>= D 0)) (not (<= D 0)))))`, где `D` — та же разность.
+fn orCongruence(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    if (!isOr2(l) or !isOr2(r)) return false;
+    if (!sexpEq(l.items[1], r.items[1])) return false;
+    const l2 = l.items[2];
+    const r2 = r.items[2];
+    if (sexpEq(l2, r2)) return true;
+    return impliesLinear(c, l2, r2) and impliesLinear(c, r2, l2);
+}
+
+/// `(or X Y)` — дизъюнкция ровно из двух членов.
+fn isOr2(e: Sexp) bool {
+    if (!e.isList() or e.items.len != 3) return false;
+    const h = e.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, "or");
 }
 
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
@@ -1712,17 +1843,6 @@ fn asLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.L
     }
     var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
     if (!literalAsLeZero(c, lit, &l)) return false;
-    return pushLin(c, l, out);
-}
-
-/// ОТРИЦАНИЕ литерала как `<= 0` (заключение берётся С ОТРИЦАНИЕМ).
-fn negateAsLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
-    var l = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
-    if (asNot(lit)) |inner| {
-        if (!literalAsLeZero(c, inner, &l)) return false;
-    } else {
-        if (!negLiteralAsLeZero(c, lit, &l)) return false;
-    }
     return pushLin(c, l, out);
 }
 
