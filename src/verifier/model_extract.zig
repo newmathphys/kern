@@ -545,3 +545,17 @@ test "МУТАНТ 245: обрыв входа -> Malformed (без выхода 
     var j: usize = 0;
     try std.testing.expectError(EvalError.Malformed, evalTerm("(- 3", &j, &.{}, 0));
 }
+
+// Убивает `model_extract.zig:295 [==->!=]` — ветка `or` в вычислителе.
+// Мутант `!=` пропустил бы её и вернул неверный ответ.
+test "МУТАНТ 295: evalTerm(or true false) = true" {
+    var i: usize = 0;
+    const v = try evalTerm("(or true false)", &i, &.{}, 0);
+    try std.testing.expect(v.boolean);
+    var j: usize = 0;
+    const w = try evalTerm("(or false false)", &j, &.{}, 0);
+    try std.testing.expect(!w.boolean);
+    var k: usize = 0;
+    const u = try evalTerm("(or false true)", &k, &.{}, 0);
+    try std.testing.expect(u.boolean);
+}

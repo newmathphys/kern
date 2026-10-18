@@ -668,3 +668,33 @@ mutated over the FULL site set without sampling.
 The added tests are real improvements (4 mutants killed, verified by applying the
 mutations), but systematically closing ALL defensive branches of the new code
 requires a stable sample — otherwise the task is not well-posed.
+
+**DEFECT #124 FIXED: the mutator is no longer a "moving target".**
+`sample_stratified(seed=7)` used ONE sequential PRNG over files in sorted order,
+so any change in the number of sites in one file shifted the PRNG state and
+PULLED DIFFERENT sites in ALL other files. The "score" was therefore not
+comparable across runs: 95.0 % -> 82.5 % -> 80.0 % on the same code and seed was
+not a regression but a re-draw.
+
+**Fix (Option A).** Each site now gets an INDEPENDENT score
+`sha256(seed:file:line_text:mutation:dup)`; sites within a file are taken in that
+order. The key is the line TEXT, not the line number, so inserting a line
+anywhere no longer shifts the sample.
+
+**PROVEN BY EXPERIMENT:** removing 187 sites in `proof_check.zig` did NOT change
+the sample in the other 14 files — **27 of 27 matched**. Two consecutive runs are
+identical. A `--full-file <path>` flag was added (Option B: all sites of a file,
+no sampling).
+
+**GATE 4: 85.0 % (34/40), and the sample is now REPRODUCIBLE.** Additionally
+killed (each verified by APPLYING the mutation): `builtin_lia.zig:223 [!=->==]`,
+`proof_check.zig:1308 [or->and]`, `:1920 [>=->>]`, `:288 [false->true]`,
+`model_extract.zig:66 [and->or]`, `:245 [>=->>]`.
+
+**HONEST STATUS: 85.0 % (34/40); the >= 95 % target is NOT met.** Six reproducible
+survivors remain (stable thanks to #124): `blake3_simd8.zig:154 [<=-<]`,
+`kimg_writer.zig:212 [false->true]`, `proof_check.zig:1892 [false->true]`
+(allocator catch in `pushLin`), `z3_bridge.zig:283 [true->false]`
+(killer-thread stop flag), `proof_check.zig:1259 [false->true]`, `:49
+[false->true]`. Three of them are defensive branches on allocator/thread failure
+paths requiring a `FailingAllocator` test or a timeout scenario — next iteration.

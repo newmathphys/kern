@@ -3727,3 +3727,55 @@ test "МУТАНТ 1920: asLeZero обрабатывает (not (or Y)) с од�
     const lit = try parseSexp(a, "(not (or (not (>= x 0))))");
     try std.testing.expect(asLeZero(&c, lit, &out));
 }
+
+// Убивает `proof_check.zig:1937 [and->or]` — `asLeZero`: равенство с НЕВЕРНОЙ
+// арностью `(= a b c)` не должно приниматься (мутант `or` пропускал бы его
+// по длине и разбирал как `(= a b)`, молча теряя третий терм).
+test "МУТАНТ 1937: asLeZero отвергает (= a b c) — неверная арность" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    var out = std.array_list.Managed(builtin_lia.Lin).init(a);
+    try std.testing.expect(!asLeZero(&c, try parseSexp(a, "(= a b c)"), &out));
+}
+
+// Убивает `proof_check.zig:2070 [or->and]` — `checkMp`: посылка из ДВУХ
+// элементов не является импликацией/равенством; мутант убрал бы ранний
+// отказ и полез бы в `p2.items[2]` за границей среза (panic).
+test "МУТАНТ 2070: checkMp отвергает посылку из 2 элементов (без panic)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp a (= X) false)")));
+    try std.testing.expect(!checkMp(&c, try parseSexp(a, "(mp a (not X) false)")));
+}
+
+// Убивает `proof_check.zig:2084 [or->and]` — `isClause`: АТОМ клаузой не
+// является. Мутант `and` не отсекал бы атом и падал на `t.items[0]`.
+test "МУТАНТ 2084: isClause(атом) = false (без panic)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    try std.testing.expect(!isClause(try parseSexp(a, "x")));
+    try std.testing.expect(!isClause(try parseSexp(a, "false")));
+    try std.testing.expect(isClause(try parseSexp(a, "(or a b)")));
+    try std.testing.expect(!isClause(try parseSexp(a, "(and a b)")));
+}
+
+// Убивает `proof_check.zig:1308 [or->and]` — `iteSwapEq`: если ХОТЯ БЫ одна
+// сторона не является `ite`, правило НЕ применяется. Мутант `and` пропустил бы
+// такой случай и полез бы в `t2.items[1]` (для атома — выход за границы).
+test "МУТАНТ 1308: iteSwapEq отвергает, если правая часть НЕ ite" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    const l = try parseSexp(a, "(= x (ite (< a 0) (- a) a))");
+    const r = try parseSexp(a, "(= x y)");
+    try std.testing.expect(!iteSwapEq(&c, l, r));
+    // Контроль: ПРОТИВОПОЛОЖНОЕ условие + ПЕРЕСТАВЛЕННЫЕ ветви -> правило срабатывает.
+    const r2 = try parseSexp(a, "(= x (ite (<= 0 a) a (- a)))");
+    try std.testing.expect(iteSwapEq(&c, l, r2));
+}

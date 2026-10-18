@@ -328,3 +328,22 @@ test "LIA: сумма противоречивых границ по ДВУМ п
     };
     try std.testing.expectEqual(std.meta.Tag(Verdict).unsat, tag(checkUnsat(&s, &sys)));
 }
+
+// Убивает `builtin_lia.zig:223 [!=->==]` — ОДНОЧЛЕННЫЕ ограничения обязаны
+// учитываться при поиске целой точки. Мутант `==` пропускал бы именно их,
+// и система `x <= 5` / `-x <= 0` осталась бы без кандидатов -> честный, но
+// НЕПОЛНЫЙ `unknown` вместо найденной точки.
+test "МУТАНТ 223: одночленные ограничения дают точку (не unknown)" {
+    var s = Solver.init(std.testing.allocator);
+    defer s.deinit();
+    const t_x = [_]Term{.{ .name = "x", .coeff = 1 }};
+    const t_nx = [_]Term{.{ .name = "x", .coeff = -1 }};
+    // ВАЖНО: точка НЕ совпадает с нулём (x ∈ [3, 5]), иначе достаточно было бы
+    // вырожденного кандидата 0 и мутант выжил бы.
+    const input = [_]Lin{
+        .{ .terms = &t_x, .constant = -5 }, //  x - 5 <= 0  (x <= 5)
+        .{ .terms = &t_nx, .constant = 3 }, // -x + 3 <= 0  (x >= 3)
+    };
+    const v = checkUnsat(&s, &input);
+    try std.testing.expect(std.meta.activeTag(v) == .sat);
+}

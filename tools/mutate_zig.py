@@ -148,7 +148,10 @@ def collect(root):
                 # `true`/`false`; теперь — все виды мутаций.
                 if _in_string(code, m.start()):
                     continue
-                sites.append((rel, ln, pat, rep, name))
+                # СТАБИЛЬНЫЙ КЛЮЧ (дефект #124): текст строки + имя мутации.
+                # НЕ номер строки — иначе вставка строки в ЛЮБОМ месте файла
+                # сдвигала бы выборку.
+                sites.append((rel, ln, pat, rep, name, code.strip()))
     return sites
 
 
@@ -285,18 +288,29 @@ def release_lock(lock_obj):
         pass
 
 
-def sample_stratified(sites, total, per_file_min, seed):
-    """Стратифицированная выборка мутантов (дефект: перекос на один файл).
+def _stable_score(seed, rel, code, name, dup):
+    """НЕЗАВИСИМАЯ оценка сайта: sha256(seed:файл:текст:мутация:дубль).
 
-    ЗАЧЕМ. `random.sample` по ВСЕМ сайтам даёт перекос: в `proof_check.zig`
-    266 из 416 сайтов (64%), поэтому ~26 из 40 мутантов приходились на ОДИН
-    файл, а на `eq2.zig`, `kimg_reader.zig`, `hash_algo.zig` — по 0-1.
-    Такой скор описывает один файл, а не покрытие всего кода.
+    Дефект #124 («движущаяся мишень»): раньше был ОДИН сквозной ГПСЧ
+    `random.Random(seed)`, идущий по файлам по порядку. Любое изменение числа
+    сайтов в одном файле (добавленный тест, исключённая диагностика) сдвигало
+    состояние ГПСЧ и ВЫТАСКИВАЛО ДРУГИЕ сайты во ВСЕХ остальных файлах —
+    скор переставал быть сопоставимым между прогонами.
+
+    Теперь оценка зависит ТОЛЬКО от самого сайта: добавление 15-го файла или
+    правка одного модуля физически не может изменить выборку в остальных.
+    """
+    h = hashlib.sha256(f"{seed}:{rel}:{code}:{name}:{dup}".encode("utf-8")).digest()
+    return int.from_bytes(h[:8], "big")
+
+
+def sample_stratified(sites, total, per_file_min, seed):
+    """Стратифицированная выборка мутантов — УСТОЙЧИВАЯ (дефект #124).
 
     Схема: (1) гарантированный минимум на каждый файл; (2) остаток —
-    пропорционально размеру файла.
+    пропорционально размеру файла. Внутри файла сайты упорядочены по
+    `_stable_score`, а не по позиции в ГПСЧ, поэтому выборка НЕ «плывёт».
     """
-    rng = random.Random(seed)
     by_file = {}
     for s in sites:
         by_file.setdefault(s[0], []).append(s)
@@ -304,14 +318,33 @@ def sample_stratified(sites, total, per_file_min, seed):
     picked = []
     for rel in sorted(by_file):
         lst = by_file[rel]
-        picked.extend(rng.sample(lst, min(per_file_min, len(lst))))
+        scored = []
+        seen = {}
+        for s in lst:
+            code, name = s[5], s[4]
+            k = f"{code}|{name}"
+            dup = seen.get(k, 0)
+            seen[k] = dup + 1
+            scored.append((_stable_score(seed, rel, code, name, dup), s))
+        scored.sort(key=lambda z: z[0])
+        picked.extend(s for _, s in scored[:min(per_file_min, len(scored))])
 
     rest = total - len(picked)
     if rest > 0:
-        chosen = set(map(id, picked))
-        pool = [s for s in sites if id(s) not in chosen]
-        picked.extend(rng.sample(pool, min(rest, len(pool))))
-    rng.shuffle(picked)
+        chosen = set(id(s) for s in picked)
+        pool = []
+        for rel, lst in by_file.items():
+            seen = {}
+            for s in lst:
+                if id(s) in chosen:
+                    continue
+                code, name = s[5], s[4]
+                k = f"{code}|{name}"
+                dup = seen.get(k, 0)
+                seen[k] = dup + 1
+                pool.append((_stable_score(seed, rel, code, name, dup), s))
+        pool.sort(key=lambda z: z[0])
+        picked.extend(s for _, s in pool[:rest])
     return picked[:total]
 
 
@@ -366,7 +399,7 @@ def run_one(work, site):
     `SURVIVED`). Откат в `finally` — копия обязана вернуться в исходное
     состояние даже при исключении, иначе следующий мутант наложится на этот.
     """
-    rel, ln, pat, rep, _name = site
+    rel, ln, pat, rep, _name, _code = site
     path = os.path.join(work, rel)
     orig = open(path, encoding="utf-8").read()
     lines = orig.split("\n")
@@ -384,6 +417,9 @@ def main():
     ap.add_argument("--root", default=".")
     ap.add_argument("--max", type=int, default=40)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--full-file", action="append", default=[], metavar="PATH",
+                    help="Вариант Б: прогнать ВСЕ сайты указанного файла БЕЗ сэмплинга "
+                         "(можно повторять)")
     ap.add_argument("--per-file-min", type=int, default=2,
                     help="минимум мутантов на КАЖДЫЙ файл (стратификация)")
     ap.add_argument("--jobs", type=int, default=1,
@@ -424,8 +460,14 @@ def main():
 
     sites = collect(root)
     print(f"[i] найдено сайтов мутации: {len(sites)}; берём не более {args.max}", flush=True)
+    # ВАРИАНТ Б: полный прогон указанных файлов БЕЗ сэмплинга.
+    if args.full_file:
+        want = set(args.full_file)
+        sites = [s for s in sites if s[0] in want]
+        print("[i] ВАРИАНТ Б: полный набор сайтов без сэмплинга для: "
+              + ", ".join(sorted(want)), flush=True)
     random.seed(args.seed)
-    if len(sites) > args.max:
+    if not args.full_file and len(sites) > args.max:
         sites = sample_stratified(sites, args.max, args.per_file_min, args.seed)
         dist = {}
         for s in sites:
@@ -457,7 +499,7 @@ def main():
             status = run_one(w, site)
         finally:
             dir_q.put(w)
-        rel, ln, _pat, _rep, name = site
+        rel, ln, _pat, _rep, name, _code = site
         with print_lock:
             done[0] += 1
             results[idx] = (site, status)
@@ -479,7 +521,7 @@ def main():
     killed = survived = kc = kt = 0
     survivors = []
     for site, status in results:
-        rel, ln, _pat, _rep, name = site
+        rel, ln, _pat, _rep, name, _code = site
         if status == "KILLED_TIMEOUT":
             killed += 1
             kt += 1
