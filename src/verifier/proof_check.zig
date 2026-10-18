@@ -1074,20 +1074,41 @@ fn verifyNotOrElim(c: *const Ctx, st: Sexp) bool {
 /// получаться ПОДСТАНОВКОЙ `A -> B` в один из термов заключения.
 fn verifyMonotonicity(c: *const Ctx, st: Sexp) bool {
     if (st.items.len < 3) return false;
-    const p = premiseTerm(c, st.items[1]);
     const q = expand(c, proved(st), 0);
-    if (!isEq3(p) or !isEq3(q)) return false;
-    const a = p.items[1];
-    const b = p.items[2];
-    const x = q.items[1];
+    if (!isEq3(q)) return false;
     const y = q.items[2];
-    if (subst(c, x, a, b, 0)) |s| {
-        if (sexpEq(s, y)) return true;
+    var x = q.items[1];
+    // ДЕФЕКТ (измерен на `musl abs.c`): раньше использовалась ТОЛЬКО ПЕРВАЯ
+    // посылка (`st.items[1]`), а в реальном выводе их НЕСКОЛЬКО:
+    //   (monotonicity (rewrite (= $x67 $x117)) (rewrite (= $x82 $x121))
+    //                 (= $x110 $x140))
+    // Из-за этого заключение не сходилось и шаг уходил в доверенные.
+    // Теперь замены применяются НАКОПИТЕЛЬНО, в обе стороны, до неподвижной
+    // точки (число раундов ограничено — защита от циклов).
+    var rounds: u32 = 0;
+    while (rounds < 8) : (rounds += 1) {
+        var changed = false;
+        for (st.items[1 .. st.items.len - 1]) |pnode| {
+            const p = premiseTerm(c, pnode);
+            if (!isEq3(p)) continue;
+            const a = p.items[1];
+            const b = p.items[2];
+            if (subst(c, x, a, b, 0)) |s| {
+                if (!sexpEq(s, x)) {
+                    x = s;
+                    changed = true;
+                }
+            } else if (subst(c, x, b, a, 0)) |s| {
+                if (!sexpEq(s, x)) {
+                    x = s;
+                    changed = true;
+                }
+            }
+        }
+        if (sexpEq(x, y)) return true;
+        if (!changed) break;
     }
-    if (subst(c, y, a, b, 0)) |s| {
-        if (sexpEq(s, x)) return true;
-    }
-    return false;
+    return sexpEq(x, y);
 }
 
 // =========================================================================
