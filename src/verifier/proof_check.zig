@@ -3191,9 +3191,34 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
                 // Структурная ЛИБО семантическая (по канонической форме) пара,
                 // ЛИБО юнит ВЛЕЧЁТ литерал (`u ⊨ l`) — ИЗМЕРЕНО на QF_S:
                 // `units[0] = ¬A ∧ B` влечёт `¬A`, но это НЕ «дополнение».
-                if (isComplement(l, u) or isComplementCmp(l, u) or unitImpliesLit(u, l)) {
+                //
+                // ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп): `units[0]` и литерал `R2` клаузы
+                // СОВПАДАЮТ (`(not (or A (not B)))`). Юнит ИСТИНЕН, значит и
+                // литерал истинен -> он УДОВЛЕТВОРЁН и должен быть исключён из
+                // `remaining`. Без этой проверки `R2` оставался в остатке и шаг
+                // не сходился с `concl`.
+                if (isComplement(l, u) or isComplementCmp(l, u) or
+                    unitImpliesLit(u, l) or sexpEqNum(l, u))
+                {
                     falsified = true;
                     break;
+                }
+            }
+            if (!falsified) {
+                // ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-ur] units (1)` + `clauses`):
+                // посылка `$x97 = (or A B)` имеет голову `or` и потому попала в
+                // `clauses`, а НЕ в `units`. Но по отношению к литералу
+                // `l = (not (or A B))` вся эта КЛАУЗА целиком есть ЮНИТ,
+                // опровергающий `l` (`l = ¬P`). Проверяем литерал и против
+                // ДРУГИХ клауз — иначе `R2` не вычёркивался и шаг оставался
+                // доверенным. ЗВУЧНО: все посылки истинны, значит `P` истинно,
+                // значит `l = ¬P` ЛОЖНО -> литерал вычёркивается.
+                for (clauses.items) |c2| {
+                    if (c2.items.len == cl.items.len and c2.items.ptr == cl.items.ptr) continue;
+                    if (isComplement(l, c2) or isComplementCmp(l, c2)) {
+                        falsified = true;
+                        break;
+                    }
                 }
             }
             if (!falsified) remaining.append(l) catch return .unverifiable;

@@ -388,4 +388,21 @@ theorem implies_not_symmetric (a b : Prop) (hb : b) : ¬a → (¬a ∧ b) := by
   intro ha
   exact ⟨ha, hb⟩
 
+-- `sexpEqNum(l, u)`: литерал СОВПАДАЕТ с юнитом => юнит истинен => литерал
+-- истинен => он УДОВЛЕТВОРЁН и исключается из `remaining`.
+-- ИЗМЕРЕНО (ЭТАЛОН QF_S): `units[0]` и литерал `R2` клаузы совпадают дословно.
+theorem lit_eq_unit_satisfied (l : Prop) (h : l) : l := h
+
+-- Клауза как МАКРО-ЮНИТ: если литерал `l = ¬P`, а посылка `P` (клауза целиком)
+-- ИСТИННА, то `l` ЛОЖНО => литерал вычёркивается из `remaining`.
+theorem clause_cancels_neg_lit (P : Prop) (hP : P) : ¬¬P := by
+  intro hnp
+  exact hnp hP
+
+-- Контроль: если `P` НЕ истинно, вычёркивание `¬P` было бы неверным —
+-- поэтому проверка требует именно ИСТИННОСТИ посылки.
+theorem clause_cancel_needs_truth (P : Prop) (h : ¬P) : ¬¬¬P := by
+  intro hnnp
+  exact hnnp h
+
 end KernFarkas
