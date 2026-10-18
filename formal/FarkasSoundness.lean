@@ -297,4 +297,41 @@ theorem bool_split_not_unsat (lin : Prop) (P : Bool → Prop)
   intro hbad
   exact hbad ⟨h.1, Or.inl h.2⟩
 
+-- 7. IEEE-754 ПОРЯДКОВАЯ МОДЕЛЬ С NaN (Пункт 22): структура `(is_nan, val)`.
+--    ИЗМЕРЕНО: Z3 на QF_FP делал 1289 шагов bit-blast (213 доверенных), а на этой
+--    модели — 56 шагов. Здесь доказывается, ЧТО именно даёт модель.
+structure IeeeFloat where
+  is_nan : Bool
+  val : Int
+
+def fp_zero : IeeeFloat := ⟨false, 0⟩
+
+/-- Порядковое сравнение IEEE-754: ЛЮБОЕ сравнение с NaN — ЛОЖНО. -/
+def fp_lt (x y : IeeeFloat) : Bool :=
+  (!x.is_nan) && (!y.is_nan) && decide (x.val < y.val)
+
+def fp_geq (x y : IeeeFloat) : Bool :=
+  (!x.is_nan) && (!y.is_nan) && decide (x.val ≥ y.val)
+
+/-- БАГОВАННЫЙ гард `if x < 0.0 then 0.0 else x` ПРОПУСКАЕТ NaN:
+    при `x = NaN` условие `fp_lt NaN 0` ЛОЖНО, поэтому возвращается `NaN`,
+    и постусловие `result ≥ 0.0` НАРУШЕНО. Это и есть ловушка NaN. -/
+theorem clamp_nan_buggy_refuted :
+    let x : IeeeFloat := ⟨true, 0⟩
+    let res := if fp_lt x fp_zero then fp_zero else x
+    fp_geq res fp_zero = false := by
+  decide
+
+/-- ЗАЩИЩЁННЫЙ гард (с проверкой `is_nan`) даёт `result ≥ 0.0` для ЛЮБОГО `x`. -/
+theorem clamp_nan_safe_proven (x : IeeeFloat) :
+    let res := if x.is_nan then fp_zero else if fp_lt x fp_zero then fp_zero else x
+    fp_geq res fp_zero = true := by
+  by_cases hx : x.is_nan = true
+  · simp [fp_geq, fp_zero, hx]
+  · have hxf : x.is_nan = false := by cases hx' : x.is_nan <;> simp_all
+    by_cases hl : x.val < 0
+    · simp [fp_lt, fp_geq, fp_zero, hxf, hl]
+    · simp [fp_lt, fp_geq, fp_zero, hxf, hl]
+      omega
+
 end KernFarkas

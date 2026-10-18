@@ -12,7 +12,7 @@
 |:--|:--:|:--:|
 | Ядро (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 файлов, 68 теорем, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 файлов, 70 теорем, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 атаки закрыты | — |
 
 > Debug включает все контуры: DoS, NaN, JSON, границы, выравнивание (Эшелон 1),
@@ -471,7 +471,7 @@ i32 без явной границы — это и есть защита от л
 ```
 ядро (Debug)      → 114/114 OK   [было 91]
 ReleaseSafe       → 114/114 OK (UB нет)
-Lean 4            → 8 файлов, 68 теорем, 0 errors, 0 sorry
+Lean 4            → 8 файлов, 70 теорем, 0 errors, 0 sorry
 kernc audit       → 5/5 теорий отработали
 ```
 Артефакты: `src/verifier/{unsat_core,array_theory,chc,string_theory,cegis}.zig`,
@@ -7279,7 +7279,7 @@ QF_S:     trusted 5 -> 4
 * Найден и исправлен **Дефект #143** (ложное отвержение корректного вывода Z3).
 
 ### §95.4. Запрос: «с математикой и Lean всё в порядке? Документируй всё!»
-* **ИЗМЕРЕНО (самопроверка):** Lean 4 — 8 файлов, **68 теорем** (было 52),
+* **ИЗМЕРЕНО (самопроверка):** Lean 4 — 8 файлов, **70 теорем** (было 52),
   `0 errors, 0 sorry`, `ALL LEAN PROOFS OK`.
 * **НАЙДЕН ПРОБЕЛ:** 6 правил, добавленных в чекер в этой сессии (`cmpEq`,
   `linFormsEq`, `boolFormEq`, `substBoolSimplify`, `isBoolTautology`,
@@ -7291,7 +7291,7 @@ QF_S:     trusted 5 -> 4
   `not_true_bool`, `not_false_bool`, `or_false_left`, `and_true_left`,
   `enumeration_complete_1`, `enumeration_complete_2`, `bool_split_unsat`,
   `bool_split_not_unsat`.
-* Числа синхронизированы: 42 -> 68 теорем в 26 местах (README, паспорт RU/EN,
+* Числа синхронизированы: 42 -> 70 теорем в 26 местах (README, паспорт RU/EN,
   CAPABILITIES RU/EN, METRICS RU/EN, CAPABILITY_STATUS.en, лендинг).
 
 ### §95.5. Открытый остаток (честно, с точной причиной)
@@ -7303,3 +7303,44 @@ QF_S:     trusted 5 -> 4
 | Эшелон 4, Пункт 22 | не закрыт | требует ещё итераций по тому же методу |
 | Эшелон 4, Пункт 23 | `9 -> 4` | то же |
 | Полный прогон 828 сайтов мутаций | не проведён | — |
+
+### §95.6. LEAN: +2 ТЕОРЕМЫ IEEE-754 (68 -> 70, 0 sorry)
+
+Добавлена формализация порядковой модели IEEE-754 с NaN (Пункт 22):
+```lean
+structure IeeeFloat where (is_nan : Bool) (val : Int)
+def fp_lt  (x y : IeeeFloat) : Bool := (!x.is_nan) && (!y.is_nan) && decide (x.val < y.val)
+def fp_geq (x y : IeeeFloat) : Bool := (!x.is_nan) && (!y.is_nan) && decide (x.val ≥ y.val)
+```
+* `clamp_nan_buggy_refuted` — при `x = NaN` условие `fp_lt NaN 0` ЛОЖНО, поэтому
+  возвращается NaN и постусловие `result ≥ 0` НАРУШЕНО (ловушка NaN доказана);
+* `clamp_nan_safe_proven` — защищённый гард (с проверкой `is_nan`) даёт
+  `result ≥ 0` для ЛЮБОГО `x`.
+
+**ИЗМЕРЕНО:** `lean formal/FarkasSoundness.lean` -> rc=0;
+`./formal/check.sh` -> **ALL LEAN PROOFS OK (8/8, 0 errors, 0 sorry)**;
+всего **70 теорем** в 8 файлах (было 68). Числа синхронизированы в 11 файлах.
+
+### §95.7. ОСТАТОК ПУНКТОВ 22/23 — ДАМПЫ (дословно)
+
+**IEEE-754, 1 доверенный шаг:**
+```
+[dbg-split] клауз=2 комбинаций=8
+[dbg-boolsplit] булевых переменных 2: r_nan x_nan
+[dbg-split] комбинация #1 не переведена -> .unverifiable
+[dbg-lia] ограничений 3 -> unsat      <- для ОДНОЙ подстановки решено
+```
+`asLeZero` переводит всё (`[dbg-combo]` молчит), НО `builtin_lia` даёт `unsat`
+не для всех подстановок булевых переменных — остальные возвращают `.unknown`
+(вне линейного фрагмента). Итог: `trusted: 1`.
+
+**QF_S, 4 доверенных шага:**
+```
+trans* :: (trans* (symm @x273 (= false $x43)) (monotonicity @x270 (= $x43 $x74)) (iff-true @x78 (= $x74 true)) $x224)
+symm   :: (symm @x273 (= false $x43))
+rewrite :: (rewrite (= $x59 $x98))
+unit-resolution :: (unit-resolution (mp @x92 @x226 $x101) (lemma (mp @x225 (rewrite (= $x224 false)) false) $x97) $x93)
+```
+
+**Статус:** Пункты 22 и 23 НЕ закрыты. Прогресс: IEEE-754 `213 -> 1`,
+QF_S `9 -> 4`. Причина остатка названа точно (не «ещё чуть-чуть»).

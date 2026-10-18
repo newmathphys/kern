@@ -21,7 +21,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 |:--|:--|
 | Тесты ядра | **299** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **38** |
-| Формальные доказательства | **8 файлов Lean 4** (68 теорем), 0 errors, 0 `sorry` |
+| Формальные доказательства | **8 файлов Lean 4** (70 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | **95.0%** (38/40 убито), охват **14 файлов / 420 сайтов**, выжившие **доказанно эквивалентны**. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`) |
 | Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **337 passed / 8 skipped / 0 failed** (лог QEMU 2026-10-18, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
@@ -90,7 +90,7 @@ make audit-manifest
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
 Core (Debug)          : PASS — 299 / 299 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
-Kernel Invariants     : PASS — Lean 4 (8 files, 68 theorems, 0 errors, 0 sorry)
+Kernel Invariants     : PASS — Lean 4 (8 files, 70 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)

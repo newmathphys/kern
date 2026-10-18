@@ -197,7 +197,7 @@ but that is not a "1.01× guarantee".
 
 # Formal guarantees (Lean 4)
 
-8 files, **68 theorems, 0 `errors`, 0 `sorry`**. Compiled by `./formal/check.sh`.
+8 files, **70 theorems, 0 `errors`, 0 `sorry`**. Compiled by `./formal/check.sh`.
 
 | Theorem | File | What it proves |
 |:--|:--|:--|
