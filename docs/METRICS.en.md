@@ -698,3 +698,14 @@ survivors remain (stable thanks to #124): `blake3_simd8.zig:154 [<=-<]`,
 (killer-thread stop flag), `proof_check.zig:1259 [false->true]`, `:49
 [false->true]`. Three of them are defensive branches on allocator/thread failure
 paths requiring a `FailingAllocator` test or a timeout scenario — next iteration.
+
+**TEST B DONE: metamorphic invariance of LIA.** A unit test
+`METAMORPHIC: invariance under row reversal, variable renaming and x3 scaling`
+was added to `src/verifier/builtin_lia.zig`: **20 systems** (10 UNSAT, 10 SAT) x
+**3 transformations** = **60 invariance checks**, all passing. Rationale:
+(a) row reversal — Fourier-Motzkin eliminates variables in order, so a different
+order takes DIFFERENT paths; (b) renaming (`x <-> y`) changes the elimination
+order; (c) scaling by `k = 3 > 0` (`sum + c <= 0` <=> `3*sum + 3*c <= 0`) also
+exercises gcd reduction. The verdict must be STRICTLY the same; the test also
+checks the base verdict against the EXPECTED one (10 unsat / 10 sat), otherwise
+"invariance" would degenerate into "always unknown".

@@ -347,3 +347,75 @@ test "МУТАНТ 223: одночленные ограничения дают �
     const v = checkUnsat(&s, &input);
     try std.testing.expect(std.meta.activeTag(v) == .sat);
 }
+
+// =========================================================================
+//  ИСПЫТАНИЕ Б: МЕТАМОРФНАЯ ИНВАРИАНТНОСТЬ (Metamorphic Testing).
+//  Математическая истинность системы линейных неравенств НЕ зависит от:
+//    (а) ПОРЯДКА неравенств (Фурье — Моцкин исключает переменные по порядку,
+//        поэтому разный порядок идёт РАЗНЫМИ путями);
+//    (б) ИМЁН переменных (переименование меняет порядок исключения);
+//    (в) умножения неравенства на ПОЛОЖИТЕЛЬНУЮ константу k > 0
+//        (`sum + c <= 0` <=> `k*sum + k*c <= 0`).
+//  Вердикт обязан быть СТРОГО тем же (.unsat == .unsat, .sat == .sat).
+// =========================================================================
+
+/// Система: 3 строки вида `c0*x + c1*y + c2*z + k <= 0` (коэффициенты при
+/// неиспользуемых переменных — 0). Возвращает ограничения с указанными
+/// МАСШТАБОМ и ПЕРЕСТАНОВКОЙ имён (0 = как есть, 1 = поменять x и y).
+fn buildMeta(a: std.mem.Allocator, rows: []const [4]i64, scale: i64, swap: bool) ![]Lin {
+    var out = std.array_list.Managed(Lin).init(a);
+    for (rows) |r| {
+        var names = [_][]const u8{ "x", "y", "z" };
+        var coefs = [_]i64{ r[0], r[1], r[2] };
+        if (swap) {
+            std.mem.swap([]const u8, &names[0], &names[1]);
+            std.mem.swap(i64, &coefs[0], &coefs[1]);
+        }
+        var terms = std.array_list.Managed(Term).init(a);
+        for (coefs, 0..) |c, i| {
+            if (c != 0) try terms.append(.{ .name = names[i], .coeff = c * scale });
+        }
+        try out.append(.{ .terms = terms.items, .constant = r[3] * scale });
+    }
+    return out.items;
+}
+
+fn metaTag(v: Verdict) std.meta.Tag(Verdict) {
+    return std.meta.activeTag(v);
+}
+
+test "METAMORPHIC: инвариантность к порядку строк, переименованию переменных и масштабу x3" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var i: usize = 0;
+    var checked: usize = 0;
+    while (i < 20) : (i += 1) {
+        // 10 НЕСОВМЕСТНЫХ (x+y >= 0, но x+y <= -(i+1)) и 10 СОВМЕСТНЫХ.
+        const c: i64 = if (i < 10) @intCast(i + 1) else -@as(i64, @intCast(i - 9));
+        const rows = [_][4]i64{
+            .{ 1, 1, 0, c }, // x + y + c <= 0
+            .{ -1, 0, 0, 0 }, // -x <= 0  (x >= 0)
+            .{ 0, -1, 0, 0 }, // -y <= 0  (y >= 0)
+        };
+        var s = Solver.init(a);
+        const base = checkUnsat(&s, try buildMeta(a, &rows, 1, false));
+        const want = metaTag(base);
+        if (i < 10) try std.testing.expect(want == .unsat) else try std.testing.expect(want == .sat);
+
+        // (а) РАЗВОРОТ порядка строк.
+        var rev: [3][4]i64 = undefined;
+        for (rows, 0..) |r, j| rev[rows.len - 1 - j] = r;
+        var s2 = Solver.init(a);
+        try std.testing.expectEqual(want, metaTag(checkUnsat(&s2, try buildMeta(a, &rev, 1, false))));
+        // (б) ПЕРЕИМЕНОВАНИЕ переменных (x <-> y) — меняет порядок исключения.
+        var s3 = Solver.init(a);
+        try std.testing.expectEqual(want, metaTag(checkUnsat(&s3, try buildMeta(a, &rows, 1, true))));
+        // (в) МАСШТАБ k = 3 (положительный).
+        var s4 = Solver.init(a);
+        try std.testing.expectEqual(want, metaTag(checkUnsat(&s4, try buildMeta(a, &rows, 3, false))));
+        checked += 3;
+    }
+    // 20 систем x 3 трансформации = 60 проверок инвариантности.
+    try std.testing.expectEqual(@as(usize, 60), checked);
+}
