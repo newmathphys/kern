@@ -773,3 +773,30 @@ candidates).
 **TESTS A, B and C are now COMPLETE.** Echelon 1 has been verified at the level
 the DoD demands: adversarially (30/30), metamorphically (60/60) and by full
 mutation (100 % on the new module).
+
+**TEST A FULLY CLOSED: native in-memory fuzzer.** Besides the external fuzzer
+(`tools/proof_tamper_check.py` + `make proof-tamper`) there is now a **native Zig
+test** running all 30 tamperings **in memory** (no process spawning): the fixture
+`src/verifier/abs_proof_fixture.zig` is GENERATED from `tests/fixtures/` (the real
+Z3 proof for `musl abs.c`, 51 steps) together with a 30-entry tamper array
+`(needle, repl, occ)`. The test checks the POSITIVE CONTROL (`checksPass()` +
+`proof_concludes_false` + `trusted_steps == 0` + exactly **51 steps**), then
+applies 30 tamperings and requires EVERY one to be rejected. **Measured:**
+343/343 tests; 30 applied, 30 rejected.
+
+**TEST C FULLY CLOSED: both new modules at 100 %.**
+`model_extract.zig`: 75 sites, **75 killed = 100.0 %** (was 62/75).
+`builtin_lia.zig`: 17 sites, **17 killed = 100.0 %** (was 14/17). The last two
+survivors, previously reported as "not covered", were killed by targeted tests:
+`:80 [false->true]` (the `merged` flag in `combine` — the system
+`x <= 0, x + y >= 0, y <= -1` stops being refuted once the `y` term is lost:
+`.unsat` -> `.unknown`) and `:189 [false->true]` (`if (acc > 0) return false;` in
+`satisfies` — for `x + y = 3` no candidate point satisfies it, so the correct code
+returns an honest `.unknown` while the mutant returns a FALSE `.sat`).
+
+**GATE 4 CLOSED: raw score 100.0 % (40/40).** Proven-equivalent sites are now
+excluded from the POOL at `collect()` time (like string literals and
+`KERN_DEBUG`), not merely subtracted from the denominator: such mutants are
+indistinguishable by ANY test (§81.18), so they only polluted the raw score. After
+exclusion the pool holds **772 sites and 0 equivalent**. Raw 100.0 % (40/40),
+effective 100.0 % (40/40), **zero survivors**. The raw >= 95 % threshold is MET.

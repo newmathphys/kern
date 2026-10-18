@@ -448,3 +448,44 @@ test "МУТАНТ 126: бюджет MAX_VARS — противоречие на 
     const v = checkUnsat(&s, &cons);
     try std.testing.expect(std.meta.activeTag(v) == .unknown);
 }
+
+// Убивает `builtin_lia.zig:80 [false->true]` — флаг `merged` в `combine`.
+// Мутант теряет слагаемые из ВТОРОГО ограничения, которых нет в первом:
+// при исключении `x` из `x <= 0` и `-x - y <= 0` пропадает `y`, и система
+// `x <= 0, x + y >= 0, y <= -1` (НЕСОВМЕСТНАЯ) перестаёт опровергаться.
+test "МУТАНТ 80: combine не теряет слагаемые при слиянии" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var s = Solver.init(a);
+    const t_x = [_]Term{.{ .name = "x", .coeff = 1 }};
+    const t_xy = [_]Term{ .{ .name = "x", .coeff = -1 }, .{ .name = "y", .coeff = -1 } };
+    const t_y = [_]Term{.{ .name = "y", .coeff = 1 }};
+    const input = [_]Lin{
+        .{ .terms = &t_x, .constant = 0 }, // x <= 0
+        .{ .terms = &t_xy, .constant = 0 }, // -x - y <= 0  (x + y >= 0)
+        .{ .terms = &t_y, .constant = 1 }, // y + 1 <= 0   (y <= -1)
+    };
+    const v = checkUnsat(&s, &input);
+    try std.testing.expect(std.meta.activeTag(v) == .unsat);
+}
+
+// Убивает `builtin_lia.zig:189 [false->true]` — `if (acc > 0) return false;`
+// в `satisfies`. Мутант объявляет ПЕРВУЮ же нарушающую точку валидной.
+// Система `x + y = 3` рационально совместна, но НИ ОДНА из точек-кандидатов
+// (0, ±1, ±100, границы) её не удовлетворяет: корректный код даёт честный
+// `unknown`, мутант — ложный `.sat`.
+test "МУТАНТ 189: satisfies отвергает невалидную точку" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var s = Solver.init(a);
+    const t_xy = [_]Term{ .{ .name = "x", .coeff = 1 }, .{ .name = "y", .coeff = 1 } };
+    const t_nxy = [_]Term{ .{ .name = "x", .coeff = -1 }, .{ .name = "y", .coeff = -1 } };
+    const input = [_]Lin{
+        .{ .terms = &t_xy, .constant = -3 }, //  x + y - 3 <= 0  (x + y <= 3)
+        .{ .terms = &t_nxy, .constant = 3 }, // -x - y + 3 <= 0  (x + y >= 3)
+    };
+    const v = checkUnsat(&s, &input);
+    try std.testing.expect(std.meta.activeTag(v) == .unknown);
+}

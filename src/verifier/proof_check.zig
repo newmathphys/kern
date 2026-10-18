@@ -3836,3 +3836,56 @@ test "МУТАНТ 1267: isNegOfTerm отвергает НЕ-атомную го
     try std.testing.expect(isNegOfTerm(try parseSexp(a, "(* -1 b)"), y));
     try std.testing.expect(!isNegOfTerm(try parseSexp(a, "(+ b c)"), y));
 }
+
+// =========================================================================
+//  ИСПЫТАНИЕ А (нативно, в памяти): АДВЕРСАРИАЛЬНЫЙ ФАЗЗЕР ПРУФ-ЧЕКЕРА.
+//
+//  Берём РЕАЛЬНЫЙ 51-шаговый вывод Z3 для `musl abs.c` (`trusted: 0 |
+//  holes: 0`) и вносим 30 точечных подделок в разные классы правил. КАЖДАЯ
+//  обязана быть отвергнута: `!(checksPass() and proof_concludes_false and
+//  trusted_steps == 0)`. Если хоть одна проходит — чекер не звучим, и
+//  `trusted: 0` на abs.c был случайностью.
+// =========================================================================
+const abs_fx = @import("abs_proof_fixture.zig");
+
+/// Заменить `occ`-е (с нуля) вхождение `needle` на `repl`. null — не найдено.
+fn replaceNth(a: std.mem.Allocator, src: []const u8, needle: []const u8, repl: []const u8, occ: usize) ?[]const u8 {
+    var start: usize = 0;
+    var k: usize = 0;
+    while (std.mem.indexOfPos(u8, src, start, needle)) |pos| {
+        if (k == occ) {
+            const out = std.fmt.allocPrint(a, "{s}{s}{s}", .{ src[0..pos], repl, src[pos + needle.len ..] }) catch return null;
+            return out;
+        }
+        k += 1;
+        start = pos + needle.len;
+    }
+    return null;
+}
+
+test "ИСПЫТАНИЕ А: 30 подделок реального вывода abs.c ОТВЕРГАЮТСЯ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    const contract = try extractAsserts(a, abs_fx.ABS_CONTRACT);
+
+    // ПОЗИТИВНЫЙ КОНТРОЛЬ: неповреждённый вывод обязан подтвердиться.
+    const good = try verifyProof(a, abs_fx.ABS_PROOF, contract);
+    try std.testing.expect(good.checksPass());
+    try std.testing.expect(good.proof_concludes_false);
+    try std.testing.expectEqual(@as(usize, 0), good.trusted_steps);
+    try std.testing.expectEqual(@as(usize, 51), good.proof_steps);
+
+    var applied: usize = 0;
+    var rejected: usize = 0;
+    for (abs_fx.TAMPERS) |t| {
+        const tampered = replaceNth(a, abs_fx.ABS_PROOF, t.needle, t.repl, t.occ) orelse continue;
+        applied += 1;
+        const v = try verifyProof(a, tampered, contract);
+        const passes = v.checksPass() and v.proof_concludes_false and v.trusted_steps == 0;
+        if (!passes) rejected += 1;
+    }
+    // Ни одна подделка не должна пройти; и подделок должно быть ровно 30.
+    try std.testing.expectEqual(@as(usize, 30), applied);
+    try std.testing.expectEqual(@as(usize, 30), rejected);
+}

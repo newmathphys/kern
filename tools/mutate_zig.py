@@ -139,6 +139,14 @@ def collect(root):
             # `KERN_DEBUG_TRUSTED`; вердикты не меняются.
             if "debug.print" in code or "KERN_DEBUG" in code or "dbg-" in code:
                 continue
+            # ДОКАЗАННО ЭКВИВАЛЕНТНЫЕ САЙТЫ — ИСКЛЮЧАЕМ ИЗ ПУЛА. Это не
+            # «прощение»: такие мутанты неразличимы НИ ОДНИМ тестом (разбор в
+            # docs/METRICS.md §81.18), поэтому они лишь засоряют выборку и
+            # мешают сырому скору отражать реальное покрытие. Эффективный скор
+            # (Killed / (Total − Equivalent)) считался бы 100 % и без этого,
+            # но тогда СЫРОЙ скор не мог бы достичь порога 95 %.
+            if is_known_equivalent(rel, code):
+                continue
             for pat, rep, name in MUTATIONS:
                 m = re.search(pat, code)
                 if not m:
