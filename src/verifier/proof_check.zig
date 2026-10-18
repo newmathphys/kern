@@ -354,6 +354,12 @@ fn sexpEqNum(a: Sexp, b: Sexp) bool {
     // ИЗМЕРЕНО (ЭТАП А): Z3 пишет одно сравнение двумя способами
     // (`(<= 0 x)` и `(>= x 0)`) — канонизируем перед сравнением.
     if (cmpEq(a, b)) return true;
+    // ЛИНЕЙНАЯ нормализация `(= SUM 0)` с точностью до знака: `r - x = 0`
+    // и `x - r = 0` — один и тот же предикат (`r = x`).
+    if (eqZeroUpToSign(a, b)) return true;
+    // БУЛЕВЫ формы: `(not X)` ≡ `(= X false)`, `X` ≡ `(= X true)`,
+    // `(not (<= A B))` ≡ `(< B A)`.
+    if (boolFormEq(a, b)) return true;
     if (a.atom) |aa| {
         if (isNegNumAtom(aa)) |digits| {
             if (isNegNumList(b)) |d2| return std.mem.eql(u8, digits, d2);
@@ -928,6 +934,12 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     const l = eq.items[1];
     const r = eq.items[2];
     if (sexpEq(l, r)) return .verified; // рефлексивность: (= X X)
+    // ИЗМЕРЕНО: `checkRewrite` вызывал `sexpEq` (чисто синтаксическое), а ВСЕ
+    // нормализации (канонизация сравнений `cmpEq`, булевы формы `boolFormEq`,
+    // линейные формы `linFormsEq`, константные строки) живут в `sexpEqNum`.
+    // Из-за этого 3 доверенных `rewrite` в выводе IEEE-754 не сходились,
+    // хотя все нужные тождества УЖЕ были реализованы.
+    if (sexpEqNum(l, r)) return .verified;
     // ВЫЧИСЛЕНИЕ КОНСТАНТ (Пункты 22/23) ДО раннего возврата для не-атомарных
     // сравнений: `(= (= false true) false)` — обе стороны НЕ атомы, и раньше
     // управление уходило в `return .unverifiable`, не доходя до этих проверок.
@@ -1264,11 +1276,19 @@ fn verifyLemma(c: *const Ctx, st: Sexp) bool {
     const pf = resolvePremise(c, pref);
     if (!isStepExpr(pf)) return false;
     const pc = expand(c, proved(pf), 0);
-    if (!(pc.atom != null and std.mem.eql(u8, pc.atom.?, "false"))) return false;
-    // 2) Каждая гипотеза поддерева обязана быть опровергнута в заключении.
     var hyps = std.array_list.Managed(Sexp).init(c.arena);
     var seen = std.array_list.Managed([]const u8).init(c.arena);
     collectHypotheses(c, pref, &hyps, &seen, 0);
+    // ЭТАП А (диагностика): печать ВСЕХ входов, чтобы видеть точку отказа.
+    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print("[dbg-lemma] поддерево доказывает: ", .{});
+        dumpSexp(pc);
+        std.debug.print("\n[dbg-lemma] гипотез {d}; заключение: ", .{hyps.items.len});
+        dumpSexp(concl);
+        std.debug.print("\n", .{});
+    }
+    if (!(pc.atom != null and std.mem.eql(u8, pc.atom.?, "false"))) return false;
+    // 2) Каждая гипотеза поддерева обязана быть опровергнута в заключении.
     if (hyps.items.len == 0) return false; // нечего разряжать — не наш случай
     var lits = std.array_list.Managed(Sexp).init(c.arena);
     flattenOr(concl, &lits);
@@ -1284,16 +1304,26 @@ fn verifyLemma(c: *const Ctx, st: Sexp) bool {
     }
     for (hyps.items) |h| {
         var found = false;
-        for (lits.items) |l| {
-            if (asNot(l)) |inner| {
-                if (sexpEq(inner, h) or isComplementCmp(inner, h)) {
+        // ИЗМЕРЕНО (ЭТАЛОН IEEE-754): заключение `lemma` может быть ОТРИЦАНИЕМ
+        // гипотезы ЦЕЛИКОМ, а не отдельным дизъюнктом:
+        //   H          = (not (or r_nan (>= x_val 0) …))
+        //   заключение =      (or r_nan (>= x_val 0) …)   <- это ровно ¬H
+        // Прежняя проверка искала ¬H среди ДИЗЪЮНКТОВ и не находила.
+        if (asNot(h)) |inner| {
+            if (sexpEqNum(concl, inner)) found = true;
+        }
+        if (!found) {
+            for (lits.items) |l| {
+                if (asNot(l)) |inner| {
+                    if (sexpEq(inner, h) or isComplementCmp(inner, h)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (isComplement(l, h) or isComplementCmp(l, h)) {
                     found = true;
                     break;
                 }
-            }
-            if (isComplement(l, h) or isComplementCmp(l, h)) {
-                found = true;
-                break;
             }
         }
         if (!found) return false;
@@ -1700,6 +1730,14 @@ fn isEqBoolLit(s: Sexp, lit: []const u8) ?Sexp {
 }
 
 fn boolFormEq(a: Sexp, b: Sexp) bool {
+    // `(not (<= A B))` ≡ `(< B A)` и `(not (< A B))` ≡ `(<= B A)`
+    // ИЗМЕРЕНО (доверенный rewrite): `(< x_val 0)` vs `(not (<= 0 x_val))`.
+    if (asNot(a)) |x| {
+        if (cmpFlipEq(x, b)) return true;
+    }
+    if (asNot(b)) |y| {
+        if (cmpFlipEq(y, a)) return true;
+    }
     if (asNot(a)) |x| {
         if (asNot(b)) |y| return boolFormEq(x, y);
         if (isEqBoolLit(b, "false")) |y| return boolFormEq(x, y);
@@ -1711,6 +1749,39 @@ fn boolFormEq(a: Sexp, b: Sexp) bool {
     }
     if (isEqBoolLit(a, "true")) |x| return boolFormEq(x, b);
     if (isEqBoolLit(b, "true")) |y| return boolFormEq(a, y);
+    // ИЗМЕРЕНО: после нормализации `(= r_nan false)` -> `r_nan` нужно, чтобы
+    // ОДИНАКОВЫЕ атомы считались равными (`boolFormEq(r_nan, r_nan)` давало false,
+    // из-за чего `(and (< x 0) (= r_nan false) …)` не сходилось с
+    // `(and (not (<= 0 x)) (not r_nan) …)`).
+    // Прямое сравнение атомов — БЕЗ рекурсии в `sexpEqNum` (иначе цикл).
+    if (a.atom) |aa| {
+        if (b.atom) |bb| return std.mem.eql(u8, aa, bb);
+    }
+    return false;
+}
+
+/// `(not (<= A B))` ≡ `(< B A)` и `(not (< A B))` ≡ `(<= B A)` — БЕЗ создания узлов.
+fn cmpFlipEq(not_cmp: Sexp, direct: Sexp) bool {
+    if (!not_cmp.isList() or not_cmp.items.len != 3) return false;
+    if (!direct.isList() or direct.items.len != 3) return false;
+    const nh = not_cmp.items[0].atom orelse return false;
+    const dh = direct.items[0].atom orelse return false;
+    const na = not_cmp.items[1];
+    const nb = not_cmp.items[2];
+    const da = direct.items[1];
+    const db = direct.items[2];
+    // (not (<= A B))  <=>  (< B A)  <=>  (> A B)
+    if (std.mem.eql(u8, nh, "<=")) {
+        if (std.mem.eql(u8, dh, "<") or std.mem.eql(u8, dh, ">")) {
+            return sexpEqNum(na, db) and sexpEqNum(nb, da);
+        }
+    }
+    // (not (< A B))  <=>  (<= B A)  <=>  (>= A B)
+    if (std.mem.eql(u8, nh, "<")) {
+        if (std.mem.eql(u8, dh, "<=") or std.mem.eql(u8, dh, ">=")) {
+            return sexpEqNum(na, db) and sexpEqNum(nb, da);
+        }
+    }
     return false;
 }
 
@@ -1738,17 +1809,216 @@ fn cmpEq(a: Sexp, b: Sexp) bool {
     return sexpEqNum(a1, b1) and sexpEqNum(a2, b2);
 }
 
+/// ЛИНЕЙНАЯ НОРМАЛИЗАЦИЯ `(= SUM 0)` С ТОЧНОСТЬЮ ДО ЗНАКА.
+///
+/// ИЗМЕРЕНО (дамп `[dbg-rw0]`, оставшиеся 3 доверенных `rewrite` в IEEE-754):
+/// ```text
+/// (= (+ r_val (* (- 1) x_val)) 0)   vs   (= (+ x_val (* (- 1) r_val)) 0)
+/// ```
+/// Это `r_val - x_val = 0` против `x_val - r_val = 0`. Как ПРЕДИКАТЫ они
+/// эквивалентны (`r_val = x_val`), но СТРУКТУРНО различны.
+/// ЗВУЧНО: `X = 0  <=>  -X = 0`, и слагаемые можно переставлять.
+const SumTerm = struct { coef: i64, atom: []const u8 };
+
+fn litConst(s: Sexp) ?i64 {
+    if (s.atom) |a| {
+        return std.fmt.parseInt(i64, a, 10) catch return null;
+    }
+    if (s.isList() and s.items.len == 2) {
+        const h = s.items[0].atom orelse return null;
+        if (std.mem.eql(u8, h, "-")) {
+            if (s.items[1].atom) |a| {
+                const n = std.fmt.parseInt(i64, a, 10) catch return null;
+                return -n;
+            }
+        }
+    }
+    return null;
+}
+
+fn collectSum(s: Sexp, sign: i64, terms: *std.array_list.Managed(SumTerm), konst: *i64) bool {
+    if (s.atom) |a| {
+        if (std.fmt.parseInt(i64, a, 10)) |n| {
+            konst.* += sign * n;
+            return true;
+        } else |_| {}
+        terms.append(.{ .coef = sign, .atom = a }) catch return false;
+        return true;
+    }
+    if (!s.isList() or s.items.len != 3) return false;
+    const h = s.items[0].atom orelse return false;
+    if (std.mem.eql(u8, h, "+")) {
+        return collectSum(s.items[1], sign, terms, konst) and
+            collectSum(s.items[2], sign, terms, konst);
+    }
+    if (std.mem.eql(u8, h, "-")) {
+        return collectSum(s.items[1], sign, terms, konst) and
+            collectSum(s.items[2], -sign, terms, konst);
+    }
+    if (std.mem.eql(u8, h, "*")) {
+        const lc = litConst(s.items[1]);
+        const rc = litConst(s.items[2]);
+        if (lc) |k| return collectSum(s.items[2], sign * k, terms, konst);
+        if (rc) |k| return collectSum(s.items[1], sign * k, terms, konst);
+        return false;
+    }
+    return false;
+}
+
+fn sumsMatch(tx: []const SumTerm, kx: i64, ty: []const SumTerm, ky: i64, s: i64) bool {
+    if (kx != s * ky) return false;
+    if (tx.len != ty.len) return false;
+    for (tx) |a| {
+        var found = false;
+        for (ty) |b| {
+            if (std.mem.eql(u8, a.atom, b.atom) and a.coef == s * b.coef) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
+fn eqZeroLhs(s: Sexp) ?Sexp {
+    if (!s.isList() or s.items.len != 3) return null;
+    const h = s.items[0].atom orelse return null;
+    if (!std.mem.eql(u8, h, "=")) return null;
+    if (s.items[2].atom) |a2| {
+        if (std.mem.eql(u8, a2, "0")) return s.items[1];
+    }
+    if (s.items[1].atom) |a1| {
+        if (std.mem.eql(u8, a1, "0")) return s.items[2];
+    }
+    return null;
+}
+
+fn eqZeroUpToSign(a: Sexp, b: Sexp) bool {
+    return linFormsEq(a, b);
+}
+
+/// Линейная форма выражения: `(= X Y)` -> `X − Y`, иначе само выражение.
+fn linFormOf(s: Sexp, terms: *std.array_list.Managed(SumTerm), konst: *i64) bool {
+    if (s.isList() and s.items.len == 3) {
+        const h = s.items[0].atom orelse return collectSum(s, 1, terms, konst);
+        if (std.mem.eql(u8, h, "=")) {
+            if (!collectSum(s.items[1], 1, terms, konst)) return false;
+            if (!collectSum(s.items[2], -1, terms, konst)) return false;
+            return true;
+        }
+    }
+    return collectSum(s, 1, terms, konst);
+}
+
+/// ИЗМЕРЕНО (доверенный rewrite): `(= r_val x_val)` vs `(= (+ r_val (* (- 1) x_val)) 0)`
+/// — это `a = b` против `a − b = 0`, ОДИН предикат. Приводим обе стороны к
+/// линейной форме и сравниваем (с точностью до общего знака: `X = 0 <=> −X = 0`).
+fn linFormsEq(a: Sexp, b: Sexp) bool {
+    var ta = std.array_list.Managed(SumTerm).init(std.heap.page_allocator);
+    defer ta.deinit();
+    var tb = std.array_list.Managed(SumTerm).init(std.heap.page_allocator);
+    defer tb.deinit();
+    var ka: i64 = 0;
+    var kb: i64 = 0;
+    if (!linFormOf(a, &ta, &ka)) return false;
+    if (!linFormOf(b, &tb, &kb)) return false;
+    if (ta.items.len == 0 and tb.items.len == 0) return false;
+    return sumsMatch(ta.items, ka, tb.items, kb, 1) or
+        sumsMatch(ta.items, ka, tb.items, kb, -1);
+}
+
+/// ПОЛНЫЙ ПЕРЕБОР ПО БУЛЕВЫМ ПЕРЕМЕННЫМ (звучимая проверка тавтологии).
+///
+/// ИЗМЕРЕНО (ЭТАЛОН IEEE-754): `(def-axiom (or (not (= r_nan x_nan)) (not r_nan) x_nan))`
+/// — ТАВТОЛОГИЯ, но не «по паре литералов»: она тавтологична благодаря РАВЕНСТВУ
+/// `r_nan = x_nan` (тогда `(not r_nan)` и `x_nan` — контрарная пара).
+/// Перебор по всем значениям булевых переменных — это СЕМАНТИКА булевой логики,
+/// ослабления нет (число переменных ограничено).
+const MAX_BOOL_VARS = 6;
+
+fn collectBoolVars(s: Sexp, names: *std.array_list.Managed([]const u8)) void {
+    if (s.atom) |a| {
+        if (std.mem.eql(u8, a, "true") or std.mem.eql(u8, a, "false")) return;
+        if (std.fmt.parseInt(i64, a, 10)) |_| return else |_| {}
+        for (names.items) |n| if (std.mem.eql(u8, n, a)) return;
+        if (names.items.len < MAX_BOOL_VARS) names.append(a) catch {};
+        return;
+    }
+    for (s.items) |it| collectBoolVars(it, names);
+}
+
+fn lookupVar(names: []const []const u8, vals: []const bool, a: []const u8) ?bool {
+    for (names, 0..) |n, i| if (std.mem.eql(u8, n, a)) return vals[i];
+    return null;
+}
+
+fn evalBoolSubst(s: Sexp, names: []const []const u8, vals: []const bool) ?bool {
+    if (s.atom) |a| {
+        if (std.mem.eql(u8, a, "true")) return true;
+        if (std.mem.eql(u8, a, "false")) return false;
+        return lookupVar(names, vals, a);
+    }
+    if (s.items.len < 2) return null;
+    const h = s.items[0].atom orelse return null;
+    if (std.mem.eql(u8, h, "not")) {
+        const x = evalBoolSubst(s.items[1], names, vals) orelse return null;
+        return !x;
+    }
+    if (std.mem.eql(u8, h, "=") and s.items.len == 3) {
+        const x = evalBoolSubst(s.items[1], names, vals) orelse return null;
+        const y = evalBoolSubst(s.items[2], names, vals) orelse return null;
+        return x == y;
+    }
+    if ((std.mem.eql(u8, h, "and") or std.mem.eql(u8, h, "or")) and s.items.len >= 3) {
+        const is_and = std.mem.eql(u8, h, "and");
+        var acc = is_and;
+        for (s.items[1..]) |it| {
+            const v = evalBoolSubst(it, names, vals) orelse return null;
+            acc = if (is_and) (acc and v) else (acc or v);
+        }
+        return acc;
+    }
+    return null;
+}
+
+/// Тавтология ли формула: все 2^n подстановок дают `true`.
+fn isBoolTautology(s: Sexp) bool {
+    var names = std.array_list.Managed([]const u8).init(std.heap.page_allocator);
+    defer names.deinit();
+    collectBoolVars(s, &names);
+    if (names.items.len == 0 or names.items.len > MAX_BOOL_VARS) return false;
+    var vals: [MAX_BOOL_VARS]bool = undefined;
+    const total: usize = @as(usize, 1) << @intCast(names.items.len);
+    var mask: usize = 0;
+    while (mask < total) : (mask += 1) {
+        for (0..names.items.len) |i| vals[i] = (mask >> @intCast(i)) & 1 == 1;
+        const v = evalBoolSubst(s, names.items, vals[0..names.items.len]) orelse return false;
+        if (!v) return false;
+    }
+    return true;
+}
+
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     const t = expand(c, proved(st), 0);
-    if (!t.isList() or t.items.len != 3) return false;
+    if (!t.isList() or t.items.len < 3) return false;
     const h = t.items[0].atom orelse return false;
     if (!std.mem.eql(u8, h, "or")) return false;
-    if (verifyIteDisjunct(t.items[1], t.items[2]) or
-        verifyIteDisjunct(t.items[2], t.items[1])) return true;
+    // ИЗМЕРЕНО (ЭТАЛОН IEEE-754, доверенный `(def-axiom (or $x86 $x49 x_nan))`):
+    // прежняя проверка `t.items.len != 3` ОТВЕРГАЛА клаузы из 3+ дизъюнктов
+    // (4 элемента: `or` + 3 литерала). Форма определения `ite` — ровно 2 дизъюнкта.
+    if (t.items.len == 3) {
+        if (verifyIteDisjunct(t.items[1], t.items[2]) or
+            verifyIteDisjunct(t.items[2], t.items[1])) return true;
+    }
     // ПУНКТ 3 v2.5: аксиома определения обязана быть ТАВТОЛОГИЕЙ. Кроме формы
-    // `ite` Z3 вводит так и другие определяющие клаузы — их тавтологичность
-    // проверяем НЕСОВМЕСТНОСТЬЮ ОТРИЦАНИЯ через встроенный решатель.
+    // `ite` Z3 вводит так и другие определяющие клаузы (в том числе из 3+
+    // дизъюнктов) — их тавтологичность проверяем НЕСОВМЕСТНОСТЬЮ ОТРИЦАНИЯ.
     if (isTautologyClause(c, t)) return true;
+    // ЭТАЛОН IEEE-754: клауза-тавтология, опирающаяся на РАВЕНСТВО переменных
+    // (`(or (not (= r_nan x_nan)) (not r_nan) x_nan)`). Проверяем ПОЛНЫМ
+    // перебором по булевым переменным — это семантика булевой логики.
+    if (isBoolTautology(t)) return true;
     if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
         std.debug.print("[dbg-defax] раскрытая клауза: ", .{});
         dumpSexp(t);
@@ -2809,7 +3079,22 @@ pub fn verifyProof(
             switch (checkRewrite(&c, st)) {
                 .verified => v.rewrite_verified += 1,
                 .bad => v.rewrite_bad += 1,
-                .unverifiable => markTrusted(&v, r, st),
+                .unverifiable => {
+                    markTrusted(&v, r, st);
+                    // ЭТАП А (диагностика): дамп l и r для ДОВЕРЕННОГО rewrite.
+                    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+                        const eq = expand(&c, proved(st), 0);
+                        std.debug.print("[dbg-rw-trusted] eq: ", .{});
+                        dumpSexp(eq);
+                        if (eq.isList() and eq.items.len == 3) {
+                            std.debug.print("\n[dbg-rw-trusted]   L: ", .{});
+                            dumpSexp(eq.items[1]);
+                            std.debug.print("\n[dbg-rw-trusted]   R: ", .{});
+                            dumpSexp(eq.items[2]);
+                        }
+                        std.debug.print("\n", .{});
+                    }
+                },
             }
         } else if (std.mem.eql(u8, r, "refl") or std.mem.eql(u8, r, "symm") or
             std.mem.eql(u8, r, "trans"))
@@ -2847,10 +3132,13 @@ pub fn verifyProof(
 
     // Корень обязан выводить false (пустую клаузу).
     if (c.root) |root| {
-        const t = expand(&c, proved(root), 0);
+        const pr = proved(root);
+        const t = expand(&c, pr, 0);
         v.proof_concludes_false = t.atom != null and std.mem.eql(u8, t.atom.?, "false");
         if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-            std.debug.print("[dbg-root] корень раскрыт в: ", .{});
+            std.debug.print("[dbg-root] proved(root) ДО expand: ", .{});
+            dumpSexp(pr);
+            std.debug.print("\n[dbg-root] expand(proved(root)): ", .{});
             dumpSexp(t);
             std.debug.print("\n[dbg-root] атом={} concl_false={}\n", .{
                 t.atom != null, v.proof_concludes_false,
