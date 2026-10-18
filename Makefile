@@ -251,6 +251,16 @@ bitrot-chaos: build
 pcc-check: build
 	@$(PYTHON) tools/pcc_check.py
 
+# ЭШЕЛОН 3, ПУНКТ 13: рентген БЕЗ аннотаций (мёртвые ветки, избыточные
+# проверки, краш-пути, сложность Маккейба) на фикстуре examples/xray_demo.py.
+xray-check: build
+	@bash tools/xray_check.sh
+
+# ЭШЕЛОН 3, ПУНКТ 14: SBST-генератор pytest со 100% покрытием достижимых ветвей;
+# сгенерированные тесты РЕАЛЬНО прогоняются через pytest.
+gen-tests-check: build
+	@bash tools/gen_tests_check.sh
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.

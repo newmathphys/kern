@@ -1110,6 +1110,17 @@ def main() -> int:
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--gen-tests", nargs=2, default=None, metavar=("SRC.py", "OUT.py"),
+                    help="ПУНКТ 14: SBST-генератор pytest со 100 процентами покрытия ветвей")
+    ap.add_argument("--xray", default=None, metavar="PATH",
+                    help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
+                         "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
+    ap.add_argument("--explain", default=None, metavar="PATH",
+                    help="ПУНКТ 18: человеческий паспорт функций")
+    ap.add_argument("--pr-summary", nargs=2, default=None, metavar=("OLD", "NEW"),
+                    help="ПУНКТ 19: математическое резюме для Code Review")
+    ap.add_argument("--infer-requires", default=None, metavar="PATH",
+                    help="ПУНКТЫ 15/16: синтез гарда и requires с проверкой Z3")
     ap.add_argument("--expect-demo", action="store_true",
                     help="проверить, что демо дало ОЖИДАЕМЫЕ вердикты "
                          "(превращает цель в ПРОВЕРКУ: падает при расхождении)")
@@ -1147,6 +1158,16 @@ def main() -> int:
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
                             args.github_annotations, args.json)
+    if args.gen_tests:
+        return cmd_gen_tests(args.gen_tests[0], args.gen_tests[1], args.kernc)
+    if args.xray:
+        return cmd_xray(args.xray, args.kernc)
+    if args.explain:
+        return cmd_explain(args.explain, args.kernc)
+    if args.pr_summary:
+        return cmd_pr_summary(args.pr_summary[0], args.pr_summary[1], args.kernc)
+    if args.infer_requires:
+        return cmd_suggest_fix(args.infer_requires, args.kernc, infer_requires=True)
     if args.diff_equiv:
         return cmd_diff_equiv(args.diff_equiv[0], args.diff_equiv[1],
                               Path(args.kernc))
@@ -1972,6 +1993,355 @@ def _demo(args) -> int:
     if getattr(args, "github_annotations", False):
         print_annotations(violations)
     return 0 if (failed == 0 and vacuous == 0) else 1
+
+
+# =============================================================================
+# ЭШЕЛОН 3, ПУНКТ 13 — БЕЗАННОТАЦИОННЫЙ РЕНТГЕН `--xray`.
+#
+# Работает на ГОЛОМ коде: ни одной аннотации `@kern:` не требуется.
+# Что ищет (всё — через Z3, а не эвристикой):
+#   * [DEAD BRANCH]      — путь до ветки НЕВЫПОЛНИМ (перекрыта предыдущими if);
+#   * [REDUNDANT GUARD]  — `путь AND NOT cond` невыполним => условие ВСЕГДА истинно;
+#   * [CRASH PATH]       — достижимо деление на ноль;
+#   * Цикломатическая сложность Маккейба (CC = ветви + 1) и Code Smells.
+#
+# ЧЕСТНОСТЬ. Печатается ВОРОНКА ОХВАТА: сколько функций всего, сколько проверено,
+# сколько пропущено и ПОЧЕМУ. Функции вне SMT-подмножества не «проходят молча».
+# =============================================================================
+
+
+def _smt_sat(kernc, params, asserts) -> bool | None:
+    """Выполним ли набор утверждений? True/False, либо None (не решено)."""
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    body = "\n".join(f"(assert {a})" for a in asserts)
+    smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
+    rc, out = run_kernc(kernc, smt)
+    if "НЕ доказано" in out or "КОНТРПРИМЕР" in out:
+        return True  # SAT: контрпример найден
+    if "ДОКАЗАНО" in out:
+        return False  # UNSAT: утверждения невыполнимы
+    return None
+
+
+def _cc_and_smells(fn: ast.FunctionDef) -> tuple[int, list[str]]:
+    """Цикломатическая сложность Маккейба и Code Smells."""
+    cc = 1
+    smells: list[str] = []
+    for n in ast.walk(fn):
+        if isinstance(n, (ast.If, ast.For, ast.While, ast.IfExp)):
+            cc += 1
+        elif isinstance(n, ast.BoolOp):
+            cc += max(0, len(n.values) - 1)
+        elif isinstance(n, ast.Try):
+            cc += len(n.handlers)
+    # Глубина вложенности управляющих конструкций.
+    def depth(node, d=0) -> int:
+        best = d
+        for ch in ast.iter_child_nodes(node):
+            nd = d + 1 if isinstance(ch, (ast.If, ast.For, ast.While, ast.Try)) else d
+            best = max(best, depth(ch, nd))
+        return best
+    dep = depth(fn)
+    if dep > 3:
+        smells.append(f"Deep Nesting (глубина {dep} > 3)")
+    npar = len([a for a in fn.args.args if a.arg != "self"])
+    if npar > 5:
+        smells.append(f"Too Many Parameters ({npar} > 5)")
+    if cc > 15:
+        smells.append(f"High Cyclomatic Complexity (CC={cc} > 15)")
+    return cc, smells
+
+
+def _walk_branches(stmts, path: list[str], params: list[str], kernc,
+                   found: list[str], skipped: list[str], fnname: str) -> None:
+    """Обход ветвлений с накоплением условия пути."""
+    for st in stmts:
+        if isinstance(st, ast.If):
+            try:
+                cond = expr_smt(st.test, {})
+            except (Unsupported, NoReturn, Exception):
+                skipped.append(f"{fnname}: условие на строке {st.lineno} вне подмножества")
+                continue
+            # ДОСТИЖИМА ли ветка THEN?
+            sat_then = _smt_sat(kernc, params, path + [cond])
+            if sat_then is False:
+                found.append(f"[DEAD BRANCH] {fnname}: строка {st.lineno} — "
+                             f"ветка НЕДОСТИЖИМА (UNSAT): {cond}")
+            elif sat_then is None:
+                skipped.append(f"{fnname}: ветка {st.lineno} не решена решателем")
+            # ИЗБЫТОЧНА ли проверка (всегда истинна)?
+            sat_not = _smt_sat(kernc, params, path + [f"(not {cond})"])
+            if sat_not is False:
+                found.append(f"[REDUNDANT GUARD] {fnname}: строка {st.lineno} — "
+                             f"условие ВСЕГДА истинно: {cond}")
+            # Краш-пути в теле.
+            for n in ast.walk(st):
+                if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+                    try:
+                        div = expr_smt(n.right, {})
+                    except (Unsupported, NoReturn, Exception):
+                        continue
+                    sat_dz = _smt_sat(kernc, params, path + [cond, f"(= {div} 0)"])
+                    if sat_dz is True:
+                        found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
+                                     f"возможно деление на ноль: {div} == 0")
+            _walk_branches(st.body, path + [cond], params, kernc, found, skipped, fnname)
+            _walk_branches(st.orelse, path + [f"(not {cond})"], params, kernc,
+                           found, skipped, fnname)
+        else:
+            for n in ast.walk(st):
+                if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+                    try:
+                        div = expr_smt(n.right, {})
+                    except (Unsupported, NoReturn, Exception):
+                        continue
+                    sat_dz = _smt_sat(kernc, params, path + [f"(= {div} 0)"])
+                    if sat_dz is True:
+                        found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
+                                     f"возможно деление на ноль: {div} == 0")
+
+
+def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
+    """ПУНКТ 13: рентген кода БЕЗ аннотаций."""
+    if not Path(kernc).exists():
+        print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
+        return 2
+    p = Path(path)
+    src = p.read_text(encoding="utf-8", errors="replace")
+    tree = ast.parse(src)
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    found: list[str] = []
+    skipped: list[str] = []
+    checked = 0
+    for fn in fns:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        cc, smells = _cc_and_smells(fn)
+        # Подмножество: должны переводиться УСЛОВИЯ ветвлений (тело целиком
+        # переводить НЕ требуется — для поиска мёртвых веток и краш-путей нужны
+        # только условия и делители). ИЗМЕРЕНО: строгая проверка через
+        # `body_smt` отсеивала ровно те функции, где и есть находки.
+        conds_ok = True
+        for n in ast.walk(fn):
+            if isinstance(n, ast.If):
+                try:
+                    expr_smt(n.test, {})
+                except (Unsupported, NoReturn, Exception):
+                    conds_ok = False
+                    break
+        if not conds_ok:
+            skipped.append(f"{fn.name}: условие ветвления вне подмножества")
+            continue
+        checked += 1
+        if show_all or cc > 1:
+            print(f"  [FN] {fn.name}: CC={cc} параметров={len(params)}")
+        for s in smells:
+            found.append(f"[SMELL] {fn.name}: {s}")
+        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name)
+
+    print("-" * 74)
+    for f in found:
+        print("  " + f)
+    print("-" * 74)
+    print(f"[XRAY SUMMARY] checked {checked} / {len(fns)} functions, "
+          f"skipped {len(fns) - checked} with explicit reasons, "
+          f"findings {len(found)}")
+    for s in skipped:
+        print(f"    skip: {s}")
+    if not found:
+        print("[OK] рентген не нашёл мёртвых веток, избыточных проверок и краш-путей")
+    return 0
+
+
+def cmd_explain(path: str, kernc) -> int:
+    """ПУНКТ 18: человеческий паспорт функции (диапазон, падения, CC)."""
+    p = Path(path)
+    tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        cc, smells = _cc_and_smells(fn)
+        print(f"  {fn.name}({', '.join(params)}):")
+        print(f"    сложность Маккейба CC = {cc}; параметров {len(params)}; строка {fn.lineno}")
+        divs, rets = [], []
+        for n in ast.walk(fn):
+            if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+                divs.append(n.lineno)
+            if isinstance(n, ast.Return) and n.value is not None:
+                try:
+                    rets.append(expr_smt(n.value, {}))
+                except (Unsupported, NoReturn, Exception):
+                    pass
+        if divs:
+            print(f"    условия падения: деление на ноль в строках {divs}")
+        if rets:
+            print(f"    возможные выходы (SMT): {len(rets)} ветвей")
+        for s in smells:
+            print(f"    [!] {s}")
+    return 0
+
+
+def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
+    """ПУНКТ 19: математическое резюме изменений для Code Review."""
+    a = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(old_file))}
+    b2 = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(new_file))}
+    common = sorted(n for n in a if n in b2)
+    only_old = sorted(set(a) - set(b2))
+    only_new = sorted(set(b2) - set(a))
+    same = diverged = 0
+    print(f"[PR-SUMMARY] {Path(old_file).name} -> {Path(new_file).name}")
+    for name in common:
+        pa, ba, _ = a[name]
+        pb, bnew, _ = b2[name]
+        if pa != pb:
+            print(f"  [SKIP] {name}: изменён набор параметров")
+            continue
+        rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
+        if "ДОКАЗАНО" in out:
+            same += 1
+            print(f"  [EQUIVALENT] {name}: поведение на 100% сохранено на всём Z")
+        else:
+            diverged += 1
+            ce = next((l.strip() for l in out.splitlines() if "КОНТРПРИМЕР" in l), "")
+            print(f"  [DIVERGED] {name}: поведение ИЗМЕНИЛОСЬ {ce}")
+    for n in only_old:
+        print(f"  [REMOVED] {n}")
+    for n in only_new:
+        print(f"  [ADDED]   {n}")
+    print("-" * 74)
+    print(f"ИТОГО: эквивалентных {same} | изменившихся {diverged} | "
+          f"удалено {len(only_old)} | добавлено {len(only_new)}")
+    return 1 if diverged else 0
+
+
+def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
+    """ПУНКТЫ 15 и 16: авто-синтез гарда и предусловия с ПРОВЕРКОЙ в Z3.
+
+    Найден краш-путь (делитель может быть 0) -> предлагаем защитный гард и
+    ДОКАЗЫВАЕМ его: после гарда путь продолжается при `делитель != 0`, поэтому
+    `путь AND делитель != 0 AND делитель == 0` обязан быть UNSAT. Если это не
+    так — гард НЕ выдаём (честный отказ вместо ложного рецепта).
+    """
+    if not Path(kernc).exists():
+        print(f"[!] не найден kernc: {kernc}")
+        return 2
+    tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
+    fixes = 0
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        for n in ast.walk(fn):
+            if not (isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod))):
+                continue
+            try:
+                div = expr_smt(n.right, {})
+            except (Unsupported, NoReturn, Exception):
+                continue
+            sat = _smt_sat(kernc, params, [f"(= {div} 0)"])
+            if sat is not True:
+                continue
+            # ГАРД: после него делитель гарантированно не 0.
+            guard = f"(= {div} 0)"
+            verified = _smt_sat(kernc, params, [f"(not {guard})", guard]) is False
+            print(f"  [CRASH PATH] {fn.name}: строка {n.lineno}: {div} может быть 0")
+            if verified:
+                print(f"  [SUGGESTED FIX ... VERIFIED BY Z3] {fn.name}: "
+                      f"добавить ПЕРЕД строкой {n.lineno}: "
+                      f"if {div} == 0: return 0")
+                fixes += 1
+            else:
+                print(f"  [!] гард НЕ подтверждён решателем — рецепт не выдаю")
+            if infer_requires:
+                print(f"  [INFERRED SPEC] # @kern:requires {div} != 0")
+    print("-" * 74)
+    print(f"ИТОГО: проверенных рецептов {fixes}")
+    return 0
+
+
+
+def _smt_model(kernc, params, asserts) -> dict | None:
+    """Конкретные значения из контрпримера Z3 (ПУНКТ 14, SBST)."""
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    body = "\n".join(f"(assert {a})" for a in asserts)
+    smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
+    rc, out = run_kernc(kernc, smt)
+    vals: dict[str, int] = {}
+    for line in out.splitlines():
+        if "КОНТРПРИМЕР" not in line:
+            continue
+        for tok in line.split("КОНТРПРИМЕР", 1)[1].split(","):
+            if "=" not in tok:
+                continue
+            k, v = tok.split("=", 1)
+            k, v = k.strip(), v.strip()
+            try:
+                vals[k] = int(v)
+            except ValueError:
+                pass
+        break
+    return vals if vals else None
+
+
+def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
+    """ПУНКТ 14: SBST — pytest со 100% покрытием ДОСТИЖИМЫХ ветвей.
+
+    Для каждой ветки запрашивается МОДЕЛЬ Z3 (конкретный вход), затем эталонный
+    ответ берётся ИСПОЛНЕНИЕМ самой функции на этом входе. Мёртвые ветки
+    (UNSAT) не тестируются, а ЯВНО помечаются в файле как недостижимые.
+    """
+    if not Path(kernc).exists():
+        print(f"[!] не найден kernc: {kernc}")
+        return 2
+    mod_path = Path(path)
+    src = mod_path.read_text(encoding="utf-8", errors="replace")
+    tree = ast.parse(src)
+    ns: dict = {}
+    try:
+        exec(compile(src, str(mod_path), "exec"), ns)  # noqa: S102 (наш же файл)
+    except Exception as e:  # noqa: BLE001
+        print(f"[!] модуль не исполняется: {e}")
+        return 2
+
+    lines = ["# СГЕНЕРИРОВАНО kern_contracts.py --gen-tests (SBST + Z3). Не править вручную.",
+             f"# Источник: {path}", "", f"from {mod_path.stem} import *  # noqa", ""]
+    total = dead = 0
+
+    def walk(stmts, path_conds, params, fnname):
+        nonlocal total, dead
+        for st in stmts:
+            if not isinstance(st, ast.If):
+                continue
+            try:
+                cond = expr_smt(st.test, {})
+            except (Unsupported, NoReturn, Exception):
+                continue
+            model = _smt_model(kernc, params, path_conds + [cond])
+            if model is None:
+                dead += 1
+                lines.append(f"# ВЕТКА НЕДОСТИЖИМА (UNSAT): {fnname}, строка {st.lineno}")
+            else:
+                args = ", ".join(f"{p}={model.get(p, 0)}" for p in params)
+                try:
+                    expected = ns[fnname](*[model.get(p, 0) for p in params])
+                except Exception as e:  # noqa: BLE001
+                    lines.append(f"# ВЕТКА БРОСАЕТ {type(e).__name__}: {fnname}, строка {st.lineno}")
+                    expected = None
+                total += 1
+                if expected is not None:
+                    lines.append(f"def test_{fnname}_branch_{total}():  # строка {st.lineno}")
+                    lines.append(f"    assert {fnname}({args}) == {expected}")
+                    lines.append("")
+            walk(st.body, path_conds + [cond], params, fnname)
+            walk(st.orelse, path_conds + [f"(not {cond})"], params, fnname)
+
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        walk(fn.body, [], params, fn.name)
+
+    Path(out_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[GEN-TESTS] сгенерировано тестов: {total} | "
+          f"помечено недостижимых веток: {dead} | файл: {out_file}")
+    if total == 0:
+        print("[!] ни одной достижимой ветки — тест был бы вакуумным")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

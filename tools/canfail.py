@@ -219,6 +219,9 @@ FAULTABLE = [
     "tools/hw_binary_audit.py",
     "tools/bitrot_chaos_check.py",
     "tools/pcc_check.py",
+    "tools/xray_check.sh",
+    "tools/gen_tests_check.sh",
+    "examples/xray_demo.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
     "tools/artifact_check.py",
@@ -1711,6 +1714,28 @@ def case_model_verify_spurious():
 
 
 
+def case_xray_check():
+    """ПУНКТ 13. ЛОМАЕМ: подмена порога в условии фикстуры делает мёртвую ветку
+    ЖИВОЙ, поэтому --xray ОБЯЗАН перестать её находить и цель покраснеть."""
+    patch(
+        "examples/xray_demo.py",
+        "    elif x > 10:  # НЕДОСТИЖИМА: перекрыта первым условием",
+        "    elif x > 5:  # ЛОМАЕМ: ветка СТАНОВИТСЯ достижимой",
+    )
+    return "make xray-check"
+
+
+def case_gen_tests_check():
+    """ПУНКТ 14. ЛОМАЕМ: генерируем тесты от ВРЕМЕННОЙ копии, где ответ функции
+    изменён -> сгенерированный pytest ОБЯЗАН упасть, а цель покраснеть."""
+    patch(
+        "examples/xray_demo.py",
+        "    if x > 0:" + chr(10) + "        return x + 1",
+        "    if x > 0:" + chr(10) + "        return x + 2  # ЛОМАЕМ",
+    )
+    return "make gen-tests-check"
+
+
 def case_pcc_check():
     """ПУНКТ 9. ЛОМАЕМ: PCC принимает ЛЮБОЙ сертификат (условие приёмки -> true).
 
@@ -1894,6 +1919,8 @@ CASES = [
     ("binary-audit",   "АУДИТ: AVX2/NX/латентность измеряются",     case_binary_audit),
     ("bitrot-chaos",   "BIT-ROT: порча данных в .kimg ловится",      case_bitrot_chaos),
     ("pcc-check",      "PCC: подделка сертификата отвергается",    case_pcc_check),
+    ("xray-check",     "XRAY: находки без аннотаций",           case_xray_check),
+    ("gen-tests-check","SBST: сгенерированные тесты проходят",    case_gen_tests_check),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),
