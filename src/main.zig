@@ -1003,6 +1003,59 @@ pub fn main(init: std.process.Init) !void {
                 continue;
             }
 
+            // =============================================================
+            // ЭШЕЛОН 2, ПУНКТ 9 — PROOF-CARRYING .kimg.
+            //
+            // Если рядом с контрактом в ТОМ ЖЕ образе лежит его сертификат
+            // `<stem>.proof` (текст вывода Z3), проверяем сертификат НАШИМ
+            // пруф-чекером — БЕЗ решателя (внешний z3 не вызывается вообще).
+            //
+            // Сертификат ЕСТЬ, но не сходится (`checksPass` ложно / вывод не
+            // `false` / есть доверенные шаги) -> ЖЁСТКИЙ ОТКАЗ: подделка
+            // обязана закрывать Врата, а не откатываться молча к Z3.
+            // =============================================================
+            {
+                const stem = if (std.mem.endsWith(u8, contract_path, ".smt2"))
+                    contract_path[0 .. contract_path.len - 5]
+                else
+                    contract_path;
+                const cert_path = std.fmt.allocPrint(alloc, "{s}.proof", .{stem}) catch null;
+                if (cert_path) |cpath| {
+                    defer alloc.free(cpath);
+                    var owned_cert: ?[]u8 = null;
+                    defer if (owned_cert) |o| alloc.free(o);
+                    const cert: []const u8 = blk: {
+                        for (fs.objects) |co| {
+                            if (co.type_id != 0x0002) continue;
+                            if (!std.mem.eql(u8, fs.objectPath(co), cpath)) continue;
+                            if (co.compression_codec != 0) {
+                                owned_cert = fs.decompressObject(alloc, co) catch break :blk "";
+                                break :blk owned_cert.?;
+                            }
+                            break :blk fs.objectPayload(co) catch break :blk "";
+                        }
+                        break :blk "";
+                    };
+                    if (cert.len != 0) {
+                        var car = std.heap.ArenaAllocator.init(alloc);
+                        defer car.deinit();
+                        const ca = car.allocator();
+                        const contract_terms = proof_check.extractAsserts(ca, payload) catch &.{};
+                        const pv = proof_check.verifyProof(ca, cert, contract_terms) catch null;
+                        if (pv) |v| {
+                            if (v.checksPass() and v.proof_concludes_false and v.trusted_steps == 0) {
+                                proven += 1;
+                                std.debug.print("    {s}: [PCC VERIFIED] proof ok ({d} steps) -> e=1 (T)\n", .{ contract_path, v.proof_steps });
+                                continue;
+                            }
+                            refuted += 1;
+                            std.debug.print("    {s}: [PCC REJECTED] forged proof -> e=0 (F)\n", .{contract_path});
+                            continue;
+                        }
+                    }
+                }
+            }
+
             // ДЕФЕКТ #105: только вердикт -> `executeStatus` (без владеемой модели).
             const status = bridge.executeStatus(payload);
             switch (status) {
@@ -1029,6 +1082,10 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("[i] ИТОГ: доказано {d}, контрпримеров {d}, без контракта {d}\n", .{ proven, refuted, no_contract });
         std.debug.print("[i] e=1 выставляется ТОЛЬКО по вердикту решателя. Заявления без\n", .{});
         std.debug.print("    привязанного контракта остаются e=0 — это и есть честный статус.\n", .{});
+        // ЭШЕЛОН 2, ПУНКТ 9: код возврата обязан отражать вердикт. Опровергнутый
+        // контракт (в том числе [PCC REJECTED] — ПОДДЕЛАННЫЙ сертификат) —
+        // это ЗАКРЫТЫЕ Врата, и вызывающий (CI, скрипт, хук) должен это видеть.
+        if (refuted > 0) std.process.exit(1);
 
     } else if (std.mem.eql(u8, command, "run")) {
         const fuel_s = flagValue(args, "--fuel") orelse "1000";

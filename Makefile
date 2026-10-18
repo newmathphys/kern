@@ -246,6 +246,11 @@ binary-audit: build
 bitrot-chaos: build
 	@$(PYTHON) tools/bitrot_chaos_check.py --n 30
 
+# ЭШЕЛОН 2, ПУНКТ 9: Proof-Carrying .kimg — сертификат доказательства
+# внутри образа проверяется пруф-чекером БЕЗ решателя; подделка закрывает Врата.
+pcc-check: build
+	@$(PYTHON) tools/pcc_check.py
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.

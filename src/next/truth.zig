@@ -56,6 +56,45 @@ pub const Bit = struct {
     }
 };
 
+// =============================================================================
+// ЭШЕЛОН 2, ПУНКТ 10 — EVIDENCE DECAY / STALE GATE.
+//
+// ЗАЧЕМ. Свидетельство `T (1,0)` получено на КОНКРЕТНОЙ версии файла. Если файл
+// с тех пор изменился, старое свидетельство БОЛЬШЕ НЕ ОПИСЫВАЕТ то, что лежит на
+// диске, и не имеет права держать Врата открытыми.
+//
+// ПРАВИЛО (монотонно безопасное): при несовпадении отпечатков сбрасывается
+// ТОЛЬКО положительный бит `p`. Тогда `T (1,0) -> N (0,0)` (`e = 0`), а
+// опровержение `F (0,1)` СОХРАНЯЕТСЯ: старый провал не «лечится» сам собой,
+// потому что это лишь оставляет Врата ЗАКРЫТЫМИ (консервативно).
+//
+// Сравнение отпечатков — КОНСТАНТНО-ВРЕМЕННОЕ (`timing_safe.eql`): иначе
+// время сравнения выдавало бы число совпавших байт (сторонний канал).
+// =============================================================================
+
+/// Допуск `e` из кванта Белнапа: `1` только при `T` (есть подтверждение, нет
+/// опровержения). `N`/`F`/`B` -> `0`.
+pub fn allowance(b: Bit) u1 {
+    return if (b.p and !b.n) 1 else 0;
+}
+
+/// BLAKE3-отпечаток содержимого (привязка свидетельства к версии файла).
+pub fn digestOf(data: []const u8) [32]u8 {
+    var d: [32]u8 = undefined;
+    std.crypto.hash.Blake3.hash(data, &d, .{});
+    return d;
+}
+
+/// СВЕЖЕСТЬ СВИДЕТЕЛЬСТВА. `recorded` — отпечаток В МОМЕНТ получения вердикта,
+/// `current` — отпечаток ФАЙЛА СЕЙЧАС.
+///
+/// Совпали -> вердикт без изменений. Не совпали -> `p` сбрасывается
+/// (`stale evidence -> e = 0`), `n` сохраняется.
+pub fn evaluateWithFreshness(verdict: Bit, recorded: [32]u8, current: [32]u8) Bit {
+    if (std.crypto.timing_safe.eql([32]u8, recorded, current)) return verdict;
+    return .{ .p = false, .n = verdict.n };
+}
+
 /// ПУНКТ 7 ПЛАНА v2.5 — АППАРАТНО-УСТОЙЧИВОЕ КОДИРОВАНИЕ ДОПУСКА.
 ///
 /// ЧТО ЭТО. Допуск Врат (`e = 1` пропущено / `e = 0` закрыто) хранится не как
@@ -360,3 +399,27 @@ test "AdmissionCode: дополнение 64 бита, допуск 8 бит, fa
     try std.testing.expectEqual(@as(?u1, 0), A.decode(~A.ALLOW_CODE));
 }
 
+
+
+test "СВЕЖЕСТЬ: неизменённый файл сохраняет T (e = 1)" {
+    const src = "contract: x >= 0";
+    const d = digestOf(src);
+    const v = Bit{ .p = true }; // T (1,0): проверка прошла
+    const fresh = evaluateWithFreshness(v, d, digestOf(src));
+    try std.testing.expectEqual(@as(u1, 1), allowance(fresh));
+    try std.testing.expectEqual(ast.Status.tested, fresh.status().?);
+}
+
+test "СВЕЖЕСТЬ: изменение 1 БАЙТА в файле сбрасывает T -> N (e = 0)" {
+    const before = "contract: x >= 0";
+    const after = "contract: x >= 1"; // изменён ОДИН байт
+    const v = Bit{ .p = true };
+    const stale = evaluateWithFreshness(v, digestOf(before), digestOf(after));
+    try std.testing.expectEqual(@as(u1, 0), allowance(stale));
+    try std.testing.expect(stale.isSkip()); // N (0,0)
+    // КОНСЕРВАТИВНОСТЬ: старое опровержение НЕ «лечится» изменением файла.
+    const f = Bit{ .n = true };
+    const f2 = evaluateWithFreshness(f, digestOf(before), digestOf(after));
+    try std.testing.expectEqual(@as(u1, 0), allowance(f2));
+    try std.testing.expect(f2.n);
+}

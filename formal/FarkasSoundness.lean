@@ -207,4 +207,31 @@ theorem case_split_2x2_unsat (U A1 A2 B1 B2 : Prop) :
       | inl hb1 => exact h.2.2.1 ⟨u, ha2, hb1⟩
       | inr hb2 => exact h.2.2.2 ⟨u, ha2, hb2⟩
 
+
+/-! ### 7. ЭШЕЛОН 2, ПУНКТ 10: STALE EVIDENCE ЗАКРЫВАЕТ ВРАТА
+
+Свидетельство привязано к отпечатку файла. Если отпечаток НЕ совпал с текущим,
+положительный бит сбрасывается, поэтому допуск `e` равен нулю.
+-/
+
+/-- Квант Белнапа как пара битов `(p, n)`. -/
+abbrev B4 := Bool × Bool
+
+/-- Функция СВЕЖЕСТИ: `same = true` — отпечатки совпали, вердикт сохраняется;
+    `same = false` — файл изменился, `p` сбрасывается (`n` сохраняется). -/
+def freshBit (b : B4) (same : Bool) : B4 :=
+  if same then b else (false, b.2)
+
+/-- Допуск `e`: `1` только при `T = (true, false)`, иначе `0`. -/
+def allowance (b : B4) : Nat :=
+  if b.1 && !b.2 then 1 else 0
+
+/-- ТЕОРЕМА: несвежее свидетельство ВСЕГДА даёт `e = 0` (`0 sorry`). -/
+theorem stale_evidence_closes_gate (b : B4) : allowance (freshBit b false) = 0 := by
+  simp [freshBit, allowance]
+
+/-- Контроль: свежее свидетельство `T` сохраняет допуск `1`. -/
+theorem fresh_evidence_keeps_allowance : allowance (freshBit (true, false) true) = 1 := by
+  simp [freshBit, allowance]
+
 end KernFarkas
