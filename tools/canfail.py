@@ -215,6 +215,8 @@ class Fault:
 
 FAULTABLE = [
     "docs/CAPABILITY_STATUS.md",
+    "tools/tree_lock.py",
+    "tools/hw_binary_audit.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
     "tools/artifact_check.py",
