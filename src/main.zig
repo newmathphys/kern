@@ -25,6 +25,7 @@ const model_extract = @import("verifier/model_extract.zig");
 const codec = @import("core/codec.zig");
 const z3b = @import("verifier/z3_bridge.zig");
 const unsat_core = @import("verifier/unsat_core.zig");
+const builtin_lia = @import("verifier/builtin_lia.zig");
 const array_theory = @import("verifier/array_theory.zig");
 const chc = @import("verifier/chc.zig");
 const string_theory = @import("verifier/string_theory.zig");
@@ -604,6 +605,75 @@ pub fn main(init: std.process.Init) !void {
             } else {
                 std.debug.print("    не найдено (честный отказ)\n", .{});
             }
+        }
+        return;
+    }
+
+    if (std.mem.eql(u8, command, "lia")) {
+        // ПУНКТ 1 ПЛАНА v2.5: ВСТРОЕННЫЙ РЕШАТЕЛЬ БЕЗ Z3.
+        //   kernc lia <file>   — решить конъюнкцию линейных ограничений.
+        // Формат строки: `LE c1:name1 c2:name2 ... k`
+        //   означает `c1*name1 + c2*name2 + ... + k <= 0`.
+        // Печатает ровно один из трёх вердиктов: UNSAT / SAT <точка> / UNKNOWN <причина>.
+        if (args.len < 3) {
+            std.debug.print("[!] lia: нужен путь к файлу ограничений\n", .{});
+            return;
+        }
+        const ltext = compat.readFileAlloc(alloc, args[2], 1 << 20) catch {
+            std.debug.print("[!] lia: не читается {s}\n", .{args[2]});
+            return;
+        };
+        var lar = std.heap.ArenaAllocator.init(alloc);
+        defer lar.deinit();
+        const la = lar.allocator();
+        var lins: std.ArrayListUnmanaged(builtin_lia.Lin) = .empty;
+        var it_lines = std.mem.splitScalar(u8, ltext, '\n');
+        while (it_lines.next()) |raw| {
+            const line = std.mem.trim(u8, raw, " \t\r");
+            if (line.len == 0 or line[0] == '#') continue;
+            var toks = std.mem.tokenizeAny(u8, line, " \t");
+            const kw = toks.next() orelse continue;
+            if (!std.mem.eql(u8, kw, "LE")) {
+                std.debug.print("[!] lia: поддерживается только `LE` (получено {s})\n", .{kw});
+                return;
+            }
+            var terms: std.ArrayListUnmanaged(builtin_lia.Term) = .empty;
+            var constant: i64 = 0;
+            var last_is_const = false;
+            while (toks.next()) |tk| {
+                last_is_const = true;
+                if (std.mem.indexOfScalar(u8, tk, ':')) |cpos| {
+                    const cs = tk[0..cpos];
+                    const nm = tk[cpos + 1 ..];
+                    const cf = std.fmt.parseInt(i64, cs, 10) catch {
+                        std.debug.print("[!] lia: плохой коэффициент `{s}`\n", .{cs});
+                        return;
+                    };
+                    terms.append(la, .{ .name = la.dupe(u8, nm) catch return, .coeff = cf }) catch return;
+                    last_is_const = false;
+                } else {
+                    constant = std.fmt.parseInt(i64, tk, 10) catch {
+                        std.debug.print("[!] lia: плохая константа `{s}`\n", .{tk});
+                        return;
+                    };
+                }
+            }
+            if (!last_is_const) {
+                std.debug.print("[!] lia: строка без константы: {s}\n", .{line});
+                return;
+            }
+            lins.append(la, .{ .terms = terms.items, .constant = constant }) catch return;
+        }
+        var lsolver = builtin_lia.Solver.init(alloc);
+        defer lsolver.deinit();
+        switch (builtin_lia.checkUnsat(&lsolver, lins.items)) {
+            .unsat => std.debug.print("UNSAT\n", .{}),
+            .unknown => |why| std.debug.print("UNKNOWN {s}\n", .{why}),
+            .sat => |pt| {
+                std.debug.print("SAT", .{});
+                for (pt) |b| std.debug.print(" {s}={d}", .{ b.name, b.value });
+                std.debug.print("\n", .{});
+            },
         }
         return;
     }

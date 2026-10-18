@@ -231,6 +231,7 @@ FAULTABLE = [
     "formal/KernAllMath.lean",
     "src/capi.zig",
     "src/verifier/noninterference.zig",
+    "src/verifier/builtin_lia.zig",
     "src/binlevel_probe.zig",
     "src/verifier/admission_gate.zig",
     "src/verifier/array_theory.zig",
@@ -1705,6 +1706,24 @@ def case_model_verify_spurious():
     return "make test"
 
 
+def case_lia_soundness():
+    """Встроенный LIA-решатель (пункт 1 v2.5). ЛОМАЕМ: всегда «доказано».
+
+    Если `make lia-diff` не покраснеет, дифференциальный гейт против Z3
+    бесполезен, и встроенный решатель сможет выдавать ЛОЖНЫЕ «доказано» —
+    ровно тот исход, против которого построен проект.
+    """
+    patch(
+        "src/verifier/builtin_lia.zig",
+        "pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {\n"
+        "    var set = std.ArrayListUnmanaged(Lin).empty;",
+        "pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {\n"
+        "    if (input.len > 0) return .unsat; // ЛОМАЕМ: всегда «доказано»\n"
+        "    var set = std.ArrayListUnmanaged(Lin).empty;",
+    )
+    return "make lia-diff"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -1791,6 +1810,7 @@ CASES = [
     ("stress",        "Цель stress: закон Белнапа",              case_stress_target),
     ("theories",      "Цель theories: CHC-теория",               case_theories_target),
     ("model-verify",  "Модель: ложный ассерт объявлен верным",    case_model_verify_spurious),
+    ("lia-soundness",  "LIA: незвучивый решатель ловится гейтом",  case_lia_soundness),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

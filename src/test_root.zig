@@ -22,6 +22,7 @@ test {
     _ = @import("verifier/admission_gate.zig");
     _ = @import("verifier/z3_bridge.zig");
     _ = @import("verifier/unsat_core.zig");
+    _ = @import("verifier/builtin_lia.zig");
     _ = @import("verifier/proof_check.zig");
     _ = @import("verifier/model_extract.zig");
     _ = @import("verifier/array_theory.zig");

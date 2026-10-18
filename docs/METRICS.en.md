@@ -241,9 +241,9 @@ evidence, while duplicating the timeout the killer thread already enforces.
 
 ### 23.6 Numbers after Echelon 1 (part)
 
-Core tests **290/290** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
-test-fault OK · test catalogue **330** · defect registry 63 entries (#1-#123) ·
-`registry.py`: 104 targets, **81/81 CHECK** with a proven-can-fail case.
+Core tests **295/295** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
+test-fault OK · test catalogue **335** · defect registry 63 entries (#1-#123) ·
+`registry.py`: 105 targets, **82/82 CHECK** with a proven-can-fail case.
 
 ### 23.7 Item 4 — `let` bindings: the gap was NOT the expansion, it was the blowup
 
@@ -289,3 +289,43 @@ So item 3 (#123) and item 1 (`builtin_lia.zig`) are **one piece of work**: build
 first, then use it to verify weightless `(_ th-lemma arith)` steps. Doing item 3 by
 "accepting those steps on trust" was rejected on purpose: it would turn `holes: 0` into
 fiction (defect #81).
+
+### 23.9 Item 1 — built-in LIA solver (`src/verifier/builtin_lia.zig`)
+
+**Why it exists.** With no `z3` on the machine the Gate stays closed (`e = 0`) for EVERY
+input, including a trivial linear contract. This module closes the simple linear fragment by
+itself, and — more importantly — it is the only sound way to verify the weightless
+`(_ th-lemma arith)` steps that block `#123` (see 23.8).
+
+**Method:** Fourier–Motzkin variable elimination over constraints of the form
+`sum(c_i * x_i) + k <= 0`.
+
+**Soundness, stated plainly.** FM decides the system over the RATIONALS. Integers are a
+subset of the rationals, so unsatisfiability of the rational relaxation implies
+unsatisfiability of the integer system: `.unsat` is **always sound**. The converse does not
+hold (a rationally satisfiable system may have no integer solution), therefore `.sat` is
+returned ONLY when a concrete INTEGER point was found and **checked by direct evaluation of
+every constraint** (`satisfies()`); otherwise the verdict is `.unknown` — an honest
+`Belnap N, e = 0`. Strict inequalities need the integer shift `a < b <=> a - b + 1 <= 0`,
+otherwise FM (working over Q) cannot see that `x > 5 and x < 6` is unsatisfiable over Z.
+
+**Guards:** `MAX_CONSTRAINTS = 20_000` (FM generates lower×upper combinations — a
+combinatorial blow-up otherwise), `MAX_VARS = 32`, an i64 overflow check inside `combine()`,
+and a bounded point search (at most 4 variables and 200k candidate tuples) — beyond that the
+solver honestly says `.unknown` instead of guessing.
+
+**Differential gate against real Z3 (`make lia-diff`, `tools/lia_diff.py`).** 40 generated
+linear systems are solved BOTH by the built-in solver and by Z3, then compared:
+`builtin == UNSAT` requires `Z3 == unsat` (0 false accepts) and `builtin == SAT` requires
+`Z3 == sat` AND the returned point must satisfy the system. Result: **40 compared, 0 false
+accepts, 0 false counterexamples**.
+
+**Non-vacuity proven by experiment.** Breaking the solver (return `.unsat` always) makes the
+gate report **25 false accepts** and print "NOT SOUND"; restoring it returns to 0. The case
+is registered in the can-fail harness as `lia-soundness` -> `make lia-diff`
+(1 non-vacuous / 0 vacuous / 0 errors), and `registry.py` now reports **82/82 CHECK**
+targets with a proven-can-fail case.
+
+**CLI:** `kernc lia <file>` — lines of the form `LE c1:name1 c2:name2 ... k`
+(meaning `sum + k <= 0`), printing exactly one of `UNSAT` / `SAT name=value ...` /
+`UNKNOWN <reason>`.
