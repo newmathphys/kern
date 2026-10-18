@@ -223,6 +223,7 @@ FAULTABLE = [
     "tools/gen_tests_check.sh",
     "tools/simplify_check.sh",
     "tools/bounds_check.sh",
+    "tools/loop_check.sh",
     "examples/xray_demo.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
@@ -1716,6 +1717,17 @@ def case_model_verify_spurious():
 
 
 
+def case_loop_check():
+    """ПУНКТ 20. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта и
+    незавершающийся цикл перестают ловиться -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        "    if \"КОНТРПРИМЕР\" in out:",
+        "    if False:  # ЛОМАЕМ: игнорируем контрпримеры",
+    )
+    return "make loop-check"
+
+
 def case_bounds_check():
     """ПУНКТ 21. ЛОМАЕМ детектор границ: контрпримеры игнорируются ->
     get_unsafe перестаёт обвиняться -> цель обязана покраснеть."""
@@ -1959,6 +1971,7 @@ CASES = [
     ("gen-tests-check","SBST: сгенерированные тесты проходят",    case_gen_tests_check),
     ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),
     ("bounds-check",    "BOUNDS: границы arr[i] проверены",       case_bounds_check),
+    ("loop-check",      "LOOPS: инвариант и остановка циклов",   case_loop_check),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

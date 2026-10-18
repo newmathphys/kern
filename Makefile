@@ -271,6 +271,11 @@ simplify-check: build
 bounds-check: build
 	@bash tools/bounds_check.sh
 
+# ЭШЕЛОН 4, ПУНКТ 20: тотальная корректность циклов (Флойд - Хоар):
+# Init + Consecution + Post + Termination через Z3 (QF_LIA).
+loop-check: build
+	@bash tools/loop_check.sh
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.

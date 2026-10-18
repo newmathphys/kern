@@ -1110,6 +1110,8 @@ def main() -> int:
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--loops", default=None, metavar="PATH",
+                    help="ПУНКТ 20: тотальная корректность циклов (invariant+decreases)")
     ap.add_argument("--simplify", default=None, metavar="PATH",
                     help="ПУНКТ 17: упрощение с ДОКАЗАТЕЛЬСТВОМ эквивалентности")
     ap.add_argument("--simplify-out", default=None, metavar="OUT.py",
@@ -1162,6 +1164,8 @@ def main() -> int:
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
                             args.github_annotations, args.json)
+    if getattr(args, "loops", None):
+        return cmd_loops(args.loops, args.kernc)
     if args.simplify:
         return cmd_simplify(args.simplify, args.simplify_out, args.kernc)
     if args.gen_tests:
@@ -2138,8 +2142,14 @@ def _declared_lengths_for(lines: list[str], lineno: int) -> dict[str, int]:
     return out
 
 
-def _smt_counterexample(kernc, params, asserts) -> str | None:
-    """Контрпример для набора ограничений; None, если невыполним (безопасно)."""
+def _smt_verdict(kernc, params, asserts) -> tuple[str, str | None]:
+    """ТРЁХЗНАЧНЫЙ вердикт: ("sat", контрпример) | ("unsat", None) | ("unknown", причина).
+
+    ДЕФЕКТ #137 (звучимость): раньше возвращался `None` и для `UNSAT`, и для `N`
+    (решатель не решил). Из-за этого НЕРЕШЁННАЯ формула молча считалась
+    ДОКАЗАННОЙ — ложный PASS. Теперь `unknown` отличается от `unsat` и обязан
+    обрабатываться вызывающим кодом как «НЕ проверено».
+    """
     decls = "\n".join(f"(declare-const {p} Int)" for p in params)
     body = "\n".join(f"(assert {a})" for a in asserts)
     smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
@@ -2147,9 +2157,17 @@ def _smt_counterexample(kernc, params, asserts) -> str | None:
     if "КОНТРПРИМЕР" in out:
         for ln in out.splitlines():
             if "КОНТРПРИМЕР" in ln:
-                return ln.strip()[:110]
-        return "SAT (модель не извлечена)"
-    return None
+                return ("sat", ln.strip()[:110])
+        return ("sat", "SAT (модель не извлечена)")
+    if "ДОКАЗАНО" in out:
+        return ("unsat", None)
+    return ("unknown", "решатель не решил (N): формула НЕ проверена")
+
+
+def _smt_counterexample(kernc, params, asserts) -> str | None:
+    """Совместимость: контрпример, если SAT; иначе None (UNSAT или unknown)."""
+    kind, ce = _smt_verdict(kernc, params, asserts)
+    return ce if kind == "sat" else None
 
 
 def _block_exits(body) -> bool:
@@ -2249,6 +2267,234 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         print(f"    skip: {s}")
     if not found:
         print("[OK] рентген не нашёл мёртвых веток, избыточных проверок и краш-путей")
+    return 0
+
+
+
+# =============================================================================
+# ЭШЕЛОН 4, ПУНКТ 20 — ТОТАЛЬНАЯ КОРРЕКТНОСТЬ ЦИКЛОВ (Флойд — Хоар).
+#
+# `# @kern:invariant <expr>` + `# @kern:decreases <expr>` -> ЧЕТЫРЕ обязательства:
+#   (1) Init:        req AND (v = v0)            AND NOT I(v)      -> UNSAT
+#   (2) Consecution: req AND I(v) AND cond AND (v' = step(v))
+#                                                    AND NOT I(v') -> UNSAT
+#   (3) Post:        req AND I(v) AND NOT cond AND (result = ret)
+#                                                    AND NOT ens   -> UNSAT
+#   (4) Termination: req AND I(v) AND cond AND (v' = step(v))
+#                          AND NOT (V(v) >= 0 AND V(v') < V(v))   -> UNSAT
+#
+# Всё в QF_LIA (без CHC): переменные целые, шаг линейный. Если шаг нелинеен или
+# цикл не найден — честный SKIP с причиной, а не догадка.
+# =============================================================================
+
+_INV_RE = re.compile(r"@kern:invariant\s+(.+)")
+_DEC_RE = re.compile(r"@kern:decreases\s+(.+)")
+
+
+def _directives_before(lines: list[str], lineno: int) -> dict[str, str]:
+    """Строки директив из блока комментариев НЕПОСРЕДСТВЕННО перед `def`."""
+    out: dict[str, str] = {}
+    i = lineno - 2
+    while i >= 0:
+        s = lines[i].strip()
+        if not s or not s.startswith("#"):
+            break
+        m = _INV_RE.search(s)
+        if m:
+            out["invariant"] = m.group(1).strip()
+        m = _DEC_RE.search(s)
+        if m:
+            out["decreases"] = m.group(1).strip()
+        i -= 1
+    return out
+
+
+def _subst(text: str, mapping: dict[str, str]) -> str:
+    """Подстановка переменных в SMT-строку (по границам слова).
+
+    ДЕФЕКТ #137: раньше ЛЮБОЙ терм оборачивался в скобки, поэтому подстановка
+    числа давала `(0)` — НЕВАЛИДНЫЙ SMT-LIB (скобки = применение функции).
+    Z3 не мог разобрать формулу, kernc отвечал `N`, а это молча принималось за
+    «безопасно». Теперь атомы (числа и идентификаторы) подставляются как есть.
+    """
+    # ДЕФЕКТ #139: обёртка в скобки давала ДВОЙНЫЕ скобки `((+ i 1))` — Z3 не мог
+    # разобрать формулу и отвечал `N`. В SMT-LIB вся нотация ПРЕФИКСНАЯ, поэтому
+    # подстановка полного s-выражения или атома НЕ требует обёртки вообще.
+    for k in sorted(mapping, key=len, reverse=True):
+        text = re.sub(r"(?<![\w])" + re.escape(k) + r"(?![\w])",
+                      mapping[k], text)
+    return text
+
+
+def _assigns(stmts) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    for st in stmts:
+        if (isinstance(st, ast.Assign) and len(st.targets) == 1
+                and isinstance(st.targets[0], ast.Name)):
+            try:
+                out.append((st.targets[0].id, expr_smt(st.value, {})))
+            except (Unsupported, NoReturn, Exception):
+                raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
+        elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
+            op = {"Add": "+", "Sub": "-", "Mult": "*"}.get(type(st.op).__name__)
+            if op is None:
+                raise Unsupported(f"+=/-= только на строке {st.lineno}")
+            try:
+                out.append((st.target.id, f"({op} {st.target.id} {expr_smt(st.value, {})})"))
+            except (Unsupported, NoReturn, Exception):
+                raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
+    return out
+
+
+def _apply(state: dict[str, str], assigns) -> dict[str, str]:
+    s = dict(state)
+    for name, expr in assigns:
+        s[name] = _subst(expr, s)
+    return s
+
+
+def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
+    """Четыре обязательства для первого top-level `while` (Пункт 20)."""
+    res: list[str] = []
+    idx = None
+    for n, st in enumerate(fn.body):
+        if isinstance(st, ast.While):
+            idx = n
+            break
+    if idx is None:
+        return res
+    loop = fn.body[idx]
+    try:
+        cond = expr_smt(loop.test, {})
+        init_a = _assigns(fn.body[:idx])
+        step_a = _assigns(loop.body)
+    except (Unsupported, NoReturn, Exception) as e:
+        res.append(f"[SKIP] {fn.name}: цикл вне подмножества ({e})")
+        return res
+    ret = None
+    for st in fn.body[idx + 1:]:
+        if isinstance(st, ast.Return) and st.value is not None:
+            try:
+                ret = expr_smt(st.value, {})
+            except (Unsupported, NoReturn, Exception):
+                ret = None
+            break
+    lines = _loop_lines.get(fn.lineno, [])
+    d = _directives_before(lines, fn.lineno)
+    if "invariant" not in d:
+        res.append(f"[SKIP] {fn.name}: нет `# @kern:invariant` — цикл не проверяется")
+        return res
+    try:
+        inv = expr_smt(ast.parse(d["invariant"], mode="eval").body, {})
+    except (Unsupported, NoReturn, Exception) as e:
+        res.append(f"[SKIP] {fn.name}: инвариант вне подмножества ({e})")
+        return res
+    dec = None
+    if "decreases" in d:
+        try:
+            dec = expr_smt(ast.parse(d["decreases"], mode="eval").body, {})
+        except (Unsupported, NoReturn, Exception):
+            dec = None
+    names = [p for p in params] + [a for a, _ in init_a] + [a for a, _ in step_a]
+    state0 = {p: p for p in params}
+    state_i = _apply(state0, init_a)
+    state_c = {n: n for n in names}
+    state_n = _apply(state_c, step_a)
+    inv0 = _subst(inv, state_i)
+    invc = _subst(inv, state_c)
+    invn = _subst(inv, state_n)
+    pre = [req_smt] if req_smt else []
+    # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
+    # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`
+    # -> молчаливый PASS. Объявляем ВСЕ переменные состояния.
+    decls = list(dict.fromkeys(names))
+    fails = 0
+    unknowns = 0
+    # `result` участвует ТОЛЬКО в обязательстве `post` -> объявляем его там же
+    # (Дефект #138: необъявленная переменная даёт `N`, что раньше читалось как PASS).
+    decls_post = list(dict.fromkeys(decls + ["result"]))
+    checks: list[tuple[str, list[str], list[str]]] = [
+        ("init", decls, pre + [f"(not {inv0})"]),
+        ("consecution", decls, pre + [invc, cond, f"(not {invn})"]),
+    ]
+    if ret is not None and ens_smt:
+        checks.append(("post", decls_post,
+                       pre + [invc, f"(not {cond})",
+                              f"(= result {_subst(ret, state_c)})",
+                              f"(not {ens_smt})"]))
+    if dec is not None:
+        dec_c = _subst(dec, state_c)
+        dec_n = _subst(dec, state_n)
+        checks.append(("termination", decls,
+                       pre + [invc, cond,
+                              f"(not (and (>= {dec_c} 0) (< {dec_n} {dec_c})))"]))
+    else:
+        res.append(f"[SKIP] {fn.name}: нет `# @kern:decreases` — остановка НЕ проверена")
+        unknowns += 1
+    for kind, dcl, asserts in checks:
+        v, ce = _smt_verdict(kernc, dcl, asserts)
+        if v == "sat":
+            fails += 1
+            label = {"init": "LOOP INVARIANT VIOLATED at init",
+                     "consecution": "LOOP INVARIANT VIOLATED (не сохраняется)",
+                     "post": "POSTCONDITION VIOLATED",
+                     "termination": "NON-TERMINATING LOOP (вариант не убывает)"}[kind]
+            res.append(f"[FAIL] {fn.name}: {label}; контрпример: {ce}")
+        elif v == "unknown":
+            unknowns += 1
+            res.append(f"[UNKNOWN] {fn.name}: обязательство `{kind}` НЕ решено "
+                       f"({ce}) — НЕ считается доказанным")
+    if fails == 0 and unknowns == 0:
+        res.append(f"[PASS] {fn.name}: PROVEN (invariant & termination verified)")
+    return res
+
+
+_loop_lines: dict[int, list[str]] = {}
+
+
+def cmd_loops(path: str, kernc) -> int:
+    """ПУНКТ 20: проверка циклов (`make loop-check`)."""
+    p = Path(path)
+    src = p.read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    tree = ast.parse(src)
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    out: list[str] = []
+    for fn in fns:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        _loop_lines[fn.lineno] = lines
+        fn._kern_lines = lines  # noqa: SLF001
+        req, ens = None, None
+        for ln in _directives_before(lines, fn.lineno).values():
+            pass
+        # requires/ensures читаем тем же блоком
+        i = fn.lineno - 2
+        while i >= 0:
+            s = lines[i].strip()
+            if not s or not s.startswith("#"):
+                break
+            m = re.search(r"@kern:requires\s+(.+)", s)
+            if m:
+                try:
+                    req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
+                except (Unsupported, NoReturn, Exception):
+                    req = None
+            m = re.search(r"@kern:ensures\s+(.+)", s)
+            if m:
+                try:
+                    ens = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
+                except (Unsupported, NoReturn, Exception):
+                    ens = None
+            i -= 1
+        out.extend(check_loop(fn, params, req, ens, kernc))
+    print("-" * 74)
+    for r in out:
+        print("  " + r)
+    print("-" * 74)
+    nf = sum(1 for r in out if r.startswith("[FAIL]"))
+    np_ = sum(1 for r in out if r.startswith("[PASS]"))
+    ns = sum(1 for r in out if r.startswith("[SKIP]"))
+    print(f"[LOOP SUMMARY] PASS {np_} | FAIL {nf} | SKIP {ns}")
     return 0
 
 

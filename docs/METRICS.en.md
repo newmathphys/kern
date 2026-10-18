@@ -912,3 +912,33 @@ lengths are read from the comment block immediately preceding `def`.
 `make xray-check` now asserts three things (unsafe accused; safe NOT accused; unknown
 length reported honestly). canfail case `bounds-check`: breaking the detector turns the
 target red. MEASURED: `1 non-vacuous, 0 vacuous`.
+
+### 23.28 Echelon 4, Item 20 — TOTAL LOOP CORRECTNESS (Floyd-Hoare)
+
+`--loops <file>`: `# @kern:invariant` + `# @kern:decreases` -> FOUR obligations in Z3
+(QF_LIA, no CHC): Init, Consecution, Post, Termination. The step is modelled
+**sequentially** (assignments applied in program order).
+
+**MEASURED** on `examples/loops.py`: `count_up` -> PASS; `count_up_bad_inv` ->
+FAIL LOOP INVARIANT VIOLATED (`n = 0, i = 0` and `n = 0, i = -1`);
+`count_up_no_terminate` -> FAIL NON-TERMINATING LOOP (`n = 1, i = 0`).
+Summary: `PASS 1 | FAIL 5 | SKIP 0`.
+
+**Defect #137 (soundness-critical):** `_smt_counterexample` returned `None` for BOTH
+`UNSAT` and **`N`** (solver gave up), so any UNRESOLVED formula silently counted as
+PROVEN. Also `_subst` wrapped ATOMS in parentheses, producing `(0)` — invalid SMT-LIB —
+so Z3 could not parse the formula at all -> `N` -> PASS. Fixed: three-valued
+`_smt_verdict` -> `("sat", ce) | ("unsat", None) | ("unknown", reason)`; `unknown` is
+printed as `[UNKNOWN]` and is NEVER counted as proof.
+
+**Defect #138:** only parameters were declared — loop locals (`i`) and `result` were
+undeclared -> Z3 error -> `N` -> false PASS. Fixed: all state variables are declared;
+`result` in the `post` obligation.
+
+**Defect #139:** `_subst` wrapped an already-complete s-expression -> `((+ i 1))` ->
+unparseable -> `N`. SMT-LIB notation is PREFIX, so substituting a full s-expression
+needs NO parentheses. Fixed.
+
+**IMPORTANT:** #137-#139 lived in SHARED helpers, so they affected EVERY check
+(including Item 21). After the fix Items 17 and 21 were re-verified. Defect class:
+**an SMT parse error was silently reported as a proof**.
