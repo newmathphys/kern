@@ -334,4 +334,40 @@ theorem clamp_nan_safe_proven (x : IeeeFloat) :
     · simp [fp_lt, fp_geq, fp_zero, hxf, hl]
       omega
 
+-- =============================================================================
+-- ТЕОРЕМЫ ДЛЯ ПРАВИЛ, ДОБАВЛЕННЫХ ПРИ РАБОТЕ НАД QF_S (Эшелон 4, Пункт 23).
+-- ИЗМЕРЕНО: эти правила/обобщения были добавлены в `proof_check.zig` и обязаны
+-- иметь формальное обоснование.
+-- =============================================================================
+
+-- `iff-true`: из доказанного `P` следует `(= P true)`; для Bool это тождество.
+theorem iff_true_sound (b : Bool) : (b = true) ↔ b := by
+  cases b <;> simp
+
+-- `iff-false`: из доказанного `¬P` следует `(= P false)`.
+theorem iff_false_sound (b : Bool) : (b = false) ↔ ¬(b = true) := by
+  cases b <;> simp
+
+-- ОБОБЩЁННЫЙ ЗАКОН ДЕ МОРГАНА (для `isNegPair`/`andDeMorganOne`):
+-- знаки дизъюнктов ЛЮБЫЕ: `(¬a ∧ b) ↔ ¬(a ∨ ¬b)`.
+theorem de_morgan_mixed (a b : Prop) : (¬a ∧ b) ↔ ¬(a ∨ ¬b) := by
+  constructor
+  · intro h hab
+    cases hab with
+    | inl ha => exact h.1 ha
+    | inr hnb => exact hnb h.2
+  · intro h
+    refine ⟨?_, ?_⟩
+    · intro ha
+      exact h (Or.inl ha)
+    · exact Classical.byContradiction (fun hnb => h (Or.inr hnb))
+
+-- Двойное отрицание в контрарной паре: `(¬(¬a)) ↔ a` — основа `isNegPair`.
+theorem double_neg_iff (a : Prop) : ¬¬a ↔ a := by
+  constructor
+  · intro h
+    exact Classical.byContradiction (fun ha => h ha)
+  · intro ha hna
+    exact hna ha
+
 end KernFarkas

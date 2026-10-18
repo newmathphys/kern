@@ -14,7 +14,7 @@
 |:--|:--:|:--:|
 | Core (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 files, 70 theorems, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 files, 74 theorems, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 attacks blocked | — |
 
 > Debug covers every contour: DoS, NaN, JSON, bounds, memory alignment (Echelon 1),

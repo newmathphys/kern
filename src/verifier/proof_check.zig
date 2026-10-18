@@ -413,6 +413,11 @@ const KNOWN_RULES = [_][]const u8{
     "distributivity",  "definition",  "monotonicity", "bind",
     "pull-quant",      "sk",          "nnf-pos",    "nnf-neg",
     "quant-inst",      "quant-intro", "elim",       "asserted-commutativity",
+    // ЭТАЛОН QF_S (измерено дампом): `iff-true` / `iff-false` ОТСУТСТВОВАЛИ
+    // в таблице, поэтому `isStepExpr` не считал их шагами, и `premiseTerm`
+    // возвращал САМ шаг (`(iff-true @x78 (= $x74 true))`) вместо доказываемой
+    // формулы (`(= $x74 true)`). Из-за этого цепочка `trans*` рвалась.
+    "iff-true",        "iff-false",
     // ДЕФЕКТ #90 (найден при работе над ветвлениями `ite`): этих правил не было
     // в списке, поэтому `isStepExpr` НЕ считал их шагами, и `premiseTerm`
     // возвращал САМ шаг (`(intro-def X)`) вместо доказываемой формулы (`X`).
@@ -1056,7 +1061,9 @@ fn verifyTransStar(c: *const Ctx, st: Sexp) bool {
         const t = premiseTerm(c, p);
         if (!isEq3(t)) return false;
         if (prev_right) |pr| {
-            if (!sexpEq(pr, t.items[1])) return false; // разрыв цепочки
+            // ЭТАЛОН QF_S: `sexpEqNum`, а не `sexpEq` — иначе нормализации
+            // (канонизация сравнений, булевы формы) не применяются к звеньям.
+            if (!sexpEqNum(pr, t.items[1])) return false; // разрыв цепочки
         } else {
             first_left = t.items[1];
         }
@@ -1064,7 +1071,7 @@ fn verifyTransStar(c: *const Ctx, st: Sexp) bool {
         count += 1;
     }
     if (count < 2) return false;
-    return sexpEq(first_left.?, q.items[1]) and sexpEq(prev_right.?, q.items[2]);
+    return sexpEqNum(first_left.?, q.items[1]) and sexpEqNum(prev_right.?, q.items[2]);
 }
 
 /// `def-axiom` для `ite`: Z3 вводит ДВЕ ОПРЕДЕЛЯЮЩИЕ тавтологии
@@ -1581,6 +1588,21 @@ fn andDeMorganEq(l: Sexp, r: Sexp) bool {
     return andDeMorganOne(l, r) or andDeMorganOne(r, l);
 }
 
+/// `X` и `D` — контрарная пара: `X = (not D)` ИЛИ `D = (not X)`.
+///
+/// ИЗМЕРЕНО (ЭТАЛОН QF_S): `(and (not A) B) <=> (not (or A (not B)))` — в `or`
+/// дизъюнкты имеют РАЗНЫЙ знак (`A` без `not`, `(not B)` с `not`), а прежний
+/// `andDeMorganOne` требовал `(not …)` у ОБОИХ и не срабатывал.
+fn isNegPair(x: Sexp, d: Sexp) bool {
+    if (asNot(x)) |xi| {
+        if (sexpEqNum(xi, d)) return true;
+    }
+    if (asNot(d)) |di| {
+        if (sexpEqNum(x, di)) return true;
+    }
+    return false;
+}
+
 fn andDeMorganOne(and_side: Sexp, not_or_side: Sexp) bool {
     if (!and_side.isList() or and_side.items.len != 3) return false;
     const ah = and_side.items[0].atom orelse return false;
@@ -1592,12 +1614,11 @@ fn andDeMorganOne(and_side: Sexp, not_or_side: Sexp) bool {
     if (!inner.isList() or inner.items.len != 3) return false;
     const ih = inner.items[0].atom orelse return false;
     if (!std.mem.eql(u8, ih, "or")) return false;
-    const nx = inner.items[1];
-    const ny = inner.items[2];
-    if (!isNotT(nx) or !isNotT(ny)) return false;
-    const x2 = nx.items[1];
-    const y2 = ny.items[1];
-    return (sexpEq(x, x2) and sexpEq(y, y2)) or (sexpEq(x, y2) and sexpEq(y, x2));
+    const d1 = inner.items[1];
+    const d2 = inner.items[2];
+    // `(and X Y) <=> (not (or D1 D2))` при `X = ¬D1`, `Y = ¬D2` (знаки любые).
+    return (isNegPair(x, d1) and isNegPair(y, d2)) or
+        (isNegPair(x, d2) and isNegPair(y, d1));
 }
 
 /// Строковый литерал SMT-LIB: `"..."` -> содержимое без кавычек.
@@ -1997,6 +2018,51 @@ fn isBoolTautology(s: Sexp) bool {
         if (!v) return false;
     }
     return true;
+}
+
+/// `(iff-true P (= Q true))` — P доказывает Q, значит `(= Q true)`.
+///
+/// ИЗМЕРЕНО (ЭТАЛОН QF_S, дамп `[dbg-trusted] #2 iff-true :: (iff-true @x78 (= $x74 true))`):
+/// правило не было ни в `KNOWN_RULES`, ни в верификаторах — цепочка `trans*`
+/// рвалась. ЗВУЧНО: из `P` следует `(= P true)`.
+fn verifyIffTrue(c: *const Ctx, st: Sexp) bool {
+    if (st.items.len < 3) return false;
+    const concl = expand(c, proved(st), 0);
+    if (!isEq3(concl)) return false;
+    const a = concl.items[1];
+    const b = concl.items[2];
+    const q = blk: {
+        if (b.atom) |x| {
+            if (std.mem.eql(u8, x, "true")) break :blk a;
+        }
+        if (a.atom) |x| {
+            if (std.mem.eql(u8, x, "true")) break :blk b;
+        }
+        return false;
+    };
+    const p = premiseTerm(c, st.items[1]);
+    return sexpEqNum(p, q);
+}
+
+/// `(iff-false P (= Q false))` — P доказывает `(not Q)`, значит `(= Q false)`.
+fn verifyIffFalse(c: *const Ctx, st: Sexp) bool {
+    if (st.items.len < 3) return false;
+    const concl = expand(c, proved(st), 0);
+    if (!isEq3(concl)) return false;
+    const a = concl.items[1];
+    const b = concl.items[2];
+    const q = blk: {
+        if (b.atom) |x| {
+            if (std.mem.eql(u8, x, "false")) break :blk a;
+        }
+        if (a.atom) |x| {
+            if (std.mem.eql(u8, x, "false")) break :blk b;
+        }
+        return false;
+    };
+    const p = premiseTerm(c, st.items[1]);
+    if (asNot(p)) |inner| return sexpEqNum(inner, q);
+    return false;
 }
 
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
@@ -2732,6 +2798,10 @@ fn substBoolSimplify(c: *const Ctx, s: Sexp, names: []const []const u8, vals: []
                 if (xb and yb) {
                     return boolAtom(std.mem.eql(u8, xa, "true") == std.mem.eql(u8, ya, "true"));
                 }
+                // ИЗМЕРЕНО (ЭТАЛОН QF_S): `(= false "safe")` — Bool против String,
+                // то есть ЗАВЕДОМО ЛОЖНОЕ равенство (разные сорта). Такая ветка
+                // невыполнима: возвращаем `false` (P ∧ false ≡ false).
+                if (xb != yb) return boolAtom(false);
             }
         }
         var out = std.array_list.Managed(Sexp).init(c.arena);
@@ -3379,6 +3449,12 @@ pub fn verifyProof(
             if (verifyAndElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "not-or-elim")) {
             if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+        } else if (std.mem.eql(u8, r, "iff-true")) {
+            // ЭТАЛОН QF_S: `(iff-true P (= Q true))` — из `P` следует `(= P true)`.
+            if (verifyIffTrue(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+        } else if (std.mem.eql(u8, r, "iff-false")) {
+            // ЭТАЛОН QF_S: `(iff-false P (= Q false))` — из `(not Q)` следует `(= Q false)`.
+            if (verifyIffFalse(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
             if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "lemma")) {

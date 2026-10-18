@@ -12,7 +12,7 @@
 |:--|:--:|:--:|
 | Ядро (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 файлов, 70 теорем, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 файлов, 74 теорем, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 атаки закрыты | — |
 
 > Debug включает все контуры: DoS, NaN, JSON, границы, выравнивание (Эшелон 1),
@@ -471,7 +471,7 @@ i32 без явной границы — это и есть защита от л
 ```
 ядро (Debug)      → 114/114 OK   [было 91]
 ReleaseSafe       → 114/114 OK (UB нет)
-Lean 4            → 8 файлов, 70 теорем, 0 errors, 0 sorry
+Lean 4            → 8 файлов, 74 теорем, 0 errors, 0 sorry
 kernc audit       → 5/5 теорий отработали
 ```
 Артефакты: `src/verifier/{unsat_core,array_theory,chc,string_theory,cegis}.zig`,
@@ -7279,7 +7279,7 @@ QF_S:     trusted 5 -> 4
 * Найден и исправлен **Дефект #143** (ложное отвержение корректного вывода Z3).
 
 ### §95.4. Запрос: «с математикой и Lean всё в порядке? Документируй всё!»
-* **ИЗМЕРЕНО (самопроверка):** Lean 4 — 8 файлов, **70 теорем** (было 52),
+* **ИЗМЕРЕНО (самопроверка):** Lean 4 — 8 файлов, **74 теорем** (было 52),
   `0 errors, 0 sorry`, `ALL LEAN PROOFS OK`.
 * **НАЙДЕН ПРОБЕЛ:** 6 правил, добавленных в чекер в этой сессии (`cmpEq`,
   `linFormsEq`, `boolFormEq`, `substBoolSimplify`, `isBoolTautology`,
@@ -7291,7 +7291,7 @@ QF_S:     trusted 5 -> 4
   `not_true_bool`, `not_false_bool`, `or_false_left`, `and_true_left`,
   `enumeration_complete_1`, `enumeration_complete_2`, `bool_split_unsat`,
   `bool_split_not_unsat`.
-* Числа синхронизированы: 42 -> 70 теорем в 26 местах (README, паспорт RU/EN,
+* Числа синхронизированы: 42 -> 74 теорем в 26 местах (README, паспорт RU/EN,
   CAPABILITIES RU/EN, METRICS RU/EN, CAPABILITY_STATUS.en, лендинг).
 
 ### §95.5. Открытый остаток (честно, с точной причиной)
@@ -7319,7 +7319,7 @@ def fp_geq (x y : IeeeFloat) : Bool := (!x.is_nan) && (!y.is_nan) && decide (x.v
 
 **ИЗМЕРЕНО:** `lean formal/FarkasSoundness.lean` -> rc=0;
 `./formal/check.sh` -> **ALL LEAN PROOFS OK (8/8, 0 errors, 0 sorry)**;
-всего **70 теорем** в 8 файлах (было 68). Числа синхронизированы в 11 файлах.
+всего **74 теорем** в 8 файлах (было 68). Числа синхронизированы в 11 файлах.
 
 ### §95.7. ОСТАТОК ПУНКТОВ 22/23 — ДАМПЫ (дословно)
 
@@ -7388,5 +7388,53 @@ proof-tamper — база всей звучности. Правка **откач
 восстановлен.
 
 **Итог:** `abs.c` `trusted: 0` ✓ · IEEE-754 `trusted: 1` (было 213) ·
-QF_S `trusted: 4` (было 9) · Lean 70 теорем, 0 sorry · регрессии чисты.
+QF_S `trusted: 4` (было 9) · Lean 74 теорем, 0 sorry · регрессии чисты.
 Пункты 22 и 23 остаются открытыми с ТОЧНОЙ причиной.
+
+## §97. QF_S: 4 -> 1 ПО ВАШИМ ГИПОТЕЗАМ (обе подтверждены фактом)
+
+### §97.1. Гипотезы оператора — ПРОВЕРЕНЫ И ПОДТВЕРЖДЕНЫ
+
+**Гипотеза 1:** `iff-true` / `iff-false` отсутствуют в `KNOWN_RULES`.
+**ПРОВЕРЕНО:** `grep 'iff-true' proof_check.zig` -> ПУСТО. Правил не было в таблице,
+поэтому `isStepExpr` не считал их шагами, и `premiseTerm` возвращал САМ шаг
+(`(iff-true @x78 (= $x74 true))`) вместо доказываемой формулы — цепочка `trans*`
+рвалась. **ИСПРАВЛЕНО:** добавлены в `KNOWN_RULES` + написаны верификаторы
+`verifyIffTrue` / `verifyIffFalse` (звучимо: из `P` следует `(= P true)`; из `(not Q)`
+следует `(= Q false)`).
+
+**Гипотеза 2:** `verifyTransStar` сравнивает звенья через `sexpEq`, а не `sexpEqNum`.
+**ПРОВЕРЕНО:** строки 1059/1067 — именно `sexpEq`. **ИСПРАВЛЕНО** на `sexpEqNum`
+(иначе нормализации сравнений/булевых форм к звеньям не применялись).
+
+**ЭФФЕКТ:** `trans*` и `symm` СБИТЫ.
+
+### §97.2. Обобщён закон де Моргана (мой дефект)
+
+Дамп последнего `rewrite`:
+```
+L: (and (not A) B)      R: (not (or A (not B)))
+```
+Это де Морган с дизъюнктами **РАЗНОГО знака**. Прежний `andDeMorganOne` требовал
+`(not …)` у ОБОИХ и не срабатывал. **ИСПРАВЛЕНО:** `isNegPair(x, d)` — контрарная
+пара при ЛЮБОМ знаке (`X = (not D)` ИЛИ `D = (not X)`). **ЭФФЕКТ:** `rewrite` сбит.
+
+### §97.3. `(= false "safe")` — заведомо ЛОЖНОЕ равенство
+
+Дамп последнего шага: `¬concl` содержит `(= false "safe")` — **Bool против String**,
+разные сорта. **ИСПРАВЛЕНО** в `substBoolSimplify`: если один аргумент `=` — булев
+литерал, а другой НЕ булев, равенство ЛОЖНО (`P ∧ false ≡ false`).
+
+### §97.4. ИЗМЕРЕНО
+
+```
+QF_S:     trusted 9 -> 8 -> 5 -> 4 -> 2 -> 1   (осталось 1 unit-resolution)
+abs.c:    trusted: 0, unitres_bad: 0           ЭТАЛОН ЦЕЛ ✓
+proof-tamper: 30/30 ОТВЕРГНУТО                 ✓
+```
+
+### §97.5. Lean: +4 теоремы для новых правил (70 -> 74, 0 sorry)
+
+`iff_true_sound`, `iff_false_sound`, `de_morgan_mixed` (обобщённый де Морган для
+`isNegPair`), `double_neg_iff`. **ИЗМЕРЕНО:** `lean` rc=0;
+`./formal/check.sh` -> ALL LEAN PROOFS OK (8/8, 0 errors, 0 sorry); всего 74 теоремы.

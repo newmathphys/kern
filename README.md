@@ -385,7 +385,7 @@ flowchart LR
 | **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
 | **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
 | **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
-| **L5** — formal proofs | 70 theorems in 8 Lean 4 files, 0 `sorry` |
+| **L5** — formal proofs | 74 theorems in 8 Lean 4 files, 0 `sorry` |
 
 The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
 produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
@@ -572,7 +572,7 @@ make guardrail
 uv pip install --python .venv/bin/python z3-solver
 ./zig-out/bin/kernc prove formal/example.smt2
 
-# 7. Formal proofs (Lean 4): 8 files, 70 theorems, 0 sorry
+# 7. Formal proofs (Lean 4): 8 files, 74 theorems, 0 sorry
 ./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
 ./formal/check.sh
 
@@ -709,7 +709,7 @@ A claim without evidence is not a claim. Applying that rule to this project:
 ```
 src/            Zig core: .kimg format, KERNFS, Truth Gate, Z3 bridge, 5 SMT theories
 src/next/       KERN-Next: .kern DSL, SQLite catalogue, snapshots, agent hand-off
-formal/         Lean 4 proofs (70 theorems) + certification package
+formal/         Lean 4 proofs (74 theorems) + certification package
 examples/       toy_ai_hallucination/ demo, guardrail_proxy.py HTTP guardrail
 audits/         shadow contracts: hand-written SMT models of real third-party expressions
 tools/          can-fail harness, mutation tester, benchmarks, cross-arch runner
