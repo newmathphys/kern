@@ -1522,25 +1522,26 @@ const ComboResult = enum { unsat, sat, unknown };
 /// ВАЖНО: «не удалось перевести» — это `unknown`, а НЕ `sat`. Иначе чекер
 /// объявлял бы шаг НЕВЕРНЫМ там, где он просто вне его модели (это была бы
 /// ложная тревога в самую опасную сторону).
-fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp) ComboResult {
+fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, neg_concl: ?Sexp) ComboResult {
     var all = std.array_list.Managed(Sexp).init(c.arena);
     for (units) |u| all.append(u) catch return .unknown;
     for (picks) |p| all.append(p) catch return .unknown;
+    if (neg_concl) |nc| all.append(nc) catch return .unknown;
     for (all.items, 0..) |a, i| {
         for (all.items[i + 1 ..]) |b| {
             if (isComplement(a, b) or isComplementCmp(a, b)) return .unsat;
         }
     }
     var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
-    for (all.items) |l| {
-        if (!asLeZero(c, l, &cons)) {
-            if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                std.debug.print("[dbg-combo] литерал НЕ переведён: ", .{});
-                dumpSexp(l);
-                std.debug.print("\n", .{});
-            }
-            return .unknown;
-        }
+    // ЗАКЛЮЧЕНИЕ берётся С ОТРИЦАНИЕМ: `¬concl` — часть проверяемой системы.
+    if (neg_concl) |nc| {
+        if (!negateAsLeZero(c, nc, &cons)) return .unknown;
+    }
+    for (units) |l| {
+        if (!asLeZero(c, l, &cons)) return .unknown;
+    }
+    for (picks) |l| {
+        if (!asLeZero(c, l, &cons)) return .unknown;
     }
     var s = builtin_lia.Solver.init(c.arena);
     defer s.deinit();
@@ -1551,18 +1552,24 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp) 
     };
 }
 
-/// Проверить ЗАКЛЮЧЕНИЕ `false` РАСЩЕПЛЕНИЕМ ПО СЛУЧАЯМ.
+/// Проверить ЗАКЛЮЧЕНИЕ `concl` РАСЩЕПЛЕНИЕМ ПО СЛУЧАЯМ.
 ///
-/// ЗВУЧНО (дистрибутивность `and` над `or`): `C1 ∧ … ∧ Ck ∧ U` несовместно
+/// ЗВУЧНО (дистрибутивность `and` над `or`): `C1 ∧ … ∧ Ck ∧ U ⊢ concl`
 /// ⟺ для КАЖДОГО выбора по одному литералу `l_i` из `C_i` система
-/// `U ∪ {l_1..l_k}` несовместна. Если какая-то клауза опровергнута юнитами
-/// ЦЕЛИКОМ — противоречие уже есть: клауза утверждается, а юниты делают её
-/// ложной.
+/// `U ∪ {l_1..l_k} ∪ {¬concl}` несовместна. Для `concl == false` отрицание
+/// не добавляет ничего (прежнее поведение). Если какая-то клауза опровергнута
+/// юнитами ЦЕЛИКОМ — противоречие уже есть.
 ///
 /// Возвращает `.verified` (все комбинации несовместны), `.bad` (нашлась
 /// СОВМЕСТНАЯ комбинация — шаг неверен), `.unverifiable` (комбинаций больше
 /// бюджета или перевод не удался).
-fn checkFalseBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp) CheckResult {
+fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, concl: Sexp) CheckResult {
+    const neg_concl: ?Sexp = blk: {
+        if (concl.atom) |a| {
+            if (std.mem.eql(u8, a, "false")) break :blk null;
+        }
+        break :blk concl;
+    };
     var rems = std.array_list.Managed(std.array_list.Managed(Sexp)).init(c.arena);
     for (clauses) |cl| {
         var rem = std.array_list.Managed(Sexp).init(c.arena);
@@ -1598,7 +1605,7 @@ fn checkFalseBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Se
         }
         // ЛЮБАЯ СОВМЕСТНАЯ комбинация => шаг НЕ доказан (`.bad`).
         // «Не удалось перевести» => честный `.unverifiable`, а НЕ `.bad`.
-        switch (unitsPlusPicksUnsat(c, units, pick.items)) {
+        switch (unitsPlusPicksUnsat(c, units, pick.items, neg_concl)) {
             .unsat => {},
             .sat => {
                 if (compat.envVar("KERN_DEBUG_LIA") != null) {
@@ -1664,7 +1671,7 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         // ЗВУЧНОСТЬ: ни один литерал не может быть потерян или добавлен —
         // сравниваем множества, а не только количество.
         // ЗВУЧНОСТЬ: объявить `false` можно только опровергнув ВСЕ литералы.
-        if (concl_is_false) return checkFalseBySplitting(c, units.items, clauses.items);
+        if (concl_is_false) return checkBySplitting(c, units.items, clauses.items, concl);
         var concl_lits = std.array_list.Managed(Sexp).init(c.arena);
         if (isClause(concl)) {
             for (concl.items[1..]) |x| concl_lits.append(x) catch return .unverifiable;
@@ -1673,7 +1680,12 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         }
         // ЛИШНИЕ литералы в выводе -> форма вне модели чекера (доверенный шаг).
         // МЕНЬШЕ литералов -> ПОТЕРЯ (доказанная неверность).
-        if (concl_lits.items.len != remaining.items.len) return .unverifiable;
+        if (concl_lits.items.len != remaining.items.len) {
+            // ОБОБЩЕНИЕ (пункт 3 v2.5): то же РАСЩЕПЛЕНИЕ ПО СЛУЧАЯМ, но для
+            // ПРОИЗВОЛЬНОГО заключения: посылки ⊨ concl <=> для каждой
+            // комбинации `{units} ∪ {picks} ∪ {¬concl}` несовместно.
+            return checkBySplitting(c, units.items, clauses.items, concl);
+        }
         if (concl_lits.items.len < remaining.items.len) return .bad;
         //
         // ПОТЕРЯ литерала — доказанная неверность (`bad`).
@@ -1734,11 +1746,13 @@ fn dumpSexp(e: Sexp) void {
 
 /// Пометить шаг как непроверенный и запомнить ПРАВИЛО первого такого шага.
 /// Без этого нельзя понять, что именно осталось доверенным (METRICS 55.5).
-fn markTrusted(v: *ProofVerdict, rule: []const u8) void {
+fn markTrusted(v: *ProofVerdict, rule: []const u8, st: Sexp) void {
     v.trusted_steps += 1;
     if (v.first_trusted.len == 0) v.first_trusted = rule;
     if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print("[dbg-trusted] шаг #{d} правило={s}\n", .{ v.trusted_steps, rule });
+        std.debug.print("[dbg-trusted] #{d} {s} :: ", .{ v.trusted_steps, rule });
+        dumpSexp(st);
+        std.debug.print("\n", .{});
     }
 }
 
@@ -1797,6 +1811,11 @@ pub fn verifyProof(
             continue;
         }
         if (!isKnownRule(r)) v.unknown_rules += 1;
+        if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+            std.debug.print("[dbg-step] {s} :: ", .{r});
+            dumpSexp(st);
+            std.debug.print("\n", .{});
+        }
 
         if (std.mem.eql(u8, r, "asserted")) {
             v.premises_total += 1;
@@ -1827,7 +1846,7 @@ pub fn verifyProof(
                 // ДЕФЕКТ #95: раньше ЛЮБОЕ несовпадение считалось `bad`, из-за
                 // чего корректные выводы Z3 (частичная резолюция, лишние
                 // литералы) отвергались целиком.
-                .unverifiable => markTrusted(&v, "unit-resolution"),
+                .unverifiable => markTrusted(&v, "unit-resolution", st),
             }
         } else if (std.mem.eql(u8, r, "th-lemma")) {
             const clause = expand(&c, proved(st), 0);
@@ -1853,30 +1872,30 @@ pub fn verifyProof(
             switch (checkRewrite(&c, st)) {
                 .verified => v.rewrite_verified += 1,
                 .bad => v.rewrite_bad += 1,
-                .unverifiable => markTrusted(&v, r),
+                .unverifiable => markTrusted(&v, r, st),
             }
         } else if (std.mem.eql(u8, r, "refl") or std.mem.eql(u8, r, "symm") or
             std.mem.eql(u8, r, "trans"))
         {
-            if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else markTrusted(&v, r);
+            if (verifyEqRule(&c, r, st)) v.eq_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "trans*")) {
             // ДЕФЕКТ #118: цепочка равенств проверяется СТРУКТУРНО (см.
             // `verifyTransStar`) — это математическая проверка, а не доверие.
-            if (verifyTransStar(&c, st)) v.eq_verified += 1 else markTrusted(&v, r);
+            if (verifyTransStar(&c, st)) v.eq_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "def-axiom")) {
             // ДЕФЕКТ #118: аксиома определения `ite` проверяется по ФОРМЕ
             // (две определяющие тавтологии). Иная форма -> доверенный шаг.
-            if (verifyDefAxiom(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
+            if (verifyDefAxiom(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "and-elim")) {
-            if (verifyAndElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
+            if (verifyAndElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "not-or-elim")) {
-            if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
+            if (verifyNotOrElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
-            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r);
+            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else {
             // Прочие правила (elim-правила, кванторы): перепроверить нельзя,
             // учитываем как «доверенные», а не как «проверенные».
-            markTrusted(&v, r);
+            markTrusted(&v, r, st);
         }
     }
 
@@ -2776,7 +2795,7 @@ test "ПУНКТ 3: расщепление — СОВМЕСТНЫЙ набор �
     // СОВМЕСТНА (x = 0), значит заключение `false` НЕ доказано.
     const cls = [_]Sexp{try parseSexp(a, "(or (>= x 0) (<= x 5))")};
     const units = [_]Sexp{};
-    try std.testing.expectEqual(CheckResult.bad, checkFalseBySplitting(&c, &units, &cls));
+    try std.testing.expectEqual(CheckResult.bad, checkBySplitting(&c, &units, &cls, try parseSexp(a, "false")));
 }
 
 test "ПУНКТ 3: расщепление — НЕСОВМЕСТНЫЙ набор клауз ДОКАЗЫВАЕТСЯ (.verified)" {
@@ -2788,5 +2807,5 @@ test "ПУНКТ 3: расщепление — НЕСОВМЕСТНЫЙ набо
     // несовместны с юнитом (x >= 0 противоречит и x <= -1, и x <= -2).
     const cls = [_]Sexp{try parseSexp(a, "(or (<= x -1) (<= x -2))")};
     const units = [_]Sexp{try parseSexp(a, "(>= x 0)")};
-    try std.testing.expectEqual(CheckResult.verified, checkFalseBySplitting(&c, &units, &cls));
+    try std.testing.expectEqual(CheckResult.verified, checkBySplitting(&c, &units, &cls, try parseSexp(a, "false")));
 }
