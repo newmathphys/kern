@@ -559,3 +559,98 @@ test "МУТАНТ 295: evalTerm(or true false) = true" {
     const u = try evalTerm("(or false true)", &k, &.{}, 0);
     try std.testing.expect(u.boolean);
 }
+// =========================================================================
+//  ИСПЫТАНИЕ В (--full-file): тесты на ВСЕ выжившие сайты model_extract.zig.
+//  Каждый тест проверен ПРИМЕНЕНИЕМ соответствующей мутации.
+// =========================================================================
+
+fn ev(s: []const u8) EvalError!Val {
+    var i: usize = 0;
+    return evalTerm(s, &i, &.{}, 0);
+}
+
+// 188 [or->and]: выход за диапазон i64 обязан ловиться (мутант `and` не ловит).
+test "МУТАНТ 188: inRange ловит выход за i64" {
+    try std.testing.expectError(EvalError.OutOfRange,
+        inRange(@as(i128, std.math.maxInt(i64)) + 1));
+    try std.testing.expectError(EvalError.OutOfRange,
+        inRange(@as(i128, std.math.minInt(i64)) - 1));
+    try std.testing.expectEqual(@as(i128, 0), try inRange(0));
+}
+
+// 196 [and->or]: SMT `div` округляет ВНИЗ; при нулевом остатке поправки быть НЕ
+// должно (мутант `or` вычитает 1 зря).
+test "МУТАНТ 196: div при нулевом остатке не поправляется" {
+    try std.testing.expectEqual(@as(i128, -2), (try ev("(div (- 4) 2)")).int);
+    try std.testing.expectEqual(@as(i128, -4), (try ev("(div (- 7) 2)")).int); // floor, а не trunc
+}
+
+// 204 [and->or]: SMT `mod` имеет знак ДЕЛИТЕЛЯ; при нулевом остатке результат 0
+// (мутант `or` добавляет делитель к нулю).
+test "МУТАНТ 204: mod при нулевом остатке равен 0" {
+    try std.testing.expectEqual(@as(i128, 0), (try ev("(mod 4 (- 2))")).int);
+    try std.testing.expectEqual(@as(i128, 1), (try ev("(mod (- 7) 2)")).int);
+}
+
+// 222 [>=->>]: вход обрывается сразу после оператора -> честный Malformed
+// (мутант `>` читает за границей среза).
+test "МУТАНТ 222: ПУСТОЙ вход -> Malformed (без чтения за границей)" {
+    // Строка 222 — проверка ДО разбора: пустой текст обязан дать Malformed,
+    // иначе мутант `>` читает t[0] за границей среза.
+    try std.testing.expectError(EvalError.Malformed, ev(""));
+    try std.testing.expectError(EvalError.Malformed, ev("   "));
+}
+
+// 250 [>=->>]: 9 аргументов не помещаются в буфер на 8 -> Unsupported
+// (мутант `>` пишет args[8] за границей массива).
+test "МУТАНТ 250: 9 аргументов -> Unsupported" {
+    try std.testing.expectError(EvalError.Unsupported, ev("(+ 1 2 3 4 5 6 7 8 9)"));
+}
+
+// 261 [==->!=]: унарный минус без аргументов -> Malformed (мутант падает на args[0]).
+test "МУТАНТ 261: (-) без аргументов -> Malformed" {
+    try std.testing.expectError(EvalError.Malformed, ev("(-)"));
+}
+
+// 263 [==->!=]: унарный минус ОБЯЗАН менять знак (мутант возвращает s как есть).
+test "МУТАНТ 263: унарный минус меняет знак" {
+    try std.testing.expectEqual(@as(i128, -5), (try ev("(- 5)")).int);
+}
+
+// 287 [>=->>]: сравнение на ТОЧНОМ равенстве обязано быть истинным.
+test "МУТАНТ 287: (>= 5 5) и (<= 5 5) истинны" {
+    try std.testing.expect((try ev("(>= 5 5)")).boolean);
+    try std.testing.expect((try ev("(<= 5 5)")).boolean);
+    try std.testing.expect(!(try ev("(> 5 5)")).boolean);
+}
+
+// 299 [!=->==]: `(not X)` с ОДНИМ аргументом обязан вычисляться (мутант -> Malformed).
+test "МУТАНТ 299: not с одним аргументом вычисляется" {
+    try std.testing.expect((try ev("(not false)")).boolean);
+    try std.testing.expect(!(try ev("(not true)")).boolean);
+}
+
+// 303 [!=->==]: `ite` с ТРЕМЯ аргументами обязан вычисляться (мутант -> Malformed).
+test "МУТАНТ 303: ite с тремя аргументами вычисляется" {
+    try std.testing.expectEqual(@as(i128, 1), (try ev("(ite true 1 2)")).int);
+    try std.testing.expectEqual(@as(i128, 2), (try ev("(ite false 1 2)")).int);
+}
+
+// 318 [or->and]: `assert` в КОНЦЕ текста не должен приводить к чтению за
+// границей (мутант `and` не отсекает случай `j >= len`). Проверяем через
+// ПУБЛИЧНУЮ точку входа: контракт без валидного `(assert (` не проверяется.
+test "МУТАНТ 318: assert в конце текста не падает" {
+    const mc = verifyModelAgainstSmt("(assert   ", &.{});
+    try std.testing.expect(mc == .ok);
+    try std.testing.expectEqual(@as(usize, 0), mc.ok);
+}
+
+// Убивает `model_extract.zig:315 [!=->==]`: `(assert(` БЕЗ пробела после слова
+// обязан разбираться. Мутант `==` считает такой assert «не тем» и пропускает
+// его, поэтому проверенных ассертов становится 0 вместо 1.
+test "МУТАНТ 315: assert без пробела после слова разбирается" {
+    const b = [_]Binding{.{ .name = "x", .value = "0" }};
+    const mc = verifyModelAgainstSmt("(assert(>= x 0))", &b);
+    try std.testing.expect(mc == .ok);
+    try std.testing.expectEqual(@as(usize, 1), mc.ok);
+}

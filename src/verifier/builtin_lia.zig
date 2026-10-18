@@ -419,3 +419,32 @@ test "METAMORPHIC: инвариантность к порядку строк, п
     // 20 систем x 3 трансформации = 60 проверок инвариантности.
     try std.testing.expectEqual(@as(usize, 60), checked);
 }
+
+// Убивает `builtin_lia.zig:126 [>=->>]` — БЮДЖЕТ ПЕРЕМЕННЫХ. При 33 переменных
+// (> MAX_VARS = 32) решатель обязан честно вернуть `.unknown`, а не продолжать
+// исключение: мутант `>` доходит до конца и выдаёт `.sat` на системе, которую
+// он по бюджету проверять не имеет права.
+test "МУТАНТ 126: бюджет MAX_VARS — противоречие на 32-й элиминации" {
+    // Цепочка v0 <= v1 <= ... <= v33 (33 связи) ПЛЮС v33 - v0 + 1 <= 0.
+    // Противоречие (1 <= 0) всплывает ровно после исключения 32 переменных,
+    // поэтому корректный код обязан вернуть `.unknown` по бюджету MAX_VARS,
+    // а мутант `>` идёт дальше и объявляет `.unsat`.
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var s = Solver.init(a);
+    var names: [34][]const u8 = undefined;
+    for (0..34) |i| names[i] = try std.fmt.allocPrint(a, "v{d}", .{i});
+    var terms: [34][2]Term = undefined;
+    var cons: [34]Lin = undefined;
+    for (0..33) |i| {
+        terms[i][0] = .{ .name = names[i], .coeff = 1 };
+        terms[i][1] = .{ .name = names[i + 1], .coeff = -1 };
+        cons[i] = .{ .terms = &terms[i], .constant = 0 };
+    }
+    terms[33][0] = .{ .name = names[0], .coeff = -1 };
+    terms[33][1] = .{ .name = names[33], .coeff = 1 };
+    cons[33] = .{ .terms = &terms[33], .constant = 1 };
+    const v = checkUnsat(&s, &cons);
+    try std.testing.expect(std.meta.activeTag(v) == .unknown);
+}

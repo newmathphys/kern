@@ -732,3 +732,44 @@ mutation: 1 test fails**. Tests 327/327.
 is NOT met; the effective score (excluding 3 proven-equivalent) is 97.3 %. The
 remaining survivors `blake3_simd8.zig:154`, `kimg_writer.zig:212`,
 `z3_bridge.zig:283` are proven equivalent (§81.18).
+
+**TEST A DONE: adversarial proof-checker fuzzer (30/30).** A new CLI subcommand
+**`kernc check-proof <smt2> <proof>`** verifies a FINISHED proof WITHOUT a solver.
+The "confirmed" criterion was tightened to
+`checksPass() and proof_concludes_false and trusted_steps == 0`.
+
+The fuzzer `tools/proof_tamper_check.py` (target `make proof-tamper`) takes the
+**real** Z3 proof for `musl abs.c` (51 steps, `trusted: 0 | holes: 0`; fixtures in
+`tests/fixtures/`, 2998 bytes) and applies **30 point tamperings**, one per run:
+comparison (`(<= ` -> `(< `), arithmetic (`(+ ` -> `(- `, `(* ` -> `(+ `,
+`(- 1)` -> `(- 2)`), connective (`(or ` -> `(and `), step reference (`@xN` ->
+`@x9`), name (`z3name!1` -> `z3name!9`), constant (`0))` -> `1))`).
+
+**MEASURED RESULT:** positive control rc=0; **30 tamperings, 30 rejected,
+0 accepted**. So `trusted: 0` on `abs.c` is NOT a coincidence: the proof cannot
+be silently falsified in any of 30 places. Registered as `proof-tamper` = CHECK
+with canfail case `proof-tamper-soundness`.
+
+**HONEST: my own process defect (verifier race).** While verifying mutant kills I
+**started a second instance of the script while the first was running**. Both
+edited the SAME file (`model_extract.zig`) restoring it from their own copy — the
+race **left two mutations in the tree** (`if (n != 0)` and `if (n == 3)` instead
+of `== 0` / `!= 3`). Found by `git diff` showing PRODUCTION lines I never
+changed; fixed by restoring from git and re-applying the test block only.
+`git diff` now confirms no production line is changed. Lesson: tree-patching
+scripts must hold a lock (the mutator has `acquire_lock`) and run in a SINGLE
+instance — the same class as defect #116.
+
+**TEST C DONE: full mutation bombardment (`--full-file`, no sampling).**
+`src/verifier/model_extract.zig`: **75 sites, 75 killed = 100.0 %** (was 62/75 =
+82.7 %). `src/verifier/builtin_lia.zig`: 17 sites, 15 killed = 88.2 % (was 14/17),
+2 survivors (`:80 [false->true]` — the local `merged` flag in `combine`; killing it
+needs a system where LOSING a merged term changes the verdict, and no such
+scenario has been constructed — NOT proven equivalent, simply uncovered; `:189
+[false->true]` — `if (acc > 0) return false;` in `satisfies`, which only matters
+when a found point violates the system, and the current corpus never produces such
+candidates).
+
+**TESTS A, B and C are now COMPLETE.** Echelon 1 has been verified at the level
+the DoD demands: adversarially (30/30), metamorphically (60/60) and by full
+mutation (100 % on the new module).

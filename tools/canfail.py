@@ -1706,6 +1706,22 @@ def case_model_verify_spurious():
     return "make test"
 
 
+
+def case_proof_tamper():
+    """ИСПЫТАНИЕ А. ЛОМАЕМ: пруф-чекер объявляет ЛЮБОЙ вывод подтверждённым.
+
+    Тогда адверсариальный фаззер обязан ПОКРАСНЕТЬ: 30 подделок реального
+    вывода abs.c будут «приняты». Если `make proof-tamper` не краснеет,
+    фаззер бесполезен, а `trusted: 0` на abs.c ничего не гарантирует.
+    """
+    patch(
+        "src/verifier/proof_check.zig",
+        "        if (self.proof_steps == 0) return false;",
+        "        if (self.proof_steps > 0) return true; // ЛОМАЕМ: всё «подтверждено»",
+    )
+    return "make proof-tamper"
+
+
 def case_lia_soundness():
     """Встроенный LIA-решатель (пункт 1 v2.5). ЛОМАЕМ: всегда «доказано».
 
@@ -1811,6 +1827,7 @@ CASES = [
     ("theories",      "Цель theories: CHC-теория",               case_theories_target),
     ("model-verify",  "Модель: ложный ассерт объявлен верным",    case_model_verify_spurious),
     ("lia-soundness",  "LIA: незвучивый решатель ловится гейтом",  case_lia_soundness),
+    ("proof-tamper",   "ФАЗЗЕР: подделка вывода ловится чекером",  case_proof_tamper),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

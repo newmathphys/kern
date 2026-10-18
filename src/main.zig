@@ -535,6 +535,40 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // ---- audit: контур «математического интеллекта» (SMT-теории) ----
+    // САМОСТОЯТЕЛЬНАЯ ПРОВЕРКА ГОТОВОГО ДОКАЗАТЕЛЬСТВА: `kernc check-proof
+    // <smt2> <proof>`. Нужна, чтобы пруф-чекер был применим БЕЗ решателя —
+    // в частности для адверсариального фаззинга (Испытание А: 30 подделок
+    // реального вывода). Код возврата: 0 — вывод ПОДТВЕРЖДЁН (checksPass и
+    // вывод `false`), 1 — отвергнут. Любая подделка обязана дать 1.
+    if (std.mem.eql(u8, command, "check-proof")) {
+        if (args.len < 4) {
+            std.debug.print("[!] check-proof: нужны <smt2> и <proof>\n", .{});
+            return;
+        }
+        const smt = try compat.readFileAlloc(alloc, args[2], 1 << 20);
+        const proof = try compat.readFileAlloc(alloc, args[3], 1 << 20);
+        var ar = std.heap.ArenaAllocator.init(alloc);
+        defer ar.deinit();
+        const ta = ar.allocator();
+        const contract = try proof_check.extractAsserts(ta, smt);
+        const pv = try proof_check.verifyProof(ta, proof, contract);
+        std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | ДОВЕРЕННЫХ {d} | дыр {d}\n", .{
+            pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
+            pv.unitres_checked, pv.farkas_checked, pv.rewrite_verified,
+            pv.trusted_steps, pv.holes,
+        });
+        // СТРОГО: «подтверждено» = checksPass И вывод `false` И trusted == 0.
+        // Именно это требование проверяет адверсариальный фаззер: любая
+        // подделка обязана сломать хотя бы одно из трёх условий.
+        if (pv.checksPass() and pv.proof_concludes_false and pv.trusted_steps == 0) {
+            std.debug.print("  [PROOF VERIFIED] trusted: {d} | holes: {d}\n", .{ pv.trusted_steps, pv.holes });
+        } else {
+            std.debug.print("  [!] ОТВЕРГНУТО: {s}\n", .{pv.failureReason()});
+            std.process.exit(1);
+        }
+        return;
+    }
+
     if (std.mem.eql(u8, command, "audit")) {
         var bridge = z3b.Z3Bridge.init(alloc);
         bridge.timeout_ms = 10000;
