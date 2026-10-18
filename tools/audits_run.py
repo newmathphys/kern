@@ -20,11 +20,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -45,14 +47,28 @@ def run(cmd: list[str], timeout: int = 900) -> tuple[int, str]:
 
 
 def collect(smt_dir: Path) -> list[dict]:
-    """Прогнать экстрактор по корпусу и собрать вердикты структурой."""
-    rows: list[dict] = []
-    for src in sorted(p for p in AUDITS.rglob("*") if p.suffix in SOURCE_SUFFIX):
+    """Прогнать экстрактор по корпусу и собрать вердикты структурой.
+
+    ПАРАЛЛЕЛЬНО (рубеж 1 приёмки Эшелона 1): каждый файл — НЕЗАВИСИМЫЙ запуск
+    экстрактора, поэтому пул не меняет ни одного вердикта. Порядок вывода
+    восстанавливается сортировкой по (файл, функция) — детерминизм сохранён.
+    """
+    srcs = sorted(p for p in AUDITS.rglob("*") if p.suffix in SOURCE_SUFFIX)
+
+    def one(src: Path) -> tuple[str, str, dict[str, str]]:
         rel = src.relative_to(ROOT).as_posix()
         _, out = run([sys.executable, str(EXTRACTOR), rel, "--emit-smt2", str(smt_dir)])
         theory: dict[str, str] = {}
         for m in RE_BV.finditer(out):
             theory[m.group(1)] = f"QF_BV {m.group(3).strip()} {m.group(4)}"
+        return rel, out, theory
+
+    workers = int(os.environ.get("KERN_AUDIT_WORKERS", min(6, os.cpu_count() or 1)))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        outs = list(ex.map(one, srcs))
+
+    rows: list[dict] = []
+    for rel, out, theory in outs:
         cur: dict | None = None
         for line in out.splitlines():
             m = RE_VERDICT.search(line)

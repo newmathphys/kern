@@ -15,10 +15,12 @@
 
 Код возврата 0 = расхождений нет. Любое расхождение -> rc=1 с печатью системы.
 """
+import os
 import random
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,23 +31,62 @@ Z3_CANDIDATES = [
     Path("/usr/local/bin/z3"),
 ]
 
-N_SYSTEMS = 40
-VARS = ["a", "b"]
+N_SYSTEMS = 100
+VARS = ["a", "b", "c", "d"]
+
+# ВОРКЕРОВ ПУЛА. Проверки НЕЗАВИСИМЫ (каждая пишет свои файлы), поэтому
+# распараллеливание не меняет НИ ОДНОГО вердикта — только время.
+WORKERS = int(os.environ.get("KERN_LIA_WORKERS", min(6, os.cpu_count() or 1)))
+
+
+def tmp_root() -> str:
+    """RAM-диск, если он есть (устраняет дисковый I/O и fsync), иначе /tmp.
+
+    Точность от этого не зависит: те же файлы, те же команды, те же вердикты.
+    """
+    shm = Path("/dev/shm")
+    if shm.is_dir() and os.access(shm, os.W_OK):
+        d = shm / "kern-lia-diff"
+        d.mkdir(exist_ok=True)
+        return str(d)
+    return "/tmp"
 
 
 def gen(rng):
-    """Случайная линейная система: список (coeffs, constant) как `sum + k <= 0`."""
-    nv = rng.choice([1, 1, 2])
-    nc = rng.randint(2, 4)
+    """Случайная линейная система: список (coeffs, constant) как `sum + k <= 0`.
+
+    РАСШИРЕНО (рубеж 5 приёмки Эшелона 1): до 4 переменных, большие
+    коэффициенты, равенства (два нестрогих неравенства) и строгие неравенства
+    (целочисленный сдвиг `a < b <=> a - b + 1 <= 0`).
+    """
+    nv = rng.choice([1, 1, 2, 2, 3, 4])
+    nc = rng.randint(2, 6)
     cons = []
     for _ in range(nc):
         coeffs = [0] * nv
         for i in range(nv):
-            if rng.random() < 0.7:
-                coeffs[i] = rng.choice([-3, -2, -1, 1, 2, 3])
+            if rng.random() < 0.65:
+                coeffs[i] = rng.choice([-7, -5, -3, -2, -1, 1, 2, 3, 5, 7, 11])
         if all(c == 0 for c in coeffs):
             coeffs[0] = 1
-        cons.append((coeffs, rng.randint(-10, 10)))
+        cons.append((coeffs, rng.randint(-25, 25)))
+    # РАВЕНСТВО: `sum + k = 0` == `(sum + k <= 0) AND (-sum - k <= 0)`.
+    if rng.random() < 0.35:
+        coeffs = [0] * nv
+        for i in range(nv):
+            if rng.random() < 0.6:
+                coeffs[i] = rng.choice([-3, -1, 1, 3])
+        if all(c == 0 for c in coeffs):
+            coeffs[0] = 2
+        k = rng.randint(-8, 8)
+        cons.append((list(coeffs), k))
+        cons.append(([-c for c in coeffs], -k))
+    # СТРОГОЕ НЕРАВЕНСТВО `a < b` над Z: `a - b + 1 <= 0`.
+    if nv >= 2 and rng.random() < 0.35:
+        i, j = rng.sample(range(nv), 2)
+        coeffs = [0] * nv
+        coeffs[i], coeffs[j] = 1, -1
+        cons.append((coeffs, 1))
     return cons
 
 
@@ -105,6 +146,21 @@ def satisfies(cons, pt):
     return True
 
 
+def check_one(args):
+    """Одна независимая проверка: встроенный решатель vs Z3. Возвращает
+    `(i, cons, builtin_verdict, point, z3_verdict)` — вердикты НЕ меняются от
+    того, что задачи идут параллельно (каждая пишет свои файлы)."""
+    i, cons, z3, td = args
+    nv = max(len(c) for c, _ in cons)
+    lp = Path(td) / f"s{i}.lia"
+    sp = Path(td) / f"s{i}.smt2"
+    write_lia(cons, lp)
+    write_smt2(cons, nv, sp)
+    bv, pt = run_builtin(lp)
+    zv = run_z3(z3, sp)
+    return (i, cons, bv, pt, zv, lp)
+
+
 def main() -> int:
     if not KERNC.exists():
         print(f"[!] не найден {KERNC} (соберите: zig build)")
@@ -115,20 +171,17 @@ def main() -> int:
         return 2
 
     rng = random.Random(20260218)
+    systems = [gen(rng) for _ in range(N_SYSTEMS)]
     false_accept = 0   # builtin UNSAT, а Z3 sat  — КАТАСТРОФА
     false_counter = 0  # builtin SAT, а Z3 unsat — КАТАСТРОФА
     checked = 0
     skipped = 0
-    with tempfile.TemporaryDirectory() as td:
-        for i in range(N_SYSTEMS):
-            cons = gen(rng)
-            nv = max(len(c) for c, _ in cons)
-            lp = Path(td) / f"s{i}.lia"
-            sp = Path(td) / f"s{i}.smt2"
-            write_lia(cons, lp)
-            write_smt2(cons, nv, sp)
-            bv, pt = run_builtin(lp)
-            zv = run_z3(z3, sp)
+    with tempfile.TemporaryDirectory(dir=tmp_root()) as td:
+        jobs = [(i, cons, z3, td) for i, cons in enumerate(systems)]
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            results = list(ex.map(check_one, jobs))
+        # ДЕТЕРМИНИРОВАННЫЙ ПОРЯДОК ВЫВОДА: сортируем по индексу системы.
+        for i, cons, bv, pt, zv, lp in sorted(results, key=lambda r: r[0]):
             if bv == "unknown":
                 skipped += 1
                 continue
@@ -147,7 +200,8 @@ def main() -> int:
                     print(f"[!] точка НЕ удовлетворяет системе {i}: {pt}")
                     print(lp.read_text(encoding="utf-8"))
 
-    print(f"СИСТЕМ: {N_SYSTEMS} | сверено с Z3: {checked} | честных unknown: {skipped}")
+    print(f"СИСТЕМ: {N_SYSTEMS} | воркеров: {WORKERS} | tmp: {tmp_root()}")
+    print(f"сверено с Z3: {checked} | честных unknown: {skipped}")
     print(f"ЛОЖНЫХ «доказано» (builtin UNSAT vs Z3 sat):   {false_accept}")
     print(f"ЛОЖНЫХ контрпримеров (builtin SAT vs Z3 unsat): {false_counter}")
     if false_accept == 0 and false_counter == 0:

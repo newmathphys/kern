@@ -116,9 +116,9 @@ pub const Solver = struct {
 };
 
 /// ГЛАВНАЯ ФУНКЦИЯ: доказать несовместность конъюнкции ограничений.
-pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {
+pub fn checkUnsatFallible(self: *Solver, input: []const Lin) !Verdict {
     var set = std.ArrayListUnmanaged(Lin).empty;
-    for (input) |l| set.append(self.arena.allocator(), l) catch return .{ .unknown = "нет памяти" };
+    for (input) |l| try set.append(self.arena.allocator(), l);
 
     var eliminated: usize = 0;
     while (true) {
@@ -132,11 +132,11 @@ pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {
         for (set.items) |l| {
             const c = Solver.coeffOf(l, v);
             const dst = if (c > 0) &pos else if (c < 0) &neg else &zero;
-            dst.append(self.arena.allocator(), l) catch return .{ .unknown = "нет памяти" };
+            try dst.append(self.arena.allocator(), l);
         }
 
         var next = std.ArrayListUnmanaged(Lin).empty;
-        for (zero.items) |l| next.append(self.arena.allocator(), l) catch return .{ .unknown = "нет памяти" };
+        for (zero.items) |l| try next.append(self.arena.allocator(), l);
         for (pos.items) |p| {
             for (neg.items) |n| {
                 // p: a*v + A <= 0 (a>0); n: b*v + B <= 0 (b<0).
@@ -145,7 +145,7 @@ pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {
                 const w_n = Solver.coeffOf(p, v);
                 const c = self.combine(p, w_p, n, w_n) orelse
                     return .{ .unknown = "переполнение коэффициентов" };
-                next.append(self.arena.allocator(), c) catch return .{ .unknown = "нет памяти" };
+                try next.append(self.arena.allocator(), c);
                 if (next.items.len > MAX_CONSTRAINTS) return .{ .unknown = "бюджет ограничений исчерпан" };
             }
         }
@@ -161,6 +161,15 @@ pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {
     // Рационально совместно. Ищем ЦЕЛУЮ точку и ПРОВЕРЯЕМ её прямым счётом.
     if (findIntegerPoint(self, input)) |pt| return .{ .sat = pt };
     return .{ .unknown = "рационально совместно, целая точка не найдена" };
+}
+
+
+/// ОБЁРТКА ДЛЯ ПРОДАКШЕНА: отказ аллокатора НЕ фатален — это честный `.unknown`
+/// (консервативный отказ: врата закрыты). Утечек нет: `Solver` владеет ареной,
+/// которую освобождает `deinit`. Тестируемая (пропагирующая) версия —
+/// `checkUnsatFallible`: её гоняет `checkAllAllocationFailures`.
+pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {
+    return checkUnsatFallible(self, input) catch .{ .unknown = "нет памяти" };
 }
 
 /// Прямая проверка точки: ВСЕ ограничения обязаны выполняться.

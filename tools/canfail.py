@@ -1715,9 +1715,9 @@ def case_lia_soundness():
     """
     patch(
         "src/verifier/builtin_lia.zig",
-        "pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {\n"
+        "pub fn checkUnsatFallible(self: *Solver, input: []const Lin) !Verdict {\n"
         "    var set = std.ArrayListUnmanaged(Lin).empty;",
-        "pub fn checkUnsat(self: *Solver, input: []const Lin) Verdict {\n"
+        "pub fn checkUnsatFallible(self: *Solver, input: []const Lin) !Verdict {\n"
         "    if (input.len > 0) return .unsat; // ЛОМАЕМ: всегда «доказано»\n"
         "    var set = std.ArrayListUnmanaged(Lin).empty;",
     )

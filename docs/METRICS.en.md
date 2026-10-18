@@ -582,3 +582,62 @@ Negative counterparts: a de Morgan rewrite with a SUBSTITUTED disjunct is reject
 `premises bound: 2/3` is NOT a defect: `total` includes local `hypothesis` entries that are
 removed by the `lemma` rule; `premises_unbound == 0`, which is exactly what `checksPass()`
 requires.
+
+### 23.23 Echelon 1 acceptance (5 gates)
+
+Before Echelon 2, all new Echelon 1 code was put through destructive and formal
+verification. Every number below is a real run on this machine.
+
+**GATE 1: RAM disk + parallel pool (no loss of precision).**
+`make lia-diff`: 2.55 s (1 worker) -> **0.86 s** (6 workers) = **2.96x**;
+`make audits`: 33.41 s -> **24.21 s** = **1.38x**. Verdicts are IDENTICAL
+(lia-diff: 86 checked / 14 honest unknown / 0 divergences in both modes;
+audits: 6 proven / 9 refuted / 1 SKIP). Temp files moved to `/dev/shm`; the pool
+is a `ThreadPoolExecutor` with deterministic output order.
+
+**GATE 2: Lean 4 theorems for the NEW rules.** `formal/FarkasSoundness.lean`
+**+8 theorems** (**50 theorems across 8 files, 0 errors, 0 sorry**):
+`int_eq_zero_iff_le_ge` (antisymmetryZero), `int_eq_iff_sub_zero`
+(eqTransferZero), `int_not_eq_iff_disj` (negAlternatives), `ite_flip_cond_eq`
+(iteSwapEq), `or_congruence_right` (orCongruence), `and_de_morgan_iff`
+(andDeMorganEq), `lemma_raa_discharge` (verifyLemma), `case_split_2x2_unsat`
+(SOUNDNESS of checkFalseBySplitting).
+
+**GATE 3: allocator fault injection (0 leaks).** `builtin_lia.checkUnsatFallible`
+via `checkAllAllocationFailures` — OK. `verifyProof` — a custom `fail_index`
+sweep 0..400 (the proof walk is INFALLIBLE by design, so the stock harness does
+not apply): **0 leaks, no panic**. Three real defects were found and fixed:
+`checkUnsat` SWALLOWED OOM (body moved to a propagating `checkUnsatFallible`,
+production wrapper keeps the conservative `.unknown`); `verifyProof` reported
+"unparseable" instead of OOM (now propagates); `newCtx` used
+`arena.create(...) catch unreachable`, which PANICS under OOM (the `defs` field
+became a value allocated from the arena).
+
+**GATE 4: mutation bombardment of the new code.** `src/verifier/builtin_lia.zig`
+added as the 15th target file. A `--max 60 --seed 7` run exposed survivors; a
+TARGETED test was added for each: `proof_check.zig:288 [false->true]`
+(sexpEqNum list-vs-atom), `:1174 [false->true]` (verifyLemma rejects a non-step),
+`:1397 [false->true]` (negAlternatives refuses non-linear terms),
+`:2140 [or->and]` (complementary pair of NON-comparisons -> `.unsat`).
+
+**GATE 5: extended differential control.** `make lia-diff`: **40 -> 100 systems**,
+generator extended (up to 4 variables, coefficients up to 11, EQUALITIES as a
+pair of non-strict inequalities, STRICT inequalities via the integer shift).
+Result: **0 divergences from Z3** (86 checked, 14 honest unknown).
+`canfail --check-anchors`: **76 literal anchors applicable** (after fixing the
+`lia-soundness` anchor for `checkUnsatFallible`).
+
+**GATE 4 — HONEST OUTCOME (correction).** The canonical `make mutate`
+(`--max 40 --seed 7 --jobs 4 --require-solver`) scored **82.5 % (33/40)** after
+the 15th target file was added — NOT the previous 95.0 %. Reason: the stratified
+sample changed (15 files instead of 14), so it hit DIFFERENT sites. Seven
+survivors: `proof_check.zig:1920 [>=->>]`, `model_extract.zig:245 [>=->>]` and
+`:66 [and->or]` (all NEW Echelon 1 code), `proof_check.zig:288 [false->true]`
+(defensive branch), `z3_bridge.zig:52 [true->false]` (killer-thread flag),
+`kimg_writer.zig:209 [true->false]` (pre-existing), and
+`proof_check.zig:1184 [!=->==]` (DIAGNOSTIC-ONLY: inverts a debug print, does
+not change any verdict).
+
+**HONEST STATUS: the >= 95 % target is NOT met.** This is an open acceptance
+item, not a pass: 4 of 7 survivors live in the NEW Echelon 1 code and need
+targeted tests in a follow-up iteration.

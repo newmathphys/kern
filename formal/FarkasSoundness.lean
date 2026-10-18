@@ -118,4 +118,93 @@ theorem skip_preserves_belnap_join (x : Belnap) : joinK x Belnap.N = x := by
   cases x with
   | mk p n => cases p <;> cases n <;> rfl
 
+/-! ### 6. ПРАВИЛА, КОТОРЫМИ ЗАКРЫТ `musl abs.c` (`trusted: 15 -> 0`)
+
+Каждое правило, добавленное в `src/verifier/proof_check.zig` при доведении
+`musl src/stdlib/abs.c` до `trusted: 0`, обязано иметь теорему здесь.
+-/
+
+/-- ФОРМА 1 (`antisymmetryZero`): антисимметричность порядка. Именно это
+    правило закрыло `(rewrite (= P 0) (and (<= P 0) (>= P 0)))`. -/
+theorem int_eq_zero_iff_le_ge (p : Int) : p = 0 ↔ (p ≤ 0 ∧ p ≥ 0) := by
+  omega
+
+/-- ФОРМА 2 (`eqTransferZero`): перенос слагаемого через равенство.
+    `X = Y` ⟺ `X + (-1)·Y = 0`. -/
+theorem int_eq_iff_sub_zero (x y : Int) : x = y ↔ x + (-1) * y = 0 := by
+  omega
+
+/-- `negAlternatives`: отрицание равенства над ℤ есть ДИЗЪЮНКЦИЯ двух строгих
+    неравенств (именно так раскладывается `(not (= X Y))` в расщеплении). -/
+theorem int_not_eq_iff_disj (x y : Int) :
+    ¬(x = y) ↔ (x - y + 1 ≤ 0 ∨ y - x + 1 ≤ 0) := by
+  omega
+
+/-- ФОРМА 3 (`iteSwapEq`): переворот условия `ite` при перестановке ветвей.
+    Левое условие `a < 0` есть отрицание правого `0 ≤ a` (над ℤ). -/
+theorem ite_flip_cond_eq (a t e : Int) :
+    (if a < 0 then t else e) = (if 0 ≤ a then e else t) := by
+  by_cases h : a < 0
+  · have h2 : ¬ (0 ≤ a) := by omega
+    simp [h, h2]
+  · have h2 : 0 ≤ a := by omega
+    simp [h, h2]
+
+/-- ФОРМА 4 (`orCongruence`): конгруэнция дизъюнкции по второму дизъюнкту.
+    Один общий дизъюнкт `A` + эквивалентные вторые — эквивалентны. -/
+theorem or_congruence_right (A L2 R2 : Prop) (h : L2 ↔ R2) : (A ∨ L2) ↔ (A ∨ R2) := by
+  constructor
+  · intro hx
+    cases hx with
+    | inl ha => exact Or.inl ha
+    | inr hl => exact Or.inr (h.mp hl)
+  · intro hx
+    cases hx with
+    | inl ha => exact Or.inl ha
+    | inr hr => exact Or.inr (h.mpr hr)
+
+/-- `andDeMorganEq`: закон де Моргана для `and` — тождество ПРОПОЗИЦИОНАЛЬНОЕ,
+    поэтому чекер проверяет его СТРУКТУРНО, без решателя. -/
+theorem and_de_morgan_iff (P Q : Prop) : (P ∧ Q) ↔ ¬(¬P ∨ ¬Q) := by
+  constructor
+  · intro h hx
+    cases hx with
+    | inl hn => exact hn h.1
+    | inr hn => exact hn h.2
+  · intro h
+    refine ⟨?_, ?_⟩
+    · exact Classical.byContradiction (fun hp => h (Or.inl hp))
+    · exact Classical.byContradiction (fun hq => h (Or.inr hq))
+
+/-- `verifyLemma`: разрядка гипотез (RAA). Из опровержения при допущении `H`
+    следует `¬H` — ровно то, что проверяет `verifyLemma`. -/
+theorem lemma_raa_discharge (H : Prop) (h_false : H → False) : ¬H :=
+  h_false
+
+/-- ЗВУЧНОСТЬ `checkFalseBySplitting` (расщепление по случаям, 2×2).
+    Конъюнкция с двумя дизъюнкциями несовместна ТОГДА И ТОЛЬКО ТОГДА, когда
+    несовместна КАЖДАЯ из четырёх ветвей выбора литералов. Это математическая
+    основа того, что перебор комбинаций в `proof_check.zig` ЗВУЧИМ. -/
+theorem case_split_2x2_unsat (U A1 A2 B1 B2 : Prop) :
+    (U ∧ (A1 ∨ A2) ∧ (B1 ∨ B2) → False) ↔
+    ((U ∧ A1 ∧ B1 → False) ∧ (U ∧ A1 ∧ B2 → False) ∧
+     (U ∧ A2 ∧ B1 → False) ∧ (U ∧ A2 ∧ B2 → False)) := by
+  constructor
+  · intro h
+    exact ⟨fun ⟨u, a, b⟩ => h ⟨u, Or.inl a, Or.inl b⟩,
+           fun ⟨u, a, b⟩ => h ⟨u, Or.inl a, Or.inr b⟩,
+           fun ⟨u, a, b⟩ => h ⟨u, Or.inr a, Or.inl b⟩,
+           fun ⟨u, a, b⟩ => h ⟨u, Or.inr a, Or.inr b⟩⟩
+  · intro h hx
+    obtain ⟨u, ha, hb⟩ := hx
+    cases ha with
+    | inl ha1 =>
+      cases hb with
+      | inl hb1 => exact h.1 ⟨u, ha1, hb1⟩
+      | inr hb2 => exact h.2.1 ⟨u, ha1, hb2⟩
+    | inr ha2 =>
+      cases hb with
+      | inl hb1 => exact h.2.2.1 ⟨u, ha2, hb1⟩
+      | inr hb2 => exact h.2.2.2 ⟨u, ha2, hb2⟩
+
 end KernFarkas

@@ -35,6 +35,7 @@ import argparse
 import ast
 import hashlib
 import json
+import os
 import re
 import subprocess
 import io
@@ -357,14 +358,32 @@ def requires_only_smt(params, req: str) -> str:
     return f"(set-logic ALL)\n{decls}\n(assert {r})\n(check-sat)\n"
 
 
+def tmp_dir() -> str:
+    """RAM-диск (`/dev/shm`), если он есть, иначе `/tmp`.
+
+    Устраняет дисковый I/O и fsync на тысячах временных `.smt2`; на вердикты
+    НЕ влияет (тот же текст, та же команда).
+    """
+    shm = Path("/dev/shm")
+    if shm.is_dir() and os.access(shm, os.W_OK):
+        d = shm / "kern-contracts"
+        d.mkdir(exist_ok=True)
+        return str(d)
+    return "/tmp"
+
+
 def run_kernc(kernc, smt: str):
     """Прогнать `kernc prove` на SMT-тексте. Возвращает (rc, вывод)."""
-    with tempfile.NamedTemporaryFile("w", suffix=".smt2", delete=False) as tf:
+    with tempfile.NamedTemporaryFile("w", suffix=".smt2", delete=False,
+                                     dir=tmp_dir()) as tf:
         tf.write(smt)
         sp = tf.name
-    r = subprocess.run([str(kernc), "prove", sp],
-                       capture_output=True, text=True, timeout=120)
-    return r.returncode, r.stdout + r.stderr
+    try:
+        r = subprocess.run([str(kernc), "prove", sp],
+                           capture_output=True, text=True, timeout=120)
+        return r.returncode, r.stdout + r.stderr
+    finally:
+        Path(sp).unlink(missing_ok=True)
 
 
 def parse_bodies(path: Path):
