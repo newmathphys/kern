@@ -2867,6 +2867,23 @@ pub fn check(
     v.premises_total = deep.premises_total;
     v.premises_bound = deep.premises_bound;
     v.premises_unbound = deep.premises_unbound;
+    // ЭТАП А (диагностика, 0 гипотез): печать ВСЕХ счётчиков вердикта.
+    // Без этого нельзя понять, какой именно счётчик делает `checksPass()` ложным.
+    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+        std.debug.print(
+            "[dbg-counters] steps={d} holes={d} prem={d}/{d} unbound={d} " ++
+                "mp_bad={d} unitres_bad={d} farkas_bad={d} rewrite_bad={d} " ++
+                "unknown_rules={d} trusted={d} concl_false={} reject_len={d}\n",
+            .{
+                v.proof_steps,     v.holes,        v.premises_bound,
+                v.premises_total,  v.premises_unbound, v.mp_bad,
+                v.unitres_bad,     v.farkas_bad,   v.rewrite_bad,
+                v.unknown_rules,   v.trusted_steps, v.proof_concludes_false,
+                v.reject.len,
+            },
+        );
+        if (v.reject.len > 0) std.debug.print("[dbg-counters] reject = {s}\n", .{v.reject});
+    }
     v.mp_checked = deep.mp_checked;
     v.mp_bad = deep.mp_bad;
     v.unitres_checked = deep.unitres_checked;
