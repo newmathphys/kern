@@ -226,7 +226,7 @@ def freshBit (b : B4) (same : Bool) : B4 :=
 def allowance (b : B4) : Nat :=
   if b.1 && !b.2 then 1 else 0
 
-/-- ТЕОРЕМА: несвежее свидетельство ВСЕГДА даёт `e = 0` (`0 sorry`). -/
+/-- ТЕОРЕМА: несвежее свидетельство ВСЕГДА даёт `e = 0` (без незакрытых целей). -/
 theorem stale_evidence_closes_gate (b : B4) : allowance (freshBit b false) = 0 := by
   simp [freshBit, allowance]
 
