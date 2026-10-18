@@ -169,3 +169,78 @@ grepping the log.
 there). Deleting it breaks the build (`FileNotFound … sqlite3_bridge.zig`) until a full
 `rm -rf .zig-cache` + rebuild. Cleaning the whole `.zig-cache` is safe; deleting only
 `o/` is not.
+
+---
+
+## §23. v2.5, Echelon 1 (local branch `v2.5-dev`)
+
+**Status: local only** — nothing is pushed; `main` stays frozen at `28e6bb9` (release `v2.4.0`).
+Every item below follows the project rule: a **can-fail case** plus a **falsifiable number**.
+
+### 23.1 Wave 0 — inventory (measured, not guessed)
+
+`./zig-out/bin/kernc audit` runs **five SMT theories for real**: UNSAT-core fault
+localization, QF_AX arrays, CHC loop invariants, QF_S strings, CEGIS synthesis. The
+can-fail cases behind them (`grep-arrays`, `theories`, `redos-vuln`, `guardrail-verdict`,
+`semantic-gap`) are **non-vacuous** (1 non-vacuous / 0 vacuous / 0 errors each). The Z3
+sandbox (environment whitelist + `-memory:256`) and `examples/guardrail_proxy.py` already
+existed too.
+
+**Conclusion that changes the work estimate:** the gap is not "no mathematics" but
+**"engines exist — the front-end that feeds them arbitrary code does not"**, because
+`kernc audit` runs those theories on hard-coded examples. Of the 40 planned items, 6
+already have a core, 3 are partial, 31 are new.
+
+### 23.2 Item 7 — Hamming-coded admission (`src/next/truth.zig`)
+
+Two 64-bit constants that are exact bitwise complements (Hamming distance 64). A
+`comptime` block refuses to build if they stop being complements or if `TOLERANCE >= 32`.
+`decode()` returns `null` beyond the tolerance (fail-closed) and `decodeOrDeny()` closes
+the Gate. The kernel's `e` type (`u1`) is unchanged — the primitive is isolated.
+**Honest scope:** this is defensive redundancy, NOT a verified property and NOT a
+radiation claim (SEU rates cannot be measured here, and DO-178C does not require this
+encoding).
+
+### 23.3 Item 5 — minimal counterexample (`tools/kern_contracts.py`)
+
+When a contract is refuted, a second query adds a window (`-10 <= p <= 10`) before
+`(check-sat)`. **Sound by construction:** only constraints are ADDED, so any model of the
+narrowed instance is a model of the original — the reported input still violates the
+contract, and the verdict comes from the first, unnarrowed run.
+Measured: bounds land before `(check-sat)`; the fallback keeps the original counterexample
+when the window is empty (the `x >= 1000000` case). Non-vacuity proven by experiment:
+breaking the narrowing (dropping the original asserts) turns `tools/edge_cases_check.sh`
+RED (9 -> 10 checks).
+**Measured limitation:** QF_BV counterexamples are printed in hex (`#x...`), so the
+integer parser does not read them and minimisation does not apply to them yet.
+
+### 23.4 Item 2 — `verifyModelAgainstSmt` (`src/verifier/model_extract.zig`)
+
+For `UNSAT` the solver was never trusted (the proof is re-checked). For `SAT` the model
+was accepted **as printed**. Now the values from `(get-model)` are substituted back into
+the contract's `(assert ...)` and every assert is evaluated by an **independent Zig
+evaluator** (recursive descent, `i128` inside, no allocations). One false assert ->
+`spurious` -> the model is rejected and the counterexample is NOT presented.
+End-to-end: `[MODEL VERIFIED] all contract asserts are true on the model (2)`.
+Supported fragment: `+ - * / div mod` (SMT-LIB `div` floors, `mod` takes the divisor's
+sign), comparisons, `and/or/not`, `ite`. Bit-vectors return `unsupported` — an honest
+refusal, never an "ok". Non-vacuity: the new `model-verify` can-fail case breaks the check
+and requires `make test` to go RED (1 non-vacuous / 0 vacuous / 0 errors).
+
+### 23.5 Item 8 — hard file limit for the Z3 process (`src/verifier/z3_bridge.zig`)
+
+Zig 0.17's `std.process.spawn` has **no pre-exec hook**, so `setrlimit` cannot run inside
+the child. Linux lets the PARENT limit an already-running process by PID:
+`prlimit64(pid, RLIMIT_FSIZE, {0,0}, null)` — applied right after `spawn`.
+Verified: no "not applied" warning is printed (the call returned 0), and kernel semantics
+are confirmed — with `FSIZE = 0` a writer is killed by SIGXFSZ and no data reaches the
+disk (an empty file may be created, but nothing can be written).
+**Deliberately NOT added:** Z3's own `-T:<sec>` / `rlimit=<N>` flags. They change solver
+semantics (UNSAT may become `unknown`) and could rewrite the verdicts of already published
+evidence, while duplicating the timeout the killer thread already enforces.
+
+### 23.6 Numbers after Echelon 1 (part)
+
+Core tests **289/289** (was 283; +6 model-check tests) · KERN-Next **39/39** ·
+test-fault OK · test catalogue **329** · defect registry 63 entries (#1-#123) ·
+`registry.py`: 104 targets, **81/81 CHECK** with a proven-can-fail case.
