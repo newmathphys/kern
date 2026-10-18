@@ -242,6 +242,10 @@ tree-lock:
 binary-audit: build
 	@$(PYTHON) tools/hw_binary_audit.py --n 30
 
+# ЭШЕЛОН 2, ПУНКТ 12: хаос-инъекция битовых сбоев в .kimg (bit-rot guard).
+bitrot-chaos: build
+	@$(PYTHON) tools/bitrot_chaos_check.py --n 30
+
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.

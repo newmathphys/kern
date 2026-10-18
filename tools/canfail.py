@@ -217,6 +217,7 @@ FAULTABLE = [
     "docs/CAPABILITY_STATUS.md",
     "tools/tree_lock.py",
     "tools/hw_binary_audit.py",
+    "tools/bitrot_chaos_check.py",
     "src/compat.zig",
     "src/core/hash_algo.zig",
     "tools/artifact_check.py",
@@ -1709,6 +1710,20 @@ def case_model_verify_spurious():
 
 
 
+def case_bitrot_chaos():
+    """ПУНКТ 12. ЛОМАЕМ: глубокую проверку данных в check-integrity.
+
+    Убираем пересчёт дайджестов объектов — тогда порча ДАННЫХ (bit-rot)
+    снова перестанет ловиться, и хаос-тест обязан покраснеть.
+    """
+    patch(
+        "src/main.zig",
+        "            for (fs.objects, 0..) |obj, oi| {",
+        "            for (fs.objects, 0..) |obj, oi| { if (true) continue; // ЛОМАЕМ",
+    )
+    return "make bitrot-chaos"
+
+
 def case_binary_audit():
     """АППАРАТНО-БИНАРНЫЙ АУДИТ. ЛОМАЕМ: инвертируем проверку флагов стека.
 
@@ -1861,6 +1876,7 @@ CASES = [
     ("proof-tamper",   "ФАЗЗЕР: подделка вывода ловится чекером",  case_proof_tamper),
     ("tree-lock",      "ЗАМОК: гонка патчащих дерево запрещена",    case_tree_lock),
     ("binary-audit",   "АУДИТ: AVX2/NX/латентность измеряются",     case_binary_audit),
+    ("bitrot-chaos",   "BIT-ROT: порча данных в .kimg ловится",      case_bitrot_chaos),
     ("audit",         "Цель audit: строковая теория",            case_audit_target),
     ("smt-stress",    "Цель smt-stress: NRA-логика",             case_smt_stress_target),
     ("memcheck",      "Утечка памяти (GPA/ReleaseSafe)",         case_memcheck_ubsafe),

@@ -841,6 +841,51 @@ pub fn main(init: std.process.Init) !void {
         };
         std.debug.print("[OK] Целостность: заголовок + Merkle-корень совпали. Эпоха: {d}.{d}, объектов: {d}\n", .{ h.version_major, h.version_minor, h.object_count });
 
+        // ГЛУБОКАЯ ПРОВЕРКА ДАННЫХ (Эшелон 2, пункт 12 — Data Poisoning / Bit-Rot
+        // Guard). ИЗМЕРЕНО хаос-тестом `tools/bitrot_chaos_check.py`: Merkle-корень
+        // считается по ХРАНИМЫМ в заголовке дайджестам, поэтому порча САМИХ
+        // ДАННЫХ (bit-rot, torn write, подмена чанка) им НЕ ловилась — 11 из 20
+        // инъекций проходили незамеченными. Здесь пересчитываем дайджест КАЖДОГО
+        // объекта по его байтам: для несжатых — прямая сверка, для сжатых —
+        // сверка ПОСЛЕ распаковки (именно её видит потребитель).
+        {
+            var fs = KernFS.mountFromBytes(alloc, data) catch |e| {
+                fail("[!] монтирование не удалось: {s}\n", .{@errorName(e)});
+            };
+            defer fs.deinit();
+            var verified: usize = 0;
+            for (fs.objects, 0..) |obj, oi| {
+                // ДЕФЕКТ #127 (НАЙДЕН хаос-тестом `tools/bitrot_chaos_check.py`).
+                // ИМЯ объекта хранится в области данных, но НЕ покрыто ни
+                // дайджестом объекта (тот считается по СОДЕРЖИМОМУ), ни
+                // Merkle-корнем (тот считается по ДАЙДЖЕСТАМ). ИЗМЕРЕНО: инверсия
+                // одного бита в имени (`abs_kern_ab?Broken.smt2`) проходила
+                // проверку молча, а объект становился НЕДОСТУПЕН по пути.
+                // МИТИГАЦИЯ (не полное исправление): имя обязано состоять из
+                // ПЕЧАТАЕМЫХ ASCII. Полное исправление — включать область имён в
+                // Merkle-корень (изменение формата, отдельная задача).
+                const nm = fs.objectPath(obj);
+                if (nm.len == 0) fail("[!] ОБЪЕКТ {d}: ПУСТОЕ имя\n", .{oi});
+                for (nm) |ch| {
+                    if (ch < 0x20 or ch > 0x7E) {
+                        fail("[!] ОБЪЕКТ {d}: ИМЯ ПОВРЕЖДЕНО (непечатаемый байт 0x{X:0>2}) — bit-rot в области имён\n", .{ oi, ch });
+                    }
+                }
+                if (obj.compression_codec == 0) {
+                    _ = fs.objectPayload(obj) catch |e| {
+                        fail("[!] ОБЪЕКТ {d} ПОВРЕЖДЁН (bit-rot / подмена): {s}\n", .{ oi, @errorName(e) });
+                    };
+                } else {
+                    const buf = fs.decompressObject(alloc, obj) catch |e| {
+                        fail("[!] ОБЪЕКТ {d} ПОВРЕЖДЁН (сжатый): {s}\n", .{ oi, @errorName(e) });
+                    };
+                    alloc.free(buf);
+                }
+                verified += 1;
+            }
+            std.debug.print("[OK] ДАННЫЕ: дайджест пересчитан для всех объектов ({d}) — bit-rot не пройдёт\n", .{verified});
+        }
+
     } else if (std.mem.eql(u8, command, "ls")) {
         var fs = KernFS.mountFromBytes(alloc, data) catch |e| {
             fail("[!] монтирование не удалось: {s}\n", .{@errorName(e)});

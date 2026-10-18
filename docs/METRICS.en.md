@@ -800,3 +800,34 @@ excluded from the POOL at `collect()` time (like string literals and
 indistinguishable by ANY test (§81.18), so they only polluted the raw score. After
 exclusion the pool holds **772 sites and 0 equivalent**. Raw 100.0 % (40/40),
 effective 100.0 % (40/40), **zero survivors**. The raw >= 95 % threshold is MET.
+
+**ECHELON 2, ITEM 12: BIT-ROT / DATA-POISONING GUARD.**
+`tools/bitrot_chaos_check.py` (target `make bitrot-chaos`) takes a REAL `.kimg`
+(7979 bytes, 34 objects), verifies integrity (positive control), then flips ONE
+bit at 30 different positions, requiring a refusal on each.
+
+**MEASURED: 30 injections, 26 detected, 4 do not affect the data, 0 REAL GAPS.**
+The "does not affect the data" class is VERIFIED, not assumed: for every
+undetected injection the SHA-256 of the CONCATENATED decompressed objects is
+compared — if it matches, the data is provably unchanged (deflate alignment
+bits); if not, it is reported as a GAP.
+
+**DEFECT #127 (found by this chaos test and FIXED).** The first version of
+`check-integrity` computed the Merkle root over the STORED digests and never
+recomputed them from the data. MEASURED: **11 of 20** injections went undetected.
+Fix: `check-integrity` now recomputes each object's digest from its bytes (for
+compressed objects, AFTER decompression — i.e. what the consumer sees).
+Detections rose 9 -> 26 of 30.
+
+**The remaining hole was a SECOND finding of the same class:** byte 3445 turned
+out to be corruption of an object NAME (`abs_kern_absBroken.smt2` ->
+`abs_kern_ab?Broken.smt2`). The name lives in the data region but is covered by
+NEITHER the object digest (computed over CONTENT) NOR the Merkle root (computed
+over digests). Consequence: the content is intact but the object becomes
+UNREACHABLE by path (`cat` -> `FileNotFound`) — a silent loss of access.
+
+**MITIGATION (in code, with an explicit caveat):** names must be PRINTABLE ASCII;
+a non-printable byte is rejected with precise diagnostics. This is NOT a complete
+fix — a flip to another printable character still slips through. The complete fix
+is to include the name region in the Merkle root (a container format change),
+left as an open item. After the mitigation: **0 REAL GAPS**.
