@@ -867,3 +867,23 @@ condition (`if (v.checksPass() and v.proof_concludes_false and v.trusted_steps =
 nothing. That is why "every new CHECK must be run through `canfail --only`" is not
 a formality — checking the four new targets (`pcc-check`, `bitrot-chaos`,
 `tree-lock`, `binary-audit`) exposed exactly such a case.
+
+### 23.26 Defect #133 — FOURTH VACUOUS CASE (process)
+
+`canfail --only simplify-check` reported **`VACUOUS 1`**: the fault was injected but the
+target stayed GREEN. Verified MANUALLY (applied the patch, ran the target) — the
+harness was RIGHT.
+
+**Root cause (my own misunderstanding of my function):** `_smt_sat` maps SAT -> `True`,
+UNSAT -> `False`, otherwise `None`. The first case patched the FIRST condition to
+`if False:`, so SAT fell through and returned **`None` (unknown)** instead of `False`:
+live branches were NOT pruned, `n_changes == 0`, the function was skipped and the target
+stayed green. The correct fault is `return True # SAT` -> `return False # BREAK`, which
+makes ALL branches look dead and prunes LIVE ones.
+
+**Verified manually:** with the correct patch the target **turns red (`rc=2`)** and the
+independent runtime cross-check prints **58 mismatches** (`clean(25): 26 != 0`). After
+fixing the case: **`1 non-vacuous | 0 vacuous`**.
+
+**Conclusion (fourth case in a row):** a vacuous case is not a rarity but a SYSTEMIC
+hazard, detectable ONLY by mandatory `canfail --only <target>` with `0 vacuous`.
