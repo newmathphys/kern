@@ -917,6 +917,10 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // ЗАКОН ДЕ МОРГАНА для `and` (последний доверенный шаг `abs.c`):
     // `(and X Y) <=> (not (or (not X) (not Y)))` — структурно.
     if (andDeMorganEq(l, r)) return .verified;
+    // КОНСТАНТНЫЕ СТРОКОВЫЕ ПРЕДИКАТЫ (Пункт 23 / QF_S): `(str.contains "safe" "../")`
+    // вычисляется в Zig -> `(= ... false)` доказано без доверенных шагов.
+    if (constStrEq(l, r)) return .verified;
+    if (constBoolEq(l, r)) return .verified;
     if (compat.envVar("KERN_DEBUG_LIA") != null) {
         std.debug.print("[dbg-rw] не проверено: LHS=", .{});
         dumpSexp(l);
@@ -1485,6 +1489,98 @@ fn andDeMorganOne(and_side: Sexp, not_or_side: Sexp) bool {
     const x2 = nx.items[1];
     const y2 = ny.items[1];
     return (sexpEq(x, x2) and sexpEq(y, y2)) or (sexpEq(x, y2) and sexpEq(y, x2));
+}
+
+/// Строковый литерал SMT-LIB: `"..."` -> содержимое без кавычек.
+fn strLitOf(s: Sexp) ?[]const u8 {
+    const a = s.atom orelse return null;
+    if (a.len < 2 or a[0] != '"' or a[a.len - 1] != '"') return null;
+    return a[1 .. a.len - 1];
+}
+
+/// ВЫЧИСЛЕНИЕ КОНСТАНТНЫХ СТРОКОВЫХ ПРЕДИКАТОВ (Эшелон 4, Пункт 23 / QF_S).
+///
+/// ИЗМЕРЕНО на `sanitize_safe` (QF_S): среди 9 доверенных шагов есть
+/// `(rewrite (= (str.contains result "../") $x74))` и `(rewrite (= $x224 false))`
+/// — это ВЫЧИСЛЕНИЕ предиката над строковыми ЛИТЕРАЛАМИ. Такое вычисление
+/// звучимо тривиально: результат функции над константами — константа.
+/// Сравнение делаем в самом Zig (`std.mem`), доверенных шагов НЕ требуется.
+fn evalStrPred(s: Sexp) ?bool {
+    if (!s.isList() or s.items.len != 3) return null;
+    const op = s.items[0].atom orelse return null;
+    const a = strLitOf(s.items[1]) orelse return null;
+    const b = strLitOf(s.items[2]) orelse return null;
+    if (std.mem.eql(u8, op, "str.contains")) return std.mem.indexOf(u8, a, b) != null;
+    if (std.mem.eql(u8, op, "str.prefixof")) return std.mem.startsWith(u8, a, b);
+    if (std.mem.eql(u8, op, "str.suffixof")) return std.mem.endsWith(u8, a, b);
+    if (std.mem.eql(u8, op, "str.=")) return std.mem.eql(u8, a, b);
+    return null;
+}
+
+/// `(str.++ "a" "b")` над литералами -> конкатенация.
+fn evalStrConcat(s: Sexp) ?[]const u8 {
+    if (!s.isList() or s.items.len != 3) return null;
+    const op = s.items[0].atom orelse return null;
+    if (!std.mem.eql(u8, op, "str.++")) return null;
+    const a = strLitOf(s.items[1]) orelse return null;
+    const b = strLitOf(s.items[2]) orelse return null;
+    _ = a;
+    _ = b;
+    return null; // аллокация не нужна: случай не встречается в измеренных выводах
+}
+
+/// `(= <стр-предикат над литералами> true|false)` — доказано вычислением.
+fn constStrEq(l: Sexp, r: Sexp) bool {
+    const v = evalStrPred(l) orelse evalStrPred(r) orelse return false;
+    const other = if (evalStrPred(l) != null) r else l;
+    const a = other.atom orelse return false;
+    if (std.mem.eql(u8, a, "true")) return v;
+    if (std.mem.eql(u8, a, "false")) return !v;
+    return false;
+}
+
+/// ВЫЧИСЛЕНИЕ КОНСТАНТНЫХ БУЛЕВЫХ ВЫРАЖЕНИЙ (Пункт 23 / QF_S).
+///
+/// ИЗМЕРЕНО: Z3 сам вычисляет строковый предикат над литералами
+/// (`(str.contains "safe" "../")` -> `false`), и в выводе остаётся БУЛЕВА свёртка
+/// `(= false true)`, которую `(rewrite (= $x224 false))` переписывает в `false`.
+/// Вычисление булевых констант — тривиально звучимо (никаких доверенных шагов).
+fn evalBoolConst(s: Sexp) ?bool {
+    if (s.atom) |a| {
+        if (std.mem.eql(u8, a, "true")) return true;
+        if (std.mem.eql(u8, a, "false")) return false;
+        return null;
+    }
+    if (!s.isList()) return null;
+    const op = s.items[0].atom orelse return null;
+    if (std.mem.eql(u8, op, "=") and s.items.len == 3) {
+        const a = evalBoolConst(s.items[1]) orelse return null;
+        const b = evalBoolConst(s.items[2]) orelse return null;
+        return a == b;
+    }
+    if (std.mem.eql(u8, op, "not") and s.items.len == 2) {
+        const a = evalBoolConst(s.items[1]) orelse return null;
+        return !a;
+    }
+    if ((std.mem.eql(u8, op, "and") or std.mem.eql(u8, op, "or")) and s.items.len >= 3) {
+        const is_and = std.mem.eql(u8, op, "and");
+        var acc = is_and;
+        for (s.items[1..]) |it| {
+            const v = evalBoolConst(it) orelse return null;
+            acc = if (is_and) (acc and v) else (acc or v);
+        }
+        return acc;
+    }
+    return null;
+}
+
+/// `(= <булева константа> true|false)` — доказано вычислением.
+fn constBoolEq(l: Sexp, r: Sexp) bool {
+    const v = evalBoolConst(l) orelse return false;
+    const a = r.atom orelse return false;
+    if (std.mem.eql(u8, a, "true")) return v;
+    if (std.mem.eql(u8, a, "false")) return !v;
+    return false;
 }
 
 fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
