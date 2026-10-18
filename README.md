@@ -459,8 +459,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Target | Property under test | Result |
 |:--|:--|:--|
 | x86_64 | TSO memory model | **299 / 299** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **240 passed / 4 skipped / 0 failed** (QEMU log 2026-10-16, `docs/evidence/cross_arch.log`; host suite has since grown to 299 / 299, re-run pending) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **240 passed / 4 skipped / 0 failed** (same QEMU log; host suite has since grown to 299 / 299, re-run pending) |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **337 passed / 8 skipped / 0 failed** (QEMU log 2026-10-18, `docs/evidence/cross_arch.log`; current host suite) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **337 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
 
 ### External benchmarks
 

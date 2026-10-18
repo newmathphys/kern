@@ -2063,12 +2063,16 @@ def _cc_and_smells(fn: ast.FunctionDef) -> tuple[int, list[str]]:
 
 
 def _walk_branches(stmts, path: list[str], params: list[str], kernc,
-                   found: list[str], skipped: list[str], fnname: str) -> None:
+                   found: list[str], skipped: list[str], fnname: str,
+                   syms=None) -> None:
     """Обход ветвлений с накоплением условия пути."""
+    syms = syms if syms is not None else set()
     for st in stmts:
         if isinstance(st, ast.If):
             try:
-                cond = expr_smt(st.test, {})
+                # ПУНКТ 21 (Zero-Annotation): `len(arr)` -> символическая длина,
+                # иначе условия с `len(...)` ЛОЖНО считались «вне подмножества».
+                cond = _cond_smt(st.test, syms)
             except (Unsupported, NoReturn, Exception):
                 skipped.append(f"{fnname}: условие на строке {st.lineno} вне подмножества")
                 continue
@@ -2095,7 +2099,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
-            _walk_branches(st.body, path + [cond], params, kernc, found, skipped, fnname)
+            _walk_branches(st.body, path + [cond], params, kernc, found, skipped, fnname, syms)
             _walk_branches(st.orelse, path + [f"(not {cond})"], params, kernc,
                            found, skipped, fnname)
         else:
@@ -2170,24 +2174,75 @@ def _smt_counterexample(kernc, params, asserts) -> str | None:
     return ce if kind == "sat" else None
 
 
+
+# -----------------------------------------------------------------------------
+# ПУНКТ 21 (Zero-Annotation): длина массива извлекается ИЗ САМОГО КОДА.
+#
+# ИЗМЕРЕНО/ПРИЗНАНО (архитектурная ревизия): требовать `# @kern:len(arr) = N` в
+# режиме, заявленном как «работа БЕЗ аннотаций @kern:», — противоречие. Теперь:
+#   (а) литерал списка/массива в теле  `data = [10, 20, 30, 40]` -> N = 4 из AST;
+#   (б) `len(data)` в условиях -> СИМВОЛИЧЕСКАЯ длина `kern_len_data >= 0`,
+#       поэтому гард `i < len(data)` доказывает безопасность для ЛЮБОЙ длины.
+# Директива `@kern:len` оставлена ТОЛЬКО как опциональное переопределение.
+# -----------------------------------------------------------------------------
+
+class _LenRewrite(ast.NodeTransformer):
+    """`len(arr)` -> символическая переменная `kern_len_arr`."""
+
+    def __init__(self, syms: set):
+        self.syms = syms
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        f = node.func
+        if (isinstance(f, ast.Name) and f.id == "len"
+                and len(node.args) == 1 and isinstance(node.args[0], ast.Name)):
+            name = node.args[0].id
+            self.syms.add(name)
+            return ast.copy_location(
+                ast.Name(id=f"kern_len_{name}", ctx=ast.Load()), node)
+        return node
+
+
+def _collect_lens(fn, syms: set) -> dict[str, str]:
+    """Длины из литералов списков + символьные длины из `len(...)`."""
+    lens: dict[str, str] = {}
+    for st in ast.walk(fn):
+        if (isinstance(st, ast.Assign) and len(st.targets) == 1
+                and isinstance(st.targets[0], ast.Name)
+                and isinstance(st.value, (ast.List, ast.Tuple))):
+            lens[st.targets[0].id] = str(len(st.value.elts))
+        if isinstance(st, ast.Call):
+            _LenRewrite(syms).visit(st)
+    return lens
+
+
+def _cond_smt(node, syms: set):
+    """SMT условия с переписанным `len(arr)` -> `kern_len_arr`."""
+    node = _LenRewrite(syms).visit(ast.parse(ast.unparse(node), mode="eval").body)
+    ast.fix_missing_locations(node)
+    return expr_smt(node, {})
+
+
 def _block_exits(body) -> bool:
     """Завершается ли блок безусловно (return/raise)?"""
     return bool(body) and isinstance(body[-1], (ast.Return, ast.Raise))
 
 
-def _walk_bounds(body, path, params, lens, kernc, found, fname):
-    """Обход тела с накоплением путевых условий (Пункт 21)."""
+def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
+    """Обход тела с накоплением путевых условий (Пункт 21, Zero-Annotation)."""
+    syms = syms if syms is not None else set()
     for st in body:
         if isinstance(st, ast.If):
             try:
-                cond = expr_smt(st.test, {})
+                cond = _cond_smt(st.test, syms)
             except (Unsupported, NoReturn, Exception):
                 cond = None
             _walk_bounds(st.body, path + ([cond] if cond else []), params, lens,
-                         kernc, found, fname)
+                         kernc, found, fname, syms)
             neg = f"(not {cond})" if cond else None
             _walk_bounds(st.orelse, path + ([neg] if neg else []), params, lens,
-                         kernc, found, fname)
+                         kernc, found, fname, syms)
             # ИЗМЕРЕНО: операторы ПОСЛЕ `if` раньше теряли путевое условие, и
             # `get_safe` (с гардами) ЛОЖНО обвинялся в выходе за границы.
             # Если ветка THEN безусловно завершается, то всё последующее
@@ -2199,21 +2254,33 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname):
             if not isinstance(sub.value, ast.Name):
                 continue
             arr = sub.value.id
-            if arr not in lens:
+            decls = list(params)
+            pre: list[str] = []
+            if arr in lens:
+                n = lens[arr]                      # (а) литерал списка из AST
+                human = f"0..{int(n) - 1} (из литерала)"
+            elif arr in syms:
+                n = f"kern_len_{arr}"              # (б) СИМВОЛИЧЕСКАЯ длина
+                decls = list(dict.fromkeys(decls + [n]))
+                pre = [f"(>= {n} 0)"]
+                human = "0..kern_len_%s-1 (символическая длина)" % arr
+            else:
                 found.append(f"[BOUNDS] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
-                             f"длина НЕ известна, границы НЕ проверены "
-                             f"(укажите `# @kern:len({arr}) = N`)")
+                             f"длина НЕ известна (нет литерала и нет `len({arr})` "
+                             f"в условиях), границы НЕ проверены")
                 continue
-            n = lens[arr]
             try:
                 idx = expr_smt(sub.slice, {})
             except (Unsupported, NoReturn, Exception):
                 continue
             bad = f"(not (and (>= {idx} 0) (< {idx} {n})))"
-            ce = _smt_counterexample(kernc, params, path + [bad])
-            if ce is not None:
+            v, ce = _smt_verdict(kernc, decls, pre + path + [bad])
+            if v == "sat":
                 found.append(f"[BOUNDS PATH] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
-                             f"возможен выход за границы 0..{n - 1}; контрпример: {ce}")
+                             f"возможен выход за границы {human}; контрпример: {ce}")
+            elif v == "unknown":
+                found.append(f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+                             f"НЕ решено ({ce}) — НЕ считается безопасным")
 
 
 def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
@@ -2240,7 +2307,9 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         for n in ast.walk(fn):
             if isinstance(n, ast.If):
                 try:
-                    expr_smt(n.test, {})
+                    # `len(arr)` переписывается в символическую длину -> условия с
+                    # `len(...)` больше НЕ отсеиваются как «вне подмножества».
+                    _cond_smt(n.test, set())
                 except (Unsupported, NoReturn, Exception):
                     conds_ok = False
                     break
@@ -2252,9 +2321,11 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
             print(f"  [FN] {fn.name}: CC={cc} параметров={len(params)}")
         for s in smells:
             found.append(f"[SMELL] {fn.name}: {s}")
-        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name)
-        lens = _declared_lengths_for(src_lines, fn.lineno)
-        _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name)
+        lens = _declared_lengths_for(src_lines, fn.lineno)  # опциональное переопределение
+        syms: set = set()
+        lens.update(_collect_lens(fn, syms))   # Zero-Annotation: литералы + len()
+        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms)
+        _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name, syms)
 
     print("-" * 74)
     for f in found:
