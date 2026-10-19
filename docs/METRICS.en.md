@@ -1535,3 +1535,13 @@ C-like `if` conditions are checked without path narrowing; Python has no type in
 (a string attribute can be treated as `Int`); aggregation attribution needs re-checking for
 nested calls. Baselines after the changes: `make contracts` unchanged (11 proven / 4
 violated / 0 unresolved / 2 vacuous), `make edge-cases` OK.
+
+**Defect #158 (found by the field scan):** in Python `%` is BOTH modulo and **string
+formatting**. `'<urlopen error %s>' % self.reason` was parsed as `mod`, producing a
+**false** `[CRASH PATH]` in `urllib/error.py` and `http/cookiejar.py`. Fixed with
+`_is_str_expr()` (string literal / f-string / `%`-formatting / `.format()`) applied in
+**all three** divisor-collection sites; such `%` now yields an honest SKIP.
+
+**Before/after on the same 9 stdlib files:** 201/413 (49 %) with **1 false finding** ->
+**211/413 (51 %) with 0 findings**. Coverage grew AND false accusations were eliminated —
+for a security tool that matters more than any gain.

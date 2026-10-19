@@ -78,6 +78,28 @@ def _int_literal(node: ast.AST, env: dict) -> bool:
     return False
 
 
+def _is_str_expr(node) -> bool:
+    """ДЕФЕКТ (найден полевым сканом stdlib): `%` в Python — ДВА оператора:
+    остаток от деления и строковое форматирование. `'%s' % self.reason`
+    трактовалось как `mod` -> ЛОЖНЫЙ `[CRASH PATH]` «деление на ноль:
+    self__reason == 0» в `urllib/error.py` и `http/cookiejar.py`.
+
+    ЗВУЧИМОСТЬ: строковые выражения вне подмножества, поэтому такой `%`
+    должен вести к честному SKIP, а не к мнимо��у делению.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return True
+    if isinstance(node, ast.JoinedStr):          # f-string
+        return True
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        return _is_str_expr(node.left)
+    if isinstance(node, ast.Call):
+        fn = node.func
+        if isinstance(fn, ast.Attribute) and fn.attr == "format":
+            return True
+    return False
+
+
 def expr_smt(node: ast.AST, env: dict) -> str:
     """Python-выражение (подмножество) -> SMT-LIB2 с учётом локальных имён.
 
@@ -147,6 +169,9 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             # Собираем делители и отдельно доказываем `делитель ≠ 0`
             # (обязательство безопасности, см. `build_divzero_smt`).
             op = "mod" if isinstance(node.op, ast.Mod) else "div"
+            # `%` над СТРОКАМИ — это форматирование, а не остаток от деления.
+            if isinstance(node.op, ast.Mod) and _is_str_expr(node.left):
+                raise Unsupported("строковое форматирование %")
             d = expr_smt(node.right, env)
             _DIV_COLLECTOR.append(d)
             return f"({op} {expr_smt(node.left, env)} {d})"
@@ -2460,6 +2485,8 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             # Краш-пути в теле.
             for n in ast.walk(st):
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+                    if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
+                        continue  # `'%s' % x` — форматирование, не деление
                     try:
                         div = expr_smt(n.right, {})
                     except (Unsupported, NoReturn, Exception):
@@ -2482,6 +2509,8 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
         else:
             for n in ast.walk(st):
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+                    if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
+                        continue  # `'%s' % x` — форматирование, не деление
                     try:
                         div = expr_smt(n.right, {})
                     except (Unsupported, NoReturn, Exception):
@@ -3311,6 +3340,8 @@ def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
         for n in ast.walk(fn):
             if not (isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod))):
                 continue
+            if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
+                continue  # `'%s' % x` — форматирование, не деление
             try:
                 div = expr_smt(n.right, {})
             except (Unsupported, NoReturn, Exception):
