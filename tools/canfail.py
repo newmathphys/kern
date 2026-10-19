@@ -2255,8 +2255,9 @@ def case_simplify_check():
     # НЕЗАВИСИМАЯ рантайм-сверка поведения.
     patch(
         "tools/kern_contracts.py",
-        "        return True  # SAT: контрпример найден",
-        "        return False  # ЛОМАЕМ: SAT объявляем UNSAT",
+        "    kind, _ce = _smt_verdict(kernc, params, asserts)",
+        '    kind = "unsat"  # ЛОМАЕМ: SAT объявляем невыполнимым',
+
     )
     return "make simplify-check"
 
