@@ -324,7 +324,15 @@ KNOWN_EQUIVALENT_SITES = {
     "src/core/blake3_simd8.zig": ["word_off + 4 <="],
     # различие только для СПИСКА длины < 2; при длине 1 обе версии false,
     # длина 0 из parseSexp недостижима.
-    "src/verifier/proof_check.zig": ["!t.isList() or t.items.len < 2"],
+    "src/verifier/proof_check.zig": [
+        "!t.isList() or t.items.len < 2",
+        # НЕДОСТИЖИМАЯ защита в `linTautEq`: до `alts.items.len == 0` управление
+        # доходит только при `isCmpExpr(e)`, а `negAlternatives` для ЛЮБОГО
+        # сравнения даёт >= 1 альтернативу (для `=` две, иначе fallback
+        # в конце функции). ИЗМЕРЕНО: попытка убить тестом на `(and)` не
+        # доходит до строки — срабатывает `isCmpExpr` выше.
+        "if (alts.items.len == 0) return false;",
+    ],
     # `.nonblocking` в обёртке Io.File для close() не влияет на закрытие fd.
     "src/core/kimg_writer.zig": [".nonblocking = false"],
     # флаг `done` лишь сокращает сон потока-убийцы; поток сразу join-ится.

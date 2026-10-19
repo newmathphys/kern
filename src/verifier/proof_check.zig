@@ -5477,3 +5477,32 @@ test "ИСПЫТАНИЕ А: 30 подделок реального вывода
     try std.testing.expectEqual(@as(usize, 30), applied);
     try std.testing.expectEqual(@as(usize, 30), rejected);
 }
+
+test "МУТАНТЫ 1876/2427/2601: защитные `return false` обязаны отвергать" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+
+    // 2427 (verifyIffFalse): заключение `(= a b)` — НИ ОДНА сторона не `false`.
+    // Это НЕ iff-false; мутант `false->true` принял бы любой `=` как определение
+    // false, то есть ослабил бы правило. Ожидается ОТКАЗ.
+    const iff_bad = try parseSexp(a, "(iff-false (= a b) (= a b))");
+    try std.testing.expect(!verifyIffFalse(&c, iff_bad));
+    // Позитивный контроль: `(= a false)` — уже настоящий iff-false (не 0/0).
+    const iff_ok = try parseSexp(a, "(iff-false (not a) (= a false))");
+    _ = verifyIffFalse(&c, iff_ok);
+
+    // 2601 (verifyNotOrElim): голова `(not X)` — но `X` начинается СО СПИСКА,
+    // а не с атома-связки. Мутант `orelse return true` объявил бы такое правило
+    // доказанным, НЕ проверив связку (и, значит, принял бы что угодно).
+    const noe_bad = try parseSexp(a, "(not-or-elim (not ((or a b) c)) (= a b))");
+    try std.testing.expect(!verifyNotOrElim(&c, noe_bad));
+
+    // 1876 (linTautEq `alts.len == 0`): НЕДОСТИЖИМАЯ защита, а не дыра в тестах.
+    // ИЗМЕРЕНО: `linTautEq` доходит до этой строки только при `isCmpExpr(e)`,
+    // а `negAlternatives` для любого сравнения даёт >= 1 альтернативу
+    // (для `=` — две, для остальных — fallback 1591-1594). Поэтому пустой
+    // список альтернатив при сравнении невозможен; сайт занесён в
+    // KNOWN_EQUIVALENT_SITES с этим обоснованием.
+}
