@@ -119,7 +119,8 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
   table.mono th,table.mono td{padding:7px 10px;vertical-align:top}
   table.mono thead th{color:var(--mut);font-weight:600;border-bottom:1px solid var(--line)}
   input.mono{padding:8px 10px;border-radius:6px;border:1px solid var(--line);
-    background:var(--bg0);color:var(--ink2)}
+    background:var(--bg0);color:var(--ink2);
+    box-sizing:border-box;max-width:100%;min-width:0;flex:1 1 200px}
   #sc-score{color:var(--ok)}
   @media(max-width:760px){.sc-head{flex-wrap:wrap;gap:10px}.sc-score{font-size:36px}}
 </style>
@@ -664,7 +665,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
     (1225 sites), can-fail (125 goals), QF_S/IEEE-754 and the Ed25519 signature check are CLI-only —
     therefore the browser score caps at <b>65</b>.</p>
     <div class="sc-actions">
-      <input id="sc-repo" class="mono" type="text" placeholder="owner/repo" size="32"
+      <input id="sc-repo" class="mono" type="text" placeholder="owner/repo"
              style="padding:8px 10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#c9d1d9">
       <button class="btn p" id="sc-audit">🔍 Live audit repo</button>
       <button class="btn" id="sc-submit" title="Opens a GitHub issue with the audit report">🏆 Add to KERN Index</button>
