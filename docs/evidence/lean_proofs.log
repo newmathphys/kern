@@ -1,6 +1,6 @@
 === KERN EVIDENCE: lean_proofs ===
 === команда: bash formal/check.sh ===
-=== дата: 2026-10-19T15:55:13Z ===
+=== дата: 2026-10-19T17:53:52Z ===
 
 == core-only (Lean без Mathlib) ==
   [OK]   KernAllMath.lean
@@ -16,10 +16,4 @@
 ALL LEAN PROOFS OK (8/8 файлов, 0 errors, 0 sorry)
 
 RC=0
-[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
-        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
-        - src/cov.zig: изменён (4742576ac4b9 -> 342cd8ba2939)
-        - zig-out/bin/kernc: изменён (f1145634c5c7 -> cd516aa8b332)
-        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
-        при пропатченных исходниках. Не правьте файлы во время
-        `make evidence` / `make canfail`.
+[guard] FAULTABLE без изменений (115 файлов) — прогон чист

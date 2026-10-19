@@ -1,6 +1,6 @@
 === KERN EVIDENCE: core_tests ===
 === команда: zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig ===
-=== дата: 2026-10-19T15:58:20Z ===
+=== дата: 2026-10-19T17:53:24Z ===
 
 1/401 test_root.test_0...OK
 2/401 core.eq2.test.EQ2: кодировка p | (n << 1)...OK
@@ -281,8 +281,8 @@
 277/401 verifier.noninterference.test.NONINTERFERENCE: constant-time сравнение эквивалентно обычному...OK
 278/401 verifier.noninterference.test.NONINTERFERENCE: constant-time НЕ зависит от позиции отличия (ранний выход — ЗАВИСИТ)...
 [NONINTERFERENCE] отношение времён (позиция отличия 1 vs 16):
-  constant-time: 1.10x  (должно ~1)
-  ранний выход : 1.19x  (зависит от позиции)
+  constant-time: 1.01x  (должно ~1)
+  ранний выход : 1.21x  (зависит от позиции)
 OK
 279/401 verifier.noninterference.test.NONINTERFERENCE: earlyExitEqual различает длины (мутант false->true)...OK
 280/401 verifier.noninterference.test.NONINTERFERENCE: cmov переносит taint от ОДНОГО операнда (мутант or->and)...OK
@@ -358,7 +358,7 @@ OK
 346/401 tests.smt_incremental_test.test.SMT push/pop: контекст ИЗОЛИРОВАН (нет протечки между мутантами)...OK
 347/401 tests.smt_incremental_test.test.SMT push/pop: пачка из 50 «мутантов» — нет ложных proved...OK
 348/401 tests.smt_incremental_test.test.SMT push/pop: 30 запросов в ОДНОМ процессе быстрее 30 отдельных...
-[ИНКРЕМЕНТ] 30 отдельных процессов: 560 мс; один процесс: 16 мс
+[ИНКРЕМЕНТ] 30 отдельных процессов: 497 мс; один процесс: 16 мс
 OK
 349/401 tests.litmus_memory_test.test.LITMUS SB: SeqCst НЕ допускает исход r1=r2=0 (запрещён моделью SC)...
 [LITMUS SB/SeqCst] запрещённый исход r1=r2=0: 0 из 3000
@@ -419,7 +419,7 @@ OK
   cache_hit                             67 
   cache_miss                            13 
   cache_evict                          900 
-  z3_tool_error                         37 
+  z3_tool_error                         34 
   z3_sat                               190 
   z3_unsat                             315 
   z3_unknown                             1 
@@ -472,4 +472,4 @@ OK
 All 401 tests passed.
 
 RC=0
-[guard] FAULTABLE без изменений (116 файлов) — прогон чист
+[guard] FAULTABLE без изменений (115 файлов) — прогон чист

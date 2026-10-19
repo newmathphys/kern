@@ -192,7 +192,10 @@ def check_mutation_integrity() -> tuple[int, dict, str]:
     r = run("mutate", ["python3", "tools/mutate_zig.py", "--max", "40", "--seed", "7",
                        "--jobs", "4", "--require-solver"], timeout=1800)
     after = run("git-status-after", ["git", "status", "--porcelain"])["output"]
-    score = num(r"MUTATION SCORE:\s*([0-9.]+)%", r["output"])
+    # 🔴 ДЕФЕКТ #177 (найден чистым прогоном): мутатор печатает
+    # «MUTATION SCORE (сырой): …», а регулярка требовала двоеточие сразу
+    # после SCORE -> score=None -> телеМЕТРИЯ ставила FAIL «Мутации».
+    score = num(r"MUTATION SCORE[^:]*:\s*([0-9.]+)%", r["output"])
     killed = num(r"Killed \(compile\):\s*(\d+)", r["output"], 0)
     killed_t = num(r"Killed \(test\):\s*(\d+)", r["output"], 0)
     surv = num(r"Survived \(ДЫРЫ\):\s*(\d+)", r["output"], 0)

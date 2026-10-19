@@ -1,13 +1,7 @@
 === KERN EVIDENCE: kern_next_tests ===
 === команда: zig build test-next ===
-=== дата: 2026-10-19T15:55:11Z ===
+=== дата: 2026-10-19T17:53:49Z ===
 
 
 RC=0
-[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
-        - formal/KernSemanticGap.lean: изменён (4e41da5736a4 -> 991ca5b8e6a0)
-        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
-        - zig-out/bin/kernc: изменён (f1145634c5c7 -> cd516aa8b332)
-        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
-        при пропатченных исходниках. Не правьте файлы во время
-        `make evidence` / `make canfail`.
+[guard] FAULTABLE без изменений (115 файлов) — прогон чист

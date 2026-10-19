@@ -1675,3 +1675,13 @@ success, so files were edited, evidence committed and the attestation signed
 **38.3 Ordering:** all edits, docs and `scorecard.json` are prepared and committed
 **before** the collector starts; during the run the tree is untouched; afterwards
 only fresh logs, then signature and attestation.
+
+**38.4 Defect #177 — telemetry parser vs new mutator output.** The clean run
+reported `telemetry FAIL 0/12` with `score=None`, while the mutator itself printed
+**100.0 % (40/40)**. Root cause: `tools/measure_all_kern.py:195` expected
+`MUTATION SCORE:` (colon right after the word), but after the dual-score change
+the line is `MUTATION SCORE (raw): …`. The parser returned nothing, the whole
+mutation block scored 0/12, the stand reported 88/100 and `RC=1`.
+Fixed with `MUTATION SCORE[^:]*:\\s*([0-9.]+)%`; re-run: **100/100, RC=0**.
+
+Same class as #166 and #175: **change an output format — check every consumer**.

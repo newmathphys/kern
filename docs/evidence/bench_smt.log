@@ -1,6 +1,6 @@
 === KERN EVIDENCE: bench_smt ===
 === команда: zig build bench-smt ===
-=== дата: 2026-10-19T15:57:27Z ===
+=== дата: 2026-10-19T17:55:28Z ===
 
 🔬 KERN SMT-бенчмарк: эквивалентность оптимизаций (Alive2 / Hacker's Delight)
    Решатель: z3
@@ -24,10 +24,4 @@ Termination/грам: gcd(x,x) == x (Int, x>0)             | unsat    | ✅ со
 НЕ СОВПАЛО с ожиданием:          0
 
 RC=0
-[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
-        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
-        - tools/kern_contracts.py: изменён (767a0ec516b0 -> 0a1bf00706cc)
-        - zig-out/bin/kernc: изменён (f1145634c5c7 -> e45403682dc5)
-        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
-        при пропатченных исходниках. Не правьте файлы во время
-        `make evidence` / `make canfail`.
+[guard] FAULTABLE без изменений (115 файлов) — прогон чист

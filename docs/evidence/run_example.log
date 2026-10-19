@@ -1,13 +1,13 @@
 === KERN EVIDENCE: run_example ===
 === команда: make run-example ===
-=== дата: 2026-10-19T15:57:22Z ===
+=== дата: 2026-10-19T17:55:26Z ===
 
 zig build
 === [1] Обычный CI: pytest на «тесте» агента ===
 python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
  echo "(pytest не установлен — вакуумный тест всё равно не имеет assert)"
 .                                                                        [100%]
-1 passed in 0.02s
+1 passed in 0.01s
 
 === [2] KERN: сборка образа доказательств ===
 ./zig-out/bin/kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg
@@ -36,10 +36,4 @@ python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 ||
 ИТОГ: заявление агента ОПРОВЕРГНУТО (e=0), исправленная версия ДОКАЗАНА (e=1).
 
 RC=0
-[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
-        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
-        - src/next/truth.zig: изменён (178585fddc00 -> 71abe4cbb3f2)
-        - zig-out/bin/kernc: изменён (f1145634c5c7 -> e45403682dc5)
-        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
-        при пропатченных исходниках. Не правьте файлы во время
-        `make evidence` / `make canfail`.
+[guard] FAULTABLE без изменений (115 файлов) — прогон чист
