@@ -3,7 +3,7 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-401%2F401-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-401%2F401_with_z3-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-53%2F53-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_120_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
@@ -501,9 +501,18 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **401 / 401** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **393 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`; current host suite) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **393 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
+| x86_64 | TSO memory model | **401 / 401 passed** with `z3` on `PATH`; **393 passed + 8 skipped** when no solver is installed |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **393 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **393 passed / 8 skipped / 0 failed** (same QEMU log) |
+
+**Why exactly 8 skips, never a silent pass.** Those 8 tests need an *external* solver process:
+4 in `src/tests/os_stress_test.zig` (they exercise the KERN ↔ OS pipe/spawn edge against a live
+Z3 child) and 4 in `src/verifier/z3_bridge.zig` (round-trip, timeout, output-limit and model
+ownership). Each is gated by an explicit `solverAvailable()` / `executeStatus()` probe and calls
+`error.SkipZigTest` — the Zig runner counts it as **skipped**, so it can never be mistaken for a
+green assertion. Under `qemu-aarch64` / `qemu-ppc64` the host `z3` binary is x86-64 and cannot be
+executed at all, so the same 8 skip there. Logic that does not depend on the solver (including all
+arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still runs: 393 green.
 
 ### External benchmarks
 
