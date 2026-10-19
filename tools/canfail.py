@@ -1772,12 +1772,16 @@ def case_double_spend_check():
 
 
 def case_ffi_bridge_check():
-    """ПУНКТ 29. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> усечение в i32/u32
-    перестаёт ловиться -> цель обязана покраснеть."""
+    """ПУНКТ 29. ЛОМАЕМ: `_prove_checked` объявляет SAT как UNSAT -> усечение
+    в i32/u32 перестаёт ловиться -> цель обязана покраснеть.
+
+    ИЗМЕРЕНО (6-й вакуумный кейс): первый патч бил в `_smt_verdict`, а пресеты
+    идут через `_prove_checked` — цель оставалась зелёной. Якорь —
+    `return ("sat", ce, None)` (уникален для `_prove_checked`)."""
     patch(
         "tools/kern_contracts.py",
-        '    if \"\u041a\u041e\u041d\u0422\u0420\u041f\u0420\u0418\u041c\u0415\u0420\" in out:',
-        '    if False and \"\u041a\u041e\u041d\u0422\u0420\u041f\u0420\u0418\u041c\u0415\u0420\" in out:',
+        '        return ("sat", ce, None)',
+        '        return ("unsat", ce, None)',
     )
     return "make ffi-bridge-check"
 
