@@ -85,9 +85,6 @@ fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
     std.mem.writeInt(u32, obj[64..68], 0, .little);
     std.mem.writeInt(u32, obj[68..72], 1, .little);
 
-    var root: [32]u8 = undefined;
-    ObjectEntry.computeRootHash(&[_][96]u8{obj}, &root);
-
     var header: [128]u8 = @as([128]u8, @splat(0));
     @memcpy(header[0..8], "KIMG\r\n\x1a\n");
     std.mem.writeInt(u16, header[8..10], 1, .little);
@@ -98,12 +95,19 @@ fn buildGolden(alloc: std.mem.Allocator) ![]u8 {
     std.mem.writeInt(u64, header[40..48], 96, .little);
     std.mem.writeInt(u64, header[48..56], 1, .little);
     std.mem.writeInt(u64, header[56..64], 224, .little);
-    @memcpy(header[64..96], &root);
 
     var out = std.array_list.Managed(u8).init(alloc);
     try out.appendSlice(&header);
     try out.appendSlice(&obj);
     try out.appendSlice(pool);
+
+    // ДЕФЕКТ #171 (найден `make bench-semantic` -> `error: MerkleRootMismatch`):
+    // раньше корень считался СТАРЫМ путём `ObjectEntry.computeRootHash`, который
+    // НЕ покрывает область имён объектов (исправлено в #128). Из-за этого
+    // собранный здесь образ перестал проходить `verifyMerkleRoot`.
+    // ЕДИНЫЙ ИСТОЧНИК ИСТИНЫ: корень и csum печатает `sealImageRoot` по уже
+    // готовому буферу — тот же код, что вызывает писатель и проверяет читатель.
+    try KimgHeader.sealImageRoot(out.items);
     return out.toOwnedSlice();
 }
 
