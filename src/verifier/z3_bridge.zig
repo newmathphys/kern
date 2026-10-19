@@ -785,3 +785,36 @@ test "PEAK: пик параллельных слотов учитывает МА
     try std.testing.expectEqual(@as(usize, 2), pool.peakConcurrent());
     pool.release();
 }
+
+test "ТАЙМАУТ: зависший решатель снимается потоком-убийцей (стр. 52 и 238)" {
+    // УБИВАЕТ ДВА МУТАНТА z3_bridge.zig:
+    //   :52  `ctx.killed.store(true)` -> false  (нет отметки об убийстве)
+    //   :238 `KillCtx{ .done = init(false) }` -> init(true)  (убийца сразу выходит)
+    // В обоих случаях `timed_out` (стр. 289) остаётся false, и зависший
+    // решатель НЕ классифицируется как Timeout -> тест падает.
+    var b = Z3Bridge.init(std.testing.allocator);
+    b.z3_path = "tests/fixtures/hang_solver.sh"; // «висит» 5 с, игнорируя аргументы
+    b.timeout_ms = 150;                          // убийца должен сработать быстро
+
+    var timer = compat.Timer.start();
+    const cap = b.executeCapture("(check-sat)\n");
+    defer std.testing.allocator.free(cap.stdout);
+    const ms = timer.read() / 1_000_000;
+
+    try std.testing.expectEqual(SmtStatus.Timeout, cap.status);
+    // Не ждём все 5 с «сна» стаба: убийца снимает процесс по 150 мс.
+    try std.testing.expect(ms < 3_000);
+}
+
+test "ОШИБКА РЕШАТЕЛЯ: ненулевой код выхода -> ToolError (стр. 297)" {
+    // УБИВАЕТ МУТАНТ z3_bridge.zig:297 [`!=` -> `==`]: с ним успешный код 0
+    // давал бы ToolError, а НЕНУЛЕВОЙ код (здесь /bin/false -> 1) ошибкой
+    // НЕ считался бы, и тест на ToolError падал бы.
+    var b = Z3Bridge.init(std.testing.allocator);
+    b.z3_path = "/bin/false"; // всегда завершается с кодом 1
+    b.timeout_ms = 2_000;
+
+    const cap = b.executeCapture("(check-sat)\n");
+    defer std.testing.allocator.free(cap.stdout);
+    try std.testing.expectEqual(SmtStatus.ToolError, cap.status);
+}

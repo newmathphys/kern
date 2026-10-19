@@ -190,3 +190,28 @@ test "NONINTERFERENCE: constant-time НЕ зависит от позиции о�
     // Constant-time: отношение времён близко к 1 (порог 3x с запасом на шум).
     try std.testing.expect(ct_ratio < 3.0);
 }
+
+test "NONINTERFERENCE: earlyExitEqual различает длины (мутант false->true)" {
+    // УБИВАЕТ МУТАНТ noninterference.zig:83 [false->true]:
+    // при разных длинах функция обязана вернуть false; мутант вернёт true.
+    // Проверено применением мутации (тест падает).
+    try std.testing.expect(!earlyExitEqual("abc", "abcd"));
+    try std.testing.expect(!earlyExitEqual("", "x"));
+    try std.testing.expect(earlyExitEqual("abc", "abc")); // позитивный контроль
+}
+
+test "NONINTERFERENCE: cmov переносит taint от ОДНОГО операнда (мутант or->and)" {
+    // УБИВАЕТ МУТАНТ noninterference.zig:57 [or->and]:
+    // секретен ТОЛЬКО s.a; при `or` taint переходит на dst, при `and` — нет,
+    // и ветвление по dst перестаёт считаться утечкой.
+    const prog = [_]Instr{
+        .{ .secret = 1 },
+        .{ .public = 3 },
+        .{ .select_ct = .{ .dst = 2, .a = 1, .b = 3 } },
+        .{ .branch_on = 2 },
+    };
+    const f = try analyze(std.testing.allocator, &prog);
+    defer std.testing.allocator.free(f);
+    try std.testing.expect(f.len >= 1);
+    try std.testing.expectEqual(Leak.branch, f[0].leak);
+}
