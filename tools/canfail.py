@@ -1951,6 +1951,18 @@ def case_kimg_grep_check():
     return "make kimg-grep-check"
 
 
+
+def case_dst_check():
+    """РАЗДЕЛ 7. ЛОМАЕМ: Врата открываются БЕЗ T (инвариант 1) -> kern-dst
+    обязан вернуть rc!=0, приёмка покраснеть."""
+    patch(
+        "src/next/truth.zig",
+        "    return if (b.p and !b.n) 1 else 0;",
+        "    return 1;",
+    )
+    return "make dst-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2266,6 +2278,7 @@ CASES = [
     ("fuzz-corpus-check", "FUZZ: 0 паник, детерминизм",          case_fuzz_corpus_check),
     ("wasm-check", "WASM: экспорты + No-Bloat",                case_wasm_check),
     ("kimg-grep-check", "KIMG: 3 исхода grep",                  case_kimg_grep_check),
+    ("dst-check", "DST: сериализуемые сбои",                    case_dst_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

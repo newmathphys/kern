@@ -14,4 +14,5 @@ test {
     _ = @import("export.zig");
     _ = @import("cache.zig");
     _ = @import("engine.zig");
+_ = @import("dst_sim.zig");
 }

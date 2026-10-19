@@ -23,6 +23,15 @@ pub fn build(b: *std.Build) void {
     const run_tests = b.addRunArtifact(tests);
     b.step("test", "Тесты ядра KERN").dependOn(&run_tests.step);
 
+    // РАЗДЕЛ 7 ЭНЦИКЛОПЕДИИ: детерминированная симуляция сбоев (DST).
+    const dst_mod = b.createModule(.{
+        .root_source_file = b.path("src/dst_main.zig"),
+        .target = target,
+        .optimize = .ReleaseSmall,
+    });
+    const dst_exe = b.addExecutable(.{ .name = "kern-dst", .root_module = dst_mod });
+    b.step("dst", "DST: детерминированная симуляция сбоев").dependOn(&b.addInstallArtifact(dst_exe, .{}).step);
+
     // ЭШЕЛОН 8, ПУНКТ 40А: ядро в WebAssembly (0 syscalls, freestanding).
     // Только `builtin_lia` + решётка Белнапа + Хэмминг: `proof_check` тянет
     // `z3_bridge` (спавн внешнего процесса), которого в freestanding нет.
