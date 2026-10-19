@@ -12,7 +12,7 @@
 |:--|:--:|:--:|
 | Ядро (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 файлов, 89 теорем, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 файлов, 92 теорем, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 атаки закрыты | — |
 
 > Debug включает все контуры: DoS, NaN, JSON, границы, выравнивание (Эшелон 1),
@@ -471,7 +471,7 @@ i32 без явной границы — это и есть защита от л
 ```
 ядро (Debug)      → 114/114 OK   [было 91]
 ReleaseSafe       → 114/114 OK (UB нет)
-Lean 4            → 8 файлов, 89 теорем, 0 errors, 0 sorry
+Lean 4            → 8 файлов, 92 теорем, 0 errors, 0 sorry
 kernc audit       → 5/5 теорий отработали
 ```
 Артефакты: `src/verifier/{unsat_core,array_theory,chc,string_theory,cegis}.zig`,
@@ -7649,7 +7649,7 @@ proof-tamper: 30/30 ОТВЕРГНУТО                 ✓
 | `zig build test` | 342/350 (8 skipped), 0 failed |
 | `canfail --only presets-check` / `arbitrage-check` / `audits` | **1 non-vacuous, 0 vacuous** каждый |
 | `canfail --check-anchors` | 91 якорь применим |
-| `registry.py` | 120 целей, **97/97 CHECK** |
+| `registry.py` | 121 цель, **98/98 CHECK** |
 | каталог тестов | 395, синхронен |
 
 ### §99.4. ЧЕСТНЫЙ ИТОГ ЭШЕЛОНА 4
@@ -7663,6 +7663,52 @@ proof-tamper: 30/30 ОТВЕРГНУТО                 ✓
 | 24 state_invariant | ✅ `trusted: 0` |
 
 Lean 4: **82 теоремы, 0 errors, 0 sorry**. Эталон `abs.c`: `trusted: 0`, 30/30 tamper.
+
+### §100.8. ПУНКТ 25: ПОЛИГЛОТ НА 7 ЯЗЫКАХ + SORBET-ВЫВОД ДИАПАЗОНОВ
+
+Добавлены `.ts`, `.js`, `.go` (было `.py`, `.zig`, `.c`, `.rs`).
+
+| Язык | Форма заголовка | Особенности |
+|:--|:--|:--|
+| TypeScript | `function name(x: Type): Ret {` (и `export function`) | типы `int32`/`uint32`/`Percent` |
+| JavaScript | `function name(x) {` | тип НЕ указан → **модель `int`** |
+| Go | `func name(x int32) int32 {`, `func (r T) name(...)` | `if cond {` без скобок, `;` необязательна, `a, b int` |
+
+**ЯВНОЕ ДОПУЩЕНИЕ (записано и в коде, и здесь):** в JS числа — это float64, а
+KERN проверяет ЦЕЛОЧИСЛЕННУЮ модель. Поэтому для JS без аннотации типа берётся
+модель `int` (i32) — это соглашение инструмента, а не факт о языке.
+
+**ЧЕСТНЫЙ ОТКАЗ вместо догадки:** тип `number` (float64) **не** получает
+диапазон `int` — он уходит в SKIP с явной причиной: `float64 (IEEE-754) вне
+целочисленной модели; для него нужен @kern:float`.
+
+**SORBET-STYLE:** диапазон выводится из СМЫСЛА имени типа, без ручного
+`@kern:requires`: `Percent` → 0..100, `PositiveInt`/`pos_int` → `> 0`,
+`NonNegativeInt`/`nat` → `>= 0`, `int32`/`uint32`/`int64`/`uint64` → машинные
+границы.
+
+**Без `;` (Go/JS/TS):** `_normalize_clike(keep_newlines=True)` сохраняет переводы
+строк как разделители операторов, `_join_if_blocks` склеивает `if`/`else` со
+следующим оператором — форма приводится к той, которую разбирает ОБЩИЙ код всех
+C-подобных языков. Зеркало `_eval_body_concrete` (конкретная перепроверка модели)
+использует ТУ ЖЕ функцию `_clike_stmts` — иначе оно считало бы другой код.
+
+ИЗМЕРЕНО на `examples/polyglot_demo.{ts,js,go}` (цель `make polyglot-7-check`):
+```
+[PASS] clampTs: ДОКАЗАНО                      (TS, guard-clause)
+[FAIL] badTs: ПЕРЕПОЛНЕНИЕ типа `int32`       result = -2147483649, x = -2147483648
+[PASS] pctTs: ДОКАЗАНО                        (Sorbet: Percent -> 0..100)
+numTs (стр. 33): SKIP — float64 (IEEE-754) вне целочисленной модели
+[PASS] clampJs: ДОКАЗАНО                      (JS, модель int)
+[FAIL] badJs: КОНТРАКТ НАРУШЕН                x = -10, result = -20  [RUNTIME CONFIRMED]
+[PASS] clampGo: ДОКАЗАНО                      (Go, `if x < 0 {`)
+[FAIL] badGo: ПЕРЕПОЛНЕНИЕ типа `int32`       result = -2147483649
+ИТОГО: доказано 4 | нарушено 3 | НЕ РЕШЕНО 0 | ВАКУУМНЫХ 0 | вне подмножества 1
+```
+ТРИАДА: +3 теоремы Lean (`percent_implies_nonneg`, `positive_implies_nonneg`,
+`int32_overflow_at_min`); canfail-кейс `polyglot-7-check` (ломаем таблицу типов)
+— **1 non-vacuous, 0 vacuous**.
+
 Остаток обеих единиц — **частичная резолюция с опровержением из ВТОРОЙ посылки**;
 закрывается отдельной итерацией с разбором обеих посылок, а не правкой «на глаз».
 

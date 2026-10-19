@@ -14,7 +14,7 @@
 |:--|:--:|:--:|
 | Core (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 files, 89 theorems, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 files, 92 theorems, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 attacks blocked | — |
 
 > Debug covers every contour: DoS, NaN, JSON, bounds, memory alignment (Echelon 1),
@@ -1038,6 +1038,46 @@ ANTI-VACUUM: the corpus must contain BOTH classes of formulas (otherwise the che
 degenerates).
 
 MEASURED after the fix: `make audits` rc=0, `L4 verify: assertions checked`,
+
+### 24.8 Item 25 — polyglot on 7 languages + Sorbet-style range inference
+
+Added `.ts`, `.js`, `.go` (previously `.py`, `.zig`, `.c`, `.rs`).
+
+| Language | Header form | Notes |
+|:--|:--|:--|
+| TypeScript | `function name(x: Type): Ret {` (also `export function`) | types `int32`/`uint32`/`Percent` |
+| JavaScript | `function name(x) {` | type absent → **model `int`** |
+| Go | `func name(x int32) int32 {`, `func (r T) name(...)` | `if cond {` without parens, `;` optional, `a, b int` |
+
+**EXPLICIT ASSUMPTION (recorded both in code and here):** JS numbers are float64
+while KERN checks an INTEGER model. So for JS without a type annotation the tool
+uses the model `int` (i32) — that is a tool convention, not a fact about the
+language.
+
+**HONEST REFUSAL instead of a guess:** the type `number` (float64) does **not**
+get the `int` range — it goes to SKIP with an explicit reason: `float64
+(IEEE-754) outside the integer model; use @kern:float`.
+
+**SORBET-STYLE:** the range is inferred from the MEANING of the type name, with
+no manual `@kern:requires`: `Percent` → 0..100, `PositiveInt`/`pos_int` → `> 0`,
+`NonNegativeInt`/`nat` → `>= 0`, `int32`/`uint32`/`int64`/`uint64` → machine
+bounds.
+
+**No `;` (Go/JS/TS):** `_normalize_clike(keep_newlines=True)` keeps newlines as
+statement separators and `_join_if_blocks` merges `if`/`else` with the following
+statement, so the form matches what the SHARED C-like code parses. The mirror
+`_eval_body_concrete` (concrete model replay) uses the SAME `_clike_stmts`
+function — otherwise it would replay different code.
+
+MEASURED on `examples/polyglot_demo.{ts,js,go}` (target `make polyglot-7-check`):
+4 PROVEN (`clampTs`, `pctTs`, `clampJs`, `clampGo`), 3 REFUTED (`badTs`/`badGo`
+int32 overflow with counterexample, `badJs` contract violated with
+`[RUNTIME CONFIRMED]`), 1 honest SKIP (`number` → float64), 0 UNRESOLVED.
+
+TRIAD: +3 Lean theorems (`percent_implies_nonneg`, `positive_implies_nonneg`,
+`int32_overflow_at_min`); canfail case `polyglot-7-check` (we break the type
+table) — **1 non-vacuous, 0 vacuous**.
+
 `DISAGREEMENTS WITH DECLARED STATUS 0`, `formulas measured: 17 | proven 9 | refuted 7`.
 
 ### 24.7 Regressions (all clean)
@@ -1052,7 +1092,7 @@ MEASURED after the fix: `make audits` rc=0, `L4 verify: assertions checked`,
 | `zig build test` | 342/350 (8 skipped), 0 failed |
 | `canfail --only presets-check` / `arbitrage-check` / `audits` | **1 non-vacuous, 0 vacuous** each |
 | `canfail --check-anchors` | 91 anchors applicable |
-| `registry.py` | 120 targets, **97/97 CHECK** |
+| `registry.py` | 121 targets, **98/98 CHECK** |
 | test catalog | 395, in sync |
 
 
