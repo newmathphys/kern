@@ -4464,8 +4464,41 @@ def cmd_heal(path: str, kernc) -> int:
         print("[HEAL] [!] остались краши — изменения ОТКАТЫВАЮТСЯ (fail-closed)")
         return 1
 
-    src_path.write_text(patched, encoding="utf-8")
-    print(f"[HEAL] [T (1,0)] файл вылечен: {path} (гардов вставлено {len(plan)})")
+    # АТОМАРНАЯ ЗАПИСЬ (Д7): tmp -> flush -> fsync -> ПЕРЕПРОВЕРКА tmp ->
+    # .bak -> os.replace. Порядок принципиален: сначала ДОКАЗУЕМО хороший
+    # временный файл, и только потом трогаем оригинал. При любом сбое
+    # оригинал остаётся нетронутым.
+    tmp_path = src_path.with_suffix(src_path.suffix + ".kern_tmp")
+    bak_path = src_path.with_suffix(src_path.suffix + ".bak")
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(patched)
+            f.flush()
+            os.fsync(f.fileno())
+        # ПЕРЕПРОВЕРКА ИМЕННО ВРЕМЕННОГО ФАЙЛА (не строки в памяти).
+        check_tree = ast.parse(tmp_path.read_text(encoding="utf-8", errors="replace"))
+        still = 0
+        for fn in [n for n in ast.walk(check_tree) if isinstance(n, ast.FunctionDef)]:
+            params = [a.arg for a in fn.args.args if a.arg != "self"]
+            for node, _div in _crash_sites(fn, params, kernc):
+                try:
+                    div_py = ast.unparse(node.right)
+                except Exception:
+                    div_py = ""
+                if not _guard_covers(fn, node, div_py):
+                    still += 1
+        if still != 0:
+            print(f"[HEAL] [!] временный файл НЕ прошёл перепроверку ({still}) — оригинал не тронут")
+            tmp_path.unlink(missing_ok=True)
+            return 1
+        # БЭКАП ОРИГИНАЛА и атомарная замена.
+        bak_path.write_text(original, encoding="utf-8")
+        os.replace(tmp_path, src_path)
+    except OSError as e:
+        print(f"[HEAL] [!] ошибка записи: {e} — оригинал не тронут")
+        tmp_path.unlink(missing_ok=True)
+        return 1
+    print(f"[HEAL] [T (1,0)] файл вылечен: {path} (гардов {len(plan)}, бэкап {bak_path.name})")
     return 0
 
 

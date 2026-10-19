@@ -25,6 +25,19 @@ after=$($PY "$EX" --xray "$TMP" 2>&1 | grep -c '\[CRASH PATH\]' || true)
 grep -q 'KERN HEAL' "$TMP" && echo '  [OK] патч реально ВСТАВЛЕН в исходник' \
   || { echo '  [FAIL] патч не вставлен'; fail=1; }
 
+# Д7: бэкап обязан существовать и содержать ИСХОДНЫЙ (багованный) код.
+if [ -f "$TMP.bak" ]; then
+  echo '  [OK] бэкап <file>.bak создан'
+  grep -q 'KERN HEAL' "$TMP.bak" && { echo '  [FAIL] бэкап содержит патч (должен — оригинал)'; fail=1; } \
+    || echo '  [OK] бэкап содержит ОРИГИНАЛ (без патча)'
+else
+  echo '  [FAIL] бэкап <file>.bak отсутствует'; fail=1
+fi
+[ -f "$TMP.kern_tmp" ] && { echo '  [FAIL] временный .kern_tmp не убран'; fail=1; } \
+  || echo '  [OK] временный .kern_tmp убран (атомарная замена)'
+
+rm -f "$TMP.bak"
+
 rm -f "$TMP"
 [ "$fail" -eq 0 ] && { echo '[OK] homeostatic-heal-check'; exit 0; }
 echo '[FAIL] homeostatic-heal-check'; exit 1

@@ -2991,6 +2991,16 @@ fn verifyFarkas(c: *const Ctx, head: Sexp, clause: Sexp) FarkasResult {
     for (head.items[2..]) |it| {
         if (!it.isList()) {
             if (it.atom) |a| {
+                // ДЕФЕКТ #155 (НАЙДЕН эволюционным фаззером `evo_fuzzer.py`).
+                // Нерезолвленная ссылка `@xN` (шаг переименован, а ссылки
+                // остались) раньше МОЛЧА выпадала из сертификата Фаркаша:
+                // ИЗМЕРЕНО — переименование определения `@x147` -> `@x9`
+                // давало `Фаркаш 3 -> 0`, но всё равно `PROOF VERIFIED
+                // trusted: 0` с rc=0. Непроверяемая посылка обязана вести
+                // к отказу, а не к «доказано».
+                if (a.len > 1 and a[0] == '@' and c.stepexpr.get(a) == null) {
+                    return .structural_only;
+                }
                 if (std.mem.eql(u8, a, "farkas")) {
                     is_farkas = true;
                     continue;
