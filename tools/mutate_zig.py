@@ -213,10 +213,19 @@ def run_c_abi_tests(root):
     return 0, out
 
 
-def run_tests(root, rel=None):
+def run_tests(root, rel=None, stage1_filter=None):
     # Zig 0.17: `compat` — ИМЕНОВАННЫЙ модуль, поэтому прямой `zig test
     # src/test_root.zig` не соберётся («no module named 'compat'»). Передаём
     # зависимость флагами `--dep compat -Mcompat=...`.
+    #
+    # ДВУХСТУПЕНЧАТЫЙ FAIL-FAST (ускорение без потери точности).
+    #   stage1_filter — имя теста/модуля для `zig test --test-filter`.
+    #   Ступень 1 гоняет ТОЛЬКО совпавшие тесты: если мутант упал — он
+    #   доказанно УБИТ (rc != 0), полный сьют не нужен. Если выжил (или
+    #   фильтр не совпал ни с одним тестом — тогда rc=0 и `0 passed`),
+    #   вызывающий обязан прогнать Ступень 2 (полный сьют). Инвариант:
+    #   Killed(stage1) ∪ Killed(stage2) == Killed(full).
+    #
     # ЖЁСТКИЙ ЛИМИТ НА ОДИН МУТАНТ.
     #
     # ЗАЧЕМ (найдено прогоном). Некоторые мутации вызывают ДЕДЛОК (пример:
@@ -237,6 +246,11 @@ def run_tests(root, rel=None):
     cmd = ([ZIG, "build", "test-next"] if use_next
            else [ZIG, "test", "--dep", "compat",
                  "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"])
+    # Ступень 1: фильтр по тестам целевого модуля (только для нативного корня).
+    filtered = False
+    if stage1_filter and not use_next:
+        cmd = cmd + ["--test-filter", stage1_filter]
+        filtered = True
     try:
         p = subprocess.run(
             cmd,
@@ -248,6 +262,9 @@ def run_tests(root, rel=None):
         if "error:" in out and "FAIL" not in out and "expected" not in out:
             return "KILLED_COMPILE", out
         return "KILLED_TEST", out
+    # Фильтр не совпал ни с одним тестом -> Ступень 1 ничего не проверила.
+    if filtered and "0 tests" in out.replace("All ", ""):
+        return "STAGE1_EMPTY", out
 
     # Дефект #103: C-ABI вне покрытия -> добиваем C-тестами.
     if rel in C_ABI_TARGETS:
@@ -485,6 +502,21 @@ def sweep_orphan_copies(max_age_s: int = 3600) -> int:
     return removed
 
 
+def _shm_dir():
+    """RAM-диск для рабочих копий (найдено замером: копии в /tmp на SSD
+    гоняют гигабайты `.o` при сотнях пересборок; /dev/shm — в ОЗУ).
+
+    Возвращает каталог или None, если /dev/shm недоступен/не writable.
+    """
+    d = "/dev/shm"
+    try:
+        if os.path.isdir(d) and os.access(d, os.W_OK):
+            return d
+    except OSError:
+        pass
+    return None
+
+
 def make_work_copy(root):
     """Изолированная рабочая копия дерева (мутации идут ТОЛЬКО сюда).
 
@@ -492,7 +524,7 @@ def make_work_copy(root):
     так параллельные прогоны не мешают друг другу и не гоняют лишнюю
     компиляцию.
     """
-    work = tempfile.mkdtemp(prefix="kern-mutants-")
+    work = tempfile.mkdtemp(prefix="kern-mutants-", dir=_shm_dir())
     shutil.copytree(os.path.join(root, "src"), os.path.join(work, "src"))
     # zig может искать build.zig — копируем, если есть.
     for extra in ("build.zig", "build.zig.zon"):
@@ -505,6 +537,14 @@ def make_work_copy(root):
 def run_one(work, site):
     """Один мутант: внести мутацию в копии, прогнать тесты, ОТКАТИТЬ.
 
+    ДВУХСТУПЕНЧАТЫЙ FAIL-FAST (ускорение, точность сохраняется):
+      Ступень 1 — `--test-filter <basename модуля>`: только тесты этого модуля.
+        Если rc != 0 — мутант УБИТ, полный сьют не запускаем (экономия ~90 %).
+      Ступень 2 — полный сьют: только если ступень 1 выжила (или фильтр
+        не совпал ни с одним тестом -> STAGE1_EMPTY).
+    Инвариант точности: Killed(stage1) ∪ Killed(stage2) == Killed(full),
+    потому что ступень 2 запускается для КАЖДОГО мутанта, пережившего ступень 1.
+
     Возвращает статус (`KILLED_COMPILE` / `KILLED_TEST` / `KILLED_TIMEOUT` /
     `SURVIVED`). Откат в `finally` — копия обязана вернуться в исходное
     состояние даже при исключении, иначе следующий мутант наложится на этот.
@@ -514,9 +554,12 @@ def run_one(work, site):
     orig = open(path, encoding="utf-8").read()
     lines = orig.split("\n")
     lines[ln] = re.sub(pat, rep, lines[ln], count=1)
+    filt = os.path.basename(rel)[:-4]  # src/verifier/z3_bridge.zig -> z3_bridge
     try:
         open(path, "w", encoding="utf-8").write("\n".join(lines))
-        status, _ = run_tests(work, rel)
+        status, _ = run_tests(work, rel, stage1_filter=filt)
+        if status in ("SURVIVED", "STAGE1_EMPTY"):
+            status, _ = run_tests(work, rel)  # Ступень 2: полный сьют
     finally:
         open(path, "w", encoding="utf-8").write(orig)
     return status
