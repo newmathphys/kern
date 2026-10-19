@@ -1545,3 +1545,25 @@ formatting**. `'<urlopen error %s>' % self.reason` was parsed as `mod`, producin
 **Before/after on the same 9 stdlib files:** 201/413 (49 %) with **1 false finding** ->
 **211/413 (51 %) with 0 findings**. Coverage grew AND false accusations were eliminated —
 for a security tool that matters more than any gain.
+
+### 35. `--xray` on real Zig stdlib: 0 -> 80 functions
+
+`parse_clike` *executes* the body; real std Zig uses `comptime assert(@typeInfo(T) …)`,
+`@as`, `try`, so execution failed and `raw_body` stayed empty. For x-ray, execution is not
+needed: `_clike_functions()` takes the body by brace balance and extracts `if (...)` without
+executing anything; `cmd_xray` routes non-`.py` files there.
+
+**Path narrowing is strict:** a constraint is added only for `return/break/continue` right
+after the condition or for `else`; otherwise nothing ("unknown" is not "dead branch").
+
+| Target | Before | After |
+|:--|--:|--:|
+| `std/math.zig` | 0 / 11 | **13 / 32** |
+| `std/math/` (64 files) | 0 | **80 / 219** (139 skipped) |
+| unreadable files | 63 | **0** |
+| findings after fixes | 1 false | **0** |
+
+Defects found by this run: **#159** (`else if` after `else if` produced a false DEAD BRANCH) —
+narrowing restricted to `return`/`else`; **#160** (`REDUNDANT GUARD` for C-like produced a
+false "always true" in `math/pow.zig`) — for C-like only `DEAD BRANCH` is reported.
+Principle: for a security tool a **false accusation is worse than a miss**.

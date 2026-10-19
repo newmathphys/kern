@@ -2837,10 +2837,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             sat_then = _smt_sat(kernc, params, path_conds + [cond])
             if sat_then is False:
                 found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
-            else:
-                sat_not = _smt_sat(kernc, params, path_conds + [f"(not {cond})"])
-                if sat_not is False:
-                    found.append(f"[REDUNDANT GUARD] {name}: условие ВСЕГДА истинно: {cond}")
+            # REDUNDANT GUARD для C-like НЕ заявляется: без полного моделирования
+            # потока это давало ЛОЖНЫЕ срабатывания (найдено на std Zig
+            # `math/pow.zig`: `else if (y > 0)` после ветки с `return`).
+            # Честная граница: рентген C-like сообщает только DEAD BRANCH.
             # СУЖЕНИЕ ПУТИ (строго). Правило: добавляем ограничение ТОЛЬКО когда
             # оно доказано структурой кода:
             #   * за `if (c) { return … }` следующие операторы идут при `not c`;
