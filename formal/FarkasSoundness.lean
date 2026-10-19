@@ -459,4 +459,15 @@ theorem unsat_neg_implies_true (P : Prop) (h : ¬P → False) : P :=
 theorem linear_fee_subadditive (a1 a2 : Int) : 3 * a1 + 3 * a2 ≥ 3 * (a1 + a2) := by
   omega
 
+/-- SORBET-STYLE (Пункт 25): диапазон выведен ИЗ ИМЕНИ ТИПА (`Percent` -> 0..100),
+    поэтому постусловие `result >= 0` доказывается БЕЗ ручного `@kern:requires`. -/
+theorem percent_implies_nonneg (p : Int) (h : 0 ≤ p ∧ p ≤ 100) : p ≥ 0 := h.1
+
+/-- …и семантический тип `PositiveInt` (`x > 0`) также даёт неотрицательность. -/
+theorem positive_implies_nonneg (x : Int) (h : x > 0) : x ≥ 0 := by omega
+
+/-- ПЕРЕПОЛНЕНИЕ `int32`, найденное на `badTs`/`badGo`: при `x = -2^31` значение
+    `x - 1` выходит за нижнюю границу типа — именно это и предъявляет KERN. -/
+theorem int32_overflow_at_min : (-(2^31) : Int) - 1 < -(2^31) := by omega
+
 end KernFarkas

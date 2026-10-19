@@ -252,6 +252,11 @@ bitrot-chaos: build
 pcc-check: build
 	@$(PYTHON) tools/pcc_check.py
 
+# ЭШЕЛОН 5, ПУНКТ 25: полиглот-экстрактор на 7 языках (.py .zig .c .rs + .ts .js
+# .go) + Sorbet-style вывод диапазонов из имени типа (Percent -> 0..100).
+polyglot-7-check: build
+	@bash tools/polyglot7_check.sh
+
 # ЭШЕЛОН 5, ПУНКТ 26: однословные пресеты БЕЗ формул (non_negative, percentage,
 # bounded, idempotent, monotonic) + `--spec-gaps`. Приёмка проверяет, что
 # нарушение пресета ЛОВИТСЯ, а корректное — доказано с `trusted: 0`.

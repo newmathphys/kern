@@ -227,6 +227,7 @@ FAULTABLE = [
     "tools/state_inv_check.sh",
     "tools/presets_check.sh",
     "tools/arbitrage_check.sh",
+    "tools/polyglot7_check.sh",
     "tools/float_nan_check.sh",
     "tools/string_contracts_check.sh",
     "examples/xray_demo.py",
@@ -1743,6 +1744,18 @@ def case_string_contracts_check():
     return "make string-contracts-check"
 
 
+def case_polyglot7_check():
+    """ЭШЕЛОН 5, ПУНКТ 25. ЛОМАЕМ: TS/JS/Go-функции перестают разбираться (тип
+    `int32` выпадает из таблицы диапазонов) -> цели `polyglot-7-check` обязана
+    покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '    "int32": (-2**31, 2**31 - 1), "uint32": (0, 2**32 - 1),',
+        '    "int32XX": (-2**31, 2**31 - 1), "uint32": (0, 2**32 - 1),',
+    )
+    return "make polyglot-7-check"
+
+
 def case_presets_check():
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
     `[INFO]` -> нарушение пресета перестаёт быть видимым -> цель обязана
@@ -2039,6 +2052,7 @@ CASES = [
     ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),
     ("bounds-check",    "BOUNDS: границы arr[i] проверены",       case_bounds_check),
     ("loop-check",      "LOOPS: инвариант и остановка циклов",   case_loop_check),
+    ("polyglot-7-check", "ПОЛИГЛОТ: 7 языков (.ts/.js/.go) + Sorbet-типы", case_polyglot7_check),
     ("presets-check",  "ПРЕСЕТЫ: нарушение однословного пресета ловится", case_presets_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),

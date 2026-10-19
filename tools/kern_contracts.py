@@ -535,7 +535,7 @@ def minimize_counterexample(kernc, smt: str, params, ce: dict) -> dict:
 # ПЕРЕПОЛНЕНИЕ целых и уход беззнакового в минус — то, чего `Int` из Python
 # в принципе не видит.
 
-CLIKE_EXT = {".zig", ".c", ".h", ".cpp", ".cc", ".rs"}
+CLIKE_EXT = {".zig", ".c", ".h", ".cpp", ".cc", ".rs", ".ts", ".js", ".go"}
 
 # `/// @kern:...`, `// @kern:...`, `# @kern:...`
 ANNOT = re.compile(r"^\s*(?:///|//|#)\s*@kern:(requires|ensures)\s+(.+?)\s*$")
@@ -550,7 +550,21 @@ TYPE_RANGE = {
     "i64": (-2**63, 2**63 - 1), "long": (-2**63, 2**63 - 1),
     "int64_t": (-2**63, 2**63 - 1), "uint64_t": (0, 2**64 - 1),
     "u64": (0, 2**64 - 1), "usize": (0, 2**64 - 1), "size_t": (0, 2**64 - 1),
+    # ПУНКТ 25: TypeScript/Go-написания тех же машинных типов.
+    "int32": (-2**31, 2**31 - 1), "uint32": (0, 2**32 - 1),
+    "int64": (-2**63, 2**63 - 1), "uint64": (0, 2**64 - 1),
+    # SORBET-STYLE СЕМАНТИЧЕСКИЕ ТИПЫ: диапазон выводится из СМЫСЛА имени типа,
+    # без ручного `@kern:requires` (задача пункта 25).
+    "PositiveInt": (1, 2**63 - 1), "pos_int": (1, 2**63 - 1),
+    "NonNegativeInt": (0, 2**63 - 1), "nat": (0, 2**63 - 1),
+    "Percent": (0, 100), "Percentage": (0, 100),
 }
+
+# ТИПЫ, КОТОРЫЕ МЫ СОЗНАТЕЛЬНО НЕ МОДЕЛИРУЕМ (честный отказ, а не догадка).
+# `number` в JS/TS — это IEEE-754 float64, а не целое: подставлять ему диапазон
+# `int` означало бы проверять ДРУГУЮ функцию (и «доказывать» не то, что написано).
+UNMODELED_TYPES = {"number": "float64 (IEEE-754) вне целочисленной модели; "
+                             "для него нужен `@kern:float`"}
 
 RE_FN_FN = re.compile(
     # Zig: `pub fn name(a: i32) i32 {`   Rust: `pub fn name(a: i32) -> i32 {`
@@ -561,10 +575,45 @@ RE_FN_C = re.compile(
     r"(void|char|short|int|long|unsigned|size_t|"
     r"int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t)"
     r"\s+(\w+)\s*\(([^)]*)\)\s*\{")
+# ПУНКТ 25: TypeScript/JavaScript — `function name(x: Type): Ret {`,
+# `export function name(x) {`. Стрелочные функции (`const f = (x) => …`) в
+# подмножество НЕ входят и получают честный SKIP (регулярка их не матчит).
+RE_FN_TS = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)"
+    r"\s*(?::\s*([\w<>\[\]]+))?\s*\{")
+# ПУНКТ 25: Go — `func name(x int) int {`, `func (r T) name(x uint32) uint32 {`.
+# Условия в Go пишутся БЕЗ скобок (`if x < 0 {`), но `_normalize_clike` убирает
+# фигурные скобки, поэтому разбор операторов переиспользуется без изменений.
+RE_FN_GO = re.compile(
+    r"^\s*func\s+(?:\([^)]*\)\s*)?(\w+)\s*\(([^)]*)\)"
+    r"\s*(?:\(([^)]*)\)|([\w\.\*\[\]]+))?\s*\{")
+
+
+def _expand_go_params(raw: str) -> str:
+    """Go: `a, b int` -> `a int, b int` (имя без типа наследует тип соседа)."""
+    parts = [p.strip() for p in raw.split(",")]
+    out: list[str] = []
+    pending: list[str] = []
+    for p in parts:
+        if not p:
+            continue
+        if " " in p:                       # «имя тип»
+            name, typ = p.rsplit(" ", 1)
+            for q in pending:
+                out.append(f"{q} {typ}")
+            pending = []
+            out.append(f"{name} {typ}")
+        else:
+            pending.append(p)
+    if pending:
+        raise Unsupported(f"параметр go без типа: {pending!r}")
+    return ", ".join(out)
 
 
 def clike_params(raw: str, lang: str):
     """Разобрать список параметров C-подобной функции -> [(имя, тип)]."""
+    if lang == "go":
+        raw = _expand_go_params(raw)
     out = []
     for part in raw.split(","):
         part = part.strip()
@@ -574,6 +623,24 @@ def clike_params(raw: str, lang: str):
             m = re.match(r"^(?:const\s+)?([A-Za-z_]\w*)\s+\**([A-Za-z_]\w*)$", part)
             if m:
                 out.append((m.group(2), m.group(1)))
+                continue
+        elif lang == "go":
+            m = re.match(r"^([A-Za-z_]\w*)\s+([A-Za-z_]\w*)$", part)
+            if m:
+                out.append((m.group(1), m.group(2)))
+                continue
+        elif lang in ("ts", "js"):
+            # TypeScript: `x: uint32`; JavaScript: тип НЕ указан — берём модель
+            # `int` (i32). ЭТО ЯВНОЕ ДОПУЩЕНИЕ, а не факт о языке: в JS числа —
+            # float64, поэтому такой контракт проверяется в ЦЕЛОЧИСЛЕННОЙ модели
+            # (и это записано в документации пункта 25).
+            m = re.match(r"^(?:readonly\s+)?([A-Za-z_$]\w*)\s*:\s*([A-Za-z_]\w*)$", part)
+            if m:
+                out.append((m.group(1), m.group(2)))
+                continue
+            m = re.match(r"^([A-Za-z_$]\w*)$", part)
+            if m:
+                out.append((m.group(1), "int"))
                 continue
         else:
             m = re.match(r"^(?:mut\s+)?([A-Za-z_]\w*)\s*:\s*&?\s*([A-Za-z_]\w*)$", part)
@@ -628,14 +695,59 @@ def clike_to_python(s: str) -> str:
     return convert_ternary(s)
 
 
-def _normalize_clike(body: str) -> str:
-    """Убрать комментарии и фигурные скобки вокруг одиночных операторов."""
+def _normalize_clike(body: str, keep_newlines: bool = False) -> str:
+    """Убрать комментарии и фигурные скобки вокруг одиночных операторов.
+
+    `keep_newlines=True` (ПУНКТ 25: Go/JS/TS) — перевод строки СОХРАНЯЕТСЯ как
+    разделитель операторов, потому что в этих языках `;` необязательна. Иначе
+    тело `if x < 0 { return 0 }\nreturn x` склеилось бы в один оператор и
+    разбор ветвления сломался бы.
+    """
     body = re.sub(r"/\*.*?\*/", " ", body, flags=re.S)
     body = re.sub(r"//[^\n]*", " ", body)
     # `{ return X; }` -> ` return X; `  (ветвь без вложенности)
     body = re.sub(r"\{\s*(return\s+[^;{}]+;?)\s*\}", r" \1 ", body)
-    body = body.replace("{", " ").replace("}", " ")
+    sep = "\n" if keep_newlines else " "
+    body = body.replace("{", sep).replace("}", sep)
+    if keep_newlines:
+        body = re.sub(r"[ \t]+", " ", body)
+        return "\n".join(ln.strip() for ln in body.splitlines() if ln.strip())
     return re.sub(r"\s+", " ", body).strip()
+
+
+def _join_if_blocks(lines: list) -> list:
+    """Склеить `if`/`else` со СЛЕДУЮЩИМ оператором (ПУНКТ 25: Go/JS/TS).
+
+    В этих языках `;` необязательна, поэтому после разбиения по переводам строк
+    ветвление оказывается разрезанным: `if x < 0` и `return 0` — разные строки.
+    Приводим форму к той, которую разбирает ОБЩИЙ код всех C-подобных языков:
+    `if x < 0 return 0`, а `else` приклеиваем к предыдущему оператору.
+    """
+    out: list = []
+    pending = False
+    for ln in lines:
+        if pending:
+            out[-1] = f"{out[-1]} {ln}"
+            pending = False
+            continue
+        if ln.startswith("else") and out:
+            out[-1] = f"{out[-1]} else"
+            pending = True
+            continue
+        out.append(ln)
+        # `pending` только если в этой же строке ещё НЕ было `return` — иначе
+        # (после свёртки `{ return X; }`) оператор уже полный и склеивать его со
+        # следующим нельзя.
+        if ln.startswith("if") and "return" not in ln:
+            pending = True
+    return out
+
+
+def _clike_stmts(raw_body: str, lang: str) -> list:
+    """Операторы тела: для Go/JS/TS разделитель — `;` ИЛИ перевод строки."""
+    if lang in ("go", "js", "ts"):
+        return _join_if_blocks([s for s in re.split(r"[;\n]", raw_body) if s.strip()])
+    return raw_body.split(";")
 
 
 def _clike_parse(text: str, lang: str):
@@ -721,17 +833,30 @@ def parse_clike(path: Path):
     src = path.read_text(encoding="utf-8", errors="replace")
     lines = src.splitlines()
     lang = ("rust" if path.suffix == ".rs"
-            else ("c" if path.suffix in {".c", ".h", ".cpp", ".cc"} else "zig"))
+            else ("ts" if path.suffix == ".ts"
+                  else ("js" if path.suffix == ".js"
+                        else ("go" if path.suffix == ".go"
+                              else ("c" if path.suffix in {".c", ".h", ".cpp", ".cc"}
+                                    else "zig")))))
     out = []
     i, n = 0, len(lines)
     while i < n:
-        m = (RE_FN_FN.match(lines[i]) if lang in ("zig", "rust")
-             else RE_FN_C.match(lines[i]))
+        if lang in ("zig", "rust"):
+            m = RE_FN_FN.match(lines[i])
+        elif lang in ("ts", "js"):
+            m = RE_FN_TS.match(lines[i])
+        elif lang == "go":
+            m = RE_FN_GO.match(lines[i])
+        else:
+            m = RE_FN_C.match(lines[i])
         if not m:
             i += 1
             continue
-        if lang in ("zig", "rust"):
+        if lang in ("zig", "rust", "ts", "js"):
             name, praw, ret = m.group(1), m.group(2), m.group(3)
+        elif lang == "go":
+            name, praw = m.group(1), m.group(2)
+            ret = m.group(3) or m.group(4)
         else:
             ret, name, praw = m.group(1), m.group(2), m.group(3)
         meta = {"ranges": {}, "ret": ret}
@@ -775,17 +900,24 @@ def parse_clike(path: Path):
         ranges = {p[0]: TYPE_RANGE[p[1]] for p in params if p[1] in TYPE_RANGE}
         unknown = [p[1] for p in params if p[1] not in TYPE_RANGE]
         if unknown:
-            out.append((name, names, req, ens, None, i + 1,
-                        f"тип вне таблицы диапазонов: {unknown}", meta))
+            # ЧЕСТНЫЙ ОТКАЗ: у каждого неподдержанного типа — СВОЯ причина
+            # (пункт 25: `number` — это float64, а не целое).
+            why = "; ".join(UNMODELED_TYPES.get(u, f"тип вне таблицы диапазонов: {u}")
+                            for u in unknown)
+            out.append((name, names, req, ens, None, i + 1, why, meta))
             i = j + 1
             continue
         meta["ranges"] = ranges
         meta["lang"] = lang
-        raw_body = _normalize_clike("\n".join(body_lines))
+        # ПУНКТ 25: в Go/JS/TS `;` необязательна — разделяем операторы по
+        # переводу строки (сохранён в `_normalize_clike(keep_newlines=True)`).
+        semi_optional = lang in ("go", "js", "ts")
+        raw_body = _normalize_clike("\n".join(body_lines), keep_newlines=semi_optional)
         meta["raw_body"] = raw_body   # УЛУЧШЕНИЕ №14: для конкретной перепроверки
         _DIV_COLLECTOR.clear()
         try:
-            body = _exec_clike([s for s in raw_body.split(";")], {}, lang)
+            stmts = _clike_stmts(raw_body, lang)
+            body = _exec_clike(stmts, {}, lang)
         except (NoReturn, Unsupported, SyntaxError) as e:
             # УЛУЧШЕНИЕ №15: Int-теория не знает битовых операций (`& | ^ ~ << >>`),
             # но ЯДРО KERN штатно работает с QF_BV. Если причина отказа — именно
@@ -1352,8 +1484,11 @@ def _eval_body_concrete(raw_body: str, env: dict, lang: str):
     regex `^if\\s*(.*?)\\breturn\\b(.*)$`, та же обработка `else` отдельным
     оператором) — иначе это была бы проверка другого кода. Независимо только
     ВЫЧИСЛЕНИЕ: модель строит SMT-терм, здесь считаются числа.
+
+    ПУНКТ 25: разделение операторов берётся из `_clike_stmts`, то есть для
+    Go/JS/TS учитывается отсутствие обязательной `;` — ровно как в модели.
     """
-    stmts = raw_body.split(";")
+    stmts = _clike_stmts(raw_body, lang)
     for i, raw in enumerate(stmts):
         st = raw.strip()
         if not st:
