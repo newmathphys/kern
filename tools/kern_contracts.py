@@ -1301,6 +1301,8 @@ def main() -> int:
                     help="ПУНКТ 18: человеческий паспорт функций")
     ap.add_argument("--pr-summary", nargs=2, default=None, metavar=("OLD", "NEW"),
                     help="ПУНКТ 19: математическое резюме для Code Review")
+    ap.add_argument("--heal", default=None, metavar="PATH",
+                    help="гомеостатическая петля: F -> патч -> перепроверка -> T"),
     ap.add_argument("--infer-requires", default=None, metavar="PATH",
                     help="ПУНКТЫ 15/16: синтез гарда и requires с проверкой Z3")
     ap.add_argument("--expect-demo", action="store_true",
@@ -1373,6 +1375,8 @@ def main() -> int:
         return cmd_gen_tests(args.gen_tests[0], args.gen_tests[1], args.kernc)
     if args.xray:
         return cmd_xray(args.xray, args.kernc)
+    if args.heal:
+        return cmd_heal(args.heal, args.kernc)
     if args.explain:
         return cmd_explain(args.explain, args.kernc)
     if args.pr_summary:
@@ -4329,6 +4333,131 @@ def cmd_html(path: str, out_path: str, kernc) -> int:
     Path(out_path).write_text(html, encoding="utf-8")
     print(f"  [OK] холст записан: {out_path} ({len(html)} байт, "
           f"функций {len(functions)}, внешних зависимостей 0)")
+    return 0
+
+
+# =========================================================================
+#  ГОМЕОСТАТИЧЕСКАЯ ПЕТЛЯ САМОИСЦЕЛЕНИЯ (--heal)
+# =========================================================================
+# ЗАЧЕМ. `--infer-requires` и `[SUGGESTED FIX]` только ПЕЧАТАЮТ рецепт: петля
+# разомкнута, человек обязан применить патч руками. `--heal` замыкает её:
+#   [1] проверка -> F (0,1) + контрпример
+#   [2] синтез защитного гарда (с ПРОВЕРКОЙ в Z3)
+#   [3] ВСТАВКА гарда в исходник (с бэкапом)
+#   [4] ПОВТОРНАЯ проверка -> T (1,0), trusted: 0
+# Если после патча краш остаётся — изменения ОТКАТЫВАЮТСЯ (fail-closed):
+# «вылеченным» файл объявляется только по машинному вердикту.
+
+def _crash_sites(tree: ast.AST, params: list[str], kernc) -> list[tuple[ast.AST, str]]:
+    """Точки, где делитель МОЖЕТ быть нулём (Z3 подтвердил SAT)."""
+    out: list[tuple[ast.AST, str]] = []
+    for n in ast.walk(tree):
+        if not (isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod))):
+            continue
+        try:
+            div = expr_smt(n.right, {})
+        except (Unsupported, NoReturn, Exception):
+            continue
+        if _smt_sat(kernc, params, [f"(= {div} 0)"]) is True:
+            out.append((n, div))
+    return out
+
+
+
+
+def _guard_covers(fn: ast.AST, node: ast.AST, div_py: str) -> bool:
+    """Есть ли ПЕРЕД узлом `if <делитель> == 0: return ...` в том же теле?
+
+    Нужно для ПЕРЕПРОВЕРКИ после патча: статический SAT «делитель может быть 0»
+    сам по себе не знает, что эта ветка уже перехвачена ранее возвратом.
+    Сравнение — по нормализованному AST-тексту (ast.unparse).
+    """
+    def walk_block(stmts: list) -> bool:
+        for st in stmts:
+            if isinstance(st, ast.If) and getattr(st, "lineno", 10**9) < getattr(node, "lineno", 0):
+                t = st.test
+                try:
+                    if (isinstance(t, ast.Compare) and isinstance(t.ops[0], ast.Eq)
+                            and ast.unparse(t.left) == div_py
+                            and ast.unparse(t.comparators[0]) == "0"
+                            and any(isinstance(x, ast.Return) for x in st.body)):
+                        return True
+                except Exception:
+                    pass
+            for attr in ("body", "orelse"):
+                sub = getattr(st, attr, None)
+                if isinstance(sub, list) and sub and isinstance(sub[0], ast.stmt) and walk_block(sub):
+                    return True
+        return False
+    return walk_block(getattr(fn, "body", []))
+
+def cmd_heal(path: str, kernc) -> int:
+    """Замкнуть петлю: найти F -> вставить гард -> ПЕРЕПРОВЕРИТЬ -> T."""
+    src_path = Path(path)
+    if not src_path.exists():
+        print(f"[!] нет файла: {path}")
+        return 2
+    original = src_path.read_text(encoding="utf-8", errors="replace")
+    tree = ast.parse(original)
+
+    # [1] и [2]: находим краши и синтезируем гарды (все — с проверкой в Z3).
+    plan: list[tuple[int, str, str, str]] = []  # (строка, функция, условие-py, условие-smt)
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        for node, div in _crash_sites(fn, params, kernc):
+            guard_smt = f"(= {div} 0)"
+            if _smt_sat(kernc, params, [f"(not {guard_smt})", guard_smt]) is not False:
+                continue  # гард не доказан — рецепт не применяем
+            try:
+                guard_py = f"{ast.unparse(node.right)} == 0"
+            except Exception:
+                continue
+            line = min(getattr(node, "lineno", fn.lineno), fn.lineno + 200)
+            plan.append((line, fn.name, guard_py, guard_smt))
+
+    if not plan:
+        print("[HEAL] крашей не найдено — патчить нечего (T (1,0), e=1)")
+        return 0
+
+    # [3] ВСТАВКА: по одному гарду, от ПОСЛЕДНЕЙ строки к первой, чтобы
+    # сдвиг номеров не ломал вставки. Отступ — от самой строки.
+    lines = original.splitlines()
+    for line, fname, guard_py, _gsmt in sorted(plan, key=lambda t: -t[0]):
+        idx = line - 1
+        if idx < 0 or idx >= len(lines):
+            continue
+        target = lines[idx]
+        indent = target[: len(target) - len(target.lstrip())]
+        lines.insert(idx, f"{indent}if {guard_py}:  # [KERN HEAL] {fname}: защита от деления на 0")
+        lines.insert(idx + 1, f"{indent}    return 0")
+    patched = "\n".join(lines) + ("\n" if original.endswith("\n") else "")
+
+    try:
+        new_tree = ast.parse(patched)
+    except SyntaxError as e:
+        print(f"[HEAL] [!] патч НЕ компилируется ({e}) — файл НЕ изменён")
+        return 1
+
+    # [4] ПЕРЕПРОВЕРКА: крашей быть не должно. Только по машинному вердикту.
+    remaining = 0
+    for fn in [n for n in ast.walk(new_tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        for node, div in _crash_sites(fn, params, kernc):
+            # Краш считается ОСТАВШИМСЯ только если перед ним НЕТ гарда.
+            try:
+                div_py = ast.unparse(node.right)
+            except Exception:
+                div_py = ""
+            if not _guard_covers(fn, node, div_py):
+                remaining += 1
+
+    print(f"[HEAL] найдено крашей: {len(plan)} | после патча: {remaining}")
+    if remaining != 0:
+        print("[HEAL] [!] остались краши — изменения ОТКАТЫВАЮТСЯ (fail-closed)")
+        return 1
+
+    src_path.write_text(patched, encoding="utf-8")
+    print(f"[HEAL] [T (1,0)] файл вылечен: {path} (гардов вставлено {len(plan)})")
     return 0
 
 

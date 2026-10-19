@@ -1963,6 +1963,19 @@ def case_dst_check():
     return "make dst-check"
 
 
+
+def case_homeostatic_heal_check():
+    """ГОМЕОСТАЗ. ЛОМАЕМ: гард вставляется, но ПЕРЕПРОВЕРКА отключена
+    (всегда «0 крашей») -> приёмка обязана покраснеть: файл без патча
+    нельзя объявлять вылеченным."""
+    patch(
+        "tools/kern_contracts.py",
+        "    if remaining != 0:",
+        "    if False:",
+    )
+    return "make homeostatic-heal-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2279,6 +2292,7 @@ CASES = [
     ("wasm-check", "WASM: экспорты + No-Bloat",                case_wasm_check),
     ("kimg-grep-check", "KIMG: 3 исхода grep",                  case_kimg_grep_check),
     ("dst-check", "DST: сериализуемые сбои",                    case_dst_check),
+    ("homeostatic-heal-check", "Гомеостаз: F -> патч -> T",         case_homeostatic_heal_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),
