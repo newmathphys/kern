@@ -131,7 +131,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 
 ## 5. Mathematical proofs (Lean 4)
 
-**8 files, 113 theorems, 0 errors, 0 sorry** — `./formal/check.sh` ✅
+**8 files, 120 theorems, 0 errors, 0 sorry** — `./formal/check.sh` ✅
 
 | Theorem | What it proves |
 |:--|:--|

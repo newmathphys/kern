@@ -90,7 +90,7 @@ make audit-manifest
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
 Core (Debug)          : PASS — 379 / 379 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
-Kernel Invariants     : PASS — Lean 4 (8 files, 113 theorems, 0 errors, 0 sorry)
+Kernel Invariants     : PASS — Lean 4 (8 files, 120 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)

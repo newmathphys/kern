@@ -396,7 +396,7 @@ flowchart LR
 | **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
 | **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
 | **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
-| **L5** — formal proofs | 113 theorems in 8 Lean 4 files, 0 `sorry` |
+| **L5** — formal proofs | 120 theorems in 8 Lean 4 files, 0 `sorry` |
 
 The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
 produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
@@ -583,7 +583,7 @@ make guardrail
 uv pip install --python .venv/bin/python z3-solver
 ./zig-out/bin/kernc prove formal/example.smt2
 
-# 7. Formal proofs (Lean 4): 8 files, 113 theorems, 0 sorry
+# 7. Formal proofs (Lean 4): 8 files, 120 theorems, 0 sorry
 ./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
 ./formal/check.sh
 
