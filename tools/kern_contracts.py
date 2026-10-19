@@ -2293,6 +2293,14 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             _walk_branches(st.body, path + [cond], params, kernc, found, skipped, fnname, syms)
             _walk_branches(st.orelse, path + [f"(not {cond})"], params, kernc,
                            found, skipped, fnname)
+            # СУЖЕНИЕ ПУТИ (Дефект #149, §104.2): если блок THEN БЕЗУСЛОВНО
+            # завершается (`return`/`raise`) и ветки else нет, то ВСЕ следующие
+            # операторы выполняются при `NOT cond`. Без этого `[DEAD BRANCH]`
+            # находился только в if/elif-цепочках, а последовательные
+            # `if c1: return …` -> `if c2: return …` давали ложное «достижимо».
+            # Ровно та же логика, что в `_walk_bounds` (Дефект #134).
+            if not st.orelse and _block_exits(st.body):
+                path = path + [f"(not {cond})"]
         else:
             for n in ast.walk(st):
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):

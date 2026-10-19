@@ -23,6 +23,20 @@ pub fn build(b: *std.Build) void {
     const run_tests = b.addRunArtifact(tests);
     b.step("test", "Тесты ядра KERN").dependOn(&run_tests.step);
 
+    // ЭШЕЛОН 8, ПУНКТ 40А: ядро в WebAssembly (0 syscalls, freestanding).
+    // Только `builtin_lia` + решётка Белнапа + Хэмминг: `proof_check` тянет
+    // `z3_bridge` (спавн внешнего процесса), которого в freestanding нет.
+    const wasm_mod = b.createModule(.{
+        .root_source_file = b.path("src/wasm_api.zig"),
+        .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding }),
+        .optimize = .ReleaseSmall,
+    });
+    const wasm = b.addExecutable(.{ .name = "kernc", .root_module = wasm_mod });
+    wasm.entry = .disabled;
+    wasm.rdynamic = true;
+    const wasm_install = b.addInstallArtifact(wasm, .{ .dest_sub_path = "kernc.wasm" });
+    b.step("wasm", "Ядро KERN в WebAssembly (kernc.wasm)").dependOn(&wasm_install.step);
+
     // Проверка уязвимости «один байт = e=1» — отдельной командой.
     const atk_mod = b.createModule(.{
         .root_source_file = b.path("src/attack.zig"),

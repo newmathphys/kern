@@ -1927,6 +1927,29 @@ def case_fuzz_corpus_check():
     return "make fuzz-corpus-check"
 
 
+
+def case_wasm_check():
+    """ПУНКТ 40А. ЛОМАЕМ: экспорт переименован -> в байтах модуля его нет
+    -> приёмка обязана покраснеть (магия и размер останутся верными!)."""
+    patch(
+        "src/wasm_api.zig",
+        "export fn kern_wasm_belnap_allow(v: u8) u8 {",
+        "export fn kern_wasm_belnap_allowX(v: u8) u8 {",
+    )
+    return "make wasm-check"
+
+
+def case_kimg_grep_check():
+    """ПУНКТ 40В. ЛОМАЕМ: `rc=1 при отсутствии` -> `rc=0`
+    (поиск «всегда находит») -> приёмка обязана покраснеть."""
+    patch(
+        "src/main.zig",
+        "        if (hits == 0) std.process.exit(1);",
+        "        if (hits == 0) std.process.exit(0);",
+    )
+    return "make kimg-grep-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2240,6 +2263,8 @@ CASES = [
     ("bug-hunt-check", "BUG HUNT: контроль пройден",              case_bug_hunt_check),
     ("html-canvas-check", "CANVAS: холст автономен",                case_html_canvas_check),
     ("fuzz-corpus-check", "FUZZ: 0 паник, детерминизм",          case_fuzz_corpus_check),
+    ("wasm-check", "WASM: экспорты + No-Bloat",                case_wasm_check),
+    ("kimg-grep-check", "KIMG: 3 исхода grep",                  case_kimg_grep_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

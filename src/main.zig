@@ -817,6 +817,66 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
 
+    // ЭШЕЛОН 8, ПУНКТ 40В: `kernc grep <pattern> <image.kimg>` (livegrep-стиль).
+    // ИЗМЕРЕНО/ПРИНЦИП: поиск НЕ выполняется по недоверенному образу — сначала
+    // заголовок + Merkle-корень (rc=2 при порче), затем обход объектов с
+    // распаковкой (`decompressObject` сверяет дайджест по содержимому).
+    // rc=0 — есть совпадения, rc=1 — нет, rc=2 — образ повреждён.
+    if (std.mem.eql(u8, command, "grep")) {
+        if (args.len < 4) fail("[!] Использование: kernc grep <pattern> <image.kimg>\n", .{});
+        const pattern = args[2];
+        const img_path = args[3];
+        if (pattern.len == 0) fail("[!] Пустой шаблон\n", .{});
+        const img = compat.readFileAlloc(alloc, img_path, 1 << 28) catch |e| {
+            fail("[!] чтение образа: {s}\n", .{@errorName(e)});
+        };
+        defer alloc.free(img);
+        if (img.len < 128) fail("[!] образ слишком мал: {d} байт\n", .{img.len});
+        var hb: [128]u8 = undefined;
+        @memcpy(&hb, img[0..128]);
+        const h = KimgHeader.parse(&hb, img.len) catch |e| {
+            fail("[!] образ НЕВАЛИДЕН: {s}\n", .{@errorName(e)});
+        };
+        // ПОИСК ЗАБЛОКИРОВАН при несовпадении корня: иначе выдача по
+        // повреждённому образу вводила бы в заблуждение (rc=2 по условию).
+        KimgHeader.verifyMerkleRoot(img, h) catch |e| {
+            fail("[!] Merkle-корень НЕ совпал ({s}) — поиск заблокирован\n", .{@errorName(e)});
+        };
+        var fs = KernFS.mountFromBytes(alloc, img) catch |e| {
+            fail("[!] монтирование: {s}\n", .{@errorName(e)});
+        };
+        defer fs.deinit();
+        var hits: usize = 0;
+        for (fs.objects) |obj| {
+            const nm = fs.objectPath(obj);
+            if (std.mem.indexOf(u8, nm, pattern) != null) {
+                hits += 1;
+                std.debug.print("{s}:0: [имя объекта]\n", .{nm});
+            }
+            var owned: ?[]u8 = null;
+            defer if (owned) |o| alloc.free(o);
+            const body: []const u8 = blk: {
+                if (obj.compression_codec != 0) {
+                    owned = fs.decompressObject(alloc, obj) catch break :blk "";
+                    break :blk owned.?;
+                }
+                break :blk fs.objectPayloadRaw(obj) catch break :blk "";
+            };
+            var it = std.mem.splitScalar(u8, body, '\n');
+            var ln: usize = 0;
+            while (it.next()) |line| {
+                ln += 1;
+                if (std.mem.indexOf(u8, line, pattern) != null) {
+                    hits += 1;
+                    std.debug.print("{s}:{d}: {s}\n", .{ nm, ln, line });
+                }
+            }
+        }
+        std.debug.print("[grep] `{s}`: совпадений {d} (объектов {d})\n", .{ pattern, hits, fs.objects.len });
+        if (hits == 0) std.process.exit(1);
+        return;
+    }
+
     if (args.len < 3) {
         std.debug.print("[!] Укажите путь к образу .kimg\n", .{});
         return;
