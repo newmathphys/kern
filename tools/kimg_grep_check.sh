@@ -3,9 +3,16 @@
 # ТРИ исхода, каждый обязателен: найдено (rc=0) / не найдено (rc=1) /
 # повреждённый образ (rc=2, поиск ЗАБЛОКИРОВАН проверкой Merkle).
 set -u
+ZIG=${ZIG:-zig}
 KERNC=${KERNC:-./zig-out/bin/kernc}
 IMG=audits/real_code_corpus.kimg
 fail=0
+# СБОРКА ОБЯЗАТЕЛЬНА: гейт обязан проверять ТЕКУЩИЙ исходник,
+# иначе он вакуумен (ИЗМЕРЕНО: без этой строки подмена
+# `exit(1)`->`exit(0)` в src/main.zig оставалась незамеченной).
+if ! $ZIG build >/tmp/kimg_grep_build.log 2>&1; then
+  echo "[FAIL] zig build"; tail -5 /tmp/kimg_grep_build.log; exit 1
+fi
 [ -x "$KERNC" ] || { echo "[!] нет $KERNC"; exit 2; }
 [ -f "$IMG" ] || { echo "[!] нет $IMG"; exit 2; }
 

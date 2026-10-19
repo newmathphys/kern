@@ -214,6 +214,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "src/wasm_api.zig",
     "docs/CAPABILITY_STATUS.md",
     "tools/tree_lock.py",
     "tools/hw_binary_audit.py",
