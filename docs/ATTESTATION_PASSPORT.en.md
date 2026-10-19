@@ -15,7 +15,7 @@
 
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
-> by runs): core **400 / 400** (without `z3` in `PATH` — 392 passed + 8 skipped),
+> by runs): core **400 / 400** (without `z3` in `PATH` — 393 passed + 8 skipped),
 > KERN-Next **45 / 45**, can-fail **114 / 114 CHECK** (95 non-vacuous cases, 0 errors),
 > registry **121 targets**, mutation score **95.0 %** (38/40), Lean 4 **8 files /
 > 92 theorems / 0 sorry**, test catalogue **322**. Also closed since then: the default
@@ -97,8 +97,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Platform | What it proves | Result |
 |:--|:--|:--|
 | **x86_64** (host, TSO) | baseline | **400 / 400 OK** ✅ |
-| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `392 passed; 8 skipped; 0 failed`) on the CURRENT suite (400 tests = 392 passed + 8 skipped)* |
-| **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ✅ *same run: 392 passed / 8 skipped / 0 failed* |
+| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `393 passed; 8 skipped; 0 failed`) on the CURRENT suite (400 tests = 393 passed + 8 skipped)* |
+| **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ✅ *same run: 393 passed / 8 skipped / 0 failed* |
 
 ---
 
@@ -252,7 +252,7 @@ Claims that **did not hold** and were fixed in the documentation:
 | **24** bugs | **13 FIX sections** (22 entries in the METRICS journal) |
 | Makefile targets **61** | **62** — *current: **101*** |
 | QuixBugs "by proving unsatisfiability" | **executing** the official test cases |
-| QEMU cross-arch **392 passed / 8 skipped** | **392 passed / 8 skipped / 0 failed** (`cross_arch.log`, 2026-10-19, current suite) |
+| QEMU cross-arch **393 passed / 8 skipped** | **393 passed / 8 skipped / 0 failed** (`cross_arch.log`, 2026-10-19, current suite) |
 
 ## What was fully confirmed ✅
 

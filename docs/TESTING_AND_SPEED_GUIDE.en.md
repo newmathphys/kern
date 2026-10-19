@@ -21,7 +21,7 @@
 ### Section 2 — Classical testing
 | Method | Fact |
 |:--|:--|
-| Unit / boundary | **400** core tests (392 passed + 8 skipped) + **53** KERN-Next |
+| Unit / boundary | **400** core tests (393 passed + 8 skipped) + **53** KERN-Next |
 | Property-based | `truth.zig`: 500 random inputs × 2 laws (Belnap lattice, Hamming) |
 | Min-shrinking | window cascade `10 → 5 → 2 → 1 → 0` (only adds constraints — sound) |
 | Metamorphic | `builtin_lia`: 20 systems × 3 transforms = **60/60** |
@@ -69,7 +69,7 @@
 | Side channels | `timing_safe.eql` ×6; Welch **\|t\| = 0.11** |
 | 2-safety | `@kern:secret`: `PROVEN NON-INTERFERENT, trusted: 0` |
 | DST (TigerBeetle-style) | `kern-dst`: 10 seeds × 50 steps = **500**, 567 interceptions, 100 % deterministic |
-| Cross-architecture | QEMU **ARM64** + **PowerPC64 BE**: **392 passed / 8 skipped / 0 failed** |
+| Cross-architecture | QEMU **ARM64** + **PowerPC64 BE**: **393 passed / 8 skipped / 0 failed** |
 
 ### Section 8 — Next horizon
 | Method | Fact |

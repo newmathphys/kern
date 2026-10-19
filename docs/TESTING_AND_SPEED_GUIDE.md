@@ -21,7 +21,7 @@
 ### Раздел 2 — Классическое тестирование
 | Метод | Факт |
 |:--|:--|
-| Unit / boundary | **400** тестов ядра (392 passed + 8 skipped) + **53** next |
+| Unit / boundary | **400** тестов ядра (393 passed + 8 skipped) + **53** next |
 | Property-Based Testing | `truth.zig`: 500 случайных входов × 2 закона (решётка Белнапа, Хэмминг) |
 | Min-Shrinking | каскад окон `10 → 5 → 2 → 1 → 0` (только добавление ограничений — звучимо) |
 | Метаморфное | `builtin_lia`: 20 систем × 3 трансформации = **60/60** |
@@ -69,7 +69,7 @@
 | Сторонние каналы | `timing_safe.eql` ×6; Welch **\|t\| = 0.11** |
 | 2-Safety | `@kern:secret`: `PROVEN NON-INTERFERENT, trusted: 0` |
 | DST (TigerBeetle-style) | `kern-dst`: 10 seeds × 50 шагов = **500**, 567 перехватов, 100 % детерминизм |
-| Кросс-архитектура | QEMU **ARM64** + **PowerPC64 BE**: **392 passed / 8 skipped / 0 failed** |
+| Кросс-архитектура | QEMU **ARM64** + **PowerPC64 BE**: **393 passed / 8 skipped / 0 failed** |
 
 ### Раздел 8 — Следующий горизонт
 | Метод | Факт |

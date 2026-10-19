@@ -8,7 +8,7 @@
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_113_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-79%2F79-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_392_passed_%2F_8_skipped-success)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_393_passed_%2F_8_skipped-success)](#cross-architecture)
 [![GitHub Action](https://img.shields.io/badge/GitHub_Action-KERN_verification_gate-238636?logo=githubactions&logoColor=white)](action.yml)
 [![Release downloads](https://img.shields.io/github/downloads/newmathphys/kern/total?color=3fb950&label=release%20downloads)](https://github.com/newmathphys/kern/releases)
 [![Deterministic benchmark](https://img.shields.io/badge/benchmark-per--commit%20chart-3fb950)](https://newmathphys.github.io/kern/bench/)
@@ -502,8 +502,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Target | Property under test | Result |
 |:--|:--|:--|
 | x86_64 | TSO memory model | **400 / 400** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **392 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`; current host suite) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **392 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **393 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`; current host suite) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **393 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
 
 ### External benchmarks
 
