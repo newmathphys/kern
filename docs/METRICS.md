@@ -8467,3 +8467,48 @@ python3 tools/kern_contracts.py --audit-repo <path|owner/repo|https://github.com
   **`kern_wasm_lia_unsat2`** из `kernc.wasm` (2 ограничения `a·x + b·y + c ≤ 0`):
   пары несовместных гардов → **`DEAD BRANCH — PROVEN UNSAT by WASM kernel (B4: F, e=0)`**;
 * честная оговорка: виджет проверяет **пары** гардов; сужение пути по `elif`-цепочке делает CLI.
+
+---
+
+## §113. ТРЕТЬЯ ПРОВЕРКА: НАЙДЕНЫ ДЕФЕКТЫ В БРАУЗЕРНОМ WASM-КОДЕ
+
+Проверка велась **настоящим Node/WebAssembly** с мок-DOM (не «на глаз»).
+
+### 113.1. Дефект #165 — `i64` требует BigInt (виджет НЕ РАБОТАЛ в браузере)
+
+`kern_wasm_lia_unsat2(a1..c2: i64)` и `kern_wasm_admission_valid(code: u64)` — в
+WebAssembly `i64`/`u64` **обязаны** передаваться как `BigInt`, иначе JS бросает
+`TypeError: Cannot convert -1 to a BigInt`. Виджет на сайте упал бы на первом клике.
+
+**ИСПРАВЛЕНО** в трёх местах `docs/index.html` (`BigInt(a[0])`… и `1n, 0n, -5n, …`).
+**ДОКАЗАНО прогоном:**
+```
+--- A (достижимые) ---      McCabe CC = 3 | [x > 10] AND [x > 20] -> reachable (SAT — B4: T, e=1)
+--- B (противоречивые) ---  [x > 10] AND [x < 5]  -> DEAD BRANCH — PROVEN UNSAT by WASM kernel (B4: F, e=0)
+РЕЗУЛЬТАТ: A=OK B=OK
+```
+
+### 113.2. Дефект #166 — WASM-обёртка даёт `unknown` там, где CLI даёт `SAT`
+
+Воспроизведение (Node + `docs/kernc.wasm`):
+```
+(-1,0,-5, 1,0,4)  т.е.  x >= -5  ∧  x <= -4   ->  WASM: 0 (unknown)
+то же через CLI:  LE -1:x -5 / LE 1:x 4        ->  SAT x=-5
+```
+То есть `builtin_lia` **умеет** решать эту систему, а экспорт `kern_wasm_lia_unsat2`
+возвращает `unknown`. Коды обёртки: **1 = UNSAT, 2 = SAT, 0 = unknown**.
+
+**НЕ ИСПРАВЛЕНО** (правка `builtin_lia` перед релизом недопустима без полного
+прогона ядра) — зафиксировано как открытый дефект. **Виджет сделан трёхзначным**:
+`1 -> DEAD BRANCH`, `2 -> reachable`, `0 -> UNKNOWN (outside the linear fragment;
+B4: N, e=0; NOT proven)` — «не знаю» больше не выдаётся за вердикт.
+
+### 113.3. Что ещё проверено в этой итерации
+
+| Проверка | Результат |
+|:--|:--|
+| `chromium --headless --dump-dom` страницы | rc=0, DOM 38 306 Б, **0 ошибок JS** |
+| JS всех 3 script-блоков (`node --check`) | OK |
+| Экспорты WASM нативно (JOIN_K, admission, LIA) | JOIN_K(T,F)=B, e=0; ALLOW_CODE=1; 0=0 |
+| `--audit-repo` края (симлинк, `.min.js`) | skipped=2, симлинк не читается |
+| `git status` / untracked / `*.bak` / `/dev/shm` | чисто / 0 / нет / 0 |

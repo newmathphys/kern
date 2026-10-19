@@ -318,10 +318,15 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
           if (conds[i].v !== conds[j].v) continue;   // different variables: outside fragment
           var a = conds[i].c, b = conds[j].c;
           var verdict;
-          if (!w || !w.kern_wasm_lia_unsat2) verdict = "UNKNOWN (WASM not loaded)";
-          else verdict = w.kern_wasm_lia_unsat2(a[0], a[1], a[2], b[0], b[1], b[2]) === 1
-            ? "DEAD BRANCH — PROVEN UNSAT by WASM kernel (B4: F, e=0)"
-            : "reachable (SAT — B4: T, e=1)";
+          if (!w || !w.kern_wasm_lia_unsat2) verdict = "UNKNOWN (WASM not loaded — open via HTTP)";
+          else {
+            // Коды WASM-обёртки: 1 = UNSAT, 2 = SAT, 0 = unknown (честно различаем!).
+            var r = w.kern_wasm_lia_unsat2(BigInt(a[0]), BigInt(a[1]), BigInt(a[2]),
+                                           BigInt(b[0]), BigInt(b[1]), BigInt(b[2]));
+            verdict = (r === 1) ? "DEAD BRANCH — PROVEN UNSAT by WASM kernel (B4: F, e=0)"
+                    : (r === 2) ? "reachable (SAT — B4: T, e=1; counterexample point exists)"
+                    : "UNKNOWN — outside the linear fragment (B4: N, e=0; NOT proven)";
+          }
           out.push("[" + conds[i].text + "]  AND  [" + conds[j].text + "]  ->  " + verdict);
         }
       }
@@ -615,10 +620,10 @@ This page is served from <code>/docs</code> of the
     document.getElementById('wadm').onclick = () => {
       // 0xA55A3C3CC3C35AA5 — ALLOW_CODE (BigInt, иначе точность теряется)
       const code = 0xA55A3C3CC3C35AA5n;
-      document.getElementById('wadmout').textContent = e.kern_wasm_admission_valid(code) ? 'valid (e=1)' : 'rejected';
+      document.getElementById('wadmout').textContent = e.kern_wasm_admission_valid(BigInt(code)) ? 'valid (e=1)' : 'rejected';
     };
     document.getElementById('wlia').onclick = () => {
-      const v = e.kern_wasm_lia_unsat2(1, 0, -5, -1, 0, 10);
+      const v = e.kern_wasm_lia_unsat2(1n, 0n, -5n, -1n, 0n, 10n);
       document.getElementById('wliaout').textContent = v === 1 ? 'UNSAT (proven)' : v === 2 ? 'SAT' : 'unknown';
     };
     note.textContent = 'WASM loaded: ' + Object.keys(e).length + ' exports.';

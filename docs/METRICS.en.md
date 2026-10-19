@@ -1567,3 +1567,22 @@ Defects found by this run: **#159** (`else if` after `else if` produced a false 
 narrowing restricted to `return`/`else`; **#160** (`REDUNDANT GUARD` for C-like produced a
 false "always true" in `math/pow.zig`) — for C-like only `DEAD BRANCH` is reported.
 Principle: for a security tool a **false accusation is worse than a miss**.
+
+### 36. Third audit pass — defects found in the browser WASM code
+
+Verified with real Node/WebAssembly and a mock DOM (not by eye).
+
+**Defect #165 — `i64` needs BigInt (the widget did NOT work in a browser).**
+`kern_wasm_lia_unsat2(…: i64)` and `kern_wasm_admission_valid(code: u64)` require `BigInt`;
+passing Numbers throws `TypeError: Cannot convert -1 to a BigInt`. Fixed in three places;
+proven by running the widget logic: `A=OK` (reachable) and `B=OK` (DEAD BRANCH, UNSAT).
+
+**Defect #166 — the WASM wrapper returns `unknown` where the CLI returns `SAT`.**
+`(-1,0,-5, 1,0,4)` i.e. `x >= -5 ∧ x <= -4` → WASM `0` (unknown), while
+`LE -1:x -5 / LE 1:x 4` in the CLI → `SAT x=-5`. Return codes: **1 = UNSAT, 2 = SAT,
+0 = unknown**. Not fixed (touching `builtin_lia` before a release is unsafe); the widget is
+now three-valued: `1 → DEAD`, `2 → reachable`, `0 → UNKNOWN (B4: N, e=0; NOT proven)`.
+
+Also checked: `chromium --headless --dump-dom` (rc=0, 0 JS errors), `node --check` for all
+three script blocks, native WASM exports (JOIN_K(T,F)=B, ALLOW_CODE=1), `--audit-repo`
+edge cases (symlink and `.min.js` are skipped), and the tree (`git status` clean, no leftovers).
