@@ -8,49 +8,52 @@ Every number below is produced by a command in the repository — see
 
 ## [2.5.0] — 2026-10-19
 
-Полные заметки о релизе: [`docs/RELEASE_NOTES_v2.5.0.md`](docs/RELEASE_NOTES_v2.5.0.md).
-Каждое число ниже получено командой из репозитория; исторические измерения
-(например, 77.5 % мутаций БЕЗ решателя в `PATH`) сохранены как история, а не как
-текущее состояние.
+Full release notes: [`docs/RELEASE_NOTES_v2.5.0.md`](docs/RELEASE_NOTES_v2.5.0.md).
+Every number below is produced by a command in this repository; historical measurements
+(e.g. the 77.5% mutation score obtained *without* a solver in `PATH`) are kept as history,
+not as the current state.
 
 ### Added
-- **Встроенный решатель Фурье — Моцкина** (`src/verifier/builtin_lia.zig`): 100 систем
-  против Z3 — 0 расхождений; 60/60 метаморфных проверок; `--full-file` 18/18.
-- **Проверка SAT-моделей внутри ядра** (`verifyModelAgainstSmt`): модель Z3
-  подставляется в `(assert …)` и вычисляется независимо; ложная модель →
-  `SPURIOUS MODEL` и контрпример НЕ предъявляется.
-- **`musl abs.c`: `SKIP → PROVEN`** (51 шаг, `trusted: 0 | holes: 0`) — доказаны
-  `intro-def`, `lemma`, `def-axiom`, `rewrite`, `monotonicity`.
-- **Новые теории с `trusted: 0`**: IEEE-754 (NaN-ловушка), QF_S (обход санитайзера),
-  циклы (`invariant`/`decreases`), границы массивов, инварианты состояний, RLS.
-- **`--xray` без единой аннотации** + 7 языков (`.py .zig .c .rs .ts .js .go`);
-  6 полевых адаптеров (`self.x`, let-inlining, константы модуля, `min/max/abs`,
-  рекурсивный обход, инвариант длины).
-- **`--audit-repo <path|owner/repo|url>`**: безопасная песочница git
+- **Native Fourier–Motzkin LIA solver** (`src/verifier/builtin_lia.zig`): 100 systems
+  checked against Z3 — 0 disagreements; 60/60 metamorphic checks; `--full-file` 18/18.
+- **SAT-model validation inside the kernel** (`verifyModelAgainstSmt`): the Z3 model is
+  substituted back into every `(assert …)` and evaluated independently; a false model is
+  reported as `SPURIOUS MODEL` and **no counterexample is shown**.
+- **`musl abs.c`: `SKIP → PROVEN`** (51 steps, `trusted: 0 | holes: 0`) — `intro-def`,
+  `lemma`, `def-axiom`, `rewrite` and `monotonicity` are now checked, not trusted.
+- **New theories at `trusted: 0`**: IEEE-754 (the NaN trap), QF_S (sanitiser bypass),
+  loops (`invariant`/`decreases`), array bounds, state invariants and RLS policies.
+- **`--xray` with zero annotations** across 7 languages (`.py .zig .c .rs .ts .js .go`);
+  six field adapters (`self.x`, let-inlining, module constants, `min/max/abs`,
+  recursive directory walk, length invariant).
+- **`--audit-repo <path|owner/repo|url>`**: sandboxed git
   (`core.hooksPath=/dev/null`, `GIT_TERMINAL_PROMPT=0`, `GIT_LFS_SKIP_SMUDGE=1`,
-  timeout 30 с), уборка `/dev/shm` по SIGTERM/atexit, фильтр мусора и симлинков.
-- **Proof-Carrying `.kimg`** (`[PCC VERIFIED]` без решателя) · **Evidence Decay** ·
-  **Merkle-цепочка** журнала · **Bit-Rot Guard** (30/30 инъекций).
-- **WASM-ядро** `kernc.wasm` (86 953 Б, 5 экспортов, включая `kern_wasm_verify_proof`).
-- **8 MCP-инструментов** + `server.json` / `mcp.json` / `.well-known/mcp.json`
-  (генерируются из `tools/list`) + MCP Tool Annotations.
-- **`llms.txt`**, `--sarif` (SARIF 2.1.0), `action.yml` с режимом `xray`,
-  `tools/trust_scorecard.py` и карточка `#scorecard` на сайте.
+  30 s timeout), `/dev/shm` cleanup on SIGTERM/atexit, junk/symlink filters.
+- **Proof-Carrying `.kimg`** (`[PCC VERIFIED]` with no solver) · **Evidence Decay** ·
+  **Merkle audit chain** · **Bit-Rot Guard** (30/30 injections caught).
+- **WASM kernel** `kernc.wasm` (86,953 bytes, 5 exports including `kern_wasm_verify_proof`).
+- **8 MCP tools** plus `server.json` / `mcp.json` / `.well-known/mcp.json`
+  (generated from `tools/list`) and MCP tool annotations.
+- **`llms.txt`**, `--sarif` (SARIF 2.1.0), `action.yml` with an `xray` mode,
+  `tools/trust_scorecard.py` and the `#scorecard` section on the site.
 
-### Fixed (выборочно; полный журнал — `docs/CAPABILITY_STATUS.md` §6c–§6d)
-- **#155** пруф-чекер принимал подделку DAG (битая ссылка `@xN` → `.bad`).
-- **#166** ложный `unknown` в WASM (переменная с нулевым коэффициентом).
-- **#171** `bench-semantic`: единый источник корня (`sealImageRoot`).
-- **#173** предохранитель свидетельств ложно обвинял харнесс (write-once базис,
-  продукты вне базиса, грязный старт → `rc=3`).
-- **#174** 51 дублирующееся определение в `kern_contracts.py` — долг **заморожен**
-  ratchet-стражем `tools/dup_defs_guard.py`; перестройка вынесена за релиз.
+### Fixed (selected; the full journal is `docs/CAPABILITY_STATUS.md` §6c–§6d)
+- **#155** the proof checker accepted a tampered DAG (a broken `@xN` reference now yields `.bad`).
+- **#166** false `unknown` in WASM (the solver picked a variable with a zero coefficient).
+- **#171** `bench-semantic`: single source of truth for the Merkle root (`sealImageRoot`).
+- **#173** the evidence guard wrongly accused the harness (write-once baseline, artefacts
+  outside the baseline, dirty start → `rc=3`).
+- **#174** 51 duplicate top-level definitions in `kern_contracts.py` — the debt is **frozen**
+  by the ratchet guard `tools/dup_defs_guard.py`; the refactor is scheduled after the release.
+- **#179** mobile layout overflowed by 12 px (the `owner/repo` input had a fixed `size`
+  attribute); the scorecard input is now fluid, and `scrollWidth == clientWidth` on both
+  360 px and 1425 px viewports.
 
 ### Notes
-- Лицензия: **PolyForm Noncommercial 1.0.0** (source-available); коммерческое
-  использование — по лицензии правообладателя.
-- `align(32)` в `blake3_simd8`: измеримого ускорения нет (2.42 против 2.41 GB/s) —
-  правка безвредна, но НЕ заявляется как оптимизация.
+- License: **PolyForm Noncommercial 1.0.0** (source-available); commercial use requires a
+  license from the copyright holder.
+- `align(32)` in `blake3_simd8`: no measurable speed-up (2.42 vs 2.41 GB/s) — the change is
+  harmless but is **not** claimed as an optimisation.
 
 
 ## [2.4.0] — 2026-10-17

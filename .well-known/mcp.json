@@ -21,7 +21,7 @@
         "properties": {
           "smt": {
             "type": "string",
-            "description": "Текст контракта в SMT-LIB2"
+            "description": "SMT-LIB2 contract text"
           }
         },
         "required": [
@@ -69,7 +69,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Список контрактов SMT-LIB2"
+            "description": "List of SMT-LIB2 contracts"
           }
         },
         "required": [
@@ -92,7 +92,7 @@
         "properties": {
           "python_source": {
             "type": "string",
-            "description": "Исходник Python с аннотациями @kern:"
+            "description": "Python source carrying @kern: annotations"
           }
         },
         "required": [
@@ -115,11 +115,11 @@
         "properties": {
           "old_source": {
             "type": "string",
-            "description": "Исходник ДО рефакторинга"
+            "description": "Source BEFORE the refactoring"
           },
           "new_source": {
             "type": "string",
-            "description": "Исходник ПОСЛЕ рефакторинга"
+            "description": "Source AFTER the refactoring"
           }
         },
         "required": [
@@ -143,11 +143,11 @@
         "properties": {
           "source": {
             "type": "string",
-            "description": "Исходник Python (.py)"
+            "description": "Source file (.py, .zig, .c, .rs, .ts, .js, .go)"
           },
           "filename": {
             "type": "string",
-            "description": "имя файла (по умолчанию x.py)"
+            "description": "file name (default x.py)"
           }
         },
         "required": [
@@ -198,7 +198,7 @@
         "properties": {
           "source": {
             "type": "string",
-            "description": "Исходник кандидата (.py)"
+            "description": "Candidate source (.py)"
           }
         },
         "required": [

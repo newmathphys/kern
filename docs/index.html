@@ -122,6 +122,15 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
     background:var(--bg0);color:var(--ink2);
     box-sizing:border-box;max-width:100%;min-width:0;flex:1 1 200px}
   #sc-score{color:var(--ok)}
+  /* --- live WASM playground: те же токены, что у карточек --- */
+  #wasm .wrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 2px}
+  #wasm label{color:var(--mut);font-size:12.5px}
+  #wasm select{padding:6px 9px;border-radius:6px;border:1px solid var(--line);
+    background:var(--bg0);color:var(--ink2);font:inherit;cursor:pointer}
+  #wasm button.btn{margin-top:10px}
+  #wasm output{display:inline-block;margin-left:10px;padding:2px 6px;border-radius:5px;
+    background:var(--bg1);border:1px solid var(--line2);font-weight:700;color:var(--ok)}
+  #wasm output:empty{display:none}
   @media(max-width:760px){.sc-head{flex-wrap:wrap;gap:10px}.sc-score{font-size:36px}}
 </style>
 </head>
@@ -141,7 +150,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 </div>
 
 <div class="panel">
-<img class="badgeimg" src="kern-architecture.svg" width="960" height="290"
+<img class="badgeimg" src="kern-architecture.svg" width="1344" height="406"
      alt="KERN architecture: Belnap B4 accumulator, L0-L5 engine and truth gate, measured baseline">
 </div>
 
@@ -711,21 +720,23 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
     <div class="card">
       <h3>Belnap B4 join</h3>
       <p class="note">N=0 · T=1 · F=2 · B=3 (bit0=p, bit1=n)</p>
-      <label>a <select id="wa"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label>
-      <label>b <select id="wb"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></label>
-      <button id="wjoin">a ⊔ b</button>
+      <div class="wrow">
+        <label>a <select id="wa"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label>
+        <label>b <select id="wb"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></label>
+      </div>
+      <button class="btn p" id="wjoin">a ⊔ b</button>
       <output id="wjoinout">—</output>
     </div>
     <div class="card">
       <h3>Admission (Hamming 64)</h3>
       <p class="note">Valid 64-bit code → e = 1</p>
-      <button id="wadm">check ALLOW_CODE</button>
+      <button class="btn" id="wadm">check ALLOW_CODE</button>
       <output id="wadmout">—</output>
     </div>
     <div class="card">
       <h3>Fourier–Motzkin (LIA)</h3>
       <p class="note">x ≤ 5 ∧ x ≥ 10 → UNSAT</p>
-      <button id="wlia">solve</button>
+      <button class="btn" id="wlia">solve</button>
       <output id="wliaout">—</output>
     </div>
   </div>

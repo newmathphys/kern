@@ -83,3 +83,9 @@ telemetry_report.json
 
 # Черновики внешних публикаций (не часть проекта)
 POST_*.md
+
+# core dumps (QEMU/gdb) — never commit
+*.core
+core
+core.*
+vgcore.*

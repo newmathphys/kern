@@ -43,9 +43,9 @@ runs:
         base="https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}"
         curl -fsSL -o "$RUNNER_TEMP/kernc" "$base/kernc-x86_64-linux-musl"
         curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
-        # SUPPLY-CHAIN: бинарник НЕ запускается, пока не сверена контрольная
-        # сумма. SHA256SUMS объявляет имя asset'а — переименовываем строку под
-        # локальное имя файла (kernc) и проверяем строго.
+        # SUPPLY-CHAIN: the binary is never executed before its checksum is
+        # verified. SHA256SUMS declares the asset name, so rewrite that line to
+        # the local file name (kernc) and verify strictly.
         ( cd "$RUNNER_TEMP"
           grep ' kernc-x86_64-linux-musl$' SHA256SUMS \
             | sed 's#  kernc-x86_64-linux-musl$#  kernc#' > SHA256SUMS.kernc
@@ -65,8 +65,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        # Инструмент берётся из ЭТОГО ЖЕ действия (action_path), поэтому
-        # дополнительный checkout не нужен.
+        # The tool is taken from THIS action (action_path), so no extra
+        # checkout is required.
         python3 "${{ github.action_path }}/tools/kern_contracts.py" \
           --xray "${{ inputs.path }}" \
           --sarif "$RUNNER_TEMP/${{ inputs.sarif }}"

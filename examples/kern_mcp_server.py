@@ -68,22 +68,21 @@ SERVER_INFO = {"name": "kern", "version": "2.5.0"}
 TOOLS = [
     {
         "name": "kern_verify_smt",
-        "description": ("Проверить SMT-LIB2 контракт через KERN: внешний Z3 "
-                        "плюс независимый пруф-чекер. Возвращает вердикт "
-                        "(ДОКАЗАНО / НЕ доказано) и сводку проверки вывода."),
+        "description": ("Verify an SMT-LIB2 contract with KERN: an external Z3 "
+                        "run plus an independent proof-DAG checker. Returns the "
+                        "verdict (proven / not proven) and a checker summary."),
         "inputSchema": {
             "type": "object",
             "properties": {"smt": {"type": "string",
-                                   "description": "Текст контракта в SMT-LIB2"}},
+                                   "description": "SMT-LIB2 contract text"}},
             "required": ["smt"],
         },
     },
     {
         "name": "kern_prove_with_checker",
-        "description": ("То же, что kern_verify_smt, но возвращает ПОЛНУЮ "
-                        "разбивку пруф-чекера: сколько шагов вывода Z3 "
-                        "перепроверено независимо и сколько осталось "
-                        "доверенными (trusted)."),
+        "description": ("Same as kern_verify_smt, but returns the FULL proof-checker "
+                        "breakdown: how many Z3 proof steps were re-checked "
+                        "independently and how many were left trusted."),
         "inputSchema": {
             "type": "object",
             "properties": {"smt": {"type": "string"}},
@@ -92,73 +91,75 @@ TOOLS = [
     },
     {
         "name": "kern_verify_multi_belnap",
-        "description": ("Проверить НЕСКОЛЬКО контрактов и сложить вердикты по "
-                        "Белнапу (T/F/B/N). Конфликт (T и F вместе) даёт B — "
-                        "противоречие НЕ схлопывается в пользу доказательства."),
+        "description": ("Verify MULTIPLE contracts and join the verdicts in Belnap "
+                        "B4 (T/F/B/N). A conflict (T and F together) yields B: "
+                        "the contradiction is never collapsed into a proof."),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "contracts": {"type": "array", "items": {"type": "string"},
-                              "description": "Список контрактов SMT-LIB2"},
+                              "description": "List of SMT-LIB2 contracts"},
             },
             "required": ["contracts"],
         },
     },
     {
         "name": "kern_verify_python",
-        "description": ("Проверить Python-код с контрактами в комментариях "
-                        "(`# @kern:requires` / `# @kern:ensures`). Поддерживаются "
-                        "ветвления if/elif/else и локальные присваивания: они "
-                        "транслируются в SMT `ite`. Для каждой функции возвращается "
-                        "статус (PASS/FAIL/SKIP), вердикт Белнапа и КОНТРПРИМЕР при "
-                        "нарушении контракта. Циклы и вызовы -> честный SKIP."),
+        "description": ("Verify Python code carrying contracts in comments "
+                        "(`# @kern:requires` / `# @kern:ensures`). Branches "
+                        "if/elif/else and local assignments are supported: they "
+                        "are translated into SMT `ite`. For each function the "
+                        "status (PASS/FAIL/SKIP), the Belnap verdict and a "
+                        "COUNTEREXAMPLE on violation are returned. Loops and "
+                        "calls yield an honest SKIP."),
         "inputSchema": {
             "type": "object",
             "properties": {"python_source": {
                 "type": "string",
-                "description": "Исходник Python с аннотациями @kern:"}},
+                "description": "Python source carrying @kern: annotations"}},
             "required": ["python_source"],
         },
     },
     {
         "name": "kern_check_equivalence",
-        "description": ("Доказать ЭКВИВАЛЕНТНОСТЬ рефакторинга БЕЗ написания "
-                        "контрактов: для одноимённых функций двух исходников "
-                        "проверяется `∃x: f_old(x) != f_new(x)`. UNSAT -> "
-                        "[EQUIVALENT] (поведение не изменилось), SAT -> "
-                        "[DIVERGED] + КОНТРПРИМЕР, на котором старая и новая "
-                        "функции дают РАЗНЫЙ ответ. Циклы/вызовы -> честный SKIP."),
+        "description": ("Prove refactoring EQUIVALENCE without writing any "
+                        "contracts: for same-named functions of two sources it "
+                        "checks `∃x: f_old(x) != f_new(x)`. UNSAT -> "
+                        "[EQUIVALENT] (behaviour unchanged), SAT -> "
+                        "[DIVERGED] plus a COUNTEREXAMPLE where the old and new "
+                        "functions disagree. Loops/calls yield an honest SKIP."),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "old_source": {"type": "string",
-                               "description": "Исходник ДО рефакторинга"},
+                               "description": "Source BEFORE the refactoring"},
                 "new_source": {"type": "string",
-                               "description": "Исходник ПОСЛЕ рефакторинга"}},
+                               "description": "Source AFTER the refactoring"}},
             "required": ["old_source", "new_source"],
         },
     },
     {
         "name": "kern_xray_code",
         "description": (
-            "БЕЗАННОТАЦИОННЫЙ рентген кода (Пункт 13): мёртвые ветки "
-            "[DEAD BRANCH] (UNSAT), избыточные проверки [REDUNDANT GUARD], "
-            "краш-пути [CRASH PATH] (деление на 0, переполнение) и сложность "
-            "Маккейба. Работает БЕЗ единого комментария @kern:."),
+            "ZERO-ANNOTATION code X-ray: dead branches "
+            "[DEAD BRANCH] (UNSAT), redundant guards [REDUNDANT GUARD], "
+            "crash paths [CRASH PATH] (division by zero, overflow) and McCabe "
+            "complexity. Works with no @kern: annotation at all."),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "source": {"type": "string", "description": "Исходник Python (.py)"},
-                "filename": {"type": "string", "description": "имя файла (по умолчанию x.py)"}},
+                "source": {"type": "string",
+                           "description": "Source file (.py, .zig, .c, .rs, .ts, .js, .go)"},
+                "filename": {"type": "string", "description": "file name (default x.py)"}},
             "required": ["source"],
         },
     },
     {
         "name": "kern_verify_action",
         "description": (
-            "FinOps / Action Firewall (Пункт 36): проверяет JSON-вызов агента "
-            "против политики ДО исполнения. T -> 200, F -> 422 (контрпример), "
-            "B -> 409 (политики противоречат)."),
+            "FinOps / Action Firewall: evaluates an agent's JSON tool call "
+            "against a policy BEFORE execution. T -> 200, F -> 422 (with a "
+            "counterexample), B -> 409 (the policies contradict each other)."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -170,13 +171,13 @@ TOOLS = [
     {
         "name": "kern_rlvr_reward",
         "description": (
-            "RLVR-оракул вознаграждения (Пункт 38): +1.0 за ДОКАЗАННЫЙ контракт "
-            "(trusted: 0), -1.0 за контрпример, -2.0 за Reward Hacking, "
-            "0.0 при отказе (вне фрагмента)."),
+            "RLVR reward oracle: +1.0 for a PROVEN contract (trusted: 0), "
+            "-1.0 for a counterexample, -2.0 for reward hacking, "
+            "0.0 when abstaining (outside the supported fragment)."),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "source": {"type": "string", "description": "Исходник кандидата (.py)"}},
+                "source": {"type": "string", "description": "Candidate source (.py)"}},
             "required": ["source"],
         },
     },
