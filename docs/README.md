@@ -32,7 +32,7 @@
 | **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§31) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
 | **[bench/index.html](bench/index.html)** | **Детерминированный бенчмарк** (график на сайте): лавина, цепочка коллизий, χ². Генерируется `python3 tools/bench_json.py --html docs/bench/index.html`; цель `make bench-json` (can-fail доказана) |
 | **[../audits/README.md](../audits/README.md)** | **Тень-контракты на чужом коде**: рукописные SMT-модели реальных выражений из сторонних проектов (например `isAligned` из `andrewrk/zig-general-purpose-allocator` — ДОКАЗАНО, и контрольная ломаная версия — КОНТРПРИМЕР) + замер, почему «прогон KERN по 50 репозиториям» даёт нули |
-| **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **395 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
+| **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **424 теста** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
 | **[CYBERNETIC_VISION.en.md](CYBERNETIC_VISION.en.md)** | **English mirror** of the cybernetic vision essay (Anokhin · Glushkov · Belnap · Victor) |
 | **[ROADMAP.en.md](ROADMAP.en.md)** | **English mirror** of the roadmap: final v2.5 status (8/8 echelons), closed debts, defects #155–#157 |
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |

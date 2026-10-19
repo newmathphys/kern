@@ -482,7 +482,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Check | Result |
 |:--|:--|
 | Core test suite (Debug + ReleaseSafe) | **400 / 400** |
-| Core test suite **without** `z3` in `PATH` | **392 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
+| Core test suite **without** `z3` in `PATH` | **393 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
 | KERN-Next test suite | **45 / 45** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
@@ -625,7 +625,7 @@ make audit-manifest
 
 > **Build notes (Zig 0.17) — read before "fixing" a red-looking log.**
 > A fresh `zig build test` prints
-> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 400 tests
+> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 401 tests
 > pass**: `zig build` runs the tests as a separate child that reports over an IPC
 > protocol (`--listen=-`), and the step verdict comes from the protocol, not from that
 > line. Judge a build by its exit code and `zig build … --summary all` — never by

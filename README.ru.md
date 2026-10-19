@@ -88,7 +88,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 400 / 400 tests
+Core (Debug)          : PASS — 401 / 401 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (8 files, 120 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -130,7 +130,7 @@ kern/
 │
 ├── docs/                           ДОКУМЕНТАЦИЯ (начните с docs/README.md)
 │   ├── README.md                   КАРТА документации — что где лежит
-│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 395 тестов + бенчмарки
+│   ├── TEST_CATALOG.md             ПОЛНЫЙ каталог 424 тестов + бенчмарки
 │   ├── METRICS.md                  ЖУРНАЛ ПОКАЗАТЕЛЕЙ (все цифры из прогонов)
 │   ├── KERN_FIXES_v1_3.md          16 устранённых дефектов, с доказательствами
 │   ├── VERIFICATION_GOLD_STANDARDS.md  мировые бенчмарки
