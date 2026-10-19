@@ -22,6 +22,7 @@
 Запуск:  python3 tools/canfail.py [--only <имя>] [--list]
 """
 import argparse
+import json
 import os
 import signal
 import shutil
