@@ -107,7 +107,7 @@ pub const KimgHeader = extern struct {
         h.block_size = std.mem.readInt(u64, bytes[24..32], .little);
         h.object_table_offset = std.mem.readInt(u64, bytes[32..40], .little);
         h.object_table_size = std.mem.readInt(u64, bytes[40..48], .little);
-        h.object_count = std.mem.readInt(u64, bytes[48..56], .little);
+        h.object_count = std.mem.readInt(u64, bytes[48..56], .big);
         h.data_payload_offset = std.mem.readInt(u64, bytes[56..64], .little);
         @memcpy(&h.root_digest, bytes[64..96]);
         @memcpy(&h.header_checksum, bytes[96..128]);

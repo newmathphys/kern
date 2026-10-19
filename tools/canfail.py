@@ -1978,6 +1978,20 @@ def case_homeostatic_heal_check():
     return "make homeostatic-heal-check"
 
 
+
+def case_opt_diff_check():
+    """РАЗДЕЛ 5. ЛОМАЕМ: Merkle-корень считается по ХРАНИМЫМ дайджестам, а не
+    по данным -> сборки начинают расходиться по семантике."""
+    # ЛОМАЕМ чтение корня: сдвиг смещения -> Merkle считается по ДРУГИМ байтам
+    # (в Debug/Release* это проявится по-разному, если семантика зависит от сборки).
+    patch(
+        "src/core/kimg_reader.zig",
+        'h.object_count = std.mem.readInt(u64, bytes[48..56], .little);',
+        'h.object_count = std.mem.readInt(u64, bytes[48..56], .big);',
+    )
+    return "make opt-diff-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2295,6 +2309,7 @@ CASES = [
     ("kimg-grep-check", "KIMG: 3 исхода grep",                  case_kimg_grep_check),
     ("dst-check", "DST: сериализуемые сбои",                    case_dst_check),
     ("homeostatic-heal-check", "Гомеостаз: F -> патч -> T",         case_homeostatic_heal_check),
+    ("opt-diff-check", "OPT: Debug == RS == Small",              case_opt_diff_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

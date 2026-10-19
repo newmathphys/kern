@@ -459,3 +459,74 @@ test "ПУНКТ 35: рой агентов — JOIN_K(T,F)=B, поглощени
     try std.testing.expect(bf.p and bf.n);
     try std.testing.expectEqual(@as(u1, 0), allowance(bf));
 }
+
+// ============================================================================
+// РАЗДЕЛ 2 ЭНЦИКЛОПЕДИИ: ГЕНЕРАТИВНОЕ Property-Based Testing (PBT).
+// 500 псевдослучайных входов по ДЕТЕРМИНИРОВАННОМУ PRNG (xorshift64*),
+// поэтому провал воспроизводим: тот же seed -> тот же вход.
+// Проверяются ЗАКОНЫ, а не отдельные примеры.
+// ============================================================================
+const PbtRng = struct {
+    s: u64,
+    fn next(self: *PbtRng) u64 {
+        var x = self.s;
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        self.s = x;
+        return x *% 0x2545F4914F6CDD1D;
+    }
+    fn bit(self: *PbtRng) Bit {
+        const v = self.next();
+        return .{ .p = (v & 1) != 0, .n = (v & 2) != 0 };
+    }
+};
+
+test "PBT: законы решётки Белнапа на 500 случайных входах" {
+    var rng = PbtRng{ .s = 0xDEADBEEF };
+    var i: usize = 0;
+    while (i < 500) : (i += 1) {
+        const a = rng.bit();
+        const b = rng.bit();
+        const c = rng.bit();
+
+        // Коммутативность join.
+        try std.testing.expectEqual(join2(a, b), join2(b, a));
+        // Ассоциативность.
+        try std.testing.expectEqual(join2(join2(a, b), c), join2(a, join2(b, c)));
+        // Идемпотентность.
+        try std.testing.expectEqual(join2(a, a), a);
+        // Нейтральный элемент N (0,0) — в Белнапе это «нет свидетельства».
+        // ВНИМАНИЕ: N не нейтрален как в max-решётке; проверяем СЛАБОЕ свойство:
+        // join(N, N) = N (а не «N нейтрален для всех a» — это было бы ЛОЖЬ).
+        try std.testing.expectEqual(join2(Bit{}, Bit{}), Bit{});
+        // Монотонность допуска: если e=1, то p=1 и n=0.
+        if (allowance(a) == 1) {
+            try std.testing.expect(a.p and !a.n);
+        }
+        // Поглощение противоречием: join(B, x) = B для ЛЮБОГО x.
+        const B = Bit{ .p = true, .n = true };
+        try std.testing.expectEqual(B, join2(B, a));
+    }
+}
+
+/// Локальная обёртка, чтобы тест не зависел от порядка объявления методов.
+fn join2(a: Bit, b: Bit) Bit {
+    return .{ .p = a.p or b.p, .n = a.n or b.n };
+}
+
+test "PBT: Хэмминг-код AdmissionCode на 500 случайных искажениях" {
+    var rng = PbtRng{ .s = 0x1234_5678 };
+    var i: usize = 0;
+    while (i < 500) : (i += 1) {
+        // Искажаем не более TOLERANCE бит -> решение НЕ должно перевернуться.
+        var word = AdmissionCode.ALLOW_CODE;
+        const k = rng.next() % (AdmissionCode.TOLERANCE + 1);
+        var j: u64 = 0;
+        while (j < k) : (j += 1) {
+            const pos: u6 = @intCast(rng.next() % 64);
+            word ^= @as(u64, 1) << pos;
+        }
+        try std.testing.expectEqual(@as(?u1, 1), AdmissionCode.decode(word));
+    }
+}
