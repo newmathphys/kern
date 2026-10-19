@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ast
 import hashlib
 import json
@@ -1447,6 +1448,10 @@ def main() -> int:
                     help="куда записать упрощённый файл (по умолчанию не пишем)")
     ap.add_argument("--gen-tests", nargs=2, default=None, metavar=("SRC.py", "OUT.py"),
                     help="ПУНКТ 14: SBST-генератор pytest со 100 процентами покрытия ветвей")
+    ap.add_argument("--audit-repo", dest="audit_repo", default=None,
+                    help="универсальный аудит: путь, файл или GitHub URL")
+    ap.add_argument("--html-out", dest="html_out", default=None,
+                    help="сохранить HTML-паспорт аудита")
     ap.add_argument("--xray", default=None, metavar="PATH",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
                          "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
@@ -1528,6 +1533,9 @@ def main() -> int:
         return cmd_simplify(args.simplify, args.simplify_out, args.kernc)
     if args.gen_tests:
         return cmd_gen_tests(args.gen_tests[0], args.gen_tests[1], args.kernc)
+    if getattr(args, "audit_repo", None):
+        return cmd_audit_repo(args.audit_repo, args.kernc,
+                              getattr(args, "html_out", None))
     if args.xray:
         return cmd_xray(args.xray, args.kernc)
     if args.heal:
@@ -2746,6 +2754,17 @@ _XRAY_SKIP_DIRS = {".git", ".venv", ".venv38", ".venv-evalplus", "node_modules",
 _XRAY_EXTS = {".py", ".ts", ".js", ".go", ".zig", ".c", ".h", ".rs"}
 
 
+# Делители C-like: `a / b`, `a % b`, `@divTrunc(a, b)`, `@rem(a, b)`.
+# `?? `//` — КОММЕНТАРИЙ в C/Zig, поэтому деление ищется как `/` НЕ перед `/`.
+# Локальные объявления (`const q = …`, `var n: i32 = …`, `let x = …`):
+# их НЕЛЬЗЯ считать свободными параметрами в делителе.
+_RE_CLIKE_LOCAL = re.compile(r"\b(?:const|var|let)\s+(\w+)\s*(?::\s*([\w.]+))?\s*=")
+
+_RE_CLIKE_DIV = re.compile(
+    r"(?:@divTrunc|@rem|@divFloor|@mod)\s*\(([^,()]+),\s*([^()]+)\)"
+    r"|([A-Za-z_][\w.\[\]]*)\s*/\s*([A-Za-z_][\w.\[\]]*)"
+    r"|([A-Za-z_][\w.\[\]]*)\s*%\s*([A-Za-z_][\w.\[\]]*)")
+
 _RE_CLIKE_IF = re.compile(r"\bif\s*\(((?:[^()]|\([^()]*\))*)\)")
 
 
@@ -2855,6 +2874,41 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             elif re.match(r"\s*\}?\s*else\b", tail):
                 path_conds.append(f"(not {cond})")
             pos = m.end()
+        # [CRASH PATH] для C-like: деление на выражение, которое может быть 0.
+        # ИСКЛЮЧАЕМ: (а) локальные переменные — они не входные данные;
+        # (б) float-арифметику — деление на 0.0 даёт inf, а не панику.
+        # (НАЙДЕНО на std Zig `math/acos.zig`: `const q: f64 = 1.0 + z*qS1;
+        #  p / q` давало 57 ЛОЖНЫХ [CRASH PATH].)
+        locals_: set[str] = set()
+        float_names: set[str] = set()
+        for lm in _RE_CLIKE_LOCAL.finditer(body):
+            nm_, ty_ = lm.group(1), (lm.group(2) or "")
+            locals_.add(nm_)
+            if ty_.lower().startswith("f") or "float" in ty_.lower():
+                float_names.add(nm_)
+        if float_names or re.search(r"\b[0-9]+\.[0-9]+", body):
+            float_names |= {m2.group(1) for m2 in _RE_CLIKE_LOCAL.finditer(body)}
+        for dm in _RE_CLIKE_DIV.finditer(body):
+            if dm.group(1) is not None:
+                den = dm.group(2)
+            elif dm.group(3) is not None:
+                den = dm.group(4)
+            else:
+                den = dm.group(6)
+            try:
+                d = expr_smt(ast.parse(clike_to_python(den), mode="eval").body, {})
+            except (Unsupported, NoReturn, SyntaxError, Exception):
+                continue
+            if d.strip().isdigit():
+                continue  # константный делитель — не 0
+            if d.strip() in locals_ or d.strip() in float_names:
+                continue  # локальная переменная / float-арифметика — не параметр
+            try:
+                sat_dz = _smt_sat(kernc, params, path_conds + [f"(= {d} 0)"])
+            except Exception:  # noqa: BLE001
+                continue
+            if sat_dz is True:
+                found.append(f"[CRASH PATH] {name}: возможно деление на ноль: {d} == 0")
         if proven:
             checked += 1
     return checked, total, found
@@ -2913,6 +2967,123 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     for x in all_findings[:60]:
         print("  " + x)
     return 0
+
+
+def _audit_fetch(target: str) -> tuple[Path, Path | None]:
+    """--audit-repo: локальный путь или GitHub (owner/repo, URL).
+
+    Возвращает (каталог_для_скана, временный_каталог_или_None).
+    Для URL/`owner/repo` — `git clone --depth 1` в /dev/shm (быстро, ОЗУ),
+    за собой убираем в finally. Ничего в чужом проекте не меняется.
+    """
+    p = Path(target).expanduser()
+    if p.exists():
+        return p, None
+    url = target
+    if re.fullmatch(r"[\w.-]+/[\w.-]+", target):
+        url = "https://github.com/" + target + ".git"
+    tmp = Path(tempfile.mkdtemp(prefix="kern_audit_", dir=_shm_dir()))
+    r = subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, str(tmp / "repo")],
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise RuntimeError(f"git clone не удался: {(r.stderr or '')[:200]}")
+    return tmp / "repo", tmp
+
+
+def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
+    """УНИВЕРСАЛЬНЫЙ АУДИТ ЛЮБОГО ПРОЕКТА (`--audit-repo <path|url>`).
+
+    Без аннотаций в чужом коде: обходит все поддерживаемые файлы, гоняет
+    `--xray` (Python AST + C-like разбор без исполнения), считает статистику
+    по языкам, топ-5 по Маккейбу и печатает паспорт. При `--html` пишет
+    автономный HTML-отчёт (0 CDN).
+    """
+    try:
+        root, tmp = _audit_fetch(target)
+    except Exception as e:  # noqa: BLE001
+        print(f"[!] {e}")
+        return 2
+    try:
+        files: list[Path] = []
+        if root.is_file():
+            files = [root]
+        else:
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
+                for f in sorted(filenames):
+                    if Path(f).suffix in _XRAY_EXTS:
+                        files.append(Path(dirpath) / f)
+        stats: dict[str, list[int]] = {}
+        findings: list[str] = []
+        worst: list[tuple[int, str, str]] = []
+        for f in files:
+            ext = f.suffix
+            lang = {'.py': 'Python', '.zig': 'Zig', '.c': 'C', '.h': 'C', '.rs': 'Rust',
+                    '.ts': 'TypeScript', '.js': 'JavaScript', '.go': 'Go'}.get(ext, ext)
+            st = stats.setdefault(lang, [0, 0, 0])  # файлы, проверено, пропущено
+            st[0] += 1
+            try:
+                if ext == ".py":
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        cmd_xray(str(f), kernc)
+                    out = buf.getvalue()
+                    mm = re.search(r"checked (\d+) / (\d+) functions", out)
+                    if mm:
+                        ck, tot = int(mm.group(1)), int(mm.group(2))
+                        st[1] += ck; st[2] += tot - ck
+                    for ln in out.splitlines():
+                        if ln.strip().startswith(("[DEAD BRANCH]", "[REDUNDANT GUARD]",
+                                                   "[CRASH PATH]", "[BOUNDS PATH]", "[SMELL]")):
+                            findings.append(f"{f.relative_to(root)}: {ln.strip()}")
+                    for ln in out.splitlines():
+                        m2 = re.search(r"\[FN\] (\w+): CC=(\d+)", ln)
+                        if m2:
+                            worst.append((int(m2.group(2)), str(f.relative_to(root)), m2.group(1)))
+                else:
+                    ck, tot, fd = _xray_clike_file(f, kernc)
+                    st[1] += ck; st[2] += max(0, tot - ck)
+                    for x in fd:
+                        findings.append(f"{f.relative_to(root)}: {x}")
+            except Exception:  # noqa: BLE001 — честно пропускаем нечитаемое
+                st[2] += 1
+        print("=" * 74)
+        print(f"[AUDIT PASSPORT] {target}")
+        print(f"  файлов: {len(files)} | находок: {len(findings)}")
+        for lang in sorted(stats):
+            fl, ck, sk = stats[lang]
+            print(f"  {lang:<12} файлов {fl:>3} | проверено {ck:>4} | пропущено {sk:>4}")
+        if worst:
+            print("  ТОП-5 по Маккейбу:")
+            for cc, rel, nm in sorted(worst, reverse=True)[:5]:
+                print(f"    CC={cc:<3} {rel}: {nm}")
+        for x in findings[:40]:
+            print("  " + x)
+        if html_out:
+            esc = (str(target).replace("&", "&amp;").replace("<", "&lt;"))
+            rows = "".join(f"<li>{h}</li>" for h in findings[:200]) or "<li>—</li>"
+            lang_rows = "".join(
+                f"<tr><td>{k}</td><td>{v[0]}</td><td>{v[1]}</td><td>{v[2]}</td></tr>"
+                for k, v in sorted(stats.items()))
+            Path(html_out).write_text(
+                "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+                f"<title>KERN audit: {esc}</title><style>body{{background:#0d1117;color:#c9d1d9;"
+                "font:15px system-ui;max-width:1000px;margin:2rem auto;padding:0 1rem}"
+                "h1{color:#3fb950}table{border-collapse:collapse}td,th{border:1px solid #30363d;"
+                "padding:4px 10px}li{margin:2px 0}</style></head><body>"
+                f"<h1>KERN audit passport</h1><p><code>{esc}</code></p>"
+                f"<p>files: {len(files)} · findings: {len(findings)}</p>"
+                "<h2>By language</h2><table><tr><th>language</th><th>files</th>"
+                f"<th>checked</th><th>skipped</th></tr>{lang_rows}</table>"
+                f"<h2>Findings</h2><ul>{rows}</ul>"
+                "<p>Model is ours: reproduce any counterexample against the project's own build.</p>"
+                "</body></html>", encoding="utf-8")
+            print(f"[OK] HTML-паспорт: {html_out}")
+        return 0
+    finally:
+        if tmp is not None:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 def cmd_xray(path: str, kernc, show_all: bool = False) -> int:

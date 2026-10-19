@@ -250,6 +250,110 @@ theory (needs <code>@kern:bitvec32</code> / QF_BV). <code>SKIP</code> rows are k
 a verifier that never refuses is not verifying.</p>
 </div>
 
+<h2>Scan any code or GitHub file — live in your browser</h2>
+<div class="panel">
+<p>Paste a function (Python, Zig, C, Rust, Go, TS/JS) or a GitHub file URL. The page extracts
+<code>if / else if</code> branches on one variable, computes McCabe <code>CC</code>, and asks the
+<b>real KERN core compiled to WebAssembly</b> (<code>kernc.wasm</code>, Fourier–Motzkin LIA)
+whether two branches can be simultaneously true. Everything runs locally — no server calls.</p>
+<p><input id="gh-url" type="text" placeholder="https://github.com/owner/repo/blob/main/file.py (paste & press Load)" style="width:70%;padding:8px;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px">
+<button class="btn" id="gh-load" type="button">Load file</button></p>
+<textarea id="xr-code" rows="9" spellcheck="false" style="width:100%;padding:10px;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;font-family:ui-monospace,monospace;font-size:13px">if x &gt; 10:
+    return 1
+elif x &gt; 20:
+    return 2
+else:
+    return 0</textarea>
+<p><button class="btn p" id="xr-run" type="button">Run x-ray &amp; WASM solver</button>
+<button class="btn" id="gh-clear" type="button">Clear</button></p>
+<pre id="xr-out" style="white-space:pre-wrap;font-size:13px;color:#c9d1d9;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;min-height:70px">—</pre>
+<p class="lbl">Honest scope: only branches on a <b>single variable</b> with integer comparisons are
+decided; anything else is reported as “outside the fragment”, never as “proven”. The WASM call is
+the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>).</p>
+</div>
+
+<script>
+(function () {
+  var wasm = null, wasmTried = false;
+  function loadWasm() {
+    if (wasmTried) return Promise.resolve(wasm);
+    wasmTried = true;
+    if (typeof WebAssembly === "undefined" || location.protocol === "file:") return Promise.resolve(null);
+    return fetch("./kernc.wasm").then(function (r) { return r.arrayBuffer(); })
+      .then(function (b) { return WebAssembly.instantiate(b, {}); })
+      .then(function (res) { wasm = res.instance.exports; return wasm; })
+      .catch(function () { return null; });
+  }
+  // "x > 10" -> [-1, 0, 11] (i.e. -x + 11 <= 0), "x <= 5" -> [1, 0, -5]
+  function toConstraints(line) {
+    var m = line.match(/([A-Za-z_]\w*)\s*(>=|<=|==|>|<)\s*(-?\d+)/);
+    if (!m) return null;
+    var v = m[1], op = m[2], n = parseInt(m[3], 10), c;
+    if (op === ">") c = [-1, 0, n + 1];
+    else if (op === ">=") c = [-1, 0, n];
+    else if (op === "<") c = [1, 0, 1 - n];
+    else if (op === "<=") c = [1, 0, -n];
+    else c = null;
+    return c ? { v: v, c: c, text: v + " " + op + " " + n } : null;
+  }
+  function run() {
+    var code = document.getElementById("xr-code").value || "";
+    var lines = code.split(/\r?\n/), conds = [], cc = 1;
+    lines.forEach(function (ln) {
+      if (/\b(if|elif|else\s+if|while)\b/.test(ln)) {
+        cc += 1;
+        var m = ln.match(/(?:if|elif|else\s+if|while)\s*\(?\s*([^){]+)/);
+        if (m) { var c = toConstraints(m[1]); if (c) conds.push(c); }
+      }
+    });
+    var out = ["McCabe CC = " + cc + " (branches + 1)", ""];
+    if (conds.length < 2) {
+      out.push("[!] need at least two integer comparisons on one variable — found " + conds.length);
+      document.getElementById("xr-out").textContent = out.join("\n");
+      return;
+    }
+    loadWasm().then(function (w) {
+      for (var i = 0; i < conds.length; i++) {
+        for (var j = i + 1; j < conds.length; j++) {
+          if (conds[i].v !== conds[j].v) continue;   // different variables: outside fragment
+          var a = conds[i].c, b = conds[j].c;
+          var verdict;
+          if (!w || !w.kern_wasm_lia_unsat2) verdict = "UNKNOWN (WASM not loaded)";
+          else verdict = w.kern_wasm_lia_unsat2(a[0], a[1], a[2], b[0], b[1], b[2]) === 1
+            ? "DEAD BRANCH — PROVEN UNSAT by WASM kernel (B4: F, e=0)"
+            : "reachable (SAT — B4: T, e=1)";
+          out.push("[" + conds[i].text + "]  AND  [" + conds[j].text + "]  ->  " + verdict);
+        }
+      }
+      out.push("");
+      out.push("Legend: F (refuted) = the two guards can never be true together; T = a point exists.");
+      out.push("Note: this widget checks PAIRS of guards; the CLI (--xray / --audit-repo) also "
+        + "narrows the path through elif-chains, where a branch is dead if (previous guards false) AND "
+        + "(this guard) is UNSAT.");
+      document.getElementById("xr-out").textContent = out.join("\n");
+    });
+  }
+  document.getElementById("xr-run").addEventListener("click", run);
+  document.getElementById("gh-clear").addEventListener("click", function () {
+    document.getElementById("xr-code").value = "";
+    document.getElementById("xr-out").textContent = "—";
+  });
+  document.getElementById("gh-load").addEventListener("click", function () {
+    var u = (document.getElementById("gh-url").value || "").trim();
+    var out = document.getElementById("xr-out");
+    if (!u) { out.textContent = "paste a URL first"; return; }
+    // github.com/owner/repo/blob/ref/path -> raw.githubusercontent.com/owner/repo/ref/path
+    u = u.replace("https://github.com/", "https://raw.githubusercontent.com/").replace("/blob/", "/");
+    out.textContent = "loading " + u + " …";
+    fetch(u).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+      .then(function (t) { document.getElementById("xr-code").value = t.slice(0, 20000);
+                           out.textContent = "loaded " + t.length + " bytes — press Run x-ray"; })
+      .catch(function (e) { out.textContent = "load failed: " + e.message +
+        " (CORS blocks some hosts; paste the code manually instead)"; });
+  });
+})();
+</script>
+
 <h2>Four traps an AI agent falls into — and how KERN refuses them</h2>
 <div class="panel">
 <ul>

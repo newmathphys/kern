@@ -1955,6 +1955,17 @@ def case_rlvr_oracle_check():
     return "make rlvr-oracle-check"
 
 
+def case_audit_repo_check():
+    """УНИВЕРСАЛЬНЫЙ АУДИТОР. ЛОМАЕМ: блок «ТОП-5 по Маккейбу» не печатается ->
+    приёмка (grep этого блока) обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        "        if worst:\n            print(\"  ТОП-5 по Маккейбу:\")",
+        "        if False:\n            print(\"  ТОП-5 по Маккейбу:\")",
+    )
+    return "make audit-repo-check"
+
+
 def case_bug_hunt_check():
     """ПУНКТ 39. ЛОМАЕМ: `scan()` всегда возвращает пусто -> КОНТРОЛЬ
     (известные находки) перестаёт проходить -> цель краснеет."""
@@ -2430,6 +2441,7 @@ CASES = [
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),
+    ("audit-repo-check", "AUDIT-REPO: паспорт + HTML",            case_audit_repo_check),
     ("bug-hunt-check", "TROPHIES: трофеи 8/8",                   case_bug_hunt_check),
     ("html-canvas-check", "CANVAS: холст автономен",                case_html_canvas_check),
     ("fuzz-corpus-check", "FUZZ: 0 паник, детерминизм",          case_fuzz_corpus_check),
