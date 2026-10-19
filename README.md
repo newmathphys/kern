@@ -4,7 +4,7 @@
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
 [![Core tests](https://img.shields.io/badge/core_tests-400%2F400-brightgreen)](src/)
-[![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-38%2F38-brightgreen)](src/next/)
+[![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-53%2F53-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_113_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-79%2F79-blueviolet)](tools/canfail.py)
@@ -457,7 +457,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **100.0 %** (40 / 40 killed) over **18 files / 1152 sites**. **Canonical stratified gate** (`make mutate`, 18 files, pool of 1152 sites, seed=7): `40 / 40 (100.0%)`. **Full sweep, no sampling** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
+| Mutation score (Zig-native mutator) | **100.0 %** (1225 / 1225 killed) over **18 files / 1152 sites**. **Canonical stratified gate** (`make mutate`, 18 files, pool of 1152 sites, seed=7): `40 / 40 (100.0%)`. **Full sweep, no sampling** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
 | Can-fail harness | **114 / 114 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 108 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
@@ -571,7 +571,7 @@ zig build
 
 # 3. Core test suites
 zig build test          # 308 core tests
-zig build test-next     # 38 KERN-Next tests
+zig build test-next     # 53 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics
 make run-example

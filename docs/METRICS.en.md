@@ -1490,3 +1490,25 @@ after an interrupted run **29** `tools/*_check.sh` scripts were left as `100644`
 
 **Baselines re-checked:** `proof-tamper` 40 attacks / 0 accepted · `abs.c` `trusted: 0 |
 holes: 0` · Lean 4 — 8 files, 0 errors, 0 `sorry`.
+
+### 33. Full population mutation sweep — 1225/1225 = 100.0 %
+
+```
+MUTATION SCORE (raw):       100.0%  (1225/1225 killed)
+EFFECTIVE SCORE:            100.0%  (1225/1225 killed)
+REAL_SECONDS=1383  (23 min, --jobs 6, all 20 files, NO sampling)
+```
+
+Closes the **last technical debt**: the canonical gate sampled 40 of 1225 sites (3.3 %)
+and `--full-file` covered 16 modules (244 sites). Now the **whole population** is checked
+and **zero** mutants survive.
+
+Speed-ups used: `/dev/shm` slots with a warm `.zig-cache`, two-stage fail-fast
+(`zig test --test-filter <module>` = 2 s, full suite = 10 s only if the mutant survived),
+`--jobs 6`, and `KERN_MUTATE_FAST=1` (fewer stress iterations, no tests disabled).
+
+**Defect found by the run itself:** at 252/1225 `/dev/shm` was 62 % full (slots grew to
+1.4–1.7 GB each); a further `ENOSPC` would have been counted as `KILLED_COMPILE` — a
+**false** kill. Fixed by `_trim_slot_cache()` (every 25 mutants, drop the whole cache above
+800 MB; never `.zig-cache/o` alone — generated `sqlite3_bridge.zig` lives there).
+**MEASURED: 41 trims, `ENOSPC` = 0.**
