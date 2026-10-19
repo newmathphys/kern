@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -65,6 +66,8 @@ TARGETS = [
     # --- Эшелон 8: WASM-мост (5 экспортов; тесты через test_root,
     #     иначе мутации измеряли бы фикцию — Дефект #131) ---
     "src/wasm_api.zig",
+    # --- DST: детерминированная симуляция сбоев (тесты в test-next) ---
+    "src/next/dst_sim.zig",
 ]
 
 MUTATIONS = [
@@ -479,7 +482,29 @@ def run_one(work, site):
     return status
 
 
+
+def _refuse_dirty_src():
+    """ДЕФЕКТ #156: не стартовать поверх ГРЯЗНОГО `src/`.
+
+    Патчащий дерево прогон поверх чужих незакоммиченных правок рискует
+    откатить их своим снимком (класс #71/#116) и, как показал инцидент
+    f01e8fc, оставить диверсию в коммите.
+    """
+    if os.environ.get("KERN_ALLOW_DIRTY_SRC") == "1":
+        return
+    try:
+        r = subprocess.run(["git", "diff", "--quiet", "--", "src/"], cwd=str(Path(__file__).resolve().parent.parent))
+    except (OSError, subprocess.SubprocessError):
+        return
+    if r.returncode != 0:
+        print("[LOCKED] `src/` содержит незакоммиченные правки — патчащий прогон "
+              "откатит их своим снимком (#71/#116/#156). "
+              "Закоммитьте или задайте KERN_ALLOW_DIRTY_SRC=1.", file=sys.stderr)
+        sys.exit(2)
+
+
 def main():
+    _refuse_dirty_src()
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
     ap.add_argument("--max", type=int, default=40)

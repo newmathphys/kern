@@ -23,6 +23,7 @@
 """
 import argparse
 import os
+import signal
 import shutil
 import subprocess
 import sys
@@ -154,6 +155,37 @@ def acquire_run_lock():
     return f
 
 
+
+# =========================================================================
+#  ДЕФЕКТ #156: ДИВЕРСИЯ ПРИ ВНЕШНЕМ SIGTERM.
+# =========================================================================
+# ИЗМЕРЕНО (реальный инцидент f01e8fc): прогон, убитый таймаутом оболочки
+# (SIGTERM), НЕ выполнил `finally` у `Fault.__exit__`, и патч `.little` ->
+# `.big` из кейса `opt-diff-check` остался в дереве, а затем попал в коммит.
+# `try/finally` в Python НЕ перехватывает SIGTERM (только KeyboardInterrupt).
+# Теперь перед выходом по сигналу откатываем ТЕКУЩИЙ патч из снимка.
+_ACTIVE_BACKUP: dict = {}
+
+
+def _emergency_restore(signum, _frame):
+    for path, data in list(_ACTIVE_BACKUP.items()):
+        try:
+            tmp = path.with_suffix(path.suffix + ".kern_restore")
+            tmp.write_bytes(data)
+            os.replace(tmp, path)
+            print(f"[SIGTERM] восстановлен {path.name} из снимка", file=sys.stderr)
+        except OSError as e:
+            print(f"[SIGTERM] НЕ удалось восстановить {path}: {e}", file=sys.stderr)
+    sys.exit(130)
+
+
+for _sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    try:
+        signal.signal(_sig, _emergency_restore)
+    except (ValueError, OSError):
+        pass
+
+
 class Fault:
     """Контекстный менеджер: ломает файл(ы) и ГАРАНТИРОВАННО откатывает.
 
@@ -185,6 +217,7 @@ class Fault:
         for f in self.files:
             if f.exists():
                 self.backup[f] = f.read_bytes()
+                _ACTIVE_BACKUP[f] = self.backup[f]  # для SIGTERM-откатa (#156)
         return self
 
     def __exit__(self, *exc):
@@ -2514,7 +2547,29 @@ def check_anchors() -> int:
     return 0
 
 
+
+def _refuse_dirty_src():
+    """ДЕФЕКТ #156: не стартовать поверх ГРЯЗНОГО `src/`.
+
+    Патчащий дерево прогон поверх чужих незакоммиченных правок рискует
+    откатить их своим снимком (класс #71/#116) и, как показал инцидент
+    f01e8fc, оставить диверсию в коммите.
+    """
+    if os.environ.get("KERN_ALLOW_DIRTY_SRC") == "1":
+        return
+    try:
+        r = subprocess.run(["git", "diff", "--quiet", "--", "src/"], cwd=str(ROOT))
+    except (OSError, subprocess.SubprocessError):
+        return
+    if r.returncode != 0:
+        print("[LOCKED] `src/` содержит незакоммиченные правки — патчащий прогон "
+              "откатит их своим снимком (#71/#116/#156). "
+              "Закоммитьте или задайте KERN_ALLOW_DIRTY_SRC=1.", file=sys.stderr)
+        sys.exit(2)
+
+
 def main():
+    _refuse_dirty_src()
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
     ap.add_argument("--list", action="store_true")
