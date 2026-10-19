@@ -1428,3 +1428,20 @@ After the fixes both gates report **1 non-vacuous, 0 vacuous**.
 ### 29.4 Result: all 40 plan items closed
 
 8 echelons, 40 items, zero tails.
+
+---
+
+## §30. BLAKE3 SIMD-8 and `align(32)`: measured, caveat removed
+
+Bench: `src/bench_simd8.zig` (`make bench-simd8`), `ReleaseFast`, 64 MB,
+4 KiB objects, 8 lanes of `@Vector(8,u32)`, warm-up excluded.
+
+| Config | Runs | Median |
+|:--|:--|--:|
+| with `align(32)` | 2.40 / 2.48 / 2.42 GB/s | **~2.42 GB/s** |
+| without `align(32)` | 2.46 / 2.20 / 2.41 GB/s | **~2.41 GB/s** |
+
+Honest conclusion: on this pattern `align(32)` gives **no measurable gain**
+(difference within noise). The change is harmless, but it must not be sold as
+speed-up. The "~90 GB/s" figure in README is RAW addressing (no hashing) —
+a different operation, not a contradiction.
