@@ -226,6 +226,10 @@ FAULTABLE = [
     "tools/loop_check.sh",
     "tools/state_inv_check.sh",
     "tools/presets_check.sh",
+    "tools/pricing_matrix_check.sh",
+    "tools/sql_policy_check.sh",
+    "tools/ffi_bridge_check.sh",
+    "tools/double_spend_check.sh",
     "tools/arbitrage_check.sh",
     "tools/polyglot7_check.sh",
     "tools/float_nan_check.sh",
@@ -1756,7 +1760,52 @@ def case_polyglot7_check():
     return "make polyglot-7-check"
 
 
+def case_double_spend_check():
+    """ПУНКТ 28. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в `[INFO]` ->
+    гонка двойного списания перестаёт быть видимой -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        "                    print(f\"  [FAIL] {fn.name}: {kind} REFUTED — {first_fail}\")",
+        "                    print(f\"  [INFO] {fn.name}: {kind} REFUTED — {first_fail}\")",
+    )
+    return "make double-spend-check"
+
+
+def case_ffi_bridge_check():
+    """ПУНКТ 29. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> усечение в i32/u32
+    перестаёт ловиться -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '    if \"\u041a\u041e\u041d\u0422\u0420\u041f\u0420\u0418\u041c\u0415\u0420\" in out:',
+        '    if False and \"\u041a\u041e\u041d\u0422\u0420\u041f\u0420\u0418\u041c\u0415\u0420\" in out:',
+    )
+    return "make ffi-bridge-check"
+
+
+def case_pricing_matrix_check():
+    """ПУНКТ 31. ЛОМАЕМ: сообщение PRICING GAP превращаем в `[INFO]` -> дыра в
+    тарифах перестаёт быть видимой -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '                print(f\"  [FAIL] {fn.name}: PRICING GAP (unhandled input, \u043f\u0443\u0442\u044c {i + 1}) \u2014 {ce}\")',
+        '                print(f\"  [INFO] {fn.name}: PRICING GAP (unhandled input, \u043f\u0443\u0442\u044c {i + 1}) \u2014 {ce}\")',
+    )
+    return "make pricing-matrix-check"
+
+
+def case_sql_policy_check():
+    """ПУНКТ 30. ЛОМАЕМ: сообщение RLS BYPASS превращаем в `[INFO]` -> обход
+    изоляции тенантов перестаёт быть видимым -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '                print(f\"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND (\u043f\u0443\u0442\u044c {i + 1}) \u2014 {ce}\")',
+        '                print(f\"  [INFO] {fn.name}: RLS POLICY BYPASS FOUND (\u043f\u0443\u0442\u044c {i + 1}) \u2014 {ce}\")',
+    )
+    return "make sql-policy-check"
+
+
 def case_presets_check():
+
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
     `[INFO]` -> нарушение пресета перестаёт быть видимым -> цель обязана
     покраснеть (иначе `make presets-check` вакуумна)."""
@@ -2054,6 +2103,10 @@ CASES = [
     ("loop-check",      "LOOPS: инвариант и остановка циклов",   case_loop_check),
     ("polyglot-7-check", "ПОЛИГЛОТ: 7 языков (.ts/.js/.go) + Sorbet-типы", case_polyglot7_check),
     ("presets-check",  "ПРЕСЕТЫ: нарушение однословного пресета ловится", case_presets_check),
+    ("double-spend-check", "ГОНКА: двойное списание поймано", case_double_spend_check),
+    ("ffi-bridge-check", "FFI: усечение i32/u32 поймано",   case_ffi_bridge_check),
+    ("sql-policy-check", "RLS: обход изоляции тенантов пойман",  case_sql_policy_check),
+    ("pricing-matrix-check", "ТАРИФЫ: дыра/конфликт пойманы",   case_pricing_matrix_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

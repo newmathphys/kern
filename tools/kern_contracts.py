@@ -1242,6 +1242,10 @@ def main() -> int:
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--verify-sql", default=None, metavar="PATH",
+                    help="ПУНКТ 30: изоляция тенантов (RLS-предикаты доступа)")
+    ap.add_argument("--verify-pricing", default=None, metavar="PATH",
+                    help="ПУНКТ 31: полнота и непротиворечивость тарифной матрицы")
     ap.add_argument("--presets", default=None, metavar="PATH",
                     help="ПУНКТ 26: однословные пресеты (non_negative, percentage, "
                          "bounded, idempotent, monotonic, no_arbitrage)")
@@ -1304,6 +1308,10 @@ def main() -> int:
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
                             args.github_annotations, args.json)
+    if getattr(args, "verify_sql", None):
+        return cmd_verify_sql(args.verify_sql, args.kernc)
+    if getattr(args, "verify_pricing", None):
+        return cmd_verify_pricing(args.verify_pricing, args.kernc)
     if getattr(args, "presets", None):
         return cmd_presets(args.presets, args.kernc, spec_gaps=args.spec_gaps)
     if getattr(args, "state_inv", None):
@@ -3168,7 +3176,8 @@ def cmd_simplify(path: str, out_file: str | None, kernc) -> int:
 
 PRESET_RE = re.compile(
     r"^\s*(?:#|//|///)\s*@kern:(non_negative|percentage|idempotent|monotonic"
-    r"|no_arbitrage|conservation|bounded\s*\(([^)]*)\))\s*$")
+    r"|no_arbitrage|conservation|no_double_spend|calls_i32|calls_u32"
+    r"|bounded\s*\(([^)]*)\))\s*$")
 
 
 def _presets_of(lines, lineno):
@@ -3252,6 +3261,21 @@ def _preset_obligation(kind, args, params, body, req_smt):
     if kind == "percentage":
         return (kind, decls, pre + [f"(= result {body})",
                                     "(not (and (>= result 0) (<= result 100)))"])
+    if kind == "no_double_spend":
+        # ПУНКТ 28. Модель гонки: обе транзакции проверяют СНИМОК баланса, а
+        # списание идёт от текущего -> итог может уйти в минус. Проверяем
+        # ГЛАВНОЕ следствие: функция не имеет права вернуть отрицательный баланс
+        # ни при каких неотрицательных входах (`balance, a1, a2 >= 0`).
+        pre_all = [f"(>= {p} 0)" for p in params]
+        return (kind, decls, pre + pre_all + [f"(= result {body})",
+                                              "(not (>= result 0))"])
+    if kind in ("calls_i32", "calls_u32"):
+        # ПУНКТ 29. FFI-МОСТ: значение уходит в C-ABI (`libkern.so`/Zig/Rust),
+        # где тип имеет КОНЕЧНУЮ разрядность. Выход за диапазон = усечение
+        # (Python/JS это не видят вовсе).
+        lo, hi = (-2**31, 2**31 - 1) if kind == "calls_i32" else (0, 2**32 - 1)
+        return (kind, decls, pre + [f"(= result {body})",
+                                    f"(or (< result {lo}) (> result {hi}))"])
     if kind == "bounded":
         parts = [x.strip() for x in (args or "").split(",")]
         if len(parts) != 2 or not all(parts):
@@ -3373,6 +3397,36 @@ def cmd_presets(path: str, kernc, spec_gaps: bool = False) -> int:
                     print(f"  [PASS] {fn.name}: idempotent PROVEN по всем "
                           f"{n_pass} путям (trusted: 0 | holes: 0)")
                 continue
+            # ПУТЕВАЯ РАЗВЁРТКА для диапазонных пресетов (Пункты 26, 28, 29):
+            # значение ветви — простое выражение, поэтому обязательство
+            # `P_p ∧ ¬pred(V_p)` перепроверяется на `trusted: 0`.
+            p_obs = _range_obligations(kind, args, params, fn, req_smt)
+            if p_obs is not None:
+                n_pass = n_fail = n_unk = 0
+                first_fail = ""
+                for label, decls, asserts in p_obs:
+                    v, ce, tr = _prove_checked(kernc, decls, asserts)
+                    if v == "sat":
+                        n_fail += 1
+                        first_fail = first_fail or f"{label} — {ce}"
+                    elif v == "unsat" and tr == 0:
+                        n_pass += 1
+                    else:
+                        n_unk += 1
+                if n_fail:
+                    fails += 1
+                    rows.append("[FAIL]")
+                    print(f"  [FAIL] {fn.name}: {kind} REFUTED — {first_fail}")
+                elif n_unk:
+                    unknowns += 1
+                    rows.append("[UNKNOWN]")
+                    print(f"  [UNKNOWN] {fn.name}: {kind} — {n_unk} путей "
+                          f"НЕ перепроверены чекером (НЕ засчитано)")
+                else:
+                    rows.append("[PASS]")
+                    print(f"  [PASS] {fn.name}: {kind} PROVEN по всем "
+                          f"{n_pass} путям (trusted: 0 | holes: 0)")
+                continue
             built = _preset_obligation(kind, args, params, body, req_smt)
             if built is None:
                 print(f"  [SKIP] {fn.name}: `{kind}` неприменим "
@@ -3449,6 +3503,59 @@ def _paths_of(fn, syms=None):
     return out if ok else None
 
 
+def _range_pred(kind, args, params, v: str):
+    """Предикат, который ОБЯЗАН выполняться для значения `v` (или None).
+
+    ПУТЕВАЯ формулировка: значение ветви — простое выражение (без вложенного
+    `ite`), поэтому обязательство `P_p ∧ ¬pred(V_p)` решается коротко и
+    перепроверяется чекером с `trusted: 0` (ИЗМЕРЕНО: на `no_double_spend` и
+    `calls_u32` цельнотельное обязательство давало 2-3 доверенных шага).
+    """
+    if kind == "non_negative" or kind == "no_double_spend":
+        return f"(>= {v} 0)"
+    if kind == "percentage":
+        return f"(and (>= {v} 0) (<= {v} 100))"
+    if kind == "bounded":
+        parts = [x.strip() for x in (args or "").split(",")]
+        if len(parts) != 2 or not all(parts):
+            return None
+        try:
+            lo_smt = expr_smt(ast.parse(parts[0], mode="eval").body, {})
+            hi_smt = expr_smt(ast.parse(parts[1], mode="eval").body, {})
+        except Exception:
+            return None
+        return f"(and (>= {v} {lo_smt}) (<= {v} {hi_smt}))"
+    if kind == "calls_i32":
+        return f"(and (>= {v} -2147483648) (<= {v} 2147483647))"
+    if kind == "calls_u32":
+        return f"(and (>= {v} 0) (<= {v} 4294967295))"
+    return None
+
+
+def _range_obligations(kind, args, params, fn, req_smt):
+    """Путевые обязательства для диапазонных пресетов: [(label, decls, asserts)].
+
+    ЗВУЧНОСТЬ: пути исчерпывают домен, поэтому проверка КАЖДОГО пути покрывает
+    все входы. SAT любого обязательства = НАЙДЕН контрпример (баг).
+    """
+    pred_of = _range_pred
+    if pred_of(kind, args, params, "0") is None:
+        return None
+    paths = _paths_of(fn)
+    if not paths:
+        return None
+    pre = [req_smt] if req_smt else []
+    extra = [f"(>= {p} 0)" for p in params] if kind == "no_double_spend" else []
+    obs = []
+    for i, (pp, vp) in enumerate(paths):
+        pred = pred_of(kind, args, params, vp)
+        if pred is None:
+            return None
+        obs.append((f"{kind}[путь {i + 1}]", list(dict.fromkeys(params)),
+                    pre + extra + list(pp) + [f"(not {pred})"]))
+    return obs
+
+
 def _idempotent_obligations(fn, params, syms=None):
     """ПУТЕВАЯ идемпотентность: для всех пар путей (p, q).
 
@@ -3475,6 +3582,211 @@ def _idempotent_obligations(fn, params, syms=None):
             asserts = list(pp) + [pq_s, f"(not (= {vq_s} {vp}))"]
             obs.append((f"idempotent[путь {i + 1}->{j + 1}]", [p0], asserts))
     return obs
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 5, ПУНКТ 30: ВЕРИФИКАТОР RLS-ПОЛИТИК (`--verify-sql`).
+#
+# ЗАЧЕМ. Классический баг приоритета операторов в SQL: `WHERE tenant = req OR
+# public = 1 AND deleted = 0` — из-за того, что `AND` связывает сильнее, запрос
+# отдаёт ЧУЖУЮ публичную запись и/или УДАЛЁННУЮ строку своего тенанта. Проверяем
+# не текст запроса, а ПРЕДИКАТ-функцию доступа: доступ разрешён (`result == 1`)
+# ТОЛЬКО при `(row_tenant == req_tenant ∨ is_public == 1) ∧ is_deleted == 0`.
+# -----------------------------------------------------------------------------
+
+RLS_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:rls\s*\(([^)]*)\)\s*$")
+
+
+def _directive_above(lines, lineno, rx):
+    """Аргументы директивы из блока комментариев НАД функцией (или None)."""
+    i = lineno - 2
+    while i >= 0:
+        s = lines[i].strip()
+        if not s or not s.startswith(("#", "//")):
+            break
+        m = rx.match(s)
+        if m:
+            return m.group(1)
+        i -= 1
+    return None
+
+
+def cmd_verify_sql(path: str, kernc) -> int:
+    """ПУНКТ 30: `--verify-sql <file>` (цель `make sql-policy-check`)."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
+    checked = fails = unknowns = skipped = 0
+    for fn in fns:
+        cols = _directive_above(lines, fn.lineno, RLS_RE)
+        if cols is None:
+            skipped += 1
+            continue
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        names = [c.strip() for c in cols.split(",") if c.strip()]
+        if len(names) != 4 or any(n not in params for n in names):
+            print(f"  [SKIP] {fn.name}: `@kern:rls` требует 4 ИМЕНИ параметров-столбцов")
+            skipped += 1
+            continue
+        row_t, req_t, pub, del_ = names
+        paths = _paths_of(fn)
+        if not paths:
+            print(f"  [SKIP] {fn.name}: тело вне подмножества")
+            skipped += 1
+            continue
+        checked += 1
+        # МОДЕЛЬ КОЛОНОК: булевы флаги SQL принимают только {0,1} — без этого
+        # проверка ловила бы `is_deleted = -1` как «обход» (ИЗМЕРЕНО).
+        flags = [f"(or (= {c} 0) (= {c} 1))" for c in (pub, del_)]
+        bad = unk = 0
+        for i, (pp, vp) in enumerate(paths):
+            inv = (f"(and (or (= {row_t} {req_t}) (= {pub} 1)) (= {del_} 0))")
+            v, ce, tr = _prove_checked(kernc, list(dict.fromkeys(params)),
+                                       flags + list(pp) + [f"(= {vp} 1)", f"(not {inv})"])
+            if v == "sat":
+                bad += 1
+                print(f"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND (путь {i + 1}) — {ce}")
+            elif v != "unsat" or tr != 0:
+                unk += 1
+        if bad:
+            fails += 1
+        elif unk:
+            unknowns += 1
+            print(f"  [UNKNOWN] {fn.name}: {unk} путей НЕ перепроверены чекером")
+        else:
+            print(f"  [PASS] {fn.name}: PROVEN (tenant isolation on all "
+                  f"{len(paths)} paths, trusted: 0 | holes: 0)")
+    print("-" * 74)
+    print(f"[SQL SUMMARY] checked {checked} / {len(fns)} functions, skipped {skipped} | "
+          f"FAIL {fails} | UNKNOWN {unknowns}")
+    return 1 if (fails or unknowns) else 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 5, ПУНКТ 31: ВЕРИФИКАТОР ТАРИФНЫХ МАТРИЦ (`--verify-pricing`).
+#
+# ЗАЧЕМ. Тарифная сетка — это РАЗБИЕНИЕ домена на правила `(условие -> цена)`.
+# Два формальных свойства:
+#   * ПОЛНОТА: каждому допустимому входу соответствует ЦЕНА, а не признак
+#     «не обработано» (отрицательная цена = sentinel) -> SAT = дыра в тарифах;
+#   * НЕПРОТИВОРЕЧИВОСТЬ: два правила с РАЗНЫМИ ценами не пересекаются ->
+#     SAT = конфликт правил (в Белнапе это состояние B).
+# -----------------------------------------------------------------------------
+
+PRICING_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:pricing\s*\(([^)]*)\)\s*$")
+
+
+def _raw_rules(fn):
+    """Цепочка `if cond: return value` КАК НАПИСАНО: [(cond_smt|None, value_smt)].
+
+    Именно «как написано»: для проверки НЕПРОТИВОРЕЧИВОСТИ нужны ИСХОДНЫЕ условия
+    (путевые условия уже взаимно исключающие по построению, и конфликт в них
+    исчез бы).
+    """
+    out: list = []
+    ok = True
+
+    def walk(stmts):
+        nonlocal ok
+        for st in stmts:
+            if isinstance(st, ast.If):
+                try:
+                    cond = _cond_smt(st.test, set())
+                except Exception:
+                    ok = False
+                    return
+                val = None
+                for sub in st.body:
+                    if isinstance(sub, ast.Return) and sub.value is not None:
+                        try:
+                            val = expr_smt(sub.value, {})
+                        except Exception:
+                            ok = False
+                            return
+                        break
+                if val is None:
+                    ok = False
+                    return
+                out.append((cond, val))
+                rest = stmts[stmts.index(st) + 1:]
+                if st.orelse:
+                    walk(st.orelse)
+                elif rest:
+                    walk(rest)
+                return
+            if isinstance(st, ast.Return):
+                if st.value is None:
+                    ok = False
+                    return
+                try:
+                    out.append((None, expr_smt(st.value, {})))
+                except Exception:
+                    ok = False
+                    return
+                return
+            ok = False
+            return
+
+    walk(_fn_stmts(fn))
+    return out if ok and out else None
+
+
+def cmd_verify_pricing(path: str, kernc) -> int:
+    """ПУНКТ 31: `--verify-pricing <file>` (цель `make pricing-matrix-check`)."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
+    checked = fails = unknowns = skipped = 0
+    for fn in fns:
+        dom = _directive_above(lines, fn.lineno, PRICING_RE)
+        if dom is None:
+            skipped += 1
+            continue
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        rules = _raw_rules(fn)
+        if not rules:
+            print(f"  [SKIP] {fn.name}: тело вне подмножества")
+            skipped += 1
+            continue
+        checked += 1
+        bad = unk = 0
+        # ПОЛНОТА: цена обязана быть неотрицательной (sentinel = не обработано).
+        paths = _paths_of(fn) or []
+        for i, (pp, vp) in enumerate(paths):
+            v, ce, tr = _prove_checked(kernc, list(dict.fromkeys(params)),
+                                       list(pp) + [f"(< {vp} 0)"])
+            if v == "sat":
+                bad += 1
+                print(f"  [FAIL] {fn.name}: PRICING GAP (unhandled input, путь {i + 1}) — {ce}")
+            elif v != "unsat" or tr != 0:
+                unk += 1
+        # НЕПРОТИВОРЕЧИВОСТЬ: разные цены не пересекаются.
+        conds = [(c, v) for c, v in rules if c is not None]
+        for i in range(len(conds)):
+            for j in range(i + 1, len(conds)):
+                ci, vi = conds[i]
+                cj, vj = conds[j]
+                v, ce, tr = _prove_checked(
+                    kernc, list(dict.fromkeys(params)),
+                    [ci, cj, f"(not (= {vi} {vj}))"])
+                if v == "sat":
+                    bad += 1
+                    print(f"  [FAIL] {fn.name}: PRICING CONFLICT (Belnap B): "
+                          f"rules {i + 1} and {j + 1} overlap — {ce}")
+                elif v != "unsat" or tr != 0:
+                    unk += 1
+        if bad:
+            fails += 1
+        elif unk:
+            unknowns += 1
+            print(f"  [UNKNOWN] {fn.name}: {unk} обязательств НЕ перепроверены чекером")
+        else:
+            print(f"  [PASS] {fn.name}: PROVEN COMPLETE & DISJOINT "
+                  f"(rules {len(conds)}, paths {len(paths)}, trusted: 0 | holes: 0)")
+    print("-" * 74)
+    print(f"[PRICING SUMMARY] checked {checked} / {len(fns)} functions, skipped {skipped} | "
+          f"FAIL {fails} | UNKNOWN {unknowns}")
+    return 1 if (fails or unknowns) else 0
 
 
 if __name__ == "__main__":

@@ -268,6 +268,22 @@ presets-check: build
 arbitrage-check: build
 	@bash tools/arbitrage_check.sh
 
+# ЭШЕЛОН 5, ПУНКТ 28: гонка двойного списания (устаревший снимок баланса).
+double-spend-check: build
+	@bash tools/double_spend_check.sh
+
+# ЭШЕЛОН 5, ПУНКТ 29: FFI-мост — значение не должно усекаться в i32/u32.
+ffi-bridge-check: build
+	@bash tools/ffi_bridge_check.sh
+
+# ЭШЕЛОН 5, ПУНКТ 30: RLS-политики (изоляция тенантов).
+sql-policy-check: build
+	@bash tools/sql_policy_check.sh
+
+# ЭШЕЛОН 5, ПУНКТ 31: полнота и непротиворечивость тарифной матрицы.
+pricing-matrix-check: build
+	@bash tools/pricing_matrix_check.sh
+
 # ЭШЕЛОН 3, ПУНКТ 13: рентген БЕЗ аннотаций (мёртвые ветки, избыточные
 # проверки, краш-пути, сложность Маккейба) на фикстуре examples/xray_demo.py.
 xray-check: build

@@ -360,6 +360,11 @@ fn sexpEqNum(a: Sexp, b: Sexp) bool {
     // БУЛЕВЫ формы: `(not X)` ≡ `(= X false)`, `X` ≡ `(= X true)`,
     // `(not (<= A B))` ≡ `(< B A)`.
     if (boolFormEq(a, b)) return true;
+    // КОММУТАТИВНОСТЬ `+`/`*`: ИЗМЕРЕНО на `@kern:calls_u32` (Пункт 29) —
+    // Z3 нормализует произведение по-разному в разных узлах.
+    if (commEq(a, b)) return true;
+    // ДЕ МОРГАН в обе стороны: ИЗМЕРЕНО на `@kern:bounded` (Пункт 26).
+    if (deMorganEq(a, b)) return true;
     if (a.atom) |aa| {
         if (isNegNumAtom(aa)) |digits| {
             if (isNegNumList(b)) |d2| return std.mem.eql(u8, digits, d2);
@@ -958,6 +963,12 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // (шаг `(rewrite (= $x50 true))` для `3a1+3a2 >= 3(a1+a2)`). ЗВУЧНО:
     // истинность проверяет встроенный Фурье—Моцкин (гейт `make lia-diff`).
     if (linTautEq(c, l, r)) return .verified;
+    // ТАВТОЛОГИЧНЫЙ КОНЪЮНКТ: `¬(A ∧ true) ≡ ¬A`. ИЗМЕРЕНО на `@kern:bounded`
+    // (Пункт 26): Z3 отбрасывает `(<= x x)` как тавтологию.
+    if (andTautEq(c, l, r)) return .verified;
+    // ЭКВИВАЛЕНТНОСТЬ КОНЪЮНКЦИЙ: `¬A ≡ ¬B` при `A ↔ B` (обе импликации —
+    // через Фурье—Моцкина). ИЗМЕРЕНО на `@kern:calls_u32` (Пункт 29).
+    if (andEquivEq(c, l, r)) return .verified;
     // ПОДСТАНОВКА ПРОВЕРЕННЫХ ОПРЕДЕЛЕНИЙ `intro-def`: ИЗМЕРЕНО на `musl abs.c`
     // (последний доверенный шаг) — `(= (>= (result − ite(…)) 0) (>= (result −
     // z3name!1) 0))`, где `z3name!1` уже определён верифицированным `intro-def`.
@@ -1841,6 +1852,149 @@ fn linTautEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
     var s = builtin_lia.Solver.init(c.arena);
     defer s.deinit();
     return std.meta.activeTag(builtin_lia.checkUnsat(&s, cons.items)) == .unsat;
+}
+
+/// КОММУТАТИВНОСТЬ `+` и `*`: `(* a b)` ≡ `(* b a)`, `(+ a b)` ≡ `(+ b a)`.
+/// ЗВУЧНО: сложение и умножение целых (и битовых векторов) коммутативны.
+///
+/// ИЗМЕРЕНО на `@kern:calls_u32` (Пункт 29): Z3 нормализует произведение
+/// по-разному в разных узлах (`(* x 1000000)` против `(* 1000000 x)`), из-за
+/// чего шаг `(rewrite (= $x68 $x80))` оставался ДОВЕРЕННЫМ, хотя доказывать в
+/// нём нечего. Сопоставление — по мультимножеству аргументов (маска до 32).
+fn commEq(a: Sexp, b: Sexp) bool {
+    if (a.atom != null or b.atom != null) return false;
+    if (a.items.len != b.items.len or a.items.len < 3) return false;
+    const h = a.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "+") and !std.mem.eql(u8, h, "*")) return false;
+    if (!std.mem.eql(u8, b.items[0].atom orelse "", h)) return false;
+    const n = a.items.len - 1;
+    if (n > 32) return false;
+    var used: u64 = 0;
+    for (a.items[1..]) |ai| {
+        var found = false;
+        for (b.items[1..], 0..) |bj, j| {
+            const bit = @as(u64, 1) << @intCast(j);
+            if ((used & bit) != 0) continue;
+            if (sexpEqNum(ai, bj)) {
+                used |= bit;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
+/// ДЕ МОРГАН (обе стороны): `¬(A ∧ B) ≡ (¬A ∨ ¬B)` и `¬(A ∨ B) ≡ (¬A ∧ ¬B)`.
+/// ЗВУЧНО: законы де Моргана. ИЗМЕРЕНО на `@kern:bounded` (Пункт 26): Z3
+/// заканчивает вывод шагом `(rewrite (= (not (and $x25 (<= x x))) $x36))`, где
+/// `$x36` — как раз дизъюнкция отрицаний; без этого правила шаг оставался
+/// ДОВЕРЕННЫМ.
+fn deMorganEq(a: Sexp, b: Sexp) bool {
+    return dmOneWay(a, b) or dmOneWay(b, a);
+}
+
+/// `(not (and X1..Xk))` против `(or (not X1)..(not Xk))` (и вариант с `or`/`and`).
+fn dmOneWay(neg: Sexp, disj: Sexp) bool {
+    if (neg.atom != null or disj.atom != null) return false;
+    if (neg.items.len != 2) return false;
+    if (!std.mem.eql(u8, neg.items[0].atom orelse "", "not")) return false;
+    const inner = neg.items[1];
+    if (inner.atom != null or inner.items.len < 3) return false;
+    const ih = inner.items[0].atom orelse return false;
+    const want_outer = if (std.mem.eql(u8, ih, "and")) "or" else if (std.mem.eql(u8, ih, "or")) "and" else return false;
+    if (!std.mem.eql(u8, disj.items[0].atom orelse "", want_outer)) return false;
+    if (disj.items.len != inner.items.len) return false;
+    for (inner.items[1..], disj.items[1..]) |x, y| {
+        if (!polarEq(x, y)) return false;
+    }
+    return true;
+}
+
+/// ИСТИННОСТЬ ЛИНЕЙНОГО СРАВНЕНИЯ `e`: все альтернативы ОТРИЦАНИЯ несовместны.
+/// Проверяет встроенный Фурье—Моцкин (гейт `make lia-diff`).
+fn linTaut(c: *const Ctx, e: Sexp) bool {
+    if (!isCmpExpr(e)) return false;
+    var alts = std.array_list.Managed(std.array_list.Managed(builtin_lia.Lin)).init(c.arena);
+    if (!negAlternatives(c, e, &alts)) return false;
+    if (alts.items.len == 0) return false;
+    for (alts.items) |g| {
+        if (g.items.len == 0) return false;
+        var s = builtin_lia.Solver.init(c.arena);
+        defer s.deinit();
+        if (std.meta.activeTag(builtin_lia.checkUnsat(&s, g.items)) != .unsat) return false;
+    }
+    return true;
+}
+
+/// `(not (and X1..Xk)) ≡ (not Y)`, если все `Xi`, КРОМЕ совпадающего с `Y`,
+/// — ТАВТОЛОГИИ. ЗВУЧНО: `¬(Y ∧ true ∧ …) = ¬Y`; истинность `Xi` доказывает
+/// встроенный решатель (`linTaut`), а не догадка.
+///
+/// ИЗМЕРЕНО на `@kern:bounded` (Пункт 26): Z3 завершает вывод шагом
+/// `(rewrite (= (not (and (>= x 0) (<= x x))) (not (>= x 0))))` — `(<= x x)`
+/// тавтологично, поэтому конъюнкт отброшен.
+fn andTautEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    return andTautOneWay(c, l, r) or andTautOneWay(c, r, l);
+}
+
+fn andTautOneWay(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    if (l.atom != null or l.items.len != 2) return false;
+    if (!std.mem.eql(u8, l.items[0].atom orelse "", "not")) return false;
+    const inner = l.items[1];
+    if (inner.atom != null or inner.items.len < 3) return false;
+    if (!std.mem.eql(u8, inner.items[0].atom orelse "", "and")) return false;
+    if (r.atom != null or r.items.len != 2) return false;
+    if (!std.mem.eql(u8, r.items[0].atom orelse "", "not")) return false;
+    const y = r.items[1];
+    var found = false;
+    for (inner.items[1..]) |x| {
+        if (!found and sexpEqNum(x, y)) {
+            found = true;
+            continue;
+        }
+        if (!linTaut(c, x)) return false;
+    }
+    return found;
+}
+
+/// Внутренняя конъюнкция формы `(not (and …))`.
+fn andInner(s: Sexp) ?Sexp {
+    if (s.atom != null or s.items.len != 2) return null;
+    if (!std.mem.eql(u8, s.items[0].atom orelse "", "not")) return null;
+    const inner = s.items[1];
+    if (inner.atom != null or inner.items.len < 3) return null;
+    if (!std.mem.eql(u8, inner.items[0].atom orelse "", "and")) return null;
+    return inner;
+}
+
+/// `¬A ≡ ¬B`, если конъюнкции `A` и `B` ЭКВИВАЛЕНТНЫ: обе импликации
+/// доказывает встроенный решатель (`impliesLinear`, Фурье—Моцкин). ЗВУЧНО:
+/// из `A ↔ B` следует `¬A ↔ ¬B`.
+///
+/// ИЗМЕРЕНО на `@kern:calls_u32` (Пункт 29): Z3 завершает вывод шагом
+/// `(= (not (and (>= (* x 1000000) 0) (<= (* x 1000000) 4294967295)))
+///     (not (and (>= x 0) (<= x 4294))))` — то есть `0 ≤ 10^6·x ≤ 4294967295`
+/// равносильно `0 ≤ x ≤ 4294` над целыми.
+fn andEquivEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    const a = andInner(l) orelse return false;
+    const b = andInner(r) orelse return false;
+    return impliesLinear(c, a, b) and impliesLinear(c, b, a);
+}
+
+/// Сравнение с точностью до ОДНОГО отрицания (двойное отрицание — тождество):
+/// `X` ≡ `Y`, `(not X)` ≡ `Y`, `X` ≡ `(not Y)`. ЗВУЧНО для сорта Bool.
+///
+/// ИЗМЕРЕНО на `@kern:rls` (Пункт 30): Z3 заканчивает вывод шагом
+/// `(= (and (<= is_deleted 1) (>= is_deleted 1))
+///     (not (or (not (<= is_deleted 1)) (not (>= is_deleted 1)))))` —
+/// конъюнкция против де Моргана, где дизъюнкты уже содержат `not`.
+fn polarEq(x: Sexp, y: Sexp) bool {
+    if (sexpEqNum(x, y)) return true;
+    if (asNot(x)) |zx| if (sexpEqNum(zx, y)) return true;
+    if (asNot(y)) |zy| if (sexpEqNum(x, zy)) return true;
+    return false;
 }
 
 fn evalBoolConst(s: Sexp) ?bool {
@@ -5186,6 +5340,72 @@ test "ПУНКТ 27: pushLin отбрасывает нулевые коэффи�
     defer s.deinit();
     try std.testing.expectEqual(builtin_lia.Verdict.unsat,
         builtin_lia.checkUnsat(&s, cons.items));
+}
+
+// ЭШЕЛОН 5, ПУНКТЫ 26/29/30: правила, добавленные ПО ДАМПАМ. Каждое — с
+// НЕГАТИВНЫМ двойником: правило, принимающее неверное тождество, «доказывало»
+// бы ложь.
+test "ПУНКТ 29: commEq — коммутативность +/* принимается, вычитание НЕТ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    try std.testing.expect(commEq(try parseSexp(a, "(* x 1000000)"),
+                                  try parseSexp(a, "(* 1000000 x)")));
+    try std.testing.expect(commEq(try parseSexp(a, "(+ a b)"),
+                                  try parseSexp(a, "(+ b a)")));
+    // НЕГАТИВНЫЕ: разные операнды и НЕкоммутативная операция.
+    try std.testing.expect(!commEq(try parseSexp(a, "(+ a b)"),
+                                   try parseSexp(a, "(+ b c)")));
+    try std.testing.expect(!commEq(try parseSexp(a, "(- a b)"),
+                                   try parseSexp(a, "(- b a)")));
+}
+
+test "ПУНКТ 26/30: deMorganEq — обе стороны, полярность, НЕ-эквивалент отвергнут" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    // ¬(A ∧ B) ≡ ¬A ∨ ¬B
+    try std.testing.expect(deMorganEq(try parseSexp(a, "(not (and A B))"),
+                                      try parseSexp(a, "(or (not A) (not B))")));
+    // ¬(A ∨ B) ≡ ¬A ∧ ¬B
+    try std.testing.expect(deMorganEq(try parseSexp(a, "(not (or A B))"),
+                                      try parseSexp(a, "(and (not A) (not B))")));
+    // ДВОЙНОЕ ОТРИЦАНИЕ + де Морган: (and A B) ≡ ¬(¬A ∨ ¬B).
+    try std.testing.expect(deMorganEq(try parseSexp(a, "(and A B)"),
+                                      try parseSexp(a, "(not (or (not A) (not B)))")));
+    // НЕГАТИВНЫЙ: другой дизъюнкт.
+    try std.testing.expect(!deMorganEq(try parseSexp(a, "(not (and A B))"),
+                                       try parseSexp(a, "(or (not A) (not C))")));
+}
+
+test "ПУНКТ 26: andTautEq — тавтологичный конъюнкт отбрасывается, не-тавтология НЕТ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // (not (and A TAUT)) ≡ (not A), где TAUT = (<= x x) — тавтология.
+    try std.testing.expect(andTautEq(&c,
+        try parseSexp(a, "(not (and (>= x 0) (<= x x)))"),
+        try parseSexp(a, "(not (>= x 0))")));
+    // НЕГАТИВНЫЙ: (<= x 5) тавтологией НЕ является -> отбрасывать нельзя.
+    try std.testing.expect(!andTautEq(&c,
+        try parseSexp(a, "(not (and (>= x 0) (<= x 5)))"),
+        try parseSexp(a, "(not (>= x 0))")));
+}
+
+test "ПУНКТ 29: andEquivEq — эквивалентные конъюнкции, НЕэквивалентные отвергнуты" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // `0 <= 2x <= 10` ≡ `0 <= x <= 5` над целыми.
+    try std.testing.expect(andEquivEq(&c,
+        try parseSexp(a, "(not (and (>= (* x 2) 0) (<= (* x 2) 10)))"),
+        try parseSexp(a, "(not (and (>= x 0) (<= x 5)))")));
+    // НЕГАТИВНЫЙ: `x <= 3` не эквивалентно `2x <= 10`.
+    try std.testing.expect(!andEquivEq(&c,
+        try parseSexp(a, "(not (and (>= (* x 2) 0) (<= (* x 2) 10)))"),
+        try parseSexp(a, "(not (and (>= x 0) (<= x 3)))")));
 }
 
 test "ИСПЫТАНИЕ А: 30 подделок реального вывода abs.c ОТВЕРГАЮТСЯ" {
