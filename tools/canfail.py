@@ -1802,8 +1802,8 @@ def case_sql_policy_check():
     изоляции тенантов перестаёт быть видимым -> цель обязана покраснеть."""
     patch(
         "tools/kern_contracts.py",
-        '                print(f\"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND (\u043f\u0443\u0442\u044c {i + 1}) \u2014 {ce}\")',
-        '                print(f\"  [INFO] {fn.name}: RLS POLICY BYPASS FOUND (\u043f\u0443\u0442\u044c {i + 1}) \u2014 {ce}\")',
+        '                    print(f"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND "',
+        '                    print(f"  [INFO] {fn.name}: RLS POLICY BYPASS FOUND "',
     )
     return "make sql-policy-check"
 

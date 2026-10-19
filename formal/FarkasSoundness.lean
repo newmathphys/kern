@@ -507,4 +507,20 @@ theorem pricing_rules_disjoint (a : Int) : ¬(a < 18 ∧ 18 ≤ a ∧ a < 65) :=
     из правил `age < 18` и `age ≥ 65` (цена не определена). -/
 theorem pricing_gap_exists : ∃ a : Int, ¬(a < 18) ∧ ¬(a ≥ 65) := ⟨18, by omega⟩
 
+/-- ДЕФЕКТ #145: ПОКОМПОНЕНТНАЯ проверка ИНВАРИАНТА. Инвариант — конъюнкция,
+    поэтому нарушение можно искать по компонентам: `¬(A ∧ B) ↔ ¬A ∨ ¬B`.
+    Именно это сняло 4 atom-heavy доверенных шага в `rls_safe`
+    (`[UNKNOWN]` -> `[PASS] PROVEN, trusted: 0`). ЗВУЧНО и ПОЛНО. -/
+theorem invariant_componentwise_check (A B : Prop) : ¬(A ∧ B) ↔ (¬A ∨ ¬B) := by
+  constructor
+  · intro h
+    by_cases ha : A
+    · by_cases hb : B
+      · exact absurd ⟨ha, hb⟩ h
+      · exact Or.inr hb
+    · exact Or.inl ha
+  · rintro (ha | hb) ⟨hA, hB⟩
+    · exact ha hA
+    · exact hb hB
+
 end KernFarkas

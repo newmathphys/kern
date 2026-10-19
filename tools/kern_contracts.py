@@ -3640,14 +3640,25 @@ def cmd_verify_sql(path: str, kernc) -> int:
         flags = [f"(or (= {c} 0) (= {c} 1))" for c in (pub, del_)]
         bad = unk = 0
         for i, (pp, vp) in enumerate(paths):
-            inv = (f"(and (or (= {row_t} {req_t}) (= {pub} 1)) (= {del_} 0))")
-            v, ce, tr = _prove_checked(kernc, list(dict.fromkeys(params)),
-                                       flags + list(pp) + [f"(= {vp} 1)", f"(not {inv})"])
-            if v == "sat":
-                bad += 1
-                print(f"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND (путь {i + 1}) — {ce}")
-            elif v != "unsat" or tr != 0:
-                unk += 1
+            # ПОКОМПОНЕНТНАЯ ПРОВЕРКА ИНВАРИАНТА (Дефект #145): одна составная
+            # формула `¬((A ∨ B) ∧ C)` заставляет Z3 вводить Tseitin-атомы, и
+            # чекер оставлял 4 доверенных шага (`[UNKNOWN]`). Инвариант —
+            # КОНЪЮНКЦИЯ, поэтому нарушение проверяется ПО КОМПОНЕНТАМ
+            # (по де Моргану `¬(X ∧ Y) = ¬X ∨ ¬Y`): SAT хотя бы одной компоненты
+            # нарушения эквивалентен SAT всего нарушения. ЗВУЧНО и ПОЛНО.
+            violations = [
+                f"(not (= {del_} 0))",                                   # удалённая строка
+                f"(and (not (= {row_t} {req_t})) (not (= {pub} 1)))",    # чужой непубличный
+            ]
+            for vi, viol in enumerate(violations):
+                v, ce, tr = _prove_checked(kernc, list(dict.fromkeys(params)),
+                                           flags + list(pp) + [f"(= {vp} 1)", viol])
+                if v == "sat":
+                    bad += 1
+                    print(f"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND "
+                          f"(путь {i + 1}, нарушение {vi + 1}) — {ce}")
+                elif v != "unsat" or tr != 0:
+                    unk += 1
         if bad:
             fails += 1
         elif unk:
