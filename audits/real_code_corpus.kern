@@ -97,13 +97,13 @@ claim "audit:abs_kern_abs" {
 }
 
 claim "audit:abs_kern_absBroken" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/abs_kern_absBroken.smt2"
   context "audits/smt2/abs_kern_absBroken.smt2"
 }
 
 claim "audit:align_alignBackwardBuggy" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/align_alignBackwardBuggy.smt2"
   context "audits/smt2/align_alignBackwardBuggy.smt2"
 }
@@ -127,7 +127,7 @@ claim "audit:alignment_bitvec_alignmentAgrees" {
 }
 
 claim "audit:alignment_bitvec_alignmentAgreesBuggy" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2"
   context "audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2"
 }
@@ -139,7 +139,7 @@ claim "audit:div_ceil_divCeil" {
 }
 
 claim "audit:div_ceil_divCeilBuggy" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/div_ceil_divCeilBuggy.smt2"
   context "audits/smt2/div_ceil_divCeilBuggy.smt2"
 }
@@ -151,7 +151,7 @@ claim "audit:grid_columns_gridColumns" {
 }
 
 claim "audit:grid_columns_gridColumnsBuggy" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/grid_columns_gridColumnsBuggy.smt2"
   context "audits/smt2/grid_columns_gridColumnsBuggy.smt2"
 }
@@ -163,7 +163,7 @@ claim "audit:midpoint_midpoint" {
 }
 
 claim "audit:midpoint_midpointMutated" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/midpoint_midpointMutated.smt2"
   context "audits/smt2/midpoint_midpointMutated.smt2"
 }
@@ -181,13 +181,13 @@ claim "audit:saturating_add_saturatingAddBuggy" {
 }
 
 claim "audit:zcalloc_zcallocSize" {
-  status proven
+  status refuted
   evidence "contract:audits/smt2/zcalloc_zcallocSize.smt2"
   context "audits/smt2/zcalloc_zcallocSize.smt2"
 }
 
 claim "audit:zcalloc_zcallocSizeBounded" {
-  status proven
+  status unknown
   evidence "contract:audits/smt2/zcalloc_zcallocSizeBounded.smt2"
   context "audits/smt2/zcalloc_zcallocSizeBounded.smt2"
 }

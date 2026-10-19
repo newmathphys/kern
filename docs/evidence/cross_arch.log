@@ -1,12 +1,15 @@
 === KERN EVIDENCE: cross_arch ===
 === команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-18T17:53:17Z ===
+=== дата: 2026-10-19T08:37:27Z ===
 
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
   
   OK
-  337 passed; 8 skipped; 0 failed.
+  342 passed; 8 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
   
   OK
-  337 passed; 8 skipped; 0 failed.
+  342 passed; 8 skipped; 0 failed.
+
+RC=0
+[guard] FAULTABLE без изменений (86 файлов) — прогон чист

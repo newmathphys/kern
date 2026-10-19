@@ -88,12 +88,21 @@ def collect(smt_dir: Path) -> list[dict]:
     return rows
 
 
-def write_corpus_kern(smt_files: list[Path], kimg_kern: Path) -> None:
+def write_corpus_kern(smt_files: list[Path], kimg_kern: Path,
+                      measured: dict[str, str]) -> None:
     """Сгенерировать .kern-проект: формулы объявляются артефактами, утверждения — claims.
 
     Утверждение БЕЗ контракта остаётся текстом и получает e=0 (N) — поэтому каждая
     формула объявлена артефактом с kind "contract" и привязана через `context`.
+
+    ЗАЯВЛЕННЫЙ СТАТУС = ИЗМЕРЕННЫЙ вердикт решателя на ЭТОЙ формуле (см. main):
+    никаких эвристик по имени функции или тексту причины. `kernc verify`
+    переустанавливает вердикт по БАЙТАМ контейнера, поэтому любое расхождение
+    (порча формулы, регрессия решателя) -> rc != 0.
     """
+    def status_of(f: Path) -> str:
+        return measured.get(f.name, "unknown")
+
     lines = ['// СГЕНЕРИРОВАНО tools/audits_run.py — не редактировать вручную.',
              '// Золотой корпус: формулы реальных функций, выгруженные детерминированным фронтендом.',
              'project "kern-open-source-audits" {', '  version "1.0"', '  root "."', '}', '']
@@ -104,7 +113,7 @@ def write_corpus_kern(smt_files: list[Path], kimg_kern: Path) -> None:
                   '}', '']
     for f in sorted(smt_files):
         rel = f.relative_to(ROOT).as_posix()
-        lines += [f'claim "audit:{f.stem}" {{', '  status proven',
+        lines += [f'claim "audit:{f.stem}" {{', f'  status {status_of(f)}',
                   f'  evidence "contract:{rel}"', f'  context "{rel}"', '}', '']
     kimg_kern.write_text("\n".join(lines), encoding="utf-8")
 
@@ -128,6 +137,35 @@ def main() -> int:
 
     rows = collect(smt_dir)
     smt_files = sorted(smt_dir.glob("*.smt2"))
+
+    # ИЗМЕРЕННЫЙ СТАТУС КАЖДОЙ ФОРМУЛЫ (без эвристик по имени/причине).
+    # ЗАЧЕМ: экстрактор сообщает ПЕРВОЕ проваленное обязательство функции, а
+    # выгруженный файл — её ОСНОВНОЕ обязательство. ИЗМЕРЕНО: у `divCeilBuggy`
+    # первым провалилось переполнение, но и основная формула опровергнута (SAT);
+    # у `alignForwardAdd` — наоборот (основная доказана). Поэтому статус в
+    # контейнере объявляется по ФАКТИЧЕСКОМУ вердикту решателя на этой формуле,
+    # а `kernc verify` переустанавливает его по БАЙТАМ образа: расхождение
+    # (порча формулы, регрессия решателя) -> rc != 0.
+    def measure(f: Path) -> str:
+        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300)
+        if "ДОКАЗАНО" in out:
+            return "proven"
+        if "КОНТРПРИМЕР" in out:
+            return "refuted"
+        return "unknown"
+
+    with ThreadPoolExecutor(max_workers=int(os.environ.get("KERN_AUDIT_WORKERS",
+                                                           min(6, os.cpu_count() or 1)))) as ex:
+        measured = dict(zip([f.name for f in smt_files], ex.map(measure, smt_files)))
+
+    n_proven = sum(1 for v in measured.values() if v == "proven")
+    n_refuted = sum(1 for v in measured.values() if v == "refuted")
+    print(f"[i] измерено формул: {len(measured)} | proven {n_proven} | refuted {n_refuted}")
+    # АНТИ-ВАКУУМ: корпус обязан содержать ОБА класса — иначе проверка
+    # выродилась бы (все proven или все refuted = сломанный экстрактор/решатель).
+    if n_proven == 0 or n_refuted == 0:
+        print("[!] корпус односторонний (нет proven или нет refuted) — проверка вырождена")
+        return 1
 
     proven = sum(1 for r in rows if r["verdict"] == "PASS")
     refuted = sum(1 for r in rows if r["verdict"] == "FAIL")
@@ -161,7 +199,8 @@ def main() -> int:
     if not args.no_kimg:
         kimg_kern = ROOT / "audits" / "real_code_corpus.kern"
         kimg = ROOT / "audits" / "real_code_corpus.kimg"
-        write_corpus_kern(smt_files, kimg_kern)
+        srcs = sorted(p for p in AUDITS.rglob("*") if p.suffix in SOURCE_SUFFIX)
+        write_corpus_kern(smt_files, kimg_kern, measured)
         rc_b, _ = run([str(KERNC), "build", "audits/real_code_corpus.kern",
                        "-o", "audits/real_code_corpus.kimg", "--deflate"])
         rc_i, _ = run([str(KERNC), "check-integrity", "audits/real_code_corpus.kimg"])

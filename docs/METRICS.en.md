@@ -14,7 +14,7 @@
 |:--|:--:|:--:|
 | Core (`src/test_root.zig`) | **279/279** | **279/279** (ReleaseSafe) |
 | KERN-Next (`src/next/test_root.zig`) | **38/38** | **38/38** (ReleaseSafe) |
-| Lean 4 (`formal/check.sh`) | **8 files, 82 theorems, 0 errors, 0 sorry** | — |
+| Lean 4 (`formal/check.sh`) | **8 files, 89 theorems, 0 errors, 0 sorry** | — |
 | `kern-attack` | 2/2 attacks blocked | — |
 
 > Debug covers every contour: DoS, NaN, JSON, bounds, memory alignment (Echelon 1),
@@ -936,6 +936,132 @@ undeclared -> Z3 error -> `N` -> false PASS. Fixed: all state variables are decl
 `result` in the `post` obligation.
 
 **Defect #139:** `_subst` wrapped an already-complete s-expression -> `((+ i 1))` ->
+
+---
+
+## §24. Session B: PRESETS (Item 26), ANTI-ARBITRAGE (Item 27), PROOF-TAMPER 40/40
+
+### 24.1 Step 0 — the adversarial fuzzer now covers THREE theories
+
+Was: 30 tampers on `abs.c` (QF_LIA) only. Now: **30 + 5 + 5 = 40** tampers across
+three independent theories — `abs.c` (51 steps), the path sanitizer `QF_S`
+(39 steps), and the `IEEE-754` NaN model (56 steps). The proof fixtures are
+committed (`tests/fixtures/qfs_proof.txt`, `ieee754_proof.txt`).
+
+Soundness proven on one theory says nothing about another, so the fuzzer must
+cover all three.
+
+ANTI-VACUUM: if fewer tampers are generated than requested (e.g. the proof lacks
+the needed forms), the target **turns red** — previously it would have passed
+silently. MEASURED: `tampers: 40 | accepted: 0`, rc=0.
+
+### 24.2 Item 26 — one-word presets + `--spec-gaps`
+
+Flags: `--presets <file>`, `--spec-gaps`. Target `make presets-check`.
+
+| Preset | Obligation |
+|:--|:--|
+| `non_negative` | `result >= 0` |
+| `percentage` | `0 <= result <= 100` |
+| `bounded(lo, hi)` | `lo <= result <= hi` (bounds may be expressions) |
+| `idempotent` | `body(body(x)) == body(x)` |
+| `monotonic` | `x1 <= x2 => body(x1) <= body(x2)` |
+| `no_arbitrage` / `conservation` (Item 27) | `body(a1) + body(a2) >= body(a1 + a2)` |
+
+SINGLE COMPOSITION MECHANISM: `_instantiate_body(body_smt, param, expr)`
+substitutes an arbitrary SMT expression for a parameter inside the SYMBOLIC BODY.
+Three separate implementations (`idempotent`, `monotonic`, `no_arbitrage`) would
+drift apart and disagree on the same code.
+
+MEASURED on `examples/presets_demo.py`: 4 PROVEN with `trusted: 0 | holes: 0`
+(`non_negative`, `bounded`, `idempotent`, `monotonic`), 3 REFUTED (`percentage`
+returns 102 for x=51; `monotonic` has a backward step; `non_negative` fails for a
+negative input), `0 unknown`, and 8 `[SPEC GAP]` findings with the flag.
+
+`--spec-gaps` (MacFarlane) is a SEPARATE diagnostic mode: it prints `[SPEC GAP]`
+for one-sided postconditions and for an unconstrained negative parameter domain;
+it does not touch a normal run without the flag.
+
+### 24.3 Idempotence — the PATH-WISE formulation (measured, not guessed)
+
+Substituting a branch VALUE back into the body produces a NESTED `ite`; Z3 then
+finishes with `ite`-axiom steps the checker cannot machine-check (MEASURED:
+`clamp_idem` — 8 trusted steps, `[UNKNOWN]`). Splitting the body into PATHS
+removes the nesting: the obligations become constant (`(< 0 0)`) and fold away.
+
+### 24.4 Five new SOUND checker rules (triad: code + negative test + Lean)
+
+| Rule | Soundness | Where it came from |
+|:--|:--|:--|
+| `constCmpEval` — evaluate a CONSTANT comparison | arithmetic on concrete numbers | dump: `(rewrite (= (<= 0 100) true))` |
+| `constIteEq` — fold `ite` with a constant condition | with a known condition `ite` is branch selection | dump: `(rewrite (= (ite false 100 0) 0))` |
+| reflexivity `(= A A) = true` | holds for any term | dump: `(rewrite (= (= x x) true))` |
+| `linTautEq` — LINEAR TAUTOLOGY `(= E true|false)` | UNSAT of the negation is decided by the built-in Fourier–Motzkin (gate `make lia-diff`) | dump: `(rewrite (= $x50 true))` for `3a1+3a2 >= 3(a1+a2)` |
+| `pushLin` DROPS ZERO COEFFICIENTS | a zero-coefficient term does not change the inequality | MEASURED: without it a constraint that became constant (`1 <= 0`) was not recognised as INCONSISTENT → `unknown` → the step stayed trusted |
+
+Each rule ships with a positive and a NEGATIVE test in `proof_check.zig` (the
+negatives: "a non-tautology is NOT accepted", "a non-constant condition is NOT
+folded") and a theorem in `formal/FarkasSoundness.lean` (`0 sorry`).
+
+### 24.5 Item 27 — financial anti-arbitrage
+
+MEASURED on `examples/arbitrage_demo.py`:
+```
+[FAIL] fee_threshold:    no_arbitrage REFUTED — a1 = 100, a2 = 1
+[FAIL] fee_floor_capped: no_arbitrage REFUTED — a2 = 1, a1 = 99
+[PASS] fee_proportional: no_arbitrage PROVEN (trusted: 0 | holes: 0)
+```
+A threshold fee and a floor-plus-cap fee let a client SPLIT a payment and pay
+less — the classic rounding leak. The linear (proportional) fee is subadditive
+and is proven.
+
+### 24.6 REGRESSION found by the regression pass: `make audits` was RED
+
+The criterion `refuted > 0 -> rc = 1` (introduced with Item 9) breaks
+`make audits`: the golden corpus **by design** contains refuted MUTATIONS (that is
+its purpose — prove the original, refute the mutation). MEASURED: `make audits`
+→ rc=2.
+
+FIXED in `kernc verify` — the alarm criterion is now a **DISAGREEMENT between the
+solver verdict and the DECLARED status** of a claim:
+* declared `proven` but the formula is refuted → ALARM;
+* declared `refuted` but the formula is proven → ALARM;
+* no declared status (`N`) → the verdict is informational;
+* a forged certificate (`[PCC REJECTED]`) → ALARM **always**.
+
+The declared status in the corpus is the **MEASURED** solver verdict on THAT
+formula (no heuristics by function name or reason text: MEASURED that
+`divCeilBuggy` first failed an overflow obligation while its main formula is also
+refuted, and `alignForwardAdd` is the opposite).
+
+ANTI-VACUUM: the corpus must contain BOTH classes of formulas (otherwise the check
+degenerates).
+
+MEASURED after the fix: `make audits` rc=0, `L4 verify: assertions checked`,
+`DISAGREEMENTS WITH DECLARED STATUS 0`, `formulas measured: 17 | proven 9 | refuted 7`.
+
+### 24.7 Regressions (all clean)
+
+| Check | Result |
+|:--|:--|
+| `abs.c` | `trusted steps 0`, `trusted: 0` |
+| `make proof-tamper` | **40/40 rejected** |
+| `make lia-diff` | **0 disagreements** with Z3 |
+| `./formal/check.sh` | 8/8 files, **0 errors, 0 sorry** |
+| `make audits` / `pcc-check` / `kimg-deflate` | rc=0 |
+| `zig build test` | 342/350 (8 skipped), 0 failed |
+| `canfail --only presets-check` / `arbitrage-check` / `audits` | **1 non-vacuous, 0 vacuous** each |
+| `canfail --check-anchors` | 91 anchors applicable |
+| `registry.py` | 120 targets, **97/97 CHECK** |
+| test catalog | 395, in sync |
+
+
+Formulation (sound and complete for the fragment): for every pair of paths
+`(p, q)` check `P_p ∧ P_q[V_p] ∧ (V_q[V_p] ≠ V_p)`. The paths cover the domain,
+so enumerating pairs covers ALL inputs.
+
+MEASURED: `idempotent — paths 9 | PASS 9 | FAIL 0 | UNKNOWN 0` → `trusted: 0`.
+
 unparseable -> `N`. SMT-LIB notation is PREFIX, so substituting a full s-expression
 needs NO parentheses. Fixed.
 
