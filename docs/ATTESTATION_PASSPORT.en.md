@@ -15,8 +15,8 @@
 
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
-> by runs): core **299 / 299** (without `z3` in `PATH` — 291 passed + 8 skipped),
-> KERN-Next **38 / 38**, can-fail **82 / 82 CHECK** (95 non-vacuous cases, 0 errors),
+> by runs): core **379 / 379** (without `z3` in `PATH` — 291 passed + 8 skipped),
+> KERN-Next **45 / 45**, can-fail **114 / 114 CHECK** (95 non-vacuous cases, 0 errors),
 > registry **121 targets**, mutation score **95.0 %** (38/40), Lean 4 **8 files /
 > 92 theorems / 0 sorry**, test catalogue **322**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
@@ -80,8 +80,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 
 | Check | Fact | Status |
 |:--|:--|:--|
-| Core (Debug) | **299 / 299 OK** | ✅ |
-| Core (ReleaseSafe, UB detector) | **299 / 299 OK** — no UB found | ✅ |
+| Core (Debug) | **379 / 379 OK** | ✅ |
+| Core (ReleaseSafe, UB detector) | **379 / 379 OK** — no UB found | ✅ |
 | KERN-Next | **38/38 OK** (37 named + 1 aggregating `test {}`) | ✅ |
 | Memory leaks (GPA) | **0 bytes** (not a single `error(gpa)`) | ✅ |
 | Descriptor leaks (NOFILE=20, 50 requests) | **0 FD leaks** | ✅ |
@@ -96,7 +96,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 
 | Platform | What it proves | Result |
 |:--|:--|:--|
-| **x86_64** (host, TSO) | baseline | **299 / 299 OK** ✅ |
+| **x86_64** (host, TSO) | baseline | **379 / 379 OK** ✅ |
 | **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ⚠️ *evidence `docs/evidence/cross_arch.log`: the run passed (`240 passed; 4 skipped; 0 failed`), but on a revision BEFORE the suite grew; a QEMU re-run is pending* |
 | **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ⚠️ *same: QEMU re-run pending (the test suite grew)* |
 
@@ -131,7 +131,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 
 ## 5. Mathematical proofs (Lean 4)
 
-**8 files, 92 theorems, 0 errors, 0 sorry** — `./formal/check.sh` ✅
+**8 files, 113 theorems, 0 errors, 0 sorry** — `./formal/check.sh` ✅
 
 | Theorem | What it proves |
 |:--|:--|
@@ -208,7 +208,7 @@ VIOLATIONS: I2 = 0 · I3 = 0
 | Standard | What is confirmed in KERN |
 |:--|:--|
 | **DO-178C / DO-333** (DAL A) | 100 % decision coverage (30/30), Soundness Argument, MC/DC vectors |
-| **ISO 26262** (ASIL D) | 299 / 299 in ReleaseSafe (0 UB), 0 GPA leaks |
+| **ISO 26262** (ASIL D) | 379 / 379 in ReleaseSafe (0 UB), 0 GPA leaks |
 | **Common Criteria** (EAL6+/EAL7) | formal security model in Lean 4 (0 errors, 0 sorry) |
 | **FIPS 140-3** | end-to-end payload digest verification (SHA-256), substitution resistance |
 | **POSIX / ACID** | atomic I/O, SIGBUS handling, no corruption on crash |
@@ -256,7 +256,7 @@ Claims that **did not hold** and were fixed in the documentation:
 
 ## What was fully confirmed ✅
 
-299 / 299 (Debug + ReleaseSafe) · 38/38 KERN-Next · 0 leaks · 0 FD · 0 zombies ·
+379 / 379 (Debug + ReleaseSafe) · 38/38 KERN-Next · 0 leaks · 0 FD · 0 zombies ·
 3/3 SIGBUS · 100 % decision coverage · mutation score 95.0 % (38/40, 2 equivalent) ·
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·

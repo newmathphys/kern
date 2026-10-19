@@ -3,9 +3,9 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-299%2F299-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-379%2F379-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-38%2F38-brightgreen)](src/next/)
-[![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_42_theorems_%C2%B7_0_sorry-blue)](formal/)
+[![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_113_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-79%2F79-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_240_passed_%2F_4_skipped_%28rerun_pending%29-informational)](#cross-architecture)
@@ -42,7 +42,7 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 81 CHECK targets; 81 proven non-vacuous
+   fault and requires the check to go red. 114 CHECK targets; 114 proven non-vacuous
    (95 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
@@ -197,7 +197,7 @@ make contracts
 #        [RUNTIME CONFIRMED] the counterexample really breaks the running function
 ```
 
-> **`[RUNTIME CONFIRMED]` — all four languages.** For **Python** the counterexample is
+> **`[RUNTIME CONFIRMED]` — all seven languages.** For **Python** the counterexample is
 > replayed by *executing the real function*. For **Zig, C and Rust** the extracted body is
 > re-evaluated by an **independent concrete evaluator** (same statement split, a different
 > computation): if the numbers disagreed with the SMT model, the counterexample would be
@@ -271,8 +271,9 @@ owner key already used by `src/attest.zig`), so `slsa_provenance.py --check`
 detects a substituted attestation — the old “unsigned (no cosign)” gap is closed.
 
 For AI agents, `examples/kern_mcp_server.py` exposes the gate over the **Model
-Context Protocol** (5 tools: `kern_verify_smt`, `kern_prove_with_checker`,
-`kern_verify_multi_belnap`, `kern_verify_python`, `kern_check_equivalence` —
+Context Protocol** (8 tools: `kern_verify_smt`, `kern_prove_with_checker`,
+`kern_verify_multi_belnap`, `kern_verify_python`, `kern_check_equivalence`,
+`kern_xray_code`, `kern_verify_action`, `kern_rlvr_reward` —
 the last one proves a refactoring preserves behaviour **without writing any
 contracts**):
 
@@ -282,7 +283,17 @@ contracts**):
 ```
 
 ```bash
-make mcp-selftest   # drives the server over stdio: 14 live checks, all 5 tools
+make mcp-selftest   # drives the server over stdio: 14 live checks, all 8 tools
+
+```bash
+# Kernel in the browser: 5 exported functions, 85 KB, no syscalls
+zig build wasm        # -> zig-out/bin/kernc.wasm
+```
+
+The WASM module exports JOIN_K (Belnap lattice), the admission check, the
+64-bit Hamming code, the built-in Fourier-Motzkin solver and `verifyProof`
+(re-checks a Z3 proof **without** a solver). `proof_check` re-checks proofs
+from memory only; the solver bridge is deliberately outside the module.
 ```
 
 ---
@@ -385,7 +396,7 @@ flowchart LR
 | **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
 | **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
 | **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
-| **L5** — formal proofs | 92 theorems in 8 Lean 4 files, 0 `sorry` |
+| **L5** — formal proofs | 113 theorems in 8 Lean 4 files, 0 `sorry` |
 
 The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
 produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
@@ -438,16 +449,16 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **299 / 299** |
+| Core test suite (Debug + ReleaseSafe) | **379 / 379** |
 | Core test suite **without** `z3` in `PATH` | **291 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
-| KERN-Next test suite | **38 / 38** |
+| KERN-Next test suite | **45 / 45** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **95.0 %** (38 / 40 killed) over **14 files / 420 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **82 / 82 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 74 literal anchors verified in ~1 s) |
+| Mutation score (Zig-native mutator) | **100.0 %** (40 / 40 killed) over **18 files / 1152 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
+| Can-fail harness | **114 / 114 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 108 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -458,7 +469,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **299 / 299** |
+| x86_64 | TSO memory model | **379 / 379** |
 | **ARM64** (QEMU) | strict alignment — no `Bus Error` | **337 passed / 8 skipped / 0 failed** (QEMU log 2026-10-18, `docs/evidence/cross_arch.log`; current host suite) |
 | **POWERPC64** (QEMU) | **big-endian** byte order | **337 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
 
@@ -572,7 +583,7 @@ make guardrail
 uv pip install --python .venv/bin/python z3-solver
 ./zig-out/bin/kernc prove formal/example.smt2
 
-# 7. Formal proofs (Lean 4): 8 files, 92 theorems, 0 sorry
+# 7. Formal proofs (Lean 4): 8 files, 113 theorems, 0 sorry
 ./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
 ./formal/check.sh
 
@@ -582,7 +593,7 @@ make audit-manifest
 
 > **Build notes (Zig 0.17) — read before "fixing" a red-looking log.**
 > A fresh `zig build test` prints
-> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 299 tests
+> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 379 tests
 > pass**: `zig build` runs the tests as a separate child that reports over an IPC
 > protocol (`--listen=-`), and the step verdict comes from the protocol, not from that
 > line. Judge a build by its exit code and `zig build … --summary all` — never by

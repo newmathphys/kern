@@ -29,7 +29,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **82 / 82 CHECK-целей** покрыты (95 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **114 / 114 CHECK-целей** покрыты (95 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs | **31/31** багов реальным исполнением |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -88,9 +88,9 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 299 / 299 tests
+Core (Debug)          : PASS — 379 / 379 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
-Kernel Invariants     : PASS — Lean 4 (8 files, 92 theorems, 0 errors, 0 sorry)
+Kernel Invariants     : PASS — Lean 4 (8 files, 113 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)
