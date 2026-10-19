@@ -1,0 +1,19 @@
+# .mailmap — канонизация имён авторов БЕЗ переписывания истории.
+#
+# ЗАЧЕМ: первые коммиты проекта сделаны под служебными именами
+# (`NYUUI Builder`, `KERN`), оставшимися от инициализации репозитория.
+# Переписать историю означало бы изменить SHA всех последующих коммитов и
+# сломать теги/аттестат, поэтому используется стандартный механизм git:
+# он влияет ТОЛЬКО на отображение (`git log`, GitHub), не меняя объекты.
+#
+# Проверка: `git log --format='%an <%ae>' | sort -u` покажет одну строку.
+
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> NYUUI Builder <builder@localhost>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> KERN <kern@local>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> mrbritneyxxx <mrbritneyxxx@users.noreply.github.com>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> Vital Kalinousky <newmathphys@gmail.com>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> Vital Kalinousky <vital.kalinosky@kern.dev>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> Vital Kalinousky <vital.kalinousky@kern.dev>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> Vital Kalinousky <vital.kalinousky@kern.local>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> Vital Kalinousky <vital.kalinusky@kern.dev>
+Vital Kalinousky <vital.kalinousky@users.noreply.github.com> Vital Kalinousky <vital.kalousky@kern.dev>

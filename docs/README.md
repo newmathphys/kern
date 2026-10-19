@@ -123,3 +123,7 @@ python3 tools/gen_test_catalog.py --check   # каталог тестов не �
 | ROADMAP | `ROADMAP.md` (full) | `ROADMAP.en.md` (condensed) |
 
 Other docs (`PROJECT*.md`, `TEST_CATALOG.md`, `VERIFICATION*.md`, `MIGRATION_REPORT_0_17.md`, `KERN_FIXES_v1_3.md`, `OWNERSHIP.md`, `EXECUTION_RUNNER.md`, `SPEC_ANCHORS_DEMO.md`) are Russian-only; they are internal engineering records, not the public showcase.
+
+## Authorship hygiene (.mailmap)
+
+The first commits of this repository were made under service identities (`NYUUI Builder`, `KERN`) left over from project initialisation. Rewriting history would change the SHA of every later commit and break tags and the SLSA attestate, so the standard `.mailmap` mechanism is used instead: it affects only **display** (`git log --use-mailmap`, GitHub) and never the objects. Check: `git log --use-mailmap --format='%aN' | sort -u` — one line.
