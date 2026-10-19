@@ -27,6 +27,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,7 +65,7 @@ def fetch_asset(version: str) -> Path | None:
     tmp = Path(tempfile.gettempdir()) / f"kern_asset_{version}"
     # `?cb=` обходит CDN-кеш GitHub: сразу после перезаливки он отдаёт старую
     # копию (наблюдалось при разборе #82).
-    r = subprocess.run(["curl", "-fsSL", "-o", str(tmp), url + "?cb=1"],
+    r = subprocess.run(["curl", "-fsSL", "-o", str(tmp), url + f"?cb={time.time_ns()}"],
                        capture_output=True, text=True, timeout=180)
     if r.returncode != 0 or not tmp.exists():
         print(f"  [!] не удалось скачать asset: {r.stderr.strip()[:120]}")
