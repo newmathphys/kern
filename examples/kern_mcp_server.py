@@ -63,7 +63,7 @@ def _bootstrap_env() -> list[str]:
         missing.append("kernc")
     return missing
 PROTOCOL = "2024-11-05"
-SERVER_INFO = {"name": "kern", "version": "2.2.0"}
+SERVER_INFO = {"name": "kern", "version": "2.5.0"}
 
 TOOLS = [
     {
@@ -181,6 +181,41 @@ TOOLS = [
         },
     },
 ]
+
+# ============================================================================
+# MCP Tool Annotations (MCP 2025/2026). Внешние каталоги (m8ven.ai, Smithery,
+# Glama, Official MCP Registry) читают ИМЕННО `annotations`, а не только имя:
+# без них поверхность инструментов помечается как «unread».
+#
+# Все 8 инструментов KERN работают локально и не имеют побочных эффектов:
+#   * readOnlyHint   — ничего не изменяют (только читают файлы/код);
+#   * destructiveHint — не удаляют и не перезаписывают данные;
+#   * idempotentHint — повторный вызов с теми же аргументами даёт тот же ответ;
+#   * openWorldHint  — не ходят в сеть (Z3/kernc запускаются локально).
+#
+# `title` — короткое АНГЛИЙСКОЕ имя для каталогов; `description` остаётся
+# источником истины в TOOLS (не дублируем текст, только отображаемое имя).
+# ============================================================================
+_TOOL_TITLES = {
+    "kern_verify_smt": "Verify an SMT-LIB2 contract",
+    "kern_prove_with_checker": "Prove and machine-check a proof DAG",
+    "kern_verify_multi_belnap": "Verify several claims in Belnap B4",
+    "kern_verify_python": "Verify Python contracts (@kern: annotations)",
+    "kern_check_equivalence": "Prove two functions equivalent (refactoring)",
+    "kern_xray_code": "Zero-annotation X-ray of any code file",
+    "kern_verify_action": "Verify an AI agent action against policy",
+    "kern_rlvr_reward": "Verifiable reward for generated code (RLVR)",
+}
+
+for _t in TOOLS:
+    _ann = _t.setdefault("annotations", {})
+    _ann["title"] = _TOOL_TITLES[_t["name"]]
+    _ann["readOnlyHint"] = True
+    _ann["destructiveHint"] = False
+    _ann["idempotentHint"] = True
+    _ann["openWorldHint"] = False
+
+
 
 
 def run_prove(smt: str) -> dict:

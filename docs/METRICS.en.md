@@ -1586,3 +1586,67 @@ now three-valued: `1 → DEAD`, `2 → reachable`, `0 → UNKNOWN (B4: N, e=0; N
 Also checked: `chromium --headless --dump-dom` (rc=0, 0 JS errors), `node --check` for all
 three script blocks, native WASM exports (JOIN_K(T,F)=B, ALLOW_CODE=1), `--audit-repo`
 edge cases (symlink and `.min.js` are skipped), and the tree (`git status` clean, no leftovers).
+
+### 37. Pre-release session 2026-10-19: full can-fail run, WASM kernel, evidence collector
+
+**36.1 The 139-goal run and why the guard called it invalid.**
+
+```
+RESULT: non-vacuous 139 | VACUOUS 0 | harness false alarms 0 | case errors 0 | skipped 0   RC=0
+[OK] tree clean: every patch rolled back
+[guard] FILES CHANGED DURING THE RUN:
+        - formal/KernAllMath.lean: bfb175a4fecf -> b8d944be3ab0
+        - zig-out/bin/kernc:       a90cf0583a82 -> 372c7b2e56c2
+```
+
+Both files are **run products**, not inputs: `zig-out/bin/kernc` is rebuilt by the
+harness itself at the end, and `KernAllMath.lean` had been snapshotted **mid-run**
+(with `CANFAIL_PROBE` still appended). The guard was accusing the harness of doing
+what the harness is designed to do — defect #173, fixed in the same session.
+
+**36.2 WASM kernel — what is actually measured.**
+
+```
+kernc.wasm: 86 953 bytes; exports:
+  kern_wasm_belnap_join, kern_wasm_belnap_allow, kern_wasm_admission_valid,
+  kern_wasm_lia_unsat2, kern_wasm_verify_proof
+test: valid proof -> 1 | forged proof -> 0 | proof without `false` -> 0
+```
+
+Honest scope: `proof_check.zig` only compiles for `wasm32-freestanding` after a lazy
+`z3_bridge` import plus `dbgPrint()`/`dbgEnv()` shims — in Zig 0.17 `std.debug.print`
+for freestanding pulls `std.Io.Threaded` → `posix.getrandom` and fails to build.
+
+**36.3 #166 — false `unknown` inside WASM (found by tag, not by guessing).**
+`pickVar` picked a variable with a **zero** coefficient, so Fourier–Motzkin never
+progressed, `eliminated` hit `MAX_VARS`, and the WASM solver answered `unknown` where
+the CLI answers `SAT`. After the fix: `lia S = 2`, `make lia-diff` — 0 mismatches,
+`--full-file src/verifier/builtin_lia.zig` — 18/18.
+
+**36.4 #155 — a forged DAG was accepted as a proof.** Renaming a step definition
+(`@x147` → `@x9`, references untouched) produced `farkas 3 -> 0, trusted 0, rc=0`.
+An unresolved `@xN` fell into `formulaOf() orelse .structural_only`, and
+`.structural_only` does **not** increment `trusted_steps`, so `checksPass()` passed.
+Fixed: a broken reference (with `stepexpr` built) is `.bad`. Verified: mutant → `rc=1`,
+`abs.c` → `rc=0, trusted: 0`, core tests 401/401.
+
+**36.5 #171 — `bench-semantic` / Merkle root.** `semantic_probe.zig` built the image by
+hand and used the pre-#128 root formula → `MerkleRootMismatch`. Now it goes through
+`sealImageRoot` (single source of truth); digest is stable across runs.
+
+**36.6 #173 — the guard, fixed and proven with 6 scenarios.**
+
+| Scenario | Expected | Measured |
+|:--|:--|:--|
+| clean baseline | `rc=0` | `rc=0` (114 files, no `zig-out/`) |
+| second `--snapshot` without `--force` | `rc=2` | `rc=2` |
+| `--verify` after rebuilding `kernc` | `rc=0` | `rc=0` (build products not in baseline) |
+| dirty inputs at start | list + `rc=3` | `rc=3` |
+| `--verify` after restore | `rc=0` | `rc=0` |
+| tree after tests | clean | clean |
+
+**36.7 Permanent protection.** `tools/injection_guard.py` (markers in `src/`,
+`examples/`, `tools/*.py` except `canfail.py`/itself; empty `git status` for `src/`
+and `tools/`; refuse while `canfail`/`mutate_zig`/`collect_evidence` is alive),
+`tools/evidence_guard.py` (write-once snapshot, products excluded).
+Full defect journal of the session: `docs/CAPABILITY_STATUS.md` §6d (#153–#173, 19 entries).

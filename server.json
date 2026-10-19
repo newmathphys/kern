@@ -1,0 +1,240 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.newmathphys/kern",
+  "title": "KERN — zero-trust verification gateway",
+  "description": "Zero-trust verification gateway: Z3 + a native Zig proof-DAG checker (trusted steps 0), Belnap B4 logic, Lean 4 soundness theorems, and zero-annotation X-ray for Python, Zig, C, Rust, Go and TS/JS.",
+  "version": "2.5.0",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "url": "https://github.com/newmathphys/kern",
+    "source": "github"
+  },
+  "homepage": "https://newmathphys.github.io/kern/",
+  "keywords": [
+    "formal-verification",
+    "z3",
+    "smt",
+    "lean4",
+    "belnap-logic",
+    "ai-safety",
+    "zero-trust",
+    "mutation-testing",
+    "blake3",
+    "zig"
+  ],
+  "transport": {
+    "type": "stdio"
+  },
+  "entrypoint": {
+    "command": "python3",
+    "args": [
+      "examples/kern_mcp_server.py"
+    ]
+  },
+  "serverInfo": {
+    "name": "kern",
+    "version": "2.5.0"
+  },
+  "tools": [
+    {
+      "name": "kern_verify_smt",
+      "description": "Проверить SMT-LIB2 контракт через KERN: внешний Z3 плюс независимый пруф-чекер. Возвращает вердикт (ДОКАЗАНО / НЕ доказано) и сводку проверки вывода.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "smt": {
+            "type": "string",
+            "description": "Текст контракта в SMT-LIB2"
+          }
+        },
+        "required": [
+          "smt"
+        ]
+      },
+      "annotations": {
+        "title": "Verify an SMT-LIB2 contract",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_prove_with_checker",
+      "description": "То же, что kern_verify_smt, но возвращает ПОЛНУЮ разбивку пруф-чекера: сколько шагов вывода Z3 перепроверено независимо и сколько осталось доверенными (trusted).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "smt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "smt"
+        ]
+      },
+      "annotations": {
+        "title": "Prove and machine-check a proof DAG",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_multi_belnap",
+      "description": "Проверить НЕСКОЛЬКО контрактов и сложить вердикты по Белнапу (T/F/B/N). Конфликт (T и F вместе) даёт B — противоречие НЕ схлопывается в пользу доказательства.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "contracts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Список контрактов SMT-LIB2"
+          }
+        },
+        "required": [
+          "contracts"
+        ]
+      },
+      "annotations": {
+        "title": "Verify several claims in Belnap B4",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_python",
+      "description": "Проверить Python-код с контрактами в комментариях (`# @kern:requires` / `# @kern:ensures`). Поддерживаются ветвления if/elif/else и локальные присваивания: они транслируются в SMT `ite`. Для каждой функции возвращается статус (PASS/FAIL/SKIP), вердикт Белнапа и КОНТРПРИМЕР при нарушении контракта. Циклы и вызовы -> честный SKIP.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "python_source": {
+            "type": "string",
+            "description": "Исходник Python с аннотациями @kern:"
+          }
+        },
+        "required": [
+          "python_source"
+        ]
+      },
+      "annotations": {
+        "title": "Verify Python contracts (@kern: annotations)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_check_equivalence",
+      "description": "Доказать ЭКВИВАЛЕНТНОСТЬ рефакторинга БЕЗ написания контрактов: для одноимённых функций двух исходников проверяется `∃x: f_old(x) != f_new(x)`. UNSAT -> [EQUIVALENT] (поведение не изменилось), SAT -> [DIVERGED] + КОНТРПРИМЕР, на котором старая и новая функции дают РАЗНЫЙ ответ. Циклы/вызовы -> честный SKIP.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "old_source": {
+            "type": "string",
+            "description": "Исходник ДО рефакторинга"
+          },
+          "new_source": {
+            "type": "string",
+            "description": "Исходник ПОСЛЕ рефакторинга"
+          }
+        },
+        "required": [
+          "old_source",
+          "new_source"
+        ]
+      },
+      "annotations": {
+        "title": "Prove two functions equivalent (refactoring)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_xray_code",
+      "description": "БЕЗАННОТАЦИОННЫЙ рентген кода (Пункт 13): мёртвые ветки [DEAD BRANCH] (UNSAT), избыточные проверки [REDUNDANT GUARD], краш-пути [CRASH PATH] (деление на 0, переполнение) и сложность Маккейба. Работает БЕЗ единого комментария @kern:.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Исходник Python (.py)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "имя файла (по умолчанию x.py)"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "annotations": {
+        "title": "Zero-annotation X-ray of any code file",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_action",
+      "description": "FinOps / Action Firewall (Пункт 36): проверяет JSON-вызов агента против политики ДО исполнения. T -> 200, F -> 422 (контрпример), B -> 409 (политики противоречат).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "object",
+            "description": "{tool, args}"
+          },
+          "policy": {
+            "type": "object",
+            "description": "{allow, forbid[]}"
+          }
+        },
+        "required": [
+          "action",
+          "policy"
+        ]
+      },
+      "annotations": {
+        "title": "Verify an AI agent action against policy",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_rlvr_reward",
+      "description": "RLVR-оракул вознаграждения (Пункт 38): +1.0 за ДОКАЗАННЫЙ контракт (trusted: 0), -1.0 за контрпример, -2.0 за Reward Hacking, 0.0 при отказе (вне фрагмента).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Исходник кандидата (.py)"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "annotations": {
+        "title": "Verifiable reward for generated code (RLVR)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

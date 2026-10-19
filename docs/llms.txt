@@ -1,0 +1,85 @@
+# KERN — zero-trust verification gateway
+
+> KERN verifies AI-generated code instead of trusting it: Z3 plus a native Zig
+> proof-DAG checker (zero trusted steps), Belnap B4 four-valued logic, Lean 4
+> soundness theorems, and a zero-annotation X-ray for Python, Zig, C, Rust, Go
+> and TypeScript/JavaScript. The gate answers admit (e=1) only when a claim is
+> proven; anything unverified is denied (e=0) — no probabilistic allowance.
+
+## What it does
+
+- **Proof, not vibes.** `kernc prove` runs Z3, then re-checks the emitted proof
+  DAG with its own checker; `trusted: 0 | holes: 0` is the only accepted result.
+- **Four-valued logic (Belnap B4).** Claims are combined in a lattice
+  `N (0,0) / T (1,0) / F (0,1) / B (1,1)`; `JOIN_K(T, F) = B` and a conflict
+  absorbs any later `T`, so a contradiction cannot be voted away.
+- **Zero-annotation X-ray.** `--xray` finds dead branches, crash paths
+  (division by zero, overflow), array-bound violations and McCabe complexity in
+  code that has **no** `@kern:` annotations at all.
+- **Evidence with an epoch.** Execution evidence is bound to a BLAKE3 digest of
+  the file; when the file changes the status decays `T -> N` (stale evidence
+  closes the gate) until it is re-proven.
+- **Proof-carrying containers.** `.kimg` images carry a Merkle root over object
+  digests **and** names; `kernc verify` can check an embedded proof without a
+  solver (`[PCC VERIFIED]`, `PATH` may be empty).
+
+## Measured facts (this repository, current tree)
+
+- Core Zig tests: **400** (`392 passed + 8 skipped`, 0 failed); KERN-Next: **53**;
+  full catalog: **424**.
+- Lean 4: **120 theorems in 8 files, 0 errors, 0 sorry**.
+- Mutation score on the Zig kernel: **1225 / 1225 killed (100.0 %)** across
+  20 files, plus per-module `--full-file` sweeps (244/244).
+- Can-fail harness: **123 CHECK targets, 138 non-vacuous cases, 0 vacuous**.
+- Cross-architecture: **393 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
+  PowerPC64 big-endian (QEMU).
+- WebAssembly: `kernc.wasm` (**86 953 bytes**) exports `kern_wasm_verify_proof`,
+  `kern_wasm_lia_unsat2`, `kern_wasm_belnap_join`, `kern_wasm_belnap_allow`,
+  `kern_wasm_admission_valid` — the proof checker and the Fourier–Motzkin
+  solver run in the browser with no OS calls.
+
+## Command line (selected)
+
+- `kernc prove <file.smt2>` — prove + machine-check; prints `trusted`/`holes`.
+- `kernc verify <image.kimg>` — verify a sealed image (proof-carrying if a
+  `<stem>.proof` object is present).
+- `kernc grep <pattern> <image.kimg>` — integrity-checked search inside `.kimg`.
+- `python3 tools/kern_contracts.py --xray <file|dir>` — zero-annotation X-ray.
+- `--audit-repo <path|owner/repo|url>` — audit an arbitrary project (safe git
+  sandbox: no hooks, no LFS, no prompts), with `--html` report.
+- `--diff-equiv old.py new.py` — prove (or refute) that a refactoring changed
+  behaviour, with a concrete input where it diverges.
+- `--heal <file>` — find a crash path, insert a guard, re-verify, and only then
+  replace the file atomically (keeping `<file>.bak`).
+
+## MCP server (8 tools, stdio)
+
+`python3 examples/kern_mcp_server.py` — `kern_verify_smt`,
+`kern_prove_with_checker`, `kern_verify_multi_belnap`, `kern_verify_python`,
+`kern_check_equivalence`, `kern_xray_code`, `kern_verify_action`,
+`kern_rlvr_reward`. Manifests: `server.json`, `mcp.json`, `.well-known/mcp.json`
+(generated from the server itself by `tools/gen_mcp_manifests.py`).
+
+## Documentation
+
+- [README](https://github.com/newmathphys/kern/blob/main/README.md): overview and quickstart
+- [Capability status](https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.md): defect journal, what is measured and what is not
+- [Metrics](https://github.com/newmathphys/kern/blob/main/docs/METRICS.md): every measurement with the command that produced it
+- [Testing and speed guide](https://github.com/newmathphys/kern/blob/main/docs/TESTING_AND_SPEED_GUIDE.md): 33 verification methods and the speed-ups
+- [Cybernetics](https://github.com/newmathphys/kern/blob/main/docs/CYBERNETIC_VISION.md): why this architecture (Anokhin, Glushkov, Belnap, Victor)
+- [Site](https://newmathphys.github.io/kern/): live demo, browser WASM playground
+
+## Honest limits
+
+- The extractor works on a **subset** (linear integer arithmetic, `if/else`
+  paths, machine-type bounds). Unsupported constructs are reported as `SKIP`
+  with a reason, never silently accepted.
+- Python contracts are translated with no type information: an attribute may be
+  modelled as `Int`.
+- The proof checker is conservative: an uncovered rule yields `trusted > 0`, and
+  `trusted > 0` is **never** presented as `trusted: 0`.
+- `.kimg` names are covered by the Merkle root; a byte flip in a name is
+  detected, but the model of a third-party function is ours — a counterexample
+  must be reproduced on their build before it is called a bug.
+- Licence: **PolyForm Noncommercial 1.0.0** (source-available). Commercial use
+  requires a licence from the copyright holder.

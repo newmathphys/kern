@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "kern": {
+      "command": "python3",
+      "args": [
+        "examples/kern_mcp_server.py"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "name": "io.github.newmathphys/kern",
+  "title": "KERN — zero-trust verification gateway",
+  "version": "2.5.0",
+  "description": "Zero-trust verification gateway: Z3 + a native Zig proof-DAG checker (trusted steps 0), Belnap B4 logic, Lean 4 soundness theorems, and zero-annotation X-ray for Python, Zig, C, Rust, Go and TS/JS.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "homepage": "https://newmathphys.github.io/kern/",
+  "transport": "stdio",
+  "entrypoint": {
+    "command": "python3",
+    "args": [
+      "examples/kern_mcp_server.py"
+    ]
+  },
+  "tools": [
+    {
+      "name": "kern_verify_smt",
+      "title": "Verify an SMT-LIB2 contract",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "smt": {
+            "type": "string",
+            "description": "Текст контракта в SMT-LIB2"
+          }
+        },
+        "required": [
+          "smt"
+        ]
+      },
+      "annotations": {
+        "title": "Verify an SMT-LIB2 contract",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_prove_with_checker",
+      "title": "Prove and machine-check a proof DAG",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "smt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "smt"
+        ]
+      },
+      "annotations": {
+        "title": "Prove and machine-check a proof DAG",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_multi_belnap",
+      "title": "Verify several claims in Belnap B4",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "contracts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Список контрактов SMT-LIB2"
+          }
+        },
+        "required": [
+          "contracts"
+        ]
+      },
+      "annotations": {
+        "title": "Verify several claims in Belnap B4",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_python",
+      "title": "Verify Python contracts (@kern: annotations)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "python_source": {
+            "type": "string",
+            "description": "Исходник Python с аннотациями @kern:"
+          }
+        },
+        "required": [
+          "python_source"
+        ]
+      },
+      "annotations": {
+        "title": "Verify Python contracts (@kern: annotations)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_check_equivalence",
+      "title": "Prove two functions equivalent (refactoring)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "old_source": {
+            "type": "string",
+            "description": "Исходник ДО рефакторинга"
+          },
+          "new_source": {
+            "type": "string",
+            "description": "Исходник ПОСЛЕ рефакторинга"
+          }
+        },
+        "required": [
+          "old_source",
+          "new_source"
+        ]
+      },
+      "annotations": {
+        "title": "Prove two functions equivalent (refactoring)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_xray_code",
+      "title": "Zero-annotation X-ray of any code file",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Исходник Python (.py)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "имя файла (по умолчанию x.py)"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "annotations": {
+        "title": "Zero-annotation X-ray of any code file",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_action",
+      "title": "Verify an AI agent action against policy",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "object",
+            "description": "{tool, args}"
+          },
+          "policy": {
+            "type": "object",
+            "description": "{allow, forbid[]}"
+          }
+        },
+        "required": [
+          "action",
+          "policy"
+        ]
+      },
+      "annotations": {
+        "title": "Verify an AI agent action against policy",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_rlvr_reward",
+      "title": "Verifiable reward for generated code (RLVR)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Исходник кандидата (.py)"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "annotations": {
+        "title": "Verifiable reward for generated code (RLVR)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

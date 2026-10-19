@@ -262,6 +262,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "server.json",
     "tests/fixtures/zig_plain_add.zig",
     "tests/fixtures/zig_saturating_add.zig",
     "tests/fixtures/rust_saturating_add.rs",
@@ -1491,6 +1492,21 @@ def case_evidence_guard():
             "python3 tools/evidence_guard.py --verify /tmp/guard_probe.json")
 
 
+def case_ecosystem():
+    """Внешние каталоги MCP. ЛОМАЕМ: выкидываем инструмент из server.json.
+
+    Манифест перестаёт совпадать с `tools/list`, и `make ecosystem-check`
+    обязан это заметить: иначе каталоги (m8ven/Smithery) снова увидят
+    «tool surface unread», а мы — не узнаем.
+    """
+    touch("server.json")
+    p = ROOT / "server.json"
+    d = json.loads(p.read_text(encoding="utf-8"))
+    d["tools"] = d["tools"][:-1]
+    write_atomic(p, (json.dumps(d, ensure_ascii=False, indent=2) + "\n").encode())
+    return "make ecosystem-check"
+
+
 def case_c_abi_null():
     """Хардкор-аудит C-ABI. ЛОМАЕМ: убираем NULL-защиту в `kern_kimg_valid`.
 
@@ -2430,6 +2446,7 @@ CASES = [
     ("binary-audit",   "АУДИТ: AVX2/NX/латентность измеряются",     case_binary_audit),
     ("bitrot-chaos",   "BIT-ROT: порча данных в .kimg ловится",      case_bitrot_chaos),
     ("pcc-check",      "PCC: подделка сертификата отвергается",    case_pcc_check),
+    ("ecosystem-check", "Внешние каталоги: манифесты MCP == tools/list", case_ecosystem),
     ("xray-check",     "XRAY: находки без аннотаций",           case_xray_check),
     ("gen-tests-check","SBST: сгенерированные тесты проходят",    case_gen_tests_check),
     ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),

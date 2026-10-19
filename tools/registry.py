@@ -64,6 +64,7 @@ CLASS = {
     "bitrot-chaos": "CHECK",
     "pcc-check": "CHECK",
     "xray-check": "CHECK",
+    "ecosystem-check": "CHECK",
     "gen-tests-check": "CHECK",
     "simplify-check": "CHECK",
     "bounds-check": "CHECK",

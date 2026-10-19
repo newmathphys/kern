@@ -1,30 +1,42 @@
 name: 'KERN verification gate'
-description: 'Zero-trust gate: a claim is admitted only with machine evidence (Z3 / Lean 4). Downloads the static kernc binary and VERIFIES its SHA-256 before running it.'
+description: 'Zero-trust gate for AI-generated code: a claim is admitted only with machine evidence (Z3 + native proof checker). Downloads the static kernc binary and VERIFIES its SHA-256 before running it; can also run the zero-annotation X-ray and emit SARIF for GitHub Code Scanning.'
 author: 'Vital Kalinousky'
 branding:
   icon: 'shield'
   color: 'green'
 
 inputs:
+  mode:
+    description: 'verify — run kernc on your arguments; xray — zero-annotation X-ray of `path` (no ``@kern:`` markers needed)'
+    required: false
+    default: 'verify'
   args:
-    description: 'Arguments passed to kernc (e.g. "verify --image project.kimg")'
+    description: 'Arguments for kernc in `verify` mode (e.g. "verify --image project.kimg")'
     required: false
     default: '--version'
+  path:
+    description: 'Directory or file to scan in `xray` mode'
+    required: false
+    default: '.'
+  sarif:
+    description: 'File name for the SARIF 2.1.0 report (xray mode)'
+    required: false
+    default: 'kern.sarif'
   version:
     description: 'KERN release tag to download the static binary from'
     required: false
-    default: 'v2.4.0'
+    default: 'v2.5.0'
 
 outputs:
   sarif-file:
     description: 'Path to the SARIF 2.1.0 report; feed it to github/codeql-action/upload-sarif'
-    value: ${{ steps.download.outputs.sarif }}
+    value: ${{ steps.setup.outputs.sarif }}
 
 runs:
   using: 'composite'
   steps:
     - name: Download kernc + SHA256SUMS and VERIFY checksum
-      id: download
+      id: setup
       shell: bash
       run: |
         set -euo pipefail
@@ -32,8 +44,8 @@ runs:
         curl -fsSL -o "$RUNNER_TEMP/kernc" "$base/kernc-x86_64-linux-musl"
         curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
         # SUPPLY-CHAIN: бинарник НЕ запускается, пока не сверена контрольная
-        # сумма. `SHA256SUMS` объявляет имя asset'а, поэтому переименовываем
-        # строку под локальное имя файла (kernc) и проверяем строго.
+        # сумма. SHA256SUMS объявляет имя asset'а — переименовываем строку под
+        # локальное имя файла (kernc) и проверяем строго.
         ( cd "$RUNNER_TEMP"
           grep ' kernc-x86_64-linux-musl$' SHA256SUMS \
             | sed 's#  kernc-x86_64-linux-musl$#  kernc#' > SHA256SUMS.kernc
@@ -41,7 +53,20 @@ runs:
         chmod +x "$RUNNER_TEMP/kernc"
         echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
         "$RUNNER_TEMP/kernc" --version
-        echo "sarif=$RUNNER_TEMP/kern.sarif" >> "$GITHUB_OUTPUT"
-    - name: Run kernc
+        echo "sarif=$RUNNER_TEMP/${{ inputs.sarif }}" >> "$GITHUB_OUTPUT"
+
+    - name: Run kernc (mode=verify)
+      if: ${{ inputs.mode == 'verify' }}
       shell: bash
       run: kernc ${{ inputs.args }}
+
+    - name: Zero-annotation X-ray + SARIF (mode=xray)
+      if: ${{ inputs.mode == 'xray' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Инструмент берётся из ЭТОГО ЖЕ действия (action_path), поэтому
+        # дополнительный checkout не нужен.
+        python3 "${{ github.action_path }}/tools/kern_contracts.py" \
+          --xray "${{ inputs.path }}" \
+          --sarif "$RUNNER_TEMP/${{ inputs.sarif }}"
