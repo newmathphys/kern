@@ -1477,9 +1477,16 @@ def case_evidence_guard():
 
     Сверка обязана заметить внешнюю правку и вернуть НЕНУЛЕВОЙ код. Без этого
     свидетельства, снятые при пропатченных исходниках, выглядели бы валидными.
+
+    🔴 ДЕФЕКТ #173d: после введения «снимок пишется ОДИН раз» (защита от
+    перезаписи базиса посреди прогона) старый `/tmp/guard_probe.json` от
+    предыдущего запуска делал `--snapshot` красным по ЛОЖНОЙ причине: кейс
+    «доказывал» падение сторожа, хотя падал сам снимок. Теперь базис кейса
+    всегда свежий: `rm -f` + `--force`, и проверяется ИМЕННО реакция на правку.
     """
     touch("README.md")
-    return ("python3 tools/evidence_guard.py --snapshot /tmp/guard_probe.json && "
+    return ("rm -f /tmp/guard_probe.json && "
+            "python3 tools/evidence_guard.py --snapshot /tmp/guard_probe.json --force && "
             "sed -i '1s/^/ /' README.md && "
             "python3 tools/evidence_guard.py --verify /tmp/guard_probe.json")
 
