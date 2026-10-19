@@ -1968,10 +1968,12 @@ def case_homeostatic_heal_check():
     """ГОМЕОСТАЗ. ЛОМАЕМ: гард вставляется, но ПЕРЕПРОВЕРКА отключена
     (всегда «0 крашей») -> приёмка обязана покраснеть: файл без патча
     нельзя объявлять вылеченным."""
+    # ЛОМАЕМ САМО ЛЕЧЕНИЕ, а не откат: гард НЕ вставляется в файл.
+    # Тогда после --heal краши остаются, и приёмка обязана покраснеть.
     patch(
         "tools/kern_contracts.py",
-        "    if remaining != 0:",
-        "    if False:",
+        'lines.insert(idx, f"{indent}if {guard_py}:  # [KERN HEAL] {fname}: защита от деления на 0")',
+        'pass  # [canfail] гард НЕ вставляется',
     )
     return "make homeostatic-heal-check"
 
