@@ -527,6 +527,24 @@ fn countFds() usize {
 }
 
 /// Считает процессы-зомби (<defunct>), чей родитель — текущий процесс.
+/// Разобрать `/proc/<pid>/stat` -> (state, ppid).
+///
+/// ВЫНЕСЕНО из `countZombieChildren`, чтобы ГРАНИЦА `rp + 2` была
+/// ТЕСТИРУЕМА: мутант `>=` -> `>` читал бы `data[len]` (выход за буфер) на
+/// строке, где `)` — предпоследний символ. Без отдельной функции этот сайт
+/// не покрывался ни одним тестом (ИЗМЕРЕНО: выживал).
+const ProcStat = struct { state: u8, ppid: i32 };
+
+fn procStatOf(data: []const u8) ?ProcStat {
+    // формат: pid (comm) state ppid ...
+    const rp = std.mem.lastIndexOfScalar(u8, data, ')') orelse return null;
+    if (rp + 2 >= data.len) return null;
+    const state = data[rp + 2];
+    var rest = std.mem.tokenizeScalar(u8, data[rp + 4 ..], ' ');
+    const ppid = std.fmt.parseInt(i32, rest.next() orelse return null, 10) catch return null;
+    return .{ .state = state, .ppid = ppid };
+}
+
 fn countZombieChildren() usize {
     const my_pid = std.os.linux.getpid();
     var dir = std.Io.Dir.openDirAbsolute(compat.io(), "/proc", .{ .iterate = true }) catch return 0;
@@ -542,14 +560,8 @@ fn countZombieChildren() usize {
         const f = std.Io.Dir.openFileAbsolute(compat.io(), path, .{}) catch continue;
         defer compat.fileClose(f);
         const nread = f.readStreaming(compat.io(), &.{&buf}) catch continue;
-        const data = buf[0..nread];
-        // формат: pid (comm) state ppid ...
-        const rp = std.mem.lastIndexOfScalar(u8, data, ')') orelse continue;
-        if (rp + 2 >= data.len) continue;
-        const state = data[rp + 2];
-        var rest = std.mem.tokenizeScalar(u8, data[rp + 4 ..], ' ');
-        const ppid = std.fmt.parseInt(i32, rest.next() orelse continue, 10) catch continue;
-        if (state == 'Z' and ppid == my_pid) n += 1;
+        const ps = procStatOf(buf[0..nread]) orelse continue;
+        if (ps.state == 'Z' and ps.ppid == my_pid) n += 1;
     }
     return n;
 }
@@ -744,3 +756,32 @@ test "ХАРДКОР: countZombieChildren ВИДИТ реального зомб
     try std.testing.expect(during > before);
 }
 
+
+test "ГРАНИЦА: procStatOf не читает за буфером (rp+2 == len)" {
+    // РОВНО граница: `)` на len-2 -> rp+2 == data.len. Оригинал возвращает
+    // null; мутант `>=` -> `>` читал бы data[len] (выход за буфер).
+    try std.testing.expectEqual(@as(?ProcStat, null), procStatOf("1 (x)Z"));
+    // И обычный случай, где после `)` нет пробела-разделителя.
+    try std.testing.expectEqual(@as(?ProcStat, null), procStatOf("1 (x)"));
+    // Корректная строка: state и ppid извлекаются.
+    const ok = procStatOf("42 (zsh) Z 7 1 2").?;
+    try std.testing.expectEqual(@as(u8, 'Z'), ok.state);
+    try std.testing.expectEqual(@as(i32, 7), ok.ppid);
+    // Нет `)` -> null (не паника).
+    try std.testing.expectEqual(@as(?ProcStat, null), procStatOf("42 (zsh Z 7"));
+    // Слишком короткая строка -> null.
+    try std.testing.expectEqual(@as(?ProcStat, null), procStatOf(""));
+}
+
+test "PEAK: пик параллельных слотов учитывает МАКСИМУМ (CAS-цикл)" {
+    var pool = SolverPool.init(4);
+    pool.acquire();
+    pool.acquire();
+    try std.testing.expectEqual(@as(usize, 2), pool.peakConcurrent());
+    pool.release();
+    pool.release();
+    pool.acquire();
+    // Пик НЕ должен уменьшиться (мутант `!=` ломал бы это).
+    try std.testing.expectEqual(@as(usize, 2), pool.peakConcurrent());
+    pool.release();
+}
