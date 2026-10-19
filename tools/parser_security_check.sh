@@ -49,5 +49,24 @@ echo "$out" | grep -q 'type-alias spoofing' \
   && echo '  [OK] Type-Alias Spoofing пойман' \
   || { echo '  [FAIL] Type-Alias Spoofing НЕ пойман'; fail=1; }
 
+# 4) Обычный `a + b` (u32) ОБЯЗАН ловиться как переполнение...
+if $PY "$EX" tests/fixtures/zig_plain_add.zig 2>&1 | grep -q 'ПЕРЕПОЛНЕНИЕ'; then
+  echo '  [OK] обычный `+` на u32 -> ПЕРЕПОЛНЕНИЕ (баг пойман)'
+else
+  echo '  [FAIL] обычный `+` НЕ поймано переполнение'; fail=1
+fi
+
+# ...а ЯВНЫЕ `+|` (Zig) и `.saturating_add` (Rust) — НЕТ (законная семантика).
+for f in tests/fixtures/zig_saturating_add.zig tests/fixtures/rust_saturating_add.rs; do
+  out=$($PY "$EX" "$f" 2>&1)
+  if echo "$out" | grep -q 'ПЕРЕПОЛНЕНИЕ'; then
+    echo "  [FAIL] ложное ПЕРЕПОЛНЕНИЕ на $f"; fail=1
+  elif echo "$out" | grep -q 'явное'; then
+    echo "  [OK] $(basename "$f"): явное насыщение распознано, ложного OVERFLOW нет"
+  else
+    echo "  [FAIL] $f: ни распознавания, ни вердикта"; fail=1
+  fi
+done
+
 [ "$fail" -eq 0 ] && { echo '[OK] parser-security-check'; exit 0; }
 echo '[FAIL] parser-security-check'; exit 1

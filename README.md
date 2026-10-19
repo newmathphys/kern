@@ -775,3 +775,5 @@ SPDX-License-Identifier: `PolyForm-Noncommercial-1.0.0 OR LicenseRef-KERN-Commer
 
 Contributions are accepted under the terms in [`CONTRIBUTING.md`](CONTRIBUTING.md)
 (dual-licensing grant).
+
+- [Cybernetic vision](docs/CYBERNETIC_VISION.md) — why a machine-checked verdict, not a probabilistic one.

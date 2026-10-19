@@ -365,6 +365,65 @@ This page is served from <code>/docs</code> of the
   start();
 })();
 </script>
+
+<section id="wasm">
+  <h2>Live WASM kernel playground</h2>
+  <p class="note">Runs the real Zig core compiled to WebAssembly. 0 server calls;
+  the module is 85&nbsp;KB and has no OS syscalls.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Belnap B4 join</h3>
+      <p class="note">N=0 · T=1 · F=2 · B=3 (bit0=p, bit1=n)</p>
+      <label>a <select id="wa"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label>
+      <label>b <select id="wb"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></label>
+      <button id="wjoin">a ⊔ b</button>
+      <output id="wjoinout">—</output>
+    </div>
+    <div class="card">
+      <h3>Admission (Hamming 64)</h3>
+      <p class="note">Valid 64-bit code → e = 1</p>
+      <button id="wadm">check ALLOW_CODE</button>
+      <output id="wadmout">—</output>
+    </div>
+    <div class="card">
+      <h3>Fourier–Motzkin (LIA)</h3>
+      <p class="note">x ≤ 5 ∧ x ≥ 10 → UNSAT</p>
+      <button id="wlia">solve</button>
+      <output id="wliaout">—</output>
+    </div>
+  </div>
+  <p class="note" id="wasmnote"></p>
+</section>
+<script>
+(async () => {
+  const note = document.getElementById('wasmnote');
+  try {
+    const { instance } = await WebAssembly.instantiateStreaming(fetch('./kernc.wasm'));
+    const e = instance.exports;
+    const NAMES = ['N', 'T', 'F', 'B'];
+    document.getElementById('wjoin').onclick = () => {
+      const a = +document.getElementById('wa').value, b = +document.getElementById('wb').value;
+      const r = e.kern_wasm_belnap_join(a, b);
+      document.getElementById('wjoinout').textContent =
+        NAMES[r] + ' (' + r + ')' + (e.kern_wasm_belnap_allow(r) ? ' · e=1' : ' · e=0');
+    };
+    document.getElementById('wadm').onclick = () => {
+      // 0xA55A3C3CC3C35AA5 — ALLOW_CODE (BigInt, иначе точность теряется)
+      const code = 0xA55A3C3CC3C35AA5n;
+      document.getElementById('wadmout').textContent = e.kern_wasm_admission_valid(code) ? 'valid (e=1)' : 'rejected';
+    };
+    document.getElementById('wlia').onclick = () => {
+      const v = e.kern_wasm_lia_unsat2(1, 0, -5, -1, 0, 10);
+      document.getElementById('wliaout').textContent = v === 1 ? 'UNSAT (proven)' : v === 2 ? 'SAT' : 'unknown';
+    };
+    note.textContent = 'WASM loaded: ' + Object.keys(e).length + ' exports.';
+  } catch (err) {
+    note.textContent = 'WASM не загружен (' + err.message + '). Откройте страницу по HTTP '
+      + '(GitHub Pages), а не по file:// — браузеры блокируют fetch локальных файлов.';
+  }
+})();
+</script>
+
 </body>
 </html>
 

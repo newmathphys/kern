@@ -324,6 +324,36 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
     return "\n".join(lines) + "\n"
 
 
+# ЯВНЫЕ операторы оборачивания/насыщения — НЕ паникуют при переполнении.
+# Zig: `+% -% *%` (wrapping), `+| -|` (saturating). Rust: методы.
+_WRAP_ZIG = ("+%", "-%", "*%", "+|", "-|")
+_WRAP_RUST = (".wrapping_add(", ".wrapping_sub(", ".wrapping_mul(",
+              ".saturating_add(", ".saturating_sub(", ".saturating_mul(")
+
+
+def _explicit_wrap(body: str, lang: str) -> str | None:
+    """Вернуть найденный оператор оборачивания/насыщения или None.
+
+    ЗАЧЕМ. Обычный `a + b` в Zig ПАНИКУЕТ при переполнении (это баг), а
+    `a +% b` / `a +| b` — ЗАКОННЫЕ операции без паники. Обвинять вторые в
+    `INTEGER OVERFLOW` — ЛОЖНОЕ СРАБАТЫВАНИЕ (False Positive), которого не
+    должно быть: пользователь явно выбрал семантику.
+    """
+    if not body:
+        return None
+    if lang == "zig":
+        for op in _WRAP_ZIG:
+            if op in body:
+                return op
+        return None
+    if lang == "rust":
+        for op in _WRAP_RUST:
+            if op in body:
+                return op
+        return None
+    return None
+
+
 def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range) -> str:
     """Обязательство ПЕРЕПОЛНЕНИЯ: `requires ∧ result ∉ [lo, hi]` -> SAT = баг.
 
@@ -728,6 +758,16 @@ def clike_to_python(s: str) -> str:
     s = re.sub(r"\bfalse\b", "False", s)
     s = re.sub(r"\b(\d+)[uU]\b", r"\1", s)          # 5u -> 5
     s = re.sub(r"\b(\d+)[iI]\d*\b", r"\1", s)       # 5i32 -> 5
+    # ЯВНЫЕ операторы оборачивания/насыщения (Zig `+% -% *% +| -|`, Rust
+    # `.wrapping_*` / `.saturating_*`) — ЗАКОННЫЕ операции без паники.
+    # Моделируем их как обычную арифметику ℤ: для проверки контрактов этого
+    # достаточно, а обязательство «result в границах типа» для них СНЯТО
+    # (`_explicit_wrap`). ОГРАНИЧЕНИЕ: точная кламп-семантика `+|` (насыщение
+    # на границе) не моделируется — там, где важен сам факт насыщения,
+    # используйте `@kern:bitvec` или явный гард.
+    s = re.sub(r"([+\-*])%", r"\1", s)
+    s = re.sub(r"([+\-])\|", r"\1", s)
+    s = re.sub(r"\.(?:wrapping|saturating)_(?:add|sub|mul)\(", " + (", s)
     return convert_ternary(s)
 
 
@@ -2079,7 +2119,13 @@ def _demo(args) -> int:
             # УЛУЧШЕНИЕ №15: в BV-режиме переполнение — это СЕМАНТИКА (машина
             # заворачивает), поэтому обязательство «нет переполнения» неприменимо:
             # проверяются контракт и деление на ноль (см. METRICS §77).
-            if ret in TYPE_RANGE and not meta.get("bv"):
+            wrap = _explicit_wrap(meta.get("raw_body") or "", meta.get("lang", ""))
+            if wrap:
+                # ИЗМЕРЕНО: явное оборачивание/насыщение — законная семантика,
+                # паники НЕТ; обязательство «result в границах типа» неприменимо.
+                print(f"  [OK] {name}: явное `{wrap}` — переполнение не паникует "
+                      f"(обязательство типа снято)")
+            if ret in TYPE_RANGE and not meta.get("bv") and not wrap:
                 try:
                     _rco, outo = run_kernc(
                         kernc, build_overflow_smt(params, req, body,

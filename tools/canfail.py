@@ -247,6 +247,9 @@ class Fault:
 
 
 FAULTABLE = [
+    "tests/fixtures/zig_plain_add.zig",
+    "tests/fixtures/zig_saturating_add.zig",
+    "tests/fixtures/rust_saturating_add.rs",
     "examples/hadamard_matrix.py",
     "tools/parser_security_check.sh",
     "tests/fixtures/inject_comment_in_string.py",
