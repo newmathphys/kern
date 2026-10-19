@@ -1445,3 +1445,31 @@ Honest conclusion: on this pattern `align(32)` gives **no measurable gain**
 (difference within noise). The change is harmless, but it must not be sold as
 speed-up. The "~90 GB/s" figure in README is RAW addressing (no hashing) —
 a different operation, not a contradiction.
+
+### 31. Items 3 and 4 — bug-hunter trophies (8/8) and full-file sweep of every verifier
+
+**Item 3 — four battle scenarios** (`bug_hunter.py --trophies`, target `make bug-hunt-check`, requires 8/8):
+
+| Scenario | Positive | Negative |
+|:--|:--|:--|
+| 1. Bloch `binary_search` | buggy `(low+high)/2` in **QF_BV** → `[FAIL]`, counterexample `result = #xc0000000` (**negative**) | safe `low+(high-low)/2` in `Int` → **PROVEN** |
+| 2. PR audit (`--diff-equiv`) | regression → **`[DIVERGED]`** + counterexample | correct refactor → **`[EQUIVALENT]`** |
+| 3. DeFi `@kern:no_arbitrage` | threshold/floor fee → **REFUTED** (splitting pays less) | proportional fee → **PROVEN, trusted: 0** |
+| 4. Python stdlib | — | **checked 83/135, findings 0** (no false positives) |
+
+**Honest limitation (MEASURED):** the Bloch bug is **invisible in the `Int` theory** — the
+intermediate sum cannot overflow there, so refutation requires machine semantics
+(`@kern:bitvec32` → QF_BV). Stated in the scenario, not hidden.
+
+**Item 4 — `--full-file` on every verifier:** `z3_bridge` **22/22**, `noninterference` **9/9**,
+`cegis` **2/2**, `unsat_core` **4/4** — all **100.0 %**. Five new tests, each verified by
+**applying** the mutation (`killed.store(true)→false` gives `.ToolError` instead of `.Timeout`;
+`KillCtx.init(true)` gives `.Unknown`; `code != 0 → == 0` gives `.Unknown` instead of
+`.ToolError`; `or→and` loses the cmov taint; `false→true` makes `earlyExitEqual` ignore length).
+A stub `tests/fixtures/hang_solver.sh` (hangs, ignoring argv) plus `timeout_ms = 150` proves
+the killer thread terminates the process in under 3 s.
+
+**Process defect (mine):** while checking a mutation by hand, an interrupted command left
+`z3_bridge.zig` **empty** (787 deleted lines). Restored from git; the tests were re-added and
+**committed before the next experiment**. Rule: never mutate the working tree with `sed`
+without a commit — use a copy or an immediate `git checkout`.
