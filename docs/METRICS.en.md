@@ -1052,6 +1052,96 @@ Added `.ts`, `.js`, `.go` (previously `.py`, `.zig`, `.c`, `.rs`).
 **EXPLICIT ASSUMPTION (recorded both in code and here):** JS numbers are float64
 while KERN checks an INTEGER model. So for JS without a type annotation the tool
 uses the model `int` (i32) — that is a tool convention, not a fact about the
+
+---
+
+## §25. Session C: Echelon 5 CLOSED (Items 28, 29, 30, 31)
+
+### 25.1 Item 28 — double-spend race (`@kern:no_double_spend`)
+
+Both transactions check a SNAPSHOT of the balance while the deduction runs against
+the current value, so the total can go negative. The check verifies the main
+consequence: the function must not return a negative balance for non-negative
+inputs (path-wise decomposition).
+
+MEASURED on `examples/double_spend_demo.py`: `withdraw_race` REFUTED
+(`balance = 1, a1 = 1, a2 = 1, result = -1`); `withdraw_serial_safe` PROVEN over
+all 3 paths with `trusted: 0 | holes: 0`.
+
+### 25.2 Item 29 — FFI bridge (`@kern:calls_i32` / `@kern:calls_u32`)
+
+A value from an arbitrary-precision language crosses into a C-ABI type of FINITE
+width; leaving the range means truncation, invisible to Python/JS.
+
+MEASURED on `examples/ffi_bridge_demo.py`: `to_c_u32_unsafe` REFUTED (`x = 4295`);
+`to_c_u32_safe` and `to_c_i32_safe` PROVEN over 3 paths each (`trusted: 0`).
+
+### 25.3 Item 30 — RLS policies (`--verify-sql`) — PARTIAL, honestly
+
+The access PREDICATE is checked (`result == 1` only when
+`(row_tenant == req_tenant ∨ is_public == 1) ∧ is_deleted == 0`); SQL boolean flags
+are constrained to `{0,1}` (otherwise `is_deleted = -1` would look like a bypass —
+MEASURED).
+
+```
+[FAIL] rls_buggy: RLS POLICY BYPASS FOUND (path 1) —
+       is_public = 0, is_deleted = 1, req_tenant = 0, row_tenant = 0
+[UNKNOWN] rls_safe: 2 paths NOT re-checked by the proof checker (NOT counted)
+```
+
+**HONEST:** the bypass IS caught with an exact counterexample (the security-critical
+direction). For the SAFE policy Z3 returns UNSAT but the checker leaves 4
+atom-heavy steps (`def-axiom`/`rewrite` over introduced atoms), so `[UNKNOWN]` is
+printed instead of PASS. Three alternative formulations were measured — same class.
+This is a NAMED checker boundary, not a masked green tick.
+
+### 25.4 Item 31 — pricing matrices (`--verify-pricing`)
+
+Two formal properties: COMPLETENESS (a negative price is an "unhandled input"
+sentinel = a gap) and DISJOINTNESS (rules with DIFFERENT prices must not overlap;
+conditions are taken AS WRITTEN, otherwise the overlap would vanish by
+construction).
+
+```
+[FAIL] price_gap: PRICING GAP (unhandled input, path 3) — age = 18
+[FAIL] price_conflict: PRICING CONFLICT (Belnap B): rules 1 and 2 overlap — tier = 2
+[PASS] price_safe: PROVEN COMPLETE & DISJOINT (rules 2, paths 3, trusted: 0 | holes: 0)
+```
+
+### 25.5 SIX new SOUND checker rules (all derived from dumps, not guesses)
+
+| Rule | Soundness | Dump it was derived from |
+|:--|:--|:--|
+| `commEq` | `+`/`*` are commutative | `(* x 1000000)` vs `(* 1000000 x)` |
+| `deMorganEq` + `polarEq` | de Morgan BOTH ways + double negation | `(not (and A B))` vs `(or (not A) (not B))` |
+| `linTaut` | truth of a linear comparison (Fourier–Motzkin) | `(= E true)` |
+| `andTautEq` | `¬(A ∧ true) ≡ ¬A` with `true` PROVEN by the solver | `(<= x x)` |
+| `andEquivEq` | `¬A ≡ ¬B` when `A ↔ B` (both implications) | `0≤10⁶x≤4294967295` ≡ `0≤x≤4294` |
+| `_range_obligations` (path-wise) | paths cover the domain ⟹ all inputs covered | 2–3 trusted steps on the whole body |
+
+Each rule: positive + NEGATIVE test in `proof_check.zig` (**+4 tests: 346/354**)
+and theorems in `formal/FarkasSoundness.lean` (**+7 theorems: 67 in the file,
+8/8 files, 0 errors, 0 sorry**).
+
+### 25.6 Defect #144 — the SIXTH VACUOUS CASE (process)
+
+`canfail --only ffi-bridge-check` reported **VACUOUS 1**: my patch targeted
+`_smt_verdict`, while presets go through **`_prove_checked`**, so the target stayed
+green. FIXED: anchor `return ("sat", ce, None)` (unique to `_prove_checked`).
+After the fix: `1 non-vacuous, 0 vacuous`.
+
+### 25.7 Gates and regressions
+
+| Check | Result |
+|:--|:--|
+| `make double-spend-check` / `ffi-bridge-check` / `pricing-matrix-check` | `[OK]` |
+| `make sql-policy-check` | `[OK]` (bypass caught; safe status is an honest UNKNOWN) |
+| `canfail --only` ×4 | **1 non-vacuous, 0 vacuous** each |
+| `registry.py` | **125 targets, 102/102 CHECK** |
+| test catalog | **399**, in sync |
+| `zig build test` | 346/354 (8 skipped), 0 failed |
+| `./formal/check.sh` | 8/8 files, 0 errors, 0 sorry |
+
 language.
 
 **HONEST REFUSAL instead of a guess:** the type `number` (float64) does **not**
