@@ -808,7 +808,7 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
         std.debug.print("License: PolyForm Noncommercial 1.0.0 / Commercial\n", .{});
         std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});
-        std.debug.print("Ownership key-lock: {s}\n", .{if (owner.verifyOwnership()) "ВАЛИДЕН" else "НЕ подтверждён"});
+        std.debug.print("Ownership key-lock: {s}\n", .{if (owner.verifyOwnership()) "VALID" else "NOT confirmed"});
         return;
     }
 

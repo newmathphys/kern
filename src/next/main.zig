@@ -125,7 +125,7 @@ pub fn main(init: std.process.Init) !void {
                 if (owner.verifyOwnership()) {
                     std.debug.print("\n[АВТОРСТВО] ПОДТВЕРЖДЕНО: {s}\n", .{owner.AUTHOR});
                     std.debug.print("  ключ-замок Ed25519 : ВАЛИДЕН\n", .{});
-                    std.debug.print("  токен владельца    : {s}\n", .{owner.OWNER_TOKEN_HEX});
+                    std.debug.print("  owner token        : {s}\n", .{owner.OWNER_TOKEN_HEX});
                 } else {
                     std.debug.print("\n[АВТОРСТВО] НЕ ПОДТВЕРЖДЕНО (ключ-замок не совпал)\n", .{});
                 }

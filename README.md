@@ -664,7 +664,7 @@ curl -fsSL -o kernc \
   https://github.com/newmathphys/kern/releases/download/v2.5.0/kernc-x86_64-linux-musl
 chmod +x kernc && ./kernc --version
 # verify the download first:
-# fe9cf851ea35af4c30e04139a7e2c3e56df2e8c271ff8c811c287a76693e9eb6  kernc-x86_64-linux-musl
+# e9e7d1ac61f7ad9902b3098d2b85152362c09485f2070e59a0d75e19c0323a26  kernc-x86_64-linux-musl
 ```
 
 Or use it as a step in your own workflow:
