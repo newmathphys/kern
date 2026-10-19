@@ -63,8 +63,7 @@ pub const ChcEngine = struct {
     ) z3.SmtStatus {
         const q = self.buildHornQuery(init_cond, guard, step, post) catch return .ToolError;
         defer self.allocator.free(q);
-        _ = bridge.executeStatus(q);
-        return .Sat; // ЛОМАЕМ: всегда «баг найден»
+        return bridge.executeStatus(q);
     }
 };
 
