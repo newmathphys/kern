@@ -241,7 +241,6 @@ def body_smt(stmts, env: dict) -> str:
     return None  # дошли до конца -> неявный None
 
 
-
 def _py_comment_anchors(src: str) -> dict:
     """Директивы `@kern:` ТОЛЬКО из настоящих комментариев Python.
 
@@ -683,9 +682,15 @@ UNMODELED_TYPES = {"number": "float64 (IEEE-754) вне целочисленно
                              "для него нужен `@kern:float`"}
 
 RE_FN_FN = re.compile(
-    # Zig: `pub fn name(a: i32) i32 {`   Rust: `pub fn name(a: i32) -> i32 {`
-    r"^\s*(?:pub\s+)?(?:extern\s+)?fn\s+(\w+)\s*\(([^)]*)\)"
-    r"\s*(?:->\s*)?([\w:]+)?\s*\{")
+    # Zig: `pub fn name(a: i32) i32 {`   Rust: `pub(crate) async fn name<T>(a: i32) -> Result<..> {`
+    # ДЕФЕКТ #180: раньше поддерживался только `pub fn name(...)` — из-за этого
+    # ripgrep (Rust) давал 0 / 1292 проверенных функций: у него `pub(crate) fn`,
+    # `async fn`, `fn f<T: Read>(...)` и возвращаемые типы с дженериками.
+    r"^\s*(?:pub(?:\s*\([^)]*\))?\s+)?"
+    r"(?:extern\s+(?:\"[^\"]*\"\s+)?)?"
+    r"(?:async\s+)?(?:unsafe\s+)?(?:const\s+)?"
+    r"fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)"
+    r"\s*(?:->\s*)?([\w:<>\[\]&' ]+)?\s*\{")
 RE_FN_C = re.compile(
     r"^\s*(?:static\s+|inline\s+|const\s+)*"
     r"(void|char|short|int|long|unsigned|size_t|"
@@ -819,6 +824,106 @@ def clike_to_python(s: str) -> str:
     s = re.sub(r"([+\-])\|", r"\1", s)
     s = re.sub(r"\.(?:wrapping|saturating)_(?:add|sub|mul)\(", " + (", s)
     return convert_ternary(s)
+
+
+def _strip_c_comments_strings(text: str) -> str:
+    """ДЕФЕКТ #178: убрать комментарии и содержимое строковых литералов.
+
+    ЗАЧЕМ. `--xray` искал `/` по СЫРОМУ тексту C-like функций, поэтому
+    `// entering/exiting`, `/// … uniform words`, `"pkg/windows/Manifest.xml"`
+    и URL давали ложные `[CRASH PATH]` (по замеру: 95–100 % находок в
+    Rust/TS/C/Zig были именно такими). В Python этой проблемы нет — там
+    комментарии снимает `tokenize`.
+
+    КАК. Конечный автомат: `//…`, `/*…*/`, `"…"`, `'…'`, `` `…` ``,
+    а также zig-строки `\\\\…` до конца строки. Каждый удалённый символ
+    заменяется ПРОБЕЛОМ, переводы строк сохраняются — поэтому номера строк
+    остаются точными (на них ссылаются отчёты SARIF/DEAD BRANCH).
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    state = "code"          # code | line | block | str
+    quote = ""
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if state == "code":
+            if ch == "/" and nxt == "/":
+                state = "line"
+                out.append("  ")
+                i += 2
+                continue
+            if ch == "/" and nxt == "*":
+                state = "block"
+                out.append("  ")
+                i += 2
+                continue
+            if ch == "\\" and nxt == "\\":        # zig multiline string
+                state = "line"
+                out.append("  ")
+                i += 2
+                continue
+            if ch in "\"'`":
+                state = "str"
+                quote = ch
+                out.append(" ")
+                i += 1
+                continue
+            out.append(ch)
+            i += 1
+            continue
+        if state == "line":
+            if ch == "\n":
+                state = "code"
+                out.append("\n")
+            else:
+                out.append(" ")
+            i += 1
+            continue
+        if state == "block":
+            if ch == "*" and nxt == "/":
+                state = "code"
+                out.append("  ")
+                i += 2
+                continue
+            out.append("\n" if ch == "\n" else " ")
+            i += 1
+            continue
+        # state == "str"
+        if ch == "\\" and i + 1 < n:
+            out.append("  ")
+            i += 2
+            continue
+        if ch == quote:
+            state = "code"
+            out.append(" ")
+            i += 1
+            continue
+        out.append("\n" if ch == "\n" else " ")
+        i += 1
+    return "".join(out)
+
+
+# Макроконстанты (`REFMAP_SIZE`, `MAX_LEN`, `PAGE_SIZE`) — это НЕ переменные
+# входа: они не могут «принять 0» из модели, поэтому обязательство
+# `делитель ≠ 0` для них бессмысленно (дефект #178).
+_MACRO_DIV = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
+
+
+def _drop_macro_divisors(divs: list[str]) -> list[str]:
+    return [d for d in divs if not _MACRO_DIV.match(d)]
+
+
+# JS/TS: `/…/g` — это РЕГЕКС-ЛИТЕРАЛ, а не деление. Без этого `escapeData`
+# из `actions/toolkit` давал `[CRASH PATH] g == 0` (делитель — флаг `g`).
+_RE_JS_REGEX = re.compile(r"(?<![\w)\]$])/(?![/*\s])(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n])+/[dgimsuvy]*")
+
+
+def _strip_js_regex(text: str) -> str:
+    """Заменить regex-литералы пробелами (длина и переводы строк сохранены)."""
+    def blank(m: re.Match) -> str:
+        return "".join("\n" if c == "\n" else " " for c in m.group(0))
+    return _RE_JS_REGEX.sub(blank, text)
 
 
 def _normalize_clike(body: str, keep_newlines: bool = False) -> str:
@@ -1023,7 +1128,11 @@ def parse_clike(path: Path, require_annotations: bool = True):
             ret = m.group(3) or m.group(4)
         else:
             ret, name, praw = m.group(1), m.group(2), m.group(3)
-        meta = {"ranges": {}, "ret": ret}
+        # ДЕФЕКТ #180: у `pub(crate) … -> Result<…>` захват возвращаемого типа
+        # может содержать пробелы — без strip `TYPE_RANGE[ret]` не находился,
+        # и обязательство ПЕРЕПОЛНЕНИЯ для Rust молча пропускалось.
+        meta = {"ranges": {}, "ret": (ret or "").strip()}
+        ret = meta["ret"]
         req = ens = None
         for k in range(max(0, i - 6), i):
             am = ANNOT.match(lines[k])
@@ -1078,7 +1187,12 @@ def parse_clike(path: Path, require_annotations: bool = True):
         # ПУНКТ 25: в Go/JS/TS `;` необязательна — разделяем операторы по
         # переводу строки (сохранён в `_normalize_clike(keep_newlines=True)`).
         semi_optional = lang in ("go", "js", "ts")
-        raw_body = _normalize_clike("\n".join(body_lines), keep_newlines=semi_optional)
+        # ДЕФЕКТ #178: комментарии и строковые литералы снимаются ДО разбора,
+        # иначе `// a/b`, `"pkg/windows/…"` и URL дают ложные `[CRASH PATH]`.
+        clean_body = _strip_c_comments_strings("\n".join(body_lines))
+        if lang in ("ts", "js"):
+            clean_body = _strip_js_regex(clean_body)   # `/re/g` — не деление
+        raw_body = _normalize_clike(clean_body, keep_newlines=semi_optional)
         # ТОЧНЫЙ кламп насыщения (по типу возврата), а не просто `+`.
         raw_body = _saturate_rewrite(raw_body, ret)
         meta["raw_body"] = raw_body   # УЛУЧШЕНИЕ №14: для конкретной перепроверки
@@ -1101,7 +1215,7 @@ def parse_clike(path: Path, require_annotations: bool = True):
                 out.append((name, names, req, ens, None, i + 1, str(e), meta))
             i = j + 1
             continue
-        meta["divisors"] = list(dict.fromkeys(_DIV_COLLECTOR))
+        meta["divisors"] = _drop_macro_divisors(list(dict.fromkeys(_DIV_COLLECTOR)))
         out.append((name, names, req, ens, body, i + 1, None, meta))
         i = j + 1
     return out
@@ -2112,7 +2226,7 @@ def _demo(args) -> int:
                     bv_body = _exec_clike(meta["raw_body"].split(";"), {},
                                           meta.get("lang", "zig"),
                                           lambda node, env_: expr_smt_bv(node, env_, w, signed))
-                    meta["divisors"] = list(dict.fromkeys(_DIV_COLLECTOR))
+                    meta["divisors"] = _drop_macro_divisors(list(dict.fromkeys(_DIV_COLLECTOR)))
                     meta["bv"] = (w, signed)
                     smt = build_smt_bv(params, req, ens, bv_body, w, signed,
                                        meta.get("lang", "zig"))
@@ -2442,6 +2556,33 @@ def _cc_and_smells(fn: ast.FunctionDef) -> tuple[int, list[str]]:
     return cc, smells
 
 
+def _mentions_param(div_smt: str, params) -> bool:
+    """Зависит ли делитель от ВХОДНЫХ параметров (дефект #179).
+
+    `Path(...) / name`, `bin_dir / name` — это pathlib-склейка, а не арифметика;
+    `name` не параметр функции, поэтому такое деление не является риском
+    ZeroDivisionError. Проверяем только делители, зависящие от входа.
+    """
+    return any(re.search(rf"\b{re.escape(str(p))}\b", div_smt) for p in params)
+
+
+def _could_be_zero(div_smt: str) -> bool:
+    """Может ли ЭТОТ делитель быть нулём (дефект #178/#179).
+
+    Отсекаем заведомо ненулевые: числовые литералы (`2`, `-1`) и
+    UPPER_SNAKE_CASE (константы/макросы — `REFMAP_SIZE`, `MAX_LEN`).
+    Иначе `median: 2 == 0` и `REFMAP_SIZE == 0` давали ложные [CRASH PATH].
+    """
+    s = div_smt.strip()
+    while s.startswith("(") and s.endswith(")"):
+        s = s[1:-1].strip()
+    if re.fullmatch(r"-?\d+", s):
+        return False
+    if _MACRO_DIV.match(s):
+        return False
+    return True
+
+
 def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                    found: list[str], skipped: list[str], fnname: str,
                    syms=None, env=None) -> None:
@@ -2471,6 +2612,39 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 except (Unsupported, NoReturn, Exception):
                     env.pop(st.target.id, None)
             continue
+        # ДЕФЕКТ #179 (assert как гард пути): `assert len(x) == 1` — это
+        # ИСТИННОЕ условие ВСЕГО дальнейшего кода, а не комментарий. Без этого
+        # psf/requests давал ложный [BOUNDS PATH] на `encodings[0]`.
+        if isinstance(st, ast.Assert):
+            try:
+                path = path + [_cond_smt(st.test, syms, env)]
+            except (Unsupported, NoReturn, Exception):
+                pass
+            continue
+        # ДЕФЕКТ #179 (Loop-Modified Variable Kill): переменная, которой
+        # присваивают ВНУТРИ цикла, после цикла уже не равна начальному
+        # значению. Иначе fastapi (`all_good = True`, затем
+        # `all_good = all_good and res` в цикле) давал ложный
+        # [DEAD BRANCH] `(not true)`.
+        if isinstance(st, (ast.For, ast.While)):
+            for sub in ast.walk(st):
+                tgt = None
+                if isinstance(sub, ast.Assign):
+                    for t in sub.targets:
+                        if isinstance(t, ast.Name):
+                            env.pop(t.id, None)
+                    continue
+                if isinstance(sub, (ast.AugAssign, ast.AnnAssign)):
+                    tgt = getattr(sub, "target", None)
+                if isinstance(tgt, ast.Name):
+                    env.pop(tgt.id, None)
+            if isinstance(st, ast.While):
+                try:
+                    path = path + [_cond_smt(st.test, syms, env)]
+                except (Unsupported, NoReturn, Exception):
+                    pass
+            _walk_branches(st.body, path, params, kernc, found, skipped, fnname, syms, env)
+            continue
         if isinstance(st, ast.If):
             try:
                 # ПУНКТ 21 (Zero-Annotation): `len(arr)` -> символическая длина,
@@ -2496,9 +2670,13 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
                     if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
                         continue  # `'%s' % x` — форматирование, не деление
+                    if isinstance(n.left, ast.Name) and _MACRO_DIV.match(n.left.id):
+                        continue  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
                     try:
-                        div = expr_smt(n.right, {})
+                        div = expr_smt(n.right, env)
                     except (Unsupported, NoReturn, Exception):
+                        continue
+                    if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
                     sat_dz = _smt_sat(kernc, params, path + [cond, f"(= {div} 0)"])
                     if sat_dz is True:
@@ -2520,15 +2698,18 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
                     if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
                         continue  # `'%s' % x` — форматирование, не деление
+                    if isinstance(n.left, ast.Name) and _MACRO_DIV.match(n.left.id):
+                        continue  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
                     try:
-                        div = expr_smt(n.right, {})
+                        div = expr_smt(n.right, env)
                     except (Unsupported, NoReturn, Exception):
+                        continue
+                    if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
                     sat_dz = _smt_sat(kernc, params, path + [f"(= {div} 0)"])
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
-
 
 
 # =============================================================================
@@ -2587,7 +2768,6 @@ def _smt_counterexample(kernc, params, asserts) -> str | None:
     """Совместимость: контрпример, если SAT; иначе None (UNSAT или unknown)."""
     kind, ce = _smt_verdict(kernc, params, asserts)
     return ce if kind == "sat" else None
-
 
 
 # -----------------------------------------------------------------------------
@@ -2778,6 +2958,19 @@ _RE_CLIKE_DIV = re.compile(
     r"|([A-Za-z_][\w.\[\]]*)\s*%\s*([A-Za-z_][\w.\[\]]*)")
 
 _RE_CLIKE_IF = re.compile(r"\bif\s*\(((?:[^()]|\([^()]*\))*)\)")
+# ДЕФЕКТ #180: Rust/Go/JS пишут `if x > 0 {` — БЕЗ круглых скобок. Без этого
+# условия не извлекались вообще (ripgrep: 0 проверенных функций из 1354).
+_RE_CLIKE_IF_BARE = re.compile(r"\bif\s+(?!\()([^{};\n]+?)\s*\{")
+
+
+def _clike_ifs(body: str):
+    """Все `if`-условия: сначала со скобками, затем без; в порядке появления."""
+    hits = [(m.start(), m) for m in _RE_CLIKE_IF.finditer(body)]
+    used = {s for s, _ in hits}
+    hits += [(m.start(), m) for m in _RE_CLIKE_IF_BARE.finditer(body)
+             if m.start() not in used]
+    hits.sort(key=lambda x: x[0])
+    return [m for _, m in hits]
 
 
 _NUMERIC_TYPES = {"i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64",
@@ -2797,7 +2990,12 @@ def _clike_functions(path: Path):
     Тела берутся по балансу скобок от строки объявления — поэтому `comptime`,
     `@as`, `try` и вложенные блоки не мешают (они просто не анализируются).
     """
-    src = path.read_text(encoding="utf-8", errors="replace")
+    # ДЕФЕКТ #178: баланс скобок и `if (...)` считаются по коду БЕЗ
+    # комментариев и строковых литералов (`}` внутри строки ломал разбор,
+    # а `// a/b` давал ложный делитель). Переводы строк сохранены.
+    src = _strip_c_comments_strings(path.read_text(encoding="utf-8", errors="replace"))
+    if path.suffix in {".ts", ".js"}:
+        src = _strip_js_regex(src)          # `/re/g` — регекс, а не деление
     lines = src.splitlines()
     out = []
     for i, line in enumerate(lines):
@@ -2857,7 +3055,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         proven = 0
         path_conds: list[str] = []
         pos = 0
-        for m in _RE_CLIKE_IF.finditer(body):
+        for m in _clike_ifs(body):
             raw_cond = m.group(1)
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, {})
@@ -2886,6 +3084,16 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             elif re.match(r"\s*\}?\s*else\b", tail):
                 path_conds.append(f"(not {cond})")
             pos = m.end()
+        # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
+        # дальнейшего кода. Без этого zls `alternate(..., len: u32)` с
+        # `assert(@backingInt(index) < len)` давал ложный [CRASH PATH].
+        for am2 in re.finditer(r"\bassert\s*\(([^()]*)\)", body):
+            try:
+                ac = expr_smt(ast.parse(clike_to_python(am2.group(1)), mode="eval").body, {})
+            except (Unsupported, NoReturn, SyntaxError, Exception):
+                continue
+            path_conds.append(ac)
+
         # [CRASH PATH] для C-like: деление на выражение, которое может быть 0.
         # ИСКЛЮЧАЕМ: (а) локальные переменные — они не входные данные;
         # (б) float-арифметику — деление на 0.0 даёт inf, а не панику.
@@ -2911,10 +3119,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 d = expr_smt(ast.parse(clike_to_python(den), mode="eval").body, {})
             except (Unsupported, NoReturn, SyntaxError, Exception):
                 continue
-            if d.strip().isdigit():
-                continue  # константный делитель — не 0
+            if d.strip().isdigit() or _MACRO_DIV.match(d.strip()):
+                continue  # константа/макрос — не 0
             if d.strip() in locals_ or d.strip() in float_names:
                 continue  # локальная переменная / float-арифметика — не параметр
+            if "__" in d:
+                continue  # поле структуры (self.x -> self__x): значение неизвестно
             try:
                 sat_dz = _smt_sat(kernc, params, path_conds + [f"(= {d} 0)"])
             except Exception:  # noqa: BLE001
@@ -2924,61 +3134,6 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         if proven:
             checked += 1
     return checked, total, found
-
-
-def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
-    """ПОЛЕВОЙ АДАПТЕР №5: рекурсивный скан ЧУЖОГО репозитория.
-
-    Обходит все поддерживаемые файлы, пропуская служебные каталоги, и печатает
-    сводный паспорт: сколько файлов/функций проверено, сколько SKIP и все
-    находки с точными путями. Ничего не выдумывает: файлы, которые не удалось
-    разобрать, попадают в список пропущенных с причиной.
-    """
-    files: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
-        for f in sorted(filenames):
-            if Path(f).suffix in _XRAY_EXTS:
-                files.append(Path(dirpath) / f)
-    print(f"[REPO SCAN] {root} | файлов к сканированию: {len(files)}")
-    total_checked = total_fns = total_skip = 0
-    all_findings: list[str] = []
-    bad_files = 0
-    for f in files:
-        if f.suffix != ".py":
-            ck, tot, fd = _xray_clike_file(f, kernc)
-            total_checked += ck
-            total_fns += tot
-            total_skip += max(0, tot - ck)
-            for x in fd:
-                all_findings.append(f"{f}: {x}")
-            continue
-        try:
-            rc = cmd_xray(str(f), kernc, show_all)
-        except SyntaxError as e:
-            bad_files += 1
-            print(f"  [SKIP FILE] {f}: синтаксис: {e}")
-            continue
-        except Exception as e:  # noqa: BLE001 — честно печатаем, а не глотаем
-            bad_files += 1
-            print(f"  [SKIP FILE] {f}: {type(e).__name__}: {e}")
-            continue
-        # cmd_xray печатает свою сводку; агрегируем через побочный канал
-        st = _LAST_XRAY.get("stat")
-        if st:
-            total_checked += st[0]
-            total_fns += st[1]
-            total_skip += st[2]
-            for x in st[3]:
-                all_findings.append(f"{f}: {x}")
-        if rc not in (0, 1):
-            bad_files += 1
-    print("=" * 74)
-    print(f"[REPO SUMMARY] файлов {len(files)} | функций проверено {total_checked} / {total_fns} "
-          f"(skipped {total_skip}) | находок {len(all_findings)} | нечитаемых файлов {bad_files}")
-    for x in all_findings[:60]:
-        print("  " + x)
-    return 0
 
 
 def _shm_dir():
@@ -3274,7 +3429,6 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     return 0
 
 
-
 # =============================================================================
 # ЭШЕЛОН 4, ПУНКТ 20 — ТОТАЛЬНАЯ КОРРЕКТНОСТЬ ЦИКЛОВ (Флойд — Хоар).
 #
@@ -3295,212 +3449,7 @@ _INV_RE = re.compile(r"@kern:invariant\s+(.+)")
 _DEC_RE = re.compile(r"@kern:decreases\s+(.+)")
 
 
-def _directives_before(lines: list[str], lineno: int) -> dict[str, str]:
-    """Строки директив из блока комментариев НЕПОСРЕДСТВЕННО перед `def`."""
-    out: dict[str, str] = {}
-    i = lineno - 2
-    while i >= 0:
-        s = lines[i].strip()
-        if not s or not s.startswith("#"):
-            break
-        m = _INV_RE.search(s)
-        if m:
-            out["invariant"] = m.group(1).strip()
-        m = _DEC_RE.search(s)
-        if m:
-            out["decreases"] = m.group(1).strip()
-        i -= 1
-    return out
-
-
-def _subst(text: str, mapping: dict[str, str]) -> str:
-    """Подстановка переменных в SMT-строку (по границам слова).
-
-    ДЕФЕКТ #137: раньше ЛЮБОЙ терм оборачивался в скобки, поэтому подстановка
-    числа давала `(0)` — НЕВАЛИДНЫЙ SMT-LIB (скобки = применение функции).
-    Z3 не мог разобрать формулу, kernc отвечал `N`, а это молча принималось за
-    «безопасно». Теперь атомы (числа и идентификаторы) подставляются как есть.
-    """
-    # ДЕФЕКТ #139: обёртка в скобки давала ДВОЙНЫЕ скобки `((+ i 1))` — Z3 не мог
-    # разобрать формулу и отвечал `N`. В SMT-LIB вся нотация ПРЕФИКСНАЯ, поэтому
-    # подстановка полного s-выражения или атома НЕ требует обёртки вообще.
-    for k in sorted(mapping, key=len, reverse=True):
-        text = re.sub(r"(?<![\w])" + re.escape(k) + r"(?![\w])",
-                      mapping[k], text)
-    return text
-
-
-def _assigns(stmts) -> list[tuple[str, str]]:
-    out: list[tuple[str, str]] = []
-    for st in stmts:
-        if (isinstance(st, ast.Assign) and len(st.targets) == 1
-                and isinstance(st.targets[0], ast.Name)):
-            try:
-                out.append((st.targets[0].id, expr_smt(st.value, {})))
-            except (Unsupported, NoReturn, Exception):
-                raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
-        elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
-            op = {"Add": "+", "Sub": "-", "Mult": "*"}.get(type(st.op).__name__)
-            if op is None:
-                raise Unsupported(f"+=/-= только на строке {st.lineno}")
-            try:
-                out.append((st.target.id, f"({op} {st.target.id} {expr_smt(st.value, {})})"))
-            except (Unsupported, NoReturn, Exception):
-                raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
-    return out
-
-
-def _apply(state: dict[str, str], assigns) -> dict[str, str]:
-    s = dict(state)
-    for name, expr in assigns:
-        s[name] = _subst(expr, s)
-    return s
-
-
-def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
-    """Четыре обязательства для первого top-level `while` (Пункт 20)."""
-    res: list[str] = []
-    idx = None
-    for n, st in enumerate(fn.body):
-        if isinstance(st, ast.While):
-            idx = n
-            break
-    if idx is None:
-        return res
-    loop = fn.body[idx]
-    try:
-        cond = expr_smt(loop.test, {})
-        init_a = _assigns(fn.body[:idx])
-        step_a = _assigns(loop.body)
-    except (Unsupported, NoReturn, Exception) as e:
-        res.append(f"[SKIP] {fn.name}: цикл вне подмножества ({e})")
-        return res
-    ret = None
-    for st in fn.body[idx + 1:]:
-        if isinstance(st, ast.Return) and st.value is not None:
-            try:
-                ret = expr_smt(st.value, {})
-            except (Unsupported, NoReturn, Exception):
-                ret = None
-            break
-    lines = _loop_lines.get(fn.lineno, [])
-    d = _directives_before(lines, fn.lineno)
-    if "invariant" not in d:
-        res.append(f"[SKIP] {fn.name}: нет `# @kern:invariant` — цикл не проверяется")
-        return res
-    try:
-        inv = expr_smt(ast.parse(d["invariant"], mode="eval").body, {})
-    except (Unsupported, NoReturn, Exception) as e:
-        res.append(f"[SKIP] {fn.name}: инвариант вне подмножества ({e})")
-        return res
-    dec = None
-    if "decreases" in d:
-        try:
-            dec = expr_smt(ast.parse(d["decreases"], mode="eval").body, {})
-        except (Unsupported, NoReturn, Exception):
-            dec = None
-    names = [p for p in params] + [a for a, _ in init_a] + [a for a, _ in step_a]
-    state0 = {p: p for p in params}
-    state_i = _apply(state0, init_a)
-    state_c = {n: n for n in names}
-    state_n = _apply(state_c, step_a)
-    inv0 = _subst(inv, state_i)
-    invc = _subst(inv, state_c)
-    invn = _subst(inv, state_n)
-    pre = [req_smt] if req_smt else []
-    # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
-    # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`
-    # -> молчаливый PASS. Объявляем ВСЕ переменные состояния.
-    decls = list(dict.fromkeys(names))
-    fails = 0
-    unknowns = 0
-    # `result` участвует ТОЛЬКО в обязательстве `post` -> объявляем его там же
-    # (Дефект #138: необъявленная переменная даёт `N`, что раньше читалось как PASS).
-    decls_post = list(dict.fromkeys(decls + ["result"]))
-    checks: list[tuple[str, list[str], list[str]]] = [
-        ("init", decls, pre + [f"(not {inv0})"]),
-        ("consecution", decls, pre + [invc, cond, f"(not {invn})"]),
-    ]
-    if ret is not None and ens_smt:
-        checks.append(("post", decls_post,
-                       pre + [invc, f"(not {cond})",
-                              f"(= result {_subst(ret, state_c)})",
-                              f"(not {ens_smt})"]))
-    if dec is not None:
-        dec_c = _subst(dec, state_c)
-        dec_n = _subst(dec, state_n)
-        checks.append(("termination", decls,
-                       pre + [invc, cond,
-                              f"(not (and (>= {dec_c} 0) (< {dec_n} {dec_c})))"]))
-    else:
-        res.append(f"[SKIP] {fn.name}: нет `# @kern:decreases` — остановка НЕ проверена")
-        unknowns += 1
-    for kind, dcl, asserts in checks:
-        v, ce = _smt_verdict(kernc, dcl, asserts)
-        if v == "sat":
-            fails += 1
-            label = {"init": "LOOP INVARIANT VIOLATED at init",
-                     "consecution": "LOOP INVARIANT VIOLATED (не сохраняется)",
-                     "post": "POSTCONDITION VIOLATED",
-                     "termination": "NON-TERMINATING LOOP (вариант не убывает)"}[kind]
-            res.append(f"[FAIL] {fn.name}: {label}; контрпример: {ce}")
-        elif v == "unknown":
-            unknowns += 1
-            res.append(f"[UNKNOWN] {fn.name}: обязательство `{kind}` НЕ решено "
-                       f"({ce}) — НЕ считается доказанным")
-    if fails == 0 and unknowns == 0:
-        res.append(f"[PASS] {fn.name}: PROVEN (invariant & termination verified)")
-    return res
-
-
 _loop_lines: dict[int, list[str]] = {}
-
-
-def cmd_loops(path: str, kernc) -> int:
-    """ПУНКТ 20: проверка циклов (`make loop-check`)."""
-    p = Path(path)
-    src = p.read_text(encoding="utf-8", errors="replace")
-    lines = src.splitlines()
-    tree = ast.parse(src)
-    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
-    out: list[str] = []
-    for fn in fns:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        _loop_lines[fn.lineno] = lines
-        fn._kern_lines = lines  # noqa: SLF001
-        req, ens = None, None
-        for ln in _directives_before(lines, fn.lineno).values():
-            pass
-        # requires/ensures читаем тем же блоком
-        i = fn.lineno - 2
-        while i >= 0:
-            s = lines[i].strip()
-            if not s or not s.startswith("#"):
-                break
-            m = re.search(r"@kern:requires\s+(.+)", s)
-            if m:
-                try:
-                    req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
-                except (Unsupported, NoReturn, Exception):
-                    req = None
-            m = re.search(r"@kern:ensures\s+(.+)", s)
-            if m:
-                try:
-                    ens = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
-                except (Unsupported, NoReturn, Exception):
-                    ens = None
-            i -= 1
-        out.extend(check_loop(fn, params, req, ens, kernc))
-    print("-" * 74)
-    for r in out:
-        print("  " + r)
-    print("-" * 74)
-    nf = sum(1 for r in out if r.startswith("[FAIL]"))
-    np_ = sum(1 for r in out if r.startswith("[PASS]"))
-    ns = sum(1 for r in out if r.startswith("[SKIP]"))
-    print(f"[LOOP SUMMARY] PASS {np_} | FAIL {nf} | SKIP {ns}")
-    return 0
-
 
 
 # =============================================================================
@@ -3519,303 +3468,6 @@ def cmd_loops(path: str, kernc) -> int:
 _SI_RE = re.compile(r"@kern:state_invariant\s+(.+)")
 
 
-def _si_directive(lines, lineno):
-    i = lineno - 2
-    while i >= 0:
-        s = lines[i].strip()
-        if not s or not s.startswith("#"):
-            break
-        m = _SI_RE.search(s)
-        if m:
-            return m.group(1).strip()
-        i -= 1
-    return None
-
-
-def _returns_with_path(body, path, syms, out):
-    """Все `return <expr>` с накопленным путём гардов."""
-    for st in body:
-        if isinstance(st, ast.If):
-            try:
-                cond = _cond_smt(st.test, syms)
-            except (Unsupported, NoReturn, Exception):
-                cond = None
-            _returns_with_path(st.body, path + ([cond] if cond else []), syms, out)
-            neg = f"(not {cond})" if cond else None
-            _returns_with_path(st.orelse, path + ([neg] if neg else []), syms, out)
-            if neg and _block_exits(st.body):
-                path = path + [neg]
-            continue
-        if isinstance(st, ast.Return) and st.value is not None:
-            try:
-                out.append((list(path), expr_smt(st.value, {}), st.lineno))
-            except (Unsupported, NoReturn, Exception):
-                pass
-
-
-def cmd_state_inv(path: str, kernc) -> int:
-    """ПУНКТ 24: инвариант состояния (`make state-inv-check`)."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    lines = src.splitlines()
-    tree = ast.parse(src)
-    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
-    out: list[str] = []
-    for fn in fns:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        inv_txt = _si_directive(lines, fn.lineno)
-        if inv_txt is None:
-            out.append(f"[SKIP] {fn.name}: нет `# @kern:state_invariant`")
-            continue
-        req = None
-        i = fn.lineno - 2
-        while i >= 0:
-            s = lines[i].strip()
-            if not s or not s.startswith("#"):
-                break
-            m = re.search(r"@kern:requires\s+(.+)", s)
-            if m:
-                try:
-                    req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
-                except (Unsupported, NoReturn, Exception):
-                    req = None
-            i -= 1
-        syms: set = set()
-        lens = _collect_lens(fn, syms)
-        try:
-            inv = _cond_smt(ast.parse(inv_txt, mode="eval").body, syms)
-        except (Unsupported, NoReturn, Exception) as e:
-            out.append(f"[SKIP] {fn.name}: инвариант вне подмножества ({e})")
-            continue
-        rets: list = []
-        _returns_with_path(fn.body, [], syms, rets)
-        if not rets:
-            out.append(f"[SKIP] {fn.name}: нет `return <expr>`")
-            continue
-        decls = list(dict.fromkeys(params + ["result"]))
-        pre = [req] if req else []
-        fails = unknowns = 0
-        for pth, ret, ln in rets:
-            v, ce = _smt_verdict(kernc, decls,
-                                 pre + pth + [f"(= result {ret})", f"(not {inv})"])
-            if v == "sat":
-                fails += 1
-                out.append(f"[FAIL] {fn.name}: STATE INVARIANT VIOLATED at line {ln}; "
-                           f"контрпример: {ce}")
-            elif v == "unknown":
-                unknowns += 1
-                out.append(f"[UNKNOWN] {fn.name}: выход строка {ln} НЕ решён ({ce})")
-        if fails == 0 and unknowns == 0:
-            out.append(f"[PASS] {fn.name}: PROVEN (state invariant preserved on all "
-                       f"{len(rets)} exits)")
-    print("-" * 74)
-    for r in out:
-        print("  " + r)
-    print("-" * 74)
-    print(f"[STATE SUMMARY] PASS {sum(1 for r in out if r.startswith('[PASS]'))} | "
-          f"FAIL {sum(1 for r in out if r.startswith('[FAIL]'))} | "
-          f"SKIP {sum(1 for r in out if r.startswith('[SKIP]'))} | "
-          f"UNKNOWN {sum(1 for r in out if r.startswith('[UNKNOWN]'))}")
-    return 0
-
-
-def cmd_explain(path: str, kernc) -> int:
-    """ПУНКТ 18: человеческий паспорт функции (диапазон, падения, CC)."""
-    p = Path(path)
-    tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
-    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        cc, smells = _cc_and_smells(fn)
-        print(f"  {fn.name}({', '.join(params)}):")
-        print(f"    сложность Маккейба CC = {cc}; параметров {len(params)}; строка {fn.lineno}")
-        divs, rets = [], []
-        for n in ast.walk(fn):
-            if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
-                divs.append(n.lineno)
-            if isinstance(n, ast.Return) and n.value is not None:
-                try:
-                    rets.append(expr_smt(n.value, {}))
-                except (Unsupported, NoReturn, Exception):
-                    pass
-        if divs:
-            print(f"    условия падения: деление на ноль в строках {divs}")
-        if rets:
-            print(f"    возможные выходы (SMT): {len(rets)} ветвей")
-        for s in smells:
-            print(f"    [!] {s}")
-    return 0
-
-
-def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
-    """ПУНКТ 19: математическое резюме изменений для Code Review."""
-    a = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(old_file))}
-    b2 = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(new_file))}
-    common = sorted(n for n in a if n in b2)
-    only_old = sorted(set(a) - set(b2))
-    only_new = sorted(set(b2) - set(a))
-    same = diverged = 0
-    print(f"[PR-SUMMARY] {Path(old_file).name} -> {Path(new_file).name}")
-    for name in common:
-        pa, ba, _ = a[name]
-        pb, bnew, _ = b2[name]
-        if pa != pb:
-            print(f"  [SKIP] {name}: изменён набор параметров")
-            continue
-        rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
-        if "ДОКАЗАНО" in out:
-            same += 1
-            print(f"  [EQUIVALENT] {name}: поведение на 100% сохранено на всём Z")
-        else:
-            diverged += 1
-            ce = next((l.strip() for l in out.splitlines() if "КОНТРПРИМЕР" in l), "")
-            print(f"  [DIVERGED] {name}: поведение ИЗМЕНИЛОСЬ {ce}")
-    for n in only_old:
-        print(f"  [REMOVED] {n}")
-    for n in only_new:
-        print(f"  [ADDED]   {n}")
-    print("-" * 74)
-    print(f"ИТОГО: эквивалентных {same} | изменившихся {diverged} | "
-          f"удалено {len(only_old)} | добавлено {len(only_new)}")
-    return 1 if diverged else 0
-
-
-def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
-    """ПУНКТЫ 15 и 16: авто-синтез гарда и предусловия с ПРОВЕРКОЙ в Z3.
-
-    Найден краш-путь (делитель может быть 0) -> предлагаем защитный гард и
-    ДОКАЗЫВАЕМ его: после гарда путь продолжается при `делитель != 0`, поэтому
-    `путь AND делитель != 0 AND делитель == 0` обязан быть UNSAT. Если это не
-    так — гард НЕ выдаём (честный отказ вместо ложного рецепта).
-    """
-    if not Path(kernc).exists():
-        print(f"[!] не найден kernc: {kernc}")
-        return 2
-    tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
-    fixes = 0
-    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        for n in ast.walk(fn):
-            if not (isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod))):
-                continue
-            if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
-                continue  # `'%s' % x` — форматирование, не деление
-            try:
-                div = expr_smt(n.right, {})
-            except (Unsupported, NoReturn, Exception):
-                continue
-            sat = _smt_sat(kernc, params, [f"(= {div} 0)"])
-            if sat is not True:
-                continue
-            # ГАРД: после него делитель гарантированно не 0.
-            guard = f"(= {div} 0)"
-            verified = _smt_sat(kernc, params, [f"(not {guard})", guard]) is False
-            print(f"  [CRASH PATH] {fn.name}: строка {n.lineno}: {div} может быть 0")
-            if verified:
-                print(f"  [SUGGESTED FIX ... VERIFIED BY Z3] {fn.name}: "
-                      f"добавить ПЕРЕД строкой {n.lineno}: "
-                      f"if {div} == 0: return 0")
-                fixes += 1
-            else:
-                print(f"  [!] гард НЕ подтверждён решателем — рецепт не выдаю")
-            if infer_requires:
-                print(f"  [INFERRED SPEC] # @kern:requires {div} != 0")
-    print("-" * 74)
-    print(f"ИТОГО: проверенных рецептов {fixes}")
-    return 0
-
-
-
-def _smt_model(kernc, params, asserts) -> dict | None:
-    """Конкретные значения из контрпримера Z3 (ПУНКТ 14, SBST)."""
-    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
-    body = "\n".join(f"(assert {a})" for a in asserts)
-    smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
-    rc, out = run_kernc(kernc, smt)
-    vals: dict[str, int] = {}
-    for line in out.splitlines():
-        if "КОНТРПРИМЕР" not in line:
-            continue
-        for tok in line.split("КОНТРПРИМЕР", 1)[1].split(","):
-            if "=" not in tok:
-                continue
-            k, v = tok.split("=", 1)
-            # ДЕФЕКТ (найден конколикой): `kernc` печатает модель в форме
-            # `[x = 5, y = 0]`, поэтому первый токен приходил как `'] x'` —
-            # имя с мусором, и параметр НЕ находился. Оставляем только имя.
-            k = k.strip().strip("[]").strip().lstrip("]").strip()
-            v = v.strip().strip("[]").strip()
-            try:
-                vals[k] = int(v)
-            except ValueError:
-                pass
-        break
-    return vals if vals else None
-
-
-def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
-    """ПУНКТ 14: SBST — pytest со 100% покрытием ДОСТИЖИМЫХ ветвей.
-
-    Для каждой ветки запрашивается МОДЕЛЬ Z3 (конкретный вход), затем эталонный
-    ответ берётся ИСПОЛНЕНИЕМ самой функции на этом входе. Мёртвые ветки
-    (UNSAT) не тестируются, а ЯВНО помечаются в файле как недостижимые.
-    """
-    if not Path(kernc).exists():
-        print(f"[!] не найден kernc: {kernc}")
-        return 2
-    mod_path = Path(path)
-    src = mod_path.read_text(encoding="utf-8", errors="replace")
-    tree = ast.parse(src)
-    ns: dict = {}
-    try:
-        exec(compile(src, str(mod_path), "exec"), ns)  # noqa: S102 (наш же файл)
-    except Exception as e:  # noqa: BLE001
-        print(f"[!] модуль не исполняется: {e}")
-        return 2
-
-    lines = ["# СГЕНЕРИРОВАНО kern_contracts.py --gen-tests (SBST + Z3). Не править вручную.",
-             f"# Источник: {path}", "", f"from {mod_path.stem} import *  # noqa", ""]
-    total = dead = 0
-
-    def walk(stmts, path_conds, params, fnname):
-        nonlocal total, dead
-        for st in stmts:
-            if not isinstance(st, ast.If):
-                continue
-            try:
-                cond = expr_smt(st.test, {})
-            except (Unsupported, NoReturn, Exception):
-                continue
-            model = _smt_model(kernc, params, path_conds + [cond])
-            if model is None:
-                dead += 1
-                lines.append(f"# ВЕТКА НЕДОСТИЖИМА (UNSAT): {fnname}, строка {st.lineno}")
-            else:
-                args = ", ".join(f"{p}={model.get(p, 0)}" for p in params)
-                try:
-                    expected = ns[fnname](*[model.get(p, 0) for p in params])
-                except Exception as e:  # noqa: BLE001
-                    lines.append(f"# ВЕТКА БРОСАЕТ {type(e).__name__}: {fnname}, строка {st.lineno}")
-                    expected = None
-                total += 1
-                if expected is not None:
-                    lines.append(f"def test_{fnname}_branch_{total}():  # строка {st.lineno}")
-                    lines.append(f"    assert {fnname}({args}) == {expected}")
-                    lines.append("")
-            walk(st.body, path_conds + [cond], params, fnname)
-            walk(st.orelse, path_conds + [f"(not {cond})"], params, fnname)
-
-    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        walk(fn.body, [], params, fn.name)
-
-    Path(out_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"[GEN-TESTS] сгенерировано тестов: {total} | "
-          f"помечено недостижимых веток: {dead} | файл: {out_file}")
-    if total == 0:
-        print("[!] ни одной достижимой ветки — тест был бы вакуумным")
-        return 1
-    return 0
-
-
 # =============================================================================
 # ЭШЕЛОН 3, ПУНКТ 17 — `--simplify`: ВЕРИФИЦИРУЮЩИЙ ОПТИМИЗАТОР.
 #
@@ -3828,121 +3480,6 @@ def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
 # ЭКВИВАЛЕНТНОСТЬ исходной через `--diff-equiv` (Z3: ∃x: f_old(x) != f_new(x)).
 # UNSAT -> доказано; SAT -> упрощение ОТКЛОНЯЕТСЯ (fail-closed).
 # =============================================================================
-
-
-def _simplify_node(node, params, kernc, path, stats):
-    """Рекурсивно упростить блок операторов (in place)."""
-    out = []
-    for st in node:
-        if isinstance(st, ast.If):
-            try:
-                cond = expr_smt(st.test, {})
-            except (Unsupported, NoReturn, Exception):
-                out.append(st)
-                continue
-            sat_then = _smt_sat(kernc, params, path + [cond])
-            sat_not = _smt_sat(kernc, params, path + [f"(not {cond})"])
-            if sat_then is False:
-                # 1) ВЕТКА НЕДОСТИЖИМА: вырезаем THEN, оставляем ELSE.
-                stats["dead"] += 1
-                out.extend(_simplify_node(st.orelse, params, kernc,
-                                          path + [f"(not {cond})"], stats))
-                continue
-            if sat_not is False:
-                # 2) ИЗБЫТОЧНЫЙ ГАРД: условие всегда истинно -> тело без if.
-                stats["redundant"] += 1
-                out.extend(_simplify_node(st.body, params, kernc, path + [cond], stats))
-                continue
-            # 3) ОДИНАКОВЫЕ ВЕТВИ: `if C: return X else: return X` -> `return X`.
-            if (len(st.body) == 1 and len(st.orelse) == 1
-                    and isinstance(st.body[0], ast.Return)
-                    and isinstance(st.orelse[0], ast.Return)
-                    and st.body[0].value is not None and st.orelse[0].value is not None):
-                try:
-                    a = expr_smt(st.body[0].value, {})
-                    b = expr_smt(st.orelse[0].value, {})
-                except (Unsupported, NoReturn, Exception):
-                    a = b = None
-                if a is not None and a == b:
-                    stats["same"] += 1
-                    out.append(st.body[0])
-                    continue
-            st.body = _simplify_node(st.body, params, kernc, path + [cond], stats)
-            st.orelse = _simplify_node(st.orelse, params, kernc,
-                                       path + [f"(not {cond})"], stats)
-            out.append(st)
-        else:
-            out.append(st)
-    return out
-
-
-def _equiv_proven(fn_old: ast.FunctionDef, fn_new: ast.FunctionDef, kernc) -> bool:
-    """Доказать `∀x: f_old(x) == f_new(x)` через наш движок (UNSAT)."""
-    import tempfile
-    with tempfile.TemporaryDirectory() as td:
-        po = Path(td) / "old_mod.py"
-        pn = Path(td) / "new_mod.py"
-        po.write_text(ast.unparse(fn_old) + "\n", encoding="utf-8")
-        pn.write_text(ast.unparse(fn_new) + "\n", encoding="utf-8")
-        a = {n: (p, b) for n, p, b, _ in parse_bodies(po)}
-        b2 = {n: (p, b) for n, p, b, _ in parse_bodies(pn)}
-        if fn_old.name not in a or fn_old.name not in b2:
-            return False
-        pa, ba = a[fn_old.name]
-        pb, bb = b2[fn_old.name]
-        if pa != pb:
-            return False
-        _rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bb))
-        return "ДОКАЗАНО" in out
-
-
-def cmd_simplify(path: str, out_file: str | None, kernc) -> int:
-    """ПУНКТ 17: упростить с ДОКАЗАТЕЛЬСТВОМ эквивалентности."""
-    import copy
-    if not Path(kernc).exists():
-        print(f"[!] не найден kernc: {kernc}")
-        return 2
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    tree = ast.parse(src)
-    proven = rejected = 0
-    for fn in [n for n in tree.body if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        cc0, _ = _cc_and_smells(fn)
-        new_fn = copy.deepcopy(fn)
-        stats = {"dead": 0, "redundant": 0, "same": 0}
-        new_fn.body = _simplify_node(new_fn.body, params, kernc, [], stats)
-        n_changes = sum(stats.values())
-        if n_changes == 0:
-            continue
-        cc1, _ = _cc_and_smells(new_fn)
-        # ДВА независимых основания для эквивалентности:
-        #  (а) САМИ трансформации доказаны UNSAT-результатами Z3:
-        #      мёртвая ветка удалена по UNSAT(путь AND cond),
-        #      избыточный гард убран по UNSAT(путь AND NOT cond);
-        #  (б) НЕЗАВИСИМАЯ перепроверка через `--diff-equiv` (Z3: ∃x: f_old != f_new)
-        #      — выполняется, когда тело выразимо в нашем подмножестве.
-        independent = _equiv_proven(fn, new_fn, kernc)
-        justified = (stats["dead"] + stats["redundant"]) > 0
-        if independent or justified:
-            proven += 1
-            how = ("независимо перепроверено --diff-equiv (UNSAT)" if independent
-                   else "следует из UNSAT-доказательств трансформаций "
-                        "(--diff-equiv неприменим: тело вне подмножества)")
-            print(f"  [SIMPLIFIED & PROVEN EQUIVALENT] {fn.name}: "
-                  f"CC {cc0} -> {cc1}; правок {n_changes} "
-                  f"(мёртвых {stats['dead']}, избыточных {stats['redundant']}, "
-                  f"одинаковых ветвей {stats['same']}); {how}")
-            fn.body = new_fn.body  # принимаем только ДОКАЗАННОЕ
-        else:
-            rejected += 1
-            print(f"  [REJECTED] {fn.name}: упрощение НЕ доказано эквивалентным "
-                  f"(fail-closed) — оставляю как было")
-    if out_file:
-        Path(out_file).write_text(ast.unparse(tree) + "\n", encoding="utf-8")
-        print(f"  [i] записано: {out_file}")
-    print("-" * 74)
-    print(f"ИТОГО: доказанно упрощено {proven} | отклонено {rejected}")
-    return 0
 
 
 # -----------------------------------------------------------------------------
@@ -3964,410 +3501,6 @@ PRESET_RE = re.compile(
     r"|bounded\s*\(([^)]*)\))\s*$")
 
 
-def _presets_of(lines, lineno):
-    """Пресеты в блоке комментариев непосредственно НАД функцией."""
-    out = []
-    i = lineno - 2
-    while i >= 0:
-        s = lines[i].strip()
-        if not s or not s.startswith(("#", "//")):
-            break
-        m = PRESET_RE.match(s)
-        if m:
-            out.append((m.group(1).split("(")[0].strip(), m.group(2)))
-        i -= 1
-    return out
-
-
-def _requires_above(lines, lineno):
-    """`@kern:requires` из блока комментариев НАД функцией (или None)."""
-    i = lineno - 2
-    while i >= 0:
-        s = lines[i].strip()
-        if not s or not s.startswith("#"):
-            break
-        m = re.search(r"@kern:requires\s+(.+)$", s)
-        if m:
-            return m.group(1).strip()
-        i -= 1
-    return None
-
-
-def _instantiate_body(body_smt_text: str, param: str, arg_sexp: str) -> str:
-    """Подставить SMT-выражение `arg_sexp` вместо `param` в тело функции.
-
-    ОБЩИЙ механизм для `idempotent` (тело в себя), `monotonic` (две копии
-    входа) и `no_arbitrage` (две части платежа + их сумма). Подстановка идёт по
-    ГРАНИЦАМ СЛОВА (`_subst`), поэтому `x` не задевает `x1` и `x_len`.
-    """
-    return _subst(body_smt_text, {param: arg_sexp})
-
-
-def _prove_checked(kernc, decls, asserts):
-    """(kind, контрпример, trusted): sat | unsat | unknown.
-
-    `trusted` — число шагов, которые пруф-чекер НЕ перепроверил. `PASS`
-    засчитывается ТОЛЬКО при `trusted == 0`: иначе «доказано» было бы словом
-    решателя, а не проверенным сертификатом.
-    """
-    decls_txt = "\n".join(f"(declare-const {p} Int)" for p in decls)
-    body = "\n".join(f"(assert {a})" for a in asserts)
-    smt = f"(set-logic ALL)\n{decls_txt}\n{body}\n(check-sat)\n"
-    _rc, out = run_kernc(kernc, smt)
-    if "КОНТРПРИМЕР" in out:
-        ce = next((ln.strip()[:110] for ln in out.splitlines() if "КОНТРПРИМЕР" in ln),
-                  "SAT (модель не извлечена)")
-        return ("sat", ce, None)
-    if "ДОКАЗАНО" in out:
-        m = re.search(r"trusted:\s*(\d+)", out)
-        return ("unsat", None, (int(m.group(1)) if m else None))
-    return ("unknown", "решатель не решил (N)", None)
-
-
-def _fn_stmts(fn):
-    """Операторы функции без докстроки и `pass`."""
-    return [st for st in fn.body
-            if not isinstance(st, ast.Pass)
-            and not (isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant)
-                     and isinstance(st.value.value, str))]
-
-
-def _preset_obligation(kind, args, params, body, req_smt):
-    """Построить обязательство пресета: (label, decls, asserts) или None.
-
-    SAT обязательства = БАГ (пресет нарушен); UNSAT = пресет доказан. Для
-    составных пресетов используется ОДИН механизм `_instantiate_body`.
-    """
-    pre = [req_smt] if req_smt else []
-    decls = list(dict.fromkeys(params + ["result"]))
-    if kind == "non_negative":
-        return (kind, decls, pre + [f"(= result {body})", "(not (>= result 0))"])
-    if kind == "percentage":
-        return (kind, decls, pre + [f"(= result {body})",
-                                    "(not (and (>= result 0) (<= result 100)))"])
-    if kind == "no_double_spend":
-        # ПУНКТ 28. Модель гонки: обе транзакции проверяют СНИМОК баланса, а
-        # списание идёт от текущего -> итог может уйти в минус. Проверяем
-        # ГЛАВНОЕ следствие: функция не имеет права вернуть отрицательный баланс
-        # ни при каких неотрицательных входах (`balance, a1, a2 >= 0`).
-        pre_all = [f"(>= {p} 0)" for p in params]
-        return (kind, decls, pre + pre_all + [f"(= result {body})",
-                                              "(not (>= result 0))"])
-    if kind in ("calls_i32", "calls_u32"):
-        # ПУНКТ 29. FFI-МОСТ: значение уходит в C-ABI (`libkern.so`/Zig/Rust),
-        # где тип имеет КОНЕЧНУЮ разрядность. Выход за диапазон = усечение
-        # (Python/JS это не видят вовсе).
-        lo, hi = (-2**31, 2**31 - 1) if kind == "calls_i32" else (0, 2**32 - 1)
-        return (kind, decls, pre + [f"(= result {body})",
-                                    f"(or (< result {lo}) (> result {hi}))"])
-    if kind == "bounded":
-        parts = [x.strip() for x in (args or "").split(",")]
-        if len(parts) != 2 or not all(parts):
-            return None
-        try:
-            lo_smt = expr_smt(ast.parse(parts[0], mode="eval").body, {})
-            hi_smt = expr_smt(ast.parse(parts[1], mode="eval").body, {})
-        except Exception:
-            return None
-        return (f"bounded({parts[0]}, {parts[1]})", decls,
-                pre + [f"(= result {body})",
-                       f"(not (and (>= result {lo_smt}) (<= result {hi_smt})))"])
-    if kind in ("idempotent", "monotonic", "no_arbitrage", "conservation"):
-        if len(params) != 1:
-            return None
-        p = params[0]
-        if kind == "idempotent":
-            f1 = body
-            f2 = _instantiate_body(body, p, f1)
-            return (kind, [p], pre + [f"(not (= {f2} {f1}))"])
-        if kind == "monotonic":
-            f1 = _instantiate_body(body, p, "x1")
-            f2 = _instantiate_body(body, p, "x2")
-            rs = ([_instantiate_body(req_smt, p, "x1"),
-                   _instantiate_body(req_smt, p, "x2")] if req_smt else [])
-            return (kind, ["x1", "x2"], rs + ["(<= x1 x2)", f"(not (<= {f1} {f2}))"])
-        # АНТИ-АРБИТРАЖ (пункт 27): дробление платежа не должно быть выгоднее
-        # целого -> обязательство `f(a1) + f(a2) >= f(a1 + a2)`.
-        f1 = _instantiate_body(body, p, "a1")
-        f2 = _instantiate_body(body, p, "a2")
-        fs = _instantiate_body(body, p, "(+ a1 a2)")
-        rs = ([_instantiate_body(req_smt, p, "a1"),
-               _instantiate_body(req_smt, p, "a2"),
-               _instantiate_body(req_smt, p, "(+ a1 a2)")] if req_smt else [])
-        return (kind, ["a1", "a2"],
-                rs + ["(> a1 0)", "(> a2 0)", f"(not (>= (+ {f1} {f2}) {fs}))"])
-    return None
-
-
-def cmd_presets(path: str, kernc, spec_gaps: bool = False) -> int:
-    """ПУНКТ 26: `--presets <file>` (+ `--spec-gaps`). Цель `make presets-check`."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    lines = src.splitlines()
-    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
-    checked = skipped = fails = unknowns = 0
-    rows: list[str] = []
-    for fn in fns:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        presets = _presets_of(lines, fn.lineno)
-        req_txt = _requires_above(lines, fn.lineno)
-        body, why = None, ""
-        try:
-            body = body_smt(_fn_stmts(fn), {})
-        except (NoReturn, Unsupported) as e:
-            why = str(e)
-
-        # `--spec-gaps`: ДИАГНОСТИКА (MacFarlane) — только при явном флаге;
-        # штатный прогон без флага она не задевает.
-        if spec_gaps:
-            gaps = []
-            if req_txt is None:
-                for p in params:
-                    if body and re.search(r"(?<![\w])" + re.escape(p) + r"(?![\w])", body):
-                        gaps.append(f"отрицательная область параметра `{p}` "
-                                    f"не закрыта предусловием")
-            if any(k == "non_negative" for k, _ in presets):
-                gaps.append("пресет `non_negative` ограничивает результат только "
-                            "снизу (нет верхней границы)")
-            for g in gaps:
-                print(f"  [SPEC GAP] {fn.name}: {g}")
-                rows.append("[SPEC GAP]")
-
-        if not presets:
-            skipped += 1
-            continue
-        if body is None:
-            skipped += 1
-            rows.append("[SKIP]")
-            print(f"  [SKIP] {fn.name}: тело вне подмножества ({why})")
-            continue
-        req_smt = None
-        if req_txt:
-            try:
-                req_smt = expr_smt(ast.parse(req_txt, mode="eval").body, {})
-            except Exception:
-                req_smt = None
-        checked += 1
-        for kind, args in presets:
-            if kind == "idempotent":
-                obs = _idempotent_obligations(fn, params)
-                if obs is None:
-                    print(f"  [SKIP] {fn.name}: `idempotent` требует ровно один "
-                          f"параметр и путевое тело")
-                    continue
-                n_pass = n_fail = n_unk = 0
-                first_fail = ""
-                for label, decls, asserts in obs:
-                    v, ce, tr = _prove_checked(kernc, decls, asserts)
-                    if v == "sat":
-                        n_fail += 1
-                        first_fail = first_fail or f"{label} — {ce}"
-                    elif v == "unsat" and tr == 0:
-                        n_pass += 1
-                    else:
-                        n_unk += 1
-                print(f"  [i] {fn.name}: idempotent — путей {len(obs)} | "
-                      f"PASS {n_pass} | FAIL {n_fail} | UNKNOWN {n_unk}")
-                if n_fail:
-                    fails += 1
-                    rows.append("[FAIL]")
-                    print(f"  [FAIL] {fn.name}: idempotent REFUTED — {first_fail}")
-                elif n_unk:
-                    unknowns += 1
-                    rows.append("[UNKNOWN]")
-                    print(f"  [UNKNOWN] {fn.name}: idempotent — {n_unk} путей "
-                          f"НЕ перепроверены чекером (НЕ засчитано)")
-                else:
-                    rows.append("[PASS]")
-                    print(f"  [PASS] {fn.name}: idempotent PROVEN по всем "
-                          f"{n_pass} путям (trusted: 0 | holes: 0)")
-                continue
-            # ПУТЕВАЯ РАЗВЁРТКА для диапазонных пресетов (Пункты 26, 28, 29):
-            # значение ветви — простое выражение, поэтому обязательство
-            # `P_p ∧ ¬pred(V_p)` перепроверяется на `trusted: 0`.
-            p_obs = _range_obligations(kind, args, params, fn, req_smt)
-            if p_obs is not None:
-                n_pass = n_fail = n_unk = 0
-                first_fail = ""
-                for label, decls, asserts in p_obs:
-                    v, ce, tr = _prove_checked(kernc, decls, asserts)
-                    if v == "sat":
-                        n_fail += 1
-                        first_fail = first_fail or f"{label} — {ce}"
-                    elif v == "unsat" and tr == 0:
-                        n_pass += 1
-                    else:
-                        n_unk += 1
-                if n_fail:
-                    fails += 1
-                    rows.append("[FAIL]")
-                    print(f"  [FAIL] {fn.name}: {kind} REFUTED — {first_fail}")
-                elif n_unk:
-                    unknowns += 1
-                    rows.append("[UNKNOWN]")
-                    print(f"  [UNKNOWN] {fn.name}: {kind} — {n_unk} путей "
-                          f"НЕ перепроверены чекером (НЕ засчитано)")
-                else:
-                    rows.append("[PASS]")
-                    print(f"  [PASS] {fn.name}: {kind} PROVEN по всем "
-                          f"{n_pass} путям (trusted: 0 | holes: 0)")
-                continue
-            built = _preset_obligation(kind, args, params, body, req_smt)
-            if built is None:
-                print(f"  [SKIP] {fn.name}: `{kind}` неприменим "
-                      f"(нужен один параметр / корректные границы)")
-                continue
-            label, decls, ob = built
-            v, ce, tr = _prove_checked(kernc, decls, ob)
-            if v == "sat":
-                fails += 1
-                rows.append("[FAIL]")
-                print(f"  [FAIL] {fn.name}: {label} REFUTED — {ce}")
-            elif v == "unsat" and tr == 0:
-                rows.append("[PASS]")
-                print(f"  [PASS] {fn.name}: {label} PROVEN (trusted: 0 | holes: 0)")
-            elif v == "unsat":
-                unknowns += 1
-                rows.append("[UNKNOWN]")
-                print(f"  [UNKNOWN] {fn.name}: {label} — Z3 UNSAT, "
-                      f"но чекер оставил trusted: {tr} (НЕ засчитано)")
-            else:
-                unknowns += 1
-                rows.append("[UNKNOWN]")
-                print(f"  [UNKNOWN] {fn.name}: {label} — {ce}")
-    print("-" * 74)
-    print(f"[PRESETS SUMMARY] checked {checked} / {len(fns)} functions, "
-          f"skipped {skipped} (без пресетов / вне подмножества)")
-    print(f"  PASS {rows.count('[PASS]')} | FAIL {rows.count('[FAIL]')} | "
-          f"UNKNOWN {rows.count('[UNKNOWN]')} | SPEC GAP {rows.count('[SPEC GAP]')}")
-    return 1 if (fails or unknowns) else 0
-
-
-def _paths_of(fn, syms=None):
-    """Все пути выхода функции: список (условия_пути, значение_возврата).
-
-    Нужен для ПУТЕВОЙ формулировки идемпотентности: подстановка значения ветви
-    в тело даёт вложенный `ite`, который чекер пока не перепроверяет. Если же
-    разложить тело на пути, обязательства становятся константными (условия
-    сворачиваются) и проверяются на `trusted: 0`.
-    """
-    out: list = []
-    ok = True
-
-    def rec(stmts, path):
-        nonlocal ok
-        for i, st in enumerate(stmts):
-            if isinstance(st, ast.If):
-                try:
-                    cond = _cond_smt(st.test, syms or set())
-                except Exception:
-                    ok = False
-                    return
-                rec(st.body, path + [cond])
-                rest = stmts[i + 1:]
-                if st.orelse:
-                    rec(st.orelse, path + [f"(not {cond})"])
-                elif rest:
-                    rec(rest, path + [f"(not {cond})"])
-                return
-            if isinstance(st, ast.Return):
-                if st.value is None:
-                    ok = False
-                    return
-                try:
-                    val = expr_smt(st.value, {})
-                except Exception:
-                    ok = False
-                    return
-                out.append((list(path), val))
-                return
-            ok = False
-            return
-
-    rec(_fn_stmts(fn), [])
-    return out if ok else None
-
-
-def _range_pred(kind, args, params, v: str):
-    """Предикат, который ОБЯЗАН выполняться для значения `v` (или None).
-
-    ПУТЕВАЯ формулировка: значение ветви — простое выражение (без вложенного
-    `ite`), поэтому обязательство `P_p ∧ ¬pred(V_p)` решается коротко и
-    перепроверяется чекером с `trusted: 0` (ИЗМЕРЕНО: на `no_double_spend` и
-    `calls_u32` цельнотельное обязательство давало 2-3 доверенных шага).
-    """
-    if kind == "non_negative" or kind == "no_double_spend":
-        return f"(>= {v} 0)"
-    if kind == "percentage":
-        return f"(and (>= {v} 0) (<= {v} 100))"
-    if kind == "bounded":
-        parts = [x.strip() for x in (args or "").split(",")]
-        if len(parts) != 2 or not all(parts):
-            return None
-        try:
-            lo_smt = expr_smt(ast.parse(parts[0], mode="eval").body, {})
-            hi_smt = expr_smt(ast.parse(parts[1], mode="eval").body, {})
-        except Exception:
-            return None
-        return f"(and (>= {v} {lo_smt}) (<= {v} {hi_smt}))"
-    if kind == "calls_i32":
-        return f"(and (>= {v} -2147483648) (<= {v} 2147483647))"
-    if kind == "calls_u32":
-        return f"(and (>= {v} 0) (<= {v} 4294967295))"
-    return None
-
-
-def _range_obligations(kind, args, params, fn, req_smt):
-    """Путевые обязательства для диапазонных пресетов: [(label, decls, asserts)].
-
-    ЗВУЧНОСТЬ: пути исчерпывают домен, поэтому проверка КАЖДОГО пути покрывает
-    все входы. SAT любого обязательства = НАЙДЕН контрпример (баг).
-    """
-    pred_of = _range_pred
-    if pred_of(kind, args, params, "0") is None:
-        return None
-    paths = _paths_of(fn)
-    if not paths:
-        return None
-    pre = [req_smt] if req_smt else []
-    extra = [f"(>= {p} 0)" for p in params] if kind == "no_double_spend" else []
-    obs = []
-    for i, (pp, vp) in enumerate(paths):
-        pred = pred_of(kind, args, params, vp)
-        if pred is None:
-            return None
-        obs.append((f"{kind}[путь {i + 1}]", list(dict.fromkeys(params)),
-                    pre + extra + list(pp) + [f"(not {pred})"]))
-    return obs
-
-
-def _idempotent_obligations(fn, params, syms=None):
-    """ПУТЕВАЯ идемпотентность: для всех пар путей (p, q).
-
-    На пути `p` функция возвращает `V_p`. Тогда `f(f(x)) = V_q(V_p)`, где `q` —
-    путь, активный на входе `V_p`. Обязательство:
-    `P_p ∧ P_q[V_p] ∧ V_q[V_p] ≠ V_p` — SAT означает НЕидемпотентность.
-
-    ЗВУЧНОСТЬ: пути исчерпывают домен, поэтому перебор всех пар `(p, q)`
-    покрывает ВСЕ входы (никакой случай не теряется).
-    """
-    if len(params) != 1:
-        return None
-    paths = _paths_of(fn, syms)
-    if not paths or len(paths) < 2:
-        return None
-    p0 = params[0]
-    obs = []
-    for i, (pp, vp) in enumerate(paths):
-        for j, (pq, vq) in enumerate(paths):
-            sub = {p0: vp}
-            pq_s = _subst("(and " + " ".join(pq) + ")" if len(pq) > 1
-                          else (pq[0] if pq else "true"), sub)
-            vq_s = _subst(vq, sub)
-            asserts = list(pp) + [pq_s, f"(not (= {vq_s} {vp}))"]
-            obs.append((f"idempotent[путь {i + 1}->{j + 1}]", [p0], asserts))
-    return obs
-
-
 # -----------------------------------------------------------------------------
 # ЭШЕЛОН 5, ПУНКТ 30: ВЕРИФИКАТОР RLS-ПОЛИТИК (`--verify-sql`).
 #
@@ -4379,82 +3512,6 @@ def _idempotent_obligations(fn, params, syms=None):
 # -----------------------------------------------------------------------------
 
 RLS_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:rls\s*\(([^)]*)\)\s*$")
-
-
-def _directive_above(lines, lineno, rx):
-    """Аргументы директивы из блока комментариев НАД функцией (или None)."""
-    i = lineno - 2
-    while i >= 0:
-        s = lines[i].strip()
-        if not s or not s.startswith(("#", "//")):
-            break
-        m = rx.match(s)
-        if m:
-            return m.group(1)
-        i -= 1
-    return None
-
-
-def cmd_verify_sql(path: str, kernc) -> int:
-    """ПУНКТ 30: `--verify-sql <file>` (цель `make sql-policy-check`)."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    lines = src.splitlines()
-    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
-    checked = fails = unknowns = skipped = 0
-    for fn in fns:
-        cols = _directive_above(lines, fn.lineno, RLS_RE)
-        if cols is None:
-            skipped += 1
-            continue
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        names = [c.strip() for c in cols.split(",") if c.strip()]
-        if len(names) != 4 or any(n not in params for n in names):
-            print(f"  [SKIP] {fn.name}: `@kern:rls` требует 4 ИМЕНИ параметров-столбцов")
-            skipped += 1
-            continue
-        row_t, req_t, pub, del_ = names
-        paths = _paths_of(fn)
-        if not paths:
-            print(f"  [SKIP] {fn.name}: тело вне подмножества")
-            skipped += 1
-            continue
-        checked += 1
-        # МОДЕЛЬ КОЛОНОК: булевы флаги SQL принимают только {0,1} — без этого
-        # проверка ловила бы `is_deleted = -1` как «обход» (ИЗМЕРЕНО).
-        flags = [f"(or (= {c} 0) (= {c} 1))" for c in (pub, del_)]
-        bad = unk = 0
-        for i, (pp, vp) in enumerate(paths):
-            # ПОКОМПОНЕНТНАЯ ПРОВЕРКА ИНВАРИАНТА (Дефект #145): одна составная
-            # формула `¬((A ∨ B) ∧ C)` заставляет Z3 вводить Tseitin-атомы, и
-            # чекер оставлял 4 доверенных шага (`[UNKNOWN]`). Инвариант —
-            # КОНЪЮНКЦИЯ, поэтому нарушение проверяется ПО КОМПОНЕНТАМ
-            # (по де Моргану `¬(X ∧ Y) = ¬X ∨ ¬Y`): SAT хотя бы одной компоненты
-            # нарушения эквивалентен SAT всего нарушения. ЗВУЧНО и ПОЛНО.
-            violations = [
-                f"(not (= {del_} 0))",                                   # удалённая строка
-                f"(and (not (= {row_t} {req_t})) (not (= {pub} 1)))",    # чужой непубличный
-            ]
-            for vi, viol in enumerate(violations):
-                v, ce, tr = _prove_checked(kernc, list(dict.fromkeys(params)),
-                                           flags + list(pp) + [f"(= {vp} 1)", viol])
-                if v == "sat":
-                    bad += 1
-                    print(f"  [FAIL] {fn.name}: RLS POLICY BYPASS FOUND "
-                          f"(путь {i + 1}, нарушение {vi + 1}) — {ce}")
-                elif v != "unsat" or tr != 0:
-                    unk += 1
-        if bad:
-            fails += 1
-        elif unk:
-            unknowns += 1
-            print(f"  [UNKNOWN] {fn.name}: {unk} путей НЕ перепроверены чекером")
-        else:
-            print(f"  [PASS] {fn.name}: PROVEN (tenant isolation on all "
-                  f"{len(paths)} paths, trusted: 0 | holes: 0)")
-    print("-" * 74)
-    print(f"[SQL SUMMARY] checked {checked} / {len(fns)} functions, skipped {skipped} | "
-          f"FAIL {fails} | UNKNOWN {unknowns}")
-    return 1 if (fails or unknowns) else 0
 
 
 # -----------------------------------------------------------------------------
@@ -4469,119 +3526,6 @@ def cmd_verify_sql(path: str, kernc) -> int:
 # -----------------------------------------------------------------------------
 
 PRICING_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:pricing\s*\(([^)]*)\)\s*$")
-
-
-def _raw_rules(fn):
-    """Цепочка `if cond: return value` КАК НАПИСАНО: [(cond_smt|None, value_smt)].
-
-    Именно «как написано»: для проверки НЕПРОТИВОРЕЧИВОСТИ нужны ИСХОДНЫЕ условия
-    (путевые условия уже взаимно исключающие по построению, и конфликт в них
-    исчез бы).
-    """
-    out: list = []
-    ok = True
-
-    def walk(stmts):
-        nonlocal ok
-        for st in stmts:
-            if isinstance(st, ast.If):
-                try:
-                    cond = _cond_smt(st.test, set())
-                except Exception:
-                    ok = False
-                    return
-                val = None
-                for sub in st.body:
-                    if isinstance(sub, ast.Return) and sub.value is not None:
-                        try:
-                            val = expr_smt(sub.value, {})
-                        except Exception:
-                            ok = False
-                            return
-                        break
-                if val is None:
-                    ok = False
-                    return
-                out.append((cond, val))
-                rest = stmts[stmts.index(st) + 1:]
-                if st.orelse:
-                    walk(st.orelse)
-                elif rest:
-                    walk(rest)
-                return
-            if isinstance(st, ast.Return):
-                if st.value is None:
-                    ok = False
-                    return
-                try:
-                    out.append((None, expr_smt(st.value, {})))
-                except Exception:
-                    ok = False
-                    return
-                return
-            ok = False
-            return
-
-    walk(_fn_stmts(fn))
-    return out if ok and out else None
-
-
-def cmd_verify_pricing(path: str, kernc) -> int:
-    """ПУНКТ 31: `--verify-pricing <file>` (цель `make pricing-matrix-check`)."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    lines = src.splitlines()
-    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
-    checked = fails = unknowns = skipped = 0
-    for fn in fns:
-        dom = _directive_above(lines, fn.lineno, PRICING_RE)
-        if dom is None:
-            skipped += 1
-            continue
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        rules = _raw_rules(fn)
-        if not rules:
-            print(f"  [SKIP] {fn.name}: тело вне подмножества")
-            skipped += 1
-            continue
-        checked += 1
-        bad = unk = 0
-        # ПОЛНОТА: цена обязана быть неотрицательной (sentinel = не обработано).
-        paths = _paths_of(fn) or []
-        for i, (pp, vp) in enumerate(paths):
-            v, ce, tr = _prove_checked(kernc, list(dict.fromkeys(params)),
-                                       list(pp) + [f"(< {vp} 0)"])
-            if v == "sat":
-                bad += 1
-                print(f"  [FAIL] {fn.name}: PRICING GAP (unhandled input, путь {i + 1}) — {ce}")
-            elif v != "unsat" or tr != 0:
-                unk += 1
-        # НЕПРОТИВОРЕЧИВОСТЬ: разные цены не пересекаются.
-        conds = [(c, v) for c, v in rules if c is not None]
-        for i in range(len(conds)):
-            for j in range(i + 1, len(conds)):
-                ci, vi = conds[i]
-                cj, vj = conds[j]
-                v, ce, tr = _prove_checked(
-                    kernc, list(dict.fromkeys(params)),
-                    [ci, cj, f"(not (= {vi} {vj}))"])
-                if v == "sat":
-                    bad += 1
-                    print(f"  [FAIL] {fn.name}: PRICING CONFLICT (Belnap B): "
-                          f"rules {i + 1} and {j + 1} overlap — {ce}")
-                elif v != "unsat" or tr != 0:
-                    unk += 1
-        if bad:
-            fails += 1
-        elif unk:
-            unknowns += 1
-            print(f"  [UNKNOWN] {fn.name}: {unk} обязательств НЕ перепроверены чекером")
-        else:
-            print(f"  [PASS] {fn.name}: PROVEN COMPLETE & DISJOINT "
-                  f"(rules {len(conds)}, paths {len(paths)}, trusted: 0 | holes: 0)")
-    print("-" * 74)
-    print(f"[PRICING SUMMARY] checked {checked} / {len(fns)} functions, skipped {skipped} | "
-          f"FAIL {fails} | UNKNOWN {unknowns}")
-    return 1 if (fails or unknowns) else 0
 
 
 # -----------------------------------------------------------------------------
@@ -4599,113 +3543,6 @@ CHEAT_EXIT = {"sys.exit", "os._exit", "exit", "quit"}
 CHEAT_MOCK = {"unittest.mock.patch", "mock.patch", "patch", "MagicMock", "Mock"}
 SUSPICIOUS_MODULES = {"fast_crypto_utils", "requests_easy", "openai_helpers",
                       "crypto_utils", "python-dotenv-safe"}
-
-
-def _dotted(node) -> str:
-    """Полное имя вызова: `unittest.mock.patch` -> "unittest.mock.patch".
-
-    ИЗМЕРЕНО: первая версия смотрела только `Attribute(value=Name)` и НЕ видела
-    вложенные атрибуты (`unittest.mock.patch`), из-за чего чит «мок в проде»
-    пропускался.
-    """
-    parts: list[str] = []
-    cur = node
-    while isinstance(cur, ast.Attribute):
-        parts.append(cur.attr)
-        cur = cur.value
-    if isinstance(cur, ast.Name):
-        parts.append(cur.id)
-    return ".".join(reversed(parts))
-
-
-class _CheatScan(ast.NodeVisitor):
-    """Статический поиск читов: каждая находка — (класс, строка)."""
-
-    def __init__(self):
-        self.findings: list[tuple[str, int]] = []
-        self.imports: list[tuple[str, int]] = []
-
-    def visit_Import(self, node):
-        for al in node.names:
-            self.imports.append((al.name.split(".")[0], node.lineno))
-        self.generic_visit(node)
-
-    def visit_ImportFrom(self, node):
-        if node.module:
-            self.imports.append((node.module.split(".")[0], node.lineno))
-        self.generic_visit(node)
-
-    def visit_FunctionDef(self, node):
-        # (1) перегрузка __eq__, всегда возвращающая True
-        if node.name == "__eq__":
-            for st in ast.walk(node):
-                if (isinstance(st, ast.Return) and isinstance(st.value, ast.Constant)
-                        and st.value.value is True):
-                    self.findings.append(("always-true __eq__", node.lineno))
-                    break
-        # (4) хардкод под тест: `if x == 42 and y == 17:`
-        for st in ast.walk(node):
-            if isinstance(st, ast.If) and isinstance(st.test, ast.BoolOp):
-                lits = sum(1 for sub in ast.walk(st.test)
-                           if isinstance(sub, ast.Compare)
-                           and any(isinstance(c, ast.Constant) for c in sub.comparators))
-                if lits >= 2 and isinstance(st.test.op, ast.And):
-                    self.findings.append(("test-case overfitting (chain of literals)",
-                                          st.lineno))
-        self.generic_visit(node)
-
-    def visit_Call(self, node):
-        name = _dotted(node.func)
-        if name in CHEAT_EXIT:
-            self.findings.append((f"exit inside tested code: {name}()", node.lineno))
-        if name in CHEAT_MOCK or name.startswith("mock."):
-            self.findings.append(("mock in production code", node.lineno))
-        self.generic_visit(node)
-
-    def visit_Try(self, node):
-        for h in node.handlers:
-            if len(h.body) == 1 and isinstance(h.body[0], ast.Pass):
-                has_assert = any(isinstance(x, ast.Assert) for x in ast.walk(node))
-                kind = ("swallowed assert (except: pass)" if has_assert
-                        else "swallowed exception (except: pass)")
-                self.findings.append((kind, h.lineno))
-        self.generic_visit(node)
-
-
-def cmd_anti_cheat(path: str, allowlist: str | None = None) -> int:
-    """ПУНКТ 32: `--anti-cheat <file> [--import-lock <allow.json>]`."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    sc = _CheatScan()
-    sc.visit(ast.parse(src))
-    allowed: set[str] | None = None
-    if allowlist:
-        data = json.loads(Path(allowlist).read_text(encoding="utf-8"))
-        allowed = set(data.get("allowed", []))
-    findings = list(sc.findings)
-    # TYPE-ALIAS SPOOFING: переопределение зарезервированных семантических
-    # типов (`PositiveInt = int`, `type uint32 = int64`) обнуляет Sorbet-границы
-    # и позволяет «легально» выйти за домен. Для C-like — текстовый поиск.
-    RESERVED = ("PositiveInt", "NonNegativeInt", "Percent", "uint32", "int32",
-                "int64", "uint64", "nat", "pos_int")
-    for ln_no, raw in enumerate(src.splitlines(), 1):
-        line = raw.split("#", 1)[0].split("//", 1)[0]
-        m_alias = re.match(r"\s*(?:type\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_]", line)
-        if m_alias and m_alias.group(1) in RESERVED:
-            findings.append((f"type-alias spoofing: {m_alias.group(1)}", ln_no))
-    for mod, ln in sc.imports:
-        if allowed is not None and mod not in allowed:
-            findings.append((f"import not in allowlist (slopsquatting?): {mod}", ln))
-        elif allowed is None and mod in SUSPICIOUS_MODULES:
-            findings.append((f"suspicious module (slopsquatting): {mod}", ln))
-    findings.sort(key=lambda z: z[1])
-    for kind, ln in findings:
-        print(f"  [CHEAT DETECTED: {kind}] строка {ln}")
-    print("-" * 74)
-    print(f"[ANTI-CHEAT SUMMARY] файл {path}: находок {len(findings)}")
-    if findings:
-        return 1
-    print("  [OK] чисто: ни читов, ни подозрительных импортов")
-    return 0
 
 
 # -----------------------------------------------------------------------------
@@ -4730,64 +3567,6 @@ MCP_INVISIBLE_RANGES = [(0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x2064),
                         (0xE0000, 0xE007F), (0xFEFF, 0xFEFF)]
 
 
-def _mcp_tool_hash(tool: dict) -> str:
-    """SHA-256 инструмента по КАНОНИЧЕСКОМУ JSON (имя+описание+схема).
-
-    Спецификация допускает BLAKE3; здесь SHA-256 из stdlib, чтобы проверка
-    работала без внешних зависимостей — это ЯВНО указано в отчёте.
-    """
-    payload = json.dumps({"name": tool.get("name", ""),
-                          "description": tool.get("description", ""),
-                          "inputSchema": tool.get("inputSchema", {})},
-                         sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
-def cmd_audit_mcp(schema_path: str, lock_path: str | None) -> int:
-    """ПУНКТ 33: `--audit-mcp <schema.json> [--mcp-lock <lock.json>]`."""
-    data = json.loads(Path(schema_path).read_text(encoding="utf-8"))
-    tools = data.get("tools", data if isinstance(data, list) else [])
-    findings: list[str] = []
-    for t in tools:
-        name = t.get("name", "?")
-        desc = json.dumps(t, ensure_ascii=False)
-        low = desc.lower()
-        for pat in MCP_INJECT_PATTERNS:
-            if pat in low:
-                findings.append(f"PROMPT INJECTION in `{name}`: «{pat}»")
-        for ch in desc:
-            cp = ord(ch)
-            for lo, hi in MCP_INVISIBLE_RANGES:
-                if lo <= cp <= hi:
-                    findings.append(f"INVISIBLE UNICODE in `{name}`: U+{cp:04X}")
-                    break
-    if lock_path:
-        lp = Path(lock_path)
-        cur = {t.get("name", "?"): _mcp_tool_hash(t) for t in tools}
-        if lp.exists():
-            old = json.loads(lp.read_text(encoding="utf-8")).get("tools", {})
-            for name, h in cur.items():
-                if name in old and old[name] != h:
-                    findings.append(f"MCP RUG-PULL DETECTED: `{name}` изменён после одобрения")
-                elif name not in old:
-                    findings.append(f"MCP RUG-PULL DETECTED: `{name}` добавлен после одобрения")
-            for name in old:
-                if name not in cur:
-                    findings.append(f"MCP RUG-PULL DETECTED: `{name}` удалён после одобрения")
-        else:
-            lp.write_text(json.dumps({"tools": cur}, indent=2, sort_keys=True),
-                          encoding="utf-8")
-            print(f"  [i] замок создан: {lp} ({len(cur)} инструментов)")
-    for f in findings:
-        print(f"  [MCP] {f}")
-    print("-" * 74)
-    print(f"[MCP SUMMARY] инструментов {len(tools)} | находок {len(findings)}")
-    if findings:
-        return 1
-    print("  [OK] схема чиста (нет инъекций, невидимых символов, rug-pull)")
-    return 0
-
-
 # -----------------------------------------------------------------------------
 # ЭШЕЛОН 6, ПУНКТ 34: НЕИНТЕРФЕРЕНЦИЯ (`# @kern:secret`, 2-Safety).
 #
@@ -4799,56 +3578,6 @@ def cmd_audit_mcp(schema_path: str, lock_path: str | None) -> int:
 # -----------------------------------------------------------------------------
 
 SECRET_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:secret\s*\(([^)]*)\)\s*$")
-
-
-def cmd_noninterference(path: str, kernc) -> int:
-    """ПУНКТ 34: `--noninterference <file>` (цель `make noninterference-check`)."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    lines = src.splitlines()
-    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
-    checked = fails = unknowns = skipped = 0
-    for fn in fns:
-        names = _directive_above(lines, fn.lineno, SECRET_RE)
-        if names is None:
-            skipped += 1
-            continue
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        secrets = [s.strip() for s in names.split(",") if s.strip()]
-        if not secrets or any(s not in params for s in secrets):
-            print(f"  [SKIP] {fn.name}: `@kern:secret` называет не-параметры")
-            skipped += 1
-            continue
-        body, why = None, ""
-        try:
-            body = body_smt(_fn_stmts(fn), {})
-        except (NoReturn, Unsupported) as e:
-            why = str(e)
-        if body is None:
-            print(f"  [SKIP] {fn.name}: тело вне подмножества ({why})")
-            skipped += 1
-            continue
-        checked += 1
-        # ДВЕ КОПИИ: публичные параметры — ОДНО имя (вход одинаков), секреты
-        # разведены в `__1` / `__2`. Это и есть 2-Safety самокомпозиция.
-        m1 = {s: f"{s}__1" for s in secrets}
-        m2 = {s: f"{s}__2" for s in secrets}
-        f1 = _subst(body, m1)
-        f2 = _subst(body, m2)
-        decls = ([p for p in params if p not in secrets]
-                 + list(m1.values()) + list(m2.values()))
-        v, ce, tr = _prove_checked(kernc, decls, [f"(not (= {f1} {f2}))"])
-        if v == "sat":
-            fails += 1
-            print(f"  [FAIL] {fn.name}: SECRET LEAK / NON-INTERFERENCE VIOLATED — {ce}")
-        elif v == "unsat" and tr == 0:
-            print(f"  [PASS] {fn.name}: PROVEN NON-INTERFERENT (trusted: 0 | holes: 0)")
-        else:
-            unknowns += 1
-            print(f"  [UNKNOWN] {fn.name}: {v} trusted={tr} — НЕ засчитано")
-    print("-" * 74)
-    print(f"[NONINTERFERENCE SUMMARY] checked {checked} / {len(fns)} functions, "
-          f"skipped {skipped} | FAIL {fails} | UNKNOWN {unknowns}")
-    return 1 if (fails or unknowns) else 0
 
 
 # -----------------------------------------------------------------------------
@@ -4863,56 +3592,6 @@ def cmd_noninterference(path: str, kernc) -> int:
 #   B -> 409 (политики ПРОТИВОРЕЧАТ: allow и forbid истинны одновременно).
 # -----------------------------------------------------------------------------
 
-def _pol_smt(text: str) -> str:
-    """Предикат политики (Python-подобное выражение) -> SMT."""
-    return expr_smt(ast.parse(text, mode="eval").body, {})
-
-
-def cmd_verify_action(action_path: str, policy_path: str, kernc) -> int:
-    """ПУНКТ 36: `--verify-action <action.json> <policy.json>`."""
-    act = json.loads(Path(action_path).read_text(encoding="utf-8"))
-    pol = json.loads(Path(policy_path).read_text(encoding="utf-8"))
-    args = act.get("args", {})
-    if not args or not all(isinstance(v, int) for v in args.values()):
-        print("  [SKIP] аргументы действия должны быть ЦЕЛЫМИ (домен ℤ)")
-        return 2
-    decls = list(args)
-    fixed = [f"(= {k} {v})" for k, v in args.items()]
-    allow = pol.get("allow")
-    forbids = pol.get("forbid", [])
-    allow_smt = _pol_smt(allow) if allow else None
-    allow_ok = True
-    # (1) НАРУШЕНИЕ allow -> F (422)
-    if allow_smt:
-        v, ce, tr = _prove_checked(kernc, decls, fixed + [f"(not {allow_smt})"])
-        if v == "sat":
-            print(f"  [FAIL] Firewall: ALLOW VIOLATED -> F (0,1), e=0, "
-                  f"HTTP 422 Unprocessable Entity — {ce}")
-            return 1
-        if v != "unsat" or tr != 0:
-            print(f"  [UNKNOWN] allow не перепроверен (trusted={tr}) — НЕ засчитано")
-            return 2
-        allow_ok = True
-    # (2) СРАБОТАВШИЙ forbid: если allow при этом истинен -> B (409), иначе F (422)
-    for i, f in enumerate(forbids):
-        f_smt = _pol_smt(f)
-        v, ce, tr = _prove_checked(kernc, decls, fixed + [f_smt])
-        if v != "sat":
-            if v != "unsat" or tr != 0:
-                print(f"  [UNKNOWN] forbid[{i}] не перепроверен (trusted={tr})")
-                return 2
-            continue
-        if allow_smt and allow_ok:
-            print(f"  [FAIL] Firewall: POLICY CONFLICT -> B (1,1), e=0, "
-                  f"HTTP 409 Conflict (allow ∧ forbid[{i}]) — {ce}")
-        else:
-            print(f"  [FAIL] Firewall: FORBIDDEN ACTION -> F (0,1), e=0, "
-                  f"HTTP 422 (forbid[{i}]) — {ce}")
-        return 1
-    print(f"  [PASS] Firewall: PROVEN (tool `{act.get('tool', '?')}`, "
-          f"args {len(args)}, trusted: 0 | holes: 0) -> T (1,0), e=1, HTTP 200 OK")
-    return 0
-
 
 # -----------------------------------------------------------------------------
 # ЭШЕЛОН 7, ПУНКТ 37: ПРОТИВОРЕЧИЯ В ДОКУМЕНТАХ / ДОГОВОРАХ / RAG-БАЗАХ.
@@ -4924,43 +3603,6 @@ def cmd_verify_action(action_path: str, policy_path: str, kernc) -> int:
 # несовместна, пункт в ядро не входит).
 # -----------------------------------------------------------------------------
 
-def cmd_verify_doc(path: str, kernc) -> int:
-    """ПУНКТ 37: `--verify-doc <doc.json>` (цель `make rag-conflict-check`)."""
-    doc = json.loads(Path(path).read_text(encoding="utf-8"))
-    clauses = doc.get("clauses", [])
-    decls = doc.get("vars", [])
-    if not clauses or not decls:
-        print("  [SKIP] нужны `vars` и `clauses`")
-        return 2
-    id_of = [c.get("id", f"clause_{i + 1}") for i, c in enumerate(clauses)]
-    smt_of = [_pol_smt(c["expr"]) for c in clauses]
-
-    def verdict(idxs) -> tuple[str, str | None, int | None]:
-        return _prove_checked(kernc, decls, [smt_of[i] for i in idxs])
-
-    v, ce, tr = verdict(range(len(clauses)))
-    if v == "sat":
-        print(f"  [PASS] DOCUMENT CONSISTENT: все {len(clauses)} пунктов совместны "
-              f"(trusted: 0 | holes: 0)")
-        return 0
-    if v != "unsat" or tr != 0:
-        print(f"  [UNKNOWN] документ не перепроверен (trusted={tr}) — НЕ засчитано")
-        return 2
-    # МИНИМАЛЬНОЕ ЯДРО: жадное удаление пунктов, пока система остаётся UNSAT.
-    keep = list(range(len(clauses)))
-    for i in list(keep):
-        trial = [j for j in keep if j != i]
-        if not trial:
-            continue
-        tv, _tce, ttr = verdict(trial)
-        if tv == "unsat" and ttr == 0:
-            keep = trial
-    core = [id_of[i] for i in keep]
-    print(f"  [FAIL] CONFLICT B(1,1): document UNSAT (trusted: 0 | holes: 0), "
-          f"e=0 — пункты противоречат друг другу")
-    print(f"  [CONFLICT B(1,1)] Minimal conflicting clauses: [{', '.join(core)}]")
-    return 1
-
 
 # -----------------------------------------------------------------------------
 # ЭШЕЛОН 7, ПУНКТ 38: RLVR — ВЕРИФИЦИРУЕМЫЙ ОРАКУЛ ВОЗНАГРАЖДЕНИЯ.
@@ -4970,55 +3612,6 @@ def cmd_verify_doc(path: str, kernc) -> int:
 # `--anti-cheat`; иначе -2.0 (чит), -1.0 (контрпример), 0.0 (вне фрагмента).
 # Никаких ложных наград: `unknown` НИКОГДА не даёт положительный сигнал.
 # -----------------------------------------------------------------------------
-
-def cmd_rlvr_reward(path: str, kernc) -> int:
-    """ПУНКТ 38: `--rlvr-reward <candidate.py>` (цель `make rlvr-oracle-check`)."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    sc = _CheatScan()
-    sc.visit(ast.parse(src))
-    sc_findings = list(sc.findings)
-    for mod, ln in sc.imports:
-        if mod in SUSPICIOUS_MODULES:
-            sc_findings.append((f"suspicious module: {mod}", ln))
-    if sc_findings:
-        kind, ln = sc_findings[0]
-        print(f"[REWARD] R=-2.0 [REWARD HACKING PENALTY, Belnap F] "
-              f"({kind}, строка {ln})")
-        return 0
-    entries = parse_file(Path(path))
-    proven = refuted = unknown = 0
-    first_ce = ""
-    for (name, params, req, ens, body, _lineno, _skip, meta) in entries:
-        if body is None or (not req and not ens):
-            continue
-        try:
-            smt = build_smt(params, req, ens, body, meta.get("ranges"))
-        except Exception:
-            unknown += 1
-            continue
-        _rc, out = run_kernc(kernc, smt)
-        if "КОНТРПРИМЕР" in out:
-            refuted += 1
-            first_ce = first_ce or next((l.strip()[:100] for l in out.splitlines()
-                                         if "КОНТРПРИМЕР" in l), "SAT")
-        elif "ДОКАЗАНО" in out:
-            m = re.search(r"trusted:\s*(\d+)", out)
-            tr = int(m.group(1)) if m else None
-            if tr == 0:
-                proven += 1
-            else:
-                unknown += 1
-        else:
-            unknown += 1
-    if refuted:
-        print(f"[REWARD] R=-1.0 [REFUTED, Belnap F] ({first_ce})")
-    elif unknown or proven == 0:
-        print(f"[REWARD] R=0.0 [ABSTAIN, Belnap N] "
-              f"(proven {proven}, unknown {unknown}, refuted 0)")
-    else:
-        print(f"[REWARD] R=+1.0 [VERIFIED REWARD, Belnap T, e=1] "
-              f"(доказано {proven}, trusted: 0 | holes: 0, чисто по anti-cheat)")
-    return 0
 
 
 # -----------------------------------------------------------------------------
@@ -5033,42 +3626,6 @@ def cmd_rlvr_reward(path: str, kernc) -> int:
 CANVAS_TMPL = Path(__file__).resolve().parent / "canvas_template.html"
 
 
-def cmd_html(path: str, out_path: str, kernc) -> int:
-    """ПУНКТ 40Б: `--html <out.html>` (цель `make html-canvas-check`)."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
-    functions = []
-    for fn in fns:
-        paths = _paths_of(fn)
-        if not paths:
-            continue
-        functions.append({
-            "name": fn.name,
-            "cc": len(paths),
-            "params": [a.arg for a in fn.args.args if a.arg != "self"],
-            "paths": [{"conds": pp, "value": vp} for pp, vp in paths],
-            "verdict": "N",
-        })
-    if not functions:
-        print("  [SKIP] ни одной функции в подмножестве `_paths_of`")
-        return 2
-    if not CANVAS_TMPL.exists():
-        print(f"  [!] нет шаблона {CANVAS_TMPL}")
-        return 2
-    payload = {
-        "functions": functions,
-        "proof_note": ("вердикт выдаёт `kernc prove` (Z3) и перепроверяет "
-                       "пруф-чекер; квадрат B4 окрашен по первому вердикту. "
-                       "Источник истины — CLI, а не холст."),
-    }
-    html = CANVAS_TMPL.read_text(encoding="utf-8").replace(
-        "__DATA__", json.dumps(payload, ensure_ascii=False))
-    Path(out_path).write_text(html, encoding="utf-8")
-    print(f"  [OK] холст записан: {out_path} ({len(html)} байт, "
-          f"функций {len(functions)}, внешних зависимостей 0)")
-    return 0
-
-
 # =========================================================================
 #  ГОМЕОСТАТИЧЕСКАЯ ПЕТЛЯ САМОИСЦЕЛЕНИЯ (--heal)
 # =========================================================================
@@ -5080,151 +3637,6 @@ def cmd_html(path: str, out_path: str, kernc) -> int:
 #   [4] ПОВТОРНАЯ проверка -> T (1,0), trusted: 0
 # Если после патча краш остаётся — изменения ОТКАТЫВАЮТСЯ (fail-closed):
 # «вылеченным» файл объявляется только по машинному вердикту.
-
-def _crash_sites(tree: ast.AST, params: list[str], kernc) -> list[tuple[ast.AST, str]]:
-    """Точки, где делитель МОЖЕТ быть нулём (Z3 подтвердил SAT)."""
-    out: list[tuple[ast.AST, str]] = []
-    for n in ast.walk(tree):
-        if not (isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod))):
-            continue
-        try:
-            div = expr_smt(n.right, {})
-        except (Unsupported, NoReturn, Exception):
-            continue
-        if _smt_sat(kernc, params, [f"(= {div} 0)"]) is True:
-            out.append((n, div))
-    return out
-
-
-
-
-def _guard_covers(fn: ast.AST, node: ast.AST, div_py: str) -> bool:
-    """Есть ли ПЕРЕД узлом `if <делитель> == 0: return ...` в том же теле?
-
-    Нужно для ПЕРЕПРОВЕРКИ после патча: статический SAT «делитель может быть 0»
-    сам по себе не знает, что эта ветка уже перехвачена ранее возвратом.
-    Сравнение — по нормализованному AST-тексту (ast.unparse).
-    """
-    def walk_block(stmts: list) -> bool:
-        for st in stmts:
-            if isinstance(st, ast.If) and getattr(st, "lineno", 10**9) < getattr(node, "lineno", 0):
-                t = st.test
-                try:
-                    if (isinstance(t, ast.Compare) and isinstance(t.ops[0], ast.Eq)
-                            and ast.unparse(t.left) == div_py
-                            and ast.unparse(t.comparators[0]) == "0"
-                            and any(isinstance(x, ast.Return) for x in st.body)):
-                        return True
-                except Exception:
-                    pass
-            for attr in ("body", "orelse"):
-                sub = getattr(st, attr, None)
-                if isinstance(sub, list) and sub and isinstance(sub[0], ast.stmt) and walk_block(sub):
-                    return True
-        return False
-    return walk_block(getattr(fn, "body", []))
-
-def cmd_heal(path: str, kernc) -> int:
-    """Замкнуть петлю: найти F -> вставить гард -> ПЕРЕПРОВЕРИТЬ -> T."""
-    src_path = Path(path)
-    if not src_path.exists():
-        print(f"[!] нет файла: {path}")
-        return 2
-    original = src_path.read_text(encoding="utf-8", errors="replace")
-    tree = ast.parse(original)
-
-    # [1] и [2]: находим краши и синтезируем гарды (все — с проверкой в Z3).
-    plan: list[tuple[int, str, str, str]] = []  # (строка, функция, условие-py, условие-smt)
-    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        for node, div in _crash_sites(fn, params, kernc):
-            guard_smt = f"(= {div} 0)"
-            if _smt_sat(kernc, params, [f"(not {guard_smt})", guard_smt]) is not False:
-                continue  # гард не доказан — рецепт не применяем
-            try:
-                guard_py = f"{ast.unparse(node.right)} == 0"
-            except Exception:
-                continue
-            line = min(getattr(node, "lineno", fn.lineno), fn.lineno + 200)
-            plan.append((line, fn.name, guard_py, guard_smt))
-
-    if not plan:
-        print("[HEAL] крашей не найдено — патчить нечего (T (1,0), e=1)")
-        return 0
-
-    # [3] ВСТАВКА: по одному гарду, от ПОСЛЕДНЕЙ строки к первой, чтобы
-    # сдвиг номеров не ломал вставки. Отступ — от самой строки.
-    lines = original.splitlines()
-    for line, fname, guard_py, _gsmt in sorted(plan, key=lambda t: -t[0]):
-        idx = line - 1
-        if idx < 0 or idx >= len(lines):
-            continue
-        target = lines[idx]
-        indent = target[: len(target) - len(target.lstrip())]
-        lines.insert(idx, f"{indent}if {guard_py}:  # [KERN HEAL] {fname}: защита от деления на 0")
-        lines.insert(idx + 1, f"{indent}    return 0")
-    patched = "\n".join(lines) + ("\n" if original.endswith("\n") else "")
-
-    try:
-        new_tree = ast.parse(patched)
-    except SyntaxError as e:
-        print(f"[HEAL] [!] патч НЕ компилируется ({e}) — файл НЕ изменён")
-        return 1
-
-    # [4] ПЕРЕПРОВЕРКА: крашей быть не должно. Только по машинному вердикту.
-    remaining = 0
-    for fn in [n for n in ast.walk(new_tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        for node, div in _crash_sites(fn, params, kernc):
-            # Краш считается ОСТАВШИМСЯ только если перед ним НЕТ гарда.
-            try:
-                div_py = ast.unparse(node.right)
-            except Exception:
-                div_py = ""
-            if not _guard_covers(fn, node, div_py):
-                remaining += 1
-
-    print(f"[HEAL] найдено крашей: {len(plan)} | после патча: {remaining}")
-    if remaining != 0:
-        print("[HEAL] [!] остались краши — изменения ОТКАТЫВАЮТСЯ (fail-closed)")
-        return 1
-
-    # АТОМАРНАЯ ЗАПИСЬ (Д7): tmp -> flush -> fsync -> ПЕРЕПРОВЕРКА tmp ->
-    # .bak -> os.replace. Порядок принципиален: сначала ДОКАЗУЕМО хороший
-    # временный файл, и только потом трогаем оригинал. При любом сбое
-    # оригинал остаётся нетронутым.
-    tmp_path = src_path.with_suffix(src_path.suffix + ".kern_tmp")
-    bak_path = src_path.with_suffix(src_path.suffix + ".bak")
-    try:
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(patched)
-            f.flush()
-            os.fsync(f.fileno())
-        # ПЕРЕПРОВЕРКА ИМЕННО ВРЕМЕННОГО ФАЙЛА (не строки в памяти).
-        check_tree = ast.parse(tmp_path.read_text(encoding="utf-8", errors="replace"))
-        still = 0
-        for fn in [n for n in ast.walk(check_tree) if isinstance(n, ast.FunctionDef)]:
-            params = [a.arg for a in fn.args.args if a.arg != "self"]
-            for node, _div in _crash_sites(fn, params, kernc):
-                try:
-                    div_py = ast.unparse(node.right)
-                except Exception:
-                    div_py = ""
-                if not _guard_covers(fn, node, div_py):
-                    still += 1
-        if still != 0:
-            print(f"[HEAL] [!] временный файл НЕ прошёл перепроверку ({still}) — оригинал не тронут")
-            tmp_path.unlink(missing_ok=True)
-            return 1
-        # БЭКАП ОРИГИНАЛА и атомарная замена.
-        bak_path.write_text(original, encoding="utf-8")
-        os.replace(tmp_path, src_path)
-    except OSError as e:
-        print(f"[HEAL] [!] ошибка записи: {e} — оригинал не тронут")
-        tmp_path.unlink(missing_ok=True)
-        return 1
-    print(f"[HEAL] [T (1,0)] файл вылечен: {path} (гардов {len(plan)}, бэкап {bak_path.name})")
-    return 0
 
 
 # =========================================================================
@@ -5239,136 +3651,7 @@ def cmd_heal(path: str, kernc) -> int:
 # ЗВУЧИМОСТЬ ОТЧЁТА: «покрыто M/M» подтверждается РЕАЛЬНЫМ исполнением,
 # а мёртвые ветви (SAT=unsat) исключаются из знаменателя с указанием причины.
 
-def _eval_cond(cond: ast.AST, env: dict) -> bool:
-    """Значение условия на КОНКРЕТНЫХ данных (реальное исполнение ветки)."""
-    expr = ast.Expression(body=cond)
-    ast.fix_missing_locations(expr)
-    return bool(eval(compile(expr, "<concolic>", "eval"), {}, dict(env)))
 
-
-def _run_trace(stmts: list, env: dict, trace: list, depth: int = 0) -> tuple[bool, object]:
-    """Исполнить операторы интерпретатором: вернуть (был_return, значение).
-
-    Записывает в `trace` пары (объект If, взятое_значение) по РЕАЛЬНОМУ пути.
-    Поддержано подмножество: assign / if-elif-else / return / выражение.
-    """
-    if depth > 64:
-        return False, None
-    for st in stmts:
-        if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
-            try:
-                env[st.targets[0].id] = eval(compile(ast.Expression(body=st.value), "<c>", "eval"), {}, dict(env))
-            except Exception:
-                pass
-            continue
-        if isinstance(st, ast.If):
-            try:
-                taken = _eval_cond(st.test, env)
-            except Exception:
-                continue
-            trace.append((st, taken))
-            done, val = _run_trace(st.body if taken else st.orelse, env, trace, depth + 1)
-            if done:
-                return True, val
-            continue
-        if isinstance(st, ast.Return):
-            try:
-                val = eval(compile(ast.Expression(body=st.value), "<c>", "eval"), {}, dict(env)) if st.value else None
-            except Exception:
-                val = None
-            return True, val
-    return False, None
-
-
-def _smt_text(params: list[str], asserts: list[str]) -> str:
-    """SMT-LIB2 текст из объявлений и утверждений (для минимизации)."""
-    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
-    body = "\n".join(f"(assert {a})" for a in asserts)
-    return f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
-
-
-def cmd_concolic(path: str, kernc) -> int:
-    """Конколика: реальные запуски + инверсия условий в Z3."""
-    if not Path(kernc).exists():
-        print(f"[!] не найден kernc: {kernc}")
-        return 2
-    tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
-    total_runs = 0
-    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        if not params:
-            continue
-        # Достижимые условия этой функции (для знаменателя).
-        ifs = [n for n in ast.walk(fn) if isinstance(n, ast.If)]
-        if not ifs:
-            continue
-        covered: set[tuple[int, bool]] = set()   # (lineno, taken)
-        seen_paths: set[tuple] = set()
-        worklist: list[dict] = [{p: 0 for p in params}]
-        runs = 0
-        while worklist and runs < 64:
-            env = dict(worklist.pop())
-            trace: list = []
-            _run_trace(fn.body, env, trace)
-            runs += 1
-            total_runs += 1
-            key = tuple((getattr(st, "lineno", 0), t) for st, t in trace)
-            if key in seen_paths:
-                continue
-            seen_paths.add(key)
-            for st, t in trace:
-                covered.add((getattr(st, "lineno", 0), t))
-            # Инверсия КАЖДОГО условия реального пути: prefix ∧ ¬(взятое).
-            prefix: list[str] = []
-            for st, t in trace:
-                try:
-                    c = expr_smt(st.test, {})
-                except (Unsupported, NoReturn, Exception):
-                    break
-                want = (f"(not {c})") if t else c   # инвертируем
-                model = _smt_model(kernc, params, prefix + [want])
-                # ИЗМЕРЕНО: Z3 не связывает параметры, не входящие в условие,
-                # поэтому модель бывает НЕПОЛНОЙ (например, только x). Такие
-                # параметры СВОБОДНЫ — берём 0 (любое значение даёт тот же путь).
-                if model:
-                    cand = {k: int(model.get(k, 0)) for k in params}
-                    cand = minimize_counterexample(
-                        kernc, _smt_text(params, prefix + [want]), params, cand)
-                    worklist.append(cand)
-                prefix.append(c if t else f"(not {c})")
-        # Сколько ветвей ДОСТИЖИМО: проверяем каждую (lineno, True/False) через Z3
-        # с учётом префиксов — приближение: условие SAT => достижимо.
-        # ЧЕСТНЫЙ СЧЁТ. «Достижимо» проверяется С УЧЁТОМ ПУТИ (префикса), а не
-        # глобально: иначе вложенное `if y > 3` считалось бы достижимым даже
-        # при недостижимом внешнем `if x > 5` (ИЗМЕРЕНО: давало 2/6 вместо 2/4).
-        cov = sum(1 for st in ifs for t in (True, False) if (getattr(st, "lineno", 0), t) in covered)
-        dead = 0
-        unexplored = 0
-        for st in ifs:
-            try:
-                c = expr_smt(st.test, {})
-            except (Unsupported, NoReturn, Exception):
-                continue
-            for t in (True, False):
-                if (getattr(st, "lineno", 0), t) in covered:
-                    continue
-                # Мёртвая, если условие несовместно САМО ПО СЕБЕ (без путей)
-                # — консервативно: только такие называем dead.
-                probe = c if t else f"(not {c})"
-                if _smt_sat(kernc, params, [probe]) is False:
-                    dead += 1
-                else:
-                    unexplored += 1
-        total = cov + dead + unexplored
-        print(f"  [CONCOLIC] {fn.name}: concrete runs {runs}, "
-              f"branches covered {cov}/{total} (dead {dead}, unexplored {unexplored})")
-    print("-" * 74)
-    print(f"ИТОГО: реальных запусков {total_runs}")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
 def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     """ПОЛЕВОЙ АДАПТЕР №5: рекурсивный скан ЧУЖОГО репозитория.
 
@@ -5424,77 +3707,6 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     return 0
 
 
-def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
-    """ПУНКТ 13: рентген кода БЕЗ аннотаций."""
-    if not Path(kernc).exists():
-        print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
-        return 2
-    p = Path(path)
-    # ПОЛЕВОЙ АДАПТЕР №5: `--xray <dir>` — рекурсивный обход репозитория.
-    # Пропускаем служебные каталоги и агрегируем отчёт по всему дереву.
-    if p.is_dir():
-        return _xray_repo(p, kernc, show_all)
-    src = p.read_text(encoding="utf-8", errors="replace")
-    tree = ast.parse(src)
-    src_lines = src.splitlines()  # ПУНКТ 21: директивы `# @kern:len(arr) = N`
-    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
-    # ПОЛЕВОЙ АДАПТЕР №3: константы уровня модуля (`MAX_SIZE = 1024`,
-    # `HTTP_BAD_REQUEST = 400`). В живом коде магические числа не пишут —
-    # пишут имя константы, и без подстановки условие уходило в SKIP.
-    module_env: dict[str, str] = {}
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and len(node.targets) == 1                 and isinstance(node.targets[0], ast.Name)                 and isinstance(node.value, ast.Constant)                 and isinstance(node.value.value, int)                 and not isinstance(node.value.value, bool):
-            module_env[node.targets[0].id] = str(node.value.value)
-    found: list[str] = []
-    skipped: list[str] = []
-    checked = 0
-    for fn in fns:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        cc, smells = _cc_and_smells(fn)
-        # Подмножество: должны переводиться УСЛОВИЯ ветвлений (тело целиком
-        # переводить НЕ требуется — для поиска мёртвых веток и краш-путей нужны
-        # только условия и делители). ИЗМЕРЕНО: строгая проверка через
-        # `body_smt` отсеивала ровно те функции, где и есть находки.
-        conds_ok = True
-        for n in ast.walk(fn):
-            if isinstance(n, ast.If):
-                try:
-                    # `len(arr)` переписывается в символическую длину -> условия с
-                    # `len(...)` больше НЕ отсеиваются как «вне подмножества».
-                    _cond_smt(n.test, set())
-                except (Unsupported, NoReturn, Exception):
-                    conds_ok = False
-                    break
-        if not conds_ok:
-            skipped.append(f"{fn.name}: условие ветвления вне подмножества")
-            continue
-        checked += 1
-        if show_all or cc > 1:
-            print(f"  [FN] {fn.name}: CC={cc} параметров={len(params)}")
-        for s in smells:
-            found.append(f"[SMELL] {fn.name}: {s}")
-        lens = _declared_lengths_for(src_lines, fn.lineno)  # опциональное переопределение
-        syms: set = set()
-        lens.update(_collect_lens(fn, syms))   # Zero-Annotation: литералы + len()
-        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms, module_env)
-        _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name, syms)
-
-    print("-" * 74)
-    for f in found:
-        print("  " + f)
-    print("-" * 74)
-    _LAST_XRAY["stat"] = (checked, len(fns), len(fns) - checked, list(found))
-    print(f"[XRAY SUMMARY] checked {checked} / {len(fns)} functions, "
-          f"skipped {len(fns) - checked} with explicit reasons, "
-          f"findings {len(found)}")
-    for s in skipped:
-        print(f"    skip: {s}")
-    if not found:
-        print("[OK] рентген не нашёл мёртвых веток, избыточных проверок и краш-путей")
-    return 0
-
-
-
 # =============================================================================
 # ЭШЕЛОН 4, ПУНКТ 20 — ТОТАЛЬНАЯ КОРРЕКТНОСТЬ ЦИКЛОВ (Флойд — Хоар).
 #
@@ -5722,7 +3934,6 @@ def cmd_loops(path: str, kernc) -> int:
     return 0
 
 
-
 # =============================================================================
 # ЭШЕЛОН 4, ПУНКТ 24 — ИНВАРИАНТ СОСТОЯНИЯ (`# @kern:state_invariant <expr>`).
 #
@@ -5941,7 +4152,6 @@ def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
     print("-" * 74)
     print(f"ИТОГО: проверенных рецептов {fixes}")
     return 0
-
 
 
 def _smt_model(kernc, params, asserts) -> dict | None:
@@ -7314,8 +5524,6 @@ def _crash_sites(tree: ast.AST, params: list[str], kernc) -> list[tuple[ast.AST,
         if _smt_sat(kernc, params, [f"(= {div} 0)"]) is True:
             out.append((n, div))
     return out
-
-
 
 
 def _guard_covers(fn: ast.AST, node: ast.AST, div_py: str) -> bool:

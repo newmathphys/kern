@@ -92,6 +92,58 @@ def _read(path: Path) -> str:
         return ""
 
 
+# ДЕФЕКТ #181: в реальном мире лицензия лежит как `LICENSE.md`, `LICENSE-MIT`,
+# `COPYING` (cmark-gfm), `LICENSE.txt` (actions/toolkit). Поиск ТОЛЬКО файла
+# `LICENSE` отнимал у знаменитых репозиториев 10 баллов на ровном месте.
+_LICENSE_PATTERNS = ("LICENSE*", "LICENCE*", "COPYING*", "COPYRIGHT*", "UNLICENSE*")
+
+# ДЕФЕКТ #181: тесты бывают `test/` (cmark-gfm), `__tests__/` (TS),
+# `*_test.go`, `*.test.ts`, а в Zig/Rust — встроенными блоками
+# `test "…" {` и `#[test]`.
+_TEST_DIRS = ("tests", "test", "__tests__", "spec", "specs",
+              "src/tests", "src/test")
+_TEST_FILE_GLOBS = ("**/*_test.go", "**/*_test.py", "**/*.test.ts",
+                    "**/*.spec.ts", "**/*_test.rs", "**/test_*.py")
+
+
+def _detect_license(root: Path) -> bool:
+    for pat in _LICENSE_PATTERNS:
+        try:
+            for p in root.glob(pat):
+                if p.is_file() and p.stat().st_size > 0:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def _detect_tests(root: Path) -> bool:
+    for d in _TEST_DIRS:
+        if (root / d).is_dir():
+            return True
+    if (root / "src" / "test_root.zig").is_file():
+        return True
+    for pat in _TEST_FILE_GLOBS:
+        try:
+            for p in root.glob(pat):
+                if p.is_file():
+                    return True
+        except OSError:
+            continue
+    # Встроенные тесты: Zig `test "..." {` и Rust `#[test]`.
+    for pat in ("**/*.zig", "**/*.rs"):
+        try:
+            for p in list(root.glob(pat))[:400]:
+                if not p.is_file():
+                    continue
+                t = _read(p)
+                if 'test "' in t or "#[test]" in t:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 def _strip_lean_comments(t: str) -> str:
     """Убирает `--`-комментарии и `/- ... -/` блоки.
 
@@ -224,9 +276,9 @@ def build_report(root: Path) -> dict:
                     "canfail_cases": cases, "mutation": mutation_score(root),
                     "qemu": qemu(root)},
         "hygiene": {
-            "license": (root / "LICENSE").is_file(),
+            "license": _detect_license(root),
             "readme": any((root / n).is_file() for n in ("README.md", "README.ru.md", "README")),
-            "tests": any((root / p).exists() for p in ("tests", "src/tests", "src/test_root.zig")),
+            "tests": _detect_tests(root),
             "ci": (root / ".github" / "workflows").is_dir(),
             "build": any((root / p).is_file() for p in
                          ("build.zig", "Makefile", "pyproject.toml", "Cargo.toml", "go.mod")),
