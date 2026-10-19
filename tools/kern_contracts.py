@@ -38,6 +38,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import io
 import sys
@@ -2978,6 +2979,17 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     for x in all_findings[:60]:
         print("  " + x)
     return 0
+
+
+def _shm_dir():
+    """RAM-диск для временных клонов (ОЗУ), иначе системный temp."""
+    d = "/dev/shm"
+    try:
+        if os.path.isdir(d) and os.access(d, os.W_OK):
+            return d
+    except OSError:
+        pass
+    return None
 
 
 _AUDIT_TMP: set = set()
