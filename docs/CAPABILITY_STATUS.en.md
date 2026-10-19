@@ -33,7 +33,7 @@
 | C-ABI (`libkern.so`, 7 functions) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) and C |
 
 **Numbers:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` →
-**279/279 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 271 passed + 8 skipped
+**279/279 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
 (solver-dependent tests skip by design).
 Reference `valid_v1_3.kimg` → the Merkle root matches Python↔Zig (confirmed both ways).
 Decision coverage → **100.0 %** (30/30). Mutation score → **95.0 %** (38/40; 2 provably
@@ -318,13 +318,55 @@ is generated from the sources).
 
 ---
 
+## 6e. Registry of defects from the pre-release session of 2026-10-19 (#153-#177)
+
+Every entry below was found by **measuring**, not by reading: a full run of the
+can-fail harness, field runs of `--xray` on real code (Python stdlib, Zig
+`std/math`), checking `kernc.wasm` outside the kernel, and auditing our own
+evidence collector. Full write-ups with dumps are in `docs/METRICS.md`.
+
+| # | Defect | Class | Status |
+|:--:|:--|:--|:--|
+| **153** | **WASM: a valid proof was rejected.** The 256 KB static buffer in `wasm_api.zig` could not hold the arena of the 51-step `abs.c` proof, so the allocator failed and `verifyProof` returned `0` on a CORRECT derivation. Raised to 4 MB (BSS, module size unchanged) | correctness | FIXED |
+| **154** | **`make mcp-selftest` failed 10 times when `z3` was not in `PATH`** (class #110). The script now enriches `PATH` itself (venv, `~/.local/bin`, `/usr/*`) and **names** the missing binary instead of reporting "10 failures". Verified under `env -i` | tooling | FIXED |
+| **155** | **The proof checker ACCEPTED a forgery.** In `verifyThLemmaArith` an unresolved `@xN` reference fell through to `.structural_only`, which is not counted as a trusted step, so `checksPass()` passed: renaming a step definition silently dropped a Farkas premise while the verdict stayed `trusted: 0`. Now `.bad` | soundness | FIXED |
+| **156** | **SIGTERM during a run left an injection in the tree**: `finally` does not run on SIGTERM. SIGTERM/SIGINT/SIGHUP handlers (rollback from a snapshot) and a refusal to start on a dirty `src/` were added. Verified with a live `kill -TERM` | process | FIXED |
+| **157** | **`write_atomic` did not preserve the file mode**: `os.replace` carried the temp file's 0644 over, so after an interrupted run **29 executable scripts lost `+x`** | tooling | FIXED |
+| **158** | **`'%s' % x` was parsed as a modulo operation** -> FALSE `[CRASH PATH]` in `urllib/error.py`, `http/cookiejar.py`. `_is_str_expr()` added to all three divisor collectors | false positive | FIXED |
+| **159** | **C-like: `if (...) return; if (...) return;` did not narrow the path** -> FALSE `[DEAD BRANCH]` on `std/math`. Narrowing now happens only on `return`/`else` | false positive | FIXED |
+| **160** | **C-like: `[REDUNDANT GUARD]` ("always true") without a type or domain** — an unprovable claim for Zig/C. Only `[DEAD BRANCH]` is emitted for C-like now | claim boundary | FIXED |
+| **161** | **Zig std: 57 FALSE `[CRASH PATH]`** — the divisor `q` was a local `f64` (float division by zero is `inf`, not a panic). Locals and float names excluded from divisors -> 0 findings | false positive | FIXED |
+| **162** | **`--xray <dir>` on Zig reported `checked 0` on a re-run** (silently). Explicit `cwd` plus an honest unreadable-file counter (now 0) | tooling | FIXED |
+| **163** | **`--audit-repo <github-url>` -> `NameError: _shm_dir`**: the call was copied from the mutator but the function was never defined -> `rc=2` | tooling | FIXED |
+| **164** | **`import shutil` was missing** -> cleanup in `finally`/`atexit` crashed and **2 `/dev/shm/kern_audit_*` directories stayed in RAM** — exactly the leak the code was meant to prevent | tooling | FIXED |
+| **166** | **`builtin_lia`: `pickVar` chose a variable with a ZERO coefficient** -> the Fourier-Motzkin elimination step made no progress -> the counter hit `MAX_VARS` -> **a false `unknown` in `kernc.wasm` where the CLI reports `SAT`**. Found with a diagnostic tag, not by guessing | correctness | FIXED |
+| **167** | **`registry`: two targets had no classification** (`bench-simd8`, `clean-cache`) -> registry FAIL at 123/123 CHECK | tooling | FIXED |
+| **168** | **An `chc.zig` injection reached a COMMIT**: a killed `canfail` run did not roll the file back and `git add -A` picked it up | process | REVERTED; `injection_guard.py` added |
+| **170** | **An `unsat_core.zig` injection survived in a commit**: a live `canfail` (18 min) planted the file AFTER my check -> 10 false `kernfs_router` failures | process | REVERTED |
+| **171** | **`make bench-semantic` -> `MerkleRootMismatch`**: `semantic_probe.zig` assembled the image by hand and computed the root the OLD way (pre-#128). Moved to `sealImageRoot` (single source of truth); digest is deterministic | single source | FIXED |
+| **172** | **A sabotage line in `tools/kern_contracts.py`** (`if True: # SABOTAGE`) from a killed run; the guard only watched `src/` | process | REVERTED; guard extended to `tools/` |
+| **173** | **The evidence guard falsely accused the harness itself**: (a) the baseline included `zig-out` artifacts that `canfail` rebuilds at the end, so every honest run was declared invalid; (b) a snapshot overwrote a write-once basis | tooling | FIXED |
+| **174** | **51 names were defined TWICE (2024 lines of dead code) in `tools/kern_contracts.py`**: Python executes the LAST definition, so edits to the first (dead) copy **silently do nothing**. A ratchet (`dup_defs_guard.py`) now blocks growth | tooling | RATCHETED |
+| **175** | **A nested evidence collector erased the outer run's basis**: the can-fail case `evidence-fast` runs `make evidence-fast` -> the nested `collect_evidence.sh` took the SAME `GUARD`, and after write-once it deleted the outer basis -> "EXTERNAL CHANGE" on every step | process | FIXED |
+| **176** | **A timeout was mistaken for process completion**: the automation waited `for i in $(seq 1 60); sleep 10` = 10 min for a ~20 min collector, and exhausting the loop was read as success, so edits, a commit and a signature happened DURING the run | process | FIXED |
+| **177** | **The telemetry parser did not match the new mutator output**: `measure_all_kern.py` waited for `MUTATION SCORE:` while the output became `MUTATION SCORE (raw):` after the dual score was introduced -> `score=None`, the "Mutation" block 0/12, harness 88/100 | tooling | FIXED |
+| **178** | **The public registry count and the MCP tool names on the site were stale**: the site listed 5 tools with two names that do not exist (`kern_check_contracts`, `kern_prove_contract`) while the server exports 8, and the defect range was `#1-#123 / 63 entries` instead of `#1-#177 / 105 entries` | documentation | FIXED |
+
+**Honest caveat.** The full run of these 139 targets ended with `RC=0` and
+`TOTAL: 141 non-vacuous | 0 VACUOUS | 0 case errors`, but the guard itself
+declared it invalid — for reasons (a)+(b) of #173, i.e. **because of a guard
+defect, not the run** (final tree: clean, no injection markers).
+
+---
+
+
 ## 7. Summary
 
 **MEASURED/TESTED:** the KIMG core (parser, builder, Merkle, KERNFS, the Gate, KERN-X,
 cache, 5 SMT theories, C-ABI) and KERN-Next (parser, validator, SQLite, snapshot, diff,
-packet, report, cache) — **279 + 38 tests, all green** (with `z3` in `PATH`; without it —
-271 passed + 8 skipped, the solver-dependent ones).
+packet, report, cache) — **401 + 53 tests, all green** (with `z3` in `PATH`; without it —
+393 passed + 8 skipped, the solver-dependent ones).
 
-**FRAMEWORK/NOT IMPL:** cloud, WASM, the Lean transpiler, plugins, bundle, PQC, dashboard —
+**FRAMEWORK/NOT IMPL:** cloud, the Lean transpiler, plugins, bundle, PQC, dashboard —
 that is the next layer, and it is NOT claimed to be working.
 

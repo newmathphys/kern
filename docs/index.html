@@ -217,8 +217,8 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
     <div class="stat">
       <span class="val">401 / 401</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
       <span class="val">53 / 53</span><span class="lbl">KERN-Next tests</span>
-      <span class="val">100.0 %</span><span class="lbl">mutation score — 40/40 killed (20 files / 1225 sites, full-file on 16 modules)</span>
-      <span class="val">125 / 125</span><span class="lbl">can-fail CHECK targets — 140 non-vacuous cases, 0 vacuous</span>
+      <span class="val">100.0 %</span><span class="lbl">mutation score — 1225 / 1225 killed (20 files); canonical gate 40 / 40</span>
+      <span class="val">125 / 125</span><span class="lbl">can-fail CHECK targets — 141 non-vacuous cases, 0 vacuous</span>
     </div>
     <div class="stat">
       <span class="val">120 / 0</span><span class="lbl">Lean 4 theorems / 0 sorry (8 files)</span>
@@ -456,10 +456,11 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 
 <h2>For AI agents (MCP) and CI</h2>
 <div class="panel">
-<p style="margin:0 0 10px">Five tools over stdio for Claude Code / Cursor and any MCP client, with 14 live self-checks
+<p style="margin:0 0 10px">Eight tools over stdio for Claude Code / Cursor and any MCP client, with 17 live self-checks
 (<code>make mcp-selftest</code>):
-<code>kern_verify_smt</code> · <code>kern_verify_python</code> · <code>kern_check_contracts</code> ·
-<code>kern_prove_contract</code> · <code>kern_check_equivalence</code>.</p>
+<code>kern_verify_smt</code> · <code>kern_prove_with_checker</code> · <code>kern_verify_multi_belnap</code> ·
+<code>kern_verify_python</code> · <code>kern_check_equivalence</code> · <code>kern_xray_code</code> ·
+<code>kern_verify_action</code> · <code>kern_rlvr_reward</code>.</p>
 <p class="lbl" style="margin:0">In CI, the reusable Action verifies the downloaded binary against
 <code>SHA256SUMS</code> before running it, and can emit a SARIF 2.1.0 report for GitHub Code Scanning:
 <br><code>uses: newmathphys/kern@v2.5.0</code></p>
@@ -470,7 +471,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">63 entries, #1–#123</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">106 entries, #1–#178</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -493,7 +494,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>63 defects this project found in itself</strong> (#1–#123).
+together with the <strong>106 defects this project found in itself</strong> (#1–#178).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 
