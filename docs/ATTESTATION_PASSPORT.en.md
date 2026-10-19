@@ -16,9 +16,9 @@
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **401 / 401** (without `z3` in `PATH` — 393 passed + 8 skipped),
-> KERN-Next **45 / 45**, can-fail **125 / 125 CHECK** (140 non-vacuous cases, 0 errors),
-> registry **121 targets**, mutation score **95.0 %** (38/40), Lean 4 **8 files /
-> 92 theorems / 0 sorry**, test catalogue **322**. Also closed since then: the default
+> KERN-Next **53 / 53**, can-fail **125 / 125 CHECK** (140 non-vacuous cases, 0 errors),
+> registry **125 targets**, mutation score **100.0 %** (1225/1225), Lean 4 **8 files /
+> 120 theorems / 0 sorry**, test catalogue **423**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
 > §1–§8 below (these are current).
@@ -37,7 +37,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Target Systems | **PASS** — 2 platforms: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA bypass closed, KERNFS consistent) |
 | Decision Coverage | **PASS** — 100.0 % (threshold 95 %) |
-| Mutation Coverage | **PASS** — 95.0 % (38/40; 2 provably equivalent) |
+| Mutation Coverage | **PASS** — 100.0 % (1225/1225 sites, 0 survivors) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -53,7 +53,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
 | `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **95 cases, 82/82 CHECK**, 0 vacuous |
-| `make registry` | ✅ *(snapshot: 75 targets)* — current: **121 targets classified** |
+| `make registry` | ✅ *(snapshot: 75 targets)* — current: **125 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)
 
@@ -88,7 +88,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Zombie processes | **0** (`child.wait()` reaps) | ✅ |
 | I/O fault tolerance (`test-fault`) | **3/3 OK** (real SIGBUS) | ✅ |
 | Decision coverage (MC/DC) | **100.0 %** (30/30, DO-178C threshold ≥ 95 %) | ✅ |
-| Mutation score | **95.0 % raw** (38/40 killed, 2 **provably** equivalent) → **100 % effective (38/38)** | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
+| Mutation score | **100.0 %** (1225/1225 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
 
 ---
 
@@ -257,11 +257,11 @@ Claims that **did not hold** and were fixed in the documentation:
 ## What was fully confirmed ✅
 
 401 / 401 (Debug + ReleaseSafe) · 53/53 KERN-Next · 0 leaks · 0 FD · 0 zombies ·
-3/3 SIGBUS · 100 % decision coverage · mutation score 95.0 % (38/40, 2 equivalent) ·
+3/3 SIGBUS · 100 % decision coverage · mutation score 100.0 % (1225/1225) ·
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·
-SolverPool 128/4 · Lean 4: 8 files / 92 theorems / 0 sorry · QuixBugs 31/31 ·
+SolverPool 128/4 · Lean 4: 8 files / 120 theorems / 0 sorry · QuixBugs 31/31 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · concolic 4 calls ·
 DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 
@@ -270,7 +270,7 @@ DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 ## How to reproduce all of it
 
 ```bash
-make help          # all 121 targets
+make help          # all 125 targets
 make test-all      # core + KERN-Next + Lean + benchmarks
 make research      # research echelons
 make echelons      # 4 echelons of the final assault

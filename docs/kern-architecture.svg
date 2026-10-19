@@ -59,14 +59,14 @@
   <!-- Panel 3: measured baseline -->
   <rect x="628" y="104" width="300" height="152" rx="6" fill="#0d1117" stroke="#238636" stroke-width="1.2"/>
   <text x="644" y="125" class="hdr">MEASURED BASELINE</text>
-  <text x="644" y="150" class="val">279 / 279</text>
-  <text x="742" y="150" class="lbl">core x86_64 (QEMU rerun)</text>
-  <text x="644" y="172" class="val">42 / 0</text>
+  <text x="644" y="150" class="val">401 / 401</text>
+  <text x="742" y="150" class="lbl">core x86_64 (QEMU ok)</text>
+  <text x="644" y="172" class="val">120 / 0</text>
   <text x="742" y="172" class="lbl">Lean 4 theorems / 0 sorry</text>
   <text x="644" y="194" class="val">100.0%</text>
   <text x="742" y="194" class="lbl">decision coverage (30/30)</text>
-  <text x="644" y="216" class="val">95.0%</text>
-  <text x="742" y="216" class="lbl">mutation score / 1M fuzz</text>
-  <text x="644" y="238" class="val">81 / 81</text>
+  <text x="644" y="216" class="val">100.0%</text>
+  <text x="742" y="216" class="lbl">mutation score 1225/1225</text>
+  <text x="644" y="238" class="val">125 / 125</text>
   <text x="742" y="238" class="lbl">can-fail CHECK targets</text>
 </svg>

@@ -906,7 +906,7 @@ Kernel Invariants     : PASS — Lean 4 (7 файлов, 0 errors, 0 sorry)
 Target Systems        : PASS — 2 платформы: ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)
-Mutation Coverage     : PASS — 95.0%
+Mutation Coverage     : PASS — 100.0%
 Formal Theories       : PASS — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS)
 Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 [OK] провалов: 0

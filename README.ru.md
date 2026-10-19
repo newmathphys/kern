@@ -21,7 +21,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 |:--|:--|
 | Тесты ядра | **299** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **53** |
-| Формальные доказательства | **8 файлов Lean 4** (92 теорем), 0 errors, 0 `sorry` |
+| Формальные доказательства | **8 файлов Lean 4** (120 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | **100.0%** — полный обстрел **20 файлов / 1225 сайтов** (1225/1225 убито, 0 выживших, 23 мин). Канонический гейт (`make mutate`, seed=7): 40/40 — те же вердикты. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`)  — **Канонический стратифицированный гейт** (`make mutate`, 18 файлов, пул 1152 сайта, seed=7): `40 / 40 (100.0%)`. **Полный обстрел без сэмплирования** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5. |
 | Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **393 passed / 8 skipped / 0 failed** (лог QEMU 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
@@ -94,7 +94,7 @@ Kernel Invariants     : PASS — Lean 4 (8 files, 120 theorems, 0 errors, 0 sorr
 Target Systems        : PASS — ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)
-Mutation Coverage     : PASS — 95.0% (охват 14 файлов / 420 сайтов)
+Mutation Coverage     : PASS — 100.0% (охват 20 файлов / 1225 сайтов)
 Formal Theories       : PASS — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS)
 Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 ```
