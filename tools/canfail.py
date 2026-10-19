@@ -214,6 +214,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "tools/translation_val_check.py",
     "tools/concolic_check.sh",
     "src/wasm_api.zig",
     "tools/opt_diff_check.sh",
@@ -2008,6 +2009,18 @@ def case_concolic_check():
     return "make concolic-check"
 
 
+
+def case_translation_val_check():
+    """РАЗДЕЛ 8. ЛОМАЕМ семантику `andn`: пара sar+andn перестаёт сворачиваться
+    в `x<0?0:x` -> ассемблер больше не эквивалентен спецификации -> красный."""
+    patch(
+        "tools/translation_val_check.py",
+        'cur = "(ite (< x 0) 0 x)" if (mask and "- 1" in mask) else "x"',
+        'cur = "x"',
+    )
+    return "make translation-val-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2327,6 +2340,7 @@ CASES = [
     ("homeostatic-heal-check", "Гомеостаз: F -> патч -> T",         case_homeostatic_heal_check),
     ("opt-diff-check", "OPT: Debug == RS == Small",              case_opt_diff_check),
     ("concolic-check", "CONCOLIC: живые запуски + Z3",            case_concolic_check),
+    ("translation-val-check", "TV: asm -O2 == spec",                    case_translation_val_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

@@ -602,3 +602,18 @@ theorem known_bad_must_be_flagged (f : Int → Bool) (x : Int) (hbad : f x = fal
   exact Bool.noConfusion hbad
 
 end KernFarkas
+
+-- ============================================================================
+-- РАЗДЕЛ 8: семантика маски знака в `-O2` коде (sar + andn → ite).
+-- Обоснование перевода реального ассемблера в арифметико-условную форму:
+-- `sar eax,31` даёт маску -1 при x<0 и 0 иначе; `andn` считает `~mask & x`.
+-- Тождества ниже показывают, что это РОВНО `x < 0 ? 0 : x` (не приближение).
+-- ============================================================================
+
+theorem sign_mask_is_minus_one_or_zero (x : Int) :
+    (if x < 0 then (-1 : Int) else 0) = -1 ∨ (if x < 0 then (-1 : Int) else 0) = 0 := by
+  split <;> simp
+
+theorem clamp_from_mask (x : Int) :
+    (if (if x < 0 then (-1 : Int) else 0) = -1 then 0 else x) = (if x < 0 then 0 else x) := by
+  split <;> split <;> omega
