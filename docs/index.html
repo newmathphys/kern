@@ -203,6 +203,50 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
   <a href="bench/">benchmark page</a>.</p>
 </div>
 
+<h2>Open-source audit gallery — real code, real counterexamples</h2>
+<div class="panel">
+<p>Every row is produced by a run (<code>make audits</code>, <code>bug_hunter.py --trophies</code>),
+never written by hand. <b>PROVEN</b> means Z3 proved it <i>and</i> our Zig proof checker
+re-checked the certificate (<code>trusted: 0 | holes: 0</code>); <b>REFUTED</b> ships the exact
+Z3 counterexample. Full table and honest limits:
+<a href="https://github.com/newmathphys/kern#open-source-audit-gallery-real-code-real-counterexamples">README</a>
+· <a href="https://github.com/newmathphys/kern/blob/main/audits/EVIDENCE.md">audits/EVIDENCE.md</a>.</p>
+<table>
+<tr><th>Project (file)</th><th>Claim</th><th>Verdict</th><th>Counterexample</th></tr>
+<tr><td><b>ziglang/zig</b> <code>lib/std/mem.zig</code><br><span class="lbl">alignBackward</span></td>
+    <td><code>addr &amp; ~(align-1) == addr - addr % align</code></td>
+    <td class="ok">PROVEN · QF_BV 32</td><td>—</td></tr>
+<tr><td><b>ziglang/zig</b> <code>mem.zig</code><br><span class="lbl">alignForward</span></td>
+    <td><code>addr + (align-1)</code> fits in <code>u32</code></td>
+    <td class="bad">REFUTED</td><td><code>addr=4294967295, align=2 → 4294967296</code></td></tr>
+<tr><td><b>tigerbeetle</b> <code>src/stdx/stdx.zig</code><br><span class="lbl">div_ceil</span></td>
+    <td><code>(n + d - 1) / d</code> exact, no overflow</td>
+    <td class="ok">PROVEN · 98 steps, trusted: 0</td><td>—</td></tr>
+<tr><td><b>musl libc</b> <code>src/stdlib/abs.c</code><br><span class="lbl">abs</span></td>
+    <td>result <code>&gt;= 0</code> for <code>x &gt; INT32_MIN</code></td>
+    <td class="ok">PROVEN · 51 steps, trusted: 0</td><td>—</td></tr>
+<tr><td><b>ghostty</b> <code>src/renderer/size.zig</code><br><span class="lbl">gridColumns</span></td>
+    <td>columns never 0</td>
+    <td class="ok">PROVEN</td><td>—</td></tr>
+<tr><td><b>andrewrk/gpa</b> <code>gpda.zig</code><br><span class="lbl">isAligned</span></td>
+    <td><code>addr &amp; ~(align-1) == addr</code> ⟺ <code>addr % align == 0</code></td>
+    <td class="ok">PROVEN · all 2³² addresses</td><td>—</td></tr>
+<tr><td><b>zlib</b> <code>zutil.c</code><br><span class="lbl">zcalloc</span></td>
+    <td><code>items * size</code> fits in <code>u32</code></td>
+    <td class="bad">REFUTED</td><td><code>items=#x8e0ff0f1, size=#x5ffeffef → #xffffffff</code></td></tr>
+<tr><td><b>JDK</b> (Bloch, 2006)<br><span class="lbl">binarySearch</span></td>
+    <td><code>(low + high) / 2</code> in <code>i32</code></td>
+    <td class="bad">REFUTED · QF_BV only</td><td><code>low=#x804, high=#x7ffff7fc → #xc0000000</code> (negative)</td></tr>
+<tr><td><b>Python 3.12 stdlib</b><br><span class="lbl">8 modules</span></td>
+    <td>zero-annotation <code>--xray</code> field scan</td>
+    <td class="ok">checked 211 / 413</td><td>0 false positives</td></tr>
+</table>
+<p><b>Honest limits.</b> The SMT model is ours — a counterexample must still be reproduced against the
+project's own build before it can be called their bug. Bloch's bug is invisible in the <code>Int</code>
+theory (needs <code>@kern:bitvec32</code> / QF_BV). <code>SKIP</code> rows are kept on purpose:
+a verifier that never refuses is not verifying.</p>
+</div>
+
 <h2>Four traps an AI agent falls into — and how KERN refuses them</h2>
 <div class="panel">
 <ul>

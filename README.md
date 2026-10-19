@@ -214,6 +214,37 @@ make contracts
 > code is checked. In this theory overflow is the *semantics* (the machine wraps), so the
 > overflow obligation is not asserted there; the contract and division-by-zero still are.
 
+### Open-source audit gallery (real code, real counterexamples)
+
+Every row below is produced by a run (`make audits`, `tools/bug_hunter.py --trophies`), never
+written by hand. `PROVEN` means Z3 proved it **and** our Zig proof checker re-checked the
+certificate (`trusted: 0 | holes: 0`); `REFUTED` comes with the exact Z3 counterexample.
+
+| # | Project (file:line) | Claim | Verdict | Counterexample / note |
+|:--|:--|:--|:--|:--|
+| 1 | **ziglang/zig** `lib/std/mem.zig` — `alignBackward` | `addr & ~(alignment-1) == addr - addr % alignment` | **PROVEN** (QF_BV 32) | — |
+| 2 | same, mutated `alignment-2` | — | **REFUTED** | `addr = #xffffbffc, alignment = #x00000001` |
+| 3 | **ziglang/zig** `mem.zig` — `alignForward` | `addr + (alignment-1)` stays in `u32` | **REFUTED** | `addr = 4294967295, alignment = 2 → 4294967296` |
+| 4 | **tigerbeetle/tigerbeetle** `src/stdx/stdx.zig` — `div_ceil` | `(n + d - 1) / d` exact & no overflow | **PROVEN** — 98 steps, `trusted: 0` | — |
+| 5 | same, mutated `n/d + 1` | — | **REFUTED** | `numerator = 2147483647, denominator = 1 → 2147483648` (`i32`) |
+| 6 | **musl libc** `src/stdlib/abs.c` — `abs` | result `>= 0` for `x > INT32_MIN` | **PROVEN** — 51 steps, `trusted: 0` | — |
+| 7 | same, guard removed | — | **REFUTED** | `a = -10 → -10` |
+| 8 | **ghostty-org/ghostty** `src/renderer/size.zig` — `gridColumns` | columns never 0 | **PROVEN** | — |
+| 9 | same, `@max(1,…)` removed | — | **REFUTED** | `screen_width = 0, cell_width = 1 → 0` |
+| 10 | **andrewrk/general-purpose-allocator** `gpda.zig` — `isAligned` | `addr & ~(alignment-1) == addr` ⟺ `addr % alignment == 0` | **PROVEN** (all 2³² addresses) | — |
+| 11 | same, `alignment-2` | — | **REFUTED** | `addr = #xc0000001, alignment = #x40000000` |
+| 12 | **zlib** `zutil.c` — `zcalloc` | `items * size` fits in `u32` | **REFUTED** | `items = #x8e0ff0f1, size = #x5ffeffef → #xffffffff` |
+| 13 | **JDK** (Bloch 2006) `binary_search` | `(low + high) / 2` in `i32` | **REFUTED** (QF_BV only) | `low = #x804, high = #x7ffff7fc → #xc0000000` (**negative**) |
+| 14 | same, `low + (high-low)/2` | — | **PROVEN** (Int theory) | — |
+| 15 | **Rust** `core::num` — `midpoint` | bit-blasted proof | **SKIP — honest** | the checker does not cover `bitBlast` |
+| 16 | **Rust** `saturating_add` | clamps to `i32` bounds | **PROVEN** / mutated **REFUTED** (`2147483647 + 1`) | — |
+| 17 | **Python 3.12 stdlib** (`urllib`, `http`, `email`, `datetime`, `ipaddress`, `decimal`, `fractions`, `statistics`) | `--xray` field scan | **checked 211 / 413**, **0 false positives** | 0 findings on production code after fixing defects #134/#158 |
+
+**Honest limits of this table.** (a) The SMT model is ours: a counterexample must still be
+reproduced against the project's own build before it can be called their bug. (b) Bloch's bug is
+invisible in the `Int` theory — it needs `@kern:bitvec32` (QF_BV). (c) `SKIP` rows are kept on
+purpose: a verifier that never refuses is not verifying.
+
 ### Evidence on real production code (`make audits`)
 
 Functions transcribed from six projects across three languages (Zig, Rust, C), checked by the

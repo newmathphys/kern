@@ -126,4 +126,4 @@ Other docs (`PROJECT*.md`, `TEST_CATALOG.md`, `VERIFICATION*.md`, `MIGRATION_REP
 
 ## Authorship hygiene (.mailmap)
 
-The first commits of this repository were made under service identities (`NYUUI Builder`, `KERN`) left over from project initialisation. Rewriting history would change the SHA of every later commit and break tags and the SLSA attestate, so the standard `.mailmap` mechanism is used instead: it affects only **display** (`git log --use-mailmap`, GitHub) and never the objects. Check: `git log --use-mailmap --format='%aN' | sort -u` — one line.
+The first commits of this repository were made under service identities left over from project initialisation. Rewriting history would change the SHA of every later commit and break tags and the SLSA attestate, so the standard `.mailmap` mechanism is used instead: it affects only **display** (`git log --use-mailmap`, GitHub) and never the objects. Check: `git log --use-mailmap --format='%aN' | sort -u` — one line.
