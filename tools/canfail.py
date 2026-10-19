@@ -247,6 +247,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "examples/hadamard_matrix.py",
     "tools/parser_security_check.sh",
     "tests/fixtures/inject_comment_in_string.py",
     "tools/evo_fuzzer.py",
@@ -2089,6 +2090,18 @@ def case_parser_security_check():
     return "make parser-security-check"
 
 
+
+def case_hadamard_check():
+    """ЭКСТРЕМАЛЬНАЯ МАТРИЦА. ЛОМАЕМ успешную ветку (rc=1 на корректном
+    входе) -> приёмка обязана покраснеть."""
+    patch(
+        "examples/hadamard_matrix.py",
+        "    return 0 if ok else 1",
+        "    return 1",
+    )
+    return "make hadamard-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2411,6 +2424,7 @@ CASES = [
     ("translation-val-check", "TV: asm -O2 == spec",                    case_translation_val_check),
     ("evo-fuzz-check", "EVO: 0 паник / 0 ложных допусков",         case_evo_fuzz_check),
     ("parser-security-check", "PARSER: подделка/алиасы",                case_parser_security_check),
+    ("hadamard-check", "HADAMARD: SAT N=2,4 / UNSAT N=3",              case_hadamard_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

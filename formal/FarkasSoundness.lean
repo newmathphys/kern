@@ -617,3 +617,34 @@ theorem sign_mask_is_minus_one_or_zero (x : Int) :
 theorem clamp_from_mask (x : Int) :
     (if (if x < 0 then (-1 : Int) else 0) = -1 then 0 else x) = (if x < 0 then 0 else x) := by
   split <;> split <;> omega
+
+-- ============================================================================
+-- СМЕНА ЭПОХИ СВИДЕТЕЛЬСТВА (Scoped Epoch Retraction, truth.zig).
+-- Модель: вердикт = пара (p, n); допуск e = 1 ⟺ p ∧ ¬n.
+-- ============================================================================
+
+structure EpochVerdict where
+  p : Bool
+  n : Bool
+
+def e_allow (v : EpochVerdict) : Bool := v.p && !v.n
+
+/-- Внутри ОДНОЙ эпохи действует строгий JOIN_K: противоречие (p,n)=(1,1)
+    поглощает любое подтверждение и НЕ даёт допуска. -/
+theorem epoch_same_join_denies (a b : EpochVerdict)
+    (hp : a.p = true) (hn : a.n = true) :
+    e_allow ⟨a.p || b.p, a.n || b.n⟩ = false := by
+  simp [e_allow, hp, hn]
+
+/-- Смена эпохи + НОВОЕ доказательство T (p=1,n=0) открывает Врата,
+    даже если в СТАРОЙ эпохе был провал F. -/
+theorem epoch_retraction_sound (old : EpochVerdict) (hnew : EpochVerdict)
+    (hp : hnew.p = true) (hn : hnew.n = false) :
+    e_allow hnew = true := by
+  simp [e_allow, hp, hn]
+
+/-- Смена эпохи БЕЗ нового доказательства НЕ реабилитирует: провал
+    (n=1) сохраняется, допуска нет. -/
+theorem epoch_without_proof_denies (old : EpochVerdict) (hp : old.p = false) :
+    e_allow ⟨false, old.n⟩ = false := by
+  simp [e_allow, hp]
