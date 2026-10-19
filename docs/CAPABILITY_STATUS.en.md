@@ -370,3 +370,18 @@ packet, report, cache) — **401 + 53 tests, all green** (with `z3` in `PATH`; w
 **FRAMEWORK/NOT IMPL:** cloud, the Lean transpiler, plugins, bundle, PQC, dashboard —
 that is the next layer, and it is NOT claimed to be working.
 
+
+## 6e. Field audit of 14 repositories (2026-10-19, #179–#184)
+
+Compact English list; full text and measured before/after tables are in
+`docs/FIELD_AUDIT_REPORT.md` and `docs/METRICS.md` §116.
+
+| # | Defect | Class |
+|:--|:--|:--|
+| **174** | 52 top-level names defined twice in `tools/kern_contracts.py` (2024 dead lines). **Closed**: shadowed copies removed bottom-up by AST (**52 → 0**, −2003 lines); root cause found — two `if __name__ == "__main__"` blocks and an *early* `cmd_xray` copy newer than the live one (C-like routing did nothing) | tooling |
+| **179** | Python `--xray`: `assert` was not a path guard (false `[BOUNDS PATH]` in `psf/requests`); a variable reassigned inside a loop kept its pre-loop value (false `[DEAD BRANCH]` in `tiangolo/fastapi`) | measurement |
+| **180** | Rust extractor saw 0 of 1292 functions in `ripgrep` (`pub(crate) fn`, `async`, generics, `if cond {`) | measurement |
+| **181** | Scorecard under-scored real projects (`LICENSE*`/`COPYING*`, `test/`/`__tests__/`/`*_test.go`, Lean outside `formal/`) | measurement |
+| **182** | `assert(...)` with nested parentheses was not a guard (`zls`: false `[CRASH PATH]`) | measurement |
+| **183** | C-like X-Ray lacked machine type ranges, let-inlining and `@kern:requires` as part of the domain; a divisor must depend on parameters | measurement |
+| **184** | **Soundness**: `_smt_sat` treated `N` (solver did not decide / SMT parse error) as SAT; free names were not declared | **soundness** |
