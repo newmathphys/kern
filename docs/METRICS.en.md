@@ -1332,3 +1332,49 @@ became `1 non-vacuous, 0 vacuous`.
 | anchors | **104** |
 | Lean 4 | 8/8 files, `FarkasSoundness` — **81 theorems** |
 | test catalog | 400 |
+
+---
+
+## §28. Session F-1: Item 40 (Echelon 8) — PARTIAL: 3 of 5
+
+### 28.1 40B — Interactive proof canvas (`--html`)
+
+`tools/canvas_template.html` + `cmd_html`: Tangle-style parameter sliders
+recompute the active branch live (a small linear-SMT evaluator), the Belnap B4
+square is coloured by the verdict, plus a passport (CC, path count).
+MEASURED: 7019 bytes, 7 functions, **0 external references** (the gate greps
+`https?://`).
+
+### 28.2 40C — MCP 5 -> 8 tools
+
+Added `kern_xray_code`, `kern_verify_action`, `kern_rlvr_reward` — **thin
+wrappers over the CLI** (no duplicated logic). MEASURED: `make mcp-selftest` —
+**ALL PASSED** (tools/list = 8, DEAD BRANCH, 422 firewall, RLVR −2.0).
+
+**A limitation of `--xray` found en route:** sequential `if ...: return`
+statements do NOT narrow the path for later statements — DEAD BRANCH is detected
+only inside if/elif chains. This is NAMED, not hidden: the MCP test uses a chain
+and the limitation is recorded here.
+
+### 28.3 40D — fuzz corpus + `install.sh`
+
+`tests/fuzz_corpus/`: 8 files (truncated S-expression, empty/garbage SMT,
+`deep_nest` with 400 parens, `torn.kimg`, empty `.kimg`, junk proof). Each is run
+**TWICE**. MEASURED: `files 8 | crashes 0 | nondeterministic 0`.
+`install.sh --check`: size + sha256 + binary launch.
+
+### 28.4 Defect #148 (the 9th vacuous case)
+
+`canfail --only fuzz-corpus-check` -> **VACUOUS 1**: the gate grepped `0 паник`,
+which REMAINS when `[OK]` becomes `[FAIL]`. FIXED: grep `[OK] 0 паник` ->
+`1 non-vacuous, 0 vacuous`.
+
+### 28.5 NOT DONE (honestly)
+
+| Sub-item | Status | What is required |
+|:--|:--|:--|
+| **40A WASM** (`zig build wasm`) | ❌ NOT done | a new `src/wasm_api.zig` (export `kern_wasm_belnap_join` / `_admission_valid`), a `wasm32-freestanding` step in build.zig, a magic-bytes `<512 KB` gate. `proof_check.zig` cannot be pulled into freestanding (it spawns z3) |
+| **40B `kernc grep`** | ❌ NOT done | a `src/main.zig` subcommand: verifyMerkleRoot + object walk with `decompressObject`, printing `name:line:match` |
+
+Reason: the session budget went into bringing 40B/40C/40D to 100% (including
+catching two vacuous cases). These two are CORE Zig work, not shop-window work.
