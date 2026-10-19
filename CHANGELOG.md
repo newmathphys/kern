@@ -6,6 +6,53 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.5.0] — 2026-10-19
+
+Полные заметки о релизе: [`docs/RELEASE_NOTES_v2.5.0.md`](docs/RELEASE_NOTES_v2.5.0.md).
+Каждое число ниже получено командой из репозитория; исторические измерения
+(например, 77.5 % мутаций БЕЗ решателя в `PATH`) сохранены как история, а не как
+текущее состояние.
+
+### Added
+- **Встроенный решатель Фурье — Моцкина** (`src/verifier/builtin_lia.zig`): 100 систем
+  против Z3 — 0 расхождений; 60/60 метаморфных проверок; `--full-file` 18/18.
+- **Проверка SAT-моделей внутри ядра** (`verifyModelAgainstSmt`): модель Z3
+  подставляется в `(assert …)` и вычисляется независимо; ложная модель →
+  `SPURIOUS MODEL` и контрпример НЕ предъявляется.
+- **`musl abs.c`: `SKIP → PROVEN`** (51 шаг, `trusted: 0 | holes: 0`) — доказаны
+  `intro-def`, `lemma`, `def-axiom`, `rewrite`, `monotonicity`.
+- **Новые теории с `trusted: 0`**: IEEE-754 (NaN-ловушка), QF_S (обход санитайзера),
+  циклы (`invariant`/`decreases`), границы массивов, инварианты состояний, RLS.
+- **`--xray` без единой аннотации** + 7 языков (`.py .zig .c .rs .ts .js .go`);
+  6 полевых адаптеров (`self.x`, let-inlining, константы модуля, `min/max/abs`,
+  рекурсивный обход, инвариант длины).
+- **`--audit-repo <path|owner/repo|url>`**: безопасная песочница git
+  (`core.hooksPath=/dev/null`, `GIT_TERMINAL_PROMPT=0`, `GIT_LFS_SKIP_SMUDGE=1`,
+  timeout 30 с), уборка `/dev/shm` по SIGTERM/atexit, фильтр мусора и симлинков.
+- **Proof-Carrying `.kimg`** (`[PCC VERIFIED]` без решателя) · **Evidence Decay** ·
+  **Merkle-цепочка** журнала · **Bit-Rot Guard** (30/30 инъекций).
+- **WASM-ядро** `kernc.wasm` (86 953 Б, 5 экспортов, включая `kern_wasm_verify_proof`).
+- **8 MCP-инструментов** + `server.json` / `mcp.json` / `.well-known/mcp.json`
+  (генерируются из `tools/list`) + MCP Tool Annotations.
+- **`llms.txt`**, `--sarif` (SARIF 2.1.0), `action.yml` с режимом `xray`,
+  `tools/trust_scorecard.py` и карточка `#scorecard` на сайте.
+
+### Fixed (выборочно; полный журнал — `docs/CAPABILITY_STATUS.md` §6c–§6d)
+- **#155** пруф-чекер принимал подделку DAG (битая ссылка `@xN` → `.bad`).
+- **#166** ложный `unknown` в WASM (переменная с нулевым коэффициентом).
+- **#171** `bench-semantic`: единый источник корня (`sealImageRoot`).
+- **#173** предохранитель свидетельств ложно обвинял харнесс (write-once базис,
+  продукты вне базиса, грязный старт → `rc=3`).
+- **#174** 51 дублирующееся определение в `kern_contracts.py` — долг **заморожен**
+  ratchet-стражем `tools/dup_defs_guard.py`; перестройка вынесена за релиз.
+
+### Notes
+- Лицензия: **PolyForm Noncommercial 1.0.0** (source-available); коммерческое
+  использование — по лицензии правообладателя.
+- `align(32)` в `blake3_simd8`: измеримого ускорения нет (2.42 против 2.41 GB/s) —
+  правка безвредна, но НЕ заявляется как оптимизация.
+
+
 ## [2.4.0] — 2026-10-17
 
 ### Added
