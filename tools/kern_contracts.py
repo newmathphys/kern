@@ -1301,6 +1301,8 @@ def main() -> int:
                     help="ПУНКТ 18: человеческий паспорт функций")
     ap.add_argument("--pr-summary", nargs=2, default=None, metavar=("OLD", "NEW"),
                     help="ПУНКТ 19: математическое резюме для Code Review")
+    ap.add_argument("--concolic", default=None, metavar="PATH",
+                    help="конколика: реальные запуски + инверсия условий в Z3"),
     ap.add_argument("--heal", default=None, metavar="PATH",
                     help="гомеостатическая петля: F -> патч -> перепроверка -> T"),
     ap.add_argument("--infer-requires", default=None, metavar="PATH",
@@ -1377,6 +1379,8 @@ def main() -> int:
         return cmd_xray(args.xray, args.kernc)
     if args.heal:
         return cmd_heal(args.heal, args.kernc)
+    if args.concolic:
+        return cmd_concolic(args.concolic, args.kernc)
     if args.explain:
         return cmd_explain(args.explain, args.kernc)
     if args.pr_summary:
@@ -3019,7 +3023,11 @@ def _smt_model(kernc, params, asserts) -> dict | None:
             if "=" not in tok:
                 continue
             k, v = tok.split("=", 1)
-            k, v = k.strip(), v.strip()
+            # ДЕФЕКТ (найден конколикой): `kernc` печатает модель в форме
+            # `[x = 5, y = 0]`, поэтому первый токен приходил как `'] x'` —
+            # имя с мусором, и параметр НЕ находился. Оставляем только имя.
+            k = k.strip().strip("[]").strip().lstrip("]").strip()
+            v = v.strip().strip("[]").strip()
             try:
                 vals[k] = int(v)
             except ValueError:
@@ -4458,6 +4466,146 @@ def cmd_heal(path: str, kernc) -> int:
 
     src_path.write_text(patched, encoding="utf-8")
     print(f"[HEAL] [T (1,0)] файл вылечен: {path} (гардов вставлено {len(plan)})")
+    return 0
+
+
+# =========================================================================
+#  РАЗДЕЛ 5 ЭНЦИКЛОПЕДИИ: КОНКОЛИЧЕСКОЕ ИСПОЛНЕНИЕ (--concolic)
+# =========================================================================
+# ИДЕЯ (DART / KLEE). Статический `--gen-tests` перебирает пути СИМВОЛЬНО и
+# не знает, какие из них реально исполняются. Конколика совмещает оба мира:
+#   1) КОНКРЕТНЫЙ запуск интерпретатором AST на реальном входе (0,0,...);
+#   2) запись РЕАЛЬНОЙ трассы условий (какое условие куда пошло);
+#   3) инверсия условия в Z3 -> НОВЫЙ конкретный вход;
+#   4) снова живой запуск — пока не будут исполнены все достижимые ветви.
+# ЗВУЧИМОСТЬ ОТЧЁТА: «покрыто M/M» подтверждается РЕАЛЬНЫМ исполнением,
+# а мёртвые ветви (SAT=unsat) исключаются из знаменателя с указанием причины.
+
+def _eval_cond(cond: ast.AST, env: dict) -> bool:
+    """Значение условия на КОНКРЕТНЫХ данных (реальное исполнение ветки)."""
+    expr = ast.Expression(body=cond)
+    ast.fix_missing_locations(expr)
+    return bool(eval(compile(expr, "<concolic>", "eval"), {}, dict(env)))
+
+
+def _run_trace(stmts: list, env: dict, trace: list, depth: int = 0) -> tuple[bool, object]:
+    """Исполнить операторы интерпретатором: вернуть (был_return, значение).
+
+    Записывает в `trace` пары (объект If, взятое_значение) по РЕАЛЬНОМУ пути.
+    Поддержано подмножество: assign / if-elif-else / return / выражение.
+    """
+    if depth > 64:
+        return False, None
+    for st in stmts:
+        if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
+            try:
+                env[st.targets[0].id] = eval(compile(ast.Expression(body=st.value), "<c>", "eval"), {}, dict(env))
+            except Exception:
+                pass
+            continue
+        if isinstance(st, ast.If):
+            try:
+                taken = _eval_cond(st.test, env)
+            except Exception:
+                continue
+            trace.append((st, taken))
+            done, val = _run_trace(st.body if taken else st.orelse, env, trace, depth + 1)
+            if done:
+                return True, val
+            continue
+        if isinstance(st, ast.Return):
+            try:
+                val = eval(compile(ast.Expression(body=st.value), "<c>", "eval"), {}, dict(env)) if st.value else None
+            except Exception:
+                val = None
+            return True, val
+    return False, None
+
+
+def _smt_text(params: list[str], asserts: list[str]) -> str:
+    """SMT-LIB2 текст из объявлений и утверждений (для минимизации)."""
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    body = "\n".join(f"(assert {a})" for a in asserts)
+    return f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
+
+
+def cmd_concolic(path: str, kernc) -> int:
+    """Конколика: реальные запуски + инверсия условий в Z3."""
+    if not Path(kernc).exists():
+        print(f"[!] не найден kernc: {kernc}")
+        return 2
+    tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
+    total_runs = 0
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        if not params:
+            continue
+        # Достижимые условия этой функции (для знаменателя).
+        ifs = [n for n in ast.walk(fn) if isinstance(n, ast.If)]
+        if not ifs:
+            continue
+        covered: set[tuple[int, bool]] = set()   # (lineno, taken)
+        seen_paths: set[tuple] = set()
+        worklist: list[dict] = [{p: 0 for p in params}]
+        runs = 0
+        while worklist and runs < 64:
+            env = dict(worklist.pop())
+            trace: list = []
+            _run_trace(fn.body, env, trace)
+            runs += 1
+            total_runs += 1
+            key = tuple((getattr(st, "lineno", 0), t) for st, t in trace)
+            if key in seen_paths:
+                continue
+            seen_paths.add(key)
+            for st, t in trace:
+                covered.add((getattr(st, "lineno", 0), t))
+            # Инверсия КАЖДОГО условия реального пути: prefix ∧ ¬(взятое).
+            prefix: list[str] = []
+            for st, t in trace:
+                try:
+                    c = expr_smt(st.test, {})
+                except (Unsupported, NoReturn, Exception):
+                    break
+                want = (f"(not {c})") if t else c   # инвертируем
+                model = _smt_model(kernc, params, prefix + [want])
+                # ИЗМЕРЕНО: Z3 не связывает параметры, не входящие в условие,
+                # поэтому модель бывает НЕПОЛНОЙ (например, только x). Такие
+                # параметры СВОБОДНЫ — берём 0 (любое значение даёт тот же путь).
+                if model:
+                    cand = {k: int(model.get(k, 0)) for k in params}
+                    cand = minimize_counterexample(
+                        kernc, _smt_text(params, prefix + [want]), params, cand)
+                    worklist.append(cand)
+                prefix.append(c if t else f"(not {c})")
+        # Сколько ветвей ДОСТИЖИМО: проверяем каждую (lineno, True/False) через Z3
+        # с учётом префиксов — приближение: условие SAT => достижимо.
+        # ЧЕСТНЫЙ СЧЁТ. «Достижимо» проверяется С УЧЁТОМ ПУТИ (префикса), а не
+        # глобально: иначе вложенное `if y > 3` считалось бы достижимым даже
+        # при недостижимом внешнем `if x > 5` (ИЗМЕРЕНО: давало 2/6 вместо 2/4).
+        cov = sum(1 for st in ifs for t in (True, False) if (getattr(st, "lineno", 0), t) in covered)
+        dead = 0
+        unexplored = 0
+        for st in ifs:
+            try:
+                c = expr_smt(st.test, {})
+            except (Unsupported, NoReturn, Exception):
+                continue
+            for t in (True, False):
+                if (getattr(st, "lineno", 0), t) in covered:
+                    continue
+                # Мёртвая, если условие несовместно САМО ПО СЕБЕ (без путей)
+                # — консервативно: только такие называем dead.
+                probe = c if t else f"(not {c})"
+                if _smt_sat(kernc, params, [probe]) is False:
+                    dead += 1
+                else:
+                    unexplored += 1
+        total = cov + dead + unexplored
+        print(f"  [CONCOLIC] {fn.name}: concrete runs {runs}, "
+              f"branches covered {cov}/{total} (dead {dead}, unexplored {unexplored})")
+    print("-" * 74)
+    print(f"ИТОГО: реальных запусков {total_runs}")
     return 0
 
 

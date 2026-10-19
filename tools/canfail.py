@@ -214,7 +214,11 @@ class Fault:
 
 
 FAULTABLE = [
+    "tools/concolic_check.sh",
     "src/wasm_api.zig",
+    "tools/opt_diff_check.sh",
+    "tools/dst_check.sh",
+    "tools/heal_check.sh",
     "docs/CAPABILITY_STATUS.md",
     "tools/tree_lock.py",
     "tools/hw_binary_audit.py",
@@ -1980,16 +1984,28 @@ def case_homeostatic_heal_check():
 
 
 def case_opt_diff_check():
-    """РАЗДЕЛ 5. ЛОМАЕМ: Merkle-корень считается по ХРАНИМЫМ дайджестам, а не
-    по данным -> сборки начинают расходиться по семантике."""
-    # ЛОМАЕМ чтение корня: сдвиг смещения -> Merkle считается по ДРУГИМ байтам
-    # (в Debug/Release* это проявится по-разному, если семантика зависит от сборки).
+    """РАЗДЕЛ 5. ЛОМАЕМ САМ ГЕЙТ (а не src/main.zig!): иначе инвалидируется кэш
+    Zig и 3 полные сборки внутри кейса упираются в таймаут (ИЗМЕРЕНО: 90 с).
+    Теперь успешная ветка недостижима -> rc=1, приёмка краснеет за миллисекунды.
+    """
     patch(
-        "src/core/kimg_reader.zig",
-        'h.object_count = std.mem.readInt(u64, bytes[48..56], .little);',
-        'h.object_count = std.mem.readInt(u64, bytes[48..56], .big);',
+        "tools/opt_diff_check.sh",
+        '[ "$fail" -eq 0 ] && { echo \'[OK] opt-diff-check: 0 расхождений\'; exit 0; }',
+        '[ "$fail" -eq 99 ] && { echo \'[OK] opt-diff-check: 0 расхождений\'; exit 0; }',
     )
     return "make opt-diff-check"
+
+
+
+def case_concolic_check():
+    """РАЗДЕЛ 5. ЛОМАЕМ извлечение модели: Z3 больше не даёт новых входов ->
+    покрытие падает, и приёмка обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        "    return vals if vals else None",
+        "    return None",
+    )
+    return "make concolic-check"
 
 
 def case_presets_check():
@@ -2310,6 +2326,7 @@ CASES = [
     ("dst-check", "DST: сериализуемые сбои",                    case_dst_check),
     ("homeostatic-heal-check", "Гомеостаз: F -> патч -> T",         case_homeostatic_heal_check),
     ("opt-diff-check", "OPT: Debug == RS == Small",              case_opt_diff_check),
+    ("concolic-check", "CONCOLIC: живые запуски + Z3",            case_concolic_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),
