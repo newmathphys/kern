@@ -96,9 +96,24 @@ def write_atomic(p: Path, data: bytes) -> None:
 
     Прямая `write_bytes` при прерывании (SIGKILL, таймаут) может оставить
     файл полузаписанным. os.replace в пределах одной ФС атомарен.
+
+    🔴 ДЕФЕКТ #157 (НАЙДЕН полным прогоном canfail): `os.replace` переносит
+    режим ВРЕМЕННОГО файла, а tmp создавался с umask-режимом (0644). Поэтому
+    после откатa исполняемые скрипты (`tools/*_check.sh`, 0755) теряли бит
+    `+x` — 29 файлов оставались с `old mode 100755 / new mode 100644`.
+    ИСПРАВЛЕНО: режим СУЩЕСТВУЮЩЕГО файла сохраняется и применяется к tmp
+    ДО `replace`; для нового файла берётся 0644.
     """
     tmp = p.with_name(p.name + ".canfail_tmp")
     tmp.write_bytes(data)
+    try:
+        mode = p.stat().st_mode & 0o777
+    except FileNotFoundError:
+        mode = 0o644
+    try:
+        os.chmod(tmp, mode)
+    except OSError:
+        pass
     os.replace(tmp, p)
 
 
