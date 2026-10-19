@@ -354,7 +354,13 @@ KNOWN_EQUIVALENT_SITES = {
         ".DIRECTORY = true",
     ],
     # флаг `done` лишь сокращает сон потока-убийцы; поток сразу join-ится.
-    "src/verifier/z3_bridge.zig": ["kctx.done.store(true, .release)"],
+    "src/verifier/z3_bridge.zig": [
+        "kctx.done.store(true, .release)",
+        # `now <= cur` -> `now < cur`: при `now == cur` оригинал выходит сразу,
+        # мутант делает ОДИН CAS(cur, now) — обмен на то же значение, который
+        # возвращает null и тоже выходит. Наблюдаемое `peak` не меняется.
+        "if (now <= cur) break;",
+    ],
 }
 
 
