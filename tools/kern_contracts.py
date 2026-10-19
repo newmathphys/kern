@@ -93,6 +93,29 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         raise Unsupported(f"литерал {node.value!r}")
     if isinstance(node, ast.Name):
         return env.get(node.id, node.id)
+    # ПОЛЕВОЙ АДАПТЕР №1 (self.x / this.x / cfg.limit): реальный код на 80 %
+    # состоит из методов классов и структур. Без этого `--xray` отправлял их
+    # в SKIP. Трактуем `obj.field` как СИМВОЛИЧЕСКУЮ переменную `obj__field`.
+    if isinstance(node, ast.Attribute):
+        base = node.value
+        if isinstance(base, ast.Name):
+            nm = f"{base.id}__{node.attr}"
+            return env.get(nm, nm)
+        raise Unsupported("атрибут не от простого имени")
+    # ПОЛЕВОЙ АДАПТЕР №4 (min/max/abs) -> точные линейные ite (определения,
+    # а не приближения), вместо SKIP «неподдерживаемый вызов».
+    if isinstance(node, ast.Call):
+        fn = node.func
+        fname = fn.id if isinstance(fn, ast.Name) else None
+        if fname in ("min", "max") and len(node.args) == 2 and not node.keywords:
+            a = expr_smt(node.args[0], env)
+            b = expr_smt(node.args[1], env)
+            cmp_ = "<=" if fname == "min" else ">="
+            return f"(ite ({cmp_} {a} {b}) {a} {b})"
+        if fname == "abs" and len(node.args) == 1 and not node.keywords:
+            x = expr_smt(node.args[0], env)
+            return f"(ite (< {x} 0) (- 0 {x}) {x})"
+        raise Unsupported(f"вызов {fname or type(fn).__name__}")
     # Тернарный оператор `A if cond else B` -> SMT `ite`.
     if isinstance(node, ast.IfExp):
         return (f"(ite {expr_smt(node.test, env)} "
@@ -942,7 +965,7 @@ def _saturate_rewrite(text: str, ret: str) -> str:
     return text
 
 
-def parse_clike(path: Path):
+def parse_clike(path: Path, require_annotations: bool = True):
     """Функции Zig/C/Rust с контрактами -> формат `parse_file` + диапазоны типов."""
     src = path.read_text(encoding="utf-8", errors="replace")
     lines = src.splitlines()
@@ -982,7 +1005,9 @@ def parse_clike(path: Path):
                     req = am.group(2)
                 else:
                     ens = am.group(2)
-        if req is None and ens is None:
+        # `require_annotations=False` — режим `--xray` (Zero-Annotation):
+        # функции БЕЗ `@kern:` тоже анализируются (иначе std Zig давал 0/0).
+        if require_annotations and req is None and ens is None:
             i += 1
             continue
         # тело: от первой `{` до парной `}`
@@ -2385,15 +2410,38 @@ def _cc_and_smells(fn: ast.FunctionDef) -> tuple[int, list[str]]:
 
 def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                    found: list[str], skipped: list[str], fnname: str,
-                   syms=None) -> None:
-    """Обход ветвлений с накоплением условия пути."""
+                   syms=None, env=None) -> None:
+    """Обход ветвлений с накоплением условия пути.
+
+    env: ПОЛЕВОЙ АДАПТЕР №2 (Let-Inlining). Локальные линейные присваивания
+    (`total = price + fee`, `x += 1`) запоминаются как SMT-выражения и
+    подставляются в последующие условия и делители. Без этого `if total >
+    limit:` уходил в SKIP — `total` не был параметром функции.
+    """
     syms = syms if syms is not None else set()
+    env = dict(env or {})
     for st in stmts:
+        # Let-Inlining: `x = expr` и `x += expr` (составное присваивание).
+        if isinstance(st, ast.Assign) and len(st.targets) == 1                 and isinstance(st.targets[0], ast.Name):
+            try:
+                env[st.targets[0].id] = expr_smt(st.value, env)
+            except (Unsupported, NoReturn, Exception):
+                env.pop(st.targets[0].id, None)
+            continue
+        if isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
+            op = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*"}.get(type(st.op))
+            if op is not None:
+                try:
+                    cur = env.get(st.target.id, st.target.id)
+                    env[st.target.id] = f"({op} {cur} {expr_smt(st.value, env)})"
+                except (Unsupported, NoReturn, Exception):
+                    env.pop(st.target.id, None)
+            continue
         if isinstance(st, ast.If):
             try:
                 # ПУНКТ 21 (Zero-Annotation): `len(arr)` -> символическая длина,
                 # иначе условия с `len(...)` ЛОЖНО считались «вне подмножества».
-                cond = _cond_smt(st.test, syms)
+                cond = _cond_smt(st.test, syms, env)
             except (Unsupported, NoReturn, Exception):
                 skipped.append(f"{fnname}: условие на строке {st.lineno} вне подмножества")
                 continue
@@ -2420,9 +2468,9 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
-            _walk_branches(st.body, path + [cond], params, kernc, found, skipped, fnname, syms)
+            _walk_branches(st.body, path + [cond], params, kernc, found, skipped, fnname, syms, env)
             _walk_branches(st.orelse, path + [f"(not {cond})"], params, kernc,
-                           found, skipped, fnname)
+                           found, skipped, fnname, syms, env)
             # СУЖЕНИЕ ПУТИ (Дефект #149, §104.2): если блок THEN БЕЗУСЛОВНО
             # завершается (`return`/`raise`) и ветки else нет, то ВСЕ следующие
             # операторы выполняются при `NOT cond`. Без этого `[DEAD BRANCH]`
@@ -2546,16 +2594,60 @@ def _collect_lens(fn, syms: set) -> dict[str, str]:
     return lens
 
 
-def _cond_smt(node, syms: set):
-    """SMT условия с переписанным `len(arr)` -> `kern_len_arr`."""
+def _cond_smt(node, syms: set, env=None):
+    """SMT условия с переписанным `len(arr)` -> `kern_len_arr` и env локалей.
+
+    env (ПОЛЕВОЙ АДАПТЕР №2, Let-Inlining): локальные линейные присваивания
+    (`total = price + fee`) подставляются в условия, иначе ветка уходила в
+    SKIP, потому что `total` не была параметром функции.
+    """
     node = _LenRewrite(syms).visit(ast.parse(ast.unparse(node), mode="eval").body)
     ast.fix_missing_locations(node)
-    return expr_smt(node, {})
+    return expr_smt(node, dict(env or {}))
 
 
 def _block_exits(body) -> bool:
     """Завершается ли блок безусловно (return/raise)?"""
     return bool(body) and isinstance(body[-1], (ast.Return, ast.Raise))
+
+
+def _normalized_length(st) -> tuple[str, int] | None:
+    """ПОЛЕВОЙ АДАПТЕР №6: `if len(x) != K: x = (...)[:K]` -> длина x равна K.
+
+    НАЙДЕНО НА РЕАЛЬНОМ КОДЕ (`urllib/request.py: ip2num`): без этого правила
+    `parts[0]` после нормализации давал ЛОЖНЫЙ `[BOUNDS PATH]` с контрпримером
+    `len(parts) = 0`, хотя обе ветви гарантируют длину 4.
+
+    ЗВУЧИМОСТЬ: правило срабатывает только когда
+      * условие имеет вид `len(x) != K` (K — целая константа);
+      * THEN содержит ЕДИНСТВЕННОЕ присваивание `x = <expr>[:K]`.
+    Тогда в THEN длина ровно K (срез), в ELSE — K по отрицанию условия.
+    Любая иная форма -> None (честный отказ, а не догадка).
+    """
+    test = st.test
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1
+            and isinstance(test.ops[0], ast.NotEq)):
+        return None
+    left = test.left
+    if not (isinstance(left, ast.Call) and isinstance(left.func, ast.Name)
+            and left.func.id == "len" and len(left.args) == 1
+            and isinstance(left.args[0], ast.Name)):
+        return None
+    k = test.comparators[0]
+    if not (isinstance(k, ast.Constant) and isinstance(k.value, int)
+            and not isinstance(k.value, bool)):
+        return None
+    name = left.args[0].id
+    if len(st.body) != 1 or not isinstance(st.body[0], ast.Assign):
+        return None
+    asg = st.body[0]
+    if len(asg.targets) != 1 or not isinstance(asg.targets[0], ast.Name)             or asg.targets[0].id != name:
+        return None
+    val = asg.value
+    # `x[:K]` или `(...)[:K]`
+    if isinstance(val, ast.Subscript) and isinstance(val.slice, ast.Slice)             and isinstance(val.slice.upper, ast.Constant)             and val.slice.upper.value == k.value:
+        return (name, int(k.value))
+    return None
 
 
 def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
@@ -2567,6 +2659,11 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
                 cond = _cond_smt(st.test, syms)
             except (Unsupported, NoReturn, Exception):
                 cond = None
+            # ИНВАРИАНТ ДЛИНЫ после нормализации (`if len(x) != K: x = ...[:K]`).
+            fixed_len = _normalized_length(st)
+            if fixed_len is not None:
+                name, k = fixed_len
+                lens[name] = k
             _walk_bounds(st.body, path + ([cond] if cond else []), params, lens,
                          kernc, found, fname, syms)
             neg = f"(not {cond})" if cond else None
@@ -2612,16 +2709,137 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
                              f"НЕ решено ({ce}) — НЕ считается безопасным")
 
 
+# Побочный канал: статистика последнего `cmd_xray` для агрегатора.
+_LAST_XRAY: dict = {}
+
+_XRAY_SKIP_DIRS = {".git", ".venv", ".venv38", ".venv-evalplus", "node_modules",
+                   "__pycache__", ".zig-cache", "zig-out", "target", "build"}
+_XRAY_EXTS = {".py", ".ts", ".js", ".go", ".zig", ".c", ".h", ".rs"}
+
+
+_RE_CLIKE_IF = re.compile(r"\bif\s*\(((?:[^()]|\([^()]*\))*)\)")
+
+
+def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
+    """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like языков (Zig/C/Rust/TS/JS/Go).
+
+    ЗАЧЕМ. Python-AST не разбирает Zig (`unterminated string literal` на каждом
+    файле): рекурсивный скан std Zig давал `нечитаемых файлов 63`. Здесь
+    переиспользуется УЖЕ существующий детерминированный `parse_clike`
+    (тот же, что для контрактов) — никакого второго парсера.
+
+    ЧЕСТНО: проверяется только ДОСТИЖИМОСТЬ самого условия `if (...)`
+    (без сужения пути по предыдущим ветвям): конъюнкции условий C-like
+    пока не моделируются. Условия вне подмножества пропускаются с причиной.
+    """
+    try:
+        # ВАЖНО: `parse_clike` возвращает СПИСОК записей (не кортеж) —
+        # распаковка в `fns, _ranges` давала ValueError и тихо обнуляла скан
+        # (найдено прогоном по std Zig: «функций проверено 0 / 0»).
+        res = parse_clike(path, require_annotations=False)
+        fns = res[0] if isinstance(res, tuple) else res
+    except Exception:  # noqa: BLE001 — файл не разобрался, честно сообщим
+        return 0, 0, []
+    checked = total = 0
+    found: list[str] = []
+    for rec in fns:
+        name = rec[0]
+        params = list(rec[1] or [])
+        meta = rec[-1] if isinstance(rec[-1], dict) else {}
+        raw = meta.get("raw_body") or ""
+        if not raw:
+            continue
+        total += 1
+        proven = 0
+        for m in _RE_CLIKE_IF.finditer(raw):
+            try:
+                cond = expr_smt(ast.parse(clike_to_python(m.group(1)), mode="eval").body, {})
+            except (Unsupported, NoReturn, SyntaxError, Exception):
+                continue
+            proven += 1
+            if _smt_sat(kernc, params, [cond]) is False:
+                found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
+        if proven:
+            checked += 1
+    return checked, total, found
+
+
+def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
+    """ПОЛЕВОЙ АДАПТЕР №5: рекурсивный скан ЧУЖОГО репозитория.
+
+    Обходит все поддерживаемые файлы, пропуская служебные каталоги, и печатает
+    сводный паспорт: сколько файлов/функций проверено, сколько SKIP и все
+    находки с точными путями. Ничего не выдумывает: файлы, которые не удалось
+    разобрать, попадают в список пропущенных с причиной.
+    """
+    files: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
+        for f in sorted(filenames):
+            if Path(f).suffix in _XRAY_EXTS:
+                files.append(Path(dirpath) / f)
+    print(f"[REPO SCAN] {root} | файлов к сканированию: {len(files)}")
+    total_checked = total_fns = total_skip = 0
+    all_findings: list[str] = []
+    bad_files = 0
+    for f in files:
+        if f.suffix != ".py":
+            ck, tot, fd = _xray_clike_file(f, kernc)
+            total_checked += ck
+            total_fns += tot
+            total_skip += max(0, tot - ck)
+            for x in fd:
+                all_findings.append(f"{f}: {x}")
+            continue
+        try:
+            rc = cmd_xray(str(f), kernc, show_all)
+        except SyntaxError as e:
+            bad_files += 1
+            print(f"  [SKIP FILE] {f}: синтаксис: {e}")
+            continue
+        except Exception as e:  # noqa: BLE001 — честно печатаем, а не глотаем
+            bad_files += 1
+            print(f"  [SKIP FILE] {f}: {type(e).__name__}: {e}")
+            continue
+        # cmd_xray печатает свою сводку; агрегируем через побочный канал
+        st = _LAST_XRAY.get("stat")
+        if st:
+            total_checked += st[0]
+            total_fns += st[1]
+            total_skip += st[2]
+            for x in st[3]:
+                all_findings.append(f"{f}: {x}")
+        if rc not in (0, 1):
+            bad_files += 1
+    print("=" * 74)
+    print(f"[REPO SUMMARY] файлов {len(files)} | функций проверено {total_checked} / {total_fns} "
+          f"(skipped {total_skip}) | находок {len(all_findings)} | нечитаемых файлов {bad_files}")
+    for x in all_findings[:60]:
+        print("  " + x)
+    return 0
+
+
 def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     """ПУНКТ 13: рентген кода БЕЗ аннотаций."""
     if not Path(kernc).exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 2
     p = Path(path)
+    # ПОЛЕВОЙ АДАПТЕР №5: `--xray <dir>` — рекурсивный обход репозитория.
+    # Пропускаем служебные каталоги и агрегируем отчёт по всему дереву.
+    if p.is_dir():
+        return _xray_repo(p, kernc, show_all)
     src = p.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
     src_lines = src.splitlines()  # ПУНКТ 21: директивы `# @kern:len(arr) = N`
     fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    # ПОЛЕВОЙ АДАПТЕР №3: константы уровня модуля (`MAX_SIZE = 1024`,
+    # `HTTP_BAD_REQUEST = 400`). В живом коде магические числа не пишут —
+    # пишут имя константы, и без подстановки условие уходило в SKIP.
+    module_env: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1                 and isinstance(node.targets[0], ast.Name)                 and isinstance(node.value, ast.Constant)                 and isinstance(node.value.value, int)                 and not isinstance(node.value.value, bool):
+            module_env[node.targets[0].id] = str(node.value.value)
     found: list[str] = []
     skipped: list[str] = []
     checked = 0
@@ -2653,13 +2871,14 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         lens = _declared_lengths_for(src_lines, fn.lineno)  # опциональное переопределение
         syms: set = set()
         lens.update(_collect_lens(fn, syms))   # Zero-Annotation: литералы + len()
-        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms)
+        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms, module_env)
         _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name, syms)
 
     print("-" * 74)
     for f in found:
         print("  " + f)
     print("-" * 74)
+    _LAST_XRAY["stat"] = (checked, len(fns), len(fns) - checked, list(found))
     print(f"[XRAY SUMMARY] checked {checked} / {len(fns)} functions, "
           f"skipped {len(fns) - checked} with explicit reasons, "
           f"findings {len(found)}")

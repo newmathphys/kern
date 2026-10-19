@@ -1515,3 +1515,23 @@ Speed-ups used: `/dev/shm` slots with a warm `.zig-cache`, two-stage fail-fast
 **false** kill. Fixed by `_trim_slot_cache()` (every 25 mutants, drop the whole cache above
 800 MB; never `.zig-cache/o` alone — generated `sqlite3_bridge.zig` lives there).
 **MEASURED: 41 trims, `ENOSPC` = 0.**
+
+### 34. Field-testing `--xray` on third-party code (6 adapters)
+
+Added (all sound): `self.x`/`this.x` as symbolic `obj__field`; let-inlining of local
+assignments (`total = a + b`, `x += 1`) into conditions and divisors; module-level integer
+constants; `min/max/abs` translated to exact linear `ite`; recursive `--xray <dir>` with
+service-directory skipping; and a **length invariant** for the real pattern
+`if len(x) != K: x = ...[:K]`.
+
+The length invariant was found on real code: without it `urllib/request.py: ip2num`
+produced a **false** `[BOUNDS PATH]` (`len(parts) = 0`) although both branches guarantee K.
+
+**Measured on Python stdlib (9 files):** `checked 211 / 413` functions (51 %). Of the
+34 reported lines, 33 are `[BOUNDS] “length unknown”` — i.e. honest refusals, not findings.
+
+**Limitations (measured):** Zig bodies are not parsed (`checked 0 / 11`, honest SKIP);
+C-like `if` conditions are checked without path narrowing; Python has no type information
+(a string attribute can be treated as `Int`); aggregation attribution needs re-checking for
+nested calls. Baselines after the changes: `make contracts` unchanged (11 proven / 4
+violated / 0 unresolved / 2 vacuous), `make edge-cases` OK.
