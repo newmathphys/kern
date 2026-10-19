@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "2d5ac8a",
-  "code_hash": "sha256:0b7bbfcef6f7d3cfde0c7d4006cb5fd0deb09e463a2186d8bededc1532d85180",
+  "commit": "48a6d4e",
+  "code_hash": "sha256:ca746a13bb6b57305e6cbf408a5164f787411c11e54e93ed3d7ead7074e68909",
   "score": 100,
   "grade": "A+",
   "breakdown": {
@@ -19,9 +19,11 @@
     "hygiene": 6,
     "base_max": 88,
     "mcp_profile": 7,
-    "formal_tier": 12
+    "formal_tier": 9
   },
-  "hints": [],
+  "hints": [
+    "reach 100 % mutation score with a can-fail harness: +3"
+  ],
   "what_we_read": {
     "by_category": {
       "zig": 92,
@@ -57,7 +59,7 @@
     "check_targets": 125,
     "check_covered": 125,
     "canfail_cases": 141,
-    "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
+    "mutation": "n/a",
     "qemu": "393 passed / 8 skipped / 0 failed"
   },
   "hygiene": {

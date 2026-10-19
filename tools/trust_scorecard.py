@@ -316,6 +316,41 @@ def render(rep: dict, total: int, grade: str, b: dict, hints: list[str],
     print(line)
 
 
+
+def resolve_root(spec: str) -> tuple[Path, Path | None]:
+    """Локальный путь ИЛИ `owner/repo` (публичный GitHub).
+
+    Удалённый репозиторий клонируется в /dev/shm (ОЗУ) со ВСЕМИ защитами,
+    которые уже проверены в `--audit-repo`: без хуков (core.hooksPath=/dev/null),
+    без LFS-блобов, без запросов пароля, с таймаутом.
+
+    Возвращает (корень для анализа, временный каталог или None).
+    """
+    import shutil
+    import tempfile
+
+    cand = Path(spec).expanduser()
+    if cand.is_dir():
+        return cand.resolve(), None
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+", spec.strip()):
+        raise SystemExit(f"[!] не каталог и не owner/repo: {spec}")
+    base = Path("/dev/shm") if Path("/dev/shm").is_dir() else Path(tempfile.gettempdir())
+    tmp = Path(tempfile.mkdtemp(prefix="kern_sc_", dir=str(base)))
+    env = {"GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "/bin/true",
+           "GIT_LFS_SKIP_SMUDGE": "1", "PATH": "/usr/bin:/bin"}
+    cmd = ["git", "clone", "--depth", "1", "--single-branch", "--no-tags",
+           "-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never",
+           f"https://github.com/{spec.strip()}", str(tmp / "repo")]
+    try:
+        r = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise SystemExit("[!] git clone не уложился в 120 с — репозиторий слишком большой")
+    if r.returncode != 0:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise SystemExit(f"[!] git clone: {r.stderr.strip().splitlines()[-1] if r.stderr else 'ошибка'}")
+    return tmp / "repo", tmp
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="KERN Formal Trust Index & Scorecard")
     ap.add_argument("--repo", default=".", metavar="PATH",
@@ -325,11 +360,16 @@ def main() -> int:
     ap.add_argument("--quiet", action="store_true", help="не печатать карточку")
     args = ap.parse_args()
 
-    root = Path(args.repo).resolve()
-    if not root.is_dir():
-        print(f"[!] нет каталога: {root}")
-        return 2
-    rep = build_report(root)
+    root, tmp = resolve_root(args.repo)
+    try:
+        if not root.is_dir():
+            print(f"[!] нет каталога: {root}")
+            return 2
+        rep = build_report(root)
+    finally:
+        if tmp is not None:
+            import shutil as _sh
+            _sh.rmtree(tmp, ignore_errors=True)
     total, grade, b, hints = score(rep)
     doc = {
         "schema": "kern-trust-scorecard/1",

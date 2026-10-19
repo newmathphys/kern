@@ -783,8 +783,8 @@ pub fn main(init: std.process.Init) !void {
             };
             const pk = try Ed25519.PublicKey.fromBytes(owner_mod.OWNER_PUBLIC_KEY);
             const sig_ok = attest_mod.verify(pk, cert);
-            const bind_ok = std.mem.eql(u8, &cert.contract_digest, &digest) and
-                std.mem.eql(u8, &cert.merkle_root, &h.root_digest);
+            const bind_ok = std.crypto.timing_safe.eql([32]u8, cert.contract_digest, digest) and
+                std.crypto.timing_safe.eql([32]u8, cert.merkle_root, h.root_digest);
             if (sig_ok and bind_ok) {
                 std.debug.print("[OK] ОБРАЗ АТТЕСТОВАН: {s}\n", .{owner_mod.AUTHOR});
                 std.debug.print("  подпись владельца : ВАЛИДНА\n", .{});

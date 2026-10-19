@@ -1650,3 +1650,28 @@ hand and used the pre-#128 root formula → `MerkleRootMismatch`. Now it goes th
 and `tools/`; refuse while `canfail`/`mutate_zig`/`collect_evidence` is alive),
 `tools/evidence_guard.py` (write-once snapshot, products excluded).
 Full defect journal of the session: `docs/CAPABILITY_STATUS.md` §6d (#153–#173, 19 entries).
+
+### 38. #176 and three spot-checks before the clean run
+
+**38.1 Waiting by timeout is not completion.** The automation script waited for
+the collector with `for i in $(seq 1 60); do pgrep … || break; sleep 10; done` —
+10 minutes, while the full run takes ~20. The loop expired and was treated as
+success, so files were edited, evidence committed and the attestation signed
+**while the harness was patching sources**. The harness caught it by itself:
+`[!] ХАРНЕСС ОСТАВИЛ ИЗМЕНЕНИЯ В ДЕРЕВЕ: docs/evidence/scorecard.json`,
+`ВАКУУМНЫХ 1`, `RC=1`.
+
+**Rule:** wait with `while kill -0 $PID` (or a completion marker in the log) and
+**abort on timeout** — a timeout is never a success signal.
+
+**38.2 Three spot-checks measured before the clean run.**
+
+| Check | Method | Result |
+|:--|:--|:--|
+| WASM static-buffer leak | 10 000 consecutive `kern_wasm_lia_unsat2` calls in Node | 10 000/10 000 correct, heap 4.6 MB, no growth: `allocator()` re-initialises the `FixedBufferAllocator` on every call |
+| MCP invalid JSON | `printf 'not-a-json\n…'` piped into the server | `-32700 parse error`, then the server keeps serving the next request |
+| Constant-time digest compare | grep across 6 directories | **2 production sites** in `src/main.zig:786-787` (PCC certificate binding) used `std.mem.eql` → replaced with `std.crypto.timing_safe.eql([32]u8, …)`. The test-only simulator `dst_sim.zig` keeps plain compares |
+
+**38.3 Ordering:** all edits, docs and `scorecard.json` are prepared and committed
+**before** the collector starts; during the run the tree is untouched; afterwards
+only fresh logs, then signature and attestation.

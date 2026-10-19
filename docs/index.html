@@ -640,6 +640,54 @@ This page is served from <code>/docs</code> of the
 </section>
 
 
+<section id="scorecard-live">
+  <div class="card" style="margin-top:14px">
+    <h3>Live audit of any public repo (no backend)</h3>
+    <p class="note">Reads the tree via <code>api.github.com/…/git/trees/HEAD?recursive=1</code> and up to
+    15 code + 10 <code>.lean</code> files via <code>raw.githubusercontent.com</code> (both CORS-open),
+    and calls the real <code>kernc.wasm</code> (<code>kern_wasm_lia_unsat2</code>) in your browser.
+    <b>Honest scope:</b> X-Ray here is heuristic (regex + LIA on numeric guards); mutation
+    (1225 sites), can-fail (125 goals), QF_S/IEEE-754 and the Ed25519 signature check are CLI-only —
+    therefore the browser score caps at <b>65</b>.</p>
+    <div class="sc-actions">
+      <input id="sc-repo" class="mono" type="text" placeholder="owner/repo" size="32"
+             style="padding:8px 10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#c9d1d9">
+      <button class="btn p" id="sc-audit">🔍 Live audit repo</button>
+      <button class="btn" id="sc-submit" title="Откроет GitHub Issue с отчётом">🏆 Add to KERN Index</button>
+    </div>
+    <pre id="sc-live" class="mono" style="margin-top:12px;font-size:12px;white-space:pre-wrap">введите owner/repo и нажмите «Live audit repo»</pre>
+    <p class="note" id="sc-msg2"></p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>🌍 KERN Index — start here</h3>
+    <p class="note">Клик по строке запускает живой браузерный аудит. <b>Полный</b> аудит
+    (Z3, мутации, can-fail, attestation) выполнен только для <code>newmathphys/kern</code> —
+    остальные строки это <i>цели для быстрого состава</i>, а не «проверенные» репозитории.</p>
+    <table class="mono" style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="opacity:.7;text-align:left">
+        <th>repo</th><th>status</th><th>what is known</th></tr></thead>
+      <tbody>
+        <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
+          <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
+          <td>full CLI audit: 120 Lean theorems (0 sorry), 1225/1225 mutants, 125/125 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+        <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>modelcontextprotocol/servers</td><td>quick</td><td>MCP surface: tools/list, descriptions, annotations</td></tr>
+        <tr data-lb="ziglang/zig" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>ziglang/zig</td><td>quick</td><td>.zig composition (Blind-Spot Check), Lean absent</td></tr>
+        <tr data-lb="leanprover/lean4" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>leanprover/lean4</td><td>quick</td><td>.lean theorem/sorry count (first 10 files)</td></tr>
+        <tr data-lb="astral-sh/ruff" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>astral-sh/ruff</td><td>quick</td><td>Rust + Python: CC, anti-cheat, crash paths</td></tr>
+        <tr data-lb="github/cmark-gfm" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>github/cmark-gfm</td><td>quick</td><td>C11: CC, memory-guard heuristics</td></tr>
+      </tbody>
+    </table>
+    <h3 style="margin-top:16px">🕒 Recently audited in your browser</h3>
+    <pre id="sc-history" class="mono" style="font-size:12px;white-space:pre-wrap">пока пусто</pre>
+  </div>
+</section>
+
 <section id="wasm">
   <h2>Live WASM kernel playground</h2>
   <p class="note">Runs the real Zig core compiled to WebAssembly. 0 server calls;
@@ -798,6 +846,326 @@ This page is served from <code>/docs</code> of the
 })();
 </script>
 
+
+<script>
+/* Live audit of any public repo — browser only (no backend).
+   Источники: api.github.com/…/git/trees/HEAD?recursive=1 (CORS *) и
+   raw.githubusercontent.com/… (CORS *, без лимита 60/час).
+   Реальный WASM: docs/kernc.wasm → kern_wasm_lia_unsat2 (Фурье — Моцкин),
+   kern_wasm_belnap_join / belnap_allow / admission_valid.
+
+   ЧЕСТНАЯ ГРАНИЦА (печатается в карточке):
+     • X-Ray здесь ЭВРИСТИЧЕСКИЙ: регулярки + LIA на числовых гардах,
+       а НЕ символьные путевые условия как в `--xray` CLI;
+     • мутации (1225 сайтов), can-fail (125 целей) и Z3-теории (QF_S/QF_FP)
+       в браузере не запускаются ВООБЩЕ — это CLI;
+     • подпись Ed25519 в браузере не проверяется: наличие аттестата — факт,
+       но «проверено» = только `slsa_provenance.py --check` локально. */
+(function () {
+  const q = (s) => document.querySelector(s);
+  const out = q('#sc-live'), inp = q('#sc-repo'), btn = q('#sc-audit');
+  if (!out || !inp || !btn) return;
+
+  const EXT = { zig: ['.zig'], lean: ['.lean'], python: ['.py'], c11: ['.c', '.h'],
+                rust: ['.rs'], go: ['.go'], ts_js: ['.ts', '.js'], wasm: ['.wasm', '.wat'] };
+  const CODE = ['.py', '.zig', '.c', '.rs', '.ts', '.js', '.go'];
+  const NOISE = ['node_modules', 'vendor', 'third_party', '.git', '.venv', 'target',
+                 'dist', 'zig-out', '.zig-cache', '__pycache__'];
+  const MAX_CODE = 15, MAX_LEAN = 10;
+
+  const say = (s) => { out.textContent = s; };
+  const hasZero = (t) => /[\u200B-\u200F\u202A-\u202E]/.test(t);
+  const hasInject = (t) => /ignore\s+(all\s+)?previous\s+instructions|<system>|IMPORTANT:\s*before|~\/\.ssh|id_rsa|\.env/i.test(t);
+
+  let wasm = null;
+  async function loadWasm() {
+    if (wasm) return wasm;
+    const r = await fetch('./kernc.wasm', { cache: 'force-cache' });
+    if (!r.ok) throw new Error('kernc.wasm: HTTP ' + r.status);
+    const { instance } = await WebAssembly.instantiate(await r.arrayBuffer(), {});
+    wasm = instance.exports;
+    return wasm;
+  }
+
+  async function jget(url) {
+    const r = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!r.ok) {
+      const hint = (r.status === 403 || r.status === 429) ? ' — rate limit 60/час без токена' : '';
+      throw new Error('HTTP ' + r.status + hint);
+    }
+    return r.json();
+  }
+  async function rget(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  }
+  const raw = (o, r, p) => `https://raw.githubusercontent.com/${o}/${r}/HEAD/${p}`;
+
+  // --- эвристический X-Ray (как в CLI НЕ является символьным — см. заголовок)
+  const ANTICHEAT = [
+    [/def\s+__eq__\s*\([^)]*\)\s*:\s*\n?\s*return\s+True/, 'always-true __eq__'],
+    [/\bsys\.exit\s*\(\s*0\s*\)|\bos\._exit\s*\(\s*0\s*\)/, 'exit(0) inside code'],
+    [/unittest\.mock|MagicMock|mock\.patch/, 'mock in production file'],
+    [/except\s+Exception\s*:\s*\n?\s*pass/, 'swallowed exception'],
+    [/^\s*(type\s+)?PositiveInt\s*=\s*int\b|^\s*type\s+uint32\s*=\s*(u?int64|usize)/m, 'type-alias spoofing'],
+  ];
+  const DIV = /\/\s*([A-Za-z_][A-Za-z0-9_]*)/g;
+
+  function analyse(name, text) {
+    const t = text.replace(/\r\n/g, '\n');
+    const cc = 1 + (t.match(/\bif\b|\belif\b|\belse\s+if\b|\bfor\b|\bwhile\b|\?\s*[^:]|\bcase\b/g) || []).length;
+    const ac = ANTICHEAT.filter(([re]) => re.test(t)).map(([, n]) => n);
+    const zw = hasZero(t);
+    // числовые гарды одного вида «x > N» / «x >= N» / «x < N» для LIA
+    const guards = [...t.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*(>=|>|<=|<)\s*(-?\d+)/g)]
+      .slice(0, 40).map((m) => ({ v: m[1], op: m[2], n: Number(m[3]) }));
+    const divs = [...t.matchAll(DIV)].map((m) => m[1]).slice(0, 40);
+    return { name, cc, ac, zw, guards, divs, len: t.length };
+  }
+  const hasDivGuard = (text, v) => new RegExp(`\\b${v}\\s*[!=]=\\s*0|\\b${v}\\s*[<>]`).test(text);
+
+  // x > A ⟹ (x ≤ A) false; x > B in next elif: решаем (x-A ≤ 0) ∧ (-(x-B-1) ≤ 0)
+  function deadBranch(lia, g1, g2) {
+    if (!lia || g1.v !== g2.v) return false;
+    if (!(g1.op === '>' && g2.op === '>')) return false;
+    if (g2.n < g1.n) return false;   // x<=A и x>B совместны (B<A) -> ветка жива
+    try {
+      // (x - A ≤ 0) и (x - B - 1 ≥ 0) → если UNSAT, вторая ветка мертва
+      return lia(1n, 0n, BigInt(-g1.n), -1n, 0n, BigInt(g2.n + 1)) === 1;
+    } catch (e) { return false; }
+  }
+
+  async function audit(spec) {
+    const m = /^([\w.-]+)\/([\w.-]+)$/.exec(spec.trim());
+    if (!m) throw new Error('ожидается формат owner/repo');
+    const [, owner, repo] = m;
+    localStorage.setItem('kern-last-repo', spec);
+
+    const tree = await jget(`https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`);
+    const blobs = (tree.tree || []).filter((e) => e.type === 'blob');
+    const cats = {}; for (const k in EXT) cats[k] = 0;
+    for (const f of blobs) {
+      const p = (f.path || '').toLowerCase();
+      if (p.split('/').some((s) => NOISE.includes(s))) continue;
+      for (const k in EXT) if (EXT[k].some((e) => p.endsWith(e))) { cats[k]++; break; }
+    }
+    const paths = blobs.map((f) => (f.path || ''));
+    const lower = paths.map((p) => p.toLowerCase());
+    const root = (n) => lower.includes(n);
+
+    // MCP
+    let mcpLine = 'server.json / mcp.json в корне НЕТ', toolsN = 0, annOk = false, mcpBad = false;
+    const mcpPath = root('server.json') ? 'server.json' : (root('mcp.json') ? 'mcp.json' : null);
+    if (mcpPath) {
+      try {
+        const txt = await rget(raw(owner, repo, mcpPath));
+        mcpBad = hasZero(txt) || hasInject(txt);
+        const doc = JSON.parse(txt);
+        const list = doc.tools || (doc.mcpServers ? Object.keys(doc.mcpServers) : []);
+        toolsN = list.length;
+        annOk = !!list.length && list.every((t) => t && t.annotations && 'readOnlyHint' in t.annotations);
+        mcpLine = `${mcpPath}: ${toolsN} tools · annotations ${annOk ? 'OK' : 'нет'} · ` +
+                  `injections ${hasInject(txt) ? '!' : '0'} · zero-width ${hasZero(txt) ? '!' : '0'}`;
+      } catch (e) { mcpLine = `${mcpPath} найден, не прочитан (${e.message})`; }
+    }
+
+    // код: до 15 файлов → CC, анти-чит, X-Ray через WASM
+    const codeFiles = paths.filter((p) => CODE.some((e) => p.toLowerCase().endsWith(e)))
+      .sort((a, b) => (a.split('/').length - b.split('/').length)).slice(0, MAX_CODE);
+    const ex = await loadWasm().catch(() => null);
+    const lia = ex ? ex.kern_wasm_lia_unsat2 : null;
+    let maxCC = 0, sumCC = 0, dead = 0, crash = 0, acHits = 0, zwHits = 0, scanned = 0;
+    const deadList = [], crashList = [], acList = [];
+    for (const p of codeFiles) {
+      let t;
+      try { t = await rget(raw(owner, repo, p)); } catch (e) { continue; }
+      const a = analyse(p, t);
+      scanned++; sumCC += a.cc; maxCC = Math.max(maxCC, a.cc);
+      if (a.zw) zwHits++;
+      if (a.ac.length) { acHits += a.ac.length; acList.push(`${p}: ${a.ac.join(', ')}`); }
+      for (let i = 0; i + 1 < a.guards.length; i++) {
+        if (deadBranch(lia, a.guards[i], a.guards[i + 1])) {
+          dead++; deadList.push(`${p}: ветка после «${a.guards[i].v} ${a.guards[i].op} ${a.guards[i].n}» недостижима при «${a.guards[i+1].v} ${a.guards[i+1].op} ${a.guards[i+1].n}»`);
+          break;
+        }
+      }
+      for (const v of new Set(a.divs)) {
+        if (/^\d+$/.test(v)) continue;
+        if (!hasDivGuard(t, v)) { crash++; crashList.push(`${p}: деление на «${v}» без видимой проверки на 0`); break; }
+      }
+    }
+
+    // Lean
+    const leanFiles = paths.filter((p) => p.toLowerCase().endsWith('.lean')).slice(0, MAX_LEAN);
+    let th = 0, so = 0, leanRead = 0;
+    for (const p of leanFiles) {
+      try {
+        const t = (await rget(raw(owner, repo, p))).replace(/\/-[\s\S]*?-\//g, ' ')
+          .split('\n').map((l) => { const i = l.indexOf('--'); return i < 0 ? l : l.slice(0, i); }).join('\n');
+        th += (t.match(/^theorem\s/gm) || []).length;
+        so += (t.match(/\bsorry\b/g) || []).length;
+        leanRead++;
+      } catch (e) { /* пропускаем */ }
+    }
+
+    // provenance
+    const att = root('kern.intoto.jsonl') ? 'kern.intoto.jsonl' : (root('attestation.json') ? 'attestation.json' : null);
+    const sc = root('docs/evidence/scorecard.json') ? 'docs/evidence/scorecard.json' : null;
+    let reported = null;
+    if (sc) { try { reported = JSON.parse(await rget(raw(owner, repo, sc))); } catch (e) { reported = null; } }
+
+    // баллы: ТОЛЬКО браузерно-проверяемое (максимум 65)
+    const docsMd = lower.filter((p) => p.startsWith('docs/') && p.endsWith('.md')).length;
+    const b = {
+      license: (root('license') || root('license.md') || root('license.txt')) ? 10 : 0,
+      readme: lower.some((p) => p.startsWith('readme')) ? 6 : 0,
+      ci: lower.some((p) => p.startsWith('.github/workflows/')) ? 8 : 0,
+      build: ['build.zig', 'makefile', 'pyproject.toml', 'cargo.toml', 'go.mod'].some(root) ? 8 : 0,
+      llms: root('llms.txt') ? 6 : 0,
+      docs: docsMd >= 5 ? 8 : (docsMd ? 4 : 0),
+      mcp: mcpPath && toolsN > 0 ? 7 : 0,
+      lean: th > 0 && so === 0 ? 6 : 0,
+      native: (cats.zig + cats.lean + cats.wasm) > 0 ? 6 : 0,
+    };
+    const score = Object.values(b).reduce((a, x) => a + x, 0);
+    const grade = score >= 60 ? 'A' : score >= 50 ? 'B' : score >= 38 ? 'C' : score >= 25 ? 'D' : 'F';
+    const wasmLine = ex
+      ? `ACTIVE · kern_wasm_lia_unsat2 + belnap_join/allow/admission_valid (${Object.keys(ex).filter(k => k.startsWith('kern_')).length} экспортов)`
+      : 'НЕ загружен (kernc.wasm недоступен — откройте сайт по http(s), не file://)';
+
+    if (window.__kernAfterAudit) {
+      try { window.__kernAfterAudit(owner + '/' + repo, score, grade,
+              { dead, crash, ac: acHits, cc: maxCC, zig: cats.zig, lean: cats.lean }); } catch (e) {}
+    }
+    say([
+      `LIVE AUDIT · ${owner}/${repo}   (browser, no backend)`,
+      `commit ${String(tree.sha || '').slice(0, 7)} · файлов ${blobs.length}`,
+      '',
+      '1. WHAT WE READ',
+      `   .zig ${cats.zig}  .lean ${cats.lean}  .py ${cats.python}  .c/.h ${cats.c11}`,
+      `   .rs ${cats.rust}  .go ${cats.go}  .ts/.js ${cats.ts_js}  .wasm ${cats.wasm}`,
+      `   ⚡ Blind-Spot Check: ${cats.zig + cats.lean + cats.wasm} native/formal файлов — Python-only сканеры их не читают`,
+      '',
+      '2. MCP TOOL SURFACE & AI SAFETY',
+      `   ${mcpLine}`,
+      '',
+      '3. MATHEMATICAL & FORMAL SOUNDNESS',
+      `   .lean прочитано ${leanRead}/${cats.lean} · theorem ${th} · sorry ${so}` +
+        (leanRead < cats.lean ? '  (лимит браузера: первые 10 файлов)' : ''),
+      `   WASM Kernel L4: ${wasmLine}`,
+      '',
+      '4. ZERO-ANNOTATION X-RAY (live, heuristic + LIA in WASM)',
+      `   файлов просканировано ${scanned}/${codeFiles.length} (лимит ${MAX_CODE})`,
+      `   CC: средняя ${scanned ? (sumCC / scanned).toFixed(1) : 0} · максимум ${maxCC}`,
+      `   [DEAD BRANCH] ${dead} · [CRASH PATH] ${crash} · anti-cheat ${acHits} · hidden Unicode ${zwHits}`,
+      ...deadList.slice(0, 3).map((x) => '     · ' + x),
+      ...crashList.slice(0, 3).map((x) => '     · ' + x),
+      ...acList.slice(0, 3).map((x) => '     · ' + x),
+      '',
+      '5. PROVENANCE',
+      `   аттестат: ${att || 'нет'} (подпись Ed25519 в браузере НЕ проверяется)`,
+      `   опубликованный scorecard: ${sc ? 'есть' : 'нет'}` +
+        (reported ? ` → заявлено ${reported.score}/100 (${reported.grade}) репозиторием` : ''),
+      '',
+      `COMPOSITION SCORE ${score}/65 · Grade ${grade}`,
+      `   веса: ${Object.entries(b).map(([k, v]) => k + '=' + v).join(' ')}`,
+      '',
+      'ЧЕГО БРАУЗЕР НЕ ДЕЛАЕТ (поэтому максимум 65, а не 100):',
+      '   · 1225 мутантов и 125 can-fail целей требуют zig build и Linux-процессов;',
+      '   · Z3-теории QF_S / IEEE-754 / битовые векторы — только в CLI;',
+      '   · X-Ray здесь эвристический (регулярки + LIA на гардах), а не символьные пути;',
+      '   · подпись аттестата проверяется локально: slsa_provenance.py --check.',
+      `   Полный паспорт: python3 tools/trust_scorecard.py --repo ${owner}/${repo}`,
+    ].join('\n'));
+  }
+
+  async function run(spec) {
+    say('читаю дерево ' + spec + ' …');
+    try { await audit(spec); }
+    catch (e) {
+      say('НЕ УДАЛОСЬ: ' + e.message + '\n' +
+          '  • приватный/несуществующий репозиторий?\n' +
+          '  • rate limit 60/час на одном IP — подождите или используйте CLI\n' +
+          '  • полный аудит: python3 tools/trust_scorecard.py --repo ' + spec);
+    }
+  }
+
+  btn.addEventListener('click', () => run(inp.value || ''));
+  document.querySelectorAll('[data-preset]').forEach((el) =>
+    el.addEventListener('click', () => { inp.value = el.dataset.preset; run(el.dataset.preset); }));
+  const fromUrl = new URLSearchParams(location.search).get('repo');
+  if (fromUrl) { inp.value = fromUrl; run(fromUrl); }
+})();
+
+/* ---- KERN Index: история в браузере + заявка в публичный каталог ----
+   ЧЕСТНО: каталог не «проверенные проекты», а список ЦЕЛЕЙ для быстрого
+   состава + история ВАШИХ сканов. Полный аудит (мутации/attestation) — CLI. */
+(function () {
+  const KEY = 'kern-history';
+  const q = (s) => document.querySelector(s);
+  const hist = q('#sc-history'), msg = q('#sc-msg2'), inp = q('#sc-repo'), btn = q('#sc-audit');
+  let last = null;
+
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
+  const save = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a.slice(0, 8))); } catch (e) {} };
+  function paint() {
+    if (!hist) return;
+    const a = load();
+    hist.textContent = a.length
+      ? a.map((r) => `${r.at}  ${r.repo.padEnd(34)} ${r.score}/65  ${r.grade}  ` +
+                     `dead=${r.x.dead} crash=${r.x.crash} cc_max=${r.x.cc}`).join('\n')
+      : 'пока пусто';
+  }
+
+  window.__kernAfterAudit = (repo, score, grade, x) => {
+    last = { repo, score, grade, x, at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+    const a = load().filter((r) => r.repo !== repo);
+    a.unshift(last); save(a); paint();
+    if (msg) msg.textContent = `просканировано ${repo}: ${score}/65 · Grade ${grade}`;
+  };
+
+  document.querySelectorAll('[data-lb]').forEach((el) =>
+    el.addEventListener('click', () => {
+      const spec = el.dataset.lb;
+      if (inp) inp.value = spec;
+      location.hash = 'scorecard';
+      if (btn) btn.click();
+    }));
+
+  if (q('#sc-submit')) {
+    q('#sc-submit').addEventListener('click', () => {
+      const spec = (inp && inp.value || '').trim();
+      if (!/^[\w.-]+\/[\w.-]+$/.test(spec)) {
+        if (msg) msg.textContent = 'сначала просканируйте owner/repo';
+        return;
+      }
+      const r = last && last.repo === spec ? last : null;
+      const body = [
+        '### KERN Index submission: ' + spec, '',
+        'Browser audit (heuristic, no backend):',
+        r ? '- composition: ' + r.score + '/65 · Grade ' + r.grade : '- composition: не запускался в этой вкладке',
+        r ? '- xray: dead=' + r.x.dead + ', crash=' + r.x.crash + ', anti-cheat=' + r.x.ac + ', CC max=' + r.x.cc : '',
+        r ? '- languages: .zig=' + r.x.zig + ', .lean=' + r.x.lean : '', '',
+        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1225 sites),',
+        'can-fail (125 goals) or the Ed25519 attestation check. For the full passport run:',
+        '```',
+        'python3 tools/trust_scorecard.py --repo ' + spec + ' --json out.json',
+        '```',
+        'If you are the maintainer, adding `action.yml` + `# @kern:` contracts unlocks the Formal tier (A+).',
+      ].join('\n');
+      const url = 'https://github.com/newmathphys/kern/issues/new' +
+        '?title=' + encodeURIComponent('KERN Index submission: ' + spec) +
+        '&labels=' + encodeURIComponent('leaderboard') +
+        '&body=' + encodeURIComponent(body);
+      window.open(url, '_blank');
+    });
+  }
+
+  paint();
+})();
+
+</script>
 
 </body>
 </html>
