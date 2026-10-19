@@ -971,6 +971,26 @@ fn boolEqual(c: *const Ctx, x: Sexp, y: Sexp) bool {
 ///   unverifiable — нормализатор не покрывает эти термы, шаг доверенный.
 const RwResult = enum { verified, bad, unverifiable };
 
+/// `(or (not X) X) = true` (want_true) либо `(and (not X) X) = false`.
+/// ЗВУЧИМО: закон исключённого третьего, никакого доверия решателю.
+fn isExcludedMiddle(c: *const Ctx, e: Sexp, want_true: bool) bool {
+    if (!e.isList() or e.items.len != 3) return false;
+    const h = e.items[0].atom orelse return false;
+    const want = if (want_true) "or" else "and";
+    if (!std.mem.eql(u8, h, want)) return false;
+    const a = expand(c, e.items[1], 0);
+    const b = expand(c, e.items[2], 0);
+    if (a.atom != null and b.atom != null) return false; // нужен `not` с одной стороны
+    if (asNot(a)) |inner| {
+        if (sexpEqNum(inner, b)) return true;
+    }
+    if (asNot(b)) |inner| {
+        if (sexpEqNum(inner, a)) return true;
+    }
+    return false;
+}
+
+
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
@@ -989,6 +1009,14 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // Из-за этого 3 доверенных `rewrite` в выводе IEEE-754 не сходились,
     // хотя все нужные тождества УЖЕ были реализованы.
     if (sexpEqNum(l, r)) return .verified;
+
+    // ТАВТОЛОГИЯ ИСКЛЮЧЁННОГО ТРЕТЬЕГО: `(or (not X) X) = true` и
+    // `(and (not X) X) = false`. ИЗМЕРЕНО (кламп `+|`): Z3 оформляет
+    // `¬P ∨ P` шагом rewrite, и без этого правила шаг оставался ДОВЕРЕННЫМ
+    // (`trusted: 1`), хотя это чистая пропозициональная тавтология.
+    if (r.atom) |ra| {
+        if (isExcludedMiddle(c, l, std.mem.eql(u8, ra, "true"))) return .verified;
+    }
     // ВЫЧИСЛЕНИЕ КОНСТАНТ (Пункты 22/23) ДО раннего возврата для не-атомарных
     // сравнений: `(= (= false true) false)` — обе стороны НЕ атомы, и раньше
     // управление уходило в `return .unverifiable`, не доходя до этих проверок.

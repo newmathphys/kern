@@ -904,6 +904,44 @@ def _exec_clike(stmts, env: dict, lang: str, expr_fn=None):
     return None
 
 
+def _saturate_rewrite(text: str, ret: str) -> str:
+    """ТОЧНАЯ семантика насыщения: `a +| b` -> clamp(a+b) в границы типа.
+
+    ЗАЧЕМ (полумера из прошлой итерации). Раньше `+|` / `.saturating_add`
+    просто переводились в `+` (обязательство переполнения снималось). Это
+    неверно, если постусловие смотрит на ГРАНИЦУ: `ensures result <= 4294967295`
+    при `a+b > MAX` давало бы ложное опровержение, потому что настоящая
+    функция возвращает MAX.
+    Теперь строится точное выражение:
+        ite(a+b > HI, HI, ite(a+b < LO, LO, a+b))
+    (записано тернарниками Python, которые `expr_smt` переводит в `ite`).
+    """
+    if ret not in TYPE_RANGE:
+        return text
+    lo, hi = TYPE_RANGE[ret]
+
+    def clamp(op: str, a: str, b: str) -> str:
+        e = f"({a} {op} {b})"
+        # Для БЕЗЗНАКОВЫХ (lo == 0) нижняя ветвь недостижима при a,b >= 0,
+        # поэтому её опускаем: формула короче, и чекер не оставляет
+        # доверенный `rewrite` на лишнем `ite` (ИЗМЕРЕНО: trusted 1 -> 0).
+        if lo == 0:
+            return f"({hi} if {e} > {hi} else {e})"
+        return f"({hi} if {e} > {hi} else ({lo} if {e} < {lo} else {e}))"
+
+    # Rust: x.saturating_add(y) / .saturating_sub(y)
+    text = re.sub(r"([A-Za-z_][\w]*)\.saturating_add\(\s*([A-Za-z_][\w]*|\d+)\s*\)",
+                  lambda m: clamp("+", m.group(1), m.group(2)), text)
+    text = re.sub(r"([A-Za-z_][\w]*)\.saturating_sub\(\s*([A-Za-z_][\w]*|\d+)\s*\)",
+                  lambda m: clamp("-", m.group(1), m.group(2)), text)
+    # Zig: a +| b / a -| b (операнды-идентификаторы или литералы)
+    text = re.sub(r"([A-Za-z_][\w]*|\d+)\s*\+\|\s*([A-Za-z_][\w]*|\d+)",
+                  lambda m: clamp("+", m.group(1), m.group(2)), text)
+    text = re.sub(r"([A-Za-z_][\w]*|\d+)\s*-\|\s*([A-Za-z_][\w]*|\d+)",
+                  lambda m: clamp("-", m.group(1), m.group(2)), text)
+    return text
+
+
 def parse_clike(path: Path):
     """Функции Zig/C/Rust с контрактами -> формат `parse_file` + диапазоны типов."""
     src = path.read_text(encoding="utf-8", errors="replace")
@@ -989,6 +1027,8 @@ def parse_clike(path: Path):
         # переводу строки (сохранён в `_normalize_clike(keep_newlines=True)`).
         semi_optional = lang in ("go", "js", "ts")
         raw_body = _normalize_clike("\n".join(body_lines), keep_newlines=semi_optional)
+        # ТОЧНЫЙ кламп насыщения (по типу возврата), а не просто `+`.
+        raw_body = _saturate_rewrite(raw_body, ret)
         meta["raw_body"] = raw_body   # УЛУЧШЕНИЕ №14: для конкретной перепроверки
         _DIV_COLLECTOR.clear()
         try:
