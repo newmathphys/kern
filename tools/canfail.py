@@ -247,6 +247,8 @@ class Fault:
 
 
 FAULTABLE = [
+    "tools/parser_security_check.sh",
+    "tests/fixtures/inject_comment_in_string.py",
     "tools/evo_fuzzer.py",
     "tools/translation_val_check.py",
     "tools/concolic_check.sh",
@@ -2070,6 +2072,23 @@ def case_evo_fuzz_check():
     return "make evo-fuzz-check"
 
 
+
+def case_parser_security_check():
+    """ЗАЩИТА ПАРСЕРА. ЛОМАЕМ tokenize-фильтр: подделка внутри строки снова
+    считается контрактом -> приёмка обязана покраснеть."""
+    # ЛОМАЕМ ИМЕННО ЗАЩИТУ: возвращаем УЯЗВИМЫЙ построчный обход (как было до
+    # tokenize) -> подделка внутри строкового литерала снова «видна».
+    patch(
+        "tools/kern_contracts.py",
+        "    anchors: dict[int, dict[str, str]] = _py_comment_anchors(src)",
+        "    anchors: dict[int, dict[str, str]] = {}\n"
+        "    for _i, _ln in enumerate(lines, 1):\n"
+        "        _m = ANNOT.match(_ln)\n"
+        "        if _m: anchors.setdefault(_i, {})[_m.group(1)] = _m.group(2)",
+    )
+    return "make parser-security-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2391,6 +2410,7 @@ CASES = [
     ("concolic-check", "CONCOLIC: живые запуски + Z3",            case_concolic_check),
     ("translation-val-check", "TV: asm -O2 == spec",                    case_translation_val_check),
     ("evo-fuzz-check", "EVO: 0 паник / 0 ложных допусков",         case_evo_fuzz_check),
+    ("parser-security-check", "PARSER: подделка/алиасы",                case_parser_security_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

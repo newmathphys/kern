@@ -191,15 +191,38 @@ def body_smt(stmts, env: dict) -> str:
     return None  # дошли до конца -> неявный None
 
 
+
+def _py_comment_anchors(src: str) -> dict:
+    """Директивы `@kern:` ТОЛЬКО из настоящих комментариев Python.
+
+    ЗАЧЕМ (Comment-in-String Injection). Построчный `ANNOT.match()` видел
+    `# @kern:requires False` ВНУТРИ многострочного строкового литерала
+    и подделывал контракт. `tokenize` различает COMMENT и STRING, поэтому
+    текст внутри литералов больше не считается директивой.
+    """
+    import io
+    import tokenize as _tok
+    out: dict[int, dict[str, str]] = {}
+    try:
+        for t in _tok.generate_tokens(io.StringIO(src).readline):
+            if t.type != _tok.COMMENT:
+                continue
+            body = t.string.strip()
+            m = ANNOT.match(body)
+            if m:
+                out.setdefault(t.start[0], {})[m.group(1)] = m.group(2)
+    except (_tok.TokenError, IndentationError, SyntaxError):
+        return {}
+    return out
+
+
 def parse_file(path: Path):
     """Вернуть список (имя, params, requires, ensures, body_smt, lineno, причина)."""
     src = path.read_text(encoding="utf-8", errors="replace")
     lines = src.splitlines()
-    anchors: dict[int, dict[str, str]] = {}
-    for i, ln in enumerate(lines, 1):
-        m = ANNOT.match(ln)
-        if m:
-            anchors.setdefault(i, {})[m.group(1)] = m.group(2)
+    # ИЗ НАСТОЯЩИХ КОММЕНТАРИЕВ (tokenize), а не построчно — защита от
+    # Comment-in-String Injection.
+    anchors: dict[int, dict[str, str]] = _py_comment_anchors(src)
     tree = ast.parse(src)
     out = []
     for node in ast.walk(tree):
@@ -3967,6 +3990,16 @@ def cmd_anti_cheat(path: str, allowlist: str | None = None) -> int:
         data = json.loads(Path(allowlist).read_text(encoding="utf-8"))
         allowed = set(data.get("allowed", []))
     findings = list(sc.findings)
+    # TYPE-ALIAS SPOOFING: переопределение зарезервированных семантических
+    # типов (`PositiveInt = int`, `type uint32 = int64`) обнуляет Sorbet-границы
+    # и позволяет «легально» выйти за домен. Для C-like — текстовый поиск.
+    RESERVED = ("PositiveInt", "NonNegativeInt", "Percent", "uint32", "int32",
+                "int64", "uint64", "nat", "pos_int")
+    for ln_no, raw in enumerate(src.splitlines(), 1):
+        line = raw.split("#", 1)[0].split("//", 1)[0]
+        m_alias = re.match(r"\s*(?:type\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_]", line)
+        if m_alias and m_alias.group(1) in RESERVED:
+            findings.append((f"type-alias spoofing: {m_alias.group(1)}", ln_no))
     for mod, ln in sc.imports:
         if allowed is not None and mod not in allowed:
             findings.append((f"import not in allowlist (slopsquatting?): {mod}", ln))
