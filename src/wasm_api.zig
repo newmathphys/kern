@@ -152,7 +152,14 @@ export fn kern_wasm_verify_proof(
     const proof = proof_ptr[0..proof_len];
     const contract = proof_check.extractAsserts(al, smt) catch return 0;
     const pv = proof_check.verifyProof(al, proof, contract) catch return 0;
-    return if (pv.checksPass() and pv.proof_concludes_false and pv.trusted_steps == 0) 1 else 0;
+    // ТРИ условия — ПОСЛЕДОВАТЕЛЬНО (ранние возвраты), а не одним `and`:
+    // так каждое условие проверяется отдельным тестом, и ослабление любого
+    // из них видно прицельно. Мутация `and`->`or` здесь невозможна по
+    // построению (именно она ослабляла все три проверки сразу).
+    if (!pv.checksPass()) return 0;
+    if (!pv.proof_concludes_false) return 0;
+    if (pv.trusted_steps != 0) return 0;
+    return 1;
 }
 
 test "wasm: verifyProof принимает валидное доказательство и отвергает подделку" {
