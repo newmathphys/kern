@@ -1,6 +1,6 @@
 === KERN EVIDENCE: kern_attack ===
 === команда: ./zig-out/bin/kern-attack ===
-=== дата: 2026-10-16T16:49:29Z ===
+=== дата: 2026-10-19T15:57:21Z ===
 
 
 ########## АТАКА 1: ИИ присылает ОДИН БАЙТ вместо доказательства ##########
@@ -8,14 +8,18 @@
 >>> ИТОГ: код НЕ допущен — один байт больше не работает <<<
 
 ########## АТАКА 2: KERNFS на согласованном образе v1.3 ##########
-  /raw/src/main.zig -> НАЙДЕНО (22 б): pub fn main() void {}
-
-  /claims/L0_AlignmentInvariant.kern/status -> НАЙДЕНО (view): T
-
-  /claims/L0_AlignmentInvariant.kern/contract.json -> НАЙДЕНО (28 б): {"pre":"true","post":"true"}
+  /raw/src/main.zig -> ошибка: FileNotFound
+  /claims/L0_AlignmentInvariant.kern/status -> ошибка: FileNotFound
+  /claims/L0_AlignmentInvariant.kern/contract.json -> ошибка: FileNotFound
   запись -> ошибка: AccessDenied (ожидаем AccessDenied)
 >>> ИТОГ: роутер находит объекты — Фазы 1 и 3 согласованы <<<
 
 
 RC=0
-[guard] FAULTABLE без изменений (59 файлов) — прогон чист
+[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
+        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
+        - tools/kern_contracts.py: изменён (767a0ec516b0 -> 8c144407e383)
+        - zig-out/bin/kernc: изменён (f1145634c5c7 -> aaa29f18a20c)
+        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
+        при пропатченных исходниках. Не правьте файлы во время
+        `make evidence` / `make canfail`.

@@ -2619,6 +2619,14 @@ def _refuse_dirty_src():
     откатить их своим снимком (класс #71/#116) и, как показал инцидент
     f01e8fc, оставить диверсию в коммите.
     """
+    # ДЕФЕКТЫ #168/#170: маркеры инъекций в src/ = прогон НЕДОПУСТИМ
+    _ig = os.path.join(os.path.dirname(os.path.abspath(__file__)), "injection_guard.py")
+    if os.path.exists(_ig):
+        _r = subprocess.run([sys.executable, _ig], capture_output=True, text=True)
+        if _r.returncode != 0:
+            sys.stderr.write(_r.stdout)
+            sys.stderr.write("[LOCKED] маркеры инъекций/грязный src — откат обязателен (#168/#170).\n")
+            return 2
     if os.environ.get("KERN_ALLOW_DIRTY_SRC") == "1":
         return
     try:

@@ -1,76 +1,12 @@
 === KERN EVIDENCE: mutate ===
 === команда: python3 tools/mutate_zig.py --max 40 --seed 7 --jobs 4 --require-solver ===
-=== дата: 2026-10-17T09:07:12Z ===
+=== дата: 2026-10-19T15:57:34Z ===
 
-[i] найдено сайтов мутации: 420; берём не более 40
-[i] стратифицированная выборка (>= 2 на файл):
-        3  src/capi.zig
-        4  src/compat.zig
-        2  src/core/blake3_simd8.zig
-        2  src/core/eq2.zig
-        1  src/core/hash_algo.zig
-        4  src/core/kernfs_router.zig
-        2  src/core/kimg_reader.zig
-        2  src/core/kimg_writer.zig
-        2  src/core/object_entry.zig
-        2  src/verifier/admission_gate.zig
-        2  src/verifier/model_extract.zig
-       10  src/verifier/proof_check.zig
-        2  src/verifier/unsat_core.zig
-        2  src/verifier/z3_bridge.zig
-[i] рабочих копий: 4 (оригинал не изменяется)
-  [1/40] src/verifier/model_extract.zig:43 [!=->==] -> killed ✅
-  [2/40] src/core/kernfs_router.zig:99 [==->!=] -> killed ✅
-  [3/40] src/compat.zig:108 [and->or] -> killed ✅
-  [4/40] src/verifier/z3_bridge.zig:486 [!=->==] -> killed ✅
-  [5/40] src/verifier/proof_check.zig:1035 [and->or] -> killed ✅
-  [6/40] src/capi.zig:90 [or->and] -> killed ✅
-  [7/40] src/compat.zig:131 [==->!=] -> killed ✅
-  [8/40] src/verifier/proof_check.zig:978 [false->true] -> killed ✅
-  [9/40] src/core/hash_algo.zig:112 [&->|] -> killed (compile) ✅
-  [10/40] src/compat.zig:291 [==->!=] -> killed ✅
-  [11/40] src/core/object_entry.zig:56 [|->&] -> killed ✅
-  [12/40] src/verifier/proof_check.zig:209 [==->!=] -> killed ✅
-  [13/40] src/verifier/z3_bridge.zig:246 [!=->==] -> killed ✅
-  [14/40] src/core/kernfs_router.zig:113 [>=->>] -> SURVIVED ❌
-  [15/40] src/verifier/proof_check.zig:452 [==->!=] -> killed ✅
-  [16/40] src/capi.zig:47 [and->or] -> killed ✅
-  [17/40] src/core/blake3_simd8.zig:143 [==->!=] -> killed ✅
-  [18/40] src/core/kernfs_router.zig:380 [&->|] -> killed ✅
-  [19/40] src/core/eq2.zig:75 [&->|] -> killed ✅
-  [20/40] src/verifier/proof_check.zig:1053 [false->true] -> killed ✅
-  [21/40] src/verifier/proof_check.zig:580 [==->!=] -> killed ✅
-  [22/40] src/core/kimg_writer.zig:394 [>=->>] -> killed ✅
-  [23/40] src/verifier/admission_gate.zig:44 [!=->==] -> killed ✅
-  [24/40] src/core/kernfs_router.zig:116 [!=->==] -> killed ✅
-  [25/40] src/verifier/admission_gate.zig:42 [>=->>] -> killed (compile) ✅
-  [26/40] src/verifier/proof_check.zig:309 [and->or] -> killed (compile) ✅
-  [27/40] src/verifier/unsat_core.zig:77 [false->true] -> killed ✅
-  [28/40] src/core/kimg_writer.zig:209 [true->false] -> SURVIVED ❌
-  [29/40] src/core/object_entry.zig:56 [!=->==] -> killed ✅
-  [30/40] src/verifier/proof_check.zig:798 [false->true] -> killed ✅
-  [31/40] src/verifier/model_extract.zig:112 [==->!=] -> killed ✅
-  [32/40] src/compat.zig:70 [==->!=] -> killed ✅
-  [33/40] src/core/blake3_simd8.zig:55 [|->&] -> killed ✅
-  [34/40] src/verifier/proof_check.zig:478 [!=->==] -> killed ✅
-  [35/40] src/verifier/unsat_core.zig:36 [true->false] -> killed ✅
-  [36/40] src/core/kimg_reader.zig:121 [!=->==] -> killed ✅
-  [37/40] src/core/kimg_reader.zig:62 [==->!=] -> killed (compile) ✅
-  [38/40] src/capi.zig:74 [or->and] -> killed ✅
-  [39/40] src/verifier/proof_check.zig:1060 [false->true] -> killed ✅
-  [40/40] src/core/eq2.zig:40 [|->&] -> killed ✅
+[LOCKED] `src/` содержит незакоммиченные правки — патчащий прогон откатит их своим снимком (#71/#116/#156). Закоммитьте или задайте KERN_ALLOW_DIRTY_SRC=1.
 
-[i] целостность оригинала подтверждена (sha256 8a20db851cf2966e…)
-
-=== МУТАЦИОННОЕ ТЕСТИРОВАНИЕ KERN ===
-Всего мутантов:      40
-Killed (compile):    4
-Killed (test):       34
-Survived (ДЫРЫ):     2
-MUTATION SCORE:      95.0%
-Выжившие мутанты (усилить тесты):
-  - src/core/kernfs_router.zig:113 [>=->>]
-  - src/core/kimg_writer.zig:209 [true->false]
-
-RC=0
-[guard] FAULTABLE без изменений (61 файлов) — прогон чист
+RC=2
+[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
+        - tools/kern_contracts.py: изменён (e3b0c44298fc -> 540505bfd284)
+        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
+        при пропатченных исходниках. Не правьте файлы во время
+        `make evidence` / `make canfail`.

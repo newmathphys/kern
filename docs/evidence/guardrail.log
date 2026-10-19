@@ -1,13 +1,13 @@
 === KERN EVIDENCE: guardrail ===
 === команда: python3 examples/guardrail_proxy.py --self-test ===
-=== дата: 2026-10-16T16:49:29Z ===
+=== дата: 2026-10-19T15:57:21Z ===
 
   [proxy] "GET /health HTTP/1.1" 200 -
   [proxy] "POST /verify HTTP/1.1" 200 -
   [proxy] "POST /verify HTTP/1.1" 422 -
   [proxy] "POST /verify_multi HTTP/1.1" 409 -
 ==========================================================================
-KERN GUARDRAIL SELF-TEST (порт 35605, /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so)
+KERN GUARDRAIL SELF-TEST (порт 44749, /home/mrbritneyxxx/Рабочий стол/kern/zig-out/lib/libkern.so)
 ==========================================================================
   [OK]   health               HTTP 200 belnap=None
   [OK]   доказано (T)         HTTP 200 belnap=T
@@ -17,4 +17,10 @@ KERN GUARDRAIL SELF-TEST (порт 35605, /home/mrbritneyxxx/Рабочий ст
 ВСЁ ПРОЙДЕНО: 200(T) · 422(F) · 409(B) — семантика HTTP соответствует Белнапу B4
 
 RC=0
-[guard] FAULTABLE без изменений (59 файлов) — прогон чист
+[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
+        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
+        - src/next/truth.zig: изменён (178585fddc00 -> 71abe4cbb3f2)
+        - zig-out/bin/kernc: изменён (f1145634c5c7 -> aaa29f18a20c)
+        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
+        при пропатченных исходниках. Не правьте файлы во время
+        `make evidence` / `make canfail`.

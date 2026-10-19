@@ -50,6 +50,9 @@ mkdir -p "$EV"
 # Снимок + сверка после каждого шага превращают это из «непонятного RC=1 в
 # конце» в ТОЧНЫЙ диагноз сразу.
 GUARD="${GUARD:-/tmp/kern_evidence_guard.json}"
+# ДЕФЕКТЫ #168/#170: перед снятием свидетельств в дереве НЕ ДОЛЖНО быть
+# маркеров инъекций и чужих незакоммиченных правок в src/.
+python3 tools/injection_guard.py || { echo "[!] свидетельства НЕ снимаются: грязный src/"; exit 2; }
 python3 tools/evidence_guard.py --snapshot "$GUARD" || exit 1
 
 FAST=0

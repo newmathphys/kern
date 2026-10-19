@@ -1,8 +1,23 @@
 === KERN EVIDENCE: bench_semantic ===
 === команда: zig build bench-semantic ===
-=== дата: 2026-10-16T16:49:32Z ===
+=== дата: 2026-10-19T15:57:29Z ===
 
-SEMANTIC_DIGEST=19b1bbeacfccb1eac0862a27cd7612f4c09be24737b81b31d50736cef3b8f502
+error: MerkleRootMismatch
+bench-semantic
++- run exe kern-bench-semantic failure
+error: process exited with code 1
+failed command: ./.zig-cache/o/858fe2af09b54f6c0d9abb345cc5c00b/kern-bench-semantic
 
-RC=0
-[guard] FAULTABLE без изменений (59 файлов) — прогон чист
+Build Summary: 1/3 steps succeeded (1 failed)
+bench-semantic transitive failure
++- run exe kern-bench-semantic failure
+
+
+RC=1
+[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
+        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
+        - tools/kern_contracts.py: изменён (767a0ec516b0 -> d1d76515c6e9)
+        - zig-out/bin/kernc: изменён (f1145634c5c7 -> 3fdb995629fc)
+        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
+        при пропатченных исходниках. Не правьте файлы во время
+        `make evidence` / `make canfail`.

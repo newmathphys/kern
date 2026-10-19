@@ -1,14 +1,13 @@
 === KERN EVIDENCE: run_example ===
 === команда: make run-example ===
-=== дата: 2026-10-16T16:49:29Z ===
+=== дата: 2026-10-19T15:57:22Z ===
 
-make[1]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
 zig build
 === [1] Обычный CI: pytest на «тесте» агента ===
 python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
  echo "(pytest не установлен — вакуумный тест всё равно не имеет assert)"
 .                                                                        [100%]
-1 passed in 0.01s
+1 passed in 0.02s
 
 === [2] KERN: сборка образа доказательств ===
 ./zig-out/bin/kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg
@@ -21,7 +20,7 @@ python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 ||
     контракт `examples/toy_ai_hallucination/contract_refuted.smt2`: SAT -> e=0 (F) КОНТРПРИМЕР
   claim `fixed withdraw never increases the balance`: заявленный статус = T
     контракт `examples/toy_ai_hallucination/contract_fixed.smt2`: UNSAT -> e=1 (T) ДОКАЗАНО
-[i] ИТОГ: доказано 1, контрпримеров 1, без контракта 0
+[i] ИТОГ: доказано 1, контрпримеров 1, без контракта 0, РАСХОЖДЕНИЙ С ЗАЯВЛЕННЫМ СТАТУСОМ 0
 [i] e=1 выставляется ТОЛЬКО по вердикту решателя. Заявления без
     привязанного контракта остаются e=0 — это и есть честный статус.
 
@@ -35,7 +34,12 @@ python3 -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 ||
   type=0x0005 size=49 path=`fixed withdraw never increases the balance`
 
 ИТОГ: заявление агента ОПРОВЕРГНУТО (e=0), исправленная версия ДОКАЗАНА (e=1).
-make[1]: выход из каталога «/home/mrbritneyxxx/Рабочий стол/kern»
 
 RC=0
-[guard] FAULTABLE без изменений (59 файлов) — прогон чист
+[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
+        - src/core/kernfs_router.zig: изменён (75afe0e48c73 -> f7078411830f)
+        - src/next/truth.zig: изменён (178585fddc00 -> 71abe4cbb3f2)
+        - zig-out/bin/kernc: изменён (f1145634c5c7 -> e45403682dc5)
+        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
+        при пропатченных исходниках. Не правьте файлы во время
+        `make evidence` / `make canfail`.
