@@ -167,4 +167,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Полный сквозной прогон `canfail`: **138 не-вакуумных / 0 вакуумных / 0 ошибок**.
+Полный сквозной прогон `canfail`: **141 не-вакуумных / 0 вакуумных / 0 ошибок**.

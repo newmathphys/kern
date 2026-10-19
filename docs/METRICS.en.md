@@ -1685,3 +1685,43 @@ mutation block scored 0/12, the stand reported 88/100 and `RC=1`.
 Fixed with `MUTATION SCORE[^:]*:\\s*([0-9.]+)%`; re-run: **100/100, RC=0**.
 
 Same class as #166 and #175: **change an output format — check every consumer**.
+
+---
+
+### 40. Field audit of 14 industry repositories (#174 closed, #178–#184 fixed)
+
+Run in `/tmp/kern-field-lab` (clones `--depth 1`, hooks disabled, third-party
+trees untouched). Full report: `docs/FIELD_AUDIT_REPORT.md`.
+
+**#174 — closed.** 52 names were defined twice in `tools/kern_contracts.py`
+(2024 lines of dead code). Removed all shadowed copies **bottom-up by AST
+(`52 -> 0`, −2003 lines)**; `dup_defs_guard` ratchet is now at **0**.
+Root cause of the earlier crash was found: the file had **two**
+`if __name__ == "__main__"` blocks (the middle one called `main()` before the
+later half of the file was defined → `NameError: cmd_xray`), and the *early*
+`cmd_xray` copy was **newer** than the live one, so C-like routing silently
+did nothing.
+
+**Scorecard before → after** (profile/`LICENSE*`/tests/Lean fixes, #181):
+
+```
+cmark-gfm 40 D -> 78 B    actions/toolkit 40 D -> 83 B    ripgrep 50 D -> 73 B
+mcp/servers 50 D -> 85 A  python-sdk 68 C -> 85 A         ts-sdk 50 D -> 83 B
+fastapi 64 C -> 81 B      fastmcp 56 C -> 75 B            click 58 C -> 83 B
+flask 50 D -> 73 B        requests 52 C -> 70 B           tigerbeetle 54 D -> 84 B
+zls 60 C -> 73 B          aesop (Lean 4) 42 D -> 73 B
+```
+
+**`[CRASH PATH]` before → after:** total **469 → 10** across 13 code
+repositories. About 95 % of the original findings were false: slashes inside
+`//` / `///` comments, string literals, JS regex literals, `ALL_CAPS` macros
+and identifiers that were never inputs (#178). Additional fixes: Python
+`assert` as a path guard + *loop-modified variable kill* (#179), Rust
+`pub(crate) fn` / generics / `if cond {` (#180), balanced-paren `assert`
+(#182), machine type ranges + let-inlining + `@kern:requires` as part of the
+domain + divisor must depend on parameters (#183), and — **soundness** —
+`_smt_sat` now delegates to the three-valued verdict instead of reading
+`N` as SAT, with free names declared (#184).
+
+Remaining 10 findings are listed with per-case verdicts in the report; the
+rule is unchanged: **a false accusation is worse than a skip.**
