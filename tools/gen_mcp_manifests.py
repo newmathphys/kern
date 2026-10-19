@@ -122,10 +122,30 @@ def build(tools: list[dict], info: dict) -> dict[str, dict]:
                    "inputSchema": x["inputSchema"], "annotations": x["annotations"]}
                   for x in t],
     }
+    # Glama.ai: свой манифест с maintainers + аннотациями (каталог ищет
+    # `glama.json` в корне; без него карточка остаётся неразмеченной).
+    glama = {
+        "$schema": "https://glama.ai/mcp/schemas/server.json",
+        "name": common["name"],
+        "title": common["title"],
+        "version": VERSION,
+        "description": DESCRIPTION,
+        "repository": "https://github.com/newmathphys/kern",
+        "homepage": common["homepage"],
+        "license": LICENSE_FIELD,
+        "maintainers": ["newmathphys"],
+        "runtime": "python",
+        "startCommand": {"type": "stdio",
+                         "command": server["entrypoint"]["command"],
+                         "args": server["entrypoint"]["args"]},
+        "tools": [{"name": x["name"], "description": x.get("description", ""),
+                   "annotations": x["annotations"]} for x in t],
+    }
     return {
         "server.json": server,
         "mcp.json": desktop,
         ".well-known/mcp.json": wellknown,
+        "glama.json": glama,
     }
 
 
@@ -173,6 +193,18 @@ def check(docs: dict[str, dict]) -> int:
             print(f"[!] {rel}: УСТАРЕЛ (расходится с examples/kern_mcp_server.py)")
             bad += 1
 
+    # Smithery.yaml — статический шаблон запуска; проверяем, что он не
+    # разъехался с версией/точкой входа/лицензией манифестов.
+    try:
+        import yaml  # noqa: PLC0415
+        sm = yaml.safe_load((ROOT / "smithery.yaml").read_text(encoding="utf-8"))
+        assert str(sm.get("version")) == VERSION, sm.get("version")
+        assert sm.get("license") == LICENSE_FIELD, sm.get("license")
+        assert sm["startCommand"]["type"] == "stdio"
+        assert "examples/kern_mcp_server.py" in " ".join(sm["startCommand"]["commandFunction"].split())
+    except Exception as e:  # noqa: BLE001
+        print(f"[!] smithery.yaml: {e}")
+        bad += 1
     lic = (ROOT / "LICENSE").read_text(encoding="utf-8", errors="replace")
     if LICENSE_TEXT not in lic:
         print(f"[!] LICENSE не содержит «{LICENSE_TEXT}», "

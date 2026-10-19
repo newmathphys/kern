@@ -17,7 +17,7 @@ ok()   { printf '  [OK] %s\n' "$1"; }
 bad()  { printf '  [FAIL] %s\n' "$1"; fail=1; }
 
 echo "== 1) манифесты MCP == код (генератор + --check) =="
-if python3 tools/gen_mcp_manifests.py --check; then ok "server.json / mcp.json / .well-known/mcp.json синхронны с tools/list"; else bad "манифесты расходятся с examples/kern_mcp_server.py"; fi
+if python3 tools/gen_mcp_manifests.py --check; then ok "server.json / mcp.json / .well-known/mcp.json / glama.json + smithery.yaml синхронны с tools/list"; else bad "манифесты расходятся с examples/kern_mcp_server.py"; fi
 
 echo "== 2) llms.txt (стандарт llmstxt.org) =="
 [ -s llms.txt ] && ok "llms.txt ($(wc -c < llms.txt) Б)" || bad "нет llms.txt"
@@ -36,7 +36,7 @@ PY
 then :; else bad "action.yml невалиден или потерял sha256/mode/sarif"; fi
 
 echo "== 4) обязательные файлы экосистемы =="
-for f in CITATION.cff SECURITY.md server.json mcp.json .well-known/mcp.json; do
+for f in CITATION.cff SECURITY.md server.json mcp.json .well-known/mcp.json glama.json smithery.yaml; do
   [ -s "$f" ] && ok "$f" || bad "нет/пуст $f"
 done
 

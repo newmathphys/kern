@@ -1,0 +1,111 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "io.github.newmathphys/kern",
+  "title": "KERN — zero-trust verification gateway",
+  "version": "2.5.0",
+  "description": "Zero-trust verification gateway: Z3 + a native Zig proof-DAG checker (trusted steps 0), Belnap B4 logic, Lean 4 soundness theorems, and zero-annotation X-ray for Python, Zig, C, Rust, Go and TS/JS.",
+  "repository": "https://github.com/newmathphys/kern",
+  "homepage": "https://newmathphys.github.io/kern/",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "maintainers": [
+    "newmathphys"
+  ],
+  "runtime": "python",
+  "startCommand": {
+    "type": "stdio",
+    "command": "python3",
+    "args": [
+      "examples/kern_mcp_server.py"
+    ]
+  },
+  "tools": [
+    {
+      "name": "kern_verify_smt",
+      "description": "Verify an SMT-LIB2 contract with KERN: an external Z3 run plus an independent proof-DAG checker. Returns the verdict (proven / not proven) and a checker summary.",
+      "annotations": {
+        "title": "Verify an SMT-LIB2 contract",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_prove_with_checker",
+      "description": "Same as kern_verify_smt, but returns the FULL proof-checker breakdown: how many Z3 proof steps were re-checked independently and how many were left trusted.",
+      "annotations": {
+        "title": "Prove and machine-check a proof DAG",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_multi_belnap",
+      "description": "Verify MULTIPLE contracts and join the verdicts in Belnap B4 (T/F/B/N). A conflict (T and F together) yields B: the contradiction is never collapsed into a proof.",
+      "annotations": {
+        "title": "Verify several claims in Belnap B4",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_python",
+      "description": "Verify Python code carrying contracts in comments (`# @kern:requires` / `# @kern:ensures`). Branches if/elif/else and local assignments are supported: they are translated into SMT `ite`. For each function the status (PASS/FAIL/SKIP), the Belnap verdict and a COUNTEREXAMPLE on violation are returned. Loops and calls yield an honest SKIP.",
+      "annotations": {
+        "title": "Verify Python contracts (@kern: annotations)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_check_equivalence",
+      "description": "Prove refactoring EQUIVALENCE without writing any contracts: for same-named functions of two sources it checks `∃x: f_old(x) != f_new(x)`. UNSAT -> [EQUIVALENT] (behaviour unchanged), SAT -> [DIVERGED] plus a COUNTEREXAMPLE where the old and new functions disagree. Loops/calls yield an honest SKIP.",
+      "annotations": {
+        "title": "Prove two functions equivalent (refactoring)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_xray_code",
+      "description": "ZERO-ANNOTATION code X-ray: dead branches [DEAD BRANCH] (UNSAT), redundant guards [REDUNDANT GUARD], crash paths [CRASH PATH] (division by zero, overflow) and McCabe complexity. Works with no @kern: annotation at all.",
+      "annotations": {
+        "title": "Zero-annotation X-ray of any code file",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_verify_action",
+      "description": "FinOps / Action Firewall: evaluates an agent's JSON tool call against a policy BEFORE execution. T -> 200, F -> 422 (with a counterexample), B -> 409 (the policies contradict each other).",
+      "annotations": {
+        "title": "Verify an AI agent action against policy",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_rlvr_reward",
+      "description": "RLVR reward oracle: +1.0 for a PROVEN contract (trusted: 0), -1.0 for a counterexample, -2.0 for reward hacking, 0.0 when abstaining (outside the supported fragment).",
+      "annotations": {
+        "title": "Verifiable reward for generated code (RLVR)",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

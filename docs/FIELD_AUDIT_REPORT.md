@@ -1,0 +1,99 @@
+# Field audit: 14 industry repositories
+
+What this document is: a **measured** run of KERN's two field tools over real,
+unmodified third-party code bases, and what the numbers were **before** and
+**after** fixing the defects that the run itself exposed.
+
+* `tools/trust_scorecard.py --repo <dir>` — composition / hygiene scorecard
+  (8 language categories, licence, tests, CI, MCP surface, Lean theorems).
+* `tools/kern_contracts.py --xray <dir>` — zero-annotation X-Ray
+  (`[DEAD BRANCH]`, `[CRASH PATH]`, `[BOUNDS PATH]`, McCabe CC).
+
+Repositories were cloned with `--depth 1` into `/dev/shm/kern-field-lab`
+(hooks disabled, LFS smudge off). **Nothing in their trees was modified.**
+
+## 1. Scorecard: before → after
+
+"Before" = first field run (v2.5.0 tools). "After" = same tools with the
+fixes #181 (profiles, licence/test/Lean detection) and #183 (type ranges).
+
+| Repository | Language | Before | After | Δ |
+|:--|:--|:--|:--|--:|
+| `github/cmark-gfm` | C | 40 / 100 · D | **78 / 100 · B** | +38 |
+| `actions/toolkit` | TypeScript | 40 / 100 · D | **83 / 100 · B** | +43 |
+| `BurntSushi/ripgrep` | Rust | 50 / 100 · D | **73 / 100 · B** | +23 |
+| `modelcontextprotocol/servers` | Python/TS | 50 / 100 · D | **85 / 100 · A** | +35 |
+| `modelcontextprotocol/python-sdk` | Python | 68 / 100 · C | **85 / 100 · A** | +17 |
+| `modelcontextprotocol/typescript-sdk` | TypeScript | 50 / 100 · D | **83 / 100 · B** | +33 |
+| `tiangolo/fastapi` | Python | 64 / 100 · C | **81 / 100 · B** | +17 |
+| `jlowin/fastmcp` | Python | 56 / 100 · C | **75 / 100 · B** | +19 |
+| `pallets/click` | Python | 58 / 100 · C | **83 / 100 · B** | +25 |
+| `pallets/flask` | Python | 50 / 100 · D | **73 / 100 · B** | +23 |
+| `psf/requests` | Python | 52 / 100 · C | **70 / 100 · B** | +18 |
+| `tigerbeetle/tigerbeetle` | Zig | 54 / 100 · D | **84 / 100 · B** | +30 |
+| `zigtools/zls` | Zig | 60 / 100 · C | **73 / 100 · B** | +13 |
+| `leanprover-community/aesop` | Lean 4 | 42 / 100 · D | **73 / 100 · B** | +31 |
+
+Why before was so low: the scorecard looked only for a file literally named
+`LICENSE` (real projects ship `COPYING`, `LICENSE.md`, `LICENSE-MIT`), only for
+`tests/` (not `test/`, `__tests__/`, `*_test.go`, `*.test.ts`, in-tree Zig
+`test "` / Rust `#[test]`), and only for Lean files under `formal/` — so
+`aesop` with 250 `.lean` files scored 0 for formal soundness.
+
+Grade `A+` (95–100) stays reserved for the full KERN stack (contracts with
+`trusted: 0`, can-fail harness, Ed25519 attestation, 8-tool MCP surface).
+
+## 2. X-Ray `[CRASH PATH]`: before → after
+
+"Before" = raw regex over source text. "After" = comment/string stripping,
+path narrowing, `assert` guards, type ranges and let-inlining (#178–#184).
+
+| Repository | `checked / total` functions | `[CRASH PATH]` before | after |
+|:--|:--|--:|--:|
+| `github/cmark-gfm` | 95 / 254 | 59 | **0** |
+| `actions/toolkit` | 32 / 148 | 22 | **0** |
+| `BurntSushi/ripgrep` | 36 / 1354 (was 0 / 1292) | 60 | **0** |
+| `modelcontextprotocol/servers` | 207 / 345 | 25 | **0** |
+| `modelcontextprotocol/typescript-sdk` | 103 / 916 | 60 | **0** |
+| `modelcontextprotocol/python-sdk` | 2748 / 3276 | 16 | **4** |
+| `jlowin/fastmcp` | 7524 / 8680 | 13 | **3** |
+| `tiangolo/fastapi` | (unchanged) | 4 | **0** |
+| `pallets/click` | (unchanged) | 3 | **0** |
+| `pallets/flask` | (unchanged) | 1 | **0** |
+| `zigtools/zls` | 114 / 497 | 49 | **1** |
+| `tigerbeetle/tigerbeetle` | 586 / 2380 | 60 | **0** |
+| `psf/requests` | `[BOUNDS PATH]` | 4 | **0** |
+| `leanprover-community/aesop` | n/a (Lean) | — | — |
+
+Total `[CRASH PATH]`: **469 → 8** (re-measured after #182–#184; per-repo numbers above). Before the fixes roughly **95 %** of the
+findings were false: `/` inside `// comments`, `/// docs`, string literals
+(`"pkg/windows/Manifest.xml"`), JS regex literals, `ALL_CAPS` macros, and
+identifiers that were not inputs at all.
+
+## 3. What still remains (and why it is honest)
+
+| Finding | Verdict |
+|:--|:--|
+| `fastmcp` `divide` / `modulo` (`y == 0`) | **real**: test helper divides by an unguarded parameter |
+| `zls` `initFromTrigram` (`len == 0`) | **real contract gap**: the function itself has no `len != 0`; the caller's invariant is not visible |
+| `python-sdk` (4) | conservative: divisor is a dynamically-resolved attribute or a test helper parameter — value unknown, not proven either way |
+| `zls` `alternate` | **fixed by #182/#183**: `assert(@backingInt(index) < len)` is now a path guard |
+| `tigerbeetle` (`shard_bits`, `slot_count`, …) | **fixed by #183**: comptime fields/constants do not depend on inputs |
+
+Rule used throughout: **a false accusation is worse than a skip**. When the
+model cannot prove the guard, the finding is dropped and the reason is
+recorded, never guessed.
+
+## 4. Reproduce
+
+```bash
+git clone --depth 1 https://github.com/tigerbeetle/tigerbeetle /tmp/kern-field-lab/tb
+python3 tools/trust_scorecard.py --repo /tmp/kern-field-lab/tb
+python3 tools/kern_contracts.py --xray /tmp/kern-field-lab/tb
+```
+
+Both tools are also exposed as `make audit-repo-check` (git sandbox:
+`GIT_TERMINAL_PROMPT=0`, `core.hooksPath=/dev/null`, 30 s timeout, `/dev/shm`
+cleanup on `SIGTERM`) and as the browser scanner on
+<https://newmathphys.github.io/kern/#scorecard> (GitHub Trees API +
+`raw.githubusercontent.com`, `kernc.wasm`, no backend).

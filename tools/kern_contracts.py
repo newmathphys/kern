@@ -826,6 +826,56 @@ def clike_to_python(s: str) -> str:
     return convert_ternary(s)
 
 
+# 🔴 ДЕФЕКТ #183 (полевой прогон по zls): в Zig гард пишется как
+# `assert(@backingInt(index) < len)`, а `@backingInt(...)`/`@as(T, x)`
+# наш C-like транслятор не знает — условие отбрасывалось, и `--xray`
+# выдавал ложный `[CRASH PATH] len == 0` на защищённом коде.
+# Здесь снимаем чисто обёртки (они не меняют значение выражения).
+_ZIG_WRAP = ("backingInt", "fromBackingInt", "intCast", "intFromEnum",
+             "intFromBool", "bitCast", "floatCast", "enumFromInt")
+
+
+def _unwrap_zig_builtins(s: str) -> str:
+    # `@as(T, x)` — значение в последнем аргументе
+    s = re.sub(r"@as\s*\(([^()]*)\)",
+               lambda m: m.group(1).rsplit(",", 1)[-1].strip(), s)
+    for _ in range(3):
+        pat = r"@(?:" + "|".join(_ZIG_WRAP) + r")\s*\(([^()]*)\)"
+        s2 = re.sub(pat, r"\1", s)
+        if s2 == s:
+            break
+        s = s2
+    return s
+
+
+def _iter_call_args(src: str, name: str):
+    r"""Все аргументы вызова `name(...)` с БАЛАНСОМ скобок.
+
+    🔴 ДЕФЕКТ #182 (найден полевым прогоном): регулярка `assert\s*\(([^()]*)\)`
+    не видит вложенных скобок, поэтому `assert(@backingInt(index) < len)`
+    (zls) НЕ становился гардом пути, и `--xray` выдавал ложный
+    `[CRASH PATH] len == 0` на защищённом коде. Здесь скобки считаются.
+    """
+    pat = re.compile(r"\b" + re.escape(name) + r"\s*\(")
+    i = 0
+    while True:
+        m = pat.search(src, i)
+        if not m:
+            return
+        depth = 1
+        j = m.end()
+        while j < len(src) and depth:
+            c = src[j]
+            if c == "(":
+                depth += 1
+            elif c == ")":
+                depth -= 1
+            j += 1
+        if depth == 0:
+            yield src[m.end(): j - 1]
+        i = j
+
+
 def _strip_c_comments_strings(text: str) -> str:
     """ДЕФЕКТ #178: убрать комментарии и содержимое строковых литералов.
 
@@ -2515,15 +2565,17 @@ def _demo(args) -> int:
 
 
 def _smt_sat(kernc, params, asserts) -> bool | None:
-    """Выполним ли набор утверждений? True/False, либо None (не решено)."""
-    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
-    body = "\n".join(f"(assert {a})" for a in asserts)
-    smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
-    rc, out = run_kernc(kernc, smt)
-    if "НЕ доказано" in out or "КОНТРПРИМЕР" in out:
-        return True  # SAT: контрпример найден
-    if "ДОКАЗАНО" in out:
-        return False  # UNSAT: утверждения невыполнимы
+    """Выполним ли набор утверждений? True/False, либо None (не решено).
+
+    🔴 ДЕФЕКТ #184: раньше «НЕ доказано» считалось SAT — а так печатает и
+    `N` (решатель не решил / ошибка разбора). Теперь решение берётся из
+    ТРЁХЗНАЧНОГО вердикта: `unknown` -> None (не обвиняем).
+    """
+    kind, _ce = _smt_verdict(kernc, params, asserts)
+    if kind == "sat":
+        return True
+    if kind == "unsat":
+        return False
     return None
 
 
@@ -2742,6 +2794,35 @@ def _declared_lengths_for(lines: list[str], lineno: int) -> dict[str, int]:
     return out
 
 
+_SMT_RESERVED = frozenset((
+    "and", "or", "not", "ite", "true", "false", "div", "mod", "abs",
+    "let", "forall", "exists", "Int", "Bool", "Real", "select", "store",
+    "distinct", "xor", "=>", "=", "<", "<=", ">", ">=", "+", "-", "*", "/",
+))
+
+
+def _free_smt_vars(asserts, params) -> list[str]:
+    """Свободные имена в утверждениях — объявляем их (неизвестное значение).
+
+    🔴 ДЕФЕКТ #184 (звучимость, полевой прогон): `_smt_sat` объявлял только
+    ПАРАМЕТРЫ. Если условие ссылалось на локальное имя (например
+    `bit_test` из `const bit_test = addr & …`), SMT-LIB получал
+    НЕОБЪЯВЛЕННЫЙ символ, kernc отвечал `KERN-EQ2 : N`, а `_smt_sat`
+    трактовал «НЕ доказано» как SAT — и печатался ложный `[CRASH PATH]`.
+    Свободное имя как Int — честная семантика «значение неизвестно».
+    """
+    known = set(params)
+    out: list[str] = []
+    seen: set[str] = set()
+    for a in asserts:
+        for tok in re.findall(r"[A-Za-z_][\w]*(?:![\w]+)?", a):
+            if tok in _SMT_RESERVED or tok in known or tok in seen:
+                continue
+            seen.add(tok)
+            out.append(tok)
+    return out
+
+
 def _smt_verdict(kernc, params, asserts) -> tuple[str, str | None]:
     """ТРЁХЗНАЧНЫЙ вердикт: ("sat", контрпример) | ("unsat", None) | ("unknown", причина).
 
@@ -2750,7 +2831,8 @@ def _smt_verdict(kernc, params, asserts) -> tuple[str, str | None]:
     ДОКАЗАННОЙ — ложный PASS. Теперь `unknown` отличается от `unsat` и обязан
     обрабатываться вызывающим кодом как «НЕ проверено».
     """
-    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    free = _free_smt_vars(asserts, params)
+    decls = "\n".join(f"(declare-const {p} Int)" for p in list(params) + free)
     body = "\n".join(f"(assert {a})" for a in asserts)
     smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
     _rc, out = run_kernc(kernc, smt)
@@ -2951,6 +3033,11 @@ _XRAY_EXTS = {".py", ".ts", ".js", ".go", ".zig", ".c", ".h", ".rs"}
 # Локальные объявления (`const q = …`, `var n: i32 = …`, `let x = …`):
 # их НЕЛЬЗЯ считать свободными параметрами в делителе.
 _RE_CLIKE_LOCAL = re.compile(r"\b(?:const|var|let)\s+(\w+)\s*(?::\s*([\w.]+))?\s*=")
+# ДЕФЕКТ #183 (Let-Inlining для C-like): нужен ПРАВЫЙ операнд присваивания,
+# иначе `const bit_test = addr & ~(alignment - 1); if (bit_test == addr) …`
+# работает с НЕИЗВЕСТНЫМИ именами, и `--xray` выдаёт ложный [CRASH PATH].
+_RE_CLIKE_LOCAL_RHS = re.compile(
+    r"\b(?:const|var|let)\s+(\w+)\s*(?::\s*([\w.\[\]\?\* ]+))?\s*=\s*([^;]+);")
 
 _RE_CLIKE_DIV = re.compile(
     r"(?:@divTrunc|@rem|@divFloor|@mod)\s*\(([^,()]+),\s*([^()]+)\)"
@@ -2978,6 +3065,69 @@ _NUMERIC_TYPES = {"i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64",
                   "uint32_t", "uint64_t", "int64_t", "number", "i32_t"}
 
 
+# 🔴 ДЕФЕКТ #183 (полевой прогон по zls/tigerbeetle): без ДИАПАЗОНОВ ТИПОВ
+# `assert(index < len)` не доказывает `len > 0` для беззнакового `u32`
+# (в Int `index < 0` выполнимо), и `--xray` выдавал ложный [CRASH PATH]
+# на защищённом коде. Диапазоны ниже — машинные границы типов (не догадка).
+_CLIKE_RANGES = {
+    "u8": (0, 255), "u16": (0, 65535), "u32": (0, 4294967295),
+    "u64": (0, 18446744073709551615), "usize": (0, 18446744073709551615),
+    "uint": (0, 4294967295), "size_t": (0, 18446744073709551615),
+    "i8": (-128, 127), "i16": (-32768, 32767),
+    "i32": (-2147483648, 2147483647),
+    "i64": (-9223372036854775808, 9223372036854775807),
+    "isize": (-9223372036854775808, 9223372036854775807),
+    "int": (-2147483648, 2147483647),
+}
+
+
+def _split_top_and(expr: str) -> list[str]:
+    """Разбить `a > 0 and b == 1` по ВЕРХНЕМУ `and` (учитывая скобки)."""
+    out, depth, cur = [], 0, ""
+    i = 0
+    while i < len(expr):
+        c = expr[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        if depth == 0 and expr.startswith(" and ", i):
+            out.append(cur.strip())
+            cur = ""
+            i += 5
+            continue
+        cur += c
+        i += 1
+    if cur.strip():
+        out.append(cur.strip())
+    return out
+
+
+def _clike_param_ranges(praw: str) -> dict:
+    """Диапазоны параметров по их объявленным типам (Zig/Rust/Go/C/TS)."""
+    out: dict = {}
+    for part in praw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" in part:
+            nm, ty = part.split(":", 1)
+            name = nm.strip().split()[-1] if nm.strip() else ""
+            ty = ty.strip()
+        else:
+            toks = part.split()
+            if len(toks) < 2:
+                continue
+            name, ty = toks[-1], " ".join(toks[:-1])
+        name = name.lstrip("*&")
+        ty = ty.replace("const", " ").replace("mut", " ").replace("*", " ")
+        ty = ty.replace("&", " ").strip().lower()
+        key = ty.split()[-1] if ty else ""
+        if key in _CLIKE_RANGES:
+            out[name] = _CLIKE_RANGES[key]
+    return out
+
+
 def _clike_functions(path: Path):
     """УСТОЙЧИВЫЙ разбор C-like функций БЕЗ исполнения тела.
 
@@ -2993,7 +3143,8 @@ def _clike_functions(path: Path):
     # ДЕФЕКТ #178: баланс скобок и `if (...)` считаются по коду БЕЗ
     # комментариев и строковых литералов (`}` внутри строки ломал разбор,
     # а `// a/b` давал ложный делитель). Переводы строк сохранены.
-    src = _strip_c_comments_strings(path.read_text(encoding="utf-8", errors="replace"))
+    raw_text = path.read_text(encoding="utf-8", errors="replace")
+    src = _strip_c_comments_strings(raw_text)
     if path.suffix in {".ts", ".js"}:
         src = _strip_js_regex(src)          # `/re/g` — регекс, а не деление
     lines = src.splitlines()
@@ -3030,7 +3181,28 @@ def _clike_functions(path: Path):
             body.append(ln)
             if started and depth <= 0:
                 break
-        out.append((name, params, "\n".join(body), i + 1))
+        # `@kern:requires` над функцией — часть домена. Для C-like это
+        # единственный способ сказать «alignment > 0» (дефект #183: без этого
+        # аннотированный `bitAlignedAgrees` давал ложный [CRASH PATH]).
+        req_parts: list[str] = []
+        # Комментарии стёрты в `lines`, поэтому контракт читаем из СЫРОГО текста.
+        raw_lines = raw_text.splitlines()
+        # Идём НАЗАД по доку-блоку и останавливаемся на первой не-комментарной
+        # (или пустой) строке: иначе контракт ПРЕДЫДУЩЕЙ функции приклеивался
+        # к следующей (найдено на `examples/edge_cases.zig`: `modBuiltin`
+        # получил `d > 0` от соседней функции).
+        for k in range(i - 1, max(-1, i - 12), -1):
+            raw_ln = raw_lines[k].strip() if k < len(raw_lines) else ""
+            if not raw_ln:
+                break
+            if not (raw_ln.startswith("//") or raw_ln.startswith("#")
+                    or raw_ln.startswith("/*") or raw_ln.startswith("*")):
+                break
+            rm = re.search(r"@kern:requires\s+(.+)$", raw_ln)
+            if rm:
+                req_parts.extend(_split_top_and(rm.group(1).strip()))
+        out.append((name, params, "\n".join(body), i + 1,
+                    _clike_param_ranges(praw), req_parts))
     return out
 
 
@@ -3050,15 +3222,43 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         return 0, 0, []
     checked = total = 0
     found: list[str] = []
-    for name, params, body, _ln in funcs:
+    for name, params, body, _ln, ranges, reqs in funcs:
         total += 1
         proven = 0
-        path_conds: list[str] = []
+        # Диапазоны типов — часть домена (u32 не бывает отрицательным).
+        path_conds: list[str] = [f"(and (>= {p} {lo}) (<= {p} {hi}))"
+                                 for p, (lo, hi) in (ranges or {}).items()]
+        for rq in (reqs or []):
+            try:
+                path_conds.append(expr_smt(
+                    ast.parse(clike_to_python(_unwrap_zig_builtins(rq)), mode="eval").body, {}))
+            except (Unsupported, NoReturn, SyntaxError, Exception):
+                continue  # конъюнкт вне подмножества — честно пропускаем
+        # Let-Inlining (дефект #183): подставляем локальные `const x = expr;`,
+        # чтобы условия и делители зависели от ПАРАМЕТРОВ, а не от
+        # неизвестных имён. Float-локальные НЕ инлайним (деление на 0.0 =
+        # inf, а не паника).
+        local_smt: dict[str, str] = {}
+        float_locals: set[str] = set()
+        for lm2 in _RE_CLIKE_LOCAL_RHS.finditer(body):
+            nm2, ty2, rhs2 = lm2.group(1), (lm2.group(2) or ""), lm2.group(3).strip()
+            ty_l = ty2.strip().lower()
+            if ty_l.startswith("f") or "float" in ty_l:
+                float_locals.add(nm2)
+                continue
+            if nm2 in local_smt or re.search(rf"\b{re.escape(nm2)}\b", rhs2):
+                continue  # самоссылка/повтор — не инлайним (звучность важнее)
+            try:
+                local_smt[nm2] = expr_smt(
+                    ast.parse(clike_to_python(_unwrap_zig_builtins(rhs2)), mode="eval").body,
+                    local_smt)
+            except (Unsupported, NoReturn, SyntaxError, Exception):
+                continue
         pos = 0
         for m in _clike_ifs(body):
             raw_cond = m.group(1)
             try:
-                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, {})
+                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt)
             except (Unsupported, NoReturn, SyntaxError, Exception):
                 pos = m.end()
                 continue
@@ -3087,12 +3287,26 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
         # дальнейшего кода. Без этого zls `alternate(..., len: u32)` с
         # `assert(@backingInt(index) < len)` давал ложный [CRASH PATH].
-        for am2 in re.finditer(r"\bassert\s*\(([^()]*)\)", body):
+        # 🔴 ДЕФЕКТ #183: делитель, про который в коде стоит ЯВНЫЙ assert
+        # (`assert(@backingInt(index) < len)` в zls), не выдаём за «путь
+        # падения»: разработчик заявил отношение. Доказать его для
+        # неизвестного типа мы не можем — поэтому НЕ обвиняем (ложное
+        # обвинение хуже пропуска).
+        guarded_divs: set[str] = set()
+        for am2_body in _iter_call_args(body, "assert"):
             try:
-                ac = expr_smt(ast.parse(clike_to_python(am2.group(1)), mode="eval").body, {})
+                ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(am2_body)), mode="eval").body, local_smt)
             except (Unsupported, NoReturn, SyntaxError, Exception):
                 continue
             path_conds.append(ac)
+            for g in re.finditer(r"\((?:<=|<)\s+[^()]+\s+([A-Za-z_]\w*)\)", ac):
+                guarded_divs.add(g.group(1))
+            for g in re.finditer(r"\((?:>=|>)\s+([A-Za-z_]\w*)\s+[^()]+\)", ac):
+                guarded_divs.add(g.group(1))
+            for g in re.finditer(r"\(not \(= ([A-Za-z_]\w*) 0\)\)", ac):
+                guarded_divs.add(g.group(1))
+            for g in re.finditer(r"\(= ([A-Za-z_]\w*) 0\)", ac):
+                pass  # `(= d 0)` в assert — это требование «равно нулю», не гард
 
         # [CRASH PATH] для C-like: деление на выражение, которое может быть 0.
         # ИСКЛЮЧАЕМ: (а) локальные переменные — они не входные данные;
@@ -3106,6 +3320,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             locals_.add(nm_)
             if ty_.lower().startswith("f") or "float" in ty_.lower():
                 float_names.add(nm_)
+        float_names |= float_locals
         if float_names or re.search(r"\b[0-9]+\.[0-9]+", body):
             float_names |= {m2.group(1) for m2 in _RE_CLIKE_LOCAL.finditer(body)}
         for dm in _RE_CLIKE_DIV.finditer(body):
@@ -3116,11 +3331,19 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             else:
                 den = dm.group(6)
             try:
-                d = expr_smt(ast.parse(clike_to_python(den), mode="eval").body, {})
+                d = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(den)), mode="eval").body, local_smt)
             except (Unsupported, NoReturn, SyntaxError, Exception):
                 continue
             if d.strip().isdigit() or _MACRO_DIV.match(d.strip()):
                 continue  # константа/макрос — не 0
+            if d.strip() in guarded_divs:
+                continue  # явный assert на делитель — не обвиняем (см. #183)
+            # ДЕФЕКТ #183: делитель, НЕ зависящий от входных параметров — это
+            # comptime-поле/константа структуры (`shard_bits`, `slot_count`
+            # в tigerbeetle). Значение задано в типе, а не приходит извне;
+            # обвинять такой код в делении на ноль — ложная тревога.
+            if not _mentions_param(d, params):
+                continue
             if d.strip() in locals_ or d.strip() in float_names:
                 continue  # локальная переменная / float-арифметика — не параметр
             if "__" in d:

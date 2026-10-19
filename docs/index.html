@@ -704,9 +704,23 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
         <tr data-lb="astral-sh/ruff" style="cursor:pointer;border-top:1px solid #21262d">
           <td>astral-sh/ruff</td><td>composition</td><td>Rust + Python: CC, anti-cheat, crash paths</td></tr>
         <tr data-lb="github/cmark-gfm" style="cursor:pointer;border-top:1px solid #21262d">
-          <td>github/cmark-gfm</td><td>composition</td><td>C11: CC, memory-guard heuristics</td></tr>
+          <td>github/cmark-gfm</td><td class="sc-ok">78/100 · B</td>
+          <td>C11: CC, crash paths — field-audited (59 → 0 false crash paths)</td></tr>
+        <tr data-lb="tigerbeetle/tigerbeetle" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>tigerbeetle/tigerbeetle</td><td class="sc-ok">84/100 · B</td>
+          <td>Zig: field-audited, 586/2380 functions, 0 crash paths after #183</td></tr>
+        <tr data-lb="BurntSushi/ripgrep" style="cursor:pointer;border-top:1px solid #21262d">
+          <td>BurntSushi/ripgrep</td><td class="sc-ok">73/100 · B</td>
+          <td>Rust: 36/1354 functions (was 0/1292), 60 → 0 false crash paths</td></tr>
       </tbody>
     </table></div>
+    <p class="note" style="margin-top:10px">Field audit of <b>14 real repositories</b>
+    (Zig, C, Rust, TypeScript, Go, Python, Lean&nbsp;4) — scorecard and X-Ray numbers
+    before and after the fixes:&nbsp;
+    <a href="https://github.com/newmathphys/kern/blob/main/docs/FIELD_AUDIT_REPORT.md">docs/FIELD_AUDIT_REPORT.md</a>.
+    Browser score is capped at <b>X/65</b>: it reads the tree and raw files only;
+    the remaining 35 points need Z3 X-Ray, mutation testing and a signed attestation
+    (<code>python3 tools/trust_scorecard.py --repo owner/repo</code>).</p>
     <h3 style="margin-top:16px">🕒 Recently audited in your browser</h3>
     <pre id="sc-history" class="mono" style="font-size:12px;white-space:pre-wrap">No scans in this browser yet.</pre>
   </div>

@@ -121,6 +121,13 @@ def _detect_tests(root: Path) -> bool:
     for d in _TEST_DIRS:
         if (root / d).is_dir():
             return True
+    # `AesopTest`, `Test`, `__tests__` и т.п. — регистронезависимо
+    try:
+        for p in root.iterdir():
+            if p.is_dir() and ("test" in p.name.lower() or "spec" in p.name.lower()):
+                return True
+    except OSError:
+        pass
     if (root / "src" / "test_root.zig").is_file():
         return True
     for pat in _TEST_FILE_GLOBS:
@@ -159,13 +166,39 @@ def _strip_lean_comments(t: str) -> str:
     return "\n".join(out)
 
 
+# ДЕФЕКТ #181 (Lean в чужих репозиториях): у KERN доказательства лежат в
+# `formal/*.lean`, а у leanprover/aesop — 250 файлов в `Aesop/`. Поиск только
+# по `formal/` давал 0 теорем и 0 баллов формальной строгости.
+# Тестовые/демо-каталоги исключаются: `sorry` там — намеренный (проверка
+# тактики), и выдавать его за дыру в доказательствах было бы нечестно.
+_LEAN_SKIP_PARTS = ("test", "tests", "example", "examples", "demo", "demos",
+                    "bench", "benchmark", "benchmarks")
+_LEAN_SCAN_LIMIT = 400
+
+
+def _lean_files(root: Path) -> list[Path]:
+    formal = sorted(root.glob("formal/*.lean"))
+    if formal:
+        return formal
+    out: list[Path] = []
+    for p in sorted(root.rglob("*.lean")):
+        parts = [x.lower() for x in p.parts[:-1]]
+        if any(any(s in part for s in _LEAN_SKIP_PARTS) for part in parts):
+            continue
+        out.append(p)
+        if len(out) >= _LEAN_SCAN_LIMIT:
+            break
+    return out
+
+
 def lean_stats(root: Path) -> tuple[int, int, int]:
-    files = sorted(root.glob("formal/*.lean"))
+    files = _lean_files(root)
     th = 0
     sorry = 0
     for f in files:
         t = _strip_lean_comments(_read(f))
-        th += len(re.findall(r"^theorem\s", t, re.M))
+        th += len(re.findall(r"^\s*theorem\s", t, re.M))
+        th += len(re.findall(r"^\s*lemma\s", t, re.M))
         sorry += len(re.findall(r"\bsorry\b", t))
     return len(files), th, sorry
 
@@ -260,7 +293,13 @@ def build_report(root: Path) -> dict:
     except Exception:
         pass
     docs_dir = root / "docs"
+    # ДЕФЕКТ #181: профиль. Бонусы KERN (mcp/formal/attestation) применимы к
+    # любому репо, но компоненты `dup_guard`/`sarif`/`llms` — только к KERN:
+    # у чужого проекта их быть не может, и они отнимали у него 20 баллов.
+    is_kern = ((root / "kern.intoto.jsonl").is_file()
+               or (root / "tools" / "kern_contracts.py").is_file())
     return {
+        "profile": "kern" if is_kern else "standard",
         "repo": root.resolve().name,
         "commit": git_head(root),
         "code_hash": code_hash(root, cats),
@@ -281,7 +320,9 @@ def build_report(root: Path) -> dict:
             "tests": _detect_tests(root),
             "ci": (root / ".github" / "workflows").is_dir(),
             "build": any((root / p).is_file() for p in
-                         ("build.zig", "Makefile", "pyproject.toml", "Cargo.toml", "go.mod")),
+                         ("build.zig", "Makefile", "pyproject.toml", "setup.py", "setup.cfg",
+                          "Cargo.toml", "go.mod", "CMakeLists.txt", "meson.build",
+                          "package.json", "lakefile.toml", "lakefile.lean")),
             "sarif": "sarif" in _read(root / "tools" / "kern_contracts.py").lower(),
             "llms": (root / "llms.txt").is_file(),
             "docs_md": len(list(docs_dir.glob("*.md"))) if docs_dir.is_dir() else 0,
@@ -294,41 +335,75 @@ def build_report(root: Path) -> dict:
 def score(rep: dict) -> tuple[int, str, dict, list[str]]:
     h, f, m, mcp = rep["hygiene"], rep["formal"], rep["metrics"], rep["mcp"]
     w = rep["what_we_read"]
-    b = {
-        "license": 10 if h["license"] else 0,
-        "readme": 6 if h["readme"] else 0,
-        "tests": 10 if h["tests"] else 0,
-        "ci": 8 if h["ci"] else 0,
-        "build": 8 if h["build"] else 0,
-        "no_injections": 8 if h["injection_markers"] == 0 else 0,
-        "dup_guard": 8 if h["dup_guard"] else 0,
-        "sarif": 6 if h["sarif"] else 0,
-        "llms": 6 if h["llms"] else 0,
-        "docs": 8 if h["docs_md"] >= 5 else (4 if h["docs_md"] else 0),
-        "hygiene": 10 if (w["total"] + w["skipped"]) and w["skipped"] / max(1, w["total"] + w["skipped"]) < 0.01
-                   else (6 if (w["total"] + w["skipped"]) and w["skipped"] / max(1, w["total"] + w["skipped"]) < 0.05 else 2 if w["total"] else 0),
-    }
-    base = sum(b.values())                      # максимум 88
-    mcp_pts = (4 if mcp["files"]["server.json"] and mcp["tools"] > 0 else 0) \
-        + (3 if mcp["annotations"] else 0)      # максимум +7
-    formal_pts = (6 if f["lean_files"] and f["theorems"] and f["sorry"] == 0 else 0) \
-        + (3 if f["attestation"] else 0) \
-        + (3 if str(m["mutation"]).startswith("100") else 0)   # максимум +12
-    total = min(100, base + mcp_pts + formal_pts)
+    prof = rep.get("profile", "standard")
+    langs = sum(1 for v in w["by_category"].values() if v)
+    skip_ratio = w["skipped"] / max(1, w["total"] + w["skipped"])
+    if prof == "kern":
+        # Профиль KERN: компоненты полного стека (dup-guard, SARIF, llms.txt)
+        b = {
+            "license": 10 if h["license"] else 0,
+            "readme": 6 if h["readme"] else 0,
+            "tests": 10 if h["tests"] else 0,
+            "ci": 8 if h["ci"] else 0,
+            "build": 8 if h["build"] else 0,
+            "no_injections": 8 if h["injection_markers"] == 0 else 0,
+            "dup_guard": 8 if h["dup_guard"] else 0,
+            "sarif": 6 if h["sarif"] else 0,
+            "llms": 6 if h["llms"] else 0,
+            "docs": 8 if h["docs_md"] >= 5 else (4 if h["docs_md"] else 0),
+            "hygiene": 10 if skip_ratio < 0.01 else (6 if skip_ratio < 0.05 else (2 if w["total"] else 0)),
+        }
+    else:
+        # ДЕФЕКТ #181: профиль Standard Code Repo (как fastapi, cmark-gfm,
+        # tigerbeetle, ripgrep, aesop). У такого репо НЕ МОЖЕТ быть наших
+        # dup-guard/SARIF/llms.txt — раньше это отнимало 20 баллов «на ровном
+        # месте» и давало Grade C/D даже идеально чистым проектам.
+        # Максимум 88 = Grade A; A+ (95+) остаётся только за полным стеком KERN.
+        b = {
+            "license": 12 if h["license"] else 0,
+            "readme": 8 if h["readme"] else 0,
+            "tests": 12 if h["tests"] else 0,
+            "ci": 10 if h["ci"] else 0,
+            "build": 10 if h["build"] else 0,
+            "no_injections": 10 if h["injection_markers"] == 0 else 0,
+            "docs": 10 if h["docs_md"] >= 5 else (6 if h["docs_md"] else 0),
+            "hygiene": 8 if skip_ratio < 0.05 else (5 if skip_ratio < 0.12 else (2 if w["total"] else 0)),
+            "lang_breadth": 8 if langs >= 3 else (5 if langs == 2 else (3 if langs == 1 else 0)),
+        }
+    base = sum(b.values())
+    mcp_pts = (4 if mcp["files"]["server.json"] and mcp["tools"] > 0 else 0)         + (3 if mcp["annotations"] else 0)
+    # Formal Soundness: теоремы Lean 4 и аттестат считаются для ЛЮБОГО профиля
+    # (иначе leanprover/aesop с сотнями теорем получал 42 D).
+    # ДЕФЕКТ #181: у внешних Lean-репозиториев (aesop: 250 файлов,
+    # 215 теорем) встречается небольшое число `sorry` в библиотеке —
+    # даём частичный балл и ЧЕСТНО печатаем их число.
+    th_n, sorry_n = int(f["theorems"]), int(f["sorry"])
+    if th_n and sorry_n == 0:
+        formal_lean = 6
+    elif th_n >= 50 and sorry_n * 20 <= th_n:
+        formal_lean = 4
+    else:
+        formal_lean = 0
+    formal_pts = (formal_lean + (3 if f["attestation"] else 0)
+                  + (3 if str(m["mutation"]).startswith("100") else 0))
+    cap = 100 if prof == "kern" else 88
+    total = min(cap, base + mcp_pts + formal_pts)
     grade = ("A+" if total >= 95 else "A" if total >= 85 else "B" if total >= 70
              else "C" if total >= 55 else "D" if total >= 40 else "F")
     b["base_max"] = 88
     b["mcp_profile"] = mcp_pts
     b["formal_tier"] = formal_pts
+    b["profile"] = prof
     hints = []
     if not (mcp["files"]["server.json"] and mcp["tools"] > 0):
         hints.append("add an MCP manifest (server.json + tool annotations): +7")
-    if not f["lean_files"] or f["sorry"]:
+    if not f["lean_files"] or int(f["sorry"]) > max(3, int(f["theorems"]) // 20):
         hints.append("add machine-checked proofs (Lean 4, 0 sorry): +6")
-    if not str(m["mutation"]).startswith("100"):
+    if prof == "kern" and not str(m["mutation"]).startswith("100"):
         hints.append("reach 100 % mutation score with a can-fail harness: +3")
-    if grade != "A+":
-        hints.append("add action.yml + # @kern: contracts to reach the Formal tier")
+    if prof != "kern":
+        hints.append("Grade A+ (95+) is reserved for the full KERN stack: "
+                      "add action.yml + # @kern: contracts + can-fail + Ed25519 attestation")
     return total, grade, b, hints
 
 

@@ -43,7 +43,13 @@ not as the current state.
 - **#171** `bench-semantic`: single source of truth for the Merkle root (`sealImageRoot`).
 - **#173** the evidence guard wrongly accused the harness (write-once baseline, artefacts
   outside the baseline, dirty start → `rc=3`).
-- **#174** 51 duplicate top-level definitions in `kern_contracts.py` — the debt is **frozen**
+- **#174** 52 duplicate top-level definitions in `kern_contracts.py` — **resolved
+  (52 → 0, −2003 lines)**; `dup_defs_guard` ratchet now at 0. A second
+  `if __name__ == "__main__"` (early `main()` before later defs) and the lost
+  C-like routing in `cmd_xray` were found and fixed. Field-audit fixes
+  **#178–#184** (comment/string stripping, `assert` guards, Rust signatures,
+  scorecard profiles, balanced-paren `assert`, type ranges + let-inlining,
+  three-valued `_smt_sat`) ship in the same release.
   by the ratchet guard `tools/dup_defs_guard.py`; the refactor is scheduled after the release.
 - **#179** mobile layout overflowed by 12 px (the `owner/repo` input had a fixed `size`
   attribute); the scorecard input is now fluid, and `scrollWidth == clientWidth` on both

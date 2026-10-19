@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
+# Licensed under the PolyForm Noncommercial License 1.0.0.
+# Commercial use requires a license from the copyright holder. See LICENSE.
+#
+# Конфигурация авто-запуска для каталога Smithery.ai (smithery.yaml).
+# Читается краулером Smithery; инструменты и схемы берутся из `server.json`
+# (сгенерирован из examples/kern_mcp_server.py: tools/list).
+version: "2.5.0"
+name: kern
+displayName: "KERN — zero-trust verification gateway"
+description: >-
+  Formal verification gate for AI-written code: native Z3 proof-DAG checker
+  (trusted: 0), Belnap B4 logic, Lean 4 soundness theorems, 7-language
+  zero-annotation X-Ray, MCP server with 8 tools.
+repository: "https://github.com/newmathphys/kern"
+homepage: "https://newmathphys.github.io/kern/"
+license: "PolyForm-Noncommercial-1.0.0"
+runtime: python
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+    additionalProperties: false
+  commandFunction: |-
+    (config) => ({ command: "python3", args: ["examples/kern_mcp_server.py"] })
