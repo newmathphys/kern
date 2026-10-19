@@ -567,4 +567,38 @@ theorem belnap_swarm_conflict_absorbing (b : SwarmBit) (hb : b = ⟨true, true�
 /-- ПУНКТ 35: согласие всех агентов в `T` даёт `T` (Врата ОТКРЫТЫ). -/
 theorem belnap_agreement_is_t : swarmJoin ⟨true, false⟩ ⟨true, false⟩ = ⟨true, false⟩ := rfl
 
+/-! ===== ЭШЕЛОН 7: ПРИКЛАДНЫЕ ИНСТРУМЕНТЫ ===== -/
+
+/-- ПУНКТ 36: ЗВУЧНОСТЬ FINOPS-РАЗРЕШЕНИЯ. Если `amount + spent ≤ limit`, то
+    `amount ≤ limit - spent` — вызов безопасен (HTTP 200, T). -/
+theorem finops_allow_sound (amount spent limit : Int) (h : amount + spent ≤ limit) :
+    amount ≤ limit - spent := by omega
+
+/-- ПУНКТ 36: ПРЕВЫШЕНИЕ БЮДЖЕТА ЛОВИТСЯ (HTTP 422, F) — отрицание условия. -/
+theorem finops_over_budget_detected (amount spent limit : Int) (h : amount + spent > limit) :
+    ¬(amount ≤ limit - spent) := by omega
+
+/-- ПУНКТ 37: ЯДРО КОНФЛИКТА ДОКУМЕНТА НЕСОВМЕСТНО. Пункты «SLA ≤ 4»,
+    «review ≥ 6» и «SLA ≥ review» вместе невыполнимы: состояние B (1,1). -/
+theorem doc_conflict_core_unsat (sla review : Int) :
+    ¬(sla ≤ 4 ∧ review ≥ 6 ∧ sla ≥ review) := by omega
+
+/-- ПУНКТ 38: ИЗ МНОЖЕСТВА НАГРАД `{+1, -1, -2, 0}` ПОЛОЖИТЕЛЬНА ТОЛЬКО
+    `+1` — то есть положительный сигнал возможен ЛИШЬ за доказанный контракт. -/
+theorem rlvr_positive_requires_verified (R : Int) (h : R = 1 ∨ R = -1 ∨ R = -2 ∨ R = 0)
+    (hR : R > 0) : R = 1 := by omega
+
+/-- ПУНКТ 38: штраф за чит (`R = -2`) никогда не положителен. -/
+theorem rlvr_cheat_penalty_not_positive (R : Int) (h : R = -2) : ¬(R > 0) := by omega
+
+/-- ПУНКТ 39: КОНТРОЛЬ ДЕТЕКТОРА. Если детектор не сработал на ИЗВЕСТНО-ПЛОХОМ
+    входе, он не может быть «всегда истинным» — то есть «0 находок» имеет смысл
+    только при пройденном контроле. -/
+theorem known_bad_must_be_flagged (f : Int → Bool) (x : Int) (hbad : f x = false) :
+    ¬(∀ y, f y = true) := by
+  intro h
+  have hx := h x
+  rw [hx] at hbad
+  exact Bool.noConfusion hbad
+
 end KernFarkas

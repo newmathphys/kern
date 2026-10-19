@@ -1,0 +1,6 @@
+{
+  "allow": "amount + daily_spent <= daily_limit",
+  "forbid": [
+    "amount >= 40"
+  ]
+}

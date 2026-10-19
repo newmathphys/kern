@@ -226,6 +226,11 @@ FAULTABLE = [
     "tools/loop_check.sh",
     "tools/state_inv_check.sh",
     "tools/presets_check.sh",
+    "tools/bug_hunter.py",
+    "tools/bug_hunt_check.sh",
+    "tools/rlvr_oracle_check.sh",
+    "tools/rag_conflict_check.sh",
+    "tools/action_firewall_check.sh",
     "tools/belnap_swarm_check.sh",
     "tools/noninterference_check.sh",
     "tools/mcp_audit_check.sh",
@@ -1853,6 +1858,50 @@ def case_belnap_swarm_check():
     return "make belnap-swarm-check"
 
 
+def case_action_firewall_check():
+    """ПУНКТ 36. ЛОМАЕМ: сообщение ALLOW VIOLATED -> `[INFO]` -> превышение
+    бюджета перестаёт быть видимым -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '            print(f"  [FAIL] Firewall: ALLOW VIOLATED -> F (0,1), e=0, "',
+        '            print(f"  [INFO] Firewall: ALLOW VIOLATED -> F (0,1), e=0, "',
+    )
+    return "make action-firewall-check"
+
+
+def case_rag_conflict_check():
+    """ПУНКТ 37. ЛОМАЕМ: сообщение CONFLICT B(1,1) -> `[INFO]` -> противоречие
+    в документе не видно."""
+    patch(
+        "tools/kern_contracts.py",
+        '    print(f"  [FAIL] CONFLICT B(1,1): document UNSAT (trusted: 0 | holes: 0), "',
+        '    print(f"  [INFO] CONFLICT B(1,1): document UNSAT (trusted: 0 | holes: 0), "',
+    )
+    return "make rag-conflict-check"
+
+
+def case_rlvr_oracle_check():
+    """ПУНКТ 38. ЛОМАЕМ: штраф за чит становится ПОЛОЖИТЕЛЬНЫМ
+    (+2.0) -> оракул лжёт -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '        print(f"[REWARD] R=-2.0 [REWARD HACKING PENALTY, Belnap F] "',
+        '        print(f"[REWARD] R=+2.0 [REWARD HACKING PENALTY, Belnap F] "',
+    )
+    return "make rlvr-oracle-check"
+
+
+def case_bug_hunt_check():
+    """ПУНКТ 39. ЛОМАЕМ: `scan()` всегда возвращает пусто -> КОНТРОЛЬ
+    (известные находки) перестаёт проходить -> цель краснеет."""
+    patch(
+        "tools/bug_hunter.py",
+        "    found = [ln.strip() for ln in out.splitlines() if RE_FIND.search(ln)]",
+        "    found = []",
+    )
+    return "make bug-hunt-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2160,6 +2209,10 @@ CASES = [
     ("mcp-audit-check", "MCP: инъекция/rug-pull пойманы",     case_mcp_audit_check),
     ("noninterference-check", "SECRET: утечка поймана",          case_noninterference_check),
     ("belnap-swarm-check", "РОЙ: JOIN_K(T,F)=B проверен",           case_belnap_swarm_check),
+    ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
+    ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
+    ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),
+    ("bug-hunt-check", "BUG HUNT: контроль пройден",              case_bug_hunt_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

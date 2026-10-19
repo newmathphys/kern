@@ -1,0 +1,8 @@
+{
+  "tool": "transfer_funds",
+  "args": {
+    "amount": 900,
+    "daily_spent": 200,
+    "daily_limit": 1000
+  }
+}

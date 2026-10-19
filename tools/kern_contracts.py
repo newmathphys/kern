@@ -1252,6 +1252,13 @@ def main() -> int:
                     help="ПУНКТ 33: замок отпечатков инструментов (rug-pull)")
     ap.add_argument("--noninterference", default=None, metavar="PATH",
                     help="ПУНКТ 34: неинтерференция (@kern:secret, 2-Safety)")
+    ap.add_argument("--verify-action", nargs=2, default=None,
+                    metavar=("ACTION.json", "POLICY.json"),
+                    help="ПУНКТ 36: FinOps/Action Firewall (200/422/409)")
+    ap.add_argument("--verify-doc", default=None, metavar="PATH",
+                    help="ПУНКТ 37: противоречия в документе + минимальное ядро")
+    ap.add_argument("--rlvr-reward", default=None, metavar="PATH",
+                    help="ПУНКТ 38: верифицируемый оракул вознаграждения")
     ap.add_argument("--verify-sql", default=None, metavar="PATH",
                     help="ПУНКТ 30: изоляция тенантов (RLS-предикаты доступа)")
     ap.add_argument("--verify-pricing", default=None, metavar="PATH",
@@ -1324,6 +1331,12 @@ def main() -> int:
         return cmd_audit_mcp(args.audit_mcp, args.mcp_lock)
     if getattr(args, "noninterference", None):
         return cmd_noninterference(args.noninterference, args.kernc)
+    if getattr(args, "verify_action", None):
+        return cmd_verify_action(args.verify_action[0], args.verify_action[1], args.kernc)
+    if getattr(args, "verify_doc", None):
+        return cmd_verify_doc(args.verify_doc, args.kernc)
+    if getattr(args, "rlvr_reward", None):
+        return cmd_rlvr_reward(args.rlvr_reward, args.kernc)
     if getattr(args, "verify_sql", None):
         return cmd_verify_sql(args.verify_sql, args.kernc)
     if getattr(args, "verify_pricing", None):
@@ -4071,6 +4084,176 @@ def cmd_noninterference(path: str, kernc) -> int:
     print(f"[NONINTERFERENCE SUMMARY] checked {checked} / {len(fns)} functions, "
           f"skipped {skipped} | FAIL {fails} | UNKNOWN {unknowns}")
     return 1 if (fails or unknowns) else 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 7, ПУНКТ 36: ACTION / FINOPS FIREWALL ДЛЯ ИИ-АГЕНТОВ.
+#
+# ЗАЧЕМ. Агент собирается вызвать боевой API (перевод, масштабирование облака,
+# удаление ресурса). Проверяем JSON-вызов ДО исполнения против политики:
+#   * `allow`  — предикат, который обязан быть истинным (лимиты, бюджеты);
+#   * `forbid` — список предикатов, которые обязаны быть ложными.
+# Вердикт в решётке Белнапа и кодах RFC 9110:
+#   T -> 200 (проверено, trusted: 0); F -> 422 (контрпример);
+#   B -> 409 (политики ПРОТИВОРЕЧАТ: allow и forbid истинны одновременно).
+# -----------------------------------------------------------------------------
+
+def _pol_smt(text: str) -> str:
+    """Предикат политики (Python-подобное выражение) -> SMT."""
+    return expr_smt(ast.parse(text, mode="eval").body, {})
+
+
+def cmd_verify_action(action_path: str, policy_path: str, kernc) -> int:
+    """ПУНКТ 36: `--verify-action <action.json> <policy.json>`."""
+    act = json.loads(Path(action_path).read_text(encoding="utf-8"))
+    pol = json.loads(Path(policy_path).read_text(encoding="utf-8"))
+    args = act.get("args", {})
+    if not args or not all(isinstance(v, int) for v in args.values()):
+        print("  [SKIP] аргументы действия должны быть ЦЕЛЫМИ (домен ℤ)")
+        return 2
+    decls = list(args)
+    fixed = [f"(= {k} {v})" for k, v in args.items()]
+    allow = pol.get("allow")
+    forbids = pol.get("forbid", [])
+    allow_smt = _pol_smt(allow) if allow else None
+    allow_ok = True
+    # (1) НАРУШЕНИЕ allow -> F (422)
+    if allow_smt:
+        v, ce, tr = _prove_checked(kernc, decls, fixed + [f"(not {allow_smt})"])
+        if v == "sat":
+            print(f"  [FAIL] Firewall: ALLOW VIOLATED -> F (0,1), e=0, "
+                  f"HTTP 422 Unprocessable Entity — {ce}")
+            return 1
+        if v != "unsat" or tr != 0:
+            print(f"  [UNKNOWN] allow не перепроверен (trusted={tr}) — НЕ засчитано")
+            return 2
+        allow_ok = True
+    # (2) СРАБОТАВШИЙ forbid: если allow при этом истинен -> B (409), иначе F (422)
+    for i, f in enumerate(forbids):
+        f_smt = _pol_smt(f)
+        v, ce, tr = _prove_checked(kernc, decls, fixed + [f_smt])
+        if v != "sat":
+            if v != "unsat" or tr != 0:
+                print(f"  [UNKNOWN] forbid[{i}] не перепроверен (trusted={tr})")
+                return 2
+            continue
+        if allow_smt and allow_ok:
+            print(f"  [FAIL] Firewall: POLICY CONFLICT -> B (1,1), e=0, "
+                  f"HTTP 409 Conflict (allow ∧ forbid[{i}]) — {ce}")
+        else:
+            print(f"  [FAIL] Firewall: FORBIDDEN ACTION -> F (0,1), e=0, "
+                  f"HTTP 422 (forbid[{i}]) — {ce}")
+        return 1
+    print(f"  [PASS] Firewall: PROVEN (tool `{act.get('tool', '?')}`, "
+          f"args {len(args)}, trusted: 0 | holes: 0) -> T (1,0), e=1, HTTP 200 OK")
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 7, ПУНКТ 37: ПРОТИВОРЕЧИЯ В ДОКУМЕНТАХ / ДОГОВОРАХ / RAG-БАЗАХ.
+#
+# ЗАЧЕМ. Пункты договора — это КОНЪЮНКЦИЯ ограничений. Если она несовместна
+# (`UNSAT`), документ внутренне противоречив: состояние B (1,1), Врата ЗАКРЫТЫ.
+# Мало сказать «противоречиво» — нужно назвать КОНКРЕТНЫЕ пункты: минимальное
+# ядро несовместности (greedy-удаление: если без пункта система всё ещё
+# несовместна, пункт в ядро не входит).
+# -----------------------------------------------------------------------------
+
+def cmd_verify_doc(path: str, kernc) -> int:
+    """ПУНКТ 37: `--verify-doc <doc.json>` (цель `make rag-conflict-check`)."""
+    doc = json.loads(Path(path).read_text(encoding="utf-8"))
+    clauses = doc.get("clauses", [])
+    decls = doc.get("vars", [])
+    if not clauses or not decls:
+        print("  [SKIP] нужны `vars` и `clauses`")
+        return 2
+    id_of = [c.get("id", f"clause_{i + 1}") for i, c in enumerate(clauses)]
+    smt_of = [_pol_smt(c["expr"]) for c in clauses]
+
+    def verdict(idxs) -> tuple[str, str | None, int | None]:
+        return _prove_checked(kernc, decls, [smt_of[i] for i in idxs])
+
+    v, ce, tr = verdict(range(len(clauses)))
+    if v == "sat":
+        print(f"  [PASS] DOCUMENT CONSISTENT: все {len(clauses)} пунктов совместны "
+              f"(trusted: 0 | holes: 0)")
+        return 0
+    if v != "unsat" or tr != 0:
+        print(f"  [UNKNOWN] документ не перепроверен (trusted={tr}) — НЕ засчитано")
+        return 2
+    # МИНИМАЛЬНОЕ ЯДРО: жадное удаление пунктов, пока система остаётся UNSAT.
+    keep = list(range(len(clauses)))
+    for i in list(keep):
+        trial = [j for j in keep if j != i]
+        if not trial:
+            continue
+        tv, _tce, ttr = verdict(trial)
+        if tv == "unsat" and ttr == 0:
+            keep = trial
+    core = [id_of[i] for i in keep]
+    print(f"  [FAIL] CONFLICT B(1,1): document UNSAT (trusted: 0 | holes: 0), "
+          f"e=0 — пункты противоречат друг другу")
+    print(f"  [CONFLICT B(1,1)] Minimal conflicting clauses: [{', '.join(core)}]")
+    return 1
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 7, ПУНКТ 38: RLVR — ВЕРИФИЦИРУЕМЫЙ ОРАКУЛ ВОЗНАГРАЖДЕНИЯ.
+#
+# ЗАЧЕМ. «LLM-as-a-judge» недетерминирован и поддаётся взлому. Здесь награда
+# выдаётся МАТЕМАТИКОЙ: R = +1.0 только при `trusted: 0 | holes: 0` И чистоте по
+# `--anti-cheat`; иначе -2.0 (чит), -1.0 (контрпример), 0.0 (вне фрагмента).
+# Никаких ложных наград: `unknown` НИКОГДА не даёт положительный сигнал.
+# -----------------------------------------------------------------------------
+
+def cmd_rlvr_reward(path: str, kernc) -> int:
+    """ПУНКТ 38: `--rlvr-reward <candidate.py>` (цель `make rlvr-oracle-check`)."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    sc = _CheatScan()
+    sc.visit(ast.parse(src))
+    sc_findings = list(sc.findings)
+    for mod, ln in sc.imports:
+        if mod in SUSPICIOUS_MODULES:
+            sc_findings.append((f"suspicious module: {mod}", ln))
+    if sc_findings:
+        kind, ln = sc_findings[0]
+        print(f"[REWARD] R=-2.0 [REWARD HACKING PENALTY, Belnap F] "
+              f"({kind}, строка {ln})")
+        return 0
+    entries = parse_file(Path(path))
+    proven = refuted = unknown = 0
+    first_ce = ""
+    for (name, params, req, ens, body, _lineno, _skip, meta) in entries:
+        if body is None or (not req and not ens):
+            continue
+        try:
+            smt = build_smt(params, req, ens, body, meta.get("ranges"))
+        except Exception:
+            unknown += 1
+            continue
+        _rc, out = run_kernc(kernc, smt)
+        if "КОНТРПРИМЕР" in out:
+            refuted += 1
+            first_ce = first_ce or next((l.strip()[:100] for l in out.splitlines()
+                                         if "КОНТРПРИМЕР" in l), "SAT")
+        elif "ДОКАЗАНО" in out:
+            m = re.search(r"trusted:\s*(\d+)", out)
+            tr = int(m.group(1)) if m else None
+            if tr == 0:
+                proven += 1
+            else:
+                unknown += 1
+        else:
+            unknown += 1
+    if refuted:
+        print(f"[REWARD] R=-1.0 [REFUTED, Belnap F] ({first_ce})")
+    elif unknown or proven == 0:
+        print(f"[REWARD] R=0.0 [ABSTAIN, Belnap N] "
+              f"(proven {proven}, unknown {unknown}, refuted 0)")
+    else:
+        print(f"[REWARD] R=+1.0 [VERIFIED REWARD, Belnap T, e=1] "
+              f"(доказано {proven}, trusted: 0 | holes: 0, чисто по anti-cheat)")
+    return 0
 
 
 if __name__ == "__main__":

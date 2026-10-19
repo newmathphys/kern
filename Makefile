@@ -300,6 +300,22 @@ noninterference-check: build
 belnap-swarm-check: build
 	@bash tools/belnap_swarm_check.sh
 
+# ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
+action-firewall-check: build
+	@bash tools/action_firewall_check.sh
+
+# ЭШЕЛОН 7, ПУНКТ 37: противоречия в документах + минимальное ядро.
+rag-conflict-check: build
+	@bash tools/rag_conflict_check.sh
+
+# ЭШЕЛОН 7, ПУНКТ 38: RLVR-оракул вознаграждения (+1/-1/-2).
+rlvr-oracle-check: build
+	@bash tools/rlvr_oracle_check.sh
+
+# ЭШЕЛОН 7, ПУНКТ 39: охота за багами в живом коде (контроль + воронка).
+bug-hunt-check: build
+	@bash tools/bug_hunt_check.sh
+
 # ЭШЕЛОН 3, ПУНКТ 13: рентген БЕЗ аннотаций (мёртвые ветки, избыточные
 # проверки, краш-пути, сложность Маккейба) на фикстуре examples/xray_demo.py.
 xray-check: build

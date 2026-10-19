@@ -1,0 +1,20 @@
+{
+  "vars": [
+    "sla_hours",
+    "review_hours"
+  ],
+  "clauses": [
+    {
+      "id": "clause_1",
+      "expr": "sla_hours <= 4"
+    },
+    {
+      "id": "clause_2",
+      "expr": "review_hours >= 6"
+    },
+    {
+      "id": "clause_3",
+      "expr": "sla_hours >= review_hours"
+    }
+  ]
+}
