@@ -170,3 +170,20 @@ test "wasm: verifyProof принимает валидное доказатель
     if (std.mem.indexOf(u8, bad, "(>= a 0)")) |i| bad[i + 7] = '1';
     try t.expectEqual(@as(u8, 0), kern_wasm_verify_proof(smt.ptr, smt.len, bad.ptr, bad.len));
 }
+
+test "wasm: вывод, НЕ заканчивающийся false, отвергается (убивает [and->or])" {
+    // УБИВАЕТ мутант `wasm_api.zig:155 [and->or]`: структурно корректный вывод,
+    // у которого корень НЕ `false`, даёт checksPass()==true, но
+    // proof_concludes_false==false. Строгий критерий (and) -> 0; мутант (or)
+    // вернул бы 1, то есть ПРИНЯЛ бы вывод, ничего не доказывающий.
+    const fx = @import("verifier/abs_proof_fixture.zig");
+    const smt = fx.ABS_CONTRACT;
+    const proof = fx.ABS_PROOF;
+    const last = std.mem.lastIndexOf(u8, proof, "false") orelse return error.NoMarker;
+    const bad = try std.testing.allocator.alloc(u8, proof.len - 5 + 4);
+    defer std.testing.allocator.free(bad);
+    @memcpy(bad[0..last], proof[0..last]);
+    @memcpy(bad[last..][0..4], "true");
+    @memcpy(bad[last + 4 ..], proof[last + 5 ..]);
+    try t.expectEqual(@as(u8, 0), kern_wasm_verify_proof(smt.ptr, smt.len, bad.ptr, bad.len));
+}
