@@ -57,6 +57,9 @@ TARGETS = [
     "src/verifier/proof_check.zig",
     "src/verifier/model_extract.zig",
     "src/verifier/unsat_core.zig",
+    # --- Эшелон 3/6: нативные движки, вызываемые из CLI ---
+    "src/verifier/cegis.zig",
+    "src/verifier/noninterference.zig",
     "src/verifier/z3_bridge.zig",
     # --- Эшелон 1 v2.5: встроенный LIA-решатель (Фурье — Моцкин) ---
     "src/verifier/builtin_lia.zig",
