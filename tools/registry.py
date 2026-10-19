@@ -49,6 +49,8 @@ CLASS = {
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "bench-json": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
+    # ИЗМЕРЯЕТ throughput BLAKE3-SIMD-8 (не доказательство): падать «как гейт» не может -> MEASURE
+    "bench-simd8": "MEASURE",
     "audit": "CHECK", "localize": "CHECK", "arrays": "CHECK", "chc": "CHECK",
     "strings": "CHECK", "cegis": "CHECK", "theories": "CHECK", "test-fault": "CHECK",
     "attest-key": "CHECK", "attest": "CHECK", "coverage": "CHECK", "fuzz-1m": "CHECK",
@@ -117,7 +119,7 @@ CLASS = {
     # --- внешние ------------------------------------------------------------
     "cross-arch": "EXTERNAL", "mbpp": "EXTERNAL",
     # --- мета ---------------------------------------------------------------
-    "help": "META", "venv": "META", "zig": "META", "clean": "META",
+    "help": "META", "venv": "META", "zig": "META", "clean": "META", "clean-cache": "META",
     "echelons": "META", "research": "META", "formal-ci": "META", "test-all": "META",
     "mutate": "CHECK", "prove": "CHECK", "ci": "META", "ci-fast": "META", "registry": "CHECK",
     # хардкор-аудит C-ABI: ОБЕ обязаны уметь падать (проверено can-fail кейсами)

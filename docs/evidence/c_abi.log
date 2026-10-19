@@ -1,0 +1,40 @@
+=== KERN EVIDENCE: c_abi ===
+=== команда: make c-abi-test ===
+=== дата: 2026-10-19T15:41:15Z ===
+
+zig build lib
+[OK] zig-out/lib/libkern.so + zig-out/include/kern.h
+=====================================================================
+KERN C-ABI: хардкор-аудит (чистый C, -Wall -Wextra -Werror -pedantic)
+=====================================================================
+
+[1] NULL-указатели при len > 0 (не должно быть SIGSEGV)
+  [OK]   kern_hash(NULL data, len=16) -> -1
+  [OK]   kern_hash(NULL out32) -> -1
+  [OK]   kern_smt_verify(NULL, len=8) -> -1
+  [OK]   kern_kimg_valid(NULL, len=200) -> 0
+  [OK]   kern_kimg_object_count(NULL, len=200) -> -1
+  [OK]   kern_localize(NULL decls) -> -1
+  [OK]   kern_localize(NULL out_buf) -> -1
+
+[2] Нулевая длина (не должно быть чтения по указателю)
+  [OK]   kern_smt_verify(x, 0) -> -1
+  [OK]   kern_kimg_valid(img, 0) -> 0
+  [OK]   kern_kimg_valid(img, 127) -> 0
+  [OK]   kern_kimg_object_count(img, 127) -> -1
+  [OK]   kern_localize(decls_len=0) -> -1
+  [OK]   kern_hash(len=0) -> 0 (пустой вход допустим)
+
+[3] Штатные вызовы
+  [OK]   kern_hash(BLAKE3) == 0
+  [OK]   kern_hash(SHA-256) == 0
+  [OK]   алгоритмы дают РАЗНЫЕ хэши
+  [OK]   неизвестный algo -> -1
+  [OK]   kern_version() не NULL
+  [OK]   kern_author() не NULL
+  [OK]   kern_ownership_ok() == 1
+---------------------------------------------------------------------
+ВСЁ ПРОЙДЕНО: NULL-указатели и нулевые длины отвергаются БЕЗ краха
+
+RC=0
+[guard] FAULTABLE без изменений (116 файлов) — прогон чист
