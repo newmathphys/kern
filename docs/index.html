@@ -114,7 +114,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <p class="sub" style="margin-top:12px"><strong style="color:var(--ink)">A claim is admitted only with machine evidence.</strong></p>
 
 <div style="margin:20px 0 6px">
-<a class="btn p" href="https://github.com/newmathphys/kern/releases/latest">Download static binary (v2.4.0)</a>
+<a class="btn p" href="https://github.com/newmathphys/kern/releases/latest">Download static binary (v2.5.0)</a>
 <a class="btn s" href="https://github.com/newmathphys/kern#readme">Read the README</a>
 <a class="btn s" href="https://github.com/newmathphys/kern/tree/main/docs">Documentation</a>
 </div>
@@ -176,8 +176,8 @@ docker run --rm kern:2.4.0 verify /kern/toy.kimg   # the Truth Gate
 
 <h2>Or the static binary — and verify what you downloaded</h2>
 <pre># 1. Download the static binary (musl) and VERIFY its checksum before running it
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/SHA256SUMS
+curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.5.0/kernc-x86_64-linux-musl
+curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.5.0/SHA256SUMS
 sha256sum -c SHA256SUMS          # supply-chain check, no trust required
 chmod +x kernc-x86_64-linux-musl
 
@@ -442,7 +442,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <code>kern_prove_contract</code> · <code>kern_check_equivalence</code>.</p>
 <p class="lbl" style="margin:0">In CI, the reusable Action verifies the downloaded binary against
 <code>SHA256SUMS</code> before running it, and can emit a SARIF 2.1.0 report for GitHub Code Scanning:
-<br><code>uses: newmathphys/kern@v2.4.0</code></p>
+<br><code>uses: newmathphys/kern@v2.5.0</code></p>
 </div>
 
 <h2>Defect Journal — when the checks themselves lied</h2>
