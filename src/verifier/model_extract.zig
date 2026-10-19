@@ -277,14 +277,26 @@ fn evalTerm(t: []const u8, i: *usize, b: []const Binding, depth: u32) EvalError!
         if (n != 2) return EvalError.Malformed;
         return Val{ .int = try inRange(try smtMod(try asInt(args[0]), try asInt(args[1]))) };
     }
+    // ДЕФЕКТ #146: РАВЕНСТВО БУЛЕВЫХ ПОДФОРМУЛ. `(= (= p g) (= p2 g))` —
+    // это сравнение ДВУХ булевых значений, а не целых. ИЗМЕРЕНО на
+    // `@kern:secret` (Пункт 34): вычислитель падал на `asInt` от Bool, и
+    // годный контрпример объявлялся «фальшивой моделью».
+    if (std.mem.eql(u8, head, "=") and n == 2) {
+        if (asInt(args[0])) |a| {
+            if (asInt(args[1])) |c| return Val{ .boolean = a == c } else |_| {}
+        } else |_| {}
+        if (asBool(args[0])) |a| {
+            if (asBool(args[1])) |c| return Val{ .boolean = a == c } else |_| {}
+        } else |_| {}
+        return EvalError.Unsupported;
+    }
     if (std.mem.eql(u8, head, "<") or std.mem.eql(u8, head, "<=") or
-        std.mem.eql(u8, head, ">") or std.mem.eql(u8, head, ">=") or
-        std.mem.eql(u8, head, "="))
+        std.mem.eql(u8, head, ">") or std.mem.eql(u8, head, ">="))
     {
         if (n != 2) return EvalError.Malformed;
         const a = try asInt(args[0]);
         const c = try asInt(args[1]);
-        const r = if (std.mem.eql(u8, head, "<")) a < c else if (std.mem.eql(u8, head, "<=")) a <= c else if (std.mem.eql(u8, head, ">")) a > c else if (std.mem.eql(u8, head, ">=")) a >= c else a == c;
+        const r = if (std.mem.eql(u8, head, "<")) a < c else if (std.mem.eql(u8, head, "<=")) a <= c else if (std.mem.eql(u8, head, ">")) a > c else a >= c;
         return Val{ .boolean = r };
     }
     if (std.mem.eql(u8, head, "and")) {
@@ -322,7 +334,11 @@ pub fn verifyModelAgainstSmt(smt: []const u8, bindings: []const Binding) ModelCh
         var p: usize = 0;
         const v = evalTerm(term, &p, bindings, 0) catch |e| switch (e) {
             EvalError.Unsupported => return .{ .unsupported = "терм вне фрагмента (BitVec/неизвестная операция)" },
-            else => return .{ .spurious = .{ .index = checked, .term = term } },
+            // ДЕФЕКТ #146: НЕУМЕНИЕ вычислить форму — это НЕ «фальшивая модель».
+            // Раньше Malformed/Overflow объявлялись `spurious`, и настоящий
+            // КОНТРПРИМЕР СКРЫВАЛСЯ (измерено на `@kern:secret`). Теперь честно
+            // говорим «не проверено», а не «модель подделана».
+            else => return .{ .unsupported = "форма вне вычислителя модели" },
         };
         const truth = switch (v) {
             .boolean => |x| x,

@@ -1,0 +1,12 @@
+{
+  "tools": [
+    {
+      "name": "sum",
+      "description": "Add two integers and return the sum.",
+      "inputSchema": {
+        "type": "object"
+      }
+    }
+  ],
+  "version": "1.0"
+}

@@ -423,3 +423,39 @@ test "СВЕЖЕСТЬ: изменение 1 БАЙТА в файле сбрас
     try std.testing.expectEqual(@as(u1, 0), allowance(f2));
     try std.testing.expect(f2.n);
 }
+
+// ЭШЕЛОН 6, ПУНКТ 35: МУЛЬТИ-АГЕНТНЫЙ АРБИТРАЖ В РЕШЁТКЕ БЕЛНАПА.
+//
+// Сценарий: Агент-Кодер заявляет T (1,0), Агент-Аудитор находит уязвимость
+// -> F (0,1). Монотонная склейка JOIN_K(T,F) = B (1,1) ЗАКРЫВАЕТ Врата, и
+// никакое количество последующих голосов T не перезаписывает B (поглощение).
+test "ПУНКТ 35: рой агентов — JOIN_K(T,F)=B, поглощение B, JOIN_K(T,T)=T" {
+    const t = Bit{ .p = true, .n = false }; // T
+    const f = Bit{ .p = false, .n = true }; // F
+    const b = Bit{ .p = true, .n = true }; // B
+
+    // (1) Кодер vs Аудитор -> КОНФЛИКТ: оба бита выставлены, Врата ЗАКРЫТЫ.
+    const conflict = Bit.join(t, f);
+    try std.testing.expect(conflict.p and conflict.n);
+    try std.testing.expectEqual(@as(u1, 0), allowance(conflict));
+
+    // (2) ПОГЛОЩЕНИЕ: 100 голосов T не перезаписывают противоречие.
+    var acc = conflict;
+    var i: usize = 0;
+    while (i < 100) : (i += 1) acc = Bit.join(acc, t);
+    try std.testing.expect(acc.p and acc.n);
+    try std.testing.expectEqual(@as(u1, 0), allowance(acc));
+
+    // (3) Согласие всех агентов в T -> T, Врата ОТКРЫТЫ.
+    const agree = Bit.join(t, Bit.join(t, t));
+    try std.testing.expect(!agree.n);
+    try std.testing.expectEqual(@as(u1, 1), allowance(agree));
+
+    // (4) Контроль: F (без противоречия) тоже закрывает Врата, но НЕ равен B.
+    try std.testing.expect(!f.p and f.n);
+    try std.testing.expectEqual(@as(u1, 0), allowance(f));
+    // (5) Поглощение в ОБЕ стороны: JOIN_K(B, F) = B (F не «снимает» конфликт).
+    const bf = Bit.join(b, f);
+    try std.testing.expect(bf.p and bf.n);
+    try std.testing.expectEqual(@as(u1, 0), allowance(bf));
+}

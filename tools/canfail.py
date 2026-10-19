@@ -226,6 +226,10 @@ FAULTABLE = [
     "tools/loop_check.sh",
     "tools/state_inv_check.sh",
     "tools/presets_check.sh",
+    "tools/belnap_swarm_check.sh",
+    "tools/noninterference_check.sh",
+    "tools/mcp_audit_check.sh",
+    "tools/anti_cheat_check.sh",
     "tools/pricing_matrix_check.sh",
     "tools/sql_policy_check.sh",
     "tools/ffi_bridge_check.sh",
@@ -1808,6 +1812,47 @@ def case_sql_policy_check():
     return "make sql-policy-check"
 
 
+def case_anti_cheat_check():
+    """ПУНКТ 32. ЛОМАЕМ: сообщение CHEAT DETECTED превращаем в `[INFO]` -> читы перестают
+    быть видимыми -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        '        print(f"  [CHEAT DETECTED: {kind}] строка {ln}")',
+        '        print(f"  [INFO] {kind}] строка {ln}")',
+    )
+    return "make anti-cheat-check"
+
+
+def case_mcp_audit_check():
+    """ПУНКТ 33. ЛОМАЕМ: сверка замка отключена -> rug-pull не ловится."""
+    patch(
+        "tools/kern_contracts.py",
+        '                if name in old and old[name] != h:',
+        '                if False and name in old and old[name] != h:',
+    )
+    return "make mcp-audit-check"
+
+
+def case_noninterference_check():
+    """ПУНКТ 34. ЛОМАЕМ: сообщение SECRET LEAK -> `[INFO]` -> утечка не видна."""
+    patch(
+        "tools/kern_contracts.py",
+        '            print(f"  [FAIL] {fn.name}: SECRET LEAK / NON-INTERFERENCE VIOLATED — {ce}")',
+        '            print(f"  [INFO] {fn.name}: SECRET LEAK / NON-INTERFERENCE VIOLATED — {ce}")',
+    )
+    return "make noninterference-check"
+
+
+def case_belnap_swarm_check():
+    """ПУНКТ 35. ЛОМАЕМ: JOIN_K теряет n-бит (противоречие не запоминается)."""
+    patch(
+        "src/next/truth.zig",
+        "        return .{ .p = a.p or b.p, .n = a.n or b.n };",
+        "        return .{ .p = a.p or b.p, .n = false };",
+    )
+    return "make belnap-swarm-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2111,6 +2156,10 @@ CASES = [
     ("ffi-bridge-check", "FFI: усечение i32/u32 поймано",   case_ffi_bridge_check),
     ("sql-policy-check", "RLS: обход изоляции тенантов пойман",  case_sql_policy_check),
     ("pricing-matrix-check", "ТАРИФЫ: дыра/конфликт пойманы",   case_pricing_matrix_check),
+    ("anti-cheat-check", "ЧИТЫ: 5 классов поймано",            case_anti_cheat_check),
+    ("mcp-audit-check", "MCP: инъекция/rug-pull пойманы",     case_mcp_audit_check),
+    ("noninterference-check", "SECRET: утечка поймана",          case_noninterference_check),
+    ("belnap-swarm-check", "РОЙ: JOIN_K(T,F)=B проверен",           case_belnap_swarm_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

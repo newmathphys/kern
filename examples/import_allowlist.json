@@ -1,0 +1,9 @@
+{
+  "allowed": [
+    "sys",
+    "unittest",
+    "ast",
+    "json",
+    "math"
+  ]
+}

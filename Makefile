@@ -284,6 +284,22 @@ sql-policy-check: build
 pricing-matrix-check: build
 	@bash tools/pricing_matrix_check.sh
 
+# ЭШЕЛОН 6, ПУНКТ 32: анти-чит (Reward Hacking, overfitting, mock, exit, slopsquatting).
+anti-cheat-check: build
+	@bash tools/anti_cheat_check.sh
+
+# ЭШЕЛОН 6, ПУНКТ 33: отравление MCP (инъекции, невидимый Unicode) + rug-pull.
+mcp-audit-check: build
+	@bash tools/mcp_audit_check.sh
+
+# ЭШЕЛОН 6, ПУНКТ 34: неинтерференция (@kern:secret, 2-Safety самокомпозиция).
+noninterference-check: build
+	@bash tools/noninterference_check.sh
+
+# ЭШЕЛОН 6, ПУНКТ 35: арбитраж роя агентов в решётке Белнапа (JOIN_K).
+belnap-swarm-check: build
+	@bash tools/belnap_swarm_check.sh
+
 # ЭШЕЛОН 3, ПУНКТ 13: рентген БЕЗ аннотаций (мёртвые ветки, избыточные
 # проверки, краш-пути, сложность Маккейба) на фикстуре examples/xray_demo.py.
 xray-check: build

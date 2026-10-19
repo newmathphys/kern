@@ -1242,6 +1242,16 @@ def main() -> int:
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--anti-cheat", default=None, metavar="PATH",
+                    help="ПУНКТ 32: анти-чит (Reward Hacking, overfitting, mock, exit)")
+    ap.add_argument("--import-lock", default=None, metavar="ALLOW.json",
+                    help="ПУНКТ 32: белый список импортов (защита от slopsquatting)")
+    ap.add_argument("--audit-mcp", default=None, metavar="PATH",
+                    help="ПУНКТ 33: отравление MCP (инъекции, невидимый Unicode, rug-pull)")
+    ap.add_argument("--mcp-lock", default=None, metavar="LOCK.json",
+                    help="ПУНКТ 33: замок отпечатков инструментов (rug-pull)")
+    ap.add_argument("--noninterference", default=None, metavar="PATH",
+                    help="ПУНКТ 34: неинтерференция (@kern:secret, 2-Safety)")
     ap.add_argument("--verify-sql", default=None, metavar="PATH",
                     help="ПУНКТ 30: изоляция тенантов (RLS-предикаты доступа)")
     ap.add_argument("--verify-pricing", default=None, metavar="PATH",
@@ -1308,6 +1318,12 @@ def main() -> int:
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
                             args.github_annotations, args.json)
+    if getattr(args, "anti_cheat", None):
+        return cmd_anti_cheat(args.anti_cheat, args.import_lock)
+    if getattr(args, "audit_mcp", None):
+        return cmd_audit_mcp(args.audit_mcp, args.mcp_lock)
+    if getattr(args, "noninterference", None):
+        return cmd_noninterference(args.noninterference, args.kernc)
     if getattr(args, "verify_sql", None):
         return cmd_verify_sql(args.verify_sql, args.kernc)
     if getattr(args, "verify_pricing", None):
@@ -3797,6 +3813,263 @@ def cmd_verify_pricing(path: str, kernc) -> int:
     print("-" * 74)
     print(f"[PRICING SUMMARY] checked {checked} / {len(fns)} functions, skipped {skipped} | "
           f"FAIL {fails} | UNKNOWN {unknowns}")
+    return 1 if (fails or unknowns) else 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 6, ПУНКТ 32: АНТИ-ЧИТ ПРОТИВ REWARD HACKING И SLOPSQUATTING.
+#
+# ЗАЧЕМ. ИИ-агент, которому не удаётся починить код, идёт на хитрость: перегружает
+# `__eq__` (любой объект «равен» любому), глушит `assert` через `except: pass`,
+# выходит из процесса `sys.exit(0)`, подменяет проверяемое `unittest.mock`, либо
+# хардкодит ответ под конкретный тест (`if x == 42 and y == 17`). Плюс
+# SLOPSQUATTING: галлюцинированный импорт, зарегистрированный злоумышленником в
+# PyPI. Всё это ловится СТАТИЧЕСКИ по AST.
+# -----------------------------------------------------------------------------
+
+CHEAT_EXIT = {"sys.exit", "os._exit", "exit", "quit"}
+CHEAT_MOCK = {"unittest.mock.patch", "mock.patch", "patch", "MagicMock", "Mock"}
+SUSPICIOUS_MODULES = {"fast_crypto_utils", "requests_easy", "openai_helpers",
+                      "crypto_utils", "python-dotenv-safe"}
+
+
+def _dotted(node) -> str:
+    """Полное имя вызова: `unittest.mock.patch` -> "unittest.mock.patch".
+
+    ИЗМЕРЕНО: первая версия смотрела только `Attribute(value=Name)` и НЕ видела
+    вложенные атрибуты (`unittest.mock.patch`), из-за чего чит «мок в проде»
+    пропускался.
+    """
+    parts: list[str] = []
+    cur = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name):
+        parts.append(cur.id)
+    return ".".join(reversed(parts))
+
+
+class _CheatScan(ast.NodeVisitor):
+    """Статический поиск читов: каждая находка — (класс, строка)."""
+
+    def __init__(self):
+        self.findings: list[tuple[str, int]] = []
+        self.imports: list[tuple[str, int]] = []
+
+    def visit_Import(self, node):
+        for al in node.names:
+            self.imports.append((al.name.split(".")[0], node.lineno))
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        if node.module:
+            self.imports.append((node.module.split(".")[0], node.lineno))
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):
+        # (1) перегрузка __eq__, всегда возвращающая True
+        if node.name == "__eq__":
+            for st in ast.walk(node):
+                if (isinstance(st, ast.Return) and isinstance(st.value, ast.Constant)
+                        and st.value.value is True):
+                    self.findings.append(("always-true __eq__", node.lineno))
+                    break
+        # (4) хардкод под тест: `if x == 42 and y == 17:`
+        for st in ast.walk(node):
+            if isinstance(st, ast.If) and isinstance(st.test, ast.BoolOp):
+                lits = sum(1 for sub in ast.walk(st.test)
+                           if isinstance(sub, ast.Compare)
+                           and any(isinstance(c, ast.Constant) for c in sub.comparators))
+                if lits >= 2 and isinstance(st.test.op, ast.And):
+                    self.findings.append(("test-case overfitting (chain of literals)",
+                                          st.lineno))
+        self.generic_visit(node)
+
+    def visit_Call(self, node):
+        name = _dotted(node.func)
+        if name in CHEAT_EXIT:
+            self.findings.append((f"exit inside tested code: {name}()", node.lineno))
+        if name in CHEAT_MOCK or name.startswith("mock."):
+            self.findings.append(("mock in production code", node.lineno))
+        self.generic_visit(node)
+
+    def visit_Try(self, node):
+        for h in node.handlers:
+            if len(h.body) == 1 and isinstance(h.body[0], ast.Pass):
+                has_assert = any(isinstance(x, ast.Assert) for x in ast.walk(node))
+                kind = ("swallowed assert (except: pass)" if has_assert
+                        else "swallowed exception (except: pass)")
+                self.findings.append((kind, h.lineno))
+        self.generic_visit(node)
+
+
+def cmd_anti_cheat(path: str, allowlist: str | None = None) -> int:
+    """ПУНКТ 32: `--anti-cheat <file> [--import-lock <allow.json>]`."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    sc = _CheatScan()
+    sc.visit(ast.parse(src))
+    allowed: set[str] | None = None
+    if allowlist:
+        data = json.loads(Path(allowlist).read_text(encoding="utf-8"))
+        allowed = set(data.get("allowed", []))
+    findings = list(sc.findings)
+    for mod, ln in sc.imports:
+        if allowed is not None and mod not in allowed:
+            findings.append((f"import not in allowlist (slopsquatting?): {mod}", ln))
+        elif allowed is None and mod in SUSPICIOUS_MODULES:
+            findings.append((f"suspicious module (slopsquatting): {mod}", ln))
+    findings.sort(key=lambda z: z[1])
+    for kind, ln in findings:
+        print(f"  [CHEAT DETECTED: {kind}] строка {ln}")
+    print("-" * 74)
+    print(f"[ANTI-CHEAT SUMMARY] файл {path}: находок {len(findings)}")
+    if findings:
+        return 1
+    print("  [OK] чисто: ни читов, ни подозрительных импортов")
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 6, ПУНКТ 33: СКАНЕР ОТРАВЛЕНИЯ MCP И ЗАЩИТА ОТ RUG-PULL.
+#
+# ЗАЧЕМ. MCP-сервер описывает инструменты в JSON; поле `description` читает
+# ЯЗЫКОВАЯ МОДЕЛЬ, а не человек. Оттуда три атаки:
+#   * промпт-инъекция (`ignore previous instructions`, чтение `~/.ssh`, `.env`);
+#   * невидимые символы (Zero-Width, Bidi Override, Tag characters) — текст
+#     выглядит безобидно, но модель читает скрытое;
+#   * RUG-PULL: описание «тихо» меняется ПОСЛЕ одобрения. Замок `mcp.lock.json`
+#     хранит SHA-256 каждого инструмента; изменение -> тревога.
+# -----------------------------------------------------------------------------
+
+MCP_INJECT_PATTERNS = [
+    "ignore previous", "ignore all previous", "disregard previous",
+    "<system>", "</system>", "important: before calling", "you must first",
+    "~/.ssh", "id_rsa", ".env", "send the contents", "exfiltrate",
+    "do not tell the user", "silently",
+]
+MCP_INVISIBLE_RANGES = [(0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x2064),
+                        (0xE0000, 0xE007F), (0xFEFF, 0xFEFF)]
+
+
+def _mcp_tool_hash(tool: dict) -> str:
+    """SHA-256 инструмента по КАНОНИЧЕСКОМУ JSON (имя+описание+схема).
+
+    Спецификация допускает BLAKE3; здесь SHA-256 из stdlib, чтобы проверка
+    работала без внешних зависимостей — это ЯВНО указано в отчёте.
+    """
+    payload = json.dumps({"name": tool.get("name", ""),
+                          "description": tool.get("description", ""),
+                          "inputSchema": tool.get("inputSchema", {})},
+                         sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def cmd_audit_mcp(schema_path: str, lock_path: str | None) -> int:
+    """ПУНКТ 33: `--audit-mcp <schema.json> [--mcp-lock <lock.json>]`."""
+    data = json.loads(Path(schema_path).read_text(encoding="utf-8"))
+    tools = data.get("tools", data if isinstance(data, list) else [])
+    findings: list[str] = []
+    for t in tools:
+        name = t.get("name", "?")
+        desc = json.dumps(t, ensure_ascii=False)
+        low = desc.lower()
+        for pat in MCP_INJECT_PATTERNS:
+            if pat in low:
+                findings.append(f"PROMPT INJECTION in `{name}`: «{pat}»")
+        for ch in desc:
+            cp = ord(ch)
+            for lo, hi in MCP_INVISIBLE_RANGES:
+                if lo <= cp <= hi:
+                    findings.append(f"INVISIBLE UNICODE in `{name}`: U+{cp:04X}")
+                    break
+    if lock_path:
+        lp = Path(lock_path)
+        cur = {t.get("name", "?"): _mcp_tool_hash(t) for t in tools}
+        if lp.exists():
+            old = json.loads(lp.read_text(encoding="utf-8")).get("tools", {})
+            for name, h in cur.items():
+                if name in old and old[name] != h:
+                    findings.append(f"MCP RUG-PULL DETECTED: `{name}` изменён после одобрения")
+                elif name not in old:
+                    findings.append(f"MCP RUG-PULL DETECTED: `{name}` добавлен после одобрения")
+            for name in old:
+                if name not in cur:
+                    findings.append(f"MCP RUG-PULL DETECTED: `{name}` удалён после одобрения")
+        else:
+            lp.write_text(json.dumps({"tools": cur}, indent=2, sort_keys=True),
+                          encoding="utf-8")
+            print(f"  [i] замок создан: {lp} ({len(cur)} инструментов)")
+    for f in findings:
+        print(f"  [MCP] {f}")
+    print("-" * 74)
+    print(f"[MCP SUMMARY] инструментов {len(tools)} | находок {len(findings)}")
+    if findings:
+        return 1
+    print("  [OK] схема чиста (нет инъекций, невидимых символов, rug-pull)")
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 6, ПУНКТ 34: НЕИНТЕРФЕРЕНЦИЯ (`# @kern:secret`, 2-Safety).
+#
+# ЗАЧЕМ. Утечка по сторонним каналам: публичный выход зависит от СЕКРЕТА (pin,
+# key, token). Классическая формулировка Гогоэна—Месегера: две копии программы с
+# ОДИНАКОВЫМ публичным входом и РАЗНЫМИ секретами обязаны дать ОДИН выход.
+# Проверяем самокомпозицию: `body[secret := s1] != body[secret := s2]` -> SAT =
+# утечка (существует пара секретов, различимая по публичному выходу).
+# -----------------------------------------------------------------------------
+
+SECRET_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:secret\s*\(([^)]*)\)\s*$")
+
+
+def cmd_noninterference(path: str, kernc) -> int:
+    """ПУНКТ 34: `--noninterference <file>` (цель `make noninterference-check`)."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
+    checked = fails = unknowns = skipped = 0
+    for fn in fns:
+        names = _directive_above(lines, fn.lineno, SECRET_RE)
+        if names is None:
+            skipped += 1
+            continue
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        secrets = [s.strip() for s in names.split(",") if s.strip()]
+        if not secrets or any(s not in params for s in secrets):
+            print(f"  [SKIP] {fn.name}: `@kern:secret` называет не-параметры")
+            skipped += 1
+            continue
+        body, why = None, ""
+        try:
+            body = body_smt(_fn_stmts(fn), {})
+        except (NoReturn, Unsupported) as e:
+            why = str(e)
+        if body is None:
+            print(f"  [SKIP] {fn.name}: тело вне подмножества ({why})")
+            skipped += 1
+            continue
+        checked += 1
+        # ДВЕ КОПИИ: публичные параметры — ОДНО имя (вход одинаков), секреты
+        # разведены в `__1` / `__2`. Это и есть 2-Safety самокомпозиция.
+        m1 = {s: f"{s}__1" for s in secrets}
+        m2 = {s: f"{s}__2" for s in secrets}
+        f1 = _subst(body, m1)
+        f2 = _subst(body, m2)
+        decls = ([p for p in params if p not in secrets]
+                 + list(m1.values()) + list(m2.values()))
+        v, ce, tr = _prove_checked(kernc, decls, [f"(not (= {f1} {f2}))"])
+        if v == "sat":
+            fails += 1
+            print(f"  [FAIL] {fn.name}: SECRET LEAK / NON-INTERFERENCE VIOLATED — {ce}")
+        elif v == "unsat" and tr == 0:
+            print(f"  [PASS] {fn.name}: PROVEN NON-INTERFERENT (trusted: 0 | holes: 0)")
+        else:
+            unknowns += 1
+            print(f"  [UNKNOWN] {fn.name}: {v} trusted={tr} — НЕ засчитано")
+    print("-" * 74)
+    print(f"[NONINTERFERENCE SUMMARY] checked {checked} / {len(fns)} functions, "
+          f"skipped {skipped} | FAIL {fails} | UNKNOWN {unknowns}")
     return 1 if (fails or unknowns) else 0
 
 
