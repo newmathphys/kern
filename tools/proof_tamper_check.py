@@ -38,8 +38,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KERNC = ROOT / "zig-out" / "bin" / "kernc"
-DEFAULT_SMT = ROOT / "tests" / "fixtures" / "abs_contract.smt2"
-DEFAULT_PROOF = ROOT / "tests" / "fixtures" / "abs_proof.txt"
+FIX = ROOT / "tests" / "fixtures"
+DEFAULT_SMT = FIX / "abs_contract.smt2"
+DEFAULT_PROOF = FIX / "abs_proof.txt"
+
+# ТРИ НЕЗАВИСИМЫЕ ТЕОРИИ (Эшелон 4 закрепил `trusted: 0` на каждой из них):
+#   * QF_LIA  — `musl abs.c`, 51 шаг (Фаркаш, расщепление клауз);
+#   * QF_S    — санитайзер путей, 39 шагов (строковые предикаты, seq.unit/str.++);
+#   * IEEE-754-модель — `float NaN`, 56 шагов (булевы переменные + линейная модель).
+# Адверсариальная проверка ОБЯЗАНА покрывать все три: звучность, доказанная на
+# одной теории, ничего не говорит о другой.
+TARGETS = [
+    ("abs.c (QF_LIA)", FIX / "abs_contract.smt2", FIX / "abs_proof.txt", 30),
+    ("QF_S (sanitizer)", FIX / "qfs_sanitizer.smt2", FIX / "qfs_proof.txt", 5),
+    ("IEEE-754 (NaN)", FIX / "ieee754_nan.smt2", FIX / "ieee754_proof.txt", 5),
+]
 
 # (regex, замена, метка). Каждое искажение применяется к ОДНОМУ вхождению —
 # так получается N РАЗНЫХ подделок, а не одна и та же.
@@ -99,59 +112,88 @@ def check_one(args):
     return i, label, r.returncode, (r.stdout + r.stderr).strip()
 
 
+def run_target(kernc, name, smt_path, proof_path, n, jobs):
+    """Проверить ОДНУ теорию: (имя, сколько подделок, список принятых).
+
+    ВОЗВРАТ (n_tampers, accepted): если подделок сгенерировано МЕНЬШЕ, чем
+    запрошено, — это НЕ «успех»: цель обязана краснеть (иначе фаззер молча
+    теряет покрытие, что и есть вакуумный кейс).
+    """
+    if not smt_path.exists() or not proof_path.exists():
+        print(f"  [!] {name}: нет файлов {smt_path.name} / {proof_path.name}")
+        return (0, [("нет фикстур", "файл отсутствует")])
+    proof = proof_path.read_text(encoding="utf-8")
+
+    r0 = subprocess.run([str(kernc), "check-proof", str(smt_path), str(proof_path)],
+                        capture_output=True, text=True, timeout=120)
+    print(f"  [контроль] {name}: неповреждённый вывод rc={r0.returncode} (ожидается 0)")
+    if r0.returncode != 0:
+        print("  [!] ЧЕКЕР НЕ ПРИНИМАЕТ ДАЖЕ ВЕРНЫЙ ВЫВОД — фаззер неприменим")
+        return (0, [("контроль не прошёл", (r0.stdout + r0.stderr)[:200])])
+
+    tampers = make_tampers(proof, n)
+    print(f"  [i] {name}: подделок {len(tampers)} (нужно {n})")
+    if len(tampers) < n:
+        return (len(tampers), [("подделок меньше запрошенного", f"{len(tampers)} < {n}")])
+
+    accepted = []
+    with tempfile.TemporaryDirectory(dir=tmp_dir()) as td:
+        jobs_l = [(kernc, smt_path, td, i, label, t)
+                  for i, (label, _, t) in enumerate(tampers)]
+        with ThreadPoolExecutor(max_workers=jobs) as ex:
+            results = list(ex.map(check_one, jobs_l))
+
+    for i, label, rc, out in sorted(results, key=lambda z: z[0]):
+        ok = rc != 0
+        if not ok:
+            accepted.append((f"{name} #{i + 1} {label}", out))
+        print(f"    [{i + 1:>2}/{len(tampers)}] {label:<34} rc={rc} -> "
+              f"{'отвергнута OK' if ok else 'ПРИНЯТА !!!'}")
+    return (len(tampers), accepted)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Адверсариальный фаззер пруф-чекера")
-    ap.add_argument("--smt", default=str(DEFAULT_SMT))
-    ap.add_argument("--proof", default=str(DEFAULT_PROOF))
-    ap.add_argument("--n", type=int, default=30)
+    ap.add_argument("--smt", default=None, help="одна фикстура (одиночный режим)")
+    ap.add_argument("--proof", default=None, help="один вывод (одиночный режим)")
+    ap.add_argument("--n", type=int, default=None,
+                    help="подделок на цель (по умолчанию: 30/5/5 по трём теориям)")
     ap.add_argument("--jobs", type=int, default=min(6, os.cpu_count() or 1))
     args = ap.parse_args()
 
     if not KERNC.exists():
         print(f"[!] нет {KERNC} — соберите: zig build")
         return 2
-    smt_path, proof_path = Path(args.smt), Path(args.proof)
-    if not smt_path.exists() or not proof_path.exists():
-        print(f"[!] нужны файлы: {smt_path} и {proof_path}")
-        return 2
-    proof = proof_path.read_text(encoding="utf-8")
 
-    # ПОЗИТИВНЫЙ КОНТРОЛЬ: неповреждённый вывод ОБЯЗАН подтвердиться.
-    r0 = subprocess.run([str(KERNC), "check-proof", str(smt_path), str(proof_path)],
-                        capture_output=True, text=True, timeout=120)
-    print(f"[контроль] неповреждённый вывод: rc={r0.returncode} (ожидается 0)")
-    if r0.returncode != 0:
-        print("[!] ЧЕКЕР НЕ ПРИНИМАЕТ ДАЖЕ ВЕРНЫЙ ВЫВОД — фаззер неприменим")
-        return 2
+    if args.smt or args.proof:
+        n = args.n if args.n is not None else 30
+        targets = [("одиночная цель", Path(args.smt or DEFAULT_SMT),
+                    Path(args.proof or DEFAULT_PROOF), n)]
+    else:
+        targets = [(nm, s, p, (args.n if args.n is not None else k))
+                   for nm, s, p, k in TARGETS]
 
-    tampers = make_tampers(proof, args.n)
-    print(f"[i] подделок сгенерировано: {len(tampers)} (нужно {args.n})")
+    print(f"[i] теорий: {len(targets)} | подделок всего: "
+          f"{sum(t[3] for t in targets)}")
+    total, accepted_all = 0, []
+    for nm, smt_p, proof_p, n in targets:
+        print(f"--- {nm} ---")
+        cnt, acc = run_target(KERNC, nm, smt_p, proof_p, n, args.jobs)
+        total += cnt
+        accepted_all.extend(acc)
 
-    accepted = []
-    with tempfile.TemporaryDirectory(dir=tmp_dir()) as td:
-        jobs = [(KERNC, smt_path, td, i, label, t) for i, (label, _, t) in enumerate(tampers)]
-        with ThreadPoolExecutor(max_workers=args.jobs) as ex:
-            results = list(ex.map(check_one, jobs))
-
-    for i, label, rc, out in sorted(results, key=lambda z: z[0]):
-        ok = rc != 0
-        if not ok:
-            accepted.append((i, label, out))
-        mark = "отвергнута OK" if ok else "ПРИНЯТА !!!"
-        print(f"  [{i + 1:>2}/{len(tampers)}] {label:<34} rc={rc} -> {mark}")
-
-    print("-" * 72)
-    print(f"ПОДДЕЛОК: {len(tampers)} | отвергнуто: {len(tampers) - len(accepted)} "
-          f"| ПРИНЯТО: {len(accepted)}")
-    if not accepted:
-        print("[OK] ЗВУЧНОСТЬ: ни одна подделка не прошла — "
-              "`trusted: 0` на abs.c подтверждён адверсариально")
+    print("=" * 72)
+    print(f"ПОДДЕЛОК ВСЕГО: {total} | ПРИНЯТО: {len(accepted_all)}")
+    if not accepted_all:
+        print("[OK] ЗВУЧНОСТЬ: ни одна подделка не прошла на всех теориях — "
+              "`trusted: 0` подтверждён адверсариально")
         return 0
     print("[!] НЕЗВУЧНО: чекер принял подделанный вывод:")
-    for i, label, out in accepted:
-        print(f"    #{i + 1} {label}: {out[:200]}")
+    for label, out in accepted_all[:10]:
+        print(f"    {label}: {str(out)[:200]}")
     return 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

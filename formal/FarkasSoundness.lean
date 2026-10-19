@@ -421,4 +421,42 @@ theorem clause_derivation_independent (C1 C2 concl : Prop) (h : C1 → concl) :
   intro hx
   exact h hx.1
 
+/-- ЗВУЧНОСТЬ ПРАВИЛА РЕФЛЕКСИВНОСТИ РАВЕНСТВА в чекере: `(= A A) ⟺ true`.
+
+    Чекер принимает `(rewrite (= (= A A) true))` (пресет `@kern:idempotent`
+    заканчивает этим шагом). Правило звучимо, потому что `A = A` истинно для
+    ЛЮБОГО терма — доказывать нечего. -/
+theorem eq_refl_iff_true (x : Int) : (x = x) ↔ True :=
+  ⟨fun _ => trivial, fun _ => rfl⟩
+
+/-- НЕГАТИВНЫЙ ДВОЙНИК: рефлексивность НЕ обобщается на разные термы —
+    `(= A B)` при `A ≠ B` не является тождеством, поэтому чекер обязан
+    отвергать такой `rewrite`. -/
+theorem eq_refl_not_general (x y : Int) (h : x ≠ y) : ¬(x = y) := h
+
+/-- ЗВУЧНОСТЬ ВЫЧИСЛЕНИЯ КОНСТАНТНОГО СРАВНЕНИЯ (`constCmpEval`): значение
+    `decide (a ≤ b)` — это ровно истинность сравнения, а не догадка чекера.
+    ИЗМЕРЕНО на пресете `@kern:idempotent`: Z3 сворачивает ветви clamp-функции
+    шагами `(rewrite (= (<= 0 100) true))`. -/
+theorem const_cmp_eval_sound (a b : Int) : (decide (a ≤ b) = true) ↔ a ≤ b :=
+  decide_eq_true_iff
+
+/-- ЗВУЧНОСТЬ СВЁРТКИ `ite` С КОНСТАНТНЫМ УСЛОВИЕМ (`constIteEq`), истинная
+    ветвь: `(if True then A else B) = A`. -/
+theorem const_ite_true (A B : Int) : (if True then A else B) = A := rfl
+
+/-- … и ложная ветвь: `(if False then A else B) = B`. -/
+theorem const_ite_false (A B : Int) : (if False then A else B) = B := rfl
+
+/-- ЗВУЧНОСТЬ ПРАВИЛА «ЛИНЕЙНАЯ ТАВТОЛОГИЯ» (`linTautEq`): если ОТРИЦАНИЕ
+    утверждения несовместно, то само утверждение истинно. Именно так чекер
+    принимает `(rewrite (= E true))`, где `E` — линейное сравнение. -/
+theorem unsat_neg_implies_true (P : Prop) (h : ¬P → False) : P :=
+  Classical.byContradiction h
+
+/-- КОНКРЕТНЫЙ СЛУЧАЙ из пресета `@kern:no_arbitrage`: линейная комиссия
+    СУБАДДИТИВНА — дробление платежа не даёт выгоды (`f(a1)+f(a2) ≥ f(a1+a2)`). -/
+theorem linear_fee_subadditive (a1 a2 : Int) : 3 * a1 + 3 * a2 ≥ 3 * (a1 + a2) := by
+  omega
+
 end KernFarkas

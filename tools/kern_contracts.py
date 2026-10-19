@@ -1110,6 +1110,12 @@ def main() -> int:
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
                                           / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--presets", default=None, metavar="PATH",
+                    help="ПУНКТ 26: однословные пресеты (non_negative, percentage, "
+                         "bounded, idempotent, monotonic, no_arbitrage)")
+    ap.add_argument("--spec-gaps", action="store_true",
+                    help="ПУНКТ 26: диагностика неполных спецификаций (MacFarlane); "
+                         "работает только вместе с --presets")
     ap.add_argument("--state-inv", default=None, metavar="PATH",
                     help="ПУНКТ 24: инвариант состояния (state_invariant)")
     ap.add_argument("--loops", default=None, metavar="PATH",
@@ -1166,6 +1172,8 @@ def main() -> int:
     if args.git_diff is not None:
         return cmd_git_diff(args.git_diff, args.kernc, args.sarif,
                             args.github_annotations, args.json)
+    if getattr(args, "presets", None):
+        return cmd_presets(args.presets, args.kernc, spec_gaps=args.spec_gaps)
     if getattr(args, "state_inv", None):
         return cmd_state_inv(args.state_inv, args.kernc)
     if getattr(args, "loops", None):
@@ -3008,6 +3016,330 @@ def cmd_simplify(path: str, out_file: str | None, kernc) -> int:
     print("-" * 74)
     print(f"ИТОГО: доказанно упрощено {proven} | отклонено {rejected}")
     return 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 5, ПУНКТ 26: ОДНОСЛОВНЫЕ БИЗНЕС-ПРЕСЕТЫ (+ `--spec-gaps`).
+#
+# ЗАЧЕМ. Обычному разработчику трудно написать формулу постусловия, но легко
+# поставить ОДНО СЛОВО над функцией. Пресет разворачивается в математическое
+# обязательство и проверяется тем же путём (`kernc prove` + пруф-чекер).
+#
+# ЕДИНЫЙ МЕХАНИЗМ КОМПОЗИЦИИ (`_instantiate_body`). `idempotent`, `monotonic`
+# и `no_arbitrage` (пункт 27) — это ОДНА операция: подстановка произвольного
+# SMT-выражения вместо параметра в СИМВОЛЬНОЕ ТЕЛО функции. Три отдельные
+# реализации разошлись бы и дали бы разные вердикты на одном и том же коде.
+# -----------------------------------------------------------------------------
+
+PRESET_RE = re.compile(
+    r"^\s*(?:#|//|///)\s*@kern:(non_negative|percentage|idempotent|monotonic"
+    r"|no_arbitrage|conservation|bounded\s*\(([^)]*)\))\s*$")
+
+
+def _presets_of(lines, lineno):
+    """Пресеты в блоке комментариев непосредственно НАД функцией."""
+    out = []
+    i = lineno - 2
+    while i >= 0:
+        s = lines[i].strip()
+        if not s or not s.startswith(("#", "//")):
+            break
+        m = PRESET_RE.match(s)
+        if m:
+            out.append((m.group(1).split("(")[0].strip(), m.group(2)))
+        i -= 1
+    return out
+
+
+def _requires_above(lines, lineno):
+    """`@kern:requires` из блока комментариев НАД функцией (или None)."""
+    i = lineno - 2
+    while i >= 0:
+        s = lines[i].strip()
+        if not s or not s.startswith("#"):
+            break
+        m = re.search(r"@kern:requires\s+(.+)$", s)
+        if m:
+            return m.group(1).strip()
+        i -= 1
+    return None
+
+
+def _instantiate_body(body_smt_text: str, param: str, arg_sexp: str) -> str:
+    """Подставить SMT-выражение `arg_sexp` вместо `param` в тело функции.
+
+    ОБЩИЙ механизм для `idempotent` (тело в себя), `monotonic` (две копии
+    входа) и `no_arbitrage` (две части платежа + их сумма). Подстановка идёт по
+    ГРАНИЦАМ СЛОВА (`_subst`), поэтому `x` не задевает `x1` и `x_len`.
+    """
+    return _subst(body_smt_text, {param: arg_sexp})
+
+
+def _prove_checked(kernc, decls, asserts):
+    """(kind, контрпример, trusted): sat | unsat | unknown.
+
+    `trusted` — число шагов, которые пруф-чекер НЕ перепроверил. `PASS`
+    засчитывается ТОЛЬКО при `trusted == 0`: иначе «доказано» было бы словом
+    решателя, а не проверенным сертификатом.
+    """
+    decls_txt = "\n".join(f"(declare-const {p} Int)" for p in decls)
+    body = "\n".join(f"(assert {a})" for a in asserts)
+    smt = f"(set-logic ALL)\n{decls_txt}\n{body}\n(check-sat)\n"
+    _rc, out = run_kernc(kernc, smt)
+    if "КОНТРПРИМЕР" in out:
+        ce = next((ln.strip()[:110] for ln in out.splitlines() if "КОНТРПРИМЕР" in ln),
+                  "SAT (модель не извлечена)")
+        return ("sat", ce, None)
+    if "ДОКАЗАНО" in out:
+        m = re.search(r"trusted:\s*(\d+)", out)
+        return ("unsat", None, (int(m.group(1)) if m else None))
+    return ("unknown", "решатель не решил (N)", None)
+
+
+def _fn_stmts(fn):
+    """Операторы функции без докстроки и `pass`."""
+    return [st for st in fn.body
+            if not isinstance(st, ast.Pass)
+            and not (isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant)
+                     and isinstance(st.value.value, str))]
+
+
+def _preset_obligation(kind, args, params, body, req_smt):
+    """Построить обязательство пресета: (label, decls, asserts) или None.
+
+    SAT обязательства = БАГ (пресет нарушен); UNSAT = пресет доказан. Для
+    составных пресетов используется ОДИН механизм `_instantiate_body`.
+    """
+    pre = [req_smt] if req_smt else []
+    decls = list(dict.fromkeys(params + ["result"]))
+    if kind == "non_negative":
+        return (kind, decls, pre + [f"(= result {body})", "(not (>= result 0))"])
+    if kind == "percentage":
+        return (kind, decls, pre + [f"(= result {body})",
+                                    "(not (and (>= result 0) (<= result 100)))"])
+    if kind == "bounded":
+        parts = [x.strip() for x in (args or "").split(",")]
+        if len(parts) != 2 or not all(parts):
+            return None
+        try:
+            lo_smt = expr_smt(ast.parse(parts[0], mode="eval").body, {})
+            hi_smt = expr_smt(ast.parse(parts[1], mode="eval").body, {})
+        except Exception:
+            return None
+        return (f"bounded({parts[0]}, {parts[1]})", decls,
+                pre + [f"(= result {body})",
+                       f"(not (and (>= result {lo_smt}) (<= result {hi_smt})))"])
+    if kind in ("idempotent", "monotonic", "no_arbitrage", "conservation"):
+        if len(params) != 1:
+            return None
+        p = params[0]
+        if kind == "idempotent":
+            f1 = body
+            f2 = _instantiate_body(body, p, f1)
+            return (kind, [p], pre + [f"(not (= {f2} {f1}))"])
+        if kind == "monotonic":
+            f1 = _instantiate_body(body, p, "x1")
+            f2 = _instantiate_body(body, p, "x2")
+            rs = ([_instantiate_body(req_smt, p, "x1"),
+                   _instantiate_body(req_smt, p, "x2")] if req_smt else [])
+            return (kind, ["x1", "x2"], rs + ["(<= x1 x2)", f"(not (<= {f1} {f2}))"])
+        # АНТИ-АРБИТРАЖ (пункт 27): дробление платежа не должно быть выгоднее
+        # целого -> обязательство `f(a1) + f(a2) >= f(a1 + a2)`.
+        f1 = _instantiate_body(body, p, "a1")
+        f2 = _instantiate_body(body, p, "a2")
+        fs = _instantiate_body(body, p, "(+ a1 a2)")
+        rs = ([_instantiate_body(req_smt, p, "a1"),
+               _instantiate_body(req_smt, p, "a2"),
+               _instantiate_body(req_smt, p, "(+ a1 a2)")] if req_smt else [])
+        return (kind, ["a1", "a2"],
+                rs + ["(> a1 0)", "(> a2 0)", f"(not (>= (+ {f1} {f2}) {fs}))"])
+    return None
+
+
+def cmd_presets(path: str, kernc, spec_gaps: bool = False) -> int:
+    """ПУНКТ 26: `--presets <file>` (+ `--spec-gaps`). Цель `make presets-check`."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    lines = src.splitlines()
+    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
+    checked = skipped = fails = unknowns = 0
+    rows: list[str] = []
+    for fn in fns:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        presets = _presets_of(lines, fn.lineno)
+        req_txt = _requires_above(lines, fn.lineno)
+        body, why = None, ""
+        try:
+            body = body_smt(_fn_stmts(fn), {})
+        except (NoReturn, Unsupported) as e:
+            why = str(e)
+
+        # `--spec-gaps`: ДИАГНОСТИКА (MacFarlane) — только при явном флаге;
+        # штатный прогон без флага она не задевает.
+        if spec_gaps:
+            gaps = []
+            if req_txt is None:
+                for p in params:
+                    if body and re.search(r"(?<![\w])" + re.escape(p) + r"(?![\w])", body):
+                        gaps.append(f"отрицательная область параметра `{p}` "
+                                    f"не закрыта предусловием")
+            if any(k == "non_negative" for k, _ in presets):
+                gaps.append("пресет `non_negative` ограничивает результат только "
+                            "снизу (нет верхней границы)")
+            for g in gaps:
+                print(f"  [SPEC GAP] {fn.name}: {g}")
+                rows.append("[SPEC GAP]")
+
+        if not presets:
+            skipped += 1
+            continue
+        if body is None:
+            skipped += 1
+            rows.append("[SKIP]")
+            print(f"  [SKIP] {fn.name}: тело вне подмножества ({why})")
+            continue
+        req_smt = None
+        if req_txt:
+            try:
+                req_smt = expr_smt(ast.parse(req_txt, mode="eval").body, {})
+            except Exception:
+                req_smt = None
+        checked += 1
+        for kind, args in presets:
+            if kind == "idempotent":
+                obs = _idempotent_obligations(fn, params)
+                if obs is None:
+                    print(f"  [SKIP] {fn.name}: `idempotent` требует ровно один "
+                          f"параметр и путевое тело")
+                    continue
+                n_pass = n_fail = n_unk = 0
+                first_fail = ""
+                for label, decls, asserts in obs:
+                    v, ce, tr = _prove_checked(kernc, decls, asserts)
+                    if v == "sat":
+                        n_fail += 1
+                        first_fail = first_fail or f"{label} — {ce}"
+                    elif v == "unsat" and tr == 0:
+                        n_pass += 1
+                    else:
+                        n_unk += 1
+                print(f"  [i] {fn.name}: idempotent — путей {len(obs)} | "
+                      f"PASS {n_pass} | FAIL {n_fail} | UNKNOWN {n_unk}")
+                if n_fail:
+                    fails += 1
+                    rows.append("[FAIL]")
+                    print(f"  [FAIL] {fn.name}: idempotent REFUTED — {first_fail}")
+                elif n_unk:
+                    unknowns += 1
+                    rows.append("[UNKNOWN]")
+                    print(f"  [UNKNOWN] {fn.name}: idempotent — {n_unk} путей "
+                          f"НЕ перепроверены чекером (НЕ засчитано)")
+                else:
+                    rows.append("[PASS]")
+                    print(f"  [PASS] {fn.name}: idempotent PROVEN по всем "
+                          f"{n_pass} путям (trusted: 0 | holes: 0)")
+                continue
+            built = _preset_obligation(kind, args, params, body, req_smt)
+            if built is None:
+                print(f"  [SKIP] {fn.name}: `{kind}` неприменим "
+                      f"(нужен один параметр / корректные границы)")
+                continue
+            label, decls, ob = built
+            v, ce, tr = _prove_checked(kernc, decls, ob)
+            if v == "sat":
+                fails += 1
+                rows.append("[FAIL]")
+                print(f"  [FAIL] {fn.name}: {label} REFUTED — {ce}")
+            elif v == "unsat" and tr == 0:
+                rows.append("[PASS]")
+                print(f"  [PASS] {fn.name}: {label} PROVEN (trusted: 0 | holes: 0)")
+            elif v == "unsat":
+                unknowns += 1
+                rows.append("[UNKNOWN]")
+                print(f"  [UNKNOWN] {fn.name}: {label} — Z3 UNSAT, "
+                      f"но чекер оставил trusted: {tr} (НЕ засчитано)")
+            else:
+                unknowns += 1
+                rows.append("[UNKNOWN]")
+                print(f"  [UNKNOWN] {fn.name}: {label} — {ce}")
+    print("-" * 74)
+    print(f"[PRESETS SUMMARY] checked {checked} / {len(fns)} functions, "
+          f"skipped {skipped} (без пресетов / вне подмножества)")
+    print(f"  PASS {rows.count('[PASS]')} | FAIL {rows.count('[FAIL]')} | "
+          f"UNKNOWN {rows.count('[UNKNOWN]')} | SPEC GAP {rows.count('[SPEC GAP]')}")
+    return 1 if (fails or unknowns) else 0
+
+
+def _paths_of(fn, syms=None):
+    """Все пути выхода функции: список (условия_пути, значение_возврата).
+
+    Нужен для ПУТЕВОЙ формулировки идемпотентности: подстановка значения ветви
+    в тело даёт вложенный `ite`, который чекер пока не перепроверяет. Если же
+    разложить тело на пути, обязательства становятся константными (условия
+    сворачиваются) и проверяются на `trusted: 0`.
+    """
+    out: list = []
+    ok = True
+
+    def rec(stmts, path):
+        nonlocal ok
+        for i, st in enumerate(stmts):
+            if isinstance(st, ast.If):
+                try:
+                    cond = _cond_smt(st.test, syms or set())
+                except Exception:
+                    ok = False
+                    return
+                rec(st.body, path + [cond])
+                rest = stmts[i + 1:]
+                if st.orelse:
+                    rec(st.orelse, path + [f"(not {cond})"])
+                elif rest:
+                    rec(rest, path + [f"(not {cond})"])
+                return
+            if isinstance(st, ast.Return):
+                if st.value is None:
+                    ok = False
+                    return
+                try:
+                    val = expr_smt(st.value, {})
+                except Exception:
+                    ok = False
+                    return
+                out.append((list(path), val))
+                return
+            ok = False
+            return
+
+    rec(_fn_stmts(fn), [])
+    return out if ok else None
+
+
+def _idempotent_obligations(fn, params, syms=None):
+    """ПУТЕВАЯ идемпотентность: для всех пар путей (p, q).
+
+    На пути `p` функция возвращает `V_p`. Тогда `f(f(x)) = V_q(V_p)`, где `q` —
+    путь, активный на входе `V_p`. Обязательство:
+    `P_p ∧ P_q[V_p] ∧ V_q[V_p] ≠ V_p` — SAT означает НЕидемпотентность.
+
+    ЗВУЧНОСТЬ: пути исчерпывают домен, поэтому перебор всех пар `(p, q)`
+    покрывает ВСЕ входы (никакой случай не теряется).
+    """
+    if len(params) != 1:
+        return None
+    paths = _paths_of(fn, syms)
+    if not paths or len(paths) < 2:
+        return None
+    p0 = params[0]
+    obs = []
+    for i, (pp, vp) in enumerate(paths):
+        for j, (pq, vq) in enumerate(paths):
+            sub = {p0: vp}
+            pq_s = _subst("(and " + " ".join(pq) + ")" if len(pq) > 1
+                          else (pq[0] if pq else "true"), sub)
+            vq_s = _subst(vq, sub)
+            asserts = list(pp) + [pq_s, f"(not (= {vq_s} {vp}))"]
+            obs.append((f"idempotent[путь {i + 1}->{j + 1}]", [p0], asserts))
+    return obs
 
 
 if __name__ == "__main__":

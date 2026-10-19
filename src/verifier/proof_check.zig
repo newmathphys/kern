@@ -950,6 +950,14 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // управление уходило в `return .unverifiable`, не доходя до этих проверок.
     if (constStrEq(l, r)) return .verified;
     if (constBoolEq(l, r)) return .verified;
+    // СВЁРТКА `ite` С КОНСТАНТНЫМ УСЛОВИЕМ (`(= (ite false A B) B)`): ИЗМЕРЕНО
+    // на пресете `@kern:idempotent` — Z3 сворачивает ветви clamp-функции именно
+    // такими шагами. ЗВУЧНО: при известном условии `ite` — это выбор ветви.
+    if (constIteEq(l, r)) return .verified;
+    // ЛИНЕЙНАЯ ТАВТОЛОГИЯ `(= E true|false)`: ИЗМЕРЕНО на `@kern:no_arbitrage`
+    // (шаг `(rewrite (= $x50 true))` для `3a1+3a2 >= 3(a1+a2)`). ЗВУЧНО:
+    // истинность проверяет встроенный Фурье—Моцкин (гейт `make lia-diff`).
+    if (linTautEq(c, l, r)) return .verified;
     // ПОДСТАНОВКА ПРОВЕРЕННЫХ ОПРЕДЕЛЕНИЙ `intro-def`: ИЗМЕРЕНО на `musl abs.c`
     // (последний доверенный шаг) — `(= (>= (result − ite(…)) 0) (>= (result −
     // z3name!1) 0))`, где `z3name!1` уже определён верифицированным `intro-def`.
@@ -1739,6 +1747,102 @@ fn constStrEq(l: Sexp, r: Sexp) bool {
 /// (`(str.contains "safe" "../")` -> `false`), и в выводе остаётся БУЛЕВА свёртка
 /// `(= false true)`, которую `(rewrite (= $x224 false))` переписывает в `false`.
 /// Вычисление булевых констант — тривиально звучимо (никаких доверенных шагов).
+/// ВЫЧИСЛЕНИЕ КОНСТАНТНОГО СРАВНЕНИЯ: `(< a b)`, `(<= a b)`, `(> a b)`,
+/// `(>= a b)`, `(= a b)` при ОБОИХ числовых литералах. ЗВУЧНО (это арифметика
+/// над конкретными числами, не решатель).
+///
+/// ИЗМЕРЕНО на пресете `@kern:idempotent`: Z3 сворачивает ветви clamp-функции
+/// шагами `(rewrite (= (<= 0 100) true))` и `(rewrite (= (ite false 100 0) 0))`;
+/// без этих двух правил шаги оставались ДОВЕРЕННЫМИ, хотя доказывать нечего.
+fn constCmpEval(s: Sexp) ?bool {
+    if (s.atom != null or s.items.len != 3) return null;
+    const op = s.items[0].atom orelse return null;
+    const a = numOf(s.items[1]) orelse return null;
+    const b = numOf(s.items[2]) orelse return null;
+    if (std.mem.eql(u8, op, "<")) return a < b;
+    if (std.mem.eql(u8, op, "<=")) return a <= b;
+    if (std.mem.eql(u8, op, ">")) return a > b;
+    if (std.mem.eql(u8, op, ">=")) return a >= b;
+    if (std.mem.eql(u8, op, "=")) return a == b;
+    return null;
+}
+
+/// `(= (ite C T E) X)` при КОНСТАНТНОМ условии `C`: равенство выполнено, если
+/// выбранная ветвь совпадает с `X` (по `sexpEqNum`). ЗВУЧНО: семантика `ite`
+/// при известном условии — это выбор ветви, а не доверие решателю.
+fn constIteEq(l: Sexp, r: Sexp) bool {
+    return iteBranchEquals(l, r) or iteBranchEquals(r, l);
+}
+
+/// `a = (ite C T E)` при константном `C`: сравнить выбранную ветвь с `b`.
+fn iteBranchEquals(a: Sexp, b: Sexp) bool {
+    if (a.atom != null or a.items.len != 4) return false;
+    if (!std.mem.eql(u8, a.items[0].atom orelse "", "ite")) return false;
+    const cval = evalBoolConst(a.items[1]) orelse return false;
+    const chosen = if (cval) a.items[2] else a.items[3];
+    return sexpEqNum(chosen, b);
+}
+
+/// ЛИНЕЙНАЯ ТАВТОЛОГИЯ: `(= E true)` / `(= E false)`, где `E` — ЛИНЕЙНОЕ
+/// сравнение над целыми. ЗВУЧНО: истинность `E` доказывает встроенный
+/// Фурье—Моцкин (`builtin_lia`), UNSAT которого проверен ДИФФЕРЕНЦИАЛЬНЫМ гейтом
+/// против Z3 (`make lia-diff`, 0 расхождений).
+///
+/// ИЗМЕРЕНО на пресете `@kern:no_arbitrage`: Z3 заканчивает вывод шагом
+/// `(rewrite (= $x50 true))`, где `$x50` — сравнение `3a1 + 3a2 >= 3(a1 + a2)`.
+/// Без этого правила шаг оставался ДОВЕРЕННЫМ.
+fn isCmpExpr(s: Sexp) bool {
+    if (!s.isList() or s.items.len != 3) return false;
+    const h = s.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, "<=") or std.mem.eql(u8, h, "<") or
+        std.mem.eql(u8, h, ">=") or std.mem.eql(u8, h, ">") or
+        std.mem.eql(u8, h, "=");
+}
+
+fn linTautEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    var e = l;
+    var ra = r.atom orelse return false;
+    if (!std.mem.eql(u8, ra, "true") and !std.mem.eql(u8, ra, "false")) {
+        // симметричная форма: `(= true E)`
+        const la = l.atom orelse return false;
+        if (!std.mem.eql(u8, la, "true") and !std.mem.eql(u8, la, "false")) return false;
+        e = r;
+        ra = la;
+    }
+    if (!isCmpExpr(e)) return false;
+    const dbg = compat.envVar("KERN_DEBUG_LIA") != null;
+    if (dbg) {
+        std.debug.print("[dbg-taut] сравнение: ", .{});
+        dumpSexp(e);
+        std.debug.print(" -> ожидаем {s}\n", .{ra});
+    }
+    const want_true = std.mem.eql(u8, ra, "true");
+    if (want_true) {
+        // `E` истинно <=> ОТРИЦАНИЕ несовместно (все альтернативы ¬E дают UNSAT).
+        var alts = std.array_list.Managed(std.array_list.Managed(builtin_lia.Lin)).init(c.arena);
+        const ok = negAlternatives(c, e, &alts);
+        if (dbg) std.debug.print("[dbg-taut] negAlternatives={} alts={d}\n", .{ ok, alts.items.len });
+        if (!ok) return false;
+        if (alts.items.len == 0) return false;
+        for (alts.items) |g| {
+            if (g.items.len == 0) return false;
+            var s = builtin_lia.Solver.init(c.arena);
+            defer s.deinit();
+            const v = builtin_lia.checkUnsat(&s, g.items);
+            if (dbg) std.debug.print("[dbg-taut] ограничений {d} -> {s}\n", .{ g.items.len, @tagName(std.meta.activeTag(v)) });
+            if (std.meta.activeTag(v) != .unsat) return false;
+        }
+        return true;
+    }
+    // `E` ложно <=> само `E` несовместно.
+    var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
+    if (!asLeZero(c, e, &cons)) return false;
+    if (cons.items.len == 0) return false;
+    var s = builtin_lia.Solver.init(c.arena);
+    defer s.deinit();
+    return std.meta.activeTag(builtin_lia.checkUnsat(&s, cons.items)) == .unsat;
+}
+
 fn evalBoolConst(s: Sexp) ?bool {
     if (s.atom) |a| {
         if (std.mem.eql(u8, a, "true")) return true;
@@ -1748,6 +1852,12 @@ fn evalBoolConst(s: Sexp) ?bool {
     if (!s.isList()) return null;
     const op = s.items[0].atom orelse return null;
     if (std.mem.eql(u8, op, "=") and s.items.len == 3) {
+        // РЕФЛЕКСИВНОСТЬ РАВЕНСТВА: `(= A A)` тождественно истинно для ЛЮБОГО
+        // терма A. ЗВУЧНО и не требует решателя. ИЗМЕРЕНО на пресете
+        // `@kern:idempotent`: Z3 завершает вывод шагом `(rewrite (= (= x x)
+        // true))`, и без этого правила шаг оставался ДОВЕРЕННЫМ (trusted: 1),
+        // хотя доказывать в нём нечего.
+        if (sexpEqNum(s.items[1], s.items[2])) return true;
         const a = evalBoolConst(s.items[1]) orelse return null;
         const b = evalBoolConst(s.items[2]) orelse return null;
         return a == b;
@@ -1769,6 +1879,9 @@ fn evalBoolConst(s: Sexp) ?bool {
     // константами. Без этого `(= (str.contains "safe" …) true)` не вычислялся,
     // и последний `rewrite` не сходился.
     if (evalStrPred(s)) |v| return v;
+    // КОНСТАНТНОЕ СРАВНЕНИЕ (`(<= 0 100)`, `(< 0 0)`): арифметика над
+    // конкретными числами. ИЗМЕРЕНО на пресете `@kern:idempotent`.
+    if (constCmpEval(s)) |v| return v;
     return null;
 }
 
@@ -2542,8 +2655,23 @@ fn literalAsLeZero(c: *const Ctx, lit: Sexp, out: *Lin) bool {
 
 /// Перевести `Lin` чекера во встроенный решатель.
 fn pushLin(c: *const Ctx, l: Lin, out: *std.array_list.Managed(builtin_lia.Lin)) bool {
-    const arr = c.arena.alloc(builtin_lia.Term, l.terms.items.len) catch return false;
-    for (l.terms.items, 0..) |t, i| arr[i] = .{ .name = t.name, .coeff = t.coeff };
+    // ОТБРОС НУЛЕВЫХ КОЭФФИЦИЕНТОВ (ИЗМЕРЕНО на `@kern:no_arbitrage`).
+    // Раньше в ограничение попадали термы вида `0*a1`, поэтому после исключения
+    // переменных `l.terms.len != 0`, и встроенный решатель НЕ видел, что
+    // ограничение стало чистО константным (`1 <= 0`) — возвращал `unknown`, и
+    // корректный шаг `(rewrite (= (>= X X) true))` оставался ДОВЕРЕННЫМ.
+    // ЗВУЧНО: слагаемое с нулевым коэффициентом не влияет на неравенство.
+    var nz: usize = 0;
+    for (l.terms.items) |t| {
+        if (t.coeff != 0) nz += 1;
+    }
+    const arr = c.arena.alloc(builtin_lia.Term, nz) catch return false;
+    var i: usize = 0;
+    for (l.terms.items) |t| {
+        if (t.coeff == 0) continue;
+        arr[i] = .{ .name = t.name, .coeff = t.coeff };
+        i += 1;
+    }
     out.append(.{ .terms = arr, .constant = l.constant }) catch return false;
     return true;
 }
@@ -4788,6 +4916,52 @@ test "МУТАНТ 288: sexpEqNum — списки РАЗНОЙ длины не 
     try std.testing.expect(sexpEqNum(try parseSexp(a, "(- 5)"), try parseSexp(a, "-5")));
 }
 
+// ЭШЕЛОН 5, ПУНКТ 26: три ЗВУЧИМЫХ правила, добавленных для пресета
+// `@kern:idempotent` (путевая формулировка). Каждое — с НЕГАТИВНЫМ двойником.
+test "ПУНКТ 26: constCmpEval — константное сравнение вычисляется, неконстантное НЕТ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    try std.testing.expectEqual(@as(?bool, true), constCmpEval(try parseSexp(a, "(<= 0 100)")));
+    try std.testing.expectEqual(@as(?bool, false), constCmpEval(try parseSexp(a, "(< 0 0)")));
+    try std.testing.expectEqual(@as(?bool, true), constCmpEval(try parseSexp(a, "(>= 5 5)")));
+    // НЕГАТИВНЫЙ ДВОЙНИК: с переменной это НЕ константа — вычислять нельзя.
+    try std.testing.expectEqual(@as(?bool, null), constCmpEval(try parseSexp(a, "(<= x 0)")));
+    try std.testing.expectEqual(@as(?bool, null), constCmpEval(try parseSexp(a, "(<= x y)")));
+}
+
+test "ПУНКТ 26: constIteEq — свёртка ite с КОНСТАНТНЫМ условием" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    // (= (ite false 100 0) 0) — ложное условие выбирает ветвь ELSE.
+    try std.testing.expect(constIteEq(try parseSexp(a, "(ite false 100 0)"),
+                                      try parseSexp(a, "0")));
+    // (= (ite true 100 0) 100) — истинное условие выбирает ветвь THEN.
+    try std.testing.expect(constIteEq(try parseSexp(a, "(ite true 100 0)"),
+                                      try parseSexp(a, "100")));
+    // НЕГАТИВНЫЙ ДВОЙНИК: не та ветвь — НЕ равно.
+    try std.testing.expect(!constIteEq(try parseSexp(a, "(ite false 100 0)"),
+                                       try parseSexp(a, "100")));
+    // НЕГАТИВНЫЙ ДВОЙНИК: НЕконстантное условие сворачивать НЕЛЬЗЯ.
+    try std.testing.expect(!constIteEq(try parseSexp(a, "(ite (< x 0) 100 0)"),
+                                       try parseSexp(a, "0")));
+    try std.testing.expect(!constIteEq(try parseSexp(a, "(ite (< x 0) 100 0)"),
+                                       try parseSexp(a, "100")));
+}
+
+test "ПУНКТ 26: рефлексивность равенства (= A A) = true, разные термы — НЕТ" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    try std.testing.expectEqual(@as(?bool, true), evalBoolConst(try parseSexp(a, "(= x x)")));
+    try std.testing.expectEqual(@as(?bool, false),
+        evalBoolConst(try parseSexp(a, "(not (= x x))")));
+    // НЕГАТИВНЫЙ ДВОЙНИК: `(= x y)` при разных переменных — НЕ константа
+    // (иначе чекер «доказывал» бы произвольные равенства).
+    try std.testing.expectEqual(@as(?bool, null), evalBoolConst(try parseSexp(a, "(= x y)")));
+}
+
 // Убивает `proof_check.zig:1174 [false->true]` — `verifyLemma`: если первый
 // аргумент НЕ является шагом вывода, лемма НЕ доказана.
 test "МУТАНТ 1174: verifyLemma отвергает не-шаг в первом аргументе" {
@@ -4967,6 +5141,51 @@ fn replaceNth(a: std.mem.Allocator, src: []const u8, needle: []const u8, repl: [
         start = pos + needle.len;
     }
     return null;
+}
+
+// ЭШЕЛОН 5, ПУНКТ 27: ЛИНЕЙНАЯ ТАВТОЛОГИЯ `(= E true)`, где `E` — линейное
+// сравнение. Звучимость даёт встроенный Фурье—Моцкин (гейт `make lia-diff`).
+test "ПУНКТ 27: linTautEq — тавтология доказана, НЕтавтология ОТВЕРГНУТА" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // ТАВТОЛОГИЯ: `(= (>= X X) true)`, где X = 3a1 + 3a2 (разность сокращается,
+    // остаётся `1 <= 0` — противоречие) — это ШАГ ИЗ РЕАЛЬНОГО вывода
+    // `@kern:no_arbitrage` (`(rewrite (= $x50 true))`).
+    const taut = try parseSexp(a, "(= (>= (+ (* 3 a1) (* 3 a2)) (+ (* 3 a1) (* 3 a2))) true)");
+    try std.testing.expect(isEq3(taut));
+    try std.testing.expect(linTautEq(&c, taut.items[1], taut.items[2]));
+    // НЕГАТИВНЫЙ ДВОЙНИК: `(= (>= a1 5) true)` тавтологией НЕ является —
+    // принимающий это правило «доказывал» бы ложные утверждения.
+    const not_taut = try parseSexp(a, "(= (>= a1 5) true)");
+    try std.testing.expect(!linTautEq(&c, not_taut.items[1], not_taut.items[2]));
+    // И `(= E false)` для заведомо истинного `E` тоже НЕ принимается.
+    const wrong = try parseSexp(a, "(= (>= a1 0) false)");
+    try std.testing.expect(!linTautEq(&c, wrong.items[1], wrong.items[2]));
+    // Не-сравнение (атом/терм) не является линейной тавтологией.
+    try std.testing.expect(!linTautEq(&c, try parseSexp(a, "(+ a1 1)"),
+                                      try parseSexp(a, "true")));
+}
+
+// ОТБРОС НУЛЕВЫХ КОЭФФИЦИЕНТОВ в `pushLin`: без него ограничение, ставшее
+// чисто константным (`1 <= 0`), не распознавалось как НЕСОВМЕСТНОЕ, и корректный
+// шаг оставался доверенным (ИЗМЕРЕНО на `@kern:no_arbitrage`).
+test "ПУНКТ 27: pushLin отбрасывает нулевые коэффициенты (константа видна)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    var cons = std.array_list.Managed(builtin_lia.Lin).init(a);
+    // `X - X + 1 <= 0`, где X = a1 + a2 -> коэффициенты сокращаются в ноль.
+    try std.testing.expect(asLeZero(&c, try parseSexp(a, "(< (+ a1 a2) (+ a1 a2))"), &cons));
+    try std.testing.expectEqual(@as(usize, 1), cons.items.len);
+    try std.testing.expectEqual(@as(usize, 0), cons.items[0].terms.len); // термов НЕТ
+    try std.testing.expectEqual(@as(i64, 1), cons.items[0].constant);
+    var s = builtin_lia.Solver.init(a);
+    defer s.deinit();
+    try std.testing.expectEqual(builtin_lia.Verdict.unsat,
+        builtin_lia.checkUnsat(&s, cons.items));
 }
 
 test "ИСПЫТАНИЕ А: 30 подделок реального вывода abs.c ОТВЕРГАЮТСЯ" {

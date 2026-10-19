@@ -225,6 +225,8 @@ FAULTABLE = [
     "tools/bounds_check.sh",
     "tools/loop_check.sh",
     "tools/state_inv_check.sh",
+    "tools/presets_check.sh",
+    "tools/arbitrage_check.sh",
     "tools/float_nan_check.sh",
     "tools/string_contracts_check.sh",
     "examples/xray_demo.py",
@@ -1741,6 +1743,29 @@ def case_string_contracts_check():
     return "make string-contracts-check"
 
 
+def case_presets_check():
+    """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
+    `[INFO]` -> нарушение пресета перестаёт быть видимым -> цель обязана
+    покраснеть (иначе `make presets-check` вакуумна)."""
+    patch(
+        "tools/kern_contracts.py",
+        "                print(f\"  [FAIL] {fn.name}: {label} REFUTED — {ce}\")",
+        "                print(f\"  [INFO] {fn.name}: {label} REFUTED — {ce}\")",
+    )
+    return "make presets-check"
+
+
+def case_arbitrage_check():
+    """ЭШЕЛОН 5, ПУНКТ 27. ЛОМАЕМ: арбитраж (дробление платежа выгоднее целого)
+    перестаёт помечаться -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        "                print(f\"  [FAIL] {fn.name}: {label} REFUTED — {ce}\")",
+        "                print(f\"  [INFO] {fn.name}: {label} REFUTED — {ce}\")",
+    )
+    return "make arbitrage-check"
+
+
 def case_state_inv_check():
     """ПУНКТ 24. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта
     перестаёт ловиться -> цель обязана покраснеть."""
@@ -2014,6 +2039,8 @@ CASES = [
     ("simplify-check",  "SIMPLIFY: эквивалентность доказана",      case_simplify_check),
     ("bounds-check",    "BOUNDS: границы arr[i] проверены",       case_bounds_check),
     ("loop-check",      "LOOPS: инвариант и остановка циклов",   case_loop_check),
+    ("presets-check",  "ПРЕСЕТЫ: нарушение однословного пресета ловится", case_presets_check),
+    ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),
     ("string-contracts-check", "STRINGS: QF_S, trusted: 0",      case_string_contracts_check),
