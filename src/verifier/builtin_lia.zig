@@ -107,9 +107,21 @@ pub const Solver = struct {
 
     /// Выбрать переменную для исключения: первая по порядку появления.
     /// Порядок ДЕТЕРМИНИРОВАН (важно для воспроизводимости вердиктов).
+    ///
+    /// ДЕФЕКТ #166 (НАЙДЕН измерением, а не рассуждением): раньше здесь
+    /// возвращался ПЕРВЫЙ терм строки независимо от коэффициента. Если этот
+    /// коэффициент равен нулю ВО ВСЕХ ограничениях набора (типичный случай,
+    /// когда вызывающий передаёт терм `0*y` для «неиспользуемой» переменной),
+    /// то при исключении не появляется ни одной комбинации `pos × neg`:
+    /// набор не уменьшается, счётчик `eliminated` растёт до `MAX_VARS`,
+    /// и решатель отдаёт честный, но ЛОЖНО-КОНСЕРВАТИВНЫЙ `.unknown` на
+    /// СОВМЕСТНОЙ системе (`x <= 0 ∧ y <= 0`). Теперь выбирается переменная,
+    /// у которой есть НЕНУЛЕВОЙ коэффициент: шаг исключения всегда продвигается.
     fn pickVar(set: []const Lin) ?[]const u8 {
         for (set) |l| {
-            for (l.terms) |t| return t.name;
+            for (l.terms) |t| {
+                if (t.coeff != 0) return t.name;
+            }
         }
         return null;
     }
@@ -488,4 +500,51 @@ test "МУТАНТ 189: satisfies отвергает невалидную точ
     };
     const v = checkUnsat(&s, &input);
     try std.testing.expect(std.meta.activeTag(v) == .unknown);
+}
+
+test "ДЕФЕКТ #166: нулевой коэффициент НЕ должен блокировать исключение" {
+    // ИЗМЕРЕНО ДО ФИКСА: этот набор (x <= 0, y <= 0) возвращал `.unknown`,
+    // потому что `pickVar` выбирал `x` даже когда его коэффициент РАВЕН НУЛЮ
+    // (вызывающий передаёт терм `0*x` для «неиспользуемой» переменной):
+    // комбинаций `pos x neg` нет -> набор не уменьшается -> `eliminated`
+    // дорастает до `MAX_VARS` -> ложный `.unknown` на СОВМЕСТНОЙ системе.
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const al = arena.allocator();
+
+    var s = Solver.init(al);
+    defer s.deinit();
+
+    // (1) СОВМЕСТНАЯ система с нулевыми коэффициентами: обязана быть `.sat`.
+    const t1 = try al.alloc(Term, 2);
+    t1[0] = .{ .name = "x", .coeff = 1 };
+    t1[1] = .{ .name = "y", .coeff = 0 };
+    const t2 = try al.alloc(Term, 2);
+    t2[0] = .{ .name = "x", .coeff = 0 };
+    t2[1] = .{ .name = "y", .coeff = 1 };
+    const sys = [_]Lin{
+        .{ .terms = t1, .constant = 0 },
+        .{ .terms = t2, .constant = 0 },
+    };
+    const v1 = checkUnsat(&s, &sys);
+    try std.testing.expectEqual(Verdict.sat, std.meta.activeTag(v1));
+    // Предъявленная точка обязана УДОВЛЕТВОРЯТЬ системе (звучимость SAT).
+    for (v1.sat) |b| {
+        if (std.mem.eql(u8, b.name, "x")) try std.testing.expectEqual(@as(i64, 0), b.value);
+        if (std.mem.eql(u8, b.name, "y")) try std.testing.expectEqual(@as(i64, 0), b.value);
+    }
+
+    // (2) НЕСОВМЕСТНАЯ система с теми же нулевыми коэффициентами -> `.unsat`.
+    const t3 = try al.alloc(Term, 2);
+    t3[0] = .{ .name = "x", .coeff = 1 };
+    t3[1] = .{ .name = "y", .coeff = 0 };
+    const t4 = try al.alloc(Term, 2);
+    t4[0] = .{ .name = "x", .coeff = -1 };
+    t4[1] = .{ .name = "y", .coeff = 0 };
+    // -x + 1 <= 0  =>  x >= 1, а вместе с x <= 0 это НЕСОВМЕСТНО.
+    const sys2 = [_]Lin{
+        .{ .terms = t3, .constant = 0 },
+        .{ .terms = t4, .constant = 1 },
+    };
+    try std.testing.expectEqual(Verdict.unsat, std.meta.activeTag(checkUnsat(&s, &sys2)));
 }
