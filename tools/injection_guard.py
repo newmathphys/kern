@@ -28,12 +28,18 @@ ROOT = Path(__file__).resolve().parents[1]
 # Маркеры, которые харнессы оставляют в тексте поломки. Список намеренно
 # узкий: обычные слова «инъекция»/«лом» встречаются в комментариях тестов
 # (например, `fault_injection_test.zig`), поэтому ищем ТОЧНЫЕ метки.
-MARKERS = ("ЛОМАЕМ:", "ИНЪЕКЦИЯ ДЛЯ ПРОВЕРКИ", "always return false // KERN-MUT")
+MARKERS = ("ЛОМАЕМ:", "ИНЪЕКЦИЯ ДЛЯ ПРОВЕРКИ", "always return false // KERN-MUT",
+           # ДЕФЕКТ #172: харнесс патчит не только src/, но и tools/
+           # (кейсы ломают сам экстрактор) — метка найдена в kern_contracts.py.
+           "ДИВЕРСИЯ:")
 
 
 def find_markers() -> list[str]:
     hits: list[str] = []
-    for p in sorted((ROOT / "src").rglob("*.zig")):
+    targets = sorted((ROOT / "src").rglob("*.zig"))
+    targets += sorted((ROOT / "examples").rglob("*.py")) if (ROOT / "examples").is_dir() else []
+    targets += sorted((ROOT / "examples").rglob("*.zig")) if (ROOT / "examples").is_dir() else []
+    for p in targets:
         try:
             text = p.read_text(encoding="utf-8")
         except OSError:
@@ -46,7 +52,7 @@ def find_markers() -> list[str]:
 
 
 def dirty_src() -> list[str]:
-    r = subprocess.run(["git", "status", "--porcelain", "src/"],
+    r = subprocess.run(["git", "status", "--porcelain", "src/", "tools/"],
                        cwd=ROOT, capture_output=True, text=True, check=False)
     return [ln for ln in r.stdout.splitlines() if ln.strip()]
 
