@@ -29,6 +29,34 @@ import sys
 import time
 from pathlib import Path
 
+
+def _bootstrap_env() -> list[str]:
+    """Дополняет PATH путями к z3/kernc и возвращает список ОТСУТСТВУЮЩИХ.
+
+    ЗАЧЕМ (Дефект #154, класс #110): без `z3` в PATH SMT-контракты честно
+    возвращают `N` (e=0), и тест падал «10 провалов», хотя регрессии нет.
+    Теперь путь ищется сам (venv -> ~/.local/bin -> /usr/*), а если решателя
+    действительно нет — это НАЗЫВАЕТСЯ, а не выглядит как поломка.
+    """
+    import shutil
+    parts = os.environ.get("PATH", "").split(os.pathsep)
+    for cand in (Path.home() / "ai_lab" / ".venv" / "bin",
+                 Path.home() / ".venv" / "bin",
+                 ROOT / ".venv" / "bin",
+                 Path.home() / ".local" / "bin",
+                 Path("/usr/local/bin"), Path("/usr/bin")):
+        if cand.is_dir() and str(cand) not in parts:
+            parts.append(str(cand))
+    os.environ["PATH"] = os.pathsep.join(parts)
+    missing: list[str] = []
+    if shutil.which("z3") is None:
+        missing.append("z3")
+    if not (ROOT / "zig-out" / "bin" / "kernc").exists():
+        missing.append("kernc")
+    return missing
+
+import os
+
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "examples" / "kern_mcp_server.py"
 
@@ -75,6 +103,11 @@ class Client:
 
 
 def main() -> int:
+    missing = _bootstrap_env()
+    if missing:
+        # НАЗЫВАЕМ, а не маскируем: без решателя SMT-контракты дают `N` (e=0).
+        print(f"[!] не найдено: {', '.join(missing)} -> SMT-проверки вернут N "
+              f"(это НЕ регрессия, см. Дефект #110/#154)")
     if not SERVER.exists():
         print(f"[!] нет сервера: {SERVER}")
         return 1

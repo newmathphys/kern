@@ -8,7 +8,7 @@
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_113_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-79%2F79-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_240_passed_%2F_4_skipped_%28rerun_pending%29-informational)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_379_passed_%2F_8_skipped-success)](#cross-architecture)
 [![GitHub Action](https://img.shields.io/badge/GitHub_Action-KERN_verification_gate-238636?logo=githubactions&logoColor=white)](action.yml)
 [![Release downloads](https://img.shields.io/github/downloads/newmathphys/kern/total?color=3fb950&label=release%20downloads)](https://github.com/newmathphys/kern/releases)
 [![Deterministic benchmark](https://img.shields.io/badge/benchmark-per--commit%20chart-3fb950)](https://newmathphys.github.io/kern/bench/)
@@ -457,7 +457,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **100.0 %** (40 / 40 killed) over **18 files / 1152 sites**, survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
+| Mutation score (Zig-native mutator) | **100.0 %** (40 / 40 killed) over **18 files / 1152 sites**. **Canonical stratified gate** (`make mutate`, 18 files, pool of 1152 sites, seed=7): `40 / 40 (100.0%)`. **Full sweep, no sampling** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
 | Can-fail harness | **114 / 114 CHECK targets (100 %)** have a proven-can-fail case (**95 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 108 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
@@ -470,8 +470,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Target | Property under test | Result |
 |:--|:--|:--|
 | x86_64 | TSO memory model | **379 / 379** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **337 passed / 8 skipped / 0 failed** (QEMU log 2026-10-18, `docs/evidence/cross_arch.log`; current host suite) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **337 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **379 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`; current host suite) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **379 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
 
 ### External benchmarks
 

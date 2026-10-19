@@ -97,8 +97,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Platform | What it proves | Result |
 |:--|:--|:--|
 | **x86_64** (host, TSO) | baseline | **379 / 379 OK** ✅ |
-| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ⚠️ *evidence `docs/evidence/cross_arch.log`: the run passed (`240 passed; 4 skipped; 0 failed`), but on a revision BEFORE the suite grew; a QEMU re-run is pending* |
-| **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ⚠️ *same: QEMU re-run pending (the test suite grew)* |
+| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `379 passed; 8 skipped; 0 failed`) on the CURRENT suite (387 tests = 379 passed + 8 skipped)* |
+| **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ✅ *same run: 379 passed / 8 skipped / 0 failed* |
 
 ---
 
@@ -252,7 +252,7 @@ Claims that **did not hold** and were fixed in the documentation:
 | **24** bugs | **13 FIX sections** (22 entries in the METRICS journal) |
 | Makefile targets **61** | **62** — *current: **101*** |
 | QuixBugs "by proving unsatisfiability" | **executing** the official test cases |
-| QEMU cross-arch **299/295** | **240 passed / 4 skipped / 0 failed** (`cross_arch.log`, 2026-10-16; re-run pending) |
+| QEMU cross-arch **379/379** | **379 passed / 8 skipped / 0 failed** (`cross_arch.log`, 2026-10-19, current suite) |
 
 ## What was fully confirmed ✅
 

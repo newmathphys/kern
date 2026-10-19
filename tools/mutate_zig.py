@@ -334,7 +334,15 @@ KNOWN_EQUIVALENT_SITES = {
         "if (alts.items.len == 0) return false;",
     ],
     # `.nonblocking` в обёртке Io.File для close() не влияет на закрытие fd.
-    "src/core/kimg_writer.zig": [".nonblocking = false"],
+    "src/core/kimg_writer.zig": [
+        ".nonblocking = false",
+        # `.DIRECTORY = true` в `openat(AT_FDCWD, ".", ...)`: путь ВСЕГДА "."
+        # (каталог по определению), флаг лишь ВАЛИДИРУЕТ тип. С `false` каталог
+        # открывается так же, и `fileClose` закрывает тот же fd — поведение
+        # (в т.ч. durability rename) не меняется. ИЗМЕРЕНО: мутант выжил на
+        # полном наборе тестов.
+        ".DIRECTORY = true",
+    ],
     # флаг `done` лишь сокращает сон потока-убийцы; поток сразу join-ится.
     "src/verifier/z3_bridge.zig": ["kctx.done.store(true, .release)"],
 }

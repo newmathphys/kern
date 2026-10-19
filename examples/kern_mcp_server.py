@@ -36,6 +36,32 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KERNC = os.environ.get("KERNC", str(ROOT / "zig-out" / "bin" / "kernc"))
+
+
+def _bootstrap_env() -> list[str]:
+    """Дополняет PATH путями к z3/kernc и возвращает список ОТСУТСТВУЮЩИХ.
+
+    ЗАЧЕМ (Дефект #154, класс #110): без `z3` в PATH SMT-контракты честно
+    возвращают `N` (e=0), и тест падал «10 провалов», хотя регрессии нет.
+    Теперь путь ищется сам (venv -> ~/.local/bin -> /usr/*), а если решателя
+    действительно нет — это НАЗЫВАЕТСЯ, а не выглядит как поломка.
+    """
+    import shutil
+    parts = os.environ.get("PATH", "").split(os.pathsep)
+    for cand in (Path.home() / "ai_lab" / ".venv" / "bin",
+                 Path.home() / ".venv" / "bin",
+                 ROOT / ".venv" / "bin",
+                 Path.home() / ".local" / "bin",
+                 Path("/usr/local/bin"), Path("/usr/bin")):
+        if cand.is_dir() and str(cand) not in parts:
+            parts.append(str(cand))
+    os.environ["PATH"] = os.pathsep.join(parts)
+    missing: list[str] = []
+    if shutil.which("z3") is None:
+        missing.append("z3")
+    if not Path(KERNC).exists():
+        missing.append("kernc")
+    return missing
 PROTOCOL = "2024-11-05"
 SERVER_INFO = {"name": "kern", "version": "2.2.0"}
 
@@ -377,6 +403,8 @@ def handle(msg: dict):
 
 
 def main() -> int:
+    # сервер тоже обязан видеть z3: иначе ЛЮБОЙ клиент получит N (Дефект #154)
+    _bootstrap_env()
     for raw in sys.stdin:
         raw = raw.strip()
         if not raw:
