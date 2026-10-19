@@ -515,12 +515,25 @@ def minimize_counterexample(kernc, smt: str, params, ce: dict) -> dict:
         return ce
     if all(abs(v) <= COUNTEREXAMPLE_WINDOW for v in ce.values()):
         return ce  # уже читаемый — второй запрос не нужен
-    try:
-        _rc, out = run_kernc(kernc, _bound_smt(smt, params))
-    except (subprocess.SubprocessError, OSError):
-        return ce
-    small = parse_counterexample(out)
-    return small or ce
+    # MIN-SHRINKING до АБСОЛЮТНОГО минимума (Раздел 5 Энциклопедии).
+    #
+    # Окно ±10 даёт «читаемый» контрпример, но не МИНИМАЛЬНЫЙ: для `x + 1 < 0`
+    # это может быть -3, хотя есть -1. Поэтому после широкого окна пробуем
+    # строго более узкие — и берём ПЕРВЫЙ успешный (он и есть минимальный по
+    # модулю максимума). ЗВУЧИМО: каждая попытка только ДОБАВЛЯЕТ ограничения
+    # к исходной задаче, значит любая найденная точка нарушает контракт.
+    best: dict = {}
+    for window in (COUNTEREXAMPLE_WINDOW, 5, 2, 1, 0):
+        try:
+            _rc, out = run_kernc(kernc, _bound_smt(smt, params, window))
+        except (subprocess.SubprocessError, OSError):
+            break
+        cand = parse_counterexample(out)
+        if cand:
+            best = cand
+        if window == 0:
+            break
+    return best or ce
 
 
 # =========================================================================
