@@ -1283,3 +1283,52 @@ needs NO parentheses. Fixed.
 **IMPORTANT:** #137-#139 lived in SHARED helpers, so they affected EVERY check
 (including Item 21). After the fix Items 17 and 21 were re-verified. Defect class:
 **an SMT parse error was silently reported as a proof**.
+
+---
+
+## §27. Session E: Echelon 7 (Items 36–39)
+
+### 27.1 Item 36 — Action/FinOps Firewall (`--verify-action`)
+
+An agent's JSON call is checked BEFORE execution: `allow` must hold, `forbid` must
+not. Verdicts (Belnap + RFC 9110): safe call → **T (1,0), e=1, 200 OK**
+(`trusted: 0`); over budget → **F (0,1), 422** with a counterexample; `allow`
+and `forbid` both true → **B (1,1), 409 Conflict**. MEASURED: `action_ok` → 200;
+`action_over` → 422; `action_conflict` (forbid `amount >= 40`) → 409.
+
+### 27.2 Item 37 — document contradictions (`--verify-doc`)
+
+Clauses form a conjunction. MEASURED: a consistent document → `[PASS] DOCUMENT
+CONSISTENT`; a contradictory one (sla<=4, review>=6, sla>=review) →
+`CONFLICT B(1,1)` plus the **minimal core** (greedy deletion):
+`[clause_1, clause_2, clause_3]`.
+
+### 27.3 Item 38 — RLVR reward oracle (`--rlvr-reward`)
+
+MEASURED: good → `R=+1.0 [VERIFIED]` (trusted: 0, anti-cheat clean); buggy →
+`R=-1.0 [REFUTED]` + counterexample; cheater (`sys.exit`) → `R=-2.0`
+`[REWARD HACKING PENALTY]`. `unknown` NEVER yields +1.0 (zero false rewards).
+
+### 27.4 Item 39 — bug hunt (`tools/bug_hunter.py`)
+
+`--xray` over real stdlib files plus a **CONTROL** on known findings. MEASURED:
+control `xray_demo.py` → **3 findings** (the detector works); stdlib: 8 files,
+`checked 83 / 135 (skipped 52)` with reasons, **0 findings** — honestly.
+
+### 27.5 Defect #147: TWO VACUOUS CASES (process)
+
+`canfail --only action-firewall-check` / `rag-conflict-check` → **VACUOUS 1**
+each: the gates grepped `HTTP 422` / `CONFLICT B(1,1)`, which REMAIN when
+`[FAIL]` becomes `[INFO]`. FIXED: grep the **verdict line** `[FAIL] ...` → both
+became `1 non-vacuous, 0 vacuous`.
+
+### 27.6 Gates
+
+| Check | Result |
+|:--|:--|
+| `make action-firewall-check` / `rag-conflict-check` / `rlvr-oracle-check` / `bug-hunt-check` | `[OK]` |
+| `canfail --only` ×4 | **1 non-vacuous, 0 vacuous** each |
+| `registry.py` | **133 targets, 110/110 CHECK** |
+| anchors | **104** |
+| Lean 4 | 8/8 files, `FarkasSoundness` — **81 theorems** |
+| test catalog | 400 |

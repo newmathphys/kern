@@ -8020,3 +8020,56 @@ Lean 4: 82 теоремы, 0 errors, 0 sorry
 | 22 IEEE-754 NaN | ✅ **`trusted: 0 | holes: 0`** (213 -> 0) |
 | 23 QF_S строки | ✅ **`trusted: 0 | holes: 0`** (9 -> 0) |
 | 24 state_invariant | ✅ `trusted: 0` |
+
+---
+
+## §103. СЕССИЯ Д: ЭШЕЛОН 7 (ПУНКТЫ 36–39)
+
+### §103.1. Пункт 36 — Action/FinOps Firewall (`--verify-action`)
+
+JSON-вызов агента проверяется ДО исполнения: `allow` обязан быть истинен,
+`forbid` — ложны. Вердикты (Белнап + RFC 9110):
+
+| Случай | Вердикт | HTTP |
+|:--|:--|:--|
+| `amount + spent <= limit` и forbid ложны | **T (1,0), e=1** | **200 OK** (`trusted: 0`) |
+| `amount + spent > limit` | **F (0,1), e=0** | **422** + контрпример |
+| allow и forbid истинны одновременно | **B (1,1), e=0** | **409 Conflict** |
+
+ИЗМЕРЕНО: `action_ok` -> 200; `action_over` (amount=900, spent=200, limit=1000) -> 422;
+`action_conflict` (amount=50 при forbid `amount >= 40`) -> 409.
+
+### §103.2. Пункт 37 — противоречия в документах (`--verify-doc`)
+
+Пункты = конъюнкция. ИЗМЕРЕНО: согласованный документ ->
+`[PASS] DOCUMENT CONSISTENT`; противоречивый (sla<=4, review>=6, sla>=review) -> `CONFLICT B(1,1)`
++ **минимальное ядро** (greedy-удаление): `[clause_1, clause_2, clause_3]`.
+
+### §103.3. Пункт 38 — RLVR-оракул вознаграждения (`--rlvr-reward`)
+
+ИЗМЕРЕНО: good -> `R=+1.0 [VERIFIED]` (trusted: 0, чисто по anti-cheat);
+buggy -> `R=-1.0 [REFUTED]` + контрпример; cheater (`sys.exit`) -> `R=-2.0 [REWARD HACKING PENALTY]`.
+`unknown` НИКОГДА не даёт +1.0 (0 ложных наград).
+
+### §103.4. Пункт 39 — охота за багами (`tools/bug_hunter.py`)
+
+`--xray` по реальным файлам stdlib + **КОНТРОЛЬ** на известных находках.
+ИЗМЕРЕНО: контроль `xray_demo.py` — **3 находки** (детектор работает); stdlib: 8 файлов,
+`checked 83 / 135 (skipped 52)` с причинами, **находок 0** — ЧЕСТНО.
+
+### §103.5. Дефект #147: ДВА ВАКУУМНЫХ КЕЙСА (процесс)
+
+`canfail --only action-firewall-check` и `rag-conflict-check` -> **ВАКУУМНЫХ 1** у каждого:
+приёмки грепали `HTTP 422` / `CONFLICT B(1,1)`, а эти строки ОСТАЮТСЯ при замене `[FAIL]` -> `[INFO]`.
+ИСПРАВЛЕНО: греп по **вердикт-строке** `[FAIL] ...` -> оба кейса стали `1 non-vacuous, 0 vacuous`.
+
+### §103.6. Гейты
+
+| Проверка | Результат |
+|:--|:--|
+| `make action-firewall-check` / `rag-conflict-check` / `rlvr-oracle-check` / `bug-hunt-check` | `[OK]` |
+| `canfail --only` ×4 | **1 non-vacuous, 0 vacuous** каждый |
+| `registry.py` | **133 цели, 110/110 CHECK** |
+| якоря | **104** |
+| Lean 4 | 8/8 файлов, `FarkasSoundness` — **81 теорема** |
+| каталог | 400 |
