@@ -322,6 +322,10 @@ def release_lock(lock_obj):
 #  Обоснование каждого сайта — docs/METRICS.md §81.18.
 # =============================================================================
 KNOWN_EQUIVALENT_SITES = {
+    # `offset >= payload_region.len` vs `>`: при offset == len цикл
+    # `while (offset+len < len ...)` даёт len=0, и срез [len..len] ПУСТ —
+    # тот же "", что и в защитной ветви. ИЗМЕРЕНО: мутант выжил на полном наборе.
+    "src/core/kernfs_router.zig": ["if (offset >= self.payload_region.len) return "";"],
     # при word_off+4 == slice.len мутант уходит в `else if`, где avail == 4,
     # @memcpy копирует ТЕ ЖЕ 4 байта -> readInt даёт то же слово.
     "src/core/blake3_simd8.zig": ["word_off + 4 <="],

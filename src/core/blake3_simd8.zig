@@ -115,7 +115,7 @@ pub fn hash8SmallObjects(inputs: [8][]const u8, outputs: *[8][32]u8) void {
         @splat(IV[4]), @splat(IV[5]), @splat(IV[6]), @splat(IV[7]),
     };
 
-    var num_blocks_arr: [8]u32 = undefined;
+    var num_blocks_arr: [8]u32 align(32) = undefined;
     var max_blocks: u32 = 1;
     inline for (0..8) |lane| {
         const len = inputs[lane].len;
@@ -132,8 +132,8 @@ pub fn hash8SmallObjects(inputs: [8][]const u8, outputs: *[8][32]u8) void {
         const offset: usize = @as(usize, block_idx) * 64;
         const active: Mask8 = @as(V8, @splat(block_idx)) < num_blocks_vec;
 
-        var blk_len_arr: [8]u32 = undefined;
-        var flags_arr: [8]u32 = undefined;
+        var blk_len_arr: [8]u32 align(32) = undefined;
+        var flags_arr: [8]u32 align(32) = undefined;
         inline for (0..8) |lane| {
             const len = inputs[lane].len;
             const rem = if (len > offset) len - offset else 0;

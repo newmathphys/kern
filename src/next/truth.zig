@@ -530,3 +530,62 @@ test "PBT: Хэмминг-код AdmissionCode на 500 случайных ис�
         try std.testing.expectEqual(@as(?u1, 1), AdmissionCode.decode(word));
     }
 }
+
+/// СМЕНА ЭПОХИ СВИДЕТЕЛЬСТВА (Scoped Epoch Retraction).
+///
+/// ПРОБЛЕМА. `evaluateWithFreshness` при изменении файла сбрасывает `p`,
+/// но `n` сохраняет: `F (0,1)` от СТАРОЙ версии кода продолжает блокировать
+/// Врата даже после того, как код ИСПРАВЛЕН и доказан заново (T, trusted: 0).
+/// Это не даёт проекту «самовосстановиться» после исправления.
+///
+/// РЕШЕНИЕ. Отпечаток файла задаёт ЭПОХУ. Внутри одной эпохи действует
+/// строгий монотон `JOIN_K` (противоречие `B` поглощает всё — `JOIN_K(B,T)=B`).
+/// При СМЕНЕ эпохи (`new_digest != old_digest`) и НОВОМ доказательстве `T`
+/// новая эпоха открывается с чистого листа (`T`), а старое `F` остаётся
+/// только в неизменяемом журнале (catalog.zig) — история не переписывается.
+///
+/// ЗВУЧИМОСТЬ: без НОВОГО доказательства (`new_verdict != T`) старый провал
+/// НЕ снимается: смена файла сама по себе ничего не реабилитирует.
+pub fn resolveAcrossEpochs(
+    old_verdict: Bit,
+    old_digest: [32]u8,
+    new_verdict: Bit,
+    new_digest: [32]u8,
+) Bit {
+    // Та же эпоха: строгая монотонная склейка.
+    if (std.crypto.timing_safe.eql([32]u8, old_digest, new_digest)) {
+        return old_verdict.join(new_verdict);
+    }
+    // Новая эпоха. Реабилитация ТОЛЬКО при новом подтверждении.
+    if (new_verdict.p and !new_verdict.n) return new_verdict;
+    // Иначе: старое `n` сохраняется, подтверждение старой эпохи снимается.
+    return .{ .p = false, .n = old_verdict.n or new_verdict.n };
+}
+
+test "ЭПОХИ: внутри одной эпохи работает JOIN_K (B поглощает T)" {
+    const d = digestOf("v1");
+    const T = Bit{ .p = true, .n = false };
+    const F = Bit{ .p = false, .n = true };
+    const B = resolveAcrossEpochs(T, d, F, d);
+    try std.testing.expect(B.p and B.n);
+    try std.testing.expectEqual(B, resolveAcrossEpochs(B, d, T, d));
+}
+
+test "ЭПОХИ: смена файла + новое доказательство T снимает старый F" {
+    const old_d = digestOf("v1");
+    const new_d = digestOf("v2");
+    const F = Bit{ .p = false, .n = true };
+    const T = Bit{ .p = true, .n = false };
+    const r = resolveAcrossEpochs(F, old_d, T, new_d);
+    try std.testing.expect(r.p and !r.n);
+    try std.testing.expectEqual(@as(u1, 1), allowance(r));
+}
+
+test "ЭПОХИ: смена файла БЕЗ нового доказательства НЕ реабилитирует" {
+    const old_d = digestOf("v1");
+    const new_d = digestOf("v2");
+    const F = Bit{ .p = false, .n = true };
+    const r = resolveAcrossEpochs(F, old_d, Bit{}, new_d);
+    try std.testing.expect(r.n and !r.p);
+    try std.testing.expectEqual(@as(u1, 0), allowance(r));
+}
