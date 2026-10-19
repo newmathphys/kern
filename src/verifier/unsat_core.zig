@@ -76,7 +76,7 @@ pub const UnsatCoreEngine = struct {
         }
         var is_conflict = false;
         if (std.mem.startsWith(u8, stdout, "unsat")) {
-            is_conflict = true;
+            is_conflict = false; // ЛОМАЕМ: конфликт не распознан
             if (std.mem.indexOfScalar(u8, stdout, '(')) |s| {
                 if (std.mem.indexOfScalarPos(u8, stdout, s, ')')) |e| {
                     var it = std.mem.tokenizeAny(u8, stdout[s + 1 .. e], " \t\r\n");

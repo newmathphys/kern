@@ -1,10 +1,11 @@
 === KERN EVIDENCE: lean_proofs ===
 === команда: bash formal/check.sh ===
-=== дата: 2026-10-16T16:47:32Z ===
+=== дата: 2026-10-19T15:52:36Z ===
 
 == core-only (Lean без Mathlib) ==
   [OK]   KernAllMath.lean
   [OK]   KernDfsTermination.lean
+  [OK]   FarkasSoundness.lean
 == Mathlib (/home/mrbritneyxxx/mathlib_proj) ==
   [OK]   KernTalk.lean
   [OK]   KernTalkND.lean
@@ -12,7 +13,7 @@
   [OK]   KernZeroCopy.lean
   [OK]   KernSemanticGap.lean
 == проверка отсутствия 'sorry' (без учёта комментариев) ==
-ALL LEAN PROOFS OK (7/7 файлов, 0 errors, 0 sorry)
+ALL LEAN PROOFS OK (8/8 файлов, 0 errors, 0 sorry)
 
 RC=0
-[guard] FAULTABLE без изменений (59 файлов) — прогон чист
+[guard] FAULTABLE без изменений (116 файлов) — прогон чист
