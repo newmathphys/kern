@@ -265,6 +265,7 @@ CASE_TARGET = {
     # artifact-check оставался без доказательства. Указываем РЕАЛЬНУЮ цель.
     "artifact-check": "artifact-check",
     "artifact-check-offline": "artifact-check-offline",
+    "ecosystem-check": "ecosystem-check",   # внешние каталоги MCP (манифесты == tools/list)
     "contracts": "contracts",
     "contracts-branches": "contracts",  # ветвления if -> ite
     "kimg-deflate": "kimg-deflate",   # сжатие 0x02 в CLI
