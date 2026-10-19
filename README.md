@@ -3,12 +3,12 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-379%2F379-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-400%2F400-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-38%2F38-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_113_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
 [![Can-fail](https://img.shields.io/badge/can--fail_harness-79%2F79-blueviolet)](tools/canfail.py)
-[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_379_passed_%2F_8_skipped-success)](#cross-architecture)
+[![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_392_passed_%2F_8_skipped-success)](#cross-architecture)
 [![GitHub Action](https://img.shields.io/badge/GitHub_Action-KERN_verification_gate-238636?logo=githubactions&logoColor=white)](action.yml)
 [![Release downloads](https://img.shields.io/github/downloads/newmathphys/kern/total?color=3fb950&label=release%20downloads)](https://github.com/newmathphys/kern/releases)
 [![Deterministic benchmark](https://img.shields.io/badge/benchmark-per--commit%20chart-3fb950)](https://newmathphys.github.io/kern/bench/)
@@ -449,8 +449,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **379 / 379** |
-| Core test suite **without** `z3` in `PATH` | **291 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
+| Core test suite (Debug + ReleaseSafe) | **400 / 400** |
+| Core test suite **without** `z3` in `PATH` | **392 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
 | KERN-Next test suite | **45 / 45** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
@@ -469,9 +469,9 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **379 / 379** |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **379 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`; current host suite) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **379 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
+| x86_64 | TSO memory model | **400 / 400** |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **392 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`; current host suite) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **392 passed / 8 skipped / 0 failed** (same QEMU log; current host suite) |
 
 ### External benchmarks
 
@@ -593,7 +593,7 @@ make audit-manifest
 
 > **Build notes (Zig 0.17) — read before "fixing" a red-looking log.**
 > A fresh `zig build test` prints
-> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 379 tests
+> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 400 tests
 > pass**: `zig build` runs the tests as a separate child that reports over an IPC
 > protocol (`--listen=-`), and the step verdict comes from the protocol, not from that
 > line. Judge a build by its exit code and `zig build … --summary all` — never by
