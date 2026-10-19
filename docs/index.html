@@ -91,6 +91,17 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 .cursor{color:var(--ok);animation:blink 1s step-end infinite}
 @keyframes blink{50%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.cursor{animation:none}}
+  /* --- Trust Scorecard --- */
+  .sc-head{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+  .sc-score{font-size:46px;font-weight:700;line-height:1;letter-spacing:-1px}
+  .sc-grade{font-size:20px;font-weight:600}
+  .sc-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+  .sc-col h3{font-size:14px;margin:0 0 6px}
+  .sc-col pre{margin:0;font-size:12px;line-height:1.5;white-space:pre-wrap}
+  .sc-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+  .sc-ok{color:var(--ok,#3fb950)}
+  .sc-bad{color:var(--bad,#f85149)}
+
 </style>
 </head>
 <body>
@@ -576,6 +587,59 @@ This page is served from <code>/docs</code> of the
 })();
 </script>
 
+<section id="scorecard">
+  <h2>KERN Formal Trust Index &amp; Scorecard</h2>
+  <p class="note">Same idea as third-party repository catalogs, but the card is built from
+  <b>measured</b> facts (native/formal files included) and the rubric weights are printed.
+  This is a checklist, <b>not</b> a proof: the proven claims are <code>trusted: 0</code> in the
+  proof checker and the Lean&nbsp;4 theorems.</p>
+  <div class="card" id="sc-card">
+    <div class="sc-head">
+      <div class="sc-score" id="sc-score">—</div>
+      <div class="sc-meta">
+        <div id="sc-grade" class="sc-grade">loading…</div>
+        <div class="note" id="sc-commit">commit —</div>
+      </div>
+    </div>
+    <div class="sc-body">
+      <div class="sc-col">
+        <h3>1. What we read</h3>
+        <pre id="sc-read" class="mono">…</pre>
+        <p class="note" id="sc-blind"></p>
+      </div>
+      <div class="sc-col">
+        <h3>2. MCP tool surface &amp; AI safety</h3>
+        <pre id="sc-mcp" class="mono">…</pre>
+      </div>
+      <div class="sc-col">
+        <h3>3. Mathematical &amp; formal soundness</h3>
+        <pre id="sc-formal" class="mono">…</pre>
+      </div>
+      <div class="sc-col">
+        <h3>4. Zero-annotation X-ray &amp; metrics</h3>
+        <pre id="sc-metrics" class="mono">…</pre>
+      </div>
+      <div class="sc-col">
+        <h3>5. Provenance &amp; certification</h3>
+        <pre id="sc-prov" class="mono">…</pre>
+      </div>
+    </div>
+    <div class="sc-actions">
+      <button class="btn" id="sc-raw">View raw JSON →</button>
+      <button class="btn p" id="sc-badge">Copy Markdown badge</button>
+      <button class="btn" id="sc-link">Copy shareable link</button>
+      <span class="note" id="sc-msg"></span>
+    </div>
+  </div>
+  <p class="note">Score any other repository from the CLI (full scan: 8 languages,
+  X-ray, MCP surface, mutation/proof metrics):<br>
+  <code>python3 tools/trust_scorecard.py --repo owner/repo --json out.json</code> — repositories
+  without Lean&nbsp;4 proofs or an MCP manifest are graded on the <b>base profile (max 88, Grade A)</b>,
+  and the card prints how to reach <b>A+</b>. Live browser scan of arbitrary repos is intentionally
+  <b>not</b> claimed here: it cannot read native/formal code without a backend.</p>
+</section>
+
+
 <section id="wasm">
   <h2>Live WASM kernel playground</h2>
   <p class="note">Runs the real Zig core compiled to WebAssembly. 0 server calls;
@@ -633,6 +697,107 @@ This page is served from <code>/docs</code> of the
   }
 })();
 </script>
+
+<script>
+/* KERN Trust Scorecard: карточка строится из ПРЕДВЫЧИСЛЕННОГО
+   docs/evidence/scorecard.json (0 запросов к GitHub API при открытии).
+   Рубрика и веса приходят в самом JSON — карточка ничего не «додумывает». */
+(function () {
+  const q = (s) => document.querySelector(s);
+  const card = q('#sc-card');
+  if (!card) return;
+
+  function txt(id, s) { const el = q(id); if (el) el.textContent = s; }
+
+  function render(doc) {
+    const w = doc.what_we_read || {}, mcp = doc.mcp || {}, f = doc.formal || {},
+          m = doc.metrics || {}, hy = doc.hygiene || {};
+    const score = doc.score, grade = doc.grade || '?';
+    txt('#sc-score', String(score));
+    const g = q('#sc-grade');
+    g.textContent = 'Grade ' + grade + (grade === 'A+' ? ' · Belnap T (1,0), e=1' : '');
+    g.className = 'sc-grade ' + (score >= 85 ? 'sc-ok' : 'sc-bad');
+    txt('#sc-commit', 'commit ' + (doc.commit || '—') + ' · ' + String(doc.code_hash || '').slice(0, 22) + '…');
+
+    const names = { zig: '.zig', lean: '.lean', python: '.py', c11: '.c/.h (C11)',
+                    rust: '.rs', go: '.go', ts_js: '.ts/.js', wasm: '.wasm' };
+    let lines = [];
+    const cat = w.by_category || {};
+    for (const k in names) lines.push(names[k].padEnd(14) + String(cat[k] || 0).padStart(5) + ' files');
+    lines.push('skipped        ' + String(w.skipped || 0).padStart(5) + ' (symlink/size/min)');
+    txt('#sc-read', lines.join('\n'));
+    txt('#sc-blind', '⚡ Blind-Spot Check: ' + (w.blind_spot_native_formal || 0) +
+        ' native/formal files (.zig/.lean/.wasm) read here that Python-only scanners miss.');
+
+    const files = mcp.files || {};
+    txt('#sc-mcp', [
+      'server.json      ' + (files['server.json'] ? '✓' : '—'),
+      'mcp.json         ' + (files['mcp.json'] ? '✓' : '—'),
+      '.well-known/     ' + (files['.well-known/mcp.json'] ? '✓' : '—'),
+      'lock             ' + (mcp.lock ? '✓' : '—'),
+      'tools            ' + (mcp.tools || 0) + '/8 mapped',
+      'annotations      ' + (mcp.annotations ? '✓ readOnly/destructive/openWorld' : '—')
+    ].join('\n'));
+
+    txt('#sc-formal', [
+      'Lean 4           ' + (f.theorems || 0) + ' theorems / ' + (f.lean_files || 0) +
+        ' files, sorry=' + (f.sorry || 0) + ' (0 custom axioms)',
+      'attestation      ' + (f.attestation ? '✓ Ed25519' : '—'),
+      'gate             trusted: 0 | holes: 0 (proof checker)'
+    ].join('\n'));
+
+    txt('#sc-metrics', [
+      'can-fail         ' + (m.check_covered || 0) + '/' + (m.check_targets || 0) +
+        ' CHECK, ' + (m.canfail_cases || 0) + ' cases',
+      'mutations        ' + (m.mutation || 'n/a'),
+      'injections       ' + (hy.injection_markers === 0 ? '0 markers ✓' : (hy.injection_markers || 0) + ' (!)'),
+      'dup guard        ' + (hy.dup_guard ? 'ratchet ✓' : '—')
+    ].join('\n'));
+
+    txt('#sc-prov', [
+      'QEMU             ' + (m.qemu || 'n/a'),
+      'SLSA/Ed25519     ' + (f.attestation ? '✓' : '—'),
+      'code hash        ' + String(doc.code_hash || '').slice(0, 26) + '…'
+    ].join('\n'));
+
+    window.__sc = doc;
+  }
+
+  function badge(doc) {
+    const s = doc.score + '%2F100', g = encodeURIComponent('(' + doc.grade + ')');
+    const color = doc.score >= 95 ? '00e676' : doc.score >= 85 ? '3fb950' : 'd29922';
+    const link = 'https://newmathphys.github.io/kern/#scorecard';
+    return '[![KERN Trust Index: ' + doc.score + '/100 (' + doc.grade + ')]' +
+      '(https://img.shields.io/badge/KERN_Trust_Index-' + s + '_' + g + '-' + color +
+      '?style=for-the-badge)](' + link + ')';
+  }
+
+  function say(msg) { const el = q('#sc-msg'); if (el) el.textContent = msg; setTimeout(() => { if (el) el.textContent = ''; }, 2500); }
+
+  fetch('./evidence/scorecard.json', { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(render)
+    .catch(e => {
+      txt('#sc-grade', 'card unavailable (' + e.message + ')');
+      say('Сгенерируйте docs/evidence/scorecard.json: python3 tools/trust_scorecard.py --json docs/evidence/scorecard.json');
+    });
+
+  q('#sc-raw').addEventListener('click', () => {
+    if (!window.__sc) return;
+    const blob = new Blob([JSON.stringify(window.__sc, null, 2)], { type: 'application/json' });
+    window.open(URL.createObjectURL(blob), '_blank');
+  });
+  q('#sc-badge').addEventListener('click', () => {
+    if (!window.__sc) return;
+    navigator.clipboard.writeText(badge(window.__sc)).then(() => say('badge copied'), () => say('copy failed'));
+  });
+  q('#sc-link').addEventListener('click', () => {
+    const url = location.origin + location.pathname + '#scorecard';
+    navigator.clipboard.writeText(url).then(() => say('link copied'), () => say('copy failed'));
+  });
+})();
+</script>
+
 
 </body>
 </html>

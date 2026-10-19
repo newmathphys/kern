@@ -341,6 +341,9 @@ fuzz-corpus-check: build
 
 # ЭШЕЛОН 3, ПУНКТ 13: рентген БЕЗ аннотаций (мёртвые ветки, избыточные
 # проверки, краш-пути, сложность Маккейба) на фикстуре examples/xray_demo.py.
+scorecard-check:
+	@bash tools/scorecard_check.sh
+
 ecosystem-check:
 	@bash tools/ecosystem_check.sh
 

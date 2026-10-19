@@ -263,6 +263,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "docs/evidence/scorecard.json",
     "server.json",
     "tests/fixtures/zig_plain_add.zig",
     "tests/fixtures/zig_saturating_add.zig",
@@ -1508,6 +1509,22 @@ def case_ecosystem():
     return "make ecosystem-check"
 
 
+def case_scorecard():
+    """Траст-карточка. ЛОМАЕМ: подменяем ОПУБЛИКОВАННЫЙ scorecard.json.
+
+    Гейт обязан заметить, что карточка на сайте разошлась с пересчётом
+    (класс дефекта #82: опубликованные числа устарели).
+    """
+    import json as _json
+    touch("docs/evidence/scorecard.json")
+    p = ROOT / "docs" / "evidence" / "scorecard.json"
+    d = _json.loads(p.read_text(encoding="utf-8"))
+    d["score"] = 41
+    d["grade"] = "D"
+    write_atomic(p, (_json.dumps(d, ensure_ascii=False, indent=2) + "\n").encode())
+    return "make scorecard-check"
+
+
 def case_c_abi_null():
     """Хардкор-аудит C-ABI. ЛОМАЕМ: убираем NULL-защиту в `kern_kimg_valid`.
 
@@ -2447,6 +2464,7 @@ CASES = [
     ("binary-audit",   "АУДИТ: AVX2/NX/латентность измеряются",     case_binary_audit),
     ("bitrot-chaos",   "BIT-ROT: порча данных в .kimg ловится",      case_bitrot_chaos),
     ("pcc-check",      "PCC: подделка сертификата отвергается",    case_pcc_check),
+    ("scorecard-check", "ТРАСТ-КАРТОЧКА: паспорт == пересчёт", case_scorecard),
     ("ecosystem-check", "Внешние каталоги: манифесты MCP == tools/list", case_ecosystem),
     ("xray-check",     "XRAY: находки без аннотаций",           case_xray_check),
     ("gen-tests-check","SBST: сгенерированные тесты проходят",    case_gen_tests_check),

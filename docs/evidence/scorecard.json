@@ -1,0 +1,89 @@
+{
+  "schema": "kern-trust-scorecard/1",
+  "repo": "kern",
+  "commit": "0cd50d5",
+  "code_hash": "sha256:0b7bbfcef6f7d3cfde0c7d4006cb5fd0deb09e463a2186d8bededc1532d85180",
+  "score": 100,
+  "grade": "A+",
+  "breakdown": {
+    "license": 10,
+    "readme": 6,
+    "tests": 10,
+    "ci": 8,
+    "build": 8,
+    "no_injections": 8,
+    "dup_guard": 8,
+    "sarif": 6,
+    "llms": 6,
+    "docs": 8,
+    "hygiene": 6,
+    "base_max": 88,
+    "mcp_profile": 7,
+    "formal_tier": 12
+  },
+  "hints": [],
+  "what_we_read": {
+    "by_category": {
+      "zig": 92,
+      "lean": 8,
+      "python": 109,
+      "c11": 7,
+      "rust": 4,
+      "go": 1,
+      "ts_js": 2,
+      "wasm": 1
+    },
+    "skipped": 3,
+    "total": 224,
+    "blind_spot_native_formal": 101
+  },
+  "mcp": {
+    "files": {
+      "server.json": true,
+      "mcp.json": true,
+      ".well-known/mcp.json": true
+    },
+    "tools": 8,
+    "annotations": true,
+    "lock": false
+  },
+  "formal": {
+    "lean_files": 8,
+    "theorems": 120,
+    "sorry": 0,
+    "attestation": true
+  },
+  "metrics": {
+    "check_targets": 125,
+    "check_covered": 125,
+    "canfail_cases": 141,
+    "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
+    "qemu": "393 passed / 8 skipped / 0 failed"
+  },
+  "hygiene": {
+    "license": true,
+    "readme": true,
+    "tests": true,
+    "ci": true,
+    "build": true,
+    "sarif": true,
+    "llms": true,
+    "docs_md": 27,
+    "injection_markers": 0,
+    "dup_guard": true
+  },
+  "rubric": {
+    "base_max": 88,
+    "mcp_profile_max": 7,
+    "formal_tier_max": 12,
+    "grades": {
+      "A+": ">=95",
+      "A": ">=85",
+      "B": ">=70",
+      "C": ">=55",
+      "D": ">=40",
+      "F": "<40"
+    }
+  },
+  "disclaimer": "Эвристическая рубрика с открытыми весами, а НЕ математическое доказательство. Доказанные утверждения проекта — trusted: 0 в пруф-чекере и теоремы Lean 4."
+}
