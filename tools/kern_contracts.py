@@ -2749,8 +2749,19 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
 # Побочный канал: статистика последнего `cmd_xray` для агрегатора.
 _LAST_XRAY: dict = {}
 
-_XRAY_SKIP_DIRS = {".git", ".venv", ".venv38", ".venv-evalplus", "node_modules",
-                   "__pycache__", ".zig-cache", "zig-out", "target", "build"}
+# МУСОРНЫЕ КАТАЛОГИ ЧУЖИХ РЕПОЗИТОРИЕВ. Без этого сканер тратил бы всё время на
+# сторонние зависимости вместо кода проекта (и мог наткнуться на «мины» в них).
+_XRAY_SKIP_DIRS = {".git", ".hg", ".svn",
+                   ".venv", ".venv38", ".venv-evalplus", "venv", "env", "virtualenv",
+                   "node_modules", "bower_components",
+                   "vendor", "third_party", "third-party", "external",
+                   "target", "dist", "build", "out", "bin", "obj",
+                   ".zig-cache", "zig-out", "zig-cache",
+                   "__pycache__", ".mypy_cache", ".pytest_cache", ".tox", ".ruff_cache",
+                   ".idea", ".vscode", "fixtures", "__snapshots__",
+                   "site-packages", "dist-packages"}
+# Ограничения на ОДИН файл: минифицированные бандлы и гигантские генераты.
+_XRAY_MAX_FILE = 512 * 1024
 _XRAY_EXTS = {".py", ".ts", ".js", ".go", ".zig", ".c", ".h", ".rs"}
 
 
@@ -2969,24 +2980,88 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     return 0
 
 
-def _audit_fetch(target: str) -> tuple[Path, Path | None]:
-    """--audit-repo: локальный путь или GitHub (owner/repo, URL).
+_AUDIT_TMP: set = set()
+_AUDIT_SIGNALS_READY = False
 
-    Возвращает (каталог_для_скана, временный_каталог_или_None).
-    Для URL/`owner/repo` — `git clone --depth 1` в /dev/shm (быстро, ОЗУ),
-    за собой убираем в finally. Ничего в чужом проекте не меняется.
+
+def _audit_install_cleanup() -> None:
+    """Регистрирует уборку /dev/shm при SIGTERM/SIGINT/SIGHUP и на выходе.
+
+    Обработчики ставятся ОДИН раз; они не мешают обычной работе (сначала
+    убирают временные каталоги, затем делегируют прежнее поведение).
+    """
+    global _AUDIT_SIGNALS_READY
+    if _AUDIT_SIGNALS_READY:
+        return
+    _AUDIT_SIGNALS_READY = True
+    import atexit
+    import signal as _signal
+    atexit.register(_audit_cleanup_all)
+
+    def _handler(signum, frame):  # noqa: ARG001
+        _audit_cleanup_all()
+        raise SystemExit(128 + signum)
+
+    for s in (_signal.SIGTERM, _signal.SIGINT, getattr(_signal, "SIGHUP", None)):
+        if s is None:
+            continue
+        try:
+            _signal.signal(s, _handler)
+        except (ValueError, OSError):
+            pass
+
+
+def _audit_cleanup_all() -> None:
+    """Уборка ВСЕХ временных каталогов аудита (SIGTERM/SIGINT/SIGHUP + atexit).
+
+    Связка с дефектом #156: при `Ctrl+C` или `kill -TERM` во время `git clone`
+    папка `/dev/shm/kern_audit_*` иначе осталась бы в RAM-диске.
+    """
+    for d in list(_AUDIT_TMP):
+        shutil.rmtree(d, ignore_errors=True)
+        try:
+            _AUDIT_TMP.remove(d)
+        except ValueError:
+            pass
+
+
+def _audit_fetch(target: str) -> tuple[Path, Path | None]:
+    """--audit-repo: локальный путь или GitHub (`owner/repo`, HTTPS URL).
+
+    БЕЗОПАСНОСТЬ (7 защит):
+      1. клон строго в `/dev/shm` (ОЗУ), каталог регистрируется ДО запуска git;
+      2. `GIT_TERMINAL_PROMPT=0` — приватный URL не подвесит процесс запросом пароля;
+      3. `GIT_LFS_SKIP_SMUDGE=1` — никаких гигабайтных LFS-блобов;
+      4. `core.hooksPath=/dev/null` — чужие git-хуки не исполняются (RCE);
+      5. `protocol.file.allow=never` — нельзя подсунуть локальный путь как remote;
+      6. `--depth 1 --single-branch --no-tags` — минимум данных;
+      7. timeout=30 с + регистрация в SIGTERM/SIGINT/SIGHUP/atexit.
     """
     p = Path(target).expanduser()
     if p.exists():
         return p, None
     url = target
     if re.fullmatch(r"[\w.-]+/[\w.-]+", target):
-        url = "https://github.com/" + target + ".git"
-    tmp = Path(tempfile.mkdtemp(prefix="kern_audit_", dir=_shm_dir()))
-    r = subprocess.run(["git", "clone", "--depth", "1", "--quiet", url, str(tmp / "repo")],
-                       capture_output=True, text=True, timeout=300)
+        url = "https://github.com/" + target + ("" if target.endswith(".git") else ".git")
+    tmp = Path(tempfile.mkdtemp(prefix=f"kern_audit_{os.getpid()}_", dir=_shm_dir()))
+    _AUDIT_TMP.add(tmp)                       # (1) регистрируем ДО clone
+    env = dict(os.environ)                    # (2)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GIT_LFS_SKIP_SMUDGE"] = "1"          # (3)
+    env.setdefault("GIT_ASKPASS", "/bin/true")
+    cmd = ["git", "-c", "core.hooksPath=/dev/null",   # (4)
+           "-c", "protocol.file.allow=never",         # (5)
+           "clone", "--depth", "1", "--single-branch", "--no-tags", "--quiet",
+           url, str(tmp / "repo")]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, env=env)  # (7)
+    except subprocess.TimeoutExpired:
+        shutil.rmtree(tmp, ignore_errors=True)
+        _AUDIT_TMP.discard(tmp)
+        raise RuntimeError("git clone не уложился в 30 с (тяжёлый/зависший репозиторий)")
     if r.returncode != 0:
         shutil.rmtree(tmp, ignore_errors=True)
+        _AUDIT_TMP.discard(tmp)
         raise RuntimeError(f"git clone не удался: {(r.stderr or '')[:200]}")
     return tmp / "repo", tmp
 
@@ -2999,6 +3074,7 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
     по языкам, топ-5 по Маккейбу и печатает паспорт. При `--html` пишет
     автономный HTML-отчёт (0 CDN).
     """
+    _audit_install_cleanup()
     try:
         root, tmp = _audit_fetch(target)
     except Exception as e:  # noqa: BLE001
@@ -3006,14 +3082,32 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
         return 2
     try:
         files: list[Path] = []
+        skipped_files = 0          # мусор: симлинки, гиганты, минифицированные
         if root.is_file():
             files = [root]
         else:
-            for dirpath, dirnames, filenames in os.walk(root):
+            # followlinks=False: циклические симлинки в чужих репозиториях не
+            # зацикливают обход; сами симлинки пропускаем (могут указывать вне).
+            for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
                 dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
                 for f in sorted(filenames):
-                    if Path(f).suffix in _XRAY_EXTS:
-                        files.append(Path(dirpath) / f)
+                    fp = Path(dirpath) / f
+                    if fp.suffix not in _XRAY_EXTS:
+                        continue
+                    if fp.is_symlink():
+                        skipped_files += 1
+                        continue
+                    if f.endswith(".min.js") or f.endswith(".min.ts"):
+                        skipped_files += 1
+                        continue
+                    try:
+                        if fp.stat().st_size > _XRAY_MAX_FILE:
+                            skipped_files += 1
+                            continue
+                    except OSError:
+                        skipped_files += 1
+                        continue
+                    files.append(fp)
         stats: dict[str, list[int]] = {}
         findings: list[str] = []
         worst: list[tuple[int, str, str]] = []
@@ -3050,7 +3144,8 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
                 st[2] += 1
         print("=" * 74)
         print(f"[AUDIT PASSPORT] {target}")
-        print(f"  файлов: {len(files)} | находок: {len(findings)}")
+        print(f"  файлов: {len(files)} | находок: {len(findings)} "
+              f"| пропущено файлов (симлинк/размер/min): {skipped_files}")
         for lang in sorted(stats):
             fl, ck, sk = stats[lang]
             print(f"  {lang:<12} файлов {fl:>3} | проверено {ck:>4} | пропущено {sk:>4}")

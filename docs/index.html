@@ -339,17 +339,71 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
     document.getElementById("xr-out").textContent = "—";
   });
   document.getElementById("gh-load").addEventListener("click", function () {
-    var u = (document.getElementById("gh-url").value || "").trim();
+    var raw = (document.getElementById("gh-url").value || "").trim();
     var out = document.getElementById("xr-out");
-    if (!u) { out.textContent = "paste a URL first"; return; }
-    // github.com/owner/repo/blob/ref/path -> raw.githubusercontent.com/owner/repo/ref/path
-    u = u.replace("https://github.com/", "https://raw.githubusercontent.com/").replace("/blob/", "/");
-    out.textContent = "loading " + u + " …";
-    fetch(u).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
-      .then(function (t) { document.getElementById("xr-code").value = t.slice(0, 20000);
-                           out.textContent = "loaded " + t.length + " bytes — press Run x-ray"; })
-      .catch(function (e) { out.textContent = "load failed: " + e.message +
-        " (CORS blocks some hosts; paste the code manually instead)"; });
+    if (!raw) { out.textContent = "paste a URL first"; return; }
+    if (location.protocol === "file:") {
+      out.textContent = "file:// mode: fetch() is blocked by the browser — paste the code manually.";
+      return;
+    }
+    function fail(e) {
+      var msg = String(e && e.message || e);
+      if (/HTTP 404/.test(msg)) msg += " — file/repo not found (check owner/repo/branch/path).";
+      else if (/HTTP 403|HTTP 429/.test(msg)) msg += " — GitHub rate limit or CORS; retry later or paste the code.";
+      out.textContent = "load failed: " + msg +
+        "\n(tip: paste the code into the editor manually — the WASM solver still works offline)";
+    }
+    // Файл: github.com/{o}/{r}/blob/{ref}/{path} -> raw.githubusercontent.com/{o}/{r}/{ref}/{path}
+    var fileM = raw.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/);
+    if (fileM) {
+      var u = "https://raw.githubusercontent.com/" + fileM[1] + "/" + fileM[2] + "/" + fileM[3];
+      out.textContent = "loading " + u + " …";
+      fetch(u).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+        .then(function (t) { document.getElementById("xr-code").value = t.slice(0, 20000);
+                             out.textContent = "loaded " + t.length + " bytes — press Run x-ray"; })
+        .catch(fail);
+      return;
+    }
+    if (/^https:\/\/raw\.githubusercontent\.com\//.test(raw)) {
+      out.textContent = "loading " + raw + " …";
+      fetch(raw).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+        .then(function (t) { document.getElementById("xr-code").value = t.slice(0, 20000);
+                             out.textContent = "loaded " + t.length + " bytes — press Run x-ray"; })
+        .catch(fail);
+      return;
+    }
+    // Корень репозитория/папка: github.com/{o}/{r}[/tree/{ref}[/path]]
+    var repoM = raw.match(/^https:\/\/github\.com\/([^/]+)\/([^/#?]+)(?:\/tree\/([^/]+)(?:\/(.*))?)?\/?$/);
+    if (repoM) {
+      var o = repoM[1], r = repoM[2], ref = repoM[3] || "HEAD", sub = repoM[4] || "";
+      var api = "https://api.github.com/repos/" + o + "/" + r + "/git/trees/" + ref + "?recursive=1";
+      out.textContent = "reading repo tree " + o + "/" + r + " …";
+      fetch(api, { headers: { "Accept": "application/vnd.github+json" } })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          return resp.json();
+        })
+        .then(function (j) {
+          var exts = /\.(py|zig|c|h|rs|ts|js|go)$/;
+          var trash = /(^|\/)(node_modules|vendor|third_party|\.git|target|dist|build|out|\.venv|venv)\//;
+          var list = (j.tree || []).filter(function (e) {
+            return e.type === "blob" && exts.test(e.path) && !trash.test(e.path) &&
+                   !/\.min\.(js|ts)$/.test(e.path) && (e.size || 0) < 512000 &&
+                   (!sub || e.path.indexOf(sub) === 0);
+          }).slice(0, 200);
+          if (!list.length) { out.textContent = "no code files found in this repo/folder"; return; }
+          out.textContent = list.map(function (e, i) { return (i + 1) + ") " + e.path; }).join("\n") +
+            "\n\n(auto-loading the first file; edit the URL to pick another)";
+          var first = list[0].path;
+          var rawU = "https://raw.githubusercontent.com/" + o + "/" + r + "/" + (ref === "HEAD" ? "HEAD" : ref) + "/" + first;
+          return fetch(rawU).then(function (rr) { return rr.ok ? rr.text() : ""; })
+            .then(function (t) { if (t) { document.getElementById("xr-code").value = t.slice(0, 20000);
+              out.textContent = "loaded " + first + " (" + t.length + " bytes) — press Run x-ray\n\n" + out.textContent; } });
+        })
+        .catch(fail);
+      return;
+    }
+    out.textContent = "unsupported URL. Use https://github.com/owner/repo, .../blob/<ref>/<path>, or raw.githubusercontent.com/...";
   });
 })();
 </script>
