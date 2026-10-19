@@ -1378,3 +1378,53 @@ which REMAINS when `[OK]` becomes `[FAIL]`. FIXED: grep `[OK] 0 паник` ->
 
 Reason: the session budget went into bringing 40B/40C/40D to 100% (including
 catching two vacuous cases). These two are CORE Zig work, not shop-window work.
+
+
+---
+
+## §29. Echelon 8, item 40 (final): 40A WASM + 40B `kernc grep`
+
+### 29.1 Item 40A — KERN core in WebAssembly (`src/wasm_api.zig`, `make wasm-check`)
+
+Only syscall-free parts of the core are exported: the Belnap lattice (`JOIN_K`),
+the gate allowance (e=1 for `T` only), the 64-bit `AdmissionCode`, and the
+built-in Fourier-Motzkin solver (`builtin_lia.zig`).
+
+Memory: `var wasm_buf: [256 * 1024]u8` + `FixedBufferAllocator`; the allocator
+state is kept GLOBALLY — a local variable would dangle (caught by the compiler:
+`expected '*T', found '*const T'`).
+
+What is NOT in WASM and why: `proof_check.zig` imports `z3_bridge.zig` (spawns an
+external `z3` process); `wasm32-freestanding` has no syscalls at all. This is a
+NAMED boundary: in a browser you get integrity checks and the LIA solver, but
+NOT re-checking of the Z3 proof.
+
+MEASURED (`make wasm-check`): build rc=0; WASM magic valid; No-Bloat gate
+**8,144 bytes** (< 512 KB); all 4 exports present; SEMANTICS verified natively
+(`zig test`) -> **All 40 tests passed**. Checking only module bytes would be
+vacuous: a module can have the right size and still not work.
+
+### 29.2 Item 40B — `kernc grep <pattern> <image.kimg>` (`make kimg-grep-check`)
+
+Order is STRICT: header + `verifyMerkleRoot` first, search second. Searching a
+corrupted image is BLOCKED (`rc=2`) — otherwise output would mislead. Compressed
+objects are decompressed (`decompressObject` re-checks the digest). Both object
+NAMES and content lines are searched.
+
+MEASURED on `audits/real_code_corpus.kimg` (34 objects): pattern present ->
+**rc=0**, 6 hits; absent -> **rc=1**; one byte flipped -> **rc=2**
+(`MerkleRootMismatch`).
+
+### 29.3 Defects #149, #150, #151
+
+| # | What | Found by | Fix |
+|:--|:--|:--|:--|
+| #149 | `--xray`: consecutive `if…: return` did not narrow the path | MCP test (if/elif chains worked, consecutive did not) | narrow path by `NOT cond` in `_walk_branches` |
+| #150 | `wasm-check` case failed: file missing from FAULTABLE | `canfail --only wasm-check` | file added to `FAULTABLE` |
+| #151 | `kimg-grep-check` case was VACUOUS: the gate never rebuilt the binary, so patching `exit(1)`->`exit(0)` in `src/main.zig` had no effect | `canfail --only kimg-grep-check` | `zig build` before checks in `kimg_grep_check.sh` |
+
+After the fixes both gates report **1 non-vacuous, 0 vacuous**.
+
+### 29.4 Result: all 40 plan items closed
+
+8 echelons, 40 items, zero tails.
