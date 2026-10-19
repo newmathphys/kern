@@ -1137,6 +1137,91 @@ After the fix: `1 non-vacuous, 0 vacuous`.
 | `make double-spend-check` / `ffi-bridge-check` / `pricing-matrix-check` | `[OK]` |
 | `make sql-policy-check` | `[OK]` (bypass caught; safe status is an honest UNKNOWN) |
 | `canfail --only` ×4 | **1 non-vacuous, 0 vacuous** each |
+
+---
+
+## §26. Session D: Echelon 6 — AI SECURITY SHIELD (Items 32–35)
+
+### 26.0 First, the Point 30 tail is closed (Defect #145)
+
+The RLS invariant used to be checked as ONE compound formula `¬((A ∨ B) ∧ C)`,
+which made Z3 introduce Tseitin atoms (4 trusted steps → `[UNKNOWN]`). FIXED: the
+invariant is a CONJUNCTION, so a violation is searched COMPONENT-WISE (de Morgan):
+two separate violations — "deleted row" and "foreign non-public tenant". SAT of
+either equals SAT of the whole violation (sound and complete).
+
+MEASURED: `[PASS] rls_safe: PROVEN (tenant isolation on all 4 paths, trusted: 0 |
+holes: 0)`, 0 unknown. The `or UNKNOWN` allowance was REMOVED from
+`tools/sql_policy_check.sh` — the gate now requires a strict PROVEN and 0 unknown.
+Lean: `invariant_componentwise_check` (proved by hand, core tactics only).
+
+### 26.1 Item 32 — anti-cheat (`--anti-cheat` + `--import-lock`)
+
+An AST scanner catches five classes of Reward Hacking plus slopsquatting:
+always-true `__eq__`; `sys.exit`/`os._exit` inside tested code; an `except: pass`
+swallowing an `assert`; `unittest.mock` in production; test-case overfitting
+(`if x == 42 and y == 17`); and imports outside the `--import-lock` allowlist.
+
+MEASURED: `examples/anti_cheat_demo.py` → **5/5**; clean
+`examples/presets_demo.py` with `examples/import_allowlist.json` → `[OK] clean`.
+
+**Defect in my own code (found by running):** the name resolver only understood
+`Attribute(Name)` and missed `unittest.mock.patch` (nested attribute) → 4/5.
+Fixed with `_dotted()` → 5/5.
+
+### 26.2 Item 33 — MCP poisoning (`--audit-mcp` + `--mcp-lock`)
+
+Prompt injections in `description` (`ignore previous`, `~/.ssh`, `<system>`, …),
+invisible Unicode (U+200B–200F, U+202A–202E, U+2060–2064, U+E0000–E007F, U+FEFF)
+and RUG-PULL: a SHA-256 per tool (canonical JSON) compared against
+`mcp.lock.json`.
+
+MEASURED: a clean schema creates the lock and passes; after editing a description
+→ `MCP RUG-PULL DETECTED`; a poisoned schema → `PROMPT INJECTION` (3 patterns) +
+`INVISIBLE UNICODE U+200B`.
+
+### 26.3 Item 34 — non-interference (`@kern:secret`, 2-Safety)
+
+Goguen–Meseguer self-composition: two copies with the SAME public input and
+DIFFERENT secrets must produce the SAME output. Obligation:
+`body[s := s1] ≠ body[s := s2]` → SAT means a leak.
+
+MEASURED on `examples/noninterference_demo.py`: `check_pin_leaky` → `SECRET LEAK`
+(`pin__1 = 0, pin__2 = 1, guess = 0`); `constant_time_op` → `PROVEN
+NON-INTERFERENT (trusted: 0 | holes: 0)`.
+
+### 26.4 DEFECT #146 (found by this item): the counterexample was HIDDEN
+
+The model validator (`src/verifier/model_extract.zig`) could not evaluate `=`
+between **BOOLEAN sub-formulas** (`(= (= p g) (= p2 g))` — two Bools, not Ints):
+`asInt` failed, and the code declared the model `SPURIOUS MODEL`, **hiding a valid
+counterexample** (it printed "spurious model" instead of `[COUNTEREXAMPLE]`).
+
+FIXED twice: (a) `=` compares boolean sub-formulas as booleans; (b) "cannot
+evaluate this form" (`Malformed`/`Overflow`) is now `unsupported`, NOT `spurious` —
+`spurious` is reserved for an **evaluated false**.
+
+### 26.5 Item 35 — agent-swarm arbitration in the Belnap lattice
+
+A NATIVE test in `src/next/truth.zig` over `Bit.join` (the core's real lattice):
+`JOIN_K(T,F) = B` (Gates CLOSED, allowance = 0); absorption (100 votes of T never
+overwrite B); `JOIN_K(T,T) = T` (Gates OPEN, allowance = 1); `JOIN_K(B,F) = B`
+(a vote of F does not lift the conflict). `zig build test-next`: **45/45**.
+`make belnap-swarm-check` requires rc=0 and the test's presence; the canfail case
+breaks `Bit.join` (`n = false`) → the target turns red.
+
+### 26.6 Gates and regressions of Session D
+
+| Check | Result |
+|:--|:--|
+| `make anti-cheat-check` / `mcp-audit-check` / `noninterference-check` / `belnap-swarm-check` | `[OK]` |
+| `canfail --only` ×4 | **1 non-vacuous, 0 vacuous** each |
+| `make sql-policy-check` | `[OK]` — STRICT PROVEN, no allowances |
+| `registry.py` | **129 targets, 106/106 CHECK** |
+| test catalog | **400**, in sync |
+| Lean 4 | 8/8 files, `FarkasSoundness` — **75 theorems**, 0 errors, 0 sorry |
+| `zig build test-next` | 45/45 |
+
 | `registry.py` | **125 targets, 102/102 CHECK** |
 | test catalog | **399**, in sync |
 | `zig build test` | 346/354 (8 skipped), 0 failed |

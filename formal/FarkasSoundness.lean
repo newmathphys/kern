@@ -523,4 +523,48 @@ theorem invariant_componentwise_check (A B : Prop) : ¬(A ∧ B) ↔ (¬A ∨ ¬
     · exact ha hA
     · exact hb hB
 
+/-! ===== ЭШЕЛОН 6: ЩИТ БЕЗОПАСНОСТИ ИИ ===== -/
+
+/-- ПУНКТ 32: ПЕРЕГРУЗКА `__eq__`, ВСЕГДА ВОЗВРАЩАЮЩАЯ True, ЛОМАЕТ ТЕСТ.
+    Если проверка равенства тождественно истинна, она не различает даже
+    заведомо разные значения — то есть перестаёт быть проверкой. -/
+theorem always_true_eq_collapses (eqT : Int → Int → Bool) (h : ∀ a b, eqT a b = true)
+    (a b : Int) (hne : a ≠ b) : eqT a b = true ∧ a ≠ b := ⟨h a b, hne⟩
+
+/-- … а ЧЕСТНОЕ сравнение различие видит: `a ≠ b` остаётся опровержением. -/
+theorem honest_eq_detects (a b : Int) (h : a ≠ b) : ¬(a = b) := h
+
+/-- ПУНКТ 33: ЗАМОК ОТПЕЧАТКОВ ЛОВИТ RUG-PULL. Если хеши схем различаются, то и
+    сами схемы различаются (контрапозиция: одна схема -> один хеш). -/
+theorem hash_detects_change {α β : Type} (f : α → β) {x y : α} (h : f x ≠ f y) : x ≠ y :=
+  fun hxy => h (congrArg f hxy)
+
+/-- ПУНКТ 34: 2-SAFETY ВЛЕЧЁТ НЕИНТЕРФЕРЕНЦИЮ. Если две копии с ОДИНАКОВЫМ
+    публичным входом и ЛЮБЫМИ секретами дают один выход, то выход зависит
+    только от публичного входа. -/
+theorem two_safety_implies_noninterference (obs : Int → Int → Int)
+    (h : ∀ pub s1 s2, obs pub s1 = obs pub s2) (pub : Int) (s : Int) :
+    obs pub s = obs pub 0 := h pub s 0
+
+/-- ПУНКТ 35: МОДЕЛЬ ДВУХБИТНОГО КВАНТА БЕЛНАПА для РОЯ агентов. -/
+structure SwarmBit where
+  sp : Bool
+  sn : Bool
+
+def swarmJoin (a b : SwarmBit) : SwarmBit := ⟨a.sp || b.sp, a.sn || b.sn⟩
+
+/-- ПУНКТ 35: `JOIN_K(T,F) = B` — Кодер заявляет T, Аудитор находит F ->
+    ПРОТИВОРЕЧИЕ (Врата ЗАКРЫТЫ). -/
+theorem belnap_conflict_from_tf :
+    swarmJoin ⟨true, false⟩ ⟨false, true⟩ = ⟨true, true⟩ := rfl
+
+/-- ПУНКТ 35: ПОГЛОЩЕНИЕ ПРОТИВОРЕЧИЕМ — сколько бы агентов ни голосовали `T`,
+    `B` не перезаписывается обратно в `T`. -/
+theorem belnap_swarm_conflict_absorbing (b : SwarmBit) (hb : b = ⟨true, true⟩) :
+    swarmJoin b ⟨true, false⟩ = ⟨true, true⟩ := by
+  subst hb; rfl
+
+/-- ПУНКТ 35: согласие всех агентов в `T` даёт `T` (Врата ОТКРЫТЫ). -/
+theorem belnap_agreement_is_t : swarmJoin ⟨true, false⟩ ⟨true, false⟩ = ⟨true, false⟩ := rfl
+
 end KernFarkas

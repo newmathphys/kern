@@ -7752,6 +7752,105 @@ SQL ограничены `{0,1}` — иначе проверка ловила б
 | Правило | Звучимость | Дамп, из которого найдено |
 |:--|:--|:--|
 | `commEq` | `+`/`*` коммутативны | `(* x 1000000)` vs `(* 1000000 x)` |
+
+---
+
+## §102. СЕССИЯ Г: ЭШЕЛОН 6 — ЩИТ БЕЗОПАСНОСТИ ИИ (ПУНКТЫ 32–35)
+
+### §102.0. Сначала закрыт ХВОСТ Пункта 30 (Дефект #145)
+
+Инвариант RLS проверялся ОДНОЙ составной формулой `¬((A ∨ B) ∧ C)` → Z3 вводил
+Tseitin-атомы → 4 доверенных шага → `[UNKNOWN]`.
+
+ИСПРАВЛЕНО: инвариант — КОНЪЮНКЦИЯ, поэтому нарушение ищется ПО КОМПОНЕНТАМ
+(де Морган): два отдельных нарушения — «удалённая строка» и «чужой непубличный
+тенант». SAT хотя бы одного эквивалентен SAT всего нарушения (звучимо и полно).
+
+ИЗМЕРЕНО: `[PASS] rls_safe: PROVEN (tenant isolation on all 4 paths,
+trusted: 0 | holes: 0)`, 0 unknown. Из `tools/sql_policy_check.sh` **убран**
+допуск `or UNKNOWN` — приёмка требует строгий PROVEN и 0 unknown.
+Lean: `invariant_componentwise_check` (доказана вручную, только core-тактики).
+
+### §102.1. Пункт 32 — анти-чит (`--anti-cheat` + `--import-lock`)
+
+AST-сканер ловит 5 классов читов Reward Hacking и slopsquatting:
+
+| Класс | Как ловится |
+|:--|:--|
+| `always-true __eq__` | `def __eq__` с `return True` |
+| `exit inside tested code` | вызов `sys.exit` / `os._exit` |
+| `swallowed assert` | `except: pass` вокруг `assert` |
+| `mock in production` | `unittest.mock.patch` / `MagicMock` |
+| `test-case overfitting` | `if x == 42 and y == 17` (цепочка литералов) |
+| `import not in allowlist` | модуль вне `--import-lock` (slopsquatting) |
+
+ИЗМЕРЕНО: на `examples/anti_cheat_demo.py` — **5/5**; на чистом
+`examples/presets_demo.py` с `examples/import_allowlist.json` — `[OK] чисто`.
+
+**Дефект в моём коде (найден прогоном):** резолвер имени видел только
+`Attribute(Name)` и НЕ ловил `unittest.mock.patch` (вложенный атрибут) → 4/5.
+Исправлено `_dotted()` (обход вложенных `Attribute`) → 5/5.
+
+### §102.2. Пункт 33 — отравление MCP (`--audit-mcp` + `--mcp-lock`)
+
+| Атака | Как ловится |
+|:--|:--|
+| Промпт-инъекция | паттерны в `description` (`ignore previous`, `~/.ssh`, `<system>`, …) |
+| Невидимый Unicode | диапазоны U+200B–200F, U+202A–202E, U+2060–2064, U+E0000–E007F, U+FEFF |
+| RUG-PULL | SHA-256 каждого инструмента (канонический JSON) против `mcp.lock.json` |
+
+ИЗМЕРЕНО: чистая схема → замок создан, `[OK]`; после правки описания →
+`MCP RUG-PULL DETECTED`; отравленная схема → `PROMPT INJECTION` (3 паттерна) +
+`INVISIBLE UNICODE U+200B`.
+
+### §102.3. Пункт 34 — неинтерференция (`@kern:secret`, 2-Safety)
+
+Самокомпозиция Гогоэна—Месегера: две копии с ОДИНАКОВЫМ публичным входом и
+РАЗНЫМИ секретами обязаны дать ОДИН выход. Обязательство:
+`body[s := s1] ≠ body[s := s2]` → SAT = утечка.
+
+ИЗМЕРЕНО на `examples/noninterference_demo.py`:
+```
+[FAIL] check_pin_leaky: SECRET LEAK / NON-INTERFERENCE VIOLATED —
+       pin__1 = 0, pin__2 = 1, guess = 0
+[PASS] constant_time_op: PROVEN NON-INTERFERENT (trusted: 0 | holes: 0)
+```
+
+### §102.4. ДЕФЕКТ #146 (найден ЭТИМ пунктом): контрпример СКРЫВАЛСЯ
+
+Валидатор модели (`src/verifier/model_extract.zig`) не умел `=` между
+**БУЛЕВЫМИ подформулами** (`(= (= p g) (= p2 g))` — сравнение двух Bool, а не
+целых): `asInt` падал, и код объявлял модель `SPURIOUS MODEL`, **скрывая годный
+контрпример** (печатался «фальшивая модель» вместо `[КОНТРПРИМЕР]`).
+
+ИСПРАВЛЕНО две вещи: (а) `=` сравнивает булевы подформулы как булевы;
+(б) «не умею вычислить форму» (`Malformed`/`Overflow`) теперь `unsupported`,
+а НЕ `spurious` — `spurious` остаётся только для **вычисленного false**.
+
+### §102.5. Пункт 35 — арбитраж роя в решётке Белнапа
+
+НАТИВНЫЙ тест в `src/next/truth.zig` на `Bit.join` (реальная решётка ядра):
+```
+JOIN_K(T,F) = B            -> Врата ЗАКРЫТЫ (allowance = 0)
+поглощение: 100 голосов T  -> B НЕ перезаписывается (allowance = 0)
+JOIN_K(T,T) = T            -> Врата ОТКРЫТЫ (allowance = 1)
+JOIN_K(B,F) = B            -> конфликт не «снимается» голосом F
+```
+`zig build test-next`: **45/45**. Цель `make belnap-swarm-check` требует rc=0 и
+наличие теста; canfail-кейс ломает `Bit.join` (`n = false`) → цель краснеет.
+
+### §102.6. Гейты и регрессии Сессии Г
+
+| Проверка | Результат |
+|:--|:--|
+| `make anti-cheat-check` / `mcp-audit-check` / `noninterference-check` / `belnap-swarm-check` | `[OK]` |
+| `canfail --only` ×4 | **1 non-vacuous, 0 vacuous** каждый |
+| `make sql-policy-check` | `[OK]` — **строгий** PROVEN, без поблажек |
+| `registry.py` | **129 целей, 106/106 CHECK** |
+| каталог тестов | **400**, синхронен |
+| Lean 4 | 8/8 файлов, `FarkasSoundness` — **75 теорем**, 0 errors, 0 sorry |
+| `zig build test-next` | 45/45 |
+
 | `deMorganEq` + `polarEq` | де Морган в ОБЕ стороны + двойное отрицание | `(not (and A B))` vs `(or (not A) (not B))` |
 | `linTaut` | истинность линейного сравнения (Фурье—Моцкин) | `(= E true)` |
 | `andTautEq` | `¬(A ∧ true) ≡ ¬A`, где `true` ДОКАЗАНО решателем | `(<= x x)` |
