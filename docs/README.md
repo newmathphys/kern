@@ -34,6 +34,7 @@
 | **[../audits/README.md](../audits/README.md)** | **Тень-контракты на чужом коде**: рукописные SMT-модели реальных выражений из сторонних проектов (например `isAligned` из `andrewrk/zig-general-purpose-allocator` — ДОКАЗАНО, и контрольная ломаная версия — КОНТРПРИМЕР) + замер, почему «прогон KERN по 50 репозиториям» даёт нули |
 | **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **395 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
 | **[CYBERNETIC_VISION.en.md](CYBERNETIC_VISION.en.md)** | **English mirror** of the cybernetic vision essay (Anokhin · Glushkov · Belnap · Victor) |
+| **[ROADMAP.en.md](ROADMAP.en.md)** | **English mirror** of the roadmap: final v2.5 status (8/8 echelons), closed debts, defects #155–#157 |
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§108): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#123 (63 записи)**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
@@ -107,3 +108,18 @@ python3 tools/gen_test_catalog.py --check   # каталог тестов не �
 - **отсутствует** (честно помечено).
 
 Разница между «написано» и «доказано» — это и есть предмет проекта.
+
+## Language coverage (mirrors)
+
+| Document | RU | EN |
+|:--|:--|:--|
+| README | `README.ru.md` | `README.md` |
+| METRICS (measured journal) | `METRICS.md` | `METRICS.en.md` |
+| ATTESTATION_PASSPORT | yes | `ATTESTATION_PASSPORT.en.md` |
+| CAPABILITIES | yes | `CAPABILITIES.en.md` |
+| CAPABILITY_STATUS (defect registry) | yes | `CAPABILITY_STATUS.en.md` |
+| TESTING_AND_SPEED_GUIDE | yes | `TESTING_AND_SPEED_GUIDE.en.md` |
+| CYBERNETIC_VISION | yes | `CYBERNETIC_VISION.en.md` |
+| ROADMAP | `ROADMAP.md` (full) | `ROADMAP.en.md` (condensed) |
+
+Other docs (`PROJECT*.md`, `TEST_CATALOG.md`, `VERIFICATION*.md`, `MIGRATION_REPORT_0_17.md`, `KERN_FIXES_v1_3.md`, `OWNERSHIP.md`, `EXECUTION_RUNNER.md`, `SPEC_ANCHORS_DEMO.md`) are Russian-only; they are internal engineering records, not the public showcase.
