@@ -2415,7 +2415,7 @@ CASES = [
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),
-    ("bug-hunt-check", "BUG HUNT: контроль пройден",              case_bug_hunt_check),
+    ("bug-hunt-check", "TROPHIES: трофеи 8/8",                   case_bug_hunt_check),
     ("html-canvas-check", "CANVAS: холст автономен",                case_html_canvas_check),
     ("fuzz-corpus-check", "FUZZ: 0 паник, детерминизм",          case_fuzz_corpus_check),
     ("wasm-check", "WASM: экспорты + No-Bloat",                case_wasm_check),
