@@ -41,7 +41,7 @@ PY
 # только сборочной системой. Поэтому семантику гоняем ШТАТНЫМ раннером —
 # `src/test_root.zig` импортирует wasm_api (правило №10 Кодекса).
 if $ZIG build test --summary all >/tmp/wasm_test.log 2>&1; then
-  echo "  [OK] семантика (zig build test): $(grep -cE 'pass' /tmp/wasm_test.log) строк pass"
+  echo "  [OK] семантика: zig build test rc=0 (тесты wasm_api входят в test_root)"
 else
   echo '  [FAIL] zig build test'; tail -8 /tmp/wasm_test.log; fail=1
 fi
