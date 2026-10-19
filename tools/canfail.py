@@ -1191,7 +1191,14 @@ def case_evidence_propagates():
     touch("formal/KernAllMath.lean")
     with p.open("a", encoding="utf-8") as f:
         f.write("\ntheorem CANFAIL_PROBE : True := by sorry\n")
+    # 🔴 ДЕФЕКТ #175 (найден полным прогоном): вложенный сборщик брал
+    # ТОТ ЖЕ базис /tmp/kern_evidence_guard.json, что и внешний, и — после
+    # введения write-once (#173b) — УДАЛЯЛ его (`rm -f "$GUARD"`). Внешний
+    # прогон после этого видел «нет снимка» и помечал КАЖДЫЙ следующий шаг
+    # как «ВНЕШНЯЯ ПРАВКА ФАЙЛА!», хотя файлы были целы. Теперь у вложенного
+    # прогона СВОЙ базис: он не может испортить чужой.
     return ("KERN_EVIDENCE_DIR=/tmp/kern-canfail-evidence "
+            "GUARD=/tmp/kern_guard_nested.json "
             "make evidence-fast")
 
 
