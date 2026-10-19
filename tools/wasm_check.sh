@@ -26,21 +26,24 @@ if len(d) >= 512 * 1024:
 else:
     print(f'  [OK] No-Bloat: {len(d)} байт < 512 KB')
 names = ('kern_wasm_belnap_join','kern_wasm_belnap_allow',
-         'kern_wasm_admission_valid','kern_wasm_lia_unsat2')
+         'kern_wasm_admission_valid','kern_wasm_lia_unsat2',
+         'kern_wasm_verify_proof')
 miss = [n for n in names if n.encode() not in d]
 if miss:
     print('  [FAIL] нет экспортов:', miss); ok = False
 else:
-    print('  [OK] все 4 экспорта присутствуют')
+    print('  [OK] все 5 экспортов присутствуют')
 sys.exit(0 if ok else 1)
 PY
 [ $? -ne 0 ] && fail=1
 
-if $ZIG test src/wasm_api.zig -O ReleaseSmall >/tmp/wasm_test.log 2>&1; then
-  n=$(grep -oE 'All [0-9]+ tests passed' /tmp/wasm_test.log | head -1)
-  echo "  [OK] семантика экспортов (нативно): ${n:-tests passed}"
+# Прямой `zig test src/wasm_api.zig` НЕ работает: модуль `compat` передаётся
+# только сборочной системой. Поэтому семантику гоняем ШТАТНЫМ раннером —
+# `src/test_root.zig` импортирует wasm_api (правило №10 Кодекса).
+if $ZIG build test --summary all >/tmp/wasm_test.log 2>&1; then
+  echo "  [OK] семантика (zig build test): $(grep -cE 'pass' /tmp/wasm_test.log) строк pass"
 else
-  echo '  [FAIL] нативные тесты wasm_api.zig'; tail -6 /tmp/wasm_test.log; fail=1
+  echo '  [FAIL] zig build test'; tail -8 /tmp/wasm_test.log; fail=1
 fi
 
 if [ "$fail" -eq 0 ]; then echo '[OK] wasm-check: сборка + байты + семантика'; exit 0; fi

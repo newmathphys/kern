@@ -12,14 +12,19 @@
 //! вызовов нет вообще. Поэтому в браузере доступна ПРОВЕРКА ЦЕЛОСТНОСТИ
 //! решений и решатель LIA, но не перепроверка вывода Z3.
 //!
-//! ПАМЯТЬ: статический буфер 256 КБ + `FixedBufferAllocator` — никаких
-//! обращений к ОС (0 syscalls), размер модуля остаётся крошечным.
+//! ПАМЯТЬ: статический буфер 4 МБ + `FixedBufferAllocator` — никаких
+//! обращений к ОС (0 syscalls). ИЗМЕРЕНО: 256 КБ НЕ ХВАТАЛО —
+//! `kern_wasm_verify_proof` на 51-шаговом доказательстве `abs.c`
+//! возвращал 0 (отказ аллокатора), хотя доказательство валидно.
+//! 4 МБ хватает с запасом; размер модуля от размера буфера не зависит
+//! (секция данных `undefined` в файл не пишется).
 const std = @import("std");
 const truth = @import("next/truth.zig");
 const builtin_lia = @import("verifier/builtin_lia.zig");
+const proof_check = @import("verifier/proof_check.zig");
 
 /// Статическая арена: всё, что решателю нужно, живёт здесь.
-var wasm_buf: [256 * 1024]u8 = undefined;
+var wasm_buf: [4 * 1024 * 1024]u8 = undefined;
 
 /// Состояние аллокатора держим ГЛОБАЛЬНО: `allocator()` возвращает указатель
 /// внутрь этого значения, поэтому локальная переменная дала бы висячий
@@ -124,4 +129,44 @@ test "wasm: встроенный LIA решает ДВЕ задачи (unsat и 
     try t.expectEqual(@as(u8, 1), kern_wasm_lia_unsat2(1, 0, -5, -1, 0, 10));
     // x <= 5  и  x >= 0   -> совместно (точка x = 0)
     try t.expectEqual(@as(u8, 2), kern_wasm_lia_unsat2(1, 0, -5, -1, 0, 0));
+}
+
+/// ПРОВЕРКА ГОТОВОГО ДОКАЗАТЕЛЬСТВА Z3 БЕЗ РЕШАТЕЛЯ (5-й экспорт).
+///
+/// `verifyProof` работает только со строками в памяти, поэтому целиком
+/// помещается в `wasm32-freestanding`. Граница с решателем (`z3_bridge.zig`)
+/// локализована в `proof_check.check()`, которая из WASM НЕ достижима.
+/// Возврат: 1 — доказательство подтверждено (`checksPass` + вывод `false` +
+/// `trusted == 0`); 0 — отвергнуто.
+export fn kern_wasm_verify_proof(
+    smt_ptr: [*]const u8,
+    smt_len: usize,
+    proof_ptr: [*]const u8,
+    proof_len: usize,
+) u8 {
+    var arena = std.heap.ArenaAllocator.init(allocator());
+    defer arena.deinit();
+    const al = arena.allocator();
+
+    const smt = smt_ptr[0..smt_len];
+    const proof = proof_ptr[0..proof_len];
+    const contract = proof_check.extractAsserts(al, smt) catch return 0;
+    const pv = proof_check.verifyProof(al, proof, contract) catch return 0;
+    return if (pv.checksPass() and pv.proof_concludes_false and pv.trusted_steps == 0) 1 else 0;
+}
+
+test "wasm: verifyProof принимает валидное доказательство и отвергает подделку" {
+    const fx = @import("verifier/abs_proof_fixture.zig");
+    const smt = fx.ABS_CONTRACT;
+    const proof = fx.ABS_PROOF;
+
+    // 1) ВАЛИДНОЕ: 1 (проверено без решателя, trusted: 0).
+    try t.expectEqual(@as(u8, 1), kern_wasm_verify_proof(smt.ptr, smt.len, proof.ptr, proof.len));
+
+    // 2) ПОДДЕЛКА: меняем первое вхождение `(>= a 0)` на `(>= a 1)` —
+    //    вывод перестаёт сходиться, значит 0 (отвергнуто).
+    const bad = try std.testing.allocator.dupe(u8, proof);
+    defer std.testing.allocator.free(bad);
+    if (std.mem.indexOf(u8, bad, "(>= a 0)")) |i| bad[i + 7] = '1';
+    try t.expectEqual(@as(u8, 0), kern_wasm_verify_proof(smt.ptr, smt.len, bad.ptr, bad.len));
 }

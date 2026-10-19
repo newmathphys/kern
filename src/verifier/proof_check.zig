@@ -36,9 +36,48 @@
 //!     считаются отдельно (`trusted_steps`) и не выдаются за проверенные.
 //!   * Минимальность ядра (MUS) — отдельный механизм ниже.
 const std = @import("std");
-const z3 = @import("z3_bridge.zig");
+const builtin = @import("builtin");
+
+/// Отладочный флаг из окружения.
+///
+/// В `wasm32-freestanding` окружения НЕТ вообще (нет syscalls), поэтому
+/// возвращаем `false` на этапе comptime: невыбранная ветвь не анализируется,
+/// и `compat` (чтение `/proc/self/environ`) в WASM не тянется.
+/// Поведение на нативных платформах не меняется.
+
+/// Буфер-писатель БЕЗ зависимости от `compat` (нужен для wasm): обёртка над
+/// `std.Io.Writer.Allocating` — ИЗМЕРЕНО, собирается в `wasm32-freestanding`.
+const BufWriter = struct {
+    aw: std.Io.Writer.Allocating,
+
+    fn init(allocator: std.mem.Allocator) BufWriter {
+        return .{ .aw = .init(allocator) };
+    }
+    fn deinit(self: *BufWriter) void {
+        self.aw.deinit();
+    }
+    fn writer(self: *BufWriter) *std.Io.Writer {
+        return &self.aw.writer;
+    }
+    fn items(self: *BufWriter) []u8 {
+        return self.aw.written();
+    }
+};
+
+fn dbgEnv(comptime name: []const u8) ?[]const u8 {
+    if (comptime builtin.os.tag == .freestanding) return null;
+    return @import("compat").envVar(name);
+}
+
+/// Печать диагностики. В `wasm32-freestanding` консоли нет, и — ИЗМЕРЕНО —
+/// `std.debug.print` там ВООБЩЕ не компилируется: он тянет `std.Io.Threaded`,
+/// а тот обращается к `posix.getrandom`. Поэтому невыбранная ветвь отбрасывается
+/// на comptime, и печать в WASM просто отсутствует (вердикт не зависит от логов).
+fn dbgPrint(comptime fmt: []const u8, args: anytype) void {
+    if (comptime builtin.os.tag == .freestanding) return;
+    std.debug.print(fmt, args);
+}
 const unsat_core = @import("unsat_core.zig");
-const compat = @import("compat");
 const builtin_lia = @import("builtin_lia.zig");
 
 /// Итог аудита вывода.
@@ -795,7 +834,7 @@ fn writeSexp(w: anytype, e: Sexp) !void {
 }
 
 fn sexpKey(c: *const Ctx, e: Sexp) ?[]const u8 {
-    var b = compat.BufWriter.init(c.arena);
+    var b = BufWriter.init(c.arena);
     writeSexp(b.writer(), e) catch return null;
     return b.items();
 }
@@ -935,10 +974,10 @@ const RwResult = enum { verified, bad, unverifiable };
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
-    if (compat.envVar("KERN_DEBUG_LIA") != null) {
-        std.debug.print("[dbg-rw0] раскрыто: ", .{});
+    if (dbgEnv("KERN_DEBUG_LIA") != null) {
+        dbgPrint("[dbg-rw0] раскрыто: ", .{});
         dumpSexp(eq);
-        std.debug.print("\n", .{});
+        dbgPrint("\n", .{});
     }
     if (!isEq3(eq)) return .unverifiable;
     const l = eq.items[1];
@@ -989,12 +1028,12 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
             // Расхождение канонических форм = доказанная подделка.
             return if (z) .verified else .bad;
         }
-        if (compat.envVar("KERN_DEBUG_LIA") != null) {
-            std.debug.print("[dbg-rw1] выход по normCmp-ветке: LHS=", .{});
+        if (dbgEnv("KERN_DEBUG_LIA") != null) {
+            dbgPrint("[dbg-rw1] выход по normCmp-ветке: LHS=", .{});
             dumpSexp(l);
-            std.debug.print(" RHS=", .{});
+            dbgPrint(" RHS=", .{});
             dumpSexp(r);
-            std.debug.print("\n", .{});
+            dbgPrint("\n", .{});
         }
         return .unverifiable;
     }
@@ -1036,12 +1075,12 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // вычисляется в Zig -> `(= ... false)` доказано без доверенных шагов.
     if (constStrEq(l, r)) return .verified;
     if (constBoolEq(l, r)) return .verified;
-    if (compat.envVar("KERN_DEBUG_LIA") != null) {
-        std.debug.print("[dbg-rw] не проверено: LHS=", .{});
+    if (dbgEnv("KERN_DEBUG_LIA") != null) {
+        dbgPrint("[dbg-rw] не проверено: LHS=", .{});
         dumpSexp(l);
-        std.debug.print("  RHS=", .{});
+        dbgPrint("  RHS=", .{});
         dumpSexp(r);
-        std.debug.print("\n", .{});
+        dbgPrint("\n", .{});
     }
     return .unverifiable;
 }
@@ -1306,26 +1345,26 @@ fn verifyLemma(c: *const Ctx, st: Sexp) bool {
     var seen = std.array_list.Managed([]const u8).init(c.arena);
     collectHypotheses(c, pref, &hyps, &seen, 0);
     // ЭТАП А (диагностика): печать ВСЕХ входов, чтобы видеть точку отказа.
-    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print("[dbg-lemma] поддерево доказывает: ", .{});
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-lemma] поддерево доказывает: ", .{});
         dumpSexp(pc);
-        std.debug.print("\n[dbg-lemma] гипотез {d}; заключение: ", .{hyps.items.len});
+        dbgPrint("\n[dbg-lemma] гипотез {d}; заключение: ", .{hyps.items.len});
         dumpSexp(concl);
-        std.debug.print("\n", .{});
+        dbgPrint("\n", .{});
     }
     if (!(pc.atom != null and std.mem.eql(u8, pc.atom.?, "false"))) return false;
     // 2) Каждая гипотеза поддерева обязана быть опровергнута в заключении.
     if (hyps.items.len == 0) return false; // нечего разряжать — не наш случай
     var lits = std.array_list.Managed(Sexp).init(c.arena);
     flattenOr(concl, &lits);
-    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print("[dbg-lemma] гипотез {d}, дизъюнктов {d}; заключение: ", .{ hyps.items.len, lits.items.len });
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-lemma] гипотез {d}, дизъюнктов {d}; заключение: ", .{ hyps.items.len, lits.items.len });
         dumpSexp(concl);
-        std.debug.print("\n", .{});
+        dbgPrint("\n", .{});
         for (hyps.items) |h| {
-            std.debug.print("[dbg-lemma]   гипотеза: ", .{});
+            dbgPrint("[dbg-lemma]   гипотеза: ", .{});
             dumpSexp(h);
-            std.debug.print("\n", .{});
+            dbgPrint("\n", .{});
         }
     }
     for (hyps.items) |h| {
@@ -1821,18 +1860,18 @@ fn linTautEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
         ra = la;
     }
     if (!isCmpExpr(e)) return false;
-    const dbg = compat.envVar("KERN_DEBUG_LIA") != null;
+    const dbg = dbgEnv("KERN_DEBUG_LIA") != null;
     if (dbg) {
-        std.debug.print("[dbg-taut] сравнение: ", .{});
+        dbgPrint("[dbg-taut] сравнение: ", .{});
         dumpSexp(e);
-        std.debug.print(" -> ожидаем {s}\n", .{ra});
+        dbgPrint(" -> ожидаем {s}\n", .{ra});
     }
     const want_true = std.mem.eql(u8, ra, "true");
     if (want_true) {
         // `E` истинно <=> ОТРИЦАНИЕ несовместно (все альтернативы ¬E дают UNSAT).
         var alts = std.array_list.Managed(std.array_list.Managed(builtin_lia.Lin)).init(c.arena);
         const ok = negAlternatives(c, e, &alts);
-        if (dbg) std.debug.print("[dbg-taut] negAlternatives={} alts={d}\n", .{ ok, alts.items.len });
+        if (dbg) dbgPrint("[dbg-taut] negAlternatives={} alts={d}\n", .{ ok, alts.items.len });
         if (!ok) return false;
         if (alts.items.len == 0) return false;
         for (alts.items) |g| {
@@ -1840,7 +1879,7 @@ fn linTautEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
             var s = builtin_lia.Solver.init(c.arena);
             defer s.deinit();
             const v = builtin_lia.checkUnsat(&s, g.items);
-            if (dbg) std.debug.print("[dbg-taut] ограничений {d} -> {s}\n", .{ g.items.len, @tagName(std.meta.activeTag(v)) });
+            if (dbg) dbgPrint("[dbg-taut] ограничений {d} -> {s}\n", .{ g.items.len, @tagName(std.meta.activeTag(v)) });
             if (std.meta.activeTag(v) != .unsat) return false;
         }
         return true;
@@ -2412,10 +2451,10 @@ fn verifyDefAxiom(c: *const Ctx, st: Sexp) bool {
     // (`(or (not (= r_nan x_nan)) (not r_nan) x_nan)`). Проверяем ПОЛНЫМ
     // перебором по булевым переменным — это семантика булевой логики.
     if (isBoolTautology(t)) return true;
-    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print("[dbg-defax] раскрытая клауза: ", .{});
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-defax] раскрытая клауза: ", .{});
         dumpSexp(t);
-        std.debug.print("\n", .{});
+        dbgPrint("\n", .{});
     }
     return false;
 }
@@ -2893,13 +2932,13 @@ fn asLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.L
 /// ПРОВЕРИТЬ НЕВЕСОВУЮ `((_ th-lemma arith) p1 … pm concl)`.
 fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
     var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
-    const dbg = compat.envVar("KERN_DEBUG_LIA") != null;
-    if (dbg) std.debug.print("[dbg-lia] шаг: аргументов {d}\n", .{st.items.len});
+    const dbg = dbgEnv("KERN_DEBUG_LIA") != null;
+    if (dbg) dbgPrint("[dbg-lia] шаг: аргументов {d}\n", .{st.items.len});
     // Посылки — ВСЕ аргументы, кроме последнего (последний есть заключение).
     if (st.items.len >= 2) {
         for (st.items[1 .. st.items.len - 1]) |pnode| {
             const f = formulaOf(c, pnode) orelse {
-                if (dbg) std.debug.print("[dbg-lia] посылка НЕ разрешена (нет формулы)\n", .{});
+                if (dbg) dbgPrint("[dbg-lia] посылка НЕ разрешена (нет формулы)\n", .{});
                 return .structural_only;
             };
             const fe = expand(c, f, 0);
@@ -2909,11 +2948,11 @@ fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
                         (fe.items[0].atom orelse "list-head")
                     else
                         "atom";
-                    std.debug.print("[dbg-lia] посылка не переведена: форма={s} элементов={d}\n", .{ h, fe.items.len });
+                    dbgPrint("[dbg-lia] посылка не переведена: форма={s} элементов={d}\n", .{ h, fe.items.len });
                 }
                 return .structural_only;
             }
-            if (dbg) std.debug.print("[dbg-lia] посылка OK\n", .{});
+            if (dbg) dbgPrint("[dbg-lia] посылка OK\n", .{});
         }
     }
     // Заключение — С ОТРИЦАНИЕМ.
@@ -2934,7 +2973,7 @@ fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
     defer s.deinit();
     const vres = builtin_lia.checkUnsat(&s, cons.items);
     if (dbg) {
-        std.debug.print("[dbg-lia] ограничений {d} -> {s}\n", .{
+        dbgPrint("[dbg-lia] ограничений {d} -> {s}\n", .{
             cons.items.len, @tagName(std.meta.activeTag(vres)),
         });
     }
@@ -3198,10 +3237,10 @@ fn comboUnsatBoolSplit(c: *const Ctx, lits: []const Sexp, neg_concl: ?Sexp) Comb
     var bnames = std.array_list.Managed([]const u8).init(c.arena);
     defer bnames.deinit();
     for (all.items) |l| collectBoolLits(l, &bnames);
-    if (compat.envVar("KERN_DEBUG_LIA") != null) {
-        std.debug.print("[dbg-boolsplit] булевых переменных {d}: ", .{bnames.items.len});
-        for (bnames.items) |n| std.debug.print("{s} ", .{n});
-        std.debug.print("\n", .{});
+    if (dbgEnv("KERN_DEBUG_LIA") != null) {
+        dbgPrint("[dbg-boolsplit] булевых переменных {d}: ", .{bnames.items.len});
+        for (bnames.items) |n| dbgPrint("{s} ", .{n});
+        dbgPrint("\n", .{});
     }
     if (bnames.items.len == 0 or bnames.items.len > MAX_BOOL_VARS) return .unknown;
 
@@ -3286,30 +3325,30 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, 
     // ЗАКЛЮЧЕНИЕ берётся С ОТРИЦАНИЕМ: `¬concl` — часть проверяемой системы.
     if (neg_concl) |nc| {
         if (!negateAsLeZero(c, nc, &cons)) {
-            if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                std.debug.print("[dbg-combo] ЗАКЛЮЧЕНИЕ (¬concl) НЕ переведено: ", .{});
+            if (dbgEnv("KERN_DEBUG_LIA") != null) {
+                dbgPrint("[dbg-combo] ЗАКЛЮЧЕНИЕ (¬concl) НЕ переведено: ", .{});
                 dumpSexp(nc);
-                std.debug.print("\n", .{});
+                dbgPrint("\n", .{});
             }
             return .unknown;
         }
     }
     for (units) |l| {
         if (!asLeZero(c, l, &cons)) {
-            if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                std.debug.print("[dbg-combo] unit НЕ переведён: ", .{});
+            if (dbgEnv("KERN_DEBUG_LIA") != null) {
+                dbgPrint("[dbg-combo] unit НЕ переведён: ", .{});
                 dumpSexp(l);
-                std.debug.print("\n", .{});
+                dbgPrint("\n", .{});
             }
             return .unknown;
         }
     }
     for (picks) |l| {
         if (!asLeZero(c, l, &cons)) {
-            if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                std.debug.print("[dbg-combo] pick НЕ переведён: ", .{});
+            if (dbgEnv("KERN_DEBUG_LIA") != null) {
+                dbgPrint("[dbg-combo] pick НЕ переведён: ", .{});
                 dumpSexp(l);
-                std.debug.print("\n", .{});
+                dbgPrint("\n", .{});
             }
             return .unknown;
         }
@@ -3317,15 +3356,15 @@ fn unitsPlusPicksUnsat(c: *const Ctx, units: []const Sexp, picks: []const Sexp, 
     var s = builtin_lia.Solver.init(c.arena);
     defer s.deinit();
     const res = builtin_lia.checkUnsat(&s, cons.items);
-    if (compat.envVar("KERN_DEBUG_LIA") != null) {
-        std.debug.print("[dbg-lia2] ограничений {d} -> {s}\n", .{ cons.items.len, @tagName(res) });
+    if (dbgEnv("KERN_DEBUG_LIA") != null) {
+        dbgPrint("[dbg-lia2] ограничений {d} -> {s}\n", .{ cons.items.len, @tagName(res) });
         if (res == .unknown) {
             for (cons.items) |lin| {
-                std.debug.print("[dbg-lia2]   ограничение: ", .{});
+                dbgPrint("[dbg-lia2]   ограничение: ", .{});
                 for (lin.terms) |tm| {
-                    std.debug.print("{d}*{s} ", .{ tm.coeff, tm.name });
+                    dbgPrint("{d}*{s} ", .{ tm.coeff, tm.name });
                 }
-                std.debug.print("| const {d}\n", .{lin.constant});
+                dbgPrint("| const {d}\n", .{lin.constant});
             }
         }
     }
@@ -3401,8 +3440,8 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
         total = std.math.mul(usize, total, r.items.len) catch return .unverifiable;
     }
     if (total > MAX_CLAUSE_COMBOS) return .unverifiable;
-    if (compat.envVar("KERN_DEBUG_LIA") != null) {
-        std.debug.print("[dbg-split] клауз={d} комбинаций={d}\n", .{ rems.items.len, total });
+    if (dbgEnv("KERN_DEBUG_LIA") != null) {
+        dbgPrint("[dbg-split] клауз={d} комбинаций={d}\n", .{ rems.items.len, total });
     }
     var idx: usize = 0;
     while (idx < total) : (idx += 1) {
@@ -3417,8 +3456,8 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
         switch (unitsPlusPicksUnsat(c, units, pick.items, neg_concl_eff)) {
             .unsat => {},
             .sat => {
-                if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                    std.debug.print("[dbg-split] комбинация #{d} СОВМЕСТНА -> .bad\n", .{idx});
+                if (dbgEnv("KERN_DEBUG_LIA") != null) {
+                    dbgPrint("[dbg-split] комбинация #{d} СОВМЕСТНА -> .bad\n", .{idx});
                 }
                 return .bad;
             },
@@ -3433,8 +3472,8 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
                     .unsat => {},
                     .sat => return .bad,
                     .unknown => {
-                        if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                            std.debug.print("[dbg-split] комбинация #{d} не переведена -> .unverifiable\n", .{idx});
+                        if (dbgEnv("KERN_DEBUG_LIA") != null) {
+                            dbgPrint("[dbg-split] комбинация #{d} не переведена -> .unverifiable\n", .{idx});
                         }
                         return .unverifiable;
                     },
@@ -3462,8 +3501,8 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
     }
 
     var saw_remaining = false;
-    const dbg = compat.envVar("KERN_DEBUG_LIA") != null;
-    if (dbg) std.debug.print("[dbg-ur] посылок: units={d} clauses={d} concl_false={}\n", .{ units.items.len, clauses.items.len, concl_is_false });
+    const dbg = dbgEnv("KERN_DEBUG_LIA") != null;
+    if (dbg) dbgPrint("[dbg-ur] посылок: units={d} clauses={d} concl_false={}\n", .{ units.items.len, clauses.items.len, concl_is_false });
     for (clauses.items) |cl| {
         var remaining = std.array_list.Managed(Sexp).init(c.arena);
         for (cl.items[1..]) |lit| {
@@ -3512,21 +3551,21 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         // ЗВУЧНО: `remaining == []` означает, что клауза опровергнута целиком.
         if (remaining.items.len == 0) return .verified;
         if (dbg) {
-            std.debug.print("[dbg-ur] клауза: ", .{});
+            dbgPrint("[dbg-ur] клауза: ", .{});
             dumpSexp(cl);
-            std.debug.print("\n[dbg-ur]   units ({d}): ", .{units.items.len});
+            dbgPrint("\n[dbg-ur]   units ({d}): ", .{units.items.len});
             for (units.items) |u| {
                 dumpSexp(u);
-                std.debug.print(" | ", .{});
+                dbgPrint(" | ", .{});
             }
-            std.debug.print("\n[dbg-ur]   remaining ({d}): ", .{remaining.items.len});
+            dbgPrint("\n[dbg-ur]   remaining ({d}): ", .{remaining.items.len});
             for (remaining.items) |r| {
                 dumpSexp(r);
-                std.debug.print(" | ", .{});
+                dbgPrint(" | ", .{});
             }
-            std.debug.print("\n[dbg-ur]   concl: ", .{});
+            dbgPrint("\n[dbg-ur]   concl: ", .{});
             dumpSexp(concl);
-            std.debug.print("\n", .{});
+            dbgPrint("\n", .{});
         }
         // Клауза не пуста: вывод обязан быть ДИЗЪЮНКЦИЕЙ ровно оставшихся
         // литералов (порядок не важен).
@@ -3596,20 +3635,20 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
             // ПРОИЗВОЛЬНОГО заключения: посылки ⊨ concl <=> для каждой
             // комбинации `{units} ∪ {picks} ∪ {¬concl}` несовместно.
             // ЭТАП А: печать ИМЕННО этого (не сошедшегося) шага.
-            if (compat.envVar("KERN_DEBUG_LIA") != null) {
-                std.debug.print("[dbg-ur-mismatch] remaining={d} concl_lits={d}\n", .{ remaining.items.len, concl_lits.items.len });
-                std.debug.print("[dbg-ur-mismatch]   remaining: ", .{});
+            if (dbgEnv("KERN_DEBUG_LIA") != null) {
+                dbgPrint("[dbg-ur-mismatch] remaining={d} concl_lits={d}\n", .{ remaining.items.len, concl_lits.items.len });
+                dbgPrint("[dbg-ur-mismatch]   remaining: ", .{});
                 for (remaining.items) |r| {
                     dumpSexp(r);
-                    std.debug.print(" | ", .{});
+                    dbgPrint(" | ", .{});
                 }
-                std.debug.print("\n[dbg-ur-mismatch]   concl: ", .{});
+                dbgPrint("\n[dbg-ur-mismatch]   concl: ", .{});
                 dumpSexp(concl);
-                std.debug.print("\n[dbg-ur-mismatch]   units={d} clauses={d}\n", .{ units.items.len, clauses.items.len });
+                dbgPrint("\n[dbg-ur-mismatch]   units={d} clauses={d}\n", .{ units.items.len, clauses.items.len });
                 for (clauses.items, 0..) |c2, j| {
-                    std.debug.print("[dbg-ur-mismatch]   clause[{d}] = ", .{j});
+                    dbgPrint("[dbg-ur-mismatch]   clause[{d}] = ", .{j});
                     dumpSexp(c2);
-                    std.debug.print("\n", .{});
+                    dbgPrint("\n", .{});
                 }
             }
             return checkBySplitting(c, units.items, clauses.items, concl);
@@ -3641,21 +3680,21 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         // ЭТАП А: печать ТОЛЬКО НЕУДАВШЕГОСЯ шага (того, что вернёт .unverifiable),
         // чтобы видеть ровно его units/clauses/concl, а не те, что уже сошлись.
     if (!saw_remaining) {
-        if (compat.envVar("KERN_DEBUG_LIA") != null) {
-            std.debug.print("[dbg-ur-fail] НЕ сошёлся: units={d} clauses={d} concl_false={}\n", .{ units.items.len, clauses.items.len, concl_is_false });
+        if (dbgEnv("KERN_DEBUG_LIA") != null) {
+            dbgPrint("[dbg-ur-fail] НЕ сошёлся: units={d} clauses={d} concl_false={}\n", .{ units.items.len, clauses.items.len, concl_is_false });
             for (units.items, 0..) |u, i| {
-                std.debug.print("[dbg-ur-fail]   unit[{d}] = ", .{i});
+                dbgPrint("[dbg-ur-fail]   unit[{d}] = ", .{i});
                 dumpSexp(u);
-                std.debug.print("\n", .{});
+                dbgPrint("\n", .{});
             }
             for (clauses.items, 0..) |c2, j| {
-                std.debug.print("[dbg-ur-fail]   clause[{d}] = ", .{j});
+                dbgPrint("[dbg-ur-fail]   clause[{d}] = ", .{j});
                 dumpSexp(c2);
-                std.debug.print("\n", .{});
+                dbgPrint("\n", .{});
             }
-            std.debug.print("[dbg-ur-fail]   concl = ", .{});
+            dbgPrint("[dbg-ur-fail]   concl = ", .{});
             dumpSexp(concl);
-            std.debug.print("\n", .{});
+            dbgPrint("\n", .{});
         }
         if (concl_is_false) {
             if (clauses.items.len > 0) return .verified; // все клаузы опровергнуты
@@ -3684,15 +3723,15 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
 /// который чекер не смог проверить (а не догадываться о нём).
 fn dumpSexp(e: Sexp) void {
     if (e.atom) |a| {
-        std.debug.print("{s}", .{a});
+        dbgPrint("{s}", .{a});
         return;
     }
-    std.debug.print("(", .{});
+    dbgPrint("(", .{});
     for (e.items, 0..) |it, i| {
-        if (i > 0) std.debug.print(" ", .{});
+        if (i > 0) dbgPrint(" ", .{});
         dumpSexp(it);
     }
-    std.debug.print(")", .{});
+    dbgPrint(")", .{});
 }
 
 /// Пометить шаг как непроверенный и запомнить ПРАВИЛО первого такого шага.
@@ -3700,10 +3739,10 @@ fn dumpSexp(e: Sexp) void {
 fn markTrusted(v: *ProofVerdict, rule: []const u8, st: Sexp) void {
     v.trusted_steps += 1;
     if (v.first_trusted.len == 0) v.first_trusted = rule;
-    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print("[dbg-trusted] #{d} {s} :: ", .{ v.trusted_steps, rule });
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-trusted] #{d} {s} :: ", .{ v.trusted_steps, rule });
         dumpSexp(st);
-        std.debug.print("\n", .{});
+        dbgPrint("\n", .{});
     }
 }
 
@@ -3781,10 +3820,10 @@ pub fn verifyProof(
             continue;
         }
         if (!isKnownRule(r)) v.unknown_rules += 1;
-        if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-            std.debug.print("[dbg-step] {s} :: ", .{r});
+        if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+            dbgPrint("[dbg-step] {s} :: ", .{r});
             dumpSexp(st);
-            std.debug.print("\n", .{});
+            dbgPrint("\n", .{});
         }
 
         if (std.mem.eql(u8, r, "asserted")) {
@@ -3809,14 +3848,14 @@ pub fn verifyProof(
                 }
             }
             if (found) v.premises_bound += 1 else v.premises_unbound += 1;
-            if (!found and compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-                std.debug.print("[dbg-unbound] НЕ привязана: ", .{});
+            if (!found and dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+                dbgPrint("[dbg-unbound] НЕ привязана: ", .{});
                 dumpSexp(t);
-                std.debug.print("\n", .{});
+                dbgPrint("\n", .{});
                 for (contract_terms.items) |ct| {
-                    std.debug.print("[dbg-unbound]   контракт: ", .{});
+                    dbgPrint("[dbg-unbound]   контракт: ", .{});
                     dumpSexp(ct);
-                    std.debug.print("\n", .{});
+                    dbgPrint("\n", .{});
                 }
             }
         } else if (std.mem.eql(u8, r, "hypothesis")) {
@@ -3853,12 +3892,12 @@ pub fn verifyProof(
                 .bad => {
                     v.farkas_bad += 1;
                     // ЭТАП А (диагностика): дамп шага, признанного НЕВЕРНЫМ.
-                    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-                        std.debug.print("[dbg-farkas-bad] шаг: ", .{});
+                    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+                        dbgPrint("[dbg-farkas-bad] шаг: ", .{});
                         dumpSexp(st);
-                        std.debug.print("\n[dbg-farkas-bad] клауза: ", .{});
+                        dbgPrint("\n[dbg-farkas-bad] клауза: ", .{});
                         dumpSexp(clause);
-                        std.debug.print("\n", .{});
+                        dbgPrint("\n", .{});
                     }
                 },
             }
@@ -3872,17 +3911,17 @@ pub fn verifyProof(
                 .unverifiable => {
                     markTrusted(&v, r, st);
                     // ЭТАП А (диагностика): дамп l и r для ДОВЕРЕННОГО rewrite.
-                    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
+                    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
                         const eq = expand(&c, proved(st), 0);
-                        std.debug.print("[dbg-rw-trusted] eq: ", .{});
+                        dbgPrint("[dbg-rw-trusted] eq: ", .{});
                         dumpSexp(eq);
                         if (eq.isList() and eq.items.len == 3) {
-                            std.debug.print("\n[dbg-rw-trusted]   L: ", .{});
+                            dbgPrint("\n[dbg-rw-trusted]   L: ", .{});
                             dumpSexp(eq.items[1]);
-                            std.debug.print("\n[dbg-rw-trusted]   R: ", .{});
+                            dbgPrint("\n[dbg-rw-trusted]   R: ", .{});
                             dumpSexp(eq.items[2]);
                         }
-                        std.debug.print("\n", .{});
+                        dbgPrint("\n", .{});
                     }
                 },
             }
@@ -3931,25 +3970,25 @@ pub fn verifyProof(
         const pr = proved(root);
         const t = expand(&c, pr, 0);
         v.proof_concludes_false = t.atom != null and std.mem.eql(u8, t.atom.?, "false");
-        if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-            std.debug.print("[dbg-root] proved(root) ДО expand: ", .{});
+        if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+            dbgPrint("[dbg-root] proved(root) ДО expand: ", .{});
             dumpSexp(pr);
-            std.debug.print("\n[dbg-root] expand(proved(root)): ", .{});
+            dbgPrint("\n[dbg-root] expand(proved(root)): ", .{});
             dumpSexp(t);
-            std.debug.print("\n[dbg-root] атом={} concl_false={}\n", .{
+            dbgPrint("\n[dbg-root] атом={} concl_false={}\n", .{
                 t.atom != null, v.proof_concludes_false,
             });
         }
-    } else if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print("[dbg-root] c.root == null (корень НЕ найден)\n", .{});
+    } else if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-root] c.root == null (корень НЕ найден)\n", .{});
     }
     if (!v.proof_concludes_false and v.reject.len == 0) {
         v.reject = "корень вывода не является false";
     }
     // ЭТАП А (диагностика): печать счётчиков ЗДЕСЬ, а не после `return v`
     // (раньше она стояла ниже раннего возврата и физически не выполнялась).
-    if (compat.envVar("KERN_DEBUG_TRUSTED") != null) {
-        std.debug.print(
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint(
             "[dbg-counters] steps={d} holes={d} prem={d}/{d} unbound={d} " ++
                 "mp_bad={d} unitres_bad={d} farkas_bad={d} rewrite_bad={d} " ++
                 "unknown_rules={d} trusted={d} concl_false={} reject_len={d}\n",
@@ -3961,7 +4000,7 @@ pub fn verifyProof(
                 v.reject.len,
             },
         );
-        if (v.reject.len > 0) std.debug.print("[dbg-counters] reject = {s}\n", .{v.reject});
+        if (v.reject.len > 0) dbgPrint("[dbg-counters] reject = {s}\n", .{v.reject});
     }
     v.proof_well_formed = v.reject.len == 0;
     return v;
@@ -3976,15 +4015,17 @@ pub fn verifyProof(
 /// (то есть конфликт не вакуумный).
 pub fn check(
     allocator: std.mem.Allocator,
-    bridge: *z3.Z3Bridge,
+    bridge: *@import("z3_bridge.zig").Z3Bridge,
     decls: []const u8,
     assertions: []const unsat_core.NamedAssertion,
     goal: []const u8,
 ) !ProofVerdict {
+    const z3 = @import("z3_bridge.zig");
+    _ = z3;
     var v = ProofVerdict{};
 
     // --- 1. Запрос вывода -------------------------------------------------
-    var buf = compat.BufWriter.init(allocator);
+    var buf = BufWriter.init(allocator);
     defer buf.deinit();
     const w = buf.writer();
     try w.writeAll("(set-option :produce-proofs true)\n(set-logic ALL)\n");
@@ -4008,7 +4049,7 @@ pub fn check(
     var contract = std.array_list.Managed([]const u8).init(allocator);
     defer contract.deinit();
     for (assertions) |a| try contract.append(a.formula);
-    var neg = compat.BufWriter.init(allocator);
+    var neg = BufWriter.init(allocator);
     defer neg.deinit();
     try neg.writer().print("(not {s})", .{goal});
     try contract.append(neg.items());
@@ -4050,7 +4091,7 @@ pub fn check(
         var all_needed = true;
         for (core.conflicting) |drop| {
             if (std.mem.eql(u8, drop, "goal")) continue;
-            var b2 = compat.BufWriter.init(allocator);
+            var b2 = BufWriter.init(allocator);
             defer b2.deinit();
             const w2 = b2.writer();
             try w2.writeAll("(set-logic ALL)\n");
@@ -4227,7 +4268,8 @@ test "PROOF-АТАКА: корень выводит не false" {
 }
 
 test "PROOF (РЕАЛЬНЫЙ Z3): подтверждение требует разбора вывода и минимального ядра" {
-    var bridge = z3.Z3Bridge.init(std.testing.allocator);
+    const zb = @import("z3_bridge.zig");
+    var bridge = zb.Z3Bridge.init(std.testing.allocator);
     bridge.timeout_ms = 10000;
     if (bridge.executeStatus("(check-sat)\n") == .ToolError) return; // z3 нет
 
@@ -4246,7 +4288,8 @@ test "PROOF (РЕАЛЬНЫЙ Z3): подтверждение требует р�
 }
 
 test "PROOF (РЕАЛЬНЫЙ Z3): выполнимая формула НЕ даёт подтверждения" {
-    var bridge = z3.Z3Bridge.init(std.testing.allocator);
+    const zb = @import("z3_bridge.zig");
+    var bridge = zb.Z3Bridge.init(std.testing.allocator);
     if (bridge.executeStatus("(check-sat)\n") == .ToolError) return;
 
     const pres = [_]unsat_core.NamedAssertion{

@@ -62,6 +62,9 @@ TARGETS = [
     # --- Эшелон 2: контейнер, kernx-цепочка и Evidence Decay ---
     "src/next/truth.zig",
     "src/next/catalog.zig",
+    # --- Эшелон 8: WASM-мост (5 экспортов; тесты через test_root,
+    #     иначе мутации измеряли бы фикцию — Дефект #131) ---
+    "src/wasm_api.zig",
 ]
 
 MUTATIONS = [

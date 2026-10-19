@@ -520,11 +520,17 @@ test "MODEL CHECK: div/mod по правилам SMT-LIB (пол и знак д�
     try std.testing.expectEqual(@as(usize, 2), r.ok);
 }
 
-test "MODEL CHECK: несвязанное имя -> ассерт не подтверждён (spurious)" {
+test "MODEL CHECK: несвязанное имя -> unsupported (НЕ spurious)" {
+    // ДЕФЕКТ #152: тест ожидал `spurious`, но после исправления #146 семантика
+    // разделена: `spurious` = вычислено и ЛОЖНО (подделка модели),
+    // `unsupported` = вычислить НЕ УМЕЮ (честный отказ). Несвязанное имя —
+    // это именно «не умею», поэтому ожидание обновлено.
+    // Настоящий `spurious` покрыт отдельным тестом (ложный ассерт, строка ~492).
+    // Это НЕ ослабление: различие «лгал» / «не знаю» — принципиально.
     const b = [_]Binding{.{ .name = "x", .value = "1" }};
     const smt = "(assert (<= y 10))\n"; // y в модели отсутствует
     const r = verifyModelAgainstSmt(smt, &b);
-    try std.testing.expectEqual(std.meta.Tag(ModelCheck).spurious, std.meta.activeTag(r));
+    try std.testing.expectEqual(std.meta.Tag(ModelCheck).unsupported, std.meta.activeTag(r));
 }
 
 test "MODEL CHECK: пустой контракт -> ok с нулём проверенных" {
