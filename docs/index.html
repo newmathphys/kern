@@ -237,6 +237,9 @@ Z3 counterexample. Full table and honest limits:
 <tr><td><b>JDK</b> (Bloch, 2006)<br><span class="lbl">binarySearch</span></td>
     <td><code>(low + high) / 2</code> in <code>i32</code></td>
     <td class="bad">REFUTED · QF_BV only</td><td><code>low=#x804, high=#x7ffff7fc → #xc0000000</code> (negative)</td></tr>
+<tr><td><b>ziglang/zig</b> <code>lib/std/math/</code><br><span class="lbl">64 files</span></td>
+    <td>zero-annotation <code>--xray</code> (C-like path)</td>
+    <td class="ok">checked 80 / 219</td><td>0 findings (was 0 checked)</td></tr>
 <tr><td><b>Python 3.12 stdlib</b><br><span class="lbl">8 modules</span></td>
     <td>zero-annotation <code>--xray</code> field scan</td>
     <td class="ok">checked 211 / 413</td><td>0 false positives</td></tr>

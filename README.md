@@ -238,7 +238,8 @@ certificate (`trusted: 0 | holes: 0`); `REFUTED` comes with the exact Z3 counter
 | 14 | same, `low + (high-low)/2` | — | **PROVEN** (Int theory) | — |
 | 15 | **Rust** `core::num` — `midpoint` | bit-blasted proof | **SKIP — honest** | the checker does not cover `bitBlast` |
 | 16 | **Rust** `saturating_add` | clamps to `i32` bounds | **PROVEN** / mutated **REFUTED** (`2147483647 + 1`) | — |
-| 17 | **Python 3.12 stdlib** (`urllib`, `http`, `email`, `datetime`, `ipaddress`, `decimal`, `fractions`, `statistics`) | `--xray` field scan | **checked 211 / 413**, **0 false positives** | 0 findings on production code after fixing defects #134/#158 |
+| 17 | **ziglang/zig** `lib/std/math/` (64 files) | zero-annotation `--xray` field scan (C-like path) | **checked 80 / 219** (was 0) | 0 findings after fixing #159/#160 |
+| 18 | **Python 3.12 stdlib** (`urllib`, `http`, `email`, `datetime`, `ipaddress`, `decimal`, `fractions`, `statistics`) | `--xray` field scan | **checked 211 / 413**, **0 false positives** | 0 findings on production code after fixing defects #134/#158 |
 
 **Honest limits of this table.** (a) The SMT model is ours: a counterexample must still be
 reproduced against the project's own build before it can be called their bug. (b) Bloch's bug is
