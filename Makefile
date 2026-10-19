@@ -192,6 +192,17 @@ mutate:
 clean:
 	rm -rf zig-out .zig-cache $(OUT) release.kimg report.md agent_packet.json PROJECT_CANONICAL_SPEC.kern.md
 
+# ГИГИЕНА РЕСУРСОВ (найдено на практике: за сессию `.zig-cache/o` вырос до 13 ГБ,
+# 655 объектов — каждый мутант компилируется в СВОЙ каталог content-addressed кэша).
+# ⚠️ НЕЛЬЗЯ удалять `.zig-cache/o` по отдельности: там лежит СГЕНЕРИРОВАННЫЙ
+# `sqlite3_bridge.zig` (addTranslateC) — сборка после этого ломается (проверено).
+# Удаляется только кэш ЦЕЛИКОМ; бинарники пересоберутся (≈1 мин, кэш ~100 МБ).
+clean-cache:
+	@echo "[i] до: $$(du -sh .zig-cache 2>/dev/null | cut -f1)"
+	rm -rf .zig-cache
+	@rm -rf /tmp/kern-mutants-* /tmp/optdiff /tmp/kern-disasm-* 2>/dev/null || true
+	@echo "[OK] кэш и осиротевшие копии убраны; свободно: $$(df -h . | tail -1 | awk '{print $$4}')"
+
 # Контракты прямо в Python-коде: @kern:requires / @kern:ensures -> SMT-LIB2 -> Z3.
 # Демонстрация: make contracts  (корректная функция ДОКАЗАНА, багованная НАРУШЕНА)
 # ПРОВЕРКА, а не демо: --expect-demo падает, если вердикты разошлись с ожиданием.

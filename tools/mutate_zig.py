@@ -458,6 +458,33 @@ def zig_available():
     return shutil.which(ZIG, path=CHILD_ENV.get("PATH", "")) is not None
 
 
+def sweep_orphan_copies(max_age_s: int = 3600) -> int:
+    """Убирает ОСИРОТЕВШИЕ копии `/tmp/kern-mutants-*` (найдено на практике).
+
+    ЗАЧЕМ. Копии дерева удаляются в `finally`, но при SIGKILL/таймауте
+    оболочки уборка не выполняется. `/tmp` на многих системах — tmpfs,
+    то есть ОЗУ: за сессию накопилось 5 копий по 150–190 МБ (~900 МБ RAM).
+    Удаляем только те, что старше `max_age_s` (по умолчанию 1 час), чтобы
+    НЕ тронуть копии работающего прогона.
+    """
+    import time
+    import glob
+    removed = 0
+    now = time.time()
+    for path in glob.glob(tempfile.gettempdir() + "/kern-mutants-*"):
+        try:
+            if now - os.path.getmtime(path) < max_age_s:
+                continue
+            shutil.rmtree(path, ignore_errors=True)
+            removed += 1
+        except OSError:
+            pass
+    if removed:
+        print(f"[i] убрано осиротевших копий дерева: {removed} "
+              f"(старше {max_age_s // 60} мин)")
+    return removed
+
+
 def make_work_copy(root):
     """Изолированная рабочая копия дерева (мутации идут ТОЛЬКО сюда).
 
@@ -518,6 +545,9 @@ def _refuse_dirty_src():
 
 def main():
     _refuse_dirty_src()
+    # ГИГИЕНА РЕСУРСОВ: убрать копии дерева, оставшиеся от прерванных
+    # прогонов (в tmpfs это ОЗУ). Старше часа — точно не наши.
+    sweep_orphan_copies()
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".")
     ap.add_argument("--max", type=int, default=40)
