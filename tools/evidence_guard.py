@@ -31,6 +31,7 @@ import ast
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -38,15 +39,17 @@ ROOT = Path(__file__).resolve().parent.parent
 CANFAIL = ROOT / "tools" / "canfail.py"
 
 
-# Каталог ГЕНЕРИРУЕМЫХ свидетельств. Его файлы входят в FAULTABLE (кейс
-# `evidence-gate` намеренно портит `bench_smt.log`, доказывая, что гейт умеет
-# падать), НО сборщик пишет их ПО НАЗНАЧЕНИЮ на каждом шаге. Поэтому в снимок
-# предохранителя они НЕ входят: он защищает ВХОДЫ (исходники, инструменты,
-# README), а не продукты прогона.
+# Каталоги ГЕНЕРИРУЕМЫХ артефактов и свидетельств. Их файлы входят в FAULTABLE
+# (кейсы намеренно их портят), НО прогон пишет и пересобирает их ПО НАЗНАЧЕНИЮ.
+# Поэтому в снимок предохранителя они НЕ входят: он защищает ВХОДЫ
+# (исходники, инструменты, README), а не продукты прогона.
 #
-# 🔴 Найдено на практике: первая версия включала их — и предохранитель ложно
-# срабатывал на 6 шагах подряд (каждый шаг пишет свой лог).
-OUTPUT_DIR = "docs/evidence/"
+# 🔴 ДЕФЕКТ #173a (найден полным прогоном 123 целей): в снимке оставались
+#    `zig-out/bin/kernc` и `kernc-hermetic`. `canfail` в самом конце делает
+#    «пересборка артефактов из восстановленных исходников» — и ЛЮБОЙ честный
+#    полный прогон гарантированно объявлялся «НЕДЕЙСТВИТЕЛЬНЫМ». Предохранитель
+#    ложно обвинял сам харнесс.
+OUTPUT_DIRS = ("docs/evidence/", "zig-out/")
 
 
 def faultable() -> list[str]:
@@ -59,7 +62,24 @@ def faultable() -> list[str]:
     if not m:
         raise SystemExit("[!] не найден FAULTABLE в tools/canfail.py")
     items = list(ast.literal_eval(m.group(1)))
-    return [x for x in items if not x.startswith(OUTPUT_DIR)]
+    return [x for x in items if not x.startswith(OUTPUT_DIRS)]
+
+
+def git_dirty(rels: list[str]) -> list[str]:
+    """FAULTABLE-файлы, отличающиеся от HEAD (грязное дерево НА СТАРТЕ).
+
+    🔴 ДЕФЕКТ #173c: если базис снят на грязном дереве, «эталоном» становится
+    ПРОПАТЧЕННОЕ состояние — и сверка в конце честно сообщает «файлы изменены»,
+    хотя виноват снимок, а не прогон. Поэтому стартовать на грязных входах
+    запрещено: пусть лучше откажет сразу, чем соврёт в конце.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "status", "--porcelain", "--", *rels],
+            capture_output=True, text=True, timeout=60)
+    except Exception:
+        return []
+    return [ln[3:].strip() for ln in out.stdout.splitlines() if ln.strip()]
 
 
 def sha256_file(p: Path) -> str:
@@ -70,10 +90,28 @@ def sha256_file(p: Path) -> str:
     return h.hexdigest()
 
 
-def snapshot(out: Path) -> int:
+def snapshot(out: Path, force: bool = False) -> int:
+    # 🔴 ДЕФЕКТ #173b: снимок перезаписывался ВО ВРЕМЯ прогона (повторный вызов
+    # из соседнего шага/сессии), и «эталоном» становилось ПРОПАТЧЕННОЕ
+    # состояние. Теперь базис пишется ОДИН раз; перезапись — только явным
+    # --force (осознанное решение оператора).
+    if out.is_file() and not force:
+        print(f"[guard] снимок уже существует: {out}")
+        print("        НЕ перезаписываю: базис мог быть снят посреди прогона.")
+        print("        Новый базис — только явно: --snapshot <file> --force")
+        return 2
+    rels = faultable()
+    dirty = git_dirty(rels)
+    if dirty:
+        print("[guard] 🔴 дерево ГРЯЗНОЕ на старте — базис недостоверен:")
+        for rel in dirty:
+            print(f"        - {rel}")
+        print("        Закоммитьте/откатите правки и повторите: иначе прогон")
+        print("        снимет свидетельства при пропатченных исходниках.")
+        return 3
     state: dict[str, str] = {}
     missing: list[str] = []
-    for rel in faultable():
+    for rel in rels:
         p = ROOT / rel
         if p.is_file():
             state[rel] = sha256_file(p)
@@ -114,11 +152,16 @@ def verify(snap: Path) -> int:
 
 
 def main() -> int:
-    if len(sys.argv) != 3 or sys.argv[1] not in ("--snapshot", "--verify"):
+    argv = sys.argv[1:]
+    force = "--force" in argv
+    args = [a for a in argv if a != "--force"]
+    if len(args) != 2 or args[0] not in ("--snapshot", "--verify"):
         print(__doc__)
         return 2
-    path = Path(sys.argv[2])
-    return snapshot(path) if sys.argv[1] == "--snapshot" else verify(path)
+    path = Path(args[1])
+    if args[0] == "--snapshot":
+        return snapshot(path, force)
+    return verify(path)
 
 
 if __name__ == "__main__":
