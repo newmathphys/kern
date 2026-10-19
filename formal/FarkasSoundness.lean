@@ -638,7 +638,7 @@ theorem epoch_same_join_denies (a b : EpochVerdict)
 
 /-- Смена эпохи + НОВОЕ доказательство T (p=1,n=0) открывает Врата,
     даже если в СТАРОЙ эпохе был провал F. -/
-theorem epoch_retraction_sound (old : EpochVerdict) (hnew : EpochVerdict)
+theorem epoch_retraction_sound (_old : EpochVerdict) (hnew : EpochVerdict)
     (hp : hnew.p = true) (hn : hnew.n = false) :
     e_allow hnew = true := by
   simp [e_allow, hp, hn]

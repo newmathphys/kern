@@ -1473,3 +1473,20 @@ the killer thread terminates the process in under 3 s.
 `z3_bridge.zig` **empty** (787 deleted lines). Restored from git; the tests were re-added and
 **committed before the next experiment**. Rule: never mutate the working tree with `sed`
 without a commit — use a copy or an immediate `git checkout`.
+
+### 32. Item D6 — full sweep of every CHECK target (closed)
+
+```
+TOTAL: non-vacuous 138 | VACUOUS 0 | HARNESS FALSE POSITIVES 0 | CASE ERRORS 0 | skipped 0
+```
+
+First end-to-end run after all Echelon 5–8 and Session F-1/F-2 changes; previously new
+targets were only checked with `--only`, so a regression in an OLD target could have gone
+unnoticed. Runtime ≈ 19 min (heavy `evidence` cases take 2–4 min each).
+
+**Found by the sweep — Defect #157:** `write_atomic` did not preserve the file mode, so
+after an interrupted run **29** `tools/*_check.sh` scripts were left as `100644` instead of
+`100755` (lost `+x`). Fixed: `stat` → `chmod` on the tmp file → `os.replace`, with a test.
+
+**Baselines re-checked:** `proof-tamper` 40 attacks / 0 accepted · `abs.c` `trusted: 0 |
+holes: 0` · Lean 4 — 8 files, 0 errors, 0 `sorry`.
