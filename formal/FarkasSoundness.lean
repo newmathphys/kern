@@ -648,3 +648,25 @@ theorem epoch_retraction_sound (old : EpochVerdict) (hnew : EpochVerdict)
 theorem epoch_without_proof_denies (old : EpochVerdict) (hp : old.p = false) :
     e_allow ⟨false, old.n⟩ = false := by
   simp [e_allow, hp]
+
+-- ============================================================================
+-- ВЕРХНЯЯ ОЦЕНКА ite-ТЕРМА (шаг Z3 на клампе `+|`).
+-- (ite C T K) <= K  ⟺  (¬C ∨ T <= K). Звучимость правила `iteCmpEq`.
+-- ============================================================================
+
+theorem ite_cmp_bound (C : Prop) [Decidable C] (T K : Int) (h : T <= K) :
+    (if C then T else K) <= K := by
+  split <;> omega
+
+theorem ite_cmp_bound_iff (C : Prop) [Decidable C] (T K : Int) :
+    ((if C then T else K) <= K) ↔ (¬C ∨ T <= K) := by
+  constructor
+  · intro h
+    by_cases hc : C
+    · exact Or.inr (by simp [hc] at h; omega)
+    · exact Or.inl hc
+  · rintro (hnc | htk)
+    · simp [hnc]
+    · by_cases hc : C
+      · simp [hc]; omega
+      · simp [hc]

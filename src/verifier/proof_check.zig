@@ -973,6 +973,41 @@ const RwResult = enum { verified, bad, unverifiable };
 
 /// `(or (not X) X) = true` (want_true) либо `(and (not X) X) = false`.
 /// ЗВУЧИМО: закон исключённого третьего, никакого доверия решателю.
+/// `(<= (ite C T E) K)  ≡  (or (not C) (<= T K))` при `E ≡ K`.
+///
+/// ЗАЧЕМ (измерено на клампе `+|`): Z3 переписывает верхнюю оценку
+/// ite-терма именно так, и шаг оставался ДОВЕРЕННЫМ (`trusted: 1`).
+/// ЗВУЧИМО: если C истинно — обе части дают `T <= K`; если ложно —
+/// левая даёт `E <= K`, правая `true`, и они совпадают ровно при `E ≡ K`.
+fn iteCmpEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    if (!l.isList() or l.items.len != 3) return false;
+    const op = l.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, op, "<=")) return false;
+    const it = expand(c, l.items[1], 0);
+    if (!it.isList() or it.items.len != 4) return false;
+    const h = it.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "ite")) return false;
+    const cond = expand(c, it.items[1], 0);
+    const tval = expand(c, it.items[2], 0);
+    const eval_ = expand(c, it.items[3], 0);
+    const kval = expand(c, l.items[2], 0);
+    // правая часть обязана быть `(or (not C') (<= T' K'))`
+    if (!r.isList() or r.items.len != 3) return false;
+    const rh = r.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, rh, "or")) return false;
+    const neg = asNot(expand(c, r.items[1], 0)) orelse return false;
+    const cmp = expand(c, r.items[2], 0);
+    if (!cmp.isList() or cmp.items.len != 3) return false;
+    const ch = cmp.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, ch, "<=")) return false;
+    // связываем: C' ≡ C, T' ≡ T, K' ≡ K, и E ≡ K
+    if (!sexpEqNum(neg, cond)) return false;
+    if (!sexpEqNum(expand(c, cmp.items[1], 0), tval)) return false;
+    if (!sexpEqNum(expand(c, cmp.items[2], 0), kval)) return false;
+    return sexpEqNum(eval_, kval);
+}
+
+
 fn isExcludedMiddle(c: *const Ctx, e: Sexp, want_true: bool) bool {
     if (!e.isList() or e.items.len != 3) return false;
     const h = e.items[0].atom orelse return false;
@@ -1017,6 +1052,9 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (r.atom) |ra| {
         if (isExcludedMiddle(c, l, std.mem.eql(u8, ra, "true"))) return .verified;
     }
+    // ВЕРХНЯЯ ОЦЕНКА ite-ТЕРМА (шаг Z3 на клампе `+|`).
+    if (iteCmpEq(c, l, r)) return .verified;
+    if (iteCmpEq(c, r, l)) return .verified;
     // ВЫЧИСЛЕНИЕ КОНСТАНТ (Пункты 22/23) ДО раннего возврата для не-атомарных
     // сравнений: `(= (= false true) false)` — обе стороны НЕ атомы, и раньше
     // управление уходило в `return .unverifiable`, не доходя до этих проверок.
@@ -5587,4 +5625,20 @@ test "ДЕФЕКТ #155: битая ссылка @xN в th-lemma -> ОТКАЗ (
     const v = try verifyProof(a, renamed, contract);
     // Главное: НЕ «чисто доказано».
     try std.testing.expect(!(v.checksPass() and v.proof_concludes_false and v.trusted_steps == 0));
+}
+
+test "КЛАМП: верхняя оценка ite-терма доказуема (шаг Z3, trusted: 0)" {
+    // ИЗМЕРЕНО на клампе `+|`: Z3 переписывает `(<= (ite C T HI) HI)` в
+    // `(or (not C) (<= T HI))`. Без правила шаг был ДОВЕРЕННЫМ.
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    const t = try parseSexp(a,
+        "(rewrite (= (<= (ite (< a 0) a 0) 0) (or (not (< a 0)) (<= a 0))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, t));
+    // НЕГАТИВНЫЙ двойник: оценка ДРУГОЙ границей — не эквивалентна.
+    const bad = try parseSexp(a,
+        "(rewrite (= (<= (ite (< a 0) a 0) 0) (or (not (< a 0)) (<= a 1))))");
+    try std.testing.expect(checkRewrite(&c, bad) != .verified);
 }
