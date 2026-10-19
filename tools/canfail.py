@@ -214,6 +214,7 @@ class Fault:
 
 
 FAULTABLE = [
+    "tools/evo_fuzzer.py",
     "tools/translation_val_check.py",
     "tools/concolic_check.sh",
     "src/wasm_api.zig",
@@ -2021,6 +2022,21 @@ def case_translation_val_check():
     return "make translation-val-check"
 
 
+
+def case_evo_fuzz_check():
+    """РАЗДЕЛ 1/5. ЛОМАЕМ оракул: эталон принимается как «ложный допуск»
+    (сравнение вывода отключено) -> фаззер обязан покраснеть."""
+    # ЛОМАЕМ ПОЗИТИВНЫЙ КОНТРОЛЬ: эталон объявляется НЕпринятым -> фаззер
+    # завершается с rc=1 и приёмка краснеет. (Поломка счётчика ложных допусков
+    # давала ВАКУУМНЫЙ кейс — ИЗМЕРЕНО.)
+    patch(
+        "tools/evo_fuzzer.py",
+        "    if rc0 != 0:",
+        "    if rc0 == 0:",
+    )
+    return "make evo-fuzz-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2341,6 +2357,7 @@ CASES = [
     ("opt-diff-check", "OPT: Debug == RS == Small",              case_opt_diff_check),
     ("concolic-check", "CONCOLIC: живые запуски + Z3",            case_concolic_check),
     ("translation-val-check", "TV: asm -O2 == spec",                    case_translation_val_check),
+    ("evo-fuzz-check", "EVO: 0 паник / 0 ложных допусков",         case_evo_fuzz_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

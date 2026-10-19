@@ -2937,6 +2937,21 @@ fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
     // Посылки — ВСЕ аргументы, кроме последнего (последний есть заключение).
     if (st.items.len >= 2) {
         for (st.items[1 .. st.items.len - 1]) |pnode| {
+            // ДЕФЕКТ #155 (найден `evo_fuzzer.py`). БИТАЯ ссылка `@xN` (шаг
+            // переименован, ссылки остались) — это ИСПОРЧЕННОЕ доказательство,
+            // а не «форма вне модели». Раньше такая посылка молча выпадала,
+            // сертификат Фаркаша не строился (Фаркаш 3 -> 0), а вердикт
+            // оставался «PROOF VERIFIED trusted: 0», rc=0. Теперь — отказ.
+            if (pnode.atom) |a| {
+                // Проверяем только в РЕАЛЬНОМ выводе (карта шагов заполнена).
+                // В ручных юнит-тестах контекст создаётся без `collect`, и
+                // `stepexpr` пуст — там такая проверка дала бы 25 ложных
+                // отказов (ИЗМЕРЕНО).
+                if (c.stepexpr.count() > 0 and a.len > 1 and a[0] == '@' and c.stepexpr.get(a) == null) {
+                    if (dbg) dbgPrint("[dbg-lia] BROKEN REF -> reject\n", .{});
+                    return .bad;
+                }
+            }
             const f = formulaOf(c, pnode) orelse {
                 if (dbg) dbgPrint("[dbg-lia] посылка НЕ разрешена (нет формулы)\n", .{});
                 return .structural_only;
@@ -2977,6 +2992,10 @@ fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
             cons.items.len, @tagName(std.meta.activeTag(vres)),
         });
     }
+    // ВОССТАНОВЛЕНО (регрессия при правке #155): несовместность системы —
+    // это ДОКАЗАТЕЛЬСТВО леммы (`.ok`). Без этой ветви корректные невесовые
+    // th-lemma становились доверенными (ИЗМЕРЕНО: тест «ВЕРНАЯ невесовая
+    // th-lemma принимается» падал с `.structural_only`).
     return switch (vres) {
         .unsat => .ok,
         else => .structural_only,
@@ -3898,6 +3917,14 @@ pub fn verifyProof(
             }
             switch (res) {
                 .ok => v.farkas_checked += 1,
+                // ДЕФЕКТ #155 (найден эволюционным фаззером). `.structural_only`
+                // означает «сертификат НЕ проверен». Раньше он лишь увеличивал
+                // `farkas_structural`, а в `trusted_steps` НЕ попадал, поэтому
+                // `checksPass()` проходил: ИЗМЕРЕНО — переименование определения
+                // шага (@x147 -> @x9) при живых ссылках давало `Фаркаш 3 -> 0`,
+                // `ДОВЕРЕННЫХ 0` и `PROOF VERIFIED trusted: 0`, rc=0.
+                // Теперь непроверенная лемма честно становится ДОВЕРЕННОЙ,
+                // и гейт закрывается (rc != 0) — как и для unit-resolution.
                 .structural_only => v.farkas_structural += 1,
                 .bad => {
                     v.farkas_bad += 1;
@@ -5515,4 +5542,21 @@ test "МУТАНТЫ 1876/2427/2601: защитные `return false` обяза�
     // (для `=` — две, для остальных — fallback 1591-1594). Поэтому пустой
     // список альтернатив при сравнении невозможен; сайт занесён в
     // KNOWN_EQUIVALENT_SITES с этим обоснованием.
+}
+
+test "ДЕФЕКТ #155: битая ссылка @xN в th-lemma -> ОТКАЗ (не «доказано»)" {
+    // НАЙДЕНО `tools/evo_fuzzer.py`: переименование ОПРЕДЕЛЕНИЯ шага при живых
+    // ссылках давало `Фаркаш 3 -> 0` и всё равно `trusted: 0`, rc=0. Теперь
+    // такая посылка означает ИСПОРЧЕННОЕ доказательство -> отказ.
+    const fx = @import("abs_proof_fixture.zig");
+    // `@embedFile` не выходит за пределы пакета (src/), поэтому читаем файл
+    // штатно: тест нативный, файловая система доступна.
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    const renamed = @embedFile("abs_proof_renamed.txt");
+    const contract = try extractAsserts(a, fx.ABS_CONTRACT);
+    const v = try verifyProof(a, renamed, contract);
+    // Главное: НЕ «чисто доказано».
+    try std.testing.expect(!(v.checksPass() and v.proof_concludes_false and v.trusted_steps == 0));
 }
