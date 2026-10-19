@@ -534,6 +534,39 @@ def make_work_copy(root):
     return work
 
 
+_CACHE_TRIM_EVERY = 25          # проверять размер кэша раз в N мутантов
+_CACHE_LIMIT_MB = 800           # предел на слот (6 слотов × 0.8 ГБ < 5 ГБ из 16)
+
+
+def _trim_slot_cache(work, limit_mb=_CACHE_LIMIT_MB):
+    """Ограничивает рост `.zig-cache` в слоте.
+
+    ЗАЧЕМ (найдено прогоном 1225 сайтов): каждый мутант оставляет артефакты в
+    content-addressed кэше слота; 6 слотов выросли до **1.4–1.7 ГБ** каждый и
+    `/dev/shm` (16 ГБ) заполнился на 62 % уже при 252/1225 сайтов. Дальше
+    компиляция упала бы с ENOSPC, а такая ошибка попала бы в
+    `KILLED_COMPILE` — то есть мутант был бы **ЛОЖНО** засчитан убитым.
+
+    Удаляем кэш ЦЕЛИКОМ (не `.zig-cache/o` отдельно: там генерируется
+    `sqlite3_bridge.zig` через addTranslateC — частичное удаление ломает
+    сборку). После очистки Zig соберёт заново (~10 с) и кэш снова тёплый.
+    """
+    cache = os.path.join(work, ".zig-cache")
+    if not os.path.isdir(cache):
+        return False
+    try:
+        r = subprocess.run(["du", "-sm", cache], capture_output=True, text=True, timeout=30)
+        mb = int((r.stdout or "0").split()[0]) if r.returncode == 0 else 0
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return False
+    if mb <= limit_mb:
+        return False
+    shutil.rmtree(cache, ignore_errors=True)
+    print(f"[i] кэш слота {os.path.basename(work)} был {mb} МБ -> очищен "
+          f"(защита от ENOSPC = ложных убийств)", flush=True)
+    return True
+
+
 def run_one(work, site):
     """Один мутант: внести мутацию в копии, прогнать тесты, ОТКАТИТЬ.
 
@@ -671,10 +704,18 @@ def main():
     done = [0]
     print_lock = threading.Lock()
 
+    slot_uses = {}
+
     def job(idx, site):
         w = dir_q.get()
         try:
             status = run_one(w, site)
+            # ЗАЩИТА ОТ ENOSPC (найдено прогоном 1225 сайтов): раз в N мутантов
+            # проверяем размер кэша слота; иначе /dev/shm переполняется и
+            # ошибка компиляции даёт ЛОЖНЫЕ убийства.
+            slot_uses[w] = slot_uses.get(w, 0) + 1
+            if slot_uses[w] % _CACHE_TRIM_EVERY == 0:
+                _trim_slot_cache(w)
         finally:
             dir_q.put(w)
         rel, ln, _pat, _rep, name, _code = site
