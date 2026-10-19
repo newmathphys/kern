@@ -1252,6 +1252,8 @@ def main() -> int:
                     help="ПУНКТ 33: замок отпечатков инструментов (rug-pull)")
     ap.add_argument("--noninterference", default=None, metavar="PATH",
                     help="ПУНКТ 34: неинтерференция (@kern:secret, 2-Safety)")
+    ap.add_argument("--html", default=None, metavar="OUT.html",
+                    help="ПУНКТ 40Б: интерактивный холст доказательств (0 CDN)")
     ap.add_argument("--verify-action", nargs=2, default=None,
                     metavar=("ACTION.json", "POLICY.json"),
                     help="ПУНКТ 36: FinOps/Action Firewall (200/422/409)")
@@ -1331,6 +1333,11 @@ def main() -> int:
         return cmd_audit_mcp(args.audit_mcp, args.mcp_lock)
     if getattr(args, "noninterference", None):
         return cmd_noninterference(args.noninterference, args.kernc)
+    if getattr(args, "html", None):
+        if not args.files:
+            print("[!] --html требует исходник: <file.py> --html <out.html>")
+            return 2
+        return cmd_html(args.files[0], args.html, args.kernc)
     if getattr(args, "verify_action", None):
         return cmd_verify_action(args.verify_action[0], args.verify_action[1], args.kernc)
     if getattr(args, "verify_doc", None):
@@ -4253,6 +4260,54 @@ def cmd_rlvr_reward(path: str, kernc) -> int:
     else:
         print(f"[REWARD] R=+1.0 [VERIFIED REWARD, Belnap T, e=1] "
               f"(доказано {proven}, trusted: 0 | holes: 0, чисто по anti-cheat)")
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# ЭШЕЛОН 8, ПУНКТ 40Б: ИНТЕРАКТИВНЫЙ ХОЛСТ ДОКАЗАТЕЛЬСТВ (`--html`).
+#
+# Инженеру нужно УВИДЕТЬ поведение функции на домене: ползунки параметров
+# (Tangle-style) пересчитывают активную ветвь вживую, квадрат решётки Белнапа B4
+# окрашивается по вердикту, рядом — паспорт (CC, число путей) и источник истины.
+# Шаблон — отдельный ассет `tools/canvas_template.html` (0 внешних CDN).
+# -----------------------------------------------------------------------------
+
+CANVAS_TMPL = Path(__file__).resolve().parent / "canvas_template.html"
+
+
+def cmd_html(path: str, out_path: str, kernc) -> int:
+    """ПУНКТ 40Б: `--html <out.html>` (цель `make html-canvas-check`)."""
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    fns = [n for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)]
+    functions = []
+    for fn in fns:
+        paths = _paths_of(fn)
+        if not paths:
+            continue
+        functions.append({
+            "name": fn.name,
+            "cc": len(paths),
+            "params": [a.arg for a in fn.args.args if a.arg != "self"],
+            "paths": [{"conds": pp, "value": vp} for pp, vp in paths],
+            "verdict": "N",
+        })
+    if not functions:
+        print("  [SKIP] ни одной функции в подмножестве `_paths_of`")
+        return 2
+    if not CANVAS_TMPL.exists():
+        print(f"  [!] нет шаблона {CANVAS_TMPL}")
+        return 2
+    payload = {
+        "functions": functions,
+        "proof_note": ("вердикт выдаёт `kernc prove` (Z3) и перепроверяет "
+                       "пруф-чекер; квадрат B4 окрашен по первому вердикту. "
+                       "Источник истины — CLI, а не холст."),
+    }
+    html = CANVAS_TMPL.read_text(encoding="utf-8").replace(
+        "__DATA__", json.dumps(payload, ensure_ascii=False))
+    Path(out_path).write_text(html, encoding="utf-8")
+    print(f"  [OK] холст записан: {out_path} ({len(html)} байт, "
+          f"функций {len(functions)}, внешних зависимостей 0)")
     return 0
 
 

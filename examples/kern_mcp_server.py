@@ -112,6 +112,48 @@ TOOLS = [
             "required": ["old_source", "new_source"],
         },
     },
+    {
+        "name": "kern_xray_code",
+        "description": (
+            "БЕЗАННОТАЦИОННЫЙ рентген кода (Пункт 13): мёртвые ветки "
+            "[DEAD BRANCH] (UNSAT), избыточные проверки [REDUNDANT GUARD], "
+            "краш-пути [CRASH PATH] (деление на 0, переполнение) и сложность "
+            "Маккейба. Работает БЕЗ единого комментария @kern:."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Исходник Python (.py)"},
+                "filename": {"type": "string", "description": "имя файла (по умолчанию x.py)"}},
+            "required": ["source"],
+        },
+    },
+    {
+        "name": "kern_verify_action",
+        "description": (
+            "FinOps / Action Firewall (Пункт 36): проверяет JSON-вызов агента "
+            "против политики ДО исполнения. T -> 200, F -> 422 (контрпример), "
+            "B -> 409 (политики противоречат)."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "object", "description": "{tool, args}"},
+                "policy": {"type": "object", "description": "{allow, forbid[]}"}},
+            "required": ["action", "policy"],
+        },
+    },
+    {
+        "name": "kern_rlvr_reward",
+        "description": (
+            "RLVR-оракул вознаграждения (Пункт 38): +1.0 за ДОКАЗАННЫЙ контракт "
+            "(trusted: 0), -1.0 за контрпример, -2.0 за Reward Hacking, "
+            "0.0 при отказе (вне фрагмента)."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Исходник кандидата (.py)"}},
+            "required": ["source"],
+        },
+    },
 ]
 
 
@@ -219,6 +261,39 @@ def text_result(s: str, is_error: bool = False) -> dict:
 
 
 def call_tool(name: str, args: dict) -> dict:
+    if name in ("kern_xray_code", "kern_rlvr_reward", "kern_verify_action"):
+        import tempfile
+        ex = ROOT / "tools" / "kern_contracts.py"
+        with tempfile.TemporaryDirectory() as td:
+            if name == "kern_xray_code":
+                src = args.get("source", "")
+                if not src.strip():
+                    return text_result("нужен непустой 'source'", True)
+                f = Path(td) / (args.get("filename") or "x.py")
+                f.write_text(src, encoding="utf-8")
+                argv = [str(f), "--xray", str(f)]
+            elif name == "kern_rlvr_reward":
+                src = args.get("source", "")
+                if not src.strip():
+                    return text_result("нужен непустой 'source'", True)
+                f = Path(td) / "candidate.py"
+                f.write_text(src, encoding="utf-8")
+                argv = ["--rlvr-reward", str(f)]
+            else:
+                act = args.get("action") or {}
+                pol = args.get("policy") or {}
+                if not isinstance(act, dict) or not isinstance(pol, dict):
+                    return text_result("нужны объекты 'action' и 'policy'", True)
+                af = Path(td) / "action.json"
+                pf = Path(td) / "policy.json"
+                af.write_text(json.dumps(act), encoding="utf-8")
+                pf.write_text(json.dumps(pol), encoding="utf-8")
+                argv = ["--verify-action", str(af), str(pf)]
+            r = subprocess.run([sys.executable, str(ex), *argv],
+                               capture_output=True, text=True, timeout=300)
+            out = ((r.stdout or "") + (r.stderr or "")).strip()
+            return text_result(out or "(пустой вывод)", r.returncode not in (0, 1))
+
     if name in ("kern_verify_smt", "kern_prove_with_checker"):
         smt = args.get("smt", "")
         if not smt.strip():

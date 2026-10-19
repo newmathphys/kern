@@ -226,6 +226,9 @@ FAULTABLE = [
     "tools/loop_check.sh",
     "tools/state_inv_check.sh",
     "tools/presets_check.sh",
+    "tools/fuzz_corpus_check.py",
+    "tools/fuzz_corpus_check.sh",
+    "tools/html_canvas_check.sh",
     "tools/bug_hunter.py",
     "tools/bug_hunt_check.sh",
     "tools/rlvr_oracle_check.sh",
@@ -1902,6 +1905,28 @@ def case_bug_hunt_check():
     return "make bug-hunt-check"
 
 
+def case_html_canvas_check():
+    """ПУНКТ 40Б. ЛОМАЕМ: путь к шаблону сломан -> холст
+    не создаётся -> цель обязана покраснеть."""
+    patch(
+        "tools/kern_contracts.py",
+        'CANVAS_TMPL = Path(__file__).resolve().parent / "canvas_template.html"',
+        'CANVAS_TMPL = Path(__file__).resolve().parent / "no_such_template.html"',
+    )
+    return "make html-canvas-check"
+
+
+def case_fuzz_corpus_check():
+    """ПУНКТ 40Д. ЛОМАЕМ: итоговая строка "0 паник" -> `[FAIL]`
+    -> приёмка не видит подтверждения детерминизма."""
+    patch(
+        "tools/fuzz_corpus_check.py",
+        '    print("  [OK] 0 паник, 0 segfault, 0 утечек (детерминизм подтверждён)")',
+        '    print("  [FAIL] 0 паник, 0 segfault, 0 утечек (детерминизм подтверждён)")',
+    )
+    return "make fuzz-corpus-check"
+
+
 def case_presets_check():
 
     """ЭШЕЛОН 5, ПУНКТ 26. ЛОМАЕМ: сообщение `[FAIL] ... REFUTED` превращаем в
@@ -2213,6 +2238,8 @@ CASES = [
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),
     ("bug-hunt-check", "BUG HUNT: контроль пройден",              case_bug_hunt_check),
+    ("html-canvas-check", "CANVAS: холст автономен",                case_html_canvas_check),
+    ("fuzz-corpus-check", "FUZZ: 0 паник, детерминизм",          case_fuzz_corpus_check),
     ("arbitrage-check", "АРБИТРАЖ: дробление платежа выгоднее целого",  case_arbitrage_check),
     ("state-inv-check",  "STATE: инвариант состояния сохранён",   case_state_inv_check),
     ("float-nan-check", "FLOAT: IEEE-754 NaN, trusted: 0",        case_float_nan_check),

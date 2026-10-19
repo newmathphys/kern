@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<title>KERN · Explorable Proof Canvas</title>
+<style>
+:root{--bg:#0b0f14;--fg:#d7e0ea;--dim:#7d8b9a;--ok:#3fb950;--bad:#f85149;
+--warn:#d29922;--conf:#a371f7;--line:#1f2937}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,Menlo,monospace}
+header{padding:18px 24px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:18px;letter-spacing:.06em}
+.sub{color:var(--dim);font-size:12px}
+main{padding:18px 24px;display:grid;grid-template-columns:1fr 260px;gap:24px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.card h2{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:600}
+label{display:flex;align-items:center;gap:10px;margin:6px 0}
+label input[type=range]{flex:1}
+.val{min-width:44px;text-align:right;color:var(--warn)}
+.b4{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.cell{border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;font-weight:700;color:var(--dim)}
+.on{color:#0b0f14}
+.ok{background:var(--ok)} .bad{background:var(--bad)}
+.none{background:#30363d} .conf{background:var(--conf)}
+</style></head><body>
+<header><h1>KERN · Explorable Proof Canvas</h1>
+<div class="sub">автономный холст: 0 внешних зависимостей · квадрат Белнапа B<sub>4</sub></div>
+</header>
+<main>
+<div id="fn"></div>
+<aside>
+  <div class="card"><h2>Белнап B4</h2><div class="b4">
+    <div class="cell" id="bT">T (1,0)<br><span class="sub">PROVEN</span></div>
+    <div class="cell" id="bF">F (0,1)<br><span class="sub">REFUTED</span></div>
+    <div class="cell" id="bN">N (0,0)<br><span class="sub">NO EVIDENCE</span></div>
+    <div class="cell" id="bB">B (1,1)<br><span class="sub">CONFLICT</span></div>
+  </div></div>
+  <div class="card"><h2>Паспорт</h2><div id="passport" class="sub"></div></div>
+  <div class="card"><h2>Доказательство</h2><div id="proof" class="sub"></div></div>
+</aside>
+</main>
+<script>
+const DATA = __DATA__;
+function splitTop(s){
+  const out=[]; let d=0, cur='';
+  for (const ch of s){
+    if(ch==='(') d++; if(ch===')') d--;
+    if(/\s/.test(ch) && d===0){ if(cur){out.push(cur);cur='';} continue; }
+    cur+=ch;
+  }
+  if(cur) out.push(cur); return out;
+}
+function tok(s){ return splitTop(s.trim()) .flatMap(p=>p.split(/(\(|\))/)).filter(x=>x&&x.trim()); }
+function evalSmt(src, env){
+  let i=0; const t=tok(src);
+  function parse(){
+    const x=t[i++];
+    if(x==='('){ const op=t[i++]; const args=[];
+      while(t[i]!==')') args.push(parse()); i++;
+      if(op==='+') return args.reduce((a,b)=>a+b,0);
+      if(op==='-') return args.length===1?-args[0]:args.slice(1).reduce((a,b)=>a-b,args[0]);
+      if(op==='*') return args.reduce((a,b)=>a*b,1);
+      if(op==='div'||op==='/') return Math.floor(args[0]/args[1]);
+      if(op==='mod') return args[0]-args[1]*Math.floor(args[0]/args[1]);
+      return NaN; }
+    if(x===')'){ i++; return NaN; }
+    if(/^-?\d+$/.test(x)) return parseInt(x,10);
+    return (x in env)?env[x]:NaN;
+  }
+  return parse();
+}
+function evalCond(src, env){
+  const s=src.trim();
+  if(s.startsWith('(and ')) return splitTop(s.slice(5,-1).trim()).every(p=>evalCond(p,env));
+  if(s.startsWith('(not ')) return !evalCond(s.slice(5,-1).trim(), env);
+  for (const op of ['<=','>=','<','>','=']){
+    const pref='('+op+' ';
+    if(!s.startsWith(pref)) continue;
+    const parts=splitTop(s.slice(pref.length,-1));
+    if(parts.length!==2) return false;
+    const a=evalSmt(parts[0],env), b=evalSmt(parts[1],env);
+    if(op==='<=') return a<=b; if(op==='>=') return a>=b;
+    if(op==='<') return a<b; if(op==='>') return a>b;
+    return a===b;
+  }
+  return false;
+}
+function pickPath(paths, env){
+  for(let i=0;i<paths.length;i++) if(paths[i].conds.every(c=>evalCond(c,env))) return i;
+  return -1;
+}
+function render(){
+  const box=document.getElementById('fn'); box.innerHTML='';
+  for(const f of DATA.functions){
+    const card=document.createElement('div'); card.className='card';
+    const h=document.createElement('h2'); h.textContent=f.name+' · CC '+f.cc;
+    card.appendChild(h);
+    const env={};
+    for(const p of f.params){
+      const lab=document.createElement('label');
+      const nm=document.createElement('span'); nm.textContent=p;
+      const rng=document.createElement('input');
+      rng.type='range'; rng.min=-10; rng.max=10; rng.value=0; rng.step=1;
+      const val=document.createElement('span'); val.className='val'; val.textContent='0';
+      env[p]=0;
+      const out=document.createElement('div'); out.className='sub';
+      rng.oninput=()=>{ env[p]=parseInt(rng.value,10); val.textContent=rng.value;
+        const idx=pickPath(f.paths,env);
+        const res=idx>=0?evalSmt(f.paths[idx].value,env):NaN;
+        out.textContent='ветвь '+(idx+1)+' из '+f.paths.length+' · результат = '+
+          (Number.isNaN(res)?'вне фрагмента':res); };
+      rng.oninput();
+      lab.appendChild(nm); lab.appendChild(rng); lab.appendChild(val);
+      card.appendChild(lab); card.appendChild(out);
+    }
+    box.appendChild(card);
+  }
+  const v=DATA.functions.length?DATA.functions[0].verdict:'N';
+  const map={T:'bT',F:'bF',N:'bN',B:'bB'}, cls={T:'ok',F:'bad',N:'none',B:'conf'};
+  const el=document.getElementById(map[v]||'bN');
+  el.classList.add(cls[v]||'none','on');
+  document.getElementById('passport').innerHTML=
+    'функций: '+DATA.functions.length+'<br>путей: '+
+    DATA.functions.reduce((a,f)=>a+f.paths.length,0);
+  document.getElementById('proof').innerHTML=DATA.proof_note;
+}
+render();
+</script>
+</body></html>

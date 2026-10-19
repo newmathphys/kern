@@ -316,6 +316,14 @@ rlvr-oracle-check: build
 bug-hunt-check: build
 	@bash tools/bug_hunt_check.sh
 
+# ЭШЕЛОН 8, ПУНКТ 40Б: интерактивный холст доказательств (0 CDN).
+html-canvas-check: build
+	@bash tools/html_canvas_check.sh
+
+# ЭШЕЛОН 8, ПУНКТ 40Д: корпус фаззинга + install.sh --check.
+fuzz-corpus-check: build
+	@bash tools/fuzz_corpus_check.sh
+
 # ЭШЕЛОН 3, ПУНКТ 13: рентген БЕЗ аннотаций (мёртвые ветки, избыточные
 # проверки, краш-пути, сложность Маккейба) на фикстуре examples/xray_demo.py.
 xray-check: build

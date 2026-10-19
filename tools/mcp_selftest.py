@@ -113,8 +113,10 @@ def main() -> int:
     c.send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     r = c.read_one()
     names = [t["name"] for t in r["result"]["tools"]] if r else []
-    check("tools/list (5 инструментов)",
-          len(names) == 5 and "kern_check_equivalence" in names,
+    check("tools/list (8 инструментов)",
+          len(names) == 8 and "kern_check_equivalence" in names
+          and "kern_xray_code" in names and "kern_verify_action" in names
+          and "kern_rlvr_reward" in names,
           ", ".join(names))
 
     # 4. доказуемый контракт
@@ -227,6 +229,54 @@ def main() -> int:
     check("kern_check_equivalence: расхождение + контрпример",
           "[DIVERGED] charge" in txt and "КОНТРПРИМЕР" in txt,
           ([l for l in txt.splitlines() if "DIVERGED" in l] or [""])[0])
+
+    # 7d. XRAY (Пункт 13): мёртвая ветка находится без аннотаций.
+    # ВАЖНО: первая ветка ШИРЕ второй -> вторая НЕДОСТИЖИМА (иначе теста нет).
+    # ЦЕПОЧКА if/elif: вторая ветка НЕДОСТИЖИМА (x <= 5 и x > 10 несовместны).
+    # ОГРАНИЧЕНИЕ --xray (названо в METRICS): последовательные `if ... return`
+    # пока путь НЕ сужают — только цепочки.
+    XRAY_SRC = ("def f(x):\n"
+                "    if x > 5:\n"
+                "        return 2\n"
+                "    elif x > 10:\n"
+                "        return 1\n"
+                "    return 0\n")
+    c.send({"jsonrpc": "2.0", "id": 13, "method": "tools/call",
+            "params": {"name": "kern_xray_code", "arguments": {"source": XRAY_SRC}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_xray_code: мёртвая ветка найдена", "[DEAD BRANCH]" in txt,
+          ([l for l in txt.splitlines() if "DEAD BRANCH" in l] or [""])[0][:80])
+
+    # 7e. FIREWALL (Пункт 36): превышение бюджета -> 422.
+    c.send({"jsonrpc": "2.0", "id": 14, "method": "tools/call",
+            "params": {"name": "kern_verify_action",
+                       "arguments": {
+                           "action": {"tool": "transfer",
+                                      "args": {"amount": 900, "daily_spent": 200,
+                                               "daily_limit": 1000}},
+                           "policy": {"allow": "amount + daily_spent <= daily_limit",
+                                      "forbid": []}}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_verify_action: 422 на превышении бюджета", "HTTP 422" in txt,
+          ([l for l in txt.splitlines() if "422" in l] or [""])[0][:80])
+
+    # 7f. RLVR (Пункт 38): чит -> -2.0.
+    CHEAT_SRC = ("import sys\n\n"
+                 "# @kern:requires x >= 0\n"
+                 "# @kern:ensures result >= 0\n"
+                 "def hack(x):\n"
+                 "    if x > 1:\n"
+                 "        sys.exit(0)\n"
+                 "    return x\n")
+    c.send({"jsonrpc": "2.0", "id": 15, "method": "tools/call",
+            "params": {"name": "kern_rlvr_reward",
+                       "arguments": {"source": CHEAT_SRC}}})
+    r = c.read_one(timeout=300)
+    txt = r["result"]["content"][0]["text"] if r else ""
+    check("kern_rlvr_reward: чит -> -2.0", "R=-2.0" in txt,
+          ([l for l in txt.splitlines() if "REWARD" in l] or [""])[0][:80])
 
     # 8a. неизвестный метод
     c.send({"jsonrpc": "2.0", "id": 7, "method": "no/such/method"})
