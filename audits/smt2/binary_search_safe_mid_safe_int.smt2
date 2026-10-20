@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-const low (_ BitVec 32))
+(declare-const high (_ BitVec 32))
+(declare-const result (_ BitVec 32))
+(assert (and (bvsge low (_ bv0 32)) (bvsge high (_ bv0 32)) (bvsle low high)))
+(assert (= result (bvadd low (bvsdiv (bvsub high low) (_ bv2 32)))))
+(assert (not (and (bvsge result (_ bv0 32)) (bvsge result low) (bvsle result high))))
+(check-sat)

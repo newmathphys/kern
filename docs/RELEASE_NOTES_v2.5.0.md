@@ -21,7 +21,7 @@
 | Подделки доказательств | 30/30 | **40/40** отклонены (QF_LIA, QF_S, IEEE-754) |
 | Языки контрактов | 4 | **7** (+ `.ts`, `.js`, `.go`) |
 | MCP-инструменты | 5 | **8** (+ xray, verify_action, rlvr_reward) + аннотации |
-| WebAssembly | нет | **`kernc.wasm`** (86 953 Б, 5 экспортов, включая `verify_proof`) |
+| WebAssembly | нет | **`kernc.wasm`** (86 953 Б; 5 функций `kern_wasm_*`, включая `verify_proof`; всего 7 записей экспорта с `memory`/`__stack_pointer`) |
 | Кросс-архитектура | 240 (устаревший лог) | **393 passed / 8 skipped / 0 failed** (ARM64 + PPC64 BE) |
 
 ## Восемь эшелонов (40 пунктов)

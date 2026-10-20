@@ -385,3 +385,7 @@ Compact English list; full text and measured before/after tables are in
 | **182** | `assert(...)` with nested parentheses was not a guard (`zls`: false `[CRASH PATH]`) | measurement |
 | **183** | C-like X-Ray lacked machine type ranges, let-inlining and `@kern:requires` as part of the domain; a divisor must depend on parameters | measurement |
 | **184** | **Soundness**: `_smt_sat` treated `N` (solver did not decide / SMT parse error) as SAT; free names were not declared | **soundness** |
+| **185** | Vacuum case from a dead duplicate assignment (`CANVAS_TMPL` declared twice; `canfail` patched the dead copy) | self-check | fixed |
+| **186** | 13 dead duplicate module-level assignments in `tools/kern_contracts.py` | dup-guard | fixed |
+| **187** | **False `[BOUNDS PATH]` from unmodelled loop guards**: the retro-test on `2cb4a20` produced 3 accusations in `autolink_delim`, where the bound comes from `while (link_end > 0)`. Split into two classes: pointer-backwards offset (`data[-k - i]`) vs `value - 1` (the latter is not claimed when a `while`/`for` controls the variable) | field run | fixed |
+| **188** | **`--xray` missed most real C functions**: `RE_FN_C` required a single-word return type without `*` and a `{` on the same line, so `static cmark_node *make_block(…)` and `char *dup(int len)` were not recognised; and `int *buf` produced the parameter name `*buf`, undeclared in SMT-LIB (every check of that function silently became "unknown") | CVE retro-test | fixed |

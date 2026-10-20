@@ -36,9 +36,16 @@ PY
 then :; else bad "action.yml невалиден или потерял sha256/mode/sarif"; fi
 
 echo "== 4) обязательные файлы экосистемы =="
-for f in CITATION.cff SECURITY.md server.json mcp.json .well-known/mcp.json glama.json smithery.yaml; do
+for f in CITATION.cff SECURITY.md server.json mcp.json .well-known/mcp.json glama.json smithery.yaml mcp.lock.json; do
   [ -s "$f" ] && ok "$f" || bad "нет/пуст $f"
 done
+
+echo "== 4b) замок MCP: mcp.lock.json == server.json (rug-pull) =="
+if python3 tools/kern_contracts.py --audit-mcp server.json --mcp-lock mcp.lock.json >/tmp/kern_mcp_lock.log 2>&1; then
+  ok "mcp.lock.json сверен: $(python3 -c "import json;print(len(json.load(open('mcp.lock.json'))['tools']))") инструментов, 0 rug-pull"
+else
+  bad "mcp.lock.json не совпал со схемой (rug-pull / инъекция) — см. /tmp/kern_mcp_lock.log"
+fi
 
 echo "== 5) SARIF 2.1.0 (GitHub Code Scanning) =="
 # ВАЖНО: `kern_contracts.py` возвращает 1, когда НАШЁЛ нарушения (демо намеренно

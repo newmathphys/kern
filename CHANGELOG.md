@@ -31,7 +31,7 @@ not as the current state.
   30 s timeout), `/dev/shm` cleanup on SIGTERM/atexit, junk/symlink filters.
 - **Proof-Carrying `.kimg`** (`[PCC VERIFIED]` with no solver) · **Evidence Decay** ·
   **Merkle audit chain** · **Bit-Rot Guard** (30/30 injections caught).
-- **WASM kernel** `kernc.wasm` (86,953 bytes, 5 exports including `kern_wasm_verify_proof`).
+- **WASM kernel** `kernc.wasm` (86,953 bytes; 5 `kern_wasm_*` functions including `kern_wasm_verify_proof`; 7 export entries with `memory`/`__stack_pointer`).
 - **8 MCP tools** plus `server.json` / `mcp.json` / `.well-known/mcp.json`
   (generated from `tools/list`) and MCP tool annotations.
 - **`llms.txt`**, `--sarif` (SARIF 2.1.0), `action.yml` with an `xray` mode,

@@ -33,9 +33,22 @@ BASELINE = ROOT / "tools" / "dup_defs_baseline.json"
 
 
 def counts() -> Counter:
+    """Дубликаты среди `def`/`class` И module-level присваиваний.
+
+    ДЕФЕКТ #185: `CANVAS_TMPL` был объявлен дважды (мёртвая копия выше живой).
+    `canfail.patch()` заменяет ПЕРВОЕ вхождение, поэтому поломка уходила в
+    мёртвый код, а гейт оставался зелёным. Раньше страж смотрел только
+    `def`/`class` и такой дубликат не видел.
+    """
     tree = ast.parse(TARGET.read_text(encoding="utf-8"))
-    names = [n.name for n in tree.body
-             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    names: list[str] = []
+    for n in tree.body:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.append(n.name)
+        elif isinstance(n, ast.Assign):
+            names.extend(t.id for t in n.targets if isinstance(t, ast.Name))
+        elif isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name):
+            names.append(n.target.id)
     return Counter(names)
 
 

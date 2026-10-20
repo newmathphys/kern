@@ -9,6 +9,13 @@ unmodified third-party code bases, and what the numbers were **before** and
 * `tools/kern_contracts.py --xray <dir>` — zero-annotation X-Ray
   (`[DEAD BRANCH]`, `[CRASH PATH]`, `[BOUNDS PATH]`, McCabe CC).
 
+**Scope, stated plainly.** KERN is a verification gate for *contracts*
+(`requires ⇒ ensures`, certificate re-checked by the native Zig proof checker).
+It is **not** an AST-level linter for unannotated C/C++: the C-like X-Ray parses
+conditions, `assert` guards, type ranges and divisors, and it **skips 60–80 % of
+functions** on real repositories. So a `0 findings` line below means
+"nothing proven and nothing refuted inside the analysed subset", not "clean code".
+
 Repositories were cloned with `--depth 1` into `/dev/shm/kern-field-lab`
 (hooks disabled, LFS smudge off). **Nothing in their trees was modified.**
 
@@ -97,3 +104,44 @@ Both tools are also exposed as `make audit-repo-check` (git sandbox:
 cleanup on `SIGTERM`) and as the browser scanner on
 <https://newmathphys.github.io/kern/#scorecard> (GitHub Trees API +
 `raw.githubusercontent.com`, `kernc.wasm`, no backend).
+
+## 4. B2: `[BOUNDS PATH]` and `[OVERFLOW PATH]` for C-like, and a retro-test on historical CVE fixes
+
+Two more defect classes are now modelled for `.c/.h/.cc/.zig/.rs/.ts/.js/.go`
+(`_xray_clike_file`, `tools/kern_contracts.py`):
+
+| Class | What is claimed | How it is decided |
+|:--|:--|:--|
+| `[BOUNDS PATH]` | an array/pointer index can be **negative** on the current path (reads before the buffer) | index is a `-`-expression and Z3 confirms `SAT(idx < 0)` under the path guards + type ranges |
+| `[OVERFLOW PATH]` | a **size** passed to `malloc/calloc/realloc/strbuf_grow/alloc` can exceed `INT32_MAX` | argument is a `+`/`*` expression and Z3 confirms `SAT(size > 2147483647)` |
+
+**Declared limits (measured, not assumed).** Loops are not modelled, so
+`value - 1` indexing is claimed **only when the same variable is not controlled
+by a `while`/`for` condition**; pointer-offset arithmetic (`data[-k - i]`) is
+reported separately, because there the index is negative *by construction* and
+the real question is whether it walks before the buffer start. A single
+parameter index (`buf[i]`) is never accused: its range comes from the type.
+
+### 4.1 Retro-test on real CVE fixes (`github/cmark-gfm`)
+
+Method: for each published security fix, take the file **before** and **after**
+the fix (`git show <c>^:file` vs `git show <c>:file`), run `--xray`, compare.
+
+| # | Fix commit | Vulnerability | Before | After | Verdict |
+|:--|:--|:--|:--|:--|:--|
+| A | `2cb4a20` (2022-11-08) | OOB read in `validate_protocol`: `data[-rewind - i]` with unguarded `i` up to `len` | **2 findings**, incl. exactly `-rewind - i` | 1 finding (`-rewind - len - 1`, see note) | **CAUGHT** |
+| B | `4682993` (2026-09-22) | unsigned pointer overflow: `data[-((ptrdiff_t)rewind) - len - 1]` | 0 | 0 | missed (C cast `(ptrdiff_t)` is outside our expression subset) |
+| C | `ac80f7b` (2022-02-22) | `row->n_columns` (`uint16_t`) wrap in `extensions/table.c` | 0 | 0 | missed (16-bit field increment, not a size passed to `alloc`) |
+| D | `198669d` (2018-10-18) | off-by-one `numdelims <= max_delims` → `<` in `src/inlines.c` | 0 | 0 | missed (comparison semantics, not an index/size expression) |
+
+**Result: 1 of 4 historical fixes caught, 0 false accusations on the fixed
+file except one residual** on `data[-rewind - len - 1]`: after the fix that line
+is guarded by `if (len == (size_t)(max_rewind - rewind)) return true;`, and the
+C cast makes the condition untranslatable for us — so the finding stays as a
+*honest* "possible" rather than a proven bug.
+
+**What this measures.** The useful claim today is narrow: *"here is an index
+that can be negative / a size that can overflow, decided by Z3 on this path"*.
+It is not a CVE detector for all classes. Fix B needs cast handling
+(`(ptrdiff_t)`, `(size_t)`), fix C needs field-width tracking, fix D needs
+comparison-semantics analysis — those are the concrete next steps.

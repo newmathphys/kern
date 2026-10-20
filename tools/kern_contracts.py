@@ -45,7 +45,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-ANNOT = re.compile(r"^\s*#\s*@kern:(requires|ensures)\s+(.+?)\s*$")
 
 CMP = {"Eq": "=", "NotEq": "distinct", "Lt": "<", "LtE": "<=",
        "Gt": ">", "GtE": ">="}
@@ -692,10 +691,17 @@ RE_FN_FN = re.compile(
     r"fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)"
     r"\s*(?:->\s*)?([\w:<>\[\]&' ]+)?\s*\{")
 RE_FN_C = re.compile(
-    r"^\s*(?:static\s+|inline\s+|const\s+)*"
-    r"(void|char|short|int|long|unsigned|size_t|"
-    r"int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t)"
-    r"\s+(\w+)\s*\(([^)]*)\)\s*\{")
+    # ДЕФЕКТ #188 (полевой прогон на cmark-gfm): старый шаблон требовал
+    # `TYPE name(...)` с ОДНИМ словом типа и БЕЗ звёздочки, поэтому
+    # `static cmark_node *make_block(...)` и `char *dup(int len)` — то есть
+    # большинство функций реального C — не распознавались вообще.
+    # Теперь: тип = одно и более слов (+ звёздочки), имя, параметры.
+    # Ложные срабатывания на вызовах отсекаются: `;` внутри не допускается,
+    # а управляющие слова (`if/for/while/return/…`) запрещены lookahead'ом.
+    r"^\s*(?!(?:if|for|while|switch|return|else|do|case|sizeof|typedef|"
+    r"struct|union|enum)\b)"
+    r"((?:[A-Za-z_]\w*[\s*]+)+)"          # 1: возвращаемый тип (+ звёздочки)
+    r"([A-Za-z_]\w*)\s*\(([^;{}]*)\)\s*\{?\s*$")
 # ПУНКТ 25: TypeScript/JavaScript — `function name(x: Type): Ret {`,
 # `export function name(x) {`. Стрелочные функции (`const f = (x) => …`) в
 # подмножество НЕ входят и получают честный SKIP (регулярка их не матчит).
@@ -3045,6 +3051,11 @@ _RE_CLIKE_DIV = re.compile(
     r"|([A-Za-z_][\w.\[\]]*)\s*%\s*([A-Za-z_][\w.\[\]]*)")
 
 _RE_CLIKE_IF = re.compile(r"\bif\s*\(((?:[^()]|\([^()]*\))*)\)")
+# B2: индекс `buf[i - 1]` и размер в аллокации `malloc(len + 1)`.
+_RE_CLIKE_INDEX = re.compile(r"([A-Za-z_]\w*(?:->\w+|\.\w+)*)\s*\[\s*([^\[\]]{1,60}?)\s*\]")
+_RE_CLIKE_ALLOC = re.compile(
+    r"\b(malloc|calloc|realloc|xmalloc|xrealloc|cmalloc|"
+    r"strbuf_grow|cmark_strbuf_grow|@alloc\w*|alloc)\s*\(([^;]{1,120}?)\)")
 # ДЕФЕКТ #180: Rust/Go/JS пишут `if x > 0 {` — БЕЗ круглых скобок. Без этого
 # условия не извлекались вообще (ripgrep: 0 проверенных функций из 1354).
 _RE_CLIKE_IF_BARE = re.compile(r"\bif\s+(?!\()([^{};\n]+?)\s*\{")
@@ -3063,6 +3074,18 @@ def _clike_ifs(body: str):
 _NUMERIC_TYPES = {"i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64",
                   "u128", "isize", "usize", "int", "long", "short", "int32_t",
                   "uint32_t", "uint64_t", "int64_t", "number", "i32_t"}
+
+# ДЕФЕКТ #188: слова C, которые не могут быть именем параметра.
+# Нужны после снятия `*`/`[]` с `int *buf`: если тип записан без имени
+# (`int`, `void`), последнее «слово» — сам тип, и объявлять его переменной
+# в SMT-LIB нельзя.
+_C_KEYWORDS = {
+    "void", "char", "short", "int", "long", "float", "double", "signed",
+    "unsigned", "const", "static", "inline", "volatile", "register",
+    "struct", "union", "enum", "size_t", "ssize_t", "bool", "wchar_t",
+    "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t",
+    "uint32_t", "uint64_t", "intptr_t", "uintptr_t", "bufsize_t",
+}
 
 
 # 🔴 ДЕФЕКТ #183 (полевой прогон по zls/tigerbeetle): без ДИАПАЗОНОВ ТИПОВ
@@ -3168,7 +3191,13 @@ def _clike_functions(path: Path):
                 continue
             nm = part.split(":")[0].split()
             if nm:
-                params.append(nm[-1])
+                # ДЕФЕКТ #188: `int *buf` давал имя `*buf`, `int buf[]` — `buf[]`.
+                # Такое имя нельзя объявить в SMT-LIB (`(declare-fun *buf …)`),
+                # поэтому kernc отвечал ошибкой разбора, и ВСЕ проверки функции
+                # молча уходили в «не знаю». Снимаем всё, кроме [A-Za-z0-9_].
+                pname = re.sub(r"[^0-9A-Za-z_]", "", nm[-1])
+                if pname and pname not in _C_KEYWORDS:
+                    params.append(pname)
         # тело: от строки объявления до баланса скобок
         depth = 0
         started = False
@@ -3354,6 +3383,90 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 continue
             if sat_dz is True:
                 found.append(f"[CRASH PATH] {name}: возможно деление на ноль: {d} == 0")
+
+        # ===== B2: [BOUNDS PATH] и [OVERFLOW PATH] для C-like =====
+        # ПОЧЕМУ ИМЕННО ТАК (и почему так узко). На неразмеченном C/C++ полный
+        # анализ индексов требует модели циклов, аллокаций и указателей. Мы
+        # заявляем только те случаи, где нарушение СЛЕДУЕТ из кода:
+        #   * индекс — РАЗНОСТЬ (`i - 1`, `len - 2`, `a - b`), т.е. может быть
+        #     отрицательным, и Z3 подтверждает SAT(idx < 0) на текущем пути;
+        #   * размер аллокации — сумма/произведение (`len + 1`, `cols * rows`),
+        #     и Z3 подтверждает SAT(size > INT32_MAX) на текущем пути.
+        # Одиночный параметр (`buf[i]`) НЕ обвиняем: его диапазон задан типом,
+        # а циклы мы не моделируем — это дало бы шум (урок #178/#183:
+        # ложное обвинение хуже пропуска).
+        for im in _RE_CLIKE_INDEX.finditer(body):
+            base, idx_raw = im.group(1), im.group(2)
+            if "->" in base or base.startswith("@"):
+                continue  # поле структуры/встроенное — длина неизвестна
+            try:
+                idxs = expr_smt(
+                    ast.parse(clike_to_python(_unwrap_zig_builtins(idx_raw)), mode="eval").body,
+                    local_smt)
+            except (Unsupported, NoReturn, SyntaxError, Exception):
+                continue
+            if "(- " not in idxs and not re.search(r"\(- \S+ \S+\)", idxs):
+                continue  # не разность: отрицательность не следует из выражения
+            if not _mentions_param(idxs, params):
+                continue
+            if "__" in idxs:
+                continue  # поле структуры — неизвестное значение
+            # ДВА РАЗНЫХ КЛАССА (замер на реальном cmark-gfm, дефект #187):
+            #  1) СМЕЩЕНИЕ НАЗАД ОТ УКАЗАТЕЛЯ: `data[-rewind - i]` — унарный минус
+            #     на параметре. Индекс отрицателен ПО ПОСТРОЕНИЮ, и вопрос лишь
+            #     в том, не уходит ли он ДО начала буфера. Именно этот класс
+            #     поймал исторический фикс `2cb4a20` (OOB read в validate_protocol).
+            #  2) `value - 1` — обычная индексация; на реальном коде она почти
+            #     всегда защищена условием ЦИКЛА (`while (link_end > 0)`), а циклы
+            #     мы не моделируем. Без этой поправки на одном `autolink_delim`
+            #     выходило 3 ЛОЖНЫХ обвинения. Поэтому класс 2 заявляем только
+            #     если в теле НЕТ цикла по той же переменной.
+            pointer_offset = bool("(- (-" in idxs
+                                  or re.fullmatch(r"\(- [A-Za-z_]\w*\)", idxs))
+            if not pointer_offset:
+                mz = re.match(r"^\(- ([A-Za-z_]\w*)\s", idxs)
+                head_var = mz.group(1) if mz else ""
+                if head_var:
+                    loop_guarded = False
+                    for _lm in re.finditer(r"\b(?:while|for)\s*\(([^)]*)\)", body):
+                        if re.search(rf"\b{re.escape(head_var)}\b", _lm.group(1)):
+                            loop_guarded = True
+                            break
+                    if loop_guarded:
+                        continue  # границу задаёт цикл — не обвиняем (циклы не моделируем)
+            try:
+                sat_neg = _smt_sat(kernc, params, path_conds + [f"(< {idxs} 0)"])
+            except Exception:  # noqa: BLE001
+                continue
+            if sat_neg is True:
+                found.append(
+                    f"[BOUNDS PATH] {name}: индекс может быть отрицательным: "
+                    f"{idx_raw.strip()} -> {idxs} < 0")
+
+        for am in _RE_CLIKE_ALLOC.finditer(body):
+            call, args_raw = am.group(1), am.group(2)
+            for one in args_raw.split(","):
+                one = one.strip()
+                if not one or one.isdigit():
+                    continue
+                if "+" not in one and "*" not in one:
+                    continue  # рост размера не вычисляется — не наш случай
+                try:
+                    size_smt = expr_smt(
+                        ast.parse(clike_to_python(_unwrap_zig_builtins(one)), mode="eval").body,
+                        local_smt)
+                except (Unsupported, NoReturn, SyntaxError, Exception):
+                    continue
+                if not _mentions_param(size_smt, params) or "__" in size_smt:
+                    continue
+                try:
+                    sat_ov = _smt_sat(kernc, params, path_conds + [f"(> {size_smt} 2147483647)"])
+                except Exception:  # noqa: BLE001
+                    continue
+                if sat_ov is True:
+                    found.append(
+                        f"[OVERFLOW PATH] {name}: размер в {call}() может переполнить "
+                        f"32-битный знаковый int: {size_smt} > 2147483647")
         if proven:
             checked += 1
     return checked, total, found
@@ -3668,11 +3781,8 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
 # цикл не найден — честный SKIP с причиной, а не догадка.
 # =============================================================================
 
-_INV_RE = re.compile(r"@kern:invariant\s+(.+)")
-_DEC_RE = re.compile(r"@kern:decreases\s+(.+)")
 
 
-_loop_lines: dict[int, list[str]] = {}
 
 
 # =============================================================================
@@ -3688,7 +3798,6 @@ _loop_lines: dict[int, list[str]] = {}
 # уходит в минус -> SAT -> [FAIL] STATE INVARIANT VIOLATED.
 # =============================================================================
 
-_SI_RE = re.compile(r"@kern:state_invariant\s+(.+)")
 
 
 # =============================================================================
@@ -3718,10 +3827,6 @@ _SI_RE = re.compile(r"@kern:state_invariant\s+(.+)")
 # реализации разошлись бы и дали бы разные вердикты на одном и том же коде.
 # -----------------------------------------------------------------------------
 
-PRESET_RE = re.compile(
-    r"^\s*(?:#|//|///)\s*@kern:(non_negative|percentage|idempotent|monotonic"
-    r"|no_arbitrage|conservation|no_double_spend|calls_i32|calls_u32"
-    r"|bounded\s*\(([^)]*)\))\s*$")
 
 
 # -----------------------------------------------------------------------------
@@ -3734,7 +3839,6 @@ PRESET_RE = re.compile(
 # ТОЛЬКО при `(row_tenant == req_tenant ∨ is_public == 1) ∧ is_deleted == 0`.
 # -----------------------------------------------------------------------------
 
-RLS_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:rls\s*\(([^)]*)\)\s*$")
 
 
 # -----------------------------------------------------------------------------
@@ -3748,7 +3852,6 @@ RLS_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:rls\s*\(([^)]*)\)\s*$")
 #     SAT = конфликт правил (в Белнапе это состояние B).
 # -----------------------------------------------------------------------------
 
-PRICING_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:pricing\s*\(([^)]*)\)\s*$")
 
 
 # -----------------------------------------------------------------------------
@@ -3762,10 +3865,6 @@ PRICING_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:pricing\s*\(([^)]*)\)\s*$")
 # PyPI. Всё это ловится СТАТИЧЕСКИ по AST.
 # -----------------------------------------------------------------------------
 
-CHEAT_EXIT = {"sys.exit", "os._exit", "exit", "quit"}
-CHEAT_MOCK = {"unittest.mock.patch", "mock.patch", "patch", "MagicMock", "Mock"}
-SUSPICIOUS_MODULES = {"fast_crypto_utils", "requests_easy", "openai_helpers",
-                      "crypto_utils", "python-dotenv-safe"}
 
 
 # -----------------------------------------------------------------------------
@@ -3780,14 +3879,6 @@ SUSPICIOUS_MODULES = {"fast_crypto_utils", "requests_easy", "openai_helpers",
 #     хранит SHA-256 каждого инструмента; изменение -> тревога.
 # -----------------------------------------------------------------------------
 
-MCP_INJECT_PATTERNS = [
-    "ignore previous", "ignore all previous", "disregard previous",
-    "<system>", "</system>", "important: before calling", "you must first",
-    "~/.ssh", "id_rsa", ".env", "send the contents", "exfiltrate",
-    "do not tell the user", "silently",
-]
-MCP_INVISIBLE_RANGES = [(0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x2064),
-                        (0xE0000, 0xE007F), (0xFEFF, 0xFEFF)]
 
 
 # -----------------------------------------------------------------------------
@@ -3800,7 +3891,6 @@ MCP_INVISIBLE_RANGES = [(0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x2064),
 # утечка (существует пара секретов, различимая по публичному выходу).
 # -----------------------------------------------------------------------------
 
-SECRET_RE = re.compile(r"^\s*(?:#|//|///)\s*@kern:secret\s*\(([^)]*)\)\s*$")
 
 
 # -----------------------------------------------------------------------------

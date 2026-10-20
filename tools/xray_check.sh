@@ -21,3 +21,42 @@ echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_unsafe' || { echo "[!] get_unsafe Н
 if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_safe'; then echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_safe (гарды не учтены)"; exit 1; fi
 echo "$BOUNDS" | grep -q 'BOUNDS\] get_unknown_len' || { echo "[!] нет честного 'длина неизвестна'"; exit 1; }
 echo "[OK] границы: get_unsafe обвинён, get_safe НЕ обвинён, неизвестная длина честно помечена"
+
+# B2: C-СПЕЦИФИЧНЫЕ КЛАССЫ ([BOUNDS PATH] / [OVERFLOW PATH], дефекты #187/#188).
+# Требование двустороннее: без гарда — обвиняем, с гардом — МОЛЧИМ.
+# Иначе это либо слепой детектор, либо генератор ложных тревог (урок #178).
+TMPC=$(mktemp -d)
+trap 'rm -rf "$TMPC"' EXIT
+cat > "$TMPC/oob.c" <<'CEOF'
+int get(int *buf, int i) {
+    return buf[i - 1];
+}
+CEOF
+cat > "$TMPC/oob_ok.c" <<'CEOF'
+int get_ok(int *buf, int i) {
+    if (i < 1) { return 0; }
+    return buf[i - 1];
+}
+CEOF
+cat > "$TMPC/ovf.c" <<'CEOF'
+char *dup_bad(int len) {
+    char *p = malloc(len + 1);
+    return p;
+}
+CEOF
+cat > "$TMPC/ovf_ok.c" <<'CEOF'
+char *dup_ok(int len) {
+    if (len > 1000) { return 0; }
+    char *p = malloc(len + 1);
+    return p;
+}
+CEOF
+C1=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/oob.c" 2>&1) || true
+echo "$C1" | grep -q 'BOUNDS PATH. get:' || { echo "[!] C: buf[i-1] без гарда НЕ обвинён (детектор слеп)"; exit 1; }
+C2=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/oob_ok.c" 2>&1) || true
+if echo "$C2" | grep -q 'BOUNDS PATH. get_ok'; then echo "[!] C: ЛОЖНОЕ обвинение buf[i-1] под if (i < 1) return"; exit 1; fi
+C3=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/ovf.c" 2>&1) || true
+echo "$C3" | grep -q 'OVERFLOW PATH. dup_bad' || { echo "[!] C: malloc(len+1) без гарда НЕ обвинён"; exit 1; }
+C4=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/ovf_ok.c" 2>&1) || true
+if echo "$C4" | grep -q 'OVERFLOW PATH. dup_ok'; then echo "[!] C: ЛОЖНОЕ обвинение malloc под if (len > 1000) return"; exit 1; fi
+echo "[OK] C-like B2: BOUNDS/OVERFLOW обвиняют без гарда и МОЛЧАТ с гардом (4/4)"

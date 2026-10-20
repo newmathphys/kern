@@ -246,6 +246,19 @@ reproduced against the project's own build before it can be called their bug. (b
 invisible in the `Int` theory — it needs `@kern:bitvec32` (QF_BV). (c) `SKIP` rows are kept on
 purpose: a verifier that never refuses is not verifying.
 
+**What KERN is — and what it is not.** KERN is a *verification gate for contracts*: it proves
+`requires ⇒ ensures`, re-checks the solver certificate with its own Zig checker (`trusted: 0`),
+and refuses to open the gate without that certificate. It is **not** a replacement for an
+AST-level linter on unannotated C/C++: zero-annotation `--xray` for C-like languages parses
+conditions, guards and divisors (plus two C-specific classes — a possibly negative index
+`[BOUNDS PATH]` and a size that can overflow `INT32_MAX` before an allocation `[OVERFLOW PATH]`),
+and on real repositories it **skips 60–80 % of functions**
+(measured: `cmark-gfm` 95/254, `actions/toolkit` 32/148). A `0 findings` row therefore means
+"nothing proven *and* nothing refuted inside the analysed subset" — not "the code is clean".
+A retro-test on four published `cmark-gfm` security fixes caught **1 of 4** (the OOB read in
+`validate_protocol`) with **0 false accusations** on the fixed file — see
+`docs/FIELD_AUDIT_REPORT.md` §4.
+
 ### Evidence on real production code (`make audits`)
 
 Functions transcribed from six projects across three languages (Zig, Rust, C), checked by the
@@ -318,13 +331,15 @@ contracts**):
 make mcp-selftest   # drives the server over stdio: 17 live checks, all 8 tools
 
 ```bash
-# Kernel in the browser: 5 exported functions, 85 KB, no syscalls
+# Kernel in the browser: 5 kern_wasm_* functions (86 953 B), no syscalls
 zig build wasm        # -> zig-out/bin/kernc.wasm
 ```
 
 The WASM module exports JOIN_K (Belnap lattice), the admission check, the
 64-bit Hamming code, the built-in Fourier-Motzkin solver and `verifyProof`
-(re-checks a Z3 proof **without** a solver). `proof_check` re-checks proofs
+(re-checks a Z3 proof **without** a solver). The module exports those five
+`kern_wasm_*` functions plus the two wasm-internal names `memory` / `__stack_pointer`,
+i.e. 7 export entries in total. `proof_check` re-checks proofs
 from memory only; the solver bridge is deliberately outside the module.
 ```
 
@@ -489,7 +504,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **100.0 %** (1225 / 1225 killed) over **20 files / 1225 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1225 sites, 23 min): **1225 / 1225 (100.0%)**, zero survivors. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
+| Mutation score (Zig-native mutator) | **100.0 %** (1225 / 1225 killed) over **20 files / 1225 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1225 sites, 23 min, run **locally**): **1225 / 1225 (100.0%)**, zero survivors — note: that sweep's log is **not** committed; committed evidence is the canonical gate (40/40) and the per-module `--full-file` set (244/244). Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
 | Can-fail harness | **125 / 125 CHECK targets (100 %)** have a proven-can-fail case (**141 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 108 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |

@@ -1725,3 +1725,44 @@ domain + divisor must depend on parameters (#183), and — **soundness** —
 
 Remaining 10 findings are listed with per-case verdicts in the report; the
 rule is unchanged: **a false accusation is worse than a skip.**
+
+---
+
+### 41. B2: `[BOUNDS PATH]` / `[OVERFLOW PATH]` for C-like + retro-test on historical CVE fixes
+
+**Why.** The 14-repository field run showed that in C the real defects are not
+division by zero but a **negative index** (`buf[i-1]`) and a **size overflow**
+before `malloc`. Both classes were added to `_xray_clike_file`.
+
+| Class | Claimed when | Decision |
+|:--|:--|:--|
+| `[BOUNDS PATH]` | index is a difference and Z3 confirms `SAT(idx < 0)` on the path | one-sided sound: the counterexample is a concrete input |
+| `[OVERFLOW PATH]` | size passed to `malloc/calloc/realloc/strbuf_grow/alloc` is a `+`/`*` and Z3 confirms `SAT(size > INT32_MAX)` | same |
+
+Not claimed: a lone parameter index (`buf[i]`, range comes from the type), loop
+locals, struct fields/`->`. Measured reason: without this, one function
+(`autolink_delim` in cmark-gfm) produced **3 false accusations** because its
+bound comes from `while (link_end > 0)` and loops are not modelled (defect #187).
+
+Synthetic control: `buf[i-1]` → flag; the same under `if (i < 1) return 0;` →
+silence; `malloc(len + 1)` → flag; under `if (len > 1000) return 0;` → silence.
+(4/4 as expected.)
+
+Retro-test on published `github/cmark-gfm` security fixes (file before/after):
+
+| # | Fix | Vulnerability | Before | After | Verdict |
+|:--|:--|:--|:--|:--|:--|
+| A | `2cb4a20` | OOB read in `validate_protocol` (`data[-rewind - i]`) | **2 findings, incl. exactly that index** | 1 residual | **CAUGHT** |
+| B | `4682993` | unsigned pointer overflow via `(ptrdiff_t)` cast | 0 | 0 | missed (cast outside subset) |
+| C | `ac80f7b` | `uint16_t` counter wrap in `table.c` | 0 | 0 | missed (not an allocation size) |
+| D | `198669d` | off-by-one `<=` → `<` in `inlines.c` | 0 | 0 | missed (comparison semantics) |
+
+**Result: 1 of 4, zero false accusations on the fixed file** except one honest
+residual on `data[-rewind - len - 1]`, which after the fix is guarded by
+`if (len == (size_t)(max_rewind - rewind)) return true;` — a C cast we cannot
+translate, so it stays "possible" instead of "proven".
+
+**Honest scope.** What we can say today is narrow: *"here is an index that can
+be negative / a size that can overflow, decided by Z3 on this path"*. This is
+not a detector for every CVE class. Fixes B/C/D need cast handling, struct field
+widths and comparison-semantics analysis — those are the concrete next steps.

@@ -40,6 +40,21 @@ artifact "audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/binary_search_mid_buggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/binary_search_mid_safe.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/binary_search_safe_mid_safe_int.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/div_ceil_divCeil.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -130,6 +145,24 @@ claim "audit:alignment_bitvec_alignmentAgreesBuggy" {
   status refuted
   evidence "contract:audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2"
   context "audits/smt2/alignment_bitvec_alignmentAgreesBuggy.smt2"
+}
+
+claim "audit:binary_search_mid_buggy" {
+  status refuted
+  evidence "contract:audits/smt2/binary_search_mid_buggy.smt2"
+  context "audits/smt2/binary_search_mid_buggy.smt2"
+}
+
+claim "audit:binary_search_mid_safe" {
+  status proven
+  evidence "contract:audits/smt2/binary_search_mid_safe.smt2"
+  context "audits/smt2/binary_search_mid_safe.smt2"
+}
+
+claim "audit:binary_search_safe_mid_safe_int" {
+  status proven
+  evidence "contract:audits/smt2/binary_search_safe_mid_safe_int.smt2"
+  context "audits/smt2/binary_search_safe_mid_safe_int.smt2"
 }
 
 claim "audit:div_ceil_divCeil" {

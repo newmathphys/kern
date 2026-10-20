@@ -1,0 +1,12 @@
+{
+  "tools": {
+    "kern_check_equivalence": "9a5362965fb4117d48124bce4e3d9ac9885f3c056f4a092ec95818751119e5ce",
+    "kern_prove_with_checker": "ee7cfe1cb12658ae14fcfcd4a54e15a0c10a6090048efccc58aae309b2fa3f25",
+    "kern_rlvr_reward": "d31d71d05414ba7711dcf4e2f98f15e51759b7bb1f653a69a5300422cc9d76f1",
+    "kern_verify_action": "1c78849985d5b60d1da049800493dc675b945795bed5dc3066c1c05d64941eba",
+    "kern_verify_multi_belnap": "f07956cec1f52ddaedfee6e78d1779adf1ea585be9ec8ab44db246f44543db9e",
+    "kern_verify_python": "a5c7b4663e53574993b6e9bac94bbca22a35c9476d3ad21c4183b28c5ee9ed51",
+    "kern_verify_smt": "8f0d41b261f827ccf806cd436eabee20adfa8db3f1243dfab8d9eddc3f5bdd79",
+    "kern_xray_code": "ff7ee08eee7cb31ba52ee4bac87756b29dc88cd5e002f50ce3e7ac222d92d868"
+  }
+}
