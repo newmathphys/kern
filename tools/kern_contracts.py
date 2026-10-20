@@ -4087,6 +4087,19 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         _LAST_XRAY["stat"] = (ck, tot, tot - ck, list(fd))
         for x in fd:
             print("  " + x)
+        # ЧЕСТНАЯ ГРАНИЦА (дефект #201). В C-like разборе НЕТ управления
+        # потоком: не моделируются ранние `return`, `break` в `while(1)`,
+        # состояние на итерациях цикла и инварианты вызывающего. ИЗМЕРЕНО на
+        # СВЕЖЕМ HEAD `libgit2` (src/util): 14 кандидатов, при ручной проверке
+        # ВСЕ 14 оказались ложными (`tsort.c` — guard `if (stack_curr < 2)
+        # return;`, `win32/path_w32.c` — короткое замыкание `!len ||`,
+        # `wildmatch.c` — условия одной ветки цикла протекли в другую).
+        # Поэтому эти строки — КАНДИДАТЫ для человека, а не баги: заявлять их
+        # чужому проекту нельзя.
+        if fd:
+            print("  [!] C-like findings выше — КАНДИДАТЫ, а не баги: управление "
+                  "потоком (ранние return, break, итерации циклов) не "
+                  "моделируется. Проверять вручную по коду.")
         print("-" * 74)
         print(f"[XRAY SUMMARY] checked {ck} / {tot} functions, "
               f"skipped {tot - ck} with explicit reasons, findings {len(fd)}")

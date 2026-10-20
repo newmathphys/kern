@@ -1914,3 +1914,34 @@ skeptics criticise. The check was done on their real source, not on a model.
 
 **Regressions after narrowing:** `xray-check` rc=0 · `contracts` rc=0 · `edge-cases` rc=0 ·
 `formal/check.sh` 8/8 · `proof-tamper` 40/40.
+
+---
+
+### 47. Hunting on today's HEAD: 0 true, 14 false (#201)
+
+The question was whether our C analyzer can find bugs in *today's* code (i.e. whether it is
+usable for Bug Bounty or for sending PRs). Measured on fresh `--depth 1` clones:
+
+| Target (HEAD) | Files | Functions checked | Findings |
+|:--|--:|--:|--:|
+| `github/cmark-gfm` `src/` | 48 | 74 / 296 | **0** |
+| `github/cmark-gfm` `extensions/` | 14 | 11 / 47 | **0** |
+| `libgit2/libgit2` `src/util` | 122 | 178 / 661 | **14** |
+
+**All 14 were verified by hand and all 14 are false:**
+
+| File | Claim | Actual code |
+|:--|:--|:--|
+| `tsort.c:175` | `stack_curr - 3` may be < 0 | above: `if (stack_curr < 2) return 1; else if (stack_curr == 2) … else` → `stack_curr >= 3` |
+| `tsort.c:206` | `stack_curr - 2` / `-1` | every `merge` call is under `stack_curr == 2` or `stack_curr - 1` with `>= 3` |
+| `win32/path_w32.c:638` | `len - 1` may be < 0 | `if (!len \|\| str[len - 1] != '\\') break;` — short-circuit on `!len` |
+| `wildmatch.c` (7) | "branch UNREACHABLE" for `(= t_ch p_ch)` | it is a runtime comparison of two chars; conditions from ONE loop branch leaked into another |
+
+**Cause (#201):** the C-like path has **no control-flow modelling** — no early `return`, no
+`break` inside `while (1)`, no per-iteration state, no caller invariants. Both classes
+(`[BOUNDS PATH]` on `base - k` and `[DEAD BRANCH]`) are therefore noisy on real code.
+
+**Decision (honest labelling, not renaming):** the rules stay (they are needed for the
+targeted classes #191–#194 that scored 4/4 on cmark-gfm), but the tool now prints the
+boundary whenever it emits C-like findings: they are **candidates, not bugs** — verify by
+hand. **No external reports are sent from them: 0 confirmed out of 14.**
