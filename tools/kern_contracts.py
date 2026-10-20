@@ -47,7 +47,13 @@ from pathlib import Path
 
 
 CMP = {"Eq": "=", "NotEq": "distinct", "Lt": "<", "LtE": "<=",
-       "Gt": ">", "GtE": ">="}
+       "Gt": ">", "GtE": ">=",
+       # `x is None` / `x is not None`: None моделируется сентинелом (см. ниже).
+       "Is": "=", "IsNot": "distinct"}
+# СЕНТИНЕЛ None: значение, недостижимое как «нормальное» целое в контрактах.
+# Модель Optional = (Int, сентинел). Это ДОПУЩЕНИЕ: настоящий None не число,
+# поэтому havoc-контрпримеры всё равно проходят Live Replay (правило №4).
+_NONE_SENTINEL = "-4611686018427387904"
 
 # Делители, встреченные при трансляции выражения (для обязательства
 # «делитель ≠ 0»): в SMT `div`/`mod` тотальны, поэтому ноль надо ловить отдельно.
@@ -121,6 +127,9 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             return "true" if node.value else "false"
         if isinstance(node.value, int):
             return str(node.value)
+        if node.value is None:
+            # БЛОКЕР `None` (40 функций): Optional моделируется сентинелом.
+            return _NONE_SENTINEL
         raise Unsupported(f"литерал {node.value!r}")
     if isinstance(node, ast.Name):
         return env.get(node.id, node.id)
@@ -320,6 +329,13 @@ def body_smt(stmts, env: dict) -> str:
             else:
                 # Нет `else` и нет остатка -> путь без `return` (неявный None).
                 else_expr = None
+            # ВЕТКА БЕЗ `return` (только присваивания, например `if c: y = 1`)
+            # НЕ терминальна: исполнение продолжается после `if`, поэтому
+            # значение берётся из ОСТАТКА операторов (раньше это был ложный
+            # отказ «путь без return»).
+            _then_term = bool(st.body) and isinstance(st.body[-1], ast.Raise)
+            if then_expr is None and not _then_term and rest:
+                then_expr = body_smt(rest, then_env)
             # ВЕТКА-ГАРД: `if cond: raise ...` (терминальный отказ) не даёт
             # значения, поэтому результат берётся из ДРУГОЙ ветки, а условие
             # пути сужается на её отрицание. Это ровно семантика guard-clause.

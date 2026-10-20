@@ -1982,3 +1982,15 @@ Verified: `ann`/`nested`/`tr`/`tup` -> `PROVEN, steps 7, trusted: 0, holes: 0`; 
 false alarm, not an accusation; annotations no longer leak into nested `def`.
 Limits: exceptions not modelled; havoc results cannot be proven; loops/lists/dicts/`None`/subscripts
 still refused; `trusted: 4` for `value % 2` open (Euclid axiomatics for `div`/`mod`); QuixBugs not run.
+
+---
+
+### 50. `None` / `Optional` + non-terminal branch: funnel 34.96 % (2026-10-20)
+* Accepted bodies among the same 595 functions: **162 (27.23 %) -> 208 (34.96 %)**.
+* `None` is modelled by the sentinel `-4611686018427387904`; `x is None` -> `(= x SENT)`,
+  `x is not None` -> `(distinct x SENT)` (added `Is`/`IsNot` to `CMP`). This is a modelling
+  assumption, so havoc counterexamples still go through Live Replay (rule #4).
+* A branch without `return` (`if c: y = 1`) is no longer terminal: execution continues with the
+  remaining statements; only `raise`-branches stay terminal.
+* Remaining blockers: `for` 39, `list` 34, subscript 30, `dict` 24, unsized unpack 24, `import` 21.
+* Verified: both synthetic `Optional` cases -> `PROVEN` (`trusted: 2` and `trusted: 1`, `holes: 0`).
