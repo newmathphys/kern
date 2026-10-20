@@ -78,6 +78,9 @@ if [ "$RANGE_BAD" -eq 0 ]; then ok "диапазоны #1–#$MAXNUM в README/�
 echo "== 8) страж лицензионной согласованности (дефект #222: LICENSE + манифесты) =="
 if python3 tools/check_license_consistency.py; then ok "лицензия согласована (LICENSE == server.json == CITATION.cff)"; else bad "лицензия в манифестах расходится с LICENSE"; fi
 
+echo "== 9) страж счётчика теорем Lean 4 (дефект #223) =="
+if python3 tools/check_lean_counter.py; then ok "счётчик теорем Lean 4 на витрине совпадает с formal/*.lean"; else bad "счётчик теорем Lean 4 на витрине отстал"; fi
+
 echo "----------------------------------------------------------------------"
 if [ "$fail" -eq 0 ]; then
   echo "[OK] ecosystem-check: манифесты, llms.txt, action.yml, SARIF, ratchet — всё сходится"

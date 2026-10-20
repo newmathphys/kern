@@ -2367,3 +2367,26 @@ correct returns **2**.
 **Fixed + guard:** `README.ru.md` corrected; `tools/check_license_consistency.py` added (check **8** of `ecosystem-check`): `LICENSE` mentions «PolyForm Noncommercial»; `server.json` and `.well-known/mcp.json` declare `PolyForm-Noncommercial-1.0.0`; `CITATION.cff` carries the same id; no `LICENSE … MIT` line in either README (`LIMITATIONS` excluded).
 
 **Proven in both directions:** now `[OK] licence consistent`; after injecting `LICENSE MIT` into `README.ru.md` — `[FAIL] README.ru.md: the LICENSE line promises MIT`, rc=1; after restoring — `[OK]` again.
+
+---
+
+### 68. The Lean 4 theorem counter on the site was 17 behind (Defect #223)
+
+**Found** by checking «claim ↔ `formal/*.lean`».
+
+| Where | Was | Fact |
+|:--|:--|:--|
+| `docs/index.html` (**4** places: hero, meta description, metrics block, footer) | `120 Lean 4 theorems` | **137** |
+| `README.md` | `137 theorems` (3 places) | ✅ matched |
+| `README.ru.md` | `137 теорем` | ✅ matched |
+
+**Why this is an important class, not a typo:** the Lean 4 theorem count GROWS (120 → 134 → 137 over three iterations) while the showcase is edited by hand, so the metric systematically lags — exactly as in #178/#221 (registry range) and #220 (test counts). Same root: **the number on the showcase is not tied to the source of truth**.
+
+**Fixed + guard:** `tools/check_lean_counter.py` (check **9** of `ecosystem-check`) — the actual count comes from `formal/*.lean` (`^theorem `), and every number before «Lean»/«theorems»/«теорем» in `docs/index.html`, `README.md`, `README.ru.md` must equal it.
+
+**Honest about the exclusions (otherwise the guard raises false alarms):**
+1. «Lean 4 theorems» is the Lean VERSION, not a counter → skipped;
+2. a line referencing a specific `.lean` file is that FILE'S count (e.g. `KernSemanticGap.lean: 8 theorems`) → skipped.
+   Both exclusions were found by practice: the first version of the guard «caught» `4 theorems` and `8 теорем` — it worked, but wrongly.
+
+**Proven in both directions:** now `[OK] Lean 4 theorems: 137 — showcase matches (7 occurrences)`; after substituting `137 Lean` → `120 Lean` — `[FAIL] docs/index.html: «120 Lean» — fact 137`, rc=1; after restoring — `[OK]` again.
