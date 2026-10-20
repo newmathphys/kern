@@ -688,14 +688,14 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 ### Prebuilt static binary and GitHub Action
 
 No toolchain needed. Release `v2.5.0` ships a statically linked `x86_64-linux-musl`
-binary (6,711,872 bytes), so `kernc` runs on any x86-64 Linux without Zig:
+binary (6,716,072 bytes), so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
 curl -fsSL -o kernc \
   https://github.com/newmathphys/kern/releases/download/v2.5.0/kernc-x86_64-linux-musl
 chmod +x kernc && ./kernc --version
 # verify the download first:
-# e9fc32ccfdf426bc07de638692863918e1321c5f6c2ee1b4b68f66bf08499eb9  kernc-x86_64-linux-musl
+# 3de4610c161f3da58cdff9b670181c7a9329ec066d7676e39515181be1cdc6d9  kernc-x86_64-linux-musl
 ```
 
 Or use it as a step in your own workflow:
