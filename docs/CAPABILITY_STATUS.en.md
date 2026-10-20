@@ -321,7 +321,7 @@ is generated from the sources).
 ## 6d-1. Registry gap closed: #125–#152
 
 > **Why this section exists.** Defects **#125–#152** were recorded in `METRICS.md` (RU) but were **missing from this registry table**
-> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#217`
+> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#220`
 > has no holes. Verdicts are the same as in the Russian original.
 
 | # | Defect | Status |
@@ -361,7 +361,7 @@ is generated from the sources).
 
 > **Why this section exists.** The line-by-line audit of 2026-10-20 found that **65 numbers were missing from this English table**
 > (`#52, #55, #56, #59–#92, #98–#124, #205`) although they are present in `CAPABILITY_STATUS.md`. They are indexed here with a
-> one-line summary each, so that the range `#1–#217` has **no holes in either language**. The third column reproduces the
+> one-line summary each, so that the range `#1–#220` has **no holes in either language**. The third column reproduces the
 > **classification** used in the Russian original for those sections (it is a defect class there, not a status word).
 
 | # | Defect (one line) | Class (as in RU) |
@@ -538,4 +538,5 @@ Compact English list; full text and measured before/after tables are in
 | **218** | **DOCUMENTATION INTEGRITY (found by the line-by-line audit of 2026-10-20)**: the EN registry was missing **65 numbers** (#52, #55, #56, #59–#92, #98–#124, #205) while RU had 155 rows; `docs/METRICS.md` had three blocks sharing ONE number (**§100, §101, §102** twice each); EN had two `## 6e` headers; the #174 row was duplicated; `docs/README.md` ranges were stale (`#1–#216`, `§1–§136`). Fixed: a 65-entry EN index, renumbering §100→§137, §101→§138, §102→§139, `6e`→`6f`, #174→closure, ranges updated. | FIXED |
 | **219** | **The `kern_next_tests.log` evidence had NO COUNT of executed tests**: on a cached step `zig build test-next --summary all` prints only «4/4 steps succeeded … run test cached», without «All 53 tests passed», so the gate could not see 53/53 while the showcase cited that log. Fixed: the run uses a separate `--cache-dir` (2 s), the step really executes and the log records «53/53 tests passed». | FIXED |
 | **220** | **Stale test counts on the showcase**: `README.md` promised `308 core tests`, `README.ru.md` — «308 tests» and «catalog 424», `docs/README.md` — «catalog 424» and «308 tests», while the fact is **401 executed core tests and 425 in the catalog**. Fixed; historical mentions (283 tests of the migration branch, the VERIFICATION_0_17 snapshot) are now explicitly marked. | FIXED |
+| **221** | **RECURRENCE of class #178: the registry range on the showcase drifted again** — `README.md`, `README.ru.md` and the site promised `#1–#184`, the EN registry intros said `#1–#217`, while the real maximum is **#220**. Fixed to `#1–#220`; recorded as a recurrence so it is visible that a one-off fix (#178) did not hold the metric. | FIXED |
 

@@ -62,6 +62,19 @@ fi
 echo "== 6) страж дубликатов определений (дефект #174: ratchet) =="
 if python3 tools/dup_defs_guard.py; then ok "долг дубликатов не вырос"; else bad "появился новый дублирующийся def (правка в первой копии молча не работает)"; fi
 
+echo "== 7) страж диапазона реестра (дефект #221: повтор класса #178) =="
+MAXNUM=$(grep -oE '^\| \*\*[0-9]+\*\* \|' docs/CAPABILITY_STATUS.md | grep -oE '[0-9]+' | sort -n | tail -1)
+RANGE_BAD=0
+for f in README.md README.ru.md docs/index.html docs/README.md; do
+  for got in $(grep -oE '#1[–-]#[0-9]{2,3}' "$f" | grep -oE '[0-9]+$' | sort -u); do
+    if [ "$got" != "$MAXNUM" ]; then
+      echo "  [FAIL] $f: диапазон #1–#$got, а максимум реестра #$MAXNUM"
+      RANGE_BAD=1
+    fi
+  done
+done
+if [ "$RANGE_BAD" -eq 0 ]; then ok "диапазоны #1–#$MAXNUM в README/сайте совпадают с реестром"; else bad "диапазон реестра на витрине отстал от факта"; fi
+
 echo "----------------------------------------------------------------------"
 if [ "$fail" -eq 0 ]; then
   echo "[OK] ecosystem-check: манифесты, llms.txt, action.yml, SARIF, ratchet — всё сходится"

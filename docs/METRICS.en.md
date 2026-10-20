@@ -2330,3 +2330,22 @@ correct returns **2**.
 | `README.ru.md` (migration branch) | «RC=0 (build, 283 tests…)» | a historical statement about that branch; marked «at migration time» |
 
 **Verified:** `grep` over `README.md`, `README.ru.md`, `docs/README.md`, `docs/index.html` finds no 308/424 as CURRENT values; `gen_test_catalog --check` reports 425, synchronised.
+
+---
+
+### 66. Recurrence of class #178: the registry range drifted again (Defect #221)
+
+**Found** the same way as #220: by checking «claim ↔ fact», not by a report.
+
+| Where | Was | Fact |
+|:--|:--|:--|
+| `README.md` (documents table) | `defect registry #1–#184` | **#1–#220** |
+| `README.ru.md` («defect registry» row) | `#1–#184` | **#1–#220** |
+| `docs/index.html` (2 places) | `#1–#184` | **#1–#220** |
+| `docs/CAPABILITY_STATUS.en.md` (section intros 6d-1/6d-2) | `#1–#217` | **#1–#220** |
+
+**Why this matters more than the numbers:** exactly this class was already closed by defect **#178** («the public registry count and MCP tool names on the site were stale»), yet a one-off fix did not hold the metric — the registry grew to #220 while the showcase stayed at #184. It is recorded as a RECURRENCE (not a new class) so that no illusion of «solved» is created.
+
+**Verified:** `grep '#1–#184'` over `README.md`, `README.ru.md`, `docs/index.html` — **0** hits; the EN registry states `#1–#220`; the fact is 158 rows with maximum #221 after this record.
+
+**Automated guard (so that class #178/#221 cannot recur):** `tools/ecosystem_check.sh` gained check **7** — it reads the maximum defect number from `docs/CAPABILITY_STATUS.md`, and every `#1–#N` range in `README.md`, `README.ru.md`, `docs/index.html`, `docs/README.md` must equal it. Proven in both directions: now `[OK] ranges #1–#221 … match`; after substituting `#1–#184` the gate prints `[FAIL] README.md: range #1–#184 while the registry maximum is #221` and returns rc=1, then `[OK]` again after restoring. `canfail --only ecosystem-check` — 1 non-vacuous / 0 vacuous.
