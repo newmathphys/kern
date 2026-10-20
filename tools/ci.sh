@@ -146,6 +146,20 @@ if [ "$FAST" = "0" ]; then
   # Документ, расходящийся с кодом, создаёт ЛОЖНУЮ картину полноты.
   stage "каталог тестов синхронен с кодом" python3 tools/gen_test_catalog.py --check
 
+  # --- Дефект #224: ЧИСЛА НА ВИТРИНЕ ПРОТИВ ИЗМЕРИМЫХ ФАКТОВ -----------------
+  # ЗАЧЕМ: каталог проверялся (#216/#220), а остальные обещания — нет. Так в
+  # README.md жило «114 proven non-vacuous / 95 cases» при факте 125/141, а в
+  # PROJECT.md — «279» тестов при 401. Источник истины здесь — свидетельства
+  # (`core_tests.log`, `kern_next_tests.log`, `cross_arch.log`), пересчёт
+  # каталога и `registry.py --json`, а НЕ текст документа.
+  stage "числа витрины == факты (#224)" python3 tools/check_metrics_consistency.py
+
+  # --- Дефект #222/#223: ЛИЦЕНЗИЯ И СЧЁТЧИК ТЕОРЕМ --------------------------
+  stage "лицензия согласована (#222)" python3 tools/check_license_consistency.py
+  stage "счётчик теорем Lean 4 (#223)" python3 tools/check_lean_counter.py
+  stage "экосистема MCP + диапазон реестра (#221)" bash tools/ecosystem_check.sh
+  stage "SVG: геометрия подписей" python3 tools/svg_check.py
+
   # --- 9. АТТЕСТАЦИОННЫЙ МАНИФЕСТ (10 строк, каждая — реальный прогон) ------
   # ДЕФЕКТ #56: манифест искал шаблон «All N tests passed» (синтаксис 0.13),
   # а в 0.17 тест-раннер печатает «N passed; M skipped; K failed» — при живых

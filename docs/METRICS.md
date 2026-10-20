@@ -9775,3 +9775,21 @@ ratchet `bare_except_baseline.json` (записано 27).
 QEMU 393 passed + 8 skipped = 401 (лог покрывает весь набор)
 entries: #1–#225 · целей 151
 ```
+
+### §146.6 Почему #220/#223 проскочили ИМЕННО в CI
+
+`tools/ci.sh` проверял только **каталог** (`gen_test_catalog --check`), а числа
+тестов, CHECK-целей, кейсов, лицензию, счётчик теорем и геометрию SVG — нет.
+Поэтому витрина расходилась с кодом при зелёном CI.
+
+**Исправлено (5 новых стадий CI):**
+
+```
+числа витрины == факты (#224)        python3 tools/check_metrics_consistency.py
+лицензия согласована (#222)          python3 tools/check_license_consistency.py
+счётчик теорем Lean 4 (#223)         python3 tools/check_lean_counter.py
+экосистема MCP + диапазон реестра    bash tools/ecosystem_check.sh
+SVG: геометрия подписей              python3 tools/svg_check.py
+```
+
+Проверено локально: все пять — `rc=0`; `bash -n tools/ci.sh` — без ошибок.
