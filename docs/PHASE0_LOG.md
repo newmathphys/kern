@@ -183,3 +183,19 @@ grader'а** и нет бенчмарка QuixBugs; реальный прогон
 `README.md`/`PROJECT.md`, и `evidence_guard` честно написал
 «Прогон НЕДЕЙСТВИТЕЛЕН». Правило: **во время снятия свидетельств файлы
 не трогать**. Перезапущено на замороженном дереве — 394+8, `RC=0`.
+
+## 9. Шаг C — make sync / make seal / make status (в работе)
+
+- [x] `tools/sync_state.py` + `docs/facts.json`; якоря `<!-- fact:key -->N`
+      в README/README.ru/index/ATTESTATION/METRICS ×2/ROADMAP/PROJECT_SPEC.
+- [x] `make sync` / `make sync-check`; обе стадии в полном CI.
+- [x] Доказательство: подсадка `401` в якорь → `sync-check` **краснеет**,
+      `make sync` чинит, повторный `sync-check` зелёный; история не тронута.
+- [x] Реестр: **158 целей** (CHECK 128 · BUILD 7 · META 19); якоря обновлены
+      самим `make sync` (156→158, 18→19).
+- [x] `make seal` = `hermetic` + `slsa_provenance --no-build` + `--check`;
+      в аттестат добавлен `attests_commit` (content commit N), `--check`
+      принимает HEAD (до коммита аттестата) или HEAD~1 (после).
+- [x] `make status` + `.vscode/tasks.json` (Quick Check / Sync / Seal / Status).
+- [ ] Прогон `make seal` на чистом дереве (следующий шаг).
+- [ ] Полный `make canfail` (canfail.log 141 → 144, ~15 мин).

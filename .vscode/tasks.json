@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "KERN: Quick Check (ci-fast)",
+      "type": "shell",
+      "command": "make ci-fast",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "KERN: Sync Docs & Evidence (make sync)",
+      "type": "shell",
+      "command": "make sync",
+      "problemMatcher": []
+    },
+    {
+      "label": "KERN: Seal Attestation (make seal)",
+      "type": "shell",
+      "command": "make seal",
+      "problemMatcher": []
+    },
+    {
+      "label": "KERN: Status (make status)",
+      "type": "shell",
+      "command": "make status",
+      "problemMatcher": []
+    }
+  ]
+}

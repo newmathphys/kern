@@ -183,7 +183,7 @@ Marketplace (шаг в UI) · решение по лицензии (PolyForm Non
 | **8** Упаковка v2.5.0 + полный мутационный аудит | 40 | ✅ **1 / 1** |
 
 **Итого закрыто: 40 из 40 пунктов (v2.5.0).** Lean 4: **<!-- fact:lean_theorems -->137 теорем, 0 errors, 0 sorry**.
-Реестр: **<!-- fact:registry_targets -->156 цели, <!-- fact:check_targets -->128/<!-- fact:check_targets -->128 CHECK**; якоря: <!-- fact:anchors -->119.
+Реестр: **<!-- fact:registry_targets -->158 цели, <!-- fact:check_targets -->128/<!-- fact:check_targets -->128 CHECK**; якоря: <!-- fact:anchors -->119.
 
 ---
 

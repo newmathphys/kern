@@ -89,3 +89,7 @@ POST_*.md
 core
 core.*
 vgcore.*
+
+# VS Code: keep shared tasks, ignore user-specific settings/caches.
+.vscode/*
+!.vscode/tasks.json

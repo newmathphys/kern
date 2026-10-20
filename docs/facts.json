@@ -7,8 +7,8 @@
  "canfail_cases": 144,
  "mutation_sites": 1345,
  "mutation_files": 21,
- "registry_targets": 156,
- "meta_targets": 18,
+ "registry_targets": 158,
+ "meta_targets": 19,
  "anchors": 119,
  "lean_theorems": 137,
  "quixbugs": {

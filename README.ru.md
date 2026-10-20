@@ -595,13 +595,13 @@ python3 tools/kern_contracts.py --install-hook   # блокирует git commit
 make canfail          # 144 кейса: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->119 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->156 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->158 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->156 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META <!-- fact:meta_targets -->18) |
+| Целей всего | <!-- fact:registry_targets -->158 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META <!-- fact:meta_targets -->19) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->128/<!-- fact:check_targets -->128 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->144 (не-вакуумных <!-- fact:canfail_cases -->144 · вакуумных 0 · ошибок кейсов 0) |

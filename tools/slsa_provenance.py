@@ -246,6 +246,20 @@ def main() -> int:
                   f"это нормально, привязка идёт по отпечатку исходников")
         else:
             print(f"  [OK] коммит совпал: {cur[:12]}")
+        exp_att = (st.get("predicate", {}).get("runDetails", {})
+                   .get("metadata", {}).get("attests_commit"))
+        parent = git("rev-parse", "HEAD~1")
+        if exp_att:
+            if exp_att == cur:
+                print(f"  [OK] attests_commit == HEAD: {exp_att[:12]}")
+            elif exp_att == parent:
+                print(f"  [OK] attests_commit == HEAD~1 ({exp_att[:12]}) — двухшаговая схема")
+            else:
+                print(f"  [РАСХОЖДЕНИЕ] attests_commit {exp_att[:12]} != HEAD {cur[:12]} "
+                      f"/ HEAD~1 {parent[:12]}")
+                bad += 1
+        else:
+            print("  [i] attests_commit отсутствует — старая схема (только tree_sha256)")
         # УЛУЧШЕНИЕ №13: КРИПТОГРАФИЧЕСКАЯ проверка подписи аттестата.
         # Порча ЛЮБОГО байта подписи обязана ронять `--check` (кейс `slsa-bad-sig`).
         sig_ok = verify_attestation_signature()
@@ -315,6 +329,10 @@ def main() -> int:
                     "startedOn": started,
                     "finishedOn": finished,
                     "dirtyTree": td["dirty"],
+                    # Двухшаговая схема: этот коммит — контент; аттестат
+                    # коммитится СЛЕДУЮЩИМ, поэтому --check принимает HEAD
+                    # (до коммита аттестата) или HEAD~1 (после).
+                    "attests_commit": td["commit"],
                 },
             },
             "kern:notes": [
@@ -330,6 +348,9 @@ def main() -> int:
                  "ПОДПИСЬ НЕ ВЫПОЛНЕНА: нет ключа владельца — аттестат без Ed25519."),
                 "Облачный cosign/sigstore НЕ используется (builder.id = local; "
                 "для SLSA L3 требуется хостируемый билдер).",
+                "Двухшаговая схема: attests_commit — коммит, чьё дерево аттестовано; "
+                "сам аттестат коммитится следующим коммитом, поэтому --check "
+                "принимает HEAD или HEAD~1.",
                 "Воспроизводимость: make hermetic (сборка бит-в-бит).",
                 "Аттестуются артефакты ReleaseFast: эта конфигурация "
                 "бит-воспроизводима (проверено 2 сборками). Debug-сборки Zig 0.17 "

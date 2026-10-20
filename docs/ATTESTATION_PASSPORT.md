@@ -16,7 +16,7 @@
 > относятся к той ревизии и НЕ являются текущими. Актуальные значения (получены
 > прогонами): ядро **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402** (без `z3` в `PATH` — 393 passed + 8 skipped),
 > KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->128 / <!-- fact:check_targets -->128 CHECK** (<!-- fact:canfail_cases -->144 не-вакуумных кейсов, 0 ошибок),
-> реестр **<!-- fact:registry_targets -->156 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->137 теорем /
+> реестр **<!-- fact:registry_targets -->158 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->137 теорем /
 > 0 sorry**, каталог тестов **<!-- fact:catalog -->425**. Также с тех пор закрыто: `hash_algo` по умолчанию
 > — **BLAKE3** (дефект #66), `deflate` (кодек `0x02`) **реализован**, аттестат подписан
 > **Ed25519**. См. `README.md`, `docs/METRICS.md` §1/§75 и §1–§8 ниже (они актуальны).
