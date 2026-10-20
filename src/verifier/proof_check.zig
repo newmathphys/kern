@@ -2777,6 +2777,13 @@ fn verifyNotOrElim(c: *const Ctx, st: Sexp) bool {
     if (st.items.len < 3) return false;
     const src = premiseTerm(c, st.items[1]);
     const concl = expand(c, proved(st), 0);
+    if (dbgEnv("KERN_DEBUG_LIA") != null) {
+        dbgPrint("[dbg-noe] src=", .{});
+        dumpSexp(src);
+        dbgPrint(" concl=", .{});
+        dumpSexp(concl);
+        dbgPrint("\n", .{});
+    }
     const inner = asNot(src) orelse return false;
     if (!inner.isList() or inner.items.len < 2) return false;
     const h = inner.items[0].atom orelse return false;
@@ -2784,6 +2791,16 @@ fn verifyNotOrElim(c: *const Ctx, st: Sexp) bool {
     for (inner.items[1..]) |disj| {
         if (asNot(disj)) |n| {
             if (sexpEq(n, concl)) return true;
+        }
+        // ДЕФЕКТ #210 (дамп на `value % 2 == 0`): Z3 выводит ЗНАКОВУЮ форму
+        //   src = (not (or (= result 1) (= result 0)))
+        //   concl = (not (= result 0))
+        // Дизъюнкты здесь — НЕ отрицания, поэтому прежняя ветка их не видела и
+        // шаг уходил в доверенные. Но `¬(A ∨ B) ⊨ ¬B` — тот же закон де Моргана
+        // (в контрапозитивной записи), поэтому проверяем и его: заключение
+        // обязано быть ОТРИЦАНИЕМ одного из дизъюнктов.
+        if (asNot(concl)) |nc| {
+            if (sexpEq(nc, disj)) return true;
         }
     }
     return false;

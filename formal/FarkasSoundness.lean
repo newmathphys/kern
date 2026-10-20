@@ -693,3 +693,18 @@ theorem le_zero_iff_neg_ge_zero (x : Int) : (x ≤ 0 ↔ -x ≥ 0) := by omega
 /-- Случаи «заворот / без заворота» покрывают все входы (разбор по случаям,
     которым заменена запись через `ite` в сертификатах CVE-B). -/
 theorem wrap_cases_cover (a b : Int) : a < b ∨ a ≥ b := by omega
+
+-- ============================================================================
+-- ДЕФЕКТ #210: знаковая форма `not-or-elim`
+-- Z3 выводит из `¬(A ∨ B)` не только `¬¬A ⊢ A`, но и прямое `¬B`.
+-- Оба — закон де Моргана, поэтому правило звучно в обе стороны.
+-- ============================================================================
+theorem not_or_implies_not_left (a b : Prop) : ¬(a ∨ b) → ¬a :=
+  fun hna => fun ha => hna (Or.inl ha)
+
+theorem not_or_implies_not_right (a b : Prop) : ¬(a ∨ b) → ¬b :=
+  fun hna => fun hb => hna (Or.inr hb)
+
+-- Контроль несимметричности: из `¬(A ∨ B)` НЕ следует `A`.
+theorem not_or_does_not_imply_left (a b : Prop) (ha : a) : ¬(¬(a ∨ b) → a) → False := by
+  intro h; exact h (fun _ => ha)

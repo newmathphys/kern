@@ -2126,3 +2126,23 @@ New bugs: `mergesort([1])`, `find_in_sorted([1], 2)`, `gcd(0, 1)` — all
 **Still open:** 35 SKIP blocked by `List/Subscript/for/Dict/unpacking` (needs
 `QF_AX` in `parse_file`); Euclid axiom for `div/mod` in `proof_check.zig` NOT
 implemented (reproduction gives `trusted: 6`).
+
+---
+
+### 57. Defect #210: `not-or-elim` in SIGNED form -> trusted 6 -> 4
+
+Dump obtained by calling `./zig-out/bin/kernc prove <file.smt2>` DIRECTLY
+(bypassing the Python wrapper, which swallowed the debug stream; without `z3` in
+`PATH` the direct run only printed `[!] z3 unavailable`).
+
+Six trusted steps were: 4 `rewrite` of Tseitin atoms and 2 `not-or-elim` of the
+form `src=(not (or (= r 1) (= r 0))) concl=(not (= r 0))`. `verifyNotOrElim`
+only accepted disjuncts that were themselves negations; `¬(A∨B) ⊨ ¬B` is the
+same De Morgan law, so a second sound branch `asNot(concl) == disj` was added.
+
+**Measured:** trusted **6 -> 4**, bool steps 17 -> 19, **reference `abs.c` stays
+trusted: 0** (no regression). Lean: +3 theorems (125 -> 128), rc=0.
+
+**Remaining 4 `rewrite`** are Tseitin-atom definitions (`def-axiom` clauses);
+verifying them needs an atom-to-clause map and a biconditional proof — NOT done
+in this iteration.
