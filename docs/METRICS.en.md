@@ -2146,3 +2146,26 @@ trusted: 0** (no regression). Lean: +3 theorems (125 -> 128), rc=0.
 **Remaining 4 `rewrite`** are Tseitin-atom definitions (`def-axiom` clauses);
 verifying them needs an atom-to-clause map and a biconditional proof — NOT done
 in this iteration.
+
+---
+
+### 58. Defect #211: two rules from the `value % 2 == 0` dump -> trusted 4 -> 2
+
+The dump showed these were NOT let-bindings (those expanded correctly):
+`(= (ite (= (mod value 2) 0) 1 0) (ite (<= (mod value 2) 0) 1 0))` and
+`(= (= result T) (and (<= result T) (>= result T)))`. The first holds only
+because `0 <= mod x k` (Euclid axiom); the second is order antisymmetry.
+
+Implemented soundly without calling the solver: `eqAntisymEq` (any terms) and
+`eqZeroIteEq`, where `m >= 0` follows FROM THE SHAPE (`mod` with a positive
+integer constant) — otherwise the step stays trusted, since `m = -1` would make
+the identity false.
+
+**Measured:** trusted **4 -> 2** (linear rewrites 17 -> 19); reference `abs.c`
+stays `trusted: 0`; `make contracts` 11 proven / 4 refuted / 0 false alarms;
+Lean **128 -> 131** theorems, 0 sorry.
+
+**Remaining 2:** `(<= result T)` vs `(<= (+ result (* (- 1) T)) 0)` where `T`
+contains `ite` — a linear-form comparison with an OPAQUE subterm; `parseLin`
+rejects `ite`, so `normCmp` does not fire. Treating the `ite` subterm as an atom
+would be sound, but is NOT implemented.

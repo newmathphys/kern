@@ -708,3 +708,18 @@ theorem not_or_implies_not_right (a b : Prop) : ¬(a ∨ b) → ¬b :=
 -- Контроль несимметричности: из `¬(A ∨ B)` НЕ следует `A`.
 theorem not_or_does_not_imply_left (a b : Prop) (ha : a) : ¬(¬(a ∨ b) → a) → False := by
   intro h; exact h (fun _ => ha)
+
+-- ============================================================================
+-- ДЕФЕКТ #211: два правила из дампа `value % 2 == 0`
+-- ============================================================================
+
+-- (a) Антисимметричность порядка: `(= A B) ⟺ (and (<= A B) (>= A B))`.
+theorem eq_iff_le_ge_any (a b : Int) : (a = b) ↔ (a ≤ b ∧ a ≥ b) := by omega
+
+-- (b) Аксиома Евклида: остаток по положительному модулю неотрицателен.
+theorem emod_nonneg_of_pos (x k : Int) (hk : 0 < k) : 0 ≤ x % k := by
+  have hne : k ≠ 0 := by omega
+  exact Int.emod_nonneg x hne
+
+-- (b') при `m >= 0` равенство нулю эквивалентно неположительности.
+theorem eq_zero_iff_le_zero_of_nonneg (m : Int) (h : 0 ≤ m) : (m = 0) ↔ (m ≤ 0) := by omega

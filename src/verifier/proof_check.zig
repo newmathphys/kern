@@ -1026,6 +1026,112 @@ fn isExcludedMiddle(c: *const Ctx, e: Sexp, want_true: bool) bool {
 }
 
 
+/// `cmp(s, head, x, y)`: узел `(head x y)` с ПОБАЙТОВО теми же `x`, `y`.
+fn cmpDirect(s: Sexp, head: []const u8, x: Sexp, y: Sexp) bool {
+    if (!s.isList() or s.items.len != 3) return false;
+    const h = s.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, head) and sexpEq(s.items[1], x) and sexpEq(s.items[2], y);
+}
+
+/// `(= A B)`  ⟺  `(and (<= A B) (>= A B))` — антисимметричность порядка.
+/// Звучимо для ЛЮБЫХ термов (A, B — произвольные целочисленные выражения),
+/// поэтому решатель не вызывается. Дефект #211(a).
+fn eqAntisymEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    _ = c;
+    var eq_side: Sexp = undefined;
+    var and_side: Sexp = undefined;
+    if (isEq3(l) and !isEq3(r)) {
+        eq_side = l;
+        and_side = r;
+    } else if (isEq3(r) and !isEq3(l)) {
+        eq_side = r;
+        and_side = l;
+    } else return false;
+    if (!and_side.isList() or and_side.items.len != 3) return false;
+    const h = and_side.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "and")) return false;
+    const a = eq_side.items[1];
+    const b = eq_side.items[2];
+    const c1 = and_side.items[1];
+    const c2 = and_side.items[2];
+    if (cmpDirect(c1, "<=", a, b) and cmpDirect(c2, ">=", a, b)) return true;
+    if (cmpDirect(c2, "<=", a, b) and cmpDirect(c1, ">=", a, b)) return true;
+    return false;
+}
+
+/// `(ite (= m 0) X Y)` ⟺ `(ite (<= m 0) X Y)` при `m >= 0`.
+/// `m >= 0` НЕ постулируется, а СЛЕДУЕТ ИЗ ФОРМЫ терма: `(mod x k)` с
+/// положительной целой константой `k` (аксиома Евклида `0 <= mod x k`).
+/// Для любого другого `m` шаг остаётся доверенным (иначе `m = -1` дал бы
+/// ложное `-1 = 0 ⟺ -1 <= 0`). Дефект #211(b).
+fn nonNegByShape(t: Sexp) bool {
+    if (!t.isList() or t.items.len != 3) return false;
+    const h = t.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "mod")) return false;
+    const k = t.items[2].atom orelse return false;
+    const v = std.fmt.parseInt(i64, k, 10) catch return false;
+    return v > 0;
+}
+
+fn isIte4(s: Sexp) bool {
+    if (!s.isList() or s.items.len != 4) return false;
+    const h = s.items[0].atom orelse return false;
+    return std.mem.eql(u8, h, "ite");
+}
+
+/// Признак `(= m 0)`: левая часть — `m`, правая — ноль (или наоборот).
+fn eqZeroSide(s: Sexp, m: *Sexp) bool {
+    if (!s.isList() or s.items.len != 3) return false;
+    const h = s.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "=")) return false;
+    if (s.items[2].atom) |ra| {
+        if (std.mem.eql(u8, ra, "0")) {
+            m.* = s.items[1];
+            return true;
+        }
+    }
+    if (s.items[1].atom) |la| {
+        if (std.mem.eql(u8, la, "0")) {
+            m.* = s.items[2];
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Признак `(<= m 0)`.
+fn leZeroSide(s: Sexp, m: *Sexp) bool {
+    if (!s.isList() or s.items.len != 3) return false;
+    const h = s.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "<=")) return false;
+    const ra = s.items[2].atom orelse return false;
+    if (!std.mem.eql(u8, ra, "0")) return false;
+    m.* = s.items[1];
+    return true;
+}
+
+fn eqZeroIteEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    _ = c;
+    var ite_a: Sexp = undefined;
+    var ite_b: Sexp = undefined;
+    if (isIte4(l) and isIte4(r)) {
+        ite_a = l;
+        ite_b = r;
+    } else return false;
+    // ветви обязаны совпадать (это `1` и `0` в измеренном выводе)
+    if (!sexpEqNum(ite_a.items[2], ite_b.items[2])) return false;
+    if (!sexpEqNum(ite_a.items[3], ite_b.items[3])) return false;
+    var mA: Sexp = undefined;
+    var mB: Sexp = undefined;
+    if (eqZeroSide(ite_a.items[1], &mA) and leZeroSide(ite_b.items[1], &mB)) {
+        // (= m 0) слева, (<= m 0) справа
+    } else if (leZeroSide(ite_a.items[1], &mA) and eqZeroSide(ite_b.items[1], &mB)) {
+        // (<= m 0) слева, (= m 0) справа
+    } else return false;
+    if (!sexpEq(mA, mB)) return false;
+    return nonNegByShape(mA);
+}
+
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
@@ -1050,6 +1156,15 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (linCongruenceEq(l, r)) return .verified;
     // КАНОНИЗАЦИЯ СРАВНЕНИЙ верхнего уровня (`x ≥ y` ↔ `x − y ≥ 0` ↔ `¬(y − x > 0)`).
     if (cmpCanonEq(l, r)) return .verified;
+    // ДЕФЕКТ #211 (дамп `value % 2 == 0`, 2 из 4 оставшихся шагов):
+    //   (a) `(= A B) ⟺ (and (<= A B) (>= A B))` — АНТИСИММЕТРИЧНОСТЬ порядка,
+    //       верна для ЛЮБЫХ термов, решатель не нужен;
+    //   (b) `(ite (= m 0) X Y) ⟺ (ite (<= m 0) X Y)` при `m >= 0` — здесь
+    //       `m = (mod value 2)`, и неотрицательность остатка — АКСИОМА ЕВКЛИДА
+    //       (`0 <= mod x k` при `k > 0`). Принимаем ТОЛЬКО когда неотрицательность
+    //       следует из формы терма, иначе шаг остаётся доверенным (звучность).
+    if (eqAntisymEq(c, l, r)) return .verified;
+    if (eqZeroIteEq(c, l, r)) return .verified;
 
     // ТАВТОЛОГИЯ ИСКЛЮЧЁННОГО ТРЕТЬЕГО: `(or (not X) X) = true` и
     // `(and (not X) X) = false`. ИЗМЕРЕНО (кламп `+|`): Z3 оформляет
