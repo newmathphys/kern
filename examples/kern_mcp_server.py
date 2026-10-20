@@ -63,7 +63,7 @@ def _bootstrap_env() -> list[str]:
         missing.append("kernc")
     return missing
 PROTOCOL = "2024-11-05"
-SERVER_INFO = {"name": "kern", "version": "2.5.0"}
+SERVER_INFO = {"name": "kern", "version": "2.5.1"}
 
 TOOLS = [
     {

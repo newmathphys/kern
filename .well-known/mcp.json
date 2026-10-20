@@ -1,7 +1,7 @@
 {
   "name": "io.github.newmathphys/kern",
   "title": "KERN — zero-trust verification gateway",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Zero-trust verification gateway: Z3 + a native Zig proof-DAG checker (trusted steps 0), Belnap B4 logic, Lean 4 soundness theorems, and zero-annotation X-ray for Python, Zig, C, Rust, Go and TS/JS.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "homepage": "https://newmathphys.github.io/kern/",

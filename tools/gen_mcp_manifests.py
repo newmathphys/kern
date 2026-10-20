@@ -34,7 +34,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "examples" / "kern_mcp_server.py"
 
-VERSION = "2.5.0"
+VERSION = "2.5.1"
 # Лицензия: строго как в LICENSE (PolyForm Noncommercial 1.0.0, source-available).
 LICENSE_FIELD = "PolyForm-Noncommercial-1.0.0"
 LICENSE_TEXT = "PolyForm Noncommercial License 1.0.0"

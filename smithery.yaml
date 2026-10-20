@@ -5,7 +5,7 @@
 # Конфигурация авто-запуска для каталога Smithery.ai (smithery.yaml).
 # Читается краулером Smithery; инструменты и схемы берутся из `server.json`
 # (сгенерирован из examples/kern_mcp_server.py: tools/list).
-version: "2.5.0"
+version: "2.5.1"
 name: kern
 displayName: "KERN — zero-trust verification gateway"
 description: >-

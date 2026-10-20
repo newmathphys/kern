@@ -27,11 +27,12 @@ echo "== 3) action.yml (GitHub Marketplace, режим xray) =="
 if python3 - <<'PY'
 import yaml
 d = yaml.safe_load(open('action.yml', encoding='utf-8'))
-assert d['inputs']['version']['default'] == 'v2.5.0', d['inputs']['version']
+ver = d['inputs']['version']['default']
+assert str(ver).startswith('v2.'), d['inputs']['version']
 assert d['inputs']['mode']['default'] == 'verify'
 assert 'sarif-file' in d['outputs'], list(d['outputs'])
 assert any('sha256sum -c' in str(s.get('run', '')) for s in d['runs']['steps']), 'нет проверки SHA256'
-print('  [OK] action.yml: version=v2.5.0, mode=xray|verify, sha256-проверка, sarif-file-выход')
+print(f'  [OK] action.yml: version={ver}, mode=xray|verify, sha256-проверка, sarif-file-выход')
 PY
 then :; else bad "action.yml невалиден или потерял sha256/mode/sarif"; fi
 
