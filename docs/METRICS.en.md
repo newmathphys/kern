@@ -2060,9 +2060,21 @@ both versions, not by the model.
 `mergesort` (5), `rpn_eval` (nested `def` cannot be loaded) — SAT in the model,
 but the live call showed no divergence ⇒ not an accusation (#206 works).
 
-**Side effect:** `make contracts` — proven **11 → 12**, "outside the subset"
-**2 → 1** (a `while` function is now proven via unrolling); violations stay 4,
-false alarms 0.
+**Side effect on demo contracts (and defect #207):** the first version counted
+`make contracts` as proven **11 → 12** (a `while` function "proven" by
+unrolling). **That was a false proof** (defect **#207**): UNSAT over K=2 steps
+does not mean the loop finished — it may continue on step K+1 (CBMC/Kani require
+an *unwinding assertion*).
+
+Fixed: with `unrolled=True` the `PASS` verdict is **forbidden** —
+`[SKIP] [UNBOUNDED] K-step unrolling does not exhaust the loop`
+(a proof requires a `--loops` invariant). A SAT counterexample stays honest
+(it names a concrete input).
+
+After the fix: `make contracts` — proven **11** (as before unrolling), "outside
+the subset" 2 (`sum_to_n` → `[UNBOUNDED] SKIP` instead of a false PASS).
+Pinned in `tools/edge_cases_check.sh`:
+`[OK] #207: loop after unrolling -> UNBOUNDED SKIP (no false PASS)`.
 
 **Remaining blockers (SKIP, per function):** `List` 8, assignment to `arr[i]` 5,
 `for` over non-range 4, variable-length unpacking 4, `Subscript` 3, `Dict` 3,

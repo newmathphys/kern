@@ -126,6 +126,21 @@ if printf '%s' "$ohv" | grep -qF "[UNKNOWN]" && ! printf '%s' "$ohv" | grep -qF 
 else
   echo "  [FAIL] #206: havoc снова объявлен расхождением (ложное обвинение)"; fail=1
 fi
+# ДЕФЕКТ #207: РАЗВЁРТКА НЕ ИМЕЕТ ПРАВА ДАВАТЬ PROVEN.
+cat > "$TMP/unb.py" <<'PY'
+# @kern:requires i >= 0
+# @kern:ensures result >= 0
+def loop_many(i: int) -> int:
+    while i < 10:
+        i += 1
+    return i
+PY
+ounb=$("$PY" tools/kern_contracts.py "$TMP/unb.py" 2>&1)
+if printf '%s' "$ounb" | grep -qF "[UNBOUNDED]" && ! printf '%s' "$ounb" | grep -qF "[PASS]"; then
+  echo "  [OK]   #207: цикл после развёртки -> UNBOUNDED SKIP (ложного PASS нет)"
+else
+  echo "  [FAIL] #207: развёрнутый цикл объявлен ДОКАЗАННЫМ"; fail=1
+fi
 rm -rf "$TMP"
 echo "───────────────────────────────────────────────────────────────────────"
 if [ "$fail" = 0 ]; then

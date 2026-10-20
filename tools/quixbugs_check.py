@@ -51,6 +51,7 @@ def bodies(path: Path):
             and not (isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant)
                      and isinstance(st.value.value, str))
         ]
+        kc._UNROLLED[0] = False
         try:
             body = kc.body_smt(stmts, {})
         except kc.NoReturn:
@@ -63,7 +64,7 @@ def bodies(path: Path):
             bad[node.name] = f"{type(e).__name__}: {e}"
             continue
         params = [a.arg for a in node.args.args if a.arg != "self"]
-        ok[node.name] = (params, body)
+        ok[node.name] = (params, body, bool(kc._UNROLLED[0]))
     return ok, bad
 
 
@@ -177,8 +178,8 @@ def run(qb: Path, json_out: Path | None) -> int:
         diverged = same = unknown = discarded = 0
         seen = []
         for fn in sorted(common):
-            pa, ba = a[fn]
-            pb, bb = b[fn]
+            pa, ba, ua = a[fn]
+            pb, bb, ub = b[fn]
             if pa != pb:
                 seen.append(f"{fn}:SKIP-params")
                 continue
@@ -189,8 +190,14 @@ def run(qb: Path, json_out: Path | None) -> int:
                 seen.append(f"{fn}:havoc-model")
             _rc, out = kc.run_kernc(str(KC), kc.diff_equiv_smt(pa, ba, bb))
             if "ДОКАЗАНО" in out:
-                same += 1
-                seen.append(f"{fn}:EQ")
+                if ua or ub:
+                    # дефект #207: развёртка — недо-аппроксимация, UNSAT не
+                    # доказывает эквивалентность
+                    unknown += 1
+                    seen.append(f"{fn}:UNKNOWN(unrolled)")
+                else:
+                    same += 1
+                    seen.append(f"{fn}:EQ")
                 continue
             # SAT-кандидат: ЗАЯВЛЯТЬ расхождение можно ТОЛЬКО после живого
             # вызова обеих версий на этом входе (правило №4, дефект #206).

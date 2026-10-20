@@ -527,16 +527,22 @@ def parse_file(path: Path):
         # присваивания. Путь без `return` -> NoReturn (не глотаем ветку!),
         # циклы/вызовы -> Unsupported.
         _DIV_COLLECTOR.clear()
+        _UNROLLED[0] = False
         try:
             body = body_smt(stmts, _self_meta(node, stmts))
         except (NoReturn, Unsupported) as e:
             body = None
             skip_reason = str(e)
+        # ДЕФЕКТ #207: была ли трансляция с РАЗВЁРТКОЙ цикла/рекурсии.
+        # Развёртка — недо-аппроксимация: SAT на K шагах = честный контрпример,
+        # UNSAT на K шагах НЕ доказывает корректность (цикл может идти дальше).
+        unrolled = bool(_UNROLLED[0])
         # Делители, встреченные при трансляции -> обязательство «делитель ≠ 0».
         divs = list(dict.fromkeys(_DIV_COLLECTOR))
         params = [a.arg for a in node.args.args if a.arg != "self"]
         out.append((node.name, params, req, ens, body, node.lineno, skip_reason,
-                    {"ranges": {}, "ret": None, "divisors": divs}))
+                    {"ranges": {}, "ret": None, "divisors": divs,
+                     "unrolled": unrolled}))
     return out
 
 
@@ -725,10 +731,14 @@ def run_kernc(kernc, smt: str):
 
 
 def parse_bodies(path: Path):
-    """Все функции файла БЕЗ требования контракта: (имя, params, body_smt, строка).
+    """Все функции файла БЕЗ контракта: (имя, params, body_smt, строка, unrolled).
 
     Нужна для УЛУЧШЕНИЯ №3 (`--diff-equiv`): эквивалентность рефакторинга
     доказывается по ТЕЛАМ, контракты писать не требуется.
+
+    `unrolled=True` означает, что тело получено РАЗВЁРТКОЙ цикла/рекурсии на
+    K шагов. Такое тело — недо-аппроксимация: SAT на нём даёт честный
+    контрпример, но UNSAT НЕ доказывает эквивалентность (дефект #207).
     """
     src = path.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
@@ -742,12 +752,13 @@ def parse_bodies(path: Path):
             and not (isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant)
                      and isinstance(st.value.value, str))
         ]
+        _UNROLLED[0] = False
         try:
             body = body_smt(stmts, _self_meta(node, stmts))
         except (NoReturn, Unsupported):
             continue
         params = [a.arg for a in node.args.args if a.arg != "self"]
-        out.append((node.name, params, body, node.lineno))
+        out.append((node.name, params, body, node.lineno, bool(_UNROLLED[0])))
     return out
 
 
@@ -1702,16 +1713,16 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     if not Path(kernc).exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 2
-    a = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(old_file))}
-    b2 = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(new_file))}
+    a = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(old_file))}
+    b2 = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(new_file))}
     common = [n for n in a if n in b2]
     if not common:
         print("[!] нет одноимённых функций в подмножестве — сравнивать нечего")
         return 2
     diverged = same = unknown = 0
     for name in sorted(common):
-        pa, ba, _ = a[name]
-        pb, bnew, _ = b2[name]
+        pa, ba, _ln, ua = a[name]
+        pb, bnew, _ln2, ub = b2[name]
         if pa != pb:
             print(f"  [SKIP] {name}: разные наборы параметров {pa} / {pb}")
             continue
@@ -1723,6 +1734,13 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
             print(f"  [UNKNOWN] {name}: тело содержит абстракцию (_havoc_k) — "
                   f"расхождение НЕДОКАЗУЕМО в этой модели (не баг)")
             unknown += 1
+            continue
+        # ДЕФЕКТ #207: развёртка — недо-аппроксимация. UNSAT на K шагах НЕ
+        # доказывает эквивалентность (цикл может идти дальше). Только UNKNOWN.
+        if ua or ub:
+            unknown += 1
+            print(f"  [UNKNOWN] {name}: развёртка цикла/рекурсии — "
+                  f"эквивалентность НЕДОКАЗУЕМА (дефект #207)")
             continue
         rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
         if "ДОКАЗАНО" in out:
@@ -2730,6 +2748,19 @@ def _demo(args) -> int:
                 skipped += 1
                 continue
             rc, out = run_kernc(kernc, smt)
+            # ДЕФЕКТ #207: тело получено РАЗВЁРТКОЙ цикла/рекурсии (K шагов) —
+            # это недо-аппроксимация. UNSAT на K шагах НЕ доказывает цикл:
+            # он может продолжаться на шаге K+1. Доказательство требует
+            # инварианта (--loops) или unwinding assertion, поэтому честный
+            # вердикт при «ДОКАЗАНО» — SKIP/UNBOUNDED, а НЕ PASS.
+            if meta.get("unrolled") and "ДОКАЗАНО" in out:
+                print(f"  [SKIP] {name}: [UNBOUNDED] развёртка {_UNROLL_K[0]} шагов "
+                      f"не исчерпывает цикл/рекурсию — для доказательства нужен "
+                      f"инвариант (--loops)")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": "unbounded loop: unrolling is under-approx (#207)"})
+                skipped += 1
+                continue
             # ТРИ РАЗЛИЧНЫХ ИСХОДА (раньше два). Различие принципиально:
             #   PASS — Z3 доказал И пруф-чекер перепроверил вывод;
             #   SKIP — Z3 доказал, но пруф-чекер НЕ ПОКРЫВАЕТ такую форму вывода
@@ -5052,16 +5083,16 @@ def cmd_explain(path: str, kernc) -> int:
 
 def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
     """ПУНКТ 19: математическое резюме изменений для Code Review."""
-    a = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(old_file))}
-    b2 = {n: (p, b, ln) for n, p, b, ln in parse_bodies(Path(new_file))}
+    a = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(old_file))}
+    b2 = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(new_file))}
     common = sorted(n for n in a if n in b2)
     only_old = sorted(set(a) - set(b2))
     only_new = sorted(set(b2) - set(a))
     same = diverged = unknown = 0
     print(f"[PR-SUMMARY] {Path(old_file).name} -> {Path(new_file).name}")
     for name in common:
-        pa, ba, _ = a[name]
-        pb, bnew, _ = b2[name]
+        pa, ba, _ln, ua = a[name]
+        pb, bnew, _ln2, ub = b2[name]
         if pa != pb:
             print(f"  [SKIP] {name}: изменён набор параметров")
             continue
@@ -5071,6 +5102,13 @@ def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
             unknown += 1
             print(f"  [UNKNOWN] {name}: тело содержит абстракцию (_havoc_k) — "
                   f"изменение поведения недоказуемо")
+            continue
+        # ДЕФЕКТ #207: развёртка — недо-аппроксимация. UNSAT на K шагах НЕ
+        # доказывает эквивалентность (цикл может идти дальше). Только UNKNOWN.
+        if ua or ub:
+            unknown += 1
+            print(f"  [UNKNOWN] {name}: развёртка цикла/рекурсии — "
+                  f"изменение недоказуемо (дефект #207)")
             continue
         rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
         if "ДОКАЗАНО" in out:
@@ -5296,13 +5334,15 @@ def _equiv_proven(fn_old: ast.FunctionDef, fn_new: ast.FunctionDef, kernc) -> bo
         pn = Path(td) / "new_mod.py"
         po.write_text(ast.unparse(fn_old) + "\n", encoding="utf-8")
         pn.write_text(ast.unparse(fn_new) + "\n", encoding="utf-8")
-        a = {n: (p, b) for n, p, b, _ in parse_bodies(po)}
-        b2 = {n: (p, b) for n, p, b, _ in parse_bodies(pn)}
+        a = {n: (p, b, u) for n, p, b, _l, u in parse_bodies(po)}
+        b2 = {n: (p, b, u) for n, p, b, _l, u in parse_bodies(pn)}
         if fn_old.name not in a or fn_old.name not in b2:
             return False
-        pa, ba = a[fn_old.name]
-        pb, bb = b2[fn_old.name]
+        pa, ba, ua = a[fn_old.name]
+        pb, bb, ub = b2[fn_old.name]
         if pa != pb:
+            return False
+        if ua or ub:      # дефект #207: развёртка не доказывает эквивалентность
             return False
         _rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bb))
         return "ДОКАЗАНО" in out
