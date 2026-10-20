@@ -2199,3 +2199,24 @@ Lean 4 (Mathlib NOT required), documented in the file header.
 0 sorry)**; theorems **131 → 134**. Bonus: `bv_decide` also FINDS
 counterexamples (it refuted my first, incorrect formulation with
 `y = 0x8000000000000000`).
+
+---
+
+### 60. Defect #212: term moving done STRUCTURALLY -> trusted 2 -> 0
+
+Remaining pair from the dump: `L=(<= result T)`, `R=(<= (+ result (* (- 1) T)) 0)`
+with `T = (ite (<= (mod value 2) 0) 1 0)`.
+
+**Key decision: do NOT touch `parseLin`.** The rule checks structure only:
+`(✦ A B) ⟺ (✦ (+ A (− B)) 0)` for ✦ ∈ {≤,<,≥,>}, and
+`(≥ A B) ⟺ (≤ (+ B (− A)) 0)`, `(> A B) ⟺ (< (+ B (− A)) 0)`, where `A` and `B`
+are compared byte-wise (`sexpEq`) and `(− B)` accepts both `(* (- 1) B)` and
+`(- B)`. Since nothing inside `A`/`B` is inspected, an `ite` there is irrelevant.
+
+**Measured:** `value % 2 == 0` — trusted **2 -> 0** (`trusted: 0 | holes: 0`),
+linear rewrites 19 -> 21; reference `abs.c` stays `trusted: 0`; `make contracts`
+11/4/**0 false alarms**; Lean **134 -> 137** theorems, 0 sorry.
+
+### 60a. Defect #213: `--trust-score` missing from the CLI
+Documented but absent from argparse. Added `--trust-score <PATH|owner/repo>`
+delegating to `tools/trust_scorecard.py` (no growth of `kern_contracts.py`).

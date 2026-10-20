@@ -1944,6 +1944,11 @@ def main() -> int:
                     help="универсальный аудит: путь, файл или GitHub URL")
     ap.add_argument("--html-out", dest="html_out", default=None,
                     help="сохранить HTML-паспорт аудита")
+    # ДЕФЕКТ #213: флаг упоминался в документации, но ОТСУТСТВОВАЛ в CLI.
+    # Делегируем в отдельный модуль `tools/trust_scorecard.py`.
+    ap.add_argument("--trust-score", dest="trust_score", default=None,
+                    metavar="PATH|owner/repo",
+                    help="KERN Trust Scorecard: паспорт доверия для репозитория")
     ap.add_argument("--xray", default=None, metavar="PATH",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
                          "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
@@ -2029,6 +2034,8 @@ def main() -> int:
         return cmd_simplify(args.simplify, args.simplify_out, args.kernc)
     if args.gen_tests:
         return cmd_gen_tests(args.gen_tests[0], args.gen_tests[1], args.kernc)
+    if getattr(args, "trust_score", None):
+        return cmd_trust_score(args.trust_score)
     if getattr(args, "audit_repo", None):
         return cmd_audit_repo(args.audit_repo, args.kernc,
                               getattr(args, "html_out", None))
@@ -4291,6 +4298,19 @@ def _audit_fetch(target: str) -> tuple[Path, Path | None]:
         _AUDIT_TMP.discard(tmp)
         raise RuntimeError(f"git clone не удался: {(r.stderr or '')[:200]}")
     return tmp / "repo", tmp
+
+
+def cmd_trust_score(target: str) -> int:
+    """`--trust-score <PATH|owner/repo>`: делегирует в `tools/trust_scorecard.py`.
+
+    Отдельный модуль — намеренно: `kern_contracts.py` уже 5.8k строк, и новый
+    движок в нём усугубил бы долг #174 (ratchet `dup_defs_guard.py`).
+    """
+    tc = Path(__file__).resolve().parent / "trust_scorecard.py"
+    if not tc.exists():
+        print(f"[!] не найден {tc}")
+        return 2
+    return subprocess.call([sys.executable, str(tc), "--repo", target])
 
 
 def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:

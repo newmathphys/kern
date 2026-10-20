@@ -1132,6 +1132,76 @@ fn eqZeroIteEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
     return nonNegByShape(mA);
 }
 
+/// Тройка сравнения `(head A B)`.
+const CmpTriple = struct { h: []const u8, a: Sexp, b: Sexp };
+
+fn asCmpTriple(s: Sexp) ?CmpTriple {
+    if (!s.isList() or s.items.len != 3) return null;
+    const h = s.items[0].atom orelse return null;
+    const is_cmp = std.mem.eql(u8, h, "<=") or std.mem.eql(u8, h, ">=") or
+        std.mem.eql(u8, h, "<") or std.mem.eql(u8, h, ">");
+    if (!is_cmp) return null;
+    return .{ .h = h, .a = s.items[1], .b = s.items[2] };
+}
+
+/// `(- X)` или `(* (- 1) X)` -> `X`.
+fn negTermOf(t: Sexp) ?Sexp {
+    if (!t.isList()) return null;
+    const h = t.items[0].atom orelse return null;
+    if (std.mem.eql(u8, h, "-") and t.items.len == 2) return t.items[1];
+    if (!std.mem.eql(u8, h, "*") or t.items.len != 3) return null;
+    const c = t.items[1];
+    if (!c.isList() or c.items.len != 2) return null;
+    const ch = c.items[0].atom orelse return null;
+    if (!std.mem.eql(u8, ch, "-")) return null;
+    const v = c.items[1].atom orelse return null;
+    if (!std.mem.eql(u8, v, "1")) return null;
+    return t.items[2];
+}
+
+/// `t` — сумма `x + (−y)` (в любом порядке слагаемых).
+fn isSumOfXMinusY(t: Sexp, x: Sexp, y: Sexp) bool {
+    if (!t.isList() or t.items.len != 3) return false;
+    const h = t.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "+")) return false;
+    if (sexpEq(t.items[1], x)) {
+        if (negTermOf(t.items[2])) |ny| if (sexpEq(ny, y)) return true;
+    }
+    if (sexpEq(t.items[2], x)) {
+        if (negTermOf(t.items[1])) |ny| if (sexpEq(ny, y)) return true;
+    }
+    return false;
+}
+
+/// `(✦ A B)` ⟺ `(✦ (+ A (− B)) 0)` для ✦ ∈ {≤, <, ≥, >}.
+/// ПЕРЕНОС СЛАГАЕМОГО через знак сравнения — тождество теории порядка.
+/// Дефект #212: `A` и `B` сравниваются СТРУКТУРНО (как в `eqAntisymEq`),
+/// `parseLin` не вызывается — поэтому `ite` внутри `B` не мешает.
+fn plainVsSubZero(p: CmpTriple, s: CmpTriple) bool {
+    if (!std.mem.eql(u8, p.h, s.h)) return false;
+    if (!isZeroAtom(s.b)) return false;
+    return isSumOfXMinusY(s.a, p.a, p.b);
+}
+
+/// `(>= A B)` ⟺ `(<= (+ B (− A)) 0)` и `(> A B)` ⟺ `(< (+ B (− A)) 0)`.
+fn plainVsFlipped(p: CmpTriple, s: CmpTriple) bool {
+    const flip_ok = (std.mem.eql(u8, p.h, ">=") and std.mem.eql(u8, s.h, "<=")) or
+        (std.mem.eql(u8, p.h, ">") and std.mem.eql(u8, s.h, "<"));
+    if (!flip_ok) return false;
+    if (!isZeroAtom(s.b)) return false;
+    return isSumOfXMinusY(s.a, p.b, p.a);
+}
+
+/// `(<= A B)` ⟺ `(<= (+ A (* (- 1) B)) 0)` (и родственные формы).
+fn cmpSubZeroEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    _ = c;
+    const lt = asCmpTriple(l) orelse return false;
+    const rt = asCmpTriple(r) orelse return false;
+    if (plainVsSubZero(lt, rt) or plainVsSubZero(rt, lt)) return true;
+    if (plainVsFlipped(lt, rt) or plainVsFlipped(rt, lt)) return true;
+    return false;
+}
+
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
@@ -1165,6 +1235,10 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     //       следует из формы терма, иначе шаг остаётся доверенным (звучность).
     if (eqAntisymEq(c, l, r)) return .verified;
     if (eqZeroIteEq(c, l, r)) return .verified;
+    // ДЕФЕКТ #212: перенос слагаемого `(<= A B) ⟺ (<= (+ A (* (- 1) B)) 0)`.
+    // A и B сравниваются СТРУКТУРНО, поэтому `ite` внутри них не мешает
+    // (в отличие от линейной нормализации через `parseLin`).
+    if (cmpSubZeroEq(c, l, r)) return .verified;
 
     // ТАВТОЛОГИЯ ИСКЛЮЧЁННОГО ТРЕТЬЕГО: `(or (not X) X) = true` и
     // `(and (not X) X) = false`. ИЗМЕРЕНО (кламп `+|`): Z3 оформляет

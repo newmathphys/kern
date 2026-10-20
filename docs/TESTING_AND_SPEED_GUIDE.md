@@ -30,7 +30,7 @@
 ### Раздел 3 — Формальная верификация
 | Метод | Факт |
 |:--|:--|
-| Lean 4 | **8 файлов, 134 теорем, 0 errors, 0 sorry** |
+| Lean 4 | **8 файлов, 137 теорем, 0 errors, 0 sorry** |
 | Proof-DAG checker | `trusted: 0 \| holes: 0` на QF_LIA, QF_S, IEEE-754, циклах, массивах, автоматах, RLS |
 | Белнап B₄ | `JOIN_K(T,F)=B`, поглощение противоречием, Evidence Decay, Scoped Epoch |
 | Флойд–Хоар | `--loops`: Init + Consecution + Post + Termination |
