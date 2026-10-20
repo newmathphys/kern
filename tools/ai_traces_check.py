@@ -27,7 +27,7 @@ PATTERNS = (
     r"🤖 Generated with",
 )
 SKIP = (".git/", ".venv", "node_modules/", ".zig-cache/", "zig-out/",
-        "docs/evidence/", "__pycache__/", "docs/PHASE0_LOG.md")
+        "docs/evidence/", "__pycache__/")
 
 
 def hits(text: str) -> list[str]:

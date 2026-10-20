@@ -17,7 +17,7 @@
 
 Выход:
   server.json            — карточка сервера для реестров (все 8 инструментов)
-  mcp.json               — готовый конфиг для Claude Desktop / Cursor
+  mcp.json               — готовый конфиг для MCP-клиентов
   .well-known/mcp.json   — discovery-документ (tools + entrypoint)
 
 🔴 ЧЕСТНАЯ ГРАНИЦА: `$schema` — ссылка на схему реестра, но мы НЕ заявляем,

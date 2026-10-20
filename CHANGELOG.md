@@ -6,6 +6,14 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.5.1] — 2026-10-20
+
+Honest QuixBugs boundary (6/40 SMT + 33/40 differential), `make sync` with
+`docs/facts.json` and anchors, EN/RU parity guard, no AI boilerplate,
+canfail 144/0/0/0, scorecard 128/144, attestation with `attests_commit`.
+
+Full release notes: [`docs/RELEASE_NOTES_v2.5.1.md`](docs/RELEASE_NOTES_v2.5.1.md).
+
 ## [2.5.0] — 2026-10-19
 
 Full release notes: [`docs/RELEASE_NOTES_v2.5.0.md`](docs/RELEASE_NOTES_v2.5.0.md).

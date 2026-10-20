@@ -40,7 +40,7 @@
 
 ## What is left before the release
 
-1. **Release v2.5.0** (owner-only): merge `v2.5-dev → main`, push, re-upload the asset +
+1. **Release v2.5.1** (owner-only): merge `v2.5-dev → main`, push, re-upload the asset +
    `SHA256SUMS`, run the online `make artifact-check`.
 2. Sync README/landing hashes after the asset is uploaded (currently v2.4.0 on purpose,
    otherwise the links would 404).

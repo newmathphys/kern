@@ -7,7 +7,7 @@ const std = @import("std");
 /// ЕДИНЫЙ ИСТОЧНИК ВЕРСИИ. ДЕФЕКТ #97: строка версии была
 /// продублирована в `--version` и в баннере `usage`, и баннер
 /// отстал (печатал v1.3 при версии v2.3.0). Теперь одна константа.
-pub const KERN_VERSION = "v2.5.0";
+pub const KERN_VERSION = "v2.5.1";
 
 // Подсистемы L0-L5
 const KimgHeader = @import("core/kimg_reader.zig").KimgHeader;
