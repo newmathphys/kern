@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import ast
 import hashlib
 import json
@@ -66,6 +67,17 @@ _AXIOMS: list = []
 _HAVOC_SEQ: list = [0]
 _HAVOC_USED: list = [False]
 _ABSTRACT_SYMS: set = set()  # символы абстракции (объявляются в SMT)
+# ОГРАНИЧЕННАЯ РАЗВЁРТКА (Bounded Model Checking, как в CBMC/Kani).
+# `while` и `for ... in range(K)` разворачиваются в K копий тела, саморекурсия —
+# в K вложенных тел (в самой глубине вызов становится havoc). Развёртка —
+# НЕДО-аппроксимация: она годится для ПОИСКА контрпримеров, но не для
+# доказательства корректности. Поэтому SAT-контрпример обязан подтвердиться
+# ЖИВЫМ вызовом (Live Replay) — иначе он не считается нарушением (#206).
+_UNROLL_K: list = [max(1, int(os.environ.get("KERN_UNROLL_K", "2")))]
+_UNROLLED: list = [False]   # в трансляции была развёртка цикла/рекурсии
+_INLINED: list = [0]        # сколько раз встроено тело саморекурсии
+
+
 
 
 class Unsupported(Exception):
@@ -177,6 +189,22 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             if fname == "int":
                 return x
             return f"(ite (= {x} 0) 0 1)"
+        # САМОРЕКУРСИЯ — ОГРАНИЧЕННЫЙ INLINE (K шагов, как bounded unroll):
+        # тело функции подставляется с фактическими аргументами; на дне бюджета
+        # вызов снова становится havoc. Недо-аппроксимация: SAT обязан
+        # подтвердиться живым вызовом (правило №4).
+        _meta = env.get("__self__") if isinstance(env, dict) else None
+        if (_meta and isinstance(node.func, ast.Name)
+                and node.func.id == _meta[0] and _meta[3] > 0 and not node.keywords
+                and len(node.args) == len(_meta[1])):
+            _sname, _sparams, _sbody, _budget = _meta
+            _new_env = dict(env)
+            for _p, _a in zip(_sparams, node.args):
+                _new_env[_p] = expr_smt(_a, env)
+            _new_env["__self__"] = (_sname, _sparams, _sbody, _budget - 1)
+            _INLINED[0] += 1
+            _UNROLLED[0] = True
+            return body_smt(copy.deepcopy(_sbody), _new_env)
         _HAVOC_SEQ[0] += 1
         _HAVOC_USED[0] = True
         _sym = f"_havoc_{_HAVOC_SEQ[0]}"
@@ -242,6 +270,12 @@ def expr_smt(node: ast.AST, env: dict) -> str:
     raise Unsupported(f"узел {type(node).__name__}")
 
 
+def _self_meta(fn, stmts) -> dict:
+    """Окружение с метаданными функции для inline саморекурсии (bounded)."""
+    params = [a.arg for a in fn.args.args if a.arg != "self"]
+    return {"__self__": (fn.name, params, stmts, _UNROLL_K[0])}
+
+
 def body_smt(stmts, env: dict) -> str:
     """Символьно исполнить тело функции и вернуть SMT-выражение её результата.
 
@@ -283,6 +317,79 @@ def body_smt(stmts, env: dict) -> str:
                                 dict(env))
             except NoReturn:
                 continue
+        if isinstance(st, (ast.Import, ast.ImportFrom)):
+            # ПОЛЕВОЙ АДАПТЕР: `import` не влияет на арифметику результата —
+            # это No-Op, а не «вне подмножества» (в QuixBugs 3 задачи падали
+            # только из-за строчки `import` в начале файла).
+            continue
+        if isinstance(st, ast.While):
+            # ОГРАНИЧЕННАЯ РАЗВЁРТКА (CBMC/Kani-стиль): K копий `if cond: body`
+            # подряд. Это НЕДО-аппроксимация: годится для поиска контрпримеров,
+            # но не для доказательства. SAT-контрпример обязан подтвердиться
+            # живым вызовом (Live Replay, правило №4 / дефект #206).
+            if st.orelse:
+                raise Unsupported("while ... else")
+            _UNROLLED[0] = True
+            copies = [
+                ast.If(test=copy.deepcopy(st.test),
+                       body=copy.deepcopy(st.body), orelse=[])
+                for _ in range(_UNROLL_K[0])
+            ]
+            return body_smt(copies + stmts[i + 1:], env)
+        if isinstance(st, ast.For):
+            # `for v in range(<константы>)` разворачивается так же (K копий
+            # присваивания счётчика + тело). Не-range итераторы — честный отказ.
+            it = st.iter
+            if not (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
+                    and it.func.id == "range" and not it.keywords):
+                raise Unsupported("for по не-range")
+            if not isinstance(st.target, ast.Name):
+                raise Unsupported("for с распаковкой цели")
+            if st.orelse:
+                raise Unsupported("for ... else")
+            try:
+                vals = [int(ast.literal_eval(a)) for a in it.args]
+            except (ValueError, TypeError, SyntaxError):
+                # НЕ-константный `range(len(arr))` и т.п.: недо-аппроксимация —
+                # разворачиваем K итераций со счётчиком 0..K-1. Найденный
+                # контрпример обязан подтвердиться живым вызовом (правило №4).
+                _UNROLLED[0] = True
+                unrolled = []
+                for t in range(_UNROLL_K[0]):
+                    unrolled.append(ast.Assign(
+                        targets=[copy.deepcopy(st.target)],
+                        value=ast.Constant(value=t)))
+                    unrolled.extend(copy.deepcopy(st.body))
+                return body_smt(unrolled + stmts[i + 1:], env)
+            if len(vals) == 1:
+                start, stop, step = 0, vals[0], 1
+            elif len(vals) == 2:
+                start, stop, step = vals[0], vals[1], 1
+            elif len(vals) == 3:
+                start, stop, step = vals
+            else:
+                raise Unsupported("range: не 1..3 аргумента")
+            if step == 0:
+                raise Unsupported("range с шагом 0")
+            span = (stop - start) * (1 if step > 0 else -1)
+            total = 0 if span <= 0 else (span + abs(step) - 1) // abs(step)
+            _UNROLLED[0] = True
+            unrolled = []
+            for t in range(min(total, _UNROLL_K[0])):
+                unrolled.append(ast.Assign(
+                    targets=[copy.deepcopy(st.target)],
+                    value=ast.Constant(value=start + t * step)))
+                unrolled.extend(copy.deepcopy(st.body))
+            return body_smt(unrolled + stmts[i + 1:], env)
+        if isinstance(st, ast.AugAssign):
+            # `x op= e` — это `x = x op e`. Для имён транслируется точно;
+            # `arr[i] op= e` (мутация элемента) вне модели — честный отказ.
+            if not isinstance(st.target, ast.Name):
+                raise Unsupported("AugAssign не в имя")
+            binop = ast.BinOp(left=ast.Name(id=st.target.id, ctx=ast.Load()),
+                              op=st.op, right=st.value)
+            env[st.target.id] = expr_smt(binop, env)
+            continue
         if isinstance(st, ast.Assign):
             tgts = st.targets[0]
             if isinstance(tgts, (ast.Tuple, ast.List)):
@@ -421,7 +528,7 @@ def parse_file(path: Path):
         # циклы/вызовы -> Unsupported.
         _DIV_COLLECTOR.clear()
         try:
-            body = body_smt(stmts, {})
+            body = body_smt(stmts, _self_meta(node, stmts))
         except (NoReturn, Unsupported) as e:
             body = None
             skip_reason = str(e)
@@ -636,7 +743,7 @@ def parse_bodies(path: Path):
                      and isinstance(st.value.value, str))
         ]
         try:
-            body = body_smt(stmts, {})
+            body = body_smt(stmts, _self_meta(node, stmts))
         except (NoReturn, Unsupported):
             continue
         params = [a.arg for a in node.args.args if a.arg != "self"]
@@ -5417,7 +5524,7 @@ def cmd_presets(path: str, kernc, spec_gaps: bool = False) -> int:
         req_txt = _requires_above(lines, fn.lineno)
         body, why = None, ""
         try:
-            body = body_smt(_fn_stmts(fn), {})
+            body = body_smt(_fn_stmts(fn), _self_meta(fn, _fn_stmts(fn)))
         except (NoReturn, Unsupported) as e:
             why = str(e)
 
@@ -6125,7 +6232,7 @@ def cmd_noninterference(path: str, kernc) -> int:
             continue
         body, why = None, ""
         try:
-            body = body_smt(_fn_stmts(fn), {})
+            body = body_smt(_fn_stmts(fn), _self_meta(fn, _fn_stmts(fn)))
         except (NoReturn, Unsupported) as e:
             why = str(e)
         if body is None:

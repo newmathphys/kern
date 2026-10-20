@@ -2030,3 +2030,45 @@ front end models `list` (`select/store`, `QF_AX`), slices and `for/while`
 (bounded unroll or invariants), the honest number of caught bugs is **0 of 40**.
 Full report: `audits/QUIXBUGS_BASELINE.md`. Next work order:
 `list`/slice (QF_AX) → `for`/`while` (bounded) → re-run QuixBugs.
+
+---
+
+### 53. Bounded AST unrolling + Live Replay: first honest QuixBugs catch
+
+Added to the contract path (`tools/kern_contracts.py`):
+`while`/`for range` → **K unrolled copies** (`KERN_UNROLL_K`, default 2);
+**bounded inline of self-recursion** (K steps, then havoc); `import` as a No-Op;
+`AugAssign` (`x op= e`) translated exactly.
+
+**Soundness.** Unrolling is an **under-approximation** (CBMC/Kani style): it finds
+counterexamples but never proves correctness. Therefore every SAT candidate in
+`tools/quixbugs_check.py` goes through **Live Replay**: a real call to
+`buggy_fn(**args)` and `correct_fn(**args)` (2 s timeout, recursion limit 300,
+small-domain enumeration for unconstrained args). `DIVERGED` is reported **only**
+when the runtime really diverges, otherwise `DISCARDED`.
+
+| Outcome (40 pairs) | Tasks |
+|:--|--:|
+| **DIVERGED `[RUNTIME CONFIRMED]`** | **1** |
+| DISCARDED | 4 |
+| SKIP | 35 |
+
+**Caught:** `gcd` at `a = 0, b = 1` — the buggy version recurses forever
+(`RecursionError`), the correct one returns `1`. Confirmed by live execution of
+both versions, not by the model.
+**Discarded:** `depth_first_search` (25 inputs), `find_in_sorted` (25),
+`mergesort` (5), `rpn_eval` (nested `def` cannot be loaded) — SAT in the model,
+but the live call showed no divergence ⇒ not an accusation (#206 works).
+
+**Side effect:** `make contracts` — proven **11 → 12**, "outside the subset"
+**2 → 1** (a `while` function is now proven via unrolling); violations stay 4,
+false alarms 0.
+
+**Remaining blockers (SKIP, per function):** `List` 8, assignment to `arr[i]` 5,
+`for` over non-range 4, variable-length unpacking 4, `Subscript` 3, `Dict` 3,
+path without return 2, non-linear multiply 2, empty literal 2, one binary
+operator, one `DictComp`.
+
+Next honest step: **array model (`QF_AX`, `array_theory.zig`) plus element
+assignment** — without it the “caught” count cannot grow. Report:
+`audits/QUIXBUGS_BASELINE.md`.

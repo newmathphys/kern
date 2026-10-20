@@ -19,7 +19,10 @@
 import ast
 import collections
 import importlib.util
+import itertools
 import json
+import re
+import signal
 import sys
 from pathlib import Path
 
@@ -64,6 +67,94 @@ def bodies(path: Path):
     return ok, bad
 
 
+def _model_args(out: str) -> dict:
+    """Извлечь аргументы из `[КОНТРПРИМЕР] a = 4, b = 2` (только целые)."""
+    line = next((l for l in out.splitlines() if "КОНТРПРИМЕР" in l), "")
+    vals: dict[str, int] = {}
+    for name, num in re.findall(r"([A-Za-z_]\w*)\s*=\s*(-?\d+)", line):
+        if name in ("result", "res_old", "res_new") or name.startswith("_havoc"):
+            continue
+        vals[name] = int(num)
+    return vals
+
+
+class _Timeout(Exception):
+    pass
+
+
+def _alarm(_sig, _frm):
+    raise _Timeout()
+
+
+def _call(fn, kwargs: dict):
+    """Живой вызов: (ok, value_or_error). Таймаут 2 с, лимит рекурсии 300."""
+    old = signal.signal(signal.SIGALRM, _alarm)
+    old_limit = sys.getrecursionlimit()
+    signal.alarm(2)
+    sys.setrecursionlimit(300)
+    try:
+        return True, fn(**kwargs)
+    except _Timeout:
+        return False, "TIMEOUT"
+    except RecursionError:
+        return False, "RecursionError"
+    except Exception as e:                      # noqa: BLE001
+        return False, f"{type(e).__name__}: {e}"
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+        sys.setrecursionlimit(old_limit)
+
+
+def _load_fn(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(f"qb_{path.stem}_{id(path)}", path)
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:                           # noqa: BLE001
+        return None
+    fn = getattr(mod, name, None)
+    return fn if callable(fn) else None
+
+
+def _confirm(buggy: Path, correct: Path, fn: str, params: list[str],
+             model: dict) -> tuple[bool, str]:
+    """LIVE REPLAY: подтвердить расхождение РЕАЛЬНЫМ вызовом (правило №4).
+
+    `DIVERGED` заявляется ТОЛЬКО если на КОНКРЕТНОМ входе поведение версий
+    действительно различается (значения или «упало/не упало»). Модель Z3 может
+    быть неполной (havoc/развёртка), поэтому недостающие аргументы перебираются
+    в малом домене — но подтверждением служит только живой вызов, не модель.
+    Иначе — `DISCARDED` (0 ложных обвинений, дефект #206).
+    """
+    fb = _load_fn(buggy, fn)
+    fc = _load_fn(correct, fn)
+    if fb is None or fc is None:
+        return False, "не загрузить"
+    cand = [0, 1, 2, 4, 8]
+    missing = [p for p in params if p not in model]
+    if len(missing) > 2:
+        return False, "модель не покрывает аргументы"
+    tries = 0
+    for combo in itertools.product(cand, repeat=len(missing)):
+        if tries >= 40:
+            break
+        tries += 1
+        args = dict(model)
+        args.update(dict(zip(missing, combo)))
+        ok_b, vb = _call(fb, args)
+        ok_c, vc = _call(fc, args)
+        if ok_b and ok_c:
+            if vb != vc:
+                return True, f"{args} buggy={vb!r} correct={vc!r}"
+        elif ok_b != ok_c:
+            return True, (f"{args} buggy={'ok' if ok_b else vb} "
+                          f"correct={'ok' if ok_c else vc}")
+    return False, f"нет расхождения на {tries} входах"
+
+
 def run(qb: Path, json_out: Path | None) -> int:
     tasks = sorted(p.stem for p in (qb / "python_programs").glob("*.py")
                    if not p.stem.endswith("_test") and p.stem != "node")
@@ -83,7 +174,7 @@ def run(qb: Path, json_out: Path | None) -> int:
             first = next(iter({**a_bad, **b_bad}.values()), "нет функций в подмножестве")
             rows.append((name, "SKIP", "", first))
             continue
-        diverged = same = unknown = 0
+        diverged = same = unknown = discarded = 0
         seen = []
         for fn in sorted(common):
             pa, ba = a[fn]
@@ -91,21 +182,32 @@ def run(qb: Path, json_out: Path | None) -> int:
             if pa != pb:
                 seen.append(f"{fn}:SKIP-params")
                 continue
-            if "_havoc_" in ba or "_havoc_" in bb:      # дефект #206
-                unknown += 1
-                seen.append(f"{fn}:UNKNOWN(havoc)")
-                continue
+            if "_havoc_" in ba or "_havoc_" in bb:
+                # Дефект #206: havoc сам по себе НЕ доказывает расхождение,
+                # но и не запрещает ПОИСК кандидата. Кандидат обязан пройти
+                # Live Replay (ниже) — иначе он будет отброшен.
+                seen.append(f"{fn}:havoc-model")
             _rc, out = kc.run_kernc(str(KC), kc.diff_equiv_smt(pa, ba, bb))
             if "ДОКАЗАНО" in out:
                 same += 1
                 seen.append(f"{fn}:EQ")
-            else:
+                continue
+            # SAT-кандидат: ЗАЯВЛЯТЬ расхождение можно ТОЛЬКО после живого
+            # вызова обеих версий на этом входе (правило №4, дефект #206).
+            model = _model_args(out)
+            fired, note = _confirm(b_file, c_file, fn, pa, model)
+            if fired:
                 diverged += 1
-                seen.append(f"{fn}:DIV")
+                seen.append(f"{fn}:DIV[{note}]")
+            else:
+                discarded += 1
+                seen.append(f"{fn}:DIV-DISCARDED({note})")
         verdict = ("DIVERGED" if diverged else
-                   ("UNKNOWN" if unknown and not same else
-                    ("EQUIVALENT" if same else "SKIP")))
-        rows.append((name, verdict, f"{diverged}/{same}/{unknown}", " ".join(seen)))
+                   ("DISCARDED" if discarded else
+                    ("UNKNOWN" if unknown and not same else
+                     ("EQUIVALENT" if same else "SKIP"))))
+        rows.append((name, verdict, f"{diverged}/{same}/{unknown}/{discarded}",
+                     " ".join(seen)))
 
     w = max(len(r[0]) for r in rows) + 2
     print(f"{'task':<{w}} {'verdict':<11} {'div/eq/unk':<10} detali")

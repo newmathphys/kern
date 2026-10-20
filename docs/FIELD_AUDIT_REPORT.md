@@ -287,3 +287,11 @@ comprehensions 2. Until `list`/slice (`QF_AX`) and `for`/`while` are modelled,
 the honest number of caught bugs is **0 of 40**.
 
 Full table and reproduction commands: `audits/QUIXBUGS_BASELINE.md`.
+
+**Update (bounded unrolling + Live Replay, METRICS §128):** after `while`/
+`for range` unrolling (K=2), bounded self-recursion inline and mandatory live
+confirmation, the picture is **1 DIVERGED `[RUNTIME CONFIRMED]`**
+(`gcd`, `a = 0, b = 1` → buggy `RecursionError`, correct `1`), **4 DISCARDED**
+(SAT candidate not confirmed by a live call — not an accusation) and **35 SKIP**.
+Zero false accusations. Remaining blockers: `list` 8, `arr[i] = ...` 5,
+`for` over non-range 4, variable-length unpacking 4, `dict` 3.
