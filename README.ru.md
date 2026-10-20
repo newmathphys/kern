@@ -3,6 +3,10 @@
 > **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->162 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
+![KERN: архитектура и измеренный baseline](docs/kern-architecture.svg)
+
+![Поток доказательства: AST источника, контракт, лемма Z3, вердикт, обратная связь CEGIS](docs/kern-proof-flow.svg)
+
 **Арбитражный шлюз истины для ИИ-агентов.** Заявление получает статус
 «доказано» **только при машинной опоре**: вердикт SMT-решателя (Z3), формальное
 доказательство (Lean 4) или подтверждённый прогон с кодом возврата.
