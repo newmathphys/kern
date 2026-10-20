@@ -9668,3 +9668,25 @@ ratchet `bare_except_baseline.json` (записано 27).
 **Проверено:** `grep '#1–#184'` по `README.md`, `README.ru.md`, `docs/index.html` — **0** совпадений; в EN-реестре диапазон `#1–#220`; факт — 158 строк, максимум #221 после добавления этой записи.
 
 **Автоматический страж (чтобы класс #178/#221 не повторялся):** в `tools/ecosystem_check.sh` добавлена проверка **7**: максимум номера берётся из `docs/CAPABILITY_STATUS.md`, и каждый диапазон `#1–#N` в `README.md`, `README.ru.md`, `docs/index.html`, `docs/README.md` обязан ему равняться. Проверено в обе стороны: сейчас — `[OK] диапазоны #1–#221 … совпадают`; при подмене на `#1–#184` гейт печатает `[FAIL] README.md: диапазон #1–#184, а максимум реестра #221` и возвращает rc=1, затем после восстановления снова `[OK]`. `canfail --only ecosystem-check` — 1 не-вакуумный / 0 вакуумных.
+
+---
+
+## §144. Лицензия на витрине противоречила файлу LICENSE (Дефект #222)
+
+**Найдено** сверкой «заявлено ↔ файл `LICENSE`», не отчётом.
+
+| Где | Было | Факт |
+|:--|:--|:--|
+| `README.ru.md` (дерево репозитория) | `├── LICENSE   MIT` | **PolyForm Noncommercial 1.0.0** |
+| `server.json`, `.well-known/mcp.json`, `CITATION.cff` | `PolyForm-Noncommercial-1.0.0` | совпадает с `LICENSE` ✅ |
+| `README.ru.md` (дерево репозитория) | `Makefile 62 цели` | **150 целей** (`registry.py`: «всего целей: 150») |
+
+**Почему это не косметика:** ровно этот класс назывался в обсуждении внешнего аудита — сканеры (m8ven.ai, GitHub licensee, MCP-каталоги) сверяют поле `license` манифестов с файлом `LICENSE`, и расхождение трактуется либо как штраф в рейтинге, либо как **ложное обещание** пользователю. «MIT» в дереве репозитория рядом с PolyForm — именно ложное обещание.
+
+**Исправлено + страж:** `README.ru.md` приведён к факту; добавлен `tools/check_license_consistency.py` (проверка **8** в `ecosystem-check`):
+1. `LICENSE` содержит «PolyForm Noncommercial»;
+2. `server.json` и `.well-known/mcp.json` объявляют `license = PolyForm-Noncommercial-1.0.0`;
+3. `CITATION.cff` содержит тот же идентификатор;
+4. в `README.md` / `README.ru.md` строка про `LICENSE` не обещает MIT (слово `LIMITATIONS` не считается).
+
+**Проверено в обе стороны:** сейчас — `[OK] лицензия согласована`; после подсадки `LICENSE MIT` в `README.ru.md` — `[FAIL] README.ru.md: строка обещает MIT у LICENSE`, rc=1; после восстановления — снова `[OK]`.

@@ -2349,3 +2349,21 @@ correct returns **2**.
 **Verified:** `grep '#1–#184'` over `README.md`, `README.ru.md`, `docs/index.html` — **0** hits; the EN registry states `#1–#220`; the fact is 158 rows with maximum #221 after this record.
 
 **Automated guard (so that class #178/#221 cannot recur):** `tools/ecosystem_check.sh` gained check **7** — it reads the maximum defect number from `docs/CAPABILITY_STATUS.md`, and every `#1–#N` range in `README.md`, `README.ru.md`, `docs/index.html`, `docs/README.md` must equal it. Proven in both directions: now `[OK] ranges #1–#221 … match`; after substituting `#1–#184` the gate prints `[FAIL] README.md: range #1–#184 while the registry maximum is #221` and returns rc=1, then `[OK]` again after restoring. `canfail --only ecosystem-check` — 1 non-vacuous / 0 vacuous.
+
+---
+
+### 67. The license on the showcase contradicted the LICENSE file (Defect #222)
+
+**Found** by checking «claim ↔ `LICENSE` file», not by a report.
+
+| Where | Was | Fact |
+|:--|:--|:--|
+| `README.ru.md` (repository tree) | `├── LICENSE   MIT` | **PolyForm Noncommercial 1.0.0** |
+| `server.json`, `.well-known/mcp.json`, `CITATION.cff` | `PolyForm-Noncommercial-1.0.0` | matches `LICENSE` ✅ |
+| `README.ru.md` (repository tree) | `Makefile 62 targets` | **150 targets** (`registry.py`: «total targets: 150») |
+
+**Why this is not cosmetic:** this is exactly the class raised in the external-audit discussion — scanners (m8ven.ai, GitHub licensee, MCP catalogues) compare the `license` field of the manifests with the `LICENSE` file, and a mismatch is read either as a ranking penalty or as a **false promise** to the user. «MIT» next to PolyForm in the repository tree is precisely a false promise.
+
+**Fixed + guard:** `README.ru.md` corrected; `tools/check_license_consistency.py` added (check **8** of `ecosystem-check`): `LICENSE` mentions «PolyForm Noncommercial»; `server.json` and `.well-known/mcp.json` declare `PolyForm-Noncommercial-1.0.0`; `CITATION.cff` carries the same id; no `LICENSE … MIT` line in either README (`LIMITATIONS` excluded).
+
+**Proven in both directions:** now `[OK] licence consistent`; after injecting `LICENSE MIT` into `README.ru.md` — `[FAIL] README.ru.md: the LICENSE line promises MIT`, rc=1; after restoring — `[OK]` again.

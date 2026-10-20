@@ -75,6 +75,9 @@ for f in README.md README.ru.md docs/index.html docs/README.md; do
 done
 if [ "$RANGE_BAD" -eq 0 ]; then ok "диапазоны #1–#$MAXNUM в README/сайте совпадают с реестром"; else bad "диапазон реестра на витрине отстал от факта"; fi
 
+echo "== 8) страж лицензионной согласованности (дефект #222: LICENSE + манифесты) =="
+if python3 tools/check_license_consistency.py; then ok "лицензия согласована (LICENSE == server.json == CITATION.cff)"; else bad "лицензия в манифестах расходится с LICENSE"; fi
+
 echo "----------------------------------------------------------------------"
 if [ "$fail" -eq 0 ]; then
   echo "[OK] ecosystem-check: манифесты, llms.txt, action.yml, SARIF, ratchet — всё сходится"

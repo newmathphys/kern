@@ -123,9 +123,9 @@ Lean 4); **R**esolution — разрешение конфликтов в чет�
 ```
 kern/
 ├── README.md                       этот файл
-├── LICENSE                         MIT
+├── LICENSE                         PolyForm Noncommercial 1.0.0
 ├── OWNERSHIP.md                    защита авторства (токен, ключ-замок)
-├── Makefile                        62 цели: build/test/coverage/mutate/bridge/…
+├── Makefile                        150 целей: build/test/coverage/mutate/bridge/…
 ├── build.zig                       сборка: kernc, kern-attack, kernx, libkern.so
 │
 ├── docs/                           ДОКУМЕНТАЦИЯ (начните с docs/README.md)
@@ -556,7 +556,7 @@ make ci               # единый контур (12 стадий)
 | **CHECK с доказательством «может упасть»** | **82/82 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | 95 (не-вакуумных 95 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#221** |
+| Реестр найденных дефектов | **#1–#222** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 
