@@ -1,13 +1,21 @@
 === KERN EVIDENCE: kern_next_tests ===
-=== команда: zig build test-next --summary all ===
-=== дата: 2026-10-20T08:27:35Z ===
+=== команда: bash -c 'rm -rf /tmp/kern_next_evidence_cache; zig build test-next --summary all --cache-dir /tmp/kern_next_evidence_cache; rc=$?; rm -rf /tmp/kern_next_evidence_cache; exit $rc' ===
+=== дата: 2026-10-20T13:31:34Z ===
 
-Build Summary: 4/4 steps succeeded
+test-next
++- run test w
+[!] метрика 'p95' имеет нечисловое значение 'abc'
+[!] exit_code вне диапазона i64 (nan) у 'claim:exec nan' — свидетельство ИГНОРИРОВАНО
+[!] exit_code вне диапазона i64 (inf) у 'claim:exec inf' — свидетельство ИГНОРИРОВАНО
+[!] exit_code вне диапазона i64 (1000000000000000000000000000000000000) у 'claim:exec huge' — свидетельство ИГНОРИРОВАНО
+[!] exit_code вне диапазона i64 (100000000000000000000000000) у 'claim:exec big2' — свидетельство ИГНОРИРОВАНО
+failed command: /tmp/kern_next_evidence_cache/o/c391279a7e03e0f9d7472b89583f271d/test --cache-dir=/tmp/kern_next_evidence_cache --seed=0xd168813 --listen=-
+
+Build Summary: 4/4 steps succeeded; 53/53 tests passed
 test-next success
-+- run test cached
-   +- compile test debug native cached 20ms MaxRSS:37M
-      +- translate-c cached 21ms MaxRSS:36M
++- run test 53 pass (53 total) 88ms MaxRSS:10M
+   +- compile test debug native success 682ms MaxRSS:158M
+      +- translate-c success 31ms MaxRSS:38M
 
 
 RC=0
-[guard] FAULTABLE без изменений (115 файлов) — прогон чист

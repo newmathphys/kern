@@ -2301,3 +2301,15 @@ correct returns **2**.
 **Fixed:** (1) EN sections `6d-1` (#125–#152) and `6d-2` — a compact index of the **65 entries** with one-line summaries and a pointer to the Russian full text; (2) the SECOND §100/§101/§102 blocks renumbered to **§137/§138/§139** (subsections included; no external references existed — verified by `grep`); (3) the second `## 6e` → **`## 6f`**, and the duplicate #174 row marked **`174 (closure)`**; (4) `docs/README.md` ranges corrected.
 
 **Measured AFTER:** RU **156 rows / 156 unique / max #218**; EN **156 / 156 / max #218**; **0** numbers missing in EN; **0** duplicate RU sections (115 sections, max §139); **0** duplicate EN headers; `registry.py` prints «defect numbers are unique (156 rows)».
+
+---
+
+### 64. The KERN-Next evidence had no count of executed tests (Defect #219)
+
+**Symptom:** `docs/evidence/kern_next_tests.log` held only «Build Summary: 4/4 steps succeeded / test-next success / run test cached» and `RC=0` — **without «All 53 tests passed»**. Cause: on a cached step Zig does not execute the test binary and prints no counter.
+
+**Consequence:** the showcase claims «53 / 53 passed» citing that log, while `evidence_gate` could not confirm it: the number of EXECUTED tests was absent from the evidence.
+
+**Fixed:** `tools/collect_evidence.sh` runs the step with a separate `--cache-dir /tmp/kern_next_evidence_cache` (removed right after), so the step really executes and the log records `Build Summary: 4/4 steps succeeded; 53/53 tests passed`. Measured: **2 s** (no recompilation — the global cache is warm).
+
+**Verified:** the log contains «53/53 tests passed» with `RC=0`; `evidence_gate` — 33 logs clean, no caveats. Side note: this confirms the documented Zig 0.17 behaviour (§22, §75) — a GREEN run still prints `failed command: … --cache-dir=…`; the verdict comes from the protocol, not from that line.
