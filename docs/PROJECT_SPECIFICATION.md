@@ -899,10 +899,10 @@ canfail --selftest → canfail (60 кейсов) → каталог синхро
 ## 14.1 Аттестационный манифест (10 строк, каждая — реальный прогон)
 
 ```
-Core (Debug)          : PASS — 195/195 tests
+Core (Debug)          : PASS — 401/401 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 KERN-Next             : PASS
-Kernel Invariants     : PASS — Lean 4 (7 файлов, 0 errors, 0 sorry)
+Kernel Invariants     : PASS — Lean 4 (8 файлов, 0 errors, 0 sorry)
 Target Systems        : PASS — 2 платформы: ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)
@@ -1054,8 +1054,8 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 
 zig build                      # kernc, kernx, kern-attack
-zig build test                 # 279 тестов ядра
-zig build test-next            # 37 тестов KERN-Next
+zig build test                 # 401 тест ядра
+zig build test-next            # 53 теста KERN-Next
 ./formal/check.sh              # Lean 4: 0 errors, 0 sorry
 
 make golden                    # эталонный образ

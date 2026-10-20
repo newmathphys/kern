@@ -33,7 +33,7 @@
 | C-ABI (`libkern.so`, 7 functions) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) and C |
 
 **Numbers:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` →
-**279/279 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
+**401/401 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
 (solver-dependent tests skip by design).
 Reference `valid_v1_3.kimg` → the Merkle root matches Python↔Zig (confirmed both ways).
 Decision coverage → **100.0 %** (30/30). Mutation score → **95.0 %** (38/40; 2 provably
@@ -541,4 +541,7 @@ Compact English list; full text and measured before/after tables are in
 | **221** | **RECURRENCE of class #178: the registry range on the showcase drifted again** — `README.md`, `README.ru.md` and the site promised `#1–#184`, the EN registry intros said `#1–#217`, while the real maximum is **#220**. Fixed to `#1–#220`; recorded as a recurrence so it is visible that a one-off fix (#178) did not hold the metric. | FIXED |
 | **222** | **THE LICENSE ON THE SHOWCASE CONTRADICTED THE `LICENSE` FILE** (exactly the class the external audit warned about): in the repository tree `README.ru.md` labelled `LICENSE` as **MIT**, while `LICENSE` is **PolyForm Noncommercial 1.0.0** (as do `server.json`, `.well-known/mcp.json`, `CITATION.cff`). Plus a stale «Makefile 62 targets» against the real **150**. Fixed; a guard `tools/check_license_consistency.py` was added (check 8 of `ecosystem-check`). | FIXED |
 | **223** | **THE LEAN 4 THEOREM COUNTER ON THE SITE WAS STALE**: `docs/index.html` showed «120 Lean 4 theorems» in FOUR places while the fact is **137** (the growth 120→137 was never reflected). Fixed + guard `tools/check_lean_counter.py` (check 9 of `ecosystem-check`). | FIXED |
+| **224** | **SHOWCASE COUNTERS CONTRADICTED THE FACTS (and no guard existed)**: after closing #220/#223 the texts still carried `114 proven non-vacuous` / `95 fault-injection cases` (README.md), "103 targets · CHECK 80" and `82/82` (README.ru), `195/195` without a snapshot marker (RU passport), `279` (PROJECT.md, PROJECT_SPECIFICATION.md, CAPABILITY_STATUS.en). Found by comparing every public surface against `core_tests.log`, `kern_next_tests.log`, the catalogue recount and `registry.py --json`. FIXED: numbers set to facts (401 / 53 / 425 / 126 CHECK / 142 cases) plus a new guard `tools/check_metrics_consistency.py` (target `make metrics-guard`, case `metrics-guard`): a promise is checked against MEASURABLE evidence, not against prose |
+| **225** | **HARNESS ROLLBACK DID NOT COVER FILES OUTSIDE `FAULTABLE`**: `patch()` refused such a file, while `touch()` silently accepted it. The `metrics-guard` case edited `docs/PROJECT.md` via `touch()` + `write_atomic()`; rollback did not fire, the injection stayed in the tree, and `verify_restored` (which only looks at `FAULTABLE`) reported "tree clean". Second offender: `kern.intoto.sig` (case `slsa-bad-sig`). Same class as #48 (injection in a commit). FIXED: both files added to `FAULTABLE`; `touch()` now has the same guard as `patch()` |
+
 

@@ -88,7 +88,19 @@ _LOCK_HOLDER: list = []
 
 
 def touch(rel: str) -> None:
-    """Помечает файл как изменённый текущим кейсом (разрешает откат)."""
+    """Помечает файл как изменённый текущим кейсом (разрешает откат).
+
+    🔴 ДЕФЕКТ #225 (найден аудитом): `patch()` отказывался работать с файлом
+    вне FAULTABLE, а `touch()` — молча помечал. В результате кейс правил
+    `docs/PROJECT.md` через `touch()` + `write_atomic()`, откат не срабатывал,
+    подсадка оставалась в дереве, а финальная проверка (`verify_restored`
+    смотрит только FAULTABLE) докладывала «дерево чистое». Класс дефекта #48.
+    Теперь `touch()` ведёт себя так же строго, как `patch()`.
+    """
+    if rel not in FAULTABLE:
+        raise RuntimeError(
+            f"{rel} отсутствует в FAULTABLE — правка НЕ будет откачена! "
+            f"Добавьте файл в FAULTABLE (дефект #225).")
     TOUCHED.add(rel)
 
 
@@ -264,6 +276,11 @@ class Fault:
 
 FAULTABLE = [
     "docs/evidence/scorecard.json",
+    # Дефект #225: кейс `metrics-guard` правит PROJECT.md, а файла не было
+    # в списке -> откат не срабатывал, и подсадка оставалась в дереве.
+    "docs/PROJECT.md",
+    # Дефект #225: кейс `slsa-bad-sig` правит подпись аттестата — тот же класс.
+    "kern.intoto.sig",
     "server.json",
     "tests/fixtures/zig_plain_add.zig",
     "tests/fixtures/zig_saturating_add.zig",
@@ -2380,6 +2397,24 @@ def case_lia_soundness():
     return "make lia-diff"
 
 
+def case_metrics_guard():
+    """Счётчики на витрине (класс #220/#223). ЛОМАЕМ: число каталога в PROJECT.md.
+
+    `make metrics-guard` сверяет обещания с ИЗМЕРИМЫМИ свидетельствами
+    (`core_tests.log`, `kern_next_tests.log`, пересчёт каталога, `registry.py`).
+    Если подмена числа проходит незамеченной, витрина снова начнёт врать
+    (ровно это и случилось: 308/424 вместо 401/425 и «120 Lean 4 theorems»
+    при фактических 137).
+    """
+    touch("docs/PROJECT.md")
+    p = ROOT / "docs" / "PROJECT.md"
+    s = p.read_text(encoding="utf-8")
+    bad = s.replace("**425 объявлений**", "**999 объявлений**")
+    assert bad != s, "якорь каталога в PROJECT.md не найден — кейс не сломает гейт"
+    write_atomic(p, bad.encode())
+    return "make metrics-guard"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -2387,6 +2422,7 @@ CASES = [
     ("binlevel",      "constant-time (ранний выход)",          case_binlevel_earlyexit),
     ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),
     ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
+    ("metrics-guard", "Счётчики витрины разошлись с фактами", case_metrics_guard),
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
     ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
     ("mcp-selftest",   "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),

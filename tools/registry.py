@@ -66,6 +66,7 @@ CLASS = {
     "xray-check": "CHECK",
     "ecosystem-check": "CHECK",
     "scorecard-check": "CHECK",
+    "metrics-guard": "CHECK",
     "gen-tests-check": "CHECK",
     "simplify-check": "CHECK",
     "bounds-check": "CHECK",
@@ -150,6 +151,7 @@ CASE_TARGET = {
     "binlevel": "binlevel",
     "svg-overflow": "svg-check",
     "evidence-guard": "evidence-gate",
+    "metrics-guard": "metrics-guard",
     # хардкор-аудит C-ABI (дефект #103): публичный интерфейс теперь под покрытием
     "c-abi-null": "c-abi-test",
     "c-abi-hash": "c-abi-threads",

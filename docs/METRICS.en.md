@@ -2390,3 +2390,34 @@ correct returns **2**.
    Both exclusions were found by practice: the first version of the guard «caught» `4 theorems` and `8 теорем` — it worked, but wrongly.
 
 **Proven in both directions:** now `[OK] Lean 4 theorems: 137 — showcase matches (7 occurrences)`; after substituting `137 Lean` → `120 Lean` — `[FAIL] docs/index.html: «120 Lean» — fact 137`, rc=1; after restoring — `[OK]` again.
+
+---
+
+### 69. Showcase audit: #224 (counters) + #225 (rollback outside FAULTABLE)
+
+Every public surface was compared against a **measurable** source:
+`docs/evidence/core_tests.log`, `kern_next_tests.log`, `cross_arch.log`, the
+catalogue recount, `tools/registry.py --json` — not against prose.
+
+**#224 — 7 places where text contradicted fact:** `README.md:45`
+(`125 CHECK targets; 114 proven non-vacuous (95 fault-injection cases)`),
+`README.ru.md` (`103 targets / CHECK 80 / 82/82 / 95 cases`), RU passport
+(`195/195` without a snapshot marker), `PROJECT_SPECIFICATION.md` (`195/195`,
+`Lean 4 (7 files)`), `PROJECT.md` (11 places: `279`, `38/38`, `92.5 %`, `60`,
+`233`), `CAPABILITY_STATUS.en.md` (`279/279 OK`).
+
+**Fix:** all numbers set to facts (401 / 53 / 425 / 126 CHECK / 142 cases) and a
+new guard **`tools/check_metrics_consistency.py`** (`make metrics-guard`, case
+`metrics-guard`) that checks a promise against evidence. Lines marked
+`snapshot` / `history` are skipped; cross-architecture must cover the whole suite
+(`passed + skipped == core`). Non-vacuity proven by injection: `999 proven
+non-vacuous` -> `rc=1`, `999 объявлений` -> `rc=1`.
+
+**#225 — false "tree clean":** the `metrics-guard` case edits `docs/PROJECT.md`,
+which was **not in `FAULTABLE`**: no snapshot, no rollback, injection stayed in
+the tree while `verify_restored()` (FAULTABLE-only) reported "[OK] tree clean".
+Root cause: `patch()` refuses files outside `FAULTABLE`, `touch()` accepted them
+silently; second offender `kern.intoto.sig` (case `slsa-bad-sig`).
+**Fix:** both files added to `FAULTABLE`, `touch()` now raises the same
+`RuntimeError` as `patch()`. Verified by re-running the case: the file is
+restored byte-for-byte.
