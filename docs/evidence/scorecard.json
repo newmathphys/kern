@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "2da57cf",
-  "code_hash": "sha256:2082b14e08aabfbf97ea57cc9a2ad5a8809725d6fe0557fa3220daeaf4af0e76",
+  "commit": "fd654c7",
+  "code_hash": "sha256:fd55cf7681cc32f893804f456743f68467cabe2afe88cf3dd199698f7dfad20d",
   "score": 100,
   "grade": "A+",
   "breakdown": {
@@ -50,7 +50,7 @@
   },
   "formal": {
     "lean_files": 8,
-    "theorems": 120,
+    "theorems": 125,
     "sorry": 0,
     "attestation": true
   },
