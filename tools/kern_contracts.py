@@ -71,6 +71,61 @@ _ABSTRACT_SYMS: set = set()  # символы абстракции (объявл
 # Функция без единого SMT-обязательства НЕ имеет права называться проверенной.
 _SMT_CALLS: list = [0]
 
+# СПИСКИ В ЧИСТОМ Int (QF_LIA), без теории массивов.
+# Окно элементов: `arr__e0..arr__e2 : Int` + длина `len__arr : Int`.
+# Чтение `arr[i]` -> `(ite (= i 0) e0 (ite (= i 1) e1 e2))`, запись — три ite.
+# Это ОВЕР-АППРОКСИМАЦИЯ (элементы произвольны), поэтому найденный контрпример
+# обязан подтвердиться живым вызовом (правило №4 / дефект #206).
+_LIST_WINDOW = 3
+
+
+def _lists(env: dict) -> dict:
+    got = env.get("__lists__")
+    return got if isinstance(got, dict) else {}
+
+
+def _lens(env: dict) -> dict:
+    got = env.get("__lens__")
+    return got if isinstance(got, dict) else {}
+
+
+def _set_list(env: dict, name: str, elems: list) -> None:
+    """Записать элементы так, чтобы правка НЕ протекла в соседнюю ветку."""
+    env["__lists__"] = {**_lists(env), name: elems}
+
+
+def _set_len(env: dict, name: str, smt_len: str) -> None:
+    env["__lens__"] = {**_lens(env), name: smt_len}
+
+
+def _list_elems(env: dict, name: str) -> list:
+    """Символьные элементы списка (создаются один раз на имя).
+
+    Один и тот же индекс даёт ОДНО значение (конгруэнтность индексации),
+    поэтому `arr[0]` в разных ветках — одно и то же выражение.
+    """
+    got = _lists(env).get(name)
+    if got is not None:
+        return got
+    elems = [f"{name}__e{i}" for i in range(_LIST_WINDOW)]
+    for s in elems:
+        _ABSTRACT_SYMS.add(s)
+    _set_list(env, name, elems)
+    ln = f"len__{name}"
+    _ABSTRACT_SYMS.add(ln)
+    if f"(>= {ln} 0)" not in _AXIOMS:
+        _AXIOMS.append(f"(>= {ln} 0)")
+    _set_len(env, name, ln)
+    return elems
+
+
+def _list_read(elems: list, idx: str) -> str:
+    """`arr[idx]` -> каскад `ite` по окну (одна форма для чтения и для `+=`)."""
+    expr = elems[-1]
+    for k in range(_LIST_WINDOW - 2, -1, -1):
+        expr = f"(ite (= {idx} {k}) {elems[k]} {expr})"
+    return expr
+
 
 def _replay_soft(exc: BaseException, where: str = "replay") -> None:
     """Мягкий выход из ЖИВОГО replay контрпримера (дефект #198/#208).
@@ -197,6 +252,11 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         if fname == "len" and len(node.args) == 1 and not node.keywords:
             a0 = node.args[0]
             if isinstance(a0, ast.Name):
+                # Длина ИЗВЕСТНОГО списка (литерала или уже смоделированного) —
+                # это его фактическая длина, а не свободный символ.
+                known = _lens(env).get(a0.id)
+                if known is not None:
+                    return known
                 sym = f"len__{a0.id}"
             else:
                 _HAVOC_SEQ[0] += 1
@@ -234,7 +294,7 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         return _sym
     # Тернарный оператор `A if cond else B` -> SMT `ite`.
     if isinstance(node, ast.IfExp):
-        return (f"(ite {expr_smt(node.test, env)} "
+        return (f"(ite {_as_bool(node.test, env)} "
                 f"{expr_smt(node.body, env)} {expr_smt(node.orelse, env)})")
     if isinstance(node, ast.BoolOp):
         op = "and" if isinstance(node.op, ast.And) else "or"
@@ -289,7 +349,36 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         if not parts:
             raise Unsupported("пустое сравнение")
         return parts[0] if len(parts) == 1 else f"(and {' '.join(parts)})"
+    if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load):
+        # СПИСКИ В ЧИСТОМ Int: `arr[i]` -> каскад `ite` по окну элементов.
+        # Срез (`arr[a:b]`) в модель не входит — честный отказ, а не догадка.
+        base = node.value
+        if not isinstance(base, ast.Name):
+            raise Unsupported("индекс не от простого имени")
+        if isinstance(node.slice, ast.Slice):
+            raise Unsupported("срез списка")
+        elems = _list_elems(env, base.id)
+        idx = expr_smt(node.slice, env)
+        return _list_read(elems, idx)
     raise Unsupported(f"узел {type(node).__name__}")
+
+
+def _as_bool(node, env: dict) -> str:
+    """Логическое значение условия: Int-выражение -> `(not (= e 0))`.
+
+    ЗАЧЕМ (`while n:` / `if n:` / `if arr:`): в Python истинность числа — это
+    `n != 0`, а истинность последовательности — `len(arr) > 0`. Без приведения
+    Z3 получал `Int` в позиции `Bool` и формула была невалидной, функция
+    уходила в SKIP (`bitcount`, `possible_change`).
+    """
+    if isinstance(node, ast.Name) and node.id in _lists(env):
+        _list_elems(env, node.id)
+        return f"(> {_lens(env)[node.id]} 0)"
+    text = expr_smt(node, env)
+    if isinstance(node, (ast.Compare, ast.BoolOp)) or (
+            isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not)):
+        return text
+    return f"(not (= {text} 0))"
 
 
 def _self_meta(fn, stmts) -> dict:
@@ -362,9 +451,37 @@ def body_smt(stmts, env: dict) -> str:
             # `for v in range(<константы>)` разворачивается так же (K копий
             # присваивания счётчика + тело). Не-range итераторы — честный отказ.
             it = st.iter
-            if not (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
-                    and it.func.id == "range" and not it.keywords):
-                raise Unsupported("for по не-range")
+            _is_range = (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
+                         and it.func.id == "range" and not it.keywords)
+            if not _is_range:
+                # ЦИКЛ ПО СПИСКУ (`for x in arr:`) — синтаксический сахар:
+                # `for i in range(len(arr)): x = arr[i]`. Разворачиваем K шагов
+                # под условием `len__arr > t` (Bounded Unrolling, #207).
+                if not isinstance(it, ast.Name):
+                    raise Unsupported("for по не-range")
+                if not isinstance(st.target, ast.Name):
+                    raise Unsupported("for с распаковкой цели")
+                if st.orelse:
+                    raise Unsupported("for ... else")
+                _list_elems(env, it.id)
+                _UNROLLED[0] = True
+                steps = []
+                for t in range(_UNROLL_K[0]):
+                    steps.append(ast.If(
+                        test=ast.Compare(
+                            left=ast.Call(func=ast.Name(id="len", ctx=ast.Load()),
+                                          args=[ast.Name(id=it.id, ctx=ast.Load())],
+                                          keywords=[]),
+                            ops=[ast.Gt()],
+                            comparators=[ast.Constant(value=t)]),
+                        body=[ast.Assign(
+                            targets=[copy.deepcopy(st.target)],
+                            value=ast.Subscript(
+                                value=ast.Name(id=it.id, ctx=ast.Load()),
+                                slice=ast.Constant(value=t),
+                                ctx=ast.Load()))] + copy.deepcopy(st.body),
+                        orelse=[]))
+                return body_smt(steps + stmts[i + 1:], env)
             if not isinstance(st.target, ast.Name):
                 raise Unsupported("for с распаковкой цели")
             if st.orelse:
@@ -404,8 +521,27 @@ def body_smt(stmts, env: dict) -> str:
                 unrolled.extend(copy.deepcopy(st.body))
             return body_smt(unrolled + stmts[i + 1:], env)
         if isinstance(st, ast.AugAssign):
-            # `x op= e` — это `x = x op e`. Для имён транслируется точно;
-            # `arr[i] op= e` (мутация элемента) вне модели — честный отказ.
+            # `x op= e` — это `x = x op e`. Для имён транслируется точно.
+            if isinstance(st.target, ast.Subscript) and isinstance(st.target.ctx, ast.Store):
+                # `arr[i] op= e` (мутация элемента, QuixBugs `next_palindrome`):
+                # читаем текущее значение через `ite`-каскад, считаем `op` и
+                # записываем обратно во все элементы окна.
+                base = st.target.value
+                if not isinstance(base, ast.Name):
+                    raise Unsupported("AugAssign в индекс не от простого имени")
+                if isinstance(st.target.slice, ast.Slice):
+                    raise Unsupported("AugAssign в срез")
+                elems = list(_list_elems(env, base.id))
+                idx = expr_smt(st.target.slice, env)
+                binop = ast.BinOp(left=ast.Name(id="__kern_old", ctx=ast.Load()),
+                                  op=st.op, right=st.value)
+                env["__kern_old"] = _list_read(elems, idx)
+                val = expr_smt(binop, env)
+                del env["__kern_old"]
+                for k in range(_LIST_WINDOW):
+                    elems[k] = f"(ite (= {idx} {k}) {val} {elems[k]})"
+                _set_list(env, base.id, elems)
+                continue
             if not isinstance(st.target, ast.Name):
                 raise Unsupported("AugAssign не в имя")
             binop = ast.BinOp(left=ast.Name(id=st.target.id, ctx=ast.Load()),
@@ -425,8 +561,32 @@ def body_smt(stmts, env: dict) -> str:
                         raise Unsupported("распаковка не в имена")
                     env[name_node.id] = expr_smt(val_node, env)
                 continue
+            if isinstance(tgts, ast.Subscript) and isinstance(tgts.ctx, ast.Store):
+                # ЗАПИСЬ В ЭЛЕМЕНТ (`arr[i] = v`): обновляем ВСЕ элементы окна
+                # через `ite`, сохраняя конгруэнтность чтения.
+                base = tgts.value
+                if not isinstance(base, ast.Name):
+                    raise Unsupported("запись в индекс не от простого имени")
+                if isinstance(tgts.slice, ast.Slice):
+                    raise Unsupported("запись в срез")
+                elems = list(_list_elems(env, base.id))
+                idx = expr_smt(tgts.slice, env)
+                val = expr_smt(st.value, env)
+                for k in range(_LIST_WINDOW):
+                    elems[k] = f"(ite (= {idx} {k}) {val} {elems[k]})"
+                _set_list(env, base.id, elems)
+                continue
             if len(st.targets) != 1 or not isinstance(tgts, ast.Name):
                 raise Unsupported("присваивание не в простую переменную")
+            if isinstance(st.value, ast.List):
+                # ЛИТЕРАЛ СПИСКА (`arr = [a, b, c]`): элементы — выражения,
+                # длина — ФАКТИЧЕСКАЯ константа (хвост окна добивается нулями,
+                # но `len()` возвращает настоящую длину, поэтому лишние
+                # элементы недостижимы по индексу из `range(len(arr))`).
+                elts = [expr_smt(e, env) for e in st.value.elts]
+                _set_list(env, tgts.id, (elts + ["0"] * _LIST_WINDOW)[:_LIST_WINDOW])
+                _set_len(env, tgts.id, str(len(elts)))
+                continue
             # Подстановка: имя запоминается как SMT-выражение (символьное значение).
             env[tgts.id] = expr_smt(st.value, env)
             continue
@@ -478,7 +638,7 @@ def body_smt(stmts, env: dict) -> str:
                 raise NoReturn(
                     f"путь без `return` (стр. {getattr(st, 'lineno', '?')}): "
                     f"функция вернула бы None")
-            return f"(ite {expr_smt(st.test, env)} {then_expr} {else_expr})"
+            return f"(ite {_as_bool(st.test, env)} {then_expr} {else_expr})"
         if isinstance(st, ast.Return):
             if st.value is None:
                 raise NoReturn("`return` без значения (неявный None)")
@@ -3660,7 +3820,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
     """
     try:
         funcs = _clike_functions(path)
-    except Exception:  # noqa: BLE001
+    except Exception as _kern_e_3799:  # noqa: BLE001
+        _replay_soft(_kern_e_3799, "kern_contracts.py:3799")
         return 0, 0, []
     # ДЕФЕКТ #193: типы полей структур нужны для проверки переполнения
     # счётчиков (`row->n_columns : uint16_t`). Определения лежат в том же
@@ -3843,7 +4004,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 continue  # поле структуры (self.x -> self__x): значение неизвестно
             try:
                 sat_dz = _smt_sat(kernc, params, path_conds + [f"(= {d} 0)"])
-            except Exception:  # noqa: BLE001
+            except Exception as _kern_e_3982:  # noqa: BLE001
+                _replay_soft(_kern_e_3982, "kern_contracts.py:3982")
                 continue
             if sat_dz is True:
                 found.append(f"[CRASH PATH] {name}: возможно деление на ноль: {d} == 0")
@@ -3913,7 +4075,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                         continue  # границу задаёт цикл — не обвиняем (циклы не моделируем)
             try:
                 sat_neg = _smt_sat(kernc, params, path_conds + [f"(< {idxs} 0)"])
-            except Exception:  # noqa: BLE001
+            except Exception as _kern_e_4052:  # noqa: BLE001
+                _replay_soft(_kern_e_4052, "kern_contracts.py:4052")
                 continue
             if sat_neg is True:
                 found.append(
@@ -3938,7 +4101,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                     continue
                 try:
                     sat_ov = _smt_sat(kernc, params, path_conds + [f"(> {size_smt} 2147483647)"])
-                except Exception:  # noqa: BLE001
+                except Exception as _kern_e_4077:  # noqa: BLE001
+                    _replay_soft(_kern_e_4077, "kern_contracts.py:4077")
                     continue
                 if sat_ov is True:
                     found.append(
@@ -4109,7 +4273,8 @@ def cmd_full_scan(path: str, kernc) -> int:
                 c, t = (int(_m.group(1)), int(_m.group(2))) if _m else (0, 0)
             else:
                 c, t, fd = _xray_clike_file(f, kernc)
-        except Exception:  # noqa: BLE001
+        except Exception as _kern_e_4248:  # noqa: BLE001
+            _replay_soft(_kern_e_4248, "kern_contracts.py:4248")
             continue
         checked += c
         total += t
@@ -4130,7 +4295,8 @@ def cmd_full_scan(path: str, kernc) -> int:
         try:
             sc = _CheatScan()
             sc.visit(ast.parse(f.read_text(encoding="utf-8", errors="replace")))
-        except Exception:  # noqa: BLE001
+        except Exception as _kern_e_4269:  # noqa: BLE001
+            _replay_soft(_kern_e_4269, "kern_contracts.py:4269")
             continue
         for kind, ln in sc.findings:
             cheat += 1
@@ -4166,7 +4332,8 @@ def cmd_full_scan(path: str, kernc) -> int:
         with contextlib.redirect_stdout(buf):
             try:
                 cmd_suggest_fix(str(f), kernc, infer_requires=True)
-            except Exception:  # noqa: BLE001
+            except Exception as _kern_e_4305:  # noqa: BLE001
+                _replay_soft(_kern_e_4305, "kern_contracts.py:4305")
                 pass
             inferred += buf.getvalue().count("[INFERRED SPEC]")
             tmp = Path(tempfile.gettempdir()) / f"kern_gen_{f.stem}.py"
@@ -4175,7 +4342,8 @@ def cmd_full_scan(path: str, kernc) -> int:
                 if tmp.exists():
                     tests_gen += tmp.read_text(encoding="utf-8").count("def test_")
                     tmp.unlink(missing_ok=True)
-            except Exception:  # noqa: BLE001
+            except Exception as _kern_e_4314:  # noqa: BLE001
+                _replay_soft(_kern_e_4314, "kern_contracts.py:4314")
                 pass
     print(f"  [autopilot] infer-requires: контрактов {inferred} · "
           f"gen-tests: тестов {tests_gen} (файлов {len(targets)})")
@@ -4325,6 +4493,7 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
     try:
         root, tmp = _audit_fetch(target)
     except Exception as e:  # noqa: BLE001
+        _replay_soft(e, "kern_contracts.py:4463")
         print(f"[!] {e}")
         return 2
     try:
@@ -4387,7 +4556,8 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
                     st[1] += ck; st[2] += max(0, tot - ck)
                     for x in fd:
                         findings.append(f"{f.relative_to(root)}: {x}")
-            except Exception:  # noqa: BLE001 — честно пропускаем нечитаемое
+            except Exception as _kern_e_4526:  # noqa: BLE001 — честно пропускаем нечитаемое
+                _replay_soft(_kern_e_4526, "kern_contracts.py:4526")
                 st[2] += 1
         print("=" * 74)
         print(f"[AUDIT PASSPORT] {target}")
@@ -4758,6 +4928,7 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
             print(f"  [SKIP FILE] {f}: синтаксис: {e}")
             continue
         except Exception as e:  # noqa: BLE001 — честно печатаем, а не глотаем
+            _replay_soft(e, "kern_contracts.py:4896")
             bad_files += 1
             print(f"  [SKIP FILE] {f}: {type(e).__name__}: {e}")
             continue
@@ -5285,6 +5456,7 @@ def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
     try:
         exec(compile(src, str(mod_path), "exec"), ns)  # noqa: S102 (наш же файл)
     except Exception as e:  # noqa: BLE001
+        _replay_soft(e, "kern_contracts.py:5423")
         print(f"[!] модуль не исполняется: {e}")
         return 2
 
@@ -5310,6 +5482,7 @@ def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
                 try:
                     expected = ns[fnname](*[model.get(p, 0) for p in params])
                 except Exception as e:  # noqa: BLE001
+                    _replay_soft(e, "kern_contracts.py:5448")
                     lines.append(f"# ВЕТКА БРОСАЕТ {type(e).__name__}: {fnname}, строка {st.lineno}")
                     expected = None
                 total += 1
@@ -5586,7 +5759,8 @@ def _preset_obligation(kind, args, params, body, req_smt):
         try:
             lo_smt = expr_smt(ast.parse(parts[0], mode="eval").body, {})
             hi_smt = expr_smt(ast.parse(parts[1], mode="eval").body, {})
-        except Exception:
+        except Exception as _kern_e_5725:
+            _replay_soft(_kern_e_5725, "kern_contracts.py:5725")
             return None
         return (f"bounded({parts[0]}, {parts[1]})", decls,
                 pre + [f"(= result {body})",
@@ -5663,7 +5837,8 @@ def cmd_presets(path: str, kernc, spec_gaps: bool = False) -> int:
         if req_txt:
             try:
                 req_smt = expr_smt(ast.parse(req_txt, mode="eval").body, {})
-            except Exception:
+            except Exception as _kern_e_5802:
+                _replay_soft(_kern_e_5802, "kern_contracts.py:5802")
                 req_smt = None
         checked += 1
         for kind, args in presets:
@@ -5778,7 +5953,8 @@ def _paths_of(fn, syms=None):
             if isinstance(st, ast.If):
                 try:
                     cond = _cond_smt(st.test, syms or set())
-                except Exception:
+                except Exception as _kern_e_5917:
+                    _replay_soft(_kern_e_5917, "kern_contracts.py:5917")
                     ok = False
                     return
                 rec(st.body, path + [cond])
@@ -5794,7 +5970,8 @@ def _paths_of(fn, syms=None):
                     return
                 try:
                     val = expr_smt(st.value, {})
-                except Exception:
+                except Exception as _kern_e_5933:
+                    _replay_soft(_kern_e_5933, "kern_contracts.py:5933")
                     ok = False
                     return
                 out.append((list(path), val))
@@ -5825,7 +6002,8 @@ def _range_pred(kind, args, params, v: str):
         try:
             lo_smt = expr_smt(ast.parse(parts[0], mode="eval").body, {})
             hi_smt = expr_smt(ast.parse(parts[1], mode="eval").body, {})
-        except Exception:
+        except Exception as _kern_e_5964:
+            _replay_soft(_kern_e_5964, "kern_contracts.py:5964")
             return None
         return f"(and (>= {v} {lo_smt}) (<= {v} {hi_smt}))"
     if kind == "calls_i32":
@@ -6006,7 +6184,8 @@ def _raw_rules(fn):
             if isinstance(st, ast.If):
                 try:
                     cond = _cond_smt(st.test, set())
-                except Exception:
+                except Exception as _kern_e_6145:
+                    _replay_soft(_kern_e_6145, "kern_contracts.py:6145")
                     ok = False
                     return
                 val = None
@@ -6014,7 +6193,8 @@ def _raw_rules(fn):
                     if isinstance(sub, ast.Return) and sub.value is not None:
                         try:
                             val = expr_smt(sub.value, {})
-                        except Exception:
+                        except Exception as _kern_e_6153:
+                            _replay_soft(_kern_e_6153, "kern_contracts.py:6153")
                             ok = False
                             return
                         break
@@ -6034,7 +6214,8 @@ def _raw_rules(fn):
                     return
                 try:
                     out.append((None, expr_smt(st.value, {})))
-                except Exception:
+                except Exception as _kern_e_6173:
+                    _replay_soft(_kern_e_6173, "kern_contracts.py:6173")
                     ok = False
                     return
                 return
@@ -6512,7 +6693,8 @@ def cmd_rlvr_reward(path: str, kernc) -> int:
             continue
         try:
             smt = build_smt(params, req, ens, body, meta.get("ranges"))
-        except Exception:
+        except Exception as _kern_e_6651:
+            _replay_soft(_kern_e_6651, "kern_contracts.py:6651")
             unknown += 1
             continue
         _rc, out = run_kernc(kernc, smt)
@@ -6632,7 +6814,8 @@ def _guard_covers(fn: ast.AST, node: ast.AST, div_py: str) -> bool:
                             and ast.unparse(t.comparators[0]) == "0"
                             and any(isinstance(x, ast.Return) for x in st.body)):
                         return True
-                except Exception:
+                except Exception as _kern_e_6771:
+                    _replay_soft(_kern_e_6771, "kern_contracts.py:6771")
                     pass
             for attr in ("body", "orelse"):
                 sub = getattr(st, attr, None)
@@ -6660,7 +6843,8 @@ def cmd_heal(path: str, kernc) -> int:
                 continue  # гард не доказан — рецепт не применяем
             try:
                 guard_py = f"{ast.unparse(node.right)} == 0"
-            except Exception:
+            except Exception as _kern_e_6799:
+                _replay_soft(_kern_e_6799, "kern_contracts.py:6799")
                 continue
             line = min(getattr(node, "lineno", fn.lineno), fn.lineno + 200)
             plan.append((line, fn.name, guard_py, guard_smt))
@@ -6696,7 +6880,8 @@ def cmd_heal(path: str, kernc) -> int:
             # Краш считается ОСТАВШИМСЯ только если перед ним НЕТ гарда.
             try:
                 div_py = ast.unparse(node.right)
-            except Exception:
+            except Exception as _kern_e_6835:
+                _replay_soft(_kern_e_6835, "kern_contracts.py:6835")
                 div_py = ""
             if not _guard_covers(fn, node, div_py):
                 remaining += 1
@@ -6725,7 +6910,8 @@ def cmd_heal(path: str, kernc) -> int:
             for node, _div in _crash_sites(fn, params, kernc):
                 try:
                     div_py = ast.unparse(node.right)
-                except Exception:
+                except Exception as _kern_e_6864:
+                    _replay_soft(_kern_e_6864, "kern_contracts.py:6864")
                     div_py = ""
                 if not _guard_covers(fn, node, div_py):
                     still += 1
@@ -6775,13 +6961,15 @@ def _run_trace(stmts: list, env: dict, trace: list, depth: int = 0) -> tuple[boo
         if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
             try:
                 env[st.targets[0].id] = eval(compile(ast.Expression(body=st.value), "<c>", "eval"), {}, dict(env))
-            except Exception:
+            except Exception as _kern_e_6914:
+                _replay_soft(_kern_e_6914, "kern_contracts.py:6914")
                 pass
             continue
         if isinstance(st, ast.If):
             try:
                 taken = _eval_cond(st.test, env)
-            except Exception:
+            except Exception as _kern_e_6920:
+                _replay_soft(_kern_e_6920, "kern_contracts.py:6920")
                 continue
             trace.append((st, taken))
             done, val = _run_trace(st.body if taken else st.orelse, env, trace, depth + 1)
@@ -6791,7 +6979,8 @@ def _run_trace(stmts: list, env: dict, trace: list, depth: int = 0) -> tuple[boo
         if isinstance(st, ast.Return):
             try:
                 val = eval(compile(ast.Expression(body=st.value), "<c>", "eval"), {}, dict(env)) if st.value else None
-            except Exception:
+            except Exception as _kern_e_6930:
+                _replay_soft(_kern_e_6930, "kern_contracts.py:6930")
                 val = None
             return True, val
     return False, None

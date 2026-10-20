@@ -2220,3 +2220,47 @@ linear rewrites 19 -> 21; reference `abs.c` stays `trusted: 0`; `make contracts`
 ### 60a. Defect #213: `--trust-score` missing from the CLI
 Documented but absent from argparse. Added `--trust-score <PATH|owner/repo>`
 delegating to `tools/trust_scorecard.py` (no growth of `kern_contracts.py`).
+
+---
+
+### 61. Lists in plain Int + rule↔theorem matrix + bare-`except` guard
+
+`arr[i]`, `arr[i] = v`, `arr[i] += v`, `for x in arr` and `if n:`/`while n:`
+(a number in `Bool` position) were OUTSIDE the subset, so 10+ `QuixBugs` tasks
+were skipped **before the solver** — with a perfectly working Zig core.
+
+**Implemented in plain `QF_LIA` (no array theory):** window `arr__e0..arr__e2 : Int`
+plus `len__arr : Int` (created once per name → the same index yields the SAME
+value, i.e. index congruence); reading `arr[i]` is an `ite` cascade; writing and
+`+=` update the three `ite`s; a list literal carries its REAL length (constant);
+`for x in arr:` becomes `for i in range(len(arr)): x = arr[i]` unrolled K steps
+under `len__arr > t`; truthiness is coerced (`if n:` → `(not (= n 0))`,
+`if arr:` → `(> len__arr 0)`).
+
+**Soundness:** the model is an over-approximation (elements are arbitrary), so
+`DIVERGED` is still claimed ONLY after a live call of both versions (#206).
+
+| Check | Before | After |
+|:--|--:|--:|
+| `make contracts` | 11/4/0/0/2/2 (19) | **11/4/0/0/2/2 (19)** — unchanged |
+| `QuixBugs` DIVERGED (live) | 3 | **5** |
+| `QuixBugs` SKIP | 35 | **32** |
+| `arr[0]` (parameter) | SKIP | **PROVEN, trusted: 0** |
+| `[10,20,30][i]` | SKIP | **PROVEN, trusted: 0** |
+| `arr[0] += 5` | SKIP | **PROVEN, trusted: 0** |
+| `for x in arr: s += x` | SKIP | `[SKIP] [UNBOUNDED]` — honest (#207) |
+
+Newly confirmed dataset bugs: `hanoi` (`buggy=[(0,1)]` vs `correct=[(0,0)]`),
+`sieve` (`buggy=[]` vs `correct=[2]`).
+
+**`trusted: 2 → 0` debt closed (#212):** structural `cmpSubZeroEq` without
+touching `parseLin`; `value % 2 == 0` → `steps: 81 | trusted: 0 | holes: 0`;
+Lean `cmp_sub_zero_iff`, `le_iff_sub_nonpos` (137 theorems total).
+
+**`docs/RULE_THEOREM_MATRIX.md`:** 17 `verify*`/`check*` rules × 137 theorems,
+with three rules honestly attributed to the Lean kernel (transitivity,
+`And.left`, modus ponens) and `intro-def` as a conservative extension.
+
+**Bare-`except` guard (#215):** 29 bare handlers wrapped with `_replay_soft`
+(programming errors are printed, only expected ones are swallowed);
+`dup_defs_guard.py` now also ratchets bare handlers (`bare_except_baseline.json`).

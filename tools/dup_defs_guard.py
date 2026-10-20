@@ -86,6 +86,62 @@ def main() -> int:
 
     print(f"[ok] дубликатов {len(dup_now)} — не больше базиса ({len(base)}); "
           f"всего определений {sum(cur.values())}, уникальных {len(cur)}")
+    return _bare_except_check()
+
+
+# Голый `except Exception:` глотает И программные ошибки (`NameError`,
+# `AttributeError`, `TypeError`), и ожидаемые (`OSError`, `ValueError`).
+# Дефект #198: `_xray_file` не существовала, `except Exception: pass` это
+# скрыл, Python-файлы молча давали 0 находок.
+# ПРАВИЛО: в `tools/kern_contracts.py` голых handler-ов быть не должно (там
+# стоит `_replay_soft`, который печатает программные ошибки и глушит только
+# ожидаемые). Для остальных файлов — ratchet на записанном базисе.
+BARE_BASELINE = ROOT / "tools" / "bare_except_baseline.json"
+
+
+def _bare_except_counts() -> dict[str, int]:
+    out: dict[str, int] = {}
+    for p in sorted((ROOT / "tools").glob("*.py")):
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        n = 0
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            t = node.type
+            if isinstance(t, ast.Name) and t.id == "Exception" and not node.name:
+                n += 1
+        if n:
+            out[p.name] = n
+    return out
+
+
+def _bare_except_check() -> int:
+    cur = _bare_except_counts()
+    if "kern_contracts.py" in cur:
+        print(f"[!] ГОЛЫЙ `except Exception:` в kern_contracts.py: "
+              f"{cur['kern_contracts.py']} — программные ошибки будут скрыты "
+              f"(класс #198). Используйте `except Exception as e:` + "
+              f"`_replay_soft(e, ...)`.")
+        return 1
+    if "--baseline-bare" in sys.argv[1:]:
+        BARE_BASELINE.write_text(json.dumps(cur, indent=1, sort_keys=True) + "\n",
+                                 encoding="utf-8")
+        print(f"[ok] базис голых except записан: {BARE_BASELINE}")
+        return 0
+    base = (json.loads(BARE_BASELINE.read_text(encoding="utf-8"))
+            if BARE_BASELINE.is_file() else {})
+    grew = [f"{k}: было {base.get(k, 0)}, стало {v}"
+            for k, v in cur.items() if v > base.get(k, 0)]
+    if grew:
+        print("[!] ЧИСЛО ГОЛЫХ `except Exception:` ВЫРОСЛО (класс #198):")
+        for x in grew:
+            print("   -", x)
+        return 1
+    print(f"[ok] голых `except Exception:` в kern_contracts.py нет; "
+          f"в прочих tools/ {sum(cur.values())} (не больше базиса)")
     return 0
 
 
