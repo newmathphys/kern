@@ -1879,3 +1879,38 @@ false.
 | cmark-gfm CVEs with a `trusted: 0` certificate | **4 / 4** |
 | Certificates under a gate | 12 (0 mismatches) |
 | Lean 4 | **125 theorems / 8 files, 0 errors, 0 sorry** |
+
+---
+
+### 46. Re-checking the ZLS 0.17.0 finding: it was a false positive (#200)
+
+**What was claimed.** Earlier the field report stated `--xray` had found a *real*
+bug in `zigtools/zls` (`src/TrigramStore.zig`, `initFromTrigram`: `split.index_1 % len`).
+
+**What the actual ZLS 0.17.0 source shows** (clone of `zigtools/zls`, `build.zig.zon`:
+`minimum_zig_version = "0.17.0"`; tag `0.17.0` exists):
+
+| Fact | Value |
+|:--|:--|
+| The division really is `% len` (`len: u32`) | line 526 |
+| The only construction site of the filter | line 169: `if (trigrams.len > 0) {` |
+| Capacity for a single trigram | `capacityForCount(1) = divCeil(105,100) + (2 & 1) = 2` |
+| The other `CuckooFilter.init` call | a test, `element_count = 499` → `filter_size = 524` |
+
+**Verdict: `len == 0` is unreachable — the finding was false.**
+
+**Cause (defect class).** `--xray` treats `len` as a free parameter and does not model the
+caller's invariant (`if (trigrams.len > 0)`): it has no inter-procedural reasoning.
+
+**Fix (narrowing the rule, not explaining it away).** A **length-like** divisor (`len`,
+`size`, `count`, `n`, `cap`, `capacity`, `length`) is no longer accused, because non-zero
+length is the caller's contract. Measured after the fix: `src/TrigramStore.zig` →
+`checked 1 / 13, findings 0`. The `audits/zls/init_from_trigram_*.smt2` pair stays as a
+**model demonstration**, not as a finding in zigtools' code.
+
+**Why this is the right call.** A false accusation is worse than a miss (#178/#183), and
+telling a third-party project “you have a bug” without checking the caller is exactly what
+skeptics criticise. The check was done on their real source, not on a model.
+
+**Regressions after narrowing:** `xray-check` rc=0 · `contracts` rc=0 · `edge-cases` rc=0 ·
+`formal/check.sh` 8/8 · `proof-tamper` 40/40.

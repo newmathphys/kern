@@ -183,7 +183,7 @@ available prefix”) are checked by the native Zig proof checker:
 So the code with the guard is **proven** by our own checker, and the code without
 it has a **verified counterexample** — not “Z3 said so”.
 
-## 5. Four of four cmark-gfm fixes, a real zls finding, and .js/.go field runs
+## 5. Four of four cmark-gfm fixes, a corrected zls claim, and .js/.go field runs
 
 ### 5.1 Retro-test: **4 / 4** published fixes (was 1 / 4)
 
@@ -207,7 +207,7 @@ parser (this was the measured reason they were missed before).
 | A `2cb4a20` | `validate_protocol_unguarded/_guard.smt2` | `F` + `[MODEL VERIFIED]` (counterexample `max_rewind=0, rewind=0, len=1`) → **`T`, trusted: 0, holes: 0** (29 steps, farkas 1) |
 | C `ac80f7b` | `capacity_u16_unguarded/_guard.smt2` | `F`, counterexample `n = 65535` → **`T`, trusted: 0 (5 steps)** |
 | D `198669d` | `offbyone_unguarded/_guard.smt2` | `F`, counterexample `n = cap` → **`T`, trusted: 0 (21 steps)** |
-| zls `initFromTrigram` | `audits/zls/init_from_trigram_unguarded/_guard.smt2` | `F`, counterexample `len = 0` → **`T`, trusted: 0 (13 steps)** |
+| zls `initFromTrigram` | `audits/zls/init_from_trigram_unguarded/_guard.smt2` | `F`, counterexample `len = 0` → **`T`, trusted: 0 (13 steps)** — **model demonstration only**: `len == 0` is unreachable in zls (see 5.3) |
 | B `4682993` | `ptr_wrap_unguarded/_guard.smt2` | `F`, counterexample `a=0, b=1, cap=0` → **`T`, trusted: 0, holes: 0** (25 steps). Model is **case-split** (`a < b` → wrap; guard removes that case), because a comparison with `ite` inside it is not canonicalised yet. |
 
 **The certificates are verified by a gate, not by hand:** `tools/audits_run.py`
@@ -216,12 +216,34 @@ checks every `audits/*/*.smt2` file against its expected verdict
 on any mismatch — **12 certificates, 0 mismatches**. Before this they were dead
 files: a solver regression would have silently invalidated the whole table.
 
-### 5.3 Real finding in `zigtools/zls`
+### 5.3 `zigtools/zls` — **CORRECTION: our finding was a false positive**
 
-`src/TrigramStore.zig:519` `initFromTrigram(trigram, len: u32)` computes
-`split.index_1 % len`. With `len == 0` that is a division by zero (panic in Zig).
-`--xray` reports `[CRASH PATH] initFromTrigram: возможно деление на ноль: len == 0`;
-the pair of SMT models above proves the missing guard (`len >= 1`) closes it.
+Earlier this report claimed a real finding in `zigtools/zls` (`src/TrigramStore.zig`,
+`initFromTrigram`: `split.index_1 % len`). Re-checked against the actual **ZLS 0.17.0**
+source (`zigtools/zls`, `minimum_zig_version = "0.17.0"`):
+
+* the division really is `% len` with `len: u32` → `len == 0` would panic;
+* **but `len` can never be 0**: the only construction site is
+  ```zig
+  if (trigrams.len > 0) {                        // line 169
+      const filter_capacity = CuckooFilter.capacityForCount(trigrams.len) catch unreachable;
+      const buckets = try allocator.alloc(CuckooFilter.Bucket, filter_capacity);
+  ```
+  and `capacityForCount(1) = divCeil(105, 100) + (2 & 1) = 2`, so `buckets.len >= 2`;
+* `CuckooFilter.init` is called only there and in a test with `element_count = 499`
+  (`filter_size = 524`).
+
+**Verdict: false positive.** Our `--xray` sees `len` as an unconstrained parameter and
+does not model the caller's invariant (`if (trigrams.len > 0)`), i.e. it lacks
+inter-procedural reasoning. Defect **#200**, fixed by narrowing the rule: a divisor that
+is a **length-like name** (`len`, `size`, `count`, `n`, `cap`, `capacity`, `length`) is no
+longer accused, because non-zero length is the *caller's* contract. Measured after the
+fix: `TrigramStore.zig` → `checked 1 / 13, findings 0`.
+
+The `audits/zls/init_from_trigram_*.smt2` pair stays in the corpus, but as a **model
+demonstration** (“what the missing guard `len >= 1` would close”), **not** as a finding in
+zigtools' code. This is the same lesson as #178/#183: a false accusation is worse than a
+miss.
 
 ### 5.4 `.js` and `.go` field runs — and three false-positive classes they exposed
 

@@ -985,6 +985,11 @@ def _strip_c_comments_strings(text: str) -> str:
 # входа: они не могут «принять 0» из модели, поэтому обязательство
 # `делитель ≠ 0` для них бессмысленно (дефект #178).
 _MACRO_DIV = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
+# ДЕФЕКТ #200: делитель-«длина». Ненулевость длины обеспечивает ВЫЗЫВАЮЩИЙ,
+# а межпроцедурные инварианты мы не моделируем — обвинять нельзя (см. zls 0.17.0:
+# `if (trigrams.len > 0)` перед построением фильтра).
+_RE_LEN_LIKE = re.compile(r"^(len|size|count|n|cap|capacity|length)$")
+
 
 
 def _drop_macro_divisors(divs: list[str]) -> list[str]:
@@ -3478,6 +3483,17 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 continue
             if d.strip() in locals_ or d.strip() in float_names:
                 continue  # локальная переменная / float-арифметика — не параметр
+            # ДЕФЕКТ #200 (найден на РЕАЛЬНОМ коде `zigtools/zls` 0.17.0).
+            # Делитель — «длина» (`len`, `size`, `count`, `cap`): локально
+            # `len == 0` достижим, но ненулевость длины обеспечивает
+            # ВЫЗЫВАЮЩИЙ. В zls фильтр строится только внутри
+            # `if (trigrams.len > 0)`, поэтому `buckets.len >= 2` всегда.
+            # Межпроцедурные инварианты мы НЕ моделируем, значит честный
+            # ответ — не обвинять (урок #178/#183: ложное обвинение хуже
+            # пропуска). Сертификаты `audits/zls/*.smt2` остаются как модель
+            # «что было бы без гарда», но НЕ как находка в их коде.
+            if _RE_LEN_LIKE.match(d.strip()):
+                continue
             if "__" in d:
                 continue  # поле структуры (self.x -> self__x): значение неизвестно
             try:
