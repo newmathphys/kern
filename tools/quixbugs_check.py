@@ -91,7 +91,8 @@ def _alarm(_sig, _frm):
 # ДЕФЕКТ #209: списочный домен Live Replay. Имена — эвристика «это
 # последовательность», а не тип: в QuixBugs `mergesort(arr)` / `find_in_sorted(arr, x)`.
 _LIST_PARAM = re.compile(r"^(arr\d*|xs|lst|list|seq|items|nums|data|values)$")
-_LIST_DOMAIN: tuple = ([], [1], [0, 1], [1, 0], [1, 2, 3], [2, 1], [-1, -2])
+_LIST_DOMAIN: tuple = ([], [1], [0, 1], [1, 0], [1, 2, 3], [2, 1], [-1, -2],
+                        [-1, 2], [2, -1, 2], [1, -2, 3, -1])
 
 
 def _call(fn, kwargs: dict):
@@ -154,6 +155,17 @@ def _confirm(buggy: Path, correct: Path, fn: str, params: list[str],
 
     def _dom(p: str) -> list:
         vals: list = []
+        # ДЕФЕКТ #216: список, ВОССТАНОВЛЕННЫЙ ИЗ МОДЕЛИ Z3.
+        # Модель содержит элементы окна (`arr__e0..arr__e2`) и длину
+        # (`len__arr`), а НЕ сам список `arr`, поэтому `p in model` не срабатывал
+        # и `max_sublist_sum` отбрасывался: ни в модели, ни в запасном домене
+        # не было списка вида `[-1, 2]`.
+        elems = [model.get(f"{p}__e{i}") for i in range(3)]
+        if any(e is not None for e in elems):
+            ln = model.get(f"len__{p}")
+            n = 3 if ln is None else max(0, min(3, int(ln)))
+            lst = [e for e in elems[:n] if e is not None]
+            vals.append(lst)
         if p in model:
             vals.append(model[p])
         if _LIST_PARAM.match(p):

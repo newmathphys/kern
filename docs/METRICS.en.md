@@ -2264,3 +2264,26 @@ with three rules honestly attributed to the Lean kernel (transitivity,
 **Bare-`except` guard (#215):** 29 bare handlers wrapped with `_replay_soft`
 (programming errors are printed, only expected ones are swallowed);
 `dup_defs_guard.py` now also ratchets bare handlers (`bare_except_baseline.json`).
+
+---
+
+### 62. Defect #216: list rebuilt FROM THE Z3 MODEL (QuixBugs 5 -> 6)
+
+`max_sublist_sum` reached the solver after the list scheme (#214) but was
+discarded by Live Replay: the model carries `arr__e0..2` and `len__arr`, not
+`arr`, so `p in model` never matched, and the fallback domain had no list
+starting with a negative element.
+
+**Fix (only `tools/quixbugs_check.py`):** the list is rebuilt from the model
+(`[arr__e0, arr__e1, arr__e2][:len__arr]`) and the domain gained `[-1,2]`,
+`[2,-1,2]`, `[1,-2,3,-1]`. **Soundness unchanged:** divergence is still claimed
+ONLY after a live call of both versions (#206).
+
+| | before (#214) | after (#216) |
+|:--|--:|--:|
+| `QuixBugs` DIVERGED (live) | 5 | **6** |
+| DISCARDED | 3 | **2** |
+| SKIP | 32 | 32 |
+
+New confirmed bug: `max_sublist_sum`, `arr=[-1, 2]` — buggy returns **1**,
+correct returns **2**.
