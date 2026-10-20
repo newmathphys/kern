@@ -2169,3 +2169,33 @@ Lean **128 -> 131** theorems, 0 sorry.
 contains `ite` — a linear-form comparison with an OPAQUE subterm; `parseLin`
 rejects `ite`, so `normCmp` does not fire. Treating the `ite` subterm as an atom
 would be sound, but is NOT implemented.
+
+---
+
+### 59. Bit tricks from the talk: measure BEFORE optimising + 3 theorems
+
+| Measurement | Value |
+|:--|--:|
+| `kernc` startup only (21 MB binary) | **9 ms** |
+| `kernc check-proof` (4 556 B proof, 81 steps) | **9–10 ms** |
+| ⇒ read + tokenise + parse + verify 81 steps | **≤ 1 ms** |
+
+**Measured conclusion:** the tokenizer is NOT the bottleneck for typical proofs
+(3–5 KB). A 2× faster scanner saves ≈0.5 ms of 9–10 ms (≈5 %), so the
+`@Vector(16,u8)+@ctz` scanner was **not** wired into the S-expression parser in
+this iteration. The trick is relevant for large proofs (up to 623 KB were
+observed in `audits/`) and must be measured there instead of assumed.
+
+**Formally proved (bit part of the talk) — 3 new theorems:**
+`lowbit_isolates`, `lowbit_spread` (64-bit) and `lowbit_spread_32` — the second
+is exactly the borrow-spread identity that turns `@ctz` tokenisation into a
+single instruction (`(y-1) &&& ~~~y = lowbit - 1`).
+
+**Honest note on imports:** `FarkasSoundness.lean` used to be zero-import; for
+`bv_decide` exactly one import was added — `Std.Tactic.BVDecide`, shipped with
+Lean 4 (Mathlib NOT required), documented in the file header.
+
+**Measured:** `formal/check.sh` → **ALL LEAN PROOFS OK (8/8 files, 0 errors,
+0 sorry)**; theorems **131 → 134**. Bonus: `bv_decide` also FINDS
+counterexamples (it refuted my first, incorrect formulation with
+`y = 0x8000000000000000`).

@@ -1,9 +1,13 @@
+import Std.Tactic.BVDecide
 -- Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 -- Licensed under the PolyForm Noncommercial License 1.0.0.
 -- Commercial use requires a license from the copyright holder. See LICENSE.
 
 -- KERN FARKAS SOUNDNESS: формальные инварианты пруф-чекера
--- Verified in Pure Lean 4 Core (no Mathlib, no 'sorry'). Самодостаточный файл.
+-- Verified in Lean 4 WITHOUT Mathlib (no 'sorry'). Единственный импорт —
+-- `Std.Tactic.BVDecide` из поставки Lean (тактика `bv_decide`), Mathlib НЕ нужен.
+-- Он требуется ровно для трёх теорем о битовых масках в конце файла.
+-- Самодостаточность арифметической части сохранена.
 --
 -- ЗАЧЕМ. До этого файла 32 теоремы в `formal/` говорили только о решётке
 -- Белнапа B4 и топливе обхода — а САМ ПРУФ-ЧЕКЕР (`src/verifier/proof_check.zig`)
@@ -723,3 +727,22 @@ theorem emod_nonneg_of_pos (x k : Int) (hk : 0 < k) : 0 ≤ x % k := by
 
 -- (b') при `m >= 0` равенство нулю эквивалентно неположительности.
 theorem eq_zero_iff_le_zero_of_nonneg (m : Int) (h : 0 ≤ m) : (m = 0) ↔ (m ≤ 0) := by omega
+
+-- ============================================================================
+-- БИТОВЫЕ ТРЮКИ ИЗ ДОКЛАДА (heat-seeking tokenizer / распространение заёма).
+-- Доказано `bv_decide` (Std, входит в поставку Lean 4; Mathlib НЕ нужен).
+-- ============================================================================
+
+open BitVec in
+/-- Найнизший единичный бит: `y &&& (-y)` (дополнение до двух в BitVec). -/
+theorem lowbit_isolates (y : BitVec 64) : y &&& (-y) = y &&& (~~~y + 1) := by bv_decide
+
+open BitVec in
+/-- Трюк «распространения заёма»: `(y - 1) &&& ~~~y` — это маска ВСЕХ битов
+строго ниже найнизшего единичного, то есть `lowbit - 1`.
+Именно на нём строится переход `@ctz`-токенизатор: одна маска вместо цикла. -/
+theorem lowbit_spread (y : BitVec 64) : (y - 1) &&& ~~~y = (y &&& (-y)) - 1 := by bv_decide
+
+open BitVec in
+/-- 32-битный вариант (для wasm32/mobile-целей): та же маска. -/
+theorem lowbit_spread_32 (y : BitVec 32) : (y - 1) &&& ~~~y = (y &&& (-y)) - 1 := by bv_decide
