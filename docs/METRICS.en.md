@@ -1962,3 +1962,23 @@ hand. **No external reports are sent from them: 0 confirmed out of 14.**
   opaque-`Expr` adapters; 3 new checks in `edge_cases_check.sh` (13/13 OK).
 * Honest limits: the funnel grows little because **calls** cannot be modelled without real semantics;
   `trusted: 4` for `value % 2` is still open (`mod` axiomatics in the proof checker).
+
+---
+
+### 49. Symbolic abstraction: funnel 1.14 % -> 27.23 % (2026-10-20)
+The contract parser no longer discards a function on an unknown construct — it abstracts it:
+`AnnAssign` (`x: int = 5`), nested `def` (No-Op), `try/except` (body walked, exceptions not modelled),
+`a, b = e1, e2` (component-wise), `len(x)` -> symbol `len__x` with axiom `(>= len__x 0)`,
+`int(x)`/`bool(x)`, and **any other call -> `_havoc_k`** (fresh integer).
+
+Measured on the same population of 595 functions: **7 accepted (1.14 %) -> 162 (27.23 %), x23**.
+Remaining blockers: `None` literal 40, `for` 34, `list` 30, subscript 26, unsized unpack 22, `dict` 21.
+
+Rule #4 (Live Replay as final judge): a `SAT` on a havoc model is **not** a violation unless the live
+call confirms it; otherwise the tool prints `[!] SAT not confirmed by live call -> FALSE ALARM`
+(verdict `UNCONFIRMED`, new counter `FALSE ALARMS`), where previously it printed `CONTRACT VIOLATED`.
+
+Verified: `ann`/`nested`/`tr`/`tup` -> `PROVEN, steps 7, trusted: 0, holes: 0`; havoc case ->
+false alarm, not an accusation; annotations no longer leak into nested `def`.
+Limits: exceptions not modelled; havoc results cannot be proven; loops/lists/dicts/`None`/subscripts
+still refused; `trusted: 4` for `value % 2` open (Euclid axiomatics for `div`/`mod`); QuixBugs not run.

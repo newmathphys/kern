@@ -52,6 +52,14 @@ CMP = {"Eq": "=", "NotEq": "distinct", "Lt": "<", "LtE": "<=",
 # Делители, встреченные при трансляции выражения (для обязательства
 # «делитель ≠ 0»): в SMT `div`/`mod` тотальны, поэтому ноль надо ловить отдельно.
 _DIV_COLLECTOR: list = []
+# СИМВОЛЬНАЯ АБСТРАКЦИЯ (вместо отказа от функции): аксиомы, собранные при
+# трансляции (`(>= len__x 0)`), счётчик havoc-переменных и флаг «в формуле была
+# овер-аппроксимация». При овер-аппроксимации SAT-контрпример обязан подтвердиться
+# ЖИВЫМ вызовом (Live Replay), иначе он не считается нарушением (правило №4).
+_AXIOMS: list = []
+_HAVOC_SEQ: list = [0]
+_HAVOC_USED: list = [False]
+_ABSTRACT_SYMS: set = set()  # символы абстракции (объявляются в SMT)
 
 
 class Unsupported(Exception):
@@ -138,7 +146,33 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         if fname == "abs" and len(node.args) == 1 and not node.keywords:
             x = expr_smt(node.args[0], env)
             return f"(ite (< {x} 0) (- 0 {x}) {x})"
-        raise Unsupported(f"вызов {fname or type(fn).__name__}")
+        # СИМВОЛЬНАЯ АБСТРАКЦИЯ (правило №1): неизвестный вызов больше НЕ
+        # означает отказ от функции. `len(x)` -> символ `len__x` с аксиомой
+        # неотрицательности; `int(x)` -> x; `bool(x)` -> 0/1; всё прочее ->
+        # СВЕЖАЯ символьная переменная (havoc), т.е. произвольное целое.
+        # Такой SAT-контрпример обязан подтвердиться живым вызовом (см. вердикт).
+        if fname == "len" and len(node.args) == 1 and not node.keywords:
+            a0 = node.args[0]
+            if isinstance(a0, ast.Name):
+                sym = f"len__{a0.id}"
+            else:
+                _HAVOC_SEQ[0] += 1
+                sym = f"len__havoc_{_HAVOC_SEQ[0]}"
+                _HAVOC_USED[0] = True
+            _ABSTRACT_SYMS.add(sym)
+            if f"(>= {sym} 0)" not in _AXIOMS:
+                _AXIOMS.append(f"(>= {sym} 0)")
+            return sym
+        if fname in ("int", "bool") and len(node.args) == 1 and not node.keywords:
+            x = expr_smt(node.args[0], env)
+            if fname == "int":
+                return x
+            return f"(ite (= {x} 0) 0 1)"
+        _HAVOC_SEQ[0] += 1
+        _HAVOC_USED[0] = True
+        _sym = f"_havoc_{_HAVOC_SEQ[0]}"
+        _ABSTRACT_SYMS.add(_sym)
+        return _sym
     # Тернарный оператор `A if cond else B` -> SMT `ite`.
     if isinstance(node, ast.IfExp):
         return (f"(ite {expr_smt(node.test, env)} "
@@ -217,11 +251,46 @@ def body_smt(stmts, env: dict) -> str:
     Если у `if` нет `else`, роль else играют ОСТАВШИЕСЯ операторы после него.
     """
     for i, st in enumerate(stmts):
+        if isinstance(st, ast.AnnAssign):
+            # БЛОКЕР (28 функций): `x: int = 5` — обычная аннотация Python, а не
+            # «вне подмножества». `x: int` без значения объявляет символ.
+            if isinstance(st.target, ast.Name):
+                if st.value is None:
+                    env.setdefault(st.target.id, st.target.id)
+                else:
+                    env[st.target.id] = expr_smt(st.value, env)
+                continue
+            raise Unsupported("AnnAssign не в простое имя")
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # БЛОКЕР (30 функций): вложенный `def helper()` — No-Op: определение
+            # ничего не вычисляет. Вызов helper(...) даст havoc (правило №1).
+            continue
+        if isinstance(st, ast.Try):
+            # БЛОКЕР (39 функций): обходим тело `try` как основной путь.
+            # ОГРАНИЧЕНИЕ МОДЕЛИ: исключения не моделируются (как в CBMC без
+            # исключений); ложные тревоги отсекает Live Replay (правило №4).
+            try:
+                return body_smt([s for s in st.body if not isinstance(s, ast.Pass)],
+                                dict(env))
+            except NoReturn:
+                continue
         if isinstance(st, ast.Assign):
-            if len(st.targets) != 1 or not isinstance(st.targets[0], ast.Name):
+            tgts = st.targets[0]
+            if isinstance(tgts, (ast.Tuple, ast.List)):
+                # БЛОКЕР (25 функций): `a, b = e1, e2` — покомпонентная распаковка.
+                vals = st.value
+                if not isinstance(vals, (ast.Tuple, ast.List)) \
+                        or len(vals.elts) != len(tgts.elts):
+                    raise Unsupported("распаковка нефиксированной длины")
+                for name_node, val_node in zip(tgts.elts, vals.elts):
+                    if not isinstance(name_node, ast.Name):
+                        raise Unsupported("распаковка не в имена")
+                    env[name_node.id] = expr_smt(val_node, env)
+                continue
+            if len(st.targets) != 1 or not isinstance(tgts, ast.Name):
                 raise Unsupported("присваивание не в простую переменную")
             # Подстановка: имя запоминается как SMT-выражение (символьное значение).
-            env[st.targets[0].id] = expr_smt(st.value, env)
+            env[tgts.id] = expr_smt(st.value, env)
             continue
         if isinstance(st, ast.Raise):
             # ПОЛЕВОЙ АДАПТЕР (аудит 595 функций 6 библиотек: 18.2 % функций
@@ -306,7 +375,7 @@ def parse_file(path: Path):
     anchors: dict[int, dict[str, str]] = _py_comment_anchors(src)
     tree = ast.parse(src)
     out = []
-    for node in ast.walk(tree):
+    for node in tree.body:  # только верхний уровень: вложенный def не наследует аннотации
         if not isinstance(node, ast.FunctionDef):
             continue
         # контракт: якоря в нескольких строках НАД функцией
@@ -392,9 +461,21 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
     """
     decls = "\n".join(f"(declare-const {p} Int)" for p in params)
     lines = ["(set-logic ALL)", decls, "(declare-const result Int)"]
+    # СИМВОЛЫ АБСТРАКЦИИ (`len__x`, `_havoc_k`) — ДО любых assert:
+    # SMT-LIB требует, чтобы все `declare-const` шли перед `assert`, иначе
+    # Z3/kernc отвергает формулу и вердикт уходит в N (unknown).
+    for _sym in sorted(_ABSTRACT_SYMS):
+        if _sym not in params and _sym != "result":
+            lines.append(f"(declare-const {_sym} Int)")
     env: dict = {}  # в requires/ensures локальных имён нет — только параметры
     for p, (lo, hi) in (ranges or {}).items():
         lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
+    # Аксиомы символьной абстракции (`len(x) >= 0`): часть модели, а не догадка —
+    # длина контейнера неотрицательна по определению.
+    for ax in _AXIOMS:
+        if f"(assert {ax})" not in lines:
+            lines.append(f"(assert {ax})")
+
     if req:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
     lines.append(f"(assert (= result {value_of(body_smt_text)}))")
@@ -2279,6 +2360,7 @@ def _demo(args) -> int:
         return 1
 
     total = ok = failed = skipped = vacuous = safety_failed = unknown = 0
+    unconfirmed = 0  # правило №4: SAT, не подтверждённый живым вызовом
     # Контрпримеры для `--emit-pytest` (УЛУЧШЕНИЕ №4): найденный Z3 баг обязан
     # превращаться в ОБЫЧНЫЙ падающий pytest, а не только в строку в логе.
     examples: list[dict] = []
@@ -2581,6 +2663,20 @@ def _demo(args) -> int:
                     # компилятора под рукой может не быть, но модель можно
                     # перепроверить НЕЗАВИСИМЫМ конкретным вычислителем тела.
                     conf = runtime_confirm_clike(meta, params, vals)
+                if conf is False:
+                    # ПРАВИЛО №4 (Live Replay — финальный судья): SAT, который
+                    # живой вызов НЕ подтвердил, — это овер-аппроксимация модели
+                    # (havoc) или ошибка трансляции, а НЕ дефект кода. Раньше он
+                    # всё равно печатался как «КОНТРАКТ НАРУШЕН» — ложное обвинение.
+                    print("         [!] SAT не подтверждён живым вызовом -> "
+                          "ЛОЖНАЯ ТРЕВОГА (овер-аппроксимация); нарушением НЕ считается")
+                    _entry = {"name": name, "line": ln, "verdict": "UNCONFIRMED",
+                              "runtime_confirmed": False}
+                    if vals:
+                        _entry["counterexample"] = vals
+                    f_funcs.append(_entry)
+                    unconfirmed += 1
+                    continue
                 if conf is True:
                     if p.suffix in CLIKE_EXT:
                         print("         [RUNTIME CONFIRMED] контрпример перепроверен "
@@ -2588,9 +2684,6 @@ def _demo(args) -> int:
                     else:
                         print("         [RUNTIME CONFIRMED] нарушение подтверждено "
                               "и в рантайме (0% ложных срабатываний)")
-                elif conf is False:
-                    print("         [!] RUNTIME НЕ подтвердил: контрпример "
-                          "ФАЛЬШИВЫЙ (ошибка трансляции, а не кода)")
                 fn_entry = {"name": name, "line": ln,
                             "verdict": "CONTRACT_VIOLATED"}
                 if vals:
@@ -2611,6 +2704,7 @@ def _demo(args) -> int:
     print("-" * 74)
     print(f"ИТОГО: доказано {ok} | нарушено {failed} (из них "
           f"безопасность: {safety_failed}) | НЕ РЕШЕНО {unknown} | "
+          f"ЛОЖНЫХ ТРЕВОГ {unconfirmed} | "
           f"ВАКУУМНЫХ {vacuous} | "
           f"вне подмножества {skipped} | всего {total}")
     # ---- УЛУЧШЕНИЕ №4: ПАДАЮЩИЙ PYTEST ИЗ КОНТРПРИМЕРА Z3 ----------------
