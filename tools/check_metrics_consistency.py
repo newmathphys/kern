@@ -127,6 +127,12 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int):
         (r"(\d+)\s+non-vacuous(?:\s+cases)?", cases, "кейсы can-fail"),
         (r"(\d+)\s*/\s*(\d+)\s+can-fail", checks, "CHECK-цели"),
         (r"(\d+)\s+can-fail\s+targets", checks, "CHECK-цели"),
+        # Контекстные правила: «82/82 CHECK», «95 cases», «142 кейса» ловятся
+        # только там, где речь действительно о харнессе (иначе — ложные тревоги).
+        (r"(\d+)\s*/\s*(\d+)\s+CHECK\b", checks, "CHECK-цели",
+         ("can-fail", "check", "вакуум", "харнесс")),
+        (r"(\d+)\s+cases\b", cases, "кейсы can-fail", ("canfail", "can-fail", "vacuous")),
+        (r"(\d+)\s+кейс(?:ов|а)?\b", cases, "кейсы can-fail", ("вакуум", "canfail")),
     )
 
 
@@ -172,7 +178,11 @@ def main() -> int:
             low = line.lower()
             if any(mk in low for mk in HISTORY_MARKERS):
                 continue
-            for pattern, expect, label in rules:
+            for rule in rules:
+                pattern, expect, label = rule[0], rule[1], rule[2]
+                need = rule[3] if len(rule) > 3 else ()
+                if need and not any(x in low for x in need):
+                    continue  # контекст не тот — это не обещание счётчика
                 for m in re.finditer(pattern, line, re.IGNORECASE):
                     for g in (g for g in m.groups() if g is not None):
                         if int(g) != expect:
