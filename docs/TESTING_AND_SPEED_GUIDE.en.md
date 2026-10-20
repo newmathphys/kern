@@ -30,7 +30,7 @@
 ### Section 3 — Formal verification
 | Method | Fact |
 |:--|:--|
-| Lean 4 | **8 files, 125 theorems, 0 errors, 0 sorry** |
+| Lean 4 | **8 files, 134 theorems, 0 errors, 0 sorry** |
 | Proof-DAG checker | `trusted: 0 \| holes: 0` on QF_LIA, QF_S, IEEE-754, loops, arrays, automata, RLS |
 | Belnap B₄ | `JOIN_K(T,F)=B`, conflict absorption, Evidence Decay, Scoped Epoch |
 | Floyd–Hoare | `--loops`: Init + Consecution + Post + Termination |
