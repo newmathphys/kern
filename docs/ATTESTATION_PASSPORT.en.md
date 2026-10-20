@@ -243,7 +243,7 @@ Claims that **did not hold** and were fixed in the documentation:
 |:--|:--|
 | SMT stress **13/13** | **18/18** |
 | Hacker's Delight **7/7** | **8/8** |
-| Mutations: **35/35** non-equivalent | **37/37** (37 killed out of 40; 3 equivalent) — *current: **38/40 killed, 2 equivalent*** |
+| Mutations: **35/35** non-equivalent | **37/37** (37 killed out of 40; 3 equivalent) |
 | RAW speed **51 GB/s** | **55–76 GB/s** (unstable, CPU-dependent) |
 | Random access **0.0001 ms** | **0.0006 ms** (after the integrity FIX) |
 | Safe read **231 MB/s** | **164–231 MB/s** (a range) |
@@ -261,7 +261,7 @@ Claims that **did not hold** and were fixed in the documentation:
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·
-SolverPool 128/4 · Lean 4: 8 files / 137 theorems / 0 sorry · QuixBugs 32/40 ·
+SolverPool 128/4 · Lean 4: 8 files / 137 theorems / 0 sorry · QuixBugs 33/40 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · concolic 4 calls ·
 DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 

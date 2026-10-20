@@ -43,6 +43,32 @@ TIMEOUT_CONFIRM = 5       # сек на перепроверку таймаут�
 REC_LIMIT = 250
 TASK_BUDGET = 6.0         # сек на одну задачу (защита от вечного перебора)
 
+# Ошибки САМОГО тестируемого кода (арифметика/контейнеры/типы). Только они
+# записываются как вердикт. NameError/ImportError/AttributeError на именах
+# харнесса сюда не входят намеренно: это баг инструмента, а не находка,
+# и он должен падать громко (дефект #198 — «не глушить программные ошибки»).
+_DATA_ERRORS = (ZeroDivisionError, IndexError, KeyError, TypeError, ValueError,
+                OverflowError, StopIteration, AssertionError)
+
+
+def _raised_in_target(fn, exc) -> bool:
+    """Ошибка возникла ВНУТРИ файла тестируемой функции (а не в харнессе).
+
+    Нужно, чтобы `AttributeError` из багованного кода (`hare.successor` при
+    `hare is None` — QuixBugs `detect_cycle`) стал находкой, а `AttributeError`
+    из нашего собственного харнесса — упал громко (дефект #198: программные
+    ошибки инструмента не глушим).
+    """
+    tb = exc.__traceback__
+    last = None
+    while tb is not None:
+        last = tb.tb_frame.f_code.co_filename
+        tb = tb.tb_next
+    try:
+        return last == fn.__code__.co_filename
+    except AttributeError:                  # fn не Python-функция
+        return False
+
 BIT_OPS = (ast.BitAnd, ast.BitOr, ast.BitXor, ast.LShift, ast.RShift,
            ast.Mod, ast.FloorDiv, ast.Invert)
 STR_METHODS = {"split", "join", "lower", "upper", "strip", "lstrip", "rstrip",
@@ -439,8 +465,8 @@ def load_fn(path: Path, name: str):
     mod = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(mod)
-    except Exception:                            # noqa: BLE001
-        return None
+    except (ImportError, SyntaxError, AttributeError, ValueError, OSError):
+        return None                          # модуль не грузится — не наша цель
     fn = getattr(mod, name, None)
     return fn if callable(fn) else None
 
@@ -460,7 +486,16 @@ def call(fn, kwargs: dict, tracer=None):
         return False, "TIMEOUT", (tracer.lines if tracer else None)
     except RecursionError:
         return False, "RecursionError", (tracer.lines if tracer else None)
-    except Exception as e:                       # noqa: BLE001
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as e:
+        # Критерий — НЕ тип исключения, а КАДР: любая ошибка, возникшая
+        # в файле цели, есть факт о её коде (`RuntimeError: Set changed size
+        # during iteration`, `AttributeError: None.successor`, любой кастомный
+        # класс). Ошибка внутри нашего харнесса пробрасывается громко —
+        # ровно дисциплина дефекта #198 («не глушить программные ошибки»).
+        if not _raised_in_target(fn, e):
+            raise
         return False, f"{type(e).__name__}: {e}", (tracer.lines if tracer else None)
     finally:
         signal.alarm(0)
@@ -487,8 +522,12 @@ def _confirm_timeout(fn, kwargs: dict) -> bool:
         return False                        # завершилась -> не бесконечный цикл
     except _Timeout:
         return True
-    except Exception:                       # noqa: BLE001
-        return False                        # другая ошибка -> не про таймаут
+    except AttributeError as e:
+        if not _raised_in_target(fn, e):
+            raise
+        return False                        # падение их кода -> не бесконечный цикл
+    except _DATA_ERRORS + (RecursionError,):
+        return False                        # ошибка самого кода -> не бесконечный цикл
     finally:
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
@@ -549,7 +588,10 @@ def precondition_ok(expr: str | None, args: dict) -> bool:
         if isinstance(r, tuple):
             return all(bool(x) for x in r)
         return bool(r)
-    except Exception:                            # noqa: BLE001
+    except (SyntaxError, NameError, TypeError, ValueError, KeyError,
+            IndexError, ZeroDivisionError):
+        # Предикат из docstring не вычислим (неизвестное имя/синтаксис) — вход
+        # НЕ отбрасываем: фильтр предусловий должен быть консервативным.
         return True
 
 
@@ -622,8 +664,10 @@ def _norm(v, depth: int = 0, seen: frozenset = frozenset()):
     if hasattr(v, "__iter__"):
         try:
             return ("<iter>", [_norm(x, depth + 1, seen) for x in v])
-        except Exception as e:                   # noqa: BLE001
+        except _DATA_ERRORS + (RecursionError, AttributeError) as e:
             # Материализовать НЕЛЬЗЯ (buggy-flatten падает при первом next).
+            # Здесь итерируется ОБЪЕКТ ТЕСТИРУЕМОГО КОДА, поэтому его
+            # AttributeError — такой же факт о нём, как TypeError.
             return ("<broken-iter>", f"{type(v).__name__}: {type(e).__name__}: {e}"[:60])
     return ("<obj>", type(v).__name__)
 
@@ -648,6 +692,17 @@ def _render(v) -> str:
 def _show(v) -> str:
     """Печать нормализованного результата (генераторы — материализованные)."""
     return _render(v)
+
+
+def _clip(s: str, n: int = 120) -> str:
+    """Обрезать строку ДЛЯ ПЕЧАТИ (сравнение не затрагивается).
+
+    Графовые задачи возвращают узел, у которого нормализованный repr вложен на
+    несколько уровней — в отчёте это давало строки по ~4 КБ и делало
+    свидетельство нечитаемым. Полные значения доступны через `--json`.
+    """
+    s = s.replace("\n", " ")
+    return s if len(s) <= n else f"{s[:n]}…(+{len(s) - n})"
 
 
 def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
@@ -726,7 +781,9 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
             if nb != nc:
                 # СИЛЬНОЕ свидетельство: обе версии отработали, значения разные
                 return {"fn": fn_name, "diverged": True, "tries": tries,
-                        "note": f"{args} buggy={_show(nb)} correct={_show(nc)}",
+                        "note": f"{_clip(str(args), 80)} "
+                                f"buggy={_clip(_show(nb))} "
+                                f"correct={_clip(_show(nc))}",
                         "lines": f"{len(tracer.lines)}/{body_lines}"}
         elif ok_b != ok_c:
             err = (vb if not ok_b else vc)
@@ -743,7 +800,8 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
                 err = "TIMEOUT (бесконечный цикл: не завершилась и за " \
                       f"{TIMEOUT_CONFIRM} с без трейсера)"
             cand = {"fn": fn_name, "diverged": True, "tries": tries,
-                    "note": (f"{args} buggy={err if not ok_b else 'ok'} "
+                    "note": (_clip(str(args), 80) + " "
+                             f"buggy={err if not ok_b else 'ok'} "
                              f"correct={err if not ok_c else 'ok'}"),
                     "lines": f"{len(tracer.lines)}/{body_lines}"}
             if crash_hit is None:

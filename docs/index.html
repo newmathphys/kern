@@ -519,7 +519,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
 <p class="lbl" style="margin:0 0 14px"><em>Symptom:</em> the score "dropped" to 77.5 % after the mutator was pointed at 14 files instead of 6.
 <em>Found by measuring, not guessing:</em> without <code>z3</code> in <code>PATH</code> the suite reports <code>263 passed; 8 skipped</code> — and a skipped test cannot kill a mutant. One of those 8 tests had been written specifically to kill the mutant that "survived".
-<em>Fix:</em> the mutator now requires a solver (<code>--require-solver</code>); the honest score is <strong>100.0 % (38/40)</strong>.</p>
+<em>Fix:</em> the mutator now requires a solver (<code>--require-solver</code>); the score at that time was <strong>95.0 % (38/40)</strong>. After the corpus grew to 21 files the full sweep reports <strong>1345 / 1345</strong>.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#107 — 64 % of the mutants came from a single file.</strong></p>
 <p class="lbl" style="margin:0 0 14px"><em>Symptom:</em> "mutation coverage over 14 files" — but <code>proof_check.zig</code> holds 266 of the 420 sites, so a uniform sample put ~25 mutants in one file and 0–1 in the others.
@@ -728,7 +728,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
           <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 128/128 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr style="border-top:1px solid #21262d">
-          <td>QuixBugs (40 tasks)</td><td class="sc-ok">32/40</td>
+          <td>QuixBugs (40 tasks)</td><td class="sc-ok">33/40</td>
           <td>divergences confirmed by replaying the real function; 12 tasks: no divergence found.
           The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231)</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">

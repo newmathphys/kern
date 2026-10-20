@@ -38,7 +38,7 @@
 | **HumanEval / HumanEval+** | `evalplus` (external API) | **0.524 / 0.500** (see §11) |
 | **MBPP+** | `evalplus` | 378 tasks downloaded — ⛔ not generated (API time) |
 | **SMT (Alive2 / Hacker's Delight)** | Z3 via our bridge | **8/8** (6 proved, 2 counterexamples) |
-| **QuixBugs** | execution + AST trace | **32/40 divergences** |
+| **QuixBugs** | execution + AST trace | **33/40 divergences** |
 | **Refactory** | differential | **1438/1782 bugs (80.7 %)** |
 | **CyberSecEval (Meta)** | AST rules | 28/351 (8.0 %) |
 | **Mutation duel** | boundary sweep | Unit 20 % / KERN **90 %** / 10/10 explained |

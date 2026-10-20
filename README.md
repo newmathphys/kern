@@ -569,7 +569,7 @@ arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still
 
 | Benchmark | Result | Needs a model? |
 |:--|:--|:--|
-| **QuixBugs** (two-stage: SMT `--diff-equiv`, then AST-guided trace) | **32 / 40** DIVERGED (`[RUNTIME CONFIRMED]`), 8 no divergence found — see `audits/QUIXBUGS_BASELINE.md` | no |
+| **QuixBugs** (two-stage: SMT `--diff-equiv`, then AST-guided trace) | **33 / 40** DIVERGED (`[RUNTIME CONFIRMED]`), 7 no divergence found — see `audits/QUIXBUGS_BASELINE.md` | no |
 | **Hacker's Delight / Alive2-style** | **8 / 8** (6 proved, 2 counterexamples) | no |
 | **SWE-bench Lite** (Docker harness) | **3 / 3 resolved**, 0 infra failures | no |
 | **Refactory** (student solutions) | see note below - **not** a core metric | no |
@@ -584,7 +584,7 @@ arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still
 > That validates the **dataset wiring only** — "a buggy program fails its own
 > tests" is the definition of the dataset, not a detection result. It used to sit
 > in the table above as `31 / 31`, which read as a KERN achievement and has been
-> removed. KERN's own QuixBugs result is the row above (`32 / 40`, each
+> removed. KERN's own QuixBugs result is the row above (`33 / 40`, each
 > hit confirmed by replaying the real function).
 
 > **On the Refactory row (defect #77, found 2026-10-16).** Two Python-only
