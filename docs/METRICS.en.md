@@ -1842,3 +1842,40 @@ and the checked counts honestly dropped where pointer comparisons are now skippe
 non-existent `_xray_file`, so Python files silently produced 0): it now uses the
 real `cmd_xray` and runs `--infer-requires` + `--gen-tests` on findings
 (`[autopilot] contracts 1 · tests 4`).
+
+---
+
+### 45. CVE-B closed (`trusted: 0`), certificates under a gate, `cli/cli` measured
+
+**CVE B (`4682993`, cmark-gfm).** The `ite` form (`off = ite (a>=b) (a-b) (a-b+M)`)
+left `trusted: 3`: Z3 inlines `define-fun`, rewrites the comparison inside `ite` and
+reorders the addends. The certificate is therefore written as a **case split**
+(`a < b` → wrap; the fix's guard removes that case) — the way a human argues it.
+Result: **25 steps, premises 2/2, `trusted: 0`, `holes: 0`**.
+
+**Two sound checker rules** (both found from dumps, not guessed): n-ary sums in
+`collectSum` (Z3 writes `(+ K a (* (- 1) b))`, the old code accepted only binary `+`)
+and `cmpCanonEq` (`x ≥ y` ↔ `x − y ≥ 0` ↔ `¬(y − x > 0)`). Lean:
+`lin_sum_rearrange`, `cmp_sub_zero_iff`, `not_le_iff_shift`, `le_zero_iff_neg_ge_zero`.
+
+**Named boundary:** a comparison with an `ite` *inside* it is not canonicalised yet
+(a non-linear subterm is not a sum), so CVE-B uses the case split. The unit test
+asserts only what is implemented.
+
+**Defect #199 — the certificates were dead files.** `audits/{cmark,zls,gpa}/*.smt2`
+were verified by **no** gate at all (grep over `tools/` was empty), so a solver or
+front-end regression would have silently invalidated the published table. Fixed:
+`tools/audits_run.py::cert_section()` checks the expectation from the file name
+(`*_guard` → proven, `*_unguarded` / `*_control` → refuted) and fails `make audits`.
+Measured: **12 certificates, 0 mismatches**.
+
+**`cli/cli` (Go):** sparse checkout of two packages (`pkg/search`, `internal/ghrepo`),
+9 files → **12 / 82 functions checked, 0 findings**. A whole-repository scan does not
+fit a bounded session, and claiming “0 across the repo” from a partial scan would be
+false.
+
+| Metric | Value |
+|:--|:--|
+| cmark-gfm CVEs with a `trusted: 0` certificate | **4 / 4** |
+| Certificates under a gate | 12 (0 mismatches) |
+| Lean 4 | **125 theorems / 8 files, 0 errors, 0 sorry** |

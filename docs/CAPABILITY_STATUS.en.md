@@ -54,7 +54,7 @@ equivalent → 100 % effective).
 | `formal/KernSemanticGap.lean` | the ℤ ↔ i32 gap (8 theorems) | ✅ Mathlib |
 | `formal/FarkasSoundness.lean` | soundness of the proof checker: `int_not_le_iff`, `farkas_2_sound`, `farkas_3_sound`, `three_valued_check_sound`, `vacuous_requires_unsound`, `skip_preserves_belnap_join` | ✅ Lean-core (`omega`), 0 sorry |
 
-**Proof:** `./formal/check.sh` → `ALL LEAN PROOFS OK (0 errors, 0 sorry)` — 8 files, 120 theorems.
+**Proof:** `./formal/check.sh` → `ALL LEAN PROOFS OK (0 errors, 0 sorry)` — 8 files, 125 theorems.
 
 **Honesty (fixed 2026-10-11).** Two theorems were **TAUTOLOGIES** and were replaced with
 meaningful ones:
@@ -399,3 +399,4 @@ Compact English list; full text and measured before/after tables are in
 | **196** | False `[CRASH PATH]` in axios: `x = x || K` not modelled | .js field run | fixed |
 | **197** | False `[DEAD BRANCH]` in gin: `err != nil` pointer compare in Int model | .go field run | fixed |
 | **198** | `--full-scan` silently gave 0 for Python (non-existent `_xray_file`) | self-check | fixed |
+| **199** | Vulnerability certificates were **dead files**: `audits/*/*.smt2` was checked by no gate at all (grep over `tools/` was empty) — a solver regression would have silently diverged from the published table | field review | **fixed**: `audits_run.py::cert_section()` checks the expectation from the file name and fails `make audits` (**12 certificates, 0 mismatches**) |

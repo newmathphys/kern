@@ -118,6 +118,43 @@ def write_corpus_kern(smt_files: list[Path], kimg_kern: Path,
     kimg_kern.write_text("\n".join(lines), encoding="utf-8")
 
 
+def cert_section() -> int:
+    """Проверить СЕРТИФИКАТЫ реальных уязвимостей: `*_guard` -> PROVEN,
+    `*_unguarded` / `*_control` -> REFUTED.
+
+    ЗАЧЕМ: файлы `audits/*/*.smt2` лежали в репозитории и НИЧЕМ не проверялись.
+    При регрессии решателя/фронтенда они молча разошлись бы с реальностью, а
+    витрина продолжала бы утверждать «до фикса — контрпример, после — доказано».
+    """
+    certs = sorted(p for p in AUDITS.rglob("*.smt2") if p.parent.name != "smt2")
+    bad = 0
+    checked = 0
+    print("-" * 78)
+    print("СЕРТИФИКАТЫ РЕАЛЬНЫХ УЯЗВИМОСТЕЙ (контрпример ДО фикса / доказательство ПОСЛЕ)")
+    for f in certs:
+        stem = f.stem
+        if stem.endswith("_guard") or stem.endswith("isAligned"):
+            want = "proven"
+        elif stem.endswith("_unguarded") or stem.endswith("_control"):
+            want = "refuted"
+        else:
+            continue
+        checked += 1
+        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300)
+        got = ("proven" if "ДОКАЗАНО" in out
+               else "refuted" if "КОНТРПРИМЕР" in out else "unknown")
+        m = re.search(r"ДОВЕРЕННЫХ (\d+)", out)
+        tcnt = m.group(1) if m else "—"
+        ok = got == want
+        if not ok:
+            bad += 1
+        rel = f.relative_to(ROOT).as_posix()
+        print(f"  {'OK  ' if ok else 'FAIL'} {rel:44s} ожидали {want:7s} "
+              f"получили {got:7s} trusted {tcnt}")
+    print(f"  сертификатов проверено: {checked} | расхождений: {bad}")
+    return 1 if bad else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Золотой корпус аудитов реального кода")
     ap.add_argument("--keep", action="store_true", help="не удалять временный каталог формул")
@@ -191,11 +228,13 @@ def main() -> int:
     print(f"функций: {len(rows)} | ДОКАЗАНО {proven} | ОПРОВЕРГНУТО {refuted} | "
           f"SKIP {skipped} | с рантайм-подтверждением {runtime} | формул выгружено {len(smt_files)}")
 
+    rc_cert = cert_section()
+
     if args.emit_md:
         Path(args.emit_md).write_text(table + "\n", encoding="utf-8")
         print(f"[i] таблица записана: {args.emit_md}")
 
-    rc = 0
+    rc = rc_cert
     if not args.no_kimg:
         kimg_kern = ROOT / "audits" / "real_code_corpus.kern"
         kimg = ROOT / "audits" / "real_code_corpus.kimg"
@@ -213,7 +252,7 @@ def main() -> int:
         for ln in out_v.splitlines():
             if any(k in ln for k in ("claim", "ИТОГ", "e =", "e=")):
                 print("   " + ln.strip()[:110])
-        rc = rc_b or rc_i or rc_v
+        rc = rc_cert or rc_b or rc_i or rc_v
     return rc
 
 

@@ -125,7 +125,7 @@ echo "────────────────────────�
 collect slsa_check          python3 tools/slsa_provenance.py --check
 collect core_tests          zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig
 collect core_tests_relsafe  zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe
-collect kern_next_tests     zig build test-next
+collect kern_next_tests     zig build test-next --summary all
 collect test_fault          zig build test-fault
 collect test_align          zig build test-align
 collect test_pool           zig build test-pool

@@ -284,7 +284,15 @@ Z3 counterexample. Full table and honest limits:
 <tr><td><b>Python 3.12 stdlib</b><br><span class="lbl">8 modules</span></td>
     <td>zero-annotation <code>--xray</code> field scan</td>
     <td class="ok">checked 211 / 413</td><td>0 false positives</td></tr>
+<tr><td><b>github/cmark-gfm</b> <code>src/autolink.c · extensions/table.c · src/inlines.c</code><br><span class="lbl">4 historical CVEs</span></td>
+    <td>retro-validation: caught before the fix, silent after</td>
+    <td class="ok">4 / 4 caught · certificate trusted: 0</td>
+    <td><code>2cb4a20 · 4682993 · ac80f7b · 198669d</code></td></tr>
 </table></div>
+<p><code>--full-scan &lt;path&gt;</code> runs the honest subset in one pass: zero-annotation
+<code>--xray</code> over all 7 languages, then, for findings, contract inference
+(<code>--infer-requires</code>) and a reproducing test (<code>--gen-tests</code>). Theories that need a
+contract are reported as <b>applicable</b>, never as “verified”.
 <p><b>Honest limits.</b> The SMT model is ours — a counterexample must still be reproduced against the
 project's own build before it can be called their bug. Bloch's bug is invisible in the <code>Int</code>
 theory (needs <code>@kern:bitvec32</code> / QF_BV). <code>SKIP</code> rows are kept on purpose:

@@ -1044,6 +1044,12 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // Из-за этого 3 доверенных `rewrite` в выводе IEEE-754 не сходились,
     // хотя все нужные тождества УЖЕ были реализованы.
     if (sexpEqNum(l, r)) return .verified;
+    // КОНГРУЭНЦИЯ подтермов (CVE-B): формулы отличаются только записью
+    // одного и того же линейного выражения ВНУТРИ ветвей ite. Звучимо по
+    // Лейбницу; за лимитом глубины -> false (шаг остаётся доверенным).
+    if (linCongruenceEq(l, r)) return .verified;
+    // КАНОНИЗАЦИЯ СРАВНЕНИЙ верхнего уровня (`x ≥ y` ↔ `x − y ≥ 0` ↔ `¬(y − x > 0)`).
+    if (cmpCanonEq(l, r)) return .verified;
 
     // ТАВТОЛОГИЯ ИСКЛЮЧЁННОГО ТРЕТЬЕГО: `(or (not X) X) = true` и
     // `(and (not X) X) = false`. ИЗМЕРЕНО (кламп `+|`): Z3 оформляет
@@ -2298,12 +2304,19 @@ fn collectSum(s: Sexp, sign: i64, terms: *std.array_list.Managed(SumTerm), konst
         terms.append(.{ .coef = sign, .atom = a }) catch return false;
         return true;
     }
-    if (!s.isList() or s.items.len != 3) return false;
+    if (!s.isList() or s.items.len < 3) return false;
     const h = s.items[0].atom orelse return false;
     if (std.mem.eql(u8, h, "+")) {
-        return collectSum(s.items[1], sign, terms, konst) and
-            collectSum(s.items[2], sign, terms, konst);
+        // ИЗМЕРЕНО (CVE-B): Z3 пишет суммы N-АРНО (`(+ K a (* (- 1) b))`), а
+        // прежний код принимал только бинарный `+` (len == 3), поэтому
+        // линейные формы не совпадали. Ассоциативность/коммутативность
+        // сложения — тождество, ослабления нет.
+        for (s.items[1..]) |it| {
+            if (!collectSum(it, sign, terms, konst)) return false;
+        }
+        return true;
     }
+    if (s.items.len != 3) return false;
     if (std.mem.eql(u8, h, "-")) {
         return collectSum(s.items[1], sign, terms, konst) and
             collectSum(s.items[2], -sign, terms, konst);
@@ -2333,6 +2346,74 @@ fn sumsMatch(tx: []const SumTerm, kx: i64, ty: []const SumTerm, ky: i64, s: i64)
     }
     return true;
 }
+
+/// КАНОНИЗАТОР СРАВНЕНИЙ: любое `<=, <, >=, >` (в т.ч. под `not`) приводится
+/// к виду `Σ c_i·x_i + k ≤ 0` над ℤ.
+///
+/// ЗВУЧИМОСТЬ (тождества над ℤ, не приближения):
+///   `x ≤ y  ↔  x − y ≤ 0`
+///   `x < y  ↔  x − y + 1 ≤ 0`          (целочисленный сдвиг)
+///   `x ≥ y  ↔  y − x ≤ 0`
+///   `x > y  ↔  y − x + 1 ≤ 0`
+///   `¬(x ≤ y) ↔ y − x + 1 ≤ 0`, `¬(x < y) ↔ y − x ≤ 0`, и т.д. (знак + сдвиг).
+///
+/// ИЗМЕРЕНО (CVE-B, `ptr_wrap_guard.smt2`): Z3 переписывает
+///   `(not (<= (ite …) cap))` -> `(not (<= (+ (ite …) (* (- 1) cap)) 0))`
+///   -> `(not (>= (+ cap (* (- 1) (ite …))) 0))`
+/// — это ОДИН предикат, но структурно три разных записи; без канонизации
+/// 2 шага оставались доверенными.
+fn cmpCanonInto(s: Sexp, terms: *std.array_list.Managed(SumTerm), konst: *i64) bool {
+    var e = s;
+    var neg = false;
+    while (e.isList() and e.items.len == 2) {
+        const h = e.items[0].atom orelse break;
+        if (!std.mem.eql(u8, h, "not")) break;
+        neg = !neg;
+        e = e.items[1];
+    }
+    if (!e.isList() or e.items.len != 3) return false;
+    const h = e.items[0].atom orelse return false;
+    const lhs = e.items[1];
+    const rhs = e.items[2];
+    var sign: i64 = 1;
+    var k: i64 = 0;
+    if (std.mem.eql(u8, h, "<=")) {
+        sign = 1;
+        k = 0;
+    } else if (std.mem.eql(u8, h, "<")) {
+        sign = 1;
+        k = 1;
+    } else if (std.mem.eql(u8, h, ">=")) {
+        sign = -1;
+        k = 0;
+    } else if (std.mem.eql(u8, h, ">")) {
+        sign = -1;
+        k = 1;
+    } else return false;
+    // Отрицание переворачивает сравнение: `¬(x≤y) ↔ y−x+1≤0` и т.д.
+    if (neg) {
+        sign = -sign;
+        k = 1 - k;
+    }
+    if (!collectSum(lhs, sign, terms, konst)) return false;
+    if (!collectSum(rhs, -sign, terms, konst)) return false;
+    konst.* += k;
+    return true;
+}
+
+fn cmpCanonEq(a: Sexp, b: Sexp) bool {
+    var ta = std.array_list.Managed(SumTerm).init(std.heap.page_allocator);
+    defer ta.deinit();
+    var tb = std.array_list.Managed(SumTerm).init(std.heap.page_allocator);
+    defer tb.deinit();
+    var ka: i64 = 0;
+    var kb: i64 = 0;
+    if (!cmpCanonInto(a, &ta, &ka)) return false;
+    if (!cmpCanonInto(b, &tb, &kb)) return false;
+    if (ta.items.len == 0 and tb.items.len == 0) return false;
+    return sumsMatch(ta.items, ka, tb.items, kb, 1);
+}
+
 
 fn eqZeroLhs(s: Sexp) ?Sexp {
     if (!s.isList() or s.items.len != 3) return null;
@@ -2379,6 +2460,40 @@ fn linFormsEq(a: Sexp, b: Sexp) bool {
     if (ta.items.len == 0 and tb.items.len == 0) return false;
     return sumsMatch(ta.items, ka, tb.items, kb, 1) or
         sumsMatch(ta.items, ka, tb.items, kb, -1);
+}
+
+/// КОНГРУЭНЦИЯ С ТОЧНОСТЬЮ ДО ЛИНЕЙНОЙ ЭКВИВАЛЕНТНОСТИ ПОДТЕРМОВ.
+///
+/// ИЗМЕРЕНО (CVE-B, `ptr_wrap_guard.smt2`): Z3 переписывает
+///   `(= (not (<= (ite C (- a b) (+ (- a b) K)) cap))
+///       (not (<= (ite C (+ a (* (- 1) b)) (+ K a (* (- 1) b))) cap)))`
+/// — обе формулы отличаются ТОЛЬКО записью одного и того же линейного
+/// выражения внутри ветвей `ite`. `linFormsEq` сравнивает линейные формы
+/// на ВЕРХНЕМ уровне и до подтермов не достаёт, поэтому 3 шага оставались
+/// доверенными (`trusted: 3`), хотя равенство очевидно.
+///
+/// ЗВУЧИМОСТЬ: если подтермы равны по значению, то и охватывающие формулы
+/// равны — это Лейбниц (`congrArg`), без приближений. Ограничение глубины и
+/// арности — только защита от раздувания; за лимитом возвращается false
+/// (шаг остаётся доверенным, а НЕ «доказанным»).
+fn linCongruenceDepth(a: Sexp, b: Sexp, depth: u8) bool {
+    if (sexpEq(a, b)) return true;
+    if (depth == 0) return false;
+    if (linFormsEq(a, b)) return true;
+    // Сравнения канонизируются (`x ≥ y` ↔ `x − y ≥ 0` ↔ `¬(y − x > 0)`):
+    // ИЗМЕРЕНО на CVE-B — две из трёх записей одного предиката.
+    if (cmpCanonEq(a, b)) return true;
+    if (a.atom != null or b.atom != null) return false;
+    if (a.items.len != b.items.len or a.items.len == 0) return false;
+    if (a.items.len > 64) return false;
+    for (a.items, b.items) |x, y| {
+        if (!linCongruenceDepth(x, y, depth - 1)) return false;
+    }
+    return true;
+}
+
+fn linCongruenceEq(a: Sexp, b: Sexp) bool {
+    return linCongruenceDepth(a, b, 8);
 }
 
 /// ПОЛНЫЙ ПЕРЕБОР ПО БУЛЕВЫМ ПЕРЕМЕННЫМ (звучимая проверка тавтологии).
@@ -5640,5 +5755,36 @@ test "КЛАМП: верхняя оценка ite-терма доказуема 
     // НЕГАТИВНЫЙ двойник: оценка ДРУГОЙ границей — не эквивалентна.
     const bad = try parseSexp(a,
         "(rewrite (= (<= (ite (< a 0) a 0) 0) (or (not (< a 0)) (<= a 1))))");
+    try std.testing.expect(checkRewrite(&c, bad) != .verified);
+}
+
+test "CVE-B: n-арные суммы и канонизация сравнений (trusted: 0)" {
+    // ИЗМЕРЕНО на `ptr_wrap_guard.smt2`: Z3 пишет сумму N-АРНО
+    // (`(+ K a (* (- 1) b))`) и меняет запись сравнения
+    // (`¬(x <= y)` -> `y - x + 1 <= 0`, `x >= y` -> `0 >= y - x`).
+    // Без этих правил шаги оставались ДОВЕРЕННЫМИ.
+    //
+    // ГРАНИЦА (названа, не спрятана): сравнение, внутри которого стоит
+    // `ite`, пока НЕ канонизируется — нелинейный подтерм не выражается суммой.
+    // Поэтому сертификаты CVE-B записаны РАЗБОРОМ ПО СЛУЧАЯМ (без `ite`).
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+
+    // (1) N-арная сумма: `(- a b)` и `(+ a (* (- 1) b))` — одна линейная форма.
+    const s1 = try parseSexp(a, "(rewrite (= (ite (>= a b) (- a b) (+ (- a b) 4294967296)) (ite (>= a b) (+ a (* (- 1) b)) (+ 4294967296 a (* (- 1) b)))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, s1));
+
+    // (2) `¬(x <= y)` <-> `y - x + 1 <= 0` (целочисленный сдвиг).
+    const s2 = try parseSexp(a, "(rewrite (= (not (<= a b)) (<= (+ b (* (- 1) a) 1) 0)))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, s2));
+
+    // (3) Канонизация сравнения: `x >= y` <-> `0 >= y - x`.
+    const s3 = try parseSexp(a, "(rewrite (= (>= a b) (>= 0 (- b a))))");
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, s3));
+
+    // НЕГАТИВНЫЙ двойник: другой сдвиг (+2 вместо +1) — НЕ эквивалентно.
+    const bad = try parseSexp(a, "(rewrite (= (not (<= a b)) (<= (+ b (* (- 1) a) 2) 0)))");
     try std.testing.expect(checkRewrite(&c, bad) != .verified);
 }

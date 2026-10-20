@@ -208,7 +208,13 @@ parser (this was the measured reason they were missed before).
 | C `ac80f7b` | `capacity_u16_unguarded/_guard.smt2` | `F`, counterexample `n = 65535` → **`T`, trusted: 0 (5 steps)** |
 | D `198669d` | `offbyone_unguarded/_guard.smt2` | `F`, counterexample `n = cap` → **`T`, trusted: 0 (21 steps)** |
 | zls `initFromTrigram` | `audits/zls/init_from_trigram_unguarded/_guard.smt2` | `F`, counterexample `len = 0` → **`T`, trusted: 0 (13 steps)** |
-| B `4682993` | — | **no certificate**: unsigned wrap needs bit-vector types, our Int model cannot express it. Detection only, stated as such. |
+| B `4682993` | `ptr_wrap_unguarded/_guard.smt2` | `F`, counterexample `a=0, b=1, cap=0` → **`T`, trusted: 0, holes: 0** (25 steps). Model is **case-split** (`a < b` → wrap; guard removes that case), because a comparison with `ite` inside it is not canonicalised yet. |
+
+**The certificates are verified by a gate, not by hand:** `tools/audits_run.py`
+checks every `audits/*/*.smt2` file against its expected verdict
+(`*_guard` → proven, `*_unguarded` / `*_control` → refuted) and fails `make audits`
+on any mismatch — **12 certificates, 0 mismatches**. Before this they were dead
+files: a solver regression would have silently invalidated the whole table.
 
 ### 5.3 Real finding in `zigtools/zls`
 
@@ -224,7 +230,11 @@ the pair of SMT models above proves the missing guard (`len >= 1`) closes it.
 | `expressjs/express` `lib/` | 6 (`.js`) | 7 / 21 | **0** |
 | `axios/axios` `lib/` | 70 (`.js`) | 32 / 133 | **0** |
 | `gin-gonic/gin` | 99 (`.go`) | 86 / 1375 | **0** |
-| `cli/cli` `pkg/cmd` | .go | scan exceeds the time budget of this session | — |
+| `cli/cli` `pkg/search` + `internal/ghrepo` | 9 (`.go`) | 12 / 82 | **0** |
+
+The `cli/cli` run uses a **sparse checkout of two packages** instead of the whole
+repository: a full scan of `cli/cli` does not fit a bounded session, and reporting
+“0 findings over the whole repo” from a partial scan would be a false claim.
 
 The first run produced **9 findings, all false**, and each was traced to a defect:
 
