@@ -2084,3 +2084,26 @@ operator, one `DictComp`.
 Next honest step: **array model (`QF_AX`, `array_theory.zig`) plus element
 assignment** — without it the “caught” count cannot grow. Report:
 `audits/QUIXBUGS_BASELINE.md`.
+
+---
+
+### 55. Defect #208: honest `--xray` coverage counter + end of silent swallowing
+
+**Root cause (found by reading code):** `cmd_xray` incremented `checked` BEFORE
+walking the body, unconditionally. A function with zero SMT obligations (no `if`,
+no divisor, no index) was reported as "checked", i.e. `checked N/M` mixed real
+verification with mere reading. Additionally 37 `except Exception` blocks inside
+`tools/kern_contracts.py` swallowed internal errors (class #198: nonexistent
+`_xray_file`).
+
+**Fix:** `_SMT_CALLS` is incremented in the single choke point `run_kernc()`
+(all solver calls go through it); `cmd_xray` prints `SMT-verified K,
+no obligations N`. 14 translation sites narrowed from
+`except (Unsupported, NoReturn, Exception)` to `except (Unsupported, NoReturn)`.
+`_replay_soft()` keeps expected exceptions silent but prints
+`NameError/AttributeError/SyntaxError` to stderr.
+
+**Measured:** `examples/xray_demo.py` 4/4 checked -> SMT-verified 4,
+no obligations 0; a file with one obligation-free function -> SMT-verified 1,
+no obligations 1. `make contracts` 11 proven / 4 refuted / 0 false alarms;
+`canfail --only contracts|xray-check|edge-cases` -> 3/3 non-vacuous, 0 vacuous.

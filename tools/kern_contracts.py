@@ -67,6 +67,28 @@ _AXIOMS: list = []
 _HAVOC_SEQ: list = [0]
 _HAVOC_USED: list = [False]
 _ABSTRACT_SYMS: set = set()  # символы абстракции (объявляются в SMT)
+# ЧЕСТНЫЙ СЧЁТЧИК ОХВАТА (дефект #208): сколько раз реально вызывался решатель.
+# Функция без единого SMT-обязательства НЕ имеет права называться проверенной.
+_SMT_CALLS: list = [0]
+
+
+def _replay_soft(exc: BaseException, where: str = "replay") -> None:
+    """Мягкий выход из ЖИВОГО replay контрпримера (дефект #198/#208).
+
+    Часть исключений ОЖИДАЕМА: функция не принимает такие аргументы
+    (`TypeError`, `KeyError`, `ValueError`, `OverflowError`, `IndexError`,
+    `RecursionError`) — молчим, нарушением это не считается.
+
+    Но `NameError` / `AttributeError` / `SyntaxError` / `ImportError` значат,
+    что сломан НАШ код (ровно класс #198: `_xray_file` не существовала, а
+    `except Exception: pass` это скрыл). Такие печатаем в stderr, чтобы дефект
+    был виден с первого запуска, а не через месяц.
+    """
+    if isinstance(exc, (TypeError, KeyError, ValueError, OverflowError,
+                        IndexError, RecursionError, ArithmeticError)):
+        return
+    print(f"[!] {where}: внутренняя ошибка при живом replay: "
+          f"{type(exc).__name__}: {exc}", file=sys.stderr)
 # ОГРАНИЧЕННАЯ РАЗВЁРТКА (Bounded Model Checking, как в CBMC/Kani).
 # `while` и `for ... in range(K)` разворачиваются в K копий тела, саморекурсия —
 # в K вложенных тел (в самой глубине вызов становится havoc). Развёртка —
@@ -717,7 +739,14 @@ def tmp_dir() -> str:
 
 
 def run_kernc(kernc, smt: str):
-    """Прогнать `kernc prove` на SMT-тексте. Возвращает (rc, вывод)."""
+    """Прогнать `kernc prove` на SMT-тексте. Возвращает (rc, вывод).
+
+    ДЕФЕКТ #208: счётчик `_SMT_CALLS` инкрементируется ЗДЕСЬ — это единственная
+    точка, через которую проходят ВСЕ вызовы решателя (`_smt_sat`,
+    `_smt_verdict`, `_prove_checked`, `--diff-equiv`). Так «проверено» означает
+    «решатель реально вызывался», а не «функцию прочитали глазами».
+    """
+    _SMT_CALLS[0] += 1
     with tempfile.NamedTemporaryFile("w", suffix=".smt2", delete=False,
                                      dir=tmp_dir()) as tf:
         tf.write(smt)
@@ -2241,7 +2270,8 @@ def runtime_confirm_clike(meta: dict, params, vals):
         got = _eval_body_concrete(raw, env, meta.get("lang", "?"))
     except ZeroDivisionError:
         return None
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        _replay_soft(e, "clike-replay")
         return None
     want = vals.get("result")
     return None if want is None else (got == want)
@@ -2409,13 +2439,15 @@ def runtime_confirm(path: Path, name: str, params, ens, vals):
         if not callable(fn):
             return None
         res = fn(*[vals[p] for p in params])
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        _replay_soft(e, "py-replay")
         return None
     env = {p: vals[p] for p in params}
     env["result"] = res
     try:
         ok = eval(ens, {"__builtins__": {}}, env)  # noqa: S307
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        _replay_soft(e, "py-replay-ens")
         return None
     return not bool(ok)
 
@@ -2664,8 +2696,8 @@ def _demo(args) -> int:
                             except ZeroDivisionError:
                                 print("         [RUNTIME CONFIRMED] деление на ноль "
                                       "воспроизведено на этих значениях")
-                            except Exception:
-                                pass
+                            except Exception as e:  # noqa: BLE001
+                                _replay_soft(e, "replay-print")
                     fn_entry: dict = {"name": name, "line": ln,
                                       "verdict": "CONTRACT_VIOLATED"}
                     if ce:
@@ -2719,8 +2751,8 @@ def _demo(args) -> int:
                                 if got < lo or got > hi:
                                     print(f"         [RUNTIME CONFIRMED] вычисленное значение "
                                           f"{got} вне диапазона [{lo}, {hi}]")
-                            except Exception:
-                                pass
+                            except Exception as e:  # noqa: BLE001
+                                _replay_soft(e, "replay-print")
                     fn_entry = {"name": name, "line": ln,
                                 "verdict": "CONTRACT_VIOLATED"}
                     if ce:
@@ -2995,7 +3027,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
         if isinstance(st, ast.Assign) and len(st.targets) == 1                 and isinstance(st.targets[0], ast.Name):
             try:
                 env[st.targets[0].id] = expr_smt(st.value, env)
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 env.pop(st.targets[0].id, None)
             continue
         if isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
@@ -3004,7 +3036,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 try:
                     cur = env.get(st.target.id, st.target.id)
                     env[st.target.id] = f"({op} {cur} {expr_smt(st.value, env)})"
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     env.pop(st.target.id, None)
             continue
         # ДЕФЕКТ #179 (assert как гард пути): `assert len(x) == 1` — это
@@ -3013,7 +3045,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
         if isinstance(st, ast.Assert):
             try:
                 path = path + [_cond_smt(st.test, syms, env)]
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 pass
             continue
         # ДЕФЕКТ #179 (Loop-Modified Variable Kill): переменная, которой
@@ -3036,7 +3068,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             if isinstance(st, ast.While):
                 try:
                     path = path + [_cond_smt(st.test, syms, env)]
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     pass
             _walk_branches(st.body, path, params, kernc, found, skipped, fnname, syms, env)
             continue
@@ -3045,7 +3077,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 # ПУНКТ 21 (Zero-Annotation): `len(arr)` -> символическая длина,
                 # иначе условия с `len(...)` ЛОЖНО считались «вне подмножества».
                 cond = _cond_smt(st.test, syms, env)
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 skipped.append(f"{fnname}: условие на строке {st.lineno} вне подмножества")
                 continue
             # ДОСТИЖИМА ли ветка THEN?
@@ -3069,7 +3101,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                         continue  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
                     try:
                         div = expr_smt(n.right, env)
-                    except (Unsupported, NoReturn, Exception):
+                    except (Unsupported, NoReturn):
                         continue
                     if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
@@ -3097,7 +3129,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                         continue  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
                     try:
                         div = expr_smt(n.right, env)
-                    except (Unsupported, NoReturn, Exception):
+                    except (Unsupported, NoReturn):
                         continue
                     if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
@@ -3174,6 +3206,7 @@ def _smt_verdict(kernc, params, asserts) -> tuple[str, str | None]:
     ДОКАЗАННОЙ — ложный PASS. Теперь `unknown` отличается от `unsat` и обязан
     обрабатываться вызывающим кодом как «НЕ проверено».
     """
+    _SMT_CALLS_COUNTED_IN_RUN_KERNC = True  # см. run_kernc (дефект #208)
     free = _free_smt_vars(asserts, params)
     decls = "\n".join(f"(declare-const {p} Int)" for p in list(params) + free)
     body = "\n".join(f"(assert {a})" for a in asserts)
@@ -3300,7 +3333,7 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
         if isinstance(st, ast.If):
             try:
                 cond = _cond_smt(st.test, syms)
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 cond = None
             # ИНВАРИАНТ ДЛИНЫ после нормализации (`if len(x) != K: x = ...[:K]`).
             fixed_len = _normalized_length(st)
@@ -3340,7 +3373,7 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
                 continue
             try:
                 idx = expr_smt(sub.slice, {})
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 continue
             bad = f"(not (and (>= {idx} 0) (< {idx} {n})))"
             v, ce = _smt_verdict(kernc, decls, pre + path + [bad])
@@ -3657,7 +3690,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             try:
                 path_conds.append(expr_smt(
                     ast.parse(clike_to_python(_unwrap_zig_builtins(rq)), mode="eval").body, {}))
-            except (Unsupported, NoReturn, SyntaxError, Exception):
+            except (Unsupported, NoReturn, SyntaxError):
                 continue  # конъюнкт вне подмножества — честно пропускаем
         # Let-Inlining (дефект #183): подставляем локальные `const x = expr;`,
         # чтобы условия и делители зависели от ПАРАМЕТРОВ, а не от
@@ -3683,7 +3716,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 local_smt[nm2] = expr_smt(
                     ast.parse(clike_to_python(_unwrap_zig_builtins(rhs2)), mode="eval").body,
                     local_smt)
-            except (Unsupported, NoReturn, SyntaxError, Exception):
+            except (Unsupported, NoReturn, SyntaxError):
                 continue
         # ДЕФЕКТ #196 (полевой прогон axios): `x = x || K` — после этой строки
         # x гарантированно НЕ 0 (значение по умолчанию). Без учёта этого
@@ -3701,7 +3734,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 continue
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt)
-            except (Unsupported, NoReturn, SyntaxError, Exception):
+            except (Unsupported, NoReturn, SyntaxError):
                 pos = m.end()
                 continue
             proven += 1
@@ -3738,7 +3771,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         for am2_body in _iter_call_args(body, "assert"):
             try:
                 ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(am2_body)), mode="eval").body, local_smt)
-            except (Unsupported, NoReturn, SyntaxError, Exception):
+            except (Unsupported, NoReturn, SyntaxError):
                 continue
             path_conds.append(ac)
             for g in re.finditer(r"\((?:<=|<)\s+[^()]+\s+([A-Za-z_]\w*)\)", ac):
@@ -3774,7 +3807,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 den = dm.group(6)
             try:
                 d = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(den)), mode="eval").body, local_smt)
-            except (Unsupported, NoReturn, SyntaxError, Exception):
+            except (Unsupported, NoReturn, SyntaxError):
                 continue
             if d.strip().isdigit() or _MACRO_DIV.match(d.strip()):
                 continue  # константа/макрос — не 0
@@ -3827,7 +3860,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 idxs = expr_smt(
                     ast.parse(clike_to_python(_unwrap_zig_builtins(idx_raw)), mode="eval").body,
                     local_smt)
-            except (Unsupported, NoReturn, SyntaxError, Exception):
+            except (Unsupported, NoReturn, SyntaxError):
                 continue
             if "(- " not in idxs and not re.search(r"\(- \S+ \S+\)", idxs):
                 continue  # не разность: отрицательность не следует из выражения
@@ -3892,7 +3925,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                     size_smt = expr_smt(
                         ast.parse(clike_to_python(_unwrap_zig_builtins(one)), mode="eval").body,
                         local_smt)
-                except (Unsupported, NoReturn, SyntaxError, Exception):
+                except (Unsupported, NoReturn, SyntaxError):
                     continue
                 if not _mentions_param(size_smt, params) or "__" in size_smt:
                     continue
@@ -4388,7 +4421,9 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     # C-like файлы: Python-AST неприменим (упал бы на `//!` комментариях).
     # Маршрутизируем в устойчивый разбор БЕЗ исполнения тела (адаптер №5б).
     if p.suffix != ".py":
+        _SMT_CALLS[0] = 0
         ck, tot, fd = _xray_clike_file(p, kernc)
+        _smt_calls_clike = _SMT_CALLS[0]
         _LAST_XRAY["stat"] = (ck, tot, tot - ck, list(fd))
         for x in fd:
             print("  " + x)
@@ -4407,7 +4442,8 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
                   "моделируется. Проверять вручную по коду.")
         print("-" * 74)
         print(f"[XRAY SUMMARY] checked {ck} / {tot} functions, "
-              f"skipped {tot - ck} with explicit reasons, findings {len(fd)}")
+              f"skipped {tot - ck} with explicit reasons, findings {len(fd)}, "
+              f"SMT calls {_smt_calls_clike}")
         return 0
     src = p.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
@@ -4423,8 +4459,11 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     found: list[str] = []
     skipped: list[str] = []
     checked = 0
+    verified_smt = 0
+    no_obligations = 0
     for fn in fns:
         params = [a.arg for a in fn.args.args if a.arg != "self"]
+        _SMT_CALLS[0] = 0
         cc, smells = _cc_and_smells(fn)
         # Подмножество: должны переводиться УСЛОВИЯ ветвлений (тело целиком
         # переводить НЕ требуется — для поиска мёртвых веток и краш-путей нужны
@@ -4437,7 +4476,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
                     # `len(arr)` переписывается в символическую длину -> условия с
                     # `len(...)` больше НЕ отсеиваются как «вне подмножества».
                     _cond_smt(n.test, set())
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     conds_ok = False
                     break
         if not conds_ok:
@@ -4453,13 +4492,21 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         lens.update(_collect_lens(fn, syms))   # Zero-Annotation: литералы + len()
         _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms, module_env)
         _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name, syms)
+        # ДЕФЕКТ #208: считаем ТОЛЬКО функции, где решатель реально вызывался
+        # (счётчик читается ПОСЛЕ обхода, иначе он всегда 0). Функция с нулём
+        # обязательств — «прочитана», но НЕ «проверена».
+        if _SMT_CALLS[0] > 0:
+            verified_smt += 1
+        else:
+            no_obligations += 1
 
     print("-" * 74)
     for f in found:
         print("  " + f)
     print("-" * 74)
     _LAST_XRAY["stat"] = (checked, len(fns), len(fns) - checked, list(found))
-    print(f"[XRAY SUMMARY] checked {checked} / {len(fns)} functions, "
+    print(f"[XRAY SUMMARY] checked {checked} / {len(fns)} functions "
+          f"(SMT-verified {verified_smt}, no obligations {no_obligations}), "
           f"skipped {len(fns) - checked} with explicit reasons, "
           f"findings {len(found)}")
     for s in skipped:
@@ -4774,7 +4821,7 @@ def _assigns(stmts) -> list[tuple[str, str]]:
                 and isinstance(st.targets[0], ast.Name)):
             try:
                 out.append((st.targets[0].id, expr_smt(st.value, {})))
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
         elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
             op = {"Add": "+", "Sub": "-", "Mult": "*"}.get(type(st.op).__name__)
@@ -4782,7 +4829,7 @@ def _assigns(stmts) -> list[tuple[str, str]]:
                 raise Unsupported(f"+=/-= только на строке {st.lineno}")
             try:
                 out.append((st.target.id, f"({op} {st.target.id} {expr_smt(st.value, {})})"))
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
     return out
 
@@ -4817,7 +4864,7 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
         if isinstance(st, ast.Return) and st.value is not None:
             try:
                 ret = expr_smt(st.value, {})
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 ret = None
             break
     lines = _loop_lines.get(fn.lineno, [])
@@ -4834,7 +4881,7 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     if "decreases" in d:
         try:
             dec = expr_smt(ast.parse(d["decreases"], mode="eval").body, {})
-        except (Unsupported, NoReturn, Exception):
+        except (Unsupported, NoReturn):
             dec = None
     names = [p for p in params] + [a for a, _ in init_a] + [a for a, _ in step_a]
     state0 = {p: p for p in params}
@@ -4918,13 +4965,13 @@ def cmd_loops(path: str, kernc) -> int:
             if m:
                 try:
                     req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     req = None
             m = re.search(r"@kern:ensures\s+(.+)", s)
             if m:
                 try:
                     ens = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     ens = None
             i -= 1
         out.extend(check_loop(fn, params, req, ens, kernc))
@@ -4974,7 +5021,7 @@ def _returns_with_path(body, path, syms, out):
         if isinstance(st, ast.If):
             try:
                 cond = _cond_smt(st.test, syms)
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 cond = None
             _returns_with_path(st.body, path + ([cond] if cond else []), syms, out)
             neg = f"(not {cond})" if cond else None
@@ -4985,7 +5032,7 @@ def _returns_with_path(body, path, syms, out):
         if isinstance(st, ast.Return) and st.value is not None:
             try:
                 out.append((list(path), expr_smt(st.value, {}), st.lineno))
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 pass
 
 
@@ -5012,7 +5059,7 @@ def cmd_state_inv(path: str, kernc) -> int:
             if m:
                 try:
                     req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     req = None
             i -= 1
         syms: set = set()
@@ -5070,7 +5117,7 @@ def cmd_explain(path: str, kernc) -> int:
             if isinstance(n, ast.Return) and n.value is not None:
                 try:
                     rets.append(expr_smt(n.value, {}))
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     pass
         if divs:
             print(f"    условия падения: деление на ноль в строках {divs}")
@@ -5151,7 +5198,7 @@ def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
                 continue  # `'%s' % x` — форматирование, не деление
             try:
                 div = expr_smt(n.right, {})
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 continue
             sat = _smt_sat(kernc, params, [f"(= {div} 0)"])
             if sat is not True:
@@ -5232,7 +5279,7 @@ def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
                 continue
             try:
                 cond = expr_smt(st.test, {})
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 continue
             model = _smt_model(kernc, params, path_conds + [cond])
             if model is None:
@@ -5287,7 +5334,7 @@ def _simplify_node(node, params, kernc, path, stats):
         if isinstance(st, ast.If):
             try:
                 cond = expr_smt(st.test, {})
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 out.append(st)
                 continue
             sat_then = _smt_sat(kernc, params, path + [cond])
@@ -5311,7 +5358,7 @@ def _simplify_node(node, params, kernc, path, stats):
                 try:
                     a = expr_smt(st.body[0].value, {})
                     b = expr_smt(st.orelse[0].value, {})
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     a = b = None
                 if a is not None and a == b:
                     stats["same"] += 1
@@ -6541,7 +6588,7 @@ def _crash_sites(tree: ast.AST, params: list[str], kernc) -> list[tuple[ast.AST,
             continue
         try:
             div = expr_smt(n.right, {})
-        except (Unsupported, NoReturn, Exception):
+        except (Unsupported, NoReturn):
             continue
         if _smt_sat(kernc, params, [f"(= {div} 0)"]) is True:
             out.append((n, div))
@@ -6773,7 +6820,7 @@ def cmd_concolic(path: str, kernc) -> int:
             for st, t in trace:
                 try:
                     c = expr_smt(st.test, {})
-                except (Unsupported, NoReturn, Exception):
+                except (Unsupported, NoReturn):
                     break
                 want = (f"(not {c})") if t else c   # инвертируем
                 model = _smt_model(kernc, params, prefix + [want])
@@ -6797,7 +6844,7 @@ def cmd_concolic(path: str, kernc) -> int:
         for st in ifs:
             try:
                 c = expr_smt(st.test, {})
-            except (Unsupported, NoReturn, Exception):
+            except (Unsupported, NoReturn):
                 continue
             for t in (True, False):
                 if (getattr(st, "lineno", 0), t) in covered:

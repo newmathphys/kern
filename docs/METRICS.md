@@ -9308,3 +9308,37 @@ QuixBugs — это **алгоритмы над списками и циклам
 Следующий честный шаг — **модель массивов (`QF_AX`, `array_theory.zig`) и
 присваивание в элемент**; без неё рост «поймано» невозможен.
 Отчёт: `audits/QUIXBUGS_BASELINE.md`.
+
+---
+
+## §129. ДЕФЕКТ #208: ЧЕСТНЫЙ СЧЁТЧИК ОХВАТА `--xray` + КОНЕЦ МОЛЧАЛИВОГО ГЛОТАНИЯ
+
+**Причина (найдена аудитом по коду, не догадкой):** `cmd_xray` прибавлял
+`checked += 1` ДО обхода тела, безусловно. Функция, в которой не сгенерировано
+ни одного SMT-обязательства (нет `if`, нет делителя, нет индекса), попадала в
+«проверено» — то есть «checked N/M» смешивало РЕАЛЬНУЮ проверку с чтением
+кода. Дополнительно 37 `except Exception` в `tools/kern_contracts.py`
+проглатывали внутренние ошибки (класс #198: несуществующая `_xray_file`).
+
+**Сделано:**
+1. `_SMT_CALLS` инкрементируется в **единственной** точке `run_kernc()` (через
+   неё проходят все вызовы решателя: `_smt_sat`, `_smt_verdict`,
+   `_prove_checked`, `--diff-equiv`), а `cmd_xray` печатает
+   `SMT-verified K, no obligations N`.
+2. `except (Unsupported, NoReturn, Exception)` -> `except (Unsupported, NoReturn)`
+   в 14 местах трансляции: реальные падения парсера больше не маскируются под
+   «вне подмножества».
+3. `_replay_soft(exc)`: ожидаемые (`TypeError/KeyError/ValueError/OverflowError/
+   IndexError/RecursionError`) молчат, а `NameError/AttributeError/SyntaxError`
+   печатаются в stderr как «внутренняя ошибка при живом replay».
+
+**ИЗМЕРЕНО:**
+| Файл | checked | SMT-verified | no obligations |
+|:--|--:|--:|--:|
+| `examples/xray_demo.py` | 4/4 | **4** | 0 |
+| `/tmp/nx/t.py` (`plain` без `if`) | 2/2 | **1** | **1** |
+| C-like | печатается `SMT calls N` | | |
+
+`make contracts` — 11 доказано / 4 нарушено / **0 ложных тревог**;
+`make edge-cases` — все 9 крайних случаев; `canfail --only contracts,
+xray-check,edge-cases` (по отдельности) — **3/3 не-вакуумных, 0 вакуумных**.
