@@ -181,9 +181,43 @@ def fact_max_defect() -> int | None:
     return max(nums) if nums else None
 
 
-def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int, targets: int):
-    """(регулярка, ожидаемое значение, метка). Все числовые группы обязаны совпасть."""
-    return (
+def fact_quixbugs_explored() -> int | None:
+    """Число задач QuixBugs в статусе EXPLORED (из лога Ступени 2).
+
+    Дефект #239: на сайте жило «12 tasks: no divergence found», хотя финальный
+    лог говорит EXPLORED 7. Число берётся из лога, а не из текста.
+    """
+    p = EV / "quixbugs_full.log"
+    if not p.exists():
+        return None
+    text = p.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"^  EXPLORED\s+(\d+)\s*$", text, re.M)   # итоговая строка, не «EXPLORED 5 lines=…»
+    if m:
+        return int(m.group(1))
+    m = re.search(r"(\d+)\s+tasks?:\s*no divergence", text)
+    return int(m.group(1)) if m else None
+
+
+def fact_canfail_anchors() -> int | None:
+    """Число литеральных якорей can-fail (источник — сам харнесс, не текст)."""
+    try:
+        out = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "canfail.py"), "--check-anchors"],
+            cwd=ROOT, capture_output=True, text=True, timeout=120, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    text = (out.stdout or "") + (out.stderr or "")
+    m = re.search(r"(\d+)\s+литеральн", text)
+    if not m:
+        m = re.search(r"all\s+(\d+)\s+literal anchors", text)
+    return int(m.group(1)) if m else None
+
+
+def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int,
+           targets: int, reg_targets: int, explored: int | None, anchors: int | None):
+    """(регулярка, ожидаемое значение, метка[, контекст]). Все числовые группы обязаны совпасть."""
+    rules = [
         (r"(\d+)\s+core tests", core, "тесты ядра"),
         (r"(\d+)\s*/\s*(\d+)\s+core tests", core, "тесты ядра"),
         (r"#\s*(\d+)\s+core tests", core, "тесты ядра"),
@@ -222,7 +256,32 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int, t
         (r"(\d+)\s+сайт(?:ов|а)?\b", sites, "сайты мутации",
          ("мутац", "mutation", "mutant", "mutate")),
         (r"(\d+)\s+(?:files|файл(?:ов|а)?)\b", targets, "файлы мутации", ("mutation", "mutant", "сайт")),
-    )
+        # --- Дефект #239: ТАБЛИЧНЫЕ ФОРМЫ. Число стоит ПОСЛЕ метки в ячейке,
+        # поэтому правила «N CHECK» и «N кейсов» их не видели. Именно так
+        # прожили 125/125, 141 и 151 в README.ru.md при фактах 128/144/153.
+        # Только UPPERCASE `CHECK` и только в контексте харнесса: иначе
+        # `check.py`, `check Z3 ↔ cvc5 | 9/9` и `33/40` дают ложные тревоги.
+        (r"(?-i:CHECK)[^|\n]{0,90}\|\s*\**\s*(\d+)\s*/\s*(\d+)", checks,
+         "CHECK-цели", ("доказательств", "can-fail", "вакуум", "харнесс", "targets")),
+        (r"can-fail\s+кейс(?:ов|а)?\s*\|\s*(\d+)", cases, "кейсы can-fail",
+         ("can-fail",)),
+        (r"кейс(?:ов|а)?\s*\|\s*(\d+)\s*\(не-вакуумных\s*(\d+)", cases,
+         "кейсы can-fail", ("не-вакуумных",)),
+        (r"целей\s+всего\s*\|\s*(\d+)", reg_targets, "цели реестра", ("целей",)),
+        (r"\(CHECK\s+(\d+)", checks, "CHECK-цели", ("доказательств", "вакуум", "цел")),
+        (r"реестр[^|\n]{0,20}?(\d+)\s+цел", reg_targets, "цели реестра", ("реестр",)),
+    ]
+    if explored is not None:
+        rules += [
+            (r"(\d+)\s+tasks?:\s*no divergence", explored, "QuixBugs EXPLORED"),
+            (r"(\d+)\s+задач[а-я]*\s+без\s+найденного", explored, "QuixBugs EXPLORED"),
+        ]
+    if anchors is not None:
+        rules += [
+            (r"(\d+)\s+literal anchors", anchors, "якоря can-fail", ("anchor",)),
+            (r"(\d+)\s+якор(?:ей|я)?\b", anchors, "якоря can-fail", ("якор",)),
+        ]
+    return tuple(rules)
 
 
 # Это история, а не текущее обещание: «снимок 2026-10-14», «snapshot», «было 279».
@@ -231,7 +290,91 @@ HISTORY_MARKERS = ("снимок", "snapshot", "истори", "history", "бы�
                    "symptom", "before:")
 
 
-def main() -> int:
+def violations_in_line(rel: str, lineno: int, line: str, rules) -> list[str]:
+    """Все нарушения в одной строке. Вынесено из main(), чтобы мета-тест
+    проверял РОВНО ту же логику, которая работает в CI (иначе тест фиктивен)."""
+    low = line.lower()
+    # `canfail --only <target>` печатает счётчик ОДНОЙ цели: это не агрегат.
+    if "--only" in low:
+        return []
+    # Строки реестра дефектов — датированная запись, а не текущее обещание.
+    if re.match(r"^\| (?:\*\*)?\d+(?:\*\*)? \|", line):
+        return []
+    scanned = line
+    if rel.startswith("docs/RELEASE_NOTES") and line.startswith("|") \
+            and line.count("|") >= 4:
+        scanned = line.rstrip().rstrip("|").rsplit("|", 1)[-1]
+    if any(mk in low for mk in HISTORY_MARKERS):
+        return []
+    out: list[str] = []
+    for rule in rules:
+        pattern, expect, label = rule[0], rule[1], rule[2]
+        need = rule[3] if len(rule) > 3 else ()
+        if need and not any(x in low for x in need):
+            continue
+        for m in re.finditer(pattern, scanned, re.IGNORECASE):
+            if label == "файлы мутации" and "lean" in low[max(0, m.start() - 60):m.start()]:
+                continue
+            for g in (g for g in m.groups() if g is not None):
+                if int(g) != expect:
+                    out.append(f"{rel}:{lineno}  {label}: «{m.group(0).strip()}» "
+                               f"→ обещано {g}, факт {expect}")
+    return out
+
+
+def selftest() -> int:
+    """Мета-тест стража: подсадки ОБЯЗАНЫ ловиться, история — НЕ трогаться.
+
+    Дефект #239: страж трижды оказывался слепым (#220/#223/#229/#230).
+    Поэтому проверка проверяющего стала обязательной: 4 формата подсадок,
+    4 чистые строки, 3 исторические.
+    """
+    rules = _rules(401, 53, 425, 128, 144, 1345, 21, 154, 7, 119)
+    stale = [
+        ("README.ru.md", 596, "| **CHECK с доказательством «может упасть»** | **125/125 (100 %)** |"),
+        ("README.ru.md", 598, "| can-fail кейсов | 141 (не-вакуумных 141 · вакуумных 0 · ошибок кейсов 0) |"),
+        ("README.ru.md", 595, "| Целей всего | 151 (CHECK 126 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META 15) |"),
+        ("docs/index.html", 732, "<td>divergences confirmed; 12 tasks: no divergence found.</td>"),
+        ("README.md", 544, "pre-flight (all 108 literal anchors verified in ~1 s)"),
+    ]
+    clean = [
+        ("README.ru.md", 596, "| **CHECK с доказательством «может упасть»** | **128/128 (100 %)** |"),
+        ("README.ru.md", 598, "| can-fail кейсов | 144 (не-вакуумных 144 · вакуумных 0 · ошибок кейсов 0) |"),
+        ("README.ru.md", 595, "| Целей всего | 154 (CHECK 128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META 16) |"),
+        ("docs/index.html", 732, "<td>divergences confirmed; 7 tasks: no divergence found.</td>"),
+        ("README.md", 544, "pre-flight (all 119 literal anchors verified in ~1 s)"),
+    ]
+    history = [
+        ("docs/CAPABILITY_STATUS.md", 1, "| **125** | дефект: историческая запись |"),
+        ("docs/CAPABILITY_STATUS.md", 2, "| **141** | дефект: историческая запись |"),
+        ("README.ru.md", 3, "| Сигнальный флуд | 1441 запуск |"),
+    ]
+    bad = 0
+    for rel, ln, line in stale:
+        if not violations_in_line(rel, ln, line, rules):
+            _fail(f"selftest: ПРОПУЩЕНА подсадка {rel}:{ln}: {line[:70]}")
+            bad += 1
+    for rel, ln, line in clean:
+        hits = violations_in_line(rel, ln, line, rules)
+        if hits:
+            _fail(f"selftest: ЛОЖНАЯ ТРЕВОГА {rel}:{ln}: {hits[0]}")
+            bad += 1
+    for rel, ln, line in history:
+        hits = violations_in_line(rel, ln, line, rules)
+        if hits:
+            _fail(f"selftest: ИСТОРИЯ ЗАДЕТА {rel}:{ln}: {hits[0]}")
+            bad += 1
+    print(f"[{'OK' if bad == 0 else 'FAIL'}] metrics-guard selftest: "
+          f"{len(stale)} подсадок, {len(clean)} чистых, {len(history)} исторических; "
+          f"ошибок {bad}")
+    return 0 if bad == 0 else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else list(argv)
+    if "--selftest" in args:
+        return selftest()
+
     core = fact_core_tests()
     nxt = fact_next_tests()
     cat = fact_catalog()
@@ -239,6 +382,8 @@ def main() -> int:
     arch = fact_cross_arch()
     sites = fact_mutation_sites()
     tgt = fact_mutation_files()
+    explored = fact_quixbugs_explored()
+    anchors = fact_canfail_anchors()
 
     if core is None or nxt is None or cat is None or reg is None \
             or sites is None or tgt is None:
@@ -249,9 +394,23 @@ def main() -> int:
     cases = reg.get("canfail_cases") or []
     n_checks = len(checks) if isinstance(checks, list) else int(checks)
     n_cases = len(cases) if isinstance(cases, list) else int(cases)
+    reg_targets = int(reg.get("targets", 0)) if isinstance(reg, dict) else 0
     tail = f" · QEMU {arch[0]}+{arch[1]}" if arch else ""
     print(f"ФАКТЫ: ядро {core} · next {nxt} · каталог {cat} · "
-          f"CHECK {n_checks} · кейсов {n_cases} · сайтов {sites} в {tgt} файлах{tail}")
+          f"CHECK {n_checks} · кейсов {n_cases} · сайтов {sites} в {tgt} файлах"
+          f" · целей {reg_targets} · якорей {anchors if anchors is not None else '?'} "
+          f"· QuixBugs EXPLORED {explored if explored is not None else '?'}{tail}")
+
+    if "--json" in args:
+        print(json.dumps({
+            "core_tests": core, "next_tests": nxt, "catalog": cat,
+            "check_targets": n_checks, "canfail_cases": n_cases,
+            "mutation_sites": sites, "mutation_files": tgt,
+            "registry_targets": reg_targets, "quixbugs_explored": explored,
+            "canfail_anchors": anchors,
+            "cross_arch": arch, "max_defect": fact_max_defect(),
+        }, ensure_ascii=False, indent=1))
+        return 0
 
     bad = 0
 
@@ -261,48 +420,17 @@ def main() -> int:
               f"а тестов ядра {core} — лог устарел")
         bad += 1
 
-    rules = _rules(core, nxt, cat, n_checks, n_cases, sites, tgt if tgt else 0)
+    rules = _rules(core, nxt, cat, n_checks, n_cases, sites, tgt if tgt else 0,
+                   reg_targets, explored, anchors)
     for rel in SURFACES:
         p = ROOT / rel
         if not p.exists():
             continue
         for lineno, line in enumerate(
                 p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            low = line.lower()
-            # `canfail --only <target>` печатает счётчик ОДНОЙ цели («1 non-vacuous»):
-            # это не агрегатное обещание, а результат точечного прогона.
-            if "--only" in low:
-                continue
-            # Строки РЕЕСТРА дефектов (`| **N** | ...` или `| N | ...`) — датированная
-            # запись: число в ней описывает состояние НА МОМЕНТ фикса, а не текущее
-            # обещание. Переписывать такую историю нельзя (тот же принцип, что и
-            # «не перенумеровываем»), иначе журнал перестанет быть доказательством.
-            if re.match(r"^\| (?:\*\*)?\d+(?:\*\*)? \|", line):
-                continue
-            # Docs/RELEASE_NOTES_v2.5.0.md — таблица «было | стало». Вторая
-            # колонка это ИСТОРИЧЕСКИЙ baseline (v2.4.0), а не текущее обещание:
-            # сверяем только ПОСЛЕДНЮЮ ячейку строки (дефект #230, ложная тревога).
-            scanned = line
-            if rel.startswith("docs/RELEASE_NOTES") and line.startswith("|") \
-                    and line.count("|") >= 4:
-                scanned = line.rstrip().rstrip("|").rsplit("|", 1)[-1]
-            if any(mk in low for mk in HISTORY_MARKERS):
-                continue
-            for rule in rules:
-                pattern, expect, label = rule[0], rule[1], rule[2]
-                need = rule[3] if len(rule) > 3 else ()
-                if need and not any(x in low for x in need):
-                    continue  # контекст не тот — это не обещание счётчика
-                for m in re.finditer(pattern, scanned, re.IGNORECASE):
-                    # «Lean 4 **8 files** / 137 theorems» — это файлы Lean, не мутатора:
-                    # в той же строке есть слово mutation, но обещание не о нём.
-                    if label == "файлы мутации" and "lean" in low[max(0, m.start() - 60):m.start()]:
-                        continue
-                    for g in (g for g in m.groups() if g is not None):
-                        if int(g) != expect:
-                            _fail(f"{rel}:{lineno}  {label}: «{m.group(0).strip()}» "
-                                  f"→ обещано {g}, факт {expect}")
-                            bad += 1
+            for msg in violations_in_line(rel, lineno, line, rules):
+                _fail(msg)
+                bad += 1
 
     # Диапазон реестра на витрине обязан совпадать с фактическим максимумом.
     mx = fact_max_defect()

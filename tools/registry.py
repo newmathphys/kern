@@ -120,6 +120,7 @@ CLASS = {
     "contracts-lock": "META",  # ЗАПИСЬ замка (не проверка); проверяет contracts-lock-check
     "canfail-anchors": "META",  # быстрый пре-флайт якорей (дефект #113)
     "canfail-selftest": "META",
+    "metrics-guard-selftest": "META",   # мета: проверяет сам страж чисел
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",

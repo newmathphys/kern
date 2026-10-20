@@ -102,6 +102,11 @@ stage "реестр целей (K5)" python3 tools/registry.py
 # --- 2. Сборка --------------------------------------------------------------
 stage "build" zig build
 
+# --- 2b. ВЕРСИИ: один проект — одна версия (дефект #97/#239) ----------------
+# Гейт `make version-check` существовал, но НЕ был подключён к CI: `kernx`
+# печатал v2.4.0 при теге v2.5.0, и зелёный CI этого не замечал.
+stage "версии согласованы (kernc/kernx/C-ABI/README)" bash tools/version_check.sh
+
 # --- 3. Тесты ядра ----------------------------------------------------------
 stage "test (ядро, полный)" bash -c 'out=$(zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1); echo "$out" | tail -3; echo "$out" | grep -q "0 failed" || echo "$out" | grep -q "All .* tests passed"'
 
@@ -153,6 +158,7 @@ if [ "$FAST" = "0" ]; then
   # (`core_tests.log`, `kern_next_tests.log`, `cross_arch.log`), пересчёт
   # каталога и `registry.py --json`, а НЕ текст документа.
   stage "числа витрины == факты (#224)" python3 tools/check_metrics_consistency.py
+  stage "мета-тест стража чисел (#239)" python3 tools/check_metrics_consistency.py --selftest
 
   # --- Дефект #222/#223: ЛИЦЕНЗИЯ И СЧЁТЧИК ТЕОРЕМ --------------------------
   stage "лицензия согласована (#222)" python3 tools/check_license_consistency.py
