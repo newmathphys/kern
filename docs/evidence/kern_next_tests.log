@@ -1,6 +1,12 @@
 === KERN EVIDENCE: kern_next_tests ===
-=== команда: zig build test-next ===
-=== дата: 2026-10-19T17:53:49Z ===
+=== команда: zig build test-next --summary all ===
+=== дата: 2026-10-20T08:27:35Z ===
+
+Build Summary: 4/4 steps succeeded
+test-next success
++- run test cached
+   +- compile test debug native cached 20ms MaxRSS:37M
+      +- translate-c cached 21ms MaxRSS:36M
 
 
 RC=0
