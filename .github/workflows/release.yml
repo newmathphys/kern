@@ -32,9 +32,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          NOTES="docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
+          if [ ! -f "$NOTES" ]; then
+            NOTES=$(ls docs/RELEASE_NOTES_v*.md | sort -V | tail -1)
+            echo "[i] свои notes для $GITHUB_REF_NAME не найдены — беру $NOTES"
+          fi
+          # Порядок важен: черновик -> ассеты -> публикация. Если публиковать
+          # до загрузки, релиз существует БЕЗ файлов, и ссылки
+          # releases/download/<tag>/... отдают 404 при непустой странице релиза.
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" \
               --title "KERN $GITHUB_REF_NAME" \
-              --notes-file docs/RELEASE_NOTES_v2.5.1.md
+              --notes-file "$NOTES" --draft
           gh release upload "$GITHUB_REF_NAME" \
             kernc-x86_64-linux-musl SHA256SUMS --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false
