@@ -703,6 +703,10 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
         <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
           <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 127/127 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+        <tr style="border-top:1px solid #21262d">
+          <td>QuixBugs (40 tasks)</td><td class="sc-ok">28/40</td>
+          <td>divergences confirmed by replaying the real function; 12 tasks: no divergence found.
+          The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231)</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
           <td>modelcontextprotocol/servers</td><td>composition</td><td>MCP surface: tools/list, descriptions, annotations</td></tr>
         <tr data-lb="ziglang/zig" style="cursor:pointer;border-top:1px solid #21262d">
@@ -1130,7 +1134,7 @@ This page is served from <code>/docs</code> of the
       `   weights: ${Object.entries(b).map(([k, v]) => k + '=' + v).join(' ')}`,
       '',
       'WHAT THE BROWSER DOES NOT DO (hence 65, not 100):',
-      '   - 1345 mutants and 126 can-fail goals need zig build and Linux processes;',
+      '   - 1345 mutants and 127 can-fail goals need zig build and Linux processes;',
       '   - Z3 theories QF_S / IEEE-754 / bit-vectors are CLI-only;',
       '   - X-Ray here is heuristic (regexes + LIA on guards), not symbolic paths;',
       '   - the attestation signature is verified locally: slsa_provenance.py --check.',
