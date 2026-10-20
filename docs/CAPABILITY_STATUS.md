@@ -30,7 +30,7 @@
 | 5 теорий SMT (UNSAT-core, массивы, CHC, строки, CEGIS) | MEASURED | `kernc audit` → 5/5 отработали на реальном Z3 |
 | C-ABI (`libkern.so`, 7 функций) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) и C |
 
-**Числа:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` → **401/401 OK** (Debug И ReleaseSafe); без `z3` в PATH — 393 passed + 8 skipped (пропуск решателе-зависимых).
+**Числа:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` → **402/402 OK** (Debug И ReleaseSafe); без `z3` в PATH — 393 passed + 8 skipped (пропуск решателе-зависимых).
 Эталон `valid_v1_3.kimg` → Merkle совпадает Python↔Zig (подтверждено в обе стороны).
 Покрытие решений → **100.0%** (30/30). Мутации → **100.0%** (1345 / 1345 сайтов в 21 файле, 0 выживших).
 
@@ -522,7 +522,7 @@ Zig `std/math`), проверка `kernc.wasm` вне ядра и разбор �
 
 **MEASURED/TESTED:** ядро KIMG (парсер, сборщик, Merkle, KERNFS, Врата,
 KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
-snapshot, diff, packet, report, кэш) — **401 + 53 теста, все зелёные**
+snapshot, diff, packet, report, кэш) — **402 + 53 теста, все зелёные**
 (с `z3` в PATH; без него — 393 passed + 8 skipped, пропуск решателе-зависимых).
 
 **FRAMEWORK/NOT IMPL:** облако, WASM, Lean-транспилятор, плагины, bundle,

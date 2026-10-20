@@ -1,15 +1,14 @@
 === KERN EVIDENCE: cross_arch ===
 === команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-19T18:12:57Z ===
+=== дата: 2026-10-20T19:29:28Z ===
 
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
-  401/401 next.parser.test.ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль...[!] метрика 'p95' имеет нечисловое значение 'abc'
+  402/402 next.parser.test.ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль...[!] метрика 'p95' имеет нечисловое значение 'abc'
   OK
-  393 passed; 8 skipped; 0 failed.
+  394 passed; 8 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  401/401 next.parser.test.ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль...[!] метрика 'p95' имеет нечисловое значение 'abc'
+  402/402 next.parser.test.ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль...[!] метрика 'p95' имеет нечисловое значение 'abc'
   OK
-  393 passed; 8 skipped; 0 failed.
+  394 passed; 8 skipped; 0 failed.
 
 RC=0
-[guard] FAULTABLE без изменений (115 файлов) — прогон чист

@@ -33,7 +33,7 @@
 | C-ABI (`libkern.so`, 7 functions) | MEASURED | `zig build lib` + `examples/capi_demo.py` (Python) and C |
 
 **Numbers:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` →
-**401/401 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
+**402/402 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
 (solver-dependent tests skip by design).
 Reference `valid_v1_3.kimg` → the Merkle root matches Python↔Zig (confirmed both ways).
 Decision coverage → **100.0 %** (30/30). Mutation score → **100.0 %** (1345/1345 killed,
@@ -541,7 +541,7 @@ missing from the journal: the range #98–#164 was present, while #93–#97 and
 
 **MEASURED/TESTED:** the KIMG core (parser, builder, Merkle, KERNFS, the Gate, KERN-X,
 cache, 5 SMT theories, C-ABI) and KERN-Next (parser, validator, SQLite, snapshot, diff,
-packet, report, cache) — **401 + 53 tests, all green** (with `z3` in `PATH`; without it —
+packet, report, cache) — **402 + 53 tests, all green** (with `z3` in `PATH`; without it —
 393 passed + 8 skipped, the solver-dependent ones).
 
 **FRAMEWORK/NOT IMPL:** cloud, the Lean transpiler, plugins, bundle, PQC, dashboard —

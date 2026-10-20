@@ -1,0 +1,73 @@
+=== KERN EVIDENCE: quixbugs_stage1 ===
+=== команда: python3 tools/quixbugs_check.py /tmp/QuixBugs-master --stage1-only ===
+=== дата: 2026-10-20T19:29:28Z ===
+
+task                         verdict     div/eq/unk detali
+bitcount                     SKIP                   бинарный оператор (только + - * / // %) [stage1-only]
+breadth_first_search         SKIP                   путь без return [stage1-only]
+bucketsort                   SKIP                   нелинейное умножение [stage1-only]
+depth_first_search           DISCARDED   0/0/0/1    depth_first_search:havoc-model depth_first_search:DIV-DISCARDED(нет расхождения на 25 входах)
+detect_cycle                 SKIP                   присваивание не в простую переменную [stage1-only]
+find_first_in_sorted         SKIP                   путь без return [stage1-only]
+find_in_sorted               DIVERGED    1/0/0/1    binsearch:havoc-model binsearch:DIV-DISCARDED(не загрузить) find_in_sorted:havoc-model find_in_sorted:DIV[{'arr': [1], 'x': 2} buggy=RecursionError correct=ok]
+flatten                      SKIP                   for по не-range [stage1-only]
+gcd                          DIVERGED    1/0/0/0    gcd:havoc-model gcd:DIV[{'a': 0, 'b': 1} buggy=RecursionError correct=ok]
+get_factors                  SKIP                   узел List [stage1-only]
+hanoi                        DIVERGED    1/0/0/0    hanoi:DIV[{'height': 1, 'start': 0, 'end': 0} buggy=[(0, 1)] correct=[(0, 0)]]
+is_valid_parenthesization    SKIP                   путь без return [stage1-only]
+kheapsort                    SKIP                   срез списка [stage1-only]
+knapsack                     SKIP                   распаковка нефиксированной длины [stage1-only]
+kth                          SKIP                   узел ListComp [stage1-only]
+lcs_length                   SKIP                   узел Tuple [stage1-only]
+levenshtein                  SKIP                   литерал '' [stage1-only]
+lis                          SKIP                   узел Dict [stage1-only]
+longest_common_subsequence   SKIP                   литерал '' [stage1-only]
+max_sublist_sum              DIVERGED    1/0/0/0    max_sublist_sum:DIV[{'arr': [-1, 2]} buggy=1 correct=2]
+mergesort                    DIVERGED    1/0/0/0    mergesort:havoc-model mergesort:DIV[{'arr': [1]} buggy=RecursionError correct=ok]
+minimum_spanning_tree        SKIP                   узел Dict [stage1-only]
+next_palindrome              SKIP                   путь без return [stage1-only]
+next_permutation             SKIP                   распаковка не в имена [stage1-only]
+pascal                       SKIP                   узел List [stage1-only]
+possible_change              SKIP                   распаковка нефиксированной длины [stage1-only]
+powerset                     SKIP                   распаковка нефиксированной длины [stage1-only]
+quicksort                    SKIP                   узел List [stage1-only]
+reverse_linked_list          SKIP                   присваивание не в простую переменную [stage1-only]
+rpn_eval                     DISCARDED   0/0/0/1    op:havoc-model op:DIV-DISCARDED(не загрузить)
+shortest_path_length         SKIP                   распаковка нефиксированной длины [stage1-only]
+shortest_path_lengths        SKIP                   узел Tuple [stage1-only]
+shortest_paths               SKIP                   узел DictComp [stage1-only]
+shunting_yard                SKIP                   узел Dict [stage1-only]
+sieve                        DIVERGED    1/0/0/0    sieve:havoc-model sieve:DIV[{'max': 2} buggy=[] correct=[2]]
+sqrt                         SKIP                   нелинейное умножение [stage1-only]
+subsequences                 SKIP                   узел List [stage1-only]
+to_base                      SKIP                   литерал '' [stage1-only]
+topological_ordering         SKIP                   узел ListComp [stage1-only]
+wrap                         SKIP                   срез списка [stage1-only]
+
+=== SUMMARY ===
+  SKIP           32
+  DIVERGED       6
+  DISCARDED      2
+
+  Ступень 1 (SMT + Live Replay): DIVERGED 6
+  Ступень 2 (AST-guided trace):  SKIPPED (--stage1-only)
+  Итого живьём подтверждено:     6 / 40
+
+=== SKIP REASONS (by function) ===
+    5  распаковка нефиксированной длины
+    4  путь без return
+    4  узел List
+    3  литерал ''
+    3  узел Dict
+    2  нелинейное умножение
+    2  присваивание не в простую переменную
+    2  срез списка
+    2  узел ListComp
+    2  узел Tuple
+    1  бинарный оператор (только + - * / // %)
+    1  for по не-range
+    1  распаковка не в имена
+    1  for с распаковкой цели
+    1  узел DictComp
+
+RC=0

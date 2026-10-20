@@ -6,8 +6,13 @@
 > Every number here comes from an actual run. Nothing from memory.
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
+>
+> **CURRENT STATE (2026-10-20):** v2.5.0 @ 54439ee · core 402 · next 53 · catalog 425 ·
+> CHECK 128/128 · cases 144 · anchors 119 · Lean 137 · QuixBugs 6/40 SMT + 33/40 differential.
+> **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
+> and does NOT describe the current state.
 
-## Version: v1.3 · Date: 2026-10-10
+## History: v1.3 snapshot · 2026-10-10 (not current)
 
 ---
 

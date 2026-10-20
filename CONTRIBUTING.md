@@ -35,7 +35,7 @@ uv venv .venv && uv pip install --python .venv/bin/python z3-solver
 ## Before opening a pull request
 
 ```bash
-zig build test              # 401 core tests
+zig build test              # 402 core tests
 zig build test-next         # 53 KERN-Next tests
 zig build test-fault        # SIGBUS/SIGSEGV fault injection
 make ubsafe                 # ReleaseSafe: undefined behaviour detector

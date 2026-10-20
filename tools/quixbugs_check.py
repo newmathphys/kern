@@ -232,7 +232,7 @@ def _confirm(buggy: Path, correct: Path, fn: str, params: list[str],
     return False, f"нет расхождения на {tries} входах"
 
 
-def run(qb: Path, json_out: Path | None) -> int:
+def run(qb: Path, json_out: Path | None, stage1_only: bool = False) -> int:
     tasks = sorted(p.stem for p in (qb / "python_programs").glob("*.py")
                    if not p.stem.endswith("_test") and p.stem != "node")
     rows, reasons = [], collections.Counter()
@@ -253,6 +253,9 @@ def run(qb: Path, json_out: Path | None) -> int:
             # Дефект #234: раньше здесь стоял безусловный continue, и 32 задачи
             # уходили в SKIP, НЕ доходя до Ступени 2. Теперь падение Ступени 1
             # не означает отказа от проверки.
+            if stage1_only:
+                rows.append((name, "SKIP", "", f"{first} [stage1-only]"))
+                continue
             s2, compared = stage2(b_file, c_file)
             if s2:
                 stage2_hits += 1
@@ -305,7 +308,7 @@ def run(qb: Path, json_out: Path | None) -> int:
         # равно проверяется — живым дифференциальным прогоном по домену,
         # выведенному из её же AST. SKIP перестаёт быть тупиком.
         s2 = None
-        if verdict in ("SKIP", "DISCARDED", "UNKNOWN"):
+        if not stage1_only and verdict in ("SKIP", "DISCARDED", "UNKNOWN"):
             s2, compared = stage2(b_file, c_file)
             if s2:
                 verdict = "DIVERGED"
@@ -329,8 +332,12 @@ def run(qb: Path, json_out: Path | None) -> int:
     print("\n=== SUMMARY ===")
     for k, v in cnt.most_common():
         print(f"  {k:<14} {v}")
-    print(f"\n  Ступень 1 (SMT + Live Replay): DIVERGED {cnt.get('DIVERGED', 0) - stage2_hits}")
-    print(f"  Ступень 2 (AST-guided trace):  DIVERGED {stage2_hits}")
+    if stage1_only:
+        print(f"\n  Ступень 1 (SMT + Live Replay): DIVERGED {cnt.get('DIVERGED', 0)}")
+        print("  Ступень 2 (AST-guided trace):  SKIPPED (--stage1-only)")
+    else:
+        print(f"\n  Ступень 1 (SMT + Live Replay): DIVERGED {cnt.get('DIVERGED', 0) - stage2_hits}")
+        print(f"  Ступень 2 (AST-guided trace):  DIVERGED {stage2_hits}")
     print(f"  Итого живьём подтверждено:     {cnt.get('DIVERGED', 0)} / {len(rows)}")
     print("\n=== SKIP REASONS (by function) ===")
     for why, n in reasons.most_common(20):
@@ -345,11 +352,16 @@ def run(qb: Path, json_out: Path | None) -> int:
 def main(argv: list[str]) -> int:
     qb = Path("/tmp/QuixBugs-master")
     json_out = None
+    stage1_only = False
     i = 1
     while i < len(argv):
         if argv[i] == "--json" and i + 1 < len(argv):
             json_out = Path(argv[i + 1])
             i += 2
+            continue
+        if argv[i] == "--stage1-only":
+            stage1_only = True
+            i += 1
             continue
         qb = Path(argv[i])
         i += 1
@@ -360,7 +372,7 @@ def main(argv: list[str]) -> int:
     if not KC.exists():
         print(f"[!] не найден kernc: {KC} (соберите: zig build)")
         return 2
-    return run(qb, json_out)
+    return run(qb, json_out, stage1_only)
 
 
 if __name__ == "__main__":

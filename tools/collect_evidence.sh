@@ -188,6 +188,9 @@ else
 fi
 if [ -d /tmp/QuixBugs-master ]; then
   collect quixbugs           python3 tools/quixbugs_full.py /tmp/QuixBugs-master
+  # Ступень 1 ОТДЕЛЬНО: без fallback Ступени 2 — чтобы цифра 6/40 была
+  # воспроизводима одной командой (дефект #239: раньше fallback включался всегда).
+  collect quixbugs_stage1    python3 tools/quixbugs_check.py /tmp/QuixBugs-master --stage1-only
 else
   skip quixbugs "нет /tmp/QuixBugs-master (git clone jkoppel/QuixBugs)"
 fi

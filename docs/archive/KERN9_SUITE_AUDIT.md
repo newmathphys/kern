@@ -1,5 +1,9 @@
 # АУДИТ «Ultimate Conformance & Security Suite»: заявлено / проверено
 
+> ⚠️ **HISTORICAL ARCHIVE.** Отчёт раннего аудита. Не описывает текущее состояние;
+> актуальные числа и статусы — в `README.md`, `docs/METRICS.md` (CURRENT STATE),
+> `docs/CAPABILITY_STATUS.md`.
+
 **Дата:** 2026-10-09 · **Метод:** сборка, запуск в **Debug и ReleaseFast**, эксперименты.
 
 ---

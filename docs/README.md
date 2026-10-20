@@ -11,7 +11,7 @@
 | **Понять проект ЦЕЛИКОМ (максимально подробно)** | **[`PROJECT_SPECIFICATION.md`](PROJECT_SPECIFICATION.md)** — 18 разделов: проблема, математика, архитектура L0–L5, формат байт-в-байт, Врата, SMT, KERN-Next, CLI, аттестация, дефекты, ограничения |
 | Понять, что такое KERN (5 мин) | [`../README.md`](../README.md) — раздел «Быстрый старт» |
 | Увидеть все цифры и замеры | [`METRICS.md`](METRICS.md) |
-| Увидеть все тесты (339) | [`TEST_CATALOG.md`](TEST_CATALOG.md) |
+| Увидеть все тесты (425) | [`TEST_CATALOG.md`](TEST_CATALOG.md) |
 | Узнать, что **не** сделано | [`../docs/CAPABILITY_STATUS.md`](../docs/CAPABILITY_STATUS.md) |
 | Узнать, какие дефекты исправлены | [`KERN_FIXES_v1_3.md`](KERN_FIXES_v1_3.md) + [`METRICS.md`](METRICS.md) §39–§40 |
 | **Убедиться, что проверки не вакуумны** | [`../README.md`](../README.md) §5b + `make canfail` |
@@ -29,7 +29,7 @@
 | **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок |
 | **[CAPABILITIES.md](CAPABILITIES.md)** | **11 возможностей с доказательствами**: что подтверждено, что с оговоркой, что неверно |
 | **[METRICS.en.md](METRICS.en.md)** · **[CAPABILITIES.en.md](CAPABILITIES.en.md)** · **[ATTESTATION_PASSPORT.en.md](ATTESTATION_PASSPORT.en.md)** · **[CAPABILITY_STATUS.en.md](CAPABILITY_STATUS.en.md)** | **English mirrors** ключевых документов (для внешнего читателя): витрина `README.md` уже полностью английская |
-| **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§72) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
+| **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§151) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
 | **[bench/index.html](bench/index.html)** | **Детерминированный бенчмарк** (график на сайте): лавина, цепочка коллизий, χ². Генерируется `python3 tools/bench_json.py --html docs/bench/index.html`; цель `make bench-json` (can-fail доказана) |
 | **[FIELD_AUDIT_REPORT.md](FIELD_AUDIT_REPORT.md)** | **Полевой аудит 14 реальных репозиториев** (Zig, C, Rust, TypeScript, Go, Python, Lean 4): Scorecard и `--xray` **ДО/ПОСЛЕ** исправлений (`[CRASH PATH]` **469 -> 8**; `cmark-gfm` 40 D -> 78 B, `tigerbeetle` 54 D -> 84 B, `aesop` 42 D -> 73 B) + семь дефектов, которые вскрыл сам прогон (#178–#184) |
 | **[../audits/README.md](../audits/README.md)** | **Тень-контракты на чужом коде**: рукописные SMT-модели реальных выражений из сторонних проектов (например `isAligned` из `andrewrk/zig-general-purpose-allocator` — ДОКАЗАНО, и контрольная ломаная версия — КОНТРПРИМЕР) + замер, почему «прогон KERN по 50 репозиториям» даёт нули |

@@ -368,7 +368,7 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 
 | Проверка | Результат |
 |:--|:--|
-| Тесты ядра (Debug + ReleaseSafe) | **401 / 401** |
+| Тесты ядра (Debug + ReleaseSafe) | **402 / 402** |
 | Тесты ядра без `z3` в PATH | **393 passed + 8 skipped** (пропуск решателе-зависимых) |
 | Тесты KERN-Next | **53 / 53** |
 | Утечки памяти (GeneralPurposeAllocator) | **0 байт** |
@@ -384,7 +384,7 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 
 | Платформа | Свойство | Результат |
 |:--|:--|:--|
-| x86_64 | модель памяти TSO | **401 / 401** |
+| x86_64 | модель памяти TSO | **402 / 402** |
 | **ARM64** | строгое выравнивание (нет `Bus Error`) | **393 passed + 8 skipped** |
 | **POWERPC64** | **big-endian** (порядок байт) | **393 passed + 8 skipped** |
 
@@ -498,7 +498,7 @@ uv venv .venv && uv pip install --python .venv/bin/python z3-solver
 zig build
 
 # Тесты
-zig build test            # 401 тест ядра
+zig build test            # 402 теста ядра
 zig build test-next       # 53 KERN-Next
 zig build test-fault      # инъекция сбоев памяти
 zig build test-align      # выравнивание и endianness
@@ -616,7 +616,7 @@ KERN — это не «ещё один линтер». Это **шлюз**, ко
 Что построено и измерено:
 
 ```
-401 тест ядра + 53 теста KERN-Next
+402 теста ядра + 53 теста KERN-Next
 137 теорем Lean 4, 0 sorry
 100 % покрытие решений · 100.0 % мутационный скор · 128/128 can-fail
 0 утечек памяти · 0 UB · 0 утечек FD · 0 зомби

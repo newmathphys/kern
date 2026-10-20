@@ -254,7 +254,7 @@ reproduces it. The difference between "written" and "proven" is the subject of t
 | 3 | Gateway for LLMs | ⚠️ 100 % precision, but pass@1 does not grow |
 | 4 | UNSAT Core | ✅ with a minimality check |
 | 5 | Code synthesis (CEGIS) | ✅ `(bvshl x 3)`, verified |
-| 6 | Integrity + portability | ⚠️ x86_64 (host) **401 / 401**; QEMU ARM64/POWERPC64 — **393 passed / 8 skipped / 0 failed** (2026-10-19); access **0.0006 ms** |
+| 6 | Integrity + portability | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **393 passed / 8 skipped / 0 failed** (2026-10-19); access **0.0006 ms** |
 | 7 | ReDoS / Path Traversal | ✅ counterexamples found |
 | 8 | Probabilities (DTMC) | ✅ 0.1³ = 0.001 exactly |
 | 9 | Constant-Time | ⚠️ in practice ~1.0×, test threshold 3.0 |

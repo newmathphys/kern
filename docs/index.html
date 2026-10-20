@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://newmathphys.github.io/kern/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KERN — zero-trust verification gateway (Zig + Z3 + Lean 4)">
-<meta property="og:description" content="A claim is admitted only with machine evidence. 401/401 core tests · 100.0% mutation score · 128/128 can-fail targets · 137 Lean 4 theorems (0 sorry).">
+<meta property="og:description" content="A claim is admitted only with machine evidence. 402/402 core tests · 100.0% mutation score · 128/128 can-fail targets · 137 Lean 4 theorems (0 sorry).">
 <meta property="og:url" content="https://newmathphys.github.io/kern/">
 <meta property="og:image" content="https://newmathphys.github.io/kern/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -240,7 +240,7 @@ chmod +x kernc-x86_64-linux-musl
 
 # 3. From source
 git clone https://github.com/newmathphys/kern &amp;&amp; cd kern
-zig build &amp;&amp; zig build test   # 401 core tests
+zig build &amp;&amp; zig build test   # 402 core tests
 make contracts                 # polyglot @kern: contracts (Python / Zig / C / Rust)
 ./formal/check.sh              # Lean 4: 8 files, 137 theorems, 0 sorry</pre>
 
@@ -728,9 +728,10 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
           <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 128/128 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr style="border-top:1px solid #21262d">
-          <td>QuixBugs (40 tasks)</td><td class="sc-ok">33/40</td>
-          <td>divergences confirmed by replaying the real function; 7 tasks: no divergence found.
-          The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231)</td></tr>
+          <td>QuixBugs (40 tasks)</td><td class="sc-ok">33/40 diff</td>
+          <td><b>6/40</b> formal SMT (Stage 1, trusted: 0) · <b>33/40</b> live differential
+          (24 value + 8 crash + 1 hang; 9 need no oracle, 24 use the dataset reference) ·
+          <b>7</b> EXPLORED. The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231, #239)</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
           <td>modelcontextprotocol/servers</td><td>composition</td><td>MCP surface: tools/list, descriptions, annotations</td></tr>
         <tr data-lb="ziglang/zig" style="cursor:pointer;border-top:1px solid #21262d">

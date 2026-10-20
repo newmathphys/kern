@@ -711,7 +711,7 @@ make formal-ci         # ядро + Lean-доказательства
 make echelons          # 4 эшелона: выравнивание, лавина хэша, пул, семантика
 
 # --- Ядро ---
-zig build test         # 401 тест ядра (Debug)
+zig build test         # 402 теста ядра (Debug)
 zig test src/test_root.zig -O ReleaseSafe   # без UB
 zig build test-next    # 53 теста KERN-Next
 zig build test-fault   # сбои памяти (реальный SIGBUS)

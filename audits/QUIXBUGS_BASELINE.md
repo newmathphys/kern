@@ -8,10 +8,40 @@
 
 ```bash
 git clone --depth 1 https://github.com/jkoppel/QuixBugs /tmp/QuixBugs-master
-python3 tools/quixbugs_check.py            # 40 пар, классификация исходов
+python3 tools/quixbugs_check.py /tmp/QuixBugs-master --stage1-only   # 6/40 (SMT)
+python3 tools/quixbugs_check.py /tmp/QuixBugs-master                 # 33/40 (trace)
 ```
 
-## Результат
+## Результат (текущий HEAD)
+
+| Ступень | Исход | Задач | Что означает |
+|:--|:--|--:|:--|
+| **1. SMT + Live Replay** (`--stage1-only`, `trusted: 0`) | DIVERGED | **6** | контрпример Z3 подтверждён живым вызовом |
+| | DISCARDED | 2 | SAT-кандидат, но живой вызов расхождения не показал |
+| | SKIP | 32 | функция вне QF_LIA-подмножества |
+| **2. AST-guided trace** (живой дифференциальный прогон) | DIVERGED | **33** | падение или расхождение с эталоном датасета |
+| | EXPLORED | **7** | контрпример не найден в конечном домене (НЕ «корректно») |
+
+**Из 33 DIVERGED Ступени 2:**
+
+| Класс | Задач | Нужен эталон `correct_python_programs/`? |
+|:--|--:|:--|
+| расхождение возвращаемого значения | **24** | да |
+| падение внутри тестируемой функции (`IndexError`, `RecursionError`, `TypeError`, `ValueError`, `RuntimeError`) | **8** | нет |
+| незавершение (`bitcount`, > 5 с) | **1** | нет |
+
+Итого **9 из 33** не требуют эталона; **24** — требуют.
+`6/40` — это **отдельная** формальная Ступень 1; складывать 6 и 33 нельзя.
+
+**7 EXPLORED:** `depth_first_search`, `detect_cycle`, `longest_common_subsequence`,
+`next_palindrome`, `shortest_path_length`, `shortest_path_lengths`, `shortest_paths`.
+Это «контрпример не найден на перебранных входах», а не «кода дефекта нет».
+
+**Логи:** `docs/evidence/quixbugs_stage1.log` (6/40, `--stage1-only`),
+`docs/evidence/quixbugs_full.log` (33/40, Ступень 2).
+
+<details>
+<summary>История: первый baseline (Stage 1, 1/40 — до двухступенчатого движка)</summary>
 
 | Исход | Задач | Что означает |
 |:--|--:|:--|
@@ -28,6 +58,8 @@ python3 tools/quixbugs_check.py            # 40 пар, классификаци
 **Отброшено (DISCARDED):** `depth_first_search` (25 входов), `find_in_sorted` (25),
 `mergesort` (5), `rpn_eval` (не загрузить — вложенный `def`). Модель давала SAT,
 но живой вызов расхождения не показал → **не обвинение** (правило №4).
+
+</details>
 
 ## Механизм (что именно добавлено)
 

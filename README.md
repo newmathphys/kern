@@ -3,7 +3,7 @@
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
-[![Core tests](https://img.shields.io/badge/core_tests-401%2F401_with_z3-brightgreen)](src/)
+[![Core tests](https://img.shields.io/badge/core_tests-402%2F402_with_z3-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-53%2F53-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-8_files_%C2%B7_120_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
@@ -532,7 +532,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Check | Result |
 |:--|:--|
-| Core test suite (Debug + ReleaseSafe) | **401 / 401** |
+| Core test suite (Debug + ReleaseSafe) | **402 / 402** |
 | Core test suite **without** `z3` in `PATH` | **393 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
 | KERN-Next test suite | **45 / 45** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
@@ -552,7 +552,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **401 / 401 passed** with `z3` on `PATH`; **393 passed + 8 skipped** when no solver is installed |
+| x86_64 | TSO memory model | **402 / 402 passed** with `z3` on `PATH`; **393 passed + 8 skipped** when no solver is installed |
 | **ARM64** (QEMU) | strict alignment — no `Bus Error` | **393 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`) |
 | **POWERPC64** (QEMU) | **big-endian** byte order | **393 passed / 8 skipped / 0 failed** (same QEMU log) |
 
@@ -569,7 +569,7 @@ arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still
 
 | Benchmark | Result | Needs a model? |
 |:--|:--|:--|
-| **QuixBugs** (two-stage: SMT `--diff-equiv`, then AST-guided trace) | **33 / 40** DIVERGED (`[RUNTIME CONFIRMED]`), 7 no divergence found — see `audits/QUIXBUGS_BASELINE.md` | no |
+| **QuixBugs** (40 tasks, two stages) | **6 / 40** formal SMT (Stage 1, `trusted: 0`) · **33 / 40** live differential (24 value + 8 crash + 1 hang; 9 need no oracle, 24 compare with the dataset reference) · **7** EXPLORED — see `audits/QUIXBUGS_BASELINE.md` | no |
 | **Hacker's Delight / Alive2-style** | **8 / 8** (6 proved, 2 counterexamples) | no |
 | **SWE-bench Lite** (Docker harness) | **3 / 3 resolved**, 0 infra failures | no |
 | **Refactory** (student solutions) | see note below - **not** a core metric | no |
@@ -586,6 +586,14 @@ arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still
 > in the table above as `31 / 31`, which read as a KERN achievement and has been
 > removed. KERN's own QuixBugs result is the row above (`33 / 40`, each
 > hit confirmed by replaying the real function).
+>
+> **How to read the QuixBugs row (defect #239).** `33/40` is **differential
+> execution**, not a formal proof: 24 tasks return a different value from
+> `correct_python_programs/`, 8 crash inside the tested function, 1 does not
+> terminate (`bitcount`). **9 of the 33 need no reference at all; 24 do.**
+> The formal SMT path is the separate **`6/40`** (Stage 1 only,
+> `--stage1-only`, `docs/evidence/quixbugs_stage1.log`). The 7 `EXPLORED`
+> tasks are "no counterexample found in the finite domain", not "proved correct".
 
 > **On the Refactory row (defect #77, found 2026-10-16).** Two Python-only
 > harnesses exist for this dataset, and **neither uses the KERN core**
@@ -671,7 +679,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 zig build
 
 # 3. Core test suites
-zig build test          # 401 core tests
+zig build test          # 402 core tests
 zig build test-next     # 53 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics
@@ -694,7 +702,7 @@ make audit-manifest
 
 > **Build notes (Zig 0.17) — read before "fixing" a red-looking log.**
 > A fresh `zig build test` prints
-> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 401 tests
+> `failed command: ./.zig-cache/o/<hash>/test … --listen=-` **even when all 402 tests
 > pass**: `zig build` runs the tests as a separate child that reports over an IPC
 > protocol (`--listen=-`), and the step verdict comes from the protocol, not from that
 > line. Judge a build by its exit code and `zig build … --summary all` — never by

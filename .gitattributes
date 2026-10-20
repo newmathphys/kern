@@ -1,0 +1,3 @@
+# Evidence logs are captured verbatim from test output; trailing spaces are part
+# of the captured output and are not style errors.
+docs/evidence/*.log -whitespace

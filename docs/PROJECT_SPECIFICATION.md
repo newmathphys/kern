@@ -835,8 +835,8 @@ canfail --selftest → canfail (144 кейса) → каталог синхро�
 
 | Метрика | Значение | Команда |
 |:--|:--|:--|
-| Тесты ядра | **401 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
-| Тесты ядра (ReleaseSafe) | 401 passed, **0 UB** | `make ubsafe` |
+| Тесты ядра | **402 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
+| Тесты ядра (ReleaseSafe) | 402 passed, **0 UB** | `make ubsafe` |
 | Тесты KERN-Next | **53 passed** (52 именованных + 1 агрегирующий) | `zig build test-next` |
 | Каталог тестов | **425** | `python3 tools/gen_test_catalog.py --check` |
 | Покрытие решений | **100.0 %** (30/30, порог 95 %) | `make coverage` |
@@ -899,7 +899,7 @@ canfail --selftest → canfail (144 кейса) → каталог синхро�
 ## 14.1 Аттестационный манифест (10 строк, каждая — реальный прогон)
 
 ```
-Core (Debug)          : PASS — 401/401 tests
+Core (Debug)          : PASS — 402/402 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 KERN-Next             : PASS
 Kernel Invariants     : PASS — Lean 4 (8 файлов, 0 errors, 0 sorry)
@@ -1054,7 +1054,7 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 
 zig build                      # kernc, kernx, kern-attack
-zig build test                 # 401 тест ядра
+zig build test                 # 402 теста ядра
 zig build test-next            # 53 теста KERN-Next
 ./formal/check.sh              # Lean 4: 0 errors, 0 sorry
 

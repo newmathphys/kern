@@ -1,5 +1,9 @@
 # Миграция KERN на Zig 0.17.0 — отчёт о состоянии
 
+> ⚠️ **HISTORICAL ARCHIVE (v1.3, 2026-10-10).** Документ описывает состояние на
+> момент v1.3 и НЕ является текущим. Актуально: `README.md`, `docs/METRICS.md`
+> (блок `CURRENT STATE`), `docs/CAPABILITY_STATUS.md`.
+
 > Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 > Licensed under the PolyForm Noncommercial License 1.0.0.
 > Commercial use requires a license from the copyright holder. See LICENSE.

@@ -139,3 +139,47 @@ grader'а** и нет бенчмарка QuixBugs; реальный прогон
 - [ ] коммит A в ветку `fix/phase0-honesty`
 - [ ] шаг B
 - [ ] шаг C
+
+## 7. Прогресс шага B (в работе)
+
+- [x] `make ci-fast` — 10/10 зелёных, 16 с (шаг A).
+- [x] Коммит A: `4e6f5ab` в ветке `fix/phase0-honesty`.
+- [x] `docs/evidence/core_tests.log` перегенерирован: **All 402 tests passed**
+      (было 401 — лог от 2026-10-19 отставал от кода).
+- [x] Текущие упоминания 401 → 402 в README/README.ru/index/PROJECT/
+      PROJECT_SPECIFICATION/TEST_CATALOG/CYBERNETIC_VISION/CONTRIBUTING/
+      ATTESTATION_PASSPORT/CAPABILITIES/CAPABILITY_STATUS.
+      **Исторические** разделы METRICS, журнал дефектов #220/#224 и
+      RELEASE_NOTES_v2.5.0 (там «было 299 → стало 401») НЕ тронуты.
+- [ ] `docs/evidence/cross_arch.log` — идёт QEMU ARM64 (нужно 394+8=402).
+- [x] `tools/quixbugs_check.py --stage1-only` — флаг добавлен, чтобы `6/40`
+      было воспроизводимо (раньше fallback Ступени 2 включался всегда).
+- [ ] `docs/evidence/quixbugs_stage1.log` — прогон после cross_arch (общий
+      evidence_guard-снимок нельзя запускать параллельно).
+- [ ] Честная формулировка `6/40 + 33/40` в README/README.ru/index/BASELINE.
+- [ ] Чистка docs: METRICS header, SHA-256, ATTESTATION §0.4, ROADMAP status.
+
+## 8. Шаг B — ВЫПОЛНЕНО
+
+- [x] `docs/evidence/core_tests.log` → **All 402 tests passed**.
+- [x] Текущие 401 → 402 в публичных поверхностях.
+- [x] `docs/evidence/cross_arch.log` → **394 passed + 8 skipped = 402**
+      на ARM64 и POWERPC64 (big-endian), `RC=0`.
+- [x] `docs/evidence/quixbugs_stage1.log` → **6/40** (`--stage1-only`, `RC=0`).
+- [x] Честная формулировка `6/40 SMT + 33/40 differential` в `README.md`,
+      `README.ru.md`, `docs/index.html`, `audits/QUIXBUGS_BASELINE.md`,
+      `docs/CAPABILITIES.md`.
+- [x] `docs/METRICS.md`/`.en`: блок `CURRENT STATE`, `v1.3` помечен как история,
+      `hash_algo` → BLAKE3 (дефект #66).
+- [x] `docs/ATTESTATION_PASSPORT.md` §0.4: Zig 0.17 / v2.5.0 (не «0.13, черновик PR»).
+- [x] `docs/ROADMAP.md`: v2.5.0 опубликован, 40/40 пунктов, 137 теорем.
+- [x] Плашки `HISTORICAL` на `KERN_FIXES_v1_3`, `VERIFICATION_0_17`,
+      `MIGRATION_REPORT_0_17`, `KERN_TERMINOLOGY_v0.1`, `docs/archive/*`.
+- [x] `.gitattributes`: `docs/evidence/*.log -whitespace` (логи — дословный вывод).
+
+### Урок (важный)
+
+Первый прогон `cross_arch` был **аннулирован**: во время него я правил
+`README.md`/`PROJECT.md`, и `evidence_guard` честно написал
+«Прогон НЕДЕЙСТВИТЕЛЕН». Правило: **во время снятия свидетельств файлы
+не трогать**. Перезапущено на замороженном дереве — 394+8, `RC=0`.
