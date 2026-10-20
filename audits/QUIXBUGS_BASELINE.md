@@ -283,8 +283,25 @@ vs `correct=[(0,0)]`) и `sieve` (`max=2`: `buggy=[]` vs `correct=[2]`).
 
 Классы находок: **24 — неверный результат**, **8 — падение** (`IndexError`, `RecursionError`, `TypeError`, `ValueError`, `RuntimeError`) на входе, допустимом по docstring.
 
-### Остаток: 8 EXPLORED (не «доказано корректно»)
+## Update: критерий падения по кадру трассировки → 33 / 40
 
-`bitcount` · `depth_first_search` · `detect_cycle` · `longest_common_subsequence` · `next_palindrome` · `shortest_path_length` · `shortest_path_lengths` · `shortest_paths`
+`docs/evidence/quixbugs_full.log` (каноническая обёртка, `RC=0`): **DIVERGED 33 / 40**, EXPLORED 7.
+
+**Что дало +1 к 32.** Раньше `call()` считал падение «нерасхождением», если тип исключения
+входил в список ожидаемых (`TypeError`, `ValueError`, …), — из-за этого исключение,
+поднятое **внутри тестируемого кода**, глушилось. Теперь критерий иной: смотрим **кадр
+трассировки** (`_raised_in_target`) — если исключение родилось в файле самой задачи,
+это её падение, и оно фиксируется как расхождение с `ok`.
+
+| Задача | Вход | buggy | correct | суть |
+|:--|:--|:--|:--|:--|
+| `bitcount` | `{'n': 1}` | **не завершается** (бесконечный цикл) | `1` | `while n: n ^= n - 1` — неверная битовая операция зацикливает счётчик |
+
+Свидетельство независимо перепроверено без движка: `buggy(1)` не завершается и за 5 с,
+`correct(1)` возвращает `1` (значение подтверждено отдельным запуском).
+
+### Остаток: 7 EXPLORED (не «доказано корректно»)
+
+`depth_first_search` · `detect_cycle` · `longest_common_subsequence` · `next_palindrome` · `shortest_path_length` · `shortest_path_lengths` · `shortest_paths`
 
 Отсутствие расхождения на перебранных входах **не является доказательством** корректности — это отсутствие контрпримера в конечном домене.
