@@ -633,7 +633,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 zig build
 
 # 3. Core test suites
-zig build test          # 308 core tests
+zig build test          # 401 core tests
 zig build test-next     # 53 KERN-Next tests
 
 # 4. The 15-second demo: green CI vs. mathematics

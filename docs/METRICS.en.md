@@ -2313,3 +2313,20 @@ correct returns **2**.
 **Fixed:** `tools/collect_evidence.sh` runs the step with a separate `--cache-dir /tmp/kern_next_evidence_cache` (removed right after), so the step really executes and the log records `Build Summary: 4/4 steps succeeded; 53/53 tests passed`. Measured: **2 s** (no recompilation — the global cache is warm).
 
 **Verified:** the log contains «53/53 tests passed» with `RC=0`; `evidence_gate` — 33 logs clean, no caveats. Side note: this confirms the documented Zig 0.17 behaviour (§22, §75) — a GREEN run still prints `failed command: … --cache-dir=…`; the verdict comes from the protocol, not from that line.
+
+---
+
+### 65. Stale test counts on the showcase (Defect #220)
+
+**Found** by checking «claim ↔ evidence», not by a report.
+
+| Where | Was | Fact |
+|:--|:--|:--|
+| `README.md` (build block) | `zig build test  # 308 core tests` | **401** (`core_tests.log`: «All 401 tests passed.») |
+| `README.ru.md` (layout) | `test_root.zig (308 tests)` | **401** |
+| `README.ru.md` | «catalog 424 tests» | **425** (`gen_test_catalog.py --check`) |
+| `docs/README.md` | «catalog: 424 tests» | **425** |
+| `docs/README.md` (about `VERIFICATION_0_17.md`) | «build, 308 tests» | that document is a **snapshot of 2026-10-13**; now marked |
+| `README.ru.md` (migration branch) | «RC=0 (build, 283 tests…)» | a historical statement about that branch; marked «at migration time» |
+
+**Verified:** `grep` over `README.md`, `README.ru.md`, `docs/README.md`, `docs/index.html` finds no 308/424 as CURRENT values; `gen_test_catalog --check` reports 425, synchronised.
