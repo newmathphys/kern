@@ -266,3 +266,13 @@ grader'а** и нет бенчмарка QuixBugs; реальный прогон
 - [ ] Полный набор CI (Lean, selftest, каталог, лицензия, Lean-счётчик,
       ecosystem, scorecard, SVG, evidence-gate, version, registry).
 - [ ] Тег `v2.5.1` (SSH-signed), FF `main`, push.
+
+## 14. Scorecard и audit-manifest
+
+- [x] `docs/evidence/scorecard.json` перегенерирован из фактов:
+      `check_targets 126 -> 128`, `cases 142 -> 144`, `qemu 393+8 -> 394+8`;
+      `scorecard-check` PASS (100/100, A+).
+- [x] `audit-manifest` с `ZIG` и `z3` из `.venv/bin`: **11/11 PASS, 0 провалов**
+      (Core 402/402, ReleaseSafe 0 UB, KERN-Next, Lean 8/137/0 sorry,
+       Decision 100 %, 5/5 теорий, Merkle/SHA-256).
+- [ ] Финальный release-check (все стадии) + тег `v2.5.1` + push.
