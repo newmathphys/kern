@@ -158,6 +158,14 @@ if [ "$FAST" = "0" ]; then
   stage "лицензия согласована (#222)" python3 tools/check_license_consistency.py
   stage "счётчик теорем Lean 4 (#223)" python3 tools/check_lean_counter.py
   stage "экосистема MCP + диапазон реестра (#221)" bash tools/ecosystem_check.sh
+
+  # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
+  # `make scorecard-check` существовал и сверял опубликованный
+  # `docs/evidence/scorecard.json` с пересчётом (137 теорем, 126 CHECK, 8/8
+  # MCP). Но в этом контуре стадии не было — и устаревший паспорт (125 теорем,
+  # 125 CHECK) спокойно жил на сайте. Гейт, которого нет в CI, равен его
+  # отсутствию: сверка выполняется только там, где её нельзя забыть.
+  stage "паспорт Trust Scorecard == факты (#232)" bash tools/scorecard_check.sh
   stage "SVG: геометрия подписей" python3 tools/svg_check.py
 
   # --- 9. АТТЕСТАЦИОННЫЙ МАНИФЕСТ (10 строк, каждая — реальный прогон) ------

@@ -25,8 +25,13 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # (файл, регулярное выражение с группой 1 = число)
 TARGETS = (
-    ("docs/index.html", r"(\d+)\s+Lean"),
-    ("README.md", r"(\d+)\s+theorems"),
+    # Дефект #229: для index.html шаблон `(\d+)\s+Lean` НЕ срабатывал ни разу —
+    # там число стоит перед словом «theorems» ("8 files, 82 theorems"), а версия
+    # «Lean 4» идёт раньше. Из-за этого 82 и 120 прожили несколько коммитов.
+    # `(?<!Lean )` отсекает ВЕРСИЮ: «137 Lean 4 theorems» — здесь 4 это версия.
+    ("docs/index.html", r"(?<!Lean )(\d+)\s+theorems"),
+    ("docs/index.html", r">(\d+) / \d+</span><span class=\"lbl\">Lean"),
+    ("README.md", r"(?<!Lean )(\d+)\s+theorems"),
     ("README.ru.md", r"(\d+)\s+теорем"),
 )
 
@@ -58,6 +63,10 @@ def main() -> int:
             bad.append(f"{name}: файла нет")
             continue
         for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            # Дефект #230: `&nbsp;` — не пробел для regex, поэтому «Lean&nbsp;4
+            # theorems» давало ложное «4 theorems» (версия вместо счётчика).
+            line = (line.replace("&nbsp;", " ").replace("&#160;", " ")
+                        .replace("\u00a0", " "))
             if SKIP_LINE_MARK in line:
                 continue          # счётчик конкретного файла, не итог
             for m in re.finditer(pattern, line):

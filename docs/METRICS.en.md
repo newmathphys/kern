@@ -2446,3 +2446,31 @@ now sees **197 rows** and confirms uniqueness.
 
 **Not claimed:** that all 226 numbers exist. Historical gaps remain (e.g. #11–#30
 were never used) — stated as a fact, not as a goal.
+
+---
+
+### 71. Defect #232: the gate existed, but CI never invoked it (`scorecard-check`)
+
+**Symptom.** `docs/evidence/scorecard.json` (the Trust Scorecard passport the site
+reads) carried **125 theorems** and **125 CHECK** while the facts were **137** and
+**126**. The discrepancy survived several commits with a green CI.
+
+**Why it was missed.** `tools/ci.sh` ran `ecosystem-check`, `metrics-guard`,
+`check_lean_counter`, `gen_test_catalog --check` — but there was no
+`scorecard-check` stage (the target existed only in the `Makefile`). Meanwhile the
+canfail case `scorecard-check` failed correctly whenever the passport was tampered with.
+
+**Root cause — a substitution of notions.** canfail answers "CAN the gate fail?"
+(sensitivity). It does **not** answer "is the published artifact FRESH?"
+(currency). They are two different checks, and the second one ran nowhere.
+
+**Fixed:** stage `Trust Scorecard passport == facts (#232)` in `tools/ci.sh` right
+after `ecosystem-check`; the passport regenerated (137/126, `commit ad61820`,
+Grade A+, 100/100).
+
+**Verified:** `bash tools/scorecard_check.sh` → `rc=0`; step 3 prints
+`docs/evidence/scorecard.json matches the recomputation (100/100, Grade A+)`.
+
+**Not to be confused with #87:** the `commit` field is deliberately not compared
+(the artifact is generated before the commit and would always lag by one). What is
+compared: `score`, `grade`, `mcp.tools`, `formal.theorems`, `metrics.check_covered`.

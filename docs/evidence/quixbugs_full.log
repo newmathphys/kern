@@ -1,0 +1,9 @@
+=== KERN EVIDENCE: quixbugs_full ===
+=== команда: python3 tools/quixbugs_full.py /tmp/QuixBugs-master ===
+=== дата: 2026-10-20T14:48:24Z ===
+
+📊 QuixBugs (БЕЗ внешних моделей):
+  Багов обнаружено (buggy -> F):      31/31 (100.0%)
+  Корректных подтверждено (correct -> T): 24/31 (77.4%)
+
+RC=0

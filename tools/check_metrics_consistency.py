@@ -46,7 +46,32 @@ SURFACES = (
     "docs/PROJECT.md",
     "docs/PROJECT_SPECIFICATION.md",
     "docs/TEST_CATALOG.md",
+    # Дефект #229: страж покрывал 8 файлов из ~20 публичных — и 7 расхождений
+    # (#228) прожили несколько коммитов незамеченными. Ниже — остальные
+    # документы, где читатель (и внешний сканер) видит те же числа.
+    "docs/RELEASE_NOTES_v2.5.0.md",
+    "docs/ROADMAP.md",
+    "docs/ROADMAP.en.md",
+    "docs/CAPABILITIES.md",
+    "docs/CAPABILITIES.en.md",
+    "docs/TESTING_AND_SPEED_GUIDE.md",
+    "docs/TESTING_AND_SPEED_GUIDE.en.md",
+    "docs/FIELD_AUDIT_REPORT.md",
+    "docs/RULE_THEOREM_MATRIX.md",
+    # Дефект #230: эти четыре файла страж НЕ читал, поэтому в них выжили
+    # «1225 / 1225 сайтов» и «всех 20 файлов» (пул стал 1345 / 21).
+    "docs/CAPABILITY_STATUS.md",
+    "docs/CAPABILITY_STATUS.en.md",
+    "docs/CYBERNETIC_VISION.md",
+    "docs/CYBERNETIC_VISION.en.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
 )
+
+# CHANGELOG.md намеренно НЕ проверяется: это хронология выпусков, числа в ней
+# относятся к моменту выпуска версии (запись про v2.4.0 и говорит «78/78 CHECK»
+# — так и было), а не к текущему HEAD. Проверять там текущие значения значило бы
+# требовать переписывания истории.
 
 
 def _fail(msg: str) -> None:
@@ -142,6 +167,20 @@ def fact_registry() -> dict | None:
 
 
 
+def fact_max_defect() -> int | None:
+    """Наибольший номер записи в журнале дефектов (для диапазона «#1–#N»).
+
+    Дефект #231: витрина обещала `#1–#226`, а факт был #231 — класс повторился
+    трижды (#178, #221, #231), потому что диапазон никто не сверял с журналом.
+    """
+    p = ROOT / "docs" / "CAPABILITY_STATUS.md"
+    if not p.exists():
+        return None
+    nums = [int(m.group(1)) for m in re.finditer(
+        r"^\| \*\*(\d+)\*\* \|", p.read_text(encoding="utf-8", errors="replace"), re.MULTILINE)]
+    return max(nums) if nums else None
+
+
 def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int, targets: int):
     """(регулярка, ожидаемое значение, метка). Все числовые группы обязаны совпасть."""
     return (
@@ -149,9 +188,19 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int, t
         (r"(\d+)\s*/\s*(\d+)\s+core tests", core, "тесты ядра"),
         (r"#\s*(\d+)\s+core tests", core, "тесты ядра"),
         (r"(\d+)\s+тест(?:ов|а)?\s+ядра", core, "тесты ядра"),
+        # Дефект #229: табличный формат «| Тесты ядра | **299** |» ставит число
+        # ПОСЛЕ метки, поэтому правило выше его не видело (README.ru.md:22).
+        (r"тесты\s+ядра\s*\|[^\d\n]{0,24}(\d+)", core, "тесты ядра"),
+        (r"core\s+tests\s*\|[^\d\n]{0,24}(\d+)", core, "тесты ядра"),
+        (r"Тесты\s+KERN-Next\s*\|[^\d\n]{0,24}(\d+)", nxt, "KERN-Next"),
+        (r"KERN-Next\s+tests\s*\|[^\d\n]{0,24}(\d+)", nxt, "KERN-Next"),
         (r"(\d+)\s/\s*(\d+)\s+тест(?:ов|а)?\s+ядра", core, "тесты ядра"),
         (r"(\d+)\s*/\s*(\d+)\s+tests passed", nxt, "KERN-Next"),
         (r"(\d+)\s+объявлени[йя]", cat, "каталог тестов"),
+        # Дефект #230: «Всего объявлений тестов:** 425» — здесь число стоит ПОСЛЕ
+        # метки. Правило «N объявлений» такие строки не видело вовсе, поэтому
+        # подсадка «424» проходила незамеченной (страж был фиктивным).
+        (r"объявлени[йя][^0-9\n]{0,24}(\d+)", cat, "каталог тестов"),
         (r"(\d+)\s+CHECK targets", checks, "CHECK-цели"),
         (r"(\d+)\s*/\s*(\d+)\s+CHECK-цел", checks, "CHECK-цели"),
         (r"(\d+)\s+fault-injection cases", cases, "кейсы can-fail"),
@@ -167,8 +216,11 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int, t
          ("can-fail", "check", "вакуум", "харнесс")),
         (r"(\d+)\s+cases\b", cases, "кейсы can-fail", ("canfail", "can-fail", "vacuous")),
         (r"(\d+)\s+кейс(?:ов|а)?\b", cases, "кейсы can-fail", ("вакуум", "canfail")),
-        (r"(\d+)\s+sites\b", sites, "сайты мутации", ("mutation", "mutant")),
-        (r"(\d+)\s+сайт(?:ов|а)?\b", sites, "сайты мутации", ()),
+        (r"(\d+)\s+sites\b", sites, "сайты мутации", ("mutation", "mutant", "mutate")),
+        # Контекст обязателен: «51 сайт — фикция» в описании дефекта #131 — это
+        # история конкретного бага, а не обещание текущего пула сайтов.
+        (r"(\d+)\s+сайт(?:ов|а)?\b", sites, "сайты мутации",
+         ("мутац", "mutation", "mutant", "mutate")),
         (r"(\d+)\s+(?:files|файл(?:ов|а)?)\b", targets, "файлы мутации", ("mutation", "mutant", "сайт")),
     )
 
@@ -217,6 +269,23 @@ def main() -> int:
         for lineno, line in enumerate(
                 p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
             low = line.lower()
+            # `canfail --only <target>` печатает счётчик ОДНОЙ цели («1 non-vacuous»):
+            # это не агрегатное обещание, а результат точечного прогона.
+            if "--only" in low:
+                continue
+            # Строки РЕЕСТРА дефектов (`| **N** | ...` или `| N | ...`) — датированная
+            # запись: число в ней описывает состояние НА МОМЕНТ фикса, а не текущее
+            # обещание. Переписывать такую историю нельзя (тот же принцип, что и
+            # «не перенумеровываем»), иначе журнал перестанет быть доказательством.
+            if re.match(r"^\| (?:\*\*)?\d+(?:\*\*)? \|", line):
+                continue
+            # Docs/RELEASE_NOTES_v2.5.0.md — таблица «было | стало». Вторая
+            # колонка это ИСТОРИЧЕСКИЙ baseline (v2.4.0), а не текущее обещание:
+            # сверяем только ПОСЛЕДНЮЮ ячейку строки (дефект #230, ложная тревога).
+            scanned = line
+            if rel.startswith("docs/RELEASE_NOTES") and line.startswith("|") \
+                    and line.count("|") >= 4:
+                scanned = line.rstrip().rstrip("|").rsplit("|", 1)[-1]
             if any(mk in low for mk in HISTORY_MARKERS):
                 continue
             for rule in rules:
@@ -224,7 +293,7 @@ def main() -> int:
                 need = rule[3] if len(rule) > 3 else ()
                 if need and not any(x in low for x in need):
                     continue  # контекст не тот — это не обещание счётчика
-                for m in re.finditer(pattern, line, re.IGNORECASE):
+                for m in re.finditer(pattern, scanned, re.IGNORECASE):
                     # «Lean 4 **8 files** / 137 theorems» — это файлы Lean, не мутатора:
                     # в той же строке есть слово mutation, но обещание не о нём.
                     if label == "файлы мутации" and "lean" in low[max(0, m.start() - 60):m.start()]:
@@ -234,6 +303,24 @@ def main() -> int:
                             _fail(f"{rel}:{lineno}  {label}: «{m.group(0).strip()}» "
                                   f"→ обещано {g}, факт {expect}")
                             bad += 1
+
+    # Диапазон реестра на витрине обязан совпадать с фактическим максимумом.
+    mx = fact_max_defect()
+    if mx is not None:
+        for rel in ("README.md", "README.ru.md", "docs/index.html", "docs/README.md"):
+            p = ROOT / rel
+            if not p.exists():
+                continue
+            for lineno, line in enumerate(
+                    p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                low = line.lower()
+                if any(mk in low for mk in HISTORY_MARKERS):
+                    continue
+                for m in re.finditer(r"#1[–-]#(\d{2,3})", line):
+                    if int(m.group(1)) != mx:
+                        _fail(f"{rel}:{lineno}  диапазон реестра: «{m.group(0)}» "
+                              f"→ обещано {m.group(1)}, факт #{mx}")
+                        bad += 1
 
     if bad:
         print(f"\n[FAIL] расхождений: {bad}")

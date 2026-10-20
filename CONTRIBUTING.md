@@ -13,7 +13,7 @@ into the source and requires the check to go red. If your new test stays green
 under the injected fault, it is vacuous and will be rejected.
 
 ```bash
-make canfail        # 60 non-vacuous checks, 0 vacuous
+make canfail        # 142 non-vacuous checks, 0 vacuous
 ```
 
 ## Environment
@@ -35,8 +35,8 @@ uv venv .venv && uv pip install --python .venv/bin/python z3-solver
 ## Before opening a pull request
 
 ```bash
-zig build test              # 198 core tests
-zig build test-next         # 37 KERN-Next tests
+zig build test              # 401 core tests
+zig build test-next         # 53 KERN-Next tests
 zig build test-fault        # SIGBUS/SIGSEGV fault injection
 make ubsafe                 # ReleaseSafe: undefined behaviour detector
 make memcheck               # allocator leak check

@@ -38,8 +38,8 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **122 CHECK targets / 122 proven able to fail**, **138 cases, 0 vacuous** |
-| Mutation testing | **1225 / 1225 sites killed = 100.0 %** (20 files, no sampling); gate 40/40 |
+| Can-fail discipline | **126 CHECK targets / 126 proven able to fail**, **142 cases, 0 vacuous** |
+| Mutation testing | **1345 / 1345 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -147,7 +147,7 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1225 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1345 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
@@ -172,4 +172,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Full `canfail` sweep: **138 non-vacuous / 0 vacuous / 0 case errors**.
+Full `canfail` sweep: **142 non-vacuous / 0 vacuous / 0 case errors**.

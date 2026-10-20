@@ -36,8 +36,8 @@
 **401/401 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
 (solver-dependent tests skip by design).
 Reference `valid_v1_3.kimg` → the Merkle root matches Python↔Zig (confirmed both ways).
-Decision coverage → **100.0 %** (30/30). Mutation score → **95.0 %** (38/40; 2 provably
-equivalent → 100 % effective).
+Decision coverage → **100.0 %** (30/30). Mutation score → **100.0 %** (1345/1345 killed,
+0 survivors; canonical gate 40/40).
 
 ---
 
@@ -253,13 +253,13 @@ entries".
 
 | # | Defect | Class |
 |:--:|:--|:--|
-| 48 | The line `theorem CANFAIL_PROBE := by sorry` was left over from an interrupted run | tooling/honesty |
-| 49 | The CI Lean stage used `./formal/check.sh \| tail -3` — the RC came from `tail`, not from the check | tooling/CI |
-| 50 | A stale `.mutation.lock` (dead PID) blocked the mutator forever | tooling |
-| 51 | `humaneval_api.py` did not understand reasoning models: `content = null` → `TypeError` | tooling/benchmark |
+| **48** | The line `theorem CANFAIL_PROBE := by sorry` was left over from an interrupted run | tooling/honesty |
+| **49** | The CI Lean stage used `./formal/check.sh \| tail -3` — the RC came from `tail`, not from the check | tooling/CI |
+| **50** | A stale `.mutation.lock` (dead PID) blocked the mutator forever | tooling |
+| **51** | `humaneval_api.py` did not understand reasoning models: `content = null` → `TypeError` | tooling/benchmark |
 | 52 | `tools/mutate_zig.py` was BROKEN in HEAD | tooling (critical) |
-| 53 | `audit_manifest.sh` used Zig 0.13 syntax (`zig test src/test_root.zig`) | migration |
-| 54 | `slugify` lower-cased ASCII only | correctness |
+| **53** | `audit_manifest.sh` used Zig 0.13 syntax (`zig test src/test_root.zig`) | migration |
+| **54** | `slugify` lower-cased ASCII only | correctness |
 | 55 | `payloadSlice` and `objectPayloadRaw` chose the SIZE in opposite ways | correctness (latent) |
 
 ---
@@ -269,8 +269,8 @@ entries".
 | # | Defect | Class |
 |:--:|:--|:--|
 | 56 | The SLSA tool attested Debug binaries | tooling/attestation |
-| 57 | Stale numbers in the documentation after the migration | documentation |
-| 58 | `tools/audit_manifest.sh` read the wrong log name | tooling/CI |
+| **57** | Stale numbers in the documentation after the migration | documentation |
+| **58** | `tools/audit_manifest.sh` read the wrong log name | tooling/CI |
 
 ---
 
@@ -353,7 +353,7 @@ entries".
 ## 6d-1. Registry gap closed: #125–#152
 
 > **Why this section exists.** Defects **#125–#152** were recorded in `METRICS.md` (RU) but were **missing from this registry table**
-> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#220`
+> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#232`
 > has no holes. Verdicts are the same as in the Russian original.
 
 | # | Defect | Status |
@@ -393,7 +393,7 @@ entries".
 
 > **Why this section exists.** The line-by-line audit of 2026-10-20 found that **65 numbers were missing from this English table**
 > (`#52, #55, #56, #59–#92, #98–#124, #205`) although they are present in `CAPABILITY_STATUS.md`. They are indexed here with a
-> one-line summary each, so that the range `#1–#220` has **no holes in either language**. The third column reproduces the
+> one-line summary each, so that the range `#1–#232` has **no holes in either language**. The third column reproduces the
 > **classification** used in the Russian original for those sections (it is a defect class there, not a status word).
 
 | # | Defect (one line) | Class (as in RU) |
@@ -468,7 +468,11 @@ entries".
 
 ---
 
-## 6e. Registry of defects from the pre-release session of 2026-10-19 (#153-#177)
+## 6e. Registry of defects from the pre-release session of 2026-10-19 (#153–#230)
+
+> **Historical numbering gaps — 21 numbers:** #11–#30 and #169.
+> Those defects were recorded before continuous numbering was introduced (some lived only in `docs/METRICS.md`).
+> Numbers are **NOT renumbered** — code, tests and reports reference them — so the journal range reads as "#1–#232 with gaps", not as "231 entries".
 
 Every entry below was found by **measuring**, not by reading: a full run of the
 can-fail harness, field runs of `--xray` on real code (Python stdlib, Zig
@@ -502,10 +506,7 @@ evidence collector. Full write-ups with dumps are in `docs/METRICS.md`.
 | **177** | **The telemetry parser did not match the new mutator output**: `measure_all_kern.py` waited for `MUTATION SCORE:` while the output became `MUTATION SCORE (raw):` after the dual score was introduced -> `score=None`, the "Mutation" block 0/12, harness 88/100 | tooling | FIXED |
 | **178** | **The public registry count and the MCP tool names on the site were stale**: the site listed 5 tools with two names that do not exist (`kern_check_contracts`, `kern_prove_contract`) while the server exports 8, and the defect range was `#1-#123 / 63 entries` instead of `#1-#177 / 105 entries` | documentation | FIXED |
 
-**Honest caveat.** The full run of these 139 targets ended with `RC=0` and
-`TOTAL: 141 non-vacuous | 0 VACUOUS | 0 case errors`, but the guard itself
-declared it invalid — for reasons (a)+(b) of #173, i.e. **because of a guard
-defect, not the run** (final tree: clean, no injection markers).
+**Honest caveat.** A previous run of 139 targets ended with `RC=0` and `TOTAL: 141 non-vacuous | 0 VACUOUS | 0 case errors`, but the guard itself declared it invalid — for reasons (a)+(b) of #173, i.e. **because of a guard defect, not the run** (tree: clean, no injection markers).
 
 ---
 
@@ -525,6 +526,13 @@ missing from the journal: the range #98–#164 was present, while #93–#97 and
 | **97** | The **banner** version was duplicated separately from `--version` and drifted | gate |
 | **165** | `i64` in the browser needs `BigInt` — the **WASM widget did not work** in a browser | showcase |
 | **226** | **THE JOURNAL WAS INCOMPLETE**: the showcase claimed the range "#1–#225" while only **181** entries existed; #31–#47, #93–#97, #165 lived only in METRICS, and **#11–#30 and #169 are absent from the whole repository**. Fix: entries moved in (sections 6a and 6g), showcase numbers rewritten to the measured facts ("205 entries, numbers up to #226", gaps listed explicitly) | documentation |
+| **227** | **THE COMMITTED MUTATION EVIDENCE WAS STALE**: `docs/evidence/mutate.log` was dated 2026-10-19 and captured on a DIFFERENT tree (pool of 1225 sites, without `dst_sim.zig`), and the claimed full 1225/1225 sweep was never stored in the repository. Re-run on the current tree: `docs/evidence/mutate_full.log` — **1345/1345, 0 survivors** (1408 lines), `mutate.log` — 40/40. The 'log not committed' caveat was removed | FIXED |
+| **228** | **25 STALE NUMBERS ON THE SHOWCASE** after the mutation pool grew 1225→**1345** and 20→**21** files: README, README.ru, index.html, PASSPORT(+en), RELEASE_NOTES, ROADMAP.en. Plus a **guard false positive**: the 'N files' rule fired on 'Lean 4 8 files / 137 theorems' because the line contains the word *mutation*. Lean files excluded; the rule now checks both the pool and the file count | FIXED |
+| **229** | **THE NUMBER GUARD COVERED 8 OF ~20 FILES, AND THE LEAN RULE FOR THE SITE NEVER FIRED**: the pattern `(\d+)\s+Lean` never matched (on the site the number precedes the word 'theorems' while 'Lean 4' comes earlier), so **82 and 120 theorems survived several commits**. Extended to 20 files; `(?<!Lean )` rejects the version; added `tools/check_lean_counter.py` | FIXED |
+| **230** | **THREE GUARD FALSE POSITIVES AND ONE FICTITIOUS CHECK** (found by injection, not by review): (1) `&nbsp;` in 'Lean&nbsp;4 theorems' produced a bogus '4 theorems' — the version was read as a counter; (2) in `RELEASE_NOTES` the rule caught the HISTORICAL baseline '82/82 CHECK' from the v2.4.0 column — only the last cell is checked now; (3) the catalogue rule looked for 'N declarations' and **never saw** 'test declarations: **N**' — a '424' injection passed with a clean rc=0. All three fixed and verified by injection (rc=1) | FIXED |
+
+| **231** | **A TAUTOLOGY WAS PRESENTED AS A KERN ACHIEVEMENT**: the benchmark table on the showcase carried the row 'QuixBugs **31/31** bugs detected by execution; 24/31 correct ones confirmed' (README.md, README.ru.md — two sections). It measures the **dataset wiring**, not KERN: 'a buggy program fails its own official tests' is the DEFINITION of the QuixBugs dataset, not a detection result, so 31/31 could never be lower. The row was removed from both tables and from the `tools/` listing; a footnote explains why and points at KERN's own result — `6/40 DIVERGED`, every hit confirmed by replaying the real function (`audits/QUIXBUGS_BASELINE.md`). The log `docs/evidence/quixbugs_full.log` is kept as evidence of the dataset wiring | showcase |
+| **232** | **THE `scorecard-check` GATE EXISTED BUT CI NEVER RAN IT**: `make scorecard-check` compares the published `docs/evidence/scorecard.json` against a recomputation (137 theorems, 126 CHECK, 8/8 MCP, `sorry=0`), and the canfail case `scorecard-check` proved the gate **can** fail (tampered passport → `rc=1`). But `tools/ci.sh` had no stage: what was verified was 'the gate is sensitive', not 'the passport on the site is fresh'. A stale passport (125 theorems, 125 CHECK) therefore lived on the showcase while CI stayed green. Added the stage `Trust Scorecard passport == facts (#232)`. Lesson: canfail proves a gate's sensitivity, **not** an artifact's freshness — two different checks | FIXED |
 
 ## 7. Summary
 
@@ -586,7 +594,7 @@ Compact English list; full text and measured before/after tables are in
 | **218** | **DOCUMENTATION INTEGRITY (found by the line-by-line audit of 2026-10-20)**: the EN registry was missing **65 numbers** (#52, #55, #56, #59–#92, #98–#124, #205) while RU had 155 rows; `docs/METRICS.md` had three blocks sharing ONE number (**§100, §101, §102** twice each); EN had two `## 6e` headers; the #174 row was duplicated; `docs/README.md` ranges were stale (`#1–#216`, `§1–§136`). Fixed: a 65-entry EN index, renumbering §100→§137, §101→§138, §102→§139, `6e`→`6f`, #174→closure, ranges updated. | FIXED |
 | **219** | **The `kern_next_tests.log` evidence had NO COUNT of executed tests**: on a cached step `zig build test-next --summary all` prints only «4/4 steps succeeded … run test cached», without «All 53 tests passed», so the gate could not see 53/53 while the showcase cited that log. Fixed: the run uses a separate `--cache-dir` (2 s), the step really executes and the log records «53/53 tests passed». | FIXED |
 | **220** | **Stale test counts on the showcase**: `README.md` promised `308 core tests`, `README.ru.md` — «308 tests» and «catalog 424», `docs/README.md` — «catalog 424» and «308 tests», while the fact is **401 executed core tests and 425 in the catalog**. Fixed; historical mentions (283 tests of the migration branch, the VERIFICATION_0_17 snapshot) are now explicitly marked. | FIXED |
-| **221** | **RECURRENCE of class #178: the registry range on the showcase drifted again** — `README.md`, `README.ru.md` and the site promised `#1–#184`, the EN registry intros said `#1–#217`, while the real maximum is **#220**. Fixed to `#1–#220`; recorded as a recurrence so it is visible that a one-off fix (#178) did not hold the metric. | FIXED |
+| **221** | **RECURRENCE of class #178: the registry range on the showcase drifted again** — `README.md`, `README.ru.md` and the site promised `#1–#184`, the EN registry intros said `#1–#217`, while the real maximum is **#220**. Fixed to `#1–#232`; recorded as a recurrence so it is visible that a one-off fix (#178) did not hold the metric. | FIXED |
 | **222** | **THE LICENSE ON THE SHOWCASE CONTRADICTED THE `LICENSE` FILE** (exactly the class the external audit warned about): in the repository tree `README.ru.md` labelled `LICENSE` as **MIT**, while `LICENSE` is **PolyForm Noncommercial 1.0.0** (as do `server.json`, `.well-known/mcp.json`, `CITATION.cff`). Plus a stale «Makefile 62 targets» against the real **150**. Fixed; a guard `tools/check_license_consistency.py` was added (check 8 of `ecosystem-check`). | FIXED |
 | **223** | **THE LEAN 4 THEOREM COUNTER ON THE SITE WAS STALE**: `docs/index.html` showed «120 Lean 4 theorems» in FOUR places while the fact is **137** (the growth 120→137 was never reflected). Fixed + guard `tools/check_lean_counter.py` (check 9 of `ecosystem-check`). | FIXED |
 | **224** | **SHOWCASE COUNTERS CONTRADICTED THE FACTS (and no guard existed)**: after closing #220/#223 the texts still carried `114 proven non-vacuous` / `95 fault-injection cases` (README.md), "103 targets · CHECK 80" and `82/82` (README.ru), `195/195` without a snapshot marker (RU passport), `279` (PROJECT.md, PROJECT_SPECIFICATION.md, CAPABILITY_STATUS.en). Found by comparing every public surface against `core_tests.log`, `kern_next_tests.log`, the catalogue recount and `registry.py --json`. FIXED: numbers set to facts (401 / 53 / 425 / 126 CHECK / 142 cases) plus a new guard `tools/check_metrics_consistency.py` (target `make metrics-guard`, case `metrics-guard`): a promise is checked against MEASURABLE evidence, not against prose |

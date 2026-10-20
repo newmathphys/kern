@@ -169,6 +169,60 @@ else
   echo "  [FAIL] #217: окно списка выдаёт доказательство при неточном индексе"; fail=1
 fi
 rm -rf "$TMP"
+
+# ── Стражи чисел обязаны УМЕТЬ падать (дефект #230: два из них были фиктивными) ──
+# Без этой проверки «зелёный страж» ничего не значит: правило может просто
+# не совпадать с текстом, и тогда устаревшее число проживёт сколько угодно.
+BK="$(mktemp -d)"
+cp docs/TEST_CATALOG.md "$BK/tc.md"
+cp README.md "$BK/readme.md"
+sed -i 's/\*\*Всего объявлений тестов:\*\* 425/**Всего объявлений тестов:** 424/' docs/TEST_CATALOG.md
+sed -i '0,/137 theorems/s//136 theorems/' README.md
+"$PY" tools/check_metrics_consistency.py >/dev/null 2>&1
+rc_m=$?
+"$PY" tools/check_lean_counter.py >/dev/null 2>&1
+rc_l=$?
+cp "$BK/tc.md" docs/TEST_CATALOG.md
+cp "$BK/readme.md" README.md
+rm -rf "$BK"
+"$PY" tools/check_metrics_consistency.py >/dev/null 2>&1 && rc_ok_m=0 || rc_ok_m=1
+"$PY" tools/check_lean_counter.py >/dev/null 2>&1 && rc_ok_l=0 || rc_ok_l=1
+if [ "$rc_m" != 0 ] && [ "$rc_l" != 0 ] && [ "$rc_ok_m" = 0 ] && [ "$rc_ok_l" = 0 ]; then
+  echo "  [OK]   #230: оба стража чисел падают на подсадке и снова зелены после отката"
+else
+  echo "  [FAIL] #230: страж чисел не заметил подсадку (metrics rc=$rc_m, lean rc=$rc_l)"
+  fail=1
+fi
+
+# ── Диапазон реестра (#1–#N) обязан сверяться с журналом (дефект #231) ──
+# Трижды подряд (#178, #221, #231) витрина обещала устаревший диапазон, потому
+# что это число никто не сверял с фактическим максимумом журнала.
+# ПОДСАДКА ДИНАМИЧЕСКАЯ: подставляем «максимум − 1» от ФАКТА, а не литерал.
+# Дефект #233 (найден этим же тестом): подсадка была прибита к «#231»; после
+# роста журнала до #232 `sed` не находил строку и подсадка молча ПУСТЕЛА, а
+# тест рапортовал «страж не проверяет» — то есть падал сам тест, не страж.
+BR="$(mktemp -d)"
+cp README.ru.md "$BR/readme.md"
+REAL_MAX="$(grep -oE '^\| \*\*[0-9]+\*\* \|' docs/CAPABILITY_STATUS.md | grep -oE '[0-9]+' | sort -n | tail -1)"
+FAKE_MAX=$((REAL_MAX - 1))
+if grep -q "#1–#${REAL_MAX}" README.ru.md; then
+  sed -i "0,/#1–#${REAL_MAX}/s//#1–#${FAKE_MAX}/" README.ru.md
+  "$PY" tools/check_metrics_consistency.py >/dev/null 2>&1
+  rc_r=$?
+  cp "$BR/readme.md" README.ru.md
+  "$PY" tools/check_metrics_consistency.py >/dev/null 2>&1 && rc_ok_r=0 || rc_ok_r=1
+  if [ "$rc_r" != 0 ] && [ "$rc_ok_r" = 0 ]; then
+    echo "  [OK]   #231: диапазон реестра на витрине сверяется с журналом (подсадка #1–#${FAKE_MAX} при факте #${REAL_MAX} поймана)"
+  else
+    echo "  [FAIL] #231: диапазон реестра не проверяется (injected rc=$rc_r, restored rc=$rc_ok_r)"
+    fail=1
+  fi
+else
+  echo "  [FAIL] #231: на витрине нет диапазона #1–#${REAL_MAX} — подсадка невозможна"
+  fail=1
+fi
+rm -rf "$BR"
+
 echo "───────────────────────────────────────────────────────────────────────"
 if [ "$fail" = 0 ]; then
   echo "[OK] все крайние случаи воспроизведены"

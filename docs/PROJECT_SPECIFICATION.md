@@ -835,12 +835,12 @@ canfail --selftest → canfail (142 кейса) → каталог синхро�
 
 | Метрика | Значение | Команда |
 |:--|:--|:--|
-| Тесты ядра | **279 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip) | `zig build test` |
-| Тесты ядра (ReleaseSafe) | 279 passed, **0 UB** | `make ubsafe` |
-| Тесты KERN-Next | **38 passed** (37 именованных + 1 агрегирующий) | `zig build test-next` |
-| Каталог тестов | **322** | `python3 tools/gen_test_catalog.py --check` |
-| Покрытие решений | **100.0 %** (26/26, порог 95 %) | `make coverage` |
-| Мутационный score | **92.5 %** (37/40; 3 эквивалентных → 100 % эффективно) | `make mutate` |
+| Тесты ядра | **401 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
+| Тесты ядра (ReleaseSafe) | 401 passed, **0 UB** | `make ubsafe` |
+| Тесты KERN-Next | **53 passed** (52 именованных + 1 агрегирующий) | `zig build test-next` |
+| Каталог тестов | **425** | `python3 tools/gen_test_catalog.py --check` |
+| Покрытие решений | **100.0 %** (30/30, порог 95 %) | `make coverage` |
+| Мутационный score | **100.0 %** (1345 / 1345 убито, 0 выживших; канонический гейт 40/40) | `make mutate` |
 | Фаззинг AST | **1 000 000** мутаций, 0 паник | `make fuzz-1m` |
 | Утечки памяти (GPA) | **0 байт** | `zig build test` |
 | Утечки дескрипторов | **0** (NOFILE=20, 50 запросов) | `make fd-check` |
