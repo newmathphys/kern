@@ -107,6 +107,25 @@ if printf '%s' "$oras" | grep -qF "result = -1"; then
 else
   echo "  [FAIL] raise-гард: функция с raise не проанализирована"; fail=1
 fi
+# ДЕФЕКТ #206: havoc-абстракция не имеет права давать DIVERGED.
+cat > "$TMP/hv_old.py" <<'PY'
+def f(x: int) -> int:
+    if x > 0:
+        return helper(x)
+    return 0
+PY
+cat > "$TMP/hv_new.py" <<'PY'
+def f(x: int) -> int:
+    if x > 0:
+        return helper(x + 1)
+    return 0
+PY
+ohv=$("$PY" tools/kern_contracts.py --diff-equiv "$TMP/hv_old.py" "$TMP/hv_new.py" 2>&1); rhv=$?
+if printf '%s' "$ohv" | grep -qF "[UNKNOWN]" && ! printf '%s' "$ohv" | grep -qF "[DIVERGED]" && [ "$rhv" = 2 ]; then
+  echo "  [OK]   #206: вызов (havoc) -> UNKNOWN rc=2, ложного DIVERGED нет"
+else
+  echo "  [FAIL] #206: havoc снова объявлен расхождением (ложное обвинение)"; fail=1
+fi
 rm -rf "$TMP"
 echo "───────────────────────────────────────────────────────────────────────"
 if [ "$fail" = 0 ]; then

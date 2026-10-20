@@ -1601,12 +1601,21 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     if not common:
         print("[!] нет одноимённых функций в подмножестве — сравнивать нечего")
         return 2
-    diverged = same = 0
+    diverged = same = unknown = 0
     for name in sorted(common):
         pa, ba, _ = a[name]
         pb, bnew, _ = b2[name]
         if pa != pb:
             print(f"  [SKIP] {name}: разные наборы параметров {pa} / {pb}")
+            continue
+        # ДЕФЕКТ #206: `_havoc_k` — НЕОГРАНИЧЕННАЯ переменная абстракции
+        # (вместо вызова/агрегата). Два разных havoc в двух телах всегда
+        # «различны» (distinct SAT тривиально), поэтому объявлять DIVERGED
+        # по такой модели — ЛОЖНОЕ обвинение. Честный исход — UNKNOWN.
+        if "_havoc_" in ba or "_havoc_" in bnew:
+            print(f"  [UNKNOWN] {name}: тело содержит абстракцию (_havoc_k) — "
+                  f"расхождение НЕДОКАЗУЕМО в этой модели (не баг)")
+            unknown += 1
             continue
         rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
         if "ДОКАЗАНО" in out:
@@ -1623,8 +1632,10 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
             diverged += 1
     print("-" * 74)
     print(f"ИТОГО: эквивалентных {same} | разошедшихся {diverged} | "
-          f"всего {len(common)}")
-    return 0 if diverged == 0 else 1
+          f"недоказуемых (абстракция) {unknown} | всего {len(common)}")
+    if diverged:
+        return 1
+    return 2 if unknown else 0
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -4939,13 +4950,20 @@ def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
     common = sorted(n for n in a if n in b2)
     only_old = sorted(set(a) - set(b2))
     only_new = sorted(set(b2) - set(a))
-    same = diverged = 0
+    same = diverged = unknown = 0
     print(f"[PR-SUMMARY] {Path(old_file).name} -> {Path(new_file).name}")
     for name in common:
         pa, ba, _ = a[name]
         pb, bnew, _ = b2[name]
         if pa != pb:
             print(f"  [SKIP] {name}: изменён набор параметров")
+            continue
+        # ДЕФЕКТ #206: havoc — неограниченная абстракция; distinctive SAT по ней
+        # не означает изменения поведения. Честный исход — UNKNOWN.
+        if "_havoc_" in ba or "_havoc_" in bnew:
+            unknown += 1
+            print(f"  [UNKNOWN] {name}: тело содержит абстракцию (_havoc_k) — "
+                  f"изменение поведения недоказуемо")
             continue
         rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
         if "ДОКАЗАНО" in out:
@@ -4961,6 +4979,7 @@ def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
         print(f"  [ADDED]   {n}")
     print("-" * 74)
     print(f"ИТОГО: эквивалентных {same} | изменившихся {diverged} | "
+          f"недоказуемых (абстракция) {unknown} | "
           f"удалено {len(only_old)} | добавлено {len(only_new)}")
     return 1 if diverged else 0
 

@@ -269,3 +269,21 @@ The first run produced **9 findings, all false**, and each was traced to a defec
 After the fixes: **0 findings on all three**, and the checked counts dropped where
 they should (gin 200 → 86), because pointer comparisons are now honestly skipped
 instead of being “proven”.
+
+## 6. QuixBugs (40 buggy/correct pairs) — baseline, not a trophy
+
+World benchmark `jkoppel/QuixBugs` was run for the first time through
+`--diff-equiv` (no contracts needed). Result: **0 DIVERGED / 0 EQUIVALENT /
+5 UNKNOWN / 35 SKIP**.
+
+The first run reported 5 "caught bugs" — all five were **false**: the bodies
+contained `_havoc_k` (a call replaced by an unconstrained variable), so
+`(distinct _havoc_2 _havoc_5)` was trivially SAT. Fixed as **defect #206**: havoc
+in either body → `[UNKNOWN]`, `rc=2` (in `--diff-equiv` and `--pr-summary`).
+
+**Why 35 SKIP:** QuixBugs is lists + loops. Blockers: `List` 8, `While` 6,
+`For` 6, `Dict` 3, variable-length unpacking 3, `Subscript` 2, imports 3,
+comprehensions 2. Until `list`/slice (`QF_AX`) and `for`/`while` are modelled,
+the honest number of caught bugs is **0 of 40**.
+
+Full table and reproduction commands: `audits/QUIXBUGS_BASELINE.md`.

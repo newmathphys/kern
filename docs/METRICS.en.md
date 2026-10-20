@@ -1994,3 +1994,39 @@ still refused; `trusted: 4` for `value % 2` open (Euclid axiomatics for `div`/`m
   remaining statements; only `raise`-branches stay terminal.
 * Remaining blockers: `for` 39, `list` 34, subscript 30, `dict` 24, unsized unpack 24, `import` 21.
 * Verified: both synthetic `Optional` cases -> `PROVEN` (`trusted: 2` and `trusted: 1`, `holes: 0`).
+
+---
+
+### 52. QuixBugs: honest baseline + defect #206 (havoc is not a divergence)
+
+**Done:** for the first time the world benchmark `jkoppel/QuixBugs` was run
+(40 tasks, each with a buggy and a correct version) through `--diff-equiv`
+(`∃x: f_old(x) ≠ f_new(x)`, no contracts needed). Driver: `/tmp/qb.py`.
+
+| Outcome | Tasks |
+|:--|--:|
+| **DIVERGED** (bug proven) | **0** |
+| EQUIVALENT | 0 |
+| **UNKNOWN** (`_havoc_k` abstraction) | **5** |
+| **SKIP** (outside the subset) | **35** |
+
+**DEFECT #206** (found by this run, fixed): the first version reported
+**5 "caught bugs"** and all five were **false**. Bodies contained `_havoc_k` —
+a call replaced by an **unconstrained** variable (symbolic abstraction, #205).
+Then `(distinct _havoc_2 _havoc_5)` is trivially SAT and the tool printed
+`[DIVERGED]` — an accusation without grounds.
+
+**Fix:** if either body contains `_havoc_`, the outcome is
+`[UNKNOWN] … not provable` with `rc=2` (in `--diff-equiv` **and** `--pr-summary`);
+`--simplify` stays fail-closed. The edge case is pinned in
+`tools/edge_cases_check.sh`: `[OK] #206: call (havoc) -> UNKNOWN rc=2, no false DIVERGED`.
+
+**Blocker breakdown (35 SKIP, by function):** `List` 8, `While` 6, `For` 6,
+`Dict` 3, variable-length unpacking 3, `ImportFrom`/`Subscript`/empty literal 2+2+2,
+`Import`/`DictComp`/`ListComp`/non-linear multiply/assignment-to-non-name 1 each.
+
+**Honest conclusion:** QuixBugs is algorithms over **lists and loops**. Until the
+front end models `list` (`select/store`, `QF_AX`), slices and `for/while`
+(bounded unroll or invariants), the honest number of caught bugs is **0 of 40**.
+Full report: `audits/QUIXBUGS_BASELINE.md`. Next work order:
+`list`/slice (QF_AX) → `for`/`while` (bounded) → re-run QuixBugs.
