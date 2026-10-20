@@ -60,6 +60,8 @@ if pub.get('formal', {}).get('theorems') != cur['formal']['theorems']:
     bad.append('formal.theorems')
 if pub.get('metrics', {}).get('check_covered') != cur['metrics']['check_covered']:
     bad.append('metrics.check_covered')
+if pub.get('code_hash') != cur.get('code_hash'):
+    bad.append('code_hash')
 # ПРИМЕЧАНИЕ: `commit` НЕ сравнивается намеренно — карточка генерируется ДО
 # коммита и всегда отставала бы на один (класс дефекта #87: артефакт хеширует
 # сам себя). Поле `commit` в паспорте — информационное («на каком коммите снят»).

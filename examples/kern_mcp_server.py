@@ -16,7 +16,7 @@
                               = [EQUIVALENT], SAT = [DIVERGED] + контрпример.
                               (T / F / B / N): T ⊔ F = B (конфликт).
 
-ПОДКЛЮЧЕНИЕ (Claude Code / Cursor):
+ПОДКЛЮЧЕНИЕ (MCP-клиенты):
     {"mcpServers": {"kern": {"command": "python3",
       "args": ["/path/to/kern/examples/kern_mcp_server.py"]}}}
 

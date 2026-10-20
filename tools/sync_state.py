@@ -44,6 +44,7 @@ SURFACES = (
     "docs/METRICS.en.md",
     "docs/ROADMAP.md",
     "docs/ROADMAP.en.md",
+    "docs/kern-architecture.svg",
     "docs/TESTING_AND_SPEED_GUIDE.md",
     "docs/TESTING_AND_SPEED_GUIDE.en.md",
 )

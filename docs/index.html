@@ -132,6 +132,11 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
     background:var(--bg1);border:1px solid var(--line2);font-weight:700;color:var(--ok)}
   #wasm output:empty{display:none}
   @media(max-width:760px){.sc-head{flex-wrap:wrap;gap:10px}.sc-score{font-size:36px}}
+.diagram-wrap{position:relative;display:inline-block;max-width:100%}
+.diagram-zoom{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:50%;border:1px solid #30363d;background:#161b22;color:#c9d1d9;font-size:20px;line-height:1;cursor:zoom-in}
+.diagram-modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.9);align-items:center;justify-content:center;cursor:zoom-out;padding:2vh 2vw}
+.diagram-modal.open{display:flex}
+.diagram-modal img{max-width:96vw;max-height:94vh;background:#0d1117;border-radius:8px}
 </style>
 </head>
 <body>
@@ -150,8 +155,15 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 </div>
 
 <div class="panel">
-<img class="badgeimg" src="kern-architecture.svg" width="1344" height="406"
+<div class="diagram-wrap">
+<img class="badgeimg" id="arch-img" src="kern-architecture.svg" width="1344" height="406"
+     style="cursor:zoom-in" onclick="openArch()"
      alt="KERN architecture: Belnap B4 accumulator, L0-L5 engine and truth gate, measured baseline">
+<button class="diagram-zoom" onclick="openArch()" aria-label="Zoom diagram" title="Zoom">＋</button>
+</div>
+</div>
+<div id="arch-modal" class="diagram-modal" onclick="closeArch()">
+  <img src="kern-architecture.svg" alt="KERN architecture (enlarged)">
 </div>
 
 <h2>What K.E.R.N. stands for</h2>
@@ -703,7 +715,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
     15 code + 10 <code>.lean</code> files via <code>raw.githubusercontent.com</code> (both CORS-open),
     and calls the real <code>kernc.wasm</code> (<code>kern_wasm_lia_unsat2</code>) in your browser.
     <b>Honest scope:</b> X-Ray here is heuristic (regex + LIA on numeric guards); mutation
-    (1345 sites), can-fail (125 goals), QF_S/IEEE-754 and the Ed25519 signature check are CLI-only —
+    (1345 sites), can-fail (128 goals), QF_S/IEEE-754 and the Ed25519 signature check are CLI-only —
     therefore the browser score caps at <b>65</b>.</p>
     <div class="sc-actions">
       <input id="sc-repo" class="mono" type="text" placeholder="owner/repo"
@@ -944,7 +956,7 @@ This page is served from <code>/docs</code> of the
    HONEST LIMITS (printed on the card):
      - X-Ray here is HEURISTIC: regexes + LIA over numeric guards, not the
        symbolic path conditions of the `--xray` CLI;
-     - mutation (1345 sites), can-fail (125 goals) and the Z3 theories
+     - mutation (1345 sites), can-fail (128 goals) and the Z3 theories
        (QF_S / QF_FP) do NOT run in the browser at all — they are CLI-only;
      - the Ed25519 signature is not checked in the browser: the presence of an
        attestation is a fact, “verified” means `slsa_provenance.py --check`. */
@@ -1159,7 +1171,7 @@ This page is served from <code>/docs</code> of the
       `   weights: ${Object.entries(b).map(([k, v]) => k + '=' + v).join(' ')}`,
       '',
       'WHAT THE BROWSER DOES NOT DO (hence 65, not 100):',
-      '   - 1345 mutants and 127 can-fail goals need zig build and Linux processes;',
+      '   - 1345 mutants and 128 can-fail goals need zig build and Linux processes;',
       '   - Z3 theories QF_S / IEEE-754 / bit-vectors are CLI-only;',
       '   - X-Ray here is heuristic (regexes + LIA on guards), not symbolic paths;',
       '   - the attestation signature is verified locally: slsa_provenance.py --check.',
@@ -1236,7 +1248,7 @@ This page is served from <code>/docs</code> of the
         r ? '- xray: dead=' + r.x.dead + ', crash=' + r.x.crash + ', anti-cheat=' + r.x.ac + ', CC max=' + r.x.cc : '',
         r ? '- languages: .zig=' + r.x.zig + ', .lean=' + r.x.lean : '', '',
         '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1345 sites),',
-        'can-fail (125 goals) or the Ed25519 attestation check. For the full passport run:',
+        'can-fail (128 goals) or the Ed25519 attestation check. For the full passport run:',
         '```',
         'python3 tools/trust_scorecard.py --repo ' + spec + ' --json out.json',
         '```',
@@ -1255,6 +1267,11 @@ This page is served from <code>/docs</code> of the
 
 </script>
 
+<script>
+function openArch(){document.getElementById('arch-modal').classList.add('open')}
+function closeArch(){document.getElementById('arch-modal').classList.remove('open')}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeArch()});
+</script>
 </body>
 </html>
 

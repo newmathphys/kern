@@ -24,7 +24,7 @@ python3 examples/integrations/kern_guard.py examples/contracts_demo.py   # JSON 
 python3 examples/integrations/agent_loop.py                              # demo: an agent proposes code, KERN refuses it
 ```
 
-## Gate any agent that commits (Aider, Claude Code, Cursor…)
+## Gate any agent that commits
 
 You do not need a framework wrapper for this — use KERN's own hook, which is
 framework-independent and blocks `git commit` when a contract is refuted or a sealed

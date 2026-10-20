@@ -26,7 +26,8 @@
 | Документ | Что внутри |
 |:--|:--|
 | **[PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md)** | **ПОЛНОЕ ТЕХНИЧЕСКОЕ ОПИСАНИЕ** (18 разделов, ~1200 строк): математика Белнапа, архитектура L0–L5, формат `.kimg` байт-в-байт, Врата Истины, SMT-теории, KERN-X, KERN-Next, CLI, контур доверия, Lean 4, бенчмарки, аттестация, дефекты, ограничения, карта исходников |
-| **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок |
+| **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок || **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок |
+| **[RELEASE_NOTES_v2.5.1.en.md](RELEASE_NOTES_v2.5.1.en.md)** | English release notes for v2.5.1 |
 | **[CAPABILITIES.md](CAPABILITIES.md)** | **11 возможностей с доказательствами**: что подтверждено, что с оговоркой, что неверно |
 | **[METRICS.en.md](METRICS.en.md)** · **[CAPABILITIES.en.md](CAPABILITIES.en.md)** · **[ATTESTATION_PASSPORT.en.md](ATTESTATION_PASSPORT.en.md)** · **[CAPABILITY_STATUS.en.md](CAPABILITY_STATUS.en.md)** | **English mirrors** ключевых документов (для внешнего читателя): витрина `README.md` уже полностью английская |
 | **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§151) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |

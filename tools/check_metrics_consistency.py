@@ -269,6 +269,8 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int,
          "кейсы can-fail", ("не-вакуумных",)),
         (r"целей\s+всего\s*\|\s*(\d+)", reg_targets, "цели реестра", ("целей",)),
         (r"\(CHECK\s+(\d+)", checks, "CHECK-цели", ("доказательств", "вакуум", "цел")),
+        (r"can-fail\s*\((\d+)\s+goals?\)", checks, "CHECK-цели"),
+        (r"(\d+)\s+can-fail\s+goals?", checks, "CHECK-цели"),
         (r"реестр[^|\n]{0,20}?(\d+)\s+цел", reg_targets, "цели реестра", ("реестр",)),
     ]
     if explored is not None:

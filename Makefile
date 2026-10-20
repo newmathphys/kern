@@ -605,7 +605,7 @@ docs-parity:
 	@$(PYTHON) tools/docs_parity_check.py
 
 # Запрет ИИ-шаблонов в тексте/коммитах; легитимные упоминания MCP-клиентов
-# (Claude Code, Cursor) НЕ ловятся.
+# (MCP-клиенты) НЕ ловятся.
 ai-traces-check:
 	@$(PYTHON) tools/ai_traces_check.py --selftest
 	@$(PYTHON) tools/ai_traces_check.py
