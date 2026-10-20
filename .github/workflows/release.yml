@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zig 0.17.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Build hermetic binary
+        run: zig build hermetic
+
+      - name: Package release assets
+        run: |
+          cp zig-out/bin/kernc-hermetic kernc-x86_64-linux-musl
+          sha256sum kernc-x86_64-linux-musl > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" \
+              --title "KERN $GITHUB_REF_NAME" \
+              --notes-file docs/RELEASE_NOTES_v2.5.1.md
+          gh release upload "$GITHUB_REF_NAME" \
+            kernc-x86_64-linux-musl SHA256SUMS --clobber
