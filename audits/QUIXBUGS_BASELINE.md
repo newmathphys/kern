@@ -8,7 +8,7 @@
 
 ```bash
 git clone --depth 1 https://github.com/jkoppel/QuixBugs /tmp/QuixBugs-master
-python3 /tmp/qb.py            # драйвер: 40 пар, классификация исходов
+python3 tools/quixbugs_check.py   # драйвер: 40 пар, классификация исходов
 ```
 
 ## Результат

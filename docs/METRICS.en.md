@@ -2001,7 +2001,7 @@ still refused; `trusted: 4` for `value % 2` open (Euclid axiomatics for `div`/`m
 
 **Done:** for the first time the world benchmark `jkoppel/QuixBugs` was run
 (40 tasks, each with a buggy and a correct version) through `--diff-equiv`
-(`∃x: f_old(x) ≠ f_new(x)`, no contracts needed). Driver: `/tmp/qb.py`.
+(`∃x: f_old(x) ≠ f_new(x)`, no contracts needed). Driver: `tools/quixbugs_check.py` (replaced the v1.3 script that only ran `ast.parse`).
 
 | Outcome | Tasks |
 |:--|--:|
