@@ -1766,3 +1766,27 @@ translate, so it stays "possible" instead of "proven".
 be negative / a size that can overflow, decided by Z3 on this path"*. This is
 not a detector for every CVE class. Fixes B/C/D need cast handling, struct field
 widths and comparison-semantics analysis — those are the concrete next steps.
+
+---
+
+### 42. `--full-scan`: one pass + honest theory auto-routing
+
+Actually executed per file (7 languages): `--xray` (`[CRASH PATH]`,
+`[DEAD BRANCH]`, `[BOUNDS PATH]`, `[OVERFLOW PATH]`), `--anti-cheat` (all `.py`),
+and `--audit-mcp` when `server.json`/`mcp.json` exists (with `mcp.lock.json`).
+
+Not executed, and why: `QF_S`, `IEEE-754`, `no_arbitrage`, `2-Safety`,
+`--loops`, `--infer-requires`, `--heal`, `--gen-tests`, `--diff-equiv` need a
+**contract** (`@kern:…`) or two files. On bare third-party code they would either
+`SKIP` or — worse — invent a verdict. So `--full-scan` prints them as
+`[AUTO-ROUTE] … applicable — needs contract (@kern:…), not evaluated` and keeps
+them **separate from findings**.
+
+Measured on our own tree (`--full-scan .`): 212 files / 383 functions (82
+checked), 6 xray findings, 259 anti-cheat candidates, MCP: `server.json checked`
+(8 tools, 0 findings), 5 theories applicable by routing.
+
+Honest anti-cheat limit: the heuristic cannot tell a CLI script from "tested
+code" — `sys.exit()` at the end of `main()` is normal, inside a tested function it
+is cheating. Such hits are printed as **candidates for manual review**, with an
+explicit caveat, not as verdicts.

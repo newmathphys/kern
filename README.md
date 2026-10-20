@@ -259,6 +259,13 @@ A retro-test on four published `cmark-gfm` security fixes caught **1 of 4** (the
 `validate_protocol`) with **0 false accusations** on the fixed file — see
 `docs/FIELD_AUDIT_REPORT.md` §4.
 
+`--full-scan <path>` runs the honest subset in one pass: `--xray` over 7 languages
+(dead branches, crash paths, negative index, size overflow), `--anti-cheat` over all
+`.py`, and `--audit-mcp` when a manifest exists. Theories that need a contract
+(`QF_S`, IEEE-754, `no_arbitrage`, 2-Safety, `--loops`) are printed as
+**applicable — needs contract (@kern:…), not evaluated**; they are never mixed
+with findings.
+
 ### Evidence on real production code (`make audits`)
 
 Functions transcribed from six projects across three languages (Zig, Rust, C), checked by the

@@ -60,3 +60,15 @@ echo "$C3" | grep -q 'OVERFLOW PATH. dup_bad' || { echo "[!] C: malloc(len+1) б
 C4=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/ovf_ok.c" 2>&1) || true
 if echo "$C4" | grep -q 'OVERFLOW PATH. dup_ok'; then echo "[!] C: ЛОЖНОЕ обвинение malloc под if (len > 1000) return"; exit 1; fi
 echo "[OK] C-like B2: BOUNDS/OVERFLOW обвиняют без гарда и МОЛЧАТ с гардом (4/4)"
+
+# ПОЛНОСПЕКТРАЛЬНЫЙ ОБХОД (`--full-scan`): агрегатор + ЧЕСТНЫЙ авто-роутинг.
+# Требование: агрегатор обязан (а) собрать xray-находки, (б) прогнать anti-cheat,
+# (в) напечатать AUTO-ROUTE как «применимо, НО без контракта НЕ проверено»,
+# и (г) не выдавать роутинг за доказательство. Иначе это реклама, а не отчёт.
+FS=$(timeout 300 python3 tools/kern_contracts.py --full-scan examples 2>&1) || { echo "[!] --full-scan упал"; exit 1; }
+echo "$FS" | grep -q '\[FULL-SCAN SUMMARY\]' || { echo "[!] нет сводки FULL-SCAN"; exit 1; }
+echo "$FS" | grep -q '\[anti-cheat\] python-файлов' || { echo "[!] anti-cheat не запускался в full-scan"; exit 1; }
+echo "$FS" | grep -q '\[AUTO-ROUTE\]' || { echo "[!] авто-роутинг не сработал"; exit 1; }
+echo "$FS" | grep -q 'НЕ проверено' || { echo "[!] роутинг НЕ помечен как 'не проверено' (риск выдать за доказательство)"; exit 1; }
+echo "$FS" | grep -q 'без контрактов НЕ доказывались' || { echo "[!] нет честной оговорки в сводке"; exit 1; }
+echo "[OK] full-scan: xray + anti-cheat + авто-роутинг, и роутинг честно помечен как НЕ доказанный"

@@ -1626,6 +1626,10 @@ def main() -> int:
     ap.add_argument("--xray", default=None, metavar="PATH",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
                          "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
+    ap.add_argument("--full-scan", dest="full_scan", default=None, metavar="PATH",
+                    help="полноспектральный обход: xray (7 языков) + anti-cheat "
+                         "+ MCP-аудит + авто-роутинг теорий (честно: без контракта "
+                         "теории только помечаются как применимые)")
     ap.add_argument("--explain", default=None, metavar="PATH",
                     help="ПУНКТ 18: человеческий паспорт функций")
     ap.add_argument("--pr-summary", nargs=2, default=None, metavar=("OLD", "NEW"),
@@ -1707,6 +1711,8 @@ def main() -> int:
     if getattr(args, "audit_repo", None):
         return cmd_audit_repo(args.audit_repo, args.kernc,
                               getattr(args, "html_out", None))
+    if getattr(args, "full_scan", None):
+        return cmd_full_scan(args.full_scan, args.kernc)
     if args.xray:
         return cmd_xray(args.xray, args.kernc)
     if args.heal:
@@ -3470,6 +3476,130 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         if proven:
             checked += 1
     return checked, total, found
+
+
+_AUTO_ROUTE_RULES = [
+    # (теория, триггер-регекс, человеческая причина)
+    ("IEEE-754 NaN", r"\b(?:f32|f64|float|double|number)\b", "float type"),
+    ("QF_S path traversal", r"\b(?:path|filepath|filename|dir|url|cmd)\b", "path-like name"),
+    ("no_arbitrage / conservation",
+     r"\b(?:fee|price|amount|balance|rate|tax|discount)\b", "money-like name"),
+    ("2-Safety noninterference",
+     r"\b(?:secret|token|password|passwd|api_key|apikey)\b", "secret-like name"),
+    ("Termination (--loops)", r"\b(?:while|for)\b", "loop"),
+]
+
+
+def cmd_full_scan(path: str, kernc) -> int:
+    """ПОЛНОСПЕКТРАЛЬНЫЙ ОБХОД (`--full-scan <path>`).
+
+    ЧТО ДЕЛАЕТ РЕАЛЬНО (и это важно не преувеличивать):
+      * `--xray` по каждому файлу 7 языков: `[CRASH PATH]`, `[DEAD BRANCH]`,
+        `[BOUNDS PATH]`, `[OVERFLOW PATH]` — с решением Z3;
+      * `--anti-cheat` по каждому Python-файлу (читерство ИИ в тестах/проде);
+      * `--audit-mcp` по `server.json`/`mcp.json`, если они есть в корне;
+      * АВТО-РОУТИНГ: по сигнатурам/именам показывает, какие теории KERN
+        ПРИМЕНИМЫ к найденному коду (float → IEEE-754, path → QF_S,
+        fee/balance → no_arbitrage, secret → 2-Safety, циклы → Termination).
+
+    ЧЕГО НЕ ДЕЛАЕТ (честно): роутинг НЕ доказывает эти теории на голом коде —
+    для `QF_S`/`IEEE-754`/`no_arbitrage`/`2-Safety`/`--loops` нужен контракт
+    (`@kern:`), иначе это была бы выдумка. Поэтому такие пункты печатаются как
+    `[AUTO-ROUTE] … applicable — needs contract`, а не как находки.
+    """
+    _audit_install_cleanup()
+    root = Path(path)
+    if not root.exists():
+        print(f"[!] путь не найден: {path}")
+        return 2
+    files: list[Path] = []
+    if root.is_file():
+        files = [root] if root.suffix in _XRAY_EXTS else []
+    else:
+        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+            dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
+            for f in sorted(filenames):
+                fp = Path(dirpath) / f
+                if fp.suffix in _XRAY_EXTS and not fp.is_symlink():
+                    files.append(fp)
+
+    by_ext: dict[str, int] = {}
+    checked = total = 0
+    findings: list[str] = []
+    py_files: list[Path] = []
+    for f in files:
+        by_ext[f.suffix] = by_ext.get(f.suffix, 0) + 1
+        try:
+            if f.suffix == ".py":
+                py_files.append(f)
+                c, t, fd = _xray_file(f, kernc)
+            else:
+                c, t, fd = _xray_clike_file(f, kernc)
+        except Exception:  # noqa: BLE001
+            continue
+        checked += c
+        total += t
+        findings.extend(f"{f.relative_to(root) if root.is_dir() else f.name}: {z}" for z in fd)
+
+    print(f"[FULL-SCAN] {path}")
+    ext_line = " ".join(f"{k}:{v}" for k, v in sorted(by_ext.items()))
+    print(f"  files: {len(files)} ({ext_line or 'нет поддерживаемых'})")
+    print(f"  [xray] проверено функций {checked} / {total}, находок {len(findings)}")
+    for z in findings:
+        print(f"    {z}")
+
+    # Anti-Cheat: тот же сканер, что в `--anti-cheat`, по всем .py
+    cheat = 0
+    for f in py_files:
+        try:
+            sc = _CheatScan()
+            sc.visit(ast.parse(f.read_text(encoding="utf-8", errors="replace")))
+        except Exception:  # noqa: BLE001
+            continue
+        for kind, ln in sc.findings:
+            cheat += 1
+            print(f"    {f.name}:{ln}: [CHEAT DETECTED: {kind}]")
+    print(f"  [anti-cheat] python-файлов {len(py_files)}, находок {cheat}")
+    if cheat:
+        # ЧЕСТНО: эвристика не отличает CLI-скрипт от «тестируемого кода».
+        # `sys.exit()` в конце `main()` — норма, а в тестируемой функции — чит.
+        # Поэтому это КАНДИДАТЫ на ручную проверку, а не приговор.
+        print("  [anti-cheat] эвристика: `sys.exit`/`except: pass` в CLI-скриптах "
+              "тоже попадают — проверяйте вручную")
+
+    # MCP: если в корне есть манифест — прогоняем реальный аудит схемы
+    mcp_status = "нет server.json/mcp.json"
+    for name in ("server.json", "mcp.json"):
+        cand = (root if root.is_dir() else root.parent) / name
+        if cand.is_file():
+            lock = cand.parent / "mcp.lock.json"
+            print(f"  [mcp] {name}: аудит схемы")
+            cmd_audit_mcp(str(cand), str(lock) if lock.is_file() else None)
+            mcp_status = f"{name} проверен"
+            break
+    print(f"  [mcp] {mcp_status}")
+
+    # АВТО-РОУТИНГ: что ПРИМЕНИМО (но не проверено без контракта)
+    routed: dict[str, list[str]] = {}
+    for f in files:
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for theory, rx, why in _AUTO_ROUTE_RULES:
+            if re.search(rx, text):
+                routed.setdefault(theory, []).append(f"{f.name} ({why})")
+    for theory, where in sorted(routed.items()):
+        shown = ", ".join(sorted(set(where))[:3])
+        more = " …" if len(set(where)) > 3 else ""
+        print(f"  [AUTO-ROUTE] {theory}: применимо к {len(set(where))} файл(ам): "
+              f"{shown}{more} — needs contract (@kern:…), НЕ проверено")
+    print("-" * 74)
+    print(f"[FULL-SCAN SUMMARY] файлов {len(files)} · функций {checked}/{total} · "
+          f"находок xray {len(findings)} · anti-cheat {cheat} · mcp: {mcp_status}")
+    print(f"  теорий применимо по роутингу: {len(routed)} "
+          f"({', '.join(sorted(routed)) or '—'}) — без контрактов НЕ доказывались")
+    return 0
 
 
 def _shm_dir():
