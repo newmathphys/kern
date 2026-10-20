@@ -127,6 +127,16 @@ def _list_read(elems: list, idx: str) -> str:
     return expr
 
 
+def _idx_outside_window(node) -> bool:
+    """Индекс — не литерал `0..W-1`: окно НЕДО-аппроксимирует индекс (#217).
+
+    Возвращает True, если трансляция перестаёт быть точной и доказательство
+    должно деградировать в честный `[UNBOUNDED] SKIP`.
+    """
+    return not (isinstance(node, ast.Constant) and isinstance(node.value, int)
+                and 0 <= node.value < _LIST_WINDOW)
+
+
 def _replay_soft(exc: BaseException, where: str = "replay") -> None:
     """Мягкий выход из ЖИВОГО replay контрпримера (дефект #198/#208).
 
@@ -357,8 +367,16 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             raise Unsupported("индекс не от простого имени")
         if isinstance(node.slice, ast.Slice):
             raise Unsupported("срез списка")
+        # ЗВУЧНОСТЬ (#217): окно из 3 элементов — НЕДО-аппроксимация, если
+        # индекс не является литералом 0..2. Тогда `arr[5]` и `arr[3]` дают
+        # ОДНО значение, и `--diff-equiv` мог бы объявить эквивалентность,
+        # которой нет. Помечаем трансляцию как развёрнутую: доказательство
+        # становится честным `[UNBOUNDED] SKIP`, поиск контрпримеров — работает.
+        idx_node = node.slice
+        if _idx_outside_window(idx_node):
+            _UNROLLED[0] = True
         elems = _list_elems(env, base.id)
-        idx = expr_smt(node.slice, env)
+        idx = expr_smt(idx_node, env)
         return _list_read(elems, idx)
     raise Unsupported(f"узел {type(node).__name__}")
 
@@ -531,6 +549,8 @@ def body_smt(stmts, env: dict) -> str:
                     raise Unsupported("AugAssign в индекс не от простого имени")
                 if isinstance(st.target.slice, ast.Slice):
                     raise Unsupported("AugAssign в срез")
+                if _idx_outside_window(st.target.slice):
+                    _UNROLLED[0] = True
                 elems = list(_list_elems(env, base.id))
                 idx = expr_smt(st.target.slice, env)
                 binop = ast.BinOp(left=ast.Name(id="__kern_old", ctx=ast.Load()),
@@ -569,6 +589,8 @@ def body_smt(stmts, env: dict) -> str:
                     raise Unsupported("запись в индекс не от простого имени")
                 if isinstance(tgts.slice, ast.Slice):
                     raise Unsupported("запись в срез")
+                if _idx_outside_window(tgts.slice):
+                    _UNROLLED[0] = True
                 elems = list(_list_elems(env, base.id))
                 idx = expr_smt(tgts.slice, env)
                 val = expr_smt(st.value, env)
@@ -584,6 +606,10 @@ def body_smt(stmts, env: dict) -> str:
                 # но `len()` возвращает настоящую длину, поэтому лишние
                 # элементы недостижимы по индексу из `range(len(arr))`).
                 elts = [expr_smt(e, env) for e in st.value.elts]
+                if len(elts) > _LIST_WINDOW:
+                    # Окно короче литерала: элементы за окном схлопываются,
+                    # значит трансляция недо-аппроксимирует (#217).
+                    _UNROLLED[0] = True
                 _set_list(env, tgts.id, (elts + ["0"] * _LIST_WINDOW)[:_LIST_WINDOW])
                 _set_len(env, tgts.id, str(len(elts)))
                 continue

@@ -2287,3 +2287,17 @@ ONLY after a live call of both versions (#206).
 
 New confirmed bug: `max_sublist_sum`, `arr=[-1, 2]` — buggy returns **1**,
 correct returns **2**.
+
+---
+
+### 63. Documentation integrity: 65 holes in the EN registry and duplicate section numbers (Defect #218)
+
+**How it was found:** not by a report, but by a check — a script compared the number sets of both registries and the heading sets of both journals.
+
+**Measured BEFORE:** RU registry **155** rows (#1–#217) vs EN **91**; **65 numbers missing** in EN (#52, #55, #56, #59–#92, #98–#124, #205); **#174 duplicated** in EN; RU `METRICS.md` had **§100, §101, §102 twice each** (14 prefixed lines); EN registry had **two `## 6e`** headers; `docs/README.md` advertised `#1–#216` and `§1–#136`.
+
+**Note on the third column:** in the older registry sections (#59–#124) it holds a **defect class** ("tool (critical)"), in the newer ones a **status** ("FIXED"). That difference is preserved as a fact instead of being silently normalised; the EN index labels the column **"Class (as in RU)"**.
+
+**Fixed:** (1) EN sections `6d-1` (#125–#152) and `6d-2` — a compact index of the **65 entries** with one-line summaries and a pointer to the Russian full text; (2) the SECOND §100/§101/§102 blocks renumbered to **§137/§138/§139** (subsections included; no external references existed — verified by `grep`); (3) the second `## 6e` → **`## 6f`**, and the duplicate #174 row marked **`174 (closure)`**; (4) `docs/README.md` ranges corrected.
+
+**Measured AFTER:** RU **156 rows / 156 unique / max #218**; EN **156 / 156 / max #218**; **0** numbers missing in EN; **0** duplicate RU sections (115 sections, max §139); **0** duplicate EN headers; `registry.py` prints «defect numbers are unique (156 rows)».

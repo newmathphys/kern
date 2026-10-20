@@ -141,6 +141,33 @@ if printf '%s' "$ounb" | grep -qF "[UNBOUNDED]" && ! printf '%s' "$ounb" | grep 
 else
   echo "  [FAIL] #207: развёрнутый цикл объявлен ДОКАЗАННЫМ"; fail=1
 fi
+cat > "$TMP/idx.py" <<'PY'
+# @kern:requires len(arr) >= 1
+# @kern:ensures True
+def first0(arr):
+    return arr[0]
+
+
+# @kern:requires len(arr) >= 1
+# @kern:ensures True
+def firsti(arr, i):
+    return arr[i]
+
+
+# @kern:requires True
+# @kern:ensures True
+def lit_big():
+    a = [1, 2, 3, 4]
+    return a[3]
+PY
+oidx=$("$PY" tools/kern_contracts.py "$TMP/idx.py" 2>&1)
+if printf '%s' "$oidx" | grep -qF "[PASS] first0" \
+   && printf '%s' "$oidx" | grep -qF "[SKIP] firsti" \
+   && printf '%s' "$oidx" | grep -qF "[SKIP] lit_big"; then
+  echo "  [OK]   #217: arr[0] доказан; неизвестный индекс и литерал вне окна -> UNBOUNDED (ложного PASS нет)"
+else
+  echo "  [FAIL] #217: окно списка выдаёт доказательство при неточном индексе"; fail=1
+fi
 rm -rf "$TMP"
 echo "───────────────────────────────────────────────────────────────────────"
 if [ "$fail" = 0 ]; then

@@ -318,6 +318,124 @@ is generated from the sources).
 
 ---
 
+## 6d-1. Registry gap closed: #125–#152
+
+> **Why this section exists.** Defects **#125–#152** were recorded in `METRICS.md` (RU) but were **missing from this registry table**
+> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#217`
+> has no holes. Verdicts are the same as in the Russian original.
+
+| # | Defect | Status |
+|:--|:--|:--|
+| **125** | **`checksPass()` returned `true` for an EMPTY verdict** (0 steps, `is_unsat=false`): only error counters were checked. Added `proof_steps == 0 -> false`. | FIXED |
+| **126** | **Race of two tree-patching instances**: a run killed by `SIGTERM` left the rollback undone. `tools/tree_lock.py` + SIGTERM/SIGINT/SIGHUP handlers + refusal to start on a dirty `src/`. | FIXED |
+| **127** | **`check-integrity` did not recompute object-body digests**: 11 of 20 bit-flip injections passed silently (only stored descriptors were compared). | FIXED |
+| **128** | **Object names were not part of the Merkle root**: replacing a PRINTABLE letter in a name went unnoticed. The root is computed over the FINISHED buffer (`sealImageRoot`), so writer and reader cannot diverge. | FIXED |
+| **129** | **`kernc verify` returned `rc=0` with a refuted contract** — CI never saw the closed Gate. Now `refuted > 0 -> rc=1`. | FIXED |
+| **130** | **Vacuous `pcc-check` case**: the fault was injected, the target stayed green (forgery was caught by `proof_concludes_false`, not by `checksPass`). | FIXED |
+| **131** | **`src/next/*.zig` were in the mutator but `test_root.zig` never imported them**: 51 sites were counted as "survived" although they were never compiled. For `src/next/` the mutator now runs `zig build test-next`. | FIXED |
+| **132** | **Vacuous `gen-tests-check` case**: the reference function was broken while the generator computed the expectation by executing it — the tests stayed green. | FIXED |
+| **133** | **Vacuous `simplify-check` case** (fourth in a row): the fault did not touch the transformation under test. | FIXED |
+| **134** | **False accusation of a safe function**: after an early `if cond: return` the path was not narrowed by `NOT cond`, so a guard clause produced a false `[CRASH PATH]` (`get_safe`). | FIXED |
+| **135** | **`@kern:len` was read from the whole file**: the second function overwrote the length of the first. Now only the comment block directly above `def` is read. | FIXED |
+| **136** | **`bounds-check` had no target of its own in the `Makefile`**: the registry showed a CHECK target without a case. `tools/bounds_check.sh` was split out. | FIXED |
+| **137** | **`_smt_counterexample` returned `None` for both `UNSAT` and `N`** (solver did not decide): an undecided formula was counted as PROVEN. | FIXED |
+| **138** | **Local variables were never declared in SMT**: Z3 answered with an error -> `N` -> false PASS. All variables of a formula are declared now. | FIXED |
+| **139** | **`_subst` wrapped an already-built s-expression in parentheses** (`((+ i 1))`) -> unparsable formula -> `N` -> false PASS. | FIXED |
+| **140** | **Cases patched files via literal anchors**: after a refactor `--check-anchors` reported "anchors not applicable" — the case had silently stopped checking anything. | FIXED |
+| **141** | **`--xray` required the `# @kern:len(arr) = N` crutch**, violating Zero-Annotation. Length now comes from list literals and from `len(arr)` in conditions. | FIXED |
+| **142** | **Vacuous `state-inv-check` case**: the wrong mechanism was broken (`_smt_counterexample` instead of `_smt_verdict`). | FIXED |
+| **143** | **The checker rejected a CORRECT Z3 proof**: a negative Farkas weight (literal polarity) was treated as an error. It is now `.structural_only`, not `.bad`. | FIXED |
+| **144** | **Vacuous `ffi-bridge-check` case**: the fault went into `_smt_verdict` while presets call `_prove_checked`. | FIXED |
+| **145** | **`rls_safe` stayed `[UNKNOWN]`**: the invariant was checked as ONE compound formula (Tseitin atoms). Now checked per component (De Morgan) -> `[PASS] PROVEN trusted: 0`. | FIXED |
+| **146** | **`SPURIOUS MODEL` reported for a CORRECT model**: `=` between boolean subformulas was not evaluated, so a valid counterexample was hidden. "Cannot compute" now yields `unsupported`, not `spurious`. | FIXED |
+| **147** | **Vacuous `action-firewall-check` and `rag-conflict-check` cases**: grep matched strings that survive a broken verdict. | FIXED |
+| **148** | **Vacuous `fuzz-corpus-check` case**: the "0 panics" grep did not change when the gate was broken. | FIXED |
+| **149** | **`--xray`: consecutive `if ...: return` did not narrow the path** — `[DEAD BRANCH]` was searched only inside `if/elif`. Now the path is narrowed by `NOT cond` after an early exit (as in #134). | FIXED |
+| **150** | **`wasm-check` case crashed**: `src/wasm_api.zig` was missing from `FAULTABLE`, so the injection was never rolled back. | FIXED |
+| **151** | **`kimg-grep-check` case was VACUOUS**: it did not rebuild the binary, so the `exit(1)->exit(0)` patch never affected the gate. | FIXED |
+| **152** | **The `model_extract` test expected `spurious` where the correct answer is `unsupported`** ("did not lie" != "cannot evaluate"). | FIXED |
+
+---
+
+## 6d-2. Compact index of entries that exist only in the Russian original
+
+> **Why this section exists.** The line-by-line audit of 2026-10-20 found that **65 numbers were missing from this English table**
+> (`#52, #55, #56, #59–#92, #98–#124, #205`) although they are present in `CAPABILITY_STATUS.md`. They are indexed here with a
+> one-line summary each, so that the range `#1–#217` has **no holes in either language**. The third column reproduces the
+> **classification** used in the Russian original for those sections (it is a defect class there, not a status word).
+
+| # | Defect (one line) | Class (as in RU) |
+|:--|:--|:--|
+| **52** | **The mutator itself was BROKEN in HEAD**: `return "SURVIVED" # ЛОМАЕМ` — every mutant was declared surviving, making the tool useless. It had reached commit `3915e76`. | tool (critical) |
+| **55** | **`payloadSlice` and `objectPayloadRaw` chose the SIZE in opposite ways**, so the safe read path and the raw path could return different slices when `compressed_size != uncompressed_size`. | correctness (latent) |
+| **56** | **The SLSA tool attested Debug binaries**, which Zig 0.17 builds **non-bit-reproducibly** (non-deterministic DWARF), so `--check` failed after **every** rebuild. | tooling / attestation |
+| **59** | **`.github/workflows/ci.yml` was INVALID YAML**: an unquoted `- name: … (быстрый: без Lean/canfail)` contains `": "` inside a scalar. | CI (critical for DX) |
+| **60** | **`kernc cat`/`ls` printed DATA to stderr** (`std.debug.print`), so `kernc cat img /raw/f > out.txt` produced an EMPTY file. | CLI / pipeline |
+| **61** | **Rule order in `.gitignore`**: `*.log` came AFTER `!docs/evidence/*.log`, so the pattern overrode the exception and **all evidence files were ignored**. | repository / attestation |
+| **62** | **The SLSA attestation was SELF-REFERENTIAL**: `tree_sha256` included `kern.intoto.jsonl` itself, and `--check` compared it with the file being verified. | attestation (false failure) |
+| **63** | **`canfail` SILENTLY DESTROYED uncommitted edits**: the harness restores FAULTABLE files via `git checkout --`. | tool (loss of work) |
+| **64** | **Spinlock on the hot path of `compat.io()`** in library mode: with `g_io == null` (C-ABI) every call from every thread took a global fallback mutex. | performance / concurrency |
+| **65** | **`canfail` restored SOURCES but not ARTIFACTS**: after rollback of `src/*.zig` the built binary/library stayed **PATCHED**. | tool (false results after a run) |
+| **66** | **Reports printed the WRONG hash algorithm**: after the default switched to BLAKE3 (`0x0001`) the labels in `src/perf_bench.zig` stayed hard-coded. | docs / reporting |
+| **67** | **`canfail` mixed failure classes in the summary line**: a harness false alarm (`META_FALSE_ALARM`) was printed in the case-failure column. | tool (wrong reporting) |
+| **68** | **`tree_digest()` did not see UNTRACKED files**: the list came from `git ls-files`, so an attestation built before a commit missed new files. | attestation (false failure) |
+| **69** | **Editing a FAULTABLE file DURING a canfail run is destroyed silently**: the `guard_dirty_faultable()` fuse checks the tree only at START. | tool (loss of work) |
+| **70** | **The evidence collector itself broke the attestation** and captured probe state (`slsa_check` ran after the first writes). | attestation (false failure) |
+| **71** | **Rollback restored ALL files of the list, not only the modified ones**: `Fault.__exit__` rewrote every FAULTABLE file, so an edit made during a case was lost. | tool (loss of work) |
+| **72** | **Temporary files of the atomic rollback landed in the source fingerprint**: `write_atomic` creates `<file>.canfail_tmp` with no `.gitignore` rule. | attestation (false failure) |
+| **73** | **The zombie check in telemetry counted ALL zombies of the system** (`ps -eo stat=`), not the children of the run. | tool (false failure) |
+| **74** | **QEMU HUNG on Z3-bridge tests**: `z3` is a native x86_64 binary, and when present in PATH the emulated ARM64/PPC64 test tried to execute it. | tool (permanent deadlock) |
+| **75** | **Cloud CI failed in 0 seconds**: a hard-coded toolchain path `ZIG_DIR="${ZIG_DIR:-$HOME/opt/zig-x86_64-linux-0.17.0}"` in `tools/ci.sh`. | infrastructure (red CI) |
+| **76** | **`CAN-FAIL` failed in the cloud**: a build artifact got into the integrity snapshot (the `slsa` case appends 8 zero bytes to `zig-out/bin/kernc`). | infrastructure (red CI) |
+
+| **77** | **The evidence gate missed a failure masked by `RC=0`**: the body said «ATTESTATION MISMATCH: 1» while the last line was `RC=0`. | tool (blind gate) |
+| **78** | **A solver timeout was labelled a MISMATCH** in `kernc smtlib` output (`expected sat, got timeout`). | docs (false alarm) |
+| **79** | **A self-referential LOG broke the attestation**: `docs/evidence/slsa_check.log` is the log of checking the very fingerprint it is part of. | attestation (vicious circle) |
+| **80** | **The Refactory metric did not distinguish classes**: `tools/refactory_diff.py` is **differential** testing, not a correctness score. | methodology (metric did not measure the claim) |
+| **81** | **An evidence log could contain TWO runs** (concurrent write): two headers with different dates in one `slsa_check.log`. | tool (a log was not a single run) |
+| **82** | **The release binary became STALE** after proof-checker changes: the published asset predated the CLI integration. | process (artifact lagged behind code) |
+| **83** | **`integer overflow` panic in the decompressor**: an empty window `&.{}` was passed, and `rebase()` computes `capacity <= buffer.len - history_len`. | memory / safety |
+| **84** | **The "zip bomb" test failed on CORRECT behaviour**: it expected an error for an understated length, while the real guard is an overstated one. | test (wrong expectation) |
+| **85** | **The "tampering" test passed for nothing**: the corruption hit `data_payload_offset + 1`, which is the string pool, not the payload. | test (vacuous) |
+| **86** | **Two tests of #55 failed after compression was integrated**: they used `codec = 1` as a synthetic marker, and `1` became a real codec. | test (stale marker) |
+| **87** | **The attestation hashed its OWN evidence**: `tree_digest()` included the whole `docs/evidence/` folder (the output of verification). | tool (cyclic fingerprint) |
+| **88** | **Editing a FAULTABLE file DURING a harness run breaks its integrity check** (no guard existed at that time). | process (edit during a run) |
+| **89** | **A stale patch template made a can-fail case "skipped" SILENTLY**: after the BLAKE3 refactor the `sim-invariant` template stopped matching. | tool (check stopped checking) |
+| **90** | **The mtime heuristic in `artifact_check.py` gave a FALSE failure**: `canfail` restores files with atomic write, so `mtime` is UPDATED. | tool (false positive) |
+| **91** | **Different locking mechanisms in `canfail` and the mutator** (`flock` vs a PID file) allowed overlap. | tool (race between tools) |
+| **92** | **The attestation covered binaries that a plain `zig build` OVERWRITES** (Debug subjects `kernc`, `kernx`, `kern-attack`). | tool (attestation did not survive rebuild) |
+
+| **98** | **Deep Nesting Bomb: unbounded parser recursion -> SIGSEGV**: `SexprParser.parseList` recursed with no depth limit. | memory / security (stack overflow) |
+| **99** | **NULL pointers in the C-ABI -> SIGSEGV**: a C caller may pass NULL where the Zig type `[*]const u8` forbids it; checks were missing. | security (DoS from a foreign process) |
+| **100** | **Type mismatch in the public C-ABI header**: `kern_localize` was declared as `char *out_buf` while other functions use another convention. | interface (type incompatibility) |
+| **101** | **MEMORY LEAK in `extractAsserts`** (found by allocation-failure injection): `try out.append(try allocator.dupe(...))` leaks on partial OOM. | memory (leak under partial OOM) |
+| **102** | **The mutation tester covered only the OLD kernel**: `TARGETS` in `tools/mutate_zig.py` was a hard-coded list of 6 files. | tool (coverage missed new code) |
+| **103** | **The C-ABI was OUTSIDE mutation coverage**: the mutator ran only `zig build test`, never `tests/c_abi_test.c`. | tool (interface outside coverage) |
+| **104** | **`witness_model` was ALWAYS `null`**: the bridge looked for the prefix `"(model"`, while Z3 5.1.0 prints a bare list for `(get-model)`. | logic (witness field always empty) |
+| **105** | **Memory leak OPENED by the #104 fix**: 61 calls like `b.executeQuery(q).status` discarded the owned model. | memory (production leak) |
+| **106** | **The mutator mutated INSIDE string literals**: `and -> or` was applied to test strings `const src = "(assert (and …))"`. | tool (noise instead of signal) |
+| **107** | **SAMPLING BIAS: 64% of mutants came from ONE file** (`proof_check.zig`: 266 of 420 sites), so a 40-mutant sample was mostly that file. | methodology (metric measured the wrong thing) |
+| **108** | **The pipe regression test HUNG instead of failing**: a writer thread plus `t.join()` with no timeout. | test (hang instead of failure) |
+| **109** | **`child.wait()` was called with the read end of the pipe still OPEN**: undrained solver output blocks Z3. | kernel (potential pipe deadlock) |
+| **110** | **THE MUTATION SCORE WAS MEASURED WITHOUT THE SOLVER** (found by measurement, not guessing): 8 solver tests skip when `z3` is not in PATH, so bridge mutants were "false survivors". | methodology (false survivors, non-reproducible score) |
+| **111** | **The "slow mutator" was treated WRONGLY: 93% of the cost is execution, not compilation** (found by PROFILING): compile 879 ms vs full test run 11 390 ms. | tool (optimised the wrong bottleneck) |
+| **112** | **Environment variables SILENTLY did not work in TESTS**: `compat.envVar()` relied on libc `environ`, but the test binary does not link libc. | tool (configuration that never applied) |
+| **113** | **CI #68/#69 were RED because of a HARD-CODED HASH in a test** (root cause found via the cloud API): the `CAN-FAIL` step broke on a legitimate release rebuild. | tool (test broke on a legitimate data change) |
+| **114** | **`canfail` POLLUTED COMMITTED EVIDENCE** (found by a full run): the `evidence-propagates` case writes `sorry` into `formal/KernAllMath.lean`. | tool (a run pollutes the artifacts it protects) |
+| **115** | **VACUOUS `slsa` case: the injection went into a binary that is not attested** (`kernc` instead of `kernc-hermetic`). | tool (the case proved something other than claimed) |
+| **116** | **"Edit during a run" was closed INCOMPLETELY**: a file that the case itself edited was rolled back from the backup taken at case START. | tool (silent loss of work) |
+| **117** | **The SKIP diagnostic showed ANOTHER PARSER'S ERROR** (found by a shadow contract on REAL third-party code): Zig `@mod` reported as `invalid syntax`. | tool (misleading diagnostics) |
+| **118** | **The proof checker REJECTED A CORRECT Z3 CERTIFICATE** (Ghostty `gridColumns`): the checker did not cover `unit-resolution`/`def-axiom` steps. | tool (incomplete proof-checker coverage) |
+| **119** | **A COMPRESSED IMAGE DISABLED THE TRUTH GATE** (found while building the audit corpus): `/raw/<path>` served compressed bytes, so every claim degraded to `e=0`. | kernel / CLI (silent gate shutdown) |
+| **120** | **Verdict `N` (UNKNOWN) was PRINTED AS "CONTRACT VIOLATED"** (zlib shadow contract): a three-valued verdict was collapsed into two. | tool (false alarm) |
+| **121** | **False rejection by the proof checker: numeric literal ATOM vs LIST** (Rust `saturating_add`): `-2147483648` vs `(- 2147483648)`. | proof checker (false rejection) |
+| **122** | **`Int` compared with `Bool` inside a function body** (C shadow contract): a "bare" comparison as the result was translated ill-typed. | extractor (ill-typed formula) |
+| **123** | **`unit-resolution` over TRUSTED lemmas: honest SKIP, NOT fixed** (musl `abs`): soundness kept over completeness. | proof checker (conservative refusal, open work) |
+| **124** | **Mutator "moving target"**: `sample_stratified` used ONE global PRNG, so any change of the site count in one file reshuffled the sample in all others. Fixed by a per-site `sha256(seed:file:text:mutation)` key; proven: deleting 187 sites in `proof_check.zig` left 27/27 picks in the other 14 files unchanged. | methodology (metric was not reproducible) |
+| **205** | **Contract-parser funnel**: refusal on an unknown AST node replaced by symbolic abstraction (AnnAssign, nested `def`, `try/except`, tuple unpacking, `len/int/bool`, `havoc` for other calls). Measured: accepted bodies **7 (1.14%) -> 162 (27.23%)**, ×23. | methodology (measured) |
+
+---
+
 ## 6e. Registry of defects from the pre-release session of 2026-10-19 (#153-#177)
 
 Every entry below was found by **measuring**, not by reading: a full run of the
@@ -371,14 +489,14 @@ packet, report, cache) — **401 + 53 tests, all green** (with `z3` in `PATH`; w
 that is the next layer, and it is NOT claimed to be working.
 
 
-## 6e. Field audit of 14 repositories (2026-10-19, #179–#184)
+## 6f. Field audit of 14 repositories (2026-10-19, #179–#184)
 
 Compact English list; full text and measured before/after tables are in
 `docs/FIELD_AUDIT_REPORT.md` and `docs/METRICS.md` §116.
 
 | # | Defect | Class |
 |:--|:--|:--|
-| **174** | 52 top-level names defined twice in `tools/kern_contracts.py` (2024 dead lines). **Closed**: shadowed copies removed bottom-up by AST (**52 → 0**, −2003 lines); root cause found — two `if __name__ == "__main__"` blocks and an *early* `cmd_xray` copy newer than the live one (C-like routing did nothing) | tooling |
+| **174 (closure)** | *Completion record — the defect itself is #174 above.* 52 top-level names defined twice in `tools/kern_contracts.py` (2024 dead lines). **Closed**: shadowed copies removed bottom-up by AST (**52 -> 0**, -2003 lines); root cause found — two `if __name__ == "__main__"` blocks and an *early* `cmd_xray` copy newer than the live one (C-like routing did nothing). | tooling |
 | **179** | Python `--xray`: `assert` was not a path guard (false `[BOUNDS PATH]` in `psf/requests`); a variable reassigned inside a loop kept its pre-loop value (false `[DEAD BRANCH]` in `tiangolo/fastapi`) | measurement |
 | **180** | Rust extractor saw 0 of 1292 functions in `ripgrep` (`pub(crate) fn`, `async`, generics, `if cond {`) | measurement |
 | **181** | Scorecard under-scored real projects (`LICENSE*`/`COPYING*`, `test/`/`__tests__/`/`*_test.go`, Lean outside `formal/`) | measurement |
@@ -416,4 +534,6 @@ Compact English list; full text and measured before/after tables are in
 | **214** | **Списки были вне подмножества**: `arr[i]`, `arr[i] = v`, `arr[i] += v`, `for x in arr`, `if n:`/`while n:` (число в позиции `Bool`) отправляли 10+ задач `QuixBugs` в SKIP ДО решателя. Введено окно `arr__e0..2 : Int` + `len__arr` в чистом `QF_LIA` (без теории массивов), развёртка `for` по списку, приведение истинности. DIVERGED 3 → 5 (`hanoi`, `sieve`), `make contracts` без изменений (11/4/0/0/2/2/19). | ИСПРАВЛЕНО |
 | **215** | **Тихое проглатывание программных ошибок**: 29 голых `except Exception:` в `tools/kern_contracts.py` (класс #198) скрывали `NameError`/`AttributeError`. Каждый обёрнут в `_replay_soft` (печатает программные ошибки, глушит только ожидаемые), добавлен ratchet `bare_except_baseline.json` в `dup_defs_guard.py`. | ИСПРАВЛЕНО |
 | **216** | **The list was not reconstructed from the Z3 model in Live Replay**: the model carries `arr__e0..2` and `len__arr`, not `arr`, so `max_sublist_sum` was discarded (no fallback list starting with a negative element). The list is now rebuilt from the model; QuixBugs DIVERGED 5 -> 6. | FIXED |
+| **217** | **The list window could produce a false proof**: with a non-literal index, or a literal beyond the window, `arr[3]` and `arr[5]` yield the SAME value, so `--diff-equiv` could claim an equivalence that does not exist. Such translations are marked as under-approximating -> `[UNBOUNDED] SKIP`. | FIXED |
+| **218** | **DOCUMENTATION INTEGRITY (found by the line-by-line audit of 2026-10-20)**: the EN registry was missing **65 numbers** (#52, #55, #56, #59–#92, #98–#124, #205) while RU had 155 rows; `docs/METRICS.md` had three blocks sharing ONE number (**§100, §101, §102** twice each); EN had two `## 6e` headers; the #174 row was duplicated; `docs/README.md` ranges were stale (`#1–#216`, `§1–§136`). Fixed: a 65-entry EN index, renumbering §100→§137, §101→§138, §102→§139, `6e`→`6f`, #174→closure, ranges updated. | FIXED |
 
