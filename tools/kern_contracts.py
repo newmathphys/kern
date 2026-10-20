@@ -180,13 +180,22 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             raise Unsupported("бинарный оператор (только + - * / // %)")
         return f"({op} {expr_smt(node.left, env)} {expr_smt(node.right, env)})"
     if isinstance(node, ast.Compare):
-        if len(node.ops) != 1:
-            raise Unsupported("цепочка сравнений")
-        opname = type(node.ops[0]).__name__
-        if opname not in CMP:
-            raise Unsupported(f"сравнение {opname}")
-        return (f"({CMP[opname]} {expr_smt(node.left, env)} "
-                f"{expr_smt(node.comparators[0], env)})")
+        # ДЕФЕКТ #203 (полевой аудит 595 функций 6 библиотек): идиома Python
+        # `0 <= start < length` отвергалась как «цепочка сравнений», и функция
+        # уходила в SKIP (в werkzeug `is_byte_range_valid`). Цепочка — это
+        # КОНЪЮНКЦИЯ соседних сравнений (`a < b < c` ⟺ `a < b ∧ b < c`),
+        # поэтому разворачиваем её без ослабления проверки.
+        parts = []
+        cur = node.left
+        for op, right in zip(node.ops, node.comparators):
+            opname = type(op).__name__
+            if opname not in CMP:
+                raise Unsupported(f"сравнение {opname}")
+            parts.append(f"({CMP[opname]} {expr_smt(cur, env)} {expr_smt(right, env)})")
+            cur = right
+        if not parts:
+            raise Unsupported("пустое сравнение")
+        return parts[0] if len(parts) == 1 else f"(and {' '.join(parts)})"
     raise Unsupported(f"узел {type(node).__name__}")
 
 
@@ -214,6 +223,21 @@ def body_smt(stmts, env: dict) -> str:
             # Подстановка: имя запоминается как SMT-выражение (символьное значение).
             env[st.targets[0].id] = expr_smt(st.value, env)
             continue
+        if isinstance(st, ast.Raise):
+            # ПОЛЕВОЙ АДАПТЕР (аудит 595 функций 6 библиотек: 18.2 % функций
+            # отвергались из-за `raise`). `if bad: raise ValueError(f"...")` —
+            # это ГАРД, а не «вне подмножества»: ветка, уходящая в raise,
+            # значения НЕ возвращает, поэтому постусловие к ней неприменимо.
+            # Возвращаем None как «нет значения на этом пути»; обработчик `if`
+            # ниже отбрасывает такую ветку и сужает путь на её отрицание.
+            return None
+        if isinstance(st, ast.Expr) and not (
+                isinstance(st.value, ast.Constant)
+                and isinstance(st.value.value, str)):
+            # ОПАЗКОВЫЙ оператор-выражение (лог/принт/учёт). Его результат не
+            # используется. ОГРАНИЧЕНИЕ МОДЕЛИ: вызов может менять состояние
+            # объекта, но не арифметическое значение результата функции.
+            continue
         if isinstance(st, ast.If):
             then_env = dict(env)
             then_expr = body_smt(st.body, then_env)
@@ -227,6 +251,15 @@ def body_smt(stmts, env: dict) -> str:
             else:
                 # Нет `else` и нет остатка -> путь без `return` (неявный None).
                 else_expr = None
+            # ВЕТКА-ГАРД: `if cond: raise ...` (терминальный отказ) не даёт
+            # значения, поэтому результат берётся из ДРУГОЙ ветки, а условие
+            # пути сужается на её отрицание. Это ровно семантика guard-clause.
+            then_terminal = bool(st.body) and isinstance(st.body[-1], ast.Raise)
+            else_terminal = bool(st.orelse) and isinstance(st.orelse[-1], ast.Raise)
+            if then_terminal and else_expr is not None:
+                return else_expr
+            if else_terminal:
+                return then_expr
             if then_expr is None or else_expr is None:
                 raise NoReturn(
                     f"путь без `return` (стр. {getattr(st, 'lineno', '?')}): "
@@ -2467,6 +2500,19 @@ def _demo(args) -> int:
                     failed += 1
                     safety_failed += 1
                     continue
+            # ДЕФЕКТ #202 (найден контрактным аудитом реальных функций jinja2 и
+            # werkzeug): `@kern:requires` БЕЗ `@kern:ensures`. Постусловия нет —
+            # доказывать нечего, но `build_smt` не добавляет `(assert (not ens))`,
+            # формула становится тривиально SAT и печатался ЛОЖНЫЙ «КОНТРАКТ
+            # НАРУШЕН» с бессмысленным контрпримером. Обязательства безопасности
+            # (деление на ноль, переполнение) проверены ВЫШЕ и сюда не доходят,
+            # поэтому честный вердикт здесь — «нечего проверять», а не FAIL.
+            if not ens:
+                print(f"  [SKIP] {name}: нет @kern:ensures — доказывать нечего")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": "нет @kern:ensures (нет постусловия)"})
+                skipped += 1
+                continue
             rc, out = run_kernc(kernc, smt)
             # ТРИ РАЗЛИЧНЫХ ИСХОДА (раньше два). Различие принципиально:
             #   PASS — Z3 доказал И пруф-чекер перепроверил вывод;

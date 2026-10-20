@@ -60,6 +60,54 @@ else
   echo "  [FAIL] минимизация потеряла исходные ограничения (нарушена звучимость)"
   fail=1
 fi
+# --- ДЕФЕКТЫ #202/#203 + полевые адаптеры (контрактный аудит 595 функций) -----
+# #202: `requires` БЕЗ `ensures` — доказывать нечего; раньше печатался ЛОЖНЫЙ
+#       «КОНТРАКТ НАРУШЕН» с бессмысленным контрпримером.
+# #203: цепочка `0 <= a < b` (идиома Python/werkzeug) — раньше SKIP.
+# raise: `if bad: raise ...` — гард, а не «вне подмножества».
+TMP=$(mktemp -d)
+cat > "$TMP/a202.py" <<'PYX'
+# @kern:requires num != 0
+def f202(value: int, num: int) -> int:
+    return value % num
+PYX
+cat > "$TMP/b203.py" <<'PYX'
+# @kern:requires length >= 0 and start >= 0
+# @kern:ensures result == 0 or (start < stop and stop <= length)
+def f203(start: int, stop: int, length: int) -> bool:
+    if start >= stop:
+        return False
+    return 0 <= start < length
+PYX
+cat > "$TMP/c_raise.py" <<'PYX'
+# @kern:requires amount > 0
+# @kern:ensures result >= 0
+def f_raise(balance: int, amount: int) -> int:
+    if amount <= 0:
+        raise ValueError(f"bad amount {amount}")
+    return balance - amount
+PYX
+o202=$("$PY" tools/kern_contracts.py "$TMP/a202.py" 2>&1)
+o203=$("$PY" tools/kern_contracts.py "$TMP/b203.py" 2>&1)
+oras=$("$PY" tools/kern_contracts.py "$TMP/c_raise.py" 2>&1)
+if printf '%s' "$o202" | grep -qF "нет @kern:ensures" && \
+   ! printf '%s' "$o202" | grep -qF "КОНТРАКТ НАРУШЕН"; then
+  echo "  [OK]   #202: requires без ensures -> SKIP (ложного FAIL нет)"
+else
+  echo "  [FAIL] #202: requires без ensures всё ещё даёт FAIL"; fail=1
+fi
+if printf '%s' "$o203" | grep -qF "length = 1" && \
+   ! printf '%s' "$o203" | grep -qF "цепочка сравнений"; then
+  echo "  [OK]   #203: цепочка 0 <= a < b разобрана, контрпример выдан"
+else
+  echo "  [FAIL] #203: цепочка сравнений снова отбрасывается"; fail=1
+fi
+if printf '%s' "$oras" | grep -qF "result = -1"; then
+  echo "  [OK]   raise-гард: ветка raise отброшена, обязательство доказано/опровергнуто"
+else
+  echo "  [FAIL] raise-гард: функция с raise не проанализирована"; fail=1
+fi
+rm -rf "$TMP"
 echo "───────────────────────────────────────────────────────────────────────"
 if [ "$fail" = 0 ]; then
   echo "[OK] все крайние случаи воспроизведены"

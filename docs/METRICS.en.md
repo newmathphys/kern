@@ -1945,3 +1945,20 @@ usable for Bug Bounty or for sending PRs). Measured on fresh `--depth 1` clones:
 targeted classes #191–#194 that scored 4/4 on cmark-gfm), but the tool now prints the
 boundary whenever it emits C-like findings: they are **candidates, not bugs** — verify by
 hand. **No external reports are sent from them: 0 confirmed out of 14.**
+
+---
+
+### 48. Contract audit of real library functions + funnel (2026-10-20)
+* Population: 595 functions from `click`, `requests`, `urllib3`, `werkzeug`, `jinja2`, `starlette`.
+* Contract from the **docstring**; body copied **verbatim**; every `REFUTED` replayed by a **live call**.
+* Funnel: 595 total → 120 without structural constructs → **7 accepted before (1.14 %) / 8 after (1.31 %)**.
+  After the fixes the top blockers are `Attribute` calls **117**, `try` **39**, nested `def` **30**, `AnnAssign` **28**;
+  `raise` (24) and bare `Expr` (26) were removed by the new adapters.
+* Live results: `jinja2.tests.test_divisibleby(0, 0)` → **ZeroDivisionError** (matches `[FAIL]`); with
+  `requires num != 0` → **PROVEN, steps 3, trusted: 0, holes: 0**. `werkzeug.http.is_byte_range_valid`
+  refuted for `length=1, start=0, stop=2` and **exonerated** by its caller (`min(end, length)`).
+* Confirmed defects in third-party code: **0**.
+* Fixed in KERN: **#202** (false FAIL with empty `ensures`), **#203** (chained comparisons), `raise`-guard and
+  opaque-`Expr` adapters; 3 new checks in `edge_cases_check.sh` (13/13 OK).
+* Honest limits: the funnel grows little because **calls** cannot be modelled without real semantics;
+  `trusted: 4` for `value % 2` is still open (`mod` axiomatics in the proof checker).
