@@ -18,7 +18,7 @@
 > by runs): core **401 / 401** (without `z3` in `PATH` — 393 passed + 8 skipped),
 > KERN-Next **53 / 53**, can-fail **125 / 125 CHECK** (141 non-vacuous cases, 0 errors),
 > registry **125 targets**, mutation score **100.0 %** (1225/1225), Lean 4 **8 files /
-> 125 theorems / 0 sorry**, test catalogue **423**. Also closed since then: the default
+> 125 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
 > §1–§8 below (these are current).
