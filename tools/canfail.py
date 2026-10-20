@@ -81,6 +81,12 @@ ORIG_HASHES: dict[str, str] = {}
 # это ГРОМКО покажет — молчаливой потери больше нет).
 PATCHED_HASHES: dict[str, str] = {}
 
+# Дефект #242: аттестат — ГЕНЕРИРУЕМЫЙ артефакт. Кейсы `slsa`/`attest`
+# пересобирают и переподписывают его; это не «правка третьей стороны»,
+# поэтому откат из снимка старта обязан срабатывать всегда.
+GENERATED = {"kern.intoto.jsonl", "kern.intoto.sig"}
+
+
 # 🔴 Держатель файлового объекта блокировки. Без ссылки из модуля Python
 # соберёт локальный объект сборщиком мусора, закроет fd и СНИМЕТ flock —
 # блокировка «исчезнет» сразу после выхода из функции.
@@ -255,6 +261,11 @@ class Fault:
             cur = f.read_bytes() if f.exists() else None
             if cur == data:
                 continue  # кейс файл не менял — трогать нечего
+            if rel in GENERATED:
+                # Аттестат пересобран/переподписан кейсом — возвращаем снимок
+                # старта, не считая это чужой правкой (дефект #242).
+                write_atomic(f, data)
+                continue
             if rel not in TOUCHED:
                 print(f"  [!] ВНИМАНИЕ: {rel} изменился во время кейса, "
                       f"но кейс его НЕ трогал — похоже на правку третьей "
@@ -281,6 +292,7 @@ FAULTABLE = [
     "docs/PROJECT.md",
     # Дефект #225: кейс `slsa-bad-sig` правит подпись аттестата — тот же класс.
     "kern.intoto.sig",
+    "kern.intoto.jsonl",
     "server.json",
     "tests/fixtures/zig_plain_add.zig",
     "tests/fixtures/zig_saturating_add.zig",
@@ -2829,7 +2841,7 @@ def main():
     capture_snapshot()   # дефект #71: байтовый снимок = источник истины для отката
     snap = snapshot_faultable()
 
-    ok = bad = meta_bad = skipped = err_bad = 0
+    ok = bad = meta_bad = skipped = err_bad = dirty_bad = 0
     for c in CASES:
         name, desc, fn = c[0], c[1], c[2]
         expect_vacuous = c[3] if len(c) > 3 else False
@@ -2917,10 +2929,10 @@ def main():
         for f in dirty:
             print(f"      - {f}")
         print("      Это значит, что файла не было в FAULTABLE и откат не сработал.")
-        bad += 1
+        dirty_bad += 1
     else:
         print("[32m[OK] дерево чистое: все правки откачены[0m")
-    print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | "
+    print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | ГРЯЗНЫХ {dirty_bad} | "
           f"ЛОЖНЫХ СРАБАТЫВАНИЙ ХАРНЕССА {meta_bad} | "
           f"ОШИБОК КЕЙСОВ {err_bad} | пропущено {skipped}")
     if err_bad:
@@ -2929,7 +2941,7 @@ def main():
         print("   «может упасть». Обновите устаревшие шаблоны патчей.")
     print("=" * 70)
     # Дефект #89: err_bad обязан ронять прогон (раньше он молча шёл в skipped).
-    return 1 if (bad or meta_bad or err_bad) else 0
+    return 1 if (bad or dirty_bad or meta_bad or err_bad) else 0
 
 
 if __name__ == "__main__":
