@@ -1,5 +1,7 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.0 @ 54439ee · core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 ·

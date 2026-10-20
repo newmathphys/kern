@@ -161,6 +161,8 @@ if [ "$FAST" = "0" ]; then
   stage "мета-тест стража чисел (#239)" python3 tools/check_metrics_consistency.py --selftest
   stage "якоря чисел == факты (#240)" python3 tools/sync_state.py --check
   stage "sync selftest (#240)" python3 tools/sync_state.py --selftest
+  stage "EN/RU паритет фактов (#241)" make docs-parity
+  stage "нет ИИ-шаблонов (#241)" make ai-traces-check
 
   # --- Дефект #222/#223: ЛИЦЕНЗИЯ И СЧЁТЧИК ТЕОРЕМ --------------------------
   stage "лицензия согласована (#222)" python3 tools/check_license_consistency.py

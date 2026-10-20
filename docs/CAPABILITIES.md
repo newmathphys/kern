@@ -1,5 +1,7 @@
 # KERN — ВОЗМОЖНОСТИ С ДОКАЗАТЕЛЬСТВАМИ
 
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+
 > Каждое заявление ниже **проверено по коду и прогонам**. Где заявление
 > оказалось неточным — это прямо указано. Ничего не выдаётся за доказанное
 > без свидетельства.
@@ -114,8 +116,8 @@ run_cases(fn, cases, timeout=1.0)   # прогоняем тесты + тайма
 |:--|:--|:--|
 | Подмена байта в образе | `MerkleRootMismatch` | ✅ |
 | Подмена **содержимого** | `PayloadTampered` (`SHA-256(payload) == digest`) | ✅ |
-| ARM64 (строгое выравнивание) | QEMU: **393 passed / 8 skipped / 0 failed** (`docs/evidence/cross_arch.log`, 2026-10-19) | ✅ прогон на АКТУАЛЬНОМ наборе |
-| POWERPC64 (**big-endian**) | QEMU: **393 passed / 8 skipped / 0 failed** (тот же лог) | ✅ тот же прогон |
+| ARM64 (строгое выравнивание) | QEMU: **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`docs/evidence/cross_arch.log`, 2026-10-19) | ✅ прогон на АКТУАЛЬНОМ наборе |
+| POWERPC64 (**big-endian**) | QEMU: **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (тот же лог) | ✅ тот же прогон |
 | Случайный доступ (1 млн объектов) | **0.0006 мс** (цель < 0.005) | ⚠️ было 0.0001 до ФИКСА целостности |
 | Zero-copy | адресация среза без копирования | ✅ |
 
@@ -252,7 +254,7 @@ run_cases(fn, cases, timeout=1.0)   # прогоняем тесты + тайма
 | 3 | Шлюз для LLM | ⚠️ 100% точность, но pass@1 не растёт |
 | 4 | UNSAT Core | ✅ с проверкой минимальности |
 | 5 | Синтез кода (CEGIS) | ✅ `(bvshl x 3)`, верифицирован |
-| 6 | Целостность + переносимость | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **393 passed / 8 skipped / 0 failed**; доступ **0.0006 мс** |
+| 6 | Целостность + переносимость | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed**; доступ **0.0006 мс** |
 | 7 | ReDoS / Path Traversal | ✅ контрпримеры найдены |
 | 8 | Вероятности (DTMC) | ✅ 0.1³ = 0.001 точно |
 | 9 | Constant-Time | ⚠️ фактически ~1.0×, порог теста 3.0 |

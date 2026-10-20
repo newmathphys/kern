@@ -33,9 +33,19 @@ SURFACES = (
     "README.ru.md",
     "docs/index.html",
     "docs/ATTESTATION_PASSPORT.md",
+    "docs/ATTESTATION_PASSPORT.en.md",
+    "docs/CAPABILITIES.md",
+    "docs/CAPABILITIES.en.md",
+    "docs/CAPABILITY_STATUS.md",
+    "docs/CAPABILITY_STATUS.en.md",
+    "docs/CYBERNETIC_VISION.md",
+    "docs/CYBERNETIC_VISION.en.md",
     "docs/METRICS.md",
     "docs/METRICS.en.md",
     "docs/ROADMAP.md",
+    "docs/ROADMAP.en.md",
+    "docs/TESTING_AND_SPEED_GUIDE.md",
+    "docs/TESTING_AND_SPEED_GUIDE.en.md",
 )
 ANCHOR = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->\s*(\d+)")
 ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")
@@ -81,6 +91,15 @@ def _fact_quixbugs() -> dict:
             "hang": hang, "value": value, "explored": explored}
 
 
+def validate_facts(facts: dict) -> dict:
+    if facts.get("anchors") is None:
+        raise ValueError("canfail --check-anchors не дал число — sync НЕ пишет None (#242)")
+    for key, val in facts.items():
+        if key not in ("quixbugs", "version") and not isinstance(val, int):
+            raise ValueError(f"факт {key} = {val!r}: ожидалось целое (#242)")
+    return facts
+
+
 def collect() -> dict:
     out = _run([str(ROOT / "tools" / "check_metrics_consistency.py"), "--json"])
     try:
@@ -89,7 +108,7 @@ def collect() -> dict:
         raise SystemExit(f"[!] не удалось получить факты: {out.stdout[:200]}{out.stderr[:200]}")
     m = re.search(r'KERN_VERSION = "(v[0-9.]+)"',
                   (ROOT / "src" / "main.zig").read_text(encoding="utf-8"))
-    return {
+    facts = {
         "version": m.group(1) if m else "?",
         "core_tests": d["core_tests"],
         "next_tests": d["next_tests"],
@@ -100,10 +119,14 @@ def collect() -> dict:
         "mutation_files": d["mutation_files"],
         "registry_targets": d["registry_targets"],
         "meta_targets": d.get("meta_targets", 0),
+        "build_targets": d.get("build_targets", 0),
+        "cross_arch_passed": d.get("cross_arch_passed", 0),
+        "cross_arch_skipped": d.get("cross_arch_skipped", 0),
         "anchors": d["canfail_anchors"],
         "lean_theorems": _fact_lean(),
         "quixbugs": _fact_quixbugs(),
     }
+    return validate_facts(facts)
 
 
 def lookup(facts, key: str):
@@ -117,8 +140,20 @@ def lookup(facts, key: str):
 
 def render(text: str, facts) -> str:
     def sub(m: re.Match) -> str:
-        return f"<!-- fact:{m.group(1)} -->{lookup(facts, m.group(1))}"
+        val = lookup(facts, m.group(1))
+        if not isinstance(val, int):
+            raise ValueError(f"fact:{m.group(1)} = {val!r}, ожидалось целое")
+        return f"<!-- fact:{m.group(1)} -->{val}"
     return ANCHOR.sub(sub, text)
+
+
+def anchor_without_number(text: str) -> list[str]:
+    out = []
+    for m in ANCHOR_ANY.finditer(text):
+        tail = text[m.end():m.end() + 16].lstrip()
+        if not tail[:1].isdigit():
+            out.append(m.group(1))
+    return out
 
 
 def check() -> int:
@@ -126,7 +161,11 @@ def check() -> int:
         print(f"[FAIL] нет {FACTS} — запустите make sync")
         return 1
     facts = json.loads(FACTS.read_text(encoding="utf-8"))
-    live = collect()
+    try:
+        live = collect()
+    except ValueError as e:
+        print(f"[FAIL] {e}")
+        return 1
     bad = 0
     if facts != live:
         print("[FAIL] docs/facts.json устарел — запустите make sync")
@@ -145,6 +184,9 @@ def check() -> int:
             except KeyError:
                 print(f"[FAIL] {rel}: неизвестный якорь fact:{key}")
                 bad += 1
+        for key in anchor_without_number(text):
+            print(f"[FAIL] {rel}: якорь fact:{key} без числа")
+            bad += 1
         for m in ANCHOR.finditer(text):
             key, got = m.group(1), int(m.group(2))
             exp = lookup(facts, key)
@@ -159,7 +201,11 @@ def check() -> int:
 
 
 def write() -> int:
-    facts = collect()
+    try:
+        facts = collect()
+    except (SystemExit, ValueError) as e:
+        print(f"[FAIL] {e}")
+        return 1
     FACTS.write_text(json.dumps(facts, ensure_ascii=False, indent=1) + "\n",
                      encoding="utf-8")
     changed = 0
@@ -168,7 +214,11 @@ def write() -> int:
         if not p.exists():
             continue
         text = p.read_text(encoding="utf-8")
-        new = render(text, facts)
+        try:
+            new = render(text, facts)
+        except ValueError as e:
+            print(f"[FAIL] {rel}: {e}")
+            return 1
         if new != text:
             tmp = p.with_suffix(p.suffix + ".tmp")
             tmp.write_text(new, encoding="utf-8")
@@ -193,6 +243,16 @@ def selftest() -> int:
         bad += 1
     if render(stale, facts) == stale:
         print("[FAIL] selftest: устаревший якорь не обновлён")
+        bad += 1
+    try:
+        validate_facts({"anchors": None})
+    except ValueError:
+        pass
+    else:
+        print("[FAIL] selftest: None не отвергнут")
+        bad += 1
+    if anchor_without_number("x <!-- fact:anchors -->None") != ["anchors"]:
+        print("[FAIL] selftest: якорь без числа не пойман")
         bad += 1
     if render(hist, facts) != hist:
         print("[FAIL] selftest: история задета")

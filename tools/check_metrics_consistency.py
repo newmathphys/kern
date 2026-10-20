@@ -326,7 +326,7 @@ def selftest() -> int:
     """Мета-тест стража: подсадки ОБЯЗАНЫ ловиться, история — НЕ трогаться.
 
     Дефект #239: страж трижды оказывался слепым (#220/#223/#229/#230).
-    Поэтому проверка проверяющего стала обязательной: 4 формата подсадок,
+    Поэтому проверка проверяющего стала обязательной: 5 форматов подсадок,
     4 чистые строки, 3 исторические.
     """
     rules = _rules(401, 53, 425, 128, 144, 1345, 21, 154, 7, 119)
@@ -401,6 +401,9 @@ def main(argv: list[str] | None = None) -> int:
             "check_targets": n_checks, "canfail_cases": n_cases,
             "mutation_sites": sites, "mutation_files": tgt,
             "registry_targets": reg_targets, "meta_targets": len(reg.get("meta") or []) if isinstance(reg, dict) else 0,
+            "build_targets": len(reg.get("builds") or []) if isinstance(reg, dict) else 0,
+            "cross_arch_passed": arch[0] if arch else 0,
+            "cross_arch_skipped": arch[1] if arch else 0,
             "quixbugs_explored": explored,
             "canfail_anchors": anchors,
             "cross_arch": arch, "max_defect": fact_max_defect(),

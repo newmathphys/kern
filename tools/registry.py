@@ -123,6 +123,8 @@ CLASS = {
     "metrics-guard-selftest": "META",   # мета: проверяет сам страж чисел
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
+    "docs-parity": "META",              # EN/RU-факты
+    "ai-traces-check": "META",          # нет ИИ-шаблонов в тексте/коммитах
     "seal": "BUILD",                    # герметичная сборка + аттестат
     "status": "META",                    # git status + легенда generated/manual
     # --- измерения: упасть НЕ могут -----------------------------------------

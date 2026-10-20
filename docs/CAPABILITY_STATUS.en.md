@@ -1,5 +1,7 @@
 # HONEST CAPABILITY STATUS — KERN
 
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is
 > assigned ONLY from a real run (command → exit code → output). Nothing is "working"

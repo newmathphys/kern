@@ -217,3 +217,38 @@ grader'а** и нет бенчмарка QuixBugs; реальный прогон
 релиз — `v2.5.1` после полного `make ci` и свежего `canfail.log`.
 Ничего не запушено.
 
+
+## 11. Шаг D — EN/RU parity + no AI traces (в работе)
+
+- [x] `tools/docs_parity_check.py`: 8 EN/RU-пар; один и тот же набор якорей
+      `<!-- fact:key -->N` обязателен в обеих версиях; selftest ловит 402/401.
+- [x] `tools/ai_traces_check.py`: 446 tracked-файлов + 200 коммитов;
+      **0** шаблонов «as an AI / Generated with Claude / Co-Authored-By: Claude»;
+      легитимные `Claude Code`/`Cursor` как MCP-клиенты НЕ ловятся.
+- [x] Блок `Facts (EN/RU)` во всех 8 парах; `make sync` обновляет числа
+      в обоих языках одновременно.
+- [x] `make docs-parity` / `make ai-traces-check`; стадии в полном CI.
+- [x] OpenCode 1.18.35 + `opencode/deepseek-v4.1-flash-free` доступны;
+      используются как второй ревьюер в отдельном worktree (без правок).
+- [ ] Коммит D + переподпись аттестата.
+
+## 12. Второй ревьюер: OpenCode + DeepSeek 4.1 — находки и фиксы
+
+`opencode run -m opencode/deepseek-v4.1-flash-free --dir /tmp/kern-review`
+(отдельный `git worktree`, без правок в основном дереве) нашёл 5 реальных вещей:
+
+1. `README.md` — «KERN-Next test suite | **45 / 45**» при факте 53.
+   Исправлено на `<!-- fact:next_tests -->53 / 53`.
+2. `393 passed + 8 skipped` в README/RU/ATTESTATION/CAPABILITIES — лог уже
+   394+8=402. Исправлено на якоря `cross_arch_passed/skipped`.
+3. `README.ru.md` — «BUILD 6» при факте 7. Исправлено на якорь `build_targets`.
+4. `ATTESTATION_PASSPORT.en.md` — «registry 125 targets», «KERN-Next 38/38»,
+   «current 143/127», «400 tests». Исправлено на 160 / 53 / 144/128 / 402.
+5. **Критическое:** при сбое `canfail --check-anchors` `anchors=None`,
+   `make sync` мог записать `<!-- fact:anchors -->None`, а `sync-check`
+   этого не видел (regex ждёт цифры). Исправлено: `validate_facts()`,
+   запрет `None`/не-int, `anchor_without_number()`, selftest.
+
+Вывод по инструментам: DeepSeek 4.1 можно держать **вторым ревьюером**,
+но не редактором и не в CI. Основная запись — только через `make sync`,
+`make ci-fast`, `make seal`.

@@ -1,4 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
+
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 **Арбитражный шлюз истины для ИИ-агентов.** Заявление получает статус
@@ -24,7 +26,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | Формальные доказательства | **8 файлов Lean 4** (137 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | **100.0%** — полный обстрел **21 файла / 1345 сайтов** (1345/1345 убито, 0 выживших, 23 мин; лог прогона **закоммичен**: `docs/evidence/mutate_full.log` (1 408 строк, `RC=0`), рядом лежат канонический 40/40 и модульные `--full-file` 244/244). Канонический гейт (`make mutate`, seed=7): 40/40 — те же вердикты. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`)  — **Канонический стратифицированный гейт** (`make mutate`, 18 файлов, пул 1152 сайта, seed=7): `40 / 40 (100.0%)`. **Полный обстрел без сэмплирования** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5. |
-| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **393 passed / 8 skipped / 0 failed** (лог QEMU 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
+| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог QEMU 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
 | C-ABI на чистом C11 (`-Werror -pedantic`) | **20 / 20** — NULL и нулевые длины отвергаются без краха |
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
@@ -415,7 +417,7 @@ make echelons                                # 4 эшелона: выравни�
 | **Кванторы (E-matching)** | триггеры; Matching Loop DoS обезврежен таймаутом |
 | **Невмешательство (HyperLTL)** | taint: ветвление/индекс по секрету → **утечка**; constant-time ~1.0× |
 | **ReDoS (CWE-1333)** | `(a+)+`, `(a|a)*` → **уязвимы**; `(a|b)*` — нет |
-| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **393 passed / 8 skipped / 0 failed** (лог 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
+| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
 | **Мост «текст → контракт»** | `make bridge`: фраза из Markdown → `.smt2` → **`e=1` ДОКАЗАНО** |
 | **Binary-level soundness** | дайджест одинаков на Debug/ReleaseSafe/ReleaseFast (translation validation) |
 | **Constant-time на ассемблере** | taint-анализ: **0** ветвлений от данных (контроль: 1 обнаружен) |
@@ -595,13 +597,13 @@ python3 tools/kern_contracts.py --install-hook   # блокирует git commit
 make canfail          # 144 кейса: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->119 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->158 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->160 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->158 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META <!-- fact:meta_targets -->19) |
+| Целей всего | <!-- fact:registry_targets -->160 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD <!-- fact:build_targets -->7 · EXTERNAL 3 · META <!-- fact:meta_targets -->21) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->128/<!-- fact:check_targets -->128 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->144 (не-вакуумных <!-- fact:canfail_cases -->144 · вакуумных 0 · ошибок кейсов 0) |

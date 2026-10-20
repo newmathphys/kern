@@ -1,5 +1,7 @@
 # HONEST CAPABILITY STATUS — KERN
 
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
 

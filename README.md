@@ -1,5 +1,7 @@
 # KERN — a zero-trust verification gateway for AI-generated code
 
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
@@ -533,8 +535,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Check | Result |
 |:--|:--|
 | Core test suite (Debug + ReleaseSafe) | **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402** |
-| Core test suite **without** `z3` in `PATH` | **393 passed + 8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
-| KERN-Next test suite | **45 / 45** |
+| Core test suite **without** `z3` in `PATH` | **<!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
+| KERN-Next test suite | **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
@@ -552,9 +554,9 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402 passed** with `z3` on `PATH`; **393 passed + 8 skipped** when no solver is installed |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **393 passed / 8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **393 passed / 8 skipped / 0 failed** (same QEMU log) |
+| x86_64 | TSO memory model | **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402 passed** with `z3` on `PATH`; **<!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped** when no solver is installed |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (same QEMU log) |
 
 **Why exactly 8 skips, never a silent pass.** Those 8 tests need an *external* solver process:
 4 in `src/tests/os_stress_test.zig` (they exercise the KERN ↔ OS pipe/spawn edge against a live
