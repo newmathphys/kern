@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import json
 import sys
 from pathlib import Path
@@ -34,7 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "examples" / "kern_mcp_server.py"
 
-VERSION = "2.5.1"
+VERSION = "2.5.2"
 # Лицензия: строго как в LICENSE (PolyForm Noncommercial 1.0.0, source-available).
 LICENSE_FIELD = "PolyForm-Noncommercial-1.0.0"
 LICENSE_TEXT = "PolyForm Noncommercial License 1.0.0"
@@ -195,14 +196,24 @@ def check(docs: dict[str, dict]) -> int:
 
     # Smithery.yaml — статический шаблон запуска; проверяем, что он не
     # разъехался с версией/точкой входа/лицензией манифестов.
+    # ДЕФЕКТ #249: проверка зависела от PyYAML. В окружении без PyYAML
+    # гейт печатал «No module named 'yaml'» и объявлял МАНИФЕСТЫ расходящимися,
+    # то есть отсутствие инструмента выдавалось за дрейф. Здесь достаточно
+    # четырёх полей — читаем их регулярками, без внешней зависимости. Сами
+    # поля проверяются так же строго.
+    sm_text = (ROOT / "smithery.yaml").read_text(encoding="utf-8")
+
+    def _sm(field: str) -> str:
+        m = re.search(rf'^\s*{field}:\s*(.+)$', sm_text, re.M)
+        value = m.group(1).strip() if m else ""
+        return value.strip(chr(39) + chr(34))
+
     try:
-        import yaml  # noqa: PLC0415
-        sm = yaml.safe_load((ROOT / "smithery.yaml").read_text(encoding="utf-8"))
-        assert str(sm.get("version")) == VERSION, sm.get("version")
-        assert sm.get("license") == LICENSE_FIELD, sm.get("license")
-        assert sm["startCommand"]["type"] == "stdio"
-        assert "examples/kern_mcp_server.py" in " ".join(sm["startCommand"]["commandFunction"].split())
-    except Exception as e:  # noqa: BLE001
+        assert _sm("version") == VERSION, _sm("version")
+        assert _sm("license") == LICENSE_FIELD, _sm("license")
+        assert re.search(r'^\s*type:\s*stdio\s*$', sm_text, re.M), "startCommand.type != stdio"
+        assert "examples/kern_mcp_server.py" in sm_text, "нет точки входа сервера"
+    except AssertionError as e:  # noqa: BLE001
         print(f"[!] smithery.yaml: {e}")
         bad += 1
     lic = (ROOT / "LICENSE").read_text(encoding="utf-8", errors="replace")

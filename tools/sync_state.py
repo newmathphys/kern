@@ -194,7 +194,9 @@ def anchor_orphans() -> list[str]:
                 text = f.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            if "<!-- fact:" in text and f.relative_to(ROOT).as_posix() not in SURFACES:
+            # Примеры синтаксиса в код-спанах — не якоря (дефект #247).
+            if ("<!-- fact:" in _strip_code(text)
+                    and f.relative_to(ROOT).as_posix() not in SURFACES):
                 out.append(f.relative_to(ROOT).as_posix())
     return sorted(out)
 

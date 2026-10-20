@@ -1,5 +1,10 @@
-name-template: 'KERN $NEXT_PATCH_VERSION'
-tag-template: 'v$NEXT_PATCH_VERSION'
+# ДЕФЕКТ #248: черновик назывался `v$NEXT_PATCH_VERSION`, то есть ТЕМ ЖЕ тегом,
+# которым управляет workflow Release. `gh release view` находил этот черновик,
+# загружал в него ассеты и НЕ публиковал: тег оставался без релиза, а ссылки
+# releases/download/<tag>/... отдавали 404 при непустой странице «релиза».
+# Черновик «что войдёт в следующий релиз» не должен занимать имя тега.
+name-template: 'Unreleased (next)'
+tag-template: 'next'
 categories:
   - title: '🚀 Features and capabilities'
     labels: ['enhancement', 'feature']
@@ -35,7 +40,7 @@ template: |
   release, check the numbers yourself:
 
   ```bash
-  zig build test                              # 279 / 279 core tests
+  zig build test                              # the full core suite
   make canfail                                # every CHECK target provably able to fail
   python3 tools/slsa_provenance.py --check    # Ed25519 signature + source fingerprint
   ```

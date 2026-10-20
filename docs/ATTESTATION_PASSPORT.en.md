@@ -74,7 +74,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 - **Compression** (`compression_codec != 0`) — closed since: `deflate` (codec `0x02`) is
   implemented via Zig's own `std.compress.flate`; `zstd` (codec `0x01`) remains declared
   but NOT implemented and returns `error.CodecUnsupported`.
-- **`main`** is built with Zig 0.17.0 and attested at v2.5.1; the migration branch is closed.
+- **`main`** is built with Zig 0.17.0 and attested at v2.5.2; the migration branch is closed.
 
 ---
 

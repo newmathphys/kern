@@ -24,17 +24,7 @@ echo "== 2) llms.txt (стандарт llmstxt.org) =="
 cmp -s llms.txt docs/llms.txt && ok "docs/llms.txt идентичен корневому (раздаётся Pages)" || bad "docs/llms.txt расходится с llms.txt"
 
 echo "== 3) action.yml (GitHub Marketplace, режим xray) =="
-if python3 - <<'PY'
-import yaml
-d = yaml.safe_load(open('action.yml', encoding='utf-8'))
-ver = d['inputs']['version']['default']
-assert str(ver).startswith('v2.'), d['inputs']['version']
-assert d['inputs']['mode']['default'] == 'verify'
-assert 'sarif-file' in d['outputs'], list(d['outputs'])
-assert any('sha256sum -c' in str(s.get('run', '')) for s in d['runs']['steps']), 'нет проверки SHA256'
-print(f'  [OK] action.yml: version={ver}, mode=xray|verify, sha256-проверка, sarif-file-выход')
-PY
-then :; else bad "action.yml невалиден или потерял sha256/mode/sarif"; fi
+if python3 tools/check_action_yml.py; then :; else bad "action.yml невалиден или потерял sha256/mode/sarif"; fi
 
 echo "== 4) обязательные файлы экосистемы =="
 for f in CITATION.cff SECURITY.md server.json mcp.json .well-known/mcp.json glama.json smithery.yaml mcp.lock.json; do

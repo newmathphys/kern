@@ -40,7 +40,7 @@
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[RULE_THEOREM_MATRIX.md](RULE_THEOREM_MATRIX.md)** | **Матрица «правило пруф-чекера ↔ теорема Lean 4»**: 17 функций `verify*`/`check*` × 137 теорем; честно указаны 3 правила, обоснованные ядром Lean, и структурное `intro-def` |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§149): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->247**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§149): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->249**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[ROADMAP.md](ROADMAP.md)** | **План v2.5** (40 пунктов, 8 эшелонов) + **ИЗМЕРЕННАЯ инвентаризация**: какие пункты уже реализованы (5 теорий SMT, песочница Z3, guardrail-прокси), какие частично, какие новые — с доказательствами прогонами |
 | **[VERIFICATION_GOLD_STANDARDS.md](VERIFICATION_GOLD_STANDARDS.md)** | Мировые бенчмарки: SWE-bench, HumanEval+, QuixBugs, Refactory, CyberSecEval, мутации |
 | **[VERIFICATION_0_17.md](VERIFICATION_0_17.md)** | **Верификация на Zig 0.17.0**: снимок 2026-10-13: сборка, 308 тестов, ARM64/PPC64 (QEMU), SLSA, полная карта ~300 API-правок |
