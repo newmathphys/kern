@@ -197,5 +197,23 @@ grader'а** и нет бенчмарка QuixBugs; реальный прогон
       в аттестат добавлен `attests_commit` (content commit N), `--check`
       принимает HEAD (до коммита аттестата) или HEAD~1 (после).
 - [x] `make status` + `.vscode/tasks.json` (Quick Check / Sync / Seal / Status).
-- [ ] Прогон `make seal` на чистом дереве (следующий шаг).
+- [x] `make seal` на чистом дереве: `attests_commit` = контент-коммит,
+      `dirtyTree=false`, Ed25519 проверена; после коммита аттестата
+      `--check` принимает `HEAD~1` (двухшаговая схема).
 - [ ] Полный `make canfail` (canfail.log 141 → 144, ~15 мин).
+
+## 10. Итог ветки
+
+| Коммит | Что |
+|:--|:--|
+| `4e6f5ab` | A: страж чисел + `--selftest`, версии v2.5.0, CI-стадии |
+| `5d7bd84` | B: QuixBugs 6/40 + 33/40, core 402, cross-arch 394+8, docs |
+| `f273475` | B: registry.log 154/128/144 |
+| `f7babde` | C: `make sync` + `docs/facts.json` + якоря (156/18) |
+| `dd1ef45` | C: `make seal` + `attests_commit`, `make status`, VS Code tasks (158/19) |
+| `15bf246` | C: аттестат под `dd1ef45` |
+
+**Тег `v2.5.0` не двигался.** Ветка `fix/phase0-honesty` впереди него;
+релиз — `v2.5.1` после полного `make ci` и свежего `canfail.log`.
+Ничего не запушено.
+
