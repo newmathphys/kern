@@ -45,5 +45,5 @@ jobs:
               --title "KERN $GITHUB_REF_NAME" \
               --notes-file "$NOTES" --draft
           gh release upload "$GITHUB_REF_NAME" \
-            kernc-x86_64-linux-musl SHA256SUMS --clobber
+            kernc-x86_64-linux-musl SHA256SUMS kern.intoto.jsonl kern.intoto.sig --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false

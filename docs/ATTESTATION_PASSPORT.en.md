@@ -75,6 +75,13 @@ The attestation was produced by the attestation-contour commands; every line is 
   implemented via Zig's own `std.compress.flate`; `zstd` (codec `0x01`) remains declared
   but NOT implemented and returns `error.CodecUnsupported`.
 - **`main`** is built with Zig 0.17.0 and attested at v2.5.2; the migration branch is closed.
+- **A CI-built release asset is not byte-identical to a local hermetic build.**
+  The Ed25519 attestation binds the **source** (`gitCommit`, `tree_sha256`) and
+  the `kernc-hermetic` subject produced by `make seal`; the asset attached to a
+  GitHub Release is built by the `Release` workflow from the same commit and is
+  verified against `SHA256SUMS` shipped with that release. Different toolchain
+  paths give a different `sha256`, so these are two claims about two different
+  objects — the source and the artefact — and neither is presented as the other.
 
 ---
 
