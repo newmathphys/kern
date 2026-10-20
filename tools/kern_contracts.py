@@ -841,6 +841,27 @@ _ZIG_WRAP = ("backingInt", "fromBackingInt", "intCast", "intFromEnum",
              "intFromBool", "bitCast", "floatCast", "enumFromInt")
 
 
+def _strip_c_casts(s: str) -> str:
+    r"""Снять C-касты типов: `(size_t)(a - b)`, `(ptrdiff_t)(x)`, `(const char *)p`.
+
+    ЗАЧЕМ (ретро-тест на cmark-gfm, дефект #189). После фикса `2cb4a20` строка
+    защищена условием `if (len == (size_t)(max_rewind - rewind)) return true;`.
+    Наш парсер видел `(size_t)(…)`, не мог перевести терм и **отбрасывал
+    условие целиком** — значит путь не сужался, и на ИСПРАВЛЕННОМ файле
+    оставалось 1 предупреждение. Тот же каст в `4682993`
+    (`data[-((ptrdiff_t)rewind) - len - 1]`) вообще прятал уязвимость.
+
+    Правило: каст НЕ меняет значение в нашей модели (все значения — Int),
+    поэтому он снимается. Заменяется пробелом, чтобы номера строк/смещения
+    не «съезжали».
+    """
+    prev = None
+    while prev != s:
+        prev = s
+        s = _C_CAST.sub(" ", s)
+    return s
+
+
 def _unwrap_zig_builtins(s: str) -> str:
     # `@as(T, x)` — значение в последнем аргументе
     s = re.sub(r"@as\s*\(([^()]*)\)",
@@ -3045,6 +3066,17 @@ _XRAY_EXTS = {".py", ".ts", ".js", ".go", ".zig", ".c", ".h", ".rs"}
 # Локальные объявления (`const q = …`, `var n: i32 = …`, `let x = …`):
 # их НЕЛЬЗЯ считать свободными параметрами в делителе.
 _RE_CLIKE_LOCAL = re.compile(r"\b(?:const|var|let)\s+(\w+)\s*(?::\s*([\w.]+))?\s*=")
+# ДЕФЕКТ #189: C-касты `(size_t)(…)`, `(ptrdiff_t)(…)`, `(const char *)p`.
+# Список — только ключевые слова типов, чтобы `(x)` (скобки вокруг переменной)
+# не считался кастом.
+_C_CAST = re.compile(
+    r"\(\s*(?:const\s+|volatile\s+)*"
+    r"(?:unsigned\s+|signed\s+)?"
+    r"(?:size_t|ssize_t|ptrdiff_t|intptr_t|uintptr_t|bufsize_t|"
+    r"uint8_t|uint16_t|uint32_t|uint64_t|"
+    r"int8_t|int16_t|int32_t|int64_t|"
+    r"unsigned|signed|int|long|short|char|float|double|bool|void)"
+    r"\s*\*?\s*\)")
 # ДЕФЕКТ #183 (Let-Inlining для C-like): нужен ПРАВЫЙ операнд присваивания,
 # иначе `const bit_test = addr & ~(alignment - 1); if (bit_test == addr) …`
 # работает с НЕИЗВЕСТНЫМИ именами, и `--xray` выдаёт ложный [CRASH PATH].
@@ -3260,6 +3292,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
     for name, params, body, _ln, ranges, reqs in funcs:
         total += 1
         proven = 0
+        # ДЕФЕКТ #189: C-касты снимаются ДО разбора условий/индексов/делителей.
+        # Иначе `if (len == (size_t)(max_rewind - rewind)) return` не переводился,
+        # путь не сужался, и на ИСПРАВЛЕННОМ cmark-gfm оставалось предупреждение.
+        body = _strip_c_casts(body)
         # Диапазоны типов — часть домена (u32 не бывает отрицательным).
         path_conds: list[str] = [f"(and (>= {p} {lo}) (<= {p} {hi}))"
                                  for p, (lo, hi) in (ranges or {}).items()]
@@ -3428,7 +3464,20 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             #     выходило 3 ЛОЖНЫХ обвинения. Поэтому класс 2 заявляем только
             #     если в теле НЕТ цикла по той же переменной.
             pointer_offset = bool("(- (-" in idxs
+                                  or idxs.startswith("(- (+")
                                   or re.fullmatch(r"\(- [A-Za-z_]\w*\)", idxs))
+            if pointer_offset:
+                # ДЕФЕКТ #191 (ретро-тест, ложный остаток на ИСПРАВЛЕННОМ файле):
+                # `data[-rewind - len - 1]` — смещение ФИКСИРОВАННОЙ длины, и
+                # «индекс < 0» тут истинно всегда, поэтому такое обвинение ничего
+                # не говорит (это шум). Заявляем только когда в смещении есть
+                # СЧЁТЧИК ЦИКЛА: тогда величина смещения растёт без парного гарда —
+                # именно так устроена `2cb4a20` (`data[-rewind - i]`, `i` до `len`).
+                counters = set(re.findall(r"\b([A-Za-z_]\w*)\s*(?:\+\+|--)", body))
+                counters |= set(re.findall(r"\b([A-Za-z_]\w*)\s*[+\-]=\s*", body))
+                idx_vars = set(re.findall(r"[A-Za-z_]\w*", idxs)) - {"-", "not"}
+                if not (idx_vars & counters):
+                    continue
             if not pointer_offset:
                 mz = re.match(r"^\(- ([A-Za-z_]\w*)\s", idxs)
                 head_var = mz.group(1) if mz else ""
@@ -3473,6 +3522,23 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                     found.append(
                         f"[OVERFLOW PATH] {name}: размер в {call}() может переполнить "
                         f"32-битный знаковый int: {size_smt} > 2147483647")
+        # ДЕФЕКТ #190: OFF-BY-ONE по ВЕРХНЕЙ границе.
+        # `if (i <= len)` разрешает `i == len`, а `buf[i]` при длине `len` — уже
+        # за концом (валидные индексы 0..len-1). Именно так была устроена
+        # историческая уязвимость `198669d` в cmark-gfm (`numdelims <= max_delims`).
+        # Заявляем ТОЛЬКО когда: (а) сравнение именно `<=`, (б) правая часть —
+        # имя, похожее на длину, (в) этот же счётчик используется как индекс.
+        for gm in re.finditer(r"\b([A-Za-z_]\w*)\s*(<=|<)\s*(len|length|size|end)\b", body):
+            var, op, lname = gm.group(1), gm.group(2), gm.group(3)
+            if op != "<=":
+                continue
+            if not re.search(rf"\[\s*{re.escape(var)}\s*\]", body):
+                continue
+            if not _mentions_param(lname, params):
+                continue  # длина не из входа — не наш случай
+            found.append(
+                f"[BOUNDS PATH] {name}: off-by-one: `{var} <= {lname}` разрешает "
+                f"индекс == длине ({var} = {lname}), а {var}[{lname}] уже за концом")
         if proven:
             checked += 1
     return checked, total, found

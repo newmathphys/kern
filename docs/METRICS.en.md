@@ -1790,3 +1790,23 @@ Honest anti-cheat limit: the heuristic cannot tell a CLI script from "tested
 code" — `sys.exit()` at the end of `main()` is normal, inside a tested function it
 is cheating. Such hits are printed as **candidates for manual review**, with an
 explicit caveat, not as verdicts.
+
+---
+
+### 43. CVE retro-test: sniper accuracy (defects #189–#191)
+
+After §41 one false residual remained on the **fixed** file and three fixes were
+missed. Three narrow causes were found and closed: C casts made guards
+untranslatable (#189 → `_strip_c_casts()`); the upper bound / off-by-one was not
+checked at all (#190 → `<=` against a length parameter plus indexing by the same
+counter); and “pointer offset is negative” was trivially true for any `data[-k]`
+(#191 → class 1 only when the offset contains a loop counter).
+
+Re-measured: **A `2cb4a20` — 1 finding before (exactly `data[-rewind - i]`), 0
+after** (sniper); B/C/D — 0/0, still missed, each with a named reason (fixed
+sum-offset without a counter, struct-field width, no `buf[i]` in that function).
+Synthetic control 6/6.
+
+Native certificates (our checker, not Z3 trust): unguarded model →
+`KERN-EQ2 : F` with `[MODEL VERIFIED]` counterexample `max_rewind=0, rewind=0,
+len=1`; guarded model → `[PROOF VERIFIED] steps: 29 … trusted: 0 | holes: 0`.

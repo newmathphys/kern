@@ -145,3 +145,40 @@ that can be negative / a size that can overflow, decided by Z3 on this path"*.
 It is not a CVE detector for all classes. Fix B needs cast handling
 (`(ptrdiff_t)`, `(size_t)`), fix C needs field-width tracking, fix D needs
 comparison-semantics analysis — those are the concrete next steps.
+
+### 4.2 Refinement after §4: casts, off-by-one, and a counter-based pointer rule (defects #189–#191)
+
+The first retro-run left one residual finding on the **fixed** file and missed
+three fixes. Three narrow causes were found and closed:
+
+| # | Cause | Fix |
+|:--|:--|:--|
+| **#189** | C casts (`(size_t)(…)`, `(ptrdiff_t)(…)`) made a guard untranslatable, so the path was not narrowed — and in `4682993` the cast hid the index entirely | `_strip_c_casts()` removes type casts before parsing conditions/indices/sizes (a cast does not change an `Int` in our model) |
+| **#190** | Upper bound / off-by-one was not checked at all (`i <= len` allows `i == len`) | `[BOUNDS PATH] off-by-one` is claimed when the comparison is exactly `<=`, the right side is a length-like **parameter**, and the same counter is used as an index |
+| **#191** | “Pointer offset is negative” is **trivially true** for any `data[-k]`, so on the fixed file it was pure noise | Class 1 is claimed only when the offset contains a **loop counter** (its magnitude grows without a matching guard) |
+
+**Re-measured on the same four published fixes:**
+
+| # | Fix | Before | After | Verdict |
+|:--|:--|--:|--:|:--|
+| A | `2cb4a20` (OOB read in `validate_protocol`) | **1 finding — exactly `data[-rewind - i]`** | **0** | **CAUGHT (sniper: hit before, clean after)** |
+| B | `4682993` (pointer overflow via cast) | 0 | 0 | still missed (offset is a fixed sum, no counter — claiming it would be noise) |
+| C | `ac80f7b` (`uint16_t` counter wrap) | 0 | 0 | still missed (struct-field width is not modelled) |
+| D | `198669d` (`<=` → `<`) | 0 | 0 | still missed (no `buf[i]` in the same function) |
+
+Synthetic control stays 6/6: `buf[i-1]` → flag; under `if (i < 1) return` → silence;
+`malloc(len+1)` → flag; under `if (len > 1000) return` → silence; `while (i <= len) buf[i]`
+→ off-by-one; with `< len` → silence.
+
+### 4.3 Native certificates for the fix (our own checker, not Z3 trust)
+
+Two SMT models of the same claim (“the backward offset stays inside the
+available prefix”) are checked by the native Zig proof checker:
+
+| Model | File | Result |
+|:--|:--|:--|
+| **before** the fix (no bound check) | `audits/cmark/validate_protocol_unguarded.smt2` | `KERN-EQ2 : F`, `[MODEL VERIFIED]` (4 asserts), counterexample `max_rewind = 0, rewind = 0, len = 1` |
+| **after** the fix (`len < max_rewind - rewind`) | `audits/cmark/validate_protocol_guard.smt2` | `KERN-EQ2 : T`, `[PROOF VERIFIED] steps: 29 … farkas: 1 … **trusted: 0 \| holes: 0**` |
+
+So the code with the guard is **proven** by our own checker, and the code without
+it has a **verified counterexample** — not “Z3 said so”.
