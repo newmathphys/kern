@@ -1810,3 +1810,35 @@ Synthetic control 6/6.
 Native certificates (our checker, not Z3 trust): unguarded model →
 `KERN-EQ2 : F` with `[MODEL VERIFIED]` counterexample `max_rewind=0, rewind=0,
 len=1`; guarded model → `[PROOF VERIFIED] steps: 29 … trusted: 0 | holes: 0`.
+
+---
+
+### 44. Four of four historical CVE fixes, a real zls finding, and .js/.go runs
+
+Retro-test on `cmark-gfm`: **4 / 4** (was 1 / 4). A — backward pointer offset
+containing a loop counter (#191); B — cast covering only one term, remainder
+unsigned (#192); C — field type taken from the file's own `struct`
+(`uint16_t n_columns`, #193); D — `<=` against a capacity-like name (#194).
+Each: 1 finding before the fix, **0 after**. C and D run at **file level**
+because both functions have multi-line signatures and the per-function parser
+never saw them — the measured reason they were missed.
+
+Native certificates: A `F`+`[MODEL VERIFIED]` → `T` trusted 0 (29 steps);
+C `n = 65535` → `T` trusted 0 (5 steps); D `n = cap` → `T` trusted 0 (21 steps);
+zls `initFromTrigram` `len = 0` → `T` trusted 0 (13 steps). B has **no**
+certificate: unsigned wrap needs bit-vectors, our Int model cannot express it.
+
+Real finding: `zigtools/zls` `src/TrigramStore.zig:519` — `index_1 % len` with
+`len: u32`, no guard → `[CRASH PATH] len == 0`.
+
+Field runs: `expressjs/express` 7/21 functions → 0 findings; `axios/axios`
+32/133 → 0; `gin-gonic/gin` 86/1375 → 0; `cli/cli pkg/cmd` exceeded the budget.
+The first run produced **9 findings, all false**, traced to three defects:
+reassigned locals treated as constants (#195), `x = x || K` not modelled (#196),
+and `err != nil` compared in an Int model (#197). After the fixes: zero findings,
+and the checked counts honestly dropped where pointer comparisons are now skipped.
+
+`--full-scan` became a real engine (#198: the Python branch called a
+non-existent `_xray_file`, so Python files silently produced 0): it now uses the
+real `cmd_xray` and runs `--infer-requires` + `--gen-tests` on findings
+(`[autopilot] contracts 1 · tests 4`).

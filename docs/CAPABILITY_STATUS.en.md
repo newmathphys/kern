@@ -392,3 +392,10 @@ Compact English list; full text and measured before/after tables are in
 | **189** | C casts made guards untranslatable (`(size_t)(…)`, `(ptrdiff_t)(…)`), so the path was not narrowed and a false warning survived on the fixed `cmark-gfm` file | CVE retro-test | fixed |
 | **190** | Upper bound / off-by-one was not checked (`i <= len` allows `i == len`) | CVE retro-test | fixed |
 | **191** | “Backward offset is negative” was trivially true for any `data[-k]` (pure noise); now claimed only when the offset contains a loop counter | CVE retro-test | fixed |
+| **192** | Missed B `4682993`: cast on ONE term, rest unsigned → pointer wrap | CVE retro | fixed |
+| **193** | Missed C `ac80f7b`: struct field type (`uint16_t n_columns`) not read | CVE retro | fixed |
+| **194** | Missed D `198669d`: `<=` vs capacity name unchecked; multi-line signature | CVE retro | fixed |
+| **195** | False `[DEAD BRANCH]` in express: reassigned local treated as constant | .js field run | fixed |
+| **196** | False `[CRASH PATH]` in axios: `x = x || K` not modelled | .js field run | fixed |
+| **197** | False `[DEAD BRANCH]` in gin: `err != nil` pointer compare in Int model | .go field run | fixed |
+| **198** | `--full-scan` silently gave 0 for Python (non-existent `_xray_file`) | self-check | fixed |

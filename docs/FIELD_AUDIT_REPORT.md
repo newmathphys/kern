@@ -182,3 +182,58 @@ available prefix”) are checked by the native Zig proof checker:
 
 So the code with the guard is **proven** by our own checker, and the code without
 it has a **verified counterexample** — not “Z3 said so”.
+
+## 5. Four of four cmark-gfm fixes, a real zls finding, and .js/.go field runs
+
+### 5.1 Retro-test: **4 / 4** published fixes (was 1 / 4)
+
+| # | Fix | Vulnerability | Rule that catches it | Before | After |
+|:--|:--|:--|:--|--:|--:|
+| A | `2cb4a20` | OOB read: `data[-rewind - i]`, `i` up to `len` | pointer offset containing a **loop counter** (#191) | **1** | **0** |
+| B | `4682993` | unsigned wrap: `data[-((ptrdiff_t)rewind) - len - 1]` | cast covers **one term**, rest is unsigned (#192) | **1** | **0** |
+| C | `ac80f7b` | `uint16_t n_columns` counter overflows 65535 | field type from the file's own `struct` (#193) | **1** | **0** |
+| D | `198669d` | off-by-one: `numdelims <= max_delims` | `<=` against a length-like **capacity** name (#194) | **1** | **0** |
+
+Every rule is stated with its own limit, and each is validated in both
+directions: a hit on the vulnerable file and **silence on the fixed one**.
+Rules C and D work at **file level**, because both affected functions in
+cmark-gfm have **multi-line signatures** and are not visible to the per-function
+parser (this was the measured reason they were missed before).
+
+### 5.2 Native certificates for every class (`audits/cmark/`, `audits/zls/`)
+
+| Vulnerable → fixed | Model | Verdict of our Zig checker |
+|:--|:--|:--|
+| A `2cb4a20` | `validate_protocol_unguarded/_guard.smt2` | `F` + `[MODEL VERIFIED]` (counterexample `max_rewind=0, rewind=0, len=1`) → **`T`, trusted: 0, holes: 0** (29 steps, farkas 1) |
+| C `ac80f7b` | `capacity_u16_unguarded/_guard.smt2` | `F`, counterexample `n = 65535` → **`T`, trusted: 0 (5 steps)** |
+| D `198669d` | `offbyone_unguarded/_guard.smt2` | `F`, counterexample `n = cap` → **`T`, trusted: 0 (21 steps)** |
+| zls `initFromTrigram` | `audits/zls/init_from_trigram_unguarded/_guard.smt2` | `F`, counterexample `len = 0` → **`T`, trusted: 0 (13 steps)** |
+| B `4682993` | — | **no certificate**: unsigned wrap needs bit-vector types, our Int model cannot express it. Detection only, stated as such. |
+
+### 5.3 Real finding in `zigtools/zls`
+
+`src/TrigramStore.zig:519` `initFromTrigram(trigram, len: u32)` computes
+`split.index_1 % len`. With `len == 0` that is a division by zero (panic in Zig).
+`--xray` reports `[CRASH PATH] initFromTrigram: возможно деление на ноль: len == 0`;
+the pair of SMT models above proves the missing guard (`len >= 1`) closes it.
+
+### 5.4 `.js` and `.go` field runs — and three false-positive classes they exposed
+
+| Repository | Files | Functions checked | Findings (final) |
+|:--|--:|--:|--:|
+| `expressjs/express` `lib/` | 6 (`.js`) | 7 / 21 | **0** |
+| `axios/axios` `lib/` | 70 (`.js`) | 32 / 133 | **0** |
+| `gin-gonic/gin` | 99 (`.go`) | 86 / 1375 | **0** |
+| `cli/cli` `pkg/cmd` | .go | scan exceeds the time budget of this session | — |
+
+The first run produced **9 findings, all false**, and each was traced to a defect:
+
+| # | Cause | Evidence |
+|:--|:--|:--|
+| **#195** | `let`-inlining treated a **reassigned** local as a constant (`var done = false; …; done = true; if (done)`) | express: 4 fake `[DEAD BRANCH]` |
+| **#196** | `x = x || K` was not modelled — after it `x` is never 0 | axios: fake `[CRASH PATH]` on `% samplesCount` |
+| **#197** | `err != nil` compared against a pointer sentinel in an `Int` model | gin: 4 fake `[DEAD BRANCH]` |
+
+After the fixes: **0 findings on all three**, and the checked counts dropped where
+they should (gin 200 → 86), because pointer comparisons are now honestly skipped
+instead of being “proven”.

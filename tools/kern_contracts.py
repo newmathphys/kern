@@ -3273,6 +3273,31 @@ def _clike_functions(path: Path):
     return out
 
 
+_RE_STRUCT_DEF = re.compile(
+    r"(?:typedef\s+)?struct\s*(?:[A-Za-z_]\w*)?\s*\{([^{}]*)\}\s*(?:[A-Za-z_]\w*)?\s*;")
+_RE_STRUCT_FIELD = re.compile(r"^\s*([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;")
+
+
+def _clike_struct_fields(text: str) -> dict[str, str]:
+    r"""Поля структур -> тип (`n_columns -> uint16_t`). ДЕФЕКТ #193.
+
+    ЗАЧЕМ (CVE `ac80f7b` в cmark-gfm): `row->n_columns` объявлено как
+    `uint16_t` и инкрементируется в цикле без проверки `< UINT16_MAX` —
+    счётчик переполняется. Без карты полей тип неоткуда взять, поэтому
+    раньше такая уязвимость пропускалась.
+    """
+    out: dict[str, str] = {}
+    for m in _RE_STRUCT_DEF.finditer(_strip_c_comments_strings(text)):
+        for line in m.group(1).splitlines():
+            fm = _RE_STRUCT_FIELD.match(line)
+            if fm:
+                out.setdefault(fm.group(2), fm.group(1))
+    return out
+
+
+def _is_u16(ty: str) -> bool:
+    return ty.strip().lower() in {"uint16_t", "u16", "unsigned short", "ushort"}
+
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
@@ -3287,11 +3312,30 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         funcs = _clike_functions(path)
     except Exception:  # noqa: BLE001
         return 0, 0, []
+    # ДЕФЕКТ #193: типы полей структур нужны для проверки переполнения
+    # счётчиков (`row->n_columns : uint16_t`). Определения лежат в том же
+    # файле (cmark: `typedef struct { uint16_t n_columns; } table_row;`).
+    try:
+        field_types = _clike_struct_fields(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        field_types = {}
     checked = total = 0
     found: list[str] = []
+    # ДЕФЕКТ #194: часть правил проверяется на УРОВНЕ ФАЙЛА. Причина измерена:
+    # в cmark-gfm функция `cmark_inline_parser_scan_delimiters` объявлена
+    # МНОГОСТРОЧНО, поэтому `_clike_functions` её не находит, и правило
+    # off-by-one (`numdelims <= max_delims`) не срабатывало вовсе.
+    try:
+        _full = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        _full = ""
+    _full_src = _strip_c_comments_strings(_full)
+    if path.suffix in {".ts", ".js"}:
+        _full_src = _strip_js_regex(_full_src)
     for name, params, body, _ln, ranges, reqs in funcs:
         total += 1
         proven = 0
+        raw_body = body          # для правила B (смотрит на САМИ касты)
         # ДЕФЕКТ #189: C-касты снимаются ДО разбора условий/индексов/делителей.
         # Иначе `if (len == (size_t)(max_rewind - rewind)) return` не переводился,
         # путь не сужался, и на ИСПРАВЛЕННОМ cmark-gfm оставалось предупреждение.
@@ -3319,15 +3363,32 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 continue
             if nm2 in local_smt or re.search(rf"\b{re.escape(nm2)}\b", rhs2):
                 continue  # самоссылка/повтор — не инлайним (звучность важнее)
+            # ДЕФЕКТ #195 (полевой прогон express/axios): локальная, которой
+            # присваивают ещё раз внутри тела, НЕ константа. Пример:
+            #   var done = false; … done = true; if (done) return …
+            # Раньше инлайнилось `done = false`, и `if (done)` объявлялся мёртвым.
+            if len(re.findall(rf"\b{re.escape(nm2)}\s*=", body)) > 1:
+                continue
             try:
                 local_smt[nm2] = expr_smt(
                     ast.parse(clike_to_python(_unwrap_zig_builtins(rhs2)), mode="eval").body,
                     local_smt)
             except (Unsupported, NoReturn, SyntaxError, Exception):
                 continue
+        # ДЕФЕКТ #196 (полевой прогон axios): `x = x || K` — после этой строки
+        # x гарантированно НЕ 0 (значение по умолчанию). Без учёта этого
+        # `i % x` выглядел как деление на ноль.
+        for dm2 in re.finditer(r"\b([A-Za-z_]\w*)\s*=\s*\1\s*\|\|", body):
+            path_conds.append(f"(not (= {dm2.group(1)} 0))")
         pos = 0
         for m in _clike_ifs(body):
             raw_cond = m.group(1)
+            # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
+            # сравнение; в Int-модели `nil` бессмысленно, и получался ложный
+            # DEAD BRANCH. Такие условия честно пропускаем.
+            if re.search(r"\b(?:nil|null|NULL|None|undefined)\b", raw_cond):
+                pos = m.end()
+                continue
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt)
             except (Unsupported, NoReturn, SyntaxError, Exception):
@@ -3522,6 +3583,49 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                     found.append(
                         f"[OVERFLOW PATH] {name}: размер в {call}() может переполнить "
                         f"32-битный знаковый int: {size_smt} > 2147483647")
+        # --- B: 4682993 (unsigned pointer/wrap) — ДЕФЕКТ #192 ----------------
+        # Каст `(ptrdiff_t)` применён к ОДНОМУ слагаемому, остальная арифметика
+        # идёт в беззнаковом типе (`size_t`), поэтому отрицательный результат
+        # превращается в огромное число и указатель «оборачивается»:
+        #     ДО:    data[-((ptrdiff_t)rewind) - len - 1]
+        #     ПОСЛЕ: data[-((ptrdiff_t)(rewind + len + 1))]
+        # Правило структурное (по форме каста) — поэтому 0 на исправленном файле.
+        for im in _RE_CLIKE_INDEX.finditer(raw_body):
+            if re.search(r"\(\s*(?:ptrdiff_t|ssize_t|intptr_t|size_t)\s*\)"
+                         r"\s*[A-Za-z_]\w*\s*\)\s*[-+]", im.group(2)):
+                found.append(
+                    f"[OVERFLOW PATH] {name}: unsigned-арифметика смещения: каст "
+                    f"покрывает ОДНО слагаемое, остаток считается беззнаково "
+                    f"({im.group(2).strip()}) -> перенос указателя")
+
+        # --- C: ac80f7b (uint16_t counter) — ДЕФЕКТ #193 --------------------
+        is_u16 = lambda t: t.strip().lower() in {"uint16_t", "u16", "unsigned short", "ushort"}
+        for m2 in re.finditer(r"\w+\s*(?:->|\.)\s*(\w+)\s*(?:\+\+|\+=\s*1)", body):
+            fld = m2.group(1)
+            ty = field_types.get(fld, "")
+            if not ty or not is_u16(ty):
+                continue
+            head = body[:m2.start()]
+            if re.search(r"UINT16_MAX|65535|0xFFFF", head):
+                continue  # граница проверяется — не обвиняем
+            found.append(
+                f"[OVERFLOW PATH] {name}: поле `{fld}` ({ty}) инкрементируется без "
+                f"проверки границы 65535 -> счётчик переполнится (CVE-класс ac80f7b)")
+
+        # --- D: 198669d (off-by-one vs capacity) — ДЕФЕКТ #194 --------------
+        # `numdelims <= max_delims` разрешает `numdelims == max_delims`, т.е.
+        # ровно на единицу больше ёмкости. Правило требует ИМЕНИ-ёмкости
+        # (max_delims/max_size/…capacity), иначе `i <= max_retries` дало бы шум.
+        for m3 in re.finditer(
+                r"([A-Za-z_]\w*)\s*<=\s*(max_(?:delims|size|len|length|capacity|count)"
+                r"|[A-Za-z_]*_capacity|MAX_(?:SIZE|LEN|LENGTH|CAPACITY|DELIMS))", body):
+            var, cap = m3.group(1), m3.group(2)
+            if not re.search(rf"{re.escape(var)}\s*(?:\+\+|\[+\-\]=)", body):
+                continue
+            found.append(
+                f"[BOUNDS PATH] {name}: off-by-one: `{var} <= {cap}` разрешает "
+                f"{var} == {cap} (ровно ёмкость) -> запись за границу")
+
         # ДЕФЕКТ #190: OFF-BY-ONE по ВЕРХНЕЙ границе.
         # `if (i <= len)` разрешает `i == len`, а `buf[i]` при длине `len` — уже
         # за концом (валидные индексы 0..len-1). Именно так была устроена
@@ -3541,6 +3645,36 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 f"индекс == длине ({var} = {lname}), а {var}[{lname}] уже за концом")
         if proven:
             checked += 1
+    # Файловый уровень: правила, недостижимые внутри функции.
+    # (а) #194 off-by-one: функция cmark-gfm `cmark_inline_parser_scan_delimiters`
+    #     объявлена МНОГОСТРОЧНО, поэтому `_clike_functions` её не находит.
+    # (б) #193 переполнение 16-битного ПОЛЯ структуры (`row->n_columns`): оно
+    #     живёт в `typedef struct { uint16_t n_columns; … } table_row;` того же
+    #     файла, поэтому карта полей собирается из самого файла.
+    for m3 in re.finditer(
+            r"([A-Za-z_][A-Za-z0-9_]*) *(?:<=) *(max_(?:delims|size|len|length|capacity|count)"
+            r"|[A-Za-z_]*_capacity|MAX_(?:SIZE|LEN|LENGTH|CAPACITY|DELIMS))", _full_src):
+        var, cap = m3.group(1), m3.group(2)
+        if (var + "++") not in _full_src and (var + "+=") not in _full_src:
+            continue
+        msg = (f"[BOUNDS PATH] {path.name}: off-by-one: `{var} <= {cap}` разрешает "
+               f"{var} == {cap} (ровно ёмкость) -> запись за границу")
+        if msg not in found:
+            found.append(msg)
+    for m2 in re.finditer(
+            r"([A-Za-z_][A-Za-z0-9_]*) *(?:->|[.]) *([A-Za-z_][A-Za-z0-9_]*) *(?:[+]{2}|[-+]=)",
+            _full_src):
+        fld = m2.group(2)
+        ty = field_types.get(fld, "")
+        if not ty or not _is_u16(ty):
+            continue
+        head = _full_src[:m2.start()]
+        if "UINT16_MAX" in head or "65535" in head:
+            continue  # граница проверяется — не обвиняем
+        msg = (f"[OVERFLOW PATH] {path.name}: поле `{fld}` ({ty}) инкрементируется "
+               f"без проверки границы 65535 -> счётчик переполнится")
+        if msg not in found:
+            found.append(msg)
     return checked, total, found
 
 
@@ -3592,13 +3726,26 @@ def cmd_full_scan(path: str, kernc) -> int:
     by_ext: dict[str, int] = {}
     checked = total = 0
     findings: list[str] = []
+    per_file: dict[Path, list[str]] = {}
     py_files: list[Path] = []
     for f in files:
         by_ext[f.suffix] = by_ext.get(f.suffix, 0) + 1
         try:
             if f.suffix == ".py":
                 py_files.append(f)
-                c, t, fd = _xray_file(f, kernc)
+                # ДЕФЕКТ #198: раньше здесь вызывалась НЕСУЩЕСТВУЮЩАЯ `_xray_file`
+                # (Python-ветка живёт внутри `cmd_xray`), исключение глушилось —
+                # и Python-файлы молча давали 0 находок. Теперь используется
+                # реальный движок, а результат разбирается из его вывода.
+                _buf = io.StringIO()
+                with contextlib.redirect_stdout(_buf):
+                    cmd_xray(str(f), kernc)
+                _out = _buf.getvalue()
+                fd = [ln.strip() for ln in _out.splitlines()
+                      if ln.strip().startswith("[") and
+                      ("PATH]" in ln or "BRANCH]" in ln or "GUARD]" in ln)]
+                _m = re.search(r"checked (\d+) / (\d+)", _out)
+                c, t = (int(_m.group(1)), int(_m.group(2))) if _m else (0, 0)
             else:
                 c, t, fd = _xray_clike_file(f, kernc)
         except Exception:  # noqa: BLE001
@@ -3606,6 +3753,8 @@ def cmd_full_scan(path: str, kernc) -> int:
         checked += c
         total += t
         findings.extend(f"{f.relative_to(root) if root.is_dir() else f.name}: {z}" for z in fd)
+        if fd:
+            per_file[f] = list(fd)
 
     print(f"[FULL-SCAN] {path}")
     ext_line = " ".join(f"{k}:{v}" for k, v in sorted(by_ext.items()))
@@ -3644,6 +3793,31 @@ def cmd_full_scan(path: str, kernc) -> int:
             mcp_status = f"{name} проверен"
             break
     print(f"  [mcp] {mcp_status}")
+
+    # РЕАЛЬНЫЙ автопилот (а не «применимо, не проверено»): на найденных проблемах
+    # в Python-файлах вызываем вывод контракта (`--infer-requires`) и генератор
+    # тестов (`--gen-tests`). Для C-like это неприменимо: контрактов там нет и
+    # синтезировать их без типов нельзя — вместо этого в audits/ лежат сертификаты.
+    inferred = tests_gen = 0
+    targets = [f for f in per_file if f.suffix == ".py"][:3]
+    for f in targets:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                cmd_suggest_fix(str(f), kernc, infer_requires=True)
+            except Exception:  # noqa: BLE001
+                pass
+            inferred += buf.getvalue().count("[INFERRED SPEC]")
+            tmp = Path(tempfile.gettempdir()) / f"kern_gen_{f.stem}.py"
+            try:
+                cmd_gen_tests(str(f), str(tmp), kernc)
+                if tmp.exists():
+                    tests_gen += tmp.read_text(encoding="utf-8").count("def test_")
+                    tmp.unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass
+    print(f"  [autopilot] infer-requires: контрактов {inferred} · "
+          f"gen-tests: тестов {tests_gen} (файлов {len(targets)})")
 
     # АВТО-РОУТИНГ: что ПРИМЕНИМО (но не проверено без контракта)
     routed: dict[str, list[str]] = {}
