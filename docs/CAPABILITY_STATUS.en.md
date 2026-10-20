@@ -98,7 +98,7 @@ build of Z3 does not emit that format.
 
 | Benchmark | Result |
 |:--|:--|
-| QuixBugs (real execution) | **31/31 (100 %)** |
+| QuixBugs (real execution) | **28/40 (70 %)** |
 | CHC loop benchmark (SV-COMP style) | **11/11**, 424 ms |
 | SMT (Alive2 / Hacker's Delight) | **8/8** |
 | Cross-check Z3 ↔ cvc5 | **9/9 agreement, 0 divergences** |
@@ -353,7 +353,7 @@ entries".
 ## 6d-1. Registry gap closed: #125–#152
 
 > **Why this section exists.** Defects **#125–#152** were recorded in `METRICS.md` (RU) but were **missing from this registry table**
-> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#232`
+> — a real documentation gap found by the line-by-line audit of 2026-10-20. They are listed here so that the range `#1–#235`
 > has no holes. Verdicts are the same as in the Russian original.
 
 | # | Defect | Status |
@@ -393,7 +393,7 @@ entries".
 
 > **Why this section exists.** The line-by-line audit of 2026-10-20 found that **65 numbers were missing from this English table**
 > (`#52, #55, #56, #59–#92, #98–#124, #205`) although they are present in `CAPABILITY_STATUS.md`. They are indexed here with a
-> one-line summary each, so that the range `#1–#232` has **no holes in either language**. The third column reproduces the
+> one-line summary each, so that the range `#1–#235` has **no holes in either language**. The third column reproduces the
 > **classification** used in the Russian original for those sections (it is a defect class there, not a status word).
 
 | # | Defect (one line) | Class (as in RU) |
@@ -472,7 +472,7 @@ entries".
 
 > **Historical numbering gaps — 21 numbers:** #11–#30 and #169.
 > Those defects were recorded before continuous numbering was introduced (some lived only in `docs/METRICS.md`).
-> Numbers are **NOT renumbered** — code, tests and reports reference them — so the journal range reads as "#1–#232 with gaps", not as "231 entries".
+> Numbers are **NOT renumbered** — code, tests and reports reference them — so the journal range reads as "#1–#235 with gaps", not as "231 entries".
 
 Every entry below was found by **measuring**, not by reading: a full run of the
 can-fail harness, field runs of `--xray` on real code (Python stdlib, Zig
@@ -532,7 +532,10 @@ missing from the journal: the range #98–#164 was present, while #93–#97 and
 | **230** | **THREE GUARD FALSE POSITIVES AND ONE FICTITIOUS CHECK** (found by injection, not by review): (1) `&nbsp;` in 'Lean&nbsp;4 theorems' produced a bogus '4 theorems' — the version was read as a counter; (2) in `RELEASE_NOTES` the rule caught the HISTORICAL baseline '82/82 CHECK' from the v2.4.0 column — only the last cell is checked now; (3) the catalogue rule looked for 'N declarations' and **never saw** 'test declarations: **N**' — a '424' injection passed with a clean rc=0. All three fixed and verified by injection (rc=1) | FIXED |
 
 | **231** | **A TAUTOLOGY WAS PRESENTED AS A KERN ACHIEVEMENT**: the benchmark table on the showcase carried the row 'QuixBugs **31/31** bugs detected by execution; 24/31 correct ones confirmed' (README.md, README.ru.md — two sections). It measures the **dataset wiring**, not KERN: 'a buggy program fails its own official tests' is the DEFINITION of the QuixBugs dataset, not a detection result, so 31/31 could never be lower. The row was removed from both tables and from the `tools/` listing; a footnote explains why and points at KERN's own result — `6/40 DIVERGED`, every hit confirmed by replaying the real function (`audits/QUIXBUGS_BASELINE.md`). The log `docs/evidence/quixbugs_full.log` is kept as evidence of the dataset wiring | showcase |
-| **232** | **THE `scorecard-check` GATE EXISTED BUT CI NEVER RAN IT**: `make scorecard-check` compares the published `docs/evidence/scorecard.json` against a recomputation (137 theorems, 126 CHECK, 8/8 MCP, `sorry=0`), and the canfail case `scorecard-check` proved the gate **can** fail (tampered passport → `rc=1`). But `tools/ci.sh` had no stage: what was verified was 'the gate is sensitive', not 'the passport on the site is fresh'. A stale passport (125 theorems, 125 CHECK) therefore lived on the showcase while CI stayed green. Added the stage `Trust Scorecard passport == facts (#232)`. Lesson: canfail proves a gate's sensitivity, **not** an artifact's freshness — two different checks | FIXED |
+| **232** | **THE `scorecard-check` GATE EXISTED BUT CI NEVER RAN IT**: `make scorecard-check` compares the published `docs/evidence/scorecard.json` against a recomputation (137 theorems, 127 CHECK, 8/8 MCP, `sorry=0`), and the canfail case `scorecard-check` proved the gate **can** fail (tampered passport → `rc=1`). But `tools/ci.sh` had no stage: what was verified was 'the gate is sensitive', not 'the passport on the site is fresh'. A stale passport (125 theorems, 125 CHECK) therefore lived on the showcase while CI stayed green. Added the stage `Trust Scorecard passport == facts (#232)`. Lesson: canfail proves a gate's sensitivity, **not** an artifact's freshness — two different checks | FIXED |
+| **233** | **PARAMETER TYPES WERE NOT READ → EVIDENCE ON INPUTS OUTSIDE THE DOCUMENTED DOMAIN**: the domain was derived from the AST only (how the value is USED in the body), so for `is_valid_parenthesization` the enumeration included `["("]` (a list) instead of the string `"("`, and the "bug" was confirmed on an input its own docstring forbids. Added `declared_kind()`: the type is read from the `Input:` section, and a documented `Precondition:` filters combinations outside the domain (lesson #200) |
+| **234** | **A `NameError` WAS SWALLOWED BY THE PRECONDITION FILTER**: in `tools/trace_explorer.py` a generator expression inside `all(...)` resolves names in `globals`, while the values were passed in `locals` → `NameError` → the filter silently kept ALL combinations, so the docstring precondition never applied. Found by comparing "how many inputs were dropped" (0 with a non-empty `Precondition:`). The same file was missing `import re` — caught by `py_compile` |
+| **235** | **FALSE DIVERGENCE REPORT ON GENERATORS**: `flatten` and `kheapsort` were printed as `buggy=[] correct=[]`, i.e. as a found difference, although the values matched: the generator was consumed by the first `_norm` and the message used a second call. Object addresses in memory also produced a phantom difference. Normalisation is now recursive (generators are materialised once) and comparison no longer depends on addresses |
 
 ## 7. Summary
 
@@ -594,10 +597,10 @@ Compact English list; full text and measured before/after tables are in
 | **218** | **DOCUMENTATION INTEGRITY (found by the line-by-line audit of 2026-10-20)**: the EN registry was missing **65 numbers** (#52, #55, #56, #59–#92, #98–#124, #205) while RU had 155 rows; `docs/METRICS.md` had three blocks sharing ONE number (**§100, §101, §102** twice each); EN had two `## 6e` headers; the #174 row was duplicated; `docs/README.md` ranges were stale (`#1–#216`, `§1–§136`). Fixed: a 65-entry EN index, renumbering §100→§137, §101→§138, §102→§139, `6e`→`6f`, #174→closure, ranges updated. | FIXED |
 | **219** | **The `kern_next_tests.log` evidence had NO COUNT of executed tests**: on a cached step `zig build test-next --summary all` prints only «4/4 steps succeeded … run test cached», without «All 53 tests passed», so the gate could not see 53/53 while the showcase cited that log. Fixed: the run uses a separate `--cache-dir` (2 s), the step really executes and the log records «53/53 tests passed». | FIXED |
 | **220** | **Stale test counts on the showcase**: `README.md` promised `308 core tests`, `README.ru.md` — «308 tests» and «catalog 424», `docs/README.md` — «catalog 424» and «308 tests», while the fact is **401 executed core tests and 425 in the catalog**. Fixed; historical mentions (283 tests of the migration branch, the VERIFICATION_0_17 snapshot) are now explicitly marked. | FIXED |
-| **221** | **RECURRENCE of class #178: the registry range on the showcase drifted again** — `README.md`, `README.ru.md` and the site promised `#1–#184`, the EN registry intros said `#1–#217`, while the real maximum is **#220**. Fixed to `#1–#232`; recorded as a recurrence so it is visible that a one-off fix (#178) did not hold the metric. | FIXED |
+| **221** | **RECURRENCE of class #178: the registry range on the showcase drifted again** — `README.md`, `README.ru.md` and the site promised `#1–#184`, the EN registry intros said `#1–#217`, while the real maximum is **#220**. Fixed to `#1–#235`; recorded as a recurrence so it is visible that a one-off fix (#178) did not hold the metric. | FIXED |
 | **222** | **THE LICENSE ON THE SHOWCASE CONTRADICTED THE `LICENSE` FILE** (exactly the class the external audit warned about): in the repository tree `README.ru.md` labelled `LICENSE` as **MIT**, while `LICENSE` is **PolyForm Noncommercial 1.0.0** (as do `server.json`, `.well-known/mcp.json`, `CITATION.cff`). Plus a stale «Makefile 62 targets» against the real **150**. Fixed; a guard `tools/check_license_consistency.py` was added (check 8 of `ecosystem-check`). | FIXED |
 | **223** | **THE LEAN 4 THEOREM COUNTER ON THE SITE WAS STALE**: `docs/index.html` showed «120 Lean 4 theorems» in FOUR places while the fact is **137** (the growth 120→137 was never reflected). Fixed + guard `tools/check_lean_counter.py` (check 9 of `ecosystem-check`). | FIXED |
-| **224** | **SHOWCASE COUNTERS CONTRADICTED THE FACTS (and no guard existed)**: after closing #220/#223 the texts still carried `114 proven non-vacuous` / `95 fault-injection cases` (README.md), "103 targets · CHECK 80" and `82/82` (README.ru), `195/195` without a snapshot marker (RU passport), `279` (PROJECT.md, PROJECT_SPECIFICATION.md, CAPABILITY_STATUS.en). Found by comparing every public surface against `core_tests.log`, `kern_next_tests.log`, the catalogue recount and `registry.py --json`. FIXED: numbers set to facts (401 / 53 / 425 / 126 CHECK / 142 cases) plus a new guard `tools/check_metrics_consistency.py` (target `make metrics-guard`, case `metrics-guard`): a promise is checked against MEASURABLE evidence, not against prose |
+| **224** | **SHOWCASE COUNTERS CONTRADICTED THE FACTS (and no guard existed)**: after closing #220/#223 the texts still carried `114 proven non-vacuous` / `95 fault-injection cases` (README.md), "103 targets · CHECK 80" and `82/82` (README.ru), `195/195` without a snapshot marker (RU passport), `279` (PROJECT.md, PROJECT_SPECIFICATION.md, CAPABILITY_STATUS.en). Found by comparing every public surface against `core_tests.log`, `kern_next_tests.log`, the catalogue recount and `registry.py --json`. FIXED: numbers set to facts (401 / 53 / 425 / 127 CHECK / 143 cases) plus a new guard `tools/check_metrics_consistency.py` (target `make metrics-guard`, case `metrics-guard`): a promise is checked against MEASURABLE evidence, not against prose |
 | **225** | **HARNESS ROLLBACK DID NOT COVER FILES OUTSIDE `FAULTABLE`**: `patch()` refused such a file, while `touch()` silently accepted it. The `metrics-guard` case edited `docs/PROJECT.md` via `touch()` + `write_atomic()`; rollback did not fire, the injection stayed in the tree, and `verify_restored` (which only looks at `FAULTABLE`) reported "tree clean". Second offender: `kern.intoto.sig` (case `slsa-bad-sig`). Same class as #48 (injection in a commit). FIXED: both files added to `FAULTABLE`; `touch()` now has the same guard as `patch()` |
 
 

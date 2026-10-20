@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://newmathphys.github.io/kern/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KERN — zero-trust verification gateway (Zig + Z3 + Lean 4)">
-<meta property="og:description" content="A claim is admitted only with machine evidence. 401/401 core tests · 100.0% mutation score · 126/126 can-fail targets · 137 Lean 4 theorems (0 sorry).">
+<meta property="og:description" content="A claim is admitted only with machine evidence. 401/401 core tests · 100.0% mutation score · 127/127 can-fail targets · 137 Lean 4 theorems (0 sorry).">
 <meta property="og:url" content="https://newmathphys.github.io/kern/">
 <meta property="og:image" content="https://newmathphys.github.io/kern/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -228,7 +228,7 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
       <span class="val">401 / 401</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
       <span class="val">53 / 53</span><span class="lbl">KERN-Next tests</span>
       <span class="val">100.0 %</span><span class="lbl">mutation score — 1345 / 1345 killed (21 files, full local sweep); committed evidence: mutate_full.log 1345 / 1345 + canonical 40 / 40 + per-module 244 / 244</span>
-      <span class="val">126 / 126</span><span class="lbl">can-fail CHECK targets — 142 non-vacuous cases, 0 vacuous</span>
+      <span class="val">127 / 127</span><span class="lbl">can-fail CHECK targets — 143 non-vacuous cases, 0 vacuous</span>
     </div>
     <div class="stat">
       <span class="val">137 / 0</span><span class="lbl">Lean 4 theorems / 0 sorry (8 files)</span>
@@ -489,7 +489,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#232</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#235</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -512,7 +512,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>defects this project found in itself</strong> (#1–#232).
+together with the <strong>defects this project found in itself</strong> (#1–#235).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 
@@ -702,7 +702,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
       <tbody>
         <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
-          <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 126/126 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+          <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 127/127 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
           <td>modelcontextprotocol/servers</td><td>composition</td><td>MCP surface: tools/list, descriptions, annotations</td></tr>
         <tr data-lb="ziglang/zig" style="cursor:pointer;border-top:1px solid #21262d">

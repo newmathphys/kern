@@ -34,6 +34,27 @@ _spec = importlib.util.spec_from_file_location("kc", ROOT / "tools/kern_contract
 kc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(kc)
 
+# Ступень 2 (AST-guided trace explorer). Подключается как fallback: если
+# Ступень 1 дала SKIP/DISCARDED/UNKNOWN, функция всё равно проверяется —
+# живым дифференциальным прогоном по домену, выведенному из её же AST.
+_spec2 = importlib.util.spec_from_file_location("te", ROOT / "tools/trace_explorer.py")
+te = importlib.util.module_from_spec(_spec2)
+_spec2.loader.exec_module(te)
+
+
+def stage2(buggy: Path, correct: Path) -> tuple[dict | None, int]:
+    """Ступень 2. Возвращает (найденное расхождение | None, сколько функций сравнимо)."""
+    c_names = set(te.functions_in(correct))
+    compared = 0
+    for fn in te.functions_in(buggy):
+        if fn not in c_names:
+            continue
+        compared += 1
+        r = te.explore(buggy, correct, fn)
+        if r["diverged"]:
+            return r, compared
+    return None, compared
+
 
 def bodies(path: Path):
     """Как `parse_bodies`, но с ПРИЧИНОЙ отказа для каждой функции."""
@@ -215,6 +236,7 @@ def run(qb: Path, json_out: Path | None) -> int:
     tasks = sorted(p.stem for p in (qb / "python_programs").glob("*.py")
                    if not p.stem.endswith("_test") and p.stem != "node")
     rows, reasons = [], collections.Counter()
+    stage2_hits = 0
     for name in tasks:
         b_file = qb / "python_programs" / f"{name}.py"
         c_file = qb / "correct_python_programs" / f"{name}.py"
@@ -228,7 +250,18 @@ def run(qb: Path, json_out: Path | None) -> int:
             for _n, why in {**a_bad, **b_bad}.items():
                 reasons[why] += 1
             first = next(iter({**a_bad, **b_bad}.values()), "нет функций в подмножестве")
-            rows.append((name, "SKIP", "", first))
+            # Дефект #234: раньше здесь стоял безусловный continue, и 32 задачи
+            # уходили в SKIP, НЕ доходя до Ступени 2. Теперь падение Ступени 1
+            # не означает отказа от проверки.
+            s2, compared = stage2(b_file, c_file)
+            if s2:
+                stage2_hits += 1
+                rows.append((name, "DIVERGED", "0/0/0/0",
+                             f"[S2 {s2['fn']}: {s2['note']}]"))
+            elif compared:
+                rows.append((name, "STAGE2-CLEAN", "", f"{first} · S2: {compared} функц. без расхождения"))
+            else:
+                rows.append((name, "SKIP", "", first))
             continue
         diverged = same = unknown = discarded = 0
         seen = []
@@ -268,8 +301,25 @@ def run(qb: Path, json_out: Path | None) -> int:
                    ("DISCARDED" if discarded else
                     ("UNKNOWN" if unknown and not same else
                      ("EQUIVALENT" if same else "SKIP"))))
+        # СТУПЕНЬ 2 (fallback): если Ступень 1 не дала вердикта, функция всё
+        # равно проверяется — живым дифференциальным прогоном по домену,
+        # выведенному из её же AST. SKIP перестаёт быть тупиком.
+        s2 = None
+        if verdict in ("SKIP", "DISCARDED", "UNKNOWN"):
+            s2, compared = stage2(b_file, c_file)
+            if s2:
+                verdict = "DIVERGED"
+                stage2_hits += 1
+                extra = f" [S2 {s2['fn']}: {s2['note']}]"
+            elif compared:
+                verdict = "STAGE2-CLEAN"
+                extra = " [S2: расхождения нет]"
+            else:
+                extra = " [S2: не сравнимо]"
+        else:
+            extra = ""
         rows.append((name, verdict, f"{diverged}/{same}/{unknown}/{discarded}",
-                     " ".join(seen)))
+                     " ".join(seen) + extra))
 
     w = max(len(r[0]) for r in rows) + 2
     print(f"{'task':<{w}} {'verdict':<11} {'div/eq/unk':<10} detali")
@@ -278,7 +328,10 @@ def run(qb: Path, json_out: Path | None) -> int:
     cnt = collections.Counter(r[1] for r in rows)
     print("\n=== SUMMARY ===")
     for k, v in cnt.most_common():
-        print(f"  {k:<11} {v}")
+        print(f"  {k:<14} {v}")
+    print(f"\n  Ступень 1 (SMT + Live Replay): DIVERGED {cnt.get('DIVERGED', 0) - stage2_hits}")
+    print(f"  Ступень 2 (AST-guided trace):  DIVERGED {stage2_hits}")
+    print(f"  Итого живьём подтверждено:     {cnt.get('DIVERGED', 0)} / {len(rows)}")
     print("\n=== SKIP REASONS (by function) ===")
     for why, n in reasons.most_common(20):
         print(f"  {n:3d}  {why}")

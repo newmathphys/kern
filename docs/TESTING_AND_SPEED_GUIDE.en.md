@@ -38,7 +38,7 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **126 CHECK targets / 126 proven able to fail**, **142 cases, 0 vacuous** |
+| Can-fail discipline | **127 CHECK targets / 126 proven able to fail**, **143 cases, 0 vacuous** |
 | Mutation testing | **1345 / 1345 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
@@ -172,4 +172,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Full `canfail` sweep: **142 non-vacuous / 0 vacuous / 0 case errors**.
+Full `canfail` sweep: **143 non-vacuous / 0 vacuous / 0 case errors**.

@@ -67,6 +67,10 @@ CLASS = {
     "ecosystem-check": "CHECK",
     "scorecard-check": "CHECK",
     "metrics-guard": "CHECK",
+    # Ступень 2 QuixBugs: AST-guided живой прогон. Утверждение — «расхождение
+    # ловится, идентичные версии не обвиняются»; негативный контроль внутри
+    # цели доказывает, что она способна упасть.
+    "trace-check": "CHECK",
     "gen-tests-check": "CHECK",
     "simplify-check": "CHECK",
     "bounds-check": "CHECK",
@@ -271,6 +275,8 @@ CASE_TARGET = {
     "ecosystem-check": "ecosystem-check",
     "scorecard-check": "scorecard-check",   # внешние каталоги MCP (манифесты == tools/list)
     "contracts": "contracts",
+    # Ступень 2 QuixBugs: кейс ломает сравнение в движке — цель обязана упасть.
+    "trace-check": "trace-check",
     "contracts-branches": "contracts",  # ветвления if -> ite
     "kimg-deflate": "kimg-deflate",   # сжатие 0x02 в CLI
     "skip-exit-n": "test-next",       # SKIP exit 2 -> N (боевой фидбек)

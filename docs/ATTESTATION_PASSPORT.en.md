@@ -16,7 +16,7 @@
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **401 / 401** (without `z3` in `PATH` — 393 passed + 8 skipped),
-> KERN-Next **53 / 53**, can-fail **126 / 126 CHECK** (142 non-vacuous cases, 0 errors),
+> KERN-Next **53 / 53**, can-fail **127 / 127 CHECK** (143 non-vacuous cases, 0 errors),
 > registry **125 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 137 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
@@ -52,7 +52,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **142 cases, 126/126 CHECK**, 0 vacuous |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **143 cases, 127/127 CHECK**, 0 vacuous |
 | `make registry` | ✅ *(snapshot: 75 targets)* — current: **125 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)
@@ -261,7 +261,7 @@ Claims that **did not hold** and were fixed in the documentation:
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·
-SolverPool 128/4 · Lean 4: 8 files / 137 theorems / 0 sorry · QuixBugs 31/31 ·
+SolverPool 128/4 · Lean 4: 8 files / 137 theorems / 0 sorry · QuixBugs 28/40 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · concolic 4 calls ·
 DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 

@@ -38,7 +38,7 @@
 | **HumanEval / HumanEval+** | `evalplus` (external API) | **0.524 / 0.500** (see §11) |
 | **MBPP+** | `evalplus` | 378 tasks downloaded — ⛔ not generated (API time) |
 | **SMT (Alive2 / Hacker's Delight)** | Z3 via our bridge | **8/8** (6 proved, 2 counterexamples) |
-| **QuixBugs** | execution (fuel) | **31/31 bugs (100 %)** |
+| **QuixBugs** | execution + AST trace | **28/40 divergences** |
 | **Refactory** | differential | **1438/1782 bugs (80.7 %)** |
 | **CyberSecEval (Meta)** | AST rules | 28/351 (8.0 %) |
 | **Mutation duel** | boundary sweep | Unit 20 % / KERN **90 %** / 10/10 explained |
@@ -2406,7 +2406,7 @@ catalogue recount, `tools/registry.py --json` — not against prose.
 `Lean 4 (7 files)`), `PROJECT.md` (11 places: `279`, `38/38`, `92.5 %`, `60`,
 `233`), `CAPABILITY_STATUS.en.md` (`279/279 OK`).
 
-**Fix:** all numbers set to facts (401 / 53 / 425 / 126 CHECK / 142 cases) and a
+**Fix:** all numbers set to facts (401 / 53 / 425 / 127 CHECK / 143 cases) and a
 new guard **`tools/check_metrics_consistency.py`** (`make metrics-guard`, case
 `metrics-guard`) that checks a promise against evidence. Lines marked
 `snapshot` / `history` are skipped; cross-architecture must cover the whole suite
@@ -2474,3 +2474,33 @@ Grade A+, 100/100).
 **Not to be confused with #87:** the `commit` field is deliberately not compared
 (the artifact is generated before the commit and would always lag by one). What is
 compared: `score`, `grade`, `mcp.tools`, `formal.theorems`, `metrics.check_covered`.
+
+---
+
+### 72. Stage 2: AST-guided trace explorer — 28/40 by live execution (#233–#235)
+
+Stage 1 (static `QF_LIA` + Live Replay) covered 6/40 QuixBugs tasks; 32 fell into `SKIP`
+(lists, dicts, slices, strings, generators, bit operations) — a **frontend** boundary, not a
+kernel one. Instead of patching one AST node at a time, a second mechanism was added:
+`tools/trace_explorer.py`.
+
+Parameter kinds come from the AST and docstring (`declared_kind`): `int` / `list` /
+`list[list]` / `str` / `float` / `tokens`. Domains are built from constants found in the
+body itself (`c`, `c-1`, `c+1`) and ordered by whether the docstring precondition holds
+(`precondition_of`). Inputs are executed live (timeout; `RecursionError`, `IndexError`,
+`ZeroDivisionError`, `KeyError`, `TypeError` caught) and results are normalised
+**recursively**, so generator objects never produce address-based false divergences.
+
+Measured (`docs/evidence/quixbugs_full.log`, RC=0): `DIVERGED 28/40` (stage 1: 6,
+stage 2: 22), `STAGE2-CLEAN 12`, `SKIP: DictComp 1`. Every hit is confirmed by a live call
+`buggy(args) != correct(args)`; 15 witnesses were re-checked by an independent script
+(`0 outside the domain`).
+
+Defects found while building it: **#233** (parameter types unread → int domains for
+strings/lists), **#234** (`NameError` swallowed by the precondition filter: generator
+expressions inside `all(...)` resolve names in `globals`, not `locals`), **#235** (false
+divergence message: a generator was consumed by the first `_norm`, the message printed a
+second call).
+
+**Honest limit.** Stage 2 is a **search**, not a proof: it never emits `PROVEN` and does not
+replace Stage 1. The 12 `STAGE2-CLEAN` tasks mean "no divergence on the inputs tried".

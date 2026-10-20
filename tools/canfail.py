@@ -297,6 +297,9 @@ FAULTABLE = [
     "tools/heal_check.sh",
     "docs/CAPABILITY_STATUS.md",
     "tools/tree_lock.py",
+    # Кейс `trace-check` правит движок Ступени 2 — файл обязан быть в
+    # FAULTABLE, иначе подсадка останется в дереве (класс #225).
+    "tools/trace_explorer.py",
     "tools/hw_binary_audit.py",
     "tools/bitrot_chaos_check.py",
     "tools/pcc_check.py",
@@ -988,6 +991,21 @@ def case_edge_cases():
           "    return x - y;   // u32: при y > x результат уходит в минус -> underflow",
           "    return x;       // ДИВЕРСИЯ: underflow убран")
     return "make edge-cases"
+
+
+def case_trace_check():
+    """Ступень 2 QuixBugs: цель `trace-check` перестаёт ловить расхождение.
+
+    ЛОМАЕМ: в `tools/trace_explorer.py` сравнение значений `if nb != nc:`
+    заменяется на `if False:` — движок больше не видит расхождений и
+    объявляет «нет расхождения» на заведомо багованной функции.
+    Цель `trace-check` ОБЯЗАНА покраснеть: иначе она проверяет не движок,
+    а печатает текст (класс #130/#131/#132).
+    """
+    patch("tools/trace_explorer.py",
+          "            if nb != nc:",
+          "            if False:  # ДИВЕРСИЯ: сравнение отключено")
+    return "make trace-check"
 
 
 def case_audits():
@@ -2434,6 +2452,7 @@ CASES = [
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
     ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
+    ("trace-check",    "Ступень 2: расхождение перестало ловиться", case_trace_check),
     ("audits",         "Аудиты: раннер перестал видеть ядро", case_audits),
     ("sarif-output",   "SARIF: находки выброшены из отчёта", case_sarif_output),
     ("contracts-json", "JSON контрактов: функции выброшены из отчёта", case_contracts_json),

@@ -1,9 +1,72 @@
 === KERN EVIDENCE: quixbugs_full ===
-=== команда: python3 tools/quixbugs_full.py /tmp/QuixBugs-master ===
-=== дата: 2026-10-20T14:48:24Z ===
+=== команда: python3 tools/quixbugs_check.py /tmp/QuixBugs-master (stage1 SMT+LiveReplay -> stage2 AST-guided trace) ===
+=== дата: 2026-10-20T15:59:46Z ===
 
-📊 QuixBugs (БЕЗ внешних моделей):
-  Багов обнаружено (buggy -> F):      31/31 (100.0%)
-  Корректных подтверждено (correct -> T): 24/31 (77.4%)
+task                         verdict     div/eq/unk detali
+bitcount                     DIVERGED    0/0/0/0    [S2 bitcount: {'n': 1} buggy=TIMEOUT correct=ok]
+breadth_first_search         STAGE2-CLEAN            путь без return · S2: 1 функц. без расхождения
+bucketsort                   DIVERGED    0/0/0/0    [S2 bucketsort: {'arr': [0], 'k': 1} buggy=[] correct=[0]]
+depth_first_search           STAGE2-CLEAN 0/0/0/1    depth_first_search:havoc-model depth_first_search:DIV-DISCARDED(нет расхождения на 25 входах) [S2: расхождения нет]
+detect_cycle                 STAGE2-CLEAN            присваивание не в простую переменную · S2: 1 функц. без расхождения
+find_first_in_sorted         DIVERGED    0/0/0/0    [S2 find_first_in_sorted: {'arr': [], 'x': 1} buggy=IndexError: list index out of range correct=ok]
+find_in_sorted               DIVERGED    1/0/0/1    binsearch:havoc-model binsearch:DIV-DISCARDED(не загрузить) find_in_sorted:havoc-model find_in_sorted:DIV[{'arr': [1], 'x': 2} buggy=RecursionError correct=ok]
+flatten                      DIVERGED    0/0/0/0    [S2 flatten: {'arr': [0]} buggy=[<broken-iter>"generator: TypeError: 'int' object is not iterable"] correct=[0]]
+gcd                          DIVERGED    1/0/0/0    gcd:havoc-model gcd:DIV[{'a': 0, 'b': 1} buggy=RecursionError correct=ok]
+get_factors                  DIVERGED    0/0/0/0    [S2 get_factors: {'n': 2} buggy=[] correct=[2]]
+hanoi                        DIVERGED    1/0/0/0    hanoi:DIV[{'height': 1, 'start': 0, 'end': 0} buggy=[(0, 1)] correct=[(0, 0)]]
+is_valid_parenthesization    DIVERGED    0/0/0/0    [S2 is_valid_parenthesization: {'parens': '((()'} buggy=True correct=False]
+kheapsort                    DIVERGED    0/0/0/0    [S2 kheapsort: {'arr': [0], 'k': 1} buggy=[0, 0] correct=[0]]
+knapsack                     DIVERGED    0/0/0/0    [S2 knapsack: {'capacity': 1, 'items': [[3, 4], [1, 2]]} buggy=0 correct=2]
+kth                          DIVERGED    0/0/0/0    [S2 kth: {'arr': [1, 3, 2], 'k': 1} buggy=3 correct=2]
+lcs_length                   DIVERGED    0/0/0/0    [S2 lcs_length: {'s': 'ab', 't': 'ab'} buggy=1 correct=2]
+levenshtein                  DIVERGED    0/0/0/0    [S2 levenshtein: {'source': 'a', 'target': 'a'} buggy=1 correct=0]
+lis                          DIVERGED    0/0/0/0    [S2 lis: {'arr': [1, 2, 0]} buggy=1 correct=2]
+longest_common_subsequence   STAGE2-CLEAN            литерал '' · S2: 1 функц. без расхождения
+max_sublist_sum              DIVERGED    1/0/0/0    max_sublist_sum:DIV[{'arr': [-1, 2]} buggy=1 correct=2]
+mergesort                    DIVERGED    1/0/0/0    mergesort:havoc-model mergesort:DIV[{'arr': [1]} buggy=RecursionError correct=ok]
+minimum_spanning_tree        STAGE2-CLEAN            узел Dict · S2: 1 функц. без расхождения
+next_palindrome              STAGE2-CLEAN            путь без return · S2: 1 функц. без расхождения
+next_permutation             DIVERGED    0/0/0/0    [S2 next_permutation: {'perm': [1, 2]} buggy=None correct=[2, 1]]
+pascal                       DIVERGED    0/0/0/0    [S2 pascal: {'n': 2} buggy=[[1], [1]] correct=[[1], [1, 1]]]
+possible_change              DIVERGED    0/0/0/0    [S2 possible_change: {'coins': [], 'total': 1} buggy=ValueError: not enough values to unpack (expected at least 1, got 0) correct=ok]
+powerset                     DIVERGED    0/0/0/0    [S2 powerset: {'arr': [0]} buggy=[[0]] correct=[[], [0]]]
+quicksort                    DIVERGED    0/0/0/0    [S2 quicksort: {'arr': [-1, 2, -1]} buggy=[-1, 2] correct=[-1, -1, 2]]
+reverse_linked_list          STAGE2-CLEAN            присваивание не в простую переменную · S2: 1 функц. без расхождения
+rpn_eval                     STAGE2-CLEAN 0/0/0/1    op:havoc-model op:DIV-DISCARDED(не загрузить) [S2: расхождения нет]
+shortest_path_length         STAGE2-CLEAN            распаковка нефиксированной длины · S2: 3 функц. без расхождения
+shortest_path_lengths        STAGE2-CLEAN            узел Tuple · S2: 1 функц. без расхождения
+shortest_paths               STAGE2-CLEAN            узел DictComp · S2: 1 функц. без расхождения
+shunting_yard                DIVERGED    0/0/0/0    [S2 shunting_yard: {'tokens': ['+']} buggy=[] correct=['+']]
+sieve                        DIVERGED    1/0/0/0    sieve:havoc-model sieve:DIV[{'max': 2} buggy=[] correct=[2]]
+sqrt                         DIVERGED    0/0/0/0    [S2 sqrt: {'x': 1.0, 'epsilon': 0.5} buggy=0.5 correct=1.025]
+subsequences                 DIVERGED    0/0/0/0    [S2 subsequences: {'a': 1, 'b': 1, 'k': 0} buggy=[] correct=[[]]]
+to_base                      DIVERGED    0/0/0/0    [S2 to_base: {'num': 2, 'b': 2} buggy='01' correct='10']
+topological_ordering         STAGE2-CLEAN            узел ListComp · S2: 1 функц. без расхождения
+wrap                         DIVERGED    0/0/0/0    [S2 wrap: {'text': '', 'cols': 1} buggy=[] correct=['']]
+
+=== SUMMARY ===
+  DIVERGED       28
+  STAGE2-CLEAN   12
+
+  Ступень 1 (SMT + Live Replay): DIVERGED 6
+  Ступень 2 (AST-guided trace):  DIVERGED 22
+  Итого живьём подтверждено:     28 / 40
+
+=== SKIP REASONS (by function) ===
+    5  распаковка нефиксированной длины
+    4  путь без return
+    4  узел List
+    3  литерал ''
+    3  узел Dict
+    2  нелинейное умножение
+    2  присваивание не в простую переменную
+    2  срез списка
+    2  узел ListComp
+    2  узел Tuple
+    1  бинарный оператор (только + - * / // %)
+    1  for по не-range
+    1  распаковка не в имена
+    1  for с распаковкой цели
+    1  узел DictComp
 
 RC=0
