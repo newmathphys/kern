@@ -9342,3 +9342,27 @@ QuixBugs — это **алгоритмы над списками и циклам
 `make contracts` — 11 доказано / 4 нарушено / **0 ложных тревог**;
 `make edge-cases` — все 9 крайних случаев; `canfail --only contracts,
 xray-check,edge-cases` (по отдельности) — **3/3 не-вакуумных, 0 вакуумных**.
+
+---
+
+## §130. ДЕФЕКТ #209: СПИСОЧНЫЙ ДОМЕН LIVE REPLAY -> QuixBugs 1 -> 3
+
+**Симптом:** `mergesort` и `find_in_sorted` доходили до решателя и получали
+SAT-кандидата, но отбрасывались (`DISCARDED`): `_confirm()` перебирал только
+`int` (`0,1,2,4,8`), поэтому `mergesort(0)` падал
+`TypeError: object of type 'int' has no len()` в ОБЕИХ версиях.
+
+**Исправление:** домен параметров-последовательностей
+(`arr|xs|lst|list|seq|items|nums|data|values`) + фолбэк по `TypeError`;
+`copy.deepcopy` на каждый вызов (функция может мутировать аргумент).
+**Звучность не менялась:** `DIVERGED` заявляется только после живого вызова.
+
+**ИЗМЕРЕНО:** DIVERGED **1 -> 3**, DISCARDED 4 -> 2, SKIP 35 (без изменений).
+Новые баги: `mergesort(arr=[1])` -> `RecursionError`; `find_in_sorted(arr=[1], x=2)`
+-> `RecursionError`; `gcd(a=0, b=1)` -> `RecursionError` (все — реальное
+исполнение, `[RUNTIME CONFIRMED]`).
+
+**ОСТАЛОСЬ (честно):** 35 SKIP держат `List/Subscript/for по не-range/Dict/`
+распаковка — нужен `QF_AX` (`select`/`store`) в `parse_file`; аксиома Евклида
+`div/mod` в `proof_check.zig` НЕ сделана (`test_even`-подобный контракт даёт
+`trusted: 6`).

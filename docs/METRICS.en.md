@@ -2107,3 +2107,22 @@ no obligations N`. 14 translation sites narrowed from
 no obligations 0; a file with one obligation-free function -> SMT-verified 1,
 no obligations 1. `make contracts` 11 proven / 4 refuted / 0 false alarms;
 `canfail --only contracts|xray-check|edge-cases` -> 3/3 non-vacuous, 0 vacuous.
+
+---
+
+### 56. Defect #209: list domain in Live Replay -> QuixBugs 1 -> 3
+
+`mergesort` and `find_in_sorted` reached the solver and produced SAT candidates,
+but were discarded: `_confirm()` enumerated only ints (`0,1,2,4,8`), so
+`mergesort(0)` raised `TypeError: object of type 'int' has no len()` in BOTH
+versions. Added a sequence domain (`arr|xs|lst|list|seq|items|nums|data|values`)
+plus a `TypeError` fallback and `copy.deepcopy` per call. Soundness unchanged:
+`DIVERGED` is declared only after a live call of both versions.
+
+**Measured:** DIVERGED 1 -> 3, DISCARDED 4 -> 2, SKIP 35 (unchanged).
+New bugs: `mergesort([1])`, `find_in_sorted([1], 2)`, `gcd(0, 1)` — all
+`RecursionError` vs correct behaviour.
+
+**Still open:** 35 SKIP blocked by `List/Subscript/for/Dict/unpacking` (needs
+`QF_AX` in `parse_file`); Euclid axiom for `div/mod` in `proof_check.zig` NOT
+implemented (reproduction gives `trusted: 6`).

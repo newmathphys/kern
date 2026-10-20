@@ -17,6 +17,7 @@
 не верифицировал.
 """
 import ast
+import copy
 import collections
 import importlib.util
 import itertools
@@ -87,6 +88,12 @@ def _alarm(_sig, _frm):
     raise _Timeout()
 
 
+# ДЕФЕКТ #209: списочный домен Live Replay. Имена — эвристика «это
+# последовательность», а не тип: в QuixBugs `mergesort(arr)` / `find_in_sorted(arr, x)`.
+_LIST_PARAM = re.compile(r"^(arr\d*|xs|lst|list|seq|items|nums|data|values)$")
+_LIST_DOMAIN: tuple = ([], [1], [0, 1], [1, 0], [1, 2, 3], [2, 1], [-1, -2])
+
+
 def _call(fn, kwargs: dict):
     """Живой вызов: (ok, value_or_error). Таймаут 2 с, лимит рекурсии 300."""
     old = signal.signal(signal.SIGALRM, _alarm)
@@ -129,30 +136,66 @@ def _confirm(buggy: Path, correct: Path, fn: str, params: list[str],
     быть неполной (havoc/развёртка), поэтому недостающие аргументы перебираются
     в малом домене — но подтверждением служит только живой вызов, не модель.
     Иначе — `DISCARDED` (0 ложных обвинений, дефект #206).
+
+    ДЕФЕКТ #209: списочные задачи QuixBugs (`mergesort`, `find_in_sorted`)
+    доходили до решателя и получали SAT-кандидата, но здесь отбрасывались:
+    домен состоял ТОЛЬКО из `int` (`0,1,2,4,8`), поэтому `mergesort(0)` падал
+    `TypeError: object of type 'int' has no len()` в ОБЕИХ версиях — расхождения
+    «нет». Добавлен списочный домен для параметров-последовательностей и
+    фолбэк при TypeError. Звучность не меняется: подтверждение по-прежнему
+    живой вызов обеих версий.
     """
     fb = _load_fn(buggy, fn)
     fc = _load_fn(correct, fn)
     if fb is None or fc is None:
         return False, "не загрузить"
-    cand = [0, 1, 2, 4, 8]
-    missing = [p for p in params if p not in model]
-    if len(missing) > 2:
-        return False, "модель не покрывает аргументы"
-    tries = 0
-    for combo in itertools.product(cand, repeat=len(missing)):
-        if tries >= 40:
-            break
-        tries += 1
-        args = dict(model)
-        args.update(dict(zip(missing, combo)))
+    if len(params) > 3:
+        return False, "слишком много аргументов"
+
+    def _dom(p: str) -> list:
+        vals: list = []
+        if p in model:
+            vals.append(model[p])
+        if _LIST_PARAM.match(p):
+            vals.extend(_LIST_DOMAIN)
+        vals.extend([0, 1, 2, 4, 8])
+        return vals
+
+    def _probe(args: dict) -> tuple[bool, str] | None:
+        """None — нет расхождения на этом входе, иначе (True, описание)."""
         ok_b, vb = _call(fb, args)
         ok_c, vc = _call(fc, args)
         if ok_b and ok_c:
             if vb != vc:
                 return True, f"{args} buggy={vb!r} correct={vc!r}"
-        elif ok_b != ok_c:
+            return None
+        if ok_b != ok_c:
             return True, (f"{args} buggy={'ok' if ok_b else vb} "
                           f"correct={'ok' if ok_c else vc}")
+        return None
+
+    tries = 0
+    type_errors = 0
+    for combo in itertools.product(*[_dom(p) for p in params]):
+        if tries >= 60:
+            break
+        tries += 1
+        args = {p: copy.deepcopy(v) for p, v in zip(params, combo)}
+        hit = _probe(args)
+        if hit:
+            return hit
+        # обе версии упали одинаково: считаем, насколько часто это TypeError
+        _okb, vb2 = _call(fb, args)
+        if isinstance(vb2, str) and vb2.startswith("TypeError"):
+            type_errors += 1
+    # ФОЛБЭК #209: аргументы были целыми, а функция списочная -> перебираем
+    # только малые списки (для 1–2 параметров это <= 49 входов).
+    if type_errors and len(params) <= 2:
+        for combo in itertools.product(_LIST_DOMAIN, repeat=len(params)):
+            args = {p: copy.deepcopy(v) for p, v in zip(params, combo)}
+            hit = _probe(args)
+            if hit:
+                return hit
     return False, f"нет расхождения на {tries} входах"
 
 
