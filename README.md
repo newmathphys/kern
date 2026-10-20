@@ -25,6 +25,34 @@ Written in **Zig 0.17**, verified in **Lean 4**, powered by **Z3**. Exposes a
 
 ---
 
+## What the agent says — and what KERN proves
+
+`make ai-demo` drives one realistic agent session end to end. Fixtures live in
+`examples/ai_vs_kern/`; every line below is verbatim tool output.
+
+| The agent's report | What KERN finds in the same code |
+|:--|:--|
+| `2 passed in 0.01s` | `[CHEAT DETECTED: swallowed assert (except: pass)]` line 28 → `R=-2.0` |
+| "withdrawals cannot increase the balance" | `[FAIL] transfer_with_fee: КОНТРАКТ НАРУШЕН` · `[КОНТРПРИМЕР] result = -1, amount = 1, balance = 0` · `[RUNTIME CONFIRMED]` |
+| "the commission is fair" | `[FAIL] fee_threshold: no_arbitrage REFUTED` · `[КОНТРПРИМЕР] a1 = 100, a2 = 1` |
+| "same behaviour, just cleaner" | `[DIVERGED] charge` · `[КОНТРПРИМЕР] res_old = -1, balance = -1, amount = 0, res_new = 0` |
+| "a safe helper tool" | `[MCP] PROMPT INJECTION in "sum": «ignore previous»` · `INVISIBLE UNICODE U+200B` |
+| "transfer_funds(900)" | `[FAIL] Firewall: POLICY CONFLICT -> B (1,1), e=0, HTTP 409 Conflict` |
+
+After the fix KERN does not take anyone's word for it — it re-checks the proof in Zig:
+
+```text
+[PASS] transfer_with_fee: ДОКАЗАНО
+       [PROOF VERIFIED] steps: 50 | premises bound: 3/3 | mp: 17 |
+                        rewrite (linear): 18 | farkas: 2 | trusted: 0 | holes: 0
+[REWARD] R=+1.0 [VERIFIED REWARD, Belnap T, e=1]
+```
+
+`make ai-demo` fails (rc=1) if any of those lines disappears, so the demo cannot
+drift into a claim that the tools no longer back.
+
+---
+
 ## The problem
 
 AI agents now write code faster than humans can review it. Under pressure to get a
@@ -42,8 +70,8 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 127 CHECK targets; 127 proven non-vacuous
-   (143 fault-injection cases).
+   fault and requires the check to go red. 128 CHECK targets; 128 proven non-vacuous
+   (144 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
@@ -53,7 +81,8 @@ KERN attacks the gap from two sides:
 ## See it in 15 seconds
 
 ```bash
-make run-example
+make run-example      # one hallucinated fix, caught at the Truth Gate
+make ai-demo          # the full agent session: cheat, hole, arbitrage, refactor, MCP, firewall
 ```
 
 The example (`examples/toy_ai_hallucination/`) simulates an agent that was asked to
@@ -512,7 +541,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **100.0 %** (1345 / 1345 killed) over **21 files / 1345 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1345 sites, 23 min, run **locally**): **1345 / 1345 (100.0%)**, zero survivors — the full run is **committed** as `docs/evidence/mutate_full.log` (1 408 lines, `RC=0`); the canonical gate (40/40) and the per-module `--full-file` set (244/244) are committed next to it. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **127 / 127 CHECK targets (100 %)** have a proven-can-fail case (**143 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 108 literal anchors verified in ~1 s) |
+| Can-fail harness | **128 / 128 CHECK targets (100 %)** have a proven-can-fail case (**144 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all 108 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -540,7 +569,7 @@ arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still
 
 | Benchmark | Result | Needs a model? |
 |:--|:--|:--|
-| **QuixBugs** (two-stage: SMT `--diff-equiv`, then AST-guided trace) | **28 / 40** DIVERGED (`[RUNTIME CONFIRMED]`), 12 no divergence found — see `audits/QUIXBUGS_BASELINE.md` | no |
+| **QuixBugs** (two-stage: SMT `--diff-equiv`, then AST-guided trace) | **32 / 40** DIVERGED (`[RUNTIME CONFIRMED]`), 8 no divergence found — see `audits/QUIXBUGS_BASELINE.md` | no |
 | **Hacker's Delight / Alive2-style** | **8 / 8** (6 proved, 2 counterexamples) | no |
 | **SWE-bench Lite** (Docker harness) | **3 / 3 resolved**, 0 infra failures | no |
 | **Refactory** (student solutions) | see note below - **not** a core metric | no |
@@ -555,7 +584,7 @@ arch-sensitive ones: alignment, endianness, Merkle/BLAKE3, proof checking) still
 > That validates the **dataset wiring only** — "a buggy program fails its own
 > tests" is the definition of the dataset, not a detection result. It used to sit
 > in the table above as `31 / 31`, which read as a KERN achievement and has been
-> removed. KERN's own QuixBugs result is the row above (`28 / 40`, each
+> removed. KERN's own QuixBugs result is the row above (`32 / 40`, each
 > hit confirmed by replaying the real function).
 
 > **On the Refactory row (defect #77, found 2026-10-16).** Two Python-only

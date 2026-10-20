@@ -16,7 +16,7 @@
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **401 / 401** (without `z3` in `PATH` — 393 passed + 8 skipped),
-> KERN-Next **53 / 53**, can-fail **127 / 127 CHECK** (143 non-vacuous cases, 0 errors),
+> KERN-Next **53 / 53**, can-fail **128 / 128 CHECK** (144 non-vacuous cases, 0 errors),
 > registry **125 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 137 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
@@ -261,7 +261,7 @@ Claims that **did not hold** and were fixed in the documentation:
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·
-SolverPool 128/4 · Lean 4: 8 files / 137 theorems / 0 sorry · QuixBugs 28/40 ·
+SolverPool 128/4 · Lean 4: 8 files / 137 theorems / 0 sorry · QuixBugs 32/40 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · concolic 4 calls ·
 DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 

@@ -684,7 +684,7 @@
 | Бенчмарк | Команда | Результат | Модель нужна? |
 |:--|:--|:--|:--:|
 | **SWE-bench Lite** (Принстон, Docker) | `swebench.harness.run_evaluation` | **3/3 resolved**, 0 infra-failures | нет |
-| **QuixBugs** (40 задач, две ступени) | `python3 tools/quixbugs_check.py /tmp/QuixBugs-master` | **28/40** расхождений живым вызовом | нет |
+| **QuixBugs** (40 задач, две ступени) | `python3 tools/quixbugs_check.py /tmp/QuixBugs-master` | **32/40** расхождений живым вызовом | нет |
 | **Refactory** (дифференциальный) | `python3 tools/refactory_diff.py` | 1438/1782 (80.7%) | нет |
 | **Hacker's Delight / Alive2** | `zig run src/smt_bench.zig` | **8/8** (6 доказано, 2 контрпримера) | нет |
 | **CHC / Horn (стиль SV-COMP)** | `zig run src/chc_bench.zig` | **11/11** совпало с ожиданием | нет |

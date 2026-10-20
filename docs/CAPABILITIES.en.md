@@ -10,13 +10,13 @@
 
 ## 1. Finding logic bugs (QuixBugs)
 
-**Claim:** "KERN detects **28/40** QuixBugs bugs by **live execution** — not by proof; the dataset's own tests are not a KERN metric (#231)."
+**Claim:** "KERN detects **32/40** QuixBugs bugs by **live execution** — not by proof; the dataset's own tests are not a KERN metric (#231)."
 
 **Status: ⚠️ the RESULT is right, the METHOD is not.**
 
 | | |
 |:--|:--|
-| ✅ Result | **28/40** divergences, each confirmed by replaying the real function (`tools/quixbugs_check.py`) |
+| ✅ Result | **32/40** divergences, each confirmed by replaying the real function (`tools/quixbugs_check.py`) |
 | ❌ Method | this is **NOT** a symbolic proof |
 
 **How it actually works:** the bugs are caught by **really executing** the official
@@ -249,7 +249,7 @@ reproduces it. The difference between "written" and "proven" is the subject of t
 
 | # | Capability | Status |
 |:--:|:--|:--|
-| 1 | Bug finding (QuixBugs) | ⚠️ **28/40**, but by **execution**, not by proof (#231) |
+| 1 | Bug finding (QuixBugs) | ⚠️ **32/40**, but by **execution**, not by proof (#231) |
 | 2 | Equivalence of optimisations | ✅ 8/8 symbolically |
 | 3 | Gateway for LLMs | ⚠️ 100 % precision, but pass@1 does not grow |
 | 4 | UNSAT Core | ✅ with a minimality check |

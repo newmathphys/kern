@@ -39,6 +39,7 @@ from pathlib import Path
 
 MAX_COMBOS = 250          # потолок перебора на функцию
 CALL_TIMEOUT = 1          # сек на один живой вызов (SIGALRM)
+TIMEOUT_CONFIRM = 5       # сек на перепроверку таймаута БЕЗ трейсера
 REC_LIMIT = 250
 TASK_BUDGET = 6.0         # сек на одну задачу (защита от вечного перебора)
 
@@ -49,6 +50,154 @@ STR_METHODS = {"split", "join", "lower", "upper", "strip", "lstrip", "rstrip",
                "encode", "decode", "isdigit", "isalpha", "count", "zfill",
                "rfind", "rindex", "splitlines", "ljust", "rjust", "center",
                "partition", "rpartition", "swapcase", "capitalize", "title"}
+
+# Поля узла графа/списка (`node.py` QuixBugs и родственные задачи).
+NODE_ATTRS = {"value", "successor", "successors", "predecessors",
+              "incoming_nodes", "outgoing_nodes", "weight", "dist"}
+
+# Некоммутативные RPN-выражения: на `+`/`*` перепутанные операнды не видны,
+# на `-`/`/` — видны сразу (Defect: rpn_eval `op(a,b)` vs `op(b,a)`).
+_RPN_DOMAIN = (
+    [4.0, 2.0, "-"], [6.0, 2.0, "/"], [2.0, 4.0, "-"], [2.0, 6.0, "/"],
+    [3.0, 5.0, "+", 2.0, "/"], [4.0, 2.0, "-", 1.0, "*"],
+    [3.0, 5.0, "+"], [4.0, 2.0, "*"],
+)
+
+# `AttributeError: '<type>' object has no attribute ...` для ВСТРОЕННОГО типа
+# означает «подали аргумент не того типа». Для `NoneType` — это реальный баг
+# (функция упала на пустом списке), поэтому NoneType здесь НЕ перечислен.
+_BUILTIN_TYPES = {"int", "str", "float", "bool", "list", "tuple", "dict",
+                  "set", "complex", "bytes"}
+
+# Роли параметров, для которых аргументы обязаны быть СВЯЗНЫМИ (один граф).
+_GRAPH_ROLES = {"node", "node_list", "weight_map", "node_id"}
+
+
+_MISSING = object()
+
+# Имена параметров для ролей графовых задач (QuixBugs: node, startnode, nodes,
+# weight_by_edge, length_by_edge, n, source, goalnode).
+_HEAD_NAMES = {"node", "head", "startnode", "start_node", "source", "src", "n1"}
+_GOAL_NAMES = {"goalnode", "goal_node", "goal", "endnode", "end_node", "end",
+               "target", "wanted", "wanted_node", "destination"}
+_LIST_NAMES = {"nodes", "node_list", "graph", "vertices", "node_set"}
+_MAP_NAMES = {"weight_by_edge", "length_by_edge", "weights", "edges",
+              "dist_by_edge", "weight_by_edges"}
+
+# Стековые калькуляторы: на `+`/`*` перепутанные операнды НЕ видны,
+# на `-`/`/` — видны сразу. Токены обязаны быть float (иначе `isinstance`).
+_RPN_NAMES = {"tokens", "rpn", "expr", "expression", "postfix"}
+
+
+class _LiteNode:
+    """Узел с полями как в QuixBugs `node.py` (утиная типизация).
+
+    Свой класс, а не импорт их `node.py`: в QuixBugs `Node.successor` объявлен
+    И как поле, И как метод — импорт тянет это противоречие в наш прогон.
+    """
+
+    __slots__ = ("value", "successor", "successors", "predecessors",
+                 "incoming_nodes", "outgoing_nodes")
+
+    def __init__(self, value=None):
+        self.value = value
+        self.successor = None
+        self.successors = []
+        self.predecessors = []
+        self.incoming_nodes = []
+        self.outgoing_nodes = []
+
+    def __repr__(self):
+        return f"Node({self.value!r})"
+
+
+def _chain(values: list) -> list:
+    """Ациклический односвязный список: n1 -> n2 -> ... -> None."""
+    nodes = [_LiteNode(v) for v in values]
+    for a, b in zip(nodes, nodes[1:]):
+        a.successor = b
+    return nodes
+
+
+def _cycle2() -> list:
+    a, b = _LiteNode(1), _LiteNode(2)
+    a.successor, b.successor = b, a
+    return [a, b]
+
+
+def _weighted() -> tuple:
+    """Треугольник с весами: n1->n2 (1), n2->n3 (2), n1->n3 (5)."""
+    n1, n2, n3 = _LiteNode("n1"), _LiteNode("n2"), _LiteNode("n3")
+    w = {(n1, n2): 1, (n2, n3): 2, (n1, n3): 5}
+    for (u, v) in w:
+        u.successors = list(u.successors) + [v]
+        u.outgoing_nodes = list(u.outgoing_nodes) + [v]
+        v.predecessors = list(v.predecessors) + [u]
+        v.incoming_nodes = list(v.incoming_nodes) + [u]
+    return [n1, n2, n3], w
+
+
+def _graph_scenarios() -> list:
+    """Малые СВЯЗНЫЕ структуры: аргументы графовой задачи берутся из ОДНОГО графа.
+
+    Зачем: `itertools.product` независимых доменов подаёт `startnode` из графа A,
+    а `goalnode` из графа B — функция честно не находит пути, и расхождение
+    (если оно есть) остаётся невидимым. Узел обязан быть из того же графа.
+    """
+    out = []
+    for vals in ([1, 2, 3], [1], [1, 2]):
+        nodes = _chain(vals)
+        w = {(a, b): 1 for a, b in zip(nodes, nodes[1:])}
+        out.append({"node": nodes[0], "goal": nodes[-1], "nodes": nodes,
+                    "weight_map": w})
+    out.append({"node": _cycle2()[0], "goal": None, "nodes": _cycle2(),
+                "weight_map": {}})
+    tri, w = _weighted()
+    out.append({"node": tri[0], "goal": tri[-1], "nodes": tri,
+                "weight_map": w})
+    out.append({"node": tri[-1], "goal": tri[0], "nodes": tri,
+                "weight_map": w})
+    return out
+
+
+def _scenario_value(scen: dict, name: str, kinds: set):
+    """Значение параметра из сценария графа (или _MISSING, если роль не графовая)."""
+    if name in _MAP_NAMES or "weight_map" in kinds:
+        return scen["weight_map"]
+    if name in _LIST_NAMES or "node_list" in kinds:
+        return scen["nodes"]
+    if name in _GOAL_NAMES:
+        return scen["goal"] if scen["goal"] is not None else _MISSING
+    if name in _HEAD_NAMES or "node" in kinds:
+        return scen["node"]
+    return _MISSING
+
+
+def _sorted_combos(combos: list) -> list:
+    """Сначала комбинации БЕЗ отрицательных целых (docstring'и требуют positive)."""
+    return sorted(combos, key=lambda c: sum(
+        1 for v in c if isinstance(v, int) and not isinstance(v, bool) and v < 0))
+
+
+def _combos(params: list, doms: list, graph_params: list, tb, tc) -> list:
+    """Комбинации входов; графовые роли берутся из ОДНОГО сценария."""
+    if not graph_params:
+        return _sorted_combos(list(itertools.product(*doms)))
+    out = []
+    for scen in _graph_scenarios():
+        vals, ok = [], True
+        for prm, dom in zip(params, doms):
+            if prm in graph_params:
+                v = _scenario_value(scen, prm, _kinds(tb, prm) | _kinds(tc, prm))
+                if v is _MISSING:
+                    ok = False
+                    break
+                vals.append([v])
+            else:
+                vals.append(dom)
+        if ok:
+            out.extend(itertools.product(*vals))
+    return _sorted_combos(out)
 
 
 class _Timeout(Exception):
@@ -107,6 +256,9 @@ def _kinds(tree: ast.AST, name: str) -> set:
         elif isinstance(node, ast.Subscript):
             if isinstance(node.value, ast.Name) and node.value.id == name:
                 kinds.add("seq")
+        elif isinstance(node, ast.Attribute) and node.attr in NODE_ATTRS and \
+                isinstance(node.value, ast.Name) and node.value.id == name:
+            kinds.add("node")
         elif isinstance(node, ast.Compare):
             sides = [node.left, *node.comparators]
             if any(isinstance(s, ast.Name) and s.id == name for s in sides) and \
@@ -118,6 +270,9 @@ def _kinds(tree: ast.AST, name: str) -> set:
             if isinstance(f, ast.Attribute) and f.attr in STR_METHODS and \
                     isinstance(f.value, ast.Name) and f.value.id == name:
                 kinds.add("str")
+            if isinstance(f, ast.Attribute) and f.attr == "items" and \
+                    isinstance(f.value, ast.Name) and f.value.id == name:
+                kinds.add("weight_map")
             if isinstance(f, ast.Name) and f.id == "len" and node.args and \
                     isinstance(node.args[0], ast.Name) and node.args[0].id == name:
                 kinds.add("seq")
@@ -140,6 +295,18 @@ def _kinds(tree: ast.AST, name: str) -> set:
                 and node.test.id == name:
             kinds.add("truthy")
     return kinds
+
+
+def _has_node_usage(tree: ast.AST) -> bool:
+    """Есть ли в модуле обращение к полям узла (`node.successors`) и т.п.
+
+    Графовые задачи QuixBugs НЕ импортируют `node` — они утино-типизированы,
+    поэтому единственный надёжный сигнал — фактическое обращение к `NODE_ATTRS`.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in NODE_ATTRS:
+            return True
+    return False
 
 
 _INT_DOMAIN = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 16, 17,
@@ -230,6 +397,11 @@ def domain_for(tree: ast.AST, name: str, declared: str | None = None) -> list:
     # Положительные — первыми, затем 0, затем отрицательные: docstring'и
     # чаще требуют positive/nonnegative (Defect #200).
     ints.sort(key=lambda v: (0 if v > 0 else (1 if v == 0 else 2), abs(v)))
+    if name in _RPN_NAMES:
+        # RPN-токены ПЕРВЫМИ: только float-токены дают реальное расхождение
+        # (`isinstance(token, float)`), и именно на `-`/`/` виден перепутанный
+        # порядок операндов (rpn_eval).
+        dom.extend(_RPN_DOMAIN)
     if declared == "str":
         dom.extend(_STR_DOMAIN)
     elif declared == "seq":
@@ -293,6 +465,32 @@ def call(fn, kwargs: dict, tracer=None):
     finally:
         signal.alarm(0)
         sys.settrace(prev)
+        signal.signal(signal.SIGALRM, old)
+        sys.setrecursionlimit(old_limit)
+
+
+def _confirm_timeout(fn, kwargs: dict) -> bool:
+    """Реальный ли это незавершающийся цикл, а не медленная функция.
+
+    `CALL_TIMEOUT` = 1 с, и под `sys.settrace` функция может просто не успеть
+    (трейсер замедляет в разы). Поэтому таймаут перепроверяется БЕЗ трейсера
+    с бОльшим лимитом: только если и за `TIMEOUT_CONFIRM` с не завершилась —
+    это бесконечный цикл (QuixBugs `bitcount: n ^= n - 1` при `n = 1`).
+    Иначе расхождение «упало vs ok» было бы ложным обвинением (класс #200).
+    """
+    old = signal.signal(signal.SIGALRM, _alarm)
+    old_limit = sys.getrecursionlimit()
+    signal.alarm(int(TIMEOUT_CONFIRM))
+    sys.setrecursionlimit(REC_LIMIT)
+    try:
+        fn(**kwargs)
+        return False                        # завершилась -> не бесконечный цикл
+    except _Timeout:
+        return True
+    except Exception:                       # noqa: BLE001
+        return False                        # другая ошибка -> не про таймаут
+    finally:
+        signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
         sys.setrecursionlimit(old_limit)
 
@@ -382,30 +580,50 @@ def _uniq(vals: list) -> list:
     return out
 
 
-def _norm(v, depth: int = 0):
+def _norm(v, depth: int = 0, seen: frozenset = frozenset()):
     """Рекурсивно нормализовать результат для сравнения.
 
-    ДЕФЕКТ (найден этим замером): `flatten`/`kheapsort` возвращают ГЕНЕРАТОР,
-    причём `flatten` — генератор ВЛОЖЕННЫХ генераторов. Два разных объекта
-    никогда не равны, поэтому наивное сравнение объявляло «расхождение» на
-    любом входе (адрес в памяти). Материализуем рекурсивно.
+    ДЕФЕКТ #235: `flatten`/`kheapsort` возвращают ГЕНЕРАТОР — два разных объекта
+    никогда не равны, и наивное сравнение объявляло «расхождение» на адресе памяти.
+
+    ДЕФЕКТ #236: `reverse_linked_list`/`detect_cycle`/графовые задачи возвращают
+    УЗЕЛ (`Node`). Старая ветка `("<obj>", type(v).__name__)` давала одинаковое
+    значение для ЛЮБЫХ двух узлов -> 12 задач «STAGE2-CLEAN» были слепы, а не чисты.
+    Теперь узел раскрывается по полям `NODE_ATTRS` со защитой от циклов.
     """
-    if depth > 4:
+    if depth > 6:
         return ("<deep>", type(v).__name__)
     if isinstance(v, (str, bytes, int, float, bool, type(None))):
         return v
     if isinstance(v, dict):
-        return ("<dict>", sorted((repr(k), _norm(x, depth + 1))
-                                 for k, x in v.items()))
-    if isinstance(v, (list, tuple, set)):
-        return ("<seq>", [_norm(x, depth + 1) for x in v])
+        items = [(_norm(k, depth + 1, seen), _norm(x, depth + 1, seen))
+                 for k, x in v.items()]
+        return ("<dict>", sorted(items, key=repr))
+    if isinstance(v, (list, tuple, set, frozenset)):
+        if id(v) in seen:
+            return ("<cycle>",)
+        return ("<seq>", [_norm(x, depth + 1, seen | {id(v)}) for x in v])
+    if any(hasattr(v, a) for a in NODE_ATTRS):
+        if id(v) in seen:
+            return ("<cycle>",)
+        deeper = seen | {id(v)}
+        fields = []
+        for a in ("value", "weight", "dist"):
+            if hasattr(v, a):
+                fields.append((a, _norm(getattr(v, a), depth + 1, deeper)))
+        for a in ("successor", "successors", "predecessors",
+                  "incoming_nodes", "outgoing_nodes"):
+            if hasattr(v, a):
+                x = getattr(v, a)
+                if callable(x):
+                    continue                      # метод, а не данные
+                fields.append((a, _norm(x, depth + 1, deeper)))
+        return ("<node>", sorted(fields, key=lambda kv: kv[0]))
     if hasattr(v, "__iter__"):
         try:
-            return ("<iter>", [_norm(x, depth + 1) for x in v])
+            return ("<iter>", [_norm(x, depth + 1, seen) for x in v])
         except Exception as e:                   # noqa: BLE001
-            # Материализовать НЕЛЬЗЯ (например, buggy-flatten отдаёт
-            # генератор, который падает при первом же next). Это само по себе
-            # расхождение — печатаем причину, а не безымянный <obj>.
+            # Материализовать НЕЛЬЗЯ (buggy-flatten падает при первом next).
             return ("<broken-iter>", f"{type(v).__name__}: {type(e).__name__}: {e}"[:60])
     return ("<obj>", type(v).__name__)
 
@@ -419,6 +637,8 @@ def _render(v) -> str:
     """Человекочитаемая печать нормализованного значения."""
     if isinstance(v, tuple) and len(v) == 2 and isinstance(v[0], str) and v[0].startswith("<"):
         tag, payload = v
+        if tag == "<node>":
+            return "Node{" + ", ".join(f"{k}={_render(x)}" for k, x in payload) + "}"
         if isinstance(payload, list):
             return "[" + ", ".join(_render(x) for x in payload) + "]"
         return f"{tag}{payload!r}"
@@ -468,6 +688,23 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
     combos.sort(key=lambda c: sum(1 for v in c
                                   if isinstance(v, int) and not isinstance(v, bool)
                                   and v < 0))
+    # ДЕФЕКТ (эта итерация): `_graph_scenarios`/`_combos` были написаны, но
+    # `explore` их НЕ вызывал — графы оставались мёртвым кодом, а аргументы
+    # `(startnode, goalnode)` подавались из РАЗНЫХ графов (путь не находится).
+    # Графовый режим включается только по сигналу: обращение к полям узла или
+    # роль-имя (`nodes`, `weight_by_edge`). Для `levenshtein(source, target)`
+    # сигнала нет, поэтому строковые задачи режим не подхватывают.
+    node_usage = _has_node_usage(tb) or _has_node_usage(tc)
+    graph_signal = node_usage or any(p in _LIST_NAMES or p in _MAP_NAMES
+                                     for p in params)
+    graph_params = []
+    if graph_signal:
+        graph_params = [p for p in params
+                        if p in _HEAD_NAMES or p in _GOAL_NAMES
+                        or p in _LIST_NAMES or p in _MAP_NAMES
+                        or "node" in (_kinds(tb, p) | _kinds(tc, p))]
+    if graph_params:
+        combos = _combos(params, doms, graph_params, tb, tc)
     # Предусловие из docstring: свидетельство вне домена не считается
     # доказательством (Defect #200). Неразобранный текст не отсеивает.
     pre = precondition_of(tb) or precondition_of(tc)
@@ -495,9 +732,19 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
             err = (vb if not ok_b else vc)
             if isinstance(err, str) and err.startswith(_TYPE_MISMATCH):
                 continue        # неверный тип аргумента — не баг в коде
+            if err == "TIMEOUT":
+                # Таймаут под трейсером = возможно просто медленно. Обвиняем
+                # только если функция не завершается и БЕЗ трейсера (класс #200).
+                slow_fn = fb if not ok_b else fc   # перепроверяем УПАВШУЮ сторону
+                if not _confirm_timeout(slow_fn,
+                                        {p: copy.deepcopy(v)
+                                         for p, v in zip(params, combo)}):
+                    continue
+                err = "TIMEOUT (бесконечный цикл: не завершилась и за " \
+                      f"{TIMEOUT_CONFIRM} с без трейсера)"
             cand = {"fn": fn_name, "diverged": True, "tries": tries,
-                    "note": (f"{args} buggy={'ok' if ok_b else vb} "
-                             f"correct={'ok' if ok_c else vc}"),
+                    "note": (f"{args} buggy={err if not ok_b else 'ok'} "
+                             f"correct={err if not ok_c else 'ok'}"),
                     "lines": f"{len(tracer.lines)}/{body_lines}"}
             if crash_hit is None:
                 crash_hit = cand

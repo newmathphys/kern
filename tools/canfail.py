@@ -1008,6 +1008,19 @@ def case_trace_check():
     return "make trace-check"
 
 
+def case_ai_demo():
+    """Стенд «KERN против ИИ»: цель `ai-demo` перестаёт видеть чит.
+
+    ЛОМАЕМ: в `tools/kern_contracts.py` правило «проглоченное исключение»
+    (`except: pass`) выключается. Стенд обязан покраснеть: если он всё равно
+    печатает «обман пойман», то он проверяет не инструмент, а свой текст
+    (класс #130/#131/#132).
+    """
+    patch("tools/kern_contracts.py",
+          "            if len(h.body) == 1 and isinstance(h.body[0], ast.Pass):",
+          "            if False:  # ДИВЕРСИЯ: детектор проглоченных исключений отключён")
+    return "make ai-demo"
+
 def case_audits():
     """Золотой корпус аудитов: цель `audits` перестаёт видеть ядро.
 
@@ -2453,6 +2466,7 @@ CASES = [
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
     ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
     ("trace-check",    "Ступень 2: расхождение перестало ловиться", case_trace_check),
+    ("ai-demo",        "стенд «ИИ против KERN»: чит перестал ловиться", case_ai_demo),
     ("audits",         "Аудиты: раннер перестал видеть ядро", case_audits),
     ("sarif-output",   "SARIF: находки выброшены из отчёта", case_sarif_output),
     ("contracts-json", "JSON контрактов: функции выброшены из отчёта", case_contracts_json),

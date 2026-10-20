@@ -98,7 +98,7 @@ build of Z3 does not emit that format.
 
 | Benchmark | Result |
 |:--|:--|
-| QuixBugs (real execution) | **28/40 (70 %)** |
+| QuixBugs (real execution) | **32/40 (80 %)** |
 | CHC loop benchmark (SV-COMP style) | **11/11**, 424 ms |
 | SMT (Alive2 / Hacker's Delight) | **8/8** |
 | Cross-check Z3 ↔ cvc5 | **9/9 agreement, 0 divergences** |

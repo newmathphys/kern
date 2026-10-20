@@ -255,3 +255,36 @@ vs `correct=[(0,0)]`) и `sieve` (`max=2`: `buggy=[]` vs `correct=[2]`).
 `shortest_path_lengths`, `shortest_paths`, `topological_ordering`.
 
 Лог: `docs/evidence/quixbugs_full.log` (35 логов в `docs/evidence/`, `RC=0`).
+
+## Update: B1 — генераторы `Node`/графов и некоммутативный RPN → 32 / 40
+
+`docs/evidence/quixbugs_full.log` (каноническая обёртка, `RC=0`): **DIVERGED 32 / 40**, EXPLORED 8.
+
+Что добавило +4 к 28:
+
+| Задача | Вход | buggy | correct |
+|:--|:--|:--|:--|
+| `reverse_linked_list` | `node=Node(1)` | `None` | `Node(1)` |
+| `breadth_first_search` | `start=Node(1), goal=Node(3)` (цепочка 1→2→3) | `IndexError` | `False` |
+| `minimum_spanning_tree` | `weight_by_edge={(1,2):1,(2,3):1}` | `RuntimeError` | оба ребра |
+| `topological_ordering` | треугольник `n1→n2(1), n2→n3(2), n1→n3(5)` | `[n1, n3]` — потерян `n2` | `[n1, n2, n3]` |
+
+Плюс `rpn_eval` теперь проверяется на **некоммутативной** операции: `[4.0, 2.0, '-']` → `buggy=-2.0`, `correct=2.0` (перепутан порядок операндов стека).
+
+### Независимая перепроверка свидетельств (не доверяя движку)
+
+Отдельным скриптом, читающим **только напечатанные аргументы** из лога и заново исполняющим обе версии:
+
+```
+литеральные входы:  воспроизведено 28 из 28, расхождений 0
+объектные (Node):   воспроизведено  4 из  4 (вход строится теми же _chain/_cycle2/_weighted)
+итого:              32 / 32 подтверждено, 0 ложных
+```
+
+Классы находок: **24 — неверный результат**, **8 — падение** (`IndexError`, `RecursionError`, `TypeError`, `ValueError`, `RuntimeError`) на входе, допустимом по docstring.
+
+### Остаток: 8 EXPLORED (не «доказано корректно»)
+
+`bitcount` · `depth_first_search` · `detect_cycle` · `longest_common_subsequence` · `next_palindrome` · `shortest_path_length` · `shortest_path_lengths` · `shortest_paths`
+
+Отсутствие расхождения на перебранных входах **не является доказательством** корректности — это отсутствие контрпримера в конечном домене.

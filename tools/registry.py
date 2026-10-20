@@ -71,6 +71,10 @@ CLASS = {
     # ловится, идентичные версии не обвиняются»; негативный контроль внутри
     # цели доказывает, что она способна упасть.
     "trace-check": "CHECK",
+    # Сквозной стенд «KERN против ИИ»: утверждение — «обман, который видит
+    # KERN, реально ловится, и исправление доказуемо». Негативный контроль —
+    # canfail-кейс ломает детектор, стенд ОБЯЗАН покраснеть.
+    "ai-demo": "CHECK",
     "gen-tests-check": "CHECK",
     "simplify-check": "CHECK",
     "bounds-check": "CHECK",
@@ -277,6 +281,7 @@ CASE_TARGET = {
     "contracts": "contracts",
     # Ступень 2 QuixBugs: кейс ломает сравнение в движке — цель обязана упасть.
     "trace-check": "trace-check",
+    "ai-demo": "ai-demo",
     "contracts-branches": "contracts",  # ветвления if -> ite
     "kimg-deflate": "kimg-deflate",   # сжатие 0x02 в CLI
     "skip-exit-n": "test-next",       # SKIP exit 2 -> N (боевой фидбек)

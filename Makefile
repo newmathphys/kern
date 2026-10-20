@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper metrics-guard trace-check
+.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper metrics-guard trace-check ai-demo
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -356,6 +356,17 @@ xray-check: build
 # цель КРАСНЕЕТ (иначе она вакуумна).
 trace-check:
 	@bash tools/trace_check.sh
+
+# СКВОЗНОЙ СТЕНД «KERN против ИИ»: три акта на одном экране.
+# Акт 1 — «зелёный pytest» на тестах, которые не могут упасть.
+# Акт 2 — что ловит KERN: чит, нарушение контракта, арбитраж, регрессия
+#         «улучшения», инъекция в MCP-схеме, конфликт политик (409).
+# Акт 3 — лечение краша (--heal), доказательство (trusted: 0) и награда +1.0.
+# Стенд САМ проверяет каждую ожидаемую строку и падает (rc=1), если
+# инструмент перестал ловить обман — иначе он печатал бы красивую ложь.
+ai-demo:
+	@bash tools/ai_demo.sh
+
 
 # ЭШЕЛОН 3, ПУНКТ 14: SBST-генератор pytest со 100% покрытием достижимых ветвей;
 # сгенерированные тесты РЕАЛЬНО прогоняются через pytest.

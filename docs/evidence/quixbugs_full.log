@@ -1,72 +1,91 @@
 === KERN EVIDENCE: quixbugs_full ===
-=== команда: python3 tools/quixbugs_check.py /tmp/QuixBugs-master (stage1 SMT+LiveReplay -> stage2 AST-guided trace) ===
-=== дата: 2026-10-20T15:59:46Z ===
+=== дата: 2026-10-20T17:51:36Z ===
+Команда: python3 tools/quixbugs_check.py /tmp/QuixBugs-master (Stage 1 SMT + Stage 2 AST-guided trace)
 
-task                         verdict     div/eq/unk detali
-bitcount                     DIVERGED    0/0/0/0    [S2 bitcount: {'n': 1} buggy=TIMEOUT correct=ok]
-breadth_first_search         STAGE2-CLEAN            путь без return · S2: 1 функц. без расхождения
-bucketsort                   DIVERGED    0/0/0/0    [S2 bucketsort: {'arr': [0], 'k': 1} buggy=[] correct=[0]]
-depth_first_search           STAGE2-CLEAN 0/0/0/1    depth_first_search:havoc-model depth_first_search:DIV-DISCARDED(нет расхождения на 25 входах) [S2: расхождения нет]
-detect_cycle                 STAGE2-CLEAN            присваивание не в простую переменную · S2: 1 функц. без расхождения
-find_first_in_sorted         DIVERGED    0/0/0/0    [S2 find_first_in_sorted: {'arr': [], 'x': 1} buggy=IndexError: list index out of range correct=ok]
-find_in_sorted               DIVERGED    1/0/0/1    binsearch:havoc-model binsearch:DIV-DISCARDED(не загрузить) find_in_sorted:havoc-model find_in_sorted:DIV[{'arr': [1], 'x': 2} buggy=RecursionError correct=ok]
-flatten                      DIVERGED    0/0/0/0    [S2 flatten: {'arr': [0]} buggy=[<broken-iter>"generator: TypeError: 'int' object is not iterable"] correct=[0]]
-gcd                          DIVERGED    1/0/0/0    gcd:havoc-model gcd:DIV[{'a': 0, 'b': 1} buggy=RecursionError correct=ok]
-get_factors                  DIVERGED    0/0/0/0    [S2 get_factors: {'n': 2} buggy=[] correct=[2]]
-hanoi                        DIVERGED    1/0/0/0    hanoi:DIV[{'height': 1, 'start': 0, 'end': 0} buggy=[(0, 1)] correct=[(0, 0)]]
-is_valid_parenthesization    DIVERGED    0/0/0/0    [S2 is_valid_parenthesization: {'parens': '((()'} buggy=True correct=False]
-kheapsort                    DIVERGED    0/0/0/0    [S2 kheapsort: {'arr': [0], 'k': 1} buggy=[0, 0] correct=[0]]
-knapsack                     DIVERGED    0/0/0/0    [S2 knapsack: {'capacity': 1, 'items': [[3, 4], [1, 2]]} buggy=0 correct=2]
-kth                          DIVERGED    0/0/0/0    [S2 kth: {'arr': [1, 3, 2], 'k': 1} buggy=3 correct=2]
-lcs_length                   DIVERGED    0/0/0/0    [S2 lcs_length: {'s': 'ab', 't': 'ab'} buggy=1 correct=2]
-levenshtein                  DIVERGED    0/0/0/0    [S2 levenshtein: {'source': 'a', 'target': 'a'} buggy=1 correct=0]
-lis                          DIVERGED    0/0/0/0    [S2 lis: {'arr': [1, 2, 0]} buggy=1 correct=2]
-longest_common_subsequence   STAGE2-CLEAN            литерал '' · S2: 1 функц. без расхождения
-max_sublist_sum              DIVERGED    1/0/0/0    max_sublist_sum:DIV[{'arr': [-1, 2]} buggy=1 correct=2]
-mergesort                    DIVERGED    1/0/0/0    mergesort:havoc-model mergesort:DIV[{'arr': [1]} buggy=RecursionError correct=ok]
-minimum_spanning_tree        STAGE2-CLEAN            узел Dict · S2: 1 функц. без расхождения
-next_palindrome              STAGE2-CLEAN            путь без return · S2: 1 функц. без расхождения
-next_permutation             DIVERGED    0/0/0/0    [S2 next_permutation: {'perm': [1, 2]} buggy=None correct=[2, 1]]
-pascal                       DIVERGED    0/0/0/0    [S2 pascal: {'n': 2} buggy=[[1], [1]] correct=[[1], [1, 1]]]
-possible_change              DIVERGED    0/0/0/0    [S2 possible_change: {'coins': [], 'total': 1} buggy=ValueError: not enough values to unpack (expected at least 1, got 0) correct=ok]
-powerset                     DIVERGED    0/0/0/0    [S2 powerset: {'arr': [0]} buggy=[[0]] correct=[[], [0]]]
-quicksort                    DIVERGED    0/0/0/0    [S2 quicksort: {'arr': [-1, 2, -1]} buggy=[-1, 2] correct=[-1, -1, 2]]
-reverse_linked_list          STAGE2-CLEAN            присваивание не в простую переменную · S2: 1 функц. без расхождения
-rpn_eval                     STAGE2-CLEAN 0/0/0/1    op:havoc-model op:DIV-DISCARDED(не загрузить) [S2: расхождения нет]
-shortest_path_length         STAGE2-CLEAN            распаковка нефиксированной длины · S2: 3 функц. без расхождения
-shortest_path_lengths        STAGE2-CLEAN            узел Tuple · S2: 1 функц. без расхождения
-shortest_paths               STAGE2-CLEAN            узел DictComp · S2: 1 функц. без расхождения
-shunting_yard                DIVERGED    0/0/0/0    [S2 shunting_yard: {'tokens': ['+']} buggy=[] correct=['+']]
-sieve                        DIVERGED    1/0/0/0    sieve:havoc-model sieve:DIV[{'max': 2} buggy=[] correct=[2]]
-sqrt                         DIVERGED    0/0/0/0    [S2 sqrt: {'x': 1.0, 'epsilon': 0.5} buggy=0.5 correct=1.025]
-subsequences                 DIVERGED    0/0/0/0    [S2 subsequences: {'a': 1, 'b': 1, 'k': 0} buggy=[] correct=[[]]]
-to_base                      DIVERGED    0/0/0/0    [S2 to_base: {'num': 2, 'b': 2} buggy='01' correct='10']
-topological_ordering         STAGE2-CLEAN            узел ListComp · S2: 1 функц. без расхождения
-wrap                         DIVERGED    0/0/0/0    [S2 wrap: {'text': '', 'cols': 1} buggy=[] correct=['']]
+  [s2] bitcount               EXPLORED    7  lines=5/6     нет расхождения на 7 входах
+  [s2] breadth_first_search   DIVERGED    1  lines=9/17    {'startnode': Node(1), 'goalnode': Node(3)} buggy=IndexError: pop from an empty deque corr
+  [s2] bucketsort             DIVERGED   26  lines=7/10    {'arr': [0], 'k': 1} buggy=[] correct=[0]
+  [s2] depth_first_search     EXPLORED    5  lines=7/14    нет расхождения на 5 входах
+  [s2] detect_cycle           EXPLORED    6  lines=8/12    нет расхождения на 6 входах
+  [s2] find_first_in_sorted   DIVERGED    1  lines=5/17    {'arr': [], 'x': 1} buggy=IndexError: list index out of range correct=ok
+  [s2] find_in_sorted         DIVERGED   26  lines=8/13    {'arr': [0], 'x': 1} buggy=RecursionError correct=ok
+  [s2] flatten                DIVERGED    2  lines=0/7     {'arr': [0]} buggy=[<broken-iter>"generator: TypeError: 'int' object is not iterable"] cor
+  [s2] gcd                    DIVERGED    2  lines=3/5     {'a': 0, 'b': 1} buggy=RecursionError correct=ok
+  [s2] get_factors            DIVERGED    2  lines=4/9     {'n': 2} buggy=[] correct=[2]
+  [s2] hanoi                  DIVERGED    1  lines=7/9     {'height': 1} buggy=[[1, 2]] correct=[[1, 3]]
+  [s2] is_valid_parenthesization DIVERGED    3  lines=7/11    {'parens': '((()'} buggy=True correct=False
+  [s2] kheapsort              DIVERGED   26  lines=0/11    {'arr': [0], 'k': 1} buggy=[0, 0] correct=[0]
+  [s2] knapsack               DIVERGED   36  lines=8/17    {'capacity': 1, 'items': [[3, 4], [1, 2]]} buggy=0 correct=2
+  [s2] kth                    DIVERGED   16  lines=10/14   {'arr': [1, 3, 2], 'k': 1} buggy=3 correct=2
+  [s2] lcs_length             DIVERGED  107  lines=7/11    {'s': 'ab', 't': 'ab'} buggy=1 correct=2
+  [s2] levenshtein            DIVERGED   54  lines=4/13    {'source': 'a', 'target': 'a'} buggy=1 correct=0
+  [s2] lis                    DIVERGED    6  lines=9/15    {'arr': [1, 2, 0]} buggy=1 correct=2
+  [s2] longest_common_subsequence EXPLORED  250  lines=8/13    нет расхождения на 250 входах
+  [s2] max_sublist_sum        DIVERGED   15  lines=6/9     {'arr': [-1, 2, -1]} buggy=1 correct=2
+  [s2] mergesort              DIVERGED    2  lines=6/22    {'arr': [0]} buggy=RecursionError correct=ok
+  [s2] minimum_spanning_tree  DIVERGED    1  lines=9/13    {'weight_by_edge': {(Node(1), Node(2)): 1, (Node(2), Node(3)): 1}} buggy=RuntimeError: Set
+  [s2] next_palindrome        EXPLORED   37  lines=9/15    нет расхождения на 37 входах
+  [s2] next_permutation       DIVERGED    4  lines=4/9     {'perm': [1, 2]} buggy=None correct=[2, 1]
+  [s2] pascal                 DIVERGED    2  lines=9/11    {'n': 2} buggy=[[1], [1]] correct=[[1], [1, 1]]
+  [s2] possible_change        DIVERGED    1  lines=3/8     {'coins': [], 'total': 1} buggy=ValueError: not enough values to unpack (expected at least
+  [s2] powerset               DIVERGED    2  lines=5/7     {'arr': [0]} buggy=[[0]] correct=[[], [0]]
+  [s2] quicksort              DIVERGED   15  lines=6/8     {'arr': [-1, 2, -1]} buggy=[-1, 2] correct=[-1, -1, 2]
+  [s2] reverse_linked_list    DIVERGED    1  lines=6/7     {'node': Node(1)} buggy=None correct=Node{incoming_nodes=[], outgoing_nodes=[], predecesso
+  [s2] rpn_eval               DIVERGED    1  lines=16/22   {'tokens': [4.0, 2.0, '-']} buggy=-2.0 correct=2.0
+  [s2] shortest_path_length   EXPLORED  250  lines=1/10    нет расхождения на 250 входах
+  [s2] shortest_path_lengths  EXPLORED   23  lines=10/14   нет расхождения на 23 входах
+  [s2] shortest_paths         EXPLORED    6  lines=8/14    нет расхождения на 6 входах
+  [s2] shunting_yard          DIVERGED   32  lines=13/21   {'tokens': ['+']} buggy=[] correct=['+']
+  [s2] sieve                  DIVERGED    2  lines=4/6     {'max': 2} buggy=[] correct=[2]
+  [s2] sqrt                   DIVERGED    1  lines=3/5     {'x': 1.0, 'epsilon': 0.5} buggy=0.5 correct=1.025
+  [s2] subsequences           DIVERGED    3  lines=5/11    {'a': 1, 'b': 1, 'k': 0} buggy=[] correct=[[]]
+  [s2] to_base                DIVERGED   18  lines=7/8     {'num': 2, 'b': 2} buggy='01' correct='10'
+  [s2] topological_ordering   DIVERGED    5  lines=6/9     {'nodes': [Node('n1'), Node('n2'), Node('n3')]} buggy=[Node{incoming_nodes=[], outgoing_no
+  [s2] wrap                   DIVERGED    1  lines=3/10    {'text': '', 'cols': 1} buggy=[] correct=['']
+bitcount                     EXPLORED      7  нет расхождения на 7 входах
+breadth_first_search         DIVERGED      1  {'startnode': Node(1), 'goalnode': Node(3)} buggy=IndexError: pop from an empty deque correct=ok
+bucketsort                   DIVERGED     26  {'arr': [0], 'k': 1} buggy=[] correct=[0]
+depth_first_search           EXPLORED      5  нет расхождения на 5 входах
+detect_cycle                 EXPLORED      6  нет расхождения на 6 входах
+find_first_in_sorted         DIVERGED      1  {'arr': [], 'x': 1} buggy=IndexError: list index out of range correct=ok
+find_in_sorted               DIVERGED     26  {'arr': [0], 'x': 1} buggy=RecursionError correct=ok
+flatten                      DIVERGED      2  {'arr': [0]} buggy=[<broken-iter>"generator: TypeError: 'int' object is not iterable"] correct=[0]
+gcd                          DIVERGED      2  {'a': 0, 'b': 1} buggy=RecursionError correct=ok
+get_factors                  DIVERGED      2  {'n': 2} buggy=[] correct=[2]
+hanoi                        DIVERGED      1  {'height': 1} buggy=[[1, 2]] correct=[[1, 3]]
+is_valid_parenthesization    DIVERGED      3  {'parens': '((()'} buggy=True correct=False
+kheapsort                    DIVERGED     26  {'arr': [0], 'k': 1} buggy=[0, 0] correct=[0]
+knapsack                     DIVERGED     36  {'capacity': 1, 'items': [[3, 4], [1, 2]]} buggy=0 correct=2
+kth                          DIVERGED     16  {'arr': [1, 3, 2], 'k': 1} buggy=3 correct=2
+lcs_length                   DIVERGED    107  {'s': 'ab', 't': 'ab'} buggy=1 correct=2
+levenshtein                  DIVERGED     54  {'source': 'a', 'target': 'a'} buggy=1 correct=0
+lis                          DIVERGED      6  {'arr': [1, 2, 0]} buggy=1 correct=2
+longest_common_subsequence   EXPLORED    250  нет расхождения на 250 входах
+max_sublist_sum              DIVERGED     15  {'arr': [-1, 2, -1]} buggy=1 correct=2
+mergesort                    DIVERGED      2  {'arr': [0]} buggy=RecursionError correct=ok
+minimum_spanning_tree        DIVERGED      1  {'weight_by_edge': {(Node(1), Node(2)): 1, (Node(2), Node(3)): 1}} buggy=RuntimeError: Set changed size during iteration correct=ok
+next_palindrome              EXPLORED     37  нет расхождения на 37 входах
+next_permutation             DIVERGED      4  {'perm': [1, 2]} buggy=None correct=[2, 1]
+pascal                       DIVERGED      2  {'n': 2} buggy=[[1], [1]] correct=[[1], [1, 1]]
+possible_change              DIVERGED      1  {'coins': [], 'total': 1} buggy=ValueError: not enough values to unpack (expected at least 1, got 0) correct=ok
+powerset                     DIVERGED      2  {'arr': [0]} buggy=[[0]] correct=[[], [0]]
+quicksort                    DIVERGED     15  {'arr': [-1, 2, -1]} buggy=[-1, 2] correct=[-1, -1, 2]
+reverse_linked_list          DIVERGED      1  {'node': Node(1)} buggy=None correct=Node{incoming_nodes=[], outgoing_nodes=[], predecessors=[], successor=Node{incoming_nodes=[], outgoing_nodes=[], predecessors=[], successor=Node{incoming_nodes=[], outgoing_nodes=[], predecessors=[], successor=None, successors=[], value=1}, successors=[], value=2}, successors=[], value=3}
+rpn_eval                     DIVERGED      1  {'tokens': [4.0, 2.0, '-']} buggy=-2.0 correct=2.0
+shortest_path_length         EXPLORED    250  нет расхождения на 250 входах
+shortest_path_lengths        EXPLORED     23  нет расхождения на 23 входах
+shortest_paths               EXPLORED      6  нет расхождения на 6 входах
+shunting_yard                DIVERGED     32  {'tokens': ['+']} buggy=[] correct=['+']
+sieve                        DIVERGED      2  {'max': 2} buggy=[] correct=[2]
+sqrt                         DIVERGED      1  {'x': 1.0, 'epsilon': 0.5} buggy=0.5 correct=1.025
+subsequences                 DIVERGED      3  {'a': 1, 'b': 1, 'k': 0} buggy=[] correct=[[]]
+to_base                      DIVERGED     18  {'num': 2, 'b': 2} buggy='01' correct='10'
+topological_ordering         DIVERGED      5  {'nodes': [Node('n1'), Node('n2'), Node('n3')]} buggy=[Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], predecessors=[('<cycle>',)], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], value='n2'}, Node{incoming_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], outgoing_nodes=[], predecessors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], successor=None, successors=[], value='n3'}], predecessors=[], successor=None, successors=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], predecessors=[('<cycle>',)], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], value='n2'}, Node{incoming_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], outgoing_nodes=[], predecessors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], successor=None, successors=[], value='n3'}], value='n1'}, Node{incoming_nodes=[Node{incoming_nodes=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], outgoing_nodes=[('<cycle>',)], predecessors=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], successor=None, successors=[('<cycle>',)], value='n2'}, Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], predecessors=[], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], value='n1'}], outgoing_nodes=[], predecessors=[Node{incoming_nodes=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], outgoing_nodes=[('<cycle>',)], predecessors=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], successor=None, successors=[('<cycle>',)], value='n2'}, Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], predecessors=[], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], value='n1'}], successor=None, successors=[], value='n3'}] correct=[Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], predecessors=[('<cycle>',)], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], value='n2'}, Node{incoming_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], outgoing_nodes=[], predecessors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], successor=None, successors=[], value='n3'}], predecessors=[], successor=None, successors=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], predecessors=[('<cycle>',)], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], value='n2'}, Node{incoming_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], outgoing_nodes=[], predecessors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], successor=None, successors=[], value='n3'}], value='n1'}, Node{incoming_nodes=[Node{incoming_nodes=[], outgoing_nodes=[('<cycle>',), Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], predecessors=[], successor=None, successors=[('<cycle>',), Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], value='n1'}], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',), Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], outgoing_nodes=[], predecessors=[('<cycle>',), Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], successor=None, successors=[], value='n3'}], predecessors=[Node{incoming_nodes=[], outgoing_nodes=[('<cycle>',), Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], predecessors=[], successor=None, successors=[('<cycle>',), Node{incoming_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], outgoing_nodes=[], predecessors=[<deep>'_LiteNode', <deep>'_LiteNode'], successor=None, successors=[], value='n3'}], value='n1'}], successor=None, successors=[Node{incoming_nodes=[('<cycle>',), Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], outgoing_nodes=[], predecessors=[('<cycle>',), Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], successor=None, successors=[], value='n3'}], value='n2'}, Node{incoming_nodes=[Node{incoming_nodes=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], outgoing_nodes=[('<cycle>',)], predecessors=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], successor=None, successors=[('<cycle>',)], value='n2'}, Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], predecessors=[], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], value='n1'}], outgoing_nodes=[], predecessors=[Node{incoming_nodes=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], outgoing_nodes=[('<cycle>',)], predecessors=[Node{incoming_nodes=[], outgoing_nodes=[<deep>'_LiteNode', <deep>'_LiteNode'], predecessors=[], successor=None, successors=[<deep>'_LiteNode', <deep>'_LiteNode'], value='n1'}], successor=None, successors=[('<cycle>',)], value='n2'}, Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], predecessors=[], successor=None, successors=[Node{incoming_nodes=[<deep>'_LiteNode'], outgoing_nodes=[<deep>'_LiteNode'], predecessors=[<deep>'_LiteNode'], successor=None, successors=[<deep>'_LiteNode'], value='n2'}, ('<cycle>',)], value='n1'}], successor=None, successors=[], value='n3'}]
+wrap                         DIVERGED      1  {'text': '', 'cols': 1} buggy=[] correct=['']
 
-=== SUMMARY ===
-  DIVERGED       28
-  STAGE2-CLEAN   12
-
-  Ступень 1 (SMT + Live Replay): DIVERGED 6
-  Ступень 2 (AST-guided trace):  DIVERGED 22
-  Итого живьём подтверждено:     28 / 40
-
-=== SKIP REASONS (by function) ===
-    5  распаковка нефиксированной длины
-    4  путь без return
-    4  узел List
-    3  литерал ''
-    3  узел Dict
-    2  нелинейное умножение
-    2  присваивание не в простую переменную
-    2  срез списка
-    2  узел ListComp
-    2  узел Tuple
-    1  бинарный оператор (только + - * / // %)
-    1  for по не-range
-    1  распаковка не в имена
-    1  for с распаковкой цели
-    1  узел DictComp
+=== STAGE-2 SUMMARY ===
+  DIVERGED   32
+  EXPLORED   8
+[OK] DIVERGED (живой вызов, 0 ложных по построению): 32/40
 
 RC=0

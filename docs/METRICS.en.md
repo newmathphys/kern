@@ -38,7 +38,7 @@
 | **HumanEval / HumanEval+** | `evalplus` (external API) | **0.524 / 0.500** (see §11) |
 | **MBPP+** | `evalplus` | 378 tasks downloaded — ⛔ not generated (API time) |
 | **SMT (Alive2 / Hacker's Delight)** | Z3 via our bridge | **8/8** (6 proved, 2 counterexamples) |
-| **QuixBugs** | execution + AST trace | **28/40 divergences** |
+| **QuixBugs** | execution + AST trace | **32/40 divergences** |
 | **Refactory** | differential | **1438/1782 bugs (80.7 %)** |
 | **CyberSecEval (Meta)** | AST rules | 28/351 (8.0 %) |
 | **Mutation duel** | boundary sweep | Unit 20 % / KERN **90 %** / 10/10 explained |
@@ -2504,3 +2504,32 @@ second call).
 
 **Honest limit.** Stage 2 is a **search**, not a proof: it never emits `PROVEN` and does not
 replace Stage 1. The 12 `STAGE2-CLEAN` tasks mean "no divergence on the inputs tried".
+
+---
+
+### 73. "AI vs KERN" stand: `make ai-demo` (20 assertions, 0 failures)
+
+The project's focus is verifying AI-written code, yet the showcase had no end-to-end
+scenario showing **what the agent reported** next to **what KERN found in the same code**.
+The stand reuses existing pieces only and is registered as CHECK target #153.
+
+| Act | Shown | Real output |
+|:--|:--|:--|
+| 1 | CI is green | `2 passed in 0.01s` — one test has no `assert`, the other swallows failure |
+| 2.1 | cheating test | `[CHEAT DETECTED: swallowed assert (except: pass)]` line 28 → `R=-2.0` |
+| 2.2 | broken contract | `[FAIL] transfer_with_fee` · `[КОНТРПРИМЕР] result = -1, amount = 1, balance = 0` · `[RUNTIME CONFIRMED]` (2 violations, `ЛОЖНЫХ ТРЕВОГ 0`) |
+| 2.3 | fee arbitrage | `[FAIL] fee_threshold: no_arbitrage REFUTED` · `a1 = 100, a2 = 1`, while `fee_proportional` is `PROVEN (trusted: 0)` |
+| 2.4 | agent "cleanup" | `[DIVERGED] charge` · `res_old = -1, balance = -1, amount = 0, res_new = 0` |
+| 2.5 | poisoned MCP schema | 4 prompt injections + `INVISIBLE UNICODE U+200B` |
+| 2.6 | agent action | `[FAIL] Firewall: POLICY CONFLICT -> B (1,1), e=0, HTTP 409 Conflict` |
+| 3.1 | auto-surgeon | `[HEAL] найдено крашей: 1 \| после патча: 0`, `[T (1,0)] файл вылечен`, `.bak` kept |
+| 3.2 | mathematical clearance | `[PASS] transfer_with_fee: ДОКАЗАНО` · `steps: 50 \| premises bound: 3/3 \| trusted: 0 \| holes: 0` |
+| 3.3 | training oracle | `R=+1.0 [VERIFIED REWARD, Belnap T, e=1]` |
+
+Honest scope: the stand is a **scenario**, not a new engine — every verdict comes from
+shipped commands (`--anti-cheat`, contracts, `--presets`, `--diff-equiv`, `--audit-mcp`,
+`--verify-action`, `--heal`, `--rlvr-reward`). `[FAIL]` lines are KERN **verdicts** (expected),
+not stand failures; `pytest` stays green, which is the whole point. `z3` is required
+(the script adds `~/ai_lab/.venv/bin`), otherwise acts 2.2/2.3/3 make no sense → `exit 2`.
+`make ai-demo` returns `rc=1` if any expected line disappears, so the demo cannot drift
+into a claim the tools no longer back.

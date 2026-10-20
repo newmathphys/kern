@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://newmathphys.github.io/kern/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KERN — zero-trust verification gateway (Zig + Z3 + Lean 4)">
-<meta property="og:description" content="A claim is admitted only with machine evidence. 401/401 core tests · 100.0% mutation score · 127/127 can-fail targets · 137 Lean 4 theorems (0 sorry).">
+<meta property="og:description" content="A claim is admitted only with machine evidence. 401/401 core tests · 100.0% mutation score · 128/128 can-fail targets · 137 Lean 4 theorems (0 sorry).">
 <meta property="og:url" content="https://newmathphys.github.io/kern/">
 <meta property="og:image" content="https://newmathphys.github.io/kern/social-preview.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -179,6 +179,30 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
   depend on those exact strings.</p>
 </div>
 
+<h2>What the agent says — and what KERN proves</h2>
+<div class="panel">
+  <div class="hdr">make ai-demo · one agent session · verbatim tool output</div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>The agent's report</th><th>What KERN finds in the same code</th></tr></thead>
+    <tbody>
+    <tr><td><code>2 passed in 0.01s</code></td><td><code>[CHEAT DETECTED: swallowed assert (except: pass)]</code> line 28 → <code>R=-2.0</code></td></tr>
+    <tr><td>"withdrawals cannot increase the balance"</td><td><code>[FAIL] transfer_with_fee: КОНТРАКТ НАРУШЕН</code> · <code>[КОНТРПРИМЕР] result = -1, amount = 1, balance = 0</code> · <code>[RUNTIME CONFIRMED]</code></td></tr>
+    <tr><td>"the commission is fair"</td><td><code>[FAIL] fee_threshold: no_arbitrage REFUTED</code> · <code>[КОНТРПРИМЕР] a1 = 100, a2 = 1</code></td></tr>
+    <tr><td>"same behaviour, just cleaner"</td><td><code>[DIVERGED] charge</code> · <code>[КОНТРПРИМЕР] res_old = -1, balance = -1, amount = 0, res_new = 0</code></td></tr>
+    <tr><td>"a safe helper tool"</td><td><code>[MCP] PROMPT INJECTION in "sum": «ignore previous»</code> · <code>INVISIBLE UNICODE U+200B</code></td></tr>
+    <tr><td>"transfer_funds(900)"</td><td><code>[FAIL] Firewall: POLICY CONFLICT -> B (1,1), e=0, HTTP 409 Conflict</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="lbl" style="margin:12px 0 0">After the fix KERN re-checks the proof inside Zig — the solver is not trusted either:</p>
+<pre>[PASS] transfer_with_fee: ДОКАЗАНО
+       [PROOF VERIFIED] steps: 50 | premises bound: 3/3 | mp: 17 |
+                        rewrite (linear): 18 | farkas: 2 | trusted: 0 | holes: 0
+[REWARD] R=+1.0 [VERIFIED REWARD, Belnap T, e=1]</pre>
+  <p class="lbl" style="margin:12px 0 0"><code>make ai-demo</code> exits non-zero if any of those lines disappears,
+  so the page cannot drift into a claim the tools no longer back. One test cannot fail (no <code>assert</code>),
+  the other swallows its failure — <code>pytest</code> reports both as green.</p>
+</div>
+
 <h2>What it is</h2>
 <ul>
 <li><span class="tag">A gate, not a linter.</span> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
@@ -228,7 +252,7 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
       <span class="val">401 / 401</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
       <span class="val">53 / 53</span><span class="lbl">KERN-Next tests</span>
       <span class="val">100.0 %</span><span class="lbl">mutation score — 1345 / 1345 killed (21 files, full local sweep); committed evidence: mutate_full.log 1345 / 1345 + canonical 40 / 40 + per-module 244 / 244</span>
-      <span class="val">127 / 127</span><span class="lbl">can-fail CHECK targets — 143 non-vacuous cases, 0 vacuous</span>
+      <span class="val">127 / 127</span><span class="lbl">can-fail CHECK targets — 144 non-vacuous cases, 0 vacuous</span>
     </div>
     <div class="stat">
       <span class="val">137 / 0</span><span class="lbl">Lean 4 theorems / 0 sorry (8 files)</span>
@@ -292,7 +316,7 @@ Z3 counterexample. Full table and honest limits:
 <p><code>--full-scan &lt;path&gt;</code> runs the honest subset in one pass: zero-annotation
 <code>--xray</code> over all 7 languages, then, for findings, contract inference
 (<code>--infer-requires</code>) and a reproducing test (<code>--gen-tests</code>). Theories that need a
-contract are reported as <b>applicable</b>, never as “verified”.
+contract are reported as <b>applicable</b>, never as “verified”.</p>
 <p><b>Honest limits.</b> The SMT model is ours — a counterexample must still be reproduced against the
 project's own build before it can be called their bug. Bloch's bug is invisible in the <code>Int</code>
 theory (needs <code>@kern:bitvec32</code> / QF_BV). <code>SKIP</code> rows are kept on purpose:
@@ -702,9 +726,9 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
       <tbody>
         <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
-          <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 127/127 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+          <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 128/128 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr style="border-top:1px solid #21262d">
-          <td>QuixBugs (40 tasks)</td><td class="sc-ok">28/40</td>
+          <td>QuixBugs (40 tasks)</td><td class="sc-ok">32/40</td>
           <td>divergences confirmed by replaying the real function; 12 tasks: no divergence found.
           The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231)</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
