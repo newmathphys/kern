@@ -4,6 +4,15 @@
       <stop offset="0%" stop-color="#0d1117"/>
       <stop offset="100%" stop-color="#161b22"/>
     </linearGradient>
+    <marker id="agrey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#484f58"/>
+    </marker>
+    <marker id="ared" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f85149"/>
+    </marker>
+    <marker id="agreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3fb950"/>
+    </marker>
     <style>
       .title { font: 700 30px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #f0f6fc; letter-spacing: 1.5px; }
       .sub   { font: 400 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #8b949e; }
@@ -29,10 +38,10 @@
   <!-- Panel 1: Belnap B4 lattice -->
   <rect x="32" y="104" width="215" height="152" rx="6" fill="#0d1117" stroke="#30363d"/>
   <text x="48" y="125" class="hdr">BELNAP B4 ACCUMULATOR</text>
-  <line x1="139" y1="148" x2="99" y2="182" stroke="#f85149" stroke-width="1.5"/>
-  <line x1="139" y1="148" x2="179" y2="182" stroke="#3fb950" stroke-width="1.5"/>
-  <line x1="99" y1="182" x2="139" y2="216" stroke="#484f58" stroke-width="1.5"/>
-  <line x1="179" y1="182" x2="139" y2="216" stroke="#484f58" stroke-width="1.5"/>
+  <line x1="129.9" y1="208.2" x2="108.1" y2="189.8" stroke="#484f58" stroke-width="1.5" marker-end="url(#agrey)"/>
+  <line x1="148.1" y1="208.2" x2="169.9" y2="189.8" stroke="#484f58" stroke-width="1.5" marker-end="url(#agrey)"/>
+  <line x1="108.1" y1="174.2" x2="129.9" y2="155.8" stroke="#f85149" stroke-width="1.6" marker-end="url(#ared)"/>
+  <line x1="169.9" y1="174.2" x2="148.1" y2="155.8" stroke="#3fb950" stroke-width="1.6" marker-end="url(#agreen)"/>
   <circle cx="139" cy="148" r="12" fill="#3d1318" stroke="#f85149" stroke-width="1.5"/>
   <text x="139" y="152" class="node">B</text>
   <circle cx="99" cy="182" r="12" fill="#161b22" stroke="#f85149" stroke-width="1.2"/>
@@ -41,7 +50,8 @@
   <text x="179" y="186" class="node">T</text>
   <circle cx="139" cy="216" r="12" fill="#161b22" stroke="#6e7681" stroke-width="1.2"/>
   <text x="139" y="220" class="node">N</text>
-  <text x="48" y="245" class="lbl">200 T / 422 F,N / 409 B</text>
+  <text x="48" y="240" class="lbl">join_K(T,F)=B</text>
+  <text x="48" y="253" class="lbl">conflict absorbed</text>
 
   <path d="M 247 180 L 275 180" stroke="#30363d" stroke-width="2"/>
 

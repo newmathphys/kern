@@ -35,17 +35,38 @@ CW_RATIO = 0.6
 # Дополнительный трекинг у заголовков (.hdr имеет letter-spacing).
 EXTRA = {"hdr": 0.5}
 
-# Панели холста: (x0, x1, y0, y1, имя). Текст обязан помещаться в свою панель.
-PANELS = [
-    (32, 247, 104, 256, "Belnap"),
-    (275, 600, 104, 256, "L0-L5"),
-    (628, 928, 104, 256, "Baseline"),
-]
-# Вложенные боксы внутри панелей (приоритетнее панели).
-INNER = [
-    (291, 584, 136, 194, "box1"),
-    (291, 584, 202, 252, "box2"),
-]
+# Раскладка по файлам: у каждой схемы своя геометрия. Проверять один файл
+# чужой раскладкой бессмысленно (панели не совпадут и проверка станет
+# вакуумной). Неизвестный файл проверяется только по границе холста.
+LAYOUTS: dict[str, tuple[list[tuple[int, int, int, int, str]],
+                         list[tuple[int, int, int, int, str]]]] = {
+    "kern-architecture.svg": (
+        [
+            (32, 247, 104, 256, "Belnap"),
+            (275, 600, 104, 256, "L0-L5"),
+            (628, 928, 104, 256, "Baseline"),
+        ],
+        [
+            (291, 584, 136, 194, "box1"),
+            (291, 584, 202, 252, "box2"),
+        ],
+    ),
+    "kern-proof-flow.svg": (
+        [
+            (40, 1160, 90, 200, "chain"),
+            (40, 1160, 300, 395, "legend"),
+            (40, 1160, 420, 520, "verdicts"),
+        ],
+        [
+            (40, 300, 110, 190, "b1"),
+            (340, 600, 110, 190, "b2"),
+            (640, 900, 110, 190, "b3"),
+            (940, 1160, 110, 190, "b4"),
+        ],
+    ),
+}
+PANELS: list[tuple[int, int, int, int, str]] = []
+INNER: list[tuple[int, int, int, int, str]] = []
 
 TEXT_RE = re.compile(r'<text x="(\d+)" y="(\d+)" class="(\w+)">([^<]*)</text>')
 FONT_RE = re.compile(r"\.(\w+)\s*\{[^}]*?font:\s*\d+\s+(\d+(?:\.\d+)?)px")
@@ -56,10 +77,12 @@ def font_sizes(svg: str) -> dict[str, float]:
 
 
 def main() -> int:
+    global PANELS, INNER
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT
     if not path.exists():
         print(f"[!] файл не найден: {path}")
         return 1
+    PANELS, INNER = LAYOUTS.get(path.name, ([], []))
     svg = path.read_text(encoding="utf-8")
 
     problems: list[str] = []

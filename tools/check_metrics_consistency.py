@@ -434,7 +434,12 @@ def main(argv: list[str] | None = None) -> int:
             continue
         for lineno, line in enumerate(
                 p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            for msg in violations_in_line(rel, lineno, line, rules):
+            # ДЕФЕКТ #245: якорь `<!-- fact:key -->128` стоит МЕЖДУ знаком и
+            # числом. Если правила читают сырую строку, число «прячется» за
+            # комментарием и проверка становится ВАКУУМНОЙ — ровно то, против
+            # чего она написана. Комментарии вырезаются перед разбором.
+            scan = re.sub(r"<!--.*?-->", "", line)
+            for msg in violations_in_line(rel, lineno, scan, rules):
                 _fail(msg)
                 bad += 1
 
@@ -447,10 +452,11 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             for lineno, line in enumerate(
                     p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-                low = line.lower()
+                scan = re.sub(r"<!--.*?-->", "", line)
+                low = scan.lower()
                 if any(mk in low for mk in HISTORY_MARKERS):
                     continue
-                for m in re.finditer(r"#1[–-]#(\d{2,3})", line):
+                for m in re.finditer(r"#1[–-]#(\d{2,3})", scan):
                     if int(m.group(1)) != mx:
                         _fail(f"{rel}:{lineno}  диапазон реестра: «{m.group(0)}» "
                               f"→ обещано {m.group(1)}, факт #{mx}")

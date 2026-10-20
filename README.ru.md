@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->160 · META <!-- fact:meta_targets -->21 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->162 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 **Арбитражный шлюз истины для ИИ-агентов.** Заявление получает статус
@@ -597,17 +597,17 @@ python3 tools/kern_contracts.py --install-hook   # блокирует git commit
 make canfail          # 144 кейса: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->119 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->160 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->162 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->160 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD <!-- fact:build_targets -->7 · EXTERNAL 3 · META <!-- fact:meta_targets -->21) |
+| Целей всего | <!-- fact:registry_targets -->162 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->128/<!-- fact:check_targets -->128 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->144 (не-вакуумных <!-- fact:canfail_cases -->144 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#235** |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->247** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

@@ -1923,6 +1923,32 @@ def cmd_verify_lock(files, lock_path: str) -> int:
     return 0
 
 
+def classify_prove(rc: int, out: str) -> str:
+    """Класс вердикта `kernc prove` -> equivalent | unverified | diverged |
+    unknown | tool_error.
+
+    ДЕФЕКТ #243: `--diff-equiv` считал РАСХОЖДЕНИЕМ всё, кроме строки
+    «ДОКАЗАНО», а `rc` у «доказано» и «опровергнуто» ОДИН И ТОТ ЖЕ (2 —
+    пруф-чекер не привязал посылки к контракту). Поэтому идентичный файл
+    объявлялся DIVERGED (ложное обвинение), а цель `make diff-equiv`
+    проходила ВАКУУМНО. Классификация идёт по выводу решателя, не по rc.
+    """
+    low = out.lower()
+    if "контрпример" in low or "[counterexample]" in low:
+        return "diverged"
+    if "z3 недоступен" in low or "z3 is not" in low:
+        return "unknown"
+    if "таймаут" in low or "timeout" in low:
+        return "unknown"
+    if rc == 0:
+        return "equivalent"
+    if "доказано" in low and "не доказано" not in low:
+        return "unverified"
+    if rc in (2, 3):
+        return "unknown"
+    return "tool_error"
+
+
 def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     """УЛУЧШЕНИЕ №3: доказать эквивалентность рефакторинга БЕЗ контрактов."""
     if not Path(kernc).exists():
@@ -1934,7 +1960,7 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     if not common:
         print("[!] нет одноимённых функций в подмножестве — сравнивать нечего")
         return 2
-    diverged = same = unknown = 0
+    diverged = same = unknown = unverified = tool_errors = 0
     for name in sorted(common):
         pa, ba, _ln, ua = a[name]
         pb, bnew, _ln2, ub = b2[name]
@@ -1958,24 +1984,39 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
                   f"эквивалентность НЕДОКАЗУЕМА (дефект #207)")
             continue
         rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
-        if "ДОКАЗАНО" in out:
-            extra = "" if rc == 0 else " (пруф-чекер не покрывает форму вывода)"
+        verdict = classify_prove(rc, out)
+        if verdict == "equivalent":
             print(f"  [EQUIVALENT] {name}: рефакторинг математически "
-                  f"эквивалентен на всём домене Z{extra}")
+                  f"эквивалентен на всём домене Z (пруф-чекер принял)")
             same += 1
-        else:
+        elif verdict == "unverified":
+            print(f"  [EQUIVALENT?] {name}: решатель доказал эквивалентность, "
+                  f"но пруф-чекер отверг вывод (premises_unbound) — "
+                  f"это НЕ расхождение и НЕ доверенное доказательство")
+            unverified += 1
+        elif verdict == "diverged":
             print(f"  [DIVERGED] {name}: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ")
             for line in out.splitlines():
                 if "КОНТРПРИМЕР" in line:
                     print(f"         {line.strip()}")
                     break
             diverged += 1
+        elif verdict == "unknown":
+            hint = " (z3 недоступен/таймаут)" if "z3" in out.lower() else ""
+            print(f"  [UNKNOWN] {name}: решатель не определился{hint} — "
+                  f"это НЕ расхождение и НЕ доказательство")
+            unknown += 1
+        else:
+            print(f"  [TOOL_ERROR] {name}: код {rc} — это НЕ расхождение; "
+                  f"проверьте решатель/PATH")
+            tool_errors += 1
     print("-" * 74)
-    print(f"ИТОГО: эквивалентных {same} | разошедшихся {diverged} | "
-          f"недоказуемых (абстракция) {unknown} | всего {len(common)}")
+    print(f"ИТОГО: эквивалентных {same} | эквивалентных без пруф-чекера "
+          f"{unverified} | разошедшихся {diverged} | недоказуемых {unknown} | "
+          f"ошибок инструмента {tool_errors} | всего {len(common)}")
     if diverged:
         return 1
-    return 2 if unknown else 0
+    return 2 if (unknown or unverified or tool_errors) else 0
 
 
 ROOT = Path(__file__).resolve().parent.parent

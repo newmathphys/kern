@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="100%" height="520" role="img" aria-label="KERN proof flow: how a claim becomes a verdict">
+  <defs>
+    <linearGradient id="pbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#f85149"/>
+    </marker>
+    <marker id="agr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3fb950"/>
+    </marker>
+    <style>
+      .title { font: 700 26px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #f0f6fc; letter-spacing: 1.2px; }
+      .sub   { font: 400 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #8b949e; }
+      .hdr   { font: 700 11.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #c9d1d9; letter-spacing: 0.5px; }
+      .lbl   { font: 400 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #8b949e; }
+      .val   { font: 700 13.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #3fb950; }
+      .node  { font: 700 13px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #f0f6fc; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="520" rx="10" fill="url(#pbg)" stroke="#30363d" stroke-width="1.5"/>
+
+  <text x="40" y="54" class="title">PROOF FLOW</text>
+  <text x="40" y="80" class="sub">How a claim becomes a verdict — same semantics as src/next/truth.zig</text>
+
+  <!-- chain: 4 boxes -->
+  <rect x="40" y="110" width="260" height="80" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="56" y="138" class="hdr">SOURCE AST</text>
+  <text x="56" y="158" class="lbl">unannotated code</text>
+  <text x="56" y="174" class="lbl">zero-annotation</text>
+
+  <rect x="340" y="110" width="260" height="80" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="356" y="138" class="hdr">CONTRACT</text>
+  <text x="356" y="158" class="lbl">@kern:requires/ensures</text>
+  <text x="356" y="174" class="lbl">sealed in contracts.lock</text>
+
+  <rect x="640" y="110" width="260" height="80" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="656" y="138" class="hdr">Z3 LEMMA</text>
+  <text x="656" y="158" class="lbl">QF_LIA + arrays + CHC</text>
+  <text x="656" y="174" class="lbl">UNSAT =&gt; proof</text>
+
+  <rect x="940" y="110" width="220" height="80" rx="6" fill="#0f2d1e" stroke="#238636"/>
+  <text x="956" y="138" class="hdr">VERDICT</text>
+  <text x="956" y="158" class="lbl">T / F / B / N (Belnap)</text>
+  <text x="956" y="174" class="lbl">e=1 accepted / e=0</text>
+
+  <!-- edges with nature of the link -->
+  <line x1="300" y1="150" x2="334" y2="150" stroke="#8b949e" stroke-width="1.8" marker-end="url(#ag)"/>
+  <text x="304" y="104" class="lbl">import</text>
+  <line x1="600" y1="150" x2="634" y2="150" stroke="#8b949e" stroke-width="1.8" marker-end="url(#ag)"/>
+  <text x="604" y="104" class="lbl">asserted</text>
+  <line x1="900" y1="150" x2="934" y2="150" stroke="#8b949e" stroke-width="1.8" marker-end="url(#ag)"/>
+  <text x="904" y="104" class="lbl">proof-step</text>
+
+  <!-- CEGIS feedback -->
+  <path d="M 1050 190 L 1050 236 L 170 236 L 170 196" fill="none" stroke="#d29922" stroke-width="1.8" marker-end="url(#ag)"/>
+  <text x="200" y="256" class="lbl">CEGIS: counterexample + error gradient returns to the agent</text>
+
+  <line x1="40" y1="290" x2="1160" y2="290" stroke="#21262d" stroke-width="1"/>
+
+  <text x="40" y="318" class="hdr">EDGE KINDS — PARSED, NOT ILLUSTRATIVE</text>
+  <text x="40" y="340" class="lbl">import      — module dependency, parsed from @import in src/</text>
+  <text x="40" y="360" class="lbl">asserted    — contract line @kern:requires / @kern:ensures</text>
+  <text x="40" y="380" class="lbl">proof-step  — Z3 / Lean lemma consumed by the proof checker</text>
+
+  <line x1="40" y1="404" x2="1160" y2="404" stroke="#21262d" stroke-width="1"/>
+
+  <text x="40" y="432" class="hdr">FOUR VERDICTS — NO SYSTEM FAILURE PRETENDS TO BE A REFUTATION</text>
+  <circle cx="200" cy="470" r="20" fill="#0f2d1e" stroke="#3fb950" stroke-width="1.6"/>
+  <text x="200" y="475" class="node">T</text>
+  <text x="180" y="510" class="lbl">proved</text>
+  <circle cx="400" cy="470" r="20" fill="#3d1318" stroke="#f85149" stroke-width="1.6"/>
+  <text x="400" y="475" class="node">F</text>
+  <text x="377" y="510" class="lbl">refuted</text>
+  <circle cx="600" cy="470" r="20" fill="#2d1f3d" stroke="#a371f7" stroke-width="1.6"/>
+  <text x="600" y="475" class="node">B</text>
+  <text x="573" y="510" class="lbl">conflict</text>
+  <circle cx="800" cy="470" r="20" fill="#161b22" stroke="#6e7681" stroke-width="1.6"/>
+  <text x="800" y="475" class="node">N</text>
+  <text x="777" y="510" class="lbl">unknown</text>
+
+  <text x="900" y="454" class="val">join_K(T,F) = B</text>
+  <text x="900" y="474" class="lbl">conflict is absorbed,</text>
+  <text x="900" y="492" class="lbl">never overwritten</text>
+  <text x="900" y="510" class="lbl">timeout != F</text>
+</svg>

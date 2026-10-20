@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper metrics-guard metrics-guard-selftest sync sync-check docs-parity ai-traces-check status seal trace-check ai-demo
+.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper metrics-guard metrics-guard-selftest sync sync-check docs-parity ai-traces-check status seal trace-check ai-demo showcase showcase-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -443,11 +443,16 @@ contracts-lock-check:
 # ОБЯЗАНА быть поймана, иначе цель падает. Доказательство эквивалентности,
 # не отличающее сломанный рефакторинг от корректного, — фикция.
 diff-equiv: build
-	@$(PYTHON) tools/kern_contracts.py --diff-equiv \
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/kern_contracts.py --diff-equiv \
 		examples/refactor_before.py examples/refactor_after.py; \
 	rc=$$?; if [ $$rc -eq 1 ]; then \
 		echo "[OK] расхождение обнаружено (rc=1) — доказательство не фиктивно"; \
 	else echo "[!] РАСХОЖДЕНИЕ НЕ ОБНАРУЖЕНО (rc=$$rc)"; exit 1; fi
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/kern_contracts.py --diff-equiv \
+		examples/refactor_before.py examples/refactor_before.py; \
+	rc=$$?; if [ $$rc -eq 1 ]; then \
+		echo "[FAIL] ЛОЖНОЕ ОБВИНЕНИЕ: идентичный файл объявлен DIVERGED"; exit 1; \
+	else echo "[OK] положительный контроль: rc=$$rc (0/2 — нет ложного DIVERGED)"; fi
 
 # MCP-сервер: живая проверка протокола (JSON-RPC 2.0 поверх stdio).
 # Запускает examples/kern_mcp_server.py как ДОЧЕРНИЙ ПРОЦЕСС и проверяет 9 пунктов:
@@ -579,6 +584,7 @@ registry:
 # падать (проверено возвратом длинной строки -> rc=1).
 svg-check:
 	$(PYTHON) tools/svg_check.py
+	$(PYTHON) tools/svg_check.py docs/kern-proof-flow.svg
 
 # Класс дефектов #220/#223: витрина обещает числа (тесты ядра, каталог,
 # CHECK-цели, кейсы, кросс-архитектура), а они растут с каждой правкой кода.
@@ -598,6 +604,17 @@ sync:
 
 sync-check:
 	$(PYTHON) tools/sync_state.py --check
+
+# --- ВИТРИНА: граф Эго-Линзы и карта потока доказательства -------------------
+# Граф импортов и метки модулей НЕ пишутся руками: они пересобираются из
+# `@import` / `test "` / `@kern:` в `src/`. Иначе через месяц витрина показывала
+# бы связи, которых в коде нет — тот же класс, что «125/125» при факте 128.
+showcase:
+	$(PYTHON) tools/gen_showcase_graph.py
+
+showcase-check:
+	@$(PYTHON) tools/showcase_check.py --selftest
+	@$(PYTHON) tools/showcase_check.py
 
 # EN/RU: одни и те же факты в обеих витринах (проза может быть сокращённой).
 docs-parity:

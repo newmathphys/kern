@@ -1,0 +1,1609 @@
+{
+ "schema": 1,
+ "source": "src/**/*.zig parsed for @import / test / pub fn / @kern:",
+ "note": "Реальные рёбра импортов и метрики. Эго-Линза показывает радиус 1-2; фильтр [+][~][-] работает по полю claims.",
+ "roots": [
+  "main.zig",
+  "next/main.zig",
+  "verifier/proof_check.zig",
+  "verifier/z3_bridge.zig",
+  "core/kimg_reader.zig",
+  "next/truth.zig",
+  "verifier/chc.zig",
+  "verifier/cegis.zig",
+  "core/kernfs_router.zig",
+  "verifier/admission_gate.zig",
+  "proof_cache.zig"
+ ],
+ "claims_vocabulary": {
+  "#area/core": 10,
+  "#area/next": 12,
+  "#area/runtime": 1,
+  "#area/verifier": 16,
+  "#has-contract": 3,
+  "#hub": 1,
+  "#internal-only": 32,
+  "#lang/zig": 78,
+  "#large": 8,
+  "#leaf": 35,
+  "#no-contract": 75,
+  "#public-api": 46,
+  "#small": 70,
+  "#tested": 54,
+  "#untested": 24
+ },
+ "nodes": [
+  {
+   "id": "atomic_write.zig",
+   "loc": 83,
+   "pub_fn": 1,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "attack.zig",
+   "loc": 95,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "attest.zig",
+   "loc": 147,
+   "pub_fn": 4,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "bench_simd8.zig",
+   "loc": 38,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "binlevel_probe.zig",
+   "loc": 30,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "capi.zig",
+   "loc": 155,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "chc_bench.zig",
+   "loc": 91,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "compat.zig",
+   "loc": 303,
+   "pub_fn": 19,
+   "tests": 1,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "concolic.zig",
+   "loc": 144,
+   "pub_fn": 1,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "core/blake3_simd8.zig",
+   "loc": 246,
+   "pub_fn": 1,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "core/codec.zig",
+   "loc": 213,
+   "pub_fn": 2,
+   "tests": 7,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "core/eq2.zig",
+   "loc": 178,
+   "pub_fn": 3,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "core/hash_algo.zig",
+   "loc": 166,
+   "pub_fn": 0,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "core/kernfs_router.zig",
+   "loc": 1123,
+   "pub_fn": 0,
+   "tests": 27,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#large",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "core/kimg_reader.zig",
+   "loc": 398,
+   "pub_fn": 0,
+   "tests": 11,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "core/kimg_writer.zig",
+   "loc": 509,
+   "pub_fn": 0,
+   "tests": 10,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#large",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "core/mmap_guard.zig",
+   "loc": 62,
+   "pub_fn": 3,
+   "tests": 2,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "core/object_entry.zig",
+   "loc": 159,
+   "pub_fn": 0,
+   "tests": 2,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "core/sigbus_guard.zig",
+   "loc": 75,
+   "pub_fn": 4,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/core",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "cov.zig",
+   "loc": 88,
+   "pub_fn": 2,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "dst_main.zig",
+   "loc": 54,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "fault_root.zig",
+   "loc": 12,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "fuzz_ast.zig",
+   "loc": 146,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "hash_bench.zig",
+   "loc": 163,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "kern_bench.zig",
+   "loc": 110,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "kimg_stress.zig",
+   "loc": 107,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "main.zig",
+   "loc": 1264,
+   "pub_fn": 2,
+   "tests": 0,
+   "kern_annotations": 3,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#has-contract",
+    "#untested",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/ast.zig",
+   "loc": 313,
+   "pub_fn": 3,
+   "tests": 12,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/cache.zig",
+   "loc": 138,
+   "pub_fn": 2,
+   "tests": 2,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/catalog.zig",
+   "loc": 497,
+   "pub_fn": 0,
+   "tests": 7,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "next/dst_sim.zig",
+   "loc": 228,
+   "pub_fn": 1,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/engine.zig",
+   "loc": 148,
+   "pub_fn": 2,
+   "tests": 1,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/export.zig",
+   "loc": 251,
+   "pub_fn": 2,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/main.zig",
+   "loc": 164,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/parser.zig",
+   "loc": 446,
+   "pub_fn": 1,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/snapshot.zig",
+   "loc": 187,
+   "pub_fn": 4,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/test_root.zig",
+   "loc": 18,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "next/truth.zig",
+   "loc": 591,
+   "pub_fn": 5,
+   "tests": 14,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "next/validate.zig",
+   "loc": 168,
+   "pub_fn": 2,
+   "tests": 2,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "owner.zig",
+   "loc": 102,
+   "pub_fn": 2,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "perf_bench.zig",
+   "loc": 200,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "proof_cache.zig",
+   "loc": 349,
+   "pub_fn": 1,
+   "tests": 7,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "runtime/kern_x.zig",
+   "loc": 125,
+   "pub_fn": 0,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/runtime",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "semantic_probe.zig",
+   "loc": 220,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "sim_test.zig",
+   "loc": 412,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "smt_bench.zig",
+   "loc": 124,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "smt_stress.zig",
+   "loc": 135,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "stress_real.zig",
+   "loc": 115,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "test_root.zig",
+   "loc": 58,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/alignment_stress.zig",
+   "loc": 191,
+   "pub_fn": 1,
+   "tests": 8,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "tests/coverage_report_test.zig",
+   "loc": 54,
+   "pub_fn": 0,
+   "tests": 1,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/exhaustive_suite.zig",
+   "loc": 204,
+   "pub_fn": 0,
+   "tests": 11,
+   "kern_annotations": 0,
+   "imports_out": 5,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#hub",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/fault_injection_test.zig",
+   "loc": 77,
+   "pub_fn": 0,
+   "tests": 2,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/litmus_memory_test.zig",
+   "loc": 166,
+   "pub_fn": 0,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/mcdc_gates_test.zig",
+   "loc": 116,
+   "pub_fn": 0,
+   "tests": 8,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/oom_stress.zig",
+   "loc": 97,
+   "pub_fn": 0,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 3,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/os_stress_test.zig",
+   "loc": 184,
+   "pub_fn": 0,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/pipe_stress_test.zig",
+   "loc": 165,
+   "pub_fn": 0,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/pool_saturation.zig",
+   "loc": 123,
+   "pub_fn": 0,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/smt_incremental_test.zig",
+   "loc": 123,
+   "pub_fn": 0,
+   "tests": 3,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "tests/z3_crash_test.zig",
+   "loc": 69,
+   "pub_fn": 0,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/abs_proof_fixture.zig",
+   "loc": 43,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/abstract_interp.zig",
+   "loc": 182,
+   "pub_fn": 1,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/admission_gate.zig",
+   "loc": 324,
+   "pub_fn": 0,
+   "tests": 8,
+   "kern_annotations": 0,
+   "imports_out": 2,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/array_theory.zig",
+   "loc": 148,
+   "pub_fn": 0,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/builtin_lia.zig",
+   "loc": 550,
+   "pub_fn": 3,
+   "tests": 11,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/cegis.zig",
+   "loc": 174,
+   "pub_fn": 0,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/chc.zig",
+   "loc": 109,
+   "pub_fn": 0,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/dtmc.zig",
+   "loc": 147,
+   "pub_fn": 0,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/model_extract.zig",
+   "loc": 678,
+   "pub_fn": 3,
+   "tests": 30,
+   "kern_annotations": 2,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#has-contract",
+    "#tested",
+    "#leaf",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/noninterference.zig",
+   "loc": 217,
+   "pub_fn": 3,
+   "tests": 8,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/nra_quant.zig",
+   "loc": 170,
+   "pub_fn": 0,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/proof_check.zig",
+   "loc": 5996,
+   "pub_fn": 8,
+   "tests": 88,
+   "kern_annotations": 19,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#has-contract",
+    "#tested",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/redos.zig",
+   "loc": 193,
+   "pub_fn": 1,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/string_theory.zig",
+   "loc": 135,
+   "pub_fn": 0,
+   "tests": 5,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/unsat_core.zig",
+   "loc": 162,
+   "pub_fn": 0,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
+   "id": "verifier/z3_bridge.zig",
+   "loc": 820,
+   "pub_fn": 1,
+   "tests": 20,
+   "kern_annotations": 0,
+   "imports_out": 3,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "wasm_api.zig",
+   "loc": 196,
+   "pub_fn": 0,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "source": "atomic_write.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "attack.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "binlevel_probe.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "chc_bench.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "concolic.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "core/kernfs_router.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "core/kernfs_router.zig",
+   "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "core/kimg_reader.zig",
+   "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "core/kimg_writer.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "core/object_entry.zig",
+   "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "fuzz_ast.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "hash_bench.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "kern_bench.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "kimg_stress.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "main.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/cache.zig",
+   "target": "atomic_write.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/cache.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/engine.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/export.zig",
+   "target": "atomic_write.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/export.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/main.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/main.zig",
+   "target": "owner.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/snapshot.zig",
+   "target": "atomic_write.zig",
+   "kind": "import"
+  },
+  {
+   "source": "next/snapshot.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "perf_bench.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "proof_cache.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "semantic_probe.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "sim_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "smt_bench.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "smt_stress.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "stress_real.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/alignment_stress.zig",
+   "target": "core/kimg_reader.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/alignment_stress.zig",
+   "target": "core/object_entry.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/coverage_report_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/coverage_report_test.zig",
+   "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/exhaustive_suite.zig",
+   "target": "core/eq2.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/exhaustive_suite.zig",
+   "target": "core/kernfs_router.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/exhaustive_suite.zig",
+   "target": "core/kimg_reader.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/exhaustive_suite.zig",
+   "target": "core/object_entry.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/exhaustive_suite.zig",
+   "target": "verifier/admission_gate.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/fault_injection_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/fault_injection_test.zig",
+   "target": "core/sigbus_guard.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/litmus_memory_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/mcdc_gates_test.zig",
+   "target": "core/eq2.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/mcdc_gates_test.zig",
+   "target": "verifier/admission_gate.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/oom_stress.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/oom_stress.zig",
+   "target": "core/kimg_reader.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/oom_stress.zig",
+   "target": "core/kimg_writer.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/os_stress_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/os_stress_test.zig",
+   "target": "verifier/z3_bridge.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/pipe_stress_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/pool_saturation.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/pool_saturation.zig",
+   "target": "verifier/z3_bridge.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/smt_incremental_test.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/smt_incremental_test.zig",
+   "target": "verifier/z3_bridge.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/z3_crash_test.zig",
+   "target": "verifier/admission_gate.zig",
+   "kind": "import"
+  },
+  {
+   "source": "tests/z3_crash_test.zig",
+   "target": "verifier/z3_bridge.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/admission_gate.zig",
+   "target": "core/eq2.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/admission_gate.zig",
+   "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/noninterference.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/proof_check.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/string_theory.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/z3_bridge.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/z3_bridge.zig",
+   "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/z3_bridge.zig",
+   "target": "proof_cache.zig",
+   "kind": "import"
+  }
+ ]
+}

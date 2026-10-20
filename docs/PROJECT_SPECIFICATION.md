@@ -1070,7 +1070,7 @@ make golden                    # эталонный образ
 | `make ci` / `make ci-fast` | CI (полный / быстрый) |
 | **`make canfail`** | 144 кейса: доказательство не-вакуумности |
 | `make canfail-selftest` | мета-проверка харнесса |
-| `make registry` | реестр <!-- fact:registry_targets -->154 цели + предохранитель |
+| `make registry` | реестр <!-- fact:registry_targets -->162 цели + предохранитель |
 | `make audit-manifest` | аттестационный манифест (10 строк) |
 | `make attest` / `make slsa` / `make cert` | подписи и квалификация |
 | `make lean` | Lean 4 доказательства |
@@ -1144,7 +1144,7 @@ formal/                         # Lean 4 (7 файлов, 32 теоремы)
 
 tools/                          # контур доверия и бенчмарки
 ├── canfail.py                  #   144 кейса не-вакуумности
-├── registry.py                 #   реестр <!-- fact:registry_targets -->154 цели + предохранитель
+├── registry.py                 #   реестр <!-- fact:registry_targets -->162 цели + предохранитель
 ├── ci.sh                       #   единый контур (16 стадий)
 ├── audit_manifest.sh           #   аттестационный манифест (10 строк)
 ├── gen_test_catalog.py         #   генератор каталога тестов (+ --check)

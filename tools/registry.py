@@ -127,6 +127,8 @@ CLASS = {
     "ai-traces-check": "META",          # нет ИИ-шаблонов в тексте/коммитах
     "seal": "BUILD",                    # герметичная сборка + аттестат
     "status": "META",                    # git status + легенда generated/manual
+    "showcase": "BUILD",                 # пересборка графа витрины из src/
+    "showcase-check": "META",            # граф витрины == src/ (+ --selftest)
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",

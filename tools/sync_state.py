@@ -47,6 +47,10 @@ SURFACES = (
     "docs/kern-architecture.svg",
     "docs/TESTING_AND_SPEED_GUIDE.md",
     "docs/TESTING_AND_SPEED_GUIDE.en.md",
+    "docs/PROJECT_SPECIFICATION.md",
+    "docs/README.md",
+    "docs/RELEASE_NOTES_v2.5.1.md",
+    "docs/RELEASE_NOTES_v2.5.1.en.md",
 )
 ANCHOR = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->\s*(\d+)")
 ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")
@@ -55,6 +59,19 @@ ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, *args], cwd=ROOT,
                           capture_output=True, text=True, check=False)
+
+
+def _fact_max_defect() -> int:
+    """Наибольший номер в журнале дефектов `CAPABILITY_STATUS.md`.
+
+    Число «#1–#NNN» стояло в пяти поверхностях и правилось руками при каждом
+    новом дефекте; страж (`check_metrics_consistency`) это ловил, но исправлять
+    приходилось вручную. Теперь это факт: `make sync` обновляет его сам.
+    """
+    nums = re.findall(r"^\|\s*\*\*(\d+)\*\*\s*\|",
+                      (ROOT / "docs" / "CAPABILITY_STATUS.md").read_text(
+                          encoding="utf-8"), re.M)
+    return max((int(n) for n in nums), default=0)
 
 
 def _fact_lean() -> int:
@@ -124,6 +141,8 @@ def collect() -> dict:
         "cross_arch_passed": d.get("cross_arch_passed", 0),
         "cross_arch_skipped": d.get("cross_arch_skipped", 0),
         "anchors": d["canfail_anchors"],
+        # Источник — страж; локальный скан только как запасной путь.
+        "max_defect": d.get("max_defect") or _fact_max_defect(),
         "lean_theorems": _fact_lean(),
         "quixbugs": _fact_quixbugs(),
     }
@@ -157,6 +176,42 @@ def anchor_without_number(text: str) -> list[str]:
     return out
 
 
+def anchor_orphans() -> list[str]:
+    """Файлы с якорями, которые `sync` НЕ обновляет.
+
+    ДЕФЕКТ #246: `docs/PROJECT_SPECIFICATION.md` и `docs/README.md` содержали
+    якоря `<!-- fact:registry_targets -->`, но их не было в SURFACES — число
+    выглядело синхронизированным и молча устаревало. Якорь, который никто не
+    переписывает, опаснее отсутствия якоря.
+    """
+    out = []
+    for pat in ("*.md", "*.html", "*.svg"):
+        for f in ROOT.rglob(pat):
+            if any(part in (".venv", ".git", "zig-cache", "zig-out", "node_modules")
+                   for part in f.parts):
+                continue
+            try:
+                text = f.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "<!-- fact:" in text and f.relative_to(ROOT).as_posix() not in SURFACES:
+                out.append(f.relative_to(ROOT).as_posix())
+    return sorted(out)
+
+
+def _strip_code(text: str) -> str:
+    """Убрать код-спаны и блоки: там якоря — ПРИМЕР синтаксиса, не данные.
+
+    ДЕФЕКТ #247: `docs/RELEASE_NOTES_v2.5.1.md` документирует формат
+    `<!-- fact:key -->N`. Проверка считала это якорем без числа и
+    объявляла файл сломанным. Пример в обратных кавычках — не утверждение
+    о факте.
+    """
+    text = re.sub(r"```.*?```", lambda m: "\n" * m.group(0).count("\n"),
+                  text, flags=re.S)
+    return re.sub(r"`[^`\n]*`", "", text)
+
+
 def check() -> int:
     if not FACTS.exists():
         print(f"[FAIL] нет {FACTS} — запустите make sync")
@@ -168,6 +223,10 @@ def check() -> int:
         print(f"[FAIL] {e}")
         return 1
     bad = 0
+    orphans = anchor_orphans()
+    if orphans:
+        print(f"[FAIL] якоря в файлах вне SURFACES (их никто не обновляет): {orphans}")
+        bad += 1
     if facts != live:
         print("[FAIL] docs/facts.json устарел — запустите make sync")
         for k in sorted(set(facts) | set(live)):
@@ -178,7 +237,7 @@ def check() -> int:
         p = ROOT / rel
         if not p.exists():
             continue
-        text = p.read_text(encoding="utf-8")
+        text = _strip_code(p.read_text(encoding="utf-8"))
         for key in ANCHOR_ANY.findall(text):
             try:
                 lookup(facts, key)
@@ -265,6 +324,22 @@ def selftest() -> int:
     else:
         print("[FAIL] selftest: неизвестный ключ не отвергнут")
         bad += 1
+    # ДЕФЕКТ #246: якорь вне SURFACES молча устаревает. Доказываем, что
+    # проверка сирот СПОСОБНА упасть: временный файл с якорем обязан попасть
+    # в список, после удаления — исчезнуть.
+    probe = ROOT / "docs" / ".anchor_orphan_probe.md"
+    try:
+        probe.write_text("x <!-- fact:check_targets -->128\n", encoding="utf-8")
+        if "docs/.anchor_orphan_probe.md" not in anchor_orphans():
+            print("[FAIL] selftest: сирота с якорем не найдена")
+            bad += 1
+    finally:
+        probe.unlink(missing_ok=True)
+    if "docs/.anchor_orphan_probe.md" in anchor_orphans():
+        print("[FAIL] selftest: сирота не удалена")
+        bad += 1
+
+
     print(f"[{'OK' if bad == 0 else 'FAIL'}] sync_state selftest: ошибок {bad}")
     return 0 if bad == 0 else 1
 

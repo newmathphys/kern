@@ -137,6 +137,23 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 .diagram-modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.9);align-items:center;justify-content:center;cursor:zoom-out;padding:2vh 2vw}
 .diagram-modal.open{display:flex}
 .diagram-modal img{max-width:96vw;max-height:94vh;background:#0d1117;border-radius:8px}
+/* --- proof flow / Ego-Lens / filter matrix --- */
+#flow h3{margin:18px 0 8px;font-size:15px}
+#lens-svg{width:100%;height:auto;display:block;background:var(--bg0);
+  border:1px solid var(--line);border-radius:8px}
+#lens-svg text{font:400 10px ui-monospace,SFMono-Regular,Menlo,monospace;
+  fill:var(--mut);pointer-events:none}
+#lens-svg .lnode{cursor:pointer}
+#lens-svg .lnode:hover circle{stroke:#58a6ff}
+#lens-svg .lsel text{fill:#f0f6fc;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px}
+.chip{font:600 11.5px ui-monospace,SFMono-Regular,Menlo,monospace;padding:4px 9px;
+  border-radius:12px;border:1px solid var(--line2);background:var(--bg1);
+  color:var(--ink2);cursor:pointer;-webkit-user-select:none;user-select:none}
+.chip.and{border-color:#3fb950;color:#3fb950;background:#0f2d1e}
+.chip.or{border-color:#d29922;color:#d29922;background:#2b220f}
+.chip.not{border-color:#f85149;color:#f85149;background:#3d1318;text-decoration:line-through}
+.fm-out{font:400 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink2);margin:0 0 10px}
 </style>
 </head>
 <body>
@@ -164,6 +181,9 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 </div>
 <div id="arch-modal" class="diagram-modal" onclick="closeArch()">
   <img src="kern-architecture.svg" alt="KERN architecture (enlarged)">
+</div>
+<div id="flow-modal" class="diagram-modal" onclick="closeArch()">
+  <img src="kern-proof-flow.svg" alt="KERN proof flow (enlarged)">
 </div>
 
 <h2>What K.E.R.N. stands for</h2>
@@ -525,7 +545,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#235</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#<!-- fact:max_defect -->247</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -548,7 +568,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>defects this project found in itself</strong> (#1–#235).
+together with the <strong>defects this project found in itself</strong> (#1–#<!-- fact:max_defect -->247).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 
@@ -804,6 +824,65 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
     </div>
   </div>
   <p class="note" id="wasmnote"></p>
+</section>
+
+<section id="flow">
+<h2>Proof flow, Ego-Lens and the filter matrix</h2>
+<p class="note">Every control below is driven by data shipped with this page: the
+flow map is a static SVG, the lens and the filters read
+<code>showcase-graph.json</code>, which is regenerated from <code>@import</code>,
+<code>test "</code> and <code>@kern:</code> in <code>src/</code> by
+<code>make showcase</code>. Nothing here is a mock-up: what the page cannot run
+in a browser is marked <em>CLI only</em> instead of being simulated.</p>
+
+<div class="panel">
+<h3>Proof flow — the path a claim travels</h3>
+<div class="diagram-wrap">
+<img id="flow-img" src="kern-proof-flow.svg" width="1200" height="520"
+     style="cursor:zoom-in" onclick="openFlow()"
+     alt="Proof flow: source AST to contract to Z3 lemma to verdict, with CEGIS feedback">
+<button class="diagram-zoom" onclick="openFlow()" aria-label="Zoom proof flow" title="Zoom">＋</button>
+</div>
+<table class="mono">
+<thead><tr><th>Control</th><th>What it does</th><th>Data source</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><strong>SVG flow</strong></td><td>Directed map <code>AST &rarr; contract &rarr; Z3 lemma &rarr; verdict</code>; edges are labelled <em>import</em>, <em>asserted</em>, <em>proof-step</em>; the CEGIS arrow returns a counterexample with its error gradient.</td><td><code>docs/kern-proof-flow.svg</code></td><td><strong>real</strong>, static</td></tr>
+<tr><td><strong>🔍 Lens</strong></td><td>Isolates the active module plus its direct (1) and second-order (2) import neighbours. Click any node to move the lens.</td><td><code>docs/showcase-graph.json</code> &larr; <code>@import</code> in <code>src/</code></td><td><strong>real</strong>, interactive</td></tr>
+<tr><td><strong>[ + ]</strong> AND</td><td>Left click on a chip: keep only modules that carry the claim.</td><td>recomputed from source</td><td><strong>real</strong></td></tr>
+<tr><td><strong>[ ~ ]</strong> OR</td><td>Shift + click: at least one of the OR-claims must hold.</td><td>same</td><td><strong>real</strong></td></tr>
+<tr><td><strong>[ - ]</strong> NOT</td><td>Right click: hard exclusion.</td><td>same</td><td><strong>real</strong></td></tr>
+<tr><td><strong>[ = ]</strong> EQUIV</td><td>Symbolic equivalence of two revisions through Z3 <code>--diff-equiv</code>. The recorded run below is real; the command is printed so you can reproduce it.</td><td><code>tools/kern_contracts.py</code></td><td><strong>CLI only</strong> — the browser has no solver</td></tr>
+</tbody>
+</table>
+<pre class="mono" style="white-space:pre-wrap;font-size:12px">python3 tools/kern_contracts.py --diff-equiv examples/refactor_before.py examples/refactor_after.py
+  [DIVERGED] charge: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ
+         [КОНТРПРИМЕР] amount = 1, res_old = 0, res_new = 2, balance = 1
+            (противоположная пара, examples/refactor_before.py vs itself)
+  [EQUIVALENT?] charge: solver proved equivalence, proof checker rejected it (premises_unbound)
+  → the same revision is never accused of divergence (#243)</pre>
+</div>
+
+<div class="panel" id="lens">
+<h3>Ego-Lens — radius 1–2 around the active module</h3>
+<div class="wrow">
+<label for="lens-root">root</label>
+<select id="lens-root"></select>
+<label for="lens-depth">radius</label>
+<select id="lens-depth"><option value="1">1</option><option value="2" selected>2</option></select>
+</div>
+<svg id="lens-svg" viewBox="0 0 900 420" role="img" aria-label="Import neighbourhood of the selected module"></svg>
+<p class="note" id="lens-note">loading…</p>
+</div>
+
+<div class="panel">
+<h3>Filter matrix — boolean selection in one click</h3>
+<div class="chips" id="fm-chips"></div>
+<p class="fm-out" id="fm-out">loading…</p>
+<table class="mono">
+<thead><tr><th>module</th><th>LOC</th><th>pub fn</th><th>tests</th><th>@kern:</th><th>claims</th></tr></thead>
+<tbody id="fm-body"><tr><td colspan="6">—</td></tr></tbody>
+</table>
+</div>
 </section>
 
 <footer>
@@ -1269,8 +1348,175 @@ This page is served from <code>/docs</code> of the
 
 <script>
 function openArch(){document.getElementById('arch-modal').classList.add('open')}
-function closeArch(){document.getElementById('arch-modal').classList.remove('open')}
+function openFlow(){document.getElementById('flow-modal').classList.add('open')}
+function closeArch(){document.getElementById('arch-modal').classList.remove('open');
+  document.getElementById('flow-modal').classList.remove('open')}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeArch()});
+</script>
+
+<script>
+(async () => {
+  const svg = document.getElementById('lens-svg');
+  const rootSel = document.getElementById('lens-root');
+  const depthSel = document.getElementById('lens-depth');
+  const note = document.getElementById('lens-note');
+  let G;
+  try {
+    G = await (await fetch('./showcase-graph.json', {cache: 'no-store'})).json();
+  } catch (err) {
+    note.textContent = 'showcase-graph.json unavailable — lens disabled';
+    return;
+  }
+  const adj = new Map(G.nodes.map(n => [n.id, []]));
+  for (const e of G.edges) {
+    if (!adj.has(e.source) || !adj.has(e.target)) continue;
+    adj.get(e.source).push(e.target);
+    adj.get(e.target).push(e.source);
+  }
+  const byId = new Map(G.nodes.map(n => [n.id, n]));
+  const short = s => s.replace(/^.*\//, '').replace(/\.zig$/, '');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, at) => {
+    const e = document.createElementNS(NS, n);
+    for (const k in at) e.setAttribute(k, at[k]);
+    return e;
+  };
+  for (const r of G.roots) {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    rootSel.appendChild(o);
+  }
+  function ego(root, depth) {
+    const dist = new Map([[root, 0]]);
+    let frontier = [root];
+    for (let d = 1; d <= depth; d++) {
+      const next = [];
+      for (const u of frontier) {
+        for (const v of adj.get(u) || []) {
+          if (!dist.has(v)) { dist.set(v, d); next.push(v); }
+        }
+      }
+      frontier = next;
+    }
+    return dist;
+  }
+  function draw(root, depth) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (!byId.has(root)) return;
+    const dist = ego(root, depth);
+    const W = 900, H = 420, cx = W / 2, cy = H / 2;
+    const rings = [[], []];
+    for (const [id, d] of dist) if (d > 0) rings[d - 1].push(id);
+    const pos = new Map([[root, [cx, cy]]]);
+    rings.forEach((ids, i) => {
+      ids.sort();
+      const r = 120 + i * 85;
+      ids.forEach((id, k) => {
+        const a = (k / Math.max(1, ids.length)) * Math.PI * 2 - Math.PI / 2;
+        pos.set(id, [cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+      });
+    });
+    for (const [id, p] of pos) {
+      for (const v of adj.get(id) || []) {
+        if (!pos.has(v) || id >= v) continue;
+        const q = pos.get(v);
+        svg.appendChild(el('line', {x1: p[0], y1: p[1], x2: q[0], y2: q[1],
+          stroke: '#30363d', 'stroke-width': '1'}));
+      }
+    }
+    for (const [id, p] of pos) {
+      const isRoot = id === root;
+      const g = el('g', {class: 'lnode' + (isRoot ? ' lsel' : '')});
+      g.appendChild(el('circle', {cx: p[0], cy: p[1], r: isRoot ? 9 : 6,
+        fill: isRoot ? '#1f6feb' : '#161b22',
+        stroke: isRoot ? '#58a6ff' : '#6e7681', 'stroke-width': '1.4'}));
+      const t = el('text', {x: p[0], y: p[1] - 12, 'text-anchor': 'middle'});
+      const node = byId.get(id);
+      t.textContent = short(id).slice(0, 18) + (node && node.tests ? ' ·' : '');
+      g.appendChild(t);
+      g.addEventListener('click', () => draw(id, +depthSel.value));
+      svg.appendChild(g);
+    }
+    note.textContent = 'root ' + root + ' · radius ' + depth + ' · ' + pos.size +
+      ' of ' + G.nodes.length + ' modules · ' + G.edges.length +
+      ' import edges parsed from src/ · “·” marks a module with Zig tests';
+  }
+  rootSel.addEventListener('change', () => draw(rootSel.value, +depthSel.value));
+  depthSel.addEventListener('change', () => draw(rootSel.value, +depthSel.value));
+  draw(G.roots[0] || G.nodes[0].id, +depthSel.value);
+})();
+</script>
+
+<script>
+(async () => {
+  const wrap = document.getElementById('fm-chips');
+  const out = document.getElementById('fm-out');
+  const body = document.getElementById('fm-body');
+  let G;
+  try {
+    G = await (await fetch('./showcase-graph.json', {cache: 'no-store'})).json();
+  } catch (err) {
+    out.textContent = 'showcase-graph.json unavailable — filters disabled';
+    return;
+  }
+  const state = new Map();
+  const order = Object.keys(G.claims_vocabulary).sort();
+  const MARK = {and: '[+] ', or: '[~] ', not: '[-] '};
+  function render() {
+    wrap.innerHTML = '';
+    for (const c of order) {
+      const st = state.get(c) || '';
+      const b = document.createElement('span');
+      b.className = 'chip' + (st ? ' ' + st : '');
+      b.textContent = (MARK[st] || '') + c + ' (' + G.claims_vocabulary[c] + ')';
+      b.title = 'left click = AND · shift+click = OR · right click = NOT';
+      b.addEventListener('click', ev => {
+        const want = ev.shiftKey ? 'or' : 'and';
+        if ((state.get(c) || '') === want) state.delete(c); else state.set(c, want);
+        render();
+      });
+      b.addEventListener('contextmenu', ev => {
+        ev.preventDefault();
+        if ((state.get(c) || '') === 'not') state.delete(c); else state.set(c, 'not');
+        render();
+      });
+      wrap.appendChild(b);
+    }
+    const ands = [...state].filter(p => p[1] === 'and').map(p => p[0]);
+    const ors = [...state].filter(p => p[1] === 'or').map(p => p[0]);
+    const nots = [...state].filter(p => p[1] === 'not').map(p => p[0]);
+    const hit = G.nodes.filter(n => {
+      const s = new Set(n.claims);
+      if (nots.some(c => s.has(c))) return false;
+      if (ands.some(c => !s.has(c))) return false;
+      if (ors.length && !ors.some(c => s.has(c))) return false;
+      return true;
+    });
+    out.textContent = 'AND [' + ands.join(', ') + '] · OR [' + ors.join(', ') +
+      '] · NOT [' + nots.join(', ') + '] → ' + hit.length + ' / ' + G.nodes.length +
+      ' modules';
+    body.innerHTML = '';
+    for (const n of hit.slice(0, 15)) {
+      const tr = document.createElement('tr');
+      for (const v of [n.id, n.loc, n.pub_fn, n.tests, n.kern_annotations,
+                       n.claims.join(' ')]) {
+        const td = document.createElement('td');
+        td.textContent = v;
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+    if (!hit.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.textContent = 'no module matches this boolean expression';
+      tr.appendChild(td);
+      body.appendChild(tr);
+    }
+  }
+  render();
+})();
 </script>
 </body>
 </html>
