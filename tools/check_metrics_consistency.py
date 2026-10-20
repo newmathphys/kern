@@ -95,6 +95,40 @@ def fact_catalog() -> int | None:
         return None
 
 
+def _mutator():
+    """Загружает `tools/mutate_zig.py` один раз (для пула сайтов и списка файлов)."""
+    spec = importlib.util.spec_from_file_location("mz", ROOT / "tools" / "mutate_zig.py")
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    except (ImportError, OSError, AttributeError):
+        return None
+    return mod
+
+
+def fact_mutation_sites() -> int | None:
+    """Пул сайтов мутации считает сам мутатор (`collect()` — 0.27 с, без сборки).
+
+    Пул РАСТЁТ с каждой правкой ядра (было 1225, стало 1345), поэтому обещание
+    «N/N sites» на витрине обязано сверяться с ним, а не застывать.
+    """
+    mod = _mutator()
+    if mod is None:
+        return None
+    try:
+        return len(mod.collect(str(ROOT)))
+    except (OSError, AttributeError, TypeError):
+        return None
+
+
+def fact_mutation_files() -> int | None:
+    """Число целевых файлов мутатора (`TARGETS`) — тоже растёт (было 20, стало 21)."""
+    mod = _mutator()
+    return len(mod.TARGETS) if mod is not None else None
+
+
 def fact_registry() -> dict | None:
     try:
         out = subprocess.run(
@@ -108,7 +142,7 @@ def fact_registry() -> dict | None:
 
 
 
-def _rules(core: int, nxt: int, cat: int, checks: int, cases: int):
+def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int, targets: int):
     """(регулярка, ожидаемое значение, метка). Все числовые группы обязаны совпасть."""
     return (
         (r"(\d+)\s+core tests", core, "тесты ядра"),
@@ -133,12 +167,16 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int):
          ("can-fail", "check", "вакуум", "харнесс")),
         (r"(\d+)\s+cases\b", cases, "кейсы can-fail", ("canfail", "can-fail", "vacuous")),
         (r"(\d+)\s+кейс(?:ов|а)?\b", cases, "кейсы can-fail", ("вакуум", "canfail")),
+        (r"(\d+)\s+sites\b", sites, "сайты мутации", ("mutation", "mutant")),
+        (r"(\d+)\s+сайт(?:ов|а)?\b", sites, "сайты мутации", ()),
+        (r"(\d+)\s+(?:files|файл(?:ов|а)?)\b", targets, "файлы мутации", ("mutation", "mutant", "сайт")),
     )
 
 
 # Это история, а не текущее обещание: «снимок 2026-10-14», «snapshot», «было 279».
 HISTORY_MARKERS = ("снимок", "snapshot", "истори", "history", "было", "был ",
-                   "ранее", "previous", "formerly")
+                   "ранее", "previous", "formerly", "раньше", "earlier",
+                   "symptom", "before:")
 
 
 def main() -> int:
@@ -147,8 +185,11 @@ def main() -> int:
     cat = fact_catalog()
     reg = fact_registry()
     arch = fact_cross_arch()
+    sites = fact_mutation_sites()
+    tgt = fact_mutation_files()
 
-    if core is None or nxt is None or cat is None or reg is None:
+    if core is None or nxt is None or cat is None or reg is None \
+            or sites is None or tgt is None:
         _fail("не удалось получить факты (свидетельства/реестр/каталог) — проверка невозможна")
         return 1
 
@@ -158,7 +199,7 @@ def main() -> int:
     n_cases = len(cases) if isinstance(cases, list) else int(cases)
     tail = f" · QEMU {arch[0]}+{arch[1]}" if arch else ""
     print(f"ФАКТЫ: ядро {core} · next {nxt} · каталог {cat} · "
-          f"CHECK {n_checks} · кейсов {n_cases}{tail}")
+          f"CHECK {n_checks} · кейсов {n_cases} · сайтов {sites} в {tgt} файлах{tail}")
 
     bad = 0
 
@@ -168,7 +209,7 @@ def main() -> int:
               f"а тестов ядра {core} — лог устарел")
         bad += 1
 
-    rules = _rules(core, nxt, cat, n_checks, n_cases)
+    rules = _rules(core, nxt, cat, n_checks, n_cases, sites, tgt if tgt else 0)
     for rel in SURFACES:
         p = ROOT / rel
         if not p.exists():
@@ -184,6 +225,10 @@ def main() -> int:
                 if need and not any(x in low for x in need):
                     continue  # контекст не тот — это не обещание счётчика
                 for m in re.finditer(pattern, line, re.IGNORECASE):
+                    # «Lean 4 **8 files** / 137 theorems» — это файлы Lean, не мутатора:
+                    # в той же строке есть слово mutation, но обещание не о нём.
+                    if label == "файлы мутации" and "lean" in low[max(0, m.start() - 60):m.start()]:
+                        continue
                     for g in (g for g in m.groups() if g is not None):
                         if int(g) != expect:
                             _fail(f"{rel}:{lineno}  {label}: «{m.group(0).strip()}» "

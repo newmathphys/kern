@@ -2421,3 +2421,28 @@ silently; second offender `kern.intoto.sig` (case `slsa-bad-sig`).
 **Fix:** both files added to `FAULTABLE`, `touch()` now raises the same
 `RuntimeError` as `patch()`. Verified by re-running the case: the file is
 restored byte-for-byte.
+
+---
+
+### 70. Registry integrity audit: 33 records were invisible to the duplicate guard (#226)
+
+**Found** by comparing `registry.py` against the table itself: the duplicate guard
+matches `| **N** |`, while part of the journal was written as `| N |`. Of **197**
+canonical records the guard saw **164**.
+
+| Item | Fact |
+|:--|:--|
+| records in the journal (real) | **197**, range #1–#226 |
+| visible to the guard | **164** (bold format only) |
+| invisible | **33**: #1–#10 (section 6), #31–#47 (moved in from METRICS), #93–#97, #165 |
+| duplicate numbers | **0** (checked across all 197) |
+
+**Why it matters.** The guard exists so that two different defects cannot take the same
+number. It did not read a third of the journal — so it could not catch a collision
+exactly where numbers were assigned by hand.
+
+**Fixed:** #1–#10, #31–#47, #93–#97 and #165 converted to canonical format; the guard
+now sees **197 rows** and confirms uniqueness.
+
+**Not claimed:** that all 226 numbers exist. Historical gaps remain (e.g. #11–#30
+were never used) — stated as a fact, not as a goal.

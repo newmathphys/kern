@@ -227,7 +227,7 @@ make contracts                 # polyglot @kern: contracts (Python / Zig / C / R
     <div class="stat">
       <span class="val">401 / 401</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
       <span class="val">53 / 53</span><span class="lbl">KERN-Next tests</span>
-      <span class="val">100.0 %</span><span class="lbl">mutation score — 1225 / 1225 killed (20 files, full local sweep); committed evidence: canonical 40 / 40 + per-module 244 / 244</span>
+      <span class="val">100.0 %</span><span class="lbl">mutation score — 1345 / 1345 killed (21 files, full local sweep); committed evidence: mutate_full.log 1345 / 1345 + canonical 40 / 40 + per-module 244 / 244</span>
       <span class="val">126 / 126</span><span class="lbl">can-fail CHECK targets — 142 non-vacuous cases, 0 vacuous</span>
     </div>
     <div class="stat">
@@ -489,7 +489,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#225</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#226</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -512,7 +512,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>defects this project found in itself</strong> (#1–#225).
+together with the <strong>defects this project found in itself</strong> (#1–#226).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 
@@ -679,7 +679,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
     15 code + 10 <code>.lean</code> files via <code>raw.githubusercontent.com</code> (both CORS-open),
     and calls the real <code>kernc.wasm</code> (<code>kern_wasm_lia_unsat2</code>) in your browser.
     <b>Honest scope:</b> X-Ray here is heuristic (regex + LIA on numeric guards); mutation
-    (1225 sites), can-fail (125 goals), QF_S/IEEE-754 and the Ed25519 signature check are CLI-only —
+    (1345 sites), can-fail (125 goals), QF_S/IEEE-754 and the Ed25519 signature check are CLI-only —
     therefore the browser score caps at <b>65</b>.</p>
     <div class="sc-actions">
       <input id="sc-repo" class="mono" type="text" placeholder="owner/repo"
@@ -702,7 +702,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
       <tbody>
         <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
-          <td>full CLI audit: 137 Lean theorems (0 sorry), 1225/1225 mutants, 126/126 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+          <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 126/126 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
           <td>modelcontextprotocol/servers</td><td>composition</td><td>MCP surface: tools/list, descriptions, annotations</td></tr>
         <tr data-lb="ziglang/zig" style="cursor:pointer;border-top:1px solid #21262d">
@@ -915,7 +915,7 @@ This page is served from <code>/docs</code> of the
    HONEST LIMITS (printed on the card):
      - X-Ray here is HEURISTIC: regexes + LIA over numeric guards, not the
        symbolic path conditions of the `--xray` CLI;
-     - mutation (1225 sites), can-fail (125 goals) and the Z3 theories
+     - mutation (1345 sites), can-fail (125 goals) and the Z3 theories
        (QF_S / QF_FP) do NOT run in the browser at all — they are CLI-only;
      - the Ed25519 signature is not checked in the browser: the presence of an
        attestation is a fact, “verified” means `slsa_provenance.py --check`. */
@@ -1130,7 +1130,7 @@ This page is served from <code>/docs</code> of the
       `   weights: ${Object.entries(b).map(([k, v]) => k + '=' + v).join(' ')}`,
       '',
       'WHAT THE BROWSER DOES NOT DO (hence 65, not 100):',
-      '   - 1225 mutants and 125 can-fail goals need zig build and Linux processes;',
+      '   - 1345 mutants and 125 can-fail goals need zig build and Linux processes;',
       '   - Z3 theories QF_S / IEEE-754 / bit-vectors are CLI-only;',
       '   - X-Ray here is heuristic (regexes + LIA on guards), not symbolic paths;',
       '   - the attestation signature is verified locally: slsa_provenance.py --check.',
@@ -1206,7 +1206,7 @@ This page is served from <code>/docs</code> of the
         r ? '- composition: ' + r.score + '/65 · Grade ' + r.grade : '- composition: not run in this tab',
         r ? '- xray: dead=' + r.x.dead + ', crash=' + r.x.crash + ', anti-cheat=' + r.x.ac + ', CC max=' + r.x.cc : '',
         r ? '- languages: .zig=' + r.x.zig + ', .lean=' + r.x.lean : '', '',
-        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1225 sites),',
+        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1345 sites),',
         'can-fail (125 goals) or the Ed25519 attestation check. For the full passport run:',
         '```',
         'python3 tools/trust_scorecard.py --repo ' + spec + ' --json out.json',

@@ -26,7 +26,7 @@
 | `--full-file` | 16 modules at **100 %**; plus the whole population (below) |
 | `opt-diff` cache | **90 000 ms → 47 ms** (×1900) |
 | `--heal` | `.bak` + `tmp → fsync → re-check → replace` |
-| **Full population mutation sweep** | **1225 / 1225 = 100.0 %**, 0 survivors, 23 min |
+| **Full population mutation sweep** | **1345 / 1345 = 100.0 %**, 0 survivors, 23 min |
 
 ## Defects found while closing these debts
 
@@ -42,5 +42,5 @@
    `SHA256SUMS`, run the online `make artifact-check`.
 2. Sync README/landing hashes after the asset is uploaded (currently v2.4.0 on purpose,
    otherwise the links would 404).
-3. Nothing else in code: canonical gate 40/40, full sweep 1225/1225, `canfail`
+3. Nothing else in code: canonical gate 40/40, full sweep 1345/1345, `canfail`
    138 non-vacuous / 0 vacuous, Lean 137 theorems / 0 sorry, QEMU 393/8/0.

@@ -17,7 +17,7 @@
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **401 / 401** (without `z3` in `PATH` — 393 passed + 8 skipped),
 > KERN-Next **53 / 53**, can-fail **126 / 126 CHECK** (142 non-vacuous cases, 0 errors),
-> registry **125 targets**, mutation score **100.0 %** (1225/1225), Lean 4 **8 files /
+> registry **125 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 137 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
@@ -37,7 +37,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Target Systems | **PASS** — 2 platforms: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA bypass closed, KERNFS consistent) |
 | Decision Coverage | **PASS** — 100.0 % (threshold 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1225/1225 sites, 0 survivors) |
+| Mutation Coverage | **PASS** — 100.0 % (1345/1345 sites, 0 survivors) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -88,7 +88,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Zombie processes | **0** (`child.wait()` reaps) | ✅ |
 | I/O fault tolerance (`test-fault`) | **3/3 OK** (real SIGBUS) | ✅ |
 | Decision coverage (MC/DC) | **100.0 %** (30/30, DO-178C threshold ≥ 95 %) | ✅ |
-| Mutation score | **100.0 %** (1225/1225 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
+| Mutation score | **100.0 %** (1345/1345 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
 
 ---
 
@@ -257,7 +257,7 @@ Claims that **did not hold** and were fixed in the documentation:
 ## What was fully confirmed ✅
 
 401 / 401 (Debug + ReleaseSafe) · 53/53 KERN-Next · 0 leaks · 0 FD · 0 zombies ·
-3/3 SIGBUS · 100 % decision coverage · mutation score 100.0 % (1225/1225) ·
+3/3 SIGBUS · 100 % decision coverage · mutation score 100.0 % (1345/1345) ·
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·

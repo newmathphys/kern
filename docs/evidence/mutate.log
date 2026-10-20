@@ -1,8 +1,8 @@
 === KERN EVIDENCE: mutate ===
-=== команда: python3 tools/mutate_zig.py --max 40 --seed 7 --jobs 4 --require-solver ===
-=== дата: 2026-10-19T18:11:51Z ===
+=== команда: python3 tools/mutate_zig.py --max 40 --seed 7 --jobs 4 --require-solver (KERN_MUTATE_FAST=1) ===
+=== дата: 2026-10-20T14:28:29Z ===
 
-[i] найдено сайтов мутации: 1226; берём не более 40
+[i] найдено сайтов мутации: 1345; берём не более 40
 [i] стратифицированная выборка (>= 2 на файл):
         2  src/capi.zig
         2  src/compat.zig
@@ -26,15 +26,15 @@
         2  src/verifier/z3_bridge.zig
         1  src/wasm_api.zig
 [i] рабочих копий: 4 (оригинал не изменяется)
-  [1/40] src/compat.zig:283 [true->false] -> killed ✅
-  [2/40] src/compat.zig:131 [==->!=] -> killed ✅
-  [3/40] src/capi.zig:118 [or->and] -> killed ✅
-  [4/40] src/capi.zig:74 [or->and] -> killed ✅
+  [1/40] src/compat.zig:131 [==->!=] -> killed ✅
+  [2/40] src/capi.zig:74 [or->and] -> killed ✅
+  [3/40] src/compat.zig:283 [true->false] -> killed ✅
+  [4/40] src/capi.zig:118 [or->and] -> killed ✅
   [5/40] src/core/blake3_simd8.zig:124 [==->!=] -> killed ✅
   [6/40] src/core/eq2.zig:77 [|->&] -> killed ✅
   [7/40] src/core/blake3_simd8.zig:143 [==->!=] -> killed ✅
-  [8/40] src/core/kernfs_router.zig:93 [!=->==] -> killed ✅
-  [9/40] src/core/hash_algo.zig:112 [&->|] -> killed (compile) ✅
+  [8/40] src/core/hash_algo.zig:112 [&->|] -> killed (compile) ✅
+  [9/40] src/core/kernfs_router.zig:93 [!=->==] -> killed ✅
   [10/40] src/core/kernfs_router.zig:184 [&->|] -> killed ✅
   [11/40] src/core/kimg_reader.zig:63 [==->!=] -> killed (compile) ✅
   [12/40] src/core/kimg_writer.zig:76 [==->!=] -> killed ✅
@@ -49,25 +49,25 @@
   [21/40] src/verifier/admission_gate.zig:42 [>=->>] -> killed (compile) ✅
   [22/40] src/verifier/admission_gate.zig:44 [!=->==] -> killed ✅
   [23/40] src/verifier/builtin_lia.zig:235 [!=->==] -> killed ✅
-  [24/40] src/verifier/builtin_lia.zig:388 [!=->==] -> killed ✅
-  [25/40] src/core/eq2.zig:51 [&->|] -> killed ✅
+  [24/40] src/core/eq2.zig:51 [&->|] -> killed ✅
+  [25/40] src/verifier/builtin_lia.zig:388 [!=->==] -> killed ✅
   [26/40] src/verifier/cegis.zig:87 [false->true] -> killed ✅
-  [27/40] src/verifier/cegis.zig:77 [true->false] -> killed ✅
-  [28/40] src/core/kimg_reader.zig:186 [!=->==] -> killed ✅
-  [29/40] src/verifier/model_extract.zig:52 [true->false] -> killed ✅
-  [30/40] src/verifier/noninterference.zig:57 [or->and] -> killed ✅
-  [31/40] src/core/object_entry.zig:56 [|->&] -> killed ✅
-  [32/40] src/verifier/model_extract.zig:50 [==->!=] -> killed (compile) ✅
+  [27/40] src/core/kimg_reader.zig:186 [!=->==] -> killed ✅
+  [28/40] src/verifier/cegis.zig:77 [true->false] -> killed ✅
+  [29/40] src/verifier/model_extract.zig:50 [==->!=] -> killed (compile) ✅
+  [30/40] src/core/object_entry.zig:56 [|->&] -> killed ✅
+  [31/40] src/verifier/model_extract.zig:52 [true->false] -> killed ✅
+  [32/40] src/verifier/noninterference.zig:57 [or->and] -> killed ✅
   [33/40] src/verifier/noninterference.zig:78 [==->!=] -> killed ✅
   [34/40] src/verifier/unsat_core.zig:36 [true->false] -> killed ✅
-  [35/40] src/verifier/proof_check.zig:1881 [>=->>] -> killed ✅
-  [36/40] src/verifier/proof_check.zig:1560 [or->and] -> killed (compile) ✅
+  [35/40] src/verifier/proof_check.zig:2076 [>=->>] -> killed ✅
+  [36/40] src/verifier/proof_check.zig:1755 [or->and] -> killed (compile) ✅
   [37/40] src/verifier/unsat_core.zig:79 [true->false] -> killed ✅
   [38/40] src/wasm_api.zig:161 [!=->==] -> killed ✅
   [39/40] src/verifier/z3_bridge.zig:139 [==->!=] -> killed ✅
   [40/40] src/verifier/z3_bridge.zig:113 [false->true] -> killed ✅
 
-[i] целостность оригинала подтверждена (sha256 a8d8f2c4e7726eaf…)
+[i] целостность оригинала подтверждена (sha256 cdd63cd1bf97a0dc…)
 
 === МУТАЦИОННОЕ ТЕСТИРОВАНИЕ KERN ===
 Всего мутантов:      40

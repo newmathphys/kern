@@ -204,18 +204,50 @@ is generated from the sources).
 
 | # | Defect | Class |
 |:--:|:--|:--|
-| 1 | `KimgHeader.parse` did not validate `major` and `hash_algo` (the spec requires it) | correctness |
-| 2 | `checker_id` mask: `@truncate` wrapped 32→0 (**the bug exists in the spec too**) | security |
-| 3 | Field 20..24 was named `schema_version` instead of `hash_algo` | spec conformance |
-| 4 | `Eq2.encode(p,n)` was missing (public spec API) | API completeness |
-| 5 | 2 Lean theorems were **tautologies** (`∃ res, f = res`) | proof honesty |
-| 6 | "51 GB/s" was presented as read speed (it is RAW addressing) | metric honesty |
-| 7 | The mutator edited sources **in place** (wiped edits, broke parallelism) | tooling |
-| 8 | The mutator mutated **inside comments** → false "survivors" | tooling |
-| 9 | C-ABI `kern_localize` was **uncallable** (one line served as both declaration and formula) | interface |
-| 10 | `kernx build` crashed with a **raw traceback** instead of a clear error | UX |
+| **1** | `KimgHeader.parse` did not validate `major` and `hash_algo` (the spec requires it) | correctness |
+| **2** | `checker_id` mask: `@truncate` wrapped 32→0 (**the bug exists in the spec too**) | security |
+| **3** | Field 20..24 was named `schema_version` instead of `hash_algo` | spec conformance |
+| **4** | `Eq2.encode(p,n)` was missing (public spec API) | API completeness |
+| **5** | 2 Lean theorems were **tautologies** (`∃ res, f = res`) | proof honesty |
+| **6** | "51 GB/s" was presented as read speed (it is RAW addressing) | metric honesty |
+| **7** | The mutator edited sources **in place** (wiped edits, broke parallelism) | tooling |
+| **8** | The mutator mutated **inside comments** → false "survivors" | tooling |
+| **9** | C-ABI `kern_localize` was **uncallable** (one line served as both declaration and formula) | interface |
+| **10** | `kernx build` crashed with a **raw traceback** instead of a clear error | UX |
 
 ---
+
+## 6a. Early journal entries (#31–#47) — moved in from METRICS
+
+Found by the 2026-10-20 audit (defect **#226**): the journal stopped at **#10** and
+continued at **#48**, although entries #31–#47 existed — but only in
+`docs/METRICS.md` (§32, §38–§39, K1+K2 and the "Defects found by THIS extension"
+table). They are summarised below; the source is METRICS.
+
+| # | What was broken | Class |
+|:--:|:--|:--|
+| **31** | `tools/diff_disasm.py` broken (class #30: it printed a result but never failed) | tooling |
+| **32** | CLI returned **0** on a failed check | gate |
+| **33** | `disasm` silently skipped a vanished function | gate |
+| **34** | **13 targets were vacuous by construction** (they could not fail) | harness |
+| **35** | the attack demonstrator did not fail on regression | harness |
+| **36** | thresholds were **decorative** (printed, never enforced) | harness |
+| **37** | `smt_bench` printed mismatches but did not count them | gate |
+| **38** | the harness **committed its own injected fault** | process |
+| **39** | the ABSINT test checked `lo >= 10` on an **empty** interval | test |
+| **40** | `kernc prove` printed "not proven" yet returned **0**; without z3 — also 0 | gate |
+| **41** | `make coverage` only printed a report — stayed green at 0 % | gate |
+| **42** | `smt-stress` printed "X/Y matched" but the exit code never changed | gate |
+| **43** | `cert`: the `@` prefix **swallowed** the error — a missing file left the target green | gate |
+| **44** | `fuzz_ast` printed "PANICS: 0" as a **literal**, not a measured value | test |
+| **45** | `audit_manifest.sh` printed FAIL but **always** returned 0 (and the counter inside a subshell never worked) | gate |
+| **46** | `cert` called `unlink()`, while `verify_restored` only checked existing files → deletion of `TRACEABILITY_MATRIX.md` **landed in commit 92bf484** | process |
+| **47** | `chc_bench.zig` printed "X/Y matched", exit code never changed (class #36/#42) | gate |
+
+**Explicit gaps** (verified by `grep` across the whole repository): numbers
+**#11–#30** and **#169** have no entry in any document — they were never used.
+This is recorded here so the showcase range is not read as "225 consecutive
+entries".
 
 ## 6b. Registry of defects from the audit of 2026-10-14 (#48–#55)
 
@@ -477,6 +509,22 @@ defect, not the run** (final tree: clean, no injection markers).
 
 ---
 
+
+## 6g. Closed journal gaps (#93–#97, #165) and entry #226
+
+The same entries existed only in `docs/METRICS.md` (§63–§65, §113.1) and were
+missing from the journal: the range #98–#164 was present, while #93–#97 and
+#165 fell out.
+
+| # | What was broken | Class |
+|:--:|:--|:--|
+| **93** | A **stale binary** was tested: the target depended only on `build`, the fixture was built from old code → false failure | gate |
+| **94** | The release version was **hard-coded**: `default="v2.2.0"` while the README announced v2.3.0 | gate |
+| **95** | `unit-resolution` **rejected a correct proof**: `withdraw_fixed` (two `if` → `ite`) produced `[SKIP]` — Z3 proved it, the checker refused | core |
+| **96** | `ofExit`: **any non-zero code** produced `n = true` → `exit 2` (SKIP, the check never ran) looked like a failure | core |
+| **97** | The **banner** version was duplicated separately from `--version` and drifted | gate |
+| **165** | `i64` in the browser needs `BigInt` — the **WASM widget did not work** in a browser | showcase |
+| **226** | **THE JOURNAL WAS INCOMPLETE**: the showcase claimed the range "#1–#225" while only **181** entries existed; #31–#47, #93–#97, #165 lived only in METRICS, and **#11–#30 and #169 are absent from the whole repository**. Fix: entries moved in (sections 6a and 6g), showcase numbers rewritten to the measured facts ("205 entries, numbers up to #226", gaps listed explicitly) | documentation |
 
 ## 7. Summary
 

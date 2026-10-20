@@ -1,0 +1,1408 @@
+=== KERN EVIDENCE: mutate_full ===
+=== команда: python3 tools/mutate_zig.py --max 5000 --seed 7 --jobs 6 --require-solver ===
+=== дата: 2026-10-20T14:27:29Z ===
+
+[i] найдено сайтов мутации: 1345; берём не более 2000
+[i] рабочих копий: 6 (оригинал не изменяется)
+  [1/1345] src/core/eq2.zig:55 [&->|] -> killed ✅
+  [2/1345] src/core/eq2.zig:40 [|->&] -> killed ✅
+  [3/1345] src/core/eq2.zig:26 [|->&] -> killed ✅
+  [4/1345] src/core/eq2.zig:59 [&->|] -> killed ✅
+  [5/1345] src/core/eq2.zig:75 [&->|] -> killed ✅
+  [6/1345] src/core/eq2.zig:76 [&->|] -> killed ✅
+  [7/1345] src/core/eq2.zig:77 [|->&] -> killed ✅
+  [8/1345] src/core/eq2.zig:107 [==->!=] -> killed ✅
+  [9/1345] src/core/eq2.zig:94 [==->!=] -> killed ✅
+  [10/1345] src/core/object_entry.zig:56 [!=->==] -> killed ✅
+  [11/1345] src/core/kimg_reader.zig:63 [==->!=] -> killed (compile) ✅
+  [12/1345] src/core/kimg_reader.zig:62 [==->!=] -> killed (compile) ✅
+  [13/1345] src/core/kimg_reader.zig:64 [==->!=] -> killed (compile) ✅
+  [14/1345] src/core/kimg_reader.zig:65 [==->!=] -> killed (compile) ✅
+  [15/1345] src/core/kimg_reader.zig:118 [!=->==] -> killed ✅
+  [16/1345] src/core/kimg_reader.zig:119 [!=->==] -> killed ✅
+  [17/1345] src/core/kimg_reader.zig:119 [and->or] -> killed ✅
+  [18/1345] src/core/kimg_reader.zig:121 [!=->==] -> killed ✅
+  [19/1345] src/core/eq2.zig:51 [&->|] -> killed ✅
+  [20/1345] src/core/object_entry.zig:56 [|->&] -> killed ✅
+  [21/1345] src/core/kimg_reader.zig:192 [and->or] -> killed (compile) ✅
+  [22/1345] src/core/kernfs_router.zig:45 [==->!=] -> killed ✅
+  [23/1345] src/core/kimg_reader.zig:186 [!=->==] -> killed ✅
+  [24/1345] src/core/kimg_reader.zig:186 [&->|] -> killed ✅
+  [25/1345] src/core/kimg_reader.zig:186 [and->or] -> killed ✅
+  [26/1345] src/core/kimg_reader.zig:192 [!=->==] -> killed ✅
+  [27/1345] src/core/kernfs_router.zig:56 [>=->>] -> killed (compile) ✅
+  [28/1345] src/core/kernfs_router.zig:56 [false->true] -> killed ✅
+  [29/1345] src/core/kernfs_router.zig:57 [&->|] -> killed ✅
+  [30/1345] src/core/kernfs_router.zig:57 [==->!=] -> killed ✅
+  [31/1345] src/core/kernfs_router.zig:93 [!=->==] -> killed ✅
+  [32/1345] src/core/kernfs_router.zig:62 [>=->>] -> killed (compile) ✅
+  [33/1345] src/core/kernfs_router.zig:93 [==->!=] -> killed ✅
+  [34/1345] src/core/kernfs_router.zig:93 [or->and] -> killed ✅
+  [35/1345] src/core/kernfs_router.zig:99 [==->!=] -> killed ✅
+  [36/1345] src/core/kernfs_router.zig:105 [!=->==] -> killed ✅
+  [37/1345] src/core/kernfs_router.zig:116 [!=->==] -> killed ✅
+  [38/1345] src/core/kernfs_router.zig:115 [and->or] -> killed (compile) ✅
+  [39/1345] src/core/kernfs_router.zig:147 [!=->==] -> killed ✅
+  [40/1345] src/core/kernfs_router.zig:184 [!=->==] -> killed ✅
+  [41/1345] src/core/kernfs_router.zig:184 [&->|] -> killed ✅
+  [42/1345] src/core/kernfs_router.zig:184 [and->or] -> killed ✅
+  [43/1345] src/core/kernfs_router.zig:253 [>=->>] -> killed (compile) ✅
+  [44/1345] src/core/kernfs_router.zig:256 [&->|] -> killed (compile) ✅
+  [45/1345] src/core/kernfs_router.zig:259 [==->!=] -> killed ✅
+  [46/1345] src/core/kernfs_router.zig:260 [true->false] -> killed ✅
+  [47/1345] src/core/kernfs_router.zig:264 [!=->==] -> killed ✅
+  [48/1345] src/core/kernfs_router.zig:264 [or->and] -> killed ✅
+  [49/1345] src/core/kernfs_router.zig:265 [false->true] -> killed ✅
+  [50/1345] src/core/kernfs_router.zig:315 [==->!=] -> killed (compile) ✅
+  [51/1345] src/core/kernfs_router.zig:363 [==->!=] -> killed ✅
+  [52/1345] src/core/kernfs_router.zig:319 [false->true] -> killed (compile) ✅
+  [53/1345] src/core/kernfs_router.zig:363 [and->or] -> killed ✅
+  [54/1345] src/core/kernfs_router.zig:382 [==->!=] -> killed ✅
+  [55/1345] src/core/kernfs_router.zig:382 [and->or] -> killed ✅
+  [56/1345] src/verifier/admission_gate.zig:42 [>=->>] -> killed (compile) ✅
+  [57/1345] src/verifier/admission_gate.zig:42 [false->true] -> killed ✅
+  [58/1345] src/verifier/admission_gate.zig:44 [!=->==] -> killed ✅
+  [59/1345] src/verifier/admission_gate.zig:44 [&->|] -> killed ✅
+  [60/1345] src/core/kimg_writer.zig:60 [|->&] -> killed ✅
+  [61/1345] src/core/kimg_writer.zig:76 [==->!=] -> killed ✅
+  [62/1345] src/core/kimg_writer.zig:112 [!=->==] -> killed ✅
+  [63/1345] src/core/kimg_writer.zig:220 [>=->>] -> killed ✅
+  [64/1345] src/core/kimg_writer.zig:404 [>=->>] -> killed ✅
+  [65/1345] src/core/kernfs_router.zig:113 [>=->>] -> killed ✅
+  [66/1345] src/core/blake3_simd8.zig:55 [|->&] -> killed ✅
+  [67/1345] src/core/hash_algo.zig:112 [&->|] -> killed (compile) ✅
+  [68/1345] src/core/blake3_simd8.zig:122 [<=-<] -> killed (compile) ✅
+  [69/1345] src/core/blake3_simd8.zig:124 [==->!=] -> killed ✅
+  [70/1345] src/core/blake3_simd8.zig:142 [==->!=] -> killed ✅
+  [71/1345] src/core/kernfs_router.zig:208 [==->!=] -> killed ✅
+  [72/1345] src/core/blake3_simd8.zig:143 [==->!=] -> killed ✅
+  [73/1345] src/core/blake3_simd8.zig:143 [|->&] -> killed ✅
+  [74/1345] src/capi.zig:42 [==->!=] -> killed ✅
+  [75/1345] src/capi.zig:74 [==->!=] -> killed ✅
+  [76/1345] src/capi.zig:47 [!=->==] -> killed ✅
+  [77/1345] src/capi.zig:47 [and->or] -> killed ✅
+  [78/1345] src/capi.zig:90 [or->and] -> killed ✅
+  [79/1345] src/core/kernfs_router.zig:389 [&->|] -> killed ✅
+  [80/1345] src/capi.zig:74 [or->and] -> killed ✅
+  [81/1345] src/capi.zig:99 [or->and] -> killed ✅
+  [82/1345] src/capi.zig:119 [==->!=] -> killed ✅
+  [83/1345] src/capi.zig:118 [or->and] -> killed ✅
+  [84/1345] src/capi.zig:119 [or->and] -> killed ✅
+  [85/1345] src/capi.zig:148 [>=->>] -> killed ✅
+  [86/1345] src/compat.zig:70 [==->!=] -> killed ✅
+  [87/1345] src/compat.zig:108 [and->or] -> killed ✅
+  [88/1345] src/compat.zig:102 [!=->==] -> killed ✅
+  [89/1345] src/compat.zig:109 [==->!=] -> killed ✅
+  [90/1345] src/compat.zig:119 [false->true] -> killed ✅
+  [91/1345] src/capi.zig:143 [>=->>] -> killed ✅
+  [92/1345] src/compat.zig:283 [true->false] -> killed ✅
+  [93/1345] src/compat.zig:123 [true->false] -> killed ✅
+  [94/1345] src/compat.zig:131 [==->!=] -> killed ✅
+  [95/1345] src/compat.zig:291 [==->!=] -> killed ✅
+  [96/1345] src/verifier/proof_check.zig:86 [false->true] -> killed ✅
+  [97/1345] src/verifier/proof_check.zig:85 [false->true] -> killed ✅
+  [98/1345] src/verifier/proof_check.zig:88 [false->true] -> killed ✅
+  [99/1345] src/verifier/proof_check.zig:89 [false->true] -> killed ✅
+  [100/1345] src/verifier/proof_check.zig:124 [==->!=] -> killed ✅
+  [101/1345] src/verifier/proof_check.zig:92 [false->true] -> killed ✅
+  [102/1345] src/verifier/proof_check.zig:125 [==->!=] -> killed ✅
+  [103/1345] src/verifier/proof_check.zig:125 [and->or] -> killed ✅
+  [104/1345] src/verifier/proof_check.zig:126 [==->!=] -> killed ✅
+  [105/1345] src/verifier/proof_check.zig:126 [and->or] -> killed ✅
+  [106/1345] src/verifier/proof_check.zig:127 [==->!=] -> killed ✅
+  [107/1345] src/verifier/proof_check.zig:127 [and->or] -> killed ✅
+  [108/1345] src/verifier/proof_check.zig:128 [==->!=] -> killed ✅
+  [109/1345] src/verifier/proof_check.zig:68 [==->!=] -> killed ✅
+  [110/1345] src/verifier/proof_check.zig:77 [==->!=] -> killed ✅
+  [111/1345] src/verifier/proof_check.zig:91 [false->true] -> killed ✅
+  [112/1345] src/verifier/proof_check.zig:124 [false->true] -> killed ✅
+  [113/1345] src/verifier/proof_check.zig:139 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 841 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [114/1345] src/verifier/proof_check.zig:140 [!=->==] -> killed ✅
+  [115/1345] src/verifier/proof_check.zig:141 [!=->==] -> killed ✅
+  [116/1345] src/verifier/proof_check.zig:142 [!=->==] -> killed ✅
+  [117/1345] src/verifier/proof_check.zig:162 [==->!=] -> killed ✅
+  [118/1345] src/verifier/proof_check.zig:166 [==->!=] -> killed (compile) ✅
+  [119/1345] src/verifier/proof_check.zig:143 [!=->==] -> killed ✅
+  [120/1345] src/verifier/proof_check.zig:144 [!=->==] -> killed ✅
+  [121/1345] src/verifier/proof_check.zig:198 [==->!=] -> killed ✅
+  [122/1345] src/verifier/proof_check.zig:198 [or->and] -> killed ✅
+  [123/1345] src/verifier/proof_check.zig:200 [==->!=] -> killed ✅
+  [124/1345] src/verifier/proof_check.zig:145 [!=->==] -> killed ✅
+  [125/1345] src/verifier/proof_check.zig:147 [!=->==] -> killed ✅
+  [126/1345] src/verifier/proof_check.zig:210 [==->!=] -> killed ✅
+  [127/1345] src/verifier/proof_check.zig:211 [==->!=] -> killed ✅
+  [128/1345] src/verifier/proof_check.zig:166 [or->and] -> killed ✅
+  [129/1345] src/verifier/proof_check.zig:212 [==->!=] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 839 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [130/1345] src/verifier/proof_check.zig:223 [true->false] -> killed ✅
+  [131/1345] src/verifier/proof_check.zig:225 [>=->>] -> killed ✅
+  [132/1345] src/verifier/proof_check.zig:201 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 837 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [133/1345] src/verifier/proof_check.zig:201 [and->or] -> killed ✅
+  [134/1345] src/verifier/proof_check.zig:226 [==->!=] -> killed ✅
+  [135/1345] src/verifier/proof_check.zig:208 [>=->>] -> killed ✅
+  [136/1345] src/verifier/proof_check.zig:257 [==->!=] -> killed ✅
+  [137/1345] src/verifier/proof_check.zig:257 [or->and] -> killed ✅
+  [138/1345] src/verifier/proof_check.zig:258 [==->!=] -> killed ✅
+  [139/1345] src/verifier/proof_check.zig:258 [or->and] -> killed ✅
+  [140/1345] src/verifier/proof_check.zig:261 [==->!=] -> killed ✅
+  [141/1345] src/verifier/proof_check.zig:218 [>=->>] -> killed ✅
+  [142/1345] src/verifier/proof_check.zig:240 [==->!=] -> killed ✅
+  [143/1345] src/verifier/proof_check.zig:244 [==->!=] -> killed ✅
+  [144/1345] src/verifier/proof_check.zig:330 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 847 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [145/1345] src/verifier/proof_check.zig:338 [true->false] -> killed ✅
+  [146/1345] src/verifier/proof_check.zig:298 [==->!=] -> killed ✅
+  [147/1345] src/verifier/proof_check.zig:301 [or->and] -> killed ✅
+  [148/1345] src/verifier/proof_check.zig:303 [==->!=] -> killed ✅
+  [149/1345] src/verifier/proof_check.zig:345 [!=->==] -> killed ✅
+  [150/1345] src/verifier/proof_check.zig:344 [!=->==] -> killed ✅
+  [151/1345] src/verifier/proof_check.zig:346 [false->true] -> killed ✅
+  [152/1345] src/verifier/proof_check.zig:347 [true->false] -> killed ✅
+  [153/1345] src/verifier/proof_check.zig:360 [or->and] -> killed (compile) ✅
+  [154/1345] src/verifier/proof_check.zig:360 [!=->==] -> killed ✅
+  [155/1345] src/verifier/proof_check.zig:369 [!=->==] -> killed ✅
+  [156/1345] src/verifier/proof_check.zig:310 [or->and] -> killed ✅
+  [157/1345] src/verifier/proof_check.zig:395 [true->false] -> killed ✅
+  [158/1345] src/verifier/proof_check.zig:331 [false->true] -> killed ✅
+  [159/1345] src/verifier/proof_check.zig:398 [true->false] -> killed ✅
+  [160/1345] src/verifier/proof_check.zig:401 [true->false] -> killed ✅
+  [161/1345] src/verifier/proof_check.zig:362 [or->and] -> killed ✅
+  [162/1345] src/verifier/proof_check.zig:369 [or->and] -> killed ✅
+  [163/1345] src/verifier/proof_check.zig:374 [or->and] -> killed ✅
+  [164/1345] src/verifier/proof_check.zig:392 [true->false] -> killed ✅
+  [165/1345] src/verifier/proof_check.zig:413 [false->true] -> killed ✅
+  [166/1345] src/verifier/proof_check.zig:419 [!=->==] -> killed ✅
+  [167/1345] src/verifier/proof_check.zig:419 [false->true] -> killed ✅
+  [168/1345] src/verifier/proof_check.zig:420 [!=->==] -> killed (compile) ✅
+  [169/1345] src/verifier/proof_check.zig:420 [false->true] -> killed ✅
+  [170/1345] src/verifier/proof_check.zig:421 [false->true] -> killed ✅
+  [171/1345] src/verifier/proof_check.zig:404 [true->false] -> killed ✅
+  [172/1345] src/verifier/proof_check.zig:406 [true->false] -> killed ✅
+  [173/1345] src/verifier/proof_check.zig:422 [true->false] -> killed ✅
+  [174/1345] src/verifier/proof_check.zig:427 [!=->==] -> killed ✅
+  [175/1345] src/verifier/proof_check.zig:476 [false->true] -> killed ✅
+  [176/1345] src/verifier/proof_check.zig:437 [false->true] -> killed ✅
+  [177/1345] src/verifier/proof_check.zig:475 [true->false] -> killed ✅
+  [178/1345] src/verifier/proof_check.zig:480 [true->false] -> killed ✅
+  [179/1345] src/verifier/proof_check.zig:481 [false->true] -> killed ✅
+  [180/1345] src/verifier/proof_check.zig:410 [false->true] -> killed ✅
+  [181/1345] src/verifier/proof_check.zig:417 [false->true] -> killed ✅
+  [182/1345] src/verifier/proof_check.zig:493 [or->and] -> killed ✅
+  [183/1345] src/verifier/proof_check.zig:499 [==->!=] -> killed ✅
+  [184/1345] src/verifier/proof_check.zig:502 [and->or] -> killed (compile) ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1000 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [185/1345] src/verifier/proof_check.zig:544 [==->!=] -> killed ✅
+  [186/1345] src/verifier/proof_check.zig:548 [!=->==] -> killed ✅
+  [187/1345] src/verifier/proof_check.zig:427 [or->and] -> killed ✅
+  [188/1345] src/verifier/proof_check.zig:617 [==->!=] -> killed ✅
+  [189/1345] src/verifier/proof_check.zig:492 [false->true] -> killed ✅
+  [190/1345] src/verifier/proof_check.zig:634 [>=->>] -> killed ✅
+  [191/1345] src/verifier/proof_check.zig:499 [or->and] -> killed ✅
+[i] кэш слота kern-mutants-c9tu_wix был 969 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [192/1345] src/verifier/proof_check.zig:502 [>=->>] -> killed ✅
+  [193/1345] src/verifier/proof_check.zig:645 [==->!=] -> killed ✅
+  [194/1345] src/verifier/proof_check.zig:646 [>=->>] -> killed ✅
+  [195/1345] src/verifier/proof_check.zig:649 [>=->>] -> killed ✅
+  [196/1345] src/verifier/proof_check.zig:544 [and->or] -> killed ✅
+  [197/1345] src/verifier/proof_check.zig:685 [==->!=] -> killed ✅
+  [198/1345] src/verifier/proof_check.zig:548 [or->and] -> killed ✅
+  [199/1345] src/verifier/proof_check.zig:687 [==->!=] -> killed ✅
+  [200/1345] src/verifier/proof_check.zig:693 [!=->==] -> killed ✅
+  [201/1345] src/verifier/proof_check.zig:697 [false->true] -> killed ✅
+  [202/1345] src/verifier/proof_check.zig:696 [false->true] -> killed ✅
+  [203/1345] src/verifier/proof_check.zig:699 [true->false] -> killed ✅
+  [204/1345] src/verifier/proof_check.zig:711 [false->true] -> killed ✅
+  [205/1345] src/verifier/proof_check.zig:633 [or->and] -> killed ✅
+  [206/1345] src/verifier/proof_check.zig:713 [!=->==] -> killed ✅
+  [207/1345] src/verifier/proof_check.zig:713 [and->or] -> killed ✅
+  [208/1345] src/verifier/proof_check.zig:727 [!=->==] -> killed ✅
+  [209/1345] src/verifier/proof_check.zig:685 [or->and] -> killed ✅
+  [210/1345] src/verifier/proof_check.zig:687 [and->or] -> killed ✅
+  [211/1345] src/verifier/proof_check.zig:733 [!=->==] -> killed ✅
+  [212/1345] src/verifier/proof_check.zig:733 [and->or] -> killed ✅
+  [213/1345] src/verifier/proof_check.zig:698 [true->false] -> killed ✅
+  [214/1345] src/verifier/proof_check.zig:738 [false->true] -> killed ✅
+  [215/1345] src/verifier/proof_check.zig:712 [false->true] -> killed ✅
+  [216/1345] src/verifier/proof_check.zig:747 [==->!=] -> killed ✅
+  [217/1345] src/verifier/proof_check.zig:726 [<=-<] -> killed ✅
+  [218/1345] src/verifier/proof_check.zig:749 [==->!=] -> killed ✅
+  [219/1345] src/verifier/proof_check.zig:731 [>=->>] -> killed ✅
+  [220/1345] src/verifier/proof_check.zig:750 [!=->==] -> killed ✅
+  [221/1345] src/verifier/proof_check.zig:750 [and->or] -> killed (compile) ✅
+  [222/1345] src/verifier/proof_check.zig:751 [==->!=] -> killed ✅
+  [223/1345] src/verifier/proof_check.zig:753 [==->!=] -> killed (compile) ✅
+  [224/1345] src/verifier/proof_check.zig:742 [==->!=] -> killed ✅
+  [225/1345] src/verifier/proof_check.zig:755 [==->!=] -> killed ✅
+  [226/1345] src/verifier/proof_check.zig:744 [==->!=] -> killed ✅
+  [227/1345] src/verifier/proof_check.zig:780 [true->false] -> killed ✅
+  [228/1345] src/verifier/proof_check.zig:744 [false->true] -> killed ✅
+  [229/1345] src/verifier/proof_check.zig:783 [==->!=] -> killed ✅
+  [230/1345] src/verifier/proof_check.zig:783 [and->or] -> killed ✅
+  [231/1345] src/verifier/proof_check.zig:787 [!=->==] -> killed ✅
+  [232/1345] src/verifier/proof_check.zig:787 [false->true] -> killed (compile) ✅
+  [233/1345] src/verifier/proof_check.zig:748 [true->false] -> killed ✅
+  [234/1345] src/verifier/proof_check.zig:807 [==->!=] -> killed ✅
+  [235/1345] src/verifier/proof_check.zig:807 [and->or] -> killed ✅
+  [236/1345] src/verifier/proof_check.zig:815 [==->!=] -> killed ✅
+  [237/1345] src/verifier/proof_check.zig:815 [and->or] -> killed ✅
+  [238/1345] src/verifier/proof_check.zig:782 [false->true] -> killed ✅
+  [239/1345] src/verifier/proof_check.zig:781 [false->true] -> killed ✅
+  [240/1345] src/verifier/proof_check.zig:892 [==->!=] -> killed ✅
+  [241/1345] src/verifier/proof_check.zig:787 [or->and] -> killed ✅
+  [242/1345] src/verifier/proof_check.zig:788 [false->true] -> killed ✅
+  [243/1345] src/verifier/proof_check.zig:893 [==->!=] -> killed ✅
+  [244/1345] src/verifier/proof_check.zig:922 [!=->==] -> killed (compile) ✅
+  [245/1345] src/verifier/proof_check.zig:869 [false->true] -> killed ✅
+  [246/1345] src/verifier/proof_check.zig:878 [>=->>] -> killed ✅
+  [247/1345] src/verifier/proof_check.zig:936 [==->!=] -> killed ✅
+  [248/1345] src/verifier/proof_check.zig:941 [and->or] -> killed ✅
+  [249/1345] src/verifier/proof_check.zig:878 [and->or] -> killed ✅
+  [250/1345] src/verifier/proof_check.zig:926 [==->!=] -> killed ✅
+  [251/1345] src/verifier/proof_check.zig:926 [and->or] -> killed ✅
+  [252/1345] src/verifier/proof_check.zig:931 [!=->==] -> killed ✅
+  [253/1345] src/verifier/proof_check.zig:936 [and->or] -> killed ✅
+  [254/1345] src/verifier/proof_check.zig:983 [!=->==] -> killed ✅
+  [255/1345] src/verifier/proof_check.zig:950 [==->!=] -> killed ✅
+  [256/1345] src/verifier/proof_check.zig:950 [and->or] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 948 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [257/1345] src/verifier/proof_check.zig:983 [false->true] -> killed ✅
+  [258/1345] src/verifier/proof_check.zig:954 [or->and] -> killed ✅
+  [259/1345] src/verifier/proof_check.zig:963 [false->true] -> killed ✅
+  [260/1345] src/verifier/proof_check.zig:985 [false->true] -> killed ✅
+  [261/1345] src/verifier/proof_check.zig:964 [false->true] -> killed ✅
+  [262/1345] src/verifier/proof_check.zig:987 [!=->==] -> killed ✅
+  [263/1345] src/verifier/proof_check.zig:987 [false->true] -> killed ✅
+  [264/1345] src/verifier/proof_check.zig:989 [false->true] -> killed ✅
+  [265/1345] src/verifier/proof_check.zig:995 [!=->==] -> killed ✅
+  [266/1345] src/verifier/proof_check.zig:983 [or->and] -> killed ✅
+  [267/1345] src/verifier/proof_check.zig:984 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 948 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [268/1345] src/verifier/proof_check.zig:987 [or->and] -> killed ✅
+  [269/1345] src/verifier/proof_check.zig:988 [false->true] -> killed ✅
+  [270/1345] src/verifier/proof_check.zig:1000 [!=->==] -> killed ✅
+  [271/1345] src/verifier/proof_check.zig:995 [or->and] -> killed ✅
+  [272/1345] src/verifier/proof_check.zig:995 [false->true] -> killed ✅
+  [273/1345] src/verifier/proof_check.zig:996 [false->true] -> killed ✅
+  [274/1345] src/verifier/proof_check.zig:997 [false->true] -> killed ✅
+  [275/1345] src/verifier/proof_check.zig:998 [false->true] -> killed ✅
+  [276/1345] src/verifier/proof_check.zig:1000 [or->and] -> killed ✅
+  [277/1345] src/verifier/proof_check.zig:1000 [false->true] -> killed ✅
+  [278/1345] src/verifier/proof_check.zig:1001 [false->true] -> killed ✅
+  [279/1345] src/verifier/proof_check.zig:1006 [false->true] -> killed ✅
+  [280/1345] src/verifier/proof_check.zig:1002 [false->true] -> killed ✅
+  [281/1345] src/verifier/proof_check.zig:1004 [false->true] -> killed ✅
+  [282/1345] src/verifier/proof_check.zig:1015 [false->true] -> killed ✅
+  [283/1345] src/verifier/proof_check.zig:1005 [false->true] -> killed ✅
+  [284/1345] src/verifier/proof_check.zig:1012 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 984 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [285/1345] src/verifier/proof_check.zig:1012 [false->true] -> killed ✅
+  [286/1345] src/verifier/proof_check.zig:1012 [or->and] -> killed ✅
+  [287/1345] src/verifier/proof_check.zig:1013 [false->true] -> killed ✅
+  [288/1345] src/verifier/proof_check.zig:1018 [!=->==] -> killed ✅
+  [289/1345] src/verifier/proof_check.zig:1018 [and->or] -> killed ✅
+  [290/1345] src/verifier/proof_check.zig:1018 [false->true] -> killed ✅
+  [291/1345] src/verifier/proof_check.zig:1020 [true->false] -> killed ✅
+  [292/1345] src/verifier/proof_check.zig:1023 [true->false] -> killed ✅
+  [293/1345] src/verifier/proof_check.zig:1025 [false->true] -> killed ✅
+  [294/1345] src/verifier/proof_check.zig:1031 [!=->==] -> killed ✅
+  [295/1345] src/verifier/proof_check.zig:1031 [or->and] -> killed ✅
+  [296/1345] src/verifier/proof_check.zig:1046 [and->or] -> killed (compile) ✅
+  [297/1345] src/verifier/proof_check.zig:1049 [false->true] -> killed ✅
+  [298/1345] src/verifier/proof_check.zig:1031 [false->true] -> killed ✅
+  [299/1345] src/verifier/proof_check.zig:1032 [false->true] -> killed ✅
+  [300/1345] src/verifier/proof_check.zig:1033 [and->or] -> killed ✅
+  [301/1345] src/verifier/proof_check.zig:1043 [and->or] -> killed ✅
+  [302/1345] src/verifier/proof_check.zig:1050 [!=->==] -> killed ✅
+  [303/1345] src/verifier/proof_check.zig:1050 [or->and] -> killed ✅
+  [304/1345] src/verifier/proof_check.zig:1050 [false->true] -> killed ✅
+  [305/1345] src/verifier/proof_check.zig:1051 [false->true] -> killed ✅
+  [306/1345] src/verifier/proof_check.zig:1052 [false->true] -> killed ✅
+  [307/1345] src/verifier/proof_check.zig:1057 [and->or] -> killed ✅
+  [308/1345] src/verifier/proof_check.zig:1057 [true->false] -> killed ✅
+  [309/1345] src/verifier/proof_check.zig:1058 [and->or] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 1199 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [310/1345] src/verifier/proof_check.zig:1058 [true->false] -> killed ✅
+  [311/1345] src/verifier/proof_check.zig:1059 [false->true] -> killed ✅
+  [312/1345] src/verifier/proof_check.zig:1068 [!=->==] -> killed ✅
+  [313/1345] src/verifier/proof_check.zig:1068 [or->and] -> killed ✅
+  [314/1345] src/verifier/proof_check.zig:1068 [false->true] -> killed ✅
+  [315/1345] src/verifier/proof_check.zig:1069 [false->true] -> killed ✅
+  [316/1345] src/verifier/proof_check.zig:1070 [false->true] -> killed ✅
+  [317/1345] src/verifier/proof_check.zig:1071 [false->true] -> killed ✅
+  [318/1345] src/verifier/proof_check.zig:1077 [false->true] -> killed (compile) ✅
+  [319/1345] src/verifier/proof_check.zig:1072 [false->true] -> killed ✅
+  [320/1345] src/verifier/proof_check.zig:1077 [!=->==] -> killed ✅
+  [321/1345] src/verifier/proof_check.zig:1077 [or->and] -> killed ✅
+  [322/1345] src/verifier/proof_check.zig:1078 [false->true] -> killed ✅
+  [323/1345] src/verifier/proof_check.zig:1084 [!=->==] -> killed ✅
+  [324/1345] src/verifier/proof_check.zig:1084 [or->and] -> killed ✅
+  [325/1345] src/verifier/proof_check.zig:1084 [false->true] -> killed ✅
+  [326/1345] src/verifier/proof_check.zig:1085 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1163 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [327/1345] src/verifier/proof_check.zig:1086 [false->true] -> killed ✅
+  [328/1345] src/verifier/proof_check.zig:1090 [true->false] -> killed ✅
+  [329/1345] src/verifier/proof_check.zig:1096 [true->false] -> killed ✅
+  [330/1345] src/verifier/proof_check.zig:1099 [false->true] -> killed ✅
+  [331/1345] src/verifier/proof_check.zig:1104 [!=->==] -> killed ✅
+  [332/1345] src/verifier/proof_check.zig:1104 [or->and] -> killed ✅
+  [333/1345] src/verifier/proof_check.zig:1104 [false->true] -> killed ✅
+  [334/1345] src/verifier/proof_check.zig:1105 [false->true] -> killed ✅
+  [335/1345] src/verifier/proof_check.zig:1107 [false->true] -> killed ✅
+  [336/1345] src/verifier/proof_check.zig:1106 [false->true] -> killed ✅
+  [337/1345] src/verifier/proof_check.zig:1108 [false->true] -> killed ✅
+  [338/1345] src/verifier/proof_check.zig:1120 [false->true] -> killed ✅
+  [339/1345] src/verifier/proof_check.zig:1110 [true->false] -> killed ✅
+[i] кэш слота kern-mutants-c9tu_wix был 1199 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [340/1345] src/verifier/proof_check.zig:1130 [false->true] -> killed ✅
+  [341/1345] src/verifier/proof_check.zig:1117 [and->or] -> killed ✅
+  [342/1345] src/verifier/proof_check.zig:1122 [false->true] -> killed ✅
+  [343/1345] src/verifier/proof_check.zig:1123 [false->true] -> killed ✅
+  [344/1345] src/verifier/proof_check.zig:1126 [and->or] -> killed ✅
+  [345/1345] src/verifier/proof_check.zig:1128 [and->or] -> killed ✅
+  [346/1345] src/verifier/proof_check.zig:1131 [false->true] -> killed ✅
+  [347/1345] src/verifier/proof_check.zig:1139 [!=->==] -> killed ✅
+  [348/1345] src/verifier/proof_check.zig:1139 [or->and] -> killed ✅
+  [349/1345] src/verifier/proof_check.zig:1141 [or->and] -> killed ✅
+  [350/1345] src/verifier/proof_check.zig:1151 [==->!=] -> killed ✅
+  [351/1345] src/verifier/proof_check.zig:1142 [or->and] -> killed ✅
+  [352/1345] src/verifier/proof_check.zig:1151 [and->or] -> killed ✅
+  [353/1345] src/verifier/proof_check.zig:1152 [!=->==] -> killed ✅
+  [354/1345] src/verifier/proof_check.zig:1152 [or->and] -> killed ✅
+  [355/1345] src/verifier/proof_check.zig:1154 [!=->==] -> killed ✅
+  [356/1345] src/verifier/proof_check.zig:1164 [!=->==] -> killed ✅
+  [357/1345] src/verifier/proof_check.zig:1154 [or->and] -> killed ✅
+  [358/1345] src/verifier/proof_check.zig:1166 [false->true] -> killed ✅
+  [359/1345] src/verifier/proof_check.zig:1173 [false->true] -> killed ✅
+  [360/1345] src/verifier/proof_check.zig:1181 [false->true] -> killed ✅
+  [361/1345] src/verifier/proof_check.zig:1164 [or->and] -> killed ✅
+  [362/1345] src/verifier/proof_check.zig:1182 [false->true] -> killed ✅
+  [363/1345] src/verifier/proof_check.zig:1164 [false->true] -> killed ✅
+  [364/1345] src/verifier/proof_check.zig:1165 [false->true] -> killed ✅
+  [365/1345] src/verifier/proof_check.zig:1168 [true->false] -> killed ✅
+  [366/1345] src/verifier/proof_check.zig:1171 [true->false] -> killed ✅
+  [367/1345] src/verifier/proof_check.zig:1190 [false->true] -> killed ✅
+  [368/1345] src/verifier/proof_check.zig:1198 [false->true] -> killed ✅
+  [369/1345] src/verifier/proof_check.zig:1199 [false->true] -> killed ✅
+  [370/1345] src/verifier/proof_check.zig:1188 [and->or] -> killed ✅
+  [371/1345] src/verifier/proof_check.zig:1188 [or->and] -> killed ✅
+  [372/1345] src/verifier/proof_check.zig:1189 [and->or] -> killed ✅
+  [373/1345] src/verifier/proof_check.zig:1202 [false->true] -> killed ✅
+  [374/1345] src/verifier/proof_check.zig:1191 [false->true] -> killed ✅
+  [375/1345] src/verifier/proof_check.zig:1279 [!=->==] -> killed ✅
+  [376/1345] src/verifier/proof_check.zig:1279 [and->or] -> killed (compile) ✅
+  [377/1345] src/verifier/proof_check.zig:1200 [or->and] -> killed ✅
+  [378/1345] src/verifier/proof_check.zig:1282 [==->!=] -> killed ✅
+  [379/1345] src/verifier/proof_check.zig:1200 [true->false] -> killed ✅
+  [380/1345] src/verifier/proof_check.zig:1282 [and->or] -> killed ✅
+  [381/1345] src/verifier/proof_check.zig:1286 [!=->==] -> killed ✅
+  [382/1345] src/verifier/proof_check.zig:1302 [==->!=] -> killed ✅
+  [383/1345] src/verifier/proof_check.zig:1331 [and->or] -> killed ✅
+  [384/1345] src/verifier/proof_check.zig:1201 [or->and] -> killed ✅
+  [385/1345] src/verifier/proof_check.zig:1351 [!=->==] -> killed ✅
+  [386/1345] src/verifier/proof_check.zig:1201 [true->false] -> killed ✅
+  [387/1345] src/verifier/proof_check.zig:1357 [!=->==] -> killed ✅
+  [388/1345] src/verifier/proof_check.zig:1357 [false->true] -> killed (compile) ✅
+  [389/1345] src/verifier/proof_check.zig:1302 [and->or] -> killed ✅
+  [390/1345] src/verifier/proof_check.zig:1351 [or->and] -> killed ✅
+  [391/1345] src/verifier/proof_check.zig:1352 [false->true] -> killed ✅
+  [392/1345] src/verifier/proof_check.zig:1351 [false->true] -> killed ✅
+  [393/1345] src/verifier/proof_check.zig:1357 [or->and] -> killed ✅
+  [394/1345] src/verifier/proof_check.zig:1385 [false->true] -> killed ✅
+  [395/1345] src/verifier/proof_check.zig:1358 [false->true] -> killed ✅
+  [396/1345] src/verifier/proof_check.zig:1373 [false->true] -> killed ✅
+  [397/1345] src/verifier/proof_check.zig:1375 [false->true] -> killed ✅
+  [398/1345] src/verifier/proof_check.zig:1381 [false->true] -> killed ✅
+  [399/1345] src/verifier/proof_check.zig:1392 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 1270 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [400/1345] src/verifier/proof_check.zig:1393 [and->or] -> killed ✅
+  [401/1345] src/verifier/proof_check.zig:1404 [>=->>] -> killed ✅
+  [402/1345] src/verifier/proof_check.zig:1404 [and->or] -> killed ✅
+  [403/1345] src/verifier/proof_check.zig:1440 [true->false] -> killed ✅
+  [404/1345] src/verifier/proof_check.zig:1431 [or->and] -> killed ✅
+  [405/1345] src/verifier/proof_check.zig:1431 [false->true] -> killed ✅
+  [406/1345] src/verifier/proof_check.zig:1447 [false->true] -> killed ✅
+  [407/1345] src/verifier/proof_check.zig:1432 [false->true] -> killed ✅
+  [408/1345] src/verifier/proof_check.zig:1433 [false->true] -> killed ✅
+  [409/1345] src/verifier/proof_check.zig:1461 [false->true] -> killed ✅
+  [410/1345] src/verifier/proof_check.zig:1440 [or->and] -> killed ✅
+  [411/1345] src/verifier/proof_check.zig:1470 [!=->==] -> killed ✅
+  [412/1345] src/verifier/proof_check.zig:1471 [!=->==] -> killed ✅
+  [413/1345] src/verifier/proof_check.zig:1452 [true->false] -> killed ✅
+  [414/1345] src/verifier/proof_check.zig:1453 [false->true] -> killed ✅
+  [415/1345] src/verifier/proof_check.zig:1510 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 1306 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [416/1345] src/verifier/proof_check.zig:1460 [true->false] -> killed ✅
+  [417/1345] src/verifier/proof_check.zig:1470 [or->and] -> killed ✅
+  [418/1345] src/verifier/proof_check.zig:1471 [or->and] -> killed ✅
+  [419/1345] src/verifier/proof_check.zig:1480 [or->and] -> killed ✅
+  [420/1345] src/verifier/proof_check.zig:1510 [or->and] -> killed ✅
+  [421/1345] src/verifier/proof_check.zig:1510 [false->true] -> killed ✅
+  [422/1345] src/verifier/proof_check.zig:1511 [false->true] -> killed ✅
+  [423/1345] src/verifier/proof_check.zig:1515 [false->true] -> killed ✅
+  [424/1345] src/verifier/proof_check.zig:1520 [true->false] -> killed ✅
+  [425/1345] src/verifier/proof_check.zig:1528 [true->false] -> killed ✅
+  [426/1345] src/verifier/proof_check.zig:1531 [==->!=] -> killed ✅
+  [427/1345] src/verifier/proof_check.zig:1512 [false->true] -> killed ✅
+  [428/1345] src/verifier/proof_check.zig:1514 [false->true] -> killed ✅
+  [429/1345] src/verifier/proof_check.zig:1515 [or->and] -> killed ✅
+  [430/1345] src/verifier/proof_check.zig:1536 [true->false] -> killed ✅
+  [431/1345] src/verifier/proof_check.zig:1543 [==->!=] -> killed ✅
+  [432/1345] src/verifier/proof_check.zig:1527 [false->true] -> killed ✅
+  [433/1345] src/verifier/proof_check.zig:1531 [and->or] -> killed ✅
+  [434/1345] src/verifier/proof_check.zig:1533 [and->or] -> killed ✅
+  [435/1345] src/verifier/proof_check.zig:1534 [and->or] -> killed ✅
+  [436/1345] src/verifier/proof_check.zig:1535 [and->or] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 1306 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [437/1345] src/verifier/proof_check.zig:1548 [true->false] -> killed ✅
+  [438/1345] src/verifier/proof_check.zig:1553 [false->true] -> killed ✅
+  [439/1345] src/verifier/proof_check.zig:1554 [!=->==] -> killed ✅
+  [440/1345] src/verifier/proof_check.zig:1543 [and->or] -> killed ✅
+  [441/1345] src/verifier/proof_check.zig:1554 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 1163 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [442/1345] src/verifier/proof_check.zig:1556 [false->true] -> killed ✅
+  [443/1345] src/verifier/proof_check.zig:1558 [true->false] -> killed ✅
+  [444/1345] src/verifier/proof_check.zig:1545 [and->or] -> killed ✅
+  [445/1345] src/verifier/proof_check.zig:1577 [>=->>] -> killed ✅
+  [446/1345] src/verifier/proof_check.zig:1603 [false->true] -> killed ✅
+  [447/1345] src/verifier/proof_check.zig:1616 [!=->==] -> killed ✅
+  [448/1345] src/verifier/proof_check.zig:1546 [and->or] -> killed ✅
+  [449/1345] src/verifier/proof_check.zig:1547 [and->or] -> killed ✅
+  [450/1345] src/verifier/proof_check.zig:1618 [==->!=] -> killed ✅
+  [451/1345] src/verifier/proof_check.zig:1553 [or->and] -> killed ✅
+  [452/1345] src/verifier/proof_check.zig:1632 [false->true] -> killed ✅
+  [453/1345] src/verifier/proof_check.zig:1645 [true->false] -> killed ✅
+  [454/1345] src/verifier/proof_check.zig:1598 [false->true] -> killed ✅
+  [455/1345] src/verifier/proof_check.zig:1616 [and->or] -> killed ✅
+  [456/1345] src/verifier/proof_check.zig:1618 [false->true] -> killed ✅
+  [457/1345] src/verifier/proof_check.zig:1655 [false->true] -> killed ✅
+  [458/1345] src/verifier/proof_check.zig:1639 [true->false] -> killed ✅
+  [459/1345] src/verifier/proof_check.zig:1657 [true->false] -> killed ✅
+  [460/1345] src/verifier/proof_check.zig:1644 [or->and] -> killed ✅
+  [461/1345] src/verifier/proof_check.zig:1662 [!=->==] -> killed (compile) ✅
+  [462/1345] src/verifier/proof_check.zig:1662 [and->or] -> killed (compile) ✅
+  [463/1345] src/verifier/proof_check.zig:1668 [!=->==] -> killed ✅
+  [464/1345] src/verifier/proof_check.zig:1649 [or->and] -> killed ✅
+  [465/1345] src/verifier/proof_check.zig:1672 [and->or] -> killed ✅
+  [466/1345] src/verifier/proof_check.zig:1684 [or->and] -> killed ✅
+  [467/1345] src/verifier/proof_check.zig:1688 [false->true] -> killed ✅
+  [468/1345] src/verifier/proof_check.zig:1695 [!=->==] -> killed ✅
+  [469/1345] src/verifier/proof_check.zig:1650 [true->false] -> killed ✅
+  [470/1345] src/verifier/proof_check.zig:1668 [or->and] -> killed ✅
+  [471/1345] src/verifier/proof_check.zig:1673 [and->or] -> killed ✅
+  [472/1345] src/verifier/proof_check.zig:1674 [and->or] -> killed ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1163 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [473/1345] src/verifier/proof_check.zig:1694 [false->true] -> killed ✅
+  [474/1345] src/verifier/proof_check.zig:1695 [or->and] -> killed ✅
+  [475/1345] src/verifier/proof_check.zig:1695 [false->true] -> killed ✅
+  [476/1345] src/verifier/proof_check.zig:1700 [!=->==] -> killed ✅
+  [477/1345] src/verifier/proof_check.zig:1706 [false->true] -> killed ✅
+  [478/1345] src/verifier/proof_check.zig:1707 [==->!=] -> killed ✅
+  [479/1345] src/verifier/proof_check.zig:1708 [==->!=] -> killed ✅
+  [480/1345] src/verifier/proof_check.zig:1696 [false->true] -> killed ✅
+  [481/1345] src/verifier/proof_check.zig:1697 [false->true] -> killed ✅
+  [482/1345] src/verifier/proof_check.zig:1698 [false->true] -> killed ✅
+  [483/1345] src/verifier/proof_check.zig:1711 [!=->==] -> killed ✅
+  [484/1345] src/verifier/proof_check.zig:1713 [==->!=] -> killed ✅
+  [485/1345] src/verifier/proof_check.zig:1713 [and->or] -> killed ✅
+  [486/1345] src/verifier/proof_check.zig:1699 [false->true] -> killed ✅
+  [487/1345] src/verifier/proof_check.zig:1715 [false->true] -> killed ✅
+  [488/1345] src/verifier/proof_check.zig:1722 [or->and] -> killed ✅
+  [489/1345] src/verifier/proof_check.zig:1726 [false->true] -> killed ✅
+  [490/1345] src/verifier/proof_check.zig:1734 [false->true] -> killed ✅
+  [491/1345] src/verifier/proof_check.zig:1735 [!=->==] -> killed ✅
+  [492/1345] src/verifier/proof_check.zig:1707 [and->or] -> killed ✅
+  [493/1345] src/verifier/proof_check.zig:1708 [and->or] -> killed ✅
+  [494/1345] src/verifier/proof_check.zig:1711 [false->true] -> killed ✅
+  [495/1345] src/verifier/proof_check.zig:1740 [and->or] -> killed ✅
+  [496/1345] src/verifier/proof_check.zig:1726 [or->and] -> killed ✅
+  [497/1345] src/verifier/proof_check.zig:1740 [true->false] -> killed ✅
+  [498/1345] src/verifier/proof_check.zig:1735 [or->and] -> killed ✅
+  [499/1345] src/verifier/proof_check.zig:1735 [false->true] -> killed ✅
+  [500/1345] src/verifier/proof_check.zig:1742 [false->true] -> killed ✅
+  [501/1345] src/verifier/proof_check.zig:1736 [false->true] -> killed ✅
+  [502/1345] src/verifier/proof_check.zig:1751 [false->true] -> killed ✅
+  [503/1345] src/verifier/proof_check.zig:1737 [false->true] -> killed ✅
+  [504/1345] src/verifier/proof_check.zig:1755 [or->and] -> killed (compile) ✅
+  [505/1345] src/verifier/proof_check.zig:1755 [false->true] -> killed ✅
+  [506/1345] src/verifier/proof_check.zig:1762 [or->and] -> killed ✅
+  [507/1345] src/verifier/proof_check.zig:1762 [false->true] -> killed ✅
+  [508/1345] src/verifier/proof_check.zig:1741 [and->or] -> killed ✅
+  [509/1345] src/verifier/proof_check.zig:1741 [true->false] -> killed ✅
+  [510/1345] src/verifier/proof_check.zig:1768 [true->false] -> killed ✅
+[i] кэш слота kern-mutants-c9tu_wix был 1234 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [511/1345] src/verifier/proof_check.zig:1751 [or->and] -> killed ✅
+  [512/1345] src/verifier/proof_check.zig:1752 [false->true] -> killed ✅
+  [513/1345] src/verifier/proof_check.zig:1786 [true->false] -> killed ✅
+  [514/1345] src/verifier/proof_check.zig:1763 [and->or] -> killed ✅
+  [515/1345] src/verifier/proof_check.zig:1770 [false->true] -> killed ✅
+  [516/1345] src/verifier/proof_check.zig:1780 [>=->>] -> killed ✅
+  [517/1345] src/verifier/proof_check.zig:1780 [and->or] -> killed ✅
+  [518/1345] src/verifier/proof_check.zig:1784 [false->true] -> killed ✅
+  [519/1345] src/verifier/proof_check.zig:1792 [false->true] -> killed ✅
+  [520/1345] src/verifier/proof_check.zig:1817 [true->false] -> killed ✅
+  [521/1345] src/verifier/proof_check.zig:1794 [false->true] -> killed ✅
+  [522/1345] src/verifier/proof_check.zig:1809 [>=->>] -> killed ✅
+  [523/1345] src/verifier/proof_check.zig:1809 [and->or] -> killed ✅
+  [524/1345] src/verifier/proof_check.zig:1814 [false->true] -> killed ✅
+  [525/1345] src/verifier/proof_check.zig:1830 [true->false] -> killed ✅
+  [526/1345] src/verifier/proof_check.zig:1815 [false->true] -> killed ✅
+  [527/1345] src/verifier/proof_check.zig:1838 [false->true] -> killed ✅
+  [528/1345] src/verifier/proof_check.zig:1822 [>=->>] -> killed ✅
+  [529/1345] src/verifier/proof_check.zig:1822 [and->or] -> killed ✅
+  [530/1345] src/verifier/proof_check.zig:1827 [false->true] -> killed ✅
+  [531/1345] src/verifier/proof_check.zig:1828 [false->true] -> killed ✅
+  [532/1345] src/verifier/proof_check.zig:1839 [false->true] -> killed ✅
+  [533/1345] src/verifier/proof_check.zig:1841 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 984 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [534/1345] src/verifier/proof_check.zig:1850 [true->false] -> killed ✅
+  [535/1345] src/verifier/proof_check.zig:1844 [false->true] -> killed ✅
+  [536/1345] src/verifier/proof_check.zig:1845 [false->true] -> killed ✅
+  [537/1345] src/verifier/proof_check.zig:1847 [false->true] -> killed ✅
+  [538/1345] src/verifier/proof_check.zig:1855 [true->false] -> killed ✅
+  [539/1345] src/verifier/proof_check.zig:1848 [false->true] -> killed ✅
+  [540/1345] src/verifier/proof_check.zig:1864 [false->true] -> killed ✅
+  [541/1345] src/verifier/proof_check.zig:1849 [false->true] -> killed ✅
+  [542/1345] src/verifier/proof_check.zig:1875 [!=->==] -> killed ✅
+  [543/1345] src/verifier/proof_check.zig:1853 [false->true] -> killed ✅
+  [544/1345] src/verifier/proof_check.zig:1877 [true->false] -> killed ✅
+  [545/1345] src/verifier/proof_check.zig:1875 [false->true] -> killed ✅
+  [546/1345] src/verifier/proof_check.zig:1854 [false->true] -> killed ✅
+  [547/1345] src/verifier/proof_check.zig:1886 [false->true] -> killed ✅
+  [548/1345] src/verifier/proof_check.zig:1866 [false->true] -> killed ✅
+  [549/1345] src/verifier/proof_check.zig:1870 [false->true] -> killed ✅
+  [550/1345] src/verifier/proof_check.zig:1871 [false->true] -> killed ✅
+  [551/1345] src/verifier/proof_check.zig:1896 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 1127 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [552/1345] src/verifier/proof_check.zig:1891 [and->or] -> killed ✅
+  [553/1345] src/verifier/proof_check.zig:1886 [or->and] -> killed ✅
+  [554/1345] src/verifier/proof_check.zig:1887 [false->true] -> killed ✅
+  [555/1345] src/verifier/proof_check.zig:1907 [or->and] -> killed ✅
+  [556/1345] src/verifier/proof_check.zig:1890 [true->false] -> killed ✅
+  [557/1345] src/verifier/proof_check.zig:1896 [or->and] -> killed ✅
+  [558/1345] src/verifier/proof_check.zig:1896 [false->true] -> killed ✅
+  [559/1345] src/verifier/proof_check.zig:1897 [false->true] -> killed ✅
+  [560/1345] src/verifier/proof_check.zig:1921 [or->and] -> killed ✅
+  [561/1345] src/verifier/proof_check.zig:1928 [==->!=] -> killed ✅
+  [562/1345] src/verifier/proof_check.zig:1926 [==->!=] -> killed ✅
+  [563/1345] src/verifier/proof_check.zig:1928 [and->or] -> killed ✅
+  [564/1345] src/verifier/proof_check.zig:1932 [>=->>] -> killed ✅
+  [565/1345] src/verifier/proof_check.zig:1951 [false->true] -> killed ✅
+  [566/1345] src/verifier/proof_check.zig:1952 [or->and] -> killed ✅
+  [567/1345] src/verifier/proof_check.zig:1952 [false->true] -> killed ✅
+  [568/1345] src/verifier/proof_check.zig:1953 [false->true] -> killed ✅
+  [569/1345] src/verifier/proof_check.zig:1980 [true->false] -> killed ✅
+  [570/1345] src/verifier/proof_check.zig:1954 [false->true] -> killed ✅
+  [571/1345] src/verifier/proof_check.zig:1982 [false->true] -> killed ✅
+  [572/1345] src/verifier/proof_check.zig:1955 [false->true] -> killed ✅
+  [573/1345] src/verifier/proof_check.zig:1957 [true->false] -> killed ✅
+  [574/1345] src/verifier/proof_check.zig:1986 [!=->==] -> killed ✅
+  [575/1345] src/verifier/proof_check.zig:1986 [false->true] -> killed ✅
+  [576/1345] src/verifier/proof_check.zig:1988 [false->true] -> killed ✅
+  [577/1345] src/verifier/proof_check.zig:1991 [false->true] -> killed ✅
+  [578/1345] src/verifier/proof_check.zig:1993 [!=->==] -> killed ✅
+  [579/1345] src/verifier/proof_check.zig:1959 [false->true] -> killed ✅
+  [580/1345] src/verifier/proof_check.zig:1977 [true->false] -> killed ✅
+  [581/1345] src/verifier/proof_check.zig:1986 [or->and] -> killed ✅
+  [582/1345] src/verifier/proof_check.zig:1987 [false->true] -> killed ✅
+  [583/1345] src/verifier/proof_check.zig:1999 [and->or] -> killed ✅
+  [584/1345] src/verifier/proof_check.zig:1999 [or->and] -> killed ✅
+  [585/1345] src/verifier/proof_check.zig:1993 [or->and] -> killed ✅
+  [586/1345] src/verifier/proof_check.zig:1993 [false->true] -> killed ✅
+  [587/1345] src/verifier/proof_check.zig:1994 [false->true] -> killed ✅
+  [588/1345] src/verifier/proof_check.zig:1995 [false->true] -> killed ✅
+  [589/1345] src/verifier/proof_check.zig:2000 [and->or] -> killed ✅
+  [590/1345] src/verifier/proof_check.zig:2006 [!=->==] -> killed ✅
+  [591/1345] src/verifier/proof_check.zig:2006 [or->and] -> killed ✅
+  [592/1345] src/verifier/proof_check.zig:2018 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 1163 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [593/1345] src/verifier/proof_check.zig:2047 [false->true] -> killed ✅
+  [594/1345] src/verifier/proof_check.zig:2018 [or->and] -> killed ✅
+  [595/1345] src/verifier/proof_check.zig:2026 [!=->==] -> killed ✅
+  [596/1345] src/verifier/proof_check.zig:2069 [!=->==] -> killed ✅
+  [597/1345] src/verifier/proof_check.zig:2035 [!=->==] -> killed ✅
+  [598/1345] src/verifier/proof_check.zig:2035 [or->and] -> killed ✅
+  [599/1345] src/verifier/proof_check.zig:2076 [>=->>] -> killed ✅
+  [600/1345] src/verifier/proof_check.zig:2048 [!=->==] -> killed ✅
+  [601/1345] src/verifier/proof_check.zig:2049 [false->true] -> killed ✅
+  [602/1345] src/verifier/proof_check.zig:2085 [or->and] -> killed ✅
+  [603/1345] src/verifier/proof_check.zig:2052 [false->true] -> killed ✅
+  [604/1345] src/verifier/proof_check.zig:2090 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 1234 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [605/1345] src/verifier/proof_check.zig:2090 [false->true] -> killed ✅
+  [606/1345] src/verifier/proof_check.zig:2069 [or->and] -> killed ✅
+  [607/1345] src/verifier/proof_check.zig:2092 [false->true] -> killed ✅
+  [608/1345] src/verifier/proof_check.zig:2106 [!=->==] -> killed ✅
+  [609/1345] src/verifier/proof_check.zig:2074 [<=-<] -> killed ✅
+  [610/1345] src/verifier/proof_check.zig:2077 [==->!=] -> killed ✅
+  [611/1345] src/verifier/proof_check.zig:2108 [or->and] -> killed ✅
+  [612/1345] src/verifier/proof_check.zig:2090 [or->and] -> killed ✅
+  [613/1345] src/verifier/proof_check.zig:2091 [false->true] -> killed ✅
+  [614/1345] src/verifier/proof_check.zig:2109 [or->and] -> killed ✅
+  [615/1345] src/verifier/proof_check.zig:2115 [false->true] -> killed ✅
+  [616/1345] src/verifier/proof_check.zig:2116 [and->or] -> killed ✅
+  [617/1345] src/verifier/proof_check.zig:2118 [false->true] -> killed ✅
+  [618/1345] src/verifier/proof_check.zig:2123 [false->true] -> killed ✅
+  [619/1345] src/verifier/proof_check.zig:2106 [or->and] -> killed ✅
+  [620/1345] src/verifier/proof_check.zig:2106 [false->true] -> killed ✅
+  [621/1345] src/verifier/proof_check.zig:2139 [==->!=] -> killed ✅
+  [622/1345] src/verifier/proof_check.zig:2107 [false->true] -> killed ✅
+  [623/1345] src/verifier/proof_check.zig:2144 [!=->==] -> killed ✅
+  [624/1345] src/verifier/proof_check.zig:2144 [false->true] -> killed ✅
+  [625/1345] src/verifier/proof_check.zig:2146 [true->false] -> killed ✅
+  [626/1345] src/verifier/proof_check.zig:2119 [and->or] -> killed ✅
+  [627/1345] src/verifier/proof_check.zig:2136 [false->true] -> killed ✅
+  [628/1345] src/verifier/proof_check.zig:2154 [==->!=] -> killed ✅
+  [629/1345] src/verifier/proof_check.zig:2139 [false->true] -> killed ✅
+  [630/1345] src/verifier/proof_check.zig:2165 [!=->==] -> killed ✅
+  [631/1345] src/verifier/proof_check.zig:2165 [false->true] -> killed ✅
+  [632/1345] src/verifier/proof_check.zig:2166 [!=->==] -> killed ✅
+  [633/1345] src/verifier/proof_check.zig:2150 [false->true] -> killed ✅
+  [634/1345] src/verifier/proof_check.zig:2151 [==->!=] -> killed ✅
+  [635/1345] src/verifier/proof_check.zig:2151 [false->true] -> killed ✅
+  [636/1345] src/verifier/proof_check.zig:2166 [false->true] -> killed ✅
+  [637/1345] src/verifier/proof_check.zig:2168 [and->or] -> killed ✅
+  [638/1345] src/verifier/proof_check.zig:2169 [false->true] -> killed ✅
+  [639/1345] src/verifier/proof_check.zig:2168 [false->true] -> killed ✅
+  [640/1345] src/verifier/proof_check.zig:2174 [false->true] -> killed ✅
+  [641/1345] src/verifier/proof_check.zig:2177 [!=->==] -> killed ✅
+  [642/1345] src/verifier/proof_check.zig:2177 [&->|] -> killed ✅
+  [643/1345] src/verifier/proof_check.zig:2180 [true->false] -> killed ✅
+  [644/1345] src/verifier/proof_check.zig:2165 [or->and] -> killed ✅
+  [645/1345] src/verifier/proof_check.zig:2184 [false->true] -> killed ✅
+  [646/1345] src/verifier/proof_check.zig:2186 [true->false] -> killed ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1234 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [647/1345] src/verifier/proof_check.zig:2195 [or->and] -> killed ✅
+  [648/1345] src/verifier/proof_check.zig:2200 [!=->==] -> killed ✅
+  [649/1345] src/verifier/proof_check.zig:2166 [or->and] -> killed ✅
+  [650/1345] src/verifier/proof_check.zig:2167 [false->true] -> killed ✅
+  [651/1345] src/verifier/proof_check.zig:2200 [false->true] -> killed ✅
+  [652/1345] src/verifier/proof_check.zig:2201 [!=->==] -> killed ✅
+  [653/1345] src/verifier/proof_check.zig:2201 [false->true] -> killed ✅
+  [654/1345] src/verifier/proof_check.zig:2204 [!=->==] -> killed ✅
+  [655/1345] src/verifier/proof_check.zig:2171 [false->true] -> killed ✅
+  [656/1345] src/verifier/proof_check.zig:2206 [false->true] -> killed ✅
+  [657/1345] src/verifier/proof_check.zig:2207 [false->true] -> killed ✅
+  [658/1345] src/verifier/proof_check.zig:2208 [!=->==] -> killed ✅
+  [659/1345] src/verifier/proof_check.zig:2200 [or->and] -> killed ✅
+  [660/1345] src/verifier/proof_check.zig:2210 [false->true] -> killed ✅
+  [661/1345] src/verifier/proof_check.zig:2202 [false->true] -> killed ✅
+  [662/1345] src/verifier/proof_check.zig:2204 [or->and] -> killed ✅
+  [663/1345] src/verifier/proof_check.zig:2212 [true->false] -> killed ✅
+  [664/1345] src/verifier/proof_check.zig:2204 [false->true] -> killed ✅
+  [665/1345] src/verifier/proof_check.zig:2205 [false->true] -> killed ✅
+  [666/1345] src/verifier/proof_check.zig:2223 [==->!=] -> killed ✅
+  [667/1345] src/verifier/proof_check.zig:2226 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 1020 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [668/1345] src/verifier/proof_check.zig:2226 [false->true] -> killed ✅
+  [669/1345] src/verifier/proof_check.zig:2228 [true->false] -> killed ✅
+  [670/1345] src/verifier/proof_check.zig:2239 [or->and] -> killed ✅
+  [671/1345] src/verifier/proof_check.zig:2208 [false->true] -> killed ✅
+  [672/1345] src/verifier/proof_check.zig:2243 [!=->==] -> killed ✅
+  [673/1345] src/verifier/proof_check.zig:2243 [false->true] -> killed ✅
+  [674/1345] src/verifier/proof_check.zig:2246 [!=->==] -> killed ✅
+  [675/1345] src/verifier/proof_check.zig:2218 [false->true] -> killed ✅
+  [676/1345] src/verifier/proof_check.zig:2220 [false->true] -> killed ✅
+  [677/1345] src/verifier/proof_check.zig:2223 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 984 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [678/1345] src/verifier/proof_check.zig:2247 [false->true] -> killed ✅
+  [679/1345] src/verifier/proof_check.zig:2248 [!=->==] -> killed ✅
+  [680/1345] src/verifier/proof_check.zig:2243 [or->and] -> killed ✅
+  [681/1345] src/verifier/proof_check.zig:2244 [false->true] -> killed ✅
+  [682/1345] src/verifier/proof_check.zig:2251 [false->true] -> killed ✅
+  [683/1345] src/verifier/proof_check.zig:2246 [or->and] -> killed ✅
+  [684/1345] src/verifier/proof_check.zig:2246 [false->true] -> killed ✅
+  [685/1345] src/verifier/proof_check.zig:2254 [true->false] -> killed ✅
+  [686/1345] src/verifier/proof_check.zig:2257 [false->true] -> killed ✅
+  [687/1345] src/verifier/proof_check.zig:2248 [or->and] -> killed ✅
+  [688/1345] src/verifier/proof_check.zig:2248 [false->true] -> killed ✅
+  [689/1345] src/verifier/proof_check.zig:2264 [!=->==] -> killed ✅
+  [690/1345] src/verifier/proof_check.zig:2267 [!=->==] -> killed ✅
+  [691/1345] src/verifier/proof_check.zig:2281 [false->true] -> killed ✅
+  [692/1345] src/verifier/proof_check.zig:2283 [and->or] -> killed ✅
+  [693/1345] src/verifier/proof_check.zig:2249 [false->true] -> killed ✅
+  [694/1345] src/verifier/proof_check.zig:2295 [true->false] -> killed ✅
+  [695/1345] src/verifier/proof_check.zig:2253 [and->or] -> killed ✅
+  [696/1345] src/verifier/proof_check.zig:2296 [true->false] -> killed ✅
+  [697/1345] src/verifier/proof_check.zig:2297 [false->true] -> killed ✅
+  [698/1345] src/verifier/proof_check.zig:2308 [==->!=] -> killed ✅
+[i] кэш слота kern-mutants-c9tu_wix был 1270 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [699/1345] src/verifier/proof_check.zig:2264 [or->and] -> killed ✅
+  [700/1345] src/verifier/proof_check.zig:2314 [true->false] -> killed ✅
+  [701/1345] src/verifier/proof_check.zig:2267 [or->and] -> killed ✅
+  [702/1345] src/verifier/proof_check.zig:2282 [false->true] -> killed ✅
+  [703/1345] src/verifier/proof_check.zig:2319 [==->!=] -> killed ✅
+  [704/1345] src/verifier/proof_check.zig:2294 [true->false] -> killed ✅
+  [705/1345] src/verifier/proof_check.zig:2308 [and->or] -> killed ✅
+  [706/1345] src/verifier/proof_check.zig:2317 [==->!=] -> killed ✅
+  [707/1345] src/verifier/proof_check.zig:2319 [and->or] -> killed ✅
+  [708/1345] src/verifier/proof_check.zig:2344 [false->true] -> killed ✅
+  [709/1345] src/verifier/proof_check.zig:2323 [>=->>] -> killed ✅
+  [710/1345] src/verifier/proof_check.zig:2323 [or->and] -> killed ✅
+  [711/1345] src/verifier/proof_check.zig:2328 [and->or] -> killed ✅
+  [712/1345] src/verifier/proof_check.zig:2328 [or->and] -> killed ✅
+  [713/1345] src/verifier/proof_check.zig:2345 [false->true] -> killed ✅
+  [714/1345] src/verifier/proof_check.zig:2348 [false->true] -> killed ✅
+  [715/1345] src/verifier/proof_check.zig:2361 [!=->==] -> killed ✅
+  [716/1345] src/verifier/proof_check.zig:2361 [or->and] -> killed ✅
+  [717/1345] src/verifier/proof_check.zig:2392 [false->true] -> killed ✅
+  [718/1345] src/verifier/proof_check.zig:2396 [false->true] -> killed ✅
+  [719/1345] src/verifier/proof_check.zig:2408 [false->true] -> killed ✅
+  [720/1345] src/verifier/proof_check.zig:2375 [or->and] -> killed ✅
+  [721/1345] src/verifier/proof_check.zig:2413 [!=->==] -> killed (compile) ✅
+  [722/1345] src/verifier/proof_check.zig:2413 [or->and] -> killed (compile) ✅
+  [723/1345] src/verifier/proof_check.zig:2413 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 948 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [724/1345] src/verifier/proof_check.zig:2414 [!=->==] -> killed (compile) ✅
+  [725/1345] src/verifier/proof_check.zig:2414 [or->and] -> killed (compile) ✅
+  [726/1345] src/verifier/proof_check.zig:2414 [false->true] -> killed ✅
+  [727/1345] src/verifier/proof_check.zig:2384 [true->false] -> killed ✅
+  [728/1345] src/verifier/proof_check.zig:2387 [true->false] -> killed ✅
+  [729/1345] src/verifier/proof_check.zig:2415 [false->true] -> killed ✅
+  [730/1345] src/verifier/proof_check.zig:2423 [or->and] -> killed ✅
+  [731/1345] src/verifier/proof_check.zig:2416 [false->true] -> killed ✅
+  [732/1345] src/verifier/proof_check.zig:2424 [and->or] -> killed ✅
+  [733/1345] src/verifier/proof_check.zig:2433 [false->true] -> killed ✅
+  [734/1345] src/verifier/proof_check.zig:2443 [false->true] -> killed ✅
+  [735/1345] src/verifier/proof_check.zig:2429 [or->and] -> killed ✅
+  [736/1345] src/verifier/proof_check.zig:2430 [and->or] -> killed ✅
+  [737/1345] src/verifier/proof_check.zig:2443 [!=->==] -> killed ✅
+  [738/1345] src/verifier/proof_check.zig:2443 [or->and] -> killed ✅
+  [739/1345] src/verifier/proof_check.zig:2444 [false->true] -> killed ✅
+  [740/1345] src/verifier/proof_check.zig:2445 [false->true] -> killed ✅
+  [741/1345] src/verifier/proof_check.zig:2450 [and->or] -> killed ✅
+  [742/1345] src/verifier/proof_check.zig:2446 [or->and] -> killed ✅
+  [743/1345] src/verifier/proof_check.zig:2450 [false->true] -> killed ✅
+  [744/1345] src/verifier/proof_check.zig:2457 [and->or] -> killed ✅
+  [745/1345] src/verifier/proof_check.zig:2447 [or->and] -> killed ✅
+  [746/1345] src/verifier/proof_check.zig:2475 [==->!=] -> killed ✅
+  [747/1345] src/verifier/proof_check.zig:2491 [true->false] -> killed ✅
+  [748/1345] src/verifier/proof_check.zig:2448 [or->and] -> killed ✅
+  [749/1345] src/verifier/proof_check.zig:2449 [or->and] -> killed ✅
+  [750/1345] src/verifier/proof_check.zig:2494 [true->false] -> killed ✅
+  [751/1345] src/verifier/proof_check.zig:2451 [or->and] -> killed ✅
+  [752/1345] src/verifier/proof_check.zig:2452 [or->and] -> killed ✅
+  [753/1345] src/verifier/proof_check.zig:2475 [and->or] -> killed ✅
+  [754/1345] src/verifier/proof_check.zig:2506 [true->false] -> killed ✅
+  [755/1345] src/verifier/proof_check.zig:2508 [!=->==] -> killed ✅
+  [756/1345] src/verifier/proof_check.zig:2493 [false->true] -> killed ✅
+  [757/1345] src/verifier/proof_check.zig:2510 [and->or] -> killed ✅
+  [758/1345] src/verifier/proof_check.zig:2496 [or->and] -> killed ✅
+  [759/1345] src/verifier/proof_check.zig:2496 [false->true] -> killed ✅
+  [760/1345] src/verifier/proof_check.zig:2504 [false->true] -> killed ✅
+  [761/1345] src/verifier/proof_check.zig:2497 [false->true] -> killed ✅
+  [762/1345] src/verifier/proof_check.zig:2524 [!=->==] -> killed ✅
+  [763/1345] src/verifier/proof_check.zig:2524 [false->true] -> killed ✅
+  [764/1345] src/verifier/proof_check.zig:2525 [!=->==] -> killed ✅
+  [765/1345] src/verifier/proof_check.zig:2525 [false->true] -> killed ✅
+  [766/1345] src/verifier/proof_check.zig:2527 [false->true] -> killed ✅
+  [767/1345] src/verifier/proof_check.zig:2529 [==->!=] -> killed ✅
+  [768/1345] src/verifier/proof_check.zig:2529 [and->or] -> killed ✅
+  [769/1345] src/verifier/proof_check.zig:2530 [true->false] -> killed ✅
+  [770/1345] src/verifier/proof_check.zig:2534 [false->true] -> killed ✅
+  [771/1345] src/verifier/proof_check.zig:2536 [true->false] -> killed ✅
+  [772/1345] src/verifier/proof_check.zig:2508 [false->true] -> killed ✅
+  [773/1345] src/verifier/proof_check.zig:2557 [==->!=] -> killed ✅
+  [774/1345] src/verifier/proof_check.zig:2563 [!=->==] -> killed (compile) ✅
+  [775/1345] src/verifier/proof_check.zig:2518 [false->true] -> killed ✅
+  [776/1345] src/verifier/proof_check.zig:2563 [or->and] -> killed (compile) ✅
+  [777/1345] src/verifier/proof_check.zig:2520 [false->true] -> killed ✅
+  [778/1345] src/verifier/proof_check.zig:2556 [false->true] -> killed ✅
+  [779/1345] src/verifier/proof_check.zig:2557 [and->or] -> killed ✅
+  [780/1345] src/verifier/proof_check.zig:2590 [true->false] -> killed ✅
+  [781/1345] src/verifier/proof_check.zig:2563 [false->true] -> killed ✅
+  [782/1345] src/verifier/proof_check.zig:2581 [false->true] -> killed ✅
+  [783/1345] src/verifier/proof_check.zig:2600 [false->true] -> killed ✅
+  [784/1345] src/verifier/proof_check.zig:2564 [false->true] -> killed ✅
+  [785/1345] src/verifier/proof_check.zig:2587 [false->true] -> killed ✅
+  [786/1345] src/verifier/proof_check.zig:2588 [false->true] -> killed ✅
+  [787/1345] src/verifier/proof_check.zig:2601 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 984 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [788/1345] src/verifier/proof_check.zig:2602 [==->!=] -> killed ✅
+  [789/1345] src/verifier/proof_check.zig:2602 [and->or] -> killed ✅
+  [790/1345] src/verifier/proof_check.zig:2602 [false->true] -> killed ✅
+  [791/1345] src/verifier/proof_check.zig:2608 [!=->==] -> killed ✅
+  [792/1345] src/verifier/proof_check.zig:2608 [or->and] -> killed ✅
+  [793/1345] src/verifier/proof_check.zig:2647 [false->true] -> killed ✅
+  [794/1345] src/verifier/proof_check.zig:2626 [==->!=] -> killed ✅
+  [795/1345] src/verifier/proof_check.zig:2629 [false->true] -> killed ✅
+  [796/1345] src/verifier/proof_check.zig:2626 [and->or] -> killed ✅
+  [797/1345] src/verifier/proof_check.zig:2630 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1091 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [798/1345] src/verifier/proof_check.zig:2648 [false->true] -> killed ✅
+  [799/1345] src/verifier/proof_check.zig:2631 [true->false] -> killed ✅
+  [800/1345] src/verifier/proof_check.zig:2649 [false->true] -> killed ✅
+  [801/1345] src/verifier/proof_check.zig:2650 [or->and] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 1270 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [802/1345] src/verifier/proof_check.zig:2649 [==->!=] -> killed ✅
+  [803/1345] src/verifier/proof_check.zig:2669 [true->false] -> killed ✅
+  [804/1345] src/verifier/proof_check.zig:2649 [and->or] -> killed ✅
+  [805/1345] src/verifier/proof_check.zig:2670 [==->!=] -> killed ✅
+  [806/1345] src/verifier/proof_check.zig:2671 [true->false] -> killed ✅
+  [807/1345] src/verifier/proof_check.zig:2670 [false->true] -> killed ✅
+  [808/1345] src/verifier/proof_check.zig:2675 [false->true] -> killed ✅
+  [809/1345] src/verifier/proof_check.zig:2676 [!=->==] -> killed (compile) ✅
+  [810/1345] src/verifier/proof_check.zig:2676 [or->and] -> killed (compile) ✅
+[i] кэш слота kern-mutants-zohp573i был 1056 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [811/1345] src/verifier/proof_check.zig:2676 [false->true] -> killed ✅
+  [812/1345] src/verifier/proof_check.zig:2679 [false->true] -> killed ✅
+  [813/1345] src/verifier/proof_check.zig:2674 [true->false] -> killed ✅
+  [814/1345] src/verifier/proof_check.zig:2675 [!=->==] -> killed ✅
+  [815/1345] src/verifier/proof_check.zig:2675 [or->and] -> killed ✅
+  [816/1345] src/verifier/proof_check.zig:2676 [==->!=] -> killed ✅
+  [817/1345] src/verifier/proof_check.zig:2677 [false->true] -> killed ✅
+  [818/1345] src/verifier/proof_check.zig:2681 [true->false] -> killed ✅
+  [819/1345] src/verifier/proof_check.zig:2699 [or->and] -> killed ✅
+  [820/1345] src/verifier/proof_check.zig:2725 [==->!=] -> killed ✅
+  [821/1345] src/verifier/proof_check.zig:2725 [and->or] -> killed ✅
+  [822/1345] src/verifier/proof_check.zig:2728 [==->!=] -> killed ✅
+  [823/1345] src/verifier/proof_check.zig:2730 [>=->>] -> killed ✅
+  [824/1345] src/verifier/proof_check.zig:2730 [or->and] -> killed ✅
+  [825/1345] src/verifier/proof_check.zig:2735 [and->or] -> killed ✅
+  [826/1345] src/verifier/proof_check.zig:2735 [or->and] -> killed ✅
+  [827/1345] src/verifier/proof_check.zig:2747 [==->!=] -> killed ✅
+  [828/1345] src/verifier/proof_check.zig:2753 [false->true] -> killed ✅
+  [829/1345] src/verifier/proof_check.zig:2747 [or->and] -> killed ✅
+  [830/1345] src/verifier/proof_check.zig:2747 [false->true] -> killed ✅
+  [831/1345] src/verifier/proof_check.zig:2752 [==->!=] -> killed ✅
+  [832/1345] src/verifier/proof_check.zig:2752 [&->|] -> killed ✅
+[i] кэш слота kern-mutants-c9tu_wix был 1127 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [833/1345] src/verifier/proof_check.zig:2754 [false->true] -> killed ✅
+  [834/1345] src/verifier/proof_check.zig:2756 [true->false] -> killed ✅
+  [835/1345] src/verifier/proof_check.zig:2765 [false->true] -> killed ✅
+  [836/1345] src/verifier/proof_check.zig:2797 [false->true] -> killed ✅
+  [837/1345] src/verifier/proof_check.zig:2767 [false->true] -> killed ✅
+  [838/1345] src/verifier/proof_check.zig:2777 [false->true] -> killed ✅
+  [839/1345] src/verifier/proof_check.zig:2785 [false->true] -> killed ✅
+  [840/1345] src/verifier/proof_check.zig:2787 [false->true] -> killed ✅
+  [841/1345] src/verifier/proof_check.zig:2812 [==->!=] -> killed ✅
+  [842/1345] src/verifier/proof_check.zig:2801 [false->true] -> killed ✅
+  [843/1345] src/verifier/proof_check.zig:2813 [or->and] -> killed ✅
+  [844/1345] src/verifier/proof_check.zig:2806 [or->and] -> killed ✅
+  [845/1345] src/verifier/proof_check.zig:2814 [true->false] -> killed ✅
+  [846/1345] src/verifier/proof_check.zig:2806 [false->true] -> killed ✅
+  [847/1345] src/verifier/proof_check.zig:2819 [true->false] -> killed ✅
+  [848/1345] src/verifier/proof_check.zig:2829 [false->true] -> killed ✅
+  [849/1345] src/verifier/proof_check.zig:2834 [false->true] -> killed ✅
+  [850/1345] src/verifier/proof_check.zig:2807 [false->true] -> killed ✅
+  [851/1345] src/verifier/proof_check.zig:2808 [false->true] -> killed ✅
+  [852/1345] src/verifier/proof_check.zig:2823 [true->false] -> killed ✅
+  [853/1345] src/verifier/proof_check.zig:2837 [false->true] -> killed ✅
+  [854/1345] src/verifier/proof_check.zig:2844 [false->true] -> killed ✅
+  [855/1345] src/verifier/proof_check.zig:2848 [false->true] -> killed ✅
+  [856/1345] src/verifier/proof_check.zig:2857 [and->or] -> killed ✅
+  [857/1345] src/verifier/proof_check.zig:2857 [true->false] -> killed ✅
+  [858/1345] src/verifier/proof_check.zig:2863 [and->or] -> killed ✅
+  [859/1345] src/verifier/proof_check.zig:2858 [and->or] -> killed ✅
+  [860/1345] src/verifier/proof_check.zig:2858 [true->false] -> killed ✅
+  [861/1345] src/verifier/proof_check.zig:2860 [false->true] -> killed ✅
+  [862/1345] src/verifier/proof_check.zig:2861 [false->true] -> killed ✅
+  [863/1345] src/verifier/proof_check.zig:2863 [==->!=] -> killed ✅
+  [864/1345] src/verifier/proof_check.zig:2873 [false->true] -> killed ✅
+  [865/1345] src/verifier/proof_check.zig:2874 [true->false] -> killed ✅
+  [866/1345] src/verifier/proof_check.zig:2875 [and->or] -> killed ✅
+  [867/1345] src/verifier/proof_check.zig:2876 [and->or] -> killed ✅
+  [868/1345] src/verifier/proof_check.zig:2877 [true->false] -> killed ✅
+  [869/1345] src/verifier/proof_check.zig:2878 [and->or] -> killed ✅
+  [870/1345] src/verifier/proof_check.zig:2891 [and->or] -> killed ✅
+  [871/1345] src/verifier/proof_check.zig:2879 [true->false] -> killed ✅
+  [872/1345] src/verifier/proof_check.zig:2880 [false->true] -> killed ✅
+  [873/1345] src/verifier/proof_check.zig:2882 [and->or] -> killed ✅
+  [874/1345] src/verifier/proof_check.zig:2889 [and->or] -> killed ✅
+  [875/1345] src/verifier/proof_check.zig:2890 [and->or] -> killed ✅
+  [876/1345] src/verifier/proof_check.zig:2894 [false->true] -> killed ✅
+  [877/1345] src/verifier/proof_check.zig:2891 [true->false] -> killed ✅
+  [878/1345] src/verifier/proof_check.zig:2921 [false->true] -> killed ✅
+  [879/1345] src/verifier/proof_check.zig:2891 [false->true] -> killed ✅
+  [880/1345] src/verifier/proof_check.zig:2924 [or->and] -> killed (compile) ✅
+  [881/1345] src/verifier/proof_check.zig:2924 [false->true] -> killed ✅
+  [882/1345] src/verifier/proof_check.zig:2892 [and->or] -> killed ✅
+  [883/1345] src/verifier/proof_check.zig:2892 [true->false] -> killed ✅
+  [884/1345] src/verifier/proof_check.zig:2928 [false->true] -> killed ✅
+  [885/1345] src/verifier/proof_check.zig:2932 [or->and] -> killed (compile) ✅
+  [886/1345] src/verifier/proof_check.zig:2916 [false->true] -> killed ✅
+  [887/1345] src/verifier/proof_check.zig:2932 [false->true] -> killed ✅
+  [888/1345] src/verifier/proof_check.zig:2934 [and->or] -> killed ✅
+  [889/1345] src/verifier/proof_check.zig:2935 [and->or] -> killed ✅
+  [890/1345] src/verifier/proof_check.zig:2918 [and->or] -> killed ✅
+  [891/1345] src/verifier/proof_check.zig:2942 [false->true] -> killed ✅
+  [892/1345] src/verifier/proof_check.zig:2925 [and->or] -> killed ✅
+  [893/1345] src/verifier/proof_check.zig:2949 [true->false] -> killed ✅
+  [894/1345] src/verifier/proof_check.zig:2937 [false->true] -> killed ✅
+  [895/1345] src/verifier/proof_check.zig:2951 [false->true] -> killed ✅
+  [896/1345] src/verifier/proof_check.zig:2945 [or->and] -> killed ✅
+  [897/1345] src/verifier/proof_check.zig:2945 [false->true] -> killed ✅
+  [898/1345] src/verifier/proof_check.zig:2946 [false->true] -> killed ✅
+  [899/1345] src/verifier/proof_check.zig:2966 [false->true] -> killed ✅
+  [900/1345] src/verifier/proof_check.zig:2947 [false->true] -> killed ✅
+  [901/1345] src/verifier/proof_check.zig:2978 [false->true] -> killed ✅
+  [902/1345] src/verifier/proof_check.zig:2982 [true->false] -> killed ✅
+  [903/1345] src/verifier/proof_check.zig:2995 [false->true] -> killed ✅
+  [904/1345] src/verifier/proof_check.zig:2977 [or->and] -> killed ✅
+  [905/1345] src/verifier/proof_check.zig:2976 [false->true] -> killed ✅
+  [906/1345] src/verifier/proof_check.zig:2977 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 1377 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [907/1345] src/verifier/proof_check.zig:2979 [false->true] -> killed ✅
+  [908/1345] src/verifier/proof_check.zig:3003 [false->true] -> killed ✅
+  [909/1345] src/verifier/proof_check.zig:2992 [true->false] -> killed ✅
+  [910/1345] src/verifier/proof_check.zig:3033 [true->false] -> killed ✅
+  [911/1345] src/verifier/proof_check.zig:3067 [!=->==] -> killed ✅
+  [912/1345] src/verifier/proof_check.zig:3067 [false->true] -> killed ✅
+  [913/1345] src/verifier/proof_check.zig:3068 [true->false] -> killed ✅
+  [914/1345] src/verifier/proof_check.zig:3001 [false->true] -> killed ✅
+  [915/1345] src/verifier/proof_check.zig:3085 [==->!=] -> killed ✅
+  [916/1345] src/verifier/proof_check.zig:3100 [true->false] -> killed ✅
+  [917/1345] src/verifier/proof_check.zig:3112 [true->false] -> killed ✅
+  [918/1345] src/verifier/proof_check.zig:3114 [==->!=] -> killed ✅
+  [919/1345] src/verifier/proof_check.zig:3015 [false->true] -> killed ✅
+  [920/1345] src/verifier/proof_check.zig:3024 [true->false] -> killed ✅
+  [921/1345] src/verifier/proof_check.zig:3029 [true->false] -> killed ✅
+  [922/1345] src/verifier/proof_check.zig:3116 [true->false] -> killed ✅
+  [923/1345] src/verifier/proof_check.zig:3118 [==->!=] -> killed ✅
+  [924/1345] src/verifier/proof_check.zig:3119 [false->true] -> killed ✅
+  [925/1345] src/verifier/proof_check.zig:3098 [false->true] -> killed ✅
+  [926/1345] src/verifier/proof_check.zig:3109 [false->true] -> killed ✅
+  [927/1345] src/verifier/proof_check.zig:3122 [true->false] -> killed ✅
+  [928/1345] src/verifier/proof_check.zig:3125 [==->!=] -> killed ✅
+  [929/1345] src/verifier/proof_check.zig:3114 [false->true] -> killed ✅
+  [930/1345] src/verifier/proof_check.zig:3115 [false->true] -> killed ✅
+  [931/1345] src/verifier/proof_check.zig:3118 [false->true] -> killed ✅
+  [932/1345] src/verifier/proof_check.zig:3129 [true->false] -> killed ✅
+  [933/1345] src/verifier/proof_check.zig:3141 [!=->==] -> killed ✅
+  [934/1345] src/verifier/proof_check.zig:3141 [false->true] -> killed ✅
+  [935/1345] src/verifier/proof_check.zig:3121 [false->true] -> killed ✅
+  [936/1345] src/verifier/proof_check.zig:3144 [==->!=] -> killed ✅
+  [937/1345] src/verifier/proof_check.zig:3147 [false->true] -> killed ✅
+  [938/1345] src/verifier/proof_check.zig:3126 [false->true] -> killed ✅
+  [939/1345] src/verifier/proof_check.zig:3127 [false->true] -> killed ✅
+  [940/1345] src/verifier/proof_check.zig:3157 [!=->==] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 1199 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [941/1345] src/verifier/proof_check.zig:3157 [or->and] -> killed (compile) ✅
+  [942/1345] src/verifier/proof_check.zig:3157 [false->true] -> killed ✅
+  [943/1345] src/verifier/proof_check.zig:3160 [false->true] -> killed ✅
+  [944/1345] src/verifier/proof_check.zig:3128 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 1127 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [945/1345] src/verifier/proof_check.zig:3161 [false->true] -> killed ✅
+  [946/1345] src/verifier/proof_check.zig:3176 [true->false] -> killed ✅
+  [947/1345] src/verifier/proof_check.zig:3172 [false->true] -> killed ✅
+  [948/1345] src/verifier/proof_check.zig:3219 [!=->==] -> killed ✅
+  [949/1345] src/verifier/proof_check.zig:3219 [false->true] -> killed ✅
+  [950/1345] src/verifier/proof_check.zig:3144 [or->and] -> killed ✅
+  [951/1345] src/verifier/proof_check.zig:3222 [or->and] -> killed ✅
+  [952/1345] src/verifier/proof_check.zig:3144 [false->true] -> killed ✅
+  [953/1345] src/verifier/proof_check.zig:3226 [or->and] -> killed ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1199 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [954/1345] src/verifier/proof_check.zig:3158 [false->true] -> killed ✅
+  [955/1345] src/verifier/proof_check.zig:3219 [or->and] -> killed ✅
+  [956/1345] src/verifier/proof_check.zig:3220 [false->true] -> killed ✅
+  [957/1345] src/verifier/proof_check.zig:3233 [true->false] -> killed ✅
+  [958/1345] src/verifier/proof_check.zig:3223 [false->true] -> killed ✅
+  [959/1345] src/verifier/proof_check.zig:3246 [!=->==] -> killed (compile) ✅
+  [960/1345] src/verifier/proof_check.zig:3224 [false->true] -> killed ✅
+  [961/1345] src/verifier/proof_check.zig:3251 [==->!=] -> killed ✅
+  [962/1345] src/verifier/proof_check.zig:3255 [false->true] -> killed ✅
+  [963/1345] src/verifier/proof_check.zig:3227 [false->true] -> killed ✅
+  [964/1345] src/verifier/proof_check.zig:3256 [true->false] -> killed ✅
+  [965/1345] src/verifier/proof_check.zig:3270 [>=->>] -> killed ✅
+  [966/1345] src/verifier/proof_check.zig:3228 [false->true] -> killed ✅
+  [967/1345] src/verifier/proof_check.zig:3275 [true->false] -> killed ✅
+  [968/1345] src/verifier/proof_check.zig:3281 [==->!=] -> killed ✅
+  [969/1345] src/verifier/proof_check.zig:3230 [false->true] -> killed ✅
+  [970/1345] src/verifier/proof_check.zig:3283 [>=->>] -> killed ✅
+  [971/1345] src/verifier/proof_check.zig:3248 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 1199 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [972/1345] src/verifier/proof_check.zig:3289 [true->false] -> killed ✅
+  [973/1345] src/verifier/proof_check.zig:3270 [and->or] -> killed ✅
+  [974/1345] src/verifier/proof_check.zig:3274 [false->true] -> killed ✅
+  [975/1345] src/verifier/proof_check.zig:3300 [==->!=] -> killed ✅
+  [976/1345] src/verifier/proof_check.zig:3300 [and->or] -> killed ✅
+  [977/1345] src/verifier/proof_check.zig:3281 [and->or] -> killed ✅
+  [978/1345] src/verifier/proof_check.zig:3283 [and->or] -> killed ✅
+  [979/1345] src/verifier/proof_check.zig:3287 [false->true] -> killed ✅
+  [980/1345] src/verifier/proof_check.zig:3297 [false->true] -> killed ✅
+  [981/1345] src/verifier/proof_check.zig:3315 [false->true] -> killed ✅
+  [982/1345] src/verifier/proof_check.zig:3304 [false->true] -> killed ✅
+  [983/1345] src/verifier/proof_check.zig:3305 [false->true] -> killed ✅
+  [984/1345] src/verifier/proof_check.zig:3307 [false->true] -> killed ✅
+  [985/1345] src/verifier/proof_check.zig:3337 [==->!=] -> killed ✅
+  [986/1345] src/verifier/proof_check.zig:3337 [and->or] -> killed ✅
+[i] кэш слота kern-mutants-c9tu_wix был 1127 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [987/1345] src/verifier/proof_check.zig:3308 [false->true] -> killed ✅
+  [988/1345] src/verifier/proof_check.zig:3309 [false->true] -> killed ✅
+  [989/1345] src/verifier/proof_check.zig:3407 [==->!=] -> killed ✅
+  [990/1345] src/verifier/proof_check.zig:3411 [true->false] -> killed ✅
+  [991/1345] src/verifier/proof_check.zig:3407 [and->or] -> killed ✅
+  [992/1345] src/verifier/proof_check.zig:3434 [==->!=] -> killed ✅
+  [993/1345] src/verifier/proof_check.zig:3438 [!=->==] -> killed ✅
+  [994/1345] src/verifier/proof_check.zig:3449 [and->or] -> killed ✅
+  [995/1345] src/verifier/proof_check.zig:3467 [false->true] -> killed ✅
+  [996/1345] src/verifier/proof_check.zig:3471 [!=->==] -> killed ✅
+  [997/1345] src/verifier/proof_check.zig:3325 [>=->>] -> killed ✅
+  [998/1345] src/verifier/proof_check.zig:3471 [or->and] -> killed (compile) ✅
+  [999/1345] src/verifier/proof_check.zig:3471 [false->true] -> killed ✅
+  [1000/1345] src/verifier/proof_check.zig:3474 [and->or] -> killed ✅
+  [1001/1345] src/verifier/proof_check.zig:3349 [and->or] -> killed ✅
+  [1002/1345] src/verifier/proof_check.zig:3396 [false->true] -> killed ✅
+  [1003/1345] src/verifier/proof_check.zig:3474 [false->true] -> killed ✅
+  [1004/1345] src/verifier/proof_check.zig:3475 [true->false] -> killed ✅
+  [1005/1345] src/verifier/proof_check.zig:3475 [and->or] -> killed ✅
+  [1006/1345] src/verifier/proof_check.zig:3476 [and->or] -> killed ✅
+  [1007/1345] src/verifier/proof_check.zig:3476 [true->false] -> killed ✅
+  [1008/1345] src/verifier/proof_check.zig:3480 [false->true] -> killed ✅
+  [1009/1345] src/verifier/proof_check.zig:3485 [==->!=] -> killed ✅
+  [1010/1345] src/verifier/proof_check.zig:3485 [false->true] -> killed (compile) ✅
+  [1011/1345] src/verifier/proof_check.zig:3434 [or->and] -> killed ✅
+  [1012/1345] src/verifier/proof_check.zig:3472 [false->true] -> killed ✅
+  [1013/1345] src/verifier/proof_check.zig:3485 [or->and] -> killed ✅
+  [1014/1345] src/verifier/proof_check.zig:3486 [false->true] -> killed ✅
+  [1015/1345] src/verifier/proof_check.zig:3522 [or->and] -> killed ✅
+  [1016/1345] src/verifier/proof_check.zig:3528 [==->!=] -> killed ✅
+  [1017/1345] src/verifier/proof_check.zig:3530 [or->and] -> killed ✅
+  [1018/1345] src/verifier/proof_check.zig:3531 [or->and] -> killed ✅
+  [1019/1345] src/verifier/proof_check.zig:3532 [or->and] -> killed ✅
+  [1020/1345] src/verifier/proof_check.zig:3535 [or->and] -> killed ✅
+  [1021/1345] src/verifier/proof_check.zig:3534 [and->or] -> killed ✅
+  [1022/1345] src/verifier/proof_check.zig:3541 [or->and] -> killed ✅
+  [1023/1345] src/verifier/proof_check.zig:3553 [true->false] -> killed ✅
+  [1024/1345] src/verifier/proof_check.zig:3554 [false->true] -> killed ✅
+  [1025/1345] src/verifier/proof_check.zig:3574 [==->!=] -> killed ✅
+  [1026/1345] src/verifier/proof_check.zig:3576 [==->!=] -> killed ✅
+  [1027/1345] src/verifier/proof_check.zig:3576 [and->or] -> killed ✅
+  [1028/1345] src/verifier/proof_check.zig:3579 [false->true] -> killed ✅
+  [1029/1345] src/verifier/proof_check.zig:3580 [true->false] -> killed ✅
+  [1030/1345] src/verifier/proof_check.zig:3588 [==->!=] -> killed ✅
+  [1031/1345] src/verifier/proof_check.zig:3588 [and->or] -> killed ✅
+  [1032/1345] src/verifier/proof_check.zig:3594 [or->and] -> killed ✅
+  [1033/1345] src/verifier/proof_check.zig:3593 [or->and] -> killed ✅
+  [1034/1345] src/verifier/proof_check.zig:3595 [and->or] -> killed ✅
+  [1035/1345] src/verifier/proof_check.zig:3596 [==->!=] -> killed ✅
+  [1036/1345] src/verifier/proof_check.zig:3601 [!=->==] -> killed ✅
+  [1037/1345] src/verifier/proof_check.zig:3601 [false->true] -> killed ✅
+  [1038/1345] src/verifier/proof_check.zig:3617 [true->false] -> killed ✅
+  [1039/1345] src/verifier/proof_check.zig:3610 [>=->>] -> killed ✅
+  [1040/1345] src/verifier/proof_check.zig:3622 [false->true] -> killed ✅
+  [1041/1345] src/verifier/proof_check.zig:3627 [==->!=] -> killed ✅
+  [1042/1345] src/verifier/proof_check.zig:3628 [==->!=] -> killed ✅
+  [1043/1345] src/verifier/proof_check.zig:3661 [==->!=] -> killed ✅
+  [1044/1345] src/verifier/proof_check.zig:3661 [or->and] -> killed ✅
+  [1045/1345] src/verifier/proof_check.zig:3667 [==->!=] -> killed ✅
+  [1046/1345] src/verifier/proof_check.zig:3667 [&->|] -> killed ✅
+  [1047/1345] src/verifier/proof_check.zig:3670 [false->true] -> killed ✅
+  [1048/1345] src/verifier/proof_check.zig:3674 [true->false] -> killed ✅
+  [1049/1345] src/verifier/proof_check.zig:3684 [true->false] -> killed ✅
+  [1050/1345] src/verifier/proof_check.zig:3704 [!=->==] -> killed ✅
+  [1051/1345] src/verifier/proof_check.zig:3716 [>=->>] -> killed ✅
+  [1052/1345] src/verifier/proof_check.zig:3737 [or->and] -> killed ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 984 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1053/1345] src/verifier/proof_check.zig:3716 [and->or] -> killed ✅
+  [1054/1345] src/verifier/proof_check.zig:3725 [!=->==] -> killed ✅
+  [1055/1345] src/verifier/proof_check.zig:3842 [false->true] -> killed ✅
+  [1056/1345] src/verifier/proof_check.zig:3777 [==->!=] -> killed ✅
+  [1057/1345] src/verifier/proof_check.zig:3824 [>=->>] -> killed ✅
+  [1058/1345] src/verifier/proof_check.zig:3824 [and->or] -> killed ✅
+  [1059/1345] src/verifier/proof_check.zig:3831 [==->!=] -> killed ✅
+  [1060/1345] src/verifier/proof_check.zig:3851 [==->!=] -> killed ✅
+  [1061/1345] src/verifier/proof_check.zig:3906 [!=->==] -> killed (compile) ✅
+  [1062/1345] src/verifier/proof_check.zig:3906 [and->or] -> killed (compile) ✅
+  [1063/1345] src/verifier/proof_check.zig:3722 [==->!=] -> killed (compile) ✅
+  [1064/1345] src/verifier/proof_check.zig:3844 [or->and] -> killed ✅
+  [1065/1345] src/verifier/proof_check.zig:3940 [true->false] -> killed ✅
+  [1066/1345] src/verifier/proof_check.zig:3845 [true->false] -> killed ✅
+  [1067/1345] src/verifier/proof_check.zig:3919 [false->true] -> killed ✅
+  [1068/1345] src/verifier/proof_check.zig:3926 [false->true] -> killed ✅
+  [1069/1345] src/verifier/proof_check.zig:3937 [or->and] -> killed ✅
+  [1070/1345] src/verifier/proof_check.zig:3938 [or->and] -> killed ✅
+  [1071/1345] src/verifier/proof_check.zig:4008 [!=->==] -> killed ✅
+  [1072/1345] src/verifier/proof_check.zig:3954 [==->!=] -> killed ✅
+  [1073/1345] src/verifier/proof_check.zig:3954 [and->or] -> killed ✅
+  [1074/1345] src/verifier/proof_check.zig:3955 [or->and] -> killed ✅
+  [1075/1345] src/verifier/proof_check.zig:3968 [==->!=] -> killed ✅
+[i] кэш слота kern-mutants-35s3jb3a был 1234 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1076/1345] src/verifier/proof_check.zig:3956 [true->false] -> killed ✅
+  [1077/1345] src/verifier/proof_check.zig:4016 [==->!=] -> killed ✅
+  [1078/1345] src/verifier/proof_check.zig:4016 [>=->>] -> killed ✅
+  [1079/1345] src/verifier/proof_check.zig:4016 [and->or] -> killed ✅
+[i] кэш слота kern-mutants-k3uyhedp был 1163 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1080/1345] src/verifier/proof_check.zig:4025 [true->false] -> killed ✅
+  [1081/1345] src/verifier/proof_check.zig:4027 [==->!=] -> killed ✅
+  [1082/1345] src/verifier/proof_check.zig:4028 [false->true] -> killed ✅
+  [1083/1345] src/verifier/proof_check.zig:4030 [or->and] -> killed ✅
+  [1084/1345] src/verifier/proof_check.zig:4031 [true->false] -> killed ✅
+  [1085/1345] src/verifier/proof_check.zig:4036 [false->true] -> killed ✅
+  [1086/1345] src/verifier/proof_check.zig:4082 [true->false] -> killed ✅
+  [1087/1345] src/verifier/proof_check.zig:4047 [==->!=] -> killed ✅
+  [1088/1345] src/verifier/proof_check.zig:4047 [>=->>] -> killed ✅
+  [1089/1345] src/verifier/proof_check.zig:4047 [and->or] -> killed ✅
+  [1090/1345] src/verifier/proof_check.zig:4120 [or->and] -> killed ✅
+  [1091/1345] src/verifier/proof_check.zig:4191 [>=->>] -> killed ✅
+  [1092/1345] src/verifier/proof_check.zig:4195 [==->!=] -> killed ✅
+  [1093/1345] src/verifier/proof_check.zig:4079 [false->true] -> killed ✅
+  [1094/1345] src/verifier/proof_check.zig:4199 [true->false] -> killed ✅
+  [1095/1345] src/verifier/proof_check.zig:4204 [==->!=] -> killed ✅
+  [1096/1345] src/verifier/proof_check.zig:4093 [true->false] -> killed ✅
+  [1097/1345] src/verifier/proof_check.zig:4248 [false->true] -> killed ✅
+  [1098/1345] src/verifier/proof_check.zig:4157 [==->!=] -> killed ✅
+  [1099/1345] src/verifier/proof_check.zig:4183 [==->!=] -> killed ✅
+  [1100/1345] src/verifier/proof_check.zig:4191 [and->or] -> killed ✅
+  [1101/1345] src/verifier/proof_check.zig:4255 [true->false] -> killed ✅
+  [1102/1345] src/verifier/proof_check.zig:4296 [==->!=] -> killed ✅
+  [1103/1345] src/verifier/proof_check.zig:4214 [==->!=] -> killed ✅
+  [1104/1345] src/verifier/proof_check.zig:4235 [==->!=] -> killed ✅
+  [1105/1345] src/verifier/proof_check.zig:4396 [!=->==] -> killed ✅
+  [1106/1345] src/verifier/proof_check.zig:4396 [and->or] -> killed (compile) ✅
+  [1107/1345] src/verifier/proof_check.zig:4409 [==->!=] -> killed ✅
+  [1108/1345] src/verifier/proof_check.zig:4409 [and->or] -> killed ✅
+  [1109/1345] src/verifier/proof_check.zig:4262 [true->false] -> killed ✅
+  [1110/1345] src/verifier/proof_check.zig:4342 [==->!=] -> killed ✅
+  [1111/1345] src/verifier/proof_check.zig:4342 [and->or] -> killed ✅
+  [1112/1345] src/verifier/proof_check.zig:4465 [==->!=] -> killed ✅
+  [1113/1345] src/verifier/proof_check.zig:4352 [or->and] -> killed ✅
+  [1114/1345] src/verifier/proof_check.zig:4515 [true->false] -> killed ✅
+  [1115/1345] src/verifier/proof_check.zig:4532 [!=->==] -> killed ✅
+  [1116/1345] src/verifier/proof_check.zig:4403 [!=->==] -> killed ✅
+  [1117/1345] src/verifier/proof_check.zig:4562 [or->and] -> killed ✅
+  [1118/1345] src/verifier/proof_check.zig:4562 [false->true] -> killed ✅
+[i] кэш слота kern-mutants-5vhb7j76 был 1199 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1119/1345] src/verifier/proof_check.zig:4429 [==->!=] -> killed ✅
+  [1120/1345] src/verifier/proof_check.zig:4506 [or->and] -> killed ✅
+  [1121/1345] src/verifier/model_extract.zig:33 [==->!=] -> killed ✅
+  [1122/1345] src/verifier/model_extract.zig:33 [or->and] -> killed ✅
+  [1123/1345] src/verifier/proof_check.zig:4532 [false->true] -> killed ✅
+  [1124/1345] src/verifier/model_extract.zig:37 [and->or] -> killed (compile) ✅
+[i] кэш слота kern-mutants-c9tu_wix был 1163 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1125/1345] src/verifier/proof_check.zig:4539 [and->or] -> killed ✅
+  [1126/1345] src/verifier/model_extract.zig:43 [!=->==] -> killed ✅
+  [1127/1345] src/verifier/model_extract.zig:43 [>=->>] -> killed (compile) ✅
+  [1128/1345] src/verifier/proof_check.zig:4540 [and->or] -> killed ✅
+  [1129/1345] src/verifier/model_extract.zig:43 [or->and] -> killed (compile) ✅
+  [1130/1345] src/verifier/model_extract.zig:43 [false->true] -> killed ✅
+  [1131/1345] src/verifier/model_extract.zig:48 [==->!=] -> killed ✅
+[i] кэш слота kern-mutants-zohp573i был 1232 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1132/1345] src/verifier/model_extract.zig:46 [==->!=] -> killed ✅
+  [1133/1345] src/verifier/model_extract.zig:56 [false->true] -> killed ✅
+  [1134/1345] src/verifier/model_extract.zig:50 [==->!=] -> killed (compile) ✅
+  [1135/1345] src/verifier/model_extract.zig:52 [true->false] -> killed ✅
+  [1136/1345] src/verifier/model_extract.zig:63 [==->!=] -> killed ✅
+  [1137/1345] src/verifier/model_extract.zig:63 [and->or] -> killed ✅
+  [1138/1345] src/verifier/model_extract.zig:66 [==->!=] -> killed ✅
+  [1139/1345] src/verifier/model_extract.zig:66 [and->or] -> killed ✅
+  [1140/1345] src/verifier/model_extract.zig:89 [!=->==] -> killed ✅
+  [1141/1345] src/verifier/model_extract.zig:91 [==->!=] -> killed ✅
+  [1142/1345] src/verifier/model_extract.zig:89 [and->or] -> killed (compile) ✅
+  [1143/1345] src/verifier/model_extract.zig:95 [!=->==] -> killed ✅
+  [1144/1345] src/verifier/model_extract.zig:95 [>=->>] -> killed (compile) ✅
+  [1145/1345] src/verifier/model_extract.zig:95 [or->and] -> killed (compile) ✅
+  [1146/1345] src/verifier/model_extract.zig:99 [!=->==] -> killed ✅
+  [1147/1345] src/verifier/model_extract.zig:103 [==->!=] -> killed ✅
+  [1148/1345] src/verifier/model_extract.zig:103 [and->or] -> killed ✅
+  [1149/1345] src/verifier/model_extract.zig:106 [!=->==] -> killed ✅
+  [1150/1345] src/verifier/model_extract.zig:106 [and->or] -> killed (compile) ✅
+  [1151/1345] src/verifier/model_extract.zig:112 [==->!=] -> killed ✅
+  [1152/1345] src/verifier/model_extract.zig:112 [and->or] -> killed ✅
+  [1153/1345] src/verifier/model_extract.zig:115 [!=->==] -> killed ✅
+  [1154/1345] src/verifier/model_extract.zig:117 [<=-<] -> killed ✅
+  [1155/1345] src/verifier/model_extract.zig:115 [and->or] -> killed (compile) ✅
+  [1156/1345] src/verifier/model_extract.zig:167 [==->!=] -> killed ✅
+  [1157/1345] src/verifier/model_extract.zig:167 [and->or] -> killed ✅
+  [1158/1345] src/verifier/model_extract.zig:188 [or->and] -> killed ✅
+  [1159/1345] src/verifier/proof_check.zig:5757 [==->!=] -> killed ✅
+  [1160/1345] src/verifier/model_extract.zig:196 [!=->==] -> killed ✅
+  [1161/1345] src/verifier/model_extract.zig:194 [==->!=] -> killed ✅
+  [1162/1345] src/verifier/model_extract.zig:196 [and->or] -> killed ✅
+  [1163/1345] src/verifier/model_extract.zig:202 [==->!=] -> killed ✅
+  [1164/1345] src/verifier/model_extract.zig:204 [!=->==] -> killed ✅
+  [1165/1345] src/verifier/model_extract.zig:204 [and->or] -> killed ✅
+  [1166/1345] src/verifier/model_extract.zig:213 [!=->==] -> killed ✅
+  [1167/1345] src/verifier/model_extract.zig:208 [and->or] -> killed (compile) ✅
+  [1168/1345] src/verifier/model_extract.zig:213 [and->or] -> killed (compile) ✅
+  [1169/1345] src/verifier/model_extract.zig:222 [>=->>] -> killed (compile) ✅
+  [1170/1345] src/verifier/model_extract.zig:224 [!=->==] -> killed ✅
+  [1171/1345] src/verifier/model_extract.zig:226 [==->!=] -> killed ✅
+  [1172/1345] src/verifier/model_extract.zig:232 [==->!=] -> killed ✅
+  [1173/1345] src/verifier/model_extract.zig:239 [==->!=] -> killed ✅
+  [1174/1345] src/verifier/model_extract.zig:243 [true->false] -> killed ✅
+  [1175/1345] src/verifier/model_extract.zig:246 [==->!=] -> killed ✅
+  [1176/1345] src/verifier/model_extract.zig:245 [>=->>] -> killed (compile) ✅
+  [1177/1345] src/verifier/model_extract.zig:250 [>=->>] -> killed (compile) ✅
+  [1178/1345] src/verifier/model_extract.zig:263 [==->!=] -> killed ✅
+  [1179/1345] src/verifier/model_extract.zig:272 [or->and] -> killed ✅
+  [1180/1345] src/verifier/model_extract.zig:261 [==->!=] -> killed ✅
+  [1181/1345] src/verifier/model_extract.zig:273 [!=->==] -> killed ✅
+  [1182/1345] src/verifier/model_extract.zig:277 [!=->==] -> killed ✅
+  [1183/1345] src/verifier/model_extract.zig:284 [and->or] -> killed ✅
+  [1184/1345] src/verifier/model_extract.zig:284 [==->!=] -> killed ✅
+  [1185/1345] src/verifier/model_extract.zig:286 [==->!=] -> killed ✅
+  [1186/1345] src/verifier/model_extract.zig:293 [or->and] -> killed ✅
+  [1187/1345] src/verifier/model_extract.zig:294 [or->and] -> killed ✅
+  [1188/1345] src/verifier/model_extract.zig:296 [!=->==] -> killed ✅
+  [1189/1345] src/verifier/model_extract.zig:299 [<=-<] -> killed ✅
+  [1190/1345] src/verifier/model_extract.zig:299 [>=->>] -> killed ✅
+  [1191/1345] src/verifier/model_extract.zig:304 [true->false] -> killed ✅
+  [1192/1345] src/verifier/model_extract.zig:303 [false->true] -> killed ✅
+  [1193/1345] src/verifier/model_extract.zig:307 [true->false] -> killed ✅
+  [1194/1345] src/verifier/model_extract.zig:311 [!=->==] -> killed ✅
+  [1195/1345] src/verifier/model_extract.zig:308 [false->true] -> killed ✅
+  [1196/1345] src/verifier/model_extract.zig:315 [!=->==] -> killed ✅
+  [1197/1345] src/verifier/model_extract.zig:327 [!=->==] -> killed ✅
+  [1198/1345] src/verifier/model_extract.zig:330 [!=->==] -> killed ✅
+  [1199/1345] src/verifier/model_extract.zig:327 [and->or] -> killed ✅
+  [1200/1345] src/verifier/model_extract.zig:330 [>=->>] -> killed (compile) ✅
+[i] кэш слота kern-mutants-pcq5adc3 был 901 МБ -> очищен (защита от ENOSPC = ложных убийств)
+  [1201/1345] src/verifier/model_extract.zig:330 [or->and] -> killed (compile) ✅
+  [1202/1345] src/verifier/unsat_core.zig:77 [false->true] -> killed ✅
+  [1203/1345] src/verifier/unsat_core.zig:36 [true->false] -> killed ✅
+  [1204/1345] src/verifier/unsat_core.zig:37 [false->true] -> killed ✅
+  [1205/1345] src/verifier/unsat_core.zig:79 [true->false] -> killed ✅
+  [1206/1345] src/verifier/noninterference.zig:75 [!=->==] -> killed ✅
+  [1207/1345] src/verifier/noninterference.zig:57 [or->and] -> killed ✅
+  [1208/1345] src/verifier/noninterference.zig:75 [false->true] -> killed ✅
+  [1209/1345] src/verifier/noninterference.zig:78 [==->!=] -> killed ✅
+  [1210/1345] src/verifier/cegis.zig:87 [false->true] -> killed ✅
+  [1211/1345] src/verifier/noninterference.zig:83 [!=->==] -> killed ✅
+  [1212/1345] src/verifier/cegis.zig:77 [true->false] -> killed ✅
+  [1213/1345] src/verifier/noninterference.zig:83 [false->true] -> killed ✅
+  [1214/1345] src/verifier/noninterference.zig:84 [!=->==] -> killed ✅
+  [1215/1345] src/verifier/noninterference.zig:84 [false->true] -> killed ✅
+  [1216/1345] src/verifier/noninterference.zig:85 [true->false] -> killed ✅
+  [1217/1345] src/verifier/z3_bridge.zig:36 [false->true] -> killed ✅
+  [1218/1345] src/verifier/z3_bridge.zig:108 [false->true] -> killed ✅
+  [1219/1345] src/verifier/model_extract.zig:289 [==->!=] -> killed ✅
+  [1220/1345] src/verifier/z3_bridge.zig:52 [true->false] -> killed ✅
+  [1221/1345] src/verifier/z3_bridge.zig:108 [==->!=] -> killed ✅
+  [1222/1345] src/verifier/z3_bridge.zig:111 [true->false] -> killed ✅
+  [1223/1345] src/verifier/z3_bridge.zig:113 [false->true] -> killed ✅
+  [1224/1345] src/verifier/z3_bridge.zig:139 [==->!=] -> killed ✅
+  [1225/1345] src/verifier/z3_bridge.zig:297 [!=->==] -> killed ✅
+  [1226/1345] src/verifier/z3_bridge.zig:152 [!=->==] -> killed ✅
+  [1227/1345] src/verifier/z3_bridge.zig:228 [!=->==] -> killed ✅
+  [1228/1345] src/verifier/z3_bridge.zig:238 [false->true] -> killed ✅
+  [1229/1345] src/verifier/z3_bridge.zig:350 [!=->==] -> killed ✅
+  [1230/1345] src/verifier/z3_bridge.zig:521 [true->false] -> killed (compile) ✅
+  [1231/1345] src/verifier/z3_bridge.zig:350 [false->true] -> killed ✅
+  [1232/1345] src/verifier/z3_bridge.zig:357 [==->!=] -> killed ✅
+  [1233/1345] src/verifier/z3_bridge.zig:550 [true->false] -> killed (compile) ✅
+  [1234/1345] src/verifier/z3_bridge.zig:541 [>=->>] -> killed (compile) ✅
+  [1235/1345] src/verifier/builtin_lia.zig:74 [==->!=] -> killed ✅
+  [1236/1345] src/verifier/z3_bridge.zig:555 [!=->==] -> killed ✅
+  [1237/1345] src/verifier/z3_bridge.zig:564 [==->!=] -> killed ✅
+  [1238/1345] src/verifier/z3_bridge.zig:564 [and->or] -> killed ✅
+  [1239/1345] src/verifier/z3_bridge.zig:618 [true->false] -> killed ✅
+  [1240/1345] src/verifier/builtin_lia.zig:79 [==->!=] -> killed ✅
+  [1241/1345] src/verifier/builtin_lia.zig:80 [false->true] -> killed ✅
+  [1242/1345] src/verifier/builtin_lia.zig:84 [true->false] -> killed ✅
+  [1243/1345] src/verifier/z3_bridge.zig:621 [==->!=] -> killed ✅
+  [1244/1345] src/verifier/builtin_lia.zig:92 [!=->==] -> killed ✅
+  [1245/1345] src/verifier/builtin_lia.zig:123 [!=->==] -> killed ✅
+  [1246/1345] src/verifier/builtin_lia.zig:136 [true->false] -> killed ✅
+  [1247/1345] src/verifier/builtin_lia.zig:138 [>=->>] -> killed ✅
+  [1248/1345] src/verifier/builtin_lia.zig:170 [==->!=] -> killed ✅
+  [1249/1345] src/verifier/builtin_lia.zig:170 [and->or] -> killed ✅
+  [1250/1345] src/verifier/builtin_lia.zig:201 [false->true] -> killed ✅
+  [1251/1345] src/verifier/builtin_lia.zig:203 [true->false] -> killed ✅
+  [1252/1345] src/verifier/builtin_lia.zig:211 [false->true] -> killed ✅
+  [1253/1345] src/verifier/builtin_lia.zig:214 [true->false] -> killed ✅
+  [1254/1345] src/verifier/builtin_lia.zig:228 [==->!=] -> killed ✅
+  [1255/1345] src/verifier/builtin_lia.zig:235 [!=->==] -> killed ✅
+  [1256/1345] src/verifier/builtin_lia.zig:237 [==->!=] -> killed ✅
+  [1257/1345] src/verifier/builtin_lia.zig:388 [!=->==] -> killed ✅
+  [1258/1345] src/next/truth.zig:17 [false->true] -> killed (compile) ✅
+  [1259/1345] src/next/truth.zig:43 [true->false] -> killed (compile) ✅
+  [1260/1345] src/next/truth.zig:48 [and->or] -> killed (compile) ✅
+  [1261/1345] src/next/truth.zig:18 [false->true] -> killed (compile) ✅
+  [1262/1345] src/next/truth.zig:52 [and->or] -> killed (compile) ✅
+  [1263/1345] src/next/truth.zig:21 [or->and] -> killed (compile) ✅
+  [1264/1345] src/next/truth.zig:53 [and->or] -> killed (compile) ✅
+  [1265/1345] src/next/truth.zig:54 [and->or] -> killed (compile) ✅
+  [1266/1345] src/next/truth.zig:78 [and->or] -> killed (compile) ✅
+  [1267/1345] src/next/truth.zig:95 [false->true] -> killed (compile) ✅
+  [1268/1345] src/next/truth.zig:135 [!=->==] -> killed (compile) ✅
+  [1269/1345] src/next/truth.zig:138 [>=->>] -> killed (compile) ✅
+  [1270/1345] src/next/truth.zig:150 [==->!=] -> killed (compile) ✅
+  [1271/1345] src/next/truth.zig:158 [<=-<] -> killed (compile) ✅
+  [1272/1345] src/next/truth.zig:159 [<=-<] -> killed (compile) ✅
+  [1273/1345] src/next/truth.zig:198 [>=->>] -> killed (compile) ✅
+  [1274/1345] src/next/truth.zig:41 [==->!=] -> killed (compile) ✅
+  [1275/1345] src/next/truth.zig:198 [and->or] -> killed (compile) ✅
+  [1276/1345] src/next/truth.zig:197 [and->or] -> killed (compile) ✅
+  [1277/1345] src/next/truth.zig:199 [<=-<] -> killed (compile) ✅
+  [1278/1345] src/next/truth.zig:215 [!=->==] -> killed (compile) ✅
+  [1279/1345] src/next/truth.zig:212 [false->true] -> killed (compile) ✅
+  [1280/1345] src/next/truth.zig:218 [true->false] -> killed (compile) ✅
+  [1281/1345] src/next/truth.zig:223 [!=->==] -> killed (compile) ✅
+  [1282/1345] src/next/truth.zig:481 [!=->==] -> killed (compile) ✅
+  [1283/1345] src/next/truth.zig:41 [true->false] -> killed (compile) ✅
+  [1284/1345] src/next/truth.zig:515 [or->and] -> killed (compile) ✅
+  [1285/1345] src/next/truth.zig:481 [&->|] -> killed (compile) ✅
+  [1286/1345] src/next/truth.zig:560 [and->or] -> killed (compile) ✅
+  [1287/1345] src/next/truth.zig:562 [or->and] -> killed (compile) ✅
+  [1288/1345] src/next/catalog.zig:26 [|->&] -> killed (compile) ✅
+  [1289/1345] src/next/catalog.zig:27 [!=->==] -> killed (compile) ✅
+  [1290/1345] src/next/truth.zig:562 [false->true] -> killed (compile) ✅
+  [1291/1345] src/next/catalog.zig:27 [==->!=] -> killed (compile) ✅
+  [1292/1345] src/next/catalog.zig:27 [or->and] -> killed (compile) ✅
+  [1293/1345] src/next/catalog.zig:217 [!=->==] -> killed (compile) ✅
+  [1294/1345] src/next/catalog.zig:61 [==->!=] -> killed (compile) ✅
+  [1295/1345] src/next/catalog.zig:43 [!=->==] -> killed (compile) ✅
+  [1296/1345] src/next/catalog.zig:40 [!=->==] -> killed (compile) ✅
+  [1297/1345] src/next/catalog.zig:219 [!=->==] -> killed (compile) ✅
+  [1298/1345] src/next/catalog.zig:235 [false->true] -> killed (compile) ✅
+  [1299/1345] src/next/catalog.zig:248 [!=->==] -> killed (compile) ✅
+  [1300/1345] src/next/catalog.zig:238 [true->false] -> killed (compile) ✅
+  [1301/1345] src/next/catalog.zig:246 [!=->==] -> killed (compile) ✅
+  [1302/1345] src/next/catalog.zig:272 [&->|] -> killed (compile) ✅
+  [1303/1345] src/next/catalog.zig:292 [!=->==] -> killed (compile) ✅
+  [1304/1345] src/next/catalog.zig:295 [==->!=] -> killed (compile) ✅
+  [1305/1345] src/next/catalog.zig:298 [!=->==] -> killed (compile) ✅
+  [1306/1345] src/next/catalog.zig:298 [==->!=] -> killed (compile) ✅
+  [1307/1345] src/next/catalog.zig:324 [!=->==] -> killed (compile) ✅
+  [1308/1345] src/next/catalog.zig:298 [and->or] -> killed (compile) ✅
+  [1309/1345] src/next/catalog.zig:330 [==->!=] -> killed (compile) ✅
+  [1310/1345] src/next/catalog.zig:338 [!=->==] -> killed (compile) ✅
+  [1311/1345] src/next/catalog.zig:342 [!=->==] -> killed (compile) ✅
+  [1312/1345] src/next/catalog.zig:341 [!=->==] -> killed (compile) ✅
+  [1313/1345] src/next/catalog.zig:340 [!=->==] -> killed (compile) ✅
+  [1314/1345] src/next/truth.zig:42 [==->!=] -> killed (compile) ✅
+  [1315/1345] src/next/dst_sim.zig:41 [==->!=] -> killed (compile) ✅
+  [1316/1345] src/next/dst_sim.zig:41 [and->or] -> killed (compile) ✅
+  [1317/1345] src/next/dst_sim.zig:42 [==->!=] -> killed (compile) ✅
+  [1318/1345] src/next/dst_sim.zig:42 [and->or] -> killed (compile) ✅
+  [1319/1345] src/next/dst_sim.zig:58 [|->&] -> killed (compile) ✅
+  [1320/1345] src/next/dst_sim.zig:73 [==->!=] -> killed (compile) ✅
+  [1321/1345] src/next/dst_sim.zig:79 [==->!=] -> killed (compile) ✅
+  [1322/1345] src/next/dst_sim.zig:83 [false->true] -> killed (compile) ✅
+  [1323/1345] src/next/dst_sim.zig:90 [false->true] -> killed (compile) ✅
+  [1324/1345] src/next/dst_sim.zig:94 [false->true] -> killed (compile) ✅
+  [1325/1345] src/next/dst_sim.zig:103 [true->false] -> killed (compile) ✅
+  [1326/1345] src/wasm_api.zig:66 [!=->==] -> killed ✅
+  [1327/1345] src/next/dst_sim.zig:103 [false->true] -> killed (compile) ✅
+  [1328/1345] src/wasm_api.zig:161 [!=->==] -> killed ✅
+  [1329/1345] src/wasm_api.zig:48 [!=->==] -> killed ✅
+  [1330/1345] src/wasm_api.zig:48 [&->|] -> killed ✅
+  [1331/1345] src/wasm_api.zig:44 [|->&] -> killed ✅
+  [1332/1345] src/next/dst_sim.zig:107 [true->false] -> killed (compile) ✅
+  [1333/1345] src/next/dst_sim.zig:115 [true->false] -> killed (compile) ✅
+  [1334/1345] src/next/dst_sim.zig:107 [false->true] -> killed (compile) ✅
+  [1335/1345] src/next/dst_sim.zig:112 [==->!=] -> killed (compile) ✅
+  [1336/1345] src/next/dst_sim.zig:115 [false->true] -> killed (compile) ✅
+  [1337/1345] src/next/dst_sim.zig:126 [true->false] -> killed (compile) ✅
+  [1338/1345] src/next/dst_sim.zig:140 [==->!=] -> killed (compile) ✅
+  [1339/1345] src/next/dst_sim.zig:150 [true->false] -> killed (compile) ✅
+  [1340/1345] src/next/dst_sim.zig:167 [==->!=] -> killed (compile) ✅
+  [1341/1345] src/next/dst_sim.zig:167 [and->or] -> killed (compile) ✅
+  [1342/1345] src/next/dst_sim.zig:163 [and->or] -> killed (compile) ✅
+  [1343/1345] src/next/dst_sim.zig:162 [and->or] -> killed (compile) ✅
+  [1344/1345] src/next/dst_sim.zig:170 [and->or] -> killed (compile) ✅
+  [1345/1345] src/next/dst_sim.zig:171 [and->or] -> killed (compile) ✅
+
+[i] целостность оригинала подтверждена (sha256 cdd63cd1bf97a0dc…)
+
+=== МУТАЦИОННОЕ ТЕСТИРОВАНИЕ KERN ===
+Всего мутантов:      1345
+Killed (compile):    150
+Killed (test):       1195
+Survived (ДЫРЫ):     0
+MUTATION SCORE (сырой):            100.0%  (убито 1345/1345)
+ЭФФЕКТИВНЫЙ СКОР (без доказанно эквивалентных): 100.0%  (убито 1345/1345)
+
+RC=0
