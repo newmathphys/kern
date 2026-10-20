@@ -395,22 +395,23 @@ def main(argv: list[str] | None = None) -> int:
     n_checks = len(checks) if isinstance(checks, list) else int(checks)
     n_cases = len(cases) if isinstance(cases, list) else int(cases)
     reg_targets = int(reg.get("targets", 0)) if isinstance(reg, dict) else 0
-    tail = f" · QEMU {arch[0]}+{arch[1]}" if arch else ""
-    print(f"ФАКТЫ: ядро {core} · next {nxt} · каталог {cat} · "
-          f"CHECK {n_checks} · кейсов {n_cases} · сайтов {sites} в {tgt} файлах"
-          f" · целей {reg_targets} · якорей {anchors if anchors is not None else '?'} "
-          f"· QuixBugs EXPLORED {explored if explored is not None else '?'}{tail}")
-
     if "--json" in args:
         print(json.dumps({
             "core_tests": core, "next_tests": nxt, "catalog": cat,
             "check_targets": n_checks, "canfail_cases": n_cases,
             "mutation_sites": sites, "mutation_files": tgt,
-            "registry_targets": reg_targets, "quixbugs_explored": explored,
+            "registry_targets": reg_targets, "meta_targets": len(reg.get("meta") or []) if isinstance(reg, dict) else 0,
+            "quixbugs_explored": explored,
             "canfail_anchors": anchors,
             "cross_arch": arch, "max_defect": fact_max_defect(),
         }, ensure_ascii=False, indent=1))
         return 0
+
+    tail = f" · QEMU {arch[0]}+{arch[1]}" if arch else ""
+    print(f"ФАКТЫ: ядро {core} · next {nxt} · каталог {cat} · "
+          f"CHECK {n_checks} · кейсов {n_cases} · сайтов {sites} в {tgt} файлах"
+          f" · целей {reg_targets} · якорей {anchors if anchors is not None else '?'} "
+          f"· QuixBugs EXPLORED {explored if explored is not None else '?'}{tail}")
 
     bad = 0
 

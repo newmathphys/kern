@@ -91,7 +91,7 @@ server.json     : v2.5.0
 ВЕРСИИ СОГЛАСОВАНЫ во всех местах (v2.5.0)   RC=0
 ```
 
-`python3 tools/registry.py` → 154 цели · CHECK 128/128 · кейсов 144 · META 16 · OK.
+`python3 tools/registry.py` → 156 целей · CHECK 128/128 · кейсов 144 · META 18 · OK.
 
 ## 3. Шаг B — честная витрина + архив (ПЛАН)
 

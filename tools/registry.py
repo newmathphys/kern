@@ -121,6 +121,8 @@ CLASS = {
     "canfail-anchors": "META",  # быстрый пре-флайт якорей (дефект #113)
     "canfail-selftest": "META",
     "metrics-guard-selftest": "META",   # мета: проверяет сам страж чисел
+    "sync": "META",                     # синхронизация facts.json + якорей
+    "sync-check": "META",               # проверка якорей (CI)
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",

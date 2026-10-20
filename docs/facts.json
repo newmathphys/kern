@@ -1,0 +1,22 @@
+{
+ "version": "v2.5.0",
+ "core_tests": 402,
+ "next_tests": 53,
+ "catalog": 425,
+ "check_targets": 128,
+ "canfail_cases": 144,
+ "mutation_sites": 1345,
+ "mutation_files": 21,
+ "registry_targets": 156,
+ "meta_targets": 18,
+ "anchors": 119,
+ "lean_theorems": 137,
+ "quixbugs": {
+  "smt": 6,
+  "differential": 33,
+  "crash": 8,
+  "hang": 1,
+  "value": 24,
+  "explored": 7
+ }
+}

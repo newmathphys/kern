@@ -19,7 +19,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 
 | Показатель | Значение |
 |:--|:--|
-| Тесты ядра | **402** (Debug + ReleaseSafe) |
+| Тесты ядра | **<!-- fact:core_tests -->402** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **53** |
 | Формальные доказательства | **8 файлов Lean 4** (137 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
@@ -29,7 +29,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **128 / 128 CHECK-целей** покрыты (144 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->128 / <!-- fact:check_targets -->128 CHECK-целей** покрыты (<!-- fact:canfail_cases -->144 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **33/40** живой дифференциальный детектор (24 расхождения значения + 8 падений + 1 незавершение; 9 не требуют эталона, 24 сверяются с эталоном датасета) · **7** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -111,7 +111,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
 
-# 3. Тесты ядра — 402 штуки
+# 3. Тесты ядра — <!-- fact:core_tests -->402 штуки
 zig build test
 
 # 4. Эталонный образ и его проверка
@@ -137,7 +137,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — 402 / 402 tests
+Core (Debug)          : PASS — <!-- fact:core_tests -->402 / <!-- fact:core_tests -->402 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (8 files, 137 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -238,7 +238,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ```
 ├── main.zig                        CLI kernc (читает образ .kimg)
 ├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (402 теста)
+├── test_root.zig                   корень тестов ядра (<!-- fact:core_tests -->402 теста)
 ├── core/
 │   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
 │   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
@@ -593,18 +593,18 @@ python3 tools/kern_contracts.py --install-hook   # блокирует git commit
 
 ```bash
 make canfail          # 144 кейса: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все 119 якорей применимы (за ~1 с)
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->119 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр 154 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->156 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | 154 (CHECK 128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META 16) |
-| **CHECK с доказательством «может упасть»** | **128/128 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->156 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META <!-- fact:meta_targets -->18) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->128/<!-- fact:check_targets -->128 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | 144 (не-вакуумных 144 · вакуумных 0 · ошибок кейсов 0) |
+| can-fail кейсов | <!-- fact:canfail_cases -->144 (не-вакуумных <!-- fact:canfail_cases -->144 · вакуумных 0 · ошибок кейсов 0) |
 | Реестр найденных дефектов | **#1–#235** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)

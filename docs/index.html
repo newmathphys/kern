@@ -240,7 +240,7 @@ chmod +x kernc-x86_64-linux-musl
 
 # 3. From source
 git clone https://github.com/newmathphys/kern &amp;&amp; cd kern
-zig build &amp;&amp; zig build test   # 402 core tests
+zig build &amp;&amp; zig build test   # <!-- fact:core_tests -->402 core tests
 make contracts                 # polyglot @kern: contracts (Python / Zig / C / Rust)
 ./formal/check.sh              # Lean 4: 8 files, 137 theorems, 0 sorry</pre>
 
@@ -726,12 +726,12 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
       <tbody>
         <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
-          <td>full CLI audit: 137 Lean theorems (0 sorry), 1345/1345 mutants, 128/128 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+          <td>full CLI audit: <!-- fact:lean_theorems -->137 Lean theorems (0 sorry), <!-- fact:mutation_sites -->1345/<!-- fact:mutation_sites -->1345 mutants, <!-- fact:check_targets -->128/<!-- fact:check_targets -->128 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr style="border-top:1px solid #21262d">
-          <td>QuixBugs (40 tasks)</td><td class="sc-ok">33/40 diff</td>
-          <td><b>6/40</b> formal SMT (Stage 1, trusted: 0) · <b>33/40</b> live differential
+          <td>QuixBugs (40 tasks)</td><td class="sc-ok"><!-- fact:quixbugs.differential -->33/40 diff</td>
+          <td><b><!-- fact:quixbugs.smt -->6/40</b> formal SMT (Stage 1, trusted: 0) · <b><!-- fact:quixbugs.differential -->33/40</b> live differential
           (24 value + 8 crash + 1 hang; 9 need no oracle, 24 use the dataset reference) ·
-          <b>7</b> EXPLORED. The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231, #239)</td></tr>
+          <b><!-- fact:quixbugs.explored -->7</b> EXPLORED. The dataset&#39;s own tests (31/31) are dataset wiring, not a KERN metric (#231, #239)</td></tr>
         <tr data-lb="modelcontextprotocol/servers" style="cursor:pointer;border-top:1px solid #21262d">
           <td>modelcontextprotocol/servers</td><td>composition</td><td>MCP surface: tools/list, descriptions, annotations</td></tr>
         <tr data-lb="ziglang/zig" style="cursor:pointer;border-top:1px solid #21262d">
