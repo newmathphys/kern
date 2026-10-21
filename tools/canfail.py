@@ -1737,6 +1737,19 @@ def case_advisory_fold():
           "                    ok += 1  # ЛОМАЕМ: advisory засчитан как T")
     return "make advisory-check"
 
+def case_arith_zig_ref():
+    """#317 SABOTAGE-2: адаптеры деления подменены наивным `div`.
+
+    В отличие от `arith-semantics` (проверяет против Python), эта цель
+    сверяется с НЕЗАВИСИМЫМ эталоном — встроенными операциями Zig.
+    Подсадка обязана дать расхождения на домене с отрицательными числами.
+    """
+    patch("tools/kern_contracts.py",
+          '    return f"(ite (> {b} 0) (div {a} {b}) (div (- {a}) (- {b})))"',
+          '    return f"(div {a} {b})"  # ЛОМАЕМ: наивный div')
+    return "make arith-zig-ref-check"
+
+
 def case_arith_semantics():
     """#317 SABOTAGE: перевод деления возвращается к НАИВНОМУ `div`.
 
@@ -2919,6 +2932,8 @@ CASES = [
      case_llms_drift),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
+    ("arith-zig-ref", "Adapters diverge from Zig @divTrunc/@divFloor -> gate red",
+     case_arith_zig_ref),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

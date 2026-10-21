@@ -164,6 +164,7 @@ if [ "$FAST" = "0" ]; then
   stage "EN/RU паритет фактов (#241)" make docs-parity
   stage "llms.txt генерируется из facts.json (#311)" make llms-check
   stage "семантика деления совпадает с языком (#317)" make arith-semantics-check
+  stage "адаптеры деления против эталона Zig (#317)" make arith-zig-ref-check
   stage "нет ИИ-шаблонов (#241)" make ai-traces-check
 
   # --- Дефект #222/#223: ЛИЦЕНЗИЯ И СЧЁТЧИК ТЕОРЕМ --------------------------

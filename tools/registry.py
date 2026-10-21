@@ -73,6 +73,7 @@ CLASS = {
     "advisory-check": "CHECK",
     "llms-check": "CHECK",
     "arith-semantics-check": "CHECK",
+    "arith-zig-ref-check": "CHECK",
     "explain-hypotheses-check": "CHECK",
     "hypotheses-corpus-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
@@ -151,6 +152,7 @@ CLASS = {
     "canfail-selftest": "META",
     "metrics-guard-selftest": "META",   # мета: проверяет сам страж чисел
     "llms-selftest": "META",            # мета: генератор llms.txt из facts.json (#311)
+    "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
     "docs-parity": "META",              # EN/RU-факты
@@ -210,6 +212,7 @@ CASE_TARGET = {
     "advisory-fold": "advisory-check",
     "llms-drift": "llms-check",
     "arith-semantics": "arith-semantics-check",
+    "arith-zig-ref": "arith-zig-ref-check",
     "hypotheses-write": "explain-hypotheses-check",
     "hypotheses-nonproof": "hypotheses-corpus-check",
     "diff-equiv": "diff-equiv",

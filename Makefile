@@ -679,6 +679,14 @@ llms-check:
 arith-semantics-check:
 	@$(PYTHON) tools/arith_semantics_check.py
 
+# ДЕФЕКТ #317: адаптеры деления против НЕЗАВИСИМОГО эталона — встроенных
+# операций Zig (@divTrunc/@divFloor). Фикстура: tests/fixtures/zig_div_reference.tsv.
+arith-zig-ref-check:
+	@$(PYTHON) tools/arith_zig_ref_check.py
+
+arith-zig-ref-selftest:
+	@$(PYTHON) tools/arith_zig_ref_check.py --selftest
+
 llms-selftest:
 	@$(PYTHON) tools/gen_llms_txt.py --selftest
 

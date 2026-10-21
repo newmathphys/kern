@@ -6,6 +6,56 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.6.2] — 2026-10-21
+
+### Fixed
+
+- **#317 — integer division semantics (soundness).** Externally reported by
+  **Massimiliano Brighindi (PHI-OMEGA / M)**, reproduced here, and escalated from
+  "translation mismatch" to **false acceptance**: the translator emitted SMT-LIB
+  `div`/`mod` for Python `//` and `%`, but those are *Euclidean* (remainder always
+  ≥ 0) while Python is *floor* and C/Zig/Rust *truncate toward zero*. Measured
+  consequence: `requires a == 3 and b == -2` / `ensures result >= -1` over
+  `a // b` was reported **PROVEN** (`premises bound: 3/3`, `holes: 0`) while live
+  Python yields `-2` and violates the contract.
+  The translator is now language-aware: `_CURRENT_LANG` is set in
+  `parse_clike`/`parse_file`, `expr_smt` takes `lang`; Python `//` uses the floor
+  adapter, `%` the identity `a - b*q`, `/` an honest SKIP (true division is
+  float); C/Zig/Rust `/` uses truncation, `%` the same identity.
+  Measured after the fix: `tools/arith_semantics_check.py` reports **0 mismatches
+  out of 840** (the naive `div` would differ in 530), and
+  `tools/arith_zig_ref_check.py` confirms both adapters against the **built-in
+  Zig operators** `@divFloor`/`@divTrunc` — **0 mismatches out of 1640 pairs**.
+  Gates: `arith-semantics-check`, `arith-zig-ref-check`, canfail cases
+  `arith-semantics` and `arith-zig-ref` (both non-vacuous), a CI stage, and the
+  Zig reference fixture `tests/fixtures/zig_div_reference.tsv`.
+
+### Added
+
+- `docs/CONTRACT_ANY_PROJECT.md` — the 5-step recipe for writing a contract for
+  any project, plus a worked example that found a real crash (SIGFPE) in
+  `TheAlgorithms/C`.
+- `docs/SHADOW_AUDIT_EXAMPLE.md` — two real defects in `TheAlgorithms/C`
+  `math/catalan.c` (crash on `n = 0`, silent wrong answers from `n = 11`), the
+  correct fix, and the warning that the obvious fix is wrong.
+- `docs/pr/` — patch and pull-request text for `TheAlgorithms/C`.
+
+### Known limitations
+
+- **#318 (OPEN)** — the C-like divisor check accuses *guarded* code:
+  `int f(int x, int y) { if (x != 0) { return y / x; } return 0; }` still yields
+  `[CRASH PATH]`. A false accusation is worse than a miss, so this is filed as a
+  defect, not noise.
+- `python3 /` (true division) now yields SKIP instead of a wrong verdict — an
+  honest reduction in coverage, by design: soundness outranks completeness.
+
+### Credit
+
+The defect was found and reported privately by **Massimiliano Brighindi
+(PHI-OMEGA / M)** with a differential reproducer and a proposed floor adapter.
+His adapter is what shipped for Python; the C-like truncation adapter was derived
+from the same reasoning and is validated against Zig's built-in operators.
+
 ## [2.6.1] — 2026-10-21
 
 Real-world hardening: four languages verified, live models measured, and three
