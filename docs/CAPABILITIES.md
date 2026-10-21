@@ -1,6 +1,6 @@
 # KERN — ВОЗМОЖНОСТИ С ДОКАЗАТЕЛЬСТВАМИ
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->136 · cases <!-- fact:canfail_cases -->152 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->170 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > Каждое заявление ниже **проверено по коду и прогонам**. Где заявление
 > оказалось неточным — это прямо указано. Ничего не выдаётся за доказанное
@@ -202,7 +202,7 @@ run_cases(fn, cases, timeout=1.0)   # прогоняем тесты + тайма
 
 # Формальные гарантии (Lean 4)
 
-8 файлов, **137 теорем, 0 `errors`, 0 `sorry`**. Компилируется `./formal/check.sh`.
+8 файлов, **143 теорем, 0 `errors`, 0 `sorry`**. Компилируется `./formal/check.sh`.
 
 | Теорема | Файл | Что доказывает |
 |:--|:--|:--|

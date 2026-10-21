@@ -4,12 +4,15 @@
 
 const std = @import("std");
 const Eq2 = @import("../core/eq2.zig").Eq2;
+const axes = @import("../next/state_axes.zig");
 
 pub const GateError = error{
     AstHashMismatch,
     ContractHashMismatch,
     UntrustedChecker,
     PolicyViolation,
+    // Ф1: сертификат относится к другому типу запроса (опровержение != эквивалентность).
+    QueryKindMismatch,
 };
 
 /// Строгий сертификат, который ИИ обязан предоставить вместе с кодом (PC3)
@@ -18,6 +21,9 @@ pub const ProofCertificate = struct {
     contract_digest: [32]u8,       // хэш контракта (Pre/Post условий)
     checker_id: u32,               // 0x01 = Z3 SMT, 0x02 = Lean 4
     witness_payload: []const u8,   // «бинарный терм доказательства»
+    /// Ф1: к какому типу запроса относится сертификат. По умолчанию —
+    /// опровержение (исторические фикстуры остаются валидными).
+    query_kind: axes.QueryKind = .refutation,
 };
 
 /// Политика верификации проекта.
@@ -31,6 +37,8 @@ pub const VerificationPolicy = struct {
     /// ВНИМАНИЕ: `allowed_checkers = 1` разрешает checker_id = 0, а НЕ 1.
     /// Чтобы разрешить checker_id = 1, нужно `allowed_checkers = 2`.
     allowed_checkers: u32,
+    /// Ф1: какой тип запроса ожидается. По умолчанию — опровержение.
+    expected_kind: axes.QueryKind = .refutation,
 
     pub fn allows(self: VerificationPolicy, checker_id: u32) bool {
         // 🔴 ДЕФЕКТ (найден построчным аудитом, ИСПРАВЛЕН):
@@ -123,6 +131,13 @@ pub const AdmissionGate = struct {
         if (!std.mem.eql(u8, &actual_contract_digest, &cert.contract_digest)) {
             cov.hit(.gate_contract_mismatch);
             return GateError.ContractHashMismatch;
+        }
+
+        // 1b. Тип запроса (Ф1). Валидный сертификат от ДРУГОГО типа запроса
+        // (например, `.equivalence` вместо `.refutation`) — отказ: это
+        // утверждение о другом свойстве кода, а не доказательство этого.
+        if (cert.query_kind != policy.expected_kind) {
+            return GateError.QueryKindMismatch;
         }
 
         // 2. Проверка доверия к пруверу (битовая маска `1 << checker_id`).
@@ -322,3 +337,45 @@ test "доверие к пруверу: запрещённый checker_id отв
             TrustedChecker{ .runFn = stubProved }));
 }
 
+
+test "Ф1: сертификат ДРУГОГО типа запроса отвергается" {
+    // Валидный по всем прочим полям сертификат, но выданный для другого
+    // типа запроса: нельзя доказать эквивалентность, предъявив опровержение.
+    const ast_hash = @as([32]u8, @splat(0x11));
+    const cert = ProofCertificate{
+        .target_ast_digest = ast_hash,
+        .contract_digest = ast_hash,
+        .checker_id = 1,
+        .witness_payload = "(model (x 1))",
+        .query_kind = .refutation,
+    };
+    const policy = VerificationPolicy{
+        .require_anti_vacuity = true,
+        .allowed_checkers = 2,
+        .expected_kind = .equivalence,
+    };
+    try std.testing.expectError(GateError.QueryKindMismatch,
+        AdmissionGate.verifyClaimWithChecker(
+            std.testing.allocator, ast_hash, ast_hash, cert, policy,
+            TrustedChecker{ .runFn = stubSmtLike }));
+}
+
+test "Ф1: совпадающий тип запроса не ломает допуск" {
+    const ast_hash = @as([32]u8, @splat(0x12));
+    const cert = ProofCertificate{
+        .target_ast_digest = ast_hash,
+        .contract_digest = ast_hash,
+        .checker_id = 1,
+        .witness_payload = "(model (x 1))",
+        .query_kind = .satisfiability,
+    };
+    const policy = VerificationPolicy{
+        .require_anti_vacuity = true,
+        .allowed_checkers = 2,
+        .expected_kind = .satisfiability,
+    };
+    const res = try AdmissionGate.verifyClaimWithChecker(
+        std.testing.allocator, ast_hash, ast_hash, cert, policy,
+        TrustedChecker{ .runFn = stubSmtLike });
+    try std.testing.expectEqual(Eq2.T, res.eq2_status);
+}

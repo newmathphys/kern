@@ -75,9 +75,17 @@ def _fact_max_defect() -> int:
 
 
 def _fact_lean() -> int:
-    out = _run([str(ROOT / "tools" / "check_lean_counter.py")])
-    m = re.search(r"теорем Lean 4:\s*(\d+)", out.stdout)
-    return int(m.group(1)) if m else 0
+    """Считаем теоремы НАПРЯМУЮ по файлам, а не разбором вывода стража.
+
+    ДЕФЕКТ (найден в Ф1): `check_lean_counter` печатает «теорем Lean 4: N»
+    только когда витрина СОВПАДАЕТ; при расхождении он печатает FAIL, парсер
+    возвращал 0 — и `make sync` записывал `lean_theorems: 0` в facts.json.
+    Ноль в фактах хуже расхождения: он «чинит» доки в неправду.
+    """
+    n = 0
+    for p in sorted((ROOT / "formal").glob("*.lean")):
+        n += len(re.findall(r"^theorem\s", p.read_text(encoding="utf-8", errors="replace"), re.M))
+    return n
 
 
 def _fact_quixbugs() -> dict:
@@ -115,6 +123,12 @@ def validate_facts(facts: dict) -> dict:
     for key, val in facts.items():
         if key not in ("quixbugs", "version") and not isinstance(val, int):
             raise ValueError(f"факт {key} = {val!r}: ожидалось целое (#242)")
+    # Ноль в фактах — это не «нет данных», а ошибка сбора: лучше упасть,
+    # чем переписать документацию в неправду (дефект Ф1).
+    for key in ("core_tests", "next_tests", "catalog", "check_targets",
+                "canfail_cases", "lean_theorems", "registry_targets"):
+        if not facts.get(key):
+            raise SystemExit(f"[!] сбор фактов: {key} = 0 — отказ записывать")
     return facts
 
 

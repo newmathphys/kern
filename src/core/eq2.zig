@@ -77,6 +77,22 @@ pub fn notB(a: Eq2) Eq2 {
     return @enumFromInt((p << 1) | n);
 }
 
+/// Конфляция Белнапа-Фиттинга (~): информационная инверсия.
+///
+/// Переворачивает порядок знаний, сохраняя порядок истины:
+///   ~N = B,  ~B = N,  ~T = T,  ~F = F
+/// В терминах пары (t, f) = (p, n):  ~(t,f) = (1-f, 1-t).
+///
+/// ЗАЧЕМ (Фаза 1): полный набор связок B4 — это `⟨∧,∨,⊗,⊕,¬,~⟩`.
+/// Без `~` KERN реализовывал 5 из 6 операций, и «полная алгебра» в
+/// документации была неполной.
+pub fn conflate(a: Eq2) Eq2 {
+    const p = @intFromEnum(a) & 0b01;
+    const n = (@intFromEnum(a) >> 1) & 0b01;
+    // p' = 1 - n, n' = 1 - p, код = p' | (n' << 1)
+    return @enumFromInt(((1 - n) & 0b01) | (((1 - p) & 0b01) << 1));
+}
+
 /// Конъюнкция в порядке истинности (AND_T).
 ///
 /// Таблица Белнапа-Данна (наибольшая нижняя грань в порядке F ≤ N ≤ T, F ≤ B ≤ T):
@@ -175,4 +191,25 @@ test "MATH: таблица отрицания notB (закрывает выжи�
     try std.testing.expectEqual(Eq2.F, notB(.T));
     try std.testing.expectEqual(Eq2.T, notB(.F));
     try std.testing.expectEqual(Eq2.B, notB(.B));
+}
+
+test "EQ2: конфляция ~ переворачивает порядок знаний" {
+    try std.testing.expectEqual(Eq2.B, conflate(.N));
+    try std.testing.expectEqual(Eq2.N, conflate(.B));
+    try std.testing.expectEqual(Eq2.T, conflate(.T));
+    try std.testing.expectEqual(Eq2.F, conflate(.F));
+}
+
+test "EQ2: конфляция инволютивна (~~a = a)" {
+    for ([_]Eq2{ .N, .T, .F, .B }) |v| {
+        try std.testing.expectEqual(v, conflate(conflate(v)));
+    }
+}
+
+test "EQ2: конфляция и отрицание коммутируют" {
+    // ¬ переставляет p/n, ~ дополняет оба бита: операции действуют по разным
+    // осям и потому коммутируют (проверяется полным перебором).
+    for ([_]Eq2{ .N, .T, .F, .B }) |v| {
+        try std.testing.expectEqual(notB(conflate(v)), conflate(notB(v)));
+    }
 }

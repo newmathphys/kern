@@ -1,6 +1,6 @@
 # KERN — CAPABILITIES WITH PROOF
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->136 · cases <!-- fact:canfail_cases -->152 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->170 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > English mirror of [`CAPABILITIES.md`](CAPABILITIES.md). Every claim below is
 > **verified against the code and against real runs**. Where a claim turned out to be
@@ -199,7 +199,7 @@ but that is not a "1.01× guarantee".
 
 # Formal guarantees (Lean 4)
 
-8 files, **137 theorems, 0 `errors`, 0 `sorry`**. Compiled by `./formal/check.sh`.
+8 files, **143 theorems, 0 `errors`, 0 `sorry`**. Compiled by `./formal/check.sh`.
 
 | Theorem | File | What it proves |
 |:--|:--|:--|

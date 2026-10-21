@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->136 · cases <!-- fact:canfail_cases -->152 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->170 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > Канонический документ: **что** мы тестируем, **как** измеряем и **чем** ускоряем.
 > Каждое число получено прогоном; где выигрыш не измерен — так и написано.
@@ -32,7 +32,7 @@
 ### Раздел 3 — Формальная верификация
 | Метод | Факт |
 |:--|:--|
-| Lean 4 | **8 файлов, 137 теорем, 0 errors, 0 sorry** |
+| Lean 4 | **8 файлов, 143 теорем, 0 errors, 0 sorry** |
 | Proof-DAG checker | `trusted: 0 \| holes: 0` на QF_LIA, QF_S, IEEE-754, циклах, массивах, автоматах, RLS |
 | Белнап B₄ | `JOIN_K(T,F)=B`, поглощение противоречием, Evidence Decay, Scoped Epoch |
 | Флойд–Хоар | `--loops`: Init + Consecution + Post + Termination |
@@ -40,7 +40,7 @@
 ### Раздел 4 — Самоверификация и эволюция
 | Метод | Факт |
 |:--|:--|
-| Can-fail дисциплина | **127 CHECK-целей / 126 с доказательством**, **152 кейса, 0 вакуумных** |
+| Can-fail дисциплина | **127 CHECK-целей / 126 с доказательством**, **153 кейса, 0 вакуумных** |
 | Мутации | **1345/1345 = 100.0 %** по ВСЕЙ популяции (21 файл, без сэмплинга, 23 мин) |
 | SBST | `--gen-tests`: 100 % достижимых веток (мёртвые помечены) |
 | Genetic Improvement | `--simplify` + доказательство эквивалентности через `--diff-equiv` |
@@ -148,7 +148,7 @@
 ## 4. Полный популяционный обстрел мутации
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1345 сайтов
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1350 сайтов
 ```
 Результат фиксируется в `docs/METRICS.md §109` (точное число убитых + выжившие по классам).
 
@@ -169,4 +169,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Полный сквозной прогон `canfail`: **152 не-вакуумных / 0 вакуумных / 0 ошибок**.
+Полный сквозной прогон `canfail`: **153 не-вакуумных / 0 вакуумных / 0 ошибок**.

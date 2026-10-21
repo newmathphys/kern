@@ -34,6 +34,24 @@ def joinK (a b : Belnap) : Belnap := ⟨a.p || b.p, a.n || b.n⟩
 /-- Пересечение по порядку знаний. -/
 def meetK (a b : Belnap) : Belnap := ⟨a.p && b.p, a.n && b.n⟩
 
+/-- Конфляция (~): информационная инверсия. Переворачивает порядок знаний,
+    сохраняя порядок истины: ~N = B, ~B = N, ~T = T, ~F = F.
+    Пара (p, n) отображается в (!n, !p). -/
+def conflate (a : Belnap) : Belnap := ⟨!a.n, !a.p⟩
+
+theorem conflate_N : conflate N = B := rfl
+theorem conflate_B : conflate B = N := rfl
+theorem conflate_T : conflate T = T := rfl
+theorem conflate_F : conflate F = F := rfl
+
+theorem conflate_involutive (a : Belnap) : conflate (conflate a) = a := by
+  cases a with
+  | mk p n => cases p <;> cases n <;> rfl
+
+theorem notB_conflate_comm (a : Belnap) : notB (conflate a) = conflate (notB a) := by
+  cases a with
+  | mk p n => cases p <;> cases n <;> rfl
+
 /-- Закон де Моргана для andT. -/
 theorem deMorgan_andT (a b : Belnap) : notB (andT a b) = orT (notB a) (notB b) := by
   cases a with

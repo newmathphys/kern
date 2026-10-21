@@ -184,6 +184,9 @@ if [ "$FAST" = "0" ]; then
   # 0J: библиография как данные (5 диверсий + сверка с кодом).
   stage "библиография == код (0J)" python3 tools/citations_check.py --selftest
   stage "ссылки и статусы (0J)" python3 tools/citations_check.py
+  # Ф1: семь осей, QueryKind и замок контрактов на весь репозиторий.
+  stage "семь осей + QueryKind (Ф1)" make axes-check
+  stage "замок контрактов: покрытие (Ф1)" make contracts-lock-check
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

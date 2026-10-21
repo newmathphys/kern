@@ -1,4 +1,19 @@
 {
+  "examples/ai_vs_kern/ai_crash.py": {},
+  "examples/ai_vs_kern/ai_generated.py": {
+    "transfer_no_fee:ensures": "ca216fdd6fc402ffe88d3d75c470954141bc583c11ee6c655d7a6b0abb66ea29",
+    "transfer_no_fee:requires": "d06edf0b627075a05172235782fdf5038c584647089eda6036c7576a0ed3e709",
+    "transfer_with_fee:ensures": "95a1b69d6f0b2db09f48995294c91f8b502791f37b3b5c022b46f09bbcdeb9ec",
+    "transfer_with_fee:requires": "d06edf0b627075a05172235782fdf5038c584647089eda6036c7576a0ed3e709"
+  },
+  "examples/ai_vs_kern/fees.py": {},
+  "examples/ai_vs_kern/fixed.py": {
+    "transfer_with_fee:ensures": "95a1b69d6f0b2db09f48995294c91f8b502791f37b3b5c022b46f09bbcdeb9ec",
+    "transfer_with_fee:requires": "4dce530bf3eda7c2544e4158df2894fcdc7d1f67bec0e05e5c37a6ae172b8101"
+  },
+  "examples/ai_vs_kern/test_ai_generated.py": {},
+  "examples/arbitrage_demo.py": {},
+  "examples/array_bounds.py": {},
   "examples/contracts_demo.py": {
     "no_return_path:ensures": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807",
     "no_return_path:requires": "32e629f93a2dd30a3e9a4a0315157ef6a28f39c5f62a2d7b37a8fbcc92fc67d8",
@@ -18,5 +33,66 @@
     "withdraw_ternary:requires": "408e2e8be2f07c68c84f6d2e10a7afcc3addb50a2718dac2af80f82b315b7eae",
     "withdraw_vacuous:ensures": "581aac9f20729b2de64fcf2829192f726d8dcc32260bd122b7db234bbeacedc6",
     "withdraw_vacuous:requires": "2a9ab7b2fa763e9acbf3498c1de0080cd439ca5caff9f52b82ac5c479fa8d683"
-  }
+  },
+  "examples/double_spend_demo.py": {},
+  "examples/edge_cases.py": {
+    "impure_global:ensures": "fff072d281a66570317b3d61da7f94f54edcd0bcfe1319af71e0c418ce34c775",
+    "impure_global:requires": "208b35a67a1b06a73c900e95c8430f46bc545c4f4f3283c7bd500884ef46cbd5",
+    "impure_random:ensures": "fff072d281a66570317b3d61da7f94f54edcd0bcfe1319af71e0c418ce34c775",
+    "impure_random:requires": "208b35a67a1b06a73c900e95c8430f46bc545c4f4f3283c7bd500884ef46cbd5",
+    "pure_ok:ensures": "60dbb95ce96f2cfa77e7d796bf376e42c70c4fb8418c10464fd564a2e5105e03",
+    "pure_ok:requires": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de"
+  },
+  "examples/ffi_bridge_demo.py": {},
+  "examples/integrations/agent_loop.py": {},
+  "examples/integrations/crewai_tool.py": {},
+  "examples/integrations/langchain_tool.py": {},
+  "examples/kern_mcp_server.py": {},
+  "examples/loops.py": {
+    "count_up:ensures": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
+    "count_up:requires": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de",
+    "count_up_bad_inv:ensures": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
+    "count_up_bad_inv:requires": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de",
+    "count_up_no_terminate:ensures": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
+    "count_up_no_terminate:requires": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de"
+  },
+  "examples/noninterference_demo.py": {},
+  "examples/presets_demo.py": {
+    "discount:requires": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
+  },
+  "examples/pricing_demo.py": {},
+  "examples/rlvr_candidates/buggy.py": {
+    "sub:ensures": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807",
+    "sub:requires": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
+  },
+  "examples/rlvr_candidates/cheater.py": {
+    "hack:ensures": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807",
+    "hack:requires": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
+  },
+  "examples/rlvr_candidates/good.py": {
+    "double:ensures": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807",
+    "double:requires": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
+  },
+  "examples/sql_policy_demo.py": {},
+  "examples/state_invariant_demo.py": {
+    "refund_safe:requires": "0a8346a28ee70539a1f9e6ab9948f3b38fd5dc8f07e2f14f84feefcff7aa42a7",
+    "refund_unsafe:requires": "0a8346a28ee70539a1f9e6ab9948f3b38fd5dc8f07e2f14f84feefcff7aa42a7"
+  },
+  "examples/xray_demo.py": {},
+  "src/main.zig": {},
+  "src/verifier/model_extract.zig": {},
+  "src/verifier/proof_check.zig": {},
+  "tests/fixtures/zig_plain_add.zig": {
+    "line1:ensures": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+  },
+  "tests/fixtures/zig_saturating_add.zig": {
+    "line1:ensures": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+  },
+  "tools/bug_hunter.py": {},
+  "tools/canfail.py": {},
+  "tools/gen_showcase_graph.py": {},
+  "tools/kern_contracts.py": {},
+  "tools/mcp_selftest.py": {},
+  "tools/scan_to_kern.py": {},
+  "tools/trust_scorecard.py": {}
 }

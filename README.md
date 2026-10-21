@@ -1,6 +1,6 @@
 # KERN — a zero-trust verification gateway for AI-generated code
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->136 · cases <!-- fact:canfail_cases -->152 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->170 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
@@ -74,8 +74,8 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 136 CHECK targets; 136 proven non-vacuous
-   (152 fault-injection cases).
+   fault and requires the check to go red. 137 CHECK targets; 137 proven non-vacuous
+   (153 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
@@ -496,7 +496,7 @@ flowchart LR
 | **L2** — KERNFS | read-only virtual filesystem over a sealed image; path-traversal and NUL-injection rejected; writes return `AccessDenied` |
 | **L3** — Truth Gate | Belnap B₄ accumulator, admission policy, trusted-checker-only verdicts |
 | **L4** — SMT theories | Z3 bridge via child processes (0 FD leaks, hard timeout, solver pool). QF_LIA/BV, QF_AX (arrays), CHC/Horn (loop invariants), QF_S (strings), QF_FP, CEGIS synthesis, UNSAT-core fault localisation |
-| **L5** — formal proofs | 137 theorems in 8 Lean 4 files, 0 `sorry` |
+| **L5** — formal proofs | 143 theorems in 8 Lean 4 files, 0 `sorry` |
 
 The verification engine (`kernx`, "KERN-Next") reads a `.kern` project DSL and
 produces a SQLite catalogue, snapshots, diffs, reports and an agent hand-off
@@ -557,8 +557,8 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **100.0 %** (<!-- fact:mutation_sites -->1345 / <!-- fact:mutation_sites -->1345 killed) over **21 files / 1345 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1345 sites, 23 min, run **locally**): **1345 / 1345 (100.0%)**, zero survivors — the full run is **committed** as `docs/evidence/mutate_full.log` (1 408 lines, `RC=0`); the canonical gate (40/40) and the per-module `--full-file` set (244/244) are committed next to it. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **<!-- fact:check_targets -->136 / <!-- fact:check_targets -->136 CHECK targets (100 %)** have a proven-can-fail case (**<!-- fact:canfail_cases -->152 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all <!-- fact:anchors -->119 literal anchors verified in ~1 s) |
+| Mutation score (Zig-native mutator) | **100.0 %** (<!-- fact:mutation_sites -->1350 / <!-- fact:mutation_sites -->1350 killed) over **21 files / 1345 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1345 sites, 23 min, run **locally**): **1345 / 1345 (100.0%)**, zero survivors — the full run is **committed** as `docs/evidence/mutate_full.log` (1 408 lines, `RC=0`); the canonical gate (40/40) and the per-module `--full-file` set (244/244) are committed next to it. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
+| Can-fail harness | **<!-- fact:check_targets -->137 / <!-- fact:check_targets -->137 CHECK targets (100 %)** have a proven-can-fail case (**<!-- fact:canfail_cases -->153 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all <!-- fact:anchors -->120 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -709,7 +709,7 @@ make guardrail
 uv pip install --python .venv/bin/python z3-solver
 ./zig-out/bin/kernc prove formal/example.smt2
 
-# 7. Formal proofs (Lean 4): 8 files, 137 theorems, 0 sorry
+# 7. Formal proofs (Lean 4): 8 files, 143 theorems, 0 sorry
 ./formal/setup_mathlib.sh    # one-time: fetch prebuilt Mathlib
 ./formal/check.sh
 
@@ -853,7 +853,7 @@ A claim without evidence is not a claim. Applying that rule to this project:
 ```
 src/            Zig core: .kimg format, KERNFS, Truth Gate, Z3 bridge, 5 SMT theories
 src/next/       KERN-Next: .kern DSL, SQLite catalogue, snapshots, agent hand-off
-formal/         Lean 4 proofs (137 theorems) + certification package
+formal/         Lean 4 proofs (143 theorems) + certification package
 examples/       toy_ai_hallucination/ demo, guardrail_proxy.py HTTP guardrail
 audits/         shadow contracts: hand-written SMT models of real third-party expressions
 tools/          can-fail harness, mutation tester, benchmarks, cross-arch runner
@@ -868,7 +868,7 @@ docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, e
 | [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
-| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#<!-- fact:max_defect -->260 |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#<!-- fact:max_defect -->263 |
 | [`docs/FIELD_AUDIT_REPORT.md`](docs/FIELD_AUDIT_REPORT.md) | field audit of **14 real repositories** (Zig, C, Rust, TypeScript, Go, Python, Lean 4): scorecard 40 D → 78 B … 54 D → 84 B, X-Ray `[CRASH PATH]` **469 → 8**, and the seven defects the run itself exposed (#178–#184) |
 | [`audits/README.md`](audits/README.md) | shadow-contract audits on **real code** from four projects (Zig std, TigerBeetle, Ghostty, andrewrk's allocator): 9 functions, **3 PROVEN / 5 REFUTED / 1 honest SKIP**, regenerated by `make audits` into [`EVIDENCE.md`](audits/EVIDENCE.md) and sealed into `audits/real_code_corpus.kimg` — plus the measurement showing why a naive "run KERN over 50 repos" produces zeros |
 | [`docs/README.md`](docs/README.md) | documentation map |

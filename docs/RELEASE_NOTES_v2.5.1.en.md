@@ -23,7 +23,7 @@
 | CHECK targets | 128 / 128 |
 | can-fail cases | 144 |
 | Registry targets | 160 (BUILD 7 · META 21) |
-| Lean 4 | 8 files / 137 theorems / 0 sorry |
+| Lean 4 | 8 files / 143 theorems / 0 sorry |
 | Scorecard | 100 / 100 · A+ |
 
 ## Artifacts

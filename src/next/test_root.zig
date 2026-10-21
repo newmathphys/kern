@@ -11,6 +11,7 @@ test {
     _ = @import("catalog.zig");
     _ = @import("snapshot.zig");
     _ = @import("truth.zig");
+    _ = @import("state_axes.zig");
     _ = @import("export.zig");
     _ = @import("cache.zig");
     _ = @import("engine.zig");

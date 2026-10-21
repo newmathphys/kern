@@ -66,7 +66,9 @@ DOI/ISBN/arXiv; ссылка `файл:строка` или теорема Lean 
 | `meetK` = ⊓ по `≤k` (AND) | `src/core/eq2.zig:49` | §REF:rivieccio2011residuated |
 | ¬ (перестановка `p↔n`) | `src/core/eq2.zig:74` | §REF:belnap1977useful · §REF:font1997 |
 | `andT` / `orT` (⊓/⊔ по `≤t`) | `src/core/eq2.zig:85` | §REF:font1997 |
+| конфляция `~` (информационная инверсия) | `src/core/eq2.zig:89` | §REF:fitting1991 |
 | изоляция противоречия `T ⊔ F = B` | `formal/KernAllMath.lean:contradiction_isolation` | §REF:belnap1977useful |
+| инволютивность конфляции `~~a = a` | `formal/KernAllMath.lean:conflate_involutive` | §REF:fitting1991 |
 | коммутативность `⊔` | `formal/KernAllMath.lean:joinK_comm` | §REF:fitting1991 |
 | ассоциативность `⊔` | `formal/KernAllMath.lean:joinK_assoc` | §REF:fitting1991 |
 | HTTP `409 Conflict` для `B` | `README.md:123` | §REF:belnap1977useful |
@@ -75,7 +77,6 @@ DOI/ISBN/arXiv; ссылка `файл:строка` или теорема Lean 
 
 | Не реализовано | Почему | Где зафиксировано |
 |:--|:--|:--|
-| **Конфляция** `~(t,f) = (1−f, 1−t)` | полный набор связок B4 требует `~`; сейчас есть только `¬` | Фаза 1 плана |
 | **Трирешётка `16₃`** | KERN работает с B4; третий порядок не нужен для контрактов | §REF:shramko2011truth |
 | **K3 / LP как режимы** | B4 — их надмножество; отдельные режимы не дают новых вердиктов | §REF:fitting1994 |
 | **Абдукция** | гипотезы не единственны и не звучат; в KERN — только read-only отчёт (Ф6.3) | `docs/PLAN_v2.5.3.md`, §REF:bienvenu2026abductive |

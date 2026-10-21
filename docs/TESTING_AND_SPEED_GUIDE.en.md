@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->136 · cases <!-- fact:canfail_cases -->152 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->170 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -32,7 +32,7 @@
 ### Section 3 — Formal verification
 | Method | Fact |
 |:--|:--|
-| Lean 4 | **8 files, 137 theorems, 0 errors, 0 sorry** |
+| Lean 4 | **8 files, 143 theorems, 0 errors, 0 sorry** |
 | Proof-DAG checker | `trusted: 0 \| holes: 0` on QF_LIA, QF_S, IEEE-754, loops, arrays, automata, RLS |
 | Belnap B₄ | `JOIN_K(T,F)=B`, conflict absorption, Evidence Decay, Scoped Epoch |
 | Floyd–Hoare | `--loops`: Init + Consecution + Post + Termination |
@@ -40,8 +40,8 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **136 CHECK targets / 126 proven able to fail**, **152 cases, 0 vacuous** |
-| Mutation testing | **1345 / 1345 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
+| Can-fail discipline | **137 CHECK targets / 126 proven able to fail**, **153 cases, 0 vacuous** |
+| Mutation testing | **1350 / 1350 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -149,7 +149,7 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1345 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1350 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
@@ -174,4 +174,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Full `canfail` sweep: **152 non-vacuous / 0 vacuous / 0 case errors**.
+Full `canfail` sweep: **153 non-vacuous / 0 vacuous / 0 case errors**.

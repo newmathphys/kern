@@ -1037,6 +1037,26 @@ def contract_fingerprints(path: Path) -> dict:
         if m:
             anchors.setdefault(i, {})[m.group(1)] = m.group(2)
     out: dict[str, str] = {}
+
+    # Ф1: замок покрывает ВЕСЬ репозиторий, включая Zig/C. `ast.parse` для них
+    # неприменим (дефект: на первом же .zig падало с UnicodeDecode/SyntaxError).
+    # Для не-Python привязываем аннотацию к ближайшему `fn NAME` / `NAME(`:
+    # ключ остаётся стабильным, а переименование функции ломает замок.
+    if path.suffix != ".py":
+        fn_re = re.compile(r"^\s*(?:pub\s+)?(?:export\s+)?(?:fn|def)\s+([A-Za-z_][A-Za-z0-9_]*)")
+        bound: dict[int, str] = {}
+        current = ""
+        for i, ln in enumerate(lines, 1):
+            f = fn_re.match(ln)
+            if f:
+                current = f.group(1)
+            bound[i] = current
+        for i, kinds in anchors.items():
+            name = bound.get(i) or f"line{i}"
+            for kind, text in kinds.items():
+                out[f"{name}:{kind}"] = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return out
+
     for node in ast.walk(ast.parse(src)):
         if not isinstance(node, ast.FunctionDef):
             continue
@@ -1902,6 +1922,27 @@ def emit_pytest(out_path: str, examples: list, files) -> int:
     return 0
 
 
+# Ф1: контракты больше не «один демо-файл». Замок обязан покрывать ВЕСЬ
+# репозиторий, иначе can-fail «ослабили ensures» остаётся вакуумным.
+CONTRACT_GLOBS = ("examples/**/*.py", "src/**/*.zig", "tools/**/*.py", "tests/**/*.zig")
+
+
+def repo_contract_files() -> list[str]:
+    """Файлы репозитория, содержащие хотя бы один `@kern:`."""
+    found: list[str] = []
+    for pattern in CONTRACT_GLOBS:
+        for p in sorted(Path(".").glob(pattern)):
+            if not p.is_file():
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "@kern:" in text:
+                found.append(p.as_posix())
+    return found
+
+
 def cmd_lock(files, out_path: str) -> int:
     """УЛУЧШЕНИЕ №2: запечатать отпечатки контрактов (Contract Lock)."""
     data = {}
@@ -2230,6 +2271,12 @@ def main() -> int:
                     help="сгенерировать ПАДАЮЩИЙ pytest из контрпримеров Z3")
     ap.add_argument("--lock", default=None, metavar="LOCK.json",
                     help="запечатать отпечатки контрактов (Contract Lock)")
+    ap.add_argument("--lock-repo", default=None, metavar="LOCK.json",
+                    help="запечатать контракты ВСЕГО репозитория "
+                         "(examples/src/tools/tests с @kern:)")
+    ap.add_argument("--verify-lock-repo", default=None, metavar="LOCK.json",
+                    help="проверить замок И покрытие: каждый файл с @kern: "
+                         "обязан быть запечатан")
     ap.add_argument("--verify-lock", default=None, metavar="LOCK.json",
                     help="проверить, что запечатанные контракты НЕ изменены "
                          "(rc=2 при удалении/ослаблении контракта)")
@@ -2310,6 +2357,27 @@ def main() -> int:
     if args.diff_equiv:
         return cmd_diff_equiv(args.diff_equiv[0], args.diff_equiv[1],
                               Path(args.kernc))
+    if args.lock_repo:
+        files = repo_contract_files()
+        if not files:
+            print("[!] не найдено ни одного файла с @kern:")
+            return 2
+        print(f"  [i] файлов с контрактами: {len(files)}")
+        return cmd_lock(files, args.lock_repo)
+    if args.verify_lock_repo:
+        files = repo_contract_files()
+        rc = cmd_verify_lock(files, args.verify_lock_repo)
+        if rc != 0:
+            return rc
+        # Покрытие: новый файл с @kern: обязан попасть в замок.
+        sealed = set(json.loads(Path(args.verify_lock_repo).read_text(encoding="utf-8")))
+        missing = sorted(set(files) - sealed)
+        if missing:
+            print(f"  [SECURITY] НЕ запечатаны файлы с контрактами: {missing}")
+            print("  → пересоберите замок: make contracts-lock")
+            return 2
+        print(f"  [OK] покрытие замка: {len(files)} файлов с @kern:")
+        return 0
     if args.lock:
         if not args.files:
             print("[!] --lock требует список файлов")

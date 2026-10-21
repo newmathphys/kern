@@ -399,6 +399,7 @@ FAULTABLE = [
     "tools/deal_contracts.py",
     "tools/os_signal_flood.py",
     "src/core/eq2.zig",
+    "src/next/state_axes.zig",
     "src/core/kimg_writer.zig",
     "tools/mutate_zig.py",
     "tools/bench_json.py",
@@ -1518,6 +1519,19 @@ def case_citations_unknown_key():
             "rm -f $b; exit $rc'")
 
 
+def case_axes_law_break():
+    """Семь осей (Ф1). ЛОМАЕМ: таймаут объявлен ложью (`timeout -> F`).
+
+    Это ровно та ошибка, из-за которой фаза и появилась: отсутствие
+    результата не должно выглядеть как опровержение.
+    """
+    patch("src/next/state_axes.zig",
+          "        .unknown, .timeout, .out_of_fuel, .invalid_certificate, .tool_error => .N,",
+          "        .timeout => .F, // ЛОМАЕМ: таймаут объявлен ложью\n"
+          "        .unknown, .out_of_fuel, .invalid_certificate, .tool_error => .N,")
+    return "make axes-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2614,6 +2628,8 @@ CASES = [
      case_perf_regression),
     ("citations-unknown-key", "Нет источника -> ссылки не резолвятся",
      case_citations_unknown_key),
+    ("axes-law-break", "timeout объявлен F -> законы осей падают",
+     case_axes_law_break),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

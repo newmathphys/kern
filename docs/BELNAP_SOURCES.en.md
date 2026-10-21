@@ -66,7 +66,9 @@ by `citations-check` (the line exists; the theorem is declared).
 | `meetK` = ⊓ over `≤k` (AND) | `src/core/eq2.zig:49` | §REF:rivieccio2011residuated |
 | ¬ (swap `p↔n`) | `src/core/eq2.zig:74` | §REF:belnap1977useful · §REF:font1997 |
 | `andT` / `orT` (⊓/⊔ over `≤t`) | `src/core/eq2.zig:85` | §REF:font1997 |
+| conflation `~` (information inversion) | `src/core/eq2.zig:89` | §REF:fitting1991 |
 | contradiction isolation `T ⊔ F = B` | `formal/KernAllMath.lean:contradiction_isolation` | §REF:belnap1977useful |
+| conflation involution `~~a = a` | `formal/KernAllMath.lean:conflate_involutive` | §REF:fitting1991 |
 | commutativity of `⊔` | `formal/KernAllMath.lean:joinK_comm` | §REF:fitting1991 |
 | associativity of `⊔` | `formal/KernAllMath.lean:joinK_assoc` | §REF:fitting1991 |
 | HTTP `409 Conflict` for `B` | `README.md:123` | §REF:belnap1977useful |
@@ -75,7 +77,6 @@ by `citations-check` (the line exists; the theorem is declared).
 
 | Not implemented | Why | Recorded in |
 |:--|:--|:--|
-| **Conflation** `~(t,f) = (1−f, 1−t)` | the full B4 signature needs `~`; only `¬` exists today | Phase 1 of the plan |
 | **Trilattice `16₃`** | KERN works with B4; the third order adds nothing for contracts | §REF:shramko2011truth |
 | **K3 / LP as modes** | B4 is their superset; separate modes yield no new verdicts | §REF:fitting1994 |
 | **Abduction** | hypotheses are neither unique nor sound; KERN offers a read-only report only (Ф6.3) | `docs/PLAN_v2.5.3.md`, §REF:bienvenu2026abductive |

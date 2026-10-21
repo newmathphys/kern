@@ -23,7 +23,7 @@ Nothing here is implemented yet.
 | Реестр целей | **162** (CHECK 128 · MEASURE 1 · BUILD 8 · EXTERNAL 3 · META 22) |
 | can-fail кейсов | **144** (не-вакуумных 144, вакуумных 0, ошибок 0) |
 | Ядро / next | 402 / 53 теста |
-| Lean | 137 теорем / 8 файлов, `sorry = 0` |
+| Lean | 143 теорем / 8 файлов, `sorry = 0` |
 | Кросс-арх | 394 passed / 8 skipped / 0 failed (aarch64, ppc64 big-endian) |
 | QuixBugs | SMT 6/40 · дифференциальный 33/40 · EXPLORED 7 |
 | Закрыто в Фазе 0 | дефекты **#239–#250** |
@@ -58,7 +58,7 @@ Nothing here is implemented yet.
 | 0K.5 | **Z3 не запинен.** `requirements.txt`: `z3-solver>=5.1.0.0`; CI ставит `pip install z3-solver` (не из requirements); `solver_version` в коде отсутствует | `z3-solver==5.1.0.0`; CI `pip install -r requirements.txt`; `solver_version` + `seed` + `timeout_ms` в JSON вердикта и в шапку свидетельств | `kernc prove --json` содержит блок `solver`; два прогона дают одинаковый `solver_version` |
 | 0K.6 | **Детерминизм вердикта не проверяется** (wall-clock таймаут) | тест: один вход, два прогона → одинаковый вердикт и контрпример | `make determinism-check` в `ci-fast` |
 
-| 0K.7 | **Lean/mathlib не запинены** (`lean-toolchain` отсутствует) | `lean-toolchain` + `lake-manifest.json` с фиксированными ревизиями | `check_lean_counter.py`: 137 теорем / 8 файлов на двух чистых сборках |
+| 0K.7 | **Lean/mathlib не запинены** (`lean-toolchain` отсутствует) | `lean-toolchain` + `lake-manifest.json` с фиксированными ревизиями | `check_lean_counter.py`: 143 теорем / 8 файлов на двух чистых сборках |
 | 0K.8 | **CHANGELOG отстал** (записи `2.5.2` нет) | `tools/changelog_check.py`: версия из `src/main.zig` обязана иметь раздел `## [x.y.z]` | Подсадили версию без раздела → красный |
 | 0K.9 | **Нет документов доверия** | `docs/THREAT_MODEL.md` (активы, противники, границы), `docs/KEY_MANAGEMENT.md` (генерация, бэкап, ротация, отзыв, `kid`), `docs/INCIDENT_RESPONSE.md` (найден ложный `T` → advisory + список отзыва в репо) | Документы существуют; страж проверяет обязательные разделы |
 | 0K.10 | **C-ABI зависит от LP64** (`unsigned long` в `include/kern.h`) | `unsigned long` → `size_t`; `long` → `int64_t` для счётчика объектов | `make c-abi-test`, `make c-abi-threads` зелёные; в заголовке нет `unsigned long` |

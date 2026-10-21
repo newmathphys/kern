@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->136 · cases <!-- fact:canfail_cases -->152 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->170 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
@@ -34,7 +34,7 @@
 
 **Числа:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` → **402/402 OK** (Debug И ReleaseSafe); без `z3` в PATH — 393 passed + 8 skipped (пропуск решателе-зависимых).
 Эталон `valid_v1_3.kimg` → Merkle совпадает Python↔Zig (подтверждено в обе стороны).
-Покрытие решений → **100.0%** (30/30). Мутации → **100.0%** (1345 / 1345 сайтов в 21 файле, 0 выживших).
+Покрытие решений → **100.0%** (30/30). Мутации → **100.0%** (1350 / 1350 сайтов в 21 файле, 0 выживших).
 
 ---
 
@@ -540,6 +540,9 @@ Zig `std/math`), проверка `kernc.wasm` вне ядра и разбор �
 | **258** | **ДОКУМЕНТОВ ДОВЕРИЯ НЕ БЫЛО**: модель угроз, управление ключами (генерация/бэкап/ротация/отзыв) и порядок реакции на инцидент отсутствовали, хотя весь аттестат держится на одном ключе из `$HOME`. Теперь `docs/THREAT_MODEL.md` (активы, противники, границы TCB, «что KERN НЕ защищает»), `docs/KEY_MANAGEMENT.md` (отпечаток, бэкап, ротация, список отозванных `kid`) и `docs/INCIDENT_RESPONSE.md` (классы инцидентов, первые 24 часа, пост-мортем); гейт `make trust-docs-check` проверяет обязательные разделы И совпадение отпечатка в документе с `docs/keys/kern-owner.pub`; canfail-кейс `trust-docs-missing`. | ИСПРАВЛЕНО |
 | **259** | **ПОРОГА ПРОИЗВОДИТЕЛЬНОСТИ НЕ БЫЛО**: `make bench` печатал числа, но ни один гейт их не сравнивал — регресс горячего пути (кэш, лишние проверки) прошёл бы незамеченным при зелёных тестах. Теперь `tools/perf_check.py`: медиана 15 прогонов `kernc prove` против базовой линии (`docs/evidence/bench_baseline.json`), порог 1.5× И абсолютный допуск 5 мс (на быстрых прогонах шум не должен давать ложных провалов); canfail-кейс `perf-regression`. Гейт локальный: базовая линия привязана к машине, в CI он не входит. | ИСПРАВЛЕНО |
 | **260** | **БИБЛИОГРАФИЯ ЖИЛА В ПРОЗЕ**: источники цитировались в тексте без идентификаторов, а присланный список «проверено» содержал несуществующий выпуск JANCL, неверного автора (Aoyama вместо Niki), неверный год (Rivieccio 2024 вместо 2011) и DOI с иной последней цифрой. Теперь `docs/references.bib` (25 записей), `docs/references.lock.json` (снимок полей), `docs/BELNAP_SOURCES.md` + `.en.md` (сверка «теория → код» через `src/путь:строка` и `formal/*.lean:теорема`, §6 «чего нет», §7 расхождения) и `tools/citations_check.py`: ключи резолвятся, `unverified` запрещён вне §7, ссылки на код/теоремы существуют, RU/EN совпадают по набору ключей, 5 диверсий обязаны краснеть; canfail-кейс `citations-unknown-key`. | ИСПРАВЛЕНО |
+| **261** | **НЕПОЛНАЯ АЛГЕБРА B4: НЕ БЫЛО КОНФЛЯЦИИ**: реализованы `∧,∨,⊗,⊕,¬`, но не `~` — при этом документация называла набор «полным». Теперь `conflate()` в `src/core/eq2.zig:89` (`~N=B, ~B=N, ~T=T, ~F=F`, инволюция, коммутация с `¬`) + Lean-леммы `conflate_involutive`, `notB_conflate_comm` и тесты на все 4 значения. | ИСПРАВЛЕНО |
+| **262** | **ВЕРДИКТЫ СМЕШИВАЛИСЬ**: `Bit {p,n}` и `ast.Status` не различали таймаут, исчерпание бюджета, битый сертификат и ошибку инструмента — все выглядели как «не доказано», а тип запроса вообще не привязывался к сертификату. Теперь `src/next/state_axes.zig` (7 осей, единственная таблица отображения, `timeout≠F`, `out_of_fuel≠B`, `invalid_certificate≠F`, `B` не производится вердиктом) + `QueryKind` в `ProofCertificate`/`VerificationPolicy` с отказом `QueryKindMismatch`; `make axes-check` (28 тестов) и canfail `axes-law-break`. | ИСПРАВЛЕНО |
+| **263** | **ЗАМОК КОНТРАКТОВ БЫЛ ВАКУУМНЫМ**: `docs/contracts.lock.json` содержал ОДИН демо-файл, поэтому canfail «ослабили `ensures`» доказывал чувствительность на файле, который в замке и лежит; к тому же `contract_fingerprints` вызывал `ast.parse` для `.zig` и падал на первом же не-Python файле. Теперь `--lock-repo` покрывает весь репозиторий (37 файлов, 47 контрактов), `--verify-lock-repo` проверяет и покрытие (новый файл без пересборки замка → rc=2), для не-Python отпечаток привязан к ближайшему `fn NAME`. | ИСПРАВЛЕНО |
 
 ## 7. Итог
 
