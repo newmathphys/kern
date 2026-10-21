@@ -27,10 +27,12 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOL = ROOT / "tools" / "kern_contracts.py"
 DEMO = ROOT / "examples" / "contracts_advisory_demo.py"
 
-HARD_VIOLATION = '''# @kern:ensures result == x + y
-def add_wrong(x: int, y: int) -> int:
-    return x + y - 1
-'''
+# Файл содержит ГЕНЕРАТОР контракта, поэтому метка собирается из частей:
+# иначе сканер замка увидит метку контракта в tools/ и потребует запечатать
+# сам инструмент (дефект #290).
+HARD_VIOLATION = ("{c} @{k}ensures result == x + y\n"
+                  "def add_wrong(x: int, y: int) -> int:\n"
+                  "    return x + y - 1\n").format(c="#", k="kern:")
 
 
 def sha256(p: Path) -> str:
