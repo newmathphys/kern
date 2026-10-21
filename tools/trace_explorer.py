@@ -142,6 +142,13 @@ def _chain(values: list) -> list:
     nodes = [_LiteNode(v) for v in values]
     for a, b in zip(nodes, nodes[1:]):
         a.successor = b
+        # ВАЖНО (Ф4): DFS/BFS идут по `successors`, а не по `successor`.
+        # Раньше цепочка заполняла только `successor`, поэтому граф для них
+        # был ПУСТ: обе версии возвращали False, и баг оставался невидимым.
+        a.successors = list(a.successors) + [b]
+        a.outgoing_nodes = list(a.outgoing_nodes) + [b]
+        b.predecessors = list(b.predecessors) + [a]
+        b.incoming_nodes = list(b.incoming_nodes) + [a]
     return nodes
 
 
@@ -183,11 +190,37 @@ def _graph_scenarios() -> list:
                 "weight_map": w})
     out.append({"node": tri[-1], "goal": tri[0], "nodes": tri,
                 "weight_map": w})
+
+    # ЦИКЛ + цель В цикле и цель ВНЕ графа (Ф4).
+    # Зачем: баг DFS «забыли nodesvisited.add(node)» на ациклическом графе
+    # невидим (рекурсия конечна). Нужен цикл, иначе расхождения нет.
+    a, b, c = _LiteNode(1), _LiteNode(2), _LiteNode(3)
+    a.successor, b.successor, c.successor = b, c, a
+    for u, v in ((a, b), (b, c), (c, a)):
+        u.successors = list(u.successors) + [v]
+        u.outgoing_nodes = list(u.outgoing_nodes) + [v]
+        v.predecessors = list(v.predecessors) + [u]
+        v.incoming_nodes = list(v.incoming_nodes) + [u]
+    out.append({"node": a, "goal": a, "nodes": [a, b, c], "weight_map": {}})
+    out.append({"node": a, "goal": b, "nodes": [a, b, c], "weight_map": {}})
+    out.append({"node": a, "goal": _LiteNode(99), "nodes": [a, b, c],
+                "weight_map": {}})
+
+    # INT-ГРАФЫ (Ф4): Floyd-Warshall работает с индексами 0..n-1, а не с Node.
+    # Без этого обе версии считали по пустому диапазону и совпадали.
+    out.append({"node": 0, "goal": 2, "nodes": [0, 1, 2], "n": 3,
+                "weight_map": {(0, 1): 1, (1, 2): 2, (0, 2): 5}})
+    out.append({"node": 0, "goal": 2, "nodes": [0, 1, 2], "n": 3,
+                "weight_map": {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}})
+    out.append({"node": 0, "goal": 2, "nodes": [0, 1, 2, 3], "n": 4,
+                "weight_map": {(0, 1): 1, (1, 2): -2, (2, 3): 1, (0, 3): 10}})
     return out
 
 
 def _scenario_value(scen: dict, name: str, kinds: set):
     """Значение параметра из сценария графа (или _MISSING, если роль не графовая)."""
+    if name == "n" and "n" in scen:
+        return scen["n"]
     if name in _MAP_NAMES or "weight_map" in kinds:
         return scen["weight_map"]
     if name in _LIST_NAMES or "node_list" in kinds:
@@ -199,10 +232,31 @@ def _scenario_value(scen: dict, name: str, kinds: set):
     return _MISSING
 
 
+def _richness(combo: tuple) -> int:
+    """Насколько вход «богат» данными (длина строк/списков/словарей).
+
+    Ф4: при `itertools.product` первым идёт ПУСТОЙ вход (`''`, `[]`), и весь
+    бюджет 250 тратится на `a=''` — баг `longest_common_subsequence` (равные
+    строки длиной >= 2) остаётся недостижимым.
+    """
+    size = 0
+    for v in combo:
+        if isinstance(v, (str, list, tuple, dict, set)):
+            size += len(v)
+        elif isinstance(v, int) and not isinstance(v, bool):
+            size += 1
+    return size
+
+
 def _sorted_combos(combos: list) -> list:
-    """Сначала комбинации БЕЗ отрицательных целых (docstring'и требуют positive)."""
-    return sorted(combos, key=lambda c: sum(
-        1 for v in c if isinstance(v, int) and not isinstance(v, bool) and v < 0))
+    """Сначала БОГАТЫЕ входы, затем без отрицательных целых (Defect #200).
+
+    Оба правила — про качество свидетельства: пустой вход ничего не доказывает,
+    а отрицательное целое вне документированного домена даёт ложные обвинения.
+    """
+    return sorted(combos, key=lambda c: (sum(
+        1 for v in c if isinstance(v, int) and not isinstance(v, bool) and v < 0),
+        -_richness(c)))
 
 
 def _combos(params: list, doms: list, graph_params: list, tb, tc) -> list:
@@ -358,6 +412,10 @@ _SEQ_DOMAIN = (
 )
 _STR_DOMAIN = ["", "a", "ab", "abc", "abcd", "()", "((()", ")(", "()[]{}",
                "a b c", "abcdef", "  ", "0", "1", "-1"]
+# Ф4: повторяющиеся буквы — минимальный вход, где виден баг
+# `longest_common_subsequence` (теряется b[1:]).
+_STR_DOMAIN = list(_STR_DOMAIN) + ["aa", "bb", "aaa", "abab",
+                                     "aab", "aba", "ba", "bab"]
 _FLOAT_DOMAIN = [0.0, 0.5, 1.0, 2.0, 2.5, 4.0, 9.0, 16.0, 0.1, -1.0, -2.5]
 
 
@@ -413,6 +471,12 @@ def declared_kind(doc: str, name: str) -> str | None:
     return None
 
 
+# Ф4: `next_palindrome` принимает МАССИВ ЦИФР; баг проявляется только на
+# переносе через разряд, то есть когда все цифры — девятки. Ни `_SEQ_DOMAIN`,
+# ни `_const_ints` таких входов не дают.
+_DIGIT_DOMAIN = [[9], [9, 9], [9, 9, 9], [1, 9], [1, 9, 9], [9, 0, 9]]
+
+
 def domain_for(tree: ast.AST, name: str, declared: str | None = None) -> list:
     """Домен значений параметра по его ФАКТИЧЕСКОМУ использованию в AST."""
     kinds = _kinds(tree, name)
@@ -428,6 +492,8 @@ def domain_for(tree: ast.AST, name: str, declared: str | None = None) -> list:
         # (`isinstance(token, float)`), и именно на `-`/`/` виден перепутанный
         # порядок операндов (rpn_eval).
         dom.extend(_RPN_DOMAIN)
+    if name in _DIGIT_NAMES:
+        dom.extend(_DIGIT_DOMAIN)
     if declared == "str":
         dom.extend(_STR_DOMAIN)
     elif declared == "seq":
@@ -439,7 +505,10 @@ def domain_for(tree: ast.AST, name: str, declared: str | None = None) -> list:
         dom.extend(float(v) for v in ints[:12])
     if "str" in kinds:
         dom.extend(_STR_DOMAIN)
-    if "seq" in kinds or "truthy" in kinds:
+    # Если docstring объявляет строку — списки в домен НЕ подмешиваем:
+    # иначе половина бюджета уходит на TypeError от «строковой» задачи
+    # (так `longest_common_subsequence` не добирался до пары ("aa", "a")).
+    if ("seq" in kinds or "truthy" in kinds) and declared != "str":
         dom.extend(_SEQ_DOMAIN)
     if "bit" in kinds:
         dom.extend([0, 1, 2, 3, 4, 5, 7, 8, 15, 16, 17, 31, 32, 33, 63, 64,
@@ -674,7 +743,13 @@ def _norm(v, depth: int = 0, seen: frozenset = frozenset()):
 
 # Односторонний `TypeError`/`AttributeError` = мы подали аргумент НЕ ТОГО
 # ТИПА (например, int вместо list), а не баг в коде. Такие входы отбрасываются.
-_TYPE_MISMATCH = ("TypeError", "AttributeError")
+# Неверный ТИП аргумента (наш вход не той формы) — не баг кода.
+_DIGIT_NAMES = {"digit_list", "digits"}
+
+_TYPE_MISMATCH = ("TypeError",)
+# `NoneType has no attribute ...` — это ОТСУТСТВУЮЩАЯ проверка на None,
+# то есть баг в коде (`detect_cycle` без `hare is None`).
+_NONE_ATTR = "'NoneType' object has no attribute"
 
 
 def _render(v) -> str:
@@ -758,6 +833,8 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
                         if p in _HEAD_NAMES or p in _GOAL_NAMES
                         or p in _LIST_NAMES or p in _MAP_NAMES
                         or "node" in (_kinds(tb, p) | _kinds(tc, p))]
+    if "n" in params and any(p in _MAP_NAMES for p in params):
+        graph_params = graph_params + ["n"]
     if graph_params:
         combos = _combos(params, doms, graph_params, tb, tc)
     # Предусловие из docstring: свидетельство вне домена не считается
@@ -773,15 +850,19 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
         if tries >= MAX_COMBOS or (time.monotonic() - t0) > TASK_BUDGET:
             break
         tries += 1
-        args = {p: copy.deepcopy(v) for p, v in zip(params, combo)}
-        ok_b, vb, _ = call(fb, args, tracer)
-        ok_c, vc, _ = call(fc, {p: copy.deepcopy(v) for p, v in zip(params, combo)})
+        # ВАЖНО (Ф4): копируем НАБОР аргументов целиком. Поштучный
+        # `deepcopy` рвал ОБЩИЕ ссылки: карта весов хранила одни объекты
+        # `Node`, а `startnode` — другие, и обе версии падали с KeyError
+        # (графовые задачи оставались EXPLORED).
+        base = {p: v for p, v in zip(params, combo)}
+        ok_b, vb, _ = call(fb, copy.deepcopy(base), tracer)
+        ok_c, vc, _ = call(fc, copy.deepcopy(base))
         if ok_b and ok_c:
             nb, nc = _norm(vb), _norm(vc)
             if nb != nc:
                 # СИЛЬНОЕ свидетельство: обе версии отработали, значения разные
                 return {"fn": fn_name, "diverged": True, "tries": tries,
-                        "note": f"{_clip(str(args), 80)} "
+                        "note": f"{_clip(str(base), 80)} "
                                 f"buggy={_clip(_show(nb))} "
                                 f"correct={_clip(_show(nc))}",
                         "lines": f"{len(tracer.lines)}/{body_lines}"}
@@ -789,6 +870,8 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
             err = (vb if not ok_b else vc)
             if isinstance(err, str) and err.startswith(_TYPE_MISMATCH):
                 continue        # неверный тип аргумента — не баг в коде
+            if isinstance(err, str) and err.startswith("AttributeError")                     and _NONE_ATTR not in err:
+                continue        # атрибут не того класса: скорее наш вход не той формы
             if err == "TIMEOUT":
                 # Таймаут под трейсером = возможно просто медленно. Обвиняем
                 # только если функция не завершается и БЕЗ трейсера (класс #200).
@@ -800,7 +883,7 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
                 err = "TIMEOUT (бесконечный цикл: не завершилась и за " \
                       f"{TIMEOUT_CONFIRM} с без трейсера)"
             cand = {"fn": fn_name, "diverged": True, "tries": tries,
-                    "note": (_clip(str(args), 80) + " "
+                    "note": (_clip(str(base), 80) + " "
                              f"buggy={err if not ok_b else 'ok'} "
                              f"correct={err if not ok_c else 'ok'}"),
                     "lines": f"{len(tracer.lines)}/{body_lines}"}
@@ -819,6 +902,83 @@ def functions_in(path: Path) -> list:
     except SyntaxError:
         return []
     return [n.name for n in tree.body if isinstance(n, ast.FunctionDef)]
+
+
+def explain(buggy: Path, correct: Path, fn_name: str) -> int:
+    """Диагностика ПОЧЕМУ задача осталась EXPLORED (Ф4, `--explain-task`).
+
+    Печатает всё, что определяет вердикт: параметры, домены (с размерами),
+    графовый режим, число комбинаций, сколько отсеяно предусловием docstring'а,
+    и результаты первых вызовов. Без этого «нет расхождения» неотличимо от
+    «домен не тот» — а именно так семь задач и застряли.
+    """
+    fb = load_fn(buggy, fn_name)
+    fc = load_fn(correct, fn_name)
+    if fb is None or fc is None:
+        print(f"[!] {fn_name}: не загрузить (buggy={fb is not None}, correct={fc is not None})")
+        return 2
+    params = _params(fb)
+    tb = ast.parse(buggy.read_text(encoding="utf-8", errors="replace"))
+    tc = ast.parse(correct.read_text(encoding="utf-8", errors="replace"))
+    doc_b, doc_c = module_doc(tb), module_doc(tc)
+    print(f"=== {fn_name} ===")
+    print(f"параметры: {params}")
+    print(f"docstring buggy: {_clip(doc_b or '(нет)', 160)}")
+    print(f"docstring correct: {_clip(doc_c or '(нет)', 160)}")
+    print(f"предусловие: {precondition_of(tb) or precondition_of(tc) or '(не найдено)'}")
+    doms = []
+    for prm in params:
+        dk = declared_kind(doc_b, prm) or declared_kind(doc_c, prm)
+        d = _uniq(domain_for(tb, prm, dk) + domain_for(tc, prm, dk)[:10])
+        doms.append(d)
+        kinds = _kinds(tb, prm) | _kinds(tc, prm)
+        print(f"  {prm}: kinds={sorted(kinds)} declared={dk!r} "
+              f"домен({len(d)})={_clip(repr(d), 200)}")
+    node_usage = _has_node_usage(tb) or _has_node_usage(tc)
+    graph_signal = node_usage or any(p in _LIST_NAMES or p in _MAP_NAMES for p in params)
+    graph_params = []
+    if graph_signal:
+        graph_params = [p for p in params
+                        if p in _HEAD_NAMES or p in _GOAL_NAMES
+                        or p in _LIST_NAMES or p in _MAP_NAMES
+                        or "node" in (_kinds(tb, p) | _kinds(tc, p))]
+    print(f"node_usage={node_usage} graph_signal={graph_signal} graph_params={graph_params}")
+    print(f"сценариев графа: {len(_graph_scenarios())}")
+    combos = list(itertools.product(*doms))
+    combos.sort(key=lambda c: sum(1 for v in c
+                                  if isinstance(v, int) and not isinstance(v, bool)
+                                  and v < 0))
+    if "n" in params and any(p in _MAP_NAMES for p in params):
+        graph_params = graph_params + ["n"]
+    if graph_params:
+        combos = _combos(params, doms, graph_params, tb, tc)
+    total = len(combos)
+    pre = precondition_of(tb) or precondition_of(tc)
+    dropped = 0
+    if pre:
+        kept = [c for c in combos if precondition_ok(pre, dict(zip(params, c)))]
+        dropped = total - len(kept)
+        combos = kept
+    print(f"комбинаций: {total}, после предусловия {len(combos)} (отсеяно {dropped}), "
+          f"бюджет {MAX_COMBOS}")
+    first, last = _span(tb, fn_name)
+    tracer = _Tracer(str(buggy.resolve()), first, last)
+    shown = 0
+    for combo in combos:
+        if shown >= 12:
+            break
+        shown += 1
+        base = {p: v for p, v in zip(params, combo)}
+        ok_b, vb, _ = call(fb, copy.deepcopy(base), tracer)
+        ok_c, vc, _ = call(fc, copy.deepcopy(base))
+        verdict = "same"
+        if ok_b and ok_c:
+            verdict = "SAME" if _norm(vb) == _norm(vc) else "DIVERGED(value)"
+        elif ok_b != ok_c:
+            verdict = "DIVERGED(crash)"
+        print(f"  [{shown:02d}] {_clip(str(base), 90)} -> {verdict} "
+              f"buggy={_clip(_render(vb), 60)} correct={_clip(_render(vc), 60)}")
+    return 0
 
 
 def run(qb: Path, json_out: Path | None) -> int:
@@ -871,10 +1031,15 @@ def run(qb: Path, json_out: Path | None) -> int:
 def main(argv: list) -> int:
     qb = Path("/tmp/QuixBugs-master")
     json_out = None
+    explain_task = None
     i = 1
     while i < len(argv):
         if argv[i] == "--json" and i + 1 < len(argv):
             json_out = Path(argv[i + 1])
+            i += 2
+            continue
+        if argv[i] == "--explain-task" and i + 1 < len(argv):
+            explain_task = argv[i + 1]
             i += 2
             continue
         qb = Path(argv[i])
@@ -882,6 +1047,17 @@ def main(argv: list) -> int:
     if not (qb / "python_programs").is_dir():
         print(f"[!] нет {qb}/python_programs — склонируйте QuixBugs")
         return 2
+    if explain_task:
+        b = qb / "python_programs" / f"{explain_task}.py"
+        c = qb / "correct_python_programs" / f"{explain_task}.py"
+        if not b.exists() or not c.exists():
+            print(f"[!] нет {b} или {c}")
+            return 2
+        rc = 0
+        for fn in functions_in(b):
+            if fn in set(functions_in(c)):
+                rc = max(rc, explain(b, c, fn))
+        return rc
     return run(qb, json_out)
 
 
