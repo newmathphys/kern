@@ -1533,6 +1533,32 @@ _MACRO_DIV = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
 # а межпроцедурные инварианты мы не моделируем — обвинять нельзя (см. zls 0.17.0:
 # `if (trigrams.len > 0)` перед построением фильтра).
 _RE_LEN_LIKE = re.compile(r"^(len|size|count|n|cap|capacity|length)$")
+# ДЕФЕКТ #316: `Path / str` — СКЛЕЙКА ПУТИ, а не деление. Найдено
+# САМОПРИМЕНЕНИЕМ: `--xray tools/` по собственному коду KERN дал 6 `[CRASH PATH]`,
+# из которых два ложные — `self.root / log_dir` (`kern_exec_runner.py:82`) и
+# `ROOT / "zig-out" / "bin" / name` (`measure_all_kern.py:105`). Существующее
+# правило `_MACRO_DIV` ловило только ПРЯМОЙ `ROOT / x`: ни атрибут `self.root`,
+# ни ВЛОЖЕННУЮ склейку (`ROOT / "a" / "b" / name`) оно не покрывало.
+_RE_PATHISH = re.compile(
+    r"(?i)(^|_)(root|dir|folder|path|file|home|base|prefix|suffix|slug|name)$")
+
+
+def _is_path_expr(node) -> bool:
+    """True, если левый операнд `/` — путь/строка, значит это НЕ арифметика.
+
+    ЗВУЧИМОСТЬ: если левый операнд — `Path`, оператор `/` определён как
+    склейка пути (`pathlib`), и делителя-числа там нет по построению.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return True
+    if isinstance(node, ast.Name):
+        return bool(_MACRO_DIV.match(node.id)) or bool(_RE_PATHISH.search(node.id))
+    if isinstance(node, ast.Attribute):
+        return bool(_MACRO_DIV.match(node.attr)) or bool(_RE_PATHISH.search(node.attr))
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        return _is_path_expr(node.left)
+    return False
+
 
 
 
@@ -3712,6 +3738,8 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                         continue  # `'%s' % x` — форматирование, не деление
                     if isinstance(n.left, ast.Name) and _MACRO_DIV.match(n.left.id):
                         continue  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
+                    if _is_path_expr(n.left):
+                        continue  # ДЕФЕКТ #316: `self.root / log_dir`, `ROOT / "a" / name`
                     try:
                         div = expr_smt(n.right, env)
                     except (Unsupported, NoReturn):
@@ -3740,6 +3768,8 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                         continue  # `'%s' % x` — форматирование, не деление
                     if isinstance(n.left, ast.Name) and _MACRO_DIV.match(n.left.id):
                         continue  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
+                    if _is_path_expr(n.left):
+                        continue  # ДЕФЕКТ #316: `self.root / log_dir`, `ROOT / "a" / name`
                     try:
                         div = expr_smt(n.right, env)
                     except (Unsupported, NoReturn):

@@ -176,8 +176,13 @@ rm -rf "$TMP"
 BK="$(mktemp -d)"
 cp docs/TEST_CATALOG.md "$BK/tc.md"
 cp README.md "$BK/readme.md"
-sed -i 's/\*\*Всего объявлений тестов:\*\* 425/**Всего объявлений тестов:** 424/' docs/TEST_CATALOG.md
-sed -i '0,/137 theorems/s//136 theorems/' README.md
+# ДЕФЕКТ #316: подсадка была прибита ЛИТЕРАЛАМИ (425 и 137). Числа выросли до
+# 465 и 143, sed перестал находить строку, подсадка молча ПУСТЕЛА — и падал сам
+# тест, а не страж. Теперь значения берутся из docs/facts.json.
+CAT="$("$PY" -c "import json;print(json.load(open('docs/facts.json'))['catalog'])")"
+LEAN="$("$PY" -c "import json;print(json.load(open('docs/facts.json'))['lean_theorems'])")"
+sed -i "s/\*\*Всего объявлений тестов:\*\* ${CAT}/**Всего объявлений тестов:** $((CAT - 1))/" docs/TEST_CATALOG.md
+sed -i "0,/${LEAN} theorems/s//$((LEAN - 1)) theorems/" README.md
 "$PY" tools/check_metrics_consistency.py >/dev/null 2>&1
 rc_m=$?
 "$PY" tools/check_lean_counter.py >/dev/null 2>&1
@@ -205,8 +210,11 @@ BR="$(mktemp -d)"
 cp README.ru.md "$BR/readme.md"
 REAL_MAX="$(grep -oE '^\| \*\*[0-9]+\*\* \|' docs/CAPABILITY_STATUS.md | grep -oE '[0-9]+' | sort -n | tail -1)"
 FAKE_MAX=$((REAL_MAX - 1))
-if grep -q "#1–#${REAL_MAX}" README.ru.md; then
-  sed -i "0,/#1–#${REAL_MAX}/s//#1–#${FAKE_MAX}/" README.ru.md
+# ДЕФЕКТ #316: `make sync` ставит ЯКОРЬ между `#` и числом
+# (`#1–#<!-- fact:max_defect -->316`), поэтому прежний grep числа не видел
+# вовсе — подсадка была невозможна. Скобка якоря необязательна.
+if grep -qE "#1–#(<!--[^>]*-->)?${REAL_MAX}" README.ru.md; then
+  sed -i "0,/#1–#\(<!--[^>]*-->\)\?${REAL_MAX}/s//#1–#${FAKE_MAX}/" README.ru.md
   "$PY" tools/check_metrics_consistency.py >/dev/null 2>&1
   rc_r=$?
   cp "$BR/readme.md" README.ru.md

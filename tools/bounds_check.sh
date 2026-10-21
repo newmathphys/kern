@@ -28,5 +28,9 @@ echo "$Z" | grep -q 'BOUNDS PATH\] get_symbolic_bad'   || { echo "[!] симво
 if echo "$Z" | grep -q 'BOUNDS PATH\] get_symbolic_safe'; then
   echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_symbolic_safe (гарды с len(arr) не учтены)"; exit 1
 fi
-echo "$Z" | grep -q 'checked 3 / 3 functions, skipped 0'   || { echo "[!] есть отсеянные функции — zero-annotation неполон"; exit 1; }
+# ДЕФЕКТ #316 (тот же класс, что #313): сводка `--xray` получила пояснение в
+# скобках (`functions (SMT-verified 3, no obligations 0), skipped …`), а этот
+# grep ждал старую форму и падал ВСЕГДА — то есть проверка «нет отсеянных
+# функций» не проверяла ничего. Скобка теперь необязательна.
+echo "$Z" | grep -qE 'checked 3 / 3 functions( \([^)]*\))?, skipped 0'   || { echo "[!] есть отсеянные функции — zero-annotation неполон"; exit 1; }
 echo "[OK] zero-annotation: длина из литерала AST + символическая len(arr), 0 пропусков"

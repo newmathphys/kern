@@ -1,0 +1,3975 @@
+project "kern" {
+  version "1.0"
+  root "."
+}
+
+artifact "CHANGELOG.md" {
+  kind "source"
+  hash "sha256:43c09f45b5e616a29cca75d38d78c037be0f179481abf51b2818168ee7513967"
+}
+
+artifact "CODE_OF_CONDUCT.md" {
+  kind "source"
+  hash "sha256:6c1a9c84531a6ac701f73359d9ade57de4e955dbdc057db978bd9cc5f8cc7db4"
+}
+
+artifact "CONTRIBUTING.md" {
+  kind "source"
+  hash "sha256:0ea1569abb5220fb9953ed41b1faba66b773c1a151db0883e6a24520770b710f"
+}
+
+artifact "PROJECT_CANONICAL_SPEC.kern.md" {
+  kind "source"
+  hash "sha256:06686cd7bcc99cd41d90e11636ed1efbc91ca7829796f4867944c64b1cbee3c2"
+}
+
+artifact "README.md" {
+  kind "source"
+  hash "sha256:63a6ed31cc9eae1ec18531535e91121f9e060916bf18f0b67b35c5d32e8e25d8"
+}
+
+artifact "README.ru.md" {
+  kind "source"
+  hash "sha256:3dfed507e4cc10a8e6d5a08a7d3f3a6674c01301b48dd7699213eeb9c25b90ad"
+}
+
+artifact "SECURITY.md" {
+  kind "source"
+  hash "sha256:f6a8ab2ce174549e8f11687f6f0899e1d80e23ea04c07196a69ac4f0ba417bb6"
+}
+
+artifact "action.yml" {
+  kind "source"
+  hash "sha256:8c96024d2d5a170602b1673289e09b3c5ce2541e315e3de227ad3423e682e3fb"
+}
+
+artifact "agent_packet.json" {
+  kind "source"
+  hash "sha256:06fdcdaa73e2e6d7b4c7bcf59b2932a3f713a234d561d0025a3c2ab2c495b1a0"
+}
+
+artifact "build.zig" {
+  kind "source"
+  hash "sha256:266cae88c56c69f728f3c99d36e2b78d2be0f726802e57bf2f0fffcba32dca19"
+}
+
+artifact "glama.json" {
+  kind "source"
+  hash "sha256:f0d6ce3e566c67ce709f4347e219045d8928d7294d29e22e25010021225f1b4b"
+}
+
+artifact "install.sh" {
+  kind "source"
+  hash "sha256:a384bca08c19a0786361b5494848693e640312fe2c0499cd01fbce3e91e4acb4"
+}
+
+artifact "mcp.json" {
+  kind "source"
+  hash "sha256:829ef135617d901cc213577c0b2abfc8104c810d3f2ccaed470e21b02376a880"
+}
+
+artifact "mcp.lock.json" {
+  kind "source"
+  hash "sha256:5cac2efd2b66dc715ac3091a45c666c85b978c85b7cec2112b46c92df0ecfb37"
+}
+
+artifact "report.md" {
+  kind "source"
+  hash "sha256:2881f87c46a336306ff2b53e36a5fd6c8c7eb7c1a46e358b91c2b0c06a021efc"
+}
+
+artifact "server.json" {
+  kind "source"
+  hash "sha256:2910d9635348dc6921ecb81b1daed9e45b7a74b04d1d5ef89e3a208a548e56af"
+}
+
+artifact "smithery.yaml" {
+  kind "source"
+  hash "sha256:d0ca4e319031ee07b2cd6277fe0abad5332a95fb3c2005299500baf7d6ffc757"
+}
+
+artifact "telemetry_report.json" {
+  kind "source"
+  hash "sha256:968da6e7d6b61752cdf5d035e6235d3dfd4e7e2af30fc0747a1a01667ca62e6e"
+}
+
+artifact "audits/EVIDENCE.md" {
+  kind "source"
+  hash "sha256:f0e56045710904d2be1a17316b49388454489eeb180b0498bb06d84ee4653dca"
+}
+
+artifact "audits/QUIXBUGS_BASELINE.md" {
+  kind "source"
+  hash "sha256:9e7655aa5b2563bfb8ffc5c7455a3ea3186802482bb0501df2c7a38ea161b7b3"
+}
+
+artifact "audits/README.md" {
+  kind "source"
+  hash "sha256:feaf694263f26d9c8e8d38e3ef6e12b44b7c9c7652986830daa04ef43af87859"
+}
+
+artifact "audits/TROPHIES_v25.md" {
+  kind "source"
+  hash "sha256:71355a6586ef534f44b373b5055c825469e4ea28effe0e8c25fff65720554b81"
+}
+
+artifact "audits/andrewrk-gpa/alignment_bitvec.zig" {
+  kind "source"
+  hash "sha256:c11e442f5d04f43ec362af377fc1fac81b846ac388d4c7066bec5eceba65e6a5"
+}
+
+artifact "audits/bloch/binary_search.py" {
+  kind "source"
+  hash "sha256:53bd9b5d959fccaa4fd0ae720f5e0e9eaca0efb5040e58c826d12f9176f1e23a"
+}
+
+artifact "audits/bloch/binary_search.zig" {
+  kind "source"
+  hash "sha256:af4a70508741c223697fa2d7ce73c6de2b008352a8e0023136b3181478979312"
+}
+
+artifact "audits/bloch/binary_search_safe.zig" {
+  kind "source"
+  hash "sha256:f86f48796738622b8d476c656c85a7ffa870959c364376a754c2b527c0d09847"
+}
+
+artifact "audits/codecheck/README.md" {
+  kind "source"
+  hash "sha256:53bf548bce57a435c97dc468af0c38bfc31da993627b53d22da275c397c77d25"
+}
+
+artifact "audits/codecheck/c_clean.c" {
+  kind "source"
+  hash "sha256:e7eb3b1e22d65ae5e9f5ce003abd2575f9d27b893a6c4e88a041ea4a75d692d6"
+}
+
+artifact "audits/codecheck/c_clean.c.expect.json" {
+  kind "source"
+  hash "sha256:a8c37b443ec8b27eeeace1a91d59a565ebc6ce82a8e4b8f1a8644e273771be34"
+}
+
+artifact "audits/codecheck/c_unguarded.c" {
+  kind "source"
+  hash "sha256:3ed8334bb1e0222acf1aa436feaab5ff56c5ed29724430a89b8b0a958ffc9bab"
+}
+
+artifact "audits/codecheck/c_unguarded.c.expect.json" {
+  kind "source"
+  hash "sha256:493303e72a3fbc329e98a275138648607bffe59164f8a9608e22cd2aac3f77c3"
+}
+
+artifact "audits/codecheck/py_abs_bad.py" {
+  kind "source"
+  hash "sha256:9a041b6a980a27515e15fdebf918afe2cb266c6a6d6e0dff957c2039c2359077"
+}
+
+artifact "audits/codecheck/py_abs_bad.py.expect.json" {
+  kind "source"
+  hash "sha256:056b5c6f51c91ced959a34b35d137dcf50b4838be15fa36a34ce61b5c8f03286"
+}
+
+artifact "audits/codecheck/py_abs_ok.py" {
+  kind "source"
+  hash "sha256:27f9ac66f9e9bbec07eb7a06dd63fb6e735559ec65726db2b37c3e4322e5f882"
+}
+
+artifact "audits/codecheck/py_abs_ok.py.expect.json" {
+  kind "source"
+  hash "sha256:e5ded1ec9625994bd72be5eaee7b6b923b474a52e279401406b65a7b444322d2"
+}
+
+artifact "audits/codecheck/py_clamp_bad.py" {
+  kind "source"
+  hash "sha256:550dfc03a8558cc6b9eca4e1476085478b5a954b0b453addf4378dc409aa9c86"
+}
+
+artifact "audits/codecheck/py_clamp_bad.py.expect.json" {
+  kind "source"
+  hash "sha256:1f520389987474c24deadfc37ac62852f35109f26f396493ddad5b0ebda2422c"
+}
+
+artifact "audits/codecheck/py_clamp_ok.py" {
+  kind "source"
+  hash "sha256:f7ce76f67f78d1ca4f92dbdce64947c91004582b158a90ba9366587d806fce44"
+}
+
+artifact "audits/codecheck/py_clamp_ok.py.expect.json" {
+  kind "source"
+  hash "sha256:dae4c39ca3e2b96cbb26a6a29fe78d0cb7cfc5618c48a84b55f3471ff287aa2b"
+}
+
+artifact "audits/codecheck/py_nonlinear.py" {
+  kind "source"
+  hash "sha256:a29f835a75a952c9bac63c1634a8152847290cdd32758906d6bae541d7a1d9e5"
+}
+
+artifact "audits/codecheck/py_nonlinear.py.expect.json" {
+  kind "source"
+  hash "sha256:773470bc1fec2d5da51f7a2a0622825af92bd44ad356b0f75455617fd08e6c9d"
+}
+
+artifact "audits/codecheck/py_recursion.py" {
+  kind "source"
+  hash "sha256:0a29c4a5ead8f28cc0c4ebf0ff8fb079f73ab37ca4657dd265545429bf52e8e0"
+}
+
+artifact "audits/codecheck/py_recursion.py.expect.json" {
+  kind "source"
+  hash "sha256:66393abc02ff77453f8b874d66e9d97b7917c94dcb3f10b5d29d393bc03849f6"
+}
+
+artifact "audits/codecheck/rust_clean.rs" {
+  kind "source"
+  hash "sha256:0e5a1bb6378bf91cb9e103bd349b1e932a6c6338eb0836bc9be27fb45c1e7ac3"
+}
+
+artifact "audits/codecheck/rust_clean.rs.expect.json" {
+  kind "source"
+  hash "sha256:3e057b779ef25d2b9768bc277190e62f64827b44bfab31c0959dce6942cd59c0"
+}
+
+artifact "audits/codecheck/rust_overflow.rs" {
+  kind "source"
+  hash "sha256:98e704a62976d282ad2e7ac11ef1451e144c9ea33b26aa4a5b064195f0aa14a8"
+}
+
+artifact "audits/codecheck/rust_overflow.rs.expect.json" {
+  kind "source"
+  hash "sha256:a82c8d3bc16b3b7fa2e56b263ac2f50ff89cff4f0bfc40115eec19b4af5fa1bb"
+}
+
+artifact "audits/codecheck/zig_bounds.zig" {
+  kind "source"
+  hash "sha256:5321e265402dd085dc8eab52dae62d271601f88b2ad0dded68795fcc5d57d7af"
+}
+
+artifact "audits/codecheck/zig_bounds.zig.expect.json" {
+  kind "source"
+  hash "sha256:5a4dc717aa672e4406cde5d1b4e3aee0c079a558753df5ede11bd47c28dd6ebe"
+}
+
+artifact "audits/codecheck/zig_clean.zig" {
+  kind "source"
+  hash "sha256:1975e22a0dc89663431f35176fcb4868454c12781414912df2bd3d5123b70772"
+}
+
+artifact "audits/codecheck/zig_clean.zig.expect.json" {
+  kind "source"
+  hash "sha256:3f0f625cbe7a7385c12450c606a961a84741dfad2c7accdd26e4d0ad44f6ae8e"
+}
+
+artifact "audits/codecheck/zig_div.zig" {
+  kind "source"
+  hash "sha256:3715c3cef45935802b40e93aeb5cc390af6d4baf65f72850da07a32bae1ca134"
+}
+
+artifact "audits/codecheck/zig_div.zig.expect.json" {
+  kind "source"
+  hash "sha256:c53e64a48045cf883049f57161ec0caf2c10f03e6a3ef010df100f3c3d7d0ceb"
+}
+
+artifact "audits/codecheck/zig_loop.zig" {
+  kind "source"
+  hash "sha256:ffd787d995d62ce51a7fb3ef640064525ea18a0b5473db57a9cb331c094b45e3"
+}
+
+artifact "audits/codecheck/zig_loop.zig.expect.json" {
+  kind "source"
+  hash "sha256:5a4dc717aa672e4406cde5d1b4e3aee0c079a558753df5ede11bd47c28dd6ebe"
+}
+
+artifact "audits/ghostty/grid_columns.zig" {
+  kind "source"
+  hash "sha256:6c062473de8ff398887ae17ff4b1d6a6e585c1826fcd2adcac222768e6278ab0"
+}
+
+artifact "audits/musl/abs.c" {
+  kind "source"
+  hash "sha256:e629aa4f4a6d27981216a61042c951a3746de70c67ad157b9d0bb75a26f70365"
+}
+
+artifact "audits/rust-core/midpoint.rs" {
+  kind "source"
+  hash "sha256:06d71ee1139880cefb3c98de011f36f1629baf3f12f8eabbb861999786ff6f69"
+}
+
+artifact "audits/rust-core/saturating_add.rs" {
+  kind "source"
+  hash "sha256:ae989409a985da2965dd41a4c6ef74c498751f5f78f7bedf252dc23684f1343c"
+}
+
+artifact "audits/tigerbeetle/div_ceil.zig" {
+  kind "source"
+  hash "sha256:bcf0813ce13b5351efa3ae86805e1b2c8ea3846c34a1ed62a4c0097297645d33"
+}
+
+artifact "audits/zig-std/align.zig" {
+  kind "source"
+  hash "sha256:615170cbd7a6ffaf67a9e40799ce2b743b0a57fb54d41730d229831cb3598c0f"
+}
+
+artifact "audits/zlib/zcalloc.c" {
+  kind "source"
+  hash "sha256:d0f2e4409c865412f3a5c64a2518fe1b64f56229a14c3eb05711a0bcf940c1ea"
+}
+
+artifact "bench/portable_merkle.zig" {
+  kind "source"
+  hash "sha256:0f17d28fc05901412f7987e6a7f761692c59fb7c52c39b1b3946d0d2b1fa9168"
+}
+
+artifact "bench/portable_saferead.zig" {
+  kind "source"
+  hash "sha256:93e984899ba2bb98af1ca7a7f756b3232ba41442306d2323d88cf5e616173d72"
+}
+
+artifact "docs/ALL_CAPABILITIES_LIVE_GUIDE.md" {
+  kind "source"
+  hash "sha256:5aab39dd743b9b15aa1a186596c9acbc842c0ae26732e8b1376c6d5a4a66e75b"
+}
+
+artifact "docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md" {
+  kind "source"
+  hash "sha256:12d2782292a61f6554300eced6a771d0296b836da90939f1bf6d99ef23e066c2"
+}
+
+artifact "docs/ATTESTATION_PASSPORT.en.md" {
+  kind "source"
+  hash "sha256:b52361e2a9a0a08c00a87f26b5a57c8d8606ce7e8d99c730f5fa543ff8fdad17"
+}
+
+artifact "docs/ATTESTATION_PASSPORT.md" {
+  kind "source"
+  hash "sha256:291961db5f574d13797e5b492b264347e831f683aa616918805289c4ad2d8f60"
+}
+
+artifact "docs/BELNAP_SOURCES.en.md" {
+  kind "source"
+  hash "sha256:e6225c514fecd272db5a60711b2e39b4dc6abd00c918a32a2022700d2c28920b"
+}
+
+artifact "docs/BELNAP_SOURCES.md" {
+  kind "source"
+  hash "sha256:560b8c4d47ef120c0f4494b55106a613eafaa449939688edc7418cec44ab8f97"
+}
+
+artifact "docs/CAPABILITIES.en.md" {
+  kind "source"
+  hash "sha256:fbfa3b9429d705e45a605b12b2c9c70e36e9eb47d584a1b6777ab7a7ac01ee4c"
+}
+
+artifact "docs/CAPABILITIES.md" {
+  kind "source"
+  hash "sha256:ad9e197078ef43383458fefcfc9abf8aef1d7522f0f5556934723ae75f6e15ad"
+}
+
+artifact "docs/CAPABILITY_STATUS.en.md" {
+  kind "source"
+  hash "sha256:2e5b5cdba06ccbe140ca1975d333c43085cc63786225a2810e5d1a9126d1565b"
+}
+
+artifact "docs/CAPABILITY_STATUS.md" {
+  kind "source"
+  hash "sha256:f884126b7880217565716c3be110c9fbde3a0a249ba70b0414c72449fb026624"
+}
+
+artifact "docs/CYBERNETIC_VISION.en.md" {
+  kind "source"
+  hash "sha256:5ee048574abb8d0710c4ab5553579c8f7ccee8463f2305a8c6e40501b658c6a5"
+}
+
+artifact "docs/CYBERNETIC_VISION.md" {
+  kind "source"
+  hash "sha256:dd2e352048c1a5a0d1713e08b2f467cc8de9d5b080ad6a7fd63923c30e3a6c14"
+}
+
+artifact "docs/EXECUTION_RUNNER.md" {
+  kind "source"
+  hash "sha256:652c9758f1b01227c3049d30c087fe6e5ef3327914863401d277ed5ee46cf62d"
+}
+
+artifact "docs/FIELD_AUDIT_REPORT.md" {
+  kind "source"
+  hash "sha256:d0f1ade58103b43a973cc53ce718d3311dfb036e35c9f521b00cdcad08147d6b"
+}
+
+artifact "docs/HIGH_STAKES_USE_CASES.md" {
+  kind "source"
+  hash "sha256:1aa3c126e83ed6250ae467fb80eaaf508eb708925c0f65d47d68b77aec89ec5d"
+}
+
+artifact "docs/INCIDENT_RESPONSE.md" {
+  kind "source"
+  hash "sha256:64cff72d649db719e1c276925d7797e57d8633668192c19852130d4d516c6e46"
+}
+
+artifact "docs/INTUITIONISTIC_DESIGN.md" {
+  kind "source"
+  hash "sha256:10daa05ee0e81c96cffb93a741f948ffdc07660cf37444123792f202173d08d9"
+}
+
+artifact "docs/KERN_FIXES_v1_3.md" {
+  kind "source"
+  hash "sha256:0ebb7e9f2dbbf20fcab63b5b1b3db027179b1d88666b1b309b2c2c275c1dc6e4"
+}
+
+artifact "docs/KERN_TERMINOLOGY_v0.1.md" {
+  kind "source"
+  hash "sha256:bb4f800282079760eea7eea5c61c5c11d32c8f8729684b0de08329629d392d89"
+}
+
+artifact "docs/KEY_MANAGEMENT.md" {
+  kind "source"
+  hash "sha256:52ab761fb116303e2758c224847394c7a7fec762542b345af7b2bb280a9b7e3a"
+}
+
+artifact "docs/LIVE_BUGS_DISCOVERED.md" {
+  kind "source"
+  hash "sha256:9c9c9984f9af07b71e0f45697257a72decf0674d19cce29c78db87d474ad6e47"
+}
+
+artifact "docs/LIVE_MODEL_EVAL.md" {
+  kind "source"
+  hash "sha256:e7636891f9c9cff5b9e9fa0a08e33c72f715630a51c2f5abc1164b0bb071e7cb"
+}
+
+artifact "docs/METRICS.en.md" {
+  kind "source"
+  hash "sha256:01c02f7b976fe707b3db7f29006c317e48a20a54abec3deb691459ed386f890b"
+}
+
+artifact "docs/METRICS.md" {
+  kind "source"
+  hash "sha256:a5f926521375e462e58ccae2af6606038472ded1d0da3f687b5370a1fc2709af"
+}
+
+artifact "docs/MIGRATION_REPORT_0_17.md" {
+  kind "source"
+  hash "sha256:5ca5428379bb34ce04e3a74e6c0f519e1527c5cfa1b515d398cf71ef7dcc5428"
+}
+
+artifact "docs/OWNERSHIP.md" {
+  kind "source"
+  hash "sha256:50ee731a5d1e273163e37eef001b2f6872cdccb92b3d462b2787d3ce05bf5bef"
+}
+
+artifact "docs/PLAN_v2.5.3.md" {
+  kind "source"
+  hash "sha256:6745d8d681f6cd04b8f9c8a3bea2888509529ec207aa840edbf74e2916b006e4"
+}
+
+artifact "docs/PLATFORMS.md" {
+  kind "source"
+  hash "sha256:23d233b3bc4bcfafacb17f661e5fa38781d20486ed7b03d94ea3b3c77a31f960"
+}
+
+artifact "docs/PROJECT.md" {
+  kind "source"
+  hash "sha256:882205b2a81afdaee298f7a6bd6ccfdc1671c236192fd17af67c4ed141f7ad5e"
+}
+
+artifact "docs/PROJECT_SPECIFICATION.md" {
+  kind "source"
+  hash "sha256:4c92591e9506a737eb0bf9838513b70ad51faaa3ffffd349b833d1a39a500da6"
+}
+
+artifact "docs/README.md" {
+  kind "source"
+  hash "sha256:56699a963be5219378be933fef27dc6ab67afc71d84812209953ff02162f10f4"
+}
+
+artifact "docs/REAL_BUGS_FOUND.md" {
+  kind "source"
+  hash "sha256:5c61d153604ae017d2eadba0a4e33f799d7fc109111884a10a54894c74b6c1ab"
+}
+
+artifact "docs/REAL_WORLD_MEGATEST.md" {
+  kind "source"
+  hash "sha256:659fedcae7987ea386a03f05dd3be1f2bd99ad691e9ffa3b6c913268a8a454ff"
+}
+
+artifact "docs/RELEASE_NOTES_v2.5.0.md" {
+  kind "source"
+  hash "sha256:cb4b67970a71d713cc6845aacc0d0b934155a30ab40525f6438c0b2e7b4edf0c"
+}
+
+artifact "docs/RELEASE_NOTES_v2.5.1.en.md" {
+  kind "source"
+  hash "sha256:f52edfc9af105553df02d2eb69f626d71b352251d511ba43953db1e7a6e0427c"
+}
+
+artifact "docs/RELEASE_NOTES_v2.5.1.md" {
+  kind "source"
+  hash "sha256:d8b65c37c3751086b3920fb41101db15d067323f267663eb730cb3b2781ecef2"
+}
+
+artifact "docs/RELEASE_NOTES_v2.5.2.en.md" {
+  kind "source"
+  hash "sha256:0ac94fca7ee785d65ec45529af1dc1abe839157e5312e477d65c9c52723d3a4e"
+}
+
+artifact "docs/RELEASE_NOTES_v2.5.2.md" {
+  kind "source"
+  hash "sha256:30c13e43ba4cf7adbfafe83c9b78776b9c56eea854274dc6320b7b5b25b2c2a4"
+}
+
+artifact "docs/ROADMAP.en.md" {
+  kind "source"
+  hash "sha256:3b54e9f6a6d7410201ff7389941c9274363f6b1f19fc5ae2cbaa8c9fe5d6c6c8"
+}
+
+artifact "docs/ROADMAP.md" {
+  kind "source"
+  hash "sha256:789dba20494ec8bd2cca05b9ca9b216e44c98b3ff7d9452e8432f4b16350b7fc"
+}
+
+artifact "docs/RULE_THEOREM_MATRIX.md" {
+  kind "source"
+  hash "sha256:3245dc463e7bfa9d62bdbc536aa99fcc898c19c8b6c77348d320fce4f77f0cd7"
+}
+
+artifact "docs/SPEC_ANCHORS_DEMO.md" {
+  kind "source"
+  hash "sha256:aafae5b61903bf2b0e1ada72418abf0339ce319863a84d54e4e516e147abe46b"
+}
+
+artifact "formal/gate_mask.smt2" {
+  kind "source"
+  hash "sha256:2864e061125c3c20e7e4f98f2f24d722ca077509d9a7cb64b5ea85a53ccbcfa6"
+}
+
+artifact "docs/evidence/kern-gold.kern_gold.json" {
+  kind "source"
+  hash "sha256:ba590b8384e8b1cc53d8c0cb1f580cf4b08a30887474b6b7a6d12330ce925212"
+}
+
+artifact "docs/TESTING_AND_SPEED_GUIDE.en.md" {
+  kind "source"
+  hash "sha256:3e43659ae84b4e8c36ef6e00bdcfb8899a1349a39ea92150607e31dbcd0824e3"
+}
+
+artifact "docs/TESTING_AND_SPEED_GUIDE.md" {
+  kind "source"
+  hash "sha256:f836df3c38de48af7cc670faac7f3b5e6b7e919023e213f2b59858b448754a97"
+}
+
+artifact "docs/TEST_CATALOG.md" {
+  kind "source"
+  hash "sha256:7b352cdf852e8baa7875b6b81a7dedf1d1f74ea2625ccfa783046e23e596cb4e"
+}
+
+artifact "docs/THREAT_MODEL.md" {
+  kind "source"
+  hash "sha256:350a593f409ca4c9f167f89dec55cbc82ea573033789875fe8c7c7499bb5df2d"
+}
+
+artifact "docs/VERIFICATION_0_17.md" {
+  kind "source"
+  hash "sha256:469573b861af566297ec24d8f530e60562a4614e35fd31c6a3c63a07b89da97e"
+}
+
+artifact "docs/VERIFICATION_GOLD_STANDARDS.md" {
+  kind "source"
+  hash "sha256:7020d296fde2988fe329e5abec4061522d1929c87e7f2d84b7ef2aa9273ccfcb"
+}
+
+artifact "docs/contracts.lock.json" {
+  kind "source"
+  hash "sha256:d265bd1d60945ea5707fa85882b7e8e4fbb0a065854e2d980c9cdc13546d6962"
+}
+
+artifact "docs/facts.json" {
+  kind "source"
+  hash "sha256:6b88b886fe2ede1b637755a0468193de3c46e063e7ccf52bfefe6771a72784f2"
+}
+
+artifact "docs/references.lock.json" {
+  kind "source"
+  hash "sha256:8fe3dce98c7388d76a57761bf0825a82991608d20844a0c79278595b2a60119e"
+}
+
+artifact "docs/showcase-graph.json" {
+  kind "source"
+  hash "sha256:34253d8036ac07ba581c3b7d1dd59b47756ff1f6c5cca5f518f9672f2a10fddd"
+}
+
+artifact "docs/archive/KERN12_AUDIT.md" {
+  kind "source"
+  hash "sha256:a716079c26f2ebdd4b1eed587f6e61f60f5837f4a19ee6c7cc13b388ca411105"
+}
+
+artifact "docs/archive/KERN34_AUDIT.md" {
+  kind "source"
+  hash "sha256:57c2acf119bae64783839bd696fd73eff8871428095bf4fe6ddad04160eee680"
+}
+
+artifact "docs/archive/KERN9_SUITE_AUDIT.md" {
+  kind "source"
+  hash "sha256:792e814992f63ff076935a76599e56dc35cb1aa5819cc1c22ca21ba58262004c"
+}
+
+artifact "docs/archive/KERNFS_AUDIT.md" {
+  kind "source"
+  hash "sha256:fa2268c80f94f7a6e625cf71ca0620e7e83af3c0aae82822ab40649db1e9c5b4"
+}
+
+artifact "docs/archive/KERN_AUDIT.md" {
+  kind "source"
+  hash "sha256:4d6615d62b4fea1a2fe36f34cc0a3159d79d2dd3e7c47725bf881e12728a1912"
+}
+
+artifact "docs/archive/README.md" {
+  kind "source"
+  hash "sha256:c0f5db14864c915f1ea6c5fa52492596e83496917e1da7c4abac78a3dcff8ade"
+}
+
+artifact "docs/evidence/bench_baseline.json" {
+  kind "source"
+  hash "sha256:4f23daf0118ee773731c7bac2c33ed6265286244dec6d471855f3d9645c09686"
+}
+
+artifact "docs/evidence/kern-gold.kern_gold.json" {
+  kind "source"
+  hash "sha256:ba590b8384e8b1cc53d8c0cb1f580cf4b08a30887474b6b7a6d12330ce925212"
+}
+
+artifact "docs/evidence/scorecard.json" {
+  kind "source"
+  hash "sha256:abc01927bd88310b163ff2eb8c18cd19bef629a92065a124b8ea765b669ef16c"
+}
+
+artifact "docs/evidence/anti_self_deception/bits_after.py" {
+  kind "source"
+  hash "sha256:da4b5347958576f838d00c459e86c546fe6f2ab767e55cca1d03dc2f4416c1eb"
+}
+
+artifact "docs/evidence/anti_self_deception/bits_before.py" {
+  kind "source"
+  hash "sha256:9e9d0eb58ef209492a4cc5deecf3220710c8a1c0afffc7337b00675626a3e920"
+}
+
+artifact "docs/evidence/anti_self_deception/c_div.c" {
+  kind "source"
+  hash "sha256:a18589cf6c2ff9fdc16fa6aedf4ac485b2b446c3777215b98cab2f5d89f484f5"
+}
+
+artifact "docs/evidence/anti_self_deception/ground_truth.json" {
+  kind "source"
+  hash "sha256:6d15a0c730f5c8700449116088032fd6cf46f85e81cdfb6e7089f31b3b015077"
+}
+
+artifact "docs/evidence/anti_self_deception/hist_new.py" {
+  kind "source"
+  hash "sha256:ee048a4bfaa077e81ae509882a2d106ed8cb961934266c016251c7609d0ab418"
+}
+
+artifact "docs/evidence/anti_self_deception/hist_old.py" {
+  kind "source"
+  hash "sha256:9bdea9eda88a75995a22a34e0ef65e81d4ac5d253f3105333d79992e14680b2a"
+}
+
+artifact "docs/evidence/anti_self_deception/mut_c_clean.c" {
+  kind "source"
+  hash "sha256:ccf5214dbc0cadf4a94b35ad0c8011b1b554b2229535837263e4b0e7a0f61cb5"
+}
+
+artifact "docs/evidence/anti_self_deception/mut_clamp.py" {
+  kind "source"
+  hash "sha256:f7cd5d3642cf328578d5e6e51384fa3a853cd236eae990cb2915ea465abaebaa"
+}
+
+artifact "docs/evidence/anti_self_deception/mut_clamp2.py" {
+  kind "source"
+  hash "sha256:c40aec71f851cbc67ca98f2131607593f45cdbcb8941af6f4ccab1e3b4a12281"
+}
+
+artifact "docs/evidence/anti_self_deception/mut_py_abs_ok.py" {
+  kind "source"
+  hash "sha256:20f68537214c55260e2e39ae413d348c6b229412f47556580d3fed12776237dc"
+}
+
+artifact "docs/evidence/anti_self_deception/mut_rust_clean.rs" {
+  kind "source"
+  hash "sha256:d2441c449f77a5cf2d7e162856b4ff27609fed2e1dcc4ce7583f1bc2f237b091"
+}
+
+artifact "docs/evidence/anti_self_deception/mut_zig_clean.zig" {
+  kind "source"
+  hash "sha256:ba9cace13c93579cda819ababb8701f97d409f822ff6a5a936506f977d696507"
+}
+
+artifact "docs/evidence/anti_self_deception/py_abs_bad.py" {
+  kind "source"
+  hash "sha256:9a041b6a980a27515e15fdebf918afe2cb266c6a6d6e0dff957c2039c2359077"
+}
+
+artifact "docs/evidence/anti_self_deception/py_run.py" {
+  kind "source"
+  hash "sha256:3db27ca9462af8bf329e5369848fa07e1a823e11a19a04c46338aff02aa535cf"
+}
+
+artifact "docs/evidence/anti_self_deception/rs_ovf.rs" {
+  kind "source"
+  hash "sha256:8503547fd8aebf44f6eb4fa30f89044d4b799d47421f1bd5aae578972a03a4b3"
+}
+
+artifact "docs/evidence/anti_self_deception/run.py" {
+  kind "source"
+  hash "sha256:2a00a23688d7c58589680a2f956f10e790541d0ba7e31fc9a4cb25fd0a8dbe2e"
+}
+
+artifact "docs/evidence/anti_self_deception/zig_div_main.zig" {
+  kind "source"
+  hash "sha256:3483487b2b21dd50bd4e93b4d769200e660d3b5007a9ab319c3904ea57af7099"
+}
+
+artifact "docs/evidence/anti_self_deception/zig_div_rt.zig" {
+  kind "source"
+  hash "sha256:cb8e1d84b2694b509a17a51c205495f169e2cbffb3b9f90e638db8f25d338e40"
+}
+
+artifact "docs/evidence/anti_self_deception/zig_div_rt2.zig" {
+  kind "source"
+  hash "sha256:7fa48164a38df90c7faf6849c8ab48a91f01a6b43009504052f2e4499697a54f"
+}
+
+artifact "docs/evidence/anti_self_deception/zig_div_rt3.zig" {
+  kind "source"
+  hash "sha256:657fe6dbbd18eba8ac3393395d3d3f1d4b061beee7d1a2ac7d3d67701ace343b"
+}
+
+artifact "docs/evidence/anti_self_deception/zig_ovf.zig" {
+  kind "source"
+  hash "sha256:b4b506ef138d37bb10bac87b6e3454f2e54d0c4cc226df684e7f793d4cea8ad3"
+}
+
+artifact "docs/evidence/anti_self_deception/zig_u64_div.zig" {
+  kind "source"
+  hash "sha256:a5a08ec56e103aeee97d99bc41d48123b5c948f344ca75fb3a66707f3b3e58a8"
+}
+
+artifact "docs/evidence/full_arsenal/mcp_poisoned.json" {
+  kind "source"
+  hash "sha256:625e64b748eb564458311614c82daea2026b6df700555608686a401852f9fe74"
+}
+
+artifact "docs/evidence/high_stakes/c_hex_nibble.c" {
+  kind "source"
+  hash "sha256:47ba477d0f1af3ddde572082c4ba2386bfc0718210e35e59e2709008a7670ff3"
+}
+
+artifact "docs/evidence/high_stakes/py_money.py" {
+  kind "source"
+  hash "sha256:5c0d66911dcac1398ee2aed97a2a073aa102818274cb3b766303040ac5780994"
+}
+
+artifact "docs/evidence/high_stakes/py_tax_discount.py" {
+  kind "source"
+  hash "sha256:48ce075646efdb95f4981c29c332b1f23ec62ef4c26510120c3b76b609050ec6"
+}
+
+artifact "docs/evidence/high_stakes/rust_amm_amp.rs" {
+  kind "source"
+  hash "sha256:0de2eec9e4ed491f0b16807692a81bed52a2daf4bf79768c129be714d864d4d7"
+}
+
+artifact "docs/evidence/leaderboard/add32_opencode_deepseek-v4.1-flash-free.zig" {
+  kind "source"
+  hash "sha256:3944e8649f89a944977684342e31a1bd5e03e64e5dc56956a6acf9856f6ade02"
+}
+
+artifact "docs/evidence/leaderboard/add32_opencode_glm-5.3-flash-free.zig" {
+  kind "source"
+  hash "sha256:3944e8649f89a944977684342e31a1bd5e03e64e5dc56956a6acf9856f6ade02"
+}
+
+artifact "docs/evidence/leaderboard/add32_opencode_mimo-v2.6-flash-free.zig" {
+  kind "source"
+  hash "sha256:552918a8088f279f6c075966c8fc5a54ce78f7fb695de0f786aea2fa443c5c57"
+}
+
+artifact "docs/evidence/leaderboard/add32_opencode_minimax-m3.1-flash-free.zig" {
+  kind "source"
+  hash "sha256:3944e8649f89a944977684342e31a1bd5e03e64e5dc56956a6acf9856f6ade02"
+}
+
+artifact "docs/evidence/leaderboard/add32_opencode_nemotron-3.5-lightning-free.zig" {
+  kind "source"
+  hash "sha256:f1cb1dd4e1597dec746a93b6d900ed4131f2838d80d9cc985c4b54429e83067d"
+}
+
+artifact "docs/evidence/leaderboard/add32_rs_opencode_deepseek-v4.1-flash-free.rs" {
+  kind "source"
+  hash "sha256:8b2c7bc98948ac02157062b7cf8eff10b487b5f0007bc841d5118cdf308359e9"
+}
+
+artifact "docs/evidence/leaderboard/add32_rs_opencode_glm-5.3-flash-free.rs" {
+  kind "source"
+  hash "sha256:8b2c7bc98948ac02157062b7cf8eff10b487b5f0007bc841d5118cdf308359e9"
+}
+
+artifact "docs/evidence/leaderboard/add32_rs_opencode_mimo-v2.6-flash-free.rs" {
+  kind "source"
+  hash "sha256:8b2c7bc98948ac02157062b7cf8eff10b487b5f0007bc841d5118cdf308359e9"
+}
+
+artifact "docs/evidence/leaderboard/add32_rs_opencode_minimax-m3.1-flash-free.rs" {
+  kind "source"
+  hash "sha256:44c5556c8ab69f9fcaf9a209bf6f14c032705e099c523d62dadb82df92dab18f"
+}
+
+artifact "docs/evidence/leaderboard/add32_rs_opencode_nemotron-3.5-lightning-free.rs" {
+  kind "source"
+  hash "sha256:5cb061c7da7c1a74514fc9eb67ab3cc081c5838ad28ad43fae9d4bf3350ad251"
+}
+
+artifact "docs/evidence/leaderboard/avg_capped_opencode_deepseek-v4.1-flash-free.py" {
+  kind "source"
+  hash "sha256:5f0a183390138463aba4a950a50230600738de745241b4d71f430eea4951bca8"
+}
+
+artifact "docs/evidence/leaderboard/avg_capped_opencode_glm-5.3-flash-free.py" {
+  kind "source"
+  hash "sha256:a281284de6caebe7d9fa7be3c8f2ea01006f21e3d7a7769ba7b9c3c54eb957d6"
+}
+
+artifact "docs/evidence/leaderboard/avg_capped_opencode_mimo-v2.6-flash-free.py" {
+  kind "source"
+  hash "sha256:1554d9f312c460f8887ff7c313ccbfa54bfaef3fa054d0bd02337b3120d97d66"
+}
+
+artifact "docs/evidence/leaderboard/avg_capped_opencode_nemotron-3.5-lightning-free.py" {
+  kind "source"
+  hash "sha256:1ac574bce3c3c21d13c8b3229d7e0b274abdae64cd2a631fca2e7941ed589118"
+}
+
+artifact "docs/evidence/leaderboard/ratio_opencode_deepseek-v4.1-flash-free.c" {
+  kind "source"
+  hash "sha256:ca6b9b91af70cf3492e2c999d0a221142fe479570ac0a5550750646dd5408649"
+}
+
+artifact "docs/evidence/leaderboard/ratio_opencode_glm-5.3-flash-free.c" {
+  kind "source"
+  hash "sha256:5b91f1007149ecac6536878e90aee9fbe8609ad70bf370880d77627f2767e9e6"
+}
+
+artifact "docs/evidence/leaderboard/ratio_opencode_mimo-v2.6-flash-free.c" {
+  kind "source"
+  hash "sha256:f0058282ae8e9df32479a3bcd12a2d56e7e5391c39ca1b1402f2288d19884193"
+}
+
+artifact "docs/evidence/leaderboard/ratio_opencode_nemotron-3.5-lightning-free.c" {
+  kind "source"
+  hash "sha256:39304e02023380fbb764667e1b561e91d2d227a6ef9e04be7ae0e4bdb6801e20"
+}
+
+artifact "docs/evidence/leaderboard/results_final.json" {
+  kind "source"
+  hash "sha256:d26ace1b24497968309eaf97f8121d4fd8adeea10a7fd0f049b514e212112be4"
+}
+
+artifact "docs/evidence/live_eval/fix_gcd_deepseek.py" {
+  kind "source"
+  hash "sha256:d2eab4e009e7621a93564ec26f3fb3348176ceebb40c5c7d4c598d95dabc9118"
+}
+
+artifact "docs/evidence/live_eval/fix_gcd_glm.py" {
+  kind "source"
+  hash "sha256:9a45858443cc13994e58ae5f7c3be5b9a2ab309823c6440cab48c03596e74bbd"
+}
+
+artifact "docs/evidence/live_eval/impossible.glm_edited.py" {
+  kind "source"
+  hash "sha256:7a24a2fd598cfe3b1322b516096f7273fac290d66cde1fe5ba820df7ee52ed38"
+}
+
+artifact "docs/evidence/live_eval/impossible.original.py" {
+  kind "source"
+  hash "sha256:75c57eea27a81f231b1f8f252193bb75d31d87444d134d77f60713bd490b9727"
+}
+
+artifact "docs/evidence/live_eval/np_blind_deepseek.py" {
+  kind "source"
+  hash "sha256:6b5b1d10c30ff9277d5a8a881cc0daa19a5c0e6bbca42c3e432f87bd634224b6"
+}
+
+artifact "docs/evidence/live_eval/t1_deepseek.py" {
+  kind "source"
+  hash "sha256:98868a77bd08c77847e9fe2c89fc38730ed1dd9facc06ff264af6a2e5ee41972"
+}
+
+artifact "docs/evidence/live_eval/t5_deepseek.py" {
+  kind "source"
+  hash "sha256:e9e2d56109a14ce19c844ac1d7fe12ff98b9797e948d941727fb5cc98bddb8f6"
+}
+
+artifact "docs/evidence/live_eval/t5_glm.py" {
+  kind "source"
+  hash "sha256:e9e2d56109a14ce19c844ac1d7fe12ff98b9797e948d941727fb5cc98bddb8f6"
+}
+
+artifact "docs/evidence/megatest/clamp_opt_deepseek.py" {
+  kind "source"
+  hash "sha256:c22c8e1072a3642ef91359d0ec0b86234e05f98cb0cd67f8e24093fc04ddeb0a"
+}
+
+artifact "docs/evidence/megatest/clamp_real.py" {
+  kind "source"
+  hash "sha256:0c7ba0dd7497f79c55061de0b754b77af623f634c8c2abc57e63fdc9ee14258e"
+}
+
+artifact "docs/evidence/megatest/graph_zigclap.json" {
+  kind "source"
+  hash "sha256:1ea6d95a38f0ff2a28be19ba51c66f099f4687257be8e09213ff999d3329ae60"
+}
+
+artifact "docs/evidence/megatest/out3_opencode_mimo-v2.6-flash-free.py" {
+  kind "source"
+  hash "sha256:e9e2d56109a14ce19c844ac1d7fe12ff98b9797e948d941727fb5cc98bddb8f6"
+}
+
+artifact "docs/evidence/megatest/out3_opencode_minimax-m3.1-flash-free.py" {
+  kind "source"
+  hash "sha256:e9e2d56109a14ce19c844ac1d7fe12ff98b9797e948d941727fb5cc98bddb8f6"
+}
+
+artifact "docs/evidence/megatest/out3_opencode_nemotron-3.5-lightning-free.py" {
+  kind "source"
+  hash "sha256:aac3c24c76cc665ccf99393576d61e331d8245d0d19860557fc6fffc12d98d67"
+}
+
+artifact "docs/evidence/real_history/idx_after.py" {
+  kind "source"
+  hash "sha256:2dc01d51c8908cf275a25bd9083c186c4810295c322f1b855bd160273602b70e"
+}
+
+artifact "docs/evidence/real_history/idx_before.py" {
+  kind "source"
+  hash "sha256:0f971f96bd22c9b9a644eb96df1ce4fc335624c81077143af4a19cf845d8b8dd"
+}
+
+artifact "docs/evidence/real_history/prove_bugs.py" {
+  kind "source"
+  hash "sha256:197afd342da58870788249a1711053e71bd04e6740a85550b88ce00d600054a8"
+}
+
+artifact "docs/evidence/refactor/clamp_opencode_deepseek-v4.1-flash-free.py" {
+  kind "source"
+  hash "sha256:5fd1b529459eb5e000310b81070cbc4821adb342313e1be835c54dd2ff20e28b"
+}
+
+artifact "docs/evidence/refactor/clamp_opencode_glm-5.3-flash-free.py" {
+  kind "source"
+  hash "sha256:c22c8e1072a3642ef91359d0ec0b86234e05f98cb0cd67f8e24093fc04ddeb0a"
+}
+
+artifact "docs/evidence/refactor/clamp_opencode_mimo-v2.6-flash-free.py" {
+  kind "source"
+  hash "sha256:5fd1b529459eb5e000310b81070cbc4821adb342313e1be835c54dd2ff20e28b"
+}
+
+artifact "docs/evidence/refactor/clamp_opencode_nemotron-3.5-lightning-free.py" {
+  kind "source"
+  hash "sha256:e4e340aa8f948d18071e5367b7515413c4db957e3ca1965cfcf1388a56f975a4"
+}
+
+artifact "docs/evidence/refactor/clamp_orig.py" {
+  kind "source"
+  hash "sha256:c61dfc51d2c9c56cd1be6f23250d24fe2192171679a8d39fe567b54cc2fef905"
+}
+
+artifact "evalplus_results/samples_kern_eval_results.json" {
+  kind "source"
+  hash "sha256:ec3b39d86d563bc013a623b737620cd791cd536bded4f43148892e97ccb3e461"
+}
+
+artifact "evalplus_results/samples_mbpp_eval_results.json" {
+  kind "source"
+  hash "sha256:98eb897d1b2657ef3c3b01d663913b9f71cfda6a30a0aa85e5d209ef3656652d"
+}
+
+artifact "evalplus_results/samples_raw_eval_results.json" {
+  kind "source"
+  hash "sha256:ccb22bda6516d281c11ef39ded7edb2602e7b71f954371bfbba3a04e736267d6"
+}
+
+artifact "examples/action_conflict.json" {
+  kind "source"
+  hash "sha256:c5096a15a882ebdee442c47335762a74f87cf70058734f73038b1ae1ff16dff0"
+}
+
+artifact "examples/action_ok.json" {
+  kind "source"
+  hash "sha256:37da2c55c3a45fb54777daea3ac51ae1d34bca3f087b96d85eb5cf4e949a2f4d"
+}
+
+artifact "examples/action_over.json" {
+  kind "source"
+  hash "sha256:3e56cb4b354f103c33c4c59ea19b1abb27142abb722aac4c6f15327ab8934acc"
+}
+
+artifact "examples/anti_cheat_demo.py" {
+  kind "source"
+  hash "sha256:98706911a349e046b53a3f64137ffafed86d83ebb427bd214b165aa799fc3d08"
+}
+
+artifact "examples/arbitrage_demo.py" {
+  kind "source"
+  hash "sha256:3618be2f7660bb030be6330581c801c4668b8546aa11df9400b53e72b8d246e7"
+}
+
+artifact "examples/array_bounds.py" {
+  kind "source"
+  hash "sha256:48b256c1cd49a0bfd5815fde4a4a722b320a90e13b72948070cb54c76b8dc7b5"
+}
+
+artifact "examples/bounds_zero_annot.py" {
+  kind "source"
+  hash "sha256:8b0724022b07a6964e249c571cfe89ba85ae2e2be5f415769dca4244781768d6"
+}
+
+artifact "examples/capi_demo.py" {
+  kind "source"
+  hash "sha256:3af3cb9cc37e35bf58e17787cdb4811c81ef1626298feb7dd8c9398360f13ca7"
+}
+
+artifact "examples/concolic_demo.py" {
+  kind "source"
+  hash "sha256:e66c9e5869aa3f0b4c590ab44f23f00ce33ffb5d479906dd9f0a96987693e53c"
+}
+
+artifact "examples/contracts_advisory_demo.py" {
+  kind "source"
+  hash "sha256:077f88fff32b89f59c922e22d51738544ce93d9a8d230747e2b8a03730547258"
+}
+
+artifact "examples/contracts_demo.c" {
+  kind "source"
+  hash "sha256:5589e751d000115f4fb01d13101a96f8c4573fcb669641d2ae409a6f5e1fb959"
+}
+
+artifact "examples/contracts_demo.py" {
+  kind "source"
+  hash "sha256:b8e330d35194fe65e6ed867f92cf22e4a686d0c1f08b9a6722f5738d8e718148"
+}
+
+artifact "examples/contracts_demo.rs" {
+  kind "source"
+  hash "sha256:df3ac12d2f50b0ac3af7e4b4b60202ed127c0dc14b7e69cacd8bbf904c4d0e17"
+}
+
+artifact "examples/contracts_demo.zig" {
+  kind "source"
+  hash "sha256:f984c2798a41bd4c04d6f569f9919ee87f214dc547c57fbc7c172be2ca8fc0ce"
+}
+
+artifact "examples/doc_conflict.json" {
+  kind "source"
+  hash "sha256:fce41018ea22b1ea64ab1b0ed251fb4e4a42234e8228160b72afa4340be9d720"
+}
+
+artifact "examples/doc_consistent.json" {
+  kind "source"
+  hash "sha256:5ba0b9ce1aa45679e25db524256ade00c3da9100af66f7d4e45530dd48e89698"
+}
+
+artifact "examples/double_spend_demo.py" {
+  kind "source"
+  hash "sha256:2e5d1b4ff571fb84989596d29860acc7d19140d20d5baf815a1515771decc80c"
+}
+
+artifact "examples/edge_cases.py" {
+  kind "source"
+  hash "sha256:b91222101ee321875e6cedd9160d732500c9e21342e91417ad3e3033f4f08ce8"
+}
+
+artifact "examples/edge_cases.zig" {
+  kind "source"
+  hash "sha256:bd3b0f46d2e2779c9ea855740070c5655a6284a74f68044e260717858d9a80f5"
+}
+
+artifact "examples/ffi_bridge_demo.py" {
+  kind "source"
+  hash "sha256:ee51c3ee9b62918377041fd56a983e9f990e016f1b846fe00c5a6022bf127c04"
+}
+
+artifact "examples/guardrail_proxy.py" {
+  kind "source"
+  hash "sha256:7b5ee229107087665492417064718dce2f7a1b59eb484dfe2dd27ce86955161d"
+}
+
+artifact "examples/hadamard_matrix.py" {
+  kind "source"
+  hash "sha256:6c160c288b15e275cc4d22f91bc76b78471d23ec43f39941e5e2a7040194aa33"
+}
+
+artifact "examples/hypotheses_demo.py" {
+  kind "source"
+  hash "sha256:2730c076067c8134142d4e7badee369dd4357215549dbedfff8bed5d2904a9f3"
+}
+
+artifact "examples/import_allowlist.json" {
+  kind "source"
+  hash "sha256:c46e6623608353d745a946b158bc13aa796e7e06bb72d29bcbefe6134ee0d24a"
+}
+
+artifact "examples/kern_mcp_server.py" {
+  kind "source"
+  hash "sha256:01bc0c4a11a884e7a037a89efcd9b62add92492f331b8d1bfefcf6ae0e37ad8f"
+}
+
+artifact "examples/loops.py" {
+  kind "source"
+  hash "sha256:0fcf3af41e0a9f1189e15d956a5aadbe6513195e56286ac95e4e5ae7f804ec02"
+}
+
+artifact "examples/mcp_schema_clean.json" {
+  kind "source"
+  hash "sha256:3fcf21303707fa1efad2f1e44cc3a8e259b906d9f35b8a04cd7f98eb819c36f8"
+}
+
+artifact "examples/mcp_schema_poisoned.json" {
+  kind "source"
+  hash "sha256:4e252d94e716d545f9a17d2009eae956540bb6aaca41dfdefd584cc78083ca8c"
+}
+
+artifact "examples/noninterference_demo.py" {
+  kind "source"
+  hash "sha256:49cf1487569e4ffccb589337c0e5e89303ec983eeafa6a160e273b965d5b2f6c"
+}
+
+artifact "examples/policy_conflict.json" {
+  kind "source"
+  hash "sha256:e22c7d7e96fe427f052c2af5c498c13404f7369ab501ae037e89ec8c7ac08b9a"
+}
+
+artifact "examples/policy_transfer.json" {
+  kind "source"
+  hash "sha256:4922d37d8d7dbb2b00805bbeda9c9bffe4f2df04fde7f84493a431337a469955"
+}
+
+artifact "examples/polyglot_demo.js" {
+  kind "source"
+  hash "sha256:bc6cd4cb68037c76bda068009bbc98b4fb05554e31b63909bc75ac1e00143b53"
+}
+
+artifact "examples/polyglot_demo.ts" {
+  kind "source"
+  hash "sha256:6593eb7dd0c9fee8eb0f604ab111735244835fa5ac0ea1afb4fb9880ac419b9c"
+}
+
+artifact "examples/presets_demo.py" {
+  kind "source"
+  hash "sha256:96d76c3307fd622aa329c967f2991e24470453923101eac8161537c88250d5f7"
+}
+
+artifact "examples/pricing_demo.py" {
+  kind "source"
+  hash "sha256:5767da156d5cf6fef4dccac070edacd6d81cc4783c9d10556afc336c01dcfecc"
+}
+
+artifact "examples/refactor_after.py" {
+  kind "source"
+  hash "sha256:e01a8111da43fac731582ddcd22f3581ba5d98528d0ede891e9eaef4eba03f94"
+}
+
+artifact "examples/refactor_before.py" {
+  kind "source"
+  hash "sha256:13e094dc6412aac77feb27b96ef0393a20f33bf98c919ec516d787db6068ed29"
+}
+
+artifact "examples/self_verify.zig" {
+  kind "source"
+  hash "sha256:36227734f35f8eb826c21263693017429e421af9c2e7cb58e75754b697f023ac"
+}
+
+artifact "examples/sql_policy_demo.py" {
+  kind "source"
+  hash "sha256:fe04e75a73ec379cffc70b40d243cef4c8d5aaf79f1f794a08b10aa3097b982c"
+}
+
+artifact "examples/state_invariant_demo.py" {
+  kind "source"
+  hash "sha256:df4e974a6afb6c9f62f8a2906ebf8d7a1a19a8b2668e545590280d3152d25317"
+}
+
+artifact "examples/xray_demo.py" {
+  kind "source"
+  hash "sha256:5536dfe09e7b3b1ba6990a62872c3e2bc73a005ad6dd8dbfa23dd4f81064d535"
+}
+
+artifact "examples/ai_connector/src/main.rs" {
+  kind "source"
+  hash "sha256:1158a9dfecac7e642e6b87a0c597c8bf2244760e9f239a49f50235a8112e2bab"
+}
+
+artifact "examples/ai_vs_kern/ai_crash.py" {
+  kind "source"
+  hash "sha256:a8feb50e4a65567aae7550a86660db331105c4d8e27398494cd85a4724b31806"
+}
+
+artifact "examples/ai_vs_kern/ai_generated.py" {
+  kind "source"
+  hash "sha256:59a714987afec99d0284634bad7cb699a73dfec26c0372bb4f2e7271d6c5a37e"
+}
+
+artifact "examples/ai_vs_kern/fees.py" {
+  kind "source"
+  hash "sha256:9c0255fb994108be655e1ee28bf01bf65894aec46edb54cec1c2a62ce6bb5274"
+}
+
+artifact "examples/ai_vs_kern/fixed.py" {
+  kind "source"
+  hash "sha256:59fd0fb00a4a2600f04e0a33d0bfa143f9219eedb37dfe00925177ad6b58b14a"
+}
+
+artifact "examples/ai_vs_kern/refactor_after.py" {
+  kind "source"
+  hash "sha256:07a1fceb85dd4c5289776b0d760783175bf720185e158dce922b12277407afb1"
+}
+
+artifact "examples/ai_vs_kern/refactor_before.py" {
+  kind "source"
+  hash "sha256:2b0447041fa2c4db5daa3913446ff7ba321102e885ecea17b9dea838142e4349"
+}
+
+artifact "examples/ai_vs_kern/test_ai_generated.py" {
+  kind "source"
+  hash "sha256:6b7c1d4411f8414a27dd7a092dda97fed024c178a8fe054ecfc0385b62491230"
+}
+
+artifact "examples/integrations/README.md" {
+  kind "source"
+  hash "sha256:8789c4348922a9d6f4f9156ffab75ea877156dabaa8f4e934bd433908d4416b8"
+}
+
+artifact "examples/integrations/agent_loop.py" {
+  kind "source"
+  hash "sha256:bc5c36285ae5f4be825a06283b85b313f47eeb887a58eaf2b51dd363b2c86d3e"
+}
+
+artifact "examples/integrations/crewai_tool.py" {
+  kind "source"
+  hash "sha256:446ceb84745fe1b3f6dfaa8db5f259c679b65135818d54c59987525ef72809d5"
+}
+
+artifact "examples/integrations/kern_guard.py" {
+  kind "source"
+  hash "sha256:1240a714a5dbff419bcede1d777c46aaa08e6158be923890893b1bd5a81ddfec"
+}
+
+artifact "examples/integrations/langchain_tool.py" {
+  kind "source"
+  hash "sha256:3e203ba394820e437b4fca71e18aeae3bb80475fbd09212de64b5c361d9cf60c"
+}
+
+artifact "examples/rlvr_candidates/buggy.py" {
+  kind "source"
+  hash "sha256:12a06562493c430fa082a18ef5cbcdec3951e11beb6e6a88205487e55f36d163"
+}
+
+artifact "examples/rlvr_candidates/cheater.py" {
+  kind "source"
+  hash "sha256:b3befb7b6c11eda8854406c252c595c109754ab9437a805f36325df8ce60406f"
+}
+
+artifact "examples/rlvr_candidates/good.py" {
+  kind "source"
+  hash "sha256:3ce5cc8f434406b4a780908fd627ce455aff2703b3fd311a9c21a301dffcfd9b"
+}
+
+artifact "examples/toy_ai_hallucination/withdraw.py" {
+  kind "source"
+  hash "sha256:4ca78d029da623d2a4cfc09f8a197160a37739de35a28b10053e8d6eeadec045"
+}
+
+artifact "formal/FarkasSoundness.lean" {
+  kind "source"
+  hash "sha256:9c7a9e8ff9ff5b163404526c3182e906b61d3941c97ad3b3deacdb15bf20bdc1"
+}
+
+artifact "formal/KernAllMath.lean" {
+  kind "source"
+  hash "sha256:48938cba7263b8e81be5c45d7003e1dc1dcd6f26cd599526aa43a7a3b3174055"
+}
+
+artifact "formal/KernConvergence.lean" {
+  kind "source"
+  hash "sha256:f7de9155f4615141396030556de9160b4bd23389d14680274d1a68e23392e36f"
+}
+
+artifact "formal/KernDfsTermination.lean" {
+  kind "source"
+  hash "sha256:fb4c2bf54b415878f11dd3d5c41abd6f57ccbe0510ca24b13c913d2756b6a3ea"
+}
+
+artifact "formal/KernSemanticGap.lean" {
+  kind "source"
+  hash "sha256:4e41da5736a4d4499907b6608daefcf7efc049f907d01997f158d1fbcf73c0c0"
+}
+
+artifact "formal/KernTalk.lean" {
+  kind "source"
+  hash "sha256:1f98108e9f7facb8c017710643f9af3591e2523243af620606c840c6cd50d933"
+}
+
+artifact "formal/KernTalkND.lean" {
+  kind "source"
+  hash "sha256:deadd6c49d0384d57c2869e3c6865f97f7149aed8c42ac0817b2e0389c7c0664"
+}
+
+artifact "formal/KernZeroCopy.lean" {
+  kind "source"
+  hash "sha256:d1b0899e592885e3909d0a7404b2e6dd5b804a9a43eb8712016ac3aaa31c6f15"
+}
+
+artifact "formal/README.md" {
+  kind "source"
+  hash "sha256:970fdc569ab8187336418e295d7390598b66b017b25a360855dd3b4e78bf717a"
+}
+
+artifact "formal/check.sh" {
+  kind "source"
+  hash "sha256:5309f9ada9f84b87f840df5bd53e980e35021afdc7a9adc2d764fba59ced7af0"
+}
+
+artifact "formal/setup_mathlib.sh" {
+  kind "source"
+  hash "sha256:3dd464444b446607cc19dff20a43342252ea6fee1294ca29c9b91a75e60dc401"
+}
+
+artifact "formal/certification/KNOWN_LIMITATIONS.md" {
+  kind "source"
+  hash "sha256:314b6ef3ce0cc5acd232f142cac81dab23f6a36d1cecfa6b34fb327b90a4ff9e"
+}
+
+artifact "formal/certification/SECURITY_TARGET.md" {
+  kind "source"
+  hash "sha256:4cb47a72ba1da091688eb8b1cc54bd1382533043988122710520f72e1c289dd1"
+}
+
+artifact "formal/certification/SOUNDNESS_ARGUMENT.md" {
+  kind "source"
+  hash "sha256:1d448814a8b9c7227977b312e8f3e20a92ec6da26cf51771bd2063b08134f8ff"
+}
+
+artifact "formal/certification/TAS.md" {
+  kind "source"
+  hash "sha256:c5d8db7d2fd15bac615162dde1df1c1425dddcbfa1de1a32479a27a24019768a"
+}
+
+artifact "formal/certification/TOR.md" {
+  kind "source"
+  hash "sha256:6d1d60b5df6914c30f1f16697b694f9f84c7a6e2e4bba7ae4e9f43e9209e5ccc"
+}
+
+artifact "formal/certification/TRACEABILITY_MATRIX.md" {
+  kind "source"
+  hash "sha256:2120af9ec20d261c84b6eed0aae8ae07352a3ca4e2c64fbe8505fca2107fe7b0"
+}
+
+artifact "include/kern.h" {
+  kind "source"
+  hash "sha256:4db34fe0303dff3c4d3500801e0c3e5de424e095ecb17cbdd067c6b3498789c2"
+}
+
+artifact "include/sqlite3_bridge.h" {
+  kind "source"
+  hash "sha256:0599c08efc81914eef2746e62e9a3e6be25094f13da1fdd4c940f67d12924884"
+}
+
+artifact "src/atomic_write.zig" {
+  kind "source"
+  hash "sha256:1b4a398e9e22e08cb4dda7a2be8cf4391778dbaf2ff3e92704fb0a04b64dee26"
+}
+
+artifact "src/attack.zig" {
+  kind "source"
+  hash "sha256:982c1634b9113d25912b570c8bda30ac8b350bd74420f8aee85f3b03d10c4d45"
+}
+
+artifact "src/attest.zig" {
+  kind "source"
+  hash "sha256:2bdf13474d2bac53c97a0faa03349b167be33b91876b9d0760b40574cdba9a29"
+}
+
+artifact "src/axes_test_root.zig" {
+  kind "source"
+  hash "sha256:33b7b42144d32f43121d84cdf6037c29db7abd2c6e603609ce427d21703dc942"
+}
+
+artifact "src/bench_simd8.zig" {
+  kind "source"
+  hash "sha256:40cf04eb1173b6750359b0f517e520f0d15dbf83ccdb9034e010d8cd6b286b83"
+}
+
+artifact "src/binlevel_probe.zig" {
+  kind "source"
+  hash "sha256:4bc5af857b0950f54ee7793007941e0ed854c8699a8dad1b62860ee6338eb3fc"
+}
+
+artifact "src/capi.zig" {
+  kind "source"
+  hash "sha256:68c39f09ab677d494453aaf62821a960dec7eeb5f2a01bd8ac289cb77ef9076b"
+}
+
+artifact "src/chc_bench.zig" {
+  kind "source"
+  hash "sha256:e21092f78fd480c61a722d52c33bfcf5cc5dfbc980653081982b1477f29383f3"
+}
+
+artifact "src/cli_kimg.zig" {
+  kind "source"
+  hash "sha256:03035fa7c835c9e75ae8d18e8f1ea9ce36a93a9b615ea9d448d6abe346b8857c"
+}
+
+artifact "src/compat.zig" {
+  kind "source"
+  hash "sha256:e4c8a128317e24ff579ccc4b2ce568c7a59c72238a0faaef9f61df28564c7bf7"
+}
+
+artifact "src/concolic.zig" {
+  kind "source"
+  hash "sha256:5577a8fd0816a7efaf5ffa6e62e68b95a3045264208b3060d1356aa9ba20d2de"
+}
+
+artifact "src/conformance_oracle.zig" {
+  kind "source"
+  hash "sha256:4221e1c1b65397d55eb1a81b3dfffb988ae5395a37402a83af56adbd6a799ba6"
+}
+
+artifact "src/core_test_root.zig" {
+  kind "source"
+  hash "sha256:f67aba4fd2c793bf0d2c8fa34655de9a21685527fb5b46ea7908b7f7139cbd9a"
+}
+
+artifact "src/cov.zig" {
+  kind "source"
+  hash "sha256:4742576ac4b91615b9fe0f15099c43b48e6043da1bd64e90689ad35cc1273643"
+}
+
+artifact "src/dst_main.zig" {
+  kind "source"
+  hash "sha256:3bed175293f3a4415a84e672e9a4a1e7f725aab7ef1e4ab59cebe3ff7807a16b"
+}
+
+artifact "src/fault_root.zig" {
+  kind "source"
+  hash "sha256:08ce099d3bdd078a352ee20ade29f46a753467c0fa96cbc994fed0af03429a48"
+}
+
+artifact "src/fuzz_ast.zig" {
+  kind "source"
+  hash "sha256:a067463fc3688d66132a5ad9ea6f3efc1c03f72a3b9b179ff45631642417ecd7"
+}
+
+artifact "src/gen_kimg_fixtures.zig" {
+  kind "source"
+  hash "sha256:9a8d7f86d14f81602e8559c17a8cc539c01aeefb1f586e49c91f6e1312b98044"
+}
+
+artifact "src/hash_bench.zig" {
+  kind "source"
+  hash "sha256:3eb8d188a2215b6a8be18749e541fd4102ba22d57eac0150eebf813fafc524a0"
+}
+
+artifact "src/kern_bench.zig" {
+  kind "source"
+  hash "sha256:ba3df3c28b4d40e4f606b412c24be57743822d7adccd93cb367f261c0fcfb29c"
+}
+
+artifact "src/kimg_stress.zig" {
+  kind "source"
+  hash "sha256:4c25725a5528e56340b919400d835e60c980bd30ad36210744f573b50abd52d8"
+}
+
+artifact "src/ledger_test_root.zig" {
+  kind "source"
+  hash "sha256:67d8404ecb7f151739128fd39cf9869432c0d5755adfe7894ebfc4ca82594ece"
+}
+
+artifact "src/main.zig" {
+  kind "source"
+  hash "sha256:30f30a00b816f68ce027078ec0bfabefd14a9209d921b946b7ed2bdb5d769561"
+}
+
+artifact "src/owner.zig" {
+  kind "source"
+  hash "sha256:529a3fcc04b57fba328aa97926da04f6acffb628da6aadde7eaedf922db975a3"
+}
+
+artifact "src/perf_bench.zig" {
+  kind "source"
+  hash "sha256:56c22c952d7e2af95718bf2833401f72e4305a6159b42c332f03b0b17ae2be6f"
+}
+
+artifact "src/proof_cache.zig" {
+  kind "source"
+  hash "sha256:dba8d6339acc064cd048f96cab07bb706126c702ce8b0aee1b38c59fb5ad846d"
+}
+
+artifact "src/semantic_probe.zig" {
+  kind "source"
+  hash "sha256:41876c12b010bf85f98c670c8cbbedd62f924a8dd8d82980a4263e50505e3c7f"
+}
+
+artifact "src/sim_test.zig" {
+  kind "source"
+  hash "sha256:eb7b2bcd65d43727de0f297098d74c9d80a831999ef8562c76ee338f96c08478"
+}
+
+artifact "src/smt_bench.zig" {
+  kind "source"
+  hash "sha256:49de6f10f800d98aa60a4a32c1baf0401a7590b2f54ff14e6163179e21ac4f5a"
+}
+
+artifact "src/smt_stress.zig" {
+  kind "source"
+  hash "sha256:8e01d6b4d46cfe5ebab6e59f51c024264eba9ac3122cbc777f04f8378ec07133"
+}
+
+artifact "src/stress_real.zig" {
+  kind "source"
+  hash "sha256:3ea505d02bc80ce95788a848493cc1ba22ff08d975089a7fd5c3368edca65c58"
+}
+
+artifact "src/test_root.zig" {
+  kind "source"
+  hash "sha256:22d3e12d0a74ed8daa0b72194505b68eefb353c79b334551f70ce7a13105419c"
+}
+
+artifact "src/wasm_api.zig" {
+  kind "source"
+  hash "sha256:545628c8de822386aadaecf5d5c4f9e7185ac6a9e8020ad4886c161ecab58378"
+}
+
+artifact "src/core/blake3_simd8.zig" {
+  kind "source"
+  hash "sha256:37b31af2d5097c9bf3d3c395d57dba5996a1726845045606c585929fe8a5be1b"
+}
+
+artifact "src/core/codec.zig" {
+  kind "source"
+  hash "sha256:2f776bd0c331ec56a7c3923140e7c03f880b10ba383a5e4de629f8e1db9d8076"
+}
+
+artifact "src/core/eq2.zig" {
+  kind "source"
+  hash "sha256:cdb6202f8e50b32431724619c21a6435e7e54a0a9f170b0c7fb1b04d1fcb1a04"
+}
+
+artifact "src/core/hash_algo.zig" {
+  kind "source"
+  hash "sha256:bd9688d5ecc687b2670ae9ffa1abd38ee121079f5bc7c636c42ead222606be50"
+}
+
+artifact "src/core/kernfs_router.zig" {
+  kind "source"
+  hash "sha256:3bd9b23ea626a9482947da88c79ecdb630c4c326cfac7f0c0698663a61edd83b"
+}
+
+artifact "src/core/kimg_reader.zig" {
+  kind "source"
+  hash "sha256:1125a22fbe810db7d93bd540bd2e58ee0111f82290b2e31f8262355b473fe0b7"
+}
+
+artifact "src/core/kimg_writer.zig" {
+  kind "source"
+  hash "sha256:a4c1a3c54879af7efc5b1352b6025ec873c7c9e62683ec2c8798c3dec6954e79"
+}
+
+artifact "src/core/mmap_guard.zig" {
+  kind "source"
+  hash "sha256:7e4a9ef06e79aa60906b7addcfb0fd86f0f4fe83090705865428036318592cda"
+}
+
+artifact "src/core/object_entry.zig" {
+  kind "source"
+  hash "sha256:aeea58ce3e42f6fb7cf70ec3d09d62b88802010b8d068bebc776914c9b4b1f88"
+}
+
+artifact "src/core/sigbus_guard.zig" {
+  kind "source"
+  hash "sha256:161621aa464746615fcf1288ba7dcab821854d3d570ff7f38e9d2a8e127cb986"
+}
+
+artifact "src/next/ast.zig" {
+  kind "source"
+  hash "sha256:b53ca7e0ce85efecfd9696668fb0953547b4adf7da75a5152ab5ea4ee63bee09"
+}
+
+artifact "src/next/cache.zig" {
+  kind "source"
+  hash "sha256:1f0584a9656cdf6291ae4560b62a7d1a9fb432e1b857bbdbcbac5fa01f0a0d67"
+}
+
+artifact "src/next/catalog.zig" {
+  kind "source"
+  hash "sha256:c53719f11bad1974f4ed2ce06aded78c403019ddfb60ba40174f970379b31d9d"
+}
+
+artifact "src/next/dst_sim.zig" {
+  kind "source"
+  hash "sha256:5e4c609f73ab3a0ae2a5b3901227299efac7a1bbbf10aa64674978b87593dac7"
+}
+
+artifact "src/next/engine.zig" {
+  kind "source"
+  hash "sha256:45074d5c80908a4f407199db21e4908fb3acbce2d123f78833fa95079eb45d2d"
+}
+
+artifact "src/next/evidence_ledger.zig" {
+  kind "source"
+  hash "sha256:0eedfcede2e8fe0dde6cbf7e341f4a549b63dd9816f0a36d44d09b8aedcd2bff"
+}
+
+artifact "src/next/export.zig" {
+  kind "source"
+  hash "sha256:b7ec7002b179a0c6f5183c46a6e0042e97f48ff97fd2c42595e8f530b8d078ad"
+}
+
+artifact "src/next/graph_dump.zig" {
+  kind "source"
+  hash "sha256:87a535f41d1076b24de7aa011160353275122ad2dbbeecfb2344cce3bb81413d"
+}
+
+artifact "src/next/main.zig" {
+  kind "source"
+  hash "sha256:f1e16e3cc723e7c4cf23424e2d86d4ada5aa178039f72d9b7190d112db790a0f"
+}
+
+artifact "src/next/parser.zig" {
+  kind "source"
+  hash "sha256:21deb16325014b683390c06a754c4bb0582db3815a6f03cab02baffc279cbe1f"
+}
+
+artifact "src/next/provenance.zig" {
+  kind "source"
+  hash "sha256:50dcb8fa4ecacaec5b5aab82a23bc9d3fa9901d5cfd4040287ac097cbe922ea8"
+}
+
+artifact "src/next/snapshot.zig" {
+  kind "source"
+  hash "sha256:6741686e69aaf7c03ea9953bbcf91bbd38d4cf2a83a09de8efd00fa4fcae93d4"
+}
+
+artifact "src/next/state_axes.zig" {
+  kind "source"
+  hash "sha256:3bdd1bd4e2d8517c96054a5b7b4dd325eae1a3984ef0a97a41c15533f0f6ccbf"
+}
+
+artifact "src/next/test_root.zig" {
+  kind "source"
+  hash "sha256:20c31d66703e53cc9946347c3092957bc1665fdef851533619b67e5e95573be2"
+}
+
+artifact "src/next/truth.zig" {
+  kind "source"
+  hash "sha256:f24c34beedadf0ce824725974044e95a166805f66baa27dccc6aa7a7543d7434"
+}
+
+artifact "src/next/validate.zig" {
+  kind "source"
+  hash "sha256:06bd40ffbc2614bcd047f7fbbbc4c0aaffd6a72db65b882a50875157e55b2ffa"
+}
+
+artifact "src/runtime/kern_x.zig" {
+  kind "source"
+  hash "sha256:d8f108ec5f01319d8ebeb576729775f047eb1e33bac2b17fbf5da7f073f245a3"
+}
+
+artifact "src/sdk/kern_sdk.py" {
+  kind "source"
+  hash "sha256:0227a9fb872e848c568d32cf50375680ce83d72d25df28d65a4cf0bc3aabaa00"
+}
+
+artifact "src/tests/alignment_stress.zig" {
+  kind "source"
+  hash "sha256:06507cf6fec63d96711d7e4b0a97595867a92873f7a6f62d354b3a9abfe5ebd5"
+}
+
+artifact "src/tests/coverage_report_test.zig" {
+  kind "source"
+  hash "sha256:10a679e135c1d53502e9a32b4bb530d33675e9a93658a631f20ccd94fe59f423"
+}
+
+artifact "src/tests/exhaustive_suite.zig" {
+  kind "source"
+  hash "sha256:eda4317b98076a11e3fc58da4f0dc5c872536dab084687688ec04215a8878ba1"
+}
+
+artifact "src/tests/fault_injection_test.zig" {
+  kind "source"
+  hash "sha256:ee81405bdfb641cd2787ce1147fb69aed28f9365eb47b524e009cfacaad57163"
+}
+
+artifact "src/tests/litmus_memory_test.zig" {
+  kind "source"
+  hash "sha256:e32b91f874026073d9b3ed36aec0d045e7d3ed90212ccd305c77de961217b3bf"
+}
+
+artifact "src/tests/mcdc_gates_test.zig" {
+  kind "source"
+  hash "sha256:c4067c828761ea831ca085b3cdd5e1081d538c2201c93679fc1a39ef76b44cd3"
+}
+
+artifact "src/tests/oom_stress.zig" {
+  kind "source"
+  hash "sha256:8c8ba070e67b8eeb88499312f7bb83dbd8aee4d7a7977f896a129a055edf481d"
+}
+
+artifact "src/tests/os_stress_test.zig" {
+  kind "source"
+  hash "sha256:0df7deddc603408aa31390a16d7695070c79177564b85c9b53b21a9173978369"
+}
+
+artifact "src/tests/pipe_stress_test.zig" {
+  kind "source"
+  hash "sha256:783d4c68be5b5587203631ff8531043e296663ab31ed7077bfdf0a31ff6b644b"
+}
+
+artifact "src/tests/pool_saturation.zig" {
+  kind "source"
+  hash "sha256:a48a7c1d6150f31b9ce21b2ff71625fb8645b1056cf57dc9a412d7cd6fd998d3"
+}
+
+artifact "src/tests/smt_incremental_test.zig" {
+  kind "source"
+  hash "sha256:fc40708743a47ea8d98e3ae5b3daa318486093c4ff8de75664d4de06ee96f824"
+}
+
+artifact "src/tests/z3_crash_test.zig" {
+  kind "source"
+  hash "sha256:faea98b43b3e4a6e1ce8cb2c8c9197029c096d2c2812d8e06c2ae27497efdffc"
+}
+
+artifact "src/verifier/abs_proof_fixture.zig" {
+  kind "source"
+  hash "sha256:0fa39239b0f5d10f15a4d53db59df9e263b8f61a96fdf3153aaeaaede1afc537"
+}
+
+artifact "src/verifier/abstract_interp.zig" {
+  kind "source"
+  hash "sha256:b3159494a08dea29b7cd758742c23e4ee16f0b2cc63f95b02230047a9d5c83c7"
+}
+
+artifact "src/verifier/admission_gate.zig" {
+  kind "source"
+  hash "sha256:833b1cedef9d880754beee382a250b702b6592b50b510e7b1c10e096331f0c68"
+}
+
+artifact "src/verifier/array_theory.zig" {
+  kind "source"
+  hash "sha256:c346afffb217dd3089129d31194383d432d7816df939677b90fc14b864e8966b"
+}
+
+artifact "src/verifier/builtin_lia.zig" {
+  kind "source"
+  hash "sha256:31de2b5a80804ea387f89cf2e20b4afb9edd336083aa7fd6bc968fb99a9e4362"
+}
+
+artifact "src/verifier/cegis.zig" {
+  kind "source"
+  hash "sha256:f4d7a914a0b508b066338b1686f341a7263400e3fed6d3d95af64634d45d8665"
+}
+
+artifact "src/verifier/chc.zig" {
+  kind "source"
+  hash "sha256:3dcda5b8be45a65d5620ad8ad99f8622280d0d48408071c80e3ac6359eeb1e00"
+}
+
+artifact "src/verifier/dtmc.zig" {
+  kind "source"
+  hash "sha256:1017271de62ef4fd85692b9fbfe59a272edbea4812b0e737c2a44d913813e910"
+}
+
+artifact "src/verifier/model_extract.zig" {
+  kind "source"
+  hash "sha256:d401ff58c6ecd48c4315031dee2177572c71db9a3fd2024b3e9d663d6c0ee2d4"
+}
+
+artifact "src/verifier/noninterference.zig" {
+  kind "source"
+  hash "sha256:fe41d574670e5e5229fe5068acb74cc003a5e2a7027c197e95d2144588e241a5"
+}
+
+artifact "src/verifier/nra_quant.zig" {
+  kind "source"
+  hash "sha256:fa320bdb6fd050dfc742677c3fe813e0c672b608672d8eb4728a5dc7f4690150"
+}
+
+artifact "src/verifier/proof_check.zig" {
+  kind "source"
+  hash "sha256:5d70ed38de3b9231a62f8589329e58ff6d769d00db68e5a54cfd97e43d30fd93"
+}
+
+artifact "src/verifier/redos.zig" {
+  kind "source"
+  hash "sha256:f3e31ffd46b1251c35c45a989c802383d2b51f5e938e8328423232214b78cedc"
+}
+
+artifact "src/verifier/string_theory.zig" {
+  kind "source"
+  hash "sha256:bd94ef25ec2f72f12e1d5deda083f0076cc25c866eabd585e379b8fa9fc2c156"
+}
+
+artifact "src/verifier/unsat_core.zig" {
+  kind "source"
+  hash "sha256:ba76bb3bf7e3904ac9183b6944746efaddfbd6e48e8a353a795b18212a4fa56d"
+}
+
+artifact "src/verifier/z3_bridge.zig" {
+  kind "source"
+  hash "sha256:087377c4efb67b61f5fe02aa5f5ab9620d7df42b7f709b663f3f1849b584a39b"
+}
+
+artifact "tests/c_abi_test.c" {
+  kind "source"
+  hash "sha256:e4ffc1b7f604a30af5211aebabe534948c4d7072400efc9b8a3bab7fbe6cefb8"
+}
+
+artifact "tests/c_abi_threads.c" {
+  kind "source"
+  hash "sha256:79af3836d616eeb1541e6ef45b873ed82318b6a405ee211ce465292a400c0709"
+}
+
+artifact "tests/capi_cli_suite.py" {
+  kind "source"
+  hash "sha256:7a10aa0afe9469782abc2016bbe57028b37622e57ff764cf5024ad2bdca1df8c"
+}
+
+artifact "tests/proof_mutation_battle.py" {
+  kind "source"
+  hash "sha256:ed1557db12e0ef5d76dbc4c8c77125bfb449f5ae358f33f92822b08b3cbabbca"
+}
+
+artifact "tests/stress_1m.zig" {
+  kind "source"
+  hash "sha256:578800697b2ad1371e97e75d92521aae21593801ab626c71ee4af642df5d2c0a"
+}
+
+artifact "tests/fixtures/hang_solver.sh" {
+  kind "source"
+  hash "sha256:e1ae6b8349dea41ac2c83d00bed4e60906e4334627a181bf8a9339ef5ee0763e"
+}
+
+artifact "tests/fixtures/inject_comment_in_string.py" {
+  kind "source"
+  hash "sha256:eff467d7ccc20df5e2d8de818328647fffe62086b0cfcbbd7d23615fecb3a9b8"
+}
+
+artifact "tests/fixtures/rust_saturating_add.rs" {
+  kind "source"
+  hash "sha256:fcaf0ebae6311cfd2e0a9f2b20bb1e4df6a8702a1e279cbea4546e8860ac6eb9"
+}
+
+artifact "tests/fixtures/zig_plain_add.zig" {
+  kind "source"
+  hash "sha256:760dee494b455a9e30309cdb50139d95f34f1bdb08d6658d7d172eab0b0f6eca"
+}
+
+artifact "tests/fixtures/zig_saturating_add.zig" {
+  kind "source"
+  hash "sha256:4513825fabd0ccbdfa78d7ab0868007592bbc3938f131aa8e7fc3116556628ab"
+}
+
+artifact "tools/action_firewall_check.sh" {
+  kind "source"
+  hash "sha256:7301d172cff1fdb45b7e2ea935579a53f1f0c3dd065fe6af1b717e1f359e497b"
+}
+
+artifact "tools/adversarial_suite.sh" {
+  kind "source"
+  hash "sha256:86c4a67352d3d9939815c8584cb841d9ceb99f7ea96d2add6fecb3c4b155bdf4"
+}
+
+artifact "tools/advisory_check.py" {
+  kind "source"
+  hash "sha256:9af50b21aee0d485d64f7ea87e90c0bd915b93191c0c572150f127c482e6c624"
+}
+
+artifact "tools/ai_demo.sh" {
+  kind "source"
+  hash "sha256:9ec0df58f16741d917fa587b4a762b69f506161051518ed5f15b83f56e7237ef"
+}
+
+artifact "tools/ai_traces_check.py" {
+  kind "source"
+  hash "sha256:9d34b98275b0b02b2eb7645c35c2d98259f09cdef4aa8fe526caa3ed2349ee7a"
+}
+
+artifact "tools/anti_cheat_check.sh" {
+  kind "source"
+  hash "sha256:60c9d9a1b89c5002020442204e596c7d9658a4b81002157f09d6fe6a896e721a"
+}
+
+artifact "tools/anti_self_deception_check.py" {
+  kind "source"
+  hash "sha256:c97b1ee8074c551123d5335d4951be18bde972645f58f2fcc6bd9b535ff89960"
+}
+
+artifact "tools/arbitrage_check.sh" {
+  kind "source"
+  hash "sha256:4d7278a6736c519c2b167ec2aefa5e987358a38ff6c6b090c190cdc31078d07f"
+}
+
+artifact "tools/artifact_check.py" {
+  kind "source"
+  hash "sha256:e3035354cadcbbf5d62b3fea5b7da9f86bee0e650d9c3f7659a4099ffcf6f51d"
+}
+
+artifact "tools/audit_manifest.sh" {
+  kind "source"
+  hash "sha256:29557e39af28431363b4ae6a14f816ed4f77820dba32754d66db58d027d714f3"
+}
+
+artifact "tools/audit_repo_check.sh" {
+  kind "source"
+  hash "sha256:5b2d3d6c4798e97c5f2b82d26c7c24ba54d24458a329e0233aeb637f62d0f847"
+}
+
+artifact "tools/audits_run.py" {
+  kind "source"
+  hash "sha256:81d3cb3683681775e3a30fa1c05802825bd4f11c3a03a7e9668b16823f5f11fc"
+}
+
+artifact "tools/bare_except_baseline.json" {
+  kind "source"
+  hash "sha256:702e64936b5064247d64377e5a44a755d03c56cb5846b17aa1d47c08b18afb97"
+}
+
+artifact "tools/belnap_swarm_check.sh" {
+  kind "source"
+  hash "sha256:f5b2859369cd401f9cbbb22202f442689c320109dec7344f7fa05d64798ff374"
+}
+
+artifact "tools/bench_json.py" {
+  kind "source"
+  hash "sha256:43cd01bfae203dc8415db579769c1bb36d5cda8f564019c958feb648d5135c7b"
+}
+
+artifact "tools/bench_simd8.zig" {
+  kind "source"
+  hash "sha256:7a615232f8307a64623ea388912789d0236633fa4bf4a8b58a58cca95c4d967b"
+}
+
+artifact "tools/binlevel_verify.py" {
+  kind "source"
+  hash "sha256:24b0f739b3a262485aca0b5a0bc38fb7c72bdfa03240ba7184f459b0c3f1f9d7"
+}
+
+artifact "tools/binlevel_verify.sh" {
+  kind "source"
+  hash "sha256:fd7c8e90a6be69724fa894543b08acc7bf9589332f9562fa2af89d9f172024c0"
+}
+
+artifact "tools/bitrot_chaos_check.py" {
+  kind "source"
+  hash "sha256:5c6d987bb84bf031d9b39ebd6c9ad8957554506be7936f76f2a7ef7db1211fd2"
+}
+
+artifact "tools/bounds_check.sh" {
+  kind "source"
+  hash "sha256:f4a626c0faff796b56faf149c809176d7ee77c5f8f421d3a21b1e8aa43173dd0"
+}
+
+artifact "tools/bug_hunt_check.sh" {
+  kind "source"
+  hash "sha256:b0574d746c5213595a0d23e96a6068b54921bb3ed73c6f6475d37f077e0b5e43"
+}
+
+artifact "tools/bug_hunter.py" {
+  kind "source"
+  hash "sha256:0772282884198d36b8043e0ed73dbd9aed3dcdd8c2d2cc7e1fb1f9e15c6e8b0d"
+}
+
+artifact "tools/bugsinpy_run.py" {
+  kind "source"
+  hash "sha256:151821bc24d02d276b0f3ef9df29e1f713a85026db50ff4d03f4414ff1eb5469"
+}
+
+artifact "tools/cache_avalanche_bench.py" {
+  kind "source"
+  hash "sha256:c909fa4a49ed126007273d504605a53dfb8da7585dbba8e6b4316a9e1bee95b0"
+}
+
+artifact "tools/canfail.py" {
+  kind "source"
+  hash "sha256:76b355fec5f59a4b3d3326d3f7f9ce66183ee95c756d123a3651e112779cf34b"
+}
+
+artifact "tools/changelog_check.py" {
+  kind "source"
+  hash "sha256:44356cfcf9432e3bf30312ca9c865c241f5d73cc950c1aa088fed0e8558a979c"
+}
+
+artifact "tools/check_action_yml.py" {
+  kind "source"
+  hash "sha256:b3014ee3dc59b4089185b03e4e253c2a38eab490e4093e995a88afcf1ada8388"
+}
+
+artifact "tools/check_contracts_json.py" {
+  kind "source"
+  hash "sha256:d975d099d26ccb21ec0b904000808e1693b5b08658bac39996b83c812b1733f3"
+}
+
+artifact "tools/check_lean_counter.py" {
+  kind "source"
+  hash "sha256:76b72f0330797ad6b085115f51c3ff8c6fe6cbff2e4ee2dec55cfbadfbaece83"
+}
+
+artifact "tools/check_license_consistency.py" {
+  kind "source"
+  hash "sha256:dca6ff96d69658b1ad6e9726cb52ab27db3e706873f19d94a23499e5d8b9a7cf"
+}
+
+artifact "tools/check_metrics_consistency.py" {
+  kind "source"
+  hash "sha256:62c84bfeb8f880a4f937328ef52ee2819b3278eaa0164fa091bba18f8d9331cb"
+}
+
+artifact "tools/check_sarif.py" {
+  kind "source"
+  hash "sha256:1dc697728023b6e1a9bd94cb1419dbb257b063efb84a7f78aba597fb5bba74cc"
+}
+
+artifact "tools/ci.sh" {
+  kind "source"
+  hash "sha256:5a4b8029823c60ec7e8864f6e3a630d867c28571668074b7b74ddb0e96ad6340"
+}
+
+artifact "tools/citations_check.py" {
+  kind "source"
+  hash "sha256:e14ce02ba504bb371efda203449c29c17b13a39a9a2f6c960c2c199e7a6044c7"
+}
+
+artifact "tools/codecheck_runner.py" {
+  kind "source"
+  hash "sha256:1ec3cf6883ab8ee3c1ad83b1692229d4046ed75f47c9ca6ca35e7d71200a3125"
+}
+
+artifact "tools/collect_evidence.sh" {
+  kind "source"
+  hash "sha256:1126101c7b12a71f0e4c4dd85d933e5b1dd4490c07740eb4caabd8b4a7a1d7a4"
+}
+
+artifact "tools/concolic_check.sh" {
+  kind "source"
+  hash "sha256:a490b6d8efadf68df83912191f6f9b99386e099060ae4f20b78e15cc27cfb63f"
+}
+
+artifact "tools/conformance_check.py" {
+  kind "source"
+  hash "sha256:3f7b32b8cba9e5c9a61176311f4a39fc409597bd54d69b6a27d0d49db53ccfdb"
+}
+
+artifact "tools/coverage_check.py" {
+  kind "source"
+  hash "sha256:f6bad7e75a0a4ab7670d3ee50d066cf4666f8c985c4a51aa38e1305e33526f65"
+}
+
+artifact "tools/cross_arch_test.sh" {
+  kind "source"
+  hash "sha256:6822ec6d5dc6676d32e0af17171947e275a90bf34839f914b7b5a2a7f9d45561"
+}
+
+artifact "tools/cyberseceval_check.py" {
+  kind "source"
+  hash "sha256:7e609e8cab457b9e8caf37013cd85c2ebc10c003ca0f966cdcea1690bde35e87"
+}
+
+artifact "tools/deal_contracts.py" {
+  kind "source"
+  hash "sha256:4e044872f0ef8103315ea1e77c3c71c98d95b3178bd3fc755fdd125d341df8aa"
+}
+
+artifact "tools/determinism_check.py" {
+  kind "source"
+  hash "sha256:8678d505fca26e4c3768f629cc9a7736e629b8ed807e873f9ddc0373a4b21a5d"
+}
+
+artifact "tools/diff_disasm.py" {
+  kind "source"
+  hash "sha256:590dbad15cce2f2e7a4b4a8955d480556bb15771f41ff1b7cfcf1ffd813e0b55"
+}
+
+artifact "tools/docs_parity_check.py" {
+  kind "source"
+  hash "sha256:fd47cd622d73cc5a82d1c3189e36eaa352eb4e8f19720c44abed817efbfe80a9"
+}
+
+artifact "tools/double_spend_check.sh" {
+  kind "source"
+  hash "sha256:923dd362762765ef00de5d0346c885150dfc9b13900a592fa0f90934313f7cf2"
+}
+
+artifact "tools/dst_check.sh" {
+  kind "source"
+  hash "sha256:922748bcd1571cba783a55292836a61063bc62941a2ae627ba2ec0865e00a88a"
+}
+
+artifact "tools/dup_defs_baseline.json" {
+  kind "source"
+  hash "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+}
+
+artifact "tools/dup_defs_guard.py" {
+  kind "source"
+  hash "sha256:f862e93a21535a4f179a4c60d1a7d7dab74d3cd1bf84b8a4c6332073ae559d30"
+}
+
+artifact "tools/ecosystem_check.sh" {
+  kind "source"
+  hash "sha256:733000b4a2e38621ab05c0b2e73ccb67e04fdbbbaecddb8c6f3ea71e225ff105"
+}
+
+artifact "tools/edge_cases_check.sh" {
+  kind "source"
+  hash "sha256:973aa67c5622d160d053ad85b68ed8a7890b769d7c0f267c81f95b062c0206f5"
+}
+
+artifact "tools/evalplus_kern_gate.py" {
+  kind "source"
+  hash "sha256:b232fcad2c84d2508e5687669351a20ce9a8f4f70b94cd6f552fc68b5effcb0d"
+}
+
+artifact "tools/evidence_gate.py" {
+  kind "source"
+  hash "sha256:230f1bebb001c86e492363ecb088974e1ac14002890822fb3c5769466e1beabf"
+}
+
+artifact "tools/evidence_guard.py" {
+  kind "source"
+  hash "sha256:f57d7b5afc7da9481f24f42e38664a464ce195292b5a211795c560eb74e96517"
+}
+
+artifact "tools/evo_fuzzer.py" {
+  kind "source"
+  hash "sha256:9247b9fb0a054fbd474ac35b74c6d6be441c1ee8bd7fd113db8c5c25d7907140"
+}
+
+artifact "tools/ffi_bridge_check.sh" {
+  kind "source"
+  hash "sha256:ccd1181e18b91970f5e954a698e7e4e4b00f16ec9a25acdc7f9ef105596e8353"
+}
+
+artifact "tools/float_nan_check.sh" {
+  kind "source"
+  hash "sha256:646ec17c17f773f28fa40ba0d86704886838e4c463500897f8c6e3feb06b37ca"
+}
+
+artifact "tools/fuzz_corpus_check.py" {
+  kind "source"
+  hash "sha256:cf9da7bf8bb2565a24836c136e8de67ac3fc4802c32d963efd0f4bf67eaef0ac"
+}
+
+artifact "tools/fuzz_corpus_check.sh" {
+  kind "source"
+  hash "sha256:4f2f8724f6810d8ac4542d0e767b5a5dbca04d421ca8732226bc6eb813e1880e"
+}
+
+artifact "tools/gen_llms_txt.py" {
+  kind "source"
+  hash "sha256:efb65e9b2f0ba343cdb86c826b4473070493b12f85da9df24544c1484234439c"
+}
+
+artifact "tools/gen_mcp_manifests.py" {
+  kind "source"
+  hash "sha256:5ccb399e2280fc7bce6b60526758323ae967f36838336512a9b61346f7f54c3d"
+}
+
+artifact "tools/gen_showcase_graph.py" {
+  kind "source"
+  hash "sha256:1cda7c4e052e988aea744a504be4d4b95f297303335a2f2a24800b393d964f3c"
+}
+
+artifact "tools/gen_test_catalog.py" {
+  kind "source"
+  hash "sha256:588c2084c66bb51f5ecc43af3c88b150cf98991d00edebfb238ccd4906db7c71"
+}
+
+artifact "tools/gen_tests_check.sh" {
+  kind "source"
+  hash "sha256:e6520f0bda5ccb2440bf8c333fbfbd24acf81c7a4536b15bec003016dff7119a"
+}
+
+artifact "tools/golden_v1_3.py" {
+  kind "source"
+  hash "sha256:3cfded0ce13c1b555187758eae6c6e9dde7bd6c33985e83ced1dc7e7bd8b0cc3"
+}
+
+artifact "tools/graph_parity.py" {
+  kind "source"
+  hash "sha256:ef0ce3924fa67c4f2dbbb10439d1d944903b1359d24a83b9a25cf04b074d03c0"
+}
+
+artifact "tools/guardrail_smoke.sh" {
+  kind "source"
+  hash "sha256:5f40dff99b72460d4cd7cbdcb9d0b244fb04a896adb7e98ff803cab33883d491"
+}
+
+artifact "tools/heal_check.sh" {
+  kind "source"
+  hash "sha256:f9e66f2f51078ce1212d4b6ddafc0c79909da7c5fc6b305e4bbbe3fcd844dfdd"
+}
+
+artifact "tools/hook_selftest.sh" {
+  kind "source"
+  hash "sha256:924054fb32961665e3ec14427c1f9403b2a04ebdc1cd64574405bd39bc5f484b"
+}
+
+artifact "tools/html_canvas_check.sh" {
+  kind "source"
+  hash "sha256:a9ee399aff1027475a467622b63c8a5f940b72ce742bb499091ad320a81f39c4"
+}
+
+artifact "tools/humaneval_api.py" {
+  kind "source"
+  hash "sha256:459ecfc78deea35659d001534e21a980916e209ef240d25c8aa6573776983ed2"
+}
+
+artifact "tools/hw_binary_audit.py" {
+  kind "source"
+  hash "sha256:5b0df7bae32216d90cf217893bcf9b7652c22cdf15b7468dc3c4d96b68ca0276"
+}
+
+artifact "tools/hypotheses_check.py" {
+  kind "source"
+  hash "sha256:4fd453adb3261973bdcc42b07d8e37ab1fe75d8a23d7cc249aa5a721095c1d96"
+}
+
+artifact "tools/hypotheses_corpus_check.py" {
+  kind "source"
+  hash "sha256:e83bde1d959367cd0056b34168cd54dc0825a1b9d0afba71c9aef7878a22a27f"
+}
+
+artifact "tools/injection_guard.py" {
+  kind "source"
+  hash "sha256:7d58aeb0d35798721a007329df0e12cb48b5ab8bc7a18a40d53a951ea51c29db"
+}
+
+artifact "tools/kern_contracts.py" {
+  kind "source"
+  hash "sha256:571648f1cecbc264ba7d988ec24da06d67828c85362b573911419a411397ed8e"
+}
+
+artifact "tools/kern_exec_runner.py" {
+  kind "source"
+  hash "sha256:df350efecd8edc418720aa58dc0b55eb72395113fb1305240f448834da023b88"
+}
+
+artifact "tools/kimg_cli_check.py" {
+  kind "source"
+  hash "sha256:48bec4991663d956a0ea012b46343c9362dfa2e13a16d4fd14eb371819cd5e4a"
+}
+
+artifact "tools/kimg_deflate_check.sh" {
+  kind "source"
+  hash "sha256:617104f134bed03384ee22f8897ebf04ec116887947c52c7227c0461ef1bfe2d"
+}
+
+artifact "tools/kimg_grep_check.sh" {
+  kind "source"
+  hash "sha256:b07dbf220bfbf92da9515a66688d42ea09886d4737d9de58065f9f261886cff5"
+}
+
+artifact "tools/lean_pin_check.py" {
+  kind "source"
+  hash "sha256:b315fe85ad7deebf1f56d4df0f48081b13b853f1af10f9ca5f6cdc2fb7728f25"
+}
+
+artifact "tools/lia_diff.py" {
+  kind "source"
+  hash "sha256:1281145deff4f792c1d235ea07e2e132f9f210168f374aab4450c3d6ac25fe8e"
+}
+
+artifact "tools/loop_check.sh" {
+  kind "source"
+  hash "sha256:104bfc254573a1ef7bc644478b578326fe620bf8c3e663e302c496d90e6705ae"
+}
+
+artifact "tools/mbpp_fill.sh" {
+  kind "source"
+  hash "sha256:dca92dc3d97906241a29527700730ce4489374f03871cfb46a704979426757db"
+}
+
+artifact "tools/mbpp_retry.py" {
+  kind "source"
+  hash "sha256:ce6e48a04543ac98446727f18d5c790c2e87d8584efe5d1346b7616775b68260"
+}
+
+artifact "tools/mcp_audit_check.sh" {
+  kind "source"
+  hash "sha256:0ba8bc019f221ba6f5b7ec9b6a889d7a9e84b1f8a6d5cee0bff1af0d2c62ee5c"
+}
+
+artifact "tools/mcp_selftest.py" {
+  kind "source"
+  hash "sha256:0a8ed97e56e549ff492ce3943104d31f30b7864c22cf76abef6fc024efb529f5"
+}
+
+artifact "tools/measure_all_kern.py" {
+  kind "source"
+  hash "sha256:b80aa26e83767c0fe6dd4c59ff6bcdf7de8e6aa97054a56d6b211e269d222405"
+}
+
+artifact "tools/migrate_017.py" {
+  kind "source"
+  hash "sha256:f070416de2d754ac4ee6a814f0f07601536a923281d8496f88f7a6e1b486a7bf"
+}
+
+artifact "tools/mutate_zig.py" {
+  kind "source"
+  hash "sha256:2fcd6bfaebe51e9bc99bea44868cf5de469daa26d1b34943e8f886577dac8f2f"
+}
+
+artifact "tools/noninterference_check.sh" {
+  kind "source"
+  hash "sha256:a4bfb61f1007f92b24f455c286759f32c6180ff7d11d38376f20e52459b2207c"
+}
+
+artifact "tools/official_humaneval_kern.py" {
+  kind "source"
+  hash "sha256:41d9642b46aeabe4dacad977a80898f4d6e0def52476ffee2c2e585355fcb0f6"
+}
+
+artifact "tools/opt_diff_check.sh" {
+  kind "source"
+  hash "sha256:5ecf66f1c40240f50bfdd430e851bc5be31c708dc6c6c7937c7b10b8f2b008c2"
+}
+
+artifact "tools/os_signal_flood.py" {
+  kind "source"
+  hash "sha256:b1aea6de1298e947560cc153d7a844869450647e0c9a8822a5143e4d0fe3e5e9"
+}
+
+artifact "tools/parser_security_check.sh" {
+  kind "source"
+  hash "sha256:ff2691bb780150b219a24fce6617c5d29ae2969d0a57e3f859be12a24b2d008e"
+}
+
+artifact "tools/pcc_check.py" {
+  kind "source"
+  hash "sha256:79e5c5dcecfe2e01f2404cfd5148384291efa61bbb7a867dc4ee918d40fa3a4f"
+}
+
+artifact "tools/perf_check.py" {
+  kind "source"
+  hash "sha256:11532a9f42b742dfbb0f11437d0d1b63e606b4ab9a50f60c59b1549debc5006b"
+}
+
+artifact "tools/polyglot7_check.sh" {
+  kind "source"
+  hash "sha256:72165f83688aedde9ecfec95fcff9bfc967946d97f514fced1f2a7abb29273b5"
+}
+
+artifact "tools/portable_check.py" {
+  kind "source"
+  hash "sha256:076a95b0228192b4938bca1d24a5ee4dea0189fefe769a97b6c6e32cf011d02a"
+}
+
+artifact "tools/presets_check.sh" {
+  kind "source"
+  hash "sha256:0b7626686604cbe24b1572ccf2dd64297304c8bf0e77695d17433bc338432fb0"
+}
+
+artifact "tools/pricing_matrix_check.sh" {
+  kind "source"
+  hash "sha256:5d4142e128b52810644cb5aac37e6b7f631cf39cc4b673fc4d64c65815f637cb"
+}
+
+artifact "tools/probe_check.py" {
+  kind "source"
+  hash "sha256:442a8f67caae19fa44cef5ff09edf80676405e6b7ad62c9972b3295f2bb05efd"
+}
+
+artifact "tools/proof_checker.py" {
+  kind "source"
+  hash "sha256:74ee9de5091ff9b441b9424b84febf5b4d59058c6ca2762eb338064260953798"
+}
+
+artifact "tools/proof_tamper_check.py" {
+  kind "source"
+  hash "sha256:7fe3cfe6526e8f98328a0ae5759dcf7da88d06cdc4b28b113c458c4a02deefb1"
+}
+
+artifact "tools/push_to_github.sh" {
+  kind "source"
+  hash "sha256:9267e1fea51a88e2e8edeb3af3d9df6c114e117cf43bfbeaf70e432acb52bb43"
+}
+
+artifact "tools/quixbugs_check.py" {
+  kind "source"
+  hash "sha256:34364aaf4908c65f7b029517f7bb4fbbaf4ee1fed6f5ababef3f3336c0fbdb9a"
+}
+
+artifact "tools/quixbugs_full.py" {
+  kind "source"
+  hash "sha256:2e60bb6aafbf9ff40123c138f9bc49f1ab252bfdd300fb0ead17fc4b62898f6f"
+}
+
+artifact "tools/quixbugs_real.py" {
+  kind "source"
+  hash "sha256:7603790666925c1305004575f4282b634d785c6abb946e2da56883d3112f6ef1"
+}
+
+artifact "tools/quixbugs_replay.py" {
+  kind "source"
+  hash "sha256:9fb3dbeb9df706ede8061eed5664363f9c649bed920badde08f05d8002d288b5"
+}
+
+artifact "tools/rag_conflict_check.sh" {
+  kind "source"
+  hash "sha256:9fa872a7d207f4df6b17dd0f963ba77b72c1e487e0f37e8dcd7cb0ec9cd5c10a"
+}
+
+artifact "tools/refactory_diag.py" {
+  kind "source"
+  hash "sha256:362400eb4e3516660edb406bf65bbe945570f02282b925906611a420b1652122"
+}
+
+artifact "tools/refactory_diff.py" {
+  kind "source"
+  hash "sha256:87f8e2df3f71e37c47ce5cdfdda6dae446cc7e55090411092866ba24e19fcc02"
+}
+
+artifact "tools/refactory_suite.py" {
+  kind "source"
+  hash "sha256:ce161c6d04f110563d6d699bdaa1eb3c3265708ed9c4e068c282811be15c32f0"
+}
+
+artifact "tools/regen_canfail.sh" {
+  kind "source"
+  hash "sha256:602c2157ed3df3919da6d891f1219330735d5d6280d2f94e012c361b044e51c9"
+}
+
+artifact "tools/regen_final.sh" {
+  kind "source"
+  hash "sha256:efbcc51d9fc9bb4ed838ca731db052204489712ad9179f6f7307a7ae88bee393"
+}
+
+artifact "tools/regen_telemetry.sh" {
+  kind "source"
+  hash "sha256:3ee5dcf105473ec998839d23eed50f2217bb846bdd7a903169b1198d11c34f33"
+}
+
+artifact "tools/registry.py" {
+  kind "source"
+  hash "sha256:f9b7065b8833428f2263810ba666fd8450b42c28dedf207144939347956c09ec"
+}
+
+artifact "tools/rlvr_oracle_check.sh" {
+  kind "source"
+  hash "sha256:39d32f59fb9a4d4c71acfa7585ab961c79c9f4fed04ae2c4b3879a00c2a83990"
+}
+
+artifact "tools/run_all_10_capabilities_demo.py" {
+  kind "source"
+  hash "sha256:860f2447ee8fced6fc804f6376dc2a23fbb1ff25b7912bc68c59c93d9e346bf9"
+}
+
+artifact "tools/run_filtered.py" {
+  kind "source"
+  hash "sha256:5839a5596a4c9b1c33a8cbad02fc796b92766bbb2e93be2afcb08216fcb6d042"
+}
+
+artifact "tools/run_project_verification.py" {
+  kind "source"
+  hash "sha256:14c3caf9dfbe7ad87df576ee991e267a7fe1ecf586298d1539635395905c3e10"
+}
+
+artifact "tools/scan_to_kern.py" {
+  kind "source"
+  hash "sha256:0f510aebebe9530fee411a1348e1f12d117a5203b5ddc1a3483ed82e1977e0c2"
+}
+
+artifact "tools/scorecard_check.sh" {
+  kind "source"
+  hash "sha256:76cf739af66ec37c6d6dd32722ec78ca586a6419e751944506ce4965f55db170"
+}
+
+artifact "tools/secrets_check.py" {
+  kind "source"
+  hash "sha256:32bc17f0ebcbc091d5e3e1b278676527c5a6388b75370510ffc9505b3214d8c8"
+}
+
+artifact "tools/showcase_check.py" {
+  kind "source"
+  hash "sha256:aabfa75424e26a89ed3ab965acb0bbdd4e922cc11918a86aa7396faf98e24c83"
+}
+
+artifact "tools/simplify_check.sh" {
+  kind "source"
+  hash "sha256:1ca932aca951f6024fe4e09e7a85a66d1a8b13e32484e8e23e51cdcca29d4314"
+}
+
+artifact "tools/slsa_provenance.py" {
+  kind "source"
+  hash "sha256:d48d127c0469f6a92825065790428aa3282d470ad941ed323d3d1556cbb3d36c"
+}
+
+artifact "tools/solver_crosscheck.py" {
+  kind "source"
+  hash "sha256:56f3888a09e5fabcb8d52bcc0be499d18f90d4725324f8cabc607d19b79f3781"
+}
+
+artifact "tools/sql_policy_check.sh" {
+  kind "source"
+  hash "sha256:7885e4737fa6b06dd993ad2a78d0e76f042c693a350a0e94c8123bb4fc13727e"
+}
+
+artifact "tools/state_inv_check.sh" {
+  kind "source"
+  hash "sha256:6ecab68bf4f6fe3f0b359590dc917dabf3969b959edb35df1d879b059647c1bd"
+}
+
+artifact "tools/string_contracts_check.sh" {
+  kind "source"
+  hash "sha256:1ed58fd7d92fb669e6ed7f8528c0a848502dc25daf48cdb6ebb1160cd7a30e5c"
+}
+
+artifact "tools/svg_check.py" {
+  kind "source"
+  hash "sha256:3fbdd659ba8761829330a914c7e7537275ff3c1825c8f855d51fe4cbe6d8ae3a"
+}
+
+artifact "tools/sync_state.py" {
+  kind "source"
+  hash "sha256:098d9e21a0ac154fd1b53edc3a1de0ebe2fa9fc516d3f4421a5f603a3085b9bd"
+}
+
+artifact "tools/trace_check.sh" {
+  kind "source"
+  hash "sha256:b3139382b15219831b0c8bbf9ff93edf8aaa832361e68b6568e03ba70d097162"
+}
+
+artifact "tools/trace_explorer.py" {
+  kind "source"
+  hash "sha256:b82ea99f69e650c32ea4b08271b5045363a8a748c18f92c57df8d8a180f38866"
+}
+
+artifact "tools/translation_val_check.py" {
+  kind "source"
+  hash "sha256:70c49f1bebba36359c7ca1e63495b07bcad6b564679cc8a6c603dd5362643035"
+}
+
+artifact "tools/tree_lock.py" {
+  kind "source"
+  hash "sha256:b043e132c0f62241009dd733f96f0e92ed1d953325886e2db01ad9ec2153f6a7"
+}
+
+artifact "tools/trust_docs_check.py" {
+  kind "source"
+  hash "sha256:82b911e177413cff9de3652c54c81d3a6b54a3f27666f55cd16eacbeb17930f1"
+}
+
+artifact "tools/trust_scorecard.py" {
+  kind "source"
+  hash "sha256:d78d6d9356f50c2fc00aeac6d62a9aaf7d4ebf85ec7156c35c56cba144483dc3"
+}
+
+artifact "tools/verify_attestation.py" {
+  kind "source"
+  hash "sha256:96128ae3a4eac6707ff8e6eb8abea90d3e355a7fc1e674ff6ca68e355254a207"
+}
+
+artifact "tools/version_check.sh" {
+  kind "source"
+  hash "sha256:5d7e4b84afed1ec549c45a742531e06c8f41d89bf1263d3f10d006eb676459cd"
+}
+
+artifact "tools/wasm_check.sh" {
+  kind "source"
+  hash "sha256:af3bcbbf2da7ab6035b8d65202f181f0e7355276ed9f97fa6427a906058582ac"
+}
+
+artifact "tools/xray_check.sh" {
+  kind "source"
+  hash "sha256:a3dda7ed28b5fd131848b620d721f02c928f0fdfa908ebddac9cd08271f260ae"
+}
+
+artifact "tools/zig_ir_scan.py" {
+  kind "source"
+  hash "sha256:2bdca6a298ec1ad338b4987610be4c66dc4751818f8f23376466513f85b7665d"
+}
+
+artifact "zig-out/include/kern.h" {
+  kind "source"
+  hash "sha256:4db34fe0303dff3c4d3500801e0c3e5de424e095ecb17cbdd067c6b3498789c2"
+}
+
+claim "documented: README.md" {
+  status verified
+  evidence "file:README.md"
+}
+
+claim "documented: docs/ALL_CAPABILITIES_LIVE_GUIDE.md" {
+  status verified
+  evidence "file:docs/ALL_CAPABILITIES_LIVE_GUIDE.md"
+}
+
+claim "documented: docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md" {
+  status verified
+  evidence "file:docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md"
+}
+
+claim "documented: docs/ATTESTATION_PASSPORT.en.md" {
+  status verified
+  evidence "file:docs/ATTESTATION_PASSPORT.en.md"
+}
+
+claim "documented: docs/ATTESTATION_PASSPORT.md" {
+  status verified
+  evidence "file:docs/ATTESTATION_PASSPORT.md"
+}
+
+claim "documented: docs/BELNAP_SOURCES.en.md" {
+  status verified
+  evidence "file:docs/BELNAP_SOURCES.en.md"
+}
+
+claim "documented: docs/BELNAP_SOURCES.md" {
+  status verified
+  evidence "file:docs/BELNAP_SOURCES.md"
+}
+
+claim "documented: docs/CAPABILITIES.en.md" {
+  status verified
+  evidence "file:docs/CAPABILITIES.en.md"
+}
+
+claim "open TODOs in docs/CAPABILITIES.en.md: 1" {
+  status blocked
+  evidence "file:docs/CAPABILITIES.en.md"
+}
+
+claim "documented: docs/CAPABILITIES.md" {
+  status verified
+  evidence "file:docs/CAPABILITIES.md"
+}
+
+claim "open TODOs in docs/CAPABILITIES.md: 1" {
+  status blocked
+  evidence "file:docs/CAPABILITIES.md"
+}
+
+claim "documented: docs/CAPABILITY_STATUS.en.md" {
+  status verified
+  evidence "file:docs/CAPABILITY_STATUS.en.md"
+}
+
+claim "documented: docs/CAPABILITY_STATUS.md" {
+  status verified
+  evidence "file:docs/CAPABILITY_STATUS.md"
+}
+
+claim "documented: docs/CYBERNETIC_VISION.en.md" {
+  status verified
+  evidence "file:docs/CYBERNETIC_VISION.en.md"
+}
+
+claim "documented: docs/CYBERNETIC_VISION.md" {
+  status verified
+  evidence "file:docs/CYBERNETIC_VISION.md"
+}
+
+claim "documented: docs/EXECUTION_RUNNER.md" {
+  status verified
+  evidence "file:docs/EXECUTION_RUNNER.md"
+}
+
+claim "documented: docs/FIELD_AUDIT_REPORT.md" {
+  status verified
+  evidence "file:docs/FIELD_AUDIT_REPORT.md"
+}
+
+claim "documented: docs/HIGH_STAKES_USE_CASES.md" {
+  status verified
+  evidence "file:docs/HIGH_STAKES_USE_CASES.md"
+}
+
+claim "documented: docs/INCIDENT_RESPONSE.md" {
+  status verified
+  evidence "file:docs/INCIDENT_RESPONSE.md"
+}
+
+claim "documented: docs/INTUITIONISTIC_DESIGN.md" {
+  status verified
+  evidence "file:docs/INTUITIONISTIC_DESIGN.md"
+}
+
+claim "documented: docs/KERN_FIXES_v1_3.md" {
+  status verified
+  evidence "file:docs/KERN_FIXES_v1_3.md"
+}
+
+claim "documented: docs/KERN_TERMINOLOGY_v0.1.md" {
+  status verified
+  evidence "file:docs/KERN_TERMINOLOGY_v0.1.md"
+}
+
+claim "documented: docs/KEY_MANAGEMENT.md" {
+  status verified
+  evidence "file:docs/KEY_MANAGEMENT.md"
+}
+
+claim "documented: docs/LIVE_BUGS_DISCOVERED.md" {
+  status verified
+  evidence "file:docs/LIVE_BUGS_DISCOVERED.md"
+}
+
+claim "documented: docs/LIVE_MODEL_EVAL.md" {
+  status verified
+  evidence "file:docs/LIVE_MODEL_EVAL.md"
+}
+
+claim "documented: docs/METRICS.en.md" {
+  status verified
+  evidence "file:docs/METRICS.en.md"
+}
+
+claim "tests present: docs/METRICS.md" {
+  status tested
+  evidence "file:docs/METRICS.md"
+}
+
+claim "documented: docs/METRICS.md" {
+  status verified
+  evidence "file:docs/METRICS.md"
+}
+
+claim "open TODOs in docs/METRICS.md: 1" {
+  status blocked
+  evidence "file:docs/METRICS.md"
+}
+
+claim "documented: docs/MIGRATION_REPORT_0_17.md" {
+  status verified
+  evidence "file:docs/MIGRATION_REPORT_0_17.md"
+}
+
+claim "documented: docs/OWNERSHIP.md" {
+  status verified
+  evidence "file:docs/OWNERSHIP.md"
+}
+
+claim "documented: docs/PLAN_v2.5.3.md" {
+  status verified
+  evidence "file:docs/PLAN_v2.5.3.md"
+}
+
+claim "documented: docs/PLATFORMS.md" {
+  status verified
+  evidence "file:docs/PLATFORMS.md"
+}
+
+claim "documented: docs/PROJECT.md" {
+  status verified
+  evidence "file:docs/PROJECT.md"
+}
+
+claim "documented: docs/PROJECT_SPECIFICATION.md" {
+  status verified
+  evidence "file:docs/PROJECT_SPECIFICATION.md"
+}
+
+claim "documented: docs/README.md" {
+  status verified
+  evidence "file:docs/README.md"
+}
+
+claim "documented: docs/REAL_BUGS_FOUND.md" {
+  status verified
+  evidence "file:docs/REAL_BUGS_FOUND.md"
+}
+
+claim "documented: docs/REAL_WORLD_MEGATEST.md" {
+  status verified
+  evidence "file:docs/REAL_WORLD_MEGATEST.md"
+}
+
+claim "documented: docs/RELEASE_NOTES_v2.5.0.md" {
+  status verified
+  evidence "file:docs/RELEASE_NOTES_v2.5.0.md"
+}
+
+claim "documented: docs/RELEASE_NOTES_v2.5.1.en.md" {
+  status verified
+  evidence "file:docs/RELEASE_NOTES_v2.5.1.en.md"
+}
+
+claim "documented: docs/RELEASE_NOTES_v2.5.1.md" {
+  status verified
+  evidence "file:docs/RELEASE_NOTES_v2.5.1.md"
+}
+
+claim "documented: docs/RELEASE_NOTES_v2.5.2.en.md" {
+  status verified
+  evidence "file:docs/RELEASE_NOTES_v2.5.2.en.md"
+}
+
+claim "documented: docs/RELEASE_NOTES_v2.5.2.md" {
+  status verified
+  evidence "file:docs/RELEASE_NOTES_v2.5.2.md"
+}
+
+claim "documented: docs/ROADMAP.en.md" {
+  status verified
+  evidence "file:docs/ROADMAP.en.md"
+}
+
+claim "documented: docs/ROADMAP.md" {
+  status verified
+  evidence "file:docs/ROADMAP.md"
+}
+
+claim "documented: docs/RULE_THEOREM_MATRIX.md" {
+  status verified
+  evidence "file:docs/RULE_THEOREM_MATRIX.md"
+}
+
+claim "documented: docs/SPEC_ANCHORS_DEMO.md" {
+  status verified
+  evidence "file:docs/SPEC_ANCHORS_DEMO.md"
+}
+
+claim "Врата: checker_id >= 32 не получает прав checker 0" {
+  status empirical
+  evidence "file:docs/SPEC_ANCHORS_DEMO.md"
+  context "formal/gate_mask.smt2"
+}
+
+claim "Прогон SWE-bench зафиксирован официальным харнессом" {
+  status empirical
+  evidence "file:docs/SPEC_ANCHORS_DEMO.md"
+  context "docs/evidence/kern-gold.kern_gold.json"
+}
+
+claim "documented: docs/TESTING_AND_SPEED_GUIDE.en.md" {
+  status verified
+  evidence "file:docs/TESTING_AND_SPEED_GUIDE.en.md"
+}
+
+claim "documented: docs/TESTING_AND_SPEED_GUIDE.md" {
+  status verified
+  evidence "file:docs/TESTING_AND_SPEED_GUIDE.md"
+}
+
+claim "documented: docs/TEST_CATALOG.md" {
+  status verified
+  evidence "file:docs/TEST_CATALOG.md"
+}
+
+claim "documented: docs/THREAT_MODEL.md" {
+  status verified
+  evidence "file:docs/THREAT_MODEL.md"
+}
+
+claim "documented: docs/VERIFICATION_0_17.md" {
+  status verified
+  evidence "file:docs/VERIFICATION_0_17.md"
+}
+
+claim "documented: docs/VERIFICATION_GOLD_STANDARDS.md" {
+  status verified
+  evidence "file:docs/VERIFICATION_GOLD_STANDARDS.md"
+}
+
+claim "documented: docs/archive/KERN12_AUDIT.md" {
+  status verified
+  evidence "file:docs/archive/KERN12_AUDIT.md"
+}
+
+claim "documented: docs/archive/KERN34_AUDIT.md" {
+  status verified
+  evidence "file:docs/archive/KERN34_AUDIT.md"
+}
+
+claim "documented: docs/archive/KERN9_SUITE_AUDIT.md" {
+  status verified
+  evidence "file:docs/archive/KERN9_SUITE_AUDIT.md"
+}
+
+claim "documented: docs/archive/KERNFS_AUDIT.md" {
+  status verified
+  evidence "file:docs/archive/KERNFS_AUDIT.md"
+}
+
+claim "documented: docs/archive/KERN_AUDIT.md" {
+  status verified
+  evidence "file:docs/archive/KERN_AUDIT.md"
+}
+
+claim "documented: docs/archive/README.md" {
+  status verified
+  evidence "file:docs/archive/README.md"
+}
+
+claim "open TODOs in evalplus_results/samples_raw_eval_results.json: 1" {
+  status blocked
+  evidence "file:evalplus_results/samples_raw_eval_results.json"
+}
+
+claim "tests present: examples/ai_vs_kern/test_ai_generated.py" {
+  status tested
+  evidence "file:examples/ai_vs_kern/test_ai_generated.py"
+}
+
+claim "tests present: examples/toy_ai_hallucination/withdraw.py" {
+  status tested
+  evidence "file:examples/toy_ai_hallucination/withdraw.py"
+}
+
+claim "anchor broken: ... (src/main.zig)" {
+  status blocked
+  evidence "file:src/main.zig"
+}
+
+claim "tests present: tools/kern_exec_runner.py" {
+  status tested
+  evidence "file:tools/kern_exec_runner.py"
+}
+
+link "artifact:CHANGELOG.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:CHANGELOG.md" -> "artifact:server.json" {
+  relation "documents"
+}
+
+link "artifact:CHANGELOG.md" -> "artifact:mcp.json" {
+  relation "documents"
+}
+
+link "artifact:CHANGELOG.md" -> "artifact:tools/trust_scorecard.py" {
+  relation "documents"
+}
+
+link "artifact:CHANGELOG.md" -> "artifact:tools/dup_defs_guard.py" {
+  relation "documents"
+}
+
+link "artifact:CONTRIBUTING.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:examples/guardrail_proxy.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:tools/audits_run.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:examples/kern_mcp_server.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:tools/quixbugs_full.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:tools/refactory_diff.py" {
+  relation "documents"
+}
+
+link "artifact:README.md" -> "artifact:tools/refactory_suite.py" {
+  relation "documents"
+}
+
+link "artifact:README.ru.md" -> "artifact:tools/quixbugs_full.py" {
+  relation "documents"
+}
+
+link "artifact:README.ru.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:audits/QUIXBUGS_BASELINE.md" -> "artifact:tools/trace_explorer.py" {
+  relation "documents"
+}
+
+link "artifact:audits/README.md" -> "artifact:tools/audits_run.py" {
+  relation "documents"
+}
+
+link "artifact:audits/TROPHIES_v25.md" -> "artifact:examples/arbitrage_demo.py" {
+  relation "documents"
+}
+
+link "artifact:audits/TROPHIES_v25.md" -> "artifact:tools/bug_hunter.py" {
+  relation "documents"
+}
+
+link "artifact:audits/codecheck/README.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/ALL_CAPABILITIES_LIVE_GUIDE.md" -> "artifact:tools/run_all_10_capabilities_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md" -> "artifact:tools/run_all_10_capabilities_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITIES.en.md" -> "artifact:tools/quixbugs_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITIES.md" -> "artifact:tools/quixbugs_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:examples/capi_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:agent_packet.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:src/sdk/kern_sdk.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/diff_disasm.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/mutate_zig.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/audit_manifest.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/tree_lock.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/bounds_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/ci.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/refactory_diff.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/check_lean_counter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:docs/evidence/scorecard.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/trace_explorer.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/check_action_yml.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/secrets_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/determinism_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/changelog_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/lean_pin_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/perf_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:docs/evidence/bench_baseline.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/citations_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/graph_parity.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/codecheck_runner.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/trust_scorecard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:server.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/check_license_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/check_metrics_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/advisory_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.en.md" -> "artifact:tools/gen_llms_txt.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:examples/capi_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:agent_packet.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:src/sdk/kern_sdk.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/diff_disasm.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/mutate_zig.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:examples/kern_mcp_server.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/audit_manifest.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tests/capi_cli_suite.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/ci.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/refactory_diff.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/refactory_suite.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/evidence_gate.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/slsa_provenance.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/edge_cases_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/kimg_deflate_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/tree_lock.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/bounds_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/registry.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/svg_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:/tmp/guard_probe.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/dup_defs_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/trust_scorecard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:server.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/check_license_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/check_lean_counter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/check_metrics_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:docs/evidence/scorecard.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/trace_explorer.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/check_action_yml.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/secrets_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/determinism_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/changelog_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/lean_pin_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/perf_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:docs/evidence/bench_baseline.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/citations_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/graph_parity.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/codecheck_runner.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/advisory_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/CAPABILITY_STATUS.md" -> "artifact:tools/gen_llms_txt.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CYBERNETIC_VISION.en.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/CYBERNETIC_VISION.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/EXECUTION_RUNNER.md" -> "artifact:tools/kern_exec_runner.py" {
+  relation "documents"
+}
+
+link "artifact:docs/EXECUTION_RUNNER.md" -> "artifact:tools/run_project_verification.py" {
+  relation "documents"
+}
+
+link "artifact:docs/FIELD_AUDIT_REPORT.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/FIELD_AUDIT_REPORT.md" -> "artifact:tools/audits_run.py" {
+  relation "documents"
+}
+
+link "artifact:docs/KERN_FIXES_v1_3.md" -> "artifact:tools/golden_v1_3.py" {
+  relation "documents"
+}
+
+link "artifact:docs/KERN_FIXES_v1_3.md" -> "artifact:tools/mutate_zig.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:formal/check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/guardrail_proxy.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/edge_cases_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/lia_diff.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/proof_tamper_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/bitrot_chaos_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/array_bounds.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/loops.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/presets_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/arbitrage_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/double_spend_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/ffi_bridge_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/sql_policy_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/anti_cheat_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/import_allowlist.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/noninterference_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/bug_hunter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:install.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tests/fixtures/hang_solver.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/injection_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/evidence_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:server.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:mcp.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/quixbugs_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:examples/xray_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/trust_scorecard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/collect_evidence.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/ecosystem_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/check_license_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/check_lean_counter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/check_metrics_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:docs/evidence/scorecard.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/ci.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.en.md" -> "artifact:tools/trace_explorer.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:formal/check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/slsa_provenance.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/proof_checker.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/solver_crosscheck.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/humaneval_api.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/evalplus_kern_gate.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/cache_avalanche_bench.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/mbpp_retry.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/cross_arch_test.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/binlevel_verify.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/golden_v1_3.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/run_filtered.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/ci.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/registry.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/coverage_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/mutate_zig.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/measure_all_kern.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/adversarial_suite.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tests/capi_cli_suite.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/guardrail_proxy.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/refactory_diff.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/refactory_suite.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/artifact_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/audit_manifest.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/kern_mcp_server.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/mcp_selftest.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/version_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/evidence_gate.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/collect_evidence.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/refactor_after.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/edge_cases_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/audits_run.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/kimg_deflate_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/check_contracts_json.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/lia_diff.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/proof_tamper_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/bitrot_chaos_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/xray_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/array_bounds.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/loops.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/bounds_zero_annot.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/state_invariant_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/presets_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/arbitrage_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/double_spend_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/ffi_bridge_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/sql_policy_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/anti_cheat_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/import_allowlist.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:examples/noninterference_demo.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/bug_hunter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:install.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tests/fixtures/hang_solver.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/injection_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/evidence_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:docs/evidence/scorecard.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/dup_defs_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:server.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:mcp.json" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/quixbugs_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/trust_scorecard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/ecosystem_check.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/check_license_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/check_lean_counter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/check_metrics_consistency.py" {
+  relation "documents"
+}
+
+link "artifact:docs/METRICS.md" -> "artifact:tools/trace_explorer.py" {
+  relation "documents"
+}
+
+link "artifact:docs/MIGRATION_REPORT_0_17.md" -> "artifact:tools/migrate_017.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:tools/verify_attestation.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:tools/secrets_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:tools/changelog_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:docs/evidence/bench_baseline.json" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:tools/citations_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:tools/gen_showcase_graph.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PLAN_v2.5.3.md" -> "artifact:tools/conformance_check.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT.md" -> "artifact:agent_packet.json" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT.md" -> "artifact:tools/scan_to_kern.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:tools/kern_exec_runner.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:tools/run_project_verification.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:agent_packet.json" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:tools/registry.py" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:tools/ci.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/PROJECT_SPECIFICATION.md" -> "artifact:tools/gen_test_catalog.py" {
+  relation "documents"
+}
+
+link "artifact:docs/README.md" -> "artifact:tools/gen_test_catalog.py" {
+  relation "documents"
+}
+
+link "artifact:docs/REAL_BUGS_FOUND.md" -> "artifact:tools/trace_explorer.py" {
+  relation "documents"
+}
+
+link "artifact:docs/REAL_WORLD_MEGATEST.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/REAL_WORLD_MEGATEST.md" -> "artifact:/tmp/realhist/idx_before.py" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.0.md" -> "artifact:install.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.0.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.0.md" -> "artifact:tools/dup_defs_guard.py" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.1.en.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.1.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.2.en.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/RELEASE_NOTES_v2.5.2.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/ROADMAP.en.md" -> "artifact:install.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/ROADMAP.md" -> "artifact:tools/canfail.py" {
+  relation "documents"
+}
+
+link "artifact:docs/ROADMAP.md" -> "artifact:examples/guardrail_proxy.py" {
+  relation "documents"
+}
+
+link "artifact:docs/ROADMAP.md" -> "artifact:tools/bug_hunter.py" {
+  relation "documents"
+}
+
+link "artifact:docs/ROADMAP.md" -> "artifact:install.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/ROADMAP.md" -> "artifact:tools/tree_lock.py" {
+  relation "documents"
+}
+
+link "claim:Врата: checker_id >= 32 не получает прав checker 0" -> "artifact:formal/gate_mask.smt2" {
+  relation "proved_by"
+}
+
+link "claim:Прогон SWE-bench зафиксирован официальным харнессом" -> "artifact:docs/evidence/kern-gold.kern_gold.json" {
+  relation "supported_by"
+}
+
+link "artifact:docs/SPEC_ANCHORS_DEMO.md" -> "artifact:tools/scan_to_kern.py" {
+  relation "documents"
+}
+
+link "artifact:docs/TESTING_AND_SPEED_GUIDE.en.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/TESTING_AND_SPEED_GUIDE.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:docs/TEST_CATALOG.md" -> "artifact:tools/humaneval_api.py" {
+  relation "documents"
+}
+
+link "artifact:docs/TEST_CATALOG.md" -> "artifact:tools/kern_exec_runner.py" {
+  relation "documents"
+}
+
+link "artifact:docs/THREAT_MODEL.md" -> "artifact:docs/facts.json" {
+  relation "documents"
+}
+
+link "artifact:docs/VERIFICATION_0_17.md" -> "artifact:tools/cross_arch_test.sh" {
+  relation "documents"
+}
+
+link "artifact:docs/VERIFICATION_GOLD_STANDARDS.md" -> "artifact:tools/mutate_zig.py" {
+  relation "documents"
+}
+
+link "artifact:examples/integrations/README.md" -> "artifact:tools/kern_contracts.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/KNOWN_LIMITATIONS.md" -> "artifact:tools/solver_crosscheck.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/KNOWN_LIMITATIONS.md" -> "artifact:tools/quixbugs_full.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/KNOWN_LIMITATIONS.md" -> "artifact:tools/cyberseceval_check.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/SECURITY_TARGET.md" -> "artifact:tools/mutate_zig.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/SOUNDNESS_ARGUMENT.md" -> "artifact:tools/solver_crosscheck.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/TRACEABILITY_MATRIX.md" -> "artifact:tools/solver_crosscheck.py" {
+  relation "documents"
+}
+
+link "artifact:formal/certification/TRACEABILITY_MATRIX.md" -> "artifact:tools/cache_avalanche_bench.py" {
+  relation "documents"
+}
