@@ -35,7 +35,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SERVER = ROOT / "examples" / "kern_mcp_server.py"
 
-VERSION = "2.5.2"
+# ДЕФЕКТ #292: версия была ЗАШИТА здесь ("2.5.2") и не участвовала в
+# `version_check` — то есть генератор манифестов был ещё одним местом, где
+# версия живёт отдельно. Теперь единственный источник — server.json.
+def _repo_version() -> str:
+    return json.loads((ROOT / "server.json").read_text(encoding="utf-8"))["version"]
+
+
+VERSION = _repo_version()
 # Лицензия: строго как в LICENSE (PolyForm Noncommercial 1.0.0, source-available).
 LICENSE_FIELD = "PolyForm-Noncommercial-1.0.0"
 LICENSE_TEXT = "PolyForm Noncommercial License 1.0.0"

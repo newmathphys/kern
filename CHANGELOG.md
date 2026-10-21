@@ -6,6 +6,61 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.6.0] — 2026-10-21
+
+Trust that can be checked from outside, and an exam that can fail.
+
+### Added
+- **External attestation**: `docs/keys/kern-owner.pub` ships in the repository,
+  so anyone can verify `kern.intoto.jsonl` with `make verify-attestation`
+  (no `$HOME` key, no owner machine). `kid` is recorded in the attestation.
+- **Secrets scanner** (`make secrets-check`): 9 provider patterns, redacted
+  output, self-test with 7 plantings; runs over git-tracked files.
+- **Determinism gate**: the same SMT input twice must give the same verdict,
+  counterexample, `trusted` and `holes`.
+- **Conformance exam** (`make conformance-check`): 12 sections, 95 checks,
+  reading facts emitted by the kernel itself; `--selftest` corrupts nine facts
+  and requires every section to turn red.
+- **Code-checking corpus** (`make codecheck`) with an honest confusion matrix:
+  `TP=2, TN=2, FP=0, FN=0, UNKNOWN=8` - `TN` only means "proved clean".
+- **Contract classes** `hard` / `advisory`: `T_advisory` never mixes into `T`,
+  and the class is part of the lock fingerprint.
+- **Read-only abductive report**: `explain --hypotheses` proposes `requires`
+  only, re-verifies each candidate, rejects vacuous ones out loud, and never
+  writes to the source.
+- **Evidence ledger** `add`/`retract` with recomputation, three provenance
+  graphs, and rejection of negative recursive SCCs.
+- **`kernx graph`** as the single source of the `G_src` graph (byte parity with
+  the showcase).
+- **KIMG**: unknown-optional vs unknown-required policy, `WrongEndianness`,
+  `kernc fsck / inspect / diff`, three golden fixtures.
+- **13-field cache key** and **KERN-X shared budget** with quotas.
+
+### Changed
+- `kernc` and the C ABI are `v2.6.0`; `kern_kimg_object_count` returns
+  `int64_t` and lengths use `size_t` (LLP64-safe).
+- QuixBugs: **40/40** tasks diverge (29 value, 10 crash, 1 hang); the seven
+  former `EXPLORED` cases were harness bugs, not clean code.
+- `artifact-check*` reclassified `CHECK -> BUILD`: they verify a release
+  artefact against a hash announced in README, which only exists at release.
+
+### Fixed
+- `timeout`, `out_of_fuel` and `invalid_certificate` no longer collapse into
+  `F`; a missing solver is `N`, not an accusation (#277).
+- `andT`/`orT` were wrong on the pairs (N,B) and (B,N) (#279).
+- Harness: rollback now restores file modes (#283); a skipped case under
+  `--only` is an error, not a silent pass (#275).
+- Two can-fail cases no longer cling to numbers that `make sync` rewrites
+  (#282) and cannot silently pass (#281).
+
+### Known limitations
+- Bounded intuitionistic mode (`--intuitionistic --worlds N`) is in the
+  backlog: the full text of Kamide & Niki 2026 (IGPL, `10.1093/jigpal/jzag024`)
+  describes a Gentzen calculus `sQBDi` and is not available locally
+  (`read = {false}`); writing Kripke semantics from an abstract is forbidden.
+- Windows is not supported (three POSIX blockers in `docs/PLATFORMS.md`).
+- The attestation is signed by the owner key, not by a hosted builder
+  (Sigstore/Rekor remain in the backlog).
 ## [2.5.2] — 2026-10-20
 
 Honest showcase and a release pipeline that cannot lie: proof-flow map with
