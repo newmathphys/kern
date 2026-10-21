@@ -2464,6 +2464,11 @@ def main(argv=None) -> int:
     ap.add_argument("--trust-score", dest="trust_score", default=None,
                     metavar="PATH|owner/repo",
                     help="KERN Trust Scorecard: паспорт доверия для репозитория")
+    # Zero-Annotation Implicit Safety (как у CBMC / AWS Kani): проверять функции
+    # БЕЗ @kern: — те же обязанности (деление на ноль, границы типов),
+    # что и в `--xray`. Имя `--auto` добавлено, чтобы ожидание совпадало.
+    ap.add_argument("--auto", default=None, metavar="PATH",
+                    help="Zero-Annotation: проверять функции без @kern: (алиас --xray)")
     ap.add_argument("--xray", default=None, metavar="PATH",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
                          "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
@@ -2573,6 +2578,9 @@ def main(argv=None) -> int:
         return cmd_full_scan(args.full_scan, args.kernc)
     if args.xray:
         return cmd_xray(args.xray, args.kernc)
+
+    if args.auto:
+        return cmd_xray(args.auto, args.kernc)
     if args.heal:
         return cmd_heal(args.heal, args.kernc)
     if args.concolic:

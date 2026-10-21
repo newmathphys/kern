@@ -489,3 +489,53 @@ Design notes, both learned the hard way:
   anchor disappears, the run reports it and goes red instead of silently
   checking nothing. That is exactly what the can-fail case
   `anti-self-deception-fixture` exercises.
+
+## 16. `--auto` (zero-annotation) on real projects - and what the findings really are
+
+`--auto` was added as the name people expect from CBMC / AWS Kani. It is an alias
+of the existing zero-annotation path (`--xray`): functions **without any
+`@kern:` annotation** are analysed for implicit safety obligations (division and
+modulo by zero, index bounds, machine-type ranges) with no edits to the foreign
+code.
+
+Real repositories, cloned shallow, **not modified**:
+
+| Project | File | Functions | Checked | Skipped (reason given) | Findings |
+|---|---|---|---|---|---|
+| `madler/zlib` | `zutil.c` | 13 | 0 | 13 | 0 |
+| `madler/zlib` | `compress.c` | 2 | 0 | 2 | 0 |
+| `madler/zlib` | `adler32.c` | 5 | **2** | 3 | 0 |
+| `rust-num/num-integer` | `src/lib.rs` | 71 | **13** | 58 | 0 |
+| Zig 0.17 stdlib | `std/math/acos.zig` | 13 | **5** | 8 | 0 |
+| Zig 0.17 stdlib | `std/math/atan2.zig` | 3 | **2** | 1 | 0 |
+| Zig 0.17 stdlib | `std/math/hypot.zig` | 1 | **1** | 0 | 0 |
+| Python 3.14 stdlib | `bisect.py` | 4 | **4** | 0 | 4 candidates |
+| Python 3.14 stdlib | `statistics.py` | 81 | **65** | 16 | 16 candidates |
+| `mahmoud/boltons` | `mathutils.py` | 23 | **21** | 2 | 2 candidates |
+
+### The findings are CANDIDATES, and here is the honest reason
+
+Every `[BOUNDS PATH]` on `bisect.py` looks like this:
+
+```
+[BOUNDS PATH] bisect_right: `a[mid]` (line 43) - possible out-of-bounds
+   counterexample: kern_len_a = 0, mid = -1, lo = 0, hi = 0
+```
+
+In the real code `mid = (lo + hi) // 2` inside a loop whose invariant keeps
+`lo < hi`, so `mid >= 0` and the index is in range. The analyser models the
+symbolic length but **not the loop invariant**, so the witness is reachable only
+in a state the loop never produces. The tool itself prints the warning that
+C-like findings are candidates, and the Python path reports the obligation as
+SMT-checked *within the modelled subset*.
+
+So: **zero confirmed bugs in these projects**, and no claim of any. What the run
+does show, measurably, is the funnel - how much of real code the subset can even
+reach (2/5 in `adler32.c`, 13/71 in `num-integer`, 21/23 in `boltons`) and that
+the rest is skipped **with a stated reason** rather than silently passed.
+
+### What would make this a real bug-finder
+
+Loop invariants. Without them, index reasoning over loops cannot be sound; that
+is what `chc.zig` / `loop-check` exist for, and wiring them into `--auto` is the
+next real step (not a rename of an existing flag).
