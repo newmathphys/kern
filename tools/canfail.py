@@ -1612,6 +1612,7 @@ def case_kernx_shared_fuel():
     patch("src/runtime/kern_x.zig",
           "        self.pc = 0;\n        self.rsp = 0;",
           "        self.pc = 0;\n        self.rsp = 0;\n        self.budget.fuel.* = 100; // ЛОМАЕМ: свежее топливо")
+    return "make storage-check"
 
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
