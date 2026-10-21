@@ -1,0 +1,49 @@
+error: IsDir
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/File.zig:472:5: 0x108e928 in readStreaming (std.zig)
+    return (try io.operate(.{ .file_read_streaming = .{
+    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/File/Reader.zig:289:13: 0x108e3ee in readVecStreaming (std.zig)
+            return error.ReadFailed;
+            ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/File/Reader.zig:235:42: 0x108cdf6 in readVec (std.zig)
+        .streaming, .streaming_simple => return readVecStreaming(r, data),
+                                         ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Reader.zig:441:37: 0x114417b in readVec (std.zig)
+            error.ReadFailed => |e| return e,
+                                    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Reader.zig:700:37: 0x11435a8 in readSliceShort (std.zig)
+            error.ReadFailed => |e| return e,
+                                    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Writer.zig:2878:19: 0x1469b3e in sendFile (std.zig)
+        const n = try file_reader.interface.readSliceShort(dest);
+                  ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Writer.zig:1024:5: 0x1090fa1 in sendFile (std.zig)
+    return w.vtable.sendFile(w, file_reader, limit);
+    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/File/Reader.zig:211:25: 0x1090c0f in streamMode (std.zig)
+            else => |e| return e,
+                        ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/File/Reader.zig:201:5: 0x1090529 in stream (std.zig)
+    return streamMode(r, w, limit, r.mode);
+    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Reader.zig:176:15: 0x1089c93 in stream (std.zig)
+    const n = try r.vtable.stream(r, w, limit);
+              ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Reader.zig:390:37: 0x1442433 in appendRemainingAligned__func_1815 (std.zig)
+            error.ReadFailed => |e| return e,
+                                    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Reader.zig:316:5: 0x14416a5 in allocRemainingAlignedSentinel__func_1814 (std.zig)
+    try appendRemainingAligned(r, gpa, alignment, &buffer, limit);
+    ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Dir.zig:1372:29: 0x1441302 in readFileAllocOptions__func_1813 (std.zig)
+        error.ReadFailed => return file_reader.err.?,
+                            ^
+/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std/Io/Dir.zig:1342:5: 0x1440f90 in readFileAlloc (std.zig)
+    return readFileAllocOptions(dir, io, sub_path, gpa, limit, .of(u8), null);
+    ^
+/home/mrbritneyxxx/Рабочий стол/kern/src/compat.zig:155:5: 0x12397ad in readFileAlloc (compat.zig)
+    return cwd().readFileAlloc(io(), path, alloc, .limited(limit));
+    ^
+/home/mrbritneyxxx/Рабочий стол/kern/src/main.zig:173:24: 0x125e715 in main (main.zig)
+        const source = try compat.readFileAlloc(alloc, args[2], 1 << 24);
+                       ^
