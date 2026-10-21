@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->164 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
@@ -564,8 +564,12 @@ Zig `std/math`), проверка `kernc.wasm` вне ядра и разбор �
 | **280** | **ОТСУТСТВИЕ РЕШАТЕЛЯ ДАВАЛО STACK TRACE ВМЕСТО ДИАГНОЗА**: `determinism_check.py` падал с `TypeError: NoneType is not subscriptable`, когда вердикта нет вовсе (нет `z3` в `PATH`). Теперь печатает «вердикт не получен — решатель не найден» и возвращает код 2. |
 ## 7. Итог
 
+| **282** | **КЕЙСЫ CANFAIL ДЕРЖАЛИСЬ ЗА ЛИТЕРАЛ, КОТОРЫЙ ПЕРЕПИСЫВАЕТ `make sync`**: `case_metrics_guard` искал строку `**425 объявлений**`, но синхронизация обновила каталог до 464 — кейс падал с `AssertionError` ДО диверсии, и харнесс выглядел «красным» там, где он даже не начал проверку. Якорь теперь ищется шаблоном `**<число> объявлений**`. |
+| **283** | **ОТКАТ НЕ ВОССТАНАВЛИВАЛ РЕЖИМ ФАЙЛА**: снимок хранил только байты. Кейс, снимающий бит исполнения с `tools/*.sh`, после прерывания оставлял 29 скриптов с режимом 644 — следующий прогон падал на `permission denied` вдалеке от места поломки. Снимок теперь хранит и `st_mode`, откат его восстанавливает. |
+| **281** | **МЕТА-КЕЙС КОНФОРМАНСА БЫЛ ВАКУУМНЫМ**: диверсия (`return a;` в начале `conflate`) не компилировалась, поэтому `make conformance-check` краснел из-за ОШИБКИ СБОРКИ, а не потому, что экзамен поймал нарушение. Теперь диверсия компилируется (проверено: сборка rc=0, секция 3 — 6 провалов), а `conformance_check.py` сам собирает бинарь и отказывается оценивать устаревший. |
 **MEASURED/TESTED:** ядро KIMG (парсер, сборщик, Merkle, KERNFS, Врата,
-KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
+
+| **284** | **ПРАВИЛО ПРОТИВ «N TASKS: NO DIVERGENCE» ОТКЛЮЧАЛОСЬ САМО СЕБЯ**: число EXPLORED выводилось из итоговой строки лога, а её печатают только при > 0. Когда все 40 задач стали DIVERGED, функция вернула `None` — и оба правила для устаревшей фразы перестали применяться. Теперь число выводится из итога (`total - diverged`), и правило работает даже при нуле. |KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
 snapshot, diff, packet, report, кэш) — **402 + 53 теста, все зелёные**
 (с `z3` в PATH; без него — 393 passed + 8 skipped, пропуск решателе-зависимых).
 

@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->164 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is
@@ -652,3 +652,9 @@ Compact English list; full text and measured before/after tables are in
 |---|---|---|
 | **279** | **`andT`/`orT` WERE WRONG ON THE PAIRS (N,B) AND (B,N)**: the Phase 5 conformance exam compared the `<=t` table with the lattice law and found `N AND B` returning `N` instead of `F`, and `B OR N` returning `N` instead of `T` — while the function's own comment promised `N AND B = F`. The table-driven implementation is replaced by a derivation from the twist representation (`inf_t = (p1 AND p2, n1 OR n2)`, `sup_t = (p1 OR p2, n1 AND n2)`), where the error is impossible by construction. | FIXED |
 | **280** | **A MISSING SOLVER PRODUCED A STACK TRACE INSTEAD OF A DIAGNOSIS**: `determinism_check.py` crashed with `TypeError: 'NoneType' object is not subscriptable` whenever there was no verdict at all (no `z3` in `PATH`). It now prints “no verdict - solver not found” and returns code 2. | FIXED |
+
+| **281** | **THE CONFORMANCE META-CASE WAS VACUOUS**: the sabotage (`return a;` at the top of `conflate`) did not compile, so `make conformance-check` went red because of a BUILD ERROR rather than because the exam caught the violation. The sabotage now compiles (verified: build rc=0, section 3 reports 6 failures) and `conformance_check.py` builds first, refusing to grade a stale binary. | FIXED |
+| **282** | **CAN-FAIL CASES CLUNG TO A LITERAL THAT `make sync` REWRITES**: `case_metrics_guard` searched for `**425 объявлений` while sync had updated the catalog to 464, so the case died with `AssertionError` BEFORE its sabotage - a harness error dressed up as a red gate. The anchor is now matched by pattern. | FIXED |
+| **283** | **ROLLBACK DID NOT RESTORE THE FILE MODE**: the snapshot kept bytes only. A case that strips the execute bit from `tools/*.sh` left 29 scripts at mode 644 after an interruption, so the next run failed with `permission denied` far from the damage. The snapshot now records `st_mode` and restores it. | FIXED |
+
+| **284** | **THE “N TASKS: NO DIVERGENCE” RULE SWITCHED ITSELF OFF**: the EXPLORED count was read from a summary line that is printed only when it is greater than zero. Once all 40 tasks became DIVERGED the function returned `None`, and both rules for the stale phrase stopped being applied. The count is now derived from the totals (`total - diverged`), so the rule holds at zero. | FIXED |

@@ -195,7 +195,18 @@ def fact_quixbugs_explored() -> int | None:
     if m:
         return int(m.group(1))
     m = re.search(r"(\d+)\s+tasks?:\s*no divergence", text)
-    return int(m.group(1)) if m else None
+    if m:
+        return int(m.group(1))
+    # ДЕФЕКТ #284: когда EXPLORED = 0, итоговой строки «EXPLORED  0» в логе
+    # НЕТ (её печатают только при > 0), функция возвращала None — и правила
+    # «N tasks: no divergence» вместе с ними ПОЛНОСТЬЮ ОТКЛЮЧАЛИСЬ. То есть
+    # ровно та устаревшая фраза, ради которой правило писалось, перестала
+    # проверяться. Выводим число из итога: total - diverged.
+    total_m = re.search(r"DIVERGED[^\n]*?:\s*(\d+)\s*/\s*(\d+)", text)
+    div_m = re.search(r"^  DIVERGED\s+(\d+)\s*$", text, re.M)
+    if total_m and div_m:
+        return max(0, int(total_m.group(2)) - int(div_m.group(1)))
+    return None
 
 
 def fact_canfail_anchors() -> int | None:

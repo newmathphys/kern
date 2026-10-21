@@ -63,6 +63,11 @@ TOUCHED: set[str] = set()
 # Именно он — источник истины для восстановления: он захватывает и
 # незакоммиченные правки, поэтому `git checkout --` больше не нужен.
 ORIG_SNAPSHOT: dict[str, bytes] = {}
+# ДЕФЕКТ #283: откат восстанавливал БАЙТЫ, но не РЕЖИМ. Кейс, снимающий бит
+# исполнения с tools/*.sh (именно так проверяют, что гейт замечает неxecutable
+# скрипт), после прерывания оставлял 29 файлов с режимом 644 — и следующий
+# прогон падал на «permission denied» вдали от места поломки.
+ORIG_MODES: dict[str, int] = {}
 ORIG_HASHES: dict[str, str] = {}
 
 # 🔴 ДЕФЕКТ #116 (найден на практике). SHA-256 содержимого файла СРАЗУ ПОСЛЕ
@@ -141,12 +146,17 @@ def capture_snapshot() -> None:
     import hashlib
     ORIG_SNAPSHOT.clear()
     ORIG_HASHES.clear()
+    ORIG_MODES.clear()
     for rel in FAULTABLE:
         p = ROOT / rel
         if p.exists():
             data = p.read_bytes()
             ORIG_SNAPSHOT[rel] = data
             ORIG_HASHES[rel] = hashlib.sha256(data).hexdigest()
+            try:
+                ORIG_MODES[rel] = p.stat().st_mode & 0o777
+            except OSError:
+                pass
 
 
 def restore_file(rel: str) -> bool:
@@ -159,6 +169,11 @@ def restore_file(rel: str) -> bool:
     p = ROOT / rel
     if rel in ORIG_SNAPSHOT:
         write_atomic(p, ORIG_SNAPSHOT[rel])
+        if rel in ORIG_MODES:
+            try:
+                os.chmod(p, ORIG_MODES[rel])
+            except OSError:
+                pass
         ok = hashlib.sha256(p.read_bytes()).hexdigest() == ORIG_HASHES[rel]
         if not ok:
             print(f"  [!] ОТКАТ НЕ СОШЁЛСЯ по хешу: {rel}")

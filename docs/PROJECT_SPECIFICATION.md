@@ -719,7 +719,7 @@ make golden
 
 ## 11.2 Метод canfail
 
-**Файл:** `tools/canfail.py` (163 кейса).
+**Файл:** `tools/canfail.py` (164 кейса).
 
 ```
 для каждой цели:
@@ -776,7 +776,7 @@ make golden
 ```
 инструменты → реестр → build → test → test-next → эшелоны 1/3 →
 инъекция SIGBUS → attack → Lean 4 → дерево чистое ПЕРЕД →
-canfail --selftest → canfail (163 кейса) → каталог синхронен →
+canfail --selftest → canfail (164 кейса) → каталог синхронен →
 аттестационный манифест (10 строк) → нет следов харнесса → сводка
 ```
 
@@ -1068,7 +1068,7 @@ make golden                    # эталонный образ
 |:--|:--|
 | `make test-all` | полный контур проверок |
 | `make ci` / `make ci-fast` | CI (полный / быстрый) |
-| **`make canfail`** | 163 кейса: доказательство не-вакуумности |
+| **`make canfail`** | 164 кейса: доказательство не-вакуумности |
 | `make canfail-selftest` | мета-проверка харнесса |
 | `make registry` | реестр <!-- fact:registry_targets -->178 цели + предохранитель |
 | `make audit-manifest` | аттестационный манифест (10 строк) |
@@ -1143,7 +1143,7 @@ formal/                         # Lean 4 (7 файлов, 32 теоремы)
 └── certification/              # TOR/TAS/TRACEABILITY/SOUNDNESS/SECURITY/LIMITS
 
 tools/                          # контур доверия и бенчмарки
-├── canfail.py                  #   163 кейса не-вакуумности
+├── canfail.py                  #   164 кейса не-вакуумности
 ├── registry.py                 #   реестр <!-- fact:registry_targets -->178 цели + предохранитель
 ├── ci.sh                       #   единый контур (16 стадий)
 ├── audit_manifest.sh           #   аттестационный манифест (10 строк)
