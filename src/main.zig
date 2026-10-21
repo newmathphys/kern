@@ -165,6 +165,69 @@ pub fn main(init: std.process.Init) !void {
     const command = args[1];
 
     // ---- build: .kern → .kimg ----
+    if (std.mem.eql(u8, command, "pack-dir")) {
+        // Вариант A: упаковать КАТАЛОГ (например, клон чужого репозитория)
+        // в один образ .kimg. `build` умеет только манифест `.kern`; без этой
+        // команды «упакуй репозиторий» упиралось в #299.
+        if (args.len < 3) {
+            std.debug.print("[!] pack-dir: нужен путь к КАТАЛОГУ\n", .{});
+            std.debug.print("    использование: kernc pack-dir <dir> [-o out.kimg] [--deflate]\n", .{});
+            std.process.exit(2);
+        }
+        const root = args[2];
+        const out = flagValue(args, "-o") orelse "repo.kimg";
+
+        var dir = compat.openDir(root, .{ .iterate = true }) catch |err| {
+            std.debug.print("[!] pack-dir: не открыть каталог {s}: {s}\n", .{ root, @errorName(err) });
+            std.process.exit(2);
+        };
+        var walker = dir.walk(alloc) catch |err| {
+            std.debug.print("[!] pack-dir: обход {s} не удался: {s}\n", .{ root, @errorName(err) });
+            std.process.exit(2);
+        };
+        defer walker.deinit();
+
+        var b = Builder.init(alloc);
+        defer b.deinit();
+        if (hasFlag(args, "--deflate") or hasFlag(args, "--compress")) b.compress = .deflate;
+
+        var n_files: usize = 0;
+        var n_skipped: usize = 0;
+        var n_bytes: usize = 0;
+        while (try walker.next(compat.io())) |entry| {
+            if (entry.kind != .file) continue;
+            const rel = try alloc.dupe(u8, entry.path);
+            // `.git` — служебные данные VCS, в образ не идут (это не «тихая
+            // потеря»: счётчик и итог печатаются ниже).
+            if (std.mem.eql(u8, rel, ".git") or std.mem.startsWith(u8, rel, ".git/")) continue;
+            // ДЕФЕКТ (найден первым же прогоном на zig-clap): `entry.path`
+            // относителен ОТКРЫТОГО каталога, а `readFileAlloc` работает от
+            // cwd — 15 из 20 файлов молча «пропускались». Склеиваем корень.
+            const full = try std.fmt.allocPrint(alloc, "{s}/{s}", .{ root, rel });
+            const content = compat.readFileAlloc(alloc, full, 1 << 20) catch {
+                n_skipped += 1;
+                continue;
+            };
+            try b.addSource(rel, content);
+            n_files += 1;
+            n_bytes += content.len;
+        }
+        if (n_files == 0) {
+            std.debug.print("[!] pack-dir: в {s} не найдено ни одного файла\n", .{root});
+            std.process.exit(2);
+        }
+        b.write(out) catch |err| {
+            std.debug.print("[!] pack-dir: запись {s} не удалась: {s}\n", .{ out, @errorName(err) });
+            std.process.exit(2);
+        };
+        std.debug.print("[OK] pack-dir: {d} файлов, {d} байт -> {s}\n", .{ n_files, n_bytes, out });
+        if (n_skipped > 0) {
+            std.debug.print("     пропущено (нет доступа или > 1 МБ): {d}\n", .{n_skipped});
+        }
+        std.debug.print("     проверка: kernc fsck {s} | kernc inspect {s}\n", .{ out, out });
+        return;
+    }
+
     if (std.mem.eql(u8, command, "build")) {
         if (args.len < 3) {
             std.debug.print("[!] build: нужен путь к ФАЙЛУ манифеста .kern\n", .{});

@@ -179,3 +179,72 @@ derivation, so KERN refuses to claim it. Extending `proof_check.zig` to accept
 case-split derivations is a real project (the file is ~6k lines and the rule
 must be sound, not permissive), therefore it is **not** attempted here. The
 behaviour is recorded as a boundary: no false `EQUIVALENT`, no false `DIVERGED`.
+
+## 8. Variant A - `kernc pack-dir`: external repository packed and verified
+
+```
+$ kernc pack-dir /tmp/kern-megatest/repos/zig-clap -o zigclap_v1.kimg
+[OK] pack-dir: 20 файлов, 127046 байт -> zigclap_v1.kimg
+
+$ kernc fsck zigclap_v1.kimg
+  версия 1.3 · hash_algo 1 · флаги 0x00000000 · объектов 20
+  проверено 20, ошибок 0                                   RC=0
+
+$ kernc inspect zigclap_v1.kimg
+  {"version":"1.3","hash_algo":1,"object_count":20,
+   "objects":[{"path":"example/usage.zig",...,"digest":"3c5fabbcc64302d0..."}, ...]}
+
+# правка одного файла в клоне -> новый образ -> посекционное сравнение
+$ kernc pack-dir ... -o zigclap_v2.kimg      # 20 файлов, 127069 байт
+$ kernc diff zigclap_v1.kimg zigclap_v2.kimg
+  Merkle-корень различается
+  объект изменён: build.zig                                RC=1
+```
+
+`pack-dir` is a separate command on purpose: `build` compiles a `.kern`
+manifest (claims + artefacts), `pack-dir` packs a **directory tree** and claims
+nothing about it. `.git/` is skipped, and the count of packed files is printed
+together with the number of skipped ones, so a silent loss is visible.
+
+### Defect #302 found by that first run
+
+The first implementation reported **5 packed / 15 skipped** on a 20-file
+repository: `walker` returns paths **relative to the opened directory**, while
+`readFileAlloc` resolves them from the **current working directory**, so every
+file below the top level failed to read. Because the summary prints the skipped
+count, the loss was visible immediately instead of producing a 5-file "repo"
+image. Fixed by joining the root; the re-run packs 20 files with 0 skipped.
+
+## 9. Variant B - diagnosis of `premises_unbound` (not yet fixed)
+
+Reproduction, with the checker's own debug output:
+
+```
+$ kernc prove /tmp/kern-megatest/clamp_diff.smt2      # the diff-equiv query
+  [ПРУФ-ЧЕКЕР] шагов 220 | посылок 2/19 | mp 19 | резолюция 56 | Фаркаш 13 |
+               rewrite(лин.) 39 | eq 18 | bool 43 | ДОВЕРЕННЫХ 13 | дыр 0
+  [i] первое непроверенное правило: rewrite (13 шт.)
+  [!] причина: посылки не привязаны к контракту (premises_unbound)
+```
+
+Facts, not guesses:
+
+* the derivation is otherwise **fully checked**: 220 steps, `holes 0`,
+  `concl_false = true`, 13 trusted lemmas (all arithmetic);
+* the checker sees **19 premises** and binds only 2, with **1 unbound** - and a
+  single unbound premise is enough to reject;
+* the query asserts two `ite`-heavy equalities (`(= res_old ...)`, `(= res_new
+  ...)`) plus `(assert (distinct res_old res_new))`;
+* the plain (branch-free) `clamp_int` pair passes the same route unchanged, so
+  the trigger is the `ite` form of the asserted equality, not diff-equiv itself.
+
+So this is **not** "Z3 is wrong" and not "KERN lies": the binding rule for
+`ite`-shaped premises is missing. Two sound ways forward (a decision is needed):
+
+1. **Case-split in the frontend** (smaller, no checker changes): emit one query
+   per branch combination with linearised bodies, so no `ite` reaches the
+   checker; all UNSAT => equivalent. Requires extracting guards from the AST,
+   and an exhaustiveness argument for the branch chain.
+2. **Teach the checker** a sound `ite`-premise rule: a premise containing `ite`
+   is bound when both case instances are bound. Deeper change inside
+   `proof_check.zig` (~6k lines) and must be proved sound, not permissive.
