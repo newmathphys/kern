@@ -5,7 +5,7 @@
      int i;
      long int fac;  // fac stores x factorial
 +    if (x == 0)
-+        return 1;  // 0! = 1: без этого factorial(0) = 0 и формула делит на ноль
++        return 1;  // 0! = 1: without this factorial(0) = 0 and the formula divides by zero
      fac = x;
      for (i = 1; i < x; i++)  // loop to calculate x factorial
      {

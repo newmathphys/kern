@@ -12,6 +12,7 @@ both reproduced on the untouched upstream source.
 | File | `math/catalan.c` (28 lines) |
 | Found by | KERN contract check + `gcc` ground truth |
 | Upstream status | a bug report exists (**issue #686**, opened 2020-10-19, closed 2021-02-17) and the defect is **still in the file** |
+| Fix submitted | **[PR #1595](https://github.com/TheAlgorithms/C/pull/1595)** — opened 2026-10-21, one file, `+7 −0` |
 
 ## The source (verbatim, lines 5–15 and 21–26)
 
@@ -129,7 +130,10 @@ n=-1 -> "n must be in [0, 10]: ..."    rc=1
   integer from stdin; the impact is a crash and wrong output.
 - **Upstream already has a closed report.** Issue #686 ("[BUG] Catalan program
   doesn't work", closed 2021-02-17) shows the defect was noticed; the file still
-  contains it. A pull request with the minimal fix is the useful contribution.
+  contains it. The minimal fix was submitted as
+  **[PR #1595](https://github.com/TheAlgorithms/C/pull/1595)** — the full text is
+  in [`pr/thealgorithms_c_PR.md`](pr/thealgorithms_c_PR.md), the patch in
+  [`pr/catalan_fix.patch`](pr/catalan_fix.patch).
 
 ## Sweep of the whole `math/` directory (all KERN modes)
 

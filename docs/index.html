@@ -164,7 +164,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <p class="sub">L0-L5 verification gateway / sealed .kimg container</p>
 <p class="sub">Belnap B4 truth gate / polyglot <code>@kern:</code> contracts / MCP server</p>
 <p class="sub" style="margin-top:12px"><strong style="color:var(--ink)">A claim is admitted only with machine evidence.</strong></p>
-<p class="note">Source tag <code>v2.6.2</code> is signed (Ed25519). Binaries are attached by the <code>Release</code> workflow when a tag is pushed; the link above always points at the latest <em>published</em> release, so it never promises a file that does not exist.</p>
+<p class="note">Source tag <code>v2.6.3</code> is signed (Ed25519). Binaries are attached by the <code>Release</code> workflow when a tag is pushed; the link above always points at the latest <em>published</em> release, so it never promises a file that does not exist.</p>
 <p class="note">Verify it yourself with the public key shipped in the repository:
 <code>make verify-attestation</code> (key <code>docs/keys/kern-owner.pub</code>,
 id <code>sha256:6da3e85e…1360f</code>). No private key and no home-directory keys are involved;
@@ -525,7 +525,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <code>kern_verify_action</code> · <code>kern_rlvr_reward</code>.</p>
 <p class="lbl" style="margin:0">In CI, the reusable Action verifies the downloaded binary against
 <code>SHA256SUMS</code> before running it, and can emit a SARIF 2.1.0 report for GitHub Code Scanning:
-<br><code>uses: newmathphys/kern@v2.6.2</code></p>
+<br><code>uses: newmathphys/kern@v2.6.3</code></p>
 </div>
 
 <h2>Defect Journal — when the checks themselves lied</h2>
@@ -533,7 +533,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#<!-- fact:max_defect -->318</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#<!-- fact:max_defect -->319</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -556,7 +556,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>defects this project found in itself</strong> (#1–#<!-- fact:max_defect -->318).
+together with the <strong>defects this project found in itself</strong> (#1–#<!-- fact:max_defect -->319).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 

@@ -1,13 +1,14 @@
 # Pull request — TheAlgorithms/C: `math/catalan.c`
 
-Ready to submit. Fork `https://github.com/TheAlgorithms/C`, apply
-[`catalan_fix.patch`](catalan_fix.patch) (`patch -p1` from the repository root),
-push a branch, open the PR with the text below.
+**SUBMITTED: [`TheAlgorithms/C#1595`](https://github.com/TheAlgorithms/C/pull/1595)**
+— opened 2026-10-21, one file, `+7 −0`, head
+`newmathphys:fix/catalan-zero-and-overflow`, base `master@e5dad3fa`; CI `triage`
+passed. The text below is what was submitted.
 
-The patch was verified against the upstream revision
-`e5dad3fa8def3726ec850ca66a7f51521f8ad393`: it applies cleanly with `patch -p1`
-on a fresh checkout, and after applying, `n = 0` returns `1.00` instead of dying
-with SIGFPE.
+[`catalan_fix.patch`](catalan_fix.patch) applies with `patch -p1` from the
+repository root. It was verified against the upstream revision
+`e5dad3fa8def3726ec850ca66a7f51521f8ad393` on a fresh checkout: after applying,
+`n = 0` returns `1.00` instead of dying with SIGFPE.
 
 ---
 

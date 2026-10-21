@@ -6,6 +6,31 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.6.3] — 2026-10-21
+
+### Fixed
+
+- **#318 — false `[CRASH PATH]` on a guarded division.** Found while sweeping
+  `TheAlgorithms/C/math/`: `--xray` accused `y / x` of dividing by zero even when
+  the division sits **inside** `if (x != 0) { … }`. Cause: path conditions were
+  **accumulated** instead of computed per position — the query for a divisor
+  inside the block received `(not cond)`, that is the **negation of its own
+  guard**. Conditions are now resolved per position (`_clike_conds_at`), and `if`
+  blocks are registered even when they contain no `return`. The fix applies to all
+  three queries that consumed the accumulated list — divisors, bounds, and
+  allocation overflow. Measured: single guard, nested double guard, and the real
+  `cartesian_to_polar.c` → **0 findings**; the same division **without** a guard is
+  still accused. Locked in `xray_check.sh` with both cases.
+
+### Added
+
+- **Upstream contribution — [`TheAlgorithms/C#1595`](https://github.com/TheAlgorithms/C/pull/1595)**
+  (22,554 ★, opened 2026-10-21, one file, `+7 −0`, CI `triage` passed): the minimal
+  fix for the two defects KERN found in `math/catalan.c` — `SIGFPE` on `n = 0` and
+  silent wrong output from `n = 11`.
+- `docs/pr/catalan_fix.patch` and `docs/pr/thealgorithms_c_PR.md` — the patch as
+  submitted and the PR text.
+
 ## [2.6.2] — 2026-10-21
 
 ### Fixed
