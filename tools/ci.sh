@@ -179,6 +179,8 @@ if [ "$FAST" = "0" ]; then
   stage "детерминизм вердикта (0K.6)" python3 tools/determinism_check.py
   stage "CHANGELOG == версия (0K.8)" python3 tools/changelog_check.py
   stage "пин Lean/Mathlib (0K.7)" python3 tools/lean_pin_check.py
+  # 0K.9: документы доверия + отпечаток ключа совпадает с файлом.
+  stage "документы доверия (0K.9)" python3 tools/trust_docs_check.py
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

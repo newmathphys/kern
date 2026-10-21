@@ -1493,6 +1493,12 @@ def case_lean_pin_drift():
     return "python3 tools/lean_pin_check.py --override-lean 9.9.9"
 
 
+def case_trust_docs_missing():
+    """Документы доверия (0K.9). ЛОМАЕМ: пустой каталог вместо docs."""
+    return ("bash -c 'mkdir -p /tmp/kern_trust_empty; "
+            "python3 tools/trust_docs_check.py --dir /tmp/kern_trust_empty'")
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2583,6 +2589,8 @@ CASES = [
      case_changelog_drift),
     ("lean-pin-drift", "Тулчейн не совпал с замком -> падает",
      case_lean_pin_drift),
+    ("trust-docs-missing", "Нет документов доверия -> падает",
+     case_trust_docs_missing),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
