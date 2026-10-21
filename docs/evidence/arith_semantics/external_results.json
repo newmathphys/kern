@@ -1,0 +1,33 @@
+{
+  "evaluations": 840,
+  "original_mismatches": 292,
+  "candidate_mismatches": 0,
+  "positive_divisor_original_mismatches": 0,
+  "z3": "5.3.1",
+  "examples": [
+    {
+      "expression": "(-10) // (-9)",
+      "python": 1,
+      "original": 2,
+      "candidate": 1
+    },
+    {
+      "expression": "(-10) % (-9)",
+      "python": -1,
+      "original": 8,
+      "candidate": -1
+    },
+    {
+      "expression": "(-10) // (-8)",
+      "python": 1,
+      "original": 2,
+      "candidate": 1
+    },
+    {
+      "expression": "(-10) % (-8)",
+      "python": -2,
+      "original": 6,
+      "candidate": -2
+    }
+  ]
+}
