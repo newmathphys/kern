@@ -1643,8 +1643,8 @@ def case_conformance_break():
     exam is not a rubber stamp (its own `--selftest` covers the rest).
     """
     patch("src/core/eq2.zig",
-          "pub fn conflate(a: Eq2) Eq2 {",
-          "pub fn conflate(a: Eq2) Eq2 {\n    return a; // ЛОМАЕМ: конфляция = тождество")
+          "return @enumFromInt(((1 - n) & 0b01) | (((1 - p) & 0b01) << 1));",
+          "return @enumFromInt(((n) & 0b01) | (((1 - p) & 0b01) << 1)); // ЛОМАЕМ: ~ больше не инверсия")
     return "make conformance-check"
 
 

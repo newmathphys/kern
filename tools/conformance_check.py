@@ -66,6 +66,16 @@ def zig() -> str:
 
 def read_facts() -> dict[tuple[str, str], str]:
     """Run the oracle and parse `section|key|value` lines."""
+    # ДЕФЕКТ #281: экзамен мог оценивать УСТАРЕВШИЙ бинарник (сборка упала, а
+    # `python3 tools/conformance_check.py` запускали напрямую). Теперь сначала
+    # сборка; если она не прошла - отказ, а не зелёный отчёт по старому коду.
+    build = subprocess.run([zig(), "build"], cwd=ROOT, capture_output=True, text=True,
+                           timeout=900)
+    if build.returncode != 0:
+        raise SystemExit(
+            "build failed - refusing to grade a stale binary:\n"
+            + (build.stderr or build.stdout)[-2000:]
+        )
     if not ORACLE.exists():
         raise SystemExit(
             f"oracle missing: {ORACLE}\n"
