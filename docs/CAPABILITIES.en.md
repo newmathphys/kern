@@ -266,3 +266,16 @@ reproduces it. The difference between "written" and "proven" is the subject of t
 **Principle:** where proof is impossible (execution facts, physical quantities) KERN
 honestly says `e=0` instead of passing off a wish as a proof.
 
+
+## Contract classes and hypothesis diagnosis (v2.6.0)
+
+| | |
+|:--|:--|
+| ✅ `[advisory]` | `# @kern:ensures result >= x + y  [advisory]` — the promise is still recorded and checked, but a violation does not block |
+| ✅ Verdict | `T_advisory` is a **separate** verdict; it is **never** added to the proven count `T` (`proven 1 | T_advisory 1`) |
+| ✅ Lock | the class is part of the fingerprint (`fn:ensures:advisory`), so flipping `hard -> advisory` without updating the lock breaks `make contracts-lock-check` |
+| ✅ Gate | `make advisory-check` proves three things: advisory does not block, `T_advisory` never becomes `T`, `hard` still blocks |
+| ✅ `explain --hypotheses` | read-only hint about the missing `requires` (`kern_contracts.py explain --hypotheses FILE`) |
+| ✅ Honesty | a candidate that makes `requires` contradictory is **rejected out loud**; for bodies obtained by unrolling a loop/recursion no hypotheses are emitted at all (#295) |
+| ❌ NOT | the tool **never** edits the file and **never** weakens `ensures` |
+| ✅ Gates | `make explain-hypotheses-check` (read-only, determinism, non-vacuity) and `make hypotheses-corpus-check` (every hypothesis is replayed on a copy to `T`) |
