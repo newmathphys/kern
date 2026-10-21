@@ -149,6 +149,7 @@ TAIL = """
 - [Testing and speed guide](https://github.com/newmathphys/kern/blob/main/docs/TESTING_AND_SPEED_GUIDE.md): verification methods and the speed-ups
 - [Belnap sources](https://github.com/newmathphys/kern/blob/main/docs/BELNAP_SOURCES.md): theory-to-code map with machine-checked bibliography
 - [Cybernetics](https://github.com/newmathphys/kern/blob/main/docs/CYBERNETIC_VISION.md): why this architecture (Anokhin, Glushkov, Belnap, Victor)
+- [High-stakes use cases](https://github.com/newmathphys/kern/blob/main/docs/HIGH_STAKES_USE_CASES.md): AMM ramp (Rust), hex-nibble parser (C), money in cents (Python) - proven and refuted obligations with compiler-reproduced witnesses
 - [Site](https://newmathphys.github.io/kern/): live demo, browser WASM playground
 
 ## Honest limits
