@@ -215,13 +215,57 @@ def _is_str_expr(node) -> bool:
     return False
 
 
-def expr_smt(node: ast.AST, env: dict) -> str:
+# ДЕФЕКТ #317: текущий язык трансляции. Транслятор общий для Python и
+# C-подобных, а семантика деления у них РАЗНАЯ, поэтому язык протаскивается
+# до места трансляции: точки входа выставляют его из расширения файла.
+_CURRENT_LANG = "python"
+
+
+def _floor_div_smt(a: str, b: str) -> str:
+    """`a // b` (Python, FLOOR): частное округляется вниз.
+
+    ДЕФЕКТ #317. Оператор SMT `div` совпадает с floor только при b > 0, потому
+    что его остаток всегда неотрицателен (евклидова семантика), а в Python
+    остаток имеет знак ДЕЛИТЕЛЯ. При b < 0 нормализуем делитель:
+    `floor(a/b) = floor(-a/-b)`. Внешний отчёт (M. Brigindi) + независимая
+    проверка: 292 расхождения из 840 без адаптера, 0 с ним.
+    """
+    return f"(ite (> {b} 0) (div {a} {b}) (div (- {a}) (- {b})))"
+
+
+def _trunc_div_smt(a: str, b: str) -> str:
+    """`a / b` (C / Zig / Rust, УСЕЧЕНИЕ К НУЛЮ).
+
+    На `|a| / |b|` евклидово деление и усечение совпадают (оба операнда
+    неотрицательны), поэтому знак частного определяется отдельно:
+    sign(a) * sign(b). Проверено на 420 точках: 0 расхождений с C.
+    """
+    aa = f"(ite (>= {a} 0) {a} (- {a}))"
+    ab = f"(ite (> {b} 0) {b} (- {b}))"
+    mag = f"(div {aa} {ab})"
+    return f"(ite (= (>= {a} 0) (> {b} 0)) {mag} (- {mag}))"
+
+
+def _mod_smt(a: str, b: str, q: str) -> str:
+    """Остаток через тождество `r = a - b*q` — знак берётся автоматически.
+
+    Это верно и для floor (Python), и для усечения (C): разница целиком в `q`.
+    """
+    return f"(- {a} (* {b} {q}))"
+
+
+def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
     """Python-выражение (подмножество) -> SMT-LIB2 с учётом локальных имён.
 
     `env` отображает имена локальных переменных в их SMT-выражения (результат
     символьного исполнения присваиваний). Имена, которых нет в env, считаются
     параметрами функции и печатаются как есть.
+
+    `lang` определяет СЕМАНТИКУ ДЕЛЕНИЯ (дефект #317): Python — floor,
+    C/Zig/Rust — усечение к нулю. Если не передан, берётся `_CURRENT_LANG`.
     """
+    if lang is None:
+        lang = _CURRENT_LANG
     if isinstance(node, ast.Constant):
         if isinstance(node.value, bool):
             return "true" if node.value else "false"
@@ -248,12 +292,12 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         fn = node.func
         fname = fn.id if isinstance(fn, ast.Name) else None
         if fname in ("min", "max") and len(node.args) == 2 and not node.keywords:
-            a = expr_smt(node.args[0], env)
-            b = expr_smt(node.args[1], env)
+            a = expr_smt(node.args[0], env, lang)
+            b = expr_smt(node.args[1], env, lang)
             cmp_ = "<=" if fname == "min" else ">="
             return f"(ite ({cmp_} {a} {b}) {a} {b})"
         if fname == "abs" and len(node.args) == 1 and not node.keywords:
-            x = expr_smt(node.args[0], env)
+            x = expr_smt(node.args[0], env, lang)
             return f"(ite (< {x} 0) (- 0 {x}) {x})"
         # СИМВОЛЬНАЯ АБСТРАКЦИЯ (правило №1): неизвестный вызов больше НЕ
         # означает отказ от функции. `len(x)` -> символ `len__x` с аксиомой
@@ -278,7 +322,7 @@ def expr_smt(node: ast.AST, env: dict) -> str:
                 _AXIOMS.append(f"(>= {sym} 0)")
             return sym
         if fname in ("int", "bool") and len(node.args) == 1 and not node.keywords:
-            x = expr_smt(node.args[0], env)
+            x = expr_smt(node.args[0], env, lang)
             if fname == "int":
                 return x
             return f"(ite (= {x} 0) 0 1)"
@@ -293,7 +337,7 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             _sname, _sparams, _sbody, _budget = _meta
             _new_env = dict(env)
             for _p, _a in zip(_sparams, node.args):
-                _new_env[_p] = expr_smt(_a, env)
+                _new_env[_p] = expr_smt(_a, env, lang)
             _new_env["__self__"] = (_sname, _sparams, _sbody, _budget - 1)
             _INLINED[0] += 1
             _UNROLLED[0] = True
@@ -306,16 +350,16 @@ def expr_smt(node: ast.AST, env: dict) -> str:
     # Тернарный оператор `A if cond else B` -> SMT `ite`.
     if isinstance(node, ast.IfExp):
         return (f"(ite {_as_bool(node.test, env)} "
-                f"{expr_smt(node.body, env)} {expr_smt(node.orelse, env)})")
+                f"{expr_smt(node.body, env, lang)} {expr_smt(node.orelse, env, lang)})")
     if isinstance(node, ast.BoolOp):
         op = "and" if isinstance(node.op, ast.And) else "or"
-        parts = " ".join(expr_smt(v, env) for v in node.values)
+        parts = " ".join(expr_smt(v, env, lang) for v in node.values)
         return f"({op} {parts})"
     if isinstance(node, ast.UnaryOp):
         if isinstance(node.op, ast.Not):
-            return f"(not {expr_smt(node.operand, env)})"
+            return f"(not {expr_smt(node.operand, env, lang)})"
         if isinstance(node.op, ast.USub):
-            return f"(- {expr_smt(node.operand, env)})"
+            return f"(- {expr_smt(node.operand, env, lang)})"
         raise Unsupported("унарный оператор")
     if isinstance(node, ast.BinOp):
         if isinstance(node.op, ast.Add):
@@ -329,20 +373,34 @@ def expr_smt(node: ast.AST, env: dict) -> str:
                 raise Unsupported("нелинейное умножение")
             op = "*"
         elif isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
-            # ДЕЛЕНИЕ/ОСТАТОК. В SMT `div`/`mod` — ТОТАЛЬНЫЕ функции: Z3 просто
-            # доопределяет `div(x, 0)`, поэтому сам по себе ноль НЕ ловится.
-            # Собираем делители и отдельно доказываем `делитель ≠ 0`
+            # ДЕФЕКТ #317: СЕМАНТИКА ДЕЛЕНИЯ ЗАВИСИТ ОТ ЯЗЫКА.
+            #   Python: `//` и `%` — FLOOR (остаток имеет знак ДЕЛИТЕЛЯ),
+            #           `/` — истинное деление (float) -> вне подмножества;
+            #   C/Zig/Rust: `/` и `%` — УСЕЧЕНИЕ К НУЛЮ;
+            #   SMT-LIB `div`/`mod` — ЕВКЛИДОВЫ (остаток всегда >= 0).
+            # Раньше ВСЁ уходило в `div`/`mod`, то есть описывало ДРУГУЮ функцию:
+            # ложное ДОКАЗАНО на `a == 3 and b == -2` / `ensures result >= -1`.
+            # В SMT `div`/`mod` — ТОТАЛЬНЫЕ функции, поэтому ноль НЕ ловится сам;
+            # делители собираются, и `делитель ≠ 0` доказывается отдельно
             # (обязательство безопасности, см. `build_divzero_smt`).
-            op = "mod" if isinstance(node.op, ast.Mod) else "div"
             # `%` над СТРОКАМИ — это форматирование, а не остаток от деления.
             if isinstance(node.op, ast.Mod) and _is_str_expr(node.left):
                 raise Unsupported("строковое форматирование %")
-            d = expr_smt(node.right, env)
-            _DIV_COLLECTOR.append(d)
-            return f"({op} {expr_smt(node.left, env)} {d})"
+            left = expr_smt(node.left, env, lang)
+            right = expr_smt(node.right, env, lang)
+            _DIV_COLLECTOR.append(right)
+            if lang == "python":
+                if isinstance(node.op, ast.Div):
+                    raise Unsupported("истинное деление / (float) вне подмножества")
+                q = _floor_div_smt(left, right)
+            else:
+                q = _trunc_div_smt(left, right)
+            if isinstance(node.op, ast.Mod):
+                return _mod_smt(left, right, q)
+            return q
         else:
             raise Unsupported("бинарный оператор (только + - * / // %)")
-        return f"({op} {expr_smt(node.left, env)} {expr_smt(node.right, env)})"
+        return f"({op} {expr_smt(node.left, env, lang)} {expr_smt(node.right, env, lang)})"
     if isinstance(node, ast.Compare):
         # ДЕФЕКТ #203 (полевой аудит 595 функций 6 библиотек): идиома Python
         # `0 <= start < length` отвергалась как «цепочка сравнений», и функция
@@ -355,7 +413,7 @@ def expr_smt(node: ast.AST, env: dict) -> str:
             opname = type(op).__name__
             if opname not in CMP:
                 raise Unsupported(f"сравнение {opname}")
-            parts.append(f"({CMP[opname]} {expr_smt(cur, env)} {expr_smt(right, env)})")
+            parts.append(f"({CMP[opname]} {expr_smt(cur, env, lang)} {expr_smt(right, env, lang)})")
             cur = right
         if not parts:
             raise Unsupported("пустое сравнение")
@@ -377,7 +435,7 @@ def expr_smt(node: ast.AST, env: dict) -> str:
         if _idx_outside_window(idx_node):
             _UNROLLED[0] = True
         elems = _list_elems(env, base.id)
-        idx = expr_smt(idx_node, env)
+        idx = expr_smt(idx_node, env, lang)
         return _list_read(elems, idx)
     raise Unsupported(f"узел {type(node).__name__}")
 
@@ -701,6 +759,10 @@ def _py_comment_anchors(src: str) -> dict:
 def parse_file(path: Path):
     """Вернуть список (имя, params, requires, ensures, body_smt, lineno, причина)."""
     src = path.read_text(encoding="utf-8", errors="replace")
+    # ДЕФЕКТ #317: явно фиксируем Python — иначе язык «протечёт»
+    # из ранее разобранного C-файла в одном прогоне.
+    global _CURRENT_LANG
+    _CURRENT_LANG = "python"
     lines = src.splitlines()
     # ИЗ НАСТОЯЩИХ КОММЕНТАРИЕВ (tokenize), а не построчно — защита от
     # Comment-in-String Injection.
@@ -1767,6 +1829,12 @@ def parse_clike(path: Path, require_annotations: bool = True):
                         else ("go" if path.suffix == ".go"
                               else ("c" if path.suffix in {".c", ".h", ".cpp", ".cc"}
                                     else "zig")))))
+    # ДЕФЕКТ #317: транслятор ОБЩИЙ для Python и C-подобных, а семантика
+    # деления у них разная. Ставим язык ЗДЕСЬ, потому что точек входа
+    # несколько (`_demo`, главный путь, JSON-путь) и не все проходят
+    # через `_set_lang_from_path`.
+    global _CURRENT_LANG
+    _CURRENT_LANG = lang
     out = []
     i, n = 0, len(lines)
     while i < n:
@@ -1881,6 +1949,20 @@ def parse_clike(path: Path, require_annotations: bool = True):
         out.append((name, names, req, ens, body, i + 1, None, meta))
         i = j + 1
     return out
+
+
+def _set_lang_from_path(path: Path) -> str:
+    """Выставить язык трансляции по расширению файла (дефект #317).
+
+    Возвращает ПРЕДЫДУЩЕЕ значение, чтобы вызывающий мог восстановить его.
+    """
+    global _CURRENT_LANG
+    prev = _CURRENT_LANG
+    suf = path.suffix.lower()
+    _CURRENT_LANG = ("rust" if suf == ".rs" else "zig" if suf == ".zig"
+                     else "go" if suf == ".go" else "ts" if suf in {".ts", ".js"}
+                     else "c" if suf in {".c", ".h", ".cpp", ".cc"} else "python")
+    return prev
 
 
 def parse_any(path: Path):
@@ -2322,6 +2404,7 @@ def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
     from hashlib import sha256 as _sha
 
     before = _sha(path.read_bytes()).hexdigest()
+    _set_lang_from_path(path)   # дефект #317: семантика деления зависит от языка
     funcs = parse_any(path)
     if not funcs:
         print(f"[!] {path}: функций с @kern: не найдено")
@@ -4375,6 +4458,15 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         field_types = _clike_struct_fields(path.read_text(encoding="utf-8", errors="replace"))
     except OSError:
         field_types = {}
+    # ДЕФЕКТ #317: семантика ДЕЛЕНИЯ зависит от языка. В C/Zig/Rust `/` и `%`
+    # это УСЕЧЕНИЕ к нулю, а SMT `div`/`mod` — ЕВКЛИДОВЫ; раньше всё уходило
+    # в `div`, то есть в ДРУГУЮ функцию. Язык берётся из расширения.
+    _suf = path.suffix.lower()
+    lang = ("rust" if _suf == ".rs"
+            else "zig" if _suf == ".zig"
+            else "go" if _suf == ".go"
+            else "ts" if _suf in {".ts", ".js"}
+            else "c")
     checked = total = 0
     found: list[str] = []
     # ДЕФЕКТ #194: часть правил проверяется на УРОВНЕ ФАЙЛА. Причина измерена:
@@ -4446,7 +4538,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 pos = m.end()
                 continue
             try:
-                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt)
+                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError):
                 pos = m.end()
                 continue
@@ -4483,7 +4575,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         guarded_divs: set[str] = set()
         for am2_body in _iter_call_args(body, "assert"):
             try:
-                ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(am2_body)), mode="eval").body, local_smt)
+                ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(am2_body)), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError):
                 continue
             path_conds.append(ac)
@@ -4519,7 +4611,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             else:
                 den = dm.group(6)
             try:
-                d = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(den)), mode="eval").body, local_smt)
+                d = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(den)), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError):
                 continue
             if d.strip().isdigit() or _MACRO_DIV.match(d.strip()):

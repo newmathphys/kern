@@ -55,6 +55,16 @@ artifact "audits/smt2/binary_search_safe_mid_safe_int.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/c_clean_add_bounded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/c_unguarded_ratio.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/div_ceil_divCeil.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -85,6 +95,16 @@ artifact "audits/smt2/midpoint_midpointMutated.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/rust_clean_add_bounded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/rust_overflow_add32.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/saturating_add_saturatingAdd.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -101,6 +121,16 @@ artifact "audits/smt2/zcalloc_zcallocSize.smt2" {
 }
 
 artifact "audits/smt2/zcalloc_zcallocSizeBounded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/zig_clean_add.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/zig_div_ratio.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
@@ -165,6 +195,18 @@ claim "audit:binary_search_safe_mid_safe_int" {
   context "audits/smt2/binary_search_safe_mid_safe_int.smt2"
 }
 
+claim "audit:c_clean_add_bounded" {
+  status proven
+  evidence "contract:audits/smt2/c_clean_add_bounded.smt2"
+  context "audits/smt2/c_clean_add_bounded.smt2"
+}
+
+claim "audit:c_unguarded_ratio" {
+  status proven
+  evidence "contract:audits/smt2/c_unguarded_ratio.smt2"
+  context "audits/smt2/c_unguarded_ratio.smt2"
+}
+
 claim "audit:div_ceil_divCeil" {
   status proven
   evidence "contract:audits/smt2/div_ceil_divCeil.smt2"
@@ -201,6 +243,18 @@ claim "audit:midpoint_midpointMutated" {
   context "audits/smt2/midpoint_midpointMutated.smt2"
 }
 
+claim "audit:rust_clean_add_bounded" {
+  status proven
+  evidence "contract:audits/smt2/rust_clean_add_bounded.smt2"
+  context "audits/smt2/rust_clean_add_bounded.smt2"
+}
+
+claim "audit:rust_overflow_add32" {
+  status proven
+  evidence "contract:audits/smt2/rust_overflow_add32.smt2"
+  context "audits/smt2/rust_overflow_add32.smt2"
+}
+
 claim "audit:saturating_add_saturatingAdd" {
   status proven
   evidence "contract:audits/smt2/saturating_add_saturatingAdd.smt2"
@@ -223,4 +277,16 @@ claim "audit:zcalloc_zcallocSizeBounded" {
   status unknown
   evidence "contract:audits/smt2/zcalloc_zcallocSizeBounded.smt2"
   context "audits/smt2/zcalloc_zcallocSizeBounded.smt2"
+}
+
+claim "audit:zig_clean_add" {
+  status proven
+  evidence "contract:audits/smt2/zig_clean_add.smt2"
+  context "audits/smt2/zig_clean_add.smt2"
+}
+
+claim "audit:zig_div_ratio" {
+  status proven
+  evidence "contract:audits/smt2/zig_div_ratio.smt2"
+  context "audits/smt2/zig_div_ratio.smt2"
 }

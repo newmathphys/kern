@@ -674,6 +674,11 @@ sync-check:
 llms-check:
 	@$(PYTHON) tools/gen_llms_txt.py --check
 
+# ДЕФЕКТ #317: семантика целочисленного деления (Python floor vs C truncation
+# против ЕВКЛИДОВА SMT `div`). Регрессия: перевод обязан совпадать с языком.
+arith-semantics-check:
+	@$(PYTHON) tools/arith_semantics_check.py
+
 llms-selftest:
 	@$(PYTHON) tools/gen_llms_txt.py --selftest
 

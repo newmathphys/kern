@@ -5,6 +5,6 @@
 (assert (and (>= numerator -2147483648) (<= numerator 2147483647)))
 (assert (and (>= denominator -2147483648) (<= denominator 2147483647)))
 (assert (and (>= numerator 0) (> denominator 0)))
-(assert (= result (ite (= numerator 0) 0 (+ (div (- numerator 1) denominator) 1))))
-(assert (not (= result (div (- (+ numerator denominator) 1) denominator))))
+(assert (= result (ite (= numerator 0) 0 (+ (ite (= (>= (- numerator 1) 0) (> denominator 0)) (div (ite (>= (- numerator 1) 0) (- numerator 1) (- (- numerator 1))) (ite (> denominator 0) denominator (- denominator))) (- (div (ite (>= (- numerator 1) 0) (- numerator 1) (- (- numerator 1))) (ite (> denominator 0) denominator (- denominator))))) 1))))
+(assert (not (= result (ite (= (>= (- (+ numerator denominator) 1) 0) (> denominator 0)) (div (ite (>= (- (+ numerator denominator) 1) 0) (- (+ numerator denominator) 1) (- (- (+ numerator denominator) 1))) (ite (> denominator 0) denominator (- denominator))) (- (div (ite (>= (- (+ numerator denominator) 1) 0) (- (+ numerator denominator) 1) (- (- (+ numerator denominator) 1))) (ite (> denominator 0) denominator (- denominator))))))))
 (check-sat)

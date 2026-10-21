@@ -1737,6 +1737,19 @@ def case_advisory_fold():
           "                    ok += 1  # ЛОМАЕМ: advisory засчитан как T")
     return "make advisory-check"
 
+def case_arith_semantics():
+    """#317 SABOTAGE: перевод деления возвращается к НАИВНОМУ `div`.
+
+    ЛОМАЕМ: floor-адаптер заменяется прямым `div` — ровно то состояние,
+    в котором KERN выдал ЛОЖНОЕ ДОКАЗАНО (`a == 3 and b == -2`).
+    `make arith-semantics-check` обязан покраснеть.
+    """
+    patch("tools/kern_contracts.py",
+          '    return f"(ite (> {b} 0) (div {a} {b}) (div (- {a}) (- {b})))"',
+          '    return f"(div {a} {b})"  # ЛОМАЕМ: наивный div')
+    return "make arith-semantics-check"
+
+
 def case_llms_drift():
     """#311 SABOTAGE: генератор печатает УСТАРЕВШЕЕ число.
 
@@ -2904,6 +2917,8 @@ CASES = [
      case_advisory_fold),
     ("llms-drift", "Stale number in llms.txt -> gate red",
      case_llms_drift),
+    ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
+     case_arith_semantics),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

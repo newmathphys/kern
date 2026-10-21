@@ -5,6 +5,12 @@
 | `audits/bloch/binary_search.zig` | `mid_buggy` | QF_BV _ BitVec 32 знаковый | **REFUTED** | `low = #x00000804, high = #x7ffff7fc, result = #xc0000000` | — |
 | `audits/bloch/binary_search.zig` | `mid_safe` | QF_BV _ BitVec 32 знаковый | SKIP | — | — |
 | `audits/bloch/binary_search_safe.zig` | `mid_safe_int` | QF_BV _ BitVec 32 знаковый | **PROVEN** | — | — |
+| `audits/codecheck/c_clean.c` | `add_bounded` | QF_LIA (Int) | **PROVEN** | — | — |
+| `audits/codecheck/c_unguarded.c` | `ratio` | QF_LIA (Int) | **REFUTED** — ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b) | `a = -984, b = 0` | yes |
+| `audits/codecheck/rust_clean.rs` | `add_bounded` | QF_LIA (Int) | **PROVEN** | — | — |
+| `audits/codecheck/rust_overflow.rs` | `add32` | QF_LIA (Int) | **REFUTED** — ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647]) | `result = 2147483648, b = 1, a = 2147483647` | yes |
+| `audits/codecheck/zig_clean.zig` | `add` | QF_LIA (Int) | **PROVEN** | — | — |
+| `audits/codecheck/zig_div.zig` | `ratio` | QF_LIA (Int) | **REFUTED** — ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b) | `a = 8, b = 0` | yes |
 | `audits/ghostty/grid_columns.zig` | `gridColumns` | QF_LIA (Int) | **PROVEN** | — | — |
 | `audits/ghostty/grid_columns.zig` | `gridColumnsBuggy` | QF_LIA (Int) | **REFUTED** | `cell_width = 1, screen_width = 0, result = 0` | yes |
 | `audits/musl/abs.c` | `kern_abs` | QF_LIA (Int) | **PROVEN** | — | — |

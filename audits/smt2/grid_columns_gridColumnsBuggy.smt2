@@ -5,6 +5,6 @@
 (assert (and (>= screen_width -2147483648) (<= screen_width 2147483647)))
 (assert (and (>= cell_width -2147483648) (<= cell_width 2147483647)))
 (assert (and (>= screen_width 0) (< screen_width 16777216) (> cell_width 0) (< cell_width 16777216)))
-(assert (= result (div screen_width cell_width)))
+(assert (= result (ite (= (>= screen_width 0) (> cell_width 0)) (div (ite (>= screen_width 0) screen_width (- screen_width)) (ite (> cell_width 0) cell_width (- cell_width))) (- (div (ite (>= screen_width 0) screen_width (- screen_width)) (ite (> cell_width 0) cell_width (- cell_width)))))))
 (assert (not (>= result 1)))
 (check-sat)
