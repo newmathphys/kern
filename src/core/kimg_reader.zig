@@ -33,7 +33,24 @@ pub const KimgError = error{
     /// Пересчитанный Merkle-корень не совпал с `root_digest` заголовка.
     /// Раньше был объявлен, но НИКОГДА не возвращался (README §6).
     MerkleRootMismatch,
+    /// Ф3: образ требует расширения, которого этот парсер не знает.
+    /// Неизвестные OPTIONAL-биты ПРОПУСКАЮТСЯ, неизвестные REQUIRED — отказ:
+    /// иначе новый образ молча разбирается по старым правилам.
+    UnsupportedRequiredFeature,
+    /// Ф3: magic совпал, но версия прочиталась как `0x0100` — файл записан
+    /// в big-endian. Разбирать его как little-endian нельзя: все поля `u32+`
+    /// окажутся мусором.
+    WrongEndianness,
 };
+
+/// Маски флагов (Ф3). Младшие 16 бит — OPTIONAL (неизвестные игнорируются),
+/// старшие 16 — REQUIRED (неизвестные означают отказ).
+pub const FLAG_OPTIONAL_MASK: u32 = 0x0000_FFFF;
+pub const FLAG_REQUIRED_MASK: u32 = 0xFFFF_0000;
+/// Известные OPTIONAL-биты: 0x0001 = payload deflate.
+pub const FLAG_KNOWN_OPTIONAL: u32 = 0x0000_0001;
+/// Известные REQUIRED-биты: пока ни одного.
+pub const FLAG_KNOWN_REQUIRED: u32 = 0x0000_0000;
 
 /// 128-байтный заголовок образа KIMG v1.2.
 ///
@@ -115,8 +132,22 @@ pub const KimgHeader = extern struct {
         // СПЕКА (KimgHeader.parse): версия и алгоритм хэша ОБЯЗАНЫ проверяться.
         // Без этого образ чужой мажорной версии (иной расклад) или с иным
         // алгоритмом хэша разбирался по правилам v1 МОЛЧА.
-        if (h.version_major != 1) return KimgError.UnsupportedVersion;
+        if (h.version_major != 1) {
+            // Ф3: отличаем «чужая версия» от «файл записан big-endian».
+            // Если те же два байта, прочитанные как BE, дают 1 — это не
+            // другая версия, а другая ПОСЛЕДОВАТЕЛЬНОСТЬ БАЙТ.
+            const as_be = std.mem.readInt(u16, bytes[8..10], .big);
+            if (as_be == 1) return KimgError.WrongEndianness;
+            return KimgError.UnsupportedVersion;
+        }
         if (h.hash_algo != 1 and h.hash_algo != 2) return KimgError.InvalidHashAlgo;
+        // Ф3: политика неизвестных флагов.
+        //   unknown OPTIONAL -> пропустить (совместимость вперёд);
+        //   unknown REQUIRED -> отказ (иначе расклад прочитан неверно).
+        _ = FLAG_OPTIONAL_MASK;
+        _ = FLAG_KNOWN_OPTIONAL;
+        const unknown_required = h.flags & FLAG_REQUIRED_MASK & ~FLAG_KNOWN_REQUIRED;
+        if (unknown_required != 0) return KimgError.UnsupportedRequiredFeature;
 
         if (h.header_size != 128) {
             cov.hit(.hdr_bad_size);
@@ -395,4 +426,26 @@ test "KimgHeader.parse: payload за границей файла отверга�
     var b: [128]u8 = undefined;
     KimgHeader.fillValid(&b, 128, 0, 0, 9999); // payload ЗА файлом
     try std.testing.expectError(KimgError.PayloadOutOfBounds, KimgHeader.parse(&b, 256));
+}
+
+test "Ф3: неизвестный REQUIRED-флаг отвергается" {
+    var b: [128]u8 = undefined;
+    KimgHeader.fillValid(&b, 128, 0, 0, 128);
+    std.mem.writeInt(u32, b[16..20], 0x0001_0000, .little); // старшие 16 = required
+    try std.testing.expectError(KimgError.UnsupportedRequiredFeature,
+        KimgHeader.parse(&b, 512));
+}
+
+test "Ф3: неизвестный OPTIONAL-флаг пропускается (совместимость вперёд)" {
+    var b: [128]u8 = undefined;
+    KimgHeader.fillValid(&b, 128, 0, 0, 128);
+    std.mem.writeInt(u32, b[16..20], 0x0000_0002, .little); // младшие 16 = optional
+    _ = try KimgHeader.parse(&b, 512); // не должно быть отказа
+}
+
+test "Ф3: big-endian образ -> WrongEndianness, а не «другая версия»" {
+    var b: [128]u8 = undefined;
+    KimgHeader.fillValid(&b, 128, 0, 0, 128);
+    std.mem.writeInt(u16, b[8..10], 1, .big); // те же «1», но в BE
+    try std.testing.expectError(KimgError.WrongEndianness, KimgHeader.parse(&b, 512));
 }

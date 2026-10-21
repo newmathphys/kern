@@ -401,6 +401,8 @@ FAULTABLE = [
     "src/core/eq2.zig",
     "src/next/state_axes.zig",
     "src/next/evidence_ledger.zig",
+    "src/core/kimg_reader.zig",
+    "src/proof_cache.zig",
     "src/core/kimg_writer.zig",
     "tools/mutate_zig.py",
     "tools/bench_json.py",
@@ -1554,6 +1556,30 @@ def case_graph_parity_break():
     return "python3 tools/graph_parity.py --min-nodes 999"
 
 
+def case_kimg_flag_policy():
+    """KIMG (Ф3). ЛОМАЕМ: неизвестный REQUIRED-флаг больше не отвергается.
+
+    Тогда образ, требующий неизвестного расширения, разбирается по
+    старым правилам МОЛЧА — ровно то, от чего защищает политика.
+    """
+    patch("src/core/kimg_reader.zig",
+          "        if (unknown_required != 0) return KimgError.UnsupportedRequiredFeature;",
+          "        if (unknown_required == 0xFFFF_FFFF) return KimgError.UnsupportedRequiredFeature;")
+    return "make storage-check"
+
+
+def case_cache_key_13():
+    """Кэш (Ф3). ЛОМАЕМ: `checker_version` перестаёт входить в ключ.
+
+    Тогда смена версии чекера вернёт закэшированный вердикт,
+    посчитанный ДРУГИМ чекером.
+    """
+    patch("src/proof_cache.zig",
+          "                self.schema_hash, self.policy_hash, self.checker_version }) |f|",
+          "                self.schema_hash, self.policy_hash }) |f|")
+    return "make storage-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2656,6 +2682,10 @@ CASES = [
      case_ledger_retract_break),
     ("graph-parity-break", "Графы разошлись -> паритет падает",
      case_graph_parity_break),
+    ("kimg-flag-policy", "REQUIRED-флаг не отвергается -> падает",
+     case_kimg_flag_policy),
+    ("cache-key-13", "ключ кэша теряет поле -> падает",
+     case_cache_key_13),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

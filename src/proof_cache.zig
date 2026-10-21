@@ -43,14 +43,56 @@ pub const ProofCache = struct {
         self.inflight.deinit();
     }
 
+    /// КЛЮЧ КЭША ИЗ 13 ПОЛЕЙ (Ф3).
+    ///
+    /// Было три поля (`ast`, `contract`, `proof`) — то есть кэш игнорировал
+    /// версию чекера, политику, схему и весь агентный контур. Смена модели,
+    /// промпта или набора инструментов возвращала бы закэшированный вердикт
+    /// для ДРУГОГО запроса.
+    ///
+    /// Пять полей (`model_fingerprint`, `prompt_hash`, `params_hash`,
+    /// `tools_hash`, `retrieval_hash`) сегодня пусты: в KERN нет агентного
+    /// контура. Они входят в хэш, чтобы интеграция (Ф6) не начала молча
+    /// отдавать чужой вердикт — но их нули не «доказывают» ничего.
+    pub const CacheKey = struct {
+        version: u8 = 2, // префикс схемы ключа: старые записи не переиспользуются
+        task_kind: u8 = 0,
+        semantic_slice: [32]u8 = @splat(0),
+        body_hashes: [32]u8,
+        contract: [32]u8,
+        dependency_hashes: [32]u8 = @splat(0),
+        model_fingerprint: [32]u8 = @splat(0),
+        prompt_hash: [32]u8 = @splat(0),
+        params_hash: [32]u8 = @splat(0),
+        tools_hash: [32]u8 = @splat(0),
+        retrieval_hash: [32]u8 = @splat(0),
+        schema_hash: [32]u8 = @splat(0),
+        policy_hash: [32]u8 = @splat(0),
+        checker_version: [32]u8 = @splat(0),
+
+        pub fn digest(self: CacheKey) [32]u8 {
+            var h = std.crypto.hash.sha2.Sha256.init(.{});
+            h.update(&[_]u8{ self.version, self.task_kind });
+            inline for (.{ self.semantic_slice, self.body_hashes, self.contract,
+                self.dependency_hashes, self.model_fingerprint, self.prompt_hash,
+                self.params_hash, self.tools_hash, self.retrieval_hash,
+                self.schema_hash, self.policy_hash, self.checker_version }) |f|
+            {
+                h.update(&f);
+            }
+            var out: [32]u8 = undefined;
+            h.final(&out);
+            return out;
+        }
+    };
+
+    /// Совместимый вызов: `(ast, contract, proof)` -> 13-польный ключ.
+    /// `proof` попадает в `semantic_slice` (именно это утверждение доказывали).
     pub fn keyOf(ast: [32]u8, contract: [32]u8, proof: []const u8) [32]u8 {
-        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
-        hasher.update(&ast);
-        hasher.update(&contract);
-        hasher.update(proof);
-        var out: [32]u8 = undefined;
-        hasher.final(&out);
-        return out;
+        var slice: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(proof, &slice, .{});
+        return (CacheKey{ .body_hashes = ast, .contract = contract,
+                          .semantic_slice = slice }).digest();
     }
 
     pub fn get(self: *ProofCache, k: [32]u8) ?gate.CheckerVerdict {
@@ -346,4 +388,42 @@ test "ПЧЕЛИНЫЙ РОЙ: 64 потока -> 1 miss + 63 hits (single-fligh
     try std.testing.expectEqual(@as(usize, 1), calls.load(.monotonic)); // решатель вызван РОВНО 1 раз
     try std.testing.expectEqual(@as(usize, 1), cache.misses);
     try std.testing.expectEqual(@as(usize, 63), cache.hits);
+}
+
+test "Ф3: 13 полей ключа — изменение ЛЮБОГО поля меняет ключ" {
+    const base = ProofCache.CacheKey{ .body_hashes = @as([32]u8, @splat(1)),
+                                      .contract = @as([32]u8, @splat(2)) };
+    const b = base.digest();
+    var i: usize = 0;
+    while (i < 13) : (i += 1) {
+        var k = base;
+        switch (i) {
+            0 => k.task_kind +%= 1,
+            1 => k.semantic_slice[0] +%= 1,
+            2 => k.body_hashes[0] +%= 1,
+            3 => k.contract[0] +%= 1,
+            4 => k.dependency_hashes[0] +%= 1,
+            5 => k.model_fingerprint[0] +%= 1,
+            6 => k.prompt_hash[0] +%= 1,
+            7 => k.params_hash[0] +%= 1,
+            8 => k.tools_hash[0] +%= 1,
+            9 => k.retrieval_hash[0] +%= 1,
+            10 => k.schema_hash[0] +%= 1,
+            11 => k.policy_hash[0] +%= 1,
+            12 => k.checker_version[0] +%= 1,
+            else => unreachable,
+        }
+        try std.testing.expect(!std.mem.eql(u8, &b, &k.digest()));
+    }
+    // Префикс схемы: ключи старой версии не должны переиспользоваться.
+    var v = base;
+    v.version = 1;
+    try std.testing.expect(!std.mem.eql(u8, &b, &v.digest()));
+}
+
+test "Ф3: одинаковые 13 полей дают одинаковый ключ" {
+    const k = ProofCache.CacheKey{ .body_hashes = @as([32]u8, @splat(7)),
+                                   .contract = @as([32]u8, @splat(8)),
+                                   .checker_version = @as([32]u8, @splat(9)) };
+    try std.testing.expectEqual(k.digest(), k.digest());
 }

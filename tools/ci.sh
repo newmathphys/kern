@@ -190,6 +190,8 @@ if [ "$FAST" = "0" ]; then
   # Ф2: журнал свидетельств и графы происхождения.
   stage "ledger + provenance (Ф2)" make ledger-check
   stage "граф G_src: kernx == витрина (Ф2)" make graph-check
+  # Ф3: KIMG-флаги, no-mmap, 13-польный ключ, квоты KERN-X.
+  stage "хранилище: KIMG/KERNFS/кэш/KERN-X (Ф3)" make storage-check
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

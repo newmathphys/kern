@@ -452,6 +452,31 @@ pub const KernFS = struct {
         fs.hash_algo = HashAlgo.fromInt(h.hash_algo) orelse return KernFsError.FileNotFound;
         return fs;
     }
+
+    /// Ф3: режим `no-mmap` — образ КОПИРУЕТСЯ, и ответы зависят ТОЛЬКО от копии.
+    ///
+    /// ЗАЧЕМ. `mountFromBytes` держит срез вызощего буфера (zero-copy). Если
+    /// буфер — mmap файла, чужой процесс может изменить файл уже ПОСЛЕ
+    /// проверки Merkle-корня: «проверенный» объект окажется другим. Здесь
+    /// копия делается сразу, и последующие изменения источника невидимы.
+    pub fn mountFromBytesOwned(allocator: std.mem.Allocator,
+                               image: []const u8) !OwnedMount {
+        const owned = try allocator.dupe(u8, image);
+        errdefer allocator.free(owned);
+        const fs = try KernFS.mountFromBytes(allocator, owned);
+        return .{ .fs = fs, .owned = owned };
+    }
+};
+
+/// Владеющий монтированием: держит копию образа до `deinit`.
+pub const OwnedMount = struct {
+    fs: KernFS,
+    owned: []u8,
+
+    pub fn deinit(self: *OwnedMount, allocator: std.mem.Allocator) void {
+        self.fs.deinit();
+        allocator.free(self.owned);
+    }
 };
 
 // ==========================================
@@ -1120,4 +1145,27 @@ test "ГРАНИЦА: logical_path_offset ровно на границе пул�
     var fs = KernFS.init(std.testing.allocator, &region, &objs, &region);
     // Имя пустое -> объект не адресуем по /raw/ (и НЕ должно быть паники).
     try std.testing.expectError(KernFsError.FileNotFound, fs.read("/raw/a.zig"));
+}
+
+test "Ф3: no-mmap — мутация исходного буфера НЕ меняет ответы" {
+    const alloc = std.testing.allocator;
+    var img = compat.BufWriter.init(alloc);
+    defer img.deinit();
+    try buildMinimalImage(img.writer());
+
+    // «Внешний» буфер: в реальности это был бы mmap файла.
+    const source = try alloc.dupe(u8, img.items());
+    defer alloc.free(source);
+
+    var m = try KernFS.mountFromBytesOwned(alloc, source);
+    defer m.deinit(alloc);
+
+    const obj = m.fs.objects[0];
+    const before = try m.fs.objectPayload(obj);
+    try std.testing.expectEqualStrings("hello", before);
+
+    // Портим ИСТОЧНИК целиком; копия не должна это увидеть.
+    for (source) |*b| b.* ^= 0xFF;
+    const after = try m.fs.objectPayload(obj);
+    try std.testing.expectEqualStrings(before, after);
 }

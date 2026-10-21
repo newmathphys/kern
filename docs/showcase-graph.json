@@ -22,15 +22,15 @@
   "#area/verifier": 16,
   "#has-contract": 4,
   "#hub": 1,
-  "#internal-only": 35,
-  "#lang/zig": 84,
+  "#internal-only": 36,
+  "#lang/zig": 85,
   "#large": 8,
-  "#leaf": 40,
-  "#no-contract": 80,
+  "#leaf": 41,
+  "#no-contract": 81,
   "#public-api": 49,
-  "#small": 76,
+  "#small": 77,
   "#tested": 57,
-  "#untested": 27
+  "#untested": 28
  },
  "nodes": [
   {
@@ -258,9 +258,9 @@
   },
   {
    "id": "core/kernfs_router.zig",
-   "loc": 1123,
+   "loc": 1171,
    "pub_fn": 0,
-   "tests": 27,
+   "tests": 28,
    "kern_annotations": 0,
    "imports_out": 2,
    "claims": [
@@ -274,9 +274,9 @@
   },
   {
    "id": "core/kimg_reader.zig",
-   "loc": 398,
+   "loc": 451,
    "pub_fn": 0,
-   "tests": 11,
+   "tests": 14,
    "kern_annotations": 0,
    "imports_out": 1,
    "claims": [
@@ -352,6 +352,22 @@
     "#leaf",
     "#small",
     "#public-api"
+   ]
+  },
+  {
+   "id": "core_test_root.zig",
+   "loc": 13,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
    ]
   },
   {
@@ -480,7 +496,7 @@
   },
   {
    "id": "main.zig",
-   "loc": 1264,
+   "loc": 1276,
    "pub_fn": 2,
    "tests": 0,
    "kern_annotations": 3,
@@ -792,9 +808,9 @@
   },
   {
    "id": "proof_cache.zig",
-   "loc": 349,
+   "loc": 429,
    "pub_fn": 1,
-   "tests": 7,
+   "tests": 9,
    "kern_annotations": 0,
    "imports_out": 1,
    "claims": [
@@ -807,9 +823,9 @@
   },
   {
    "id": "runtime/kern_x.zig",
-   "loc": 125,
+   "loc": 241,
    "pub_fn": 0,
-   "tests": 5,
+   "tests": 9,
    "kern_annotations": 0,
    "imports_out": 0,
    "claims": [

@@ -1181,13 +1181,25 @@ pub fn main(init: std.process.Init) !void {
             if (obj.type_id != 0x0007) continue;
             found = true;
             const code = try fs.objectPayload(obj);
-            var vm = KernX.init(fuel);
+            // Ф3: бюджет — указатели на локальные счётчики. `host_calls_max = 0`
+            // означает «VM не имеет права обращаться к хосту вообще».
+            var vm_fuel: u32 = fuel;
+            var vm_arena: usize = 0;
+            var vm_out: usize = 0;
+            var vm_depth: u32 = 0;
+            var vm_calls: u32 = 0;
+            var vm = KernX.initWithBudget(.{
+                .fuel = &vm_fuel, .arena = &vm_arena, .arena_max = 1 << 20,
+                .output = &vm_out, .output_max = 1 << 20,
+                .depth = &vm_depth, .depth_max = 64,
+                .host_calls = &vm_calls, .host_calls_max = 0,
+            });
             std.debug.print("[KERN-X] байткод `{s}` ({d} б), топливо {d}\n", .{ fs.objectPath(obj), code.len, fuel });
             vm.execute(code) catch |e| {
-                std.debug.print("  РЕЗУЛЬТАТ: {s} (остаток топлива {d})\n", .{ @errorName(e), vm.fuel });
+                std.debug.print("  РЕЗУЛЬТАТ: {s} (остаток топлива {d})\n", .{ @errorName(e), vm_fuel });
                 return;
             };
-            std.debug.print("  РЕЗУЛЬТАТ: HALT OK (остаток топлива {d})\n", .{vm.fuel});
+            std.debug.print("  РЕЗУЛЬТАТ: HALT OK (остаток топлива {d})\n", .{vm_fuel});
         }
         if (!found) std.debug.print("[i] В образе нет байткода (type 0x0007). Соберите с --bytecode.\n", .{});
 
