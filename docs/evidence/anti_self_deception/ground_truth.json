@@ -1,0 +1,42 @@
+[
+  [
+    "py_abs_bad.py",
+    "Python",
+    "F",
+    "[КОНТРПРИМЕР] x = -1, result = -1",
+    "AssertionError",
+    1
+  ],
+  [
+    "zig_div.zig",
+    "Zig",
+    "F",
+    "b = 0",
+    "zig_div_main.zig:3:14: error: division w",
+    1
+  ],
+  [
+    "c_unguarded.c",
+    "C",
+    "F",
+    "b = 0",
+    "runtime error: division by zero",
+    1
+  ],
+  [
+    "rust_overflow.rs",
+    "Rust",
+    "F",
+    "a=2147483647, b=1",
+    "panic: attempt to add with overflow",
+    101
+  ],
+  [
+    "model add32 (Zig)",
+    "Zig",
+    "F",
+    "a=2147483647, b=1",
+    "panic: integer overflow",
+    -6
+  ]
+]

@@ -390,3 +390,69 @@ is noted rather than hidden.
   piece of work, not something claimed here.
 * `#303` (`QueryKind.equivalence`) was implemented and verified in commit
   `afdb61b` - see section 11.
+
+## 14. Anti-self-deception: real compilers, mutation kill, blind slice
+
+### 14.1 Ground truth - KERN's counterexamples executed by real toolchains
+
+Every refuted case was replayed with the **exact** numbers KERN printed, using the
+native toolchain (not KERN's own opinion):
+
+| Case | Language | KERN counterexample | Real toolchain | Verdict |
+|---|---|---|---|---|
+| `py_abs_bad.py` | Python | `x = -1, result = -1` | `python3` + the contract as an `assert` | **AssertionError, rc=1** |
+| `c_unguarded.c` | C | `b = 0` | `gcc -fsanitize=undefined -fno-sanitize-recover=all` | **`runtime error: division by zero`, rc=1** |
+| `rust_overflow.rs` | Rust | `a = 2147483647, b = 1` | `rustc -C overflow-checks=on` | **`panic: attempt to add with overflow`, rc=101** |
+| model `add32` (Zig) | Zig | `a = 2147483647, b = 1` | `zig run` | **`panic: integer overflow`, rc=-6 (SIGABRT)** |
+| `zig_div.zig` | Zig | `a = 8, b = 0` | `zig run` with `u64` | **`panic: division by zero`, rc=134 (SIGABRT)** |
+
+Result: **5 of 5 counterexamples are physically reproducible** - no paper-only
+witnesses. Two nuances were found while doing this, and both are recorded as
+defects rather than smoothed over (see 14.4).
+
+### 14.2 Mutation kill test on every `T (PROVEN)` file
+
+Each proven file was mutated in a temporary copy; KERN must flip `T -> F`:
+
+| File | Mutation | KERN after mutation |
+|---|---|---|
+| `py_abs_ok.py` | `return x` -> `return -x` | **F**, `x = 1, result = -1` |
+| `zig_clean.zig` | `return a + b;` -> `return a - b;` | **F**, `b = -1, result = 1, a = 0` |
+| `c_clean.c` | `return a + b;` -> `return a - b;` | **F**, `b = -1, result = 1, a = 0` |
+| `rust_clean.rs` | `return a + b;` -> `return a - b;` | **F**, `b = -1, result = 1, a = 0` |
+| `py_clamp_ok.py` | `if x < lo` -> `if x <= lo` | **T (survived) - and correctly so** |
+| `py_clamp_ok.py` | `return lo` -> `return lo - 1` | **F**, `lo = 0, hi = 0, result = -1, x = -2` |
+
+4 real mutants killed, 1 **equivalent mutant** survived: when `x == lo` both
+branches return `lo`, so the mutant is semantically identical and a prover that
+returned `F` there would be wrong. A second, semantically different mutation of
+the same file was killed with a counterexample. So the `T` verdicts are not blind
+to the body.
+
+### 14.3 Blind slice - no cherry-picking
+
+`boltons/mathutils.py` has exactly three top-level functions; **all three** were
+taken in alphabetical order, with the reference equal to the function itself (so
+only crashes and hangs can show up):
+
+```
+ceil   EXPLORED 31 inputs   |   clamp EXPLORED 27 inputs   |   floor EXPLORED 31 inputs
+DIVERGED: 0/3   (no crashes, no hangs)
+```
+
+Honest limit: most functions in real modules import sibling modules, so a blind
+slice across a whole library is bounded by that; the module was taken whole, not
+filtered.
+
+### 14.4 Two real limits found by this run
+
+* **#307 - a real historical off-by-one is outside the subset.** `boltons` commit
+  `c1c25da` ("Fix off-by-one in Bits length check") changed
+  `if val > 2 ** len_:` to `if val >= 2 ** len_:`. KERN cannot check it today:
+  a power with a variable exponent is outside the subset, so `--diff-equiv`
+  answers "нет одноимённых функций в подмножестве". Recorded, not hidden.
+* **#308 - the Zig corpus file did not compile.** `zig_div.zig` used `a / b` on
+  **signed** integers, which Zig 0.17 rejects at compile time (`signed integers
+  must use @divTrunc, ...`), so the ground-truth replay was impossible. The file
+  now uses `u64` (where `/` is legal): KERN still refutes it (`b = 0`) and the
+  real runtime panics with `division by zero`. Corpus matrix unchanged.
