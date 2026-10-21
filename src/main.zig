@@ -16,6 +16,7 @@ const KernFsError = @import("core/kernfs_router.zig").KernFsError;
 const Eq2 = @import("core/eq2.zig").Eq2;
 const Builder = @import("core/kimg_writer.zig").Builder;
 const KernX = @import("runtime/kern_x.zig").KernX;
+const cli_kimg = @import("cli_kimg.zig");
 const AdmissionGate = @import("verifier/admission_gate.zig").AdmissionGate;
 const ProofCertificate = @import("verifier/admission_gate.zig").ProofCertificate;
 const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPolicy;
@@ -1167,6 +1168,29 @@ pub fn main(init: std.process.Init) !void {
         // утверждения — часть замысла (золотой корпус аудитов с мутациями),
         // нельзя было бы проверить вовсе.
         if (mismatch > 0) std.process.exit(1);
+
+    // Ф3.2: CLI над готовым парсером KIMG. Нужен внешнему конформансу
+    // (Фаза 5, раздел 10), который умеет работать только с файлами и командами.
+    } else if (std.mem.eql(u8, command, "fsck")) {
+        if (args.len < 3) {
+            std.debug.print("[!] fsck: нужен путь к .kimg\n", .{});
+            std.process.exit(2);
+        }
+        std.process.exit(cli_kimg.fsck(alloc, args[2]));
+
+    } else if (std.mem.eql(u8, command, "inspect")) {
+        if (args.len < 3) {
+            std.debug.print("[!] inspect: нужен путь к .kimg\n", .{});
+            std.process.exit(2);
+        }
+        std.process.exit(cli_kimg.inspect(alloc, args[2]));
+
+    } else if (std.mem.eql(u8, command, "diff")) {
+        if (args.len < 4) {
+            std.debug.print("[!] diff: нужны два .kimg\n", .{});
+            std.process.exit(2);
+        }
+        std.process.exit(cli_kimg.diff(alloc, args[2], args[3]));
 
     } else if (std.mem.eql(u8, command, "run")) {
         const fuel_s = flagValue(args, "--fuel") orelse "1000";

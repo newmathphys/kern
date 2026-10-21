@@ -23,14 +23,14 @@
   "#has-contract": 4,
   "#hub": 1,
   "#internal-only": 36,
-  "#lang/zig": 85,
+  "#lang/zig": 87,
   "#large": 8,
   "#leaf": 41,
-  "#no-contract": 81,
-  "#public-api": 49,
-  "#small": 77,
+  "#no-contract": 83,
+  "#public-api": 51,
+  "#small": 79,
   "#tested": 57,
-  "#untested": 28
+  "#untested": 30
  },
  "nodes": [
   {
@@ -146,6 +146,21 @@
    "id": "chc_bench.zig",
    "loc": 91,
    "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "cli_kimg.zig",
+   "loc": 189,
+   "pub_fn": 3,
    "tests": 0,
    "kern_annotations": 0,
    "imports_out": 1,
@@ -434,6 +449,21 @@
    ]
   },
   {
+   "id": "gen_kimg_fixtures.zig",
+   "loc": 79,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
    "id": "hash_bench.zig",
    "loc": 163,
    "pub_fn": 1,
@@ -496,7 +526,7 @@
   },
   {
    "id": "main.zig",
-   "loc": 1276,
+   "loc": 1300,
    "pub_fn": 2,
    "tests": 0,
    "kern_annotations": 3,
@@ -808,9 +838,9 @@
   },
   {
    "id": "proof_cache.zig",
-   "loc": 429,
+   "loc": 476,
    "pub_fn": 1,
-   "tests": 9,
+   "tests": 11,
    "kern_annotations": 0,
    "imports_out": 1,
    "claims": [
@@ -1416,6 +1446,11 @@
    "kind": "import"
   },
   {
+   "source": "cli_kimg.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
    "source": "concolic.zig",
    "target": "compat.zig",
    "kind": "import"
@@ -1447,6 +1482,11 @@
   },
   {
    "source": "fuzz_ast.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "gen_kimg_fixtures.zig",
    "target": "compat.zig",
    "kind": "import"
   },

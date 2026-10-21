@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->462 · CHECK <!-- fact:check_targets -->140 · cases <!-- fact:canfail_cases -->157 · anchors <!-- fact:anchors -->123 · registry <!-- fact:registry_targets -->174 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->141 · cases <!-- fact:canfail_cases -->161 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->175 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > Канонический документ: **что** мы тестируем, **как** измеряем и **чем** ускоряем.
 > Каждое число получено прогоном; где выигрыш не измерен — так и написано.
@@ -40,7 +40,7 @@
 ### Раздел 4 — Самоверификация и эволюция
 | Метод | Факт |
 |:--|:--|
-| Can-fail дисциплина | **127 CHECK-целей / 126 с доказательством**, **157 кейса, 0 вакуумных** |
+| Can-fail дисциплина | **127 CHECK-целей / 126 с доказательством**, **161 кейса, 0 вакуумных** |
 | Мутации | **1345/1345 = 100.0 %** по ВСЕЙ популяции (21 файл, без сэмплинга, 23 мин) |
 | SBST | `--gen-tests`: 100 % достижимых веток (мёртвые помечены) |
 | Genetic Improvement | `--simplify` + доказательство эквивалентности через `--diff-equiv` |
@@ -169,4 +169,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Полный сквозной прогон `canfail`: **157 не-вакуумных / 0 вакуумных / 0 ошибок**.
+Полный сквозной прогон `canfail`: **161 не-вакуумных / 0 вакуумных / 0 ошибок**.

@@ -19,6 +19,11 @@ pub const ProofCache = struct {
     evictions: usize = 0,
     /// Лимит записей. При переполнении вытесняется самая старая (FIFO).
     max_entries: usize = 10_000,
+    /// Версия решателя (Ф3.5). Входит в `checker_version` ключа: вердикт,
+    /// посчитанный другим Z3, не должен переиспользоваться. Заполняется
+    /// вызывающей стороной из тех же данных, что пишутся в свидетельства (0K.5).
+    solver_version: []const u8 = "unknown",
+
     /// ПОТОКОБЕЗОПАСНОСТЬ: без мьютекса параллельные get/put — гонка (race).
     mutex: std.Io.Mutex = std.Io.Mutex.init,
     /// Условная переменная для ожидания завершения чужого вычисления.
@@ -29,6 +34,10 @@ pub const ProofCache = struct {
             .map = std.AutoHashMap([32]u8, gate.CheckerVerdict).init(allocator),
             .inflight = std.AutoHashMap([32]u8, void).init(allocator),
         };
+    }
+
+    pub fn setSolverVersion(self: *ProofCache, v: []const u8) void {
+        self.solver_version = v;
     }
 
     /// Эффективность кэша: hits / (hits + misses) * 100%.
@@ -85,6 +94,18 @@ pub const ProofCache = struct {
             return out;
         }
     };
+
+    /// Ключ с ЯВНОЙ версией решателя (Ф3.5).
+    pub fn keyOfWithSolver(ast: [32]u8, contract: [32]u8, proof: []const u8,
+                           solver_version: []const u8) [32]u8 {
+        var slice: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(proof, &slice, .{});
+        var ver: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(solver_version, &ver, .{});
+        return (CacheKey{ .body_hashes = ast, .contract = contract,
+                          .semantic_slice = slice,
+                          .checker_version = ver }).digest();
+    }
 
     /// Совместимый вызов: `(ast, contract, proof)` -> 13-польный ключ.
     /// `proof` попадает в `semantic_slice` (именно это утверждение доказывали).
@@ -193,7 +214,8 @@ fn cachedFn(ctx: ?*anyopaque, allocator: std.mem.Allocator,
             ast: [32]u8, contract: [32]u8, proof: []const u8) gate.CheckerVerdict {
     const Ctx = struct { cache: *ProofCache, inner: gate.TrustedChecker };
     const c: *Ctx = @ptrCast(@alignCast(ctx.?));
-    const k = ProofCache.keyOf(ast, contract, proof);
+    const k = ProofCache.keyOfWithSolver(ast, contract, proof,
+                                          c.cache.solver_version);
 
     // SINGLE-FLIGHT ПО КЛЮЧУ: потоки с ОДНОЙ формулой ждут (1 miss, N-1 hits),
     // а с РАЗНЫМИ — считаются параллельно (раньше был глобальный мьютекс).
@@ -426,4 +448,29 @@ test "Ф3: одинаковые 13 полей дают одинаковый кл
                                    .contract = @as([32]u8, @splat(8)),
                                    .checker_version = @as([32]u8, @splat(9)) };
     try std.testing.expectEqual(k.digest(), k.digest());
+}
+
+
+test "Ф3.5: разный solver_version -> разные ключи (и один -> один)" {
+    const ast = @as([32]u8, @splat(1));
+    const con = @as([32]u8, @splat(2));
+    const k_413 = ProofCache.keyOfWithSolver(ast, con, "(= x 1)", "Z3 4.13.0");
+    const k_510 = ProofCache.keyOfWithSolver(ast, con, "(= x 1)", "Z3 5.1.0");
+    try std.testing.expect(!std.mem.eql(u8, &k_413, &k_510));
+    try std.testing.expectEqual(k_413,
+        ProofCache.keyOfWithSolver(ast, con, "(= x 1)", "Z3 4.13.0"));
+}
+
+test "Ф3.5: solver_version из кэша попадает в ключ" {
+    var a = ProofCache.init(std.testing.allocator);
+    defer a.deinit();
+    var b = ProofCache.init(std.testing.allocator);
+    defer b.deinit();
+    a.setSolverVersion("Z3 5.1.0");
+    b.setSolverVersion("Z3 4.13.0");
+    const ast = @as([32]u8, @splat(3));
+    const con = @as([32]u8, @splat(4));
+    const ka = ProofCache.keyOfWithSolver(ast, con, "p", a.solver_version);
+    const kb = ProofCache.keyOfWithSolver(ast, con, "p", b.solver_version);
+    try std.testing.expect(!std.mem.eql(u8, &ka, &kb));
 }

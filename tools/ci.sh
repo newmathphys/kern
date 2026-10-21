@@ -192,6 +192,7 @@ if [ "$FAST" = "0" ]; then
   stage "граф G_src: kernx == витрина (Ф2)" make graph-check
   # Ф3: KIMG-флаги, no-mmap, 13-польный ключ, квоты KERN-X.
   stage "хранилище: KIMG/KERNFS/кэш/KERN-X (Ф3)" make storage-check
+  stage "CLI fsck/inspect/diff на фикстурах (Ф3.2)" make kimg-cli-check
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

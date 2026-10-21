@@ -403,6 +403,8 @@ FAULTABLE = [
     "src/next/evidence_ledger.zig",
     "src/core/kimg_reader.zig",
     "src/proof_cache.zig",
+    "src/runtime/kern_x.zig",
+    "src/core/kernfs_router.zig",
     "src/core/kimg_writer.zig",
     "tools/mutate_zig.py",
     "tools/bench_json.py",
@@ -1580,6 +1582,37 @@ def case_cache_key_13():
     return "make storage-check"
 
 
+def case_kimg_cli():
+    """CLI KIMG (Ф3.2). ЛОМАЕМ: требуем заведомо больше объектов.
+
+    Внешний конформанс увидит только код возврата, поэтому CLI
+    обязан падать, если файл не тот.
+    """
+    return "python3 tools/kimg_cli_check.py --min-objects 99"
+
+
+def case_kimg_endianness():
+    """KIMG (Ф3). ЛОМАЕМ: big-endian перестаёт отличаться от чужой версии."""
+    patch("src/core/kimg_reader.zig",
+          "            if (as_be == 1) return KimgError.WrongEndianness;",
+          "            if (as_be == 999) return KimgError.WrongEndianness; // ЛОМАЕМ")
+    return "make storage-check"
+
+
+def case_kernfs_no_mmap():
+    """KERNFS (Ф3). ЛОМАЕМ: `no-mmap` больше не копирует образ."""
+    patch("src/core/kernfs_router.zig",
+          "        const owned = try allocator.dupe(u8, image);",
+          "        const owned = @constCast(image); // ЛОМАЕМ: срез чужого буфера")
+    return "make storage-check"
+
+
+def case_kernx_shared_fuel():
+    """KERN-X (Ф3). ЛОМАЕМ: топливо «на прогон» вместо общего счётчика."""
+    patch("src/runtime/kern_x.zig",
+          "        self.pc = 0;\n        self.rsp = 0;",
+          "        self.pc = 0;\n        self.rsp = 0;\n        self.budget.fuel.* = 100; // ЛОМАЕМ: свежее топливо")
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2686,6 +2719,13 @@ CASES = [
      case_kimg_flag_policy),
     ("cache-key-13", "ключ кэша теряет поле -> падает",
      case_cache_key_13),
+    ("kimg-cli", "CLI не падает на чужом файле", case_kimg_cli),
+    ("kimg-endianness", "BE не отличается от версии -> падает",
+     case_kimg_endianness),
+    ("kernfs-no-mmap", "no-mmap не копирует -> падает",
+     case_kernfs_no_mmap),
+    ("kernx-shared-fuel", "топливо на прогон -> падает",
+     case_kernx_shared_fuel),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
