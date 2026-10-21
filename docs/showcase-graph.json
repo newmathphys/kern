@@ -17,20 +17,20 @@
  ],
  "claims_vocabulary": {
   "#area/core": 10,
-  "#area/next": 12,
+  "#area/next": 16,
   "#area/runtime": 1,
   "#area/verifier": 16,
-  "#has-contract": 3,
+  "#has-contract": 4,
   "#hub": 1,
-  "#internal-only": 32,
-  "#lang/zig": 78,
+  "#internal-only": 35,
+  "#lang/zig": 84,
   "#large": 8,
-  "#leaf": 35,
-  "#no-contract": 75,
-  "#public-api": 46,
-  "#small": 70,
-  "#tested": 54,
-  "#untested": 24
+  "#leaf": 40,
+  "#no-contract": 80,
+  "#public-api": 49,
+  "#small": 76,
+  "#tested": 57,
+  "#untested": 27
  },
  "nodes": [
   {
@@ -80,6 +80,22 @@
    ]
   },
   {
+   "id": "axes_test_root.zig",
+   "loc": 14,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
    "id": "bench_simd8.zig",
    "loc": 38,
    "pub_fn": 1,
@@ -112,7 +128,7 @@
   },
   {
    "id": "capi.zig",
-   "loc": 155,
+   "loc": 157,
    "pub_fn": 0,
    "tests": 0,
    "kern_annotations": 0,
@@ -208,9 +224,9 @@
   },
   {
    "id": "core/eq2.zig",
-   "loc": 178,
-   "pub_fn": 3,
-   "tests": 6,
+   "loc": 215,
+   "pub_fn": 4,
+   "tests": 9,
    "kern_annotations": 0,
    "imports_out": 0,
    "claims": [
@@ -447,6 +463,22 @@
    ]
   },
   {
+   "id": "ledger_test_root.zig",
+   "loc": 10,
+   "pub_fn": 0,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
    "id": "main.zig",
    "loc": 1264,
    "pub_fn": 2,
@@ -545,6 +577,23 @@
    ]
   },
   {
+   "id": "next/evidence_ledger.zig",
+   "loc": 175,
+   "pub_fn": 0,
+   "tests": 7,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#internal-only"
+   ]
+  },
+  {
    "id": "next/export.zig",
    "loc": 251,
    "pub_fn": 2,
@@ -561,8 +610,24 @@
    ]
   },
   {
+   "id": "next/graph_dump.zig",
+   "loc": 195,
+   "pub_fn": 2,
+   "tests": 0,
+   "kern_annotations": 2,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#has-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
    "id": "next/main.zig",
-   "loc": 164,
+   "loc": 178,
    "pub_fn": 1,
    "tests": 0,
    "kern_annotations": 0,
@@ -594,6 +659,23 @@
    ]
   },
   {
+   "id": "next/provenance.zig",
+   "loc": 226,
+   "pub_fn": 2,
+   "tests": 6,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
    "id": "next/snapshot.zig",
    "loc": 187,
    "pub_fn": 4,
@@ -610,8 +692,25 @@
    ]
   },
   {
+   "id": "next/state_axes.zig",
+   "loc": 145,
+   "pub_fn": 4,
+   "tests": 8,
+   "kern_annotations": 0,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/next",
+    "#no-contract",
+    "#tested",
+    "#leaf",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
    "id": "next/test_root.zig",
-   "loc": 18,
+   "loc": 19,
    "pub_fn": 0,
    "tests": 0,
    "kern_annotations": 0,
@@ -628,9 +727,9 @@
   },
   {
    "id": "next/truth.zig",
-   "loc": 591,
-   "pub_fn": 5,
-   "tests": 14,
+   "loc": 621,
+   "pub_fn": 6,
+   "tests": 15,
    "kern_annotations": 0,
    "imports_out": 0,
    "claims": [
@@ -1031,11 +1130,11 @@
   },
   {
    "id": "verifier/admission_gate.zig",
-   "loc": 324,
+   "loc": 381,
    "pub_fn": 0,
-   "tests": 8,
+   "tests": 10,
    "kern_annotations": 0,
-   "imports_out": 2,
+   "imports_out": 3,
    "claims": [
     "#lang/zig",
     "#area/verifier",
@@ -1381,6 +1480,11 @@
    "kind": "import"
   },
   {
+   "source": "next/graph_dump.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
    "source": "next/main.zig",
    "target": "compat.zig",
    "kind": "import"
@@ -1573,6 +1677,11 @@
   {
    "source": "verifier/admission_gate.zig",
    "target": "cov.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/admission_gate.zig",
+   "target": "next/state_axes.zig",
    "kind": "import"
   },
   {

@@ -1545,6 +1545,15 @@ def case_ledger_retract_break():
     return "make ledger-check"
 
 
+def case_graph_parity_break():
+    """Граф G_src (Ф2). ЛОМАЕМ: требуем заведомо больше узлов, чем есть.
+
+    Паритет проверяет не «файл существует», а совпадение множеств
+    узлов и рёбер между ядром и витриной.
+    """
+    return "python3 tools/graph_parity.py --min-nodes 999"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2645,6 +2654,8 @@ CASES = [
      case_axes_law_break),
     ("ledger-retract-break", "retract не снимает конфликт -> падает",
      case_ledger_retract_break),
+    ("graph-parity-break", "Графы разошлись -> паритет падает",
+     case_graph_parity_break),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

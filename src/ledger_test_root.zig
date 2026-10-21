@@ -6,4 +6,5 @@
 test {
     _ = @import("next/evidence_ledger.zig");
     _ = @import("next/provenance.zig");
+    _ = @import("next/truth.zig");
 }

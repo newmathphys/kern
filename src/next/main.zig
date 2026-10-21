@@ -15,6 +15,7 @@ const validate = @import("validate.zig");
 const exp = @import("export.zig");
 const ast = @import("ast.zig");
 const truth = @import("truth.zig");
+const graph_dump = @import("graph_dump.zig");
 const compat = @import("compat");
 
 fn flagValue(args: []const [:0]const u8, name: []const u8) ?[]const u8 {
@@ -49,6 +50,18 @@ pub fn main(init: std.process.Init) !void {
 
     if (std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "version")) {
         std.debug.print("{s} (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{ KERN_VERSION, @import("builtin").zig_version_string });
+        return;
+    }
+
+    // Ф2: граф исходников — ЕДИНЫЙ источник для витрины (Эго-Линза, фильтры).
+    // Python-сканер остаётся только сторожем паритета (`make graph-check`).
+    if (std.mem.eql(u8, cmd, "graph")) {
+        const root = flagValue(args, "--root") orelse "src";
+        const json = graph_dump.render(alloc, root) catch |e| {
+            std.debug.print("[!] graph: {s}\n", .{@errorName(e)});
+            return;
+        };
+        try std.Io.File.stdout().writeStreamingAll(compat.io(), json);
         return;
     }
 
@@ -159,6 +172,7 @@ fn printUsage() void {
         \\  status <file>                                   сводка
         \\  report <file>                                   человеческий отчёт
         \\  packet <file> [--scope S]                       agent packet
+        \\  graph [--root DIR] [--json]                      граф исходников (G_src)
         \\
     , .{KERN_VERSION});
 }

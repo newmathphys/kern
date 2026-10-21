@@ -11,6 +11,7 @@
 //! joinK(T,F) = B (КОНФЛИКТ) → e=0. Перезапись «последним тестом» — уязвимость.
 const std = @import("std");
 const ast = @import("ast.zig");
+const ledger = @import("evidence_ledger.zig");
 
 /// Двухбитовый квант Белнапа (p = подтверждение, n = опровержение).
 pub const Bit = struct {
@@ -166,6 +167,16 @@ pub const AdmissionCode = struct {
         return decode(word) orelse 0;
     }
 };
+
+/// МОСТ Ф2: состояние журнала свидетельств -> квант Белнапа.
+///
+/// Журнал считает `(p, n)` пересчётом активного набора, `resolve()` —
+/// монотонным слиянием. Оба обязаны давать ОДНО состояние; это проверяется
+/// тестом ниже, чтобы две подсистемы не разошлись молча.
+pub fn bitFromLedger(l: *const ledger.Ledger) Bit {
+    const s = l.state();
+    return .{ .p = s.p, .n = s.n };
+}
 
 pub const Resolution = struct {
     to_tested: usize = 0,
@@ -588,4 +599,23 @@ test "ЭПОХИ: смена файла БЕЗ нового доказатель
     const r = resolveAcrossEpochs(F, old_d, Bit{}, new_d);
     try std.testing.expect(r.n and !r.p);
     try std.testing.expectEqual(@as(u1, 0), allowance(r));
+}
+
+test "Ф2: журнал и монотонное слияние дают одно состояние" {
+    var l = ledger.Ledger.init(std.testing.allocator);
+    defer l.deinit();
+    _ = try l.add("e1", .positive);
+    _ = try l.add("e2", .negative);
+    // T ⊔ F = B (0 — успех, 1 — провал)
+    const joined = Bit.join(Bit.ofExit(0), Bit.ofExit(1));
+    const from_ledger = bitFromLedger(&l);
+    try std.testing.expectEqual(joined.p, from_ledger.p);
+    try std.testing.expectEqual(joined.n, from_ledger.n);
+    try std.testing.expect(from_ledger.p and from_ledger.n);
+
+    // Отзыв провала: журнал пересчитывает -> T; слияние без него тоже T.
+    _ = l.retract("e2");
+    const t = Bit.ofExit(0);
+    try std.testing.expectEqual(t.p, bitFromLedger(&l).p);
+    try std.testing.expectEqual(t.n, bitFromLedger(&l).n);
 }

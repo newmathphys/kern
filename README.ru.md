@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->451 · CHECK <!-- fact:check_targets -->138 · cases <!-- fact:canfail_cases -->154 · anchors <!-- fact:anchors -->121 · registry <!-- fact:registry_targets -->172 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->452 · CHECK <!-- fact:check_targets -->139 · cases <!-- fact:canfail_cases -->155 · anchors <!-- fact:anchors -->121 · registry <!-- fact:registry_targets -->173 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 ![KERN: архитектура и измеренный baseline](docs/kern-architecture.svg)
@@ -35,7 +35,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->138 / <!-- fact:check_targets -->138 CHECK-целей** покрыты (<!-- fact:canfail_cases -->154 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->139 / <!-- fact:check_targets -->139 CHECK-целей** покрыты (<!-- fact:canfail_cases -->155 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **33/40** живой дифференциальный детектор (24 расхождения значения + 8 падений + 1 незавершение; 9 не требуют эталона, 24 сверяются с эталоном датасета) · **7** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -610,20 +610,20 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 154 кейса: ломаем инвариант -> цель обязана упасть
+make canfail          # 155 кейса: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->121 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->172 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->173 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->172 (CHECK <!-- fact:check_targets -->138 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->138/<!-- fact:check_targets -->138 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->173 (CHECK <!-- fact:check_targets -->139 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->139/<!-- fact:check_targets -->139 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->154 (не-вакуумных <!-- fact:canfail_cases -->154 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->265** |
+| can-fail кейсов | <!-- fact:canfail_cases -->155 (не-вакуумных <!-- fact:canfail_cases -->155 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->267** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

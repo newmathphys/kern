@@ -189,6 +189,7 @@ if [ "$FAST" = "0" ]; then
   stage "замок контрактов: покрытие (Ф1)" make contracts-lock-check
   # Ф2: журнал свидетельств и графы происхождения.
   stage "ledger + provenance (Ф2)" make ledger-check
+  stage "граф G_src: kernx == витрина (Ф2)" make graph-check
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный
