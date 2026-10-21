@@ -433,6 +433,11 @@ KERN_CONTRACTS_LOCK ?= docs/contracts.lock.json
 contracts-lock:
 	@$(PYTHON) tools/kern_contracts.py --lock-repo $(KERN_CONTRACTS_LOCK)
 
+# Ф6.1: классы обязательств hard/advisory.
+# Гейт доказывает ДВА свойства: advisory не блокирует, но и НЕ становится T,
+# а hard по-прежнему блокирует (иначе класс = лазейка для агента).
+advisory-check:
+	@$(PYTHON) tools/advisory_check.py
 contracts-lock-check:
 	@$(PYTHON) tools/kern_contracts.py --verify-lock-repo $(KERN_CONTRACTS_LOCK)
 

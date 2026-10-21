@@ -1035,7 +1035,7 @@ def contract_fingerprints(path: Path) -> dict:
     for i, ln in enumerate(lines, 1):
         m = ANNOT.match(ln)
         if m:
-            anchors.setdefault(i, {})[m.group(1)] = m.group(2)
+            anchors.setdefault(i, {})[m.group(1)] = (m.group(2), annot_class(m))
     out: dict[str, str] = {}
 
     # Ф1: замок покрывает ВЕСЬ репозиторий, включая Zig/C. `ast.parse` для них
@@ -1053,8 +1053,11 @@ def contract_fingerprints(path: Path) -> dict:
             bound[i] = current
         for i, kinds in anchors.items():
             name = bound.get(i) or f"line{i}"
-            for kind, text in kinds.items():
-                out[f"{name}:{kind}"] = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            for kind, (text, cls) in kinds.items():
+                # Ф6.1: класс ВХОДИТ в отпечаток, поэтому переклейка
+                # `hard -> advisory` без обновления замка — расхождение.
+                out[f"{name}:{kind}:{cls}"] = hashlib.sha256(
+                    text.encode("utf-8")).hexdigest()
         return out
 
     for node in ast.walk(ast.parse(src)):
@@ -1063,8 +1066,8 @@ def contract_fingerprints(path: Path) -> dict:
         for k in range(max(1, node.lineno - 6), node.lineno):
             if k not in anchors:
                 continue
-            for kind, text in anchors[k].items():
-                out[f"{node.name}:{kind}"] = hashlib.sha256(
+            for kind, (text, cls) in anchors[k].items():
+                out[f"{node.name}:{kind}:{cls}"] = hashlib.sha256(
                     text.encode("utf-8")).hexdigest()
     return out
 
@@ -1162,7 +1165,28 @@ def minimize_counterexample(kernc, smt: str, params, ce: dict) -> dict:
 CLIKE_EXT = {".zig", ".c", ".h", ".cpp", ".cc", ".rs", ".ts", ".js", ".go"}
 
 # `/// @kern:...`, `// @kern:...`, `# @kern:...`
-ANNOT = re.compile(r"^\s*(?:///|//|#)\s*@kern:(requires|ensures)\s+(.+?)\s*$")
+ANNOT = re.compile(r"^\s*(?:///|//|#)\s*@kern:(requires|ensures)\s+(.+?)(?:\s+\[(advisory)\])?\s*$")
+# Ф6.1: класс обязательства. По умолчанию `hard` (нарушение = F и блокирует).
+# Явный `[advisory]` в конце строки делает нарушение НЕ блокирующим, но и НЕ
+# «доказанным»: вердикт становится `T_advisory` и НЕ попадает в счётчик `T`.
+# Метка стоит в группе 3, поэтому все прежние `m.group(2)` (текст условия)
+# остаются верными — совместимость без правки 30+ мест.
+def ens_class_at(lines, ln: int) -> str:
+    """Класс обязательства `ensures` для функции на строке `ln` (Ф6.1).
+
+    Аннотации лежат в нескольких строках ВЫШЕ `def`, поэтому ищем в окне.
+    """
+    cls = "hard"
+    for k in range(max(0, ln - 7), min(len(lines), ln)):
+        m = ANNOT.match(lines[k])
+        if m and m.group(1) == "ensures":
+            cls = annot_class(m)
+    return cls
+
+
+def annot_class(m) -> str:
+    """Класс обязательства из аннотации: `hard` (по умолчанию) или `advisory`."""
+    return m.group(3) if m.group(3) else "hard"
 
 # Машинные диапазоны типов: (минимум, максимум) в терминах ℤ.
 TYPE_RANGE = {
@@ -1726,6 +1750,7 @@ def parse_clike(path: Path, require_annotations: bool = True):
         meta = {"ranges": {}, "ret": (ret or "").strip()}
         ret = meta["ret"]
         req = ens = None
+        ens_cls = "hard"
         for k in range(max(0, i - 6), i):
             am = ANNOT.match(lines[k])
             if am:
@@ -1733,6 +1758,7 @@ def parse_clike(path: Path, require_annotations: bool = True):
                     req = am.group(2)
                 else:
                     ens = am.group(2)
+                    ens_cls = annot_class(am)  # Ф6.1
         # `require_annotations=False` — режим `--xray` (Zero-Annotation):
         # функции БЕЗ `@kern:` тоже анализируются (иначе std Zig давал 0/0).
         if require_annotations and req is None and ens is None:
@@ -2885,6 +2911,7 @@ def _demo(args) -> int:
         return 2
 
     total = ok = failed = skipped = vacuous = safety_failed = unknown = 0
+    advisory_ok = 0  # Ф6.1: T_advisory — НЕ доказано и НЕ нарушено
     unconfirmed = 0  # правило №4: SAT, не подтверждённый живым вызовом
     # Контрпримеры для `--emit-pytest` (УЛУЧШЕНИЕ №4): найденный Z3 баг обязан
     # превращаться в ОБЫЧНЫЙ падающий pytest, а не только в строку в логе.
@@ -3180,6 +3207,21 @@ def _demo(args) -> int:
                                     "reason": "solver unavailable"})
                     unknown += 1
                     continue
+                # Ф6.1: класс обязательства решает, БЛОКИРУЕТ ли нарушение.
+                # advisory: вердикт `T_advisory` — не F (не блокирует) и не T
+                # (не доказано). Смешивать его со счётчиком T нельзя.
+                _cls = ens_class_at(ftext.splitlines(), ln)
+                if _cls == "advisory":
+                    print(f"  [T_advisory] {name}: advisory-обязательство нарушено "
+                          f"(не блокирует, но и НЕ доказано)")
+                    vals = parse_counterexample(out)
+                    if vals:
+                        print(f"         [КОНТРПРИМЕР] {fmt_ce(vals)}")
+                    f_funcs.append({"name": name, "line": ln,
+                                    "verdict": "T_ADVISORY",
+                                    "reason": "advisory obligation violated"})
+                    advisory_ok += 1
+                    continue
                 print(f"  [FAIL] {name}: КОНТРАКТ НАРУШЕН")
                 for line in out.splitlines():
                     if "ВЕРДИКТ" in line or "KERN-EQ2" in line:
@@ -3248,7 +3290,7 @@ def _demo(args) -> int:
                                 + (f"; контрпример Z3: {fmt_ce(vals)}" if vals else ""))})
                 failed += 1
     print("-" * 74)
-    print(f"ИТОГО: доказано {ok} | нарушено {failed} (из них "
+    print(f"ИТОГО: доказано {ok} | T_advisory {advisory_ok} | нарушено {failed} (из них "
           f"безопасность: {safety_failed}) | НЕ РЕШЕНО {unknown} | "
           f"ЛОЖНЫХ ТРЕВОГ {unconfirmed} | "
           f"ВАКУУМНЫХ {vacuous} | "
@@ -3264,6 +3306,7 @@ def _demo(args) -> int:
     if getattr(args, "json", None):
         write_json_report(args.json, json_files, {
             "proven": ok,
+            "t_advisory": advisory_ok,
             "violated": failed,
             "vacuous": vacuous,
             "skipped": skipped,

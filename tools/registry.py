@@ -33,7 +33,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CLASS = {
     # --- проверки: есть утверждение -----------------------------------------
     "golden": "CHECK", "build": "CHECK", "test": "CHECK", "test-next": "CHECK",
-    "artifact-check": "CHECK", "artifact-check-offline": "CHECK",
+    # ДЕФЕКТ #288: это НЕ CHECK. `artifact-check*` сверяет релизный артефакт с
+    # объявленным в README хешем; объявление существует только в релизе (#250
+    # убрал хардкод, который дрейфовал). Ломать его в canfail нечем: без
+    # объявления цель выходит с 1 всегда, и «доказательство невакуумности»
+    # доказывало бы отсутствие ворот. Класс BUILD — честное имя.
+    "artifact-check": "BUILD", "artifact-check-offline": "BUILD",
     "contracts": "CHECK",
     "contracts-json": "CHECK",
     "contracts-lock-check": "CHECK",
@@ -64,6 +69,7 @@ CLASS = {
     "quixbugs-replay": "CHECK",
     "codecheck": "CHECK",
     "conformance-check": "CHECK",
+    "advisory-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "bench-json": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
@@ -193,6 +199,7 @@ CASE_TARGET = {
     "quixbugs-replay-break": "quixbugs-replay",
     "codecheck-fp": "codecheck",
     "conformance-break": "conformance-check",
+    "advisory-fold": "advisory-check",
     "diff-equiv": "diff-equiv",
     "self-verify": "self-verify",
     "edge-cases": "edge-cases",

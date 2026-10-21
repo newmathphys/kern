@@ -1627,6 +1627,18 @@ def case_codecheck_fp():
     return "make codecheck"
 
 
+def case_advisory_fold():
+    """Ф6.1 SABOTAGE: advisory вердикт складывается в счётчик доказанного T.
+
+    `advisory_ok += 1` -> `ok += 1`: summary печатает «доказано 2», то есть
+    обещание `T_advisory` перестаёт отличаться от доказательства.
+    Гейт обязан это поймать.
+    """
+    patch("tools/kern_contracts.py",
+          "                    advisory_ok += 1",
+          "                    ok += 1  # ЛОМАЕМ: advisory засчитан как T")
+    return "make advisory-check"
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -2769,6 +2781,8 @@ CASES = [
      case_codecheck_fp),
     ("conformance-break", "One requirement broken -> exam must fail",
      case_conformance_break),
+    ("advisory-fold", "Advisory counted as proven -> gate red",
+     case_advisory_fold),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
