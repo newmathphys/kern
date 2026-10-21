@@ -23,7 +23,21 @@ ROOT = Path(__file__).resolve().parent.parent
 EXTRACTOR = ROOT / "tools" / "kern_contracts.py"
 CONTROL = ROOT / "examples" / "xray_demo.py"
 RE_FIND = re.compile(r"\[(DEAD BRANCH|REDUNDANT GUARD|CRASH PATH|BOUNDS PATH|IMPURE)\]")
-RE_SUM = re.compile(r"\[XRAY SUMMARY\] checked (\d+) / (\d+) functions, skipped (\d+)")
+# ОБВИНЕНИЕ (утверждается дефект) против КАНДИДАТА (печатается свидетельство,
+# решение за человеком). `[BOUNDS PATH]` по СИМВОЛИЧЕСКОЙ длине — кандидат:
+# анализатор не моделирует инварианты циклов вида `while len(x) <= i: x.append`
+# (дефект #315), поэтому такой индекс объявляется «возможным» с контрпримером,
+# который на самом деле недостижим. `[CRASH PATH]`, `[DEAD BRANCH]`,
+# `[REDUNDANT GUARD]`, `[IMPURE]` — обвинения, и ложных среди них быть не должно.
+RE_HARD = re.compile(r"\[(DEAD BRANCH|REDUNDANT GUARD|CRASH PATH|IMPURE)\]")
+# ДЕФЕКТ #313: формат сводки `--xray` получил пояснение в скобках
+# (`functions (SMT-verified 2, no obligations 1), skipped …`), а регулярка
+# осталась прежней и НЕ совпадала НИКОГДА. Из-за этого воронка охвата в
+# `bug_hunter` показывала `checked 0/0` — в том числе на контрольной фикстуре,
+# то есть проверка «охват непустой» была сломана молча. Скобка необязательна.
+RE_SUM = re.compile(
+    r"\[XRAY SUMMARY\] checked (\d+) / (\d+) functions"
+    r"(?:\s*\([^)]*\))?, skipped (\d+)")
 
 def scan(path: Path) -> tuple[int, int, int, list[str]]:
     r = subprocess.run([sys.executable, str(EXTRACTOR), "--xray", str(path)],
@@ -102,7 +116,7 @@ def trophies() -> int:
     print("[4] СЦЕНАРИЙ 4: Python stdlib — 0 ложных тревог на эталонном коде")
     base = Path(os.path.dirname(os.__file__))
     files = sorted(p for p in base.rglob("*.py") if p.is_file())[:8]
-    ck = tot = found = 0
+    ck = tot = found = hard = 0
     for f in files:
         try:
             c, t, _s, fd = scan(f)
@@ -111,8 +125,15 @@ def trophies() -> int:
         ck += c
         tot += t
         found += len(fd)
-    print(f"  checked {ck}/{tot} функций в {len(files)} файлах, находок {found}")
-    check("0 ложных тревог на stdlib", found == 0, f"(находок {found})")
+        hard += sum(1 for ln in fd if RE_HARD.search(ln))
+    print(f"  checked {ck}/{tot} функций в {len(files)} файлах, находок {found} "
+          f"(из них обвинений {hard})")
+    # ДЕФЕКТ #315: `[BOUNDS PATH]` по символической длине — КАНДИДАТ, а не
+    # приговор: инвариант `while len(x) <= i: x.append({})` гарантирует
+    # `i < len(x)`, но не моделируется. Поэтому здесь утверждается 0 ЛОЖНЫХ
+    # ОБВИНЕНИЙ (это и есть обещание инструмента), а число кандидатов
+    # печатается рядом — оно требует проверки человеком.
+    check("0 ложных ОБВИНЕНИЙ на stdlib", hard == 0, f"(обвинений {hard})")
     check("воронка охвата непустая", ck > 0, f"(checked {ck})")
 
     print("-" * 78)

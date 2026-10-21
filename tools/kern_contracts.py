@@ -3939,6 +3939,46 @@ def _normalized_length(st) -> tuple[str, int] | None:
     return None
 
 
+def _loop_len_guard(st) -> tuple[str, str] | None:
+    """`for i in range(len(arr)):` -> ("i", "arr"); иначе None.
+
+    ДЕФЕКТ #314: индекс `i` внутри такого цикла ОГРАНИЧЕН длиной массива, но
+    это не моделировалось, и `arr[i]` обвинялся в выходе за границы с
+    недостижимым контрпримером (`kern_len_lines = 0, i = -1`). Найдено трофеем
+    на реальном коде CPython (`Tools/i18n/pygettext.py:227`).
+
+    ВАЖНО: к моменту обхода препроцессор УЖЕ переписал `len(arr)` в
+    `kern_len_arr`, поэтому принимаются ОБЕ формы — иначе защита не срабатывает
+    (проверено: `guard=None` на реальном пути при верной форме в изоляции).
+    """
+    if not isinstance(st.target, ast.Name):
+        return None
+    it = st.iter
+    if not (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
+            and it.func.id == "range" and len(it.args) == 1):
+        return None
+    a = it.args[0]
+    if (isinstance(a, ast.Call) and isinstance(a.func, ast.Name)
+            and a.func.id == "len" and len(a.args) == 1
+            and isinstance(a.args[0], ast.Name)):
+        return st.target.id, a.args[0].id
+    if isinstance(a, ast.Name) and a.id.startswith("kern_len_"):
+        return st.target.id, a.id[len("kern_len_"):]
+    return None
+
+
+def _match_len_guard(st) -> str | None:
+    """`match len(arr):` -> "arr"; иначе None (для per-case сужения)."""
+    subj = st.subject
+    if (isinstance(subj, ast.Call) and isinstance(subj.func, ast.Name)
+            and subj.func.id == "len" and len(subj.args) == 1
+            and isinstance(subj.args[0], ast.Name)):
+        return subj.args[0].id
+    if isinstance(subj, ast.Name) and subj.id.startswith("kern_len_"):
+        return subj.id[len("kern_len_"):]
+    return None
+
+
 def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
     """Обход тела с накоплением путевых условий (Пункт 21, Zero-Annotation)."""
     syms = syms if syms is not None else set()
@@ -3964,6 +4004,35 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
             # выполняется при `NOT cond` -> сужаем путь.
             if neg and _block_exits(st.body):
                 path = path + [neg]
+            continue
+        # ДЕФЕКТ #314: циклы и `match` по длине не моделировались вовсе — их
+        # тела обходились БЕЗ сужения, поэтому индексы, ограниченные идиомой
+        # `for i in range(len(arr))` или `match len(arr): case N:`, обвинялись
+        # в выходе за границы с недостижимым контрпримером.
+        if isinstance(st, ast.For):
+            g = _loop_len_guard(st)
+            if g is not None:
+                var, arr = g
+                cond = f"(and (>= {var} 0) (< {var} kern_len_{arr}))"
+                _walk_bounds(st.body, path + [cond], params, lens, kernc, found,
+                             fname, syms | {arr})
+            else:
+                _walk_bounds(st.body, path, params, lens, kernc, found, fname, syms)
+            _walk_bounds(st.orelse, path, params, lens, kernc, found, fname, syms)
+            continue
+        if isinstance(st, ast.Match):
+            arr = _match_len_guard(st)
+            for case in st.cases:
+                extra: list[str] = []
+                csyms = syms
+                pat = case.pattern
+                if (arr is not None and isinstance(pat, ast.MatchValue)
+                        and isinstance(pat.value, ast.Constant)
+                        and isinstance(pat.value.value, int)):
+                    csyms = syms | {arr}
+                    extra = [f"(= kern_len_{arr} {pat.value.value})"]
+                _walk_bounds(case.body, path + extra, params, lens, kernc, found,
+                             fname, csyms)
             continue
         for sub in [n for n in ast.walk(st) if isinstance(n, ast.Subscript)]:
             if not isinstance(sub.value, ast.Name):
