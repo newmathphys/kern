@@ -119,3 +119,47 @@ python3 tools/kern_contracts.py /tmp/kern-natural-eval/out/<file>.py
 
 Raw artefacts kept outside the repository; the only repository change is this
 report.
+
+## 6. Iterative repair benchmark: Round 1 (blind) -> Round 2 (with KERN)
+
+Three free models, four contract tasks in four languages. The **contract is the
+specification** (written by us); the model writes only the implementation. Round 1
+is blind; if KERN refutes, the model gets the exact Z3 counterexample plus the
+`explain --hypotheses` output and one repair turn. Runner and raw transcripts:
+`docs/evidence/leaderboard/`.
+
+| Task | Language | Trap |
+|---|---|---|
+| `avg_capped` | Python | clamp order: `(a+b)//2` exceeds the 500 cap |
+| `add32` | **Zig** | `i32` overflow: `ensures result >= a` with `a,b >= 0` |
+| `ratio` | **C** | unguarded division by zero |
+| `add32_rs` | **Rust** | same `i32` overflow |
+
+| Model | avg_capped | add32 (Zig) | ratio (C) | add32_rs (Rust) |
+|---|---|---|---|---|
+| deepseek-v4.1-flash-free | T | **F -> F** | F -> **T** | F -> **T** |
+| glm-5.3-flash-free | T | **F -> F** | F -> **T** | F -> **T** |
+| mimo-v2.6-flash-free | T | **F -> F** | N (loop body, outside subset) | T |
+
+Aggregates: **Round 1 blind: 4 proven, 7 refuted, 1 honest `N`.**
+After KERN's counterexample: **4 of 7 refuted tasks repaired (57%)**, 3 still
+refuted - and all three are the **same Zig `i32` overflow task**, where every
+model re-emitted `return a + b;` even with the witness
+`a = 2147483647, b = 1 -> 2147483648` in front of it. The Rust twin was repaired
+(`a.saturating_add(b)`), so this is not "models cannot fix overflow" but
+"models do not transfer the lesson to Zig".
+
+What the loop demonstrates: the Python trap was caught by nobody's intuition but
+was also never hit (all three clamped correctly); the C division and the Rust
+overflow were **caught and then repaired** after feedback; the Zig overflow was
+caught and **not** repaired. That asymmetry is the honest headline - a one-shot
+filter blocks bad code, but repair quality is task- and language-dependent.
+
+### Defect #306, found by this run
+
+Rust code written the idiomatic way (tail expression) was rejected as
+unsupported (`оператор rust: 'a + b'`), so the first Rust answers were skipped
+entirely instead of being verified. Fixed: a trailing expression in the last
+statement of a Rust/Zig body is now the returned value. After the fix the same
+file yields the overflow witness, and the corpus matrix is unchanged
+(`TP=5, TN=5, FP=0, FN=0, UNKNOWN=4`).

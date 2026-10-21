@@ -1,0 +1,118 @@
+[
+  {
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "task": "avg_capped",
+    "lang": "py",
+    "round1": "T",
+    "round2": null,
+    "ce": "",
+    "seconds": 8.9
+  },
+  {
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "task": "add32",
+    "lang": "zig",
+    "round1": "F",
+    "round2": "F",
+    "ce": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])",
+    "seconds": 9.0,
+    "ce2": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])"
+  },
+  {
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "task": "ratio",
+    "lang": "c",
+    "round1": "F",
+    "round2": "T",
+    "ce": "[FAIL] ratio: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)",
+    "seconds": 9.0,
+    "ce2": ""
+  },
+  {
+    "model": "opencode/deepseek-v4.1-flash-free",
+    "task": "add32_rs",
+    "lang": "rs",
+    "round1": "F",
+    "round2": "T",
+    "ce": "",
+    "seconds": 7.2,
+    "note": "R1 was SKIP before #306 fix (tail expression); re-verified as F, then repaired manually",
+    "ce2": "fixed with a.saturating_add(b)"
+  },
+  {
+    "model": "opencode/glm-5.3-flash-free",
+    "task": "avg_capped",
+    "lang": "py",
+    "round1": "T",
+    "round2": null,
+    "ce": "",
+    "seconds": 17.4
+  },
+  {
+    "model": "opencode/glm-5.3-flash-free",
+    "task": "add32",
+    "lang": "zig",
+    "round1": "F",
+    "round2": "F",
+    "ce": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])",
+    "seconds": 10.8,
+    "ce2": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])"
+  },
+  {
+    "model": "opencode/glm-5.3-flash-free",
+    "task": "ratio",
+    "lang": "c",
+    "round1": "F",
+    "round2": "T",
+    "ce": "[FAIL] ratio: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)",
+    "seconds": 15.0,
+    "ce2": ""
+  },
+  {
+    "model": "opencode/glm-5.3-flash-free",
+    "task": "add32_rs",
+    "lang": "rs",
+    "round1": "F",
+    "round2": "T",
+    "ce": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])",
+    "seconds": 38.1,
+    "ce2": ""
+  },
+  {
+    "model": "opencode/mimo-v2.6-flash-free",
+    "task": "avg_capped",
+    "lang": "py",
+    "round1": "T",
+    "round2": null,
+    "ce": "",
+    "seconds": 52.8
+  },
+  {
+    "model": "opencode/mimo-v2.6-flash-free",
+    "task": "add32",
+    "lang": "zig",
+    "round1": "F",
+    "round2": "F",
+    "ce": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])",
+    "seconds": 14.5,
+    "ce2": "[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])"
+  },
+  {
+    "model": "opencode/mimo-v2.6-flash-free",
+    "task": "ratio",
+    "lang": "c",
+    "round1": "SKIP",
+    "round2": null,
+    "ce": "",
+    "seconds": 40.0
+  },
+  {
+    "model": "opencode/mimo-v2.6-flash-free",
+    "task": "add32_rs",
+    "lang": "rs",
+    "round1": "T",
+    "round2": null,
+    "ce": "",
+    "seconds": 79.4
+  }
+]

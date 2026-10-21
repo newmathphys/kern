@@ -1677,6 +1677,14 @@ def _exec_clike(stmts, env: dict, lang: str, expr_fn=None):
         if m:
             env[m.group(1)] = expr_fn(_clike_parse(m.group(2), lang), env)
             continue
+        # ДЕФЕКТ #306 (найден живым прогоном моделей): ХВОСТОВОЕ ВЫРАЖЕНИЕ.
+        # Идиоматичный Rust/Zig пишут `a + b` вместо `return a + b;`, и модели
+        # отвечают именно так. Раньше это давало SKIP «оператор rust: 'a + b'»,
+        # то есть ответ живой модели НЕ проверялся вообще — при том, что
+        # переполнение i32 в таком теле видно. Теперь хвостовое выражение
+        # последнего оператора трактуется как возвращаемое значение.
+        if lang in ("rust", "zig") and all(not s.strip() for s in stmts[i + 1:]):
+            return expr_fn(_clike_parse(st.rstrip(";"), lang), env)
         raise Unsupported(f"оператор {lang}: {st[:40]!r}")
     return None
 
