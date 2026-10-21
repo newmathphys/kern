@@ -1,5 +1,6 @@
 {
-  "expect": "N",
+  "expect": "F",
   "kind": "unsupported",
-  "why": "C contracts are not analysed"
+  "why": "unguarded division by zero in C (real defect)",
+  "file": "c_unguarded.c"
 }

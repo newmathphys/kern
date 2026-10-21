@@ -1,0 +1,6 @@
+{
+  "expect": "F",
+  "kind": "unsupported",
+  "why": "i32 overflow on machine bounds (real defect)",
+  "file": "rust_overflow.rs"
+}

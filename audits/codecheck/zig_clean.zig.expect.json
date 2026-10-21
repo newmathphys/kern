@@ -1,5 +1,6 @@
 {
-  "expect": "N",
+  "expect": "T",
   "kind": "unsupported",
-  "why": "Zig contracts are not analysed"
+  "why": "correct Zig code, contract proven",
+  "file": "zig_clean.zig"
 }

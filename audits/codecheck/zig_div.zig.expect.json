@@ -1,5 +1,6 @@
 {
-  "expect": "N",
+  "expect": "F",
   "kind": "unsupported",
-  "why": "Zig contracts are not analysed"
+  "why": "unguarded division by zero (real defect)",
+  "file": "zig_div.zig"
 }

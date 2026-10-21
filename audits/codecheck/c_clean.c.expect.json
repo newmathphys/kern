@@ -1,5 +1,6 @@
 {
-  "expect": "N",
+  "expect": "T",
   "kind": "unsupported",
-  "why": "C contracts are not analysed"
+  "why": "correct C code, contract proven",
+  "file": "c_clean.c"
 }

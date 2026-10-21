@@ -1,0 +1,6 @@
+{
+  "expect": "T",
+  "kind": "unsupported",
+  "why": "correct Rust code, contract proven",
+  "file": "rust_clean.rs"
+}

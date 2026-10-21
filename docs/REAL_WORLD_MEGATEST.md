@@ -342,3 +342,51 @@ verdict). Two can-fail cases were added/verified:
  equivalence file.smt2` tried to read the **flag** as a file (Zig stack trace).
 The positional argument is now located properly (flags and the `--query-kind`
 value are skipped), and a missing file reports cleanly with rc=2.
+
+## 12. Four languages in the code-checking corpus (#305)
+
+The Phase 4B corpus had four Zig and two C files returning `N (no functions)`.
+The cause was **not** a missing capability: `tools/kern_contracts.py` already
+checks Python, Zig, C and Rust contracts with **machine-type bounds**
+(`i8/i32/u32/i64/usize`; see `examples/contracts_demo.{py,zig,c,rs}` and
+`TYPE_RANGE`). The corpus files simply carried no `@kern:` annotations, and their
+expectations recorded "unsupported".
+
+They now carry real contracts, and two Rust cases were added:
+
+| File | Language | Verdict | Witness |
+|---|---|---|---|
+| `zig_clean.zig` | Zig | **T** | `ensures result == a + b` proved |
+| `zig_div.zig` | Zig | **F** | unguarded `a / b` -> division-by-zero obligation |
+| `c_clean.c` | C | **T** | proved with `int` bounds |
+| `c_unguarded.c` | C | **F** | unguarded `a / b` in C |
+| `rust_clean.rs` | Rust | **T** | proved |
+| `rust_overflow.rs` | Rust | **F** | **i32 overflow**: `a = 2147483647, b = 1 -> 2147483648` |
+
+Matrix before and after:
+
+```
+before:  TP=2, TN=2, FP=0, FN=0, UNKNOWN=8
+now:     TP=5, TN=5, FP=0, FN=0, UNKNOWN=4
+```
+
+The remaining four `UNKNOWN` are honest and named in
+`audits/codecheck/README.md`: nonlinearity, recursion unrolling, slice-index
+reasoning, and a loop body (needs CHC). `FP = 0` and `FN = 0` are unchanged -
+the hard gate is not weakened by covering more languages.
+
+Rust detail worth recording: a body written as a bare tail expression
+(`a + b`) is rejected as unsupported (`оператор rust: 'a + b'`); the frontend
+expects an explicit `return`. The corpus uses `return a + b;`, and the limitation
+is noted rather than hidden.
+
+## 13. Two claims re-checked in the repository
+
+* `HumanEval+` baseline **exists**: `docs/ATTESTATION_PASSPORT.md` records
+  `0.524 base / 0.500 plus` for 164 tasks, and `docs/CAPABILITIES.md` states the
+  measured effect of the static gate on `pass@1` is **0** with the reason: a
+  one-shot filter runs *before* the tests, so raising `pass@1` needs an
+  **iterative repair loop** driven by counterexamples. That loop is the next
+  piece of work, not something claimed here.
+* `#303` (`QueryKind.equivalence`) was implemented and verified in commit
+  `afdb61b` - see section 11.
