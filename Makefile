@@ -478,6 +478,9 @@ kimg-cli-check:
 # Анти-самообман: контрпримеры KERN воспроизводятся ЖИВЫМИ инструментами
 # (python3/gcc -fsanitize=undefined/rustc -C overflow-checks=on/zig run), а
 # мутации «доказанных» файлов обязаны переводить T в F.
+# Живой прогон всех 10 возможностей + генерация русской витрины-путеводителя.
+demo-all:
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/run_all_10_capabilities_demo.py --write
 anti-self-deception-check:
 	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/anti_self_deception_check.py
 codecheck:

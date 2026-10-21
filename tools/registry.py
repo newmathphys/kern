@@ -156,6 +156,7 @@ CLASS = {
     "status": "META",                    # git status + легенда generated/manual
     "showcase": "BUILD",                 # пересборка графа витрины из src/
     "showcase-check": "META",            # граф витрины == src/ (+ --selftest)
+    "demo-all": "META",                  # генератор русской витрины (make demo-all)
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",
