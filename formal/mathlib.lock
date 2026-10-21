@@ -1,0 +1,16 @@
+{
+  "_comment": "Замок тулчейна Lean/Mathlib (0K.7): ревизии, при которых 137 теорем собираются с 0 sorry. Обновлять вместе с проверкой.",
+  "lean": "leanprover/lean4:v4.34.0",
+  "mathlib": "5ed2965256430c3649e86755f9576b54eca72435",
+  "packages": {
+    "mathlib": "5ed2965256430c3649e86755f9576b54eca72435",
+    "plausible": "118aa17ee84656b8bd727fef7c458ee8c833385c",
+    "LeanSearchClient": "ddf04cf3949fa556442341e87d47f9f6e6074707",
+    "importGraph": "e928b72544873815af278d38681b31c0293588e3",
+    "proofwidgets": "106ff4fafc74ef4ac99d81dbf3ab399118f497a5",
+    "aesop": "355695d523e41d0554926416cba2a2b3544fbbc9",
+    "Qq": "6a489d9af5d0c47e5b259e2e8bcdfc1811b5a259",
+    "batteries": "f2effa3d803fda822b1f97b806c47cf2adfbcbc2",
+    "Cli": "e92c9f15fdfacc8536f31cfb3b7ad26c3c8cd204"
+  }
+}

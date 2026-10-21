@@ -175,6 +175,10 @@ if [ "$FAST" = "0" ]; then
   stage "аттестат внешним ключом (0K.2)" python3 tools/verify_attestation.py
   # 0K.4: секреты в отслеживаемых файлах (ключи провайдеров, PEM).
   stage "нет секретов в дереве (0K.4)" python3 tools/secrets_check.py
+  # 0K.6/0K.7/0K.8: воспроизводимость вердикта и тулчейна.
+  stage "детерминизм вердикта (0K.6)" python3 tools/determinism_check.py
+  stage "CHANGELOG == версия (0K.8)" python3 tools/changelog_check.py
+  stage "пин Lean/Mathlib (0K.7)" python3 tools/lean_pin_check.py
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

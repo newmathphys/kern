@@ -1472,6 +1472,27 @@ def case_secret_in_tree():
             "rm -f $f; exit $rc'")
 
 
+def case_nondeterministic():
+    """Детерминизм (0K.6). ЛОМАЕМ: подменяем ОЖИДАНИЕ вердикта.
+
+    Стенд не меняется — значит расхождение может поймать только сверка
+    результата с ожиданием. Если проверка промолчит, она бесполезна.
+    """
+    return "python3 tools/determinism_check.py --override unsat=F"
+
+
+def case_changelog_drift():
+    """CHANGELOG (0K.8). ЛОМАЕМ: файл без раздела текущей версии."""
+    return ("bash -c 'f=/tmp/kern_changelog_drift.md; "
+            "printf \"# Changelog\n\n## [0.0.1] - old\n\" > $f; "
+            "python3 tools/changelog_check.py --path $f; rc=$?; rm -f $f; exit $rc'")
+
+
+def case_lean_pin_drift():
+    """Пин Lean (0K.7). ЛОМАЕМ: замок ждёт другую версию тулчейна."""
+    return "python3 tools/lean_pin_check.py --override-lean 9.9.9"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2556,6 +2577,12 @@ CASES = [
      case_attest_sig_missing),
     ("secret-in-tree", "Секреты: ключ в файле -> скан падает",
      case_secret_in_tree),
+    ("nondeterministic", "Вердикт недетерминирован -> проверка падает",
+     case_nondeterministic),
+    ("changelog-drift", "Версия без раздела CHANGELOG -> падает",
+     case_changelog_drift),
+    ("lean-pin-drift", "Тулчейн не совпал с замком -> падает",
+     case_lean_pin_drift),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

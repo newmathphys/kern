@@ -6,6 +6,17 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.5.2] — 2026-10-20
+
+Honest showcase and a release pipeline that cannot lie: proof-flow map with
+CEGIS arrow, Ego-Lens over the real `@import` graph, `[+][~][-][=]` filter
+matrix, zoom on both diagrams, `--diff-equiv` no longer declares identical
+files divergent, unknown KIMG flags are honoured, orphan fact-anchors are
+caught, Release Drafter no longer hijacks the release tag, and the site
+stopped claiming that README, build and asset hashes are equal (#243–#250).
+
+Full release notes: [`docs/RELEASE_NOTES_v2.5.2.md`](docs/RELEASE_NOTES_v2.5.2.md).
+
 ## [2.5.1] — 2026-10-20
 
 Honest QuixBugs boundary (6/40 SMT + 33/40 differential), `make sync` with

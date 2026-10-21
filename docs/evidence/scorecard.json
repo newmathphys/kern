@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "0293fa0",
-  "code_hash": "sha256:8e38c1bd9ce93b0264dc6c738d91618e839896ee0a5f625af9cfc2929daafee3",
+  "commit": "62671b4",
+  "code_hash": "sha256:b392da9bdeba84564c639b3e779957560d150297e1a8537d567bf0053c2649c7",
   "score": 100,
   "grade": "A+",
   "breakdown": {
@@ -27,7 +27,7 @@
     "by_category": {
       "zig": 92,
       "lean": 8,
-      "python": 128,
+      "python": 131,
       "c11": 7,
       "rust": 4,
       "go": 1,
@@ -35,7 +35,7 @@
       "wasm": 1
     },
     "skipped": 2,
-    "total": 243,
+    "total": 246,
     "blind_spot_native_formal": 101
   },
   "mcp": {
@@ -55,9 +55,9 @@
     "attestation": true
   },
   "metrics": {
-    "check_targets": 130,
-    "check_covered": 130,
-    "canfail_cases": 146,
+    "check_targets": 133,
+    "check_covered": 133,
+    "canfail_cases": 149,
     "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
     "qemu": "394 passed / 8 skipped / 0 failed"
   },
