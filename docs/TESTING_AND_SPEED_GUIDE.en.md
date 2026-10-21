@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->23 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->147 · cases <!-- fact:canfail_cases -->168 · anchors <!-- fact:anchors -->132 · registry <!-- fact:registry_targets -->185 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -40,7 +40,7 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **146 CHECK targets / 126 proven able to fail**, **167 cases, 0 vacuous** |
+| Can-fail discipline | **147 CHECK targets / 126 proven able to fail**, **168 cases, 0 vacuous** |
 | Mutation testing | **1361 / 1361 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
@@ -153,7 +153,7 @@ python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1361 si
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
-MUTATION SCORE (raw):  100.0%  (1225/1225 killed)
+MUTATION SCORE (raw):  100.0%  (1361/1361 killed)
 REAL_SECONDS=1383      (23 min, 0 survivors)
 ```
 
@@ -174,4 +174,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Full `canfail` sweep: **167 non-vacuous / 0 vacuous / 0 case errors**.
+Full `canfail` sweep: **168 non-vacuous / 0 vacuous / 0 case errors**.

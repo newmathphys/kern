@@ -71,6 +71,7 @@ CLASS = {
     "anti-self-deception-check": "CHECK",
     "conformance-check": "CHECK",
     "advisory-check": "CHECK",
+    "llms-check": "CHECK",
     "explain-hypotheses-check": "CHECK",
     "hypotheses-corpus-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
@@ -148,6 +149,7 @@ CLASS = {
     "canfail-anchors": "META",  # быстрый пре-флайт якорей (дефект #113)
     "canfail-selftest": "META",
     "metrics-guard-selftest": "META",   # мета: проверяет сам страж чисел
+    "llms-selftest": "META",            # мета: генератор llms.txt из facts.json (#311)
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
     "docs-parity": "META",              # EN/RU-факты
@@ -205,6 +207,7 @@ CASE_TARGET = {
     "anti-self-deception-fixture": "anti-self-deception-check",
     "conformance-break": "conformance-check",
     "advisory-fold": "advisory-check",
+    "llms-drift": "llms-check",
     "hypotheses-write": "explain-hypotheses-check",
     "hypotheses-nonproof": "hypotheses-corpus-check",
     "diff-equiv": "diff-equiv",

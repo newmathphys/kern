@@ -1,6 +1,6 @@
 # KERN — CAPABILITIES WITH PROOF
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->23 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->147 · cases <!-- fact:canfail_cases -->168 · anchors <!-- fact:anchors -->132 · registry <!-- fact:registry_targets -->185 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITIES.md`](CAPABILITIES.md). Every claim below is
 > **verified against the code and against real runs**. Where a claim turned out to be
@@ -251,7 +251,7 @@ reproduces it. The difference between "written" and "proven" is the subject of t
 
 | # | Capability | Status |
 |:--:|:--|:--|
-| 1 | Bug finding (QuixBugs) | ⚠️ **33/40**, but by **execution**, not by proof (#231) |
+| 1 | Bug finding (QuixBugs) | ⚠️ **40/40**, but by **execution**, not by proof (#231) |
 | 2 | Equivalence of optimisations | ✅ 8/8 symbolically |
 | 3 | Gateway for LLMs | ⚠️ 100 % precision, but pass@1 does not grow |
 | 4 | UNSAT Core | ✅ with a minimality check |

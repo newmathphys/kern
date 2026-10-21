@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->23 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->147 · cases <!-- fact:canfail_cases -->168 · anchors <!-- fact:anchors -->132 · registry <!-- fact:registry_targets -->185 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is
@@ -38,7 +38,7 @@
 **402/402 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
 (solver-dependent tests skip by design).
 Reference `valid_v1_3.kimg` → the Merkle root matches Python↔Zig (confirmed both ways).
-Decision coverage → **100.0 %** (30/30). Mutation score → **100.0 %** (1345/1345 killed,
+Decision coverage → **100.0 %** (30/30). Mutation score → **100.0 %** (1361/1361 killed,
 0 survivors; canonical gate 40/40).
 
 ---
@@ -100,7 +100,7 @@ build of Z3 does not emit that format.
 
 | Benchmark | Result |
 |:--|:--|
-| QuixBugs (real execution) | **33/40 (82.5 %)** |
+| QuixBugs (real execution) | **40/40 (100 %)** |
 | CHC loop benchmark (SV-COMP style) | **11/11**, 424 ms |
 | SMT (Alive2 / Hacker's Delight) | **8/8** |
 | Cross-check Z3 ↔ cvc5 | **9/9 agreement, 0 divergences** |
@@ -665,3 +665,4 @@ Compact English list; full text and measured before/after tables are in
 | **287** | **THE `codecheck-fp` CASE PROVED `FN`, NOT `FP`**: it patched `py_abs_ok` (`expect T -> F`) while `got = T`, i.e. the pair (F, T) - a missed bug. It now patches `py_abs_bad` (`expect F -> T`) while `got = F`: the pair (T, F) is a genuine false accusation. Verified by hand: `matrix: TP=1, TN=2, FP=1, FN=0, UNKNOWN=8`, and the gate prints `FALSE POSITIVES (forbidden)`. | FIXED |
 
 | **290** | **A TOOL THAT GENERATES A CONTRACT WAS ITSELF COUNTED AS SEALED**: `tools/advisory_check.py` contains a contract template (to prove that `hard` still blocks), and the lock coverage scanner treated the file as contract-bearing because it mentioned the marker, so `make contracts-lock-check` failed with “unsealed files”. The marker is now assembled from parts (`"{c} @{k}ensures"`), so the source never contains it literally. | FIXED |
+| **311** | **`llms.txt`, THE ENTRY POINT FOR AI AGENTS, WAS CHECKED BY NO GUARD**: `llms.txt` (and its copy `docs/llms.txt`) carried numbers that had drifted by dozens of units - 400 core tests instead of 402, 120 Lean theorems instead of 143, 1225 mutants instead of 1361, 123 CHECK instead of 147, 138 cases instead of 168, 393 instead of 394. `grep -c llms` in `check_metrics_consistency.py` and `sync_state.py` returned **0**: the file was in no list. Root cause of the class: history was decided per WHOLE LINE, so a single word ("earlier") in a 4000-character README line disabled checking of every number on it - which is how "1345 sites" survived next to the already-synced "1361 / 1361". Fixed: (a) history is now a WINDOW of +/- (200/40) around the NUMBER; (b) new rules for "N/N killed", "N/40" (QuixBugs differential) and "N CHECK targets"; (c) `llms.txt` is GENERATED from `docs/facts.json` (`tools/gen_llms_txt.py`, gate `make llms-check`, canfail `llms-drift`); (d) a summary-table row `\| 1 \| ...` is no longer treated as a defect-journal row; (e) the live guides were added to `sync_state.SURFACES` - `sync --check` had been failing on "anchors outside SURFACES". MEASURED: the guard caught 33 divergences, 21 auto-fixes, selftest 9 corruptions / 8 clean / 4 historical. | FIXED |

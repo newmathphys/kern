@@ -1,6 +1,6 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->23 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->147 · cases <!-- fact:canfail_cases -->168 · anchors <!-- fact:anchors -->132 · registry <!-- fact:registry_targets -->185 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in
@@ -31,8 +31,8 @@ Checked: Ed25519 signature, `kid` == key fingerprint,
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **53 / 53**, can-fail **146 / 146 CHECK** (167 non-vacuous cases, 0 errors),
-> registry **<!-- fact:registry_targets -->183 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
+> KERN-Next **53 / 53**, can-fail **147 / 147 CHECK** (168 non-vacuous cases, 0 errors),
+> registry **<!-- fact:registry_targets -->185 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 143 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
@@ -67,8 +67,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->167 cases, <!-- fact:check_targets -->146/<!-- fact:check_targets -->146 CHECK**, 0 vacuous |
-| `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->183 targets classified** |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->168 cases, <!-- fact:check_targets -->147/<!-- fact:check_targets -->147 CHECK**, 0 vacuous |
+| `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->185 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)
 
@@ -283,7 +283,7 @@ Claims that **did not hold** and were fixed in the documentation:
 ⚠️ cross-architecture (ARM64 / POWERPC64) needs a REPEAT QEMU run:
 2/2 attacks · crash consistency · avalanche 50 % / 0 collisions / chain 7 ·
 1 000 000 fuzzing iterations without panics · Thundering Herd 1+63 · eviction 900/900 ·
-SolverPool 128/4 · Lean 4: 8 files / 143 theorems / 0 sorry · QuixBugs 33/40 ·
+SolverPool 128/4 · Lean 4: 8 files / 143 theorems / 0 sorry · QuixBugs 40/40 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · concolic 4 calls ·
 DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 
@@ -292,7 +292,7 @@ DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 ## How to reproduce all of it
 
 ```bash
-make help          # all <!-- fact:registry_targets -->183 targets
+make help          # all <!-- fact:registry_targets -->185 targets
 make test-all      # core + KERN-Next + Lean + benchmarks
 make research      # research echelons
 make echelons      # 4 echelons of the final assault

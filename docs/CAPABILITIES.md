@@ -1,6 +1,6 @@
 # KERN — ВОЗМОЖНОСТИ С ДОКАЗАТЕЛЬСТВАМИ
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->23 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->147 · cases <!-- fact:canfail_cases -->168 · anchors <!-- fact:anchors -->132 · registry <!-- fact:registry_targets -->185 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждое заявление ниже **проверено по коду и прогонам**. Где заявление
 > оказалось неточным — это прямо указано. Ничего не выдаётся за доказанное
@@ -249,7 +249,7 @@ run_cases(fn, cases, timeout=1.0)   # прогоняем тесты + тайма
 
 | # | Возможность | Статус |
 |:--:|:--|:--|
-| 1 | Поиск багов (QuixBugs) | ⚠️ **33/40**, но **исполнением**, не доказательством (#231) |
+| 1 | Поиск багов (QuixBugs) | ⚠️ **40/40**, но **исполнением**, не доказательством (#231) |
 | 2 | Эквивалентность оптимизаций | ✅ 8/8 символьно |
 | 3 | Шлюз для LLM | ⚠️ 100% точность, но pass@1 не растёт |
 | 4 | UNSAT Core | ✅ с проверкой минимальности |

@@ -162,6 +162,7 @@ if [ "$FAST" = "0" ]; then
   stage "якоря чисел == факты (#240)" python3 tools/sync_state.py --check
   stage "sync selftest (#240)" python3 tools/sync_state.py --selftest
   stage "EN/RU паритет фактов (#241)" make docs-parity
+  stage "llms.txt генерируется из facts.json (#311)" make llms-check
   stage "нет ИИ-шаблонов (#241)" make ai-traces-check
 
   # --- Дефект #222/#223: ЛИЦЕНЗИЯ И СЧЁТЧИК ТЕОРЕМ --------------------------

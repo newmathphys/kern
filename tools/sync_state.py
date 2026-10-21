@@ -51,6 +51,11 @@ SURFACES = (
     "docs/README.md",
     "docs/RELEASE_NOTES_v2.5.1.md",
     "docs/RELEASE_NOTES_v2.5.1.en.md",
+    # ДЕФЕКТ #311: путеводители генерируются с якорями, но в SURFACES их не
+    # было — `sync --check` честно падал на «якоря вне SURFACES». Файл, который
+    # кто-то обновляет, обязан быть в списке тех, кого обновляют.
+    "docs/ALL_CAPABILITIES_LIVE_GUIDE.md",
+    "docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md",
 )
 ANCHOR = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->\s*(\d+)")
 ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")

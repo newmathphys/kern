@@ -1,6 +1,6 @@
 # KERN — АТТЕСТАЦИОННЫЙ ПАСПОРТ (проверенный)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->23 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->147 · cases <!-- fact:canfail_cases -->168 · anchors <!-- fact:anchors -->132 · registry <!-- fact:registry_targets -->185 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Все числа проверены прогонами.** Где заявленное ранее расходилось с фактом —
 > указано в колонке «было заявлено». Ничего не принимается на слово.
@@ -30,8 +30,8 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 > ⚠️ **ЭТО СНИМОК НА 2026-10-14** (аттестация ветки миграции): числа внутри §0
 > относятся к той ревизии и НЕ являются текущими. Актуальные значения (получены
 > прогонами): ядро **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->146 / <!-- fact:check_targets -->146 CHECK** (<!-- fact:canfail_cases -->167 не-вакуумных кейсов, 0 ошибок),
-> реестр **<!-- fact:registry_targets -->183 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->143 теорем /
+> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->147 / <!-- fact:check_targets -->147 CHECK** (<!-- fact:canfail_cases -->168 не-вакуумных кейсов, 0 ошибок),
+> реестр **<!-- fact:registry_targets -->185 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->143 теорем /
 > 0 sorry**, каталог тестов **<!-- fact:catalog -->465**. Также с тех пор закрыто: `hash_algo` по умолчанию
 > — **BLAKE3** (дефект #66), `deflate` (кодек `0x02`) **реализован**, аттестат подписан
 > **Ed25519**. См. `README.md`, `docs/METRICS.md` §1/§75 и §1–§8 ниже (они актуальны).
@@ -171,7 +171,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 
 | Направление | Факт | Статус |
 |:--|:--|:--|
-| **QuixBugs** | **33/40** расхождений, подтверждённых живым вызовом | ⚠️ способ — **исполнение**, не SMT-доказательство (#231) |
+| **QuixBugs** | **40/40** расхождений, подтверждённых живым вызовом | ⚠️ способ — **исполнение**, не SMT-доказательство (#231) |
 | **Hacker's Delight / Alive2** | **8/8** (6 доказано, 2 контрпримера) | ⚠️ *было заявлено 7/7 — неверно* |
 | **Логический стресс Z3** | **18/18** (proved / refuted / vacuous) | ⚠️ *было заявлено 13/13 — неверно* |
 | **CEGIS-синтез** | `(bvshl x (_ bv3 32))` за 4 проверки, 3 контрпримера | ✅ |
@@ -275,7 +275,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 ⚠️ кросс-архитектура (ARM64 / POWERPC64) требует ПОВТОРНОГО прогона под QEMU:
 2/2 атаки · crash-consistency · лавина 50% / 0 коллизий / цепочка 7 ·
 1 000 000 фаззинг-итераций без паник · Thundering Herd 1+63 · эвикция 900/900 ·
-SolverPool 128/4 · Lean 4: 8 файлов / 143 теорем / 0 sorry · QuixBugs 33/40 ·
+SolverPool 128/4 · Lean 4: 8 файлов / 143 теорем / 0 sorry · QuixBugs 40/40 ·
 CEGIS · UNSAT Core · QF_AX · CHC · QF_S · ReDoS · Litmus · конколика 4 вызова ·
 DTMC 0.001 · абстрактная интерпретация `[0,9]` · самоаудит e=0.
 
@@ -284,7 +284,7 @@ DTMC 0.001 · абстрактная интерпретация `[0,9]` · са�
 ## Как воспроизвести всё
 
 ```bash
-make help          # all <!-- fact:registry_targets -->183 targets
+make help          # all <!-- fact:registry_targets -->185 targets
 make test-all      # ядро + KERN-Next + Lean + бенчмарки
 make research      # исследовательские эшелоны
 make echelons      # 4 эшелона финального штурма

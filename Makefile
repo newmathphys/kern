@@ -663,9 +663,19 @@ metrics-guard-selftest:
 # `sync` обновляет ТОЛЬКО числа после якорей; история не трогается.
 sync:
 	$(PYTHON) tools/sync_state.py --write
+	$(PYTHON) tools/gen_llms_txt.py --write
 
 sync-check:
 	$(PYTHON) tools/sync_state.py --check
+
+# ДЕФЕКТ #311: `llms.txt` — точка входа для ИИ-агентов — не проверял ни один
+# страж, и в нём жили числа, отставшие на десятки единиц. Теперь файл
+# генерируется из docs/facts.json, а `--check` сравнивает байты.
+llms-check:
+	@$(PYTHON) tools/gen_llms_txt.py --check
+
+llms-selftest:
+	@$(PYTHON) tools/gen_llms_txt.py --selftest
 
 # --- ВИТРИНА: граф Эго-Линзы и карта потока доказательства -------------------
 # Граф импортов и метки модулей НЕ пишутся руками: они пересобираются из

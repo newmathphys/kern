@@ -331,6 +331,9 @@ FAULTABLE = [
     "tools/bitrot_chaos_check.py",
     "tools/pcc_check.py",
     "tools/xray_check.sh",
+    # Дефект #311: кейс `llms-drift` правит генератор llms.txt — файл обязан
+    # быть в FAULTABLE, иначе правка не откатится (класс #48/#225).
+    "tools/gen_llms_txt.py",
     "tools/gen_tests_check.sh",
     "tools/simplify_check.sh",
     "tools/bounds_check.sh",
@@ -1734,6 +1737,20 @@ def case_advisory_fold():
           "                    ok += 1  # ЛОМАЕМ: advisory засчитан как T")
     return "make advisory-check"
 
+def case_llms_drift():
+    """#311 SABOTAGE: генератор печатает УСТАРЕВШЕЕ число.
+
+    Подменяем источник `core_tests` на константу 400 — ровно то, что жило в
+    `llms.txt` до правки. `make llms-check` обязан покраснеть: файл перестал
+    совпадать с `docs/facts.json`. Если кейс вакуумный — значит `--check`
+    сравнивает не то, что заявляет.
+    """
+    patch("tools/gen_llms_txt.py",
+          '    core = int(facts["core_tests"])',
+          "    core = 400  # ЛОМАЕМ: захардкоженное устаревшее число")
+    return "make llms-check"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -2885,6 +2902,8 @@ CASES = [
      case_conformance_break),
     ("advisory-fold", "Advisory counted as proven -> gate red",
      case_advisory_fold),
+    ("llms-drift", "Stale number in llms.txt -> gate red",
+     case_llms_drift),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

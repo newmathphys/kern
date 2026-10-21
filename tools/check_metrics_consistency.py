@@ -209,6 +209,20 @@ def fact_quixbugs_explored() -> int | None:
     return None
 
 
+def fact_quixbugs_differential() -> int | None:
+    """Число задач QuixBugs, где расхождение подтверждено живым вызовом.
+
+    Дефект #311: сводная таблица `docs/CAPABILITIES.md` обещала 33/40 при
+    фактических 40/40 — форма `N/40` не покрывалась ни одним правилом.
+    """
+    p = EV / "quixbugs_full.log"
+    if not p.exists():
+        return None
+    text = p.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"^\s*DIVERGED\s+(\d+)\s*$", text, re.M)
+    return int(m.group(1)) if m else None
+
+
 def fact_canfail_anchors() -> int | None:
     """Число литеральных якорей can-fail (источник — сам харнесс, не текст)."""
     try:
@@ -226,7 +240,8 @@ def fact_canfail_anchors() -> int | None:
 
 
 def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int,
-           targets: int, reg_targets: int, explored: int | None, anchors: int | None):
+           targets: int, reg_targets: int, explored: int | None, anchors: int | None,
+           qb_diff: int | None = None):
     """(регулярка, ожидаемое значение, метка[, контекст]). Все числовые группы обязаны совпасть."""
     rules = [
         (r"(\d+)\s+core tests", core, "тесты ядра"),
@@ -261,11 +276,11 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int,
          ("can-fail", "check", "вакуум", "харнесс")),
         (r"(\d+)\s+cases\b", cases, "кейсы can-fail", ("canfail", "can-fail", "vacuous")),
         (r"(\d+)\s+кейс(?:ов|а)?\b", cases, "кейсы can-fail", ("вакуум", "canfail")),
-        (r"(\d+)\s+sites\b", sites, "сайты мутации", ("mutation", "mutant", "mutate")),
+        (r"(\d+)\s+sites\b", sites, "сайты мутации", ("mutation", "mutant", "mutate", "mutator")),
         # Контекст обязателен: «51 сайт — фикция» в описании дефекта #131 — это
         # история конкретного бага, а не обещание текущего пула сайтов.
         (r"(\d+)\s+сайт(?:ов|а)?\b", sites, "сайты мутации",
-         ("мутац", "mutation", "mutant", "mutate")),
+         ("мутац", "mutation", "mutant", "mutate", "мутатор")),
         (r"(\d+)\s+(?:files|файл(?:ов|а)?)\b", targets, "файлы мутации", ("mutation", "mutant", "сайт")),
         # --- Дефект #239: ТАБЛИЧНЫЕ ФОРМЫ. Число стоит ПОСЛЕ метки в ячейке,
         # поэтому правила «N CHECK» и «N кейсов» их не видели. Именно так
@@ -283,7 +298,25 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int,
         (r"can-fail\s*\((\d+)\s+goals?\)", checks, "CHECK-цели"),
         (r"(\d+)\s+can-fail\s+goals?", checks, "CHECK-цели"),
         (r"реестр[^|\n]{0,20}?(\d+)\s+цел", reg_targets, "цели реестра", ("реестр",)),
+        # --- Дефект #311: «N / N killed» и «N / N убито» — форма записи
+        # мутационного счёта на витрине. Правила «N sites» её не видели, поэтому
+        # рядом с уже синхронизированным якорем 1361 жило старое 1345.
+        (r"(\d+)\s*/\s*(\d+)\s+killed", sites, "сайты мутации",
+         ("mutation", "mutant", "mutate")),
+        (r"(\d+)\s*/\s*(\d+)\s+убито", sites, "сайты мутации", ("мутац", "мутант")),
+        # «128 CHECK-целей can-fail» — форма без «/», правило «N/N CHECK-цел» её
+        # не ловило.
+        (r"(\d+)\s+CHECK-цел", checks, "CHECK-цели"),
     ]
+    if qb_diff is not None:
+        rules += [
+            # `N/40` — форма записи Ступени 2 (живой differential). Ступень 1
+            # (`6/40 SMT`) — ДРУГАЯ метрика, поэтому исключается отдельной
+            # проверкой ниже (lookahead не годится: между числом и словом
+            # «SMT» стоит ещё и «formal»).
+            (r"(\d+)\s*/\s*40\b", qb_diff, "QuixBugs differential",
+             ("quixbugs", "quix", "багов", "исполнением")),
+        ]
     if explored is not None:
         rules += [
             (r"(\d+)\s+tasks?:\s*no divergence", explored, "QuixBugs EXPLORED"),
@@ -300,7 +333,23 @@ def _rules(core: int, nxt: int, cat: int, checks: int, cases: int, sites: int,
 # Это история, а не текущее обещание: «снимок 2026-10-14», «snapshot», «было 279».
 HISTORY_MARKERS = ("снимок", "snapshot", "истори", "history", "было", "был ",
                    "ранее", "previous", "formerly", "раньше", "earlier",
-                   "symptom", "before:")
+                   "symptom", "before:", "used to", "раньше ")
+
+
+# Окно, в котором ищутся исторические маркеры вокруг КОНКРЕТНОГО числа.
+# ДЕФЕКТ #311: раньше история определялась по всей строке. Одно слово
+# («earlier») в 4000-символьной строке README отключало проверку ВСЕХ чисел
+# на ней — включая живое «1345 sites» рядом с уже синхронизированным
+# «1361 / 1361». Так устаревшее число прожило рядом со своим исправленным
+# близнецом: страж видел одно и не видел другого.
+#
+# Окно АСИММЕТРИЧНОЕ: историческая рамка («Symptom:», «было», «Раньше») стоит
+# ПЕРЕД числом, а слово-хвост («earlier» в «…so the earlier dip was wider»)
+# стоит ПОСЛЕ и к данному числу не относится. Поэтому слева 200, справа 40:
+# этого достаточно, чтобы не задеть историю, и мало, чтобы спрятать живое
+# число за словом из соседнего предложения.
+HISTORY_BEFORE = 200
+HISTORY_AFTER = 40
 
 
 # Очередь точечных правок для `--fix`: (файл, строка, обещано, факт).
@@ -314,15 +363,20 @@ def violations_in_line(rel: str, lineno: int, line: str, rules) -> list[str]:
     # `canfail --only <target>` печатает счётчик ОДНОЙ цели: это не агрегат.
     if "--only" in low:
         return []
-    # Строки реестра дефектов — датированная запись, а не текущее обещание.
-    if re.match(r"^\| (?:\*\*)?\d+(?:\*\*)? \|", line):
+    # Строка журнала дефектов — датированная запись, а не текущее обещание.
+    # ДЕФЕКТ #311: правило применялось к ЛЮБОМУ файлу, поэтому строка сводной
+    # таблицы `| 1 | Поиск багов (QuixBugs) | **33/40** |` в CAPABILITIES.md
+    # молча выпадала из проверки — и 33/40 жило рядом с 40/40.
+    # Теперь: строки с НОМЕРОМ ДЕФЕКТА (`| **#131** | …`) пропускаются везде,
+    # а строки вида `| 1 | …` — только в самом журнале дефектов.
+    if re.match(r"^\| (?:\*\*)?#\d+(?:\*\*)? \|", line) or (
+            Path(rel).name.startswith("CAPABILITY_STATUS")
+            and re.match(r"^\| (?:\*\*)?\d+(?:\*\*)? \|", line)):
         return []
     scanned = line
     if rel.startswith("docs/RELEASE_NOTES") and line.startswith("|") \
             and line.count("|") >= 4:
         scanned = line.rstrip().rstrip("|").rsplit("|", 1)[-1]
-    if any(mk in low for mk in HISTORY_MARKERS):
-        return []
     out: list[str] = []
     for rule in rules:
         pattern, expect, label = rule[0], rule[1], rule[2]
@@ -331,6 +385,15 @@ def violations_in_line(rel: str, lineno: int, line: str, rules) -> list[str]:
             continue
         for m in re.finditer(pattern, scanned, re.IGNORECASE):
             if label == "файлы мутации" and "lean" in low[max(0, m.start() - 60):m.start()]:
+                continue
+            # Ступень 1 (`6/40 SMT`, «формальный SMT», «Stage 1») — отдельная
+            # метрика: её число не обязано равняться differential.
+            if label == "QuixBugs differential" and re.search(
+                    r"SMT|Ступень|Stage", scanned[m.end():m.end() + 40], re.IGNORECASE):
+                continue
+            # История — по ОКНУ вокруг числа, а не по всей строке (дефект #311).
+            if any(mk in low[max(0, m.start() - HISTORY_BEFORE):m.end() + HISTORY_AFTER]
+                   for mk in HISTORY_MARKERS):
                 continue
             for g in (g for g in m.groups() if g is not None):
                 if int(g) != expect:
@@ -382,13 +445,21 @@ def selftest() -> int:
     Поэтому проверка проверяющего стала обязательной: 5 форматов подсадок,
     4 чистые строки, 3 исторические.
     """
-    rules = _rules(401, 53, 425, 128, 144, 1345, 21, 154, 7, 119)
+    rules = _rules(401, 53, 425, 128, 144, 1345, 21, 154, 7, 119, 40)
     stale = [
         ("README.ru.md", 596, "| **CHECK с доказательством «может упасть»** | **125/125 (100 %)** |"),
         ("README.ru.md", 598, "| can-fail кейсов | 141 (не-вакуумных 141 · вакуумных 0 · ошибок кейсов 0) |"),
         ("README.ru.md", 595, "| Целей всего | 151 (CHECK 126 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META 15) |"),
         ("docs/index.html", 732, "<td>divergences confirmed; 12 tasks: no divergence found.</td>"),
         ("README.md", 544, "pre-flight (all 108 literal anchors verified in ~1 s)"),
+        # ДЕФЕКТ #311: формы, которые не покрывал ни один правило — «N/N killed»,
+        # «N sites» рядом с синхронизированным якорем, «N CHECK-целей», «N/40».
+        ("README.md", 622, "| Mutation score | 100.0 % (1225 / 1225 killed) over 21 files / 1152 sites. Full sweep: 1225 / 1225 killed |"),
+        ("docs/CAPABILITIES.md", 252, "| 1 | Поиск багов (QuixBugs) | ⚠️ **33/40**, но **исполнением** |"),
+        ("docs/CYBERNETIC_VISION.md", 59, "* 401 теста ядра, 125 CHECK-целей can-fail |"),
+        # История определяется ОКНОМ: «earlier»/«used to» стоят ПОСЛЕ числа и к
+        # нему не относятся — живое «1152 sites» обязано быть поймано.
+        ("README.md", 622, "over 21 files / 1152 sites. **Canonical gate**: 40/40 — same verdicts. The mutator used to cover only 6 files / 63 sites, so the earlier dip was wider |"),
     ]
     clean = [
         ("README.ru.md", 596, "| **CHECK с доказательством «может упасть»** | **128/128 (100 %)** |"),
@@ -396,11 +467,17 @@ def selftest() -> int:
         ("README.ru.md", 595, "| Целей всего | 154 (CHECK 128 · MEASURE 1 · BUILD 6 · EXTERNAL 3 · META 16) |"),
         ("docs/index.html", 732, "<td>divergences confirmed; 7 tasks: no divergence found.</td>"),
         ("README.md", 544, "pre-flight (all 119 literal anchors verified in ~1 s)"),
+        ("README.md", 622, "| Mutation score | 100.0 % (1345 / 1345 killed) over 21 files / 1345 sites. Full sweep: 1345 / 1345 killed |"),
+        ("docs/CAPABILITIES.md", 252, "| 1 | Поиск багов (QuixBugs) | ⚠️ **40/40**, но **исполнением** |"),
+        ("docs/CYBERNETIC_VISION.md", 59, "* 401 теста ядра, 128 CHECK-целей can-fail |"),
     ]
     history = [
         ("docs/CAPABILITY_STATUS.md", 1, "| **125** | дефект: историческая запись |"),
         ("docs/CAPABILITY_STATUS.md", 2, "| **141** | дефект: историческая запись |"),
         ("README.ru.md", 3, "| Сигнальный флуд | 1441 запуск |"),
+        # Окно: историческая рамка ПЕРЕД числом — не трогаем (это симптом
+        # старого дефекта, а не обещание текущего пула сайтов).
+        ("docs/index.html", 545, "<p><em>Symptom:</em> \"mutation coverage over 14 files\" — but <code>proof_check.zig</code> holds 266 of the 420 sites |"),
     ]
     bad = 0
     for rel, ln, line in stale:
@@ -437,6 +514,7 @@ def main(argv: list[str] | None = None) -> int:
     tgt = fact_mutation_files()
     explored = fact_quixbugs_explored()
     anchors = fact_canfail_anchors()
+    qb_diff = fact_quixbugs_differential()
 
     if core is None or nxt is None or cat is None or reg is None \
             or sites is None or tgt is None:
@@ -478,7 +556,7 @@ def main(argv: list[str] | None = None) -> int:
         bad += 1
 
     rules = _rules(core, nxt, cat, n_checks, n_cases, sites, tgt if tgt else 0,
-                   reg_targets, explored, anchors)
+                   reg_targets, explored, anchors, qb_diff)
     for rel in SURFACES:
         if is_history(rel):
             continue
