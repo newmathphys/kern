@@ -3144,7 +3144,16 @@ def main():
         print("   «может упасть». Обновите устаревшие шаблоны патчей.")
     print("=" * 70)
     # Дефект #89: err_bad обязан ронять прогон (раньше он молча шёл в skipped).
-    return 1 if (bad or dirty_bad or meta_bad or err_bad) else 0
+    #
+    # ДЕФЕКТ #275 (найден на Ф3): кейс без `return` возвращал None и молча
+    # попадал в `skipped` — «пропущено 1» выглядело безобидно, хотя проверка
+    # не выполнялась вообще. При ЯВНОМ `--only` пропуск теперь ошибка.
+    skip_is_error = bool(args.only) and skipped > 0
+    if skip_is_error:
+        print()
+        print("🔴 ЯВНО ВЫБРАННЫЙ КЕЙС ПРОПУЩЕН: предусловие не выполнено или "
+              "кейс не вернул команду — это НЕ доказательство")
+    return 1 if (bad or dirty_bad or meta_bad or err_bad or skip_is_error) else 0
 
 
 if __name__ == "__main__":
