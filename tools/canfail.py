@@ -1610,13 +1610,19 @@ def case_quixbugs_replay_break():
 
 
 def case_codecheck_fp():
-    """Phase 4B. SABOTAGE: declare a CORRECT corpus file as buggy.
+    """Phase 4B. SABOTAGE: make a file that KERN refutes look "clean".
 
-    The runner then sees "expected F, got T" -> FN, and the gate must go
-    red. This proves the corpus is not a rubber stamp.
+    ДЕФЕКТ #287 (найдено ревью): прежняя версия правила `py_abs_ok.py`
+    (`expect T -> F`) при `got = T`, то есть давала пару (F, T) — это FN
+    (пропущенный баг), а НЕ ложное обвинение. Кейс назывался `codecheck-fp`,
+    доказывая другое свойство.
+
+    Теперь правится `py_abs_bad.py`: там `got = F`, а ожидание ставим `T`.
+    Пара (T, F) — это ровно FP: файл объявлен корректным, а KERN его обвинил.
+    Врата обязаны покраснеть именно на FP.
     """
-    patch("audits/codecheck/py_abs_ok.py.expect.json",
-          "\"expect\": \"T\"", "\"expect\": \"F\"")
+    patch("audits/codecheck/py_abs_bad.py.expect.json",
+          '"expect": "F"', '"expect": "T"')
     return "make codecheck"
 
 
