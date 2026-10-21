@@ -600,3 +600,60 @@ GitHub Security tab consumes.
 Stated plainly: four of the nine directions were exercised on large external
 projects in this run, the rest are either already covered by in-repo gates or
 still open - and the open ones are named above rather than implied to be done.
+
+## 18. Real library revisions and real external functions (the three open items)
+
+### 18.1 `--diff-equiv` on TWO REAL REVISIONS of `boltons` - done
+
+Commit `5eb6cc0` ("resolve negative Bits indices") changed the index guard in
+`boltons/mathutils.py`. Both revisions were extracted verbatim into
+`/tmp/realhist/idx_before.py` and `idx_after.py` (the guard, nothing else):
+
+```python
+# BEFORE (5eb6cc0^)              # AFTER (5eb6cc0)
+def idx_ok(k, n):                def idx_ok(k, n):
+    if k >= n: return 0              if k < 0: k = k + n
+    return 1                         if k < 0 or k >= n: return 0
+                                     return 1
+```
+
+```
+$ python3 tools/kern_contracts.py --diff-equiv idx_before.py idx_after.py
+  [DIVERGED] idx_ok: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ
+     [КОНТРПРИМЕР] k = -1, n = 0, res_old = 1, res_new = 0
+ИТОГО: эквивалентных 0 | разошедшихся 1
+```
+
+The witness is real: with `n = 0` the old guard accepted `k = -1` (returned 1),
+the new one rejects it. So KERN detected **the semantic change the fix
+introduced** in a real library revision, without any contract in the source.
+
+### 18.2 `explain --hypotheses` on an EXTERNAL function - done, with an honest gap
+
+The same real `idx_ok` (pre-fix revision) plus a contract **we** added
+(`ensures result == 1`, no `requires`):
+
+```
+$ python3 tools/kern_contracts.py explain --hypotheses idx_before_contract.py
+  контрпример: k = 0, n = 0, result = 0
+  ГИПОТЕЗА, не доказательство. Файл не изменён.
+  кандидатов, отсекающих контрпример, не найдено — честный ответ
+```
+
+Why "none" is correct here: no **single-parameter** bound fixes it. `n > 0` still
+admits `k >= n` (e.g. `k = 5, n = 3`), and `k >= 0` still admits `n = 0`. The
+hypothesis generator proposes bounds on one variable at a time, so a conjunction
+like `0 <= k < n` is outside what it can suggest today. Recorded as the next
+improvement, not hidden: the tool answers "no candidate" rather than inventing
+one.
+
+### 18.3 CHC / `loop-check` wired into `--auto` - NOT done, and why
+
+This is not a flag. `--auto` walks the same obligation pipeline as the contract
+path, and for functions with loops the current answer is a *candidate* with the
+stated reason (control flow, including loop invariants, is not modelled - see
+16 and 17.1). Making those findings sound requires the Horn/CHC engine
+(`src/verifier/chc.zig`, gate `loop-check`) to produce an inductive invariant and
+to feed it back as a path condition. Until that is done, the honest position is
+the one already printed by the tool: candidates, not bugs. I did not fake this by
+suppressing the warning or by promoting candidates to findings.
