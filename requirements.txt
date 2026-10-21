@@ -6,7 +6,7 @@
 #
 # Note: GitHub does not parse Zig build dependencies, so this list covers the Python side
 # only (contract extraction, mutator, can-fail harness, evidence gates, benchmarks).
-z3-solver>=5.1.0.0       # the solver behind `kernc prove` and every SMT test.
+z3-solver==5.1.0.0       # the solver behind `kernc prove` and every SMT test.
                          # NOTE: the solver version is part of the evidence chain — the
                          # SMT-LIB verdicts in docs/evidence/ were produced with Z3 5.1.0.
 pytest>=9.1.1            # used by `make run-example` (the "green CI" demo) and the gates

@@ -38,6 +38,7 @@ import ast
 import hashlib
 import json
 import os
+import shutil
 import re
 import shutil
 import subprocess
@@ -922,6 +923,32 @@ def tmp_dir() -> str:
         d.mkdir(exist_ok=True)
         return str(d)
     return "/tmp"
+
+
+_SOLVER_CACHE: dict | None = None
+
+
+def solver_info() -> dict:
+    """Версия решателя, которой реально пользуется `kernc` (шаг 0K.5).
+
+    Вердикты зависят от версии Z3, поэтому отчёт обязан её фиксировать:
+    иначе «до/после» сравнивает разные решатели, выдавая это за регресс.
+    Версия берётся у бинарника из PATH (его запускает z3_bridge),
+    timeout — тот же, что в `run_kernc` (120 с).
+    """
+    global _SOLVER_CACHE
+    if _SOLVER_CACHE is None:
+        path = shutil.which("z3") or ""
+        version = "unknown"
+        if path:
+            r = subprocess.run([path, "--version"], capture_output=True, text=True)
+            lines = (r.stdout or r.stderr).strip().splitlines()
+            if lines:
+                version = lines[0].strip()
+        _SOLVER_CACHE = {"name": "z3", "version": version, "path": path,
+                         "timeout_ms": 120000, "calls": 0}
+    _SOLVER_CACHE["calls"] = _SMT_CALLS[0]
+    return _SOLVER_CACHE
 
 
 def run_kernc(kernc, smt: str):
@@ -2753,6 +2780,7 @@ def write_json_report(path: str, json_files: list, summary: dict) -> int:
     doc = {
         "tool": "KERN",
         "version": KERN_VERSION,
+        "solver": solver_info(),
         "files": json_files,
         "summary": summary,
     }

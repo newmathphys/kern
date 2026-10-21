@@ -37,7 +37,7 @@ jobs:
           python-version: '3.11'
 
       - name: z3-solver (the Gate needs a solver; without it the checks would skip)
-        run: pip install z3-solver
+        run: pip install -r requirements.txt
 
       - name: Zig 0.17.0
         run: |

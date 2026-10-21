@@ -100,14 +100,18 @@ questions (see `LICENSE`); anything requiring a malicious local root user.
 The gate is only as trustworthy as the binary you run, so this is the intended path:
 
 ```bash
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/kernc-x86_64-linux-musl
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.4.0/SHA256SUMS
+curl -fsSLO https://github.com/newmathphys/kern/releases/latest/download/kernc-x86_64-linux-musl
+curl -fsSLO https://github.com/newmathphys/kern/releases/latest/download/SHA256SUMS
 sha256sum -c SHA256SUMS                      # must print: OK
-python3 tools/slsa_provenance.py --check     # Ed25519 signature + source fingerprint
+make verify-attestation      # Ed25519 + kid + attests_commit + dirtyTree, public key only
 ```
 
-The release binary is built hermetically (`zig build hermetic`, static musl); the attestation
-binds the binary digest to the source fingerprint, and `make artifact-check` fails if the
+The release binary is built hermetically (`zig build hermetic`, static musl). The verifying key
+ships with the repository (`docs/keys/kern-owner.pub`, id
+`sha256:6da3e85e…1360f`); no private key and no `$HOME` keys are involved, so anyone can
+reproduce the check. A missing `kern.intoto.sig` is treated as a failure, not a warning.
+
+The attestation binds the binary digest to the source fingerprint, and `make artifact-check` fails if the
 README, the local build and the published asset ever disagree.
 
 ## Hardening already in place
@@ -122,7 +126,9 @@ For context when assessing a report:
 - `comptime` layout assertions on every on-disk structure.
 - Atomic image writes (tmp + `fsync` + `rename` + directory `fsync`).
 - A hard timeout and FD/zombie discipline around every solver subprocess.
-- Can-fail harness proving that all **129 CHECK targets** are able to fail (145 non-vacuous
+- Secret scanning of every tracked file (`make secrets-check`): provider keys and PEM
+  private keys fail the gate, and matches are printed redacted so the log cannot leak them.
+- Can-fail harness proving that all **130 CHECK targets** are able to fail (146 non-vacuous
   cases, 0 vacuous, 0 case errors) — a check that cannot go red is treated as a defect here.
 
 Thank you for helping keep KERN honest.

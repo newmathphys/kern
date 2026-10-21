@@ -1460,6 +1460,18 @@ def case_attest_sig_missing():
             "--sig /nonexistent/kern.intoto.sig")
 
 
+def case_secret_in_tree():
+    """Секреты (0K.4). ЛОМАЕМ: кладём ключ во временный файл.
+
+    Дерево не трогаем: сканируется /tmp через `--path`. Проверка
+    ОБЯЗАНА покраснеть, иначе сканер секретов — фикция.
+    """
+    return ("bash -c 'f=/tmp/kern_fake_secret.txt; "
+            "printf \"nvapi-%030d\" 0 > $f; "
+            "python3 tools/secrets_check.py --path $f; rc=$?; "
+            "rm -f $f; exit $rc'")
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2542,6 +2554,8 @@ CASES = [
     ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
     ("attest-sig-missing", "Аттестат: подписи нет -> проверка падает",
      case_attest_sig_missing),
+    ("secret-in-tree", "Секреты: ключ в файле -> скан падает",
+     case_secret_in_tree),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

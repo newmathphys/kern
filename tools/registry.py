@@ -49,6 +49,7 @@ CLASS = {
     # 0K.2/0K.3: аттестат проверяется внешним ключом из репозитория;
     # кейс `attest-sig-missing` доказывает, что проверка умеет падать.
     "verify-attestation": "CHECK",
+    "secrets-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "bench-json": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
@@ -159,6 +160,7 @@ CASE_TARGET = {
     "vacuous-requires": "contracts",
     "contract-lock": "contracts-lock-check",
     "attest-sig-missing": "verify-attestation",
+    "secret-in-tree": "secrets-check",
     "diff-equiv": "diff-equiv",
     "self-verify": "self-verify",
     "edge-cases": "edge-cases",

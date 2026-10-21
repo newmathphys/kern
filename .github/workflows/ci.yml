@@ -34,7 +34,7 @@ jobs:
 
       # z3 нужен для SMT-теорий и kernc prove; ставится через pip (без apt).
       - name: z3-solver (без системного apt)
-        run: pip install z3-solver
+        run: pip install -r requirements.txt
 
       # Lean 4 + Mathlib для формальных доказательств (7 файлов, 0 sorry).
       - name: Lean 4 (elan)
