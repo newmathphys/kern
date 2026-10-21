@@ -6,6 +6,8 @@
 
 Запуск: `make demo-all`
 
+> Facts (synced by `make sync`): core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+
 ## 1-2. Переполнение и деление на ноль: вердикт KERN + живые компиляторы
 
 **Зачем.** KERN проверяет функцию не на трёх примерах, а на всём домене типа. Затем контрпримеры переигрываются НАСТОЯЩИМИ инструментами: python3, gcc -fsanitize=undefined, rustc -C overflow-checks=on, zig run.
@@ -212,7 +214,7 @@ $ kernc inspect v1.kimg
 $ make verify-attestation
 [OK]   Ed25519-подпись верна (kern-owner.pub)
   [OK]   kid совпадает с ключом (sha256:6da3e85ea5157…)
-  [OK]   attests_commit == HEAD~1 (f855cbc13ee6) — двухшаговая схема
+  [OK]   attests_commit == HEAD~1 (323dff0cd1fd) — двухшаговая схема
   [OK]   dirtyTree = false
   [OK]   kernc-hermetic: sha256 совпал
 

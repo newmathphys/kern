@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GUIDE = ROOT / "docs" / "ALL_CAPABILITIES_LIVE_GUIDE.ru.md"
+GUIDE_EN = ROOT / "docs" / "ALL_CAPABILITIES_LIVE_GUIDE.md"
 EVID = ROOT / "docs" / "evidence"
 ZIG = Path(os.environ.get("ZIG", Path.home() / "opt/zig-x86_64-linux-0.17.0/zig"))
 
@@ -36,6 +37,41 @@ def clip(text: str, lines: int = 14) -> str:
 
 
 SECTIONS: list[tuple[str, str, str, str]] = []
+EN_TEXT = {
+ 1: ("1-2. Overflow and division by zero: KERN verdict + real compilers",
+     "KERN checks a function over the whole type domain, not on three samples. Then the "
+     "counterexamples are replayed by REAL toolchains: python3, gcc -fsanitize=undefined, "
+     "rustc -C overflow-checks=on, zig run."),
+ 2: ("3. Diagnosis: which input rule is missing",
+     "When a function is refuted, KERN searches for the missing precondition, re-verifies "
+     "every hypothesis with a second Z3 run and NEVER edits the file."),
+ 3: ("4. Contract lock: catches a live model rewriting the spec",
+     "Every @kern:requires/ensures is sealed with a hash. In a live experiment DeepSeek "
+     "and GLM, given an UNSATISFIABLE contract, narrowed requires (leaving ensures alone) - "
+     "the lock blocks exactly that. Below: the check on the current tree."),
+ 4: ("5. Refactoring equivalence: what a model broke and what it did not",
+     "Two versions of a function are compared without contracts. EQUIVALENT is reported "
+     "ONLY when the in-house proof checker accepted the derivation (QueryKind.equivalence)."),
+ 5: ("6. Bug hunter with no contracts at all",
+     "It reads argument types (including standard Python annotations) and builds up to 250 "
+     "hostile inputs per function: empty lists, strings, boundaries. On QuixBugs it catches "
+     "40/40 bugs by live execution."),
+ 6: ("7. [VACUOUS] conditions and hard / [advisory] classes",
+     "`x > 10 and x < 5` is unsatisfiable: a plain test would say 'green', KERN honestly "
+     "marks the vacuum. An [advisory] violation yields T_advisory, which is NEVER added to "
+     "the proven counter T."),
+ 7: ("8. Belnap B4 logic, 7 axes, evidence ledger (T + F = B)",
+     "timeout and nonlinearity are N, not 'a bug' (hence FP = 0). A conflict of T and F "
+     "gives B. The conformance exam checks 12 sections including add/retract and rejection "
+     "of negative SCCs."),
+ 8: ("9. Architecture graph and forbidden negative cycles",
+     "An exact import graph is built (KERN itself and an external project); SCC analysis "
+     "rejects negative recursive cycles (NegativeRecursiveCycle)."),
+ 9: ("10. .kimg container, KERNFS, KERN-X and external signature check",
+     "Any directory (including a cloned foreign repository) is packed into .kimg with a "
+     "Merkle tree; fsck verifies integrity, inspect prints the manifest, diff finds the "
+     "changed file. The project signature is checked with a public key."),
+}
 
 
 def section(title: str, why: str, cmd: str, out: str) -> None:
@@ -162,20 +198,39 @@ section("10. Контейнер .kimg, KERNFS, KERN-X и внешняя пров
         "kernc pack-dir / fsck / inspect / diff  ·  make verify-attestation",
         "\n\n".join(parts))
 
-print("пишу путеводитель...", flush=True)
+print("пишу путеводители (RU + EN)...", flush=True)
 NL = chr(10)
-doc = ["# Все 10 возможностей KERN: живые примеры и дословный вывод", "",
-       "> Документ **сгенерирован** скриптом `tools/run_all_10_capabilities_demo.py`:",
-       "> каждый раздел — это реально выполненная команда и её настоящий вывод.",
-       "> Ничего не написано руками, поэтому документ не может разойтись с кодом.", "",
-       "Запуск: `make demo-all`", ""]
+FACTS = ("> Facts (synced by `make sync`): core <!-- fact:core_tests -->402 · "
+         "next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · "
+         "CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · "
+         "anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · "
+         "META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · "
+         "QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.")
+
+ru = ["# Все 10 возможностей KERN: живые примеры и дословный вывод", "",
+      "> Документ **сгенерирован** скриптом `tools/run_all_10_capabilities_demo.py`:",
+      "> каждый раздел — это реально выполненная команда и её настоящий вывод.",
+      "> Ничего не написано руками, поэтому документ не может разойтись с кодом.", "",
+
+      "Запуск: `make demo-all`", "", FACTS, ""]
+en = ["# All 10 KERN capabilities: live examples and verbatim output", "",
+      "> This document is **generated** by `tools/run_all_10_capabilities_demo.py`:",
+      "> every section is a command that was really executed, with its real output.",
+      "> Nothing is written by hand, so the document cannot drift from the code.", "",
+      "Run: `make demo-all`", "", FACTS, ""]
 for i, (title, why, cmd, out) in enumerate(SECTIONS, 1):
-    doc += [f"## {title}", "", f"**Зачем.** {why}", "",
-            f"**Команда.**", "```bash", cmd, "```", "",
-            "**Реальный вывод:**", "```text", clip(out, 40), "```", ""]
+    t_en, w_en = EN_TEXT.get(i, (title, why))
+    ru += [f"## {title}", "", f"**Зачем.** {why}", "", "**Команда.**", "```bash", cmd, "```", "",
+           "**Реальный вывод:**", "```text", clip(out, 40), "```", ""]
+    en += [f"## {t_en}", "", f"**Why.** {w_en}", "", "**Command.**", "```bash", cmd, "```", "",
+           "**Real output:**", "```text", clip(out, 40), "```", ""]
 if "--write" in sys.argv:
-    GUIDE.write_text(NL.join(doc) + NL, encoding="utf-8")
-    (EVID / "demo_all_10.log").write_text(NL.join(doc) + NL, encoding="utf-8")
-    print(f"[OK] {GUIDE.relative_to(ROOT)} ({len(doc)} строк)")
+    GUIDE.write_text(NL.join(ru) + NL, encoding="utf-8")
+    GUIDE_EN.write_text(NL.join(en) + NL, encoding="utf-8")
+    (EVID / "demo_all_10.log").write_text(NL.join(en) + NL, encoding="utf-8")
+    print(f"[OK] {GUIDE.name} ({len(ru)} строк) и {GUIDE_EN.name} ({len(en)} lines)")
 else:
-    print(NL.join(doc))
+    print(NL.join(ru))
+
+if __name__ == "__main__":
+    pass

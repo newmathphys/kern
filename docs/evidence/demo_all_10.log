@@ -1,21 +1,23 @@
-# Все 10 возможностей KERN: живые примеры и дословный вывод
+# All 10 KERN capabilities: live examples and verbatim output
 
-> Документ **сгенерирован** скриптом `tools/run_all_10_capabilities_demo.py`:
-> каждый раздел — это реально выполненная команда и её настоящий вывод.
-> Ничего не написано руками, поэтому документ не может разойтись с кодом.
+> This document is **generated** by `tools/run_all_10_capabilities_demo.py`:
+> every section is a command that was really executed, with its real output.
+> Nothing is written by hand, so the document cannot drift from the code.
 
-Запуск: `make demo-all`
+Run: `make demo-all`
 
-## 1-2. Переполнение и деление на ноль: вердикт KERN + живые компиляторы
+> Facts (synced by `make sync`): core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
-**Зачем.** KERN проверяет функцию не на трёх примерах, а на всём домене типа. Затем контрпримеры переигрываются НАСТОЯЩИМИ инструментами: python3, gcc -fsanitize=undefined, rustc -C overflow-checks=on, zig run.
+## 1-2. Overflow and division by zero: KERN verdict + real compilers
 
-**Команда.**
+**Why.** KERN checks a function over the whole type domain, not on three samples. Then the counterexamples are replayed by REAL toolchains: python3, gcc -fsanitize=undefined, rustc -C overflow-checks=on, zig run.
+
+**Command.**
 ```bash
 make anti-self-deception-check
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 === A. ground truth: KERN's counterexamples vs native toolchains ===
   python  {'x': -1, 'result': -1} -> AssertionError (rc=1)
@@ -33,16 +35,16 @@ GROUND TRUTH 4/4 · MUTATION KILL 5/5
 ANTI-SELF-DECEPTION PASSED
 ```
 
-## 3. Диагност: каких входных правил не хватает
+## 3. Diagnosis: which input rule is missing
 
-**Зачем.** Когда функция опровергнута, KERN сам ищет пропущенное предусловие, перепроверяет каждую гипотезу вторым прогоном Z3 и НЕ правит файл.
+**Why.** When a function is refuted, KERN searches for the missing precondition, re-verifies every hypothesis with a second Z3 run and NEVER edits the file.
 
-**Команда.**
+**Command.**
 ```bash
 python3 tools/kern_contracts.py explain --hypotheses audits/codecheck/py_abs_bad.py
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 ==========================================================================
 KERN: объяснение — гипотезы для `requires` (Ф6.3)
@@ -64,16 +66,16 @@ KERN: объяснение — гипотезы для `requires` (Ф6.3)
   HYPOTHESIS, not a proof. File not modified.
 ```
 
-## 4. Замок контрактов: ловит подмену ТЗ живой моделью
+## 4. Contract lock: catches a live model rewriting the spec
 
-**Зачем.** Все @kern:requires/ensures запечатаны хешами. В живом эксперименте DeepSeek и GLM, получив НЕВЫПОЛНИМЫЙ контракт, сузили requires (ensures не тронули) — замок это блокирует. Ниже — проверка на текущем дереве.
+**Why.** Every @kern:requires/ensures is sealed with a hash. In a live experiment DeepSeek and GLM, given an UNSATISFIABLE contract, narrowed requires (leaving ensures alone) - the lock blocks exactly that. Below: the check on the current tree.
 
-**Команда.**
+**Command.**
 ```bash
 make contracts-lock-check
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 make[1]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
 [OK] замок контрактов цел: ни один запечатанный контракт не изменён
@@ -83,16 +85,16 @@ make[1]: выход из каталога «/home/mrbritneyxxx/Рабочий с
 make[1]: *** [Makefile:450: contracts-lock-check] Ошибка 2
 ```
 
-## 5. Эквивалентность рефакторинга: что модель сломала, а что нет
+## 5. Refactoring equivalence: what a model broke and what it did not
 
-**Зачем.** Без контрактов сравниваются две версии функции. Вердикт EQUIVALENT выдаётся ТОЛЬКО когда внутренний пруф-чекер принял вывод (QueryKind.equivalence).
+**Why.** Two versions of a function are compared without contracts. EQUIVALENT is reported ONLY when the in-house proof checker accepted the derivation (QueryKind.equivalence).
 
-**Команда.**
+**Command.**
 ```bash
 python3 tools/kern_contracts.py --diff-equiv clamp_orig.py clamp_opencode_deepseek-v4.1-flash-free.py
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 [DIVERGED] clamp_int: РЕФАКТОРИНГ ИЗМЕНИЛ ПОВЕДЕНИЕ
          [КОНТРПРИМЕР] x = 0, res_new = -1, hi = -1, res_old = 0, lo = 0
@@ -100,16 +102,16 @@ python3 tools/kern_contracts.py --diff-equiv clamp_orig.py clamp_opencode_deepse
 ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 1 | недоказуемых 0 | ошибок инструмента 0 | всего 1
 ```
 
-## 6. Охотник за багами без единого контракта
+## 6. Bug hunter with no contracts at all
 
-**Зачем.** Читает типы аргументов (включая стандартные аннотации Python) и сам строит до 250 ядовитых входов на функцию: пустые списки, строки, границы. На QuixBugs ловит 40/40 багов живым вызовом.
+**Why.** It reads argument types (including standard Python annotations) and builds up to 250 hostile inputs per function: empty lists, strings, boundaries. On QuixBugs it catches 40/40 bugs by live execution.
 
-**Команда.**
+**Command.**
 ```bash
 python3 tools/trace_explorer.py /tmp/kern-demo-blind  # функции boltons по алфавиту
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 [s2] ceil                   EXPLORED   31  lines=2/23    нет расхождения на 31 входах
   [s2] clamp                  EXPLORED   27  lines=2/30    нет расхождения на 27 входах
@@ -123,16 +125,16 @@ floor   EXPLORED     31  нет расхождения на 31 входах
 [OK] DIVERGED (живой вызов, 0 ложных по построению): 0/3
 ```
 
-## 7. Пустые условия [VACUOUS] и классы hard / [advisory]
+## 7. [VACUOUS] conditions and hard / [advisory] classes
 
-**Зачем.** Условие `x > 10 and x < 5` невыполнимо: обычный тест сказал бы «зелено», KERN честно помечает вакуум. А `[advisory]`-нарушение даёт T_advisory, который НИКОГДА не складывается со счётчиком доказанного T.
+**Why.** `x > 10 and x < 5` is unsatisfiable: a plain test would say 'green', KERN honestly marks the vacuum. An [advisory] violation yields T_advisory, which is NEVER added to the proven counter T.
 
-**Команда.**
+**Command.**
 ```bash
 python3 tools/kern_contracts.py <vacuous.py>  |  examples/contracts_advisory_demo.py
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 --- вакуумное предусловие ---
 ==========================================================================
@@ -155,47 +157,47 @@ KERN: контракты из комментариев (@kern:requires / @kern:e
 ИТОГО: доказано 1 | T_advisory 1 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 2
 ```
 
-## 8. Логика Белнапа B4, 7 осей, журнал свидетельств (T + F = B)
+## 8. Belnap B4 logic, 7 axes, evidence ledger (T + F = B)
 
-**Зачем.** `timeout` и нелинейность — это N, а не «баг» (поэтому FP = 0). Конфликт T и F даёт B. Конформанс-экзамен проверяет 12 разделов, включая add/retract и отказ на отрицательных SCC.
+**Why.** timeout and nonlinearity are N, not 'a bug' (hence FP = 0). A conflict of T and F gives B. The conformance exam checks 12 sections including add/retract and rejection of negative SCCs.
 
-**Команда.**
+**Command.**
 ```bash
 make conformance-check
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 build failed - refusing to grade a stale binary:
 /home/mrbritneyxxx/Рабочий стол/kern/build.zig:12:54: error: no field named 'root_module' in struct 'Build.ExecutableOptions'
 .venv/lib/python3.14/site-packages/ziglang/lib/std/Build.zig:638:31: note: struct declared here
 ```
 
-## 9. Граф архитектуры и запрет отрицательных циклов
+## 9. Architecture graph and forbidden negative cycles
 
-**Зачем.** Строится точный граф импортов (сам KERN и внешний проект), SCC-анализ отвергает отрицательные рекурсивные циклы (NegativeRecursiveCycle).
+**Why.** An exact import graph is built (KERN itself and an external project); SCC analysis rejects negative recursive cycles (NegativeRecursiveCycle).
 
-**Команда.**
+**Command.**
 ```bash
 kernx graph  |  kernx graph --root <внешний проект>
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 KERN: модулей 88, рёбер 70
 zig-clap: модулей 12, рёбер 1
 ```
 
-## 10. Контейнер .kimg, KERNFS, KERN-X и внешняя проверка подписи
+## 10. .kimg container, KERNFS, KERN-X and external signature check
 
-**Зачем.** Любая папка (в том числе скачанный чужой репозиторий) пакуется в .kimg с деревом Меркла; fsck проверяет целостность, inspect печатает паспорт, diff находит изменённый файл. Подпись проекта проверяется публичным ключом.
+**Why.** Any directory (including a cloned foreign repository) is packed into .kimg with a Merkle tree; fsck verifies integrity, inspect prints the manifest, diff finds the changed file. The project signature is checked with a public key.
 
-**Команда.**
+**Command.**
 ```bash
 kernc pack-dir / fsck / inspect / diff  ·  make verify-attestation
 ```
 
-**Реальный вывод:**
+**Real output:**
 ```text
 $ kernc pack-dir ... -o v1.kimg
 [OK] pack-dir: 20 файлов, 127046 байт -> /tmp/kern-demo-v1.kimg
@@ -212,7 +214,7 @@ $ kernc inspect v1.kimg
 $ make verify-attestation
 [OK]   Ed25519-подпись верна (kern-owner.pub)
   [OK]   kid совпадает с ключом (sha256:6da3e85ea5157…)
-  [OK]   attests_commit == HEAD~1 (f855cbc13ee6) — двухшаговая схема
+  [OK]   attests_commit == HEAD~1 (323dff0cd1fd) — двухшаговая схема
   [OK]   dirtyTree = false
   [OK]   kernc-hermetic: sha256 совпал
 
