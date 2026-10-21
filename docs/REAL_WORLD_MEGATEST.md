@@ -657,3 +657,48 @@ stated reason (control flow, including loop invariants, is not modelled - see
 to feed it back as a path condition. Until that is done, the honest position is
 the one already printed by the tool: candidates, not bugs. I did not fake this by
 suppressing the warning or by promoting candidates to findings.
+
+## 19. Hunt for NEW bugs on real code - the honest result
+
+Aim: find defects that are not already in the defect journal. Sweep with `--auto`
+(zero annotations) over less-audited real modules:
+
+| File | Functions | Checked | Skipped | Candidates |
+|---|---|---|---|---|
+| `boltons/iterutils.py` | 67 | 62 | 5 | 19 |
+| `boltons/strutils.py` | 43 | 33 | 10 | 11 |
+| `boltons/typeutils.py` | 11 | 9 | 2 | 0 |
+| Python `heapq.py` | 17 | 17 | 0 | 48 |
+| Python `queue.py` | 30 | 28 | 2 | 0 |
+| Python `statistics.py` | 81 | 65 | 16 | 2 `[CRASH PATH]` |
+| Python `random.py` | ~30 | - | - | 5 `[CRASH PATH]` |
+
+### What the candidates actually are
+
+Two kinds, and **neither is a bug**:
+
+1. **`[BOUNDS] ... длина НЕ известна`** - e.g. `heapq.heappop` indexes `heap[0]`
+   and `heap[-1]`; the length is unknown and no `len(...)` guard exists. The real
+   precondition is "heap must be non-empty", which is *documented* in the
+   docstring and enforced by the caller. 31 such lines in `heapq.py` alone.
+2. **`[CRASH PATH] ... возможно деление на ноль: n == 0`** - e.g.
+   `random.expovariate(lambd)` divides by `lambd`, `statistics.quantiles(n=0)`
+   divides by `n`, `random.triangular(low, high)` divides by `high - low`. All of
+   these are **documented preconditions** of the standard library functions.
+
+### Conclusion, stated plainly
+
+**No new bug was found in this run, and none is claimed.** On mature code the
+zero-annotation mode produces *"missing precondition"* candidates: it does not
+know the documented preconditions, so every division whose divisor can be zero
+without an in-body guard is reported. That is the honest limitation, and it is
+the reason the tool labels these as candidates rather than findings.
+
+### What would actually turn this into new-bug discovery
+
+| Step | Why it matters |
+|---|---|
+| **Preconditions from docstrings / `assert`s** | `random.expovariate` says "lambd must be non-zero"; with that, the candidate disappears. Without it, every mature library produces noise. |
+| **Overflow obligations in `--auto`** | Arithmetic witnesses are executable, and overflow is where real bugs live in C/Rust/Zig. |
+| **CHC / loop invariants** | Turns `[BOUNDS]` candidates into sound verdicts (see 18.3). |
+| **Target unpolished code** | `zlib`/CPython are fuzzed by OSS-Fuzz around the clock; the realistic hunting ground is young libraries, and the tool must first stop producing precondition noise there. |
