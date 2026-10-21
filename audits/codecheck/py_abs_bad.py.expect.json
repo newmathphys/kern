@@ -1,0 +1,5 @@
+{
+  "expect": "F",
+  "kind": "value",
+  "why": "returns x for negative input"
+}

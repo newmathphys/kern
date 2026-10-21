@@ -1,0 +1,5 @@
+{
+  "expect": "N",
+  "kind": "unsupported",
+  "why": "Zig contracts are not analysed"
+}

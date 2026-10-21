@@ -195,6 +195,8 @@ if [ "$FAST" = "0" ]; then
   stage "CLI fsck/inspect/diff на фикстурах (Ф3.2)" make kimg-cli-check
   # Ф4: каждый DIVERGED из лога обязан воспроизвестись (SKIP без датасета).
   stage "QuixBugs: повторный прогон DIVERGED (Ф4)" make quixbugs-replay
+  # Phase 4B: corpus gate FP = 0 (no false accusations on correct code).
+  stage "code-checking corpus FP=0 (Phase 4B)" make codecheck
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

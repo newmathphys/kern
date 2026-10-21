@@ -1,0 +1,5 @@
+{
+  "expect": "N",
+  "kind": "nonlinear",
+  "why": "x*x is outside QF_LIA"
+}

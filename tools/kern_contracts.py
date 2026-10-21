@@ -2872,6 +2872,17 @@ def _demo(args) -> int:
     if not kernc.exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 1
+    # ДЕФЕКТ #277 (найден корпусом Ф4B): без Z3 в PATH `kernc prove`
+    # завершается rc=2 на КАЖДЫЙ вызов, и старый код трактовал это как
+    # «контракт нарушен» — то есть ЛОЖНО обвинял весь корректный код.
+    # «Инструмент недоступен» — это N, а не F; поэтому проверяем ДО вердиктов.
+    _rc0, _out0 = run_kernc(kernc, "(set-logic ALL)\n(check-sat)\n")
+    _low0 = (_out0 or "").lower()
+    if "z3 недоступен" in _low0 or "z3 is not" in _low0:
+        print("[!] решатель Z3 недоступен: добавьте `.venv/bin` в PATH "
+              "(uv pip install z3-solver).")
+        print("    Вердикты НЕ выдаются: недоступный инструмент — это N, а не F.")
+        return 2
 
     total = ok = failed = skipped = vacuous = safety_failed = unknown = 0
     unconfirmed = 0  # правило №4: SAT, не подтверждённый живым вызовом
@@ -3161,6 +3172,14 @@ def _demo(args) -> int:
                 f_funcs.append({"name": name, "line": ln, "verdict": "UNKNOWN"})
                 unknown += 1
             else:
+                # ДЕФЕКТ #277: решатель мог умереть ПОСРЕДИ прогона.
+                if "z3 недоступен" in out.lower() or "z3 is not" in out.lower():
+                    print(f"  [N] {name}: НЕ РЕШЕНО (решатель недоступен — N, не F)")
+                    f_funcs.append({"name": name, "line": ln,
+                                    "verdict": "UNKNOWN",
+                                    "reason": "solver unavailable"})
+                    unknown += 1
+                    continue
                 print(f"  [FAIL] {name}: КОНТРАКТ НАРУШЕН")
                 for line in out.splitlines():
                     if "ВЕРДИКТ" in line or "KERN-EQ2" in line:

@@ -1,0 +1,5 @@
+{
+  "expect": "N",
+  "kind": "unsupported",
+  "why": "recursion is outside the subset"
+}

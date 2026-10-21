@@ -1,6 +1,6 @@
 # KERN — a zero-trust verification gateway for AI-generated code
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->142 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->176 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->143 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->127 · registry <!-- fact:registry_targets -->177 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 ![KERN architecture and measured baseline](docs/kern-architecture.svg)
 
@@ -74,8 +74,8 @@ KERN attacks the gap from two sides:
 
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
-   fault and requires the check to go red. 142 CHECK targets; 142 proven non-vacuous
-   (162 fault-injection cases).
+   fault and requires the check to go red. 143 CHECK targets; 143 proven non-vacuous
+   (163 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
@@ -558,7 +558,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
 | Mutation score (Zig-native mutator) | **100.0 %** (<!-- fact:mutation_sites -->1353 / <!-- fact:mutation_sites -->1353 killed) over **21 files / 1345 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1345 sites, 23 min, run **locally**): **1345 / 1345 (100.0%)**, zero survivors — the full run is **committed** as `docs/evidence/mutate_full.log` (1 408 lines, `RC=0`); the canonical gate (40/40) and the per-module `--full-file` set (244/244) are committed next to it. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
-| Can-fail harness | **<!-- fact:check_targets -->142 / <!-- fact:check_targets -->142 CHECK targets (100 %)** have a proven-can-fail case (**<!-- fact:canfail_cases -->162 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all <!-- fact:anchors -->126 literal anchors verified in ~1 s) |
+| Can-fail harness | **<!-- fact:check_targets -->143 / <!-- fact:check_targets -->143 CHECK targets (100 %)** have a proven-can-fail case (**<!-- fact:canfail_cases -->163 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all <!-- fact:anchors -->127 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
 | 8-thread stress via `pthread` on `libkern.so` | **0 races** (8×500 `kern_hash`, 8×20 `kern_smt_verify`) |
@@ -870,7 +870,7 @@ docs/           specification, METRICS.md, TEST_CATALOG.md, capability status, e
 | [`docs/PROJECT.md`](docs/PROJECT.md) | project description, architecture, history |
 | [`docs/METRICS.md`](docs/METRICS.md) | every measurement + the defect journal |
 | [`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md) | all test declarations, generated from source |
-| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#<!-- fact:max_defect -->276 |
+| [`docs/CAPABILITY_STATUS.md`](docs/CAPABILITY_STATUS.md) | what works, what doesn't, defect registry #1–#<!-- fact:max_defect -->278 |
 | [`docs/FIELD_AUDIT_REPORT.md`](docs/FIELD_AUDIT_REPORT.md) | field audit of **14 real repositories** (Zig, C, Rust, TypeScript, Go, Python, Lean 4): scorecard 40 D → 78 B … 54 D → 84 B, X-Ray `[CRASH PATH]` **469 → 8**, and the seven defects the run itself exposed (#178–#184) |
 | [`audits/README.md`](audits/README.md) | shadow-contract audits on **real code** from four projects (Zig std, TigerBeetle, Ghostty, andrewrk's allocator): 9 functions, **3 PROVEN / 5 REFUTED / 1 honest SKIP**, regenerated by `make audits` into [`EVIDENCE.md`](audits/EVIDENCE.md) and sealed into `audits/real_code_corpus.kimg` — plus the measurement showing why a naive "run KERN over 50 repos" produces zeros |
 | [`docs/README.md`](docs/README.md) | documentation map |

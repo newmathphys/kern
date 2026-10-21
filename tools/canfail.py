@@ -404,6 +404,7 @@ FAULTABLE = [
     "src/core/kimg_reader.zig",
     "src/proof_cache.zig",
     "src/runtime/kern_x.zig",
+    "audits/codecheck/py_abs_ok.py.expect.json",
     "src/core/kernfs_router.zig",
     "src/core/kimg_writer.zig",
     "tools/mutate_zig.py",
@@ -1623,6 +1624,17 @@ def case_quixbugs_replay_break():
     return "python3 tools/quixbugs_replay.py /tmp/QuixBugs-master --min-diverged 999"
 
 
+def case_codecheck_fp():
+    """Phase 4B. SABOTAGE: declare a CORRECT corpus file as buggy.
+
+    The runner then sees "expected F, got T" -> FN, and the gate must go
+    red. This proves the corpus is not a rubber stamp.
+    """
+    patch("audits/codecheck/py_abs_ok.py.expect.json",
+          "\"expect\": \"T\"", "\"expect\": \"F\"")
+    return "make codecheck"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2738,6 +2750,8 @@ CASES = [
      case_kernx_shared_fuel),
     ("quixbugs-replay-break", "Лог требует больше, чем есть -> падает",
      case_quixbugs_replay_break),
+    ("codecheck-fp", "Correct file declared buggy -> gate red",
+     case_codecheck_fp),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

@@ -1,0 +1,5 @@
+{
+  "expect": "N",
+  "kind": "unsupported",
+  "why": "C contracts are not analysed"
+}

@@ -1,0 +1,5 @@
+{
+  "expect": "F",
+  "kind": "value",
+  "why": "returns lo-1 when x == lo"
+}
