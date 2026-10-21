@@ -2656,8 +2656,13 @@ def case_metrics_guard():
     touch("docs/PROJECT.md")
     p = ROOT / "docs" / "PROJECT.md"
     s = p.read_text(encoding="utf-8")
-    bad = s.replace("**425 объявлений**", "**999 объявлений**")
-    assert bad != s, "якорь каталога в PROJECT.md не найден — кейс не сломает гейт"
+    # ДЕФЕКТ #282: якорь был ЖЁСТКО зашит как «**425 объявлений**», а `make sync`
+    # переписывает это число (каталог вырос до 464) — кейс падал с
+    # AssertionError ещё до диверсии. Ищем число шаблоном, а не литералом.
+    import re as _re
+    pattern = _re.compile(r"\*\*\d+ объявлений\*\*")
+    bad, n = pattern.subn("**999 объявлений**", s, count=1)
+    assert n == 1 and bad != s, "якорь каталога в PROJECT.md не найден — кейс не сломает гейт"
     write_atomic(p, bad.encode())
     return "make metrics-guard"
 
