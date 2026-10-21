@@ -151,6 +151,7 @@ TAIL = """
 - [Cybernetics](https://github.com/newmathphys/kern/blob/main/docs/CYBERNETIC_VISION.md): why this architecture (Anokhin, Glushkov, Belnap, Victor)
 - [High-stakes use cases](https://github.com/newmathphys/kern/blob/main/docs/HIGH_STAKES_USE_CASES.md): AMM ramp (Rust), hex-nibble parser (C), money in cents (Python) - proven and refuted obligations with compiler-reproduced witnesses
 - [How to write a contract for ANY project](https://github.com/newmathphys/kern/blob/main/docs/CONTRACT_ANY_PROJECT.md): the 5-step recipe plus a worked example that found a real crash (SIGFPE) in TheAlgorithms/C
+- [Shadow-audit case study](https://github.com/newmathphys/kern/blob/main/docs/SHADOW_AUDIT_EXAMPLE.md): two real defects in TheAlgorithms/C math/catalan.c - a SIGFPE on n=0 and silent wrong answers from n=11 - with the correct fix and the obvious wrong one
 - [Site](https://newmathphys.github.io/kern/): live demo, browser WASM playground
 
 ## Honest limits

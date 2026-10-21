@@ -977,3 +977,4 @@ Contributions are accepted under the terms in [`CONTRIBUTING.md`](CONTRIBUTING.m
 - [Cybernetic vision](docs/CYBERNETIC_VISION.en.md) — why a machine-checked verdict, not a probabilistic one.
 - [High-stakes use cases](docs/HIGH_STAKES_USE_CASES.md) — AMM ramp (Rust), hex-nibble parser (C), money in cents (Python): three proven and three refuted obligations, every witness reproduced by a real compiler.
 - [How to write a contract for ANY project](docs/CONTRACT_ANY_PROJECT.md) — the 5-step recipe, plus a worked example that found a real SIGFPE crash in `TheAlgorithms/C`.
+- [Shadow-audit case study](docs/SHADOW_AUDIT_EXAMPLE.md) — two real defects (SIGFPE on `n=0`, silent wrong answers from `n=11`) in `TheAlgorithms/C math/catalan.c`, with the correct fix and the obvious wrong one.
