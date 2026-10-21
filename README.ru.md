@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->129 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 ![KERN: архитектура и измеренный baseline](docs/kern-architecture.svg)
@@ -611,7 +611,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 
 ```bash
 make canfail          # 165 кейса: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->131 якорей применимы (за ~1 с)
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->129 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
 make registry         # реестр <!-- fact:registry_targets -->181 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
@@ -623,7 +623,7 @@ make ci               # единый контур (12 стадий)
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->145/<!-- fact:check_targets -->145 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->165 (не-вакуумных <!-- fact:canfail_cases -->165 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->296** |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->297** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->129 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
@@ -583,3 +583,4 @@ PQC, дашборд — это следующий слой; он НЕ заявл
 | **294** | **JSON-ОТЧЁТ НЕ ПИСАЛСЯ, ЕСЛИ ДОКАЗЫВАТЬ БЫЛО НЕЧЕГО**: ранний `return` при `proven` оставлял вызывающую сторону без файла, и отсутствие отчёта читалось как ошибка. Теперь JSON пишется на всех путях, с полем `status` (`proven`/`unbounded`/`reported`). |
 | **295** | **ГИПОТЕЗА «ДОКАЗАНА» ТАМ, ГДЕ КОНТРАКТНЫЙ РАННЕР ДАЁТ SKIP**: на `py_recursion.py` `explain` выдавал `requires += n <= 0` как доказательство, хотя тело получено развёрткой рекурсии и `contracts` честно пишет SKIP (#207). Гипотеза «работала» лишь тем, что обнуляла глубину. Для тел с развёрткой гипотезы больше не выдаются. |
 | **296** | **ИНСТРУМЕНТ-ПРОВЕРКА САМ ПОПАЛ В ЗАМОК**: в регексах `hypotheses_corpus_check.py` была литеральная метка контракта, и сканер покрытия считал файл контрактным (класс #290). Метка собирается из частей. |
+| **297** | **НЕОДНОЗНАЧНЫЙ ЯКОРЬ ПАТЧА СДЕЛАЛ КЕЙС `contracts` ВАКУУМНЫМ**: после появления `explain` в `tools/kern_contracts.py` строка `if "ДОКАЗАНО" in out and rc == 0:` стала встречаться дважды, и `replace(..., 1)` ударил по ЧУЖОМУ месту — поломка внесена, `make contracts` зелёный, CI покраснел. Теперь неоднозначность — ОШИБКА КЕЙСА, а якоря уточнены контекстом (плюс `patch_all()` там, где проверка продублирована и ломать нужно все экземпляры). Статический аудит всех 131 константных патчей: 0 неоднозначных. |

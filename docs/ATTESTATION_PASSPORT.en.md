@@ -1,6 +1,6 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->129 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in

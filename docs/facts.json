@@ -12,8 +12,8 @@
  "build_targets": 10,
  "cross_arch_passed": 394,
  "cross_arch_skipped": 8,
- "anchors": 131,
- "max_defect": 296,
+ "anchors": 129,
+ "max_defect": 297,
  "lean_theorems": 143,
  "quixbugs": {
   "smt": 6,

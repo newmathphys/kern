@@ -596,6 +596,16 @@ def patch(path: str, old: str, new: str) -> None:
         raise RuntimeError(f"не удалось прочитать {path} как UTF-8 после 5 попыток")
     if old not in s:
         raise RuntimeError(f"шаблон не найден в {path}: {old[:60]!r}")
+    # ДЕФЕКТ #297: якорь, встречающийся БОЛЬШЕ ОДНОГО РАЗА, — это ловушка.
+    # `replace(..., 1)` молча бьёт по ПЕРВОМУ вхождению. Так кейс `contracts`
+    # после появления `explain` (в котором тот же `if "ДОКАЗАНО" ...`) patched
+    # ЧУЖОЕ место: поломка внесена, цель зелёная → ВАКУУМНЫЙ кейс, и CI
+    # покраснел по неверной причине. Теперь неоднозначность — ошибка кейса.
+    hits = s.count(old)
+    if hits > 1:
+        raise RuntimeError(
+            f"якорь НЕОДНОЗНАЧЕН в {path}: {hits} вхождений — уточните контекст "
+            f"(добавьте соседние строки): {old[:80]!r}")
     p.write_text(s.replace(old, new, 1), encoding="utf-8")
     # 🔴 Дефект #116: фиксируем, ЧТО именно записали МЫ. По этому хешу откат
     # отличит собственную подсадку от правки третьей стороны (см. Fault.__exit__).
@@ -607,6 +617,24 @@ def patch(path: str, old: str, new: str) -> None:
 # КЕЙСЫ: (имя, что проверяем, команда, инъекция поломки, таймаут)
 # ==========================================================================
 
+
+def patch_all(path: str, old: str, new: str) -> None:
+    """Заменить ВСЕ вхождения подстроки (осознанно, не «угадать нужное»).
+
+    Нужен там, где одна и та же проверка продублирована в коде (например,
+    сверка digest в двух путях KERNFS) и диверсия обязана попасть в каждый
+    экземпляр, иначе «зелёная» цель ничего не докажет.
+    """
+    if path not in FAULTABLE:
+        raise RuntimeError(
+            f"{path} отсутствует в FAULTABLE — правка НЕ будет откачена! "
+            f"Добавьте файл в FAULTABLE.")
+    touch(path)
+    p = ROOT / path
+    s = p.read_text(encoding="utf-8")
+    if old not in s:
+        raise RuntimeError(f"шаблон не найден в {path}: {old[:60]!r}")
+    p.write_text(s.replace(old, new), encoding="utf-8")
 def case_avalanche():
     """Лавина SHA-256. ЛОМАЕМ: подменяем SHA-256 на «наивный» хэш."""
     patch("tools/cache_avalanche_bench.py",
@@ -792,8 +820,10 @@ def case_contracts():
     # исчез, и кейс ОШИБСЯ. Найдено ПОЛНЫМ локальным прогоном canfail —
     # то есть ровно тем шагом, который краснел в облачном CI.
     patch("tools/kern_contracts.py",
-          'if "ДОКАЗАНО" in out and rc == 0:',
-          'if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным')
+          '            if "ДОКАЗАНО" in out and rc == 0:\n'
+          '                proof = ""',
+          '            if True:  # ДИВЕРСИЯ: любой контракт объявляется доказанным\n'
+          '                proof = ""')
     return "make contracts"
 
 
@@ -860,9 +890,12 @@ def case_contracts_branches():
     НЕ будет найден, и `--expect-demo` обязан покраснеть: проверка, которая
     не ловит баг, не должна оставаться зелёной.
     """
+    # #297: якорь уточнён контекстом — `if isinstance(st, ast.If):` встречается 8 раз.
     patch("tools/kern_contracts.py",
-          "    if isinstance(st, ast.If):",
-          "    if False and isinstance(st, ast.If):  # ДИВЕРСИЯ: ветки отброшены")
+          "        if isinstance(st, ast.If):\n"
+          "            then_env = dict(env)",
+          "        if False and isinstance(st, ast.If):  # ДИВЕРСИЯ: ветки отброшены\n"
+          "            then_env = dict(env)")
     return "make contracts"
 
 
@@ -1215,16 +1248,15 @@ def case_adversarial_payload():
     """Пытки. ЛОМАЕМ: отключаем сверку SHA-256(payload) с digest дескриптора.
 
     ЭТО НАБЛЮДАЕМЫЙ пробой: подменённый байт содержимого начнёт отдаваться
-    читателю. Если `make adversarial` НЕ покраснеет — значит набор атак не способен
+    читателю. Если `make adversarial` НЕ покраснеет — набор атак не способен
     поймать реальную подмену данных (дефект #14), то есть бесполезен.
 
-    ПОЧЕМУ НЕ ОБХОД ПУТЕЙ: KERNFS — in-memory ФС, она ФИЗИЧЕСКИ не может отдать
-    хостовый файл, поэтому утверждение «нет root:x» истинно всегда и такой кейс
-    был бы вакуумным. Найдено первым прогоном can-fail (кейс признан вакуумным).
+    # #297: сверка продублирована в ДВУХ путях (raw и чтение) — ломаем ОБА,
+    # иначе диверсия может не попасть в тот путь, который щупает цель.
     """
-    patch("src/core/kernfs_router.zig",
-          "        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))\n            return KernFsError.PayloadTampered;",
-          "        if (false and !std.crypto.timing_safe.eql([32]u8, got, obj.digest))\n            return KernFsError.PayloadTampered; // ЛОМАЕМ")
+    patch_all("src/core/kernfs_router.zig",
+              "        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))",
+              "        if (false and !std.crypto.timing_safe.eql([32]u8, got, obj.digest))")
     return "make adversarial"
 
 
@@ -1337,10 +1369,13 @@ def case_cegis_theory():
 
 
 def case_nra_theory():
-    """NRA. ЛОМАЕМ: объявляем ЛИНЕЙНУЮ логику вместо нелинейной."""
-    patch("src/verifier/nra_quant.zig",
-          "            \\\\(set-logic QF_NRA)",
-          "            \\\\(set-logic QF_LIA) // ЛОМАЕМ: нелинейность не поддержана")
+    """NRA. ЛОМАЕМ: объявляем ЛИНЕЙНУЮ логику вместо нелинейной.
+
+    # #297: `set-logic QF_NRA` есть в ∃- и ∀-проверке — ломаем ВСЕ.
+    """
+    patch_all("src/verifier/nra_quant.zig",
+              r"\\(set-logic QF_NRA)",
+              r"\\(set-logic QF_LIA) // ЛОМАЕМ: нелинейность не поддержана")
     return "make nra"
 
 
@@ -2525,11 +2560,16 @@ def case_state_inv_check():
 
 def case_loop_check():
     """ПУНКТ 20. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта и
-    незавершающийся цикл перестают ловиться -> цель обязана покраснеть."""
+    незавершающийся цикл перестают ловиться -> цель обязана покраснеть.
+
+    # #297: `if "КОНТРПРИМЕР" in out:` встречается трижды. Нужен путь,
+    # который щупает `make loop-check` — тот, где контрпример разбирается
+    # построчно (первое вхождение); якорь уточнён следующей строкой.
+    """
     patch(
         "tools/kern_contracts.py",
-        "    if \"КОНТРПРИМЕР\" in out:",
-        "    if False:  # ЛОМАЕМ: игнорируем контрпримеры",
+        "    if \"КОНТРПРИМЕР\" in out:\n        for ln in out.splitlines():",
+        "    if False:  # ЛОМАЕМ: игнорируем контрпримеры\n        for ln in out.splitlines():",
     )
     return "make loop-check"
 
