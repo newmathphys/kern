@@ -46,6 +46,9 @@ CLASS = {
     "mcp-selftest": "CHECK",
     "kimg-deflate": "CHECK",
     "version-check": "CHECK",
+    # 0K.2/0K.3: аттестат проверяется внешним ключом из репозитория;
+    # кейс `attest-sig-missing` доказывает, что проверка умеет падать.
+    "verify-attestation": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
     "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "bench-json": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
@@ -155,6 +158,7 @@ CASE_TARGET = {
     # УЛУЧШЕНИЯ v2.5: can-fail доказательства для новых целей.
     "vacuous-requires": "contracts",
     "contract-lock": "contracts-lock-check",
+    "attest-sig-missing": "verify-attestation",
     "diff-equiv": "diff-equiv",
     "self-verify": "self-verify",
     "edge-cases": "edge-cases",

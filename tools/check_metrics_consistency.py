@@ -292,6 +292,10 @@ HISTORY_MARKERS = ("снимок", "snapshot", "истори", "history", "бы�
                    "symptom", "before:")
 
 
+# Очередь точечных правок для `--fix`: (файл, строка, обещано, факт).
+_FIX_QUEUE: list[tuple[str, int, int, int]] = []
+
+
 def violations_in_line(rel: str, lineno: int, line: str, rules) -> list[str]:
     """Все нарушения в одной строке. Вынесено из main(), чтобы мета-тест
     проверял РОВНО ту же логику, которая работает в CI (иначе тест фиктивен)."""
@@ -319,9 +323,45 @@ def violations_in_line(rel: str, lineno: int, line: str, rules) -> list[str]:
                 continue
             for g in (g for g in m.groups() if g is not None):
                 if int(g) != expect:
+                    _FIX_QUEUE.append((rel, lineno, int(g), expect))
                     out.append(f"{rel}:{lineno}  {label}: «{m.group(0).strip()}» "
                                f"→ обещано {g}, факт {expect}")
     return out
+
+
+HISTORY_SKIP = ("docs/RELEASE_NOTES_", "RELEASE_NOTES_", "CHANGELOG.md",
+                "docs/archive/")
+
+
+def is_history(rel: str) -> bool:
+    """Исторические документы описывают ПРОШЛЫЙ релиз и не обязаны совпадать
+    с текущими числами. Их правка была бы переписыванием истории."""
+    return any(rel.startswith(pfx) or Path(rel).name.startswith(pfx)
+               for pfx in HISTORY_SKIP)
+
+
+def apply_fix() -> int:
+    """Точечная правка: на КАЖДОЙ указанной строке заменить только те числа,
+    которые страж признал устаревшими (а не все числа файла)."""
+    by_file: dict[str, dict[int, list[tuple[int, int]]]] = {}
+    for rel, lineno, exp, act in _FIX_QUEUE:
+        by_file.setdefault(rel, {}).setdefault(lineno, []).append((exp, act))
+    total = 0
+    for rel, lines in by_file.items():
+        path = ROOT / rel
+        src = path.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        for lineno, pairs in lines.items():
+            if not (1 <= lineno <= len(src)):
+                continue
+            line = src[lineno - 1]
+            for exp, act in pairs:
+                new_line = re.sub(rf"(?<!\d){exp}(?!\d)", str(act), line)
+                if new_line != line:
+                    total += 1
+                    line = new_line
+            src[lineno - 1] = line
+        path.write_text("".join(src), encoding="utf-8")
+    return total
 
 
 def selftest() -> int:
@@ -429,6 +469,8 @@ def main(argv: list[str] | None = None) -> int:
     rules = _rules(core, nxt, cat, n_checks, n_cases, sites, tgt if tgt else 0,
                    reg_targets, explored, anchors)
     for rel in SURFACES:
+        if is_history(rel):
+            continue
         p = ROOT / rel
         if not p.exists():
             continue
@@ -462,6 +504,10 @@ def main(argv: list[str] | None = None) -> int:
                               f"→ обещано {m.group(1)}, факт #{mx}")
                         bad += 1
 
+    if bad and "--fix" in args:
+        n = apply_fix()
+        print(f"\n[FIX] точечных правок: {n} — перезапустите проверку")
+        return 0
     if bad:
         print(f"\n[FAIL] расхождений: {bad}")
         return 1

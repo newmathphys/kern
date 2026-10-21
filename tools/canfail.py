@@ -1448,6 +1448,18 @@ def case_attest_sign():
     return "make attest"
 
 
+def case_attest_sig_missing():
+    """Аттестат (0K.2/0K.3). ЛОМАЕМ: подпись НЕ предъявлена.
+
+    Файл не трогаем — передаём несуществующий путь через `--sig`. Кейс
+    проверяет РЕАЛЬНУЮ ветку «нет подписи»: до 0K.3 `--check` печатал
+    «АТТЕСТАТ ВАЛИДЕН» при отсутствующей подписи, то есть подтверждал
+    валидность ОТСУТСТВИЕМ доказательства.
+    """
+    return ("python3 tools/verify_attestation.py "
+            "--sig /nonexistent/kern.intoto.sig")
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2528,6 +2540,8 @@ CASES = [
     ("concolic-victim", "Конколика: подмена цели",              case_concolic_victim),
     ("absint-inv",    "Абстрактная интерпретация: инвариант",    case_absint_inv),
     ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
+    ("attest-sig-missing", "Аттестат: подписи нет -> проверка падает",
+     case_attest_sig_missing),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

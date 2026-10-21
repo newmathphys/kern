@@ -61,9 +61,29 @@ SUBJECTS = ["kernc-hermetic"]
 # подписывала бы саму себя (порочный круг, ровно как в дефекте #87).
 OWNER_KEY = Path(os.environ.get("KERN_OWNER_KEY",
                                 Path.home() / "kern_owner_private.pem"))
-OWNER_PUB = Path(os.environ.get("KERN_OWNER_PUB",
-                                Path.home() / "kern_owner_public.pem"))
+# 🔴 ШАГ 0K.1 (найдено при внешнем аудите доверия): ключ брался ТОЛЬКО из
+# `$HOME`. Значит проверить подпись мог лишь владелец машины — для внешнего
+# аудитора «attestation ✓ Ed25519» было декорацией. Теперь публичный ключ
+# лежит В РЕПОЗИТОРИИ (`docs/keys/kern-owner.pub`), а `$HOME` — резерв.
+_REPO_PUB = ROOT / "docs" / "keys" / "kern-owner.pub"
+OWNER_PUB = Path(os.environ.get(
+    "KERN_OWNER_PUB",
+    _REPO_PUB if _REPO_PUB.exists() else Path.home() / "kern_owner_public.pem"))
 SIG = ROOT / "kern.intoto.sig"
+
+
+def key_id(pub: Path) -> str:
+    """Отпечаток ключа: `sha256:` + SHA-256(DER SubjectPublicKeyInfo).
+
+    Публикуется в аттестате как `kid`, чтобы проверяющий мог ДОКАЗАТЬ, что
+    подпись сделана именно ключом из репозитория, а не «каким-то» ключом.
+    """
+    r = subprocess.run(["openssl", "pkey", "-pubin", "-in", str(pub),
+                        "-outform", "DER"], capture_output=True)
+    if r.returncode != 0 or not r.stdout:
+        return ""
+    return "sha256:" + hashlib.sha256(r.stdout).hexdigest()
+
 
 
 def sign_attestation() -> int:
@@ -266,8 +286,26 @@ def main() -> int:
         if sig_ok is False:
             bad += 1
         elif sig_ok is None:
-            print("  [i] подписи нет (kern.intoto.sig отсутствует) — аттестат "
-                  "без Ed25519; это НЕ ошибка, но и не «подписано»")
+            # 0K.3: раньше отсутствие подписи считалось «не ошибкой», и
+            # печаталось «АТТЕСТАТ ВАЛИДЕН» — то есть валидность
+            # подтверждалась ОТСУТСТВИЕМ доказательства. Теперь это FAIL.
+            print("  [РАСХОЖДЕНИЕ] kern.intoto.sig отсутствует — аттестат без "
+                  "подписи (0K.3: для релиза это провал)")
+            bad += 1
+        # 0K.1: отпечаток ключа из аттестата обязан совпадать с ключом в
+        # репозитории, иначе подпись могла быть сделана ЛЮБЫМ ключом.
+        kid_claim = (st.get("predicate", {}).get("runDetails", {})
+                     .get("builder", {}).get("kid"))
+        kid_repo = key_id(OWNER_PUB) if OWNER_PUB.exists() else ""
+        if not kid_claim:
+            print("  [РАСХОЖДЕНИЕ] в аттестате нет kid (0K.1) — переподпишите")
+            bad += 1
+        elif kid_repo and kid_claim != kid_repo:
+            print(f"  [РАСХОЖДЕНИЕ] kid {str(kid_claim)[:24]}… != ключ "
+                  f"{kid_repo[:24]}…")
+            bad += 1
+        elif kid_repo:
+            print(f"  [OK] kid совпадает с ключом в репозитории ({kid_repo[:20]}…)")
         print("\nАТТЕСТАТ ВАЛИДЕН" if bad == 0 else f"\nАТТЕСТАТ НЕ СОВПАЛ: {bad}")
         return 0 if bad == 0 else 1
 
@@ -323,7 +361,12 @@ def main() -> int:
                 }],
             },
             "runDetails": {
-                "builder": {"id": "local://kern-build"},
+                "builder": {
+                    "id": "local://kern-build",
+                    # 0K.1: отпечаток ключа, которым подписан аттестат.
+                    # Проверяющий сверяет его с `docs/keys/kern-owner.pub`.
+                    "kid": (key_id(OWNER_PUB) if OWNER_PUB.exists() else "unknown"),
+                },
                 "metadata": {
                     "invocationId": str(uuid.uuid4()),
                     "startedOn": started,

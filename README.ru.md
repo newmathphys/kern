@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->162 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->129 · cases <!-- fact:canfail_cases -->145 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->163 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 ![KERN: архитектура и измеренный baseline](docs/kern-architecture.svg)
@@ -35,7 +35,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->128 / <!-- fact:check_targets -->128 CHECK-целей** покрыты (<!-- fact:canfail_cases -->144 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->129 / <!-- fact:check_targets -->129 CHECK-целей** покрыты (<!-- fact:canfail_cases -->145 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **33/40** живой дифференциальный детектор (24 расхождения значения + 8 падений + 1 незавершение; 9 не требуют эталона, 24 сверяются с эталоном датасета) · **7** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -586,6 +586,18 @@ python3 tools/kern_contracts.py --install-hook   # блокирует git commit
 что в `src/attest.zig`), поэтому `slsa_provenance.py --check` замечает подмену
 файла — ограничение «unsigned (no cosign)» закрыто.
 
+**Проверьте сами — нужен только публичный ключ (приватный не нужен, `$HOME` не нужен):**
+
+```bash
+make verify-attestation          # или: python3 tools/verify_attestation.py --json
+```
+
+Ключ: `docs/keys/kern-owner.pub`, отпечаток
+`sha256:6da3e85ea51579db01379e8442675530fca39f3ebc7a8153f66a9d314ee1360f`.
+Тот же `kid` записан в `kern.intoto.jsonl`; отсутствие `kern.intoto.sig` — это
+**провал**, а не предупреждение.
+
+
 ---
 
 ## 5b. Доказательство, что проверки СПОСОБНЫ упасть (K1–K5)
@@ -598,20 +610,20 @@ python3 tools/kern_contracts.py --install-hook   # блокирует git commit
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 144 кейса: ломаем инвариант -> цель обязана упасть
+make canfail          # 145 кейса: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->119 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->162 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->163 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->162 (CHECK <!-- fact:check_targets -->128 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->128/<!-- fact:check_targets -->128 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->163 (CHECK <!-- fact:check_targets -->129 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->129/<!-- fact:check_targets -->129 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->144 (не-вакуумных <!-- fact:canfail_cases -->144 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->250** |
+| can-fail кейсов | <!-- fact:canfail_cases -->145 (не-вакуумных <!-- fact:canfail_cases -->145 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->251** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

@@ -1,11 +1,24 @@
 # KERN — АТТЕСТАЦИОННЫЙ ПАСПОРТ (проверенный)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->162 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->129 · cases <!-- fact:canfail_cases -->145 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->163 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > **Все числа проверены прогонами.** Где заявленное ранее расходилось с фактом —
 > указано в колонке «было заявлено». Ничего не принимается на слово.
 >
 > Обозначения: ✅ подтверждено · ⚠️ подтверждено с поправкой · ❌ не подтверждено
+
+## 0.0 Как проверить аттестат самому (внешним ключом)
+
+```bash
+make verify-attestation          # или: python3 tools/verify_attestation.py --json
+```
+
+Нужен только публичный ключ `docs/keys/kern-owner.pub` (отпечаток
+`sha256:6da3e85ea51579db01379e8442675530fca39f3ebc7a8153f66a9d314ee1360f`).
+Приватный ключ и `$HOME` не используются — проверку может воспроизвести любой
+аудитор. Проверяются: Ed25519-подпись, `kid` == отпечаток ключа,
+`attests_commit` ∈ {HEAD, HEAD~1}, `dirtyTree = false`, `sha256` артефакта
+(если он скачан). Отсутствие `kern.intoto.sig` — **провал**, а не предупреждение.
 
 ---
 
@@ -17,8 +30,8 @@
 > ⚠️ **ЭТО СНИМОК НА 2026-10-14** (аттестация ветки миграции): числа внутри §0
 > относятся к той ревизии и НЕ являются текущими. Актуальные значения (получены
 > прогонами): ядро **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->128 / <!-- fact:check_targets -->128 CHECK** (<!-- fact:canfail_cases -->144 не-вакуумных кейсов, 0 ошибок),
-> реестр **<!-- fact:registry_targets -->162 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->137 теорем /
+> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->129 / <!-- fact:check_targets -->129 CHECK** (<!-- fact:canfail_cases -->145 не-вакуумных кейсов, 0 ошибок),
+> реестр **<!-- fact:registry_targets -->163 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->137 теорем /
 > 0 sorry**, каталог тестов **<!-- fact:catalog -->425**. Также с тех пор закрыто: `hash_algo` по умолчанию
 > — **BLAKE3** (дефект #66), `deflate` (кодек `0x02`) **реализован**, аттестат подписан
 > **Ed25519**. См. `README.md`, `docs/METRICS.md` §1/§75 и §1–§8 ниже (они актуальны).
@@ -271,7 +284,7 @@ DTMC 0.001 · абстрактная интерпретация `[0,9]` · са�
 ## Как воспроизвести всё
 
 ```bash
-make help          # all <!-- fact:registry_targets -->162 targets
+make help          # all <!-- fact:registry_targets -->163 targets
 make test-all      # ядро + KERN-Next + Lean + бенчмарки
 make research      # исследовательские эшелоны
 make echelons      # 4 эшелона финального штурма

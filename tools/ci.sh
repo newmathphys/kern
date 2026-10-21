@@ -169,6 +169,11 @@ if [ "$FAST" = "0" ]; then
   stage "счётчик теорем Lean 4 (#223)" python3 tools/check_lean_counter.py
   stage "экосистема MCP + диапазон реестра (#221)" bash tools/ecosystem_check.sh
 
+  # --- 0K.2: аттестат проверяется ВНЕШНИМ ключом (ключ в репо, без $HOME) ---
+  # До 0K.2 подпись проверялась ключом из $HOME, то есть только на
+  # машине владельца; снаружи «attestation ✓» было непроверяемо.
+  stage "аттестат внешним ключом (0K.2)" python3 tools/verify_attestation.py
+
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный
   # `docs/evidence/scorecard.json` с пересчётом (137 теорем, 126 CHECK, 8/8

@@ -1,12 +1,25 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->128 · cases <!-- fact:canfail_cases -->144 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->162 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->425 · CHECK <!-- fact:check_targets -->129 · cases <!-- fact:canfail_cases -->145 · anchors <!-- fact:anchors -->119 · registry <!-- fact:registry_targets -->163 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->137 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in
 > the "was claimed" column. Nothing is taken on trust.
 >
 > Legend: ✅ confirmed · ⚠️ confirmed with a correction · ❌ not confirmed
+
+## 0.0 Verify the attestation yourself (external key)
+
+```bash
+make verify-attestation          # or: python3 tools/verify_attestation.py --json
+```
+
+Only the public key `docs/keys/kern-owner.pub` is needed (fingerprint
+`sha256:6da3e85ea51579db01379e8442675530fca39f3ebc7a8153f66a9d314ee1360f`).
+No private key and no `$HOME` are involved, so any auditor can reproduce it.
+Checked: Ed25519 signature, `kid` == key fingerprint,
+`attests_commit` in {HEAD, HEAD~1}, `dirtyTree = false`, artefact `sha256`
+(if downloaded). A missing `kern.intoto.sig` is a **failure**, not a warning.
 
 ---
 
@@ -18,8 +31,8 @@
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **53 / 53**, can-fail **128 / 128 CHECK** (144 non-vacuous cases, 0 errors),
-> registry **<!-- fact:registry_targets -->162 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
+> KERN-Next **53 / 53**, can-fail **129 / 129 CHECK** (145 non-vacuous cases, 0 errors),
+> registry **<!-- fact:registry_targets -->163 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 137 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
@@ -54,8 +67,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->144 cases, <!-- fact:check_targets -->128/<!-- fact:check_targets -->128 CHECK**, 0 vacuous |
-| `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->162 targets classified** |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->145 cases, <!-- fact:check_targets -->129/<!-- fact:check_targets -->129 CHECK**, 0 vacuous |
+| `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->163 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)
 
@@ -279,7 +292,7 @@ DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 ## How to reproduce all of it
 
 ```bash
-make help          # all <!-- fact:registry_targets -->162 targets
+make help          # all <!-- fact:registry_targets -->163 targets
 make test-all      # core + KERN-Next + Lean + benchmarks
 make research      # research echelons
 make echelons      # 4 echelons of the final assault
