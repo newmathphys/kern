@@ -192,6 +192,18 @@ pub fn build(b: *std.Build) void {
     kernx_mod.linkSystemLibrary("sqlite3", .{});
     b.installArtifact(kernx);
 
+    // Phase 5: conformance oracle. Prints kernel facts as `section|key|value`
+    // so `tools/conformance_check.py` can assert on the SAME functions the
+    // verifier uses, instead of trusting test names.
+    const conformance_mod = b.createModule(.{
+        .root_source_file = b.path("src/conformance_oracle.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    conformance_mod.addImport("compat", compat_module);
+    const conformance_exe = b.addExecutable(.{ .name = "kern-conformance", .root_module = conformance_mod });
+    b.installArtifact(conformance_exe);
+
     // Тесты KERN-Next (parser/validate/catalog/snapshot/export/cache/engine).
     const tests_next_mod = b.createModule(.{
         .root_source_file = b.path("src/next/test_root.zig"),

@@ -1635,6 +1635,19 @@ def case_codecheck_fp():
     return "make codecheck"
 
 
+def case_conformance_break():
+    """Phase 5 META-CASE: break ONE requirement, the exam must go red.
+
+    Sabotage: conflation (~) becomes the identity map. Section 3 asserts
+    ~N = B, ~B = N and that ~ reverses <=k, so it must fail. This proves the
+    exam is not a rubber stamp (its own `--selftest` covers the rest).
+    """
+    patch("src/core/eq2.zig",
+          "pub fn conflate(a: Eq2) Eq2 {",
+          "pub fn conflate(a: Eq2) Eq2 {\n    return a; // ЛОМАЕМ: конфляция = тождество")
+    return "make conformance-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2752,6 +2765,8 @@ CASES = [
      case_quixbugs_replay_break),
     ("codecheck-fp", "Correct file declared buggy -> gate red",
      case_codecheck_fp),
+    ("conformance-break", "One requirement broken -> exam must fail",
+     case_conformance_break),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

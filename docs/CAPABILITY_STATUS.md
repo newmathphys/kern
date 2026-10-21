@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->143 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->127 · registry <!-- fact:registry_targets -->177 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
@@ -34,7 +34,7 @@
 
 **Числа:** `zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig` → **402/402 OK** (Debug И ReleaseSafe); без `z3` в PATH — 393 passed + 8 skipped (пропуск решателе-зависимых).
 Эталон `valid_v1_3.kimg` → Merkle совпадает Python↔Zig (подтверждено в обе стороны).
-Покрытие решений → **100.0%** (30/30). Мутации → **100.0%** (1353 / 1353 сайтов в 21 файле, 0 выживших).
+Покрытие решений → **100.0%** (30/30). Мутации → **100.0%** (1355 / 1355 сайтов в 21 файле, 0 выживших).
 
 ---
 
@@ -559,6 +559,9 @@ Zig `std/math`), проверка `kernc.wasm` вне ядра и разбор �
 | **277** | **«РЕШАТЕЛЬ НЕДОСТУПЕН» ВЫДАВАЛСЯ ЗА «КОНТРАКТ НАРУШЕН»**: без `z3` в `PATH` каждый вызов `kernc prove` завершается rc=2, и проверяющий контрактов трактовал это как F — то есть обвинял ВЕСЬ корректный код. Найдено корпусом Фазы 4B на первом же прогоне. Теперь решатель проверяется ДО вердиктов (rc=2 и явное сообщение, вердиктов нет), а сбой посреди прогона даёт `UNKNOWN` (N), но не `F`. | ИСПРАВЛЕНО |
 | **278** | **НЕ БЫЛО ГЕЙТА ПРОТИВ ЛОЖНЫХ ОБВИНЕНИЙ**: никто не измерял, обвиняет ли KERN корректный код. Теперь `audits/codecheck/` (12 файлов: 4 Zig, 2 C, 4 Python с контрактами, 2 граничных) + `tools/codecheck_runner.py` + `make codecheck`: вердикт ВЫЧИСЛЯЕТСЯ живьём и сверяется с `<file>.expect.json`; жёсткие врата **FP = 0** и **FN = 0**, граничные файлы обязаны быть `N` (нелинейность/рекурсия/чужой язык) и никогда `F`; canfail `codecheck-fp` объявляет корректный файл багованным — гейт краснеет. | ИСПРАВЛЕНО |
 
+
+| **279** | **`andT`/`orT` БЫЛИ НЕВЕРНЫ НА ПАРАХ (N,B) И (B,N)**: конформанс-экзамен Фазы 5 сравнил таблицу `<=t` с законом решётки и нашёл, что `N ∧ B` давало `N` вместо `F`, а `B ∨ N` — `N` вместо `T`. Собственный комментарий функции обещал `N∧B=F`. Табличная реализация заменена выводом из twist-представления: `inf_t=(p1∧p2, n1∨n2)`, `sup_t=(p1∨p2, n1∧n2)` — ошибка невозможна по построению. |
+| **280** | **ОТСУТСТВИЕ РЕШАТЕЛЯ ДАВАЛО STACK TRACE ВМЕСТО ДИАГНОЗА**: `determinism_check.py` падал с `TypeError: NoneType is not subscriptable`, когда вердикта нет вовсе (нет `z3` в `PATH`). Теперь печатает «вердикт не получен — решатель не найден» и возвращает код 2. |
 ## 7. Итог
 
 **MEASURED/TESTED:** ядро KIMG (парсер, сборщик, Merkle, KERNFS, Врата,

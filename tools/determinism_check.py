@@ -86,6 +86,12 @@ def main() -> int:
     for name, smt in (("unsat", UNSAT), ("sat", SAT)):
         runs = [run_once(smt) for _ in range(max(2, args.repeat))]
         first = runs[0]
+        # ДЕФЕКТ #280: при отсутствии решателя вердикта нет вовсе, и старый код
+        # падал с TypeError вместо внятного сообщения.
+        if first.get("verdict") is None:
+            print(f"  [FAIL] {name}: вердикта нет — решатель не найден в PATH "
+                  f"(rc={first.get('rc')}). Активируйте .venv или поставьте z3-solver.")
+            return 2
         same = all(r == first for r in runs[1:])
         exp = EXPECT[name]
 
@@ -98,7 +104,7 @@ def main() -> int:
 
         match = all(ok(k, v) for k, v in exp.items())
         mark = "OK" if (same and match) else "FAIL"
-        print(f"  [{mark}] {name}: eq2={first['eq2']} verdict={first['verdict'][:24]!r} "
+        print(f"  [{mark}] {name}: eq2={first['eq2']} verdict={(first['verdict'] or '')[:24]!r} "
               f"rc={first['rc']} trusted={first['trusted']} holes={first['holes']}")
         if not same:
             print(f"        [FAIL] вердикты различаются между прогонами: {runs}")

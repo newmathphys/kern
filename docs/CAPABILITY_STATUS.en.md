@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->143 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->127 · registry <!-- fact:registry_targets -->177 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is
@@ -645,3 +645,10 @@ Compact English list; full text and measured before/after tables are in
 | **225** | **HARNESS ROLLBACK DID NOT COVER FILES OUTSIDE `FAULTABLE`**: `patch()` refused such a file, while `touch()` silently accepted it. The `metrics-guard` case edited `docs/PROJECT.md` via `touch()` + `write_atomic()`; rollback did not fire, the injection stayed in the tree, and `verify_restored` (which only looks at `FAULTABLE`) reported "tree clean". Second offender: `kern.intoto.sig` (case `slsa-bad-sig`). Same class as #48 (injection in a commit). FIXED: both files added to `FAULTABLE`; `touch()` now has the same guard as `patch()` |
 
 
+
+## Phase 5 defects (continuation of the journal)
+
+| # | Defect | Status |
+|---|---|---|
+| **279** | **`andT`/`orT` WERE WRONG ON THE PAIRS (N,B) AND (B,N)**: the Phase 5 conformance exam compared the `<=t` table with the lattice law and found `N AND B` returning `N` instead of `F`, and `B OR N` returning `N` instead of `T` — while the function's own comment promised `N AND B = F`. The table-driven implementation is replaced by a derivation from the twist representation (`inf_t = (p1 AND p2, n1 OR n2)`, `sup_t = (p1 OR p2, n1 AND n2)`), where the error is impossible by construction. | FIXED |
+| **280** | **A MISSING SOLVER PRODUCED A STACK TRACE INSTEAD OF A DIAGNOSIS**: `determinism_check.py` crashed with `TypeError: 'NoneType' object is not subscriptable` whenever there was no verdict at all (no `z3` in `PATH`). It now prints “no verdict - solver not found” and returns code 2. | FIXED |

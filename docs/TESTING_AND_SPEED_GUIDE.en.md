@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->143 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->127 · registry <!-- fact:registry_targets -->177 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->163 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -40,8 +40,8 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **143 CHECK targets / 126 proven able to fail**, **163 cases, 0 vacuous** |
-| Mutation testing | **1353 / 1353 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
+| Can-fail discipline | **144 CHECK targets / 126 proven able to fail**, **163 cases, 0 vacuous** |
+| Mutation testing | **1355 / 1355 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -149,7 +149,7 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1353 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1355 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```

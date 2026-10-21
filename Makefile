@@ -465,6 +465,13 @@ kimg-cli-check:
 codecheck:
 	@$(PYTHON) tools/codecheck_runner.py
 
+# Phase 5: the conformance exam (12 architectural requirements).
+# Slow on purpose: it drives the real CLI and a filtered Zig test, so a broken
+# requirement cannot hide behind a green unit suite.
+conformance-check:
+	@$(ZIG) build
+	@$(PYTHON) tools/conformance_check.py
+
 quixbugs-replay:
 	@if [ -d /tmp/QuixBugs-master ]; then \
 	  $(PYTHON) tools/quixbugs_replay.py /tmp/QuixBugs-master; \

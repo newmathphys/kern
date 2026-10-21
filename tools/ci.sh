@@ -197,6 +197,7 @@ if [ "$FAST" = "0" ]; then
   stage "QuixBugs: повторный прогон DIVERGED (Ф4)" make quixbugs-replay
   # Phase 4B: corpus gate FP = 0 (no false accusations on correct code).
   stage "code-checking corpus FP=0 (Phase 4B)" make codecheck
+  stage "conformance exam: 12 requirements (Phase 5)" make conformance-check
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный
