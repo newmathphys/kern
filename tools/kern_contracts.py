@@ -2217,7 +2217,156 @@ def cmd_install_hook(repo_dir: str) -> int:
     return 0
 
 
-def main() -> int:
+# ===========================================================================
+#  Ф6.3: ОБЪЯСНЕНИЯ (read-only гипотезы по `requires`)
+# ===========================================================================
+# ЗАЧЕМ. Контрпример говорит «так нельзя», но не говорит «что добавить».
+# Абдукция предлагает гипотезу. ГИПОТЕЗА — не доказательство, поэтому:
+#   * кандидаты строятся ТОЛЬКО для `requires`; `ensures` не ослабляется
+#     никогда (это был бы ровно тот чит, против которого стоит замок);
+#   * каждый кандидат ПЕРЕПРОВЕРЯЕТСЯ вторым прогоном решателя;
+#   * файл НЕ изменяется (read-only), в JSON `"kind": "hypothesis"`.
+HYP_BANNER = "ГИПОТЕЗА, не доказательство. Файл не изменён."
+HYP_BANNER_EN = "HYPOTHESIS, not a proof. File not modified."
+
+
+def _hyp_candidates(params, req: str | None) -> list[str]:
+    """Кандидаты-условия для `requires`, детерминированный порядок."""
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add(x: str) -> None:
+        x = x.strip()
+        if x and x not in seen:
+            seen.add(x)
+            out.append(x)
+
+    if req:
+        for part in re.split(r"\s+and\s+", req):
+            add(part)
+    for v in sorted(params):
+        add(f"{v} >= 0")
+        add(f"{v} > 0")
+        add(f"{v} != 0")
+        add(f"{v} <= 0")
+    return out
+
+
+def _hyp_holds(expr: str, vals: dict) -> bool | None:
+    """Значение кандидата на конкретном контрпримере (None = не вычислить)."""
+    try:
+        return bool(eval(expr, {"__builtins__": {}}, dict(vals)))  # noqa: S307
+    except Exception:
+        return None
+
+
+def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
+                           as_json: Path | None, max_hyp: int) -> int:
+    """Печатает гипотезы по `requires`. НИКОГДА не пишет в исходник."""
+    from hashlib import sha256 as _sha
+
+    before = _sha(path.read_bytes()).hexdigest()
+    funcs = parse_any(path)
+    if not funcs:
+        print(f"[!] {path}: функций с @kern: не найдено")
+        return 2
+    target = None
+    for item in funcs:
+        name, params, req, ens, body, ln, skip, meta = item
+        if fn_name and name != fn_name:
+            continue
+        if ens and body is not None:
+            target = item
+            break
+    if target is None:
+        print(f"[!] {path}: нет функции с @kern:ensures и поддержанным телом")
+        return 2
+    name, params, req, ens, body, ln, _skip, meta = target
+
+    smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
+    rc, out = run_kernc(kernc, smt)
+    if "ДОКАЗАНО" in out and rc == 0:
+        print(f"[OK] {name}: контракт ДОКАЗАН — объяснять нечего")
+        return 0
+    ce = parse_counterexample(out)
+    print("=" * 74)
+    print("KERN: объяснение — гипотезы для `requires` (Ф6.3)")
+    print("=" * 74)
+    print(f"  функция: {name} (стр. {ln})")
+    print(f"  requires: {req or '—'}")
+    print(f"  ensures:  {ens}")
+    print(f"  контрпример: {fmt_ce(ce) if ce else 'не найден (решатель вернул N)'}")
+    print(f"\n  {HYP_BANNER}\n")
+
+    results: list[dict] = []
+    rejected: list[str] = []
+    for cand in _hyp_candidates(params, req):
+        combined = f"({req}) and ({cand})" if req else cand
+        smt2 = build_smt(params, combined, ens, body, ranges=meta.get("ranges"))
+        rc2, out2 = run_kernc(kernc, smt2)
+        if not ("ДОКАЗАНО" in out2 and rc2 == 0):
+            continue                      # кандидат НЕ отсекает контрпример
+        if ce:
+            holds = _hyp_holds(cand, ce)
+            if holds is not False:
+                continue                  # не отсекает ИМЕННО этот контрпример
+        # КРИТИЧНО: кандидат не должен делать `requires` ПРОТИВОРЕЧИВЫМ.
+        # Иначе «доказано» — это вакуумная истина (`false => anything`),
+        # то есть ровно та ложь, против которой стоит детектор вакуумных
+        # предусловий. Такой кандидат ОТБРАСЫВАЕТСЯ и называется вслух.
+        try:
+            rcv, outv = run_kernc(kernc, requires_only_smt(params, combined))
+        except (Unsupported, subprocess.SubprocessError, OSError):
+            continue
+        if "ДОКАЗАНО" in outv:
+            rejected.append(cand)
+            continue
+        # что кандидат НЕ отсекает: он один (без исходного requires)
+        smt_alone = build_smt(params, cand, ens, body, ranges=meta.get("ranges"))
+        rc3, out3 = run_kernc(kernc, smt_alone)
+        alone_ok = "ДОКАЗАНО" in out3 and rc3 == 0
+        residual = {} if alone_ok else parse_counterexample(out3)
+        results.append({
+            "candidate": cand,
+            "prunes": fmt_ce(ce) if ce else "",
+            "proven_with_original": True,
+            "proven_alone": alone_ok,
+            "does_not_prune": fmt_ce(residual) if residual else "",
+            "fragile": not alone_ok,
+        })
+        if len(results) >= max_hyp:
+            break
+
+    for i, r in enumerate(results, 1):
+        mark = "хрупкая" if r["fragile"] else "самодостаточна"
+        print(f"  [{i}] requires += `{r['candidate']}`   ({mark})")
+        print(f"      отсекает: {r['prunes']}")
+        if r["does_not_prune"]:
+            print(f"      НЕ отсекает: {r['does_not_prune']}")
+        else:
+            print("      НЕ отсекает: — (доказывает и без исходного requires)")
+    for cand in rejected:
+        print(f"  [!] отклонён `{cand}`: делает requires противоречивым "
+              f"(«доказательство» было бы вакуумным)")
+    if not results:
+        print("  кандидатов, отсекающих контрпример, не найдено — честный ответ")
+    print(f"\n  {HYP_BANNER_EN}")
+
+    after = _sha(path.read_bytes()).hexdigest()
+    if before != after:                    # защита от случайной записи
+        print("[FAIL] файл изменён — это нарушение read-only")
+        return 1
+    if as_json:
+        as_json.write_text(json.dumps({
+            "kind": "hypothesis", "file": str(path), "function": name,
+            "requires": req, "ensures": ens, "counterexample": fmt_ce(ce),
+            "hypotheses": results, "banner": HYP_BANNER_EN,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  JSON: {as_json}")
+    return 0
+
+
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="*")
     ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
@@ -2279,6 +2428,15 @@ def main() -> int:
                          "теории только помечаются как применимые)")
     ap.add_argument("--explain", default=None, metavar="PATH",
                     help="ПУНКТ 18: человеческий паспорт функций")
+    # Ф6.3: read-only объяснение — гипотезы ТОЛЬКО для requires.
+    ap.add_argument("--explain-hypotheses", default=None, metavar="FILE",
+                    help="Ф6.3: гипотезы для requires (файл НЕ меняется)")
+    ap.add_argument("--hypotheses-fn", "--fn", dest="hypotheses_fn", default=None, metavar="NAME",
+                    help="Ф6.3: какую функцию объяснять")
+    ap.add_argument("--hypotheses-json", default=None, metavar="OUT.json",
+                    help="Ф6.3: машиночитаемый отчёт (kind=hypothesis)")
+    ap.add_argument("--max-hypotheses", type=int, default=5,
+                    help="Ф6.3: предел числа гипотез")
     ap.add_argument("--pr-summary", nargs=2, default=None, metavar=("OLD", "NEW"),
                     help="ПУНКТ 19: математическое резюме для Code Review")
     ap.add_argument("--concolic", default=None, metavar="PATH",
@@ -2323,7 +2481,7 @@ def main() -> int:
                     metavar="DIR",
                     help="установить .git/hooks/pre-commit (блокирует коммит "
                          "при нарушенном контракте)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     if args.install_hook is not None:
         return cmd_install_hook(args.install_hook)
@@ -2374,6 +2532,12 @@ def main() -> int:
         return cmd_heal(args.heal, args.kernc)
     if args.concolic:
         return cmd_concolic(args.concolic, args.kernc)
+    if args.explain_hypotheses:
+        return cmd_explain_hypotheses(
+            args.kernc, Path(args.explain_hypotheses), args.hypotheses_fn,
+            Path(args.hypotheses_json) if args.hypotheses_json else None,
+            args.max_hypotheses)
+
     if args.explain:
         return cmd_explain(args.explain, args.kernc)
     if args.pr_summary:
@@ -7299,4 +7463,10 @@ def cmd_concolic(path: str, kernc) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Ф6.3: подкоманда `explain --hypotheses FILE` (как в плане).
+    _argv = sys.argv[1:]
+    if _argv and _argv[0] == "explain":
+        _argv = _argv[1:]
+        _argv = ["--explain-hypotheses" if a == "--hypotheses" else a
+                  for a in _argv]
+    sys.exit(main(_argv))

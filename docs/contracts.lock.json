@@ -48,6 +48,9 @@
     "pure_ok:requires:hard": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de"
   },
   "examples/ffi_bridge_demo.py": {},
+  "examples/hypotheses_demo.py": {
+    "identity_nonneg:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+  },
   "examples/integrations/agent_loop.py": {},
   "examples/integrations/crewai_tool.py": {},
   "examples/integrations/langchain_tool.py": {},

@@ -188,6 +188,7 @@ if [ "$FAST" = "0" ]; then
   stage "семь осей + QueryKind (Ф1)" make axes-check
   stage "замок контрактов: покрытие (Ф1)" make contracts-lock-check
   stage "классы контрактов hard/advisory (Ф6.1)" make advisory-check
+  stage "read-only гипотезы requires (Ф6.3)" make explain-hypotheses-check
   # Ф2: журнал свидетельств и графы происхождения.
   stage "ledger + provenance (Ф2)" make ledger-check
   stage "граф G_src: kernx == витрина (Ф2)" make graph-check

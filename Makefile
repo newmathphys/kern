@@ -436,6 +436,10 @@ contracts-lock:
 # Ф6.1: классы обязательств hard/advisory.
 # Гейт доказывает ДВА свойства: advisory не блокирует, но и НЕ становится T,
 # а hard по-прежнему блокирует (иначе класс = лазейка для агента).
+# Ф6.3: read-only объяснения (гипотезы ТОЛЬКО для requires).
+explain-hypotheses-check:
+	@$(PYTHON) tools/hypotheses_check.py
+
 advisory-check:
 	@$(PYTHON) tools/advisory_check.py
 contracts-lock-check:

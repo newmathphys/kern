@@ -1627,6 +1627,21 @@ def case_codecheck_fp():
     return "make codecheck"
 
 
+def case_hypotheses_write():
+    """Ф6.3 SABOTAGE: объяснение начинает ПИСАТЬ в исходник.
+
+    `before = _sha(...)` -> та же строка плюс дозапись в файл. Тогда sha256
+    до/после расходятся, инструмент обязан вернуть 1, а гейт покраснеть.
+    Это единственный способ доказать, что read-only реально проверяется.
+    """
+    patch("tools/kern_contracts.py",
+          "    before = _sha(path.read_bytes()).hexdigest()",
+          "    before = _sha(path.read_bytes()).hexdigest()\n"
+          "    path.write_text(path.read_text(encoding='utf-8') + '\n', "
+          "encoding='utf-8')  # ЛОМАЕМ: пишем в исходник")
+    return "make explain-hypotheses-check"
+
+
 def case_advisory_fold():
     """Ф6.1 SABOTAGE: advisory вердикт складывается в счётчик доказанного T.
 
@@ -2783,6 +2798,8 @@ CASES = [
      case_conformance_break),
     ("advisory-fold", "Advisory counted as proven -> gate red",
      case_advisory_fold),
+    ("hypotheses-write", "Explanation writes to the source -> gate red",
+     case_hypotheses_write),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
