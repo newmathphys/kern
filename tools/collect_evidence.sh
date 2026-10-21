@@ -187,7 +187,14 @@ else
   skip solver_crosscheck "нет z3"
 fi
 if [ -d /tmp/QuixBugs-master ]; then
-  collect quixbugs           python3 tools/quixbugs_full.py /tmp/QuixBugs-master
+  # Ступень 2 (живой дифференциальный эксплорер) — Ф4: домены расширены,
+  # fsck-подобная диагностика в `--explain-task`. Лог обязан сниматься ТЕМ ЖЕ
+  # инструментом, что строит вердикт (`trace_explorer`), иначе числа в
+  # `quixbugs_full.log` расходятся с кодом.
+  collect quixbugs_full     python3 tools/trace_explorer.py /tmp/QuixBugs-master
+  # «Обвязка датасета»: падают ли багованные версии на СВОИХ тестах.
+  # Это НЕ метрика KERN (дефект #231), но полезно видеть отдельно.
+  collect quixbugs_dataset  python3 tools/quixbugs_full.py /tmp/QuixBugs-master
   # Ступень 1 ОТДЕЛЬНО: без fallback Ступени 2 — чтобы цифра 6/40 была
   # воспроизводима одной командой (дефект #239: раньше fallback включался всегда).
   collect quixbugs_stage1    python3 tools/quixbugs_check.py /tmp/QuixBugs-master --stage1-only
