@@ -951,8 +951,11 @@ def solver_info() -> dict:
     return _SOLVER_CACHE
 
 
-def run_kernc(kernc, smt: str):
+def run_kernc(kernc, smt: str, query_kind: str = "refutation"):
     """Прогнать `kernc prove` на SMT-тексте. Возвращает (rc, вывод).
+
+    `query_kind` (#303) передаётся ядру: для `equivalence` правило привязки
+    посылок не применяется — контрактных посылок в запросе-сравнении нет.
 
     ДЕФЕКТ #208: счётчик `_SMT_CALLS` инкрементируется ЗДЕСЬ — это единственная
     точка, через которую проходят ВСЕ вызовы решателя (`_smt_sat`,
@@ -965,8 +968,11 @@ def run_kernc(kernc, smt: str):
         tf.write(smt)
         sp = tf.name
     try:
-        r = subprocess.run([str(kernc), "prove", sp],
-                           capture_output=True, text=True, timeout=120)
+        cmd = [str(kernc), "prove"]
+        if query_kind != "refutation":
+            cmd += ["--query-kind", query_kind]
+        cmd.append(sp)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         return r.returncode, r.stdout + r.stderr
     finally:
         Path(sp).unlink(missing_ok=True)
@@ -2077,7 +2083,7 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
             print(f"  [UNKNOWN] {name}: развёртка цикла/рекурсии — "
                   f"эквивалентность НЕДОКАЗУЕМА (дефект #207)")
             continue
-        rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew))
+        rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew), query_kind="equivalence")
         verdict = classify_prove(rc, out)
         if verdict == "equivalent":
             print(f"  [EQUIVALENT] {name}: рефакторинг математически "

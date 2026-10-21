@@ -111,6 +111,14 @@ pub const ProofVerdict = struct {
     trusted_steps: usize = 0, // что осталось непроверяемым — честно посчитано
     first_trusted: []const u8 = "", // правило первого непроверенного шага
     reject: []const u8 = "", // причина отказа ("" = нет)
+    /// ДЕФЕКТ #303: обязана ли каждая посылка быть привязанной.
+    /// Это правило принадлежит ПРОВЕРКЕ КОНТРАКТА (`refutation`): там посылки —
+    /// сам контракт, и «не использована» означает вакуумное доказательство.
+    /// Для ЗАПРОСА-ЭКВИВАЛЕНТНОСТИ (`equivalence`) контрактных посылок нет по
+    /// построению: цель — единственная формула, а Z3 не упоминает посылки,
+    /// нерелевантные выводу, поэтому правило невыполнимо и отвергало ЛЮБОЙ
+    /// корректный вывод (замерено: 0/1 даже на линейном контроле без ite).
+    premises_required: bool = true,
 
     /// Все ли проверки прошли.
     ///
@@ -122,7 +130,8 @@ pub const ProofVerdict = struct {
     /// проверенных шагов не является успехом ни при каких условиях.
     pub fn checksPass(self: ProofVerdict) bool {
         if (self.proof_steps == 0) return false;
-        return self.holes == 0 and self.premises_unbound == 0 and
+        if (self.premises_required and self.premises_unbound != 0) return false;
+        return self.holes == 0 and
             self.mp_bad == 0 and self.unitres_bad == 0 and
             self.farkas_bad == 0 and self.rewrite_bad == 0 and
             self.reject.len == 0;
@@ -138,7 +147,9 @@ pub const ProofVerdict = struct {
     pub fn failureReason(self: ProofVerdict) []const u8 {
         if (self.reject.len != 0) return self.reject;
         if (self.holes != 0) return "в выводе есть правило-дыра (hole/trust/sorry)";
-        if (self.premises_unbound != 0) return "посылки не привязаны к контракту (premises_unbound)";
+        if (self.premises_required and self.premises_unbound != 0) {
+            return "посылки не привязаны к контракту (premises_unbound)";
+        }
         if (self.mp_bad != 0) return "неверная структура mp";
         if (self.unitres_bad != 0) return "неверный шаг unit-resolution";
         if (self.farkas_bad != 0) return "неверный сертификат Фаркаша";
@@ -4165,12 +4176,30 @@ fn markTrusted(v: *ProofVerdict, rule: []const u8, st: Sexp) void {
 /// Математический аудит вывода. `contract` — исходные утверждения контракта
 /// (строки SMT-LIB внутри `(assert ...)`) — по ним проверяется привязка
 /// посылок.
+/// Вид запроса (Ф1: `QueryKind`). Определяет, применяется ли правило привязки
+/// посылок: оно относится к проверке КОНТРАКТА, а не к сравнению двух тел.
+pub const QueryKind = enum { refutation, equivalence };
+
+/// Проверка контракта (по умолчанию): все посылки обязаны быть привязаны.
 pub fn verifyProof(
     allocator: std.mem.Allocator,
     proof_text: []const u8,
     contract: []const []const u8,
 ) !ProofVerdict {
+    return verifyProofKind(allocator, proof_text, contract, .refutation);
+}
+
+/// Явный вид запроса. Для `.equivalence` правило привязки посылок отключено
+/// (контрактных посылок нет), но ВСЕ прочие требования сохранены: шагов > 0,
+/// дыр 0, ни одного подделанного шага, вывод завершается `false`.
+pub fn verifyProofKind(
+    allocator: std.mem.Allocator,
+    proof_text: []const u8,
+    contract: []const []const u8,
+    kind: QueryKind,
+) !ProofVerdict {
     var v = ProofVerdict{};
+    v.premises_required = (kind == .refutation);
     var ar = std.heap.ArenaAllocator.init(allocator);
     defer ar.deinit();
     const arena = ar.allocator();
@@ -5963,6 +5992,23 @@ test "КЛАМП: верхняя оценка ite-терма доказуема 
         "(rewrite (= (<= (ite (< a 0) a 0) 0) (or (not (< a 0)) (<= a 1))))");
     try std.testing.expect(checkRewrite(&c, bad) != .verified);
 }
+
+test "#303: вид запроса управляет требованием привязки посылок" {
+    // refutation (проверка контракта): непривязанная посылка — отказ.
+    var v = ProofVerdict{ .proof_steps = 10, .premises_unbound = 1, .premises_required = true };
+    try std.testing.expect(!v.checksPass());
+    try std.testing.expect(std.mem.indexOf(u8, v.failureReason(), "premises_unbound") != null);
+    // equivalence (сравнение двух тел): контрактных посылок нет по построению,
+    // поэтому правило не применяется — но остальные требования сохраняются.
+    v.premises_required = false;
+    try std.testing.expect(v.checksPass());
+    v.holes = 1; // дыра остаётся фатальной в ЛЮБОМ виде запроса
+    try std.testing.expect(!v.checksPass());
+    v.holes = 0;
+    v.mp_bad = 1; // подделанный шаг — тоже
+    try std.testing.expect(!v.checksPass());
+}
+
 
 test "CVE-B: n-арные суммы и канонизация сравнений (trusted: 0)" {
     // ИЗМЕРЕНО на `ptr_wrap_guard.smt2`: Z3 пишет сумму N-АРНО

@@ -205,6 +205,7 @@ CASE_TARGET = {
     "hypotheses-write": "explain-hypotheses-check",
     "hypotheses-nonproof": "hypotheses-corpus-check",
     "diff-equiv": "diff-equiv",
+    "query-kind-leak": "diff-equiv",
     "self-verify": "self-verify",
     "edge-cases": "edge-cases",
     "edge-cases": "edge-cases",

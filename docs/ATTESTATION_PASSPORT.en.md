@@ -1,6 +1,6 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->165 · anchors <!-- fact:anchors -->129 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->145 · cases <!-- fact:canfail_cases -->166 · anchors <!-- fact:anchors -->130 · registry <!-- fact:registry_targets -->181 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in
@@ -31,7 +31,7 @@ Checked: Ed25519 signature, `kid` == key fingerprint,
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **53 / 53**, can-fail **145 / 145 CHECK** (165 non-vacuous cases, 0 errors),
+> KERN-Next **53 / 53**, can-fail **145 / 145 CHECK** (166 non-vacuous cases, 0 errors),
 > registry **<!-- fact:registry_targets -->181 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 143 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
@@ -52,7 +52,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Target Systems | **PASS** — 2 platforms: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA bypass closed, KERNFS consistent) |
 | Decision Coverage | **PASS** — 100.0 % (threshold 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1355/1355 sites, 0 survivors) |
+| Mutation Coverage | **PASS** — 100.0 % (1361/1361 sites, 0 survivors) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -67,7 +67,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->165 cases, <!-- fact:check_targets -->145/<!-- fact:check_targets -->145 CHECK**, 0 vacuous |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->166 cases, <!-- fact:check_targets -->145/<!-- fact:check_targets -->145 CHECK**, 0 vacuous |
 | `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->181 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)
@@ -110,7 +110,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Zombie processes | **0** (`child.wait()` reaps) | ✅ |
 | I/O fault tolerance (`test-fault`) | **3/3 OK** (real SIGBUS) | ✅ |
 | Decision coverage (MC/DC) | **100.0 %** (30/30, DO-178C threshold ≥ 95 %) | ✅ |
-| Mutation score | **100.0 %** (1355/1355 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
+| Mutation score | **100.0 %** (1361/1361 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
 
 ---
 

@@ -454,11 +454,38 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (std.mem.eql(u8, command, "prove")) {
-        if (args.len < 3) {
-            std.debug.print("[!] prove: нужен путь к .smt2 (SMT-LIB2)\n", .{});
-            return;
+        // ДЕФЕКТ #304 (найден сразу после #303): путь к файлу брался как args[2],
+        // поэтому `prove --query-kind equivalence file.smt2` пытался прочитать
+        // ФЛАГ как файл. Теперь позиционный аргумент ищется честно: пропускаем
+        // флаги и значение `--query-kind`.
+        var smt_path: ?[]const u8 = null;
+        var ai: usize = 2;
+        while (ai < args.len) : (ai += 1) {
+            const a = args[ai];
+            if (std.mem.eql(u8, a, "--query-kind")) {
+                ai += 1;
+                continue;
+            }
+            if (a.len > 0 and a[0] == '-') continue;
+            smt_path = a;
+            break;
         }
-        const smt = try compat.readFileAlloc(alloc, args[2], 1 << 20);
+        const smt_file = smt_path orelse {
+            std.debug.print("[!] prove: нужен путь к .smt2 (SMT-LIB2)\n", .{});
+            std.debug.print("    использование: kernc prove [--query-kind refutation|equivalence] <file.smt2>\n", .{});
+            std.process.exit(2);
+        };
+        const smt = compat.readFileAlloc(alloc, smt_file, 1 << 20) catch |err| {
+            std.debug.print("[!] prove: не удалось прочитать {s}: {s}\n", .{ smt_file, @errorName(err) });
+            std.process.exit(2);
+        };
+        // ДЕФЕКТ #303: вид запроса определяет, применяется ли правило привязки
+        // посылок. `refutation` (по умолчанию) — проверка контракта; для
+        // `equivalence` контрактных посылок нет, и правило невыполнимо.
+        const query_kind: proof_check.QueryKind = blk: {
+            const v = flagValue(args, "--query-kind") orelse break :blk .refutation;
+            break :blk if (std.mem.eql(u8, v, "equivalence")) .equivalence else .refutation;
+        };
         var bridge = z3b.Z3Bridge.init(alloc);
         if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
             fail("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
@@ -501,7 +528,10 @@ pub fn main(init: std.process.Init) !void {
                 defer ar.deinit();
                 const ta = ar.allocator();
                 const contract = try proof_check.extractAsserts(ta, smt);
-                const pv = try proof_check.verifyProof(ta, proof, contract);
+                const pv = try proof_check.verifyProofKind(ta, proof, contract, query_kind);
+                std.debug.print("  [i] вид запроса: {s} | привязка посылок обязательна: {s}\n", .{
+                    @tagName(query_kind), if (pv.premises_required) "да" else "нет",
+                });
                 // Печатаем РАЗБИВКУ проверенного: без неё нельзя понять, какие
                 // именно шаги остались доверенными (вопрос из METRICS 55.5).
                 std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | eq(refl/symm/trans) {d} | bool(and-elim/not-or-elim/mono) {d} | ДОВЕРЕННЫХ {d} | дыр {d}\n", .{

@@ -929,6 +929,20 @@ def case_contract_lock():
     return "make contracts-lock-check"
 
 
+def case_query_kind_leak():
+    """#303 SABOTAGE: правило привязки посылок снова применяется к equivalence.
+
+    `v.premises_required = (kind == .refutation)` -> `= true`: запрос-сравнение
+    опять отвергается по несуществующим «контрактным посылкам». Цель
+    `diff-equiv` обязана покраснеть — иначе разделение по QueryKind ничего не
+    даёт и доказанная эквивалентность снова недостижима.
+    """
+    patch("src/verifier/proof_check.zig",
+          "    v.premises_required = (kind == .refutation);",
+          "    v.premises_required = true; // ЛОМАЕМ: правило применено к equivalence")
+    return "make diff-equiv"
+
+
 def case_diff_equiv():
     """Эквивалентность рефакторинга: РАСХОЖДЕНИЕ объявляется эквивалентным.
 
@@ -2764,6 +2778,7 @@ CASES = [
     ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
+    ("query-kind-leak", "Правило посылок применено к equivalence -> красный", case_query_kind_leak),
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
     ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
     ("trace-check",    "Ступень 2: расхождение перестало ловиться", case_trace_check),

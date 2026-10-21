@@ -292,3 +292,53 @@ Plan (not implemented here, on purpose - it changes what the checker accepts):
    still be reported `DIVERGED`.
 4. `tools/kern_contracts.py --diff-equiv` passes the kind explicitly and stops
    labelling the result "EQUIVALENT?" without saying which kind was used.
+
+## 11. Variant B implemented: `QueryKind` separation, verified on the live refactor
+
+What changed (4 steps of the §10 plan):
+
+1. `proof_check.zig` gained `QueryKind { refutation, equivalence }` and
+   `ProofVerdict.premises_required`. `checksPass()` skips the premise rule only
+   when it is not required; `failureReason()` likewise. `verifyProof()` is kept
+   as a wrapper over the new `verifyProofKind()` with `.refutation`, so every
+   existing call site and test keeps its old behaviour.
+2. `kernc prove [--query-kind refutation|equivalence] <file.smt2>` passes the
+   kind explicitly and prints it (`вид запроса: ... | привязка посылок
+   обязательна: да/нет`).
+3. `tools/kern_contracts.py --diff-equiv` sends `--query-kind equivalence`.
+4. `make diff-equiv` positive control was **strengthened**: the identical-file
+   pair must now yield rc=0 (trusted EQUIVALENT), not merely "not DIVERGED".
+
+Measured on the real DeepSeek refactor of `boltons::clamp_int`:
+
+```
+$ python3 tools/kern_contracts.py --diff-equiv clamp_real.py clamp_opt_deepseek.py
+  [EQUIVALENT] clamp_int: рефакторинг математически эквивалентен на всём домене Z
+               (пруф-чекер принял)
+ИТОГО: эквивалентных 1 | без пруф-чекера 0 | разошедшихся 0 | ...   RC=0
+```
+
+And the contract path is untouched - the same query as `refutation` is still
+rejected, which is what protects contract proofs from vacuity:
+
+```
+$ kernc prove clamp_inline.smt2
+  [i] вид запроса: refutation | привязка посылок обязательна: да
+  [!] причина: посылки не привязаны к контракту (premises_unbound)   RC=2
+```
+
+Safety net, not a promise: `holes`, `mp_bad`, `unitres_bad`, `farkas_bad`,
+`rewrite_bad` and `proof_concludes_false` remain fatal in **both** kinds, and a
+unit test pins exactly that (a hole or a faked step still fails an equivalence
+verdict). Two can-fail cases were added/verified:
+
+* `query-kind-leak` - `premises_required = true` for equivalence makes
+  `make diff-equiv` red (non-vacuous, rc=2 in 1 s);
+* `diff-equiv` - divergence declared equivalent makes the same target red.
+
+### Defect #304 found while wiring step 2
+
+`kernc prove` took the file path as `args[2]`, so `prove --query-kind
+ equivalence file.smt2` tried to read the **flag** as a file (Zig stack trace).
+The positional argument is now located properly (flags and the `--query-kind`
+value are skipped), and a missing file reports cleanly with rc=2.

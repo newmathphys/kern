@@ -504,7 +504,9 @@ diff-equiv: build
 		examples/refactor_before.py examples/refactor_before.py; \
 	rc=$$?; if [ $$rc -eq 1 ]; then \
 		echo "[FAIL] ЛОЖНОЕ ОБВИНЕНИЕ: идентичный файл объявлен DIVERGED"; exit 1; \
-	else echo "[OK] положительный контроль: rc=$$rc (0/2 — нет ложного DIVERGED)"; fi
+	elif [ $$rc -ne 0 ]; then \
+		echo "[FAIL] положительный контроль НЕ доказан (rc=$$rc): после #303 идентичная пара обязана давать trusted EQUIVALENT"; exit 1; \
+	else echo "[OK] положительный контроль: EQUIVALENT, пруф-чекер принял (trusted)"; fi
 
 # MCP-сервер: живая проверка протокола (JSON-RPC 2.0 поверх stdio).
 # Запускает examples/kern_mcp_server.py как ДОЧЕРНИЙ ПРОЦЕСС и проверяет 9 пунктов:
