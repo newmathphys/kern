@@ -130,3 +130,52 @@ n=-1 -> "n must be in [0, 10]: ..."    rc=1
 - **Upstream already has a closed report.** Issue #686 ("[BUG] Catalan program
   doesn't work", closed 2021-02-17) shows the defect was noticed; the file still
   contains it. A pull request with the minimal fix is the useful contribution.
+
+## Sweep of the whole `math/` directory (all KERN modes)
+
+After the case study above, `--xray` was run over `TheAlgorithms/C/math/` — every
+C file, no annotations. Four candidates came out; each was then checked by hand.
+
+| Finding | File | Verdict after review |
+|:--|:--|:--|
+| `off-by-one: i <= size` in `count` | `prime_sieve.c:44` | **REAL logic defect** |
+| `off-by-one: i <= MAX_SIZE` | `prime_sieve.c:23` | not a memory error — `int arr[1000005]` is oversized for `MAX_SIZE = 1000000` |
+| `off-by-one: j <= MAX_SIZE` | `prime_sieve.c:27` | same: index reaches 1000000, the array holds 0..1000004 |
+| `division by zero: x == 0` | `cartesian_to_polar.c` | **FALSE ALARM** — the division is under `if (x != 0)` (line 28, division on line 32); this is defect **#318** |
+
+### The real one: `count` reads one element past its documented range
+
+`prime_sieve.c:44` is `for (int i = 0; i <= size; i++)` while the parameter is
+documented as the array size. The array in the test is oversized
+(`int arr[1000005]`), so this is **not** a buffer overflow — but the count is
+wrong whenever the element at `arr[size]` happens to be 1:
+
+```text
+count(arr, size=10) = 5    # four 1s inside 0..9 plus one at arr[10]
+                           # the documented contract is "count within size"
+```
+
+Verified by compiling the function verbatim with `gcc` and calling it.
+
+### The false alarm, honestly reported
+
+`--xray` accuses `atan(y / x)` of dividing by zero although the enclosing
+`if (x != 0)` guards it. A minimal reproducer is committed with defect **#318**:
+
+```c
+int f(int x, int y) { if (x != 0) { return y / x; } return 0; }
+```
+
+This is exactly the trade-off the project keeps documenting: a scanner that
+reports guarded code as vulnerable is a scanner nobody trusts. It is filed as a
+defect, not dismissed as noise.
+
+### What this sweep does and does not show
+
+- **Does:** KERN can be pointed at an unannotated C directory and produce
+  candidates; one of them was a genuine logic defect, confirmed by hand.
+- **Does not:** prove the absence of other defects. Most functions are outside
+  the analysed subset, and `0 findings` would mean "nothing proven and nothing
+  refuted inside the subset", not "clean code".
+- **Does not:** replace review. One of four candidates was a false alarm, and two
+  more were technically-correct code that merely looked suspicious.
