@@ -95,7 +95,9 @@ export fn kern_kimg_valid(img: [*]const u8, len: usize) c_int {
 }
 
 /// Число объектов в образе (-1 при ошибке).
-export fn kern_kimg_object_count(img: [*]const u8, len: usize) c_long {
+// 0K.10: `c_long` на Windows (LLP64) — 32 бита, на Linux — 64.
+// Возвращаем фиксированный i64, чтобы ABI не зависел от платформы.
+export fn kern_kimg_object_count(img: [*]const u8, len: usize) i64 {
     if (isNull(img) or len < 128) return -1;
     const hdr: *const [128]u8 = @ptrCast(img);
     const h = KimgHeader.parse(hdr, len) catch return -1;

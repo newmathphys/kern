@@ -13,6 +13,9 @@
 #ifndef KERN_H
 #define KERN_H
 
+#include <stddef.h>   /* size_t: ширина зависит от платформы (LP64/LLP64) */
+#include <stdint.h>   /* int64_t: счётчик объектов фиксированной ширины */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,20 +38,20 @@ int kern_ownership_ok(void);
 /* Хеш данных тем же алгоритмом, что и ядро (спецификация §5.3).
  * algo = 1 (BLAKE3-256) или 2 (SHA2-256); data/len — вход (не zero-terminated);
  * out32 — буфер вызывающего ровно на 32 байта. 0 = успех, -1 = неизвестный algo. */
-int kern_hash(unsigned int algo, const unsigned char *data, unsigned long len,
+int kern_hash(unsigned int algo, const unsigned char *data, size_t len,
               unsigned char *out32);
 
 /* Проверка SMT-LIB2 контракта через реальный Z3.
  * smt/len — скрипт SMT-LIB2 (может содержать несколько команд).
  * Возвращает KERN_PROVED / KERN_REFUTED / KERN_UNKNOWN / KERN_TOOL_ERROR. */
-int kern_smt_verify(const unsigned char *smt, unsigned long len);
+int kern_smt_verify(const unsigned char *smt, size_t len);
 
 /* Проверка целостности образа .kimg (заголовок + Merkle-корень).
  * Память НЕ выделяется (zero-copy). 1 = валиден, 0 = нет. */
-int kern_kimg_valid(const unsigned char *img, unsigned long len);
+int kern_kimg_valid(const unsigned char *img, size_t len);
 
 /* Число объектов в образе (-1 при ошибке разбора). */
-long kern_kimg_object_count(const unsigned char *img, unsigned long len);
+int64_t kern_kimg_object_count(const unsigned char *img, size_t len);
 
 /* Доказательство с локализацией виновника (UNSAT core).
  *
@@ -64,10 +67,10 @@ long kern_kimg_object_count(const unsigned char *img, unsigned long len);
  *
  * Возвращает: 0 = ДОКАЗАНО (pre ∧ ¬goal невыполнимо), 1 = КОНТРПРИМЕР,
  *             2 = неизвестно, -1 = решатель недоступен. */
-int kern_localize(const unsigned char *decls, unsigned long decls_len,
-                  const unsigned char *pre, unsigned long pre_len,
-                  const unsigned char *goal, unsigned long goal_len,
-                  unsigned char *out_buf, unsigned long out_buf_len);
+int kern_localize(const unsigned char *decls, size_t decls_len,
+                  const unsigned char *pre, size_t pre_len,
+                  const unsigned char *goal, size_t goal_len,
+                  unsigned char *out_buf, size_t out_buf_len);
 
 #ifdef __cplusplus
 }

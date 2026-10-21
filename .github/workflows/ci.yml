@@ -65,3 +65,21 @@ jobs:
         run: |
           python3 tools/canfail.py --selftest
           python3 tools/canfail.py
+
+  # 0K.11: кросс-сборка C-ABI под macOS. Ядро (kernc) для macOS не собирается:
+  # шаг `install` тянет `kernx`, который линкуется с системным sqlite3, а его
+  # нет в кросс-тулчейне. Поэтому гейт проверяет ровно то, что работает —
+  # библиотеку. Windows не поддерживается: блокеры перечислены в docs/PLATFORMS.md.
+  cross-compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Установка Zig 0.17.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+      - name: libkern для aarch64-macos
+        run: zig build lib -Dtarget=aarch64-macos --prefix /tmp/kern-cross-mac
+      - name: артефакт существует
+        run: test -f /tmp/kern-cross-mac/lib/libkern.dylib
