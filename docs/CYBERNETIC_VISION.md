@@ -1,6 +1,6 @@
 # KERN: кибернетический контур с машинным свидетельством
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->438 · CHECK <!-- fact:check_targets -->137 · cases <!-- fact:canfail_cases -->153 · anchors <!-- fact:anchors -->120 · registry <!-- fact:registry_targets -->171 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->451 · CHECK <!-- fact:check_targets -->138 · cases <!-- fact:canfail_cases -->154 · anchors <!-- fact:anchors -->121 · registry <!-- fact:registry_targets -->172 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
 
 > Документ описывает **только то, что есть в коде**. Каждое утверждение
 > сопровождается файлом, который можно открыть, и числом, которое можно

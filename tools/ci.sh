@@ -187,6 +187,8 @@ if [ "$FAST" = "0" ]; then
   # Ф1: семь осей, QueryKind и замок контрактов на весь репозиторий.
   stage "семь осей + QueryKind (Ф1)" make axes-check
   stage "замок контрактов: покрытие (Ф1)" make contracts-lock-check
+  # Ф2: журнал свидетельств и графы происхождения.
+  stage "ledger + provenance (Ф2)" make ledger-check
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный

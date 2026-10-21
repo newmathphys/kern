@@ -400,6 +400,7 @@ FAULTABLE = [
     "tools/os_signal_flood.py",
     "src/core/eq2.zig",
     "src/next/state_axes.zig",
+    "src/next/evidence_ledger.zig",
     "src/core/kimg_writer.zig",
     "tools/mutate_zig.py",
     "tools/bench_json.py",
@@ -1532,6 +1533,18 @@ def case_axes_law_break():
     return "make axes-check"
 
 
+def case_ledger_retract_break():
+    """Журнал свидетельств (Ф2). ЛОМАЕМ: `n` не сбрасывается при пересчёте.
+
+    Тогда `retract` ошибочного свидетельства НЕ снимает конфликт:
+    состояние навсегда остаётся `B`, и отзыв становится фикцией.
+    """
+    patch("src/next/evidence_ledger.zig",
+          "        var s = State{};",
+          "        var s = State{ .n = self.snapshot.n }; // ЛОМАЕМ: n не сбрасывается")
+    return "make ledger-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2630,6 +2643,8 @@ CASES = [
      case_citations_unknown_key),
     ("axes-law-break", "timeout объявлен F -> законы осей падают",
      case_axes_law_break),
+    ("ledger-retract-break", "retract не снимает конфликт -> падает",
+     case_ledger_retract_break),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

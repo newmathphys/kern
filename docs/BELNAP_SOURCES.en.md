@@ -67,6 +67,8 @@ by `citations-check` (the line exists; the theorem is declared).
 | ¬ (swap `p↔n`) | `src/core/eq2.zig:74` | §REF:belnap1977useful · §REF:font1997 |
 | `andT` / `orT` (⊓/⊔ over `≤t`) | `src/core/eq2.zig:85` | §REF:font1997 |
 | conflation `~` (information inversion) | `src/core/eq2.zig:89` | §REF:fitting1991 |
+| evidence ledger `add`/`retract` (recompute `(p,n)`, epoch) | `src/next/evidence_ledger.zig:66` | §REF:fitting1991 |
+| negative recursive SCC rejection | `src/next/provenance.zig:43` | §REF:belnap1977useful |
 | contradiction isolation `T ⊔ F = B` | `formal/KernAllMath.lean:contradiction_isolation` | §REF:belnap1977useful |
 | conflation involution `~~a = a` | `formal/KernAllMath.lean:conflate_involutive` | §REF:fitting1991 |
 | commutativity of `⊔` | `formal/KernAllMath.lean:joinK_comm` | §REF:fitting1991 |
@@ -82,7 +84,7 @@ by `citations-check` (the line exists; the theorem is declared).
 | **Abduction** | hypotheses are neither unique nor sound; KERN offers a read-only report only (Ф6.3) | `docs/PLAN_v2.5.3.md`, §REF:bienvenu2026abductive |
 | **Modalities** (essence/accident) | no added expressiveness: `∀/∃` already exist | `docs/PLAN_v2.5.3.md`, §REF:petrukhin2026essence |
 | **First-order intuitionistic BD** | KERN is a propositional SMT pipeline | §REF:niki2026firstorder |
-| **Evidence retraction** as a lattice operation | a monotone `⊔` has no inverse; `retract` is an extension (recompute the set) | Phase 2 of the plan |
+| **Evidence retraction** as a LATTICE operation | a monotone `⊔` has no inverse; `retract` is implemented as a **recompute of the contribution set**, not as `⊔⁻¹` | §5, `evidence_ledger.zig` |
 | **`trusted: 0` for Z3** | the proof checker trusts nothing, but Z3 is in the TCB | `docs/THREAT_MODEL.md` §3 |
 
 ## §7 Draft discrepancies (what verification did NOT confirm)

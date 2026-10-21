@@ -67,6 +67,8 @@ DOI/ISBN/arXiv; ссылка `файл:строка` или теорема Lean 
 | ¬ (перестановка `p↔n`) | `src/core/eq2.zig:74` | §REF:belnap1977useful · §REF:font1997 |
 | `andT` / `orT` (⊓/⊔ по `≤t`) | `src/core/eq2.zig:85` | §REF:font1997 |
 | конфляция `~` (информационная инверсия) | `src/core/eq2.zig:89` | §REF:fitting1991 |
+| журнал свидетельств `add`/`retract` (пересчёт `(p,n)`, epoch) | `src/next/evidence_ledger.zig:66` | §REF:fitting1991 |
+| отказ отрицательных рекурсивных SCC | `src/next/provenance.zig:43` | §REF:belnap1977useful |
 | изоляция противоречия `T ⊔ F = B` | `formal/KernAllMath.lean:contradiction_isolation` | §REF:belnap1977useful |
 | инволютивность конфляции `~~a = a` | `formal/KernAllMath.lean:conflate_involutive` | §REF:fitting1991 |
 | коммутативность `⊔` | `formal/KernAllMath.lean:joinK_comm` | §REF:fitting1991 |
@@ -82,7 +84,7 @@ DOI/ISBN/arXiv; ссылка `файл:строка` или теорема Lean 
 | **Абдукция** | гипотезы не единственны и не звучат; в KERN — только read-only отчёт (Ф6.3) | `docs/PLAN_v2.5.3.md`, §REF:bienvenu2026abductive |
 | **Модальности** (essence/accident) | нет добавленной выразительности: `∀/∃` уже есть | `docs/PLAN_v2.5.3.md`, §REF:petrukhin2026essence |
 | **First-order интуиционистский BD** | KERN — пропозициональный SMT-контур | §REF:niki2026firstorder |
-| **Отзыв свидетельства** как операция решётки | у монотонного `⊔` нет обратной операции; `retract` — расширение (пересчёт набора) | Фаза 2 плана |
+| **Отзыв свидетельства** как операция РЕШЁТКИ | у монотонного `⊔` нет обратной операции; `retract` реализован как **пересчёт набора** вкладов, а не как `⊔⁻¹` | §5, `evidence_ledger.zig` |
 | **`trusted: 0` на Z3** | proof-checker не доверяет ничему, но Z3 — в TCB | `docs/THREAT_MODEL.md` §3 |
 
 ## §7 Расхождения черновиков (что проверка НЕ подтвердила)
