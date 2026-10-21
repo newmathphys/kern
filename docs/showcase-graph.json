@@ -23,14 +23,14 @@
   "#has-contract": 4,
   "#hub": 1,
   "#internal-only": 36,
-  "#lang/zig": 87,
+  "#lang/zig": 88,
   "#large": 8,
   "#leaf": 41,
-  "#no-contract": 83,
-  "#public-api": 51,
-  "#small": 79,
+  "#no-contract": 84,
+  "#public-api": 52,
+  "#small": 80,
   "#tested": 57,
-  "#untested": 30
+  "#untested": 31
  },
  "nodes": [
   {
@@ -204,6 +204,21 @@
    ]
   },
   {
+   "id": "conformance_oracle.zig",
+   "loc": 246,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
    "id": "core/blake3_simd8.zig",
    "loc": 246,
    "pub_fn": 1,
@@ -239,7 +254,7 @@
   },
   {
    "id": "core/eq2.zig",
-   "loc": 215,
+   "loc": 204,
    "pub_fn": 4,
    "tests": 9,
    "kern_annotations": 0,
@@ -526,7 +541,7 @@
   },
   {
    "id": "main.zig",
-   "loc": 1300,
+   "loc": 1405,
    "pub_fn": 2,
    "tests": 0,
    "kern_annotations": 3,
@@ -1327,9 +1342,9 @@
   },
   {
    "id": "verifier/proof_check.zig",
-   "loc": 5996,
-   "pub_fn": 8,
-   "tests": 88,
+   "loc": 6042,
+   "pub_fn": 9,
+   "tests": 89,
    "kern_annotations": 19,
    "imports_out": 1,
    "claims": [
@@ -1452,6 +1467,11 @@
   },
   {
    "source": "concolic.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "conformance_oracle.zig",
    "target": "compat.zig",
    "kind": "import"
   },

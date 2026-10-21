@@ -6,6 +6,42 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.6.1] — 2026-10-21
+
+Real-world hardening: four languages verified, live models measured, and three
+defects found by the field tests themselves.
+
+### Added
+- `kernc pack-dir <dir> -o out.kimg`: pack a directory tree (a cloned repository)
+  into one image; verified on a real clone with `fsck` (20/20 objects), `inspect`
+  and `diff` (one changed file detected).
+- `kernc prove --query-kind refutation|equivalence`: the premise-binding rule now
+  belongs to contract proofs only, so `--diff-equiv` returns a **trusted**
+  EQUIVALENT for real refactorings (verified on a live model rewrite of
+  `boltons::clamp_int`).
+- The code-checking corpus covers **Python, Zig, C and Rust** with machine-type
+  bounds: `TP=5, TN=5, FP=0, FN=0, UNKNOWN=4`, including an `i32` overflow
+  witness `a = 2147483647, b = 1 -> 2147483648`.
+- Idiomatic Rust (tail expression) is now verified instead of skipped.
+
+### Fixed
+- #299 `kernc build <directory>` printed a raw Zig stack trace; now a clean
+  message and exit code 2 (same for a missing argument).
+- #300 `trace_explorer.py` builds parameter domains from standard Python
+  annotations when the QuixBugs-style docstring is absent.
+- #302 `pack-dir` silently packed 5 of 20 files (relative paths); the skipped
+  counter exposed it on the first run.
+- #304 `kernc prove` read the file path from a fixed argument position, so a new
+  flag was read as a file.
+- #306 Rust bodies written as tail expressions were skipped, so live model
+  answers were never verified.
+
+### Measured (live models, not opinions)
+- 3 free models x 4 languages: round 1 blind **4 proved / 7 refuted / 1 honest N**;
+  after KERN’s counterexample **4 of 7 refuted tasks repaired**. The three
+  un-repaired ones are the same Zig overflow task, while the Rust twin was fixed.
+- Both models tested rewrite `@kern:requires` (never `@kern:ensures`) when the
+  contract is unsatisfiable; `contracts-lock-check` catches it.
 ## [2.6.0] — 2026-10-21
 
 Trust that can be checked from outside, and an exam that can fail.

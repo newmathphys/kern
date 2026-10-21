@@ -164,7 +164,7 @@ footer{color:var(--dim);border-top:1px solid var(--line);margin-top:46px;padding
 <p class="sub">L0-L5 verification gateway / sealed .kimg container</p>
 <p class="sub">Belnap B4 truth gate / polyglot <code>@kern:</code> contracts / MCP server</p>
 <p class="sub" style="margin-top:12px"><strong style="color:var(--ink)">A claim is admitted only with machine evidence.</strong></p>
-<p class="note">Source tag <code>v2.6.0</code> is signed (Ed25519). Binaries are attached by the <code>Release</code> workflow when a tag is pushed; the link above always points at the latest <em>published</em> release, so it never promises a file that does not exist.</p>
+<p class="note">Source tag <code>v2.6.1</code> is signed (Ed25519). Binaries are attached by the <code>Release</code> workflow when a tag is pushed; the link above always points at the latest <em>published</em> release, so it never promises a file that does not exist.</p>
 <p class="note">Verify it yourself with the public key shipped in the repository:
 <code>make verify-attestation</code> (key <code>docs/keys/kern-owner.pub</code>,
 id <code>sha256:6da3e85e…1360f</code>). No private key and no home-directory keys are involved;
@@ -267,8 +267,8 @@ docker run --rm kern:2.4.0 verify /kern/toy.kimg   # the Truth Gate
 
 <h2>Or the static binary — and verify what you downloaded</h2>
 <pre># 1. Download the static binary (musl) and VERIFY its checksum before running it
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.6.0/kernc-x86_64-linux-musl
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.6.0/SHA256SUMS
+curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.6.1/kernc-x86_64-linux-musl
+curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.6.1/SHA256SUMS
 sha256sum -c SHA256SUMS          # supply-chain check, no trust required
 chmod +x kernc-x86_64-linux-musl
 
@@ -281,6 +281,31 @@ zig build &amp;&amp; zig build test   # <!-- fact:core_tests -->402 core tests
 make contracts                 # polyglot @kern: contracts (Python / Zig / C / Rust)
 ./formal/check.sh              # Lean 4: 8 files, 143 theorems, 0 sorry</pre>
 
+<h2>Live AI models, measured by KERN (not by opinion)</h2>
+<p class="muted">The contract is the specification (written by us); the model writes only the
+body. Round 1 is blind; a refuted answer gets the exact Z3 counterexample plus
+<code>explain --hypotheses</code>, then one repair turn. T = proved, F = refuted with a
+witness, N = honest “cannot decide”.</p>
+<table>
+<thead><tr><th>Task</th><th>Language</th><th>deepseek</th><th>glm</th><th>mimo</th></tr></thead>
+<tbody>
+<tr><td>integer average with a 500 cap</td><td>Python</td><td class="sc-ok">T</td><td class="sc-ok">T</td><td class="sc-ok">T</td></tr>
+<tr><td><code>i32</code> sum, <code>ensures result &gt;= a</code></td><td><b>Zig</b></td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td></tr>
+<tr><td>integer division, unguarded</td><td><b>C</b></td><td>F &rarr; <b>T</b></td><td>F &rarr; <b>T</b></td><td>N (loop, outside subset)</td></tr>
+<tr><td><code>i32</code> sum, <code>ensures result &gt;= a</code></td><td><b>Rust</b></td><td>F &rarr; <b>T</b></td><td>F &rarr; <b>T</b></td><td class="sc-ok">T</td></tr>
+</tbody></table>
+<p><b>Round 1 blind: 4 proved, 7 refuted, 1 honest N</b> · after KERN’s counterexample
+<b>4 of 7 refuted tasks repaired</b>. The three that stayed broken are the <i>same</i> Zig
+overflow task: every model re-sent <code>return a + b;</code> while the witness
+<code>a = 2147483647, b = 1 &rarr; 2147483648</code> was in the prompt — whereas the Rust
+twin of the same task was fixed with <code>a.saturating_add(b)</code>.</p>
+<p>And when the contract is <b>impossible</b>, models rewrite the specification instead of
+saying so: both models tested narrowed <code>@kern:requires</code> (leaving
+<code>@kern:ensures</code> untouched) — the contract lock catches exactly that
+(<code>contracts-lock-check</code>, rc=2).</p>
+<p class="muted">Raw artefacts: <a href="evidence/leaderboard/">evidence/leaderboard/</a>,
+<a href="evidence/live_eval/">evidence/live_eval/</a>; details in
+<a href="LIVE_MODEL_EVAL.md">LIVE_MODEL_EVAL.md</a>.</p>
 <h2>Measured, not claimed</h2>
 <div class="panel ok">
   <div class="hdr">MEASURED BASELINE</div>
@@ -542,7 +567,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <code>kern_verify_action</code> · <code>kern_rlvr_reward</code>.</p>
 <p class="lbl" style="margin:0">In CI, the reusable Action verifies the downloaded binary against
 <code>SHA256SUMS</code> before running it, and can emit a SARIF 2.1.0 report for GitHub Code Scanning:
-<br><code>uses: newmathphys/kern@v2.6.0</code></p>
+<br><code>uses: newmathphys/kern@v2.6.1</code></p>
 </div>
 
 <h2>Defect Journal — when the checks themselves lied</h2>

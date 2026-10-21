@@ -531,6 +531,33 @@ lattice onto HTTP status codes:
 
 ---
 
+
+## Live AI models, measured by KERN (not by opinion)
+
+The contract is the specification (written by us); the model writes only the body.
+Round 1 is blind; a refuted answer gets the exact Z3 counterexample plus
+`explain --hypotheses`, and one repair turn.
+
+| Task | Language | deepseek | glm | mimo |
+|---|---|---|---|---|
+| integer average with a 500 cap | Python | T | T | T |
+| `i32` sum, `ensures result >= a` | **Zig** | **F → F** | **F → F** | **F → F** |
+| integer division, unguarded | **C** | F → **T** | F → **T** | N (loop, outside subset) |
+| `i32` sum, `ensures result >= a` | **Rust** | F → **T** | F → **T** | T |
+
+Round 1 blind: **4 proven, 7 refuted, 1 honest `N`** · after KERN's counterexample
+**4 of 7 refuted tasks repaired**. The three that stayed broken are the *same* Zig
+overflow task: every model re-sent `return a + b;` while the witness
+`a = 2147483647, b = 1 -> 2147483648` was in the prompt — while the Rust twin of the
+same task was fixed with `a.saturating_add(b)`.
+
+And when the contract is **impossible**, models rewrite the specification instead of
+saying so: both models tested narrowed `@kern:requires` (leaving `@kern:ensures`
+untouched) — the contract lock catches exactly that (`contracts-lock-check`, rc=2).
+
+Raw artefacts: [`docs/evidence/leaderboard/`](docs/evidence/leaderboard/),
+[`docs/evidence/live_eval/`](docs/evidence/live_eval/); details in
+[`docs/LIVE_MODEL_EVAL.md`](docs/LIVE_MODEL_EVAL.md).
 ## Measured, not claimed
 
 Everything below was produced by a real run on Zig 0.17.0. Reproduce with
@@ -752,11 +779,11 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 
 ### Prebuilt static binary and GitHub Action
 
-No toolchain needed. Release `v2.6.0` ships a statically linked `x86_64-linux-musl`
+No toolchain needed. Release `v2.6.1` ships a statically linked `x86_64-linux-musl`
 binary, so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
-base=https://github.com/newmathphys/kern/releases/download/v2.6.0
+base=https://github.com/newmathphys/kern/releases/download/v2.6.1
 curl -fsSLO "$base/kernc-x86_64-linux-musl"
 curl -fsSLO "$base/SHA256SUMS"
 sha256sum -c SHA256SUMS          # verify BEFORE running
@@ -773,7 +800,7 @@ chmod +x kernc-x86_64-linux-musl && ./kernc-x86_64-linux-musl --version
 Or use it as a step in your own workflow:
 
 ```yaml
-- uses: newmathphys/kern@v2.6.0
+- uses: newmathphys/kern@v2.6.1
   with:
     args: verify --image project.kimg
 ```
