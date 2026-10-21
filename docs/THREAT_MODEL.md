@@ -59,7 +59,7 @@
 
 ## 5. Проверки, которые поддерживают модель
 
-`make ci` · `make canfail` (149 кейсов) · `make secrets-check` · `make verify-attestation`
+`make ci` · `make canfail` (полный контур: все проверки доказаны как «умеющие падать») · `make secrets-check` · `make verify-attestation`
 · `make metrics-guard` · `make sync-check` · `make citations-check` · `make conformance-check`
 · `make codecheck` (FP = 0).
 
