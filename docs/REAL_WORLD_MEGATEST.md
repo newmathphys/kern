@@ -105,3 +105,77 @@ git clone --depth 1 https://github.com/Hejsil/zig-clap /tmp/kern-megatest/repos/
 python3 tools/kern_contracts.py /tmp/kern-megatest/clamp_real.py
 python3 tools/kern_contracts.py --diff-equiv /tmp/kern-megatest/clamp_real.py /tmp/kern-megatest/clamp_opt_deepseek.py
 ```
+
+## 6. Fixes made after this field test
+
+### 6.1 #299 - `kernc build <directory>` now fails cleanly
+
+```
+$ kernc build /tmp/kern-megatest/repos/zig-clap
+RC=2
+[!] build: «/tmp/kern-megatest/repos/zig-clap» — это КАТАЛОГ, а нужен ФАЙЛ манифеста .kern
+    Упаковка дерева появится как `kernc pack-dir`; сейчас см. docs/KIMG.md
+
+$ kernc build              -> RC=2, «нужен путь к ФАЙЛУ манифеста .kern»
+$ kernc build /tmp/nope.kern -> RC=2, «не удалось прочитать ...: FileNotFound»
+```
+
+No Zig stack trace, and the exit code is no longer 0 for a usage error.
+Directory packing (`kernc pack-dir`) is **not** implemented - it is declared in
+the message, not pretended to exist.
+
+### 6.2 #300 - `trace_explorer.py` infers domains from Python annotations
+
+When the QuixBugs-style `Input:` block is absent, the explorer now reads standard
+annotations (`x: int`, `text: str`, `xs: list[int]`). Measured on the real
+`boltons/strutils.py::removeprefix` extracted verbatim from the clone:
+
+| Parameter | Domain before (AST only) | Domain with annotations |
+|---|---|---|
+| `text` | 60 values (mixed ints + strings) | **23 valid strings** |
+| `prefix` | 37 values | **23 valid strings** |
+
+The fallback makes the domain *smaller and valid*: mixed integer inputs only
+produced `TypeError` and burned the exploration budget. End-to-end run on that
+real function (buggy == reference, so only crashes/hangs can appear):
+
+```
+[s2] removeprefix  EXPLORED  250  lines=3/13  нет расхождения на 250 входах
+=== STAGE-2 SUMMARY ===  EXPLORED 1
+[OK] DIVERGED (живой вызов, 0 ложных по построению): 0/1
+```
+
+Honest reading: with an identical reference, zero divergence is the *expected*
+outcome; the evidence here is that the typed domain was built at all and the
+function was exercised on 250 real combinations instead of being skipped.
+
+### 6.3 Model smoke test after the fixes (5 free models, one contract task)
+
+| Model | `abs_capped` verdict |
+|---|---|
+| deepseek-v4.1-flash-free | T |
+| glm-5.3-flash-free | T |
+| mimo-v2.6-flash-free | T |
+| minimax-m3.1-flash-free | T |
+| nemotron-3.5-lightning-free | T |
+
+All five produced `min(abs(x), 100)`. A simple task does not separate models -
+that is itself a result, and it is why the earlier cheating experiment (C2 in
+`docs/LIVE_MODEL_EVAL.md`) is the interesting one.
+
+## 7. Known boundary, not a defect (#301): `premises_unbound`
+
+On the live deepseek refactor of `clamp_int` (three branches instead of
+`max(lo, min(x, hi))`), `--diff-equiv` returns:
+
+```
+[EQUIVALENT?] решатель доказал эквивалентность, но пруф-чекер отверг вывод
+              (premises_unbound)
+RC=2
+```
+
+Z3 proves equivalence; the in-house checker does not cover this `ite`-heavy
+derivation, so KERN refuses to claim it. Extending `proof_check.zig` to accept
+case-split derivations is a real project (the file is ~6k lines and the rule
+must be sound, not permissive), therefore it is **not** attempted here. The
+behaviour is recorded as a boundary: no false `EQUIVALENT`, no false `DIVERGED`.

@@ -477,6 +477,38 @@ def declared_kind(doc: str, name: str) -> str | None:
 _DIGIT_DOMAIN = [[9], [9, 9], [9, 9, 9], [1, 9], [1, 9, 9], [9, 0, 9]]
 
 
+def annotated_kind(tree: ast.AST, name: str) -> str | None:
+    """Тип параметра из СТАНДАРТНОЙ аннотации Python (fallback для GitHub).
+
+    ЗАЧЕМ (#300): `declared_kind` читает docstring в формате QuixBugs
+    (`Input:` / `Precondition:`). В реальных репозиториях такой разметки нет,
+    поэтому на 50 функциях из boltons домен был пустым и охотник молчал.
+    Аннотации (`x: int`, `s: str`, `xs: list[int]`) — это те же сведения о
+    типе, только машинные, а не в прозе.
+    """
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for a in node.args.args:
+            if a.arg != name or a.annotation is None:
+                continue
+            try:
+                ann = ast.unparse(a.annotation).lower()
+            except Exception:
+                continue
+            if "bool" in ann:
+                return "bit"
+            if "str" in ann:
+                return "str"
+            if any(t in ann for t in ("list", "tuple", "sequence", "dict", "set")):
+                return "seq"
+            if "float" in ann:
+                return "float"
+            if "int" in ann:
+                return "int"
+    return None
+
+
 def domain_for(tree: ast.AST, name: str, declared: str | None = None) -> list:
     """Домен значений параметра по его ФАКТИЧЕСКОМУ использованию в AST."""
     kinds = _kinds(tree, name)
@@ -802,7 +834,9 @@ def explore(buggy: Path, correct: Path, fn_name: str) -> dict:
                 "note": f"SyntaxError: {e}", "lines": "0/0"}
     doms = []
     for p in params:
-        dk = declared_kind(module_doc(tb), p) or declared_kind(module_doc(tc), p)
+        # #300: docstring QuixBugs ИЛИ стандартная аннотация типа.
+        dk = (declared_kind(module_doc(tb), p) or declared_kind(module_doc(tc), p)
+              or annotated_kind(tb, p) or annotated_kind(tc, p))
         doms.append(_uniq(domain_for(tb, p, dk) + domain_for(tc, p, dk)[:10]))
     first, last = _span(tb, fn_name)
     body_lines = max(1, last - first + 1)
@@ -928,7 +962,8 @@ def explain(buggy: Path, correct: Path, fn_name: str) -> int:
     print(f"предусловие: {precondition_of(tb) or precondition_of(tc) or '(не найдено)'}")
     doms = []
     for prm in params:
-        dk = declared_kind(doc_b, prm) or declared_kind(doc_c, prm)
+        dk = (declared_kind(doc_b, prm) or declared_kind(doc_c, prm)
+              or annotated_kind(tb, prm) or annotated_kind(tc, prm))
         d = _uniq(domain_for(tb, prm, dk) + domain_for(tc, prm, dk)[:10])
         doms.append(d)
         kinds = _kinds(tb, prm) | _kinds(tc, prm)

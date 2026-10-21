@@ -167,10 +167,22 @@ pub fn main(init: std.process.Init) !void {
     // ---- build: .kern → .kimg ----
     if (std.mem.eql(u8, command, "build")) {
         if (args.len < 3) {
-            std.debug.print("[!] build: нужен путь к .kern\n", .{});
-            return;
+            std.debug.print("[!] build: нужен путь к ФАЙЛУ манифеста .kern\n", .{});
+            // ДЕФЕКТ #299: раньше здесь стоял `return` (exit 0), и скрипт не мог
+            // отличить ошибку использования от успешной сборки.
+            std.process.exit(2);
         }
-        const source = try compat.readFileAlloc(alloc, args[2], 1 << 24);
+        // ДЕФЕКТ #299: `kernc build <каталог>` валился стек-трейсом Zig
+        // (`error: IsDir` из std.Io.File.readStreaming) вместо диагноза.
+        const source = compat.readFileAlloc(alloc, args[2], 1 << 24) catch |err| {
+            if (err == error.IsDir) {
+                std.debug.print("[!] build: «{s}» — это КАТАЛОГ, а нужен ФАЙЛ манифеста .kern\n", .{args[2]});
+                std.debug.print("    Упаковка дерева появится как `kernc pack-dir`; сейчас см. docs/KIMG.md\n", .{});
+            } else {
+                std.debug.print("[!] build: не удалось прочитать {s}: {s}\n", .{ args[2], @errorName(err) });
+            }
+            std.process.exit(2);
+        };
         const res = try kparser.parse(alloc, source);
         var project = res.project;
         // РЕЗОЛЮЦИЯ: машинные свидетельства исполнения -> статус (Белнап-аккумулятор).
