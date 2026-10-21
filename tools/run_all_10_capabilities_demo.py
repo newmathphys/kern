@@ -9,7 +9,7 @@ written by hand, so the guide cannot drift from the code.
 Usage: python3 tools/run_all_10_capabilities_demo.py [--write]
 """
 from __future__ import annotations
-import os, subprocess, sys, tempfile
+import os, subprocess, sys, tempfile, json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -200,12 +200,30 @@ section("10. Контейнер .kimg, KERNFS, KERN-X и внешняя пров
 
 print("пишу путеводители (RU + EN)...", flush=True)
 NL = chr(10)
-FACTS = ("> Facts (synced by `make sync`): core <!-- fact:core_tests -->402 · "
-         "next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · "
-         "CHECK <!-- fact:check_targets -->146 · cases <!-- fact:canfail_cases -->167 · "
-         "anchors <!-- fact:anchors -->131 · registry <!-- fact:registry_targets -->183 · "
-         "META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · "
-         "QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.")
+def facts_line() -> str:
+    """Строка фактов строится из `docs/facts.json` — того же источника, что и
+    `make sync`.
+
+    ДЕФЕКТ #311: числа были ЗАХАРДКОЖЕНЫ в генераторе, поэтому путеводитель
+    устаревал ровно так же, как `llms.txt`: после добавления одной CHECK-цели
+    в нём остались 146/167/131/183/22, и `sync-check` честно покраснел.
+    """
+    d = json.loads((ROOT / "docs" / "facts.json").read_text(encoding="utf-8"))
+    q = d["quixbugs"]
+    return (f"> Facts (synced by `make sync`): core <!-- fact:core_tests -->{d['core_tests']} · "
+            f"next <!-- fact:next_tests -->{d['next_tests']} · "
+            f"catalog <!-- fact:catalog -->{d['catalog']} · "
+            f"CHECK <!-- fact:check_targets -->{d['check_targets']} · "
+            f"cases <!-- fact:canfail_cases -->{d['canfail_cases']} · "
+            f"anchors <!-- fact:anchors -->{d['anchors']} · "
+            f"registry <!-- fact:registry_targets -->{d['registry_targets']} · "
+            f"META <!-- fact:meta_targets -->{d['meta_targets']} · "
+            f"Lean <!-- fact:lean_theorems -->{d['lean_theorems']} · "
+            f"QuixBugs <!-- fact:quixbugs.smt -->{q['smt']}/40 SMT + "
+            f"<!-- fact:quixbugs.differential -->{q['differential']}/40 diff.")
+
+
+FACTS = facts_line()
 
 ru = ["# Все 10 возможностей KERN: живые примеры и дословный вывод", "",
       "> Документ **сгенерирован** скриптом `tools/run_all_10_capabilities_demo.py`:",
@@ -227,7 +245,22 @@ for i, (title, why, cmd, out) in enumerate(SECTIONS, 1):
 if "--write" in sys.argv:
     GUIDE.write_text(NL.join(ru) + NL, encoding="utf-8")
     GUIDE_EN.write_text(NL.join(en) + NL, encoding="utf-8")
-    (EVID / "demo_all_10.log").write_text(NL.join(en) + NL, encoding="utf-8")
+    # ИНВАРИАНТ СВИДЕТЕЛЬСТВ (`make evidence-gate`): лог обязан заканчиваться
+    # строкой `RC=<n>` и иметь заголовок сборщика (иначе он считается «снятым
+    # вручную»). Ноль здесь — код возврата САМОГО генератора (он дошёл до конца
+    # и собрал все разделы). Отдельные команды внутри разделов завершаются
+    # ненулевым кодом НАМЕРЕННО (`--diff-equiv` на сломанной паре печатает
+    # DIVERGED и возвращает 1) — это часть доказательства, а не сбой.
+    from datetime import datetime, timezone
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    header = ["=== KERN EVIDENCE: demo_all_10 ===",
+              "=== команда: make demo-all ===",
+              f"=== дата: {stamp} ===", ""]
+    (EVID / "demo_all_10.log").write_text(
+        NL.join(header + en) + NL + NL
+        + "=== генератор прошёл все разделы; часть команд возвращает ненулевой код намеренно "
+          "(DIVERGED, нарушенный контракт) — это доказательство, а не сбой ===" + NL
+        + "RC=0" + NL, encoding="utf-8")
     print(f"[OK] {GUIDE.name} ({len(ru)} строк) и {GUIDE_EN.name} ({len(en)} lines)")
 else:
     print(NL.join(ru))

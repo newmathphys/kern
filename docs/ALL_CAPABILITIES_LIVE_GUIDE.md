@@ -79,7 +79,7 @@ make contracts-lock-check
 ```text
 make[1]: вход в каталог «/home/mrbritneyxxx/Рабочий стол/kern»
 [OK] замок контрактов цел: ни один запечатанный контракт не изменён
-  [SECURITY] НЕ запечатаны файлы с контрактами: ['tools/run_all_10_capabilities_demo.py']
+  [SECURITY] НЕ запечатаны файлы с контрактами: ['tools/gen_llms_txt.py', 'tools/run_all_10_capabilities_demo.py']
   → пересоберите замок: make contracts-lock
 make[1]: выход из каталога «/home/mrbritneyxxx/Рабочий стол/kern»
 make[1]: *** [Makefile:450: contracts-lock-check] Ошибка 2
@@ -168,9 +168,23 @@ make conformance-check
 
 **Real output:**
 ```text
-build failed - refusing to grade a stale binary:
-/home/mrbritneyxxx/Рабочий стол/kern/build.zig:12:54: error: no field named 'root_module' in struct 'Build.ExecutableOptions'
-.venv/lib/python3.14/site-packages/ziglang/lib/std/Build.zig:638:31: note: struct declared here
+conformance: 97 facts straight from the kernel
+
+[PASS] section  1: Belnap B4 values (twist pairs)
+[PASS] section  2: all 16 joinK pairs; join is the lub of <=k
+[PASS] section  3: both lattices (<=k, <=t) and conflation
+[PASS] section  4: seven state axes and their laws
+[PASS] section  5: evidence ledger: add / retract / idempotency / order
+[PASS] section  6: provenance: negative recursive SCC rejected
+[PASS] section  7: admission gate: certificate binding and QueryKind
+[PASS] section  8: KERN-X: one shared fuel counter
+[PASS] section  9: cache key: all 13 fields invalidate
+[PASS] section 10: broken .kimg through the CLI: fsck / inspect / diff
+[PASS] section 11: KERNFS attacks, including no-mmap
+[PASS] section 12: determinism: same input twice, same verdict
+
+conformance: 12 sections, 95 checks, 0 failed
+CONFORMANCE PASSED
 ```
 
 ## 9. Architecture graph and forbidden negative cycles
@@ -214,7 +228,7 @@ $ kernc inspect v1.kimg
 $ make verify-attestation
 [OK]   Ed25519-подпись верна (kern-owner.pub)
   [OK]   kid совпадает с ключом (sha256:6da3e85ea5157…)
-  [OK]   attests_commit == HEAD~1 (323dff0cd1fd) — двухшаговая схема
+  [OK]   attests_commit == HEAD~1 (2a260cab0a9d) — двухшаговая схема
   [OK]   dirtyTree = false
   [OK]   kernc-hermetic: sha256 совпал
 
