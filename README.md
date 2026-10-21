@@ -538,26 +538,59 @@ The contract is the specification (written by us); the model writes only the bod
 Round 1 is blind; a refuted answer gets the exact Z3 counterexample plus
 `explain --hypotheses`, and one repair turn.
 
-| Task | Language | deepseek | glm | mimo |
+| Task | Language | deepseek | glm | mimo | minimax | nemotron |
+|---|---|---|---|---|---|---|
+| integer average with a 500 cap | Python | T | T | T | no file | T |
+| `i32` sum, `ensures result >= a` | **Zig** | **F → F** | **F → F** | **F → F** | **F → F** | **F → (timeout)** |
+| integer division, unguarded | **C** | F → **T** | F → **T** | N (loop, outside subset) | no file | not measured |
+| `i32` sum, `ensures result >= a` | **Rust** | F → **T** | F → **T** | T | **F → F** | not measured |
+
+**Refactoring equivalence (contract-free, `--diff-equiv` + `QueryKind.equivalence`):**
+the same five models were asked to *optimize* `clamp_int` from `boltons`;
+
+| Model | `--diff-equiv` verdict |
+|---|---|
+| deepseek | **DIVERGED** — `x = 0, lo = 0, hi = -1`: was `0`, became `-1` |
+| glm | **EQUIVALENT** (added an explicit `if lo > hi: return lo` guard) |
+| mimo | **DIVERGED** — same rewrite, same counterexample |
+| nemotron | **DIVERGED** |
+| minimax | no file produced |
+
+Read that row carefully, because it is the honest nuance: `max(lo, min(x, hi))` rewritten as
+two `if`s is equivalent **only while `lo <= hi`** (the contract precondition).
+`--diff-equiv` compares without any contract, so it reports the difference in the `lo > hi`
+region and prints the witness. That is the tool being stricter, not the model being silly.
+
+Five models, 20 cells (4 tasks x 5 models): **5 proven, 10 refuted, 1 honest `N`,
+2 “no file produced”, 2 not measured** (the run stopped on a model timeout).
+After KERN's counterexample **4 of 10 refuted tasks were repaired** - and the
+Zig overflow task was repaired by **none** of the models, while the Rust twin of
+the same task was repaired by three of them.
+
+### Anti-self-deception: native compilers confirm every verdict
+
+`make anti-self-deception-check` (a permanent gate) replays KERN's own
+counterexamples through real toolchains and mutates every proven file:
+
+| Case | Language | KERN witness | Real toolchain | Result |
 |---|---|---|---|---|
-| integer average with a 500 cap | Python | T | T | T |
-| `i32` sum, `ensures result >= a` | **Zig** | **F → F** | **F → F** | **F → F** |
-| integer division, unguarded | **C** | F → **T** | F → **T** | N (loop, outside subset) |
-| `i32` sum, `ensures result >= a` | **Rust** | F → **T** | F → **T** | T |
+| `py_abs_bad.py` | Python | `x = -1, result = -1` | `python3` + contract as `assert` | **AssertionError (rc=1)** |
+| `c_unguarded.c` | C | `b = 0` | `gcc -fsanitize=undefined` | **runtime error: division by zero** |
+| `rust_overflow.rs` | Rust | `a = 2147483647, b = 1` | `rustc -C overflow-checks=on` | **panic: attempt to add with overflow** |
+| `zig_div.zig` | Zig | `b = 0` | `zig run` | **panic: division by zero (SIGABRT)** |
+| model `add32` | Zig | `a = 2147483647, b = 1` | `zig run` | **panic: integer overflow (SIGABRT)** |
 
-Round 1 blind: **4 proven, 7 refuted, 1 honest `N`** · after KERN's counterexample
-**4 of 7 refuted tasks repaired**. The three that stayed broken are the *same* Zig
-overflow task: every model re-sent `return a + b;` while the witness
-`a = 2147483647, b = 1 -> 2147483648` was in the prompt — while the Rust twin of the
-same task was fixed with `a.saturating_add(b)`.
-
-And when the contract is **impossible**, models rewrite the specification instead of
-saying so: both models tested narrowed `@kern:requires` (leaving `@kern:ensures`
-untouched) — the contract lock catches exactly that (`contracts-lock-check`, rc=2).
+**Ground truth 5/5** — no paper-only witnesses. **Mutation kill 5/5** — every
+proven file flips `T → F` when its body is changed (`a + b → a - b`,
+`return x → return -x`, `return lo → return lo - 1`), each with a counterexample.
+One mutation *survives on purpose*: `if x < lo → if x <= lo` is an **equivalent**
+mutant (when `x == lo` both branches return `lo`), so a prover answering `F` there
+would be wrong — that is Z3 understanding the mathematics, not a text diff.
 
 Raw artefacts: [`docs/evidence/leaderboard/`](docs/evidence/leaderboard/),
 [`docs/evidence/live_eval/`](docs/evidence/live_eval/); details in
 [`docs/LIVE_MODEL_EVAL.md`](docs/LIVE_MODEL_EVAL.md).
+
 ## Measured, not claimed
 
 Everything below was produced by a real run on Zig 0.17.0. Reproduce with

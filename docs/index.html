@@ -220,80 +220,37 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
 <div class="panel">
   <div class="hdr">make ai-demo · one agent session · verbatim tool output</div>
   <div class="tablewrap"><table>
-    <thead><tr><th>The agent's report</th><th>What KERN finds in the same code</th></tr></thead>
-    <tbody>
-    <tr><td><code>2 passed in 0.01s</code></td><td><code>[CHEAT DETECTED: swallowed assert (except: pass)]</code> line 28 → <code>R=-2.0</code></td></tr>
-    <tr><td>"withdrawals cannot increase the balance"</td><td><code>[FAIL] transfer_with_fee: КОНТРАКТ НАРУШЕН</code> · <code>[КОНТРПРИМЕР] result = -1, amount = 1, balance = 0</code> · <code>[RUNTIME CONFIRMED]</code></td></tr>
-    <tr><td>"the commission is fair"</td><td><code>[FAIL] fee_threshold: no_arbitrage REFUTED</code> · <code>[КОНТРПРИМЕР] a1 = 100, a2 = 1</code></td></tr>
-    <tr><td>"same behaviour, just cleaner"</td><td><code>[DIVERGED] charge</code> · <code>[КОНТРПРИМЕР] res_old = -1, balance = -1, amount = 0, res_new = 0</code></td></tr>
-    <tr><td>"a safe helper tool"</td><td><code>[MCP] PROMPT INJECTION in "sum": «ignore previous»</code> · <code>INVISIBLE UNICODE U+200B</code></td></tr>
-    <tr><td>"transfer_funds(900)"</td><td><code>[FAIL] Firewall: POLICY CONFLICT -> B (1,1), e=0, HTTP 409 Conflict</code></td></tr>
-    </tbody>
-  </table></div>
-  <p class="lbl" style="margin:12px 0 0">After the fix KERN re-checks the proof inside Zig — the solver is not trusted either:</p>
-<pre>[PASS] transfer_with_fee: ДОКАЗАНО
-       [PROOF VERIFIED] steps: 50 | premises bound: 3/3 | mp: 17 |
-                        rewrite (linear): 18 | farkas: 2 | trusted: 0 | holes: 0
-[REWARD] R=+1.0 [VERIFIED REWARD, Belnap T, e=1]</pre>
-  <p class="lbl" style="margin:12px 0 0"><code>make ai-demo</code> exits non-zero if any of those lines disappears,
-  so the page cannot drift into a claim the tools no longer back. One test cannot fail (no <code>assert</code>),
-  the other swallows its failure — <code>pytest</code> reports both as green.</p>
-</div>
-
-<h2>What it is</h2>
-<ul>
-<li><span class="tag">A gate, not a linter.</span> Text is not evidence: a claim becomes <code>e = 1</code> only if Z3 proves it, or if a reproducible execution record backs it.</li>
-<li><span class="tag">Bidirectional distrust of the solver.</span> Every <code>UNSAT</code> proof DAG is re-checked inside Zig (<code>proof_check.zig</code>); every <code>SAT</code> counterexample is re-checked too — for <strong>Python</strong> by executing the real function, for <strong>Zig/C/Rust</strong> by an independent concrete evaluator over the extracted body (a mismatch would be reported as a translation bug, not as a finding).</li>
-<li><span class="tag">Polyglot contracts.</span> <code>@kern:requires</code> / <code>@kern:ensures</code> are read from <code>.py</code>, <code>.zig</code>, <code>.c</code> and <code>.rs</code> — with machine types, so i32 overflow and division by zero are caught.</li>
-</ul>
-
-<h2>Try it in one line — no Zig required</h2>
-<div class="panel ok">
-  <div class="hdr">DOCKER · VERIFIED 2026-10-17 · IMAGE 364 MB</div>
-<pre>docker build -t kern:2.4.0 .                       # context ~4.3 MB (.dockerignore)
-docker run --rm kern:2.4.0                         # integrity check: header + Merkle root
-docker run --rm kern:2.4.0 verify /kern/toy.kimg   # the Truth Gate
-
-# the last command really prints (verdict tokens verbatim):
-#   claim `withdraw never increases the balance`
-#     SAT -> e=0 (F)    COUNTEREXAMPLE — the agent's claim is refuted
-#   claim `fixed withdraw never increases the balance`
-#     UNSAT -> e=1 (T)  PROVEN by Z3, re-checked by the proof checker</pre>
-  <p class="lbl" style="margin:12px 0 0">Built and executed with Docker Engine 29.8.1
-  (overlayfs) — the two outputs above come from that run. The build is multi-stage:
-  Zig 0.17.0 compiles <code>kernc</code>; the runtime stage ships it together with
-  <code>z3</code> and a pre-built toy image.</p>
-</div>
-
-<h2>Or the static binary — and verify what you downloaded</h2>
-<pre># 1. Download the static binary (musl) and VERIFY its checksum before running it
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.6.1/kernc-x86_64-linux-musl
-curl -fsSLO https://github.com/newmathphys/kern/releases/download/v2.6.1/SHA256SUMS
-sha256sum -c SHA256SUMS          # supply-chain check, no trust required
-chmod +x kernc-x86_64-linux-musl
-
-# 2. Prove a contract with real Z3
-./kernc-x86_64-linux-musl prove formal/example.smt2   # e=1 PROVEN / e=0 counterexample
-
-# 3. From source
-git clone https://github.com/newmathphys/kern &amp;&amp; cd kern
-zig build &amp;&amp; zig build test   # <!-- fact:core_tests -->402 core tests
-make contracts                 # polyglot @kern: contracts (Python / Zig / C / Rust)
-./formal/check.sh              # Lean 4: 8 files, 143 theorems, 0 sorry</pre>
-
-<h2>Live AI models, measured by KERN (not by opinion)</h2>
-<p class="muted">The contract is the specification (written by us); the model writes only the
-body. Round 1 is blind; a refuted answer gets the exact Z3 counterexample plus
-<code>explain --hypotheses</code>, then one repair turn. T = proved, F = refuted with a
-witness, N = honest “cannot decide”.</p>
-<table>
-<thead><tr><th>Task</th><th>Language</th><th>deepseek</th><th>glm</th><th>mimo</th></tr></thead>
+<thead><tr><th>Task</th><th>Language</th><th>deepseek</th><th>glm</th><th>mimo</th><th>minimax</th><th>nemotron</th></tr></thead>
 <tbody>
-<tr><td>integer average with a 500 cap</td><td>Python</td><td class="sc-ok">T</td><td class="sc-ok">T</td><td class="sc-ok">T</td></tr>
-<tr><td><code>i32</code> sum, <code>ensures result &gt;= a</code></td><td><b>Zig</b></td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td></tr>
-<tr><td>integer division, unguarded</td><td><b>C</b></td><td>F &rarr; <b>T</b></td><td>F &rarr; <b>T</b></td><td>N (loop, outside subset)</td></tr>
-<tr><td><code>i32</code> sum, <code>ensures result &gt;= a</code></td><td><b>Rust</b></td><td>F &rarr; <b>T</b></td><td>F &rarr; <b>T</b></td><td class="sc-ok">T</td></tr>
+<tr><td>integer average with a 500 cap</td><td>Python</td><td class="sc-ok">T</td><td class="sc-ok">T</td><td class="sc-ok">T</td><td>no file</td><td class="sc-ok">T</td></tr>
+<tr><td><code>i32</code> sum, <code>ensures result &gt;= a</code></td><td><b>Zig</b></td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; F</td><td class="sc-bad">F &rarr; timeout</td></tr>
+<tr><td>integer division, unguarded</td><td><b>C</b></td><td>F &rarr; <b>T</b></td><td>F &rarr; <b>T</b></td><td>N (loop, outside subset)</td><td>no file</td><td>not measured</td></tr>
+<tr><td><code>i32</code> sum, <code>ensures result &gt;= a</code></td><td><b>Rust</b></td><td>F &rarr; <b>T</b></td><td>F &rarr; <b>T</b></td><td class="sc-ok">T</td><td class="sc-bad">F &rarr; F</td><td>not measured</td></tr>
 </tbody></table>
+<h3>Refactoring equivalence (<code>--diff-equiv</code>, no contracts)</h3>
+<p class="muted">The same five models were asked to <i>optimize</i> <code>clamp_int</code> from <code>boltons</code>.</p>
+<table><thead><tr><th>Model</th><th>Verdict</th></tr></thead><tbody>
+<tr><td>deepseek</td><td class="sc-bad">DIVERGED</td></tr>
+<tr><td>glm</td><td class="sc-ok">EQUIVALENT</td></tr>
+<tr><td>mimo</td><td class="sc-bad">DIVERGED</td></tr>
+<tr><td>nemotron</td><td class="sc-bad">DIVERGED</td></tr>
+<tr><td>minimax</td><td>no file</td></tr>
+</tbody></table>
+<p class="muted">Honest nuance: rewriting <code>max(lo, min(x, hi))</code> as two <code>if</code>s is
+equivalent <b>only while <code>lo &lt;= hi</code></b>. <code>--diff-equiv</code> compares without any
+contract, so it reports the difference in the <code>lo &gt; hi</code> region with the witness
+<code>x = 0, lo = 0, hi = -1</code>: was <code>0</code>, became <code>-1</code>.</p>
+<h3>Anti-self-deception: native compilers confirm every verdict</h3>
+<table><thead><tr><th>Case</th><th>Language</th><th>KERN witness</th><th>Real toolchain</th><th>Result</th></tr></thead><tbody>
+<tr><td><code>py_abs_bad.py</code></td><td>Python</td><td><code>x = -1</code></td><td><code>python3</code></td><td class="sc-bad">AssertionError</td></tr>
+<tr><td><code>c_unguarded.c</code></td><td>C</td><td><code>b = 0</code></td><td><code>gcc -fsanitize=undefined</code></td><td class="sc-bad">division by zero</td></tr>
+<tr><td><code>rust_overflow.rs</code></td><td>Rust</td><td><code>a = 2147483647, b = 1</code></td><td><code>rustc -C overflow-checks=on</code></td><td class="sc-bad">panic: overflow</td></tr>
+<tr><td><code>zig_div.zig</code></td><td>Zig</td><td><code>b = 0</code></td><td><code>zig run</code></td><td class="sc-bad">panic: division by zero</td></tr>
+<tr><td>model <code>add32</code></td><td>Zig</td><td><code>a = 2147483647, b = 1</code></td><td><code>zig run</code></td><td class="sc-bad">panic: integer overflow</td></tr>
+</tbody></table>
+<p><b>Ground truth 5/5 · mutation kill 5/5.</b> One mutation survives <i>on purpose</i>:
+<code>if x &lt; lo</code> &rarr; <code>if x &lt;= lo</code> is an <b>equivalent</b> mutant (both branches
+return <code>lo</code> when <code>x == lo</code>) - a prover answering <code>F</code> there would be wrong.</p>
 <p><b>Round 1 blind: 4 proved, 7 refuted, 1 honest N</b> · after KERN’s counterexample
 <b>4 of 7 refuted tasks repaired</b>. The three that stayed broken are the <i>same</i> Zig
 overflow task: every model re-sent <code>return a + b;</code> while the witness
