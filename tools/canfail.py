@@ -1499,6 +1499,14 @@ def case_trust_docs_missing():
             "python3 tools/trust_docs_check.py --dir /tmp/kern_trust_empty'")
 
 
+def case_perf_regression():
+    """Производительность (0K.12). ЛОМАЕМ: порог 0.01x и нулевой допуск.
+
+    Замер не меняется — провал обязан дать именно СРАВНЕНИЕ с базой.
+    """
+    return "python3 tools/perf_check.py --threshold 0.01 --slack-ms -1000"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2591,6 +2599,8 @@ CASES = [
      case_lean_pin_drift),
     ("trust-docs-missing", "Нет документов доверия -> падает",
      case_trust_docs_missing),
+    ("perf-regression", "Регресс производительности -> падает",
+     case_perf_regression),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
