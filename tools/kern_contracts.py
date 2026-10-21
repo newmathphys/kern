@@ -2260,6 +2260,18 @@ def _hyp_holds(expr: str, vals: dict) -> bool | None:
         return None
 
 
+def _hyp_write_json(as_json, payload: dict) -> None:
+    """Единственная точка записи отчёта: JSON выдаётся ВСЕГДА (#294).
+
+    Раньше при «доказывать нечего» и при неподдержанном теле функция выходила
+    раньше, чем писала JSON: вызывающая сторона просила файл и не получала
+    его, принимая отсутствие отчёта за ошибку.
+    """
+    if as_json:
+        as_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                           encoding="utf-8")
+
+
 def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
                            as_json: Path | None, max_hyp: int) -> int:
     """Печатает гипотезы по `requires`. НИКОГДА не пишет в исходник."""
@@ -2283,10 +2295,28 @@ def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
         return 2
     name, params, req, ens, body, ln, _skip, meta = target
 
+    # ДЕФЕКТ #295 (найден обкаткой корпуса): тело, полученное РАЗВЁРТКОЙ
+    # цикла/рекурсии, — недо-аппроксимация. `contracts` честно выдаёт SKIP
+    # (#207), а `explain` успевал объявить «доказано» и выдать гипотезу
+    # вроде `n <= 0`, которая просто обнуляет рекурсию. Гипотезы здесь
+    # запрещены: подтвердить их тем же раннером невозможно.
+    if meta.get("unrolled"):
+        print(f"[!] {name}: тело получено развёрткой цикла/рекурсии — "
+              f"развёртка не исчерпывает поведение, гипотезы не выдаются (#207)")
+        _hyp_write_json(as_json, {
+            "kind": "hypothesis", "file": str(path), "function": name,
+            "status": "unbounded", "hypotheses": [],
+            "banner": HYP_BANNER_EN})
+        return 0
+
     smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
     rc, out = run_kernc(kernc, smt)
     if "ДОКАЗАНО" in out and rc == 0:
         print(f"[OK] {name}: контракт ДОКАЗАН — объяснять нечего")
+        _hyp_write_json(as_json, {
+            "kind": "hypothesis", "file": str(path), "function": name,
+            "status": "proven", "hypotheses": [],
+            "banner": HYP_BANNER_EN})
         return 0
     ce = parse_counterexample(out)
     print("=" * 74)
@@ -2356,12 +2386,13 @@ def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
     if before != after:                    # защита от случайной записи
         print("[FAIL] файл изменён — это нарушение read-only")
         return 1
+    _hyp_write_json(as_json, {
+        "kind": "hypothesis", "file": str(path), "function": name,
+        "status": "reported",
+        "requires": req, "ensures": ens, "counterexample": fmt_ce(ce),
+        "hypotheses": results, "banner": HYP_BANNER_EN,
+    })
     if as_json:
-        as_json.write_text(json.dumps({
-            "kind": "hypothesis", "file": str(path), "function": name,
-            "requires": req, "ensures": ens, "counterexample": fmt_ce(ce),
-            "hypotheses": results, "banner": HYP_BANNER_EN,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"  JSON: {as_json}")
     return 0
 

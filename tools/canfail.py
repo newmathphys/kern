@@ -1627,6 +1627,22 @@ def case_codecheck_fp():
     return "make codecheck"
 
 
+def case_hypotheses_nonproof():
+    """Vector 3 SABOTAGE: гипотеза выдаётся, не будучи доказанной.
+
+    Снимаем фильтр «кандидат обязан доказать контракт» (`if not (...): continue`
+    -> `if False: continue`). Тогда `explain` печатает и такие условия, которые
+    контрпример не отсекают, а `hypotheses-corpus-check` обязан это поймать на
+    обратном прогоне: применяем гипотезу к копии — контракт НЕ доказан.
+    """
+    patch("tools/kern_contracts.py",
+          '        if not ("ДОКАЗАНО" in out2 and rc2 == 0):\n'
+          '            continue                      # кандидат НЕ отсекает контрпример',
+          '        if False:\n'
+          '            continue  # ЛОМАЕМ: выдаём недоказанные гипотезы')
+    return "make hypotheses-corpus-check"
+
+
 def case_hypotheses_write():
     """Ф6.3 SABOTAGE: объяснение начинает ПИСАТЬ в исходник.
 
@@ -2800,6 +2816,8 @@ CASES = [
      case_advisory_fold),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
+    ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",
+     case_hypotheses_nonproof),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),
