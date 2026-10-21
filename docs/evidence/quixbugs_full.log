@@ -1,11 +1,12 @@
 === KERN EVIDENCE: quixbugs_full ===
-=== дата: 2026-10-20T18:09:12Z ===
+=== команда: python3 tools/trace_explorer.py /tmp/QuixBugs-master ===
+=== дата: 2026-10-21T08:23:49Z ===
 
   [s2] bitcount               DIVERGED    1  lines=4/6     {'n': 1} buggy=TIMEOUT (бесконечный цикл: не завершилась и за 5 с без трейсера) correct=ok
-  [s2] breadth_first_search   DIVERGED    1  lines=9/17    {'startnode': Node(1), 'goalnode': Node(3)} buggy=IndexError: pop from an empty deque corr
+  [s2] breadth_first_search   DIVERGED    8  lines=10/17   {'startnode': Node('n3'), 'goalnode': Node('n1')} buggy=IndexError: pop from an empty dequ
   [s2] bucketsort             DIVERGED   26  lines=7/10    {'arr': [0], 'k': 1} buggy=[] correct=[0]
-  [s2] depth_first_search     EXPLORED    5  lines=7/14    нет расхождения на 5 входах
-  [s2] detect_cycle           EXPLORED    6  lines=8/12    нет расхождения на 6 входах
+  [s2] depth_first_search     DIVERGED   11  lines=8/14    {'startnode': Node(1), 'goalnode': Node(99)} buggy=RecursionError correct=ok
+  [s2] detect_cycle           DIVERGED    6  lines=7/12    {'node': Node(1)} buggy=AttributeError: 'NoneType' object has no attribute 'successor' cor
   [s2] find_first_in_sorted   DIVERGED    1  lines=5/17    {'arr': [], 'x': 1} buggy=IndexError: list index out of range correct=ok
   [s2] find_in_sorted         DIVERGED   26  lines=8/13    {'arr': [0], 'x': 1} buggy=RecursionError correct=ok
   [s2] flatten                DIVERGED    2  lines=0/7     {'arr': [0]} buggy=[<broken-iter>"generator: TypeError: 'int' object is not iterable"] cor
@@ -16,36 +17,36 @@
   [s2] kheapsort              DIVERGED   26  lines=0/11    {'arr': [0], 'k': 1} buggy=[0, 0] correct=[0]
   [s2] knapsack               DIVERGED   36  lines=8/17    {'capacity': 1, 'items': [[3, 4], [1, 2]]} buggy=0 correct=2
   [s2] kth                    DIVERGED   16  lines=10/14   {'arr': [1, 3, 2], 'k': 1} buggy=3 correct=2
-  [s2] lcs_length             DIVERGED  107  lines=7/11    {'s': 'ab', 't': 'ab'} buggy=1 correct=2
-  [s2] levenshtein            DIVERGED   54  lines=4/13    {'source': 'a', 'target': 'a'} buggy=1 correct=0
+  [s2] lcs_length             DIVERGED   49  lines=7/11    {'s': 'ab', 't': 'ab'} buggy=1 correct=2
+  [s2] levenshtein            DIVERGED   25  lines=4/13    {'source': 'a', 'target': 'a'} buggy=1 correct=0
   [s2] lis                    DIVERGED    6  lines=9/15    {'arr': [1, 2, 0]} buggy=1 correct=2
-  [s2] longest_common_subsequence EXPLORED  250  lines=8/13    нет расхождения на 250 входах
+  [s2] longest_common_subsequence DIVERGED  144  lines=8/13    {'a': '((()', 'b': '()'} buggy='((()' correct='()'
   [s2] max_sublist_sum        DIVERGED   15  lines=6/9     {'arr': [-1, 2, -1]} buggy=1 correct=2
   [s2] mergesort              DIVERGED    2  lines=6/22    {'arr': [0]} buggy=RecursionError correct=ok
-  [s2] minimum_spanning_tree  DIVERGED    1  lines=9/13    {'weight_by_edge': {(Node(1), Node(2)): 1, (Node(2), Node(3)): 1}} buggy=RuntimeError: Set
-  [s2] next_palindrome        EXPLORED   37  lines=9/15    нет расхождения на 37 входах
+  [s2] minimum_spanning_tree  DIVERGED    1  lines=9/13    {'weight_by_edge': {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}} buggy=RuntimeError: Set c
+  [s2] next_palindrome        DIVERGED    1  lines=9/15    {'digit_list': [9]} buggy=[1, 0, 1] correct=[1, 1]
   [s2] next_permutation       DIVERGED    4  lines=4/9     {'perm': [1, 2]} buggy=None correct=[2, 1]
   [s2] pascal                 DIVERGED    2  lines=9/11    {'n': 2} buggy=[[1], [1]] correct=[[1], [1, 1]]
   [s2] possible_change        DIVERGED    1  lines=3/8     {'coins': [], 'total': 1} buggy=ValueError: not enough values to unpack (expected at least
   [s2] powerset               DIVERGED    2  lines=5/7     {'arr': [0]} buggy=[[0]] correct=[[], [0]]
   [s2] quicksort              DIVERGED   15  lines=6/8     {'arr': [-1, 2, -1]} buggy=[-1, 2] correct=[-1, -1, 2]
-  [s2] reverse_linked_list    DIVERGED    1  lines=6/7     {'node': Node(1)} buggy=None correct=Node{incoming_nodes=[], outgoing_nodes=[], predecesso
+  [s2] reverse_linked_list    DIVERGED    4  lines=6/7     {'node': Node(1)} buggy=None correct=Node{incoming_nodes=[Node{incoming_nodes=[Node{incomi
   [s2] rpn_eval               DIVERGED    1  lines=16/22   {'tokens': [4.0, 2.0, '-']} buggy=-2.0 correct=2.0
-  [s2] shortest_path_length   EXPLORED  250  lines=1/10    нет расхождения на 250 входах
-  [s2] shortest_path_lengths  EXPLORED   23  lines=10/14   нет расхождения на 23 входах
-  [s2] shortest_paths         EXPLORED    6  lines=8/14    нет расхождения на 6 входах
+  [s2] shortest_path_length   DIVERGED    3  lines=15/25   {'length_by_edge': {(Node('n1'), Node('n2')): 1, (Node('n2'), Node('n3')): 2, (N…(+76) bug
+  [s2] shortest_path_lengths  DIVERGED    1  lines=10/14   {'n': 3, 'length_by_edge': {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}} buggy=[(('<seq>',
+  [s2] shortest_paths         DIVERGED    1  lines=9/14    {'source': 0, 'weight_by_edge': {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}} buggy=[(0, 0
   [s2] shunting_yard          DIVERGED   32  lines=13/21   {'tokens': ['+']} buggy=[] correct=['+']
   [s2] sieve                  DIVERGED    2  lines=4/6     {'max': 2} buggy=[] correct=[2]
   [s2] sqrt                   DIVERGED    1  lines=3/5     {'x': 1.0, 'epsilon': 0.5} buggy=0.5 correct=1.025
   [s2] subsequences           DIVERGED    3  lines=5/11    {'a': 1, 'b': 1, 'k': 0} buggy=[] correct=[[]]
   [s2] to_base                DIVERGED   18  lines=7/8     {'num': 2, 'b': 2} buggy='01' correct='10'
-  [s2] topological_ordering   DIVERGED    5  lines=6/9     {'nodes': [Node('n1'), Node('n2'), Node('n3')]} buggy=[Node{incoming_nodes=[], outgoing_no
+  [s2] topological_ordering   DIVERGED    2  lines=5/9     {'nodes': [Node(1), Node(2), Node(3)]} buggy=[Node{incoming_nodes=[], outgoing_nodes=[Node
   [s2] wrap                   DIVERGED    1  lines=3/10    {'text': '', 'cols': 1} buggy=[] correct=['']
 bitcount                     DIVERGED      1  {'n': 1} buggy=TIMEOUT (бесконечный цикл: не завершилась и за 5 с без трейсера) correct=ok
-breadth_first_search         DIVERGED      1  {'startnode': Node(1), 'goalnode': Node(3)} buggy=IndexError: pop from an empty deque correct=ok
+breadth_first_search         DIVERGED      8  {'startnode': Node('n3'), 'goalnode': Node('n1')} buggy=IndexError: pop from an empty deque correct=ok
 bucketsort                   DIVERGED     26  {'arr': [0], 'k': 1} buggy=[] correct=[0]
-depth_first_search           EXPLORED      5  нет расхождения на 5 входах
-detect_cycle                 EXPLORED      6  нет расхождения на 6 входах
+depth_first_search           DIVERGED     11  {'startnode': Node(1), 'goalnode': Node(99)} buggy=RecursionError correct=ok
+detect_cycle                 DIVERGED      6  {'node': Node(1)} buggy=AttributeError: 'NoneType' object has no attribute 'successor' correct=ok
 find_first_in_sorted         DIVERGED      1  {'arr': [], 'x': 1} buggy=IndexError: list index out of range correct=ok
 find_in_sorted               DIVERGED     26  {'arr': [0], 'x': 1} buggy=RecursionError correct=ok
 flatten                      DIVERGED      2  {'arr': [0]} buggy=[<broken-iter>"generator: TypeError: 'int' object is not iterable"] correct=[0]
@@ -56,35 +57,35 @@ is_valid_parenthesization    DIVERGED      3  {'parens': '((()'} buggy=True corr
 kheapsort                    DIVERGED     26  {'arr': [0], 'k': 1} buggy=[0, 0] correct=[0]
 knapsack                     DIVERGED     36  {'capacity': 1, 'items': [[3, 4], [1, 2]]} buggy=0 correct=2
 kth                          DIVERGED     16  {'arr': [1, 3, 2], 'k': 1} buggy=3 correct=2
-lcs_length                   DIVERGED    107  {'s': 'ab', 't': 'ab'} buggy=1 correct=2
-levenshtein                  DIVERGED     54  {'source': 'a', 'target': 'a'} buggy=1 correct=0
+lcs_length                   DIVERGED     49  {'s': 'ab', 't': 'ab'} buggy=1 correct=2
+levenshtein                  DIVERGED     25  {'source': 'a', 'target': 'a'} buggy=1 correct=0
 lis                          DIVERGED      6  {'arr': [1, 2, 0]} buggy=1 correct=2
-longest_common_subsequence   EXPLORED    250  нет расхождения на 250 входах
+longest_common_subsequence   DIVERGED    144  {'a': '((()', 'b': '()'} buggy='((()' correct='()'
 max_sublist_sum              DIVERGED     15  {'arr': [-1, 2, -1]} buggy=1 correct=2
 mergesort                    DIVERGED      2  {'arr': [0]} buggy=RecursionError correct=ok
-minimum_spanning_tree        DIVERGED      1  {'weight_by_edge': {(Node(1), Node(2)): 1, (Node(2), Node(3)): 1}} buggy=RuntimeError: Set changed size during iteration correct=ok
-next_palindrome              EXPLORED     37  нет расхождения на 37 входах
+minimum_spanning_tree        DIVERGED      1  {'weight_by_edge': {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}} buggy=RuntimeError: Set changed size during iteration correct=ok
+next_palindrome              DIVERGED      1  {'digit_list': [9]} buggy=[1, 0, 1] correct=[1, 1]
 next_permutation             DIVERGED      4  {'perm': [1, 2]} buggy=None correct=[2, 1]
 pascal                       DIVERGED      2  {'n': 2} buggy=[[1], [1]] correct=[[1], [1, 1]]
 possible_change              DIVERGED      1  {'coins': [], 'total': 1} buggy=ValueError: not enough values to unpack (expected at least 1, got 0) correct=ok
 powerset                     DIVERGED      2  {'arr': [0]} buggy=[[0]] correct=[[], [0]]
 quicksort                    DIVERGED     15  {'arr': [-1, 2, -1]} buggy=[-1, 2] correct=[-1, -1, 2]
-reverse_linked_list          DIVERGED      1  {'node': Node(1)} buggy=None correct=Node{incoming_nodes=[], outgoing_nodes=[], predecessors=[], successor=Node{incoming_nodes=[], outgoing_nodes=[], predece…(+169)
+reverse_linked_list          DIVERGED      4  {'node': Node(1)} buggy=None correct=Node{incoming_nodes=[Node{incoming_nodes=[Node{incoming_nodes=[], outgoing_nodes=[('<cycle>',)], predecessors=[], succes…(+1439)
 rpn_eval                     DIVERGED      1  {'tokens': [4.0, 2.0, '-']} buggy=-2.0 correct=2.0
-shortest_path_length         EXPLORED    250  нет расхождения на 250 входах
-shortest_path_lengths        EXPLORED     23  нет расхождения на 23 входах
-shortest_paths               EXPLORED      6  нет расхождения на 6 входах
+shortest_path_length         DIVERGED      3  {'length_by_edge': {(Node('n1'), Node('n2')): 1, (Node('n2'), Node('n3')): 2, (N…(+76) buggy=5 correct=3
+shortest_path_lengths        DIVERGED      1  {'n': 3, 'length_by_edge': {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}} buggy=[(('<seq>', [0, 0]), 0), (('<seq>', [0, 1]), 1), (('<seq>', [0, 2]), 1), (('<seq>', [1, 0]), 1), (('<seq>', [1, 1]), 0),…(+96) correct=[(('<seq>', [0, 0]), 0), (('<seq>', [0, 1]), 1), (('<seq>', [0, 2]), 3), (('<seq>', [1, 0]), 3), (('<seq>', [1, 1]), 0),…(+96)
+shortest_paths               DIVERGED      1  {'source': 0, 'weight_by_edge': {(0, 1): 1, (1, 2): 2, (0, 2): 5, (2, 0): 1}} buggy=[(0, 0), (1, inf), (2, inf)] correct=[(0, 0), (1, 1), (2, 3)]
 shunting_yard                DIVERGED     32  {'tokens': ['+']} buggy=[] correct=['+']
 sieve                        DIVERGED      2  {'max': 2} buggy=[] correct=[2]
 sqrt                         DIVERGED      1  {'x': 1.0, 'epsilon': 0.5} buggy=0.5 correct=1.025
 subsequences                 DIVERGED      3  {'a': 1, 'b': 1, 'k': 0} buggy=[] correct=[[]]
 to_base                      DIVERGED     18  {'num': 2, 'b': 2} buggy='01' correct='10'
-topological_ordering         DIVERGED      5  {'nodes': [Node('n1'), Node('n2'), Node('n3')]} buggy=[Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>…(+3872) correct=[Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>…(+5888)
+topological_ordering         DIVERGED      2  {'nodes': [Node(1), Node(2), Node(3)]} buggy=[Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>…(+1481) correct=[Node{incoming_nodes=[], outgoing_nodes=[Node{incoming_nodes=[('<cycle>',)], outgoing_nodes=[Node{incoming_nodes=[<deep>…(+3136)
 wrap                         DIVERGED      1  {'text': '', 'cols': 1} buggy=[] correct=['']
 
 === STAGE-2 SUMMARY ===
-  DIVERGED   33
-  EXPLORED   7
-[OK] DIVERGED (живой вызов, 0 ложных по построению): 33/40
+  DIVERGED   40
+[OK] DIVERGED (живой вызов, 0 ложных по построению): 40/40
 
 RC=0
+[guard] FAULTABLE без изменений (123 файлов) — прогон чист

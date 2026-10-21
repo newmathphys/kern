@@ -1,6 +1,6 @@
 # KERN: a cybernetic loop with machine evidence
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->141 · cases <!-- fact:canfail_cases -->161 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->175 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->142 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->176 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > This document describes **only what exists in the code**. Every claim comes with a
 > file you can open and a number you can re-check with a command. No invented

@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->141 · cases <!-- fact:canfail_cases -->161 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->175 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->142 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->176 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is
@@ -574,6 +574,7 @@ missing from the journal: the range #98–#164 was present, while #93–#97 and
 | **273** | **THE SOLVER VERSION WAS NOT IN THE CACHE KEY**: `checker_version` stayed zero, so a verdict produced by a different Z3 could be reused. Now `ProofCache.solver_version` + `keyOfWithSolver()`: the version lands in `checker_version`, with tests “two different solver_versions → different keys” and “the cache version reaches the key”. | FIXED |
 | **274** | **PHASE 3 CAN-FAIL COVERAGE WAS INCOMPLETE**: two of the five announced checks existed. Added `kimg-endianness` (BE stops being distinct from another version), `kernfs-no-mmap` (a slice of a foreign buffer again), `kernx-shared-fuel` (fuel “per run” instead of one shared counter) and `kimg-cli` (the CLI not failing on a wrong file). | FIXED |
 | **275** | **CANFAIL SILENTLY SKIPPED A CASE**: a case function without `return` produced `None`, which was printed as “skipped 1” — the check never ran while the run stayed green. That is how `kernx-shared-fuel` “passed” in a report without checking anything. Now, with an explicit `--only`, any skip makes the run RED (`skip_is_error`), and the case returns a command. | FIXED |
+| **276** | **SEVEN QUIXBUGS TASKS “DID NOT DIVERGE” BECAUSE OF THE HARNESS, NOT THE CODE**: `--explain-task` exposed six concrete causes: `_chain` filled only `successor` while DFS walks `successors` (empty graph); `AttributeError` as a whole was treated as “wrong input type” (hiding `None.successor`); per-argument `deepcopy` broke shared node identity (`KeyError` on both sides); there were no `0..n-1` integer graphs for Floyd–Warshall; the string domain had no repeats and lists polluted string tasks; no all-nines inputs. Result: **40/40 DIVERGED** (29 value + 10 crash + 1 hang), **0 EXPLORED**, two runs produce identical output; new gate `make quixbugs-replay` (every DIVERGED from the log must reproduce) + can-fail case. | FIXED |
 
 ## 7. Summary
 

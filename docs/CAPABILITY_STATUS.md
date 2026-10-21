@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->141 · cases <!-- fact:canfail_cases -->161 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->175 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->142 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->176 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
@@ -555,6 +555,7 @@ Zig `std/math`), проверка `kernc.wasm` вне ядра и разбор �
 | **273** | **ВЕРСИЯ РЕШАТЕЛЯ НЕ ВХОДИЛА В КЛЮЧ КЭША**: `checker_version` был нулевым, поэтому вердикт, посчитанный другим Z3, мог переиспользоваться. Теперь `ProofCache.solver_version` + `keyOfWithSolver()`: версия попадает в `checker_version`, тесты «два разных solver_version → разные ключи» и «версия из кэша попадает в ключ». | ИСПРАВЛЕНО |
 | **274** | **CANFAIL-ПОКРЫТИЕ Ф3 БЫЛО НЕПОЛНЫМ**: из пяти заявленных проверок было две. Добавлены `kimg-endianness` (BE перестаёт отличаться от чужой версии), `kernfs-no-mmap` (возврат к срезу чужого буфера), `kernx-shared-fuel` (топливо «на прогон» вместо общего счётчика) и `kimg-cli` (CLI не падает на чужом файле). | ИСПРАВЛЕНО |
 | **275** | **CANFAIL МОЛЧА ПРОПУСКАЛ КЕЙС**: функция кейса без `return` возвращала `None`, и это печаталось как «пропущено 1» — проверка не выполнялась, а прогон оставался зелёным. Так `kernx-shared-fuel` «прошёл» в отчёте, ничего не проверив. Теперь при явном `--only` любой пропуск делает прогон КРАСНЫМ (skip_is_error), а сам кейс возвращает команду. | ИСПРАВЛЕНО |
+| **276** | **7 ЗАДАЧ QUIXBUGS БЫЛИ «НЕ РАСХОДЯТСЯ» ИЗ-ЗА ХАРНЕССА, А НЕ ИЗ-ЗА КОДА**: диагностика `--explain-task` показала шесть конкретных причин: `_chain` заполнял только `successor` (DFS идёт по `successors` → граф пуст); `AttributeError` целиком считался «неверным типом входа» (пропускал `None.successor`); поштучный `deepcopy` рвал общие ссылки на узлы (KeyError у обеих версий); не было int-графов `0..n-1` для Floyd–Warshall; домен строк не содержал повторов, а списки подмешивались к строковым задачам; не было входов из одних девяток. Итог: **40/40 DIVERGED** (29 значение + 10 падений + 1 незавершение), **0 EXPLORED**, два прогона дают идентичный результат; добавлен страж `make quixbugs-replay` (каждый DIVERGED из лога обязан воспроизвестись) + canfail. | ИСПРАВЛЕНО |
 
 ## 7. Итог
 

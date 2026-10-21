@@ -1614,6 +1614,15 @@ def case_kernx_shared_fuel():
           "        self.pc = 0;\n        self.rsp = 0;\n        self.budget.fuel.* = 100; // ЛОМАЕМ: свежее топливо")
     return "make storage-check"
 
+def case_quixbugs_replay_break():
+    """QuixBugs (Ф4). ЛОМАЕМ: требуем заведомо больше расхождений.
+
+    Проверка читает СПИСОК задач из лога и прогоняет каждую заново;
+    порог ловит случай, когда лог перестал соответствовать коду.
+    """
+    return "python3 tools/quixbugs_replay.py /tmp/QuixBugs-master --min-diverged 999"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2727,6 +2736,8 @@ CASES = [
      case_kernfs_no_mmap),
     ("kernx-shared-fuel", "топливо на прогон -> падает",
      case_kernx_shared_fuel),
+    ("quixbugs-replay-break", "Лог требует больше, чем есть -> падает",
+     case_quixbugs_replay_break),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

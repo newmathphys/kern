@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->141 · cases <!-- fact:canfail_cases -->161 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->175 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->142 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->176 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 ![KERN: архитектура и измеренный baseline](docs/kern-architecture.svg)
@@ -35,9 +35,9 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->141 / <!-- fact:check_targets -->141 CHECK-целей** покрыты (<!-- fact:canfail_cases -->161 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->142 / <!-- fact:check_targets -->142 CHECK-целей** покрыты (<!-- fact:canfail_cases -->162 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
-| QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **33/40** живой дифференциальный детектор (24 расхождения значения + 8 падений + 1 незавершение; 9 не требуют эталона, 24 сверяются с эталоном датасета) · **7** EXPLORED |
+| QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
 | **ПОЛНОЕ ТЕХНИЧЕСКОЕ ОПИСАНИЕ (18 разделов)** | **[`docs/PROJECT_SPECIFICATION.md`](docs/PROJECT_SPECIFICATION.md)** — математика, архитектура L0–L5, формат байт-в-байт, Врата, SMT, CLI, аттестация, дефекты, ограничения |
 | **Полный каталог тестов** | **[`docs/TEST_CATALOG.md`](docs/TEST_CATALOG.md)** |
@@ -51,13 +51,13 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 > KERN: «багованная программа падает на своих тестах» — это определение
 > датасета, а не результат детекции. Раньше это стояло в таблице как `31/31`
 > и читалось как достижение KERN — строка убрана. Собственный результат KERN на
-> QuixBugs — строка выше (`33/40`, каждое попадание подтверждено
+> QuixBugs — строка выше (`40/40`, каждое попадание подтверждено
 > живым вызовом функции).
 >
-> **Как читать строку QuixBugs (дефект #239).** `33/40` — это
-> **дифференциальное исполнение**, а не формальное доказательство: 24 задачи
-> вернули значение, отличное от `correct_python_programs/`, 8 упали внутри
-> тестируемой функции, 1 не завершилась (`bitcount`). **9 из 33 не требуют
+> **Как читать строку QuixBugs (дефект #239, обновлено в #276).** `40/40` — это
+> **дифференциальное исполнение**, а не формальное доказательство: 29 задач
+> вернули значение, отличное от `correct_python_programs/`, 10 упали внутри
+> тестируемой функции, 1 не завершилась (`bitcount`). **11 из 40 не требуют
 > эталона вообще; 24 — требуют.** Формальный SMT — это отдельные **`6/40`**
 > (только Ступень 1, `--stage1-only`, `docs/evidence/quixbugs_stage1.log`).
 > 7 `EXPLORED` — «контрпример не найден в конечном домене», а не «доказано
@@ -438,7 +438,7 @@ make echelons                                # 4 эшелона: выравни�
 | **MBPP+** (edge-cases) | **pass@1 = 0.698** | да (API) |
 | **KERN-гейт: точность блокировок** (HumanEval, внешний датасет) | **100.0%** (55/55 блокировок реально падали, 0 ложных) · полнота 70.5% · **влияние на pass@1 = 0** | да |
 | **SWE-bench Lite** (официальный, Docker) | **3/3 resolved**, 0 infra-failures | нет |
-| **QuixBugs** (две ступени: SMT + AST-guided trace) | **33/40** DIVERGED (`[RUNTIME CONFIRMED]`) · 7 без найденного расхождения — см. `audits/QUIXBUGS_BASELINE.md` | нет |
+| **QuixBugs** (две ступени: SMT + AST-guided trace) | **40/40** DIVERGED (`[RUNTIME CONFIRMED]`) · **0** без найденного расхождения — см. `audits/QUIXBUGS_BASELINE.md` | нет |
 | **Refactory** (differential) | 1438/1782 (80.7%) | нет |
 | **Hacker's Delight / Alive2** (Z3) | **8/8** (6 эквивалентны, 2 контрпримера) | нет |
 | **Мутационный score (Zig-код)** | **100.0%** — полный обстрел **1345 / 1345** сайтов в 21 файле (0 выживших). Канонический гейт: 40/40 на охвате 21 файла / 1345 сайтов (раньше 6 файлов / 63 сайта) | нет |
@@ -610,20 +610,20 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 161 кейса: ломаем инвариант -> цель обязана упасть
+make canfail          # 162 кейса: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->126 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->175 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->176 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->175 (CHECK <!-- fact:check_targets -->141 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->141/<!-- fact:check_targets -->141 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->176 (CHECK <!-- fact:check_targets -->142 · MEASURE 1 · BUILD <!-- fact:build_targets -->8 · EXTERNAL 3 · META <!-- fact:meta_targets -->22) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->142/<!-- fact:check_targets -->142 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->161 (не-вакуумных <!-- fact:canfail_cases -->161 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->275** |
+| can-fail кейсов | <!-- fact:canfail_cases -->162 (не-вакуумных <!-- fact:canfail_cases -->162 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->276** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

@@ -1,6 +1,6 @@
 # KERN — ВОЗМОЖНОСТИ С ДОКАЗАТЕЛЬСТВАМИ
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->141 · cases <!-- fact:canfail_cases -->161 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->175 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->33/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->142 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->126 · registry <!-- fact:registry_targets -->176 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждое заявление ниже **проверено по коду и прогонам**. Где заявление
 > оказалось неточным — это прямо указано. Ничего не выдаётся за доказанное
@@ -12,14 +12,14 @@
 
 ## 1. Находить логические баги (QuixBugs)
 
-**Заявление:** «KERN обнаруживает **33/40** багов QuixBugs **живым исполнением** — не доказательством; официальные тесты датасета метрикой не являются (#231)».
+**Заявление:** «KERN обнаруживает **40/40** багов QuixBugs **живым исполнением** — не доказательством; официальные тесты датасета метрикой не являются (#231)».
 
 **Статус: ⚠️ РЕЗУЛЬТАТ верен, СПОСОБ — нет.**
 
 | | |
 |:--|:--|
-| ✅ Результат | **33/40** расхождений, каждое подтверждено живым вызовом (`tools/quixbugs_check.py`) |
-| ✅ Разбивка | 24 — расхождение значения с эталоном; 8 — падение самой функции; 1 — незавершение (`bitcount`); **9 из 33 не требуют эталона** |
+| ✅ Результат | **40/40** расхождений, каждое подтверждено живым вызовом (`tools/quixbugs_check.py`) |
+| ✅ Разбивка | 29 — расхождение значения с эталоном; 10 — падение самой функции; 1 — незавершение (`bitcount`); **11 из 40 не требуют эталона**; 0 `EXPLORED` (Ф4, #276) |
 | ✅ Ступень 1 | **6/40** формальный SMT (`--stage1-only`, `trusted: 0`) — отдельная цифра, не складывается с 33 |
 | ❌ Способ | это **НЕ** символьное доказательство |
 

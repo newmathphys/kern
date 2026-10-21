@@ -4,12 +4,16 @@
 и исправленная (`correct_python_programs/*.py`) версии. Проверка: `--diff-equiv`
 (`∃x: f_old(x) ≠ f_new(x)`, контракты НЕ нужны).
 
+> **АКТУАЛЬНО (Ф4, дефект #276): 40 / 40 DIVERGED, 0 EXPLORED.**
+> Ниже сохранён ИСТОРИЧЕСКИЙ ход (33/40): он показывает, какие причины
+> скрывали семь задач. Итоговое обновление — в конце файла.
+
 ## Как воспроизвести
 
 ```bash
 git clone --depth 1 https://github.com/jkoppel/QuixBugs /tmp/QuixBugs-master
 python3 tools/quixbugs_check.py /tmp/QuixBugs-master --stage1-only   # 6/40 (SMT)
-python3 tools/quixbugs_check.py /tmp/QuixBugs-master                 # 33/40 (trace)
+python3 tools/trace_explorer.py /tmp/QuixBugs-master                # 40/40 (trace, Ф4)
 ```
 
 ## Результат (текущий HEAD)
@@ -337,3 +341,35 @@ vs `correct=[(0,0)]`) и `sieve` (`max=2`: `buggy=[]` vs `correct=[2]`).
 `depth_first_search` · `detect_cycle` · `longest_common_subsequence` · `next_palindrome` · `shortest_path_length` · `shortest_path_lengths` · `shortest_paths`
 
 Отсутствие расхождения на перебранных входах **не является доказательством** корректности — это отсутствие контрпримера в конечном домене.
+
+
+---
+
+## Обновление Ф4 (дефект #276): 7 EXPLORED → 0, итог 40 / 40
+
+Семь задач не давали расхождения не потому, что «багов нет», а потому, что
+**харнесс не создавал нужный вход**. Найдено диагностикой
+`trace_explorer.py --explain-task NAME` (печатает домены, число комбинаций,
+отсев по предусловию и первые вызовы).
+
+| Задача | Настоящая причина «нет расхождения» |
+|:--|:--|
+| `depth_first_search` | `_chain` заполнял только `successor`, а DFS идёт по `successors` → граф пуст, обе версии `False` |
+| `detect_cycle` | `AttributeError` целиком считался «неверным типом входа», поэтому `None.successor` (отсутствующая проверка) не засчитывался |
+| `longest_common_subsequence` | в домене строк не было повторов (`"aa"`), а списки подмешивались к строковой задаче и съедали бюджет 250 |
+| `next_palindrome` | не было входов из одних девяток (перенос через разряд) |
+| `shortest_path_length` | поштучный `deepcopy` рвал общие ссылки: карта весов и `startnode` указывали на РАЗНЫЕ объекты → `KeyError` у обеих версий |
+| `shortest_path_lengths` | не было int-графов `0..n-1`: Floyd–Warshall считал по пустому диапазону |
+| `shortest_paths` | та же причина, что у `shortest_path_length` (идентичность узлов) |
+
+**Критерий не ослаблялся:** каждое новое попадание — живой вызов, в котором
+обе версии отработали, а результаты различаются (или одна упала, а другая нет).
+
+Итоговая раскладка 40 задач: **29** расхождений значения, **10** падений внутри
+тестируемой функции, **1** незавершение (`bitcount`). **11 из 40** не требуют
+эталона; **29** сверяются с `correct_python_programs/`.
+
+Воспроизводимость: два прогона подряд дают **идентичные** строки результата
+(`rows` и `hits` в JSON совпадают побайтово). Свидетельство:
+`docs/evidence/quixbugs_full.log` (`RC=0`), снимается
+`ONLY=quixbugs_full bash tools/collect_evidence.sh`.

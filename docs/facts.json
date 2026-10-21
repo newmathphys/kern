@@ -3,24 +3,24 @@
  "core_tests": 402,
  "next_tests": 53,
  "catalog": 464,
- "check_targets": 141,
- "canfail_cases": 161,
+ "check_targets": 142,
+ "canfail_cases": 162,
  "mutation_sites": 1353,
  "mutation_files": 21,
- "registry_targets": 175,
+ "registry_targets": 176,
  "meta_targets": 22,
  "build_targets": 8,
  "cross_arch_passed": 394,
  "cross_arch_skipped": 8,
  "anchors": 126,
- "max_defect": 275,
+ "max_defect": 276,
  "lean_theorems": 143,
  "quixbugs": {
   "smt": 6,
-  "differential": 33,
-  "crash": 8,
+  "differential": 40,
+  "crash": 10,
   "hang": 1,
-  "value": 24,
-  "explored": 7
+  "value": 29,
+  "explored": 0
  }
 }

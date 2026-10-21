@@ -193,6 +193,8 @@ if [ "$FAST" = "0" ]; then
   # Ф3: KIMG-флаги, no-mmap, 13-польный ключ, квоты KERN-X.
   stage "хранилище: KIMG/KERNFS/кэш/KERN-X (Ф3)" make storage-check
   stage "CLI fsck/inspect/diff на фикстурах (Ф3.2)" make kimg-cli-check
+  # Ф4: каждый DIVERGED из лога обязан воспроизвестись (SKIP без датасета).
+  stage "QuixBugs: повторный прогон DIVERGED (Ф4)" make quixbugs-replay
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный
