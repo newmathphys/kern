@@ -1,11 +1,11 @@
 === KERN EVIDENCE: slsa_check ===
 === команда: python3 tools/slsa_provenance.py --check ===
-=== дата: 2026-10-21T16:53:39Z ===
+=== дата: 2026-10-21T17:03:28Z ===
 
   [OK] kernc-hermetic: sha256 совпал (804d90ec2409961d…)
-  [OK] отпечаток исходников совпал (f615a0e85675594d…)
-  [OK] коммит совпал: 716d8d827c84
-  [OK] attests_commit == HEAD: 716d8d827c84
+  [OK] отпечаток исходников совпал (871d67a18b64499f…)
+  [OK] коммит совпал: 058c77d70d9c
+  [OK] attests_commit == HEAD: 058c77d70d9c
   [OK] Ed25519-подпись аттестата верна (kern-owner.pub)
   [OK] kid совпадает с ключом в репозитории (sha256:6da3e85ea5157…)
 
