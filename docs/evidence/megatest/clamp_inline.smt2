@@ -1,0 +1,6 @@
+(set-logic ALL)
+(declare-const x Int)
+(declare-const lo Int)
+(declare-const hi Int)
+(assert (distinct (ite (>= lo (ite (<= x hi) x hi)) lo (ite (<= x hi) x hi)) (ite (> lo hi) lo (ite (< x lo) lo (ite (> x hi) hi x)))))
+(check-sat)

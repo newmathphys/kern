@@ -248,3 +248,47 @@ So this is **not** "Z3 is wrong" and not "KERN lies": the binding rule for
 2. **Teach the checker** a sound `ite`-premise rule: a premise containing `ite`
    is bound when both case instances are bound. Deeper change inside
    `proof_check.zig` (~6k lines) and must be proved sound, not permissive.
+
+## 10. Variant B - deeper than `ite`: diff-equiv can never be TRUSTED (#303)
+
+Three experiments, all with the checker's own counters (run with `.venv/bin` in
+`PATH`, otherwise `kernc` reports "z3 недоступен"):
+
+| Query shape | Checker verdict | Premise binding |
+|---|---|---|
+| original: two `(= res_* <ite body>)` premises + `(distinct res_old res_new)` | `ДОКАЗАНО (допущено)`, 220 steps, holes 0 | **2/19**, unbound 1 -> rejected |
+| inline: goal `(distinct <body_old> <body_new>)`, no extra premises | `ДОКАЗАНО (допущено)`, 185 steps, holes 0 | **0/16** -> rejected |
+| trivial linear control: guards asserted, goal `(distinct x x)` | `ДОКАЗАНО (допущено)`, 3 steps, holes 0 | **0/1** -> rejected |
+
+The control is the decisive one. It contains no `ite` at all, yet the checker
+still rejects, because **not a single premise is bound**: Z3's proof of an UNSAT
+goal does not mention premises that are irrelevant to it, and the checker requires
+every premise to be bound. Contract-shaped proofs (where the premises *are* the
+contract clauses) always use their premises, so the rule was never exercised this
+way; for a goal-only query it is impossible to satisfy.
+
+Consequence, stated plainly: **`--diff-equiv` can detect divergence (SAT case,
+which is correct and useful) but can never produce a trusted `EQUIVALENT`.** It
+returns rc=2 with "solver proved it, checker rejected". This is a real defect,
+not a nuance of `ite` - my earlier reading of it as an `ite`-specific gap was
+wrong, and this is the corrected diagnosis.
+
+### The fix is already designed for this: `QueryKind`
+
+KERN already distinguishes query kinds (`refutation` / `satisfiability` /
+`equivalence`, see `src/next/state_axes.zig` and `AdmissionGate`). The premise
+rule belongs to the **refutation** kind, where the invariant "every premise is
+bound" is what stops a vacuous proof. For an **equivalence** query there are no
+contract premises to bind by construction, so the rule must not apply.
+
+Plan (not implemented here, on purpose - it changes what the checker accepts):
+
+1. `kernc prove --query-kind equivalence` (default stays `refutation`).
+2. In the checker, unbound premises are fatal only for `refutation`; for
+   `equivalence` the verdict is reported with the premise counters visible and
+   `trusted: 0` semantics unchanged (no trusted lemmas added).
+3. A can-fail case: an equivalence query whose proof *does* rely on a premise
+   that is not bound must still be rejected, and a genuinely divergent pair must
+   still be reported `DIVERGED`.
+4. `tools/kern_contracts.py --diff-equiv` passes the kind explicitly and stops
+   labelling the result "EQUIVALENT?" without saying which kind was used.
