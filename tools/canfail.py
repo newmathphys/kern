@@ -1507,6 +1507,17 @@ def case_perf_regression():
     return "python3 tools/perf_check.py --threshold 0.01 --slack-ms -1000"
 
 
+def case_citations_unknown_key():
+    """Библиография (0J). ЛОМАЕМ: пустая bib -> все §REF становятся неизвестными.
+
+    Проверяется именно резолвинг ключей: пустой каталог записей — это
+    ситуация «источника нет», а не «источник другой».
+    """
+    return ("bash -c 'b=/tmp/kern_empty.bib; : > $b; "
+            "python3 tools/citations_check.py --bib $b; rc=$?; "
+            "rm -f $b; exit $rc'")
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -2601,6 +2612,8 @@ CASES = [
      case_trust_docs_missing),
     ("perf-regression", "Регресс производительности -> падает",
      case_perf_regression),
+    ("citations-unknown-key", "Нет источника -> ссылки не резолвятся",
+     case_citations_unknown_key),
     ("localize-core", "UNSAT-core: конфликт не распознан",       case_localize_core),
     ("sim-invariant", "Симуляция I2: чтение возвращает пусто",   case_sim_invariant),
     ("proof-check",   "Проверка доказательств: без отрицания",   case_proof_check),

@@ -1,0 +1,352 @@
+{
+  "_comment": "Снимок библиографических записей (шаг 0J). Источник истины для tools/citations_check.py: `verified` = страница издателя/Crossref открыта и сверена; `secondary` = подтверждено списком литературы другой работы; `unverified` = не подтверждено (только §7 BELNAP_SOURCES.md). Ничего не выдумывать: если поля нет в источнике — его здесь нет.",
+  "generated_by": "0J (план docs/PLAN_v2.5.3.md)",
+  "entries": {
+    "belnap1977useful": {
+      "type": "incollection",
+      "title": "A Useful Four-Valued Logic",
+      "authors": [
+        "Belnap, Nuel D."
+      ],
+      "booktitle": "Modern Uses of Multiple-Valued Logic",
+      "editors": [
+        "Dunn, J. Michael",
+        "Epstein, George"
+      ],
+      "publisher": "D. Reidel / Springer",
+      "series": "Episteme 2",
+      "year": 1977,
+      "pages": "5-37",
+      "doi": "10.1007/978-94-010-1161-7_2",
+      "status": "verified",
+      "note": "Springer: © 1977 D. Reidel, pp. 5-37. Вторичные источники дают 7-37 (Karpenko 2017) и 8-37 (Devyatkin 2020) — см. §7."
+    },
+    "dunn1976intuitive": {
+      "type": "article",
+      "title": "Intuitive semantics for first-degree entailments and “coupled trees”",
+      "authors": [
+        "Dunn, J. Michael"
+      ],
+      "journal": "Philosophical Studies",
+      "volume": "29",
+      "issue": "3",
+      "year": 1976,
+      "pages": "149-168",
+      "doi": "10.1007/BF00373152",
+      "status": "verified"
+    },
+    "ginsberg1988": {
+      "type": "article",
+      "title": "Multivalued logics: a uniform approach to reasoning in artificial intelligence",
+      "authors": [
+        "Ginsberg, Matthew L."
+      ],
+      "journal": "Computational Intelligence",
+      "volume": "4",
+      "issue": "3",
+      "year": 1988,
+      "pages": "265-316",
+      "doi": "10.1111/j.1467-8640.1988.tb00280.x",
+      "status": "secondary",
+      "note": "Wiley отдал 403 при проверке; в списке литературы Karpenko 2017 указано 265-315 — см. §7."
+    },
+    "fitting1991": {
+      "type": "article",
+      "title": "Bilattices and the semantics of logic programming",
+      "authors": [
+        "Fitting, Melvin"
+      ],
+      "journal": "The Journal of Logic Programming",
+      "volume": "11",
+      "issue": "2",
+      "year": 1991,
+      "pages": "91-116",
+      "doi": "10.1016/0743-1066(91)90014-G",
+      "status": "verified"
+    },
+    "fitting1994": {
+      "type": "article",
+      "title": "Kleene's three valued logics and their children",
+      "authors": [
+        "Fitting, Melvin"
+      ],
+      "journal": "Fundamenta Informaticae",
+      "volume": "20",
+      "issue": "1-3",
+      "year": 1994,
+      "pages": "113-131",
+      "doi": "10.3233/FI-1994-201234",
+      "status": "verified"
+    },
+    "arieli1996": {
+      "type": "article",
+      "title": "Reasoning with logical bilattices",
+      "authors": [
+        "Arieli, Ofer",
+        "Avron, Arnon"
+      ],
+      "journal": "Journal of Logic, Language and Information",
+      "volume": "5",
+      "issue": "1",
+      "year": 1996,
+      "pages": "25-63",
+      "doi": "10.1007/BF00215626",
+      "status": "verified",
+      "note": "Crossref-запись не содержит поля pages; 25-63 взято из вторичных списков — см. §7."
+    },
+    "font1997": {
+      "type": "article",
+      "title": "Belnap's four-valued logic and De Morgan lattices",
+      "authors": [
+        "Font, Josep Maria"
+      ],
+      "journal": "Logic Journal of the IGPL",
+      "volume": "5",
+      "issue": "3",
+      "year": 1997,
+      "pages": "1-29",
+      "doi": "10.1093/jigpal/5.3.1-e",
+      "status": "verified",
+      "note": "Crossref: pages 1-29 (постатейная пагинация). В списке Karpenko 2017 — 413-440; см. §7."
+    },
+    "shramko2005sixteen": {
+      "type": "article",
+      "title": "Some useful 16-valued logics: how a computer network should think",
+      "authors": [
+        "Shramko, Yaroslav",
+        "Wansing, Heinrich"
+      ],
+      "journal": "Journal of Philosophical Logic",
+      "volume": "34",
+      "year": 2005,
+      "pages": "121-153",
+      "doi": "10.1007/s10992-005-0556-5",
+      "status": "secondary"
+    },
+    "shramko2011truth": {
+      "type": "book",
+      "title": "Truth and Falsehood: An Inquiry into Generalized Logical Values",
+      "authors": [
+        "Shramko, Yaroslav",
+        "Wansing, Heinrich"
+      ],
+      "publisher": "Springer",
+      "series": "Trends in Logic 36",
+      "year": 2011,
+      "doi": "10.1007/978-94-007-0907-2",
+      "isbn": "978-94-007-0906-5",
+      "status": "verified"
+    },
+    "omori2019newessays": {
+      "type": "book",
+      "title": "New Essays on Belnap-Dunn Logic",
+      "editors": [
+        "Omori, Hitoshi",
+        "Wansing, Heinrich"
+      ],
+      "publisher": "Springer",
+      "series": "Synthese Library 418",
+      "year": 2019,
+      "doi": "10.1007/978-3-030-31136-0",
+      "isbn": "978-3-030-31135-3",
+      "status": "verified"
+    },
+    "omori2017forty": {
+      "type": "article",
+      "title": "40 years of FDE: an introductory overview",
+      "authors": [
+        "Omori, Hitoshi",
+        "Wansing, Heinrich"
+      ],
+      "journal": "Studia Logica",
+      "volume": "105",
+      "issue": "6",
+      "year": 2017,
+      "pages": "1021-1049",
+      "doi": "10.1007/s11225-017-9748-6",
+      "status": "verified"
+    },
+    "karpenko2017four": {
+      "type": "article",
+      "title": "Four-valued logics BD and DM4: expansions",
+      "authors": [
+        "Karpenko, Alexander S."
+      ],
+      "journal": "Bulletin of the Section of Logic",
+      "volume": "46",
+      "issue": "1/2",
+      "year": 2017,
+      "pages": "33-45",
+      "doi": "10.18778/0138-0680.46.1.2.04",
+      "status": "verified",
+      "note": "Англоязычная расширенная версия; русский вариант 2010 — unverified (см. karpenko2010)."
+    },
+    "pavlov2005": {
+      "type": "article",
+      "title": "Би-решётки для логики Белнапа и её обогащения",
+      "authors": [
+        "Pavlov, Sergey A."
+      ],
+      "journal": "Логические исследования",
+      "volume": "12",
+      "year": 2005,
+      "pages": "243-248",
+      "doi": "10.21146/2074-1472-2005-12-0-243-248",
+      "status": "verified"
+    },
+    "shramko2017relatives": {
+      "type": "article",
+      "title": "First-degree entailment and its relatives",
+      "authors": [
+        "Shramko, Yaroslav",
+        "Zaitsev, Dmitry",
+        "Belikov, Alexander"
+      ],
+      "journal": "Studia Logica",
+      "volume": "105",
+      "issue": "6",
+      "year": 2017,
+      "pages": "1291-1317",
+      "doi": "10.1007/s11225-017-9747-7",
+      "status": "verified"
+    },
+    "jakl2025four": {
+      "type": "preprint",
+      "title": "Four imprints of Belnap's useful four-valued logic in computer science",
+      "authors": [
+        "Jakl, Tomas"
+      ],
+      "year": 2025,
+      "eprint": "2503.20679",
+      "archive_prefix": "arXiv",
+      "url": "https://arxiv.org/abs/2503.20679",
+      "doi": "10.48550/arXiv.2503.20679",
+      "status": "verified",
+      "note": "Препринт; в Studia Logica не опубликован (на 2026-10-21)."
+    },
+    "bienvenu2026abductive": {
+      "type": "article",
+      "title": "Abductive reasoning in expansions of Belnap-Dunn logic",
+      "authors": [
+        "Bienvenu, Meghyn",
+        "Inoue, Katsumi",
+        "Kozhemiachenko, Daniil"
+      ],
+      "journal": "Journal of Artificial Intelligence Research",
+      "volume": "85",
+      "year": 2026,
+      "doi": "10.1613/jair.1.18874",
+      "status": "verified"
+    },
+    "niki2026firstorder": {
+      "type": "article",
+      "title": "First-order intuitionistic Belnap-Dunn logic: proof-theoretic analysis of the American path",
+      "authors": [
+        "Niki, Satoru"
+      ],
+      "journal": "Logic Journal of the IGPL",
+      "year": 2026,
+      "doi": "10.1093/jigpal/jzag024",
+      "status": "verified"
+    },
+    "petrukhin2026essence": {
+      "type": "article",
+      "title": "Essence and accident modalities meet Belnapian truth values",
+      "authors": [
+        "Petrukhin, Yaroslav"
+      ],
+      "journal": "Studia Logica",
+      "year": 2026,
+      "doi": "10.1007/s11225-026-10250-z",
+      "status": "verified"
+    },
+    "rivieccio2011residuated": {
+      "type": "article",
+      "title": "Residuated bilattices",
+      "authors": [
+        "Rivieccio, Umberto",
+        "Jansana, Ramon"
+      ],
+      "journal": "Soft Computing",
+      "volume": "16",
+      "issue": "3",
+      "year": 2011,
+      "pages": "493-504",
+      "doi": "10.1007/s00500-011-0752-x",
+      "status": "verified"
+    },
+    "casari2025abelian": {
+      "type": "article",
+      "title": "Abelian logic on the Bochum plan (and the American plan as well)",
+      "authors": [
+        "Casari, Ettore",
+        "Meyer, Robert K.",
+        "Slaney, John"
+      ],
+      "journal": "Studia Logica",
+      "year": 2025,
+      "doi": "10.1007/s11225-025-10208-7",
+      "status": "verified"
+    },
+    "middelburg2025interdefinability": {
+      "type": "preprint",
+      "title": "The interdefinability of expansions of Belnap-Dunn logic",
+      "authors": [
+        "Middelburg, C. A."
+      ],
+      "year": 2025,
+      "eprint": "2403.04641",
+      "archive_prefix": "arXiv",
+      "url": "https://arxiv.org/abs/2403.04641",
+      "doi": "10.48550/arXiv.2403.04641",
+      "status": "verified",
+      "note": "v4, 16 Sep 2025; журнальной версии нет."
+    },
+    "karpenko2010": {
+      "type": "article",
+      "title": "Логики Белнапа и ДМ4: расширения",
+      "authors": [
+        "Karpenko, Alexander S."
+      ],
+      "journal": "Логические исследования",
+      "volume": "16",
+      "year": 2010,
+      "pages": "147-167",
+      "status": "unverified",
+      "note": "В содержании Вып. 16 (2010) стоит другая статья Карпенко — «Континуальность трёхзначных логик». Выпуск требует уточнения."
+    },
+    "belikov2017": {
+      "type": "article",
+      "title": "Логика Данна-Белнапа, её «родственники» и формальное моделирование аргументации",
+      "authors": [
+        "Belikov, Alexander"
+      ],
+      "journal": "Рацио.ru",
+      "issue": "18 (1)",
+      "year": 2017,
+      "pages": "36-48",
+      "status": "unverified",
+      "note": "Сайт журнала и КиберЛенинка не подтвердили; нужна сверка по eLibrary."
+    },
+    "fitting2026strict": {
+      "type": "article",
+      "title": "Strict/Tolerant intuitionistic analogs of K3, LP, and IFDE",
+      "authors": [
+        "Fitting, Melvin"
+      ],
+      "year": 2026,
+      "status": "unverified",
+      "note": "Не найдено. Ближайшее реальное: Fitting 2025, «Simple tableaus for simple intuitionistic logics» (10.1215/00294527-2025-0024)."
+    },
+    "jago2026talk": {
+      "type": "misc",
+      "title": "Metaphysical structure and bilattices",
+      "authors": [
+        "Jago, Mark"
+      ],
+      "year": 2026,
+      "status": "unverified",
+      "note": "Доклад (Formal Metaphysics Workshop 2026); доклады не индексируются — подтвердить нечем."
+    }
+  }
+}

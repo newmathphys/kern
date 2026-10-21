@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "017feee",
-  "code_hash": "sha256:3c5c2b2ac73809a1b0d61e0cb618377f5f88c64a12f36c6580c76f870d8bb191",
+  "commit": "d3ae96a",
+  "code_hash": "sha256:55c285c3a27c71ae121c8fadf816626c39c04c8d05d908f2e3688ad830418f30",
   "score": 100,
   "grade": "A+",
   "breakdown": {
@@ -27,7 +27,7 @@
     "by_category": {
       "zig": 92,
       "lean": 8,
-      "python": 133,
+      "python": 134,
       "c11": 7,
       "rust": 4,
       "go": 1,
@@ -35,7 +35,7 @@
       "wasm": 1
     },
     "skipped": 2,
-    "total": 248,
+    "total": 249,
     "blind_spot_native_formal": 101
   },
   "mcp": {
@@ -55,9 +55,9 @@
     "attestation": true
   },
   "metrics": {
-    "check_targets": 135,
-    "check_covered": 135,
-    "canfail_cases": 151,
+    "check_targets": 136,
+    "check_covered": 136,
+    "canfail_cases": 152,
     "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
     "qemu": "394 passed / 8 skipped / 0 failed"
   },
@@ -69,7 +69,7 @@
     "build": true,
     "sarif": true,
     "llms": true,
-    "docs_md": 38,
+    "docs_md": 40,
     "injection_markers": 0,
     "dup_guard": true
   },

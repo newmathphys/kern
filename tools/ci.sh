@@ -181,6 +181,9 @@ if [ "$FAST" = "0" ]; then
   stage "пин Lean/Mathlib (0K.7)" python3 tools/lean_pin_check.py
   # 0K.9: документы доверия + отпечаток ключа совпадает с файлом.
   stage "документы доверия (0K.9)" python3 tools/trust_docs_check.py
+  # 0J: библиография как данные (5 диверсий + сверка с кодом).
+  stage "библиография == код (0J)" python3 tools/citations_check.py --selftest
+  stage "ссылки и статусы (0J)" python3 tools/citations_check.py
 
   # --- Дефект #232: ГЕЙТ ЕСТЬ, НО CI ЕГО НЕ ЗАПУСКАЛ ------------------------
   # `make scorecard-check` существовал и сверял опубликованный
