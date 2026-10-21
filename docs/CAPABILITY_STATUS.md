@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->164 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.
@@ -571,7 +571,8 @@ Zig `std/math`), проверка `kernc.wasm` вне ядра и разбор �
 
 | **284** | **ПРАВИЛО ПРОТИВ «N TASKS: NO DIVERGENCE» ОТКЛЮЧАЛОСЬ САМО СЕБЯ**: число EXPLORED выводилось из итоговой строки лога, а её печатают только при > 0. Когда все 40 задач стали DIVERGED, функция вернула `None` — и оба правила для устаревшей фразы перестали применяться. Теперь число выводится из итога (`total - diverged`), и правило работает даже при нуле. |KERN-X, кэш, 5 теорий SMT, C-ABI) и KERN-Next (парсер, валидатор, SQLite,
 snapshot, diff, packet, report, кэш) — **402 + 53 теста, все зелёные**
-(с `z3` в PATH; без него — 393 passed + 8 skipped, пропуск решателе-зависимых).
+
+| **285** | **ДВА КЕЙСА CANFAIL СТАЛИ НЕПРИМЕНИМЫМИ И МОЛЧА ЛОМАЛИ ПОЛНЫЙ ПРОГОН**: `artifact-check` и `artifact-check-offline` искали в README объявленный sha256 бинарника, но дефект #250 убрал этот хардкод НАМЕРЕННО (он дрейфовал каждый релиз). Без объявления `artifact_check.py` всегда выходит с 1 — диверсия «доказывала» нечувствительность ворот, которых нет, а харнесс падал с `RuntimeError`. Кейсы удалены; проверка артефакта остаётся релизной (там хеш объявлен), и это записано как известное ограничение. |(с `z3` в PATH; без него — 393 passed + 8 skipped, пропуск решателе-зависимых).
 
 **FRAMEWORK/NOT IMPL:** облако, WASM, Lean-транспилятор, плагины, bundle,
 PQC, дашборд — это следующий слой; он НЕ заявлен как работающий.

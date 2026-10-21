@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->164 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->464 · CHECK <!-- fact:check_targets -->144 · cases <!-- fact:canfail_cases -->162 · anchors <!-- fact:anchors -->128 · registry <!-- fact:registry_targets -->178 · META <!-- fact:meta_targets -->22 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is
@@ -658,3 +658,5 @@ Compact English list; full text and measured before/after tables are in
 | **283** | **ROLLBACK DID NOT RESTORE THE FILE MODE**: the snapshot kept bytes only. A case that strips the execute bit from `tools/*.sh` left 29 scripts at mode 644 after an interruption, so the next run failed with `permission denied` far from the damage. The snapshot now records `st_mode` and restores it. | FIXED |
 
 | **284** | **THE “N TASKS: NO DIVERGENCE” RULE SWITCHED ITSELF OFF**: the EXPLORED count was read from a summary line that is printed only when it is greater than zero. Once all 40 tasks became DIVERGED the function returned `None`, and both rules for the stale phrase stopped being applied. The count is now derived from the totals (`total - diverged`), so the rule holds at zero. | FIXED |
+
+| **285** | **TWO CAN-FAIL CASES BECAME INAPPLICABLE AND QUIETLY BROKE THE FULL RUN**: `artifact-check` and `artifact-check-offline` looked for a declared binary sha256 in README, but #250 removed that hardcode on purpose (it drifted every release). Without a declaration `artifact_check.py` always exits 1, so the sabotage “proved” insensitivity of a gate that no longer exists, and the harness died with `RuntimeError`. The cases are removed; the artifact check stays a release-time gate (where the hash is declared), and this is recorded as a known limitation. | FIXED |

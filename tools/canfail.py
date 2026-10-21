@@ -774,38 +774,8 @@ def readme_hash_anchor() -> str:
     return m.group(0)
 
 
-def case_artifact_check():
-    """Артефакт релиза: README объявляет ЧУЖОЙ хеш.
-
-    ЛОМАЕМ: подменяем объявленный sha256 статического бинарника. Цепочка
-    README <-> сборка <-> asset обязана разорваться — это ровно дефект #82
-    (пользователь скачивал бинарник, не совпадающий с заявленным).
-    """
-    patch("README.md", readme_hash_anchor(),
-          "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
-    return "make artifact-check"
 
 
-def case_artifact_check_offline():
-    """То же без сети: версия релиза НЕОПРЕДЕЛИМА -> проверка обязана быть СТРОГОЙ.
-
-    ЛОМАЕМ: `detect_version()` возвращает несуществующий тег, поэтому
-    `unpublished_commits()` не может определить, опережает ли сборка релиз.
-    По правилу fail-closed НЕЗНАНИЕ не оправдывает: расхождение сборки с README
-    обязано остаться ПРОВАЛОМ (а не «ожидаемым опережением»).
-    """
-    # Якорь ОБЯЗАН быть уникальным: `patch()` меняет ПЕРВОЕ вхождение,
-    # а `return m.group(1)` встречается дважды (declared_hash и detect_version).
-    # Собираем многострочный якорь через chr(10), чтобы не путаться с \n.
-    _nl = chr(10)
-    _anchor = ('        raise SystemExit("[!] в README.md нет ссылки '
-               'releases/download/vX.Y.Z")' + _nl + '    return m.group(1)')
-    _fault = ('        raise SystemExit("[!] в README.md нет ссылки '
-              'releases/download/vX.Y.Z")' + _nl + '    return "v0.0.0"')
-    patch("tools/artifact_check.py", _anchor, _fault)
-    patch("README.md", readme_hash_anchor(),
-          "# deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
-    return "make artifact-check-offline"
 
 
 def case_contracts():
@@ -1662,6 +1632,13 @@ def case_conformance_break():
           "return @enumFromInt(((n) & 0b01) | (((1 - p) & 0b01) << 1)); // ЛОМАЕМ: ~ больше не инверсия")
     return "make conformance-check"
 
+
+# ДЕФЕКТ #285: кейсы `artifact-check`/`artifact-check-offline` удалены.
+# Они требовали объявленного в README sha256 бинарника, а дефект #250 убрал
+# этот хардкод НАМЕРЕННО (он дрейфовал при каждом релизе). Без объявления
+# `artifact_check.py` выходит с 1 всегда — то есть диверсия «доказывала»
+# нечувствительность ворот, которых больше нет. Проверка артефакта остаётся
+# релизной: там README объявляет хеш, и цепочка README<->сборка<->asset жива.
 
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
@@ -2693,8 +2670,6 @@ CASES = [
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
     ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
     ("mcp-selftest",   "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),
-    ("artifact-check",  "Артефакт: README объявляет чужой хеш", case_artifact_check),
-    ("artifact-check-offline", "Артефакт: README != сборка",   case_artifact_check_offline),
     ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
     ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),

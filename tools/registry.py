@@ -321,8 +321,6 @@ CASE_TARGET = {
     # ДЕФЕКТ #87: здесь стояло "evidence-gate" — кейс указывал на ЧУЖУЮ цель,
     # из-за чего счётчик «покрыто» считал evidence-gate покрытым дважды, а
     # artifact-check оставался без доказательства. Указываем РЕАЛЬНУЮ цель.
-    "artifact-check": "artifact-check",
-    "artifact-check-offline": "artifact-check-offline",
     "ecosystem-check": "ecosystem-check",
     "scorecard-check": "scorecard-check",   # внешние каталоги MCP (манифесты == tools/list)
     "contracts": "contracts",
