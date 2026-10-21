@@ -420,6 +420,7 @@ FAULTABLE = [
     "src/proof_cache.zig",
     "src/runtime/kern_x.zig",
     "audits/codecheck/py_abs_ok.py.expect.json",
+    "audits/codecheck/py_abs_ok.py",
     "audits/codecheck/py_abs_bad.py.expect.json",
     "src/core/kernfs_router.zig",
     "src/core/kimg_writer.zig",
@@ -927,6 +928,20 @@ def case_contract_lock():
           "def withdraw(",
           "def withdraw(")
     return "make contracts-lock-check"
+
+
+def case_anti_self_deception_fixture():
+    """Anti-self-deception SABOTAGE: the corpus fixture drifts from the gate.
+
+    `py_abs_ok.py` is the file whose mutation must flip T -> F. If its body
+    changes so the mutation anchor disappears (`return x` -> something else),
+    the gate must report "fixture drift" and go RED - otherwise a silent
+    refactor would quietly turn the mutation check into a no-op.
+    """
+    patch("audits/codecheck/py_abs_ok.py",
+          "    if x >= 0:\n        return x\n    return -x",
+          "    return 0  # ЛОМАЕМ: якорь мутации ('return x') больше не существует")
+    return "make anti-self-deception-check"
 
 
 def case_query_kind_leak():
@@ -2779,6 +2794,7 @@ CASES = [
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("query-kind-leak", "Правило посылок применено к equivalence -> красный", case_query_kind_leak),
+    ("anti-self-deception-fixture", "Якорь мутации исчез -> гейт красный", case_anti_self_deception_fixture),
     ("self-verify",    "Самоверификация: контракт своего кода сломан", case_self_verify),
     ("edge-cases",     "Парсер: крайняя форма перестала разбираться", case_edge_cases),
     ("trace-check",    "Ступень 2: расхождение перестало ловиться", case_trace_check),

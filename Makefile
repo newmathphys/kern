@@ -475,6 +475,11 @@ kimg-cli-check:
 # Ф4: повторный прогон всех DIVERGED из свидетельства (датасет внешний,
 # поэтому при его отсутствии — SKIP, а не ложный зелёный/красный).
 # Phase 4B: code-checking corpus. HARD GATE: FP = 0 (never accuse correct code).
+# Анти-самообман: контрпримеры KERN воспроизводятся ЖИВЫМИ инструментами
+# (python3/gcc -fsanitize=undefined/rustc -C overflow-checks=on/zig run), а
+# мутации «доказанных» файлов обязаны переводить T в F.
+anti-self-deception-check:
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/anti_self_deception_check.py
 codecheck:
 	@$(PYTHON) tools/codecheck_runner.py
 

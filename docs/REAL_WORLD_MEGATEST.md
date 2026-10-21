@@ -456,3 +456,36 @@ filtered.
   must use @divTrunc, ...`), so the ground-truth replay was impossible. The file
   now uses `u64` (where `/` is legal): KERN still refutes it (`b = 0`) and the
   real runtime panics with `division by zero`. Corpus matrix unchanged.
+
+## 15. The anti-self-deception check is now a permanent gate
+
+`make anti-self-deception-check` (registered as `CHECK`, wired into the full CI
+contour, with a non-vacuous can-fail case) runs two checks on the corpus:
+
+```
+=== A. ground truth: KERN's counterexamples vs native toolchains ===
+  python  {'x': -1, 'result': -1} -> AssertionError (rc=1)
+  c       b=0 -> UBSan division by zero (rc=1)
+  rust    a=2147483647, b=1 -> panic overflow (rc=101)
+  zig     b=0 -> panic division by zero (rc=-6)
+=== B. mutation kill: every T file must flip to F ===
+  py_abs_ok.py:    'return x' -> 'return -x'        T -> F {x: 1, result: -1}
+  py_clamp_ok.py:  'return lo' -> 'return lo - 1'   T -> F {lo: 0, hi: 0, result: -1, x: -2}
+  zig_clean.zig:   'a + b' -> 'a - b'               T -> F {b: -1, result: 1, a: 0}
+  c_clean.c:       'a + b' -> 'a - b'               T -> F {same}
+  rust_clean.rs:   'a + b' -> 'a - b'               T -> F {same}
+
+GROUND TRUTH 4/4 · MUTATION KILL 5/5
+ANTI-SELF-DECEPTION PASSED
+```
+
+Design notes, both learned the hard way:
+
+* Mutations must be **semantically different**. The obvious `if x < lo` ->
+  `if x <= lo` in `py_clamp_ok.py` is an *equivalent* mutant (when `x == lo` both
+  branches return `lo`), so it is deliberately NOT used: a prover returning `F`
+  there would be wrong. The gate uses `return lo` -> `return lo - 1` instead.
+* The gate also fails on **fixture drift**: if a corpus body changes so a mutation
+  anchor disappears, the run reports it and goes red instead of silently
+  checking nothing. That is exactly what the can-fail case
+  `anti-self-deception-fixture` exercises.
