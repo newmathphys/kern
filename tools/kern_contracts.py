@@ -4436,6 +4436,52 @@ def _clike_struct_fields(text: str) -> dict[str, str]:
 def _is_u16(ty: str) -> bool:
     return ty.strip().lower() in {"uint16_t", "u16", "unsigned short", "ushort"}
 
+def _clike_block_end(body: str, start: int) -> int:
+    """Конец блока/оператора, начинающегося в `start` (позиция после `)` if).
+
+    Если дальше `{ ... }` — считаем скобки; иначе оператор до `;`.
+    ДЕФЕКТ #318: нужен, чтобы понимать, находится ли операция ВНУТРИ блока.
+    """
+    i = start
+    n = len(body)
+    while i < n and body[i] in " \t\r\n":
+        i += 1
+    if i < n and body[i] == "{":
+        depth = 0
+        while i < n:
+            if body[i] == "{":
+                depth += 1
+            elif body[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+            i += 1
+        return n
+    j = body.find(";", i)
+    return (j + 1) if j != -1 else n
+
+
+def _clike_conds_at(pos: int, if_blocks: list) -> list[str]:
+    """Условия, действующие В ПОЗИЦИИ `pos` (дефект #318).
+
+    `if_blocks` — (cond_end, block_end, cond_smt, exits) для каждого `if (cond)`.
+    ВНУТРИ блока действует `cond`; ПОСЛЕ блока, который безусловно завершается
+    (`return`/`break`/`continue`), действует `(not cond)`.
+
+    ПОЧЕМУ ТАК. Раньше в `path_conds` складывалось ТОЛЬКО `(not cond)` — условие
+    для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока, и запрос получался
+    `(x == 0) AND (x == 0)`, то есть ОТРИЦАНИЕ гарда: `if (x != 0) { y / x; }`
+    объявлялся делением на ноль. Ложное обвинение хуже пропуска (#178/#183).
+    """
+    out: list[str] = []
+    for cond_end, block_end, cond, exits in if_blocks:
+        if cond_end <= pos < block_end:
+            out.append(cond)                     # внутри блока
+        elif pos >= block_end and exits:
+            out.append(f"(not {cond})")          # после блока, вышедшего наружу
+    return out
+
+
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
@@ -4491,6 +4537,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         # Диапазоны типов — часть домена (u32 не бывает отрицательным).
         path_conds: list[str] = [f"(and (>= {p} {lo}) (<= {p} {hi}))"
                                  for p, (lo, hi) in (ranges or {}).items()]
+        # ДЕФЕКТ #318: `path_conds` — условия БЕЗ привязки к позиции (диапазоны
+        # типов, requires, assert). Условия из `if` зависят от ПОЗИЦИИ, поэтому
+        # хранятся отдельно: `if_blocks` (границы блоков) и `if_derived`
+        # (накопленное `not cond` — для проверок достижимости самих `if`).
+        if_blocks: list = []
+        if_derived: list[str] = []
         for rq in (reqs or []):
             try:
                 path_conds.append(expr_smt(
@@ -4543,7 +4595,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 pos = m.end()
                 continue
             proven += 1
-            sat_then = _smt_sat(kernc, params, path_conds + [cond])
+            sat_then = _smt_sat(kernc, params, path_conds + if_derived + [cond])
             if sat_then is False:
                 found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
             # REDUNDANT GUARD для C-like НЕ заявляется: без полного моделирования
@@ -4559,10 +4611,17 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             # `else if (y < x)` после `else if (y > x)` давал ЛОЖНЫЙ [DEAD BRANCH],
             # потому что путь ошибочно считался «y > x».)
             tail = body[m.end(): m.end() + 160]
-            if re.match(r"\s*\{?\s*(return|break|continue)\b", tail):
-                path_conds.append(f"(not {cond})")
-            elif re.match(r"\s*\}?\s*else\b", tail):
-                path_conds.append(f"(not {cond})")
+            exits = bool(re.match(r"\s*\{?\s*(return|break|continue)\b", tail))
+            has_else = bool(re.match(r"\s*\}?\s*else\b", tail))
+            # ДЕФЕКТ #318: запоминаем ГРАНИЦЫ блока, чтобы позже вычислить
+            # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
+            # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
+            # ВНУТРИ него. `if_derived` (для достижимости самих `if`)
+            # пополняется только когда блок выходит наружу или есть `else`.
+            _bend = _clike_block_end(body, m.end())
+            if_blocks.append((m.end(), _bend, cond, exits))
+            if exits or has_else:
+                if_derived.append(f"(not {cond})")
             pos = m.end()
         # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
         # дальнейшего кода. Без этого zls `alternate(..., len: u32)` с
@@ -4640,7 +4699,11 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             if "__" in d:
                 continue  # поле структуры (self.x -> self__x): значение неизвестно
             try:
-                sat_dz = _smt_sat(kernc, params, path_conds + [f"(= {d} 0)"])
+                # ДЕФЕКТ #318: условия берутся ПО ПОЗИЦИИ делителя.
+                _pos_d = dm.start()
+                sat_dz = _smt_sat(kernc, params,
+                                  path_conds + _clike_conds_at(_pos_d, if_blocks)
+                                  + [f"(= {d} 0)"])
             except Exception as _kern_e_3982:  # noqa: BLE001
                 _replay_soft(_kern_e_3982, "kern_contracts.py:3982")
                 continue
@@ -4711,7 +4774,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                     if loop_guarded:
                         continue  # границу задаёт цикл — не обвиняем (циклы не моделируем)
             try:
-                sat_neg = _smt_sat(kernc, params, path_conds + [f"(< {idxs} 0)"])
+                # ДЕФЕКТ #318 (та же причина, секция границ): условия — ПО ПОЗИЦИИ.
+                sat_neg = _smt_sat(kernc, params,
+                                   path_conds + _clike_conds_at(im.start(), if_blocks)
+                                   + [f"(< {idxs} 0)"])
             except Exception as _kern_e_4052:  # noqa: BLE001
                 _replay_soft(_kern_e_4052, "kern_contracts.py:4052")
                 continue
@@ -4737,7 +4803,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 if not _mentions_param(size_smt, params) or "__" in size_smt:
                     continue
                 try:
-                    sat_ov = _smt_sat(kernc, params, path_conds + [f"(> {size_smt} 2147483647)"])
+                    # ДЕФЕКТ #318: то же — условия ПО ПОЗИЦИИ вызова аллокации.
+                    sat_ov = _smt_sat(kernc, params,
+                                      path_conds + _clike_conds_at(am.start(), if_blocks)
+                                      + [f"(> {size_smt} 2147483647)"])
                 except Exception as _kern_e_4077:  # noqa: BLE001
                     _replay_soft(_kern_e_4077, "kern_contracts.py:4077")
                     continue

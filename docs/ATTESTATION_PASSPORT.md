@@ -1,6 +1,6 @@
 # KERN — АТТЕСТАЦИОННЫЙ ПАСПОРТ (проверенный)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->149 · cases <!-- fact:canfail_cases -->170 · anchors <!-- fact:anchors -->134 · registry <!-- fact:registry_targets -->188 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->149 · cases <!-- fact:canfail_cases -->170 · anchors <!-- fact:anchors -->134 · registry <!-- fact:registry_targets -->188 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Все числа проверены прогонами.** Где заявленное ранее расходилось с фактом —
 > указано в колонке «было заявлено». Ничего не принимается на слово.

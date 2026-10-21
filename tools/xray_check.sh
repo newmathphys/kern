@@ -61,6 +61,38 @@ C4=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/ovf_ok.c" 2>&1) |
 if echo "$C4" | grep -q 'OVERFLOW PATH. dup_ok'; then echo "[!] C: ЛОЖНОЕ обвинение malloc под if (len > 1000) return"; exit 1; fi
 echo "[OK] C-like B2: BOUNDS/OVERFLOW обвиняют без гарда и МОЛЧАТ с гардом (4/4)"
 
+# ДЕФЕКТ #318: ДЕЛЕНИЕ ПОД ГАРДОМ. Раньше `path_conds` складывал ТОЛЬКО
+# `(not cond)` — условие для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока, и
+# запрос получался `(x == 0) AND (x == 0)`: `if (x != 0) { y / x; }` объявлялся
+# делением на ноль. Теперь условия вычисляются ПО ПОЗИЦИИ операции.
+cat > "$TMPC/div_ok.c" <<'CEOF'
+int div_ok(int x, int y)
+{
+    if (x != 0)
+    {
+        if (y != 0)
+        {
+            return y / x;
+        }
+    }
+    return 0;
+}
+CEOF
+C5=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/div_ok.c" 2>&1) || true
+if echo "$C5" | grep -q 'CRASH PATH. div_ok'; then
+  echo "[!] C: ЛОЖНОЕ обвинение деления под if (x != 0) — дефект #318 вернулся"; exit 1
+fi
+# ПОЛОЖИТЕЛЬНЫЙ КОНТРОЛЬ: без гарда то же деление ОБЯЗАНО обвиняться.
+cat > "$TMPC/div_bad.c" <<'CEOF'
+int div_bad(int x, int y)
+{
+    return y / x;
+}
+CEOF
+C6=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/div_bad.c" 2>&1) || true
+echo "$C6" | grep -q 'CRASH PATH. div_bad' || { echo "[!] C: деление БЕЗ гарда НЕ обвинён — детектор ослеп"; exit 1; }
+echo "[OK] C-like #318: деление ПОД ГАРДОМ молчит, БЕЗ гарда — обвиняется (2/2)"
+
 # ПОЛНОСПЕКТРАЛЬНЫЙ ОБХОД (`--full-scan`): агрегатор + ЧЕСТНЫЙ авто-роутинг.
 # Требование: агрегатор обязан (а) собрать xray-находки, (б) прогнать anti-cheat,
 # (в) напечатать AUTO-ROUTE как «применимо, НО без контракта НЕ проверено»,

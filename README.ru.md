@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->149 · cases <!-- fact:canfail_cases -->170 · anchors <!-- fact:anchors -->134 · registry <!-- fact:registry_targets -->188 · META <!-- fact:meta_targets -->24 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->149 · cases <!-- fact:canfail_cases -->170 · anchors <!-- fact:anchors -->134 · registry <!-- fact:registry_targets -->188 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
@@ -686,7 +686,7 @@ make ci               # единый контур (12 стадий)
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->188 (CHECK <!-- fact:check_targets -->149 · MEASURE 1 · BUILD <!-- fact:build_targets -->10 · EXTERNAL 3 · META <!-- fact:meta_targets -->24) |
+| Целей всего | <!-- fact:registry_targets -->188 (CHECK <!-- fact:check_targets -->149 · MEASURE 1 · BUILD <!-- fact:build_targets -->10 · EXTERNAL 3 · META <!-- fact:meta_targets -->25) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->149/<!-- fact:check_targets -->149 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->170 (не-вакуумных <!-- fact:canfail_cases -->170 · вакуумных 0 · ошибок кейсов 0) |

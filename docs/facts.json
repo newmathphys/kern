@@ -8,7 +8,7 @@
  "mutation_sites": 1361,
  "mutation_files": 21,
  "registry_targets": 188,
- "meta_targets": 24,
+ "meta_targets": 25,
  "build_targets": 10,
  "cross_arch_passed": 394,
  "cross_arch_skipped": 8,
