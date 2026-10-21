@@ -539,3 +539,64 @@ the rest is skipped **with a stated reason** rather than silently passed.
 Loop invariants. Without them, index reasoning over loops cannot be sound; that
 is what `chc.zig` / `loop-check` exist for, and wiring them into `--auto` is the
 next real step (not a rename of an existing flag).
+
+## 17. More tools on large real projects (measured)
+
+### 17.1 `kernx graph` on the Zig standard library
+
+```
+$ kernx graph --root $ZIG/lib/std/math
+Zig std/math: 64 modules, 0 edges, hubs: [], SCC cycles: 0
+```
+
+Honest reading: the scanner finds the 64 files but **no internal edges**, because
+Zig's std modules import through `@import("std")` and relative paths that the
+current resolver does not follow outside the scanned root. The count of modules
+is real; the edge count is a **coverage limit**, not a property of the library.
+Filed as #310.
+
+### 17.2 `.kimg` container on a real project (zlib)
+
+```
+$ kernc pack-dir /tmp/kern-major-repos/zlib -o zlib_v1.kimg
+[OK] pack-dir: 271 файлов, 3627039 байт -> zlib_v1.kimg
+
+$ kernc fsck zlib_v1.kimg
+  версия 1.3 · hash_algo 1 · флаги 0x00000000 · объектов 271
+  проверено 271, ошибок 0                       RC=0
+
+$ kernc inspect zlib_v1.kimg
+  {"version":"1.3","object_count":271,"objects":[{"path":"zutil.h",
+   "uncompressed_size":8512,"digest":"5be79538c205ccc875918d91ac7ad081..."}, ...]}
+```
+
+A whole C library (3.6 MB, 271 files) packed into one image and verified object
+by object. This is the same command that packed the external `zig-clap` clone.
+
+### 17.3 SARIF export
+
+```
+$ make sarif-check
+[OK] SARIF 2.1.0 валиден: 1 находок, 4 правил, координаты (uri + startLine) на месте
+```
+
+The findings KERN produces can be emitted as SARIF 2.1.0, which is what the
+GitHub Security tab consumes.
+
+### 17.4 What is still missing on the nine-tool plan
+
+| Tool | Status on large projects |
+|---|---|
+| `--auto` zero-annotation | done (division by zero, index bounds); **overflow and `assert` not yet wired** |
+| `--diff-equiv` on real pairs | done on a live model refactoring; **not** run on two real revisions of a library function |
+| `explain --hypotheses` on external functions | done on our corpus; **not** run on zlib/Zig std |
+| CHC / `loop-check` | exists as a gate; **not** connected to `--auto` (this is what the candidate warnings in 16 need) |
+| `trace_explorer` on Python projects | done on boltons (3/3 explored) |
+| `kernx graph` | done on KERN (88/70) and zig-clap (12/1); Zig std = 64/0 (see 17.1) |
+| `.kimg` + `fsck` + `inspect` + `diff` | done on zig-clap and zlib |
+| Belnap ledger / lock / `[VACUOUS]` | covered by `conformance-check` and the live-model experiments |
+| SARIF | done (17.3) |
+
+Stated plainly: four of the nine directions were exercised on large external
+projects in this run, the rest are either already covered by in-repo gates or
+still open - and the open ones are named above rather than implied to be done.
