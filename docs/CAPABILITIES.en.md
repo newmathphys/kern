@@ -147,7 +147,10 @@ The difference is the price of checking integrity on every read.
 ```
 Model: 3 transmission attempts, channel reliability 0.9
 Question: P(total failure)?
-Answer:   P = 0.1³ = 0.001   (exact, not "approximately")
+Answer:   P = 0.1³ = 0.001   (f64 with a 1e-9 tolerance: in binary floating point
+                          0.1³ is 0.0010000000000000002, that is NOT 0.001.
+                          The exact identity 1/10³ = 1/1000 holds only in
+                          RATIONAL arithmetic — see defect #328)
 ```
 Both the threshold (`P ≤ 0.001`) and the reachability of the failure state are checked.
 
@@ -258,7 +261,7 @@ reproduces it. The difference between "written" and "proven" is the subject of t
 | 5 | Code synthesis (CEGIS) | ✅ `(bvshl x 3)`, verified |
 | 6 | Integrity + portability | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (2026-10-19); access **0.0006 ms** |
 | 7 | ReDoS / Path Traversal | ✅ counterexamples found |
-| 8 | Probabilities (DTMC) | ✅ 0.1³ = 0.001 exactly |
+| 8 | Probabilities (DTMC) | ✅ 0.1³ = 0.001 in f64 with a 1e-9 tolerance (exact only in rational arithmetic, #328) |
 | 9 | Constant-Time | ⚠️ in practice ~1.0×, test threshold 3.0 |
 | 10 | Loops (Abstract Interp) | ✅ `[0,9]` without Z3 |
 | 11 | Weak memory models | ✅ 0 forbidden outcomes |
