@@ -1763,6 +1763,21 @@ def case_arith_semantics():
     return "make arith-semantics-check"
 
 
+def case_c_types():
+    """#321 SABOTAGE: канонизация ТИПА ВОЗВРАТА убрана.
+
+    ЛОМАЕМ: `ret` снова берётся сырым, поэтому `ret = "unsigned int"` не
+    находится в `TYPE_RANGE`, обязанность переполнения молча снимается, и
+    заворачивающая функция `u32_add` получает `ДОКАЗАНО`.
+    `make c-types-check` обязан покраснеть. Если кейс вакуумный — значит гейт
+    не проверяет то, что заявляет.
+    """
+    patch("tools/kern_contracts.py",
+          '        if lang == "c":\n            ret = C_MACHINE_TYPES.get(ret, ret)\n',
+          '')
+    return "make c-types-check"
+
+
 def case_llms_drift():
     """#311 SABOTAGE: генератор печатает УСТАРЕВШЕЕ число.
 
@@ -2932,6 +2947,8 @@ CASES = [
      case_llms_drift),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
+    ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
+     case_c_types),
     ("arith-zig-ref", "Adapters diverge from Zig @divTrunc/@divFloor -> gate red",
      case_arith_zig_ref),
     ("hypotheses-write", "Explanation writes to the source -> gate red",

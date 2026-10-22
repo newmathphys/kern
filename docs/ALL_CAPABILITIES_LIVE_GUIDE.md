@@ -6,7 +6,7 @@
 
 Run: `make demo-all`
 
-> Facts (synced by `make sync`): core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->149 · cases <!-- fact:canfail_cases -->170 · anchors <!-- fact:anchors -->134 · registry <!-- fact:registry_targets -->188 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> Facts (synced by `make sync`): core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->150 · cases <!-- fact:canfail_cases -->171 · anchors <!-- fact:anchors -->135 · registry <!-- fact:registry_targets -->189 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 ## 1-2. Overflow and division by zero: KERN verdict + real compilers
 

@@ -19,7 +19,7 @@ error, and a measured list of open limitations.
 | **Release v2.6.3** | signed tag; release published with **4 assets including `kern.intoto.jsonl` and `.sig`** — the attestation is attached for the first time |
 | **Letter to the reporter** | sent by the operator (M. Brighindi, who reported #317) |
 
-Registry: **<!-- fact:registry_targets -->188 targets · <!-- fact:check_targets -->149 CHECK · <!-- fact:canfail_cases -->170 can-fail cases** (all CHECK targets have
+Registry: **<!-- fact:registry_targets -->189 targets · <!-- fact:check_targets -->150 CHECK · <!-- fact:canfail_cases -->171 can-fail cases** (all CHECK targets have
 a non-vacuous case).
 
 ### The new defect this cycle starts with
@@ -74,7 +74,7 @@ be opened for it.
 |:--|:--|:--|:--|
 | **1** | Operator: revoke the token exposed in chat; store the new one in `~/.config/kern/gh_token` (mode 600) | token absent from all tracked files; `secrets-check` 0 findings | — |
 | **2** | **Fix #320**: correct the claim in `SHADOW_AUDIT_EXAMPLE.md` and commit the harness that produced the numbers | the withdrawn claim appears **only inside the correction block** (never as a bare verdict); `docs/evidence/prime_sieve/reproduce.sh` reproduces every number in the table | — |
-| **3** | **#312** — the C extractor accepts only `int` parameters | a `cJSON` function with an `unsigned int` parameter is no longer `SKIP`; `codecheck` shows no regression; new CHECK + canfail | if widening the types breaks the proof checker on >2 fixtures, stage it: `size_t` first, then `unsigned`, then `long` |
+| **3** | **#312 + #321** — the C extractor accepts only `int` parameters | ✅ **DONE** — `unsigned int`, `long long`, `unsigned long`, `unsigned short`, `unsigned char`, `int32_t`, `size_t`, … all receive verdicts; the **return type** is canonicalised too (#321 had made the overflow obligation vanish silently); `char`/`float` SKIP with a reason. Gate `make c-types-check` + non-vacuous case `c-types` (both sabotages verified red). Ground truth: `gcc` → `4294967295 + 1 = 0`, contract violated | — |
 | **4** | **#315** — `while` invariants (wire `chc.zig` into `--auto`) | `bisect.py` / `statistics.py`: either **0 candidates with a proof**, or a confirmed counterexample | **if the rule cannot be made sound — do not ship it.** Soundness outranks completeness |
 | **5** | **#310** — `kernx graph` does not resolve imports outside the scanned root | on `lib/std/math` the edge count is **> 0**; `graph-parity` stays green | if resolution needs the whole `std` tree, document it as a boundary instead |
 | **6** | Self-application: triage the **4 `[CRASH PATH]` + 15 `[BOUNDS PATH]`** candidates in our own code | each classified: false → fix + test; real → journal entry | — |

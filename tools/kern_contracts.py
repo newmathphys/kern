@@ -1343,6 +1343,33 @@ def _expand_go_params(raw: str) -> str:
     return ", ".join(out)
 
 
+C_TYPE_WORDS = {"const", "volatile", "unsigned", "signed", "long", "short",
+                "int", "char", "float", "double", "void", "_Bool", "bool"}
+
+# ДЕФЕКТ #312: `TYPE_RANGE` знал `unsigned`/`size_t`/`long`, но ПАРСЕР требовал
+# ровно ОДНО слово до имени, поэтому `unsigned int c` давал SKIP, а `size_t a`
+# работал. Машинные типы C бывают многословными — канонизируем их к ключу
+# `TYPE_RANGE`. `long` = i64 предполагает **LP64**; на LLP64 (Windows) `long`
+# 32-битный, но Windows KERN не поддерживает (`docs/PLATFORMS.md`), и это
+# записано явно, а не спрятано.
+C_MACHINE_TYPES = {
+    "int": "int", "signed": "int",
+    "unsigned": "unsigned", "unsigned int": "unsigned",
+    "long": "long", "long int": "long", "signed long": "long",
+    "long long": "i64", "long long int": "i64",
+    "unsigned long": "u64", "unsigned long int": "u64",
+    "unsigned long long": "u64", "unsigned long long int": "u64",
+    "short": "i16", "short int": "i16",
+    "unsigned short": "u16", "unsigned short int": "u16",
+    "signed char": "i8", "unsigned char": "u8",
+    "int8_t": "i8", "uint8_t": "u8", "int16_t": "i16", "uint16_t": "u16",
+    "int32_t": "int32_t", "uint32_t": "uint32_t",
+    "int64_t": "int64_t", "uint64_t": "uint64_t",
+    "size_t": "size_t", "ssize_t": "long", "ptrdiff_t": "long",
+    "intptr_t": "long", "uintptr_t": "u64",
+}
+
+
 def clike_params(raw: str, lang: str):
     """Разобрать список параметров C-подобной функции -> [(имя, тип)]."""
     if lang == "go":
@@ -1353,10 +1380,23 @@ def clike_params(raw: str, lang: str):
         if not part or part == "void":
             continue
         if lang == "c":
-            m = re.match(r"^(?:const\s+)?([A-Za-z_]\w*)\s+\**([A-Za-z_]\w*)$", part)
-            if m:
-                out.append((m.group(2), m.group(1)))
-                continue
+            # ДЕФЕКТ #312: разбираем по токенам, а не «одно слово до имени» —
+            # иначе `unsigned int c` и `long long x` отвергались как SKIP.
+            toks = part.replace("*", " ").split()
+            if not toks:
+                raise Unsupported(f"параметр c: {part!r}")
+            if toks[-1] in C_TYPE_WORDS:
+                raise Unsupported(f"параметр c без имени: {part!r}")
+            typ = " ".join(t for t in toks[:-1] if t not in ("const", "volatile"))
+            key = C_MACHINE_TYPES.get(typ)
+            if key is None:
+                raise Unsupported(
+                    f"тип c {typ!r}: поддерживаются целые машинные типы "
+                    f"(`int`, `unsigned int`, `long long`, `size_t`, `uint32_t`, …); "
+                    f"вещественные типы и `char` — нет (`char` намеренно: его "
+                    f"знаковость зависит от реализации)")
+            out.append((toks[-1], key))
+            continue
         elif lang == "go":
             m = re.match(r"^([A-Za-z_]\w*)\s+([A-Za-z_]\w*)$", part)
             if m:
@@ -1859,7 +1899,16 @@ def parse_clike(path: Path, require_annotations: bool = True):
         # ДЕФЕКТ #180: у `pub(crate) … -> Result<…>` захват возвращаемого типа
         # может содержать пробелы — без strip `TYPE_RANGE[ret]` не находился,
         # и обязательство ПЕРЕПОЛНЕНИЯ для Rust молча пропускалось.
-        meta = {"ranges": {}, "ret": (ret or "").strip()}
+        #
+        # ДЕФЕКТ #321 (тот же класс, C): тип возврата бывает МНОГОСЛОВНЫМ
+        # (`unsigned int`, `long long`). `TYPE_RANGE` знает только канонические
+        # ключи, поэтому `ret = "unsigned int"` НЕ находился, обязанность
+        # переполнения молча снималась, и функция с настоящим переполнением
+        # получала `ДОКАЗАНО`. Канонизируем так же, как параметры (#312).
+        ret = (ret or "").strip()
+        if lang == "c":
+            ret = C_MACHINE_TYPES.get(ret, ret)
+        meta = {"ranges": {}, "ret": ret}
         ret = meta["ret"]
         req = ens = None
         ens_cls = "hard"
@@ -3292,6 +3341,21 @@ def _demo(args) -> int:
                 print(f"  {name} (стр. {ln}): SKIP — {skip_reason or 'вне подмножества'}")
                 f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
                                 "reason": skip_reason or "вне подмножества"})
+                skipped += 1
+                continue
+            # ДЕФЕКТ #321 (остаток): тип возврата ВНЕ целочисленного подмножества
+            # (`float`, `double`, `char`). Обязанность переполнения к нему
+            # неприменима, а контракт в Int-теории был бы МОДЕЛЬЮ, а не фактом.
+            # Молча пропускать нельзя — это класс ложного ДОКАЗАНО, поэтому в
+            # контрактном пути функция честно уходит в SKIP. В режиме `--xray`
+            # тип возврата не важен (ищутся краш-пути) — там поведение прежнее.
+            _ret = meta.get("ret")
+            if (not args.xray and p.suffix in CLIKE_EXT and _ret
+                    and _ret != "void" and _ret not in TYPE_RANGE):
+                print(f"  {name} (стр. {ln}): SKIP — тип возврата {_ret!r} "
+                      f"вне целочисленного подмножества")
+                f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
+                                "reason": f"тип возврата {_ret!r} вне подмножества"})
                 skipped += 1
                 continue
             forced_bv = ("@kern:bitvec32" in ftext) or ("@kern:bitvec64" in ftext)
