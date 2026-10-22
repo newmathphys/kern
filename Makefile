@@ -696,6 +696,14 @@ c-types-check:
 div-guards-check:
 	@$(PYTHON) tools/div_guards_check.py
 
+# ШАГ B (v2.7.0): СИСТЕМНЫЙ аудит числовых утверждений. `metrics-guard` знает
+# СПИСОК поверхностей и конкретные форматы; дефект #320 показал границу такого
+# подхода — утверждение без правила дрейфует молча. Этот гейт сканирует ВСЕ
+# отслеживаемые .md/.html и сравнивает распознанные числа с facts.json.
+# История (CHANGELOG/METRICS/CAPABILITY_STATUS/archive) пропускается.
+claims-audit:
+	@$(PYTHON) tools/claims_audit.py
+
 # ДЕФЕКТ #317: адаптеры деления против НЕЗАВИСИМОГО эталона — встроенных
 # операций Zig (@divTrunc/@divFloor). Фикстура: tests/fixtures/zig_div_reference.tsv.
 arith-zig-ref-check:

@@ -1795,6 +1795,19 @@ def case_div_guards():
     return "make div-guards-check"
 
 
+def case_claims_audit():
+    """ШАГ B SABOTAGE: числовое утверждение в документе расходится с фактом.
+
+    ЛОМАЕМ: подставляем в `docs/PROJECT.md` устаревшее «32 теоремы в 7 файлах»
+    вместо «143 в 8» — ровно то, что шаг A2 нашёл руками. `make claims-audit`
+    обязан покраснеть. Если кейс вакуумный — гейт не проверяет то, что заявляет.
+    """
+    patch("docs/PROJECT.md",
+          "| **L5** — формальные доказательства | **143 теоремы в 8 файлах** Lean 4, 0 `sorry` |",
+          "| **L5** — формальные доказательства | **32 теоремы в 7 файлах** Lean 4, 0 `sorry` |")
+    return "make claims-audit"
+
+
 def case_llms_drift():
     """#311 SABOTAGE: генератор печатает УСТАРЕВШЕЕ число.
 
@@ -2971,6 +2984,8 @@ CASES = [
      case_c_types),
     ("div-guards", "Divisor obligation ignores active guards -> gate red",
      case_div_guards),
+    ("claims-audit", "Stale numeric claim in a document -> gate red",
+     case_claims_audit),
     ("arith-zig-ref", "Adapters diverge from Zig @divTrunc/@divFloor -> gate red",
      case_arith_zig_ref),
     ("hypotheses-write", "Explanation writes to the source -> gate red",

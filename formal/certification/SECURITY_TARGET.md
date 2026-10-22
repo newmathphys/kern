@@ -40,7 +40,7 @@
 |:--|:--|:--|:--|
 | SAR-1 | Управление конфигурацией | Git, подписанные коммиты (Ed25519) | `git log --show-signature` |
 | SAR-2 | Воспроизводимая сборка | статический musl, бит-в-бит | `zig build hermetic` (sha256 совпал) |
-| SAR-3 | Тестирование | 188 тестов ядра + 25 KERN-Next + 3 fault | `zig build test`, `test-next`, `test-fault` |
+| SAR-3 | Тестирование | 402 теста ядра + 53 KERN-Next + 3 fault | `zig build test`, `test-next`, `test-fault` |
 | SAR-4 | Анализ уязвимостей | фаззинг, мутации 100 %, лавина хэша | `tools/mutate_zig.py`, `cache_avalanche_bench.py` |
 | SAR-5 | Формальные методы (ADV_SPM) | 7 файлов Lean 4, 0 `sorry` | `./formal/check.sh` |
 | SAR-6 | Трассируемость | матрица TOR → тесты | `TRACEABILITY_MATRIX.md` (53/53) |
