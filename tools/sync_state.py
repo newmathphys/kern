@@ -56,6 +56,9 @@ SURFACES = (
     # кто-то обновляет, обязан быть в списке тех, кого обновляют.
     "docs/ALL_CAPABILITIES_LIVE_GUIDE.md",
     "docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md",
+    # ДЕФЕКТ #320: план цикла содержит якоря (реестр/CHECK/кейсы), значит обязан
+    # быть в списке тех, кого обновляют, — иначе `sync --check` честно падает.
+    "docs/PLAN_v2.6.4.md",
 )
 ANCHOR = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->\s*(\d+)")
 ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")

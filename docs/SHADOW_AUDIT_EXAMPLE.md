@@ -142,24 +142,50 @@ C file, no annotations. Four candidates came out; each was then checked by hand.
 
 | Finding | File | Verdict after review |
 |:--|:--|:--|
-| `off-by-one: i <= size` in `count` | `prime_sieve.c:44` | **REAL logic defect** |
+| `off-by-one: i <= size` in `count` | `prime_sieve.c:44` | **AMBIGUOUS CONTRACT, not a defect** — the doc block says "upto which" (inclusive) while the test comment says "array size" (exclusive); the test uses `size = 10`, the one value that cannot distinguish them. See below and defect **#320** |
 | `off-by-one: i <= MAX_SIZE` | `prime_sieve.c:23` | not a memory error — `int arr[1000005]` is oversized for `MAX_SIZE = 1000000` |
 | `off-by-one: j <= MAX_SIZE` | `prime_sieve.c:27` | same: index reaches 1000000, the array holds 0..1000004 |
 | `division by zero: x == 0` | `cartesian_to_polar.c` | **FALSE ALARM** — the division is under `if (x != 0)` (line 28, division on line 32); this is defect **#318** |
 
-### The real one: `count` reads one element past its documented range
+### Correction (defect #320): this candidate was **withdrawn**
 
-`prime_sieve.c:44` is `for (int i = 0; i <= size; i++)` while the parameter is
-documented as the array size. The array in the test is oversized
-(`int arr[1000005]`), so this is **not** a buffer overflow — but the count is
-wrong whenever the element at `arr[size]` happens to be 1:
+An earlier revision of this document called `prime_sieve.c:44` a **REAL logic
+defect** and printed `count(arr, size=10) = 5`. Re-running the check against the
+**real** prime array produced by the same program does not support that:
 
-```text
-count(arr, size=10) = 5    # four 1s inside 0..9 plus one at arr[10]
-                           # the documented contract is "count within size"
+```
+indices:  0=0 1=0 2=1 3=1 5=1 7=1 10=0 11=1 13=1
+count(arr, 3)       = 2      vs "first 3 elements"       = 1      DIFFER
+count(arr, 7)       = 4      vs "first 7"                = 3      DIFFER
+count(arr, 10)      = 4      vs "first 10"               = 4      same   <- the test uses 10
+count(arr, 11)      = 5      vs "first 11"               = 4      DIFFER
+count(arr, 13)      = 6      vs "first 13"               = 5      DIFFER
+count(arr, 97)      = 25     vs "first 97"               = 24     DIFFER
+count(arr, 1000000) = 78498  vs "first 1000000"          = 78498  same
 ```
 
-Verified by compiling the function verbatim with `gcc` and calling it.
+The `5` came from a **synthetic** array (with `arr[10] = 1`), not from the real
+one. On the real array `count(arr, 10) = 4`, because 10 is not prime.
+
+Worse, the source is **self-contradictory about the contract**:
+
+| Where | Wording | Reading |
+|:--|:--|:--|
+| doc block of `count` | `@param size denotes **upto which** prime numbers are to be found out` | **inclusive** → `i <= size` is **correct** |
+| test comment | `const int size = 10; /* **array size** */` | **exclusive** → off-by-one |
+
+The two readings differ exactly when `size` is itself prime — and the test happens
+to use `size = 10`, which is not. So the test **cannot** detect the difference, and
+the code is not demonstrably wrong under its own documentation.
+
+**Verdict: an ambiguous contract, not a defect.** No upstream report will be
+opened for it. The harness that produced the table above is committed at
+[`../docs/evidence/prime_sieve/`](../docs/evidence/prime_sieve/) so the numbers can
+be re-derived instead of believed.
+
+This is the reason for principle 7 in [`PLAN_v2.6.4.md`](PLAN_v2.6.4.md): a numeric
+claim in a document must ship with a harness that reproduces it.
+
 
 ### The false alarm, honestly reported
 
