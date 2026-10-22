@@ -1,0 +1,17 @@
+=== KERN EVIDENCE: thealgorithms_c ===
+=== команда: gcc -O0 math/catalan.c; echo N | ./catalan ===
+=== дата: 2026-10-21T18:37:14Z ===
+
+# upstream: e5dad3fa8def3726ec850ca66a7f51521f8ad393 math/catalan.c
+
+n=0   -> out=<нет вывода> rc=136
+n=1   -> out=1.00 rc=0
+n=5   -> out=42.00 rc=0
+n=10  -> out=16796.00 rc=0
+n=11  -> out=-65.00 rc=0
+n=12  -> out=-2.00 rc=0
+n=13  -> out=0.00 rc=0
+n=20  -> out=0.00 rc=0
+
+# истинные значения Catalan: 1 1 2 5 14 42 132 429 1430 4862 16796 58786 208012 742900
+RC=1 (n=0 даёт SIGFPE)

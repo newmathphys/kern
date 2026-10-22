@@ -1,0 +1,6 @@
+opencode/deepseek-v4.1-flash-free          DIVERGED    rc=1 [КОНТРПРИМЕР] x = 0, res_new = -1, hi = -1, res_ol
+opencode/glm-5.3-flash-free                EQUIVALENT  rc=0 
+opencode/mimo-v2.6-flash-free              DIVERGED    rc=1 [КОНТРПРИМЕР] x = 0, res_new = -1, hi = -1, res_ol
+opencode/minimax-m3.1-flash-free           NOFILE
+opencode/nemotron-3.5-lightning-free       DIVERGED    rc=1 [КОНТРПРИМЕР] x = 0, res_new = -1, hi = -1, res_ol
+DONE

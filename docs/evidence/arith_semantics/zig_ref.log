@@ -1,0 +1,12 @@
+=== KERN EVIDENCE: arith_zig_ref ===
+=== команда: python3 tools/arith_zig_ref_check.py ===
+=== дата: 2026-10-21T19:22:43Z ===
+
+[i] пар из эталона Zig: 1640 (a,b в [-20,20], b != 0; @divTrunc/@divFloor/@divCeil)
+[i] _floor_div_smt vs Zig @divFloor : расхождений 0
+[i] _trunc_div_smt vs Zig @divTrunc : расхождений 0
+[i] Python `a // b` vs Zig @divFloor: расхождений 0 (контроль диагноза #317)
+
+[OK] адаптеры #317 подтверждены НЕЗАВИСИМЫМ эталоном Zig: 1640 пар, 0 расхождений (floor и trunc)
+
+RC=0

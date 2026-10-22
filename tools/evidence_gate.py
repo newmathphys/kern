@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -74,6 +75,24 @@ def main() -> int:
         return 1
 
     logs = sorted(EV.glob("*.log"))
+
+    # ДЕФЕКТ #330: `docs/evidence/*.log` в .gitignore покрывал ТОЛЬКО верхний
+    # уровень, поэтому 46 логов в подкаталогах (`div_guards/`, `leaderboard/`,
+    # `live_eval/`, …) НЕ попадали в репозиторий, хотя документация на них
+    # ссылалась. Лог, которого нет в git, — не свидетельство: внешний аудитор
+    # его не получит. Требуем, чтобы КАЖДЫЙ файл под docs/evidence/ был
+    # отслеживаемым (рекурсивно).
+    tracked = subprocess.run(["git", "ls-files", "docs/evidence/"],
+                             cwd=ROOT, capture_output=True, text=True)
+    tracked_set = set(tracked.stdout.split())
+    untracked = []
+    for path in sorted(EV.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        if rel not in tracked_set:
+            untracked.append(rel)
+
     if not logs:
         print("[!] в docs/evidence/ нет .log файлов")
         return 1
@@ -156,6 +175,17 @@ def main() -> int:
         print("\nИНВАРИАНТ: каждый опубликованный лог обязан заканчиваться RC=0")
         return 1
     print("ВСЕ ЧИСТЫЕ: ни одного лога с RC!=0; canfail.log — 0 вакуумных")
+    if untracked:
+        print(f"\nНЕ ОТСЛЕЖИВАЕТСЯ GIT: {len(untracked)} файл(ов) под docs/evidence/")
+        for u in untracked[:15]:
+            print(f"  - {u}")
+        if len(untracked) > 15:
+            print(f"  … и ещё {len(untracked) - 15}")
+        print("\nИНВАРИАНТ (дефект #330): свидетельство, которого нет в git, —")
+        print("не свидетельство: внешний аудитор его не получит. Проверьте")
+        print("исключения в .gitignore (нужно `!docs/evidence/**/*.log`, а не")
+        print("только `!docs/evidence/*.log`).")
+        return 1
     if manual:
         print(f"  (сняты вручную, без заголовка сборщика: {len(manual)} — "
               f"{', '.join(manual)})")

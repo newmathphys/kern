@@ -1,0 +1,11 @@
+=== KERN EVIDENCE: defect_318 ===
+=== команда: python3 tools/kern_contracts.py --xray <файл> ===
+=== дата: 2026-10-21T19:34:50Z ===
+
+guarded_div_single     0 CRASH PATH
+guarded_div_nested     0 CRASH PATH
+unguarded_div          1 CRASH PATH
+
+# ожидание: гард (одиночный и вложенный) -> 0; без гарда -> 1
+# до починки ВСЕ ТРИ давали 1 (ложное обвинение гарда)
+RC=0

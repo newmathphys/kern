@@ -1,0 +1,12 @@
+==========================================================================
+KERN: контракты из комментариев (@kern:requires / @kern:ensures)
+==========================================================================
+  [PASS] tax_15_percent: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 41 | premises bound: 3/4 | mp: 8 | rewrite (linear): 9 | farkas: 0 | trusted: 4 | holes: 0
+  [FAIL] split_bill_unguarded: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: people)
+         [КОНТРПРИМЕР] total = 0, people = 0
+  [PASS] split_bill_guarded: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 54 | premises bound: 4/5 | mp: 9 | rewrite (linear): 6 | farkas: 0 | trusted: 3 | holes: 0
+--------------------------------------------------------------------------
+ИТОГО: доказано 2 | T_advisory 0 | нарушено 1 (из них безопасность: 1) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 3
+RC=1

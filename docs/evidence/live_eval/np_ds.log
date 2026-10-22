@@ -1,0 +1,22 @@
+[0m
+> build · deepseek-v4.1-flash-free
+[0m
+[0m$ [0mls -la /tmp/kern-natural-eval && mkdir -p /tmp/kern-natural-eval/out
+итого 32
+drwxr-xr-x  4 mrbritneyxxx mrbritneyxxx  240 окт 21 14:38 .
+drwxrwxrwt 42 root         root         6360 окт 21 14:39 ..
+drwxr-xr-x  5 mrbritneyxxx mrbritneyxxx  200 окт 21 14:38 out
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  506 окт 21 14:36 p_ds.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  434 окт 21 14:38 pg_ds.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  501 окт 21 14:36 p_glm.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  920 окт 21 14:38 pnp_ds.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  408 окт 21 14:38 prompt_gcd.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  894 окт 21 14:38 prompt_np_blind.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  520 окт 21 14:36 prompt_t1.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  480 окт 21 14:36 prompt_t5.txt
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  160 окт 21 14:38 transcripts
+[0m
+[0m← [0mWrite out/np_blind_deepseek.py
+Wrote file successfully.
+[0m
+DONE.

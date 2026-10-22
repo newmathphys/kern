@@ -1,0 +1,4 @@
+=== gcc -O0 verify_c.c ===
+cJSON hex_digit_unguarded(c=103 = 'g') -> result = 55
+contract result <= 15 : VIOLATED
+RC=1

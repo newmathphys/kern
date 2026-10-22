@@ -1,0 +1,10 @@
+=== KERN EVIDENCE: math_sweep ===
+=== команда: python3 tools/kern_contracts.py --xray <TheAlgorithms/C/math> ===
+=== дата: 2026-10-21T19:05:27Z ===
+
+ /tmp/kern-any/C/math/cartesian_to_polar.c: [CRASH PATH] to_polar: возможно деление на ноль: x == 0
+ /tmp/kern-any/C/math/prime_sieve.c: [BOUNDS PATH] count: off-by-one: `i <= size` разрешает индекс == длине (i = size), а i[size] уже за концом
+ /tmp/kern-any/C/math/prime_sieve.c: [BOUNDS PATH] prime_sieve.c: off-by-one: `i <= MAX_SIZE` разрешает i == MAX_SIZE (ровно ёмкость) -> запись за границу
+ /tmp/kern-any/C/math/prime_sieve.c: [BOUNDS PATH] prime_sieve.c: off-by-one: `j <= MAX_SIZE` разрешает j == MAX_SIZE (ровно ёмкость) -> запись за границу
+
+RC=0

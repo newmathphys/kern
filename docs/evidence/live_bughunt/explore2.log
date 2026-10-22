@@ -1,0 +1,226 @@
+  [s2] maths__abs             EXPLORED   37  lines=7/18    нет расхождения на 37 входах
+  [s2] maths__addition_without_arithmetic EXPLORED  250  lines=5/25    нет расхождения на 250 входах
+  [s2] maths__aliquot_sum     EXPLORED   31  lines=5/42    нет расхождения на 31 входах
+  [s2] maths__allocation_number EXPLORED  250  lines=12/33   нет расхождения на 250 входах
+  [s2] maths__arc_length      EXPLORED  250  lines=1/10    нет расхождения на 250 входах
+  [s2] maths__area            EXPLORED  250  lines=3/26    нет расхождения на 250 входах
+  [s2] maths__area_under_curve EXPLORED  250  lines=2/39    нет расхождения на 250 входах
+  [s2] maths__autocorrelation EXPLORED  250  lines=10/32   нет расхождения на 250 входах
+  [s2] maths__average_absolute_deviation EXPLORED   37  lines=4/23    нет расхождения на 37 входах
+  [s2] maths__average_mean    EXPLORED   37  lines=3/19    нет расхождения на 37 входах
+  [s2] maths__average_median  EXPLORED   37  lines=7/28    нет расхождения на 37 входах
+  [s2] maths__average_mode    EXPLORED   60  lines=5/23    нет расхождения на 60 входах
+  [s2] maths__bailey_borwein_plouffe EXPLORED   29  lines=4/55    нет расхождения на 29 входах
+  [s2] maths__base_neg2_conversion EXPLORED   27  lines=10/31   нет расхождения на 27 входах
+  [s2] maths__basic_maths     EXPLORED   31  lines=13/26   нет расхождения на 31 входах
+  [s2] maths__bearing         EXPLORED  250  lines=19/59   нет расхождения на 250 входах
+  [s2] maths__binary_exponentiation EXPLORED  250  lines=7/34    нет расхождения на 250 входах
+  [s2] maths__binary_multiplication EXPLORED  250  lines=7/36    нет расхождения на 250 входах
+  [s2] maths__binomial_coefficient EXPLORED  250  lines=11/55   нет расхождения на 250 входах
+  [s2] maths__binomial_distribution EXPLORED  250  lines=10/26   нет расхождения на 250 входах
+  [s2] maths__binomial_expansion EXPLORED    0  lines=0/0     не загрузить (импорт/декораторы)
+  [s2] maths__ceil            EXPLORED   38  lines=1/13    нет расхождения на 38 входах
+  [s2] maths__chebyshev_distance EXPLORED  250  lines=3/20    нет расхождения на 250 входах
+  [s2] maths__check_polygon   EXPLORED   37  lines=6/38    нет расхождения на 37 входах
+  [s2] maths__chinese_remainder_theorem EXPLORED  250  lines=5/14    нет расхождения на 250 входах
+  [s2] maths__cholesky_decomposition EXPLORED    0  lines=0/0     не загрузить (импорт/декораторы)
+  [s2] maths__chudnovsky_algorithm EXPLORED   29  lines=15/51   нет расхождения на 29 входах
+  [s2] maths__collatz_sequence EXPLORED   31  lines=0/39    нет расхождения на 31 входах
+  [s2] maths__combinations    EXPLORED  250  lines=7/36    нет расхождения на 250 входах
+  [s2] maths__continued_fraction EXPLORED   27  lines=9/39    нет расхождения на 27 входах
+  [s2] maths__decimal_isolate EXPLORED  250  lines=3/26    нет расхождения на 250 входах
+  [s2] maths__decimal_to_fraction EXPLORED   65  lines=18/52   нет расхождения на 65 входах
+  [s2] maths__derangement     EXPLORED   27  lines=12/35   нет расхождения на 27 входах
+  [s2] maths__digital_root    EXPLORED   42  lines=4/26    нет расхождения на 42 входах
+  [s2] maths__disarium        EXPLORED   27  lines=5/18    нет расхождения на 27 входах
+  [s2] maths__dodecahedron    EXPLORED   51  lines=3/29    нет расхождения на 51 входах
+  [s2] maths__double_factorial EXPLORED   27  lines=4/25    нет расхождения на 27 входах
+  [s2] maths__dual_number_automatic_differentiation EXPLORED  250  lines=2/34    нет расхождения на 250 входах
+  [s2] maths__ear_clipping_polygon_triangulation EXPLORED  250  lines=1/37    нет расхождения на 250 входах
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+1.0
+1.0
+0.0
+1.0
+1.0
+0.0
+2.0
+2.0
+0.0
+2.0
+2.0
+0.0
+2.0
+2.0
+0.0
+2.0
+2.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+2.0
+2.0
+0.0
+2.0
+2.0
+0.0
+3.0
+3.0
+0.0
+3.0
+3.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+1.0
+1.0
+0.0
+1.0
+1.0
+0.0
+1.0
+1.0
+0.0
+1.0
+1.0
+0.0
+1.0
+1.0
+0.0
+1.0
+1.0
+1.0
+2.0
+0.0
+1.0
+2.0
+0.0
+1.0
+2.0
+1.0
+1.0
+2.0
+1.0
+1.0
+2.0
+1.0
+1.0
+2.0
+1.0
+1.0
+1.0
+0.0
+1.0
+1.0
+0.0
+1.0
+2.0
+1.0
+1.0
+2.0
+1.0
+  [s2] maths__entropy         EXPLORED   23  lines=21/76   нет расхождения на 23 входах
+  [s2] maths__euclidean_distance EXPLORED    0  lines=0/0     не загрузить (импорт/декораторы)
+  [s2] maths__euler_method    EXPLORED    0  lines=0/0     не загрузить (импорт/декораторы)
+  [s2] maths__euler_modified  EXPLORED    0  lines=0/0     не загрузить (импорт/декораторы)
+  [s2] maths__eulers_totient  EXPLORED   27  lines=15/34   нет расхождения на 27 входах
+  [s2] maths__extended_euclidean_algorithm EXPLORED  250  lines=16/52   нет расхождения на 250 входах
+maths__abs                                     EXPLORED     37  нет расхождения на 37 входах
+maths__addition_without_arithmetic             EXPLORED    250  нет расхождения на 250 входах
+maths__aliquot_sum                             EXPLORED     31  нет расхождения на 31 входах
+maths__allocation_number                       EXPLORED    250  нет расхождения на 250 входах
+maths__arc_length                              EXPLORED    250  нет расхождения на 250 входах
+maths__area                                    EXPLORED    250  нет расхождения на 250 входах
+maths__area_under_curve                        EXPLORED    250  нет расхождения на 250 входах
+maths__autocorrelation                         EXPLORED    250  нет расхождения на 250 входах
+maths__average_absolute_deviation              EXPLORED     37  нет расхождения на 37 входах
+maths__average_mean                            EXPLORED     37  нет расхождения на 37 входах
+maths__average_median                          EXPLORED     37  нет расхождения на 37 входах
+maths__average_mode                            EXPLORED     60  нет расхождения на 60 входах
+maths__bailey_borwein_plouffe                  EXPLORED     29  нет расхождения на 29 входах
+maths__base_neg2_conversion                    EXPLORED     27  нет расхождения на 27 входах
+maths__basic_maths                             EXPLORED     31  нет расхождения на 31 входах
+maths__bearing                                 EXPLORED    250  нет расхождения на 250 входах
+maths__binary_exponentiation                   EXPLORED    250  нет расхождения на 250 входах
+maths__binary_multiplication                   EXPLORED    250  нет расхождения на 250 входах
+maths__binomial_coefficient                    EXPLORED    250  нет расхождения на 250 входах
+maths__binomial_distribution                   EXPLORED    250  нет расхождения на 250 входах
+maths__binomial_expansion                      EXPLORED      0  не загрузить (импорт/декораторы)
+maths__ceil                                    EXPLORED     38  нет расхождения на 38 входах
+maths__chebyshev_distance                      EXPLORED    250  нет расхождения на 250 входах
+maths__check_polygon                           EXPLORED     37  нет расхождения на 37 входах
+maths__chinese_remainder_theorem               EXPLORED    250  нет расхождения на 250 входах
+maths__cholesky_decomposition                  EXPLORED      0  не загрузить (импорт/декораторы)
+maths__chudnovsky_algorithm                    EXPLORED     29  нет расхождения на 29 входах
+maths__collatz_sequence                        EXPLORED     31  нет расхождения на 31 входах
+maths__combinations                            EXPLORED    250  нет расхождения на 250 входах
+maths__continued_fraction                      EXPLORED     27  нет расхождения на 27 входах
+maths__decimal_isolate                         EXPLORED    250  нет расхождения на 250 входах
+maths__decimal_to_fraction                     EXPLORED     65  нет расхождения на 65 входах
+maths__derangement                             EXPLORED     27  нет расхождения на 27 входах
+maths__digital_root                            EXPLORED     42  нет расхождения на 42 входах
+maths__disarium                                EXPLORED     27  нет расхождения на 27 входах
+maths__dodecahedron                            EXPLORED     51  нет расхождения на 51 входах
+maths__double_factorial                        EXPLORED     27  нет расхождения на 27 входах
+maths__dual_number_automatic_differentiation   EXPLORED    250  нет расхождения на 250 входах
+maths__ear_clipping_polygon_triangulation      EXPLORED    250  нет расхождения на 250 входах
+maths__entropy                                 EXPLORED     23  нет расхождения на 23 входах
+maths__euclidean_distance                      EXPLORED      0  не загрузить (импорт/декораторы)
+maths__euler_method                            EXPLORED      0  не загрузить (импорт/декораторы)
+maths__euler_modified                          EXPLORED      0  не загрузить (импорт/декораторы)
+maths__eulers_totient                          EXPLORED     27  нет расхождения на 27 входах
+maths__extended_euclidean_algorithm            EXPLORED    250  нет расхождения на 250 входах
+
+=== STAGE-2 SUMMARY ===
+  EXPLORED   45
+[OK] DIVERGED (живой вызов, 0 ложных по построению): 0/45

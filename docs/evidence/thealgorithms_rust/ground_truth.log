@@ -1,0 +1,16 @@
+=== KERN EVIDENCE: ground truth for defect #324 ===
+=== команда: rustc на контрпримере KERN (n = 0, i = 1) ===
+=== дата: 2026-10-22T16:04:35Z ===
+
+--- debug build (overflow checks ON) ---
+
+thread 'main' (225732) panicked at gt2.rs:2:5:
+attempt to subtract with overflow
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+rc=101
+
+--- release build (checks OFF) ---
+binom(0, 2): на шаге i=1 получаем n-i = 18446744073709551615
+rc=0
+
+RC=0

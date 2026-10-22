@@ -1,0 +1,167 @@
+[0m
+> build · deepseek-v4.1-flash-free
+[0m
+[0m$ [0mcat /tmp/kern-natural-eval/lockcase/impossible.py; echo ---; python3 '/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py' /tmp/kern-natural-eval/lockcase/impossible.py; echo "exit=$?"
+# @kern:requires x >= 0 and x <= 5
+# @kern:ensures result == x + 1 and result >= 10
+def impossible(x: int) -> int:
+    return x + 1
+---
+[!] решатель Z3 недоступен: добавьте `.venv/bin` в PATH (uv pip install z3-solver).
+    Вердикты НЕ выдаются: недоступный инструмент — это N, а не F.
+exit=2
+[0m
+[0m$ [0mls -la '/home/mrbritneyxxx/Рабочий стол/kern/'; echo ---; ls '/home/mrbritneyxxx/Рабочий стол/kern/.venv/bin' 2>/dev/null | head -30
+итого 464
+drwxr-xr-x 26 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:39 .
+drwxr-xr-x 11 mrbritneyxxx mrbritneyxxx  4096 окт 19 16:15 ..
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  2810 окт 21 12:45 action.yml
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   463 окт 16 16:36 agent_packet.json
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   136 окт 14 15:51 attestation.cert
+drwxr-xr-x 14 mrbritneyxxx mrbritneyxxx  4096 окт 21 11:30 audits
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:24 bench
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx 15230 окт 21 11:45 build.zig
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx 12185 окт 21 12:45 CHANGELOG.md
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  1185 окт 20 23:40 CITATION.cff
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  2304 окт 17 19:52 CODE_OF_CONDUCT.md
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  4739 окт 21 13:16 CONTRIBUTING.md
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 15 19:47 .devcontainer
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  2866 окт 17 20:23 Dockerfile
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   337 окт 17 20:16 .dockerignore
+drwxr-xr-x  6 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:33 docs
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 14 14:48 evalplus_results
+drwxr-xr-x  8 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:33 examples
+drwxr-xr-x  3 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:39 formal
+drwxr-xr-x  7 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:40 .git
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   164 окт 20 23:31 .gitattributes
+drwxr-xr-x  4 mrbritneyxxx mrbritneyxxx  4096 окт 17 20:42 .github
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  2479 окт 20 23:31 .gitignore
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  4781 окт 21 12:47 glama.json
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 15 19:47 include
+-rwxr-xr-x  1 mrbritneyxxx mrbritneyxxx  1597 окт 19 21:32 install.sh
+drwxr-xr-x  5 mrbritneyxxx mrbritneyxxx  4096 окт 10 21:32 .kern
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  2022 окт 21 14:34 kern.intoto.jsonl
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   129 окт 21 14:34 kern.intoto.sig
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 13 20:33 .kernnext
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx    32 окт 14 15:51 .kern_seed.bin
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx    25 окт 21 10:07 lean-toolchain
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  6288 окт 16 01:45 LICENSE
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  5013 окт 19 21:32 llms.txt
+drwxr-xr-x  3 mrbritneyxxx mrbritneyxxx  4096 окт 10 22:54 logs
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  1733 окт 19 21:32 .mailmap
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx 51715 окт 21 14:24 Makefile
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   192 окт 21 12:47 mcp.json
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   778 окт 20 09:51 mcp.lock.json
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   428 окт 16 16:32 PROJECT_CANONICAL_SPEC.kern.md
+drwxr-xr-x  3 mrbritneyxxx mrbritneyxxx  4096 окт 20 19:14 .pytest_cache
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx 50652 окт 21 14:33 README.md
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx 62646 окт 21 14:30 README.ru.md
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  1443 окт 13 20:33 release.kimg
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   471 окт 16 16:36 report.md
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx   829 окт 21 10:02 requirements.txt
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  6374 окт 21 13:16 SECURITY.md
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  7623 окт 21 14:24 server.json
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx    90 окт 20 23:41 SHA256SUMS
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  1160 окт 21 12:45 smithery.yaml
+drwxr-xr-x  8 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:40 src
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  4368 окт 21 14:39 telemetry_report.json
+drwxr-xr-x  4 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:24 tests
+drwxr-xr-x  3 mrbritneyxxx mrbritneyxxx  4096 окт 21 14:33 tools
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  4605 окт 19 20:55 toy.kimg
+drwxr-xr-x  4 mrbritneyxxx mrbritneyxxx  4096 окт 10 19:56 .venv
+drwxr-xr-x  4 mrbritneyxxx mrbritneyxxx  4096 окт 10 22:22 .venv38
+drwxr-xr-x  4 mrbritneyxxx mrbritneyxxx  4096 окт 10 21:11 .venv-evalplus
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  1003 окт 21 14:38 verify_gcd.py
+-rw-r--r--  1 mrbritneyxxx mrbritneyxxx  1118 окт 21 14:39 verify_np.py
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 20 23:31 .vscode
+drwxr-xr-x  2 mrbritneyxxx mrbritneyxxx  4096 окт 19 21:32 .well-known
+drwxr-xr-x  7 mrbritneyxxx mrbritneyxxx  4096 окт 20 20:52 .zig-cache
+drwxr-xr-x  5 mrbritneyxxx mrbritneyxxx  4096 окт 11 10:58 zig-out
+---
+activate
+activate.bat
+activate.csh
+activate.fish
+activate.nu
+activate.ps1
+activate_this.py
+activate.xsh
+anybadge
+anybadge-server
+cosmic-ray
+cr-badge
+cr-filter-git
+cr-filter-lines
+cr-filter-operators
+cr-filter-pragma
+cr-html
+cr-http-workers
+crosshair
+cr-rate
+cr-report
+cr-xml
+deactivate.bat
+idna
+markdown-it
+mypycrosshair
+pydoc.bat
+pygmentize
+py.test
+pytest
+[0m
+[0m$ [0mPATH="/home/mrbritneyxxx/Рабочий стол/kern/.venv/bin:$PATH" python3 '/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py' /tmp/kern-natural-eval/lockcase/impossible.py; echo "exit=$?"
+==========================================================================
+KERN: контракты из комментариев (@kern:requires / @kern:ensures)
+==========================================================================
+  [FAIL] impossible: КОНТРАКТ НАРУШЕН
+         KERN-EQ2 : F
+         ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+         [КОНТРПРИМЕР] result = 1, x = 0
+         [RUNTIME CONFIRMED] нарушение подтверждено и в рантайме (0% ложных срабатываний)
+--------------------------------------------------------------------------
+ИТОГО: доказано 0 | T_advisory 0 | нарушено 1 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 1
+exit=1
+[0m
+[0m$ [0mpython3 - <<'EOF'
+p='/tmp/kern-natural-eval/lockcase/impossible.py'
+s=open(p).read()
+s=s.replace('# @kern:requires x >= 0 and x <= 5', '# @kern:requires x >= 9')
+open(p,'w').write(s)
+EOF
+PATH="/home/mrbritneyxxx/Рабочий стол/kern/.venv/bin:$PATH" python3 '/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py' /tmp/kern-natural-eval/lockcase/impossible.py; echo "exit=$?"
+==========================================================================
+KERN: контракты из комментариев (@kern:requires / @kern:ensures)
+==========================================================================
+  [PASS] impossible: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 54 | premises bound: 3/3 | mp: 14 | rewrite (linear): 17 | farkas: 1 | trusted: 1 | holes: 0
+--------------------------------------------------------------------------
+ИТОГО: доказано 1 | T_advisory 0 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 1
+exit=0
+[0m
+[0m$ [0mpython3 '/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py' /tmp/kern-natural-eval/lockcase/impossible.py; echo "exit=$?"; cat /tmp/kern-natural-eval/lockcase/impossible.py
+[!] решатель Z3 недоступен: добавьте `.venv/bin` в PATH (uv pip install z3-solver).
+    Вердикты НЕ выдаются: недоступный инструмент — это N, а не F.
+exit=2
+# @kern:requires x >= 9
+# @kern:ensures result == x + 1 and result >= 10
+def impossible(x: int) -> int:
+    return x + 1
+[0m
+[0m$ [0mwhich python3; python3 -c "import sys; print(sys.version); print(sys.path)"; ls '/home/mrbritneyxxx/Рабочий стол/kern/.venv/lib'/*/site-packages | grep -i z3; python3 -m pip --version 2>&1 | head -2
+/usr/bin/python3
+3.14.7 (main, Aug 10 2026, 07:46:56) [GCC 16.1.1 20260728]
+['', '/usr/lib/python314.zip', '/usr/lib/python3.14', '/usr/lib/python3.14/lib-dynload', '/usr/lib/python3.14/site-packages']
+z3
+z3_solver-5.1.0.0.dist-info
+/usr/bin/python3: No module named pip
+[0m
+[0m$ [0mls '/home/mrbritneyxxx/Рабочий стол/kern/.venv/lib'; '/home/mrbritneyxxx/Рабочий стол/kern/.venv/bin/python' -c "import sys;print(sys.version);import z3;print(z3.get_version_string())"; python3 -c "import site;print(site.ENABLE_USER_SITE, site.getusersitepackages())"; ls -ld /usr/lib/python3.14/site-packages
+python3.14
+3.14.7 (main, Aug 10 2026, 07:46:56) [GCC 16.1.1 20260728]
+5.1.0
+True /home/mrbritneyxxx/.local/lib/python3.14/site-packages
+drwxr-xr-x 216 root root 12288 окт  9 14:40 /usr/lib/python3.14/site-packages
+[0m
+[93m[1m! [0mpermission requested: external_directory (/home/mrbritneyxxx/.local/lib/python3.14/*); auto-rejecting
+[0m✗ [0mmkdir -p ~/.local/lib/python3.14/site-packages && ln -sfn '/home/mrbritneyxxx/Рабочий стол/kern/.venv/lib/python3.14/site-packages/z3' ~/.local/lib/python3.14/site-packages/z3 && python3 '/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py' /tmp/kern-natural-eval/lockcase/impossible.py; echo "exit=$?" failed
+[91m[1mError: [0mThe user rejected permission to use this specific tool call.

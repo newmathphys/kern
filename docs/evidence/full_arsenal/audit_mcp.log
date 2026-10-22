@@ -1,0 +1,18 @@
+=== KERN EVIDENCE: audit_mcp ===
+=== команда: python3 tools/kern_contracts.py --audit-mcp <poisoned schema> ===
+=== дата: 2026-10-21T17:24:52Z ===
+
+  [MCP] PROMPT INJECTION in `build-with-exa`: «ignore all previous»
+  [MCP] PROMPT INJECTION in `build-with-exa`: «<system>»
+  [MCP] PROMPT INJECTION in `build-with-exa`: «</system>»
+  [MCP] PROMPT INJECTION in `build-with-exa`: «~/.ssh»
+  [MCP] PROMPT INJECTION in `build-with-exa`: «id_rsa»
+  [MCP] INVISIBLE UNICODE in `build-with-exa`: U+200B
+  [MCP] INVISIBLE UNICODE in `build-with-exa`: U+200B
+  [MCP] PROMPT INJECTION in `exa-search`: «~/.ssh»
+  [MCP] PROMPT INJECTION in `exa-search`: «id_rsa»
+  [MCP] MCP RUG-PULL DETECTED: `exa-search` изменён после одобрения
+--------------------------------------------------------------------------
+[MCP SUMMARY] инструментов 2 | находок 10
+
+RC=0

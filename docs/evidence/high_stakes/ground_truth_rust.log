@@ -1,0 +1,13 @@
+=== rustc -C overflow-checks=on verify_rust_rt.rs ===
+--- KERN counterexample values ---
+preconditions: initial>=0 true target>=initial true range>0 true delta>=0 true delta<=range true
+
+thread 'main' (3854192) panicked at verify_rust_rt.rs:6:32:
+attempt to multiply with overflow
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+RC=101
+--- control: small values ---
+preconditions: initial>=0 true target>=initial true range>0 true delta>=0 true delta<=range true
+result = 550
+contract result >= initial_amp : held
+RC=0

@@ -1,0 +1,14 @@
+=== KERN EVIDENCE: thealgorithms_c_fixed ===
+=== дата: 2026-10-21T18:37:14Z ===
+
+n=0   -> out=1.00 rc=0
+n=1   -> out=1.00 rc=0
+n=2   -> out=2.00 rc=0
+n=5   -> out=42.00 rc=0
+n=10  -> out=16796.00 rc=0
+n=11  -> out=n must be in [0, 10]: (2n)! overflows long int beyond that rc=1
+n=-1  -> out=n must be in [0, 10]: (2n)! overflows long int beyond that rc=1
+
+# ЛОВУШКА: наивная правка fac = 1 ломает n >= 1 (n=5 даёт 126 вместо 42),
+# потому что цикл умножает на (x-1)..1 — именно fac = x даёт x!.
+RC=0

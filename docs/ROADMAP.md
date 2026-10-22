@@ -1,6 +1,6 @@
 # KERN — Roadmap (v2.5.1)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->152 · cases <!-- fact:canfail_cases -->173 · anchors <!-- fact:anchors -->137 · registry <!-- fact:registry_targets -->191 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->152 · cases <!-- fact:canfail_cases -->174 · anchors <!-- fact:anchors -->137 · registry <!-- fact:registry_targets -->191 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Правило проекта.** Каждый пункт приходит с **can-fail кейсом** (`tools/canfail.py`
 > доказывает, что проверка СПОСОБНА покраснеть) и **проверяемым числом** из команды этого

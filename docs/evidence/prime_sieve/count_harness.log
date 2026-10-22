@@ -1,0 +1,20 @@
+=== the source's own contract, verbatim ===
+11:const unsigned long long MAX_SIZE = 1000000;  /// variable upto which prime numbers are to be found out
+39: * @param size denotes upto which prime numbers are to be found out
+59:    const int size = 10; /* array size */
+
+=== measurement on the real prime array ===
+indices:  0=0 1=0 2=1 3=1 5=1 7=1 10=0 11=1 13=1
+count(arr,3       ) = 2       first 3        elements = 1       DIFFER
+count(arr,7       ) = 4       first 7        elements = 3       DIFFER
+count(arr,10      ) = 4       first 10       elements = 4       same
+count(arr,11      ) = 5       first 11       elements = 4       DIFFER
+count(arr,13      ) = 6       first 13       elements = 5       DIFFER
+count(arr,97      ) = 25      first 97       elements = 24      DIFFER
+count(arr,1000000 ) = 78498   first 1000000  elements = 78498   same
+
+=== reading of the result ===
+count(arr, 10) = 4 and the exclusive reading is also 4 -> the test value (10)
+cannot distinguish the two readings, because 10 is not prime. The two readings
+differ exactly when size is itself prime (3, 7, 11, 13, 97 above).
+Verdict: ambiguous contract, NOT a confirmed defect.

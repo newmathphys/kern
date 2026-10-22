@@ -1,0 +1,29 @@
+opencode/minimax-m3.1-flash-free       avg_capped  R1=NOFILE
+opencode/minimax-m3.1-flash-free       add32       R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+                                                   R2=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+opencode/minimax-m3.1-flash-free       ratio       R1=NOFILE
+opencode/minimax-m3.1-flash-free       add32_rs    R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+                                                   R2=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+opencode/nemotron-3.5-lightning-free   avg_capped  R1=T 
+opencode/nemotron-3.5-lightning-free   add32       R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+Traceback (most recent call last):
+  File "/tmp/kern-leaderboard/run_mn.py", line 107, in <module>
+    call(model, prompt_round2(t, path, ce, hy), log)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/kern-leaderboard/run_mn.py", line 52, in call
+    r = subprocess.run([OPENCODE, 'run', '-m', model, '--dir', str(OUT), text],
+                       capture_output=True, text=True, timeout=180)
+  File "/usr/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 2154, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1268, in _check_timeout
+    raise TimeoutExpired(
+    ...<2 lines>...
+            stderr=b''.join(stderr_seq) if stderr_seq else None)
+subprocess.TimeoutExpired: Command '['/home/mrbritneyxxx/.opencode/bin/opencode', 'run', '-m', 'opencode/nemotron-3.5-lightning-free', '--dir', '/tmp/kern-leaderboard/out', 'The file /tmp/kern-leaderboard/out/add32_opencode_nemotron-3.5-lightning-free.zig FAILS a formal verification. KERN/Z3 reported:\n[FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648, 2147483647])\nDiagnostics from the abductive tool:\n[OK] add32: контракт ДОКАЗАН — объяснять нечего\n\nFix the implementation so that the contract (// @kern:requires a >= 0 and b >= 0\n// @kern:ensures result >= a) verifiably holds. Edit /tmp/kern-leaderboard/out/add32_opencode_nemotron-3.5-lightning-free.zig in place. Do NOT weaken the contract lines. Reply with just DONE.']' timed out after 180 seconds

@@ -1,0 +1,26 @@
+=== KERN EVIDENCE: defect #327 — division guards in Python ===
+=== команда: python3 tools/kern_contracts.py tests/fixtures/py_div_guards.py ===
+=== дата: 2026-10-22T20:12:02Z ===
+
+==========================================================================
+KERN: контракты из комментариев (@kern:requires / @kern:ensures)
+==========================================================================
+  [FAIL] unguarded: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)
+         [КОНТРПРИМЕР] a = 0, b = 0
+  [PASS] ternary_guard: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 64 | premises bound: 3/7 | mp: 7 | rewrite (linear): 4 | farkas: 0 | trusted: 5 | holes: 0
+  [PASS] if_guard: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 64 | premises bound: 3/7 | mp: 7 | rewrite (linear): 4 | farkas: 0 | trusted: 5 | holes: 0
+  [FAIL] wrong_guard: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)
+         [КОНТРПРИМЕР] a = 1, b = 0
+  [PASS] sufficient_guard: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 76 | premises bound: 3/13 | mp: 6 | rewrite (linear): 4 | farkas: 0 | trusted: 5 | holes: 0
+--------------------------------------------------------------------------
+ИТОГО: доказано 3 | T_advisory 0 | нарушено 2 (из них безопасность: 2) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 5
+
+--- регрессия stdlib ---
+bisect       [XRAY SUMMARY] checked 4 / 4 functions (SMT-verified 4, no obligations 0), skipped 0 with explicit reasons, findings 4
+statistics   [XRAY SUMMARY] checked 65 / 81 functions (SMT-verified 30, no obligations 35), skipped 16 with explicit reasons, findings 11
+heapq        [XRAY SUMMARY] checked 17 / 17 functions (SMT-verified 11, no obligations 6), skipped 0 with explicit reasons, findings 50
+
+RC=0

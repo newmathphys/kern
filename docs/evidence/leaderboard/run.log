@@ -1,0 +1,19 @@
+opencode/deepseek-v4.1-flash-free      avg_capped  R1=T 
+opencode/deepseek-v4.1-flash-free      add32       R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+                                                   R2=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+opencode/deepseek-v4.1-flash-free      ratio       R1=F [FAIL] ratio: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)
+                                                   R2=T 
+opencode/deepseek-v4.1-flash-free      add32_rs    R1=SKIP 
+opencode/glm-5.3-flash-free            avg_capped  R1=T 
+opencode/glm-5.3-flash-free            add32       R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+                                                   R2=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+opencode/glm-5.3-flash-free            ratio       R1=F [FAIL] ratio: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)
+                                                   R2=T 
+opencode/glm-5.3-flash-free            add32_rs    R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+                                                   R2=T 
+opencode/mimo-v2.6-flash-free          avg_capped  R1=T 
+opencode/mimo-v2.6-flash-free          add32       R1=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+                                                   R2=F [FAIL] add32: ПЕРЕПОЛНЕНИЕ типа `i32` (диапазон [-2147483648
+opencode/mimo-v2.6-flash-free          ratio       R1=SKIP 
+opencode/mimo-v2.6-flash-free          add32_rs    R1=T 
+DONE 12

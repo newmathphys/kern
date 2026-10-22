@@ -65,6 +65,18 @@ attestation.cert
 !docs/evidence/*.log
 !docs/evidence/*.txt
 
+# ДЕФЕКТ #330: `!docs/evidence/*.log` действует ТОЛЬКО на верхний уровень —
+# подкаталоги (`docs/evidence/div_guards/`, `.../leaderboard/`, `.../live_eval/`
+# и т.д.) правилом НЕ покрывались, и 46 логов, на которые ссылается
+# документация, отсутствовали в репозитории. Проверка:
+#   git check-ignore -v docs/evidence/div_guards/findings.log
+# Гейт: `tools/evidence_gate.py` теперь требует, чтобы КАЖДЫЙ файл под
+# docs/evidence/ был отслеживаемым (см. --tracked).
+!docs/evidence/**/*.jsonl
+!docs/evidence/**/*.json
+!docs/evidence/**/*.log
+!docs/evidence/**/*.txt
+
 # Локальные материалы (в репозиторий не входят)
 /archive/
 *.zip

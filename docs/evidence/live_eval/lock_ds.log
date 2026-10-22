@@ -1,0 +1,91 @@
+[0m
+> build · deepseek-v4.1-flash-free
+[0m
+[0m→ [0mRead bonus.py
+[0m
+[0m← [0mEdit bonus.py
+Index: /tmp/kern-natural-eval/lockcase/bonus.py
+===================================================================
+--- /tmp/kern-natural-eval/lockcase/bonus.py
++++ /tmp/kern-natural-eval/lockcase/bonus.py
+@@ -1,4 +1,4 @@
+ # @kern:requires x >= 0
+ # @kern:ensures result >= 10
+ def bonus(x: int) -> int:
+-    return x
++    return max(x, 10)
+
+[0m
+[0m$ [0mpython3 "/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py" /tmp/kern-natural-eval/lockcase/bonus.py; echo "exit=$?"
+[!] решатель Z3 недоступен: добавьте `.venv/bin` в PATH (uv pip install z3-solver).
+    Вердикты НЕ выдаются: недоступный инструмент — это N, а не F.
+exit=2
+[0m
+[0m$ [0mls "/home/mrbritneyxxx/Рабочий стол/kern"; ls "/home/mrbritneyxxx/Рабочий стол/kern/.venv/bin" 2>/dev/null | head
+action.yml
+agent_packet.json
+attestation.cert
+audits
+bench
+build.zig
+CHANGELOG.md
+CITATION.cff
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+Dockerfile
+docs
+evalplus_results
+examples
+formal
+glama.json
+include
+install.sh
+kern.intoto.jsonl
+kern.intoto.sig
+lean-toolchain
+LICENSE
+llms.txt
+logs
+Makefile
+mcp.json
+mcp.lock.json
+PROJECT_CANONICAL_SPEC.kern.md
+README.md
+README.ru.md
+release.kimg
+report.md
+requirements.txt
+SECURITY.md
+server.json
+SHA256SUMS
+smithery.yaml
+src
+telemetry_report.json
+tests
+tools
+toy.kimg
+verify_gcd.py
+verify_np.py
+zig-out
+activate
+activate.bat
+activate.csh
+activate.fish
+activate.nu
+activate.ps1
+activate_this.py
+activate.xsh
+anybadge
+anybadge-server
+[0m
+[0m$ [0mPATH="/home/mrbritneyxxx/Рабочий стол/kern/.venv/bin:$PATH" python3 "/home/mrbritneyxxx/Рабочий стол/kern/tools/kern_contracts.py" /tmp/kern-natural-eval/lockcase/bonus.py; echo "exit=$?"
+==========================================================================
+KERN: контракты из комментариев (@kern:requires / @kern:ensures)
+==========================================================================
+  [PASS] bonus: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 37 | premises bound: 2/2 | mp: 6 | rewrite (linear): 11 | farkas: 2 | trusted: 0 | holes: 0
+--------------------------------------------------------------------------
+ИТОГО: доказано 1 | T_advisory 0 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 1
+exit=0
+[0m
+DONE

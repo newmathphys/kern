@@ -30,7 +30,7 @@
 - Lean 4: **143 theorems in 8 files, 0 errors, 0 sorry**.
 - Mutation score on the Zig kernel: **1361 / 1361 killed (100.0 %)** across
   **21 files**, no sampling, zero survivors.
-- Can-fail harness: **152 CHECK targets, 173 non-vacuous cases, 0 vacuous**.
+- Can-fail harness: **152 CHECK targets, 174 non-vacuous cases, 0 vacuous**.
 - Cross-architecture: **394 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
   PowerPC64 big-endian (QEMU).
 - WebAssembly: `kernc.wasm` (**86 953 bytes**) exports `kern_wasm_verify_proof`,

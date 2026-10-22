@@ -1,0 +1,18 @@
+=== KERN EVIDENCE: defect_318 ===
+=== команда: python3 tools/kern_contracts.py --xray docs/evidence/thealgorithms_c/repro_318_guarded_division.c ===
+=== дата: 2026-10-21T19:05:26Z ===
+
+int f(int x, int y)
+{
+    if (x != 0) { return y / x; }
+    return 0;
+}
+--- вердикт ---
+  [CRASH PATH] f: возможно деление на ноль: x == 0
+  [!] C-like findings выше — КАНДИДАТЫ, а не баги: управление потоком (ранние return, break, итерации циклов) не моделируется. Проверять вручную по коду.
+--------------------------------------------------------------------------
+[XRAY SUMMARY] checked 1 / 1 functions, skipped 0 with explicit reasons, findings 1, SMT calls 2
+
+--- а гард в коде есть: ---
+3:    if (x != 0) { return y / x; }
+RC=1 (ложное обвинение — дефект #318)

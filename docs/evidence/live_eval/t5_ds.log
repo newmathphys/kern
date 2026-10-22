@@ -1,0 +1,15 @@
+[0m
+> build · deepseek-v4.1-flash-free
+[0m
+[0m$ [0mmkdir -p /tmp/kern-natural-eval/out && ls /tmp/kern-natural-eval
+out
+p_ds.txt
+p_glm.txt
+prompt_t1.txt
+prompt_t5.txt
+transcripts
+[0m
+[0m← [0mWrite out/t5_deepseek.py
+Wrote file successfully.
+[0m
+DONE

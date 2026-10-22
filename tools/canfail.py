@@ -1795,6 +1795,25 @@ def case_div_guards():
     return "make div-guards-check"
 
 
+def case_evidence_untracked():
+    """#330 SABOTAGE: свидетельство лежит на диске, но НЕ в git.
+
+    ЛОМАЕМ: `git rm --cached` одного лога в ПОДКАТАЛОГЕ docs/evidence/ —
+    ровно состояние, в котором 46 логов не попадали в репозиторий, потому что
+    исключение `.gitignore` (`!docs/evidence/*.log`) покрывало только верхний
+    уровень. `make evidence-gate` обязан покраснеть.
+
+    КОМАНДА САМОВОССТАНАВЛИВАЮЩАЯСЯ: откат харнесса восстанавливает ФАЙЛЫ из
+    снимка и НЕ трогает ИНДЕКС. Первая версия кейса (`git rm --cached` без
+    восстановления) оставляла индекс грязным, и гейт краснел уже навсегда —
+    то есть кейс ломал следующий прогон. Здесь индекс восстанавливается в той
+    же команде, а код возврата берётся ОТ ГЕЙТА, не от `git add`.
+    """
+    f = "docs/evidence/div_guards/findings.log"
+    return (f"sh -c 'git rm --cached -q {f}; make evidence-gate; rc=$?; "
+            f"git add {f} >/dev/null 2>&1; exit $rc'")
+
+
 def case_claims_audit():
     """ШАГ B SABOTAGE: числовое утверждение в документе расходится с фактом.
 
@@ -2986,6 +3005,8 @@ CASES = [
      case_div_guards),
     ("claims-audit", "Stale numeric claim in a document -> gate red",
      case_claims_audit),
+    ("evidence-untracked", "Evidence file present on disk but not in git -> gate red",
+     case_evidence_untracked),
     ("arith-zig-ref", "Adapters diverge from Zig @divTrunc/@divFloor -> gate red",
      case_arith_zig_ref),
     ("hypotheses-write", "Explanation writes to the source -> gate red",

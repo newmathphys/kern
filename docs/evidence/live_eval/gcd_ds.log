@@ -1,0 +1,10 @@
+[0m
+> build · deepseek-v4.1-flash-free
+[0m
+[0m$ [0mmkdir -p /tmp/kern-natural-eval/out && printf 'def gcd(a, b):\n    if b == 0:\n        return a\n    return gcd(b, a %% b)\n' > /tmp/kern-natural-eval/out/fix_gcd_deepseek.py && cat /tmp/kern-natural-eval/out/fix_gcd_deepseek.py
+def gcd(a, b):
+    if b == 0:
+        return a
+    return gcd(b, a % b)
+[0m
+DONE
