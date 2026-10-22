@@ -53,7 +53,7 @@ export fn kern_hash(algo: c_uint, data: [*]const u8, len: usize, out32: [*]u8) c
 }
 
 export fn kern_version() [*:0]const u8 {
-    return "KERN v2.6.3 (C-ABI)";
+    return "KERN v2.6.4 (C-ABI)";
 }
 
 /// Автор (для метки авторства в чужих сборках).

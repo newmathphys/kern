@@ -6,6 +6,51 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.6.4] — 2026-10-21
+
+### Fixed
+
+- **#320 — a published claim that did not survive re-verification (our own error).**
+  `docs/SHADOW_AUDIT_EXAMPLE.md` called `prime_sieve.c:44` a **REAL logic defect**
+  and printed `count(arr, size=10) = 5`. Re-running against the **real** prime
+  array from the same program gives `count(arr, 10) = 4`; the `5` came from a
+  synthetic array. The source is self-contradictory about its contract (the doc
+  block says "upto which" — inclusive; the test comment says "array size" —
+  exclusive) and the test uses `size = 10`, the one value that cannot distinguish
+  them. Verdict: **an ambiguous contract, not a defect**; the upstream report is
+  withdrawn. The harness `docs/evidence/prime_sieve/reproduce.sh` reproduces every
+  number, so the claim can be re-derived instead of believed.
+- **#312 — the C extractor accepted only `int` parameters.** The parser required
+  exactly one word before the parameter name, so `unsigned int c` was skipped while
+  `size_t a` worked, although `TYPE_RANGE` already knew `unsigned`. Multi-word types
+  are now canonicalised (`unsigned int`, `long long`, `unsigned long`,
+  `unsigned short`, `unsigned char`, `int32_t`, `size_t`, …); `char` and `float` are
+  refused **with a reason** (`char` signedness is implementation-defined).
+- **#321 — the return type was not canonicalised, so the overflow obligation was
+  silently dropped (false PROVEN).** Fixing #312 exposed this: `meta["ret"]` stayed
+  raw (`'unsigned int'`), `ret in TYPE_RANGE` was false, and the machine-overflow
+  obligation was never generated. Measured: `u32_add(unsigned int, unsigned int)`
+  returning `a + b` with `ensures result >= a` reported **PROVEN** — while `gcc`
+  gives `a=4294967295 b=1 -> result=0`, contract violated. Same class as #180
+  (Rust). `ret` is canonicalised; a return type outside the integer subset now
+  SKIPs with a reason in the contract path.
+
+### Added
+
+- **`docs/PLAN_v2.6.4.md`** — the active cycle: queue with acceptance and kill
+  criteria, repository targets ranked **with the measurement that excludes
+  `raylib`** (0 functions with an `int` parameter → outside the subset), open
+  limitations. New principle: **every numeric claim in a document must ship with a
+  committed harness that reproduces it** (#320 is the reason).
+- Gate **`make c-types-check`** (CHECK) with the non-vacuous canfail case
+  `c-types`; both sabotages verified red (dropping the `unsigned int` mapping, and
+  dropping the `ret` canonicalisation). Registry: **189 targets, CHECK 150/150
+  covered, 171 can-fail cases**.
+- `docs/evidence/prime_sieve/` — the verbatim upstream file, a runnable harness and
+  its output.
+- `tests/fixtures/c_types_demo.c` — six functions: four integer types that must
+  receive verdicts, two out-of-subset types that must SKIP with a reason.
+
 ## [2.6.3] — 2026-10-21
 
 ### Fixed
