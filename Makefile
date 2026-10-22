@@ -688,6 +688,14 @@ arith-semantics-check:
 c-types-check:
 	@$(PYTHON) tools/c_types_check.py
 
+# ДЕФЕКТ #327: активный ГАРД деления должен учитываться. До правки
+# `return 0 if b == 0 else a // b` (гард ЯВНЫЙ) давал ложное обвинение в
+# делении на ноль, потому что обязательство строилось без путей. Гейт требует
+# ДОКАЗАНО под гардом и ОПРОВЕРГНУТО при недостаточном гарде (`if a > 0`) —
+# то есть проверяет и полноту, и ЗВУЧИМОСТЬ.
+div-guards-check:
+	@$(PYTHON) tools/div_guards_check.py
+
 # ДЕФЕКТ #317: адаптеры деления против НЕЗАВИСИМОГО эталона — встроенных
 # операций Zig (@divTrunc/@divFloor). Фикстура: tests/fixtures/zig_div_reference.tsv.
 arith-zig-ref-check:

@@ -60,6 +60,23 @@ _NONE_SENTINEL = "-4611686018427387904"
 # Делители, встреченные при трансляции выражения (для обязательства
 # «делитель ≠ 0»): в SMT `div`/`mod` тотальны, поэтому ноль надо ловить отдельно.
 _DIV_COLLECTOR: list = []
+
+# ДЕФЕКТ #327: АКТИВНЫЕ УСЛОВИЯ ВЕТВЛЕНИЯ в точке сбора делителя.
+#
+# ЧТО БЫЛО НЕ ТАК. `_DIV_COLLECTOR.append(right)` не знал, под каким гардом
+# стоит деление, а обязательство строилось как `requires ∧ (делитель == 0)` —
+# БЕЗ путей. Поэтому `return 0 if b == 0 else a // b` (гард ЯВНЫЙ) давал
+# `[FAIL] ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: b)` с контрпримером `b = 0`:
+# гард был отброшен, и `(= b 0)` оказался SAT. Ложное обвинение.
+#
+# КАК СЕЙЧАС. Элемент коллектора — ПАРА `(делитель, гарды_в_этой_точке)`, а
+# обязательство строится как `(and <гарды> (= делитель 0))`. Для незащищённого
+# деления гарды пусты, и обязательство не меняется (контроль не ослаблен).
+# Для C-like это уже было сделано в #318 (`_clike_conds_at`).
+#
+# ЗВУЧИМОСТЬ: гард добавляется только там, где он ИСТИНЕН по построению —
+# в ветке THEN это условие `if`, в ветке ELSE — его отрицание.
+_DIV_GUARDS: list = []
 # СИМВОЛЬНАЯ АБСТРАКЦИЯ (вместо отказа от функции): аксиомы, собранные при
 # трансляции (`(>= len__x 0)`), счётчик havoc-переменных и флаг «в формуле была
 # овер-аппроксимация». При овер-аппроксимации SAT-контрпример обязан подтвердиться
@@ -349,8 +366,19 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
         return _sym
     # Тернарный оператор `A if cond else B` -> SMT `ite`.
     if isinstance(node, ast.IfExp):
-        return (f"(ite {_as_bool(node.test, env)} "
-                f"{expr_smt(node.body, env, lang)} {expr_smt(node.orelse, env, lang)})")
+        # ДЕФЕКТ #327: гард ветвления активен ТОЛЬКО внутри своей ветки.
+        # В `body` истинно `test`, в `orelse` — его отрицание. Без этого
+        # `0 if b == 0 else a // b` давал ложное обвинение в делении на ноль.
+        _cond = _as_bool(node.test, env)
+        _g = len(_DIV_GUARDS)
+        try:
+            _DIV_GUARDS.append(_cond)
+            _then = expr_smt(node.body, env, lang)
+            _DIV_GUARDS[_g:] = [f"(not {_cond})"]
+            _else = expr_smt(node.orelse, env, lang)
+        finally:
+            del _DIV_GUARDS[_g:]
+        return f"(ite {_cond} {_then} {_else})"
     if isinstance(node, ast.BoolOp):
         op = "and" if isinstance(node.op, ast.And) else "or"
         parts = " ".join(expr_smt(v, env, lang) for v in node.values)
@@ -388,7 +416,8 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
                 raise Unsupported("строковое форматирование %")
             left = expr_smt(node.left, env, lang)
             right = expr_smt(node.right, env, lang)
-            _DIV_COLLECTOR.append(right)
+            # ДЕФЕКТ #327: сохраняем АКТИВНЫЕ ГАРДЫ вместе с делителем.
+            _DIV_COLLECTOR.append((right, tuple(_DIV_GUARDS)))
             if lang == "python":
                 if isinstance(node.op, ast.Div):
                     raise Unsupported("истинное деление / (float) вне подмножества")
@@ -691,25 +720,50 @@ def body_smt(stmts, env: dict) -> str:
             # объекта, но не арифметическое значение результата функции.
             continue
         if isinstance(st, ast.If):
-            then_env = dict(env)
-            then_expr = body_smt(st.body, then_env)
+            # ДЕФЕКТ #327: условие ветвления как SMT + стек активных гардов.
+            # В THEN истинно `test`, в ELSE — его отрицание. Гард нужен и в
+            # ОСТАТКЕ операторов (он исполняется при ложном условии).
+            try:
+                _icond = _as_bool(st.test, env)
+            except (Unsupported, NoReturn, SyntaxError):
+                _icond = None  # условие вне подмножества -> гарда нет (как раньше)
+            _ig = len(_DIV_GUARDS)
+            del _DIV_GUARDS[_ig:]
+            if _icond:
+                _DIV_GUARDS.append(_icond)
+            try:
+                then_env = dict(env)
+                then_expr = body_smt(st.body, then_env)
+            finally:
+                del _DIV_GUARDS[_ig:]
             rest = stmts[i + 1:]
             else_env = dict(env)
-            if st.orelse:
-                else_expr = body_smt(st.orelse, else_env)
-            elif rest:
-                # Нет `else` -> при ложном условии исполняются оставшиеся операторы.
-                else_expr = body_smt(rest, else_env)
-            else:
-                # Нет `else` и нет остатка -> путь без `return` (неявный None).
-                else_expr = None
+            if _icond:
+                _DIV_GUARDS.append(f"(not {_icond})")
+            try:
+                if st.orelse:
+                    else_expr = body_smt(st.orelse, else_env)
+                elif rest:
+                    # Нет `else` -> при ложном условии исполняются оставшиеся операторы.
+                    else_expr = body_smt(rest, else_env)
+                else:
+                    # Нет `else` и нет остатка -> путь без `return` (неявный None).
+                    else_expr = None
+            finally:
+                del _DIV_GUARDS[_ig:]
             # ВЕТКА БЕЗ `return` (только присваивания, например `if c: y = 1`)
             # НЕ терминальна: исполнение продолжается после `if`, поэтому
             # значение берётся из ОСТАТКА операторов (раньше это был ложный
             # отказ «путь без return»).
             _then_term = bool(st.body) and isinstance(st.body[-1], ast.Raise)
             if then_expr is None and not _then_term and rest:
-                then_expr = body_smt(rest, then_env)
+                # ОСТАТОК исполняется при ИСТИННОМ условии -> гард THEN (#327).
+                if _icond:
+                    _DIV_GUARDS.append(_icond)
+                try:
+                    then_expr = body_smt(rest, then_env)
+                finally:
+                    del _DIV_GUARDS[_ig:]
             # ВЕТКА-ГАРД: `if cond: raise ...` (терминальный отказ) не даёт
             # значения, поэтому результат берётся из ДРУГОЙ ветки, а условие
             # пути сужается на её отрицание. Это ровно семантика guard-clause.
@@ -937,8 +991,24 @@ def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range) -> st
     return "\n".join(lines) + "\n"
 
 
+def _div_zero_terms(divisors, zero: str) -> list:
+    """Термы обязательства «делитель = 0» С УЧЁТОМ АКТИВНЫХ ГАРДОВ (дефект #327).
+
+    Элемент — `(делитель, гарды)`. Для незащищённого деления гарды пусты и
+    терм прежний: `(= делитель 0)`. Для деления под гардом — `(and <гарды>
+    (= делитель 0))`, поэтому Z3 получает ПРОТИВОРЕЧИЕ и отвечает UNSAT
+    (ложное обвинение исчезает), а незащищённое деление остаётся SAT.
+    """
+    out = []
+    for d in divisors:
+        expr, guards = d if isinstance(d, tuple) else (d, ())
+        eq = f"(= {expr} {zero})"
+        out.append(f"(and {' '.join(guards)} {eq})" if guards else eq)
+    return out
+
+
 def build_divzero_smt(params, req, divisors, ranges) -> str:
-    """Обязательство ДЕЛЕНИЯ НА НОЛЬ: `requires ∧ (делитель = 0)` -> SAT = баг.
+    """Обязательство ДЕЛЕНИЯ НА НОЛЬ: `requires ∧ <гарды> ∧ (делитель = 0)` -> SAT = баг.
 
     ЗАЧЕМ. В SMT-LIB2 `div`/`mod` — ТОТАЛЬНЫЕ функции: `(div x 0)` просто
     доопределён, поэтому наивный чекер ноль НЕ видит, а в рантайме будет
@@ -951,7 +1021,7 @@ def build_divzero_smt(params, req, divisors, ranges) -> str:
         lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
     if req:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
-    lines.append("(assert (or " + " ".join(f"(= {d} 0)" for d in divisors) + "))")
+    lines.append("(assert (or " + " ".join(_div_zero_terms(divisors, "0")) + "))")
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
 
@@ -1664,8 +1734,15 @@ def _is_path_expr(node) -> bool:
 
 
 
-def _drop_macro_divisors(divs: list[str]) -> list[str]:
-    return [d for d in divs if not _MACRO_DIV.match(d)]
+def _drop_macro_divisors(divs: list) -> list:
+    """Отфильтровать макро-«делители». Элемент — `(делитель, гарды)` (#327)
+    либо голая строка (совместимость)."""
+    out = []
+    for d in divs:
+        expr = d[0] if isinstance(d, tuple) else d
+        if not _MACRO_DIV.match(expr):
+            out.append(d)
+    return out
 
 
 # JS/TS: `/…/g` — это РЕГЕКС-ЛИТЕРАЛ, а не деление. Без этого `escapeData`
@@ -3084,7 +3161,7 @@ def expr_smt_bv(node, env: dict, w: int, signed: bool) -> str:
         if isinstance(o, ast.RShift):
             return f"({'bvashr' if signed else 'bvlshr'} {left} {right})"
         if isinstance(o, (ast.Div, ast.FloorDiv, ast.Mod)):
-            _DIV_COLLECTOR.append(right)
+            _DIV_COLLECTOR.append((right, tuple(_DIV_GUARDS)))  # #327
             if isinstance(o, ast.Mod):
                 name = "bvsrem" if signed else "bvurem"
             else:
@@ -3143,7 +3220,7 @@ def build_divzero_smt_bv(params, req, divisors, w: int, signed: bool, lang: str)
     if req:
         lines.append(f"(assert {expr_smt_bv(_clike_parse(req, lang), env, w, signed)})")
     zero = f"(_ bv0 {w})"
-    lines.append("(assert (or " + " ".join(f"(= {d} {zero})" for d in divisors) + "))")
+    lines.append("(assert (or " + " ".join(_div_zero_terms(divisors, zero)) + "))")
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
 
@@ -3391,6 +3468,9 @@ def _demo(args) -> int:
                 continue
             # Делители собраны ПРИ ПАРСИНГЕ (трансляция тела уже выполнена).
             divisors = meta.get("divisors") or []
+            # ДЕФЕКТ #327: элемент — `(делитель, гарды)`; для ЧЕЛОВЕКА печатаем
+            # только делитель (гарды видны в самом свидетельстве).
+            _divnames = [d[0] if isinstance(d, tuple) else d for d in divisors]
             # ---- ДЕТЕРМИНИРОВАННЫЙ ФРОНТЕНД: выгрузка формулы -----------------
             # `--emit-smt2 DIR`: формула, которую РЕАЛЬНО проверяет ядро, пишется
             # файлом. Это позволяет (а) перепроверить её `kernc prove` вручную,
@@ -3444,7 +3524,7 @@ def _demo(args) -> int:
                 if "ДОКАЗАНО" not in outd:
                     ce = parse_counterexample(outd)
                     print(f"  [FAIL] {name}: ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ "
-                          f"(делитель: {', '.join(divisors)})")
+                          f"(делитель: {', '.join(_divnames)})")
                     if ce:
                         print(f"         [КОНТРПРИМЕР] {fmt_ce(ce)}")
                         # УЛУЧШЕНИЕ №14: воспроизвести деление на ноль КОНКРЕТНО
@@ -3468,7 +3548,7 @@ def _demo(args) -> int:
                     violations.append({
                         "file": str(p), "line": ln, "rule": "KERN004",
                         "message": (f"{name}: возможно деление на ноль "
-                                    f"(делитель: {', '.join(divisors)})"
+                                    f"(делитель: {', '.join(_divnames)})"
                                     + (f"; контрпример: {fmt_ce(ce)}" if ce else ""))})
                     failed += 1
                     safety_failed += 1
@@ -4272,11 +4352,12 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                          in_while=True)
             _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
                          in_while=in_while)
-            # ВАЖНО: индексы бывают и в ВЫРАЖЕНИЯХ (`while lo < hi: if x < a[mid]`).
-            # Раньше их находил общий `ast.walk` по всей инструкции; теперь ветка
-            # завершается `continue`, поэтому сканируем ВСЮ конструкцию явно —
-            # иначе покрытие терялось бы вместе с ложной тревогой.
-            for sub in [n for n in ast.walk(st) if isinstance(n, ast.Subscript)]:
+            # ВАЖНО: индексы бывают и в САМОМ условии цикла (`while a[i] < x`).
+            # Раньше их находил общий `ast.walk` по ВСЕЙ инструкции — но тело уже
+            # обойдено рекурсией выше, и повторный проход по всему `while` давал
+            # ДУБЛИКАТЫ находок (дефект #326: `bisect.py` печатал каждый индекс
+            # дважды). Сканируем ТОЛЬКО условие — тело покрыто рекурсией.
+            for sub in [n for n in ast.walk(st.test) if isinstance(n, ast.Subscript)]:
                 _bounds_one(sub, wpath, params, lens, kernc, found, fname, syms,
                             in_while=True)
             continue

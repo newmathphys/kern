@@ -13,7 +13,7 @@ into the source and requires the check to go red. If your new test stays green
 under the injected fault, it is vacuous and will be rejected.
 
 ```bash
-make canfail        # 171 non-vacuous checks, 0 vacuous
+make canfail        # 172 non-vacuous checks, 0 vacuous
 ```
 
 ## Environment

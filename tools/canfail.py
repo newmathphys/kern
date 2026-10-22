@@ -895,11 +895,14 @@ def case_contracts_branches():
     не ловит баг, не должна оставаться зелёной.
     """
     # #297: якорь уточнён контекстом — `if isinstance(st, ast.If):` встречается 8 раз.
+    # #327: код СРАЗУ ПОСЛЕ `if` изменился (добавлены гарды ветвления), и прежний
+    # двухстрочный якорь перестал совпадать. Харнесс сообщил об этом сам
+    # («ЯКОРЯ НЕ ПРИМЕНИМЫ»), а не пропустил молча. Новый якорь — строка
+    # `then_expr = body_smt(st.body, then_env)`: она встречается РОВНО ОДИН раз.
+    # Диверсия обнуляет значение ветки THEN -> ветвления фактически отброшены.
     patch("tools/kern_contracts.py",
-          "        if isinstance(st, ast.If):\n"
-          "            then_env = dict(env)",
-          "        if False and isinstance(st, ast.If):  # ДИВЕРСИЯ: ветки отброшены\n"
-          "            then_env = dict(env)")
+          "                then_expr = body_smt(st.body, then_env)",
+          "                then_expr = None  # ДИВЕРСИЯ: ветка THEN отброшена")
     return "make contracts"
 
 
@@ -1776,6 +1779,20 @@ def case_c_types():
           '        if lang == "c":\n            ret = C_MACHINE_TYPES.get(ret, ret)\n',
           '')
     return "make c-types-check"
+
+
+def case_div_guards():
+    """#327 SABOTAGE: обязательство «делитель ≠ 0» игнорирует активные гарды.
+
+    ЛОМАЕМ: `_div_zero_terms` выбрасывает гарды и строит голое `(= d 0)` —
+    ровно то состояние, в котором `return 0 if b == 0 else a // b` давал
+    ЛОЖНОЕ ОБВИНЕНИЕ в делении на ноль. `make div-guards-check` обязан
+    покраснеть. Если кейс вакуумный — гейт проверяет не то, что заявляет.
+    """
+    patch("tools/kern_contracts.py",
+          '        out.append(f"(and {\' \'.join(guards)} {eq})" if guards else eq)',
+          '        out.append(eq)  # ЛОМАЕМ: гарды отброшены')
+    return "make div-guards-check"
 
 
 def case_llms_drift():
@@ -2952,6 +2969,8 @@ CASES = [
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
      case_c_types),
+    ("div-guards", "Divisor obligation ignores active guards -> gate red",
+     case_div_guards),
     ("arith-zig-ref", "Adapters diverge from Zig @divTrunc/@divFloor -> gate red",
      case_arith_zig_ref),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
