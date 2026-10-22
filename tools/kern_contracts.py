@@ -4156,10 +4156,75 @@ def _match_len_guard(st) -> str | None:
     return None
 
 
-def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
-    """Обход тела с накоплением путевых условий (Пункт 21, Zero-Annotation)."""
+def _len_alias(st) -> tuple[str, str] | None:
+    """`n = len(arr)` -> (`n`, `arr`). Только ПРОСТАЯ форма, иначе None.
+
+    ЗАЧЕМ (дефект #315/#322): в `statistics.harmonic_mean` стоит реальный гард
+    `n = len(data)` + `if n < 1: raise`. Анализатор не связывал `n` с
+    символической длиной, поэтому `data[0]` обвинялся НЕДОСТИЖИМЫМ
+    контрпримером `kern_len_data = 0`.
+    """
+    if not (isinstance(st, ast.Assign) and len(st.targets) == 1
+            and isinstance(st.targets[0], ast.Name)
+            and isinstance(st.value, ast.Call)
+            and isinstance(st.value.func, ast.Name)
+            and st.value.func.id == "len"
+            and len(st.value.args) == 1
+            and isinstance(st.value.args[0], ast.Name)):
+        return None
+    return st.targets[0].id, st.value.args[0].id
+
+
+def _assigned_names(st) -> set[str]:
+    """Имена, которые ЭТА инструкция присваивает (для снятия псевдонимов)."""
+    out: set[str] = set()
+    for node in ast.walk(st):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    out.add(t.id)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            if isinstance(node.target, ast.Name):
+                out.add(node.target.id)
+    return out
+
+
+def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
+                 in_while=False):
+    """Обход тела с накоплением путевых условий (Пункт 21, Zero-Annotation).
+
+    `in_while` — ДЕФЕКТ #315: внутри `while` ПОЛНЫЙ инвариант цикла не
+    моделируется (для этого нужен CHC/Horn, который живёт в Zig и не подключён
+    к этому анализу). Поэтому находки внутри тела `while` помечаются как
+    `[BOUNDS UNKNOWN]` с причиной, а НЕ как `[BOUNDS PATH]` с контрпримером:
+    контрпример вида `kern_len_a = 0, mid = -1` недостижим при инварианте
+    `0 <= lo < hi <= len(a)`, и выдавать его за находку — ложное обвинение.
+    Само условие цикла добавляется в путь: оно истинно на КАЖДОЙ итерации,
+    поэтому такое сужение ЗВУЧНО (оно не скрывает нарушений, возможных при
+    истинном условии).
+    """
     syms = syms if syms is not None else set()
+    # ПСЕВДОНИМЫ ДЛИНЫ (дефект #315/#322): `n = len(arr)` связывает локальную
+    # переменную с символической длиной. Без этого реальный гард
+    # `if n < 1: raise` в `statistics.harmonic_mean` НЕ сужал путь, и `data[0]`
+    # обвинялся недостижимым контрпримером `kern_len_data = 0`.
+    # ЗВУЧИМОСТЬ: равенство добавляется в путь только для ПРОСТОЙ формы
+    # `var = len(arr)` и снимается, как только переменная переназначена.
+    alias_path: list[str] = []
+    alias_of: dict[str, str] = {}
     for st in body:
+        al = _len_alias(st)
+        if al is not None:
+            var, arr = al
+            syms = syms | {arr}
+            alias_of[var] = arr
+            alias_path.append(f"(= {var} kern_len_{arr})")
+            continue
+        for nm in _assigned_names(st):
+            if nm in alias_of:
+                del alias_of[nm]
+                alias_path = [c for c in alias_path if not c.startswith(f"(= {nm} ")]
+        eff = path + alias_path
         if isinstance(st, ast.If):
             try:
                 cond = _cond_smt(st.test, syms)
@@ -4170,32 +4235,63 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
             if fixed_len is not None:
                 name, k = fixed_len
                 lens[name] = k
-            _walk_bounds(st.body, path + ([cond] if cond else []), params, lens,
-                         kernc, found, fname, syms)
+            _walk_bounds(st.body, eff + ([cond] if cond else []), params, lens,
+                         kernc, found, fname, syms, in_while=in_while)
             neg = f"(not {cond})" if cond else None
-            _walk_bounds(st.orelse, path + ([neg] if neg else []), params, lens,
-                         kernc, found, fname, syms)
+            _walk_bounds(st.orelse, eff + ([neg] if neg else []), params, lens,
+                         kernc, found, fname, syms, in_while=in_while)
+            # ИНДЕКСЫ В УСЛОВИИ `if` (дефект #315): ветка завершается `continue`,
+            # поэтому общий `ast.walk` по инструкции до них НЕ доходил — индекс
+            # вида `if a[i] == 5:` не проверялся ВООБЩЕ. Условие вычисляется на
+            # текущем пути, поэтому сканируем его с тем же `eff`.
+            for sub in [n for n in ast.walk(st.test) if isinstance(n, ast.Subscript)]:
+                _bounds_one(sub, eff, params, lens, kernc, found, fname, syms, in_while)
             # ИЗМЕРЕНО: операторы ПОСЛЕ `if` раньше теряли путевое условие, и
             # `get_safe` (с гардами) ЛОЖНО обвинялся в выходе за границы.
             # Если ветка THEN безусловно завершается, то всё последующее
             # выполняется при `NOT cond` -> сужаем путь.
             if neg and _block_exits(st.body):
-                path = path + [neg]
+                path = eff + [neg]
             continue
         # ДЕФЕКТ #314: циклы и `match` по длине не моделировались вовсе — их
         # тела обходились БЕЗ сужения, поэтому индексы, ограниченные идиомой
         # `for i in range(len(arr))` или `match len(arr): case N:`, обвинялись
         # в выходе за границы с недостижимым контрпримером.
+        # ДЕФЕКТ #315: `while` НЕ обрабатывался вовсе — тело обходилось без
+        # сужения (фоллтhrough в общий `ast.walk` ниже), поэтому индекс внутри
+        # цикла обвинялся с НЕДОСТИЖИМЫМ контрпримером (`bisect.py`). Теперь
+        # условие цикла (истинное на каждой итерации) идёт в путь, а сам факт
+        # «инвариант не смоделирован» передаётся флагом — см. `in_while`.
+        if isinstance(st, ast.While):
+            try:
+                wcond = _cond_smt(st.test, syms)
+            except (Unsupported, NoReturn):
+                wcond = None
+            wpath = eff + ([wcond] if wcond else [])
+            _walk_bounds(st.body, wpath, params, lens, kernc, found, fname, syms,
+                         in_while=True)
+            _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
+                         in_while=in_while)
+            # ВАЖНО: индексы бывают и в ВЫРАЖЕНИЯХ (`while lo < hi: if x < a[mid]`).
+            # Раньше их находил общий `ast.walk` по всей инструкции; теперь ветка
+            # завершается `continue`, поэтому сканируем ВСЮ конструкцию явно —
+            # иначе покрытие терялось бы вместе с ложной тревогой.
+            for sub in [n for n in ast.walk(st) if isinstance(n, ast.Subscript)]:
+                _bounds_one(sub, wpath, params, lens, kernc, found, fname, syms,
+                            in_while=True)
+            continue
         if isinstance(st, ast.For):
             g = _loop_len_guard(st)
             if g is not None:
                 var, arr = g
                 cond = f"(and (>= {var} 0) (< {var} kern_len_{arr}))"
-                _walk_bounds(st.body, path + [cond], params, lens, kernc, found,
-                             fname, syms | {arr})
+                _walk_bounds(st.body, eff + [cond], params, lens, kernc, found,
+                             fname, syms | {arr}, in_while=in_while)
             else:
-                _walk_bounds(st.body, path, params, lens, kernc, found, fname, syms)
-            _walk_bounds(st.orelse, path, params, lens, kernc, found, fname, syms)
+                _walk_bounds(st.body, eff, params, lens, kernc, found, fname, syms,
+                             in_while=in_while)
+            _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
+                         in_while=in_while)
             continue
         if isinstance(st, ast.Match):
             arr = _match_len_guard(st)
@@ -4208,40 +4304,61 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None):
                         and isinstance(pat.value.value, int)):
                     csyms = syms | {arr}
                     extra = [f"(= kern_len_{arr} {pat.value.value})"]
-                _walk_bounds(case.body, path + extra, params, lens, kernc, found,
-                             fname, csyms)
+                _walk_bounds(case.body, eff + extra, params, lens, kernc, found,
+                             fname, csyms, in_while=in_while)
             continue
         for sub in [n for n in ast.walk(st) if isinstance(n, ast.Subscript)]:
-            if not isinstance(sub.value, ast.Name):
-                continue
-            arr = sub.value.id
-            decls = list(params)
-            pre: list[str] = []
-            if arr in lens:
-                n = lens[arr]                      # (а) литерал списка из AST
-                human = f"0..{int(n) - 1} (из литерала)"
-            elif arr in syms:
-                n = f"kern_len_{arr}"              # (б) СИМВОЛИЧЕСКАЯ длина
-                decls = list(dict.fromkeys(decls + [n]))
-                pre = [f"(>= {n} 0)"]
-                human = "0..kern_len_%s-1 (символическая длина)" % arr
-            else:
-                found.append(f"[BOUNDS] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
-                             f"длина НЕ известна (нет литерала и нет `len({arr})` "
-                             f"в условиях), границы НЕ проверены")
-                continue
-            try:
-                idx = expr_smt(sub.slice, {})
-            except (Unsupported, NoReturn):
-                continue
-            bad = f"(not (and (>= {idx} 0) (< {idx} {n})))"
-            v, ce = _smt_verdict(kernc, decls, pre + path + [bad])
-            if v == "sat":
-                found.append(f"[BOUNDS PATH] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
-                             f"возможен выход за границы {human}; контрпример: {ce}")
-            elif v == "unknown":
-                found.append(f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
-                             f"НЕ решено ({ce}) — НЕ считается безопасным")
+            _bounds_one(sub, eff, params, lens, kernc, found, fname, syms, in_while)
+
+
+def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while):
+    """Проверить ОДИН индекс `arr[idx]` на выход за границы.
+
+    Вынесено из `_walk_bounds`, потому что индексы бывают не только в телах
+    инструкций, но и в ВЫРАЖЕНИЯХ условий (`while`, `if`, `match`). Раньше их
+    находил общий `ast.walk` по всей инструкции; после появления ветки для
+    `ast.While` (дефект #315) этот проход перестал её достигать, и покрытие
+    терялось вместе с ложной тревогой — поэтому сканирование вызывается явно.
+    """
+    if not isinstance(sub.value, ast.Name):
+        return
+    arr = sub.value.id
+    decls = list(params)
+    pre: list[str] = []
+    if arr in lens:
+        n = lens[arr]                      # (а) литерал списка из AST
+        human = f"0..{int(n) - 1} (из литерала)"
+    elif arr in syms:
+        n = f"kern_len_{arr}"              # (б) СИМВОЛИЧЕСКАЯ длина
+        decls = list(dict.fromkeys(decls + [n]))
+        pre = [f"(>= {n} 0)"]
+        human = "0..kern_len_%s-1 (символическая длина)" % arr
+    else:
+        found.append(f"[BOUNDS] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
+                     f"длина НЕ известна (нет литерала и нет `len({arr})` "
+                     f"в условиях), границы НЕ проверены")
+        return
+    try:
+        idx = expr_smt(sub.slice, {})
+    except (Unsupported, NoReturn):
+        return
+    bad = f"(not (and (>= {idx} 0) (< {idx} {n})))"
+    v, ce = _smt_verdict(kernc, decls, pre + path + [bad])
+    if v == "sat":
+        # ДЕФЕКТ #315: внутри `while` инвариант цикла не смоделирован, поэтому
+        # «контрпример» может быть НЕДОСТИЖИМ (именно так было на `bisect.py`).
+        # Звуковое поведение — честное UNKNOWN с причиной, а не обвинение.
+        if in_while:
+            found.append(
+                f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+                f"`while`: инвариант цикла НЕ моделируется, поэтому свидетельство "
+                f"{ce} может быть недостижимо — НЕ считается ни находкой, ни безопасным")
+        else:
+            found.append(f"[BOUNDS PATH] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+                         f"возможен выход за границы {human}; контрпример: {ce}")
+    elif v == "unknown":
+        found.append(f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+                     f"НЕ решено ({ce}) — НЕ считается безопасным")
 
 
 # Побочный канал: статистика последнего `cmd_xray` для агрегатора.

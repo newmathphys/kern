@@ -2668,10 +2668,13 @@ def case_bounds_check():
     # `_walk_bounds` изменился (`if ce is not None:` -> трёхзначный `if v == "sat":`),
     # и старый якорь стал НЕПРИМЕНИМЫМ (harness сообщил «якоря не применимы»).
     # Якорь сделан УНИКАЛЬНЫМ (двухстрочным), чтобы патч не мог уйти в `check_loop`.
+    # ИЗМЕРЕНО ЕЩЁ РАЗ (дефект #315): проверка индекса вынесена из `_walk_bounds`
+    # в `_bounds_one`, поэтому якорь переехал вместе с кодом — страж сам сообщил
+    # об этом («ЯКОРЯ НЕ ПРИМЕНИМЫ»), а не пропустил молча.
     patch(
         "tools/kern_contracts.py",
-        "            v, ce = _smt_verdict(kernc, decls, pre + path + [bad])",
-        "            v, ce = (\"unsat\", None)  # ЛОМАЕМ: игнорируем контрпримеры",
+        "    v, ce = _smt_verdict(kernc, decls, pre + path + [bad])\n    if v == \"sat\":",
+        "    v, ce = (\"unsat\", None)  # ЛОМАЕМ: игнорируем контрпримеры\n    if v == \"sat\":",
     )
     return "make bounds-check"
 
