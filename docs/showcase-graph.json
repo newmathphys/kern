@@ -672,7 +672,7 @@
   },
   {
    "id": "next/graph_dump.zig",
-   "loc": 195,
+   "loc": 246,
    "pub_fn": 2,
    "tests": 0,
    "kern_annotations": 2,
@@ -688,7 +688,7 @@
   },
   {
    "id": "next/main.zig",
-   "loc": 178,
+   "loc": 183,
    "pub_fn": 1,
    "tests": 0,
    "kern_annotations": 0,

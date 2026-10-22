@@ -57,7 +57,12 @@ pub fn main(init: std.process.Init) !void {
     // Python-сканер остаётся только сторожем паритета (`make graph-check`).
     if (std.mem.eql(u8, cmd, "graph")) {
         const root = flagValue(args, "--root") orelse "src";
-        const json = graph_dump.render(alloc, root) catch |e| {
+        // ДЕФЕКТ #310: `--external` материализует цели `@import` за границей
+        // сканирования как узлы (`"external": true`). Без флага они только
+        // считаются (`edges_external`), и «0 рёбер» больше не выглядит как
+        // «связей нет», когда они просто уходят за корень.
+        const with_external = hasFlag(args, "--external");
+        const json = graph_dump.render(alloc, root, with_external) catch |e| {
             std.debug.print("[!] graph: {s}\n", .{@errorName(e)});
             return;
         };

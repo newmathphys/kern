@@ -81,10 +81,17 @@ fn resolveImport(alloc: std.mem.Allocator, base_dir: []const u8, spec: []const u
     return std.mem.join(alloc, "/", parts.items);
 }
 
-/// Собрать `(nodes, edges)` по каталогу `root` (обычно `src`).
+/// Собрать `(nodes, edges, external)` по каталогу `root` (обычно `src`).
+///
+/// ДЕФЕКТ #310: раньше цели `@import` ВНЕ сканируемого корня отбрасывались
+/// молча. На `lib/std/math` это давало «64 модуля, 0 рёбер» — хотя каждый
+/// модуль импортирует `../std.zig`. Отсутствие рёбер читалось как «связей нет»,
+/// хотя на деле связи есть, просто они уходят за границу сканирования.
+/// Теперь они возвращаются отдельным списком `external`.
 pub fn collect(alloc: std.mem.Allocator, root: []const u8) !struct {
     nodes: []Node,
     edges: []Edge,
+    external: []Edge,
 } {
     var nodes: std.ArrayListUnmanaged(Node) = .empty;
     var edges: std.ArrayListUnmanaged(Edge) = .empty;
@@ -143,27 +150,43 @@ pub fn collect(alloc: std.mem.Allocator, root: []const u8) !struct {
         targets.deinit(alloc);
     }
 
-    // Проход 2: оставить только рёбра внутрь известных узлов, без дублей.
+    // Проход 2: рёбра внутрь известных узлов (без дублей) + ВНЕШНИЕ цели
+    // ОТДЕЛЬНЫМ списком (дефект #310: раньше они отбрасывались молча).
     var seen: std.StringHashMapUnmanaged(void) = .empty;
+    var seen_ext: std.StringHashMapUnmanaged(void) = .empty;
     var kept: std.ArrayListUnmanaged(Edge) = .empty;
+    var external: std.ArrayListUnmanaged(Edge) = .empty;
     const key = struct {
         fn make(a: std.mem.Allocator, from: []const u8, to: []const u8) ![]u8 {
             return std.fmt.allocPrint(a, "{s}->{s}", .{ from, to });
         }
     };
     for (edges.items) |e| {
-        if (!known.contains(e.target)) continue;
+        if (!known.contains(e.target)) {
+            const ke = try key.make(alloc, e.source, e.target);
+            if (seen_ext.contains(ke)) continue;
+            try seen_ext.put(alloc, ke, {});
+            try external.append(alloc, e);
+            continue;
+        }
         const k = try key.make(alloc, e.source, e.target);
         if (seen.contains(k)) continue;
         try seen.put(alloc, k, {});
         try kept.append(alloc, e);
     }
     edges.deinit(alloc);
-    return .{ .nodes = try nodes.toOwnedSlice(alloc), .edges = try kept.toOwnedSlice(alloc) };
+    return .{ .nodes = try nodes.toOwnedSlice(alloc),
+              .edges = try kept.toOwnedSlice(alloc),
+              .external = try external.toOwnedSlice(alloc) };
 }
 
 /// Сериализовать в JSON (схема совместима с showcase-graph.json).
-pub fn render(alloc: std.mem.Allocator, root: []const u8) ![]u8 {
+///
+/// `include_external` (флаг `--external`) материализует цели за границей
+/// сканирования как узлы с `"external": true` и добавляет их рёбра — тогда
+/// граф ЗАМКНУТ и «внешних связей 0» означает «их правда нет». Без флага
+/// внешние связи только СООБЩАЮТСЯ числом `edges_external` (дефект #310).
+pub fn render(alloc: std.mem.Allocator, root: []const u8, include_external: bool) ![]u8 {
     const g = try collect(alloc, root);
     var parts: std.ArrayListUnmanaged([]const u8) = .empty;
     try parts.append(alloc, try std.fmt.allocPrint(alloc,
@@ -174,6 +197,25 @@ pub fn render(alloc: std.mem.Allocator, root: []const u8) ![]u8 {
             "{{\"id\":\"{s}\",\"loc\":{d},\"imports_out\":{d}}}",
             .{ n.id, n.loc, n.imports_out }));
     }
+    if (include_external) {
+        var seen_ids: std.StringHashMapUnmanaged(void) = .empty;
+        for (g.nodes) |n| try seen_ids.put(alloc, n.id, {});
+        for (g.external) |e| {
+            if (seen_ids.contains(e.target)) continue;
+            try seen_ids.put(alloc, e.target, {});
+            // Запятая — ТОЛЬКО если что-то уже выведено: при нуле внутренних
+            // узлов ведущая запятая давала невалидный JSON (найдено на
+            // `--root lib/std/math --external`).
+            if (parts.items.len > 0 and parts.items[parts.items.len - 1].len > 0 and
+                parts.items[parts.items.len - 1][parts.items[parts.items.len - 1].len - 1] != '[')
+            {
+                try parts.append(alloc, ",");
+            }
+            try parts.append(alloc, try std.fmt.allocPrint(alloc,
+                "{{\"id\":\"{s}\",\"loc\":0,\"imports_out\":0,\"external\":true}}",
+                .{e.target}));
+        }
+    }
     try parts.append(alloc, "],\"edges\":[");
     for (g.edges, 0..) |e, i| {
         if (i > 0) try parts.append(alloc, ",");
@@ -181,7 +223,16 @@ pub fn render(alloc: std.mem.Allocator, root: []const u8) ![]u8 {
             "{{\"source\":\"{s}\",\"target\":\"{s}\",\"kind\":\"import\"}}",
             .{ e.source, e.target }));
     }
-    try parts.append(alloc, "]}\n");
+    if (include_external) {
+        for (g.external, 0..) |e, i| {
+            if (i > 0 or g.edges.len > 0) try parts.append(alloc, ",");
+            try parts.append(alloc, try std.fmt.allocPrint(alloc,
+                "{{\"source\":\"{s}\",\"target\":\"{s}\",\"kind\":\"import\",\"external\":true}}",
+                .{ e.source, e.target }));
+        }
+    }
+    try parts.append(alloc, try std.fmt.allocPrint(alloc,
+        "],\"edges_external\":{d}}}\n", .{g.external.len}));
 
     var total: usize = 0;
     for (parts.items) |piece| total += piece.len;

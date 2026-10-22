@@ -80,6 +80,30 @@ def main() -> int:
         print(f"  [FAIL] метрики расходятся у {len(diff)} узлов, напр. {k}: kernx={zm[k]} витрина={pm[k]}")
         bad += 1
 
+    # ДЕФЕКТ #310: внешние связи (цели `@import` за границей сканирования)
+    # обязаны СООБЩАТЬСЯ, а не исчезать. Проверяем, что поле есть и что
+    # `--external` даёт ВАЛИДНЫЙ JSON — именно на этом ломался ведущий
+    # разделитель, когда внутренних рёбер ноль.
+    if "edges_external" not in zig:
+        print("  [FAIL] в выводе `kernx graph` нет поля edges_external (#310)")
+        bad += 1
+    else:
+        r2 = subprocess.run([str(KERNX), "graph", "--external"],
+                            capture_output=True, text=True, timeout=120)
+        try:
+            z2 = json.loads(r2.stdout)
+        except json.JSONDecodeError as e:
+            print(f"  [FAIL] `kernx graph --external` отдал невалидный JSON: {e}")
+            bad += 1
+        else:
+            n_ext = sum(1 for n in z2.get("nodes", []) if n.get("external"))
+            print(f"  [OK] внешние связи: {zig['edges_external']} "
+                  f"(с `--external` граф замкнут: {len(z2.get('nodes', []))} узлов, "
+                  f"{len(z2.get('edges', []))} рёбер, внешних узлов {n_ext})")
+            if z2.get("edges_external") != zig["edges_external"]:
+                print("  [FAIL] edges_external меняется от флага — значит считается не то")
+                bad += 1
+
     if not bad:
         print(f"  [OK] паритет: {len(zn)} узлов, {len(ze)} рёбер — kernx == showcase")
     print("\n[OK] граф един" if not bad else f"\n[FAIL] расхождений: {bad}")
