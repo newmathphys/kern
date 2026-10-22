@@ -95,7 +95,7 @@ pub const KimgHeader = extern struct {
         std.mem.writeInt(u16, h[10..12], 3, .little); // version_minor = 3
         std.mem.writeInt(u32, h[12..16], 128, .little); // header_size
         std.mem.writeInt(u32, h[16..20], 0, .little); // flags
-        std.mem.writeInt(u32, h[20..24], 1, .little); // hash_algo = SHA-256
+        std.mem.writeInt(u32, h[20..24], 1, .little); // hash_algo = 1 = BLAKE3-256 (HashAlgo.fromInt(1) == .blake3)
         std.mem.writeInt(u64, h[24..32], 4096, .little); // block_size
         std.mem.writeInt(u64, h[32..40], table_off, .little);
         std.mem.writeInt(u64, h[40..48], table_len, .little);

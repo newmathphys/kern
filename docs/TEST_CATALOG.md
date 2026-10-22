@@ -717,7 +717,7 @@ zig build test-next    # 53 теста KERN-Next
 zig build test-fault   # сбои памяти (реальный SIGBUS)
 
 # --- Формальные доказательства ---
-./formal/check.sh      # 7 файлов Lean 4, 0 errors, 0 sorry
+./formal/check.sh      # 8 файлов Lean 4, 0 errors, 0 sorry
 
 # --- Артефакты ---
 zig build              # kernc, kernx, kern-attack

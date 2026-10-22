@@ -122,11 +122,11 @@ KERN запрашивает у решателя **свидетельство о�
 | Уровень | Что это | Ключевые файлы |
 |:--|:--|:--|
 | **L0** — контейнер | `.kimg`: заголовок 128 байт (little-endian), дескрипторы объектов по 96 байт, Merkle-корень, `comptime`-инварианты раскладки, атомарная запись | `src/core/kimg_reader.zig`, `kimg_writer.zig`, `object_entry.zig`, `src/atomic_write.zig` |
-| **L1** — целостность | SHA-256 по каждому payload при чтении → `PayloadTampered`; Merkle-корень по таблице дескрипторов | `kimg_reader.zig`, `kernfs_router.zig` |
+| **L1** — целостность | **BLAKE3-256** по умолчанию (SHA-256 — по флагу `hash_algo`) по каждому payload при чтении → `PayloadTampered`; Merkle-корень по таблице дескрипторов | `kimg_reader.zig`, `kernfs_router.zig` |
 | **L2** — KERNFS | read-only виртуальная ФС над запечатанным образом; отказ при path-traversal и NUL-инъекции; запись → `AccessDenied` | `src/core/kernfs_router.zig` |
 | **L3** — Врата Истины | аккумулятор Белнапа, политика допуска, вердикт только от доверенного чекера | `src/verifier/admission_gate.zig`, `src/core/eq2.zig` |
 | **L4** — SMT-теории | Z3 через дочерние процессы (0 утечек FD, жёсткий таймаут, пул решателей); QF_LIA/BV, QF_AX (массивы), CHC/Horn (инварианты циклов), QF_S (строки), QF_FP, CEGIS-синтез, UNSAT-core | `src/verifier/*.zig` |
-| **L5** — формальные доказательства | 32 теоремы в 7 файлах Lean 4, 0 `sorry` | `formal/*.lean` |
+| **L5** — формальные доказательства | **143 теоремы в 8 файлах** Lean 4, 0 `sorry` | `formal/*.lean` |
 
 Поверх ядра работает **KERN-Next** (`kernx`) — движок проектного DSL `.kern`:
 разбор, валидация, SQLite-каталог, снапшоты и diff, отчёты, пакет передачи
@@ -281,11 +281,12 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 
 ## 7. Формальные доказательства (Lean 4)
 
-7 файлов, **32 теоремы/леммы, 0 `sorry`**:
+**8 файлов, 143 теоремы/леммы, 0 `sorry`**:
 
 | Файл | Теорем | Что доказано |
 |:--|--:|:--|
-| `KernAllMath.lean` | 12 | де Морган, инволюция отрицания, законы JOIN_K/MEET_K (коммутативность, ассоциативность, идемпотентность), дистрибутивность, **изоляция конфликта `T ⊔ F = B`**, анти-вакуумность, тотальность fuel-DFS |
+| `FarkasSoundness.lean` | 105 | полнота правила Фаркаса (звуковость Farkas-шага пруф-чекера) |
+| `KernAllMath.lean` | 18 | де Морган, инволюция отрицания, законы JOIN_K/MEET_K (коммутативность, ассоциативность, идемпотентность), дистрибутивность, **изоляция конфликта `T ⊔ F = B`**, анти-вакуумность, тотальность fuel-DFS |
 | `KernSemanticGap.lean` | 8 | **семантический разрыв**: свойства ℤ нельзя переносить на `i32`/`i64` без guard-контроля; `guarded_add_stays_in32` соответствует `std.math.add` |
 | `KernDfsTermination.lean` | 4 | завершаемость обхода по индукции счётчика fuel |
 | `KernZeroCopy.lean` | 3 | изоморфизм отображения байтов и структуры (zero-copy) |
@@ -293,7 +294,7 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 | `KernTalk.lean` | 2 | `ai_hallucination_yields_conflict`: `human.max < ai.min ⇒ unify = B` |
 | `KernTalkND.lean` | 1 | N-мерная унификация: нарушение хотя бы по одной оси ⇒ глобальный `B` |
 
-Проверка: `./formal/check.sh` → `ALL LEAN PROOFS OK (7/7 файлов, 0 errors, 0 sorry)`.
+Проверка: `./formal/check.sh` → `ALL LEAN PROOFS OK (8/8 файлов, 0 errors, 0 sorry)`.
 Файлы, импортирующие Mathlib, компилируются в проекте Mathlib; при его отсутствии
 скрипт **честно сообщает**, сколько файлов проверено, и (в строгом режиме
 `KERN_REQUIRE_MATHLIB=1`) падает — вместо ложного «всё хорошо».
@@ -531,7 +532,7 @@ make cross-arch           # ARM64 + POWERPC64 через QEMU
 | **Фаза 1** | закрыты 4 критических дефекта (обход Врат, KERNFS, Merkle, AccessDenied) |
 | **Фаза 2** | CLI без заглушек (`check-integrity`, `ls`, `cat`, `verify`, `report`) |
 | **Фаза 3** | KERN-Next: DSL `.kern`, SQLite-каталог, снапшоты, agent packet |
-| **Фаза 4** | документация, синхронизация, Lean 4 (32 теоремы) |
+| **Фаза 4** | документация, синхронизация, Lean 4 (143 теоремы) |
 | **Бенчмарки** | QuixBugs, SWE-bench, Refactory, HumanEval+/MBPP+, SMT-LIB, CHC, Hacker's Delight |
 | **Эшелоны 1–4** | выравнивание/endianness, лавинный эффект хэша, изнурение пула, семантический разрыв |
 | **Контур доверия** | canfail (172 кейса), мутатор (92.5 %), покрытие решений (100 %) |
