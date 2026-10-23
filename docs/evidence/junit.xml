@@ -1,0 +1,180 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites name="kern" tests="154" failures="1" time="18.9">
+  <testsuite name="kern targets" tests="10" failures="1" time="18.9">
+    <testcase classname="kern" name="test" time="13.0">
+      <properties>
+        <property name="tests_executed" value="436" />
+      </properties>
+    </testcase>
+    <testcase classname="kern" name="test-next" time="0.1">
+      <skipped message="не перезапускалось: попадание в кэш сборки" />
+    </testcase>
+    <testcase classname="kern" name="version-check" time="0.2" />
+    <testcase classname="kern" name="metrics-guard" time="1.1" />
+    <testcase classname="kern" name="claims-audit" time="0.2" />
+    <testcase classname="kern" name="docs-parity" time="0.1" />
+    <testcase classname="kern" name="sync-check" time="1.0" />
+    <testcase classname="kern" name="status-check" time="0.1" />
+    <testcase classname="kern" name="llms-check" time="0.0" />
+    <testcase classname="kern" name="charter-check" time="3.0">
+      <failure message="rc=2">  [II] P1 OK: каждая CHECK-цель умеет падать (100 % покрытие)
+  [II] P2 OK: ни одного числа без якоря в публичных документах
+  [II] P3 OK: снимок состояния собран из facts+реестра+журнала
+  [II] P4 OK: llms.txt генерируется из facts.json
+  [II] P5 OK: EN/RU факты совпадают во всех парах
+  [II] P6 FAIL: каждое свидетельство отслеживается и не содержит провала
+  [meta] законов в уставе: 18 | машинно проверяемых: 14 | политика: 4
+[FAIL] P6 (каждое свидетельство отслеживается и не содержит провала) rc=1: не свидетельство: внешний аудитор его не получит. Проверьте
+исключения в .gitignore (нужно `!docs/evidence/**/*.log`, а не
+только `!docs/evidence/*.log`).
+[FAIL] устав не выполняется: расхождений 1
+make: *** [Makefile:738: charter-check] Ошибка 1</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="canfail cases (from log)" tests="144" failures="0" time="0">
+    <testcase classname="canfail" name="avalanche" time="0" />
+    <testcase classname="canfail" name="bench-json" time="0" />
+    <testcase classname="canfail" name="lean-sorry" time="0" />
+    <testcase classname="canfail" name="binlevel" time="0" />
+    <testcase classname="canfail" name="svg-overflow" time="0" />
+    <testcase classname="canfail" name="evidence-gate" time="0" />
+    <testcase classname="canfail" name="metrics-guard" time="0" />
+    <testcase classname="canfail" name="proof-hole" time="0" />
+    <testcase classname="canfail" name="simd8-masking" time="0" />
+    <testcase classname="canfail" name="mcp-selftest" time="0" />
+    <testcase classname="canfail" name="artifact-check" time="0" />
+    <testcase classname="canfail" name="artifact-check-offline" time="0" />
+    <testcase classname="canfail" name="contracts" time="0" />
+    <testcase classname="canfail" name="vacuous-requires" time="0" />
+    <testcase classname="canfail" name="contract-lock" time="0" />
+    <testcase classname="canfail" name="diff-equiv" time="0" />
+    <testcase classname="canfail" name="self-verify" time="0" />
+    <testcase classname="canfail" name="edge-cases" time="0" />
+    <testcase classname="canfail" name="trace-check" time="0" />
+    <testcase classname="canfail" name="ai-demo" time="0" />
+    <testcase classname="canfail" name="audits" time="0" />
+    <testcase classname="canfail" name="sarif-output" time="0" />
+    <testcase classname="canfail" name="contracts-json" time="0" />
+    <testcase classname="canfail" name="hook-gate" time="0" />
+    <testcase classname="canfail" name="slsa-bad-sig" time="0" />
+    <testcase classname="canfail" name="codec-dispatch" time="0" />
+    <testcase classname="canfail" name="model-negative" time="0" />
+    <testcase classname="canfail" name="contracts-branches" time="0" />
+    <testcase classname="canfail" name="kimg-deflate" time="0" />
+    <testcase classname="canfail" name="skip-exit-n" time="0" />
+    <testcase classname="canfail" name="version-consistency" time="0" />
+    <testcase classname="canfail" name="proof-binding" time="0" />
+    <testcase classname="canfail" name="disasm" time="0" />
+    <testcase classname="canfail" name="core-gate" time="0" />
+    <testcase classname="canfail" name="golden" time="0" />
+    <testcase classname="canfail" name="slsa" time="0" />
+    <testcase classname="canfail" name="grep-arrays" time="0" />
+    <testcase classname="canfail" name="grep-litmus" time="0" />
+    <testcase classname="canfail" name="attack" time="0" />
+    <testcase classname="canfail" name="smt-bench" time="0" />
+    <testcase classname="canfail" name="stress-thresh" time="0" />
+    <testcase classname="canfail" name="build-syntax" time="0" />
+    <testcase classname="canfail" name="chc-theory" time="0" />
+    <testcase classname="canfail" name="dtmc-theory" time="0" />
+    <testcase classname="canfail" name="cegis-theory" time="0" />
+    <testcase classname="canfail" name="nra-theory" time="0" />
+    <testcase classname="canfail" name="align-inv" time="0" />
+    <testcase classname="canfail" name="adversarial-payload" time="0" />
+    <testcase classname="canfail" name="evidence-propagates" time="0" />
+    <testcase classname="canfail" name="telemetry-detects" time="0" />
+    <testcase classname="canfail" name="guardrail-verdict" time="0" />
+    <testcase classname="canfail" name="evidence-full" time="0" />
+    <testcase classname="canfail" name="telemetry-full" time="0" />
+    <testcase classname="canfail" name="pool-limit" time="0" />
+    <testcase classname="canfail" name="strings-theory" time="0" />
+    <testcase classname="canfail" name="noninterf" time="0" />
+    <testcase classname="canfail" name="perf-threshold" time="0" />
+    <testcase classname="canfail" name="kern-invariant" time="0" />
+    <testcase classname="canfail" name="redos-vuln" time="0" />
+    <testcase classname="canfail" name="concolic-victim" time="0" />
+    <testcase classname="canfail" name="absint-inv" time="0" />
+    <testcase classname="canfail" name="attest-sign" time="0" />
+    <testcase classname="canfail" name="localize-core" time="0" />
+    <testcase classname="canfail" name="sim-invariant" time="0" />
+    <testcase classname="canfail" name="proof-check" time="0" />
+    <testcase classname="canfail" name="verify-cli" time="0" />
+    <testcase classname="canfail" name="prove-cli" time="0" />
+    <testcase classname="canfail" name="registry-fuse" time="0" />
+    <testcase classname="canfail" name="registry-dup-numbers" time="0" />
+    <testcase classname="canfail" name="evidence-guard" time="0" />
+    <testcase classname="canfail" name="c-abi-null" time="0" />
+    <testcase classname="canfail" name="c-abi-hash" time="0" />
+    <testcase classname="canfail" name="semantic-gap" time="0" />
+    <testcase classname="canfail" name="test-pool" time="0" />
+    <testcase classname="canfail" name="test-align" time="0" />
+    <testcase classname="canfail" name="test-fault" time="0" />
+    <testcase classname="canfail" name="coverage" time="0" />
+    <testcase classname="canfail" name="test-next" time="0" />
+    <testcase classname="canfail" name="deal" time="0" />
+    <testcase classname="canfail" name="os-stress" time="0" />
+    <testcase classname="canfail" name="flood" time="0" />
+    <testcase classname="canfail" name="bench" time="0" />
+    <testcase classname="canfail" name="stress" time="0" />
+    <testcase classname="canfail" name="theories" time="0" />
+    <testcase classname="canfail" name="model-verify" time="0" />
+    <testcase classname="canfail" name="lia-soundness" time="0" />
+    <testcase classname="canfail" name="proof-tamper" time="0" />
+    <testcase classname="canfail" name="tree-lock" time="0" />
+    <testcase classname="canfail" name="binary-audit" time="0" />
+    <testcase classname="canfail" name="bitrot-chaos" time="0" />
+    <testcase classname="canfail" name="pcc-check" time="0" />
+    <testcase classname="canfail" name="scorecard-check" time="0" />
+    <testcase classname="canfail" name="ecosystem-check" time="0" />
+    <testcase classname="canfail" name="xray-check" time="0" />
+    <testcase classname="canfail" name="gen-tests-check" time="0" />
+    <testcase classname="canfail" name="simplify-check" time="0" />
+    <testcase classname="canfail" name="bounds-check" time="0" />
+    <testcase classname="canfail" name="loop-check" time="0" />
+    <testcase classname="canfail" name="polyglot-7-check" time="0" />
+    <testcase classname="canfail" name="presets-check" time="0" />
+    <testcase classname="canfail" name="double-spend-check" time="0" />
+    <testcase classname="canfail" name="ffi-bridge-check" time="0" />
+    <testcase classname="canfail" name="sql-policy-check" time="0" />
+    <testcase classname="canfail" name="pricing-matrix-check" time="0" />
+    <testcase classname="canfail" name="anti-cheat-check" time="0" />
+    <testcase classname="canfail" name="mcp-audit-check" time="0" />
+    <testcase classname="canfail" name="noninterference-check" time="0" />
+    <testcase classname="canfail" name="belnap-swarm-check" time="0" />
+    <testcase classname="canfail" name="action-firewall-check" time="0" />
+    <testcase classname="canfail" name="rag-conflict-check" time="0" />
+    <testcase classname="canfail" name="rlvr-oracle-check" time="0" />
+    <testcase classname="canfail" name="audit-repo-check" time="0" />
+    <testcase classname="canfail" name="bug-hunt-check" time="0" />
+    <testcase classname="canfail" name="html-canvas-check" time="0" />
+    <testcase classname="canfail" name="fuzz-corpus-check" time="0" />
+    <testcase classname="canfail" name="wasm-check" time="0" />
+    <testcase classname="canfail" name="kimg-grep-check" time="0" />
+    <testcase classname="canfail" name="dst-check" time="0" />
+    <testcase classname="canfail" name="homeostatic-heal-check" time="0" />
+    <testcase classname="canfail" name="opt-diff-check" time="0" />
+    <testcase classname="canfail" name="concolic-check" time="0" />
+    <testcase classname="canfail" name="translation-val-check" time="0" />
+    <testcase classname="canfail" name="evo-fuzz-check" time="0" />
+    <testcase classname="canfail" name="parser-security-check" time="0" />
+    <testcase classname="canfail" name="hadamard-check" time="0" />
+    <testcase classname="canfail" name="arbitrage-check" time="0" />
+    <testcase classname="canfail" name="state-inv-check" time="0" />
+    <testcase classname="canfail" name="float-nan-check" time="0" />
+    <testcase classname="canfail" name="string-contracts-check" time="0" />
+    <testcase classname="canfail" name="audit" time="0" />
+    <testcase classname="canfail" name="smt-stress" time="0" />
+    <testcase classname="canfail" name="memcheck" time="0" />
+    <testcase classname="canfail" name="fd-check" time="0" />
+    <testcase classname="canfail" name="ubsafe" time="0" />
+    <testcase classname="canfail" name="mutate" time="0" />
+    <testcase classname="canfail" name="fuzz-1m" time="0" />
+    <testcase classname="canfail" name="cert" time="0" />
+    <testcase classname="canfail" name="attest-key" time="0" />
+    <testcase classname="canfail" name="audit-manifest" time="0" />
+    <testcase classname="canfail" name="chc-bench" time="0" />
+    <testcase classname="canfail" name="probe" time="0" />
+    <testcase classname="canfail" name="portable-bench" time="0" />
+    <testcase classname="canfail" name="sanity-control" time="0" />
+    <testcase classname="canfail" name="meta-verdict" time="0" />
+  </testsuite>
+</testsuites>

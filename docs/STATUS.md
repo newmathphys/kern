@@ -10,12 +10,12 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->196 | every goal this repository claims to verify |
+| Targets, total | <!-- fact:registry_targets -->198 | every goal this repository claims to verify |
 | CHECK | <!-- fact:check_targets -->154 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->10 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
-| META | <!-- fact:meta_targets -->28 | harness, generators, guards |
+| META | <!-- fact:meta_targets -->30 | harness, generators, guards |
 
 Can-fail cases: **<!-- fact:canfail_cases -->176**, of which
 **154/154** CHECK targets have a non-vacuous "can fail" proof.
@@ -36,7 +36,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->176**, of which
 
 ## Defect journal
 
-Numbered entries: **265**.
+Numbered entries: **266**.
 
 | Explicit status | Count |
 | --- | --- |
@@ -47,7 +47,7 @@ Numbered entries: **265**.
 | Decision: considered and not adopted | 0 |
 | Rows in the earlier journal format (category column, no status) | 124 |
 
-**Open technical defects: 0**
+**Open technical defects: 1** — #333
 
 > The journal spans two table generations: earlier rows carry a *category*
 > (`gate`, `kernel`, ...) and no status at all, later rows carry an explicit
@@ -55,7 +55,7 @@ Numbered entries: **265**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->330**.
+Highest defect number in the journal: **<!-- fact:max_defect -->333**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

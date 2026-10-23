@@ -160,6 +160,8 @@ CLASS = {
     "status-doc": "META",                # мета: генератор docs/STATUS.md (шаг C)
     "status-selftest": "META",           # мета: числа STATUS не захардкожены (шаг C)
     "charter-selftest": "META",          # мета: сломанный закон валит устав (шаг E)
+    "junit": "META",                     # мета: отчёт в формате чужого CI (шаг F1)
+    "junit-selftest": "META",            # мета: XML валиден и падение попадает в отчёт
     "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
