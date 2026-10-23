@@ -380,9 +380,27 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             del _DIV_GUARDS[_g:]
         return f"(ite {_cond} {_then} {_else})"
     if isinstance(node, ast.BoolOp):
+        # ДЕФЕКТ N1 (найден диагностикой после #327): ЛЕНИВОЕ вычисление.
+        # В Python `A and B` вычисляет B ТОЛЬКО если A истинно, а `A or B` —
+        # только если A ложно. Без протягивания гардов `b != 0 and a // b > 0`
+        # давало ЛОЖНОЕ обвинение в делении на ноль: делитель `b` собирался
+        # в контексте, где условие `b != 0` ещё не действует.
+        # Гарды накапливаются: k-й операнд вычисляется при истинности ВСЕХ
+        # предыдущих (`and`) либо при ложности всех предыдущих (`or`).
         op = "and" if isinstance(node.op, ast.And) else "or"
-        parts = " ".join(expr_smt(v, env, lang) for v in node.values)
-        return f"({op} {parts})"
+        _g = len(_DIV_GUARDS)
+        parts: list[str] = []
+        try:
+            for i, v in enumerate(node.values):
+                parts.append(expr_smt(v, env, lang))
+                if i < len(node.values) - 1:
+                    if op == "and":
+                        _DIV_GUARDS.append(parts[-1])
+                    else:
+                        _DIV_GUARDS.append(f"(not {parts[-1]})")
+        finally:
+            del _DIV_GUARDS[_g:]
+        return f"({op} {' '.join(parts)})"
     if isinstance(node, ast.UnaryOp):
         if isinstance(node.op, ast.Not):
             return f"(not {expr_smt(node.operand, env, lang)})"

@@ -64,6 +64,14 @@ def popcount_bytes(b: bytes) -> int:
 
 
 def bucket_of(key: bytes, buckets: int) -> int:
+    """Индекс бакета. Дефект #323: модуль защищён от `N == 0`, а ФУНКЦИЯ — нет.
+
+    `% 0` — `ZeroDivisionError`. Защита уровня модуля не спасает другого
+    вызывающего (и `--xray` справедливо обвинял именно функцию), поэтому
+    проверка живёт здесь, а не только в `main`.
+    """
+    if buckets <= 0:
+        raise ValueError(f"bucket_of: buckets должно быть > 0, получено {buckets}")
     return int.from_bytes(key[:4], "big") % buckets
 
 
