@@ -1,6 +1,6 @@
 # KERN — АТТЕСТАЦИОННЫЙ ПАСПОРТ (проверенный)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->154 · cases <!-- fact:canfail_cases -->176 · anchors <!-- fact:anchors -->138 · registry <!-- fact:registry_targets -->198 · META <!-- fact:meta_targets -->30 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->155 · cases <!-- fact:canfail_cases -->177 · anchors <!-- fact:anchors -->138 · registry <!-- fact:registry_targets -->200 · META <!-- fact:meta_targets -->31 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Все числа проверены прогонами.** Где заявленное ранее расходилось с фактом —
 > указано в колонке «было заявлено». Ничего не принимается на слово.
@@ -29,9 +29,9 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 
 > ⚠️ **ЭТО СНИМОК НА 2026-10-14** (аттестация ветки миграции): числа внутри §0
 > относятся к той ревизии и НЕ являются текущими. Актуальные значения (получены
-> прогонами): ядро **<!-- fact:core_tests -->402 / <!-- fact:core_tests -->402** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->394 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->154 / <!-- fact:check_targets -->154 CHECK** (<!-- fact:canfail_cases -->176 не-вакуумных кейсов, 0 ошибок),
-> реестр **<!-- fact:registry_targets -->198 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->143 теорем /
+> прогонами): ядро **<!-- fact:core_tests -->436 / <!-- fact:core_tests -->436** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->428 passed + <!-- fact:cross_arch_skipped -->8 skipped),
+> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->155 / <!-- fact:check_targets -->155 CHECK** (<!-- fact:canfail_cases -->177 не-вакуумных кейсов, 0 ошибок),
+> реестр **<!-- fact:registry_targets -->200 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->143 теорем /
 > 0 sorry**, каталог тестов **<!-- fact:catalog -->465**. Также с тех пор закрыто: `hash_algo` по умолчанию
 > — **BLAKE3** (дефект #66), `deflate` (кодек `0x02`) **реализован**, аттестат подписан
 > **Ed25519**. См. `README.md`, `docs/METRICS.md` §1/§75 и §1–§8 ниже (они актуальны).
@@ -116,8 +116,8 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 | Платформа | Что доказывает | Результат |
 |:--|:--|:--|
 | **x86_64** (host, TSO) | базовая линия | **402 / 402 OK** ✅ |
-| **ARM64** (aarch64, строгое выравнивание) | **0 Bus Errors** — чтение побайтово (`u8, align 1`) | ✅ *свидетельство `docs/evidence/cross_arch.log` — прогон прошёл (`<!-- fact:cross_arch_passed -->394 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`), на АКТУАЛЬНОМ наборе (лог 2026-10-19)* |
-| **POWERPC64** (big-endian) | Merkle, числа и дайджесты декодируются без искажений | ✅ *то же свидетельство: **<!-- fact:cross_arch_passed -->394 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (прогон 2026-10-19)* |
+| **ARM64** (aarch64, строгое выравнивание) | **0 Bus Errors** — чтение побайтово (`u8, align 1`) | ✅ *свидетельство `docs/evidence/cross_arch.log` — прогон прошёл (`<!-- fact:cross_arch_passed -->428 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`), на АКТУАЛЬНОМ наборе (лог 2026-10-19)* |
+| **POWERPC64** (big-endian) | Merkle, числа и дайджесты декодируются без искажений | ✅ *то же свидетельство: **<!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (прогон 2026-10-19)* |
 
 ---
 
@@ -284,7 +284,7 @@ DTMC 0.001 · абстрактная интерпретация `[0,9]` · са�
 ## Как воспроизвести всё
 
 ```bash
-make help          # all <!-- fact:registry_targets -->198 targets
+make help          # all <!-- fact:registry_targets -->200 targets
 make test-all      # ядро + KERN-Next + Lean + бенчмарки
 make research      # исследовательские эшелоны
 make echelons      # 4 эшелона финального штурма

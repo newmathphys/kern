@@ -1,14 +1,16 @@
 === KERN EVIDENCE: cross_arch ===
 === команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-20T19:29:28Z ===
+=== дата: 2026-10-23T07:58:12Z ===
 
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
-  402/402 next.parser.test.ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль...[!] метрика 'p95' имеет нечисловое значение 'abc'
-  OK
-  394 passed; 8 skipped; 0 failed.
+  435/436 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
+  436/436 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
+  428 passed; 8 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  402/402 next.parser.test.ФИКС: нечисловая метрика — ОШИБКА, а не ложный ноль...[!] метрика 'p95' имеет нечисловое значение 'abc'
-  OK
-  394 passed; 8 skipped; 0 failed.
+  435/436 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
+  436/436 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
+  428 passed; 8 skipped; 0 failed.
+=== ENV-DEPENDENT: baseline 436 (требует qemu-user-static; на машине без QEMU пересъёмка невозможна) ===
 
 RC=0
+[guard] FAULTABLE без изменений (129 файлов) — прогон чист

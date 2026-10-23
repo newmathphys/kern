@@ -74,6 +74,11 @@ SURFACES = (
     "docs/README.md",
     "docs/STATUS.md",
     "docs/STATUS.ru.md",
+    # ШАГ F3 (#333): эти два файла тоже обещали «402 теста» и НЕ входили в
+    # SURFACES — их нашёл `claims-audit` (он сканирует все отслеживаемые файлы),
+    # а `--fix` у стража починить не мог. Класс #230.
+    ".github/copilot-instructions.md",
+    "formal/certification/SECURITY_TARGET.md",
 )
 
 # CHANGELOG.md намеренно НЕ проверяется: это хронология выпусков, числа в ней

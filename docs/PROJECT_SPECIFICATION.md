@@ -719,7 +719,7 @@ make golden
 
 ## 11.2 Метод canfail
 
-**Файл:** `tools/canfail.py` (176 кейса).
+**Файл:** `tools/canfail.py` (177 кейса).
 
 ```
 для каждой цели:
@@ -776,7 +776,7 @@ make golden
 ```
 инструменты → реестр → build → test → test-next → эшелоны 1/3 →
 инъекция SIGBUS → attack → Lean 4 → дерево чистое ПЕРЕД →
-canfail --selftest → canfail (176 кейса) → каталог синхронен →
+canfail --selftest → canfail (177 кейса) → каталог синхронен →
 аттестационный манифест (10 строк) → нет следов харнесса → сводка
 ```
 
@@ -835,7 +835,7 @@ canfail --selftest → canfail (176 кейса) → каталог синхро�
 
 | Метрика | Значение | Команда |
 |:--|:--|:--|
-| Тесты ядра | **402 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
+| Тесты ядра | **436 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
 | Тесты ядра (ReleaseSafe) | 402 passed, **0 UB** | `make ubsafe` |
 | Тесты KERN-Next | **53 passed** (52 именованных + 1 агрегирующий) | `zig build test-next` |
 | Каталог тестов | **425** | `python3 tools/gen_test_catalog.py --check` |
@@ -1054,7 +1054,7 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 
 zig build                      # kernc, kernx, kern-attack
-zig build test                 # 402 теста ядра
+zig build test                 # 436 теста ядра
 zig build test-next            # 53 теста KERN-Next
 ./formal/check.sh              # Lean 4: 0 errors, 0 sorry
 
@@ -1068,9 +1068,9 @@ make golden                    # эталонный образ
 |:--|:--|
 | `make test-all` | полный контур проверок |
 | `make ci` / `make ci-fast` | CI (полный / быстрый) |
-| **`make canfail`** | 176 кейса: доказательство не-вакуумности |
+| **`make canfail`** | 177 кейса: доказательство не-вакуумности |
 | `make canfail-selftest` | мета-проверка харнесса |
-| `make registry` | реестр <!-- fact:registry_targets -->198 цели + предохранитель |
+| `make registry` | реестр <!-- fact:registry_targets -->200 цели + предохранитель |
 | `make audit-manifest` | аттестационный манифест (10 строк) |
 | `make attest` / `make slsa` / `make cert` | подписи и квалификация |
 | `make lean` | Lean 4 доказательства |
@@ -1143,8 +1143,8 @@ formal/                         # Lean 4 (8 файлов, 143 теоремы)
 └── certification/              # TOR/TAS/TRACEABILITY/SOUNDNESS/SECURITY/LIMITS
 
 tools/                          # контур доверия и бенчмарки
-├── canfail.py                  #   176 кейса не-вакуумности
-├── registry.py                 #   реестр <!-- fact:registry_targets -->198 цели + предохранитель
+├── canfail.py                  #   177 кейса не-вакуумности
+├── registry.py                 #   реестр <!-- fact:registry_targets -->200 цели + предохранитель
 ├── ci.sh                       #   единый контур (16 стадий)
 ├── audit_manifest.sh           #   аттестационный манифест (10 строк)
 ├── gen_test_catalog.py         #   генератор каталога тестов (+ --check)
@@ -1185,7 +1185,7 @@ docs/                           # 15 документов
 | Математика ядра | Lean 4: 143 теоремы, 0 `sorry` |
 | Поведение кода | 279 + 37 тестов, 100 % покрытие решений |
 | Качество тестов | Мутации 92.5 % (100 % эффективно) |
-| **Не-вакуумность проверок** | **154/154 CHECK доказанно способны упасть** |
+| **Не-вакуумность проверок** | **155/155 CHECK доказанно способны упасть** |
 | Переносимость | ARM64 + POWERPC64 (big-endian): 279 / 279 |
 | Целостность | Merkle + SHA-256 содержимого |
 | Реальные баги | QuixBugs 40/40, SWE-bench 3/3, Refactory 80.7 % |
