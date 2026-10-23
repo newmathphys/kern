@@ -80,17 +80,54 @@ git clone --depth 1 https://github.com/TheAlgorithms/C ~/.cache/kern/repos/C
 python3 tools/kern_contracts.py lcm_core.c
 ```
 
+## Other real cases (same pipeline, different repositories)
+
+| # | Repository | What was checked | Verdict | Ground truth |
+|:--|:--|:--|:--|:--|
+| 1 | **TheAlgorithms/C** `math/lcm.c` | numerator `a * b` (i32) | **FAIL** `a = #x643b3fbb, b = #x5a724dfe` | `gcc -fsanitize=undefined` → `signed integer overflow` |
+| 2 | **TheAlgorithms/C** `math/catalan.c` | divisor `factorial(n+1) * factorial(n)` | **FAIL** `n = 0` → divisor is `0` | `gcc` → **SIGFPE, rc=136**; PR [#1595](https://github.com/TheAlgorithms/C/pull/1595) |
+| 3 | **TheAlgorithms/Rust** `binomial_coefficient.rs` | `n - i` (u64) under `i < k` | **FAIL** `n = 0, i = 1, k = 2` → `-1` | `rustc` debug → `attempt to subtract with overflow` (rc=101); PR [#1075](https://github.com/TheAlgorithms/Rust/pull/1075) |
+| 4 | **TheAlgorithms/Rust** `binary_exponentiation.rs` | `result_pow *= n` (u64) inside the loop | **FAIL** `r = #xffffffffd7ffbfff, n = #x6aaa` | silent wrap — the function returns a value that is not the power |
+| 5 | **mahmoud/boltons** commit `5eb6cc0` | two revisions of the index check (`--diff-equiv`, **no contract at all**) | **DIVERGED** `k = -1, n = 0`: old accepts, new rejects | live Python replay of both revisions |
+| 6 | **madler/zlib** `zcalloc.c` | allocation size `items * size` (u32) | **REFUTED** `items = #x8e0ff0f1, size = #x5ffeffef, result = #xffffffff` | the classic pre-heap pattern: the size wraps, a small buffer is allocated, then overfilled |
+| 7 | **ziglang/zig** `std/mem.zig` | `alignForward` = `addr + alignment - 1` (u32) | **REFUTED** `addr = 4294967295, alignment = 2, result = 4294967296` | arithmetic at the very top of the `u32` range |
+| 8 | **tigerbeetle/tigerbeetle** `src/stdx/stdx.zig` | `divCeil` against `(n + d - 1) / d` | **PROVEN** — 98 steps, `holes: 0`, the certificate re-checked by KERN's own proof checker | — |
+| 9 | **ghostty-org/ghostty** `src/renderer/size.zig` | `@max(1, cols)` — "the grid is never empty" | **PROVEN** (after defect #118: the proof checker learned the `def-axiom`/`trans*` rules instead of trusting the solver) | — |
+| 10 | **openjdk / J. Bloch (2006)** | `mid = (low + high) / 2` | **REFUTED** `low = #x00000804, high = #x7ffff7fc, result = #xc0000000` | the famous nine-year bug; invisible in `Int`, visible only in QF_BV |
+
+**Six repositories, five languages (C, Zig, Rust, Python, Java), ten cases** — and two
+upstream pull requests. Case 5 needs no contract: it compares two revisions and
+shows the semantic change a real fix introduced.
+
+**Read the verdicts honestly.** `PROVEN` means the obligation is unsatisfiable *and*
+KERN's own proof checker re-checked Z3's certificate. `REFUTED` on the real (not
+`…Buggy`) functions means a **safety** obligation fired — overflow or a zero divisor.
+That is a boundary of applicability, not an accusation: KERN says "this expression
+overflows for these inputs", not "your project is broken". The `…Buggy` controls exist
+because a checker that cannot say **no** is worthless.
+
+### Why case 4 is stated carefully
+
+`result_pow *= n` overflowing is **expected** for exponentiation — the honest
+claim is not "here is a bug in their code", but "the function silently wraps and
+does not document the limit; KERN shows the exact inputs". The distinction
+matters: a false accusation is worse than a miss.
+
+### What these cases are not
+
+None of them is a CVE, and none was found by scanning a repository. In every
+case a human wrote the rule (or chose the two revisions), and KERN decided for
+**all** inputs. Measured on the same pipeline: **0 of 715** functions in foreign
+repositories fall inside the subset — a repository-wide scan produces zeros.
+
+
+
 ## Why this matters
 
 An AI agent (or a junior) writes `lcm` and runs `lcm(2,3)` — green. The same
 function overflows on large inputs, silently, in production. KERN is the only
 check in the chain that answers **"is it true for every input"** instead of
 "did these three examples pass".
-
-The same pipeline found two real defects in released code:
-
-- `TheAlgorithms/C#1595` — `math/catalan.c`: `SIGFPE` on `n = 0` (22.5k ★)
-- `TheAlgorithms/Rust#1075` — `binom(0, 2)`: `u64` underflow (26k ★)
 
 ## The boundary, stated plainly
 
