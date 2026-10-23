@@ -1,0 +1,74 @@
+=== KERN EVIDENCE: self_verification ===
+=== команда: make self-verify + scan_to_kern + kernx graph + --xray src/ + --xray tools/ ===
+=== снят: make demo-all-подобным сборщиком (шаг D) ===
+
+--- [1] make self-verify ---
+zig build
+==========================================================================
+KERN: контракты из комментариев (@kern:requires / @kern:ensures)
+==========================================================================
+  [PASS] remaining: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 54 | premises bound: 3/3 | mp: 15 | rewrite (linear): 18 | farkas: 1 | trusted: 0 | holes: 0
+  [PASS] farkasNegLeZero: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 27 | premises bound: 3/3 | mp: 10 | rewrite (linear): 10 | farkas: 1 | trusted: 0 | holes: 0
+  [PASS] clampToPool: ДОКАЗАНО
+         [PROOF VERIFIED] steps: 50 | premises bound: 2/2 | mp: 9 | rewrite (linear): 17 | farkas: 2 | trusted: 0 | holes: 0
+--------------------------------------------------------------------------
+ИТОГО: доказано 3 | T_advisory 0 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 3
+RC_SELF_VERIFY=0
+
+--- [2] scan_to_kern.py . (Врата: заявления репозитория) ---
+[OK] /tmp/kern_bridge.kern: артефактов=557, утверждений=74, связей=276
+RC_SCAN=0
+
+--- [3] kernc build + verify (Врата Истины, Z3) ---
+[OK] Образ собран: /tmp/bridge.kimg (631 объектов)
+    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства
+  claim `open TODOs in evalplus_results_samples_raw_eval_results.json: 1`: заявленный статус = N
+    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства
+  claim `tests present: examples_ai_vs_kern_test_ai_generated.py`: заявленный статус = T
+    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства
+  claim `tests present: examples_toy_ai_hallucination_withdraw.py`: заявленный статус = T
+    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства
+  claim `anchor broken: ... (src_main.zig)`: заявленный статус = N
+    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства
+  claim `tests present: tools_kern_exec_runner.py`: заявленный статус = T
+    контракт НЕ привязан -> e=0 (N): текст без машинного доказательства
+[i] ИТОГ: доказано 1, контрпримеров 0, без контракта 73, РАСХОЖДЕНИЙ С ЗАЯВЛЕННЫМ СТАТУСОМ 0
+[i] e=1 выставляется ТОЛЬКО по вердикту решателя. Заявления без
+    привязанного контракта остаются e=0 — это и есть честный статус.
+RC_GATE=0
+
+--- [4] kernx graph на самом KERN ---
+{"schema":"kern-graph/1","source":"kernx graph","root":"src","nodes":[{"id":"tests/pipe_stress_test.zig","loc":165,"imports_out":1},{"id":"tests/pool_saturation.zig","loc":123,"imports_out":2},{"id":"tests/fault_injection_test.zig","loc":77,"imports_out":2},{"id":"tests/z3_crash_test.zig","loc":69,"imports_out":2},{"id":"tests/os_stress_test.zig","loc":184,"imports_out":2},{"id":"tests/mcdc_gates_test.zig","loc":116,"imports_out":2},{"id":"tests/coverage_report_test.zig","loc":54,"imports_out":2},{"id":"tests/oom_stress.zig","loc":97,"imports_out":3},{"id":"tests/exhaustive_suite.zig","loc":204,"imports_out":5},{"id":"tests/smt_incremental_test.zig","loc":123,"imports_out":2},{"id":"tests/alignment_stress.zig","loc":191,"imports_out":2},{"id":"tests/litmus_memory_test.zig","loc":166,"imports_out":1},{"id":"axes_test_root.zig","loc":14,"imports_out":0},{"id":"owner.zig","loc":102,"imports_out":0},{"id":"smt_stress.zig","loc":135,"imports_out":1},{"id":"main.zig","loc":1405,"imports_out":1},{"id":"compat.zig","loc":303,"imports_out":0},{"id":"ledger_test_root.zig","loc":10,"imports_out":0},{"id":"conformance_oracle.zig","loc":246,"imports_out":1},{"id":"kimg_stress.zig","loc":107,"imports_out":1},{"id":"dst_main.zig","loc":54,"imports_out":0},{"id":"core_test_root.zig","loc":13,"imports_out":0},{"id":"runtime/kern_x.zig","loc":241,"imports_out":0},{"id":"semantic_probe.zig","loc":220,"imports_out":1},{"id":"test_root.zig","loc":58,"imports_out":0},{"id":"sim_test.zig","loc":412,"imports_out":1},{"id":"smt_bench.zig","loc":124,"imports_out":1},{"id":"binlevel_probe.zig","loc":30,"imports_out":1},{"id":"cli_kimg.zig","loc":189,"imports_out":1},{"id":"bench_simd8.zig","loc":38,"imports_out":0},{"id":"perf_bench.zig","loc":200,"imports_out":1},{"id":"stress_real.zig","loc":115,"imports_out":1},{"id":"capi.zig","loc":157,"imports_out":0},{"id":"next/state_axes.zig","loc":145,"imports_out":0},{"id":"next/provenance.zig","loc":226,"imports_out":0},{"id":"next/main.zig","loc":183,"imports_out":2},{"id":"next/truth.zig","loc":621,"imports_out":0},{"id":"next/test_root.zig","loc":19,"imports_out":0},{"id":"next/engine.zig","loc":148,"imports_out":1},{"id":"next/graph_dump.zig","loc":246,"imports_out":1},{"id":"next/validate.zig","loc":168,"imports_out":0},{"id":"next/catalog.zig","loc":497,"imports_out":0},{"id":"next/evidence_ledger.zig","loc":175,"imports_out":0},{"id":"next/export.zig","loc":251,"imports_out":2},{"id":"next/cache.zig","loc":138,"imports_out":2},{"id":"next/snapshot.zig","loc":187,"imports_out":2},{"id":"next/parser.zig","loc":446,"imports_out":0},{"id":"next/dst_sim.zig","loc":228,"imports_out":0},{"id":"next/ast.zig","loc":313,"imports_out":0},{"id":"fault_root.zig","loc":12,"imports_out":0},{"id":"proof_cache.zig","loc":476,"imports_out":1},{"id":"chc_bench.zig","loc":91,"imports_out":1},{"id":"gen_kimg_fixtures.zig","loc":79,"imports_out":1},{"id":"verifier/z3_bridge.zig","loc":820,"imports_out":3},{"id":"verifier/dtmc.zig","loc":147,"imports_out":0},{"id":"verifier/admission_gate.zig","loc":381,"imports_out":3},{"id":"verifier/builtin_lia.zig","loc":550,"imports_out":0},{"id":"verifier/abs_proof_fixture.zig","loc":43,"imports_out":0},{"id":"verifier/noninterference.zig","loc":217,"imports_out":1},{"id":"verifier/proof_check.zig","loc":6042,"imports_out":1},{"id":"verifier/redos.zig","loc":193,"imports_out":0},{"id":"verifier/unsat_core.zig","loc":162,"imports_out":0},{"id":"verifier/abstract_interp.zig","loc":182,"imports_out":0},{"id":"verifier/chc.zig","loc":109,"imports_out":0},{"id":"verifier/model_extract.zig","loc":678,"imports_out":0},{"id":"verifier/array_theory.zig","loc":148,"imports_out":0},{"id":"verifier/cegis.zig","loc":174,"imports_out":0},{"id":"verifier/string_theory.zig","loc":135,"imports_out":1},{"id":"verifier/nra_quant.zig","loc":170,"imports_out":0},{"id":"kern_bench.zig","loc":110,"imports_out":1},{"id":"wasm_api.zig","loc":196,"imports_out":0},{"id":"atomic_write.zig","loc":83,"imports_out":1},{"id":"fuzz_ast.zig","loc":146,"imports_out":1},{"id":"concolic.zig","loc":144,"imports_out":1},{"id":"attest.zig","loc":147,"imports_out":0},{"id":"hash_bench.zig","loc":163,"imports_out":1},{"id":"core/object_entry.zig","loc":159,"imports_out":1},{"id":"core/eq2.zig","loc":204,"imports_out":0},{"id":"core/blake3_simd8.zig","loc":246,"imports_out":0},{"id":"core/sigbus_guard.zig","loc":75,"imports_out":0},{"id":"core/mmap_guard.zig","loc":62,"imports_out":0},{"id":"core/kernfs_router.zig","loc":1171,"imports_out":2},{"id":"core/kimg_reader.zig","loc":451,"imports_out":1},{"id":"core/codec.zig","loc":213,"imports_out":0},{"id":"core/hash_algo.zig","loc":166,"imports_out":0},{"id":"core/kimg_writer.zig","loc":509,"imports_out":1},{"id":"attack.zig","loc":95,"imports_out":1},{"id":"cov.zig","loc":88,"imports_out":0}],"edges":[{"source":"tests/pipe_stress_test.zig","target":"compat.zig","kind":"import"},{"source":"tests/pool_saturation.zig","target":"compat.zig","kind":"import"},{"source":"tests/pool_saturation.zig","target":"verifier/z3_bridge.zig","kind":"import"},{"source":"tests/fault_injection_test.zig","target":"compat.zig","kind":"import"},{"source":"tests/fault_injection_test.zig","target":"core/sigbus_guard.zig","kind":"import"},{"source":"tests/z3_crash_test.zig","target":"verifier/admission_gate.zig","kind":"import"},{"source":"tests/z3_crash_test.zig","target":"verifier/z3_bridge.zig","kind":"import"},{"source":"tests/os_stress_test.zig","target":"compat.zig","kind":"import"},{"source":"tests/os_stress_test.zig","target":"verifier/z3_bridge.zig","kind":"import"},{"source":"tests/mcdc_gates_test.zig","target":"core/eq2.zig","kind":"import"},{"source":"tests/mcdc_gates_test.zig","target":"verifier/admission_gate.zig","kind":"import"},{"source":"tests/coverage_report_test.zig","target":"compat.zig","kind":"import"},{"source":"tests/coverage_report_test.zig","target":"cov.zig","kind":"import"},{"source":"tests/oom_stress.zig","target":"core/kimg_writer.zig","kind":"import"},{"source":"tests/oom_stress.zig","target":"compat.zig","kind":"import"},{"source":"tests/oom_stress.zig","target":"core/kimg_reader.zig","kind":"import"},{"source":"tests/exhaustive_suite.zig","target":"core/kernfs_router.zig","kind":"import"},{"source":"tests/exhaustive_suite.zig","target":"core/eq2.zig","kind":"import"},{"source":"tests/exhaustive_suite.zig","target":"verifier/admission_gate.zig","kind":"import"},{"source":"tests/exhaustive_suite.zig","target":"core/object_entry.zig","kind":"import"},{"source":"tests/exhaustive_suite.zig","target":"core/kimg_reader.zig","kind":"import"},{"source":"tests/smt_incremental_test.zig","target":"compat.zig","kind":"import"},{"source":"tests/smt_incremental_test.zig","target":"verifier/z3_bridge.zig","kind":"import"},{"source":"tests/alignment_stress.zig","target":"core/object_entry.zig","kind":"import"},{"source":"tests/alignment_stress.zig","target":"core/kimg_reader.zig","kind":"import"},{"source":"tests/litmus_memory_test.zig","target":"compat.zig","kind":"import"},{"source":"smt_stress.zig","target":"compat.zig","kind":"import"},{"source":"main.zig","target":"compat.zig","kind":"import"},{"source":"conformance_oracle.zig","target":"compat.zig","kind":"import"},{"source":"kimg_stress.zig","target":"compat.zig","kind":"import"},{"source":"semantic_probe.zig","target":"compat.zig","kind":"import"},{"source":"sim_test.zig","target":"compat.zig","kind":"import"},{"source":"smt_bench.zig","target":"compat.zig","kind":"import"},{"source":"binlevel_probe.zig","target":"compat.zig","kind":"import"},{"source":"cli_kimg.zig","target":"compat.zig","kind":"import"},{"source":"perf_bench.zig","target":"compat.zig","kind":"import"},{"source":"stress_real.zig","target":"compat.zig","kind":"import"},{"source":"next/main.zig","target":"owner.zig","kind":"import"},{"source":"next/main.zig","target":"compat.zig","kind":"import"},{"source":"next/engine.zig","target":"compat.zig","kind":"import"},{"source":"next/graph_dump.zig","target":"compat.zig","kind":"import"},{"source":"next/export.zig","target":"atomic_write.zig","kind":"import"},{"source":"next/export.zig","target":"compat.zig","kind":"import"},{"source":"next/cache.zig","target":"atomic_write.zig","kind":"import"},{"source":"next/cache.zig","target":"compat.zig","kind":"import"},{"source":"next/snapshot.zig","target":"atomic_write.zig","kind":"import"},{"source":"next/snapshot.zig","target":"compat.zig","kind":"import"},{"source":"proof_cache.zig","target":"compat.zig","kind":"import"},{"source":"chc_bench.zig","target":"compat.zig","kind":"import"},{"source":"gen_kimg_fixtures.zig","target":"compat.zig","kind":"import"},{"source":"verifier/z3_bridge.zig","target":"compat.zig","kind":"import"},{"source":"verifier/z3_bridge.zig","target":"cov.zig","kind":"import"},{"source":"verifier/z3_bridge.zig","target":"proof_cache.zig","kind":"import"},{"source":"verifier/admission_gate.zig","target":"core/eq2.zig","kind":"import"},{"source":"verifier/admission_gate.zig","target":"next/state_axes.zig","kind":"import"},{"source":"verifier/admission_gate.zig","target":"cov.zig","kind":"import"},{"source":"verifier/noninterference.zig","target":"compat.zig","kind":"import"},{"source":"verifier/proof_check.zig","target":"compat.zig","kind":"import"},{"source":"verifier/string_theory.zig","target":"compat.zig","kind":"import"},{"source":"kern_bench.zig","target":"compat.zig","kind":"import"},{"source":"atomic_write.zig","target":"compat.zig","kind":"import"},{"source":"fuzz_ast.zig","target":"compat.zig","kind":"import"},{"source":"concolic.zig","target":"compat.zig","kind":"import"},{"source":"hash_bench.zig","target":"compat.zig","kind":"import"},{"source":"core/object_entry.zig","target":"cov.zig","kind":"import"},{"source":"core/kernfs_router.zig","target":"compat.zig","kind":"import"},{"source":"core/kernfs_router.zig","target":"cov.zig","kind":"import"},{"source":"core/kimg_reader.zig","target":"cov.zig","kind":"import"},{"source":"core/kimg_writer.zig","target":"compat.zig","kind":"import"},{"source":"attack.zig","target":"compat.zig","kind":"import"}],"edges_external":0}
+RC_GRAPH=0
+
+--- [7] make diff-equiv (свой положительный контроль) ---
+         [КОНТРПРИМЕР] amount = 1, res_old = 0, res_new = 2, balance = 1
+--------------------------------------------------------------------------
+ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 1 | недоказуемых 0 | ошибок инструмента 0 | всего 1
+[OK] расхождение обнаружено (rc=1) — доказательство не фиктивно
+  [EQUIVALENT] charge: рефакторинг математически эквивалентен на всём домене Z (пруф-чекер принял)
+--------------------------------------------------------------------------
+ИТОГО: эквивалентных 1 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1
+[OK] положительный контроль: EQUIVALENT, пруф-чекер принял (trusted)
+RC_DIFF=0
+
+--- [5] --xray src/ (свой Zig) ---
+[REPO SUMMARY] файлов 89 | функций проверено 129 / 377 (skipped 248) | находок 0 | нечитаемых файлов 0
+находок: 0
+
+--- [6] --xray tools/ (своя обвязка) ---
+[REPO SUMMARY] файлов 95 | функций проверено 676 / 918 (skipped 242) | находок 679 | нечитаемых файлов 0
+CRASH PATH: 4
+BOUNDS (кандидаты): 660
+[CRASH PATH] bucket_of: строка 67 — возможно деление на ноль: buckets == 0
+[CRASH PATH] div_bad: строка 68 — возможно деление на ноль: b == 0
+[CRASH PATH] div_ok: строка 62 — возможно деление на ноль: b == 0
+tools/cache_avalanche_bench.py: [CRASH PATH] bucket_of: строка 67 — возможно деление на ноль: buckets == 0
+
+--- [4-summary] kernx graph ---
+узлов 88 | рёбер 70 | внешних 0 | SCC-циклов 0
+
+=== КОНЕЦ СБОРА (шаг D) ===
+RC=0

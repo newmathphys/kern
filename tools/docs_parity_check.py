@@ -25,6 +25,7 @@ PAIRS = (
     ("docs/CAPABILITIES.md", "docs/CAPABILITIES.en.md"),
     ("docs/CAPABILITY_STATUS.md", "docs/CAPABILITY_STATUS.en.md"),
     ("docs/STATUS.ru.md", "docs/STATUS.md"),
+    ("docs/SELF_VERIFICATION.ru.md", "docs/SELF_VERIFICATION.md"),
     ("docs/CYBERNETIC_VISION.md", "docs/CYBERNETIC_VISION.en.md"),
     ("docs/METRICS.md", "docs/METRICS.en.md"),
     ("docs/ROADMAP.md", "docs/ROADMAP.en.md"),

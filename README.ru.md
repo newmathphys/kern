@@ -4,6 +4,8 @@
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
+>
+> **KERN, применённый к KERN (самопроверка, дословный вывод):** [docs/SELF_VERIFICATION.ru.md](docs/SELF_VERIFICATION.ru.md) · [docs/SELF_VERIFICATION.md](docs/SELF_VERIFICATION.md)
 
 [![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
 

@@ -64,6 +64,10 @@ SURFACES = (
     # молча, и никто этого не видит.
     "docs/STATUS.md",
     "docs/STATUS.ru.md",
+    # ШАГ D: самопроверка несёт блок фактов (якоря), значит обязана быть среди
+    # тех, кого `make sync` обновляет — иначе `sync --check` честно падает.
+    "docs/SELF_VERIFICATION.md",
+    "docs/SELF_VERIFICATION.ru.md",
 )
 ANCHOR = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->\s*(\d+)")
 ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")
