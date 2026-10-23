@@ -167,6 +167,8 @@ if [ "$FAST" = "0" ]; then
   stage "законы устава доказаны и сверены с ядром (шаг E)" make charter-check
   stage "свидетельства не отстали от дерева (#333, шаг F3)" make evidence-freshness
   stage "временные пути изолированы, замок цел (шаг N2)" make temp-isolation-check
+  stage "семантика значений языка — объект и таблица полна (шаг I)" make lang-semantics-check
+  stage "детектор флейки: цель с двумя вердиктами = B(1,1) (шаг F2)" make flake-check
   stage "семантика деления совпадает с языком (#317)" make arith-semantics-check
   stage "машинные типы C: вердикт на каждый целый тип (#312/#321)" make c-types-check
   stage "гарды деления в Python учтены (#327)" make div-guards-check

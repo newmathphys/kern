@@ -77,6 +77,7 @@ CLASS = {
     "evidence-freshness": "CHECK",       # шаг F3 (#333): лог не отстал от дерева
     "temp-isolation-check": "CHECK",     # шаг N2: /tmp изолирован, замок не тронут
     "flake-check": "CHECK",             # F2: цель с разными вердиктами = B(1,1)
+    "lang-semantics-check": "CHECK",    # шаг I: таблица семантики полна
     "arith-semantics-check": "CHECK",
     "c-types-check": "CHECK",
     "div-guards-check": "CHECK",
@@ -168,6 +169,7 @@ CLASS = {
     "evidence-freshness-selftest": "META",  # мета: устаревшее свидетельство ловится (#333)
     "temp-isolation-selftest": "META",      # мета: общий путь и замок с $$ ловятся (N2)
     "flake-selftest": "META",               # мета: T и B различаются (F2)
+    "lang-semantics-selftest": "META",      # мета: пропажа языка ловится (I)
     "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
@@ -232,6 +234,7 @@ CASE_TARGET = {
     "freshness-stale": "evidence-freshness",
     "temp-isolation": "temp-isolation-check",
     "flake": "flake-check",
+    "lang-semantics": "lang-semantics-check",
     "arith-semantics": "arith-semantics-check",
     "c-types": "c-types-check",
     "div-guards": "div-guards-check",

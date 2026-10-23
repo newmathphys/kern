@@ -448,9 +448,14 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             right = expr_smt(node.right, env, lang)
             # ДЕФЕКТ #327: сохраняем АКТИВНЫЕ ГАРДЫ вместе с делителем.
             _DIV_COLLECTOR.append((left, right, tuple(_DIV_GUARDS)))
-            if lang == "python":
+            # ШАГ I: правило деления берётся из ТАБЛИЦЫ, а не из `if lang`.
+            # Раньше здесь стояло `if lang == "python"`, и один переводчик
+            # обслуживал Python и C — отсюда #317 (floor вместо усечения).
+            sem = semantics_for(lang)
+            if sem.true_div is None:
                 if isinstance(node.op, ast.Div):
                     raise Unsupported("истинное деление / (float) вне подмножества")
+            if sem.div == "floor":
                 q = _floor_div_smt(left, right)
             else:
                 q = _trunc_div_smt(left, right)
@@ -973,9 +978,10 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
 
 # ЯВНЫЕ операторы оборачивания/насыщения — НЕ паникуют при переполнении.
 # Zig: `+% -% *%` (wrapping), `+| -|` (saturating). Rust: методы.
-_WRAP_ZIG = ("+%", "-%", "*%", "+|", "-|")
-_WRAP_RUST = (".wrapping_add(", ".wrapping_sub(", ".wrapping_mul(",
-              ".saturating_add(", ".saturating_sub(", ".saturating_mul(")
+#
+# ШАГ I: ЕДИНЫЙ ИСТОЧНИК — поле `wrap_ops` в `VALUE_SEMANTICS` (ниже). Здесь
+# списки больше не дублируются: два источника истины для одного правила — это
+# ровно тот класс, из которого вышли #317/#321 (правили одно место из двух).
 
 
 def _explicit_wrap(body: str, lang: str) -> str | None:
@@ -988,16 +994,11 @@ def _explicit_wrap(body: str, lang: str) -> str | None:
     """
     if not body:
         return None
-    if lang == "zig":
-        for op in _WRAP_ZIG:
-            if op in body:
-                return op
-        return None
-    if lang == "rust":
-        for op in _WRAP_RUST:
-            if op in body:
-                return op
-        return None
+    # ШАГ I: маркеры законного оборачивания берутся из ТАБЛИЦЫ семантики
+    # (`wrap_ops`), а не из `if lang == "zig"` / `if lang == "rust"`.
+    for op in semantics_for(lang).wrap_ops:
+        if op in body:
+            return op
     return None
 
 
@@ -1445,6 +1446,118 @@ def minimize_counterexample(kernc, smt: str, params, ce: dict) -> dict:
 # в принципе не видит.
 
 CLIKE_EXT = {".zig", ".c", ".h", ".cpp", ".cc", ".rs", ".ts", ".js", ".go"}
+
+# =============================================================================
+# ШАГ I: СЕМАНТИКА ЗНАЧЕНИЙ ЯЗЫКА КАК ОБЪЕКТ (VALUE_SEMANTICS)
+# =============================================================================
+#
+# ЗАЧЕМ. До этого шага «семантика языка» была набором `if lang == ...` в
+# РАЗНЫХ местах файла, и ошибка в ней давала не видимый SKIP, а ТИХИЙ ЛОЖНЫЙ
+# ВЕРДИКТ. Именно так появились четыре дефекта подряд:
+#   #317 — один переводчик на Python и C дал floor там, где нужно усечение
+#          -> `--diff-equiv` объявлял идентичный файл расходящимся (ложное F);
+#   #321 — тип возврата не канонизировался -> обязанность переполнения
+#          МОЛЧА снималась -> ложное ДОКАЗАНО;
+#   #327/#318 — гарды не протянуты через все пути (два места правили
+#          согласованно, правили одно).
+# Общий корень: значение нигде не было ОБЪЕКТОМ, его нельзя было проверить
+# целиком. Здесь оно объект.
+#
+# ГРАНИЦА ШАГА (осознанная, не «не успели»): сюда попадает ТОЛЬКО семантика
+# ЗНАЧЕНИЙ — то, ошибка в чём даёт ложный вердикт. Синтаксис (разбор заголовков,
+# нормализация тела, регулярки) НЕ трогается: его ошибка даёт видимый SKIP и
+# другая цена ошибки. Смешивать их — значит менять самое дорогое без нужды.
+class ValueSemantics:
+    """Семантика ЗНАЧЕНИЙ для одного языка.
+
+    `div`/`mod`: "floor" (округление к -inf, знак остатка = знак делителя) или
+    "trunc0" (усечение к нулю, знак остатка = знак делимого). Разные правила —
+    разные SMT-формулы, и перепутать их значит доказать утверждение о ДРУГОЙ
+    функции.
+
+    `true_div`: правило для `/` или None, если истинное деление вне
+    подмножества (в Python это float-деление).
+
+    `div_zero_value`: True, если деление на ноль ОПРЕДЕЛЕНО как значение
+    (EVM: `DIV`/`MOD`/`SDIV`/`SMOD` при b = 0 возвращают 0 по Yellow Paper), а
+    не падает. Для таких языков обязанность «делитель != 0» НЕ ставится.
+
+    `wrap_ops`: маркеры ЗАКОННОГО оборачивания/насыщения (`+%` в Zig,
+    `.wrapping_add(` в Rust). Обычный `a + b` там паникует, а эти — нет.
+
+    `signed`: есть ли знаковые типы. Определяет, нужны ли обязанности
+    переполнения деления (`MIN / -1`) и унарного минуса (`-MIN`) — дефект #334.
+
+    ПОЧЕМУ ОБЫЧНЫЙ КЛАСС, А НЕ `@dataclass`. `@dataclass` требует, чтобы модуль
+    был зарегистрирован в `sys.modules` (он ищет через
+    `sys.modules.get(cls.__module__)`), а `kern_contracts.py` грузят через
+    `importlib.util.spec_from_file_location` больше десяти инструментов — они
+    регистрацию не делают, и `@dataclass` уронил бы их все. Семантика не должна
+    требовать особого способа загрузки.
+    """
+
+    __slots__ = ("name", "div", "mod", "true_div", "div_zero_value",
+                 "wrap_ops", "signed")
+
+    def __init__(self, name: str, div: str, mod: str, true_div: str | None,
+                 div_zero_value: bool, wrap_ops: tuple, signed: bool):
+        self.name = name
+        self.div = div
+        self.mod = mod
+        self.true_div = true_div
+        self.div_zero_value = div_zero_value
+        self.wrap_ops = wrap_ops
+        self.signed = signed
+
+    def __repr__(self) -> str:
+        return (f"ValueSemantics({self.name!r}, div={self.div!r}, "
+                f"mod={self.mod!r}, true_div={self.true_div!r}, "
+                f"div_zero_value={self.div_zero_value}, "
+                f"wrap_ops={self.wrap_ops!r}, signed={self.signed})")
+
+
+VALUE_SEMANTICS: dict[str, ValueSemantics] = {
+    # Python: целые НЕОГРАНИЧЕННЫ, `//` — floor, `%` берёт знак делителя,
+    # `/` — истинное (float) деление и потому вне подмножества.
+    "python": ValueSemantics("python", "floor", "floor", None, False, (), True),
+    # C / C++: усечение к нулю, `%` берёт знак делимого. Типы машинные,
+    # поэтому `MIN / -1` и `-MIN` — UB (idiv trap).
+    "c": ValueSemantics("c", "trunc0", "trunc0", "trunc0", False, (), True),
+    # Zig: как C, плюс законные оборачивающие/насыщающие операторы.
+    "zig": ValueSemantics("zig", "trunc0", "trunc0", "trunc0", False,
+                          ("+%", "-%", "*%", "+|", "-|"), True),
+    # Rust: как C, плюс явные `wrapping_*` / `saturating_*`.
+    "rust": ValueSemantics("rust", "trunc0", "trunc0", "trunc0", False,
+                           (".wrapping_add(", ".wrapping_sub(", ".wrapping_mul(",
+                            ".saturating_add(", ".saturating_sub(",
+                            ".saturating_mul("), True),
+    # TypeScript / JavaScript: числа double, но целочисленные операторы
+    # усекают к нулю; `%` берёт знак делимого.
+    "ts": ValueSemantics("ts", "trunc0", "trunc0", "trunc0", False, (), True),
+    "js": ValueSemantics("js", "trunc0", "trunc0", "trunc0", False, (), True),
+    # Go: усечение к нулю, `%` берёт знак делимого.
+    "go": ValueSemantics("go", "trunc0", "trunc0", "trunc0", False, (), True),
+    # EVM (шаг 8): SDIV/SMOD усекают к нулю, НО деление на ноль ОПРЕДЕЛЕНО как 0
+    # (Yellow Paper), поэтому обязанности «делитель != 0» нет; SDIV(MIN, -1)
+    # возвращает MIN без падения — то есть обязанности переполнения тоже нет.
+    "evm": ValueSemantics("evm", "trunc0", "trunc0", "trunc0", True, (), False),
+}
+
+
+def semantics_for(lang: str) -> ValueSemantics:
+    """Семантика языка. ПРАВИЛО I4: неизвестный язык — ЯВНАЯ ошибка.
+
+    Раньше неизвестный язык молча получал семантику Python (через
+    `_CURRENT_LANG = "python"`): забытая точка входа давала C-коду floor-деление,
+    то есть #317 заново и ТИХО. Теперь это отказ, а не догадка.
+    """
+    sem = VALUE_SEMANTICS.get(lang)
+    if sem is None:
+        raise Unsupported(
+            f"язык {lang!r} не имеет записи в VALUE_SEMANTICS: семантика "
+            f"значений неизвестна, доказывать по догадке нельзя")
+    return sem
+
 
 # `/// @kern:...`, `// @kern:...`, `# @kern:...`
 ANNOT = re.compile(r"^\s*(?:///|//|#)\s*@kern:(requires|ensures)\s+(.+?)(?:\s+\[(advisory)\])?\s*$")

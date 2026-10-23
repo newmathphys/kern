@@ -1913,6 +1913,18 @@ def case_temp_isolation():
     return "make temp-isolation-check"
 
 
+def case_lang_semantics():
+    """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
+
+    Тогда C-код обязан был бы получить семантику по догадке (floor вместо
+    усечения — ровно #317). Гейт обязан покраснеть: запись языка отсутствует.
+    """
+    patch("tools/kern_contracts.py",
+          '    "c": ValueSemantics("c", "trunc0", "trunc0", "trunc0", False, (), True),\n',
+          '    # ЛОМАЕМ (шаг I): запись языка `c` удалена\n')
+    return "make lang-semantics-check"
+
+
 def case_flake():
     """ШАГ F2 SABOTAGE: в набор детектора флейки добавляется цель, которой нет.
 
@@ -3093,6 +3105,8 @@ CASES = [
      case_temp_isolation),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
+    ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
+     case_lang_semantics),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
