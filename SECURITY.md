@@ -128,7 +128,7 @@ For context when assessing a report:
 - A hard timeout and FD/zombie discipline around every solver subprocess.
 - Secret scanning of every tracked file (`make secrets-check`): provider keys and PEM
   private keys fail the gate, and matches are printed redacted so the log cannot leak them.
-- Can-fail harness proving that all **155 CHECK targets** are able to fail (177 non-vacuous
+- Can-fail harness proving that all **156 CHECK targets** are able to fail (178 non-vacuous
   cases, 0 vacuous, 0 case errors) — a check that cannot go red is treated as a defect here.
 
 Thank you for helping keep KERN honest.

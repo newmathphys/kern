@@ -1894,6 +1894,20 @@ def case_freshness_stale():
     return "make evidence-freshness"
 
 
+def case_temp_isolation():
+    """ШАГ N2 SABOTAGE: в гейт добавляется НОВЫЙ неизолированный путь /tmp.
+
+    Дописываем строку с общим путём в скрипт, который гейт сканирует. Если
+    храповик не работает, `make temp-isolation-check` останется зелёным, и гонка
+    вернётся незамеченной.
+    """
+    patch("tools/xray_check.sh",
+          'ROOT="$(cd "$(dirname "$0")/.." && pwd)"',
+          'ROOT="$(cd "$(dirname "$0")/.." && pwd)"\n'
+          'TMP_BAD=/tmp/kern_unsafe_new_path  # ЛОМАЕМ (N2)')
+    return "make temp-isolation-check"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -3056,6 +3070,8 @@ CASES = [
      case_charter_law_break),
     ("freshness-stale", "Stale test count in evidence log -> gate red",
      case_freshness_stale),
+    ("temp-isolation", "New unisolated /tmp path -> gate red",
+     case_temp_isolation),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",

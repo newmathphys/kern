@@ -27,9 +27,25 @@ fi
 QEMU_VER="v7.2.0-1"
 BASE="https://github.com/multiarch/qemu-user-static/releases/download/$QEMU_VER"
 
+# ДЕФЕКТ N2: кэш эмулятора лежал в `/tmp/qemu-<arch>-static` и вычищался вместе с
+# `/tmp`. Постоянный кэш пользователя переживает уборку.
+QEMU_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/kern/qemu"
+
 fetch_qemu() { # $1 = arch (aarch64|ppc64|s390x)
-  local q="/tmp/qemu-$1-static"
-  [ -x "$q" ] || curl -sL -o "$q" "$BASE/qemu-$1-static" && chmod +x "$q"
+  # ДЕФЕКТ N2: кэш эмулятора лежал в `/tmp/qemu-<arch>-static` (~10 МБ на arch), а
+  # `/tmp` вычищается правилом гигиены — значит качался заново при каждом вызове.
+  # Перенесён в ПОСТОЯННЫЙ кэш пользователя. Это ОБЩИЙ кэш, а не рабочий файл
+  # прогона: он НЕ получает `$$` и НЕ удаляется в `trap` — иначе каждый процесс
+  # качал бы свою копию и мы вернулись бы к той же проблеме.
+  local q="$QEMU_CACHE/qemu-$1-static"
+  mkdir -p "$QEMU_CACHE"
+  if [ ! -x "$q" ]; then
+    if [ -x "/tmp/qemu-$1-static" ]; then
+      cp -f "/tmp/qemu-$1-static" "$q"   # совместимость: не качаем заново
+    else
+      curl -sL -o "$q" "$BASE/qemu-$1-static" && chmod +x "$q"
+    fi
+  fi
   echo "$q"
 }
 

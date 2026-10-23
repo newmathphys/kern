@@ -1,0 +1,43 @@
+# ДОЛГ N2: пути в /tmp, принадлежащие не одному прогону.
+# Гейт `make temp-isolation-check` запрещает НОВЫЕ такие пути и требует
+# вычёркивать закрытые. ЗАМОК /tmp/kern_mutation.lock и кэш QEMU сюда не
+# входят: они ОБЯЗАНЫ быть общими (дефект #126) и защищены отдельно.
+/tmp/kern-canfail-evidence
+/tmp/kern-demo-blind
+/tmp/kern-demo-v1.kimg
+/tmp/kern-disasm-
+/tmp/kern-megatest/repos/boltons/boltons/mathutils.py
+/tmp/kern-megatest/repos/zig-clap
+/tmp/kern-mutants-
+/tmp/kern-trace-broken.log
+/tmp/kern-trace-ok.log
+/tmp/kern.sarif
+/tmp/kern_audit_passport.html
+/tmp/kern_bench.json
+/tmp/kern_binlevel.s
+/tmp/kern_binlevel_probe
+/tmp/kern_bridge.kern
+/tmp/kern_bridge.kimg
+/tmp/kern_cabi_test
+/tmp/kern_cabi_th
+/tmp/kern_canfail.lock
+/tmp/kern_canvas.html
+/tmp/kern_changelog_drift.md
+/tmp/kern_contracts.json
+/tmp/kern_eco.sarif
+/tmp/kern_empty.bib
+/tmp/kern_evidence_guard.json}
+/tmp/kern_fake_secret.txt
+/tmp/kern_guard_nested.json
+/tmp/kern_guardrail_smoke.log
+/tmp/kern_mcp.lock.json
+/tmp/kern_mcp_lock.log
+/tmp/kern_next_evidence_cache
+/tmp/kern_opt_diff_cache
+/tmp/kern_scorecard_recheck.json
+/tmp/kern_semprobe_$opt
+/tmp/kern_tel_bomb.smt2
+/tmp/kern_tel_gap
+/tmp/kern_trust_empty
+/tmp/kernc_pad
+/tmp/qemu-$1-static
