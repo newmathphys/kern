@@ -3923,6 +3923,56 @@ def _could_be_zero(div_smt: str) -> bool:
     return True
 
 
+def _walk_expr_guarded(node, guards, syms, env, _depth=0):
+    """Обход ВЫРАЖЕНИЯ с учётом ленивого вычисления (дефект N4/2).
+
+    Плоский `ast.walk` стирает структуру `IfExp` и `BoolOp`, поэтому делитель
+    внутри `0 if b == 0 else a // b` или `b != 0 and a // b > 0` собирался БЕЗ
+    своего гарда — и `--xray` выдавал ЛОЖНОЕ обвинение в делении на ноль (тот
+    самый класс, что #327 и N1, но в маршруте рентгена). Здесь каждому подузлу
+    сопутствует стек активных условий:
+      * `A if c else B` -> в `A` действует `c`, в `B` — `(not c)`;
+      * `A and B`      -> в `B` действует `A` (B вычисляется лишь если A истинно);
+      * `A or B`       -> в `B` действует `(not A)`.
+    Непереводимое условие гарда НЕ даёт: лучше меньше гардов, чем выдуманный.
+    """
+    if _depth > 64:
+        return
+    if isinstance(node, ast.IfExp):
+        c = None
+        try:
+            c = _cond_smt(node.test, syms, env)
+        except (Unsupported, NoReturn):
+            c = None
+        if c is not None:
+            yield from _walk_expr_guarded(node.body, guards + [c], syms, env, _depth + 1)
+            yield from _walk_expr_guarded(node.orelse, guards + [f"(not {c})"],
+                                          syms, env, _depth + 1)
+        else:
+            yield from _walk_expr_guarded(node.body, guards, syms, env, _depth + 1)
+            yield from _walk_expr_guarded(node.orelse, guards, syms, env, _depth + 1)
+        yield node, guards
+        return
+    if isinstance(node, ast.BoolOp):
+        local = list(guards)
+        for i, v in enumerate(node.values):
+            yield from _walk_expr_guarded(v, local, syms, env, _depth + 1)
+            if i < len(node.values) - 1:
+                c = None
+                try:
+                    c = _cond_smt(v, syms, env)
+                except (Unsupported, NoReturn):
+                    c = None
+                if c is not None:
+                    local = local + ([c] if isinstance(node.op, ast.And)
+                                     else [f"(not {c})"])
+        yield node, guards
+        return
+    yield node, guards
+    for ch in ast.iter_child_nodes(node):
+        yield from _walk_expr_guarded(ch, guards, syms, env, _depth + 1)
+
+
 def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                    found: list[str], skipped: list[str], fnname: str,
                    syms=None, env=None) -> None:
@@ -4006,7 +4056,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 found.append(f"[REDUNDANT GUARD] {fnname}: строка {st.lineno} — "
                              f"условие ВСЕГДА истинно: {cond}")
             # Краш-пути в теле.
-            for n in ast.walk(st):
+            for n, nguards in _walk_expr_guarded(st, path + [cond], syms, env):
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
                     if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
                         continue  # `'%s' % x` — форматирование, не деление
@@ -4020,7 +4070,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                         continue
                     if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
-                    sat_dz = _smt_sat(kernc, params, path + [cond, f"(= {div} 0)"])
+                    sat_dz = _smt_sat(kernc, params, nguards + [f"(= {div} 0)"])
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
@@ -4036,7 +4086,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             if not st.orelse and _block_exits(st.body):
                 path = path + [f"(not {cond})"]
         else:
-            for n in ast.walk(st):
+            for n, nguards in _walk_expr_guarded(st, path, syms, env):
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
                     if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
                         continue  # `'%s' % x` — форматирование, не деление
@@ -4050,7 +4100,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                         continue
                     if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
-                    sat_dz = _smt_sat(kernc, params, path + [f"(= {div} 0)"])
+                    sat_dz = _smt_sat(kernc, params, nguards + [f"(= {div} 0)"])
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
