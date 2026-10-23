@@ -142,6 +142,34 @@ def check_formula_agreement(kc) -> list[str]:
     return errs
 
 
+def check_flags_are_read(kc) -> list[str]:
+    """Флаги таблицы обязаны ЧИТАТЬСЯ кодом, а не лежать мёртвым грузом.
+
+    Это защита от того самого класса, из которого вышли #339/#340: два
+    источника истины — таблица говорит одно, код делает другое. Таблица, поля
+    которой никто не читает, — это документация, а не семантика.
+    """
+    errs = []
+    src = KC.read_text(encoding="utf-8")
+    for flag, why in (
+        ("div_zero_value",
+         "без него EVM получил бы ложное обвинение в делении на ноль"),
+        ("signed",
+         "без него беззнаковые/ EVM получили бы обязанности MIN/-1 и -x"),
+        ("wrap_ops",
+         "без него `+%`/`wrapping_add` обвинялись бы в переполнении"),
+        ("true_div",
+         "без него Python `/` (float) не уходил бы в честный SKIP"),
+    ):
+        uses = [m.start() for m in re.finditer(rf"\.{flag}\b", src)]
+        # Объявление в __init__/__slots__ не считается чтением.
+        reads = [u for u in uses
+                 if "self." + flag not in src[max(0, u - 5):u + len(flag) + 5]]
+        if len(reads) < 1:
+            errs.append(f"поле `{flag}` не читается кодом — {why}")
+    return errs
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
@@ -174,7 +202,7 @@ def main() -> int:
         return 0
 
     errs = (check_table(kc) + check_rule_i4(kc) + check_no_value_dispersion(kc)
-            + check_formula_agreement(kc))
+            + check_flags_are_read(kc) + check_formula_agreement(kc))
     print("СЕМАНТИКА ЗНАЧЕНИЙ ЯЗЫКА (шаг I)")
     print(f"  языков в таблице: {len(kc.VALUE_SEMANTICS)} | "
           f"ожидалось: {len(EXPECTED_LANGS)}")
