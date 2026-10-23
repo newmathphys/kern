@@ -163,6 +163,7 @@ if [ "$FAST" = "0" ]; then
   stage "sync selftest (#240)" python3 tools/sync_state.py --selftest
   stage "EN/RU паритет фактов (#241)" make docs-parity
   stage "llms.txt генерируется из facts.json (#311)" make llms-check
+  stage "снимок состояния собран из facts+реестра+журнала (шаг C)" make status-check
   stage "семантика деления совпадает с языком (#317)" make arith-semantics-check
   stage "машинные типы C: вердикт на каждый целый тип (#312/#321)" make c-types-check
   stage "гарды деления в Python учтены (#327)" make div-guards-check

@@ -334,6 +334,9 @@ FAULTABLE = [
     # Дефект #311: кейс `llms-drift` правит генератор llms.txt — файл обязан
     # быть в FAULTABLE, иначе правка не откатится (класс #48/#225).
     "tools/gen_llms_txt.py",
+    # Кейс `status-drift` правит генератор снимка состояния — тот же класс,
+    # что #225/#311: файл вне FAULTABLE означает, что подсадка останется.
+    "tools/gen_status.py",
     "tools/gen_tests_check.sh",
     "tools/simplify_check.sh",
     "tools/bounds_check.sh",
@@ -1841,6 +1844,20 @@ def case_llms_drift():
     return "make llms-check"
 
 
+def case_status_drift():
+    """ШАГ C SABOTAGE: генератор снимка печатает УСТАРЕВШЕЕ число.
+
+    Подменяем источник `core_tests` на константу 400 в ОБОИХ рендерах (EN и RU)
+    — ровно то, что жило в `llms.txt` до #311. `make status-check` обязан
+    покраснеть: файл перестал совпадать с `docs/facts.json`. Если кейс
+    вакуумный — значит `--check` сравнивает не то, что заявляет.
+    """
+    patch_all("tools/gen_status.py",
+              '    core = int(f["core_tests"])',
+              "    core = 400  # ЛОМАЕМ: захардкоженное устаревшее число")
+    return "make status-check"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -2997,6 +3014,8 @@ CASES = [
      case_advisory_fold),
     ("llms-drift", "Stale number in llms.txt -> gate red",
      case_llms_drift),
+    ("status-drift", "Stale number in docs/STATUS.md -> gate red",
+     case_status_drift),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",

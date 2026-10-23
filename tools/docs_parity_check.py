@@ -24,6 +24,7 @@ PAIRS = (
     ("docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md", "docs/ALL_CAPABILITIES_LIVE_GUIDE.md"),
     ("docs/CAPABILITIES.md", "docs/CAPABILITIES.en.md"),
     ("docs/CAPABILITY_STATUS.md", "docs/CAPABILITY_STATUS.en.md"),
+    ("docs/STATUS.ru.md", "docs/STATUS.md"),
     ("docs/CYBERNETIC_VISION.md", "docs/CYBERNETIC_VISION.en.md"),
     ("docs/METRICS.md", "docs/METRICS.en.md"),
     ("docs/ROADMAP.md", "docs/ROADMAP.en.md"),

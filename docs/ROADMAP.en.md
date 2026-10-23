@@ -1,6 +1,6 @@
 # KERN Roadmap — v2.5 status (English mirror)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->152 · cases <!-- fact:canfail_cases -->174 · anchors <!-- fact:anchors -->137 · registry <!-- fact:registry_targets -->191 · META <!-- fact:meta_targets -->25 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->402 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->153 · cases <!-- fact:canfail_cases -->175 · anchors <!-- fact:anchors -->137 · registry <!-- fact:registry_targets -->194 · META <!-- fact:meta_targets -->27 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > This is a **condensed English mirror** of [`ROADMAP.md`](ROADMAP.md) (which stays the
 > full, detailed document in Russian). It records the final state, not plans.
@@ -45,4 +45,4 @@
 2. Sync README/landing hashes after the asset is uploaded (currently v2.4.0 on purpose,
    otherwise the links would 404).
 3. Nothing else in code: canonical gate 40/40, full sweep 1345/1345, `canfail`
-   174 non-vacuous / 0 vacuous, Lean 143 theorems / 0 sorry, QEMU 393/8/0.
+   175 non-vacuous / 0 vacuous, Lean 143 theorems / 0 sorry, QEMU 393/8/0.
