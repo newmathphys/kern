@@ -338,6 +338,9 @@ FAULTABLE = [
     # Кейс `status-drift` правит генератор снимка состояния — тот же класс,
     # что #225/#311: файл вне FAULTABLE означает, что подсадка останется.
     "tools/gen_status.py",
+    # Кейс `flake` правит набор целей детектора флейки — тот же класс
+    # #225/#311/#48: файл вне FAULTABLE означает, что подсадка останется.
+    "tools/flake_check.py",
     # Кейс `charter-law-break` правит файл законов устава — тот же класс.
     "charter/laws.py",
     # Кейс `freshness-stale` правит СВИДЕТЕЛЬСТВО (занижает число тестов) —
@@ -1910,6 +1913,20 @@ def case_temp_isolation():
     return "make temp-isolation-check"
 
 
+def case_flake():
+    """ШАГ F2 SABOTAGE: в набор детектора флейки добавляется цель, которой нет.
+
+    Такая цель красная в КАЖДОМ прогоне (F), а не «иногда» — и гейт обязан
+    покраснеть. Если бы `flake-check` был зелёным при несуществующей цели, он не
+    проверял бы ничего.
+    """
+    patch("tools/flake_check.py",
+          '    "charter-check",\n',
+          '    "charter-check",\n'
+          '    "nonexistent-target-xyz",  # ЛОМАЕМ (F2)\n')
+    return "make flake-check"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -3074,6 +3091,8 @@ CASES = [
      case_freshness_stale),
     ("temp-isolation", "New unisolated /tmp path -> gate red",
      case_temp_isolation),
+    ("flake", "A never-green target must turn the flake gate red",
+     case_flake),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",

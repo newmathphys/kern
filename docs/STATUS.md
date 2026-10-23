@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->202 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->156 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->204 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->157 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->10 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
-| META | <!-- fact:meta_targets -->32 | harness, generators, guards |
+| META | <!-- fact:meta_targets -->33 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->178**, of which
-**156/156** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->179**, of which
+**157/157** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -31,16 +31,16 @@ Can-fail cases: **<!-- fact:canfail_cases -->178**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1376 / 1376 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->139 |
+| Literal anchors | <!-- fact:anchors -->140 |
 | Version | `v2.6.4` |
 
 ## Defect journal
 
-Numbered entries: **270**.
+Numbered entries: **271**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 140 |
+| Fixed | 141 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 4 |
@@ -55,7 +55,7 @@ Numbered entries: **270**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->337**.
+Highest defect number in the journal: **<!-- fact:max_defect -->338**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

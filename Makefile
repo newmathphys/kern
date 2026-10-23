@@ -745,6 +745,12 @@ charter-selftest:
 # который понимают GitHub Actions и IDE, не существовало вовсе. Отчёт собирается
 # из ЦЕЛЕЙ (раннер Zig не печатает список тестов построчно) и из УЖЕ СНЯТОГО
 # лога canfail (перепрогон занял бы ~15 минут).
+flake-check:
+	@$(PYTHON) tools/flake_check.py --runs 3
+
+flake-selftest:
+	@$(PYTHON) tools/flake_check.py --selftest
+
 junit:
 	@$(PYTHON) tools/junit_xml.py
 
