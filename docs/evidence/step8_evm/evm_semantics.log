@@ -1,0 +1,27 @@
+=== KERN EVIDENCE: step 8 — EVM semantics model ===
+=== дата: 2026-10-23T18:11:03+03:00 ===
+=== команда: kernc prove docs/evidence/step8_evm/smt/*.smt2 ===
+
+МОДЕЛЬ (Yellow Paper): DIV(a,0)=0; SDIV(a,0)=0; SDIV(MIN,-1)=MIN; вне нуля — усечение к нулю.
+Проверяются ТРИ тождества, каждое как (assert (not (= ...))): UNSAT = доказано.
+
+--- evm_div_by_zero_is_zero.smt2 ---
+  ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ПРУФ-ЧЕКЕР] шагов 11 | посылок 0/1 | mp 1 | резолюция 0 | Фаркаш 0 | rewrite(лин.) 3 | eq(refl/symm/trans) 3 | bool(and-elim/not-or-elim/mono) 3 | ДОВЕРЕННЫХ 0 | дыр 0
+  [!] причина: посылки не привязаны к контракту (premises_unbound)
+[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя
+
+--- evm_sdiv_min_by_minus_one_is_min.smt2 ---
+  ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ПРУФ-ЧЕКЕР] шагов 84 | посылок 0/1 | mp 1 | резолюция 0 | Фаркаш 0 | rewrite(лин.) 26 | eq(refl/symm/trans) 29 | bool(and-elim/not-or-elim/mono) 26 | ДОВЕРЕННЫХ 1 | дыр 0
+  [!] причина: посылки не привязаны к контракту (premises_unbound)
+[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя
+
+--- evm_sdiv_truncates_toward_zero.smt2 ---
+  ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ПРУФ-ЧЕКЕР] шагов 77 | посылок 0/1 | mp 1 | резолюция 0 | Фаркаш 0 | rewrite(лин.) 29 | eq(refl/symm/trans) 24 | bool(and-elim/not-or-elim/mono) 21 | ДОВЕРЕННЫХ 1 | дыр 0
+  [!] причина: посылки не привязаны к контракту (premises_unbound)
+[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя
+
+=== КОНЕЦ СБОРА ===
+RC=0
