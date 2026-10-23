@@ -71,6 +71,8 @@ SURFACES = (
     # ШАГ E: устав тоже несёт блок фактов (якоря).
     "docs/CHARTER.md",
     "docs/CHARTER.ru.md",
+    "docs/EXAMPLE_WHY_KERN.md",
+    "docs/EXAMPLE_WHY_KERN.ru.md",
 )
 ANCHOR = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->\s*(\d+)")
 ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")

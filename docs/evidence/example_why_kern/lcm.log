@@ -1,0 +1,13 @@
+=== KERN EVIDENCE: why-kern example (foreign code, lcm) ===
+=== дата: 2026-10-23T19:00:18+03:00 ===
+=== команда: kern_contracts.py lcm_core.c + gcc -fsanitize=undefined ===
+
+--- KERN ---
+  [FAIL] lcm_numerator: КОНТРАКТ НАРУШЕН
+         [КОНТРПРИМЕР] a = #x643b3fbb, b = #x5a724dfe, result = #x643a7a8a
+ИТОГО: доказано 0 | T_advisory 0 | нарушено 1 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 0 | всего 1
+
+--- gcc (наземная правда) ---
+lcm_probe.c:24:16: runtime error: signed integer overflow: 1681908667 * 1517634558 cannot be represented in type 'int'
+=== КОНЕЦ СБОРА ===
+RC=0

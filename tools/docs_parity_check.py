@@ -31,6 +31,7 @@ PAIRS = (
     ("docs/METRICS.md", "docs/METRICS.en.md"),
     ("docs/ROADMAP.md", "docs/ROADMAP.en.md"),
     ("docs/TESTING_AND_SPEED_GUIDE.md", "docs/TESTING_AND_SPEED_GUIDE.en.md"),
+    ("docs/EXAMPLE_WHY_KERN.ru.md", "docs/EXAMPLE_WHY_KERN.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",
