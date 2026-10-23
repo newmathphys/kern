@@ -73,6 +73,7 @@ CLASS = {
     "advisory-check": "CHECK",
     "llms-check": "CHECK",
     "status-check": "CHECK",             # шаг C: снимок состояния == facts+реестр+журнал
+    "charter-check": "CHECK",            # шаг E: законы устава доказаны + сверены с ядром
     "arith-semantics-check": "CHECK",
     "c-types-check": "CHECK",
     "div-guards-check": "CHECK",
@@ -158,6 +159,7 @@ CLASS = {
     "llms-selftest": "META",            # мета: генератор llms.txt из facts.json (#311)
     "status-doc": "META",                # мета: генератор docs/STATUS.md (шаг C)
     "status-selftest": "META",           # мета: числа STATUS не захардкожены (шаг C)
+    "charter-selftest": "META",          # мета: сломанный закон валит устав (шаг E)
     "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
@@ -218,6 +220,7 @@ CASE_TARGET = {
     "advisory-fold": "advisory-check",
     "llms-drift": "llms-check",
     "status-drift": "status-check",
+    "charter-law-break": "charter-check",
     "arith-semantics": "arith-semantics-check",
     "c-types": "c-types-check",
     "div-guards": "div-guards-check",

@@ -337,6 +337,8 @@ FAULTABLE = [
     # Кейс `status-drift` правит генератор снимка состояния — тот же класс,
     # что #225/#311: файл вне FAULTABLE означает, что подсадка останется.
     "tools/gen_status.py",
+    # Кейс `charter-law-break` правит файл законов устава — тот же класс.
+    "charter/laws.py",
     "tools/gen_tests_check.sh",
     "tools/simplify_check.sh",
     "tools/bounds_check.sh",
@@ -1858,6 +1860,18 @@ def case_status_drift():
     return "make status-check"
 
 
+def case_charter_law_break():
+    """ШАГ E SABOTAGE: закон устава ЛОМАЕТСЯ, и устав обязан покраснеть.
+
+    Подменяем тело L1 (`T ⊔ F = B`) так, что оно больше не даёт B. Если устав
+    — декорация, `make charter-check` этого не заметит и останется зелёным.
+    """
+    patch("charter/laws.py",
+          "    return p1 + p2 + 2 * (n1 + n2)",
+          "    return p1 + p2 + 2 * (n1 + n2) - 1  # ЛОМАЕМ: T ⊔ F больше не B")
+    return "make charter-check"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -3016,6 +3030,8 @@ CASES = [
      case_llms_drift),
     ("status-drift", "Stale number in docs/STATUS.md -> gate red",
      case_status_drift),
+    ("charter-law-break", "Broken charter law -> gate red",
+     case_charter_law_break),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
