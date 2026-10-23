@@ -2026,16 +2026,33 @@ def parse_clike(path: Path, require_annotations: bool = True):
         started = False
         j = i
         while j < n:
-            for ch in lines[j]:
+            _open_at = None
+            for _ci, ch in enumerate(lines[j]):
                 if ch == "{":
                     depth += 1
                     if depth == 1:
                         started = True
+                        _open_at = _ci
                         continue
                 elif ch == "}":
                     depth -= 1
-            if started and depth >= 1 and j > i:
+            if started and j > i and depth >= 1:
                 body_lines.append(lines[j])
+            elif started and j == i and _open_at is not None:
+                # ДЕФЕКТ N4: тело на ОДНОЙ строке с объявлением
+                # (`int f(int a, int b) { return a % b; }`) НЕ собиралось:
+                # условия `j > i` и `depth >= 1` отсекали его, `body_lines`
+                # оставался пустым, `_exec_clike` возвращал None — и функция
+                # уходила в `SKIP — вне подъмножества` БЕЗ ПРИЧИНЫ. Та же самая
+                # функция, записанная в две строки, доказывалась. Это и была
+                # «загадка requires b != 0»: дело было не в контракте, а в
+                # форматировании.
+                _tail = lines[j][_open_at + 1:]
+                _cut = _tail.rfind("}")
+                if _cut >= 0:
+                    _tail = _tail[:_cut]
+                if _tail.strip():
+                    body_lines.append(_tail)
             if started and depth == 0:
                 break
             j += 1
