@@ -2107,7 +2107,19 @@ def parse_clike(path: Path, require_annotations: bool = True):
             i = j + 1
             continue
         meta["divisors"] = _drop_macro_divisors(list(dict.fromkeys(_DIV_COLLECTOR)))
-        out.append((name, names, req, ens, body, i + 1, None, meta))
+        # ДЕФЕКТ N4: `_exec_clike` может вернуть `None` НЕ возбуждая исключения —
+        # тогда причина отказа оставалась пустой, и в отчёте появлялось немое
+        # `SKIP — вне подмножества`. Ровно это скрывало баг однострочного тела.
+        # Причина обязана называть СТАДИЮ, а не отсутствовать.
+        _why = None
+        if body is None:
+            if not raw_body.strip():
+                _why = ("empty function body: тело пусто после снятия "
+                        "комментариев/скобок (проверьте формат записи функции)")
+            else:
+                _why = ("body без `return`: ни один путь не возвращает значение "
+                        "(ветвление/цикл вне подмножества)")
+        out.append((name, names, req, ens, body, i + 1, _why, meta))
         i = j + 1
     return out
 
@@ -5704,6 +5716,14 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
           f"findings {len(found)}")
     for s in skipped:
         print(f"    skip: {s}")
+    # ДЕФЕКТ N4: счётчик считает `len(fns) - checked`, а причины берутся из
+    # списка `skipped`. Если какой-то путь пропускает функцию, НЕ записав
+    # причину, число говорит «skipped N», а строк `skip:` меньше — и читатель
+    # не знает, почему. Разницу печатаем явно: это дефект ИНСТРУМЕНТА.
+    _unexplained = (len(fns) - checked) - len(skipped)
+    if _unexplained > 0:
+        print(f"    [!] пропусков БЕЗ записанной причины: {_unexplained} — "
+              f"это дефект инструмента, а не свойство проверяемого кода")
     if not found:
         print("[OK] рентген не нашёл мёртвых веток, избыточных проверок и краш-путей")
     return 0
