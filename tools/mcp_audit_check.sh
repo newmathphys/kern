@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # ЭШЕЛОН 6, ПУНКТ 33: ПРИЁМКА СКАНЕРА MCP (инъекции, невидимый Unicode, rug-pull).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 PY=${PYTHON:-python3}
-LOCK=/tmp/kern_mcp.lock.json; rm -f "$LOCK"
+LOCK=$WORK/kern_mcp.lock.json; rm -f "$LOCK"
 # 1) чистая схема: замок создаётся, находок нет
 OUT1=$(timeout 300 "$PY" tools/kern_contracts.py --audit-mcp examples/mcp_schema_clean.json --mcp-lock "$LOCK" 2>&1)
 echo "$OUT1" | tail -2

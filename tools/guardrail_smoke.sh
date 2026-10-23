@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a license from the copyright holder. See LICENSE.
@@ -18,7 +22,7 @@ check() { # $1 = имя, $2 = ожидаем, $3 = факт
   else printf '  [ПРОВАЛ] %-20s ждали %s, получили %s\n' "$1" "$2" "$3"; FAIL=1; fi
 }
 
-python3 examples/guardrail_proxy.py --port "$PORT" >/tmp/kern_guardrail_smoke.log 2>&1 &
+python3 examples/guardrail_proxy.py --port "$PORT" >$WORK/kern_guardrail_smoke.log 2>&1 &
 PID=$!
 trap 'kill $PID 2>/dev/null' EXIT
 for _ in $(seq 1 30); do code "localhost:$PORT/health" >/dev/null 2>&1 && break; sleep 0.3; done

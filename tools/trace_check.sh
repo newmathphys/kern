@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # trace-check — приёмка Ступени 2 (`tools/trace_explorer.py`).
 #
 # Почему мини-датасет, а не настоящий QuixBugs: цель гейта должна быть
@@ -44,13 +48,13 @@ check() {   # check <лог> -> 0, если оба утверждения вып
 }
 
 echo "=== 1) штатный режим ==="
-python3 tools/trace_explorer.py "$MINI" > /tmp/kern-trace-ok.log 2>&1
+python3 tools/trace_explorer.py "$MINI" > $WORK/kern-trace-ok.log 2>&1
 rc=$?
 if [ $rc -ne 0 ]; then
-    echo "  [!!] движок завершился rc=$rc"; tail -5 /tmp/kern-trace-ok.log; exit 1
+    echo "  [!!] движок завершился rc=$rc"; tail -5 $WORK/kern-trace-ok.log; exit 1
 fi
-grep -E '^bug |^same ' /tmp/kern-trace-ok.log
-check /tmp/kern-trace-ok.log || { echo "  [!!] штатный прогон не выполнил утверждений"; exit 1; }
+grep -E '^bug |^same ' $WORK/kern-trace-ok.log
+check $WORK/kern-trace-ok.log || { echo "  [!!] штатный прогон не выполнил утверждений"; exit 1; }
 echo "  [OK] баг пойман живым вызовом, ложного расхождения нет"
 
 echo "=== 2) негативный контроль: ломаем сравнение ==="
@@ -58,16 +62,16 @@ echo "=== 2) негативный контроль: ломаем сравнен�
 # находится -> утверждение (1) обязано нарушиться. Если не нарушится,
 # цель бесполезна (вакуумна).
 sed 's/if nb != nc:/if False:  # ДИВЕРСИЯ/' tools/trace_explorer.py > "$BROKEN"
-python3 "$BROKEN" "$MINI" > /tmp/kern-trace-broken.log 2>&1
+python3 "$BROKEN" "$MINI" > $WORK/kern-trace-broken.log 2>&1
 brc=$?
 if [ $brc -ne 0 ]; then
     echo "  [!] сломанный движок упал (rc=$brc) — это тоже отказ, засчитываю"
-elif check /tmp/kern-trace-broken.log; then
+elif check $WORK/kern-trace-broken.log; then
     echo "  [!!] СЛОМАННОЕ сравнение всё равно «поймало» баг -> цель вакуумна"
     exit 1
 else
     echo "  [OK] поломка замечена: цель способна упасть"
 fi
 
-rm -f /tmp/kern-trace-ok.log /tmp/kern-trace-broken.log
+rm -f $WORK/kern-trace-ok.log $WORK/kern-trace-broken.log
 echo "[OK] trace-check: 2 утверждения + негативный контроль"

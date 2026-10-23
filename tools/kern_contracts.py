@@ -60,6 +60,11 @@ _NONE_SENTINEL = "-4611686018427387904"
 # Делители, встреченные при трансляции выражения (для обязательства
 # «делитель ≠ 0»): в SMT `div`/`mod` тотальны, поэтому ноль надо ловить отдельно.
 _DIV_COLLECTOR: list = []
+# ДЕФЕКТ #334 (остаток N5): унарные минусы. `-x` на знаковом типе при `x == MIN`
+# переполняется (`gcc -ftrapv` -> SIGABRT), но в математических целых `-MIN`
+# представим, поэтому проверка ДИАПАЗОНА РЕЗУЛЬТАТА молчит. Элемент:
+# `(операнд_smt, гарды)`.
+_NEG_COLLECTOR: list = []
 
 # ДЕФЕКТ #327: АКТИВНЫЕ УСЛОВИЯ ВЕТВЛЕНИЯ в точке сбора делителя.
 #
@@ -405,7 +410,14 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
         if isinstance(node.op, ast.Not):
             return f"(not {expr_smt(node.operand, env, lang)})"
         if isinstance(node.op, ast.USub):
-            return f"(- {expr_smt(node.operand, env, lang)})"
+            inner = expr_smt(node.operand, env, lang)
+            # ДЕФЕКТ #334 (остаток N5): унарный минус на ЗНАКОВОМ фиксированном
+            # типе — это `0 - x`, и при `x == MIN` результат непредставим
+            # (`gcc -ftrapv`: SIGABRT). Собираем пару (операнд, гарды), чтобы
+            # обязанность проверялась отдельно: диапазон РЕЗУЛЬТАТА её не видит,
+            # потому что в математических целых `-MIN` влезает.
+            _NEG_COLLECTOR.append((inner, tuple(_DIV_GUARDS)))
+            return f"(- {inner})"
         raise Unsupported("унарный оператор")
     if isinstance(node, ast.BinOp):
         if isinstance(node.op, ast.Add):
@@ -870,6 +882,7 @@ def parse_file(path: Path):
         # присваивания. Путь без `return` -> NoReturn (не глотаем ветку!),
         # циклы/вызовы -> Unsupported.
         _DIV_COLLECTOR.clear()
+        _NEG_COLLECTOR.clear()
         _UNROLLED[0] = False
         try:
             body = body_smt(stmts, _self_meta(node, stmts))
@@ -1080,6 +1093,50 @@ def build_divoverflow_smt(params, req, divisors, ranges, res_range) -> str:
     if lo >= 0:
         return ""              # беззнаковый тип: переполнение деления невозможно
     terms = _div_overflow_terms(divisors, lo)
+    if not terms:
+        return ""
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    lines = ["(set-logic ALL)", decls]
+    env: dict = {}
+    for p, (plo, phi) in (ranges or {}).items():
+        lines.append(f"(assert (and (>= {p} {plo}) (<= {p} {phi})) )")
+    if req:
+        lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
+    lines.append("(assert (or " + " ".join(terms) + "))")
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def _neg_overflow_terms(negs, lo: int) -> list:
+    """Термы обязательства ПЕРЕПОЛНЕНИЯ УНАРНОГО МИНУСА (дефект #334, N5).
+
+    `-x` на знаковом фиксированном типе — это `0 - x`; при `x == MIN` результат
+    непредставим. НАЗЕМНАЯ ПРАВДА: `gcc -ftrapv` на `-INT_MIN` -> SIGABRT.
+    Диапазон РЕЗУЛЬТАТА этого не видит: в математических целых `-MIN` влезает.
+    """
+    out = []
+    for n in negs:
+        if isinstance(n, tuple) and len(n) == 2:
+            operand, guards = n
+        else:
+            operand, guards = n, ()
+        t = f"(= {operand} {lo})"
+        if guards:
+            t = f"(and {' '.join(guards)} {t})"
+        out.append(t)
+    return out
+
+
+def build_negoverflow_smt(params, req, negs, ranges, res_range) -> str:
+    """Обязательство ПЕРЕПОЛНЕНИЯ УНАРНОГО МИНУСА: `requires ∧ гарды ∧ (x = MIN)`
+    -> SAT = аппаратный краш (дефект #334, остаток N5).
+
+    Для БЕЗзнаковых типов обязательства нет: `MIN` там 0, а `-0` безобиден.
+    """
+    lo = res_range[0]
+    if lo >= 0:
+        return ""
+    terms = _neg_overflow_terms(negs, lo)
     if not terms:
         return ""
     decls = "\n".join(f"(declare-const {p} Int)" for p in params)
@@ -2157,6 +2214,7 @@ def parse_clike(path: Path, require_annotations: bool = True):
         raw_body = _saturate_rewrite(raw_body, ret)
         meta["raw_body"] = raw_body   # УЛУЧШЕНИЕ №14: для конкретной перепроверки
         _DIV_COLLECTOR.clear()
+        _NEG_COLLECTOR.clear()
         try:
             stmts = _clike_stmts(raw_body, lang)
             body = _exec_clike(stmts, {}, lang)
@@ -2170,12 +2228,14 @@ def parse_clike(path: Path, require_annotations: bool = True):
                 # его не решает), но в QF_BV это обычный `bvmul` — решаемый.
                 # Поэтому такая функция идёт BV-кандидатом, а не в SKIP.
                 meta["divisors"] = []
+                meta["negs"] = []
                 out.append((name, names, req, ens, "BV_PENDING", i + 1, None, meta))
             else:
                 out.append((name, names, req, ens, None, i + 1, str(e), meta))
             i = j + 1
             continue
         meta["divisors"] = _drop_macro_divisors(list(dict.fromkeys(_DIV_COLLECTOR)))
+        meta["negs"] = list(dict.fromkeys(_NEG_COLLECTOR))
         # ДЕФЕКТ N4: `_exec_clike` может вернуть `None` НЕ возбуждая исключения —
         # тогда причина отказа оставалась пустой, и в отчёте появлялось немое
         # `SKIP — вне подмножества`. Ровно это скрывало баг однострочного тела.
@@ -2621,10 +2681,18 @@ def _hyp_candidates(params, req: str | None) -> list[str]:
 
 
 def _hyp_holds(expr: str, vals: dict) -> bool | None:
-    """Значение кандидата на конкретном контрпримере (None = не вычислить)."""
+    """Значение кандидата на конкретном контрпримере (None = не вычислить).
+
+    Ожидаемые отказы вычисления (тип, деление на ноль, неизвестное имя в
+    выражении) молча дают None. Но если сломан НАШ код (`AttributeError`/
+    `SyntaxError`), это обязано быть видно — `_replay_soft` печатает такие в
+    stderr (класс #198: голый `except Exception:` скрывал дефект месяц).
+    """
     try:
         return bool(eval(expr, {"__builtins__": {}}, dict(vals)))  # noqa: S307
-    except Exception:
+    except (TypeError, ValueError, ZeroDivisionError, KeyError,
+            OverflowError, NameError) as e:
+        _replay_soft(e, "hypothesis")
         return None
 
 
@@ -3565,10 +3633,12 @@ def _demo(args) -> int:
                     elif "@kern:bitvec64" in ftext:
                         w = 64
                     _DIV_COLLECTOR.clear()
+                    _NEG_COLLECTOR.clear()
                     bv_body = _exec_clike(meta["raw_body"].split(";"), {},
                                           meta.get("lang", "zig"),
                                           lambda node, env_: expr_smt_bv(node, env_, w, signed))
                     meta["divisors"] = _drop_macro_divisors(list(dict.fromkeys(_DIV_COLLECTOR)))
+                    meta["negs"] = list(dict.fromkeys(_NEG_COLLECTOR))
                     meta["bv"] = (w, signed)
                     smt = build_smt_bv(params, req, ens, bv_body, w, signed,
                                        meta.get("lang", "zig"))
@@ -3653,6 +3723,40 @@ def _demo(args) -> int:
                                 "message": (f"{name}: деление при a = MIN и "
                                             f"b = -1 непредставимо (UB, idiv "
                                             f"trap)")})
+                            failed += 1
+                            safety_failed += 1
+                            continue
+            # ---- ОБЯЗАТЕЛЬСТВО БЕЗОПАСНОСТИ: ПЕРЕПОЛНЕНИЕ УНАРНОГО МИНУСА (#334) --
+            # `-x` на знаковом фиксированном типе — это `0 - x`; при `x == MIN`
+            # результат непредставим. НАЗЕМНАЯ ПРАВДА: `gcc -ftrapv` на
+            # `-INT_MIN` -> SIGABRT (rc=134). Проверка ДИАПАЗОНА РЕЗУЛЬТАТА этого
+            # НЕ видит: в математических целых `-MIN` влезает в Int.
+            _negs = meta.get("negs") or []
+            if _negs and p.suffix in CLIKE_EXT and not meta.get("bv"):
+                _rrn = TYPE_RANGE.get(meta.get("ret"))
+                if _rrn:
+                    try:
+                        smt_n = build_negoverflow_smt(params, req, _negs,
+                                                      meta.get("ranges"), _rrn)
+                    except (Unsupported, subprocess.SubprocessError, OSError):
+                        smt_n = ""
+                    if smt_n:
+                        try:
+                            _rcn, outn = run_kernc(kernc, smt_n)
+                        except (Unsupported, subprocess.SubprocessError, OSError):
+                            outn = ""
+                        if "ДОКАЗАНО" not in outn:
+                            cen = parse_counterexample(outn)
+                            print(f"  [FAIL] {name}: ПЕРЕПОЛНЕНИЕ УНАРНОГО МИНУСА "
+                                  f"(-x при x = MIN — аппаратный trap)")
+                            if cen:
+                                print(f"         [КОНТРПРИМЕР] {fmt_ce(cen)}")
+                            f_funcs.append({"name": name, "line": ln,
+                                            "verdict": "CONTRACT_VIOLATED"})
+                            violations.append({
+                                "file": str(p), "line": ln, "rule": "KERN002",
+                                "message": (f"{name}: -x при x = MIN "
+                                            f"непредставимо (UB, signed overflow)")})
                             failed += 1
                             safety_failed += 1
                             continue

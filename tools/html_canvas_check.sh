@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # ЭШЕЛОН 8, ПУНКТ 40Б: ПРИЁМКА ИНТЕРАКТИВНОГО ХОЛСТА.
 # Требуется: автономность (0 внешних ссылок), ползунки, квадрат Белнапа,
 # встроенные данные функций и корректный HTML.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
-PY=${PYTHON:-python3}; OUT=/tmp/kern_canvas.html; rm -f "$OUT"
+PY=${PYTHON:-python3}; OUT=$WORK/kern_canvas.html; rm -f "$OUT"
 OUTPUT=$(timeout 300 "$PY" tools/kern_contracts.py examples/presets_demo.py --html "$OUT" 2>&1)
 echo "$OUTPUT" | tail -1
 fail() { echo "[!] $1"; exit 1; }

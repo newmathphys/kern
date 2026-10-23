@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a license from the copyright holder. See LICENSE.
@@ -49,7 +53,7 @@ mkdir -p "$EV"
 # прогона, свидетельства снимаются при ПРОПАТЧЕННЫХ исходниках и ЛОЖНЫ.
 # Снимок + сверка после каждого шага превращают это из «непонятного RC=1 в
 # конце» в ТОЧНЫЙ диагноз сразу.
-GUARD="${GUARD:-/tmp/kern_evidence_guard.json}"
+GUARD="${GUARD:-$WORK/kern_evidence_guard.json}"
 # ДЕФЕКТЫ #168/#170: перед снятием свидетельств в дереве НЕ ДОЛЖНО быть
 # маркеров инъекций и чужих незакоммиченных правок в src/.
 python3 tools/injection_guard.py || { echo "[!] свидетельства НЕ снимаются: грязный src/"; exit 2; }
@@ -142,7 +146,7 @@ echo "────────────────────────�
 collect slsa_check          python3 tools/slsa_provenance.py --check
 collect core_tests          zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig
 collect core_tests_relsafe  zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig -O ReleaseSafe
-collect kern_next_tests     bash -c 'rm -rf /tmp/kern_next_evidence_cache; zig build test-next --summary all --cache-dir /tmp/kern_next_evidence_cache; rc=$?; rm -rf /tmp/kern_next_evidence_cache; exit $rc'
+collect kern_next_tests     bash -c 'rm -rf $WORK/kern_next_evidence_cache; zig build test-next --summary all --cache-dir $WORK/kern_next_evidence_cache; rc=$?; rm -rf $WORK/kern_next_evidence_cache; exit $rc'
 collect test_fault          zig build test-fault
 collect test_align          zig build test-align
 collect test_pool           zig build test-pool

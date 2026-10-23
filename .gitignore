@@ -105,3 +105,6 @@ vgcore.*
 # VS Code: keep shared tasks, ignore user-specific settings/caches.
 .vscode/*
 !.vscode/tasks.json
+
+# Артефакты прогонов (N2): выходные файлы целей живут здесь, а не в общем /tmp.
+build/

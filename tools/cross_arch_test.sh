@@ -40,11 +40,7 @@ fetch_qemu() { # $1 = arch (aarch64|ppc64|s390x)
   local q="$QEMU_CACHE/qemu-$1-static"
   mkdir -p "$QEMU_CACHE"
   if [ ! -x "$q" ]; then
-    if [ -x "/tmp/qemu-$1-static" ]; then
-      cp -f "/tmp/qemu-$1-static" "$q"   # совместимость: не качаем заново
-    else
       curl -sL -o "$q" "$BASE/qemu-$1-static" && chmod +x "$q"
-    fi
   fi
   echo "$q"
 }

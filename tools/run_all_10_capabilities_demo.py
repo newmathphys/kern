@@ -13,6 +13,10 @@ import os, subprocess, sys, tempfile, json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Внешние клоны репозиториев: ПОСТОЯННЫЙ кэш, а не /tmp (уборка /tmp их смывает,
+# и демо молча печатало бы «артефакты не найдены»). Путь переопределяется
+# переменной окружения KERN_REPOS_DIR.
+REPOS = Path(os.environ.get("KERN_REPOS_DIR") or (Path.home() / ".cache" / "kern" / "repos"))
 GUIDE = ROOT / "docs" / "ALL_CAPABILITIES_LIVE_GUIDE.ru.md"
 GUIDE_EN = ROOT / "docs" / "ALL_CAPABILITIES_LIVE_GUIDE.md"
 EVID = ROOT / "docs" / "evidence"
@@ -115,10 +119,10 @@ section("5. Эквивалентность рефакторинга: что мо
         "ТОЛЬКО когда внутренний пруф-чекер принял вывод (QueryKind.equivalence).", cmd, out)
 
 print("6/10 trace_explorer...", flush=True)
-mini = Path("/tmp/kern-demo-blind")
+mini = Path(tempfile.mkdtemp(prefix="kern-demo-blind-"))
 for d in ("python_programs", "correct_python_programs"):
     (mini / d).mkdir(parents=True, exist_ok=True)
-src = Path("/tmp/kern-megatest/repos/boltons/boltons/mathutils.py")
+src = REPOS / "boltons/boltons/mathutils.py"
 if src.exists():
     import ast
     text = src.read_text(encoding="utf-8")
@@ -164,13 +168,13 @@ import json as _json
 try:
     g = _json.loads(out)
     stats = f"модулей {len(g['nodes'])}, рёбер {len(g['edges'])}"
-except Exception:
+except (ValueError, KeyError, TypeError):
     stats = "(граф не разобран)"
-rc2, out2 = run(["zig-out/bin/kernx", "graph", "--root", "/tmp/kern-megatest/repos/zig-clap"], timeout=300)
+rc2, out2 = run(["zig-out/bin/kernx", "graph", "--root", str(REPOS / "zig-clap")], timeout=300)
 try:
     g2 = _json.loads(out2)
     stats2 = f"модулей {len(g2['nodes'])}, рёбер {len(g2['edges'])}"
-except Exception:
+except (ValueError, KeyError, TypeError):
     stats2 = "(внешний граф не разобран)"
 section("9. Граф архитектуры и запрет отрицательных циклов",
         "Строится точный граф импортов (сам KERN и внешний проект), SCC-анализ "
@@ -179,10 +183,10 @@ section("9. Граф архитектуры и запрет отрицатель
         f"KERN: {stats}\nzig-clap: {stats2}")
 
 print("10/10 .kimg + аттестат...", flush=True)
-repo = Path("/tmp/kern-megatest/repos/zig-clap")
+repo = REPOS / "zig-clap"
 parts = []
 if repo.exists():
-    v1 = Path("/tmp/kern-demo-v1.kimg")
+    v1 = Path(tempfile.mkdtemp(prefix="kern-demo-kimg-")) / "v1.kimg"
     rc, o = run(["zig-out/bin/kernc", "pack-dir", str(repo), "-o", str(v1)])
     parts.append("$ kernc pack-dir ... -o v1.kimg\n" + o)
     rc, o = run(["zig-out/bin/kernc", "fsck", str(v1)])

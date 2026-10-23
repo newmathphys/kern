@@ -16,7 +16,7 @@ REQUIRED_RULES = {"KERN001", "KERN002", "KERN003", "KERN004"}
 
 
 def main() -> int:
-    path = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/kern.sarif")
+    path = Path(sys.argv[1] if len(sys.argv) > 1 else "build/kern.sarif")
     if not path.is_file():
         print(f"[!] нет файла SARIF: {path}")
         return 1

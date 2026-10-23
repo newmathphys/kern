@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # УНИВЕРСАЛЬНЫЙ АУДИТОР (--audit-repo): приёмка на РЕАЛЬНЫХ чужих каталогах.
 # Требуется: паспорт со статистикой по языкам, топ-5 по Маккейбу, HTML-файл
 # и НИ ОДНОГО падения на постороннем коде.
@@ -8,13 +12,13 @@ PY=${PYTHON:-python3}
 ZSTD="${KERN_ZIG_STD:-/home/mrbritneyxxx/opt/zig-x86_64-linux-0.17.0/lib/std}"
 PYLIB=$($PY -c 'import os;print(os.path.dirname(os.__file__))')
 OUT=$(timeout 900 "$PY" tools/kern_contracts.py --audit-repo "$PYLIB/urllib" \
-        --html-out /tmp/kern_audit_passport.html 2>&1); RC=$?
+        --html-out $WORK/kern_audit_passport.html 2>&1); RC=$?
 [ "$RC" -eq 0 ] || { echo "[!] --audit-repo упал (rc=$RC)"; echo "$OUT" | tail -5; exit 1; }
 echo "$OUT" | tail -8
 echo "$OUT" | grep -q 'AUDIT PASSPORT' || { echo "[!] нет паспорта"; exit 1; }
 echo "$OUT" | grep -q 'Python .*проверено' || { echo "[!] нет статистики по языкам"; exit 1; }
 echo "$OUT" | grep -q 'ТОП-5 по Маккейбу' || { echo "[!] нет топ-5 по CC"; exit 1; }
-[ -s /tmp/kern_audit_passport.html ] || { echo "[!] HTML-паспорт не создан"; exit 1; }
+[ -s $WORK/kern_audit_passport.html ] || { echo "[!] HTML-паспорт не создан"; exit 1; }
 
 # Второй реальный проект: std Zig (C-like путь, без аннотаций).
 OUT2=$(timeout 900 "$PY" tools/kern_contracts.py --audit-repo "$ZSTD/math" 2>&1); RC2=$?

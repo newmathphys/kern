@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # РАЗДЕЛ 5: межоптимизационное дифференциальное тестирование.
 #
 # СКОРОСТЬ (ИЗМЕРЕНО): 3 полные сборки kernc занимают ~90 с, из-за чего
@@ -10,7 +14,7 @@ ZIG=${ZIG:-zig}
 IMG=audits/real_code_corpus.kimg
 TOY=toy.kimg
 CACHE=/dev/shm/kern_opt_diff_cache
-[ -d /dev/shm ] || CACHE=/tmp/kern_opt_diff_cache
+[ -d /dev/shm ] || CACHE=$WORK/kern_opt_diff_cache
 
 SRC_HASH=$(find src -name '*.zig' -type f | sort | xargs cat | sha256sum | cut -d' ' -f1)
 DIR="$CACHE/$SRC_HASH"

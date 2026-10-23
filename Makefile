@@ -19,9 +19,10 @@ OUT      ?= .kernnext
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
 # через Z3. Утверждение с доказанным контрактом получает e=1.
 bridge:
-	$(PYTHON) tools/scan_to_kern.py . -o /tmp/kern_bridge.kern
-	./zig-out/bin/kernc build /tmp/kern_bridge.kern -o /tmp/kern_bridge.kimg
-	./zig-out/bin/kernc verify /tmp/kern_bridge.kimg 2>&1 | grep -E "claim|контракт|свидетельство|ИТОГ" | head -40
+	@W=$$(mktemp -d); trap 'rm -rf "$$W"' EXIT INT TERM; \
+	$(PYTHON) tools/scan_to_kern.py . -o "$$W/bridge.kern"; \
+	./zig-out/bin/kernc build "$$W/bridge.kern" -o "$$W/bridge.kimg"; \
+	./zig-out/bin/kernc verify "$$W/bridge.kimg" 2>&1 | grep -E "claim|контракт|свидетельство|ИТОГ" | head -40
 
 help:
 	@echo "KERN — цели Makefile"
@@ -403,8 +404,8 @@ string-contracts-check: build
 # --- ЭТАП 1: ЛИНИЯ ДЛЯ GITHUB ---------------------------------------------
 # SARIF 2.1.0 (Code Scanning / плашки в Pull Request) + нативные аннотации.
 # Цель — ПРОВЕРКА: отчёт обязан быть валидным И содержать находки.
-SARIF_OUT ?= /tmp/kern.sarif
-CONTRACTS_JSON_OUT ?= /tmp/kern_contracts.json
+SARIF_OUT ?= build/kern.sarif
+CONTRACTS_JSON_OUT ?= build/kern_contracts.json
 
 sarif-check: build
 	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.c \
@@ -592,7 +593,7 @@ avalanche:
 # Это ГЕЙТ, а не украшение: при деградации хэша код возврата ненулевой.
 # График для сайта: python3 tools/bench_json.py --html docs/bench/index.html
 bench-json:
-	$(PYTHON) tools/bench_json.py --json /tmp/kern_bench.json
+	@mkdir -p build && $(PYTHON) tools/bench_json.py --json build/kern_bench.json
 
 # Эшелон 3: изнурение пула потоков (128 запросов на 4-8 воркеров, без голодания).
 pool:
@@ -875,14 +876,16 @@ lib:
 # библиотеку (в тестовой сборке Zig ветка is_test замыкает compat.io(),
 # поэтому tls_io там не проверяется в принципе).
 c-abi-test: lib
+	@mkdir -p build
 	@zig cc -Wall -Wextra -Werror -pedantic -std=c11 -Iinclude \
-		tests/c_abi_test.c -Lzig-out/lib -lkern -o /tmp/kern_cabi_test
-	@LD_LIBRARY_PATH=zig-out/lib /tmp/kern_cabi_test
+		tests/c_abi_test.c -Lzig-out/lib -lkern -o build/kern_cabi_test
+	@LD_LIBRARY_PATH=zig-out/lib build/kern_cabi_test
 
 c-abi-threads: lib
+	@mkdir -p build
 	@zig cc -Wall -Wextra -Werror -pedantic -std=c11 -pthread -Iinclude \
-		tests/c_abi_threads.c -Lzig-out/lib -lkern -o /tmp/kern_cabi_th
-	@LD_LIBRARY_PATH=zig-out/lib /tmp/kern_cabi_th
+		tests/c_abi_threads.c -Lzig-out/lib -lkern -o build/kern_cabi_th
+	@LD_LIBRARY_PATH=zig-out/lib build/kern_cabi_th
 
 capi-demo: lib
 	$(PYTHON) examples/capi_demo.py

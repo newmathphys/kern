@@ -494,7 +494,9 @@ def annotated_kind(tree: ast.AST, name: str) -> str | None:
                 continue
             try:
                 ann = ast.unparse(a.annotation).lower()
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
+                # аннотацию не разобрать — домен остаётся пустым (явный
+                # список, класс #198: сломанный НАШ код обязан быть виден).
                 continue
             if "bool" in ann:
                 return "bit"

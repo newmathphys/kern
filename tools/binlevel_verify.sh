@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a license from the copyright holder. See LICENSE.
@@ -31,7 +35,7 @@ for opt in Debug ReleaseSafe ReleaseFast; do
   # `compat`/`owner`/`atomic` передаёт только сборочная система. Раньше
   # дайджесты получались ПУСТЫМИ и скрипт выдавал ЛОЖНОЕ «расхождение
   # оптимизатора LLVM» (дефект #29).
-  bin="/tmp/kern_semprobe_$opt"
+  bin="$WORK/kern_semprobe_$opt"
   "$ZIG" build-exe --dep compat --dep owner --dep atomic \
       -Mroot=src/semantic_probe.zig \
       -Mcompat=src/compat.zig -Mowner=src/owner.zig -Matomic=src/atomic_write.zig \
@@ -49,8 +53,8 @@ fi
 
 echo
 echo "=== 2. CONSTANT-TIME НА УРОВНЕ АССЕМБЛЕРА ==="
-ASM=/tmp/kern_binlevel.s
-BIN2=/tmp/kern_binlevel_probe
+ASM=$WORK/kern_binlevel.s
+BIN2=$WORK/kern_binlevel_probe
 # ⚠️ ФИКС 0.17: `-femit-asm` в этом тулчейне НЕ создаёт файл (молча no-op).
 # Поэтому ассемблер получаем ДИЗАССЕМБЛИРОВАНИЕМ собранного бинарника.
 "$ZIG" build-exe --dep compat -Mroot=src/binlevel_probe.zig -Mcompat=src/compat.zig \

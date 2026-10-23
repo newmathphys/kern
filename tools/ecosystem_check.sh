@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a license from the copyright holder. See LICENSE.
@@ -32,20 +36,20 @@ for f in CITATION.cff SECURITY.md server.json mcp.json .well-known/mcp.json glam
 done
 
 echo "== 4b) замок MCP: mcp.lock.json == server.json (rug-pull) =="
-if python3 tools/kern_contracts.py --audit-mcp server.json --mcp-lock mcp.lock.json >/tmp/kern_mcp_lock.log 2>&1; then
+if python3 tools/kern_contracts.py --audit-mcp server.json --mcp-lock mcp.lock.json >$WORK/kern_mcp_lock.log 2>&1; then
   ok "mcp.lock.json сверен: $(python3 -c "import json;print(len(json.load(open('mcp.lock.json'))['tools']))") инструментов, 0 rug-pull"
 else
-  bad "mcp.lock.json не совпал со схемой (rug-pull / инъекция) — см. /tmp/kern_mcp_lock.log"
+  bad "mcp.lock.json не совпал со схемой (rug-pull / инъекция) — см. $WORK/kern_mcp_lock.log"
 fi
 
 echo "== 5) SARIF 2.1.0 (GitHub Code Scanning) =="
 # ВАЖНО: `kern_contracts.py` возвращает 1, когда НАШЁЛ нарушения (демо намеренно
 # сломано) — это ожидаемый код, а не сбой. Поэтому rc не проверяем «на ноль»,
 # а проверяем САМ ФАКТ генерации и валидность структуры.
-python3 tools/kern_contracts.py examples/contracts_demo.py --sarif /tmp/kern_eco.sarif >/dev/null 2>&1
+python3 tools/kern_contracts.py examples/contracts_demo.py --sarif $WORK/kern_eco.sarif >/dev/null 2>&1
 rc_gen=$?
-if [ -s /tmp/kern_eco.sarif ] && python3 tools/check_sarif.py /tmp/kern_eco.sarif >/dev/null 2>&1; then
-  ok "SARIF валиден (генератор rc=$rc_gen: 1 = нарушения найдены, это норма): $(python3 -c "import json;d=json.load(open('/tmp/kern_eco.sarif'));print(len(d['runs'][0]['results']),'находок,',len(d['runs'][0]['tool']['driver']['rules']),'правил')")"
+if [ -s $WORK/kern_eco.sarif ] && python3 tools/check_sarif.py $WORK/kern_eco.sarif >/dev/null 2>&1; then
+  ok "SARIF валиден (генератор rc=$rc_gen: 1 = нарушения найдены, это норма): $(python3 -c "import json;d=json.load(open('$WORK/kern_eco.sarif'));print(len(d['runs'][0]['results']),'находок,',len(d['runs'][0]['tool']['driver']['rules']),'правил')")"
 else
   bad "SARIF не сгенерирован или невалиден"
 fi

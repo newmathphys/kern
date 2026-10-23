@@ -73,7 +73,9 @@ def _z3_value(text: str) -> int | None:
         node = z3.parse_smt2_string(
             "(declare-const r Int)(assert (= r " + text + "))")[0]
         return z3.simplify(node.arg(1)).as_long()
-    except Exception:
+    except (z3.Z3Exception, AttributeError, ValueError):
+        # Z3 не смог упростить/разобрать терм: значение не вычислить.
+        # Явный список (класс #198): программная ошибка обязана быть видна.
         return None
 
 
@@ -109,7 +111,10 @@ def main() -> int:
                 try:
                     translated = kc.expr_smt(
                         ast.parse(f"({a}) {op} ({b})", mode="eval").body, {})
-                except Exception:
+                except (ValueError, KeyError, TypeError, AttributeError,
+                        SyntaxError):
+                    # выражение вне подмножества переводчика — это НЕ сбой
+                    # прогона: пропускаем пару (явный список, класс #198).
                     continue
                 got = _z3_value(translated)
                 # «наивный» перевод (просто `div`): на нём тест ОБЯЗАН уметь

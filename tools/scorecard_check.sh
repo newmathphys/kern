@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0.
 # Commercial use requires a license from the copyright holder. See LICENSE.
@@ -12,7 +16,7 @@ fail=0
 ok()  { printf '  [OK] %s\n' "$1"; }
 bad() { printf '  [FAIL] %s\n' "$1"; fail=1; }
 
-TMP=/tmp/kern_scorecard_recheck.json
+TMP=$WORK/kern_scorecard_recheck.json
 echo "== 1) пересчёт паспорта (8 языков + формальные метрики) =="
 if python3 tools/trust_scorecard.py --repo . --json "$TMP" --quiet; then
   ok "пересчёт выполнен"

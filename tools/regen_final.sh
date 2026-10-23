@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
+# (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
+trap 'rm -rf "$WORK"' EXIT INT TERM
 # ФИНАЛЬНАЯ ЦЕПОЧКА (исправленная): дождаться освобождения ЗАМКА canfail,
 # затем пересобрать аттестат и перегенерировать быстрые свидетельства.
 #
@@ -12,7 +16,7 @@
 cd "$(dirname "$0")/.." || exit 1
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PWD/.venv/bin:$PATH"
 
-LOCK=/tmp/kern_canfail.lock
+LOCK=$WORK/kern_canfail.lock
 echo "[chain] жду освобождения замка canfail..."
 python3 - "$LOCK" <<'PY'
 import fcntl, sys, time

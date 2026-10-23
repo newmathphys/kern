@@ -18,7 +18,7 @@ SUMMARY_KEYS = {"proven", "violated", "vacuous", "skipped"}
 
 
 def main() -> int:
-    path = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/kern_contracts.json")
+    path = Path(sys.argv[1] if len(sys.argv) > 1 else "build/kern_contracts.json")
     if not path.is_file():
         print(f"[!] нет файла JSON: {path}")
         return 1

@@ -34,6 +34,7 @@ import resource
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -267,7 +268,7 @@ def check_z3_bridge_stress() -> tuple[int, dict, str]:
     w = WEIGHTS["z3_bridge_stress"]
     if not have("z3"):
         return 0, {"z3_available": False}, "NOT RUN: z3 не найден в PATH"
-    bomb = Path("/tmp/kern_tel_bomb.smt2")
+    bomb = Path(tempfile.mkdtemp(prefix="kern-tel-bomb-")) / "bomb.smt2"
     bomb.write_text(
         "(set-logic NIA)\n(declare-const a Int)\n(declare-const b Int)\n(declare-const c Int)\n"
         "(assert (= (+ (* a a a) (* b b b) (* c c c)) 42))\n"
@@ -335,8 +336,7 @@ def check_semantic_gap() -> tuple[int, dict, str]:
     w = WEIGHTS["semantic_gap"]
     if not have("z3"):
         return 0, {"z3_available": False}, "NOT RUN: z3 не найден"
-    d = Path("/tmp/kern_tel_gap")
-    d.mkdir(exist_ok=True)
+    d = Path(tempfile.mkdtemp(prefix="kern-tel-gap-"))
     int_f = d / "int.smt2"
     bv_f = d / "bv32.smt2"
     int_f.write_text("(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x 0))\n"

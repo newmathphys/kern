@@ -1201,9 +1201,11 @@ def case_slsa_hash():
     # правку третьей стороной и НЕ восстановил бинарник.
     target = slsa_subject_path()
     touch(target)
-    with open("/tmp/kernc_pad", "ab") as f:
-        f.write(b"\x00" * 8)
-    sh(f"cat /tmp/kernc_pad >> {target}", 60)
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False) as _pad:
+        _pad.write(b"\x00" * 8)
+        pad = _pad.name
+    sh(f"cat {pad} >> {target}", 60)
     return "python3 tools/slsa_provenance.py --check"
 
 
@@ -1330,8 +1332,8 @@ def case_evidence_propagates():
     # прогон после этого видел «нет снимка» и помечал КАЖДЫЙ следующий шаг
     # как «ВНЕШНЯЯ ПРАВКА ФАЙЛА!», хотя файлы были целы. Теперь у вложенного
     # прогона СВОЙ базис: он не может испортить чужой.
-    return ("KERN_EVIDENCE_DIR=/tmp/kern-canfail-evidence "
-            "GUARD=/tmp/kern_guard_nested.json "
+    return ("KERN_EVIDENCE_DIR=$$(mktemp -d) "
+            "GUARD=$$(mktemp) "
             "make evidence-fast")
 
 
@@ -1538,7 +1540,7 @@ def case_secret_in_tree():
     Дерево не трогаем: сканируется /tmp через `--path`. Проверка
     ОБЯЗАНА покраснеть, иначе сканер секретов — фикция.
     """
-    return ("bash -c 'f=/tmp/kern_fake_secret.txt; "
+    return ("bash -c 'f=$$(mktemp); "
             "printf \"nvapi-%030d\" 0 > $f; "
             "python3 tools/secrets_check.py --path $f; rc=$?; "
             "rm -f $f; exit $rc'")
@@ -1555,7 +1557,7 @@ def case_nondeterministic():
 
 def case_changelog_drift():
     """CHANGELOG (0K.8). ЛОМАЕМ: файл без раздела текущей версии."""
-    return ("bash -c 'f=/tmp/kern_changelog_drift.md; "
+    return ("bash -c 'f=$$(mktemp --suffix=.md); "
             "printf \"# Changelog\n\n## [0.0.1] - old\n\" > $f; "
             "python3 tools/changelog_check.py --path $f; rc=$?; rm -f $f; exit $rc'")
 
@@ -1567,8 +1569,8 @@ def case_lean_pin_drift():
 
 def case_trust_docs_missing():
     """Документы доверия (0K.9). ЛОМАЕМ: пустой каталог вместо docs."""
-    return ("bash -c 'mkdir -p /tmp/kern_trust_empty; "
-            "python3 tools/trust_docs_check.py --dir /tmp/kern_trust_empty'")
+    return ("bash -c 'd=$$(mktemp -d); "
+            "python3 tools/trust_docs_check.py --dir $$d'")
 
 
 def case_perf_regression():
@@ -1585,7 +1587,7 @@ def case_citations_unknown_key():
     Проверяется именно резолвинг ключей: пустой каталог записей — это
     ситуация «источника нет», а не «источник другой».
     """
-    return ("bash -c 'b=/tmp/kern_empty.bib; : > $b; "
+    return ("bash -c 'b=$$(mktemp --suffix=.bib); : > $b; "
             "python3 tools/citations_check.py --bib $b; rc=$?; "
             "rm -f $b; exit $rc'")
 

@@ -51,7 +51,9 @@ def _z3_eval(smt: str) -> int | None:
         node = z3.parse_smt2_string(
             "(declare-const r Int)(assert (= r " + smt + "))")[0]
         return z3.simplify(node.arg(1)).as_long()
-    except Exception:
+    except (z3.Z3Exception, AttributeError, ValueError):
+        # Z3 не смог упростить/разобрать терм: значение не вычислить.
+        # Явный список (класс #198): программная ошибка обязана быть видна.
         return None
 
 
