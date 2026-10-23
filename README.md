@@ -820,11 +820,11 @@ docker run --rm kern:2.0 verify /kern/toy.kimg  # run the Truth Gate
 
 ### Prebuilt static binary and GitHub Action
 
-No toolchain needed. Release `v2.6.4` ships a statically linked `x86_64-linux-musl`
+No toolchain needed. Release `v2.7.0` ships a statically linked `x86_64-linux-musl`
 binary, so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
-base=https://github.com/newmathphys/kern/releases/download/v2.6.4
+base=https://github.com/newmathphys/kern/releases/download/v2.7.0
 curl -fsSLO "$base/kernc-x86_64-linux-musl"
 curl -fsSLO "$base/SHA256SUMS"
 sha256sum -c SHA256SUMS          # verify BEFORE running
@@ -841,7 +841,7 @@ chmod +x kernc-x86_64-linux-musl && ./kernc-x86_64-linux-musl --version
 Or use it as a step in your own workflow:
 
 ```yaml
-- uses: newmathphys/kern@v2.6.4
+- uses: newmathphys/kern@v2.7.0
   with:
     args: verify --image project.kimg
 ```
@@ -985,5 +985,5 @@ Contributions are accepted under the terms in [`CONTRIBUTING.md`](CONTRIBUTING.m
 - [How to write a contract for ANY project](docs/CONTRACT_ANY_PROJECT.md) — the 5-step recipe, plus a worked example that found a real SIGFPE crash in `TheAlgorithms/C`.
 - [Shadow-audit case study](docs/SHADOW_AUDIT_EXAMPLE.md) — two real defects (SIGFPE on `n=0`, silent wrong answers from `n=11`) in `TheAlgorithms/C math/catalan.c`, with the correct fix and the obvious wrong one. Fix submitted upstream: [TheAlgorithms/C#1595](https://github.com/TheAlgorithms/C/pull/1595).
 - [Second upstream report](https://github.com/TheAlgorithms/Rust/pull/1075) — `binom(n, k)` in `TheAlgorithms/Rust src/math/binomial_coefficient.rs` underflows `u64` when `k > n`: all seven upstream tests use `k <= n`, so `binom(0, 2)` panics in debug and returns garbage in release. Found by stating a contract for the loop's own expression (`requires i < k`) and letting the solver refute it; reproduced with `rustc`.
-- [Plan v2.6.4](docs/PLAN_v2.6.4.md) — the active cycle: correcting our own withdrawn claim (defect **#320**), widening the C extractor to `unsigned`/`size_t` (**#312**), loop invariants (**#315**), and the `TheAlgorithms/Rust` / `py-evm` targets — with acceptance and kill criteria.
+- [Plan v2.7.0](docs/PLAN_v2.7.0.md) — the active cycle: correcting our own withdrawn claim (defect **#320**), widening the C extractor to `unsigned`/`size_t` (**#312**), loop invariants (**#315**), and the `TheAlgorithms/Rust` / `py-evm` targets — with acceptance and kill criteria.
 - [Versioning policy](docs/SEMVER.md) — what MAJOR/MINOR/PATCH mean here, why fixes accumulate instead of each getting a tag, and the two known classification deviations (recorded, not hidden).
