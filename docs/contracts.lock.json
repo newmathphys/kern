@@ -96,11 +96,15 @@
   "tests/fixtures/zig_saturating_add.zig": {
     "line1:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
+  "tools/arith_semantics_check.py": {},
   "tools/bug_hunter.py": {},
   "tools/canfail.py": {},
+  "tools/charter_check.py": {},
+  "tools/gen_llms_txt.py": {},
   "tools/gen_showcase_graph.py": {},
   "tools/kern_contracts.py": {},
   "tools/mcp_selftest.py": {},
+  "tools/run_all_10_capabilities_demo.py": {},
   "tools/scan_to_kern.py": {},
   "tools/trust_scorecard.py": {}
 }

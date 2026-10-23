@@ -336,6 +336,10 @@ FAULTABLE = [
     "tools/dst_check.sh",
     "tools/heal_check.sh",
     "docs/CAPABILITY_STATUS.md",
+    # Кейс `journal-parity` правит EN-журнал (перенумеровывает запись, чтобы
+    # множества номеров RU/EN разошлись). Файл обязан быть в FAULTABLE, иначе
+    # подсадка останется в дереве (класс #225).
+    "docs/CAPABILITY_STATUS.en.md",
     "tools/tree_lock.py",
     # Кейс `trace-check` правит движок Ступени 2 — файл обязан быть в
     # FAULTABLE, иначе подсадка останется в дереве (класс #225).
@@ -1936,6 +1940,22 @@ def case_temp_isolation():
     return "make temp-isolation-check"
 
 
+def case_journal_parity():
+    """ШАГ N5 SABOTAGE: из EN-журнала исчезает ЗАПИСЬ дефекта.
+
+    ЛОМАЕМ: перенумеровываем одну запись в `docs/CAPABILITY_STATUS.en.md`.
+    Множества номеров RU и EN расходятся, и `make journal-parity-check` обязан
+    покраснеть: дефект, живущий только по-русски, для внешнего читателя не
+    записан вовсе (класс #335).
+
+    ⚠️ Меняется НОМЕР, а не строка целиком: диверсия тогда минимальна и не
+    зависит от формулировки записи (переводы правятся людьми, а гейт считает
+    ЧИСЛА — это его заявленная граница).
+    """
+    patch("docs/CAPABILITY_STATUS.en.md", "| **294** |", "| **2940** |")
+    return "make journal-parity-check"
+
+
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
 
@@ -3126,6 +3146,8 @@ CASES = [
      case_freshness_stale),
     ("temp-isolation", "New unisolated /tmp path -> gate red",
      case_temp_isolation),
+    ("journal-parity", "A defect record missing from the EN journal -> gate red",
+     case_journal_parity),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
