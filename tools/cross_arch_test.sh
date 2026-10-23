@@ -58,12 +58,28 @@ run_arch() { # $1 = zig target, $2 = qemu arch, $3 = описание
   # а остальные 200 тестов (выравнивание, big-endian, BLAKE3, KERNFS, Belnap,
   # KERN-X) проходят полностью. Проверять выравнивание и порядок байт
   # эмуляцией чужого бинарника смысла нет — это не предмет кросс-арх теста.
+  # ДЕФЕКТ (найден при пересъёмке на базе 436 тестов): `| tail -3` отбрасывал
+  # ДЕТАЛИ падения. В логе оставалось «427 passed; 8 skipped; 1 failed» — БЕЗ
+  # имени упавшего теста, и найти его можно было только ручным воспроизведением.
+  # Инструмент, который скрывает причину отказа, бесполезен ровно тогда, когда
+  # нужен. Теперь при провале печатается ВЕСЬ вывод, при успехе — краткая сводка.
+  local log; log="$(mktemp -t kern_cross_XXXXXX.log)"
   ( cd "$ROOT" && KERN_FAST=1 PATH="/usr/bin:/bin" "$ZIG" test \
       -target "$target" \
       --dep compat \
       -Mroot=src/test_root.zig \
       -Mcompat=src/compat.zig \
-      --test-cmd "$q" --test-cmd-bin 2>&1 | tail -3 ) | sed 's/^/  /'
+      --test-cmd "$q" --test-cmd-bin >"$log" 2>&1
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+      cat "$log"
+      echo "  [!] прогон $target: rc=$rc — печатаю ВЕСЬ вывод, чтобы имя упавшего теста не терялось"
+    else
+      tail -3 "$log"
+    fi
+    rm -f "$log"
+    exit "$rc"
+  ) | sed 's/^/  /'
 }
 
 run_arch aarch64-linux-musl aarch64 "ARM64 (little-endian, строгое выравнивание)"

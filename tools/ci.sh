@@ -165,6 +165,7 @@ if [ "$FAST" = "0" ]; then
   stage "llms.txt генерируется из facts.json (#311)" make llms-check
   stage "снимок состояния собран из facts+реестра+журнала (шаг C)" make status-check
   stage "законы устава доказаны и сверены с ядром (шаг E)" make charter-check
+  stage "свидетельства не отстали от дерева (#333, шаг F3)" make evidence-freshness
   stage "семантика деления совпадает с языком (#317)" make arith-semantics-check
   stage "машинные типы C: вердикт на каждый целый тип (#312/#321)" make c-types-check
   stage "гарды деления в Python учтены (#327)" make div-guards-check

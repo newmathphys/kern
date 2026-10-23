@@ -24,6 +24,7 @@
 import argparse
 import json
 import os
+import re
 import signal
 import shutil
 import subprocess
@@ -339,6 +340,9 @@ FAULTABLE = [
     "tools/gen_status.py",
     # Кейс `charter-law-break` правит файл законов устава — тот же класс.
     "charter/laws.py",
+    # Кейс `freshness-stale` правит СВИДЕТЕЛЬСТВО (занижает число тестов) —
+    # файл обязан быть в FAULTABLE, иначе подсадка останется в дереве (#225).
+    "docs/evidence/core_tests.log",
     "tools/gen_tests_check.sh",
     "tools/simplify_check.sh",
     "tools/bounds_check.sh",
@@ -1872,6 +1876,24 @@ def case_charter_law_break():
     return "make charter-check"
 
 
+def case_freshness_stale():
+    """ШАГ F3 SABOTAGE: свидетельство занижает число тестов.
+
+    Правим КОПИЮ реального лога так, будто он снят до добавления тестов, —
+    ровно дефект #333 («All 402 tests passed» при живых 436). Гейт свежести
+    обязан покраснеть: если он этого не замечает, он бесполезен.
+    """
+    p = ROOT / "docs" / "evidence" / "core_tests.log"
+    text = p.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"All (\d+) tests passed", text)
+    if not m:
+        raise RuntimeError("в core_tests.log нет строки «All N tests passed»")
+    n = int(m.group(1))
+    patch("docs/evidence/core_tests.log",
+          f"All {n} tests passed", f"All {n - 1} tests passed")
+    return "make evidence-freshness"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -3032,6 +3054,8 @@ CASES = [
      case_status_drift),
     ("charter-law-break", "Broken charter law -> gate red",
      case_charter_law_break),
+    ("freshness-stale", "Stale test count in evidence log -> gate red",
+     case_freshness_stale),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",

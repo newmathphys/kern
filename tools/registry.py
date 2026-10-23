@@ -74,6 +74,7 @@ CLASS = {
     "llms-check": "CHECK",
     "status-check": "CHECK",             # шаг C: снимок состояния == facts+реестр+журнал
     "charter-check": "CHECK",            # шаг E: законы устава доказаны + сверены с ядром
+    "evidence-freshness": "CHECK",       # шаг F3 (#333): лог не отстал от дерева
     "arith-semantics-check": "CHECK",
     "c-types-check": "CHECK",
     "div-guards-check": "CHECK",
@@ -162,6 +163,7 @@ CLASS = {
     "charter-selftest": "META",          # мета: сломанный закон валит устав (шаг E)
     "junit": "META",                     # мета: отчёт в формате чужого CI (шаг F1)
     "junit-selftest": "META",            # мета: XML валиден и падение попадает в отчёт
+    "evidence-freshness-selftest": "META",  # мета: устаревшее свидетельство ловится (#333)
     "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
@@ -223,6 +225,7 @@ CASE_TARGET = {
     "llms-drift": "llms-check",
     "status-drift": "status-check",
     "charter-law-break": "charter-check",
+    "freshness-stale": "evidence-freshness",
     "arith-semantics": "arith-semantics-check",
     "c-types": "c-types-check",
     "div-guards": "div-guards-check",

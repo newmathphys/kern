@@ -89,6 +89,23 @@ collect() { # $1 = имя лога, $2... = команда
   } > "$out"
   "$@" >> "$out" 2>&1
   local rc=$?
+
+  # ДЕФЕКТ #333: среда-зависимый лог ОБЯЗАН нести метку базовой линии — иначе
+  # гейт свежести не отличает «снято на текущем дереве» от «снято давно».
+  # Метка ВЫЧИСЛЯЕТСЯ ИЗ САМОГО ЛОГА (passed+skipped), а не вписывается руками:
+  # вписанную можно было бы «поправить» отдельно от свидетельства.
+  case "$name" in
+    cross_arch)
+      local bp sp base
+      bp=$(grep -oE '[0-9]+ passed' "$out" | tail -1 | grep -oE '[0-9]+')
+      sp=$(grep -oE '[0-9]+ skipped' "$out" | tail -1 | grep -oE '[0-9]+')
+      if [ -n "$bp" ] && [ -n "$sp" ]; then
+        base=$((bp + sp))
+        echo "=== ENV-DEPENDENT: baseline $base (требует qemu-user-static; на машине без QEMU пересъёмка невозможна) ===" >> "$out"
+      fi
+      ;;
+  esac
+
   { echo; echo "RC=$rc"; } >> "$out"
   local dt=$(( $(date +%s) - t0 ))
 
