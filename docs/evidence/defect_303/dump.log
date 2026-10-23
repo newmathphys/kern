@@ -1,0 +1,20 @@
+=== KERN EVIDENCE: defect #303 (L4/L5 premises_unbound) ===
+=== команда: python3 tools/charter_check.py  (с KERN_DEBUG_TRUSTED=1 для дампа) ===
+=== состояние: фикс применён, на момент снятия не закоммичен ===
+
+--- дамп непривязанной посылки (KERN_DEBUG_TRUSTED=1) ---
+[dbg-unbound] НЕ привязана: (not (or (and (distinct result 2) true) (= v 1)))
+[dbg-unbound]   контракт: (not (or (distinct result 2) (= v 1)))
+разница: (and X true) vs X — тривиальная связка, вставленная Z3
+
+--- после фикса: устав ---
+УСТАВ KERN — проверка законов
+  [I] законов: 8 | доказано 8 | не покрыто пруф-чекером 0 | нарушено 0
+  [I] сверка с ядром: join 16 пар · conflate 4 · вердикты 7
+  [II] P1 OK: каждая CHECK-цель умеет падать (100 % покрытие)
+
+--- итог ---
+устав: 8/8 доказано, EXPECTED_UNCOVERED пуст, --diff-equiv даёт доверенный EQUIVALENT
+
+=== КОНЕЦ СБОРА ===
+RC=0

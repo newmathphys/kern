@@ -393,6 +393,56 @@ fn isNegNumList(e: Sexp) ?[]const u8 {
 /// Применяется ТОЛЬКО при привязке посылок к контракту (граница «вывод Z3 ↔
 /// исходный .smt2»), где эта разница и возникает. Внутри самого вывода Z3
 /// печатает литералы единообразно, поэтому остальные проверки не меняются.
+/// Дефект #303: Z3 вставляет ТРИВИАЛЬНЫЕ связки — `(and X true)` вместо `X`.
+///
+/// ИЗМЕРЕНО (дамп `KERN_DEBUG_TRUSTED=1`): непривязанный терм
+/// `(not (or (and (distinct result 2) true) (= v 1)))` против контракта
+/// `(not (or (distinct result 2) (= v 1)))` — разница ровно `(and X true)`.
+/// Это НЕ чужая аксиома и НЕ схлопнутая формула: Z3 процитировал нашу посылку,
+/// вставив тождество. ЗВУЧНО: для сорта Bool `(and X true) ≡ X` и
+/// `(or X false) ≡ X`.
+///
+/// Свёртка строго уменьшает терм, поэтому рекурсия в `sexpEqNum` завершается.
+fn dropTriv(e: Sexp) Sexp {
+    if (e.atom != null or e.items.len != 3) return e;
+    const op = e.items[0].atom orelse return e;
+    const x = e.items[1];
+    const y = e.items[2];
+    const isTrue = struct {
+        fn f(s: Sexp) bool {
+            return s.atom != null and std.mem.eql(u8, s.atom.?, "true");
+        }
+    }.f;
+    const isFalse = struct {
+        fn f(s: Sexp) bool {
+            return s.atom != null and std.mem.eql(u8, s.atom.?, "false");
+        }
+    }.f;
+    if (std.mem.eql(u8, op, "and")) {
+        if (isTrue(y)) return dropTriv(x);
+        if (isTrue(x)) return dropTriv(y);
+    } else if (std.mem.eql(u8, op, "or")) {
+        if (isFalse(y)) return dropTriv(x);
+        if (isFalse(x)) return dropTriv(y);
+    }
+    return e;
+}
+
+/// Сравнение атомов с учётом `null` (срезы не поддерживают `==`/`!=` напрямую).
+fn atomSame(x: ?[]const u8, y: ?[]const u8) bool {
+    if (x == null) return y == null;
+    if (y == null) return false;
+    return std.mem.eql(u8, x.?, y.?);
+}
+
+/// Тривиальные связки сняты хотя бы с одной стороны?
+fn trivReduced(a: Sexp, b: Sexp) bool {
+    const da = dropTriv(a);
+    const db = dropTriv(b);
+    return !atomSame(da.atom, a.atom) or da.items.ptr != a.items.ptr or
+        !atomSame(db.atom, b.atom) or db.items.ptr != b.items.ptr;
+}
+
 fn sexpEqNum(a: Sexp, b: Sexp) bool {
     // ПРИЧИНА №1 (измерено/разобрано): сравнение составных формул уходит в этот
     // рекурсивный обход, и на вложенном подтерме `.atom` `"../"` vs `.list`
@@ -401,6 +451,11 @@ fn sexpEqNum(a: Sexp, b: Sexp) bool {
     // не видели равенства внутри `(str.contains s …)`.
     // ЗВУЧНО: сверяем СВОРАЧИВАЕМЫЕ байты константных строк.
     if (strConstEq(a, b)) return true;
+    // ДЕФЕКТ #303: тривиальные связки (`(and X true)` ≡ `X`). Z3 вставляет их
+    // при цитировании нашей посылки, и без этой свёртки корректный вывод
+    // отвергался как «посылки не привязаны». Свёртка строго уменьшает терм —
+    // рекурсия завершается, потому что после неё `trivReduced` уже false.
+    if (trivReduced(a, b) and sexpEqNum(dropTriv(a), dropTriv(b))) return true;
     // ИЗМЕРЕНО (ЭТАП А): Z3 пишет одно сравнение двумя способами
     // (`(<= 0 x)` и `(>= x 0)`) — канонизируем перед сравнением.
     if (cmpEq(a, b)) return true;

@@ -41,7 +41,7 @@
 | Method | Fact |
 |:--|:--|
 | Can-fail discipline | **156 CHECK targets / 126 proven able to fail**, **178 cases, 0 vacuous** |
-| Mutation testing | **1361 / 1361 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
+| Mutation testing | **1376 / 1376 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -149,11 +149,11 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1361 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1376 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
-MUTATION SCORE (raw):  100.0%  (1361/1361 killed)
+MUTATION SCORE (raw):  100.0%  (1376/1376 killed)
 REAL_SECONDS=1383      (23 min, 0 survivors)
 ```
 

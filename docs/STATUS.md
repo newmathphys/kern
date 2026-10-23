@@ -28,7 +28,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->178**, of which
 | KERN-Next tests | <!-- fact:next_tests -->53 |
 | Full test catalog | <!-- fact:catalog -->465 |
 | Lean 4 | <!-- fact:lean_theorems -->143 theorems in 8 files, 0 sorry |
-| Mutations killed | <!-- fact:mutation_sites -->1361 / 1361 across 21 files |
+| Mutations killed | <!-- fact:mutation_sites -->1376 / 1376 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Literal anchors | <!-- fact:anchors -->139 |
@@ -36,14 +36,14 @@ Can-fail cases: **<!-- fact:canfail_cases -->178**, of which
 
 ## Defect journal
 
-Numbered entries: **267**.
+Numbered entries: **268**.
 
 | Explicit status | Count |
 | --- | --- |
 | Fixed | 138 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
-| Documented limitation (we live with it; it is not a defect) | 3 |
+| Documented limitation (we live with it; it is not a defect) | 4 |
 | Decision: considered and not adopted | 0 |
 | Rows in the earlier journal format (category column, no status) | 124 |
 
@@ -55,7 +55,7 @@ Numbered entries: **267**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->334**.
+Highest defect number in the journal: **<!-- fact:max_defect -->335**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state
