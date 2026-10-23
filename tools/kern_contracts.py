@@ -435,7 +435,7 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             left = expr_smt(node.left, env, lang)
             right = expr_smt(node.right, env, lang)
             # ДЕФЕКТ #327: сохраняем АКТИВНЫЕ ГАРДЫ вместе с делителем.
-            _DIV_COLLECTOR.append((right, tuple(_DIV_GUARDS)))
+            _DIV_COLLECTOR.append((left, right, tuple(_DIV_GUARDS)))
             if lang == "python":
                 if isinstance(node.op, ast.Div):
                     raise Unsupported("истинное деление / (float) вне подмножества")
@@ -1012,17 +1012,86 @@ def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range) -> st
 def _div_zero_terms(divisors, zero: str) -> list:
     """Термы обязательства «делитель = 0» С УЧЁТОМ АКТИВНЫХ ГАРДОВ (дефект #327).
 
-    Элемент — `(делитель, гарды)`. Для незащищённого деления гарды пусты и
-    терм прежний: `(= делитель 0)`. Для деления под гардом — `(and <гарды>
-    (= делитель 0))`, поэтому Z3 получает ПРОТИВОРЕЧИЕ и отвечает UNSAT
-    (ложное обвинение исчезает), а незащищённое деление остаётся SAT.
+    Элемент — `(числитель, делитель, гарды)` (дефект #334 расширил кортеж: для
+    обязательства ПЕРЕПОЛНЕНИЯ ДЕЛЕНИЯ нужна пара). Совместимость: принимаются и
+    старые формы — `(делитель, гарды)` и голая строка.
+    Для незащищённого деления гарды пусты и терм прежний: `(= делитель 0)`. Для
+    деления под гардом — `(and <гарды> (= делитель 0))`, поэтому Z3 получает
+    ПРОТИВОРЕЧИЕ и отвечает UNSAT (ложное обвинение исчезает), а незащищённое
+    деление остаётся SAT.
     """
     out = []
     for d in divisors:
-        expr, guards = d if isinstance(d, tuple) else (d, ())
+        expr = _divisor_of(d)
+        guards = _guards_of(d)
         eq = f"(= {expr} {zero})"
         out.append(f"(and {' '.join(guards)} {eq})" if guards else eq)
     return out
+
+
+def _divisor_of(d) -> str:
+    """Делитель из элемента сборщика: 3-кортеж (#334), 2-кортеж (#327) или строка."""
+    if isinstance(d, tuple):
+        return d[1] if len(d) >= 3 else d[0]
+    return d
+
+
+def _numerator_of(d) -> str | None:
+    """Числитель — только у 3-кортежа (#334); иначе None."""
+    return d[0] if isinstance(d, tuple) and len(d) >= 3 else None
+
+
+def _guards_of(d) -> tuple:
+    if isinstance(d, tuple):
+        return d[2] if len(d) >= 3 else (d[1] if len(d) == 2 else ())
+    return ()
+
+
+def _div_overflow_terms(divisors, lo: int) -> list:
+    """Термы обязательства ПЕРЕПОЛНЕНИЯ ДЕЛЕНИЯ (дефект #334).
+
+    `a / b` и `a % b` при `a == MIN ∧ b == -1` дают непредставимое частное, и
+    инструкция `idiv` на x86_64 вызывает аппаратное исключение (C11 §6.5.5p6 —
+    UB). Для `%` это особенно коварно: математический остаток равен 0, и 0
+    влезает в тип, поэтому проверка ДИАПАЗОНА РЕЗУЛЬТАТА его не видит — ловится
+    только парой (числитель, делитель).
+    """
+    out = []
+    for d in divisors:
+        num = _numerator_of(d)
+        if num is None:
+            continue          # старая форма: пары нет — обязательство не строим
+        guards = _guards_of(d)
+        den = _divisor_of(d)
+        trap = f"(and (= {den} (- 1)) (= {num} {lo}))"
+        out.append(f"(and {' '.join(guards)} {trap})" if guards else trap)
+    return out
+
+
+def build_divoverflow_smt(params, req, divisors, ranges, res_range) -> str:
+    """Обязательство ПЕРЕПОЛНЕНИЯ ДЕЛЕНИЯ: `requires ∧ гарды ∧ (b = -1 ∧ a = MIN)`
+    -> SAT = аппаратный краш (дефект #334).
+
+    Знаковый диапазон берётся из типа возвращаемого значения: `res_range[0]` —
+    это MIN типа (`-2^31` для i32). Для БЕЗзнаковых типов обязательства нет:
+    `MIN` там равен 0, а `a / -1` не существует (делитель беззнаковый).
+    """
+    lo = res_range[0]
+    if lo >= 0:
+        return ""              # беззнаковый тип: переполнение деления невозможно
+    terms = _div_overflow_terms(divisors, lo)
+    if not terms:
+        return ""
+    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    lines = ["(set-logic ALL)", decls]
+    env: dict = {}
+    for p, (plo, phi) in (ranges or {}).items():
+        lines.append(f"(assert (and (>= {p} {plo}) (<= {p} {phi})) )")
+    if req:
+        lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
+    lines.append("(assert (or " + " ".join(terms) + "))")
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
 
 
 def build_divzero_smt(params, req, divisors, ranges) -> str:
@@ -3208,7 +3277,7 @@ def expr_smt_bv(node, env: dict, w: int, signed: bool) -> str:
         if isinstance(o, ast.RShift):
             return f"({'bvashr' if signed else 'bvlshr'} {left} {right})"
         if isinstance(o, (ast.Div, ast.FloorDiv, ast.Mod)):
-            _DIV_COLLECTOR.append((right, tuple(_DIV_GUARDS)))  # #327
+            _DIV_COLLECTOR.append((left, right, tuple(_DIV_GUARDS)))  # #327
             if isinstance(o, ast.Mod):
                 name = "bvsrem" if signed else "bvurem"
             else:
@@ -3551,6 +3620,42 @@ def _demo(args) -> int:
                                     f"любое тело доказанным; requires: {req}")})
                     vacuous += 1
                     continue
+            # ---- ОБЯЗАТЕЛЬСТВО БЕЗОПАСНОСТИ: ПЕРЕПОЛНЕНИЕ ДЕЛЕНИЯ (#334) ----
+            # `a / b` И `a % b` при `a == MIN ∧ b == -1` — UB: частное
+            # непредставимо, и `idiv` на x86_64 вызывает аппаратное исключение
+            # (C11 §6.5.5p6). НАЗЕМНАЯ ПРАВДА: `gcc -O0` на `INT_MIN % -1` ->
+            # SIGFPE (rc=136). Проверка ДИАПАЗОНА РЕЗУЛЬТАТА этого НЕ видит: для
+            # `%` математический остаток равен 0, и 0 влезает в тип. Ловится
+            # только парой (числитель, делитель) — поэтому сборщик и расширен.
+            if divisors and p.suffix in CLIKE_EXT and not meta.get("bv"):
+                _rr = TYPE_RANGE.get(meta.get("ret"))
+                if _rr:
+                    try:
+                        smt_o = build_divoverflow_smt(params, req, divisors,
+                                                      meta.get("ranges"), _rr)
+                    except (Unsupported, subprocess.SubprocessError, OSError):
+                        smt_o = ""
+                    if smt_o:
+                        try:
+                            _rco, outo = run_kernc(kernc, smt_o)
+                        except (Unsupported, subprocess.SubprocessError, OSError):
+                            outo = ""
+                        if "ДОКАЗАНО" not in outo:
+                            ceo = parse_counterexample(outo)
+                            print(f"  [FAIL] {name}: ПЕРЕПОЛНЕНИЕ ДЕЛЕНИЯ "
+                                  f"(a = MIN, b = -1 — аппаратный trap)")
+                            if ceo:
+                                print(f"         [КОНТРПРИМЕР] {fmt_ce(ceo)}")
+                            f_funcs.append({"name": name, "line": ln,
+                                            "verdict": "CONTRACT_VIOLATED"})
+                            violations.append({
+                                "file": str(p), "line": ln, "rule": "KERN002",
+                                "message": (f"{name}: деление при a = MIN и "
+                                            f"b = -1 непредставимо (UB, idiv "
+                                            f"trap)")})
+                            failed += 1
+                            safety_failed += 1
+                            continue
             # ---- ОБЯЗАТЕЛЬСТВО БЕЗОПАСНОСТИ: ДЕЛЕНИЕ НА НОЛЬ ---------------
             # В SMT-LIB2 `div`/`mod` — ТОТАЛЬНЫЕ функции: `(div x 0)` просто
             # доопределён, поэтому наивный чекер ноль НЕ видит, а в рантайме
