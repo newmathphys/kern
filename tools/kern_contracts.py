@@ -3565,7 +3565,24 @@ def fmt_ce(vals: dict) -> str:
     return ", ".join(f"{k} = {v}" for k, v in vals.items())
 
 
-KERN_VERSION = "2.4.0"
+def _kern_version() -> str:
+    """Версия из ЕДИНСТВЕННОГО источника — `server.json` (дефект #343).
+
+    ЗАЧЕМ. Здесь был ЖЁСТКО ЗАПИСАН литерал `"2.4.0"`, и он попал в JSON-отчёт
+    (`"version"`) и в SARIF. К моменту релиза v2.6.4 бинарник печатал `v2.6.4`,
+    а отчёт — `2.4.0`: внешний исследователь (Massimiliano Brighindi) заметил
+    рассинхрон, скачав релизный бинарник. `make version-check` эту поверхность
+    не покрывал — 11 поверхностей контролировались, отчёт нет. Тот же класс,
+    что #97 и #292: литерал версии вне единого источника.
+
+    Падение при отсутствии `server.json` — намеренное: молчаливый откат к
+    зашитой строке вернул бы ровно тот дефект, который здесь закрывается.
+    """
+    p = ROOT / "server.json"
+    return json.loads(p.read_text(encoding="utf-8"))["version"]
+
+
+KERN_VERSION = _kern_version()
 
 SARIF_RULES = [
     ("KERN001", "ContractViolation",

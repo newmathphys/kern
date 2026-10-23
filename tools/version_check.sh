@@ -53,6 +53,18 @@ echo "  action.yml      : ${v_act:-нет} (тег, с которого Action �
 [ -n "$v_act" ] || bad "не удалось прочитать default-тег из action.yml"
 [ "$v_act" = "$v_c" ] || bad "action.yml ($v_act) != kernc ($v_c) — Action скачает другой релиз"
 
+# 12-я поверхность (дефект #343): версия внутри JSON-отчёта. Она была зашита
+# литералом `2.4.0` и разошлась с бинарником; внешний исследователь заметил это,
+# скачав релиз. Читаем ФАКТИЧЕСКИЙ вывод генератора, а не исходник: иначе
+# проверяли бы текст, а не поведение.
+_v_rep=$("${PYTHON:-python3}" tools/kern_contracts.py --json /dev/stdout \
+           examples/contracts_demo.py 2>/dev/null \
+         | grep -oE '"version": "[0-9]+\.[0-9]+\.[0-9]+"' | head -1 \
+         | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+echo "  JSON-отчёт      : v${_v_rep:-нет}"
+[ -n "$_v_rep" ] || bad "не удалось прочитать version из JSON-отчёта (--json)"
+[ "v$_v_rep" = "$v_c" ] || bad "JSON-отчёт (v$_v_rep) != kernc ($v_c) — отчёт врёт о происхождении"
+
 echo "---"
 if [ "$fails" -ne 0 ]; then
   echo "ПРОВАЛОВ: $fails"
