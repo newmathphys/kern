@@ -162,6 +162,10 @@ if [ "$FAST" = "0" ]; then
   stage "якоря чисел == факты (#240)" python3 tools/sync_state.py --check
   stage "sync selftest (#240)" python3 tools/sync_state.py --selftest
   stage "EN/RU паритет фактов (#241)" make docs-parity
+  # ДЕФЕКТ #335: docs-parity сверяет ЯКОРЯ фактов, а не ПОЛНОТУ журнала. Гейт
+  # сравнивает множества номеров записей RU/EN в обе стороны: дефект, живущий
+  # только по-русски, для внешнего читателя не записан вовсе.
+  stage "журнал дефектов: RU == EN (#335)" make journal-parity-check
   stage "llms.txt генерируется из facts.json (#311)" make llms-check
   stage "снимок состояния собран из facts+реестра+журнала (шаг C)" make status-check
   stage "законы устава доказаны и сверены с ядром (шаг E)" make charter-check
