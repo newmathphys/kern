@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->207 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->158 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->208 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->159 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->10 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->35 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->183**, of which
-**158/158** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->184**, of which
+**159/159** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -26,12 +26,12 @@ Can-fail cases: **<!-- fact:canfail_cases -->183**, of which
 | --- | --- |
 | Core Zig tests | <!-- fact:core_tests -->436 (428 passed + 8 skipped, 0 failed) |
 | KERN-Next tests | <!-- fact:next_tests -->53 |
-| Full test catalog | <!-- fact:catalog -->465 |
+| Full test catalog | <!-- fact:catalog -->468 |
 | Lean 4 | <!-- fact:lean_theorems -->143 theorems in 8 files, 0 sorry |
-| Mutations killed | <!-- fact:mutation_sites -->1376 / 1376 across 21 files |
+| Mutations killed | <!-- fact:mutation_sites -->1421 / 1421 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->144 |
+| Literal anchors | <!-- fact:anchors -->145 |
 | Version | `v2.7.1` |
 
 ## Defect journal
@@ -40,10 +40,10 @@ Numbered entries: **280**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 151 |
+| Fixed | 153 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
-| Documented limitation (we live with it; it is not a defect) | 3 |
+| Documented limitation (we live with it; it is not a defect) | 1 |
 | Decision: considered and not adopted | 0 |
 | Rows in the earlier journal format (category column, no status) | 124 |
 

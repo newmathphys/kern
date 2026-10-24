@@ -1,6 +1,6 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->465 · CHECK <!-- fact:check_targets -->158 · cases <!-- fact:canfail_cases -->183 · anchors <!-- fact:anchors -->144 · registry <!-- fact:registry_targets -->207 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->468 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->145 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in
@@ -31,8 +31,8 @@ Checked: Ed25519 signature, `kid` == key fingerprint,
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->428 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **53 / 53**, can-fail **158 / 158 CHECK** (183 non-vacuous cases, 0 errors),
-> registry **<!-- fact:registry_targets -->207 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
+> KERN-Next **53 / 53**, can-fail **159 / 159 CHECK** (184 non-vacuous cases, 0 errors),
+> registry **<!-- fact:registry_targets -->208 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 143 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
 > the attestation is **Ed25519**-signed. See `README.md`, `docs/METRICS.md` §1/§75, and
@@ -52,7 +52,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Target Systems | **PASS** — 2 platforms: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA bypass closed, KERNFS consistent) |
 | Decision Coverage | **PASS** — 100.0 % (threshold 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1376/1376 sites, 0 survivors) |
+| Mutation Coverage | **PASS** — 100.0 % (1376/1421 sites, 0 survivors) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -67,8 +67,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->183 cases, <!-- fact:check_targets -->158/<!-- fact:check_targets -->158 CHECK**, 0 vacuous |
-| `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->207 targets classified** |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->184 cases, <!-- fact:check_targets -->159/<!-- fact:check_targets -->159 CHECK**, 0 vacuous |
+| `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->208 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)
 
@@ -110,7 +110,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Zombie processes | **0** (`child.wait()` reaps) | ✅ |
 | I/O fault tolerance (`test-fault`) | **3/3 OK** (real SIGBUS) | ✅ |
 | Decision coverage (MC/DC) | **100.0 %** (30/30, DO-178C threshold ≥ 95 %) | ✅ |
-| Mutation score | **100.0 %** (1376/1376 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
+| Mutation score | **100.0 %** (1376/1421 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
 
 ---
 
@@ -292,7 +292,7 @@ DTMC 0.001 · abstract interpretation `[0,9]` · self-audit e=0.
 ## How to reproduce all of it
 
 ```bash
-make help          # all <!-- fact:registry_targets -->207 targets
+make help          # all <!-- fact:registry_targets -->208 targets
 make test-all      # core + KERN-Next + Lean + benchmarks
 make research      # research echelons
 make echelons      # 4 echelons of the final assault

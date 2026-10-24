@@ -579,6 +579,17 @@ pub fn ruleOf(e: Sexp) ?[]const u8 {
 /// определение при проверке последующих шагов (`rewrite`/`unit-resolution`).
 const DefIte = struct { cond: Sexp, a: Sexp, b: Sexp };
 
+/// Определение функции из ШАПКИ SMT-файла: `(define-fun f ((x Int)) Int <тело>)`.
+///
+/// ЗАЧЕМ (дефект #344). Z3 в выводе ПОДСТАВЛЯЕТ тело `define-fun`, а наш
+/// контракт содержит ВЫЗОВ: посылка `(not (= (ite (= 2 0) 0 …) …))` против
+/// контракта `(not (= (evm_sdiv (- 7) 2) (- 3)))`. Сравнение не сходилось,
+/// `premises_unbound` увеличивался, и чекер ОТВЕРГАЛ корректный вывод — то
+/// есть три тождества EVM оставались недоказанными (`trusted: 1`).
+/// Для `intro-def` такой механизм уже был (`DefIte`), но Z3 НЕ выпускает
+/// `intro-def` для `define-fun`: он раскрывает их как внутреннюю оптимизацию.
+const FunDef = struct { params: []const []const u8, body: Sexp };
+
 pub const Ctx = struct {
     arena: std.mem.Allocator,
     abbrev: std.StringHashMap(Sexp),
@@ -590,6 +601,11 @@ pub const Ctx = struct {
     /// ПОДСТАНОВКА определения `z3name!1`. ЗВУЧНО разворачивать имя можно
     /// только если само определение доказано шагом `intro-def`.
     defs: std.StringHashMap(DefIte),
+    /// ДЕФЕКТ #344: определения из шапки SMT (`define-fun`). Разворачиваются
+    /// ПОДСТАНОВКОЙ аргументов, но ТОЛЬКО для сопоставления с контрактом —
+    /// см. `funExpand`. Само определение не является утверждением и в вывод не
+    /// добавляет ни одного шага: это сокращение записи, а не аксиома.
+    fundefs: std.StringHashMap(FunDef),
 };
 
 fn newCtx(arena: std.mem.Allocator) Ctx {
@@ -599,7 +615,157 @@ fn newCtx(arena: std.mem.Allocator) Ctx {
         .stepexpr = std.StringHashMap(Sexp).init(arena),
         .steps = std.array_list.Managed(Sexp).init(arena),
         .defs = std.StringHashMap(DefIte).init(arena),
+        .fundefs = std.StringHashMap(FunDef).init(arena),
     };
+}
+
+/// Загрузить `(define-fun …)` из ТЕКСТА SMT-файла в контекст.
+///
+/// Форма: `(define-fun <имя> ((<p> <T>) …) <T> <тело>)` — Z3 печатает ровно
+/// так. Любая иная форма (или неразбираемый терм) ПРОПУСКАЕТСЯ: пропуск ведёт
+/// к непривязанной посылке, то есть к ОТКАЗУ, а не к ложному «проверено».
+///
+/// ⚠️ `parseSexp` разбирает ОДНО S-выражение, а SMT-файл — это ПОСЛЕДОВАТЕЛЬНОСТЬ
+/// (`set-logic`, `declare-const`, `define-fun`, `assert`, `check-sat`).
+/// Первая версия вызывала его на всём тексте и получала только `(set-logic ALL)`
+/// — то есть НИ ОДНОГО определения не находила, и вывод по-прежнему отвергался.
+/// Поэтому текст режется на top-level выражения по балансу скобок (с учётом
+/// строковых литералов и комментариев `;`).
+pub fn loadFunDefs(c: *Ctx, smt_text: []const u8) void {
+    var i: usize = 0;
+    while (i < smt_text.len) {
+        const ch = smt_text[i];
+        if (ch == ';') {
+            while (i < smt_text.len and smt_text[i] != '\n') i += 1;
+            continue;
+        }
+        if (ch == ' ' or ch == '\t' or ch == '\n' or ch == '\r') {
+            i += 1;
+            continue;
+        }
+        if (ch != '(') {
+            // Атом верхнего уровня: пропускаем (нас интересуют только списки).
+            while (i < smt_text.len and smt_text[i] != ' ' and smt_text[i] != '\n' and
+                smt_text[i] != '\t' and smt_text[i] != '\r') i += 1;
+            continue;
+        }
+        const start = i;
+        var depth: usize = 0;
+        var in_str = false;
+        while (i < smt_text.len) {
+            const cc = smt_text[i];
+            if (in_str) {
+                if (cc == '\\') {
+                    i += 2;
+                    continue;
+                }
+                if (cc == '"') in_str = false;
+                i += 1;
+                continue;
+            }
+            if (cc == '"') {
+                in_str = true;
+                i += 1;
+                continue;
+            }
+            if (cc == ';') {
+                while (i < smt_text.len and smt_text[i] != '\n') i += 1;
+                continue;
+            }
+            if (cc == '(') depth += 1;
+            if (cc == ')') {
+                depth -= 1;
+                i += 1;
+                if (depth == 0) break;
+                continue;
+            }
+            i += 1;
+        }
+        const frag = smt_text[start..@min(i, smt_text.len)];
+        const e = parseSexp(c.arena, frag) catch continue;
+        loadFunDefsRec(c, e);
+    }
+}
+
+fn loadFunDefsRec(c: *Ctx, e: Sexp) void {
+    if (!e.isList()) return;
+    if (e.items.len >= 5) {
+        if (e.items[0].atom) |h| {
+            if (std.mem.eql(u8, h, "define-fun")) {
+                const name = e.items[1].atom orelse return;
+                const params_list = e.items[2];
+                if (!params_list.isList()) return;
+                var names = std.array_list.Managed([]const u8).init(c.arena);
+                var ok = true;
+                for (params_list.items) |p| {
+                    if (!p.isList() or p.items.len < 1) {
+                        ok = false;
+                        break;
+                    }
+                    const pn = p.items[0].atom orelse {
+                        ok = false;
+                        break;
+                    };
+                    names.append(pn) catch {
+                        ok = false;
+                        break;
+                    };
+                }
+                if (ok) {
+                    const body = e.items[e.items.len - 1];
+                    c.fundefs.put(name, .{ .params = names.items, .body = body }) catch {};
+                }
+                return;
+            }
+        }
+    }
+    for (e.items) |it| loadFunDefsRec(c, it);
+}
+
+/// Раскрыть вызовы `define-fun` ПОДСТАНОВКОЙ аргументов (beta-reduction).
+///
+/// ЗВУЧНОСТЬ: подстановка не добавляет утверждений — она переводит запись в
+/// эквивалентную (по определению функции). Бюджет узлов и лимит глубины
+/// ограничивают рост терма; при исчерпании терм возвращается КАК ЕСТЬ, что
+/// ведёт к непривязанной посылке (отказ), а не к ложному совпадению.
+fn funExpand(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
+    if (depth > 32 or budget.* == 0) return e;
+    budget.* -= 1;
+    // ⚠️ АТОМ возвращаем КАК ЕСТЬ: у атома `items` пуст, и общая ветка ниже
+    // превратила бы его в пустой СПИСОК (`(() …)` вместо `x`). Именно так первая
+    // версия теряла все имена, и раскрытый терм перестал совпадать с посылкой.
+    if (e.atom != null) return e;
+    if (e.items.len >= 1) {
+        if (e.items[0].atom) |h| {
+            if (c.fundefs.get(h)) |fd| {
+                const argc = e.items.len - 1;
+                if (argc == fd.params.len) {
+                    const args = c.arena.alloc(Sexp, argc) catch return e;
+                    for (e.items[1..], 0..) |a, i| {
+                        args[i] = funExpand(c, a, depth + 1, budget);
+                    }
+                    const body = substParams(c, fd.body, fd.params, args);
+                    return funExpand(c, body, depth + 1, budget);
+                }
+            }
+        }
+    }
+    const out = c.arena.alloc(Sexp, e.items.len) catch return e;
+    for (e.items, 0..) |it, i| out[i] = funExpand(c, it, depth + 1, budget);
+    return .{ .items = out };
+}
+
+/// Подставить аргументы вместо параметров в теле определения.
+fn substParams(c: *Ctx, body: Sexp, params: []const []const u8, args: []const Sexp) Sexp {
+    if (body.atom) |a| {
+        for (params, 0..) |p, i| {
+            if (std.mem.eql(u8, p, a)) return args[i];
+        }
+        return body;
+    }
+    const out = c.arena.alloc(Sexp, body.items.len) catch return body;
+    for (body.items, 0..) |it, i| out[i] = substParams(c, it, params, args);
+    return .{ .items = out };
 }
 
 /// Пройти цепочку `let`-связок и собрать: сокращения термов, шаги и корень.
@@ -1268,6 +1434,57 @@ fn cmpSubZeroEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
     return false;
 }
 
+/// ВЫЧИСЛИТЬ КОНСТАНТНОЕ ЦЕЛОЧИСЛЕННОЕ выражение. `null`, если хотя бы один
+/// подтерм не константа (тогда шаг остаётся доверенным — честно).
+///
+/// ЗАЧЕМ (дефект #344, часть 2). Z3 сам вычисляет `(div 7 2)` и оформляет
+/// результат шагом `rewrite`: `(= (div 7 2) 3)`. Чекер не умел считать
+/// константы и помечал шаг ДОВЕРЕННЫМ (`trusted: 1`), из-за чего три тождества
+/// EVM не доходили до `trusted: 0`. Дамп это и показывал:
+/// `[dbg-rw-trusted] eq: (= (div 7 2) 3)`.
+///
+/// ЗВУЧНОСТЬ: вычисление функции над КОНСТАНТАМИ — константа; новых аксиом не
+/// добавляется. Деление — FLOOR (так определено в SMT-LIB для Int), `mod` —
+/// со знаком знаменателя (`@mod`); деление на ноль НЕ вычисляется (в SMT-LIB
+/// оно не определено) — возвращаем `null`, и шаг не подтверждается.
+fn evalConstInt(e: Sexp) ?i64 {
+    if (e.atom) |a| {
+        if (isNegNumAtom(a)) |d| {
+            const v = std.fmt.parseInt(i64, d, 10) catch return null;
+            return -v;
+        }
+        return std.fmt.parseInt(i64, a, 10) catch null;
+    }
+    if (e.items.len == 0) return null;
+    const h = e.items[0].atom orelse return null;
+    if (std.mem.eql(u8, h, "-") and e.items.len == 2) {
+        const v = evalConstInt(e.items[1]) orelse return null;
+        return -v;
+    }
+    if (e.items.len != 3) return null;
+    const a = evalConstInt(e.items[1]) orelse return null;
+    const b = evalConstInt(e.items[2]) orelse return null;
+    if (std.mem.eql(u8, h, "+")) return a +% b;
+    if (std.mem.eql(u8, h, "-")) return a -% b;
+    if (std.mem.eql(u8, h, "*")) return a *% b;
+    if (std.mem.eql(u8, h, "div")) {
+        if (b == 0) return null;
+        return @divFloor(a, b);
+    }
+    if (std.mem.eql(u8, h, "mod")) {
+        if (b == 0) return null;
+        return @mod(a, b);
+    }
+    return null;
+}
+
+/// `(= l r)`, где обе стороны — КОНСТАНТЫ и они равны.
+fn constIntEq(l: Sexp, r: Sexp) bool {
+    const a = evalConstInt(l) orelse return false;
+    const b = evalConstInt(r) orelse return false;
+    return a == b;
+}
+
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
@@ -1402,6 +1619,10 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // вычисляется в Zig -> `(= ... false)` доказано без доверенных шагов.
     if (constStrEq(l, r)) return .verified;
     if (constBoolEq(l, r)) return .verified;
+    // ДЕФЕКТ #344 (часть 2): КОНСТАНТНАЯ АРИФМЕТИКА. Z3 вычисляет `(div 7 2)`
+    // и оформляет это шагом `rewrite`; без этого правила шаг оставался
+    // ДОВЕРЕННЫМ, и три тождества EVM не доходили до `trusted: 0`.
+    if (constIntEq(l, r)) return .verified;
     if (dbgEnv("KERN_DEBUG_LIA") != null) {
         dbgPrint("[dbg-rw] не проверено: LHS=", .{});
         dumpSexp(l);
@@ -4244,6 +4465,18 @@ pub fn verifyProof(
     return verifyProofKind(allocator, proof_text, contract, .refutation);
 }
 
+/// То же, но с ТЕКСТОМ SMT-файла: из его шапки читаются `define-fun`
+/// (дефект #344). Без них Z3 раскрывает определения в выводе, а контракт
+/// содержит вызов — посылка не привязывается и корректный вывод отвергается.
+pub fn verifyProofSmt(
+    allocator: std.mem.Allocator,
+    proof_text: []const u8,
+    contract: []const []const u8,
+    smt_text: []const u8,
+) !ProofVerdict {
+    return verifyProofKindInner(allocator, proof_text, contract, .refutation, smt_text);
+}
+
 /// Явный вид запроса. Для `.equivalence` правило привязки посылок отключено
 /// (контрактных посылок нет), но ВСЕ прочие требования сохранены: шагов > 0,
 /// дыр 0, ни одного подделанного шага, вывод завершается `false`.
@@ -4252,6 +4485,27 @@ pub fn verifyProofKind(
     proof_text: []const u8,
     contract: []const []const u8,
     kind: QueryKind,
+) !ProofVerdict {
+    return verifyProofKindInner(allocator, proof_text, contract, kind, "");
+}
+
+/// То же, но с шапкой SMT (`define-fun`) — см. `verifyProofSmt`.
+pub fn verifyProofKindSmt(
+    allocator: std.mem.Allocator,
+    proof_text: []const u8,
+    contract: []const []const u8,
+    kind: QueryKind,
+    smt_text: []const u8,
+) !ProofVerdict {
+    return verifyProofKindInner(allocator, proof_text, contract, kind, smt_text);
+}
+
+fn verifyProofKindInner(
+    allocator: std.mem.Allocator,
+    proof_text: []const u8,
+    contract: []const []const u8,
+    kind: QueryKind,
+    smt_text: []const u8,
 ) !ProofVerdict {
     var v = ProofVerdict{};
     v.premises_required = (kind == .refutation);
@@ -4283,6 +4537,9 @@ pub fn verifyProofKind(
     v.proof_present = true;
 
     var c = newCtx(arena);
+    // ДЕФЕКТ #344: определения `define-fun` из шапки SMT — чтобы раскрывать
+    // вызовы при сопоставлении с контрактом (Z3 в выводе подставляет тела).
+    if (smt_text.len != 0) loadFunDefs(&c, smt_text);
     try collect(&c, body.?);
     v.proof_steps = c.steps.items.len;
     if (v.proof_steps == 0) {
@@ -4329,19 +4586,38 @@ pub fn verifyProofKind(
         if (std.mem.eql(u8, r, "asserted")) {
             v.premises_total += 1;
             const t = expand(&c, proved(st), 0);
+            // ДЕФЕКТ #344: Z3 раскрывает `define-fun` в выводе, а контракт
+            // содержит ВЫЗОВ. Раскрываем вызовы с подстановкой аргументов с
+            // ОБЕИХ сторон — иначе посылка не привязывается и корректный вывод
+            // отвергается (`premises_unbound`).
+            var fun_budget: usize = 200_000;
+            const t_exp = funExpand(&c, t, 0, &fun_budget);
             var found = false;
             for (contract_terms.items) |ct| {
                 // `sexpEqNum`, а не `sexpEq`: числовой литерал в исходнике
                 // записан атомом (`-2147483648`), а Z3 в выводе — списком
                 // (`(- 2147483648)`). Без нормализации корректный вывод
                 // отвергался как «посылки не привязаны» (дефект #122).
-                if (sexpEqNum(t, ct)) {
+                var ct_budget: usize = 200_000;
+                const ct_exp = funExpand(&c, ct, 0, &ct_budget);
+                if (sexpEqNum(t_exp, ct_exp)) {
                     found = true;
                     break;
                 }
                 // ПУНКТ 22: булевы формы `(not X)` и `(= X false)` — одно и то же
                 // для сорта Bool. Без этого 4-я посылка IEEE-754 не привязывалась
                 // (`посылок 3/4`) и чекер ОТВЕРГАЛ корректный вывод.
+                if (boolFormEq(t_exp, ct_exp)) {
+                    found = true;
+                    break;
+                }
+                // Запасной путь БЕЗ раскрытия: если определений нет, поведение
+                // остаётся прежним (раскрытие не должно ЛОМАТЬ привязку там,
+                // где она уже работала).
+                if (sexpEqNum(t, ct)) {
+                    found = true;
+                    break;
+                }
                 if (boolFormEq(t, ct)) {
                     found = true;
                     break;
@@ -4352,9 +4628,16 @@ pub fn verifyProofKind(
                 dbgPrint("[dbg-unbound] НЕ привязана: ", .{});
                 dumpSexp(t);
                 dbgPrint("\n", .{});
+                dbgPrint("[dbg-unbound] РАСКРЫТА: ", .{});
+                dumpSexp(t_exp);
+                dbgPrint("\n", .{});
                 for (contract_terms.items) |ct| {
                     dbgPrint("[dbg-unbound]   контракт: ", .{});
                     dumpSexp(ct);
+                    dbgPrint("\n", .{});
+                    var db: usize = 200_000;
+                    dbgPrint("[dbg-unbound]   контракт РАСКРЫТ: ", .{});
+                    dumpSexp(funExpand(&c, ct, 0, &db));
                     dbgPrint("\n", .{});
                 }
             }
@@ -6095,3 +6378,62 @@ test "CVE-B: n-арные суммы и канонизация сравнени�
     const bad = try parseSexp(a, "(rewrite (= (not (<= a b)) (<= (+ b (* (- 1) a) 2) 0)))");
     try std.testing.expect(checkRewrite(&c, bad) != .verified);
 }
+
+test "#344: define-fun раскрывается ПОДСТАНОВКОЙ, атомы не теряются" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    // Шапка SMT — ПОСЛЕДОВАТЕЛЬНОСТЬ выражений (не одно!): именно на этом
+    // первая версия молча находила только `(set-logic ALL)`.
+    loadFunDefs(&c, "(set-logic ALL)\n(declare-const a Int)\n" ++
+        "(define-fun evm_div ((x Int) (y Int)) Int (ite (= y 0) 0 (div x y)))\n" ++
+        "(assert (not (= (evm_div a 0) 0)))\n(check-sat)");
+    const e = try parseSexp(a, "(evm_div 7 2)");
+    var budget: usize = 1000;
+    const out = funExpand(&c, e, 0, &budget);
+    // Ожидаем раскрытое тело `(ite (= 2 0) 0 (div 7 2))` с АТОМАМИ на местах.
+    try std.testing.expect(out.isList());
+    try std.testing.expectEqualStrings("ite", out.items[0].atom.?);
+    try std.testing.expect(out.items[1].isList());
+    try std.testing.expectEqualStrings("=", out.items[1].items[0].atom.?);
+    try std.testing.expectEqualStrings("2", out.items[1].items[1].atom.?);
+    try std.testing.expectEqualStrings("0", out.items[1].items[2].atom.?);
+    try std.testing.expectEqualStrings("0", out.items[2].atom.?);
+    try std.testing.expectEqualStrings("div", out.items[3].items[0].atom.?);
+    try std.testing.expectEqualStrings("7", out.items[3].items[1].atom.?);
+}
+
+test "#344: НЕГАТИВНЫЙ — подделанная подстановка НЕ проходит" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    var c = newCtx(a);
+    loadFunDefs(&c, "(define-fun inc ((x Int)) Int (+ x 1))");
+    var b1: usize = 1000;
+    const out = funExpand(&c, try parseSexp(a, "(inc 5)"), 0, &b1);
+    // Раскрытие даёт `(+ 5 1)`, а НЕ `(+ 6 1)`: подстановка не подгоняет ответ.
+    try std.testing.expect(sexpEqNum(out, try parseSexp(a, "(+ 5 1)")));
+    try std.testing.expect(!sexpEqNum(out, try parseSexp(a, "(+ 6 1)")));
+    // Неизвестная функция НЕ раскрывается (и не «угадывается»).
+    var b2: usize = 1000;
+    const unknown = funExpand(&c, try parseSexp(a, "(other 5)"), 0, &b2);
+    try std.testing.expectEqualStrings("other", unknown.items[0].atom.?);
+    try std.testing.expectEqual(@as(usize, 2), unknown.items.len);
+}
+
+test "#344: константная арифметика — floor-деление, mod, отказ на делении на ноль" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    // Доказано Z3 на EVM-тождестве: `(= (div 7 2) 3)`.
+    try std.testing.expect(constIntEq(try parseSexp(a, "(div 7 2)"), try parseSexp(a, "3")));
+    // FLOOR, а не усечение: `(div (- 7) 2) = -4` (это и отличает SMT `div`).
+    try std.testing.expect(constIntEq(try parseSexp(a, "(div (- 7) 2)"), try parseSexp(a, "-4")));
+    try std.testing.expect(constIntEq(try parseSexp(a, "(mod 7 2)"), try parseSexp(a, "1")));
+    // НЕГАТИВНЫЕ двойники: неверное значение и деление на ноль.
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(div 7 2)"), try parseSexp(a, "4")));
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(div 7 0)"), try parseSexp(a, "0")));
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(mod 7 0)"), try parseSexp(a, "0")));
+}
+

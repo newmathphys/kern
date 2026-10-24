@@ -1991,6 +1991,20 @@ def case_bound_guards():
     return "make xray-check"
 
 
+def case_evm_fundef():
+    """ШАГ N8 SABOTAGE: `define-fun` из шапки SMT больше не загружается.
+
+    ЛОМАЕМ: вызов `loadFunDefs` отключён — ровно состояние до #344. Тогда Z3
+    раскрывает определения в СВОЁМ выводе, а контракт содержит ВЫЗОВ, посылка
+    не привязывается (`premises_unbound`), и `make evm-proof-check` обязан
+    покраснеть: `[PROOF VERIFIED]` не появится ни на одном из трёх тождеств.
+    """
+    patch("src/verifier/proof_check.zig",
+          "    if (smt_text.len != 0) loadFunDefs(&c, smt_text);",
+          "    // ЛОМАЕМ (N8): определения define-fun не загружаются")
+    return "make evm-proof-check"
+
+
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
 
@@ -3187,6 +3201,8 @@ CASES = [
      case_allman_style),
     ("bound-guards", "The `continue` guard stops narrowing the path -> gate red",
      case_bound_guards),
+    ("evm-fundef", "`define-fun` from the SMT header stops loading -> gate red",
+     case_evm_fundef),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

@@ -528,7 +528,7 @@ pub fn main(init: std.process.Init) !void {
                 defer ar.deinit();
                 const ta = ar.allocator();
                 const contract = try proof_check.extractAsserts(ta, smt);
-                const pv = try proof_check.verifyProofKind(ta, proof, contract, query_kind);
+                const pv = try proof_check.verifyProofKindSmt(ta, proof, contract, query_kind, smt);
                 std.debug.print("  [i] вид запроса: {s} | привязка посылок обязательна: {s}\n", .{
                     @tagName(query_kind), if (pv.premises_required) "да" else "нет",
                 });
@@ -657,7 +657,7 @@ pub fn main(init: std.process.Init) !void {
         defer ar.deinit();
         const ta = ar.allocator();
         const contract = try proof_check.extractAsserts(ta, smt);
-        const pv = try proof_check.verifyProof(ta, proof, contract);
+        const pv = try proof_check.verifyProofSmt(ta, proof, contract, smt);
         std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | ДОВЕРЕННЫХ {d} | дыр {d}\n", .{
             pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
             pv.unitres_checked, pv.farkas_checked, pv.rewrite_verified,
