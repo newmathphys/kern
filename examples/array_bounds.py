@@ -49,3 +49,14 @@ def get_loop_index(lines):
     while i < len(lines) and not lines[i].strip():
         i += 1
     return lines[i] if i < len(lines) else ""
+
+
+# ДЕФЕКТ #322: граница цикла как ГАРД. `min(..., len(xs))` гарантирует
+# `j < len(xs)` (минимум не превосходит каждого аргумента), поэтому `xs[j]`
+# внутри такого `range` безопасен — раньше распознавалась только форма
+# `range(len(arr))`, и индекс обвинялся недостижимым контрпримером.
+def get_range_min_guard(xs, start):
+    for j in range(start, min(start + 8, len(xs))):
+        if xs[j] > 0:
+            return xs[j]
+    return 0

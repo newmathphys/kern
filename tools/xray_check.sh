@@ -34,7 +34,10 @@ fi
 if ! echo "$BOUNDS" | grep -q 'BOUNDS UNKNOWN\] get_loop_index'; then
   echo "[!] get_loop_index НЕ помечен UNKNOWN: индекс от переменной цикла обвиняется недостижимым свидетелем"; exit 1
 fi
-echo "[OK] #322: тернарник-гард и continue-гард не обвиняются, индекс от переменной цикла -> честный UNKNOWN"
+if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_range_min_guard'; then
+  echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_range_min_guard (граница range(start, min(..., len)) не учтена)"; exit 1
+fi
+echo "[OK] #322: тернарник-гард, continue-гард и граница range(min(..., len)) не обвиняются, индекс от переменной цикла -> честный UNKNOWN"
 
 # B2: C-СПЕЦИФИЧНЫЕ КЛАССЫ ([BOUNDS PATH] / [OVERFLOW PATH], дефекты #187/#188).
 # Требование двустороннее: без гарда — обвиняем, с гардом — МОЛЧИМ.

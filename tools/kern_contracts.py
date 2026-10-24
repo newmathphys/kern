@@ -4680,6 +4680,32 @@ def _normalized_length(st) -> tuple[str, int] | None:
     return None
 
 
+def _stop_len(stop) -> str | None:
+    """Имя массива, если верхняя граница `stop` ГАРАНТИРУЕТ `i < len(arr)`.
+
+    ДЕФЕКТ #322: распознавалась только форма `range(len(arr))`, поэтому
+    `for j in range(idx + 1, min(idx + 8, len(lines)))`
+    (`scan_to_kern.py:73`) давал ложный `[BOUNDS PATH]` на `lines[j]`, хотя
+    граница цикла её исключает.
+
+    ЗВУЧИМОСТЬ: `min(...)` безопасен — минимум НЕ превосходит каждого своего
+    аргумента, поэтому `j < min(x, len(arr)) <= len(arr)`. Любая другая форма
+    (арифметика над длиной, `max`, срез) -> None: честный отказ, а не догадка.
+    """
+    if isinstance(stop, ast.Call) and isinstance(stop.func, ast.Name):
+        if (stop.func.id == "len" and len(stop.args) == 1
+                and isinstance(stop.args[0], ast.Name)):
+            return stop.args[0].id
+        if stop.func.id == "min":
+            for a in stop.args:
+                r = _stop_len(a)
+                if r:
+                    return r
+    if isinstance(stop, ast.Name) and stop.id.startswith("kern_len_"):
+        return stop.id[len("kern_len_"):]
+    return None
+
+
 def _loop_len_guard(st) -> tuple[str, str] | None:
     """`for i in range(len(arr)):` -> ("i", "arr"); иначе None.
 
@@ -4691,20 +4717,21 @@ def _loop_len_guard(st) -> tuple[str, str] | None:
     ВАЖНО: к моменту обхода препроцессор УЖЕ переписал `len(arr)` в
     `kern_len_arr`, поэтому принимаются ОБЕ формы — иначе защита не срабатывает
     (проверено: `guard=None` на реальном пути при верной форме в изоляции).
+
+    ДЕФЕКТ #322: границей считается ВТОРОЙ аргумент `range` (stop), а не только
+    единственный; форма `range(start, stop, step)` тоже учитывается (`stop`
+    остаётся вторым), см. `_stop_len`.
     """
     if not isinstance(st.target, ast.Name):
         return None
     it = st.iter
     if not (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
-            and it.func.id == "range" and len(it.args) == 1):
+            and it.func.id == "range" and 1 <= len(it.args) <= 3):
         return None
-    a = it.args[0]
-    if (isinstance(a, ast.Call) and isinstance(a.func, ast.Name)
-            and a.func.id == "len" and len(a.args) == 1
-            and isinstance(a.args[0], ast.Name)):
-        return st.target.id, a.args[0].id
-    if isinstance(a, ast.Name) and a.id.startswith("kern_len_"):
-        return st.target.id, a.id[len("kern_len_"):]
+    stop = it.args[1] if len(it.args) >= 2 else it.args[0]
+    arr = _stop_len(stop)
+    if arr is not None:
+        return st.target.id, arr
     return None
 
 
