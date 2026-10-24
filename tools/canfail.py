@@ -43,8 +43,21 @@ def sh(cmd: str, timeout: int = 600) -> int:
 
 
 def sh_out(cmd: str, timeout: int = 600):
+    """Запустить цель и вернуть (rc, вывод).
+
+    🔴 ДЕФЕКТ #348 (найден полным прогоном): `text=True` без `errors=` падал
+    с `UnicodeDecodeError` на ЛЮБОМ не-UTF-8 байте в выводе цели. Кейс
+    `pool-limit` упал не по своей вине — «ОШИБКА КЕЙСА: 'utf-8' codec can't
+    decode byte 0xd0 in position 590», то есть харнесс объявлял ошибку кейса
+    там, где цель просто напечатала байт, не сложившийся в UTF-8 (обрезанный
+    многобайтовый символ). Последствие не косметическое: одна такая ошибка
+    ПРЯЧЕТ настоящий вердикт кейса — `ОШИБОК КЕЙСОВ 1` вместо «проверка
+    покраснела / не покраснела». ИСПРАВЛЕНО: `errors="replace"` — вывод
+    декодируется всегда, а решение принимается по СОДЕРЖИМОМУ и rc.
+    """
     p = subprocess.run(["bash", "-lc", cmd], cwd=str(ROOT),
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, errors="replace",
+                       timeout=timeout)
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
