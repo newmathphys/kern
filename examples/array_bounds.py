@@ -21,3 +21,31 @@ def get_safe(data, i):
 # @kern:len(data) = 4
 def get_unknown_len(other, j):
     return other[j]         # длина other НЕ объявлена -> честное «НЕ проверено»
+
+
+# ДЕФЕКТ #322: ГАРД В УСЛОВНОМ ВЫРАЖЕНИИ. Тернарник — это гард СВОЕЙ ветви:
+# `xs[0]` выполняется только когда `xs` непуст, поэтому обвинять нельзя.
+def get_ifexp_guard(xs):
+    return xs[0] if xs else 0
+
+
+# ДЕФЕКТ #322: РАННИЙ ВЫХОД `continue` — тоже гард. До правки `_block_exits`
+# не считал `continue` выходом, и `src[lineno - 1]` обвинялся контрпримером
+# `lineno = 0`, который этот самый гард и исключает.
+def get_continue_guard(src, pairs):
+    out = []
+    for lineno, _p in pairs:
+        if not (1 <= lineno <= len(src)):
+            continue
+        out.append(src[lineno - 1])
+    return out
+
+
+# ДЕФЕКТ #322 (в связке с #315): индекс зависит от переменной, изменённой в
+# ЦИКЛЕ, — инвариант не моделируется, поэтому вердикт обязан быть честным
+# `[BOUNDS UNKNOWN]`, а НЕ обвинением с недостижимым свидетелем (`i = -1`).
+def get_loop_index(lines):
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    return lines[i] if i < len(lines) else ""

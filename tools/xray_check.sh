@@ -22,6 +22,20 @@ if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_safe'; then echo "[!] ЛОЖНО�
 echo "$BOUNDS" | grep -q 'BOUNDS\] get_unknown_len' || { echo "[!] нет честного 'длина неизвестна'"; exit 1; }
 echo "[OK] границы: get_unsafe обвинён, get_safe НЕ обвинён, неизвестная длина честно помечена"
 
+# ДЕФЕКТ #322: ГАРДЫ, КОТОРЫЕ РАНЬШЕ НЕ УЧИТЫВАЛИСЬ. Каждый случай проверяется
+# ДВУСТОРОННЕ: ложное обвинение не должно появляться, а честный UNKNOWN обязан
+# остаться — это не «тихое подавление», случай НАЗВАН, а не спрятан.
+if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_ifexp_guard'; then
+  echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_ifexp_guard (гард в тернарнике не учтён)"; exit 1
+fi
+if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_continue_guard'; then
+  echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_continue_guard (ранний выход continue не учтён)"; exit 1
+fi
+if ! echo "$BOUNDS" | grep -q 'BOUNDS UNKNOWN\] get_loop_index'; then
+  echo "[!] get_loop_index НЕ помечен UNKNOWN: индекс от переменной цикла обвиняется недостижимым свидетелем"; exit 1
+fi
+echo "[OK] #322: тернарник-гард и continue-гард не обвиняются, индекс от переменной цикла -> честный UNKNOWN"
+
 # B2: C-СПЕЦИФИЧНЫЕ КЛАССЫ ([BOUNDS PATH] / [OVERFLOW PATH], дефекты #187/#188).
 # Требование двустороннее: без гарда — обвиняем, с гардом — МОЛЧИМ.
 # Иначе это либо слепой детектор, либо генератор ложных тревог (урок #178).

@@ -1975,6 +1975,22 @@ def case_allman_style():
     return "make codecheck"
 
 
+def case_bound_guards():
+    """ШАГ N7 SABOTAGE: гард `continue` перестаёт считаться выходом блока.
+
+    ЛОМАЕМ: `_block_exits` снова знает только `return`/`raise` — состояние до
+    #322. Тогда `if not (1 <= lineno <= len(src)): continue` НЕ сужает путь, и
+    `src[lineno - 1]` в `examples/array_bounds.py::get_continue_guard`
+    обвиняется недостижимым контрпримером `lineno = 0` — то есть возвращается
+    ложное срабатывание на собственном коде. `make xray-check` обязан
+    покраснеть.
+    """
+    patch("tools/kern_contracts.py",
+          "        body[-1], (ast.Return, ast.Raise, ast.Continue, ast.Break))",
+          "        body[-1], (ast.Return, ast.Raise))")
+    return "make xray-check"
+
+
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
 
@@ -3169,6 +3185,8 @@ CASES = [
      case_journal_parity),
     ("allman-style", "Allman `{` on the next line stops being recognised -> gate red",
      case_allman_style),
+    ("bound-guards", "The `continue` guard stops narrowing the path -> gate red",
+     case_bound_guards),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

@@ -4625,8 +4625,20 @@ def _cond_smt(node, syms: set, env=None):
 
 
 def _block_exits(body) -> bool:
-    """Завершается ли блок безусловно (return/raise)?"""
-    return bool(body) and isinstance(body[-1], (ast.Return, ast.Raise))
+    """Завершается ли блок безусловно (return/raise/continue/break)?
+
+    ДЕФЕКТ #322: `continue` НЕ считался выходом, поэтому гард
+    `if not (1 <= lineno <= len(src)): continue` не сужал путь — и следующий
+    `src[lineno - 1]` обвинялся контрпримером `lineno = 0`, который этот самый
+    гард и исключает. ИЗМЕРЕНО само-применением на `check_metrics_consistency.py`
+    (2 кандидата `[BOUNDS PATH]`).
+
+    ЗВУЧИМОСТЬ: `continue`/`break` — безусловный выход из ТЕКУЩЕГО блока, и
+    инструкции после `if <cond>: continue` выполняются только при ложном
+    `<cond>`. Это ровно то же рассуждение, что и для `return`.
+    """
+    return bool(body) and isinstance(
+        body[-1], (ast.Return, ast.Raise, ast.Continue, ast.Break))
 
 
 def _normalized_length(st) -> tuple[str, int] | None:
@@ -4860,8 +4872,114 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 _walk_bounds(case.body, eff + extra, params, lens, kernc, found,
                              fname, csyms, in_while=in_while)
             continue
-        for sub in [n for n in ast.walk(st) if isinstance(n, ast.Subscript)]:
-            _bounds_one(sub, eff, params, lens, kernc, found, fname, syms, in_while)
+        # ДЕФЕКТ #322: путь учитывает УСЛОВНЫЕ ВЫРАЖЕНИЯ — тернарник
+        # (`x[0] if xs else None`) это ГАРД своей ветви, а не общий путь.
+        for sub, spath in _subscripts_with_path(st, eff, syms):
+            _bounds_one(sub, spath, params, lens, kernc, found, fname, syms, in_while)
+
+
+def _subscripts_with_path(st, path: list, syms: set) -> list:
+    """Подвыражения `arr[i]` вместе с условиями, которые их ГАРАНТИРУЮТ.
+
+    ДЕФЕКТ #322. Условное ВЫРАЖЕНИЕ (`return x[0] if xs else None`,
+    `src = Path(examples[0]["file"]) if examples else Path(".")`) — это ГАРД:
+    внутри ветви `body` условие ИСТИННО, внутри `orelse` — ЛОЖНО. Раньше
+    `ast.walk` давал ВСЕМ индексам ОДИН путь, поэтому `examples[0]` обвинялся
+    контрпримером `examples = 0`, хотя именно `if examples` это исключает.
+    ИЗМЕРЕНО само-применением: 2 из 6 кандидатов `[BOUNDS PATH]` на
+    собственном коде KERN были ровно такими.
+
+    ЗВУЧИМОСТЬ: условие добавляется только для СВОЕЙ ветви — сужение пути не
+    скрывает нарушений, возможных при истинном условии. Если условие не
+    выражается в SMT, ветвь получает путь БЕЗ сужения (честный отказ: лучше
+    лишний кандидат, чем пропуск).
+
+    `isinstance(x, T)` из конъюнкции ВЫРЕЗАЕТСЯ: этот предикат говорит о ТИПЕ,
+    а не о длине, и для обязанности «индекс в границах» информации не несёт
+    (`d[0] if isinstance(d, tuple) and len(d) >= 3` — границы обеспечивает
+    именно `len(d) >= 3`). Если после вырезания не остаётся ничего, сужения
+    нет: `d[0] if isinstance(d, tuple) else None` по-прежнему кандидат, и это
+    верно — пустой кортеж даёт IndexError.
+    """
+    out: list[tuple] = []
+
+    def cond_of(test) -> str | None:
+        stripped = _drop_isinstance(test)
+        if stripped is None:
+            return None
+        try:
+            return _cond_smt(stripped, syms)
+        except (Unsupported, NoReturn):
+            return None
+
+    def walk(node, cond_path: list) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.IfExp):
+                c = cond_of(child.test)
+                walk(child.body, cond_path + ([c] if c else []))
+                walk(child.orelse, cond_path + ([f"(not {c})"] if c else []))
+                continue
+            if isinstance(child, ast.Subscript):
+                out.append((child, cond_path))
+            walk(child, cond_path)
+
+    walk(st, list(path))
+    return out
+
+
+def _drop_isinstance(node):
+    """Убрать `isinstance(...)` из конъюнкции; None, если не осталось ничего.
+
+    См. `_subscripts_with_path`: предикат типа не несёт информации о ДЛИНЕ,
+    поэтому для границ индекса он бесполезен, а как блокер — вреден (без его
+    вырезания `len(d) >= 3` не доходило до решателя и `d[0]` обвинялся).
+    Форма `a and b` сохраняется: рекурсивно вырезаем из обеих частей.
+    """
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
+            and node.func.id == "isinstance":
+        return None
+    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And):
+        kept = [_drop_isinstance(v) for v in node.values]
+        kept = [k for k in kept if k is not None]
+        if not kept:
+            return None
+        if len(kept) == 1:
+            return kept[0]
+        return ast.BoolOp(op=ast.And(), values=kept)
+    return node
+
+
+# ДЕФЕКТ #322: имена, присвоенные внутри циклов ТЕКУЩЕЙ анализируемой функции.
+# Контекст (как `_CURRENT_LANG`): заполняется в точке входа перед обходом тела,
+# чтобы `_bounds_one` не обвинял индекс, зависящий от немоделируемого инварианта.
+_LOOP_MODIFIED: set = set()
+
+
+def _loop_modified(stmts) -> set:
+    """Имена, присвоенные ВНУТРИ `while`/`for` (по всей функции).
+
+    ДЕФЕКТ #322. Значение такой переменной после цикла определяется
+    ИНВАРИАНТОМ, который этот анализ НЕ моделирует (#315). Поэтому обвинять
+    `lines[i]` контрпримером `i = -1` нельзя: в `_strip_leading_docstring`
+    (`humaneval_api.py:24`) `i` инициализирован нулём и в цикле только растёт —
+    `i = -1` недостижим. Звуковое поведение — `[BOUNDS UNKNOWN]` с причиной,
+    а не `[BOUNDS PATH]` с недостижимым свидетелем.
+    """
+    names: set = set()
+    for st in stmts:
+        for node in ast.walk(st):
+            # ТОЛЬКО ТЕЛО цикла: переменная ЗАГОЛОВКА (`for lineno, _ in pairs`)
+            # меняется предсказуемо и гардом сужается — считать её
+            # «немоделируемой» значило бы терять настоящие проверки.
+            body = None
+            if isinstance(node, (ast.For, ast.While)):
+                body = node.body
+            if body is None:
+                continue
+            for inner in body:
+                for x in ast.walk(inner):
+                    names |= _assigned_names(x)
+    return names
 
 
 def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while):
@@ -4892,9 +5010,34 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while):
                      f"в условиях), границы НЕ проверены")
         return
     try:
-        idx = expr_smt(sub.slice, {})
+        # ДЕФЕКТ #322: индекс, записанный через `len(b)`, давал СВОБОДНЫЙ символ
+        # `len__b`, никак не связанный с `kern_len_b` из границ. Решатель
+        # выбирал `len__b = -2` (длина не может быть отрицательной!), и
+        # контрпример был бессмысленным. Приводим индекс к ТОЙ ЖЕ символической
+        # длине, что и границы, и требуем неотрицательности новых символов.
+        _rw = _LenRewrite(set(syms))
+        _sl = _rw.visit(ast.parse(ast.unparse(sub.slice), mode="eval").body)
+        ast.fix_missing_locations(_sl)
+        idx = expr_smt(_sl, {})
+        for _s in _rw.syms:
+            decls = list(dict.fromkeys(decls + [f"kern_len_{_s}"]))
+            pre = list(dict.fromkeys(pre + [f"(>= kern_len_{_s} 0)"]))
     except (Unsupported, NoReturn):
         return
+    # ДЕФЕКТ #322: индекс зависит от переменной, изменённой в ЦИКЛЕ -> её
+    # значение после цикла определяется ИНВАРИАНТОМ, который не моделируется
+    # (#315). Обвинять нельзя: свидетель может быть недостижим (в
+    # `_strip_leading_docstring` — `i = -1` при `i`, растущем от нуля).
+    if _LOOP_MODIFIED:
+        used = {x.id for x in ast.walk(sub.slice) if isinstance(x, ast.Name)}
+        touched = used & _LOOP_MODIFIED
+        if touched:
+            found.append(
+                f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+                f"индекс зависит от переменной, изменённой в ЦИКЛЕ "
+                f"({', '.join(sorted(touched))}): инвариант цикла НЕ моделируется "
+                f"(#315) — НЕ считается ни находкой, ни безопасным")
+            return
     bad = f"(not (and (>= {idx} 0) (< {idx} {n})))"
     v, ce = _smt_verdict(kernc, decls, pre + path + [bad])
     if v == "sat":
@@ -6121,6 +6264,9 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         syms: set = set()
         lens.update(_collect_lens(fn, syms))   # Zero-Annotation: литералы + len()
         _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms, module_env)
+        # ДЕФЕКТ #322: контекст «какие имена меняются в циклах» — на одну функцию.
+        _LOOP_MODIFIED.clear()
+        _LOOP_MODIFIED.update(_loop_modified(fn.body))
         _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name, syms)
         # ДЕФЕКТ #208: считаем ТОЛЬКО функции, где решатель реально вызывался
         # (счётчик читается ПОСЛЕ обхода, иначе он всегда 0). Функция с нулём
