@@ -1,0 +1,6 @@
+{
+  "expect": "F",
+  "kind": "unsupported",
+  "why": "Allman style with a REAL i32 overflow: it must be FOUND, not skipped (defect #325)",
+  "file": "rust_allman.rs"
+}

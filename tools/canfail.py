@@ -1956,6 +1956,25 @@ def case_journal_parity():
     return "make journal-parity-check"
 
 
+def case_allman_style():
+    """ШАГ N6 SABOTAGE: распознавание стиля Allman (`{` на СЛЕДУЮЩЕЙ строке) убрано.
+
+    ЛОМАЕМ: в регекспе заголовка Zig/Rust `{` снова ОБЯЗАТЕЛЬНА в конце строки —
+    ровно состояние до #325. Тогда `audits/codecheck/zig_allman.zig` МОЛЧА не
+    распознаётся («нет функций с аннотациями»), и `make codecheck` обязан
+    покраснеть: ожидание `T` не выполнено, а вердикт — «всего 0».
+
+    Почему это стоит кейса: класс дефекта — не ложное обвинение, а ПРОПУСК
+    проверки (худший класс для этого проекта). ИЗМЕРЕНО на живом коде: один и
+    тот же код с переносом `{` давал 0 проверок, без переноса — 1 проверку и
+    найденное переполнение.
+    """
+    patch("tools/kern_contracts.py",
+          r'''\s*(?:->\s*)?([\w:<>\[\]&' ]+)?\s*(?:\{.*)?$")''',
+          r'''\s*(?:->\s*)?([\w:<>\[\]&' ]+)?\s*\{")''')
+    return "make codecheck"
+
+
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
 
@@ -3148,6 +3167,8 @@ CASES = [
      case_temp_isolation),
     ("journal-parity", "A defect record missing from the EN journal -> gate red",
      case_journal_parity),
+    ("allman-style", "Allman `{` on the next line stops being recognised -> gate red",
+     case_allman_style),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

@@ -21,6 +21,8 @@ from the expectation. `make codecheck` prints the confusion matrix and fails if
 | `c_unguarded.c` | **C** | `ensures result == a / b`, no guard | F | division-by-zero in C |
 | `rust_clean.rs` | **Rust** | `ensures result == a + b` | T | Rust contracts checked |
 | `rust_overflow.rs` | **Rust** | `requires a >= 0 and b >= 0`, `ensures result >= a` | F | **i32 overflow**: `a = 2147483647, b = 1 -> 2147483648` |
+| `zig_allman.zig` | **Zig** | same as `zig_clean`, but `{` on the NEXT line | T | **defect #325**: Allman style must be RECOGNISED (it used to be silently skipped) |
+| `rust_allman.rs` | **Rust** | same as `rust_overflow`, but `{` on the NEXT line | F | **defect #325**: a defect written in Allman style must be FOUND, not skipped |
 
 `UNKNOWN` is a first-class outcome: "cannot decide" is honest, "guessed F" is
 not. Only `FP` (accusing correct code) and `FN` (missing a real defect) fail the

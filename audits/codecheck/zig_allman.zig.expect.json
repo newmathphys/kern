@@ -1,0 +1,6 @@
+{
+  "expect": "T",
+  "kind": "unsupported",
+  "why": "Allman style (`{` on the next line): the function must be RECOGNISED and proven (defect #325)",
+  "file": "zig_allman.zig"
+}

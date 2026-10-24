@@ -4,7 +4,7 @@
  "next_tests": 53,
  "catalog": 465,
  "check_targets": 158,
- "canfail_cases": 181,
+ "canfail_cases": 182,
  "mutation_sites": 1376,
  "mutation_files": 21,
  "registry_targets": 207,
@@ -12,7 +12,7 @@
  "build_targets": 10,
  "cross_arch_passed": 428,
  "cross_arch_skipped": 8,
- "anchors": 142,
+ "anchors": 143,
  "max_defect": 347,
  "lean_theorems": 143,
  "quixbugs": {

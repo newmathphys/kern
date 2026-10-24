@@ -17,7 +17,7 @@
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->35 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->181**, of which
+Can-fail cases: **<!-- fact:canfail_cases -->182**, of which
 **158/158** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
@@ -31,7 +31,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->181**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1376 / 1376 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->142 |
+| Literal anchors | <!-- fact:anchors -->143 |
 | Version | `v2.7.1` |
 
 ## Defect journal
@@ -40,10 +40,10 @@ Numbered entries: **280**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 149 |
+| Fixed | 150 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
-| Documented limitation (we live with it; it is not a defect) | 5 |
+| Documented limitation (we live with it; it is not a defect) | 4 |
 | Decision: considered and not adopted | 0 |
 | Rows in the earlier journal format (category column, no status) | 124 |
 
