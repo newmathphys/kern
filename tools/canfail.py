@@ -1830,6 +1830,25 @@ def case_arith_unary():
     return "make arith-semantics-check"
 
 
+def case_lang_fields():
+    """ШАГ N11 SABOTAGE: свойство языка снова берётся из ЛИТЕРАЛОВ, не из таблицы.
+
+    ЛОМАЕМ: решение «переходить ли в теорию битовых векторов» возвращается к
+    `p.suffix in CLIKE_EXT` — ровно состояние до #353. Тогда поле
+    `allow_bv_fallback` больше НЕ ЧИТАЕТСЯ кодом, и `make lang-semantics-check`
+    обязан покраснеть: таблица, поля которой никто не читает, — это
+    ДОКУМЕНТАЦИЯ, а не семантика (класс #339/#340).
+
+    Почему это стоит кейса: именно так рождались #317 (floor вместо усечения) и
+    #321 (снятая обязанность переполнения) — правило правили в одном месте из
+    двух, и второе место продолжало жить по-старому.
+    """
+    patch("tools/kern_contracts.py",
+          "            use_bv = (_sem_of_suffix(p.suffix).allow_bv_fallback",
+          "            use_bv = (p.suffix in CLIKE_EXT  # ЛОМАЕМ (N11): литерал вместо таблицы")
+    return "make lang-semantics-check"
+
+
 def case_c_types():
     """#321 SABOTAGE: канонизация ТИПА ВОЗВРАТА убрана.
 
@@ -2074,7 +2093,9 @@ def case_lang_semantics():
     усечения — ровно #317). Гейт обязан покраснеть: запись языка отсутствует.
     """
     patch("tools/kern_contracts.py",
-          '    "c": ValueSemantics("c", "trunc0", "trunc0", "trunc0", False, (), True),\n',
+          '    "c": ValueSemantics("c", "trunc0", "trunc0", "trunc0", False, (), True,\n'
+          '                        signed_min_div_trap=True, signed_min_neg_trap=True,\n'
+          '                        bounded_ints=True, allow_bv_fallback=True),\n',
           '    # ЛОМАЕМ (шаг I): запись языка `c` удалена\n')
     return "make lang-semantics-check"
 
@@ -3284,6 +3305,8 @@ CASES = [
      case_arith_semantics),
     ("arith-unary", "`abs` without a sign branch stops matching the language -> gate red",
      case_arith_unary),
+    ("lang-fields", "A language property taken from literals instead of the table -> gate red",
+     case_lang_fields),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
      case_c_types),
     ("div-guards", "Divisor obligation ignores active guards -> gate red",

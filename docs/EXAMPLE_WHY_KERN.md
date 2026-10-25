@@ -149,8 +149,8 @@ subset. It is a **scalpel plus a turnstile**:
 | Next tests | <!-- fact:next_tests -->53 |
 | Test catalog | <!-- fact:catalog -->470 |
 | CHECK targets | <!-- fact:check_targets -->159 |
-| can-fail cases | <!-- fact:canfail_cases -->186 |
-| Literal anchors | <!-- fact:anchors -->146 |
+| can-fail cases | <!-- fact:canfail_cases -->187 |
+| Literal anchors | <!-- fact:anchors -->147 |
 | Registry targets | <!-- fact:registry_targets -->209 |
 | Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |

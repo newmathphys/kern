@@ -1497,10 +1497,15 @@ class ValueSemantics:
     """
 
     __slots__ = ("name", "div", "mod", "true_div", "div_zero_value",
-                 "wrap_ops", "signed")
+                 "wrap_ops", "signed", "signed_min_div_trap", "signed_min_neg_trap",
+                 "bounded_ints", "allow_bv_fallback")
 
     def __init__(self, name: str, div: str, mod: str, true_div: str | None,
-                 div_zero_value: bool, wrap_ops: tuple, signed: bool):
+                 div_zero_value: bool, wrap_ops: tuple, signed: bool,
+                 signed_min_div_trap: bool | None = None,
+                 signed_min_neg_trap: bool | None = None,
+                 bounded_ints: bool = False,
+                 allow_bv_fallback: bool = False):
         self.name = name
         self.div = div
         self.mod = mod
@@ -1508,39 +1513,85 @@ class ValueSemantics:
         self.div_zero_value = div_zero_value
         self.wrap_ops = wrap_ops
         self.signed = signed
+        # ДЕФЕКТ #353 (шаг N11): три свойства «семантики языка» жили ВНЕ таблицы —
+        # в условиях `if suffix in CLIKE_EXT` и в литералах парсера. Это и есть
+        # дисперсия, из-за которой одно и то же свойство могло быть учтено в
+        # одном месте и забыто в другом (класс #317/#321). Переносим в таблицу.
+        #
+        # `signed` НЕ разделён на два поля, а ДОПОЛНЕН ими: знаковость типа и
+        # аппаратная ловушка — РАЗНЫЕ вещи. Python знаковый, но `MIN / -1`
+        # не паникует (целые неограничены); EVM знаковый (`SDIV`), но по Yellow
+        # Paper `SDIV(MIN, -1) = MIN` — тоже не ловушка. Значит одного `signed`
+        # для обязанностей переполнения НЕДОСТАТОЧНО.
+        self.signed_min_div_trap = (signed if signed_min_div_trap is None
+                                    else signed_min_div_trap)
+        self.signed_min_neg_trap = (signed if signed_min_neg_trap is None
+                                    else signed_min_neg_trap)
+        # Машинные границы типов (`TYPE_RANGE`) применимы только там, где типы
+        # фиксированной ширины: у Python/EVМ их нет.
+        self.bounded_ints = bounded_ints
+        # Переход в теорию битовых векторов: нужен для языков с масками/сдвигами.
+        self.allow_bv_fallback = allow_bv_fallback
 
     def __repr__(self) -> str:
         return (f"ValueSemantics({self.name!r}, div={self.div!r}, "
                 f"mod={self.mod!r}, true_div={self.true_div!r}, "
                 f"div_zero_value={self.div_zero_value}, "
-                f"wrap_ops={self.wrap_ops!r}, signed={self.signed})")
+                f"wrap_ops={self.wrap_ops!r}, signed={self.signed}, "
+                f"min_div_trap={self.signed_min_div_trap}, "
+                f"min_neg_trap={self.signed_min_neg_trap}, "
+                f"bounded={self.bounded_ints}, bv={self.allow_bv_fallback})")
 
 
 VALUE_SEMANTICS: dict[str, ValueSemantics] = {
+    # ⚠️ ДЕФЕКТ #353: последние четыре аргумента — `signed_min_div_trap`,
+    # `signed_min_neg_trap`, `bounded_ints`, `allow_bv_fallback`. Раньше три из
+    # этих свойств жили ВНЕ таблицы (`if suffix in CLIKE_EXT`, литералы парсера),
+    # то есть «семантика языка» была описана не в одном месте. Значения ниже
+    # СОХРАНЯЮТ прежнее поведение — перенос, а не смена правил.
     # Python: целые НЕОГРАНИЧЕННЫ, `//` — floor, `%` берёт знак делителя,
     # `/` — истинное (float) деление и потому вне подмножества.
-    "python": ValueSemantics("python", "floor", "floor", None, False, (), True),
+    # Знаковый, НО `MIN / -1` не паникует (неограниченные целые) — значит
+    # ловушки нет, и это ВИДНО в таблице, а не в комментарии.
+    "python": ValueSemantics("python", "floor", "floor", None, False, (), True,
+                             signed_min_div_trap=False, signed_min_neg_trap=False,
+                             bounded_ints=False, allow_bv_fallback=False),
     # C / C++: усечение к нулю, `%` берёт знак делимого. Типы машинные,
     # поэтому `MIN / -1` и `-MIN` — UB (idiv trap).
-    "c": ValueSemantics("c", "trunc0", "trunc0", "trunc0", False, (), True),
+    "c": ValueSemantics("c", "trunc0", "trunc0", "trunc0", False, (), True,
+                        signed_min_div_trap=True, signed_min_neg_trap=True,
+                        bounded_ints=True, allow_bv_fallback=True),
     # Zig: как C, плюс законные оборачивающие/насыщающие операторы.
     "zig": ValueSemantics("zig", "trunc0", "trunc0", "trunc0", False,
-                          ("+%", "-%", "*%", "+|", "-|"), True),
+                          ("+%", "-%", "*%", "+|", "-|"), True,
+                          signed_min_div_trap=True, signed_min_neg_trap=True,
+                          bounded_ints=True, allow_bv_fallback=True),
     # Rust: как C, плюс явные `wrapping_*` / `saturating_*`.
     "rust": ValueSemantics("rust", "trunc0", "trunc0", "trunc0", False,
                            (".wrapping_add(", ".wrapping_sub(", ".wrapping_mul(",
                             ".saturating_add(", ".saturating_sub(",
-                            ".saturating_mul("), True),
+                            ".saturating_mul("), True,
+                           signed_min_div_trap=True, signed_min_neg_trap=True,
+                           bounded_ints=True, allow_bv_fallback=True),
     # TypeScript / JavaScript: числа double, но целочисленные операторы
     # усекают к нулю; `%` берёт знак делимого.
-    "ts": ValueSemantics("ts", "trunc0", "trunc0", "trunc0", False, (), True),
-    "js": ValueSemantics("js", "trunc0", "trunc0", "trunc0", False, (), True),
+    "ts": ValueSemantics("ts", "trunc0", "trunc0", "trunc0", False, (), True,
+                         signed_min_div_trap=True, signed_min_neg_trap=True,
+                         bounded_ints=True, allow_bv_fallback=True),
+    "js": ValueSemantics("js", "trunc0", "trunc0", "trunc0", False, (), True,
+                         signed_min_div_trap=True, signed_min_neg_trap=True,
+                         bounded_ints=True, allow_bv_fallback=True),
     # Go: усечение к нулю, `%` берёт знак делимого.
-    "go": ValueSemantics("go", "trunc0", "trunc0", "trunc0", False, (), True),
+    "go": ValueSemantics("go", "trunc0", "trunc0", "trunc0", False, (), True,
+                         signed_min_div_trap=True, signed_min_neg_trap=True,
+                         bounded_ints=True, allow_bv_fallback=True),
     # EVM (шаг 8): SDIV/SMOD усекают к нулю, НО деление на ноль ОПРЕДЕЛЕНО как 0
     # (Yellow Paper), поэтому обязанности «делитель != 0» нет; SDIV(MIN, -1)
     # возвращает MIN без падения — то есть обязанности переполнения тоже нет.
-    "evm": ValueSemantics("evm", "trunc0", "trunc0", "trunc0", True, (), False),
+    # Оба ловушки-поля ЛОЖНЫ, и это теперь ЧАСТЬ таблицы, а не комментарий.
+    "evm": ValueSemantics("evm", "trunc0", "trunc0", "trunc0", True, (), False,
+                          signed_min_div_trap=False, signed_min_neg_trap=False,
+                          bounded_ints=False, allow_bv_fallback=False),
 }
 
 
@@ -2383,6 +2434,26 @@ def parse_clike(path: Path, require_annotations: bool = True):
         out.append((name, names, req, ens, body, i + 1, _why, meta))
         i = j + 1
     return out
+
+
+def _sem_of_suffix(suf: str) -> ValueSemantics:
+    """Семантика языка ПО РАСШИРЕНИЮ файла — из ТАБЛИЦЫ, а не из литералов.
+
+    ДЕФЕКТ #353 (шаг N11). Решения вида `p.suffix in CLIKE_EXT` (7 мест) брали
+    свойство языка из литерального множества, а не из `VALUE_SEMANTICS`, то есть
+    ОДНО свойство описывалось в ДВУХ местах — ровно тот механизм, который дал
+    #317 (floor вместо усечения) и #321 (снятая обязанность переполнения):
+    правило правили в одном месте из двух. Теперь расширение переводится в язык,
+    а свойство (`bounded_ints` / `allow_bv_fallback`) читается ИЗ ТАБЛИЦЫ.
+
+    Значения в таблице подобраны так, чтобы поведение НЕ изменилось: для
+    C-подобных (`c/zig/rust/ts/js/go`) оба свойства `True`, для `python` — `False`.
+    """
+    suf = (suf or "").lower()
+    lang = ("rust" if suf == ".rs" else "zig" if suf == ".zig"
+            else "go" if suf == ".go" else "ts" if suf in {".ts", ".js"}
+            else "c" if suf in {".c", ".h", ".cpp", ".cc"} else "python")
+    return VALUE_SEMANTICS[lang]
 
 
 def _set_lang_from_path(path: Path) -> str:
@@ -3760,7 +3831,7 @@ def _demo(args) -> int:
             # контрактном пути функция честно уходит в SKIP. В режиме `--xray`
             # тип возврата не важен (ищутся краш-пути) — там поведение прежнее.
             _ret = meta.get("ret")
-            if (not args.xray and p.suffix in CLIKE_EXT and _ret
+            if (not args.xray and _sem_of_suffix(p.suffix).bounded_ints and _ret
                     and _ret != "void" and _ret not in TYPE_RANGE):
                 print(f"  {name} (стр. {ln}): SKIP — тип возврата {_ret!r} "
                       f"вне целочисленного подмножества")
@@ -3769,7 +3840,9 @@ def _demo(args) -> int:
                 skipped += 1
                 continue
             forced_bv = ("@kern:bitvec32" in ftext) or ("@kern:bitvec64" in ftext)
-            use_bv = (p.suffix in CLIKE_EXT
+            # ДЕФЕКТ #353: свойство «переходить в BV» читается из ТАБЛИЦЫ
+            # (`allow_bv_fallback`), а не из литерального `suffix in CLIKE_EXT`.
+            use_bv = (_sem_of_suffix(p.suffix).allow_bv_fallback
                       and (body == "BV_PENDING"
                            or _needs_bitvec(meta.get("raw_body"), req, ens, forced_bv)))
             try:
@@ -3857,7 +3930,8 @@ def _demo(args) -> int:
             # есть ЗНАКОВЫЕ типы. У беззнаковых `MIN = 0`, и `a / -1` не
             # существует; у EVM деление на ноль и `SDIV(MIN, -1)` ОПРЕДЕЛЕНЫ
             # (Yellow Paper), то есть падения нет вовсе.
-            if divisors and p.suffix in CLIKE_EXT and not meta.get("bv") \
+            if divisors and _sem_of_suffix(p.suffix).bounded_ints and not meta.get("bv") \
+                    and _sem_of_suffix(p.suffix).signed_min_div_trap \
                     and (_sem_here is None or _sem_here.signed):
                 _rr = TYPE_RANGE.get(meta.get("ret"))
                 if _rr:
@@ -3893,7 +3967,8 @@ def _demo(args) -> int:
             # `-INT_MIN` -> SIGABRT (rc=134). Проверка ДИАПАЗОНА РЕЗУЛЬТАТА этого
             # НЕ видит: в математических целых `-MIN` влезает в Int.
             _negs = meta.get("negs") or []
-            if _negs and p.suffix in CLIKE_EXT and not meta.get("bv"):
+            if _negs and _sem_of_suffix(p.suffix).bounded_ints and not meta.get("bv") \
+                    and _sem_of_suffix(p.suffix).signed_min_neg_trap:
                 _rrn = TYPE_RANGE.get(meta.get("ret"))
                 if _rrn:
                     try:
