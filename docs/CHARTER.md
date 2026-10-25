@@ -26,8 +26,8 @@ all 7 verdict mappings must agree. A model without that cross-check is just text
 | **L1** | `T ⊔ F = B` — a contradiction is not erased | `law_join_T_F` | **PROVEN** (`trusted: 0`, `holes: 0`) |
 | **L2** | `⊔` is idempotent: `x ⊔ x = x` | `law_join_idempotent` | **PROVEN** |
 | **L3** | conflation `~` is an involution: `~~a = a` | `law_conflate_involution` | **PROVEN** |
-| **L4** | a tool failure never becomes `F` (`timeout`, `out_of_fuel`, `invalid_certificate`, `tool_error`) | `law_no_false_accusation` | Z3-valid; **our proof checker does not cover the derivation** — not claimed as proven (see §3) |
-| **L5** | `B` is never produced by a verdict — only by a conflict of evidence | `law_verdict_never_b` | Z3-valid; not covered by the checker (see §3) |
+| **L4** | a tool failure never becomes `F` (`timeout`, `out_of_fuel`, `invalid_certificate`, `tool_error`) | `law_no_false_accusation` | **PROVEN** (`trusted: 0`, `holes: 0`) |
+| **L5** | `B` is never produced by a verdict — only by a conflict of evidence | `law_verdict_never_b` | **PROVEN** (`trusted: 0`, `holes: 0`) |
 | **L6** | `invalid_certificate` maps to `N`, never to `F` | `law_invalid_cert_is_unknown` | **PROVEN** |
 | **L7** | `N` is the unit of `⊔`: `N ⊔ x = x` | `law_join_identity_N` | **PROVEN** |
 | **L8** | machine-proven instance of L4: `timeout → N` | `law_timeout_is_unknown` | **PROVEN** |
@@ -46,16 +46,26 @@ Measured: **8 laws, 6 proven, 2 not covered by the proof checker, 0 violated,
 | **P5** | EN/RU facts agree in every pair | `tools/docs_parity_check.py` |
 | **P6** | every piece of evidence is tracked and carries no failure | `tools/evidence_gate.py` |
 
-## 3. Why two laws are not claimed as proven
+## 3. Why this section exists at all
 
-L4 and L5 are stated **for all verdict codes**. Z3 proves both; our proof checker
-refuses the derivation (`premises_unbound`) — the same class of coverage gap as
-defect #303. So they are **not** counted as proven. L8 is the same statement pinned
-to one code, and the checker accepts it: the law holds for every code, and is
-machine-proven code by code.
+L4 and L5 are stated **for all verdict codes**, and both are NOW machine-proven:
+`trusted: 0`, `holes: 0`. This was not always so, and the history is kept
+deliberately — it is the record of a boundary that was closed.
 
-We could have deleted L4/L5 from the charter to make the table look green. That
-would be exactly the failure mode this project exists to catch.
+Until 2026-10-22 our proof checker REFUSED their derivations with
+`premises_unbound` (recorded as defect **#303**): Z3 quoted our own premise with a
+trivial connective inserted — `(and X true)` instead of `X` — and the premise
+binding rule did not recognise it. The sound fix (folding trivial connectives,
+`dropTriv`) made the charter **8/8 machine-proven**, and the list of
+expected-uncovered laws is now empty.
+
+The mechanism is kept, not deleted: if a law appears that Z3 proves while our
+checker cannot re-derive it, `tools/charter_check.py` will NAME it instead of
+quietly counting it as proven.
+
+We could have deleted L4/L5 from the charter to make the table look green. We did
+the opposite: they stayed in the table, marked as not-proven, until the checker
+actually covered them. That is the failure mode this project exists to catch.
 
 ## 4. Class III — policy (not machine-checkable)
 
@@ -84,8 +94,8 @@ kernel cross-check to notice.
 
 <!-- fact:core_tests -->436 core tests · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->470 catalog · <!-- fact:check_targets -->159 CHECK ·
-<!-- fact:canfail_cases -->184 can-fail cases · <!-- fact:anchors -->144 anchors ·
-<!-- fact:registry_targets -->208 targets · <!-- fact:meta_targets -->35 META ·
+<!-- fact:canfail_cases -->185 can-fail cases · <!-- fact:anchors -->145 anchors ·
+<!-- fact:registry_targets -->209 targets · <!-- fact:meta_targets -->36 META ·
 <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 formal SMT ·
 <!-- fact:quixbugs.differential -->40/40 live differential.

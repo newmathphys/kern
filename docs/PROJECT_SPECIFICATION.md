@@ -719,7 +719,7 @@ make golden
 
 ## 11.2 Метод canfail
 
-**Файл:** `tools/canfail.py` (184 кейс).
+**Файл:** `tools/canfail.py` (185 кейс).
 
 ```
 для каждой цели:
@@ -776,7 +776,7 @@ make golden
 ```
 инструменты → реестр → build → test → test-next → эшелоны 1/3 →
 инъекция SIGBUS → attack → Lean 4 → дерево чистое ПЕРЕД →
-canfail --selftest → canfail (184 кейс) → каталог синхронен →
+canfail --selftest → canfail (185 кейс) → каталог синхронен →
 аттестационный манифест (10 строк) → нет следов харнесса → сводка
 ```
 
@@ -1068,9 +1068,9 @@ make golden                    # эталонный образ
 |:--|:--|
 | `make test-all` | полный контур проверок |
 | `make ci` / `make ci-fast` | CI (полный / быстрый) |
-| **`make canfail`** | 184 кейс: доказательство не-вакуумности |
+| **`make canfail`** | 185 кейс: доказательство не-вакуумности |
 | `make canfail-selftest` | мета-проверка харнесса |
-| `make registry` | реестр <!-- fact:registry_targets -->208 цели + предохранитель |
+| `make registry` | реестр <!-- fact:registry_targets -->209 цели + предохранитель |
 | `make audit-manifest` | аттестационный манифест (10 строк) |
 | `make attest` / `make slsa` / `make cert` | подписи и квалификация |
 | `make lean` | Lean 4 доказательства |
@@ -1143,8 +1143,8 @@ formal/                         # Lean 4 (8 файлов, 147 теоремы)
 └── certification/              # TOR/TAS/TRACEABILITY/SOUNDNESS/SECURITY/LIMITS
 
 tools/                          # контур доверия и бенчмарки
-├── canfail.py                  #   184 кейс не-вакуумности
-├── registry.py                 #   реестр <!-- fact:registry_targets -->208 цели + предохранитель
+├── canfail.py                  #   185 кейс не-вакуумности
+├── registry.py                 #   реестр <!-- fact:registry_targets -->209 цели + предохранитель
 ├── ci.sh                       #   единый контур (16 стадий)
 ├── audit_manifest.sh           #   аттестационный манифест (10 строк)
 ├── gen_test_catalog.py         #   генератор каталога тестов (+ --check)

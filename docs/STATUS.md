@@ -10,14 +10,14 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->208 | every goal this repository claims to verify |
+| Targets, total | <!-- fact:registry_targets -->209 | every goal this repository claims to verify |
 | CHECK | <!-- fact:check_targets -->159 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->10 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
-| META | <!-- fact:meta_targets -->35 | harness, generators, guards |
+| META | <!-- fact:meta_targets -->36 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->184**, of which
+Can-fail cases: **<!-- fact:canfail_cases -->185**, of which
 **159/159** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
@@ -31,16 +31,16 @@ Can-fail cases: **<!-- fact:canfail_cases -->184**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1424 / 1424 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->144 |
+| Literal anchors | <!-- fact:anchors -->145 |
 | Version | `v2.7.1` |
 
 ## Defect journal
 
-Numbered entries: **282**.
+Numbered entries: **283**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 155 |
+| Fixed | 156 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 1 |
@@ -55,7 +55,7 @@ Numbered entries: **282**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->349**.
+Highest defect number in the journal: **<!-- fact:max_defect -->350**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

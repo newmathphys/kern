@@ -349,6 +349,10 @@ FAULTABLE = [
     "tools/dst_check.sh",
     "tools/heal_check.sh",
     "docs/CAPABILITY_STATUS.md",
+    # Кейс `charter-text` правит ПРОЗУ устава (заголовок), проверяя, что текст
+    # не отстаёт от измерения `charter_check.py` (дефект #350).
+    "docs/CHARTER.md",
+    "docs/CHARTER.ru.md",
     # Кейс `journal-parity` правит EN-журнал (перенумеровывает запись, чтобы
     # множества номеров RU/EN разошлись). Файл обязан быть в FAULTABLE, иначе
     # подсадка останется в дереве (класс #225).
@@ -2028,6 +2032,24 @@ def case_evm_fundef():
     return "make evm-proof-check"
 
 
+def case_charter_text():
+    """ШАГ N9 SABOTAGE: ТЕКСТ устава отстаёт от ИЗМЕРЕНИЯ чекера.
+
+    ЛОМАЕМ: возвращаем в `docs/CHARTER.md` заголовок «Why two laws are not
+    claimed as proven» — ровно состояние до #350, когда чекер уже измерял
+    «8 доказано | не покрыто 0», а канон всё ещё утверждал обратное. Гейт
+    `make charter-text-check` обязан покраснеть.
+
+    Класс дефекта: канон, который ВРЁТ о состоянии ядра. Законы при этом
+    доказаны (`charter-check` зелёный), поэтому ни один существующий гейт
+    расхождения не видел — отсюда отдельный страж.
+    """
+    patch("docs/CHARTER.md",
+          "## 3. Why this section exists at all",
+          "## 3. Why two laws are not claimed as proven")
+    return "make charter-text-check"
+
+
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
 
@@ -3226,6 +3248,8 @@ CASES = [
      case_bound_guards),
     ("evm-fundef", "`define-fun` from the SMT header stops loading -> gate red",
      case_evm_fundef),
+    ("charter-text", "Charter prose lags the checker's measurement -> gate red",
+     case_charter_text),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
