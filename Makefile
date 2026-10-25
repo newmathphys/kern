@@ -541,10 +541,16 @@ version-check: build
 # `kernc-hermetic` (это отдельный шаг). Поэтому проверялся УСТАРЕВШИЙ
 # бинарник, и цепочка «сходилась» сама с собой, даже когда исходники ушли
 # вперёд. Теперь цель сначала СОБИРАЕТ герметичный бинарник.
+# ДЕФЕКТ #355: гейт не мог пройти НИ РАЗУ — регексп версии требовал слэш после
+# `vX.Y.Z`, которого в README нет ни в одном теге; запись #285 утверждала
+# обратное. Self-test идёт ПЕРВЫМ: он ловит поломку самого распознавания версии
+# (класс #345 — проверка, которая не может упасть, ничего не доказывает).
 artifact-check: hermetic
+	@$(PYTHON) tools/artifact_check.py --selftest
 	@$(PYTHON) tools/artifact_check.py
 
 artifact-check-offline: hermetic
+	@$(PYTHON) tools/artifact_check.py --selftest
 	@$(PYTHON) tools/artifact_check.py --offline
 
 # ==== РАСШИРЕННЫЙ КОНТУР ВЕРИФИКАЦИИ ====

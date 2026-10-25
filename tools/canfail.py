@@ -2168,12 +2168,30 @@ def case_conformance_break():
     return "make conformance-check"
 
 
-# ДЕФЕКТ #285: кейсы `artifact-check`/`artifact-check-offline` удалены.
-# Они требовали объявленного в README sha256 бинарника, а дефект #250 убрал
-# этот хардкод НАМЕРЕННО (он дрейфовал при каждом релизе). Без объявления
-# `artifact_check.py` выходит с 1 всегда — то есть диверсия «доказывала»
-# нечувствительность ворот, которых больше нет. Проверка артефакта остаётся
-# релизной: там README объявляет хеш, и цепочка README<->сборка<->asset жива.
+# ДЕФЕКТ #355: кейсы `artifact-check`/`artifact-check-offline` возвращаются.
+# Запись #285 удалила их с обоснованием «artifact_check.py выходит с 1 всегда,
+# значит диверсия доказывала нечувствительность ворот, которых больше нет».
+# Измерение показало, что причина была ДРУГОЙ: `detect_version` требовал слэш
+# после `vX.Y.Z` (`.../download/v2.7.1/`), а README объявляет базу БЕЗ слэша —
+# во ВСЕХ тегах (v2.6.3, v2.6.4, v2.7.0, v2.7.1). То есть гейт падал не потому,
+# что «источника хеша нет», а потому, что не умел прочитать ФАКТИЧЕСКУЮ форму
+# README. Теперь версия читается, хеш берётся из опубликованного `SHA256SUMS`,
+# offline-режим сверяет версию сборки с README — и ворота снова СПОСОБНЫ упасть
+# по своей вине. Обоснование #285 сохранено выше как история, а не удалено.
+
+def case_artifact_offline():
+    """ШАГ N13 SABOTAGE: версия в README расходится с версией сборки.
+
+    ЛОМАЕМ: подменяем объявленную в README версию релиза (`download/v2.7.2` →
+    `download/v9.9.9`). Локальная сборка печатает v2.7.2, значит цепочка
+    «README ↔ сборка» разорвана — ровно дефект #82, ради которого ворота и
+    существуют. `make artifact-check-offline` обязан покраснеть.
+    """
+    patch("README.md",
+          "releases/download/v2.7.2",
+          "releases/download/v9.9.9")
+    return "make artifact-check-offline"
+
 
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
@@ -3340,6 +3358,8 @@ CASES = [
      case_charter_text),
     ("readme-link", "README links a document that does not exist -> gate red",
      case_readme_link),
+    ("artifact-offline", "README version diverges from the built binary -> gate red",
+     case_artifact_offline),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
