@@ -36,11 +36,11 @@ Can-fail cases: **<!-- fact:canfail_cases -->190**, of which
 
 ## Defect journal
 
-Numbered entries: **288**.
+Numbered entries: **289**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 162 |
+| Fixed | 163 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
@@ -55,7 +55,7 @@ Numbered entries: **288**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->355**.
+Highest defect number in the journal: **<!-- fact:max_defect -->356**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

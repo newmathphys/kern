@@ -28,6 +28,11 @@ v_next=$(grep -oE 'KERN_VERSION = "v[0-9]+\.[0-9]+\.[0-9]+"' src/next/main.zig |
 v_capi=$(grep -oE 'KERN v[0-9]+\.[0-9]+\.[0-9]+ \(C-ABI\)' src/capi.zig | head -1 | grep -oE 'v[0-9.]+')
 v_srv=$(grep -oE '"version": "[0-9]+\.[0-9]+\.[0-9]+"' server.json | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 v_act=$(grep -oE "default: 'v[0-9]+\.[0-9]+\.[0-9]+'" action.yml | head -1 | grep -oE 'v[0-9.]+')
+# 13-я поверхность (дефект #356): `smithery.yaml` (каталог Smithery) несёт свою
+# копию версии и НЕ входил в этот гейт — к релизу v2.7.2 он остался на 2.7.1,
+# хотя `gen_mcp_manifests.py --write` его не перезаписывает (только читает).
+# Ровно класс #97/#292/#343: поверхность версии вне единого источника.
+v_smith=$(grep -oE 'version: "[0-9]+\.[0-9]+\.[0-9]+"' smithery.yaml | head -1 | grep -oE '[0-9.]+')
 
 echo "  kernc --version : ${v_c:-нет}"
 echo "  kernc баннер    : ${b_c:-нет}"
@@ -39,6 +44,7 @@ echo "  src/next/main   : ${v_next:-нет}"
 echo "  src/capi.zig    : ${v_capi:-нет}"
 echo "  server.json     : v${v_srv:-нет}"
 echo "  action.yml      : ${v_act:-нет} (тег, с которого Action качает бинарь)"
+echo "  smithery.yaml   : v${v_smith:-нет} (13-я поверхность, дефект #356)"
 
 [ -n "$v_c" ] || bad "не удалось прочитать версию из kernc --version"
 [ "$v_c" = "$b_c" ] || bad "kernc: --version ($v_c) != баннер ($b_c) — версия продублирована и разошлась"
@@ -52,6 +58,8 @@ echo "  action.yml      : ${v_act:-нет} (тег, с которого Action �
 [ "v$v_srv" = "$v_c" ] || bad "server.json (v$v_srv) != kernc ($v_c)"
 [ -n "$v_act" ] || bad "не удалось прочитать default-тег из action.yml"
 [ "$v_act" = "$v_c" ] || bad "action.yml ($v_act) != kernc ($v_c) — Action скачает другой релиз"
+[ -n "$v_smith" ] || bad "не удалось прочитать version из smithery.yaml"
+[ "v$v_smith" = "$v_c" ] || bad "smithery.yaml (v$v_smith) != kernc ($v_c) — каталог Smithery объявит другую версию"
 
 # 12-я поверхность (дефект #343): версия внутри JSON-отчёта. Она была зашита
 # литералом `2.4.0` и разошлась с бинарником; внешний исследователь заметил это,

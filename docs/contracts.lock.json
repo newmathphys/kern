@@ -47,6 +47,12 @@
     "pure_ok:ensures:hard": "60dbb95ce96f2cfa77e7d796bf376e42c70c4fb8418c10464fd564a2e5105e03",
     "pure_ok:requires:hard": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de"
   },
+  "examples/evm_semantics_demo.py": {
+    "evm_div_positive:ensures:hard": "553c60bd543bfc18b0444d7c989f96ecf2bac9544348144284b0d44c6d7bcb69",
+    "evm_div_positive:requires:hard": "f5f15f16878e118ba1f1bcc2abce8ce9ca9dfed04864d65e9e4245e0a3c497a1",
+    "evm_sdiv_truncates:ensures:hard": "c808eb5309592ea3a0adbf06f3aa394a4e20031b07e4468a271077152765a6c0",
+    "evm_sdiv_truncates:requires:hard": "432be805d63f65400f81f449e1d4deec33bdc11a9374e9892143f64d6fd8e7d9"
+  },
   "examples/ffi_bridge_demo.py": {},
   "examples/hypotheses_demo.py": {
     "identity_nonneg:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
@@ -100,10 +106,12 @@
   "tools/bug_hunter.py": {},
   "tools/canfail.py": {},
   "tools/charter_check.py": {},
+  "tools/evm_lang_check.py": {},
   "tools/gen_llms_txt.py": {},
   "tools/gen_showcase_graph.py": {},
   "tools/kern_contracts.py": {},
   "tools/mcp_selftest.py": {},
+  "tools/registry.py": {},
   "tools/run_all_10_capabilities_demo.py": {},
   "tools/scan_to_kern.py": {},
   "tools/trust_scorecard.py": {}

@@ -402,6 +402,23 @@ CASE_TARGET = {
     "version-consistency": "version-check", # версия в баннере/--version/README
     "mcp-selftest": "mcp-selftest",
     "model-negative": "core_tests",   # парсер модели: свёртка (- N)
+    # ДЕФЕКТ #356: кейсы, добавленные в цикле v2.7.2, НЕ были внесены в эту
+    # таблицу, поэтому покрытие считалось по-старому: `evm-lang-check` и
+    # `evm-proof-check` (обе CHECK) числились БЕЗ доказательства, хотя кейсы
+    # существуют и падают. Гейт `scorecard-check` это поймал: «can-fail 158/160»
+    # при 160 CHECK. Таблица — единственный источник сопоставления (эвристика по
+    # подстроке запрещена выше), значит новый кейс обязан быть внесён ЗДЕСЬ.
+    "evm-lang": "evm-lang-check",
+    "evm-fundef": "evm-proof-check",
+    "allman-style": "codecheck",
+    "arith-unary": "arith-semantics-check",
+    "lang-fields": "lang-semantics-check",
+    # META-цели (в знаменатель CHECK не входят, но сопоставление фиксируем,
+    # чтобы «кейс есть, а связи нет» не повторялось):
+    "charter-text": "charter-text-check",
+    "readme-link": "readme-link-check",
+    "journal-parity": "journal-parity-check",
+    "artifact-offline": "artifact-check-offline",
 }
 
 
