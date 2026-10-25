@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->160 · cases <!-- fact:canfail_cases -->188 · anchors <!-- fact:anchors -->148 · registry <!-- fact:registry_targets -->210 · META <!-- fact:meta_targets -->36 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->160 · cases <!-- fact:canfail_cases -->189 · anchors <!-- fact:anchors -->149 · registry <!-- fact:registry_targets -->211 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -43,7 +43,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->160 / <!-- fact:check_targets -->160 CHECK-целей** покрыты (<!-- fact:canfail_cases -->188 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->160 / <!-- fact:check_targets -->160 CHECK-целей** покрыты (<!-- fact:canfail_cases -->189 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -683,20 +683,20 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 188 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->148 якорей применимы (за ~1 с)
+make canfail          # 189 кейс: ломаем инвариант -> цель обязана упасть
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->149 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->210 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->211 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->210 (CHECK <!-- fact:check_targets -->160 · MEASURE 1 · BUILD <!-- fact:build_targets -->10 · EXTERNAL 3 · META <!-- fact:meta_targets -->36) |
+| Целей всего | <!-- fact:registry_targets -->211 (CHECK <!-- fact:check_targets -->160 · MEASURE 1 · BUILD <!-- fact:build_targets -->10 · EXTERNAL 3 · META <!-- fact:meta_targets -->37) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->160/<!-- fact:check_targets -->160 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->188 (не-вакуумных <!-- fact:canfail_cases -->188 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->353** |
+| can-fail кейсов | <!-- fact:canfail_cases -->189 (не-вакуумных <!-- fact:canfail_cases -->189 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->354** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 
@@ -866,5 +866,5 @@ KERN распространяется по модели **source-available** с 
 - [Разбор теневого аудита](docs/SHADOW_AUDIT_EXAMPLE.md) — два настоящих дефекта (`SIGFPE` на `n=0`, тихие неверные ответы с `n=11`) в `TheAlgorithms/C math/catalan.c`, с верной починкой и очевидной неверной. Починка отправлена в апстрим: [TheAlgorithms/C#1595](https://github.com/TheAlgorithms/C/pull/1595).
 - [Второй отчёт в апстрим](https://github.com/TheAlgorithms/Rust/pull/1075) — `binom(n, k)` в `TheAlgorithms/Rust src/math/binomial_coefficient.rs` уходит в минус по `u64` при `k > n`: все семь тестов апстрима используют `k <= n`, поэтому `binom(0, 2)` падает в debug и даёт мусор в release. Найдено через контракт на выражение самого цикла (`requires i < k`) и опровержение решателем; воспроизведено `rustc`.
 - **[Зачем KERN: один живой пример, 30 секунд](docs/EXAMPLE_WHY_KERN.ru.md)** — весь смысл на чужом коде: контракт на `lcm` из `TheAlgorithms/C`, контрпример и `gcc`, подтверждающий `signed integer overflow` (RU / [EN](docs/EXAMPLE_WHY_KERN.md)).
-- [План v2.7.1](docs/PLAN_v2.7.1.md) — активный цикл: исправление нашего отозванного утверждения (дефект **#320**), расширение C-экстрактора до `unsigned`/`size_t` (**#312**), инварианты циклов (**#315**) и цели `TheAlgorithms/Rust` / `py-evm` — с acceptance и kill criteria.
+- [План v2.7.2](docs/PLAN_v2.7.2.md) — закрытый цикл: Этап 1–2 (ядро и семантика) вычищены до нуля, 14 дефектов (#312, #322, #325, #335, #342, #344/#341, #345–#353), включая мину звучимости в собственном пруф-чекере (#349) и канон, противоречивший своему же гейту (#350) — с acceptance и kill criteria.
 - [Политика версий](docs/SEMVER.md) — что здесь значат MAJOR/MINOR/PATCH, почему фиксы копятся вместо тега на каждый, и два известных отклонения классификации (записаны, не спрятаны).

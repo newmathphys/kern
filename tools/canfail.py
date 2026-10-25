@@ -2107,6 +2107,25 @@ def case_charter_text():
           "## 3. Why two laws are not claimed as proven")
     return "make charter-text-check"
 
+def case_readme_link():
+    """ШАГ N12 SABOTAGE: README ссылается на НЕСУЩЕСТВУЮЩИЙ документ.
+
+    ЛОМАЕМ: возвращаем в `README.md` ссылку `[Plan v2.7.1](docs/PLAN_v2.7.1.md)`
+    — ровно состояние релиза v2.7.1 (дефект #354): коммит `7480996` добавил
+    ссылку на план, которого никто никогда не создавал. Ни `docs-parity`, ни
+    `claims-audit`, ни `journal-parity-check` этого не видели: первый сверяет
+    якоря фактов, второй — числа, третий — номера записей журнала. Гейт
+    `make readme-link-check` обязан покраснеть.
+
+    Класс дефекта: документ релиза врёт о собственном содержимом.
+    """
+    patch("README.md",
+          "- [Plan v2.7.2](docs/PLAN_v2.7.2.md)",
+          "- [Plan v2.7.1](docs/PLAN_v2.7.1.md)")
+    return "make readme-link-check"
+
+
+
 
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
@@ -3319,6 +3338,8 @@ CASES = [
      case_evm_fundef),
     ("charter-text", "Charter prose lags the checker's measurement -> gate red",
      case_charter_text),
+    ("readme-link", "README links a document that does not exist -> gate red",
+     case_readme_link),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

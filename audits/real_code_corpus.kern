@@ -95,6 +95,11 @@ artifact "audits/smt2/midpoint_midpointMutated.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/rust_allman_add32Allman.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/rust_clean_add_bounded.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -121,6 +126,11 @@ artifact "audits/smt2/zcalloc_zcallocSize.smt2" {
 }
 
 artifact "audits/smt2/zcalloc_zcallocSizeBounded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/zig_allman_addAllman.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
@@ -243,6 +253,12 @@ claim "audit:midpoint_midpointMutated" {
   context "audits/smt2/midpoint_midpointMutated.smt2"
 }
 
+claim "audit:rust_allman_add32Allman" {
+  status proven
+  evidence "contract:audits/smt2/rust_allman_add32Allman.smt2"
+  context "audits/smt2/rust_allman_add32Allman.smt2"
+}
+
 claim "audit:rust_clean_add_bounded" {
   status proven
   evidence "contract:audits/smt2/rust_clean_add_bounded.smt2"
@@ -277,6 +293,12 @@ claim "audit:zcalloc_zcallocSizeBounded" {
   status unknown
   evidence "contract:audits/smt2/zcalloc_zcallocSizeBounded.smt2"
   context "audits/smt2/zcalloc_zcallocSizeBounded.smt2"
+}
+
+claim "audit:zig_allman_addAllman" {
+  status proven
+  evidence "contract:audits/smt2/zig_allman_addAllman.smt2"
+  context "audits/smt2/zig_allman_addAllman.smt2"
 }
 
 claim "audit:zig_clean_add" {
