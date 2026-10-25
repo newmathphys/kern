@@ -1813,6 +1813,23 @@ def case_arith_semantics():
     return "make arith-semantics-check"
 
 
+def case_arith_unary():
+    """ШАГ N10 SABOTAGE: перевод `abs` возвращается к НАИВНОЙ форме.
+
+    ЛОМАЕМ: `abs(x)` больше не разветвляется по знаку, а возвращает сам `x` —
+    для отрицательных это ДРУГАЯ функция. `make arith-semantics-check` обязан
+    покраснеть: сверка #352 идёт по КРАЯМ i32 и вокруг нуля, где ошибка и живёт.
+
+    Почему отдельный кейс, а не расширение `arith-semantics`: тот кейс ломает
+    адаптер ДЕЛЕНИЯ (#317). Здесь проверяется, что новая сверка `abs`/`-x`/
+    `min`/`max` (#352) способна упасть — иначе она была бы декоративной.
+    """
+    patch("tools/kern_contracts.py",
+          '            return f"(ite (< {x} 0) (- 0 {x}) {x})"',
+          '            return f"({x})"  # ЛОМАЕМ (N10): abs без ветви по знаку')
+    return "make arith-semantics-check"
+
+
 def case_c_types():
     """#321 SABOTAGE: канонизация ТИПА ВОЗВРАТА убрана.
 
@@ -3265,6 +3282,8 @@ CASES = [
      case_lang_semantics),
     ("arith-semantics", "Naive `div` instead of floor/truncation -> gate red",
      case_arith_semantics),
+    ("arith-unary", "`abs` without a sign branch stops matching the language -> gate red",
+     case_arith_unary),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
      case_c_types),
     ("div-guards", "Divisor obligation ignores active guards -> gate red",

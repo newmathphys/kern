@@ -164,6 +164,67 @@ def main() -> int:
     print(f"\n[OK] дефект #317 закрыт: перевод совпадает с семантикой языка на "
           f"всём домене ({total} вычислений); наивный `div` расходился бы в "
           f"{naive_bad} — то есть проверка способна упасть.")
+
+    # --- ШАГ N10 (#352): ДИФФЕРЕНЦИАЛЬНАЯ СВЕРКА `abs` / `-x` / `min` / `max` ---
+    # Перевод этих операций в `expr_smt` СУЩЕСТВОВАЛ, но НИ РАЗУ не сверялся с
+    # живым рантаймом: ошибка в форме `ite` (`(< a 0)` вместо `(<= a 0)`) или в
+    # выборе ветви дала бы ложное ДОКАЗАНО — тот же класс, что #317. Сверяем на
+    # КРАЯХ диапазона i32 и вокруг нуля, где ошибки и живут.
+    edge = [-2147483648, -2147483647, -1000, -1, 0, 1, 1000, 2147483646, 2147483647]
+    un_total = un_bad = 0
+    un_examples: list[str] = []
+    for a in edge:
+        # `-a` для отрицательного литерала записывается как `-(N)`, иначе это
+        # унарный минус от положительного числа, а не нужное значение.
+        neg_src = f"abs({a})"
+        un_total += 1
+        got = _z3_value(kc.expr_smt(ast.parse(neg_src, mode="eval").body, {}))
+        if got != abs(a):
+            un_bad += 1
+            if len(un_examples) < 4:
+                un_examples.append(f"    {neg_src}: z3={got} python={abs(a)}")
+        minus_src = f"-({a})" if a < 0 else f"-{a}"
+        un_total += 1
+        got = _z3_value(kc.expr_smt(ast.parse(minus_src, mode="eval").body, {}))
+        if got != -a:
+            un_bad += 1
+            if len(un_examples) < 4:
+                un_examples.append(f"    {minus_src}: z3={got} python={-a}")
+
+    bin_total = bin_bad = 0
+    for a in edge:
+        for b in edge:
+            for fname, ref in (("min", min(a, b)), ("max", max(a, b))):
+                bin_total += 1
+                src = f"{fname}({a}, {b})"
+                got = _z3_value(kc.expr_smt(ast.parse(src, mode="eval").body, {}))
+                if got != ref:
+                    bin_bad += 1
+                    if len(un_examples) < 4:
+                        un_examples.append(f"    {src}: z3={got} python={ref}")
+
+    print(f"[i] abs/-x: {un_total} точек (вкл. края i32) | min/max: {bin_total} пар")
+    if un_examples:
+        print("  примеры расхождений:")
+        for e in un_examples:
+            print(e)
+    if un_bad or bin_bad:
+        print(f"\n[FAIL] перевод `abs`/`-x`/`min`/`max` расходится с языком: "
+              f"{un_bad + bin_bad} (из {un_total + bin_total})")
+        return 1
+    # НЕВАКУМНОСТЬ: проверка обязана уметь падать. Контроль — НАИВНАЯ форма
+    # `abs` без ветви для отрицательных (`a` вместо `ite`): она обязана
+    # расходиться, иначе сверка ничего не доказывает.
+    naive_un = 0
+    for a in edge:
+        if a != abs(a):
+            naive_un += 1
+    if naive_un == 0:
+        print("[FAIL] наивный `abs` (без ветви) совпал везде — тест не способен упасть")
+        return 2
+    print(f"[OK] #352: перевод abs/-x/min/max совпадает с языком на всех точках "
+          f"({un_total + bin_total}); наивный `abs` без ветви расходился бы в "
+          f"{naive_un} — проверка способна упасть")
     return 0
 
 
