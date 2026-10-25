@@ -38,7 +38,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | Формальные доказательства | **8 файлов Lean 4** (147 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
 | Мутационный score | **100.0%** — полный обстрел **21 файла / 1424 сайтов** (1424/1424 убито, 0 выживших, 23 мин; лог прогона **закоммичен**: `docs/evidence/mutate_full.log` (1 408 строк, `RC=0`), рядом лежат канонический 40/40 и модульные `--full-file` 244/244). Канонический гейт (`make mutate`, seed=7): 40/40 — те же вердикты. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`)  — **Канонический стратифицированный гейт** (`make mutate`, 18 файлов, пул 1152 сайта, seed=7): `40 / 40 (100.0%)`. **Полный обстрел без сэмплирования** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5. |
-| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **<!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог QEMU 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
+| Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог QEMU 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
 | C-ABI на чистом C11 (`-Werror -pedantic`) | **20 / 20** — NULL и нулевые длины отвергаются без краха |
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
@@ -494,7 +494,7 @@ KERN **4 из 7 исправлено**. Три оставшихся — это *
 | **Кванторы (E-matching)** | триггеры; Matching Loop DoS обезврежен таймаутом |
 | **Невмешательство (HyperLTL)** | taint: ветвление/индекс по секрету → **утечка**; constant-time ~1.0× |
 | **ReDoS (CWE-1333)** | `(a+)+`, `(a|a)*` → **уязвимы**; `(a|b)*` — нет |
-| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **<!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
+| **Кросс-архитектура** | **ARM64** и **POWERPC64 (big-endian)** под QEMU: **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
 | **Мост «текст → контракт»** | `make bridge`: фраза из Markdown → `.smt2` → **`e=1` ДОКАЗАНО** |
 | **Binary-level soundness** | дайджест одинаков на Debug/ReleaseSafe/ReleaseFast (translation validation) |
 | **Constant-time на ассемблере** | taint-анализ: **0** ветвлений от данных (контроль: 1 обнаружен) |
@@ -696,7 +696,7 @@ make ci               # единый контур (12 стадий)
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->160/<!-- fact:check_targets -->160 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->190 (не-вакуумных <!-- fact:canfail_cases -->190 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->356** |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->357** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

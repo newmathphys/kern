@@ -1,16 +1,23 @@
 === KERN EVIDENCE: cross_arch ===
 === команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-23T07:58:12Z ===
+=== дата: 2026-10-25T17:48:11Z ===
 
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
-  435/436 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
-  436/436 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
-  428 passed; 8 skipped; 0 failed.
+  440/441 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
+  441/441 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
+  433 passed; 8 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  435/436 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
-  436/436 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
-  428 passed; 8 skipped; 0 failed.
-=== ENV-DEPENDENT: baseline 436 (требует qemu-user-static; на машине без QEMU пересъёмка невозможна) ===
+  440/441 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
+  441/441 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
+  433 passed; 8 skipped; 0 failed.
+=== ENV-DEPENDENT: baseline 441 (требует qemu-user-static; на машине без QEMU пересъёмка невозможна) ===
 
 RC=0
-[guard] FAULTABLE без изменений (129 файлов) — прогон чист
+[guard] 🔴 ФАЙЛЫ ИЗМЕНЕНЫ ВО ВРЕМЯ ПРОГОНА (внешняя правка):
+        - README.md: изменён (e9bc1cf4f2f9 -> f250529a1965)
+        - docs/CAPABILITY_STATUS.en.md: изменён (51de6d0b5665 -> e6cbe61d72bf)
+        - docs/CAPABILITY_STATUS.md: изменён (9c341711707e -> 737c5e8620c3)
+        - tools/flake_check.py: изменён (7f17400136e6 -> f132e92ab51c)
+        Прогон НЕДЕЙСТВИТЕЛЕН: свидетельства могли быть сняты
+        при пропатченных исходниках. Не правьте файлы во время
+        `make evidence` / `make canfail`.
