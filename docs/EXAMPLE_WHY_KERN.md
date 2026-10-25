@@ -150,7 +150,7 @@ subset. It is a **scalpel plus a turnstile**:
 | Test catalog | <!-- fact:catalog -->470 |
 | CHECK targets | <!-- fact:check_targets -->159 |
 | can-fail cases | <!-- fact:canfail_cases -->184 |
-| Literal anchors | <!-- fact:anchors -->145 |
+| Literal anchors | <!-- fact:anchors -->144 |
 | Registry targets | <!-- fact:registry_targets -->208 |
 | Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |

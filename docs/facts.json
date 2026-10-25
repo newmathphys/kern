@@ -12,7 +12,7 @@
  "build_targets": 10,
  "cross_arch_passed": 428,
  "cross_arch_skipped": 8,
- "anchors": 145,
+ "anchors": 144,
  "max_defect": 349,
  "lean_theorems": 147,
  "quixbugs": {

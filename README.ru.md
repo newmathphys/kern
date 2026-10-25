@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->145 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->144 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -684,7 +684,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 
 ```bash
 make canfail          # 184 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->145 якорей применимы (за ~1 с)
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->144 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
 make registry         # реестр <!-- fact:registry_targets -->208 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)

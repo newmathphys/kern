@@ -31,7 +31,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->184**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1424 / 1424 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->145 |
+| Literal anchors | <!-- fact:anchors -->144 |
 | Version | `v2.7.1` |
 
 ## Defect journal
