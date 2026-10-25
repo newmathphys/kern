@@ -92,7 +92,7 @@ kernel cross-check to notice.
 
 ## 6. Facts referenced by this document
 
-<!-- fact:core_tests -->436 core tests · <!-- fact:next_tests -->53 next ·
+<!-- fact:core_tests -->441 core tests · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->470 catalog · <!-- fact:check_targets -->160 CHECK ·
 <!-- fact:canfail_cases -->190 can-fail cases · <!-- fact:anchors -->150 anchors ·
 <!-- fact:registry_targets -->211 targets · <!-- fact:meta_targets -->37 META ·

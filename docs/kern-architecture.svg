@@ -71,7 +71,7 @@
   <!-- Panel 3: measured baseline -->
   <rect x="628" y="104" width="300" height="152" rx="6" fill="#0d1117" stroke="#238636" stroke-width="1.2"/>
   <text x="644" y="125" class="hdr">MEASURED BASELINE</text>
-  <text x="644" y="150" class="val"><!-- fact:core_tests -->436 / <!-- fact:core_tests -->436</text>
+  <text x="644" y="150" class="val"><!-- fact:core_tests -->441 / <!-- fact:core_tests -->441</text>
   <text x="742" y="150" class="lbl">core x86_64 (QEMU ok)</text>
   <text x="644" y="172" class="val"><!-- fact:lean_theorems -->147 / 0</text>
   <text x="742" y="172" class="lbl">Lean 4 theorems / 0 sorry</text>

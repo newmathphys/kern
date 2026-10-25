@@ -499,7 +499,7 @@ uv venv .venv && uv pip install --python .venv/bin/python z3-solver
 zig build
 
 # Тесты
-zig build test            # 436 теста ядра
+zig build test            # 441 теста ядра
 zig build test-next       # 53 KERN-Next
 zig build test-fault      # инъекция сбоев памяти
 zig build test-align      # выравнивание и endianness
@@ -617,7 +617,7 @@ KERN — это не «ещё один линтер». Это **шлюз**, ко
 Что построено и измерено:
 
 ```
-436 теста ядра + 53 теста KERN-Next
+441 теста ядра + 53 теста KERN-Next
 147 теорем Lean 4, 0 sorry
 100 % покрытие решений · 100.0 % мутационный скор · 160/160 can-fail
 0 утечек памяти · 0 UB · 0 утечек FD · 0 зомби
