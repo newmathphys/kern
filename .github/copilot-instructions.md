@@ -41,7 +41,7 @@ zig build && zig build test        # 436 core tests
 zig build test-next                # 53 KERN-Next tests
 make run-example                   # the 15-second demo (pytest green vs KERN refutation)
 make contracts                     # polyglot @kern: contracts (Python/Zig/C/Rust)
-./formal/check.sh                  # Lean 4: 8 files, 143 theorems, 0 sorry
+./formal/check.sh                  # Lean 4: 8 files, 147 theorems, 0 sorry
 make canfail                       # every check must be provably able to fail (~17 min)
 python3 tools/canfail.py --check-anchors   # 1-second pre-flight, run this first
 python3 tools/bench_json.py --html docs/bench/index.html   # deterministic benchmark

@@ -147,12 +147,12 @@ subset. It is a **scalpel plus a turnstile**:
 |:--|:--|
 | Core tests | <!-- fact:core_tests -->436 |
 | Next tests | <!-- fact:next_tests -->53 |
-| Test catalog | <!-- fact:catalog -->468 |
+| Test catalog | <!-- fact:catalog -->470 |
 | CHECK targets | <!-- fact:check_targets -->159 |
 | can-fail cases | <!-- fact:canfail_cases -->184 |
 | Literal anchors | <!-- fact:anchors -->145 |
 | Registry targets | <!-- fact:registry_targets -->208 |
-| Lean theorems | <!-- fact:lean_theorems -->143 |
+| Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |
 | QuixBugs (differential) | <!-- fact:quixbugs.differential -->40 |
 | META targets | <!-- fact:meta_targets -->35 |

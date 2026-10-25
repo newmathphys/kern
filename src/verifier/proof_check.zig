@@ -1450,6 +1450,12 @@ fn cmpSubZeroEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
 fn evalConstInt(e: Sexp) ?i64 {
     if (e.atom) |a| {
         if (isNegNumAtom(a)) |d| {
+            // ⚠️ `-9223372036854775808` = MIN(i64): модуль (2^63) в i64 НЕ влезает,
+            // поэтому `parseInt` на нём падает, и значение MIN было недостижимо —
+            // то есть защита от паники в `div`/`mod` оказалась МЁРТВЫМ кодом,
+            // а тест «проходил» по неверной причине (не парсился литерал, а не
+            // срабатывал guard). Разбираем MIN ЯВНО.
+            if (std.mem.eql(u8, d, "9223372036854775808")) return std.math.minInt(i64);
             const v = std.fmt.parseInt(i64, d, 10) catch return null;
             return -v;
         }
@@ -1458,22 +1464,49 @@ fn evalConstInt(e: Sexp) ?i64 {
     if (e.items.len == 0) return null;
     const h = e.items[0].atom orelse return null;
     if (std.mem.eql(u8, h, "-") and e.items.len == 2) {
+        // То же для формы `(- N)`, которой Z3 печатает отрицательные литералы.
+        if (e.items[1].atom) |d| {
+            if (std.mem.eql(u8, d, "9223372036854775808")) return std.math.minInt(i64);
+        }
         const v = evalConstInt(e.items[1]) orelse return null;
-        return -v;
+        return std.math.sub(i64, 0, v) catch null;
     }
     if (e.items.len != 3) return null;
     const a = evalConstInt(e.items[1]) orelse return null;
     const b = evalConstInt(e.items[2]) orelse return null;
-    if (std.mem.eql(u8, h, "+")) return a +% b;
-    if (std.mem.eql(u8, h, "-")) return a -% b;
-    if (std.mem.eql(u8, h, "*")) return a *% b;
+    // ⚠️ ПЕРЕПОЛНЕНИЕ — ЭТО ОТКАЗ, А НЕ ЗАВОРОТ. В SMT-LIB сорт `Int` имеет
+    // ПРОИЗВОЛЬНУЮ точность, поэтому `(+ MAX 1)` там = 2^63, а `+%` в Zig дал бы
+    // `MIN` — то есть ЛОЖНОЕ тождество `(= (+ MAX 1) MIN)`. Раньше стояли
+    // `+% -% *%` (wrapping): это тихая подмена математики. Теперь checked-версии,
+    // и переполнение честно возвращает `null` (шаг остаётся доверенным).
+    if (std.mem.eql(u8, h, "+")) return std.math.add(i64, a, b) catch null;
+    if (std.mem.eql(u8, h, "-")) return std.math.sub(i64, a, b) catch null;
+    if (std.mem.eql(u8, h, "*")) return std.math.mul(i64, a, b) catch null;
     if (std.mem.eql(u8, h, "div")) {
-        if (b == 0) return null;
-        return @divFloor(a, b);
+        if (b == 0) return null; // в SMT-LIB деление на ноль не определено
+        if (b > 0) return @divFloor(a, b);
+        // ДЕФЕКТ (найден ревизией плана, подтверждён Z3): при b < 0 SMT-LIB
+        // определяет `div`/`mod` ЕВКЛИДОВО (остаток ВСЕГДА >= 0), а не как
+        // floor. ИЗМЕРЕНО: `(div 1 (- 2)) = 0`, `(mod 1 (- 2)) = 1`,
+        // `(div (- 7) (- 2)) = 4` (не 3!). `@divFloor(1, -2)` в Zig даёт -1 —
+        // то есть прежняя формула ПРИНИМАЛА ЛОЖНОЕ тождество, а `@mod(a, b)`
+        // при b < 0 ПАНИКУЕТ («modulus is negative»).
+        // Звучимость: `a = b*q + r`, `0 <= r < |b|` — теорема
+        // `euclid_div_neg_denom` в `formal/FarkasSoundness.lean` (§95.4).
+        if (b == std.math.minInt(i64)) return null; // `-b` переполнится
+        const nb = -b;
+        const q = @divFloor(a, nb);
+        // `-q` может переполниться: `a = MIN, b = -1` даёт q = MIN, а ответ
+        // Z3 равен 2^63 — он ВНЕ i64, значит значение не представимо: отказ.
+        if (q == std.math.minInt(i64)) return null;
+        return -q;
     }
     if (std.mem.eql(u8, h, "mod")) {
         if (b == 0) return null;
-        return @mod(a, b);
+        if (b > 0) return @mod(a, b);
+        if (b == std.math.minInt(i64)) return null;
+        // Евклидов остаток неотрицателен: `mod(a, -|b|) = mod(a, |b|)`.
+        return @mod(a, -b);
     }
     return null;
 }
@@ -6435,5 +6468,58 @@ test "#344: константная арифметика — floor-деление
     try std.testing.expect(!constIntEq(try parseSexp(a, "(div 7 2)"), try parseSexp(a, "4")));
     try std.testing.expect(!constIntEq(try parseSexp(a, "(div 7 0)"), try parseSexp(a, "0")));
     try std.testing.expect(!constIntEq(try parseSexp(a, "(mod 7 0)"), try parseSexp(a, "0")));
+}
+
+test "ЕВКЛИДОВО деление при b < 0 (SMT-LIB2), а не floor — и БЕЗ паники" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    // ИЗМЕРЕНО в Z3: (div 1 (- 2)) = 0, (mod 1 (- 2)) = 1.
+    // Zig `@divFloor(1, -2)` дал бы -1 — то есть ЛОЖНОЕ тождество.
+    try std.testing.expect(constIntEq(try parseSexp(a, "(div 1 (- 2))"), try parseSexp(a, "0")));
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(div 1 (- 2))"), try parseSexp(a, "-1")));
+    try std.testing.expect(constIntEq(try parseSexp(a, "(mod 1 (- 2))"), try parseSexp(a, "1")));
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(mod 1 (- 2))"), try parseSexp(a, "-1")));
+    // Частное +4, а НЕ +3: (-2)*4 + 1 = -7, остаток 1 ∈ [0, 2).
+    try std.testing.expect(constIntEq(try parseSexp(a, "(div (- 7) (- 2))"), try parseSexp(a, "4")));
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(div (- 7) (- 2))"), try parseSexp(a, "3")));
+    try std.testing.expect(constIntEq(try parseSexp(a, "(mod (- 7) (- 2))"), try parseSexp(a, "1")));
+    // Знаковое делимое с ПОЛОЖИТЕЛЬНЫМ делителем остаётся floor.
+    try std.testing.expect(constIntEq(try parseSexp(a, "(div 7 (- 2))"), try parseSexp(a, "-3")));
+    // ЗАЩИТА ОТ ПАНИКИ: `a = MIN, b = -1` даёт в Z3 2^63 — ВНЕ i64, значит
+    // значение не представимо и обязан быть ОТКАЗ, а не `integer overflow`.
+    // Сначала — что сам литерал MIN РАЗБИРАЕТСЯ (иначе guard недостижим).
+    try std.testing.expectEqual(@as(?i64, std.math.minInt(i64)),
+        evalConstInt(try parseSexp(a, "(- 9223372036854775808)")));
+    try std.testing.expectEqual(@as(?i64, std.math.minInt(i64)),
+        evalConstInt(try parseSexp(a, "-9223372036854775808")));
+    try std.testing.expect(evalConstInt(try parseSexp(a, "(div (- 9223372036854775808) (- 1))")) == null);
+    try std.testing.expect(evalConstInt(try parseSexp(a, "(div 1 (- 9223372036854775808))")) == null);
+    try std.testing.expect(evalConstInt(try parseSexp(a, "(mod 1 (- 9223372036854775808))")) == null);
+    // Guard обязан срабатывать и на ВЫЧИСЛЯЕМОМ MIN — иначе он мёртвый код.
+    try std.testing.expectEqual(@as(?i64, std.math.minInt(i64)),
+        evalConstInt(try parseSexp(a, "(- (- 1) 9223372036854775807)")));
+    try std.testing.expect(evalConstInt(
+        try parseSexp(a, "(div (- (- 1) 9223372036854775807) (- 1))")) == null);
+    // `mod(MIN, -1) = 0` — влезает в i64, значение обязано быть.
+    try std.testing.expectEqual(@as(?i64, 0), evalConstInt(try parseSexp(a, "(mod (- 9223372036854775808) (- 1))")));
+}
+
+test "ПЕРЕПОЛНЕНИЕ константной арифметики — ОТКАЗ, а не wrapping (сорт Int)" {
+    var ar = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer ar.deinit();
+    const a = ar.allocator();
+    const max = "9223372036854775807";
+    // В SMT-LIB `(+ MAX 1) = 2^63` — значение ВНЕ i64. Прежняя реализация с `+%`
+    // вернула бы `MIN` и ПРИНЯЛА ложное тождество `(= (+ MAX 1) MIN)`.
+    try std.testing.expect(evalConstInt(try parseSexp(a, "(+ 9223372036854775807 1)")) == null);
+    try std.testing.expect(evalConstInt(try parseSexp(a, "(- (- 9223372036854775808) 1)")) == null);
+    try std.testing.expect(evalConstInt(try parseSexp(a, "(* 9223372036854775807 2)")) == null);
+    try std.testing.expect(!constIntEq(try parseSexp(a, "(+ 9223372036854775807 1)"),
+                                     try parseSexp(a, "(- 9223372036854775808)")));
+    // Непереполняющие случаи по-прежнему вычисляются.
+    try std.testing.expectEqual(@as(?i64, 3), evalConstInt(try parseSexp(a, "(+ 1 2)")));
+    try std.testing.expectEqual(@as(?i64, -3), evalConstInt(try parseSexp(a, "(- 0 3)")));
+    _ = max;
 }
 

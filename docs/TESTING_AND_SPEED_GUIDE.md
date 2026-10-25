@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->468 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->145 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->145 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Канонический документ: **что** мы тестируем, **как** измеряем и **чем** ускоряем.
 > Каждое число получено прогоном; где выигрыш не измерен — так и написано.
@@ -32,7 +32,7 @@
 ### Раздел 3 — Формальная верификация
 | Метод | Факт |
 |:--|:--|
-| Lean 4 | **8 файлов, 143 теорем, 0 errors, 0 sorry** |
+| Lean 4 | **8 файлов, 147 теорем, 0 errors, 0 sorry** |
 | Proof-DAG checker | `trusted: 0 \| holes: 0` на QF_LIA, QF_S, IEEE-754, циклах, массивах, автоматах, RLS |
 | Белнап B₄ | `JOIN_K(T,F)=B`, поглощение противоречием, Evidence Decay, Scoped Epoch |
 | Флойд–Хоар | `--loops`: Init + Consecution + Post + Termination |
@@ -148,7 +148,7 @@
 ## 4. Полный популяционный обстрел мутации
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1421 сайтов
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1424 сайтов
 ```
 Результат фиксируется в `docs/METRICS.md §109` (точное число убитых + выжившие по классам).
 

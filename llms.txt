@@ -26,9 +26,9 @@
 ## Measured facts (this repository, current tree)
 
 - Core Zig tests: **436** (`428 passed + 8 skipped`, 0 failed); KERN-Next: **53**;
-  full catalog: **468**.
-- Lean 4: **143 theorems in 8 files, 0 errors, 0 sorry**.
-- Mutation score on the Zig kernel: **1421 / 1421 killed (100.0 %)** across
+  full catalog: **470**.
+- Lean 4: **147 theorems in 8 files, 0 errors, 0 sorry**.
+- Mutation score on the Zig kernel: **1424 / 1424 killed (100.0 %)** across
   **21 files**, no sampling, zero survivors.
 - Can-fail harness: **159 CHECK targets, 184 non-vacuous cases, 0 vacuous**.
 - Cross-architecture: **428 passed / 8 skipped / 0 failed** on x86_64, ARM64 and

@@ -155,10 +155,10 @@ would be a tautology.
 ## 10. Facts referenced by this document
 
 <!-- fact:core_tests -->436 core tests · <!-- fact:next_tests -->53 next ·
-<!-- fact:catalog -->468 catalog · <!-- fact:check_targets -->159 CHECK ·
+<!-- fact:catalog -->470 catalog · <!-- fact:check_targets -->159 CHECK ·
 <!-- fact:canfail_cases -->184 can-fail cases · <!-- fact:anchors -->145 anchors ·
 <!-- fact:registry_targets -->208 targets · <!-- fact:meta_targets -->35 META ·
-<!-- fact:lean_theorems -->143 Lean theorems ·
+<!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 formal SMT ·
 <!-- fact:quixbugs.differential -->40/40 live differential.
 

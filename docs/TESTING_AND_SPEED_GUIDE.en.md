@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->468 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->145 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->143 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->436 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->159 · cases <!-- fact:canfail_cases -->184 · anchors <!-- fact:anchors -->145 · registry <!-- fact:registry_targets -->208 · META <!-- fact:meta_targets -->35 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -32,7 +32,7 @@
 ### Section 3 — Formal verification
 | Method | Fact |
 |:--|:--|
-| Lean 4 | **8 files, 143 theorems, 0 errors, 0 sorry** |
+| Lean 4 | **8 files, 147 theorems, 0 errors, 0 sorry** |
 | Proof-DAG checker | `trusted: 0 \| holes: 0` on QF_LIA, QF_S, IEEE-754, loops, arrays, automata, RLS |
 | Belnap B₄ | `JOIN_K(T,F)=B`, conflict absorption, Evidence Decay, Scoped Epoch |
 | Floyd–Hoare | `--loops`: Init + Consecution + Post + Termination |
@@ -41,7 +41,7 @@
 | Method | Fact |
 |:--|:--|
 | Can-fail discipline | **159 CHECK targets / 126 proven able to fail**, **184 cases, 0 vacuous** |
-| Mutation testing | **1376 / 1421 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
+| Mutation testing | **1376 / 1424 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -149,11 +149,11 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1421 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1424 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
-MUTATION SCORE (raw):  100.0%  (1421/1421 killed)
+MUTATION SCORE (raw):  100.0%  (1424/1424 killed)
 REAL_SECONDS=1383      (23 min, 0 survivors)
 ```
 
