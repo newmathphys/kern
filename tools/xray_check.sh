@@ -39,6 +39,20 @@ if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_range_min_guard'; then
 fi
 echo "[OK] #322: тернарник-гард, continue-гард и граница range(min(..., len)) не обвиняются, индекс от переменной цикла -> честный UNKNOWN"
 
+# ДЕФЕКТ #351: ПРЕДУСЛОВИЕ-ДЕКОРАТОР (`@deal.pre`) — гард на входе. Проверка
+# ДВУСТОРОННЯЯ: под предусловием обвинять нельзя, без него — обязательно.
+DEAL=$(timeout 300 python3 tools/kern_contracts.py --xray examples/deal_guard_demo.py 2>&1) || {
+  echo "[!] xray на deal_guard_demo упал"; exit 1; }
+if echo "$DEAL" | grep -q 'CRASH PATH\] div_guarded'; then
+  echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ div_guarded (предусловие-декоратор не учтено)"; exit 1
+fi
+if echo "$DEAL" | grep -q 'CRASH PATH\] div_guarded_nested'; then
+  echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ div_guarded_nested (декоратор + ветвление)"; exit 1
+fi
+echo "$DEAL" | grep -q 'CRASH PATH\] div_unguarded' || {
+  echo "[!] div_unguarded НЕ обвинён — детектор ослеп на предусловиях"; exit 1; }
+echo "[OK] #351: под @deal.pre находки нет, без него деление на ноль найдено"
+
 # B2: C-СПЕЦИФИЧНЫЕ КЛАССЫ ([BOUNDS PATH] / [OVERFLOW PATH], дефекты #187/#188).
 # Требование двустороннее: без гарда — обвиняем, с гардом — МОЛЧИМ.
 # Иначе это либо слепой детектор, либо генератор ложных тревог (урок #178).

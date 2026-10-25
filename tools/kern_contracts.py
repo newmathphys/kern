@@ -4780,6 +4780,42 @@ def _assigned_names(st) -> set[str]:
     return out
 
 
+def _deal_pre_path(fn, syms: set) -> list:
+    """Путевые условия из ДЕКОРАТОРОВ-предусловий: `@deal.pre(lambda …: <cond>)`.
+
+    ДЕФЕКТ #351 (класс #322(в), найден САМОПРИМЕНЕНИЕМ `--xray tools/`):
+    предусловие, записанное ДЕКОРАТОРОМ, не моделировалось, поэтому `div_ok(a, b)`
+    с `@deal.pre(lambda a, b: b != 0)` получал ЛОЖНЫЙ `[CRASH PATH]`
+    «возможно деление на ноль: b == 0» — ровно то состояние, которое декоратор и
+    исключает. Декоратор — такой же ГАРД, как `if`: он истинен на входе в тело.
+
+    ЗВУЧНОСТЬ: берём ТОЛЬКО форму `@deal.pre(lambda <params>: <cond>)` с простой
+    лямбдой без `*args`/`**kwargs`. Любая иная форма (вызов функции вместо лямбды,
+    вариативные параметры, неразбираемое условие) даёт ПУСТОЙ список — поведение
+    остаётся прежним: лучше лишний кандидат, чем пропуск нарушения.
+    """
+    out: list = []
+    for dec in getattr(fn, "decorator_list", []) or []:
+        if not isinstance(dec, ast.Call):
+            continue
+        f = dec.func
+        if not (isinstance(f, ast.Attribute) and f.attr == "pre"
+                and isinstance(f.value, ast.Name) and f.value.id == "deal"):
+            continue
+        if len(dec.args) != 1 or not isinstance(dec.args[0], ast.Lambda):
+            continue
+        lam = dec.args[0]
+        if lam.args.vararg is not None or lam.args.kwarg is not None:
+            continue
+        try:
+            c = _cond_smt(lam.body, syms)
+        except (Unsupported, NoReturn):
+            continue
+        if c:
+            out.append(c)
+    return out
+
+
 def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                  in_while=False):
     """Обход тела с накоплением путевых условий (Пункт 21, Zero-Annotation).
@@ -6290,11 +6326,15 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         lens = _declared_lengths_for(src_lines, fn.lineno)  # опциональное переопределение
         syms: set = set()
         lens.update(_collect_lens(fn, syms))   # Zero-Annotation: литералы + len()
-        _walk_branches(fn.body, [], params, kernc, found, skipped, fn.name, syms, module_env)
+        # ДЕФЕКТ #351: предусловия из ДЕКОРАТОРОВ (`@deal.pre(lambda …: …)`) —
+        # такой же гард на входе, как `if`. Без них `div_ok(a, b)` с
+        # `@deal.pre(lambda a, b: b != 0)` получал ЛОЖНЫЙ `[CRASH PATH]`.
+        _pre = _deal_pre_path(fn, syms)
+        _walk_branches(fn.body, list(_pre), params, kernc, found, skipped, fn.name, syms, module_env)
         # ДЕФЕКТ #322: контекст «какие имена меняются в циклах» — на одну функцию.
         _LOOP_MODIFIED.clear()
         _LOOP_MODIFIED.update(_loop_modified(fn.body))
-        _walk_bounds(fn.body, [], params, lens, kernc, found, fn.name, syms)
+        _walk_bounds(fn.body, list(_pre), params, lens, kernc, found, fn.name, syms)
         # ДЕФЕКТ #208: считаем ТОЛЬКО функции, где решатель реально вызывался
         # (счётчик читается ПОСЛЕ обхода, иначе он всегда 0). Функция с нулём
         # обязательств — «прочитана», но НЕ «проверена».

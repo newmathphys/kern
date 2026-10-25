@@ -2502,6 +2502,15 @@ def case_audit_manifest():
     p = ROOT / "tests" / "fixtures" / "valid_v1_3.kimg"
     touch("tests/fixtures/valid_v1_3.kimg")
     b = bytearray(p.read_bytes())
+    # ДЕФЕКТ #351 (найдено САМОПРИМЕНЕНИЕМ `--xray tools/`): индекс
+    # `b[len(b) // 2]` при ПУСТОМ `b` — реальный выход за границы, и анализатор
+    # честно это показывал (`kern_len_b = 0`). Guard делает намерение явным:
+    # пустой эталонный образ — это НЕ «нечего ломать», а НЕВАЛИДНЫЙ кейс,
+    # поэтому честная ошибка вместо тихого `b[0] ^= 0xFF` по пустому файлу.
+    if not b:
+        raise RuntimeError(
+            "tests/fixtures/valid_v1_3.kimg пуст — кейс невалиден "
+            "(нечего портить), проверьте фикстуру")
     b[len(b) // 2] ^= 0xFF  # портим 1 байт в середине
     p.write_bytes(bytes(b))
     return "make audit-manifest"
