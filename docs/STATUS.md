@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->209 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->159 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->210 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->160 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->10 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->36 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->187**, of which
-**159/159** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->188**, of which
+**160/160** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -31,7 +31,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->187**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1424 / 1424 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->428 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->147 |
+| Literal anchors | <!-- fact:anchors -->148 |
 | Version | `v2.7.1` |
 
 ## Defect journal
@@ -40,10 +40,10 @@ Numbered entries: **286**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 159 |
+| Fixed | 160 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
-| Documented limitation (we live with it; it is not a defect) | 1 |
+| Documented limitation (we live with it; it is not a defect) | 0 |
 | Decision: considered and not adopted | 0 |
 | Rows in the earlier journal format (category column, no status) | 124 |
 

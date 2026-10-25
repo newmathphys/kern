@@ -186,6 +186,9 @@ CLASS = {
     # (`trusted: 0 | holes: 0`). Это проверка ВОЗМОЖНОСТИ (пруф-чекер умеет
     # раскрывать `define-fun` и считать константы), поэтому CHECK.
     "evm-proof-check": "CHECK",
+    # ДЕФЕКТ #342: `@kern:lang evm` — рабочий фронтенд (директива выставляет
+    # язык и меняет семантику деления). Проверка возможности, поэтому CHECK.
+    "evm-lang-check": "CHECK",
     "ai-traces-check": "META",          # нет ИИ-шаблонов в тексте/коммитах
     "seal": "BUILD",                    # герметичная сборка + аттестат
     "status": "META",                    # git status + легенда generated/manual

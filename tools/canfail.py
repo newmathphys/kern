@@ -1844,9 +1844,31 @@ def case_lang_fields():
     двух, и второе место продолжало жить по-старому.
     """
     patch("tools/kern_contracts.py",
-          "            use_bv = (_sem_of_suffix(p.suffix).allow_bv_fallback",
-          "            use_bv = (p.suffix in CLIKE_EXT  # ЛОМАЕМ (N11): литерал вместо таблицы")
+          "            use_bv = (_has_raw\n"
+          "                      and (_sem_of_suffix(p.suffix).allow_bv_fallback or forced_bv)",
+          "            use_bv = (_has_raw  # ЛОМАЕМ (N11): литерал вместо таблицы\n"
+          "                      and (p.suffix in CLIKE_EXT or forced_bv)")
     return "make lang-semantics-check"
+
+
+def case_evm_lang():
+    """ШАГ N12 SABOTAGE: директива `@kern:lang` перестаёт выставлять язык.
+
+    ЛОМАЕМ: `_set_lang_from_path` снова берёт язык ТОЛЬКО из расширения — ровно
+    состояние до #342. Тогда `examples/evm_semantics_demo.py` проверяется
+    Python-семантикой (floor), контракт `(-7) / 2 == -3` НАРУШАЕТСЯ, и
+    `make evm-lang-check` обязан покраснеть: «с директивой» больше не проходит.
+
+    Почему это стоит кейса: без него мёртвая строка `evm` в таблице могла бы
+    оставаться мёртвой сколько угодно — гейт проверяет, что директива РЕАЛЬНО
+    меняет семантику, а не просто «не ломает прогон».
+    """
+    patch("tools/kern_contracts.py",
+          "    m = LANG_DIRECTIVE.search(head)\n"
+          "    if m:\n"
+          "        lang = m.group(1)\n",
+          "    # ЛОМАЕМ (N12): директива языка игнорируется\n")
+    return "make evm-lang-check"
 
 
 def case_c_types():
@@ -3307,6 +3329,8 @@ CASES = [
      case_arith_unary),
     ("lang-fields", "A language property taken from literals instead of the table -> gate red",
      case_lang_fields),
+    ("evm-lang", "The `@kern:lang` directive stops setting the language -> gate red",
+     case_evm_lang),
     ("c-types", "Raw C return type -> overflow obligation silently dropped -> gate red",
      case_c_types),
     ("div-guards", "Divisor obligation ignores active guards -> gate red",

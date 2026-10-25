@@ -848,10 +848,14 @@ def _py_comment_anchors(src: str) -> dict:
 def parse_file(path: Path):
     """Вернуть список (имя, params, requires, ensures, body_smt, lineno, причина)."""
     src = path.read_text(encoding="utf-8", errors="replace")
-    # ДЕФЕКТ #317: явно фиксируем Python — иначе язык «протечёт»
-    # из ранее разобранного C-файла в одном прогоне.
+    # ДЕФЕКТ #317: явно фиксируем язык — иначе он «протечёт» из ранее
+    # разобранного C-файла в одном прогоне.
+    # ДЕФЕКТ #342 (шаг N12): но источник языка — НЕ литерал `"python"`, а
+    # `_set_lang_from_path`: расширение `.py` даёт `python`, а ЯВНАЯ директива
+    # `@kern:lang evm` В ФАЙЛЕ — `evm`. Без этого `lang="evm"` не выставлялся
+    # НИ ОДНИМ путём разбора, и запись `evm` в таблице была мёртвой.
     global _CURRENT_LANG
-    _CURRENT_LANG = "python"
+    _set_lang_from_path(path)
     lines = src.splitlines()
     # ИЗ НАСТОЯЩИХ КОММЕНТАРИЕВ (tokenize), а не построчно — защита от
     # Comment-in-String Injection.
@@ -2456,17 +2460,42 @@ def _sem_of_suffix(suf: str) -> ValueSemantics:
     return VALUE_SEMANTICS[lang]
 
 
+# ДЕФЕКТ #342 (шаг N12): ЯВНАЯ директива языка в файле. До неё `lang="evm"` не
+# выставлялся НИ ОДНИМ путём разбора: таблица семантики запись имела, а фронтенда
+# не было. Форма та же, что у контрактов (`#`/`//`/`///`).
+LANG_DIRECTIVE = re.compile(r"(?:///|//|#)\s*@kern:lang\s+([A-Za-z0-9_]+)")
+
+
 def _set_lang_from_path(path: Path) -> str:
-    """Выставить язык трансляции по расширению файла (дефект #317).
+    """Выставить язык трансляции: ЯВНАЯ директива -> иначе расширение.
 
     Возвращает ПРЕДЫДУЩЕЕ значение, чтобы вызывающий мог восстановить его.
+
+    ДЕФЕКТ #317: семантика деления зависит от языка, поэтому её нельзя угадывать.
+    ДЕФЕКТ #342 (шаг N12): расширение — НЕ единственный источник. Директива
+    `@kern:lang evm` в файле ПЕРЕОПРЕДЕЛЯЕТ его, иначе запись `evm` в
+    `VALUE_SEMANTICS` остаётся мёртвой (её никто не мог выбрать), а реальный
+    EVM-код не проходил через неё ни разу.
+
+    ПОРЯДОК ЯВНЫЙ И ОБОСНОВАННЫЙ: директива сильнее расширения, потому что она
+    стоит В САМОМ файле и говорит о нём точнее, чем суффикс имени. Неизвестное
+    имя языка НЕ игнорируется молча: оно попадёт в `semantics_for`, который по
+    правилу I4 даёт ЯВНЫЙ отказ (а не тихий дефолт в Python).
     """
     global _CURRENT_LANG
     prev = _CURRENT_LANG
     suf = path.suffix.lower()
-    _CURRENT_LANG = ("rust" if suf == ".rs" else "zig" if suf == ".zig"
-                     else "go" if suf == ".go" else "ts" if suf in {".ts", ".js"}
-                     else "c" if suf in {".c", ".h", ".cpp", ".cc"} else "python")
+    lang = ("rust" if suf == ".rs" else "zig" if suf == ".zig"
+            else "go" if suf == ".go" else "ts" if suf in {".ts", ".js"}
+            else "c" if suf in {".c", ".h", ".cpp", ".cc"} else "python")
+    try:
+        head = path.read_text(encoding="utf-8", errors="replace")[:8192]
+    except OSError:
+        head = ""
+    m = LANG_DIRECTIVE.search(head)
+    if m:
+        lang = m.group(1)
+    _CURRENT_LANG = lang
     return prev
 
 
@@ -3842,7 +3871,15 @@ def _demo(args) -> int:
             forced_bv = ("@kern:bitvec32" in ftext) or ("@kern:bitvec64" in ftext)
             # ДЕФЕКТ #353: свойство «переходить в BV» читается из ТАБЛИЦЫ
             # (`allow_bv_fallback`), а не из литерального `suffix in CLIKE_EXT`.
-            use_bv = (_sem_of_suffix(p.suffix).allow_bv_fallback
+            # ДЕФЕКТ #342 (шаг N12): ЯВНАЯ директива `@kern:bitvec32/64` сильнее
+            # таблицы — как `@kern:lang` сильнее расширения.
+            # ⚠️ BV-путь существует ТОЛЬКО для C-подобных файлов: он работает с
+            # `raw_body` (текст тела), которого у Python-парсера нет. Без этой
+            # проверки явная директива в `.py`-файле валила прогон
+            # `KeyError: 'raw_body'` — то есть «усиление» ломало штатный путь.
+            _has_raw = meta.get("raw_body") is not None
+            use_bv = (_has_raw
+                      and (_sem_of_suffix(p.suffix).allow_bv_fallback or forced_bv)
                       and (body == "BV_PENDING"
                            or _needs_bitvec(meta.get("raw_body"), req, ens, forced_bv)))
             try:
