@@ -32,7 +32,7 @@ proven — so the mode is a column.
 | 11 | `--diff-equiv` Python | Int theory | — | `[EQUIVALENT]` |
 | 12 | `--diff-equiv` **C-like** (#361) | Int theory + `CLIKE_EXT` | `[DIVERGED]` + counterexample | — |
 | 13 | Path traversal `../` | **QF_SLIA** | (weak sanitizer) | `ДОКАЗАНО`, `trusted: 0` |
-| 14 | **IEEE-754 NaN** | **QF_FP** (SMT fixture) | — | `ДОКАЗАНО`, `trusted: 0` |
+| 14 | **IEEE-754 NaN** | **Int + Bool** (NOT QF_FP) | — | `ДОКАЗАНО`, `trusted: 0` |
 | 15 | Contract lock (tampering) | contract hashes | `[SECURITY] контракт ИЗМЕНЁН` | — |
 | 16 | Anti-cheat (5 sub-classes) | AST rules | `CHEAT DETECTED` ×5 | clean → `[OK] чисто` |
 | 17 | MCP: injection + invisible Unicode | schema scanner | `PROMPT INJECTION` + `INVISIBLE UNICODE` | clean schema |
@@ -54,10 +54,15 @@ would fall out of the chain):
 
 ## What this matrix does NOT claim
 
-- **IEEE-754 NaN is supported at the SMT-fixture level**, not as a `@kern:float`
-  directive in `.ts`/`.js` source: `number` there remains `UNMODELED_TYPES`. The
-  capability exists; the source-level entry point does not. That is a boundary,
-  not coverage.
+- **IEEE-754 NaN is NOT real FP here, and `@kern:float` does not exist.** The
+  fixture `tests/fixtures/ieee754_nan.smt2` models NaN as an **Int + Bool pair**
+  (`x_nan`, `r_nan`) under `(set-logic ALL)` — it contains **no**
+  `(_ FloatingPoint 11 53)` and the translator emits none. So the `trusted: 0` on
+  that row is true **of the Int+Bool model**, not of IEEE-754. **Real QF_FP is
+  measured at 213 trusted steps** (`docs/METRICS.md` §89.1), where claiming
+  `trusted: 0` would be a lie. A source-level `# @kern:float` directive that
+  translated `.ts`/`.js` `number` into `Float64` would therefore land in that same
+  gap — it is **not implemented**, and this is named instead of faked.
 - Mode 6 (`--gen-tests`/`--concolic`) works **by branches**: on a function
   without branches it honestly returns 0 ("the test would be vacuous"), so the
   anatomy uses a branchy linear function for that step.

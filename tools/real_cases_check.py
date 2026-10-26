@@ -160,9 +160,17 @@ def caps() -> list[dict]:
         "сильная санитизация доказана (trusted: 0)")
 
     of = run_kernc(["prove", str(ROOT / "tests" / "fixtures" / "ieee754_nan.smt2")])
-    add("IEEE-754 NaN (SMT-фикстура)", "QF_FP",
-        True, "ДОКАЗАНО" in of and "trusted: 0" in of,
-        "доказано с trusted: 0; директивы `@kern:float` в исходнике НЕТ")
+    # ДЕФЕКТ #365 (НАЙДЕН при подготовке `@kern:float`): здесь стояла метка
+    # «QF_FP» — и она ЛОЖНА. `tests/fixtures/ieee754_nan.smt2` моделирует NaN
+    # как ПАРУ Int+Bool (`x_nan`, `r_nan`) в логике ALL, а НЕ сортом SMT-LIB
+    # `(_ FloatingPoint 11 53)`: в файле нет ни одного `FloatingPoint`, и в
+    # трансляторе `kernc_contracts.py` их 0. Доказательство идёт Int-арифметикой,
+    # поэтому `trusted: 0` здесь — правда, но она относится к Int+Bool-МОДЕЛИ, а
+    # не к настоящей IEEE-754. НАСТОЯЩИЙ QF_FP (по `docs/METRICS.md` §89.1)
+    # даёт **213 доверенных шагов**, и там заявлять `trusted: 0` НЕЛЬЗЯ.
+    add("IEEE-754 NaN (Int+Bool-модель)", "Int + Bool (НЕ QF_FP)",
+        True, "ДОКАЗАНО" in of and "ДОВЕРЕННЫХ 0" in of,
+        "модель NaN парой Int+Bool, доказана trusted: 0; настоящий QF_FP даёт 213 доверенных — граница")
 
     with tempfile.TemporaryDirectory() as d:
         w = Path(d) / "locked.py"
