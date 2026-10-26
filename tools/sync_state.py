@@ -74,6 +74,9 @@ SURFACES = (
     # ЭТАП 4А: полигон ИИ-ловушек несёт те же якоря фактов.
     "docs/AI_TRAPS_SHOWCASE.md",
     "docs/AI_TRAPS_SHOWCASE.ru.md",
+    # ЭТАП 5: матрица реальных возможностей несёт те же якоря.
+    "docs/REAL_WORLD_CAPABILITIES.md",
+    "docs/REAL_WORLD_CAPABILITIES.ru.md",
     # ШАГ C: снимок состояния тоже содержит якоря фактов, значит `make sync`
     # обязан его обновлять. Тот же класс, что #311: файл вне SURFACES дрейфует
     # молча, и никто этого не видит.

@@ -160,9 +160,9 @@ $ make diff-equiv
 ## 10. Факты, на которые ссылается документ
 
 <!-- fact:core_tests -->441 теста ядра · <!-- fact:next_tests -->53 next ·
-<!-- fact:catalog -->470 каталог · <!-- fact:check_targets -->163 CHECK ·
-<!-- fact:canfail_cases -->195 can-fail кейсов · <!-- fact:anchors -->155 якорей ·
-<!-- fact:registry_targets -->214 цели · <!-- fact:meta_targets -->37 META ·
+<!-- fact:catalog -->470 каталог · <!-- fact:check_targets -->164 CHECK ·
+<!-- fact:canfail_cases -->196 can-fail кейсов · <!-- fact:anchors -->156 якорей ·
+<!-- fact:registry_targets -->215 цели · <!-- fact:meta_targets -->37 META ·
 <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 формально SMT ·
 <!-- fact:quixbugs.differential -->40/40 живой дифференциал.

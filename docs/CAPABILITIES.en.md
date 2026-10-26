@@ -1,6 +1,6 @@
 # KERN — CAPABILITIES WITH PROOF
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->163 · cases <!-- fact:canfail_cases -->195 · anchors <!-- fact:anchors -->155 · registry <!-- fact:registry_targets -->214 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->164 · cases <!-- fact:canfail_cases -->196 · anchors <!-- fact:anchors -->156 · registry <!-- fact:registry_targets -->215 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITIES.md`](CAPABILITIES.md). Every claim below is
 > **verified against the code and against real runs**. Where a claim turned out to be

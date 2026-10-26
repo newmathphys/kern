@@ -196,6 +196,8 @@ CLASS = {
     # ЭТАП 4Б: инвариант звучимости QuixBugs (`false_equivalent == 0`) плюс
     # контрольная половина (ложный DIVERGED == 0), поэтому CHECK.
     "quixbugs-diff-check": "CHECK",
+    # ЭТАП 5: матрица возможностей на реальных задачах + анатомия.
+    "real-cases-check": "CHECK",
     # ДЕФЕКТ #344: три тождества EVM обязаны иметь ДОВЕРЕННОЕ доказательство
     # (`trusted: 0 | holes: 0`). Это проверка ВОЗМОЖНОСТИ (пруф-чекер умеет
     # раскрывать `define-fun` и считать константы), поэтому CHECK.
@@ -458,6 +460,8 @@ CASE_TARGET = {
     "ai-traps": "ai-traps-check",
     # ЭТАП 4Б: инварианты QuixBugs.
     "quixbugs-diff": "quixbugs-diff-check",
+    # ЭТАП 5: матрица реальных возможностей.
+    "real-cases": "real-cases-check",
     # ШАГ 1 Захода Б: маршрутизация C-like в `--diff-equiv` (дефект #361).
     "clike-diff-routing": "quixbugs-diff-check",
 }

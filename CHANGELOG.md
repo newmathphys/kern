@@ -10,6 +10,17 @@ Every number below is produced by a command in the repository — see
 
 ### Added
 
+- **`make real-cases-check` (ЭТАП 5) — измеренная матрица возможностей на реальных
+  задачах.** `tools/real_cases_check.py`. **ИЗМЕРЕНО: 17/17 возможностей закрыто**
+  (у каждой доказаны ОБЕ половины: `bad` пойман точным маркером И `good`
+  ДОКАЗАН) и **анатомия одной функции 6/6 режимов** (`--xray` → контракт
+  `REFUTED` → `explain` read-only → `--heal` `T (1,0)` → `--diff-equiv`
+  `DIVERGED` на точке бага → `--gen-tests`/`--concolic` живые тесты). Режим
+  движка назван в таблице (QF_LIA vs QF_BV vs QF_SLIA vs QF_FP). Документы
+  `docs/REAL_WORLD_CAPABILITIES.md` + `.ru.md` (пара внесена в `docs-parity`),
+  мета-тест 4 ветки, невакуумный кейс `real-cases`. Границы названы: IEEE-754
+  NaN поддержан на уровне SMT-фикстуры, а не директивой `@kern:float` в
+  исходнике; режим 6 работает по ветвям.
 - **`make quixbugs-diff-check` (ЭТАП 4Б) — честный замер QuixBugs через
   `--diff-equiv`.** `tools/quixbugs_diff_check.py`. **ИЗМЕРЕНО на полном корпусе
   (40 пар):** `DIVERGED 40 | EQUIVALENT 0 | false_equivalent 0` — ни одна

@@ -416,6 +416,8 @@ FAULTABLE = [
     "audits/cwe_juliet/cwe190_good.c",
     # ЭТАП 4А: кейс `ai-traps` делает ловушку вакуумности безобидной.
     "audits/ai_traps/vacuous_bad.py",
+    # ЭТАП 5: кейс `real-cases` ломает первый режим анатомии.
+    "audits/real_cases/heal_victim.py",
     # ЭТАП 4Б: кейс `quixbugs-diff` делает контрольную половину вакуумной.
     "tools/quixbugs_diff_check.py",
     "README.md",
@@ -2293,6 +2295,29 @@ def case_clike_diff_routing():
     return "make quixbugs-diff-check"
 
 
+def case_real_cases():
+    """ЭТАП 5 SABOTAGE: сквозная цепочка «анатомия» теряет ПЕРВЫЙ режим.
+
+    ЛОМАЕМ: в `heal_victim.py` появляется гард `if b == 0: return 0` — ровно то
+    состояние, в котором дефекта БОЛЬШЕ НЕТ. Тогда `--xray` не находит
+    `[CRASH PATH]`, и шаг 1 цепочки («риск найден БЕЗ аннотаций») перестаёт
+    выполняться, а вместе с ним рушится и шаг 4 (`--heal` нечего лечить).
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что анатомия проверяется ПОШАГОВО, а не
+    засчитывается по факту запуска. Первая версия этого кейса снимала директиву
+    `@kern:bitvec32` — и оказалась ВАКУУМНОЙ: BV-режим включается для нелинейного
+    умножения АВТОМАТИЧЕСКИ (УЛУЧШЕНИЕ №16), поэтому строка оставалась закрытой.
+    Это ровно та ошибка, против которой стоит правило А: «кейс не упал» значит
+    «кейс ничего не проверял», и харнесс это ПОКАЗАЛ (ВАКУУМНЫХ 1).
+    """
+    patch("audits/real_cases/heal_victim.py",
+          "# @kern:ensures result == a // b\ndef div_bad(a: int, b: int) -> int:\n"
+          "    return a // b\n",
+          "# @kern:ensures result == a // b\ndef div_bad(a: int, b: int) -> int:\n"
+          "    if b == 0:\n        return 0\n    return a // b\n")
+    return "make real-cases-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3470,6 +3495,8 @@ CASES = [
      case_quixbugs_diff),
     ("clike-diff-routing", "C-like routing removed -> the tool crashes -> gate red",
      case_clike_diff_routing),
+    ("real-cases", "A capability loses the `bad` half -> gate red",
+     case_real_cases),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

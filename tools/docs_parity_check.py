@@ -38,6 +38,8 @@ PAIRS = (
     ("docs/CWE_COVERAGE.ru.md", "docs/CWE_COVERAGE.md"),
     # ЭТАП 4А: полигон ИИ-ловушек обязан иметь паритет RU/EN (класс #335).
     ("docs/AI_TRAPS_SHOWCASE.ru.md", "docs/AI_TRAPS_SHOWCASE.md"),
+    # ЭТАП 5: матрица реальных возможностей — паритет RU/EN.
+    ("docs/REAL_WORLD_CAPABILITIES.ru.md", "docs/REAL_WORLD_CAPABILITIES.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",
