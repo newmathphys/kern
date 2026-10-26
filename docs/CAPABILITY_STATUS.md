@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->164 · cases <!-- fact:canfail_cases -->196 · anchors <!-- fact:anchors -->156 · registry <!-- fact:registry_targets -->215 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->165 · cases <!-- fact:canfail_cases -->197 · anchors <!-- fact:anchors -->157 · registry <!-- fact:registry_targets -->216 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 **Дата:** 2026-10-10 · **Принцип:** уровень присваивается ТОЛЬКО по факту
 запуска (команда → код возврата → вывод). Никаких «работает» по описанию.

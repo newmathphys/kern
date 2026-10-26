@@ -1,6 +1,6 @@
 # HONEST CAPABILITY STATUS — KERN
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->164 · cases <!-- fact:canfail_cases -->196 · anchors <!-- fact:anchors -->156 · registry <!-- fact:registry_targets -->215 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->165 · cases <!-- fact:canfail_cases -->197 · anchors <!-- fact:anchors -->157 · registry <!-- fact:registry_targets -->216 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`CAPABILITY_STATUS.md`](CAPABILITY_STATUS.md). **Date:** 2026-10-10
 > (status sections; the defect registry is kept up to date). **Principle:** a level is

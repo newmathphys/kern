@@ -2322,6 +2322,28 @@ def case_real_cases():
     return "make real-cases-check"
 
 
+def case_inline_hygiene():
+    """ШАГ 1 SABOTAGE (правило 1): ГИГИЕНА ИМЁН СНЯТА.
+
+    ЛОМАЕМ: `_rename_body` перестаёт переименовывать — тело вызываемого
+    подставляется в окружение, где свободная переменная `extra` внутри `helper`
+    совпадает по имени с локальной `extra = 5` в `caller`. Тогда контракт
+    `result == n + 5` ЛОЖНО доказывается, и `make inline-check` обязан
+    покраснеть на свойстве «КОЛЛИЗИЯ ИМЁН: ложное PROVEN запрещено».
+
+    ЦЕННОСТЬ КЕЙСА: это единственный тест, который отличает инлайнинг, ПОЛЕЗНЫЙ
+    для доказательств, от инлайнинга, ПОРОЖДАЮЩЕГО ложные доказательства. Без
+    него шаг 1 выглядел бы работающим (позитив доказывается, негатив
+    опровергается) — и врал бы на реальном коде.
+    """
+    patch("tools/kern_contracts.py",
+          '    for node in ast.walk(ast.Module(body=body, type_ignores=[])):\n'
+          '        if isinstance(node, ast.Name) and node.id not in keep:\n'
+          '            node.id = prefix + node.id\n',
+          '    # ЛОМАЕМ: гигиена имён снята (правило 1 Шага 1)\n')
+    return "make inline-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3501,6 +3523,8 @@ CASES = [
      case_clike_diff_routing),
     ("real-cases", "A capability loses the `bad` half -> gate red",
      case_real_cases),
+    ("inline-hygiene", "Name hygiene removed -> false PROVEN -> gate red",
+     case_inline_hygiene),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

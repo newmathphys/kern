@@ -298,6 +298,15 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             return _NONE_SENTINEL
         raise Unsupported(f"литерал {node.value!r}")
     if isinstance(node, ast.Name):
+        # ШАГ 1: СВОБОДНАЯ переменная ИНЛАЙНЕННОГО тела (`_inl_<g>_<n>_<var>`).
+        # Она обязана быть ОБЪЯВЛЕНА в SMT: без объявления формула невалидна,
+        # Z3 возвращает ошибку, и вердикт деградирует до «НЕ РЕШЕНО» — то есть
+        # инструмент молчит там, где мог бы предъявить контрпример.
+        # Это НЕ `_havoc` (не овер-аппроксимация): свободная переменная в теле
+        # вызываемого — настоящий дефект (в Python это NameError), и контракт
+        # обязан быть опровергнут с контрпримером.
+        if node.id not in env and node.id.startswith("_inl_"):
+            _ABSTRACT_SYMS.add(node.id)
         return env.get(node.id, node.id)
     # ПОЛЕВОЙ АДАПТЕР №1 (self.x / this.x / cfg.limit): реальный код на 80 %
     # состоит из методов классов и структур. Без этого `--xray` отправлял их
@@ -364,6 +373,53 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             _INLINED[0] += 1
             _UNROLLED[0] = True
             return body_smt(copy.deepcopy(_sbody), _new_env)
+        # ШАГ 1: ИНЛАЙНИНГ ВЫЗОВА ФУНКЦИИ ИЗ ТОГО ЖЕ ФАЙЛА (не саморекурсия).
+        # Порядок проверок = правила звучимости: сначала реестр, потом стек
+        # (рекурсия -> _havoc), потом бюджет.
+        _inl = env.get("__inl__") if isinstance(env, dict) else None
+        if (_inl and isinstance(node.func, ast.Name) and not node.keywords
+                and node.func.id in _inl["reg"]
+                and node.func.id not in _inl["stack"]
+                and _inl["depth"] < _INLINE_MAX_DEPTH
+                and _INLINED[0] < _INLINE_MAX_TOTAL):
+            _gname = node.func.id
+            _gparams, _gbody = _inl["reg"][_gname]
+            if len(node.args) == len(_gparams):
+                _seq = _inl["seq"] + 1
+                _pfx = f"_inl_{_gname}_{_seq}_"
+                # СНИМОК коллекторов: неудачный инлайн НЕ имеет права оставлять
+                # обязанности от ЧАСТИЧНО исследованного тела (правило 3).
+                _snap_div = len(_DIV_COLLECTOR)
+                _snap_neg = len(_NEG_COLLECTOR)
+                # `_ABSTRACT_SYMS` — МНОЖЕСТВО, а не список: срез-удаление к нему
+                # неприменимо. Копируем целиком и восстанавливаем при откате.
+                # (Дефект собственной реализации, найденный тестом на рекурсию:
+                # `del set[...]` давал `TypeError: 'set' object does not support
+                # item deletion` — то есть ИНСТРУМЕНТ ПАДАЛ на рекурсивном
+                # хелпере вместо честного вердикта.)
+                _snap_abs = set(_ABSTRACT_SYMS)
+                _args = [expr_smt(a, env, lang) for a in node.args]
+                _keep = _INLINE_KEEP | set(_inl["reg"])
+                _ren = _rename_body(_gbody, _pfx, _keep)
+                _new_env = {_pfx + p: a for p, a in zip(_gparams, _args)}
+                _new_env["__inl__"] = {
+                    "reg": _inl["reg"],
+                    "stack": _inl["stack"] + [_gname],
+                    "depth": _inl["depth"] + 1,
+                    "seq": _seq,
+                }
+                try:
+                    _val = body_smt(_ren, _new_env)
+                except (Unsupported, NoReturn):
+                    # ОТКАТ: тело вне подмножества -> прежнее поведение
+                    # (_havoc), но БЕЗ следов частичного исследования.
+                    del _DIV_COLLECTOR[_snap_div:]
+                    del _NEG_COLLECTOR[_snap_neg:]
+                    _ABSTRACT_SYMS.clear()
+                    _ABSTRACT_SYMS.update(_snap_abs)
+                else:
+                    _INLINED[0] += 1
+                    return _val
         _HAVOC_SEQ[0] += 1
         _HAVOC_USED[0] = True
         _sym = f"_havoc_{_HAVOC_SEQ[0]}"
@@ -522,10 +578,87 @@ def _as_bool(node, env: dict) -> str:
     return f"(not (= {text} 0))"
 
 
-def _self_meta(fn, stmts) -> dict:
-    """Окружение с метаданными функции для inline саморекурсии (bounded)."""
+def _self_meta(fn, stmts, registry=None) -> dict:
+    """Окружение с метаданными функции для inline саморекурсии (bounded) и
+    РЕЕСТРОМ функций файла (ШАГ 1: инлайнинг вызовов из того же файла)."""
     params = [a.arg for a in fn.args.args if a.arg != "self"]
-    return {"__self__": (fn.name, params, stmts, _UNROLL_K[0])}
+    meta = {"__self__": (fn.name, params, stmts, _UNROLL_K[0])}
+    if registry:
+        meta["__inl__"] = {"reg": registry, "stack": [fn.name], "depth": 0,
+                           "seq": 0}
+    return meta
+
+
+# ── ШАГ 1: ИНЛАЙНИНГ ВЫЗОВОВ ФУНКЦИЙ ИЗ ТОГО ЖЕ ФАЙЛА ────────────────────────
+# ЗАЧЕМ. В реальном коде почти каждая функция вызывает соседнюю (`lcm` зовёт
+# `gcd`, парсер зовёт `clamp`). До этого шага ЛЮБОЙ такой вызов уходил в
+# `_havoc` (свежий символ) — то есть тело вызываемого НЕ анализировалось, а его
+# обязанности безопасности (деление на ноль, переполнение) НЕ собирались.
+# ИЗМЕРЕНО на `TheAlgorithms/C/math`: проверено 26 из 66 функций; на 43 реальных
+# провалах MBPP+ **43/43 содержат вызов функции**.
+#
+# ТРИ ПРАВИЛА ЗВУЧИМОСТИ (каждое — против конкретного способа соврать):
+#   1. ГИГИЕНА ИМЁН. Тело `g` переименовывается уникальным префиксом вызова.
+#      Без этого локальная `t` (или СВОБОДНАЯ переменная `k`) внутри `g` и
+#      одноимённая переменная `f` — это ОДИН SMT-символ, и свободная переменная
+#      `g` окажется связана с параметром `f`. Это ЛОЖНОЕ ДОКАЗАТЕЛЬСТВО, а не
+#      приближение (существующий инлайн саморекурсии наследовал `dict(env)` и
+#      был подвержен ровно этому).
+#   2. ЗАЩИТА ОТ РЕКУРСИИ. Стек вызовов + бюджет глубины. Рекурсивная `g`
+#      (прямая или взаимная) НЕ разворачивается бесконечно: вызов откатывается
+#      к прежнему `_havoc` — овер-аппроксимация, а не ложь.
+#   3. ОБЯЗАННОСТИ ПОД ГАРДАМИ ТОЧКИ ВЫЗОВА. Тело `g` исполняется ТЕМ ЖЕ
+#      `body_smt`, поэтому его делители попадают в `_DIV_COLLECTOR` при активных
+#      путевых условиях вызывающего. Неудачный инлайн ОТКАТЫВАЕТ коллекторы:
+#      частично исследованное тело не имеет права оставлять обязанности.
+_INLINE_MAX_DEPTH = int(os.environ.get("KERN_INLINE_DEPTH", "3"))
+_INLINE_MAX_TOTAL = int(os.environ.get("KERN_INLINE_TOTAL", "64"))
+# `KERN_INLINE_DEPTH=0` ОТКЛЮЧАЕТ инлайнинг — это нужно для честного замера
+# ДО/ПОСЛЕ на одном и том же коде (иначе «до» пришлось бы брать из истории).
+
+# Имена, которые НЕ переименовываются: встроенные, которые `expr_smt` понимает
+# ТОЧНО (min/max/abs/len/int/bool), и `range` (его разбирает развёртка циклов).
+_INLINE_KEEP = {"min", "max", "abs", "len", "int", "bool", "range",
+                "True", "False", "None"}
+
+
+def _inline_registry(tree) -> dict:
+    """Реестр ВСЕХ функций верхнего уровня: имя -> (параметры, тело).
+
+    Берутся и функции БЕЗ контрактов: именно они и есть хелперы (`gcd`), ради
+    которых шаг и делается. Вложенные `def` не берутся — у них своя область.
+    """
+    reg = {}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            stmts = [
+                st for st in node.body
+                if not isinstance(st, ast.Pass)
+                and not (isinstance(st, ast.Expr)
+                         and isinstance(st.value, ast.Constant)
+                         and isinstance(st.value.value, str))
+            ]
+            params = [a.arg for a in node.args.args if a.arg != "self"]
+            reg[node.name] = (params, stmts)
+    return reg
+
+
+def _rename_body(stmts, prefix: str, keep: set) -> list:
+    """Копия тела, где КАЖДОЕ имя получает префикс вызова (правило 1).
+
+    Переименовываются и ПАРАМЕТРЫ: вызывающий связывает префиксованные имена с
+    выражениями аргументов, поэтому ни одно имя `g` не может совпасть с именем
+    `f` в SMT-тексте.
+
+    НЕ переименовываются: встроенные (`min`/`max`/`abs`/`len`/`int`/`bool`) и
+    имена функций из реестра — иначе вложенный вызов `h` внутри `g` перестал бы
+    находиться и ушёл бы в `_havoc`.
+    """
+    body = copy.deepcopy(stmts)
+    for node in ast.walk(ast.Module(body=body, type_ignores=[])):
+        if isinstance(node, ast.Name) and node.id not in keep:
+            node.id = prefix + node.id
+    return body
 
 
 def body_smt(stmts, env: dict) -> str:
@@ -861,6 +994,9 @@ def parse_file(path: Path):
     # Comment-in-String Injection.
     anchors: dict[int, dict[str, str]] = _py_comment_anchors(src)
     tree = ast.parse(src)
+    # ШАГ 1: РЕЕСТР ФУНКЦИЙ ФАЙЛА (включая функции БЕЗ контрактов — именно они и
+    # есть хелперы, как `gcd`). Передаётся в `body_smt` через env.
+    registry = _inline_registry(tree)
     out = []
     for node in tree.body:  # только верхний уровень: вложенный def не наследует аннотации
         if not isinstance(node, ast.FunctionDef):
@@ -894,7 +1030,7 @@ def parse_file(path: Path):
         _NEG_COLLECTOR.clear()
         _UNROLLED[0] = False
         try:
-            body = body_smt(stmts, _self_meta(node, stmts))
+            body = body_smt(stmts, _self_meta(node, stmts, registry))
         except (NoReturn, Unsupported) as e:
             body = None
             skip_reason = str(e)
@@ -1328,6 +1464,12 @@ def parse_bodies(path: Path):
         return _parse_bodies_clike(path)
     src = path.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
+    # ШАГ 1: тот же реестр, что в `parse_file`. БЕЗ него вызов хелпера уходил в
+    # `_havoc`, а два РАЗНЫХ havoc всегда «различны» — то есть `--diff-equiv`
+    # объявлял бы расхождением идентичный рефакторинг с вызовом (ложное
+    # обвинение). Отдельная ветка для `_havoc_` (дефект #206) это гасила
+    # (UNKNOWN), но инлайнинг даёт точный ответ вместо честного «не знаю».
+    registry = _inline_registry(tree)
     out = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.FunctionDef):
@@ -1340,7 +1482,7 @@ def parse_bodies(path: Path):
         ]
         _UNROLLED[0] = False
         try:
-            body = body_smt(stmts, _self_meta(node, stmts))
+            body = body_smt(stmts, _self_meta(node, stmts, registry))
         except (NoReturn, Unsupported):
             continue
         params = [a.arg for a in node.args.args if a.arg != "self"]
