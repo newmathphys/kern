@@ -412,6 +412,8 @@ FAULTABLE = [
     # ДЕФЕКТ #356 (ШАГ 0): кейс `casetarget-gap` ломает саму таблицу
     # сопоставления, поэтому файл обязан быть откатываемым.
     "tools/registry.py",
+    # ЭТАП 3: кейс `cwe-juliet` ослабляет гард в `good`-близнеце.
+    "audits/cwe_juliet/cwe190_good.c",
     "README.md",
     "tools/kern_contracts.py",
     "tools/audits_run.py",
@@ -2215,6 +2217,24 @@ def case_casetarget_gap():
     return "make registry"
 
 
+def case_cwe_juliet():
+    """ЭТАП 3 SABOTAGE: `good`-близнец перестаёт быть доказуемым (FP).
+
+    ЛОМАЕМ: убираем гард `a <= 46340 and b <= 46340` из `cwe190_good.c` —
+    ровно то состояние, в котором инструмент обвиняет ЗАЩИЩЁННЫЙ код. Пара
+    `bad`/`good` обязана это поймать: `good` перестаёт доказываться, матрица
+    даёт FP, счёт SV-COMP падает на 16 очков, индекс Юдена теряет единицу.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что гейт реагирует именно на ЛОЖНОЕ
+    ОБВИНЕНИЕ, а не только на пропущенную уязвимость. Детектор, обвиняющий
+    всё подряд, такой кейс обязан покраснить — иначе метрика бесполезна.
+    """
+    patch("audits/cwe_juliet/cwe190_good.c",
+          "// @kern:requires a > 0 and b > 0 and a <= 46340 and b <= 46340",
+          "// @kern:requires a > 0 and b > 0")
+    return "make cwe-juliet-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3384,6 +3404,8 @@ CASES = [
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",
      case_casetarget_gap),
+    ("cwe-juliet", "A `good` twin stops being provable (FP) -> gate red",
+     case_cwe_juliet),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
