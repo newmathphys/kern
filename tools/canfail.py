@@ -409,6 +409,9 @@ FAULTABLE = [
     "src/compat.zig",
     "src/core/hash_algo.zig",
     "tools/artifact_check.py",
+    # ДЕФЕКТ #356 (ШАГ 0): кейс `casetarget-gap` ломает саму таблицу
+    # сопоставления, поэтому файл обязан быть откатываемым.
+    "tools/registry.py",
     "README.md",
     "tools/kern_contracts.py",
     "tools/audits_run.py",
@@ -2193,6 +2196,25 @@ def case_artifact_offline():
     return "make artifact-check-offline"
 
 
+def case_casetarget_gap():
+    """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
+
+    ЛОМАЕМ: удаляем из `tools/registry.py::CASE_TARGET` запись для кейса
+    `readme-link` — ровно состояние, в котором жили девять кейсов цикла v2.7.2
+    (и семь более старых). Тогда покрытие CHECK тихо занижалось: цель числилась
+    «без доказательства», хотя кейс существует и падает.
+
+    Гейт `make registry` обязан покраснеть — двусторонний инвариант
+    `casetarget_violations()` теперь это видит, а до Шага 0 не видел НИКТО
+    (именно поэтому дефект жил: `scorecard-check` заметил лишь СЛЕДСТВИЕ —
+    «can-fail 158/160»).
+    """
+    patch("tools/registry.py",
+          '    "readme-link": "readme-link-check",',
+          '    # ЛОМАЕМ: запись удалена (класс #356)')
+    return "make registry"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3360,6 +3382,8 @@ CASES = [
      case_readme_link),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
+    ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",
+     case_casetarget_gap),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

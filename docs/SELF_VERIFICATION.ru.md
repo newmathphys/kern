@@ -161,7 +161,7 @@ $ make diff-equiv
 
 <!-- fact:core_tests -->441 теста ядра · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->470 каталог · <!-- fact:check_targets -->160 CHECK ·
-<!-- fact:canfail_cases -->190 can-fail кейсов · <!-- fact:anchors -->150 якорей ·
+<!-- fact:canfail_cases -->191 can-fail кейсов · <!-- fact:anchors -->151 якорей ·
 <!-- fact:registry_targets -->211 цели · <!-- fact:meta_targets -->37 META ·
 <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 формально SMT ·

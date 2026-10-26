@@ -298,7 +298,14 @@ CASE_TARGET = {
     "strings-theory": "strings",
     "noninterf": "noninterference",
     "perf-threshold": "perf",
-    "kern-invariant": "kern",
+    # ДЕФЕКТ #356: здесь стояло `"kern"` — значения с таким именем НЕТ ни среди
+    # целей Makefile, ни среди шагов `zig build` (в build.zig `"kern"` — имя
+    # библиотеки и бенчмарка, а не шага). Кейс `case_gate_invariant_stress`
+    # реально запускает `zig build bench-kern`, а это ровно то, что делает цель
+    # `make bench`. Инвариант `casetarget_violations()` нашёл это при первом же
+    # прогоне — то есть проверка ловит не только «нет записи», но и «запись ведёт
+    # в никуда».
+    "kern-invariant": "bench",
     "redos-vuln": "redos",
     "concolic-victim": "concolic",
     "absint-inv": "absint",
@@ -419,7 +426,138 @@ CASE_TARGET = {
     "readme-link": "readme-link-check",
     "journal-parity": "journal-parity-check",
     "artifact-offline": "artifact-check-offline",
+    # ДЕФЕКТ #356 (ШАГ 0, системное закрытие класса): семь кейсов существовали и
+    # падали, но в таблице их НЕ БЫЛО — и это не ловил никто. Класс #87/#356
+    # закрыт двусторонним инвариантом `casetarget_violations()` ниже.
+    "bound-guards": "xray-check",
+    "codec-dispatch": "test",
+    "evidence-gate": "evidence-gate",
+    "evidence-untracked": "evidence-gate",
+    "model-verify": "test",
+    "registry-dup-numbers": "registry",
+    # `zig build test` включает тесты `src/core/blake3_simd8.zig` (проверено по
+    # `docs/evidence/core_tests.log`: `blake3_simd8.test.SIMD8`), поэтому цель —
+    # `test`, а не «сырая команда» без цели.
+    "simd8-masking": "test",
+    # кейс Шага 0 (класс #356) — сам обязан быть в таблице, иначе инвариант
+    # поймает его же: это и есть самоприменение проверки.
+    "casetarget-gap": "registry",
 }
+
+
+# --- ЗНАЧЕНИЯ, КОТОРЫЕ НЕ ЯВЛЯЮТСЯ ЦЕЛЯМИ MAKEFILE ---------------------------
+# Нужны, чтобы инвариант «каждое значение обязано существовать» был ПРОВЕРЯЕМ, а
+# не отключён. Каждая запись — реальная проверяемая поверхность, и для шагов
+# `zig build` существование шага ПРОВЕРЯЕТСЯ по `build.zig` (ниже), поэтому
+# список не может сгнить молча.
+CASE_TARGET_NON_MAKE = {
+    # ключ факта: итог `zig build test` (в Makefile цели с таким именем нет)
+    "core_tests": "build-step:test",
+    # реальные шаги `zig build` — существование сверяется с build.zig
+    "kern": "build-step:kern",
+    "test-align": "build-step:test-align",
+    "test-pool": "build-step:test-pool",
+}
+
+# Кейсы, которые по построению НЕ сопоставляются с целью: они проверяют САМ
+# харнесс, а не продукт. Список явный, чтобы «мета» не стала лазейкой.
+CASE_TARGET_META = {"sanity-control", "meta-verdict"}
+
+
+def casetarget_violations() -> list[str]:
+    """ДВУСТОРОННИЙ инвариант таблицы `CASE_TARGET` (дефект #356).
+
+    ЗАЧЕМ. `CASE_TARGET` — единственный источник сопоставления «кейс → цель»
+    (эвристика по подстроке запрещена выше). Пока её полноту не проверял никто,
+    новый кейс мог появиться БЕЗ записи, и покрытие CHECK тихо занижалось:
+    ровно так `evm-lang-check`/`evm-proof-check` числились без доказательства
+    (измерено `scorecard-check`: «can-fail 158/160» при 160 CHECK).
+
+    ЧТО ПРОВЕРЯЕТСЯ (в обе стороны):
+      1. каждый кейс из `CASES` (кроме явных МЕТА) ОБЯЗАН быть ключом таблицы;
+      2. каждое значение таблицы ОБЯЗАНО быть целью Makefile ЛИБО записью в
+         `CASE_TARGET_NON_MAKE`, причём для `build-step:<step>` шаг обязан
+         существовать в `build.zig`.
+
+    Граница названа: инвариант проверяет НАЛИЧИЕ связи, а не её ПРАВИЛЬНОСТЬ
+    (что кейс указывает на ту самую цель) — это суждение человека.
+    """
+    problems: list[str] = []
+    cases = canfail_cases()
+    targets = makefile_targets()
+
+    for c in sorted(cases):
+        if c in CASE_TARGET_META:
+            continue
+        if c not in CASE_TARGET:
+            problems.append(f"кейс `{c}` есть в CASES, но НЕТ в CASE_TARGET "
+                            f"(класс #356: покрытие занижено молча)")
+
+    build_zig = (ROOT / "build.zig").read_text(encoding="utf-8")
+    for c, tgt in sorted(CASE_TARGET.items()):
+        if tgt in targets:
+            continue
+        if tgt not in CASE_TARGET_NON_MAKE:
+            problems.append(f"CASE_TARGET[\"{c}\"] = \"{tgt}\" — такой цели нет "
+                            f"ни в Makefile, ни в CASE_TARGET_NON_MAKE")
+            continue
+        kind = CASE_TARGET_NON_MAKE[tgt]
+        if kind.startswith("build-step:"):
+            step = kind.split(":", 1)[1]
+            if f'b.step("{step}"' in build_zig:
+                continue
+            # ДЕФЕКТ #356: шаги вида `bench-kern` создаются ДИНАМИЧЕСКИ —
+            # `b.step("bench-" ++ it.name, ...)` в цикле по списку бенчмарков.
+            # Литерала `b.step("bench-kern"` в файле нет, но шаг РЕАЛЬНО
+            # существует. Принимаем префиксную форму, и это не ослабление:
+            # проверяется, что цикл-генератор на месте.
+            if "-" in step:
+                prefix = step.split("-", 1)[0]
+                if f'b.step("{prefix}-"' in build_zig:
+                    continue
+            problems.append(f"CASE_TARGET[\"{c}\"] = \"{tgt}\" объявлен как "
+                            f"шаг `zig build {step}`, но его НЕТ в build.zig")
+    return problems
+
+
+def casetarget_selftest() -> int:
+    """Мета-тест: инвариант ОБЯЗАН упасть на кейсе без записи (класс #356)."""
+    bad = 0
+    saved = dict(CASE_TARGET)
+    # (1) кейс без записи обязан быть пойман
+    victim = next((c for c in sorted(canfail_cases())
+                   if c in CASE_TARGET and c not in CASE_TARGET_META), None)
+    if victim is None:
+        print("[FAIL] selftest: не нашёл ни одного кейса для проверки")
+        return 1
+    del CASE_TARGET[victim]
+    got = casetarget_violations()
+    if not any(victim in x for x in got):
+        print(f"[FAIL] selftest: кейс `{victim}` без записи НЕ пойман")
+        bad += 1
+    else:
+        print(f"[OK] selftest: кейс `{victim}` без записи ловится")
+    CASE_TARGET[victim] = saved[victim]
+
+    # (2) значение, которого нет нигде, обязано быть поймано
+    CASE_TARGET["__selftest__"] = "no-such-target-anywhere"
+    got = casetarget_violations()
+    if not any("no-such-target-anywhere" in x for x in got):
+        print("[FAIL] selftest: значение без цели НЕ поймано")
+        bad += 1
+    else:
+        print("[OK] selftest: значение без цели ловится")
+    del CASE_TARGET["__selftest__"]
+
+    # (3) согласованная таблица обязана ПРОЙТИ (иначе гейт бесполезен)
+    if casetarget_violations():
+        print("[FAIL] selftest: восстановленная таблица не проходит")
+        bad += 1
+    else:
+        print("[OK] selftest: восстановленная таблица проходит")
+    print(f"[{'OK' if bad == 0 else 'FAIL'}] case-target selftest: ошибок {bad}")
+    return 0 if bad == 0 else 1
+
 
 
 def makefile_targets() -> set:
@@ -462,6 +600,9 @@ def main() -> int:
         }, ensure_ascii=False, indent=2))
         return 1 if unknown else 0
 
+    if "--selftest" in sys.argv:
+        return casetarget_selftest()
+
     print("=" * 68)
     print("KERN: РЕЕСТР ЦЕЛЕЙ")
     print("=" * 68)
@@ -482,6 +623,19 @@ def main() -> int:
         for m in missing:
             print(f"    - {m}")
         print()
+
+    # --- ДВУСТОРОННИЙ ИНВАРИАНТ CASE_TARGET (дефект #356, ШАГ 0) -------------
+    ct_problems = casetarget_violations()
+    if ct_problems:
+        print("  \033[31m[ПРЕДОХРАНИТЕЛЬ] ТАБЛИЦА CASE_TARGET НЕПОЛНА/БИТАЯ:\033[0m")
+        for p in ct_problems:
+            print(f"    - {p}")
+        print("  Кейс без записи = покрытие CHECK занижено МОЛЧА (класс #87/#356).")
+        print("  Внесите кейс в tools/registry.py::CASE_TARGET.")
+        return 1
+    print(f"  \033[32m[OK] CASE_TARGET полна в обе стороны: "
+          f"{len(cases)} кейсов, все значения ведут в существующие цели\033[0m")
+    print()
 
     if unknown:
         print("  \033[31m[ПРЕДОХРАНИТЕЛЬ] НЕКЛАССИФИЦИРОВАННЫЕ ЦЕЛИ:\033[0m")

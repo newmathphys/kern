@@ -645,6 +645,7 @@ canfail-selftest:
 # ==== РЕЕСТР ЦЕЛЕЙ (K5) + ПРЕДОХРАНИТЕЛЬ ====
 # Падает, если появилась цель, не отнесённая ни к CHECK/MEASURE/BUILD/META/EXTERNAL.
 registry:
+	$(PYTHON) tools/registry.py --selftest
 	$(PYTHON) tools/registry.py
 
 # Геометрия SVG-баннера: подписи не выходят за панели.
