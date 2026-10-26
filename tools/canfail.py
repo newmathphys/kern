@@ -414,6 +414,8 @@ FAULTABLE = [
     "tools/registry.py",
     # ЭТАП 3: кейс `cwe-juliet` ослабляет гард в `good`-близнеце.
     "audits/cwe_juliet/cwe190_good.c",
+    # ИНФРАСТРУКТУРНЫЙ ДОЛГ: кейс `smtlib-tamper` направляет гейт на фикстуру.
+    "tools/smtlib_bench_check.py",
     # ЭТАП 4А: кейс `ai-traps` делает ловушку вакуумности безобидной.
     "audits/ai_traps/vacuous_bad.py",
     # ЭТАП 5: кейс `real-cases` ломает первый режим анатомии.
@@ -2344,6 +2346,31 @@ def case_inline_hygiene():
     return "make inline-check"
 
 
+def case_smtlib_tamper():
+    """ШАГ 1 SABOTAGE: подмена `:status` в фикстуре банка.
+
+    ЛОМАЕМ: гейт направляется на `audits/smtlib` — каталог с ОДНИМ файлом, у
+    которого тег `:status` ЗАВЕДОМО НЕВЕРЕН (формула выполнима, а тег говорит
+    `unsat`). Z3 сам это замечает и печатает `error "check annotation that says
+    unsat"`, KERN считает исход ошибкой, и проверенных файлов остаётся 0.
+
+    Гейт обязан покраснеть по правилу АНТИ-ВАКУУМА («проверено < порога»):
+    «0 расхождений» на пустом множестве — это зелёный гейт, который ничего не
+    проверил (класс #345).
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что гейт НЕ может быть зелёным, когда
+    сверять нечего. Без этого правила банк из одних таймаутов/ошибок давал бы
+    «100%» — ровно та ложь, против которой гейт и построен.
+    """
+    patch("tools/smtlib_bench_check.py",
+          'CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "kern" / "smtlib"',
+          'CACHE = ROOT / "audits" / "smtlib"')
+    patch("tools/smtlib_bench_check.py",
+          'SAMPLE = [f"sub-matching-sat-{n}.smt2" for n in range(1, 11)]',
+          'SAMPLE = ["status_flip.smt2"]')
+    return "make smtlib-bench-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3525,6 +3552,8 @@ CASES = [
      case_real_cases),
     ("inline-hygiene", "Name hygiene removed -> false PROVEN -> gate red",
      case_inline_hygiene),
+    ("smtlib-tamper", "`:status` flipped -> nothing to compare -> gate red",
+     case_smtlib_tamper),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

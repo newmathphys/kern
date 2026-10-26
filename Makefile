@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-juliet-check ai-traps-check quixbugs-diff-check real-cases-check inline-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest
+.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-juliet-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -881,6 +881,15 @@ real-cases-check:
 inline-check:
 	@$(PYTHON) tools/inline_check.py --selftest
 	@$(PYTHON) tools/inline_check.py
+
+# ИНФРАСТРУКТУРНЫЙ ДОЛГ: прогон ОФИЦИАЛЬНОГО банка SMT-LIB НЕ был закреплён.
+# Подкоманда `kernc smtlib` существовала, прогон делался (1104/1104, 1796/1796),
+# но ни раннера, ни цели, ни can-fail кейса не было — регрессия в сверке
+# `:status` осталась бы невидимой. Гейт закрывает это на ЗАКРЕПЛЁННОЙ выборке
+# официальных файлов (SMT-LIB/benchmark-submission-2025, QF_S, CC-BY-4.0).
+smtlib-bench-check:
+	@$(PYTHON) tools/smtlib_bench_check.py --selftest
+	@$(PYTHON) tools/smtlib_bench_check.py
 
 # Запрет ИИ-шаблонов в тексте/коммитах; легитимные упоминания MCP-клиентов
 # (MCP-клиенты) НЕ ловятся.

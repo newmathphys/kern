@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->165 · cases <!-- fact:canfail_cases -->197 · anchors <!-- fact:anchors -->157 · registry <!-- fact:registry_targets -->216 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->166 · cases <!-- fact:canfail_cases -->198 · anchors <!-- fact:anchors -->159 · registry <!-- fact:registry_targets -->217 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -40,7 +40,7 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **165 CHECK targets / 126 proven able to fail**, **197 cases, 0 vacuous** |
+| Can-fail discipline | **166 CHECK targets / 126 proven able to fail**, **198 cases, 0 vacuous** |
 | Mutation testing | **1376 / 1424 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
@@ -174,4 +174,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Full `canfail` sweep: **197 non-vacuous / 0 vacuous / 0 case errors**.
+Full `canfail` sweep: **198 non-vacuous / 0 vacuous / 0 case errors**.
