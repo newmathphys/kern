@@ -92,7 +92,7 @@ the refactor could be checked against a *measured* baseline.
 | Lean 4 | **<!-- fact:lean_theorems -->147 theorems, `0 sorry`** |
 | can-fail harness | **<!-- fact:canfail_cases -->196 non-vacuous / 0 vacuous / 0 case errors** |
 | Self-scan `--xray tools/` | **0 `[BOUNDS PATH]`, 0 `[CRASH PATH]`** |
-| Registry | **<!-- fact:registry_targets -->215 targets, highest defect number <!-- fact:max_defect -->363** |
+| Registry | **<!-- fact:registry_targets -->215 targets, highest defect number <!-- fact:max_defect -->364** |
 | CHECK targets | **<!-- fact:check_targets -->164**, each with a non-vacuous case |
 
 The cycle is closed. The next cycle starts from the §3 "out of scope" list above,
