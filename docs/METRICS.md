@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->166 · cases <!-- fact:canfail_cases -->198 · anchors <!-- fact:anchors -->159 · registry <!-- fact:registry_targets -->217 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 ·
-> CHECK <!-- fact:check_targets -->166/<!-- fact:check_targets -->166 · cases <!-- fact:canfail_cases -->198 · anchors <!-- fact:anchors -->159 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -9942,7 +9942,25 @@ SKIP REASONS: DictComp 1
 
 ## §128. QuixBugs через `--diff-equiv`: инварианты вместо обещаний (ЭТАП 4Б)
 
-## §151. SV-COMP: свойство `no-overflow` шире проверяемого KERN — измерено, не заявлено
+## §151. SV-COMP: свойство `no-overflow` шире проверяемого KERN — измерено, а затем ЗАКРЫТО «Путём C»
+
+> **ИТОГ ПОСЛЕ ДЕФЕКТА #367 (см. ниже историю измерения).** В C-путь `--xray`
+> добавлен детектор переполнения ЛЮБОЙ арифметики (бинарные `+ - * / %`,
+> унарный минус, `x++/x--`). **ИЗМЕРЕНО на той же официальной категории:
+> `TP 10 / 10`, `FP 0 / 5`, `TN 5 / 5`, `TPR = 1.00`, `FPR = 0.00`,
+> ИНДЕКС ЮДЕНА `J = 1.00`** (было `TP 0 / 10`). Гейт — `make
+> xray-overflow-check`, эталон — `examples/overflow_xray_demo.c`,
+> свидетельство — `docs/evidence/svcomp_baseline.log`.
+>
+> **ЧЕТЫРЕ КЛАССА ЛОЖНЫХ ОБВИНЕНИЙ, найденных перезамером, и все исправлены:**
+> тип литерала по значению (C11 6.4.4.1p5), целочисленное повышение до `int`
+> (C11 6.3.1.1), беззнаковое заворачивание (в C ОПРЕДЕЛЕНО, не UB) и гард через
+> `exit()`. Подробности — журнал дефектов, запись #368.
+>
+> **ЧЕСТНАЯ ГРАНИЦА, НАЗВАННАЯ:** символический путь допускается только по
+> ВХОДНЫМ ПАРАМЕТРАМ. Значение локальной, изменяемой в цикле, не выводится
+> (циклы не моделируются), поэтому, например, `palindrome.c: reversedNumber * 10`
+> — истинный CWE-190 — детектор ПРОПУСКАЕТ. Пропуск назван, а не спрятан.
 
 **Источник — ОФИЦИАЛЬНЫЙ, и это проверяемо.** Категория
 `c/signedintegeroverflow-regression` из `sosy-lab/sv-benchmarks` (репозиторий

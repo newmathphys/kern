@@ -8,33 +8,31 @@ SV-COMP: ЧЕСТНОЕ ИЗМЕРЕНИЕ KERN (категория signedintege
 
   №  задача                         эталон  --xray(офиц.)  контракт(произв.)  контракт −printf
   ----------------------------------------------------------------------------------------
-   1  AdditionIntMax                 false   нет находки    SKIP               PROVEN (доказано 1)
-   2  AdditionIntMin                 false   нет находки    SKIP               PROVEN (доказано 1)
+   1  AdditionIntMax                 false   НАХОДКА        SKIP               PROVEN (доказано 1)
+   2  AdditionIntMin                 false   НАХОДКА        SKIP               PROVEN (доказано 1)
    3  ConversionToSignedInt          true    нет находки    SKIP               SKIP (вне подмножества 1)
-   4  Division-1                     false   нет находки    SKIP               REFUTED (нарушено 1)
+   4  Division-1                     false   НАХОДКА        SKIP               REFUTED (нарушено 1)
    5  IntegerPromotion-1             true    нет находки    SKIP               SKIP (вне подмножества 1)
    6  Multiplication-1               true    нет находки    SKIP               PROVEN (доказано 1)
-   7  Multiplication-2               false   нет находки    SKIP               PROVEN (доказано 1)
-   8  NoConversion                   false   нет находки    SKIP               PROVEN (доказано 1)
+   7  Multiplication-2               false   НАХОДКА        SKIP               PROVEN (доказано 1)
+   8  NoConversion                   false   НАХОДКА        SKIP               PROVEN (доказано 1)
    9  NoNegativeIntegerConstant      true    нет находки    SKIP               PROVEN (доказано 1)
-  10  PostfixDecrement               false   нет находки    SKIP               SKIP (вне подмножества 1)
-  11  PostfixIncrement               false   нет находки    SKIP               SKIP (вне подмножества 1)
-  12  PrefixDecrement                false   нет находки    SKIP               SKIP (вне подмножества 1)
-  13  PrefixIncrement                false   нет находки    SKIP               SKIP (вне подмножества 1)
-  14  UnaryMinus                     false   нет находки    SKIP               REFUTED (нарушено 1)
+  10  PostfixDecrement               false   НАХОДКА        SKIP               SKIP (вне подмножества 1)
+  11  PostfixIncrement               false   НАХОДКА        SKIP               SKIP (вне подмножества 1)
+  12  PrefixDecrement                false   НАХОДКА        SKIP               SKIP (вне подмножества 1)
+  13  PrefixIncrement                false   НАХОДКА        SKIP               SKIP (вне подмножества 1)
+  14  UnaryMinus                     false   НАХОДКА        SKIP               REFUTED (нарушено 1)
   15  UsualArithmeticConversions     true    нет находки    SKIP               SKIP (вне подмножества 1)
 
 ==============================================================================
 ЧЕСТНЫЙ СЧЁТ (эталон: false = БАГ ЕСТЬ, true = БЕЗОПАСНО)
 ==============================================================================
   задач всего          : 15  (unsafe 10, safe 5)
-  --xray поймал unsafe : 0 из 10
-  --xray пропустил     : 10 из 10
-  --xray ложных тревог : 0 из 5
-  контракт REFUTED unsafe: 0 из 10
-  контракт ЛОЖНО PROVEN unsafe: 0 из 10
-  контракт PROVEN safe : 0 из 5
-  контракт SKIP        : 15
+  --xray поймал unsafe : 10 из 10   (TP)
+  --xray пропустил     : 0 из 10   (FN)
+  --xray ложных тревог : 0 из 5   (FP)
+  --xray чисто на safe : 5 из 5   (TN)
+  TPR = 1.00   FPR = 0.00   ИНДЕКС ЮДЕНА J = TPR - FPR = 1.00
 
 СЛОЙ 2 — контракт на производном файле БЕЗ вызова `printf`:
   REFUTED unsafe (поймал)     : 2 из 10
@@ -64,4 +62,10 @@ SV-COMP: ЧЕСТНОЕ ИЗМЕРЕНИЕ KERN (категория signedintege
   покрытия свойства `no-overflow`, которого у KERN нет. Честное покрытие
   требует применения `.prp` к КАЖДОЙ операции — отдельная работа в
   трансляторе. Поэтому здесь только ИЗМЕРЕНИЕ.
+
+ПОСЛЕ ДЕФЕКТА #367 (детектор переполнения обычного выражения в `--xray`):
+  колонка `--xray` больше НЕ пуста — именно её числа и смотрите выше.
+  Остальные колонки оставлены как ИСТОРИЯ измерения: контрактный путь
+  по-прежнему проверяет только итог возврата, и это его свойство, а не
+  регрессия. Гейт детектора — `make xray-overflow-check`.
 RC=0

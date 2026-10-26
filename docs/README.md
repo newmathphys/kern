@@ -40,7 +40,7 @@
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[RULE_THEOREM_MATRIX.md](RULE_THEOREM_MATRIX.md)** | **Матрица «правило пруф-чекера ↔ теорема Lean 4»**: 17 функций `verify*`/`check*` × 147 теорем; честно указаны 3 правила, обоснованные ядром Lean, и структурное `intro-def` |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§149): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->367**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§149): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->368**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[BELNAP_SOURCES.md](BELNAP_SOURCES.md)** · **[references.bib](references.bib)** | **Формальная база**: источники (25 записей, `verified`/`secondary`/`unverified`), сверка «теория → код» по `src/путь:строка`, §6 «чего в KERN нет», §7 расхождения черновиков; `make citations-check` |
 | **[THREAT_MODEL.md](THREAT_MODEL.md)** · **[KEY_MANAGEMENT.md](KEY_MANAGEMENT.md)** · **[INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md)** | **Документы доверия**: активы и противники, границы TCB, бэкап/ротация/отзыв ключа, порядок действий при ложном `T` |
 | **[PLATFORMS.md](PLATFORMS.md)** | **Матрица платформ**: что проверено прогонами, что собирается, что **не поддерживается** (Windows: 3 POSIX-блокера + sqlite3; macOS: только `libkern`) |
@@ -94,9 +94,9 @@ make perf          # производительность (RAW vs безопас
 ./formal/check.sh  # Lean-доказательства (0 errors, 0 sorry)
 
 # --- Доказательство, что проверки СПОСОБНЫ упасть (K1–K5) ---
-make canfail           # 198 кейс: ломаем инвариант -> цель обязана покраснеть
+make canfail           # 199 кейс: ломаем инвариант -> цель обязана покраснеть
 make canfail-selftest  # кто проверит проверяющего: мета-проверка харнесса
-make registry          # реестр 217 цель + предохранитель от «молчаливых» новых
+make registry          # реестр 218 цель + предохранитель от «молчаливых» новых
 make ci                # единый контур (12+ стадий); make ci-fast — быстрый
 python3 tools/gen_test_catalog.py --check   # каталог тестов не отстал от кода
 ```

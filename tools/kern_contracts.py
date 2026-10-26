@@ -5526,10 +5526,45 @@ _C_KEYWORDS = {
 # `assert(index < len)` не доказывает `len > 0` для беззнакового `u32`
 # (в Int `index < 0` выполнимо), и `--xray` выдавал ложный [CRASH PATH]
 # на защищённом коде. Диапазоны ниже — машинные границы типов (не догадка).
+def _c_type_key(ty: str) -> str | None:
+    """Нормализация C-типа в ключ диапазона — С УЧЁТОМ ЗНАКОВОСТИ.
+
+    ДЕФЕКТ #368 (ИЗМЕРЕНО на `TheAlgorithms/C/math/fibonacci_formula.c`).
+    `int fib(unsigned int n)` теряло `unsigned` при нормализации
+    (`ty.split()[-1]` давало `int`), поэтому `n` получал ЗНАКОВЫЙ диапазон i32,
+    и `n + 1` объявлялось переполнением. В C переполнение БЕЗЗНАКОВОГО типа
+    ОПРЕДЕЛЕНО стандартом (заворачивание по модулю 2^N) — это НЕ UB, и такое
+    обвинение ЛОЖНО. Теперь знаковость сохраняется, а беззнаковые типы
+    отсекаются в самом детекторе (`lo == 0`).
+    """
+    t = re.sub(r"\b(?:const|volatile|static|register|mut|extern)\b", " ", ty)
+    t = t.replace("*", " ").replace("&", " ")
+    t = re.sub(r"\s+", " ", t).strip().lower()
+    if not t:
+        return None
+    words = t.split()
+    unsigned = "unsigned" in words
+    words = [w for w in words if w != "unsigned"]
+    if not words:
+        return "uint" if unsigned else None
+    base = words[-1]
+    if unsigned:
+        return {"int": "uint", "short": "u16", "char": "u8",
+                "long": "u64"}.get(base)
+    if "long" in words:
+        return "i64"
+    if "short" in words:
+        return "i16"
+    if base == "char":
+        return "i8"
+    return base
+
+
 _CLIKE_RANGES = {
     "u8": (0, 255), "u16": (0, 65535), "u32": (0, 4294967295),
     "u64": (0, 18446744073709551615), "usize": (0, 18446744073709551615),
-    "uint": (0, 4294967295), "size_t": (0, 18446744073709551615),
+    "uint": (0, 4294967295), "unsigned": (0, 4294967295),
+    "size_t": (0, 18446744073709551615),
     "i8": (-128, 127), "i16": (-32768, 32767),
     "i32": (-2147483648, 2147483647),
     "i64": (-9223372036854775808, 9223372036854775807),
@@ -5579,8 +5614,8 @@ def _clike_param_ranges(praw: str) -> dict:
         name = name.lstrip("*&")
         ty = ty.replace("const", " ").replace("mut", " ").replace("*", " ")
         ty = ty.replace("&", " ").strip().lower()
-        key = ty.split()[-1] if ty else ""
-        if key in _CLIKE_RANGES:
+        key = _c_type_key(ty) if ty else None
+        if key and key in _CLIKE_RANGES:
             out[name] = _CLIKE_RANGES[key]
     return out
 
@@ -5740,6 +5775,362 @@ def _clike_conds_at(pos: int, if_blocks: list) -> list[str]:
     return out
 
 
+_RE_CLIKE_DECL = re.compile(
+    r"\b((?:unsigned|signed|long|short|const|static)\s+)*"
+    r"([A-Za-z_]\w*(?:\s*\*)?)\s+([A-Za-z_]\w*)\s*(?:=|;|,)")
+# Правые части присваиваний и `return` — кандидаты-выражения. `(?<![=!<>+\-*/%])`
+# отсекает `==`, `!=`, `<=`, `>=`; `[^;{}]+` допускает переносы строки внутри
+# выражения, но не перескакивает границу оператора/блока.
+_RE_CLIKE_ASSIGN_RHS = re.compile(r"(?<![=!<>+\-*/%])=(?!=)\s*([^;{}]+)")
+_RE_CLIKE_RETURN_RHS = re.compile(r"\breturn\s+([^;{}]+)")
+# ЗАКОННОЕ оборачивание/насыщение: переполнение здесь — ЗАДУМАННАЯ семантика,
+# а не дефект. Проверять его — значит обвинять корректный код.
+_WRAP_MARKERS = ("+%", "-%", "*%", "+|", "-|", "wrapping_", "saturating_",
+                 "addWithOverflow", "mulWithOverflow", "subWithOverflow")
+
+
+def _clike_local_ranges(body: str) -> dict[str, tuple[int, int]]:
+    """Объявленные в теле локальные переменные -> границы их типов.
+
+    ЗАЧЕМ. `no-overflow.prp` (и обычный смысл UB) требует, чтобы арифметика
+    оставалась в границах ОБЪЯВЛЕННОГО типа. Без карты типов локальных
+    переменных тип выражения неизвестен, и обвинять нельзя (ложное обвинение
+    хуже пропуска — урок #178/#183).
+    """
+    out: dict[str, tuple[int, int]] = {}
+    for m in _RE_CLIKE_DECL.finditer(body):
+        qual, ty, nm = m.group(1) or "", m.group(2), m.group(3)
+        key = _c_type_key(f"{qual} {ty}")
+        if not key:
+            continue
+        rng = _CLIKE_RANGES.get(key) or TYPE_RANGE.get(key)
+        if rng:
+            out.setdefault(nm, rng)
+    return out
+
+
+# Типы целочисленных литералов C11 (6.4.4.1p5). ВАЖНО: `long` на LP64 — 64 бита.
+_C_INT_RANGES = {"int": TYPE_RANGE["int"], "long": TYPE_RANGE["long"],
+                 "long long": TYPE_RANGE["long"]}
+
+
+def _c_literal_range(v: int) -> tuple[int, int] | None:
+    """Тип целочисленного литерала в C: ПЕРВЫЙ, вмещающий значение.
+
+    ЗАЧЕМ (измерено на SV-COMP, `NoNegativeIntegerConstant.c`, эталон `true`).
+    Первая версия детектора считала ВСЕ литералы типом `int`, и объявляла
+    переполнением `long x = -2147483648 - 1;`. Это ЛОЖНОЕ ОБВИНЕНИЕ: литерал
+    `2147483648` не влезает в `int`, поэтому по стандарту C он имеет тип
+    `long`, унарный минус и вычитание идут в `long`, и переполнения НЕТ. Файл
+    даже объясняет это в своих комментариях — и именно поэтому он называется
+    `NoNegativeIntegerConstant`. Ложное обвинение хуже пропуска (урок
+    #178/#183), поэтому тип берётся по ПРАВИЛУ ЯЗЫКА, а не по догадке.
+    """
+    for key in ("int", "long", "long long"):
+        lo, hi = _C_INT_RANGES[key]
+        if lo <= v <= hi:
+            return (lo, hi)
+    return None     # не влезает даже в `long long` -> в C это unsigned/UB, не обвиняем
+
+
+_C_I32_RANGE = (-2147483648, 2147483647)
+
+
+def _c_promote(rng: tuple[int, int] | None) -> tuple[int, int] | None:
+    """Целочисленное ПОВЫШЕНИЕ (C11 6.3.1.1).
+
+    ИЗМЕРЕНО на `IntegerPromotion-1.c` (эталон `true` = БЕЗОПАСНО):
+    `short a = 32767; unsigned short b = a + a + a;` — переполнения НЕТ, потому
+    что при обычных арифметических преобразованиях операнды `+` повышаются до
+    `int`. Без этого правила детектор объявлял `a + a = 65534` переполнением
+    `i16` — ЛОЖНОЕ ОБВИНЕНИЕ. Файл объясняет это в своих комментариях.
+
+    Правило: тип УЖЕ `int` повышается до `int` (это `char`, `short`, а также
+    `unsigned char`/`unsigned short` — `int` вмещает все их значения). Типы
+    ШИРЕ `int` (`long`, `i64`) не повышаются; `unsigned int` тоже (его диапазон
+    не влезает в `int`).
+    """
+    if rng is None:
+        return None
+    lo, hi = rng
+    if (hi - lo) < (_C_I32_RANGE[1] - _C_I32_RANGE[0]):
+        return _C_I32_RANGE
+    return rng
+
+
+def _operand_range(node: ast.AST, var_ranges: dict) -> tuple[int, int] | None:
+    """Диапазон ТИПА операнда (обычные арифметические преобразования C).
+
+    Литерал -> по значению (`_c_literal_range`); переменная -> объявленный тип;
+    `-x` -> тип `x`; `a op b` -> ШИРОЧАЙШИЙ из операндов (C повышает тип до
+    общего). Неизвестный операнд -> None (пропуск, а не догадка).
+    Результат проходит ЦЕЛОЧИСЛЕННОЕ ПОВЫШЕНИЕ (`_c_promote`).
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, int):
+        return _c_literal_range(node.value)
+    if isinstance(node, ast.Name):
+        return _c_promote(var_ranges.get(node.id))
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        return _c_promote(_operand_range(node.operand, var_ranges))
+    if isinstance(node, ast.BinOp):
+        l = _operand_range(node.left, var_ranges)
+        r = _operand_range(node.right, var_ranges)
+        if l is None or r is None:
+            return None
+        return l if (l[1] - l[0]) >= (r[1] - r[0]) else r
+    return None
+
+
+def _const_eval(node: ast.AST, consts: dict) -> int | None:
+    """Значение выражения, если оно ВЫЧИСЛИМО статически, иначе None.
+
+    Подставляет локальные, чьё значение известно (единственное присваивание
+    константы). Семантика ДЕЛЕНИЯ и ОСТАТКА — как в C: усечение к нулю, знак
+    остатка — знак делимого (в Python `//` и `%` другие, поэтому считаем сами).
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, int):
+        return node.value
+    if isinstance(node, ast.Name):
+        return consts.get(node.id)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        v = _const_eval(node.operand, consts)
+        if v is None:
+            return None
+        return -v if isinstance(node.op, ast.USub) else v
+    if isinstance(node, ast.BinOp):
+        l = _const_eval(node.left, consts)
+        r = _const_eval(node.right, consts)
+        if l is None or r is None:
+            return None
+        if isinstance(node.op, ast.Add):
+            return l + r
+        if isinstance(node.op, ast.Sub):
+            return l - r
+        if isinstance(node.op, ast.Mult):
+            return l * r
+        if r == 0:
+            return None                     # деление на ноль — отдельный детектор
+        q = abs(l) // abs(r)
+        if (l < 0) != (r < 0):
+            q = -q                          # C: усечение К НУЛЮ
+        if isinstance(node.op, (ast.Div, ast.FloorDiv)):
+            return q
+        if isinstance(node.op, (ast.Mod, )):
+            return l - q * r                # C: знак остатка = знак делимого
+    return None
+
+
+_RE_CLIKE_CONST_LOCAL = re.compile(
+    r"\b(?:unsigned|signed|long|short|const|static|\s)*"
+    r"[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*=\s*([^;{}]+);")
+
+
+def _clike_const_locals(body: str) -> dict[str, int]:
+    """Локальные, значение которых ИЗВЕСТНО (единственное присваивание).
+
+    ЗАЧЕМ. Без этого `int x = 2147483647; x++;` нечем проверить: значение `x`
+    не из типа, а из присваивания. Требование «присваивание РОВНО ОДНО» —
+    защита от звучимости: если `x` переприсваивается в цикле или ветви, его
+    значение на момент операции неизвестно, и обвинять нельзя.
+    """
+    out: dict[str, int] = {}
+    for m in _RE_CLIKE_CONST_LOCAL.finditer(body):
+        nm, rhs = m.group(1), m.group(2).strip()
+        if len(re.findall(rf"\b{re.escape(nm)}\s*=(?!=)", body)) != 1:
+            continue                        # переприсваивается — значение неизвестно
+        try:
+            node = ast.parse(clike_to_python(_unwrap_zig_builtins(rhs)),
+                             mode="eval").body
+        except (SyntaxError, ValueError):
+            continue
+        v = _const_eval(node, out)
+        if isinstance(v, int):
+            out[nm] = v
+    return out
+
+
+def _clike_incdec_findings(name: str, body: str, var_ranges: dict,
+                           consts: dict) -> list[str]:
+    """[OVERFLOW PATH] на `x++ / ++x / x-- / --x` с ИЗВЕСТНЫМ значением.
+
+    ЗАЧЕМ (измерено на SV-COMP): четыре задачи категории
+    (`PostfixIncrement`, `PrefixIncrement`, `PostfixDecrement`,
+    `PrefixDecrement`) — это ровно `int x = 2147483647; x++;` и его варианты.
+    Инкремент/декремент не является `BinOp`, поэтому первый вариант детектора
+    их не видел.
+
+    ПОЧЕМУ ТОЛЬКО С ИЗВЕСТНЫМ ЗНАЧЕНИЕМ. Незащищённый `x++` в общем случае
+    МОЖЕТ переполниться (если `x` уже на границе), но на реальном коде это
+    дало бы находку на каждом счётчике цикла — то есть шум. Обвиняем только
+    там, где значение ВЫЧИСЛИМО, и тогда это не «возможно», а «будет».
+    """
+    out: list[str] = []
+    for m in re.finditer(r"(?:\+\+|--)\s*([A-Za-z_]\w*)|([A-Za-z_]\w*)\s*(?:\+\+|--)",
+                         body):
+        nm = m.group(1) or m.group(2)
+        if nm not in consts or nm not in var_ranges:
+            continue
+        lo, hi = var_ranges[nm]
+        new = consts[nm] + (1 if "++" in m.group(0) else -1)
+        if new < lo or new > hi:
+            op = "++" if "++" in m.group(0) else "--"
+            out.append(
+                f"[OVERFLOW PATH] {name}: переполнение типа "
+                f"([{lo}, {hi}]): `{nm}{op}` при `{nm} = {consts[nm]}` "
+                f"даёт {new} — UB до возврата")
+    return out
+
+
+def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
+                             path_conds: list[str], if_blocks: list,
+                             local_smt: dict, kernc) -> list[str]:
+    """[OVERFLOW PATH] для ЛЮБОЙ арифметики `+ - *` в C-like теле.
+
+    ПОЧЕМУ ЭТО НУЖНО (дефект #367). До этой правки `--xray` для C имел
+    детекторы деления на ноль, границ массива и РАЗМЕРА АЛЛОКАЦИИ, но не имел
+    детектора переполнения ОБЫЧНОГО выражения. Измерено на официальной
+    категории SV-COMP `signedintegeroverflow-regression`: поймано 0 из 10
+    unsafe. Контрактный путь тоже не спасал: он проверяет ИТОГОВОЕ значение
+    возврата, а `(2147483647 + 1) - 23` переполняется ВНУТРИ и «схлопывается»
+    обратно в диапазон (итог 2147483625) — обязанность типа удовлетворена.
+
+    Здесь проверяется КАЖДАЯ бинарная операция (свойство `no-overflow`), а не
+    только возврат.
+
+    ЗВУЧИМОСТЬ (почему не обвиняем лишнего):
+
+      * границы берутся из ОБЪЯВЛЕННОГО типа (локальные — из тела, параметры —
+        из сигнатуры). Неизвестный тип -> ПРОПУСК;
+      * каждое имя в выражении обязано быть либо параметром, либо локальной с
+        известным типом. Иначе в SMT появился бы СВОБОДНЫЙ символ, решатель
+        подобрал бы ему значение вне всякого домена — и это дало бы ложное
+        обвинение;
+      * явное оборачивание (Zig `+% -% *% +| -|`, Rust `wrapping_*` /
+        `saturating_*`, `@addWithOverflow`) ПРОПУСКАЕТСЯ: переполнение там —
+        задуманная семантика, а не дефект;
+      * поля структур (`->`, `.`) не моделируются -> ПРОПУСК;
+      * проверка идёт ПОД путём (`if_blocks` + `path_conds`), поэтому операция
+        внутри недостижимой ветви не обвиняется.
+
+    КОНСТАНТНЫЕ выражения проверяются ТОЧНО и без Z3: значение считается в
+    Python (целые безграничны) и сравнивается с границами типа. Это не
+    оптимизация ради скорости — это ТОЧНЕЕ решателя: `2147483647 + 1` не
+    требует SAT-запроса, ответ известен арифметически.
+    """
+    out: list[str] = []
+    var_ranges = dict(ranges or {})
+    var_ranges.update(_clike_local_ranges(body))
+    consts = _clike_const_locals(body)
+    if not var_ranges:
+        return _clike_incdec_findings(name, body, var_ranges, consts)
+
+    spans: list[tuple[int, str]] = []
+    for m in _RE_CLIKE_ASSIGN_RHS.finditer(body):
+        spans.append((m.start(1), m.group(1)))
+    for m in _RE_CLIKE_RETURN_RHS.finditer(body):
+        spans.append((m.start(1), m.group(1)))
+
+    for pos, raw_expr in spans:
+        if any(w in raw_expr for w in _WRAP_MARKERS):
+            continue
+        if "->" in raw_expr or re.search(r"\w\.\w", raw_expr):
+            continue        # поле структуры — тип/значение неизвестны
+        try:
+            tree = ast.parse(clike_to_python(_unwrap_zig_builtins(raw_expr)),
+                             mode="eval").body
+        except (SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            # Проверяются и БИНАРНЫЕ операции, и УНАРНЫЙ МИНУС. Второе — не
+            # украшение: `UnaryMinus.c` из SV-COMP это ровно `-minInt - 23`, где
+            # переполняется ПОДвыражение `-minInt` (`-(-2147483648) = 2147483648`),
+            # а итог `2147483625` снова в диапазоне. Без унарного минуса этот
+            # класс задач не ловится (измерено: 9 из 10 -> 10 из 10).
+            if isinstance(node, ast.BinOp):
+                if not isinstance(node.op, (ast.Add, ast.Sub, ast.Mult,
+                                            ast.Div, ast.FloorDiv, ast.Mod)):
+                    continue
+                operands = (node.left, node.right)
+            elif isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+                operands = (node.operand,)
+            else:
+                continue
+            # (1) диапазон ТИПА результата по правилам C: литерал -> по значению
+            # (`long x = -2147483648 - 1` НЕ переполняется), переменная -> по
+            # объявленному типу, результат -> по ШИРОЧАЙШЕМУ операнду.
+            names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+            if any(nm not in var_ranges for nm in names):
+                continue        # неизвестный символ дал бы свободную переменную
+            op_ranges = [_operand_range(o, var_ranges) for o in operands]
+            if any(r is None for r in op_ranges):
+                continue
+            rng = max(op_ranges, key=lambda r: r[1] - r[0])
+            tyname = next((k for k, v in TYPE_RANGE.items() if v == rng), "?")
+            lo, hi = rng
+            # (1b) БЕЗЗНАКОВЫЕ ТИПЫ НЕ ОБВИНЯЕМ. ИЗМЕРЕНО на `TheAlgorithms/C/
+            # math/fibonacci_formula.c`: `int fib(unsigned int n)` содержит
+            # `n + 1`, и первая версия детектора объявляла это переполнением.
+            # Это ЛОЖНОЕ ОБВИНЕНИЕ: в C переполнение БЕЗЗНАКОВОГО типа
+            # ОПРЕДЕЛЕНО стандартом (заворачивание по модулю 2^N) — это НЕ UB и
+            # НЕ свойство `no-overflow`. То же в Go и TS/JS. В Zig/Rust поведение
+            # иное (паника в safety-режиме / заворачивание в release), но
+            # выдумывать вердикт на неуточнённом режиме сборки нельзя. Поэтому
+            # беззнаковые — ПРОПУСК, и граница названа.
+            if lo == 0:
+                continue
+            # (2) ТОЧНАЯ проверка: если выражение ВЫЧИСЛИМО статически (литералы
+            # и локальные с известным значением) — считаем арифметически. Это не
+            # оптимизация ради скорости, а ТОЧНОСТЬ: `(2147483647 + 1) - 23` не
+            # требует SAT-запроса, ответ известен, и он же покрывает деление
+            # (`minInt / -1` — аппаратная ловушка `idiv`).
+            val = _const_eval(node, consts)
+            if val is not None:
+                if val < lo or val > hi:
+                    op = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*",
+                          ast.Div: "/", ast.FloorDiv: "/",
+                          ast.Mod: "%"}.get(type(node.op), "?")
+                    out.append(
+                        f"[OVERFLOW PATH] {name}: переполнение типа `{tyname}` "
+                        f"([{lo}, {hi}]): `{ast.unparse(node)}` = {val} "
+                        f"({op} вне диапазона) — UB до возврата")
+                continue
+            try:
+                whole = expr_smt(node, local_smt)
+            except (Unsupported, NoReturn, SyntaxError, KeyError):
+                continue
+            if "__" in whole or not whole:
+                continue
+            # (3) СИМВОЛЬНЫЙ путь — только по ВХОДНЫМ ПАРАМЕТРАМ. ДЕФЕКТ #368:
+            # ИЗМЕРЕНО на `TheAlgorithms/C/math` (catalan.c): `int i` — счётчик
+            # цикла, а циклы не моделируются, поэтому `i` остаётся СВОБОДНЫМ и
+            # решатель берёт `i = 2147483649`, давая НЕДОСТИЖИМЫЙ контрпример
+            # для `x - i`. Это ложное обвинение. Значение локальной переменной
+            # ВЫВОДИТСЯ кодом; если вывести его мы не умеем (циклы/ветви), то и
+            # обвинять нечем. Параметр же — это настоящий вход, его диапазон
+            # задан типом в сигнатуре.
+            #   Постоянные локальные сюда не попадают: их обрабатывает статическая
+            # ветка выше (`_const_eval`), и она точнее решателя.
+            if any(nm not in set(params) for nm in names):
+                continue
+            try:
+                kind, ce = _smt_verdict(
+                    kernc, params,
+                    path_conds + _clike_conds_at(pos, if_blocks)
+                    + [f"(or (> {whole} {hi}) (< {whole} {lo}))"])
+            except Exception as _kern_e_ov:                  # noqa: BLE001
+                _replay_soft(_kern_e_ov, "kern_contracts.py:ov")
+                continue
+            if kind == "sat":
+                out.append(
+                    f"[OVERFLOW PATH] {name}: переполнение типа `{tyname}` "
+                    f"([{lo}, {hi}]) в `{ast.unparse(node)}` — UB до возврата; "
+                    f"{ce or 'SAT'}")
+    for _id_msg in _clike_incdec_findings(name, body, var_ranges, consts):
+        if _id_msg not in out:
+            out.append(_id_msg)
+    return out
+
+
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
@@ -5869,7 +6260,22 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             # `else if (y < x)` после `else if (y > x)` давал ЛОЖНЫЙ [DEAD BRANCH],
             # потому что путь ошибочно считался «y > x».)
             tail = body[m.end(): m.end() + 160]
-            exits = bool(re.match(r"\s*\{?\s*(return|break|continue)\b", tail))
+            # ДЕФЕКТ #368: `exit(...)`/`abort(...)`/`panic(...)` — это ТОЖЕ выход
+            # из функции, то есть гард. ИЗМЕРЕНО на `TheAlgorithms/C/math/
+            # fibonacci.c`: `if (number <= 0) { fprintf(...); exit(EXIT_FAILURE); }`
+            # исключает `number <= 0`, но раньше путь НЕ сужался, и
+            # `number - 1` объявлялось переполнением при `number = INT_MIN` —
+            # ЛОЖНОЕ ОБВИНЕНИЕ. Проверка идёт по ВСЕМУ блоку и намеренно
+            # ОВЕР-АППРОКСИМИРУЕТ: если признак выхода найден, мы СКРОЕМ находку
+            # (пропуск), а не выдумаем её — пропуск безопаснее ложного обвинения
+            # (урок #178/#183).
+            _bend0 = _clike_block_end(body, m.end())
+            _blk = body[m.end():_bend0]
+            hard_exit = bool(re.search(
+                r"\b(?:exit|abort|_exit|_Exit|quick_exit|panic|unreachable|"
+                r"os\.Exit|process\.exit|std::process::exit|sys\.exit)\s*\(", _blk))
+            exits = hard_exit or bool(re.match(
+                r"\s*\{?\s*(return|break|continue)\b", tail))
             has_else = bool(re.match(r"\s*\}?\s*else\b", tail))
             # ДЕФЕКТ #318: запоминаем ГРАНИЦЫ блока, чтобы позже вычислить
             # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
@@ -6132,6 +6538,18 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             found.append(
                 f"[BOUNDS PATH] {name}: off-by-one: `{var} <= {lname}` разрешает "
                 f"индекс == длине ({var} = {lname}), а {var}[{lname}] уже за концом")
+        # ===== B2c: [OVERFLOW PATH] на ЛЮБОЙ арифметике `+ - *` =====
+        # ДЕФЕКТ #367: до этой правки детектора переполнения ОБЫЧНОГО
+        # выражения не было вовсе (только размер аллокации, счётчик u16 и
+        # каст смещения). Измерено на официальной категории SV-COMP
+        # `signedintegeroverflow-regression`: поймано 0 из 10 unsafe.
+        # Теперь проверяется КАЖДАЯ бинарная операция под текущим путём —
+        # то есть свойство `no-overflow`, а не только итог возврата.
+        for _ov_msg in _clike_overflow_findings(
+                name, params, body, ranges, path_conds, if_blocks,
+                local_smt, kernc):
+            if _ov_msg not in found:
+                found.append(_ov_msg)
         if proven:
             checked += 1
     # Файловый уровень: правила, недостижимые внутри функции.

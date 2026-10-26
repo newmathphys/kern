@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->217 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->166 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->218 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->167 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->10 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->37 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->198**, of which
-**166/166** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->199**, of which
+**167/167** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -31,12 +31,12 @@ Can-fail cases: **<!-- fact:canfail_cases -->198**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1424 / 1424 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->159 |
+| Literal anchors | <!-- fact:anchors -->160 |
 | Version | `v2.7.3` |
 
 ## Defect journal
 
-Numbered entries: **299**.
+Numbered entries: **300**.
 
 | Explicit status | Count |
 | --- | --- |
@@ -45,7 +45,7 @@ Numbered entries: **299**.
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
 | Decision: considered and not adopted | 0 |
-| Rows in the earlier journal format (category column, no status) | 124 |
+| Rows in the earlier journal format (category column, no status) | 125 |
 
 **Open technical defects: 0**
 
@@ -55,7 +55,7 @@ Numbered entries: **299**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->367**.
+Highest defect number in the journal: **<!-- fact:max_defect -->368**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

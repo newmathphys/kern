@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->166 · cases <!-- fact:canfail_cases -->198 · anchors <!-- fact:anchors -->159 · registry <!-- fact:registry_targets -->217 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 ·
-> CHECK <!-- fact:check_targets -->166/<!-- fact:check_targets -->166 · cases <!-- fact:canfail_cases -->198 · anchors <!-- fact:anchors -->159 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -2543,7 +2543,25 @@ into a claim the tools no longer back.
 
 ## §128. QuixBugs via `--diff-equiv`: invariants instead of promises (Stage 4B)
 
-## §129. SV-COMP: the `no-overflow` property is broader than what KERN checks — measured, not claimed
+## §129. SV-COMP: the `no-overflow` property is broader than what KERN checks — measured, then CLOSED by "Path C"
+
+> **RESULT AFTER DEFECT #367 (measurement history below).** The C path of
+> `--xray` gained a detector for overflow of ANY arithmetic (binary `+ - * / %`,
+> unary minus, `x++/x--`). **MEASURED on the same official category:
+> `TP 10 / 10`, `FP 0 / 5`, `TN 5 / 5`, `TPR = 1.00`, `FPR = 0.00`,
+> YOUDEN INDEX `J = 1.00`** (was `TP 0 / 10`). Gate: `make xray-overflow-check`;
+> reference: `examples/overflow_xray_demo.c`; evidence:
+> `docs/evidence/svcomp_baseline.log`.
+>
+> **FOUR CLASSES OF FALSE ACCUSATIONS found by re-measuring, all fixed:**
+> literal type by value (C11 6.4.4.1p5), integer promotion to `int`
+> (C11 6.3.1.1), unsigned wraparound (DEFINED in C, not UB) and a guard via
+> `exit()`. Details: defect journal, entry #368.
+>
+> **HONEST BOUNDARY, NAMED:** the symbolic path is allowed only over INPUT
+> PARAMETERS. The value of a local mutated in a loop is not derived (loops are
+> not modelled), so for example `palindrome.c: reversedNumber * 10` — a true
+> CWE-190 — is MISSED by the detector. The miss is named, not hidden.
 
 **The source is OFFICIAL, and that is checkable.** Category
 `c/signedintegeroverflow-regression` from `sosy-lab/sv-benchmarks` (the

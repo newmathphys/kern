@@ -237,14 +237,19 @@ def main(argv=None) -> int:
     emit("=" * 78)
     unsafe = sum(1 for t in TASKS if expected_verdict(directory, t) == "false")
     safe = len(TASKS) - unsafe
+    tp = counts["xray_hit_bad"]
+    fn = counts["xray_miss_bad"]
+    fp = counts["xray_false_bad"]
+    tn = safe - fp
+    tpr = tp / unsafe if unsafe else 0.0
+    fpr = fp / safe if safe else 0.0
     emit(f"  задач всего          : {len(TASKS)}  (unsafe {unsafe}, safe {safe})")
-    emit(f"  --xray поймал unsafe : {counts['xray_hit_bad']} из {unsafe}")
-    emit(f"  --xray пропустил     : {counts['xray_miss_bad']} из {unsafe}")
-    emit(f"  --xray ложных тревог : {counts['xray_false_bad']} из {safe}")
-    emit(f"  контракт REFUTED unsafe: {counts['c_refuted_bad']} из {unsafe}")
-    emit(f"  контракт ЛОЖНО PROVEN unsafe: {counts['c_proven_bad']} из {unsafe}")
-    emit(f"  контракт PROVEN safe : {counts['c_proven_good']} из {safe}")
-    emit(f"  контракт SKIP        : {counts['c_skip']}")
+    emit(f"  --xray поймал unsafe : {tp} из {unsafe}   (TP)")
+    emit(f"  --xray пропустил     : {fn} из {unsafe}   (FN)")
+    emit(f"  --xray ложных тревог : {fp} из {safe}   (FP)")
+    emit(f"  --xray чисто на safe : {tn} из {safe}   (TN)")
+    emit(f"  TPR = {tpr:.2f}   FPR = {fpr:.2f}   "
+         f"ИНДЕКС ЮДЕНА J = TPR - FPR = {tpr - fpr:.2f}")
     emit("")
     emit("СЛОЙ 2 — контракт на производном файле БЕЗ вызова `printf`:")
     emit(f"  REFUTED unsafe (поймал)     : {counts['c2_refuted_bad']} из {unsafe}")
@@ -274,6 +279,12 @@ def main(argv=None) -> int:
     emit("  покрытия свойства `no-overflow`, которого у KERN нет. Честное покрытие")
     emit("  требует применения `.prp` к КАЖДОЙ операции — отдельная работа в")
     emit("  трансляторе. Поэтому здесь только ИЗМЕРЕНИЕ.")
+    emit("")
+    emit("ПОСЛЕ ДЕФЕКТА #367 (детектор переполнения обычного выражения в `--xray`):")
+    emit("  колонка `--xray` больше НЕ пуста — именно её числа и смотрите выше.")
+    emit("  Остальные колонки оставлены как ИСТОРИЯ измерения: контрактный путь")
+    emit("  по-прежнему проверяет только итог возврата, и это его свойство, а не")
+    emit("  регрессия. Гейт детектора — `make xray-overflow-check`.")
     # Финальная строка RC=<n>: её требует устав (P6, «свидетельство отслеживается
     # и не содержит провала»). Лог без неё считается неполным или снятым вручную.
     emit("RC=0")

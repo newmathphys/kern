@@ -2371,6 +2371,29 @@ def case_smtlib_tamper():
     return "make smtlib-bench-check"
 
 
+def case_xray_overflow():
+    """ШАГ 3 SABOTAGE: тип целочисленного литерала перестаёт считаться ПО ЗНАЧЕНИЮ.
+
+    ЛОМАЕМ: из списка типов C11 (6.4.4.1p5) убирается `int`, поэтому ЛЮБОЙ
+    литерал получает тип `long` (i64). Тогда `2147483647 + 1 = 2147483648`
+    «влезает» в i64, обязательство i32 не срабатывает — и `collapsing_sum`
+    остаётся БЕЗ находки, то есть цель краснеет по классу ПРОПУСК.
+
+    ПОЧЕМУ ИМЕННО ЭТО, А НЕ «УБРАТЬ ВЕСЬ ДЕТЕКТОР». Убрать детектор целиком
+    тоже покрасило бы ворота, но не отличило бы «пропал» от «ослеп на типах».
+    Здесь ломается ровно ОДНО правило — то, которое делает детектор точным:
+    `long x = -2147483648 - 1` не переполняется (дефект #368), и это же правило
+    даёт находку на `int x = 2147483647 + 1`. Одно правило — обе половины.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота НЕ могут быть зелёными, когда
+    детектор перестал различать типы по значению.
+    """
+    patch("tools/kern_contracts.py",
+          '    for key in ("int", "long", "long long"):',
+          '    for key in ("long", "long long"):   # ЛОМАЕМ: `int` пропущен')
+    return "make xray-overflow-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3554,6 +3577,8 @@ CASES = [
      case_inline_hygiene),
     ("smtlib-tamper", "`:status` flipped -> nothing to compare -> gate red",
      case_smtlib_tamper),
+    ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
+     case_xray_overflow),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
