@@ -65,7 +65,17 @@ EX = ROOT / "tools" / "kern_contracts.py"
 # (`tool_errors`) и краснит гейт.
 CONTROLS = [
     ROOT / "audits" / "cwe_juliet" / "cwe369_good.py",
+    # ДЕФЕКТ #361 ИСПРАВЛЕН: C-like контроль теперь РАБОТАЕТ (`parse_bodies`
+    # маршрутизирует расширения из `CLIKE_EXT` через `parse_clike`), поэтому
+    # `.c`-пара возвращена в контрольную половину — раньше она падала с
+    # `SyntaxError`, и падение выдавалось за расхождение.
+    ROOT / "audits" / "quixbugs_diff" / "clike_control.c",
 ]
+
+# C-like ПАРА «багованная vs исправленная»: `--diff-equiv` обязан поймать
+# расхождение с ТОЧНЫМ контрпримером (дефект #361 закрыт двусторонне).
+CLIKE_PAIR = (ROOT / "audits" / "quixbugs_diff" / "clike_bad.c",
+              ROOT / "audits" / "quixbugs_diff" / "clike_good.c")
 
 
 def run_diff(a: Path, b: Path) -> tuple[int, str]:
@@ -123,6 +133,26 @@ def control_half() -> dict:
                 bad.append(src.name)
     return {"in_subset": ok, "false_diverged": bad, "skipped": skipped,
             "tool_errors": crashed}
+
+
+def clike_half() -> dict:
+    """C-like `--diff-equiv`: багованная пара обязана дать DIVERGED с контрпримером.
+
+    ДЕФЕКТ #361: до маршрутизации C-like через `parse_clike` этот прогон падал с
+    `SyntaxError`. Теперь проверяется ДВУСТОРОННЕ: расхождение ловится (и с
+    ТОЧНЫМ контрпримером), а контроль «файл против себя» даёт `EQUIVALENT`.
+    """
+    a, b = CLIKE_PAIR
+    if not a.exists() or not b.exists():
+        return {"ran": False, "reason": "нет C-like фикстур"}
+    rc, out = run_diff(a, b)
+    if "Traceback" in out or "SyntaxError" in out:
+        return {"ran": True, "tool_error": True,
+                "detail": "инструмент УПАЛ на C-like входе (#361 не закрыт)"}
+    diverged = "[DIVERGED]" in out and "[КОНТРПРИМЕР]" in out
+    return {"ran": True, "tool_error": False, "diverged": diverged,
+            "detail": next((l.strip()[:96] for l in out.splitlines()
+                            if "[КОНТРПРИМЕР]" in l), "<контрпример не предъявлен>")}
 
 
 def selftest() -> int:
@@ -188,6 +218,7 @@ def main(argv=None) -> int:
     print("=" * 74)
     ds = dataset_half(dataset)
     ctl = control_half()
+    ck = clike_half()
 
     print(f"  ПАРЫ (buggy vs correct): ", end="")
     if ds["ran"]:
@@ -195,6 +226,9 @@ def main(argv=None) -> int:
               f"false_equivalent {ds['false_equivalent']}  (требуется 0)")
     else:
         print(f"[SKIP] {ds['reason']}")
+    print(f"  C-LIKE ПАРА (buggy vs good, #361): "
+          f"{'DIVERGED + контрпример' if ck.get('diverged') else 'НЕ ПОЙМАНО'}")
+    print(f"      {ck['detail']}")
     print(f"  КОНТРОЛЬ (correct vs correct): EQUIVALENT {len(ctl['in_subset'])} | "
           f"false_diverged {len(ctl['false_diverged'])} | "
           f"падений инструмента {len(ctl['tool_errors'])}  (требуется 0)")
@@ -215,6 +249,11 @@ def main(argv=None) -> int:
     if ctl["tool_errors"]:
         problems.append(f"ПАДЕНИЕ ИНСТРУМЕНТА (дефект #361, а не расхождение): "
                         f"{ctl['tool_errors']}")
+    if ck.get("tool_error"):
+        problems.append(f"C-like вход роняет инструмент (#361 НЕ закрыт): "
+                        f"{ck['detail']}")
+    elif ck.get("ran") and not ck.get("diverged"):
+        problems.append("C-like багованная пара НЕ поймана `--diff-equiv`")
     if not ctl["in_subset"]:
         problems.append("контрольная половина не проверила НИ ОДНОЙ пары "
                         "(вакуумный гейт)")

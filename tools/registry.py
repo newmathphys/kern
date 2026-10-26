@@ -458,6 +458,8 @@ CASE_TARGET = {
     "ai-traps": "ai-traps-check",
     # ЭТАП 4Б: инварианты QuixBugs.
     "quixbugs-diff": "quixbugs-diff-check",
+    # ШАГ 1 Захода Б: маршрутизация C-like в `--diff-equiv` (дефект #361).
+    "clike-diff-routing": "quixbugs-diff-check",
 }
 
 

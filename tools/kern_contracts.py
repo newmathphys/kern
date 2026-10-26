@@ -1259,6 +1259,57 @@ def run_kernc(kernc, smt: str, query_kind: str = "refutation"):
         Path(sp).unlink(missing_ok=True)
 
 
+# Причины, по которым C-like функции НЕ попали в сравнение `--diff-equiv`
+# (дефект #361): пустой список «сравнивать нечего» обязан называть ПРИЧИНУ.
+_CLIKE_SKIP_REASONS: list[str] = []
+
+
+def _parse_bodies_clike(path: Path):
+    """C-like тела для `--diff-equiv` (ДЕФЕКТ #361).
+
+    ЗАЧЕМ. `parse_bodies` звал `ast.parse` ВСЕГДА, поэтому `--diff-equiv a.c b.c`
+    падал с `SyntaxError: invalid syntax` и трассировкой вместо вердикта — это
+    нашлось первым прогоном гейта `quixbugs-diff-check` на контрольной паре
+    «файл против самого себя» (`cwe190_good.c` дала падение, а не `EQUIVALENT`).
+    Класс тот же, что #318/#322: инструмент не называет причину, а рушится.
+
+    ЧТО ДЕЛАЕТ. Идёт через `parse_clike` — то есть C-like получают СВОЮ
+    языковую семантику (`VALUE_SEMANTICS`: усечение вместо floor, аппаратные
+    ловушки, границы типов), а не питоновскую. Форма результата приведена к общей:
+    `(имя, params, body_smt, строка, unrolled)`.
+
+    ЧЕСТНАЯ ГРАНИЦА. `unrolled=True`, если в теле есть ЦИКЛ: `_exec_clike`
+    разворачивает его на K шагов, а развёртка — недо-аппроксимация (дефект
+    #207). UNSAT на ней НЕ доказывает эквивалентность, поэтому `cmd_diff_equiv`
+    обязан выдать `UNKNOWN`, а не `EQUIVALENT`. Функции, которые `parse_clike`
+    не разобрал (`why` не пуст) или которые ушли в BV-кандидаты, в сравнение НЕ
+    попадают — иначе отсутствие тела молча читалось бы как «эквивалентно».
+    """
+    out = []
+    _CLIKE_SKIP_REASONS.clear()
+    for name, params, _req, _ens, body, lineno, why, meta in parse_clike(
+            path, require_annotations=False):
+        if why is not None:
+            _CLIKE_SKIP_REASONS.append(f"{name}: {why}")
+            continue
+        if body is None:
+            _CLIKE_SKIP_REASONS.append(f"{name}: тело не разобрано (вне подмножества)")
+            continue
+        if body == "BV_PENDING":
+            # ЧЕСТНАЯ ГРАНИЦА: нелинейное умножение/битовые операции живут в
+            # QF_BV, а `--diff-equiv` сравнивает тела в Int-теории. Молча
+            # пропустить нельзя: «нет одноимённых функций» без причины читалось
+            # бы как «сравнивать нечего», хотя причина КОНКРЕТНАЯ.
+            _CLIKE_SKIP_REASONS.append(
+                f"{name}: тело требует QF_BV (нелинейное умножение/битовые "
+                f"операции) — `--diff-equiv` сравнивает в Int-теории")
+            continue
+        raw = meta.get("raw_body", "") or ""
+        unrolled = re.search(r"\b(while|for|loop)\b", raw) is not None
+        out.append((name, list(params), body, lineno, unrolled))
+    return out
+
+
 def parse_bodies(path: Path):
     """Все функции файла БЕЗ контракта: (имя, params, body_smt, строка, unrolled).
 
@@ -1268,7 +1319,13 @@ def parse_bodies(path: Path):
     `unrolled=True` означает, что тело получено РАЗВЁРТКОЙ цикла/рекурсии на
     K шагов. Такое тело — недо-аппроксимация: SAT на нём даёт честный
     контрпример, но UNSAT НЕ доказывает эквивалентность (дефект #207).
+
+    ДЕФЕКТ #361: маршрутизация по РАСШИРЕНИЮ. Python идёт через `ast`, C-like
+    (`.c .h .zig .rs .go .ts .js`) — через `parse_clike` со своей семантикой;
+    раньше `ast.parse` вызывался для ЛЮБОГО входа, и C-файл ронял инструмент.
     """
+    if path.suffix in CLIKE_EXT:
+        return _parse_bodies_clike(path)
     src = path.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
     out = []
@@ -2713,6 +2770,13 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     common = [n for n in a if n in b2]
     if not common:
         print("[!] нет одноимённых функций в подмножестве — сравнивать нечего")
+        # ДЕФЕКТ #361: пустой список обязан называть ПРИЧИНУ. Иначе C-файл с
+        # нелинейным умножением давал бы «сравнивать нечего», хотя причина
+        # конкретна (тело живёт в QF_BV, а сравнение идёт в Int-теории).
+        if _CLIKE_SKIP_REASONS:
+            print("    причины (C-like вход):")
+            for r in _CLIKE_SKIP_REASONS:
+                print(f"      - {r}")
         return 2
     diverged = same = unknown = unverified = tool_errors = 0
     for name in sorted(common):

@@ -2275,6 +2275,24 @@ def case_quixbugs_diff():
     return "make quixbugs-diff-check"
 
 
+def case_clike_diff_routing():
+    """ШАГ 1 SABOTAGE (дефект #361): маршрутизация C-like СНЯТА.
+
+    ЛОМАЕМ: `parse_bodies` снова зовёт `ast.parse` для ЛЮБОГО входа — ровно
+    состояние до #361. Тогда контрольная C-пара (файл против САМОГО СЕБЯ)
+    падает с `SyntaxError`, и `make quixbugs-diff-check` обязан покраснеть
+    строкой «падение инструмента», а НЕ засчитать это за расхождение.
+
+    ЦЕННОСТЬ КЕЙСА: он держит закрытым именно тот класс, который дал #361 —
+    инструмент, который на нештатном входе рушится вместо честного вердикта.
+    """
+    patch("tools/kern_contracts.py",
+          "    if path.suffix in CLIKE_EXT:\n"
+          "        return _parse_bodies_clike(path)\n",
+          "    # ЛОМАЕМ: маршрутизация C-like снята (дефект #361)\n")
+    return "make quixbugs-diff-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3450,6 +3468,8 @@ CASES = [
      case_ai_traps),
     ("quixbugs-diff", "The control half becomes vacuous -> gate red",
      case_quixbugs_diff),
+    ("clike-diff-routing", "C-like routing removed -> the tool crashes -> gate red",
+     case_clike_diff_routing),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
