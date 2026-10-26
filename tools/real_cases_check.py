@@ -9,7 +9,7 @@
 AMM, явный BV-режим, замок контрактов, анти-чит, MCP-руg-pull) плюс сквозная
 демонстрация «анатомия одной функции» из ШЕСТИ режимов подряд.
 
-ДВА ПРАВИЛА СТРОГОСТИ (те же, что в `cwe-juliet-check` и `ai-traps-check`):
+ДВА ПРАВИЛА СТРОГОСТИ (те же, что в `cwe-twins-check` и `ai-traps-check`):
 
   ПРАВИЛО А — `SKIP` НЕ ЗАСЧИТЫВАЕТСЯ ЗА УСПЕХ.
   У каждой возможности есть `bad` (обязан быть пойман ТОЧНЫМ маркером) и
@@ -48,7 +48,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EX = ROOT / "tools" / "kern_contracts.py"
 FIX = ROOT / "audits" / "real_cases"
-CWE = ROOT / "audits" / "cwe_juliet"
+CWE = ROOT / "audits" / "cwe_twins"
 QD = ROOT / "audits" / "quixbugs_diff"
 KERNC = ROOT / "zig-out" / "bin" / "kernc"
 

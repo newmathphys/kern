@@ -1,16 +1,26 @@
-# CWE coverage — paired NIST Juliet-style benchmark
+# CWE coverage — paired CWE-twins benchmark (our own fixtures)
 
-Status: **measured** by `make cwe-juliet-check`. Every number below is produced by
+Status: **measured** by `make cwe-twins-check`. Every number below is produced by
 that command; none of them is typed by hand.
 
 ## What is measured, and how
+
+> 🔴 **PROVENANCE OF THE FIXTURES — READ THIS FIRST.** The twins are **OUR OWN
+> synthetic pairs** in [`audits/cwe_twins/`](../audits/cwe_twins/), modelling nine
+> MITRE CWE classes. The **official NIST SARD files** (`CWE190_*_bad.c` /
+> `_good.c` with their own annotation) were **not downloaded** and **do not
+> participate** in the run. The gate was therefore renamed
+> `cwe-juliet-check` → **`cwe-twins-check`**: the old name could be read as "we
+> ran Juliet", which would overstate the claim. The metric **formulas** below
+> (Youden index, SV-COMP score) are the official ones — but they are computed
+> over **our nine pairs**, not over SARD.
 
 The NIST SARD **Juliet Test Suite** checks a tool with **twin pairs**: `bad` is
 vulnerable code, `good` is *the same code with the correct defensive guard*. A
 tool must catch `bad` **and not accuse `good`**. A lone `bad` sample proves only
 sensitivity; the pair proves accuracy.
 
-KERN's twins live in [`audits/cwe_juliet/`](../audits/cwe_juliet/) and are driven
+KERN's twins live in [`audits/cwe_twins/`](../audits/cwe_twins/) and are driven
 through KERN's **own engines** — no mocks, no hand-written verdicts:
 
 | CWE | Class | Engine | `bad` must show | `good` must show |
@@ -65,6 +75,6 @@ QuixBugs: <!-- fact:quixbugs.smt -->6 SMT-provable ·
 ## Reproduce
 
 ```bash
-make cwe-juliet-check          # self-test (4 branches) + the real run
-python3 tools/cwe_juliet_check.py --selftest
+make cwe-twins-check          # self-test (4 branches) + the real run
+python3 tools/cwe_twins_check.py --selftest
 ```

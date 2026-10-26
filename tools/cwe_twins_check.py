@@ -36,6 +36,14 @@
 
 ЧЕГО ГЕЙТ НЕ УТВЕРЖДАЕТ (границы названы явно):
 
+  * 🔴 ЭТО НЕ ОФИЦИАЛЬНЫЙ ДАТАСЕТ NIST SARD. Фикстуры — НАШИ собственные
+    синтетические пары-близнецы (`audits/cwe_twins/`), моделирующие девять
+    классов MITRE CWE. Официальные файлы NIST SARD (`CWE190_*_bad.c` /
+    `_good.c` с их собственной разметкой) НЕ скачивались и в прогоне не
+    участвуют. Поэтому слово «Juliet» из названия гейта УБРАНО: раньше
+    `cwe-juliet-check` можно было прочитать как «мы прогнали Juliet», и это
+    завышало бы заявку. Метрики (индекс Юдена, счёт SV-COMP) считаются по
+    формулам этих наборов, но на НАШИХ парах — и это сказано здесь прямо.
   * Это НЕ полный NIST Juliet Suite (тысячи тестов). Это девять классов
     MITRE CWE, каждый — одной парой `bad`/`good` на НАШИХ боевых движках.
     Числа «9/9» относятся к этим девяти классам и не переносятся на весь SARD.
@@ -45,7 +53,7 @@
   * Гейт не проверяет КАЧЕСТВО гарда в `good` — только то, что движок его
     доказал. Плохой, но доказуемый гард пройдёт.
 
-Запуск:  python3 tools/cwe_juliet_check.py [--selftest]
+Запуск:  python3 tools/cwe_twins_check.py [--selftest]
 Код возврата: 0 — J = 1.00 и счёт 27/27; 1 — иначе.
 """
 from __future__ import annotations
@@ -56,7 +64,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FIX = ROOT / "audits" / "cwe_juliet"
+FIX = ROOT / "audits" / "cwe_twins"
 
 # Цена по официальному счёту SV-COMP.
 PTS_BAD_CAUGHT = 1
@@ -222,7 +230,7 @@ def selftest() -> int:
         bad += 1
     else:
         print("[OK] selftest: пустой набор — честный ноль, а не деление на ноль")
-    print(f"[{'OK' if bad == 0 else 'FAIL'}] cwe-juliet selftest: ошибок {bad}")
+    print(f"[{'OK' if bad == 0 else 'FAIL'}] cwe-twins selftest: ошибок {bad}")
     return 0 if bad == 0 else 1
 
 
@@ -232,8 +240,13 @@ def main(argv=None) -> int:
         return selftest()
 
     print("=" * 74)
-    print("KERN: NIST Juliet-style ПАРНЫЙ БЕНЧМАРК (bad vs good) — MITRE CWE")
+    print("KERN: ПАРНЫЙ БЕНЧМАРК CWE-БЛИЗНЕЦОВ (bad vs good) — MITRE CWE")
     print("=" * 74)
+    print("  [!] ПРОИСХОЖДЕНИЕ ФИКСТУР: это НАШИ синтетические пары-близнецы")
+    print("      (`audits/cwe_twins/`), а НЕ официальный датасет NIST SARD.")
+    print("      Официальные файлы SARD не скачивались и в прогоне не участвуют.")
+    print("      Формулы метрик (индекс Юдена, счёт SV-COMP) — официальные,")
+    print("      но считаются по НАШИМ девяти парам, а не по всему SARD.")
     results = []
     for cls in CLASSES:
         r = evaluate(cls)

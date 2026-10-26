@@ -412,8 +412,8 @@ FAULTABLE = [
     # ДЕФЕКТ #356 (ШАГ 0): кейс `casetarget-gap` ломает саму таблицу
     # сопоставления, поэтому файл обязан быть откатываемым.
     "tools/registry.py",
-    # ЭТАП 3: кейс `cwe-juliet` ослабляет гард в `good`-близнеце.
-    "audits/cwe_juliet/cwe190_good.c",
+    # ЭТАП 3: кейс `cwe-twins` ослабляет гард в `good`-близнеце.
+    "audits/cwe_twins/cwe190_good.c",
     # ИНФРАСТРУКТУРНЫЙ ДОЛГ: кейс `smtlib-tamper` направляет гейт на фикстуру.
     "tools/smtlib_bench_check.py",
     # ЭТАП 4А: кейс `ai-traps` делает ловушку вакуумности безобидной.
@@ -2229,7 +2229,7 @@ def case_casetarget_gap():
     return "make registry"
 
 
-def case_cwe_juliet():
+def case_cwe_twins():
     """ЭТАП 3 SABOTAGE: `good`-близнец перестаёт быть доказуемым (FP).
 
     ЛОМАЕМ: убираем гард `a <= 46340 and b <= 46340` из `cwe190_good.c` —
@@ -2241,10 +2241,10 @@ def case_cwe_juliet():
     ОБВИНЕНИЕ, а не только на пропущенную уязвимость. Детектор, обвиняющий
     всё подряд, такой кейс обязан покраснить — иначе метрика бесполезна.
     """
-    patch("audits/cwe_juliet/cwe190_good.c",
+    patch("audits/cwe_twins/cwe190_good.c",
           "// @kern:requires a > 0 and b > 0 and a <= 46340 and b <= 46340",
           "// @kern:requires a > 0 and b > 0")
-    return "make cwe-juliet-check"
+    return "make cwe-twins-check"
 
 
 def case_ai_traps():
@@ -2278,8 +2278,8 @@ def case_quixbugs_diff():
     проверял (класс #345: проверка, неспособная упасть).
     """
     patch("tools/quixbugs_diff_check.py",
-          '    ROOT / "audits" / "cwe_juliet" / "cwe369_good.py",',
-          '    ROOT / "audits" / "cwe_juliet" / "cwe125_bad.py",')
+          '    ROOT / "audits" / "cwe_twins" / "cwe369_good.py",',
+          '    ROOT / "audits" / "cwe_twins" / "cwe125_bad.py",')
     return "make quixbugs-diff-check"
 
 
@@ -3540,8 +3540,8 @@ CASES = [
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",
      case_casetarget_gap),
-    ("cwe-juliet", "A `good` twin stops being provable (FP) -> gate red",
-     case_cwe_juliet),
+    ("cwe-twins", "A `good` twin stops being provable (FP) -> gate red",
+     case_cwe_twins),
     ("ai-traps", "A vacuity trap stops being a trap -> gate red",
      case_ai_traps),
     ("quixbugs-diff", "The control half becomes vacuous -> gate red",

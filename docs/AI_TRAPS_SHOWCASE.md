@@ -23,7 +23,7 @@ the marker and separately requires non-empty output.
 `honest` variant: the same task without the cheat. It must yield
 `PROVEN` / `[PASS]` / "clean". `SKIP`, `«ВНЕ ПОДМНОЖЕСТВА»` and `«НЕ РЕШЕНО»` do
 **not** count — a detector that "catches" everything because it proves nothing is
-useless. This is the same rule adopted in `cwe-juliet-check`.
+useless. This is the same rule adopted in `cwe-twins-check`.
 
 ## The six traps
 

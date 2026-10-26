@@ -189,7 +189,7 @@ CLASS = {
     # ЭТАП 3: парный бенчмарк NIST Juliet-style (bad vs good) по девяти классам
     # MITRE CWE. Это проверка ВОЗМОЖНОСТИ движков (найти `bad` И не обвинить
     # `good`), поэтому CHECK.
-    "cwe-juliet-check": "CHECK",
+    "cwe-twins-check": "CHECK",
     # ЭТАП 4А: полигон ИИ-ловушек — проверка ВОЗМОЖНОСТИ перехватить шесть
     # классов обмана точным маркером, поэтому CHECK.
     "ai-traps-check": "CHECK",
@@ -462,7 +462,7 @@ CASE_TARGET = {
     # поймает его же: это и есть самоприменение проверки.
     "casetarget-gap": "registry",
     # ЭТАП 3: парный бенчмарк CWE.
-    "cwe-juliet": "cwe-juliet-check",
+    "cwe-twins": "cwe-twins-check",
     # ЭТАП 4А: полигон ИИ-ловушек.
     "ai-traps": "ai-traps-check",
     # ЭТАП 4Б: инварианты QuixBugs.
