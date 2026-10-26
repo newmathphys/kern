@@ -193,6 +193,9 @@ CLASS = {
     # ЭТАП 4А: полигон ИИ-ловушек — проверка ВОЗМОЖНОСТИ перехватить шесть
     # классов обмана точным маркером, поэтому CHECK.
     "ai-traps-check": "CHECK",
+    # ЭТАП 4Б: инвариант звучимости QuixBugs (`false_equivalent == 0`) плюс
+    # контрольная половина (ложный DIVERGED == 0), поэтому CHECK.
+    "quixbugs-diff-check": "CHECK",
     # ДЕФЕКТ #344: три тождества EVM обязаны иметь ДОВЕРЕННОЕ доказательство
     # (`trusted: 0 | holes: 0`). Это проверка ВОЗМОЖНОСТИ (пруф-чекер умеет
     # раскрывать `define-fun` и считать константы), поэтому CHECK.
@@ -453,6 +456,8 @@ CASE_TARGET = {
     "cwe-juliet": "cwe-juliet-check",
     # ЭТАП 4А: полигон ИИ-ловушек.
     "ai-traps": "ai-traps-check",
+    # ЭТАП 4Б: инварианты QuixBugs.
+    "quixbugs-diff": "quixbugs-diff-check",
 }
 
 

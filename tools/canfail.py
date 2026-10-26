@@ -416,6 +416,8 @@ FAULTABLE = [
     "audits/cwe_juliet/cwe190_good.c",
     # ЭТАП 4А: кейс `ai-traps` делает ловушку вакуумности безобидной.
     "audits/ai_traps/vacuous_bad.py",
+    # ЭТАП 4Б: кейс `quixbugs-diff` делает контрольную половину вакуумной.
+    "tools/quixbugs_diff_check.py",
     "README.md",
     "tools/kern_contracts.py",
     "tools/audits_run.py",
@@ -2255,6 +2257,24 @@ def case_ai_traps():
     return "make ai-traps-check"
 
 
+def case_quixbugs_diff():
+    """ЭТАП 4Б SABOTAGE: контрольная половина становится ВАКУУМНОЙ.
+
+    ЛОМАЕМ: контрольная пара указывает на файл ВНЕ подмножества (у него нет
+    контрактов). Тогда `in_subset` пуст, и гейт обязан покраснеть фразой
+    «контрольная половина не проверила НИ ОДНОЙ пары».
+
+    ЦЕННОСТЬ КЕЙСА: это защита от самого опасного вырождения — гейта, который
+    «проходит» без датасета и без единого доказательства. Без этой ветки
+    `quixbugs-diff-check` был бы зелёным на машине без QuixBugs и ничего бы не
+    проверял (класс #345: проверка, неспособная упасть).
+    """
+    patch("tools/quixbugs_diff_check.py",
+          '    ROOT / "audits" / "cwe_juliet" / "cwe369_good.py",',
+          '    ROOT / "audits" / "cwe_juliet" / "cwe125_bad.py",')
+    return "make quixbugs-diff-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3428,6 +3448,8 @@ CASES = [
      case_cwe_juliet),
     ("ai-traps", "A vacuity trap stops being a trap -> gate red",
      case_ai_traps),
+    ("quixbugs-diff", "The control half becomes vacuous -> gate red",
+     case_quixbugs_diff),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",

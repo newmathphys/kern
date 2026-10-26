@@ -10,6 +10,14 @@ Every number below is produced by a command in the repository — see
 
 ### Added
 
+- **`make quixbugs-diff-check` (ЭТАП 4Б) — честный замер QuixBugs через
+  `--diff-equiv`.** `tools/quixbugs_diff_check.py`. **ИЗМЕРЕНО на полном корпусе
+  (40 пар):** `DIVERGED 40 | EQUIVALENT 0 | false_equivalent 0` — ни одна
+  багованная пара не объявлена эквивалентной. **Контрольная половина не зависит
+  от датасета:** пары `(correct, correct)` обязаны давать `EQUIVALENT`
+  (измерено `false_diverged 0`, падений инструмента 0). Без датасета половина с
+  40 парами честно пропускается вслух, но контрольная выполняется ВСЕГДА — гейт
+  не бывает вакуумным. Мета-тест 4 ветки, невакуумный кейс `quixbugs-diff`.
 - **`make ai-traps-check` (ЭТАП 4А) — полигон из шести ИИ-ловушек.**
   `tools/ai_traps_check.py` + фикстуры `audits/ai_traps/`. **ИЗМЕРЕНО: 6/6
   ловушек перехвачено СВОИМ маркером, 6/6 честных близнецов доказаны.** Классы:
