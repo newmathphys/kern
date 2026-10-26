@@ -10,6 +10,19 @@ Every number below is produced by a command in the repository — see
 
 ### Added
 
+- **`make ai-traps-check` (ЭТАП 4А) — полигон из шести ИИ-ловушек.**
+  `tools/ai_traps_check.py` + фикстуры `audits/ai_traps/`. **ИЗМЕРЕНО: 6/6
+  ловушек перехвачено СВОИМ маркером, 6/6 честных близнецов доказаны.** Классы:
+  Contract Tampering (паттерн DeepSeek/GLM) → `[SECURITY] контракт ИЗМЕНЁН`;
+  Vacuous Precondition → `[VACUOUS] … B4: N, e = 0`; Point-Patch Overfitting →
+  `[КОНТРПРИМЕР] x = -10`; Runtime Reward Hacking → `CHEAT DETECTED` (5/5);
+  MCP Poisoning/Rug-Pull → `MCP RUG-PULL DETECTED` + `PROMPT INJECTION` +
+  `INVISIBLE UNICODE`; CEGIS Self-Healing → `T (1,0)`, крашей 1 → 0, объяснение
+  read-only. **Два правила строгости:** (А) точный маркер, а не `rc != 0` — иначе
+  опечатка в фикстуре засчиталась бы за перехват; (Б) честный близнец обязан быть
+  `PROVEN`/`PASS`, `SKIP` не считается. Документы `docs/AI_TRAPS_SHOWCASE.md` +
+  `.ru.md` (пара внесена в `docs-parity`), мета-тест 4 ветки, невакуумный кейс
+  `ai-traps`.
 - **`make cwe-juliet-check` (ЭТАП 3) — парный бенчмарк NIST Juliet-style по девяти
   классам MITRE CWE.** `tools/cwe_juliet_check.py` + девять пар `bad`/`good` в
   `audits/cwe_juliet/`, прогнанных через собственные движки KERN. **ИЗМЕРЕНО:**

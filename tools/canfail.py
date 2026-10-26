@@ -414,6 +414,8 @@ FAULTABLE = [
     "tools/registry.py",
     # ЭТАП 3: кейс `cwe-juliet` ослабляет гард в `good`-близнеце.
     "audits/cwe_juliet/cwe190_good.c",
+    # ЭТАП 4А: кейс `ai-traps` делает ловушку вакуумности безобидной.
+    "audits/ai_traps/vacuous_bad.py",
     "README.md",
     "tools/kern_contracts.py",
     "tools/audits_run.py",
@@ -2235,6 +2237,24 @@ def case_cwe_juliet():
     return "make cwe-juliet-check"
 
 
+def case_ai_traps():
+    """ЭТАП 4А SABOTAGE: ловушка вакуумности перестаёт быть ловушкой.
+
+    ЛОМАЕМ: `vacuous_bad.py` получает ВЫПОЛНИМОЕ предусловие
+    (`x > 10 and x < 5` -> `x > 5`). Файл перестаёт быть ловушкой, маркер
+    `[VACUOUS]` исчезает, и `make ai-traps-check` обязан покраснеть.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что полигон реагирует на ПОТЕРЮ ловушки, а
+    не только на её наличие в тексте. Полигон с дырявой ловушкой — это
+    заявление о покрытии, которого нет (класс #345: проверка, неспособная
+    упасть, ничего не доказывает).
+    """
+    patch("audits/ai_traps/vacuous_bad.py",
+          "# @kern:requires x > 10 and x < 5",
+          "# @kern:requires x > 5")
+    return "make ai-traps-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3406,6 +3426,8 @@ CASES = [
      case_casetarget_gap),
     ("cwe-juliet", "A `good` twin stops being provable (FP) -> gate red",
      case_cwe_juliet),
+    ("ai-traps", "A vacuity trap stops being a trap -> gate red",
+     case_ai_traps),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
