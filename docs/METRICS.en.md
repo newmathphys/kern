@@ -2543,6 +2543,52 @@ into a claim the tools no longer back.
 
 ## §128. QuixBugs via `--diff-equiv`: invariants instead of promises (Stage 4B)
 
+## §129. SV-COMP: the `no-overflow` property is broader than what KERN checks — measured, not claimed
+
+**The source is OFFICIAL, and that is checkable.** Category
+`c/signedintegeroverflow-regression` from `sosy-lab/sv-benchmarks` (the
+repository of the international verification competition, TACAS). **15 tasks**,
+ground-truth verdict from `.yml`: **10 `false` (BUG PRESENT)**, **5 `true`
+(SAFE)**. Property: `../properties/no-overflow.prp`.
+
+Measurement tool: `tools/svcomp_baseline.py` → `docs/evidence/svcomp_baseline.log`.
+This is a **MEASUREMENT, not a gate**: a gate on these numbers would claim
+coverage of a property KERN does not have.
+
+| Column | Result |
+|:--|:--|
+| `--xray` on the **UNMODIFIED** official files | caught **0 of 10** unsafe; false alarms **0 of 5** |
+| contract path on the official files | **15 SKIP** (without annotations — `no functions with annotations`; with a trivial annotation — `outside the subset`, because ALL 15 contain a `printf` call) |
+| contract on a DERIVED file (annotation + `printf` removed) | `REFUTED` **2 of 10**, **FALSE `PROVEN` 4 of 10**, `SKIP` 7, `PROVEN` safe **2 of 5** |
+
+**The exact mechanism of the gap.** `no-overflow.prp` requires **EVERY**
+arithmetic operation to stay within the type bounds. KERN checks the **FINAL**
+return value (`TYPE_RANGE` in `build_overflow_smt`). `(2147483647 + 1) - 23`
+overflows **INSIDE** (`2147483648`), but the result `2147483625` lands back in
+range — and the type obligation is **satisfied**. So "collapsing" cases are
+missed, while traps are caught (`Division-1` = hardware `idiv`, #334;
+`UnaryMinus` = unary overflow, #337).
+
+**This is NOT a lie about the stated contract.** `ensures result == 0` genuinely
+holds. KERN claims **LESS** than the SV-COMP property, not more — a **miss, not a
+verdict swap**. That is what separates this from #206/#317 (a false proof of a
+false claim).
+
+**Why `--xray` is blind to this class.** The C-path detectors are: division by
+zero, array bounds, **allocation size** (`_mentions_param`) and branches. There is
+no detector for overflow of an **ordinary expression** — measured by running it,
+not inferred from reading the code.
+
+**What honest coverage would need (not done, named).** "Path C": applying the
+property file (`.prp`) to **every** operation in the file, not just the return.
+That is translator work, not configuration. Until then there is **no gate**.
+
+**Boundaries named:** 15 tasks is one category, not all of SV-COMP (thousands of
+files); the "contract (derived)" column refers to a **DERIVED** file and is NOT
+the competition task in pure form; a missing task on disk/network yields an
+honest `SKIP`, not a "green" result.
+
+
 **Measured.** The `make quixbugs-diff-check` gate (`tools/quixbugs_diff_check.py`)
 on the full `jkoppel/QuixBugs` corpus (40 pairs):
 
