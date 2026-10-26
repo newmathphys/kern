@@ -84,7 +84,7 @@ python3 tools/kern_contracts.py lcm_core.c
 
 | # | Repository | What was checked | Verdict | Ground truth |
 |:--|:--|:--|:--|:--|
-| 1 | **TheAlgorithms/C** `math/lcm.c` | numerator `a * b` (i32) | **FAIL** `a = #x643b3fbb, b = #x5a724dfe` | `gcc -fsanitize=undefined` → `signed integer overflow` |
+| 1 | **TheAlgorithms/C** `math/lcm.c` | numerator `a * b` (i32) | **FAIL** `a = #x643b3fbb, b = #x5a724dfe`; and `a = b = 50000` prints **`-35899`** where the true LCM `50000` fits in `int` | `gcc -fsanitize=undefined` → `signed integer overflow: 50000 * 50000`; also `SIGFPE` at `0, 0`. PR [#1596](https://github.com/TheAlgorithms/C/pull/1596) |
 | 2 | **TheAlgorithms/C** `math/catalan.c` | divisor `factorial(n+1) * factorial(n)` | **FAIL** `n = 0` → divisor is `0` | `gcc` → **SIGFPE, rc=136**; PR [#1595](https://github.com/TheAlgorithms/C/pull/1595) |
 | 3 | **TheAlgorithms/Rust** `binomial_coefficient.rs` | `n - i` (u64) under `i < k` | **FAIL** `n = 0, i = 1, k = 2` → `-1` | `rustc` debug → `attempt to subtract with overflow` (rc=101); PR [#1075](https://github.com/TheAlgorithms/Rust/pull/1075) |
 | 4 | **TheAlgorithms/Rust** `binary_exponentiation.rs` | `result_pow *= n` (u64) inside the loop | **FAIL** `r = #xffffffffd7ffbfff, n = #x6aaa` | silent wrap — the function returns a value that is not the power |

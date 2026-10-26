@@ -1,9 +1,14 @@
 # Pull request — TheAlgorithms/C: `math/lcm.c`
 
-**PREPARED, not yet submitted.** [`lcm_fix.patch`](lcm_fix.patch) applies with
-`git apply` (verified `git apply --check`) from the repository root, against the
-upstream revision cloned 2026-10-26. After applying, both defects below are gone
-and the file's own test cases still pass.
+**SUBMITTED: [`TheAlgorithms/C#1596`](https://github.com/TheAlgorithms/C/pull/1596)**
+— opened 2026-10-26, one file, `+13 −1`, head
+`newmathphys:fix/lcm-overflow-and-divzero`, base `master@e5dad3f`. The text below
+is what was submitted.
+
+[`lcm_fix.patch`](lcm_fix.patch) applies with `git apply` (verified
+`git apply --check`) from the repository root. It was verified against the
+upstream revision `e5dad3f` on a fresh checkout: after applying, both defects are
+gone and the file's own test cases still pass.
 
 ---
 
