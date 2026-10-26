@@ -2193,13 +2193,17 @@ def case_conformance_break():
 def case_artifact_offline():
     """ШАГ N13 SABOTAGE: версия в README расходится с версией сборки.
 
-    ЛОМАЕМ: подменяем объявленную в README версию релиза (`download/v2.7.2` →
-    `download/v9.9.9`). Локальная сборка печатает v2.7.2, значит цепочка
+    ЛОМАЕМ: подменяем объявленную в README версию релиза (`download/v2.7.3` →
+    `download/v9.9.9`). Локальная сборка печатает v2.7.3, значит цепочка
     «README ↔ сборка» разорвана — ровно дефект #82, ради которого ворота и
     существуют. `make artifact-check-offline` обязан покраснеть.
+
+    ЯКОРЬ ОБНОВЛЯЕТСЯ ВМЕСТЕ С ВЕРСИЕЙ (дефект #113): при выпуске релиза строка
+    README меняется, и устаревший якорь делает кейс НЕПРИМЕНИМЫМ — `--check-anchors`
+    это показывает (`sync НЕ пишет None`).
     """
     patch("README.md",
-          "releases/download/v2.7.2",
+          "releases/download/v2.7.3",
           "releases/download/v9.9.9")
     return "make artifact-check-offline"
 
