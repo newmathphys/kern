@@ -2540,3 +2540,33 @@ not stand failures; `pytest` stays green, which is the whole point. `z3` is requ
 (the script adds `~/ai_lab/.venv/bin`), otherwise acts 2.2/2.3/3 make no sense → `exit 2`.
 `make ai-demo` returns `rc=1` if any expected line disappears, so the demo cannot drift
 into a claim the tools no longer back.
+
+## §128. QuixBugs via `--diff-equiv`: invariants instead of promises (Stage 4B)
+
+**Measured.** The `make quixbugs-diff-check` gate (`tools/quixbugs_diff_check.py`)
+on the full `jkoppel/QuixBugs` corpus (40 pairs):
+
+| Metric | Value | Required |
+|:--|:--|:--|
+| `DIVERGED` (bug caught by a live call) | **40 / 40** | — |
+| `EQUIVALENT` on a buggy pair | **0** | — |
+| **`false_equivalent`** | **0** | **0** |
+| **`false_diverged`** (control `correct` vs `correct`) | **0** | **0** |
+| Tool crashes on the control | **0** | **0** |
+
+**Two invariants, not one.** `false_equivalent == 0` closes a FALSE PROOF (class
+#206/#317: a bug declared equivalent to correct code). `false_diverged == 0` on
+the control pairs `(correct, correct)` closes a FALSE ACCUSATION (class #178: an
+analyser that accuses everything). Without the second half the gate would only
+catch a "too soft" tool.
+
+**The control half does not depend on the dataset** — it ALWAYS runs, so the gate
+is never vacuous even on a machine without a network. When the external dataset is
+absent, the 40-pair half is skipped OUT LOUD (with the clone command) rather than
+counted as an "ok".
+
+**A side finding (#361).** The gate's very first run showed that
+`--diff-equiv a.c b.c` CRASHES with `SyntaxError` instead of an honest "outside the
+subset": the control pair `cwe190_good.c` (the file against itself) produced a
+crash, not `EQUIVALENT`. A crash is now distinguished as `tool_errors` and counts
+neither as a divergence nor as proof.
