@@ -835,7 +835,7 @@ canfail --selftest → canfail (207 кейс) → каталог синхрон�
 
 | Метрика | Значение | Команда |
 |:--|:--|:--|
-| Тесты ядра | **447 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
+| Тесты ядра | **449 passed, 0 skipped, 0 failed** (в CI `z3-solver` ставится через pip; без решателя — 393 passed + 8 skipped) | `zig build test` |
 | Тесты ядра (ReleaseSafe) | 402 passed, **0 UB** | `make ubsafe` |
 | Тесты KERN-Next | **53 passed** (52 именованных + 1 агрегирующий) | `zig build test-next` |
 | Каталог тестов | **425** | `python3 tools/gen_test_catalog.py --check` |
@@ -1054,7 +1054,7 @@ Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 
 zig build                      # kernc, kernx, kern-attack
-zig build test                 # 447 теста ядра
+zig build test                 # 449 теста ядра
 zig build test-next            # 53 теста KERN-Next
 ./formal/check.sh              # Lean 4: 0 errors, 0 sorry
 
