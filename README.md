@@ -618,7 +618,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | Check | Result |
 |:--|:--|
 | Core test suite (Debug + ReleaseSafe) | **<!-- fact:core_tests -->447 / <!-- fact:core_tests -->447** |
-| Core test suite **without** `z3` in `PATH` | **<!-- fact:cross_arch_passed -->435 passed + <!-- fact:cross_arch_skipped -->8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
+| Core test suite **without** `z3` in `PATH` | **<!-- fact:cross_arch_passed -->441 passed + <!-- fact:cross_arch_skipped -->8 skipped** (solver tests skip by design — this is why the mutator now requires a solver, defect #110) |
 | KERN-Next test suite | **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53** |
 | Memory leaks (GeneralPurposeAllocator) | **0 bytes** |
 | Undefined behaviour (ReleaseSafe) | **none detected** |
@@ -637,9 +637,9 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 
 | Target | Property under test | Result |
 |:--|:--|:--|
-| x86_64 | TSO memory model | **<!-- fact:core_tests -->447 / <!-- fact:core_tests -->447 passed** with `z3` on `PATH`; **<!-- fact:cross_arch_passed -->435 passed + <!-- fact:cross_arch_skipped -->8 skipped** when no solver is installed |
-| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`) |
-| **POWERPC64** (QEMU) | **big-endian** byte order | **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (same QEMU log) |
+| x86_64 | TSO memory model | **<!-- fact:core_tests -->447 / <!-- fact:core_tests -->447 passed** with `z3` on `PATH`; **<!-- fact:cross_arch_passed -->441 passed + <!-- fact:cross_arch_skipped -->8 skipped** when no solver is installed |
+| **ARM64** (QEMU) | strict alignment — no `Bus Error` | **<!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (QEMU log 2026-10-19, `docs/evidence/cross_arch.log`) |
+| **POWERPC64** (QEMU) | **big-endian** byte order | **<!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (same QEMU log) |
 
 **Why exactly 8 skips, never a silent pass.** Those 8 tests need an *external* solver process:
 4 in `src/tests/os_stress_test.zig` (they exercise the KERN ↔ OS pipe/spawn edge against a live
