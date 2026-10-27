@@ -23,6 +23,7 @@ const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPo
 const TrustedChecker = @import("verifier/admission_gate.zig").TrustedChecker;
 const proof_check = @import("verifier/proof_check.zig");
 const zig_ast_verify = @import("verifier/zig_ast_verify.zig");
+const theory_cli = @import("verifier/theory_cli.zig");
 const model_extract = @import("verifier/model_extract.zig");
 const codec = @import("core/codec.zig");
 const z3b = @import("verifier/z3_bridge.zig");
@@ -790,6 +791,45 @@ pub fn main(init: std.process.Init) !void {
             } else {
                 std.debug.print("    не найдено (честный отказ)\n", .{});
             }
+        }
+        return;
+    }
+
+    if (std.mem.eql(u8, command, "theory")) {
+        // ФАЙЛОВЫЙ ВХОД ДЛЯ НАТИВНЫХ ТЕОРИЙ: `kernc theory <file>`.
+        // Нативные Zig-движки `src/verifier/*.zig` вызываются на ВНЕШНЕМ входе,
+        // а не на захардкоженных строках внутри `kernc audit`.
+        if (args.len < 3) {
+            std.debug.print("[!] theory: нужен путь к файлу спецификаций\n", .{});
+            return;
+        }
+        var bridge = z3b.Z3Bridge.init(alloc);
+        if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
+            fail("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
+            return;
+        }
+        const raw = compat.readFileAlloc(alloc, args[2], 1 << 20) catch {
+            std.debug.print("[!] theory: не читается {s}\n", .{args[2]});
+            return;
+        };
+        var rep = theory_cli.run(alloc, &bridge, raw) catch |err| {
+            std.debug.print("[!] theory: разбор не удался ({s})\n", .{@errorName(err)});
+            return;
+        };
+        defer rep.deinit(alloc);
+        std.debug.print("=== KERN theory: НАТИВНЫЕ ТЕОРИИ НА ВНЕШНЕМ ФАЙЛЕ ===\n", .{});
+        for (rep.outcomes.items) |o| {
+            const mark: []const u8 = switch (o.status) {
+                .proven => "[PASS] ДОКАЗАНО",
+                .refuted => "[FAIL] ОПРОВЕРГНУТО",
+                .value => "[VALUE]",
+                .skip => "[SKIP]",
+            };
+            std.debug.print("  {s} {s} | {s}\n", .{ mark, o.name, o.reason });
+        }
+        std.debug.print("ИТОГ: доказано {d} | опровергнуто {d} | значений {d} | пропущено {d}\n", .{ rep.proven, rep.refuted, rep.values, rep.skipped });
+        if (rep.refuted > 0) {
+            fail("[!] theory: есть ОПРОВЕРГНУТЫЕ утверждения\n", .{});
         }
         return;
     }

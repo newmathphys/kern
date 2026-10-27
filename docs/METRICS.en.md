@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->476 · CHECK <!-- fact:check_targets -->170 · cases <!-- fact:canfail_cases -->206 · anchors <!-- fact:anchors -->167 · registry <!-- fact:registry_targets -->221 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->447 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 · CHECK <!-- fact:check_targets -->171 · cases <!-- fact:canfail_cases -->207 · anchors <!-- fact:anchors -->168 · registry <!-- fact:registry_targets -->222 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,8 +9,8 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->476 ·
-> CHECK <!-- fact:check_targets -->170/<!-- fact:check_targets -->170 · cases <!-- fact:canfail_cases -->206 · anchors <!-- fact:anchors -->167 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->447 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 ·
+> CHECK <!-- fact:check_targets -->171/<!-- fact:check_targets -->171 · cases <!-- fact:canfail_cases -->207 · anchors <!-- fact:anchors -->168 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 

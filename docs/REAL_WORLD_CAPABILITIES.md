@@ -78,9 +78,9 @@ python3 tools/real_cases_check.py --selftest
 
 ## Registry facts this page is consistent with
 
-<!-- fact:core_tests -->443 core tests · <!-- fact:next_tests -->53 next tests ·
-<!-- fact:catalog -->476 catalog · <!-- fact:check_targets -->170 CHECK ·
-<!-- fact:canfail_cases -->206 can-fail cases · <!-- fact:anchors -->167 anchors ·
-<!-- fact:registry_targets -->221 registry targets ·
+<!-- fact:core_tests -->447 core tests · <!-- fact:next_tests -->53 next tests ·
+<!-- fact:catalog -->478 catalog · <!-- fact:check_targets -->171 CHECK ·
+<!-- fact:canfail_cases -->207 can-fail cases · <!-- fact:anchors -->168 anchors ·
+<!-- fact:registry_targets -->222 registry targets ·
 <!-- fact:meta_targets -->37 meta · <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs: <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.

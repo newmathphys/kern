@@ -1,0 +1,10 @@
+# Теория МАССИВОВ (аксиомы Маккарти, границы, защита)
+arrays same_index i v
+arrays guarded idx 10
+# АБСТРАКТНАЯ ИНТЕРПРЕТАЦИЯ (чистая арифметика, без решателя)
+absint join 0 5 3 9
+absint widen -1 100 0 200
+absint narrow 0 10 2 8
+# ЦЕПИ МАРКОВА
+dtmc stochastic 2 0.5 0.5 1.0 0.0
+dtmc reach 2 1 0.5 0.5 1.0 0.0

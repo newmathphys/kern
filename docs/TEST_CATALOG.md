@@ -5,7 +5,7 @@
 > Пропусков и «планируемых» тестов нет. Рассинхрон с кодом ловит
 > `python3 tools/gen_test_catalog.py --check` (стадия CI).
 
-**Всего объявлений тестов:** 476
+**Всего объявлений тестов:** 478
 
 | Группа | Файлов | Тестов |
 |:--|--:|--:|
@@ -770,7 +770,7 @@ make formal-ci         # ядро + Lean-доказательства
 make echelons          # 4 эшелона: выравнивание, лавина хэша, пул, семантика
 
 # --- Ядро ---
-zig build test         # 443 теста ядра (Debug)
+zig build test         # 447 теста ядра (Debug)
 zig test src/test_root.zig -O ReleaseSafe   # без UB
 zig build test-next    # 53 теста KERN-Next
 zig build test-fault   # сбои памяти (реальный SIGBUS)

@@ -71,7 +71,7 @@
   <!-- Panel 3: measured baseline -->
   <rect x="628" y="104" width="300" height="152" rx="6" fill="#0d1117" stroke="#238636" stroke-width="1.2"/>
   <text x="644" y="125" class="hdr">MEASURED BASELINE</text>
-  <text x="644" y="150" class="val"><!-- fact:core_tests -->443 / <!-- fact:core_tests -->443</text>
+  <text x="644" y="150" class="val"><!-- fact:core_tests -->447 / <!-- fact:core_tests -->447</text>
   <text x="742" y="150" class="lbl">core x86_64 (QEMU ok)</text>
   <text x="644" y="172" class="val"><!-- fact:lean_theorems -->147 / 0</text>
   <text x="742" y="172" class="lbl">Lean 4 theorems / 0 sorry</text>
@@ -79,7 +79,7 @@
   <text x="742" y="194" class="lbl">decision coverage (30/30)</text>
   <text x="644" y="216" class="val">100.0%</text>
   <text x="742" y="216" class="lbl">mutation score <!-- fact:mutation_sites -->1427/<!-- fact:mutation_sites -->1427</text>
-  <text x="644" y="238" class="val"><!-- fact:check_targets -->170 / <!-- fact:check_targets -->170</text>
+  <text x="644" y="238" class="val"><!-- fact:check_targets -->171 / <!-- fact:check_targets -->171</text>
   <text x="742" y="238" class="lbl">can-fail CHECK targets</text>
   </g>
 </svg>

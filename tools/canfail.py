@@ -379,6 +379,8 @@ FAULTABLE = [
     "tools/svcomp_witness_check.py",
     # Нативный фронтенд: кейс правит модуль `src/verifier/zig_ast_verify.zig`.
     "src/verifier/zig_ast_verify.zig",
+    # Нативные теории: кейс правит модуль `src/verifier/theory_cli.zig`.
+    "src/verifier/theory_cli.zig",
     # SMT-COMP: кейсы пруф-трека правят гейт — тот же класс #225.
     "tools/smtlib_proof_check.py",
     # Кейс `flake` правит набор целей детектора флейки — тот же класс
@@ -2537,6 +2539,28 @@ def case_native_zig_ast_drop():
     return "zig build && bash tools/native_zig_ast_check.sh"
 
 
+def case_native_theories_file_drop():
+    """НАТИВНЫЕ ТЕОРИИ SABOTAGE: вердикт решателя больше не различается.
+
+    ЛОМАЕМ: в `theory_cli.zig` результат решателя перестаёт влиять на вердикт
+    (`if (ok.?)` -> `if (true)`). Тогда `arrays oob` (выход за границы
+    ДОСТИЖИМ) перестаёт быть ОПРОВЕРГНУТЫМ, рискованная спецификация даёт
+    rc=0, и `make native-theories-file-check` обязан покраснеть.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота не могут быть зелёными, когда
+    нативные теории перестали замечать риск.
+    """
+    # ⚠️ ПРАВКА ОБЯЗАНА КОМПИЛИРОВАТЬСЯ. Первая версия кейса подменяла
+    # `if (ok.?)` на `if (true)` — и переменная `ok` становилась неиспользуемой,
+    # то есть цель краснела из-за ПАДЕНИЯ СБОРКИ, а не из-за ворот. Харнесс это
+    # ПОКАЗАЛ («ВАКУМНЫХ 1»), и кейс исправлен: `ok != null` использует значение,
+    # но стирает различие sat/unsat — вердикт решателя перестаёт влиять.
+    patch("src/verifier/theory_cli.zig",
+          "        if (ok.?) {",
+          "        if (ok != null) {   // ЛОМАЕМ: sat и unsat больше не различаются")
+    return "zig build && bash tools/native_theories_file_check.sh"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3734,6 +3758,8 @@ CASES = [
      case_svcomp_witness_drop),
     ("native-zig-ast-drop", "Overflow obligation for plain `+` dropped -> gate red",
      case_native_zig_ast_drop),
+    ("native-theories-file-drop", "Solver verdict ignored -> risk not refuted -> gate red",
+     case_native_theories_file_drop),
     ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
      case_xray_overflow),
     ("flake", "A never-green target must turn the flake gate red",

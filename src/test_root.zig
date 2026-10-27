@@ -24,6 +24,7 @@ test {
     _ = @import("verifier/unsat_core.zig");
     _ = @import("verifier/builtin_lia.zig");
     _ = @import("verifier/zig_ast_verify.zig");
+    _ = @import("verifier/theory_cli.zig");
     _ = @import("verifier/proof_check.zig");
     _ = @import("verifier/model_extract.zig");
     _ = @import("verifier/array_theory.zig");
