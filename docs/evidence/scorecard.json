@@ -1,9 +1,9 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "630d1a8",
-  "code_hash": "sha256:ab04dcbc177977f7b586d50168c5d5c621e08240e6d8501027e0b5edd914d29f",
-  "score": 100,
+  "commit": "281e07e",
+  "code_hash": "sha256:3aa0cb3c6381e27a9004f9dda1ed4aadcb33ed3212ab4130d392d97aa5d8013a",
+  "score": 99,
   "grade": "A+",
   "breakdown": {
     "license": 10,
@@ -12,7 +12,7 @@
     "ci": 8,
     "build": 8,
     "no_injections": 8,
-    "dup_guard": 8,
+    "dup_guard": 0,
     "sarif": 6,
     "llms": 6,
     "docs": 8,
@@ -27,7 +27,7 @@
     "by_category": {
       "zig": 119,
       "lean": 8,
-      "python": 242,
+      "python": 244,
       "c11": 38,
       "rust": 21,
       "go": 1,
@@ -35,7 +35,7 @@
       "wasm": 1
     },
     "skipped": 4,
-    "total": 432,
+    "total": 434,
     "blind_spot_native_formal": 128
   },
   "mcp": {
@@ -55,11 +55,11 @@
     "attestation": true
   },
   "metrics": {
-    "check_targets": 167,
-    "check_covered": 167,
-    "canfail_cases": 200,
+    "check_targets": 169,
+    "check_covered": 169,
+    "canfail_cases": 205,
     "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
-    "qemu": "433 passed / 8 skipped / 0 failed"
+    "qemu": "435 passed / 8 skipped / 0 failed"
   },
   "hygiene": {
     "license": true,
@@ -71,7 +71,7 @@
     "llms": true,
     "docs_md": 68,
     "injection_markers": 0,
-    "dup_guard": true
+    "dup_guard": false
   },
   "rubric": {
     "base_max": 88,
