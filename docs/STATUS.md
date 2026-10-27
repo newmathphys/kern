@@ -55,7 +55,7 @@ Numbered entries: **301**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->378**.
+Highest defect number in the journal: **<!-- fact:max_defect -->379**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state
