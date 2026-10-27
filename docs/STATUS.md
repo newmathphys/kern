@@ -17,7 +17,7 @@
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->37 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->199**, of which
+Can-fail cases: **<!-- fact:canfail_cases -->200**, of which
 **167/167** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
@@ -31,7 +31,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->199**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1424 / 1424 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->160 |
+| Literal anchors | <!-- fact:anchors -->161 |
 | Version | `v2.7.3` |
 
 ## Defect journal
@@ -55,7 +55,7 @@ Numbered entries: **300**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->369**.
+Highest defect number in the journal: **<!-- fact:max_defect -->370**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

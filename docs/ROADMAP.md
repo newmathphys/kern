@@ -1,6 +1,6 @@
 # KERN — Roadmap (v2.5.1)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Правило проекта.** Каждый пункт приходит с **can-fail кейсом** (`tools/canfail.py`
 > доказывает, что проверка СПОСОБНА покраснеть) и **проверяемым числом** из команды этого
@@ -185,7 +185,7 @@ Marketplace (шаг в UI) · решение по лицензии (PolyForm Non
 | **8** Упаковка v2.5.1 + полный мутационный аудит | 40 | ✅ **1 / 1** |
 
 **Итого закрыто: 40 из 40 пунктов (v2.5.1).** Lean 4: **<!-- fact:lean_theorems -->147 теорем, 0 errors, 0 sorry**.
-Реестр: **<!-- fact:registry_targets -->218 цели, <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 CHECK**; якоря: <!-- fact:anchors -->160.
+Реестр: **<!-- fact:registry_targets -->218 цели, <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 CHECK**; якоря: <!-- fact:anchors -->161.
 
 ---
 

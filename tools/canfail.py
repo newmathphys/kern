@@ -357,6 +357,9 @@ FAULTABLE = [
     # множества номеров RU/EN разошлись). Файл обязан быть в FAULTABLE, иначе
     # подсадка останется в дереве (класс #225).
     "docs/CAPABILITY_STATUS.en.md",
+    # Кейс `journal-orphan` правит RU-журнал (переназначает РОДИТЕЛЯ подстроки:
+    # `368.1` -> `367.1`). Множество номеров при этом не меняется — покраснеть
+    # обязан новый инвариант (2), а не сверка множеств (дефект #370).
     "tools/tree_lock.py",
     # Кейс `trace-check` правит движок Ступени 2 — файл обязан быть в
     # FAULTABLE, иначе подсадка останется в дереве (класс #225).
@@ -2054,6 +2057,25 @@ def case_journal_parity():
     return "make journal-parity-check"
 
 
+def case_journal_orphan():
+    """ШАГ N13 SABOTAGE: подстрока записи приписана ЧУЖОЙ записи (#370).
+
+    ЛОМАЕМ: переименовываем РОДИТЕЛЯ у одной подстроки в RU-журнале —
+    `| **368.1** |` становится `| **367.1** |`. Ближайший предшествующий
+    ЗАГОЛОВОК для неё — `| **368** |`, то есть подпункт стоит под чужой
+    записью, и читатель приписывает его другому дефекту.
+
+    ⚠️ Почему правка именно такая, а не «сдвинуть заголовок»: она обязана быть
+    МИНИМАЛЬНОЙ и ЧИСЛО-НЕЙТРАЛЬНОЙ. Шаблон записи (`| **N** |`) подстроку
+    `| **367.1** |` НЕ ловит, поэтому МНОЖЕСТВО номеров записей в RU и EN
+    остаётся равным — и инвариант (1) молчит ПО ПОСТРОЕНИЮ. Значит, покраснеть
+    обязан ровно инвариант (2). Это и есть доказательство невакуумности нового
+    инварианта: он не подменяется старой проверкой.
+    """
+    patch("docs/CAPABILITY_STATUS.md", "| **368.1** |", "| **367.1** |")
+    return "make journal-parity-check"
+
+
 def case_allman_style():
     """ШАГ N6 SABOTAGE: распознавание стиля Allman (`{` на СЛЕДУЮЩЕЙ строке) убрано.
 
@@ -3549,6 +3571,8 @@ CASES = [
      case_temp_isolation),
     ("journal-parity", "A defect record missing from the EN journal -> gate red",
      case_journal_parity),
+    ("journal-orphan", "A record's sub-row attributed to another record -> gate red",
+     case_journal_orphan),
     ("allman-style", "Allman `{` on the next line stops being recognised -> gate red",
      case_allman_style),
     ("bound-guards", "The `continue` guard stops narrowing the path -> gate red",

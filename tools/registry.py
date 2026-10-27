@@ -447,6 +447,10 @@ CASE_TARGET = {
     "charter-text": "charter-text-check",
     "readme-link": "readme-link-check",
     "journal-parity": "journal-parity-check",
+    # ДЕФЕКТ #370: инвариант (2) того же гейта — подстрока записи обязана стоять
+    # под СВОЕЙ записью. Кейс число-нейтрален, поэтому сверка множеств молчит и
+    # покраснеть обязан именно новый инвариант.
+    "journal-orphan": "journal-parity-check",
     "artifact-offline": "artifact-check-offline",
     # ДЕФЕКТ #356 (ШАГ 0, системное закрытие класса): семь кейсов существовали и
     # падали, но в таблице их НЕ БЫЛО — и это не ловил никто. Класс #87/#356

@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 ·
-> CHECK <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->199 · anchors <!-- fact:anchors -->160 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -2543,6 +2543,33 @@ into a claim the tools no longer back.
 
 ## §128. QuixBugs via `--diff-equiv`: invariants instead of promises (Stage 4B)
 
+**Measured.** The `make quixbugs-diff-check` gate (`tools/quixbugs_diff_check.py`)
+on the full `jkoppel/QuixBugs` corpus (40 pairs):
+
+| Metric | Value | Required |
+|:--|:--|:--|
+| `DIVERGED` (bug caught by a live call) | **40 / 40** | — |
+| `EQUIVALENT` on a buggy pair | **0** | — |
+| **`false_equivalent`** | **0** | **0** |
+| **`false_diverged`** (control `correct` vs `correct`) | **0** | **0** |
+| Tool crashes on the control | **0** | **0** |
+
+**Two invariants, not one.** `false_equivalent == 0` closes a FALSE PROOF (class
+#206/#317: a bug declared equivalent to correct code). `false_diverged == 0` on
+the control pairs `(correct, correct)` closes a FALSE ACCUSATION (class #178: an
+analyser that accuses everything). Without the second half the gate would only
+catch a "too soft" tool.
+
+**The control half does not depend on the dataset** — it ALWAYS runs, so the gate
+is never vacuous even on a machine without a network. When the external dataset is
+absent, the 40-pair half is skipped OUT LOUD (with the clone command) rather than
+counted as an "ok".
+
+**A side finding (#361).** The gate's very first run showed that
+`--diff-equiv a.c b.c` CRASHES with `SyntaxError` instead of an honest "outside the
+subset": the control pair `cwe190_good.c` (the file against itself) produced a
+crash, not `EQUIVALENT`. A crash is now distinguished as `tool_errors` and counts
+neither as a divergence nor as proof.
 ## §129. SV-COMP: the `no-overflow` property is broader than what KERN checks — measured, then CLOSED by "Path C"
 
 > **RESULT AFTER DEFECT #367 (measurement history below).** The C path of
@@ -2607,30 +2634,95 @@ the competition task in pure form; a missing task on disk/network yields an
 honest `SKIP`, not a "green" result.
 
 
-**Measured.** The `make quixbugs-diff-check` gate (`tools/quixbugs_diff_check.py`)
-on the full `jkoppel/QuixBugs` corpus (40 pairs):
+## §130. REAL NIST JULIET C: the first measurement on ACTUAL files, not on our own fixtures
 
-| Metric | Value | Required |
-|:--|:--|:--|
-| `DIVERGED` (bug caught by a live call) | **40 / 40** | — |
-| `EQUIVALENT` on a buggy pair | **0** | — |
-| **`false_equivalent`** | **0** | **0** |
-| **`false_diverged`** (control `correct` vs `correct`) | **0** | **0** |
-| Tool crashes on the control | **0** | **0** |
+> **MEASURED.** The dataset `arichardson/juliet-test-suite-c` — the official
+> mirror of NIST Juliet C: **607 MB, 118 CWE categories**;
+> `CWE190_Integer_Overflow` — **5040 files**, **2220** of them signed-`int`
+> variants. The verdict is computed **PER FUNCTION** (`_bad` vs `good*`):
+> otherwise `_bad` and `good` inside one file would be mixed. Tool —
+> `tools/juliet_measure.py`; sampling is **DETERMINISTIC** (every k-th file), not
+> "the first N". The dataset is downloaded to a temp directory and is **NOT**
+> part of the repository, so the script honestly prints `[SKIP]` when the
+> directory is absent and does NOT credit such a run.
 
-**Two invariants, not one.** `false_equivalent == 0` closes a FALSE PROOF (class
-#206/#317: a bug declared equivalent to correct code). `false_diverged == 0` on
-the control pairs `(correct, correct)` closes a FALSE ACCUSATION (class #178: an
-analyser that accuses everything). Without the second half the gate would only
-catch a "too soft" tool.
+| Category, subdirectory `s01` (60 files of 616) | `_bad` / `good` | TP | FN | FP | TN | TPR | FPR | YOUDEN INDEX `J` |
+|:--|:--|--:|--:|--:|--:|--:|--:|--:|
+| `CWE190_Integer_Overflow` | 42 / 52 | **0 / 42** | 42 | 2 | 50 | **0.000** | **0.038** | **-0.038** |
+| `CWE369_Divide_by_Zero` | 42 / 54 | **0 / 42** | 42 | 2 | 52 | **0.000** | **0.037** | **-0.037** |
 
-**The control half does not depend on the dataset** — it ALWAYS runs, so the gate
-is never vacuous even on a machine without a network. When the external dataset is
-absent, the 40-pair half is skipped OUT LOUD (with the clone command) rather than
-counted as an "ok".
+Evidence: `docs/evidence/juliet_real_cwe190.log`,
+`docs/evidence/juliet_real_cwe369.log`. **NO GATE CREATED** — a decision made on
+numbers, not postponed.
 
-**A side finding (#361).** The gate's very first run showed that
-`--diff-equiv a.c b.c` CRASHES with `SyntaxError` instead of an honest "outside the
-subset": the control pair `cwe190_good.c` (the file against itself) produced a
-crash, not `EQUIVALENT`. A crash is now distinguished as `tool_errors` and counts
-neither as a divergence nor as proof.
+**WHY THIS IS A DIFFERENCE OF DEFINITIONS, NOT A KERN BUG (measured, not
+assumed).** Juliet labels `_bad` as "POTENTIAL FLAW" — a POTENTIAL defect, not
+undefined behaviour. A typical `_bad` of CWE-190 is
+`char data; char result = data + 1;`. Here `data` is PROMOTED to `int`
+(C11 6.3.1.1), so `data + 1` does **not** overflow, and the narrowing on
+assignment to `char` is **implementation-defined**, not UB. KERN's detector
+targets UB, so it misses such `_bad` BY SEMANTICS, not by mistake.
+
+**BREAKDOWN OF MISS REASONS, not a single number.** In CWE-190: "narrow type
+promoted to `int`; narrowing is implementation-defined" — **36**; "local value
+not derivable / loop / call" — **6**. In CWE-369: "narrow type" — **26**,
+"other" — **16**, plus a named reason: the divisor is a LOCAL
+`float data = 0.0F` (the `[CRASH PATH]` detector requires the divisor to depend
+on an INPUT PARAMETER — lesson #179/#200), it is a float (division by `0.0`
+yields `inf`, not a panic), and the body contains sockets and loops. A miss for
+three named reasons, not "we could not".
+
+**TWO DIFFERENT CLASSES INSIDE ONE `FP` COUNT — and by its OWN property there
+are ZERO false accusations.** MEASURED per class: `[OVERFLOW PATH]` FP = **0**.
+The findings counted as "FP" belong to ANOTHER class: in Juliet's `_03` variant
+the branch `if (5 != 5)` is genuinely unreachable, and Juliet itself annotates it
+in the source — `/* INCIDENTAL: CWE 561 Dead Code, the code below will never run
+*/`. So `[DEAD BRANCH]` there is a TRUE finding of a DIFFERENT property. Mixing
+classes in one score would produce either a false alarm or false comfort — hence
+a gate on `J` cannot be built, and that is named.
+
+**HONEST BOUNDARY, NAMED:** measured on ONE subdirectory (`s01`) of two
+categories and a deterministic sample of 60 of 616 files — NOT the whole Juliet
+suite (118 categories, tens of thousands of files). The `J` number here
+MEASURES THE DIFFERENCE OF DEFINITIONS, not KERN's quality.
+
+## §131. A JOURNAL RECORD TORN FROM ITS SUB-ROWS: the gate compared a SET, not the STRUCTURE (defect #370)
+
+**What happened.** Record #369 was inserted IMMEDIATELY BEFORE the first sub-row
+`| **368.1** |` of the previous record. In `docs/CAPABILITY_STATUS.en.md` the
+header `| **368** |` stayed ABOVE while the sub-points `368.1...368.7` slid BELOW —
+under a foreign header. The reader attributes the sub-points of defect #368 to
+defect #369: the journal says something OTHER than what it claims. The RU journal
+was NOT affected — the divergence was ASYMMETRIC.
+
+**Why every gate stayed silent.** `journal-parity-check` compares the SET of
+record numbers in RU and EN. Here NOT A SINGLE NUMBER changed: the record pattern
+`^| **N** |` does not match the sub-row `^| **N.k** |`, so the sets stayed equal
+(330 = 330). `docs-parity` compares fact anchors, `claims-audit` scans numbers,
+and both skip `CAPABILITY_STATUS` entirely. The boundary was DECLARED in the
+gate's docstring ("does not demand record order") — and the defect passed through
+exactly that boundary. Same class as #350/#356/#361/#365: a record that looks
+verified but says something else.
+
+**Closed by an invariant, not by hand.** Invariant (2) was added to the same
+gate: for EVERY sub-row `| **N.k** |` the nearest preceding HEADER row must be
+`| **N** |` (`orphans()`).
+
+| Check | Value |
+|:--|:--|
+| Orphans in RU / EN AFTER the fix | **0 / 0** |
+| Records RU / EN / intersection | **330 / 330 / 330** |
+| Meta-test branches (was 4) | **6** (an orphaned header is caught; correct structure passes) |
+| Non-vacuous case | `journal-orphan` (number-neutral) |
+
+**The `journal-orphan` case is NUMBER-NEUTRAL — and that is not a detail, it is
+the proof.** The sabotage renames the PARENT of one sub-row (`368.1` -> `367.1`).
+The set of record numbers does not change, so invariant (1) is silent BY
+CONSTRUCTION and ONLY invariant (2) can redden the gate. Shifting a header or
+deleting a record would redden the gate on the sets too — and the non-vacuity of
+the new invariant would have remained UNPROVEN.
+
+**Honest boundaries:** the invariant checks the ATTRIBUTION of a sub-row to its
+record. It does NOT check the content of sub-rows, their order WITHIN a record,
+the contiguity of sub-numbers, and does NOT require records to be sorted by
+number. Translation quality is still reviewed by a human.
