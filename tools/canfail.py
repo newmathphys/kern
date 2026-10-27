@@ -377,6 +377,8 @@ FAULTABLE = [
     # SV-COMP: кейс `svcomp-witness-drop` правит гейт валидации свидетеля —
     # файл обязан быть в FAULTABLE, иначе подсадка останется в дереве (#225).
     "tools/svcomp_witness_check.py",
+    # Нативный фронтенд: кейс правит модуль `src/verifier/zig_ast_verify.zig`.
+    "src/verifier/zig_ast_verify.zig",
     # SMT-COMP: кейсы пруф-трека правят гейт — тот же класс #225.
     "tools/smtlib_proof_check.py",
     # Кейс `flake` правит набор целей детектора флейки — тот же класс
@@ -2518,6 +2520,23 @@ def case_svcomp_witness_drop():
     return "make svcomp-witness-check"
 
 
+def case_native_zig_ast_drop():
+    """НАТИВНЫЙ ФРОНТЕНД SABOTAGE: обязательство переполнения у обычного `+` снято.
+
+    ЛОМАЕМ: условие создания обязательства переполнения для знаковых `+ - *`
+    становится ложным. Тогда `addBad` (незащищённое `a + b`) перестаёт быть
+    НАРУШЕННЫМ и выглядит ДОКАЗАННЫМ, а `make native-zig-ast-check` обязан
+    покраснеть: ожидаемый `[FAIL] КОНТРАКТ НАРУШЕН addBad` не появляется.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота не могут быть зелёными, когда
+    нативный фронтенд перестал замечать переполнение.
+    """
+    patch("src/verifier/zig_ast_verify.zig",
+          "    if (arith and plain and t.signed) {",
+          "    if (arith and false and t.signed) {   // ЛОМАЕМ: обязательство снято")
+    return "zig build && bash tools/native_zig_ast_check.sh"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3713,6 +3732,8 @@ CASES = [
      case_smtlib_read_limit),
     ("svcomp-witness-drop", "A confirmed witness is discarded -> false admission -> red",
      case_svcomp_witness_drop),
+    ("native-zig-ast-drop", "Overflow obligation for plain `+` dropped -> gate red",
+     case_native_zig_ast_drop),
     ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
      case_xray_overflow),
     ("flake", "A never-green target must turn the flake gate red",

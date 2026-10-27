@@ -22,6 +22,7 @@ const ProofCertificate = @import("verifier/admission_gate.zig").ProofCertificate
 const VerificationPolicy = @import("verifier/admission_gate.zig").VerificationPolicy;
 const TrustedChecker = @import("verifier/admission_gate.zig").TrustedChecker;
 const proof_check = @import("verifier/proof_check.zig");
+const zig_ast_verify = @import("verifier/zig_ast_verify.zig");
 const model_extract = @import("verifier/model_extract.zig");
 const codec = @import("core/codec.zig");
 const z3b = @import("verifier/z3_bridge.zig");
@@ -789,6 +790,47 @@ pub fn main(init: std.process.Init) !void {
             } else {
                 std.debug.print("    не найдено (честный отказ)\n", .{});
             }
+        }
+        return;
+    }
+
+    if (std.mem.eql(u8, command, "verify-zig")) {
+        // НАТИВНЫЙ ФРОНТЕНД `.zig` НА `std.zig.Ast` — БЕЗ Python.
+        if (args.len < 3) {
+            std.debug.print("[!] verify-zig: нужен путь к файлу .zig\n", .{});
+            return;
+        }
+        var bridge = z3b.Z3Bridge.init(alloc);
+        if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
+            fail("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
+            return;
+        }
+        const raw = compat.readFileAlloc(alloc, args[2], 1 << 20) catch {
+            std.debug.print("[!] verify-zig: не читается {s}\n", .{args[2]});
+            return;
+        };
+        const zsrc = try alloc.allocSentinel(u8, raw.len, 0);
+        @memcpy(zsrc[0..raw.len], raw);
+        var rep = zig_ast_verify.verifySource(alloc, &bridge, zsrc) catch |err| {
+            std.debug.print("[!] verify-zig: разбор не удался ({s})\n", .{@errorName(err)});
+            return;
+        };
+        defer rep.deinit(alloc);
+        std.debug.print("=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ===\n", .{});
+        for (rep.outcomes.items) |o| {
+            const mark: []const u8 = switch (o.status) {
+                .proven => "[PASS] ДОКАЗАНО",
+                .refuted => "[FAIL] КОНТРАКТ НАРУШЕН",
+                .skip => "[SKIP]",
+            };
+            std.debug.print("  {s} {s} | обязательств {d} | {s}\n", .{ mark, o.name, o.obligations, o.reason });
+            if (o.counterexample.len != 0) {
+                std.debug.print("      [КОНТРПРИМЕР] {s}\n", .{o.counterexample});
+            }
+        }
+        std.debug.print("ИТОГ: доказано {d} | нарушено {d} | пропущено {d}\n", .{ rep.proven, rep.refuted, rep.skipped });
+        if (rep.refuted > 0) {
+            fail("[!] verify-zig: есть НАРУШЕННЫЕ контракты\n", .{});
         }
         return;
     }

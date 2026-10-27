@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest
+.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -935,6 +935,13 @@ xray-overflow-check:
 svcomp-witness-check:
 	@$(PYTHON) tools/svcomp_witness_check.py --selftest
 	@$(PYTHON) tools/svcomp_witness_check.py
+
+# НАТИВНЫЙ ФРОНТЕНД `.zig` НА `std.zig.Ast` (БЕЗ Python): `kernc verify-zig`.
+# Требует ОБЕ половины на нативном пути: `addGuarded`/`divOk` ДОКАЗАНЫ,
+# `addWrapOk` (`+%`) и `satOk` (`+|`) доказаны с РОВНО 0 обязательств
+# переполнения, `addBad` НАРУШЕН с контрпримером.
+native-zig-ast-check:
+	@bash tools/native_zig_ast_check.sh
 
 # Запрет ИИ-шаблонов в тексте/коммитах; легитимные упоминания MCP-клиентов
 # (MCP-клиенты) НЕ ловятся.
