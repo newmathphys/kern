@@ -4662,8 +4662,59 @@ def _walk_expr_guarded(node, guards, syms, env, _depth=0):
         yield node, guards
         return
     yield node, guards
+    # ДЕФЕКТ #377: при спуске в тело `for i in range(...)` действует ГАРД
+    # НЕПУСТОТЫ цикла. Без него обход через `ast.If` заходил в тело
+    # `for i in range(n * k)` и обвинял `arr[i % n]` в делении на ноль при
+    # `n == 0`, ХОТЯ при `n == 0` граница равна нулю и тела НЕТ (измерено
+    # живым запуском: `Mbpp/286` возвращает `-inf`, падения нет).
+    if isinstance(node, ast.For):
+        inner = guards + _range_entry_guards(node, env)
+        for ch in ast.iter_child_nodes(node):
+            yield from _walk_expr_guarded(ch, inner, syms, env, _depth + 1)
+        return
     for ch in ast.iter_child_nodes(node):
         yield from _walk_expr_guarded(ch, guards, syms, env, _depth + 1)
+
+
+def _range_entry_guards(st, env) -> list:
+    """ГАРД НЕПУСТОТЫ ЦИКЛА `for ... in range(...)` — ДЕФЕКТ #377.
+
+    ЧТО БЫЛО СЛОМАНО (ИЗМЕРЕНО на РЕАЛЬНОМ коде MBPP+, `Mbpp/286`):
+    `for i in range(n * k): current_max += arr[i % n]` — рентген обвинял
+    `i % n` в делении на ноль при `n == 0`, НЕ ЗАМЕЧАЯ, что при `n == 0`
+    граница `n * k` равна нулю, `range(0)` пуст и ТЕЛО ЦИКЛА НЕ ИСПОЛНЯЕТСЯ
+    НИ РАЗУ. Живой запуск это подтвердил: функция возвращает `-inf`, падения
+    НЕТ. То есть обвинение было ЛОЖНЫМ (класс #178/#183).
+
+    ЗВУЧНОЕ РЕШЕНИЕ. Чтобы тело `for i in range(stop):` выполнилось хотя бы
+    раз, необходимо `stop > 0`. Если `stop` линейно переводится в QF_LIA —
+    добавляем `(> stop 0)`. Если `stop` — ПРОИЗВЕДЕНИЕ `A * B` (в QF_LIA
+    нелинейно, и `expr_smt` его не переведёт), используем свойство кольца
+    целых: при `A * B > 0` НИ ОДИН сомножитель не равен нулю, поэтому
+    добавляем ЛИНЕЙНЫЕ условия `(distinct A 0)` и `(distinct B 0)`.
+    """
+    it = getattr(st, "iter", None)
+    if not (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
+            and it.func.id == "range" and it.args):
+        return []
+    args = it.args
+    # Сначала произведение: оно НЕЛИНЕЙНО, и общий путь его не переведёт.
+    stop = args[-1]
+    if isinstance(stop, ast.BinOp) and isinstance(stop.op, ast.Mult):
+        out = []
+        for f in (stop.left, stop.right):
+            try:
+                out.append(f"(distinct {expr_smt(f, env)} 0)")
+            except (Unsupported, NoReturn):
+                pass
+        if out:
+            return out
+    try:
+        if len(args) == 1:
+            return [f"(> {expr_smt(stop, env)} 0)"]
+        return [f"(> {expr_smt(stop, env)} {expr_smt(args[0], env)})"]
+    except (Unsupported, NoReturn):
+        return []
 
 
 def _walk_branches(stmts, path: list[str], params: list[str], kernc,
@@ -4726,6 +4777,10 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                     path = path + [_cond_smt(st.test, syms, env)]
                 except (Unsupported, NoReturn):
                     pass
+            elif isinstance(st, ast.For):
+                # ДЕФЕКТ #377: без гарда непустоты обвинение в теле
+                # `for i in range(n * k)` ЛОЖНО — при `n == 0` тела нет.
+                path = path + _range_entry_guards(st, env)
             _walk_branches(st.body, path, params, kernc, found, skipped, fnname, syms, env)
             continue
         if isinstance(st, ast.If):
