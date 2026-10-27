@@ -57,10 +57,10 @@ python3 tools/ai_traps_check.py --selftest
 
 ## Факты реестра, с которыми эта страница согласована
 
-<!-- fact:core_tests -->441 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
-<!-- fact:catalog -->472 каталог · <!-- fact:check_targets -->168 CHECK ·
-<!-- fact:canfail_cases -->204 кейса can-fail · <!-- fact:anchors -->165 якорей ·
-<!-- fact:registry_targets -->219 целей реестра ·
+<!-- fact:core_tests -->443 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
+<!-- fact:catalog -->472 каталог · <!-- fact:check_targets -->169 CHECK ·
+<!-- fact:canfail_cases -->205 кейса can-fail · <!-- fact:anchors -->166 якорей ·
+<!-- fact:registry_targets -->220 целей реестра ·
 <!-- fact:meta_targets -->37 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs: <!-- fact:quixbugs.smt -->6 доказуемых SMT ·
 <!-- fact:quixbugs.differential -->40 дифференциальных пар.

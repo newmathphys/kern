@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->169 · cases <!-- fact:canfail_cases -->205 · anchors <!-- fact:anchors -->166 · registry <!-- fact:registry_targets -->220 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -33,7 +33,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 
 | Показатель | Значение |
 |:--|:--|
-| Тесты ядра | **<!-- fact:core_tests -->441** (Debug + ReleaseSafe) |
+| Тесты ядра | **<!-- fact:core_tests -->443** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **53** |
 | Формальные доказательства | **8 файлов Lean 4** (147 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
@@ -43,7 +43,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->168 / <!-- fact:check_targets -->168 CHECK-целей** покрыты (<!-- fact:canfail_cases -->204 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->169 / <!-- fact:check_targets -->169 CHECK-целей** покрыты (<!-- fact:canfail_cases -->205 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -125,7 +125,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
 
-# 3. Тесты ядра — <!-- fact:core_tests -->441 штуки
+# 3. Тесты ядра — <!-- fact:core_tests -->443 штуки
 zig build test
 
 # 4. Эталонный образ и его проверка
@@ -151,7 +151,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — <!-- fact:core_tests -->441 / <!-- fact:core_tests -->441 tests
+Core (Debug)          : PASS — <!-- fact:core_tests -->443 / <!-- fact:core_tests -->443 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (8 files, 147 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -252,7 +252,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ```
 ├── main.zig                        CLI kernc (читает образ .kimg)
 ├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (<!-- fact:core_tests -->441 теста)
+├── test_root.zig                   корень тестов ядра (<!-- fact:core_tests -->443 теста)
 ├── core/
 │   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
 │   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
@@ -683,20 +683,20 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 204 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->165 якорей применимы (за ~1 с)
+make canfail          # 205 кейс: ломаем инвариант -> цель обязана упасть
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->166 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->219 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->220 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->219 (CHECK <!-- fact:check_targets -->168 · MEASURE 1 · BUILD <!-- fact:build_targets -->10 · EXTERNAL 3 · META <!-- fact:meta_targets -->37) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->168/<!-- fact:check_targets -->168 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->220 (CHECK <!-- fact:check_targets -->169 · MEASURE 1 · BUILD <!-- fact:build_targets -->10 · EXTERNAL 3 · META <!-- fact:meta_targets -->37) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->169/<!-- fact:check_targets -->169 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->204 (не-вакуумных <!-- fact:canfail_cases -->204 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->373** |
+| can-fail кейсов | <!-- fact:canfail_cases -->205 (не-вакуумных <!-- fact:canfail_cases -->205 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->374** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->169 · cases <!-- fact:canfail_cases -->205 · anchors <!-- fact:anchors -->166 · registry <!-- fact:registry_targets -->220 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,8 +9,8 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 ·
-> CHECK <!-- fact:check_targets -->168/<!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 ·
+> CHECK <!-- fact:check_targets -->169/<!-- fact:check_targets -->169 · cases <!-- fact:canfail_cases -->205 · anchors <!-- fact:anchors -->166 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -2854,3 +2854,106 @@ a heavy sample (resource limit).
 
 Four non-vacuous can-fail cases: `smtlib-proof-exit`, `smtlib-proof-depth`,
 `smtlib-proof-partial`, `smtlib-read-limit`.
+
+## §133. SV-COMP: 4 OFFICIAL CATEGORIES + WITNESS VALIDATION (Executable Harness Witness)
+
+**Date:** 2026-10-27. Gate: `make svcomp-witness-check`
+(`tools/svcomp_witness_check.py`).
+
+### 133.1 What existed and what did NOT
+
+`svcomp_baseline.py` (#367/#368) measured **ONE** category
+(`signedintegeroverflow-regression`) and printed a matrix. In SV-COMP a verdict
+is **NOT counted without a CONFIRMED witness**: the proof that a violation is
+reachable must be confirmed by an EXTERNAL validator. KERN had none at all — an
+`UNSAFE` verdict was presented without a witness.
+
+### 133.2 How the witness is built (and why it is external)
+
+For every task an **EXECUTABLE HARNESS** is built on the **ORIGINAL**
+championship file (copied unchanged — an SV-COMP requirement):
+
+1. our stubs `assert.h` / `harness.c` (`__VERIFIER_*`, `reach_error`,
+   `assume_abort_if_not`), declared WEAK so the task's own definition wins;
+2. build: `gcc -O0 -g -Wall -Wextra -Woverflow -fsanitize=undefined,address
+   -fno-sanitize-recover=all`;
+3. **EXTERNAL VALIDATOR #1 — THE COMPILER**: MEASURED that a CONSTANT-FOLDED
+   overflow (`int x = 2147483647 + 1;`) is NOT observable at run time — UBSan
+   has nothing to check, the compiler already computed the expression. But the
+   compiler DOES report it (`-Woverflow`), and that is exactly the external
+   evidence SV-COMP requires;
+4. **EXTERNAL VALIDATOR #2 — THE RUN** with a witness: nondeterministic inputs
+   are fed through `KERN_ND` (comma-separated, the last value repeats), and the
+   signal is taken ONLY for the task's OWN property (UBSan for `no-overflow`,
+   `REACH_ERROR` for `unreach-call`) — otherwise an `unreach-call` `SAFE` task
+   would redden because of an unrelated memory error.
+
+### 133.3 MEASURED: 4 official categories, 37 tasks
+
+| Category | Tasks | UNSAFE | SAFE | SKIP | CONFIRMED | UNOBSERVED |
+|:--|--:|--:|--:|--:|--:|--:|
+| `signedintegeroverflow-regression` | 15 | 10 | 5 | 0 | **9** | 1 |
+| `bitvector-regression` | 10 | 0 | 4 | 6 | — | 0 |
+| `loop-lit` | 6 | 1 | 5 | 0 | **1** | 0 |
+| `array-examples` | 6 | 4 | 2 | 0 | **1** | 3 |
+| **TOTAL** | **37** | **15** | **16** | **6** | **11** | **4** |
+
+**FALSE ALARMS 0** (on 16 `SAFE` tasks none of the enumerated witnesses triggered
+the property signal), **NO SHORTFALL**.
+
+Confirmations by method:
+
+| Method | Tasks | Example |
+|:--|--:|:--|
+| run under gcc sanitizers | **7** | `AdditionIntMin` (witness `-1`, UBSan "signed integer overflow"), `loop-lit/gcnr2008` (witness `-1`, `REACH_ERROR`), `array-examples/standard_init1_ground-1` (the task's own `assert`) |
+| compiler diagnostic | **3** | `AdditionIntMax`, `Multiplication-2`, `NoConversion` (`-Woverflow`: "integer overflow in expression … results in «-2147483648»") |
+
+### 133.4 DEFECT #374: our `assert.h` SILENTLY SHADOWED THE SYSTEM ONE — 6 official tasks would not build
+
+**What was broken (measured).** The first version of the harness placed its own
+`assert.h` stub next to the task. Some official tasks (e.g.
+`array-examples/relax-1.c`) define `reach_error` THEMSELVES via `assert(0)` and
+`#include <assert.h>`. Our stub captured the system header and had NO `assert`,
+so 6 of 6 `array-examples` tasks reported "build failed" — the category was
+VACUOUS, and that was visible only because the gate prints the SKIP reason.
+
+**The fix.** `#include_next <assert.h>` as the FIRST line of the stub: the system
+header is pulled in before our definitions. MEASURED after the fix: all 6
+`array-examples` tasks build, and `standard_init1_ground-1` gets a
+witness-CONFIRMED `UNSAFE` verdict.
+
+**A second consequence, also measured.** Tasks that define `reach_error`
+themselves do not print our `REACH_ERROR` — the signal is the failure text of
+glibc's `assert`. At the same time `abort()` from `assume_abort_if_not` is NOT a
+signal: it prunes an INFEASIBLE branch, it is not a violation. Both halves are
+pinned in the code and in the meta-test.
+
+### 133.5 HONEST BOUNDARIES, STATED
+
+* **METHOD BOUNDARY: 4 UNSAFE tasks are UNOBSERVABLE** by either the compiler or
+  the run. MEASURED on `signedintegeroverflow-regression/UnaryMinus`: neither
+  `gcc -O0/-O1/-O2/-O3` with `-fsanitize=undefined`, nor an EXPLICIT
+  `-fsanitize=signed-integer-overflow`, nor `-Woverflow` shows the violation
+  (the program prints `2147483625`, rc=0); `clang` is ABSENT from the
+  environment. This is NOT declared a false admission (no confirmation was ever
+  claimed) and NOT counted as proven — it is printed on its own line.
+* **SEARCH BOUNDARY:** the witness space is LIMITED — a constant from
+  `{-1,0,1,2,3,5,10,100}` or a PAIR of those. An SV-COMP witness is an automaton
+  over the call sequence; there is none here. "No witness found" is NOT a proof
+  of unreachability, and the gate does not claim it.
+* `SAFE` is NOT proven here: only the absence of a signal over the ENUMERATED
+  witnesses is checked (16 tasks, 64 witnesses each).
+* KERN verdicts on these categories are only MEASURED (`--xray`), so a wrapper is
+  never passed off as a proof: `--xray` produced 10 findings on the overflow
+  category and 1 on `bitvector-regression`.
+* 6 `bitvector-regression` tasks are marked `SKIP`: their `.yml` carries
+  **DIFFERENT** verdicts for different properties, and picking one arbitrarily
+  would attribute a verdict the task does not have.
+
+### 133.6 Gate and case
+
+`make svcomp-witness-check` = meta-test (**7 branches**) + run. It reddens on: a
+FALSE ALARM (signal on `SAFE`); category VACUITY; a harness that FAILS TO BUILD;
+a SHORTFALL (a category with `UNSAFE` where no witness was confirmed). It does
+NOT redden on "UNOBSERVED" while confirmations exist — that is a declared method
+boundary. Non-vacuous case: `svcomp-witness-drop`.

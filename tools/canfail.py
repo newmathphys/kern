@@ -374,6 +374,11 @@ FAULTABLE = [
     # Кейс `status-drift` правит генератор снимка состояния — тот же класс,
     # что #225/#311: файл вне FAULTABLE означает, что подсадка останется.
     "tools/gen_status.py",
+    # SV-COMP: кейс `svcomp-witness-drop` правит гейт валидации свидетеля —
+    # файл обязан быть в FAULTABLE, иначе подсадка останется в дереве (#225).
+    "tools/svcomp_witness_check.py",
+    # SMT-COMP: кейсы пруф-трека правят гейт — тот же класс #225.
+    "tools/smtlib_proof_check.py",
     # Кейс `flake` правит набор целей детектора флейки — тот же класс
     # #225/#311/#48: файл вне FAULTABLE означает, что подсадка останется.
     "tools/flake_check.py",
@@ -2493,6 +2498,26 @@ def case_smtlib_read_limit():
             "KERN_SMTLIB_TIMEOUT_MS=2000 make smtlib-proof-check")
 
 
+def case_svcomp_witness_drop():
+    """SV-COMP SABOTAGE: найденный свидетель больше НЕ засчитывается.
+
+    ЛОМАЕМ: в `check_task` условие `if hit:` заменяется на `if False:` — то
+    есть сигнал свойства, ПОДТВЕРЖДЁННЫЙ запуском, отбрасывается. Тогда каждая
+    официальная `UNSAFE`-задача остаётся без подтверждённого свидетеля, и
+    `make svcomp-witness-check` обязан покраснеть по правилу ЛОЖНОГО ДОПУСКА:
+    вердикт `UNSAFE` без свидетеля в SV-COMP не засчитывается.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота не могут быть зелёными, когда
+    подтверждение свидетеля теряется. Без него «0 нарушений» печаталось бы даже
+    тогда, когда ни один свидетель не зачтён.
+    """
+    patch("tools/svcomp_witness_check.py",
+          "            if hit:\n                res[\"signal\"] = True",
+          "            if False:   # ЛОМАЕМ: свидетель не засчитывается\n"
+          "                res[\"signal\"] = True")
+    return "make svcomp-witness-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3686,6 +3711,8 @@ CASES = [
      case_smtlib_proof_partial_label),
     ("smtlib-read-limit", "Read limit back to 1 MB -> task silently skipped -> red",
      case_smtlib_read_limit),
+    ("svcomp-witness-drop", "A confirmed witness is discarded -> false admission -> red",
+     case_svcomp_witness_drop),
     ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
      case_xray_overflow),
     ("flake", "A never-green target must turn the flake gate red",

@@ -37,7 +37,7 @@ Do **not** translate or "clean up" tool output. English text belongs in the docs
 
 ```bash
 export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"   # Zig 0.17.0
-zig build && zig build test        # 441 core tests
+zig build && zig build test        # 443 core tests
 zig build test-next                # 53 KERN-Next tests
 make run-example                   # the 15-second demo (pytest green vs KERN refutation)
 make contracts                     # polyglot @kern: contracts (Python/Zig/C/Rust)

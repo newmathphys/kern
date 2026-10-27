@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->169 · cases <!-- fact:canfail_cases -->205 · anchors <!-- fact:anchors -->166 · registry <!-- fact:registry_targets -->220 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 ·
-> CHECK <!-- fact:check_targets -->168/<!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->443 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 ·
+> CHECK <!-- fact:check_targets -->169/<!-- fact:check_targets -->169 · cases <!-- fact:canfail_cases -->205 · anchors <!-- fact:anchors -->166 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -10250,3 +10250,107 @@ UNSAT/ложный свидетель нативного LIA; **не прочи�
 
 Три невакуумных can-fail кейса: `smtlib-proof-exit`, `smtlib-proof-depth`,
 `smtlib-proof-partial`, `smtlib-read-limit`.
+
+## §155. SV-COMP: 4 ОФИЦИАЛЬНЫЕ КАТЕГОРИИ + ВАЛИДАЦИЯ СВИДЕТЕЛЯ (Executable Harness Witness)
+
+**Дата:** 2026-10-27. Гейт: `make svcomp-witness-check`
+(`tools/svcomp_witness_check.py`).
+
+### 155.1 Что было и чего НЕ было
+
+`svcomp_baseline.py` (#367/#368) измерил **ОДНУ** категорию
+(`signedintegeroverflow-regression`) и печатал матрицу. В SV-COMP вердикт
+**НЕ засчитывается без ПОДТВЕРЖДЁННОГО свидетеля**: доказательство достижимости
+нарушения обязан подтвердить ВНЕШНИЙ валидатор. У KERN такого не было вообще —
+вердикт `UNSAFE` предъявлялся без свидетеля.
+
+### 155.2 Как устроен свидетель (и почему он внешний)
+
+Для каждой задачи собирается **ИСПОЛНЯЕМЫЙ СТЕНД** на **ОРИГИНАЛЬНОМ** файле
+чемпионата (копируется без изменений — требование SV-COMP):
+
+1. наши заглушки `assert.h` / `harness.c` (`__VERIFIER_*`, `reach_error`,
+   `assume_abort_if_not`), причём СЛАБЫЕ символы — определение задачи побеждает;
+2. сборка `gcc -O0 -g -Wall -Wextra -Woverflow -fsanitize=undefined,address
+   -fno-sanitize-recover=all`;
+3. **ВНЕШНИЙ ВАЛИДАТОР №1 — КОМПИЛЯТОР**: ИЗМЕРЕНО, что КОНСТАНТНО-СВЁРНУТОЕ
+   переполнение (`int x = 2147483647 + 1;`) на рантайме НЕ наблюдаемо — UBSan
+   проверять нечего, компилятор уже посчитал выражение. Но компилятор о нём
+   СООБЩАЕТ (`-Woverflow`), и это ровно то внешнее свидетельство, которого
+   требует SV-COMP;
+4. **ВНЕШНИЙ ВАЛИДАТОР №2 — ЗАПУСК** со свидетелем: значения недетерминированных
+   входов подаются через `KERN_ND` (список через запятую, последнее значение
+   повторяется), сигнал берётся ТОЛЬКО по СВОЕМУ свойству (UBSan для
+   `no-overflow`, `REACH_ERROR` для `unreach-call`) — иначе `SAFE`-задача по
+   `unreach-call` краснела бы из-за не связанной с ней ошибки памяти.
+
+### 155.3 ИЗМЕРЕНО: 4 официальные категории, 37 задач
+
+| Категория | Задач | UNSAFE | SAFE | SKIP | ПОДТВЕРЖДЕНО | НЕ НАБЛЮДАЕМО |
+|:--|--:|--:|--:|--:|--:|--:|
+| `signedintegeroverflow-regression` | 15 | 10 | 5 | 0 | **9** | 1 |
+| `bitvector-regression` | 10 | 0 | 4 | 6 | — | 0 |
+| `loop-lit` | 6 | 1 | 5 | 0 | **1** | 0 |
+| `array-examples` | 6 | 4 | 2 | 0 | **1** | 3 |
+| **ИТОГО** | **37** | **15** | **16** | **6** | **11** | **4** |
+
+**ЛОЖНЫХ ТРЕВОГ 0** (на 16 `SAFE`-задачах ни один из перебранных свидетелей не
+вызвал сигнал свойства), **НЕДОБОРА 0**.
+
+Подтверждения по способу:
+
+| Способ | Задач | Пример |
+|:--|--:|:--|
+| запуск под gcc-санитайзерами | **7** | `AdditionIntMin` (witness `-1`, UBSan «signed integer overflow»), `loop-lit/gcnr2008` (witness `-1`, `REACH_ERROR`), `array-examples/standard_init1_ground-1` (`assert` задачи) |
+| диагностика компилятора | **3** | `AdditionIntMax`, `Multiplication-2`, `NoConversion` (`-Woverflow`: «integer overflow in expression … results in «-2147483648»») |
+
+### 155.4 ДЕФЕКТ #374: наш `assert.h` ТИХО ПЕРЕКРЫВАЛ СИСТЕМНЫЙ — 6 официальных задач не собирались
+
+**Что было сломано (измерено).** Первая версия стенда клала свою заглушку
+`assert.h` рядом с задачей. Часть официальных задач (например
+`array-examples/relax-1.c`) САМА определяет `reach_error` через `assert(0)` и
+делает `#include <assert.h>`. Наша заглушка перехватывала системный заголовок и
+`assert` в ней ОТСУТСТВОВАЛ, поэтому 6 из 6 задач `array-examples` дали
+«сборка не удалась» — то есть категория оказалась ВАКУУМНОЙ, и это было видно
+только потому, что гейт печатает причину SKIP.
+
+**Правка.** `#include_next <assert.h>` ПЕРВОЙ строкой заглушки: системный
+заголовок подключается до наших определений. ИЗМЕРЕНО после правки: все 6 задач
+`array-examples` собираются, и `standard_init1_ground-1` получает
+ПОДТВЕРЖДЁННЫЙ свидетелем вердикт `UNSAFE`.
+
+**Второе следствие, тоже измеренное.** Задачи, определяющие `reach_error` сами,
+не печатают наш `REACH_ERROR` — сигналом служит текст отказа glibc-шного
+`assert`. При этом `abort()` от `assume_abort_if_not` сигналом НЕ считается:
+это отсечение НЕВЫПОЛНИМОЙ ветки, а не нарушение. Обе половины закреплены в
+коде и в мета-тесте.
+
+### 155.5 ЧЕСТНЫЕ ГРАНИЦЫ, НАЗВАННЫЕ
+
+* **ГРАНИЦА МЕТОДА: 4 UNSAFE-задачи НЕ НАБЛЮДАЕМЫ** ни компилятором, ни
+  запуском. ИЗМЕРЕНО на `signedintegeroverflow-regression/UnaryMinus`: ни
+  `gcc -O0/-O1/-O2/-O3` с `-fsanitize=undefined`, ни ЯВНЫЙ
+  `-fsanitize=signed-integer-overflow`, ни `-Woverflow` нарушения не показывают
+  (программа печатает `2147483625`, rc=0); `clang` в окружении ОТСУТСТВУЕТ.
+  Это НЕ объявляется ложным допуском (подтверждения не заявлялось) и НЕ
+  считается доказанным — печатается отдельной строкой.
+* **ГРАНИЦА ПОИСКА:** пространство свидетелей ОГРАНИЧЕНО — константа из
+  `{-1,0,1,2,3,5,10,100}` либо ПАРА значений оттуда же. Свидетель SV-COMP —
+  автомат по последовательности вызовов; здесь его нет. «Свидетель не найден»
+  НЕ является доказательством недостижимости, и гейт этого не заявляет.
+* `SAFE` здесь НЕ доказывается: проверяется отсутствие сигнала на ПЕРЕБРАННЫХ
+  свидетелях (16 задач, 64 свидетеля каждая).
+* KERN-вердикты по этим категориям только ИЗМЕРЯЮТСЯ (`--xray`), чтобы не
+  выдать обёртку за доказательство: `--xray` дал 10 находок на overflow-категории
+  и 1 на `bitvector-regression`.
+* 6 задач `bitvector-regression` помечены `SKIP`: в их `.yml` **РАЗНЫЕ**
+  вердикты по разным свойствам, и выбирать один произвольно значило бы
+  приписать задаче вердикт, которого у неё нет.
+
+### 155.6 Гейт и кейс
+
+`make svcomp-witness-check` = мета-тест (**7 ветвей**) + прогон. Краснит на:
+ЛОЖНОЙ ТРЕВОГЕ (сигнал на `SAFE`); ВАКУУМЕ категории; НЕСОБРАВШЕМСЯ стенде;
+НЕДОБОРЕ (в категории с `UNSAFE` ни один свидетель не подтверждён). НЕ краснит
+на «НЕ НАБЛЮДАЕМО» при наличии подтверждений — это заявленная граница метода.
+Невакуумный кейс: `svcomp-witness-drop`.
