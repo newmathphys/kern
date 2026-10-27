@@ -8,6 +8,73 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-10-27
+
+### Added
+
+- **Native Zig AST verifier (`kernc verify-zig <file.zig>`, #375):** a built-in
+  `std.zig.Ast.parse` frontend INSIDE the static `kernc` binary (0 Python, 0
+  regexes). It extracts `/// @kern:requires` and `/// @kern:ensures` from
+  `.doc_comment` tokens across all four `fn_proto` forms, models
+  `i32`/`u32`/`i64`/`u64`/`usize`, generates safety obligations for `+`/`-`/`*`,
+  unary `-MIN_INT`, division by zero and the `MIN_INT / -1` trap
+  (`@divTrunc`/`@divFloor`/`@rem`/`@mod`), and suppresses overflow obligations on
+  the modular/saturating operators (`+%`, `-%`, `*%`, `+|`, `-|`). MEASURED:
+  `addGuarded`/`divOk` PROVEN, `addWrapOk` PROVEN with **0** obligations,
+  `addBad` REFUTED with the counterexample `a = INT_MIN, b = -1`.
+- **Native theory CLI (`kernc theory <file>`, #376):** a file-based CLI entry
+  point for the native Zig engines (`arrays` McCarthy `QF_AX`, `absint`
+  `join`/`widen`/`narrow`, `dtmc` stochasticity and reachability) - previously
+  they ran only on strings hardcoded inside `kernc audit`.
+- **SMT-COMP proof-checking track (`make smtlib-proof-check`, #366, #371-#373):**
+  23 official SMT-LIB tasks across `QF_LIA`, `QF_BV`, `QF_AX` and `QF_S`;
+  `proof_check.zig` audited 7 official UNSAT derivations (7,945 steps, 0 holes)
+  and three official tasks were proven with **`trusted: 0 | holes: 0`**.
+- **SV-COMP executable witness validation (`make svcomp-witness-check`, #367,
+  #368, #374):** 37 UNMODIFIED official tasks across 4 categories; UNSAFE
+  witnesses are confirmed by two external oracles - the compiler (`-Woverflow`)
+  and a run under `gcc -fsanitize=undefined,address`.
+- **MBPP+ live-Python oracle (`make mbpp-xray-check`, #377, #378):** `[CRASH
+  PATH]` accusations are confirmed by a LIVE Python run on the found
+  counterexample instead of trusting the test table.
+- **Sub-expression overflow detection in `--xray` (Path C, #368):** intermediate
+  signed overflows inside compound expressions (`J = 1.00` on the SV-COMP
+  overflow regression).
+- **Journal hierarchy invariant (`orphans()`, #370):** every sub-row `| **N.k** |`
+  must sit under its own header `| **N** |` (RU and EN, 338 records).
+
+### Fixed
+
+- **#371:** trailing `(exit)` is stripped before `(get-proof)` on official
+  SMT-LIB files; `MAX_SEXP_DEPTH` raised 4,096 -> 12,288 (the measured safe
+  ceiling) with an explicit `TooDeep` reason instead of blaming the solver.
+- **#372:** `kernc prove` prints `[PROOF VERIFIED]` strictly when `trusted == 0`,
+  otherwise `[PROOF PARTIAL] ... NOT VERIFIED`.
+- **#373:** the 1 MB read limit in `kernc smtlib` is gone - official files of
+  1.6 MB were silently skipped and reported as "0 files".
+- **#374:** `#include_next <assert.h>` in the SV-COMP witness harness - without
+  it our own stub shadowed the system header and 6 official `array-examples`
+  tasks would not build (the category was VACUOUS).
+- **#377:** a false division-by-zero accusation inside `for i in range(n * k)` -
+  the loop-entry non-emptiness guard is now emitted (for a product `A * B` the
+  sound ring-of-integers property gives the linear `(distinct A 0)` /
+  `(distinct B 0)`).
+- **#378:** assignment values (`x = ...`, `x += ...`) were never crash-walked, so
+  the whole loop body was a blind spot of `--xray`.
+- **#379:** `cyberseceval_check.py` is now explicitly labelled an external
+  AST/regex BASELINE (0 `kernc`/`z3` calls); real CWE verification lives in
+  `cwe-twins-check`, `svcomp-witness-check` and `smtlib-proof-check`.
+
+### Measured
+
+- 449 core Zig tests (was 436), 172/172 CHECK gates proven able to fail,
+  208 non-vacuous can-fail cases, 223 registry targets, journal records
+  #1-#379 (338 rows, RU == EN).
+- Three blind spots of `EvalPlus MBPP+` confirmed by a live run: `Mbpp/265`,
+  `Mbpp/292`, `Mbpp/422` pass BOTH base `MBPP` and the 80x `MBPP+` yet raise
+  `ZeroDivisionError` on `n = 0` / `b = 0` - with 0 false accusations.
+
+
 ## [2.7.3] — 2026-10-26
 
 Минорный релиз **измеримых гарантий на внешних задачах**. Пять этапов

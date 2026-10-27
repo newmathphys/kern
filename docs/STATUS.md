@@ -32,7 +32,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->208**, of which
 | Cross-architecture | <!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Literal anchors | <!-- fact:anchors -->169 |
-| Version | `v2.7.3` |
+| Version | `v2.8.0` |
 
 ## Defect journal
 
