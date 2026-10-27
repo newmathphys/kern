@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->449 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 · CHECK <!-- fact:check_targets -->171 · cases <!-- fact:canfail_cases -->207 · anchors <!-- fact:anchors -->168 · registry <!-- fact:registry_targets -->222 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->449 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 · CHECK <!-- fact:check_targets -->172 · cases <!-- fact:canfail_cases -->208 · anchors <!-- fact:anchors -->169 · registry <!-- fact:registry_targets -->223 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->449 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 ·
-> CHECK <!-- fact:check_targets -->171/<!-- fact:check_targets -->171 · cases <!-- fact:canfail_cases -->207 · anchors <!-- fact:anchors -->168 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->172/<!-- fact:check_targets -->172 · cases <!-- fact:canfail_cases -->208 · anchors <!-- fact:anchors -->169 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -2957,3 +2957,92 @@ FALSE ALARM (signal on `SAFE`); category VACUITY; a harness that FAILS TO BUILD;
 a SHORTFALL (a category with `UNSAFE` where no witness was confirmed). It does
 NOT redden on "UNOBSERVED" while confirmations exist — that is a declared method
 boundary. Non-vacuous case: `svcomp-witness-drop`.
+
+## §134. THE LIVE-PYTHON ORACLE AGAINST MBPP+: 3 blind spots of EvalPlus itself and two `--xray` defects (#377, #378)
+
+**Date:** 2026-10-27. Gate: `make mbpp-xray-check` (`tools/mbpp_xray_check.py`).
+
+### 134.1 Why a table of tests is NOT an oracle
+
+`EvalPlus (MBPP+)` is the world reference for testing AI code: it expands the base
+`MBPP` tests **80x** specifically to catch edge-case bugs. Treating it as an
+oracle ("it passed `MBPP+`, so it is clean") is tempting - and WRONG. MEASURED:
+on **264** solutions with status `pass/pass` (passed BOTH `MBPP` and `MBPP+`) our
+`--xray` pointed at a division by zero, and a **LIVE PYTHON RUN** confirmed it.
+
+The oracle for `[CRASH PATH]` is therefore the **interpreter**:
+
+  * `[CRASH PATH]` + Python crashed  -> **`confirmed_blindspot`** (a real find);
+  * `[CRASH PATH]` + Python survived -> **`false_crash_accusation`** (gate failure);
+  * `[BOUNDS] … length NOT known`    -> an **informational** line ("could not
+    check"), NOT an accusation.
+
+### 134.2 MEASURED: blind spots of MBPP+ ITSELF
+
+| Task | Function | Counterexample | Live Python |
+|:--|:--|:--|:--|
+| `Mbpp/265` | `list_split(lst, n)` | `n = 0` | **`ZeroDivisionError`** |
+| `Mbpp/292` | `find(a, b)` | `b = 0` | **`ZeroDivisionError`** |
+| `Mbpp/422` | `find_Average_Of_Cube(n)` | `n = 0` | **`ZeroDivisionError`** |
+
+All three passed BOTH base `MBPP` and the 80x `MBPP+`: the test generator simply
+**never supplied zero**. These are not false alarms - they are a benchmark gap.
+
+**A SECOND CONCLUSION, RECORDED AS A NUMBER:** on the **43 SEMANTIC** AI failures
+(`base=pass, plus=fail`) the annotation-free `--xray` yields **0** crash paths.
+Those bugs return a WRONG NUMBER without crashing the interpreter (`range(k)`
+instead of `range(n)`, `x is True` instead of truthiness) - they are caught by the
+`@kern:ensures` contract or `--diff-equiv`. The gate never substitutes one for
+the other.
+
+### 134.3 DEFECT #377: a false accusation inside `for i in range(n * k)`
+
+**What was broken (measured on `Mbpp/286`).** The x-ray accused `i % n` of
+division by zero when `n == 0`, NOT noticing that when `n == 0` the bound `n * k`
+is zero, `range(0)` is empty and the loop body is NEVER executed. A live run
+shows the function returns `-inf` and does not crash. Class #178/#183.
+
+**The fix is in TWO places, and the second was decisive:**
+
+1. new `_range_entry_guards(...)` - the NON-EMPTINESS guard of `for … in range(...)`;
+2. the same guard in `_walk_expr_guarded` - the accusation arrived through the
+   `ast.If` descent, which entered the `for` body WITHOUT any entry guard.
+
+**WHY A PRODUCT IS NOT A PROBLEM (`QF_LIA`).** The bound `range(n * k)` is
+non-linear and the linear translator will not translate it. The **sound property
+of the ring of integers** is used: if `A · B > 0` then neither factor is zero, so
+the **linear** conditions `(distinct A 0)` and `(distinct B 0)` are emitted.
+
+### 134.4 DEFECT #378: the loop body was a blind spot of the x-ray
+
+**What was broken (measured).** The `ast.Assign` and `ast.AugAssign` branches did
+`continue` immediately after updating the environment - the assignment VALUE was
+never crash-walked at all. Measured: `for i in range(3): t += a // n` and
+`for i in range(3): x = a // n` produced **0** accusations, while `return a // n`
+produced **1**. Any division inside a loop body written as an assignment was
+invisible, and "0 findings" meant "we did not look there".
+
+**The fix.** The accusation logic was extracted into `_crash_collect(...)` and is
+now called from the assignment branches too - on the value, with path guards.
+
+### 134.5 MEASURED BOTH WAYS (the fix does not silence genuine accusations)
+
+| Input | Accusations | Why that is correct |
+|:--|--:|:--|
+| `for i in range(n * k): t += arr[i % n]` | **0** | with `n == 0` the bound is zero, there is NO body |
+| `for i in range(k): t += arr[i % n]` | **1** | with `k > 0`, `n == 0` the crash is REAL |
+| `a // n` outside a loop | **1** | there is no guard at all |
+| the real `Mbpp/286` | **0** | the false accusation is gone |
+| `for i in range(3): t += a // n` (after #378) | **1** | the loop body is no longer blind |
+
+Existing gates `xray-check`, `xray-overflow-check`, `real-cases-check` stayed
+**green**.
+
+### 134.6 Gate and case
+
+`make mbpp-xray-check` = meta-test (**4 branches**) + run. It reddens on a **FALSE
+ACCUSATION** (Python survived); a **SHORTFALL OF BLIND SPOTS** (fewer than 3
+confirmed - the detector went blind); **VACUITY** (no accusations at all). It does
+NOT redden on 0 crash paths among the 43 SEMANTIC failures - that is the boundary
+of the annotation-free layer. Non-vacuous case: `mbpp-xray-blindspot` (drops the
+accusation emission -> the blind spot is lost -> the gate reddens).

@@ -377,6 +377,8 @@ FAULTABLE = [
     # SV-COMP: кейс `svcomp-witness-drop` правит гейт валидации свидетеля —
     # файл обязан быть в FAULTABLE, иначе подсадка останется в дереве (#225).
     "tools/svcomp_witness_check.py",
+    # MBPP+: кейс правит детектор `--xray` в `tools/kern_contracts.py`.
+    "tools/kern_contracts.py",
     # Нативный фронтенд: кейс правит модуль `src/verifier/zig_ast_verify.zig`.
     "src/verifier/zig_ast_verify.zig",
     # Нативные теории: кейс правит модуль `src/verifier/theory_cli.zig`.
@@ -2561,6 +2563,29 @@ def case_native_theories_file_drop():
     return "zig build && bash tools/native_theories_file_check.sh"
 
 
+def case_mbpp_xray_blindspot():
+    """MBPP+ SABOTAGE: обвинение в делении на ноль больше не выдаётся.
+
+    ЛОМАЕМ: в `_crash_collect` условие выдачи обвинения становится ложным.
+    Тогда `--xray` перестаёт находить `ZeroDivisionError` в решениях,
+    прошедших весь MBPP+, число подтверждённых слепых пятен падает с 3 до 0,
+    и `make mbpp-xray-check` обязан покраснеть по правилу НЕДОБОРА/ВАКУУМА.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота не могут быть зелёными, когда
+    детектор ослеп на настоящих находках.
+    """
+    # ⚠️ ПЕРВАЯ ВЕРСИЯ КЕЙСА БЫЛА ВАКУУМНОЙ, и харнесс это показал: она гасила
+    # только НОВЫЙ путь `_crash_collect` (ветки присваивания), тогда как
+    # ДУБЛИРОВАННАЯ логика в ветках `ast.If` продолжала обвинять — цель
+    # оставалась зелёной. Теперь гасится САМ ПРЕДИКАТ возможности нуля, то есть
+    # ЛЮБОЕ обвинение в делении на ноль: тогда подтверждённых слепых пятен
+    # становится 0 и ворота обязаны покраснеть по правилу ВАКУУМА.
+    patch("tools/kern_contracts.py",
+          'def _could_be_zero(div_smt: str) -> bool:',
+          'def _could_be_zero(div_smt: str) -> bool:\n    return False   # ЛОМАЕМ: ни один делитель не может быть нулём')
+    return "make mbpp-xray-check"
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3760,6 +3785,8 @@ CASES = [
      case_native_zig_ast_drop),
     ("native-theories-file-drop", "Solver verdict ignored -> risk not refuted -> gate red",
      case_native_theories_file_drop),
+    ("mbpp-xray-blindspot", "Division-by-zero accusation dropped -> blindspot lost -> red",
+     case_mbpp_xray_blindspot),
     ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
      case_xray_overflow),
     ("flake", "A never-green target must turn the flake gate red",

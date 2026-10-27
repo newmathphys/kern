@@ -4717,6 +4717,34 @@ def _range_entry_guards(st, env) -> list:
         return []
 
 
+def _crash_collect(n, nguards, params, kernc, found, fnname, syms, env) -> None:
+    """Проверить ОДИН узел на деление на ноль с учётом гардов пути.
+
+    Вынесено отдельной функцией для ДЕФЕКТА #378: ИЗМЕРЕНО, что ветки
+    присваивания (`x = expr` и `x += expr`) делали `continue` СРАЗУ после
+    обновления окружения, поэтому ИХ ЗНАЧЕНИЕ не проходило краш-обход вообще.
+    `for i in range(3): t += a // n` не обвинялось, тогда как `return a // n`
+    обвинялось — то есть тело цикла было слепой зоной рентгена.
+    """
+    if not (isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod))):
+        return
+    if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
+        return  # `'%s' % x` — форматирование, не деление
+    if isinstance(n.left, ast.Name) and _MACRO_DIV.match(n.left.id):
+        return  # UPGRADE_DIR / name — pathlib-склейка, не арифметика
+    if _is_path_expr(n.left):
+        return  # ДЕФЕКТ #316: `self.root / log_dir`, `ROOT / "a" / name`
+    try:
+        div = expr_smt(n.right, env)
+    except (Unsupported, NoReturn):
+        return
+    if not _could_be_zero(div) or not _mentions_param(div, params):
+        return
+    if _smt_sat(kernc, params, nguards + [f"(= {div} 0)"]) is True:
+        found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
+                     f"возможно деление на ноль: {div} == 0")
+
+
 def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                    found: list[str], skipped: list[str], fnname: str,
                    syms=None, env=None) -> None:
@@ -4736,6 +4764,9 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 env[st.targets[0].id] = expr_smt(st.value, env)
             except (Unsupported, NoReturn):
                 env.pop(st.targets[0].id, None)
+            # ДЕФЕКТ #378: значение присваивания ОБЯЗАНО проходить краш-обход.
+            for _n, _ng in _walk_expr_guarded(st.value, path, syms, env):
+                _crash_collect(_n, _ng, params, kernc, found, fnname, syms, env)
             continue
         if isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
             op = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*"}.get(type(st.op))
@@ -4745,6 +4776,9 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                     env[st.target.id] = f"({op} {cur} {expr_smt(st.value, env)})"
                 except (Unsupported, NoReturn):
                     env.pop(st.target.id, None)
+            # ДЕФЕКТ #378: значение составного присваивания тоже обходится.
+            for _n, _ng in _walk_expr_guarded(st.value, path, syms, env):
+                _crash_collect(_n, _ng, params, kernc, found, fnname, syms, env)
             continue
         # ДЕФЕКТ #179 (assert как гард пути): `assert len(x) == 1` — это
         # ИСТИННОЕ условие ВСЕГО дальнейшего кода, а не комментарий. Без этого
