@@ -30,7 +30,7 @@ Checked: Ed25519 signature, `kid` == key fingerprint,
 
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
-> by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->433 passed + <!-- fact:cross_arch_skipped -->8 skipped),
+> by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->435 passed + <!-- fact:cross_arch_skipped -->8 skipped),
 > KERN-Next **53 / 53**, can-fail **169 / 169 CHECK** (205 non-vacuous cases, 0 errors),
 > registry **<!-- fact:registry_targets -->220 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 147 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
@@ -119,8 +119,8 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Platform | What it proves | Result |
 |:--|:--|:--|
 | **x86_64** (host, TSO) | baseline | **402 / 402 OK** ✅ |
-| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `<!-- fact:cross_arch_passed -->433 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`) on the CURRENT suite (<!-- fact:core_tests -->443 tests = <!-- fact:cross_arch_passed -->433 passed + <!-- fact:cross_arch_skipped -->8 skipped)* |
-| **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ✅ *same run: <!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed* |
+| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `<!-- fact:cross_arch_passed -->435 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`) on the CURRENT suite (<!-- fact:core_tests -->443 tests = <!-- fact:cross_arch_passed -->435 passed + <!-- fact:cross_arch_skipped -->8 skipped)* |
+| **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ✅ *same run: <!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed* |
 
 ---
 
@@ -274,7 +274,7 @@ Claims that **did not hold** and were fixed in the documentation:
 | **24** bugs | **13 FIX sections** (22 entries in the METRICS journal) |
 | Makefile targets **61** | **62** — *current: **101*** |
 | QuixBugs "by proving unsatisfiability" | **executing** the official test cases |
-| QEMU cross-arch **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped** | **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`cross_arch.log`, 2026-10-19, current suite) |
+| QEMU cross-arch **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped** | **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`cross_arch.log`, 2026-10-19, current suite) |
 
 ## What was fully confirmed ✅
 

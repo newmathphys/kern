@@ -116,8 +116,8 @@ run_cases(fn, cases, timeout=1.0)   # прогоняем тесты + тайма
 |:--|:--|:--|
 | Подмена байта в образе | `MerkleRootMismatch` | ✅ |
 | Подмена **содержимого** | `PayloadTampered` (`SHA-256(payload) == digest`) | ✅ |
-| ARM64 (строгое выравнивание) | QEMU: **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`docs/evidence/cross_arch.log`, 2026-10-19) | ✅ прогон на АКТУАЛЬНОМ наборе |
-| POWERPC64 (**big-endian**) | QEMU: **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (тот же лог) | ✅ тот же прогон |
+| ARM64 (строгое выравнивание) | QEMU: **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`docs/evidence/cross_arch.log`, 2026-10-19) | ✅ прогон на АКТУАЛЬНОМ наборе |
+| POWERPC64 (**big-endian**) | QEMU: **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (тот же лог) | ✅ тот же прогон |
 | Случайный доступ (1 млн объектов) | **0.0006 мс** (цель < 0.005) | ⚠️ было 0.0001 до ФИКСА целостности |
 | Zero-copy | адресация среза без копирования | ✅ |
 
@@ -257,7 +257,7 @@ run_cases(fn, cases, timeout=1.0)   # прогоняем тесты + тайма
 | 3 | Шлюз для LLM | ⚠️ 100% точность, но pass@1 не растёт |
 | 4 | UNSAT Core | ✅ с проверкой минимальности |
 | 5 | Синтез кода (CEGIS) | ✅ `(bvshl x 3)`, верифицирован |
-| 6 | Целостность + переносимость | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **<!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed**; доступ **0.0006 мс** |
+| 6 | Целостность + переносимость | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **<!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed**; доступ **0.0006 мс** |
 | 7 | ReDoS / Path Traversal | ✅ контрпримеры найдены |
 | 8 | Вероятности (DTMC) | ✅ 0.1³ = 0.001 в f64 с допуском 1e-9 (точно — только в рациональной арифметике, #328) |
 | 9 | Constant-Time | ⚠️ фактически ~1.0×, порог теста 3.0 |

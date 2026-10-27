@@ -29,7 +29,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->205**, of which
 | Full test catalog | <!-- fact:catalog -->472 |
 | Lean 4 | <!-- fact:lean_theorems -->147 theorems in 8 files, 0 sorry |
 | Mutations killed | <!-- fact:mutation_sites -->1427 / 1427 across 21 files |
-| Cross-architecture | <!-- fact:cross_arch_passed -->433 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
+| Cross-architecture | <!-- fact:cross_arch_passed -->435 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Literal anchors | <!-- fact:anchors -->166 |
 | Version | `v2.7.3` |

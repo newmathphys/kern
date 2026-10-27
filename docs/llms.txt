@@ -31,7 +31,7 @@
 - Mutation score on the Zig kernel: **1427 / 1427 killed (100.0 %)** across
   **21 files**, no sampling, zero survivors.
 - Can-fail harness: **169 CHECK targets, 205 non-vacuous cases, 0 vacuous**.
-- Cross-architecture: **433 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
+- Cross-architecture: **435 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
   PowerPC64 big-endian (QEMU).
 - WebAssembly: `kernc.wasm` (**86 953 bytes**) exports `kern_wasm_verify_proof`,
   `kern_wasm_lia_unsat2`, `kern_wasm_belnap_join`, `kern_wasm_belnap_allow`,
