@@ -1,6 +1,6 @@
 # KERN: a cybernetic loop with machine evidence
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > This document describes **only what exists in the code**. Every claim comes with a
 > file you can open and a number you can re-check with a command. No invented
@@ -92,7 +92,7 @@ rebuild and verify. KERN's practice:
 * a static 6 MB binary `kernc` (musl), sha256 in `SHA256SUMS`;
 * a SLSA attestation **signed with Ed25519** (`kern.intoto.sig`, verified by
   `tools/slsa_provenance.py --check`);
-* **1424 mutants: 1424/1424 killed (100.0 %)** over all 21 files with no sampling;
+* **1424 mutants: 1427/1427 killed (100.0 %)** over all 21 files with no sampling;
   the canonical gate (40 sites) yields the same verdicts;
 * release reproducibility: `make artifact-check` compares README, the local build and the
   uploaded asset.

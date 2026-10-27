@@ -2416,6 +2416,83 @@ def case_xray_overflow():
     return "make xray-overflow-check"
 
 
+def case_smtlib_proof_exit():
+    """ДЕФЕКТ #371, причина (A): вырезание `(exit)` из запроса пруфа убрано.
+
+    ЛОМАЕМ: запрос вывода снова пишет файл ДОСЛОВНО (`writeAll` вместо
+    `writeWithoutExit`). ИЗМЕРЕНО: КАЖДЫЙ официальный файл SMT-LIB
+    заканчивается `(exit)`, поэтому Z3 завершается РАНЬШЕ нашего `(get-proof)`
+    и вывод НЕ ЗАПРАШИВАЕТСЯ ВООБЩЕ. Пруф-чекер получает пустую строку, шагов 0,
+    и пруф-трек ворот становится ВАКУУМНЫМ — `make smtlib-proof-check` обязан
+    покраснеть по правилу «ни одного разобранного шага» (класс #345).
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота не могут быть зелёными, когда
+    вывод не запрашивается. Без него «0 дыр» на пустом множестве выглядело бы
+    как успех — ровно та ложь, против которой ворота построены.
+    """
+    patch("src/main.zig",
+          "            try writeWithoutExit(wq, smt);",
+          "            try wq.writeAll(smt);   // ЛОМАЕМ (#371 A)")
+    return ("zig build && KERN_SMTLIB4_ONLY=QF_BV "
+            "KERN_SMTLIB4_PROOF_TIMEOUT=120 make smtlib-proof-check")
+
+
+def case_smtlib_proof_depth():
+    """ДЕФЕКТ #371, причина (B): предел вложенности возвращён к 4096.
+
+    ЛОМАЕМ: `MAX_SEXP_DEPTH` снова 4096 — состояние до правки. ИЗМЕРЕНО:
+    официальный вывод Z3 на `QF_BV/20250812-Circt/add_three.4_bit.smt2` имеет
+    глубину 4 606, поэтому он отвергается, и на всём UNSAT-множестве не
+    остаётся ни одного разобранного шага. `make smtlib-proof-check` обязан
+    покраснеть по правилу «вакуум пруф-трека».
+
+    ⚠️ Почему правка именно такая, а не «уронить чекер»: она ВОЗВРАЩАЕТ ровно
+    то состояние, из-за которого дефект и был найден. Если бы ворота остались
+    зелёными, это значило бы, что они не измеряют глубину вообще.
+    """
+    patch("src/verifier/proof_check.zig",
+          "pub const MAX_SEXP_DEPTH: u32 = 12288;",
+          "pub const MAX_SEXP_DEPTH: u32 = 4096;   // ЛОМАЕМ (#371 B)")
+    return ("zig build && KERN_SMTLIB4_ONLY=QF_BV "
+            "KERN_SMTLIB4_PROOF_TIMEOUT=120 make smtlib-proof-check")
+
+
+def case_smtlib_proof_partial_label():
+    """ДЕФЕКТ #372: метка `[PROOF VERIFIED]` при непроверенных шагах.
+
+    ЛОМАЕМ: условие печати снова без `trusted_steps == 0`. ИЗМЕРЕНО: на
+    официальной задаче `QF_AX/storeinv` вывод принимается с 5 доверенными
+    шагами, и метка «ПОДТВЕРЖДЕНО» появляется там, где часть шагов проверена НЕ
+    БЫЛА. `make smtlib-proof-check` обязан покраснеть: метка подтверждения при
+    непроверенных шагах — та же ложь, что #370/#371.
+    """
+    patch("src/main.zig",
+          "                if (pv.checksPass() and pv.proof_concludes_false and pv.trusted_steps == 0) {",
+          "                if (pv.checksPass() and pv.proof_concludes_false) {   // ЛОМАЕМ (#372)")
+    return ("zig build && KERN_SMTLIB4_ONLY=QF_AX "
+            "KERN_SMTLIB4_PROOF_TIMEOUT=120 make smtlib-proof-check")
+
+
+def case_smtlib_read_limit():
+    """ДЕФЕКТ #373: лимит чтения задачи снова 1 МБ -> задача выпадает из замера.
+
+    ЛОМАЕМ: `READ_LIMIT` возвращается к `1 << 20`. ИЗМЕРЕНО: официальные задачи
+    `QF_LIA/20231117-c_inference` весят 1 636 928 и 1 682 698 байт, поэтому они
+    не читаются, и `kernc smtlib` печатает «файлов всего 0» на НЕПУСТОМ
+    каталоге. `make smtlib-proof-check` обязан покраснеть: либо по строке
+    «не прочитано», либо по правилу анти-вакуума (класс #345/#373).
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что официальная задача не может тихо
+    выпасть из замера. Без него «0 расхождений» на банке, которого не было,
+    выглядело бы как успех.
+    """
+    patch("src/main.zig",
+          "        const READ_LIMIT: usize = 1 << 26; // 64 МБ: с запасом на официальные файлы",
+          "        const READ_LIMIT: usize = 1 << 20;   // ЛОМАЕМ (#373)")
+    return ("zig build && KERN_SMTLIB4_ONLY=QF_LIA_heavy "
+            "KERN_SMTLIB_TIMEOUT_MS=2000 make smtlib-proof-check")
+
+
 def case_localize_core():
     """UNSAT-core. ЛОМАЕМ: конфликт не распознаётся."""
     patch("src/verifier/unsat_core.zig",
@@ -3601,6 +3678,14 @@ CASES = [
      case_inline_hygiene),
     ("smtlib-tamper", "`:status` flipped -> nothing to compare -> gate red",
      case_smtlib_tamper),
+    ("smtlib-proof-exit", "`(exit)` not stripped -> no proof requested -> red",
+     case_smtlib_proof_exit),
+    ("smtlib-proof-depth", "Nesting limit back to 4096 -> official proof refused -> red",
+     case_smtlib_proof_depth),
+    ("smtlib-proof-partial", "`[PROOF VERIFIED]` printed with trusted steps -> red",
+     case_smtlib_proof_partial_label),
+    ("smtlib-read-limit", "Read limit back to 1 MB -> task silently skipped -> red",
+     case_smtlib_read_limit),
     ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
      case_xray_overflow),
     ("flake", "A never-green target must turn the flake gate red",

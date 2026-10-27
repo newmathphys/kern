@@ -1,6 +1,6 @@
 # KERN — ВОЗМОЖНОСТИ С ДОКАЗАТЕЛЬСТВАМИ
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждое заявление ниже **проверено по коду и прогонам**. Где заявление
 > оказалось неточным — это прямо указано. Ничего не выдаётся за доказанное

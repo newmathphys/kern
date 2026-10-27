@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,8 +9,8 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 ·
-> CHECK <!-- fact:check_targets -->167/<!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 ·
+> CHECK <!-- fact:check_targets -->168/<!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -2726,3 +2726,131 @@ the new invariant would have remained UNPROVEN.
 record. It does NOT check the content of sub-rows, their order WITHIN a record,
 the contiguity of sub-numbers, and does NOT require records to be sorted by
 number. Translation quality is still reviewed by a human.
+
+## §132. SMT-COMP PROOF-CHECKING TRACK: 4 theories of the OFFICIAL SMT-LIB — and FOUR defects the measurement exposed
+
+**Date:** 2026-10-27. Gate: `make smtlib-proof-check`
+(`tools/smtlib_proof_check.py`).
+
+### 132.1 What existed and what did NOT
+
+`make smtlib-bench-check` (#366) pinned **ONE** theory (`QF_S`, 10 files) and
+compared only the `sat/unsat` line against the `:status` tag. That checks the
+**SOLVER**. The SMT-COMP **Proof-Checking Track** checks the **DERIVATION**: on an
+`UNSAT` task the solver must produce a proof that an independent proof checker
+parses and re-verifies. Our `src/verifier/proof_check.zig` took part in **no**
+official-bank run — not once. That gap is now closed.
+
+### 132.2 Sources — OFFICIAL, and verifiable
+
+Every sample comes from repositories of the **SMT-LIB organisation** (not ours,
+not someone's fork) or from its own Zenodo release. Task licence is CC-BY-4.0
+(the `:license` tag inside the file).
+
+| Theory | Source | Files |
+|:--|:--|:--|
+| `QF_LIA` | `SMT-LIB/benchmark-submission-2022`, `QF_LIA/20220307-SMPT` | 12 |
+| `QF_LIA_heavy` | `SMT-LIB/benchmark-submission-2024`, `QF_LIA/20231117-c_inference` | 2 |
+| `QF_BV` | `SMT-LIB/benchmark-submission`, `QF_BV/20250812-Circt` | 2 |
+| `QF_AX` | Zenodo `10.5281/zenodo.16740866` (SMT-LIB release 2025), `QF_AX.tar.zst` | 4 |
+| `QF_S` | `SMT-LIB/benchmark-submission-2025`, `QF_S/20250410-matching` | 3 |
+
+### 132.3 FOUR defects found by the VERY FIRST run
+
+None of them was visible before: the official tasks had never been run.
+
+| # | What was broken (MEASURED) | Why no gate saw it |
+|:--|:--|:--|
+| **#371 A** | The Z3 proof query wrote the `.smt2` file **verbatim**. **EVERY** official SMT-LIB file ends with `(exit)`, so Z3 terminated BEFORE our `(get-proof)` — the proof was **never requested**, and the checker received an empty string. | No official-bank run ever invoked the proof checker: only the `:status` line was compared. |
+| **#371 B** | `MAX_SEXP_DEPTH = 4096`, while the measured depth of official Z3 proofs is **4 606** (`add_three.4_bit`), **13 169** (`add_three.8_bit`), **200 690** (`blend.4_bit`). The limit was below the very first task. | The comment claimed "real Z3 derivations fit in a few levels" — never measured. On our own fixtures depth is < 20. |
+| **#371 C** | Both causes were reported with one text: "the derivation does not parse as an S-expression" — i.e. it **blamed the solver for garbage**, although the derivation was a valid S-expression that hit OUR limit. | The refusal text was checked by nothing: it "looked like" a solver refusal. |
+| **#372** | The `prove` path printed `[PROOF VERIFIED]` with `TRUSTED > 0` (MEASURED: **5** on `QF_AX/storeinv`, **2 970** on `QF_BV/add_three.4_bit`). The label "VERIFIED" sat on a derivation part of whose steps were NOT verified. The `check-proof` path obeyed the rule, `prove` did not. | No gate ever compared the label against the trusted-step count. |
+| **#373** | `kernc smtlib` read `.smt2` with a **1 MB** limit, while official `QF_LIA/20231117-c_inference` files weigh **1 636 928** and **1 682 698** bytes. The read failed, `catch continue` **silently** skipped the file, and the counter printed "**files total: 0**" on a NON-EMPTY directory. | The report named the vacuum but not the CAUSE: an empty directory and unreadable files looked identical. |
+
+**All four are the same class** (as #370): the message says something other
+than what happened. And in all four cases the "wrong" behaviour looked green:
+0 steps → "0 holes"; 0 files → "0 divergences".
+
+### 132.4 MEASURED: 4 theories of the official bank
+
+| Theory | Files | Checked | Matched | Diverged | False | Timeouts | Unreadable |
+|:--|--:|--:|--:|--:|--:|--:|--:|
+| `QF_LIA` | 12 | 12 | 12 | **0** | **0** | 0 | **0** |
+| `QF_LIA_heavy` | 2 | 0 | 0 | **0** | **0** | 2 | **0** |
+| `QF_BV` | 2 | 2 | 2 | **0** | **0** | 0 | **0** |
+| `QF_AX` | 4 | 4 | 4 | **0** | **0** | 0 | **0** |
+| `QF_S` | 3 | 3 | 3 | **0** | **0** | 0 | **0** |
+| **TOTAL** | **23** | **21** | **21** | **0** | **0** | 2 | **0** |
+
+Accounting is complete for EVERY theory: `checked + timeouts + skipped +
+unreadable == files total`. The `QF_LIA_heavy` timeout is a RESOURCE LIMIT
+(1.6 MB, 13.5 thousand constraints), not a wrong verdict.
+
+### 132.5 PROOF TRACK: the Z3 derivation parsed by our `proof_check.zig`
+
+Seven official `UNSAT` tasks. "Holes" are `hole/trust/sorry` in the derivation;
+they are zero EVERYWHERE, and that is the gate's ABSOLUTE requirement.
+
+| Task (official) | Steps | Holes | Trusted | Premises | Verdict |
+|:--|--:|--:|--:|:--|:--|
+| `QF_LIA/CircularTrains-PT-012/RC-00` | 38 | **0** | **0** | 5/5 | **`[PROOF VERIFIED]`** |
+| `QF_LIA/2PhLockVParam/RC-02` | 66 | **0** | **0** | 7/7 | **`[PROOF VERIFIED]`** |
+| `QF_LIA/2PhLockVParam/RC-07` | 15 | **0** | 1 | 1/1 | parsed |
+| `QF_LIA/2PhLockVParam/RC-08` | 7 | **0** | **0** | 1/1 | **`[PROOF VERIFIED]`** |
+| `QF_BV/add_three.4_bit` | **7 616** | **0** | 2 970 | 0/188 | refused (`premises_unbound`) |
+| `QF_AX/storeinv_t1_np_nf_ai_00002` | 78 | **0** | 5 | 1/8 | refused (`premises_unbound`) |
+| `QF_AX/storeinv_t1_np_sf_ai_00002` | 125 | **0** | 5 | 10/20 | parsed |
+| **TOTAL** | **7 945** | **0** | up to 2 970 | — | — |
+
+**Three official `UNSAT` tasks of SMT-LIB are verified with `trusted: 0 |
+holes: 0`** — independently of the solver, without a single trusted step. That is
+the SMT-COMP Proof-Checking Track result: not "the solver said `unsat`" but "the
+derivation was parsed and re-verified".
+
+### 132.6 NATIVE `builtin_lia.zig` WITHOUT Z3 on official QF_LIA
+
+* On the FULL task the solver answers `UNKNOWN` — a **MEASURED BOUNDARY**: the
+  budget is `MAX_VARS = 32` while `c_inference` has **302** variables; on small
+  official tasks it answers `UNKNOWN rationally satisfiable, no integer point
+  found` (Fourier–Motzkin without integer branching).
+* Wrong answers: **0** — `UNKNOWN` is an honest "I do not know", not an error.
+* A PREFIX PASS yields a non-vacuous positive: on prefixes of official tasks the
+  solver returns **SAT points**, and EVERY point is verified INDEPENDENTLY (the
+  arithmetic is recomputed in Python against the prefix constraints). MEASURED:
+  `violated 0` on every task.
+* SOUNDNESS OF THE COMPARISON (and a defect of the gate itself, found by its
+  first run): a prefix is a RELAXATION, so a `SAT` on a prefix MUST NOT be
+  compared against `:status` (a relaxed system is satisfiable even when the full
+  one is not). The first version of the gate reddened with false "FALSE SAT"
+  here — fixed and pinned by a meta-test branch.
+
+### 132.7 HONEST BOUNDARIES, STATED
+
+* `trusted == 0` is achieved on **THREE** official `UNSAT` tasks (all `QF_LIA`).
+  On `QF_BV` there are **2 970** trusted steps: the checker has **NO** bitvector
+  rules (`bitblast`, `bv-*`). That is a capability gap, not a lie: the number is
+  printed and the `[PROOF VERIFIED]` label is NOT shown with it (#372).
+* Derivations deeper than `MAX_SEXP_DEPTH = 12 288` are refused with an EXPLICIT
+  reason. Measured official depths are **4 606 / 13 169 / 200 690**; the stack
+  ceiling is **18 432 survives, 19 456 crashes**. Closing the class requires
+  ITERATIVE tree traversal — separate work, not present here.
+* The native `builtin_lia.zig` does NOT solve official `QF_LIA` tasks in full:
+  the `MAX_VARS = 32` budget against 302 variables. The positive result comes
+  from PREFIXES (relaxations) and is verified independently.
+* `QF_LIA_heavy` (2 files, 1.6 MB) does not solve even in 120 s — the timeout is
+  named, not hidden, and the accounting for it is COMPLETE.
+* This is a PINNED sample of **23 tasks**, not the full SMT-LIB library (hundreds
+  of thousands of files). The numbers refer to it.
+
+### 132.8 Gate, cases and protection against vacuity
+
+`make smtlib-proof-check` = meta-test (**14 branches**) + run. It reddens on: a
+`:status` divergence; a false alarm; bank vacuity; a **HOLE** in a parsed
+derivation; `[PROOF VERIFIED]` with `TRUSTED > 0` (#372); proof-track vacuity (no
+parsed step at all); native-LIA vacuity; a false UNSAT / false witness from the
+native LIA; an **unreadable file** and **incomplete accounting** (#373). It does
+NOT redden on: `TRUSTED > 0` by itself (the number is published) and a timeout on
+a heavy sample (resource limit).
+
+Four non-vacuous can-fail cases: `smtlib-proof-exit`, `smtlib-proof-depth`,
+`smtlib-proof-partial`, `smtlib-read-limit`.

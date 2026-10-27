@@ -1,6 +1,6 @@
 # KERN — АТТЕСТАЦИОННЫЙ ПАСПОРТ (проверенный)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Все числа проверены прогонами.** Где заявленное ранее расходилось с фактом —
 > указано в колонке «было заявлено». Ничего не принимается на слово.
@@ -30,9 +30,9 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 > ⚠️ **ЭТО СНИМОК НА 2026-10-14** (аттестация ветки миграции): числа внутри §0
 > относятся к той ревизии и НЕ являются текущими. Актуальные значения (получены
 > прогонами): ядро **<!-- fact:core_tests -->441 / <!-- fact:core_tests -->441** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->433 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->167 / <!-- fact:check_targets -->167 CHECK** (<!-- fact:canfail_cases -->200 не-вакуумных кейсов, 0 ошибок),
-> реестр **<!-- fact:registry_targets -->218 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->147 теорем /
-> 0 sorry**, каталог тестов **<!-- fact:catalog -->470**. Также с тех пор закрыто: `hash_algo` по умолчанию
+> KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->168 / <!-- fact:check_targets -->168 CHECK** (<!-- fact:canfail_cases -->204 не-вакуумных кейсов, 0 ошибок),
+> реестр **<!-- fact:registry_targets -->219 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->147 теорем /
+> 0 sorry**, каталог тестов **<!-- fact:catalog -->472**. Также с тех пор закрыто: `hash_algo` по умолчанию
 > — **BLAKE3** (дефект #66), `deflate` (кодек `0x02`) **реализован**, аттестат подписан
 > **Ed25519**. См. `README.md`, `docs/METRICS.md` §1/§75 и §1–§8 ниже (они актуальны).
 
@@ -50,7 +50,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 | Target Systems | **PASS** — 2 платформы: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA-обход закрыт, KERNFS согласован) |
 | Decision Coverage | **PASS** — 100.0 % (порог 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1376/1424 сайтов, 0 выживших) |
+| Mutation Coverage | **PASS** — 100.0 % (1376/1427 сайтов, 0 выживших) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -271,7 +271,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 ## Что подтвердилось полностью ✅
 
 402 / 402 (Debug + ReleaseSafe) · 53/53 KERN-Next · 0 утечек · 0 FD · 0 зомби ·
-3/3 SIGBUS · 100% покрытие решений · мутационный скор 100.0% (1376/1424 сайтов) ·
+3/3 SIGBUS · 100% покрытие решений · мутационный скор 100.0% (1376/1427 сайтов) ·
 ⚠️ кросс-архитектура (ARM64 / POWERPC64) требует ПОВТОРНОГО прогона под QEMU:
 2/2 атаки · crash-consistency · лавина 50% / 0 коллизий / цепочка 7 ·
 1 000 000 фаззинг-итераций без паник · Thundering Herd 1+63 · эвикция 900/900 ·
@@ -284,7 +284,7 @@ DTMC 0.001 · абстрактная интерпретация `[0,9]` · са�
 ## Как воспроизвести всё
 
 ```bash
-make help          # all <!-- fact:registry_targets -->218 targets
+make help          # all <!-- fact:registry_targets -->219 targets
 make test-all      # ядро + KERN-Next + Lean + бенчмарки
 make research      # исследовательские эшелоны
 make echelons      # 4 эшелона финального штурма

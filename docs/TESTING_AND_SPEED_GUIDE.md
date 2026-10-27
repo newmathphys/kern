@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Канонический документ: **что** мы тестируем, **как** измеряем и **чем** ускоряем.
 > Каждое число получено прогоном; где выигрыш не измерен — так и написано.
@@ -40,7 +40,7 @@
 ### Раздел 4 — Самоверификация и эволюция
 | Метод | Факт |
 |:--|:--|
-| Can-fail дисциплина | **167 CHECK-целей / 126 с доказательством**, **200 кейс, 0 вакуумных** |
+| Can-fail дисциплина | **168 CHECK-целей / 126 с доказательством**, **204 кейс, 0 вакуумных** |
 | Мутации | **1345/1345 = 100.0 %** по ВСЕЙ популяции (21 файл, без сэмплинга, 23 мин) |
 | SBST | `--gen-tests`: 100 % достижимых веток (мёртвые помечены) |
 | Genetic Improvement | `--simplify` + доказательство эквивалентности через `--diff-equiv` |
@@ -148,7 +148,7 @@
 ## 4. Полный популяционный обстрел мутации
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1424 сайтов
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1427 сайтов
 ```
 Результат фиксируется в `docs/METRICS.md §109` (точное число убитых + выжившие по классам).
 
@@ -169,4 +169,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Полный сквозной прогон `canfail`: **200 не-вакуумных / 0 вакуумных / 0 ошибок**.
+Полный сквозной прогон `canfail`: **204 не-вакуумных / 0 вакуумных / 0 ошибок**.

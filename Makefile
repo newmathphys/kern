@@ -13,7 +13,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest
+.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -897,6 +897,21 @@ inline-check:
 smtlib-bench-check:
 	@$(PYTHON) tools/smtlib_bench_check.py --selftest
 	@$(PYTHON) tools/smtlib_bench_check.py
+
+# SMT-COMP PROOF-CHECKING TRACK: 4 теории ОФИЦИАЛЬНОГО SMT-LIB.
+# `smtlib-bench-check` выше проверяет только СТРОКУ `sat/unsat` — это проверка
+# решателя. Здесь проверяется ВЫВОД: на `UNSAT`-задачах Z3 обязан предъявить
+# доказательство, которое разбирает и перепроверяет наш `proof_check.zig`
+# (шаги, резолюции, Фаркаш, rewrite, ДЫРЫ). Плюс НАТИВНЫЙ `builtin_lia.zig`
+# без Z3 на официальных QF_LIA-задачах со сверкой ответа с `:status`.
+#
+# ГЕЙТ НЕ ЗАЯВЛЯЕТ `trusted == 0`: ИЗМЕРЕНО — на официальном выводе QF_BV
+# разбирается 7 616 шагов (0 дыр, 5 247 резолюций проверены), но 2 970 шагов
+# остаются доверенными: правил для битовых векторов в чекере нет. Число
+# печатается, а не подменяется.
+smtlib-proof-check:
+	@$(PYTHON) tools/smtlib_proof_check.py --selftest
+	@$(PYTHON) tools/smtlib_proof_check.py
 
 # ДЕФЕКТ #367: `--xray` для C не имел детектора переполнения ОБЫЧНОГО
 # выражения (только размер аллокации). ИЗМЕРЕНО на официальной категории

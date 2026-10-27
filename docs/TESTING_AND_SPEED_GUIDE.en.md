@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->470 · CHECK <!-- fact:check_targets -->167 · cases <!-- fact:canfail_cases -->200 · anchors <!-- fact:anchors -->161 · registry <!-- fact:registry_targets -->218 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->441 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->472 · CHECK <!-- fact:check_targets -->168 · cases <!-- fact:canfail_cases -->204 · anchors <!-- fact:anchors -->165 · registry <!-- fact:registry_targets -->219 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -40,8 +40,8 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **167 CHECK targets / 126 proven able to fail**, **200 cases, 0 vacuous** |
-| Mutation testing | **1376 / 1424 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
+| Can-fail discipline | **168 CHECK targets / 126 proven able to fail**, **204 cases, 0 vacuous** |
+| Mutation testing | **1376 / 1427 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -149,11 +149,11 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1424 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1427 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
-MUTATION SCORE (raw):  100.0%  (1424/1424 killed)
+MUTATION SCORE (raw):  100.0%  (1427/1427 killed)
 REAL_SECONDS=1383      (23 min, 0 survivors)
 ```
 
@@ -174,4 +174,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Full `canfail` sweep: **200 non-vacuous / 0 vacuous / 0 case errors**.
+Full `canfail` sweep: **204 non-vacuous / 0 vacuous / 0 case errors**.

@@ -384,11 +384,27 @@ pub fn main(init: std.process.Init) !void {
         var false_pos: usize = 0; // ожидалось unsat, получено sat (опасно)
         var timeout_n: usize = 0;
         var shown: usize = 0;
+        // 🔴 ДЕФЕКТ #373 (найден гейтом `smtlib-proof-check` на ОФИЦИАЛЬНОМ
+        // банке SMT-LIB). Здесь стоял лимит чтения `1 << 20` (1 МБ), а
+        // официальная задача `QF_LIA/20231117-c_inference` весит 1 636 928 и
+        // 1 682 698 байт. `readFileAlloc` падал, `catch continue` МОЛЧА
+        // пропускал файл, и счётчик `файлов всего` показывал 0 — то есть
+        // каталог с двумя задачами выглядел ПУСТЫМ. Отчёт говорил не то, что
+        // произошло (класс #370/#371/#372), а «проверено 0» называло вакуум,
+        // не называя ПРИЧИНУ.
+        var unreadable: usize = 0;
+        const READ_LIMIT: usize = 1 << 26; // 64 МБ: с запасом на официальные файлы
 
         while (try walker.next(compat.io())) |entry| {
             if (entry.kind != .file) continue;
             if (!std.mem.endsWith(u8, entry.path, ".smt2")) continue;
-            const content = dir.readFileAlloc(compat.io(), entry.path, alloc, .limited(1 << 20)) catch continue;
+            const content = dir.readFileAlloc(compat.io(), entry.path, alloc, .limited(READ_LIMIT)) catch {
+                // ДЕФЕКТ #373: НЕ пропускаем молча. Файл в каталоге ЕСТЬ, и
+                // счётчик обязан это показать, иначе «файлов всего 0» — ложь.
+                total += 1;
+                unreadable += 1;
+                continue;
+            };
             total += 1;
 
             // Ожидаемый статус: ищем в первой части файла.
@@ -449,6 +465,9 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("расхождений:         {d}\n", .{mismatched});
         std.debug.print("таймаутов:           {d}\n", .{timeout_n});
         std.debug.print("пропущено (unknown): {d}\n", .{skipped});
+        // ДЕФЕКТ #373: строка названа ЯВНО. Без неё «файлов всего 0» на
+        // непустом каталоге неотличимо от пустого каталога.
+        std.debug.print("не прочитано:        {d}\n", .{unreadable});
         std.debug.print("ЛОЖНЫХ СРАБАТЫВАНИЙ: {d} (ожидалось unsat, получено sat)\n", .{false_pos});
         return;
     }
@@ -513,7 +532,16 @@ pub fn main(init: std.process.Init) !void {
             defer q.deinit();
             const wq = q.writer();
             try wq.writeAll("(set-option :produce-proofs true)\n");
-            try wq.writeAll(smt);
+            // 🔴 ДЕФЕКТ #371, причина (A) — найдена на ОФИЦИАЛЬНОМ банке SMT-LIB.
+            // ИЗМЕРЕНО: КАЖДЫЙ официальный файл SMT-LIB заканчивается `(exit)`.
+            // Старый код писал файл ДОСЛОВНО, поэтому Z3 получал `(exit)` РАНЬШЕ
+            // нашего `(get-proof)`, завершался — и вывод не запрашивался вовсе.
+            // Пруф-чекер получал пустую строку и отвергал вывод с текстом «не
+            // разбирается как S-выражение», то есть обвинял решатель в мусоре.
+            // Модельный запрос ниже `(exit)` вырезает с самого начала
+            // (`writeWithoutExit`) — здесь правило обязано быть ТЕМ ЖЕ, иначе
+            // официальная задача не проверяется вовсе.
+            try writeWithoutExit(wq, smt);
             try wq.writeAll("\n(check-sat)\n(get-proof)\n");
             const cap = bridge.executeCapture(q.items());
             defer alloc.free(cap.stdout);
@@ -542,8 +570,24 @@ pub fn main(init: std.process.Init) !void {
                 if (pv.trusted_steps > 0) {
                     std.debug.print("  [i] первое непроверенное правило: {s} ({d} шт.)\n", .{ pv.first_trusted, pv.trusted_steps });
                 }
-                if (pv.checksPass() and pv.proof_concludes_false) {
+                if (pv.checksPass() and pv.proof_concludes_false and pv.trusted_steps == 0) {
                     std.debug.print("  [PROOF VERIFIED] steps: {d} | premises bound: {d}/{d} | mp: {d} | rewrite (linear): {d} | farkas: {d} | trusted: {d} | holes: {d}\n", .{
+                        pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
+                        pv.rewrite_verified, pv.farkas_checked, pv.trusted_steps, pv.holes,
+                    });
+                } else if (pv.checksPass() and pv.proof_concludes_false) {
+                    // 🔴 ДЕФЕКТ #372 (найден гейтом `smtlib-proof-check` на
+                    // ОФИЦИАЛЬНОМ банке SMT-LIB). Здесь печаталось
+                    // `[PROOF VERIFIED]` при `ДОВЕРЕННЫХ > 0` — метка
+                    // «ПОДТВЕРЖДЕНО» стояла на выводе, часть шагов которого
+                    // проверена НЕ БЫЛА. ИЗМЕРЕНО на официальных задачах
+                    // `QF_BV/20250812-Circt` и `QF_AX/storeinv`: метка выходила
+                    // при 5 и 2 970 доверенных шагах. Путь `check-proof` это
+                    // правило соблюдал (`trusted_steps == 0`), путь `prove` —
+                    // нет: одна и та же проверка называлась по-разному.
+                    // Класс тот же, что #370/#371: сообщение говорит не то,
+                    // что произошло.
+                    std.debug.print("  [PROOF PARTIAL] steps: {d} | premises bound: {d}/{d} | mp: {d} | rewrite (linear): {d} | farkas: {d} | НЕ ПОДТВЕРЖДЕНО: доверенных шагов {d} | holes: {d}\n", .{
                         pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
                         pv.rewrite_verified, pv.farkas_checked, pv.trusted_steps, pv.holes,
                     });
