@@ -13,7 +13,7 @@
  "cross_arch_passed": 441,
  "cross_arch_skipped": 8,
  "anchors": 169,
- "max_defect": 379,
+ "max_defect": 380,
  "lean_theorems": 147,
  "quixbugs": {
   "smt": 6,

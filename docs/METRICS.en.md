@@ -3079,3 +3079,35 @@ give". Without such a point the gain from the formal core would be
 UNMEASURABLE. The `PurpleLlama/.../autocomplete.json` dataset is not in the
 repository, so a run requires an external download - and that is stated in the
 file header too.
+
+## §136. `--full-scan` RE-MEASURED (defect #380): the documented numbers drifted from reality
+
+**Re-measurement date:** 2026-10-27. Command: `--full-scan .` (the same as in §42).
+
+### 136.1 THE DELTA (the old measurement is NOT rewritten)
+
+| Metric | §42 (old) | §136 (date 2026-10-27) | Δ |
+|:--|--:|--:|:--|
+| files | 212 | **426** | 2.0x |
+| functions | 383 | **1558** (1027 checked) | 4.1x |
+| **`--xray` findings** | **6** | **61** | **10.2x** |
+| anti-cheat candidates | 259 | **395** | 1.5x |
+
+### 136.2 WHY IT DRIFTED (measured, not assumed)
+
+Part of the growth is the tree itself (212 -> 426 files). But the `--xray` findings
+grew **10x while the files grew 2x**: the cause is the **#378** fix (loop bodies
+stopped being a blind spot of the x-ray, and our own code has divisions inside
+loops). The **engine changed while the number in the document did not**.
+
+### 136.3 WHY NO GATE SAW IT (verified with `grep`)
+
+Neither `tools/check_metrics_consistency.py` nor `tools/metrics_guard.py` mentions
+`xray findings` or `full-scan`. The number was measured ONCE and has been
+protected by nothing since: it could drift silently - and it did.
+
+### 136.4 HONEST BOUNDARY
+
+A full `--full-scan` takes tens of minutes and does not fit CI, so the FINDING
+count remains a **dated measurement**, not a live indicator. Only a CHEAP metric
+(the file count) can be live - and that is what a gate should protect.
