@@ -151,7 +151,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — <!-- fact:core_tests -->449 / <!-- fact:core_tests -->447 tests
+Core (Debug)          : PASS — <!-- fact:core_tests -->449 / <!-- fact:core_tests -->449 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (8 files, 147 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64

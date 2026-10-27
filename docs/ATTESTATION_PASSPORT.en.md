@@ -1,6 +1,6 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->447 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 · CHECK <!-- fact:check_targets -->171 · cases <!-- fact:canfail_cases -->207 · anchors <!-- fact:anchors -->168 · registry <!-- fact:registry_targets -->222 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->449 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->478 · CHECK <!-- fact:check_targets -->171 · cases <!-- fact:canfail_cases -->207 · anchors <!-- fact:anchors -->168 · registry <!-- fact:registry_targets -->222 · META <!-- fact:meta_targets -->37 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in
@@ -119,7 +119,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Platform | What it proves | Result |
 |:--|:--|:--|
 | **x86_64** (host, TSO) | baseline | **402 / 402 OK** ✅ |
-| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `<!-- fact:cross_arch_passed -->441 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`) on the CURRENT suite (<!-- fact:core_tests -->447 tests = <!-- fact:cross_arch_passed -->441 passed + <!-- fact:cross_arch_skipped -->8 skipped)* |
+| **ARM64** (aarch64, strict alignment) | **0 Bus Errors** — byte-wise reads (`u8, align 1`) | ✅ *evidence `docs/evidence/cross_arch.log`: `<!-- fact:cross_arch_passed -->441 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`) on the CURRENT suite (<!-- fact:core_tests -->449 tests = <!-- fact:cross_arch_passed -->441 passed + <!-- fact:cross_arch_skipped -->8 skipped)* |
 | **POWERPC64** (big-endian) | Merkle, numbers and digests decode without distortion | ✅ *same run: <!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed* |
 
 ---

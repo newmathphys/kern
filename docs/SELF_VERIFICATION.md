@@ -154,7 +154,7 @@ would be a tautology.
 
 ## 10. Facts referenced by this document
 
-<!-- fact:core_tests -->447 core tests · <!-- fact:next_tests -->53 next ·
+<!-- fact:core_tests -->449 core tests · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->478 catalog · <!-- fact:check_targets -->171 CHECK ·
 <!-- fact:canfail_cases -->207 can-fail cases · <!-- fact:anchors -->168 anchors ·
 <!-- fact:registry_targets -->222 targets · <!-- fact:meta_targets -->37 META ·

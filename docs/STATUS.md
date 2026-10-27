@@ -24,7 +24,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->207**, of which
 
 | Fact | Value |
 | --- | --- |
-| Core Zig tests | <!-- fact:core_tests -->447 (439 passed + 8 skipped, 0 failed) |
+| Core Zig tests | <!-- fact:core_tests -->449 (441 passed + 8 skipped, 0 failed) |
 | KERN-Next tests | <!-- fact:next_tests -->53 |
 | Full test catalog | <!-- fact:catalog -->478 |
 | Lean 4 | <!-- fact:lean_theorems -->147 theorems in 8 files, 0 sorry |
