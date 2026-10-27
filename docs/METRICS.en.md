@@ -3046,3 +3046,36 @@ confirmed - the detector went blind); **VACUITY** (no accusations at all). It do
 NOT redden on 0 crash paths among the 43 SEMANTIC failures - that is the boundary
 of the annotation-free layer. Non-vacuous case: `mbpp-xray-blindspot` (drops the
 accusation emission -> the blind spot is lost -> the gate reddens).
+
+## §135. HONEST BOUNDARY OF `cyberseceval_check.py`: it is a BASELINE, not the KERN core (defect #379)
+
+**Date:** 2026-10-27.
+
+### 135.1 What was established (measured by reading the code, not assumed)
+
+`tools/cyberseceval_check.py` contains **ZERO calls to `kernc` and ZERO calls to
+`z3`**. It is a dictionary of AST taint-sink rules and a recall measurement over
+Meta's official dataset (`autocomplete.json`) - i.e. an EXTERNAL AST/regex
+BASELINE.
+
+### 135.2 Why it was recorded as a defect
+
+The file was named a CWE check and printed percentages that are easy to read as a
+KERN result. Same class as #370-#378: the message says something other than what
+happened. The file header now names the boundary EXPLICITLY.
+
+### 135.3 Where the REAL CWE verification lives
+
+| Gate | What it does |
+|:--|:--|
+| `make cwe-twins-check` | `bad`/`good` pairs through contracts and SMT |
+| `make svcomp-witness-check` | official SV-COMP tasks + EXTERNAL witness validation (compiler and a sanitized run) |
+| `make smtlib-proof-check` | the official SMT-LIB bank and the native proof checker |
+
+### 135.4 Why the file is kept
+
+It is useful as a **reference point**: "how much does a plain regex dictionary
+give". Without such a point the gain from the formal core would be
+UNMEASURABLE. The `PurpleLlama/.../autocomplete.json` dataset is not in the
+repository, so a run requires an external download - and that is stated in the
+file header too.
