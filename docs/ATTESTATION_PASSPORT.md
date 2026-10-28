@@ -29,7 +29,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 
 > ⚠️ **ЭТО СНИМОК НА 2026-10-14** (аттестация ветки миграции): числа внутри §0
 > относятся к той ревизии и НЕ являются текущими. Актуальные значения (получены
-> прогонами): ядро **<!-- fact:core_tests -->451 / <!-- fact:core_tests -->451** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->441 passed + <!-- fact:cross_arch_skipped -->8 skipped),
+> прогонами): ядро **<!-- fact:core_tests -->451 / <!-- fact:core_tests -->451** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->443 passed + <!-- fact:cross_arch_skipped -->8 skipped),
 > KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->174 / <!-- fact:check_targets -->174 CHECK** (<!-- fact:canfail_cases -->212 не-вакуумных кейсов, 0 ошибок),
 > реестр **<!-- fact:registry_targets -->227 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->147 теорем /
 > 0 sorry**, каталог тестов **<!-- fact:catalog -->480**. Также с тех пор закрыто: `hash_algo` по умолчанию
@@ -116,8 +116,8 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 | Платформа | Что доказывает | Результат |
 |:--|:--|:--|
 | **x86_64** (host, TSO) | базовая линия | **402 / 402 OK** ✅ |
-| **ARM64** (aarch64, строгое выравнивание) | **0 Bus Errors** — чтение побайтово (`u8, align 1`) | ✅ *свидетельство `docs/evidence/cross_arch.log` — прогон прошёл (`<!-- fact:cross_arch_passed -->441 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`), на АКТУАЛЬНОМ наборе (лог 2026-10-19)* |
-| **POWERPC64** (big-endian) | Merkle, числа и дайджесты декодируются без искажений | ✅ *то же свидетельство: **<!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (прогон 2026-10-19)* |
+| **ARM64** (aarch64, строгое выравнивание) | **0 Bus Errors** — чтение побайтово (`u8, align 1`) | ✅ *свидетельство `docs/evidence/cross_arch.log` — прогон прошёл (`<!-- fact:cross_arch_passed -->443 passed; <!-- fact:cross_arch_skipped -->8 skipped; 0 failed`), на АКТУАЛЬНОМ наборе (лог 2026-10-19)* |
+| **POWERPC64** (big-endian) | Merkle, числа и дайджесты декодируются без искажений | ✅ *то же свидетельство: **<!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (прогон 2026-10-19)* |
 
 ---
 

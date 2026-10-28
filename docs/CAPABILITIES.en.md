@@ -113,8 +113,8 @@ Every candidate is **verified** through Z3; only `unsat` is accepted.
 |:--|:--|:--|
 | Byte substitution in the image | `MerkleRootMismatch` | ✅ |
 | **Payload** substitution | `PayloadTampered` (`SHA-256(payload) == digest`) | ✅ |
-| ARM64 (strict alignment) | QEMU: **<!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`docs/evidence/cross_arch.log`, 2026-10-19) | ✅ run on the CURRENT suite (<!-- fact:cross_arch_passed -->441 passed + <!-- fact:cross_arch_skipped -->8 skipped) |
-| POWERPC64 (**big-endian**) | QEMU: **<!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (same log) | ✅ same run |
+| ARM64 (strict alignment) | QEMU: **<!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (`docs/evidence/cross_arch.log`, 2026-10-19) | ✅ run on the CURRENT suite (<!-- fact:cross_arch_passed -->443 passed + <!-- fact:cross_arch_skipped -->8 skipped) |
+| POWERPC64 (**big-endian**) | QEMU: **<!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (same log) | ✅ same run |
 | Random access (1M objects) | **0.0006 ms** (target < 0.005) | ⚠️ was 0.0001 before the integrity FIX |
 | Zero-copy | slice addressing without copying | ✅ |
 
@@ -259,7 +259,7 @@ reproduces it. The difference between "written" and "proven" is the subject of t
 | 3 | Gateway for LLMs | ⚠️ 100 % precision, but pass@1 does not grow |
 | 4 | UNSAT Core | ✅ with a minimality check |
 | 5 | Code synthesis (CEGIS) | ✅ `(bvshl x 3)`, verified |
-| 6 | Integrity + portability | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **<!-- fact:cross_arch_passed -->441 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (2026-10-19); access **0.0006 ms** |
+| 6 | Integrity + portability | ⚠️ x86_64 (host) **402 / 402**; QEMU ARM64/POWERPC64 — **<!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (2026-10-19); access **0.0006 ms** |
 | 7 | ReDoS / Path Traversal | ✅ counterexamples found |
 | 8 | Probabilities (DTMC) | ✅ 0.1³ = 0.001 in f64 with a 1e-9 tolerance (exact only in rational arithmetic, #328) |
 | 9 | Constant-Time | ⚠️ in practice ~1.0×, test threshold 3.0 |

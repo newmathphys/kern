@@ -10,7 +10,7 @@
  "registry_targets": 227,
  "meta_targets": 39,
  "build_targets": 10,
- "cross_arch_passed": 441,
+ "cross_arch_passed": 443,
  "cross_arch_skipped": 8,
  "anchors": 173,
  "max_defect": 385,

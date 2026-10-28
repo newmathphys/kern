@@ -29,7 +29,7 @@ Can-fail кейсов: **<!-- fact:canfail_cases -->212**, из них у
 | Каталог тестов | <!-- fact:catalog -->480 |
 | Lean 4 | <!-- fact:lean_theorems -->147 теорем в 8 файлах, 0 sorry |
 | Убито мутаций | <!-- fact:mutation_sites -->1427 / 1427 в 21 файлах |
-| Кросс-архитектура | <!-- fact:cross_arch_passed -->441 прошло / <!-- fact:cross_arch_skipped -->8 пропущено / 0 провалов |
+| Кросс-архитектура | <!-- fact:cross_arch_passed -->443 прошло / <!-- fact:cross_arch_skipped -->8 пропущено / 0 провалов |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 формально SMT · <!-- fact:quixbugs.differential -->40/40 живой дифференциал (29 значение + 10 падение + 1 зависание) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Литеральных якорей | <!-- fact:anchors -->173 |
 | Версия | `v2.8.0` |
