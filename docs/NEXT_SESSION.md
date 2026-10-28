@@ -1,4 +1,4 @@
-# Resuming work on KERN: handoff at commit `fedce93`
+# Resuming work on KERN: handoff at commit `0670cb9`
 
 > **I cannot open sessions myself, and I keep no memory between them.** Only what
 > is written in this repository survives. This file exists so a new session
@@ -14,12 +14,25 @@
 
 | Check | Value |
 |:--|:--|
-| Branch / tree | `main` = `fedce93`, clean |
+| Branch / tree | `main` = `0670cb9`, clean |
 | Registry | <!-- fact:registry_targets -->237 targets · **<!-- fact:check_targets -->181/<!-- fact:check_targets -->181 CHECK** · <!-- fact:canfail_cases -->221 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (per `docs/STATUS.md`) |
 
 ## Open work
+
+**Step 2.2 — targeted `--xray` parser fixes, driven by the MEASURED skip
+histogram.** Step 2.1 (producing that histogram) is closed; the numbers live in
+`docs/METRICS.md` §167 / `docs/METRICS.en.md` §145. Top reasons by volume:
+
+| Reason | `cmark-gfm/src` | `toolkit/packages` | What it means |
+|:--|--:|--:|:--|
+| no `if` conditions in the body | 124 | 336 | honest boundary, NOT a loss (nothing to branch on) |
+| syntax after C-like translation | 53 | 54 | **this is where widening pays off** |
+| `nil`/`null` pointer comparison | 49 | 3 | outside the Int model |
+
+Both corpora are pinned by SHA (`27d942c8`, `0c3a9c33`) so "before/after" is
+measured on identical bytes; the clones live in `~/.cache/kern/repos/`.
 
 **No open items.** The four items recorded in the previous handoff are closed;
 see the list below for the evidence of each.
@@ -67,6 +80,19 @@ What is deliberately NOT done (not a defect, a boundary):
    BEFORE the seven rows, so a missing Zig 0.17 no longer looks like a defect in the
    project. Measured: without Zig 0.17 the warning is the first line; with it the
    showcase is 7 rows / 0 failures.
+
+5. **The C-like `--xray` skip histogram is MEASURED (defects #400, #401).** The
+   summary used to claim "skipped N with explicit reasons" while printing NONE;
+   reasons are now recorded, normalised into structural keys, printed, and the sum
+   is checked against the counter. Measured: `cmark-gfm/src` 232 skips, 
+   `toolkit/packages` 400 — sums match. Gate `tools/xray_skip_reasons_check.py`
+   (called from `xray-check`), case `xray-skip-reasons`.
+6. **Four FALSE `[DEAD BRANCH]` on real `cmark-gfm/src/utf8.c` removed (#401).**
+   `if_derived` accumulated `(not cond)` for every exited block regardless of
+   branch, so mutually exclusive branches contradicted each other (`str1 >= 160`
+   AND `str1 < 160`) and the path became UNSAT. `_clike_conds_at` is nesting-aware
+   now; `if_derived` is gone. Findings 4 -> 0 with coverage unchanged (76/308),
+   while a genuinely dead condition is STILL found. Case `xray-nested-branch`.
 
 ## Process rules that repeatedly saved this project
 
