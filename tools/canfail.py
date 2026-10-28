@@ -1653,6 +1653,23 @@ def case_absint_inv():
     return "make absint"
 
 
+def case_oracle_absint_unsound():
+    """ШАГ D SABOTAGE: widening теряет нижнюю границу — инвариант ПЕРЕСТАЁТ
+    содержать реальные значения цикла.
+
+    Оракул прогоняет РЕАЛЬНЫЙ цикл и требует, чтобы абстрактный инвариант
+    СОДЕРЖАЛ все значения на входе цикла. Если `widen` вернёт только тело
+    (потеряв `a`), неподвижная точка уедет вверх шаг за шагом до предела
+    итераций, и `init` окажется ВНЕ инварианта → UNSOUND → цель красная.
+
+    Цель `oracle-absint-check` обязана упасть.
+    """
+    patch("src/verifier/abstract_interp.zig",
+          "    pub fn widen(a: Interval, b: Interval) Interval {\n        return .{\n            .lo = if (b.lo < a.lo) std.math.minInt(i64) else a.lo,\n            .hi = if (b.hi > a.hi) INF else a.hi,\n        };\n    }",
+          "    pub fn widen(a: Interval, b: Interval) Interval {\n        _ = a;\n        return b; // ЛОМАЕМ (шаг D): widen теряет нижнюю границу\n    }")
+    return "make oracle-absint-check"
+
+
 def case_attest_sign():
     """Аттестация. ЛОМАЕМ: подпись НЕ проверяется (всегда «валидна»)."""
     patch("src/attest.zig",
@@ -3767,6 +3784,7 @@ CASES = [
     ("redos-vuln",    "ReDoS: вложенный квантор не распознан",   case_redos_vuln),
     ("concolic-victim", "Конколика: подмена цели",              case_concolic_victim),
     ("absint-inv",    "Абстрактная интерпретация: инвариант",    case_absint_inv),
+    ("oracle-absint-unsound", "absint-оракул: widen теряет границу -> реальный цикл вне интервала", case_oracle_absint_unsound),
     ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
     ("attest-sig-missing", "Аттестат: подписи нет -> проверка падает",
      case_attest_sig_missing),

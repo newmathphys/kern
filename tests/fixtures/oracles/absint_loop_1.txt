@@ -1,0 +1,2 @@
+# физический оракул absint
+absint loop 0 3 20

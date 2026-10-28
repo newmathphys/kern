@@ -185,6 +185,23 @@ fn dispatch(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Br
     }
 
     if (std.mem.eql(u8, t[0], "absint")) {
+        // ШАГ D: инвариант ЛИНЕЙНОГО ЦИКЛА. Физический оракул
+        // (`tools/oracle_absint_check.py`) прогоняет РЕАЛЬНЫЙ цикл и проверяет,
+        // что абстрактный инвариант СОДЕРЖИТ все наблюдённые значения.
+        if (t.len >= 2 and std.mem.eql(u8, t[1], "loop")) {
+            if (t.len < 5) {
+                try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "absint loop: нужны <init> <step> <bound>" });
+                rep.skipped += 1;
+                return;
+            }
+            const init = std.fmt.parseInt(i64, t[2], 10) catch return skipNum(alloc, rep, spec, "init");
+            const step = std.fmt.parseInt(i64, t[3], 10) catch return skipNum(alloc, rep, spec, "step");
+            const bound = std.fmt.parseInt(i64, t[4], 10) catch return skipNum(alloc, rep, spec, "bound");
+            const r = absint.analyzeLinearLoop(init, step, bound);
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .value, .reason = try std.fmt.allocPrint(arena, "инвариант={s} выход={s} итераций={d} widening={s}", .{ try intervalSmt(arena, r.invariant), try intervalSmt(arena, r.exit_state), r.iterations, if (r.widened) "да" else "нет" }) });
+            rep.values += 1;
+            return;
+        }
         if (t.len < 6) {
             try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "absint: нужны <оп> a_lo a_hi b_lo b_hi" });
             rep.skipped += 1;

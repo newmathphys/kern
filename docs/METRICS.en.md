@@ -3153,3 +3153,30 @@ character instead of a verdict.
 WHAT THIS DOES NOT PROVE. (a) The measurement is machine-dependent; (b) nine
 class-representative regexes were checked, not "all regexes"; (c) the parser subset
 is narrow — character classes and `{m,n}` yield SKIP, not "safe".
+
+## §138. A PHYSICAL ORACLE FOR absint: THE ABSTRACT INVARIANT VS A REAL LOOP (#386)
+
+WHY. The `absint` family was checked MODEL AGAINST MODEL: `abstract_interp.zig`
+computes an interval and declares itself correct. That is a vacuum.
+
+WHAT WAS BUILT. The `absint loop <init> <step> <bound>` form in `kernc theory` +
+`tools/oracle_absint_check.py` + `make oracle-absint-check`: the abstract invariant
+against a REAL loop run in Python.
+
+| loop (init, step, bound) | core invariant | exit | real heads |
+|:--|:--|:--|--:|
+| (0, 1, 10) | [0, 9] | [10, 10] | 10 |
+| (0, 3, 20) | [0, 19] | [20, 22] | 7 |
+| (-5, 2, 7) | [-5, 6] | [7, 8] | 6 |
+| (0, 1, 1000000) | [0, 999999] | [1000000, 1000000] | **1000000** |
+| (-100, 7, -1) | [-100, -2] | [-1, 5] | 15 |
+| (100, -1, 50) | [100, 100] | empty | 0 |
+| (0, 1, 0) | [0, 0] | empty | 0 |
+
+RESULT: **0 soundness violations** — every invariant CONTAINS all real head values,
+and `exit_state` contains the exit value. 5 cases with iterations (non-vacuity),
+determinism confirmed (two runs — one interval).
+
+WHAT THIS DOES NOT PROVE. SOUNDNESS is checked, not PRECISION: a wide interval is not
+a violation and is reported separately. One kind of linear loop is covered (`x += step`);
+non-linear bodies and arbitrary programs are not.
