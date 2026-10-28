@@ -45,6 +45,9 @@ PAIRS = (
     ("docs/REAL_WORLD_CAPABILITIES.ru.md", "docs/REAL_WORLD_CAPABILITIES.md"),
     # ШАГ E плана: матрица возможностей (одна команда / оракул / граница) — паритет RU/EN.
     ("docs/CAPABILITY_MATRIX.ru.md", "docs/CAPABILITY_MATRIX.md"),
+    # Десять доказательств (сверенные команды) — паритет RU/EN, иначе
+    # русская версия разойдётся молча (класс #335).
+    ("docs/TEN_PROOFS.ru.md", "docs/TEN_PROOFS.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",
