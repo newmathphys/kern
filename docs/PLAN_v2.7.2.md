@@ -18,7 +18,7 @@ core-and-semantics stage to zero before touching external benchmarks.
 | Release v2.7.1 | signed tag; 4 assets including `kern.intoto.jsonl` and `.sig` |
 
 Registry at the start: **<!-- fact:registry_targets -->223 targets ·
-<!-- fact:check_targets -->172 CHECK · <!-- fact:canfail_cases -->209 can-fail cases**.
+<!-- fact:check_targets -->172 CHECK · <!-- fact:canfail_cases -->210 can-fail cases**.
 
 ### The defect this cycle starts with
 
@@ -90,7 +90,7 @@ the refactor could be checked against a *measured* baseline.
 |:--|:--|
 | Defects closed | **14** (#312, #322, #325, #335, #342, #344/#341, #345–#353) |
 | Lean 4 | **<!-- fact:lean_theorems -->147 theorems, `0 sorry`** |
-| can-fail harness | **<!-- fact:canfail_cases -->209 non-vacuous / 0 vacuous / 0 case errors** |
+| can-fail harness | **<!-- fact:canfail_cases -->210 non-vacuous / 0 vacuous / 0 case errors** |
 | Self-scan `--xray tools/` | **0 `[BOUNDS PATH]`, 0 `[CRASH PATH]`** |
 | Registry | **<!-- fact:registry_targets -->223 targets, highest defect number <!-- fact:max_defect -->383** |
 | CHECK targets | **<!-- fact:check_targets -->172**, each with a non-vacuous case |

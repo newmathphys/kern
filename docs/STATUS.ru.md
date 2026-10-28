@@ -17,7 +17,7 @@
 | EXTERNAL | 3 | сторонние / кросс-архитектура |
 | META | <!-- fact:meta_targets -->37 | харнесс, генераторы, стражи |
 
-Can-fail кейсов: **<!-- fact:canfail_cases -->209**, из них у
+Can-fail кейсов: **<!-- fact:canfail_cases -->210**, из них у
 **172/172** CHECK-целей есть невакуумное доказательство «может упасть».
 
 ## Измеренные факты
@@ -31,7 +31,7 @@ Can-fail кейсов: **<!-- fact:canfail_cases -->209**, из них у
 | Убито мутаций | <!-- fact:mutation_sites -->1427 / 1427 в 21 файлах |
 | Кросс-архитектура | <!-- fact:cross_arch_passed -->441 прошло / <!-- fact:cross_arch_skipped -->8 пропущено / 0 провалов |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 формально SMT · <!-- fact:quixbugs.differential -->40/40 живой дифференциал (29 значение + 10 падение + 1 зависание) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Литеральных якорей | <!-- fact:anchors -->170 |
+| Литеральных якорей | <!-- fact:anchors -->171 |
 | Версия | `v2.8.0` |
 
 ## Журнал дефектов
