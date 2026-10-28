@@ -254,6 +254,7 @@ CLASS = {
     "showcase-live-full": "META",        # §C: то же + длинные корпуса (минуты)
     "showcase-live-all": "META",         # ВСЕ 42 строки матрицы (быстрый ярус)
     "showcase-live-all-full": "META",    # то же + корпуса (минуты) + долгие (десятки минут)
+    "cli-help-parity-check": "CHECK",    # #399: справка обязана называть все команды
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",
@@ -538,6 +539,8 @@ CASE_TARGET = {
     "svcomp-witness-drop": "svcomp-witness-check",
     # Нативный фронтенд: кейс убирает обязательство переполнения у обычного `+`.
     "native-zig-ast-drop": "native-zig-ast-check",
+    # #399: кейс вырезает команду из текста справки, оставляя её в диспетчере.
+    "cli-help-parity": "cli-help-parity-check",
     "zig-guard": "zig-guard-check",
     "foreign-verdicts": "foreign-verdicts-check",
     # Нативные теории: кейс глушит вердикт решателя -> риск не опровергается.

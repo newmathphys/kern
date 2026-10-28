@@ -160,11 +160,22 @@ pub fn main(init: std.process.Init) !void {
 
     const args = try std.process.Args.toSlice(init.minimal.args, alloc);
 
+    // ДЕФЕКТ #399: раньше здесь был `printUsage(); return;` — справка уходила
+    // в STDERR, а код возврата оставался 0, поэтому `kernc` без аргументов в
+    // скрипте выглядел как УСПЕШНАЯ работа. Теперь это названный отказ.
     if (args.len < 2) {
         printUsage();
-        return;
+        std.process.exit(1);
     }
     const command = args[1];
+
+    // ДЕФЕКТ #399: `--help` не обрабатывался ВООБЩЕ — он проваливался в ветку
+    // «укажите путь к образу .kimg». Справка по явному запросу — это ДАННЫЕ
+    // (правило выше: данные → stdout), поэтому `kernc --help | less` работает.
+    if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
+        emitUsage();
+        return;
+    }
 
     // ---- build: .kern → .kimg ----
     if (std.mem.eql(u8, command, "pack-dir")) {
@@ -1509,23 +1520,72 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// СПРАВКА (дефект #399).
+//
+// ЧТО БЫЛО НЕ ТАК. Бинарник реализует 25 команд, а справка называла 10. Ни
+// `verify-zig`, ни `theory`, ни `smtlib`, ни `check-proof`, ни `fsck`/`inspect`/
+// `diff`, ни `pack-dir` — то есть ВСЕ главные новинки релиза — из самого
+// бинарника обнаружить было нельзя. Плюс `--help` не обрабатывался вовсе
+// (падал в ветку «укажите путь к образу»), справка уходила в STDERR, а запуск
+// без аргументов возвращал rc=0 — скрипт не мог отличить «показал справку» от
+// «сделал работу».
+//
+// ОДНА КОПИЯ ТЕКСТА. Текст был только внутри `printUsage`; теперь это
+// константа, и ОБА пути (stdout при `--help`, stderr при отсутствии команды)
+// берут её же — разойтись они не могут по построению.
+//
+// ГЕЙТ. `make cli-help-parity-check` сверяет список команд в справке со списком
+// сравнений `std.mem.eql(u8, command, ...)` в этом же файле: 26-я команда не
+// сможет появиться недокументированной.
+const USAGE: []const u8 = std.fmt.comptimePrint(
+    \\=======================================================
+    \\  KERN Compiler & Formal Engine {s}
+    \\=======================================================
+    \\Использование: kernc <команда> <файл> [опции]
+    \\               kernc --help | -h    эта справка (в stdout, rc=0)
+    \\
+    \\ОБРАЗЫ И ФАЙЛОВАЯ СИСТЕМА (.kimg / KERNFS)
+    \\  build <file.kern> [-o out.kimg] [--bytecode f]  сборка образа из манифеста
+    \\  pack <file> -o <out.kimg>                       упаковать один файл
+    \\  pack-dir <dir> -o <out.kimg>                    упаковать КАТАЛОГ (клон репозитория)
+    \\  check-integrity <file.kimg>                     L0: заголовок + Merkle
+    \\  fsck <file.kimg>                                проверка целостности + отчёт
+    \\  inspect <file.kimg>                             JSON-паспорт образа
+    \\  diff <a.kimg> <b.kimg>                          посекционное сравнение
+    \\  ls <file.kimg>                                  L3: объекты образа
+    \\  cat <file.kimg> <путь>                          L3: полезная нагрузка (в stdout)
+    \\  grep <file.kimg> <шаблон>                       поиск по объектам образа
+    \\
+    \\ФОРМАЛЬНАЯ ВЕРИФИКАЦИЯ
+    \\  verify <file.kimg>                              L4: Врата Истины (Z3)
+    \\  verify-zig <file.zig>                           контракты из .zig (std.zig.Ast, 0 Python)
+    \\  prove <file.smt2> [--query-kind K]              L4: доказательство (e=1); K: refutation|equivalence
+    \\  check-proof <file.smt2> <proof>                 проверить готовый вывод БЕЗ решателя
+    \\  smtlib <dir>                                    прогон банка SMT-LIB по меткам :status
+    \\  lia <file.smt2>                                 нативный Фурье–Моцкин (без Z3)
+    \\  theory <file>                                   arrays|absint|chc|dtmc|nonint|redos|strings
+    \\  unify <human_max> <ai_min>                      RLAIF: сечение политопов
+    \\
+    \\АУДИТ, ОТЧЁТЫ, АТТЕСТАЦИЯ, ПЕСОЧНИЦА
+    \\  audit <file|dir>                                безаннотационный аудит (--xray)
+    \\  report <file.kimg>                              отчёт из образа
+    \\  attest <file.kimg> <cert>                       привязать сертификат
+    \\  run <file.kimg> [--fuel N]                      KERN-X: исполнение с бюджетом
+    \\  handoff <file.kimg>                             agent_packet.json
+    \\
+    \\ВЕРСИЯ И СПРАВКА
+    \\  version, --version                              версия, автор, лицензия
+    \\  --help, -h                                      эта справка (в stdout, rc=0)
+    \\
+, .{KERN_VERSION});
+
+/// ДИАГНОСТИКА: справка при отсутствии/неизвестности команды → stderr.
 fn printUsage() void {
-    std.debug.print(
-        \\=======================================================
-        \\  KERN Compiler & Formal Engine {s}
-        \\=======================================================
-        \\Использование: kernc <команда> <файл> [опции]
-        \\
-        \\  build <file.kern> [-o out.kimg] [--bytecode f]  сборка образа
-        \\  check-integrity <file.kimg>                     L0: заголовок + Merkle
-        \\  ls <file.kimg>                                  L3: объекты образа
-        \\  cat <file.kimg> <путь>                          L3: полезная нагрузка
-        \\  verify <file.kimg>                              L4: Врата Истины (Z3)
-        \\  unify <human_max> <ai_min>                      RLAIF: сечение политопов
-        \\  prove <file.smt2>                               L4: доказательство через Z3 (e=1)
-        \\  run <file.kimg> [--fuel N]                      KERN-X: исполнение
-        \\  handoff <file.kimg>                             agent_packet.json
-        \\  report <file.kimg>                              отчёт из образа
-        \\
-    , .{KERN_VERSION});
+    std.debug.print("{s}", .{USAGE});
+}
+
+/// ДАННЫЕ: справка по явному запросу `--help`/`-h` → stdout (можно пайпить).
+fn emitUsage() void {
+    emit(USAGE);
 }

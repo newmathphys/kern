@@ -864,6 +864,14 @@ showcase-live-all:
 showcase-live-all-full:
 	@$(PYTHON) tools/showcase_live.py --all --full
 
+# ГЕЙТ #399: справка CLI обязана называть КАЖДУЮ реализованную команду.
+# Три свойства из живого прогона: `--help` -> stdout и rc=0; запуск без
+# аргументов -> rc!=0; каждое `std.mem.eql(u8, command, ...)` в src/main.zig
+# названо в справке. selftest — шесть диверсий, каждая обязана краснеть.
+cli-help-parity-check: build
+	@$(PYTHON) tools/cli_help_parity_check.py --selftest
+	@$(PYTHON) tools/cli_help_parity_check.py
+
 # EN/RU: одни и те же факты в обеих витринах (проза может быть сокращённой).
 docs-parity:
 	@$(PYTHON) tools/docs_parity_check.py --selftest

@@ -2688,6 +2688,24 @@ def case_native_zig_ast_drop():
     return "zig build && bash tools/native_zig_ast_check.sh"
 
 
+def case_cli_help_parity():
+    """СПРАВКА CLI SABOTAGE: команда `verify-zig` вырезана из текста справки.
+
+    ЛОМАЕМ: в константе `USAGE` (src/main.zig) строка описания `verify-zig`
+    переименована, а сама команда в диспетчере ОСТАЁТСЯ. Тогда `kernc verify-zig`
+    продолжает работать, но из `kernc --help` узнать о ней нельзя — ровно тот
+    дефект #399, ради которого гейт и заведён.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что `cli-help-parity-check` не может быть
+    зелёным, когда справка перестала называть реализованную команду. Без этой
+    ветви гейт проходил бы на любой справке, включая пустую.
+    """
+    patch("src/main.zig",
+          "\\\\  verify-zig <file.zig>                           контракты из .zig",
+          "\\\\  XXX-cut-from-help <file.zig>                    контракты из .zig")
+    return "make cli-help-parity-check"
+
+
 def case_zig_guard():
     """ЗАЩИТА ОТ НЕВЕРНОГО КОМПИЛЯТОРА: отказ обязан быть НАЗВАННЫМ (#392).
 
@@ -3984,6 +4002,8 @@ CASES = [
      case_mbpp_xray_blindspot),
     ("xray-overflow", "Literal type no longer by value -> miss -> gate red",
      case_xray_overflow),
+    ("cli-help-parity", "A command cut from `kernc --help` -> gate red",
+     case_cli_help_parity),
     ("flake", "A never-green target must turn the flake gate red",
      case_flake),
     ("lang-semantics", "A language missing from VALUE_SEMANTICS -> gate red",
