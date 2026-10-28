@@ -32,6 +32,9 @@ PAIRS = (
     ("docs/ROADMAP.md", "docs/ROADMAP.en.md"),
     ("docs/TESTING_AND_SPEED_GUIDE.md", "docs/TESTING_AND_SPEED_GUIDE.en.md"),
     ("docs/EXAMPLE_WHY_KERN.ru.md", "docs/EXAMPLE_WHY_KERN.md"),
+    # §B плана: инвентарь корпусов обязан иметь паритет RU/EN — иначе русская
+    # версия разойдётся молча (класс #335 «дефект, живущий только по-русски»).
+    ("docs/CORPORA.md", "docs/CORPORA.en.md"),
     # ЭТАП 3: документ покрытия CWE обязан иметь паритет RU/EN, иначе русская
     # версия может разойтись молча (класс #335 — «дефект, живущий только
     # по-русски»).
