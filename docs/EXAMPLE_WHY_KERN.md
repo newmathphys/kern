@@ -145,13 +145,13 @@ subset. It is a **scalpel plus a turnstile**:
 
 | Fact | Value |
 |:--|:--|
-| Core tests | <!-- fact:core_tests -->449 |
+| Core tests | <!-- fact:core_tests -->451 |
 | Next tests | <!-- fact:next_tests -->53 |
-| Test catalog | <!-- fact:catalog -->478 |
-| CHECK targets | <!-- fact:check_targets -->173 |
-| can-fail cases | <!-- fact:canfail_cases -->211 |
-| Literal anchors | <!-- fact:anchors -->172 |
-| Registry targets | <!-- fact:registry_targets -->226 |
+| Test catalog | <!-- fact:catalog -->480 |
+| CHECK targets | <!-- fact:check_targets -->174 |
+| can-fail cases | <!-- fact:canfail_cases -->212 |
+| Literal anchors | <!-- fact:anchors -->173 |
+| Registry targets | <!-- fact:registry_targets -->227 |
 | Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |
 | QuixBugs (differential) | <!-- fact:quixbugs.differential -->40 |
