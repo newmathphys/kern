@@ -833,3 +833,13 @@ Compact English list; full text and measured before/after tables are in
 
 
 
+| **383** | **THE CONTRACT LOCK — KERN'S UNIQUE VALUE — WAS NOT ENFORCED IN GITHUB CI** |
+| **383.1** | **What was wrong.** `contracts-lock-check` existed and was wired into the full pipeline (`tools/ci.sh:205`), but GitHub CI runs `./tools/ci.sh --fast` (`.github/workflows/ci.yml:47`), and the fast path ends at line 124 - the lock was NOT part of it. |
+| **383.2** | **How it was measured.** A local `make contracts-lock-check` returned `Ошибка 2` (2 files with real annotations unsealed), while `KERN CI` on the same commits was green. So the rule "the agent did not tamper with the spec" was not checked automatically: an agent could weaken a contract and CI would not notice. |
+| **383.3** | **The fix.** The stage `contract lock (the agent did not tamper with the spec)` is added to the FAST path (`ci.sh`, right after the version check). Cost - 0.7 s; benefit - the project's unique value is protected on every push again. |
+| **382** | **THE LOCK COVERAGE CRITERION WAS TOO COARSE: "CONTAINS THE SUBSTRING `@kern:`" CAUGHT TOOLS, NOT CONTRACTS** |
+| **382.1** | **What was wrong.** `repo_contract_files()` treated any file containing the substring `@kern:` as a contract file. MEASURED: of the 6 "unsealed files", only 2 were contracts (`tests/fixtures/zig_ast_contracts.zig`, `tests/fixtures/zig_ast_contracts_ok.zig`), while 4 were TOOLS that merely mention contracts: `src/verifier/zig_ast_verify.zig` (parser string literals), `tools/inline_check.py` (docstring), `tools/real_cases_check.py` (output labels), `tools/svcomp_baseline.py` (string generator). |
+| **382.2** | **Why it is a defect.** Class #290/#296: a tool that GENERATES contracts must not look like a SEALED contract. The false accusation forced either "sealing" the tools (and then editing a docstring would break the lock) or disabling the coverage check. |
+| **382.3** | **The fix.** Precise criterion `CONTRACT_LINE` - an annotation inside a COMMENT at the start of a line (the same prefix as `ANNOT`). Verified on all 6 files: 2 fixtures match (6 and 5 annotations), 4 tools - 0. |
+| **382.4** | **VERIFICATION THAT NO PROTECTION WAS LOST (mandatory when narrowing a criterion).** The lock went 47 -> 20 files; among the 29 excluded there are **0 files with a real annotation** (all 29 were mentions). Coverage: 20 = 20, `[OK]`. |
+| **382.5** | **Can-fail proof that the precision is load-bearing.** Case `contract-lock-coarse` restores the coarse substring -> the 4 tools become "unsealed" again -> `contracts-lock-check` must go red. If it stays green, distinguishing a contract from a tool means nothing. |

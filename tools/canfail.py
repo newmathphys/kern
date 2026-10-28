@@ -1008,6 +1008,25 @@ def case_contract_lock():
     return "make contracts-lock-check"
 
 
+def case_contract_lock_coarse():
+    """#382 SABOTAGE: критерий покрытия замка снова «содержит `@kern:`».
+
+    Точный критерий (`CONTRACT_LINE`: аннотация в КОММЕНТАРИИ в начале
+    строки) отличает КОНТРАКТ от ИНСТРУМЕНТА, который лишь упоминает
+    контракты — в докстринге, в метке вывода, в генераторе строк. ИЗМЕРЕНО:
+    из 6 «незапечатанных» файлов контрактами были 2, а 4 — инструменты.
+
+    ЛОМАЕМ: возвращаем грубую подстроку -> 4 инструмента снова становятся
+    «незапечатанными файлами» -> `contracts-lock-check` ОБЯЗАН покраснеть.
+    Если остаётся зелёным, различение контракта и инструмента ничего не
+    значит — и замок снова начнёт обвинять невиновных (класс #290/#296).
+    """
+    patch("tools/kern_contracts.py",
+          "            if CONTRACT_LINE.search(text):",
+          "            if \"@kern:\" in text:  # ЛОМАЕМ: грубый критерий (#382)")
+    return "make contracts-lock-check"
+
+
 def case_anti_self_deception_fixture():
     """Anti-self-deception SABOTAGE: the corpus fixture drifts from the gate.
 
@@ -3636,6 +3655,7 @@ CASES = [
     ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
     ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
+    ("contract-lock-coarse", "Замок: критерий покрытия снова «содержит @kern:» -> красный", case_contract_lock_coarse),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("query-kind-leak", "Правило посылок применено к equivalence -> красный", case_query_kind_leak),
     ("anti-self-deception-fixture", "Якорь мутации исчез -> гейт красный", case_anti_self_deception_fixture),

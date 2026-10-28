@@ -2811,9 +2811,28 @@ def emit_pytest(out_path: str, examples: list, files) -> int:
 # репозиторий, иначе can-fail «ослабили ensures» остаётся вакуумным.
 CONTRACT_GLOBS = ("examples/**/*.py", "src/**/*.zig", "tools/**/*.py", "tests/**/*.zig")
 
+# ДЕФЕКТ #382 (найден 2026-10-27 при проверке «enforced ли замок в CI»):
+# критерий «содержит подстроку `@kern:`» был СЛИШКОМ ГРУБ. Он ловил
+# ИНСТРУМЕНТЫ, которые лишь УПОМИНАЮТ контракты — в докстринге, в метке
+# вывода, в генераторе строк. ИЗМЕРЕНО: из 6 «незапечатанных файлов»
+# контрактами оказались только 2 (tests/fixtures/zig_ast_contracts*.zig),
+# а 4 — инструменты (src/verifier/zig_ast_verify.zig, tools/inline_check.py,
+# tools/real_cases_check.py, tools/svcomp_baseline.py). Это ложное обвинение
+# того же класса, что #290/#296: инструмент, ГЕНЕРИРУЮЩИЙ контракты, не
+# должен выглядеть как ЗАПЕЧАТАННЫЙ контракт.
+#
+# Точный критерий: аннотация в КОММЕНТАРИИ в начале строки — тот же префикс,
+# что у ANNOT (стр. 1817). Проверено на всех 6 файлах: 2 фикстуры совпадают,
+# 4 инструмента — нет.
+CONTRACT_LINE = re.compile(r"^\s*(?:///|//|#)\s*@kern:(?:requires|ensures)\b", re.M)
+
 
 def repo_contract_files() -> list[str]:
-    """Файлы репозитория, содержащие хотя бы один `@kern:`."""
+    """Файлы репозитория, содержащие хотя бы одну АННОТАЦИЮ контракта.
+
+    Не «упоминание `@kern:`», а именно аннотация в комментарии в начале
+    строки (см. `CONTRACT_LINE` и дефект #382).
+    """
     found: list[str] = []
     for pattern in CONTRACT_GLOBS:
         for p in sorted(Path(".").glob(pattern)):
@@ -2823,7 +2842,7 @@ def repo_contract_files() -> list[str]:
                 text = p.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            if "@kern:" in text:
+            if CONTRACT_LINE.search(text):
                 found.append(p.as_posix())
     return found
 
@@ -3464,7 +3483,7 @@ def main(argv=None) -> int:
     if args.lock_repo:
         files = repo_contract_files()
         if not files:
-            print("[!] не найдено ни одного файла с @kern:")
+            print("[!] не найдено ни одного файла с аннотацией контракта")
             return 2
         print(f"  [i] файлов с контрактами: {len(files)}")
         return cmd_lock(files, args.lock_repo)
@@ -3473,14 +3492,17 @@ def main(argv=None) -> int:
         rc = cmd_verify_lock(files, args.verify_lock_repo)
         if rc != 0:
             return rc
-        # Покрытие: новый файл с @kern: обязан попасть в замок.
+        # Покрытие: новый файл с АННОТАЦИЕЙ контракта обязан попасть в замок.
+        # ДЕФЕКТ #382: критерий — аннотация в комментарии (CONTRACT_LINE), а не
+        # подстрока `@kern:` — иначе инструменты, лишь упоминающие контракты,
+        # выглядели бы как незапечатанные файлы (ложное обвинение).
         sealed = set(json.loads(Path(args.verify_lock_repo).read_text(encoding="utf-8")))
         missing = sorted(set(files) - sealed)
         if missing:
             print(f"  [SECURITY] НЕ запечатаны файлы с контрактами: {missing}")
             print("  → пересоберите замок: make contracts-lock")
             return 2
-        print(f"  [OK] покрытие замка: {len(files)} файлов с @kern:")
+        print(f"  [OK] покрытие замка: {len(files)} файлов с аннотациями")
         return 0
     if args.lock:
         if not args.files:

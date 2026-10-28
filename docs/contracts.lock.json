@@ -1,19 +1,14 @@
 {
-  "examples/ai_vs_kern/ai_crash.py": {},
   "examples/ai_vs_kern/ai_generated.py": {
     "transfer_no_fee:ensures:hard": "ca216fdd6fc402ffe88d3d75c470954141bc583c11ee6c655d7a6b0abb66ea29",
     "transfer_no_fee:requires:hard": "d06edf0b627075a05172235782fdf5038c584647089eda6036c7576a0ed3e709",
     "transfer_with_fee:ensures:hard": "95a1b69d6f0b2db09f48995294c91f8b502791f37b3b5c022b46f09bbcdeb9ec",
     "transfer_with_fee:requires:hard": "d06edf0b627075a05172235782fdf5038c584647089eda6036c7576a0ed3e709"
   },
-  "examples/ai_vs_kern/fees.py": {},
   "examples/ai_vs_kern/fixed.py": {
     "transfer_with_fee:ensures:hard": "95a1b69d6f0b2db09f48995294c91f8b502791f37b3b5c022b46f09bbcdeb9ec",
     "transfer_with_fee:requires:hard": "4dce530bf3eda7c2544e4158df2894fcdc7d1f67bec0e05e5c37a6ae172b8101"
   },
-  "examples/ai_vs_kern/test_ai_generated.py": {},
-  "examples/arbitrage_demo.py": {},
-  "examples/array_bounds.py": {},
   "examples/contracts_advisory_demo.py": {
     "add_advisory_violated:ensures:advisory": "f12bfcf9d55a2d5f0aa1751fceddcd3e5c435942ede05fe36db77198b7055d18",
     "add_hard:ensures:hard": "29b62c4616817c14d093adfcbdfd89548fcfe9c37cea618b7cde41492c52264b"
@@ -38,7 +33,6 @@
     "withdraw_vacuous:ensures:hard": "581aac9f20729b2de64fcf2829192f726d8dcc32260bd122b7db234bbeacedc6",
     "withdraw_vacuous:requires:hard": "2a9ab7b2fa763e9acbf3498c1de0080cd439ca5caff9f52b82ac5c479fa8d683"
   },
-  "examples/double_spend_demo.py": {},
   "examples/edge_cases.py": {
     "impure_global:ensures:hard": "fff072d281a66570317b3d61da7f94f54edcd0bcfe1319af71e0c418ce34c775",
     "impure_global:requires:hard": "208b35a67a1b06a73c900e95c8430f46bc545c4f4f3283c7bd500884ef46cbd5",
@@ -53,14 +47,10 @@
     "evm_sdiv_truncates:ensures:hard": "c808eb5309592ea3a0adbf06f3aa394a4e20031b07e4468a271077152765a6c0",
     "evm_sdiv_truncates:requires:hard": "432be805d63f65400f81f449e1d4deec33bdc11a9374e9892143f64d6fd8e7d9"
   },
-  "examples/ffi_bridge_demo.py": {},
   "examples/hypotheses_demo.py": {
     "identity_nonneg:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "examples/integrations/agent_loop.py": {},
-  "examples/integrations/crewai_tool.py": {},
-  "examples/integrations/langchain_tool.py": {},
-  "examples/kern_mcp_server.py": {},
   "examples/loops.py": {
     "count_up:ensures:hard": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
     "count_up:requires:hard": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de",
@@ -69,11 +59,9 @@
     "count_up_no_terminate:ensures:hard": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
     "count_up_no_terminate:requires:hard": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de"
   },
-  "examples/noninterference_demo.py": {},
   "examples/presets_demo.py": {
     "discount:requires:hard": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
   },
-  "examples/pricing_demo.py": {},
   "examples/rlvr_candidates/buggy.py": {
     "sub:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807",
     "sub:requires:hard": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
@@ -86,16 +74,25 @@
     "double:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807",
     "double:requires:hard": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
   },
-  "examples/sql_policy_demo.py": {},
   "examples/state_invariant_demo.py": {
     "refund_safe:requires:hard": "0a8346a28ee70539a1f9e6ab9948f3b38fd5dc8f07e2f14f84feefcff7aa42a7",
     "refund_unsafe:requires:hard": "0a8346a28ee70539a1f9e6ab9948f3b38fd5dc8f07e2f14f84feefcff7aa42a7"
   },
-  "examples/xray_demo.py": {},
-  "src/main.zig": {},
-  "src/next/graph_dump.zig": {},
-  "src/verifier/model_extract.zig": {},
-  "src/verifier/proof_check.zig": {},
+  "tests/fixtures/zig_ast_contracts.zig": {
+    "addGuarded:ensures:hard": "7f1f25ef52093ffeec723aeaee5b36dd794e0537446632053b70dedc5c4f8076",
+    "addGuarded:requires:hard": "8d53f886ab69ccfdf7b2fbdfcf0b8ad4b3f0760fc01a48e4816998647a6fb287",
+    "addWrapOk:requires:hard": "91e71dc7fb6ba78cec30a69fe8cb591cbaa462e69f8ef949cf8ae075ec22b26b",
+    "divOk:requires:hard": "91e71dc7fb6ba78cec30a69fe8cb591cbaa462e69f8ef949cf8ae075ec22b26b",
+    "line1:requires:hard": "7b59396dfcf448e384d4ae65c219844fb31b8c28093b39d10027073a8084b94a",
+    "line2:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+  },
+  "tests/fixtures/zig_ast_contracts_ok.zig": {
+    "addGuarded:ensures:hard": "7f1f25ef52093ffeec723aeaee5b36dd794e0537446632053b70dedc5c4f8076",
+    "addGuarded:requires:hard": "8d53f886ab69ccfdf7b2fbdfcf0b8ad4b3f0760fc01a48e4816998647a6fb287",
+    "divOk:requires:hard": "91e71dc7fb6ba78cec30a69fe8cb591cbaa462e69f8ef949cf8ae075ec22b26b",
+    "line1:requires:hard": "7b59396dfcf448e384d4ae65c219844fb31b8c28093b39d10027073a8084b94a",
+    "line2:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+  },
   "tests/fixtures/zig_plain_add.zig": {
     "line1:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
@@ -103,16 +100,5 @@
     "line1:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "tools/arith_semantics_check.py": {},
-  "tools/bug_hunter.py": {},
-  "tools/canfail.py": {},
-  "tools/charter_check.py": {},
-  "tools/evm_lang_check.py": {},
-  "tools/gen_llms_txt.py": {},
-  "tools/gen_showcase_graph.py": {},
-  "tools/kern_contracts.py": {},
-  "tools/mcp_selftest.py": {},
-  "tools/registry.py": {},
-  "tools/run_all_10_capabilities_demo.py": {},
-  "tools/scan_to_kern.py": {},
-  "tools/trust_scorecard.py": {}
+  "tools/kern_contracts.py": {}
 }

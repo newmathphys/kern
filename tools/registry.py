@@ -266,6 +266,7 @@ CASE_TARGET = {
     # УЛУЧШЕНИЯ v2.5: can-fail доказательства для новых целей.
     "vacuous-requires": "contracts",
     "contract-lock": "contracts-lock-check",
+    "contract-lock-coarse": "contracts-lock-check",
     "attest-sig-missing": "verify-attestation",
     "secret-in-tree": "secrets-check",
     "nondeterministic": "determinism-check",

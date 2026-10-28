@@ -107,6 +107,15 @@ stage "build" zig build
 # печатал v2.4.0 при теге v2.5.0, и зелёный CI этого не замечал.
 stage "версии согласованы (kernc/kernx/C-ABI/README)" bash tools/version_check.sh
 
+# --- 2c. ЗАМОК КОНТРАКТОВ (дефект #382) -------------------------------------
+# Уникальная ценность KERN — «агент не подменил спецификацию». Гейт
+# `contracts-lock-check` СУЩЕСТВОВАЛ, но жил только в полном контуре
+# (`ci.sh` без --fast), а GitHub CI запускает `ci.sh --fast` — то есть замок
+# НЕ был enforced. ИЗМЕРЕНО: 2 файла с настоящими аннотациями были добавлены
+# без пломбы, и CI оставался зелёным. Замок проверяется за ~0.7 с, поэтому
+# он обязан быть в БЫСТРОМ пути.
+stage "замок контрактов (агент не подменил ТЗ)" make contracts-lock-check
+
 # --- 3. Тесты ядра ----------------------------------------------------------
 stage "test (ядро, полный)" bash -c 'out=$(zig test --dep compat -Mroot=src/test_root.zig -Mcompat=src/compat.zig 2>&1); echo "$out" | tail -3; echo "$out" | grep -q "0 failed" || echo "$out" | grep -q "All .* tests passed"'
 
