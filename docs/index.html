@@ -216,6 +216,38 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
   depend on those exact strings.</p>
 </div>
 
+<h2>Proofs on other people's code — not on our own fixtures</h2>
+<div class="panel">
+  <div class="tablewrap"><table>
+<thead><tr><th>Where</th><th>What KERN found</th><th>Confirmed by</th><th>Upstream</th></tr></thead>
+<tbody>
+<tr><td><b>EvalPlus MBPP+</b><br><span class="muted">the benchmark itself</span></td>
+    <td>Three solutions passed <b>both</b> MBPP and the 80&times; MBPP+ yet divide by zero:
+        <code>Mbpp/265</code>, <code>Mbpp/292</code>, <code>Mbpp/422</code>.
+        <span class="muted">0 false accusations.</span></td>
+    <td>live <code>python3</code> &rarr; <code>ZeroDivisionError</code></td>
+    <td>&mdash;</td></tr>
+<tr><td><b>TheAlgorithms/C</b><br><span class="muted">22.5k &#9733;</span></td>
+    <td><code>math/catalan.c</code>: <code>factorial(0)</code> returns <code>0</code>, so the divisor is zero &rarr;
+        <b>SIGFPE</b> on <code>n = 0</code>; silent garbage from <code>n = 11</code>.
+        <code>math/lcm.c</code>: <code>lcm(50000, 50000)</code> printed <code>-35899</code>
+        where the true <code>50000</code> fits in <code>int</code>.</td>
+    <td><code>gcc -fsanitize=undefined</code> on the <b>unmodified</b> file (rc 136)</td>
+    <td><a href="https://github.com/TheAlgorithms/C/pull/1595">#1595</a> &middot;
+        <a href="https://github.com/TheAlgorithms/C/pull/1596">#1596</a></td></tr>
+<tr><td><b>TheAlgorithms/Rust</b><br><span class="muted">26k &#9733;</span></td>
+    <td><code>src/math/binomial_coefficient.rs</code>: <code>n - i</code> in <code>u64</code> with no
+        <code>k &le; n</code> guard &rarr; <code>binom(0, 2)</code> panics in debug and returns garbage
+        in release; all seven upstream tests use <code>k &le; n</code>.</td>
+    <td><code>rustc -C overflow-checks=on</code> &rarr; panic (rc 101)</td>
+    <td><a href="https://github.com/TheAlgorithms/Rust/pull/1075">#1075</a>
+        <span class="muted">Codecov: 100% patch coverage</span></td></tr>
+</tbody></table>
+  <p class="lbl" style="margin:12px 0 0">Full matrix &mdash; every capability, its one command, its external oracle and its honest boundary:
+     <a href="CAPABILITY_MATRIX.md">EN</a> &middot; <a href="CAPABILITY_MATRIX.ru.md">RU</a>.
+     Corpus inventory with N/M and oracles: <a href="CORPORA.en.md">EN</a> &middot; <a href="CORPORA.md">RU</a>.</p>
+</div>
+
 <h2>What the agent says — and what KERN proves</h2>
 <div class="panel">
   <div class="hdr">make ai-demo · one agent session · verbatim tool output</div>

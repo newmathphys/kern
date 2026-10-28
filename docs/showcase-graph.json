@@ -19,18 +19,18 @@
   "#area/core": 10,
   "#area/next": 16,
   "#area/runtime": 1,
-  "#area/verifier": 16,
-  "#has-contract": 4,
+  "#area/verifier": 19,
+  "#has-contract": 5,
   "#hub": 1,
   "#internal-only": 36,
-  "#lang/zig": 88,
-  "#large": 8,
-  "#leaf": 41,
-  "#no-contract": 84,
-  "#public-api": 52,
-  "#small": 80,
-  "#tested": 57,
-  "#untested": 31
+  "#lang/zig": 91,
+  "#large": 10,
+  "#leaf": 42,
+  "#no-contract": 86,
+  "#public-api": 55,
+  "#small": 81,
+  "#tested": 59,
+  "#untested": 32
  },
  "nodes": [
   {
@@ -541,7 +541,7 @@
   },
   {
    "id": "main.zig",
-   "loc": 1405,
+   "loc": 1531,
    "pub_fn": 2,
    "tests": 0,
    "kern_annotations": 3,
@@ -960,7 +960,7 @@
   },
   {
    "id": "test_root.zig",
-   "loc": 58,
+   "loc": 60,
    "pub_fn": 0,
    "tests": 0,
    "kern_annotations": 0,
@@ -1308,6 +1308,22 @@
    ]
   },
   {
+   "id": "verifier/nonint_timing_probe.zig",
+   "loc": 93,
+   "pub_fn": 1,
+   "tests": 0,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#untested",
+    "#small",
+    "#public-api"
+   ]
+  },
+  {
    "id": "verifier/noninterference.zig",
    "loc": 217,
    "pub_fn": 3,
@@ -1342,9 +1358,9 @@
   },
   {
    "id": "verifier/proof_check.zig",
-   "loc": 6525,
+   "loc": 6629,
    "pub_fn": 12,
-   "tests": 94,
+   "tests": 96,
    "kern_annotations": 19,
    "imports_out": 1,
    "claims": [
@@ -1390,6 +1406,22 @@
    ]
   },
   {
+   "id": "verifier/theory_cli.zig",
+   "loc": 636,
+   "pub_fn": 1,
+   "tests": 4,
+   "kern_annotations": 0,
+   "imports_out": 1,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#no-contract",
+    "#tested",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
    "id": "verifier/unsat_core.zig",
    "loc": 162,
    "pub_fn": 0,
@@ -1418,6 +1450,23 @@
     "#area/verifier",
     "#no-contract",
     "#tested",
+    "#large",
+    "#public-api"
+   ]
+  },
+  {
+   "id": "verifier/zig_ast_verify.zig",
+   "loc": 613,
+   "pub_fn": 4,
+   "tests": 4,
+   "kern_annotations": 8,
+   "imports_out": 0,
+   "claims": [
+    "#lang/zig",
+    "#area/verifier",
+    "#has-contract",
+    "#tested",
+    "#leaf",
     "#large",
     "#public-api"
    ]
@@ -1761,6 +1810,11 @@
    "kind": "import"
   },
   {
+   "source": "verifier/nonint_timing_probe.zig",
+   "target": "compat.zig",
+   "kind": "import"
+  },
+  {
    "source": "verifier/noninterference.zig",
    "target": "compat.zig",
    "kind": "import"
@@ -1773,6 +1827,11 @@
   {
    "source": "verifier/string_theory.zig",
    "target": "compat.zig",
+   "kind": "import"
+  },
+  {
+   "source": "verifier/theory_cli.zig",
+   "target": "core/kernfs_router.zig",
    "kind": "import"
   },
   {

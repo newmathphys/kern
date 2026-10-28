@@ -43,6 +43,8 @@ PAIRS = (
     ("docs/AI_TRAPS_SHOWCASE.ru.md", "docs/AI_TRAPS_SHOWCASE.md"),
     # ЭТАП 5: матрица реальных возможностей — паритет RU/EN.
     ("docs/REAL_WORLD_CAPABILITIES.ru.md", "docs/REAL_WORLD_CAPABILITIES.md"),
+    # ШАГ E плана: матрица возможностей (одна команда / оракул / граница) — паритет RU/EN.
+    ("docs/CAPABILITY_MATRIX.ru.md", "docs/CAPABILITY_MATRIX.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",
