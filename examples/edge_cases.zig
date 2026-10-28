@@ -28,7 +28,7 @@ pub fn doubleViaConst(x: i64) i64 {
 /// @kern:requires x >= 0
 /// @kern:ensures  result >= 0
 pub fn u32NoUnderflow(x: u32, y: u32) u32 {
-    return x;       // ДИВЕРСИЯ: underflow убран
+    return x - y;   // u32: при y > x результат уходит в минус -> underflow
 }
 
 /// @kern:requires d > 0
