@@ -165,6 +165,22 @@ pub fn build(b: *std.Build) void {
     run_sim_threads.addArgs(&.{ "--threads", "32", "--titers", "500" });
     b.step("sim-threads", "Симуляция: 32 потока").dependOn(&run_sim_threads.step);
 
+    // ШАГ D: ФИЗИЧЕСКИЙ ОРАКУЛ НЕВМЕШАТЕЛЬСТВА. Отдельный шаг, потому что это
+    // ИЗМЕРЕНИЕ РЕАЛЬНОГО ВРЕМЕНИ: сборка строго в Debug — в ReleaseFast
+    // компилятор сворачивает обе функции на comptime-константах и разница
+    // времён исчезает (измерение стало бы бессмысленным).
+    {
+        const nonint_probe_mod = b.createModule(.{
+            .root_source_file = b.path("src/verifier/nonint_timing_probe.zig"),
+            .target = target,
+            .optimize = .Debug,
+        });
+        nonint_probe_mod.addImport("compat", compat_module);
+        const nonint_probe_exe = b.addExecutable(.{ .name = "kern-nonint-probe", .root_module = nonint_probe_mod });
+        const run_nonint_probe = b.addRunArtifact(nonint_probe_exe);
+        b.step("nonint-probe", "Физический оракул невмешательства (реальное время, min-of-N)").dependOn(&run_nonint_probe.step);
+    }
+
     atk_mod.addImport("compat", compat_module);
     atomic_module.addImport("compat", compat_module);
 

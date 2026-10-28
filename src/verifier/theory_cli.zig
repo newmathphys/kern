@@ -32,6 +32,7 @@ const absint = @import("abstract_interp.zig");
 const dtmc_mod = @import("dtmc.zig");
 const redos_mod = @import("redos.zig");
 const chc = @import("chc.zig");
+const nonint = @import("noninterference.zig");
 const KernFS = @import("../core/kernfs_router.zig").KernFS;
 
 pub const Status = enum { proven, refuted, skip, value };
@@ -83,6 +84,19 @@ pub fn run(alloc: std.mem.Allocator, bridge: *z3.Z3Bridge, text: []const u8) !Re
         lineno += 1;
         const line = std.mem.trim(u8, raw, " \t\r");
         if (line.len == 0 or line[0] == '#') continue;
+        // ДЕФЕКТ #390 (fail-closed): раньше строка длиннее 16 токенов МОЛЧА
+        // обрезалась (`if (n >= buf.len) break` в `toks`), и вердикт выдавался
+        // по УСЕЧЁННОЙ строке — с причиной, называвшей НЕ настоящую причину
+        // («мало значений матрицы» вместо «строка обрезана»). Теперь факт
+        // усечения называется прямо, и вердикта по такой строке НЕТ.
+        var total: usize = 0;
+        var cnt = std.mem.tokenizeAny(u8, line, " \t");
+        while (cnt.next()) |_| total += 1;
+        if (total > 16) {
+            try rep.outcomes.append(alloc, .{ .name = try std.fmt.allocPrint(arena, "строка {d}", .{lineno}), .status = .skip, .reason = "строка длиннее лимита 16 токенов — вердикта НЕТ (fail-closed)" });
+            rep.skipped += 1;
+            continue;
+        }
         var buf: [16][]const u8 = undefined;
         const t = toks(line, &buf);
         if (t.len < 2) {
@@ -360,12 +374,84 @@ fn dispatch(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Br
         return;
     }
 
-    try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "неизвестная теория (arrays/absint/dtmc)" });
+    // ШАГ D: НЕВМЕШАТЕЛЬСТВО (2-Safety) НА ВНЕШНЕЙ СПЕЦИФИКАЦИИ.
+    // Одна строка = одна IR-программа; регистры — целые числа:
+    //   S<v> секрет · P<v> публичное · A<dst>=<src> присваивание
+    //   B<v> ветвление · M<v> индекс памяти · T<v> операция переменного времени
+    //   C<dst>:<a>:<b> constant-time выбор (cmov; ветвления НЕ создаёт)
+    // Вердикт — по taint-анализу `noninterference.analyze`; ФИЗИЧЕСКУЮ сторону
+    // (реальное время constant-time против раннего выхода) проверяет отдельный
+    // оракул `tools/oracle_noninterference_check.py` (шаг D плана).
+    if (std.mem.eql(u8, t[0], "nonint")) {
+        if (t.len < 2) {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "nonint: нужна хотя бы одна инструкция (например `S1 B1`)" });
+            rep.skipped += 1;
+            return;
+        }
+        var prog = std.array_list.Managed(nonint.Instr).init(arena);
+        var i: usize = 1;
+        while (i < t.len) : (i += 1) {
+            const tok = t[i];
+            // ДЕФЕКТ-КЛАСС #385 (fail-closed): инструкция вне подмножества даёт
+            // SKIP, а НЕ вердикт. Иначе получилось бы «ДОКАЗАНО» о ДРУГОЙ
+            // программе, чем прочитана.
+            if (tok.len < 2) return skipInstr(alloc, rep, spec, tok);
+            const body = tok[1..];
+            switch (tok[0]) {
+                'S' => try prog.append(.{ .secret = parseVar(body) orelse return skipInstr(alloc, rep, spec, tok) }),
+                'P' => try prog.append(.{ .public = parseVar(body) orelse return skipInstr(alloc, rep, spec, tok) }),
+                'B' => try prog.append(.{ .branch_on = parseVar(body) orelse return skipInstr(alloc, rep, spec, tok) }),
+                'M' => try prog.append(.{ .mem_index = parseVar(body) orelse return skipInstr(alloc, rep, spec, tok) }),
+                'T' => try prog.append(.{ .variable_time = parseVar(body) orelse return skipInstr(alloc, rep, spec, tok) }),
+                'A' => {
+                    var sp = std.mem.splitScalar(u8, body, '=');
+                    const dst = parseVar(sp.next() orelse "") orelse return skipInstr(alloc, rep, spec, tok);
+                    const src = parseVar(sp.next() orelse "") orelse return skipInstr(alloc, rep, spec, tok);
+                    if (sp.next() != null) return skipInstr(alloc, rep, spec, tok);
+                    try prog.append(.{ .assign = .{ .dst = dst, .src = src } });
+                },
+                'C' => {
+                    var sp = std.mem.splitScalar(u8, body, ':');
+                    const dst = parseVar(sp.next() orelse "") orelse return skipInstr(alloc, rep, spec, tok);
+                    const a = parseVar(sp.next() orelse "") orelse return skipInstr(alloc, rep, spec, tok);
+                    const b = parseVar(sp.next() orelse "") orelse return skipInstr(alloc, rep, spec, tok);
+                    if (sp.next() != null) return skipInstr(alloc, rep, spec, tok);
+                    try prog.append(.{ .select_ct = .{ .dst = dst, .a = a, .b = b } });
+                },
+                else => return skipInstr(alloc, rep, spec, tok),
+            }
+        }
+        const findings = try nonint.analyze(arena, prog.items);
+        if (findings.len == 0) {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .proven, .reason = "утечек нет: секрет не влияет на ветвление, индекс памяти и время" });
+            rep.proven += 1;
+        } else {
+            const f = findings[0];
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .refuted, .reason = try std.fmt.allocPrint(arena, "УТЕЧКА {s} на шаге {d} (утечек всего {d})", .{ @tagName(f.leak), f.at, findings.len }) });
+            rep.refuted += 1;
+        }
+        return;
+    }
+
+    try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "неизвестная теория (arrays/absint/dtmc/nonint)" });
     rep.skipped += 1;
 }
 
 fn skipNum(alloc: std.mem.Allocator, rep: *Report, spec: []const u8, what: []const u8) !void {
     try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = try std.fmt.allocPrint(alloc, "не число: {s}", .{what}) });
+    rep.skipped += 1;
+}
+
+/// Разбор номера регистра для формы `nonint`.
+fn parseVar(s: []const u8) ?nonint.Var {
+    if (s.len == 0) return null;
+    return std.fmt.parseInt(nonint.Var, s, 10) catch null;
+}
+
+/// ДЕФЕКТ-КЛАСС #385 (fail-closed): инструкция вне подмножества разбора даёт
+/// SKIP с названной причиной, а НЕ вердикт по неверно понятой программе.
+fn skipInstr(alloc: std.mem.Allocator, rep: *Report, spec: []const u8, tok: []const u8) !void {
+    try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = try std.fmt.allocPrint(alloc, "nonint: неизвестная инструкция '{s}' — вердикта НЕТ", .{tok}) });
     rep.skipped += 1;
 }
 

@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->177 · cases <!-- fact:canfail_cases -->215 · anchors <!-- fact:anchors -->176 · registry <!-- fact:registry_targets -->230 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->178 · cases <!-- fact:canfail_cases -->216 · anchors <!-- fact:anchors -->177 · registry <!-- fact:registry_targets -->231 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->177/<!-- fact:check_targets -->177 · cases <!-- fact:canfail_cases -->215 · anchors <!-- fact:anchors -->176 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->178/<!-- fact:check_targets -->178 · cases <!-- fact:canfail_cases -->216 · anchors <!-- fact:anchors -->177 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -3242,3 +3242,64 @@ HONEST BOUNDARY. `validatePath` is a LEXICAL validator of the KERNFS namespace; 
 does not resolve HOST symlinks because KERNFS serves an in-memory image. The "symlink
 inside the root points outside" case is shown separately and is not part of the
 differential: it is another layer.
+
+## §141. A PHYSICAL ORACLE FOR NON-INTERFERENCE: THE MODEL VS REAL TIME (#389, step D)
+
+### 141.1 WHY
+
+The `noninterference` family (2-Safety, hyperproperties) was checked MODEL AGAINST
+MODEL: an IR taint analysis declared that branching on a secret is a leak and that
+`constantTimeEqual` is not, and this was taken on trust. Vacuum: nobody compared the
+model's claim with PHYSICAL execution time.
+
+### 141.2 WHAT WAS BUILT
+
+1. **Static layer.** `kernc theory` gained the form `nonint <instructions>`
+   (S/P/A/B/M/T/C) — 11 fixtures: 4 leaks refuted with the kind named (`branch`,
+   `memory_index`, `variable_time`, taint via `assign`), 4 safe proven, 3 unsupported
+   yielding SKIP with NO verdict (fail-closed).
+2. **Physical layer.** The probe `src/verifier/nonint_timing_probe.zig` calls the REAL
+   `constantTimeEqual` and `earlyExitEqual` on a 4096-byte secret differing at
+   different positions (1 vs 4096) and prints the ratio of MINIMA over N=1000 runs.
+3. **Reconciliation.** The model's verdict is read FROM THE KERNEL; a mismatch is
+   classified as MISSED or FALSE ALARM (both forbidden).
+
+### 141.3 MEASURED
+
+| Quantity | Value | Threshold | Margin |
+|:--|--:|:--|:--|
+| `CT_RATIO` (constant-time) | **1.0003** (1.0025 / 1.0007 / 1.0052) | < 3.0 | 3x |
+| `EE_RATIO` (early exit) | **68.80** (60.6 / 62.1 / 68.8) | >= 10.0 | 6.9x |
+
+At 16 bytes the signal DROWNED in timer overhead: measured `CT_RATIO=1.00`,
+`EE_RATIO=1.20` — the secret length was chosen BY MEASUREMENT, not by eye.
+
+Classes: `CONFIRMED_SAFE` and `CONFIRMED_LEAK` — both present, 0 MISSED, 0 FALSE ALARMS.
+
+### 141.4 HONEST BOUNDARIES
+
+* This is a **STATISTICAL oracle**: it measures REAL time, is subject to OS scheduler
+  noise (hence min-of-N and a generous threshold) and is **not claimed as a proof of
+  non-interference**.
+* It measures the difference between TWO implementations, not the absence of leaks in
+  an arbitrary function.
+* The model (IR) and reality (Zig) are linked by a **described correspondence**, not by
+  automatic translation of code into IR.
+
+### 141.5 DEFECT #390 (found while wiring)
+
+`toks()` silently truncated a specification line longer than 16 tokens and a verdict
+was issued for the TRUNCATED line; the SKIP reason named a reason that was NOT the
+real one. Fixed: the token count is computed before parsing; above 16 the line gets
+SKIP "no verdict (fail-closed)".
+
+### 141.6 ENVIRONMENT TRAP (measured)
+
+`ziglang` from pip in `.venv/bin` is a DIFFERENT Zig (no `std.Io`). The oracle picks the
+compiler BY VERSION (`0.17`), excludes `.venv/bin`, and prints the chosen path.
+
+### 141.7 CAN-FAIL
+
+The `oracle-noninterference-missed` case disables registration of the variable-time
+leak: the model says "no leaks" while the live measurement shows 62x -> MISSED ->
+`oracle-noninterference-check` goes red. Oracle meta-test: 14 branches; `--selftest` 14/14.

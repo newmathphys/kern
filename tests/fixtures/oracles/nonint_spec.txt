@@ -1,0 +1,12 @@
+# физический оракул невмешательства (шаг D)
+nonint S1 B1
+nonint S7 M7
+nonint S1 T1
+nonint S1 A2=1 B2
+nonint P1 B1
+nonint S1 P1 B1
+nonint S1 P2 C3:1:2
+nonint S1 A2=1 P2 B2
+nonint S1 Q9
+nonint Z1 B1
+nonint S

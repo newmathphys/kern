@@ -1703,6 +1703,26 @@ def case_oracle_string_falseaccept():
     return "make oracle-string-check"
 
 
+def case_oracle_noninterference_missed():
+    """ШАГ D SABOTAGE: taint-анализ перестаёт видеть ПЕРЕМЕННОЕ ВРЕМЯ над секретом.
+
+    Оракул сверяет МОДЕЛЬ с РЕАЛЬНЫМ временем: `earlyExitEqual` обязан быть
+    помечен утечкой `variable_time`, и живой замер это подтверждает (измерено
+    EE_RATIO ≈ 62 при пороге 10). Если анализ перестанет регистрировать утечку
+    переменного времени, модель скажет «утечек нет» там, где РЕАЛЬНОЕ время
+    зависит от позиции секрета -> ПРОПУСК (MISSED) -> цель красная.
+
+    Мишень — ветка `.variable_time`, а НЕ `.branch_on`: её уже ломает кейс
+    `noninterf`, и харнесс отвергает неоднозначные якоря.
+
+    Цель `oracle-noninterference-check` обязана упасть.
+    """
+    patch("src/verifier/noninterference.zig",
+          "            .variable_time => |v| if (tainted.contains(v)) {\n                try out.append(.{ .leak = .variable_time, .at = i });\n            },",
+          "            .variable_time => |v| if (tainted.contains(v)) {\n                // ЛОМАЕМ (шаг D): утечка переменного времени не регистрируется\n            },")
+    return "make oracle-noninterference-check"
+
+
 def case_attest_sign():
     """Аттестация. ЛОМАЕМ: подпись НЕ проверяется (всегда «валидна»)."""
     patch("src/attest.zig",
@@ -3820,6 +3840,7 @@ CASES = [
     ("oracle-absint-unsound", "absint-оракул: widen теряет границу -> реальный цикл вне интервала", case_oracle_absint_unsound),
     ("oracle-chc-falseproof", "CHC-оракул: постусловие тривиально -> ложное доказательство", case_oracle_chc_falseproof),
     ("oracle-string-falseaccept", "оракул путей: .. не ловится -> канарейка вне корня читается", case_oracle_string_falseaccept),
+    ("oracle-noninterference-missed", "оракул невмешательства: утечка времени не регистрируется -> живой замер ловит", case_oracle_noninterference_missed),
     ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
     ("attest-sig-missing", "Аттестат: подписи нет -> проверка падает",
      case_attest_sig_missing),
