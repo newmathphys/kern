@@ -1687,6 +1687,22 @@ def case_oracle_chc_falseproof():
     return "make oracle-chc-check"
 
 
+def case_oracle_string_falseaccept():
+    """ШАГ D SABOTAGE: санитайзер путей перестаёт ловить `..`.
+
+    Оракул подаёт патологические пути в РЕАЛЬНУЮ ФС: в песочнице лежит
+    канарейка ВНЕ корня, и наивная конкатенация `root + path` её читает.
+    Если `validatePath` больше не распознаёт компонент `..`, путь `/../secret.txt`
+    будет ПРИНЯТ, а побег достижим → ЛОЖНЫЙ ПРИЁМ → цель красная.
+
+    Цель `oracle-string-check` обязана упасть.
+    """
+    patch("src/core/kernfs_router.zig",
+          'if (std.mem.eql(u8, component, "..")) {',
+          'if (std.mem.eql(u8, component, "__never__")) {  // ЛОМАЕМ (шаг D): .. не ловится')
+    return "make oracle-string-check"
+
+
 def case_attest_sign():
     """Аттестация. ЛОМАЕМ: подпись НЕ проверяется (всегда «валидна»)."""
     patch("src/attest.zig",
@@ -3803,6 +3819,7 @@ CASES = [
     ("absint-inv",    "Абстрактная интерпретация: инвариант",    case_absint_inv),
     ("oracle-absint-unsound", "absint-оракул: widen теряет границу -> реальный цикл вне интервала", case_oracle_absint_unsound),
     ("oracle-chc-falseproof", "CHC-оракул: постусловие тривиально -> ложное доказательство", case_oracle_chc_falseproof),
+    ("oracle-string-falseaccept", "оракул путей: .. не ловится -> канарейка вне корня читается", case_oracle_string_falseaccept),
     ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
     ("attest-sig-missing", "Аттестат: подписи нет -> проверка падает",
      case_attest_sig_missing),

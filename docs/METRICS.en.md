@@ -3209,3 +3209,36 @@ RESULT: 3 `sat` and 4 `unsat` agree with the real loop exit value,
 WHAT THIS DOES NOT PROVE. One kind of loop and 4 named properties — not arbitrary
 Horn systems. AGREEMENT between verdict and execution is checked, not the quality of
 the invariant: a confirmed `sat` does not prove the invariant is stronger than needed.
+
+## §140. A PHYSICAL ORACLE FOR PATHS: THE KERNFS SANITISER VS THE REAL FILESYSTEM (#388)
+
+WHY. The `strings` family was checked MODEL AGAINST MODEL: `string_theory.zig` builds
+an SMT query, `validatePath` returns a verdict, and both are declared correct.
+
+WHAT WAS BUILT. The `strings path <path>` form in `kernc theory` + `tools/oracle_string_check.py`
++ `make oracle-string-check`. A **canary OUTSIDE the root** is created in a sandbox,
+and for every path a REAL `open(root + path)` is attempted (naive concatenation).
+
+| path | core | escape (naive) | what the FS said | class |
+|:--|:--|:--|:--|:--|
+| `/ok.txt` | accept | no | opened, `inside` | CONFIRMED_ACCEPT |
+| `/sub/ok.txt` | accept | no | opened, `nested` | CONFIRMED_ACCEPT |
+| `/../secret.txt` | reject (PathTraversal) | **YES** | **opened, `CANARY`** | CONFIRMED_BLOCKED |
+| `/sub/../../secret.txt` | reject (PathTraversal) | **YES** | **opened, `CANARY`** | CONFIRMED_BLOCKED |
+| `/..` | reject (PathTraversal) | YES | IsADirectoryError | CONFIRMED_BLOCKED |
+| `//etc/passwd` | reject (InvalidFormat) | no | FileNotFoundError | STRICTER_THAN_NEEDED |
+| `/./ok.txt` | reject (InvalidFormat) | no | opened, `inside` | STRICTER_THAN_NEEDED |
+| `/sub/` | reject (InvalidFormat) | no | IsADirectoryError | STRICTER_THAN_NEEDED |
+| `/a\x00b` | reject (InvalidFormat) | no | `embedded null byte` | STRICTER_THAN_NEEDED |
+| longer than PATH_MAX | accept | no | OSError (ENAMETOOLONG) | CONFIRMED_ACCEPT |
+
+RESULT: **3 escapes blocked LOAD-BEARINGLY** (the canary outside the root was really
+read), **3 paths accepted and stayed inside**, **0 false accepts**.
+
+DISTINGUISHING "STRICTER" FROM "WRONG": 4 rejected paths with no escape are a
+canonical-form policy (STRICTER_THAN_NEEDED), NOT a false alarm.
+
+HONEST BOUNDARY. `validatePath` is a LEXICAL validator of the KERNFS namespace; it
+does not resolve HOST symlinks because KERNFS serves an in-memory image. The "symlink
+inside the root points outside" case is shown separately and is not part of the
+differential: it is another layer.

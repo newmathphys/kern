@@ -10604,3 +10604,37 @@ Horn-запрос, Z3 отвечает `sat`/`unsat`, и этот ответ о�
 ЧЕГО ЭТО НЕ ДОКАЗЫВАЕТ. Один вид цикла и 4 именованных свойства — не произвольные
 Horn-системы. Сверяется СОГЛАСОВАНИЕ вердикта с исполнением, а не качество
 инварианта: подтверждённый `sat` не доказывает, что инвариант сильнее необходимого.
+
+## §162. ФИЗИЧЕСКИЙ ОРАКУЛ ПУТЕЙ: САНИТАЙЗЕР KERNFS ПРОТИВ РЕАЛЬНОЙ ФС (#388)
+
+ЗАЧЕМ. Семейство `strings` проверялось МОДЕЛЬ ПРОТИВ МОДЕЛИ: `string_theory.zig`
+строит SMT-запрос, `validatePath` возвращает вердикт, и оба объявляются верными.
+
+ЧТО СДЕЛАНО. Форма `strings path <путь>` в `kernc theory` + `tools/oracle_string_check.py`
++ `make oracle-string-check`. В песочнице создаётся **канарейка ВНЕ корня**, и для
+каждого пути делается НАСТОЯЩАЯ попытка `open(root + path)` (наивная конкатенация).
+
+| путь | ядро | побег (наивно) | что сказала ФС | класс |
+|:--|:--|:--|:--|:--|
+| `/ok.txt` | accept | нет | открыт, `inside` | CONFIRMED_ACCEPT |
+| `/sub/ok.txt` | accept | нет | открыт, `nested` | CONFIRMED_ACCEPT |
+| `/../secret.txt` | reject (PathTraversal) | **ДА** | **открыт, `CANARY`** | CONFIRMED_BLOCKED |
+| `/sub/../../secret.txt` | reject (PathTraversal) | **ДА** | **открыт, `CANARY`** | CONFIRMED_BLOCKED |
+| `/..` | reject (PathTraversal) | ДА | IsADirectoryError | CONFIRMED_BLOCKED |
+| `//etc/passwd` | reject (InvalidFormat) | нет | FileNotFoundError | STRICTER_THAN_NEEDED |
+| `/./ok.txt` | reject (InvalidFormat) | нет | открыт, `inside` | STRICTER_THAN_NEEDED |
+| `/sub/` | reject (InvalidFormat) | нет | IsADirectoryError | STRICTER_THAN_NEEDED |
+| `/a\x00b` | reject (InvalidFormat) | нет | `embedded null byte` | STRICTER_THAN_NEEDED |
+| длиннее PATH_MAX | accept | нет | OSError (ENAMETOOLONG) | CONFIRMED_ACCEPT |
+
+РЕЗУЛЬТАТ: **3 побега заблокированы НЕСУЩЕ** (канарейка вне корня реально читалась),
+**3 пути приняты и остались внутри**, **0 ложных приёмов**.
+
+РАЗЛИЧЕНИЕ «СТРОЖЕ» И «ОШИБКА»: 4 отклонённых пути без побега — это политика
+каноничности (STRICTER_THAN_NEEDED), а НЕ ложная тревога. Считать строгость ошибкой
+было бы неверно.
+
+ЧЕСТНАЯ ГРАНИЦА. `validatePath` — ЛЕКСИЧЕСКИЙ валидатор пространства имён KERNFS;
+симлинки ХОСТА он не разрешает, потому что KERNFS обслуживает образ в памяти.
+Случай «симлинк внутри корня ведёт наружу» показан отдельным разделом и в
+дифференциал не входит: это другой слой.

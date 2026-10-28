@@ -32,6 +32,7 @@ const absint = @import("abstract_interp.zig");
 const dtmc_mod = @import("dtmc.zig");
 const redos_mod = @import("redos.zig");
 const chc = @import("chc.zig");
+const KernFS = @import("../core/kernfs_router.zig").KernFS;
 
 pub const Status = enum { proven, refuted, skip, value };
 
@@ -272,6 +273,21 @@ fn dispatch(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Br
                 rep.skipped += 1;
             },
         }
+        return;
+    }
+
+    // ШАГ D: САНИТАЙЗЕР ПУТЕЙ KERNFS. Физический оракул
+    // (`tools/oracle_string_check.py`) проверяет ЛЕКСИЧЕСКУЮ каноничность пути
+    // и то, что отказ НЕ косметический: отклонённый путь, поданный в наивный
+    // `open(root + path)`, реально уводит за пределы корня.
+    if (std.mem.eql(u8, t[0], "strings") and t.len >= 3 and std.mem.eql(u8, t[1], "path")) {
+        KernFS.validatePath(t[2]) catch |err| {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .refuted, .reason = try std.fmt.allocPrint(arena, "путь ОТКЛОНЁН: {s}", .{@errorName(err)}) });
+            rep.refuted += 1;
+            return;
+        };
+        try rep.outcomes.append(alloc, .{ .name = spec, .status = .proven, .reason = "путь ПРИНЯТ (каноничная форма)" });
+        rep.proven += 1;
         return;
     }
 

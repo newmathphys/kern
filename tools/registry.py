@@ -244,6 +244,7 @@ CLASS = {
     "oracle-redos-check": "CHECK",    # шаг D: ФИЗИЧЕСКИЙ оракул ReDoS (реальный движок)
     "oracle-absint-check": "CHECK",   # шаг D: ФИЗИЧЕСКИЙ оракул absint (реальный цикл)
     "oracle-chc-check": "CHECK",      # шаг D: ФИЗИЧЕСКИЙ оракул CHC (реальное исполнение)
+    "oracle-string-check": "CHECK",   # шаг D: ФИЗИЧЕСКИЙ оракул путей (реальная ФС)
     "showcase-live": "META",             # §C: ЖИВАЯ витрина — ПРОГОНЯЕТ строки, не печатает
     "showcase-live-full": "META",        # §C: то же + длинные корпуса (минуты)
     # --- измерения: упасть НЕ могут -----------------------------------------
@@ -373,6 +374,7 @@ CASE_TARGET = {
     "oracle-redos-missed": "oracle-redos-check",
     "oracle-absint-unsound": "oracle-absint-check",
     "oracle-chc-falseproof": "oracle-chc-check",
+    "oracle-string-falseaccept": "oracle-string-check",
     "gen-tests-check": "gen-tests-check",
     "simplify-check": "simplify-check",
     "bounds-check": "bounds-check",

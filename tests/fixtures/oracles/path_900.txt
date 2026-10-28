@@ -1,0 +1,2 @@
+# физический оракул путей
+strings path /link/secret.txt
