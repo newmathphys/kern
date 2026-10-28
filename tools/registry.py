@@ -362,6 +362,7 @@ CASE_TARGET = {
     "bitrot-chaos": "bitrot-chaos",
     "pcc-check": "pcc-check",
     "xray-check": "xray-check",
+    "xray-ext-silent": "xray-check",
     "gen-tests-check": "gen-tests-check",
     "simplify-check": "simplify-check",
     "bounds-check": "bounds-check",

@@ -1027,6 +1027,25 @@ def case_contract_lock_coarse():
     return "make contracts-lock-check"
 
 
+def case_xray_ext_silent():
+    """#381 SABOTAGE: граница по расширениям снова МОЛЧАЛИВАЯ.
+
+    `_XRAY_EXTS` был ВТОРЫМ списком «известного», разошедшимся с `CLIKE_EXT`:
+    парсер C++ УМЕЛ, а `--xray` выбрасывал `.cpp`/`.cc` молча. ИЗМЕРЕНО на
+    официальном датасете Meta: 46% файлов (876 из 1916) были невидимы, а
+    строка «файлов к сканированию: N» читалась как «в каталоге N файлов».
+
+    ЛОМАЕМ: возвращаем ЛИТЕРАЛ без `.cpp`/`.cc` -> `.cpp` перестаёт
+    сканироваться -> `xray-check` ОБЯЗАН покраснеть. Если остаётся зелёным,
+    проверка границы по расширениям ничего не значит.
+    """
+    patch("tools/kern_contracts.py",
+          "_XRAY_EXTS = CLIKE_EXT | {\".py\"}",
+          "_XRAY_EXTS = {\".py\", \".ts\", \".js\", \".go\", \".zig\", \".c\", \".h\", \".rs\"}"
+          "  # ЛОМАЕМ (#381): второй список без .cpp/.cc")
+    return "bash tools/xray_check.sh"
+
+
 def case_anti_self_deception_fixture():
     """Anti-self-deception SABOTAGE: the corpus fixture drifts from the gate.
 
@@ -3656,6 +3675,7 @@ CASES = [
     ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
     ("contract-lock-coarse", "Замок: критерий покрытия снова «содержит @kern:» -> красный", case_contract_lock_coarse),
+    ("xray-ext-silent", "xray: граница по расширениям снова молчаливая -> красный", case_xray_ext_silent),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("query-kind-leak", "Правило посылок применено к equivalence -> красный", case_query_kind_leak),
     ("anti-self-deception-fixture", "Якорь мутации исчез -> гейт красный", case_anti_self_deception_fixture),

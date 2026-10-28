@@ -5565,7 +5565,56 @@ _XRAY_SKIP_DIRS = {".git", ".hg", ".svn",
                    "site-packages", "dist-packages"}
 # Ограничения на ОДИН файл: минифицированные бандлы и гигантские генераты.
 _XRAY_MAX_FILE = 512 * 1024
-_XRAY_EXTS = {".py", ".ts", ".js", ".go", ".zig", ".c", ".h", ".rs"}
+# ДЕФЕКТ #381 (найден при замере CyberSecEval): здесь был ВТОРОЙ список
+# «известного», разошедшийся с первым. `CLIKE_EXT` (стр. 1651) УЖЕ содержал
+# `.cpp` и `.cc` — то есть контрактный путь C++ разбирал, — а `--xray`
+# выбрасывал эти файлы МОЛЧА. ИЗМЕРЕНО на официальном датасете Meta: каталог
+# 240 файлов, сканер сообщал «файлов к сканированию: 130», и 110 файлов
+# (.cpp/.cs/.java/.php) были невидимы — 46% датасета (876 из 1916).
+#
+# Правка: ОДИН источник истины — набор берётся из `CLIKE_EXT` плюс `.py`.
+# Два списка больше не могут разойтись (класс «список известного»).
+_XRAY_EXTS = CLIKE_EXT | {".py"}
+
+
+def _xray_collect(root: Path) -> tuple[list[Path], dict[str, int]]:
+    """Файлы к сканированию + УЧЁТ пропущенных ПО РАСШИРЕНИЮ (дефект #381).
+
+    Возвращает `(files, skipped_by_ext)`. Файл, не попавший в набор
+    расширений, НЕ исчезает молча: он возвращается в счётчике, и вызывающий
+    код обязан его напечатать. Без этого «файлов к сканированию: N»
+    читается как «в каталоге N файлов» — что и было ложью в #381.
+    """
+    files: list[Path] = []
+    skipped: dict[str, int] = {}
+    if root.is_file():
+        if root.suffix in _XRAY_EXTS:
+            files.append(root)
+        else:
+            skipped[root.suffix or "<без расширения>"] = 1
+        return files, skipped
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
+        for f in sorted(filenames):
+            fp = Path(dirpath) / f
+            if fp.is_symlink():
+                continue
+            if fp.suffix not in _XRAY_EXTS:
+                key = fp.suffix or "<без расширения>"
+                skipped[key] = skipped.get(key, 0) + 1
+                continue
+            files.append(fp)
+    return files, skipped
+
+
+def _xray_report_skipped(skipped: dict[str, int]) -> None:
+    """Напечатать пропуск по расширению ИМЕНОВАННО, а не молча (#381)."""
+    if not skipped:
+        return
+    total = sum(skipped.values())
+    top = ", ".join(f"{k}:{v}" for k, v in
+                    sorted(skipped.items(), key=lambda kv: (-kv[1], kv[0]))[:8])
+    print(f"[i] ПРОПУЩЕНО по расширению: {total} файл(ов) — {top}")
 
 
 # Делители C-like: `a / b`, `a % b`, `@divTrunc(a, b)`, `@rem(a, b)`.
@@ -6730,16 +6779,8 @@ def cmd_full_scan(path: str, kernc) -> int:
     if not root.exists():
         print(f"[!] путь не найден: {path}")
         return 2
-    files: list[Path] = []
-    if root.is_file():
-        files = [root] if root.suffix in _XRAY_EXTS else []
-    else:
-        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-            dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
-            for f in sorted(filenames):
-                fp = Path(dirpath) / f
-                if fp.suffix in _XRAY_EXTS and not fp.is_symlink():
-                    files.append(fp)
+    files, skipped_ext = _xray_collect(root)
+    _xray_report_skipped(skipped_ext)
 
     by_ext: dict[str, int] = {}
     checked = total = 0
@@ -6992,6 +7033,7 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
     try:
         files: list[Path] = []
         skipped_files = 0          # мусор: симлинки, гиганты, минифицированные
+        skipped_ext: dict[str, int] = {}   # #381: пропуск ПО РАСШИРЕНИЮ
         if root.is_file():
             files = [root]
         else:
@@ -7002,6 +7044,9 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
                 for f in sorted(filenames):
                     fp = Path(dirpath) / f
                     if fp.suffix not in _XRAY_EXTS:
+                        # ДЕФЕКТ #381: не «continue молча», а ИМЕНОВАННЫЙ учёт.
+                        _k = fp.suffix or "<без расширения>"
+                        skipped_ext[_k] = skipped_ext.get(_k, 0) + 1
                         continue
                     if fp.is_symlink():
                         skipped_files += 1
@@ -7017,6 +7062,7 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
                         skipped_files += 1
                         continue
                     files.append(fp)
+        _xray_report_skipped(skipped_ext)
         stats: dict[str, list[int]] = {}
         findings: list[str] = []
         worst: list[tuple[int, str, str]] = []
@@ -7410,12 +7456,8 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     находки с точными путями. Ничего не выдумывает: файлы, которые не удалось
     разобрать, попадают в список пропущенных с причиной.
     """
-    files: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _XRAY_SKIP_DIRS]
-        for f in sorted(filenames):
-            if Path(f).suffix in _XRAY_EXTS:
-                files.append(Path(dirpath) / f)
+    files, skipped_ext = _xray_collect(root)
+    _xray_report_skipped(skipped_ext)
     print(f"[REPO SCAN] {root} | файлов к сканированию: {len(files)}")
     total_checked = total_fns = total_skip = 0
     all_findings: list[str] = []
