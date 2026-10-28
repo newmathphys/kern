@@ -1046,6 +1046,24 @@ def case_xray_ext_silent():
     return "bash tools/xray_check.sh"
 
 
+def case_oracle_dtmc_wrong():
+    """ШАГ D SABOTAGE: аналитика DTMC снова становится неверной.
+
+    Оракул сравнивает аналитическую P из ЯДРА с РЕАЛЬНОЙ симуляцией. Если
+    ядро считает неверно, оракул ОБЯЗАН покраснеть — иначе «физический
+    оракул» ничего не проверяет и остаётся моделью против модели.
+
+    ЛОМАЕМ: `acc += p * x[j]` -> `acc += p * x[j] * 2.0` — вероятность
+    удваивается (0.01 -> 0.02), симуляция даёт ~0.0092, разница 0.0108
+    больше допуска 4*sigma=0.004. Цель `oracle-dtmc-check` обязана упасть.
+    """
+    patch("src/verifier/dtmc.zig",
+          "                for (self.trans[i], 0..) |p, j| acc += p * x[j];",
+          "                for (self.trans[i], 0..) |p, j| acc += p * x[j] * 2.0;"
+          "  // ЛОМАЕМ (шаг D): аналитика вдвое")
+    return "make oracle-dtmc-check"
+
+
 def case_anti_self_deception_fixture():
     """Anti-self-deception SABOTAGE: the corpus fixture drifts from the gate.
 
@@ -3676,6 +3694,7 @@ CASES = [
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),
     ("contract-lock-coarse", "Замок: критерий покрытия снова «содержит @kern:» -> красный", case_contract_lock_coarse),
     ("xray-ext-silent", "xray: граница по расширениям снова молчаливая -> красный", case_xray_ext_silent),
+    ("oracle-dtmc-wrong", "DTMC-оракул: аналитика ядра неверна -> симуляция ловит", case_oracle_dtmc_wrong),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("query-kind-leak", "Правило посылок применено к equivalence -> красный", case_query_kind_leak),
     ("anti-self-deception-fixture", "Якорь мутации исчез -> гейт красный", case_anti_self_deception_fixture),
