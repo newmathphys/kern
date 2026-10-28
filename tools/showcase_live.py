@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-KERN-Proprietary
+"""ЖИВАЯ ВИТРИНА: одна команда, которая ПРОГОНЯЕТ оракул-подтверждённые строки.
+
+ЗАЧЕМ. «Что умеет KERN» должно быть видно за 30 секунд, а не вычитываться из
+60 документов. Но витрина, которая просто ПЕЧАТАЕТ таблицу, — это реклама.
+Поэтому каждая строка здесь **выполняется**, и её вердикт берётся из ЖИВОГО
+вывода, а не из текста документа.
+
+ПРАВИЛО СТРОКИ (жёсткое, то же, что в docs/CORPORA.md):
+  * команда — выполнимая;
+  * оракул — ВНЕШНИЙ (живой компилятор/интерпретатор), которого нельзя
+    подделать нашим кодом;
+  * «чего НЕ доказывает» — обязательная колонка.
+Строка без оракула сюда не попадает: модельные семейства (chc/dtmc/redos/
+absint/string/noninterference) перечисляются ОТДЕЛЬНО как «оракул пока
+внутренний» — публиковать их примеры как доказательства нельзя.
+
+Режимы:
+  --quick (по умолчанию) — только быстрые строки (секунды), офлайн;
+  --full                 — плюс длинные корпуса (минуты).
+"""
+from __future__ import annotations
+
+import shlex
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+# ДЕФЕКТ: путь содержит ПРОБЕЛ (`Рабочий стол`), а команды идут через
+# `shell=True` — без кавычек `/bin/sh` рвал команду на «/home/.../Рабочий».
+# Кавычки обязательны для ЛЮБОГО пути, который подставляется в команду.
+PY = shlex.quote(str(ROOT / ".venv" / "bin" / "python"))
+KERNC = shlex.quote(str(ROOT / "zig-out" / "bin" / "kernc"))
+
+# (название, команда, обязательные маркеры, оракул, чего НЕ доказывает, время)
+QUICK = (
+    ("Переполнение i32 -> точные числа аварии",
+     f"{PY} tools/kern_contracts.py audits/codecheck/rust_overflow.rs",
+     ("КОНТРПРИМЕР", "RUNTIME CONFIRMED"), "живой gcc/rustc",
+     "только про эту функцию и её правило — не про весь репозиторий", "~0.5 с"),
+    ("Деление на ноль -> точные числа аварии",
+     f"{PY} tools/kern_contracts.py audits/codecheck/c_unguarded.c",
+     ("КОНТРПРИМЕР", "RUNTIME CONFIRMED"), "живой gcc",
+     "то же", "~0.5 с"),
+    ("Рефакторинг: эквивалентен ИЛИ расхождение с числом",
+     "make diff-equiv",
+     ("DIVERGED", "EQUIVALENT"), "живой запуск обеих версий",
+     "сравнение в Int-теории: нелинейные тела исключаются с названной причиной",
+     "~0.6 с"),
+    ("Граница --xray по расширениям названа, а не молчалива",
+     f"{PY} tools/kern_contracts.py --xray tests/fixtures/xray_exts",
+     ("ПРОПУЩЕНО по расширению", "файлов к сканированию"), "сам факт учёта (#381)",
+     "это проверка ПОЛНОТЫ обхода, а не находка в коде", "~1 с"),
+    ("Диагност: чего не хватает функции",
+     f"{PY} tools/kern_contracts.py explain --hypotheses examples/hypotheses_demo.py",
+     ("ГИПОТЕЗА, не доказательство", "Файл не изменён"), "повторный прогон Z3",
+     "гипотеза, а не доказательство; решение принимает человек", "~1 с"),
+    ("Замок: агент не подменил спецификацию",
+     "make contracts-lock-check",
+     ("замок контрактов цел",), "сверка отпечатков (пломба)",
+     "защищает ОБЪЯВЛЕННЫЕ контракты; не проверяет их истинность", "~1 с"),
+    ("Нативный Zig-фронтенд (0 Python): контракты из .zig",
+     f"{KERNC} verify-zig tests/fixtures/zig_ast_contracts.zig",
+     ("ДОКАЗАНО",), "Z3 + собственный пруф-чекер",
+     "функции вне подмножества честно не проверяются", "~1 с"),
+)
+
+FULL = (
+    ("MBPP+: краши, которые пропустил 80-кратный MBPP+",
+     "make mbpp-xray-check", ("ПОДТВЕРЖДЕНО", "ложных"),
+     "живой Python", "необработанный краевой случай, а не уязвимость", "~15 мин"),
+    ("SV-COMP: свидетели UNSAFE подтверждены компилятором",
+     "make svcomp-witness-check", ("ПОДТВЕРЖДЕНО",),
+     "gcc -Woverflow + UBSan/ASan",
+     "SAFE = нет сигнала на перебранных свидетелях, не доказательство", "~4 мин"),
+    ("SMT-LIB: официальные UNSAT-выводы разобраны пруф-чекером",
+     "make smtlib-proof-check", ("holes",),
+     "Z3 + собственный пруф-чекер", "часть шагов остаётся доверенной (названо)", "~3 мин"),
+    ("CWE-близнецы bad/good",
+     "make cwe-twins-check", ("ИНДЕКС",),
+     "живой компилятор", "НАШИ фикстуры, не официальный NIST SARD", "~2 мин"),
+    ("Корпус проверки кода на 4 языках",
+     "make codecheck", ("FP = 0",),
+     "компилятор + Python", "33 файла; FP=0 — про корпус, не про любой код", "~1 мин"),
+)
+
+MODEL_ONLY = (
+    ("chc", "нужен конкретный прогон цикла с проверкой инварианта на каждой итерации"),
+    ("dtmc", "нужно Монте-Карло против аналитической P"),
+    ("redos", "нужен секундомер на патологической строке"),
+    ("absint", "нужно сравнение интервала с конкретными значениями"),
+    ("string", "нужна реальная попытка открыть файл вне корня"),
+    ("noninterference", "останется ШУМНЫМ статистическим оракулом — так и будет помечен"),
+)
+
+
+def run_row(name, cmd, markers, oracle, not_proves, est):
+    t0 = time.time()
+    try:
+        p = subprocess.run(cmd, shell=True, cwd=ROOT, capture_output=True,
+                           text=True, errors="replace", timeout=1800)
+        out = (p.stdout or "") + (p.stderr or "")
+        rc = p.returncode
+    except subprocess.TimeoutExpired:
+        out, rc = "TIMEOUT", 124
+    dt = time.time() - t0
+    missing = [m for m in markers if m not in out]
+    ok = not missing
+    print(f"[{'OK  ' if ok else 'FAIL'}] {name}  ({dt:.1f} с, ожидалось {est})")
+    print(f"        команда: {cmd}")
+    print(f"        оракул:  {oracle}")
+    print(f"        НЕ доказывает: {not_proves}")
+    if not ok:
+        print(f"        [!] не найдены маркеры: {missing} (rc={rc})")
+        for line in out.splitlines()[-4:]:
+            print(f"            | {line[:150]}")
+    return ok
+
+
+def main() -> int:
+    full = "--full" in sys.argv
+    rows = QUICK + (FULL if full else ())
+    print("=" * 78)
+    print("KERN: ЖИВАЯ ВИТРИНА — каждая строка ВЫПОЛНЯЕТСЯ, вердикт из живого вывода")
+    print("=" * 78)
+    if not full:
+        print(f"[i] быстрый режим: {len(QUICK)} строк. Длинные корпуса: make showcase-live-full")
+    bad = 0
+    for row in rows:
+        if not run_row(*row):
+            bad += 1
+        print()
+    print("-" * 78)
+    print(f"ИТОГ: выполнено {len(rows)} строк | провалов {bad}")
+    print("-" * 78)
+    print("МОДЕЛЬНЫЕ СЕМЕЙСТВА (оракул пока ВНУТРЕННИЙ — как доказательство не публикуются):")
+    for name, why in MODEL_ONLY:
+        print(f"  {name:16} {why}")
+    print()
+    print("Полный инвентарь корпусов с N/M и оракулами: docs/CORPORA.md (+ .en.md)")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -240,6 +240,8 @@ CLASS = {
     "showcase": "BUILD",                 # пересборка графа витрины из src/
     "showcase-check": "META",            # граф витрины == src/ (+ --selftest)
     "demo-all": "META",                  # генератор русской витрины (make demo-all)
+    "showcase-live": "META",             # §C: ЖИВАЯ витрина — ПРОГОНЯЕТ строки, не печатает
+    "showcase-live-full": "META",        # §C: то же + длинные корпуса (минуты)
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",
