@@ -3180,3 +3180,32 @@ determinism confirmed (two runs — one interval).
 WHAT THIS DOES NOT PROVE. SOUNDNESS is checked, not PRECISION: a wide interval is not
 a violation and is reported separately. One kind of linear loop is covered (`x += step`);
 non-linear bodies and arbitrary programs are not.
+
+## §139. A PHYSICAL ORACLE FOR CHC/Horn: THE INVARIANT VERDICT VS A REAL LOOP (#387)
+
+WHY. The `chc` family was checked MODEL AGAINST MODEL: `chc.zig` builds a Horn
+query, Z3 answers `sat`/`unsat`, and that answer is declared correct.
+
+WHAT WAS BUILT. The `chc <init> <step> <bound> <property>` form in `kernc theory` +
+`tools/oracle_chc_check.py` + `make oracle-chc-check`.
+
+KEY POINT: the loop is DETERMINISTIC (`init`/`step`/`bound` fixed), so a single real
+run IS its whole trajectory, while the Horn verdict is universal. A mismatch in
+either direction is an error.
+
+| loop (init, step, bound) | property | real exit | core | class |
+|:--|:--|--:|:--|:--|
+| (0, 1, 10) | ge_bound | 10 | sat | confirmed (holds) |
+| (0, 1, 10) | lt_bound | 10 | unsat | confirmed (violated) |
+| (0, 2, 10) | parity_even | 10 | sat | confirmed (holds) |
+| (1, 2, 10) | parity_even | 11 | unsat | confirmed (violated) |
+| (5, 1, 10) | le_init | 10 | unsat | confirmed (violated) |
+| (100, 1, 50) | ge_bound | 100 | sat | confirmed (holds) |
+| (0, 1, 10) | le_init | 10 | unsat | confirmed (violated) |
+
+RESULT: 3 `sat` and 4 `unsat` agree with the real loop exit value,
+**0 false proofs, 0 false alarms**. selftest 13/13.
+
+WHAT THIS DOES NOT PROVE. One kind of loop and 4 named properties — not arbitrary
+Horn systems. AGREEMENT between verdict and execution is checked, not the quality of
+the invariant: a confirmed `sat` does not prove the invariant is stronger than needed.

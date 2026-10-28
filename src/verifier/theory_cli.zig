@@ -31,6 +31,7 @@ const array_theory = @import("array_theory.zig");
 const absint = @import("abstract_interp.zig");
 const dtmc_mod = @import("dtmc.zig");
 const redos_mod = @import("redos.zig");
+const chc = @import("chc.zig");
 
 pub const Status = enum { proven, refuted, skip, value };
 
@@ -220,6 +221,57 @@ fn dispatch(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Br
         };
         try rep.outcomes.append(alloc, .{ .name = spec, .status = .value, .reason = try intervalSmt(arena, r) });
         rep.values += 1;
+        return;
+    }
+
+    // ШАГ D: CHC/Horn — ИНВАРИАНТ ЦИКЛА. Физический оракул
+    // (`tools/oracle_chc_check.py`) прогоняет РЕАЛЬНЫЙ цикл и требует, чтобы
+    // вердикт ядра согласовался с фактическим значением на выходе: `sat`
+    // (инвариант есть) обязан сопровождаться ВЫПОЛНЕНИЕМ постусловия,
+    // `unsat` (инварианта нет) — его НАРУШЕНИЕМ.
+    if (std.mem.eql(u8, t[0], "chc")) {
+        if (t.len < 5) {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "chc: нужны <init> <step> <bound> <свойство>" });
+            rep.skipped += 1;
+            return;
+        }
+        const init = std.fmt.parseInt(i64, t[1], 10) catch return skipNum(alloc, rep, spec, "init");
+        const step = std.fmt.parseInt(i64, t[2], 10) catch return skipNum(alloc, rep, spec, "step");
+        const bound = std.fmt.parseInt(i64, t[3], 10) catch return skipNum(alloc, rep, spec, "bound");
+        // Постусловие — ИМЕНОВАННОЕ свойство: SMT-выражение с пробелами
+        // разорвало бы токенизацию спецификации.
+        const post: []const u8 = if (std.mem.eql(u8, t[4], "ge_bound"))
+            try std.fmt.allocPrint(arena, "(>= x {d})", .{bound})
+        else if (std.mem.eql(u8, t[4], "lt_bound"))
+            try std.fmt.allocPrint(arena, "(< x {d})", .{bound})
+        else if (std.mem.eql(u8, t[4], "parity_even"))
+            "(= (mod x 2) 0)"
+        else if (std.mem.eql(u8, t[4], "le_init"))
+            try std.fmt.allocPrint(arena, "(<= x {d})", .{init})
+        else {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "chc: неизвестное свойство (ge_bound|lt_bound|parity_even|le_init)" });
+            rep.skipped += 1;
+            return;
+        };
+        const init_cond = try std.fmt.allocPrint(arena, "(= x {d})", .{init});
+        const guard = try std.fmt.allocPrint(arena, "(< x {d})", .{bound});
+        const step_expr = try std.fmt.allocPrint(arena, "(+ x {d})", .{step});
+        var eng = chc.ChcEngine.init(arena);
+        const st = eng.proveLoopSafety(bridge, init_cond, guard, step_expr, post);
+        switch (st) {
+            .Sat => {
+                try rep.outcomes.append(alloc, .{ .name = spec, .status = .proven, .reason = try std.fmt.allocPrint(arena, "инвариант СУЩЕСТВУЕТ: свойство {s} держится", .{t[4]}) });
+                rep.proven += 1;
+            },
+            .Unsat => {
+                try rep.outcomes.append(alloc, .{ .name = spec, .status = .refuted, .reason = try std.fmt.allocPrint(arena, "инварианта НЕТ: свойство {s} нарушается", .{t[4]}) });
+                rep.refuted += 1;
+            },
+            else => {
+                try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "решатель не ответил (Horn: unknown/timeout)" });
+                rep.skipped += 1;
+            },
+        }
         return;
     }
 

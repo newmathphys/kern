@@ -1670,6 +1670,23 @@ def case_oracle_absint_unsound():
     return "make oracle-absint-check"
 
 
+def case_oracle_chc_falseproof():
+    """ШАГ D SABOTAGE: постусловие Horn-запроса становится ТРИВИАЛЬНЫМ.
+
+    Оракул сверяет вердикт ядра с РЕАЛЬНЫМ исполнением цикла: `sat` (инвариант
+    есть) обязан сопровождаться выполнением свойства. Если третья клауза Horn
+    (`inv(x) ∧ ¬guard(x) → post`) заменить на тождественно истинную, система
+    становится satisfiable ВСЕГДА → ядро скажет `sat` там, где реальный цикл
+    свойство НАРУШАЕТ → ЛОЖНОЕ ДОКАЗАТЕЛЬСТВО → цель красная.
+
+    Цель `oracle-chc-check` обязана упасть.
+    """
+    patch("src/verifier/chc.zig",
+          "(not {s})) {s})))",
+          "(not {s})) true)))  // ЛОМАЕМ (шаг D): постусловие тривиально")
+    return "make oracle-chc-check"
+
+
 def case_attest_sign():
     """Аттестация. ЛОМАЕМ: подпись НЕ проверяется (всегда «валидна»)."""
     patch("src/attest.zig",
@@ -3785,6 +3802,7 @@ CASES = [
     ("concolic-victim", "Конколика: подмена цели",              case_concolic_victim),
     ("absint-inv",    "Абстрактная интерпретация: инвариант",    case_absint_inv),
     ("oracle-absint-unsound", "absint-оракул: widen теряет границу -> реальный цикл вне интервала", case_oracle_absint_unsound),
+    ("oracle-chc-falseproof", "CHC-оракул: постусловие тривиально -> ложное доказательство", case_oracle_chc_falseproof),
     ("attest-sign",   "Аттестация: подпись не проверяется",      case_attest_sign),
     ("attest-sig-missing", "Аттестат: подписи нет -> проверка падает",
      case_attest_sig_missing),
