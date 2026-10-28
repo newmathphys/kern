@@ -59,9 +59,9 @@ python3 tools/ai_traps_check.py --selftest
 ## Registry facts this page is consistent with
 
 <!-- fact:core_tests -->451 core tests · <!-- fact:next_tests -->53 next tests ·
-<!-- fact:catalog -->480 catalog · <!-- fact:check_targets -->176 CHECK ·
-<!-- fact:canfail_cases -->214 can-fail cases · <!-- fact:anchors -->175 anchors ·
-<!-- fact:registry_targets -->229 registry targets ·
+<!-- fact:catalog -->480 catalog · <!-- fact:check_targets -->177 CHECK ·
+<!-- fact:canfail_cases -->215 can-fail cases · <!-- fact:anchors -->176 anchors ·
+<!-- fact:registry_targets -->230 registry targets ·
 <!-- fact:meta_targets -->39 meta · <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs: <!-- fact:quixbugs.smt -->6 SMT-provable ·
 <!-- fact:quixbugs.differential -->40 differential pairs.
