@@ -8,14 +8,14 @@
 > this file (open work) → `docs/PLAN_v2.7.2.md` (the plan) →
 > `docs/CAPABILITY_MATRIX.md` (what is proven and what each proof does NOT show).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->219 · anchors <!-- fact:anchors -->180 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
 | Check | Value |
 |:--|:--|
 | Branch / tree | `main` = `fedce93`, clean |
-| Registry | <!-- fact:registry_targets -->237 targets · **<!-- fact:check_targets -->181/<!-- fact:check_targets -->181 CHECK** · <!-- fact:canfail_cases -->219 non-vacuous cases |
+| Registry | <!-- fact:registry_targets -->237 targets · **<!-- fact:check_targets -->181/<!-- fact:check_targets -->181 CHECK** · <!-- fact:canfail_cases -->221 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (per `docs/STATUS.md`) |
 
