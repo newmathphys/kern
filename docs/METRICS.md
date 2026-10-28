@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->178 · cases <!-- fact:canfail_cases -->216 · anchors <!-- fact:anchors -->177 · registry <!-- fact:registry_targets -->231 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->178/<!-- fact:check_targets -->178 · cases <!-- fact:canfail_cases -->216 · anchors <!-- fact:anchors -->177 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->179/<!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -10704,3 +10704,34 @@ Horn-системы. Сверяется СОГЛАСОВАНИЕ вердикт�
 времени (мишень `.variable_time`): модель говорит «утечек нет», живой замер
 показывает 62× → ПРОПУСК → цель `oracle-noninterference-check` красная.
 Мета-тест оракула — 14 ветвей; `--selftest` 14/14.
+
+## §164. ДВА ДЕФЕКТА ОДНОГО КЛАССА: ПОДПИСЬ ЛГАЛА, ОТКАЗ ОБВИНЯЛ НАШ КОД (#391, #392)
+
+Оба дефекта — про **сообщение, которое говорит не то, что произошло**. Это тот же
+класс, что #370/#377/#378/#381, и оба найдены при СВЕРКЕ уже опубликованных чисел
+и команд с фактическим поведением, а не при чтении кода.
+
+### 164.1 Подпись вердикта называла ДЕЛИМОЕ (#391)
+
+| Что | Значение |
+|:--|:--|
+| Симптом | на `a // b` строка вердикта: «делитель: **a**» — то есть ДЕЛИМОЕ |
+| Вердикт и контрпример | **были верны** — лгала только подпись |
+| Причина | кортеж сборщика `(числитель, делитель, гарды)` (с #334), а печать брала `d[0]` = числитель |
+| Исправление | готовый помощник `_divisor_of(d)` в обоих местах |
+| Второй, латентный | `_drop_macro_divisors` фильтровал по ЧИСЛИТЕЛЮ: на `Path / name` (#381) проверялся `Path`, а не `name` |
+| Гейт | `div_guards_check.py` требует настоящий делитель в подписи + невакуумность самого утверждения |
+
+### 164.2 Отказ из-за неверного компилятора обвинял наш `build.zig` (#392)
+
+| Что | Значение |
+|:--|:--|
+| Условие | pip-пакет `ziglang` **0.13.0** в PATH (он в `.venv/bin` НАМЕРЕННО — для `portable-bench`) |
+| Симптом | `make build` падал ошибкой ВНУТРИ нашего кода: `build.zig:12:54: error: no field named 'root_module'` |
+| Цена | от `build` зависят **59 целей**, включая витрину |
+| Измерено на витрине | при pip-Zig: `showcase-live` — **7 строк, 4 провала**, и каждый читался как дефект нашего кода |
+| Исправление | цель `zig-guard`: сверка `$(ZIG) version` с `0.17`, при несовпадении `[ОТКАЗ]` с ИМЕНЕМ программы и требуемой версией, rc=2; подключён к 10 целям, вызывающим Zig напрямую |
+| Измерено после | верный Zig → rc=0; pip-Zig → `[ОТКАЗ]` rc=2 и **ноль** строк `no field named`; Zig отсутствует → тоже `[ОТКАЗ]` rc=2 |
+| Витрина после | `showcase-live` — **7 строк, 0 провалов** |
+| Гейт | `make zig-guard-check` — три исхода, двусторонне: «сборка упала» ≠ «отказ с именем», поэтому `no field named` запрещён отдельно |
+| Кейс | `zig-guard` (rc=2 за 1 с): снятие guard из `build:` обязано красить ворота |

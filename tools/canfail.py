@@ -2687,6 +2687,23 @@ def case_native_zig_ast_drop():
     return "zig build && bash tools/native_zig_ast_check.sh"
 
 
+def case_zig_guard():
+    """ЗАЩИТА ОТ НЕВЕРНОГО КОМПИЛЯТОРА: отказ обязан быть НАЗВАННЫМ (#392).
+
+    ЛОМАЕМ: убираем `zig-guard` из зависимостей `build:`. Тогда при
+    pip-`ziglang` 0.13.0 в PATH `make build` снова падает ошибкой ВНУТРИ
+    нашего `build.zig` («no field named 'root_module'») — то есть сообщение
+    обвиняет НАШ код вместо неверного компилятора. `make zig-guard-check`
+    обязан покраснеть: он требует строку `[ОТКАЗ]` и ЗАПРЕЩАЕТ `no field named`.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота чувствительны именно к
+    НАЗВАННОСТИ отказа, а не к «любой ошибке сборки». Именно поэтому
+    проверка двусторонняя: «сборка упала» — это ещё не отказ с именем.
+    """
+    patch("Makefile", "\nbuild: zig-guard\n", "\nbuild:\n")
+    return "make zig-guard-check"
+
+
 def case_native_theories_file_drop():
     """НАТИВНЫЕ ТЕОРИИ SABOTAGE: вердикт решателя больше не различается.
 
@@ -3937,6 +3954,8 @@ CASES = [
      case_svcomp_witness_drop),
     ("native-zig-ast-drop", "Overflow obligation for plain `+` dropped -> gate red",
      case_native_zig_ast_drop),
+    ("zig-guard", "Unnamed refusal from a wrong Zig compiler -> gate red",
+     case_zig_guard),
     ("native-theories-file-drop", "Solver verdict ignored -> risk not refuted -> gate red",
      case_native_theories_file_drop),
     ("mbpp-xray-blindspot", "Division-by-zero accusation dropped -> blindspot lost -> red",

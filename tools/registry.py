@@ -220,6 +220,8 @@ CLASS = {
     # НАТИВНЫЙ ФРОНТЕНД `.zig` НА `std.zig.Ast`: проверка ВОЗМОЖНОСТИ ядра
     # разбирать исходники БЕЗ Python и доказывать/опровергать контракты, CHECK.
     "native-zig-ast-check": "CHECK",
+    "zig-guard-check": "CHECK",
+    "zig-guard": "BUILD",
     # ФАЙЛОВЫЙ ВХОД ДЛЯ НАТИВНЫХ ТЕОРИЙ: проверка ВОЗМОЖНОСТИ (теории массивов,
     # интервалов и цепей Маркова работают на ВНЕШНЕМ файле), CHECK.
     "native-theories-file-check": "CHECK",
@@ -532,6 +534,7 @@ CASE_TARGET = {
     "svcomp-witness-drop": "svcomp-witness-check",
     # Нативный фронтенд: кейс убирает обязательство переполнения у обычного `+`.
     "native-zig-ast-drop": "native-zig-ast-check",
+    "zig-guard": "zig-guard-check",
     # Нативные теории: кейс глушит вердикт решателя -> риск не опровергается.
     "native-theories-file-drop": "native-theories-file-check",
     # MBPP+: кейс глушит обвинение -> слепое пятно теряется, ворота краснеют.

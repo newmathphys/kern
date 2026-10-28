@@ -4,6 +4,31 @@
 # =========================================================================
 
 ZIG      ?= zig
+ZIG_REQUIRED ?= 0.17
+
+# ДЕФЕКТ #392: `$(ZIG) build` без проверки версии компилятора.
+# Если в PATH оказывается pip-пакет `ziglang` (0.13.0 — он ЛЕЖИТ в .venv/bin
+# намеренно, для цели `portable-bench`), сборка падает ошибкой ВНУТРИ нашего
+# build.zig: «no field named 'root_module' in struct 'Build.ExecutableOptions'».
+# То есть сообщение обвиняет НАШ код, а причина — неверный компилятор.
+# 59 целей зависят от `build` (включая витрину `showcase-live`), поэтому отказ
+# обязан быть НАЗВАННЫМ: какая именно программа и какая версия требуется.
+# Тот же класс, что #381 (молчаливый фильтр): отказ без имени = ложное обвинение.
+zig-guard:
+	@v=$$($(ZIG) version 2>/dev/null || echo none); \
+	case "$$v" in \
+	  $(ZIG_REQUIRED)*) ;; \
+	  *) echo "[ОТКАЗ] Неверный компилятор Zig: $(ZIG) (версия '$$v')"; \
+	     echo "         требуется Zig $(ZIG_REQUIRED).x."; \
+	     echo "         Задайте ZIG=<путь к zig $(ZIG_REQUIRED)> или уберите pip-ziglang из PATH"; \
+	     echo "         (pip-пакет ziglang 0.13 в .venv/bin ломает сборку: 'root_module')."; \
+	     exit 2;; \
+	esac
+
+# Гейт #392: три исхода (верный / неверный / отсутствующий компилятор)
+# обязаны быть проверены, и отказ обязан быть НАЗВАННЫМ.
+zig-guard-check:
+	@bash tools/zig_guard_check.sh
 
 # Решатель для мутационного прогона. Без него 8 тестов уходят в `SkipZigTest`,
 # и мутационный скор считается по УСЕЧЁННОМУ набору (дефект #110). Уважаем PATH;
@@ -13,7 +38,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check native-theories-file-check mbpp-xray-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest showcase-live showcase-live-full oracle-dtmc-check oracle-redos-check oracle-absint-check oracle-chc-check oracle-string-check oracle-noninterference-check
+.PHONY: zig-guard zig-guard-check audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check native-theories-file-check mbpp-xray-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest showcase-live showcase-live-full oracle-dtmc-check oracle-redos-check oracle-absint-check oracle-chc-check oracle-string-check oracle-noninterference-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -64,13 +89,13 @@ zig:
 golden:
 	$(PYTHON) tools/golden_v1_3.py
 
-build:
+build: zig-guard
 	$(ZIG) build
 
-test:
+test: zig-guard
 	$(ZIG) build test
 
-test-next:
+test-next: zig-guard
 	$(ZIG) build test-next
 
 verify: build
@@ -158,12 +183,12 @@ lean:
 	./formal/check.sh
 
 # Тактика 3: стресс-тесты (1M + усиленный по реальному коду).
-stress:
+stress: zig-guard
 	$(ZIG) build bench-stress-1m
 	$(ZIG) build bench-stress-real
 
 # Тактика 2: KERN-native бенчмарк (методология EvalPlus).
-bench:
+bench: zig-guard
 	$(ZIG) build bench-kern
 
 # Производительность конвейера .kimg (zero-copy).
@@ -171,7 +196,7 @@ perf:
 	$(ZIG) build bench-perf
 
 # SMT-эквивалентность оптимизаций (Alive2 / Hacker's Delight) через Z3.
-smt:
+smt: zig-guard
 	$(ZIG) build bench-smt
 
 # Доказательство SMT-скрипта через реальный Z3 (e=1).
@@ -453,12 +478,12 @@ contracts-lock-check:
 # Ф1: семь осей состояния + привязка типа запроса (QueryKind).
 # Отдельный корень: admission_gate импортирует ../core и ../cov, а Zig
 # запрещает импорт вне корня модуля (корень здесь — src/).
-axes-check:
+axes-check: zig-guard
 	@$(ZIG) test src/axes_test_root.zig
 
 # Ф2: журнал свидетельств (add/retract/epoch) + три графа происхождения
 # с отказом отрицательных рекурсивных SCC.
-ledger-check:
+ledger-check: zig-guard
 	@$(ZIG) test src/ledger_test_root.zig
 
 # Ф2: граф G_src строится ЯДРОМ (`kernx graph`), витрина обязана совпадать.
@@ -466,7 +491,7 @@ graph-check:
 	@$(PYTHON) tools/graph_parity.py
 
 # Ф3: KIMG (флаги/endianness), KERNFS (no-mmap), кэш (13 полей), KERN-X (квоты).
-storage-check:
+storage-check: zig-guard
 	@$(ZIG) test --dep compat -Mroot=src/core_test_root.zig -Mcompat=src/compat.zig
 
 # Ф3.2: CLI `kernc fsck / inspect / diff` на golden-фикстурах.
@@ -556,7 +581,7 @@ artifact-check-offline: hermetic
 # ==== РАСШИРЕННЫЙ КОНТУР ВЕРИФИКАЦИИ ====
 
 # Проверка утечек памяти (GeneralPurposeAllocator, Debug).
-memcheck:
+memcheck: zig-guard
 	$(ZIG) build test
 	$(ZIG) build test-next
 

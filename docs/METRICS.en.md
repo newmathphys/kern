@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->178 · cases <!-- fact:canfail_cases -->216 · anchors <!-- fact:anchors -->177 · registry <!-- fact:registry_targets -->231 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->178/<!-- fact:check_targets -->178 · cases <!-- fact:canfail_cases -->216 · anchors <!-- fact:anchors -->177 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->179/<!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -3303,3 +3303,34 @@ compiler BY VERSION (`0.17`), excludes `.venv/bin`, and prints the chosen path.
 The `oracle-noninterference-missed` case disables registration of the variable-time
 leak: the model says "no leaks" while the live measurement shows 62x -> MISSED ->
 `oracle-noninterference-check` goes red. Oracle meta-test: 14 branches; `--selftest` 14/14.
+
+## §142. TWO DEFECTS OF ONE CLASS: THE LABEL LIED, THE REFUSAL BLAMED OUR CODE (#391, #392)
+
+Both defects are about **a message that says something other than what happened** —
+the same class as #370/#377/#378/#381. Both were found by CHECKING already
+published numbers and commands against actual behaviour, not by reading code.
+
+### 142.1 The verdict label named the DIVIDEND (#391)
+
+| What | Value |
+|:--|:--|
+| Symptom | on `a // b` the verdict line said "divisor: **a**" — the DIVIDEND |
+| Verdict and counterexample | were **correct** — only the label lied |
+| Cause | the collector tuple is `(numerator, divisor, guards)` (since #334), but the printing took `d[0]` = the numerator |
+| Fix | the existing helper `_divisor_of(d)` in both places |
+| Second, latent | `_drop_macro_divisors` filtered by the NUMERATOR: on `Path / name` (#381) it checked `Path`, not `name` |
+| Gate | `div_guards_check.py` asserts the real divisor in the label plus the non-vacuity of that assertion |
+
+### 142.2 A refusal caused by a wrong compiler blamed our `build.zig` (#392)
+
+| What | Value |
+|:--|:--|
+| Condition | pip package `ziglang` **0.13.0** in PATH (it lives in `.venv/bin` ON PURPOSE — for `portable-bench`) |
+| Symptom | `make build` failed with an error INSIDE our code: `build.zig:12:54: error: no field named 'root_module'` |
+| Cost | **59 targets** depend on `build`, including the showcase |
+| Measured on the showcase | with pip-Zig: `showcase-live` — **7 rows, 4 failures**, each reading as a defect in our code |
+| Fix | the `zig-guard` target compares `$(ZIG) version` with `0.17`; on mismatch `[ОТКАЗ]` with the program NAME and required version, rc=2; wired into 10 targets that call Zig directly |
+| Measured after | correct Zig -> rc=0; pip-Zig -> `[ОТКАЗ]` rc=2 and **zero** `no field named` lines; Zig absent -> also `[ОТКАЗ]` rc=2 |
+| Showcase after | `showcase-live` — **7 rows, 0 failures** |
+| Gate | `make zig-guard-check` — three outcomes, two-sidedly: "the build failed" is NOT a named refusal, so `no field named` is forbidden separately |
+| Case | `zig-guard` (rc=2 in 1 s): removing the guard from `build:` must turn the gate red |
