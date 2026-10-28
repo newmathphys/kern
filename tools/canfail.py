@@ -357,6 +357,11 @@ FAULTABLE = [
     # множества номеров RU/EN разошлись). Файл обязан быть в FAULTABLE, иначе
     # подсадка останется в дереве (класс #225).
     "docs/CAPABILITY_STATUS.en.md",
+    # Кейс `docs-map-gap` правит КАРТУ документации (`docs/README.md`): убирает
+    # ссылку на документ, оставляя его в docs/ — тогда оглавление врёт о составе
+    # (дефект #403). Файл обязан быть в FAULTABLE, иначе правка не откатится
+    # (класс #48/#225) — предохранитель поймал это на первом прогоне.
+    "docs/README.md",
     # Кейс `journal-orphan` правит RU-журнал (переназначает РОДИТЕЛЯ подстроки:
     # `368.1` -> `367.1`). Множество номеров при этом не меняется — покраснеть
     # обязан новый инвариант (2), а не сверка множеств (дефект #370).
@@ -2320,6 +2325,24 @@ def case_readme_link():
 
 
 
+def case_docs_map_gap():
+    """КАРТА ДОКОВ SABOTAGE: документ выпадает из карты `docs/README.md` (#403).
+
+    ЛОМАЕМ: убираем ССЫЛКУ на `TEN_PROOFS.md` (`](TEN_PROOFS.md)` -> `(TEN_PROOFS.md)`).
+    Документ остаётся в `docs/`, но найти его из оглавления невозможно — ровно
+    состояние, измеренное 2026-10-28: **21 ключевой документ** не упоминался в
+    карте вообще, и ни один гейт этого не видел.
+
+    Почему именно R1 (а не R2): ссылка становится НЕ ссылкой, а прозой, поэтому
+    проверка «карта ссылается в никуда» молчит, и покраснеть обязан именно
+    инвариант «док обязан быть УПОМЯНУТ или объявлен в EXEMPT с причиной».
+
+    Класс дефекта: оглавление врёт о составе документации.
+    """
+    patch("docs/README.md", "](TEN_PROOFS.md)", "(TEN_PROOFS.md)")
+    return "make docs-map-check"
+
+
 def case_lang_semantics():
     """ШАГ I SABOTAGE: из таблицы семантики удаляется язык `c`.
 
@@ -3999,6 +4022,8 @@ CASES = [
      case_evm_fundef),
     ("charter-text", "Charter prose lags the checker's measurement -> gate red",
      case_charter_text),
+    ("docs-map-gap", "A document drops out of the docs map -> gate red",
+     case_docs_map_gap),
     ("readme-link", "README links a document that does not exist -> gate red",
      case_readme_link),
     ("artifact-offline", "README version diverges from the built binary -> gate red",

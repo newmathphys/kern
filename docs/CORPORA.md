@@ -1,6 +1,6 @@
 # КОРПУСА KERN: инвентарь реальных задач, оракулов и границ
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **ЗАЧЕМ ЭТОТ ФАЙЛ.** «Десятки примеров на каждую возможность» — не выдумка: они
 **уже лежат в репозитории**. Здесь — ЧТО есть, СКОЛЬКО задач, **ЧЕМ подтверждается**
@@ -28,10 +28,12 @@
 | `tests/fixtures` | **25** | контракты, `.kimg`-фикстуры, теории, Zig-фронтенд | смешанный | `make test` |
 | `examples/` | **53** | демонстрации всех режимов (heal, hypotheses, guardrail, noninterference, polyglot, EVM) | смешанный | `make demo-all` |
 | **наше дерево** | **426** файлов / **1558** функций | самоприменение `--xray` | **живой Python** | `--full-scan .` |
+| **`cmark-gfm/src`** (кэш, `27d942c8`) | **48** файлов / **308** функций | воронка `--xray`: 76/308 проверено, **232** пропуска — каждый С ПРИЧИНОЙ (#400) | счётчик == сумма причин | `--xray ~/.cache/kern/repos/cmark-gfm/src` |
+| **`actions/toolkit/packages`** (кэш, `0c3a9c33`) | **159** файлов / **458** функций | то же: 58/458 проверено, **400** пропусков с причинами | счётчик == сумма причин | `--xray ~/.cache/kern/repos/toolkit/packages` |
 
 ---
 
-## 2. Требует СЕТИ (внешние репозитории; кэш клонов сейчас пуст)
+## 2. Требует СЕТИ (внешние репозитории; в кэше сейчас только `cmark-gfm` и `toolkit`)
 
 Измерено ранее, но **воспроизведение требует клонирования** — поэтому это
 отдельная таблица, а не «доступно сейчас».

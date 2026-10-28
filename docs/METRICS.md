@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->181/<!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->182/<!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -10816,6 +10816,52 @@ Horn-системы. Сверяется СОГЛАСОВАНИЕ вердикт�
 Значит голое число в файле из `SURFACES` может дрейфовать до полного прогона.
 Это записано как известная граница: добавлять `claims-audit` в быстрый контур —
 отдельное решение (он сканирует все отслеживаемые файлы и потому медленнее).
+
+## §168. КАРТА ДОКУМЕНТАЦИИ НЕ ПРОВЕРЯЛАСЬ НИЧЕМ (ДЕФЕКТЫ #402, #403, #404)
+
+Измерено 2026-10-28 при ответе на вопрос «всё ли задокументировано локально».
+
+**#402 — СКЛЕЙКА СТРОКИ.** Строка 29 `docs/README.md` содержала ДВА табличных
+ряда, слитых через `||` (полная копия самой себя: `ATTESTATION_PASSPORT.md`
+упоминался в одной строке 4 раза). Читатель видел дубль, гейт — ничего.
+
+**#403 — 25 ДОКУМЕНТОВ ВНЕ КАРТЫ.** Проверка `docs/*.md` (76 файлов) против
+карты дала 21 ключевой документ без единого упоминания:
+`CAPABILITY_MATRIX(.ru)`, `CORPORA(.en)`, `TEN_PROOFS(.ru)`, `CHARTER(.ru)`,
+`SEMVER`, `NEXT_SESSION(.ru)`, `CONTRACT_ANY_PROJECT`, `EXAMPLE_WHY_KERN(.ru)`,
+`SHADOW_AUDIT_EXAMPLE`, `REAL_WORLD_CAPABILITIES(.ru)`, `REAL_WORLD_MEGATEST`,
+`CWE_COVERAGE(.ru)`, `AI_TRAPS_SHOWCASE(.ru)`, `HIGH_STAKES_USE_CASES`,
+`SELF_VERIFICATION(.ru)`, `LIVE_MODEL_EVAL`, `LIVE_BUGS_DISCOVERED`,
+`REAL_BUGS_FOUND`, `ALL_CAPABILITIES_LIVE_GUIDE(.ru)`, `STATUS(.ru)`,
+`INTUITIONISTIC_DESIGN`. Гейт добавил ещё **4**: `CAPABILITY_STATUS(.en)` —
+сам журнал дефектов!, `PROJECT.md`, `CYBERNETIC_VISION.md`, `OWNERSHIP.md`.
+
+**#404 — УСТАРЕВШИЕ ДИАПАЗОНЫ.** Карта обещала `§1–§149` для `METRICS.md`
+(факт §167) и `§1–§151` для `METRICS.en.md` (факт §145).
+
+**ИСПРАВЛЕНО:** склейка разъединена; добавлены разделы «Доказательства и
+презентация» (17 строк) и «Устав, политика и планы» (4 строки); диапазоны
+приведены к факту.
+
+**НОВЫЙ ГЕЙТ `make docs-map-check`** (`tools/docs_map_check.py`), три правила:
+  * **R1** — каждый `docs/*.md` УПОМЯНУТ в карте как `](ИМЯ)` либо объявлен в
+    `EXEMPT` с явной причиной (устаревшее исключение = дефект);
+  * **R2** — каждая ссылка карты ведёт в существующий файл;
+  * **R3** — ни одна табличная строка не содержит `||` (признак склейки).
+
+**ИЗМЕРЕНО:** `76 док(ов) в docs/, 20 исключений с причиной, ссылки ведут в
+существующие файлы, склеек нет` (rc=0). Мета-тест — **3 диверсии из 3 пойманы**
+(новый док вне карты / склейка `||` / ссылка в никуда). Кейс `docs-map-gap`
+(убрать ссылку, оставив документ) — **PASS, невакуумный, rc=2 за 0 с**.
+
+**Честная граница:** гейт проверяет НАЛИЧИЕ упоминания, а не верность описания —
+описание есть проза, её машинно не проверить. Это записано в docstring.
+
+**Предохранитель сработал:** первый прогон кейса упал с
+`docs/README.md отсутствует в FAULTABLE — правка НЕ будет откачена!`
+(класс #48/#225) — файл добавлен в `FAULTABLE` с комментарием.
+
+---
 
 ## §167. ГИСТОГРАММА ПРИЧИН ПРОПУСКА C-like `--xray` (ДЕФЕКТЫ #400, #401)
 

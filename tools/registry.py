@@ -255,6 +255,7 @@ CLASS = {
     "showcase-live-all": "META",         # ВСЕ 42 строки матрицы (быстрый ярус)
     "showcase-live-all-full": "META",    # то же + корпуса (минуты) + долгие (десятки минут)
     "cli-help-parity-check": "CHECK",    # #399: справка обязана называть все команды
+    "docs-map-check": "CHECK",           # #402/#403/#404: карта доков полна и не склеена
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",
@@ -490,6 +491,7 @@ CASE_TARGET = {
     # чтобы «кейс есть, а связи нет» не повторялось):
     "charter-text": "charter-text-check",
     "readme-link": "readme-link-check",
+    "docs-map-gap": "docs-map-check",
     "journal-parity": "journal-parity-check",
     # ДЕФЕКТ #370: инвариант (2) того же гейта — подстрока записи обязана стоять
     # под СВОЕЙ записью. Кейс число-нейтрален, поэтому сверка множеств молчит и

@@ -65,9 +65,9 @@ through KERN's **own engines** — no mocks, no hand-written verdicts:
 ## Registry facts this page is consistent with
 
 <!-- fact:core_tests -->451 core tests · <!-- fact:next_tests -->53 next tests ·
-<!-- fact:catalog -->480 catalog · <!-- fact:check_targets -->181 CHECK ·
-<!-- fact:canfail_cases -->221 can-fail cases · <!-- fact:anchors -->182 anchors ·
-<!-- fact:registry_targets -->237 registry targets ·
+<!-- fact:catalog -->480 catalog · <!-- fact:check_targets -->182 CHECK ·
+<!-- fact:canfail_cases -->222 can-fail cases · <!-- fact:anchors -->183 anchors ·
+<!-- fact:registry_targets -->238 registry targets ·
 <!-- fact:meta_targets -->41 meta · <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs: <!-- fact:quixbugs.smt -->6 SMT-provable ·
 <!-- fact:quixbugs.differential -->40 differential pairs.

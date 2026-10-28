@@ -909,6 +909,13 @@ readme-link-check:
 	@$(PYTHON) tools/readme_link_check.py --selftest
 	@$(PYTHON) tools/readme_link_check.py
 
+# ДЕФЕКТЫ #402/#403/#404: КАРТА ДОКУМЕНТАЦИИ. `docs/README.md` не проверялась
+# ничем: строка была СКЛЕЕНА из двух (`||`, #402), 21+4 ключевых документа не
+# упоминались вовсе (#403), диапазоны разделов устарели (#404).
+docs-map-check:
+	@$(PYTHON) tools/docs_map_check.py --selftest
+	@$(PYTHON) tools/docs_map_check.py
+
 # ЭТАП 3: ПАРНЫЙ БЕНЧМАРК NIST Juliet-style (bad vs good) по девяти классам
 # MITRE CWE. Требуются обе мировые метрики идеальными: индекс Юдена NIST SARD
 # J = TPR - FPR = 1.00 (TP 9/9, TN 9/9, FP 0, FN 0) и счёт SV-COMP 27/27.

@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->181/<!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->182/<!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -3413,6 +3413,51 @@ are safe.
 So a bare number in a file listed in `SURFACES` can drift until the full run. This
 is recorded as a known boundary: adding `claims-audit` to the fast contour is a
 separate decision (it scans every tracked file and is therefore slower).
+
+## §146. THE DOCS MAP WAS NOT CHECKED BY ANYTHING (DEFECTS #402, #403, #404)
+
+Measured 2026-10-28 while answering "is everything documented locally".
+
+**#402 — A GLUED ROW.** Line 29 of `docs/README.md` carried TWO table rows merged
+into one via `||` (a full copy of itself: `ATTESTATION_PASSPORT.md` appeared 4
+times in a single line). The reader saw a duplicate; no gate saw anything.
+
+**#403 — 25 DOCUMENTS OUTSIDE THE MAP.** Checking `docs/*.md` (76 files) against
+the map found 21 key documents with no mention at all: `CAPABILITY_MATRIX(.ru)`,
+`CORPORA(.en)`, `TEN_PROOFS(.ru)`, `CHARTER(.ru)`, `SEMVER`, `NEXT_SESSION(.ru)`,
+`CONTRACT_ANY_PROJECT`, `EXAMPLE_WHY_KERN(.ru)`, `SHADOW_AUDIT_EXAMPLE`,
+`REAL_WORLD_CAPABILITIES(.ru)`, `REAL_WORLD_MEGATEST`, `CWE_COVERAGE(.ru)`,
+`AI_TRAPS_SHOWCASE(.ru)`, `HIGH_STAKES_USE_CASES`, `SELF_VERIFICATION(.ru)`,
+`LIVE_MODEL_EVAL`, `LIVE_BUGS_DISCOVERED`, `REAL_BUGS_FOUND`,
+`ALL_CAPABILITIES_LIVE_GUIDE(.ru)`, `STATUS(.ru)`, `INTUITIONISTIC_DESIGN`. The
+gate added **4 more**: `CAPABILITY_STATUS(.en)` - the defect journal itself!,
+`PROJECT.md`, `CYBERNETIC_VISION.md`, `OWNERSHIP.md`.
+
+**#404 — STALE SECTION RANGES.** The map promised `§1–§149` for `METRICS.md`
+(fact §167) and `§1–§151` for `METRICS.en.md` (fact §145).
+
+**FIXED:** the glued row split; sections "Proofs and presentation" (17 rows) and
+"Charter, policy and plans" (4 rows) added; ranges brought to the fact.
+
+**NEW GATE `make docs-map-check`** (`tools/docs_map_check.py`), three rules:
+  * **R1** - every `docs/*.md` is MENTIONED in the map as `](NAME)` or declared in
+    `EXEMPT` with an explicit reason (a stale exemption is itself a defect);
+  * **R2** - every map link points to an existing file;
+  * **R3** - no table row contains `||` (the signature of a glued row).
+
+**MEASURED:** `76 docs in docs/, 20 exemptions with reasons, links resolve, no
+glued rows` (rc=0). Meta-test - **3 of 3 corruptions caught** (new doc outside
+the map / `||` glue / link to nowhere). Case `docs-map-gap` (drop a link while
+keeping the file) - **PASS, non-vacuous, rc=2 in 0 s**.
+
+**Honest boundary:** the gate checks the PRESENCE of a mention, not the accuracy
+of the description - a description is prose and cannot be checked by machine.
+
+**A guard fired:** the first case run failed with `docs/README.md missing from
+FAULTABLE - the edit will NOT be reverted!` (class #48/#225) - the file was added
+to `FAULTABLE` with a comment.
+
+---
 
 ## §145. C-like `--xray` SKIP-REASON HISTOGRAM (DEFECTS #400, #401)
 

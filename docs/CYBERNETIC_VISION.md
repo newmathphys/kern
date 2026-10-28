@@ -1,6 +1,6 @@
 # KERN: кибернетический контур с машинным свидетельством
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Документ описывает **только то, что есть в коде**. Каждое утверждение
 > сопровождается файлом, который можно открыть, и числом, которое можно
@@ -56,7 +56,7 @@
   отвергаются (`make proof-tamper`);
 * **эволюционный фаззер** портит вывод и проверяет, что ни одна испорченная
   особь не принята (`make evo-fuzz-check`) — именно он нашёл дефект #155;
-* 451 теста ядра, 181 CHECK-целей can-fail с доказательством «может упасть».
+* 451 теста ядра, 182 CHECK-целей can-fail с доказательством «может упасть».
 
 ## 4. Белнап B₄: честная обработка противоречия
 

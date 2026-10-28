@@ -25,22 +25,23 @@
 
 | Документ | Что внутри |
 |:--|:--|
+| **[PROJECT.md](PROJECT.md)** | **Обзор проекта**: зачем создан (эпистемический разрыв), из чего сделан, ключевые принципы |
 | **[PROJECT_SPECIFICATION.md](PROJECT_SPECIFICATION.md)** | **ПОЛНОЕ ТЕХНИЧЕСКОЕ ОПИСАНИЕ** (18 разделов, ~1200 строк): математика Белнапа, архитектура L0–L5, формат `.kimg` байт-в-байт, Врата Истины, SMT-теории, KERN-X, KERN-Next, CLI, контур доверия, Lean 4, бенчмарки, аттестация, дефекты, ограничения, карта исходников |
-| **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок || **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок |
+| **[ATTESTATION_PASSPORT.md](ATTESTATION_PASSPORT.md)** | **Аттестационный паспорт**: все показатели проверены прогонами + сводка 11 поправок |
 | **[RELEASE_NOTES_v2.5.1.en.md](RELEASE_NOTES_v2.5.1.en.md)** | English release notes for v2.5.1 |
 | **[CAPABILITIES.md](CAPABILITIES.md)** | **11 возможностей с доказательствами**: что подтверждено, что с оговоркой, что неверно |
 | **[METRICS.en.md](METRICS.en.md)** · **[CAPABILITIES.en.md](CAPABILITIES.en.md)** · **[ATTESTATION_PASSPORT.en.md](ATTESTATION_PASSPORT.en.md)** · **[CAPABILITY_STATUS.en.md](CAPABILITY_STATUS.en.md)** | **English mirrors** ключевых документов (для внешнего читателя): витрина `README.md` уже полностью английская |
-| **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§151) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
+| **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§145) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
 | **[bench/index.html](bench/index.html)** | **Детерминированный бенчмарк** (график на сайте): лавина, цепочка коллизий, χ². Генерируется `python3 tools/bench_json.py --html docs/bench/index.html`; цель `make bench-json` (can-fail доказана) |
 | **[FIELD_AUDIT_REPORT.md](FIELD_AUDIT_REPORT.md)** | **Полевой аудит 14 реальных репозиториев** (Zig, C, Rust, TypeScript, Go, Python, Lean 4): Scorecard и `--xray` **ДО/ПОСЛЕ** исправлений (`[CRASH PATH]` **469 -> 8**; `cmark-gfm` 40 D -> 78 B, `tigerbeetle` 54 D -> 84 B, `aesop` 42 D -> 73 B) + семь дефектов, которые вскрыл сам прогон (#178–#184) |
 | **[../audits/README.md](../audits/README.md)** | **Тень-контракты на чужом коде**: рукописные SMT-модели реальных выражений из сторонних проектов (например `isAligned` из `andrewrk/zig-general-purpose-allocator` — ДОКАЗАНО, и контрольная ломаная версия — КОНТРПРИМЕР) + замер, почему «прогон KERN по 50 репозиториям» даёт нули |
 | **[TEST_CATALOG.md](TEST_CATALOG.md)** | Полный каталог: **425 тестов** по модулям + 15 внешних бенчмарков. **Генерируется** из исходников (`tools/gen_test_catalog.py`); `--check` в CI ловит отставание |
-| **[CYBERNETIC_VISION.en.md](CYBERNETIC_VISION.en.md)** | **English mirror** of the cybernetic vision essay (Anokhin · Glushkov · Belnap · Victor) |
+| **[CYBERNETIC_VISION.md](CYBERNETIC_VISION.md)** · **[.en](CYBERNETIC_VISION.en.md)** | **Кибернетическое видение** (Анохин · Глушков · Белнап · Виктор) и его English mirror |
 | **[ROADMAP.en.md](ROADMAP.en.md)** | **English mirror** of the roadmap: final v2.5 status (8/8 echelons), closed debts, defects #155–#157 |
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[RULE_THEOREM_MATRIX.md](RULE_THEOREM_MATRIX.md)** | **Матрица «правило пруф-чекера ↔ теорема Lean 4»**: 17 функций `verify*`/`check*` × 147 теорем; честно указаны 3 правила, обоснованные ядром Lean, и структурное `intro-def` |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§149): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->401**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§167): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->404**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[BELNAP_SOURCES.md](BELNAP_SOURCES.md)** · **[references.bib](references.bib)** | **Формальная база**: источники (25 записей, `verified`/`secondary`/`unverified`), сверка «теория → код» по `src/путь:строка`, §6 «чего в KERN нет», §7 расхождения черновиков; `make citations-check` |
 | **[THREAT_MODEL.md](THREAT_MODEL.md)** · **[KEY_MANAGEMENT.md](KEY_MANAGEMENT.md)** · **[INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md)** | **Документы доверия**: активы и противники, границы TCB, бэкап/ротация/отзыв ключа, порядок действий при ложном `T` |
 | **[PLATFORMS.md](PLATFORMS.md)** | **Матрица платформ**: что проверено прогонами, что собирается, что **не поддерживается** (Windows: 3 POSIX-блокера + sqlite3; macOS: только `libkern`) |
@@ -57,6 +58,8 @@
 | **[EXECUTION_RUNNER.md](EXECUTION_RUNNER.md)** | Как заявление `N` становится `T`: авто-дискавери тестов, анти-вакуум, маскирование секретов |
 | **[SPEC_ANCHORS_DEMO.md](SPEC_ANCHORS_DEMO.md)** | Мост «текст → контракт»: якоря `@kern:spec` превращают фразу из Markdown в `e=1` |
 | **[KERN_TERMINOLOGY_v0.1.md](KERN_TERMINOLOGY_v0.1.md)** | Нормативная терминология (что такое квант, Врата, свидетельство) |
+| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->404** (RU == EN): каждый — причина, действие, эффект, свидетельство |
+| **[OWNERSHIP.md](OWNERSHIP.md)** | Гигиена авторства и владения репозиторием |
 
 ### Формальные методы
 
@@ -69,6 +72,38 @@
 | [`../formal/certification/SOUNDNESS_ARGUMENT.md`](../formal/certification/SOUNDNESS_ARGUMENT.md) | обоснование отсутствия ложных допусков |
 | [`../formal/certification/SECURITY_TARGET.md`](../formal/certification/SECURITY_TARGET.md) | формальная модель безопасности (Common Criteria) |
 | [`../formal/certification/KNOWN_LIMITATIONS.md`](../formal/certification/KNOWN_LIMITATIONS.md) | **реестр 25 ограничений** (все fail-closed) |
+
+### Доказательства и презентация
+
+| Документ | Что внутри |
+|:--|:--|
+| **[CAPABILITY_MATRIX.md](CAPABILITY_MATRIX.md)** · **[.ru](CAPABILITY_MATRIX.ru.md)** | **Единая матрица возможностей**: для каждого семейства — команда запуска, физический оракул реальности, статус подтверждения и **честная граница** (чего тест НЕ доказывает) |
+| **[TEN_PROOFS.md](TEN_PROOFS.md)** · **[.ru](TEN_PROOFS.ru.md)** | **10 доказательств на живых примерах**: вердикт KERN → внешний оракул (`rustc`, `gcc`, `python3`, таймер) → воспроизводимая команда |
+| **[CORPORA.md](CORPORA.md)** · **[.en](CORPORA.en.md)** | **Инвентарь корпусов** по ярусам: задачи, N из M, чем подтверждено, ссылка на лог |
+| **[EXAMPLE_WHY_KERN.md](EXAMPLE_WHY_KERN.md)** · **[.ru](EXAMPLE_WHY_KERN.ru.md)** | Одна страница «почему KERN»: переполнение `a * b` в чужом репозитории за 2 минуты |
+| **[SHADOW_AUDIT_EXAMPLE.md](SHADOW_AUDIT_EXAMPLE.md)** | Разбор теневого аудита: краш `catalan.c` (PR #1595), верная и **неверная** правка |
+| **[CONTRACT_ANY_PROJECT.md](CONTRACT_ANY_PROJECT.md)** | Рецепт «контракт на любую функцию любого проекта»: 5 шагов, 4 проекта, честные границы |
+| **[REAL_WORLD_CAPABILITIES.md](REAL_WORLD_CAPABILITIES.md)** · **[.ru](REAL_WORLD_CAPABILITIES.ru.md)** | Матрица реальных задач: `bad`/`good` парами, режим движка (`QF_LIA`/`QF_BV`) |
+| **[REAL_WORLD_MEGATEST.md](REAL_WORLD_MEGATEST.md)** | Полевые прогоны на внешних репозиториях и датасетах, включая раздел «NOT executed» |
+| **[CWE_COVERAGE.md](CWE_COVERAGE.md)** · **[.ru](CWE_COVERAGE.ru.md)** | 9 классов CWE парами `bad`/`good`: Индекс Юдена и счёт SV-COMP |
+| **[AI_TRAPS_SHOWCASE.md](AI_TRAPS_SHOWCASE.md)** · **[.ru](AI_TRAPS_SHOWCASE.ru.md)** | 6 ловушек против читерства ИИ: перехват по точному маркеру + честный близнец |
+| **[HIGH_STAKES_USE_CASES.md](HIGH_STAKES_USE_CASES.md)** | Кейсы высокой цены (AMM, парсер, деньги в центах) с подтверждением компилятором |
+| **[LIVE_MODEL_EVAL.md](LIVE_MODEL_EVAL.md)** | Оценка **живых** моделей: контракты, итеративный ремонт, замок против подмены ТЗ |
+| **[LIVE_BUGS_DISCOVERED.md](LIVE_BUGS_DISCOVERED.md)** · **[REAL_BUGS_FOUND.md](REAL_BUGS_FOUND.md)** | Что найдено на живом коде (включая честные «не найдено») |
+| **[SELF_VERIFICATION.md](SELF_VERIFICATION.md)** · **[.ru](SELF_VERIFICATION.ru.md)** | Самоприменение: KERN на себе, Врата Истины дают `e=0` на 73 из 74 своих заявлений |
+| **[ALL_CAPABILITIES_LIVE_GUIDE.md](ALL_CAPABILITIES_LIVE_GUIDE.md)** · **[.ru](ALL_CAPABILITIES_LIVE_GUIDE.ru.md)** | Путеводитель по 10 возможностям, **генерируется** `make demo-all` из живого вывода |
+| **[STATUS.md](STATUS.md)** · **[.ru](STATUS.ru.md)** | Снимок состояния, **генерируется** `tools/gen_status.py`; `make status-check` ловит отставание |
+| **[INTUITIONISTIC_DESIGN.md](INTUITIONISTIC_DESIGN.md)** | Почему интуиционистский режим отложен: три измеренные причины + пререквизиты |
+
+### Устав, политика и планы
+
+| Документ | Что внутри |
+|:--|:--|
+| **[CHARTER.md](CHARTER.md)** · **[.ru](CHARTER.ru.md)** | **Устав**: законы трёх классов (алгебраические / процессные / политика); каждый закон называет проверяющего, и он запускается |
+| **[SEMVER.md](SEMVER.md)** | Политика версий: что MAJOR/MINOR/PATCH, каденция тегов, опубликованный тег не двигаем |
+| **[NEXT_SESSION.md](NEXT_SESSION.md)** · **[.ru](NEXT_SESSION.ru.md)** | План следующей сессии: что закрыто, что осталось, чем измерено |
+| **[PLAN_v2.5.3.md](PLAN_v2.5.3.md)** · **[PLAN_v2.6.4.md](PLAN_v2.6.4.md)** · **[PLAN_v2.7.2.md](PLAN_v2.7.2.md)** | Планы циклов (исторические), со статусами ВЫПОЛНЕН |
+
 
 ### Свидетельства (сырые данные)
 
@@ -94,7 +129,7 @@ make perf          # производительность (RAW vs безопас
 ./formal/check.sh  # Lean-доказательства (0 errors, 0 sorry)
 
 # --- Доказательство, что проверки СПОСОБНЫ упасть (K1–K5) ---
-make canfail           # 221 кейс: ломаем инвариант -> цель обязана покраснеть
+make canfail           # 222 кейс: ломаем инвариант -> цель обязана покраснеть
 make canfail-selftest  # кто проверит проверяющего: мета-проверка харнесса
 make registry          # реестр целей + предохранитель от «молчаливых» новых
 make ci                # единый контур (12+ стадий); make ci-fast — быстрый

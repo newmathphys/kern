@@ -1,6 +1,6 @@
 # KERN CORPORA: inventory of real tasks, oracles and boundaries
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **WHY THIS FILE.** "Dozens of examples per capability" is not a promise: they are
 **already in the repository**. This file says WHAT exists, HOW MANY tasks, **WHAT
@@ -28,10 +28,12 @@ section 4 with an explicit label.
 | `tests/fixtures` | **25** | contracts, `.kimg` fixtures, theories, Zig frontend | mixed | `make test` |
 | `examples/` | **53** | demos of every mode (heal, hypotheses, guardrail, noninterference, polyglot, EVM) | mixed | `make demo-all` |
 | **our own tree** | **426** files / **1558** functions | self-application of `--xray` | **live Python** | `--full-scan .` |
+| **`cmark-gfm/src`** (cache, `27d942c8`) | **48** files / **308** functions | `--xray` funnel: 76/308 checked, **232** skips - each WITH A REASON (#400) | counter == sum of reasons | `--xray ~/.cache/kern/repos/cmark-gfm/src` |
+| **`actions/toolkit/packages`** (cache, `0c3a9c33`) | **159** files / **458** functions | same: 58/458 checked, **400** skips with reasons | counter == sum of reasons | `--xray ~/.cache/kern/repos/toolkit/packages` |
 
 ---
 
-## 2. Requires NETWORK (external repositories; the clone cache is empty now)
+## 2. Requires NETWORK (external repositories; the cache currently holds only `cmark-gfm` and `toolkit`)
 
 Measured earlier, but **reproduction requires cloning** - hence a separate table
 rather than "available now".

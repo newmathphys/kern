@@ -1,6 +1,6 @@
 # МАТРИЦА ВОЗМОЖНОСТЕЙ KERN: одна команда, один физический оракул, одна честная граница
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->221 · anchors <!-- fact:anchors -->182 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **ЗАЧЕМ ЭТА СТРАНИЦА.** У каждой возможности ниже обязательны **три** вещи:
 **одна команда**, которая её включает; **внешний оракул**, который подтверждает
@@ -110,6 +110,8 @@
 | 6 | Аттестат | `make verify-attestation` | **внешний** публичный ключ Ed25519 | проверено | наш собственный ключ, а не сторонний билдер (SLSA L3 нет) |
 | 7 | Врата Истины на своих заявлениях | `scan_to_kern.py .` + `kernc verify` | вердикты самого ядра | 73 из 74 заявлений получают `e=0` | проза не является машинным контрактом — в этом и смысл |
 | 8 | CLI называет каждую реализованную команду | `make cli-help-parity-check` | живой прогон `kernc --help` (stdout, rc=0) | проверено | сверяет СПИСОК команд, а не верность описаний опций |
+| 9 | Причины пропуска C-like `--xray` НАЗВАНЫ | `make xray-check` | напечатанные причины против счётчика (сумма обязана совпасть) | 232/232 и 400/400 | доказывает, что каждый пропуск НАЗВАН, а не что корзина верна |
+| 10 | `[DEAD BRANCH]` уважает ГРАНИЦУ ветви | `make xray-check` | реальный файл `cmark-gfm` (4 ложных убраны) + действительно мёртвый близнец | 4 -> 0 ложных, настоящий найден | ничего не говорит о ветвях, которые парсер не переводит |
 
 ---
 
