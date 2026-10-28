@@ -152,3 +152,22 @@ for e in '.cs:1' '.java:1' '.php:1'; do
   echo "$EXT" | grep -q -- "$e" || { echo "[!] #381: расширение $e не названо в отчёте"; exit 1; }
 done
 echo "[OK] #381: .cpp/.cc сканируются, .cs/.java/.php НАЗВАНЫ (молчаливой потери нет)"
+
+# ДЕФЕКТ #400: ПРИЧИНЫ ПРОПУСКА C-like ОБЯЗАНЫ ПЕЧАТАТЬСЯ.
+# Сводка заявляла «skipped N with explicit reasons», но НИ ОДНОЙ причины не
+# выводила: `_xray_clike_file` их не возвращал. Проверка ДВУСТОРОННЯЯ (в гейте):
+# счётчик == сумма причин И позитивный контроль `checked >= 1`.
+python3 tools/xray_skip_reasons_check.py || { echo "[!] #400: причины пропуска не напечатаны или не сходятся"; exit 1; }
+python3 tools/xray_skip_reasons_check.py --selftest || { echo "[!] #400: мета-тест ворот не прошёл"; exit 1; }
+echo "[OK] #400: причины пропуска C-like печатаются и сходятся со счётчиком"
+
+# ДЕФЕКТ #401: ВЗАИМОИСКЛЮЧАЮЩИЕ ВЕТВИ НЕ ДАЮТ ЛОЖНЫЙ [DEAD BRANCH].
+# Двусторонне: (а) на ветвях с ранними `return` находок НЕТ;
+#              (б) на ДЕЙСТВИТЕЛЬНО мёртвом условии находка ЕСТЬ.
+NB=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_nested_branches.c 2>&1) || true
+if echo "$NB" | grep -q 'DEAD BRANCH'; then
+  echo "[!] #401: ЛОЖНЫЙ [DEAD BRANCH] на взаимоисключающих ветвях"; echo "$NB" | grep 'DEAD BRANCH'; exit 1
+fi
+TD=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_true_dead.c 2>&1) || true
+echo "$TD" | grep -q 'DEAD BRANCH. truly_dead' || { echo "[!] #401: НАСТОЯЩАЯ мёртвая ветвь НЕ найдена (тихое подавление)"; exit 1; }
+echo "[OK] #401: ложный DEAD BRANCH на взаимоисключающих ветвях убран, настоящий — найден"

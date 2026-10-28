@@ -3823,6 +3823,45 @@ def case_metrics_guard():
     return "make metrics-guard"
 
 
+def case_xray_nested_branch():
+    """#401 SABOTAGE: область ВЕТВИ перестаёт учитываться -> ЛОЖНЫЙ [DEAD BRANCH].
+
+    ИЗМЕРЕНО на `cmark-gfm/src/utf8.c` (коммит 27d942c8): без учёта ветви
+    накопление `not cond` давало ОДНОВРЕМЕННО `str1 >= 160` и `str1 < 160`,
+    путь становился UNSAT, и ЧЕТЫРЕ условия объявлялись мёртвыми ЛОЖНО.
+
+    ЛОМАЕМ: снимаем проверку «позиция в ТОЙ ЖЕ ветви» -> на фикстуре
+    `tests/fixtures/xray_nested_branches.c` появляется [DEAD BRANCH] ->
+    `xray-check` ОБЯЗАН покраснеть. Если зелёный — гейт #401 пуст.
+    """
+    patch("tools/kern_contracts.py",
+          "        if par < 0:\n            if chain:\n                continue\n        else:\n"
+          "            pce, pbe = if_blocks[par][0], if_blocks[par][1]\n"
+          "            if not (pce <= pos < pbe):\n                continue\n",
+          "        pass  # ЛОМАЕМ (#401): область ветви не проверяется\n")
+    return "bash tools/xray_check.sh"
+
+
+def case_xray_skip_reasons():
+    """#400 SABOTAGE: причина пропуска снова НЕ записывается.
+
+    Сводка заявляет «skipped N with explicit reasons». Если причина не
+    сохранена, `tools/xray_skip_reasons_check.py` ОБЯЗАН покраснеть (счётчик и
+    список причин расходятся) — иначе фраза снова станет ЛОЖНОЙ.
+
+    ЛОМАЕМ: снимаем ПЕЧАТЬ гистограммы — счётчик остаётся, причин нет.
+
+    ПЕРВАЯ ВЕРСИЯ ЭТОГО КЕЙСА БЫЛА ВАКУУМНОЙ: она снимала только
+    `skip_why.append(...)`, но тогда срабатывала fallback-корзина «отсеяно без
+    названной причины», и сумма причин всё равно сходилась со счётчиком.
+    Харнесс это поймал (`ВАКУУМНЫХ 1`). Правильный саботаж — снять ПЕЧАТЬ.
+    """
+    patch("tools/kern_contracts.py",
+          "    _xray_report_skip_reasons(all_reasons, total_skip)\n",
+          "    pass  # ЛОМАЕМ (#400): гистограмма не печатается\n")
+    return "bash tools/xray_check.sh"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -4118,6 +4157,8 @@ CASES = [
     ("sanity-control", "МЕТА: харнесс обязан поймать вакуум",   case_sanity_control, True),
     # K4, второй уровень: ломаем САМ ВЕРДИКТ и требуем, чтобы self-test упал.
     ("meta-verdict",  "МЕТА-2: сломанный вердикт ловится",      case_meta_broken_verdict),
+    ("xray-nested-branch", "#401: ветвь не учтена -> ложный DEAD BRANCH", case_xray_nested_branch),
+    ("xray-skip-reasons",  "#400: причина пропуска не записана",          case_xray_skip_reasons),
 ]
 
 

@@ -3413,3 +3413,51 @@ are safe.
 So a bare number in a file listed in `SURFACES` can drift until the full run. This
 is recorded as a known boundary: adding `claims-audit` to the fast contour is a
 separate decision (it scans every tracked file and is therefore slower).
+
+## §145. C-like `--xray` SKIP-REASON HISTOGRAM (DEFECTS #400, #401)
+
+**Why.** Step 2.1 of the plan required measuring WHY `--xray` skips functions in
+third-party C repositories. Without it, widening the parser would be guesswork.
+
+**What was found.** The summary claimed "skipped N with explicit reasons" while
+printing NO reasons at all (`_xray_clike_file` did not return them) — defect #400.
+After the fix the histogram is printed and its sum matches the counter on both
+corpora.
+
+### 145.1 Measured (corpora pinned by SHA)
+
+| Corpus | SHA | Files | Checked | Skipped | Reasons (all, descending) |
+|:--|:--|--:|--:|--:|:--|
+| `github/cmark-gfm/src` | `27d942c8` | 48 | 76 / 308 | 232 | `no if conditions` 124 · `syntax after translation` 53 · `nil/null` 49 · `binary operator` 4 · `no reason` 2 |
+| `actions/toolkit/packages` | `0c3a9c33` | 159 | 58 / 458 | 400 | `no if conditions` 336 · `syntax after translation` 54 · `ternary without «…»` 6 · `nil/null` 3 · `no reason` 1 |
+
+The sum of reasons equals the skip counter in both cases (232 = 232 and 400 = 400).
+
+### 145.2 What this means for step 2.2
+
+The top-3 reasons account for **93–95 %** of all skips:
+1. **no `if` conditions in the body** (124 / 336) — nothing for the X-Ray to check;
+   this is NOT a loss but an honest boundary (no branches — nothing to look for);
+2. **syntax after C-like translation** (53 / 54) — the condition was translated into
+   Python-like text and failed to parse; this is where widening pays off;
+3. **`nil`/`null`** (49 / 3) — pointer comparisons outside the Int model.
+
+### 145.3 DEFECT #401: FALSE `[DEAD BRANCH]` ON MUTUALLY EXCLUSIVE BRANCHES
+
+On the real `cmark-gfm/src/utf8.c` the X-Ray produced **4 `[DEAD BRANCH]` findings**,
+and all four were FALSE: their conditions contain constants (`(= 0 0)`).
+
+**Root cause.** `if_derived` accumulated `(not cond)` for EVERY exited block without
+distinguishing branches. For `if (A) { if (B) return; } else if (C) { if (D) return; }`
+that yielded BOTH `not B` and `not D`. In `utf8.c`, `B` and `D` are opposites
+(`str1 >= 160` and `str1 < 160`), so the path became **UNSAT** and EVERY later
+condition was declared dead.
+
+**Fixed.** `_clike_conds_at` is nesting-aware: `(not cond)` applies only when the
+position is IN THE SAME BRANCH. `if_derived` was removed; `if` reachability is
+checked POSITIONALLY.
+
+**Two-sided:** mutually exclusive branches -> **0 findings** (was 4); a genuinely
+dead condition -> the finding **IS** there (not silent suppression).
+
+**Effect:** `cmark-gfm/src` findings **4 -> 0** with unchanged coverage 76/308.

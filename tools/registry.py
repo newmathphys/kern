@@ -378,6 +378,8 @@ CASE_TARGET = {
     "pcc-check": "pcc-check",
     "xray-check": "xray-check",
     "xray-ext-silent": "xray-check",
+    "xray-nested-branch": "xray-check",
+    "xray-skip-reasons": "xray-check",
     "oracle-dtmc-wrong": "oracle-dtmc-check",
     "oracle-redos-missed": "oracle-redos-check",
     "oracle-absint-unsound": "oracle-absint-check",

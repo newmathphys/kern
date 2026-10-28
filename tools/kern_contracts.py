@@ -5616,6 +5616,47 @@ def _xray_collect(root: Path) -> tuple[list[Path], dict[str, int]]:
     return files, skipped
 
 
+def _skip_key(exc: object) -> str:
+    """Нормализовать причину отсева в КЛЮЧ ГИСТОГРАММЫ (дефект #400).
+
+    Значения в сообщении (`'while (i < n) i = i + 1'`, имена параметров)
+    делают каждый ключ уникальным и гистограмма теряет смысл. Поэтому из
+    сообщения убирается литеральная часть, а структурный префикс сохраняется:
+    `оператор c: 'while …'` -> `оператор c:`.
+    """
+    if isinstance(exc, SyntaxError):
+        return "синтаксис Python после перевода C-like"
+    txt = str(exc).strip()
+    raw = str(exc).strip()
+    # Литеральную часть (`'while …'`) заменяем на «…», чтобы ключ был СТРУКТУРНЫМ.
+    _q = chr(34) + chr(39)
+    raw = re.sub("[" + _q + "][^" + _q + "]*[" + _q + "]", "«…»", raw)
+    txt = re.sub(r"\s+", " ", raw).strip().rstrip(":")
+    return txt[:60] or "без описания"
+
+
+def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int) -> None:
+    """Напечатать причины пропуска C-like функций (ДЕФЕКТ #400).
+
+    ЧТО БЫЛО НЕ ТАК. Сводка `--xray` для C-like заявляла
+    «skipped N with explicit reasons», но НИ ОДНОЙ причины не выводила:
+    `_xray_clike_file` их просто не возвращал. То есть печаталась ЛОЖНАЯ
+    фраза — читатель видел «с причинами» и не видел ни одной.
+
+    ЧЕСТНАЯ ГРАНИЦА. Список причин и счётчик — РАЗНЫЕ вещи. Если функции
+    пропускаются, а причина не записана, это названо дефектом ИНСТРУМЕНТА
+    (как в Python-пути, N4), а не свойством проверяемого кода.
+    """
+    if not reasons and skipped <= 0:
+        return
+    named = sum(reasons.values())
+    for key, cnt in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
+        print(f"    skip: {key} × {cnt}")
+    if named != skipped:
+        print(f"[!] пропусков БЕЗ записанной причины: {skipped - named} — это "
+              f"дефект инструмента, а не свойство проверяемого кода")
+
+
 def _xray_report_skipped(skipped: dict[str, int]) -> None:
     """Напечатать пропуск по расширению ИМЕНОВАННО, а не молча (#381)."""
     if not skipped:
@@ -5924,23 +5965,55 @@ def _clike_block_end(body: str, start: int) -> int:
 
 
 def _clike_conds_at(pos: int, if_blocks: list) -> list[str]:
-    """Условия, действующие В ПОЗИЦИИ `pos` (дефект #318).
+    """Условия, действующие В ПОЗИЦИИ `pos` (дефекты #318 и #401).
 
     `if_blocks` — (cond_end, block_end, cond_smt, exits) для каждого `if (cond)`.
     ВНУТРИ блока действует `cond`; ПОСЛЕ блока, который безусловно завершается
     (`return`/`break`/`continue`), действует `(not cond)`.
 
-    ПОЧЕМУ ТАК. Раньше в `path_conds` складывалось ТОЛЬКО `(not cond)` — условие
-    для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока, и запрос получался
-    `(x == 0) AND (x == 0)`, то есть ОТРИЦАНИЕ гарда: `if (x != 0) { y / x; }`
-    объявлялся делением на ноль. Ложное обвинение хуже пропуска (#178/#183).
+    ПОЧЕМУ ТАК (дефект #318). Раньше в `path_conds` складывалось ТОЛЬКО
+    `(not cond)` — условие для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока,
+    и запрос получался `(x == 0) AND (x == 0)`, то есть ОТРИЦАНИЕ гарда:
+    `if (x != 0) { y / x; }` объявлялся делением на ноль.
+
+    ВЛОЖЕННОСТЬ (дефект #401). Наивное «после любого вышедшего блока действует
+    `not cond`» даёт ПРОТИВОРЕЧИЕ на ВЗАИМОИСКЛЮЧАЮЩИХ ветвях:
+        if (A) { if (B) return; } else if (C) { if (D) return; }
+    Блоки `B` и `D` лежат в РАЗНЫХ ветвях, но оба «вышли наружу», и накопление
+    давало одновременно `not B` и `not D` — при `D = not B` путь становился
+    UNSAT, и ЛЮБОЕ последующее условие объявлялось мёртвым. ИЗМЕРЕНО на
+    `cmark-gfm/src/utf8.c`: 4 ложных `[DEAD BRANCH]`.
+    Поэтому `not cond` применяется только если позиция находится В ТОЙ ЖЕ
+    ветви: блок обязан быть либо на верхнем уровне (и позиция вне блоков),
+    либо внутри своего родителя, содержащего позицию.
     """
-    out: list[str] = []
-    for cond_end, block_end, cond, exits in if_blocks:
-        if cond_end <= pos < block_end:
-            out.append(cond)                     # внутри блока
-        elif pos >= block_end and exits:
-            out.append(f"(not {cond})")          # после блока, вышедшего наружу
+    chain = [i for i, (ce, be, _c, _e) in enumerate(if_blocks) if ce <= pos < be]
+    out = [if_blocks[i][2] for i in chain]
+
+    def _parent(idx: int) -> int:
+        """Ближайший ОБЪЕМЛЮЩИЙ блок (или -1): минимальный по длине."""
+        ce_i = if_blocks[idx][0]
+        best, best_span = -1, None
+        for j, (ce_j, be_j, _c, _e) in enumerate(if_blocks):
+            if j == idx or not (ce_j <= ce_i < be_j):
+                continue
+            span = be_j - ce_j
+            if best_span is None or span < best_span:
+                best, best_span = j, span
+        return best
+
+    for i, (_ce, be, cond, exits) in enumerate(if_blocks):
+        if pos < be or not exits:
+            continue
+        par = _parent(i)
+        if par < 0:
+            if chain:
+                continue
+        else:
+            pce, pbe = if_blocks[par][0], if_blocks[par][1]
+            if not (pce <= pos < pbe):
+                continue
+        out.append(f"(not {cond})")
     return out
 
 
@@ -6300,7 +6373,7 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
     return out
 
 
-def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
+def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, int]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
     Извлекает условия `if (...)` из ТЕЛА (без исполнения) и проверяет их
@@ -6314,7 +6387,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         funcs = _clike_functions(path)
     except Exception as _kern_e_3799:  # noqa: BLE001
         _replay_soft(_kern_e_3799, "kern_contracts.py:3799")
-        return 0, 0, []
+        return 0, 0, [], {}
     # ДЕФЕКТ #193: типы полей структур нужны для проверки переполнения
     # счётчиков (`row->n_columns : uint16_t`). Определения лежат в том же
     # файле (cmark: `typedef struct { uint16_t n_columns; } table_row;`).
@@ -6333,6 +6406,15 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
             else "c")
     checked = total = 0
     found: list[str] = []
+    # ДЕФЕКТ #400: причины пропуска НЕ собирались, а сводка при этом заявляла
+    # «skipped N with explicit reasons» — то есть ПЕЧАТАЛАСЬ ЛОЖНАЯ ФРАЗА: ни
+    # одной причины не выводилось. Здесь они собираются, и гистограмма
+    # печатается вместе со сводкой.
+    reasons: dict[str, int] = {}
+
+    def _bump(key: str) -> None:
+        reasons[key] = reasons.get(key, 0) + 1
+
     # ДЕФЕКТ #194: часть правил проверяется на УРОВНЕ ФАЙЛА. Причина измерена:
     # в cmark-gfm функция `cmark_inline_parser_scan_delimiters` объявлена
     # МНОГОСТРОЧНО, поэтому `_clike_functions` её не находит, и правило
@@ -6347,6 +6429,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
     for name, params, body, _ln, ranges, reqs in funcs:
         total += 1
         proven = 0
+        # ДЕФЕКТ #400: причина, по которой функция НЕ попала в `checked`.
+        skip_why: list[str] = []
         raw_body = body          # для правила B (смотрит на САМИ касты)
         # ДЕФЕКТ #189: C-касты снимаются ДО разбора условий/индексов/делителей.
         # Иначе `if (len == (size_t)(max_rewind - rewind)) return` не переводился,
@@ -6357,10 +6441,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                                  for p, (lo, hi) in (ranges or {}).items()]
         # ДЕФЕКТ #318: `path_conds` — условия БЕЗ привязки к позиции (диапазоны
         # типов, requires, assert). Условия из `if` зависят от ПОЗИЦИИ, поэтому
-        # хранятся отдельно: `if_blocks` (границы блоков) и `if_derived`
-        # (накопленное `not cond` — для проверок достижимости самих `if`).
+        # хранятся отдельно: `if_blocks` (границы блоков и позиционные условия).
         if_blocks: list = []
-        if_derived: list[str] = []
         for rq in (reqs or []):
             try:
                 path_conds.append(expr_smt(
@@ -6399,21 +6481,35 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
         for dm2 in re.finditer(r"\b([A-Za-z_]\w*)\s*=\s*\1\s*\|\|", body):
             path_conds.append(f"(not (= {dm2.group(1)} 0))")
         pos = 0
-        for m in _clike_ifs(body):
+        # ДЕФЕКТ #400: список `if` вычисляется ОДИН раз — им же проверяется,
+        # были ли условия ВООБЩЕ (иначе fallback расходился с детектором).
+        _ifs = list(_clike_ifs(body))
+        for m in _ifs:
             raw_cond = m.group(1)
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
             # сравнение; в Int-модели `nil` бессмысленно, и получался ложный
             # DEAD BRANCH. Такие условия честно пропускаем.
             if re.search(r"\b(?:nil|null|NULL|None|undefined)\b", raw_cond):
+                # ДЕФЕКТ #400: этот путь тоже обязан НАЗЫВАТЬ причину, иначе
+                # функция уходила в корзину «отсеяно без названной причины».
+                skip_why.append("указательное сравнение nil/null (вне Int-модели)")
                 pos = m.end()
                 continue
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
-            except (Unsupported, NoReturn, SyntaxError):
+            except (Unsupported, NoReturn, SyntaxError) as _u400:
+                # ДЕФЕКТ #400: причина сохраняется — иначе сводка печатала
+                # «skipped N with explicit reasons», не выводя НИ ОДНОЙ.
+                skip_why.append(_skip_key(_u400))
                 pos = m.end()
                 continue
             proven += 1
-            sat_then = _smt_sat(kernc, params, path_conds + if_derived + [cond])
+            # ДЕФЕКТ #401: достижимость проверяется по ПОЗИЦИИ, а не по
+            # накопленному списку: накопление складывало `not cond` из
+            # ВЗАИМОИСКЛЮЧАЮЩИХ ветвей и делало путь UNSAT (ложный DEAD BRANCH).
+            sat_then = _smt_sat(kernc, params,
+                                path_conds + _clike_conds_at(m.end(), if_blocks)
+                                + [cond])
             if sat_then is False:
                 found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
             # REDUNDANT GUARD для C-like НЕ заявляется: без полного моделирования
@@ -6445,16 +6541,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 r"os\.Exit|process\.exit|std::process::exit|sys\.exit)\s*\(", _blk))
             exits = hard_exit or bool(re.match(
                 r"\s*\{?\s*(return|break|continue)\b", tail))
-            has_else = bool(re.match(r"\s*\}?\s*else\b", tail))
             # ДЕФЕКТ #318: запоминаем ГРАНИЦЫ блока, чтобы позже вычислить
             # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
             # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
-            # ВНУТРИ него. `if_derived` (для достижимости самих `if`)
-            # пополняется только когда блок выходит наружу или есть `else`.
+            # ВНУТРИ него; наружу оно превращается в `not cond` ПО ПОЗИЦИИ.
             _bend = _clike_block_end(body, m.end())
             if_blocks.append((m.end(), _bend, cond, exits))
-            if exits or has_else:
-                if_derived.append(f"(not {cond})")
             pos = m.end()
         # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
         # дальнейшего кода. Без этого zls `alternate(..., len: u32)` с
@@ -6721,6 +6813,14 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                 found.append(_ov_msg)
         if proven:
             checked += 1
+        else:
+            # ДЕФЕКТ #400: функция пропущена — НАЗВАТЬ причину, а не молчать.
+            if skip_why:
+                _bump(skip_why[0])
+            elif not _ifs:
+                _bump("нет условий `if` в теле")
+            else:
+                _bump("условие отсеяно без названной причины (дефект инструмента)")
     # Файловый уровень: правила, недостижимые внутри функции.
     # (а) #194 off-by-one: функция cmark-gfm `cmark_inline_parser_scan_delimiters`
     #     объявлена МНОГОСТРОЧНО, поэтому `_clike_functions` её не находит.
@@ -6751,7 +6851,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str]]:
                f"без проверки границы 65535 -> счётчик переполнится")
         if msg not in found:
             found.append(msg)
-    return checked, total, found
+    return checked, total, found, reasons
 
 
 _AUTO_ROUTE_RULES = [
@@ -6815,7 +6915,7 @@ def cmd_full_scan(path: str, kernc) -> int:
                 _m = re.search(r"checked (\d+) / (\d+)", _out)
                 c, t = (int(_m.group(1)), int(_m.group(2))) if _m else (0, 0)
             else:
-                c, t, fd = _xray_clike_file(f, kernc)
+                c, t, fd, _rs = _xray_clike_file(f, kernc)
         except Exception as _kern_e_4248:  # noqa: BLE001
             _replay_soft(_kern_e_4248, "kern_contracts.py:4248")
             continue
@@ -7100,7 +7200,7 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
                         if m2:
                             worst.append((int(m2.group(2)), str(f.relative_to(root)), m2.group(1)))
                 else:
-                    ck, tot, fd = _xray_clike_file(f, kernc)
+                    ck, tot, fd, _rs = _xray_clike_file(f, kernc)
                     st[1] += ck; st[2] += max(0, tot - ck)
                     for x in fd:
                         findings.append(f"{f.relative_to(root)}: {x}")
@@ -7160,7 +7260,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     # Маршрутизируем в устойчивый разбор БЕЗ исполнения тела (адаптер №5б).
     if p.suffix != ".py":
         _SMT_CALLS[0] = 0
-        ck, tot, fd = _xray_clike_file(p, kernc)
+        ck, tot, fd, _rs = _xray_clike_file(p, kernc)
         _smt_calls_clike = _SMT_CALLS[0]
         _LAST_XRAY["stat"] = (ck, tot, tot - ck, list(fd))
         for x in fd:
@@ -7182,6 +7282,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         print(f"[XRAY SUMMARY] checked {ck} / {tot} functions, "
               f"skipped {tot - ck} with explicit reasons, findings {len(fd)}, "
               f"SMT calls {_smt_calls_clike}")
+        _xray_report_skip_reasons(_rs, tot - ck)
         return 0
     src = p.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
@@ -7470,18 +7571,24 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     print(f"[REPO SCAN] {root} | файлов к сканированию: {len(files)}")
     total_checked = total_fns = total_skip = 0
     all_findings: list[str] = []
+    all_reasons: dict[str, int] = {}      # ДЕФЕКТ #400: гистограмма причин
     bad_files = 0
     for f in files:
         if f.suffix != ".py":
-            ck, tot, fd = _xray_clike_file(f, kernc)
+            ck, tot, fd, _rs = _xray_clike_file(f, kernc)
             total_checked += ck
             total_fns += tot
             total_skip += max(0, tot - ck)
+            for _k400, _c400 in _rs.items():
+                all_reasons[_k400] = all_reasons.get(_k400, 0) + _c400
             for x in fd:
                 all_findings.append(f"{f}: {x}")
             continue
         try:
-            rc = cmd_xray(str(f), kernc, show_all)
+            _buf = io.StringIO()
+            with contextlib.redirect_stdout(_buf):
+                rc = cmd_xray(str(f), kernc, show_all)
+            _out = _buf.getvalue()
         except SyntaxError as e:
             bad_files += 1
             print(f"  [SKIP FILE] {f}: синтаксис: {e}")
@@ -7491,6 +7598,18 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
             bad_files += 1
             print(f"  [SKIP FILE] {f}: {type(e).__name__}: {e}")
             continue
+        # Вывод cmd_xray перехвачен, чтобы собрать ЕГО причины пропуска в ту же
+        # гистограмму; печатаем дословно, чтобы ничего не потерялось.
+        print(_out, end="" if _out.endswith(chr(10)) else chr(10))
+        for _ln in _out.splitlines():
+            _st = _ln.strip()
+            if _st.startswith("skip: "):
+                _rest = _st[6:]
+                if " × " in _rest:
+                    _k2, _c2 = _rest.rsplit(" × ", 1)
+                    all_reasons[_k2] = all_reasons.get(_k2, 0) + int(_c2)
+                else:
+                    all_reasons[_rest] = all_reasons.get(_rest, 0) + 1
         # cmd_xray печатает свою сводку; агрегируем через побочный канал
         st = _LAST_XRAY.get("stat")
         if st:
@@ -7504,6 +7623,7 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     print("=" * 74)
     print(f"[REPO SUMMARY] файлов {len(files)} | функций проверено {total_checked} / {total_fns} "
           f"(skipped {total_skip}) | находок {len(all_findings)} | нечитаемых файлов {bad_files}")
+    _xray_report_skip_reasons(all_reasons, total_skip)
     for x in all_findings[:60]:
         print("  " + x)
     return 0
