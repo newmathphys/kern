@@ -55,6 +55,7 @@ external oracle, and the block "model families without oracles" is gone.
 Measured for #6 (2026-10-28): `CT_RATIO = 1.0003` (threshold < 3.0) versus
 `EE_RATIO = 68.80` (threshold >= 10.0). The 4096-byte secret was chosen **by
 measurement**: at 16 bytes the signal drowned in timer overhead (`EE_RATIO = 1.20`).
+**Range across runs (re-measured 2026-10-28):** `CT_RATIO` 1.0003-1.0035, `EE_RATIO` 68.80-86.81.
 
 ---
 

@@ -48,6 +48,8 @@ PAIRS = (
     # Десять доказательств (сверенные команды) — паритет RU/EN, иначе
     # русская версия разойдётся молча (класс #335).
     ("docs/TEN_PROOFS.ru.md", "docs/TEN_PROOFS.md"),
+    # Передача дел: файл несёт якоря фактов, значит обязан иметь паритет RU/EN.
+    ("docs/NEXT_SESSION.ru.md", "docs/NEXT_SESSION.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",

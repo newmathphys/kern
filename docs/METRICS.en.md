@@ -3133,6 +3133,8 @@ CALIBRATION (measured 2026-10-28, N=24):
 
 Separation ~1400×. The 0.2 s threshold is 285× above the slowest safe case and
 4.9× below the fastest vulnerable one.
+> **Range across runs (re-measured 2026-10-28):** fastest vulnerable `0.98 s`, slowest `2.12 s`; on re-measurement `(.+)+` gave `1.4237 s` instead of `1.44 s`. The stable claims are the **0.2 s threshold** and the `6/3/0/0` count, not the seconds.
+
 
 RESULT (measured):
 
@@ -3270,6 +3272,8 @@ model's claim with PHYSICAL execution time.
 |:--|--:|:--|:--|
 | `CT_RATIO` (constant-time) | **1.0003** (1.0025 / 1.0007 / 1.0052) | < 3.0 | 3x |
 | `EE_RATIO` (early exit) | **68.80** (60.6 / 62.1 / 68.8) | >= 10.0 | 6.9x |
+
+> **Range across runs (re-measured 2026-10-28):** `CT_RATIO` 1.0003-1.0035, `EE_RATIO` 68.80-86.81. The stable claims are the **thresholds** (`< 3.0`, `>= 10.0`) and the classification, not the ratios themselves.
 
 At 16 bytes the signal DROWNED in timer overhead: measured `CT_RATIO=1.00`,
 `EE_RATIO=1.20` — the secret length was chosen BY MEASUREMENT, not by eye.
