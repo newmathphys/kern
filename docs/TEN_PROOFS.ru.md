@@ -9,7 +9,7 @@
 > Спутники: `docs/CAPABILITY_MATRIX.ru.md` (все возможности с воротами),
 > `docs/CORPORA.md` (инвентарь корпусов), `docs/EXAMPLE_WHY_KERN.ru.md` (история `lcm`).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## 1. Аппаратное переполнение `i32` (Rust)
 
@@ -52,11 +52,20 @@ python3 tools/kern_contracts.py docs/evidence/any_project/catalan_contract.c
 
 ## 4. Знаковое переполнение умножения (`TheAlgorithms/C`, PR #1596)
 
-Цели `make`, печатающей этот вердикт, **нет**; свидетельство — снимок:
+Воспроизводящая команда — теневой контракт теперь лежит **в репозитории**, значит
+вердикт может повторить любой:
 
 ```bash
-cat docs/evidence/example_why_kern/lcm.log
+python3 tools/kern_contracts.py docs/evidence/example_why_kern/lcm_numerator.c
 ```
+```
+[BV] lcm_numerator (стр. 15): теория битовых векторов (_ BitVec 32, знаковый)
+[FAIL] lcm_numerator: КОНТРАКТ НАРУШЕН
+       [КОНТРПРИМЕР] a = #x643b3fbb, b = #5a724dfe, result = #x643a7a8a
+```
+Гардированный близнец `lcm_numerator_guarded.c` (то же тело, честные границы)
+**ДОКАЗАН** — значит опровержение выше не вакуумно. Ворота: `make foreign-verdicts-check`.
+Исходный прогон сохранён снимком в `docs/evidence/example_why_kern/lcm.log`:
 ```
 [FAIL] lcm_numerator: КОНТРАКТ НАРУШЕН
        [КОНТРПРИМЕР] a = #x643b3fbb, b = #5a724dfe, result = #x643a7a8a
@@ -70,8 +79,19 @@ lcm_probe.c:24:16: runtime error: signed integer overflow: 1681908667 * 15176345
 
 ## 5. Переполнение `u64` при вычитании (`TheAlgorithms/Rust`, PR #1075)
 
-Только снимок: чужой файл не вендорится, и цели `make` с этим вердиктом нет:
+Воспроизводящая команда — теневой контракт (дословное выражение `n - i` из
+апстримного цикла) лежит в репозитории:
 
+```bash
+python3 tools/kern_contracts.py docs/evidence/thealgorithms_rust/binom_step.rs
+```
+```
+[FAIL] binom_step: ПЕРЕПОЛНЕНИЕ типа `u64` (диапазон [0, 18446744073709551615])
+       [КОНТРПРИМЕР] result = -1, k = 2, i = 1, n = 0
+```
+Гардированный близнец `binom_step_guarded.rs` (`requires i <= n`) **ДОКАЗАН** —
+значит опровержение не вакуумно. Ворота: `make foreign-verdicts-check`.
+Сам апстримный файл **не вендорится** — он сохранён дословно снимком:
 ```bash
 cat docs/evidence/thealgorithms_rust/binomial_coefficient.rs   # апстрим, дословно
 cat docs/evidence/thealgorithms_rust/binomial_coefficient_fixed.rs

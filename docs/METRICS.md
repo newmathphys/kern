@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->179/<!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->180/<!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -10739,3 +10739,80 @@ Horn-системы. Сверяется СОГЛАСОВАНИЕ вердикт�
 | Витрина после | `showcase-live` — **7 строк, 0 провалов** |
 | Гейт | `make zig-guard-check` — три исхода, двусторонне: «сборка упала» ≠ «отказ с именем», поэтому `no field named` запрещён отдельно |
 | Кейс | `zig-guard` (rc=2 за 1 с): снятие guard из `build:` обязано красить ворота |
+
+## §165. ДОКАЗАТЕЛЬСТВО БЕЗ ВОСПРОИЗВЕДЕНИЯ: ДВА ЧУЖИХ ДЕФЕКТА ПРОВЕРЯЕМЫ ИЗ РЕПОЗИТОРИЯ (#393)
+
+### 165.1 ЧТО БЫЛО НЕ ТАК
+
+У двух из десяти доказательств (`docs/TEN_PROOFS.md`) была только ссылка на
+СНИМОК: `docs/evidence/example_why_kern/lcm.log` и
+`docs/evidence/thealgorithms_rust/binomial_coefficient.rs`. Читатель не мог
+проверить утверждение — он мог только поверить снимку. Для Rust теневой контракт
+`binom_step.rs` в репозитории БЫЛ, но команды, печатающей вердикт, не было;
+для C теневого файла не было вовсе.
+
+### 165.2 ЧТО СТАЛО (ИЗМЕРЕНО)
+
+| Файл | Команда | Вердикт |
+|:--|:--|:--|
+| `docs/evidence/example_why_kern/lcm_numerator.c` | `python3 tools/kern_contracts.py <файл>` | `[BV]` → `[FAIL] lcm_numerator` + `[КОНТРПРИМЕР] a = #x643b3fbb, b = #5a724dfe, result = #x643a7a8a` (совпал со снимком) |
+| `docs/evidence/thealgorithms_rust/binom_step.rs` | то же | `[FAIL] binom_step: ПЕРЕПОЛНЕНИЕ типа u64` + `[КОНТРПРИМЕР] result = -1, k = 2, i = 1, n = 0` |
+| `docs/evidence/example_why_kern/lcm_numerator_guarded.c` | то же | `[PASS] ДОКАЗАНО` (то же тело, честные границы) |
+| `docs/evidence/thealgorithms_rust/binom_step_guarded.rs` | то же | `[PASS] ДОКАЗАНО` (то же тело, `i <= n`) |
+
+### 165.3 ПОЧЕМУ ПРОВЕРКА ДВУСТОРОННЯЯ
+
+«REFUTED» само по себе ничего не доказывает: его может дать и сломанный
+инструмент. Поэтому рядом стоят гардированные близнецы с ТЕМ ЖЕ телом, и они
+обязаны быть ДОКАЗАНЫ. Если доказаны оба варианта — опровержение выше было не о
+переполнении, и ворота краснеют.
+
+### 165.4 ГЕЙТ `make foreign-verdicts-check`
+
+Проверяет КЛАСС, а не точные значения: нарушение + предъявленный контрпример +
+`ЛОЖНЫХ ТРЕВОГ 0` + названная теория (`[BV]` для нелинейного умножения), плюс
+доказанность обоих близнецов. **Точные значения модели НЕ проверяются** — решатель
+меняет модель между версиями Z3 (урок #371), поэтому закреплять их в воротах
+значило бы сделать ворота флаки.
+
+Кейс `foreign-verdicts` (rc=1 за 4 с) подменяет `requires` на гардированный
+вариант — ворота обязаны покраснеть.
+
+## §166. ПРОБЕЛ МЕЖДУ СТРАЖАМИ: `sync-check` ЗЕЛЁНЫЙ, А ЧИСЛО УСТАРЕЛО (#394)
+
+Найден на собственном документе передачи дел — и потому показателен.
+
+### 166.1 ЧТО ПРОИЗОШЛО
+
+`docs/NEXT_SESSION.md` (передача дел) содержит блок фактов С якорями, а ниже —
+таблицу, где числа были ГОЛЫМИ:
+
+```
+| Registry | 233 targets · **179/179 CHECK** · 217 non-vacuous cases |
+```
+
+После добавления цели `foreign-verdicts-check` факты стали `234 / 180 / 218`, а
+эта строка — нет.
+
+### 166.2 ПОЧЕМУ ЭТО ВАЖНО: СТРАЖ БЫЛ ЗЕЛЁНЫМ
+
+| Страж | Что проверяет | Вердикт на этом состоянии |
+|:--|:--|:--|
+| `make sync-check` | только ЯКОРЯ `fact:` | **зелёный** — якоря были свежие |
+| `make claims-audit` | ВСЕ числа в отслеживаемых файлах | **красный** — поймал устаревшую строку |
+
+То есть файл из `SURFACES` может содержать устаревшее голое число, и страж
+якорей этого не увидит по построению.
+
+### 166.3 ИСПРАВЛЕНИЕ — ЯКОРЯМИ, А НЕ ПРАВКОЙ ЧИСЛА
+
+Строка переписана так, что `make sync` обновляет её сам. Подстановка в
+`sync_state` глобальная (`ANCHOR.sub`), поэтому два одинаковых якоря в одной
+строке (для формы `N/N`) безопасны.
+
+### 166.4 ГРАНИЦА, НАЗВАННАЯ ПРЯМО
+
+`claims-audit` есть в ПОЛНОМ контуре (`tools/ci.sh:188`), но **не** в `ci-fast`.
+Значит голое число в файле из `SURFACES` может дрейфовать до полного прогона.
+Это записано как известная граница: добавлять `claims-audit` в быстрый контур —
+отдельное решение (он сканирует все отслеживаемые файлы и потому медленнее).

@@ -496,6 +496,7 @@ FAULTABLE = [
     "src/runtime/kern_x.zig",
     "audits/codecheck/py_abs_ok.py.expect.json",
     "audits/codecheck/py_abs_ok.py",
+    "docs/evidence/example_why_kern/lcm_numerator.c",
     "audits/codecheck/py_abs_bad.py.expect.json",
     "src/core/kernfs_router.zig",
     "src/core/kimg_writer.zig",
@@ -2704,6 +2705,25 @@ def case_zig_guard():
     return "make zig-guard-check"
 
 
+def case_foreign_verdicts():
+    """ЧУЖОЙ ДЕФЕКТ БЕЗ ВОСПРОИЗВЕДЕНИЯ: незащищённое ядро объявлено безопасным.
+
+    ЛОМАЕМ: подменяем `requires` в `lcm_numerator.c` на ГАРДИРОВАННУЮ версию
+    (`b >= 1` и границы 46340). Тогда `a * b` перестаёт переполняться, вердикт
+    становится ДОКАЗАНО — и `make foreign-verdicts-check` обязан покраснеть: он
+    требует `[FAIL] lcm_numerator` с контрпримером.
+
+    ЦЕННОСТЬ КЕЙСА: он доказывает, что ворота чувствительны к КЛАССУ вердикта,
+    а не к «любому выводу инструмента». Именно поэтому рядом с незащищённым
+    ядром в воротах стоит гардированный близнец: если доказаны ОБА, значит
+    опровержение выше ничего не доказывало.
+    """
+    patch("docs/evidence/example_why_kern/lcm_numerator.c",
+          "// @kern:requires a >= 0 and b >= 0\n",
+          "// @kern:requires a >= 0 and b >= 1 and a <= 46340 and b <= 46340\n")
+    return "bash tools/foreign_verdicts_check.sh"
+
+
 def case_native_theories_file_drop():
     """НАТИВНЫЕ ТЕОРИИ SABOTAGE: вердикт решателя больше не различается.
 
@@ -3956,6 +3976,8 @@ CASES = [
      case_native_zig_ast_drop),
     ("zig-guard", "Unnamed refusal from a wrong Zig compiler -> gate red",
      case_zig_guard),
+    ("foreign-verdicts", "Guarded core declared safe -> verdict class lost -> gate red",
+     case_foreign_verdicts),
     ("native-theories-file-drop", "Solver verdict ignored -> risk not refuted -> gate red",
      case_native_theories_file_drop),
     ("mbpp-xray-blindspot", "Division-by-zero accusation dropped -> blindspot lost -> red",

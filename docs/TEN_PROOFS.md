@@ -9,7 +9,7 @@
 > Companions: `docs/CAPABILITY_MATRIX.md` (all capabilities with gates),
 > `docs/CORPORA.md` (corpus inventory), `docs/EXAMPLE_WHY_KERN.md` (the `lcm` story).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## 1. Hardware `i32` overflow (Rust)
 
@@ -53,11 +53,20 @@ snapshot is `docs/evidence/any_project/catalan_contract.c`, the fix is
 
 ## 4. Signed multiplication overflow (`TheAlgorithms/C`, PR #1596)
 
-There is **no** `make` target that prints this verdict; the evidence is a snapshot:
+The reproducing command — the shadow contract now lives **in the repository**, so
+the verdict can be re-run by anyone:
 
 ```bash
-cat docs/evidence/example_why_kern/lcm.log
+python3 tools/kern_contracts.py docs/evidence/example_why_kern/lcm_numerator.c
 ```
+```
+[BV] lcm_numerator (стр. 15): теория битовых векторов (_ BitVec 32, знаковый)
+[FAIL] lcm_numerator: КОНТРАКТ НАРУШЕН
+       [КОНТРПРИМЕР] a = #x643b3fbb, b = #5a724dfe, result = #x643a7a8a
+```
+The guard `lcm_numerator_guarded.c` (same body, honest bounds) is **PROVEN** — so
+the refutation above is not vacuous. Gate: `make foreign-verdicts-check`.
+The original run is kept as a snapshot in `docs/evidence/example_why_kern/lcm.log`:
 ```
 [FAIL] lcm_numerator: КОНТРАКТ НАРУШЕН
        [КОНТРПРИМЕР] a = #x643b3fbb, b = #5a724dfe, result = #x643a7a8a
@@ -71,8 +80,19 @@ confirmed by `gcc`, not the solver's counterexample.
 
 ## 5. `u64` underflow on subtraction (`TheAlgorithms/Rust`, PR #1075)
 
-Snapshot only — the foreign file is not vendored, and no `make` target prints this verdict:
+The reproducing command — the shadow contract (the verbatim expression `n - i`
+from the upstream loop) is in the repository:
 
+```bash
+python3 tools/kern_contracts.py docs/evidence/thealgorithms_rust/binom_step.rs
+```
+```
+[FAIL] binom_step: ПЕРЕПОЛНЕНИЕ типа `u64` (диапазон [0, 18446744073709551615])
+       [КОНТРПРИМЕР] result = -1, k = 2, i = 1, n = 0
+```
+The guarded twin `binom_step_guarded.rs` (`requires i <= n`) is **PROVEN**, so the
+refutation is not vacuous. Gate: `make foreign-verdicts-check`.
+The upstream file itself is **not** vendored — it is kept verbatim as a snapshot:
 ```bash
 cat docs/evidence/thealgorithms_rust/binomial_coefficient.rs   # upstream, verbatim
 cat docs/evidence/thealgorithms_rust/binomial_coefficient_fixed.rs

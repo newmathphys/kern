@@ -8,41 +8,39 @@
 > this file (open work) → `docs/PLAN_v2.7.2.md` (the plan) →
 > `docs/CAPABILITY_MATRIX.md` (what is proven and what each proof does NOT show).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
 | Check | Value |
 |:--|:--|
 | Branch / tree | `main` = `fedce93`, clean |
-| Registry | 233 targets · **179/179 CHECK** · 217 non-vacuous cases |
+| Registry | <!-- fact:registry_targets -->234 targets · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (per `docs/STATUS.md`) |
 
 ## Open work — exact locations
 
-1. **Drifting timing numbers are still presented as constants.**
-   - `docs/METRICS.md:10529` — `Разделение ~1400×`
-   - `docs/METRICS.md:10545` — `Python взрывается за 1.44 с`
-   - `docs/METRICS.md:10668-10669` — `CT_RATIO 1.0003`, `EE_RATIO 68.80`
-   - `docs/CAPABILITY_MATRIX.md:55-57` — the same two ratios
-   Re-measured today: ReDoS `1.4237 с` (was `1.44`), `CT_RATIO=1.0035` (was
-   `1.0003`), `EE_RATIO=86.8099` (was `68.80`). §159 already says "замер
-   машинно-зависим", but the **range** is not written. Add the observed range and
-   keep the **thresholds** as the stable claim (0.2 s; `CT < 3.0`; `EE >= 10.0`).
+1. **`make showcase-live` requires Zig 0.17 in `PATH`.** Without it the
+   `zig-guard` target refuses by name (`[ОТКАЗ] … rc=2`, defect #392) instead of
+   blaming `build.zig`. Options: resolve `ZIG` automatically, or document the
+   requirement right next to the command (it is already stated in
+   `docs/TEN_PROOFS.md`).
 
-2. **Two of the ten proofs have no reproducing command** — only a snapshot:
-   `docs/evidence/example_why_kern/lcm.log` (C, PR #1596) and
-   `docs/evidence/thealgorithms_rust/binomial_coefficient.rs` (Rust, PR #1075).
-   Either add targets that actually print those verdicts, or state "snapshot, not
-   a command" (already done in `docs/TEN_PROOFS.md`).
+## Closed in the last session (for the record)
 
-3. **`docs/TEN_PROOFS.md` is not linked from the READMEs.** It is registered in
-   `docs-parity` (19 pairs) and in `SURFACES`, but a reader will not find it.
-
-4. **`make showcase-live` requires Zig 0.17 in `PATH`.** Without it the
-   `zig-guard` target refuses by name (`[ОТКАЗ] … rc=2`, defect #392). Consider
-   resolving `ZIG` automatically, or documenting the requirement next to the command.
+- **Drifting timing numbers** no longer read as constants: the observed RANGE is
+  written next to each snapshot in `docs/METRICS.md` §159/§163 and
+  `docs/CAPABILITY_MATRIX.md`, and the stable claim is the THRESHOLD (defect #393
+  added the reproduction of two foreign defects; the range note is in the same commit).
+- **Two foreign proofs are now reproducible from the repository** (defect #393):
+  `docs/evidence/example_why_kern/lcm_numerator.c` and
+  `docs/evidence/thealgorithms_rust/binom_step.rs`, each with a GUARDED twin that
+  must be PROVEN. Gate: `make foreign-verdicts-check`.
+- **`docs/TEN_PROOFS.md` is linked** from both READMEs (together with this file).
+- **Defect #394**: the handoff document itself carried bare numbers; `sync-check`
+  was green while they were stale, and only `claims-audit` caught it. Fixed with
+  anchors, and the guard gap is recorded in `docs/METRICS.md` §166.
 
 ## Process rules that repeatedly saved this project
 

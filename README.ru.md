@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -17,6 +17,8 @@
 > 3. **`TheAlgorithms/Rust` (26k ★) — переполнение `u64`.** `src/math/binomial_coefficient.rs` считает `n - i` без защиты `k <= n`, поэтому `binom(0, 2)` падает в debug и возвращает мусор в release; все семь тестов апстрима используют `k <= n`. В апстрим: [#1075](https://github.com/TheAlgorithms/Rust/pull/1075) (Codecov: **100% покрытия новых строк**).
 >
 > **Каждая возможность, её одна команда, её внешний оракул и её честная граница:** [docs/CAPABILITY_MATRIX.ru.md](docs/CAPABILITY_MATRIX.ru.md) · [EN](docs/CAPABILITY_MATRIX.md)
+> **Десять доказательств, каждая команда сверена с этим коммитом:** [docs/TEN_PROOFS.ru.md](docs/TEN_PROOFS.ru.md) · [EN](docs/TEN_PROOFS.md) — четыре из десяти примеров при первой редакции **не** совпадали с репозиторием; здесь они исправлены, а дрейфующие времена поданы как **пороги**, а не константы.
+> **Возобновление работы / открытые пункты:** [docs/NEXT_SESSION.ru.md](docs/NEXT_SESSION.ru.md) · [EN](docs/NEXT_SESSION.md)
 
 ![KERN: архитектура и измеренный baseline](docs/kern-architecture.svg)
 
@@ -50,7 +52,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->179 / <!-- fact:check_targets -->179 CHECK-целей** покрыты (<!-- fact:canfail_cases -->217 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->180 / <!-- fact:check_targets -->180 CHECK-целей** покрыты (<!-- fact:canfail_cases -->218 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -690,20 +692,20 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 217 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->178 якорей применимы (за ~1 с)
+make canfail          # 218 кейс: ломаем инвариант -> цель обязана упасть
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->179 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->233 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->234 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->233 (CHECK <!-- fact:check_targets -->179 · MEASURE 1 · BUILD <!-- fact:build_targets -->11 · EXTERNAL 3 · META <!-- fact:meta_targets -->39) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->179/<!-- fact:check_targets -->179 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->234 (CHECK <!-- fact:check_targets -->180 · MEASURE 1 · BUILD <!-- fact:build_targets -->11 · EXTERNAL 3 · META <!-- fact:meta_targets -->39) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->217 (не-вакуумных <!-- fact:canfail_cases -->217 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->392** |
+| can-fail кейсов | <!-- fact:canfail_cases -->218 (не-вакуумных <!-- fact:canfail_cases -->218 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->394** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

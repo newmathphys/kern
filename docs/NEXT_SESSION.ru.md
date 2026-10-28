@@ -8,41 +8,37 @@
 > этот файл (открытая работа) → `docs/PLAN_v2.7.2.md` (план) →
 > `docs/CAPABILITY_MATRIX.ru.md` (что доказано и чего каждое доказательство НЕ показывает).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
 | Проверка | Значение |
 |:--|:--|
 | Ветка / дерево | `main` = `fedce93`, чистое |
-| Реестр | 233 цели · **179/179 CHECK** · 217 невакуумных кейсов |
+| Реестр | <!-- fact:registry_targets -->234 цел · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 невакуумных кейсов |
 | Релиз | `v2.8.0` опубликован (4 ассета, `artifact-check` согласован, `seal` валиден) |
 | Открытых технических дефектов | **0** (по `docs/STATUS.md`) |
 
 ## Открытая работа — точные места
 
-1. **Дрейфующие времена всё ещё подаются как константы.**
-   - `docs/METRICS.md:10529` — `Разделение ~1400×`
-   - `docs/METRICS.md:10545` — `Python взрывается за 1.44 с`
-   - `docs/METRICS.md:10668-10669` — `CT_RATIO 1.0003`, `EE_RATIO 68.80`
-   - `docs/CAPABILITY_MATRIX.ru.md:55-57` — те же два отношения
-   Перезамер сегодня: ReDoS `1.4237 с` (было `1.44`), `CT_RATIO=1.0035` (было
-   `1.0003`), `EE_RATIO=86.8099` (было `68.80`). В §159 уже сказано «замер
-   машинно-зависим», но **диапазон** не написан. Добавить наблюдаемый диапазон и
-   оставить **пороги** устойчивым утверждением (0.2 с; `CT < 3.0`; `EE >= 10.0`).
+1. **`make showcase-live` требует Zig 0.17 в `PATH`.** Без него цель `zig-guard`
+   отказывает по имени (`[ОТКАЗ] … rc=2`, дефект #392) вместо обвинения
+   `build.zig`. Варианты: автоопределение `ZIG` либо документировать требование
+   прямо рядом с командой (в `docs/TEN_PROOFS.ru.md` оно уже названо).
 
-2. **У двух из десяти доказательств нет воспроизводящей команды** — только снимок:
-   `docs/evidence/example_why_kern/lcm.log` (C, PR #1596) и
-   `docs/evidence/thealgorithms_rust/binomial_coefficient.rs` (Rust, PR #1075).
-   Либо добавить цели, которые действительно печатают эти вердикты, либо писать
-   «снимок, не команда» (в `docs/TEN_PROOFS.ru.md` уже так).
+## Закрыто в прошлой сессии (для протокола)
 
-3. **`docs/TEN_PROOFS.ru.md` не связан из README.** Он зарегистрирован в
-   `docs-parity` (19 пар) и в `SURFACES`, но читатель его не найдёт.
-
-4. **`make showcase-live` требует Zig 0.17 в `PATH`.** Без него цель `zig-guard`
-   отказывает по имени (`[ОТКАЗ] … rc=2`, дефект #392). Рассмотреть автоопределение
-   `ZIG` либо документировать требование рядом с командой.
+- **Дрейфующие времена** больше не читаются как константы: наблюдаемый ДИАПАЗОН
+  записан рядом с каждым снимком в `docs/METRICS.md` §159/§163 и
+  `docs/CAPABILITY_MATRIX.ru.md`, а устойчивым объявлен ПОРОГ.
+- **Два чужих доказательства теперь воспроизводимы из репозитория** (дефект #393):
+  `docs/evidence/example_why_kern/lcm_numerator.c` и
+  `docs/evidence/thealgorithms_rust/binom_step.rs`, у каждого ГАРДИРОВАННЫЙ близнец,
+  который обязан быть ДОКАЗАН. Ворота: `make foreign-verdicts-check`.
+- **`docs/TEN_PROOFS.ru.md` связан** из обоих README (вместе с этим файлом).
+- **Дефект #394**: сам документ передачи дел содержал голые числа; `sync-check`
+  был зелёным, пока они устаревали, и поймал это только `claims-audit`.
+  Исправлено якорями, пробел между стражами записан в `docs/METRICS.md` §166.
 
 ## Правила процесса, которые не раз спасали проект
 

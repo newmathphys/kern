@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · registry <!-- fact:registry_targets -->233 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->179/<!-- fact:check_targets -->179 · cases <!-- fact:canfail_cases -->217 · anchors <!-- fact:anchors -->178 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->180/<!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -3338,3 +3338,78 @@ published numbers and commands against actual behaviour, not by reading code.
 | Showcase after | `showcase-live` — **7 rows, 0 failures** |
 | Gate | `make zig-guard-check` — three outcomes, two-sidedly: "the build failed" is NOT a named refusal, so `no field named` is forbidden separately |
 | Case | `zig-guard` (rc=2 in 1 s): removing the guard from `build:` must turn the gate red |
+
+## §143. A PROOF WITHOUT REPRODUCTION: TWO FOREIGN DEFECTS ARE NOW CHECKABLE FROM THE REPOSITORY (#393)
+
+### 143.1 WHAT WAS WRONG
+
+Two of the ten proofs (`docs/TEN_PROOFS.md`) had only a REFERENCE TO A SNAPSHOT:
+`docs/evidence/example_why_kern/lcm.log` and
+`docs/evidence/thealgorithms_rust/binomial_coefficient.rs`. A reader could not
+verify the claim - only trust the snapshot. For Rust the shadow contract
+`binom_step.rs` DID exist in the repository, but no command printed the verdict;
+for C the shadow file did not exist at all.
+
+### 143.2 WHAT IT IS NOW (MEASURED)
+
+| File | Command | Verdict |
+|:--|:--|:--|
+| `docs/evidence/example_why_kern/lcm_numerator.c` | `python3 tools/kern_contracts.py <file>` | `[BV]` -> `[FAIL] lcm_numerator` + `[КОНТРПРИМЕР] a = #x643b3fbb, b = #5a724dfe, result = #x643a7a8a` (matched the snapshot) |
+| `docs/evidence/thealgorithms_rust/binom_step.rs` | same | `[FAIL] binom_step: ПЕРЕПОЛНЕНИЕ типа u64` + `[КОНТРПРИМЕР] result = -1, k = 2, i = 1, n = 0` |
+| `docs/evidence/example_why_kern/lcm_numerator_guarded.c` | same | `[PASS] ДОКАЗАНО` (same body, honest bounds) |
+| `docs/evidence/thealgorithms_rust/binom_step_guarded.rs` | same | `[PASS] ДОКАЗАНО` (same body, `i <= n`) |
+
+### 143.3 WHY THE CHECK IS TWO-SIDED
+
+"REFUTED" alone proves nothing: a broken tool can produce it too. So guarded twins
+with the SAME body sit next to the unguarded ones, and they must be PROVEN. If both
+variants are proven, the refutation above was not about overflow, and the gate goes red.
+
+### 143.4 THE GATE `make foreign-verdicts-check`
+
+It checks the CLASS, not exact values: a violation + an exhibited counterexample +
+`ЛОЖНЫХ ТРЕВОГ 0` + the named theory (`[BV]` for nonlinear multiplication), plus both
+twins being proven. **Exact model values are NOT asserted** - the solver changes its
+model between Z3 versions (lesson of #371), so pinning them would make the gate flaky.
+
+The `foreign-verdicts` case (rc=1 in 4 s) replaces `requires` with the guarded
+variant - the gate must go red.
+
+## §144. A GAP BETWEEN GUARDS: `sync-check` GREEN WHILE THE NUMBER WAS STALE (#394)
+
+Found on our own handoff document - which is why it is instructive.
+
+### 144.1 WHAT HAPPENED
+
+`docs/NEXT_SESSION.md` (the session handoff) has a facts block WITH anchors, and
+below it a table whose numbers were BARE:
+
+```
+| Registry | 233 targets · **179/179 CHECK** · 217 non-vacuous cases |
+```
+
+After the `foreign-verdicts-check` target was added the facts became `234 / 180 /
+218`, and this row did not.
+
+### 144.2 WHY IT MATTERS: THE GUARD WAS GREEN
+
+| Guard | What it checks | Verdict in that state |
+|:--|:--|:--|
+| `make sync-check` | only `fact:` ANCHORS | **green** - the anchors were fresh |
+| `make claims-audit` | EVERY number in tracked files | **red** - caught the stale row |
+
+So a file listed in `SURFACES` can carry a stale bare number, and the anchor guard
+cannot see it by construction.
+
+### 144.3 THE FIX - ANCHORS, NOT A NUMBER EDIT
+
+The row was rewritten so that `make sync` updates it. Substitution in `sync_state`
+is global (`ANCHOR.sub`), so two identical anchors on one line (for the `N/N` form)
+are safe.
+
+### 144.4 THE BOUNDARY, STATED PLAINLY
+
+`claims-audit` is in the FULL contour (`tools/ci.sh:188`) but **not** in `ci-fast`.
+So a bare number in a file listed in `SURFACES` can drift until the full run. This
+is recorded as a known boundary: adding `claims-audit` to the fast contour is a
+separate decision (it scans every tracked file and is therefore slower).
