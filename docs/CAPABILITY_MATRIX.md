@@ -1,6 +1,6 @@
 # KERN capability matrix — one command, one physical oracle, one honest boundary
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->236 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->219 · anchors <!-- fact:anchors -->180 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **WHY THIS PAGE EXISTS.** Every capability below is listed with three things that
 are **mandatory**: the **one command** that exercises it, the **external oracle**
@@ -109,6 +109,7 @@ measurement**: at 16 bytes the signal drowned in timer overhead (`EE_RATIO = 1.2
 | 5 | EVM semantics | `make evm-proof-check` | SMT identities | verified | the **model** of EVM arithmetic, not a bytecode disassembler |
 | 6 | Attestation | `make verify-attestation` | an **external** Ed25519 public key | verified | our own key, not a third-party builder (no SLSA L3) |
 | 7 | Truth Gate on our own claims | `scan_to_kern.py .` + `kernc verify` | the kernel's own verdicts | 73 of 74 claims get `e=0` | prose is not a machine contract — that is the point |
+| 8 | CLI names every implemented command | `make cli-help-parity-check` | a live run of `kernc --help` (stdout, rc=0) | verified | it checks the command LIST, not whether each option description is true |
 
 ---
 

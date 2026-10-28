@@ -8,14 +8,14 @@
 > этот файл (открытая работа) → `docs/PLAN_v2.7.2.md` (план) →
 > `docs/CAPABILITY_MATRIX.ru.md` (что доказано и чего каждое доказательство НЕ показывает).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->236 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->181 · cases <!-- fact:canfail_cases -->219 · anchors <!-- fact:anchors -->180 · registry <!-- fact:registry_targets -->237 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
 | Проверка | Значение |
 |:--|:--|
 | Ветка / дерево | `main` = `fedce93`, чистое |
-| Реестр | <!-- fact:registry_targets -->236 цел · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 невакуумных кейсов |
+| Реестр | <!-- fact:registry_targets -->237 цел · **<!-- fact:check_targets -->181/<!-- fact:check_targets -->181 CHECK** · <!-- fact:canfail_cases -->219 невакуумных кейсов |
 | Релиз | `v2.8.0` опубликован (4 ассета, `artifact-check` согласован, `seal` валиден) |
 | Открытых технических дефектов | **0** (по `docs/STATUS.md`) |
 
