@@ -148,10 +148,10 @@ subset. It is a **scalpel plus a turnstile**:
 | Core tests | <!-- fact:core_tests -->451 |
 | Next tests | <!-- fact:next_tests -->53 |
 | Test catalog | <!-- fact:catalog -->480 |
-| CHECK targets | <!-- fact:check_targets -->174 |
-| can-fail cases | <!-- fact:canfail_cases -->212 |
-| Literal anchors | <!-- fact:anchors -->173 |
-| Registry targets | <!-- fact:registry_targets -->227 |
+| CHECK targets | <!-- fact:check_targets -->175 |
+| can-fail cases | <!-- fact:canfail_cases -->213 |
+| Literal anchors | <!-- fact:anchors -->174 |
+| Registry targets | <!-- fact:registry_targets -->228 |
 | Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |
 | QuixBugs (differential) | <!-- fact:quixbugs.differential -->40 |
