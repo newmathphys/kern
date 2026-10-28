@@ -19,28 +19,34 @@
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (per `docs/STATUS.md`) |
 
-## Open work — exact locations
+## Open work
 
-1. **`make showcase-live` requires Zig 0.17 in `PATH`.** Without it the
-   `zig-guard` target refuses by name (`[ОТКАЗ] … rc=2`, defect #392) instead of
-   blaming `build.zig`. Options: resolve `ZIG` automatically, or document the
-   requirement right next to the command (it is already stated in
-   `docs/TEN_PROOFS.md`).
+**No open items.** The four items recorded in the previous handoff are closed;
+see the list below for the evidence of each.
 
-## Closed in the last session (for the record)
+What is deliberately NOT done (not a defect, a boundary):
 
-- **Drifting timing numbers** no longer read as constants: the observed RANGE is
-  written next to each snapshot in `docs/METRICS.md` §159/§163 and
-  `docs/CAPABILITY_MATRIX.md`, and the stable claim is the THRESHOLD (defect #393
-  added the reproduction of two foreign defects; the range note is in the same commit).
-- **Two foreign proofs are now reproducible from the repository** (defect #393):
-  `docs/evidence/example_why_kern/lcm_numerator.c` and
-  `docs/evidence/thealgorithms_rust/binom_step.rs`, each with a GUARDED twin that
-  must be PROVEN. Gate: `make foreign-verdicts-check`.
-- **`docs/TEN_PROOFS.md` is linked** from both READMEs (together with this file).
-- **Defect #394**: the handoff document itself carried bare numbers; `sync-check`
-  was green while they were stale, and only `claims-audit` caught it. Fixed with
-  anchors, and the guard gap is recorded in `docs/METRICS.md` §166.
+- `claims-audit` is in the full contour, not in `ci-fast` — so a bare number in a
+  file listed in `SURFACES` can drift until the full run (defect #394.4).
+- KERN is not a scanner: it does not find bugs in foreign repositories on its own.
+
+## Closed in the last session (with the evidence for each)
+
+1. **Drifting timing numbers no longer read as constants.** The observed RANGE is
+   written next to each snapshot in `docs/METRICS.md` §159/§163 and
+   `docs/CAPABILITY_MATRIX.md`, and the stable claim is the THRESHOLD
+   (0.2 s; `CT < 3.0`; `EE >= 10.0`).
+2. **Two foreign proofs are now reproducible from the repository** (defect #393):
+   `docs/evidence/example_why_kern/lcm_numerator.c` -> `[BV] [FAIL]` with a
+   counterexample, and `docs/evidence/thealgorithms_rust/binom_step.rs` ->
+   `[FAIL] binom_step: ПЕРЕПОЛНЕНИЕ типа u64`. Each has a GUARDED twin that must
+   be PROVEN, so the refutation is not vacuous. Gate: `make foreign-verdicts-check`.
+3. **`docs/TEN_PROOFS.md` and this file are linked** from both READMEs.
+4. **`make showcase-live` states its Zig requirement FIRST** (defect #392):
+   `tools/showcase_live.py` runs a preflight printing the exact version and the fix
+   BEFORE the seven rows, so a missing Zig 0.17 no longer looks like a defect in the
+   project. Measured: without Zig 0.17 the warning is the first line; with it the
+   showcase is 7 rows / 0 failures.
 
 ## Process rules that repeatedly saved this project
 

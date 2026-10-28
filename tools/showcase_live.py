@@ -146,12 +146,40 @@ def run_row(name, cmd, markers, oracle, not_proves, est):
     return ok
 
 
+def preflight_zig() -> None:
+    """Пункт 4 передачи дел: витрина ТРЕБУЕТ Zig 0.17 в PATH.
+
+    Без него строка «Нативный Zig-фронтенд» падает, а вместе с ней и строки,
+    которые тянут `make build` (`diff-equiv`). Причина при этом лежит ВНУТРИ
+    одной из семи строк — читатель видит «1 провал» и не знает, почему.
+
+    Поэтому причина печатается ПЕРВОЙ строкой вывода, с точной версией и
+    подсказкой. Это то же требование, что и у цели `zig-guard` (#392): отказ
+    обязан быть НАЗВАННЫМ, а не выглядеть как дефект нашего кода.
+
+    Проверка НЕ меняет поведение витрины: она только сообщает. Молча
+    подставлять «какой-нибудь» Zig было бы хуже — версия 0.13 меняет сборку.
+    """
+    try:
+        r = subprocess.run(["zig", "version"], capture_output=True, text=True, timeout=15)
+        ver = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+        ver = ver[0] if ver else "пусто"
+    except Exception as exc:  # noqa: BLE001 — сообщаем, а не падаем
+        ver = f"не найден ({type(exc).__name__})"
+    if not ver.startswith("0.17"):
+        print(f"[i] ВНИМАНИЕ: `zig version` -> {ver!r}, а витрине нужен Zig 0.17.")
+        print("    Без него цель `zig-guard` откажет по имени ([ОТКАЗ] rc=2, дефект #392),")
+        print("    и часть строк покраснеет НЕ из-за дефекта проекта.")
+        print("    Лечение: ZIG=<путь к zig 0.17> либо поставить его первым в PATH.")
+
+
 def main() -> int:
     full = "--full" in sys.argv
     rows = QUICK + (FULL if full else ())
     print("=" * 78)
     print("KERN: ЖИВАЯ ВИТРИНА — каждая строка ВЫПОЛНЯЕТСЯ, вердикт из живого вывода")
     print("=" * 78)
+    preflight_zig()
     if not full:
         print(f"[i] быстрый режим: {len(QUICK)} строк. Длинные корпуса: make showcase-live-full")
     bad = 0
