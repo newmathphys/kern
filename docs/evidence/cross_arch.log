@@ -1,16 +1,16 @@
 === KERN EVIDENCE: cross_arch ===
 === команда: bash tools/cross_arch_test.sh ===
-=== дата: 2026-10-27T13:44:51Z ===
+=== дата: 2026-10-28T07:49:10Z ===
 
 === ARM64 (little-endian, строгое выравнивание) (aarch64-linux-musl) ===
-  448/449 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
-  449/449 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
-  441 passed; 8 skipped; 0 failed.
+  450/451 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
+  451/451 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
+  443 passed; 8 skipped; 0 failed.
 === POWERPC64 (BIG-ENDIAN, порядок байт) (powerpc64-linux-musl) ===
-  448/449 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
-  449/449 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
-  441 passed; 8 skipped; 0 failed.
-=== ENV-DEPENDENT: baseline 449 (требует qemu-user-static; на машине без QEMU пересъёмка невозможна) ===
+  450/451 next.state_axes.test.ОСИ: падение в песочнице — refuted, незавершение — timeout...OK
+  451/451 next.state_axes.test.ОСИ: QueryKind различает три типа запроса...OK
+  443 passed; 8 skipped; 0 failed.
+=== ENV-DEPENDENT: baseline 451 (требует qemu-user-static; на машине без QEMU пересъёмка невозможна) ===
 
 RC=0
 [guard] FAULTABLE без изменений (143 файлов) — прогон чист
