@@ -151,8 +151,8 @@ subset. It is a **scalpel plus a turnstile**:
 | CHECK targets | <!-- fact:check_targets -->180 |
 | can-fail cases | <!-- fact:canfail_cases -->218 |
 | Literal anchors | <!-- fact:anchors -->179 |
-| Registry targets | <!-- fact:registry_targets -->234 |
+| Registry targets | <!-- fact:registry_targets -->236 |
 | Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |
 | QuixBugs (differential) | <!-- fact:quixbugs.differential -->40 |
-| META targets | <!-- fact:meta_targets -->39 |
+| META targets | <!-- fact:meta_targets -->41 |

@@ -1,6 +1,6 @@
 # KERN capability matrix — one command, one physical oracle, one honest boundary
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->236 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **WHY THIS PAGE EXISTS.** Every capability below is listed with three things that
 are **mandatory**: the **one command** that exercises it, the **external oracle**
@@ -126,10 +126,20 @@ measurement**: at 16 bytes the signal drowned in timer overhead (`EE_RATIO = 1.2
 
 ```bash
 make ci-fast                 # fast circuit
-make showcase-live           # live table: each row is executed
+make showcase-live           # 7 rows (seconds)
+make showcase-live-all       # ALL rows of THIS matrix, executed live: 32 rows, ~2 min
+make showcase-live-full      # the 7 fast rows + the long corpora (minutes)
 make conformance-check       # 12 sections
 make oracle-noninterference-check   # the statistical oracle, honestly labelled
 ```
+
+**Which mode covers what.** `showcase-live` shows 7 rows; `showcase-live-all`
+executes **every row of this page** (measured 2026-10-28: **32 rows, 0 failures,
+119 s total, slowest row 24.5 s**) and takes the verdict from live output, not
+from this document. Two rows are deliberately NOT in that fast tier — the full
+tree scan (~20 min) and cross-architecture (~5 min); `showcase-live-all-full`
+runs them, and their commands are printed even when they are skipped, so nothing
+is hidden. Each row states its **external oracle** and **what it does NOT prove**.
 
 Inventory of corpora with N/M and oracles: `docs/CORPORA.md`.
 Companion page with six modes in a row on one function: `docs/REAL_WORLD_CAPABILITIES.md`.

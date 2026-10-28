@@ -1,6 +1,6 @@
 # МАТРИЦА ВОЗМОЖНОСТЕЙ KERN: одна команда, один физический оракул, одна честная граница
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->236 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **ЗАЧЕМ ЭТА СТРАНИЦА.** У каждой возможности ниже обязательны **три** вещи:
 **одна команда**, которая её включает; **внешний оракул**, который подтверждает
@@ -127,10 +127,21 @@
 
 ```bash
 make ci-fast                 # быстрый контур
-make showcase-live           # живая таблица: каждая строка ВЫПОЛНЯЕТСЯ
+make showcase-live           # 7 строк (секунды)
+make showcase-live-all       # ВСЕ строки ЭТОЙ матрицы, живьём: 32 строки, ~2 мин
+make showcase-live-full      # 7 быстрых + длинные корпуса (минуты)
 make conformance-check       # 12 разделов
 make oracle-noninterference-check   # статистический оракул, честно помеченный
 ```
+
+**Какой режим что покрывает.** `showcase-live` показывает 7 строк;
+`showcase-live-all` выполняет **каждую строку этой страницы** (измерено
+2026-10-28: **32 строки, 0 провалов, всего 119 с, самая долгая строка 24.5 с**),
+и вердикт берётся из живого вывода, а не из этого документа. Две строки
+намеренно НЕ в быстром ярусе — полный скан дерева (~20 мин) и
+кросс-архитектура (~5 мин); их запускает `showcase-live-all-full`, а их
+команды печатаются даже когда строки пропущены — ничего не скрыто. У каждой
+строки указаны **внешний оракул** и **чего она НЕ доказывает**.
 
 Инвентарь корпусов с N/M и оракулами: `docs/CORPORA.md`.
 Сопутствующая страница с шестью режимами подряд на одной функции: `docs/REAL_WORLD_CAPABILITIES.ru.md`.

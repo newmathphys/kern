@@ -8,14 +8,14 @@
 > этот файл (открытая работа) → `docs/PLAN_v2.7.2.md` (план) →
 > `docs/CAPABILITY_MATRIX.ru.md` (что доказано и чего каждое доказательство НЕ показывает).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->236 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
 | Проверка | Значение |
 |:--|:--|
 | Ветка / дерево | `main` = `fedce93`, чистое |
-| Реестр | <!-- fact:registry_targets -->234 цел · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 невакуумных кейсов |
+| Реестр | <!-- fact:registry_targets -->236 цел · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 невакуумных кейсов |
 | Релиз | `v2.8.0` опубликован (4 ассета, `artifact-check` согласован, `seal` валиден) |
 | Открытых технических дефектов | **0** (по `docs/STATUS.md`) |
 
@@ -23,6 +23,26 @@
 
 **Открытых пунктов нет.** Четыре пункта из прошлой передачи дел закрыты; ниже —
 свидетельство по каждому.
+
+**Закрыто в ЭТОЙ сессии (проверка всех возможностей):**
+
+1. **`make showcase-live-all` — каждая строка `docs/CAPABILITY_MATRIX.md` теперь
+   ВЫПОЛНЯЕТСЯ, а не читается.** До этого живая витрина покрывала 7 строк из 42:
+   читатель мог проверить 7 возможностей, а остальные 35 обязан был принимать на
+   веру из прозы. Измерено 2026-10-28: **32 строки, 0 провалов, всего 119 с,
+   самая долгая строка 24.5 с.** У каждой строки — внешний оракул и колонка
+   «чего НЕ доказывает». Две долгие строки (полный скан дерева ~20 мин,
+   кросс-архитектура ~5 мин) идут только с `showcase-live-all-full`, и их
+   команды ПЕЧАТАЮТСЯ даже когда строки пропущены — ничего не спрятано за флагом.
+2. **Четыре дефекта найдены САМИМ построением этого покрытия** (пока строки жили
+   только прозой, их не было видно): #395 витрина буферизовала вывод (0 байт за
+   87 с при перенаправлении — читатель лога не отличает «идёт» от «зависло»);
+   #396 `quixbugs-replay` читал датасет только из `/tmp`, поэтому после любой
+   очистки гейт молча уходил в SKIP (кеш переехал в `~/.cache/kern/repos`);
+   #397 `make bridge` срезал СВОЮ ЖЕ итоговую строку через `head -40`, поэтому
+   вердикт Truth Gate не появлялся никогда; #397.4 неверный маркер в моей же
+   строке витрины (`false_equivalent` принадлежит другому гейту) валил строку при
+   работающей цели.
 
 Что сознательно НЕ сделано (это граница, а не дефект):
 

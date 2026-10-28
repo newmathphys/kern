@@ -8,14 +8,14 @@
 > this file (open work) → `docs/PLAN_v2.7.2.md` (the plan) →
 > `docs/CAPABILITY_MATRIX.md` (what is proven and what each proof does NOT show).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->234 · META <!-- fact:meta_targets -->39 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->180 · cases <!-- fact:canfail_cases -->218 · anchors <!-- fact:anchors -->179 · registry <!-- fact:registry_targets -->236 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
 | Check | Value |
 |:--|:--|
 | Branch / tree | `main` = `fedce93`, clean |
-| Registry | <!-- fact:registry_targets -->234 targets · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 non-vacuous cases |
+| Registry | <!-- fact:registry_targets -->236 targets · **<!-- fact:check_targets -->180/<!-- fact:check_targets -->180 CHECK** · <!-- fact:canfail_cases -->218 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (per `docs/STATUS.md`) |
 
@@ -23,6 +23,26 @@
 
 **No open items.** The four items recorded in the previous handoff are closed;
 see the list below for the evidence of each.
+
+**Closed in THIS session (verification of all capabilities):**
+
+1. **`make showcase-live-all` — every row of `docs/CAPABILITY_MATRIX.md` is now
+   EXECUTED, not read.** Before this, the live showcase covered 7 of 42 matrix
+   rows: a reader could verify 7 capabilities and had to take the other 35 on
+   trust from prose. Measured 2026-10-28: **32 rows, 0 failures, 119 s total,
+   slowest row 24.5 s.** Each row carries its external oracle and what it does
+   NOT prove. The two long rows (full tree scan ~20 min, cross-architecture
+   ~5 min) run only under `showcase-live-all-full`, and their commands are
+   PRINTED even when skipped — nothing is hidden behind a flag.
+2. **Four defects were found BY building that coverage** (they were invisible
+   while the rows lived only as prose): #395 the showcase buffered its output
+   (0 bytes in 87 s when redirected — a log reader cannot tell "running" from
+   "hung"); #396 `quixbugs-replay` read the dataset from `/tmp` only, so after
+   any cleanup the gate silently skipped (cache moved to `~/.cache/kern/repos`);
+   #397 `make bridge` truncated its OWN summary line with `head -40`, so the
+   Truth Gate verdict never appeared; #397.4 a wrong marker in my own showcase
+   row (`false_equivalent` belongs to a different gate) made the row fail while
+   the target worked.
 
 What is deliberately NOT done (not a defect, a boundary):
 

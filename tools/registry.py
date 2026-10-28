@@ -252,6 +252,8 @@ CLASS = {
     "oracle-noninterference-check": "CHECK",  # шаг D: ФИЗИЧЕСКИЙ оракул невмешательства (реальное время; СТАТИСТИЧЕСКИЙ)
     "showcase-live": "META",             # §C: ЖИВАЯ витрина — ПРОГОНЯЕТ строки, не печатает
     "showcase-live-full": "META",        # §C: то же + длинные корпуса (минуты)
+    "showcase-live-all": "META",         # ВСЕ 42 строки матрицы (быстрый ярус)
+    "showcase-live-all-full": "META",    # то же + корпуса (минуты) + долгие (десятки минут)
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",

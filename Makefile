@@ -43,7 +43,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: zig-guard zig-guard-check foreign-verdicts-check audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check native-theories-file-check mbpp-xray-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest showcase-live showcase-live-full oracle-dtmc-check oracle-redos-check oracle-absint-check oracle-chc-check oracle-string-check oracle-noninterference-check
+.PHONY: zig-guard zig-guard-check foreign-verdicts-check audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check native-theories-file-check mbpp-xray-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest showcase-live showcase-live-full showcase-live-all showcase-live-all-full oracle-dtmc-check oracle-redos-check oracle-absint-check oracle-chc-check oracle-string-check oracle-noninterference-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -52,7 +52,10 @@ bridge:
 	@W=$$(mktemp -d); trap 'rm -rf "$$W"' EXIT INT TERM; \
 	$(PYTHON) tools/scan_to_kern.py . -o "$$W/bridge.kern"; \
 	./zig-out/bin/kernc build "$$W/bridge.kern" -o "$$W/bridge.kimg"; \
-	./zig-out/bin/kernc verify "$$W/bridge.kimg" 2>&1 | grep -E "claim|контракт|свидетельство|ИТОГ" | head -40
+	./zig-out/bin/kernc verify "$$W/bridge.kimg" > "$$W/out.txt" 2>&1; \
+	grep -E "claim|контракт|свидетельство" "$$W/out.txt" | head -40; \
+	echo "--- ИТОГ (печатается ВСЕГДА, его нельзя срезать head'ом):"; \
+	grep -E "ИТОГ|РАСХОЖДЕНИЙ|e=1 выставляется" "$$W/out.txt"
 
 help:
 	@echo "KERN — цели Makefile"
@@ -524,10 +527,18 @@ conformance-check:
 	@$(ZIG) build
 	@$(PYTHON) tools/conformance_check.py
 
+# ДЕФЕКТ: датасет искался ТОЛЬКО в /tmp, поэтому после любой очистки tmp цель
+# молча уходила в SKIP — «0 строк» читалось как «всё хорошо». Кеш обязан жить
+# в постоянном каталоге (правило N2: ~/.cache/kern), а /tmp остаётся только
+# запасным путём для совместимости. Отсутствие датасета НАЗЫВАЕТСЯ вслух.
+QUIXBUGS ?= $(HOME)/.cache/kern/repos/QuixBugs
 quixbugs-replay:
-	@if [ -d /tmp/QuixBugs-master ]; then \
+	@if [ -d "$(QUIXBUGS)" ]; then \
+	  $(PYTHON) tools/quixbugs_replay.py "$(QUIXBUGS)"; \
+	elif [ -d /tmp/QuixBugs-master ]; then \
 	  $(PYTHON) tools/quixbugs_replay.py /tmp/QuixBugs-master; \
-	else echo "  [SKIP] quixbugs-replay: нет /tmp/QuixBugs-master"; fi
+	else echo "  [SKIP] quixbugs-replay: нет датасета ни в $(QUIXBUGS), ни в /tmp/QuixBugs-master"; \
+	  echo "         клонировать: git clone --depth 1 https://github.com/jkoppel/QuixBugs $(QUIXBUGS)"; fi
 
 # --- УЛУЧШЕНИЕ №3: ЭКВИВАЛЕНТНОСТЬ РЕФАКТОРИНГА -----------------------------
 # Цель — ПРОВЕРКА, а не демонстрация: расходящаяся пара (перепутан знак)
@@ -843,6 +854,15 @@ showcase-live:
 
 showcase-live-full:
 	@$(PYTHON) tools/showcase_live.py --full
+
+# ВСЕ возможности матрицы (docs/CAPABILITY_MATRIX.md, разделы A–F): каждая
+# строка ВЫПОЛНЯЕТСЯ, а не читается из документа. Быстрый ярус — секунды.
+showcase-live-all:
+	@$(PYTHON) tools/showcase_live.py --all
+
+# То же + длинные корпуса (минуты) + долгие (десятки минут).
+showcase-live-all-full:
+	@$(PYTHON) tools/showcase_live.py --all --full
 
 # EN/RU: одни и те же факты в обеих витринах (проза может быть сокращённой).
 docs-parity:

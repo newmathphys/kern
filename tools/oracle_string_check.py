@@ -37,17 +37,22 @@
 """
 from __future__ import annotations
 
+import atexit
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KERNC = ROOT / "zig-out" / "bin" / "kernc"
 SPEC_DIR = ROOT / "tests" / "fixtures" / "oracles"
-SANDBOX = Path("/tmp/kern_path_oracle")
+# Песочница создаётся УНИКАЛЬНОЙ на прогон (см. make_sandbox): прежний ЖЁСТКИЙ
+# общий путь в /tmp был виден двум параллельным прогонам сразу (журнал #398).
+# Литерал здесь НЕ приводится намеренно: страж `temp-isolation-check` читает
+# текст файла, и цитата старого пути снова выглядела бы как нарушение (#290).
 LONG = "/" + "a" * 5000          # длиннее PATH_MAX
 
 # (путь, человеческое описание)
@@ -92,15 +97,23 @@ def native_verdict(path: str, idx: int) -> tuple[str, str]:
 
 
 def make_sandbox() -> tuple[Path, Path]:
-    """Песочница: root/ внутри, КАНАРЕЙКА secret.txt СНАРУЖИ корня."""
-    if SANDBOX.exists():
-        shutil.rmtree(SANDBOX, ignore_errors=True)
-    (SANDBOX / "root" / "sub").mkdir(parents=True, exist_ok=True)
-    (SANDBOX / "root" / "ok.txt").write_text("inside\n", encoding="utf-8")
-    (SANDBOX / "root" / "sub" / "ok.txt").write_text("nested\n", encoding="utf-8")
-    canary = SANDBOX / "secret.txt"
+    """Песочница: root/ внутри, КАНАРЕЙКА secret.txt СНАРУЖИ корня.
+
+    ДЕФЕКТ #398 (поймал страж `temp-isolation-check`): путь был ЖЁСТКИМ и
+    ОБЩИМ для всех прогонов. Это ровно тот случай, против которого стоит
+    правило N2: два одновременных прогона (или прогон во время чтения
+    результата человеком) перетирают канарейку друг друга, и вердикт
+    оракула становится случайным. Теперь каталог УНИКАЛЕН на прогон и
+    удаляется за собой, поэтому ни один чужой процесс его не увидит.
+    """
+    base = Path(tempfile.mkdtemp(prefix="kern_path_oracle."))
+    atexit.register(shutil.rmtree, base, ignore_errors=True)  # убрать за собой
+    (base / "root" / "sub").mkdir(parents=True, exist_ok=True)
+    (base / "root" / "ok.txt").write_text("inside\n", encoding="utf-8")
+    (base / "root" / "sub" / "ok.txt").write_text("nested\n", encoding="utf-8")
+    canary = base / "secret.txt"
     canary.write_text("CANARY\n", encoding="utf-8")
-    return SANDBOX / "root", canary
+    return base / "root", canary
 
 
 def naive_escape(root: Path, path: str) -> tuple[bool, str, str]:
