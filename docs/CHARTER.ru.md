@@ -96,9 +96,9 @@ make charter-selftest       # ломает закон и требует, что�
 ## 6. Факты, на которые ссылается документ
 
 <!-- fact:core_tests -->451 теста ядра · <!-- fact:next_tests -->53 next ·
-<!-- fact:catalog -->480 каталог · <!-- fact:check_targets -->175 CHECK ·
-<!-- fact:canfail_cases -->213 can-fail кейсов · <!-- fact:anchors -->174 якорей ·
-<!-- fact:registry_targets -->228 цели · <!-- fact:meta_targets -->39 META ·
+<!-- fact:catalog -->480 каталог · <!-- fact:check_targets -->176 CHECK ·
+<!-- fact:canfail_cases -->214 can-fail кейсов · <!-- fact:anchors -->175 якорей ·
+<!-- fact:registry_targets -->229 цели · <!-- fact:meta_targets -->39 META ·
 <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 формально SMT ·
 <!-- fact:quixbugs.differential -->40/40 живой дифференциал.

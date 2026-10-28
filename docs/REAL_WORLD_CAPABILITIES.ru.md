@@ -80,8 +80,8 @@ python3 tools/real_cases_check.py --selftest
 ## Факты реестра, с которыми эта страница согласована
 
 <!-- fact:core_tests -->451 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
-<!-- fact:catalog -->480 каталог · <!-- fact:check_targets -->175 CHECK ·
-<!-- fact:canfail_cases -->213 кейса can-fail · <!-- fact:anchors -->174 якорей ·
-<!-- fact:registry_targets -->228 целей реестра ·
+<!-- fact:catalog -->480 каталог · <!-- fact:check_targets -->176 CHECK ·
+<!-- fact:canfail_cases -->214 кейса can-fail · <!-- fact:anchors -->175 якорей ·
+<!-- fact:registry_targets -->229 целей реестра ·
 <!-- fact:meta_targets -->39 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs: <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
