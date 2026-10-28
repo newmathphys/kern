@@ -3111,3 +3111,45 @@ protected by nothing since: it could drift silently - and it did.
 A full `--full-scan` takes tens of minutes and does not fit CI, so the FINDING
 count remains a **dated measurement**, not a live indicator. Only a CHEAP metric
 (the file count) can be live - and that is what a gate should protect.
+
+## §137. PHYSICAL ORACLE FOR ReDoS: NATIVE ANALYSIS VS THE REAL ENGINE (#385)
+
+WHY. Until this step the `redos` family was checked MODEL AGAINST MODEL: `redos.zig`
+looks for nested quantifiers and `theory_cli.zig` declares its own output correct.
+That is a vacuum — the computer confirms to itself that its formulas are consistent.
+
+WHAT WAS BUILT. `tools/oracle_redos_check.py` + `make oracle-redos-check`: for each
+regex the CORE verdict (`kernc theory`) is compared with a REAL `re.fullmatch`
+measurement in an ISOLATED process with a hard 8 s timeout. The sentinel is chosen
+as an attacker would: `!`, and `\n` for `.`-patterns (`.` does not match it — measured:
+`(.*)*` with `!` gives 0.0001 s, with `\n` 1.79 s).
+
+CALIBRATION (measured 2026-10-28, N=24):
+
+| class | slowest | fastest |
+|:--|--:|--:|
+| safe | 0.0007 s (`(ab|cd)+`) | 0.0000 s (`abc`) |
+| vulnerable | 2.1194 s (`(a|a)+`) | 0.9756 s (`(.+)+` with `\n`) |
+
+Separation ~1400×. The 0.2 s threshold is 285× above the slowest safe case and
+4.9× below the fastest vulnerable one.
+
+RESULT (measured):
+
+| class | count | what confirmed it |
+|:--|--:|:--|
+| vulnerable CONFIRMED | **6** | the real engine blew up (0.93–1.76 s) |
+| safe CONFIRMED | **3** | instant (≤0.0001 s) |
+| **FALSE ACCUSATIONS** | **0** | — |
+| **MISSES** | **0** | — |
+| boundaries (SKIP, fail-closed) | 2 | `(\d+)+`, `[a-z]+` |
+
+DEFECT #385 FOUND BY THIS ORACLE. `parseAtom` supported only `(`, `.` and "any
+character as a literal" — so `\d` was read as TWO literals and the analysis ran on a
+DIFFERENT regex: `redos (\d+)+` returned `[PASS] PROVEN` while the real Python engine
+blows up in 1.44 s. Fixed fail-closed: outside the subset → SKIP with the exact
+character instead of a verdict.
+
+WHAT THIS DOES NOT PROVE. (a) The measurement is machine-dependent; (b) nine
+class-representative regexes were checked, not "all regexes"; (c) the parser subset
+is narrow — character classes and `{m,n}` yield SKIP, not "safe".

@@ -1064,6 +1064,26 @@ def case_oracle_dtmc_wrong():
     return "make oracle-dtmc-check"
 
 
+def case_oracle_redos_missed():
+    """ШАГ D SABOTAGE: нативный анализ ReDoS перестаёт видеть вложенный квантор.
+
+    Оракул сравнивает вердикт ЯДРА с РЕАЛЬНЫМ движком Python: `(a+)+` обязан
+    быть опровергнут И обязан реально взорваться (измерено: 1.0 с при N=24).
+    Если ядро скажет «безопасно», оракул ОБЯЗАН покраснеть классом MISSED —
+    иначе «физический оракул» ничего не проверяет.
+
+    ЛОМАЕМ: `if (isQuantified(c)) return true;` -> `return false` (вложенный
+    квантор не распознаётся). `(a|a)*`/`(a|a)+` при этом ловятся ВТОРЫМ
+    правилом (неоднозначная альтернатива), поэтому проверка не вырождается:
+    ядро даёт смешанный результат, а физика показывает 6 взрывов.
+    Цель `oracle-redos-check` обязана упасть (MISSED >= 4).
+    """
+    patch("src/verifier/redos.zig",
+          "        .star, .plus, .opt => {\n            const c = inner(n);\n            if (isQuantified(c)) return true;",
+          "        .star, .plus, .opt => {\n            const c = inner(n);\n            if (isQuantified(c)) return false; // ЛОМАЕМ (шаг D)")
+    return "make oracle-redos-check"
+
+
 def case_anti_self_deception_fixture():
     """Anti-self-deception SABOTAGE: the corpus fixture drifts from the gate.
 
@@ -3695,6 +3715,7 @@ CASES = [
     ("contract-lock-coarse", "Замок: критерий покрытия снова «содержит @kern:» -> красный", case_contract_lock_coarse),
     ("xray-ext-silent", "xray: граница по расширениям снова молчаливая -> красный", case_xray_ext_silent),
     ("oracle-dtmc-wrong", "DTMC-оракул: аналитика ядра неверна -> симуляция ловит", case_oracle_dtmc_wrong),
+    ("oracle-redos-missed", "ReDoS-оракул: ядро не видит вложенный квантор -> реальный движок ловит", case_oracle_redos_missed),
     ("diff-equiv",     "Рефакторинг: расхождение объявлено эквивалентным", case_diff_equiv),
     ("query-kind-leak", "Правило посылок применено к equivalence -> красный", case_query_kind_leak),
     ("anti-self-deception-fixture", "Якорь мутации исчез -> гейт красный", case_anti_self_deception_fixture),

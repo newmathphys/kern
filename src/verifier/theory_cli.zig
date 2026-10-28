@@ -15,6 +15,13 @@
 //!   absint join|widen|narrow <a_lo> <a_hi> <b_lo> <b_hi>
 //!   dtmc stochastic <n> <n*n значений>
 //!   dtmc reach <n> <target> <n*n значений>
+//!   redos <regex>                    катастрофический бэктрекинг (CWE-1333)?
+//!
+//! ШАГ D: `redos` разбирает НАСТОЯЩУЮ регулярку (подмножество: литералы, `.`,
+//! `|`, `(`, `)`, `*`, `+`, `?`) и запускает нативный анализ `redos.zig`.
+//! Оракул реальности — секундомер: та же строка прогоняется в живом Python,
+//! и время обязано быть экспоненциальным, если анализ сказал «уязвимо».
+//! Регулярка не должна содержать ПРОБЕЛОВ (токены разделяются пробелами).
 //!
 //! ЧЕСТНАЯ ГРАНИЦА: это ЯВНЫЙ формат (не «любой текст»). Разбираются ровно
 //! перечисленные команды; всё прочее — `SKIP` С ПРИЧИНОЙ.
@@ -23,6 +30,7 @@ const z3 = @import("z3_bridge.zig");
 const array_theory = @import("array_theory.zig");
 const absint = @import("abstract_interp.zig");
 const dtmc_mod = @import("dtmc.zig");
+const redos_mod = @import("redos.zig");
 
 pub const Status = enum { proven, refuted, skip, value };
 
@@ -95,6 +103,38 @@ fn verdictFromZ3(st: z3.SmtStatus) ?bool {
 }
 
 fn dispatch(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Bridge, rep: *Report, t: []const []const u8, spec: []const u8) !void {
+    // ШАГ D: ReDoS на НАСТОЯЩЕЙ регулярке. Оракул реальности — секундомер
+    // (внешний скрипт `tools/oracle_redos_check.py`), здесь — только вердикт
+    // нативного анализа `redos.zig` по разобранному AST.
+    if (std.mem.eql(u8, t[0], "redos")) {
+        if (t.len < 2) {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "redos: нужен <regex> (без пробелов)" });
+            rep.skipped += 1;
+            return;
+        }
+        var rp = ReParser{ .s = t[1], .i = 0, .arena = arena };
+        const root = try rp.parseAlt();
+        // ДЕФЕКТ #385: синтаксис вне подмножества парсера → вердикта НЕТ.
+        // Иначе получилось бы «ДОКАЗАНО» о ДРУГОЙ регулярке (fail-open).
+        if (rp.unsupported) |ch| {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = try std.fmt.allocPrint(arena, "redos: синтаксис вне подмножества парсера (символ '{c}') — вердикта НЕТ", .{ch}) });
+            rep.skipped += 1;
+            return;
+        }
+        const f = redos_mod.analyze(root);
+        if (f.vulnerable) {
+            const why = if (f.nested_quantifier and f.ambiguous_alternation)
+                "вложенный квантор И неоднозначная альтернатива"
+            else if (f.nested_quantifier) "вложенный квантор"
+            else "неоднозначная альтернатива под квантором";
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .refuted, .reason = try std.fmt.allocPrint(arena, "КАТАСТРОФИЧЕСКИЙ БЭКТРЕКИНГ возможен (CWE-1333): {s}", .{why}) });
+            rep.refuted += 1;
+        } else {
+            try rep.outcomes.append(alloc, .{ .name = spec, .status = .proven, .reason = "вложенных кванторов и неоднозначных альтернатив нет" });
+            rep.proven += 1;
+        }
+        return;
+    }
     if (std.mem.eql(u8, t[0], "arrays")) {
         if (t.len < 4) {
             try rep.outcomes.append(alloc, .{ .name = spec, .status = .skip, .reason = "arrays: нужны <вид> <аргументы>" });
@@ -261,4 +301,165 @@ test "theory_cli: интервал печатается, пустой распо
     try std.testing.expectEqualStrings("пусто", try intervalSmt(a, absint.Interval{ .lo = 5, .hi = 1 }));
     const empty_iv = absint.Interval{ .lo = 5, .hi = 1 };
     try std.testing.expect(empty_iv.isEmpty());
+}
+
+// =========================================================================
+// ШАГ D: ПАРСЕР РЕГУЛЯРКИ ДЛЯ НАТИВНОГО АНАЛИЗА ReDoS
+// =========================================================================
+// ЗАЧЕМ. `redos.zig` умеет `analyze(root: *const Node)`, но парсера у него
+// НЕ БЫЛО — то есть нативный анализ нельзя было применить к настоящей
+// регулярке из внешнего файла. Здесь рекурсивный спуск по подмножеству:
+// литералы, `.`, `|`, `(`, `)`, `*`, `+`, `?`.
+//
+// ЧЕСТНАЯ ГРАНИЦА (переделана в ДЕФЕКТЕ #385): это ПОДМНОЖЕНИЕ — литералы,
+// `.`, `|`, `(`, `)`, `*`, `+`, `?`. Всё остальное (классы `[a-z]`, `\d`,
+// `{m,n}`, `^`, `$`) раньше молча читалось КАК ЛИТЕРАЛ, и анализ шёл по
+// ДРУГОЙ регулярке: `(\d+)+` выдавало «ДОКАЗАНО» (нет вложенных кванторов),
+// хотя физически взрывается за 1.44 с. Теперь парсер FAIL-CLOSED: встречая
+// неподдерживаемый символ, он помечает это и вердикта НЕ ДАЁТ.
+const ReParser = struct {
+    s: []const u8,
+    i: usize = 0,
+    arena: std.mem.Allocator,
+    /// Первый неподдерживаемый символ (fail-closed, #385). null = всё разобрано.
+    unsupported: ?u8 = null,
+
+    fn peek(self: *ReParser) ?u8 {
+        return if (self.i < self.s.len) self.s[self.i] else null;
+    }
+
+    fn next(self: *ReParser) ?u8 {
+        if (self.i >= self.s.len) return null;
+        const c = self.s[self.i];
+        self.i += 1;
+        return c;
+    }
+
+    fn node(self: *ReParser) std.mem.Allocator.Error!*redos_mod.Node {
+        return try self.arena.create(redos_mod.Node);
+    }
+
+    /// alt := concat ('|' concat)*
+    fn parseAlt(self: *ReParser) std.mem.Allocator.Error!*redos_mod.Node {
+        var items: std.ArrayListUnmanaged(*redos_mod.Node) = .empty;
+        try items.append(self.arena, try self.parseConcat());
+        while (self.peek() == '|') {
+            _ = self.next();
+            try items.append(self.arena, try self.parseConcat());
+        }
+        if (items.items.len == 1) return items.items[0];
+        const n = try self.node();
+        n.* = .{ .alt = try self.arena.dupe(*redos_mod.Node, items.items) };
+        return n;
+    }
+
+    /// concat := repeat*
+    fn parseConcat(self: *ReParser) std.mem.Allocator.Error!*redos_mod.Node {
+        var items: std.ArrayListUnmanaged(*redos_mod.Node) = .empty;
+        while (self.peek()) |c| {
+            if (c == '|' or c == ')') break;
+            try items.append(self.arena, try self.parseRepeat());
+        }
+        if (items.items.len == 0) {
+            const n = try self.node();
+            n.* = .{ .lit = 0 };
+            return n;
+        }
+        if (items.items.len == 1) return items.items[0];
+        const n = try self.node();
+        n.* = .{ .concat = try self.arena.dupe(*redos_mod.Node, items.items) };
+        return n;
+    }
+
+    /// repeat := atom ('*' | '+' | '?')*
+    fn parseRepeat(self: *ReParser) std.mem.Allocator.Error!*redos_mod.Node {
+        var cur = try self.parseAtom();
+        while (self.peek()) |c| {
+            if (c != '*' and c != '+' and c != '?') break;
+            _ = self.next();
+            const outer = try self.node();
+            outer.* = switch (c) {
+                '*' => .{ .star = cur },
+                '+' => .{ .plus = cur },
+                else => .{ .opt = cur },
+            };
+            cur = outer;
+        }
+        return cur;
+    }
+
+    /// atom := '(' alt ')' | '.' | literal
+    fn parseAtom(self: *ReParser) std.mem.Allocator.Error!*redos_mod.Node {
+        const c = self.next() orelse {
+            const n = try self.node();
+            n.* = .{ .lit = 0 };
+            return n;
+        };
+        if (c == '(') {
+            const inner = try self.parseAlt();
+            if (self.peek() == ')') _ = self.next();
+            return inner;
+        }
+        // ДЕФЕКТ #385 (fail-closed): раньше ЛЮБОЙ незнакомый символ читался как
+        // литерал, поэтому `\d` разбиралось как ДВА литерала (`\` и `d`), и
+        // анализ шёл по ДРУГОЙ регулярке — выдавая «ДОКАЗАНО» о том, чего не
+        // читал. Теперь всё вне подмножества помечается и вердикта не даёт.
+        switch (c) {
+            '\\', '[', ']', '{', '}', '^', '$' => {
+                if (self.unsupported == null) self.unsupported = c;
+                const n = try self.node();
+                n.* = .{ .lit = 0 };
+                return n;
+            },
+            else => {},
+        }
+        const n = try self.node();
+        n.* = if (c == '.') .any else .{ .lit = c };
+        return n;
+    }
+};
+
+test "шаг D: парсер регулярки + анализ ReDoS" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+
+    // `(a+)+` — вложенный квантор: обязан быть уязвим.
+    var p1 = ReParser{ .s = "(a+)+", .arena = a };
+    try std.testing.expect(redos_mod.analyze(try p1.parseAlt()).vulnerable);
+
+    // `(a|a)*` — неоднозначная альтернатива под квантором: уязвим.
+    var p2 = ReParser{ .s = "(a|a)*", .arena = a };
+    try std.testing.expect(redos_mod.analyze(try p2.parseAlt()).vulnerable);
+
+    // `(ab|cd)+` — альтернатива БЕЗ общего префикса: НЕ уязвим.
+    var p3 = ReParser{ .s = "(ab|cd)+", .arena = a };
+    try std.testing.expect(!redos_mod.analyze(try p3.parseAlt()).vulnerable);
+
+    // `abc` — просто литералы: не уязвим.
+    var p4 = ReParser{ .s = "abc", .arena = a };
+    try std.testing.expect(!redos_mod.analyze(try p4.parseAlt()).vulnerable);
+}
+
+test "шаг D: парсер FAIL-CLOSED на синтаксисе вне подмножества (#385)" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+
+    // `(\d+)+` физически ВЗРЫВАЕТСЯ (измерено: 1.44 с при N=24), но `\d` вне
+    // подмножества парсера. Обязан быть ПОМЕЧЕН, а не прочитан как два
+    // литерала (`\` и `d`) — иначе вердикт относился бы к другой регулярке.
+    var p1 = ReParser{ .s = "(\\d+)+", .arena = a };
+    _ = try p1.parseAlt();
+    try std.testing.expectEqual(@as(?u8, '\\'), p1.unsupported);
+
+    // `[a-z]+` — класс символов: тоже вне подмножества.
+    var p2 = ReParser{ .s = "[a-z]+", .arena = a };
+    _ = try p2.parseAlt();
+    try std.testing.expectEqual(@as(?u8, '['), p2.unsupported);
+
+    // `(a+)+` — внутри подмножества: пометки быть НЕ ДОЛЖНО.
+    var p3 = ReParser{ .s = "(a+)+", .arena = a };
+    _ = try p3.parseAlt();
+    try std.testing.expectEqual(@as(?u8, null), p3.unsupported);
 }
