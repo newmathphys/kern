@@ -6072,7 +6072,68 @@ def _clike_block_end(body: str, start: int) -> int:
     return (j + 1) if j != -1 else n
 
 
-def _clike_conds_at(pos: int, if_blocks: list) -> list[str]:
+def _assigned_between(body: str, start: int, end: int) -> set:
+    """Имена, которым ПРИСВАИВАЕТСЯ значение в `body[start:end)`.
+
+    ЗАЧЕМ (шаг 6 плана, предохранитель №2). Накопленный предикат вида `node != 0`
+    относится к СТАРОМУ значению. Если между гардом и точкой анализа стоит
+    `node = node->next`, предикат прикладывать НЕЛЬЗЯ — иначе вторая проверка
+    `if (node == NULL) break;` объявляется МЁРТВОЙ ВЕТВЬЮ. Это типичный обход
+    узлов в `cmark-gfm`, и ложное обвинение тут было бы системным.
+    """
+    if start >= end:
+        return set()
+    seg = body[start:end]
+    names = set(re.findall(r"\b([A-Za-z_]\w*)\s*=(?!=)", seg))
+    names |= set(re.findall(r"\b([A-Za-z_]\w*)\s*(?:\+\+|--|\+=|-=|\*=|/=|<<=|>>=)",
+                            seg))
+    return names
+
+
+_NULL_WORDS = r"(?:nil|null|NULL|None|undefined)"
+
+
+def _null_to_zero(cond: str):
+    """`p == NULL` -> `p == 0`, `!p` -> `p == 0`, голое `p` -> `p != 0`.
+
+    ЗАЧЕМ (шаг 6 плана, дефект #197). Раньше ЛЮБОЕ условие со словом `nil/null`
+    отбрасывалось: в Int-модели `nil` бессмысленно, и `err != nil` давал ложный
+    DEAD BRANCH. Но отбрасывание стоило 49 функций в `cmark-gfm` и 3 в `toolkit`.
+    Указатель моделируется как `Int`, где 0 = NULL, поэтому:
+
+      * `p == NULL`  -> `p == 0`;
+      * `p != NULL`  -> `p != 0`;
+      * `!p`         -> `p == 0`  (ЛОВУШКА СОРТОВ: `not p` над `Int` недопустим —
+        Z3 даёт ошибку сортов, а `_smt_verdict` тихо превращает её в `unknown`);
+      * голое `p` в БУЛЕВОЙ позиции (всё условие или операнд `&&`/`||`) -> `p != 0`.
+
+    ВОЗВРАЩАЕТ `None`, если после переписи слово `nil/null` ВСЁ ЕЩЁ осталось:
+    значит форма незнакома, и честный ответ — прежний SKIP с названной причиной,
+    а не догадка. Это граница, а не «мы всё умеем».
+    """
+    s = cond
+    n = _NULL_WORDS
+    s = re.sub(rf"\b([A-Za-z_]\w*)\s*==\s*{n}\b", r"\1 == 0", s)
+    s = re.sub(rf"\b{n}\s*==\s*([A-Za-z_]\w*)", r"\1 == 0", s)
+    s = re.sub(rf"\b([A-Za-z_]\w*)\s*!=\s*{n}\b", r"\1 != 0", s)
+    s = re.sub(rf"\b{n}\s*!=\s*([A-Za-z_]\w*)", r"\1 != 0", s)
+    # `!p` -> `p == 0` (но не `!=`)
+    s = re.sub(r"!\s*([A-Za-z_]\w*)(?!\s*=)", r"\1 == 0", s)
+    # Голое имя в булевой позиции: целое условие или операнд `&&`/`||`.
+    parts = re.split(r"(\s*(?:&&|\|\|)\s*)", s)
+    for i, part in enumerate(parts):
+        if i % 2:
+            continue
+        t = part.strip()
+        if re.fullmatch(r"[A-Za-z_]\w*", t):
+            parts[i] = part.replace(t, f"{t} != 0")
+    s = "".join(parts)
+    if re.search(rf"\b{n}\b", s):
+        return None
+    return s
+
+
+def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
     """Условия, действующие В ПОЗИЦИИ `pos` (дефекты #318 и #401).
 
     `if_blocks` — (cond_end, block_end, cond_smt, exits) для каждого `if (cond)`.
@@ -6096,7 +6157,18 @@ def _clike_conds_at(pos: int, if_blocks: list) -> list[str]:
     либо внутри своего родителя, содержащего позицию.
     """
     chain = [i for i, (ce, be, _c, _e) in enumerate(if_blocks) if ce <= pos < be]
-    out = [if_blocks[i][2] for i in chain]
+    # ШАГ 6, ПРЕДОХРАНИТЕЛЬ №2 — И ДЛЯ ОБЪЕМЛЮЩИХ БЛОКОВ ТОЖЕ. ИЗМЕРЕНО на
+    # `cmark-gfm/src/inlines.c`: условие `if (new_inl != NULL)` из ОБЪЕМЛЮЩЕГО
+    # блока оставалось в силе после присваивания `new_inl = …` ВНУТРИ него, и
+    # вложенная проверка объявлялась мёртвой ветвью — ЛОЖНОЕ обвинение. Предикат
+    # действует, только если имя НЕ переназначено между условием блока и позицией.
+    out = []
+    for _ci in chain:
+        _ce_i, _be_i, _cond_i, _e_i = if_blocks[_ci]
+        _mut_i = _assigned_between(body, _ce_i, pos)
+        if _mut_i and (set(re.findall(r"[A-Za-z_]\w*", _cond_i)) & _mut_i):
+            continue
+        out.append(_cond_i)
 
     def _parent(idx: int) -> int:
         """Ближайший ОБЪЕМЛЮЩИЙ блок (или -1): минимальный по длине."""
@@ -6112,6 +6184,12 @@ def _clike_conds_at(pos: int, if_blocks: list) -> list[str]:
 
     for i, (_ce, be, cond, exits) in enumerate(if_blocks):
         if pos < be or not exits:
+            continue
+        # ШАГ 6, ПРЕДОХРАНИТЕЛЬ №2 (сброс при мутации указателя). Предикат
+        # относится к СТАРОМУ значению: если имя переназначено между концом
+        # блока `be` и позицией `pos`, он НЕ действует.
+        _mut = _assigned_between(body, be, pos)
+        if _mut and (set(re.findall(r"[A-Za-z_]\w*", cond)) & _mut):
             continue
         par = _parent(i)
         if par < 0:
@@ -6506,7 +6584,7 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
             # ветка выше (`_const_eval`), и она точнее решателя.
             if any(nm not in set(params) for nm in names):
                 continue
-            _ov_path = (path_conds + _clike_conds_at(pos, if_blocks)
+            _ov_path = (path_conds + _clike_conds_at(pos, if_blocks, body)
                         + [f"(or (> {whole} {hi}) (< {whole} {lo}))"])
             # ФЛАГ `free_syms_in_path` (шаг 4 плана). Свободная константа в ПУТИ
             # делает запрос `∃c. path(c) ∧ overflow` СЛАБЕЕ реальности, и Z3 берёт
@@ -6659,12 +6737,20 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
             # сравнение; в Int-модели `nil` бессмысленно, и получался ложный
             # DEAD BRANCH. Такие условия честно пропускаем.
-            if re.search(r"\b(?:nil|null|NULL|None|undefined)\b", raw_cond):
-                # ДЕФЕКТ #400: этот путь тоже обязан НАЗЫВАТЬ причину, иначе
-                # функция уходила в корзину «отсеяно без названной причины».
-                skip_why.append("указательное сравнение nil/null (вне Int-модели)")
-                pos = m.end()
-                continue
+            if re.search(rf"\b{_NULL_WORDS}\b", raw_cond):
+                # ШАГ 6 ПЛАНА: УКАЗАТЕЛЬ = Int, ГДЕ 0 = NULL (было: полный SKIP).
+                # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` в Int-модели давал
+                # ЛОЖНЫЙ DEAD BRANCH, поэтому такие условия отбрасывались целиком —
+                # но это стоило 49 функций в `cmark-gfm` и 3 в `toolkit`. Теперь
+                # форма ПЕРЕПИСЫВАЕТСЯ (`p == NULL` -> `p == 0`, `!p` -> `p == 0`,
+                # голое `p` -> `p != 0`), а НЕЗНАКОМАЯ форма по-прежнему получает
+                # SKIP с названной причиной — граница, а не догадка.
+                _rw = _null_to_zero(raw_cond)
+                if _rw is None:
+                    skip_why.append("указательное сравнение nil/null (вне Int-модели)")
+                    pos = m.end()
+                    continue
+                raw_cond = _rw
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError) as _u400:
@@ -6678,7 +6764,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # накопленному списку: накопление складывало `not cond` из
             # ВЗАИМОИСКЛЮЧАЮЩИХ ветвей и делало путь UNSAT (ложный DEAD BRANCH).
             sat_then = _smt_sat(kernc, params,
-                                path_conds + _clike_conds_at(m.end(), if_blocks)
+                                path_conds + _clike_conds_at(m.end(), if_blocks, body)
                                 + [cond])
             if sat_then is False:
                 found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
@@ -6797,7 +6883,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                 # ДЕФЕКТ #318: условия берутся ПО ПОЗИЦИИ делителя.
                 _pos_d = dm.start()
                 sat_dz = _smt_sat_guarded(kernc, params,
-                                          path_conds + _clike_conds_at(_pos_d, if_blocks)
+                                          path_conds + _clike_conds_at(_pos_d, if_blocks, body)
                                           + [f"(= {d} 0)"], skip_why)
             except Exception as _kern_e_3982:  # noqa: BLE001
                 _replay_soft(_kern_e_3982, "kern_contracts.py:3982")
@@ -6871,7 +6957,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             try:
                 # ДЕФЕКТ #318 (та же причина, секция границ): условия — ПО ПОЗИЦИИ.
                 sat_neg = _smt_sat_guarded(kernc, params,
-                                           path_conds + _clike_conds_at(im.start(), if_blocks)
+                                           path_conds + _clike_conds_at(im.start(), if_blocks, body)
                                            + [f"(< {idxs} 0)"], skip_why)
             except Exception as _kern_e_4052:  # noqa: BLE001
                 _replay_soft(_kern_e_4052, "kern_contracts.py:4052")
@@ -6900,7 +6986,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                 try:
                     # ДЕФЕКТ #318: то же — условия ПО ПОЗИЦИИ вызова аллокации.
                     sat_ov = _smt_sat_guarded(kernc, params,
-                                              path_conds + _clike_conds_at(am.start(), if_blocks)
+                                              path_conds + _clike_conds_at(am.start(), if_blocks, body)
                                               + [f"(> {size_smt} 2147483647)"], skip_why)
                 except Exception as _kern_e_4077:  # noqa: BLE001
                     _replay_soft(_kern_e_4077, "kern_contracts.py:4077")
