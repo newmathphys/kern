@@ -437,3 +437,23 @@ then "translated into Python" for `ast.parse`. The repository already has a prec
 network); (b) the migration must start only with the oracle `total == 150/308` as its regression
 test.
 
+### 7.9 `#414`/`#416`: WHAT THE DUMP GAVE (and why the order was exactly this)
+
+The dump of the remainder (`35` in C, `22` in TS) **refuted** Priority 2 for TS and **confirmed** it
+for C:
+
+| Variant ("what-if" BEFORE the fix) | `cmark` (254 refusals) | `toolkit` (77) |
+|:--|--:|--:|
+| A: `===` / `!==` | 0 | **-35** |
+| B: the `!` safeguard | +9 (these are FALSE models, not coverage) | 0 |
+| C: fields `a->b` / `a.b` | **-100** | -2 |
+| D: `typeof X` | 0 | **-18** |
+
+**A SOUNDNESS defect `#414` was found in passing:** the `!p -> p == 0` rewrite hit calls and gave
+`!S_is_line_end_char(c)` -> `S_is_line_end_char == 0(c)`, while `expr_smt` took `0(...)` for a HAVOC
+call and "translated" it to `(= S_is_line_end_char _havoc_1)` - the FUNCTION NAME became a VARIABLE.
+MEASURED: 9 conditions in `cmark` were accepted SILENTLY, 17 in `toolkit` failed loudly.
+
+**MEASURED AFTER (0 findings on both):** `cmark` `checked` **147 -> 170**, `skipped` **35 -> 12**
+(93.4 % of the functions with branches); `toolkit` `checked` **55 -> 72**, `skipped` **22 -> 5** (93.5 %).
+What remains is CALLS (`!f(x)`) and BITWISE (`&`, `[...]`), i.e. step 4b (BV), not "almost everything".

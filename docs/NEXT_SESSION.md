@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **1** (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -206,6 +206,24 @@ was corrected wherever it disagreed with the code:
    caught, because LEGITIMATE control bytes were MEASURED - `0x1b` (ANSI colours, 7 places) and
    `0x00` (byte tests, 3 files); a mention of the byte in a COMMENT is not accused. MEASURED:
    131 files clean.
+
+19. **`#414` FIXED - A SOUNDNESS DEFECT found by the dump, not by a search.** The
+   `!p -> p == 0` rewrite hit CALLS: `!S_is_line_end_char(c)` -> `S_is_line_end_char == 0(c)`,
+   while `expr_smt` took `0(...)` for a HAVOC call and "translated" it to `(= S_is_line_end_char
+   _havoc_1)` - the FUNCTION NAME became a VARIABLE. MEASURED: 9 conditions in `cmark` were
+   SILENTLY accepted, while the same 17 forms in `toolkit` failed loudly (in TS `0.method()` is a
+   syntax error, in C `0(...)` is a valid call). The rewrite now applies ONLY to a bare name.
+20. **`#416` FIXED - fields and operators: 93 % of the functions with branches on BOTH corpora.**
+   The "what-if" BEFORE the fix: `===`/`!==` gives -35 in TS (and 0 in C), fields `a->b`/`a.b`
+   give -100 in C (and -2 in TS), `typeof X` gives -18 in TS. Priority 2 is confirmed for C and
+   REFUTED for TS. MEASURED AFTER (0 findings): `cmark` **147 -> 170** checked, `skipped` 35 -> 12
+   (93.4 %); `toolkit` **55 -> 72**, `skipped` 22 -> 5 (93.5 %). Safeguard B: `_mut_names_for()`
+   resets a predicate with `a__b` when the BASE `a` OR the field `b` is reassigned.
+21. **`#415` RECORDED AS OPEN (`make audits` hygiene).** The generator does `rmtree(audits/smt2)`
+   and rewrites TRACKED `EVIDENCE.md` and `real_code_corpus.*`; no gate compares the set of
+   `audits/smt2/*.smt2` with the `EVIDENCE.md` table - which is why 9 cases lived in git since
+   `b646ad1` and never appeared in the snapshot. The cure (NOT done): a temporary directory or
+   atomic verification plus a parity gate.
 
 **Closed in THIS session (verification of all capabilities):**
 

@@ -45,21 +45,18 @@ SPEC_REL = "tools/funnel_accounting.py"
 # actions/toolkit 0c3a9c33). `checked_arith_only` и `trivial` пока НУЛЕВЫЕ:
 # их разделение — шаг 2 плана (#405), и именно поэтому инвариант заперт ДО него.
 CORPORA = (
-    # ОБНОВЛЕНО после маски #412 (локация по маске, значение из сырого тела):
-    # ИЗМЕРЕНО `checked 147 | trivial 126 | skipped 35`, Σ 308, находок 0
-    # (знаменатель на C не менялся). До этого обход `cmark-gfm/src` ПАДАЛ
-    # аварией на `xml.c`, поэтому промежуточные состояния измерить было нельзя.
-    ("cmark-gfm/src", {"total": 308, "without_if": 126, "checked_branches": 147,
-                       "checked_arith_only": 0, "trivial": 126, "skipped": 35,
-                       "named": 35}),
-    # ОБНОВЛЕНО после #410: из 458 «функций» 308 были ВЫЗОВАМИ (`await …`,
-    # `throw new …`), а не функциями — знаменатель был раздут втрое. ИЗМЕРЕНО
-    # после маски #412: `checked 55 | trivial 73 | skipped 22`, Σ 150, находок 0.
-    # Покрытие 55/150 = 36,7 % от всех и 55/77 = 71,4 % от функций С ветвлениями
-    # (было «12,6 %» от раздутого знаменателя).
-    ("toolkit/packages", {"total": 150, "without_if": 73, "checked_branches": 55,
-                          "checked_arith_only": 0, "trivial": 73, "skipped": 22,
-                          "named": 22}),
+    # ОБНОВЛЕНО после #416 (поля `a->b` -> `a__b`, страховка `!`, `===`/`!==`,
+    # `typeof`): ИЗМЕРЕНО `checked 170 | trivial 126 | skipped 12`, Σ 308,
+    # находок 0. Было `147 | 126 | 35` до правки.
+    ("cmark-gfm/src", {"total": 308, "without_if": 126, "checked_branches": 170,
+                       "checked_arith_only": 0, "trivial": 126, "skipped": 12,
+                       "named": 12}),
+    # ОБНОВЛЕНО после #416: ИЗМЕРЕНО `checked 72 | trivial 73 | skipped 5`,
+    # Σ 150, находок 0. Было `55 | 73 | 22` до правки. Покрытие 72/150 = 48,0 %
+    # от всех и 72/77 = 93,5 % от функций С ветвлениями.
+    ("toolkit/packages", {"total": 150, "without_if": 73, "checked_branches": 72,
+                          "checked_arith_only": 0, "trivial": 73, "skipped": 5,
+                          "named": 5}),
 )
 
 # РОВНО ТО СОСТОЯНИЕ, КОТОРОЕ НАПЕЧАТАЛО `-6`: 9 функций, 15 «причин».

@@ -4167,3 +4167,79 @@ COMMENT is not accused). BOUNDARY: EXACTLY `0x08` is caught, because LEGITIMATE 
 MEASURED - `0x1b` (ANSI colours, 7 places in `registry.py`/`canfail.py`) and `0x00` (byte tests in
 three files); banning them would break working code for the sake of a pretty rule. MEASURED: 131
 files of `tools/*.py` are clean.
+
+## §158. FIELDS, OPERATORS AND A FALSE HAVOC MODEL: 93 % OF FUNCTIONS WITH BRANCHES (#414, #416)
+
+> The dump of the remainder settled the question faster than any hypothesis: it refuted
+> Priority 2 for TypeScript and confirmed it for C, and along the way found a SOUNDNESS defect
+> nobody was looking for.
+
+### 158.1 The dump: what ACTUALLY held the remainder
+
+`cmark-gfm/src` (253 refusals): `syntax` 151 (of which **144 with field access**), `binary operator`
+94, the `!` form 5, `nil/null` 3.
+`toolkit/packages` (77): `syntax` 74 (with a field 55), `nil/null` 3.
+
+**Verbatim from the \"syntax\" bucket (TS):** `error.code === 6123186`,
+`seenArtifactNames == 0.has(artifact.name)`, `typeof body !== 3993132 || body === null`,
+`fs == 0.existsSync(rootDirectory)`, `scopeParts?.[0] !== 9098484`.
+
+So the blockers were NOT fields but: `===`/`!==`, the garbage from the `!` rewrite, `typeof`, `in`,
+`?.`.
+
+### 158.2 A false HAVOC model (#414) - a SOUNDNESS defect found in passing
+
+The `!p -> p == 0` rewrite had no safeguard and hit CALLS:
+
+```
+!S_is_line_end_char(c)  ->  S_is_line_end_char == 0(c)  ->  (= S_is_line_end_char _havoc_1)
+```
+
+`expr_smt` took `0(...)` for a HAVOC call, so the FUNCTION NAME became a VARIABLE and `!f(c)` was
+\"translated\" as a comparison with an arbitrary constant. **MEASURED:** in `cmark-gfm/src` **9
+conditions** were SILENTLY accepted this way; in `toolkit/packages` the same **17** forms failed
+loudly (in TS `0.method()` is a syntax error, in C `0(...)` is a valid call). A false model is
+worse than a skip.
+
+**Fixed:** the rewrite applies only to a BARE name (not before `.`, `->`, `[`, `(`, a word).
+
+### 158.3 The \"what-if\" BEFORE the fix: each change's contribution
+
+| Variant | `cmark` (254 refusals) | `toolkit` (77) |
+|:--|--:|--:|
+| A: `===` / `!==` | 0 | **-35** |
+| B: the `!` safeguard | +9 (an apparent \"minus\": those are FALSE models, not coverage) | 0 |
+| C: fields `a->b` / `a.b` | **-100** | -2 |
+| D: `typeof X` | 0 | **-18** |
+
+Priority 2 (fields) is confirmed for C and **refuted** for TS: there a field is only an ingredient
+while the blocker is operators. That is exactly why the measurement goes BEFORE the change.
+
+### 158.4 THE EFFECT (MEASURED, 0 findings on both corpora)
+
+| Corpus | `checked` | `trivial` | `skipped` | of the functions WITH branches |
+|:--|--:|--:|--:|--:|
+| `cmark-gfm/src` (was 147/126/35) | **170** | 126 | **12** | 147/182 = 80.8 % -> **170/182 = 93.4 %** |
+| `toolkit/packages` (was 55/73/22) | **72** | 73 | **5** | 55/77 = 71.4 % -> **72/77 = 93.5 %** |
+
+`Sum == total` on both; the `audits/codecheck` regression is unchanged (`13 | 3 | 0`, findings 4).
+
+### 158.5 Safeguard B: resetting a predicate when the FIELD or the BASE is mutated
+
+The flat name `a__b` did not match the names `_assigned_between` returns (`a->b = ...` leaves the
+name `b` before `=`). The new `_mut_names_for()` adds the BASE `a` and the FIELD `b` to the
+predicate, so a condition on the OLD field does not survive a mutation - otherwise it would be the
+same false-dead-branch class as `#409`.
+
+### 158.6 The boundary: what remains is CALLS and BITWISE, not \"almost everything\"
+
+`cmark` 12 = binary operator 4 + the `!` form 4 + syntax 4. `toolkit` 5 = all the `!` form (calls
+`!f(x)`). The composition of the remainder after the fix: `typeof` 0, JS-`in` 4, `?.` 1, calls 15,
+index 3, bitwise 12. The next big blocker in C is `&` and `[...]` (step 4b, BV), in TS it is calls
+outside the subset (they cannot be modelled without interprocedural analysis).
+
+### 158.7 Recorded separately, `#415` (OPEN): `make audits` hygiene
+
+The generator does `rmtree(audits/smt2)` and rewrites TRACKED `EVIDENCE.md` and
+`real_code_corpus.*`; no gate compares the set of `audits/smt2/*.smt2` with the `EVIDENCE.md`
+table, which is why 9 cases lived in git since `b646ad1` and never appeared in the snapshot.
