@@ -3863,3 +3863,46 @@ BV (`_needs_bitvec`, `bv_expr_smt`, `_bv_smt_text`), but the `--xray` path build
 path in `Int`, so "just wire one bitwise operation" is impossible - a per-function BV mode is
 required. Hence `binary operator` in the corpora (4 functions in `cmark-gfm/src`) is still
 skipped. That is the next step, and it remains the riskiest one.
+
+## §153. STEP 5: TERNARY -> `ite`, AND THE TRUTH ABOUT THE SKIP REASON (#408)
+
+### 153.1 MEASURED before the fix
+
+The `actions/toolkit` corpus had 6 functions reported as `тернарный оператор без ':'`. The
+corpus contains **65 occurrences of `??`** and dozens of `?.` - the TS/JS optional chain and
+the nullish operator, NOT ternaries. `convert_ternary` treated any `?` as a ternary, looked for
+the matching `:` and found none - the translation failed.
+
+A separate defect (exposed by the negative control): the FIRST `:` at zero depth was taken, so
+a nested ternary `a ? b ? c : d : e` was parsed as `a ? (b ? c)` - and the translation FAILED on
+the branch without a `:`.
+
+### 153.2 Fixed
+
+* a `?` is not a ternary when it is part of `?.` or `??` (on either side);
+* the search for the matching `:` tracks `?` nesting - a right-associative parse.
+
+MEASURED: `a ? b ? c : d : e` -> `((c if b else d) if a else e)`; `x?.a ?? 0` unchanged;
+`a > 0 ? a : b` -> `(a if a > 0 else b)`.
+
+### 153.3 AN HONEST BOUNDARY: coverage did NOT rise
+
+| Corpus | BEFORE | AFTER |
+|:--|:--|:--|
+| `toolkit/packages` | `checked 58 \| trivial 337 \| skipped 63`, of which `ternary 6` | `checked 58 \| trivial 337 \| skipped 63`, `ternary 0`, `syntax 54 -> 60` |
+
+The reason went **6 -> 0**, but `skipped` stayed **63**: the same 6 functions are now named
+"синтаксис Python после перевода C-like". So the ternary was NOT the real cause of their skip.
+What was fixed is the TRUTH ABOUT THE CAUSE - exactly the class tack 2.2 was about - but the
+coverage did not rise, and claiming otherwise would be wrong.
+
+### 153.4 The control (THREE-SIDED, inside `tools/xray_check.sh`)
+
+Corpus `tests/fixtures/xray_ternary.ts` (optional chain + nullish + a nested ternary). Three
+things are checked: (1) the "ternary" reason is gone; (2) the function IS parsed
+(`checked 1 \| trivial 0 \| skipped 0`); (3) the translation ITSELF is correct - nesting yields
+TWO `ite`s while `?.`/`??` stay untouched. The third part is mandatory: without it a "fix"
+could silently break semantics.
+
+A bug of mine was found on the way inside the section itself: backticks inside double quotes in
+`echo` caused command substitution (`??: command not found`) - fixed, the section prints a clean OK.
