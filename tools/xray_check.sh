@@ -221,3 +221,22 @@ assert K.convert_ternary("x?.a ?? 0") == "x?.a ?? 0"  # НЕ тернарник
 assert K.convert_ternary("a > 0 ? a : b") != "a > 0 ? a : b"
 PY
 echo "[OK] шаг 5: тернарник -> ite (вложенный тоже), опциональная цепочка и nullish - НЕ тернарники"
+
+# ШАГ 6 ПЛАНА: УКАЗАТЕЛЬ = Int, ГДЕ 0 = NULL. ДВУСТОРОННИЙ контроль.
+# ИЗМЕРЕНО до правки: ЛЮБОЕ условие со словом `nil/null` отбрасывалось целиком
+# (дефект #197), это стоило 49 функций в `cmark-gfm/src` и 3 в `toolkit`; а форма
+# `!p` вообще не переписывалась (нет слова `nil`) и уходила в SKIP как «синтаксис».
+# Проверяются ТРИ свойства, и каждое ИЗМЕРЕНО:
+#   1) противоречие БЕЗ мутации -> [DEAD BRANCH] НАЙДЕНА;
+#   2) форма `!p` переведена (ловушка сортов Z3: `not p` над Int недопустим);
+#   3) МУТАЦИЯ указателя между проверками -> находок НЕТ (иначе ложное обвинение).
+NP=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_null_ptr.c 2>&1) || true
+echo "$NP" | grep -q 'DEAD BRANCH] null_twice' \
+  || { echo "[!] шаг 6: противоречие БЕЗ мутации НЕ найдено (тихое подавление)"; echo "$NP" | tail -5; exit 1; }
+echo "$NP" | grep -q 'DEAD BRANCH] bang_twice' \
+  || { echo "[!] шаг 6: форма \`!p\` не переведена (ловушка сортов Z3)"; echo "$NP" | tail -5; exit 1; }
+if echo "$NP" | grep -q 'DEAD BRANCH] null_after_mutation'; then
+  echo "[!] шаг 6: ЛОЖНАЯ мёртвая ветвь при МУТАЦИИ указателя"
+  echo "$NP" | grep 'null_after_mutation'; exit 1
+fi
+echo "[OK] шаг 6: без мутации DEAD BRANCH найдена, с мутацией находок нет, форма !p переведена"

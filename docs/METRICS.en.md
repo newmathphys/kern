@@ -3938,3 +3938,55 @@ The new CHECK target raised the counters: **CHECK 182 -> 183**, **cases 222 -> 2
 let that slip silently: `claims-audit` and `metrics-guard` named 30 occurrences in 14 files,
 and they were fixed ON THE LINES the audit named (history in `METRICS`/the journal was NOT
 touched - editing it would have rewritten the past).
+
+## §155. STEP 6: A POINTER IS AN `Int` (0 = NULL) - 76 -> 141 CHECKED FUNCTIONS
+
+> The `nil/null` reason held 49 functions in `cmark-gfm/src` and 3 in `toolkit/packages` - the
+> largest remaining reserve. Closed without changing the solver theory.
+
+### 155.1 Why it used to be dropped whole
+
+Any condition mentioning `nil/null/NULL/None/undefined` was skipped (defect #197: `err != nil`
+produced a FALSE `[DEAD BRANCH]` in the Int model). Dropping it was honest but expensive.
+
+### 155.2 What was done
+
+A pointer is modelled as an `Int` where 0 = NULL:
+`p == NULL` -> `p == 0`; `p != NULL` -> `p != 0`; `!p` -> `p == 0`; a bare `p` in a boolean
+position -> `p != 0`.
+
+**Safeguard 1 (the Z3 sort trap).** `not p` over an `Int` is a sort error that `_smt_verdict`
+would quietly turn into `unknown`, so `!p` is rewritten to `p == 0`.
+**Safeguard 2 (reset on mutation).** `_assigned_between()` plus a filter in `_clike_conds_at`:
+a predicate is dropped when its name was reassigned between the block's condition and the
+analysis point - for EXITED blocks AND for ENCLOSING ones.
+
+### 155.3 A false accusation found by measuring (not a celebrated plus)
+
+The first run gave `1 finding`: `cmark-gfm/src/inlines.c: [DEAD BRANCH] parse_inline:
+(distinct new_inl 0)`. Cause: the reset covered only EXITED blocks, so an ENCLOSING block's
+condition `if (new_inl != NULL)` stayed in force after `new_inl = ...` was assigned INSIDE it.
+After the fix the finding is gone.
+
+The second run showed that the `!p` form was not rewritten at all (it contains NO `nil` word) and
+the function was skipped as "syntax". But `!x` in C means `x == 0` for a pointer AND for an int
+(0 = false), so the rewrite is sound for both.
+
+### 155.4 MEASURED (cmark-gfm/src, `27d942c8`)
+
+| | BEFORE | AFTER |
+|:--|:--|:--|
+| `checked` | 76 | **141** |
+| `trivial` | 126 | 126 |
+| `skipped` | 106 | **41** |
+| findings | 0 | **0** |
+
+`Sum 308 == total 308`. The plan's acceptance ("0 false alarms") is met. The remaining `skipped`
+is "syntax" 37 + binary operators 4 (step 4b, BV).
+
+### 155.5 The two-sided control (now ENFORCED by a gate)
+
+Corpus `tests/fixtures/xray_null_ptr.c` and the step-6 section in `tools/xray_check.sh`:
+(1) a contradiction WITHOUT mutation -> `[DEAD BRANCH]` IS found; (2) the `!p` form is
+translated; (3) a pointer MUTATION between the checks -> NO findings. MEASURED:
+`[OK] шаг 6: без мутации DEAD BRANCH найдена, с мутацией находок нет, форма !p переведена`.

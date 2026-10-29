@@ -6128,7 +6128,7 @@ def _null_to_zero(cond: str):
         if re.fullmatch(r"[A-Za-z_]\w*", t):
             parts[i] = part.replace(t, f"{t} != 0")
     s = "".join(parts)
-    if re.search(rf"\b{n}\b", s):
+    if re.search(rf"\b{n}\b", s) or re.search(r"!(?!=)", s):
         return None
     return s
 
@@ -6737,17 +6737,18 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
             # сравнение; в Int-модели `nil` бессмысленно, и получался ложный
             # DEAD BRANCH. Такие условия честно пропускаем.
-            if re.search(rf"\b{_NULL_WORDS}\b", raw_cond):
-                # ШАГ 6 ПЛАНА: УКАЗАТЕЛЬ = Int, ГДЕ 0 = NULL (было: полный SKIP).
-                # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` в Int-модели давал
-                # ЛОЖНЫЙ DEAD BRANCH, поэтому такие условия отбрасывались целиком —
-                # но это стоило 49 функций в `cmark-gfm` и 3 в `toolkit`. Теперь
-                # форма ПЕРЕПИСЫВАЕТСЯ (`p == NULL` -> `p == 0`, `!p` -> `p == 0`,
-                # голое `p` -> `p != 0`), а НЕЗНАКОМАЯ форма по-прежнему получает
-                # SKIP с названной причиной — граница, а не догадка.
+            _has_null = re.search(rf"\b{_NULL_WORDS}\b", raw_cond) is not None
+            # ИЗМЕРЕНО (шаг 6): `if (!p)` НЕ содержит слова `nil/null`, поэтому
+            # перепись не запускалась вовсе, и функция уходила в SKIP как
+            # «синтаксис». Но `!x` в C — это `x == 0` и для УКАЗАТЕЛЯ, и для
+            # ЦЕЛОГО (0 = ложь), поэтому перепись звуча для обеих форм.
+            _has_bang = re.search(r"!(?!=)", raw_cond) is not None
+            if _has_null or _has_bang:
                 _rw = _null_to_zero(raw_cond)
                 if _rw is None:
-                    skip_why.append("указательное сравнение nil/null (вне Int-модели)")
+                    skip_why.append(
+                        "указательное сравнение nil/null (вне Int-модели)" if _has_null
+                        else "логическое отрицание `!` в форме, которую не переводим")
                     pos = m.end()
                     continue
                 raw_cond = _rw
