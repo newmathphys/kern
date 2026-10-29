@@ -40,14 +40,14 @@ Numbered entries: **330**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 197 |
+| Fixed | 198 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
 | Decision: considered and not adopted | 0 |
 | Rows in the earlier journal format (category column, no status) | 130 |
 
-**Open technical defects: 1** — #413
+**Open technical defects: 0**
 
 > The journal spans two table generations: earlier rows carry a *category*
 > (`gate`, `kernel`, ...) and no status at all, later rows carry an explicit

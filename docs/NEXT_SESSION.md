@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -187,13 +187,25 @@ was corrected wherever it disagreed with the code:
    EXACTLY 2 changed, the cause named - PowerShell inside a template literal in `tool-cache.ts`
    (`catch { if (($_.Exception...`). `cmark-gfm/src`: **47 s, `checked 147 | trivial 126 |
    skipped 35 | Sum 308`, findings 0**.
-16. **`#413` OPEN: SIX CONTROL BYTES 0x08 INSTEAD OF `\b`** in patterns (lines 2613, 2615, 7197,
-   7214, 7215, 7217 of `tools/kern_contracts.py`) - in a raw string that is a literal backspace, so
-   such regexes NEVER match. Dead are the DUPLICATES of rule C (a `uint16` field, CVE class
-   `ac80f7b`) and rule D (off-by-one `<=`) inside the loop. **Working twins exist** (MEASURED: the
-   file-level copy of rule D fires on the fixture `numdelims <= max_delims`), so no capability is
-   lost. The fix is DELIBERATELY POSTPONED: it would ENABLE rules that never worked and must go with
-   its own measurement.
+16. **`#413` CLOSED: EIGHT CONTROL BYTES 0x08 (6 lines) instead of `\b`.** Replaced by a real
+   word boundary. The acceptance oracle is TWO effects, both measured: (a) no DOUBLE findings
+   (the fixtures `numdelims <= max_delims` and `row->n_columns++` gave EXACTLY TWO findings for one
+   line each - the in-loop one with the FUNCTION name, the file twin with the FILE name; after
+   deduplication by SUBJECT - ONE each, the precise one survived); (b) no NEW findings
+   (`cmark` `147/126/35` 0 findings, `toolkit` `55/73/22` 0 findings, `codecheck` 4 findings -
+   unchanged). The file twins are KEPT: they are needed for functions the splitter missed (#194).
+17. **THE MAIN DISCOVERY OF `#413`: THE DOCSTRING LIED.** `_saturate_rewrite` describes itself as
+   "Now an exact expression `ite(a+b > HI, HI, ...)` is built", but MEASURED: before the byte fix
+   `_saturate_rewrite('a +| b','u32')` returned `a +| b` - the text did NOT change, i.e. the
+   rewrite NEVER ran. It now returns `(4294967295 if (a + b) > 4294967295 else (a + b))`. A side
+   finding: the BV route for `+|` was ACCIDENTAL (the `|` character matched the bitwise regex),
+   not designed; real bitwise operations keep the BV route.
+18. **A RATCHET AGAINST THE CLASS "AN INVISIBLE BYTE KILLED A REGEX".** New tool
+   `tools/source_hygiene_check.py` (STRING CONSTANTS in the AST of every `tools/*.py`) + a section
+   in the EXISTING target `edge-cases` + a meta-test with 3 branches. BOUNDARY: EXACTLY `0x08` is
+   caught, because LEGITIMATE control bytes were MEASURED - `0x1b` (ANSI colours, 7 places) and
+   `0x00` (byte tests, 3 files); a mention of the byte in a COMMENT is not accused. MEASURED:
+   131 files clean.
 
 **Closed in THIS session (verification of all capabilities):**
 

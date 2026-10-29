@@ -4091,3 +4091,79 @@ worked and must go with its own measurement.
 `xray-check` (including the new step 4/5/6 sections and #410), `ci-fast` 11 green, `audits/codecheck`
 4 findings, `Sum of buckets == total` on both corpora, the fixture `tests/fixtures/xray_ts_calls.ts`
 (measured on both sides: before the fix `Sum 3 == total 3`, after `Sum 1`).
+
+## §157. EIGHT CONTROL BYTES 0x08: DEAD RULES AND A LYING DOCSTRING (#413, CLOSED)
+
+> Found while closing `#412`: six lines of the file carried a literal backspace where a
+> word boundary `\b` was intended. Eight bytes - and three capabilities that did not work.
+
+### 157.1 What exactly was dead
+
+| Place | What did not work | How it was measured |
+|:--|:--|:--|
+| 7197 | rule C in the loop: a `uint16` field overflow (CVE class `ac80f7b`) | the fixture `row->n_columns++` |
+| 7214, 7215, 7217 | rule D in the loop: off-by-one `<=` capacity | the fixture `numdelims <= max_delims` |
+| 2613, 2615 | the **exact saturation rewrite** `_saturate_rewrite` (`+|` / `-|`) | `_saturate_rewrite('a +| b','u32')` |
+
+In a Python raw string `0x08` is NOT an escape but the character itself: the regex requires a
+backspace, which never occurs in source code, so it NEVER matches. The bytes are long-standing -
+the same ones are in `291ebea` and in `HEAD`.
+
+### 157.2 The docstring lied (the most important part here)
+
+`_saturate_rewrite` describes itself as: "Previously `+|` / `.saturating_add` were simply
+translated to `+` ... Now an exact expression `ite(a+b > HI, HI, ...)` is built".
+
+**MEASURED before/after the byte fix:**
+
+```
+BEFORE: _saturate_rewrite('a +| b', 'u32') -> 'a +| b'          (the text did NOT change)
+AFTER:  _saturate_rewrite('a +| b', 'u32') -> '(4294967295 if (a + b) > 4294967295 else (a + b))'
+```
+
+So the "exact expression" was NEVER built: the capability described in the docstring existed only
+in the text. Same class as `#405` (a label instead of a fact) and `#410` (a denominator instead of a
+fact) - except here the divergence was between the DOCUMENT and the CODE.
+
+### 157.3 Duplication: the warning was confirmed by measurement
+
+The file-level twins of rules C/D are written WITHOUT `\b` and worked all along; the in-loop copies
+with `\b` were dead. After fixing the bytes both copies fired on the same line:
+
+```
+BEFORE dedup:  [BOUNDS PATH] scan: off-by-one: ...            <- the in-loop rule (FUNCTION name)
+               [BOUNDS PATH] offbyone.c: off-by-one: ...      <- the file twin (FILE name)
+               -> findings 2 for ONE error
+AFTER:         [BOUNDS PATH] scan: off-by-one: ...            -> findings 1
+```
+
+The messages differ (function name vs file name), so `if msg not in found` cannot collapse them.
+The deduplication is by SUBJECT: the in-loop rule records the subject (`_subj_c` - the field name,
+`_subj_d` - `var <= cap`), and the file twin skips what is already reported. The file twins are KEPT:
+they are needed for functions the splitter missed (multi-line declarations, `#194`).
+
+### 157.4 The acceptance oracle is met on three corpora
+
+| Corpus | Buckets | Findings |
+|:--|:--|--:|
+| `cmark-gfm/src` | `147 \| 126 \| 35`, Sum 308 | **0** (unchanged) |
+| `toolkit/packages` | `55 \| 73 \| 22`, Sum 150 | **0** (unchanged) |
+| `audits/codecheck` | `13 \| 3 \| 0`, Sum 16 | **4** (unchanged) |
+
+Gates `bounds-check`, `loop-check`, `edge-cases`, `audits` - green.
+
+### 157.5 A side finding: the BV route for `+|` was ACCIDENTAL
+
+MEASURED on `tests/fixtures/zig_saturating_add.zig`: before the fix the function went through the BV
+theory (`[BV] addSat ... явное \`+|\` — переполнение не паникует`), after - it is proved in Int with
+the EXACT clamped model. Cause: `+|` reached BV because the `|` character matched the bitwise regex
+`_BITWISE`, not by design. Real bitwise operations (`& ~ << >>`) still keep the BV route.
+
+### 157.6 A ratchet against the class
+
+`tools/source_hygiene_check.py` + a section in the EXISTING target `edge-cases` + a meta-test with
+3 branches (a planted `0x08` is found · a clean regex is not accused · a mention of the byte in a
+COMMENT is not accused). BOUNDARY: EXACTLY `0x08` is caught, because LEGITIMATE control bytes were
+MEASURED - `0x1b` (ANSI colours, 7 places in `registry.py`/`canfail.py`) and `0x00` (byte tests in
+three files); banning them would break working code for the sake of a pretty rule. MEASURED: 131
+files of `tools/*.py` are clean.

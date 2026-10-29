@@ -2610,9 +2610,9 @@ def _saturate_rewrite(text: str, ret: str) -> str:
     text = re.sub(r"([A-Za-z_][\w]*)\.saturating_sub\(\s*([A-Za-z_][\w]*|\d+)\s*\)",
                   lambda m: clamp("-", m.group(1), m.group(2)), text)
     # Zig: a +| b / a -| b (операнды-идентификаторы или литералы)
-    text = re.sub(r"([A-Za-z_][\w]*|\d+)\s*\+\|\s*([A-Za-z_][\w]*|\d+)",
+    text = re.sub(r"\b([A-Za-z_][\w]*|\d+)\s*\+\|\s*([A-Za-z_][\w]*|\d+)",
                   lambda m: clamp("+", m.group(1), m.group(2)), text)
-    text = re.sub(r"([A-Za-z_][\w]*|\d+)\s*-\|\s*([A-Za-z_][\w]*|\d+)",
+    text = re.sub(r"\b([A-Za-z_][\w]*|\d+)\s*-\|\s*([A-Za-z_][\w]*|\d+)",
                   lambda m: clamp("-", m.group(1), m.group(2)), text)
     return text
 
@@ -6798,6 +6798,17 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
     # `SMT calls 29`, тогда как решатель вызывался 2032 раза (профайлер §178.5).
     # Файловый итог накапливается отдельно и возвращается наружу.
     _smt_calls_file = 0
+    # ДЕФЕКТ #413: СУБЪЕКТЫ, УЖЕ ЗАЯВЛЕННЫЕ ПРАВИЛАМИ ВНУТРИ ЦИКЛА.
+    # Файловые близнецы правил C/D нужны ТОЛЬКО для функций, которых разборщик не
+    # нашёл (многострочные объявления, #194). Раньше внутрицикловые копии были
+    # МЁРТВЫ (управляющий байт 0x08 вместо `\b`), поэтому дублей не возникало;
+    # после починки обе копии срабатывают на одну строку и дают ДВА сообщения об
+    # одной ошибке (разными ярлыками: имя функции против имени файла).
+    # ИЗМЕРЕНО до дедупликации: фикстуры `numdelims <= max_delims` и
+    # `row->n_columns++` давали РОВНО ПО ДВЕ находки. Поэтому файловый уровень
+    # пропускает то, что уже заявлено точным (функциональным) уровнем.
+    _subj_c: set = set()
+    _subj_d: set = set()
     found: list[str] = []
     # ДЕФЕКТ #400: причины пропуска НЕ собирались, а сводка при этом заявляла
     # «skipped N with explicit reasons» — то есть ПЕЧАТАЛАСЬ ЛОЖНАЯ ФРАЗА: ни
@@ -7194,7 +7205,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
 
         # --- C: ac80f7b (uint16_t counter) — ДЕФЕКТ #193 --------------------
         is_u16 = lambda t: t.strip().lower() in {"uint16_t", "u16", "unsigned short", "ushort"}
-        for m2 in re.finditer(r"\w+\s*(?:->|\.)\s*(\w+)\s*(?:\+\+|\+=\s*1)", body_mask):
+        for m2 in re.finditer(r"\b\w+\s*(?:->|\.)\s*(\w+)\s*(?:\+\+|\+=\s*1)", body_mask):
             fld = m2.group(1)
             ty = field_types.get(fld, "")
             if not ty or not is_u16(ty):
@@ -7202,6 +7213,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             head = body[:m2.start()]
             if re.search(r"UINT16_MAX|65535|0xFFFF", head):
                 continue  # граница проверяется — не обвиняем
+            _subj_c.add(fld)
             found.append(
                 f"[OVERFLOW PATH] {name}: поле `{fld}` ({ty}) инкрементируется без "
                 f"проверки границы 65535 -> счётчик переполнится (CVE-класс ac80f7b)")
@@ -7211,11 +7223,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # ровно на единицу больше ёмкости. Правило требует ИМЕНИ-ёмкости
         # (max_delims/max_size/…capacity), иначе `i <= max_retries` дало бы шум.
         for m3 in re.finditer(
-                r"([A-Za-z_]\w*)\s*<=\s*(max_(?:delims|size|len|length|capacity|count)"
-                r"|[A-Za-z_]*_capacity|MAX_(?:SIZE|LEN|LENGTH|CAPACITY|DELIMS))", body_mask):
+                r"\b([A-Za-z_]\w*)\s*<=\s*(max_(?:delims|size|len|length|capacity|count)\b"
+                r"|[A-Za-z_]*_capacity\b|MAX_(?:SIZE|LEN|LENGTH|CAPACITY|DELIMS)\b)", body_mask):
             var, cap = m3.group(1), m3.group(2)
-            if not re.search(rf"{re.escape(var)}\s*(?:\+\+|\[+\-\]=)", body_mask):
+            if not re.search(rf"\b{re.escape(var)}\s*(?:\+\+|\[+\-\]=)", body_mask):
                 continue
+            _subj_d.add(f"{var} <= {cap}")
             found.append(
                 f"[BOUNDS PATH] {name}: off-by-one: `{var} <= {cap}` разрешает "
                 f"{var} == {cap} (ровно ёмкость) -> запись за границу")
@@ -7286,6 +7299,11 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         var, cap = m3.group(1), m3.group(2)
         if (var + "++") not in _full_src and (var + "+=") not in _full_src:
             continue
+        # ДЕФЕКТ #413: не дублировать то, что уже заявлено правилом в цикле
+        # (точный уровень называет ФУНКЦИЮ). Файловый уровень остаётся для
+        # функций, которых разборщик не нашёл (#194).
+        if f"{var} <= {cap}" in _subj_d:
+            continue
         msg = (f"[BOUNDS PATH] {path.name}: off-by-one: `{var} <= {cap}` разрешает "
                f"{var} == {cap} (ровно ёмкость) -> запись за границу")
         if msg not in found:
@@ -7300,6 +7318,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         head = _full_src[:m2.start()]
         if "UINT16_MAX" in head or "65535" in head:
             continue  # граница проверяется — не обвиняем
+        # ДЕФЕКТ #413: не дублировать находку правила в цикле.
+        if fld in _subj_c:
+            continue
         msg = (f"[OVERFLOW PATH] {path.name}: поле `{fld}` ({ty}) инкрементируется "
                f"без проверки границы 65535 -> счётчик переполнится")
         if msg not in found:

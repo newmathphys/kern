@@ -405,9 +405,12 @@ branches. Any future number must be printed **together with its denominator and 
   the whole corpus walk. Location by mask, value from the raw body. MEASURED per file: EXACTLY 2 of
   159 files changed, the cause named (PowerShell inside a template literal in `tool-cache.ts`).
 * **`cmark-gfm/src` completed for the first time** in 47 s: `147 / 126 / 35 / Sum 308`, findings 0.
-* **`#413` OPEN**: six control bytes 0x08 instead of `\b` in patterns (lines 2613, 2615, 7197, 7214,
-  7215, 7217) — DEAD DUPLICATES of rules C and D inside the loop; working twins exist, so the fix
-  must go with its own measurement.
+* **`#413` CLOSED**: eight control bytes 0x08 (6 lines) replaced by a real word boundary. TWO
+  effects measured: no DOUBLE findings (before deduplication the fixtures gave exactly TWO findings
+  per line, after - one) and no NEW findings (`cmark` 0, `toolkit` 0, `codecheck` 4 - unchanged).
+  THE MAIN PART: the `_saturate_rewrite` docstring LIED - the saturation rewrite never ran
+  (`a +| b` -> `a +| b`); it now yields the exact clamped ite. Ratchet:
+  `tools/source_hygiene_check.py` + a section in the `edge-cases` target + a meta-test with 3 branches.
 
 
 ### 7.5 A side benefit confirmed by measurement
