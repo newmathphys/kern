@@ -205,6 +205,14 @@ Beyond `ptr = …` and `foo(&ptr)`, reset the accumulated constraint on:
 object is passed by reference, so `foo(arr)` may change `arr.length` and the
 `arr__length` symbol must be dropped.
 
+**Two safeguards found while analysing (written down BEFORE coding).**
+
+1. **THE Z3 SORT TRAP (`Int` in a `Bool` position).** `p == NULL` -> `(= p 0)` and `p != NULL` -> `(distinct p 0)` are `Bool`-sorted expressions, and Z3 accepts them. But half of the checks in C are written SHORT: `if (!node)`, `if (node && node_len > 0)`. Translating `!node` to `not node` while declaring `node` as `(declare-const node Int)` makes `(assert (not node))` a SORT ERROR, which `_smt_verdict` quietly turns into `unknown`. **Fix:** any bare name `v` of sort `Int` that lands in a BOOLEAN position (`if v`, `not v`, an operand of `and`/`or`) must be wrapped when generating SMT: `v` -> `(distinct v 0)`, `not v` -> `(= v 0)`.
+
+2. **RESET ON POINTER MUTATION.** The typical node walk in `cmark-gfm`: `if (node == NULL) return; while (...) { node = node->next; if (node == NULL) break; }` — the second check is NOT a dead branch. The accumulated `node != 0` refers to the OLD value: if an assignment `node = …` (or passing `&node`) sits between the guard and the analysis point, the predicate must NOT be applied.
+
+**Two-sided control for the step-6 section in `tools/xray_check.sh`:** positive (a contradiction WITHOUT mutation) `if (p == NULL) return 0; … if (p == NULL) return 1;` -> the second branch MUST be caught as `[DEAD BRANCH]`; negative (mutation between the checks) `if (p == NULL) return 0; p = next_p; if (p == NULL) return 1;` -> **0** findings.
+
 
 ---
 
