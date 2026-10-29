@@ -40,7 +40,6 @@ import json
 import os
 import shutil
 import re
-import zlib
 import shutil
 import subprocess
 import io
@@ -2204,86 +2203,6 @@ def _iter_call_args(src: str, name: str):
         i = j
 
 
-_C_SIMPLE_ESC = {"0": "\0", "t": "\t", "n": "\n", "r": "\r", "a": "\a",
-                 "b": "\b", "f": "\f", "v": "\v", "\\": "\\", "'": "'",
-                 '"': '"', "?": "?"}
-
-
-def _decode_c_char(raw: str):
-    """Раскрыть стандартные C-эскейпы; вернуть ОДИН символ или None.
-
-    Нужно, чтобы отличить `'x'` (символ) от `'win32'` (строка): у первого
-    семантика — точный код символа, у второй — просто метка.
-    """
-    if not raw:
-        return None
-    if raw[0] != "\\":
-        return raw if len(raw) == 1 else None
-    esc = raw[1:2]
-    if esc in _C_SIMPLE_ESC and len(raw) == 2:
-        return _C_SIMPLE_ESC[esc]
-    if esc == "x":
-        try:
-            return chr(int(raw[2:], 16))
-        except ValueError:
-            return None
-    if esc.isdigit():
-        try:
-            return chr(int(raw[1:], 8))
-        except ValueError:
-            return None
-    return None
-
-
-def _literal_placeholder(quote: str, raw: str, width: int) -> str:
-    """ЗАМЕНА литерала ЧИСЛОМ той же ширины (дефект #178/#410).
-
-    ПОЧЕМУ НЕ ПРОБЕЛЫ. Раньше содержимое литерала СТИРАЛОСЬ в пробелы, и условие
-    `c != ' ' && c != '\\t'` превращалось в обрубок `c !=     && c !=`, который не
-    разбирался. ИЗМЕРЕНО дампом: **1125 из 1272** условий корзины `синтаксис` на
-    `cmark-gfm/src` — ровно такие обрубки, то есть бо́льшая часть «сложного
-    синтаксиса» была следствием одного удаления.
-
-    СЕМАНТИКА (без ложных тревог):
-      * `'x'` — РОВНО один символ после раскрытия эскейпов — даёт свой код
-        `ord(x)`: `c == ' '` -> `c == 32`, `c >= '0' && c <= '9'` ->
-        `c >= 48 && c <= 57`. Для `cmark-gfm` это существенно: парсер построен на
-        диапазонах символов, и Z3 теперь видит, что `c >= 48 && c <= 57` и
-        `c == 32` НЕсовместны (честная мёртвая ветвь, а не «вне подмножества»);
-      * строки `"…"` и многосимвольные `'…'` -> детерминированное положительное
-        число из содержимого (crc32), НИКОГДА не 0: иначе строка склеилась бы с
-        `NULL`/`nil`. Одинаковые литералы дают ОДНО число (противоречие
-        `x == "utf8"` и `x != "utf8"` ловится), разные — РАЗНЫЕ (вложенная ветка
-        `if (x == "utf8") if (x == "ascii")` ловится как мёртвая).
-
-    ШИРИНА СОХРАНЯЕТСЯ (дополнение пробелами, усечение для крошечных литералов):
-    на смещения в тексте опирается логика путей ПО ПОЗИЦИИ, и сдвиг сломал бы её
-    молча. Для `""`/`''` (ширина 2) усечение безопасно: пустая строка одна, и
-    одинаковые литералы всё равно получают одно число.
-    """
-    if quote == "'":
-        ch = _decode_c_char(raw)
-        if ch is not None and len(ch) == 1:
-            num = str(ord(ch))
-        else:
-            num = str(1_000_000 + (zlib.crc32(raw.encode("utf-8", "replace")) & 0x7FFFFF))
-    else:
-        num = str(1_000_000 + (zlib.crc32(raw.encode("utf-8", "replace")) & 0x7FFFFF))
-    # ПЕРЕВОДЫ СТРОК ВНУТРИ ЛИТЕРАЛА СОХРАНЯЮТСЯ (дефект #410, блокеры 1 и 2).
-    # ИЗМЕРЕНО: без этого `total` корпуса упал 458 -> 443, а разборщик файлов
-    # рассыпал TS-файлы (появлялись «функции» с именами `await `, `throw new `),
-    # из-за чего условия ЧУЖИХ функций попадали в путь проверяемой и давали
-    # ложную мёртвую ветвь (`io-util.ts: readlink: (= p 0)`). Многострочные
-    # шаблонные литералы TS — обычное дело, и их строки обязаны остаться.
-    _nl = raw.count(chr(10))
-    _room = max(1, width - _nl)
-    if len(num) >= _room:
-        num = num[:_room]
-    else:
-        num = num + " " * (_room - len(num))
-    return num + chr(10) * _nl
-
-
 def _strip_c_comments_strings(text: str) -> str:
     """ДЕФЕКТ #178: убрать комментарии и содержимое строковых литералов.
 
@@ -2302,36 +2221,29 @@ def _strip_c_comments_strings(text: str) -> str:
     i, n = 0, len(text)
     state = "code"          # code | line | block | str
     quote = ""
-    i0 = 0                  # индекс открывающей кавычки текущего литерала
-    lit: list = []          # сырое содержимое текущего литерала
     while i < n:
         ch = text[i]
         nxt = text[i + 1] if i + 1 < n else ""
         if state == "code":
             if ch == "/" and nxt == "/":
                 state = "line"
-                out.append(" ")
-                out.append(" ")
+                out.append("  ")
                 i += 2
                 continue
             if ch == "/" and nxt == "*":
                 state = "block"
-                out.append(" ")
-                out.append(" ")
+                out.append("  ")
                 i += 2
                 continue
             if ch == "\\" and nxt == "\\":        # zig multiline string
                 state = "line"
-                out.append(" ")
-                out.append(" ")
+                out.append("  ")
                 i += 2
                 continue
             if ch in "\"'`":
                 state = "str"
                 quote = ch
-                i0 = i          # индекс открывающей кавычки (сохранение ШИРИНЫ)
-                lit = []        # СЫРОЕ содержимое литерала (для отпечатка строки)
-                out.append(ch)
+                out.append(" ")
                 i += 1
                 continue
             out.append(ch)
@@ -2348,8 +2260,7 @@ def _strip_c_comments_strings(text: str) -> str:
         if state == "block":
             if ch == "*" and nxt == "/":
                 state = "code"
-                out.append(" ")
-                out.append(" ")
+                out.append("  ")
                 i += 2
                 continue
             out.append("\n" if ch == "\n" else " ")
@@ -2357,22 +2268,15 @@ def _strip_c_comments_strings(text: str) -> str:
             continue
         # state == "str"
         if ch == "\\" and i + 1 < n:
-            lit.append(text[i:i + 2])
-            out.append(ch)
-            out.append(text[i + 1])
+            out.append("  ")
             i += 2
             continue
         if ch == quote:
-            out.append(ch)
-            # ЛИТЕРАЛ ЗАМЕНЯЕТСЯ ЧИСЛОМ (дефект #178/#410), а НЕ стирается.
-            # ШИРИНА сохраняется: на смещения в тексте опирается логика путей
-            # ПО ПОЗИЦИИ (`_clike_conds_at`), и сдвиг сломал бы её молча.
-            out[i0:i + 1] = [_literal_placeholder(quote, "".join(lit), i - i0 + 1)]
             state = "code"
+            out.append(" ")
             i += 1
             continue
-        lit.append(ch)
-        out.append(ch)
+        out.append("\n" if ch == "\n" else " ")
         i += 1
     return "".join(out)
 
@@ -6214,11 +6118,7 @@ def _null_to_zero(cond: str):
     s = re.sub(rf"\b([A-Za-z_]\w*)\s*!=\s*{n}\b", r"\1 != 0", s)
     s = re.sub(rf"\b{n}\s*!=\s*([A-Za-z_]\w*)", r"\1 != 0", s)
     # `!p` -> `p == 0` (но не `!=`)
-    # ИЗМЕРЕНО (регрессия на `toolkit`): `!obj.method()` и `!x->f` НЕЛЬЗЯ
-    # переписывать в `x == 0` — остаток `.method()` / `->f` давал мусор
-    # (`(= p 0)`) и ЛОЖНУЮ мёртвую ветвь в `io-util.ts: readlink`. Поэтому `!`
-    # берётся ТОЛЬКО на «голом» имени: дальше не должно идти `.`, `-`, `[`, `(`.
-    s = re.sub(r"!\s*([A-Za-z_]\w*)(?![\w.\-(\[])", r"\1 == 0", s)
+    s = re.sub(r"!\s*([A-Za-z_]\w*)(?!\s*=)", r"\1 == 0", s)
     # Голое имя в булевой позиции: целое условие или операнд `&&`/`||`.
     parts = re.split(r"(\s*(?:&&|\|\|)\s*)", s)
     for i, part in enumerate(parts):
