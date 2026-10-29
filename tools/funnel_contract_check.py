@@ -45,12 +45,18 @@ SPEC_REL = "tools/funnel_accounting.py"
 # actions/toolkit 0c3a9c33). `checked_arith_only` и `trivial` пока НУЛЕВЫЕ:
 # их разделение — шаг 2 плана (#405), и именно поэтому инвариант заперт ДО него.
 CORPORA = (
-    ("cmark-gfm/src", {"total": 308, "without_if": 126, "checked_branches": 76,
-                       "checked_arith_only": 0, "trivial": 0, "skipped": 232,
-                       "named": 232}),
-    ("toolkit/packages", {"total": 458, "without_if": 337, "checked_branches": 58,
-                          "checked_arith_only": 0, "trivial": 0, "skipped": 400,
-                          "named": 400}),
+    # ОБНОВЛЕНО после шага 6 и починки литералов: ИЗМЕРЕНО `checked 138 |
+    # trivial 126 | skipped 44`, Σ 308, находок 0 (знаменатель на C не менялся).
+    ("cmark-gfm/src", {"total": 308, "without_if": 126, "checked_branches": 138,
+                       "checked_arith_only": 0, "trivial": 126, "skipped": 44,
+                       "named": 44}),
+    # ОБНОВЛЕНО после #410: из 458 «функций» 308 были ВЫЗОВАМИ (`await …`,
+    # `throw new …`), а не функциями — знаменатель был раздут втрое. ИЗМЕРЕНО
+    # после починки литералов и #410: `checked 56 | trivial 71 | skipped 23`,
+    # Σ 150, находок 0. Покрытие 56/150 = 37,3 % (было «12,6 %» от раздутого).
+    ("toolkit/packages", {"total": 150, "without_if": 71, "checked_branches": 56,
+                          "checked_arith_only": 0, "trivial": 71, "skipped": 23,
+                          "named": 23}),
 )
 
 # РОВНО ТО СОСТОЯНИЕ, КОТОРОЕ НАПЕЧАТАЛО `-6`: 9 функций, 15 «причин».
