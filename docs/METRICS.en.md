@@ -3769,7 +3769,7 @@ counted as skipped).
 |:--|:--|:--|
 | `cmark-gfm/src` (`27d942c8`) | `checked 76 / 308 (skipped 232)` | `checked 76 \| trivial 126 \| skipped 106 \| Σ 308 == total 308` |
 | `toolkit/packages` (`0c3a9c33`) | `checked 58 / 458 (skipped 400)` | `checked 58 \| trivial 337 \| skipped 63 \| Σ 458 == total 458` |
-| `audits/codecheck` | `checked 7 / 16 (skipped 9)`, 4 findings | `checked 14 \| trivial 2 \| skipped 0`, 4 findings |
+| `audits/codecheck` | `checked 7 / 16 (skipped 9)`, 4 findings | `checked 13 \| trivial 3 \| skipped 0`, 4 findings |
 
 ### 151.3 AN HONEST BOUNDARY: `checked` did NOT rise on the corpora
 
@@ -3812,3 +3812,54 @@ The repo summary now prints the buckets on a separate line, and its format
 `tools/bug_hunter.py`, `tools/bounds_check.sh` and the #400 gate keep working (verified:
 `xray-check`, `bounds-check`, `loop-check`, `bug-hunt-check`, `edge-cases` all green).
 
+
+## §152. STEP 4, THE SAFETY HALF: A FREE CONSTANT IN THE PATH YIELDS NO ACCUSATION (`free_syms_in_path`)
+
+> Class #178/#183 ("a false accusation is worse than a skip"). This is exactly the place
+> plan §2.2 warns about: `UNSAT` checks tolerate a free constant, `SAT` checks do not.
+
+### 152.1 MEASURED BEFORE the fix: a false accusation on CORRECT code
+
+```c
+#define MAX_BUF 1024
+int scale_defined(int n) { if (n < MAX_BUF) return n + n; return 0; }
+```
+
+Gave: `[OVERFLOW PATH] scale_defined: i32 overflow … [КОНТРПРИМЕР] MAX_BUF = -2147483647,
+n = -2147483648`. With `MAX_BUF = 1024` there is NO overflow: the parser does not substitute
+`#define`, the name enters the path FREE, and Z3 picks it extremal. Same for an undefined
+constant `LIMIT_UNDEFINED`.
+
+### 152.2 What was done
+
+* `_free_syms_in_path(asserts, params)` - names in the path whose value is unknown;
+* `_smt_sat_guarded(...)` - `_smt_sat` with the flag: a free name in the path means REFUSAL
+  (`None`) and a NAMED reason `путь зависит от неизвестной константы (SAT не решаем: #178/#183)`;
+* wired into the SAT detectors: divisor, negative index, allocation overflow, expression
+  overflow (`_clike_overflow_findings` gained a `skip_why` parameter);
+* `UNSAT` checks (dead branch, redundant guard) were NOT touched - a free constant is sound
+  there: "unreachable for every value".
+
+### 152.3 MEASURED AFTER
+
+| Check | Result |
+|:--|:--|
+| fixture with `#define` and with an undefined constant | **0 findings** (was 2), `note: путь зависит от неизвестной константы × 2` |
+| `audits/codecheck` (regression) | **4** findings (unchanged), `checked 13 \| trivial 3 \| skipped 0` |
+| new `xray_check.sh` section | TWO-SIDED: no finding AND the refusal must be NAMED |
+| corpus `tests/fixtures/xray_free_path.c` | single-file run: `findings 0`, reason printed |
+
+### 152.4 Found and fixed on the way (my own bug, exposed by the new test)
+
+The single-file branch of `cmd_xray` called the reporter with ARGUMENTS OUT OF ORDER
+(`tot` went into `checked`, the notes dict into `total`), so any single C-like file crashed
+with `TypeError`. Caught by the FIRST run of the new section - before that only directories
+were exercised, which take a different path.
+
+### 152.5 What remains of step 4 (honestly)
+
+**BV routing of bitwise conditions in `--xray` is NOT done.** The contract path already uses
+BV (`_needs_bitvec`, `bv_expr_smt`, `_bv_smt_text`), but the `--xray` path builds the WHOLE
+path in `Int`, so "just wire one bitwise operation" is impossible - a per-function BV mode is
+required. Hence `binary operator` in the corpora (4 functions in `cmark-gfm/src`) is still
+skipped. That is the next step, and it remains the riskiest one.

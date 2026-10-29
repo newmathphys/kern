@@ -6303,9 +6303,53 @@ def _clike_incdec_findings(name: str, body: str, var_ranges: dict,
     return out
 
 
+FREE_PATH_REASON = "путь зависит от неизвестной константы (SAT не решаем: #178/#183)"
+
+
+def _free_syms_in_path(asserts: list, params) -> list:
+    """Имена в ПУТИ, значение которых НЕИЗВЕСТНО (шаг 4 плана, класс #178/#183).
+
+    ЗАЧЕМ (ИЗМЕРЕНО). Защита в `_clike_overflow_findings` требует, чтобы каждое имя
+    В ВЫРАЖЕНИИ было параметром или типизированным локальным. Она НЕ покрывает ПУТЬ:
+    если свободное имя попало в `path_conds`, запрос становится
+    `∃c. path(c) ∧ overflow` — СЛАБЕЕ реальности, и Z3 берёт c = ±MAX.
+
+    ЖИВОЙ ЗАМЕР на КОРРЕКТНОМ коде:
+        #define MAX_BUF 1024
+        int scale(int n) { if (n < MAX_BUF) return n + n; return 0; }
+    давал `[OVERFLOW PATH] … [КОНТРПРИМЕР] MAX_BUF = -2147483647, n = -2147483648`,
+    хотя при MAX_BUF = 1024 переполнения НЕТ. Ложное обвинение хуже пропуска,
+    поэтому SAT-проверки обязаны ОТКАЗАТЬСЯ от такого пути.
+    """
+    known = set(params)
+    out: list = []
+    for a in asserts:
+        for tok in re.findall(r"[A-Za-z_][\w]*", a):
+            if tok in _SMT_RESERVED or tok in known or tok in out:
+                continue
+            out.append(tok)
+    return out
+
+
+def _smt_sat_guarded(kernc, params, asserts, why: list):
+    """`_smt_sat` С ФЛАГОМ `free_syms_in_path` (шаг 4 плана).
+
+    ПОЧЕМУ ТОЛЬКО ДЛЯ SAT. UNSAT-проверки (мёртвая ветвь, избыточный гард)
+    свободная константа НЕ ломает: «недостижимо для ЛЮБОГО значения» — честный
+    вывод, он только усиливается. А SAT-проверки (переполнение, границы,
+    делители) при свободном имени в пути дают ЛОЖНОЕ ОБВИНЕНИЕ — они обязаны
+    отказаться, НАЗВАВ причину, а не выдумать контрпример.
+    """
+    if _free_syms_in_path(asserts, params):
+        why.append(FREE_PATH_REASON)
+        return None
+    return _smt_sat(kernc, params, asserts)
+
+
 def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
                              path_conds: list[str], if_blocks: list,
-                             local_smt: dict, kernc) -> list[str]:
+                             local_smt: dict, kernc,
+                             skip_why: list | None = None) -> list[str]:
     """[OVERFLOW PATH] для ЛЮБОЙ арифметики `+ - *` в C-like теле.
 
     ПОЧЕМУ ЭТО НУЖНО (дефект #367). До этой правки `--xray` для C имел
@@ -6434,11 +6478,17 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
             # ветка выше (`_const_eval`), и она точнее решателя.
             if any(nm not in set(params) for nm in names):
                 continue
+            _ov_path = (path_conds + _clike_conds_at(pos, if_blocks)
+                        + [f"(or (> {whole} {hi}) (< {whole} {lo}))"])
+            # ФЛАГ `free_syms_in_path` (шаг 4 плана). Свободная константа в ПУТИ
+            # делает запрос `∃c. path(c) ∧ overflow` СЛАБЕЕ реальности, и Z3 берёт
+            # c = ±MAX → ЛОЖНОЕ ОБВИНЕНИЕ (измерено). ОТКАЗ с НАЗВАННОЙ причиной.
+            if _free_syms_in_path(_ov_path, params):
+                if skip_why is not None and FREE_PATH_REASON not in skip_why:
+                    skip_why.append(FREE_PATH_REASON)
+                continue
             try:
-                kind, ce = _smt_verdict(
-                    kernc, params,
-                    path_conds + _clike_conds_at(pos, if_blocks)
-                    + [f"(or (> {whole} {hi}) (< {whole} {lo}))"])
+                kind, ce = _smt_verdict(kernc, params, _ov_path)
             except Exception as _kern_e_ov:                  # noqa: BLE001
                 _replay_soft(_kern_e_ov, "kern_contracts.py:ov")
                 continue
@@ -6718,9 +6768,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             try:
                 # ДЕФЕКТ #318: условия берутся ПО ПОЗИЦИИ делителя.
                 _pos_d = dm.start()
-                sat_dz = _smt_sat(kernc, params,
-                                  path_conds + _clike_conds_at(_pos_d, if_blocks)
-                                  + [f"(= {d} 0)"])
+                sat_dz = _smt_sat_guarded(kernc, params,
+                                          path_conds + _clike_conds_at(_pos_d, if_blocks)
+                                          + [f"(= {d} 0)"], skip_why)
             except Exception as _kern_e_3982:  # noqa: BLE001
                 _replay_soft(_kern_e_3982, "kern_contracts.py:3982")
                 continue
@@ -6792,9 +6842,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                         continue  # границу задаёт цикл — не обвиняем (циклы не моделируем)
             try:
                 # ДЕФЕКТ #318 (та же причина, секция границ): условия — ПО ПОЗИЦИИ.
-                sat_neg = _smt_sat(kernc, params,
-                                   path_conds + _clike_conds_at(im.start(), if_blocks)
-                                   + [f"(< {idxs} 0)"])
+                sat_neg = _smt_sat_guarded(kernc, params,
+                                           path_conds + _clike_conds_at(im.start(), if_blocks)
+                                           + [f"(< {idxs} 0)"], skip_why)
             except Exception as _kern_e_4052:  # noqa: BLE001
                 _replay_soft(_kern_e_4052, "kern_contracts.py:4052")
                 continue
@@ -6821,9 +6871,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                     continue
                 try:
                     # ДЕФЕКТ #318: то же — условия ПО ПОЗИЦИИ вызова аллокации.
-                    sat_ov = _smt_sat(kernc, params,
-                                      path_conds + _clike_conds_at(am.start(), if_blocks)
-                                      + [f"(> {size_smt} 2147483647)"])
+                    sat_ov = _smt_sat_guarded(kernc, params,
+                                              path_conds + _clike_conds_at(am.start(), if_blocks)
+                                              + [f"(> {size_smt} 2147483647)"], skip_why)
                 except Exception as _kern_e_4077:  # noqa: BLE001
                     _replay_soft(_kern_e_4077, "kern_contracts.py:4077")
                     continue
@@ -6900,7 +6950,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # то есть свойство `no-overflow`, а не только итог возврата.
         for _ov_msg in _clike_overflow_findings(
                 name, params, body, ranges, path_conds, if_blocks,
-                local_smt, kernc):
+                local_smt, kernc, skip_why):
             if _ov_msg not in found:
                 found.append(_ov_msg)
         # ТРИ КОРЗИНЫ (дефект #405). Разделение идёт по ФАКТУ РАБОТЫ, а не по
@@ -7412,7 +7462,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         print(f"[XRAY SUMMARY] checked {ck} / {tot} functions (trivial {triv}), "
               f"skipped {max(0, tot - ck - triv)} with explicit reasons, "
               f"findings {len(fd)}, SMT calls {_smt_calls_clike}")
-        _xray_report_skip_reasons(_rs, max(0, tot - ck - triv), triv, tot, _nt)
+        _xray_report_skip_reasons(_rs, max(0, tot - ck - triv), triv, ck, tot, _nt)
         return 0
     src = p.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)

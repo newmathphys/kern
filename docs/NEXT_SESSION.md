@@ -118,7 +118,7 @@ was corrected wherever it disagreed with the code:
    (not analysed). MEASURED before/after on the SHA-pinned corpora: `cmark-gfm/src` 76/308
    (skipped 232) → `checked 76 | trivial 126 | skipped 106 | Σ 308`; `toolkit/packages` 58/458
    (skipped 400) → `checked 58 | trivial 337 | skipped 63 | Σ 458`; `audits/codecheck` 7/16
-   (skipped 9) → `checked 14 | trivial 2 | skipped 0`.
+   (skipped 9) → `checked 13 | trivial 3 | skipped 0`.
    **The honest part: `checked` did NOT rise on the corpora** — the 126 and 337 functions
    without `if` have NO obligations, so they became `trivial`; what changed is the LABEL, not
    the coverage. Functions WITH obligations (`ratio`, `add32`) really did move to `checked`.

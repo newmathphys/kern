@@ -123,7 +123,7 @@
    `skipped` (не анализировалась). ИЗМЕРЕНО «до/после» на пришпиленных корпусах:
    `cmark-gfm/src` 76/308 (skipped 232) → `checked 76 | trivial 126 | skipped 106 | Σ 308`;
    `toolkit/packages` 58/458 (skipped 400) → `checked 58 | trivial 337 | skipped 63 | Σ 458`;
-   `audits/codecheck` 7/16 (skipped 9) → `checked 14 | trivial 2 | skipped 0`.
+   `audits/codecheck` 7/16 (skipped 9) → `checked 13 | trivial 3 | skipped 0`.
    **Честная часть: `checked` на корпусах НЕ вырос** — 126 и 337 функций без `if` не имеют
    обязательств, поэтому стали `trivial`; изменилась ПРАВДА О ЯРЛЫКЕ, а не охват. Функции
    С обязательствами (`ratio`, `add32`) действительно перешли в `checked`. Попутно найден и
