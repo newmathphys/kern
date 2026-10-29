@@ -47,6 +47,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+# СПЕЦИФИКАЦИЯ ВОРОНКИ ПОД КОНТРАКТОМ САМОГО KERN (дефекты #405/#407.2).
+# Живёт в `tools/funnel_accounting.py`: её доказывает ТОТ ЖЕ движок (Z3) и стережёт
+# `tools/funnel_contract_check.py`, запечатано в `docs/contracts.lock.json`.
+# Здесь она ИСПОЛЬЗУЕТСЯ, а не упоминается: разность «пропуски минус названные
+# причины» обязана быть ОДНОЙ РАЗМЕРНОСТИ, и нарушение предпосылки называет
+# контракт, а не выдуманное отрицательное число (наблюдалось `-6`).
+from funnel_accounting import unexplained_skips
+
 
 CMP = {"Eq": "=", "NotEq": "distinct", "Lt": "<", "LtE": "<=",
        "Gt": ">", "GtE": ">=",
@@ -1368,6 +1376,24 @@ def solver_info() -> dict:
     return _SOLVER_CACHE
 
 
+def _solver_env() -> dict:
+    """PATH с каталогом РЕШАТЕЛЯ, найденным рядом с `sys.executable` (дефект #407).
+
+    ЗАЧЕМ. Z3 живёт python-модулем внутри `.venv`, а `kernc` ищет его через PATH.
+    В оболочке без `.venv/bin` ВСЕ SMT-детекторы молча не давали находок, и
+    «инструмент не запущен» выглядело как «чистый код» (класс #277: N выдан за T).
+    Теперь каталог подхватывается САМ, и ручной прогон не зависит от PATH оболочки
+    (CI не задет: `tools/ci.sh` и так ставит `.venv/bin` первым).
+    """
+    env = dict(os.environ)
+    cands = [Path(sys.executable).resolve().parent,
+             Path(__file__).resolve().parent.parent / ".venv" / "bin"]
+    have = [str(p) for p in cands if (p / "z3").exists()]
+    if have:
+        env["PATH"] = os.pathsep.join(have + [env.get("PATH", "")])
+    return env
+
+
 def run_kernc(kernc, smt: str, query_kind: str = "refutation"):
     """Прогнать `kernc prove` на SMT-тексте. Возвращает (rc, вывод).
 
@@ -1389,7 +1415,8 @@ def run_kernc(kernc, smt: str, query_kind: str = "refutation"):
         if query_kind != "refutation":
             cmd += ["--query-kind", query_kind]
         cmd.append(sp)
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
+                           env=_solver_env())
         return r.returncode, r.stdout + r.stderr
     finally:
         Path(sp).unlink(missing_ok=True)
@@ -5653,8 +5680,36 @@ def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int) -> None:
     for key, cnt in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
         print(f"    skip: {key} × {cnt}")
     if named != skipped:
-        print(f"[!] пропусков БЕЗ записанной причины: {skipped - named} — это "
-              f"дефект инструмента, а не свойство проверяемого кода")
+        # ДЕФЕКТ #407.2: считаем РАЗНОСТЬ ОДНОЙ РАЗМЕРНОСТИ. Если причины уровня
+        # ВЕТКИ попали в счёт уровня ФУНКЦИИ, `named` БОЛЬШЕ `skipped`, и старая
+        # формула печатала отрицательное «число пропусков» (наблюдалось `-6`).
+        # Нарушение предпосылки называет ЗАПЕЧАТАННАЯ спецификация
+        # `tools/funnel_accounting.py`, доказанная самим KERN: выдать выдуманное
+        # число вместо N — и есть тот дефект, который здесь закрывается.
+        try:
+            diff = unexplained_skips(skipped, named)
+        except ValueError as _e407:
+            print(f"    [!] пропусков БЕЗ записанной причины: НЕ ЧИСЛО — {_e407}")
+        else:
+            print(f"[!] пропусков БЕЗ записанной причины: {diff} — это "
+                  f"дефект инструмента, а не свойство проверяемого кода")
+
+
+def _xray_report_branch_notes(notes: dict[str, int]) -> None:
+    """Напечатать СПРАВОЧНЫЕ заметки уровня ВЕТКИ (дефект #407.2).
+
+    ЗАЧЕМ ОТДЕЛЬНО. «Ветка N не решена решателем» — это НЕ пропущенная функция:
+    функция ПРОВЕРЕНА, а одна её ветвь осталась нерешённой. Складывать такие
+    заметки в гистограмму пропусков значит вычитать число ветвей из числа функций
+    — ровно так и получалось бессмысленное `-6`. Здесь они печатаются своим
+    ярлыком `note:` и НИКОГДА не попадают в инвариант «Σ причин == skipped».
+    """
+    if not notes:
+        return
+    print(f"    note: уровень ВЕТКИ (в счётчик `skipped` НЕ входит) × "
+          f"{sum(notes.values())}")
+    for key, cnt in sorted(notes.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
+        print(f"    note: {key} × {cnt}")
 
 
 def _xray_report_skipped(skipped: dict[str, int]) -> None:
@@ -7246,11 +7301,36 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _xray_solver_gate(kernc) -> int:
+    """ВРАТА БЕЛНАПА для `--xray`: решателя нет ⇒ N(0,0), а НЕ «находок 0».
+
+    ЗАЧЕМ (дефект #407, класс #277). Без Z3 `_smt_verdict` возвращает `unknown`,
+    `_smt_sat` — `None`, и ВСЕ SMT-детекторы молча не заявляют ничего. Отчёт
+    «находок 0» читался как «код чист», хотя анализ НЕ ЗАПУСКАЛСЯ: в решётке
+    Белнапа это N(0,0) — «нет данных», и гейт обязан ОТКАЗАТЬ, а не молчать.
+
+    Возвращает 0, если решатель отвечает; 2 — если его нет (гейт закрыт).
+    """
+    _rc, out = run_kernc(kernc, "(set-logic ALL)\n(check-sat)\n")
+    low = (out or "").lower()
+    if "z3 недоступен" in low or "z3 is not" in low:
+        print("[!] РЕШАТЕЛЬ Z3 НЕДОСТУПЕН — это N(0,0) по Белнапу, а не «находок 0».")
+        print("    SMT-детекторы (деление, границы, переполнение, мёртвые ветви)")
+        print("    НЕ ЗАПУСКАЛИСЬ, поэтому любой отчёт ниже был бы ЛОЖНОЙ чистотой.")
+        print("    Лечение: uv pip install z3-solver, затем PATH=\"$PWD/.venv/bin:$PATH\"")
+        print("    (каталог рядом с python подхватывается автоматически).")
+        return 2
+    return 0
+
+
 def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     """ПУНКТ 13: рентген кода БЕЗ аннотаций."""
     if not Path(kernc).exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 2
+    _bg = _xray_solver_gate(kernc)
+    if _bg:
+        return _bg
     p = Path(path)
     # ПОЛЕВОЙ АДАПТЕР №5: `--xray <dir>` — рекурсивный обход репозитория.
     # Пропускаем служебные каталоги и агрегируем отчёт по всему дереву.
@@ -7296,7 +7376,13 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         if isinstance(node, ast.Assign) and len(node.targets) == 1                 and isinstance(node.targets[0], ast.Name)                 and isinstance(node.value, ast.Constant)                 and isinstance(node.value.value, int)                 and not isinstance(node.value.value, bool):
             module_env[node.targets[0].id] = str(node.value.value)
     found: list[str] = []
-    skipped: list[str] = []
+    # РАЗМЕРНОСТИ РАЗВЕДЕНЫ (дефект #407.2). До этой правки `skipped` держал
+    # сообщения о ВЕТКАХ («ветка N не решена решателем»), а счётчик ниже считал
+    # ФУНКЦИИ (`len(fns) - checked`). Скрапер уровня репозитория складывал и то и
+    # другое в ОДИН словарь, потом сравнивал со счётчиком функций — и печатал
+    # «пропусков БЕЗ записанной причины: -6» (вычитал ветки из функций).
+    fn_skipped: list[str] = []   # УРОВЕНЬ ФУНКЦИИ — обязан сойтись со счётчиком
+    notes: list[str] = []        # УРОВЕНЬ ВЕТКИ — справочные, НЕ пропуски
     checked = 0
     verified_smt = 0
     no_obligations = 0
@@ -7319,7 +7405,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
                     conds_ok = False
                     break
         if not conds_ok:
-            skipped.append(f"{fn.name}: условие ветвления вне подмножества")
+            fn_skipped.append(f"{fn.name}: условие ветвления вне подмножества")
             continue
         checked += 1
         if show_all or cc > 1:
@@ -7333,7 +7419,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         # такой же гард на входе, как `if`. Без них `div_ok(a, b)` с
         # `@deal.pre(lambda a, b: b != 0)` получал ЛОЖНЫЙ `[CRASH PATH]`.
         _pre = _deal_pre_path(fn, syms)
-        _walk_branches(fn.body, list(_pre), params, kernc, found, skipped, fn.name, syms, module_env)
+        _walk_branches(fn.body, list(_pre), params, kernc, found, notes, fn.name, syms, module_env)
         # ДЕФЕКТ #322: контекст «какие имена меняются в циклах» — на одну функцию.
         _LOOP_MODIFIED.clear()
         _LOOP_MODIFIED.update(_loop_modified(fn.body))
@@ -7355,13 +7441,18 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
           f"(SMT-verified {verified_smt}, no obligations {no_obligations}), "
           f"skipped {len(fns) - checked} with explicit reasons, "
           f"findings {len(found)}")
-    for s in skipped:
+    for s in fn_skipped:
         print(f"    skip: {s}")
+    # УРОВЕНЬ ВЕТКИ печатается ДРУГИМ ярлыком: «ветка N не решена решателем» —
+    # это НЕ пропущенная функция, и складывать их в одну гистограмму значило бы
+    # вычитать число ветвей из числа функций (дефект #407.2, отсюда бралось `-6`).
+    for s in notes:
+        print(f"    note: {s}")
     # ДЕФЕКТ N4: счётчик считает `len(fns) - checked`, а причины берутся из
-    # списка `skipped`. Если какой-то путь пропускает функцию, НЕ записав
-    # причину, число говорит «skipped N», а строк `skip:` меньше — и читатель
-    # не знает, почему. Разницу печатаем явно: это дефект ИНСТРУМЕНТА.
-    _unexplained = (len(fns) - checked) - len(skipped)
+    # списка ФУНКЦИОННЫХ пропусков. Если какой-то путь пропускает функцию, НЕ
+    # записав причину, число говорит «skipped N», а строк `skip:` меньше — и
+    # читатель не знает, почему. Разницу печатаем явно: это дефект ИНСТРУМЕНТА.
+    _unexplained = (len(fns) - checked) - len(fn_skipped)
     if _unexplained > 0:
         print(f"    [!] пропусков БЕЗ записанной причины: {_unexplained} — "
               f"это дефект инструмента, а не свойство проверяемого кода")
@@ -7572,6 +7663,10 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     total_checked = total_fns = total_skip = 0
     all_findings: list[str] = []
     all_reasons: dict[str, int] = {}      # ДЕФЕКТ #400: гистограмма причин
+    # ДЕФЕКТ #407.2: заметки уровня ВЕТКИ — ОТДЕЛЬНАЯ корзина. До этого они
+    # ссыпались в `all_reasons` и сравнивались со счётчиком ФУНКЦИЙ, что давало
+    # отрицательную «разницу» (`-6`) и выдавало ветки за пропущенные функции.
+    all_notes: dict[str, int] = {}
     bad_files = 0
     for f in files:
         if f.suffix != ".py":
@@ -7603,6 +7698,15 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
         print(_out, end="" if _out.endswith(chr(10)) else chr(10))
         for _ln in _out.splitlines():
             _st = _ln.strip()
+            if _st.startswith("note: "):
+                # УРОВЕНЬ ВЕТКИ (дефект #407.2) — НЕ пропуск функции.
+                _rest = _st[6:]
+                if " × " in _rest:
+                    _k2, _c2 = _rest.rsplit(" × ", 1)
+                    all_notes[_k2] = all_notes.get(_k2, 0) + int(_c2)
+                else:
+                    all_notes[_rest] = all_notes.get(_rest, 0) + 1
+                continue
             if _st.startswith("skip: "):
                 _rest = _st[6:]
                 if " × " in _rest:
@@ -7624,6 +7728,7 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     print(f"[REPO SUMMARY] файлов {len(files)} | функций проверено {total_checked} / {total_fns} "
           f"(skipped {total_skip}) | находок {len(all_findings)} | нечитаемых файлов {bad_files}")
     _xray_report_skip_reasons(all_reasons, total_skip)
+    _xray_report_branch_notes(all_notes)
     for x in all_findings[:60]:
         print("  " + x)
     return 0

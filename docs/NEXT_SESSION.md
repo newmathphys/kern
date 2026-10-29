@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->238 targets · **<!-- fact:check_targets -->182/<!-- fact:check_targets -->182 CHECK** · <!-- fact:canfail_cases -->222 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **3** — #405, #406, #407 (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **1** — #405 (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -94,6 +94,25 @@ was corrected wherever it disagreed with the code:
    `checked_arith_only = 1`. No new CHECK target or canfail case is created (the SAME
    pattern as the #400 sub-gate); non-vacuity is checked on EVERY run by the gate's own
    meta-test.
+7. **#407 AND #406 ARE CLOSED; the funnel is wired to the spec (sub-step 3.2).**
+   * **Belnap `N` in `--xray`**: `cmd_xray` calls `_xray_solver_gate`; with no solver it
+     prints "this is N(0,0) by Belnap, not «0 findings»" and returns **rc=2**. Measured
+     by stubbing the solver answer.
+   * **Solver auto-pickup**: `_solver_env()` prepends the dir holding `z3` (next to
+     `sys.executable`, or `.venv/bin`) to PATH for EVERY `run_kernc`. Measured: in a
+     shell WITHOUT `.venv/bin`, `--xray audits/codecheck` now reports **4 findings**
+     instead of 0 — the false zero is gone.
+   * **Units separated** (the root of `-6`): Python-path function skips (`fn_skipped`)
+     are separated from branch notes (`notes`), which are printed under `note:` and
+     NEVER enter "Σ reasons == skipped"; the difference is computed by the SEALED spec,
+     so a precondition violation prints "NOT A NUMBER" instead of a negative.
+   * The #400 gate gained a **NON-VACUOUS** case: a Python fixture with a nested call
+     condition yields a branch note at `skipped 0` (this is the deterministic
+     reproduction of the mixing — no solver needed), and its meta-test rejects the
+     VERBATIM "before" output. Measured: `[PASS #407.2] заметок уровня ВЕТКИ 3,
+     пропусков функций 0, отрицательной разницы НЕТ`.
+   * Registry unchanged (182/182 CHECK, 222 cases); `ci-fast` 11 green.
+   **Only #405 (plan step 2) stays open.**
    **Boundary:** this locks the SPECIFICATION; wiring `--xray` itself to it is the
    next sub-step (the function/branch unit split, `:4857`/`:4865` vs `:7354`).
    Measured experiments that shaped it (METRICS §149): the literal contract

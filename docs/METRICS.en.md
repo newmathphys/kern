@@ -3688,3 +3688,59 @@ verdicts. The registry did NOT change: 222 cases, 182/182 CHECK.
   tool output, and the parser matches the tail "МНЫХ". A self-check against one's own
   retelling cannot catch an error the retelling introduced.
 
+
+## §150. THE FUNNEL IS WIRED TO THE SPECIFICATION: BELNAP GATE AND UNIT SEPARATION (#407, CLOSED)
+
+> Sub-step 3.2 of tack 2.2. §149 sealed the SPECIFICATION; here the tool itself is brought
+> to it, and defect **#407** is closed. Only **#405** (step 2: three buckets) stays open.
+
+### 150.1 Belnap gate: "the tool did not run" no longer looks like "clean"
+
+`cmd_xray` calls `_xray_solver_gate(kernc)`: if `kernc` answers "z3 недоступен", it prints an
+explicit `this is N(0,0) by Belnap, not «0 findings»` and returns **rc=2**. MEASURED by
+stubbing the solver answer (`run_kernc` → the "z3 недоступен" line): `rc = 2`, the message is
+printed. Previously this place printed `0 findings`.
+
+### 150.2 Solver auto-pickup: the false zero is gone from MANUAL runs
+
+`_solver_env()` prepends the directory holding `z3`, found NEXT TO `sys.executable` (and the
+project's `.venv/bin`), to PATH for EVERY `run_kernc` call. MEASURED in a shell WITHOUT
+`.venv/bin`: `python3 tools/kern_contracts.py --xray audits/codecheck` reports
+**`4 findings`** and `checked 7 / 16 (skipped 9)`, whereas before the fix the same call gave
+`0 findings` with no warning at all. Side effect: `make bounds-check`/`loop-check` are green
+with `ZIG=<0.17>` and without `.venv` in PATH — the solver is found by itself.
+
+### 150.3 Units separated — the root of `-6`
+
+| Where | Before | After |
+|:--|:--|:--|
+| Python path, skip list | ONE list `skipped`: functions AND branches | `fn_skipped` (functions) and `notes` (branches) |
+| Printing | everything under the `skip:` label | functions — `skip:`, branches — `note:` |
+| Scraper `_xray_repo` | branches landed in `all_reasons` | `all_reasons` (functions) and `all_notes` (branches) |
+| The difference | `skipped - named` (branches minus functions → `-6`) | computed by the SEALED spec `funnel_accounting.unexplained_skips`; a precondition violation prints "NOT A NUMBER" |
+
+The dimension check is now NON-VACUOUS and deterministic: the Python fixture
+
+```python
+def g(x):
+    if x > 0:
+        if is_ok(x):
+            return 1
+    return 0
+```
+
+yields a branch note (a nested CALL condition is outside the subset) at `skipped 0` — exactly
+the state that used to print `-1`. No solver is needed to reproduce it. Measured by the gate:
+`[PASS #407.2] заметок уровня ВЕТКИ 3, пропусков функций 0, отрицательной разницы НЕТ`. The
+gate's meta-test grew to **5 branches** and rejects the VERBATIM "before" output (it contains
+the negative difference) — had it accepted it, the check would prove nothing.
+
+### 150.4 What stays outside the boundary
+
+* **#405 is open** (plan step 2): the buckets `checked` / `trivial` / `skipped` are not split
+  yet, so functions without `if` are still counted as skipped although their arithmetic IS
+  checked. The invariant is already sealed (§149), so the edit will proceed under contract.
+* The corpus numbers in the §149 gate are a FIXTURE at `d98953c`, not a live run.
+* The C-like path (`_xray_clike_file`) was not touched: units never mixed there — exactly one
+  reason per function.
+

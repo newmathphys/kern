@@ -56,6 +56,68 @@ int plain(int n) {
 '''
 
 
+# ДЕФЕКТ #407.2: СМЕСЬ РАЗМЕРНОСТЕЙ (функции против ветвей).
+# Вложенное условие-ВЫЗОВ (`is_ok(x)`) вне подмножества, поэтому функция
+# ПРОВЕРЕНА (checked 1/1), а ОДНА её ветвь получает СПРАВОЧНУЮ заметку. До правки
+# заметка попадала в гистограмму ПРОПУСКОВ, и сводка печатала «пропусков БЕЗ
+# записанной причины: -1» — ветки вычитались из функций. Случай ДЕТЕРМИНИРОВАН:
+# решатель для него не нужен, воспроизводится на любом окружении.
+PY_FIXTURE = '''def g(x):
+    if x > 0:
+        if is_ok(x):
+            return 1
+    return 0
+'''
+
+# Вывод ДО правки — тот самый, который печатал отрицательное «число пропусков».
+# Хранится как образец: он доказывает, что проверка НЕ вакуумна (её вердикт на
+# этом выводе обязан быть False). Образец дословный, а не переписанный.
+OLD_MIXED_OUTPUT = (
+    "[REPO SUMMARY] файлов 2 | функций проверено 2 / 2 (skipped 0) | находок 0 "
+    "| нечитаемых файлов 0\n"
+    "    skip: g: ветка 3 не решена решателем × 1\n"
+    "[!] пропусков БЕЗ записанной причины: -1 — это дефект инструмента, "
+    "а не свойство проверяемого кода\n"
+)
+
+
+def _check_python_notes(tmp: Path) -> tuple:
+    """#407.2: заметки уровня ВЕТКИ не имеют права попадать в пропуски ФУНКЦИЙ.
+
+    Возвращает (ok, почему). Проверяются ЧЕТЫРЕ свойства, и все они ИЗМЕРЯЮТСЯ:
+      1. случай НЕ вакуумный: фикстура обязана дать хотя бы одну строку `note:`
+         (если механизм заметок исчезнет, проверка молча ослабнет — это ловим);
+      2. сводка НЕ печатает отрицательное «число пропусков»;
+      3. счётчик функций и напечатанные причины сходятся (Σ `skip:` == skipped);
+      4. заметка НЕ помечена как `skip:` — иначе она снова смешается с функциями.
+    """
+    d = tmp / "py"
+    d.mkdir(exist_ok=True)
+    (d / "notes.py").write_text(PY_FIXTURE, encoding="utf-8")
+    rc, out = _run(d)
+    if rc != 0:
+        return False, f"--xray вернул rc={rc} на python-фикстуре"
+    notes = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("note: ")]
+    if not notes:
+        return False, ("фикстура НЕ дала ни одной заметки `note:` — случай "
+                       "вакуумный (механизм заметок исчез или переименован)")
+    neg = [ln.strip() for ln in out.splitlines() if "БЕЗ записанной причины: -" in ln]
+    if neg:
+        return False, f"отрицательное «число пропусков» вернулось: {neg[0][:90]}"
+    checked, skipped, named, unnamed = _parse(out)
+    if checked < 0:
+        return False, "в выводе нет [REPO SUMMARY]"
+    if unnamed:
+        return False, f"сводка признала пропуски БЕЗ причины: {unnamed[0].strip()[:90]}"
+    if named != skipped:
+        return False, f"Σ причин {named} != пропусков {skipped} (размерности смешаны)"
+    mixed = [n for n in notes if n.startswith("skip: ")]
+    if mixed:
+        return False, f"заметка помечена как пропуск функции: {mixed[0][:90]}"
+    return True, (f"заметок уровня ВЕТКИ {len(notes)}, пропусков функций {skipped}, "
+                  f"отрицательной разницы НЕТ")
+
+
 def _verdict(checked: int, skipped: int, named: int, unnamed: list[str]) -> tuple[bool, str]:
     """Решение ворот: счётчик и список причин обязаны сходиться."""
     if unnamed:
@@ -110,10 +172,19 @@ def selftest() -> int:
         if got != want:
             bad += 1
         print(f"  [{mark}] {name}: verdict={got} ({why})")
+    # НЕВАКУУМНОСТЬ #407.2: вывод ДО правки (отрицательная разница «-1») обязан
+    # быть ОТВЕРГНУТ. Если он проходит, проверка размерностей ничего не доказывает.
+    _c, _s, _n, _u = _parse(OLD_MIXED_OUTPUT)
+    got, why = _verdict(_c, _s, _n, _u)
+    if got:
+        print(f"  [ПРОВАЛ] вывод ДО правки принят за чистый: {why}")
+        bad += 1
+    else:
+        print(f"  [OK] вывод ДО правки отвергнут: {why[:70]}")
     if bad:
-        print(f"SELFTEST FAILED: {bad} из {len(cases)} ветвей неверны")
+        print(f"SELFTEST FAILED: {bad} из {len(cases) + 1} ветвей неверны")
         return 1
-    print(f"SELFTEST PASSED: {len(cases)} ветвей, все верны")
+    print(f"SELFTEST PASSED: {len(cases) + 1} ветвей, все верны")
     return 0
 
 
@@ -139,6 +210,13 @@ def main() -> int:
             print(out[-1200:])
             return 1
         print(f"[PASS #400] {why}")
+        # ДЕФЕКТ #407.2: размерности причин (функции против ветвей).
+        ok2, why2 = _check_python_notes(tmp)
+        if not ok2:
+            print(f"[FAIL #407.2] {why2}")
+            print(out[-1200:])
+            return 1
+        print(f"[PASS #407.2] {why2}")
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
