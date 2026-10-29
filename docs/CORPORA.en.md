@@ -28,8 +28,8 @@ section 4 with an explicit label.
 | `tests/fixtures` | **25** | contracts, `.kimg` fixtures, theories, Zig frontend | mixed | `make test` |
 | `examples/` | **53** | demos of every mode (heal, hypotheses, guardrail, noninterference, polyglot, EVM) | mixed | `make demo-all` |
 | **our own tree** | **426** files / **1558** functions | self-application of `--xray` | **live Python** | `--full-scan .` |
-| **`cmark-gfm/src`** (cache, `27d942c8`) | **48** files / **308** functions | `--xray` funnel: 76/308 checked, **232** skips - each WITH A REASON (#400) | counter == sum of reasons | `--xray ~/.cache/kern/repos/cmark-gfm/src` |
-| **`actions/toolkit/packages`** (cache, `0c3a9c33`) | **159** files / **458** functions | same: 58/458 checked, **400** skips with reasons | counter == sum of reasons | `--xray ~/.cache/kern/repos/toolkit/packages` |
+| **`cmark-gfm/src`** (cache, `27d942c8`) | **48** files / **308** functions | `--xray` funnel: **147/308** checked (of the functions WITH branches - **147/182 = 80.8 %**), **126** without obligations, **35** skips - each WITH A REASON (#400) | counter == sum of reasons | `--xray ~/.cache/kern/repos/cmark-gfm/src` |
+| **`actions/toolkit/packages`** (cache, `0c3a9c33`) | **159** files / **150** functions | same: **55/150** checked (of the functions WITH branches - **55/77 = 71.4 %**), **73** without obligations, **22** skips with reasons | counter == sum of reasons | `--xray ~/.cache/kern/repos/toolkit/packages` |
 
 ---
 

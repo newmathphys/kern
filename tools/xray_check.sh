@@ -240,3 +240,20 @@ if echo "$NP" | grep -q 'DEAD BRANCH] null_after_mutation'; then
   echo "$NP" | grep 'null_after_mutation'; exit 1
 fi
 echo "[OK] шаг 6: без мутации DEAD BRANCH найдена, с мутацией находок нет, форма !p переведена"
+# ДЕФЕКТ #410: РАЗБОРЩИК ФУНКЦИЙ НЕ ВЫДУМЫВАЕТ ФУНКЦИИ ИЗ ВЫЗОВОВ.
+# ИЗМЕРЕНО до правки: в `.ts`-файле группы брались по СУФФИКСУ файла, а не по
+# сработавшей регулярке, и запасная `RE_FN_C` ловила ВЫЗОВЫ (`await stat(p)`,
+# `throw new Error(...)`) — на 458 «функциях» корпуса `actions/toolkit` 308 были
+# вызовами, а тело «функции» нарезалось из середины файла (отсюда ЛОЖНОЕ
+# обвинение `io-util.ts: readlink: (= p 0)`).
+# Контроль НЕВАКУУМНЫЙ и ИЗМЕРЕН на обе стороны: на коммите до правки (`20adf31`)
+# та же фикстура даёт `Σ 3 == total 3` (две выдуманные функции), после — `Σ 1`.
+TS_CALLS=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_ts_calls.ts 2>&1) || true
+echo "$TS_CALLS" | grep -qE 'buckets: checked 1 \| trivial 0 \| skipped 0 \| Σ 1 == total 1' \
+  || { echo "[!] #410: вызовы снова считаются функциями (total != 1)"; echo "$TS_CALLS" | tail -6; exit 1; }
+if echo "$TS_CALLS" | grep -q 'DEAD BRANCH'; then
+  echo "[!] #410: ЛОЖНАЯ мёртвая ветвь на вызовах внутри async-функции"
+  echo "$TS_CALLS" | grep 'DEAD BRANCH'; exit 1
+fi
+echo "[OK] #410: await/throw new — ВЫЗОВЫ, а не функции (Σ 1 == total 1), ложной мёртвой ветви нет"
+

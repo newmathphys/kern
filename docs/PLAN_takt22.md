@@ -28,6 +28,11 @@ Both corpora are pinned by SHA and cloned into `~/.cache/kern/repos/`, so
 **CORRECTED at `d98953c`** (this table said 124/2 and 336/1; sums 232 and 400 and
 the checked counts were right, the attribution of three functions was not). The
 "no reason" bucket measures **empty** on both corpora, in four runs out of four —
+> ⚠️ **READ TOGETHER WITH §7.7/§7.8.** The numbers in this table were MEASURED BEFORE `#410`
+> and are therefore misleading: in `toolkit/packages` **308 of the 458 "functions" were CALLS**
+> (`await …`, `throw new ...`), not functions, so both the denominator and "no `if` **337**"
+> are inflated threefold. The current numbers: `toolkit` **55 / 150** (and **55 / 77 = 71.4 %**
+> of the functions with branches), `cmark` **147 / 308** (**147 / 182 = 80.8 %**).
 see §1.3.
 
 **The number that matters.** Functions **with branches**: C **182** (checked 76 =
@@ -309,4 +314,123 @@ grep -hoE 'if \([A-Za-z_][A-Za-z0-9_]* *(&|\||\^|<<|>>) *[^)]*\)' \
    sample must be the VERBATIM output, and the parser must be self-tested against
    that verbatim text. Cost of ignoring this: a false FAIL that looks like a real
    defect in the spec.
+
+
+---
+
+## §7. THE FUNCTION SPLITTER: 308 OF 458 "FUNCTIONS" WERE CALLS (#410, FIXED)
+
+> Status: **FIXED** (`8a509fd`). The acceptance oracle is met and the side benefit is confirmed.
+> The history below is kept: the defect, three reverted attempts and the refined oracle.
+
+### 7.1 What was proven
+
+`_clike_functions` returned "functions" named **`await `** and **`throw new `** for
+`toolkit/packages/io/src/io-util.ts` (8 entries instead of 6). This is a **LONG-STANDING** defect:
+reproduced on `291ebea`, i.e. BEFORE any work on the literal stripper.
+
+**Consequence — a FALSE ACCUSATION** (class #178/#183): the "function" body was cut from the middle
+of the file, so NEIGHBOURS' conditions entered the analysed path and a neighbour's `!p` was declared
+a dead branch (`io-util.ts: readlink: (= p 0)`).
+
+### 7.2 The mechanism (found exactly, by dumping 4 files)
+
+The fakes come from **`RE_FN_C`** applied to lines of a TS file:
+
+```
+line  50 [C] name='stat'           <- 'await stat(fsPath)'
+line  77 [C] name='Error'          <- 'throw new Error(...)'
+line 426 [C] name='createArtifact' <- 'await createArtifact()'
+```
+
+Two defects add up:
+1. **The groups are taken BY FILE SUFFIX, not by the REGEX THAT MATCHED.** For `.ts` the branch takes
+   `group(1)`, which for `RE_FN_C` is the TYPE SLOT (`await`, `throw new`) — so the function name
+   became `await ` / `throw new ` and the real name went into `params`.
+2. **The fallback `RE_FN_C` matches CALLS** (`await stat(p)`, `throw new Error(...)`), although the
+   intent of `RE_FN_TS` is the opposite: calls and arrow functions are outside the subset.
+
+**Why "keep only `RE_FN_TS`" does not work** (MEASURED): `toolkit total` drops `458 -> 149`. Real TS
+class METHODS (`foo(a: string) {`) come exactly from `RE_FN_C` — that is the `lost_real_functions`
+warning. **Why filtering "by name" does not work** (MEASURED): `458 -> 150` — the filter hits the
+name while the fake sits in the TYPE SLOT. Three attempts (149 / 252 / 264) violated this oracle and
+were reverted; the file was restored to `afbac7d`.
+
+### 7.3 The acceptance oracle (met)
+
+**`total` must become EXACTLY `150` (toolkit, after #410: 458 − 309 artefacts) and `308` (cmark, K=0)** —
+this is the regression oracle, and it will also catch a migration error to `tree-sitter`.
+
+MEASURED (`8a509fd`): `cmark-gfm/src` **308** (K = 0 — the C path is untouched), `toolkit/packages`
+**150** (458 − 309), `lost_real_functions == 0`. The removed entries carry six unique names and all
+are artefacts: `'await '` x195, `'throw new '` x101, `'new '` x6, `'throw '` x5, `'await new '` x1,
+`'private '` x1.
+
+### 7.4 The fix — BOTH halves at once
+
+1. the groups are taken **by the regex that matched** (for `RE_FN_C` -> `name = group(2)`,
+   `params = group(3)`);
+2. the rejection is done by **WORDS OF THE TYPE SLOT** (`throw new` is TWO words):
+   `_STMT_CALL_WORDS = {await, throw, new, return, if, else, for, while, switch, catch, case,
+   delete, typeof, yield}`.
+
+**MEASURED on toolkit (`0c3a9c33`):**
+
+| | BEFORE (#410) | AFTER |
+|:--|:--|:--|
+| `total` | 458 (inflated by calls) | **150** |
+| `checked` | 58 | **55** |
+| `trivial` | 337 | **73** |
+| `skipped` | 63 | **22** |
+| findings | 0 | **0** |
+
+`cmark-gfm/src` (`27d942c8`): `checked 147 | trivial 126 | skipped 35 | Sum 308`, findings **0**, **K = 0**.
+(The intermediate states `checked 56`/`71`/`23` on toolkit and `141` on cmark belonged to the code
+BEFORE the `#412` mask; the mask removed exactly two PHANTOM analyses - see METRICS §156.6.)
+
+**AN HONEST BOUNDARY (more important than the numbers themselves):** the old percentages
+`58 / 458 = 12.6 %` and `47.9 %` referred to a denominator that does not exist — 308 of the 458
+entries were calls. The true picture: `55 / 150 = 36.7 %` of all functions and **`55 / 77 = 71.4 %`**
+of the functions WITH branches (`150 − 73 = 77`). On C: `147 / 182 = 80.8 %` of the functions with
+branches. Any future number must be printed **together with its denominator and how it was obtained**.
+
+### 7.8 Done after §7.7 (each by measurement)
+
+* **Solver verdict memoisation** (`#411`): the profiler showed 2032 calls on `scanners.c`, of which
+  382 unique (81.2 % repeats), and 152.5 s of 153.3 s INSIDE the calls. The cache is keyed by the
+  full query text and the coverage counter is incremented ON A HIT as well. MEASURED:
+  `scanners.c` **153 s -> 29-33 s**, buckets BIT-IDENTICAL. Along the way the summary stopped lying
+  about the number of calls (`SMT calls 29` while 2032 calls had happened).
+* **Search mask** (`#412`): the raw body exposed the regexes to string contents — `xml.c` CRASHED
+  the whole corpus walk. Location by mask, value from the raw body. MEASURED per file: EXACTLY 2 of
+  159 files changed, the cause named (PowerShell inside a template literal in `tool-cache.ts`).
+* **`cmark-gfm/src` completed for the first time** in 47 s: `147 / 126 / 35 / Sum 308`, findings 0.
+* **`#413` OPEN**: six control bytes 0x08 instead of `\b` in patterns (lines 2613, 2615, 7197, 7214,
+  7215, 7217) — DEAD DUPLICATES of rules C and D inside the loop; working twins exist, so the fix
+  must go with its own measurement.
+
+
+### 7.5 A side benefit confirmed by measurement
+
+~300 TS class methods caught via `RE_FN_C` got their REAL parameters for the first time (previously
+the method name went into `params` and the parameters were lost) — so `_free_syms_in_path` (step 4a)
+will stop treating their parameters as "unknown free constants".
+
+### 7.6 Acceleration before re-measuring
+
+`cmark-gfm/src` stopped finishing: more conditions are translated → more `kernc`/Z3 subprocesses.
+The cure is verdict memoisation (`_SMT_VERDICT_CACHE` keyed by the query text) with `_SMT_CALLS`
+incremented **on a cache hit**, so the `checked` bucket depends on LOGICAL queries, not on the cache
+state. Acceptance: `checked`/`trivial`/`skipped` must be **bit-identical** with and without the cache
+on both corpora (and on `audits/codecheck`).
+
+### 7.7 `tree-sitter` — a separate work item, out of scope here
+
+The root cause of this whole family (`.?.` vs ternary `#408`, `!` on a method call `#409`, literal
+width vs byte offsets, this mis-split) is that C/TS/Rust/Go are parsed by hand-written regexes and
+then "translated into Python" for `ast.parse`. The repository already has a precedent:
+`std.zig.Ast.parse` is USED in `src/verifier/zig_ast_verify.zig:513`. Two factual caveats:
+(a) `tree-sitter` is NOT installed in `.venv` and `pip` is absent there (needs `uv pip install` and
+network); (b) the migration must start only with the oracle `total == 150/308` as its regression
+test.
 

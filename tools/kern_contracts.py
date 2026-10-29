@@ -109,6 +109,16 @@ _ABSTRACT_SYMS: set = set()  # символы абстракции (объявл
 # Функция без единого SMT-обязательства НЕ имеет права называться проверенной.
 _SMT_CALLS: list = [0]
 
+# МЕМОИЗАЦИЯ ВЕРДИКТА (такт 2.2, замер §178.5). ИЗМЕРЕНО на `scanners.c`
+# (`cmark-gfm/src`): 2032 вызова решателя, из них УНИКАЛЬНЫХ 382, повторных
+# 1650 (81,2 %), и 152,5 с из 153,3 с уходит ВНУТРЬ этих вызовов. Одинаковые
+# формулы внутри одного прогона обязаны спрашиваться ОДИН раз.
+# Ключ — ПОЛНЫЙ текст SMT-запроса, поэтому вердикт и контрпример совпадают
+# побитово. Кэш живёт в памяти процесса и НЕ сохраняется на диск: вердикт
+# зависит от версии ядра и решателя, и «запомнить» его между сборками значило
+# бы выдать прошлое решение за проверку текущего кода.
+_SMT_VERDICT_CACHE: dict = {}
+
 # СПИСКИ В ЧИСТОМ Int (QF_LIA), без теории массивов.
 # Окно элементов: `arr__e0..arr__e2 : Int` + длина `len__arr : Int`.
 # Чтение `arr[i]` -> `(ite (= i 0) e0 (ite (= i 1) e1 e2))`, запись — три ite.
@@ -2176,13 +2186,17 @@ def _unwrap_zig_builtins(s: str) -> str:
     return s
 
 
-def _iter_call_args(src: str, name: str):
+def _iter_call_args(src: str, name: str, raw: str | None = None):
     r"""Все аргументы вызова `name(...)` с БАЛАНСОМ скобок.
 
     🔴 ДЕФЕКТ #182 (найден полевым прогоном): регулярка `assert\s*\(([^()]*)\)`
     не видит вложенных скобок, поэтому `assert(@backingInt(index) < len)`
     (zls) НЕ становился гардом пути, и `--xray` выдавал ложный
     `[CRASH PATH] len == 0` на защищённом коде. Здесь скобки считаются.
+
+    ДЕФЕКТ #412: поиск идёт по МАСКЕ (иначе `assert(` ВНУТРИ строкового
+    литерала становился бы путём-условием и мог дать ЛОЖНУЮ мёртвую ветвь),
+    а текст аргумента берётся из `raw` по тем же смещениям.
     """
     pat = re.compile(r"\b" + re.escape(name) + r"\s*\(")
     i = 0
@@ -2200,7 +2214,7 @@ def _iter_call_args(src: str, name: str):
                 depth -= 1
             j += 1
         if depth == 0:
-            yield src[m.end(): j - 1]
+            yield (raw or src)[m.end(): j - 1]
         i = j
 
 
@@ -5130,14 +5144,27 @@ def _smt_verdict(kernc, params, asserts) -> tuple[str, str | None]:
     decls = "\n".join(f"(declare-const {p} Int)" for p in list(params) + free)
     body = "\n".join(f"(assert {a})" for a in asserts)
     smt = f"(set-logic ALL)\n{decls}\n{body}\n(check-sat)\n"
+    # МЕМОИЗАЦИЯ (такт 2.2): ИЗМЕРЕНО 81,2 % повторных запросов внутри одного
+    # прогона. Счётчик охвата инкрементируется И НА ПОПАДАНИИ: `checked` обязан
+    # означать «ЛОГИЧЕСКИЙ запрос был», а не «процесс был запущен». Иначе кэш
+    # менял бы корзину `checked` — то есть состояние кэша влияло бы на отчёт.
+    _hit = _SMT_VERDICT_CACHE.get(smt)
+    if _hit is not None:
+        _SMT_CALLS[0] += 1
+        return _hit
     _rc, out = run_kernc(kernc, smt)
     if "КОНТРПРИМЕР" in out:
         for ln in out.splitlines():
             if "КОНТРПРИМЕР" in ln:
+                _SMT_VERDICT_CACHE[smt] = ("sat", ln.strip()[:110])
                 return ("sat", ln.strip()[:110])
+        _SMT_VERDICT_CACHE[smt] = ("sat", "SAT (модель не извлечена)")
         return ("sat", "SAT (модель не извлечена)")
     if "ДОКАЗАНО" in out:
+        _SMT_VERDICT_CACHE[smt] = ("unsat", None)
         return ("unsat", None)
+    # `unknown` НЕ кэшируется: нерешённая формула — это состояние СЕССИИ
+    # (таймаут под нагрузкой), а не свойство формулы.
     return ("unknown", "решатель не решил (N): формула НЕ проверена")
 
 
@@ -6457,23 +6484,37 @@ _RE_CLIKE_CONST_LOCAL = re.compile(
     r"[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*=\s*([^;{}]+);")
 
 
-def _clike_const_locals(body: str) -> dict[str, int]:
+def _clike_const_locals(body: str, mask: str | None = None) -> dict[str, int]:
     """Локальные, значение которых ИЗВЕСТНО (единственное присваивание).
 
     ЗАЧЕМ. Без этого `int x = 2147483647; x++;` нечем проверить: значение `x`
     не из типа, а из присваивания. Требование «присваивание РОВНО ОДНО» —
     защита от звучимости: если `x` переприсваивается в цикле или ветви, его
     значение на момент операции неизвестно, и обвинять нельзя.
+
+    ДЕФЕКТ #412: тело теперь СЫРОЕ (это нужно для семантики литералов в
+    условиях), поэтому регулярка находила «локальные» ВНУТРИ СТРОКОВЫХ
+    ЛИТЕРАЛОВ. ИЗМЕРЕНО на `cmark-gfm/src/xml.c`: строка
+    `"<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>"` давала мнимую локальную
+    `version` с `?` без `:` — и это РОНЯЛО весь обход корпуса. Поэтому ПОИСК
+    идёт по МАСКЕ (комментарии и содержимое литералов — пробелы), а ЗНАЧЕНИЕ
+    берётся из сырого тела по тем же смещениям: `_strip_c_comments_strings`
+    сохраняет длину ПОСИМВОЛЬНО.
     """
+    src = mask if mask is not None else _strip_c_comments_strings(body)
     out: dict[str, int] = {}
-    for m in _RE_CLIKE_CONST_LOCAL.finditer(body):
-        nm, rhs = m.group(1), m.group(2).strip()
-        if len(re.findall(rf"\b{re.escape(nm)}\s*=(?!=)", body)) != 1:
+    for m in _RE_CLIKE_CONST_LOCAL.finditer(src):
+        nm = m.group(1)
+        rhs = body[m.start(2):m.end(2)].strip()
+        if len(re.findall(rf"\b{re.escape(nm)}\s*=(?!=)", src)) != 1:
             continue                        # переприсваивается — значение неизвестно
         try:
-            node = ast.parse(clike_to_python(_unwrap_zig_builtins(rhs)),
-                             mode="eval").body
-        except (SyntaxError, ValueError):
+            node = ast.parse(
+                clike_to_python(_unwrap_zig_builtins(_literals_to_numbers(rhs))),
+                mode="eval").body
+        except (SyntaxError, ValueError, Unsupported):
+            # Форма вне подмножества — это ПРОПУСК, а не авария: значение
+            # неизвестно, значит обвинять нельзя (но и падать незачем).
             continue
         v = _const_eval(node, out)
         if isinstance(v, int):
@@ -6594,19 +6635,25 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
     требует SAT-запроса, ответ известен арифметически.
     """
     out: list[str] = []
+    # МАСКА ДЛЯ ПОИСКА (дефект #412). Тело СЫРОЕ (нужно для семантики литералов в
+    # условиях), поэтому регулярки поиска видят текст ВНУТРИ строковых литералов.
+    # `_strip_c_comments_strings` сохраняет длину ПОСИМВОЛЬНО, поэтому маска
+    # годится для ЛОКАЦИИ, а значения берутся из сырого тела по тем же смещениям.
+    mask = _strip_c_comments_strings(body)
     var_ranges = dict(ranges or {})
-    var_ranges.update(_clike_local_ranges(body))
-    consts = _clike_const_locals(body)
+    var_ranges.update(_clike_local_ranges(mask))
+    consts = _clike_const_locals(body, mask)
     if not var_ranges:
-        return _clike_incdec_findings(name, body, var_ranges, consts)
+        return _clike_incdec_findings(name, mask, var_ranges, consts)
 
     spans: list[tuple[int, str]] = []
-    for m in _RE_CLIKE_ASSIGN_RHS.finditer(body):
-        spans.append((m.start(1), m.group(1)))
-    for m in _RE_CLIKE_RETURN_RHS.finditer(body):
-        spans.append((m.start(1), m.group(1)))
+    for m in _RE_CLIKE_ASSIGN_RHS.finditer(mask):
+        spans.append((m.start(1), body[m.start(1):m.end(1)]))
+    for m in _RE_CLIKE_RETURN_RHS.finditer(mask):
+        spans.append((m.start(1), body[m.start(1):m.end(1)]))
 
     for pos, raw_expr in spans:
+        raw_expr = _literals_to_numbers(raw_expr)
         if any(w in raw_expr for w in _WRAP_MARKERS):
             continue
         if "->" in raw_expr or re.search(r"\w\.\w", raw_expr):
@@ -6614,7 +6661,7 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
         try:
             tree = ast.parse(clike_to_python(_unwrap_zig_builtins(raw_expr)),
                              mode="eval").body
-        except (SyntaxError, ValueError):
+        except (SyntaxError, ValueError, Unsupported):
             continue
         for node in ast.walk(tree):
             # Проверяются и БИНАРНЫЕ операции, и УНАРНЫЙ МИНУС. Второе — не
@@ -6745,6 +6792,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             else "ts" if _suf in {".ts", ".js"}
             else "c")
     checked = total = trivial = 0
+    # ДЕФЕКТ #411: счётчик вызовов решателя обнуляется на КАЖДУЮ функцию
+    # (дефект #405), поэтому значение `_SMT_CALLS[0]` после цикла — это счётчик
+    # ПОСЛЕДНЕЙ функции, а не файла. ИЗМЕРЕНО на `scanners.c`: сводка печатала
+    # `SMT calls 29`, тогда как решатель вызывался 2032 раза (профайлер §178.5).
+    # Файловый итог накапливается отдельно и возвращается наружу.
+    _smt_calls_file = 0
     found: list[str] = []
     # ДЕФЕКТ #400: причины пропуска НЕ собирались, а сводка при этом заявляла
     # «skipped N with explicit reasons» — то есть ПЕЧАТАЛАСЬ ЛОЖНАЯ ФРАЗА: ни
@@ -6779,6 +6832,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # функция с обязательством делала `_SMT_CALLS[0] > 0` для ВСЕХ
         # последующих — то есть корзина `checked` наполнялась бы функциями,
         # которых решатель не касался (ложное покрытие, класс #320).
+        # Файловый итог вызовов решателя (дефект #411): накапливаем ДО сброса,
+        # поэтому в итог попадают и вызовы ВНЕ цикла по функциям. ИЗМЕРЕНО:
+        # накопление «после» цикла давало 2031 при независимо измеренных 2032.
+        _smt_calls_file += _SMT_CALLS[0]
         _SMT_CALLS[0] = 0
         proven = 0
         # ДЕФЕКТ #400: причина, по которой функция НЕ попала в `checked`.
@@ -6788,6 +6845,16 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # Иначе `if (len == (size_t)(max_rewind - rewind)) return` не переводился,
         # путь не сужался, и на ИСПРАВЛЕННОМ cmark-gfm оставалось предупреждение.
         body = _strip_c_casts(body)
+        # ДЕФЕКТ #412: МАСКА ДЛЯ ПОИСКА. Тело СЫРОЕ (нужно для семантики
+        # литералов в условиях), поэтому регулярки поиска видели текст ВНУТРИ
+        # строковых литералов. ИЗМЕРЕНО на `cmark-gfm/src/xml.c`: строка
+        # `"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"` давала мнимую локальную
+        # `version` и РОНЯЛА весь обход корпуса (Unsupported: тернарный оператор
+        # без ':'), а мнимые `if`/`assert`/делители внутри литералов могли бы дать
+        # ЛОЖНЫЕ находки. `_strip_c_comments_strings` сохраняет длину
+        # ПОСИМВОЛЬНО, поэтому маска годится для ЛОКАЦИИ, а значения берутся из
+        # сырого тела по тем же смещениям.
+        body_mask = _strip_c_comments_strings(body)
         # Диапазоны типов — часть домена (u32 не бывает отрицательным).
         path_conds: list[str] = [f"(and (>= {p} {lo}) (<= {p} {hi}))"
                                  for p, (lo, hi) in (ranges or {}).items()]
@@ -6807,8 +6874,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # inf, а не паника).
         local_smt: dict[str, str] = {}
         float_locals: set[str] = set()
-        for lm2 in _RE_CLIKE_LOCAL_RHS.finditer(body):
-            nm2, ty2, rhs2 = lm2.group(1), (lm2.group(2) or ""), lm2.group(3).strip()
+        for lm2 in _RE_CLIKE_LOCAL_RHS.finditer(body_mask):
+            nm2, ty2 = lm2.group(1), (lm2.group(2) or "")
+            rhs2 = body[lm2.start(3):lm2.end(3)].strip()
             ty_l = ty2.strip().lower()
             if ty_l.startswith("f") or "float" in ty_l:
                 float_locals.add(nm2)
@@ -6819,25 +6887,28 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # присваивают ещё раз внутри тела, НЕ константа. Пример:
             #   var done = false; … done = true; if (done) return …
             # Раньше инлайнилось `done = false`, и `if (done)` объявлялся мёртвым.
-            if len(re.findall(rf"\b{re.escape(nm2)}\s*=", body)) > 1:
+            if len(re.findall(rf"\b{re.escape(nm2)}\s*=", body_mask)) > 1:
                 continue
             try:
                 local_smt[nm2] = expr_smt(
-                    ast.parse(clike_to_python(_unwrap_zig_builtins(rhs2)), mode="eval").body,
+                    ast.parse(clike_to_python(_unwrap_zig_builtins(
+                        _literals_to_numbers(rhs2))), mode="eval").body,
                     local_smt)
             except (Unsupported, NoReturn, SyntaxError):
                 continue
         # ДЕФЕКТ #196 (полевой прогон axios): `x = x || K` — после этой строки
         # x гарантированно НЕ 0 (значение по умолчанию). Без учёта этого
         # `i % x` выглядел как деление на ноль.
-        for dm2 in re.finditer(r"\b([A-Za-z_]\w*)\s*=\s*\1\s*\|\|", body):
+        for dm2 in re.finditer(r"\b([A-Za-z_]\w*)\s*=\s*\1\s*\|\|", body_mask):
             path_conds.append(f"(not (= {dm2.group(1)} 0))")
         pos = 0
         # ДЕФЕКТ #400: список `if` вычисляется ОДИН раз — им же проверяется,
         # были ли условия ВООБЩЕ (иначе fallback расходился с детектором).
-        _ifs = list(_clike_ifs(body))
+        # ДЕФЕКТ #412: поиск `if` — по МАСКЕ (мнимый `if` внутри строки дал бы
+        # ЛОЖНУЮ мёртвую ветвь), а ТЕКСТ условия берётся из сырого тела.
+        _ifs = list(_clike_ifs(body_mask))
         for m in _ifs:
-            raw_cond = m.group(1)
+            raw_cond = body[m.start(1):m.end(1)]
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
             # сравнение; в Int-модели `nil` бессмысленно, и получался ложный
             # DEAD BRANCH. Такие условия честно пропускаем.
@@ -6888,7 +6959,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # (НАЙДЕНО на std Zig `nextafter.zig: nextAfterInt`: без этого правила
             # `else if (y < x)` после `else if (y > x)` давал ЛОЖНЫЙ [DEAD BRANCH],
             # потому что путь ошибочно считался «y > x».)
-            tail = body[m.end(): m.end() + 160]
+            tail = body_mask[m.end(): m.end() + 160]
             # ДЕФЕКТ #368: `exit(...)`/`abort(...)`/`panic(...)` — это ТОЖЕ выход
             # из функции, то есть гард. ИЗМЕРЕНО на `TheAlgorithms/C/math/
             # fibonacci.c`: `if (number <= 0) { fprintf(...); exit(EXIT_FAILURE); }`
@@ -6898,8 +6969,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ОВЕР-АППРОКСИМИРУЕТ: если признак выхода найден, мы СКРОЕМ находку
             # (пропуск), а не выдумаем её — пропуск безопаснее ложного обвинения
             # (урок #178/#183).
-            _bend0 = _clike_block_end(body, m.end())
-            _blk = body[m.end():_bend0]
+            _bend0 = _clike_block_end(body_mask, m.end())
+            _blk = body_mask[m.end():_bend0]
             hard_exit = bool(re.search(
                 r"\b(?:exit|abort|_exit|_Exit|quick_exit|panic|unreachable|"
                 r"os\.Exit|process\.exit|std::process::exit|sys\.exit)\s*\(", _blk))
@@ -6909,7 +6980,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
             # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
             # ВНУТРИ него; наружу оно превращается в `not cond` ПО ПОЗИЦИИ.
-            _bend = _clike_block_end(body, m.end())
+            _bend = _clike_block_end(body_mask, m.end())
             if_blocks.append((m.end(), _bend, cond, exits))
             pos = m.end()
         # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
@@ -6921,9 +6992,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # неизвестного типа мы не можем — поэтому НЕ обвиняем (ложное
         # обвинение хуже пропуска).
         guarded_divs: set[str] = set()
-        for am2_body in _iter_call_args(body, "assert"):
+        for am2_body in _iter_call_args(body_mask, "assert", raw=body):
             try:
-                ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(am2_body)), mode="eval").body, local_smt, lang)
+                ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(
+                    _literals_to_numbers(am2_body))), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError):
                 continue
             path_conds.append(ac)
@@ -6943,21 +7015,22 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         #  p / q` давало 57 ЛОЖНЫХ [CRASH PATH].)
         locals_: set[str] = set()
         float_names: set[str] = set()
-        for lm in _RE_CLIKE_LOCAL.finditer(body):
+        for lm in _RE_CLIKE_LOCAL.finditer(body_mask):
             nm_, ty_ = lm.group(1), (lm.group(2) or "")
             locals_.add(nm_)
             if ty_.lower().startswith("f") or "float" in ty_.lower():
                 float_names.add(nm_)
         float_names |= float_locals
-        if float_names or re.search(r"\b[0-9]+\.[0-9]+", body):
-            float_names |= {m2.group(1) for m2 in _RE_CLIKE_LOCAL.finditer(body)}
-        for dm in _RE_CLIKE_DIV.finditer(body):
+        if float_names or re.search(r"\b[0-9]+\.[0-9]+", body_mask):
+            float_names |= {m2.group(1) for m2 in _RE_CLIKE_LOCAL.finditer(body_mask)}
+        for dm in _RE_CLIKE_DIV.finditer(body_mask):
             if dm.group(1) is not None:
-                den = dm.group(2)
+                den = body[dm.start(2):dm.end(2)]
             elif dm.group(3) is not None:
-                den = dm.group(4)
+                den = body[dm.start(4):dm.end(4)]
             else:
-                den = dm.group(6)
+                den = body[dm.start(6):dm.end(6)]
+            den = _literals_to_numbers(den)
             try:
                 d = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(den)), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError):
@@ -7110,7 +7183,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         #     ДО:    data[-((ptrdiff_t)rewind) - len - 1]
         #     ПОСЛЕ: data[-((ptrdiff_t)(rewind + len + 1))]
         # Правило структурное (по форме каста) — поэтому 0 на исправленном файле.
-        for im in _RE_CLIKE_INDEX.finditer(raw_body):
+        _rb_mask = _strip_c_comments_strings(raw_body)
+        for im in _RE_CLIKE_INDEX.finditer(_rb_mask):
             if re.search(r"\(\s*(?:ptrdiff_t|ssize_t|intptr_t|size_t)\s*\)"
                          r"\s*[A-Za-z_]\w*\s*\)\s*[-+]", im.group(2)):
                 found.append(
@@ -7120,7 +7194,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
 
         # --- C: ac80f7b (uint16_t counter) — ДЕФЕКТ #193 --------------------
         is_u16 = lambda t: t.strip().lower() in {"uint16_t", "u16", "unsigned short", "ushort"}
-        for m2 in re.finditer(r"\w+\s*(?:->|\.)\s*(\w+)\s*(?:\+\+|\+=\s*1)", body):
+        for m2 in re.finditer(r"\w+\s*(?:->|\.)\s*(\w+)\s*(?:\+\+|\+=\s*1)", body_mask):
             fld = m2.group(1)
             ty = field_types.get(fld, "")
             if not ty or not is_u16(ty):
@@ -7138,9 +7212,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # (max_delims/max_size/…capacity), иначе `i <= max_retries` дало бы шум.
         for m3 in re.finditer(
                 r"([A-Za-z_]\w*)\s*<=\s*(max_(?:delims|size|len|length|capacity|count)"
-                r"|[A-Za-z_]*_capacity|MAX_(?:SIZE|LEN|LENGTH|CAPACITY|DELIMS))", body):
+                r"|[A-Za-z_]*_capacity|MAX_(?:SIZE|LEN|LENGTH|CAPACITY|DELIMS))", body_mask):
             var, cap = m3.group(1), m3.group(2)
-            if not re.search(rf"{re.escape(var)}\s*(?:\+\+|\[+\-\]=)", body):
+            if not re.search(rf"{re.escape(var)}\s*(?:\+\+|\[+\-\]=)", body_mask):
                 continue
             found.append(
                 f"[BOUNDS PATH] {name}: off-by-one: `{var} <= {cap}` разрешает "
@@ -7198,6 +7272,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             trivial += 1
         else:
             _bump("условие отсеяно без названной причины (дефект инструмента)")
+        # Файловый итог вызовов решателя (дефект #411) накапливается ПЕРЕД
+        # сбросом в начале следующей итерации — здесь добавлять НЕЧЕГО.
     # Файловый уровень: правила, недостижимые внутри функции.
     # (а) #194 off-by-one: функция cmark-gfm `cmark_inline_parser_scan_delimiters`
     #     объявлена МНОГОСТРОЧНО, поэтому `_clike_functions` её не находит.
@@ -7228,6 +7304,11 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                f"без проверки границы 65535 -> счётчик переполнится")
         if msg not in found:
             found.append(msg)
+    # Файловый итог вызовов решателя (дефект #411): раньше наружу уходило
+    # значение ПОСЛЕДНЕЙ функции (обнуление на каждую функцию, дефект #405).
+    # Остаток после последней функции добавляется здесь.
+    _smt_calls_file += _SMT_CALLS[0]
+    _SMT_CALLS[0] = _smt_calls_file
     return checked, total, trivial, found, reasons, notes
 
 

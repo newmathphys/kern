@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **1** (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -132,6 +132,68 @@ was corrected wherever it disagreed with the code:
    Measured experiments that shaped it (METRICS §149): the literal contract
    `result + trivial + skipped == total` on a scalar function gives a FALSE ACCUSATION
    (`total = 0, trivial = 1`), and tuples are unsupported (`SKIP — узел Tuple`).
+9. **STEP 4 (safety half) DONE: a free constant in the path REFUSES instead of accusing.**
+   MEASURED before the fix: `if (n < MAX_BUF) return n + n;` (CORRECT code) produced
+   `[OVERFLOW PATH] … [КОНТРПРИМЕР] MAX_BUF = -2147483647, n = -2147483648` — the parser does not
+   substitute `#define`, so the name entered the path FREE and Z3 picked it extreme. Now
+   `_smt_sat_guarded` refuses (SAT detectors only; UNSAT checks stay sound) and NAMES the reason
+   (`путь зависит от неизвестной константы`). Measured after: fixture `0 findings` (was 2),
+   regression `audits/codecheck` still `4 findings`, `checked 13 | trivial 3 | skipped 0`.
+10. **STEP 5 DONE (#408): the ternary translation broke on `?.` and `??`, not on ternaries.**
+   `convert_ternary` treated ANY `?` as a ternary, so `obj?.field` and `a ?? b` looked for a `:`
+   and failed; the FIRST `:` at depth 0 also mis-parsed `a ? b ? c : d : e`.
+   **The honest boundary: coverage did NOT rise** — the reason went 6 → 0 but `skipped` stayed 63
+   (the same functions are now named "syntax"). The gate got a THREE-SIDED control.
+11. **STEP 7 DONE: the harness mutation lock.** A run leaves `.git/CANFAIL_ACTIVE_MUTATION`
+   (pid + file) and the new gate `mutation-lock-check` distinguishes "mutation IN FLIGHT — you must
+   NOT commit" from "a lock left by a crash — remove it deliberately" (lesson #50). The gate has a
+   meta-test on 4 branches, and the canfail case creates a marker with a LIVE pid and removes it.
+   Registry grew: **183/183 CHECK, 223 cases** (updated by name, iteratively, where the audit said).
+12. **STEP 6 DONE (#409): a pointer is an `Int` (0 = NULL).** cmark `checked` 76 → 141 at the OLD
+   denominator. Both safeguards implemented (the Z3 sort trap: `!p` → `p == 0`, never `not p`;
+   the reset on pointer mutation, for exited AND enclosing blocks). A FALSE ACCUSATION was found by
+   measuring (`inlines.c`) and fixed; the gate pins the two-sided control.
+13. **#410 FIXED — and it changes the numbers of the WHOLE tack.** 308 of the 458 "functions" of
+   `actions/toolkit` were **CALLS**: in a `.ts` file the groups were taken BY FILE SUFFIX (not by
+   the regex that matched) and the fallback `RE_FN_C` matched `await stat(p)` / `throw new Error(...)`.
+   The body was cut from the middle of the file → a false `[DEAD BRANCH]` (`io-util.ts: readlink`).
+   Measured: `cmark 308 → 308` (K = 0), `toolkit 458 → 150` (458 − 309), `lost_real_functions == 0`.
+   **Honest boundary: all past percentages are void** — `58 / 458 = 12.6 %` divided by calls. True:
+   `55 / 150 = 36.7 %` of all functions and **`55 / 77 = 71.4 %`** of those WITH branches; on C
+   `147 / 182 = 80.8 %`.
+   preserved — dropping them moved the denominator to 476!), while numbers (`' '` → 32,
+   `"utf8"` → crc32) are substituted ONLY inside the cut-out condition.
+   Gate: fixture `tests/fixtures/xray_ts_calls.ts` + a step-7 section in `tools/xray_check.sh`
+   (measured on both sides: pre-fix commit `20adf31` gives `Σ 3 == total 3`, after — `Σ 1`).
+   **Open work:** memoisation of the verdict (`_SMT_VERDICT_CACHE`, `_SMT_CALLS` incremented ON A
+   HIT so `checked` depends on LOGICAL queries) — acceptance is BIT-IDENTICAL buckets with and
+   without the cache; and the remaining `syntax` bucket, whose real cause is still to be dumped.
+
+
+
+14. **VERDICT MEMOISATION + AN HONEST CALL COUNTER (`#411`).** The profiler on `scanners.c`:
+   **2032 calls, 382 unique, 1650 repeats (81.2 %)**, and **152.5 s of 153.3 s** goes INSIDE the
+   calls (the floor of one `kernc` call is 11 ms). The cache is keyed by the full query text, lives
+   in process memory, is NEVER written to disk; the coverage counter is incremented ON A HIT as well,
+   so `checked` = "a LOGICAL query happened". MEASURED: `scanners.c` **153 s -> 29-33 s** (5.3x),
+   buckets BIT-IDENTICAL on three corpora. Along the way the summary stopped lying: it printed
+   `SMT calls 29` (the LAST function's value), now it prints the file total **2031**, and the 1-call
+   difference is explained (the Belnap gate probe: 2032 = 2031 + 1).
+15. **A SEARCH MASK (`#412`) - AND `cmark` COMPLETED FOR THE FIRST TIME.** The raw body (needed for
+   literals in conditions) exposed the regexes to string contents: MEASURED on `cmark-gfm/src/xml.c`
+   - the line `"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"` produced a phantom local `version`
+   with a `?` and no `:` and CRASHED the whole corpus walk. The fix: LOCATION by mask, VALUE from the
+   raw body (the mask preserves length character by character). MEASURED per file on 159 files:
+   EXACTLY 2 changed, the cause named - PowerShell inside a template literal in `tool-cache.ts`
+   (`catch { if (($_.Exception...`). `cmark-gfm/src`: **47 s, `checked 147 | trivial 126 |
+   skipped 35 | Sum 308`, findings 0**.
+16. **`#413` OPEN: SIX CONTROL BYTES 0x08 INSTEAD OF `\b`** in patterns (lines 2613, 2615, 7197,
+   7214, 7215, 7217 of `tools/kern_contracts.py`) - in a raw string that is a literal backspace, so
+   such regexes NEVER match. Dead are the DUPLICATES of rule C (a `uint16` field, CVE class
+   `ac80f7b`) and rule D (off-by-one `<=`) inside the loop. **Working twins exist** (MEASURED: the
+   file-level copy of rule D fires on the fixture `numdelims <= max_delims`), so no capability is
+   lost. The fix is DELIBERATELY POSTPONED: it would ENABLE rules that never worked and must go with
+   its own measurement.
 
 **Closed in THIS session (verification of all capabilities):**
 

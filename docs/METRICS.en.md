@@ -3990,3 +3990,104 @@ Corpus `tests/fixtures/xray_null_ptr.c` and the step-6 section in `tools/xray_ch
 (1) a contradiction WITHOUT mutation -> `[DEAD BRANCH]` IS found; (2) the `!p` form is
 translated; (3) a pointer MUTATION between the checks -> NO findings. MEASURED:
 `[OK] шаг 6: без мутации DEAD BRANCH найдена, с мутацией находок нет, форма !p переведена`.
+
+## §156. DENOMINATOR, MEMOISATION, MASK: 308 OF 458 "FUNCTIONS" WERE CALLS (#410, #411, #412)
+
+> Three changes in a row, each driven by a measurement, and one of them voids EVERY percentage in the project.
+
+### 156.1 #410: 308 "functions" of `actions/toolkit` were not functions
+
+In a `.ts` file the splitter `_clike_functions` took name/params **BY FILE SUFFIX** instead of by the
+REGEX THAT MATCHED, and the fallback `RE_FN_C` matched **CALLS** (`await stat(p)`,
+`throw new Error(...)`): the real name went into `params` while the TYPE SLOT went into the name.
+The "function" body was cut from the middle of the file - hence the FALSE ACCUSATION
+`io-util.ts: readlink: (= p 0)`.
+
+**The fix - BOTH halves at once:** (1) the groups are taken by the regex that matched
+(`RE_FN_C` -> `name = group(2)`, `params = group(3)`); (2) the rejection is by **WORDS OF THE TYPE
+SLOT** (`throw new` is TWO words, so a whole-string comparison does not work).
+
+**The acceptance oracle is met:** `cmark-gfm/src` 308 -> **308** (K = 0, the C path is untouched);
+`toolkit/packages` 458 -> **150** (458 - 309); `lost_real_functions == 0` - the removed entries carry
+SIX unique names and all are artefacts: `'await '` x195, `'throw new '` x101, `'new '` x6,
+`'throw '` x5, `'await new '` x1, `'private '` x1 (the last is a RENAME: `private foo(...)` got its
+real name and real parameters back). `io-util.ts` 8 -> 6.
+
+### 156.2 AN HONEST BOUNDARY: every past percentage is void
+
+`58 / 458 = 12.6 %` and `47.9 %` divided by calls. The truth (measured in §156.6, AFTER the mask):
+
+| | total | checked | trivial | skipped | of all | of functions WITH branches |
+|:--|--:|--:|--:|--:|--:|--:|
+| `toolkit/packages` | 150 | **55** | 73 | 22 | 36.7 % | **55 / 77 = 71.4 %** |
+| `cmark-gfm/src` | 308 | **147** | 126 | 35 | 47.7 % | **147 / 182 = 80.8 %** |
+
+### 156.3 The literal architecture (after reverting the width truncation)
+
+The stripper again replaces literals with **SPACES 1-to-1** (and PRESERVES newlines: dropping them
+moved the `toolkit` denominator to `476`), while numbers are substituted **ONLY inside the cut-out
+condition**, where file offsets no longer matter: `c != ' ' && c != '\t' && x == "utf8"` ->
+`c != 32 && c != 9 && x == 8879553`.
+
+### 156.4 The profiler: 152.5 s OF 153.3 s INSIDE solver calls
+
+| Quantity | Value |
+|:--|--:|
+| solver calls on `scanners.c` | **2032** |
+| unique queries | **382** |
+| repeats | **1650 (81.2 %)** |
+| time inside the calls | **152.5 s of 153.3 s** |
+| the floor of one `kernc` call | **11 ms** |
+
+### 156.5 Memoisation (#411) and BIT-IDENTICAL acceptance
+
+The cache is keyed by the FULL SMT text, lives in process memory and is NEVER written to disk (the
+verdict depends on the kernel/solver version). The coverage counter is incremented **ON A HIT as
+well**, so `checked` = "a LOGICAL query happened", not "a process was launched" - the cache state does
+NOT affect the report. `unknown` is NOT cached (a session state, not a property of the formula).
+
+**MEASURED:** `scanners.c` **153 s -> 29-33 s** (5.3x). Buckets with and without the cache are
+**bit-identical**: `toolkit` `55/73/22` (findings 0), `audits/codecheck` `13/3/0` (findings 4),
+`scanners.c` `24/0/1` (findings 0).
+
+**#411 is closed along the way:** the summary printed `SMT calls 29` (the LAST function's value,
+because the counter is reset per function) while 2032 calls had happened. It now prints the file
+total: **2031** (analysis), and the 1-call difference is EXPLAINED - it is the Belnap gate probe
+(`_xray_solver_gate`), which `cmd_xray:7704` deliberately resets: 2032 = 2031 + 1.
+
+### 156.6 #412: the search saw text INSIDE string literals
+
+The raw body (needed for literals in conditions) exposed all regexes to string contents.
+**MEASURED on `cmark-gfm/src/xml.c`:** the line `"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"`
+produced a phantom local `version` with a `?` and no `:` -> `Unsupported` -> **A CRASH of the whole
+corpus walk**.
+
+**The fix: LOCATION by MASK, VALUE from the raw body** (`_strip_c_comments_strings` preserves length
+character by character). Conditions are still taken from the raw body.
+
+**The effect, measured per file on 159 files: EXACTLY 2 changed** -
+`tool-cache/src/tool-cache.ts` (`2|0|0` -> `1|1|0`) and `glob/src/internal-path-helper.ts`
+(`5|0|1` -> `5|1|0`). THE CAUSE IS NAMED: in `tool-cache.ts` line 357 is a **PowerShell script inside
+a template literal** (`catch { if (($_.Exception...`), and before the fix the phantom `if` FROM IT
+counted as a condition of a TS function. The denominator and the findings are unchanged.
+
+**`cmark-gfm/src` COMPLETED FOR THE FIRST TIME: 47 s, `checked 147 | trivial 126 | skipped 35 |
+Sum 308`, findings 0.** The last completed measurement before that was `141` on `291ebea`; the
+intermediate states could NOT be measured (the walk never reached the end), so the `+6` is NOT
+attributed to a specific change.
+
+### 156.7 #413 (OPEN): six control bytes 0x08 instead of `\b`
+
+Lines 2613, 2615, 7197, 7214, 7215, 7217 of `tools/kern_contracts.py` contain a literal backspace
+(0x08) where a word boundary was intended - such regexes NEVER match. A LONG-STANDING defect (the
+same 6 bytes are in `291ebea` and in `HEAD`). Dead are the DUPLICATES of rule C (a `uint16` field,
+CVE class `ac80f7b`) and rule D (off-by-one `<=`) inside the loop. **Working twins exist:** the
+file-level copy of rule D DOES fire (MEASURED: the fixture `numdelims <= max_delims` ->
+`[BOUNDS PATH] off-by-one`). The fix is deliberately postponed: it would ENABLE rules that never
+worked and must go with its own measurement.
+
+### 156.8 Gates and evidence
+
+`xray-check` (including the new step 4/5/6 sections and #410), `ci-fast` 11 green, `audits/codecheck`
+4 findings, `Sum of buckets == total` on both corpora, the fixture `tests/fixtures/xray_ts_calls.ts`
+(measured on both sides: before the fix `Sum 3 == total 3`, after `Sum 1`).
