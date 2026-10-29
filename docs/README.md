@@ -41,7 +41,7 @@
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[RULE_THEOREM_MATRIX.md](RULE_THEOREM_MATRIX.md)** | **Матрица «правило пруф-чекера ↔ теорема Lean 4»**: 17 функций `verify*`/`check*` × 147 теорем; честно указаны 3 правила, обоснованные ядром Lean, и структурное `intro-def` |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§167): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->404**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§167): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->406**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[BELNAP_SOURCES.md](BELNAP_SOURCES.md)** · **[references.bib](references.bib)** | **Формальная база**: источники (25 записей, `verified`/`secondary`/`unverified`), сверка «теория → код» по `src/путь:строка`, §6 «чего в KERN нет», §7 расхождения черновиков; `make citations-check` |
 | **[THREAT_MODEL.md](THREAT_MODEL.md)** · **[KEY_MANAGEMENT.md](KEY_MANAGEMENT.md)** · **[INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md)** | **Документы доверия**: активы и противники, границы TCB, бэкап/ротация/отзыв ключа, порядок действий при ложном `T` |
 | **[PLATFORMS.md](PLATFORMS.md)** | **Матрица платформ**: что проверено прогонами, что собирается, что **не поддерживается** (Windows: 3 POSIX-блокера + sqlite3; macOS: только `libkern`) |
@@ -58,7 +58,7 @@
 | **[EXECUTION_RUNNER.md](EXECUTION_RUNNER.md)** | Как заявление `N` становится `T`: авто-дискавери тестов, анти-вакуум, маскирование секретов |
 | **[SPEC_ANCHORS_DEMO.md](SPEC_ANCHORS_DEMO.md)** | Мост «текст → контракт»: якоря `@kern:spec` превращают фразу из Markdown в `e=1` |
 | **[KERN_TERMINOLOGY_v0.1.md](KERN_TERMINOLOGY_v0.1.md)** | Нормативная терминология (что такое квант, Врата, свидетельство) |
-| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->404** (RU == EN): каждый — причина, действие, эффект, свидетельство |
+| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->406** (RU == EN): каждый — причина, действие, эффект, свидетельство |
 | **[OWNERSHIP.md](OWNERSHIP.md)** | Гигиена авторства и владения репозиторием |
 
 ### Формальные методы
@@ -103,6 +103,7 @@
 | **[SEMVER.md](SEMVER.md)** | Политика версий: что MAJOR/MINOR/PATCH, каденция тегов, опубликованный тег не двигаем |
 | **[NEXT_SESSION.md](NEXT_SESSION.md)** · **[.ru](NEXT_SESSION.ru.md)** | План следующей сессии: что закрыто, что осталось, чем измерено |
 | **[PLAN_v2.5.3.md](PLAN_v2.5.3.md)** · **[PLAN_v2.6.4.md](PLAN_v2.6.4.md)** · **[PLAN_v2.7.2.md](PLAN_v2.7.2.md)** | Планы циклов (исторические), со статусами ВЫПОЛНЕН |
+| **[PLAN_takt22.md](PLAN_takt22.md)** · **[.ru](PLAN_takt22.ru.md)** | **Действующий план (НЕ НАЧАТ)**: честная воронка покрытия (#405) и точечное расширение `--xray` — 7 шагов с приёмкой, 3 предохранителя и правила работы. Читать третьим, после `STATUS` и `NEXT_SESSION` |
 
 
 ### Свидетельства (сырые данные)

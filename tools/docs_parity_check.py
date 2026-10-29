@@ -50,6 +50,9 @@ PAIRS = (
     ("docs/TEN_PROOFS.ru.md", "docs/TEN_PROOFS.md"),
     # Передача дел: файл несёт якоря фактов, значит обязан иметь паритет RU/EN.
     ("docs/NEXT_SESSION.ru.md", "docs/NEXT_SESSION.md"),
+    # Такт 2.2: план работ несёт якоря фактов и читается НОВОЙ сессией первой —
+    # паритет RU/EN обязателен, иначе одна из версий разойдётся молча (#335).
+    ("docs/PLAN_takt22.ru.md", "docs/PLAN_takt22.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",

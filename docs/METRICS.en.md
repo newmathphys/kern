@@ -3506,3 +3506,43 @@ checked POSITIONALLY.
 dead condition -> the finding **IS** there (not silent suppression).
 
 **Effect:** `cmark-gfm/src` findings **4 -> 0** with unchanged coverage 76/308.
+
+## §147. TACK 2.2 PLAN: FOUR MEASURED ANSWERS AND TWO OPEN DEFECTS (#405, #406)
+
+Basis: `docs/PLAN_takt22.md` (+ `.ru.md`). Base commit `08eb5cd`. Both corpora are
+pinned by SHA in `~/.cache/kern/repos/`, so "before/after" is measured on
+identical bytes.
+
+### 147.1 The funnel is understated: functions WITHOUT `if` ARE checked (#405)
+
+A live `--xray audits/codecheck` run prints `функций проверено 7 / 16` and, in the
+same summary, `skip: нет условий if в теле` — while `audits/codecheck/c_unguarded.c`
+holds `int ratio(int a, int b) { return a / b; }` (ZERO branches) and yields
+`[CRASH PATH] ratio: возможно деление на ноль: b == 0`, and
+`audits/codecheck/rust_overflow.rs` with `pub fn add32(a: i32, b: i32) -> i32 { a + b }`
+yields `[OVERFLOW PATH]` with a counterexample. Both are counted as `skipped`.
+
+Cause: the obligation detectors run unconditionally, while the `checked` counter
+grows only when `proven > 0` — that is, only when a TRANSLATABLE `if` exists.
+So the summary is understated and hides the fact that analysis ran. Defect #405.
+
+### 147.2 The real funnel over functions WITH BRANCHES
+
+The "no `if` conditions" bucket is not a parser failure: those functions have no
+branches. Subtracting them gives an honest denominator: C — 184 functions with
+branches (76 checked, 41 %), TS — 122 (58 checked, 48 %).
+
+### 147.3 The `§N` ranges in the map drift with no rule R4 (#406)
+
+`tools/docs_map_check.py` has R1/R2/R3 and not a single rule comparing section
+ranges. Measured: the map says `§1–§167` while the real maximum is §168, and
+`§1–§145` while the English mirror reaches §146. So defect #404 was closed for
+exactly one commit.
+
+### 147.4 Bitwise conditions — 21 in `cmark-gfm/src`
+
+Measured: 21 conditions of the form `if (ident & CMARK_OPT_*)`, plus `|`, `^`, `~`.
+Four fired (for the rest the first reason differs). Translating such conditions to
+Int is UNSOUND: `& | ^ << >>` over unbounded integers is not the same as over
+machine types; the BV mode is required (the same one used for non-linear
+multiplication).

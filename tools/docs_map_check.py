@@ -60,6 +60,7 @@ EXEMPT = {
     "CWE_COVERAGE.ru.md": "RU-зеркало описано в строке CWE_COVERAGE.md",
     "AI_TRAPS_SHOWCASE.ru.md": "RU-зеркало описано в строке AI_TRAPS_SHOWCASE.md",
     "CHARTER.ru.md": "RU-зеркало описано в строке CHARTER.md",
+    "PLAN_takt22.ru.md": "RU-зеркало описано в строке PLAN_takt22.md",
 }
 
 
