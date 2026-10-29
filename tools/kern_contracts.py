@@ -6016,6 +6016,13 @@ def _clike_param_ranges(praw: str) -> dict:
     return out
 
 
+# ДЕФЕКТ #410: слова-ИНСТРУКЦИИ/ВЫЗОВЫ. В TS-файле `RE_FN_C` матчит ВЫЗОВЫ
+# (`await stat(p)`, `throw new Error(…)`), и они попадали в список функций.
+_STMT_CALL_WORDS = frozenset((
+    "await", "throw", "new", "return", "if", "else", "for", "while", "switch",
+    "catch", "case", "delete", "typeof", "yield"))
+
+
 def _clike_functions(path: Path):
     """УСТОЙЧИВЫЙ разбор C-like функций БЕЗ исполнения тела.
 
@@ -6039,17 +6046,35 @@ def _clike_functions(path: Path):
     _raw_lines = raw_text.splitlines()
     out = []
     for i, line in enumerate(lines):
-        m = (RE_FN_FN.match(line) or RE_FN_TS.match(line)
-             or RE_FN_GO.match(line) or RE_FN_C.match(line))
+        _ts = path.suffix in {".ts", ".js"}
+        m = RE_FN_TS.match(line) if _ts else None
+        _via_c = False
+        if m is None:
+            m = (RE_FN_FN.match(line) or RE_FN_GO.match(line)
+                 or RE_FN_C.match(line))
+            _via_c = m is not None and m.re is RE_FN_C
         if not m:
             continue
-        # имя/параметры по языку
-        if path.suffix in {".zig", ".rs", ".ts", ".js"}:
+        # ДЕФЕКТ #410: ГРУППЫ — ПО СРАБОТАВШЕЙ РЕГУЛЯРКЕ, а не по суффиксу файла.
+        # У `RE_FN_C` group(1) — слот типа/модификаторов (`await`, `throw new`),
+        # group(2) — ИМЯ, group(3) — параметры. Для .ts ветка брала group(1)
+        # как имя, поэтому настоящие методы классов TS получали имя «await »,
+        # а их параметры терялись. ИЗМЕРЕНО на `io-util.ts`: `await stat(p)` ->
+        # имя `await ` вместо `stat`.
+        if _via_c:
+            _slot_words = set(re.findall(r"[A-Za-z_]\w*", m.group(1) or ""))
+            # СЛОВА СЛОТА, а не вся строка: `throw new` — ДВА слова.
+            if _slot_words & _STMT_CALL_WORDS:
+                continue
+            name, praw = m.group(2), m.group(3)
+        elif path.suffix in {".zig", ".rs", ".ts", ".js"}:
             name, praw = m.group(1), m.group(2)
         elif path.suffix == ".go":
             name, praw = m.group(1), m.group(2)
         else:
             name, praw = m.group(2), m.group(3)
+        if name in _STMT_CALL_WORDS:
+            continue
         params = []
         for part in praw.split(","):
             part = part.strip()
