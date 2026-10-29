@@ -100,5 +100,15 @@
     "line1:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "tools/arith_semantics_check.py": {},
+  "tools/funnel_accounting.py": {
+    "branches_denominator:ensures:hard": "a83109c3c18fa3c86ad308def1c00e0eec028cde873bb3679bdf2bb0bfa9dae3",
+    "branches_denominator:requires:hard": "d9c743de7fcc73483c59d364f94e86ddee47f8ca28236bb33d9c29cca521a0e5",
+    "funnel_total:ensures:hard": "0196717a7ff615a9d8def13bd03d265fc4f987e98b9f011be39bfda1cec74781",
+    "funnel_total:requires:hard": "b42129adf63cad0e92d194de880f7ff6ec11ff8595054b108d4baac496e1391e",
+    "unaccounted:ensures:hard": "bdc27bb5c65942de82c75177debfeff44566e22976f0dee64ba119f2c6af596b",
+    "unaccounted:requires:hard": "6979f50737c2f617b6b6aee9f9b0892051f5d9d30bfff8252c80079a52687720",
+    "unexplained_skips:ensures:hard": "2dbc9e364154c0bf36ef2ee23c79c3a051bd0c7d9d61638140e7234050265b71",
+    "unexplained_skips:requires:hard": "c8cad2844f5b345f35ce7a9ff4f29e50489ca33452e44756d8c630b0a94fbb51"
+  },
   "tools/kern_contracts.py": {}
 }

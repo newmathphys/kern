@@ -3613,3 +3613,78 @@ indeed **21** (§1.4). Gates at `d98953c` are green: `docs-map-check` (78 docs,
 21 exemptions), `sync-check`, `docs-parity` (21 pairs), `journal-parity`
 (RU 366 == EN 366), `status-check`.
 
+
+## §149. THE `--xray` FUNNEL UNDER KERN'S OWN CONTRACT: A SPECIFICATION PROVED BY KERN ITSELF (#405/#407.2)
+
+> Decision of tack 2.2: the accounting invariant of the funnel no longer rests on
+> good faith and is no longer guarded by a separate Python watchman — it is written
+> as `# @kern:requires` / `# @kern:ensures` and proved by THE SAME ENGINE with which
+> the project checks foreign code. The precedent is inside the project:
+> `charter/laws.py` ("the project's laws, written as ordinary `@kern:` contracts so
+> that the same engine proves them").
+
+### 149.1 What was MEASURED before writing (four probes)
+
+| Probe | What was tested | Result |
+|:--|:--|:--|
+| A | `unexplained = skipped - named` WITHOUT the precondition `named <= skipped` | 🔴 **REFUTED**: `[КОНТРПРИМЕР] result = -1, named = 1, skipped = 0`, `[RUNTIME CONFIRMED]` |
+| B | the same WITH the precondition | ✅ **PROVED**: `[PROOF VERIFIED] steps: 50 \| premises bound: 3/3 \| trusted: 0 \| holes: 0` |
+| C | the relational invariant `result + trivial + skipped == total` as the `ensures` of a SCALAR function | 🔴 **FALSE ACCUSATION**: counterexample `total = 0, trivial = 1` on a CORRECT function — the inputs are free, and `ensures` cannot state a relation BETWEEN them |
+| D | a tuple as the result (to return three buckets from one function) | `SKIP — узел Tuple`: the engine does not support it |
+
+Probe C is a boundary, not a detail: "just wrap the invariant in `ensures`" yields a
+false accusation rather than protection (class #317/#349). The relation is therefore
+expressed by the function `unaccounted`, and the GATE requires its value to be zero
+on the real numbers.
+
+### 149.2 What was done
+
+* `tools/funnel_accounting.py` — four pure functions with contracts:
+  `branches_denominator` (the "functions with branches" denominator),
+  `unexplained_skips` (the guard against `-6`), `funnel_total` (the pin for #405:
+  checks WITHOUT `if` ARE counted as checked), `unaccounted` (the remainder must be
+  zero). Each refuses a precondition violation at RUNTIME too (`raise`), not only in SMT.
+* `tools/funnel_contract_check.py` — a gate with four properties: (1) all four
+  specifications are PROVED; (2) weakened twins MUST be refuted (otherwise the proof
+  is vacuous); (3) the invariants hold on the measured corpus numbers; (4) the file is
+  sealed in `docs/contracts.lock.json` and unchanged. Without a solver — `rc=3` and NO
+  green: "the tool did not run" is N, not T (#407).
+* Lock: 8 fingerprints (`fn:requires:hard` / `fn:ensures:hard`).
+* Invocation: from inside `tools/xray_check.sh` (target `make xray-check`) — the SAME
+  pattern as the #400 sub-gate (`xray_skip_reasons_check.py`). A new CHECK target is
+  deliberately NOT created: an `--xray` sub-gate is part of the `xray-check`
+  acceptance, and the registry counts must not grow for it. Non-vacuity is provided by
+  the gate's OWN meta-test (twins must be refuted, forged verdicts must be rejected),
+  not by a canfail case.
+
+### 149.3 Measured by the gate (rc=0)
+
+```
+[OK] спецификация воронки ДОКАЗАНА: 4 функций, нарушено 0, нерешённых 0, вакуумных 0
+[OK] двойник опровергнут (снята предпосылка `named <= skipped`): [КОНТРПРИМЕР] result = -1, named = 1, skipped = 0
+[OK] двойник опровергнут (забыт `checked_arith_only`): [КОНТРПРИМЕР] trivial = 0, skipped = 0, checked_arith_only = 1, result = 0
+[OK] cmark-gfm/src: знаменатель с ветвлениями 182, корзины сходятся (76+0+0+232=308), без причины 0
+[OK] toolkit/packages: знаменатель с ветвлениями 121, корзины сходятся (58+0+0+400=458), без причины 0
+[OK] смешанные единицы (9, 15) отвергнуты спецификацией: нарушена предпосылка named <= skipped
+[OK] замок цел: 8 отпечатков контрактов tools/funnel_accounting.py не изменены
+```
+
+Harness: deliberately not added (see above) — non-vacuity is checked on EVERY run by
+the gate itself: `[OK] двойник опровергнут` ×2 and `--selftest` with five forged
+verdicts. The registry did NOT change: 222 cases, 182/182 CHECK.
+
+### 149.4 Honest boundaries (they must not be silenced)
+
+* The specification is sealed, but `--xray` ITSELF is not yet wired to it: separating
+  FUNCTION-level reasons from BRANCH-level ones (`kern_contracts.py:4857`/`:4865`
+  versus the counter at `:7354` and the scraper at `:7604–7612`) is the next sub-step
+  of step 3. Until then this is a LOCK ON THE SPECIFICATION, not a guard on the tool.
+* The corpus numbers in the gate are a FIXTURE measured at `d98953c` (corpora pinned
+  by SHA). A live run is deliberately not used: without a solver it returns zeros, and
+  the gate would become non-deterministic.
+* A lesson in self-checking: a hand-RETYPED sample of the ИТОГО line repeated the
+  pattern's error (the doubled "У" in ВАКУУМНЫХ was read as one), and a PROVED
+  specification was reported as unproved. Hence the sample in the gate is the VERBATIM
+  tool output, and the parser matches the tail "МНЫХ". A self-check against one's own
+  retelling cannot catch an error the retelling introduced.
+

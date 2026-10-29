@@ -169,6 +169,14 @@ step 2 unless fixed in the same commit:
 So fixture **and** threshold change together with the code — otherwise we trade
 one defect for another.
 
+**The invariant now has an owner (sub-step 3.1, done).** The funnel identity
+`checked + trivial + skipped == total` and the dimension rule `named <= skipped`
+are no longer prose: they live in `tools/funnel_accounting.py` as `@kern:` contracts,
+are PROVED by our own engine, sealed in `docs/contracts.lock.json`, and the gate
+`tools/funnel_contract_check.py` (invoked from `tools/xray_check.sh`) requires the
+weakened twins to be REFUTED — so the proof cannot be vacuous. No new CHECK target is
+created: the sub-gate lives INSIDE `xray-check`, exactly like the #400 one.
+
 ### 2.2 (Step 4) The `UNSAT`/`SAT` asymmetry is correct — but a leak flag is required
 
 The asymmetry is real:
@@ -206,7 +214,7 @@ object is passed by reference, so `foo(arr)` may change `arr.length` and the
 |:--|:--|:--|:--|
 | **1** | ✅ **DONE** — **R4** in `docs_map_check.py`: compare the map's `§N` range with the real maximum `## §…` | sabotage `§1–§1` → red (4th meta-test diversion); ranges == fact (`§170` / `§148`) | low |
 | **2** | **#405**: three buckets `checked` / `trivial` / `skipped`; `checked` counted by **detector execution**, not by translatable `if` count; update the gate invariant (including `total`) and its fixture in the same commit | on `audits/codecheck` `ratio` and `add32` land in **checked**; `Σ buckets == total`; `Σ reasons == skipped`; canfail case. **Run with Z3 in `PATH`** — without it there are no findings to move (#407) | medium |
-| **3** | **RE-SCOPED — the old target was VACUOUS.** The `no reason` bucket measures **0 on both corpora** (4 runs), so "dump it" has nothing to dump. The real, MEASURED defect in the same place is a **unit mismatch in the reason histogram**: in the Python path `skipped` holds **BRANCH** messages (`kern_contracts.py:4857`, `:4865`) while the counter `skipped N` counts **FUNCTIONS** (`:7354`); the repo-level scraper (`:7604–7612`) pours both into ONE dict which is then compared with the function counter (`:5655–5657`) — hence the nonsense `-6`. Fix: (a) split `fn_skip_reasons` (must sum to `skipped N`) from `branch_skip_reasons` (informational, printed under its OWN label, never mixed); (b) never print a negative difference; (c) the `#407` safeguard — `--xray` refuses with `rc != 0` when Z3 is absent, and `run_kernc` auto-picks `.venv/bin` relative to `sys.executable` | `--xray audits/codecheck` prints **no negative line**, with AND without Z3; `Σ fn_reasons == skipped`; branch notes are labelled and counted separately. **The gate needs a NEW case**: its current fixture is C-like only and therefore passes even WITHOUT Z3 (measured) — the new case (a Python file with an undecided branch) is RED before the fix and green after | medium |
+| **3** | ✅ **SUB-STEP 3.1 DONE** — the funnel specification is sealed (`tools/funnel_accounting.py` + gate invoked from `xray_check.sh` + lock, METRICS §149). **RE-SCOPED — the old target was VACUOUS.** The `no reason` bucket measures **0 on both corpora** (4 runs), so "dump it" has nothing to dump. The real, MEASURED defect in the same place is a **unit mismatch in the reason histogram**: in the Python path `skipped` holds **BRANCH** messages (`kern_contracts.py:4857`, `:4865`) while the counter `skipped N` counts **FUNCTIONS** (`:7354`); the repo-level scraper (`:7604–7612`) pours both into ONE dict which is then compared with the function counter (`:5655–5657`) — hence the nonsense `-6`. Fix: (a) split `fn_skip_reasons` (must sum to `skipped N`) from `branch_skip_reasons` (informational, printed under its OWN label, never mixed); (b) never print a negative difference; (c) the `#407` safeguard — `--xray` refuses with `rc != 0` when Z3 is absent, and `run_kernc` auto-picks `.venv/bin` relative to `sys.executable` | `--xray audits/codecheck` prints **no negative line**, with AND without Z3; `Σ fn_reasons == skipped`; branch notes are labelled and counted separately. **The gate needs a NEW case**: its current fixture is C-like only and therefore passes even WITHOUT Z3 (measured) — the new case (a Python file with an undecided branch) is RED before the fix and green after | medium |
 | **4** | **Bitwise via BV** + `free_syms_in_path`; `SAT` checks under the flag → SKIP with reason | `binary operator` → 0 on `cmark-gfm`; fixture: BV version correct while the **Int version proves a falsehood** (negative control) | **high** |
 | **5** | Ternary `?:` → `(ite …)` | `ternary` → 0 in toolkit; control: a ternary in a C fixture yields the correct verdict | medium |
 | **6** | `nil/null` (+49 C, +3 TS) with reset per §2.3 | 0 false alarms; control: reassignment does **not** carry the constraint | medium |
@@ -286,4 +294,11 @@ grep -hoE 'if \([A-Za-z_][A-Za-z0-9_]* *(&|\||\^|<<|>>) *[^)]*\)' \
    `PATH`, and without it `--xray` prints `findings 0` with **no warning at all** —
    "the tool did not run" reads as "clean" (#407). Same class as rule 4 (Zig), and it
    already produced a false zero while §0 was being re-measured.
+9. **A self-check against your OWN retelling is vacuous.** The gate
+   `funnel-contract_check.py` compares the tool's summary line with a sample — and the
+   sample, retyped by hand, repeated the pattern's error (the doubled "У" in
+   ВАКУУМНЫХ was read as one), so a PROVED specification was declared unproved. The
+   sample must be the VERBATIM output, and the parser must be self-tested against
+   that verbatim text. Cost of ignoring this: a false FAIL that looks like a real
+   defect in the spec.
 

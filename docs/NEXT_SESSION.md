@@ -85,6 +85,20 @@ was corrected wherever it disagreed with the code:
 5. **Step 1 is DONE**: R4 compares every printed `§N` range with the real maximum
    `## §…`, the ranges are corrected in the same commit, and the meta-test carries a
    4th diversion (`§1–§1`) so the new rule is provably able to fail.
+6. **THE FUNNEL NOW HAS AN OWNER (sub-step 3.1).** The accounting invariant is no
+   longer prose and no longer guarded by a separate Python watchman: it is written as
+   `@kern:requires`/`@kern:ensures` in `tools/funnel_accounting.py`, PROVED by our own
+   engine (Z3), sealed in `docs/contracts.lock.json` (8 fingerprints) and enforced from
+   `tools/xray_check.sh` (`make xray-check`), whose weakened twins MUST be refuted —
+   measured: counterexamples `result = -1, named = 1, skipped = 0` and
+   `checked_arith_only = 1`. No new CHECK target or canfail case is created (the SAME
+   pattern as the #400 sub-gate); non-vacuity is checked on EVERY run by the gate's own
+   meta-test.
+   **Boundary:** this locks the SPECIFICATION; wiring `--xray` itself to it is the
+   next sub-step (the function/branch unit split, `:4857`/`:4865` vs `:7354`).
+   Measured experiments that shaped it (METRICS §149): the literal contract
+   `result + trivial + skipped == total` on a scalar function gives a FALSE ACCUSATION
+   (`total = 0, trivial = 1`), and tuples are unsupported (`SKIP — узел Tuple`).
 
 **Closed in THIS session (verification of all capabilities):**
 
