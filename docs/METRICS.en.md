@@ -3546,3 +3546,70 @@ Four fired (for the rest the first reason differs). Translating such conditions 
 Int is UNSOUND: `& | ^ << >>` over unbounded integers is not the same as over
 machine types; the BV mode is required (the same one used for non-linear
 multiplication).
+
+## §148. TACK 2.2, RE-MEASUREMENT BEFORE STEP 1: THE HISTOGRAM, AN EMPTY BUCKET, AND Z3 WITHOUT WHICH THE X-RAY GOES SILENT (#407)
+
+> Measured at `d98953c` (clean tree, `HEAD == origin/main`). Corpora pinned by SHA:
+> `cmark-gfm` `27d942c8`, `actions/toolkit` `0c3a9c33`; both clones clean
+> (`git status --porcelain` empty). All runs are read-only — the tree is clean
+> afterwards too. Runs were made BOTH without Z3 and WITH Z3 (`.venv/bin`), so that
+> a property of the code is not confused with a property of the environment.
+
+### 148.1 The plan's §0 histogram does NOT reproduce: the "no reason" bucket is empty
+
+| Corpus | plan §0 | measured (4 runs, deterministic) |
+|:--|:--|:--|
+| `cmark-gfm/src` | no `if` **124** · syntax 53 · `nil/null` 49 · binary 4 · **no reason 2** | no `if` **126** · syntax 53 · `nil/null` 49 · binary 4 · **no reason 0** |
+| `toolkit/packages` | no `if` **336** · syntax 54 · ternary 6 · `nil/null` 3 · **no reason 1** | no `if` **337** · syntax 54 · ternary 6 · `nil/null` 3 · **no reason 0** |
+
+The sums and the headline numbers MATCHED: `232` and `400` skips, `76 / 308` and
+`58 / 458` checked. Only the ATTRIBUTION of three functions differs: those the plan
+recorded as "no reason" measure as "no `if`". The "functions WITH branches"
+denominator therefore differs too: C **182** (76 = 41.8 %), TS **121** (58 = 47.9 %)
+— the plan said 184 and 122.
+
+**Consequence for step 3.** The acceptance of step 3 ("`no reason: 0` on both
+corpora") is ALREADY satisfied, before any edit: the bucket is empty in four runs
+out of four. As written, step 3 is a VACUOUS green — exactly what rule 6 of the
+tack forbids. The dump (`print` of the name, `len(_ifs)`, `skip_why`) stays
+meaningful only as a CONDITIONAL action: it is needed if the bucket reappears, not
+as an unconditional step.
+
+### 148.2 The evidence for #405 reproduces EXACTLY — but only with Z3
+
+`python3 tools/kern_contracts.py --xray audits/codecheck`:
+
+| Environment | `[REPO SUMMARY]` | Findings |
+|:--|:--|:--|
+| without `.venv/bin` in PATH | `16 files \| checked 7 / 16 (skipped 9) \| findings 0` | NONE, and not a single warning |
+| `PATH="$PWD/.venv/bin:$PATH"` | `16 files \| checked 7 / 16 (skipped 9) \| findings 4` | `c_unguarded.c: [CRASH PATH] ratio: division by zero: b == 0`, `rust_overflow.rs: [OVERFLOW PATH] add32: … b = 2147483647, a = 1`, plus `rust_allman.rs` and `zig_div.zig` |
+
+Cause: `kernc` prints `[!] z3 недоступен. Добавьте .venv/bin в PATH
+(uv pip install z3-solver)`; `_smt_verdict` classifies that as `unknown`,
+`_smt_sat` returns `None`, and the detectors claim nothing. A preflight exists in
+`_demo` (`:4028-4030`) and on the contract path (`:4448`) — `--xray` has none.
+This is recorded as defect **#407** (class #277/#184).
+
+**A side symptom.** Without Z3 the tool prints `[!] пропусков БЕЗ записанной
+причины: -6` (`:5655-5657`): `named` = 15 (9 "no `if`" + 6 "branch N not solved by
+the solver" from the XRAY summary) versus `skipped` = 9 at REPO level. A negative
+"number of skips" is a defect of the message; with Z3 the branches are solved and
+the line disappears.
+
+### 148.3 #406 recurred IN THE VERY COMMIT that recorded it
+
+Measured at `d98953c`: the map `docs/README.md` says `§1–§167` while the real
+maximum is **§169** (line 44) and `§1–§145` while **§147** (line 34). The drift grew
+in exactly the commit that recorded #406 as open — that is, #404 recurred for the
+THIRD time. This is the price of the missing rule R4.
+
+### 148.4 What of the checked material DID match the plan (so it is not re-checked)
+
+The #405 code anchors are accurate: `:6809` calls the detectors, `:6814` is
+`if proven:`. The #405.3 safeguard is accurate: the fixture
+`tools/xray_skip_reasons_check.py:53` holds `int plain(int n) { return 42; }`, and
+the threshold `skipped >= 2` is at `:65`. Bitwise conditions in `cmark-gfm/src` are
+indeed **21** (§1.4). Gates at `d98953c` are green: `docs-map-check` (78 docs,
+21 exemptions), `sync-check`, `docs-parity` (21 pairs), `journal-parity`
+(RU 366 == EN 366), `status-check`.
+

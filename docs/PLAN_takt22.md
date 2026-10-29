@@ -1,7 +1,11 @@
 # PLAN: Tack 2.2 — honest coverage funnel and targeted `--xray` widening
 
-> **Status: NOT STARTED.** Base commit: `08eb5cd`. This document is written so a
-> NEW session resumes from measured facts, not from a summary.
+> **Status: step 1 DONE (R4 added + ranges corrected), steps 2–7 NOT STARTED.**
+> **Base slice of this tack: `d98953c`** — the commit that introduced this plan. It
+> is NOT "current `HEAD`", and it must not be chased: a SHA written in prose goes
+> stale in the very commit that adds it. `git log -1` is the authority.
+> §0 was RE-MEASURED at that slice (`docs/METRICS.md` §170 / §148) and three
+> numbers were corrected; the corrections are marked below.
 >
 > **Read first, in this order:** `docs/STATUS.md` (generated state) →
 > `docs/NEXT_SESSION.md` (handoff) → **this file** (the work) →
@@ -18,17 +22,32 @@ Both corpora are pinned by SHA and cloned into `~/.cache/kern/repos/`, so
 
 | Corpus | SHA | Checked | Findings | Skip reasons |
 |:--|:--|--:|--:|:--|
-| `cmark-gfm/src` | `27d942c8` | **76 / 308** | 0 | no `if` **124** · syntax **53** · `nil/null` **49** · binary op **4** · no reason **2** |
-| `toolkit/packages` | `0c3a9c33` | **58 / 458** | 0 | no `if` **336** · syntax **54** · ternary **6** · `nil/null` **3** · no reason **1** |
+| `cmark-gfm/src` | `27d942c8` | **76 / 308** | 0 | no `if` **126** · syntax **53** · `nil/null` **49** · binary op **4** · no reason **0** |
+| `toolkit/packages` | `0c3a9c33` | **58 / 458** | 0 | no `if` **337** · syntax **54** · ternary **6** · `nil/null` **3** · no reason **0** |
 
-**The number that matters.** Functions **with branches**: C **184** (checked 76 =
-41 %), TS **122** (checked 58 = 48 %). The "no `if`" bucket is **not** a parser
+**CORRECTED at `d98953c`** (this table said 124/2 and 336/1; sums 232 and 400 and
+the checked counts were right, the attribution of three functions was not). The
+"no reason" bucket measures **empty** on both corpora, in four runs out of four —
+see §1.3.
+
+**The number that matters.** Functions **with branches**: C **182** (checked 76 =
+42 %), TS **121** (checked 58 = 48 %). The "no `if`" bucket is **not** a parser
 failure — see §1.2.
 
-Reproduce the histogram:
+**Denominators, derived by ARITHMETIC from the counts above** (each skipped
+function is counted exactly once, so the derivation is exact — but it is a
+derivation, not a separate measurement):
+
+| Corpus | total | no `if` | WITH branches | checked | skipped WITH branches |
+|:--|--:|--:|--:|--:|:--|
+| `cmark-gfm/src` | 308 | 126 | **182** | 76 = **41.8 %** | 106 = syntax 53 + `nil/null` 49 + binary 4 + no reason 0 |
+| `toolkit/packages` | 458 | 337 | **121** | 58 = **47.9 %** | 63 = syntax 54 + ternary 6 + `nil/null` 3 + no reason 0 |
+
+**Z3 is REQUIRED for every run below.** Without `.venv/bin` in `PATH` the x-ray
+prints `findings 0` and no warning at all (defect #407). Reproduce the histogram:
 
 ```bash
-python3 tools/kern_contracts.py --xray ~/.cache/kern/repos/cmark-gfm/src | tail -8
+PATH="$PWD/.venv/bin:$PATH" python3 tools/kern_contracts.py --xray ~/.cache/kern/repos/cmark-gfm/src | tail -8
 ```
 
 ---
@@ -41,20 +60,33 @@ The gate has R1 (every `docs/*.md` is mentioned or exempt), R2 (every link
 resolves), R3 (no `||` row splicing). **Nothing compares the `§N` ranges printed
 in the map with the real maximum `## §…`.**
 
-Measured at `08eb5cd`: the map says `§1–§167` while the real maximum is **§168**,
-and `§1–§145` while the English mirror reaches **§146**. So #404 was closed for
-exactly one commit.
+Measured at `d98953c`: the map says `§1–§167` while the real maximum is **§169**,
+and `§1–§145` while the English mirror reaches **§147**. So #404 was closed for
+exactly one commit and then recurred a **third** time — in the very commit that
+recorded #406. **Step 1 closes this**: R4 compares every printed range with the real
+maximum `## §…`, and the ranges are corrected in the same commit; the meta-test
+carries a fourth sabotage (`§1–§1`) so the new rule is provably able to fail.
 
 ### 1.2 Functions WITHOUT `if` ARE checked for arithmetic — but are reported as `skipped` (defect #405)
 
-Live run on `audits/codecheck`:
+Live run on `audits/codecheck` (**Z3 REQUIRED** — see §6 rule 8 and defect #407):
+
+```bash
+PATH="$PWD/.venv/bin:$PATH" python3 tools/kern_contracts.py --xray audits/codecheck | tail -8
+```
 
 ```
 [REPO SUMMARY] файлов 16 | функций проверено 7 / 16 (skipped 9) | находок 4
     skip: нет условий `if` в теле × 9
   audits/codecheck/c_unguarded.c: [CRASH PATH] ratio: возможно деление на ноль: b == 0
   audits/codecheck/rust_overflow.rs: [OVERFLOW PATH] add32: переполнение типа `i32` … [КОНТРПРИМЕР] b = 2147483647, a = 1
+  audits/codecheck/rust_allman.rs: [OVERFLOW PATH] add32Allman: … [КОНТРПРИМЕР] b = 2147483647, a = 1
+  audits/codecheck/zig_div.zig: [CRASH PATH] ratio: возможно деление на ноль: b == 0
 ```
+
+**Without Z3 this command prints `находок 0` and not a single warning** — the four
+findings above exist only with the solver present (#407: "the tool did not run" is
+reported as "0 findings").
 
 Both files, verbatim:
 
@@ -79,15 +111,24 @@ Answer to the natural question "are we losing the most obvious bug class
 (unprotected arithmetic)?": **no, we are not losing it.** What is lost is the
 **truth about coverage**.
 
-### 1.3 `no reason` (×2) is statically UNREACHABLE — needs a dump, not a guess
+### 1.3 `no reason` is statically UNREACHABLE — and it MEASURES EMPTY today
 
 All exits from the `for m in _ifs` loop (lines 6487–6505) are either
 `skip_why.append(...)` or `proven += 1`; `skip_why` and `_ifs` are initialised
 once per function (6433, 6486). Therefore `proven == 0 ∧ skip_why == [] ∧ _ifs ≠ []`
-should be impossible — yet it is **measured** (×2). So there is a path not yet
-seen. Do **not** guess: print the function name, `len(_ifs)` and `skip_why` in the
-`else` branch, run once over `cmark-gfm/src`, and close the path (or remove the
-unreachable branch).
+should be impossible.
+
+**CORRECTED at `d98953c`.** The plan recorded this bucket as measured ×2 (C) and
+×1 (TS). At `d98953c` it measures **0 on both corpora, in four runs out of four**
+(with and without Z3), while the sums stay 232 and 400 — the three functions were
+attributed to "no `if`" instead. So the bucket is not currently observable, and
+step 3's acceptance would pass **vacuously**. Keep the dump as a CONDITIONAL tool:
+print the function name, `len(_ifs)` and `skip_why` in the `else` branch IF the
+bucket reappears (e.g. after the parser is touched in steps 4–6), and do not claim
+step 3 as a fix while there is nothing to fix.
+
+**Step 3 is therefore RE-SCOPED** onto the defect that IS measurable here: the
+reason histogram mixes **functions** and **branches** — see §3, step 3.
 
 ### 1.4 "binary operator: 4" means BITWISE operators — and Int is the wrong theory
 
@@ -163,9 +204,9 @@ object is passed by reference, so `foo(arr)` may change `arr.length` and the
 
 | # | Step | Acceptance | Risk |
 |:--|:--|:--|:--|
-| **1** | **R4** in `docs_map_check.py`: compare the map's `§N` range with the real maximum `## §…` | sabotage `§1–§1` → red; ranges == fact | low |
-| **2** | **#405**: three buckets `checked` / `trivial` / `skipped`; `checked` counted by **detector execution**, not by translatable `if` count; update the gate invariant (including `total`) and its fixture in the same commit | on `audits/codecheck` `ratio` and `add32` land in **checked**; `Σ buckets == total`; `Σ reasons == skipped`; canfail case | medium |
-| **3** | **Dump `no reason`**: temporary `print` (name, `len(_ifs)`, `skip_why`) → one run → find both functions; then close the path or delete the unreachable branch | `no reason: 0` on both corpora | low |
+| **1** | ✅ **DONE** — **R4** in `docs_map_check.py`: compare the map's `§N` range with the real maximum `## §…` | sabotage `§1–§1` → red (4th meta-test diversion); ranges == fact (`§170` / `§148`) | low |
+| **2** | **#405**: three buckets `checked` / `trivial` / `skipped`; `checked` counted by **detector execution**, not by translatable `if` count; update the gate invariant (including `total`) and its fixture in the same commit | on `audits/codecheck` `ratio` and `add32` land in **checked**; `Σ buckets == total`; `Σ reasons == skipped`; canfail case. **Run with Z3 in `PATH`** — without it there are no findings to move (#407) | medium |
+| **3** | **RE-SCOPED — the old target was VACUOUS.** The `no reason` bucket measures **0 on both corpora** (4 runs), so "dump it" has nothing to dump. The real, MEASURED defect in the same place is a **unit mismatch in the reason histogram**: in the Python path `skipped` holds **BRANCH** messages (`kern_contracts.py:4857`, `:4865`) while the counter `skipped N` counts **FUNCTIONS** (`:7354`); the repo-level scraper (`:7604–7612`) pours both into ONE dict which is then compared with the function counter (`:5655–5657`) — hence the nonsense `-6`. Fix: (a) split `fn_skip_reasons` (must sum to `skipped N`) from `branch_skip_reasons` (informational, printed under its OWN label, never mixed); (b) never print a negative difference; (c) the `#407` safeguard — `--xray` refuses with `rc != 0` when Z3 is absent, and `run_kernc` auto-picks `.venv/bin` relative to `sys.executable` | `--xray audits/codecheck` prints **no negative line**, with AND without Z3; `Σ fn_reasons == skipped`; branch notes are labelled and counted separately. **The gate needs a NEW case**: its current fixture is C-like only and therefore passes even WITHOUT Z3 (measured) — the new case (a Python file with an undecided branch) is RED before the fix and green after | medium |
 | **4** | **Bitwise via BV** + `free_syms_in_path`; `SAT` checks under the flag → SKIP with reason | `binary operator` → 0 on `cmark-gfm`; fixture: BV version correct while the **Int version proves a falsehood** (negative control) | **high** |
 | **5** | Ternary `?:` → `(ite …)` | `ternary` → 0 in toolkit; control: a ternary in a C fixture yields the correct verdict | medium |
 | **6** | `nil/null` (+49 C, +3 TS) with reset per §2.3 | 0 false alarms; control: reassignment does **not** carry the constraint | medium |
@@ -179,30 +220,42 @@ possible, so it comes strictly after the funnel stops lying.
 
 ## §4. Boundaries that will NOT disappear
 
-- "no `if`" in TS is **336 of 458**, and it is mostly **not a loss**: there is
+- "no `if`" in TS is **337 of 458**, and it is mostly **not a loss**: there is
   nothing for the x-ray to branch on, apart from arithmetic (which IS checked).
 - After steps 4–6 the realistic target is C **~68 %** and TS **~55 %** of functions
-  **with branches** — not "95 % of everything".
+  **with branches** (denominator corrected: C **182**, TS **121**) — not "95 % of
+  everything". The target itself is an ESTIMATE; only the denominator is measured.
 - The #400 gate checks the **link** between counter and reasons, not the quality of
   the reasons: "outside the subset" can remain an over-broad bucket.
 - Do **not** promise `16/16` on `audits/codecheck` before step 2: at least 3–4 of
   the 9 skipped functions will become `checked` (they carry findings), but the exact
   split is only known after the change.
+- **Z3 is a precondition, not a detail.** Every number in this plan is read through
+  `--xray`, and without the solver that path reports zeros that look like "clean"
+  (#407). A measurement taken without Z3 is not a measurement.
 
 ---
 
 ## §5. How to verify this plan's claims (all commands are read-only)
 
 ```bash
-# 1.1 the map's §N ranges are stale (R4 missing)
+# 0. Z3 is present — otherwise every number below is a false zero (#407)
+printf '(set-logic ALL)\n(declare-const x Int)\n(assert (= x 0))\n(check-sat)\n' \
+  | zig-out/bin/kernc prove /dev/stdin     # must NOT print "z3 недоступен"
+
+# 1.1 the map's §N ranges (now enforced by R4 inside docs_map_check.py)
 grep -n '§1–§1' docs/README.md
 grep -oE '^## §[0-9]+\.' docs/METRICS.md | grep -oE '[0-9]+' | sort -n | tail -1
+make docs-map-check          # R4 + the 4th meta-test diversion
 
 # 1.2 functions without `if` DO get checked, yet are counted as skipped (#405)
-python3 tools/kern_contracts.py --xray audits/codecheck | tail -6
+PATH="$PWD/.venv/bin:$PATH" python3 tools/kern_contracts.py --xray audits/codecheck \
+  | grep -E 'REPO SUMMARY|skip:|CRASH PATH|OVERFLOW PATH'
 
-# 1.3 the "no reason" bucket is reachable but statically impossible
+# 1.3 the "no reason" bucket: statically impossible, and currently EMPTY
 grep -n 'без названной причины' tools/kern_contracts.py
+PATH="$PWD/.venv/bin:$PATH" python3 tools/kern_contracts.py --xray \
+  ~/.cache/kern/repos/cmark-gfm/src | grep -c 'без названной'   # expect 0
 
 # 1.4 bitwise conditions in the corpus
 grep -hoE 'if \([A-Za-z_][A-Za-z0-9_]* *(&|\||\^|<<|>>) *[^)]*\)' \
@@ -228,4 +281,9 @@ grep -hoE 'if \([A-Za-z_][A-Za-z0-9_]* *(&|\||\^|<<|>>) *[^)]*\)' \
    entry** (the two-way invariant is enforced by `tools/registry.py`).
 7. Contour per step: **test → code → canfail case → registry → sync → gates →
    commit → CI → push**.
+8. **Z3 must be in `PATH` before any `--xray` run**: `PATH="$PWD/.venv/bin:$PATH"`.
+   The solver is a Python module inside `.venv` (`z3 5.3.1`); `kernc` finds it via
+   `PATH`, and without it `--xray` prints `findings 0` with **no warning at all** —
+   "the tool did not run" reads as "clean" (#407). Same class as rule 4 (Zig), and it
+   already produced a false zero while §0 was being re-measured.
 

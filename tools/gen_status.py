@@ -17,6 +17,11 @@
 Дата снимка НЕ хранится: сохранённая дата сама становится устаревшей. Дата
 снимка — это дата коммита, которым файл был обновлён (`git log -1 docs/STATUS.md`).
 
+ПРОВЕРКА СВЕРХ ГЕНЕРАЦИИ (класс #406): число открытых дефектов в ПРОЗЕ передачи
+дел (`docs/NEXT_SESSION.md`, `.ru.md`) обязано совпадать с журналом. В прозе
+стояло `0` при факте `2`, и ни один гейт эту строку не читал — теперь владелец
+есть, и сверка живёт в `--check`, то есть в `make status-check`.
+
 Запуск:  python3 tools/gen_status.py [--check|--write|--selftest]
 """
 from __future__ import annotations
@@ -112,6 +117,46 @@ def _journal() -> dict:
             b["legacy"] += 1
     b["open_ids"] = open_ids  # type: ignore[assignment]
     return b
+
+
+# ---------------------------------------------------------------------------
+# ДЕФЕКТ КЛАССА #406: ЧИСЛО ОТКРЫТЫХ ДЕФЕКТОВ В ПРОЗЕ ПЕРЕДАЧИ ДЕЛ.
+#
+# ЗАЧЕМ. `docs/STATUS.md` собирается из журнала, а `docs/NEXT_SESSION*.md` написан
+# руками — и в нём стояло `**0**` при факте `2` в STATUS. Ни один гейт эту строку
+# не читал: `sync-check` сверяет якоря `fact:`, `docs-parity` — пары RU/EN,
+# `claims-audit` — числа по своим правилам (строки `NEXT_SESSION` под них не
+# попадают). Число в прозе без владельца — тот же класс, что #370/#380/#394/#406.
+# Владелец теперь есть: журнал, и сверка живёт в `make status-check`, то есть там,
+# где её нельзя забыть.
+#
+# ГРАНИЦА: сверяется ЧИСЛО. Список номеров рядом (`— #405, #406`) остаётся прозой:
+# проверять его значило бы сравнивать текст с текстом, а не с источником.
+# ---------------------------------------------------------------------------
+NEXT_SESSION = ("docs/NEXT_SESSION.md", "docs/NEXT_SESSION.ru.md")
+NS_OPEN = re.compile(
+    r"(?:Open technical defects|Открытых технических дефектов)[^0-9]{0,24}(\d+)")
+
+
+def next_session_defect_mismatch(j: dict,
+                                 paths: tuple = NEXT_SESSION) -> list:
+    """Сверить число открытых дефектов в передаче дел с журналом."""
+    out: list = []
+    for rel in paths:
+        p = ROOT / rel
+        if not p.exists():
+            out.append(f"{rel}: файла нет")
+            continue
+        found = NS_OPEN.findall(p.read_text(encoding="utf-8"))
+        if not found:
+            out.append(f"{rel}: нет строки про открытые дефекты (ожидалась "
+                       f"«Open technical defects» / «Открытых технических дефектов»)")
+            continue
+        for got in found:
+            if int(got) != int(j["open"]):
+                out.append(f"{rel}: в прозе {got} открытых дефектов, "
+                           f"а журнал даёт {j['open']}")
+    return out
 
 
 
@@ -328,9 +373,15 @@ def check() -> int:
         elif p.read_text(encoding="utf-8") != want:
             print(f"[FAIL] {rel} разошёлся с источником — запустите `make status`")
             bad += 1
+    # Класс #406: число открытых дефектов не имеет права жить в прозе без
+    # владельца. Владелец — журнал, а читатель прозы — передача дел.
+    for msg in next_session_defect_mismatch(_journal()):
+        print(f"[FAIL] передача дел: {msg}")
+        bad += 1
     if bad:
         return 1
-    print(f"[OK] STATUS: {len(OUT)} файла совпадают с facts.json + реестром + журналом")
+    print(f"[OK] STATUS: {len(OUT)} файла совпадают с facts.json + реестром + журналом; "
+          f"число открытых дефектов в передаче дел сверено")
     return 0
 
 
@@ -375,6 +426,25 @@ def selftest() -> int:
     if "#9999" not in render_en(f, reg, j2) or "#9999" not in render_ru(f, reg, j2):
         print("[FAIL] selftest: открытый дефект не попадает в STATUS")
         bad += 1
+    # Класс #406: строка про открытые дефекты в передаче дел обязана сверяться с
+    # журналом. Мета-тест ДВУСТОРОННИЙ: верное число принимается, подделка — нет.
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        ok_ns = Path(td) / "ns_ok.md"
+        ok_ns.write_text(f"| Open technical defects | **{j['open']}** — ok |\n",
+                         encoding="utf-8")
+        if next_session_defect_mismatch(j, (str(ok_ns),)):
+            print("[FAIL] selftest: ВЕРНОЕ число открытых дефектов забраковано")
+            bad += 1
+        bad_ns = Path(td) / "ns_bad.md"
+        bad_ns.write_text("| Открытых технических дефектов | **0** — подделка |\n",
+                          encoding="utf-8")
+        if int(j["open"]) == 0:
+            print("[FAIL] selftest: подсадка неотличима — журнал уже даёт 0 открытых")
+            bad += 1
+        elif not next_session_defect_mismatch(j, (str(bad_ns),)):
+            print("[FAIL] selftest: расхождение числа открытых дефектов НЕ поймано")
+            bad += 1
     print(f"[{'OK' if bad == 0 else 'FAIL'}] STATUS selftest: ошибок {bad}")
     return 0 if bad == 0 else 1
 

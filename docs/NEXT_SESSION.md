@@ -1,12 +1,18 @@
-# Resuming work on KERN: handoff at commit `08eb5cd`
+# Resuming work on KERN: handoff at commit `d98953c`
 
 > **I cannot open sessions myself, and I keep no memory between them.** Only what
 > is written in this repository survives. This file exists so a new session
 > resumes from measured facts instead of from a summary.
 >
 > **Read first, in this order:** `docs/STATUS.md` (generated: state and counts) →
-> this file (open work) → **`docs/PLAN_takt22.md` (the ACTIVE plan, not started)** →
-> `docs/CAPABILITY_MATRIX.md` (what is proven and what each proof does NOT show).
+> this file (open work) → **`docs/PLAN_takt22.md` (the ACTIVE plan: step 1 done,
+> steps 2–7 open)** → `docs/CAPABILITY_MATRIX.md` (what is proven and what each
+> proof does NOT show).
+>
+> **The commit pointer above is PROSE and goes stale by itself.** It is the **base
+> slice of tack 2.2**, not "current `HEAD`": chasing HEAD is pointless, a SHA goes
+> stale in the very commit that adds it (this line was corrected twice already). The
+> authority is `git log -1` and `docs/STATUS.md`, never this line.
 
 > **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
@@ -14,10 +20,10 @@
 
 | Check | Value |
 |:--|:--|
-| Branch / tree | `main` = `08eb5cd`, clean |
+| Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->238 targets · **<!-- fact:check_targets -->182/<!-- fact:check_targets -->182 CHECK** · <!-- fact:canfail_cases -->222 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** (per `docs/STATUS.md`) |
+| Open technical defects | **3** — #405, #406, #407 (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -30,9 +36,9 @@ Short version of what it says:
 
 | # | Step | Why |
 |:--|:--|:--|
-| 1 | **R4** in `docs_map_check.py` — compare the map's `§N` ranges with the real maximum | the map says `§1–§167` while the fact is **§168** (and `§1–§145` vs **§146**): **#404 recurred immediately** |
-| 2 | **#405** — split the funnel into `checked` / `trivial` / `skipped` | **the funnel currently lies**: functions WITHOUT `if` ARE analysed (live proof: `ratio` and `add32` produce findings) yet are counted as `skipped` |
-| 3 | **Dump the `no reason` bucket** (×2 on cmark) | statically unreachable, yet measured — needs a dump, not a guess |
+| 1 | ✅ **DONE** — **R4** in `docs_map_check.py` — compare the map's `§N` ranges with the real maximum | the map said `§1–§167` while the fact was **§169** (and `§1–§145` vs **§147**): **#404 recurred a THIRD time**. R4, the corrected ranges and a 4th meta-test diversion are in place |
+| 2 | **#405** — split the funnel into `checked` / `trivial` / `skipped` | **the funnel currently lies**: functions WITHOUT `if` ARE analysed (live proof, **with Z3 in `PATH`**: `ratio` and `add32` produce findings) yet are counted as `skipped` |
+| 3 | **RE-SCOPED: the reason histogram mixes FUNCTIONS and BRANCHES** — in the Python path `skipped` holds branch messages (`:4857`, `:4865`) while the counter counts functions (`:7354`), and the scraper (`:7604–7612`) merges both into one dict compared with the function counter (`:5655–5657`) → the nonsense `-6`. Split `fn_skip_reasons` / `branch_skip_reasons`, never print a negative, and add the `#407` Z3 preflight (`rc != 0` + `.venv/bin` picked up from `sys.executable`) | the OLD target ("dump `no reason`") was **vacuous**: that bucket measures 0 on both corpora |
 | 4 | **Bitwise conditions via BV** + a `free_syms_in_path` flag | `& \| ^ << >>` over `Int` is unsound; `SAT` checks must refuse a path carrying free symbols |
 | 5 | Ternary `?:` → `(ite …)` | `ternary: 6` in toolkit |
 | 6 | `nil/null` (+49 C, +3 TS) with reset on `ptr=`, `ptr++`, `ptr+=`, `&ptr`, any call in TS | `nil/null` is the largest real reserve |
@@ -44,9 +50,41 @@ there is nothing to branch on, but the obligations (overflow, division, bounds)
 **are** checked there, and the counter reports those functions as `skipped` anyway.
 That is defect **#405**, and it is why step 2 exists.
 
+**Second precondition, found while re-measuring: Z3 must be in `PATH`.** The live
+proof of #405 is INVISIBLE without it — `--xray` prints `findings 0` and no warning
+(defect **#407**). Any `--xray` run in this project is `PATH="$PWD/.venv/bin:$PATH"`.
+
 Both corpora are pinned by SHA (`27d942c8`, `0c3a9c33`) so "before/after" is
 measured on identical bytes; the clones live in `~/.cache/kern/repos/`.
 
+
+**Corrected in THIS session (re-measurement before step 1; defect #407 recorded).**
+Everything below was re-measured at `d98953c` on the SHA-pinned corpora, and the plan
+was corrected wherever it disagreed with the code:
+
+1. **Z3 is a PRECONDITION, not a detail (#407).** The solver is a Python module
+   inside `.venv` (`z3 5.3.1`) and `kernc` finds it through `PATH`. Without it
+   `--xray` prints `findings 0` and **no warning at all** — the first re-measurement
+   of the funnel returned zeros that looked like "clean". With
+   `PATH="$PWD/.venv/bin:$PATH"` the evidence for #405 reproduces EXACTLY
+   (`находок 4`, `проверено 7 / 16 (skipped 9)`). The preflight exists in `_demo`
+   and on the contract path — not in `--xray`.
+2. **The plan's §0 histogram did not reproduce.** `no reason` is **0 on both
+   corpora** (4 runs: with and without Z3), not 2 and 1; "no `if`" is **126** and
+   **337**, not 124 and 336. The sums (232, 400) and the checked counts
+   (76/308, 58/458) were right. Denominator corrected: C **182**, TS **121**.
+3. **Step 3 was VACUOUS as written** — its acceptance was already met. It is
+   RE-SCOPED onto a defect that IS measurable there: the reason histogram mixes
+   **functions** and **branches** (branch messages at `:4857`/`:4865`, the function
+   counter at `:7354`, and the scraper merging both at `:7604–7612` → the nonsense
+   `-6`). Note the honest part: the existing gate `xray-skip-reasons` **passes
+   WITHOUT Z3 too** (measured), so its fixture cannot reproduce the mixing — the new
+   case has to be added deliberately, otherwise the step is green by construction.
+4. **#406 recurred a THIRD time**, in the very commit that recorded it: the map said
+   `§1–§167` while the fact was §169, and `§1–§145` while §147.
+5. **Step 1 is DONE**: R4 compares every printed `§N` range with the real maximum
+   `## §…`, the ranges are corrected in the same commit, and the meta-test carries a
+   4th diversion (`§1–§1`) so the new rule is provably able to fail.
 
 **Closed in THIS session (verification of all capabilities):**
 
