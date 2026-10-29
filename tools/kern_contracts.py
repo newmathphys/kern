@@ -40,6 +40,7 @@ import json
 import os
 import shutil
 import re
+import zlib
 import shutil
 import subprocess
 import io
@@ -2201,6 +2202,83 @@ def _iter_call_args(src: str, name: str):
         if depth == 0:
             yield src[m.end(): j - 1]
         i = j
+
+
+_C_SIMPLE_ESC = {"0": chr(0), "t": chr(9), "n": chr(10), "r": chr(13),
+                 "a": chr(7), "b": chr(8), "f": chr(12), "v": chr(11),
+                 chr(92): chr(92), chr(39): chr(39), chr(34): chr(34), "?": "?"}
+
+
+def _decode_c_char(raw: str):
+    """Раскрыть стандартные C-эскейпы; вернуть ОДИН символ или None.
+
+    Нужно, чтобы отличить `'x'` (символ: семантика — точный код) от
+    `'win32'` (строка: семантика — просто метка).
+    """
+    if not raw:
+        return None
+    if raw[0] != chr(92):
+        return raw if len(raw) == 1 else None
+    esc = raw[1:2]
+    if esc in _C_SIMPLE_ESC and len(raw) == 2:
+        return _C_SIMPLE_ESC[esc]
+    if esc == "x":
+        try:
+            return chr(int(raw[2:], 16))
+        except ValueError:
+            return None
+    if esc.isdigit():
+        try:
+            return chr(int(raw[1:], 8))
+        except ValueError:
+            return None
+    return None
+
+def _literals_to_numbers(cond: str) -> str:
+    """Заменить ЛИТЕРАЛЫ в ВЫРЕЗАННОМ условии на числа (дефект #410).
+
+    ПОЧЕМУ ЗДЕСЬ, А НЕ В ОБЩЕМ СТРИППЕРЕ. `_strip_c_comments_strings` отвечает за
+    ГРАНИЦЫ функций и номера строк: там литералы обязаны стать ПРОБЕЛАМИ 1-в-1
+    (иначе едут смещения и число функций — ИЗМЕРЕНО 458 -> 476/443). Здесь текст
+    условия УЖЕ вырезан по точным индексам, позиции файла никому не нужны,
+    поэтому числа подставляются ПОЛНОСТЬЮ, без усечения по ширине кавычек.
+
+    СЕМАНТИКА: `'x'` (ровно один символ после раскрытия C-эскейпов) -> `ord(x)`;
+    строки и многосимвольные литералы -> детерминированное ПОЛОЖИТЕЛЬНОЕ число из
+    содержимого (никогда 0, иначе строка склеилась бы с `NULL`).
+    """
+    out: list[str] = []
+    i, n = 0, len(cond)
+    while i < n:
+        ch = cond[i]
+        if ch not in chr(34) + chr(39) + chr(96):
+            out.append(ch)
+            i += 1
+            continue
+        j = i + 1
+        buf: list[str] = []
+        while j < n:
+            if cond[j] == chr(92) and j + 1 < n:
+                buf.append(cond[j:j + 2])
+                j += 2
+                continue
+            if cond[j] == ch:
+                break
+            buf.append(cond[j])
+            j += 1
+        if j >= n:
+            out.append(cond[i:])
+            break
+        raw = "".join(buf)
+        if ch == chr(39):
+            c = _decode_c_char(raw)
+            num = (str(ord(c)) if (c is not None and len(c) == 1) else
+                   str(1_000_000 + (zlib.crc32(raw.encode("utf-8", "replace")) & 0x7FFFFF)))
+        else:
+            num = str(1_000_000 + (zlib.crc32(raw.encode("utf-8", "replace")) & 0x7FFFFF))
+        out.append(num)
+        i = j + 1
+    return "".join(out)
 
 
 def _strip_c_comments_strings(text: str) -> str:
@@ -5958,6 +6036,7 @@ def _clike_functions(path: Path):
     if path.suffix in {".ts", ".js"}:
         src = _strip_js_regex(src)          # `/re/g` — регекс, а не деление
     lines = src.splitlines()
+    _raw_lines = raw_text.splitlines()
     out = []
     for i, line in enumerate(lines):
         m = (RE_FN_FN.match(line) or RE_FN_TS.match(line)
@@ -5994,7 +6073,7 @@ def _clike_functions(path: Path):
             depth += ln.count("{") - ln.count("}")
             if "{" in ln:
                 started = True
-            body.append(ln)
+            body.append(_raw_lines[j] if j < len(_raw_lines) else ln)
             if started and depth <= 0:
                 break
         # `@kern:requires` над функцией — часть домена. Для C-like это
@@ -6737,6 +6816,9 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
             # сравнение; в Int-модели `nil` бессмысленно, и получался ложный
             # DEAD BRANCH. Такие условия честно пропускаем.
+            # ДЕФЕКТ #410: ЛИТЕРАЛЫ -> ЧИСЛА в ВЫРЕЗАННОМ условии (позиции файла
+            # тут уже не нужны, поэтому без усечения по ширине кавычек).
+            raw_cond = _literals_to_numbers(raw_cond)
             _has_null = re.search(rf"\b{_NULL_WORDS}\b", raw_cond) is not None
             # ИЗМЕРЕНО (шаг 6): `if (!p)` НЕ содержит слова `nil/null`, поэтому
             # перепись не запускалась вовсе, и функция уходила в SKIP как
