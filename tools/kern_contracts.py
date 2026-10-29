@@ -47,13 +47,19 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Каталог САМОГО инструмента обязан быть в `sys.path`: `kern_contracts.py`
+# запускают и как скрипт, и через `python3 -c` (так делают гейты) — во втором
+# случае `sys.path[0]` не `tools/`, и импорт спецификации падал с
+# `ModuleNotFoundError` (измерено гейтом `edge-cases`).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 # СПЕЦИФИКАЦИЯ ВОРОНКИ ПОД КОНТРАКТОМ САМОГО KERN (дефекты #405/#407.2).
 # Живёт в `tools/funnel_accounting.py`: её доказывает ТОТ ЖЕ движок (Z3) и стережёт
 # `tools/funnel_contract_check.py`, запечатано в `docs/contracts.lock.json`.
 # Здесь она ИСПОЛЬЗУЕТСЯ, а не упоминается: разность «пропуски минус названные
 # причины» обязана быть ОДНОЙ РАЗМЕРНОСТИ, и нарушение предпосылки называет
 # контракт, а не выдуманное отрицательное число (наблюдалось `-6`).
-from funnel_accounting import unexplained_skips
+from funnel_accounting import unexplained_skips, unaccounted
 
 
 CMP = {"Eq": "=", "NotEq": "distinct", "Lt": "<", "LtE": "<=",
@@ -5662,8 +5668,10 @@ def _skip_key(exc: object) -> str:
     return txt[:60] or "без описания"
 
 
-def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int) -> None:
-    """Напечатать причины пропуска C-like функций (ДЕФЕКТ #400).
+def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int,
+                              trivial: int = 0, checked: int = 0,
+                              total: int = 0, notes: dict | None = None) -> None:
+    """Напечатать причины пропуска + ТРИ КОРЗИНЫ (ДЕФЕКТЫ #400/#405).
 
     ЧТО БЫЛО НЕ ТАК. Сводка `--xray` для C-like заявляла
     «skipped N with explicit reasons», но НИ ОДНОЙ причины не выводила:
@@ -5673,9 +5681,12 @@ def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int) -> None:
     ЧЕСТНАЯ ГРАНИЦА. Список причин и счётчик — РАЗНЫЕ вещи. Если функции
     пропускаются, а причина не записана, это названо дефектом ИНСТРУМЕНТА
     (как в Python-пути, N4), а не свойством проверяемого кода.
+
+    ТРИ КОРЗИНЫ (#405) печатаются отдельной строкой `buckets:`, а их сумма
+    проверяется ЗАПЕЧАТАННОЙ спецификацией `funnel_accounting.unaccounted`:
+    остаток обязан быть нулём. Если он не ноль — это дефект ИНСТРУМЕНТА, и он
+    называется числом, а не замалчивается.
     """
-    if not reasons and skipped <= 0:
-        return
     named = sum(reasons.values())
     for key, cnt in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
         print(f"    skip: {key} × {cnt}")
@@ -5693,6 +5704,20 @@ def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int) -> None:
         else:
             print(f"[!] пропусков БЕЗ записанной причины: {diff} — это "
                   f"дефект инструмента, а не свойство проверяемого кода")
+    if total:
+        # ДЕФЕКТ #405: корзины обязаны покрывать `total` ровно один раз.
+        # `checked` уже ВКЛЮЧАЕТ функции без `if`, чья арифметика проверена, —
+        # именно это и было исправлено; отдельно ветви и «только арифметика»
+        # здесь не разделяются (граница названа в METRICS §173).
+        _left = unaccounted(total, checked, 0, trivial, skipped)
+        print(f"    buckets: checked {checked} | trivial {trivial} | skipped {skipped} "
+              f"| Σ {checked + trivial + skipped} == total {total}")
+        if _left != 0:
+            print(f"    [!] ИНВАРИАНТ ВОРОНКИ НАРУШЕН: остаток {_left} — корзины не "
+                  f"покрывают `total` (дефект инструмента, спецификация "
+                  f"funnel_accounting.unaccounted)")
+    if notes:
+        _xray_report_branch_notes(notes)
 
 
 def _xray_report_branch_notes(notes: dict[str, int]) -> None:
@@ -6428,7 +6453,7 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
     return out
 
 
-def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, int]]:
+def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[str, int], dict[str, int]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
     Извлекает условия `if (...)` из ТЕЛА (без исполнения) и проверяет их
@@ -6442,7 +6467,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, 
         funcs = _clike_functions(path)
     except Exception as _kern_e_3799:  # noqa: BLE001
         _replay_soft(_kern_e_3799, "kern_contracts.py:3799")
-        return 0, 0, [], {}
+        return 0, 0, 0, [], {}, {}
     # ДЕФЕКТ #193: типы полей структур нужны для проверки переполнения
     # счётчиков (`row->n_columns : uint16_t`). Определения лежат в том же
     # файле (cmark: `typedef struct { uint16_t n_columns; } table_row;`).
@@ -6459,16 +6484,22 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, 
             else "go" if _suf == ".go"
             else "ts" if _suf in {".ts", ".js"}
             else "c")
-    checked = total = 0
+    checked = total = trivial = 0
     found: list[str] = []
     # ДЕФЕКТ #400: причины пропуска НЕ собирались, а сводка при этом заявляла
     # «skipped N with explicit reasons» — то есть ПЕЧАТАЛАСЬ ЛОЖНАЯ ФРАЗА: ни
     # одной причины не выводилось. Здесь они собираются, и гистограмма
     # печатается вместе со сводкой.
     reasons: dict[str, int] = {}
+    # ДЕФЕКТ #407.2: ЧАСТИЧНЫЙ отсев у ПРОВЕРЕННОЙ функции (часть условий вне
+    # подмножества) — это заметка уровня ВЕТКИ, а не пропуск функции.
+    notes: dict[str, int] = {}
 
     def _bump(key: str) -> None:
         reasons[key] = reasons.get(key, 0) + 1
+
+    def _bump_note(key: str) -> None:
+        notes[key] = notes.get(key, 0) + 1
 
     # ДЕФЕКТ #194: часть правил проверяется на УРОВНЕ ФАЙЛА. Причина измерена:
     # в cmark-gfm функция `cmark_inline_parser_scan_delimiters` объявлена
@@ -6483,6 +6514,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, 
         _full_src = _strip_js_regex(_full_src)
     for name, params, body, _ln, ranges, reqs in funcs:
         total += 1
+        # ДЕФЕКТ #405 (найден при правке): счётчик вызовов решателя ОБЯЗАН
+        # обнуляться на КАЖДУЮ функцию. Он глобальный, и без сброса первая же
+        # функция с обязательством делала `_SMT_CALLS[0] > 0` для ВСЕХ
+        # последующих — то есть корзина `checked` наполнялась бы функциями,
+        # которых решатель не касался (ложное покрытие, класс #320).
+        _SMT_CALLS[0] = 0
         proven = 0
         # ДЕФЕКТ #400: причина, по которой функция НЕ попала в `checked`.
         skip_why: list[str] = []
@@ -6866,16 +6903,29 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, 
                 local_smt, kernc):
             if _ov_msg not in found:
                 found.append(_ov_msg)
-        if proven:
+        # ТРИ КОРЗИНЫ (дефект #405). Разделение идёт по ФАКТУ РАБОТЫ, а не по
+        # наличию `if`:
+        #   checked — решатель РЕАЛЬНО вызывался (обязательства были);
+        #   trivial — функция разобрана, но обязательств НЕТ (ни `if`, ни
+        #             арифметики/деления/границ): проверять нечего, и называть
+        #             это «пропуском» значило бы врать о покрытии;
+        #   skipped — функция НЕ анализировалась (условие вне подмножества,
+        #             `nil/null`, `битовый оператор`, синтаксис).
+        # ИЗМЕРЕНО до правки: `ratio` и `add32` из `audits/codecheck` (НОЛЬ
+        # ветвлений) ДАВАЛИ находки, но числились `skipped` — воронка занижала
+        # охват на 126 (C) и 337 (TS) функций.
+        if _SMT_CALLS[0] > 0:
             checked += 1
-        else:
-            # ДЕФЕКТ #400: функция пропущена — НАЗВАТЬ причину, а не молчать.
             if skip_why:
-                _bump(skip_why[0])
-            elif not _ifs:
-                _bump("нет условий `if` в теле")
-            else:
-                _bump("условие отсеяно без названной причины (дефект инструмента)")
+                # Часть условий отсеяна, но функция ПРОВЕРЕНА: причина — заметка.
+                _bump_note(skip_why[0])
+        elif skip_why:
+            # ДЕФЕКТ #400: функция пропущена — НАЗВАТЬ причину, а не молчать.
+            _bump(skip_why[0])
+        elif not _ifs:
+            trivial += 1
+        else:
+            _bump("условие отсеяно без названной причины (дефект инструмента)")
     # Файловый уровень: правила, недостижимые внутри функции.
     # (а) #194 off-by-one: функция cmark-gfm `cmark_inline_parser_scan_delimiters`
     #     объявлена МНОГОСТРОЧНО, поэтому `_clike_functions` её не находит.
@@ -6906,7 +6956,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, list[str], dict[str, 
                f"без проверки границы 65535 -> счётчик переполнится")
         if msg not in found:
             found.append(msg)
-    return checked, total, found, reasons
+    return checked, total, trivial, found, reasons, notes
 
 
 _AUTO_ROUTE_RULES = [
@@ -6970,7 +7020,7 @@ def cmd_full_scan(path: str, kernc) -> int:
                 _m = re.search(r"checked (\d+) / (\d+)", _out)
                 c, t = (int(_m.group(1)), int(_m.group(2))) if _m else (0, 0)
             else:
-                c, t, fd, _rs = _xray_clike_file(f, kernc)
+                c, t, _tr, fd, _rs, _nt = _xray_clike_file(f, kernc)
         except Exception as _kern_e_4248:  # noqa: BLE001
             _replay_soft(_kern_e_4248, "kern_contracts.py:4248")
             continue
@@ -7255,8 +7305,8 @@ def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
                         if m2:
                             worst.append((int(m2.group(2)), str(f.relative_to(root)), m2.group(1)))
                 else:
-                    ck, tot, fd, _rs = _xray_clike_file(f, kernc)
-                    st[1] += ck; st[2] += max(0, tot - ck)
+                    ck, tot, triv, fd, _rs, _nt = _xray_clike_file(f, kernc)
+                    st[1] += ck; st[2] += max(0, tot - ck - triv)
                     for x in fd:
                         findings.append(f"{f.relative_to(root)}: {x}")
             except Exception as _kern_e_4526:  # noqa: BLE001 — честно пропускаем нечитаемое
@@ -7340,9 +7390,9 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     # Маршрутизируем в устойчивый разбор БЕЗ исполнения тела (адаптер №5б).
     if p.suffix != ".py":
         _SMT_CALLS[0] = 0
-        ck, tot, fd, _rs = _xray_clike_file(p, kernc)
+        ck, tot, triv, fd, _rs, _nt = _xray_clike_file(p, kernc)
         _smt_calls_clike = _SMT_CALLS[0]
-        _LAST_XRAY["stat"] = (ck, tot, tot - ck, list(fd))
+        _LAST_XRAY["stat"] = (ck, tot, max(0, tot - ck - triv), triv, list(fd))
         for x in fd:
             print("  " + x)
         # ЧЕСТНАЯ ГРАНИЦА (дефект #201). В C-like разборе НЕТ управления
@@ -7359,10 +7409,10 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
                   "потоком (ранние return, break, итерации циклов) не "
                   "моделируется. Проверять вручную по коду.")
         print("-" * 74)
-        print(f"[XRAY SUMMARY] checked {ck} / {tot} functions, "
-              f"skipped {tot - ck} with explicit reasons, findings {len(fd)}, "
-              f"SMT calls {_smt_calls_clike}")
-        _xray_report_skip_reasons(_rs, tot - ck)
+        print(f"[XRAY SUMMARY] checked {ck} / {tot} functions (trivial {triv}), "
+              f"skipped {max(0, tot - ck - triv)} with explicit reasons, "
+              f"findings {len(fd)}, SMT calls {_smt_calls_clike}")
+        _xray_report_skip_reasons(_rs, max(0, tot - ck - triv), triv, tot, _nt)
         return 0
     src = p.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
@@ -7407,7 +7457,10 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         if not conds_ok:
             fn_skipped.append(f"{fn.name}: условие ветвления вне подмножества")
             continue
-        checked += 1
+        # ДЕФЕКТ #405: `checked` БОЛЬШЕ НЕ растёт здесь. Функция попадает в
+        # `checked` только если решатель РЕАЛЬНО вызывался (см. ниже), а функция
+        # без обязательств — в `trivial`. Считать её «проверенной» или
+        # «пропущенной» значило бы врать о покрытии в любую сторону.
         if show_all or cc > 1:
             print(f"  [FN] {fn.name}: CC={cc} параметров={len(params)}")
         for s in smells:
@@ -7436,10 +7489,15 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     for f in found:
         print("  " + f)
     print("-" * 74)
-    _LAST_XRAY["stat"] = (checked, len(fns), len(fns) - checked, list(found))
-    print(f"[XRAY SUMMARY] checked {checked} / {len(fns)} functions "
-          f"(SMT-verified {verified_smt}, no obligations {no_obligations}), "
-          f"skipped {len(fns) - checked} with explicit reasons, "
+    # ТРИ КОРЗИНЫ (дефект #405): checked = решатель вызывался; trivial =
+    # обязательств нет; skipped = функция НЕ анализировалась.
+    _checked = verified_smt
+    _trivial = no_obligations
+    _skipped = len(fn_skipped)
+    _LAST_XRAY["stat"] = (_checked, len(fns), _skipped, _trivial, list(found))
+    print(f"[XRAY SUMMARY] checked {_checked} / {len(fns)} functions "
+          f"(SMT-verified {_checked}, no obligations {_trivial}), "
+          f"skipped {_skipped} with explicit reasons, "
           f"findings {len(found)}")
     for s in fn_skipped:
         print(f"    skip: {s}")
@@ -7448,11 +7506,12 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
     # вычитать число ветвей из числа функций (дефект #407.2, отсюда бралось `-6`).
     for s in notes:
         print(f"    note: {s}")
-    # ДЕФЕКТ N4: счётчик считает `len(fns) - checked`, а причины берутся из
-    # списка ФУНКЦИОННЫХ пропусков. Если какой-то путь пропускает функцию, НЕ
-    # записав причину, число говорит «skipped N», а строк `skip:` меньше — и
-    # читатель не знает, почему. Разницу печатаем явно: это дефект ИНСТРУМЕНТА.
-    _unexplained = (len(fns) - checked) - len(fn_skipped)
+    # ДЕФЕКТ N4 (и #405): остаток считаем от СУММЫ КОРЗИН, а не от одного
+    # счётчика. Если какой-то путь пропускает функцию, НЕ записав причину, число
+    # говорит «skipped N», а строк `skip:` меньше — и читатель не знает, почему.
+    # Разницу печатаем явно: это дефект ИНСТРУМЕНТА. Инвариант тот же, что в
+    # запечатанной спецификации `funnel_accounting.unaccounted`.
+    _unexplained = len(fns) - (_checked + _trivial + _skipped)
     if _unexplained > 0:
         print(f"    [!] пропусков БЕЗ записанной причины: {_unexplained} — "
               f"это дефект инструмента, а не свойство проверяемого кода")
@@ -7660,7 +7719,7 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     files, skipped_ext = _xray_collect(root)
     _xray_report_skipped(skipped_ext)
     print(f"[REPO SCAN] {root} | файлов к сканированию: {len(files)}")
-    total_checked = total_fns = total_skip = 0
+    total_checked = total_fns = total_skip = total_trivial = 0
     all_findings: list[str] = []
     all_reasons: dict[str, int] = {}      # ДЕФЕКТ #400: гистограмма причин
     # ДЕФЕКТ #407.2: заметки уровня ВЕТКИ — ОТДЕЛЬНАЯ корзина. До этого они
@@ -7670,12 +7729,15 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
     bad_files = 0
     for f in files:
         if f.suffix != ".py":
-            ck, tot, fd, _rs = _xray_clike_file(f, kernc)
+            ck, tot, triv, fd, _rs, _nt = _xray_clike_file(f, kernc)
             total_checked += ck
             total_fns += tot
-            total_skip += max(0, tot - ck)
+            total_trivial += triv
+            total_skip += max(0, tot - ck - triv)
             for _k400, _c400 in _rs.items():
                 all_reasons[_k400] = all_reasons.get(_k400, 0) + _c400
+            for _k_note, _c_note in _nt.items():
+                all_notes[_k_note] = all_notes.get(_k_note, 0) + _c_note
             for x in fd:
                 all_findings.append(f"{f}: {x}")
             continue
@@ -7720,15 +7782,16 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
             total_checked += st[0]
             total_fns += st[1]
             total_skip += st[2]
-            for x in st[3]:
+            total_trivial += st[3]
+            for x in st[4]:
                 all_findings.append(f"{f}: {x}")
         if rc not in (0, 1):
             bad_files += 1
     print("=" * 74)
     print(f"[REPO SUMMARY] файлов {len(files)} | функций проверено {total_checked} / {total_fns} "
           f"(skipped {total_skip}) | находок {len(all_findings)} | нечитаемых файлов {bad_files}")
-    _xray_report_skip_reasons(all_reasons, total_skip)
-    _xray_report_branch_notes(all_notes)
+    _xray_report_skip_reasons(all_reasons, total_skip, total_trivial,
+                              total_checked, total_fns, all_notes)
     for x in all_findings[:60]:
         print("  " + x)
     return 0

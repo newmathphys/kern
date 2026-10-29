@@ -3744,3 +3744,71 @@ the negative difference) — had it accepted it, the check would prove nothing.
 * The C-like path (`_xray_clike_file`) was not touched: units never mixed there — exactly one
   reason per function.
 
+
+## §151. THREE BUCKETS IN THE `--xray` FUNNEL: AN HONEST LABEL INSTEAD OF AN UNDERSTATED COVERAGE (#405, CLOSED)
+
+> Step 2 of tack 2.2. The funnel is split by the ACTUAL WORK of the solver, not by the
+> presence of `if`. Defect **#405** is closed; the journal has **zero** open defects.
+
+### 151.1 What exactly was counted wrongly
+
+| Bucket | Definition |
+|:--|:--|
+| `checked` | the solver REALLY ran (there were obligations: division, bounds, overflow, branch reachability) |
+| `trivial` | the function was parsed but has NO obligations — there is nothing to check |
+| `skipped` | the function was NOT analysed (condition outside the subset, `nil/null`, bitwise operator, syntax) |
+
+Before the fix `checked` grew only when `proven > 0`, i.e. by the number of TRANSLATABLE `if`s,
+and `trivial` did not exist at all: a function without `if` landed in `skipped` although its
+arithmetic WAS checked (the live evidence of #405: `ratio` and `add32` produced findings and were
+counted as skipped).
+
+### 151.2 MEASURED before/after on the SHA-pinned corpora (identical bytes)
+
+| Corpus | BEFORE | AFTER |
+|:--|:--|:--|
+| `cmark-gfm/src` (`27d942c8`) | `checked 76 / 308 (skipped 232)` | `checked 76 \| trivial 126 \| skipped 106 \| Σ 308 == total 308` |
+| `toolkit/packages` (`0c3a9c33`) | `checked 58 / 458 (skipped 400)` | `checked 58 \| trivial 337 \| skipped 63 \| Σ 458 == total 458` |
+| `audits/codecheck` | `checked 7 / 16 (skipped 9)`, 4 findings | `checked 14 \| trivial 2 \| skipped 0`, 4 findings |
+
+### 151.3 AN HONEST BOUNDARY: `checked` did NOT rise on the corpora
+
+This is the main thing to state plainly. The 126 functions in `cmark-gfm` and 337 in `toolkit`
+without `if` turned out to be functions **without obligations** — there is nothing for the solver
+to check, so they became `trivial`, NOT `checked`. The fix changed the **truth about the label**,
+not the coverage: they used to be called "skipped", and the funnel understated itself by 126 and
+337 respectively.
+
+Functions **with** obligations really did move from `skipped` to `checked` — visible on
+`audits/codecheck`, where `ratio` (`a / b`) and `add32` (`a + b` over `i32`) are now `checked`,
+and the funnel grew from 7/16 to 14/16.
+
+A consequence for plan §4: the realistic target "C ~68 %, TS ~55 %" was computed from the old
+denominator; after the split the denominator of "functions where there IS something to check" is
+`total − trivial` (C 182, TS 121), and 76 and 58 are checked — that is **42 % and 48 %**, exactly
+as measured in §150. Steps 4–6 (BV, ternary, `nil/null`) raise precisely those percentages.
+
+### 151.4 A companion defect found while fixing (and closed)
+
+`_SMT_CALLS` is a GLOBAL solver-call counter and it was **not reset per function**. The first
+function with an obligation made `_SMT_CALLS[0] > 0` for all subsequent ones, so the `checked`
+bucket would have been filled with functions the solver never touched (false coverage, class
+#320). Found by verification: the gate's fixture (conditions outside the subset) reported
+`checked 4 of 4`. Fixed by resetting the counter on each iteration — MEASURED after the fix:
+`checked 1 | trivial 1 | skipped 2` on the same fixture.
+
+### 151.5 The gate was updated TOGETHER with the code (safeguard #405.3)
+
+`tools/xray_skip_reasons_check.py`: the parser reads TWO independent sources (the
+`[REPO SUMMARY]` line and the `buckets:` line) and requires `Σ buckets == total` in both; the
+fixture must exercise ALL THREE buckets (`checked >= 1`, `trivial >= 1`, `skipped >= 1`) — the
+old threshold `skipped >= 2` was tied to the OLD funnel and rested on "no `if`". The meta-test
+grew from 5 to **8 branches**: forgeries added for "`trivial` not exercised", "Σ buckets ≠ total",
+"the `buckets:` line disagrees with the summary". MEASURED:
+`[PASS #400] checked 1 | trivial 1 | skipped 2 | Σ 4 == total 4; причин 2 = пропусков 2`.
+
+The repo summary now prints the buckets on a separate line, and its format
+`функций проверено C / T (skipped S)` was NOT changed — so the parsers in
+`tools/bug_hunter.py`, `tools/bounds_check.sh` and the #400 gate keep working (verified:
+`xray-check`, `bounds-check`, `loop-check`, `bug-hunt-check`, `edge-cases` all green).
+

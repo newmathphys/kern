@@ -3880,7 +3880,8 @@ def case_xray_skip_reasons():
     Харнесс это поймал (`ВАКУУМНЫХ 1`). Правильный саботаж — снять ПЕЧАТЬ.
     """
     patch("tools/kern_contracts.py",
-          "    _xray_report_skip_reasons(all_reasons, total_skip)\n",
+          "    _xray_report_skip_reasons(all_reasons, total_skip, total_trivial,\n"
+          "                              total_checked, total_fns, all_notes)\n",
           "    pass  # ЛОМАЕМ (#400): гистограмма не печатается\n")
     return "bash tools/xray_check.sh"
 

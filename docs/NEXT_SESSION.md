@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->238 targets · **<!-- fact:check_targets -->182/<!-- fact:check_targets -->182 CHECK** · <!-- fact:canfail_cases -->222 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** — #405 (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -113,6 +113,20 @@ was corrected wherever it disagreed with the code:
      пропусков функций 0, отрицательной разницы НЕТ`.
    * Registry unchanged (182/182 CHECK, 222 cases); `ci-fast` 11 green.
    **Only #405 (plan step 2) stays open.**
+8. **STEP 2 DONE: the funnel has THREE buckets, and #405 is CLOSED.** Buckets are counted by
+   ACTUAL WORK: `checked` (the solver ran), `trivial` (parsed, no obligations), `skipped`
+   (not analysed). MEASURED before/after on the SHA-pinned corpora: `cmark-gfm/src` 76/308
+   (skipped 232) → `checked 76 | trivial 126 | skipped 106 | Σ 308`; `toolkit/packages` 58/458
+   (skipped 400) → `checked 58 | trivial 337 | skipped 63 | Σ 458`; `audits/codecheck` 7/16
+   (skipped 9) → `checked 14 | trivial 2 | skipped 0`.
+   **The honest part: `checked` did NOT rise on the corpora** — the 126 and 337 functions
+   without `if` have NO obligations, so they became `trivial`; what changed is the LABEL, not
+   the coverage. Functions WITH obligations (`ratio`, `add32`) really did move to `checked`.
+   A companion defect was found and closed while fixing: `_SMT_CALLS` was not reset per
+   function, which made every function after the first look "checked" (false coverage) —
+   caught because the gate's fixture reported `checked 4 of 4`. The #400 gate was updated in
+   the SAME commit (fixture must exercise all three buckets; `Σ buckets == total`; meta-test
+   5 → 8 branches). **The journal now has ZERO open defects.**
    **Boundary:** this locks the SPECIFICATION; wiring `--xray` itself to it is the
    next sub-step (the function/branch unit split, `:4857`/`:4865` vs `:7354`).
    Measured experiments that shaped it (METRICS §149): the literal contract

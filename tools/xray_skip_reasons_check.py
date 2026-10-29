@@ -104,48 +104,86 @@ def _check_python_notes(tmp: Path) -> tuple:
     neg = [ln.strip() for ln in out.splitlines() if "БЕЗ записанной причины: -" in ln]
     if neg:
         return False, f"отрицательное «число пропусков» вернулось: {neg[0][:90]}"
-    checked, skipped, named, unnamed = _parse(out)
-    if checked < 0:
-        return False, "в выводе нет [REPO SUMMARY]"
-    if unnamed:
-        return False, f"сводка признала пропуски БЕЗ причины: {unnamed[0].strip()[:90]}"
-    if named != skipped:
-        return False, f"Σ причин {named} != пропусков {skipped} (размерности смешаны)"
+    d = _parse(out)
+    if d["checked"] < 0:
+        return False, "в выводе нет ни [REPO SUMMARY], ни строки `buckets:`"
+    if d["unnamed"]:
+        return False, f"сводка признала пропуски БЕЗ причины: {d['unnamed'][0].strip()[:90]}"
+    if d["named"] != d["skipped"]:
+        return False, (f"Σ причин {d['named']} != пропусков {d['skipped']} "
+                       f"(размерности смешаны)")
+    if d["b_sum"] != d["b_total"]:
+        return False, f"Σ корзин {d['b_sum']} != total {d['b_total']} (#405)"
     mixed = [n for n in notes if n.startswith("skip: ")]
     if mixed:
         return False, f"заметка помечена как пропуск функции: {mixed[0][:90]}"
-    return True, (f"заметок уровня ВЕТКИ {len(notes)}, пропусков функций {skipped}, "
-                  f"отрицательной разницы НЕТ")
+    return True, (f"заметок уровня ВЕТКИ {len(notes)}, пропусков функций {d['skipped']}, "
+                  f"Σ корзин {d['b_sum']} == total {d['b_total']}, отрицательной разницы НЕТ")
 
 
-def _verdict(checked: int, skipped: int, named: int, unnamed: list[str]) -> tuple[bool, str]:
-    """Решение ворот: счётчик и список причин обязаны сходиться."""
-    if unnamed:
-        return False, f"сводка признала пропуски БЕЗ причины: {unnamed[0].strip()}"
-    if checked < 1:
-        return False, f"checked={checked}: переводимое условие не проверено"
-    if skipped < 2:
-        return False, f"skipped={skipped}: ожидались >= 2 пропуска (отсев по условию и по телу)"
-    if named != skipped:
-        return False, f"напечатано причин {named}, а пропусков {skipped}"
-    return True, f"checked {checked} / {checked + skipped}, причин {named} = пропусков {skipped}"
+def _verdict(d: dict) -> tuple:
+    """Решение ворот: ТРИ КОРЗИНЫ (#405) и список причин обязаны сходиться.
+
+    ЧТО ИЗМЕНИЛОСЬ ВМЕСТЕ С КОДОМ (предохранитель #405.3). Раньше порог был
+    `skipped >= 2` — он был привязан к СТАРОЙ воронке, где «нет `if`» считалось
+    пропуском. Теперь фикстура обязана задействовать ВСЕ ТРИ корзины:
+    `checked >= 1`, `trivial >= 1`, `skipped >= 1`, и сумма корзин обязана
+    равняться `total`. Иначе разделение корзин ничем не проверено.
+    """
+    if d["unnamed"]:
+        return False, f"сводка признала пропуски БЕЗ причины: {d['unnamed'][0].strip()}"
+    if d["checked"] < 0:
+        return False, "в выводе нет ни [REPO SUMMARY], ни строки `buckets:`"
+    if d["checked"] < 1:
+        return False, f"checked={d['checked']}: переводимое условие не проверено"
+    if d["trivial"] < 1:
+        return False, (f"trivial={d['trivial']}: корзина «обязательств нет» НЕ "
+                       f"задействована — фикстура не проверяет разделение корзин (#405)")
+    if d["skipped"] < 1:
+        return False, (f"skipped={d['skipped']}: ожидался хотя бы один НАСТОЯЩИЙ "
+                       f"отсев (условие вне подмножества / `nil/null` / битовый)")
+    if d["named"] != d["skipped"]:
+        return False, f"напечатано причин {d['named']}, а пропусков {d['skipped']}"
+    if d["b_sum"] != d["b_total"] or d["b_total"] != d["total"]:
+        return False, (f"Σ корзин {d['b_sum']} != total {d['b_total']} "
+                       f"(сводка говорит total {d['total']}) — инвариант воронки нарушен (#405)")
+    return True, (f"checked {d['checked']} | trivial {d['trivial']} | "
+                  f"skipped {d['skipped']} | Σ {d['b_sum']} == total {d['b_total']}; "
+                  f"причин {d['named']} = пропусков {d['skipped']}")
 
 
-def _parse(out: str) -> tuple[int, int, int, list[str]]:
-    m = re.search(r"функций проверено (\d+) / (\d+) \(skipped (\d+)\)", out)
-    if not m:
-        return -1, -1, -1, []
-    checked, skipped = int(m.group(1)), int(m.group(3))
-    named = 0
+RE_SUM = re.compile(r"функций проверено (\d+) / (\d+) \(skipped (\d+)\)")
+RE_BUCKETS = re.compile(r"buckets: checked (\d+) \| trivial (\d+) \| skipped (\d+) "
+                        r"\| Σ (\d+) == total (\d+)")
+
+
+def _parse(out: str) -> dict:
+    """Разобрать сводку: ТРИ КОРЗИНЫ + причины + признания «без причины».
+
+    Читаются ДВА независимых источника (строка `[REPO SUMMARY]` и строка
+    `buckets:`) — их расхождение само по себе является нарушением инварианта,
+    поэтому `b_total` сверяется с `total` из сводки.
+    """
+    d = {"checked": -1, "total": -1, "skipped": -1, "named": 0, "trivial": -1,
+         "b_sum": -1, "b_total": -1, "unnamed": []}
+    m = RE_SUM.search(out)
+    if m:
+        d["checked"], d["total"], d["skipped"] = (int(m.group(1)), int(m.group(2)),
+                                                  int(m.group(3)))
+    mb = RE_BUCKETS.search(out)
+    if mb:
+        d["checked"], d["trivial"], d["skipped"] = (int(mb.group(1)), int(mb.group(2)),
+                                                    int(mb.group(3)))
+        d["b_sum"], d["b_total"] = int(mb.group(4)), int(mb.group(5))
     for ln in out.splitlines():
         st = ln.strip()
         if st.startswith("skip: ") and " \u00d7 " in st:
             try:
-                named += int(st.rsplit(" \u00d7 ", 1)[1])
+                d["named"] += int(st.rsplit(" \u00d7 ", 1)[1])
             except ValueError:
                 pass
-    unnamed = [ln for ln in out.splitlines() if "БЕЗ записанной причины" in ln]
-    return checked, skipped, named, unnamed
+    d["unnamed"] = [ln for ln in out.splitlines() if "БЕЗ записанной причины" in ln]
+    return d
 
 
 def _run(d: Path) -> tuple[int, str]:
@@ -158,24 +196,37 @@ def _run(d: Path) -> tuple[int, str]:
 
 
 def selftest() -> int:
+    def D(checked, trivial, skipped, named, unnamed=(), b_sum=None, b_total=None,
+          total=None):
+        """Собрать разобранную сводку: по умолчанию инварианты СОБЛЮДЕНЫ."""
+        _s = checked + trivial + skipped
+        return {"checked": checked, "trivial": trivial, "skipped": skipped,
+                "named": named, "unnamed": list(unnamed),
+                "b_sum": _s if b_sum is None else b_sum,
+                "b_total": _s if b_total is None else b_total,
+                "total": _s if total is None else total}
+
     cases = [
-        ((1, 2, 2, []), True, "честный вывод"),
-        ((1, 2, 0, []), False, "причины не напечатаны"),
-        ((1, 2, 2, ["[!] пропусков БЕЗ записанной причины: 1 — это дефект"]), False,
-         "сводка сама признала пропуск без причины"),
-        ((0, 3, 3, []), False, "ни одно условие не проверено"),
+        (D(1, 1, 2, 2), True, "все три корзины задействованы, причины сходятся"),
+        (D(1, 1, 2, 0), False, "причины не напечатаны"),
+        (D(1, 1, 2, 2, unnamed=["[!] пропусков БЕЗ записанной причины: 1 — это дефект"]),
+         False, "сводка сама признала пропуск без причины"),
+        (D(0, 2, 2, 2), False, "ни одно условие не проверено"),
+        (D(1, 0, 3, 3), False, "корзина `trivial` НЕ задействована (#405)"),
+        (D(1, 1, 2, 2, b_sum=5), False, "Σ корзин не равна total (#405)"),
+        (D(1, 1, 2, 2, b_total=5), False, "строка `buckets:` расходится со сводкой (#405)"),
     ]
     bad = 0
     for args, want, name in cases:
-        got, why = _verdict(*args)
+        got, why = _verdict(args)
         mark = "OK" if got == want else "ПРОВАЛ"
         if got != want:
             bad += 1
         print(f"  [{mark}] {name}: verdict={got} ({why})")
     # НЕВАКУУМНОСТЬ #407.2: вывод ДО правки (отрицательная разница «-1») обязан
     # быть ОТВЕРГНУТ. Если он проходит, проверка размерностей ничего не доказывает.
-    _c, _s, _n, _u = _parse(OLD_MIXED_OUTPUT)
-    got, why = _verdict(_c, _s, _n, _u)
+    _c, _s, _n, _u = _parse(OLD_MIXED_OUTPUT), None, None, None
+    got, why = _verdict(_c)
     if got:
         print(f"  [ПРОВАЛ] вывод ДО правки принят за чистый: {why}")
         bad += 1
@@ -199,12 +250,12 @@ def main() -> int:
             print(f"[FAIL #400] --xray вернул rc={rc}")
             print(out[-800:])
             return 1
-        checked, skipped, named, unnamed = _parse(out)
-        if checked < 0:
-            print("[FAIL #400] в выводе нет [REPO SUMMARY]")
+        d = _parse(out)
+        if d["checked"] < 0:
+            print("[FAIL #400] в выводе нет ни [REPO SUMMARY], ни строки `buckets:`")
             print(out[-800:])
             return 1
-        ok, why = _verdict(checked, skipped, named, unnamed)
+        ok, why = _verdict(d)
         if not ok:
             print(f"[FAIL #400] {why}")
             print(out[-1200:])
