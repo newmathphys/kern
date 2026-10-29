@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->182/<!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -3906,3 +3906,35 @@ could silently break semantics.
 
 A bug of mine was found on the way inside the section itself: backticks inside double quotes in
 `echo` caused command substitution (`??: command not found`) - fixed, the section prints a clean OK.
+
+## §154. STEP 7: THE HARNESS MUTATION LOCK (marker + gate `mutation-lock-check`)
+
+> Closes the class of `3067a1b`: a `canfail` sabotage once reached `main`, and CI caught it
+> only AFTER the push.
+
+### 154.1 Why a marker when `flock` already exists
+
+`acquire_run_lock()` (defect #71) stops a SECOND run, but it is INVISIBLE to git and to a human:
+while the harness writes into working files, nothing prevents committing the tree. So the
+harness leaves a VISIBLE trace - `.git/CANFAIL_ACTIVE_MUTATION` with `pid=` and `started=`.
+
+The lesson of #50 is honoured (a flag file survived a crash and blocked everything): the marker
+is removed in `atexit` on ANY normal exit and on an exception, and the gate DISTINGUISHES two
+states - "mutation in flight" (PID alive) and "lock left after a crash" (PID dead) - and names
+the cure.
+
+### 154.2 The gate and its control
+
+`tools/mutation_lock_check.py`: a pure `verdict(marker_exists, pid, alive)` plus a 4-branch
+meta-test (no marker · PID alive · PID dead · PID unparsed).
+
+The corpus case `mutation-lock` creates a marker with a LIVE PID inside the command and removes
+it there too, so the tree never becomes dirty; the gate must go red. MEASURED: the case is
+non-vacuous, and `make mutation-lock-check` is green afterwards (no marker).
+
+### 154.3 What changed in the registry numbers (and why docs had to be edited)
+
+The new CHECK target raised the counters: **CHECK 182 -> 183**, **cases 222 -> 223**. No gate
+let that slip silently: `claims-audit` and `metrics-guard` named 30 occurrences in 14 files,
+and they were fixed ON THE LINES the audit named (history in `METRICS`/the journal was NOT
+touched - editing it would have rewritten the past).

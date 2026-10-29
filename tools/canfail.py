@@ -22,6 +22,7 @@
 Запуск:  python3 tools/canfail.py [--only <имя>] [--list]
 """
 import argparse
+import atexit
 import json
 import os
 import re
@@ -110,6 +111,25 @@ GENERATED = {"kern.intoto.jsonl", "kern.intoto.sig"}
 # соберёт локальный объект сборщиком мусора, закроет fd и СНИМЕТ flock —
 # блокировка «исчезнет» сразу после выхода из функции.
 _LOCK_HOLDER: list = []
+
+# ШАГ 7 ПЛАНА: МАРКЕР АКТИВНОЙ МУТАЦИИ. Харнесс пишет ПРЯМО В РАБОЧИЕ ФАЙЛЫ, и
+# однажды саботаж ушёл в `main` (`3067a1b`) — CI его поймал, но уже после пуша.
+# flock от второго прогона не защищает от КОММИТА, поэтому нужен видимый след.
+_MUTATION_MARKER = None
+
+
+def _clear_mutation_marker() -> None:
+    """Снять маркер активной мутации (вызывается из `atexit`).
+
+    Снимается при ЛЮБОМ нормальном выходе и при исключении. При SIGKILL не
+    сработает — и это правильно: маркер останется, гейт скажет «замок остался
+    после аварии», и человек удалит файл осознанно (урок #50).
+    """
+    if _MUTATION_MARKER is not None:
+        try:
+            Path(_MUTATION_MARKER).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def touch(rel: str) -> None:
@@ -3886,6 +3906,22 @@ def case_xray_skip_reasons():
     return "bash tools/xray_check.sh"
 
 
+def case_mutation_lock():
+    """ШАГ 7 SABOTAGE: маркер активной мутации ОСТАВЛЕН в дереве.
+
+    Гейт `mutation-lock-check` обязан покраснеть: если маркер можно оставить
+    незамеченным, замок — декорация, и саботаж снова уйдёт в коммит (`3067a1b`).
+
+    Маркер создаётся И СНИМАЕТСЯ ВНУТРИ команды: файл лежит в `.git/`, поэтому
+    дерево не становится грязным ни до, ни после (проверка «дерево чистое» не
+    срабатывает). PID берётся у самой оболочки (`$$`) — то есть ЖИВОЙ, и это
+    проверяет главный путь: «мутация в полёте».
+    """
+    return ("bash -c 'printf \"pid=$$ started=0\\n\" > .git/CANFAIL_ACTIVE_MUTATION; "
+            "python3 tools/mutation_lock_check.py; rc=$?; "
+            "rm -f .git/CANFAIL_ACTIVE_MUTATION; exit $rc'")
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -4185,6 +4221,7 @@ CASES = [
     ("meta-verdict",  "МЕТА-2: сломанный вердикт ловится",      case_meta_broken_verdict),
     ("xray-nested-branch", "#401: ветвь не учтена -> ложный DEAD BRANCH", case_xray_nested_branch),
     ("xray-skip-reasons",  "#400: причина пропуска не записана",          case_xray_skip_reasons),
+    ("mutation-lock",  "шаг 7: маркер мутации оставлен -> гейт обязан покраснеть", case_mutation_lock),
 ]
 
 
@@ -4397,6 +4434,23 @@ def main():
     env["PATH"] = (f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:"
                    f"{ROOT}/.venv/bin:{env.get('PATH','')}")
     os.environ.update(env)
+
+    # ШАГ 7 ПЛАНА: МАРКЕР АКТИВНОЙ МУТАЦИИ (`3067a1b` — саботаж ушёл в main).
+    # ПОЧЕМУ МАРКЕР, ЕСЛИ УЖЕ ЕСТЬ flock. Блокировка невидима для git и для
+    # человека: она мешает ВТОРОМУ прогону, но не мешает закоммитить дерево,
+    # пока первый пишет в рабочие файлы. Маркер с PID виден гейту
+    # `tools/mutation_lock_check.py` и локальному pre-commit-хуку.
+    # УРОК #50 (файл-флаг переживал аварию и блокировал всё) учтён: снимаем в
+    # `atexit` при ЛЮБОМ нормальном выходе и при исключении, а гейт РАЗЛИЧАЕТ
+    # «мутация в полёте» (PID жив) и «замок остался после аварии» (PID мёртв).
+    global _MUTATION_MARKER
+    try:
+        _MUTATION_MARKER = ROOT / ".git" / "CANFAIL_ACTIVE_MUTATION"
+        _MUTATION_MARKER.write_text(
+            f"pid={os.getpid()} started={int(time.time())}\n", encoding="utf-8")
+        atexit.register(_clear_mutation_marker)
+    except OSError:
+        _MUTATION_MARKER = None
 
     print("=" * 70)
     print("KERN: CAN-FAIL — проверка, что проверки СПОСОБНЫ УПАСТЬ")

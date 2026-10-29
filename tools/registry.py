@@ -103,6 +103,8 @@ CLASS = {
     "bitrot-chaos": "CHECK",
     "pcc-check": "CHECK",
     "xray-check": "CHECK",
+    # Шаг 7: замок мутаций харнесса (маркер активной мутации виден гейту).
+    "mutation-lock-check": "CHECK",
     "ecosystem-check": "CHECK",
     "scorecard-check": "CHECK",
     "metrics-guard": "CHECK",
@@ -381,6 +383,7 @@ CASE_TARGET = {
     "xray-ext-silent": "xray-check",
     "xray-nested-branch": "xray-check",
     "xray-skip-reasons": "xray-check",
+    "mutation-lock": "mutation-lock-check",
     "oracle-dtmc-wrong": "oracle-dtmc-check",
     "oracle-redos-missed": "oracle-redos-check",
     "oracle-absint-unsound": "oracle-absint-check",

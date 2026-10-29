@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
-> CHECK <!-- fact:check_targets -->182/<!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -11305,3 +11305,34 @@ nullish-оператор, а НЕ тернарники. `convert_ternary` счи
 
 Побочно найдена своя ошибка в самой секции: обратные кавычки внутри двойных кавычек в `echo`
 дали подстановку команды (`??: command not found`) — исправлено, секция печатает чистый OK.
+
+## §176. ШАГ 7: ЗАМОК МУТАЦИЙ ХАРНЕССА (маркер + гейт `mutation-lock-check`)
+
+> Закрывает класс `3067a1b`: саботаж `canfail` однажды ушёл в `main`, и CI поймал его
+> уже ПОСЛЕ пуша.
+
+### 176.1 Почему маркер, если уже есть `flock`
+
+`acquire_run_lock()` (дефект #71) мешает ВТОРОМУ прогону, но он НЕВИДИМ для git и для
+человека: пока харнесс пишет в рабочие файлы, ничто не мешает закоммитить дерево. Поэтому
+харнесс оставляет ВИДИМЫЙ след — `.git/CANFAIL_ACTIVE_MUTATION` с `pid=` и `started=`.
+
+УРОК #50 учтён (файл-флаг переживал аварию и блокировал всё): маркер снимается в `atexit`
+при ЛЮБОМ нормальном выходе и при исключении, а гейт РАЗЛИЧАЕТ два состояния — «мутация в
+полёте» (PID жив) и «замок остался после аварии» (PID мёртв) — и называет лечение.
+
+### 176.2 Гейт и контроль
+
+`tools/mutation_lock_check.py`: чистая функция `verdict(marker_exists, pid, alive)` +
+мета-тест на 4 ветви (маркера нет · PID жив · PID мёртв · PID не разобран).
+
+Корпус-кейс `mutation-lock` создаёт маркер с ЖИВЫМ PID внутри команды и снимает его там же,
+поэтому дерево не становится грязным; гейт обязан покраснеть. ИЗМЕРЕНО: кейс невакуумен,
+`make mutation-lock-check` после прогона зелёный (маркера нет).
+
+### 176.3 Что изменилось в числах реестра (и почему пришлось править документы)
+
+Новая CHECK-цель подняла счётчики: **CHECK 182 -> 183**, **кейсов 222 -> 223**. Ни один гейт
+это молча не пропустил: `claims-audit` и `metrics-guard` назвали 30 вхождений в 14 файлах,
+и они исправлены ПО СТРОКАМ, которые назвал аудит (история в `METRICS`/журнале не тронута —
+иначе правка переписала бы прошлое).

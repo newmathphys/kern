@@ -384,6 +384,16 @@ ecosystem-check:
 xray-check: build
 	@bash tools/xray_check.sh
 
+# ШАГ 7 ПЛАНА: ЗАМОК МУТАЦИЙ ХАРНЕССА. `tools/canfail.py` пишет ПРЯМО В РАБОЧИЕ
+# ФАЙЛЫ, и однажды саботаж ушёл в `main` (`3067a1b`) — CI поймал его уже ПОСЛЕ
+# пуша. flock защищает от второго прогона, но не от коммита; поэтому харнесс
+# оставляет видимый след `.git/CANFAIL_ACTIVE_MUTATION` (PID), а этот гейт его
+# читает. Гейт различает «мутация в полёте» (PID жив) и «замок остался после
+# аварии» (PID мёртв) — второе состояние и есть урок дефекта #50.
+mutation-lock-check:
+	@$(PYTHON) tools/mutation_lock_check.py --selftest
+	@$(PYTHON) tools/mutation_lock_check.py
+
 # СТУПЕНЬ 2 QuixBugs (`tools/trace_explorer.py`): AST-guided живой прогон.
 # Гейт проверяет на мини-датасете структуры QuixBugs, что расхождение
 # ловится, идентичные версии не обвиняются, и что при поломке сравнения

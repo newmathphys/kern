@@ -14,14 +14,14 @@
 > ровно тем коммитом, который его добавляет (его уже правили дважды). Источник
 > истины — `git log -1` и `docs/STATUS.ru.md`, а не эта строка.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
 | Проверка | Значение |
 |:--|:--|
 | Ветка / дерево | `main` = `d98953c`, чистое |
-| Реестр | <!-- fact:registry_targets -->238 цел · **<!-- fact:check_targets -->182/<!-- fact:check_targets -->182 CHECK** · <!-- fact:canfail_cases -->222 невакуумных кейсов |
+| Реестр | <!-- fact:registry_targets -->239 цел · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 невакуумных кейсов |
 | Релиз | `v2.8.0` опубликован (4 ассета, `artifact-check` согласован, `seal` валиден) |
 | Открытых технических дефектов | **0** (по `docs/STATUS.ru.md`, который ГЕНЕРИРУЕТСЯ) |
 
@@ -116,7 +116,7 @@
      воспроизведение смеси — решатель не нужен), а мета-тест отвергает ДОСЛОВНЫЙ
      вывод «до правки». Измерено: `[PASS #407.2] заметок уровня ВЕТКИ 3, пропусков
      функций 0, отрицательной разницы НЕТ`.
-   * Реестр не изменился (182/182 CHECK, 222 кейса); `ci-fast` 11 зелёных.
+   * Реестр не изменился (183/183 CHECK, 223 кейса); `ci-fast` 11 зелёных.
    **Открытым остаётся только #405 (шаг 2 плана).**
 8. **ШАГ 2 ВЫПОЛНЕН: воронка имеет ТРИ КОРЗИНЫ, #405 ЗАКРЫТ.** Корзины считаются по
    ФАКТУ РАБОТЫ: `checked` (решатель вызывался), `trivial` (разобрана, обязательств нет),

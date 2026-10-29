@@ -11,7 +11,7 @@
 > `docs/NEXT_SESSION.md` (handoff) → **this file** (the work) →
 > `docs/CAPABILITY_MATRIX.md` (what is proven and what each proof does NOT show).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -218,7 +218,7 @@ object is passed by reference, so `foo(arr)` may change `arr.length` and the
 | **4** | **Bitwise via BV** + `free_syms_in_path`; `SAT` checks under the flag → SKIP with reason | `binary operator` → 0 on `cmark-gfm`; fixture: BV version correct while the **Int version proves a falsehood** (negative control) | **high** |
 | **5** | ✅ **DONE** — Ternary `?:` → `(ite …)` | `ternary` → 0 in toolkit; control: a ternary in a C fixture yields the correct verdict | medium |
 | **6** | `nil/null` (+49 C, +3 TS) with reset per §2.3 | 0 false alarms; control: reassignment does **not** carry the constraint | medium |
-| **7** | **Mutation lock**: `canfail.py` writes `.git/CANFAIL_ACTIVE_MUTATION` (PID + file) and removes it in `finally`; gate `make mutation-lock-check` + `make hooks` (the hook itself is local, **not versioned**) | marker present → gate red; after a run the marker is gone | low |
+| **7** | ✅ **DONE** — **Mutation lock**: `canfail.py` writes `.git/CANFAIL_ACTIVE_MUTATION` (PID + file) and removes it in `finally`; gate `make mutation-lock-check` + `make hooks` (the hook itself is local, **not versioned**) | marker present → gate red; after a run the marker is gone | low |
 
 **Order: 1 → 2 → 3 → 4 → 5 → 6 → 7.** Rationale: 1–3 produce **honest numbers**
 before the parser is touched; 4 is the only place where a **false proof** is

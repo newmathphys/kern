@@ -14,14 +14,14 @@
 > stale in the very commit that adds it (this line was corrected twice already). The
 > authority is `git log -1` and `docs/STATUS.md`, never this line.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
 | Check | Value |
 |:--|:--|
 | Branch / tree | `main` = `d98953c`, clean |
-| Registry | <!-- fact:registry_targets -->238 targets · **<!-- fact:check_targets -->182/<!-- fact:check_targets -->182 CHECK** · <!-- fact:canfail_cases -->222 non-vacuous cases |
+| Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
 
@@ -111,7 +111,7 @@ was corrected wherever it disagreed with the code:
      reproduction of the mixing — no solver needed), and its meta-test rejects the
      VERBATIM "before" output. Measured: `[PASS #407.2] заметок уровня ВЕТКИ 3,
      пропусков функций 0, отрицательной разницы НЕТ`.
-   * Registry unchanged (182/182 CHECK, 222 cases); `ci-fast` 11 green.
+   * Registry unchanged (183/183 CHECK, 222 cases); `ci-fast` 11 green.
    **Only #405 (plan step 2) stays open.**
 8. **STEP 2 DONE: the funnel has THREE buckets, and #405 is CLOSED.** Buckets are counted by
    ACTUAL WORK: `checked` (the solver ran), `trivial` (parsed, no obligations), `skipped`

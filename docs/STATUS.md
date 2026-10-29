@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->238 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->182 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->239 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->183 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->11 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->41 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->222**, of which
-**182/182** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->223**, of which
+**183/183** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 

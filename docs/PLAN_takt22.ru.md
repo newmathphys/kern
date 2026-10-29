@@ -11,7 +11,7 @@
 > `docs/NEXT_SESSION.ru.md` (передача дел) → **этот файл** (работа) →
 > `docs/CAPABILITY_MATRIX.ru.md` (что доказано и чего каждое доказательство НЕ показывает).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->182 · cases <!-- fact:canfail_cases -->222 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->238 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -214,7 +214,7 @@ checked + trivial + skipped == total   И   Σ skip_reasons == skipped
 | **4** | **Битовые через BV** + `free_syms_in_path`; `SAT`-проверки при взведённом флаге → SKIP с причиной | `бинарный оператор` → 0 на `cmark-gfm`; фикстура: BV-версия верна, а **Int-версия доказывает ложь** (негативный контроль) | **высокий** |
 | **5** | ✅ **ВЫПОЛНЕН** — Тернарник `?:` → `(ite …)` | `тернарник` → 0 в toolkit; контроль: тернарник в C-фикстуре даёт верный вердикт | средний |
 | **6** | `nil/null` (+49 C, +3 TS) со сбросом по §2.3 | 0 ложных тревог; контроль: переприсваивание **не** переносит ограничение | средний |
-| **7** | **Замок мутаций**: `canfail.py` пишет `.git/CANFAIL_ACTIVE_MUTATION` (PID + файл) и снимает в `finally`; гейт `make mutation-lock-check` + `make hooks` (сам хук локальный, **не версионируется**) | маркер есть → гейт красный; после прогона маркера нет | низкий |
+| **7** | ✅ **ВЫПОЛНЕН** — **Замок мутаций**: `canfail.py` пишет `.git/CANFAIL_ACTIVE_MUTATION` (PID + файл) и снимает в `finally`; гейт `make mutation-lock-check` + `make hooks` (сам хук локальный, **не версионируется**) | маркер есть → гейт красный; после прогона маркера нет | низкий |
 
 **Порядок: 1 → 2 → 3 → 4 → 5 → 6 → 7.** Обоснование: 1–3 дают **честные цифры** до
 правки парсера; 4 — единственное место, где возможно **ложное доказательство**,
