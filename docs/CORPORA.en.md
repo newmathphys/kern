@@ -23,7 +23,7 @@ section 4 with an explicit label.
 | **SV-COMP** (cache) | **37** `.c` in 4 categories | UNSAFE witness validation + SAFE | **`gcc -Woverflow`** and **`-fsanitize=undefined,address`** | `make svcomp-witness-check` |
 | **SMT-LIB** (cache) | **23** `.smt2` in 4 theories | proof-checking official UNSAT proofs | **Z3 + our own proof checker** (`trusted: 0 \| holes: 0`) | `make smtlib-proof-check` |
 | `audits/cwe_twins` | **8** `.c` | `bad`/`good` pairs over 9 CWE classes | **compiler** | `make cwe-twins-check` |
-| `audits/smt2` | **28** | QF_LIA/QF_BV core fixtures | **Z3** | `make audits` |
+| `audits/smt2` | **37** | QF_LIA/QF_BV core fixtures (GENERATED: `audits_run.py` does `rmtree` and rewrites them) | **Z3** | `make audits` |
 | `audits/codecheck` | **33** (4 languages: Python/Zig/C/Rust) | `TP/TN/FP/FN/UNKNOWN` matrix, hard gate **`FP = 0`** | **compiler + Python** | `make codecheck` |
 | `tests/fixtures` | **25** | contracts, `.kimg` fixtures, theories, Zig frontend | mixed | `make test` |
 | `examples/` | **53** | demos of every mode (heal, hypotheses, guardrail, noninterference, polyglot, EVM) | mixed | `make demo-all` |

@@ -23,7 +23,7 @@
 | **SV-COMP** (кэш) | **37** `.c` в 4 категориях | валидация свидетелей UNSAFE + SAFE | **`gcc -Woverflow`** и **`-fsanitize=undefined,address`** | `make svcomp-witness-check` |
 | **SMT-LIB** (кэш) | **23** `.smt2` в 4 теориях | пруф-чекинг официальных UNSAT-выводов | **Z3 + собственный пруф-чекер** (`trusted: 0 \| holes: 0`) | `make smtlib-proof-check` |
 | `audits/cwe_twins` | **8** `.c` | пары `bad`/`good` по 9 классам CWE | **компилятор** | `make cwe-twins-check` |
-| `audits/smt2` | **28** | QF_LIA/QF_BV фикстуры ядра | **Z3** | `make audits` |
+| `audits/smt2` | **37** | QF_LIA/QF_BV фикстуры ядра (ГЕНЕРИРУЕТСЯ: `audits_run.py` делает `rmtree` и пишет заново) | **Z3** | `make audits` |
 | `audits/codecheck` | **33** (4 языка: Python/Zig/C/Rust) | матрица `TP/TN/FP/FN/UNKNOWN`, жёсткие врата **`FP = 0`** | **компилятор + Python** | `make codecheck` |
 | `tests/fixtures` | **25** | контракты, `.kimg`-фикстуры, теории, Zig-фронтенд | смешанный | `make test` |
 | `examples/` | **53** | демонстрации всех режимов (heal, hypotheses, guardrail, noninterference, polyglot, EVM) | смешанный | `make demo-all` |

@@ -55,12 +55,57 @@ artifact "audits/smt2/binary_search_safe_mid_safe_int.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/bv_overflow_mul_bv.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/c_clean_add_bounded.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
 artifact "audits/smt2/c_unguarded_ratio.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe190_bad_mul_bad.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe190_good_mul_good.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe191_bad_sub_bad.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe191_good_sub_good.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe680_bad_buffer_size.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe680_good_buffer_size.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe682_bad_rem_bad.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/cwe682_good_rem_good.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
@@ -205,6 +250,12 @@ claim "audit:binary_search_safe_mid_safe_int" {
   context "audits/smt2/binary_search_safe_mid_safe_int.smt2"
 }
 
+claim "audit:bv_overflow_mul_bv" {
+  status refuted
+  evidence "contract:audits/smt2/bv_overflow_mul_bv.smt2"
+  context "audits/smt2/bv_overflow_mul_bv.smt2"
+}
+
 claim "audit:c_clean_add_bounded" {
   status proven
   evidence "contract:audits/smt2/c_clean_add_bounded.smt2"
@@ -215,6 +266,54 @@ claim "audit:c_unguarded_ratio" {
   status proven
   evidence "contract:audits/smt2/c_unguarded_ratio.smt2"
   context "audits/smt2/c_unguarded_ratio.smt2"
+}
+
+claim "audit:cwe190_bad_mul_bad" {
+  status refuted
+  evidence "contract:audits/smt2/cwe190_bad_mul_bad.smt2"
+  context "audits/smt2/cwe190_bad_mul_bad.smt2"
+}
+
+claim "audit:cwe190_good_mul_good" {
+  status proven
+  evidence "contract:audits/smt2/cwe190_good_mul_good.smt2"
+  context "audits/smt2/cwe190_good_mul_good.smt2"
+}
+
+claim "audit:cwe191_bad_sub_bad" {
+  status refuted
+  evidence "contract:audits/smt2/cwe191_bad_sub_bad.smt2"
+  context "audits/smt2/cwe191_bad_sub_bad.smt2"
+}
+
+claim "audit:cwe191_good_sub_good" {
+  status proven
+  evidence "contract:audits/smt2/cwe191_good_sub_good.smt2"
+  context "audits/smt2/cwe191_good_sub_good.smt2"
+}
+
+claim "audit:cwe680_bad_buffer_size" {
+  status refuted
+  evidence "contract:audits/smt2/cwe680_bad_buffer_size.smt2"
+  context "audits/smt2/cwe680_bad_buffer_size.smt2"
+}
+
+claim "audit:cwe680_good_buffer_size" {
+  status proven
+  evidence "contract:audits/smt2/cwe680_good_buffer_size.smt2"
+  context "audits/smt2/cwe680_good_buffer_size.smt2"
+}
+
+claim "audit:cwe682_bad_rem_bad" {
+  status proven
+  evidence "contract:audits/smt2/cwe682_bad_rem_bad.smt2"
+  context "audits/smt2/cwe682_bad_rem_bad.smt2"
+}
+
+claim "audit:cwe682_good_rem_good" {
+  status proven
+  evidence "contract:audits/smt2/cwe682_good_rem_good.smt2"
+  context "audits/smt2/cwe682_good_rem_good.smt2"
 }
 
 claim "audit:div_ceil_divCeil" {

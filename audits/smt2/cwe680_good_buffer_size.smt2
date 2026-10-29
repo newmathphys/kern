@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-const n (_ BitVec 32))
+(declare-const size (_ BitVec 32))
+(declare-const result (_ BitVec 32))
+(assert (and (bvsgt n (_ bv0 32)) (bvsgt size (_ bv0 32)) (bvsle n (_ bv46340 32)) (bvsle size (_ bv46340 32))))
+(assert (= result (bvmul n size)))
+(assert (not (bvsgt result (_ bv0 32))))
+(check-sat)
