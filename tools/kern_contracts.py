@@ -2269,9 +2269,19 @@ def _literal_placeholder(quote: str, raw: str, width: int) -> str:
             num = str(1_000_000 + (zlib.crc32(raw.encode("utf-8", "replace")) & 0x7FFFFF))
     else:
         num = str(1_000_000 + (zlib.crc32(raw.encode("utf-8", "replace")) & 0x7FFFFF))
-    if len(num) >= width:
-        return num[:width]
-    return num + " " * (width - len(num))
+    # ПЕРЕВОДЫ СТРОК ВНУТРИ ЛИТЕРАЛА СОХРАНЯЮТСЯ (дефект #410, блокеры 1 и 2).
+    # ИЗМЕРЕНО: без этого `total` корпуса упал 458 -> 443, а разборщик файлов
+    # рассыпал TS-файлы (появлялись «функции» с именами `await `, `throw new `),
+    # из-за чего условия ЧУЖИХ функций попадали в путь проверяемой и давали
+    # ложную мёртвую ветвь (`io-util.ts: readlink: (= p 0)`). Многострочные
+    # шаблонные литералы TS — обычное дело, и их строки обязаны остаться.
+    _nl = raw.count(chr(10))
+    _room = max(1, width - _nl)
+    if len(num) >= _room:
+        num = num[:_room]
+    else:
+        num = num + " " * (_room - len(num))
+    return num + chr(10) * _nl
 
 
 def _strip_c_comments_strings(text: str) -> str:
