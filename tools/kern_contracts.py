@@ -346,6 +346,16 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
     # а не приближения), вместо SKIP «неподдерживаемый вызов».
     if isinstance(node, ast.Call):
         fn = node.func
+        # ПРЕДОХРАНИТЕЛЬ ПРОТИВ #414 (второй рубеж). Вызов ЛИТЕРАЛА
+        # (`0(c)`, `6123186(x)`) — это не код, а СЛОМАННАЯ ПЕРЕПИСЬ: так
+        # выглядела регулярка, превращавшая `!f(c)` в `f == 0(c)`, после чего
+        # вызов числа «0» тихо становился переменной `_havoc_N` и давал ЛОЖНУЮ
+        # МОДЕЛЬ. ИЗМЕРЕНО: в `cmark-gfm/src` так молча принимались 9 условий.
+        # Теперь это ОТКАЗ с названной причиной, а не подстановка пустышки.
+        if isinstance(fn, ast.Constant):
+            raise Unsupported(
+                "broken rewrite: literal called as function "
+                f"({getattr(fn, 'value', '?')!r}(...)) — регулярка испортила условие")
         fname = fn.id if isinstance(fn, ast.Name) else None
         if fname in ("min", "max") and len(node.args) == 2 and not node.keywords:
             a = expr_smt(node.args[0], env, lang)

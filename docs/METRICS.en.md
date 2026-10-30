@@ -4243,3 +4243,55 @@ outside the subset (they cannot be modelled without interprocedural analysis).
 The generator does `rmtree(audits/smt2)` and rewrites TRACKED `EVIDENCE.md` and
 `real_code_corpus.*`; no gate compares the set of `audits/smt2/*.smt2` with the `EVIDENCE.md`
 table, which is why 9 cases lived in git since `b646ad1` and never appeared in the snapshot.
+
+## §159. THE PARITY GATE FOUND AN ORPHAN ON ITS VERY FIRST RUN (#415, #417)
+
+> A tool that compares \"table rows <-> formula files\" found a discrepancy immediately -
+> and it turned out to be an undecided case that the snapshot silently hid.
+
+### 159.1 What `#415` changed
+
+| What | Before | After |
+|:--|:--|:--|
+| Generation | `rmtree(audits/smt2)` BEFORE any check | into a TEMPORARY directory, atomic swap |
+| On a parity violation | the directory was already empty | the directory is NOT modified (MEASURED) |
+| \"rows <-> files\" check | there was NONE | BOTH directions (a row without a file · a file without a row) |
+| Snapshot drift | silent | a LOUD `+/-` report against the committed `EVIDENCE.md` |
+
+### 159.2 What the gate found (first run)
+
+```
+[!] #415: паритет снимка нарушен (1 расхождений):
+    файл БЕЗ строки в таблице (сирота): zcalloc_zcallocSizeBounded.smt2
+    Каталог audits/smt2 НЕ изменён: снимок остался прежним.
+```
+
+**The cause (#417):** the extractor prints FOUR verdict kinds, including `[N]` -
+\"NOT SOLVED\" (Belnap N), while `RE_VERDICT` knew only `PASS/FAIL/SKIP`. The formula of
+an undecided function was emitted with no row. So EXACTLY the case an auditor must see
+disappeared from the snapshot: \"the solver did not decide\" is N, not \"all is well\".
+
+### 159.3 MEASURED after the fix
+
+```
+functions: 37 | PROVEN 15 | REFUTED 19 | SKIP 2 | NOT SOLVED (N) 1 | formulas emitted 37
+```
+
+The parity \"37 rows == 37 formulas\" holds, `make audits` RC=0. The drift report named the
+single changed row: `+ audits/zlib/zcalloc.c :: zcallocSizeBounded`. The table gained a
+`**UNKNOWN (N)**` column.
+
+### 159.4 The Step 4b estimate (\"what-if\", MEASURED on `cmark-gfm/src`)
+
+| What is added | Translation refusals | Gain |
+|:--|--:|--:|
+| current state | 141 | - |
+| + index `a[i]` -> `a__at_i` (congruence BY TEXT) | 140 | **+1** |
+| + bitwise abstraction `(a & b)` -> a free symbol | 119 | **+22** |
+
+**Conclusion:** the index alone gives almost nothing in C (it nearly always comes together with
+`&` or a call), while the bitwise abstraction gives +22 conditions but NO bit-level reasoning:
+it will not catch a genuinely dead branch like `(x & 1) == 0 AND (x & 2) == 0 AND (x & 3) != 0`.
+That needs REAL BV, i.e. re-encoding the accumulated path conditions from Int into
+`(_ BitVec 32)` - a separate, large piece of work (and it is NOT started: the promised
+\"+4 functions\" is not confirmed by the measurement).

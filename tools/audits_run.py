@@ -36,7 +36,13 @@ AUDITS = ROOT / "audits"
 SOURCE_SUFFIX = (".zig", ".c", ".h", ".rs")
 
 RE_BV = re.compile(r"\[BV\] (\w+) \(стр\. (\d+)\): теория битовых векторов \(([^,]+), ([^)]+)\)")
-RE_VERDICT = re.compile(r"\[(PASS|FAIL|SKIP)\] (\w+):\s*(.*)")
+# ДЕФЕКТ #417: экстрактор печатает ЧЕТЫРЕ вида вердикта, включая `[N]` —
+# «НЕ РЕШЕНО» (Belnap N: ни доказательства, ни контрпримера). Раньше
+# регулярка знала только PASS/FAIL/SKIP, поэтому у нерешённой функции
+# формула ВЫГРУЖАЛАСЬ, а строки в таблице НЕ было — файл становился
+# СИРОТОЙ, и снимок молча скрывал именно тот случай, который аудитор
+# обязан видеть (ИЗМЕРЕНО гейтом паритета: `zcalloc_zcallocSizeBounded.smt2`).
+RE_VERDICT = re.compile(r"\[(PASS|FAIL|SKIP|N)\] (\w+):\s*(.*)")
 RE_CE = re.compile(r"\[КОНТРПРИМЕР\] (.+)")
 RE_RT = re.compile(r"\[RUNTIME CONFIRMED\] (.+)")
 
@@ -73,7 +79,9 @@ def collect(smt_dir: Path) -> list[dict]:
         for line in out.splitlines():
             m = RE_VERDICT.search(line)
             if m:
-                cur = {"file": rel, "fn": m.group(2), "verdict": m.group(1),
+                # `[N]` -> UNKNOWN (НЕ РЕШЕНО): отдельный класс, а не пропуск.
+                _vd = {"N": "UNKNOWN"}.get(m.group(1), m.group(1))
+                cur = {"file": rel, "fn": m.group(2), "verdict": _vd,
                        "what": m.group(3).strip(), "theory": theory.get(m.group(2), "QF_LIA (Int)"),
                        "ce": "", "rt": ""}
                 rows.append(cur)
@@ -155,6 +163,63 @@ def cert_section() -> int:
     return 1 if bad else 0
 
 
+def _expected_smt_names(rows: list[dict]) -> set:
+    """Имена .smt2, которые ОБЯЗАНЫ существовать по таблице: `<файл-без-расширения>_<функция>`.
+
+    Правило именования задаёт сам экстрактор (`kern_contracts.py`: `stem =
+    f"{p.stem}_{name}"`), поэтому строка таблицы и файл формулы связаны
+    ОДНОЗНАЧНО — и эту связь можно проверить, а не предполагать.
+    """
+    return {f"{Path(r['file']).stem}_{r['fn']}.smt2" for r in rows}
+
+
+def parity_report(rows: list[dict], files: list[Path]) -> tuple[int, list[str]]:
+    """ДЕФЕКТ #415: СВЕРКА «СТРОКИ ТАБЛИЦЫ <-> ФАЙЛЫ ФОРМУЛ». Возвращает (rc, сообщения).
+
+    ЗАЧЕМ. Раньше связь не проверялась ВООБЩЕ: 9 кейсов корпуса лежали в git с
+    `b646ad1`, но в снимке `audits/EVIDENCE.md` о них не было НИ СТРОКИ, и никто
+    этого не замечал — «невидимки». Здесь проверяются ОБА направления:
+      * строка без файла — экстрактор не выгрузил формулу (класс #370/#371/#372,
+        где отчёт говорил не то, что произошло);
+      * файл без строки — осиротевшая формула, которой нет в доказательствах.
+    """
+    want = _expected_smt_names(rows)
+    have = {f.name for f in files}
+    msgs: list[str] = []
+    for nm in sorted(want - have):
+        msgs.append(f"строка БЕЗ файла формулы: {nm}")
+    for nm in sorted(have - want):
+        msgs.append(f"файл БЕЗ строки в таблице (сирота): {nm}")
+    return (1 if msgs else 0), msgs
+
+
+def snapshot_drift(new_rows: list[dict], md_path: Path) -> list[str]:
+    """ДЕФЕКТ #415: ЧТО ИЗМЕНИЛОСЬ ОТНОСИТЕЛЬНО ЗАКОММИЧЕННОГО СНИМКА.
+
+    Это не гейт, а ГРОМКИЙ отчёт: генератор обязан печатать, какие кейсы
+    добавились и какие исчезли. ИЗМЕРЕНО: 9 кейсов жили в git с `b646ad1` и в
+    снимке не появлялись — молча, потому что никто не сравнивал.
+    """
+    def keys_from_md(p: Path) -> set:
+        if not p.exists():
+            return set()
+        out = set()
+        for line in p.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|", line)
+            if m:
+                out.add((m.group(1), m.group(2)))
+        return out
+
+    old = keys_from_md(md_path)
+    new = {(r["file"], r["fn"]) for r in new_rows}
+    msgs = []
+    for k in sorted(new - old):
+        msgs.append(f"  + {k[0]} :: {k[1]}")
+    for k in sorted(old - new):
+        msgs.append(f"  - {k[0]} :: {k[1]}")
+    return msgs
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Золотой корпус аудитов реального кода")
     ap.add_argument("--keep", action="store_true", help="не удалять временный каталог формул")
@@ -167,12 +232,40 @@ def main() -> int:
         print(f"[!] нет {KERNC} — соберите: zig build")
         return 1
 
+    # ДЕФЕКТ #415: ГЕНЕРАЦИЯ ИДЁТ ВО ВРЕМЕННЫЙ КАТАЛОГ, А НЕ В ОТСЛЕЖИВАЕМЫЙ.
+    # Раньше здесь стоял `rmtree(audits/smt2)` ДО какой-либо проверки: прерывание
+    # прогона (Ctrl-C, падение экстрактора) оставляло репозиторий БЕЗ снимка
+    # формул, а подмена содержимого происходила вслепую.
     smt_dir = ROOT / "audits" / "smt2"
+    tmp_root = Path(tempfile.mkdtemp(prefix="kern_audits_smt2_"))
+    tmp_smt = tmp_root / "smt2"
+    tmp_smt.mkdir(parents=True)
+
+    rows = collect(tmp_smt)
+    tmp_files = sorted(tmp_smt.glob("*.smt2"))
+
+    # --- #415: СВЕРКА ПАРИТЕТА «СТРОКИ <-> ФАЙЛЫ» (до подмены каталога) ---
+    _rc_par, _msgs = parity_report(rows, tmp_files)
+    if _rc_par:
+        print(f"[!] #415: паритет снимка нарушен ({len(_msgs)} расхождений):")
+        for _m in _msgs[:20]:
+            print(f"    {_m}")
+        print("    Каталог audits/smt2 НЕ изменён: снимок остался прежним.")
+        shutil.rmtree(tmp_root, ignore_errors=True)
+        return 1
+
+    # --- #415: ЧТО ИЗМЕНИЛОСЬ ОТНОСИТЕЛЬНО ЗАКОММИЧЕННОГО СНИМКА (громко) ---
+    _drift = snapshot_drift(rows, Path(args.emit_md) if args.emit_md else AUDITS / "EVIDENCE.md")
+    if _drift:
+        print(f"[i] #415: снимок доказательств ИЗМЕНИТСЯ ({len(_drift)} строк):")
+        for _d in _drift[:20]:
+            print(_d)
+
+    # --- #415: АТОМАРНАЯ ЗАМЕНА (только после успешной генерации) ---
     if smt_dir.exists():
         shutil.rmtree(smt_dir)
-    smt_dir.mkdir(parents=True)
-
-    rows = collect(smt_dir)
+    shutil.copytree(tmp_smt, smt_dir)
+    shutil.rmtree(tmp_root, ignore_errors=True)
     smt_files = sorted(smt_dir.glob("*.smt2"))
 
     # ИЗМЕРЕННЫЙ СТАТУС КАЖДОЙ ФОРМУЛЫ (без эвристик по имени/причине).
@@ -207,12 +300,14 @@ def main() -> int:
     proven = sum(1 for r in rows if r["verdict"] == "PASS")
     refuted = sum(1 for r in rows if r["verdict"] == "FAIL")
     skipped = sum(1 for r in rows if r["verdict"] == "SKIP")
+    unknown = sum(1 for r in rows if r["verdict"] == "UNKNOWN")
     runtime = sum(1 for r in rows if r["rt"])
 
     md = ["| Project / file | Function | Theory | Verdict | Counterexample | Runtime |",
           "|:--|:--|:--|:--|:--|:--|"]
     for r in rows:
-        v = {"PASS": "**PROVEN**", "FAIL": "**REFUTED**", "SKIP": "SKIP"}[r["verdict"]]
+        v = {"PASS": "**PROVEN**", "FAIL": "**REFUTED**", "SKIP": "SKIP",
+             "UNKNOWN": "**UNKNOWN (N)**"}[r["verdict"]]
         if r["verdict"] == "FAIL" and r["what"] and "КОНТРАКТ НАРУШЕН" not in r["what"]:
             v += f" — {r['what']}"
         ce = f"`{r['ce']}`" if r["ce"] else "—"
@@ -226,7 +321,8 @@ def main() -> int:
     print(table)
     print("-" * 78)
     print(f"функций: {len(rows)} | ДОКАЗАНО {proven} | ОПРОВЕРГНУТО {refuted} | "
-          f"SKIP {skipped} | с рантайм-подтверждением {runtime} | формул выгружено {len(smt_files)}")
+          f"SKIP {skipped} | НЕ РЕШЕНО (N) {unknown} | "
+          f"с рантайм-подтверждением {runtime} | формул выгружено {len(smt_files)}")
 
     rc_cert = cert_section()
 

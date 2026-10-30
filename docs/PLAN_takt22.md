@@ -457,3 +457,27 @@ MEASURED: 9 conditions in `cmark` were accepted SILENTLY, 17 in `toolkit` failed
 **MEASURED AFTER (0 findings on both):** `cmark` `checked` **147 -> 170**, `skipped` **35 -> 12**
 (93.4 % of the functions with branches); `toolkit` `checked` **55 -> 72**, `skipped` **22 -> 5** (93.5 %).
 What remains is CALLS (`!f(x)`) and BITWISE (`&`, `[...]`), i.e. step 4b (BV), not "almost everything".
+
+### 7.10 `#415`/`#417`: THE PARITY GATE AS A TOOL, NOT AS A REPORT
+
+`make audits` no longer destroys the tracked directory: generation goes into a temporary one, the
+swap is atomic, and on a parity violation the directory is **NOT modified** (MEASURED). The check
+is TWO-WAY, and on its VERY FIRST run it found the orphan `zcalloc_zcallocSizeBounded.smt2`: the
+cause is that `RE_VERDICT` knew only `PASS/FAIL/SKIP` while the extractor also prints `[N]`
+("NOT SOLVED", Belnap N). So the evidence snapshot SILENTLY hid exactly the case an auditor must
+see. Fixed: `[N]` -> the `**UNKNOWN (N)**` column; MEASURED after: 37 rows == 37 formulas,
+`make audits` RC=0.
+
+### 7.11 Step 4b (BV): A MEASUREMENT INSTEAD OF AN EXPECTATION
+
+| What is added | Translation refusals (`cmark`) | Gain |
+|:--|--:|--:|
+| current state | 141 | - |
+| + the index `a[i]` -> `a__at_i` | 140 | **+1** |
+| + the bitwise abstraction `(a & b)` | 119 | **+22** |
+
+The index alone gives almost nothing (in C it comes together with `&` or a call), and the bitwise
+abstraction gives NO bit-level reasoning: it will not catch the dead branch
+`(x&1)==0 AND (x&2)==0 AND (x&3)!=0`. That needs REAL BV - re-encoding the accumulated path
+conditions from Int into `(_ BitVec 32)`. The promised "+4 functions" is NOT confirmed by the
+measurement: the work is not started.

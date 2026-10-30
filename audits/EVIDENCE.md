@@ -36,3 +36,4 @@
 | `audits/zig-std/align.zig` | `alignBackwardBuggy` | QF_BV _ BitVec 32 беззнаковый | **REFUTED** | `addr = #xffffbffc, alignment = #x00000001, result = #x00000001` | — |
 | `audits/zig-std/align.zig` | `alignForwardAdd` | QF_LIA (Int) | **REFUTED** — ПЕРЕПОЛНЕНИЕ типа `u32` (диапазон [0, 4294967295]) | `alignment = 2, result = 4294967296, addr = 4294967295` | yes |
 | `audits/zlib/zcalloc.c` | `zcallocSize` | QF_BV _ BitVec 32 беззнаковый | **REFUTED** | `items = #x8e0ff0f1, size = #x5ffeffef, result = #xffffffff` | — |
+| `audits/zlib/zcalloc.c` | `zcallocSizeBounded` | QF_BV _ BitVec 32 беззнаковый | **UNKNOWN (N)** | — | — |

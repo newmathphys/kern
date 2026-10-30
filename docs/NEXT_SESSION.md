@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -219,11 +219,23 @@ was corrected wherever it disagreed with the code:
    REFUTED for TS. MEASURED AFTER (0 findings): `cmark` **147 -> 170** checked, `skipped` 35 -> 12
    (93.4 %); `toolkit` **55 -> 72**, `skipped` 22 -> 5 (93.5 %). Safeguard B: `_mut_names_for()`
    resets a predicate with `a__b` when the BASE `a` OR the field `b` is reassigned.
-21. **`#415` RECORDED AS OPEN (`make audits` hygiene).** The generator does `rmtree(audits/smt2)`
-   and rewrites TRACKED `EVIDENCE.md` and `real_code_corpus.*`; no gate compares the set of
-   `audits/smt2/*.smt2` with the `EVIDENCE.md` table - which is why 9 cases lived in git since
-   `b646ad1` and never appeared in the snapshot. The cure (NOT done): a temporary directory or
-   atomic verification plus a parity gate.
+21. **`#415` CLOSED - AND THE PARITY GATE FOUND AN ORPHAN ON ITS VERY FIRST RUN (`#417`).**
+   Generation goes into a TEMPORARY directory, the swap is atomic, and on a parity violation
+   `audits/smt2` is NOT modified (MEASURED). The check is TWO-WAY: "a row without a formula file"
+   and "a file without a row (orphan)", plus a LOUD drift report against the committed
+   `EVIDENCE.md`. FOUND: `zcalloc_zcallocSizeBounded.smt2` - the formula exists, the row does not,
+   because `RE_VERDICT` knew only `PASS/FAIL/SKIP` while the extractor also prints `[N]`
+   ("NOT SOLVED", Belnap N). So the snapshot SILENTLY hid exactly the case an auditor must see.
+   FIXED: `[N]` -> the `**UNKNOWN (N)**` column. MEASURED after: `functions 37 | PROVEN 15 |
+   REFUTED 19 | SKIP 2 | NOT SOLVED (N) 1 | formulas 37` - parity "37 rows == 37 formulas",
+   `make audits` RC=0.
+22. **STEP 4b (BV) WAS ESTIMATED BY MEASUREMENT, AND IT DOES NOT CONFIRM THE PROMISED GAIN.**
+   The "what-if" on `cmark-gfm/src` (translation refusals): current **141**; + the index
+   `a[i]` -> `a__at_i` gives **140 (+1!)**; + the bitwise abstraction `(a & b)` -> a free symbol
+   gives **119 (+22)**. The reason: in C an index almost always comes together with `&` or a call,
+   and the bitwise abstraction gives NO bit-level reasoning - it will not catch the dead branch
+   `(x&1)==0 AND (x&2)==0 AND (x&3)!=0`. That needs REAL BV, i.e. re-encoding the accumulated path
+   conditions from Int into `(_ BitVec 32)` - a separate, large piece of work, NOT started.
 
 **Closed in THIS session (verification of all capabilities):**
 
