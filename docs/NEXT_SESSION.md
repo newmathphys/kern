@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **3** (per `docs/STATUS.md`, which is GENERATED): #426, #427, #428 |
 
 ## Open work
 
@@ -288,6 +288,24 @@ was corrected wherever it disagreed with the code:
 28. **BOUNDARIES:** verified on a FIXTURE project (there is no live project of the second contour in
    this environment); `kernx packet --scope` and `diff` were NOT tested for conflict cases; the
    migration does not carry rows whose status is outside the vocabulary - and it says so.
+
+29. **A DRY MEASUREMENT ACROSS THREE POINTS (0 code changes).** (1) `#424`'S NEIGHBOURS: there is
+   NO third twin - `kernx packet --scope` names `conflicted`, `kernx diff` shows
+   `- claim:feature Z conflicted`, `state_axes.toBelnap` is an exhaustive `switch`. (2)
+   `smtlib-proof-check` RC=0; `trusted == 0` for **3 of 7** UNSAT tasks, but **2970 of ~2981**
+   trusted steps are ONE QF_BV task (the checker has no `bitblast`/`bv-*` rules - DECLARED), while
+   the residue in the three tasks is 1 and 5+5, and the first is NAMED: **`rewrite`**. (3) THE
+   ANTI-CHEAT: of the reviewer's 5 bypasses **2** are caught - the rules are SYNTACTIC: a literal
+   `def __eq__: return True` is caught while `setattr(C, "__eq__", ...)` is NOT; `mock.patch` is
+   caught while `target_mod.fn = lambda` is NOT; `pytest.skip('passed')` has no rule at all.
+30. **THREE OPEN DEFECTS ARE RECORDED.** `#426` - the anti-cheat misses MASKED twins (the gate
+   `anti_cheat_check.sh` claims "ALL 5 classes caught", but its fixture holds the LITERAL forms:
+   class `#394.4`/`#418` - the check verifies the fixture, not the class). `#427` -
+   `--anti-cheat <directory>` crashes with a traceback instead of a named error. `#428` - the
+   checker COMPUTES the name of the unrecognised rule and `kernc prove` PRINTS it, but the gate
+   parses only numbers, so the report does not answer the auditor's question. The cure for `#426`:
+   SEMANTIC rules (`setattr` with a dunder name, assignment to an attribute of an imported module,
+   `skip`/`xfail` inside `test_*`) plus a fixture with masked twins.
 
 **Closed in THIS session (verification of all capabilities):**
 

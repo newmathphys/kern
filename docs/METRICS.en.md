@@ -4448,3 +4448,61 @@ unusable.
 * The migration recreates the table: if a row's status is OUTSIDE the new vocabulary the row is NOT
   carried over - and a message says so (no silent loss).
 * `kernx` was NOT tested on `packet --scope` and `diff` for conflict cases.
+
+## §163. A DRY MEASUREMENT ACROSS THREE POINTS: #424'S NEIGHBOURS, `trusted > 0`, THE ANTI-CHEAT
+
+> Zero code changes, three measurements. One result is negative (and that matters),
+> one confirmed an already-declared boundary, one exposed a class.
+
+### 163.1 Point 1: there is NO third twin of `#424` (a negative result)
+
+| Path on a conflicted claim | Behaviour |
+|:--|:--|
+| `kernx packet --scope issue-42` | `{"id": "claim:feature Z", "reason": "conflicted"}` OK |
+| `kernx diff` (conflict -> no conflict) | `- claim:feature Z **conflicted**` / `+ claim:feature Z tested` OK |
+| `state_axes.toBelnap` | an exhaustive `switch`: `proved->T`, `refuted->F`, `unknown/timeout/out_of_fuel/invalid_certificate/tool_error->N` OK |
+
+Verdict: the neighbouring branches handle the conflict correctly. The hypothesis \"where there is one
+hand-written branch without `conflicted`, there is a second one\" is **not confirmed** here - and that
+is recorded as a result rather than hidden.
+
+### 163.2 Point 2: `trusted > 0` - 3 of 7 are zero, the residue is almost ONE task
+
+| Task | steps | mp | resolution | Farkas | rewrite(lin.) | eq | bool | TRUSTED |
+|:--|--:|--:|--:|--:|--:|--:|--:|--:|
+| `2PhLockVParam_RC-02` | 66 | 19 | 0 | 1 | 22 | 3 | 14 | **0** |
+| `2PhLockVParam_RC-07` | 15 | 1 | 0 | 0 | 4 | 4 | 4 | **1** (rule: **`rewrite`**) |
+| `storeinv...00002_001.cvc` | 78 | 4 | 12 | 0 | 2 | 24 | 12 | **5** |
+| `QF_BV/add_three.4_bit` | 7616 | - | 5247 | - | 55 | - | - | **2970** |
+
+`make smtlib-proof-check` RC=0; the gate's own summary: \"4 theories: 0 discrepancies, 0 false
+alarms, 0 holes. 7945 proof steps parsed. TRUSTED (the checker has no BV rules) up to 2970 - the
+number is PUBLISHED, not claimed as 0\".
+
+**Conclusion:** \"3 of 7 with `trusted: 0`\" is true; but 2970 of ~2981 trusted steps are ONE QF_BV
+task, while the residue in the three tasks is 1 and 5+5 steps, and the first of them is NAMED:
+**`rewrite`**. So most of the residue is a fundamental boundary (no `bitblast`/`bv-*` rules), not
+\"we forgot a simple rule\". The gate DECLARES it.
+
+**A gap found (#428):** the checker computes the rule name (`first_trusted`) and `kernc prove`
+prints it, but the gate parses only NUMBERS - so the report cannot answer the auditor's question
+although the tool knows the answer.
+
+### 163.3 Point 3: the anti-cheat catches LITERAL forms, not masked ones (#426)
+
+| Bypass class | Literal form | Masked form |
+|:--|:--|:--|
+| always-true `__eq__` | `def __eq__: return True` -> **CAUGHT** | `setattr(C, "__eq__", lambda s, o: True)` -> **NOT CAUGHT** |
+| mock | `mock.patch("mod.fn", ...)` -> **CAUGHT** | `target_mod.withdraw = lambda b, a: 0` -> **NOT CAUGHT** |
+| skip | - | `pytest.skip('passed')` -> **NOT CAUGHT** |
+| exit | `os._exit(0)` -> **CAUGHT** | - |
+| swallowed assert | `except BaseException: pass` -> **CAUGHT** | - |
+
+Of the reviewer's 5 bypasses **2** are caught. At the same time the gate `tools/anti_cheat_check.sh`
+claims \"ALL 5 cheat classes caught\" - because its fixture holds the LITERAL forms. Same class as
+`#394.4`/`#418`: **the check exists, the needed observation is not in it**.
+
+### 163.4 Side finding: `--anti-cheat <directory>` crashes with a traceback (#427)
+
+MEASURED: `IsADirectoryError: [Errno 21] Is a directory`, rc=1, a full Python stack. The flag takes
+a file, but a directory is not rejected with a NAMED error (class `#370`/`#371`).
