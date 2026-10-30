@@ -237,6 +237,18 @@ was corrected wherever it disagreed with the code:
    `(x&1)==0 AND (x&2)==0 AND (x&3)!=0`. That needs REAL BV, i.e. re-encoding the accumulated path
    conditions from Int into `(_ BitVec 32)` - a separate, large piece of work, NOT started.
 
+23. **BARRIERS 2+3 ARE IN PLACE (`#418`), BARRIER 4 (the extraction) IS NOT.** Seventeen
+   defects of the tack were invisible to all 183 gates because what was checked is the FINAL
+   VERDICT, not the translation itself. Now: `tools/clike_ir_check.py` - **19 pairs "raw condition
+   -> the EXACT SMT or SKIP"** + 2 `#414` guards, in fractions of a second WITHOUT Z3, with a
+   meta-test that MUST turn red (MEASURED: a planted expectation is caught); and a **corpus IR
+   snapshot** `--dump-ir` / `--check-baselines` (MEASURED: `cmark` 308 functions / 2539 conditions /
+   2398 translated, sha `0aa016a61960017a`; `toolkit` 150 / 156 / 134, sha `2a7aac90f9317962`).
+   Both are wired into the EXISTING target `edge-cases` (no registry growth). Extracting
+   `clike_frontend.py` is NOT done: **29 `canfail` cases patch `kern_contracts.py`** by textual
+   anchors, and the contracts lock contains that file - the extraction must go together with
+   rebuilding the anchors. The order is deliberate: the net, then the surgery.
+
 **Closed in THIS session (verification of all capabilities):**
 
 1. **`make showcase-live-all` — every row of `docs/CAPABILITY_MATRIX.md` is now

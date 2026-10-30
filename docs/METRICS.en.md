@@ -4295,3 +4295,40 @@ it will not catch a genuinely dead branch like `(x & 1) == 0 AND (x & 2) == 0 AN
 That needs REAL BV, i.e. re-encoding the accumulated path conditions from Int into
 `(_ BitVec 32)` - a separate, large piece of work (and it is NOT started: the promised
 \"+4 functions\" is not confirmed by the measurement).
+
+## §160. BARRIERS 2+3: A TEST ON THE TRANSLATION ITSELF AND AN IR SNAPSHOT (#418)
+
+> "The check exists, the needed observation is not in it" - class `#394.4`. Closed here for the
+> C-like translator: 17 defects of the tack were invisible to all 183 gates.
+
+### 160.1 Why the old tests were blind (two MEASURED examples)
+
+| Defect | What happened | Why the test stayed silent |
+|:--|:--|:--|
+| `#413` | `_saturate_rewrite('a +| b')` returned its INPUT UNCHANGED | the file verdict was `PASS`: the `|` character routed the expression to the BV path |
+| `#414` | `!f(c)` -> `(= f _havoc_1)` - a FALSE model | Z3 answered `sat`, quiet from the outside |
+
+### 160.2 Barrier 2: the table-driven micro-test (`tools/clike_ir_check.py`)
+
+19 pairs "raw condition -> the EXACT SMT or SKIP", each naming the defect it protects, plus 2
+`#414` guards. It runs in **fractions of a second WITHOUT Z3**. The meta-test MUST turn red:
+MEASURED - a planted `+X` and an empty expectation are both caught, the table passes. Wired into
+the EXISTING target `edge-cases` (no registry growth).
+
+### 160.3 Barrier 3: the corpus IR snapshot
+
+```
+cmark-gfm/src  : functions 308, conditions 2539, translated 2398, sha 0aa016a61960017a
+toolkit/packages: functions 150, conditions 156, translated 134, sha 2a7aac90f9317962
+```
+
+Any change to the translator that alters the PARSE is visible here in fractions of a second. That
+is exactly what was missing when the denominator jumped `458 -> 476 -> 443`. A missing corpus is a
+NAMED skip, not a silent green.
+
+### 160.4 Barrier 4 (extracting `clike_frontend.py`) - NOT done, the reason is measured
+
+`grep`: **29 `canfail` cases patch `tools/kern_contracts.py`** by textual anchors, and
+`docs/contracts.lock.json` contains that file. The extraction must go together with rebuilding the
+anchors and the lock. The order is deliberate: **the net (2+3), then the surgery (4)** - under the
+snapshot and the table the extraction stops being a lottery.
