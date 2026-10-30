@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -12212,3 +12212,57 @@ bvxor`). `$x`-имена раскрываются существующим `expa
 перезапускался; число сайтов = факт (1455), а «100 %» относится к закоммиченному
 логу `docs/evidence/mutate_full.log` (1376/1376) — той же конвенции следует и
 `sync_state.py` (якорь `fact:mutation_sites` подставляется в оба числа).
+
+## §191. FALLBACK `remaining.len == 1`: 2970 -> 1020 ДОВЕРЕННЫХ ШАГОВ
+
+### 191.1 Что сделано
+
+В `checkUnitRes`, в ветке, где раньше возвращалось «не проверено», добавлена одна
+строка:
+
+```zig
+if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .verified;
+```
+
+**ЗВУЧНО:** `(or R1 … Rk) ∧ ¬R1 … ∧ ¬Rk-1 ⊨ Rk`, и здесь `Rk == concl`. Проверка
+стоит в FALLBACK, поэтому число доверенных шагов **может только упасть** — вырасти
+не может по построению.
+
+### 191.2 Почему уплощение `or` было НЕВЕРНЫМ лечением (измерено)
+
+В битовых выводах посылка `(not (or A B))` сокращает литерал `(or A B)`
+ОДИН-В-ОДИН. Уплощение `or` в начале функции уничтожает этот литерал ДО сокращения:
+
+| | ДОВЕРЕННЫХ на `QF_BV/add_three.4_bit` |
+|:--|--:|
+| до любой правки | 2970 |
+| с уплощением `or` в начале | **3408** (хуже) |
+| после отката | 2970 |
+| **с fallback `remaining.len == 1`** | **1020** (лучше на 1950) |
+
+### 191.3 ИЗМЕРЕНО после
+
+| Задача | доверенных ДО | ПОСЛЕ | первое неисправленное правило |
+|:--|--:|--:|:--|
+| `QF_BV/add_three.4_bit` | 2970 | **1020** | `unit-resolution` -> **`def-axiom`** |
+| `storeinv…00002_001.cvc` | 5 | **4** | `commutativity` -> `lemma` |
+| `2PhLockVParam_RC-07` | 1 | **0** | — (`[PROOF VERIFIED]`) |
+
+Задач с `trusted == 0` — **4 из 7**; ложных срабатываний **0**, дыр **0**.
+Регрессия `audits/codecheck`: `checked 13 | trivial 3 | skipped 0`, находок **4**.
+
+### 191.4 НОВЫЙ ДЕФЕКТ ОТЧЁТНОСТИ (#432, ОТКРЫТ)
+
+Колонка `резолюция` в отчёте чекера равна **5247 И ДО, И ПОСЛЕ** правки, хотя
+доверенных стало на 1950 меньше. Причина: колонка печатает `unitres_checked` —
+ЧИСЛО ШАГОВ правила, а не ЧИСЛО ПРОВЕРЕННЫХ. Читатель отчёта не может увидеть, что
+работа сделана. Класс тот же, что `#428` и `#430` (число есть — ответа нет).
+Лечение — Блок 4 плана `PLAN_takt23`: развести `unitres_steps` и `unitres_verified`.
+
+### 191.5 Двусторонний тест (невакуумный)
+
+Добавлен тест `ХАРДКОР: остаток из ОДНОГО литерала, равного ВСЕЙ цели`:
+* **ПОЗИТИВ:** `(unit-resolution @c1 @u1 (or A B C))` при клаузе
+  `(or (or A B C) k)` и юните `(not k)` -> `verified`;
+* **АТАКА 1:** цель `(or A B Z)` (остаток ей не равен) -> не `verified`;
+* **АТАКА 2:** остаток из двух литералов, второй юнитом НЕ опровергнут -> не `verified`.

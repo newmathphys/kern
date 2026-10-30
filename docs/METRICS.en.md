@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -4801,3 +4801,59 @@ BOUNDARY (stated honestly): the full mutation sweep on the NEW code (23 min) was
 re-run; the site count is the fact (1455), while "100 %" refers to the committed log
 `docs/evidence/mutate_full.log` (1376/1376) - the same convention `sync_state.py` follows
 (the `fact:mutation_sites` anchor is substituted into both numbers).
+
+## §169. THE FALLBACK `remaining.len == 1`: 2970 -> 1020 TRUSTED STEPS
+
+### 169.1 What was done
+
+In `checkUnitRes`, in the branch that used to return "not verified", one line was added:
+
+```zig
+if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .verified;
+```
+
+**SOUND:** `(or R1 … Rk) and not R1 … and not Rk-1 entails Rk`, and here `Rk == concl`.
+The check sits in the FALLBACK, so the number of trusted steps **can only drop** - it
+cannot grow by construction.
+
+### 169.2 Why flattening `or` was the WRONG cure (measured)
+
+In bitvector proofs the premise `(not (or A B))` cancels the literal `(or A B)`
+ONE-TO-ONE. Flattening `or` at the beginning of the function destroys that literal BEFORE
+the cancellation:
+
+| | TRUSTED on `QF_BV/add_three.4_bit` |
+|:--|--:|
+| before any change | 2970 |
+| with `or` flattened at the beginning | **3408** (worse) |
+| after the revert | 2970 |
+| **with the fallback `remaining.len == 1`** | **1020** (better by 1950) |
+
+### 169.3 MEASURED after
+
+| Task | trusted BEFORE | AFTER | first unrecognised rule |
+|:--|--:|--:|:--|
+| `QF_BV/add_three.4_bit` | 2970 | **1020** | `unit-resolution` -> **`def-axiom`** |
+| `storeinv...00002_001.cvc` | 5 | **4** | `commutativity` -> `lemma` |
+| `2PhLockVParam_RC-07` | 1 | **0** | - (`[PROOF VERIFIED]`) |
+
+The number of tasks with `trusted == 0` is **4 of 7**; false alarms **0**, holes **0**.
+Regression `audits/codecheck`: `checked 13 | trivial 3 | skipped 0`, findings **4**.
+
+### 169.4 A NEW REPORTING DEFECT (#432, OPEN)
+
+The `resolution` column of the checker report equals **5247 BOTH BEFORE AND AFTER** the
+change, even though there are 1950 fewer trusted steps. Cause: the column prints
+`unitres_checked` - the NUMBER OF STEPS of the rule, not the NUMBER OF VERIFIED ones.
+The reader of the report cannot see that the work was done. The same class as `#428` and
+`#430` (the number is there - the answer is not). The cure is Block 4 of
+`PLAN_takt23`: separate `unitres_steps` and `unitres_verified`.
+
+### 169.5 A two-sided test (non-vacuous)
+
+The test `ХАРДКОР: остаток из ОДНОГО литерала, равного ВСЕЙ цели` was added:
+* **POSITIVE:** `(unit-resolution @c1 @u1 (or A B C))` with the clause
+  `(or (or A B C) k)` and the unit `(not k)` -> `verified`;
+* **ATTACK 1:** the goal `(or A B Z)` (the residue does not equal it) -> not `verified`;
+* **ATTACK 2:** a residue of two literals whose second is NOT cancelled by a unit -> not
+  `verified`.

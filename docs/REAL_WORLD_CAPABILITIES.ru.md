@@ -80,7 +80,7 @@ python3 tools/real_cases_check.py --selftest
 ## Факты реестра, с которыми эта страница согласована
 
 <!-- fact:core_tests -->451 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
-<!-- fact:catalog -->486 каталог · <!-- fact:check_targets -->183 CHECK ·
+<!-- fact:catalog -->487 каталог · <!-- fact:check_targets -->183 CHECK ·
 <!-- fact:canfail_cases -->223 кейса can-fail · <!-- fact:anchors -->183 якорей ·
 <!-- fact:registry_targets -->239 целей реестра ·
 <!-- fact:meta_targets -->41 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·

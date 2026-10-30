@@ -53,6 +53,8 @@ PAIRS = (
     # Такт 2.2: план работ несёт якоря фактов и читается НОВОЙ сессией первой —
     # паритет RU/EN обязателен, иначе одна из версий разойдётся молча (#335).
     ("docs/PLAN_takt22.ru.md", "docs/PLAN_takt22.md"),
+    # Такт 2.3: тот же класс — план читается новой сессией, паритет обязателен.
+    ("docs/PLAN_takt23.ru.md", "docs/PLAN_takt23.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",

@@ -1,20 +1,20 @@
-# Resuming work on KERN: handoff at commit `d98953c`
+# Resuming work on KERN: handoff (base slice of tack 2.3)
 
 > **I cannot open sessions myself, and I keep no memory between them.** Only what
 > is written in this repository survives. This file exists so a new session
 > resumes from measured facts instead of from a summary.
 >
 > **Read first, in this order:** `docs/STATUS.md` (generated: state and counts) →
-> this file (open work) → **`docs/PLAN_takt22.md` (the ACTIVE plan: step 1 done,
-> steps 2–7 open)** → `docs/CAPABILITY_MATRIX.md` (what is proven and what each
+> this file (open work) → **`docs/PLAN_takt23.md` (the ACTIVE plan: NOT STARTED,
+> 6 blocks of 20 minutes)** → `docs/CAPABILITY_MATRIX.md` (what is proven and what each
 > proof does NOT show).
 >
 > **The commit pointer above is PROSE and goes stale by itself.** It is the **base
-> slice of tack 2.2**, not "current `HEAD`": chasing HEAD is pointless, a SHA goes
+> slice of tack 2.3**, not "current `HEAD`": chasing HEAD is pointless, a SHA goes
 > stale in the very commit that adds it (this line was corrected twice already). The
 > authority is `git log -1` and `docs/STATUS.md`, never this line.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
@@ -23,16 +23,16 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
+| Open technical defects | **1** — `#432` (the checker report hides 1950 verified steps; the cure is Block 4 of the plan) |
 
 ## Open work
 
-**All of it lives in `docs/PLAN_takt22.md` (EN) / `docs/PLAN_takt22.ru.md` (RU).**
-That document is self-contained: base measurements, four answered questions, three
-verified safety conditions, seven steps with acceptance criteria, boundaries, and
-the working rules. Do not re-derive it — read it.
+**The ACTIVE plan is `docs/PLAN_takt23.md` (EN) / `docs/PLAN_takt23.ru.md` (RU).**
+It is self-contained: a measured base, four **OPEN** questions (each with a number and a
+command), six blocks of 20 minutes, four safeguards, boundaries and the working rules.
+Do not re-derive it — read it.
 
-Short version of what it says:
+Tack 2.2 (steps 1–7) is **fully closed**; the table below is kept as history:
 
 | # | Step | Why |
 |:--|:--|:--|

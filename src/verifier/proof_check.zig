@@ -4481,6 +4481,21 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
             if (concl_lits.items.len == 1 and remaining.items.len >= 2) {
                 if (andDeMorganEq(remainingToAnd(c, remaining.items), concl)) return .verified;
             }
+            // ИЗМЕРЕНО ДАМПОМ (дефект #431, шаг 3): ОСТАТОК — ОДИН терм, равный
+            // ВСЕЙ цели. Клауза Z3 содержит ВЛОЖЕННЫЙ `or` (`(or C k!220)`), и
+            // после снятия `k!220` юнитом `¬k!220` остаётся РОВНО `C`, но цель
+            // `(or A B C)` разбирается на ТРИ литерала — поэтому сверка списков
+            // даёт рассинхрон `1 != 3`, хотя `remaining[0]` ПОСИМВОЛЬНО равен
+            // цели. ЗВУЧНО: `(or R1 … Rk) ∧ ¬R1 … ∧ ¬Rk-1 ⊨ Rk`, и здесь
+            // `Rk == concl`. Проверка стоит в FALLBACK (там, где раньше
+            // возвращалось «не проверено»), поэтому число доверенных шагов
+            // МОЖЕТ ТОЛЬКО УПАСТЬ — вырасти оно не может по построению.
+            //
+            // ПОЧЕМУ НЕ УПЛОЩЕНИЕ `or` В НАЧАЛЕ ФУНКЦИИ: такая попытка ОТКАЧЕНА
+            // ПО ЗАМЕРУ (2970 -> 3408). Причина: в битовых выводах посылка
+            // `(not (or A B))` сокращает литерал `(or A B)` ОДИН-В-ОДИН, а
+            // уплощение уничтожает этот литерал ДО сокращения.
+            if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .verified;
             // ОБОБЩЕНИЕ (пункт 3 v2.5): то же РАСЩЕПЛЕНИЕ ПО СЛУЧАЯМ, но для
             // ПРОИЗВОЛЬНОГО заключения: посылки ⊨ concl <=> для каждой
             // комбинации `{units} ∪ {picks} ∪ {¬concl}` несовместно.
@@ -5812,6 +5827,29 @@ test "ХАРДКОР: unit-resolution с парой (not P), P -> verified (ст
     // с `and` условие ложно, и шаг стал бы `.unverifiable` вместо `.verified`.
     try std.testing.expectEqual(CheckResult.verified,
         checkUnitRes(&c, try parseSexp(a, "(unit-resolution @p1 @p2 false)")));
+}
+
+test "ХАРДКОР: остаток из ОДНОГО литерала, равного ВСЕЙ цели, -> verified (#431, шаг 3)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Клауза с ВЛОЖЕННЫМ `or` — ровно форма из дампа `[dbg-ur-unver]` на
+    // `QF_BV/add_three.4_bit`: `(or (or A B C) k)`. Юнит `(not k)` снимает `k`,
+    // остаётся РОВНО `(or A B C)`, а цель разбирается на ТРИ литерала.
+    // ЗВУЧНО: `(or R1 … Rk) ∧ ¬R1 … ∧ ¬Rk-1 ⊨ Rk`.
+    // Убивает мутанта, снимающего fallback: без него шаг -> `.unverifiable`
+    // (доверенный), и на `add_three.4_bit` доверенных было 2970 вместо 1020.
+    try c.stepexpr.put("@c1", try parseSexp(a, "(asserted (or (or A B C) k))"));
+    try c.stepexpr.put("@u1", try parseSexp(a, "(asserted (not k))"));
+    try std.testing.expectEqual(CheckResult.verified, checkUnitRes(&c, try parseSexp(a, "(unit-resolution @c1 @u1 (or A B C))")));
+    // АТАКА: цель ДРУГАЯ (Z вместо C) — остаток ей НЕ равен, шаг НЕ проверен.
+    // Без этой ветки «проверкой» называлось бы любое совпадение по счёту.
+    try std.testing.expect(checkUnitRes(&c, try parseSexp(a, "(unit-resolution @c1 @u1 (or A B Z))")) != CheckResult.verified);
+    // АТАКА: остаток из ДВУХ литералов, цель — один из них, но ВТОРОЙ юнитом
+    // НЕ опровергнут (нет `(not B)`) -> не verified.
+    try c.stepexpr.put("@c2", try parseSexp(a, "(asserted (or A B))"));
+    try std.testing.expect(checkUnitRes(&c, try parseSexp(a, "(unit-resolution @c2 @u1 A)")) != CheckResult.verified);
 }
 
 test "ХАРДКОР: not-or-elim с МАЛЫМ числом аргументов отвергается (стр. 843)" {

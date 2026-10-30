@@ -303,7 +303,7 @@ saying so: both models tested narrowed <code>@kern:requires</code> (leaving
     <div class="stat">
       <span class="val"><!-- fact:core_tests -->451 / <!-- fact:core_tests -->451</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
       <span class="val"><!-- fact:next_tests -->53 / <!-- fact:next_tests -->53</span><span class="lbl">KERN-Next tests</span>
-      <span class="val">100.0 %</span><span class="lbl">mutation score — 1455 / 1455 killed (21 files, full local sweep); committed evidence: mutate_full.log 1376 / 1376 + canonical 40 / 40 + per-module 244 / 244</span>
+      <span class="val">100.0 %</span><span class="lbl">mutation score — 1457 / 1457 killed (21 files, full local sweep); committed evidence: mutate_full.log 1376 / 1376 + canonical 40 / 40 + per-module 244 / 244</span>
       <span class="val"><!-- fact:check_targets -->183 / <!-- fact:check_targets -->183</span><span class="lbl">can-fail CHECK targets — 223 non-vacuous cases, 0 vacuous</span>
     </div>
     <div class="stat">
@@ -565,7 +565,7 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
 <p class="lbl" style="margin:0 0 14px">Short entries from
 <a href="https://github.com/newmathphys/kern/blob/main/docs/METRICS.md">docs/METRICS.md</a>;
 the full registry is
-<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#<!-- fact:max_defect -->431</a>.
+<a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">defect registry #1–#<!-- fact:max_defect -->432</a>.
 Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wrong — not the code it was checking.</p>
 
 <p style="margin:0 0 4px"><strong style="color:var(--ink)">#110 — the mutation score was measured without a solver.</strong></p>
@@ -588,7 +588,7 @@ Each entry is a case where a <em>measurement</em> or a <em>harness</em> was wron
 <p class="lbl" style="margin:0">What is <strong>measured</strong>, what is <strong>written but not measured</strong>,
 what is <strong>not implemented</strong> and what is <strong>not verified for real</strong> is listed in
 <a href="https://github.com/newmathphys/kern/blob/main/docs/CAPABILITY_STATUS.en.md">CAPABILITY_STATUS.en.md</a>,
-together with the <strong>defects this project found in itself</strong> (#1–#<!-- fact:max_defect -->431).
+together with the <strong>defects this project found in itself</strong> (#1–#<!-- fact:max_defect -->432).
 A check that cannot go red is treated as a defect here, not as coverage.</p>
 </div>
 
@@ -778,7 +778,7 @@ A check that cannot go red is treated as a defect here, not as coverage.</p>
       <tbody>
         <tr data-lb="newmathphys/kern" style="cursor:pointer;border-top:1px solid #21262d">
           <td><b>newmathphys/kern</b></td><td class="sc-ok">100/100 · A+</td>
-          <td>full CLI audit: <!-- fact:lean_theorems -->147 Lean theorems (0 sorry), <!-- fact:mutation_sites -->1455/<!-- fact:mutation_sites -->1455 mutants, <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
+          <td>full CLI audit: <!-- fact:lean_theorems -->147 Lean theorems (0 sorry), <!-- fact:mutation_sites -->1457/<!-- fact:mutation_sites -->1457 mutants, <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 can-fail, 92 .zig + 8 .lean, 8/8 MCP</td></tr>
         <tr style="border-top:1px solid #21262d">
           <td>QuixBugs (40 tasks)</td><td class="sc-ok"><!-- fact:quixbugs.differential -->40/40 diff</td>
           <td><b><!-- fact:quixbugs.smt -->6/40</b> formal SMT (Stage 1, trusted: 0) · <b><!-- fact:quixbugs.differential -->40/40</b> live differential
@@ -1059,7 +1059,7 @@ This page is served from <code>/docs</code> of the
    HONEST LIMITS (printed on the card):
      - X-Ray here is HEURISTIC: regexes + LIA over numeric guards, not the
        symbolic path conditions of the `--xray` CLI;
-     - mutation (1455 sites), can-fail (183 goals) and the Z3 theories
+     - mutation (1457 sites), can-fail (183 goals) and the Z3 theories
        (QF_S / QF_FP) do NOT run in the browser at all — they are CLI-only;
      - the Ed25519 signature is not checked in the browser: the presence of an
        attestation is a fact, “verified” means `slsa_provenance.py --check`. */
@@ -1350,7 +1350,7 @@ This page is served from <code>/docs</code> of the
         r ? '- composition: ' + r.score + '/65 · Grade ' + r.grade : '- composition: not run in this tab',
         r ? '- xray: dead=' + r.x.dead + ', crash=' + r.x.crash + ', anti-cheat=' + r.x.ac + ', CC max=' + r.x.cc : '',
         r ? '- languages: .zig=' + r.x.zig + ', .lean=' + r.x.lean : '', '',
-        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1455 sites),',
+        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1457 sites),',
         'can-fail (183 goals) or the Ed25519 attestation check. For the full passport run:',
         '```',
         'python3 tools/trust_scorecard.py --repo ' + spec + ' --json out.json',

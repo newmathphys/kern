@@ -31,7 +31,7 @@
 | **[RELEASE_NOTES_v2.5.1.en.md](RELEASE_NOTES_v2.5.1.en.md)** | English release notes for v2.5.1 |
 | **[CAPABILITIES.md](CAPABILITIES.md)** | **11 возможностей с доказательствами**: что подтверждено, что с оговоркой, что неверно |
 | **[METRICS.en.md](METRICS.en.md)** · **[CAPABILITIES.en.md](CAPABILITIES.en.md)** · **[ATTESTATION_PASSPORT.en.md](ATTESTATION_PASSPORT.en.md)** · **[CAPABILITY_STATUS.en.md](CAPABILITY_STATUS.en.md)** | **English mirrors** ключевых документов (для внешнего читателя): витрина `README.md` уже полностью английская |
-| **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§168) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
+| **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§169) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
 | **[bench/index.html](bench/index.html)** | **Детерминированный бенчмарк** (график на сайте): лавина, цепочка коллизий, χ². Генерируется `python3 tools/bench_json.py --html docs/bench/index.html`; цель `make bench-json` (can-fail доказана) |
 | **[FIELD_AUDIT_REPORT.md](FIELD_AUDIT_REPORT.md)** | **Полевой аудит 14 реальных репозиториев** (Zig, C, Rust, TypeScript, Go, Python, Lean 4): Scorecard и `--xray` **ДО/ПОСЛЕ** исправлений (`[CRASH PATH]` **469 -> 8**; `cmark-gfm` 40 D -> 78 B, `tigerbeetle` 54 D -> 84 B, `aesop` 42 D -> 73 B) + семь дефектов, которые вскрыл сам прогон (#178–#184) |
 | **[../audits/README.md](../audits/README.md)** | **Тень-контракты на чужом коде**: рукописные SMT-модели реальных выражений из сторонних проектов (например `isAligned` из `andrewrk/zig-general-purpose-allocator` — ДОКАЗАНО, и контрольная ломаная версия — КОНТРПРИМЕР) + замер, почему «прогон KERN по 50 репозиториям» даёт нули |
@@ -41,7 +41,7 @@
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[RULE_THEOREM_MATRIX.md](RULE_THEOREM_MATRIX.md)** | **Матрица «правило пруф-чекера ↔ теорема Lean 4»**: 17 функций `verify*`/`check*` × 147 теорем; честно указаны 3 правила, обоснованные ядром Lean, и структурное `intro-def` |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§190): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->431**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§191): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->432**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[BELNAP_SOURCES.md](BELNAP_SOURCES.md)** · **[references.bib](references.bib)** | **Формальная база**: источники (25 записей, `verified`/`secondary`/`unverified`), сверка «теория → код» по `src/путь:строка`, §6 «чего в KERN нет», §7 расхождения черновиков; `make citations-check` |
 | **[THREAT_MODEL.md](THREAT_MODEL.md)** · **[KEY_MANAGEMENT.md](KEY_MANAGEMENT.md)** · **[INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md)** | **Документы доверия**: активы и противники, границы TCB, бэкап/ротация/отзыв ключа, порядок действий при ложном `T` |
 | **[PLATFORMS.md](PLATFORMS.md)** | **Матрица платформ**: что проверено прогонами, что собирается, что **не поддерживается** (Windows: 3 POSIX-блокера + sqlite3; macOS: только `libkern`) |
@@ -58,7 +58,7 @@
 | **[EXECUTION_RUNNER.md](EXECUTION_RUNNER.md)** | Как заявление `N` становится `T`: авто-дискавери тестов, анти-вакуум, маскирование секретов |
 | **[SPEC_ANCHORS_DEMO.md](SPEC_ANCHORS_DEMO.md)** | Мост «текст → контракт»: якоря `@kern:spec` превращают фразу из Markdown в `e=1` |
 | **[KERN_TERMINOLOGY_v0.1.md](KERN_TERMINOLOGY_v0.1.md)** | Нормативная терминология (что такое квант, Врата, свидетельство) |
-| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->431** (RU == EN): каждый — причина, действие, эффект, свидетельство |
+| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->432** (RU == EN): каждый — причина, действие, эффект, свидетельство |
 | **[OWNERSHIP.md](OWNERSHIP.md)** | Гигиена авторства и владения репозиторием |
 
 ### Формальные методы
@@ -103,7 +103,8 @@
 | **[SEMVER.md](SEMVER.md)** | Политика версий: что MAJOR/MINOR/PATCH, каденция тегов, опубликованный тег не двигаем |
 | **[NEXT_SESSION.md](NEXT_SESSION.md)** · **[.ru](NEXT_SESSION.ru.md)** | План следующей сессии: что закрыто, что осталось, чем измерено |
 | **[PLAN_v2.5.3.md](PLAN_v2.5.3.md)** · **[PLAN_v2.6.4.md](PLAN_v2.6.4.md)** · **[PLAN_v2.7.2.md](PLAN_v2.7.2.md)** | Планы циклов (исторические), со статусами ВЫПОЛНЕН |
-| **[PLAN_takt22.md](PLAN_takt22.md)** · **[.ru](PLAN_takt22.ru.md)** | **Действующий план (НЕ НАЧАТ)**: честная воронка покрытия (#405) и точечное расширение `--xray` — 7 шагов с приёмкой, 3 предохранителя и правила работы. Читать третьим, после `STATUS` и `NEXT_SESSION` |
+| **[PLAN_takt22.md](PLAN_takt22.md)** · **[.ru](PLAN_takt22.ru.md)** | Такт 2.2 (ВЫПОЛНЕН): честная воронка покрытия (#405) и точечное расширение `--xray` — 7 шагов с приёмкой, 3 предохранителя и правила работы |
+| **[PLAN_takt23.md](PLAN_takt23.md)** · **[.ru](PLAN_takt23.ru.md)** | **Действующий план (НЕ НАЧАТ)**: от `1020` доверенных шагов чекера к честному пределу — 4 измеренных вопроса, 6 блоков по 20 минут, 4 предохранителя. Читать третьим, после `STATUS` и `NEXT_SESSION` |
 
 
 ### Свидетельства (сырые данные)
