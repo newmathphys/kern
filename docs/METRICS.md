@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -11798,3 +11798,63 @@ BV-запросы дороже Int.
 отсева» в ней не осталось, и под-гейт честно покраснел. Новая форма отсева найдена
 измерением: СМЕСЬ вызова и битового (`is_ok(a) && (b & 1)`) — «havoc + BV» вне
 подмножества. ИЗМЕРЕНО после: `checked 3 | trivial 1 | skipped 1 | Σ 5 == total 5`.
+
+## §184. E2E `kernx`: КОНФЛИКТ БЕЛНАПА БЫЛ НЕПРЕДСТАВИМ В КАТАЛОГЕ (#423, #424, #425)
+
+> Сухой замер на 1 минуту: два противоречащих свидетельства по одному утверждению.
+> Слой истины работал, а каталог — нет.
+
+### 184.1 Замер ДО правки
+
+Проект: `claim "feature Z"` + два исполнения (`exit_code = 0` -> T и `exit_code = 124` -> F),
+оба связаны `supported_by`.
+
+| Что | Результат |
+|:--|:--|
+| `kernx status` | `статус conflicted: 1`, `резолюция исполнений: N->B(конфликт) 1` — **слой истины работает** |
+| `kernx build` | **`[!] SQLite: CHECK constraint failed: status IN (...11 статусов...)`** |
+
+**Причина (#423):** CHECK-список в `catalog.zig` знал 11 статусов, а `ast.Status` — 12.
+`conflicted` (Белнап B, который производит аккумулятор joinK) в схему не попал, поэтому
+**главная возможность была непредставима**, а `build` падал.
+
+### 184.2 #424: пакет схлопывал B в F
+
+`export.zig` включал `conflicted` в список `contradictions`, но `reason` печатал ЛИТЕРАЛ
+`"refuted"`. Человеческий отчёт говорил `[conflicted]`, машинный пакет — `refuted`:
+для потребителя это «опровергнуто, выброси» вместо «есть и T, и F, e=0, разбирайся».
+
+### 184.3 #425: ловушка миграции SQLite (найдена при починке)
+
+Голый `ALTER TABLE claims RENAME TO claims_old` **переписывает ссылки в других таблицах**:
+ИЗМЕРЕНО — `metrics.claim_id REFERENCES "claims_old"(id)`; после `DROP` ссылка висячая, и
+**каждая** операция падает с `no such table: main.claims_old`. Каталог становился непригодным.
+
+### 184.4 Что сделано
+
+1. **CHECK-список собирается из `ast.Status` на этапе компиляции** (`status_check_list`),
+   DDL — одна константа. Расхождение стало невозможным ПО ПОСТРОЕНИЮ.
+2. **Миграция старого каталога** по процедуре из документации SQLite:
+   `foreign_keys=OFF` + `legacy_alter_table=ON` -> пересоздание -> перенос -> `DROP` ->
+   возврат PRAGMA -> `PRAGMA foreign_key_check` с громким сообщением при нарушении.
+3. **Два теста** (оба в CI через `test-next`): (а) КАЖДЫЙ статус из словаря вставляется;
+   (б) E2E сквозь конвейер: резолюция -> каталог -> пакет, и пакет ОБЯЗАН назвать
+   `"reason": "conflicted"`.
+
+### 184.5 ИЗМЕРЕНО после
+
+| Проверка | Результат |
+|:--|:--|
+| `kernx build` на конфликте (новый каталог) | `[OK] Собрано: узлов=6`, в каталоге `('claim:feature Z','conflicted')` |
+| пакет агента | `[{"id": "claim:feature Z", "reason": "conflicted"}, {"id": "claim:execution: heavy", "reason": "refuted"}]` |
+| старый каталог с внешним ключом | `[i] миграция каталога: CHECK-список устарел`; старая строка `old:1/tested` цела, метрики целы, `FK: REFERENCES claims(id)` |
+| повторный прогон | миграция НЕ запускается (идемпотентность) |
+| `zig build test-next` | зелёный |
+
+### 184.6 Границы, названные честно
+
+* Проверено на ПРОЕКТЕ-ФИКСТУРЕ, а не на боевом проекте второго контура (`/opt/rii` в этом
+  окружении отсутствует).
+* Миграция пересоздаёт таблицу: если статус строки ВНЕ нового словаря, строка НЕ переносится —
+  и об этом печатается сообщение (молчаливой потери нет).
+* `kernx` НЕ проверялся на `packet --scope` и `diff` для конфликтных случаев.

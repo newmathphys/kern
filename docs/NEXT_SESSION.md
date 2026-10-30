@@ -14,7 +14,7 @@
 > stale in the very commit that adds it (this line was corrected twice already). The
 > authority is `git log -1` and `docs/STATUS.md`, never this line.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
@@ -266,6 +266,28 @@ was corrected wherever it disagreed with the code:
    anchors, and the contracts lock contains that file - the extraction must go together with
    rebuilding the anchors. The acceptance criterion: the IR snapshots (`2401/2539` and `134/156`) and
    the buckets (`173|126|9`, `72|73|5`, `13|3|0`) match BIT-FOR-BIT.
+
+26. **DIRECTION B (Goal 1): A DRY `kernx` RUN ON A BELNAP CONFLICT - THREE DEFECTS FOUND.**
+   Two contradictory pieces of evidence for one claim: `kernx status` shows `статус conflicted: 1`
+   and `N->B(конфликт) 1` (the truth layer works) while `kernx build` CRASHED with
+   `[!] SQLite: CHECK constraint failed` - the catalog CHECK schema had 11 statuses while
+   `ast.Status` has 12: `conflicted` (Belnap B) was not in the schema, so the FLAGSHIP capability
+   was unrepresentable (`#423`). The agent packet collapsed B into F: the reason was printed as the
+   LITERAL `"refuted"` although the human report said `[conflicted]` (`#424`). While fixing it, a
+   SQLite migration trap surfaced: a bare `ALTER TABLE ... RENAME` REWRITES references in other
+   tables (`metrics.claim_id REFERENCES "claims_old"`), and after the `DROP` the reference is
+   dangling and the catalog becomes unusable (`#425`).
+27. **FIXED AND PINNED:** the CHECK list is ASSEMBLED FROM `ast.Status` AT COMPILE TIME (drift is
+   impossible by construction), `reason` prints the actual status, and the migration of an old
+   catalog follows the procedure from the SQLite documentation (`foreign_keys=OFF` +
+   `legacy_alter_table=ON` + `foreign_key_check`). Two tests in CI via `test-next`: every status of
+   the vocabulary inserts, and the E2E "resolution -> catalog -> packet" must name
+   `reason: conflicted`. MEASURED: build on a conflict -> `[OK] Собрано`, the catalog holds
+   `('claim:feature Z','conflicted')`, the packet says `reason: conflicted`; an old DB: the row and
+   the metrics survived, `FK: REFERENCES claims(id)`; a repeated run does not trigger the migration.
+28. **BOUNDARIES:** verified on a FIXTURE project (there is no live project of the second contour in
+   this environment); `kernx packet --scope` and `diff` were NOT tested for conflict cases; the
+   migration does not carry rows whose status is outside the vocabulary - and it says so.
 
 **Closed in THIS session (verification of all capabilities):**
 

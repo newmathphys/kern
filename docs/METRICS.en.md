@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -4387,3 +4387,64 @@ Its \"skips\" (`p->len`, `a & 1`) ARE NOW TRANSLATED (#416 and step 4b), so no \
 it, and the sub-gate honestly turned red. A new skip form was found by measurement: a MIX of a call
 and a bitwise op (`is_ok(a) && (b & 1)`) - \"havoc + BV\" is outside the subset. MEASURED after:
 `checked 3 | trivial 1 | skipped 1 | Sum 5 == total 5`.
+
+## §162. `kernx` E2E: THE BELNAP CONFLICT WAS UNREPRESENTABLE IN THE CATALOG (#423, #424, #425)
+
+> A one-minute dry run: two contradictory pieces of evidence for one claim. The truth layer
+> worked - the catalog did not.
+
+### 162.1 The measurement BEFORE the fix
+
+Project: `claim "feature Z"` + two executions (`exit_code = 0` -> T and `exit_code = 124` -> F),
+both linked `supported_by`.
+
+| What | Result |
+|:--|:--|
+| `kernx status` | `статус conflicted: 1`, `резолюция исполнений: N->B(конфликт) 1` - **the truth layer works** |
+| `kernx build` | **`[!] SQLite: CHECK constraint failed: status IN (...11 statuses...)`** |
+
+**Cause (#423):** the CHECK list in `catalog.zig` knew 11 statuses while `ast.Status` has 12.
+`conflicted` (Belnap B, produced by the joinK accumulator) was not in the schema, so **the
+flagship capability was unrepresentable** and `build` crashed.
+
+### 162.2 #424: the packet collapsed B into F
+
+`export.zig` included `conflicted` in the `contradictions` list but printed the LITERAL `"refuted"`
+as the reason. The human report said `[conflicted]`, the machine packet said `refuted`: for a
+consumer that is \"refuted, drop it\" instead of \"there is both T and F, e=0, investigate\".
+
+### 162.3 #425: a SQLite migration trap (found while fixing)
+
+A bare `ALTER TABLE claims RENAME TO claims_old` **rewrites references in other tables**:
+MEASURED - `metrics.claim_id REFERENCES "claims_old"(id)`; after the `DROP` the reference is
+dangling and EVERY operation fails with `no such table: main.claims_old`. The catalog became
+unusable.
+
+### 162.4 What was done
+
+1. **The CHECK list is assembled from `ast.Status` at compile time** (`status_check_list`), the DDL
+   is a single constant. The drift became impossible BY CONSTRUCTION.
+2. **Migration of an old catalog** with the procedure from the SQLite documentation:
+   `foreign_keys=OFF` + `legacy_alter_table=ON` -> recreate -> copy -> `DROP` -> restore the PRAGMAs
+   -> `PRAGMA foreign_key_check` with a loud message on a violation.
+3. **Two tests** (both in CI via `test-next`): (a) EVERY status from the vocabulary inserts;
+   (b) an E2E through the pipeline: resolution -> catalog -> packet, and the packet MUST say
+   `"reason": "conflicted"`.
+
+### 162.5 MEASURED after
+
+| Check | Result |
+|:--|:--|
+| `kernx build` on a conflict (new catalog) | `[OK] Собрано: узлов=6`, the catalog holds `('claim:feature Z','conflicted')` |
+| the agent packet | `[{"id": "claim:feature Z", "reason": "conflicted"}, {"id": "claim:execution: heavy", "reason": "refuted"}]` |
+| an old catalog with a foreign key | `[i] миграция каталога: CHECK-список устарел`; the old row `old:1/tested` survived, the metrics survived, `FK: REFERENCES claims(id)` |
+| a repeated run | the migration does NOT trigger (idempotency) |
+| `zig build test-next` | green |
+
+### 162.6 Boundaries, honestly named
+
+* Verified on a FIXTURE project, not on a live project of the second contour (`/opt/rii` is absent
+  in this environment).
+* The migration recreates the table: if a row's status is OUTSIDE the new vocabulary the row is NOT
+  carried over - and a message says so (no silent loss).
+* `kernx` was NOT tested on `packet --scope` and `diff` for conflict cases.

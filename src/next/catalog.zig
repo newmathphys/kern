@@ -64,13 +64,93 @@ pub const Catalog = struct {
         return out.toOwnedSlice();
     }
 
+    /// СПИСОК СТАТУСОВ ДЛЯ CHECK-ОГРАНИЧЕНИЯ, СОБРАННЫЙ ИЗ `ast.Status` НА ЭТАПЕ
+    /// КОМПИЛЯЦИИ. ЗАЧЕМ (дефект #423): список был скопирован РУКАМИ, и
+    /// `conflicted` — статус, который производит аккумулятор joinK (Белнап B),
+    /// — в него НЕ попал. Тогда `kernx build` на проекте с конфликтом ПАДАЛ на
+    /// CHECK-ограничении, то есть ГЛАВНАЯ возможность (конфликт B(1,1) не
+    /// теряется) была НЕПРЕДСТАВИМА в каталоге. Два источника правды для одного
+    /// словаря расходятся молча; здесь он ОДИН.
+    pub const status_check_list = blk: {
+        var out: []const u8 = "";
+        for (@typeInfo(ast.Status).@"enum".field_names, 0..) |f, i| {
+            if (i != 0) out = out ++ ",";
+            out = out ++ "'" ++ f ++ "'";
+        }
+        break :blk out;
+    };
+
+    /// DDL таблицы `claims` — ЕДИНСТВЕННОЕ место, где задан CHECK-список.
+    const claims_ddl = "CREATE TABLE IF NOT EXISTS claims(id TEXT PRIMARY KEY, statement TEXT, " ++
+        "status TEXT CHECK(status IN (" ++ status_check_list ++ ")), scope TEXT);";
+
+    /// Прочитать ОДНО текстовое значение (или null).
+    fn scalarText(self: *Catalog, sql: [*:0]const u8) !?[]u8 {
+        var stmt: ?*c.sqlite3_stmt = null;
+        if (c.sqlite3_prepare_v2(self.db, sql, -1, &stmt, null) != c.SQLITE_OK)
+            return CatalogError.SqlError;
+        defer _ = c.sqlite3_finalize(stmt);
+        if (c.sqlite3_step(stmt) != c.SQLITE_ROW) return null;
+        const ptr = c.sqlite3_column_text(stmt, 0);
+        if (ptr == null) return null;
+        const n: usize = @intCast(c.sqlite3_column_bytes(stmt, 0));
+        const out = try self.alloc.alloc(u8, n);
+        @memcpy(out, ptr[0..n]);
+        return out;
+    }
+
+    /// МИГРАЦИЯ CHECK-ОГРАНИЧЕНИЯ ТАБЛИЦЫ `claims` (дефект #423).
+    ///
+    /// ЗАЧЕМ. `CREATE TABLE IF NOT EXISTS` НЕ меняет существующую таблицу,
+    /// поэтому каталог, созданный ДО починки, хранит СТАРЫЙ CHECK-список (без
+    /// `conflicted`), и `kernx build` на проекте с конфликтом ПАДАЕТ.
+    /// ИЗМЕРЕНО на каталоге, созданном до правки: та же ошибка ограничения.
+    ///
+    /// ПРАВИЛО: пересоздать таблицу и ПЕРЕНЕСТИ данные. Строки, чей статус в
+    /// новый список не входит, НЕ выбрасываются молча — о них сообщается.
+    fn migrateClaimsStatusCheck(self: *Catalog) !void {
+        const cur = (try self.scalarText(
+            "SELECT sql FROM sqlite_master WHERE name='claims';")) orelse return;
+        defer self.alloc.free(cur);
+        if (std.mem.indexOf(u8, cur, status_check_list) != null) return; // актуальна
+        std.debug.print("[i] миграция каталога: CHECK-список `claims` устарел — пересоздаю таблицу\n", .{});
+        // ПРОЦЕДУРА ИЗ ДОКУМЕНТАЦИИ SQLITE (12 шагов, здесь — необходимый минимум).
+        // ЗАЧЕМ ТАК. ИЗМЕРЕНО: голый `ALTER TABLE claims RENAME TO …`
+        // ПЕРЕПИСЫВАЕТ ссылки в ДРУГИХ таблицах (`metrics.claim_id REFERENCES
+        // "claims_old"(id)`), и после удаления старой таблицы ссылка становится
+        // ВИСЯЧЕЙ — каждая следующая операция падает с
+        // `no such table: main.claims_old`. Это делало каталог непригодным.
+        // `legacy_alter_table=ON` запрещает переписывание ссылок, а
+        // `foreign_keys=OFF` — проверки во время перестройки.
+        try self.exec("PRAGMA foreign_keys = OFF;");
+        try self.exec("PRAGMA legacy_alter_table = ON;");
+        try self.exec("ALTER TABLE claims RENAME TO claims_migr;");
+        try self.exec(claims_ddl);
+        try self.exec("INSERT OR IGNORE INTO claims(id,statement,status,scope) " ++
+            "SELECT id,statement,status,scope FROM claims_migr;");
+        const lost = (try self.countTable("claims_migr")) - (try self.countTable("claims"));
+        if (lost > 0) std.debug.print(
+            "[!] миграция: {d} строк(и) со статусом ВНЕ словаря НЕ перенесены\n", .{lost});
+        try self.exec("DROP TABLE claims_migr;");
+        try self.exec("PRAGMA legacy_alter_table = OFF;");
+        try self.exec("PRAGMA foreign_keys = ON;");
+        // ЦЕЛОСТНОСТЬ: после миграции ссылки обязаны сходиться. Если нет —
+        // сообщаем ГРОМКО (молчаливая порча каталога недопустима).
+        const fk = (try self.scalarText("PRAGMA foreign_key_check;")) orelse null;
+        if (fk) |bad| {
+            defer self.alloc.free(bad);
+            std.debug.print("[!] миграция: foreign_key_check нашёл нарушение: {s}\n", .{bad});
+        }
+    }
+
     pub fn initSchema(self: *Catalog) !void {
         try self.exec(
             \\CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, name TEXT, version TEXT, root TEXT);
             \\CREATE TABLE IF NOT EXISTS artifacts(id TEXT PRIMARY KEY, path TEXT UNIQUE, kind TEXT, hash TEXT);
             \\CREATE TABLE IF NOT EXISTS modules(id TEXT PRIMARY KEY, name TEXT);
             \\CREATE TABLE IF NOT EXISTS symbols(id TEXT PRIMARY KEY, artifact_id TEXT, name TEXT);
-            \\CREATE TABLE IF NOT EXISTS claims(id TEXT PRIMARY KEY, statement TEXT, status TEXT CHECK(status IN ('proven','refuted','verified','tested','compiled','empirical','hypothesis','blocked','unknown','not_found','not_yet_reproducible')), scope TEXT);
+        ++ claims_ddl ++
+            \\
             \\CREATE TABLE IF NOT EXISTS evidence(id TEXT PRIMARY KEY, kind TEXT, source TEXT);
             \\CREATE TABLE IF NOT EXISTS executions(id TEXT PRIMARY KEY, command TEXT, status TEXT);
             \\CREATE TABLE IF NOT EXISTS proofs(id TEXT PRIMARY KEY, path TEXT, system TEXT, theorem TEXT, status TEXT);
@@ -90,6 +170,9 @@ pub const Catalog = struct {
             \\CREATE INDEX IF NOT EXISTS idx_rel_to ON relations(to_id);
             \\CREATE INDEX IF NOT EXISTS idx_artifact_hash ON artifacts(hash);
         );
+        // ДЕФЕКТ #423: существующий каталог СО СТАРЫМ CHECK-списком иначе остался бы
+        // сломанным навсегда (`CREATE TABLE IF NOT EXISTS` его не меняет).
+        try self.migrateClaimsStatusCheck();
     }
 
     pub fn insertProject(self: *Catalog, p: Project) !void {
@@ -228,7 +311,7 @@ pub const Catalog = struct {
         "projects",   "artifacts", "modules",   "symbols", "claims",
         "evidence",   "executions", "proofs",   "metrics", "relations",
         "decisions",  "blockers",  "snapshots", "questions", "cache_entries",
-        "diagnostics",
+        "diagnostics", "claims_migr",
     };
 
     pub fn countTable(self: *Catalog, table: []const u8) !i64 {
@@ -384,6 +467,33 @@ test "CATALOG: схема, вставка проекта и запрос по с
     try std.testing.expectEqual(@as(i64, 2), try cat.countClaimsByStatus("proven"));
     try std.testing.expectEqual(@as(i64, 1), try cat.countClaimsByStatus("hypothesis"));
     try std.testing.expectEqual(@as(i64, 1), try cat.countTable("artifacts"));
+}
+
+test "CATALOG РЕГРЕССИЯ (#423): ЛЮБОЙ статус из ast.Status ВСТАВЛЯЕТСЯ" {
+    // ЗАЧЕМ. CHECK-список в схеме был скопирован РУКАМИ и разошёлся с `ast.Status`:
+    // `conflicted` — статус, который производит аккумулятор joinK (Белнап B), — в него
+    // не попал, и `kernx build` на проекте с конфликтом ПАДАЛ на CHECK-ограничении.
+    // Тест перебирает ВЕСЬ словарь, поэтому следующее расхождение ловится ЗДЕСЬ, а не
+    // в бою (класс #423: два источника правды для одного словаря расходятся молча).
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    var cat = try Catalog.open(a, ":memory:");
+    defer cat.close();
+    try cat.initSchema();
+
+    inline for (@typeInfo(ast.Status).@"enum".field_names) |f| {
+        const sql = try std.fmt.allocPrintSentinel(a,
+            "INSERT OR REPLACE INTO claims(id,statement,status,scope) VALUES('c:{s}','x','{s}','');",
+            .{ f, f }, 0);
+        cat.exec(sql) catch |e| {
+            std.debug.print("[!] статус '{s}' НЕ вставляется: {s}\n", .{ f, @errorName(e) });
+            return e;
+        };
+    }
+    const n = @typeInfo(ast.Status).@"enum".field_names.len;
+    try std.testing.expectEqual(@as(i64, n), try cat.countTable("claims"));
 }
 
 const parser = @import("parser.zig");

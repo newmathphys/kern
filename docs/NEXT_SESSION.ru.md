@@ -14,7 +14,7 @@
 > ровно тем коммитом, который его добавляет (его уже правили дважды). Источник
 > истины — `git log -1` и `docs/STATUS.ru.md`, а не эта строка.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
@@ -265,6 +265,28 @@
    и замок контрактов содержит этот файл — вынос обязан идти вместе с пересборкой якорей.
    Критерий приёмки: IR-слепки (`2401/2539` и `134/156`) и корзины (`173|126|9`, `72|73|5`,
    `13|3|0`) совпадают ПОБИТОВО.
+
+26. **НАПРАВЛЕНИЕ В (Цель 1): СУХОЙ ЗАМЕР `kernx` НА КОНФЛИКТ БЕЛНАПА — НАЙДЕНЫ ТРИ ДЕФЕКТА.**
+   Два противоречащих свидетельства по одному утверждению: `kernx status` показывает
+   `статус conflicted: 1` и `N->B(конфликт) 1` (слой истины работает), а `kernx build` ПАДАЛ:
+   `[!] SQLite: CHECK constraint failed` — в CHECK-схеме каталога было 11 статусов, а в
+   `ast.Status` их 12: `conflicted` (Белнап B) в схему не попал, то есть ГЛАВНАЯ возможность
+   была непредставима (`#423`). Пакет агента схлопывал B в F: причина печаталась ЛИТЕРАЛОМ
+   `"refuted"`, хотя человеческий отчёт говорил `[conflicted]` (`#424`). При починке вскрылась
+   ловушка миграции SQLite: голый `ALTER TABLE … RENAME` ПЕРЕПИСЫВАЕТ ссылки в других таблицах
+   (`metrics.claim_id REFERENCES "claims_old"`), после `DROP` ссылка висячая и каталог
+   становится непригодным (`#425`).
+27. **ИСПРАВЛЕНО И ЗАПЕРТО:** CHECK-список СОБИРАЕТСЯ ИЗ `ast.Status` НА ЭТАПЕ КОМПИЛЯЦИИ
+   (расхождение невозможно по построению), `reason` печатает фактический статус, миграция старого
+   каталога идёт по процедуре из документации SQLite (`foreign_keys=OFF` + `legacy_alter_table=ON`
+   + `foreign_key_check`). Два теста в CI через `test-next`: каждый статус словаря вставляется и
+   E2E «резолюция -> каталог -> пакет» обязан назвать `reason: conflicted`. ИЗМЕРЕНО: build на
+   конфликте -> `[OK] Собрано`, каталог `('claim:feature Z','conflicted')`, пакет
+   `reason: conflicted`; старая БД: строка и метрики целы, `FK: REFERENCES claims(id)`;
+   повторный прогон миграцию не запускает.
+28. **ГРАНИЦЫ:** проверено на ПРОЕКТЕ-ФИКСТУРЕ (боевого проекта второго контура в этом окружении
+   нет); `kernx packet --scope` и `diff` для конфликтных случаев НЕ проверялись; миграция не
+   переносит строки со статусом вне словаря — и сообщает об этом.
 
 **Закрыто в ЭТОЙ сессии (проверка всех возможностей):**
 

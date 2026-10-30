@@ -105,7 +105,14 @@ pub fn writePacket(allocator: std.mem.Allocator, path: []const u8,
         first = false;
         try w.writeAll("    {\"id\": \"");
         try jsonEscape(w, cl.id);
-        try w.writeAll("\", \"reason\": \"refuted\"}");
+        // ДЕФЕКТ #424: причина была ЗАХАРДКОЖЕНА как `refuted`, хотя в список
+        // попадают и `conflicted`. Для ПОТРЕБИТЕЛЯ пакета (другого агента) это
+        // схлопывание B в F: «опровергнуто, выброси» вместо «есть И подтверждение,
+        // И опровержение, e=0, разбирайся». Человеческий отчёт статус называл
+        // верно (`[conflicted]`), а машинный — нет.
+        try w.writeAll("\", \"reason\": \"");
+        try w.writeAll(@tagName(cl.status));
+        try w.writeAll("\"}");
     }
     try w.writeAll("\n  ],\n");
 
@@ -199,6 +206,48 @@ pub fn writeReport(allocator: std.mem.Allocator, path: []const u8,
 // =========================================================================
 // ТЕСТЫ
 // =========================================================================
+
+test "E2E КОНФЛИКТ БЕЛНАПА: T+F -> B; КАТАЛОГ ДЕРЖИТ, ПАКЕТ НАЗЫВАЕТ (#423, #424)" {
+    // ЗАЧЕМ (два дефекта, найденные сухим замером `kernx`):
+    //  #423 — CHECK-схема каталога знала 11 статусов, а `ast.Status` их 12:
+    //         `conflicted` в схему не попал, и `kernx build` на проекте с
+    //         конфликтом ПАДАЛ на CHECK-ограничении. Главная возможность
+    //         (конфликт B(1,1) не теряется) была НЕПРЕДСТАВИМА в каталоге.
+    //  #424 — причина в `contradictions` пакета была ЗАХАРДКОЖЕНА как "refuted",
+    //         поэтому ПОТРЕБИТЕЛЬ пакета (другой агент) видел B как F.
+    // Тест идёт СКВОЗЬ конвейер: резолюция -> каталог -> пакет.
+    const parser = @import("parser.zig");
+    const cat_mod = @import("catalog.zig");
+    const truth_mod = @import("truth.zig");
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const src =
+        \\project "P" { version "1" }
+        \\claim "feature Z" { status empirical }
+        \\claim "execution: light" { status tested metric exit_code = 0 }
+        \\claim "execution: heavy" { status refuted metric exit_code = 124 }
+        \\link "claim:feature Z" -> "claim:execution: light" { relation "supported_by" }
+        \\link "claim:feature Z" -> "claim:execution: heavy" { relation "supported_by" }
+    ;
+    var res = try parser.parse(a, src);
+    const r = try truth_mod.resolve(a, res.project);
+    res.project.claims = r.claims;
+    // (1) резолюция: конфликт НАЙДЕН (не «победил последний тест»)
+    try std.testing.expectEqual(@as(usize, 1), r.stats.to_conflicted);
+    // (2) КАТАЛОГ держит B (регрессия #423)
+    var cat = try cat_mod.Catalog.open(a, ":memory:");
+    defer cat.close();
+    try cat.initSchema();
+    try cat.insertProject(res.project);
+    try std.testing.expectEqual(@as(i64, 1), try cat.countClaimsByStatus("conflicted"));
+    // (3) ПАКЕТ НАЗЫВАЕТ статус (регрессия #424)
+    const pkt = "/tmp/kern_belnap_packet.json";
+    try writePacket(a, pkt, res.project, &.{}, "belnap");
+    defer compat.deleteFile(pkt) catch {};
+    const data = try compat.readFileAlloc(a, pkt, 1 << 20);
+    try std.testing.expect(std.mem.indexOf(u8, data, "\"reason\": \"conflicted\"") != null);
+}
 
 test "EXPORT: agent packet содержит proven/blocked и валиден как JSON-структура" {
     const parser = @import("parser.zig");

@@ -58,7 +58,7 @@ python3 tools/ai_traps_check.py --selftest
 ## Факты реестра, с которыми эта страница согласована
 
 <!-- fact:core_tests -->451 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
-<!-- fact:catalog -->480 каталог · <!-- fact:check_targets -->183 CHECK ·
+<!-- fact:catalog -->482 каталог · <!-- fact:check_targets -->183 CHECK ·
 <!-- fact:canfail_cases -->223 кейса can-fail · <!-- fact:anchors -->183 якорей ·
 <!-- fact:registry_targets -->239 целей реестра ·
 <!-- fact:meta_targets -->41 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·

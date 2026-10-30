@@ -1,6 +1,6 @@
 # KERN — АТТЕСТАЦИОННЫЙ ПАСПОРТ (проверенный)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->480 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Все числа проверены прогонами.** Где заявленное ранее расходилось с фактом —
 > указано в колонке «было заявлено». Ничего не принимается на слово.
@@ -32,7 +32,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 > прогонами): ядро **<!-- fact:core_tests -->451 / <!-- fact:core_tests -->451** (без `z3` в `PATH` — <!-- fact:cross_arch_passed -->443 passed + <!-- fact:cross_arch_skipped -->8 skipped),
 > KERN-Next **<!-- fact:next_tests -->53 / <!-- fact:next_tests -->53**, can-fail **<!-- fact:check_targets -->183 / <!-- fact:check_targets -->183 CHECK** (<!-- fact:canfail_cases -->223 не-вакуумных кейсов, 0 ошибок),
 > реестр **<!-- fact:registry_targets -->239 цели**, мутации **100.0 %** (1345/1345), Lean 4 **8 файлов / <!-- fact:lean_theorems -->147 теорем /
-> 0 sorry**, каталог тестов **<!-- fact:catalog -->480**. Также с тех пор закрыто: `hash_algo` по умолчанию
+> 0 sorry**, каталог тестов **<!-- fact:catalog -->482**. Также с тех пор закрыто: `hash_algo` по умолчанию
 > — **BLAKE3** (дефект #66), `deflate` (кодек `0x02`) **реализован**, аттестат подписан
 > **Ed25519**. См. `README.md`, `docs/METRICS.md` §1/§75 и §1–§8 ниже (они актуальны).
 
@@ -50,7 +50,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 | Target Systems | **PASS** — 2 платформы: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA-обход закрыт, KERNFS согласован) |
 | Decision Coverage | **PASS** — 100.0 % (порог 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1376/1427 сайтов, 0 выживших) |
+| Mutation Coverage | **PASS** — 100.0 % (1376/1432 сайтов, 0 выживших) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -271,7 +271,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 ## Что подтвердилось полностью ✅
 
 402 / 402 (Debug + ReleaseSafe) · 53/53 KERN-Next · 0 утечек · 0 FD · 0 зомби ·
-3/3 SIGBUS · 100% покрытие решений · мутационный скор 100.0% (1376/1427 сайтов) ·
+3/3 SIGBUS · 100% покрытие решений · мутационный скор 100.0% (1376/1432 сайтов) ·
 ⚠️ кросс-архитектура (ARM64 / POWERPC64) требует ПОВТОРНОГО прогона под QEMU:
 2/2 атаки · crash-consistency · лавина 50% / 0 коллизий / цепочка 7 ·
 1 000 000 фаззинг-итераций без паник · Thundering Herd 1+63 · эвикция 900/900 ·
