@@ -437,12 +437,14 @@ def selftest() -> int:
             print("[FAIL] selftest: ВЕРНОЕ число открытых дефектов забраковано")
             bad += 1
         bad_ns = Path(td) / "ns_bad.md"
-        bad_ns.write_text("| Открытых технических дефектов | **0** — подделка |\n",
-                          encoding="utf-8")
-        if int(j["open"]) == 0:
-            print("[FAIL] selftest: подсадка неотличима — журнал уже даёт 0 открытых")
-            bad += 1
-        elif not next_session_defect_mismatch(j, (str(bad_ns),)):
+        # ДЕФЕКТ #434 (найден этим же мета-тестом при `open == 0`): подделка была
+        # ЗАХАРДКОЖЕНА нулём, поэтому при факте `0` она становилась НЕОТЛИЧИМОЙ от
+        # правды и мета-тест вырождался («подсадка неотличима»). Теперь подделка
+        # ОТНОСИТЕЛЬНАЯ: число, заведомо НЕ равное факту.
+        bad_ns.write_text(
+            f"| Открытых технических дефектов | **{int(j['open']) + 1}** — подделка |\n",
+            encoding="utf-8")
+        if not next_session_defect_mismatch(j, (str(bad_ns),)):
             print("[FAIL] selftest: расхождение числа открытых дефектов НЕ поймано")
             bad += 1
     print(f"[{'OK' if bad == 0 else 'FAIL'}] STATUS selftest: ошибок {bad}")

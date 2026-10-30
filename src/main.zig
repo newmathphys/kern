@@ -575,10 +575,10 @@ pub fn main(init: std.process.Init) !void {
                 });
                 // Печатаем РАЗБИВКУ проверенного: без неё нельзя понять, какие
                 // именно шаги остались доверенными (вопрос из METRICS 55.5).
-                std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | eq(refl/symm/trans) {d} | bool(and-elim/not-or-elim/mono) {d} | ДОВЕРЕННЫХ {d} | дыр {d}\n", .{
+                std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | eq(refl/symm/trans) {d} | bool(and-elim/not-or-elim/mono) {d} | ДОВЕРЕННЫХ {d} | прочих {d} | дыр {d}\n", .{
                     pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
                     pv.unitres_checked, pv.farkas_checked, pv.rewrite_verified,
-                    pv.eq_verified, pv.bool_verified, pv.trusted_steps, pv.holes,
+                    pv.eq_verified, pv.bool_verified, pv.trusted_steps, pv.other_steps, pv.holes,
                 });
                 if (pv.trusted_steps > 0) {
                     std.debug.print("  [i] первое непроверенное правило: {s} ({d} шт.)\n", .{ pv.first_trusted, pv.trusted_steps });
@@ -715,10 +715,10 @@ pub fn main(init: std.process.Init) !void {
         const ta = ar.allocator();
         const contract = try proof_check.extractAsserts(ta, smt);
         const pv = try proof_check.verifyProofSmt(ta, proof, contract, smt);
-        std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | ДОВЕРЕННЫХ {d} | дыр {d}\n", .{
+        std.debug.print("  [ПРУФ-ЧЕКЕР] шагов {d} | посылок {d}/{d} | mp {d} | резолюция {d} | Фаркаш {d} | rewrite(лин.) {d} | ДОВЕРЕННЫХ {d} | прочих {d} | дыр {d}\n", .{
             pv.proof_steps, pv.premises_bound, pv.premises_total, pv.mp_checked,
             pv.unitres_checked, pv.farkas_checked, pv.rewrite_verified,
-            pv.trusted_steps, pv.holes,
+            pv.trusted_steps, pv.other_steps, pv.holes,
         });
         // СТРОГО: «подтверждено» = checksPass И вывод `false` И trusted == 0.
         // Именно это требование проверяет адверсариальный фаззер: любая

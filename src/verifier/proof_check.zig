@@ -109,6 +109,11 @@ pub const ProofVerdict = struct {
     eq_verified: usize = 0, // refl / symm / trans — проверены структурно
     bool_verified: usize = 0, // and-elim / monotonicity — проверены подстановкой
     trusted_steps: usize = 0, // что осталось непроверяемым — честно посчитано
+    /// ДЕФЕКТ #432: шаги, не отнесённые ни к проверенным, ни к доверенным, ни
+    /// к дырам (asserted / hypothesis / неизвестные правила). Нужны, чтобы
+    /// ТОЖДЕСТВО отчёта было ТОЧНЫМ и проверяемым гейтом:
+    ///   Σ проверено + доверенных + дыр + прочих == шагов.
+    other_steps: usize = 0,
     first_trusted: []const u8 = "", // правило первого непроверенного шага
     reject: []const u8 = "", // причина отказа ("" = нет)
     /// ДЕФЕКТ #371: вывод отвергнут ИМЕННО по пределу вложенности парсера.
@@ -4740,12 +4745,18 @@ fn verifyProofKindInner(
     // `intro-def` прошёл (свежее имя + две клаузы определения `ite`).
     for (c.steps.items) |st| {
         if (st.headAtom()) |h| {
-            if (std.mem.eql(u8, h, "intro-def")) _ = verifyIntroDef(&c, st);
+            if (std.mem.eql(u8, h, "intro-def")) {
+                _ = verifyIntroDef(&c, st);
+                v.other_steps += 1; // #432: определение — не проверенный и не доверенный шаг
+            }
         }
     }
 
     for (c.steps.items) |st| {
-        const r = ruleOf(st) orelse continue;
+        const r = ruleOf(st) orelse {
+            v.other_steps += 1; // #432: шаг без правила — тоже обязан быть учтён
+            continue;
+        };
         if (isHole(r)) {
             v.holes += 1;
             if (v.reject.len == 0) v.reject = "вывод содержит правило-дыру (hole/trust/sorry)";
@@ -4760,6 +4771,7 @@ fn verifyProofKindInner(
 
         if (std.mem.eql(u8, r, "asserted")) {
             v.premises_total += 1;
+            v.other_steps += 1; // #432: посылка — не «проверенный» и не «доверенный» шаг
             const t = expand(&c, proved(st), 0);
             // ДЕФЕКТ #344: Z3 раскрывает `define-fun` в выводе, а контракт
             // содержит ВЫЗОВ. Раскрываем вызовы с подстановкой аргументов с
@@ -4818,13 +4830,16 @@ fn verifyProofKindInner(
             }
         } else if (std.mem.eql(u8, r, "hypothesis")) {
             v.premises_total += 1; // локальная посылка, снимается правилом lemma
+            v.other_steps += 1; // #432: то же — посылка, не проверенный шаг
         } else if (std.mem.eql(u8, r, "mp")) {
-            v.mp_checked += 1;
-            if (!checkMp(&c, st)) v.mp_bad += 1;
+            // ДЕФЕКТ #432: счётчик обязан считать ПРОВЕРЕННЫЕ шаги, а не все
+            // шаги правила. Иначе отчёт печатает одно и то же число и до, и
+            // после правки (ИЗМЕРЕНО: колонка `резолюция` = 5247 и при 2970
+            // доверенных, и при 1020), и читатель не видит проделанной работы.
+            if (checkMp(&c, st)) v.mp_checked += 1 else v.mp_bad += 1;
         } else if (std.mem.eql(u8, r, "unit-resolution")) {
-            v.unitres_checked += 1;
             switch (checkUnitRes(&c, st)) {
-                .verified => {},
+                .verified => v.unitres_checked += 1,
                 .bad => v.unitres_bad += 1,
                 // ФОРМА ВНЕ МОДЕЛИ ЧЕКЕРА -> доверенный шаг, а не `bad`.
                 // ДЕФЕКТ #95: раньше ЛЮБОЕ несовпадение считалось `bad`, из-за
@@ -4873,7 +4888,18 @@ fn verifyProofKindInner(
                 // `ДОВЕРЕННЫХ 0` и `PROOF VERIFIED trusted: 0`, rc=0.
                 // Теперь непроверенная лемма честно становится ДОВЕРЕННОЙ,
                 // и гейт закрывается (rc != 0) — как и для unit-resolution.
-                .structural_only => v.farkas_structural += 1,
+                // ДЕФЕКТ #433 (найден ТОЖДЕСТВОМ отчёта из #432). `.structural_only`
+                // означает «сертификат НЕ проверен», но шаг при этом НЕ становился
+                // доверенным — он ИСЧЕЗАЛ из отчёта: ни проверен, ни доверен,
+                // ни дыра. Комментарий выше обещал обратное («теперь непроверенная
+                // лемма честно становится ДОВЕРЕННОЙ»), а код лишь увеличивал
+                // счётчик `farkas_structural`, который НЕ печатается.
+                // ИЗМЕРЕНО на `storeinv…00002_001.cvc`: 11 таких шагов, из-за чего
+                // Σ категорий (67) не сходилась с числом шагов (78).
+                .structural_only => {
+                    v.farkas_structural += 1;
+                    markTrusted(&v, "th-lemma (структурно)", st);
+                },
                 .bad => {
                     v.farkas_bad += 1;
                     // ЭТАП А (диагностика): дамп шага, признанного НЕВЕРНЫМ.
@@ -5069,6 +5095,7 @@ pub fn check(
     v.eq_verified = deep.eq_verified;
     v.bool_verified = deep.bool_verified;
     v.trusted_steps = deep.trusted_steps;
+    v.other_steps = deep.other_steps;
     v.first_trusted = deep.first_trusted;
     v.reject = deep.reject;
     v.too_deep = deep.too_deep;

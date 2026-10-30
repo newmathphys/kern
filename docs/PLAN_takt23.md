@@ -116,7 +116,7 @@ only by a breakdown: which exact `(asserted ...)` steps did not match the contra
 **Command:** the gate `tools/smtlib_proof_check.py` already parses the reason; a dump of
 unbound premises is available under `KERN_DEBUG_LIA` (`[dbg-unbound]`).
 
-### 1.4 Reporting: the "resolution" column does not reflect 1950 verified steps
+### 1.4 Reporting: the "resolution" column does not reflect 1950 verified steps - DONE (`#432.1`)
 
 **Measured:** on `add_three.4_bit` the `resolution` column equals `5247` BOTH BEFORE and
 AFTER the fallback, even though there are 1950 fewer trusted steps. Hence the column
@@ -125,9 +125,11 @@ counts the **number of steps of the rule**, not the **number of verified ones**.
 **Why it matters:** the reader of the report cannot see that the work was done. This is
 exactly the class of `#428` (the number is there, the answer is not).
 
-**What to do:** separate the counters (`unitres_steps` and `unitres_verified`) and print
-both, OR print `verified = steps - trusted - bad`. Acceptance: the sum of the columns must
-add up to the number of steps.
+**DONE (`#432.1`):** the `mp`/`resolution` counters count VERIFIED steps; a field
+`other_steps` was added (asserted/hypothesis/intro-def/no rule) plus the column
+`прочих N`; the gate got an IDENTITY INVARIANT
+`verified + trusted + other + holes == steps` with a two-sided selftest branch.
+**THE INVARIANT IMMEDIATELY FOUND `#433`** (see 1.5).
 
 ---
 
@@ -172,6 +174,11 @@ add up to the number of steps.
    a reference to a step instead of a term, the shape of the hypotheses).
 4. **Risk:** `lemma` is a rule with a subtree; "fixing" it by weakening would mean
    accepting an unverified subtree. Soundness matters more than the count.
+5. **THE DUMP WAS CAPTURED (step done):** `[dbg-lemma]` already exists in the code. The
+   cause of the refusal is VISIBLE: `collectHypotheses` descends into NESTED `lemma` whose
+   hypotheses are ALREADY discharged by their own conclusions, so the outer `lemma`
+   (6 hypotheses, a conclusion of 1 literal) cannot cover all collected hypotheses.
+   **Cure (not done): do not descend into nested `lemma`.**
 
 ### Block 3 (40-60 min). A breakdown of `premises_unbound` (`1/8` and `0/188`)
 
@@ -182,14 +189,19 @@ add up to the number of steps.
 4. **Risk:** "fixing" the binding by weakening = accepting a proof unrelated to the task
    condition. That is a false proof - the worst class of defect.
 
-### Block 4 (60-80 min). Reporting: separate "steps" from "verified" (§1.4)
+### Block 4 (60-80 min). DONE - Reporting: separate "steps" from "verified" (§1.4)
 
 1. Introduce `unitres_verified` next to `unitres_checked` (or print
    `verified = steps - trusted`).
 2. **Acceptance (arithmetic):** the sum of the report columns adds up to the number of
    steps on all 7 tasks; `smtlib-proof-check` is green.
 3. **Risk:** low (printing), but changing the format means fixing the gate's parser IN THE
-   SAME commit (otherwise the gate fails, exactly as happened with `#400`).
+   SAME commit (otherwise the gate fails, exactly as happened with `#400`). **Done in one
+   commit.**
+4. **SIDE RESULT:** the invariant found `#433` - 11 `th-lemma` steps
+   (`.structural_only`) VANISHED from the report (neither verified nor trusted), although
+   the comment promised the opposite. Fixed with `markTrusted`. Honest boundary: the
+   trusted count on `storeinv` went 4 -> 15 (removal of a concealment, not a regression).
 
 ### Block 5 (80-100 min). Measurement and a decision on `def-axiom`
 

@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** — `#432` (the checker report hides 1950 verified steps; the cure is Block 4 of the plan) |
+| Open technical defects | **0** — `#432` is closed (`#432.1`), and its invariant immediately found and closed `#433` (see `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 

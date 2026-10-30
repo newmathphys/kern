@@ -4857,3 +4857,65 @@ The test `ХАРДКОР: остаток из ОДНОГО литерала, р�
 * **ATTACK 1:** the goal `(or A B Z)` (the residue does not equal it) -> not `verified`;
 * **ATTACK 2:** a residue of two literals whose second is NOT cancelled by a unit -> not
   `verified`.
+
+## §170. THE REPORT IDENTITY: `#432` CLOSED, `#433` FOUND BY THE SAME INVARIANT
+
+### 170.1 What was done for `#432`
+
+1. The `mp` and `resolution` counters now count **VERIFIED** steps, not all steps of the
+   rule: `if (checkMp(...)) v.mp_checked += 1 else v.mp_bad += 1;` and
+   `.verified => v.unitres_checked += 1`.
+2. A field `other_steps` was added - steps not attributed to verified, trusted or holes
+   (`asserted` / `hypothesis` / `intro-def` / a step without a rule). It is printed as the
+   column `прочих N`.
+3. The gate `tools/smtlib_proof_check.py` got an **IDENTITY INVARIANT**:
+   `verified by rules + trusted + other + holes == steps`. The branch is two-sided (a fake
+   goes red, a matching sum does not).
+
+### 170.2 `#433`: THE INVARIANT IMMEDIATELY FOUND VANISHING STEPS
+
+The very first run showed that on `storeinv...00002_001.cvc` the sum of the categories is
+**67 against 78 steps** - eleven steps are attributed nowhere.
+
+**Cause (measured):** the `.structural_only` branch of the `th-lemma` rule incremented
+`farkas_structural` and STOPPED there - the step became neither verified nor trusted.
+Meanwhile the comment next to it promised the opposite: "Now an unverified lemma honestly
+becomes TRUSTED". So the **docstring promised while the code did not do it** - the same
+class as `#413` (`_saturate_rewrite`). The `farkas_structural` counter is NOT printed,
+so the vanishing steps were invisible.
+
+**Fixed:** `.structural_only` now calls `markTrusted(&v, "th-lemma (структурно)", st)`.
+
+### 170.3 MEASURED: THE IDENTITY HOLDS ON EVERY VERIFIED TASK
+
+| Task | verified | trusted | other | holes | steps | holds |
+|:--|--:|--:|--:|--:|--:|:--|
+| `2PhLockVParam_RC-07` | 14 | 0 | 1 | 0 | 15 | ✅ |
+| `storeinv...00002_001.cvc` | 55 | **15** | 8 | 0 | 78 | ✅ |
+| `QF_BV/add_three.4_bit` | 6408 | 1020 | 188 | 0 | 7616 | ✅ |
+
+### 170.4 AN HONEST BOUNDARY: THE TRUSTED COUNT ON `storeinv` GREW (4 -> 15)
+
+This is **not a regression** but the removal of a concealment: the 11 `th-lemma` steps were
+NOT verified before either, they simply never reached the report. The first unrecognised
+rule there is now named honestly - `th-lemma (структурно)`. Previously the report showed 4
+and stayed silent about the other 11.
+
+### 170.5 NOT DONE (left in the plan)
+
+1. **Block 2 of the plan** (`lemma` x2, `monotonicity` x2): the `[dbg-lemma]` dump WAS
+   captured and it shows the cause: `collectHypotheses` descends into NESTED `lemma` steps
+   whose hypotheses are ALREADY discharged by their own conclusions. Hence the outer
+   `lemma` (6 hypotheses, a conclusion of 1 literal) cannot cover all collected
+   hypotheses. The cure (not done): do not descend into nested `lemma`.
+2. **Blocks 1/5 of the plan** (`def-axiom` 1020 on `add_three.4_bit`) - not started.
+
+### 170.6 `#434`: THE META-TEST DEGENERATED WHEN EVERYTHING WAS FIXED
+
+The fake number of open defects in the handoff was hardcoded to zero. While there were
+open defects (1 - `#432`), the meta-test worked. As soon as the journal was zeroed, the
+fake matched the truth, and `status-selftest` started failing with "the plant is
+indistinguishable" (RC=2) - that is, it **stopped proving anything exactly when
+everything was in order**. The class "non-vacuity depends on the state". Fixed: the fake
+is RELATIVE (`fact + 1`) and is checked to be REFUSED. MEASURED:
+`STATUS selftest: ошибок 0`.

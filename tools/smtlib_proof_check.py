@@ -285,10 +285,33 @@ def run_prove(path: Path) -> dict:
         res["steps"] = int(m.group(1))
         res["premises_bound"] = int(m.group(2))
         res["premises_total"] = int(m.group(3))
-    m = re.search(r"ДОВЕРЕННЫХ (\d+) \| дыр (\d+)", out)
+    m = re.search(r"ДОВЕРЕННЫХ (\d+) \| прочих (\d+) \| дыр (\d+)", out)
     if m:
         res["trusted"] = int(m.group(1))
-        res["holes"] = int(m.group(2))
+        res["other"] = int(m.group(2))
+        res["holes"] = int(m.group(3))
+    else:
+        # Старый формат (без колонки «прочих») — тоже принимаем, но тогда
+        # ТОЖДЕСТВО проверить нельзя, и это НАЗЫВАЕТСЯ, а не умалчивается.
+        m = re.search(r"ДОВЕРЕННЫХ (\d+) \| дыр (\d+)", out)
+        if m:
+            res["trusted"] = int(m.group(1))
+            res["holes"] = int(m.group(2))
+    # ДЕФЕКТ #432/#433: КАТЕГОРИИ ШАГОВ для проверки ТОЖДЕСТВА. Каждый шаг
+    # обязан попасть РОВНО в одну категорию, иначе отчёт прячет работу (#432:
+    # колонка считала ВСЕ шаги правила) или прячет ШАГИ (#433: `.structural_only`
+    # не был ни проверен, ни доверен).
+    for key, pat in (
+        ("n_mp", r"\| mp (\d+) \|"),
+        ("n_unitres", r"\| резолюция (\d+) \|"),
+        ("n_farkas", r"\| Фаркаш (\d+) \|"),
+        ("n_rewrite", r"\| rewrite\(лин\.\) (\d+) \|"),
+        ("n_eq", r"\| eq\(refl/symm/trans\) (\d+) \|"),
+        ("n_bool", r"\| bool\(and-elim/not-or-elim/mono\) (\d+) \|"),
+    ):
+        mm = re.search(pat, out)
+        if mm:
+            res[key] = int(mm.group(1))
     m = re.search(r"\[PROOF VERIFIED\][^\n]*trusted: (\d+) \| holes: (\d+)", out)
     if m:
         res["pv_trusted"] = int(m.group(1))
@@ -659,6 +682,21 @@ def verdict(rep: dict) -> list[str]:
                 bad.append(f"{theory}/{name}: `[PROOF VERIFIED]` при "
                            f"ДОВЕРЕННЫХ {pr['trusted']} — метка подтверждения "
                            f"при непроверенных шагах (класс #371)")
+            # ДЕФЕКТ #432/#433: ТОЖДЕСТВО ОТЧЁТА. Каждый шаг обязан попасть РОВНО
+            # в одну категорию: проверено по правилам + доверенных + прочих + дыр
+            # == шагов. Инвариант ловит ОБА измеренных класса: двойной счёт
+            # (#432: колонка считала ВСЕ шаги правила) и ИСЧЕЗНОВЕНИЕ шагов из
+            # отчёта (#433: `.structural_only` не был ни проверен, ни доверен).
+            _cat = ("n_mp", "n_unitres", "n_farkas", "n_rewrite", "n_eq", "n_bool")
+            if pr.get("steps") and all(k in pr for k in _cat) and "other" in pr:
+                _verified = sum(pr[k] for k in _cat)
+                _sum = _verified + pr.get("trusted", 0) + pr["other"] + pr.get("holes", 0)
+                if _sum != pr["steps"]:
+                    bad.append(f"{theory}/{name}: ТОЖДЕСТВО отчёта нарушено: "
+                               f"проверено {_verified} + доверенных "
+                               f"{pr.get('trusted', 0)} + прочих {pr['other']} + дыр "
+                               f"{pr.get('holes', 0)} = {_sum}, а шагов "
+                               f"{pr['steps']} (инвариант #432/#433)")
             lia = f.get("lia")
             if lia and not lia.get("skip"):
                 if lia["verdict"] != "unknown":
@@ -719,7 +757,12 @@ def selftest() -> int:
     (8) здоровый прогон проходит; (9) честный отказ `too_deep` не краснит;
     (10) ДОВЕРЕННЫЕ БЕЗ ИМЕНИ ПРАВИЛА — инвариант #428: `trusted > 0` <=>
     правило названо (поломка парсера строки `[i] первое непроверенное
-    правило:` обязана краснить эти ворота).
+    правило:` обязана краснить эти ворота); (11) ТОЖДЕСТВО ОТЧЁТА —
+    инвариант #432/#433: `проверено по правилам + доверенных + прочих +
+    дыр == шагов`; ловит и ДВОЙНОЙ СЧЁТ (колонка считала все шаги правила,
+    #432), и ИСЧЕЗНОВЕНИЕ шагов из отчёта (`.structural_only` не был ни
+    проверен, ни доверен, #433). Ветка двусторонняя: подделка краснит,
+    сходящаяся сумма — не краснит.
     """
     bad = 0
     ok_bank = {"files": 4, "checked": 4, "matched": 4, "diverged": 0,
@@ -851,6 +894,34 @@ def selftest() -> int:
                                              "lia": {"skip": True}},
                                  "d.smt2": {"status": "sat",
                                              "lia": {"skip": True}}}))
+
+    # ДЕФЕКТ #432/#433: ТОЖДЕСТВО ОТЧЁТА. Подделка, где категории не сходятся
+    # с числом шагов, обязана краснить ворота: это ловит и двойной счёт (#432),
+    # и ИСЧЕЗНОВЕНИЕ шагов из отчёта (#433).
+    expect_red("ТОЖДЕСТВО отчёта нарушено (проверено + доверенных + прочих != шагов)",
+               _mk("T", ok_bank, {"a.smt2": {"status": "unsat",
+                                            "prove": {"steps": 78, "holes": 0,
+                                                      "trusted": 4, "other": 8,
+                                                      "n_mp": 4, "n_unitres": 12,
+                                                      "n_farkas": 0, "n_rewrite": 2,
+                                                      "n_eq": 24, "n_bool": 13,
+                                                      "first_trusted_rule": "lemma"}},
+                                 "b.smt2": {"status": "sat", "lia": {"skip": True}},
+                                 "c.smt2": {"status": "sat", "lia": {"skip": True}},
+                                 "d.smt2": {"status": "sat", "lia": {"skip": True}}}))
+    # И ПОЗИТИВ: то же самое, но с ОДНИМ недостающим шагом в категории — сходится.
+    expect_green("ТОЖДЕСТВО отчёта сходится (78 = 55 + 15 + 8 + 0) НЕ краснит",
+                 _mk("T", ok_bank, {"a.smt2": {"status": "unsat",
+                                               "prove": {"steps": 78, "holes": 0,
+                                                         "trusted": 15, "other": 8,
+                                                         "n_mp": 4, "n_unitres": 12,
+                                                         "n_farkas": 0, "n_rewrite": 2,
+                                                         "n_eq": 24, "n_bool": 13,
+                                                         "first_trusted_rule":
+                                                             "th-lemma (структурно)"}},
+                                  "b.smt2": {"status": "sat", "lia": {"skip": True}},
+                                  "c.smt2": {"status": "sat", "lia": {"skip": True}},
+                                  "d.smt2": {"status": "sat", "lia": {"skip": True}}}))
 
     expect_green("честный отказ `too_deep` не краснит",
                  _mk("T", ok_bank, {"a.smt2": {"status": "unsat",
