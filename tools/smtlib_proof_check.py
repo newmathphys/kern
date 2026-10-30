@@ -292,6 +292,13 @@ def run_prove(path: Path) -> dict:
     m = re.search(r"\[!\] причина: ([^\n]+)", out)
     if m:
         res["reason"] = m.group(1).strip()
+    # ДЕФЕКТ #428: ИМЯ ПРАВИЛА первого непроверенного шага. Чекер его ВЫЧИСЛЯЕТ
+    # (`first_trusted`), а `kernc prove` ПЕЧАТАЕТ — но гейт парсил только ЧИСЛА,
+    # поэтому на вопрос аудитора «какие правила дают trusted > 0» отчёт ответить
+    # не мог, хотя инструмент знал ответ. ИЗМЕРЕНО (вручную): `rewrite`.
+    m = re.search(r"первое непроверенное правило: (.+?) \(\d+ шт\.\)", out)
+    if m:
+        res["first_trusted_rule"] = m.group(1).strip()
     return res
 
 
@@ -635,6 +642,15 @@ def verdict(rep: dict) -> list[str]:
                 if pr.get("holes"):
                     bad.append(f"{theory}/{name}: ДЫР {pr['holes']} в разобранном "
                                f"выводе — доказательство недействительно")
+            # ДЕФЕКТ #428: ДВУСТОРОННИЙ ИНВАРИАНТ. `ДОВЕРЕННЫХ > 0` ОБЯЗАНО
+            # сопровождаться ИМЕНЕМ правила: иначе ответ на вопрос «что закрывать»
+            # потерян (так и было — чекер вычислял, `kernc prove` печатал, гейт
+            # отрезал). Поломка парсера строки `[i] первое непроверенное правило:`
+            # мгновенно краснит эти ворота.
+            if pr.get("trusted", 0) > 0 and not pr.get("first_trusted_rule"):
+                bad.append(f"{theory}/{name}: ДОВЕРЕННЫХ {pr['trusted']}, но ИМЯ "
+                           f"правила НЕ извлечено — парсер ворот сломан "
+                           f"(инвариант #428: trusted > 0 <=> правило названо)")
             if pr.get("proof_verified_line") and pr.get("trusted", 0) > 0:
                 bad.append(f"{theory}/{name}: `[PROOF VERIFIED]` при "
                            f"ДОВЕРЕННЫХ {pr['trusted']} — метка подтверждения "
@@ -696,13 +712,17 @@ def selftest() -> int:
     Ветки: (1) расхождение с `:status`; (2) ложное срабатывание; (3) ВАКУУМ
     банка; (4) ДЫРА в разобранном выводе; (5) `[PROOF VERIFIED]` при
     `ДОВЕРЕННЫХ > 0`; (6) вакуум пруф-трека; (7) ложный ответ НАТИВНОГО LIA;
-    (8) здоровый прогон проходит; (9) честный отказ `too_deep` не краснит.
+    (8) здоровый прогон проходит; (9) честный отказ `too_deep` не краснит;
+    (10) ДОВЕРЕННЫЕ БЕЗ ИМЕНИ ПРАВИЛА — инвариант #428: `trusted > 0` <=>
+    правило названо (поломка парсера строки `[i] первое непроверенное
+    правило:` обязана краснить эти ворота).
     """
     bad = 0
     ok_bank = {"files": 4, "checked": 4, "matched": 4, "diverged": 0,
                "timeouts": 0, "skipped": 0, "unreadable": 0, "false_alarm": 0}
     ok_files = {"a.smt2": {"status": "unsat",
                            "prove": {"steps": 7616, "holes": 0, "trusted": 2970,
+                                     "first_trusted_rule": "th-lemma bv",
                                      "proof_verified_line": False}},
                 "b.smt2": {"status": "sat",
                            "lia": {"skip": False, "status": "sat",
@@ -813,6 +833,21 @@ def selftest() -> int:
                  _mk("QF_LIA_heavy",
                      dict(ok_bank, files=2, checked=0, matched=0, timeouts=2),
                      ok_files))
+    # ДЕФЕКТ #428: поломка ПАРСЕРА имени правила обязана краснить ворота.
+    # Инвариант двусторонний: `ДОВЕРЕННЫХ > 0` <=> правило НАЗВАНО.
+    expect_red("ДОВЕРЕННЫЕ без имени правила краснят ворота (#428)",
+               _mk("T", ok_bank, {"a.smt2": {"status": "unsat",
+                                             "prove": {"steps": 100, "holes": 0,
+                                                       "trusted": 5}},
+                                 "b.smt2": {"status": "unsat",
+                                             "prove": {"steps": 100, "holes": 0,
+                                                       "trusted": 0,
+                                                       "first_trusted_rule": None}},
+                                 "c.smt2": {"status": "sat",
+                                             "lia": {"skip": True}},
+                                 "d.smt2": {"status": "sat",
+                                             "lia": {"skip": True}}}))
+
     expect_green("честный отказ `too_deep` не краснит",
                  _mk("T", ok_bank, {"a.smt2": {"status": "unsat",
                                                "prove": {"steps": 0, "holes": 0,
@@ -820,7 +855,9 @@ def selftest() -> int:
                                                          "too_deep": True}},
                                     "b.smt2": {"status": "unsat",
                                                "prove": {"steps": 7616, "holes": 0,
-                                                         "trusted": 2970}},
+                                                         "trusted": 2970,
+                                                         "first_trusted_rule":
+                                                             "th-lemma bv"}},
                                     "c.smt2": {"status": "sat",
                                                "lia": {"skip": False, "status": "sat",
                                                        "full": "unknown",
@@ -880,9 +917,12 @@ def print_report(rep: dict) -> None:
                 elif pr.get("too_deep"):
                     line += " | пруф: ОТКАЗ — глубже предела вложенности"
                 elif pr.get("steps"):
+                    # ДЕФЕКТ #428: рядом с числом доверенных шагов — ИМЯ правила,
+                    # которое чекер не проверил (`0 (—)`, если доверенных нет).
+                    _rule = pr.get("first_trusted_rule") or "—"
                     line += (f" | пруф: шагов {pr['steps']}, дыр "
                              f"{pr.get('holes', '?')}, ДОВЕРЕННЫХ "
-                             f"{pr.get('trusted', '?')}, посылок "
+                             f"{pr.get('trusted', '?')} ({_rule}), посылок "
                              f"{pr.get('premises_bound', '?')}/"
                              f"{pr.get('premises_total', '?')}")
                     if pr.get("proof_verified_line"):

@@ -4592,3 +4592,49 @@ restoring -> rc=0
 31 of 132 files of `tools/*.py` (was 119 before `#429.1`): `mock` 186 · `overfitting` 59 ·
 `swallowed` 29 · `exit` inside functions 13 · `monkeypatch of attribute (callable)` 4. These are
 rules that make sense for a TEST file; on arbitrary source they are noise. The cure is not done.
+
+## §166. `#428`: THE RULE NAME IS WIRED INTO THE REPORT AND PROTECTED BY AN INVARIANT
+
+### 166.1 What was lost
+
+The checker computes `first_trusted` (the rule name of the first unverified step), `kernc prove`
+prints `[i] первое непроверенное правило: rewrite (1 шт.)`, while the gate parsed ONLY numbers -
+so the answer to the auditor's "which rules give `trusted > 0`" never reached the report.
+
+### 166.2 What was done
+
+1. The gate parses the line and prints the rule IN THE TABLE: `ДОВЕРЕННЫХ 1 (rewrite)`, `0 (—)`.
+2. **A TWO-SIDED INVARIANT:** `trusted > 0` <=> the rule is NAMED. If the number is there and the
+   name is not - the gate fails (`rc=1`) with a named reason. A broken parser instantly turns the
+   gate red.
+3. A 10th meta-test branch: "ДОВЕРЕННЫЕ without a rule name turn the gate red (#428) is caught".
+   MEASURED: `smtlib-proof selftest: ошибок 0`.
+
+### 166.3 MEASURED on the tasks (by hand, before the fix)
+
+| Task | steps | TRUSTED | rule |
+|:--|--:|--:|:--|
+| `2PhLockVParam_RC-02` | 66 | 0 | - |
+| `2PhLockVParam_RC-07` | 15 | 1 | **`rewrite`** |
+| `storeinv...00002_001.cvc` (both) | 78 | 5 | **`commutativity`** (5 each) |
+| `QF_BV/add_three.4_bit` | 7616 | 2970 | **`unit-resolution`** (the first unrecognised one; no BV rules in the checker - DECLARED) |
+
+### 166.4 What this opens (the next step, NOT done)
+
+It is now visible that on NON-bitwise tasks the residue is single steps (`1` and `5+5`), and the
+first of them is named: `rewrite`. If those forms are trivial (a linear `rewrite`/`monotonicity`),
+the `trusted: 0` share on non-bitwise tasks can be driven to 100 %, leaving `trusted > 0` EXCLUSIVELY
+to the fundamental boundary of QF_BV bit-blasting.
+
+**MEASURED AFTER WIRING (rule names in the table):**
+
+```
+ДОВЕРЕННЫХ 0 (—)  ·  1 (rewrite)  ·  0 (—)  ·  0 (—)
+ДОВЕРЕННЫХ 2970 (unit-resolution)  ·  5 (commutativity)  ·  5 (commutativity)
+```
+
+That is exactly the bonus the plan predicted: on NON-bitwise tasks the residue is `rewrite` (1) and
+**`commutativity`** (5+5) - TRIVIAL structural forms; verifying them would raise `trusted: 0` on
+non-bitwise tasks to 100 %, leaving `trusted > 0` to one QF_BV task. And the first unrecognised rule
+in QF_BV is **`unit-resolution`** (not `bitblast`), so the boundary lies deeper than "no `bv-*`
+rules" - and that too is MEASURED, not assumed.

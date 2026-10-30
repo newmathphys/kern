@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** (per `docs/STATUS.md`, which is GENERATED): #428 |
+| Open technical defects | **0** (per `docs/STATUS.md`, which is GENERATED) |
 
 ## Open work
 
@@ -335,6 +335,14 @@ was corrected wherever it disagreed with the code:
    honesty of the clean file + a rejection of a directory WITHOUT a `Traceback`, and it is
    NON-VACUOUS (planting into the honest file -> `[!] ЧЕСТНЫЙ файл обвинён`, rc=2). The noise on our
    own files: 31/132 (the `#429.2` boundary remains).
+
+34. **`#428` CLOSED: THE RULE NAME IS WIRED INTO THE REPORT AND PROTECTED BY AN INVARIANT.** The
+   gate parses `[i] первое непроверенное правило: <rule> (<N> шт.)` and prints the rule IN THE TABLE
+   (`ДОВЕРЕННЫХ 1 (rewrite)`, `0 (—)`), while the two-sided invariant `trusted > 0` <=> the rule is
+   NAMED makes the check NON-VACUOUS: a broken parser instantly turns the gate red (`rc=1`). A 10th
+   meta-test branch was added; MEASURED `smtlib-proof selftest: ошибок 0`. The next step (NOT done):
+   if the 1 and 5+5 trusted steps on non-bitwise tasks are trivial `rewrite`/`monotonicity` forms,
+   the `trusted: 0` share there can be driven to 100 %.
 
 **Closed in THIS session (verification of all capabilities):**
 
