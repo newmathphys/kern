@@ -323,6 +323,19 @@ was corrected wherever it disagreed with the code:
    "clean code passes" on ONE hand-picked file - the cure is a `--test-file` mode or a requirement of
    "0 findings on N of our own files".
 
+33. **`#426.2`/`#426.3`: CLASSES ARE CLOSED, NOT LINES.** Every trick has a SECOND sugar and it is
+   closed too: `C.__eq__ = lambda ...` -> `dynamic dunder override (assign)`; `setattr(mod, "fn", ...)`
+   -> `monkeypatch via setattr`; `obj.fn = lambda ...` (except `self`) -> `monkeypatch of attribute
+   (callable)`; `raise unittest.SkipTest(...)` -> `test skipped by raise`; decorators
+   `@pytest.mark.skip`/`xfail`/`@unittest.skip` -> `test disabled by a decorator` (while a CONDITIONAL
+   `skipif(sys.platform == "win32")` is NOT flagged - only `skipif(True, ...)`). Along the way import
+   aliases (`import x.y as alias`) are registered now. A TWO-SIDED control: the new fixture
+   `tests/fixtures/anti_cheat_honest.py` (a setUp assignment, `cfg.timeout = 30`, a module-level
+   `sys.exit(main())`, a conditional skipif) gives **0 findings**; the gate requires 12 classes + the
+   honesty of the clean file + a rejection of a directory WITHOUT a `Traceback`, and it is
+   NON-VACUOUS (planting into the honest file -> `[!] ЧЕСТНЫЙ файл обвинён`, rc=2). The noise on our
+   own files: 31/132 (the `#429.2` boundary remains).
+
 **Closed in THIS session (verification of all capabilities):**
 
 1. **`make showcase-live-all` — every row of `docs/CAPABILITY_MATRIX.md` is now

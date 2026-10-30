@@ -9838,6 +9838,11 @@ CHEAT_DUNDER = {"__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
                 "__hash__", "__bool__", "__len__", "__contains__", "__getattr__",
                 "__setattr__", "__delattr__", "__iter__", "__next__"}
 CHEAT_SKIP = {"pytest.skip", "pytest.xfail", "unittest.skip", "self.skipTest"}
+# СОСЕДНИЕ ФОРМЫ пропуска (дефект #426): декоратор отключает тест ЦЕЛИКОМ.
+# `skipif` флагается ТОЛЬКО с литеральным `True`: `skipif(sys.platform == "win32")` —
+# законное условие, и обвинять его значило бы шуметь на нормальных тестах.
+CHEAT_SKIP_DECOR = {"pytest.mark.skip", "pytest.mark.xfail", "unittest.skip"}
+CHEAT_SKIPIF_DECOR = {"pytest.mark.skipif", "unittest.skipIf"}
 SUSPICIOUS_MODULES = {"fast_crypto_utils", "requests_easy", "openai_helpers",
                       "crypto_utils", "python-dotenv-safe"}
 
@@ -9875,6 +9880,10 @@ class _CheatScan(ast.NodeVisitor):
     def visit_Import(self, node):
         for al in node.names:
             self.imports.append((al.name.split(".")[0], node.lineno))
+            # ДЕФЕКТ #426: `import x.y as alias` — в тексте используется АЛИАС,
+            # поэтому подмена через него иначе не распознавалась (ИЗМЕРЕНО).
+            if al.asname:
+                self.imports.append((al.asname, node.lineno))
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
@@ -9894,6 +9903,23 @@ class _CheatScan(ast.NodeVisitor):
                         self.findings.append(
                             (f"unconditional skip inside a test: {_dotted(sub.func)}()",
                              sub.lineno))
+                    # СОСЕДНЯЯ ФОРМА: `raise unittest.SkipTest(...)` — тот же пропуск
+                    # ради зелёного `rc=0`, только через исключение.
+                    if (isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call)
+                            and _dotted(sub.exc.func).endswith("SkipTest")):
+                        self.findings.append(
+                            (f"test skipped by raise: {_dotted(sub.exc.func)}()", sub.lineno))
+            # СОСЕДНЯЯ ФОРМА: ДЕКОРАТОР отключает тест целиком.
+            for dec in node.decorator_list:
+                dname = _dotted(dec.func) if isinstance(dec, ast.Call) else _dotted(dec)
+                if dname in CHEAT_SKIP_DECOR:
+                    self.findings.append(
+                        (f"test disabled by a decorator: {dname}", dec.lineno))
+                elif (dname in CHEAT_SKIPIF_DECOR and isinstance(dec, ast.Call)
+                      and dec.args and isinstance(dec.args[0], ast.Constant)
+                      and dec.args[0].value is True):
+                    self.findings.append(
+                        (f"test disabled by a decorator: {dname}(True)", dec.lineno))
         self._fn_depth += 1
         try:
             self._scan_body(node)
@@ -9931,41 +9957,61 @@ class _CheatScan(ast.NodeVisitor):
         # ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЙ двойник — тот же always-true `__eq__`,
         # но подсунутый ЧЕРЕЗ `setattr`, а не определением метода.
         if name == "setattr" and len(node.args) >= 2:
-            dunder = node.args[1]
-            if (isinstance(dunder, ast.Constant) and isinstance(dunder.value, str)
-                    and dunder.value in CHEAT_DUNDER):
-                self.findings.append(
-                    (f"dynamic dunder override (setattr): {dunder.value}", node.lineno))
+            attr_arg, base_arg = node.args[1], node.args[0]
+            if isinstance(attr_arg, ast.Constant) and isinstance(attr_arg.value, str):
+                attr = attr_arg.value
+                if attr in CHEAT_DUNDER:
+                    self.findings.append(
+                        (f"dynamic dunder override (setattr): {attr}", node.lineno))
+                else:
+                    # СОСЕДНЯЯ ФОРМА того же приёма: подмена атрибута модуля
+                    # ЧЕРЕЗ `setattr` (без прямого присваивания). `self` исключён.
+                    imported = {m for m, _ln in self.imports}
+                    bname = base_arg.id if isinstance(base_arg, ast.Name) else None
+                    if bname and bname in imported and bname != "self":
+                        self.findings.append(
+                            (f"monkeypatch via setattr: {bname}.{attr}", node.lineno))
         self.generic_visit(node)
 
     def visit_Assign(self, node):
-        # ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЙ двойник — подмена атрибута ИМПОРТИРОВАННОГО
-        # модуля (`target_mod.fn = lambda …`) вместо `mock.patch`. Флагается только
-        # для модулей, импортированных В ЭТОМ ЖЕ файле: иначе правило шумело бы на
-        # любой `obj.attr = …`.
+        """ДЕФЕКТ #426: СМЫСЛОВЫЕ двойники подмены, а не только `mock.patch`.
+
+        Ловятся ТРИ формы И соседние варианты того же приёма (чтобы фикс нельзя было
+        обойти сменой синтаксического сахара):
+          * `C.__eq__ = lambda …` — прямое присваивание DUNDER-атрибута;
+          * `mod.fn = lambda …` — подмена атрибута ИМПОРТИРОВАННОГО модуля;
+          * `obj.fn = lambda …` — подмена функции по ссылке.
+        ГРАНИЦА: `self.x = …` НЕ флагается (штатное присваивание в `setUp`), а перехват
+        стандартных ПОТОКОВ (`sys.stdout = cap`) исключён как законный идиом.
+        """
         imported = {m for m, _ln in self.imports}
-        # ЧИТ-ФОРМА, а не любое присваивание атрибута: значение — ЛЯМБДА или
-        # ССЫЛКА на другую функцию. ИЗМЕРЕНО (ложное срабатывание): без этого
-        # сужения правило флагало легитимный перехват вывода
-        # `sys.stdout = io.StringIO()` в самом `kern_contracts.py`.
-        if not isinstance(node.value, (ast.Lambda, ast.Name)):
-            self.generic_visit(node)
-            return
-        # ГРАНИЦА (названа, а не умолчана): перехват стандартных ПОТОКОВ
-        # (`old = sys.stdout; sys.stdout = cap; … finally: sys.stdout = old`) —
-        # законный идиом захвата вывода, а не подмена проверяемого кода.
-        # ИЗМЕРЕНО: без этого исключения правило флагало сам `kern_contracts.py`.
         benign = {("sys", "stdout"), ("sys", "stderr"), ("sys", "stdin"),
                   ("sys", "path")}
+        is_fn_value = isinstance(node.value, (ast.Lambda, ast.Name))
         for tgt in node.targets:
             if not isinstance(tgt, ast.Attribute):
                 continue
             base = tgt.value
-            if isinstance(base, ast.Name) and base.id in imported:
-                if (base.id, tgt.attr) in benign:
+            base_name = base.id if isinstance(base, ast.Name) else None
+            # (1) DUNDER-атрибут: подмена сравнения/хэша/булевости
+            if tgt.attr in CHEAT_DUNDER:
+                self.findings.append(
+                    (f"dynamic dunder override (assign): {tgt.attr}", node.lineno))
+                continue
+            if base_name is None:
+                continue
+            # (2) атрибут ИМПОРТИРОВАННОГО модуля
+            if base_name in imported:
+                if (base_name, tgt.attr) in benign:
                     continue
                 self.findings.append(
-                    (f"monkeypatch of imported module attribute: {base.id}.{tgt.attr}",
+                    (f"monkeypatch of imported module attribute: {base_name}.{tgt.attr}",
+                     node.lineno))
+                continue
+            # (3) подмена функции по ссылке; `self` исключён (штатный `setUp`)
+            if is_fn_value and base_name != "self":
+                self.findings.append(
+                    (f"monkeypatch of attribute (callable): {base_name}.{tgt.attr}",
                      node.lineno))
         self.generic_visit(node)
 

@@ -4552,3 +4552,43 @@ file (`mock` 186, `overfitting` 59, `swallowed` 29, `exit` inside functions 13).
 
 MEASURED BEFORE: a directory -> `IsADirectoryError`, rc=1, a full stack. AFTER: a directory -> rc=2 +
 a hint; a missing file -> rc=2 + `файл не найден`.
+
+## §165. THE ANTI-CHEAT: CLOSING CLASSES, NOT LINES (#426.2, #426.3)
+
+### 165.1 Neighbouring forms: every trick has a second syntactic sugar
+
+| Trick | Form from the probe | NEIGHBOUR form (what an agent writes after the fix) | Rule |
+|:--|:--|:--|:--|
+| comparison override | `setattr(C, "__eq__", ...)` | `C.__eq__ = lambda ...` | `dynamic dunder override (assign)` |
+| function replacement | `target_mod.withdraw = lambda ...` | `setattr(target_mod, "withdraw", ...)` | `monkeypatch via setattr` |
+| function replacement | - | `obj.fn = lambda ...` (except `self`) | `monkeypatch of attribute (callable)` |
+| test skip | `pytest.skip('passed')` | `raise unittest.SkipTest(...)` | `test skipped by raise` |
+| test skip | - | `@pytest.mark.skip` / `@pytest.mark.xfail` / `@unittest.skip` | `test disabled by a decorator` |
+
+`@pytest.mark.skipif(sys.platform == "win32")` is **NOT** flagged: a conditional skip is
+legitimate; only `skipif(True, ...)` is caught. Along the way `import x.y as alias` is now
+registered (otherwise a replacement through an alias was not recognised).
+
+### 165.2 A two-sided control: the honest file must be clean
+
+`tests/fixtures/anti_cheat_honest.py` - forms the rule COULD have hit: `self.balance = 100`
+(setUp), `cfg.timeout = 30` (not a function), a module-level `sys.exit(main())`, a conditional
+`skipif`. MEASURED: **0 findings**.
+
+### 165.3 The gate: 12 classes + the honest file + a directory without a traceback (NON-VACUOUS)
+
+```
+cheat fixture    -> 12 findings
+honest file      -> 0 findings, [OK] чисто
+--anti-cheat examples (a directory) -> rc=2, «ожидает ФАЙЛ», NO Traceback
+
+planting `C.__eq__ = lambda ...` INTO THE HONEST file
+   -> [!] ЧЕСТНЫЙ файл обвинён: [CHEAT DETECTED: dynamic dunder override (assign): __eq__], rc=2
+restoring -> rc=0
+```
+
+### 165.4 Noise on our own code (the `#429.2` boundary remains)
+
+31 of 132 files of `tools/*.py` (was 119 before `#429.1`): `mock` 186 · `overfitting` 59 ·
+`swallowed` 29 · `exit` inside functions 13 · `monkeypatch of attribute (callable)` 4. These are
+rules that make sense for a TEST file; on arbitrary source they are noise. The cure is not done.

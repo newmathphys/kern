@@ -2,6 +2,7 @@
 # ЭШЕЛОН 6, ПУНКТ 32: демонстрация читов ИИ-агента (все 5 классов) + чистый код.
 import sys
 import unittest.mock
+import pytest
 
 
 class AlwaysEqual:
@@ -56,3 +57,29 @@ def masked_setattr_cheat():
 
 def masked_monkeypatch_cheat():
     sys.exit = lambda code=0: None                             # (3') подмена БЕЗ mock.patch
+
+
+def neighbour_setattr_module_cheat():
+    import unittest.mock as target_mod
+    setattr(target_mod, "patch", lambda *a, **k: None)          # (3'') подмена ЧЕРЕЗ setattr
+
+
+def test_neighbour_raise_skip_cheat():
+    import unittest
+    raise unittest.SkipTest("passed")                          # (5''') пропуск через исключение
+
+
+# СОСЕДНИЕ ФОРМЫ тех же трёх приёмов (дефект #426): фикс не должен обходиться
+# сменой синтаксического сахара.
+
+
+class Neighbour:
+    pass
+
+
+Neighbour.__eq__ = lambda self, other: True    # (1'') ПРЯМОЕ присваивание dunder-атрибута
+
+
+@pytest.mark.skip                              # (5'') декоратор отключает тест целиком
+def test_disabled_by_decorator():
+    assert False

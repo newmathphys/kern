@@ -320,6 +320,18 @@
    «чистый код проходит» на ОДНОМ подобранном файле — лечение: режим `--test-file` или требование
    «0 находок на N своих файлах».
 
+33. **`#426.2`/`#426.3`: ЗАКРЫТЫ КЛАССЫ, А НЕ СТРОКИ.** Каждый приём имеет ВТОРОЙ сахар, и он тоже
+   закрыт: `C.__eq__ = lambda …` -> `dynamic dunder override (assign)`; `setattr(mod, "fn", …)` ->
+   `monkeypatch via setattr`; `obj.fn = lambda …` (кроме `self`) -> `monkeypatch of attribute
+   (callable)`; `raise unittest.SkipTest(…)` -> `test skipped by raise`; декораторы
+   `@pytest.mark.skip`/`xfail`/`@unittest.skip` -> `test disabled by a decorator` (а УСЛОВНЫЙ
+   `skipif(sys.platform == "win32")` НЕ флагается — только `skipif(True, …)`). Попутно алиасы
+   импортов (`import x.y as alias`) стали учитываться. ДВУСТОРОННИЙ контроль: новая фикстура
+   `tests/fixtures/anti_cheat_honest.py` (setUp-присваивание, `cfg.timeout = 30`, модульный
+   `sys.exit(main())`, условный skipif) даёт **0 находок**; гейт требует 12 классов + чистоту
+   честного файла + отказ на каталоге БЕЗ `Traceback` и НЕВАКУУМЕН (подсадка в честный файл ->
+   `[!] ЧЕСТНЫЙ файл обвинён`, rc=2). Шум на своих файлах: 31/132 (граница `#429.2` сохранена).
+
 **Закрыто в ЭТОЙ сессии (проверка всех возможностей):**
 
 1. **`make showcase-live-all` — каждая строка `docs/CAPABILITY_MATRIX.md` теперь
