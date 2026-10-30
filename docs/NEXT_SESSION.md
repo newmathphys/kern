@@ -14,7 +14,7 @@
 > stale in the very commit that adds it (this line was corrected twice already). The
 > authority is `git log -1` and `docs/STATUS.md`, never this line.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
@@ -419,19 +419,26 @@ What is deliberately NOT done (not a defect, a boundary):
 
 ## The next step: `trusted: 0` on the non-bitvector tasks
 
-A dump of S-expressions (`KERN_DEBUG_TRUSTED`) named THREE rules that hold the
-residue on the non-bitvector tasks (6 steps in total):
+**STATUS: steps 1 and 2 are DONE** (`#431`). A dump of S-expressions (`KERN_DEBUG_TRUSTED`)
+named THREE rules that held the residue on the non-bitvector tasks:
 
-| Task | Rule | S-expression |
+| Task | Rule | Status |
 |:--|:--|:--|
-| `2PhLockVParam_RC-07` | `rewrite` | `(rewrite (= (and false …) false))` — absorption `and(false, X) = false` |
-| `storeinv…00002_001.cvc` | `commutativity` | `(commutativity (= $x124 (= a1 a2)))` — equality symmetry via the definition of `$x` |
-| same | `lemma` x2, `monotonicity` x2 | subtrees that require resolving premises |
+| `2PhLockVParam_RC-07` | `rewrite` — absorption `and(false, X) = false` | ✅ FIXED (TRUSTED 1 → 0) |
+| `storeinv…00002_001.cvc` | `commutativity` — equality symmetry | ✅ FIXED (5 → 4) |
+| same | `lemma` x2, `monotonicity` x2 | ⏳ LEFT: `(lemma (unit-resolution @x184 @x104 false) $x162)`, `(monotonicity @x101 (= (select ?x29 i1) ?x108))` |
 
-**Order:** (1) absorption `and(false, X) = false` and `or(true, X) = true` — no
-premises, soundly checkable WITHOUT BV; (2) resolving the definition of `$x` names
-for `commutativity`; (3) `unit-resolution` with `k!`-constants and `def-axiom` — that
-is about resolving DEFINITIONS, not about bit-blasting.
+**The number of tasks with `trusted == 0` became 4 of 7.**
+
+### For `QF_BV/add_three.4_bit` (2970 trusted) — fix the BRANCH LOGIC, not flattening
+
+A dump of the premises of the first trusted step (`[dbg-ur-unver]`) showed that the step
+is **CORRECT** (from `(C or k!220)` and `(not k!220)` exactly `C` follows), while the
+cause of the refusal is a **NESTED `or`** in the clause: `remaining` = 1 literal
+`(or A B C)` versus 3 in the conclusion. **THE FLATTENING ATTEMPT (associativity of
+`or`) WAS REVERTED BY MEASUREMENT**: TRUSTED `2970 → 3408` (worse). So the existing
+branches (partial resolution / De Morgan / case splitting) handle this shape BETTER —
+they are what must be reworked.
 
 **What must NOT be claimed:** that the `trusted > 0` residue in `QF_BV` is explained
 by missing BV rules — NOT CONFIRMED by the dump (defect #430).

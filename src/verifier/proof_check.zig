@@ -2681,10 +2681,25 @@ fn evalBoolConst(s: Sexp) ?bool {
     if ((std.mem.eql(u8, op, "and") or std.mem.eql(u8, op, "or")) and s.items.len >= 3) {
         const is_and = std.mem.eql(u8, op, "and");
         var acc = is_and;
+        var unknown = false;
         for (s.items[1..]) |it| {
-            const v = evalBoolConst(it) orelse return null;
+            const v = evalBoolConst(it) orelse {
+                unknown = true;
+                continue;
+            };
             acc = if (is_and) (acc and v) else (acc or v);
+            // ТРЁХЗНАЧНАЯ ЛОГИКА КЛИНИ (K3) — ПОГЛОЩЕНИЕ КОНСТАНТЫ.
+            // В `and` константа `false` поглощает ВЕСЬ терм независимо от
+            // остальных аргументов; в `or` — константа `true`. Это ТОЖДЕСТВО
+            // булевой логики: посылок нет, ослабления нет.
+            // ИЗМЕРЕНО (дефект #430, шаг 1 плана): единственный доверенный шаг
+            // `2PhLockVParam_RC-07` — `(rewrite (= (and false (not (or …)))
+            // false))`. До правки `null` у любого аргумента давал `null` для
+            // всего `and`, поэтому `constBoolEq` шаг НЕ брал.
+            if (is_and and !acc) return false;
+            if (!is_and and acc) return true;
         }
+        if (unknown) return null;
         return acc;
     }
     // ПРИЧИНА №2 (продолжение): ЛИСТОВОЙ булев атом — строковый предикат над
@@ -2704,6 +2719,47 @@ fn constBoolEq(l: Sexp, r: Sexp) bool {
     if (std.mem.eql(u8, a, "true")) return v;
     if (std.mem.eql(u8, a, "false")) return !v;
     return false;
+}
+
+/// КОММУТАТИВНЫЕ бинарные операции (белый список, шаг 2 плана #430).
+/// `-` и `<`/`<=` в него НЕ входят: они не коммутативны, и шаг
+/// `(commutativity (= (< a1 a2) (< a2 a1)))` обязан быть ОТВЕРГНУТ.
+fn isCommutativeOp(op: []const u8) bool {
+    const OPS = [_][]const u8{
+        "=",     "+",     "*",     "and",   "or",    "xor",
+        "bvadd", "bvmul", "bvand", "bvor",  "bvxor",
+    };
+    for (OPS) |o| if (std.mem.eql(u8, op, o)) return true;
+    return false;
+}
+
+/// `commutativity`: заключение — равенство ДВУХ термов, отличающихся ТОЛЬКО
+/// порядком аргументов КОММУТАТИВНОЙ операции.
+///
+/// ИЗМЕРЕНО ДАМПОМ (дефект #430, шаг 2 плана): в `storeinv…00002_001.cvc`
+/// первое доверенное правило — `commutativity`, шаг
+/// `(commutativity (= $x124 (= a1 a2)))`, где `$x124` раскрывается в
+/// `(= a2 a1)`. Раскрытие `$x`-имён в чекере уже есть (`expand`), поэтому
+/// обе стороны приводятся к явному виду ДО сравнения.
+///
+/// ЗВУЧНО: коммутативность `=`/`+`/`*`/`and`/`or`/`bv*` — тождество логики,
+/// у шага НЕТ посылок, ослабления нет. Проверяется СТРУКТУРНО.
+fn verifyCommutativity(c: *const Ctx, st: Sexp) bool {
+    const eq = expand(c, proved(st), 0);
+    if (!eq.isList() or eq.items.len != 3) return false;
+    const h = eq.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, h, "=")) return false;
+    const l = eq.items[1];
+    const r = eq.items[2];
+    if (!l.isList() or !r.isList()) return false;
+    if (l.items.len != 3 or r.items.len != 3) return false;
+    const lop = l.items[0].atom orelse return false;
+    const rop = r.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, lop, rop)) return false;
+    if (!isCommutativeOp(lop)) return false;
+    // ОПЕРАНДЫ ОБЯЗАНЫ БЫТЬ ПЕРЕСТАВЛЕНЫ. Иначе шаг ничего не доказывает:
+    // подделка `(commutativity (= (= a1 a2) (= a1 a3)))` отвергается здесь.
+    return sexpEqNum(l.items[1], r.items[2]) and sexpEqNum(l.items[2], r.items[1]);
 }
 
 /// Канонизация БУЛЕВЫХ ФОРМ (Пункт 22, IEEE-754).
@@ -4258,6 +4314,26 @@ fn checkBySplitting(c: *const Ctx, units: []const Sexp, clauses: []const Sexp, c
     return .verified;
 }
 
+// ИЗМЕРЕНО ДАМПОМ (дефект #430, шаг 3): клаузы Z3 в `QF_BV/add_three.4_bit`
+// содержат ВЛОЖЕННЫЙ `or` — после раскрытия `$x`-имени клауза имеет вид
+// `(or (or A B C) k!220)`. Поэтому `remaining` (остаток после снятия `k!220`) —
+// ОДИН литерал `(or A B C)`, а `concl` уплощается в ТРИ литерала: рассинхрон
+// `1 != 3`, и КОРРЕКТНАЯ резолюция уходит в доверенные, хотя в том же файле
+// 5 247 плоских резолюций проверены. Дословный дамп (цель + посылки):
+//   цель: (or (not (or (not k!140) (not k!180))) (not k!220) (not (or k!140 k!180)))
+//   @x2893 => (or (or (not (or (not k!140) (not k!180))) (not k!220)
+//                  (not (or k!140 k!180))) k!220)
+//   @x5139 => (not k!220)
+// — то есть из `(C ∨ k!220)` и `¬k!220` выводится РОВНО `C`.
+//
+// ПОПЫТКА УПЛОЩЕНИЯ (ассоциативность `or` — тождество, звучно) ОТКАЧЕНА
+// ПО ЗАМЕРУ: ДОВЕРЕННЫХ на этой задаче стало 2970 -> 3408, то есть ХУЖЕ.
+// Значит форма `(or (or A B C) k)` обрабатывается существующими ветками
+// (частичная резолюция / де Морган / расщепление по случаям) ЛУЧШЕ, чем
+// уплощённая, и чинить надо РАЗБОРОМ ЭТИХ ВЕТОК, а не уплощением.
+// Дамп посылок доверенного шага доступен под `KERN_DEBUG_TRUSTED`
+// (`[dbg-ur-unver]`).
+
 fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
     if (st.items.len < 3) return .unverifiable;
     const concl = expand(c, proved(st), 0);
@@ -4739,7 +4815,26 @@ fn verifyProofKindInner(
                 // ДЕФЕКТ #95: раньше ЛЮБОЕ несовпадение считалось `bad`, из-за
                 // чего корректные выводы Z3 (частичная резолюция, лишние
                 // литералы) отвергались целиком.
-                .unverifiable => markTrusted(&v, "unit-resolution", st),
+                .unverifiable => {
+                    // ШАГ 3 ПЛАНА (#430): дамп ПОСЫЛОК и ЦЕЛИ доверенного шага.
+                    // Вопрос аудитора: почему резолюция сработала 5 247 раз в
+                    // этом же файле, но отказала на этих посылках. Без дампа
+                    // ответа нет.
+                    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+                        dbgPrint("[dbg-ur-unver] цель: ", .{});
+                        dumpSexp(expand(&c, proved(st), 0));
+                        dbgPrint("\n[dbg-ur-unver] посылки ({d}):\n", .{st.items.len - 2});
+                        for (st.items[1 .. st.items.len - 1]) |p| {
+                            dbgPrint("[dbg-ur-unver]   ", .{});
+                            dumpSexp(p);
+                            dbgPrint(" => ", .{});
+                            dumpSexp(expand(&c, premiseTerm(&c, p), 0));
+                            dbgPrint("\n", .{});
+                        }
+                    }
+                    markTrusted(&v, "unit-resolution", st);
+                },
+
             }
         } else if (std.mem.eql(u8, r, "th-lemma")) {
             const clause = expand(&c, proved(st), 0);
@@ -4822,6 +4917,13 @@ fn verifyProofKindInner(
         } else if (std.mem.eql(u8, r, "iff-false")) {
             // ЭТАЛОН QF_S: `(iff-false P (= Q false))` — из `(not Q)` следует `(= Q false)`.
             if (verifyIffFalse(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+        } else if (std.mem.eql(u8, r, "commutativity")) {
+            // ШАГ 2 ПЛАНА (#430). ИЗМЕРЕНО ДАМПОМ: это ПЕРВОЕ доверенное
+            // правило `storeinv…00002_001.cvc`. Заключение — равенство двух
+            // термов, отличающихся только порядком аргументов коммутативной
+            // операции; проверяется СТРУКТУРНО (`verifyCommutativity`).
+            // Иначе — доверенный шаг, как и было.
+            if (verifyCommutativity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
             if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "lemma")) {
@@ -5102,6 +5204,51 @@ test "ПОЗИТИВ: цепочка trans* и аксиома ite ПРОВЕРЯ
     const ax = "((set-logic QF_UF)(proof (def-axiom (or (not (= a b)) (= c (ite (= a b) c d))))))";
     const v2 = try verifyProof(std.testing.allocator, ax, &.{});
     try std.testing.expectEqual(@as(usize, 1), v2.bool_verified);
+}
+
+test "ПОЗИТИВ: поглощение константы в and/or ПРОВЕРЯЕТСЯ (дефект #430, шаг 1)" {
+    // ИЗМЕРЕНО ДАМПОМ: единственный доверенный шаг `2PhLockVParam_RC-07` —
+    // `(rewrite (= (and false (not (or …))) false))`. Поглощение `false` в `and`
+    // верно ПРИ ЛЮБОМ втором аргументе (трёхзначная логика Клини): посылок нет.
+    const p = "((set-logic QF_UF)(proof (rewrite (= (and false (not (or (not a) (not b)))) false))))";
+    const v = try verifyProof(std.testing.allocator, p, &.{});
+    try std.testing.expectEqual(@as(usize, 1), v.rewrite_verified);
+    try std.testing.expectEqual(@as(usize, 0), v.trusted_steps);
+    // Зеркало для `or`: поглощает константа `true`.
+    const q = "((set-logic QF_UF)(proof (rewrite (= (or true (> x 0)) true))))";
+    const v2 = try verifyProof(std.testing.allocator, q, &.{});
+    try std.testing.expectEqual(@as(usize, 1), v2.rewrite_verified);
+}
+
+test "PROOF-АТАКА: НЕпоглощающая константа в and НЕ проверяется (дефект #430, шаг 1)" {
+    // `(and true X) = true` — ЛОЖЬ: X не константа. Поглощения нет.
+    const bad = "((set-logic QF_UF)(proof (rewrite (= (and true (> x 0)) true))))";
+    const v = try verifyProof(std.testing.allocator, bad, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v.rewrite_verified);
+    // `(and false X) = true` — тоже ЛОЖЬ (поглощение даёт `false`).
+    const bad2 = "((set-logic QF_UF)(proof (rewrite (= (and false (> x 0)) true))))";
+    const v2 = try verifyProof(std.testing.allocator, bad2, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v2.rewrite_verified);
+}
+
+test "ПОЗИТИВ: коммутативность равенства ПРОВЕРЯЕТСЯ (дефект #430, шаг 2)" {
+    // ИЗМЕРЕНО ДАМПОМ: `(commutativity (= $x124 (= a1 a2)))`, где `$x124`
+    // раскрывается в `(= a2 a1)`. Проверка СТРУКТУРНАЯ: операнды переставлены.
+    const p = "((set-logic QF_UF)(proof (commutativity (= (= a2 a1) (= a1 a2)))))";
+    const v = try verifyProof(std.testing.allocator, p, &.{});
+    try std.testing.expectEqual(@as(usize, 1), v.bool_verified);
+    try std.testing.expectEqual(@as(usize, 0), v.trusted_steps);
+}
+
+test "PROOF-АТАКА: НЕкоммутативный оператор и разные операнды отвергаются (#430, шаг 2)" {
+    // `<` НЕ коммутативен: шаг не доказан.
+    const bad = "((set-logic QF_UF)(proof (commutativity (= (< a1 a2) (< a2 a1)))))";
+    const v = try verifyProof(std.testing.allocator, bad, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v.bool_verified);
+    // Коммутативный оператор, но операнды НЕ переставлены (a3 вместо a2).
+    const bad2 = "((set-logic QF_UF)(proof (commutativity (= (= a1 a2) (= a1 a3)))))";
+    const v2 = try verifyProof(std.testing.allocator, bad2, &.{});
+    try std.testing.expectEqual(@as(usize, 0), v2.bool_verified);
 }
 
 test "PROOF-АТАКА: подменённая посылка (fake assume) отвергается" {

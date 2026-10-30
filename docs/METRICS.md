@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -12106,3 +12106,109 @@ RHS = false
   (`and`-поглощение) проверяемо сегодня и без BV.
 - Для QF_BV нужны формы `unit-resolution` с `k!`-константами и `def-axiom` —
   это уже про разбор ОПРЕДЕЛЕНИЙ, а не про bit-blasting.
+
+## §190. ШАГИ 1-3 ПЛАНА `trusted: 0` (`#430`): ПОГЛОЩЕНИЕ, КОММУТАТИВНОСТЬ, ОТКАЧЕННОЕ УПЛОЩЕНИЕ
+
+### 190.1 ШАГ 1 — ПОГЛОЩЕНИЕ КОНСТАНТЫ (трёхзначная логика Клини)
+
+`evalBoolConst` возвращал `null`, если ЛЮБОЙ аргумент `and`/`or` невычислим.
+Теперь в `and` константа `false`, а в `or` константа `true` ПОГЛОЩАЮТ весь терм
+независимо от остальных аргументов (тождество булевой логики, посылок нет).
+
+ИЗМЕРЕНО на `2PhLockVParam_RC-07.smt2`:
+
+| | ДО | ПОСЛЕ |
+|:--|--:|--:|
+| `rewrite(лин.)` проверено | 4 | **5** |
+| ДОВЕРЕННЫХ | **1** (`rewrite`) | **0** |
+| вердикт | доверенный шаг | **`[PROOF VERIFIED] trusted: 0`** |
+
+Итог: задач с `trusted == 0` стало **4 из 7**.
+
+### 190.2 ШАГ 2 — ПРАВИЛО `commutativity`
+
+Заключение — равенство ДВУХ термов, отличающихся ТОЛЬКО порядком аргументов
+КОММУТАТИВНОЙ операции (белый список: `= + * and or xor bvadd bvmul bvand bvor
+bvxor`). `$x`-имена раскрываются существующим `expand` ДО сравнения; проверка
+СТРУКТУРНАЯ, посылок у шага нет.
+
+ИЗМЕРЕНО на `storeinv_t1_np_nf_ai_00002_001.cvc.smt2`: ДОВЕРЕННЫХ **5 -> 4**
+(`bool` 12 -> 13). Остаток назван дампом:
+
+```
+[dbg-trusted] #1 lemma :: (lemma (unit-resolution @x184 @x104 false) $x162)
+[dbg-trusted] #2 monotonicity :: (monotonicity @x101 (= (select ?x29 i1) ?x108))
+[dbg-trusted] #3 lemma :: (lemma (unit-resolution @x184 @x81 false) $x145)
+[dbg-trusted] #4 monotonicity :: (monotonicity @x101 (= ?x140 ?x156))
+```
+
+### 190.3 ШАГ 3 — ДАМП ПОСЫЛОК `unit-resolution` (и ОТКАЧЕННАЯ правка)
+
+Дамп добавлен в путь `.unverifiable` (`KERN_DEBUG_TRUSTED`, `[dbg-ur-unver]`).
+ИЗМЕРЕНО на `QF_BV/add_three.4_bit.smt2` (первый доверенный шаг):
+
+```
+цель: (or (not (or (not k!140) (not k!180))) (not k!220) (not (or k!140 k!180)))
+  @x2893 => (or (or (not (or (not k!140) (not k!180))) (not k!220) (not (or k!140 k!180))) k!220)
+  @x5139 => (not k!220)
+```
+
+То есть из `(C ∨ k!220)` и `¬k!220` выводится РОВНО `C` — шаг КОРРЕКТЕН.
+ПРИЧИНА отказа: клауза содержит ВЛОЖЕННЫЙ `or`, поэтому `remaining` = ОДИН литерал
+`(or A B C)`, а `concl` уплощается в ТРИ -> рассинхрон `1 != 3`.
+
+**ПОПЫТКА УПЛОЩЕНИЯ (ассоциативность `or`) ОТКАЧЕНА ПО ЗАМЕРУ:**
+
+| | ДОВЕРЕННЫХ на `add_three.4_bit` |
+|:--|--:|
+| до правки | **2970** |
+| с уплощением обеих сторон | **3408** (ХУЖЕ, +438) |
+| после отката | **2970** (ровно как было) |
+
+Значит форма `(or (or A B C) k)` обрабатывается существующими ветками (частичная
+резолюция / де Морган / расщепление) ЛУЧШЕ уплощённой, и чинить надо РАЗБОРОМ ЭТИХ
+ВЕТОК. Диагноз и дамп записаны В КОД рядом с `checkUnitRes`, чтобы знание не
+потерялось вместе с откатом.
+
+### 190.4 ДВУСТОРОННИЕ ТЕСТЫ (4 новых, все невакуумные)
+
+| Тест | Проверяет |
+|:--|:--|
+| ПОЗИТИВ поглощения | `(rewrite (= (and false (not (or …))) false))` -> `rewrite_verified == 1`, `trusted == 0`; зеркало `(or true X) = true` |
+| АТАКА непоглощения | `(and true X) = true` и `(and false X) = true` -> `rewrite_verified == 0` |
+| ПОЗИТИВ коммутативности | `(commutativity (= (= a2 a1) (= a1 a2)))` -> `bool_verified == 1` |
+| АТАКА коммутативности | `(< a1 a2) vs (< a2 a1)` (некоммутативный) и `(= a1 a2) vs (= a1 a3)` (операнды не переставлены) -> `bool_verified == 0` |
+
+**НЕВАКУУМНОСТЬ ПОДТВЕРЖДЕНА ПОДСАДКОЙ:** ожидание `1` заменено на `7` ->
+`make test` даёт **RC=2**, `error: … ПОЗИТИВ: поглощение … failed: expected 7, found 1`.
+
+### 190.5 ПРОЦЕССНЫЙ УРОК (заплачено практикой)
+
+1. Гейты `ci-fast`/`edge-cases` были запущены В ОДНОЙ ПАЧКЕ с подсадкой в
+   проверяемый файл -> оба упали НА ИСПОРЧЕННОМ ФАЙЛЕ. Это ровно правило №1
+   плана («никогда не запускать проверку в одной пачке с правкой того, что она
+   проверяет»), нарушенное мной.
+2. `pkill -f 'g431.sh'` убил СОБСТВЕННУЮ команду (её строка содержала тот же
+   текст), из-за чего снятие подсадки не выполнилось; понадобилась отдельная
+   команда.
+
+### 190.6 РЕГРЕССИЯ: ГЕЙТЫ И РОСТ ЧИСЕЛ
+
+ИЗМЕРЕНО после правок (все гейты — отдельной пачкой от правок, правило №1 §6):
+`ci-fast` 11/0 · `edge-cases` rc=0 · `docs-map-check` · `status-check` · `docs-parity` ·
+`journal-parity-check` · `sync-check` · `metrics-guard` · `claims-audit` · `registry` —
+все `rc=0`; **`smtlib-proof-check` rc=0** (4 задачи `[PROOF VERIFIED]`: `RC-02`,
+`RC-07`, `RC-08`, `CircularTrains`; ложных срабатываний 0, дыр 0);
+**`xray-check` rc=0** (25 секций `[OK]`).
+
+НОВЫЙ КОД СДВИНУЛ СТАТИЧЕСКИЕ ЧИСЛА, и страж поймал это сам: сайтов мутации
+**1432 -> 1455**, объявлений тестов **482 -> 486**. Обновлено по строкам, которые
+назвал `metrics-guard` (23 замены в 14 файлах). ПОБОЧНО ЭТО ЛОМАЛО `edge-cases`:
+его мета-тесты «страж заметил подсадку» сначала требуют, чтобы БАЗА была зелёной,
+а база была красной из-за расхождения чисел — то есть мета-тест был невакуумен
+именно тогда, когда страж реально работал.
+
+ГРАНИЦА (названа честно): полный обстрел мутатором на НОВОМ коде (23 мин) НЕ
+перезапускался; число сайтов = факт (1455), а «100 %» относится к закоммиченному
+логу `docs/evidence/mutate_full.log` (1376/1376) — той же конвенции следует и
+`sync_state.py` (якорь `fact:mutation_sites` подставляется в оба числа).

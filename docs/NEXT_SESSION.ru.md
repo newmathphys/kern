@@ -14,7 +14,7 @@
 > ровно тем коммитом, который его добавляет (его уже правили дважды). Источник
 > истины — `git log -1` и `docs/STATUS.ru.md`, а не эта строка.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
@@ -416,19 +416,25 @@
 
 ## Следующий шаг: `trusted: 0` на не-битовых задачах
 
-Дамп S-выражений (`KERN_DEBUG_TRUSTED`) назвал ТРИ правила, держащие остаток на
-не-битовых задачах (всего 6 шагов):
+**СТАТУС: шаги 1 и 2 ВЫПОЛНЕНЫ** (`#431`). Дамп S-выражений (`KERN_DEBUG_TRUSTED`)
+назвал ТРИ правила, державшие остаток на не-битовых задачах:
 
-| Задача | Правило | S-выражение |
+| Задача | Правило | Статус |
 |:--|:--|:--|
-| `2PhLockVParam_RC-07` | `rewrite` | `(rewrite (= (and false …) false))` — поглощение `and(false, X) = false` |
-| `storeinv…00002_001.cvc` | `commutativity` | `(commutativity (= $x124 (= a1 a2)))` — симметрия равенства через определение `$x` |
-| то же | `lemma` ×2, `monotonicity` ×2 | поддеревья, требующие разбора посылок |
+| `2PhLockVParam_RC-07` | `rewrite` — поглощение `and(false, X) = false` | ✅ ИСПРАВЛЕНО (ДОВЕРЕННЫХ 1 → 0) |
+| `storeinv…00002_001.cvc` | `commutativity` — симметрия равенства | ✅ ИСПРАВЛЕНО (5 → 4) |
+| то же | `lemma` ×2, `monotonicity` ×2 | ⏳ ОСТАЛОСЬ: `(lemma (unit-resolution @x184 @x104 false) $x162)`, `(monotonicity @x101 (= (select ?x29 i1) ?x108))` |
 
-**Порядок:** (1) поглощение `and(false, X) = false` и `or(true, X) = true` — посылок
-нет, звучно проверяемо БЕЗ BV; (2) разбор определения `$x`-имён для
-`commutativity`; (3) `unit-resolution` с `k!`-константами и `def-axiom` — это про
-разбор ОПРЕДЕЛЕНИЙ, а не про bit-blasting.
+**Задач с `trusted == 0` стало 4 из 7.**
+
+### Для `QF_BV/add_three.4_bit` (2970 доверенных) — чинить РАЗБОР ВЕТОК, не уплощение
+
+Дамп посылок первого доверенного шага (`[dbg-ur-unver]`) показал, что шаг
+**КОРРЕКТЕН** (из `(C ∨ k!220)` и `¬k!220` выводится ровно `C`), а причина отказа —
+**ВЛОЖЕННЫЙ `or`** в клаузе: `remaining` = 1 литерал `(or A B C)`, а цель уплощается
+в 3. **ПОПЫТКА УПЛОЩЕНИЯ (ассоциативность `or`) ОТКАЧЕНА ПО ЗАМЕРУ**: ДОВЕРЕННЫХ
+`2970 → 3408` (хуже). Значит существующие ветки (частичная резолюция / де Морган /
+расщепление) обрабатывают эту форму ЛУЧШЕ — править надо их.
 
 **Чего заявлять НЕЛЬЗЯ:** что остаток `trusted > 0` в `QF_BV` объясняется
 отсутствием BV-правил — ДАМПОМ НЕ ПОДТВЕРЖДЕНО (дефект #430).

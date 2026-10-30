@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->482 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->486 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -4696,3 +4696,108 @@ RHS = false
   them (`and`-absorption) is checkable today and without BV.
 - For QF_BV we need `unit-resolution` shapes with `k!`-constants and `def-axiom` - that
   is about resolving DEFINITIONS, not about bit-blasting.
+
+## §168. STEPS 1-3 OF THE `trusted: 0` PLAN (`#430`): ABSORPTION, COMMUTATIVITY, A REVERTED FLATTENING
+
+### 168.1 STEP 1 - CONSTANT ABSORPTION (Kleene three-valued logic)
+
+`evalBoolConst` returned `null` when ANY argument of `and`/`or` was not evaluable.
+Now in `and` the constant `false`, and in `or` the constant `true`, ABSORB the whole
+term regardless of the other arguments (a boolean identity, no premises).
+
+MEASURED on `2PhLockVParam_RC-07.smt2`:
+
+| | BEFORE | AFTER |
+|:--|--:|--:|
+| `rewrite(linear)` verified | 4 | **5** |
+| TRUSTED | **1** (`rewrite`) | **0** |
+| verdict | a trusted step | **`[PROOF VERIFIED] trusted: 0`** |
+
+Result: the number of tasks with `trusted == 0` became **4 of 7**.
+
+### 168.2 STEP 2 - THE `commutativity` RULE
+
+The conclusion is an equality of TWO terms differing ONLY by the order of the
+arguments of a COMMUTATIVE operation (whitelist: `= + * and or xor bvadd bvmul
+bvand bvor bvxor`). `$x` names are expanded by the existing `expand` BEFORE the
+comparison; the check is STRUCTURAL, the step has no premises.
+
+MEASURED on `storeinv_t1_np_nf_ai_00002_001.cvc.smt2`: TRUSTED **5 -> 4**
+(`bool` 12 -> 13). The residue was named by the dump:
+
+```
+[dbg-trusted] #1 lemma :: (lemma (unit-resolution @x184 @x104 false) $x162)
+[dbg-trusted] #2 monotonicity :: (monotonicity @x101 (= (select ?x29 i1) ?x108))
+[dbg-trusted] #3 lemma :: (lemma (unit-resolution @x184 @x81 false) $x145)
+[dbg-trusted] #4 monotonicity :: (monotonicity @x101 (= ?x140 ?x156))
+```
+
+### 168.3 STEP 3 - A DUMP OF THE `unit-resolution` PREMISES (and a REVERTED fix)
+
+The dump was added to the `.unverifiable` path (`KERN_DEBUG_TRUSTED`, `[dbg-ur-unver]`).
+MEASURED on `QF_BV/add_three.4_bit.smt2` (the first trusted step):
+
+```
+цель: (or (not (or (not k!140) (not k!180))) (not k!220) (not (or k!140 k!180)))
+  @x2893 => (or (or (not (or (not k!140) (not k!180))) (not k!220) (not (or k!140 k!180))) k!220)
+  @x5139 => (not k!220)
+```
+
+So from `(C or k!220)` and `(not k!220)` EXACTLY `C` is derived - the step is CORRECT.
+THE CAUSE of the refusal: the clause contains a NESTED `or`, hence `remaining` is ONE
+literal `(or A B C)` while `concl` flattens into THREE -> a `1 != 3` mismatch.
+
+**THE FLATTENING ATTEMPT (associativity of `or`) WAS REVERTED BY MEASUREMENT:**
+
+| | TRUSTED on `add_three.4_bit` |
+|:--|--:|
+| before the change | **2970** |
+| with both sides flattened | **3408** (WORSE, +438) |
+| after the revert | **2970** (exactly as before) |
+
+Hence the shape `(or (or A B C) k)` is handled by the EXISTING branches (partial
+resolution / De Morgan / case splitting) BETTER than the flattened one, and the cure
+must be a REWORK OF THOSE BRANCHES. The diagnosis and the dump are recorded IN THE
+CODE next to `checkUnitRes` so that the knowledge is not lost with the revert.
+
+### 168.4 TWO-SIDED TESTS (4 new, all non-vacuous)
+
+| Test | What it checks |
+|:--|:--|
+| ABSORPTION POSITIVE | `(rewrite (= (and false (not (or …))) false))` -> `rewrite_verified == 1`, `trusted == 0`; mirror `(or true X) = true` |
+| NON-ABSORPTION ATTACK | `(and true X) = true` and `(and false X) = true` -> `rewrite_verified == 0` |
+| COMMUTATIVITY POSITIVE | `(commutativity (= (= a2 a1) (= a1 a2)))` -> `bool_verified == 1` |
+| COMMUTATIVITY ATTACK | `(< a1 a2)` vs `(< a2 a1)` (non-commutative) and `(= a1 a2)` vs `(= a1 a3)` (operands not swapped) -> `bool_verified == 0` |
+
+**NON-VACUITY CONFIRMED BY A PLANT:** replacing the expectation `1` with `7` makes
+`make test` return **RC=2**: `error: … ABSORPTION POSITIVE … failed: expected 7, found 1`.
+
+### 168.5 A PROCESS LESSON (paid for in practice)
+
+1. The gates `ci-fast`/`edge-cases` were launched IN THE SAME BATCH as a plant inside
+the file they verify -> both failed ON THE CORRUPTED FILE. That is exactly rule No. 1
+of the plan ("never run a check in the same batch as an edit to what it checks"),
+violated by me.
+2. `pkill -f 'g431.sh'` killed ITS OWN command (its command line contained the same
+text), so the plant was not removed; a separate command was needed.
+
+### 168.6 REGRESSION: THE GATES AND THE GROWTH OF THE NUMBERS
+
+MEASURED after the changes (all gates in a batch SEPARATE from the edits, rule No. 1 of §6):
+`ci-fast` 11/0, `edge-cases` rc=0, `docs-map-check`, `status-check`, `docs-parity`,
+`journal-parity-check`, `sync-check`, `metrics-guard`, `claims-audit`, `registry` - all
+`rc=0`; **`smtlib-proof-check` rc=0** (4 tasks `[PROOF VERIFIED]`: `RC-02`, `RC-07`,
+`RC-08`, `CircularTrains`; 0 false alarms, 0 holes); **`xray-check` rc=0** (25 sections
+`[OK]`).
+
+THE NEW CODE SHIFTED THE STATIC NUMBERS, and the guard caught it itself: mutation sites
+**1432 -> 1455**, test declarations **482 -> 486**. Updated along the lines named by
+`metrics-guard` (23 replacements in 14 files). AS A SIDE EFFECT THIS BROKE `edge-cases`:
+its meta-tests "the guard noticed a plant" first require the BASE to be green, while the
+base was red due to the number mismatch - that is, the meta-test was non-vacuous exactly
+when the guard was really working.
+
+BOUNDARY (stated honestly): the full mutation sweep on the NEW code (23 min) was NOT
+re-run; the site count is the fact (1455), while "100 %" refers to the committed log
+`docs/evidence/mutate_full.log` (1376/1376) - the same convention `sync_state.py` follows
+(the `fact:mutation_sites` anchor is substituted into both numbers).
