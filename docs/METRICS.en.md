@@ -4332,3 +4332,58 @@ NAMED skip, not a silent green.
 `docs/contracts.lock.json` contains that file. The extraction must go together with rebuilding the
 anchors and the lock. The order is deliberate: **the net (2+3), then the surgery (4)** - under the
 snapshot and the table the extraction stops being a lottery.
+
+## §161. STEP 4b: REAL BV - AND THE FALSE ACCUSATION IT EXPOSED (#419, #420, #421, #422)
+
+> The work started as \"add a bitwise mode\" and ended with three defects, one of which is an
+> accusation of CORRECT code.
+
+### 161.1 What was done (the two safeguards from the plan)
+
+**No. 1, the sort trap.** `_bv_as_bool` wraps a bitwise term in a BOOLEAN position into
+`(distinct <term> (_ bv0 32))`: in C one writes `if (options & MASK)` without `!= 0`, while
+`(bvand ...)` has the sort `(_ BitVec 32)` and Z3 answers `sort mismatch`.
+
+**No. 2, sort mixing.** The BV query is assembled ENTIRELY from BV forms: conditions translatable
+in Int live in `if_blocks` and carry a parallel BV form; conditions translatable ONLY in BV live in
+`bv_only`. `_bv_path_blocks` merges them into BV forms, so Int and `(_ BitVec 32)` never meet in one
+query. The Int query does not change by a single byte.
+
+### 161.2 The three defects found along the way (all MEASURED)
+
+| Defect | What it was | How it was found |
+|:--|:--|:--|
+| `#419` | `!(x & 1)` -> `' not (x & 1)'` with a LEADING SPACE -> `IndentationError` -> SKIP | without it `!(x & 1)` was translated neither in Int nor in BV |
+| `#420` | `_free_smt_vars` declared `bvand`/`bv1`/`_` as CONSTANTS -> a symbol clash -> \"not decided\" | the BV positive control stayed silent with a CORRECT query |
+| `#421` | `x > 0 AND x + 1 < 0` was declared a dead branch | in C at `x = INT_MAX` the wraparound makes the branch ALIVE |
+
+`#421` is an accusation of CORRECT code, and it is withdrawn by a **cross-check**: if Int declares a
+branch dead and the condition contains arithmetic, the same question is asked in QF_BV32; SAT -> the
+accusation is withdrawn and NAMED as a note (a silent withdrawal would be a silent loss).
+
+### 161.3 The two-sided control (pinned by fixtures and a gate section)
+
+| Control | Expectation | MEASURED |
+|:--|:--|:--|
+| `tests/fixtures/xray_bv_bits.c` | a bitwise dead branch IS found | `[DEAD BRANCH] bit_dead ... (UNSAT, BV32)` |
+| `tests/fixtures/xray_bv_wrap.c` | NO findings + the reason NAMED | 0 findings, the note `ветка достижима в BV32 (перенос) — обвинение снято` |
+
+### 161.4 The result and AN HONEST BOUNDARY
+
+| Corpus | `checked` | `trivial` | `skipped` | of the functions WITH branches | findings |
+|:--|--:|--:|--:|--:|--:|
+| `cmark-gfm/src` | 170 -> **173** | 126 | 12 -> **9** | 93.4 % -> **95.1 %** | **0** |
+| `toolkit/packages` | 72 (unchanged) | 73 | 5 | 93.5 % | **0** |
+
+**The gain is SMALLER than expected (+3, not +4), and the reason is measured:** the \"what-if\"
+promised +22 conditions, but 23 bitwise conditions in `cmark` come TOGETHER WITH CALLS, and the
+\"havoc + BV\" mix is outside the subset (`is_ok(a) && (b & 1)` -> SKIP \"binary operator\"). The
+`cmark` remainder of 9 = the `!` form 4 + syntax 4 + binary 1. The `cmark` run time grew 47 s -> 69 s:
+BV queries cost more than Int.
+
+### 161.5 The `#400` fixture had to be updated - and that is a measurement too
+
+Its \"skips\" (`p->len`, `a & 1`) ARE NOW TRANSLATED (#416 and step 4b), so no \"real skip\" was left in
+it, and the sub-gate honestly turned red. A new skip form was found by measurement: a MIX of a call
+and a bitwise op (`is_ok(a) && (b & 1)`) - \"havoc + BV\" is outside the subset. MEASURED after:
+`checked 3 | trivial 1 | skipped 1 | Sum 5 == total 5`.

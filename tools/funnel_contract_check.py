@@ -48,9 +48,11 @@ CORPORA = (
     # ОБНОВЛЕНО после #416 (поля `a->b` -> `a__b`, страховка `!`, `===`/`!==`,
     # `typeof`): ИЗМЕРЕНО `checked 170 | trivial 126 | skipped 12`, Σ 308,
     # находок 0. Было `147 | 126 | 35` до правки.
-    ("cmark-gfm/src", {"total": 308, "without_if": 126, "checked_branches": 170,
-                       "checked_arith_only": 0, "trivial": 126, "skipped": 12,
-                       "named": 12}),
+    # ОБНОВЛЕНО после Шага 4b (BV): ИЗМЕРЕНО `checked 173 | trivial 126 |
+    # skipped 9`, Σ 308, находок 0. Было 170|126|12 до BV.
+    ("cmark-gfm/src", {"total": 308, "without_if": 126, "checked_branches": 173,
+                       "checked_arith_only": 0, "trivial": 126, "skipped": 9,
+                       "named": 9}),
     # ОБНОВЛЕНО после #416: ИЗМЕРЕНО `checked 72 | trivial 73 | skipped 5`,
     # Σ 150, находок 0. Было `55 | 73 | 22` до правки. Покрытие 72/150 = 48,0 %
     # от всех и 72/77 = 93,5 % от функций С ветвлениями.

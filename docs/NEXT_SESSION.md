@@ -249,6 +249,24 @@ was corrected wherever it disagreed with the code:
    anchors, and the contracts lock contains that file - the extraction must go together with
    rebuilding the anchors. The order is deliberate: the net, then the surgery.
 
+24. **STEP 4b (BV) IS DONE (`#422`) - and THREE defects were found along the way.** Bitwise
+   conditions are translated into QF_BV32: `_bv_as_bool` wraps a bitwise term in a boolean position
+   into `(distinct <term> (_ bv0 32))` (otherwise `sort mismatch`), and the BV query is assembled
+   ENTIRELY from BV forms (the Int query does not change by a byte). MEASURED: `cmark` `checked`
+   **170 -> 173**, `skipped` **12 -> 9** (**93.4 % -> 95.1 %** of the functions with branches),
+   findings **0**; `toolkit` unchanged. Side findings: `#419` (conditions starting with `!(` were
+   lost because of a leading space - IR `2398 -> 2401`), `#420` (the BV query declared
+   `bvand`/`bv1`/`_` as constants -> "not decided"), `#421` (a FALSE ACCUSATION: `x > 0 AND
+   x + 1 < 0` was declared dead, while in C at `INT_MAX` the wraparound makes the branch ALIVE).
+   `#421` is withdrawn by a CROSS-CHECK in BV with a NAMED note. HONEST BOUNDARY: the gain is +3,
+   not +4, because 23 bitwise conditions come together with calls, and the "havoc + BV" mix is
+   outside the subset; the `cmark` time went 47 s -> 69 s.
+25. **THE NEXT STEP: extracting `clike_frontend.py` (barrier 4) under the net that is already in
+   place.** Measurement: twenty-nine places in `canfail.py` patch `kern_contracts.py` by textual
+   anchors, and the contracts lock contains that file - the extraction must go together with
+   rebuilding the anchors. The acceptance criterion: the IR snapshots (`2401/2539` and `134/156`) and
+   the buckets (`173|126|9`, `72|73|5`, `13|3|0`) match BIT-FOR-BIT.
+
 **Closed in THIS session (verification of all capabilities):**
 
 1. **`make showcase-live-all` — every row of `docs/CAPABILITY_MATRIX.md` is now

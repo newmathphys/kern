@@ -76,11 +76,32 @@ CASES: tuple = (
     ("s[0] == 45", "(= (ite (= 0 0) s__e0 (ite (= 0 1) s__e1 s__e2)) 45)",
      "константный индекс: окно элементов (уже работает — потому индекс дал +1)"),
     ("subj->flags & FLAG", None,
-     "БИТОВОЕ в условии — Шаг 4b (BV) НЕ начат: абстракция дала бы бутафорию"),
+     "БИТОВОЕ в условии: Int-модель не умеет — маршрут BV (см. BV_CASES ниже)"),
     ("len(arr)", "len__arr",
      "символическая длина (Zero-Annotation)"),
     ("x == nil", "(= x 0)",
      "nil -> 0 (Int-модель указателя, шаг 6)"),
+)
+
+# ШАГ 4b (BV): ТЕ ЖЕ УСЛОВИЯ, НО В QF_BV. Проверяется `_bv_as_bool` (предохранитель
+# №1): битовый терм в БУЛЕВОЙ позиции обязан оборачиваться в `(distinct … (_ bv0 w))`,
+# иначе Z3 отвечает `sort mismatch: expected Bool, got (_ BitVec 32)`.
+BV_CASES: tuple = (
+    ("subj->flags & FLAG",
+     "(distinct (bvand subj__flags FLAG) (_ bv0 32))",
+     "голый битовый терм в булевой позиции (без `!= 0`)"),
+    ("!(x & 1)",
+     "(not (distinct (bvand x (_ bv1 32)) (_ bv0 32)))",
+     "отрицание битового условия"),
+    ("(c & 0x80) == 0",
+     "(= (bvand c (_ bv128 32)) (_ bv0 32))",
+     "сравнение битового с нулём — уже Bool, обёртка НЕ нужна"),
+    ("x + 1 < 0",
+     "(bvslt (bvadd x (_ bv1 32)) (_ bv0 32))",
+     "перенос: та же формула, что снимает ложное обвинение Int-пути"),
+    ("options & MASK",
+     "(distinct (bvand options MASK) (_ bv0 32))",
+     "реальная форма из cmark-gfm (`CMARK_OPT_*`)"),
 )
 
 # Отдельно: предохранитель #414 (второй рубеж) — вызов ЛИТЕРАЛА обязан отказать.
@@ -111,6 +132,10 @@ def run_cases() -> list[str]:
         got = translate(raw)
         if got != want:
             bad.append(f"{raw!r}: ожидали {want!r}, получили {got!r}  ({why})")
+    for raw, want, why in BV_CASES:
+        got = K._bv_cond_smt(raw, 32, True)
+        if got != want:
+            bad.append(f"[BV] {raw!r}: ожидали {want!r}, получили {got!r}  ({why})")
     for raw, want_sub in GUARD_CASES:
         try:
             ast.parse(K.clike_to_python(raw), mode="eval")
@@ -129,6 +154,9 @@ def selftest() -> int:
     global CASES
     saved = CASES
     CASES = ((CASES[0][0], CASES[0][1] + "X", "подсадка"),)
+    global BV_CASES
+    _bv_saved = BV_CASES
+    BV_CASES = ((BV_CASES[0][0], BV_CASES[0][1] + "Y", "подсадка BV"),)
     if not run_cases():
         print("  [FAIL] подсаженное ожидание НЕ поймано — гейт вакуумен")
         ok = False
@@ -141,6 +169,7 @@ def selftest() -> int:
     else:
         print("  [OK]   пустое ожидание поймано")
     CASES = saved
+    BV_CASES = _bv_saved
     if run_cases():
         print("  [FAIL] таблица не проходит на текущем коде")
         ok = False
@@ -194,8 +223,10 @@ def ir_of(root: Path) -> dict:
 # переведённые условия), обязана быть ВИДНА здесь — за доли секунды и без Z3.
 # Именно этого не хватало, когда знаменатель гулял `458 -> 476 -> 443`.
 IR_BASELINES = {
-    "cmark-gfm/src": {"sha256": "0aa016a61960017a", "n_functions": 308,
-                      "n_conditions": 2539, "n_translated": 2398},
+    # ОБНОВЛЕНО после #419 (ведущий пробел в `clike_to_python` терял ВСЕ
+    # условия, начинающиеся с `!(`): переведено 2398 -> 2401.
+    "cmark-gfm/src": {"sha256": "32e4a168fe777099", "n_functions": 308,
+                      "n_conditions": 2539, "n_translated": 2401},
     "toolkit/packages": {"sha256": "2a7aac90f9317962", "n_functions": 150,
                          "n_conditions": 156, "n_translated": 134},
 }
@@ -241,6 +272,7 @@ def main(argv: list[str]) -> int:
             print(f"    {b}")
         return 1
     print(f"[OK] табличный IR-гейт: {len(CASES)} случаев перевода + "
+          f"{len(BV_CASES)} BV-случаев (Шаг 4b) + "
           f"{len(GUARD_CASES)} предохранителя #414 — совпали")
     return 0
 

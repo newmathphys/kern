@@ -2156,7 +2156,11 @@ def clike_to_python(s: str) -> str:
     s = re.sub(r"([+\-*])%", r"\1", s)
     s = re.sub(r"([+\-])\|", r"\1", s)
     s = re.sub(r"\.(?:wrapping|saturating)_(?:add|sub|mul)\(", " + (", s)
-    return convert_ternary(s)
+    # ДЕФЕКТ #419: подстановка `!` -> ` not ` оставляла ВЕДУЩИЙ ПРОБЕЛ, если
+    # условие начинается с `!`: `!(x & 1)` -> ` not (x & 1)` -> `ast.parse`
+    # падал с IndentationError, и условие уходило в SKIP как «синтаксис».
+    # ИЗМЕРЕНО (Шаг 4b): так терялись ВСЕ условия, начинающиеся с `!(`.
+    return convert_ternary(s).strip()
 
 
 # 🔴 ДЕФЕКТ #183 (полевой прогон по zls): в Zig гард пишется как
@@ -3929,6 +3933,176 @@ def _bv_shape(ranges: dict):
         if hi > 2**32 - 1 or lo < -2**31:
             width = 64
     return width, signed
+
+
+def _bv_as_bool(node, env: dict, w: int, signed: bool) -> str:
+    """УСЛОВИЕ в булевой позиции для BV: терм `(_ BitVec w)` -> сорт `Bool`.
+
+    ЗАЧЕМ (Шаг 4b, предохранитель №1). В C побитовые условия пишут БЕЗ `!= 0`:
+    `if (options & CMARK_OPT_SMART)`, `if (!(c & 0x80))`. `expr_smt_bv` для
+    `ast.BinOp(BitAnd)` вернёт `(bvand options MASK)` — терм сорта
+    `(_ BitVec 32)`, а НЕ `Bool`. Подать его прямо в `(assert …)`, `(not …)` или
+    `(and …)` нельзя: Z3 отвечает `sort mismatch: expected Bool, got (_ BitVec 32)`.
+
+    ПРАВИЛО:
+      * `and`/`or`/`not` — рекурсивно по подузлам;
+      * `ast.Compare` — уже `Bool` (`=`, `distinct`, `bvslt`, …), отдаём как есть;
+      * всё остальное (битовый терм, имя, литерал) — оборачиваем в
+        `(distinct <терм> (_ bv0 w))`, то есть «не равно нулю» — ровно та
+        семантика, что у голого имени в булевой позиции в Int-модели.
+    """
+    if isinstance(node, ast.BoolOp):
+        op = "and" if isinstance(node.op, ast.And) else "or"
+        parts = [_bv_as_bool(v, env, w, signed) for v in node.values]
+        return f"({op} {' '.join(parts)})"
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        return f"(not {_bv_as_bool(node.operand, env, w, signed)})"
+    if isinstance(node, ast.Compare):
+        return expr_smt_bv(node, env, w, signed)
+    if isinstance(node, ast.Constant) and isinstance(node.value, bool):
+        return "true" if node.value else "false"
+    term = expr_smt_bv(node, env, w, signed)
+    if term in ("true", "false"):
+        return term
+    return f"(distinct {term} (_ bv0 {w}))"
+
+
+def _bv_cond_smt(raw_cond: str, w: int = 32, signed: bool = True):
+    """Сырое условие -> BV-Bool-терм или None (Шаг 4b).
+
+    Конвейер ЗЕРКАЛИТ Int-путь: литералы -> `===`/`!==` -> поля -> `nil`/`!` ->
+    `clike_to_python` -> AST -> `_bv_as_bool`. Зеркальность важна: если Int-форма
+    и BV-форма строятся из РАЗНОГО текста, «два маршрута» разойдутся молча.
+    """
+    try:
+        s = _literals_to_numbers(raw_cond)
+        s = s.replace("===", "==").replace("!==", "!=")
+        s = _flatten_fields(s)
+        rw = _null_to_zero(s)
+        if rw is None:
+            return None
+        node = ast.parse(clike_to_python(rw), mode="eval").body
+        return _bv_as_bool(node, {}, w, signed)
+    except Exception:  # noqa: BLE001 — None = «BV-формы нет», это честный исход
+        return None
+
+
+_BV_RESERVED = {
+    "_", "and", "or", "not", "ite", "distinct", "true", "false",
+    "bvand", "bvor", "bvxor", "bvnot", "bvneg", "bvadd", "bvsub", "bvmul",
+    "bvudiv", "bvsdiv", "bvurem", "bvsrem", "bvshl", "bvlshr", "bvashr",
+    "bvult", "bvule", "bvugt", "bvuge", "bvslt", "bvsle", "bvsgt", "bvsge",
+}
+
+
+def _is_bv_token(tok: str) -> bool:
+    """Служебный токен BV-SMT (не имя переменной). ДЕФЕКТ #420: ИЗМЕРЕНО —
+    `_free_smt_vars` извлекал из BV-формул `bvand`, `bv1` и `_` и объявлял их
+    КОНСТАНТАМИ, из-за чего Z3 получал конфликт символа (`bvand` и функция, и
+    константа) и отвечал «не решено». Положительный контроль Шага 4b молчал
+    именно поэтому: запрос был правильным, а объявления — нет."""
+    return tok in _BV_RESERVED or re.fullmatch(r"bv\d+", tok) is not None
+
+
+def _smt_sat_bv(kernc, params, asserts, w: int = 32):
+    """Выполнимость набора утверждений в QF_BV (сорт `(_ BitVec w)`).
+
+    ЗАЧЕМ ОТДЕЛЬНАЯ ФУНКЦИЯ (предохранитель №2 Шага 4b). Смешивать в ОДНОМ
+    запросе `Int` и `(_ BitVec w)` нельзя: Z3 упадёт на `(> c 0)` с ошибкой
+    сортов. Поэтому BV-запрос собирается ЦЕЛИКОМ из BV-форм (и условия, и путь),
+    и ни одно Int-условие в него не попадает. Обратно тоже верно: Int-запрос
+    (2398 уже работающих условий) не меняется НИ НА БАЙТ.
+    """
+    free = [v for v in _free_smt_vars(asserts, params) if not _is_bv_token(v)]
+    decls = "\n".join(f"(declare-const {p} (_ BitVec {w}))"
+                      for p in list(params) + free)
+    body = "\n".join(f"(assert {a})" for a in asserts)
+    smt = f"(set-logic QF_BV)\n{decls}\n{body}\n(check-sat)\n"
+    _rc, out = run_kernc(kernc, smt)
+    if "КОНТРПРИМЕР" in out:
+        return True
+    if "ДОКАЗАНО" in out:
+        return False
+    return None          # N: не решено — это НЕ «доказано»
+
+
+def _bv_path_blocks(if_blocks, bv_forms, bv_only) -> list:
+    """ОБЪЕДИНЁННЫЙ список блоков В BV-ФОРМЕ (Шаг 4b, предохранитель №2).
+
+    ЗАЧЕМ ОБЪЕДИНЕНИЕ. Условия делятся на три класса: (а) переводимые в Int —
+    они лежат в `if_blocks`; (б) НЕ переводимые в Int, но переводимые в BV — они
+    НЕ попадают в `if_blocks` (иначе Int-путь получил бы `None`) и живут в
+    `bv_only`; (в) не переводимые никуда — тогда BV-проверка невозможна и это
+    НАЗВАННЫЙ пропуск. ИЗМЕРЕНО: без класса (б) позитивный контроль
+    `(x&1)==0 ∧ (x&2)==0 ∧ (x&3)!=0` НЕ ловился — путь был пуст.
+    """
+    merged = []
+    for (ce, be, _c, ex), bvf in zip(if_blocks, bv_forms):
+        if bvf is None:
+            raise Unsupported("условие пути не переводится в BV (Шаг 4b)")
+        merged.append((ce, be, bvf, ex))
+    merged += list(bv_only)
+    merged.sort(key=lambda t: t[0])
+    return merged
+
+
+def _can_wrap(cond: str) -> bool:
+    """Может ли условие зависеть от ПЕРЕНОСА (машинной арифметики)?
+
+    ЗАЧЕМ (Шаг 4b, перекрёстная проверка обвинения). В Int-модели арифметика
+    неограниченна, поэтому `x > 0 ∧ x + 1 < 0` невыполнимо — и корректная функция
+    объявляется мёртвой ветвью. ИЗМЕРЕНО: `int wrap_alive(int x) { if (x > 0) {
+    if (x + 1 < 0) return 1; } return 0; }` давало ЛОЖНЫЙ `[DEAD BRANCH]`.
+    Достаточное условие «может зависеть от переноса» — наличие арифметического
+    оператора в самом условии: проверка лишний раз СТОИТ ДЁШЕВО (обвинений мало),
+    а пропуск ложного обвинения — правило проекта (#178/#183).
+    """
+    return re.search(r"[+\-*/%]", cond) is not None
+
+
+def _bv_confirms_dead(kernc, params, if_blocks, bv_forms, bv_only, body, pos,
+                      cond_bv, w):
+    """ПОДТВЕРЖДАЕТ ли BV недостижимость: True = мёртвая, False = ЖИВА, None = N.
+
+    ВНИМАНИЕ К ЗНАКУ (ИЗМЕРЕНО): `_smt_sat_bv` возвращает True на SAT, то есть
+    «путь ∧ условие ВЫПОЛНИМО» = ветка ЖИВА. Поэтому «подтверждает мёртвость» —
+    это `not sat`. Первая версия перепутала знак, и ложное обвинение Int-пути
+    НЕ снималось (SMT-вызовы выросли, находка осталась).
+    """
+    if cond_bv is None:
+        return None
+    try:
+        merged = _bv_path_blocks(if_blocks, bv_forms, bv_only)
+    except Unsupported:
+        return None
+    sat = _smt_sat_bv(kernc, params,
+                      _clike_conds_at(pos, merged, body) + [cond_bv], w)
+    if sat is None:
+        return None
+    return not sat
+
+
+def _bv_reachability(kernc, params, if_blocks, bv_forms, bv_only, body, pos,
+                     cond_bv, w, found, name, skip_why) -> bool:
+    """Достижимость BV-условия (Шаг 4b). True = проверка СОСТОЯЛАСЬ.
+
+    Путь берётся ИЗ BV-ФОРМ — так сорта не смешиваются. Если хотя бы одно условие
+    пути BV-формы не имеет, проверка НЕ выполняется и причина НАЗВАНА (пропуск
+    безопаснее ложной мёртвой ветки, урок #178/#183).
+    """
+    try:
+        merged = _bv_path_blocks(if_blocks, bv_forms, bv_only)
+    except Unsupported as _e:
+        skip_why.append(str(_e))
+        return False
+    sat = _smt_sat_bv(kernc, params,
+                      _clike_conds_at(pos, merged, body) + [cond_bv], w)
+    if sat is None:
+        skip_why.append("решатель не решил BV-запрос (N)")
+        return False
+    if sat is False:
+        found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT, BV{w}): {cond_bv}")
+    return True
 
 
 def expr_smt_bv(node, env: dict, w: int, signed: bool) -> str:
@@ -6283,7 +6457,12 @@ def _null_to_zero(cond: str):
         if re.fullmatch(r"[A-Za-z_]\w*", t):
             parts[i] = part.replace(t, f"{t} != 0")
     s = "".join(parts)
-    if re.search(rf"\b{n}\b", s) or re.search(r"!(?!=)", s):
+    # ОСТАТОЧНЫЙ `!` означает «форма незнакома» — и это граница, а не «мы всё
+    # умеем». НО `!(…)` — исключение: скобочная форма имеет ОДНОЗНАЧНЫЙ перевод
+    # `not (…)`, который делает `clike_to_python`. ИЗМЕРЕНО (Шаг 4b): без этого
+    # исключения `!(x & 1)` уходило в SKIP как «форма `!`», хотя переводится.
+    _leftover_bang = re.search(r"!(?!=)(?!\s*\()", s) is not None
+    if re.search(rf"\b{n}\b", s) or _leftover_bang:
         return None
     return s
 
@@ -6999,6 +7178,13 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # ДЕФЕКТ #412: поиск `if` — по МАСКЕ (мнимый `if` внутри строки дал бы
         # ЛОЖНУЮ мёртвую ветвь), а ТЕКСТ условия берётся из сырого тела.
         _ifs = list(_clike_ifs(body_mask))
+        # ШАГ 4b (BV): BV-форма каждого ЗАРЕГИСТРИРОВАННОГО условия — параллельно
+        # `if_blocks`. Заполняется ТАМ ЖЕ, где `if_blocks.append`, поэтому
+        # индексы совпадают, а BV-запрос собирается ЦЕЛИКОМ из BV-форм (сорта не
+        # смешиваются: Int-запрос не меняется ни на байт).
+        _bv_forms: list = []      # BV-форма условий, зарегистрированных в if_blocks
+        _bv_only: list = []       # блоки, переводимые ТОЛЬКО в BV (в Int их нет)
+        _w, _signed = _bv_shape(ranges)
         for m in _ifs:
             raw_cond = body[m.start(1):m.end(1)]
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
@@ -7030,35 +7216,13 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                     pos = m.end()
                     continue
                 raw_cond = _rw
-            try:
-                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
-            except (Unsupported, NoReturn, SyntaxError) as _u400:
-                # ДЕФЕКТ #400: причина сохраняется — иначе сводка печатала
-                # «skipped N with explicit reasons», не выводя НИ ОДНОЙ.
-                skip_why.append(_skip_key(_u400))
-                pos = m.end()
-                continue
-            proven += 1
-            # ДЕФЕКТ #401: достижимость проверяется по ПОЗИЦИИ, а не по
-            # накопленному списку: накопление складывало `not cond` из
-            # ВЗАИМОИСКЛЮЧАЮЩИХ ветвей и делало путь UNSAT (ложный DEAD BRANCH).
-            sat_then = _smt_sat(kernc, params,
-                                path_conds + _clike_conds_at(m.end(), if_blocks, body)
-                                + [cond])
-            if sat_then is False:
-                found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
-            # REDUNDANT GUARD для C-like НЕ заявляется: без полного моделирования
-            # потока это давало ЛОЖНЫЕ срабатывания (найдено на std Zig
-            # `math/pow.zig`: `else if (y > 0)` после ветки с `return`).
-            # Честная граница: рентген C-like сообщает только DEAD BRANCH.
-            # СУЖЕНИЕ ПУТИ (строго). Правило: добавляем ограничение ТОЛЬКО когда
-            # оно доказано структурой кода:
-            #   * за `if (c) { return … }` следующие операторы идут при `not c`;
-            #   * `else if (c2)` — тоже `not c` для предыдущего условия.
-            # ИНАЧЕ НЕ ДОБАВЛЯЕМ НИЧЕГО: «не знаю» лучше ложной мёртвой ветки.
-            # (НАЙДЕНО на std Zig `nextafter.zig: nextAfterInt`: без этого правила
-            # `else if (y < x)` после `else if (y > x)` давал ЛОЖНЫЙ [DEAD BRANCH],
-            # потому что путь ошибочно считался «y > x».)
+            # ШАГ 4b (BV): BV-форма строится ИЗ ТОГО ЖЕ текста, что и Int-форма
+            # (зеркальный конвейер), но ТОЛЬКО для битовых условий — иначе Int-путь
+            # менялся бы там, где он и так работает.
+            _cond_bv = _bv_cond_smt(raw_cond, _w, _signed)
+            # ГРАНИЦЫ БЛОКА И ПРИЗНАК ВЫХОДА считаются ДО проверки: они нужны
+            # и Int-пути, и BV-ветке (регистрация BV-блока), и зависят
+            # ТОЛЬКО от позиций — считать их дважды значило бы разойтись.
             tail = body_mask[m.end(): m.end() + 160]
             # ДЕФЕКТ #368: `exit(...)`/`abort(...)`/`panic(...)` — это ТОЖЕ выход
             # из функции, то есть гард. ИЗМЕРЕНО на `TheAlgorithms/C/math/
@@ -7081,7 +7245,65 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
             # ВНУТРИ него; наружу оно превращается в `not cond` ПО ПОЗИЦИИ.
             _bend = _clike_block_end(body_mask, m.end())
+            try:
+                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
+            except (Unsupported, NoReturn, SyntaxError) as _u400:
+                # ШАГ 4b (BV): БИТОВОЕ условие в Int-модели не переводится — это
+                # ОЖИДАЕМО (`& | ^ << >> ~` вне Int-теории), а не повод молча
+                # пропустить функцию. Проверяем достижимость в QF_BV, где эти
+                # операторы определены. `_bv_cond_smt` — None, если BV-формы нет
+                # (тогда поведение прежнее: честный SKIP с названной причиной).
+                if _cond_bv is not None and _bv_reachability(
+                        kernc, params, if_blocks, _bv_forms, _bv_only, body,
+                        m.end(), _cond_bv, _w, found, name, skip_why):
+                    proven += 1
+                    # РЕГИСТРАЦИЯ BV-БЛОКА. ИЗМЕРЕНО: без неё положительный
+                    # контроль `(x&1)==0 && (x&2)==0 && (x&3)!=0` НЕ ловился —
+                    # следующие условия не видели это в пути (путь был пуст).
+                    _bv_only.append((m.end(), _bend, _cond_bv, exits))
+                    pos = m.end()
+                    continue
+                # ДЕФЕКТ #400: причина сохраняется — иначе сводка печатала
+                # «skipped N with explicit reasons», не выводя НИ ОДНОЙ.
+                skip_why.append(_skip_key(_u400))
+                pos = m.end()
+                continue
+            proven += 1
+            # ДЕФЕКТ #401: достижимость проверяется по ПОЗИЦИИ, а не по
+            # накопленному списку: накопление складывало `not cond` из
+            # ВЗАИМОИСКЛЮЧАЮЩИХ ветвей и делало путь UNSAT (ложный DEAD BRANCH).
+            sat_then = _smt_sat(kernc, params,
+                                path_conds + _clike_conds_at(m.end(), if_blocks, body)
+                                + [cond])
+            if sat_then is False:
+                # ШАГ 4b, ПЕРЕКРЁСТНАЯ ПРОВЕРКА ОБВИНЕНИЯ (защита от ложной
+                # мёртвой ветки в Int-модели). ИЗМЕРЕНО: корректная функция
+                # `if (x > 0) { if (x + 1 < 0) … }` объявлялась мёртвой, потому
+                # что в ℤ `x > 0 ∧ x + 1 < 0` невыполнимо, а в C при
+                # `x = INT_MAX` ветка ЖИВА (перенос). Поэтому перед заявлением
+                # спрашиваем тот же вопрос в QF_BV: SAT -> НЕ обвиняем.
+                if _can_wrap(cond) and _bv_confirms_dead(
+                        kernc, params, if_blocks, _bv_forms, _bv_only, body,
+                        m.end(), _cond_bv, _w) is False:
+                    _bump_note("ветка достижима в BV32 (перенос) — обвинение снято")
+                else:
+                    found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT): {cond}")
+            # REDUNDANT GUARD для C-like НЕ заявляется: без полного моделирования
+            # потока это давало ЛОЖНЫЕ срабатывания (найдено на std Zig
+            # `math/pow.zig`: `else if (y > 0)` после ветки с `return`).
+            # Честная граница: рентген C-like сообщает только DEAD BRANCH.
+            # СУЖЕНИЕ ПУТИ (строго). Правило: добавляем ограничение ТОЛЬКО когда
+            # оно доказано структурой кода:
+            #   * за `if (c) { return … }` следующие операторы идут при `not c`;
+            #   * `else if (c2)` — тоже `not c` для предыдущего условия.
+            # ИНАЧЕ НЕ ДОБАВЛЯЕМ НИЧЕГО: «не знаю» лучше ложной мёртвой ветки.
+            # (НАЙДЕНО на std Zig `nextafter.zig: nextAfterInt`: без этого правила
+            # `else if (y < x)` после `else if (y > x)` давал ЛОЖНЫЙ [DEAD BRANCH],
+            # потому что путь ошибочно считался «y > x».)
             if_blocks.append((m.end(), _bend, cond, exits))
+            # ШАГ 4b: BV-форма — в ТОМ ЖЕ порядке, что `if_blocks` (индексы
+            # совпадают, иначе BV-путь соберётся из чужих условий).
+            _bv_forms.append(_cond_bv)
             pos = m.end()
         # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
         # дальнейшего кода. Без этого zls `alternate(..., len: u32)` с
