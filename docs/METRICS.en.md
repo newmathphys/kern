@@ -4638,3 +4638,61 @@ That is exactly the bonus the plan predicted: on NON-bitwise tasks the residue i
 non-bitwise tasks to 100 %, leaving `trusted > 0` to one QF_BV task. And the first unrecognised rule
 in QF_BV is **`unit-resolution`** (not `bitblast`), so the boundary lies deeper than "no `bv-*`
 rules" - and that too is MEASURED, not assumed.
+
+## §167. A DUMP OF THE TRUSTED STEPS' S-EXPRESSIONS (`#430`)
+
+The auditor's question: "which EXACT rules produce `trusted > 0`". The answer came
+from a DUMP of the checker itself: `dbgPrint` is unconditional, while the details
+are switched on by `KERN_DEBUG_LIA` and `KERN_DEBUG_TRUSTED`.
+
+### 167.1 Five S-expressions (verbatim)
+
+| Task | Rule | S-expression of the step |
+|:--|:--|:--|
+| `2PhLockVParam_RC-07` | `rewrite` | `(rewrite (= (and false (not (or (not $x84) (not $x85)))) false))` |
+| `storeinv_t1_np_nf_ai_00002_001.cvc` | `commutativity` | `(commutativity (= $x124 (= a1 a2)))` |
+| `QF_BV/add_three.4_bit` | `unit-resolution` #1 | `(unit-resolution @x2893 @x5139 $x2534)` |
+| same | `unit-resolution` #2 | `(unit-resolution @x3307 @x5139 $x1010)` |
+| same | `def-axiom` #3 | `(def-axiom (or $x2688 k!140 $x3214))` |
+
+In addition `[dbg-rw]` printed BOTH sides of the unresolved equality for the first task:
+
+```
+LHS = (and false (not (or (not (<= 2 resB)) (not (<= haveAandB haveA2andB)))))
+RHS = false
+```
+
+### 167.2 What it means rule by rule
+
+1. **`rewrite` (RC-07) - ABSORPTION.** The LHS is a conjunction with the constant
+   `false` on the left, the RHS is `false`. The rule `(and false X) = false` holds
+   FOR ANY `X` (no premises). `constBoolEq` does not take it because the LHS is NOT
+   a constant. A dedicated structural absorption rule is needed - and it is
+   soundly checkable.
+2. **`commutativity` (storeinv) - EQUALITY SYMMETRY** with `$x124` acting as a bound
+   name (`(= a2 a1)`): it requires resolving the definition of `$x`, then checking
+   that the arguments are swapped. A purely syntactic rule.
+3. **`unit-resolution` + `def-axiom` (add_three) - TWO SUPPORTED rules in SPECIFIC
+   shapes.** `unit-resolution` was verified by the checker 5 247 times in THIS VERY
+   file; `def-axiom` is in `KNOWN_RULES` and has a tautology check. The failure comes
+   from the shape with `k!140` (a skolem constant: it needs the definition context).
+
+### 167.3 TWO CORRECTIONS to earlier conclusions (measured, not assumed)
+
+1. **The label "the checker has no BV rules" is NOT CONFIRMED by the dump.** The first
+   trusted steps of `add_three.4_bit` are `unit-resolution` and `def-axiom`, and both
+   rules ARE present in the checker. So the residue is explained by SPECIFIC SHAPES of
+   supported rules, NOT by missing BV rules. The label has been corrected in
+   `tools/smtlib_proof_check.py` (docstring + summary print).
+2. **"5 `commutativity` steps" was a WRONG phrasing.** The format
+   `[i] первое непроверенное правило: <rule> (<N> шт.)` means: `<rule>` is the rule of
+   the FIRST trusted step, `N` is the TOTAL number of trusted steps. `storeinv` has 5
+   trusted steps but THREE rules: `commutativity` x1, `lemma` x2, `monotonicity` x2
+   (dump `#1..#5`). The table and the print now say "первое правило: ...".
+
+### 167.4 What it gives the next step
+
+- On NON-BITVECTOR tasks the residue is 6 steps (1 + 5) of three rules; the first of
+  them (`and`-absorption) is checkable today and without BV.
+- For QF_BV we need `unit-resolution` shapes with `k!`-constants and `def-axiom` - that
+  is about resolving DEFINITIONS, not about bit-blasting.

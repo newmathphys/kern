@@ -417,6 +417,25 @@ What is deliberately NOT done (not a defect, a boundary):
 6. **A new CHECK target needs a `canfail` case and a `CASE_TARGET` entry**, and a
    new case needs the file it patches in `FAULTABLE`.
 
+## The next step: `trusted: 0` on the non-bitvector tasks
+
+A dump of S-expressions (`KERN_DEBUG_TRUSTED`) named THREE rules that hold the
+residue on the non-bitvector tasks (6 steps in total):
+
+| Task | Rule | S-expression |
+|:--|:--|:--|
+| `2PhLockVParam_RC-07` | `rewrite` | `(rewrite (= (and false …) false))` — absorption `and(false, X) = false` |
+| `storeinv…00002_001.cvc` | `commutativity` | `(commutativity (= $x124 (= a1 a2)))` — equality symmetry via the definition of `$x` |
+| same | `lemma` x2, `monotonicity` x2 | subtrees that require resolving premises |
+
+**Order:** (1) absorption `and(false, X) = false` and `or(true, X) = true` — no
+premises, soundly checkable WITHOUT BV; (2) resolving the definition of `$x` names
+for `commutativity`; (3) `unit-resolution` with `k!`-constants and `def-axiom` — that
+is about resolving DEFINITIONS, not about bit-blasting.
+
+**What must NOT be claimed:** that the `trusted > 0` residue in `QF_BV` is explained
+by missing BV rules — NOT CONFIRMED by the dump (defect #430).
+
 ## What must NOT be claimed
 
 - KERN is not a scanner: it does not find bugs in other people's repositories on
