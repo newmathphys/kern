@@ -36,3 +36,23 @@ def overfit(x, y):
 
 def clean_double(x):
     return x * 2             # чистый код: не должен помечаться
+
+
+# =============================================================================
+# ЗАМАСКИРОВАННЫЕ ДВОЙНИКИ (дефект #426). Те же самые читы в ДРУГОЙ форме.
+# ДО правки правила были СИНТАКСИЧЕСКИМИ и пропускали эти три формы, хотя
+# буквальные двойники выше ловились. Гейт `anti_cheat_check.sh` требует ОБЕ формы.
+# =============================================================================
+
+
+def test_masked_skip_cheat():
+    import pytest
+    pytest.skip("passed")          # (5) безусловный skip в теле теста = «тест прошёл»
+
+
+def masked_setattr_cheat():
+    setattr(AlwaysEqual, "__eq__", lambda self, other: True)   # (1') чит №1 ЧЕРЕЗ setattr
+
+
+def masked_monkeypatch_cheat():
+    sys.exit = lambda code=0: None                             # (3') подмена БЕЗ mock.patch

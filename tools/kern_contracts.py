@@ -9829,6 +9829,15 @@ def cmd_verify_pricing(path: str, kernc) -> int:
 
 CHEAT_EXIT = {"sys.exit", "os._exit", "exit", "quit"}
 CHEAT_MOCK = {"unittest.mock.patch", "mock.patch", "patch", "MagicMock", "Mock"}
+# ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЕ двойники читов. Правила были СИНТАКСИЧЕСКИМИ, поэтому
+# тот же чит в другой форме проходил мимо: `def __eq__: return True` ловилось, а
+# `setattr(C, "__eq__", lambda …: True)` — НЕТ; `mock.patch("mod.fn", …)` ловилось, а
+# `mod.fn = lambda …` — НЕТ; `pytest.skip("passed")` в тесте — правила не было вовсе.
+# Здесь перечислены СМЫСЛОВЫЕ эквиваленты, а не текстовые формы.
+CHEAT_DUNDER = {"__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
+                "__hash__", "__bool__", "__len__", "__contains__", "__getattr__",
+                "__setattr__", "__delattr__", "__iter__", "__next__"}
+CHEAT_SKIP = {"pytest.skip", "pytest.xfail", "unittest.skip", "self.skipTest"}
 SUSPICIOUS_MODULES = {"fast_crypto_utils", "requests_easy", "openai_helpers",
                       "crypto_utils", "python-dotenv-safe"}
 
@@ -9856,6 +9865,12 @@ class _CheatScan(ast.NodeVisitor):
     def __init__(self):
         self.findings: list[tuple[str, int]] = []
         self.imports: list[tuple[str, int]] = []
+        # ДЕФЕКТ #429: ЛОЖНОЕ СРАБАТЫВАНИЕ. Правило «exit inside tested code»
+        # срабатывало и на МОДУЛЬНОМ CLI-идиоме `sys.exit(main())` — то есть на
+        # любой консольной утилите (ИЗМЕРЕНО: 129 файлов `tools/*.py`). Имя
+        # правила говорит «внутри проверяемого кода», значит проверять надо
+        # КОНТЕКСТ: выход флагается только ВНУТРИ функции.
+        self._fn_depth = 0
 
     def visit_Import(self, node):
         for al in node.names:
@@ -9869,6 +9884,28 @@ class _CheatScan(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node):
         # (1) перегрузка __eq__, всегда возвращающая True
+        # ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЙ двойник — БЕЗУСЛОВНЫЙ `pytest.skip(...)`
+        # в ТЕЛЕ теста (верхний уровень, НЕ внутри `if`/`try`) — чит «тест прошёл»,
+        # а не пропуск по условию. Вложенный skip законен и НЕ флагается.
+        if node.name.startswith("test"):
+            for st in node.body:
+                for sub in ast.walk(st):
+                    if isinstance(sub, ast.Call) and _dotted(sub.func) in CHEAT_SKIP:
+                        self.findings.append(
+                            (f"unconditional skip inside a test: {_dotted(sub.func)}()",
+                             sub.lineno))
+        self._fn_depth += 1
+        try:
+            self._scan_body(node)
+            # ВАЖНО: обход ТЕЛА идёт с активным счётчиком, иначе вызовы внутри
+            # функции увидели бы `_fn_depth == 0` (ИЗМЕРЕНО: так правило exit
+            # перестало срабатывать ВООБЩЕ).
+            self.generic_visit(node)
+        finally:
+            self._fn_depth -= 1
+
+    def _scan_body(self, node):
+        """Проверки, которые имеют смысл ТОЛЬКО внутри функции."""
         if node.name == "__eq__":
             for st in ast.walk(node):
                 if (isinstance(st, ast.Return) and isinstance(st.value, ast.Constant)
@@ -9884,14 +9921,52 @@ class _CheatScan(ast.NodeVisitor):
                 if lits >= 2 and isinstance(st.test.op, ast.And):
                     self.findings.append(("test-case overfitting (chain of literals)",
                                           st.lineno))
-        self.generic_visit(node)
 
     def visit_Call(self, node):
         name = _dotted(node.func)
-        if name in CHEAT_EXIT:
+        if name in CHEAT_EXIT and self._fn_depth > 0:
             self.findings.append((f"exit inside tested code: {name}()", node.lineno))
         if name in CHEAT_MOCK or name.startswith("mock."):
             self.findings.append(("mock in production code", node.lineno))
+        # ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЙ двойник — тот же always-true `__eq__`,
+        # но подсунутый ЧЕРЕЗ `setattr`, а не определением метода.
+        if name == "setattr" and len(node.args) >= 2:
+            dunder = node.args[1]
+            if (isinstance(dunder, ast.Constant) and isinstance(dunder.value, str)
+                    and dunder.value in CHEAT_DUNDER):
+                self.findings.append(
+                    (f"dynamic dunder override (setattr): {dunder.value}", node.lineno))
+        self.generic_visit(node)
+
+    def visit_Assign(self, node):
+        # ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЙ двойник — подмена атрибута ИМПОРТИРОВАННОГО
+        # модуля (`target_mod.fn = lambda …`) вместо `mock.patch`. Флагается только
+        # для модулей, импортированных В ЭТОМ ЖЕ файле: иначе правило шумело бы на
+        # любой `obj.attr = …`.
+        imported = {m for m, _ln in self.imports}
+        # ЧИТ-ФОРМА, а не любое присваивание атрибута: значение — ЛЯМБДА или
+        # ССЫЛКА на другую функцию. ИЗМЕРЕНО (ложное срабатывание): без этого
+        # сужения правило флагало легитимный перехват вывода
+        # `sys.stdout = io.StringIO()` в самом `kern_contracts.py`.
+        if not isinstance(node.value, (ast.Lambda, ast.Name)):
+            self.generic_visit(node)
+            return
+        # ГРАНИЦА (названа, а не умолчана): перехват стандартных ПОТОКОВ
+        # (`old = sys.stdout; sys.stdout = cap; … finally: sys.stdout = old`) —
+        # законный идиом захвата вывода, а не подмена проверяемого кода.
+        # ИЗМЕРЕНО: без этого исключения правило флагало сам `kern_contracts.py`.
+        benign = {("sys", "stdout"), ("sys", "stderr"), ("sys", "stdin"),
+                  ("sys", "path")}
+        for tgt in node.targets:
+            if not isinstance(tgt, ast.Attribute):
+                continue
+            base = tgt.value
+            if isinstance(base, ast.Name) and base.id in imported:
+                if (base.id, tgt.attr) in benign:
+                    continue
+                self.findings.append(
+                    (f"monkeypatch of imported module attribute: {base.id}.{tgt.attr}",
+                     node.lineno))
         self.generic_visit(node)
 
     def visit_Try(self, node):
@@ -9906,7 +9981,18 @@ class _CheatScan(ast.NodeVisitor):
 
 def cmd_anti_cheat(path: str, allowlist: str | None = None) -> int:
     """ПУНКТ 32: `--anti-cheat <file> [--import-lock <allow.json>]`."""
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    # ДЕФЕКТ #427: каталог (и несуществующий путь) обязан быть ОТВЕРГНУТ названной
+    # ошибкой, а не трейсбеком `IsADirectoryError` (класс #370/#371: сообщение
+    # говорило не то, что произошло).
+    _p = Path(path)
+    if _p.is_dir():
+        print(f"[!] --anti-cheat ожидает ФАЙЛ, а получил каталог: {path}")
+        print("    Подсказка: укажите файл, например `--anti-cheat src/mod.py`.")
+        return 2
+    if not _p.exists():
+        print(f"[!] --anti-cheat: файл не найден: {path}")
+        return 2
+    src = _p.read_text(encoding="utf-8", errors="replace")
     sc = _CheatScan()
     sc.visit(ast.parse(src))
     allowed: set[str] | None = None

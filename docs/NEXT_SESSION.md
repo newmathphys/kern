@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **3** (per `docs/STATUS.md`, which is GENERATED): #426, #427, #428 |
+| Open technical defects | **1** (per `docs/STATUS.md`, which is GENERATED): #428 |
 
 ## Open work
 
@@ -306,6 +306,22 @@ was corrected wherever it disagreed with the code:
    parses only numbers, so the report does not answer the auditor's question. The cure for `#426`:
    SEMANTIC rules (`setattr` with a dunder name, assignment to an attribute of an imported module,
    `skip`/`xfail` inside `test_*`) plus a fixture with masked twins.
+
+31. **`#426` IS FIXED WITH SEMANTIC RULES, `#427` IS CLOSED, `#429` IS RECORDED.** Added:
+   `setattr` with a dunder name -> `dynamic dunder override`; assignment to an attribute of an
+   IMPORTED module via a lambda/reference -> `monkeypatch of imported module attribute`; an
+   UNCONDITIONAL `pytest.skip` in the body of a `test_*` -> `unconditional skip inside a test`. The
+   fixture gained three masked twins, the gate requires 8 classes and is NON-VACUOUS (planting
+   `getattr` -> `[!] чит НЕ пойман`, rc=2; restoring -> rc=0). MEASURED: the reviewer's 5 bypasses ->
+   **5/5**. `--anti-cheat <directory>` is now rc=2 with a named error (was: an `IsADirectoryError`
+   traceback).
+32. **`#429` - A FALSE POSITIVE ON OUR OWN CODE (partially fixed).** The rule "exit inside tested
+   code" fired on the MODULE-LEVEL CLI idiom `sys.exit(main())`: MEASURED **119 of 132** files of
+   `tools/*.py` were flagged as cheats. Now an exit is flagged only INSIDE a function - the noise went
+   **119 -> 30**. BOUNDARY: the other 30 are flagged by rules that only make sense for a TEST file
+   (`mock` 186, `overfitting` 59, `swallowed` 29, `exit` inside functions 13), and the gate checks
+   "clean code passes" on ONE hand-picked file - the cure is a `--test-file` mode or a requirement of
+   "0 findings on N of our own files".
 
 **Closed in THIS session (verification of all capabilities):**
 

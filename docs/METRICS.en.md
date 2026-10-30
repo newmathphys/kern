@@ -4506,3 +4506,49 @@ claims \"ALL 5 cheat classes caught\" - because its fixture holds the LITERAL fo
 
 MEASURED: `IsADirectoryError: [Errno 21] Is a directory`, rc=1, a full Python stack. The flag takes
 a file, but a directory is not rejected with a NAMED error (class `#370`/`#371`).
+
+## §164. THE ANTI-CHEAT: SEMANTIC RULES, FALSE POSITIVES AND A NON-VACUOUS GATE (#426, #427, #429)
+
+### 164.1 Why the class was missed: the rules were SYNTACTIC
+
+| Bypass class | Literal form | Masked form (BEFORE) |
+|:--|:--|:--|
+| always-true `__eq__` | `def __eq__: return True` -> CAUGHT | `setattr(C, "__eq__", lambda...)` -> **0 findings** |
+| mock | `mock.patch("mod.fn", ...)` -> CAUGHT | `target_mod.withdraw = lambda...` -> **0** |
+| skip | - | `pytest.skip('passed')` -> **0** |
+
+### 164.2 What was added (semantic equivalents)
+
+* `setattr` with a dunder name (`CHEAT_DUNDER`, 14 names) -> `dynamic dunder override`;
+* assignment to an attribute of an IMPORTED module where the value is a LAMBDA or a FUNCTION
+  REFERENCE -> `monkeypatch of imported module attribute`;
+* an UNCONDITIONAL `pytest.skip`/`xfail` in the BODY of a `test_*` (not inside `if`/`try`) ->
+  `unconditional skip inside a test`.
+
+The fixture `examples/anti_cheat_demo.py` gained three masked twins and the gate requires **8
+classes**. MEASURED: the reviewer's 5 bypasses -> **5/5**.
+
+### 164.3 The gate is NON-VACUOUS (verified by planting)
+
+```
+planting `getattr` instead of `setattr` -> [!] чит НЕ пойман: dynamic dunder override (setattr), rc=2
+restoring                               -> rc=0
+```
+
+### 164.4 A false positive on OUR OWN code (#429)
+
+MEASURED BEFORE: **119 of 132** files of `tools/*.py` were flagged as cheats. The main contributor was
+the rule \"exit inside tested code\" firing on the MODULE-LEVEL CLI idiom `sys.exit(main())`. FIXED: an
+exit is flagged only INSIDE a function (`_fn_depth`); the noise went **119 -> 30**. Along the way a
+false positive of the new rule on a legitimate output capture (`sys.stdout = cap`) was removed: the
+streams `sys.stdout/stderr/stdin/path` are excluded.
+
+**A BOUNDARY (open):** the remaining 30 of 132 are flagged by rules that only make sense for a TEST
+file (`mock` 186, `overfitting` 59, `swallowed` 29, `exit` inside functions 13). The gate checks
+\"clean code passes\" on ONE hand-picked file - in general that claim is vacuous; the cure is a
+`--test-file` mode or a requirement of \"0 findings on N of our own files\".
+
+### 164.5 `#427`: a bad input is rejected with a NAMED error
+
+MEASURED BEFORE: a directory -> `IsADirectoryError`, rc=1, a full stack. AFTER: a directory -> rc=2 +
+a hint; a missing file -> rc=2 + `файл не найден`.
