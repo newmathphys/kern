@@ -9,4 +9,4 @@
 z3-solver==5.3.1.0       # the solver behind `kernc prove` and every SMT test.
                          # NOTE: the solver version is part of the evidence chain — the
                          # SMT-LIB verdicts in docs/evidence/ were produced with Z3 5.1.0.
-pytest>=9.1.1            # used by `make run-example` (the "green CI" demo) and the gates
+pytest>=9.2.0            # used by `make run-example` (the "green CI" demo) and the gates
