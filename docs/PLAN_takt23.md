@@ -8,7 +8,7 @@ changes at the very moment of committing - already paid for in practice (defect 
 
 **Read in this order:** `docs/STATUS.md` -> `docs/NEXT_SESSION.md` -> this plan.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -227,13 +227,17 @@ exactly the class of `#428` (the number is there, the answer is not).
    the comment promised the opposite. Fixed with `markTrusted`. Honest boundary: the
    trusted count on `storeinv` went 4 -> 15 (removal of a concealment, not a regression).
 
-### Block 5 (80-100 min). REFORMULATED BY MEASUREMENT - the `def-axiom` target is unreachable
+### Block 5 (80-100 min). DONE - a 1-bit truth table in `verifyRewrite`
 
 0. **THE MEASUREMENT WAS MADE BEFORE THE CHANGE AND REFUTED THE PLAN (`#437`):** over
    EXPANDED forms the "without k!" count is **224** (`rewrite` 220 + `monotonicity` 4),
    NOT 804. **`def-axiom` is ZERO** (all 244 contain `k!` after expansion), `lemma` is ZERO
    too. So a truth table for `def-axiom` is pointless: it is case "B" (a free bit-blast
    constant) and honestly stays a boundary.
+0. **DONE (`#440`).** The `bitTautology` rule was implemented in `checkRewrite` and gave
+   on `QF_BV/add_three.4_bit`: `rewrite(linear)` 55 -> **313**, TRUSTED 904 -> **646** (after fixing the `((_ extract k k) t)` leaf, caught by the test).
+   Soundness rests on the strict leaf rule (a multi-bit leaf is NOT treated as boolean)
+   plus a control in the test.
 1. **THE TARGET WAS REFINED BY MEASUREMENT (`#439`):** the rule belongs NOT in
    `verifyDefAxiom` but in `verifyRewrite`. Inside the 220 `rewrite` steps without `k!`
    there are BITVECTOR identities over 1-bit vectors: `(= (bvnot (bvnot X)) X)`, De Morgan

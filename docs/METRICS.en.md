@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -5177,3 +5177,45 @@ De Morgan is checked over 2 atoms, double negation over 1, `xor with 1` over 1.
 without `k!` there) but in `verifyRewrite` - as a truth-table check of BV identities over
 the bits of 1-bit vectors. The dominant patterns are De Morgan, double negation,
 `bvxor` with 1, and constant canonicalisation.
+
+## §175. `#440`: A 1-BIT TRUTH TABLE IN `verifyRewrite` (Block 5 done)
+
+### 175.1 What was implemented
+
+The new `bitTautology` rule in `checkRewrite` (checked right after `sexpEqNum`): the
+equality `(= LHS RHS)` is enumerated over ALL `2^m` assignments of boolean leaves
+(`m <= 8`).
+
+**WHY IT IS SOUND.** `bvnot/bvand/bvor/bvxor` have NO CARRY between bits, hence over 1-bit
+terms they are isomorphic to the boolean algebra `{0,1}`.
+
+**WHAT GUARANTEES SOUNDNESS (the key point):** a leaf counts ONLY if it is CERTAINLY
+1-bit or boolean - `((_ extract k k) t)`, a Z3 boolean wire (`k!...`, `$x...`), `true`/`false`.
+Any other leaf (`tmp` is a `BitVec 4`) is NOT treated as boolean: otherwise `(= tmp tmp2)`
+would be a "tautology" by the pigeonhole principle, which is FALSE. Such a term yields
+`null` and the step honestly stays trusted. A nested `=` is evaluated only if BOTH sides
+yielded a bit.
+
+**A BONUS CONFIRMED BY THE DESIGN:** the check also applies to steps containing `k!` (the
+table enumerates BOTH values), so filtering by the substring `"k!"` is unnecessary.
+
+### 175.2 MEASURED
+
+| Task | `rewrite(linear)` | TRUSTED | identity |
+|:--|--:|--:|:--|
+| `QF_BV/add_three.4_bit` | 55 -> **313** | 904 -> **646** | 6782+646+188 = **7616** OK |
+| `storeinv...00002_001.cvc` | 2 (unchanged) | 11 | 59+11+8 = **78** OK |
+| `2PhLockVParam_RC-07` | 5 (unchanged) | 0 | 14+0+1 = **15** OK |
+
+**TACK 2.3 RESULT on `add_three.4_bit`: trusted `2970 -> 646`** (4.6x). The remaining 646:
+`rewrite` 67 (was 380; **313** verified), `lemma` 280, `def-axiom` 244, `monotonicity` 0
+(all 22 verified), other 55.
+
+### 175.3 A two-sided test (7 cases plus a soundness control)
+
+* **4 POSITIVES** (verbatim shapes from the dump): canonicalisation `(= (_ bv0 1) (mkbv false))`,
+  double negation, De Morgan for `bvand`/`bvor`, `(= (bvxor X (_ bv1 1)) (bvnot X))`;
+* **3 NEGATIVES:** `(= (_ bv0 1) (mkbv true))`, `(= (bvand A B) (bvor A B))` (diverges at
+  `(1,0)`), `(= (bvxor X (_ bv1 1)) X)`;
+* **SOUNDNESS CONTROL:** `(= (bvand x x2) (bvor x x2))` with MULTI-BIT leaves is NOT proven
+  (the leaf is not recognised as boolean).

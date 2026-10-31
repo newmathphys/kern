@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Канонический документ: **что** мы тестируем, **как** измеряем и **чем** ускоряем.
 > Каждое число получено прогоном; где выигрыш не измерен — так и написано.
@@ -148,7 +148,7 @@
 ## 4. Полный популяционный обстрел мутации
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1477 сайтов
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1513 сайтов
 ```
 Результат фиксируется в `docs/METRICS.md §109` (точное число убитых + выжившие по классам).
 

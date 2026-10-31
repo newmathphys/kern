@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -12590,3 +12590,45 @@ if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .v
 шагов без `k!`), а в `verifyRewrite` — как проверка BV-тождеств таблицей истинности
 по битам 1-битных векторов. Доминирующие шаблоны: де Морган, двойное отрицание,
 `bvxor` с 1, канонизация констант.
+
+## §197. `#440`: 1-БИТНАЯ ТАБЛИЦА ИСТИННОСТИ В `verifyRewrite` (Блок 5 выполнен)
+
+### 197.1 Что реализовано
+
+Новое правило `bitTautology` в `checkRewrite` (проверяется сразу после
+`sexpEqNum`): равенство `(= LHS RHS)` перебирается на ВСЕХ `2^m` наборах булевых
+листьев (`m <= 8`).
+
+**ПОЧЕМУ ЗВУЧНО.** `bvnot/bvand/bvor/bvxor` НЕ ИМЕЮТ ПЕРЕНОСА между битами,
+поэтому на 1-битных термах изоморфны булевой алгебре `{0,1}`.
+
+**ЧТО ГАРАНТИРУЕТ ЗВУЧНОСТЬ (главное):** листом считается ТОЛЬКО ЗАВЕДОМО
+1-битный или булев терм — `((_ extract k k) t)`, булев провод Z3 (`k!…`, `$x…`),
+`true`/`false`. Любой другой лист (`tmp` — это `BitVec 4`) булевым НЕ считается:
+иначе `(= tmp tmp2)` дало бы «тождество» по принципу Дирихле, а это ЛОЖЬ. Такой
+терм даёт `null`, и шаг честно остаётся доверенным. Вложенное `=` вычисляется
+только если ОБЕ стороны дали бит.
+
+**БОНУС, ПОДТВЕРЖДЁННЫЙ ПРОЕКТОМ ПРАВИЛА:** проверка применима и к шагам с `k!`
+(таблица перебирает ОБА значения), поэтому фильтровать по подстроке `"k!"` не нужно.
+
+### 197.2 ИЗМЕРЕНО
+
+| Задача | `rewrite(лин.)` | ДОВЕРЕННЫХ | тождество |
+|:--|--:|--:|:--|
+| `QF_BV/add_three.4_bit` | 55 -> **313** | 904 -> **646** | 6782+646+188 = **7616** ✅ |
+| `storeinv…00002_001.cvc` | 2 (без изм.) | 11 | 59+11+8 = **78** ✅ |
+| `2PhLockVParam_RC-07` | 5 (без изм.) | 0 | 14+0+1 = **15** ✅ |
+
+**ИТОГ ТАКТА 2.3 по `add_three.4_bit`: доверенных `2970 -> 646`** (в 4.6 раза).
+Осталось 646: `rewrite` 67 (было 380; **313** проверено), `lemma` 280,
+`def-axiom` 244, `monotonicity` 0 (все 22 проверены), прочие 55.
+
+### 197.3 Двусторонний тест (7 случаев + контроль звучности)
+
+* **4 ПОЗИТИВА** (дословные шаблоны из дампа): канонизация `(= (_ bv0 1) (mkbv false))`,
+  двойное отрицание, закон де Моргана для `bvand`/`bvor`, `(= (bvxor X (_ bv1 1)) (bvnot X))`;
+* **3 НЕГАТИВА:** `(= (_ bv0 1) (mkbv true))`, `(= (bvand A B) (bvor A B))` (расходится
+  на `(1,0)`), `(= (bvxor X (_ bv1 1)) X)`;
+* **КОНТРОЛЬ ЗВУЧНОСТИ:** `(= (bvand x x2) (bvor x x2))` с МНОГОБИТНЫМИ листьями
+  доказано НЕ будет (лист не признан булевым).

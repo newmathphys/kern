@@ -8,7 +8,7 @@
 
 **Читать в этом порядке:** `docs/STATUS.md` → `docs/NEXT_SESSION.md` → этот план.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -220,14 +220,18 @@ fallback, хотя доверенных стало на 1950 меньше. Зн�
    комментарий обещал обратное. Исправлено: `markTrusted`. Честная граница:
    доверенных на `storeinv` стало 4 -> 15 (снятие сокрытия, не регрессия).
 
-### Блок 5 (80-100 мин). ❌ ПЕРЕФОРМУЛИРОВАН ПО ЗАМЕРУ — цель `def-axiom` недостижима
+### Блок 5 (80-100 мин). ✅ ВЫПОЛНЕНО — 1-битная таблица истинности в `verifyRewrite`
 
 0. **ЗАМЕР СДЕЛАН ДО ПРАВКИ И ОПРОВЕРГ ПЛАН (`#437`):** по РАСКРЫТЫМ формам
    «без `k!`» — всего **224** шага (`rewrite` 220 + `monotonicity` 4), а НЕ 804.
    **`def-axiom` — НОЛЬ** (все 244 содержат `k!` после раскрытия), `lemma` — тоже
    НОЛЬ. Значит таблица истинности для `def-axiom` бессмысленна: это случай «Б»
    (свободная константа битового бластера), и он честно остаётся границей.
-1. **ЦЕЛЬ УТОЧНЕНА ЗАМЕРОМ (`#439`):** правило нужно НЕ в `verifyDefAxiom`, а в
+0. **СДЕЛАНО (`#440`).** Правило `bitTautology` реализовано в `checkRewrite` и дало
+   на `QF_BV/add_three.4_bit` `rewrite(лин.)` 55 -> **313**, ДОВЕРЕННЫХ 904 -> **646** (после исправления листа `((_ extract k k) t)`, найденного тестом).
+   Звучность держится строгим правилом листьев (многобитный лист булевым НЕ
+   считается) + контролем в тесте.
+1. **ЦЕЛЬ БЫЛА УТОЧНЕНА ЗАМЕРОМ (`#439`):** правило нужно НЕ в `verifyDefAxiom`, а в
    `verifyRewrite`. Внутри 220 шагов `rewrite` без `k!` — БИТОВЫЕ тождества на
    1-битных векторах: `(= (bvnot (bvnot X)) X)`, де Морган для `bvand`/`bvor`,
    `(= (bvxor X (_ bv1 1)) (bvnot X))`, канонизация `(= (_ bv0 1) (mkbv false))`.

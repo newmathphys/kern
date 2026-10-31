@@ -1581,6 +1581,166 @@ fn constIntEq(l: Sexp, r: Sexp) bool {
     return a == b;
 }
 
+// =========================================================================
+// 1-БИТНАЯ ТАБЛИЦА ИСТИННОСТИ (Блок 5 плана, дефект #440)
+// =========================================================================
+//
+// ЗАЧЕМ. ИЗМЕРЕНО дампом `[dbg-trusted-exp]`: среди 380 доверенных `rewrite` на
+// `QF_BV/add_three.4_bit` есть чистые тождества ПОбИТОВОЙ алгебры:
+//   (= (bvnot (bvnot X)) X)                             — двойное отрицание
+//   (= (bvand A B) (bvnot (bvor (bvnot A) (bvnot B))))  — закон де Моргана
+//   (= (bvxor X (_ bv1 1)) (bvnot X))                   — xor с 1 = not
+//   (= (_ bv0 1) (mkbv false))                          — канонизация констант
+//
+// ПОЧЕМУ ЗВУЧНО. `bvnot/bvand/bvor/bvxor` НЕ ИМЕЮТ ПЕРЕНОСА между битами,
+// поэтому на 1-битных термах изоморфны булевой алгебре `{0,1}`: равенство
+// проверяется ПЕРЕБОРОМ всех `2^m` наборов булевых листьев.
+//
+// ЧТО ГАРАНТИРУЕТ ЗВУЧНОСТЬ. Листом считается ТОЛЬКО ЗАВЕДОМО 1-битный или
+// булев терм: `((_ extract k k) t)`, булев провод Z3 (`k!…`, `$x…`),
+// `true`/`false`. Любой другой лист (`tmp` — это `BitVec 4`) булевым НЕ
+// считается: иначе `(= tmp tmp2)` дало бы «тождество» по принципу Дирихле, а
+// это ЛОЖЬ. Такой терм даёт `null`, и шаг честно остаётся доверенным.
+//
+// БОНУС: проверка применима и к шагам с `k!` — таблица перебирает ОБА значения,
+// поэтому `(= (not (not k!140)) k!140)` доказывается, а зависящее от значения
+// `k!` — честно не проходит. Фильтровать по подстроке `"k!"` НЕ нужно.
+
+const BIT_ATOM_LIMIT: usize = 8;
+
+const BitEval = struct {
+    atoms: *std.array_list.Managed(Sexp),
+    overflow: bool = false,
+};
+
+fn bitNameEq(a: []const u8, b: []const u8) bool {
+    return std.mem.eql(u8, a, b);
+}
+
+/// Индекс булева листа. `null` — лист НЕ заведомо 1-битный (звучность важнее).
+fn bitLeafIndex(ev: *BitEval, t: Sexp) ?usize {
+    var ok = false;
+    if (t.atom) |a| {
+        ok = (a.len >= 2 and (std.mem.startsWith(u8, a, "k!") or a[0] == '$'));
+    } else if (t.items.len == 2 and t.items[0].isList() and t.items[0].items.len == 4) {
+        const h0 = t.items[0].items[0].atom orelse return null;
+        const h1 = t.items[0].items[1].atom orelse return null;
+        const lo = t.items[0].items[2].atom orelse return null;
+        const hi = t.items[0].items[3].atom orelse return null;
+        if (bitNameEq(h0, "_") and bitNameEq(h1, "extract") and bitNameEq(lo, hi)) ok = true;
+    }
+    if (!ok) return null;
+    for (ev.atoms.items, 0..) |a, i| if (sexpEqNum(a, t)) return i;
+    if (ev.atoms.items.len >= BIT_ATOM_LIMIT) {
+        ev.overflow = true;
+        return null;
+    }
+    ev.atoms.append(t) catch {
+        ev.overflow = true;
+        return null;
+    };
+    return ev.atoms.items.len - 1;
+}
+
+/// Значение терма как бит при данной маске. `null` = «вычислить нельзя»
+/// (многобитные операции, переносы, неизвестные функции).
+fn evalBit(ev: *BitEval, t: Sexp, mask: u32) ?u1 {
+    if (ev.overflow) return null;
+    if (t.atom) |a| {
+        if (bitNameEq(a, "true")) return 1;
+        if (bitNameEq(a, "false")) return 0;
+        const j = bitLeafIndex(ev, t) orelse return null;
+        return @intCast((mask >> @intCast(j)) & 1);
+    }
+    if (t.items.len == 0) return null;
+    const h = t.items[0].atom orelse {
+        // ДЕФЕКТ (найден тестом #440): голова — СПИСОК. Это лист вида
+        // `((_ extract k k) t)`, и его НАДО вычислить как булев атом, а не
+        // отвергать. Иначе `(= (bvnot (bvnot X)) X)` не доказывается.
+        const j = bitLeafIndex(ev, t) orelse return null;
+        return @intCast((mask >> @intCast(j)) & 1);
+    };
+    if (bitNameEq(h, "_")) {
+        // `(_ bv0 1)` / `(_ bv1 1)` — ТОЛЬКО ширина 1.
+        if (t.items.len == 3) {
+            const nm = t.items[1].atom orelse return null;
+            const w = t.items[2].atom orelse return null;
+            if (!bitNameEq(w, "1")) return null;
+            if (bitNameEq(nm, "bv0")) return 0;
+            if (bitNameEq(nm, "bv1")) return 1;
+        }
+        return null;
+    }
+    if (bitNameEq(h, "not") or bitNameEq(h, "bvnot")) {
+        if (t.items.len != 2) return null;
+        const v = evalBit(ev, t.items[1], mask) orelse return null;
+        return 1 - v;
+    }
+    if (bitNameEq(h, "mkbv")) {
+        // Мост Bool -> BV1: значение совпадает со значением булева аргумента.
+        if (t.items.len != 2) return null;
+        return evalBit(ev, t.items[1], mask);
+    }
+    const is_and = bitNameEq(h, "and") or bitNameEq(h, "bvand");
+    const is_or = bitNameEq(h, "or") or bitNameEq(h, "bvor");
+    const is_xor = bitNameEq(h, "xor") or bitNameEq(h, "bvxor");
+    if (is_and or is_or or is_xor) {
+        if (t.items.len < 3) return null;
+        var acc: u1 = if (is_and) 1 else 0;
+        for (t.items[1..]) |it| {
+            const v = evalBit(ev, it, mask) orelse return null;
+            if (is_and) {
+                acc = @min(acc, v);
+            } else if (is_or) {
+                acc = @max(acc, v);
+            } else {
+                acc = acc ^ v;
+            }
+        }
+        return acc;
+    }
+    if (bitNameEq(h, "=>")) {
+        if (t.items.len != 3) return null;
+        const a = evalBit(ev, t.items[1], mask) orelse return null;
+        const b = evalBit(ev, t.items[2], mask) orelse return null;
+        return @max(1 - a, b);
+    }
+    if (bitNameEq(h, "ite")) {
+        if (t.items.len != 4) return null;
+        const cd = evalBit(ev, t.items[1], mask) orelse return null;
+        if (cd == 1) return evalBit(ev, t.items[2], mask);
+        return evalBit(ev, t.items[3], mask);
+    }
+    if (bitNameEq(h, "=") or bitNameEq(h, "iff")) {
+        // Только если ОБЕ стороны дали бит (заведомо 1-битные) — см. звучность.
+        if (t.items.len != 3) return null;
+        const a = evalBit(ev, t.items[1], mask) orelse return null;
+        const b = evalBit(ev, t.items[2], mask) orelse return null;
+        return if (a == b) 1 else 0;
+    }
+    return null;
+}
+
+/// ТОЖДЕСТВО 1-БИТНОЙ АЛГЕБРЫ: `(= l r)` верно при ВСЕХ `2^m` наборах листьев.
+fn bitTautology(l: Sexp, r: Sexp, arena: std.mem.Allocator) bool {
+    var atoms = std.array_list.Managed(Sexp).init(arena);
+    var ev = BitEval{ .atoms = &atoms };
+    // Первый проход — СОБРАТЬ листья обеих сторон (маска не важна).
+    _ = evalBit(&ev, l, 0);
+    _ = evalBit(&ev, r, 0);
+    if (ev.overflow) return false;
+    const m = ev.atoms.items.len;
+    if (m > BIT_ATOM_LIMIT) return false;
+    const total: u32 = @as(u32, 1) << @intCast(m);
+    var mask: u32 = 0;
+    while (mask < total) : (mask += 1) {
+        const a = evalBit(&ev, l, mask) orelse return false;
+        const b = evalBit(&ev, r, mask) orelse return false;
+        if (a != b) return false;
+    }
+    return true;
+}
+
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
@@ -1599,6 +1759,10 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // Из-за этого 3 доверенных `rewrite` в выводе IEEE-754 не сходились,
     // хотя все нужные тождества УЖЕ были реализованы.
     if (sexpEqNum(l, r)) return .verified;
+    // ДЕФЕКТ #440 (Блок 5 плана): ТОЖДЕСТВО 1-БИТНОЙ АЛГЕБРЫ. Перебор всех
+    // `2^m` наборов булевых листьев. ЗВУЧНО (нет переноса между битами; листья
+    // только заведомо 1-битные — см. комментарий у `evalBit`).
+    if (bitTautology(l, r, c.arena)) return .verified;
     // КОНГРУЭНЦИЯ подтермов (CVE-B): формулы отличаются только записью
     // одного и того же линейного выражения ВНУТРИ ветвей ite. Звучимо по
     // Лейбницу; за лимитом глубины -> false (шаг остаётся доверенным).
@@ -5973,6 +6137,31 @@ test "ХАРДКОР: unit-resolution с парой (not P), P -> verified (ст
     // с `and` условие ложно, и шаг стал бы `.unverifiable` вместо `.verified`.
     try std.testing.expectEqual(CheckResult.verified,
         checkUnitRes(&c, try parseSexp(a, "(unit-resolution @p1 @p2 false)")));
+}
+
+test "ХАРДКОР: 1-битная таблица истинности в rewrite (#440)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // ПОЗИТИВЫ — дословные шаблоны из дампа `[dbg-trusted-exp]`.
+    // Проверяются ПООТДЕЛЬНОСТИ: так падение называет конкретную форму.
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, try parseSexp(a, "(rewrite (= (_ bv0 1) (mkbv false)))")));
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, try parseSexp(a, "(rewrite (= (bvnot (bvnot ((_ extract 0 0) t))) ((_ extract 0 0) t)))")));
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, try parseSexp(a, "(rewrite (= (bvand ((_ extract 0 0) t) ((_ extract 0 0) u)) (bvnot (bvor (bvnot ((_ extract 0 0) t)) (bvnot ((_ extract 0 0) u))))))")));
+    try std.testing.expectEqual(RwResult.verified, checkRewrite(&c, try parseSexp(a, "(rewrite (= (bvxor ((_ extract 0 0) t) (_ bv1 1)) (bvnot ((_ extract 0 0) t))))")));
+    // НЕГАТИВЫ — подделки, обязанные быть ОТВЕРГНУТЫМИ.
+    const bad = [_][]const u8{
+        "(rewrite (= (_ bv0 1) (mkbv true)))", // 0 != 1
+        "(rewrite (= (bvand ((_ extract 0 0) t) ((_ extract 0 0) u)) (bvor ((_ extract 0 0) t) ((_ extract 0 0) u))))", // расходится на (1,0)
+        "(rewrite (= (bvxor ((_ extract 0 0) t) (_ bv1 1)) ((_ extract 0 0) t)))", // xor с 1 не равен себе
+    };
+    for (bad) |s| {
+        try std.testing.expect(checkRewrite(&c, try parseSexp(a, s)) != RwResult.verified);
+    }
+    // ЗВУЧНОСТЬ: МНОГОБИТНЫЙ лист (`x` — BitVec) булевым НЕ считается, поэтому
+    // «тождество» (= x x2) через таблицу истинности доказано НЕ будет.
+    try std.testing.expect(checkRewrite(&c, try parseSexp(a, "(rewrite (= (bvand x x2) (bvor x x2)))")) != RwResult.verified);
 }
 
 test "ХАРДКОР: monotonicity — конгруэнция по аргументам (#439)" {
