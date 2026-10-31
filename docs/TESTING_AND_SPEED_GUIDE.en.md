@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Canonical document: **what** we test, **how** we measure it, and **what** makes it fast.
 > Every number here comes from a run; where a gain was NOT measured, it says so.
@@ -41,7 +41,7 @@
 | Method | Fact |
 |:--|:--|
 | Can-fail discipline | **183 CHECK targets / 126 proven able to fail**, **223 cases, 0 vacuous** |
-| Mutation testing | **1461 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
+| Mutation testing | **1477 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |
 | Auto-repair | `--heal`: F → synthesized guard → **T**, with `.bak` + atomic replace |
@@ -149,11 +149,11 @@ harmless but is not called a speed-up).
 ## 4. Full population mutation sweep
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1461 sites
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # all 1477 sites
 ```
 Result (recorded in `docs/METRICS.en.md §33`):
 ```
-MUTATION SCORE (raw):  100.0%  (1461/1461 killed)
+MUTATION SCORE (raw):  100.0%  (1477/1477 killed)
 REAL_SECONDS=1383      (23 min, 0 survivors)
 ```
 

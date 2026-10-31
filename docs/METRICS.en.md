@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -5117,3 +5117,63 @@ plan's warning was confirmed literally.
 4. Had Block 5 been started on the old estimate, the work would have been wasted: the target
    (`def-axiom`) turned out to be unreachable by construction, and this was found BEFORE the
    change was made.
+
+## §174. `#439`: ARGUMENT CONGRUENCE - THE CAUSE OF THE `monotonicity` REFUSAL FOUND AND FIXED
+
+### 174.1 The `[dbg-mono-fail]` dump showed the MECHANISM
+
+```
+conclusion:     (= (select (store a1 i1 (select a2 i1)) i1)
+                   (select (store a1 i1 (select a2 i1)) ((_ array-ext 0) a2 a1)))
+after subst x=  (select (store a1 ((_ array-ext 0) a2 a1) (select a2 ((_ array-ext 0) a2 a1)))
+                        ((_ array-ext 0) a2 a1))
+premises 1:  @x101 => (= i1 ((_ array-ext 0) a2 a1))
+```
+
+**CAUSE:** `verifyMonotonicity` performed a GLOBAL substitution `i1 -> ext` over the whole
+left term. It also overwrote the occurrences of `i1` INSIDE the array
+`(store a1 i1 (select a2 i1))`, so the result stopped matching the right side. The step is
+CORRECT (it is congruence over the second argument of `select`), but the check destroyed
+it. Answer to the plan's question: **the number of premises is NOT required to equal the
+number of arguments** (all equality premises are iterated) and symmetry IS present
+(`subst(x,a,b)` and `subst(x,b,a)`) - but the GLOBAL nature of the substitution was the
+defect.
+
+### 174.2 Fixed: ARGUMENT CONGRUENCE
+
+The new rule `monoCongruence` is checked FIRST: the conclusion `(= (f a1...an) (f b1...bn))`
+must have ONE head; each argument pair is either **identical** (`sexpEq`) or linked by an
+equality premise **in either direction**. Identical arguments are NOT touched.
+**SOUND:** congruence is a logical identity: from `a = b` it follows that
+`f(...a...) = f(...b...)`.
+
+### 174.3 MEASURED (the identities hold)
+
+| Task | `bool` | TRUSTED | identity |
+|:--|--:|--:|:--|
+| `storeinv...00002_001.cvc` | 15 -> **17** | 13 -> **11** | 59+11+8 = **78** OK |
+| `QF_BV/add_three.4_bit` | 801 -> **823** | 926 -> **904** | 6524+904+188 = **7616** OK |
+| `2PhLockVParam_RC-07` | 4 (unchanged) | 0 | 14+0+1 = **15** OK |
+
+**TACK 2.3 RESULT on `add_three.4_bit`: trusted 2970 -> 904** (a 3.3x drop).
+
+### 174.4 WHAT IS INSIDE THE 220 `rewrite` STEPS WITHOUT `k!` (the plan's question)
+
+Verbatim from `[dbg-trusted-exp]`:
+
+```
+(= (_ bv0 1) (mkbv false))                                     <- constant canonicalisation
+(= (bvnot (bvnot ((_ extract 0 0) tmp))) ((_ extract 0 0) tmp))  <- double negation
+(= (bvand A B) (bvnot (bvor (bvnot A) (bvnot B))))              <- DE MORGAN for BV
+(= (bvxor ((_ extract 0 0) tmp) (_ bv1 1)) (bvnot ((_ extract 0 0) tmp)))  <- xor with 1 = not
+```
+
+**THESE ARE NOT boolean formulas but BITVECTOR IDENTITIES - and all on 1-BIT vectors**
+(`(_ extract 0 0)`, `(_ bv0 1)`, `(_ bv1 1)`). So a truth table applies, but not to "boolean
+atoms": to the **bits of 1-bit BV terms**: `(_ extract 0 0) tmp` IS a boolean atom. Then
+De Morgan is checked over 2 atoms, double negation over 1, `xor with 1` over 1.
+
+**THE BLOCK-5 TARGET IS REFINED:** the rule belongs not in `verifyDefAxiom` (zero steps
+without `k!` there) but in `verifyRewrite` - as a truth-table check of BV identities over
+the bits of 1-bit vectors. The dominant patterns are De Morgan, double negation,
+`bvxor` with 1, and constant canonicalisation.

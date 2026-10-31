@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -46,7 +46,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | Тесты KERN-Next | **53** |
 | Формальные доказательства | **8 файлов Lean 4** (147 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
-| Мутационный score | **100.0%** — полный обстрел **21 файла / 1461 сайтов** (1461/1461 убито, 0 выживших, 23 мин; лог прогона **закоммичен**: `docs/evidence/mutate_full.log` (1 408 строк, `RC=0`), рядом лежат канонический 40/40 и модульные `--full-file` 244/244). Канонический гейт (`make mutate`, seed=7): 40/40 — те же вердикты. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`)  — **Канонический стратифицированный гейт** (`make mutate`, 18 файлов, пул 1152 сайта, seed=7): `40 / 40 (100.0%)`. **Полный обстрел без сэмплирования** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5. |
+| Мутационный score | **100.0%** — полный обстрел **21 файла / 1477 сайтов** (1477/1477 убито, 0 выживших, 23 мин; лог прогона **закоммичен**: `docs/evidence/mutate_full.log` (1 408 строк, `RC=0`), рядом лежат канонический 40/40 и модульные `--full-file` 244/244). Канонический гейт (`make mutate`, seed=7): 40/40 — те же вердикты. Раньше мутатор видел только **6 файлов / 63 сайта** (там 97.5%), поэтому промежуточные 77.5% — это **более широкий и честный** замер, а не регрессия. В этой ревизии: `KERN_MUTATE_FAST` (меньше итераций стресс-циклов, **ни один тест не отключён**: 11.4 с -> 5.8 с на мутанта), `--jobs 4` (2.15x) и `--require-solver` (раньше скор снимался при **8 молча пропущенных тестах** — `z3` не был в `PATH`)  — **Канонический стратифицированный гейт** (`make mutate`, 18 файлов, пул 1152 сайта, seed=7): `40 / 40 (100.0%)`. **Полный обстрел без сэмплирования** (`--full-file`, 184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5. |
 | Кросс-архитектура | ARM64 и POWERPC64 (big-endian): **<!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed** (лог QEMU 2026-10-19, `docs/evidence/cross_arch.log`) — прогон на актуальном наборе |
 | C-ABI на чистом C11 (`-Werror -pedantic`) | **20 / 20** — NULL и нулевые длины отвергаются без краха |
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
@@ -166,7 +166,7 @@ Kernel Invariants     : PASS — Lean 4 (8 files, 147 theorems, 0 errors, 0 sorr
 Target Systems        : PASS — ARM64 POWERPC64
 Attack Surface        : PASS — 2/2 (0xAA-обход закрыт, KERNFS согласован)
 Decision Coverage     : PASS — 100.0% (порог 95%)
-Mutation Coverage     : PASS — 100.0% (охват 21 файла / 1461 сайтов)
+Mutation Coverage     : PASS — 100.0% (охват 21 файла / 1477 сайтов)
 Formal Theories       : PASS — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS)
 Payload Integrity     : PASS — Merkle + SHA-256 (PayloadTampered)
 ```
@@ -705,7 +705,7 @@ make ci               # единый контур (12 стадий)
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->223 (не-вакуумных <!-- fact:canfail_cases -->223 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->438** |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->439** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

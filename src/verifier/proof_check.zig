@@ -3446,6 +3446,42 @@ fn verifyNotOrElim(c: *const Ctx, st: Sexp) bool {
 
 /// `(monotonicity P (= X Y))`, где `P` доказывает `(= A B)`: вывод обязан
 /// получаться ПОДСТАНОВКОЙ `A -> B` в один из термов заключения.
+/// КОНГРУЭНЦИЯ ПО АРГУМЕНТАМ (Блок 2b плана, дефект #439).
+///
+/// ИЗМЕРЕНО дампом `[dbg-mono-fail]` на `storeinv…00002_001.cvc`:
+///   заключение: (= (select M i1) (select M ((_ array-ext 0) a2 a1))),  M = (store a1 i1 (select a2 i1))
+///   посылка:    (= i1 ((_ array-ext 0) a2 a1))
+/// ГЛОБАЛЬНАЯ подстановка `i1 -> ext` по всему lhs затирает ТАКЖЕ вхождения
+/// `i1` ВНУТРИ массива `M` и даёт `(select (store a1 ext (select a2 ext)) ext)`,
+/// что НЕ равно rhs — шаг уходил в доверенные, хотя он ВЕРЕН.
+///
+/// ЗВУЧНОЕ правило: заключение имеет вид `(= (f a1…an) (f b1…bn))` с ОДНОЙ
+/// головой; каждая пара аргументов либо ТОЖДЕСТВЕННА (`sexpEq`), либо связана
+/// посылкой-равенством в ЛЮБУЮ сторону. Конгруэнция — тождество логики:
+/// из `a = b` следует `f(…a…) = f(…b…)`, и совпадающие аргументы не трогаются.
+fn monoCongruence(l: Sexp, r: Sexp, hyps: []const Sexp) bool {
+    if (!l.isList() or !r.isList()) return false;
+    if (l.items.len != r.items.len or l.items.len < 3) return false;
+    const lh = l.items[0].atom orelse return false;
+    const rh = r.items[0].atom orelse return false;
+    if (!std.mem.eql(u8, lh, rh)) return false;
+    for (l.items[1..], r.items[1..]) |a, b| {
+        if (sexpEq(a, b)) continue; // совпадающий аргумент — замена НЕ нужна
+        var ok = false;
+        for (hyps) |h| {
+            if (!isEq3(h)) continue;
+            if ((sexpEq(h.items[1], a) and sexpEq(h.items[2], b)) or
+                (sexpEq(h.items[1], b) and sexpEq(h.items[2], a)))
+            {
+                ok = true;
+                break;
+            }
+        }
+        if (!ok) return false;
+    }
+    return true;
+}
+
 fn verifyMonotonicity(c: *const Ctx, st: Sexp) bool {
     if (st.items.len < 3) return false;
     const q = expand(c, proved(st), 0);
@@ -3459,6 +3495,17 @@ fn verifyMonotonicity(c: *const Ctx, st: Sexp) bool {
     // Из-за этого заключение не сходилось и шаг уходил в доверенные.
     // Теперь замены применяются НАКОПИТЕЛЬНО, в обе стороны, до неподвижной
     // точки (число раундов ограничено — защита от циклов).
+    // ДЕФЕКТ #439 (Блок 2b): КОНГРУЭНЦИЯ ПО АРГУМЕНТАМ проверяется ПЕРВОЙ.
+    // Глобальная подстановка ниже затирает СОВПАДАЮЩИЕ аргументы (ИЗМЕРЕНО
+    // дампом `[dbg-mono-fail]`) и потому не видит ВЕРНЫХ шагов этого вида.
+    {
+        var hyps = std.array_list.Managed(Sexp).init(c.arena);
+        for (st.items[1 .. st.items.len - 1]) |pnode| {
+            const p = expand(c, premiseTerm(c, pnode), 0);
+            if (isEq3(p)) hyps.append(p) catch {};
+        }
+        if (monoCongruence(q.items[1], q.items[2], hyps.items)) return true;
+    }
     var rounds: u32 = 0;
     while (rounds < 8) : (rounds += 1) {
         var changed = false;
@@ -3481,6 +3528,23 @@ fn verifyMonotonicity(c: *const Ctx, st: Sexp) bool {
         }
         if (sexpEq(x, y)) return true;
         if (!changed) break;
+    }
+    // ДИАГНОСТИКА (Блок 2b): печатаем ЗАКЛЮЧЕНИЕ, результат замен и ПОСЫЛКИ
+    // (раскрытые). Без раскрытой посылки нельзя отличить «посылка не резолвится»
+    // от «посылка не то равенство».
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-mono-fail] заключение: ", .{});
+        dumpSexp(q);
+        dbgPrint("\n[dbg-mono-fail] после замен x=", .{});
+        dumpSexp(x);
+        dbgPrint("\n[dbg-mono-fail] посылок {d}:\n", .{st.items.len - 2});
+        for (st.items[1 .. st.items.len - 1]) |pnode| {
+            dbgPrint("[dbg-mono-fail]   ", .{});
+            dumpSexp(pnode);
+            dbgPrint(" => ", .{});
+            dumpSexp(expand(c, premiseTerm(c, pnode), 0));
+            dbgPrint("\n", .{});
+        }
     }
     return sexpEq(x, y);
 }
@@ -5909,6 +5973,29 @@ test "ХАРДКОР: unit-resolution с парой (not P), P -> verified (ст
     // с `and` условие ложно, и шаг стал бы `.unverifiable` вместо `.verified`.
     try std.testing.expectEqual(CheckResult.verified,
         checkUnitRes(&c, try parseSexp(a, "(unit-resolution @p1 @p2 false)")));
+}
+
+test "ХАРДКОР: monotonicity — конгруэнция по аргументам (#439)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    // Посылка: (= i1 ext). Заключение: (= (select M i1) (select M ext)), причём
+    // массив M САМ содержит `i1` — глобальная подстановка затирала бы его и
+    // разрушала ВЕРНЫЙ шаг (ИЗМЕРЕНО дампом `[dbg-mono-fail]`).
+    try c.stepexpr.put("@p1", try parseSexp(a, "(asserted (= i1 ext))"));
+    const M = "(store a1 i1 (select a2 i1))";
+    const good = try std.fmt.allocPrint(
+        a, "(monotonicity @p1 (= (select {s} i1) (select {s} ext)))", .{ M, M });
+    try std.testing.expect(verifyMonotonicity(&c, try parseSexp(a, good)));
+    // АТАКА 1: ГОЛОВЫ РАЗНЫЕ (`select` против `store`) -> отказ.
+    const bad1 = try std.fmt.allocPrint(
+        a, "(monotonicity @p1 (= (select {s} i1) (store {s} ext x)))", .{ M, M });
+    try std.testing.expect(!verifyMonotonicity(&c, try parseSexp(a, bad1)));
+    // АТАКА 2: аргументы НЕ связаны посылкой (`j` вместо `ext`) -> отказ.
+    const bad2 = try std.fmt.allocPrint(
+        a, "(monotonicity @p1 (= (select {s} i1) (select {s} j)))", .{ M, M });
+    try std.testing.expect(!verifyMonotonicity(&c, try parseSexp(a, bad2)));
 }
 
 test "ХАРДКОР: остаток из ОДНОГО литерала, равного ВСЕЙ цели, -> verified (#431, шаг 3)" {

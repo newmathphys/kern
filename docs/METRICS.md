@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->487 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->488 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -12530,3 +12530,63 @@ if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .v
    `monotonicity` 4. Именно на них и стоит направлять Блок 5 (а не на `def-axiom`).
 4. Если бы Блок 5 был начат по старой оценке, работа ушла бы впустую: цель
    (`def-axiom`) оказалась недостижимой по построению, а это выяснилось ДО правки.
+
+## §196. `#439`: КОНГРУЭНЦИЯ ПО АРГУМЕНТАМ — ПРИЧИНА ОТКАЗА `monotonicity` НАЙДЕНА И УСТРАНЕНА
+
+### 196.1 Дамп `[dbg-mono-fail]` показал МЕХАНИЗМ
+
+```
+заключение:    (= (select (store a1 i1 (select a2 i1)) i1)
+                  (select (store a1 i1 (select a2 i1)) ((_ array-ext 0) a2 a1)))
+после замен x= (select (store a1 ((_ array-ext 0) a2 a1) (select a2 ((_ array-ext 0) a2 a1)))
+                       ((_ array-ext 0) a2 a1))
+посылок 1:  @x101 => (= i1 ((_ array-ext 0) a2 a1))
+```
+
+**ПРИЧИНА:** `verifyMonotonicity` делал ГЛОБАЛЬНУЮ подстановку `i1 -> ext` по
+всему левому терму. Она затирала ТАКЖЕ вхождения `i1` ВНУТРИ массива
+`(store a1 i1 (select a2 i1))`, и результат переставал совпадать с правой частью.
+Шаг ВЕРНЫЙ (это конгруэнция по второму аргументу `select`), но проверка его
+разрушала. Ответ на вопрос плана: **число посылок НЕ требуется равным числу
+аргументов** (перебираются все посылки-равенства), и симметрия есть
+(`subst(x,a,b)` и `subst(x,b,a)`), — но именно глобальность подстановки и была
+дефектом.
+
+### 196.2 Исправлено: КОНГРУЭНЦИЯ ПО АРГУМЕНТАМ
+
+Новое правило `monoCongruence` проверяется ПЕРВЫМ: заключение `(= (f a1…an) (f b1…bn))`
+с ОДНОЙ головой; каждая пара аргументов либо **тождественна** (`sexpEq`), либо
+связана посылкой-равенством **в любую сторону**. Совпадающие аргументы НЕ трогаются.
+**ЗВУЧНО:** конгруэнция — тождество логики: из `a = b` следует `f(…a…) = f(…b…)`.
+
+### 196.3 ИЗМЕРЕНО (тождества сходятся)
+
+| Задача | `bool` | ДОВЕРЕННЫХ | тождество |
+|:--|--:|--:|:--|
+| `storeinv…00002_001.cvc` | 15 -> **17** | 13 -> **11** | 59+11+8 = **78** ✅ |
+| `QF_BV/add_three.4_bit` | 801 -> **823** | 926 -> **904** | 6524+904+188 = **7616** ✅ |
+| `2PhLockVParam_RC-07` | 4 (без изм.) | 0 | 14+0+1 = **15** ✅ |
+
+**ИТОГ ТАКТА 2.3 по `add_three.4_bit`: доверенных 2970 -> 904** (падение в 3.3 раза).
+
+### 196.4 ЧТО ВНУТРИ 220 ШАГОВ `rewrite` БЕЗ `k!` (ответ на вопрос плана)
+
+Дословно из `[dbg-trusted-exp]`:
+
+```
+(= (_ bv0 1) (mkbv false))                                    <- канонизация констант
+(= (bvnot (bvnot ((_ extract 0 0) tmp))) ((_ extract 0 0) tmp))  <- двойное отрицание
+(= (bvand A B) (bvnot (bvor (bvnot A) (bvnot B))))              <- ЗАКОН ДЕ МОРГАНА для BV
+(= (bvxor ((_ extract 0 0) tmp) (_ bv1 1)) (bvnot ((_ extract 0 0) tmp)))  <- xor с 1 = not
+```
+
+**ЭТО НЕ булевы формулы, а БИТОВЫЕ ТОЖДЕСТВА — и все на 1-БИТНЫХ векторах**
+(`(_ extract 0 0)`, `(_ bv0 1)`, `(_ bv1 1)`). Значит таблица истинности применима,
+но не к «булевым атомам», а к **битам 1-битных BV-термов**:
+`(_ extract 0 0) tmp` — это булев атом. Тогда де Морган проверяется на 2 атомах,
+двойное отрицание — на 1, `xor с 1` — на 1.
+
+**ЦЕЛЬ ДЛЯ БЛОКА 5 УТОЧНЕНА:** правило нужно не в `verifyDefAxiom` (там ноль
+шагов без `k!`), а в `verifyRewrite` — как проверка BV-тождеств таблицей истинности
+по битам 1-битных векторов. Доминирующие шаблоны: де Морган, двойное отрицание,
+`bvxor` с 1, канонизация констант.
