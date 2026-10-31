@@ -5271,3 +5271,47 @@ It had been recorded that "the residue 646 = rewrite 67 + lemma 280 + def-axiom 
 **That is wrong:** the `rewrite(linear)` column counts VERIFIED steps (55 before `#440`),
 while 380 was the count of TRUSTED ones. All `rewrite` steps are `55 + 380 = 435`, hence
 trusted left is `435 - 313 = 122`. Check: `122 + 280 + 244 = 646` OK.
+
+## §177. `#442`: `unbound=1` ON `add_three` IS A THEORY AXIOM, NOT AN INPUT `assert`
+
+### 177.1 THE DENOMINATORS `2/8` AND `0/188` ARE EXPLAINED (the reviewer's hint confirmed)
+
+`premises_total` counts **`asserted` + `hypothesis`**, not only the input `assert`s:
+
+| Task | `assert` in the file | `asserted` in the proof | `hypothesis` | `premises_total` |
+|:--|--:|--:|--:|--:|
+| `storeinv...00002_001.cvc` | **2** | 2 | 6 | **8** |
+| `QF_BV/add_three.4_bit` | **1** | 1 | 187 | **188** |
+
+Hence `2/8` on `storeinv` means **100 % binding of the input `assert`s** (2 of 2), while
+`0/188` on `add_three` means ZERO bound `asserted` out of one.
+
+### 177.2 THE FIRST-DIVERGENCE DUMP (`[dbg-diff]`) SETTLES IT
+
+```
+proof.len=38550  contract.len=5326  first divergence at 1
+proof   : (and (distinct (bvadd (bvadd (concat (_ bv0 1) tmp) (concat (...
+contract: (let ((tmp_2 ((_ extract 0 0) tmp_1))) (let ((tmp_3 ((_ extract...
+```
+
+The divergence is at position **1** (right after the bracket) and the lengths differ **7x**.
+This means: the only `(asserted ...)` in the proof is **NOT the input `assert`** but a
+**theory axiom of BV** (`(and (distinct (bvadd ...) ...))` - a definition via
+`bvadd`/`concat`, i.e. a bit-blasting lemma). The input `assert` (5326 chars) never appears
+as an `asserted` node at all.
+
+### 177.3 WHAT THIS MEANS (defect class: FALSE ACCUSATION)
+
+The requirement "EVERY premise must bind to the contract" (`premises_required`) is
+**unachievable by construction** for proofs where the solver adds **theory axioms** as
+`asserted`. Hence `[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя` on a correct proof. This is exactly
+the case the reviewer named in point 3: "the crime is when a proof uses `(asserted F)` that
+was NOT among the `(assert ...)` **as a substitution of the task**, not when a theory axiom
+did not bind".
+
+**THE CURE IS NOT DONE (it needs a separate decision, not an on-the-fly change):**
+distinguish TWO classes of premises - "from the contract" (must bind: substituting the task
+is a crime) and "theory axiom" (binding is impossible; instead a PROOF OF TRUTH is needed,
+for instance the 1-bit truth table from `#440`). A simple relaxation to "at least one bound"
+is INADMISSIBLE: it would open a hole (substituting one `assert` out of two would go
+unnoticed).

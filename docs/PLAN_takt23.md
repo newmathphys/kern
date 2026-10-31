@@ -209,7 +209,18 @@ exactly the class of `#428` (the number is there, the answer is not).
 1. Dump the unbound `(asserted ...)` steps under `KERN_DEBUG_LIA` (`[dbg-unbound]`).
 2. Compare with the contract of the task: what exactly is missing - expansion of
    `define-fun`, a sort, a `let`?
-3. **PARTIALLY DONE (`#441`).** `storeinv`: the cause is an INPUT `let` in the contract
+3. **THE CAUSE IS FOUND (`#442`).** The first-divergence dump `[dbg-diff]` showed that the
+   only `(asserted ...)` on `add_three` is a **bit-blasting lemma of the BV theory**
+   (`proof.len=38550` versus `contract.len=5326`, divergence at position 1), while the input
+   `assert` never appears as an `asserted` node at all. So the requirement "EVERY premise
+   must bind to the contract" is unachievable by construction => a **FALSE ACCUSATION of a
+   correct proof**. The cure (NOT done, needs a decision): distinguish "a premise from the
+   contract" from "a theory axiom"; for the latter a PROOF OF TRUTH is needed (the table
+   from `#440`), not binding. Relaxing to "at least one bound" is INADMISSIBLE - it would
+   open a substitution hole.
+4. **THE DENOMINATORS ARE EXPLAINED:** `premises_total` = `asserted` + `hypothesis`;
+   `2/8` on `storeinv` = 100 % binding of the input `assert`s (2 of 2).
+5. **HISTORY (`#441`).** `storeinv`: the cause is an INPUT `let` in the contract
    (`(assert (let ((?v_0 ...) (?v_1 ...)) ...))`, a 774-byte file with only 2 `assert`s)
    that was not expanded. Fixed with `expandLets` => `unbound=0`, verdict
    `[PROOF PARTIAL]`. `add_three.4_bit`: still `0/188`, although both `let` (139) and

@@ -52,7 +52,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Target Systems | **PASS** — 2 platforms: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA bypass closed, KERNFS consistent) |
 | Decision Coverage | **PASS** — 100.0 % (threshold 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1528 sites, 0 survivors) |
+| Mutation Coverage | **PASS** — 100.0 % (1530 sites, 0 survivors) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -110,7 +110,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | Zombie processes | **0** (`child.wait()` reaps) | ✅ |
 | I/O fault tolerance (`test-fault`) | **3/3 OK** (real SIGBUS) | ✅ |
 | Decision coverage (MC/DC) | **100.0 %** (30/30, DO-178C threshold ≥ 95 %) | ✅ |
-| Mutation score | **100.0 %** (1528 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
+| Mutation score | **100.0 %** (1530 sites killed, 0 survivors) | ⚠️ *the intermediate 77.5 % was measured WITHOUT a solver in `PATH` (8 tests went to `SkipZigTest`) — defect #110; the mutator now requires a solver* |
 
 ---
 

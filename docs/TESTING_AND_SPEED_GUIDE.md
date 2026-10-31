@@ -148,7 +148,7 @@
 ## 4. Полный популяционный обстрел мутации
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1528 сайтов
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1530 сайтов
 ```
 Результат фиксируется в `docs/METRICS.md §109` (точное число убитых + выжившие по классам).
 

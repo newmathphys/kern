@@ -50,7 +50,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 | Target Systems | **PASS** — 2 платформы: ARM64, POWERPC64 |
 | Attack Surface | **PASS** — 2/2 (0xAA-обход закрыт, KERNFS согласован) |
 | Decision Coverage | **PASS** — 100.0 % (порог 95 %) |
-| Mutation Coverage | **PASS** — 100.0 % (1528 сайтов, 0 выживших) |
+| Mutation Coverage | **PASS** — 100.0 % (1530 сайтов, 0 выживших) |
 | Formal Theories | **PASS** — 5/5 (UNSAT-core, QF_AX, CHC, QF_S, CEGIS) |
 | Payload Integrity | **PASS** — Merkle + SHA-256 (`PayloadTampered`) |
 
@@ -271,7 +271,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 ## Что подтвердилось полностью ✅
 
 402 / 402 (Debug + ReleaseSafe) · 53/53 KERN-Next · 0 утечек · 0 FD · 0 зомби ·
-3/3 SIGBUS · 100% покрытие решений · мутационный скор 100.0% (1528 сайтов) ·
+3/3 SIGBUS · 100% покрытие решений · мутационный скор 100.0% (1530 сайтов) ·
 ⚠️ кросс-архитектура (ARM64 / POWERPC64) требует ПОВТОРНОГО прогона под QEMU:
 2/2 атаки · crash-consistency · лавина 50% / 0 коллизий / цепочка 7 ·
 1 000 000 фаззинг-итераций без паник · Thundering Herd 1+63 · эвикция 900/900 ·

@@ -4941,6 +4941,20 @@ fn dumpSexp(e: Sexp) void {
     dbgPrint(")", .{});
 }
 
+/// РЕНДЕР S-ВЫРАЖЕНИЯ В СТРОКУ (для дампа первой позиции расхождения).
+fn sexpToStr(c: *Ctx, e: Sexp, out: *std.array_list.Managed(u8)) void {
+    if (e.atom) |a| {
+        out.appendSlice(a) catch {};
+        return;
+    }
+    out.append('(') catch {};
+    for (e.items, 0..) |it, i| {
+        if (i > 0) out.append(' ') catch {};
+        sexpToStr(c, it, out);
+    }
+    out.append(')') catch {};
+}
+
 /// Пометить шаг как непроверенный и запомнить ПРАВИЛО первого такого шага.
 /// Без этого нельзя понять, что именно осталось доверенным (METRICS 55.5).
 /// ДИАГНОСТИКА (Блок 5, шаг 1 плана): пометить шаг доверенным И напечатать его
@@ -5165,6 +5179,24 @@ fn verifyProofKindInner(
                 }
             }
             if (found) v.premises_bound += 1 else v.premises_unbound += 1;
+            // ДЕФЕКТ #442 (Блок 3): ПЕРВАЯ ПОЗИЦИЯ РАСХОЖДЕНИЯ. ИЗМЕРЕНО: в
+            // `QF_BV/add_three.4_bit.smt2` ВСЕГО ОДИН `assert`, значит `unbound`
+            // равен 1, и достаточно сопоставить ОДНУ пару. Печатаем длины и
+            // первый несовпавший символ с окном по 60 символов.
+            if (!found and dbgEnv("KERN_DEBUG_TRUSTED") != null and contract_terms.items.len > 0) {
+                var sbuf = std.array_list.Managed(u8).init(c.arena);
+                sexpToStr(&c, t_exp, &sbuf);
+                var cbuf = std.array_list.Managed(u8).init(c.arena);
+                sexpToStr(&c, contract_terms.items[0], &cbuf);
+                const A = sbuf.items;
+                const B = cbuf.items;
+                var k: usize = 0;
+                while (k < A.len and k < B.len and A[k] == B[k]) : (k += 1) {}
+                dbgPrint("[dbg-diff] proof.len={d} contract.len={d} первый расход на {d}\n", .{ A.len, B.len, k });
+                const lo: usize = if (k > 60) k - 60 else 0;
+                dbgPrint("[dbg-diff] proof   : {s}\n", .{A[lo..@min(A.len, k + 60)]});
+                dbgPrint("[dbg-diff] contract: {s}\n", .{B[lo..@min(B.len, k + 60)]});
+            }
             if (!found and dbgEnv("KERN_DEBUG_TRUSTED") != null) {
                 dbgPrint("[dbg-unbound] НЕ привязана: ", .{});
                 dumpSexp(t);
