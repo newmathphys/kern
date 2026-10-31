@@ -5055,3 +5055,65 @@ rather than the raw one. That is the first step of Block 5.
 | `def-axiom` | 244 | 227 |
 | `monotonicity` | 22 | 22 |
 | **TOTAL** | **926** | **804** |
+
+## §173. BLOCK 2b REFUTED, BLOCK 5 RECOUNTED: 804 -> 224, AND `def-axiom` IS ZERO
+
+### 173.1 The `?x` hypothesis was REFUTED by measurement
+
+It had been recorded: "the `?x` names come from the solver proof and never reach `abbrev`".
+
+**MEASURED (instrumentation in the parser `collect`):**
+
+```
+[dbg-let] ?x binding: ?x148 = ((_ array-ext 0) a2 a1)
+[dbg-let] ?x binding: ?x149 = (select a2 ?x148)
+[dbg-let] ?x binding: ?x26 = (select a1 i1)
+[dbg-let] ?x binding: ?x27 = (store a2 i1 ?x26)
+[dbg-counters] ... abbrev $x=19 ?x=19
+```
+
+**`?x` bindings ARE registered (19 of them) and ARE expanded.** The parser `collect` puts
+ANY non-step value into `abbrev` with no prefix check, and `expand` looks up by atom name -
+also with no prefix check. So there was nothing to "add" for `?x` expansion.
+
+**Where the misconception came from:** `markTrusted` printed the RAW step (`dumpSexp(st)`)
+and not the expanded one. Hence the new `markTrustedExp`, which prints
+`[dbg-trusted-exp] <rule> :: <expand(proved(st))>`.
+
+### 173.2 The cause of the `monotonicity` refusal IS VISIBLE in the expanded form
+
+```
+[dbg-trusted-exp] monotonicity :: (= (select (store a1 i1 (select a2 i1)) i1)
+                                     (select (store a1 i1 (select a2 i1)) ((_ array-ext 0) a2 a1)))
+```
+
+This is NOT congruence over the array: the array is THE SAME while the indices DIFFER (`i1`
+and `((_ array-ext 0) a2 a1)`). The step is valid only if `i1 = ((_ array-ext 0) a2 a1)`
+follows from the premise. `verifyMonotonicity` does not derive that - this is the cause, and
+it is NOT about `?x`.
+
+### 173.3 BLOCK 5 RECOUNTED OVER THE EXPANDED FORMS (926 steps)
+
+| rule | total | WITHOUT `k!` (raw) | **WITHOUT `k!` (EXPANDED)** |
+|:--|--:|--:|--:|
+| `rewrite` | 380 | 356 | **220** |
+| `lemma` | 280 | 199 | **0** |
+| `def-axiom` | 244 | 227 | **0** |
+| `monotonicity` | 22 | 22 | **4** |
+| **TOTAL** | **926** | **804** (upper bound) | **224** (EXACT) |
+
+**702 of 926 contain `k!` AFTER expansion** - that is, `k!` was HIDDEN inside `$x...`. The
+plan's warning was confirmed literally.
+
+### 173.4 A CONCLUSION THAT CHANGES THE PLAN
+
+1. **`def-axiom` for a truth table is ZERO steps.** All **244** contain `k!` after expansion
+   (227 looked like "without `k!`" in raw form!). This is exactly case "B" from the plan: a
+   free bit-blast constant whose definition the solver does not export into the certificate.
+   So there is NOTHING to check with a truth table - they honestly remain a named boundary.
+2. **`lemma` is also ZERO** (199 raw -> 0).
+3. **The real truth-table potential is 224 steps:** `rewrite` 220 + `monotonicity` 4. That is
+   where Block 5 should be aimed (not at `def-axiom`).
+4. Had Block 5 been started on the old estimate, the work would have been wasted: the target
+   (`def-axiom`) turned out to be unreachable by construction, and this was found BEFORE the
+   change was made.

@@ -649,6 +649,11 @@ pub const Ctx = struct {
     /// см. `funExpand`. Само определение не является утверждением и в вывод не
     /// добавляет ни одного шага: это сокращение записи, а не аксиома.
     fundefs: std.StringHashMap(FunDef),
+    /// ДИАГНОСТИКА (Блок 2b плана): сколько `?x`-связок (термов не-булева сорта)
+    /// и `$x`-связок (булевых формул) зарегистрировано в `abbrev`. Вопрос:
+    /// почему `?x29`/`?x108` в заключении `monotonicity` НЕ раскрываются.
+    dbg_qx: usize = 0,
+    dbg_dx: usize = 0,
 };
 
 fn newCtx(arena: std.mem.Allocator) Ctx {
@@ -834,6 +839,21 @@ fn collect(c: *Ctx, body: Sexp) !void {
                         try collectStepsRec(c, val);
                     } else {
                         try c.abbrev.put(nm, val);
+                        // ДИАГНОСТИКА (Блок 2b): считаем связки по префиксам.
+                        // `$x…` — булевы формулы, `?x…` — термы не-булева сорта
+                        // (массивы, целые, битовые векторы). Если `?x`-связок
+                        // НОЛЬ, значит имена в заключениях `monotonicity` приходят
+                        // НЕ из этой цепочки `let`, и «дописать раскрытие» нечего.
+                        if (nm.len > 1 and nm[0] == '?') {
+                            c.dbg_qx += 1;
+                            if (c.dbg_qx <= 5 and dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+                                dbgPrint("[dbg-let] ?x-связка: {s} = ", .{nm});
+                                dumpSexp(val);
+                                dbgPrint("\n", .{});
+                            }
+                        } else if (nm.len > 1 and nm[0] == '$') {
+                            c.dbg_dx += 1;
+                        }
                     }
                 }
             }
@@ -4616,6 +4636,22 @@ fn dumpSexp(e: Sexp) void {
 
 /// Пометить шаг как непроверенный и запомнить ПРАВИЛО первого такого шага.
 /// Без этого нельзя понять, что именно осталось доверенным (METRICS 55.5).
+/// ДИАГНОСТИКА (Блок 5, шаг 1 плана): пометить шаг доверенным И напечатать его
+/// РАСКРЫТОЕ заключение.
+///
+/// ЗАЧЕМ. Подсчёт «шагов БЕЗ `k!`» по СЫРЫМ строкам ЗАВЫШАЕТ потенциал таблицы
+/// истинности: отрицательный атом в выводе Z3 свёрнут в `let` под именем `$x…`
+/// (например, `$x2355 = (not k!140)`), поэтому сырая строка выглядит как
+/// «БЕЗ `k!`», хотя внутри `k!` есть. ИЗМЕРЕНО: вилка [122 .. 804].
+fn markTrustedExp(v: *ProofVerdict, c: *const Ctx, rule: []const u8, st: Sexp) void {
+    markTrusted(v, rule, st);
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-trusted-exp] {s} :: ", .{rule});
+        dumpSexp(expand(c, proved(st), 0));
+        dbgPrint("\n", .{});
+    }
+}
+
 fn markTrusted(v: *ProofVerdict, rule: []const u8, st: Sexp) void {
     v.trusted_steps += 1;
     if (v.first_trusted.len == 0) v.first_trusted = rule;
@@ -4930,7 +4966,7 @@ fn verifyProofKindInner(
                 .verified => v.rewrite_verified += 1,
                 .bad => v.rewrite_bad += 1,
                 .unverifiable => {
-                    markTrusted(&v, r, st);
+                    markTrustedExp(&v, &c, r, st);
                     // ЭТАП А (диагностика): дамп l и r для ДОВЕРЕННОГО rewrite.
                     if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
                         const eq = expand(&c, proved(st), 0);
@@ -4957,7 +4993,7 @@ fn verifyProofKindInner(
         } else if (std.mem.eql(u8, r, "def-axiom")) {
             // ДЕФЕКТ #118: аксиома определения `ite` проверяется по ФОРМЕ
             // (две определяющие тавтологии). Иная форма -> доверенный шаг.
-            if (verifyDefAxiom(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+            if (verifyDefAxiom(&c, st)) v.bool_verified += 1 else markTrustedExp(&v, &c, r, st);
         } else if (std.mem.eql(u8, r, "and-elim")) {
             if (verifyAndElim(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "not-or-elim")) {
@@ -4976,12 +5012,12 @@ fn verifyProofKindInner(
             // Иначе — доверенный шаг, как и было.
             if (verifyCommutativity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
         } else if (std.mem.eql(u8, r, "monotonicity")) {
-            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+            if (verifyMonotonicity(&c, st)) v.bool_verified += 1 else markTrustedExp(&v, &c, r, st);
         } else if (std.mem.eql(u8, r, "lemma")) {
             // ПУНКТ 3 v2.5: разрядка гипотез (RAA) проверяется СТРУКТУРНО
             // (см. verifyLemma): поддерево выводит `false`, и каждая его
             // гипотеза отрицается в заключении.
-            if (verifyLemma(&c, st)) v.bool_verified += 1 else markTrusted(&v, r, st);
+            if (verifyLemma(&c, st)) v.bool_verified += 1 else markTrustedExp(&v, &c, r, st);
         } else if (std.mem.eql(u8, r, "intro-def")) {
             // ПУНКТ 3 v2.5: консервативное введение определения проверяется
             // СТРУКТУРНО + по СВЕЖЕСТИ имени (см. verifyIntroDef).
@@ -5019,13 +5055,14 @@ fn verifyProofKindInner(
         dbgPrint(
             "[dbg-counters] steps={d} holes={d} prem={d}/{d} unbound={d} " ++
                 "mp_bad={d} unitres_bad={d} farkas_bad={d} rewrite_bad={d} " ++
-                "unknown_rules={d} trusted={d} concl_false={} reject_len={d}\n",
+                "unknown_rules={d} trusted={d} concl_false={} reject_len={d} " ++
+                "abbrev $x={d} ?x={d}\n",
             .{
                 v.proof_steps,        v.holes,          v.premises_bound,
                 v.premises_total,     v.premises_unbound, v.mp_bad,
                 v.unitres_bad,        v.farkas_bad,     v.rewrite_bad,
                 v.unknown_rules,      v.trusted_steps,  v.proof_concludes_false,
-                v.reject.len,
+                v.reject.len,         c.dbg_dx,         c.dbg_qx,
             },
         );
         if (v.reject.len > 0) dbgPrint("[dbg-counters] reject = {s}\n", .{v.reject});

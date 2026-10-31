@@ -92,7 +92,7 @@ rebuild and verify. KERN's practice:
 * a static 6 MB binary `kernc` (musl), sha256 in `SHA256SUMS`;
 * a SLSA attestation **signed with Ed25519** (`kern.intoto.sig`, verified by
   `tools/slsa_provenance.py --check`);
-* **1457 mutants: 1457/1457 killed (100.0 %)** over all 21 files with no sampling;
+* **1461 mutants: 1461/1461 killed (100.0 %)** over all 21 files with no sampling;
   the canonical gate (40 sites) yields the same verdicts;
 * release reproducibility: `make artifact-check` compares README, the local build and the
   uploaded asset.

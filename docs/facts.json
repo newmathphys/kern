@@ -5,7 +5,7 @@
  "catalog": 487,
  "check_targets": 183,
  "canfail_cases": 223,
- "mutation_sites": 1457,
+ "mutation_sites": 1461,
  "mutation_files": 21,
  "registry_targets": 239,
  "meta_targets": 41,
@@ -13,7 +13,7 @@
  "cross_arch_passed": 443,
  "cross_arch_skipped": 8,
  "anchors": 183,
- "max_defect": 436,
+ "max_defect": 438,
  "lean_theorems": 147,
  "quixbugs": {
   "smt": 6,
