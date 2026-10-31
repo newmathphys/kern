@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -5208,7 +5208,7 @@ table enumerates BOTH values), so filtering by the substring `"k!"` is unnecessa
 | `2PhLockVParam_RC-07` | 5 (unchanged) | 0 | 14+0+1 = **15** OK |
 
 **TACK 2.3 RESULT on `add_three.4_bit`: trusted `2970 -> 646`** (4.6x). The remaining 646:
-`rewrite` 67 (was 380; **313** verified), `lemma` 280, `def-axiom` 244, `monotonicity` 0
+`rewrite` **122** (all `55 + 380 = 435`; **313** verified), `lemma` 280, `def-axiom` 244, `monotonicity` 0
 (all 22 verified), other 55.
 
 ### 175.3 A two-sided test (7 cases plus a soundness control)
@@ -5219,3 +5219,55 @@ table enumerates BOTH values), so filtering by the substring `"k!"` is unnecessa
   `(1,0)`), `(= (bvxor X (_ bv1 1)) X)`;
 * **SOUNDNESS CONTROL:** `(= (bvand x x2) (bvor x x2))` with MULTI-BIT leaves is NOT proven
   (the leaf is not recognised as boolean).
+
+## §176. BLOCK 3: `storeinv` CLOSED (`unbound=0`), `add_three` - CAUSE NOT FOUND
+
+### 176.1 THE DUMP SHOWED THE CAUSE FOR `storeinv` - AN INPUT `let` IN THE CONTRACT
+
+The file `storeinv...00002_001.cvc` is **774 bytes** and contains **ONLY TWO** `assert`s:
+
+```smt2
+(assert (let ((?v_0 (store a2 i1 (select a1 i1))) (?v_1 (store a1 i1 (select a2 i1))))
+          (= (store ?v_1 i2 (select ?v_0 i2)) (store ?v_0 i2 (select ?v_1 i2)))))
+(assert (not (= a1 a2)))
+```
+
+**The checker's contract kept the `let` UNEXPANDED**, while Z3 prints the **already
+expanded** form in the proof:
+
+```
+(= (store (store a1 i1 (select a2 i1)) i2 (select (store a2 i1 (select a1 i1)) i2))
+   (store (store a2 i1 (select a1 i1)) i2 (select (store a1 i1 (select a2 i1)) i2)))
+```
+
+Comparing "the expanded premise" with "the contract with `let`" NEVER matches - hence
+`premises_unbound`. Only `define-fun` was expanded (`funExpand`), `let` was not.
+
+### 176.2 FIXED: `expandLets`
+
+The new function expands an input `let` (PARALLEL in SMT-LIB: values are evaluated in the
+outer environment, so each is expanded BEFORE the previous names are substituted) and is
+wired into the THREE premise-binding sites.
+
+**MEASURED on `storeinv`:** `[dbg-counters] prem=2/8 unbound=0`; the verdict changed from
+`[!] ПРУФ-ЧЕКЕР ОТВЕРГ` to **`[PROOF PARTIAL]`** - there are NO unbound premises.
+Block 3 is CLOSED for this task.
+
+### 176.3 BITVECTOR LITERALS (part 2 of the fix) - but `add_three` is still `0/188`
+
+MEASURED: `QF_BV/add_three.4_bit.smt2` (7143 bytes) contains **139 nested `let`** and
+**64 `#b1` literals**, while Z3 prints `(_ bv1 1)`. Normalisation `#b...`/`#x...` ->
+`(_ bvN W)` was added (width: for `#b` the number of digits, for `#x` the number of digits
+x 4; a mistake there was caught by the test).
+
+**BUT `add_three.4_bit` still gives `посылок 0/188`.** So `let` and `#b` were NOT its
+cause - **the true cause is not found**. This is an honest boundary: the next step is a dump
+of the pair `(expanded contract, expanded premise)` for THIS task (a ~70 s run), and only
+then any change.
+
+### 176.4 AN ARITHMETIC CORRECTION OF THE RESIDUE (applied)
+
+It had been recorded that "the residue 646 = rewrite 67 + lemma 280 + def-axiom 244".
+**That is wrong:** the `rewrite(linear)` column counts VERIFIED steps (55 before `#440`),
+while 380 was the count of TRUSTED ones. All `rewrite` steps are `55 + 380 = 435`, hence
+trusted left is `435 - 313 = 122`. Check: `122 + 280 + 244 = 646` OK.

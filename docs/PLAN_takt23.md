@@ -8,7 +8,7 @@ changes at the very moment of committing - already paid for in practice (defect 
 
 **Read in this order:** `docs/STATUS.md` -> `docs/NEXT_SESSION.md` -> this plan.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -204,12 +204,17 @@ exactly the class of `#428` (the number is there, the answer is not).
    (6 hypotheses, a conclusion of 1 literal) cannot cover all collected hypotheses.
    **Cure (not done): do not descend into nested `lemma`.**
 
-### Block 3 (40-60 min). A breakdown of `premises_unbound` (`1/8` and `0/188`)
+### Block 3 (40-60 min). PARTIAL - `storeinv` CLOSED, `add_three` NOT FOUND
 
 1. Dump the unbound `(asserted ...)` steps under `KERN_DEBUG_LIA` (`[dbg-unbound]`).
 2. Compare with the contract of the task: what exactly is missing - expansion of
    `define-fun`, a sort, a `let`?
-3. **Acceptance:** the class of the non-binding and its size are named.
+3. **PARTIALLY DONE (`#441`).** `storeinv`: the cause is an INPUT `let` in the contract
+   (`(assert (let ((?v_0 ...) (?v_1 ...)) ...))`, a 774-byte file with only 2 `assert`s)
+   that was not expanded. Fixed with `expandLets` => `unbound=0`, verdict
+   `[PROOF PARTIAL]`. `add_three.4_bit`: still `0/188`, although both `let` (139) and
+   `#b` (64) are expanded there => **the true cause is NOT FOUND**; the next step is a
+   dump of the pair `(expanded contract, expanded premise)` for that very task.
 4. **Risk:** "fixing" the binding by weakening = accepting a proof unrelated to the task
    condition. That is a false proof - the worst class of defect.
 

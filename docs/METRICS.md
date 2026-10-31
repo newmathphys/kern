@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -12621,7 +12621,7 @@ if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .v
 | `2PhLockVParam_RC-07` | 5 (без изм.) | 0 | 14+0+1 = **15** ✅ |
 
 **ИТОГ ТАКТА 2.3 по `add_three.4_bit`: доверенных `2970 -> 646`** (в 4.6 раза).
-Осталось 646: `rewrite` 67 (было 380; **313** проверено), `lemma` 280,
+Осталось 646: `rewrite` **122** (всего `55 + 380 = 435`; **313** проверено), `lemma` 280,
 `def-axiom` 244, `monotonicity` 0 (все 22 проверены), прочие 55.
 
 ### 197.3 Двусторонний тест (7 случаев + контроль звучности)
@@ -12632,3 +12632,55 @@ if (remaining.items.len == 1 and sexpEqNum(remaining.items[0], concl)) return .v
   на `(1,0)`), `(= (bvxor X (_ bv1 1)) X)`;
 * **КОНТРОЛЬ ЗВУЧНОСТИ:** `(= (bvand x x2) (bvor x x2))` с МНОГОБИТНЫМИ листьями
   доказано НЕ будет (лист не признан булевым).
+
+## §198. БЛОК 3: `storeinv` ЗАКРЫТ (`unbound=0`), `add_three` — ПРИЧИНА НЕ НАЙДЕНА
+
+### 198.1 ДАМП ПОКАЗАЛ ПРИЧИНУ ДЛЯ `storeinv` — ВХОДНОЙ `let` В КОНТРАКТЕ
+
+Файл `storeinv…00002_001.cvc` занимает **774 байта** и содержит **ВСЕГО ДВА** `assert`:
+
+```smt2
+(assert (let ((?v_0 (store a2 i1 (select a1 i1))) (?v_1 (store a1 i1 (select a2 i1))))
+          (= (store ?v_1 i2 (select ?v_0 i2)) (store ?v_0 i2 (select ?v_1 i2)))))
+(assert (not (= a1 a2)))
+```
+
+**Контракт чекера хранил `let` НЕРАСКРЫТЫМ**, а Z3 в выводе печатает **уже
+раскрытую** форму:
+
+```
+(= (store (store a1 i1 (select a2 i1)) i2 (select (store a2 i1 (select a1 i1)) i2))
+   (store (store a2 i1 (select a1 i1)) i2 (select (store a1 i1 (select a2 i1)) i2)))
+```
+
+Сравнение «раскрытая посылка» vs «контракт с `let`» НИКОГДА не совпадает — отсюда
+`premises_unbound`. Раскрывалась только `define-fun` (`funExpand`), а `let` — нет.
+
+### 198.2 ИСПРАВЛЕНО: `expandLets`
+
+Новая функция раскрывает входной `let` (ПАРАЛЛЕЛЬНЫЙ в SMT-LIB: значения
+вычисляются во внешнем окружении, поэтому каждое раскрывается ДО подстановки
+предыдущих имён) и подключена в ТРИ места привязки посылок.
+
+**ИЗМЕРЕНО на `storeinv`:** `[dbg-counters] prem=2/8 unbound=0`;
+вердикт сменился с `[!] ПРУФ-ЧЕКЕР ОТВЕРГ` на **`[PROOF PARTIAL]`** —
+непривязанных посылок **НЕТ**. Блок 3 для этой задачи ЗАКРЫТ.
+
+### 198.3 БИТОВЫЕ ЛИТЕРАЛЫ (часть 2 правки) — но `add_three` всё равно `0/188`
+
+ИЗМЕРЕНО: `QF_BV/add_three.4_bit.smt2` (7143 байта) содержит **139 вложенных
+`let`** и **64 литерала `#b1`**, тогда как Z3 печатает `(_ bv1 1)`. Добавлена
+нормализация `#b…`/`#x…` -> `(_ bvN W)` (ширина: у `#b` — число цифр, у `#x` —
+число цифр × 4; ошибка в этом месте была поймана тестом).
+
+**НО `add_three.4_bit` по-прежнему даёт `посылок 0/188`.** Значит `let` и `#b`
+НЕ были его причиной — **истинная причина не найдена**. Это честная граница:
+следующий шаг — дамп пары `(раскрытый контракт, раскрытая посылка)` именно для
+этой задачи (прогон ~70 с), и только потом любая правка.
+
+### 198.4 ПОПРАВКА АРИФМЕТИКИ ОСТАТКА (внесена)
+
+Ранее было записано «остаток 646 = rewrite 67 + lemma 280 + def-axiom 244».
+**Это неверно:** колонка `rewrite(лин.)` считает ПРОВЕРЕННЫЕ шаги (55 до `#440`),
+а 380 — это было число ДОВЕРЕННЫХ. Всего `rewrite`-шагов `55 + 380 = 435`, значит
+доверенных осталось `435 − 313 = 122`. Проверка: `122 + 280 + 244 = 646` ✅.

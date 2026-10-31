@@ -776,6 +776,85 @@ fn loadFunDefsRec(c: *Ctx, e: Sexp) void {
 /// эквивалентную (по определению функции). Бюджет узлов и лимит глубины
 /// ограничивают рост терма; при исчерпании терм возвращается КАК ЕСТЬ, что
 /// ведёт к непривязанной посылке (отказ), а не к ложному совпадению.
+/// Подстановка ОДНОГО имени термом (для раскрытия входного `let`).
+fn substName(c: *Ctx, body: Sexp, name: []const u8, val: Sexp) Sexp {
+    if (body.atom) |a| {
+        if (std.mem.eql(u8, a, name)) return val;
+        return body;
+    }
+    const out = c.arena.alloc(Sexp, body.items.len) catch return body;
+    for (body.items, 0..) |it, i| out[i] = substName(c, it, name, val);
+    return .{ .items = out };
+}
+
+/// ДЕФЕКТ #441 (Блок 3 плана): ВХОДНОЙ `let` В КОНТРАКТЕ.
+///
+/// ИЗМЕРЕНО на `storeinv…00002_001.cvc` (файл 774 байта, всего ДВА `assert`):
+///   (assert (let ((?v_0 (store a2 i1 (select a1 i1)))
+///                 (?v_1 (store a1 i1 (select a2 i1))))
+///             (= (store ?v_1 i2 (select ?v_0 i2))
+///                (store ?v_0 i2 (select ?v_1 i2)))))
+/// Z3 в выводе печатает УЖЕ РАСКРЫТУЮ форму, а контракт хранил `let` как есть —
+/// поэтому посылка НИКОГДА не совпадала (`premises_unbound` 1/8: привязался
+/// только второй `assert` без `let`). Раскрытие `let` — чисто синтаксическая
+/// подстановка, ЗВУЧНО.
+///
+/// ВАЖНО: `let` в SMT-LIB ПАРАЛЛЕЛЬНЫЙ — все значения вычисляются в ВНЕШНЕМ
+/// окружении. Поэтому каждое значение раскрывается ДО подстановки предыдущих имён.
+fn expandLets(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
+    if (depth > 32 or budget.* == 0) return e;
+    if (e.atom) |a| {
+        // ДЕФЕКТ #441 (часть 2, Блок 3 плана): БИТОВЫЕ ЛИТЕРАЛЫ.
+        // ИЗМЕРЕНО: `QF_BV/add_three.4_bit.smt2` содержит **64** литерала `#b1`,
+        // а Z3 в выводе печатает `(_ bv1 1)`. Контракт хранил `#b1` как есть,
+        // поэтому НИ ОДНА из 188 посылок не привязывалась (`посылок 0/188`).
+        // Нормализация `#b…` / `#x…` -> `(_ bvN W)` — чисто синтаксическая, ЗВУЧНА.
+        if (a.len >= 3 and a[0] == '#' and (a[1] == 'b' or a[1] == 'x')) {
+            const digits = a[2..];
+            var v: u64 = 0;
+            var ok = true;
+            for (digits) |ch| {
+                const d: u64 = switch (ch) {
+                    '0'...'9' => ch - '0',
+                    'a'...'f' => ch - 'a' + 10,
+                    'A'...'F' => ch - 'A' + 10,
+                    else => blk: {
+                        ok = false;
+                        break :blk 0;
+                    },
+                };
+                v = if (a[1] == 'b') (v << 1) | d else (v << 4) | d;
+            }
+            if (ok) {
+                // ШИРИНА: у `#b…` — число бит (= число цифр), у `#x…` — число
+                // цифр × 4. Ошибка здесь была поймана тестом (`#x0f` -> ширина 2).
+                const w: usize = if (a[1] == 'b') a.len - 2 else (a.len - 2) * 4;
+                const txt = std.fmt.allocPrint(c.arena, "(_ bv{d} {d})", .{ v, w }) catch return e;
+                return parseSexp(c.arena, txt) catch e;
+            }
+        }
+        return e;
+    }
+    if (e.items.len == 3) {
+        if (e.items[0].atom) |h| {
+            if (std.mem.eql(u8, h, "let") and e.items[1].isList()) {
+                var body = e.items[2];
+                for (e.items[1].items) |b| {
+                    if (!b.isList() or b.items.len != 2) continue;
+                    const nm = b.items[0].atom orelse continue;
+                    budget.* -= 1;
+                    const val = expandLets(c, b.items[1], depth + 1, budget);
+                    body = substName(c, body, nm, val);
+                }
+                return expandLets(c, body, depth + 1, budget);
+            }
+        }
+    }
+    const out = c.arena.alloc(Sexp, e.items.len) catch return e;
+    for (e.items, 0..) |it, i| out[i] = expandLets(c, it, depth + 1, budget);
+    return .{ .items = out };
+}
+
 fn funExpand(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
     if (depth > 32 or budget.* == 0) return e;
     budget.* -= 1;
@@ -5052,7 +5131,8 @@ fn verifyProofKindInner(
             // ОБЕИХ сторон — иначе посылка не привязывается и корректный вывод
             // отвергается (`premises_unbound`).
             var fun_budget: usize = 200_000;
-            const t_exp = funExpand(&c, t, 0, &fun_budget);
+            // ДЕФЕКТ #441: раскрываем и ВХОДНОЙ `let` (см. `expandLets`).
+            const t_exp = expandLets(&c, funExpand(&c, t, 0, &fun_budget), 0, &fun_budget);
             var found = false;
             for (contract_terms.items) |ct| {
                 // `sexpEqNum`, а не `sexpEq`: числовой литерал в исходнике
@@ -5060,7 +5140,7 @@ fn verifyProofKindInner(
                 // (`(- 2147483648)`). Без нормализации корректный вывод
                 // отвергался как «посылки не привязаны» (дефект #122).
                 var ct_budget: usize = 200_000;
-                const ct_exp = funExpand(&c, ct, 0, &ct_budget);
+                const ct_exp = expandLets(&c, funExpand(&c, ct, 0, &ct_budget), 0, &ct_budget);
                 if (sexpEqNum(t_exp, ct_exp)) {
                     found = true;
                     break;
@@ -5098,7 +5178,7 @@ fn verifyProofKindInner(
                     dbgPrint("\n", .{});
                     var db: usize = 200_000;
                     dbgPrint("[dbg-unbound]   контракт РАСКРЫТ: ", .{});
-                    dumpSexp(funExpand(&c, ct, 0, &db));
+                    dumpSexp(expandLets(&c, funExpand(&c, ct, 0, &db), 0, &db));
                     dbgPrint("\n", .{});
                 }
             }
@@ -6137,6 +6217,27 @@ test "ХАРДКОР: unit-resolution с парой (not P), P -> verified (ст
     // с `and` условие ложно, и шаг стал бы `.unverifiable` вместо `.verified`.
     try std.testing.expectEqual(CheckResult.verified,
         checkUnitRes(&c, try parseSexp(a, "(unit-resolution @p1 @p2 false)")));
+}
+
+test "ХАРДКОР: входной let в контракте раскрывается (#441)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var c = newCtx(a);
+    var b: usize = 1000;
+    const got = expandLets(&c, try parseSexp(a, "(let ((?v_0 (f x)) (?v_1 (g y))) (= (h ?v_1) (h ?v_0)))"), 0, &b);
+    try std.testing.expect(sexpEqNum(got, try parseSexp(a, "(= (h (g y)) (h (f x)))")));
+    // КОНТРОЛЬ: без `let` форма НЕ меняется (раскрытие не портит корректный терм).
+    var b2: usize = 1000;
+    const same = expandLets(&c, try parseSexp(a, "(= (f x) y)"), 0, &b2);
+    try std.testing.expect(sexpEqNum(same, try parseSexp(a, "(= (f x) y)")));
+    // БИТОВЫЕ ЛИТЕРАЛЫ (#441, часть 2): `#b1` -> `(_ bv1 1)`, `#x0f` -> `(_ bv15 8)`.
+    var b3: usize = 1000;
+    const lit = expandLets(&c, try parseSexp(a, "(bvxor x #b1)"), 0, &b3);
+    try std.testing.expect(sexpEqNum(lit, try parseSexp(a, "(bvxor x (_ bv1 1))")));
+    var b4: usize = 1000;
+    const hex = expandLets(&c, try parseSexp(a, "#x0f"), 0, &b4);
+    try std.testing.expect(sexpEqNum(hex, try parseSexp(a, "(_ bv15 8)")));
 }
 
 test "ХАРДКОР: 1-битная таблица истинности в rewrite (#440)" {

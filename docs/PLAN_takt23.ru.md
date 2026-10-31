@@ -8,7 +8,7 @@
 
 **Читать в этом порядке:** `docs/STATUS.md` → `docs/NEXT_SESSION.md` → этот план.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->489 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -198,12 +198,17 @@ fallback, хотя доверенных стало на 1950 меньше. Зн�
    (6 гипотез, заключение из 1 литерала) не покрывает все собранные гипотезы.
    **Лечение (не сделано): не заходить внутрь вложенных `lemma`.**
 
-### Блок 3 (40-60 мин). Разбор `premises_unbound` (`1/8` и `0/188`)
+### Блок 3 (40-60 мин). ⚠️ ЧАСТИЧНО — `storeinv` ЗАКРЫТ, `add_three` НЕ НАЙДЕН
 
 1. Дамп непривязанных `(asserted …)` под `KERN_DEBUG_LIA` (`[dbg-unbound]`).
 2. Сопоставить с контрактом задачи: чего именно не хватает — раскрытия
    `define-fun`, сортировки, `let`?
-3. **Приёмка:** назван класс непривязки и его размер.
+3. **СДЕЛАНО ЧАСТИЧНО (`#441`).** `storeinv`: причина — ВХОДНОЙ `let` в контракте
+   (`(assert (let ((?v_0 …) (?v_1 …)) …))`, файл 774 байта, всего 2 assert'а),
+   который не раскрывался. Исправлено `expandLets` ⇒ `unbound=0`, вердикт
+   `[PROOF PARTIAL]`. `add_three.4_bit`: по-прежнему `0/188`, хотя там раскрыты и
+   `let` (139), и `#b` (64) ⇒ **истинная причина НЕ НАЙДЕНА**; следующий шаг — дамп
+   пары `(раскрытый контракт, раскрытая посылка)` именно для этой задачи.
 4. **Риск:** «починить» привязку ослаблением = принять вывод, не связанный с
    условием задачи. Это ложное доказательство — худший класс дефекта.
 
