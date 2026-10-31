@@ -154,7 +154,7 @@ exactly the class of `#428` (the number is there, the answer is not).
 
 ## §3. Schedule: 6 blocks of 20 minutes
 
-### Block 1 (0-20 min). DUMP CAPTURED, POTENTIAL MEASURED - a dump of `def-axiom`
+### Block 1 (0-20 min). CLOSED - the `def-axiom` dump and the SOLUTION of `#436`
 
 1. Capture a dump of the first 5 trusted `def-axiom` steps plus expanded conclusions (the
    command in §1.1).
@@ -165,9 +165,15 @@ exactly the class of `#428` (the number is there, the answer is not).
    `monotonicity` 22 (22). **TOTAL without `k!` - 804 steps** (the truth-table
    potential). Shapes verbatim: `(def-axiom (or $x2688 k!140 $x3214))` (WITH `k!`)
    and `(def-axiom (or $x2355 $x710 $x2664))` (WITHOUT `k!`).
-4. **NEW FIRST STEP (`#436`):** the report prints `1020` while the dump holds `926`
-   lines (a difference of **94**) - NOT EXPLAINED. Until then the numbers cannot be
-   relied upon.
+4. **`#436` SOLVED AND CLOSED:** there was NO discrepancy - the numbers came from
+   DIFFERENT BUILDS (the report `1020` from a binary before `#435`, the dump `926` from
+   one after). After an explicit rebuild: `[dbg-counters] trusted=926`, report `926`,
+   `926` lines - they agree, the identity holds (`5+5247+0+55+394+801+926+188+0 = 7616`).
+   REFUTED: there are NO direct `trusted += 1` calls bypassing `markTrusted` (the only
+   one is line 4620); the second pass `deep` is NOT called when `checksPass()==false`.
+5. **THE FIRST STEP OF BLOCK 5:** print the EXPANDED conclusion of a trusted step
+   (`expand`) rather than the raw one: `k!` can be FOLDED into `$x...`, hence
+   "804 without `k!`" is an UPPER bound while "122 with `k!`" is the lower one.
 4. **Risk:** `def-axiom` for a skolem constant may require parsing `anchor` steps - that is
    no longer a "rule" but a context. If so - **do not fix it**, name it as a boundary.
 

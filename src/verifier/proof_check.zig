@@ -5083,6 +5083,14 @@ pub fn check(
     try contract.append(neg.items());
 
     const deep = try verifyProof(allocator, proof, contract.items);
+    // ДЕФЕКТ #436: ДВА ПРОХОДА. Печатаем ОБА числа: расхождение `ДОВЕРЕННЫХ`
+    // между `[dbg-counters]` и отчётом означает, что в отчёт попадает число
+    // ДРУГОГО прохода. Без этой печати вопрос «кто владелец числа» не решается.
+    if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
+        dbgPrint("[dbg-twopass] pass1(v).trusted={d} pass2(deep).trusted={d}\n", .{
+            v.trusted_steps, deep.trusted_steps,
+        });
+    }
     // Переносим результаты глубокого разбора в итоговый вердикт.
     v.proof_present = deep.proof_present;
     v.proof_steps = deep.proof_steps;

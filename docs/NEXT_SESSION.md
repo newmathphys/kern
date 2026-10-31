@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** — `#436` (the report prints 1020 trusted steps while the dump holds 926: the difference of 94 is unexplained; the numbers cannot be relied upon) |
+| Open technical defects | **0** — `#436` is closed as a MEASUREMENT ERROR (numbers from different builds); after the rebuild all three numbers agree: 926 = 926 = 926 |
 
 ## Open work
 

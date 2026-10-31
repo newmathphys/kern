@@ -4992,3 +4992,66 @@ The report prints `ДОВЕРЕННЫХ 1020` while the dump holds **926** `[dbg
 discrepancy of **94** is not explained. The class "a number without an owner" (`#405`,
 `#428`, `#432`): until the cause is found, neither number is authoritative.
 **This is the first step of Block 1 in the next session.**
+
+## §172. `#436` CLOSED: IT WAS A MEASUREMENT ERROR (NUMBERS FROM DIFFERENT BUILDS)
+
+### 172.1 What was claimed and what it turned out to be
+
+It was recorded: "the report prints `ДОВЕРЕННЫХ 1020` while the dump holds `926`
+`[dbg-trusted]` lines, the difference of 94 is unexplained".
+
+**It turned out:** the numbers came from DIFFERENT BUILDS. The report `1020` came from a
+binary built BEFORE the `#435` fix (`lemma`), while the dump `926` came from a binary after
+it. A direct check proves it: the build failed (`build RC=2`, `smt_text` out of scope), the
+PREVIOUS binary ran - and the report printed **926**, not 1020.
+
+### 172.2 After an explicit rebuild: ALL THREE NUMBERS AGREE
+
+```
+[dbg-counters]  trusted=926
+[ПРУФ-ЧЕКЕР]    ДОВЕРЕННЫХ 926
+[dbg-trusted] lines: 926 (numbering continuous #1..#926, zero gaps)
+```
+
+The identity from `#432` holds:
+
+```
+5 (mp) + 5247 (resolution) + 0 (Farkas) + 55 (rewrite) + 394 (eq) + 801 (bool)
++ 926 (trusted) + 188 (other) + 0 (holes) = 7616 = steps  OK
+```
+
+### 172.3 TWO HYPOTHESES REFUTED (checked against the code)
+
+1. **"There are direct `trusted += 1` calls bypassing `markTrusted`"** - FALSE.
+   `trusted_steps += 1` occurs in the file EXACTLY ONCE: line 4620, inside `markTrusted`.
+   There are no other increments.
+2. **"The second pass (`deep`) yields a different number"** - NOT CONFIRMED. An
+   instrumentation print was added, `[dbg-twopass] pass1(v).trusted=... pass2(deep).trusted=...`;
+   on `add_three.4_bit` it does NOT print, because `deep` is not called: `checksPass()` is
+   false due to `unbound=1` and the function returns earlier.
+
+### 172.4 A WARNING ABOUT THE "804 WITHOUT `k!`" COUNT (accepted, and it is correct)
+
+The count used RAW `[dbg-trusted]` lines. A negative atom in Z3's proof can be FOLDED into a
+`let` under a `$x...` name (e.g. `$x2355 = (not k!140)`), so a raw line looks like "WITHOUT
+`k!`" even though `k!` is inside.
+
+**Hence the numbers are stated honestly:**
+
+| | value | status |
+|:--|--:|:--|
+| steps WITH `k!` in raw form | **122** | LOWER bound |
+| steps WITHOUT `k!` in raw form | **804** | **UPPER** bound of the potential |
+
+The exact number requires printing the EXPANDED conclusion of a trusted step (`expand`)
+rather than the raw one. That is the first step of Block 5.
+
+### 172.5 THE COMPOSITION OF THE 926 TRUSTED STEPS (after `#435`)
+
+| rule | total | without `k!` (raw form) |
+|:--|--:|--:|
+| `rewrite` | 380 | 356 |
+| `lemma` | 280 | 199 |
+| `def-axiom` | 244 | 227 |
+| `monotonicity` | 22 | 22 |
+| **TOTAL** | **926** | **804** |
