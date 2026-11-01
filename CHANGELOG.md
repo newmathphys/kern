@@ -8,6 +8,48 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+## [2.8.1] — 2026-11-01
+
+Tack 2.2 / 2.3: **50 journal entries closed (#399..#448), `Open technical defects: 0`**.
+Every number below was produced by a command in the repository (see `docs/METRICS.md`).
+
+### Added
+
+- `tools/funnel_accounting.py` — the coverage funnel's arithmetic under locked contracts
+  (`@kern:requires`/`@kern:ensures`, checked by `kernc`, sealed in `contracts.lock.json`).
+- `tools/clike_ir_check.py` — a table-driven IR gate (19 Int + 5 BV + 2 safeguards) plus an
+  instant IR snapshot of both corpora; `tools/mutation_lock_check.py`;
+  `tools/source_hygiene_check.py` (the `0x08` ratchet).
+- `docs/PLAN_takt22.*` and `docs/PLAN_takt23.*` — self-contained plans with acceptance
+  criteria, safeguards and boundaries, kept under RU/EN parity.
+
+### Changed
+
+- `--xray` coverage of functions with branches: `cmark-gfm/src` `41.8% -> 95.1%`
+  (`76/182 -> 173/182`), `actions/toolkit` `12.6% -> 93.5%` (`72/77`), with **0 false alarms**.
+  The TS denominator was cleaned of 308 `await`/`throw` calls (`458 -> 150`);
+  `scanners.c` is **5.3x faster** (SMT memoisation).
+- `src/verifier/proof_check.zig`: **6 of 7** `smtlib-proof-check` tasks now pass with
+  `trusted: 0` (was 3) and **0 rejected proofs** (`unbound = 0` everywhere); trusted steps on
+  `QF_BV/add_three.4_bit` dropped **`2970 -> 646`**; the report identity
+  `checked + trusted + other + holes == steps` holds to the unit.
+- `src/next/`: the Belnap conflict `B = JOIN_K(T, F)` (`conflicted`) is representable in the
+  SQLite catalogue (CHECK generated at compile time from `ast.Status`) and is no longer
+  collapsed into `"refuted"` in `agent_packet.json`.
+- `--anti-cheat`: rules moved from syntax to context; noise over its own 132 files of
+  `tools/*.py` dropped **31 -> 0** while all **12/12** classes stay caught.
+- 8 tools of `tools/` now honour `$ZIG`; `kernc --help` prints 27/27 tokens to stdout.
+
+### Fixed
+
+- Journal entries `#399..#448`, including: a falsely inflated coverage denominator (`#410`),
+  a silent `0 findings` without a solver (`#407`), eight control bytes `0x08` instead of
+  `` (`#413`), a false HAVOC model `!f(c)` (`#414`), a crash on `xml.c` (`#412`),
+  vanishing steps in `storeinv` (`#433`), the report identity (`#432`), the three axioms of
+  the theory of arrays (`#445`), a 139-level `let` nest (`#443`), and the sealing tool's
+  raw traceback (`#448`).
+
+
 ## [2.8.0] — 2026-10-27
 
 ### Added
