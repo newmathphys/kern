@@ -19,7 +19,9 @@ echo "[OK] --xray: все три класса находок подтвержд�
 BOUNDS=$(timeout 300 python3 tools/kern_contracts.py --xray examples/array_bounds.py 2>&1) || { echo "[!] xray на array_bounds упал"; exit 1; }
 echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_unsafe' || { echo "[!] get_unsafe НЕ обвинён — детектор границ слеп"; exit 1; }
 if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_safe'; then echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_safe (гарды не учтены)"; exit 1; fi
-echo "$BOUNDS" | grep -q 'BOUNDS\] get_unknown_len' || { echo "[!] нет честного 'длина неизвестна'"; exit 1; }
+# #454: неопределённость длины -> ЗАМЕТКА `note: [BOUNDS?]`, а НЕ находка.
+echo "$BOUNDS" | grep -q 'note: \[BOUNDS?\] get_unknown_len' || { echo "[!] нет честного 'длина неизвестна' (заметка #454)"; exit 1; }
+if echo "$BOUNDS" | grep -qE '^\s*\[BOUNDS\?\] get_unknown_len'; then echo "[!] #454: неопределённость печатается как НАХОДКА"; exit 1; fi
 echo "[OK] границы: get_unsafe обвинён, get_safe НЕ обвинён, неизвестная длина честно помечена"
 
 # ДЕФЕКТ #322: ГАРДЫ, КОТОРЫЕ РАНЬШЕ НЕ УЧИТЫВАЛИСЬ. Каждый случай проверяется
@@ -278,3 +280,19 @@ if echo "$TS_CALLS" | grep -q 'DEAD BRANCH'; then
 fi
 echo "[OK] #410: await/throw new — ВЫЗОВЫ, а не функции (Σ 1 == total 1), ложной мёртвой ветви нет"
 
+
+# ДЕФЕКТ #454: НЕОПРЕДЕЛЁННОСТЬ НЕ ЯВЛЯЕТСЯ НАХОДКОЙ.
+# Маркер `[BOUNDS]` (индекс в список НЕИЗВЕСТНОЙ длины) шёл в находки, хотя его
+# собственный текст — «границы НЕ проверены», то есть Белнап N, а не вердикт.
+# ИЗМЕРЕНО на QuixBugs (`correct_python_programs`, SHA 4257f44b): 81 «находка»
+# против 80 на багованном корпусе — сигнала НЕТ, а чистый код обвиняется.
+# Теперь это ЗАМЕТКА (`note: [BOUNDS?]`), находкой остаётся только `[BOUNDS PATH]`.
+# Контроль двусторонний: заметка ОБЯЗАНА быть, находок ОБЯЗАНО не быть.
+BOUNDS_UNK=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_bounds_unknown.py 2>&1) || true
+echo "$BOUNDS_UNK" | grep -q 'BOUNDS?' \
+  || { echo "[!] #454: неопределённость длины вообще не названа"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
+echo "$BOUNDS_UNK" | grep -qE 'findings 0' \
+  || { echo "[!] #454: неопределённость снова считается НАХОДКОЙ"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
+echo "$BOUNDS_UNK" | grep -qE 'note: \[BOUNDS\?\]' \
+  || { echo "[!] #454: маркер не переведён в класс ЗАМЕТКИ (note:)"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
+echo "[OK] #454: неопределённость длины = ЗАМЕТКА (N), а не находка (findings 0)"

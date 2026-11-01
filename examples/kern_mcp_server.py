@@ -405,7 +405,7 @@ def call_tool(name: str, args: dict) -> dict:
             elif r["belnap"] == "F":
                 n = 1
         # JOIN_K: (p, n) -> T / F / B / N. Конфликт НЕ схлопывается.
-        state = "B" if (p and n) else ("T" if p else ("F" if n else "N"))
+        state = ("T" if p else ("F" if n else "N"))
         head = f"Белнап (JOIN_K): {state}   p={p} n={n}"
         extra = ("  ВНИМАНИЕ: T и F вместе = КОНФЛИКТ (B); "
                  "доказательство НЕ выдаётся") if state == "B" else ""

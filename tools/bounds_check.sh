@@ -13,7 +13,8 @@ echo "$OUT" | grep -q 'BOUNDS PATH\] get_unsafe' \
 if echo "$OUT" | grep -q 'BOUNDS PATH\] get_safe'; then
   echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ get_safe (гарды не учтены) — Дефект #134 вернулся"; exit 1
 fi
-echo "$OUT" | grep -q 'BOUNDS\] get_unknown_len' \
+# #454: неопределённость длины -> ЗАМЕТКА `note: [BOUNDS?]`, а НЕ находка.
+echo "$OUT" | grep -q 'note: \[BOUNDS?\] get_unknown_len' \
   || { echo "[!] нет честного «длина неизвестна»"; exit 1; }
 echo "[OK] границы: get_unsafe обвинён, get_safe НЕ обвинён, неизвестная длина помечена честно"
 

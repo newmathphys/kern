@@ -5611,7 +5611,7 @@ def _deal_pre_path(fn, syms: set) -> list:
 
 
 def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
-                 in_while=False):
+                 in_while=False, notes=None):
     """Обход тела с накоплением путевых условий (Пункт 21, Zero-Annotation).
 
     `in_while` — ДЕФЕКТ #315: внутри `while` ПОЛНЫЙ инвариант цикла не
@@ -5657,16 +5657,16 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 name, k = fixed_len
                 lens[name] = k
             _walk_bounds(st.body, eff + ([cond] if cond else []), params, lens,
-                         kernc, found, fname, syms, in_while=in_while)
+                         kernc, found, fname, syms, in_while=in_while, notes=notes)
             neg = f"(not {cond})" if cond else None
             _walk_bounds(st.orelse, eff + ([neg] if neg else []), params, lens,
-                         kernc, found, fname, syms, in_while=in_while)
+                         kernc, found, fname, syms, in_while=in_while, notes=notes)
             # ИНДЕКСЫ В УСЛОВИИ `if` (дефект #315): ветка завершается `continue`,
             # поэтому общий `ast.walk` по инструкции до них НЕ доходил — индекс
             # вида `if a[i] == 5:` не проверялся ВООБЩЕ. Условие вычисляется на
             # текущем пути, поэтому сканируем его с тем же `eff`.
             for sub in [n for n in ast.walk(st.test) if isinstance(n, ast.Subscript)]:
-                _bounds_one(sub, eff, params, lens, kernc, found, fname, syms, in_while)
+                _bounds_one(sub, eff, params, lens, kernc, found, fname, syms, in_while, notes)
             # ИЗМЕРЕНО: операторы ПОСЛЕ `if` раньше теряли путевое условие, и
             # `get_safe` (с гардами) ЛОЖНО обвинялся в выходе за границы.
             # Если ветка THEN безусловно завершается, то всё последующее
@@ -5692,7 +5692,7 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             _walk_bounds(st.body, wpath, params, lens, kernc, found, fname, syms,
                          in_while=True)
             _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
-                         in_while=in_while)
+                         in_while=in_while, notes=notes)
             # ВАЖНО: индексы бывают и в САМОМ условии цикла (`while a[i] < x`).
             # Раньше их находил общий `ast.walk` по ВСЕЙ инструкции — но тело уже
             # обойдено рекурсией выше, и повторный проход по всему `while` давал
@@ -5708,12 +5708,12 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 var, arr = g
                 cond = f"(and (>= {var} 0) (< {var} kern_len_{arr}))"
                 _walk_bounds(st.body, eff + [cond], params, lens, kernc, found,
-                             fname, syms | {arr}, in_while=in_while)
+                             fname, syms | {arr}, in_while=in_while, notes=notes)
             else:
                 _walk_bounds(st.body, eff, params, lens, kernc, found, fname, syms,
-                             in_while=in_while)
+                             in_while=in_while, notes=notes)
             _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
-                         in_while=in_while)
+                         in_while=in_while, notes=notes)
             continue
         if isinstance(st, ast.Match):
             arr = _match_len_guard(st)
@@ -5727,12 +5727,12 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                     csyms = syms | {arr}
                     extra = [f"(= kern_len_{arr} {pat.value.value})"]
                 _walk_bounds(case.body, eff + extra, params, lens, kernc, found,
-                             fname, csyms, in_while=in_while)
+                             fname, csyms, in_while=in_while, notes=notes)
             continue
         # ДЕФЕКТ #322: путь учитывает УСЛОВНЫЕ ВЫРАЖЕНИЯ — тернарник
         # (`x[0] if xs else None`) это ГАРД своей ветви, а не общий путь.
         for sub, spath in _subscripts_with_path(st, eff, syms):
-            _bounds_one(sub, spath, params, lens, kernc, found, fname, syms, in_while)
+            _bounds_one(sub, spath, params, lens, kernc, found, fname, syms, in_while, notes)
 
 
 def _subscripts_with_path(st, path: list, syms: set) -> list:
@@ -5839,7 +5839,8 @@ def _loop_modified(stmts) -> set:
     return names
 
 
-def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while):
+def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
+                 notes=None):
     """Проверить ОДИН индекс `arr[idx]` на выход за границы.
 
     Вынесено из `_walk_bounds`, потому что индексы бывают не только в телах
@@ -5862,9 +5863,20 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while):
         pre = [f"(>= {n} 0)"]
         human = "0..kern_len_%s-1 (символическая длина)" % arr
     else:
-        found.append(f"[BOUNDS] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
-                     f"длина НЕ известна (нет литерала и нет `len({arr})` "
-                     f"в условиях), границы НЕ проверены")
+        # ДЕФЕКТ #454 (ИЗМЕРЕНО на QuixBugs): маркер `[BOUNDS]` шёл в НАХОДКИ,
+        # хотя его собственный текст — «границы НЕ проверены», то есть
+        # НЕОПРЕДЕЛЁННОСТЬ (Белнап N), а не вердикт. Последствия на чистом
+        # корпусе `correct_python_programs`: 81 «находка», на багованных
+        # `python_programs` — 80: сигнала НЕТ, а чистый код обвиняется.
+        # Теперь это ЗАМЕТКА (`note:`, класс N), а находкой остаётся только
+        # `[BOUNDS PATH]` — доказанный выход с контрпримером.
+        msg = (f"[BOUNDS?] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
+               f"длина НЕ известна (нет литерала и нет `len({arr})` в условиях): "
+               f"границы НЕ проверены, это НЕОПРЕДЕЛЁННОСТЬ (N), не находка")
+        if notes is not None:
+            notes.append(msg)
+        else:
+            found.append(msg)
         return
     try:
         # ДЕФЕКТ #322: индекс, записанный через `len(b)`, давал СВОБОДНЫЙ символ
@@ -8161,7 +8173,8 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
         # ДЕФЕКТ #322: контекст «какие имена меняются в циклах» — на одну функцию.
         _LOOP_MODIFIED.clear()
         _LOOP_MODIFIED.update(_loop_modified(fn.body))
-        _walk_bounds(fn.body, list(_pre), params, lens, kernc, found, fn.name, syms)
+        _walk_bounds(fn.body, list(_pre), params, lens, kernc, found, fn.name, syms,
+                     notes=notes)
         # ДЕФЕКТ #208: считаем ТОЛЬКО функции, где решатель реально вызывался
         # (счётчик читается ПОСЛЕ обхода, иначе он всегда 0). Функция с нулём
         # обязательств — «прочитана», но НЕ «проверена».

@@ -5670,3 +5670,26 @@ MEASURED: the first version used `metric exit_code = 2` and gave `N->B 0` — no
 conflict. Core convention (`#96`): `0 -> T`, `2 -> N` (SKIP/NO_EVIDENCE),
 otherwise `F`. This is `#424` in reverse: there `B` collapsed to `F`, here `F`
 collapses to `N`.
+
+## §185. POLYGON 2 (Python): UNCERTAINTY IS NOT A FINDING (#454)
+
+**Corpus:** local `QuixBugs`, pinned at **`4257f44b0ff1181dedaedee6a447e133219fcebf`**.
+
+**MEASURED BEFORE:** clean `correct_python_programs` -> **81 findings**;
+buggy `python_programs` -> **80 findings**. No signal at all, and clean code is
+accused. Cause: the `[BOUNDS]` marker (index into a list of UNKNOWN length) was
+appended to `found`, while its own text says bounds were NOT checked, i.e.
+Belnap **N**, not a verdict (class `#405`/`#407`).
+
+**FIXED:** uncertainty now goes to notes (`note: [BOUNDS?] ...`); only
+`[BOUNDS PATH]` (proven, with a counterexample) remains a finding.
+
+**MEASURED AFTER:** clean **81 -> 34**, buggy **80 -> 33**; no regression on
+`audits/codecheck` (same buckets `13 | 3 | 0`, same 4 findings).
+
+### 185.1 BOUNDARY NAMED HONESTLY: QuixBugs cannot measure specificity
+
+The remaining 34/33 are `[BOUNDS PATH]` and are NOT false: QuixBugs "correct"
+programs carry UNCHECKED preconditions (`bucketsort(arr, k)` needs `x < k`), so
+this is a missing-precondition report. The discriminating metric on this corpus
+is the PAIRWISE diff (`quixbugs-diff-check`, **40/40 DIVERGED**).

@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->241 targets · **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 CHECK** · <!-- fact:canfail_cases -->225 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** — Polygon 5 landed: `kernx-polygon5-check` drives the full `kernx` chain on REAL artifacts from polygons 1 and 4 and shows all four Belnap states (**T/F/B/N**) in one run (`N->B 1`), with the packet keeping `conflicted` distinct from `refuted`; the gate RE-MEASURES `pytest rc=0` / `anti-cheat rc=1` and requires the record in `audits/polygon5.kern` to match. `#453` (exit code `2` means N, not F) fixed. Polygons 1 and 4 are complete |
+| Open technical defects | **0** — Polygon 2 recon (Python/QuixBugs, pinned `4257f44b`) FOUND and FIXED `#454`: the `[BOUNDS]` marker (index into a list of UNKNOWN length) was counted as a FINDING while its own text says bounds were NOT checked (Belnap N). MEASURED: clean corpus 81 findings vs buggy 80 — no signal; after the fix 34 vs 33 and the uncertainty became a note `note: [BOUNDS?]`. BOUNDARY: QuixBugs cannot measure specificity (its "correct" programs carry unchecked preconditions) - the discriminating metric is the pairwise diff (`quixbugs-diff-check`, 40/40). Polygons 1, 4, 5 complete |
 
 ## Open work
 
