@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -5428,3 +5428,51 @@ not one => **the risk of a FALSE PROOF**. Hence:
 `6 of 7` tasks with `trusted: 0` is **NOT** reachable through these 11 steps with a single
 change: even closing all 6 pure axioms leaves ~5 combined steps in each `storeinv`. This had
 to be known BEFORE implementing - otherwise the expectation of "+11 steps" would not hold.
+
+## §180. `#445`: THREE AXIOMS OF THE THEORY OF ARRAYS - "6 OF 7" REACHED
+
+### 180.1 THE REVIEWER'S CORRECTION WAS RIGHT, AND MY ERROR WAS GROSS
+
+In §201 I wrote about the 12 "combined" steps: "for `i1 = ext` the claim requires
+`select a2 ext = select a1 i1` - which is NOT true by itself".
+
+**THAT IS WRONG.** I analysed the case `i1 = ext` by asking about the SECOND literal and
+**ignored that the first literal `(= i1 ext)` is TRUE in that case**, while `TRUE ∨ Q ≡ TRUE`
+for any `Q`. Hence the whole formula
+`(i = j) ∨ (select(A,j) = select(store(A,i,v),j))` is a **pure SECOND McCarthy axiom
+(ROW2, read-over-write miss)**, universal, no context needed.
+
+### 180.2 THREE SCHEMES IMPLEMENTED (structural comparison of subterms)
+
+| Axiom | Scheme |
+|:--|:--|
+| **ROW1** (hit) | `select(store(A,i,v), i) = v` - both orientations of the equality |
+| **ROW2** (miss) | `(i = j) ∨ (select(A,j) = select(store(A,i,v),j))` - both orientations of the disjuncts AND both orientations of `(= i j)`/`(= j i)` |
+| **Extensionality** | `(A = B) ∨ ¬(select(A,e) = select(B,e))`, where `e = ((_ array-ext 0) A B)` is the WITNESS |
+
+**SOUNDNESS:** IDENTICAL subterms are compared (`sexpEqNum`): the array `A`, the indices,
+and the value `v`. If a formula matches the scheme, it is true for ANY `A,i,j,v` (it is an
+axiom), so no proof context is needed. For extensionality the index MUST be exactly the
+witness `array-ext(A,B)`: `(A = B) ∨ (select A e ≠ select B e)` for an ARBITRARY `e` is NOT an
+axiom.
+
+### 180.3 TWO DEFECTS IN MY IMPLEMENTATION, CAUGHT BY THE TEST (written BEFORE the run)
+
+1. **ROW2 covered only `(= i j)`**, not `(= j i)` - the test failed on the reversed operand
+   order. FIXED: both orientations of the index equality.
+2. **`array-ext` is the SECOND element** of `(_ array-ext 0)`, while I checked the first one
+   (`isHead(hdr, "array-ext")` compared `_`). FIXED.
+
+### 180.4 MEASURED
+
+| Task | trusted BEFORE | AFTER | axioms | verdict |
+|:--|--:|--:|--:|:--|
+| `storeinv...np_nf...` | 11 | **0** | 11 | **`[PROOF VERIFIED] trusted: 0`** |
+| `storeinv...np_sf...` | 11 | **0** | 11 | **`[PROOF VERIFIED] trusted: 0`** |
+| `2PhLockVParam_RC-07` | 0 | 0 | 0 | unchanged |
+
+The identities hold: `4+12+0+2+24+17+11 = 70`, `+0+8 = 78` OK;
+`12+14+0+10+32+26+11 = 105`, `+0+20 = 125` OK.
+
+**RESULT: the number of tasks with `trusted: 0` became `6 of 7`** (was 4). The only partial
+one is `QF_BV/add_three.4_bit` (646 trusted: the bit-blaster, an honest boundary).

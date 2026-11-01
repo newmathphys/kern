@@ -308,6 +308,7 @@ def run_prove(path: Path) -> dict:
         ("n_rewrite", r"\| rewrite\(лин\.\) (\d+) \|"),
         ("n_eq", r"\| eq\(refl/symm/trans\) (\d+) \|"),
         ("n_bool", r"\| bool\(and-elim/not-or-elim/mono\) (\d+) \|"),
+        ("n_array", r"\| аксиомы массивов (\d+) \|"),
     ):
         mm = re.search(pat, out)
         if mm:
@@ -687,7 +688,7 @@ def verdict(rep: dict) -> list[str]:
             # == шагов. Инвариант ловит ОБА измеренных класса: двойной счёт
             # (#432: колонка считала ВСЕ шаги правила) и ИСЧЕЗНОВЕНИЕ шагов из
             # отчёта (#433: `.structural_only` не был ни проверен, ни доверен).
-            _cat = ("n_mp", "n_unitres", "n_farkas", "n_rewrite", "n_eq", "n_bool")
+            _cat = ("n_mp", "n_unitres", "n_farkas", "n_rewrite", "n_eq", "n_bool", "n_array")
             if pr.get("steps") and all(k in pr for k in _cat) and "other" in pr:
                 _verified = sum(pr[k] for k in _cat)
                 _sum = _verified + pr.get("trusted", 0) + pr["other"] + pr.get("holes", 0)
@@ -905,6 +906,7 @@ def selftest() -> int:
                                                       "n_mp": 4, "n_unitres": 12,
                                                       "n_farkas": 0, "n_rewrite": 2,
                                                       "n_eq": 24, "n_bool": 13,
+                                                      "n_array": 0,
                                                       "first_trusted_rule": "lemma"}},
                                  "b.smt2": {"status": "sat", "lia": {"skip": True}},
                                  "c.smt2": {"status": "sat", "lia": {"skip": True}},
@@ -917,6 +919,7 @@ def selftest() -> int:
                                                          "n_mp": 4, "n_unitres": 12,
                                                          "n_farkas": 0, "n_rewrite": 2,
                                                          "n_eq": 24, "n_bool": 13,
+                                                         "n_array": 0,
                                                          "first_trusted_rule":
                                                              "th-lemma (структурно)"}},
                                   "b.smt2": {"status": "sat", "lia": {"skip": True}},

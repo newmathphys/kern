@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->490 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
 > CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -12843,3 +12843,51 @@ fn expandLets(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
 `6 из 7` задач с `trusted: 0` через эти 11 шагов **НЕ достигается одной правкой**:
 даже закрыв все 6 чистых аксиом, в каждой `storeinv` останется ~5 комбинированных шагов.
 Это надо знать ДО реализации — иначе ожидание «+11 шагов» не оправдается.
+
+## §202. `#445`: ТРИ АКСИОМЫ ТЕОРИИ МАССИВОВ — «6 ИЗ 7» ДОСТИГНУТО
+
+### 202.1 ПОПРАВКА РЕВЬЮЕРА БЫЛА ВЕРНА, И МОЯ ОШИБКА БЫЛА ГРУБОЙ
+
+В §201 я написал про 12 «комбинированных» шагов: «при `i1 = ext` утверждение
+требует `select a2 ext = select a1 i1` — НЕ верно само по себе».
+
+**ЭТО НЕВЕРНО.** Я разбирал случай `i1 = ext`, спрашивая про ВТОРОЙ литерал, и
+**проигнорировал, что первый литерал `(= i1 ext)` в этом случае ИСТИНЕН**, а
+`TRUE ∨ Q ≡ TRUE` при любом `Q`. Значит вся формула
+`(i = j) ∨ (select(A,j) = select(store(A,i,v),j))` — это **чистая ВТОРАЯ аксиома
+Маккарти (ROW2, read-over-write miss)**, универсальная, контекст не нужен.
+
+### 202.2 РЕАЛИЗОВАНО ТРИ СХЕМЫ (структурное сравнение подтермов)
+
+| Аксиома | Схема |
+|:--|:--|
+| **ROW1** (hit) | `select(store(A,i,v), i) = v` — обе ориентации равенства |
+| **ROW2** (miss) | `(i = j) ∨ (select(A,j) = select(store(A,i,v),j))` — обе ориентации дизъюнктов И обе ориентации `(= i j)`/`(= j i)` |
+| **Экстенсиональность** | `(A = B) ∨ ¬(select(A,e) = select(B,e))`, где `e = ((_ array-ext 0) A B)` — СВИДЕТЕЛЬ |
+
+**ЗВУЧНОСТЬ:** сравниваются ТОЖДЕСТВЕННЫЕ подтермы (`sexpEqNum`): массив `A`,
+индексы, значение `v`. Если формула совпала со схемой — она истинна при ЛЮБЫХ
+`A,i,j,v` (это аксиома), поэтому контекст вывода не нужен. Для
+экстенсиональности ТРЕБУЕТСЯ, чтобы индекс был ИМЕННО свидетелем `array-ext(A,B)`:
+`(A = B) ∨ (select A e ≠ select B e)` при ПРОИЗВОЛЬНОМ `e` — НЕ аксиома.
+
+### 202.3 ДВА ДЕФЕКТА В МОЕЙ РЕАЛИЗАЦИИ, ПОЙМАННЫЕ ТЕСТОМ (написанным ДО прогона)
+
+1. **ROW2 покрывал только `(= i j)`**, но не `(= j i)` — тест упал на обратном
+   порядке операндов. ИСПРАВЛЕНО: обе ориентации равенства индексов.
+2. **`array-ext` стоит ВТОРЫМ элементом** `(_ array-ext 0)`, а я проверял первый
+   (`isHead(hdr, "array-ext")` сравнивал `_`). ИСПРАВЛЕНО.
+
+### 202.4 ИЗМЕРЕНО
+
+| Задача | доверенных ДО | ПОСЛЕ | аксиом | вердикт |
+|:--|--:|--:|--:|:--|
+| `storeinv…np_nf…` | 11 | **0** | 11 | **`[PROOF VERIFIED] trusted: 0`** |
+| `storeinv…np_sf…` | 11 | **0** | 11 | **`[PROOF VERIFIED] trusted: 0`** |
+| `2PhLockVParam_RC-07` | 0 | 0 | 0 | без изменений |
+
+Тождества сходятся: `4+12+0+2+24+17+11 = 70`, `+0+8 = 78` ✅;
+`12+14+0+10+32+26+11 = 105`, `+0+20 = 125` ✅.
+
+**ИТОГ: задач с `trusted: 0` стало `6 из 7`** (было 4). Единственная частичная —
+`QF_BV/add_three.4_bit` (646 доверенных: битовый бластер, честная граница).

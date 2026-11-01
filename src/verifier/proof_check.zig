@@ -108,6 +108,10 @@ pub const ProofVerdict = struct {
     rewrite_bad: usize = 0, // rewrite, где обе стороны сравнения, но равенства НЕТ
     eq_verified: usize = 0, // refl / symm / trans — проверены структурно
     bool_verified: usize = 0, // and-elim / monotonicity — проверены подстановкой
+    /// ДЕФЕКТ #445 (Вариант А, шаг 2): шаги `th-lemma`, оказавшиеся АКСИОМАМИ
+    /// ТЕОРИИ МАССИВОВ (ROW1 / ROW2 / экстенсиональность) — проверены СТРУКТУРНО
+    /// по точной схеме аксиомы, без обращения к контексту вывода.
+    array_axiom_checked: usize = 0,
     trusted_steps: usize = 0, // что осталось непроверяемым — честно посчитано
     /// ДЕФЕКТ #432: шаги, не отнесённые ни к проверенным, ни к доверенным, ни
     /// к дырам (asserted / hypothesis / неизвестные правила). Нужны, чтобы
@@ -4082,6 +4086,122 @@ fn asLeZero(c: *const Ctx, lit: Sexp, out: *std.array_list.Managed(builtin_lia.L
 }
 
 /// ПРОВЕРИТЬ НЕВЕСОВУЮ `((_ th-lemma arith) p1 … pm concl)`.
+/// Голова списка равна `name`?
+fn isHead(e: Sexp, name: []const u8) bool {
+    const h = e.headAtom() orelse return false;
+    return std.mem.eql(u8, h, name);
+}
+
+// =========================================================================
+// АКСИОМЫ ТЕОРИИ МАССИВОВ (дефект #445, Вариант А плана, шаг 2)
+// =========================================================================
+//
+// ЗАЧЕМ. ИЗМЕРЕНО дампом `[dbg-trusted-exp]`: 22 доверенных шага `th-lemma` в
+// двух задачах `storeinv` — это РОВНО три универсальные аксиомы теории массивов,
+// а не «форма вне модели»:
+//
+//   ROW1 (read-over-write hit):   select(store(A,i,v), i) = v
+//   ROW2 (read-over-write miss):  (i = j) ∨ (select(A,j) = select(store(A,i,v),j))
+//   Экстенсиональность:           (A = B) ∨ ¬(select(A,e) = select(B,e)),
+//                                 где e = ((_ array-ext 0) A B) — СВИДЕТЕЛЬ
+//
+// ПОЧЕМУ ЭТО ЗВУЧНО. Каждая схема проверяется СТРУКТУРНО: сравниваются
+// ТОЖДЕСТВЕННЫЕ подтермы (`sexpEqNum`) — массив `A`, индексы `i`/`j`, значение
+// `v`. Никакого доверия решателю: если формула совпала со схемой, она ИСТИННА
+// при ЛЮБЫХ `A`, `i`, `j`, `v` (это аксиомы), поэтому контекст вывода не нужен.
+//
+// ВАЖНО (почему раньше я ошибся). В `(or (= i j) (= (select A j) (select (store
+// A i v) j)))` случай `i = j` закрывается ПЕРВЫМ литералом: `TRUE ∨ Q ≡ TRUE`.
+// Проверять надо ВСЮ дизъюнкцию, а не второй литерал в отдельности.
+//
+// ГРАНИЦА: схема требует ТОЖДЕСТВА массива `A` слева и внутри `store`, а для
+// экстенсиональности — чтобы индекс был ИМЕННО свидетелем `array-ext(A,B)`.
+// Иначе возвращается `false` (шаг честно остаётся доверенным), потому что
+// `(A = B) ∨ (select A e ≠ select B e)` при ПРОИЗВОЛЬНОМ `e` — НЕ аксиома.
+
+/// ROW1: `(= (select (store A i v) i) v)` — в любую сторону равенства.
+fn row1One(val: Sexp, sel: Sexp) bool {
+    if (!sel.isList() or sel.items.len != 3 or !isHead(sel, "select")) return false;
+    const arr = sel.items[1];
+    const idx = sel.items[2];
+    if (!arr.isList() or arr.items.len != 4 or !isHead(arr, "store")) return false;
+    if (!sexpEqNum(arr.items[2], idx)) return false; // индекс записи == индекс чтения
+    return sexpEqNum(arr.items[3], val); // значение записи == второй операнд
+}
+
+fn row1Eq(l: Sexp, r: Sexp) bool {
+    return row1One(l, r) or row1One(r, l);
+}
+
+/// ROW2: `(= (select A j) (select (store A i v) j))` при известных `i`, `j`.
+fn row2Sel(x: Sexp, y: Sexp, i: Sexp, j: Sexp) bool {
+    if (!x.isList() or x.items.len != 3 or !isHead(x, "select")) return false;
+    const a = x.items[1];
+    if (!sexpEqNum(x.items[2], j)) return false;
+    if (!y.isList() or y.items.len != 3 or !isHead(y, "select")) return false;
+    const st = y.items[1];
+    if (!st.isList() or st.items.len != 4 or !isHead(st, "store")) return false;
+    if (!sexpEqNum(st.items[1], a)) return false; // ТОТ ЖЕ массив
+    if (!sexpEqNum(st.items[2], i)) return false; // индекс записи == i
+    return sexpEqNum(y.items[2], j); // индекс чтения == j
+}
+
+fn row2Or(eq_idx: Sexp, eq_sel: Sexp) bool {
+    if (!isEq3(eq_idx) or !isEq3(eq_sel)) return false;
+    const a1 = eq_idx.items[1];
+    const a2 = eq_idx.items[2];
+    // ОБЕ ориентации равенства индексов: `(= i j)` И `(= j i)` — тест поймал,
+    // что вторая не покрывалась (ИЗМЕРЕНО: падение теста на `(= j i)`).
+    if (row2Sel(eq_sel.items[1], eq_sel.items[2], a1, a2) or
+        row2Sel(eq_sel.items[2], eq_sel.items[1], a1, a2)) return true;
+    return row2Sel(eq_sel.items[1], eq_sel.items[2], a2, a1) or
+        row2Sel(eq_sel.items[2], eq_sel.items[1], a2, a1);
+}
+
+/// Экстенсиональность: `(or (= A B) (not (= (select A e) (select B e))))`,
+/// где `e` — ИМЕННО свидетель `((_ array-ext 0) A B)`.
+fn extSel(s1: Sexp, s2: Sexp, a: Sexp, b: Sexp) bool {
+    if (!s1.isList() or s1.items.len != 3 or !isHead(s1, "select")) return false;
+    if (!s2.isList() or s2.items.len != 3 or !isHead(s2, "select")) return false;
+    if (!sexpEqNum(s1.items[1], a) or !sexpEqNum(s2.items[1], b)) return false;
+    const e = s1.items[2];
+    if (!sexpEqNum(e, s2.items[2])) return false;
+    if (!e.isList() or e.items.len != 3) return false;
+    if (!isHead(e.items[0], "_")) return false;
+    const hdr = e.items[0];
+    if (!hdr.isList() or hdr.items.len != 3) return false;
+    // ВНИМАНИЕ: `(_ array-ext 0)` — голова `_`, а `array-ext` стоит ВТОРЫМ
+    // элементом. Проверка `isHead(hdr, "array-ext")` сравнивала бы первый
+    // элемент (`_`) и всегда давала false — ИЗМЕРЕНО падением теста.
+    const kw = hdr.items[1].atom orelse return false;
+    if (!std.mem.eql(u8, kw, "array-ext")) return false;
+    return sexpEqNum(e.items[1], a) and sexpEqNum(e.items[2], b);
+}
+
+fn extOr(eq_ab: Sexp, neg: Sexp) bool {
+    if (!isEq3(eq_ab)) return false;
+    const a = eq_ab.items[1];
+    const b = eq_ab.items[2];
+    const inner = asNot(neg) orelse return false;
+    if (!isEq3(inner)) return false;
+    return extSel(inner.items[1], inner.items[2], a, b) or
+        extSel(inner.items[2], inner.items[1], a, b);
+}
+
+/// Заключение шага — одна из трёх аксиом теории массивов?
+fn arrayAxiomEq(clause: Sexp) bool {
+    if (isEq3(clause)) {
+        if (row1Eq(clause.items[1], clause.items[2])) return true;
+    }
+    if (clause.isList() and clause.items.len == 3 and isHead(clause, "or")) {
+        const x = clause.items[1];
+        const y = clause.items[2];
+        if (row2Or(x, y) or row2Or(y, x)) return true;
+        if (extOr(x, y) or extOr(y, x)) return true;
+    }
+    return false;
+}
+
 fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
     var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
     const dbg = dbgEnv("KERN_DEBUG_LIA") != null;
@@ -5281,6 +5401,10 @@ fn verifyProofKindInner(
             }
         } else if (std.mem.eql(u8, r, "th-lemma")) {
             const clause = expand(&c, proved(st), 0);
+            // ДЕФЕКТ #445: АКСИОМЫ ТЕОРИИ МАССИВОВ проверяются СТРУКТУРНО.
+            if (arrayAxiomEq(clause)) {
+                v.array_axiom_checked += 1;
+            } else {
             var res = verifyFarkas(&c, st.items[0], clause);
             if (res == .structural_only) {
                 // ПУНКТ 3 ПЛАНА v2.5 (дефект #123): весов Фаркаша в выводе НЕТ
@@ -5327,6 +5451,7 @@ fn verifyProofKindInner(
                         dbgPrint("\n", .{});
                     }
                 },
+            }
             }
         } else if (std.mem.eql(u8, r, "rewrite")) {
             // Элементарные тождества: если равенство доказано нормализацией
@@ -5519,6 +5644,7 @@ pub fn check(
     v.rewrite_bad = deep.rewrite_bad;
     v.eq_verified = deep.eq_verified;
     v.bool_verified = deep.bool_verified;
+    v.array_axiom_checked = deep.array_axiom_checked;
     v.trusted_steps = deep.trusted_steps;
     v.other_steps = deep.other_steps;
     v.first_trusted = deep.first_trusted;
@@ -6279,6 +6405,28 @@ test "ХАРДКОР: unit-resolution с парой (not P), P -> verified (ст
     // с `and` условие ложно, и шаг стал бы `.unverifiable` вместо `.verified`.
     try std.testing.expectEqual(CheckResult.verified,
         checkUnitRes(&c, try parseSexp(a, "(unit-resolution @p1 @p2 false)")));
+}
+
+test "ХАРДКОР: аксиомы теории массивов ROW1/ROW2/Extensionality (#445)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    // ROW1: (= (select (store A i v) i) v) — обе ориентации равенства.
+    try std.testing.expect(arrayAxiomEq(try parseSexp(a, "(= (select (store A i v) i) v)")));
+    try std.testing.expect(arrayAxiomEq(try parseSexp(a, "(= v (select (store A i v) i))")));
+    // ROW2: (or (= i j) (= (select A j) (select (store A i v) j))) — обе ориентации
+    // и дизъюнктов, и операндов равенства (важно: случай i = j закрывается ПЕРВЫМ
+    // литералом, поэтому проверять надо ВСЮ дизъюнкцию).
+    try std.testing.expect(arrayAxiomEq(try parseSexp(a, "(or (= i j) (= (select A j) (select (store A i v) j)))")));
+    try std.testing.expect(arrayAxiomEq(try parseSexp(a, "(or (= (select A j) (select (store A i v) j)) (= j i))")));
+    // Экстенсиональность — со СВИДЕТЕЛЕМ ((_ array-ext 0) A B).
+    try std.testing.expect(arrayAxiomEq(try parseSexp(a, "(or (= A B) (not (= (select A ((_ array-ext 0) A B)) (select B ((_ array-ext 0) A B)))))")));
+    // АТАКА 1: ROW1 с РАЗНЫМИ индексами — НЕ аксиома.
+    try std.testing.expect(!arrayAxiomEq(try parseSexp(a, "(= (select (store A i v) j) v)")));
+    // АТАКА 2: ROW2 с РАЗНЫМИ массивами слева и в store — НЕ аксиома.
+    try std.testing.expect(!arrayAxiomEq(try parseSexp(a, "(or (= i j) (= (select A j) (select (store B i v) j)))")));
+    // АТАКА 3: экстенсиональность с ПРОИЗВОЛЬНЫМ индексом (не свидетелем) — НЕ аксиома.
+    try std.testing.expect(!arrayAxiomEq(try parseSexp(a, "(or (= A B) (not (= (select A e) (select B e)))))")));
 }
 
 test "ХАРДКОР: входной let в контракте раскрывается (#441)" {
