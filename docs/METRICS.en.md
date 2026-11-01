@@ -5382,3 +5382,49 @@ level. Measurements (the `[dbg-len]` instrumentation, enabled also on SUCCESSFUL
 
 **CONCLUSION:** the cause was EXACTLY the depth limit - not a "theory axiom" (the refuted
 `#442`) and not a buffer size.
+
+## §179. VARIANT A, STEP 1: A DUMP OF THE 22 `th-lemma (структурно)` STEPS AND THEIR CLASSIFICATION
+
+### 179.1 What was captured
+
+`markTrustedExp` was wired into the `.structural_only` branch of `th-lemma` and a dump was
+taken for both `storeinv` tasks (`...np_nf...` and `...np_sf...`) - 11 steps each,
+**22 in total**.
+
+### 179.2 THE CLASSIFICATION (measured, not assumed)
+
+| Shape | Count | Checkability |
+|:--|--:|:--|
+| **McCarthy**: `(= v (select (store A i v) i))` | **4** | OK: if the `select` index is IDENTICAL to the `store` index and the third `store` argument is identical to the second operand |
+| **Extensionality**: `(or (= A B) (not (= (select A e) (select B e))))`, `e = ((_ array-ext 0) A B)` | **2** | OK by SHAPE (the witness is the same `A`,`B`) |
+| **Combined**: `(or (= i j) (= (select X j) (select (store Y i v) j)))` | **12** | needs CONTEXT |
+| Other (nested `select(store(...,i2,...),i2)`) | **4** | needs context |
+
+### 179.3 WHY 12 + 4 IS AN HONEST BOUNDARY AND NOT "A BIT MORE CODE"
+
+A concrete example from the dump:
+
+```
+(or (= i1 ((_ array-ext 0) a2 a1))
+    (= (select a2 ((_ array-ext 0) a2 a1))
+       (select (store a2 i1 (select a1 i1)) ((_ array-ext 0) a2 a1))))
+```
+
+* for `i1 != j` (`j = ext`): `select(store(a2, i1, v), j) = select(a2, j)` => both sides are
+  EQUAL - the step is valid;
+* for `i1 = j`: `select(store(a2, i1, v), j) = v = select(a1, i1)`, and the claim requires
+  `select a2 j = select a1 i1` - which is NOT true by itself.
+
+So the step is true IN THE CONTEXT of the proof (given earlier steps and hypotheses) but is
+**NOT a universal axiom**. Checking it "by shape" would accept as an axiom something that is
+not one => **the risk of a FALSE PROOF**. Hence:
+
+* **6 of 22** (McCarthy + extensionality) can be closed soundly and simply;
+* **16 of 22** is a boundary requiring a full theory of arrays (McCarthy axioms +
+  extensionality + DERIVATION from the context) rather than a structural check.
+
+### 179.4 CONSEQUENCE FOR THE PLAN
+
+`6 of 7` tasks with `trusted: 0` is **NOT** reachable through these 11 steps with a single
+change: even closing all 6 pure axioms leaves ~5 combined steps in each `storeinv`. This had
+to be known BEFORE implementing - otherwise the expectation of "+11 steps" would not hold.
