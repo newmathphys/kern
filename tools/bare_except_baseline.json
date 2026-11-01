@@ -1,6 +1,7 @@
 {
  "bench_json.py": 1,
  "bug_hunter.py": 1,
+ "clike_ir_check.py": 2,
  "evidence_guard.py": 1,
  "humaneval_api.py": 2,
  "kern_exec_runner.py": 1,
@@ -12,5 +13,7 @@
  "refactory_diag.py": 3,
  "refactory_diff.py": 2,
  "refactory_suite.py": 4,
+ "showcase_live.py": 1,
+ "svcomp_witness_check.py": 1,
  "trust_scorecard.py": 4
 }

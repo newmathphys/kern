@@ -3983,7 +3983,12 @@ def _bv_cond_smt(raw_cond: str, w: int = 32, signed: bool = True):
             return None
         node = ast.parse(clike_to_python(rw), mode="eval").body
         return _bv_as_bool(node, {}, w, signed)
-    except Exception:  # noqa: BLE001 — None = «BV-формы нет», это честный исход
+    # ДЕФЕКТ #456: здесь стоял ГОЛЫЙ `except Exception:` (класс #198) — он
+    # скрывал бы и НАШИ ошибки (`NameError`/`AttributeError`/`SyntaxError`).
+    # Теперь ожидаемые отказы молчат, а наши — печатаются через
+    # `_replay_soft` (он различает их по типу, см. #198/#208).
+    except Exception as e:  # noqa: BLE001 — None = «BV-формы нет»
+        _replay_soft(e, "BV-форма условия")
         return None
 
 

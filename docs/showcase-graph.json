@@ -24,11 +24,11 @@
   "#hub": 1,
   "#internal-only": 36,
   "#lang/zig": 91,
-  "#large": 10,
+  "#large": 11,
   "#leaf": 42,
   "#no-contract": 86,
   "#public-api": 55,
-  "#small": 81,
+  "#small": 80,
   "#tested": 59,
   "#untested": 32
  },
@@ -541,7 +541,7 @@
   },
   {
    "id": "main.zig",
-   "loc": 1531,
+   "loc": 1591,
    "pub_fn": 2,
    "tests": 0,
    "kern_annotations": 3,
@@ -589,9 +589,9 @@
   },
   {
    "id": "next/catalog.zig",
-   "loc": 497,
+   "loc": 607,
    "pub_fn": 0,
-   "tests": 7,
+   "tests": 8,
    "kern_annotations": 0,
    "imports_out": 0,
    "claims": [
@@ -600,7 +600,7 @@
     "#no-contract",
     "#tested",
     "#leaf",
-    "#small",
+    "#large",
     "#internal-only"
    ]
   },
@@ -656,9 +656,9 @@
   },
   {
    "id": "next/export.zig",
-   "loc": 251,
+   "loc": 300,
    "pub_fn": 2,
-   "tests": 3,
+   "tests": 4,
    "kern_annotations": 0,
    "imports_out": 2,
    "claims": [
@@ -1358,9 +1358,9 @@
   },
   {
    "id": "verifier/proof_check.zig",
-   "loc": 6629,
+   "loc": 7483,
    "pub_fn": 12,
-   "tests": 96,
+   "tests": 105,
    "kern_annotations": 19,
    "imports_out": 1,
    "claims": [

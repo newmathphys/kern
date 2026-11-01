@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->241 targets · **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 CHECK** · <!-- fact:canfail_cases -->225 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** — `#455` FIXED: the example MCP server collapsed the Belnap conflict (`p=1, n=1` returned `T`, the `B` branch was dead code) AND `mcp-selftest` was RED on HEAD but never wired into `ci.sh` - now a pure `_belnap_state` helper, two direct four-state checks and a new `ci.sh` stage. Polygons 1, 4, 5 closed; Polygon 2 recon closed `#454` (uncertainty is not a finding) |
+| Open technical defects | **0** — the first full `ci-fast` on a clean tree gave 8 failures; two were real and are fixed: `#456` (the `smtlib-proof-partial` canfail case became VACUOUS after `#440`/`#445` - `224 | 1 | 0`; the plant moved to `QF_BV` with 646 trusted steps) and `#457` (bare `except Exception:` in `kern_contracts.py` + a stale baseline after `#448`). The rest were derived artifacts (catalog, 2 evidence logs, MCP manifests, showcase graph, scorecard, attestation) and were regenerated; each of the 8 stages re-checked individually |
 
 ## Open work
 

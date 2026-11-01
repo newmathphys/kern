@@ -1,9 +1,9 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "c089221",
-  "code_hash": "sha256:98db60c1f3c1fc38f78e18a910de4579d705960327ccca30ce0e7192a6021099",
-  "score": 99,
+  "commit": "1f1199e",
+  "code_hash": "sha256:4d71e82996059fc2593eae060f01fda7a3e1e05f0774a3fe494a6c946a8cae32",
+  "score": 100,
   "grade": "A+",
   "breakdown": {
     "license": 10,
@@ -12,7 +12,7 @@
     "ci": 8,
     "build": 8,
     "no_injections": 8,
-    "dup_guard": 0,
+    "dup_guard": 8,
     "sarif": 6,
     "llms": 6,
     "docs": 8,
@@ -27,15 +27,15 @@
     "by_category": {
       "zig": 122,
       "lean": 8,
-      "python": 254,
-      "c11": 40,
+      "python": 264,
+      "c11": 44,
       "rust": 22,
       "go": 1,
       "ts_js": 2,
       "wasm": 1
     },
     "skipped": 4,
-    "total": 450,
+    "total": 464,
     "blind_spot_native_formal": 131
   },
   "mcp": {
@@ -55,9 +55,9 @@
     "attestation": true
   },
   "metrics": {
-    "check_targets": 181,
-    "check_covered": 181,
-    "canfail_cases": 221,
+    "check_targets": 185,
+    "check_covered": 185,
+    "canfail_cases": 225,
     "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
     "qemu": "443 passed / 8 skipped / 0 failed"
   },
@@ -69,9 +69,9 @@
     "build": true,
     "sarif": true,
     "llms": true,
-    "docs_md": 76,
+    "docs_md": 80,
     "injection_markers": 0,
-    "dup_guard": false
+    "dup_guard": true
   },
   "rubric": {
     "base_max": 88,

@@ -5711,3 +5711,20 @@ at all (class `#394.4`/`#429.2`).
 **FIXED:** pure `_belnap_state(p, n)` helper + two direct checks in
 `mcp-selftest` (all four states) + a new `ci.sh` stage. Non-vacuous: planting the
 old expression gives `RC=2`, restoring gives `RC=0`.
+
+## §187. `ci-fast` ON A CLEAN TREE: 8 FAILURES, TWO OF THEM MINE
+
+First full `ci-fast` on a clean tree (27 min; the `canfail` stage ~25 min) gave
+**8 failures**. Two were real defects: `#456` (the `smtlib-proof-partial` case
+became VACUOUS after `#440`/`#445`: `224 non-vacuous | 1 VACUOUS`) and `#457`
+(bare `except Exception:` in `kern_contracts.py` + a stale baseline after
+`#448`). The rest were derived artifacts: test catalog, two evidence logs, MCP
+manifests, showcase graph, scorecard, attestation.
+
+**MEASURED after the fix (per stage):** case went RED in 44 s; `dup_defs_guard`
+RC=0; catalog 491 tests; `evidence-gate` 42 clean logs; `showcase-check`
+91/72; `scorecard-check` matches facts; `graph-check` `kernx == showcase`;
+`ecosystem-check` RC=0.
+
+**Boundary:** the FULL `ci-fast` was NOT re-run; exactly the 8 failing stages
+were re-checked (plus the `#456` case separately).

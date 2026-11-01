@@ -2671,17 +2671,24 @@ def case_smtlib_proof_depth():
 def case_smtlib_proof_partial_label():
     """ДЕФЕКТ #372: метка `[PROOF VERIFIED]` при непроверенных шагах.
 
-    ЛОМАЕМ: условие печати снова без `trusted_steps == 0`. ИЗМЕРЕНО: на
-    официальной задаче `QF_AX/storeinv` вывод принимается с 5 доверенными
-    шагами, и метка «ПОДТВЕРЖДЕНО» появляется там, где часть шагов проверена НЕ
-    БЫЛА. `make smtlib-proof-check` обязан покраснеть: метка подтверждения при
-    непроверенных шагах — та же ложь, что #370/#371.
+    ЛОМАЕМ: условие печати снова без `trusted_steps == 0`.
+
+    ДЕФЕКТ #456 (ИЗМЕРЕНО): кейс стал ВАКУУМНЫМ после `#440`/`#445`. Раньше он
+    бил по `QF_AX/storeinv`, у которой было 5 доверенных шагов — теперь там
+    `trusted: 0` (аксиомы Маккарти ROW1/ROW2/Extensionality проверяются),
+    поэтому снятие условия НИЧЕГО не меняло и цель оставалась ЗЕЛЁНОЙ
+    («ВАКУУМНА: поломка внесена, а цель осталась ЗЕЛЁНОЙ», ИТОГ 224|1|0).
+
+    Теперь поломка бьёт по задаче, где доверенные шаги ЕСТЬ: `QF_BV/
+    add_three.4_bit` (646 доверенных). ИЗМЕРЕНО: `make smtlib-proof-check`
+    обязан покраснеть — метка подтверждения при непроверенных шагах — та же
+    ложь, что #370/#371.
     """
     patch("src/main.zig",
           "                if (pv.checksPass() and pv.proof_concludes_false and pv.trusted_steps == 0) {",
           "                if (pv.checksPass() and pv.proof_concludes_false) {   // ЛОМАЕМ (#372)")
-    return ("zig build && KERN_SMTLIB4_ONLY=QF_AX "
-            "KERN_SMTLIB4_PROOF_TIMEOUT=120 make smtlib-proof-check")
+    return ("zig build && KERN_SMTLIB4_ONLY=QF_BV "
+            "KERN_SMTLIB4_PROOF_TIMEOUT=180 make smtlib-proof-check")
 
 
 def case_smtlib_read_limit():
