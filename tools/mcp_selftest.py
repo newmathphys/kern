@@ -324,6 +324,28 @@ def main() -> int:
     check("битый JSON -> -32700",
           bool(r and r.get("error", {}).get("code") == -32700))
 
+    # 9. ДЕФЕКТ #455: ПРИМЕР-СЕРВЕР НЕ СХЛОПЫВАЕТ КОНФЛИКТ Белнапа.
+    # ИЗМЕРЕНО: в `examples/kern_mcp_server.py` стояло
+    # `("T" if p else ("F" if n else "N"))`, поэтому при `p and n` возвращался
+    # `T` — конфликт `B` схлопывался, а ветка `state == "B"` была МЁРТВЫМ кодом
+    # (класс `#424`: там B->F, здесь B->T). Проверка ПРЯМАЯ и по каждому
+    # состоянию: подмена `_belnap_state(1, 1)` на "T" обязана её покраснить.
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "kern_mcp_server_example",
+            str(Path(__file__).resolve().parent.parent / "examples/kern_mcp_server.py"))
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _got = {pn: _mod._belnap_state(*pn) for pn in ((1, 1), (1, 0), (0, 1), (0, 0))}
+        check("#455 пример-сервер: JOIN_K(1,1) == B (конфликт НЕ схлопнут)",
+              _got[(1, 1)] == "B", f"получено {_got[(1, 1)]!r}")
+        check("#455 пример-сервер: JOIN_K(1,0)=T, (0,1)=F, (0,0)=N",
+              (_got[(1, 0)], _got[(0, 1)], _got[(0, 0)]) == ("T", "F", "N"),
+              f"получено {_got}")
+    except (OSError, AttributeError, ImportError) as exc:
+        check("#455 пример-сервер: проверка выполнима", False, str(exc))
+
     proc.stdin.close()
     proc.wait(timeout=10)
     print("-" * 74)

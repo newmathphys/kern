@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->241 targets · **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 CHECK** · <!-- fact:canfail_cases -->225 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** — Polygon 2 recon (Python/QuixBugs, pinned `4257f44b`) FOUND and FIXED `#454`: the `[BOUNDS]` marker (index into a list of UNKNOWN length) was counted as a FINDING while its own text says bounds were NOT checked (Belnap N). MEASURED: clean corpus 81 findings vs buggy 80 — no signal; after the fix 34 vs 33 and the uncertainty became a note `note: [BOUNDS?]`. BOUNDARY: QuixBugs cannot measure specificity (its "correct" programs carry unchecked preconditions) - the discriminating metric is the pairwise diff (`quixbugs-diff-check`, 40/40). Polygons 1, 4, 5 complete |
+| Open technical defects | **0** — `#455` FIXED: the example MCP server collapsed the Belnap conflict (`p=1, n=1` returned `T`, the `B` branch was dead code) AND `mcp-selftest` was RED on HEAD but never wired into `ci.sh` - now a pure `_belnap_state` helper, two direct four-state checks and a new `ci.sh` stage. Polygons 1, 4, 5 closed; Polygon 2 recon closed `#454` (uncertainty is not a finding) |
 
 ## Open work
 

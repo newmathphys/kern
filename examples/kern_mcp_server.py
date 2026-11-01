@@ -318,6 +318,25 @@ def run_diff_equiv(old_src: str, new_src: str) -> str:
     return (r.stdout + r.stderr).strip()
 
 
+def _belnap_state(p: int, n: int) -> str:
+    """JOIN_K: (p, n) -> T / F / B / N. КОНФЛИКТ НЕ СХЛОПЫВАЕТСЯ.
+
+    ДЕФЕКТ #455 (ИЗМЕРЕНО): раньше здесь стояло
+    `("T" if p else ("F" if n else "N"))` — при `p and n` возвращалось
+    `T`, то есть КОНФЛИКТ `B` схлопывался, хотя комментарий обещал
+    обратное, а ветка `state == "B"` ниже была МЁРТВЫМ кодом.
+    Это класс `#424` (там `B` схлопывался в `F`, здесь — в `T`).
+    Вынесено в ЧИСТУЮ функцию, чтобы это проверялось тестом.
+    """
+    if p and n:
+        return "B"          # КОНФЛИКТ: и доказательство, и опровержение
+    if p:
+        return "T"
+    if n:
+        return "F"
+    return "N"              # нет свидетельств: Врата ЗАКРЫТЫ
+
+
 def text_result(s: str, is_error: bool = False) -> dict:
     return {"content": [{"type": "text", "text": s}], "isError": is_error}
 
@@ -405,7 +424,7 @@ def call_tool(name: str, args: dict) -> dict:
             elif r["belnap"] == "F":
                 n = 1
         # JOIN_K: (p, n) -> T / F / B / N. Конфликт НЕ схлопывается.
-        state = ("T" if p else ("F" if n else "N"))
+        state = _belnap_state(p, n)
         head = f"Белнап (JOIN_K): {state}   p={p} n={n}"
         extra = ("  ВНИМАНИЕ: T и F вместе = КОНФЛИКТ (B); "
                  "доказательство НЕ выдаётся") if state == "B" else ""

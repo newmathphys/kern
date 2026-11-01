@@ -5693,3 +5693,21 @@ The remaining 34/33 are `[BOUNDS PATH]` and are NOT false: QuixBugs "correct"
 programs carry UNCHECKED preconditions (`bucketsort(arr, k)` needs `x < k`), so
 this is a missing-precondition report. The discriminating metric on this corpus
 is the PAIRWISE diff (`quixbugs-diff-check`, **40/40 DIVERGED**).
+
+## §186. DEFECT #455: THE EXAMPLE SERVER COLLAPSED THE BELNAP CONFLICT (B -> T)
+
+FOUND as an unexplained working-tree edit after a timeout-killed harness run
+(`ci.sh fast`, `RC=124`); verified independently rather than trusted.
+
+**MEASURED (`HEAD` version):** `state = ("T" if p else ("F" if n else "N"))`
+returns `T` for `p=1, n=1` — the conflict `B` collapses and the `state == "B"`
+branch is DEAD CODE, while the comment promises the opposite. Class `#424`
+(there `B` -> `F`, here `B` -> **`T`**).
+
+**MEASURED: `make mcp-selftest` was RED on `HEAD`** (`[FAIL] Belnap: T + F = B`,
+`RC=2`) — and never ran, because `mcp-selftest` was NOT wired into `tools/ci.sh`
+at all (class `#394.4`/`#429.2`).
+
+**FIXED:** pure `_belnap_state(p, n)` helper + two direct checks in
+`mcp-selftest` (all four states) + a new `ci.sh` stage. Non-vacuous: planting the
+old expression gives `RC=2`, restoring gives `RC=0`.

@@ -877,9 +877,15 @@ def case_mcp_server():
     проект: противоречие выдаётся за доказательство. Живой self-test
     (tools/mcp_selftest.py) обязан это заметить.
     """
+    # ДЕФЕКТ #455: якорь обновлён под новый код (процедура #113). РАНЬШЕ он
+    # указывал на `state = "B" if (p and n) else …`, которого в `HEAD` НЕ БЫЛО
+    # (там стоял схлопывающий вариант) -> якорь был НЕ ПРИМЕНИМ, кейс ошибался,
+    # и дефект жил при зелёном контуре. ИЗМЕРЕНО: `canfail --check-anchors`
+    # сообщал «ЯКОРЯ НЕ ПРИМЕНИМЫ: examples/kern_mcp_server.py (canfail.py:880)».
+    # Теперь логика в чистой `_belnap_state`, и ломается ИМЕННО ветка конфликта.
     patch("examples/kern_mcp_server.py",
-          'state = "B" if (p and n) else ("T" if p else ("F" if n else "N"))',
-          'state = ("T" if p else ("F" if n else "N"))')
+          '        return "B"          # КОНФЛИКТ: и доказательство, и опровержение',
+          '        return "T"          # ПОДСАДКА #455: конфликт схлопнут')
     return "make mcp-selftest"
 
 
