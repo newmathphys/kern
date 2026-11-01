@@ -9876,6 +9876,26 @@ class _CheatScan(ast.NodeVisitor):
         # правила говорит «внутри проверяемого кода», значит проверять надо
         # КОНТЕКСТ: выход флагается только ВНУТРИ функции.
         self._fn_depth = 0
+        # ДЕФЕКТ #446: КОНТЕКСТ правила. `_in_test` — мы внутри `def test_*`;
+        # `_restored` — пары `(base, attr)`, которым в файле присваивается НЕ-
+        # лямбда (то есть атрибут СОХРАНЯЕТСЯ и ВОССТАНАВЛИВАЕТСЯ).
+        self._in_test = False
+        self._restored: set[tuple[str, str]] = set()
+
+    def visit_Module(self, node):
+        """ДЕФЕКТ #446: собрать атрибуты, которым присваивается НЕ-ЛЯМБДА.
+
+        Если атрибут и подменяется лямбдой, и восстанавливается обычным значением
+        в том же файле — это ЧЕСТНЫЙ СЕЛФ-ТЕСТ С ОТКАТОМ, а не подмена.
+        ИЗМЕРЕНО: `charter_check.py:252` `L.join_code = lambda …`, `:260`
+        `L.join_code = real`.
+        """
+        for st in ast.walk(node):
+            if isinstance(st, ast.Assign) and not isinstance(st.value, ast.Lambda):
+                for t in st.targets:
+                    if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name):
+                        self._restored.add((t.value.id, t.attr))
+        self.generic_visit(node)
 
     def visit_Import(self, node):
         for al in node.names:
@@ -9921,6 +9941,8 @@ class _CheatScan(ast.NodeVisitor):
                     self.findings.append(
                         (f"test disabled by a decorator: {dname}(True)", dec.lineno))
         self._fn_depth += 1
+        was_test = self._in_test
+        self._in_test = node.name.startswith("test")
         try:
             self._scan_body(node)
             # ВАЖНО: обход ТЕЛА идёт с активным счётчиком, иначе вызовы внутри
@@ -9929,6 +9951,7 @@ class _CheatScan(ast.NodeVisitor):
             self.generic_visit(node)
         finally:
             self._fn_depth -= 1
+            self._in_test = was_test
 
     def _scan_body(self, node):
         """Проверки, которые имеют смысл ТОЛЬКО внутри функции."""
@@ -9939,21 +9962,72 @@ class _CheatScan(ast.NodeVisitor):
                     self.findings.append(("always-true __eq__", node.lineno))
                     break
         # (4) хардкод под тест: `if x == 42 and y == 17:`
+        # ДЕФЕКТ #446: считаем ТОЛЬКО ЧИСЛОВЫЕ константы. Настоящая подгонка —
+        # `if x == 42 and y == 17: return 100` (числа под ответы теста), а цепочки
+        # СТРОКОВЫХ тегов — это `switch` парсера/диспетчера. ИЗМЕРЕНО: 59 ложных
+        # срабатываний на `tools/*.py`, напр. `if v == "F" and rc != 0 and
+        # "AssertionError" in out:` (одна числовая константа из трёх сравнений).
         for st in ast.walk(node):
-            if isinstance(st, ast.If) and isinstance(st.test, ast.BoolOp):
-                lits = sum(1 for sub in ast.walk(st.test)
-                           if isinstance(sub, ast.Compare)
-                           and any(isinstance(c, ast.Constant) for c in sub.comparators))
-                if lits >= 2 and isinstance(st.test.op, ast.And):
+            if (isinstance(st, ast.If) and isinstance(st.test, ast.BoolOp)
+                    and isinstance(st.test.op, ast.And)):
+                lits = 0
+                nonzero = False
+                for sub in ast.walk(st.test):
+                    if isinstance(sub, ast.Compare):
+                        for c in sub.comparators:
+                            if (isinstance(c, ast.Constant)
+                                    and isinstance(c.value, (int, float))
+                                    and not isinstance(c.value, bool)):
+                                lits += 1
+                                # ДЕФЕКТ #446: сравнение с НУЛЁМ — это проверка
+                                # «нет ошибок/расхождений» (`if bad_f == 0 and
+                                # bad_t == 0:`), а НЕ подгонка под ответы.
+                                # Подгонка использует РАЗЛИЧНЫЕ НЕНУЛЕВЫЕ константы
+                                # (`if x == 42 and y == 17: return 100`).
+                                if c.value != 0:
+                                    nonzero = True
+                # ДЕФЕКТ #446: подгонка — это «при таком входе ВЕРНУТЬ такое
+                # число». Поэтому требуем ЕЩЁ и `return <числовая константа>` в
+                # теле `if`. ИЗМЕРЕНО: без этого оставалось 9 ложных срабатываний
+                # вида `if bad_f == 0 and bad_t == 0:` (сравнение СЧЁТЧИКОВ) и
+                # `if k == "…" and rm[k] == 0 and dm[k] > 0:` (диспетчер).
+                ret_num = any(
+                    isinstance(r, ast.Return) and isinstance(r.value, ast.Constant)
+                    and isinstance(r.value.value, (int, float))
+                    and not isinstance(r.value.value, bool)
+                    for r in ast.walk(st))
+                if lits >= 2 and nonzero and ret_num:
                     self.findings.append(("test-case overfitting (chain of literals)",
                                           st.lineno))
 
     def visit_Call(self, node):
         name = _dotted(node.func)
         if name in CHEAT_EXIT and self._fn_depth > 0:
-            self.findings.append((f"exit inside tested code: {name}()", node.lineno))
+            # ДЕФЕКТ #446: чит — ПОДДЕЛКА «зелёного» кода возврата (`exit(0)`,
+            # `exit()`, `exit(переменная)`). Явный НЕНУЛЕВОЙ литерал — законный
+            # аварийный останов. ИЗМЕРЕНО: 13 ложных срабатываний на `tools/*.py`
+            # были `sys.exit(1)`, `sys.exit(130)`, `sys.exit(2)`.
+            if self._in_test:
+                self.findings.append((f"exit inside tested code: {name}()", node.lineno))
+            else:
+                arg = node.args[0] if node.args else None
+                green = (arg is None
+                         or (isinstance(arg, ast.Constant) and arg.value == 0)
+                         or isinstance(arg, ast.Name))
+                if green:
+                    self.findings.append((f"exit inside tested code: {name}()", node.lineno))
+        # ДЕФЕКТ #446: `patch` — ОБЫЧНОЕ имя. В `canfail.py` это СОБСТВЕННАЯ функция
+        # патчинга ФАЙЛОВ (мутатор), а не `unittest.mock.patch`. Флагаем только
+        # если имя КВАЛИФИЦИРОВАНО (`mock.patch`, `unittest.mock.patch`) или
+        # импортировано из `unittest`/`mock`. ИЗМЕРЕНО: 186 ложных срабатываний.
         if name in CHEAT_MOCK or name.startswith("mock."):
-            self.findings.append(("mock in production code", node.lineno))
+            short = name.rsplit(".", 1)[-1]
+            imported_mock = any(
+                m in ("unittest", "mock", "unittest.mock") and short in CHEAT_MOCK
+                for m, _ln in self.imports)
+            qualified = name.startswith("mock.") or name.startswith("unittest.mock.")
+            if qualified or imported_mock:
+                self.findings.append(("mock in production code", node.lineno))
         # ДЕФЕКТ #426: ЗАМАСКИРОВАННЫЙ двойник — тот же always-true `__eq__`,
         # но подсунутый ЧЕРЕЗ `setattr`, а не определением метода.
         if name == "setattr" and len(node.args) >= 2:
@@ -9987,7 +10061,12 @@ class _CheatScan(ast.NodeVisitor):
         imported = {m for m, _ln in self.imports}
         benign = {("sys", "stdout"), ("sys", "stderr"), ("sys", "stdin"),
                   ("sys", "path")}
-        is_fn_value = isinstance(node.value, (ast.Lambda, ast.Name))
+        # ДЕФЕКТ #446: подменой считается присваивание ЛЯМБДЫ. `ast.Name` здесь НЕ
+        # флагается: `fn._kern_lines = lines` (аннотирование) и `a.successor = b`
+        # (построение графа) — обычное присваивание ЗНАЧЕНИЯ, а не подмена функции.
+        # Подмена ССЫЛКОЙ на функцию ловится веткой (2) — там есть контекст
+        # «импортированный модуль». ИЗМЕРЕНО: 4 ложных срабатывания.
+        is_fn_value = isinstance(node.value, ast.Lambda)
         for tgt in node.targets:
             if not isinstance(tgt, ast.Attribute):
                 continue
@@ -10010,18 +10089,49 @@ class _CheatScan(ast.NodeVisitor):
                 continue
             # (3) подмена функции по ссылке; `self` исключён (штатный `setUp`)
             if is_fn_value and base_name != "self":
+                # СОХРАНЕНО И ВОССТАНОВЛЕНО в том же файле -> честный селф-тест
+                # с откатом (ИЗМЕРЕНО: `charter_check.py` `L.join_code = lambda …`
+                # и через 8 строк `L.join_code = real`), а НЕ подмена.
+                if (base_name, tgt.attr) in self._restored:
+                    continue
                 self.findings.append(
                     (f"monkeypatch of attribute (callable): {base_name}.{tgt.attr}",
                      node.lineno))
         self.generic_visit(node)
 
+    @staticmethod
+    def _can_catch_assert(h) -> bool:
+        """Может ли обработчик ВООБЩЕ поймать `AssertionError`?
+
+        ДЕФЕКТ #446: `OSError`, `ValueError`, `KeyError`, `TypeError` — СОСЕДНИЕ
+        ветки иерархии исключений, а НЕ предки `AssertionError`. Поймать его могут
+        ТОЛЬКО: `except AssertionError:`, `except Exception:`, `except
+        BaseException:` и голый `except:`. ИЗМЕРЕНО: 29 ложных срабатываний на
+        `tools/*.py` были `except OSError: pass` (бытовая очистка ресурсов).
+        """
+        CAN = {"AssertionError", "Exception", "BaseException"}
+        t = h.type
+        if t is None:
+            return True
+        if isinstance(t, ast.Tuple):
+            return any(isinstance(e, ast.Name) and e.id in CAN for e in t.elts)
+        return isinstance(t, ast.Name) and t.id in CAN
+
     def visit_Try(self, node):
         for h in node.handlers:
-            if len(h.body) == 1 and isinstance(h.body[0], ast.Pass):
-                has_assert = any(isinstance(x, ast.Assert) for x in ast.walk(node))
+            if not (len(h.body) == 1 and isinstance(h.body[0], ast.Pass)):
+                continue
+            if not self._can_catch_assert(h):
+                continue  # физически не может проглотить assert
+            has_assert = any(isinstance(x, ast.Assert) for x in ast.walk(node))
+            if self._in_test:
                 kind = ("swallowed assert (except: pass)" if has_assert
                         else "swallowed exception (except: pass)")
                 self.findings.append((kind, h.lineno))
+            elif has_assert:
+                # ВНЕ теста: чит только если внутри `try` РЕАЛЬНО есть `assert`.
+                self.findings.append(("swallowed assert (except: pass)", h.lineno))
+            # вне теста и без assert — законная очистка ресурсов, НЕ находка
         self.generic_visit(node)
 
 

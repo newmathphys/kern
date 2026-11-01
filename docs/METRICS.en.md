@@ -5550,3 +5550,40 @@ The fix plan (Variant B, next step) is to split the rules by CONTEXT:
 
 **ACCEPTANCE:** all **12 classes** in `anti-cheat-check` must remain caught, while the noise
 over `tools/*.py` must drop from 31 files to ~0.
+
+## §182. VARIANT B DONE: `--anti-cheat` NOISE OVER `tools/*.py` - 31 FILES -> 0
+
+### 182.1 Rule changes (by CONTEXT, not by syntax)
+
+| Rule | BEFORE | AFTER |
+|:--|:--|:--|
+| `mock` | any name `patch` | only if the name is QUALIFIED (`mock.patch`, `unittest.mock.patch`) OR imported from `unittest`/`mock` |
+| `swallowed` | any `except: pass` | the handler must be ABLE to catch `AssertionError` (only `AssertionError`/`Exception`/`BaseException`/bare `except`), and outside `test_*` only if the `try` REALLY contains `ast.Assert` |
+| `exit` | any `exit` inside a function | in `test_*` any; outside `test_*` only a "green" return code (`exit()`, `exit(0)`, `exit(var)`) |
+| `overfitting` | a chain of 2+ comparisons with ANY constant | a chain of 2+ comparisons with NUMERIC constants, at least one NON-ZERO, plus `return <number>` in the `if` body |
+| `monkeypatch` | `ast.Lambda` OR `ast.Name` | only `ast.Lambda`, and do NOT flag a pair that is RESTORED elsewhere in the same file |
+
+### 182.2 WHY EXACTLY SO (the reviewer's clarifications accepted)
+
+1. **`except OSError:` physically cannot catch `AssertionError`** - `OSError`, `ValueError`,
+   `KeyError`, `TypeError` are SIBLING branches of the exception hierarchy, not its ancestors.
+   Only `AssertionError` / `Exception` / `BaseException` / a bare `except` can catch it. This
+   removed ALL 29 false positives.
+2. **`overfitting` is NOT restricted to `def test_*`** - that would stop catching hardcoded
+   answers in the SOLUTION itself. The cut is by MEANING: string tags (`v == "F"`) are a
+   parser `switch`, while overfitting is numeric constants PLUS `return <number>`. Plus a
+   separate criterion "comparing with ZERO is a check for 'no errors', not overfitting"
+   (MEASURED: `if bad_f == 0 and bad_t == 0:`).
+3. **`monkeypatch`**: `fn._kern_lines = lines` and `a.successor = b` assign a VALUE (the right
+   side is not a function/lambda), while `L.join_code = lambda ...` + `L.join_code = real` is a
+   save-and-RESTORE in one file (a self-test with rollback). Substitution by a function
+   REFERENCE is still caught by the "imported module" branch.
+4. **`mock`**: in `canfail.py` `patch` is the project's OWN file-patching function, not
+   `unittest.mock.patch`.
+
+### 182.3 ACCEPTANCE - BOTH CRITERIA MET
+
+| Criterion | Result |
+|:--|:--|
+| `make anti-cheat-check` -> `rc=0`, all **12 classes** caught | **RC=0**, 12 findings OK |
+| noise over 132 files of `tools/*.py` | **31 files -> 0** (0 findings) OK |
