@@ -3910,6 +3910,25 @@ def case_xray_skip_reasons():
     return "bash tools/xray_check.sh"
 
 
+def case_l5_duel():
+    """ПОЛИГОН 4 SABOTAGE: чит подсажен в ЧЕСТНЫЙ файл анти-чита.
+
+    Гейт `l5-duel-check` обязан покраснеть: если ложное обвинение честного
+    близнеца НЕ валит дуэль, то колонка `TN` в матрице - декорация.
+    ИЗМЕРЕНО до правки критерия: подсадка давала `TN 0` в одном контуре при
+    `RC=0` (дефект #452) - критерий считал СУММУ по контурам.
+
+    Чит лежит в отдельной фикстуре `anti_cheat_sneak.py` и СНИМАЕТСЯ
+    В ТОЙ ЖЕ КОМАНДЕ (копия до и после), иначе `canfail` сам сделал бы
+    дерево грязным.
+    """
+    return ("bash -c 'cp tests/fixtures/anti_cheat_honest.py /tmp/h.bak; "
+            "cat tests/fixtures/anti_cheat_sneak.py "
+            ">> tests/fixtures/anti_cheat_honest.py; "
+            "python3 tools/l5_duel_check.py; rc=$?; "
+            "cp /tmp/h.bak tests/fixtures/anti_cheat_honest.py; exit $rc'")
+
+
 def case_mutation_lock():
     """ШАГ 7 SABOTAGE: маркер активной мутации ОСТАВЛЕН в дереве.
 
@@ -4226,6 +4245,7 @@ CASES = [
     ("xray-nested-branch", "#401: ветвь не учтена -> ложный DEAD BRANCH", case_xray_nested_branch),
     ("xray-skip-reasons",  "#400: причина пропуска не записана",          case_xray_skip_reasons),
     ("mutation-lock",  "шаг 7: маркер мутации оставлен -> гейт обязан покраснеть", case_mutation_lock),
+    ("l5-duel", "полигон 4: чит в честном файле -> дуэль L5 обязана покраснеть", case_l5_duel),
 ]
 
 

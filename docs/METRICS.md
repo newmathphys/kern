@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->240 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-> CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->184/<!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -13039,3 +13039,52 @@ FileNotFoundError: [Errno 2] No such file or directory: 'zig'
 **Обходной путь (использован):** положить каталог с `zig` в `PATH`.
 **ЛЕЧЕНИЕ (не сделано):** (1) уважать `$ZIG` так же, как `Makefile`; (2) при
 отсутствии — печатать названную ошибку и `rc != 0`, а не трейсбек.
+
+## §206. ПОЛИГОН 4: СВОДНАЯ ДУЭЛЬ L5
+
+**Цель.** Единая матрица `TP · TN · FP · FN · J` по всему периметру L5 и
+**измерение слепоты** обычного тест-раннера — тезис «обычные тесты пропускают
+атаки ИИ» до этого не проверялся ни одним гейтом.
+
+**Агрегатор** `tools/l5_duel_check.py` собирает пары из четырёх контуров
+(число — из ФАКТА прогона, не из константы):
+
+| Группа L5 | TP | TN | источник |
+|:--|--:|--:|:--|
+| Анти-чит AST | 12 | 1 | `anti-cheat-check` |
+| Ловушки ИИ | 6 | 6 | `ai-traps-check` |
+| MCP (инъекция/Unicode/rug-pull) | 3 | 1 | `mcp-audit-check` |
+| Замок контрактов (+ подмена на копии) | 1 | 1 | `contracts-lock-check` |
+| **ИТОГО** | **22** | **9** | **31 пара** |
+
+`J = TPR - FPR = 1.000 - 0.000 = 1.00` · `FP 0 · FN 0` · `НЕ РАСПОЗНАНО 0`.
+
+**СЛЕПОТА pytest (измерено):** тот же `examples/anti_cheat_demo.py` с 12 читами
+прогнан обычным раннером: `rc=0`, `passed 0`, `skipped 3` — зелёный контур
+атаки не видит.
+
+**Границы:** агрегатор не судит код сам, он сводит уже измеренные вердикты;
+подмена замка проверяется **на копии** (репозиторий не мутируется); слепота
+`pytest` измерена на фикстуре, а не на всём репозитории.
+
+### 206.1 ДЕФЕКТ #451: вызов замка без обязательного аргумента
+
+Первая версия агрегатора звала `--verify-lock-repo` **без пути**. Инструмент
+отверг вызов корректно, но агрегатор напечатал `НЕ РАСПОЗНАНО` — то есть
+**отсутствие данных не превратилось в ноль** (это правильное поведение, и оно
+подтверждено). Исправлено: путь `docs/contracts.lock.json` передаётся явно.
+
+### 206.2 ДЕФЕКТ #452: критерий считал СУММУ по контурам, а не каждый контур
+
+**ИЗМЕРЕНО подсадкой:** чит, добавленный в честный файл, давал `TN 0` в
+анти-чите, но дуэль оставалась `RC=0`, потому что суммарный `TN` по контурам
+оставался `> 0`. То есть провал ОДНОГО контура был невидим.
+
+Критерий усилен: **каждый** контур обязан дать свои `TP > 0` и `TN > 0`.
+
+| Прогон | Результат |
+|:--|:--|
+| подсадка чита в `anti_cheat_honest.py` | **`RC=1`** (до правки — `RC=0`) |
+| после откатa | `RC=0`, `31 пара, J = 1.00` |
+
+Кейс `l5-duel` в `canfail`: `не-вакуумных 1 | ВАКУУМНЫХ 0`, дерево чистое.

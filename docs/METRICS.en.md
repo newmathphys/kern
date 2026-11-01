@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->240 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-> CHECK <!-- fact:check_targets -->183/<!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->184/<!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -5621,3 +5621,33 @@ class `#370/#371/#427` ("the message says something other than what happened").
 **Workaround (used):** put the zig directory into `PATH`.
 **CURE (not done):** (1) honour `$ZIG` the same way the `Makefile` does; (2) when missing,
 print a named error and return `rc != 0` instead of a traceback.
+
+## §183. POLYGON 4: THE COMBINED L5 DUEL
+
+**Goal.** A single `TP · TN · FP · FN · J` matrix over the whole L5 perimeter
+plus a **measured blindness** of an ordinary test runner; the claim "plain
+tests let AI attacks through" had never been checked by any gate.
+
+**Aggregator** `tools/l5_duel_check.py` collects pairs from four contours
+(the count comes from the FACT of the run, never from a constant):
+
+| L5 group | TP | TN | source |
+|:--|--:|--:|:--|
+| Anti-cheat AST | 12 | 1 | `anti-cheat-check` |
+| AI traps | 6 | 6 | `ai-traps-check` |
+| MCP (injection/Unicode/rug-pull) | 3 | 1 | `mcp-audit-check` |
+| Contract lock (+ tamper on a copy) | 1 | 1 | `contracts-lock-check` |
+| **TOTAL** | **22** | **9** | **31 pairs** |
+
+`J = TPR - FPR = 1.000 - 0.000 = 1.00` · `FP 0 · FN 0` · `UNRECOGNIZED 0`.
+
+**pytest blindness (measured):** the same `examples/anti_cheat_demo.py` with 12
+cheats run by a plain runner: `rc=0`, `passed 0`, `skipped 3`.
+
+### 183.1 DEFECT #451: the lock was called without its required argument
+
+### 183.2 DEFECT #452: the criterion summed contours instead of checking each
+
+**Measured by planting** a cheat into the honest file: `TN 0` in anti-cheat but
+the duel stayed `RC=0`. The criterion now requires **every** contour to have its
+own `TP > 0` and `TN > 0`; after the fix the plant gives **`RC=1`**.

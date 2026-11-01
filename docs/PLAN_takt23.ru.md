@@ -8,7 +8,7 @@
 
 **Читать в этом порядке:** `docs/STATUS.md` → `docs/NEXT_SESSION.md` → этот план.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->183 · cases <!-- fact:canfail_cases -->223 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->239 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->240 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -336,3 +336,25 @@ make sync && grep -E 'Open technical defects|Highest defect' docs/STATUS.md
    при отсутствии улучшения — быть ОТКАЧЕНА, а диагноз — записан В КОДЕ.**
    Оплачено: уплощение `or` (`2970 → 3408`, откачено) и `pkill -f 'g431.sh'`,
    убивший собственную команду.
+
+---
+
+## §9. ПОЛИГОН 4 (ВЫПОЛНЕНО): СВОДНАЯ ДУЭЛЬ L5
+
+**Зачем.** Четыре контура L5 считали свои числа отдельно; единой матрицы не
+было, и тезис «обычные тесты пропускают атаки ИИ» не был измерен ничем.
+
+**Что сделано.** `tools/l5_duel_check.py` — агрегатор (не новый детектор):
+собирает пары из `anti-cheat-check` (12/1), `ai-traps-check` (6/6),
+`mcp-audit-check` (3/1), замка контрактов (1/1) = **31 пара, TP 22 + TN 9**,
+`J = 1.00`, и **измеряет слепоту pytest** на том же файле с читами.
+
+**Знаменатель — из факта прогона, не из константы** (урок `#450.1`).
+
+**Критерий (усилен после `#452`):** каждый контур обязан дать `TP > 0` и `TN > 0`.
+
+**Границы:** подмена замка проверяется на КОПИИ; слепота pytest измерена на
+фикстуре; агрегатор не судит код сам.
+
+**Следующее:** Полигон 5 (`kernx` на артефактах 1–4), Полигон 3 (требует
+модель массивов/строк в своих контрактах — новая возможность ядра).
