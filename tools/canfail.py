@@ -25,6 +25,7 @@ import argparse
 import atexit
 import json
 import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
 import re
 import signal
 import shutil
@@ -4545,7 +4546,7 @@ def main():
     # уже восстановлен — потому что `libkern.so` осталась собранной с диверсией.
     # Теперь: после отката исходников ПЕРЕСОБИРАЕМ артефакты из чистого кода.
     print("[i] пересборка артефактов из восстановленных исходников...")
-    rb = subprocess.run(["zig", "build"], cwd=str(ROOT), capture_output=True, text=True)
+    rb = subprocess.run([_ZIG_BIN, "build"], cwd=str(ROOT), capture_output=True, text=True)
     if rb.returncode == 0:
         print("[OK] артефакты пересобраны — пропатченных бинарников не осталось")
     else:

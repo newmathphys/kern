@@ -29,6 +29,24 @@ import argparse
 import hashlib
 import json
 import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
+
+
+def _zig_version() -> str:
+    """Версия компилятора ИЛИ НАЗВАННЫЙ отказ (дефект #448).
+
+    РАНЬШЕ: `subprocess.run(["zig", "version"])` падал сырым трейсбеком
+    `FileNotFoundError`, если компилятора нет в `PATH`, и НЕ уважал `$ZIG`.
+    ТЕПЕРЬ: берём компилятор из `$ZIG` (или `zig`), а при отсутствии печатаем
+    названную ошибку и выходим `rc=2` — БЕЗ строки `Traceback` (класс #370/#371).
+    """
+    try:
+        r = subprocess.run([_ZIG_BIN, "version"], capture_output=True, text=True)
+    except OSError:
+        print(f"[!] Ошибка: компилятор zig не найден ({_ZIG_BIN!r}). "
+              "Проверьте $ZIG или PATH.")
+        sys.exit(2)
+    return r.stdout.strip() or "unknown"
 import subprocess
 import sys
 import tempfile
@@ -321,7 +339,7 @@ def main() -> int:
     # Дефект #92: собираем ИМЕННО герметичный артефакт (ReleaseSafe musl) —
     # он воспроизводим (проверено: 2 сборки -> одинаковый sha256) и не
     # перезаписывается обычным `zig build`.
-    BUILD_CMD = ["zig", "build", "hermetic"]
+    BUILD_CMD = [_ZIG_BIN, "build", "hermetic"]
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if not args.no_build:
         print("[i] сборка (воспроизводимая): " + " ".join(BUILD_CMD))
@@ -351,8 +369,7 @@ def main() -> int:
                 "externalParameters": {
                     "command": BUILD_CMD,
                     "optimize": "ReleaseFast",
-                    "zig_version": (subprocess.run(["zig", "version"], capture_output=True,
-                                                   text=True).stdout.strip() or "unknown"),
+                    "zig_version": _zig_version(),
                     "targets": SUBJECTS,
                 },
                 "resolvedDependencies": [{

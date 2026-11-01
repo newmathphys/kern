@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->239 targets · **<!-- fact:check_targets -->183/<!-- fact:check_targets -->183 CHECK** · <!-- fact:canfail_cases -->223 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **1** — `#448`: `tools/slsa_provenance.py` crashes with a traceback when `zig` is absent from `PATH` and does not honour `$ZIG`; workaround - put the zig directory into `PATH` |
+| Open technical defects | **0** — `#448` FIXED: 8 files of `tools/*.py` (15 call sites) take the compiler from `$ZIG`, and the sealing tool prints a NAMED error and exits `rc=2` (no traceback) when the compiler is missing |
 
 ## Open work
 

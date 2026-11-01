@@ -23,6 +23,9 @@ absint/string/noninterference) перечисляются ОТДЕЛЬНО ка�
 """
 from __future__ import annotations
 
+import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
+
 import shlex
 import subprocess
 import sys
@@ -272,7 +275,7 @@ def preflight_zig() -> None:
     подставлять «какой-нибудь» Zig было бы хуже — версия 0.13 меняет сборку.
     """
     try:
-        r = subprocess.run(["zig", "version"], capture_output=True, text=True, timeout=15)
+        r = subprocess.run([_ZIG_BIN, "version"], capture_output=True, text=True, timeout=15)
         ver = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
         ver = ver[0] if ver else "пусто"
     except Exception as exc:  # noqa: BLE001 — сообщаем, а не падаем

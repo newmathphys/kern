@@ -13,6 +13,7 @@
 Запуск:  python3 tools/probe_check.py
 """
 import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
 import re
 import subprocess
 import sys
@@ -24,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def run() -> str:
     env = dict(os.environ)
     env["PATH"] = f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:{ROOT}/.venv/bin:{env.get('PATH','')}"
-    p = subprocess.run(["zig", "build", "bench-semantic"], cwd=str(ROOT),
+    p = subprocess.run([_ZIG_BIN, "build", "bench-semantic"], cwd=str(ROOT),
                        capture_output=True, text=True, env=env)
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode != 0:

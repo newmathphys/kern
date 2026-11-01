@@ -29,6 +29,7 @@ import argparse
 import hashlib
 import json
 import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
 import re
 import resource
 import shutil
@@ -126,7 +127,7 @@ def check_slsa_determinism() -> tuple[int, dict, str]:
     for i in (1, 2):
         if cache.exists():
             shutil.rmtree(cache, ignore_errors=True)
-        r = run(f"build#{i}", ["zig", "build", "-Doptimize=ReleaseFast"])
+        r = run(f"build#{i}", [_ZIG_BIN, "build", "-Doptimize=ReleaseFast"])
         if r["rc"] != 0:
             return 0, {"build_rc": r["rc"]}, f"сборка #{i} упала (rc={r['rc']})"
         hashes.append(hashlib.sha256(bin_path("kernc").read_bytes()).hexdigest())
@@ -140,7 +141,7 @@ def check_core_tests() -> tuple[int, dict, str]:
     w = WEIGHTS["core_tests"]
     # ВАЖНО: `zig build test` НЕ печатает счётчик (сборщик его поглощает).
     # Поэтому запускаем тест-раннер напрямую — он печатает «All N tests passed».
-    base = ["zig", "test", "--dep", "compat",
+    base = [_ZIG_BIN, "test", "--dep", "compat",
             "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"]
     dbg = run("test-debug", base)
     rs = run("test-releasesafe", base + ["-O", "ReleaseSafe"])
@@ -158,13 +159,13 @@ def check_core_tests() -> tuple[int, dict, str]:
 
 def check_kern_next_tests() -> tuple[int, dict, str]:
     w = WEIGHTS["kern_next_tests"]
-    r = run("test-next", ["zig", "build", "test-next"])
+    r = run("test-next", [_ZIG_BIN, "build", "test-next"])
     return (w if r["rc"] == 0 else 0), {"rc": r["rc"], "ms": r["ms"]}, f"rc={r['rc']}"
 
 
 def check_decision_coverage() -> tuple[int, dict, str]:
     w = WEIGHTS["decision_coverage"]
-    r = run("coverage", ["zig", "test", "--dep", "compat",
+    r = run("coverage", [_ZIG_BIN, "test", "--dep", "compat",
                          "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"])
     fact = num(r"ФАКТ:\s*([0-9.]+)%", r["output"])
     frac = re.search(r"\((\d+)/(\d+)\)", r["output"])
@@ -210,7 +211,7 @@ def check_mutation_integrity() -> tuple[int, dict, str]:
 def check_kimg_throughput() -> tuple[int, dict, str]:
     """RAW vs Safe чтение + инвариант дефекта #55: оба пути дают ОДИН срез."""
     w = WEIGHTS["kimg_throughput"]
-    r = run("perf", ["zig", "build", "bench-perf"], timeout=600)
+    r = run("perf", [_ZIG_BIN, "build", "bench-perf"], timeout=600)
     o = r["output"]
     raw = num(r"RAW zero-copy[^:]*:\s*([0-9.]+)\s*МБ/с", o)
     safe = num(r"Безопасное чтение[^:]*:\s*([0-9.]+)\s*МБ/с", o)
@@ -300,7 +301,7 @@ def check_z3_bridge_stress() -> tuple[int, dict, str]:
 def check_memory_fuzz() -> tuple[int, dict, str]:
     """Фаззинг парсера: миллион мутаций, 0 паник (критерий)."""
     w = WEIGHTS["memory_fuzz"]
-    r = run("fuzz-1m", ["zig", "build", "bench-fuzz-ast"], timeout=900)
+    r = run("fuzz-1m", [_ZIG_BIN, "build", "bench-fuzz-ast"], timeout=900)
     o = r["output"]
     iters = num(r"итераций:\s*(\d+)", o)
     # Точный шаблон: строка итога «ПАНИК/SIGSEGV: 0». Без него регекс
@@ -425,7 +426,7 @@ def main() -> int:
 
     report = {
         "tool": "measure_all_kern",
-        "zig": subprocess.run(["zig", "version"], capture_output=True, text=True,
+        "zig": subprocess.run([_ZIG_BIN, "version"], capture_output=True, text=True,
                               env=_env()).stdout.strip(),
         "commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
                                  capture_output=True, text=True).stdout.strip(),

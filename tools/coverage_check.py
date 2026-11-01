@@ -16,6 +16,7 @@
 Запуск:  python3 tools/coverage_check.py [порог]
 """
 import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
 import re
 import subprocess
 import sys
@@ -29,7 +30,7 @@ def main() -> int:
 
     env = dict(os.environ)
     env["PATH"] = f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:{ROOT}/.venv/bin:{env.get('PATH','')}"
-    cmd = ["zig", "test", "--dep", "compat",
+    cmd = [_ZIG_BIN, "test", "--dep", "compat",
            "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"]
     p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, env=env)
     out = (p.stdout or "") + (p.stderr or "")

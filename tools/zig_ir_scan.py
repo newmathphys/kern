@@ -31,6 +31,9 @@
 
 from __future__ import annotations
 
+import os
+_ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
+
 import argparse
 import re
 import subprocess
@@ -46,7 +49,7 @@ def emit_ir(src: Path, optimize: str = "ReleaseSafe") -> str:
     """Просим компилятор выдать LLVM IR (семантическая форма)."""
     out = Path(tempfile.mkdtemp(prefix="kern-zir-")) / "m.ll"
     r = subprocess.run(
-        ["zig", "build-obj", str(src), f"-femit-llvm-ir={out}", f"-O{optimize}"],
+        [_ZIG_BIN, "build-obj", str(src), f"-femit-llvm-ir={out}", f"-O{optimize}"],
         capture_output=True, text=True, cwd=str(src.parent), timeout=180)
     if not out.exists():
         return f"__ERROR__ {r.stderr[-400:]}"
