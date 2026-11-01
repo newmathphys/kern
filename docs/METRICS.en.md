@@ -5315,3 +5315,49 @@ is a crime) and "theory axiom" (binding is impossible; instead a PROOF OF TRUTH 
 for instance the 1-bit truth table from `#440`). A simple relaxation to "at least one bound"
 is INADMISSIBLE: it would open a hole (substituting one `assert` out of two would go
 unnoticed).
+
+## §178. `#443`: THE DEPTH LIMIT 32 IN `expandLets` - AND IT WAS MY BUG, NOT A THEORY AXIOM
+
+### 178.1 THE REVIEWER'S DIAGNOSIS WAS FULLY CONFIRMED
+
+The `[dbg-diff]` dump showed `contract: (let ((tmp_2 ...` - that is, the contract STILL began
+with `let`. The reviewer pointed out: hence `expandLets` did NOT finish expanding the nest.
+The cause is measured in the code:
+
+```zig
+fn expandLets(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
+    if (depth > 32 or budget.* == 0) return e;   // <-- HERE
+```
+
+`QF_BV/add_three.4_bit.smt2` contains **139 NESTED** `let` bindings
+(`(let ((tmp_2 ...)) (let ((tmp_3 ...)) ...)`, a 7143-byte file). Expansion stopped at level
+**33**, so the contract stayed folded (`contract.len=5326` versus `proof.len=38550`) and the
+only input `assert` did NOT bind.
+
+### 178.2 MY OWN CONCLUSION `#442` IS REFUTED
+
+`#442` recorded: "`unbound=1` is a BV theory axiom, a false accusation of a correct proof,
+`premises_required` should be relaxed".
+
+**THAT IS WRONG.** In the `[dbg-diff]` dump I printed the RAW contract
+(`contract_terms.items[0]`) instead of the expanded `ct_exp` - and drew a conclusion about a
+theory axiom from that. The premise-binding rule in the checker is CORRECT; the cause was in
+MY code (the depth limit). Relaxing `premises_required` must NOT and NEED NOT be done - it
+would open a substitution hole.
+
+### 178.3 FIXED
+
+1. The depth limit is now `LET_EXPAND_DEPTH = 4096`. The depth here is LINEAR (a `let` chain,
+   not a tree), and a cycle is impossible: the parsed S-expression is a finite tree.
+2. The `[dbg-diff]` dump now prints the EXPANDED contract (`first_ct_exp`) instead of the raw
+   one - the first version was misleading.
+
+### 178.4 MEASURED
+
+| Task | `premises` BEFORE | AFTER | verdict |
+|:--|:--|:--|:--|
+| `QF_BV/add_three.4_bit` | 0/188 | **1/188** | `[!] ОТВЕРГ` -> **`[PROOF PARTIAL]`** |
+| `storeinv...00002_001.cvc` | 2/8 | 2/8 | `[PROOF PARTIAL]` (unchanged) |
+
+**RESULT: on all 7 tasks there are NO rejected proofs any more** - 4 `[PROOF VERIFIED]`
++ 3 `[PROOF PARTIAL]`, `unbound = 0` everywhere.

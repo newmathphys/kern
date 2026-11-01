@@ -801,8 +801,17 @@ fn substName(c: *Ctx, body: Sexp, name: []const u8, val: Sexp) Sexp {
 ///
 /// ВАЖНО: `let` в SMT-LIB ПАРАЛЛЕЛЬНЫЙ — все значения вычисляются в ВНЕШНЕМ
 /// окружении. Поэтому каждое значение раскрывается ДО подстановки предыдущих имён.
+/// ПРЕДЕЛ ГЛУБИНЫ РАСКРЫТИЯ `let`. ДЕФЕКТ #443 (найден дампом `[dbg-diff]`):
+/// стояло `depth > 32`, а `QF_BV/add_three.4_bit.smt2` содержит **139 ВЛОЖЕННЫХ**
+/// `let`-связок (`(let ((tmp_2 …)) (let ((tmp_3 …)) …))`). Раскрытие
+/// останавливалось на 33-м уровне, поэтому контракт оставался свёрнутым
+/// (`contract.len=5326` против `proof.len=38550`) и посылка НЕ привязывалась.
+/// ЗДЕСЬ ГЛУБИНА ЛИНЕЙНА (цепочка `let`, а не дерево), цикла быть не может:
+/// разбираемое S-выражение — конечное дерево. Предел поднят до глубины парсера.
+const LET_EXPAND_DEPTH: u32 = 4096;
+
 fn expandLets(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
-    if (depth > 32 or budget.* == 0) return e;
+    if (depth > LET_EXPAND_DEPTH or budget.* == 0) return e;
     if (e.atom) |a| {
         // ДЕФЕКТ #441 (часть 2, Блок 3 плана): БИТОВЫЕ ЛИТЕРАЛЫ.
         // ИЗМЕРЕНО: `QF_BV/add_three.4_bit.smt2` содержит **64** литерала `#b1`,
@@ -5148,13 +5157,17 @@ fn verifyProofKindInner(
             // ДЕФЕКТ #441: раскрываем и ВХОДНОЙ `let` (см. `expandLets`).
             const t_exp = expandLets(&c, funExpand(&c, t, 0, &fun_budget), 0, &fun_budget);
             var found = false;
-            for (contract_terms.items) |ct| {
+            // ДЕФЕКТ #443: дамп должен показывать РАСКРЫТЫЙ контракт, а не сырой —
+            // иначе он вводит в заблуждение (первая версия печатала `ct` как есть).
+            var first_ct_exp: ?Sexp = null;
+            for (contract_terms.items, 0..) |ct, ci| {
                 // `sexpEqNum`, а не `sexpEq`: числовой литерал в исходнике
                 // записан атомом (`-2147483648`), а Z3 в выводе — списком
                 // (`(- 2147483648)`). Без нормализации корректный вывод
                 // отвергался как «посылки не привязаны» (дефект #122).
                 var ct_budget: usize = 200_000;
                 const ct_exp = expandLets(&c, funExpand(&c, ct, 0, &ct_budget), 0, &ct_budget);
+                if (ci == 0) first_ct_exp = ct_exp;
                 if (sexpEqNum(t_exp, ct_exp)) {
                     found = true;
                     break;
@@ -5187,7 +5200,7 @@ fn verifyProofKindInner(
                 var sbuf = std.array_list.Managed(u8).init(c.arena);
                 sexpToStr(&c, t_exp, &sbuf);
                 var cbuf = std.array_list.Managed(u8).init(c.arena);
-                sexpToStr(&c, contract_terms.items[0], &cbuf);
+                sexpToStr(&c, first_ct_exp orelse contract_terms.items[0], &cbuf);
                 const A = sbuf.items;
                 const B = cbuf.items;
                 var k: usize = 0;
