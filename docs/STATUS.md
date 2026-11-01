@@ -24,7 +24,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->225**, of which
 
 | Fact | Value |
 | --- | --- |
-| Core Zig tests | <!-- fact:core_tests -->451 (443 passed + 8 skipped, 0 failed) |
+| Core Zig tests | <!-- fact:core_tests -->460 (452 passed + 8 skipped, 0 failed) |
 | KERN-Next tests | <!-- fact:next_tests -->53 |
 | Full test catalog | <!-- fact:catalog -->491 |
 | Lean 4 | <!-- fact:lean_theorems -->147 theorems in 8 files, 0 sorry |
@@ -36,11 +36,11 @@ Can-fail cases: **<!-- fact:canfail_cases -->225**, of which
 
 ## Defect journal
 
-Numbered entries: **373**.
+Numbered entries: **375**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 235 |
+| Fixed | 237 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
@@ -55,7 +55,7 @@ Numbered entries: **373**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->457**.
+Highest defect number in the journal: **<!-- fact:max_defect -->459**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

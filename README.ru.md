@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -42,7 +42,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 
 | Показатель | Значение |
 |:--|:--|
-| Тесты ядра | **<!-- fact:core_tests -->451** (Debug + ReleaseSafe) |
+| Тесты ядра | **<!-- fact:core_tests -->460** (Debug + ReleaseSafe) |
 | Тесты KERN-Next | **53** |
 | Формальные доказательства | **8 файлов Lean 4** (147 теорем), 0 errors, 0 `sorry` |
 | Покрытие инструментированных решений | **100.0%** (30/30) |
@@ -134,7 +134,7 @@ export PATH="$HOME/opt/zig-x86_64-linux-0.17.0:$PATH"
 # 2. Сборка: kernc (ядро), kernx (KERN-Next), kern-attack (демонстрация)
 zig build
 
-# 3. Тесты ядра — <!-- fact:core_tests -->451 штуки
+# 3. Тесты ядра — <!-- fact:core_tests -->460 штуки
 zig build test
 
 # 4. Эталонный образ и его проверка
@@ -160,7 +160,7 @@ make audit-manifest
 ```
 ```
 [KERN QUALIFICATION AUDIT SUITE v1.3.1]
-Core (Debug)          : PASS — <!-- fact:core_tests -->451 / <!-- fact:core_tests -->451 tests
+Core (Debug)          : PASS — <!-- fact:core_tests -->460 / <!-- fact:core_tests -->460 tests
 Memory Safety         : PASS — ReleaseSafe, 0 UB
 Kernel Invariants     : PASS — Lean 4 (8 files, 147 theorems, 0 errors, 0 sorry)
 Target Systems        : PASS — ARM64 POWERPC64
@@ -261,7 +261,7 @@ KERN — «таможня истины» между ИИ-агентом и ре�
 ```
 ├── main.zig                        CLI kernc (читает образ .kimg)
 ├── attack.zig                      демонстрация: обе атаки закрыты
-├── test_root.zig                   корень тестов ядра (<!-- fact:core_tests -->451 теста)
+├── test_root.zig                   корень тестов ядра (<!-- fact:core_tests -->460 теста)
 ├── core/
 │   ├── eq2.zig                     KERN-EQ2: Белнап, joinK/meetK, andT/orT/notB
 │   ├── object_entry.zig            96-байтный дескриптор + Merkle-корень
@@ -705,7 +705,7 @@ make ci               # единый контур (12 стадий)
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->225 (не-вакуумных <!-- fact:canfail_cases -->225 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->457** |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->459** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

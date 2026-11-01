@@ -37,6 +37,13 @@ EV = ROOT / "docs" / "evidence"
 ZIG = os.environ.get("ZIG", "zig")
 
 ALL_TESTS = re.compile(r"All\s+(\d+)\s+tests?\s+passed")
+# ДЕФЕКТ #458 (ИЗМЕРЕНО): живой прогон `zig test` печатает СВОДКУ В ДРУГОМ
+# формате, когда есть пропущенные тесты: `452 passed; 8 skipped; 0 failed.`
+# (в логе — `All 460 tests passed.`). Гейт знал только первый формат, поэтому
+# живой прогон «не давал числа тестов», и свидетельства объявлялись
+# устаревшими при верном содержимом. Второй формат: total = passed + skipped.
+PASSED_SKIPPED_FAILED = re.compile("\\s*(\\d+)\\s+passed;\\s*(\\d+)\\s+skipped;\\s*(\\d+)\\s+failed")
+PASSED_SKIPPED = re.compile(r"(\d+)\s+passed\s*/\s*(\d+)\s+skipped")
 PASSED_SKIPPED = re.compile(r"(\d+)\s+passed\s*/\s*(\d+)\s+skipped")
 
 # Класс NATIVE_LIVE: лог -> команда, которой он снимается.
@@ -66,8 +73,18 @@ def _count_in_log(path: Path) -> int | None:
 
 def _live_count(cmd: list[str]) -> int | None:
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
-    m = ALL_TESTS.search((p.stdout or "") + (p.stderr or ""))
-    return int(m.group(1)) if m else None
+    out = (p.stdout or "") + (p.stderr or "")
+    m = ALL_TESTS.search(out)
+    if m:
+        return int(m.group(1))
+    # ДЕФЕКТ #458: сводка с пропущенными тестами -> total = passed + skipped.
+    m2 = PASSED_SKIPPED_FAILED.search(out)
+    if m2:
+        return int(m2.group(1)) + int(m2.group(2))
+    m3 = PASSED_SKIPPED.search(out)
+    if m3:
+        return int(m3.group(1)) + int(m3.group(2))
+    return None
 
 
 def check() -> list[str]:

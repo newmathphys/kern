@@ -68,7 +68,7 @@
 
 ## Факты реестра, с которыми эта страница согласована
 
-<!-- fact:core_tests -->451 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
+<!-- fact:core_tests -->460 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
 <!-- fact:catalog -->491 каталог · <!-- fact:check_targets -->185 CHECK ·
 <!-- fact:canfail_cases -->225 кейса can-fail · <!-- fact:anchors -->183 якорей ·
 <!-- fact:registry_targets -->241 целей реестра ·

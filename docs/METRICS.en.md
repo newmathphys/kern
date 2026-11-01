@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -9,7 +9,7 @@
 > Updated per iteration. English translation of `docs/METRICS.md`; the Russian
 > original remains the source of truth for historical sections.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
 > CHECK <!-- fact:check_targets -->185/<!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
@@ -5728,3 +5728,19 @@ RC=0; catalog 491 tests; `evidence-gate` 42 clean logs; `showcase-check`
 
 **Boundary:** the FULL `ci-fast` was NOT re-run; exactly the 8 failing stages
 were re-checked (plus the `#456` case separately).
+
+## §188. `#458`: LIVE RUN vs LOG - TWO `zig test` SUMMARY FORMATS
+
+MEASURED: the log has `All 460 tests passed.` while the live run prints
+`452 passed; 8 skipped; 0 failed.` The gate parsed only the first, so CORRECT
+evidence was reported stale. FIXED: both formats are parsed (`total = passed +
+skipped`); measured `log 460, live 460 - OK`.
+
+## §189. `#459`: THE ENV_DEPENDENT LOG AND THE CURRENT CORE
+
+MEASURED: `cross_arch.log` (needs `qemu-user-static`, unavailable) carries
+`ENV-DEPENDENT: baseline 451`; the freshness gate accepts it while the metrics
+guard compared it to the CURRENT core count (460) and called valid evidence
+stale. FIXED: comparison uses the explicit baseline; the drift is printed as
+`[i]`. Also fixed my own slip in the same edit: `bad += 1` was left
+unconditional, so the guard failed with an empty `[FAIL]` list.

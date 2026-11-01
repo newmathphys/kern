@@ -58,7 +58,7 @@ python3 tools/ai_traps_check.py --selftest
 
 ## Registry facts this page is consistent with
 
-<!-- fact:core_tests -->451 core tests · <!-- fact:next_tests -->53 next tests ·
+<!-- fact:core_tests -->460 core tests · <!-- fact:next_tests -->53 next tests ·
 <!-- fact:catalog -->491 catalog · <!-- fact:check_targets -->185 CHECK ·
 <!-- fact:canfail_cases -->225 can-fail cases · <!-- fact:anchors -->183 anchors ·
 <!-- fact:registry_targets -->241 registry targets ·

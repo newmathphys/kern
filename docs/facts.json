@@ -1,6 +1,6 @@
 {
  "version": "v2.8.1",
- "core_tests": 451,
+ "core_tests": 460,
  "next_tests": 53,
  "catalog": 491,
  "check_targets": 185,
@@ -13,7 +13,7 @@
  "cross_arch_passed": 443,
  "cross_arch_skipped": 8,
  "anchors": 183,
- "max_defect": 457,
+ "max_defect": 459,
  "lean_theorems": 147,
  "quixbugs": {
   "smt": 6,

@@ -159,7 +159,7 @@ $ make diff-equiv
 
 ## 10. Факты, на которые ссылается документ
 
-<!-- fact:core_tests -->451 теста ядра · <!-- fact:next_tests -->53 next ·
+<!-- fact:core_tests -->460 теста ядра · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->491 каталог · <!-- fact:check_targets -->185 CHECK ·
 <!-- fact:canfail_cases -->225 can-fail кейсов · <!-- fact:anchors -->183 якорей ·
 <!-- fact:registry_targets -->241 цели · <!-- fact:meta_targets -->41 META ·

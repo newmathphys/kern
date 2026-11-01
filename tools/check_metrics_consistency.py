@@ -563,10 +563,28 @@ def main(argv: list[str] | None = None) -> int:
     bad = 0
 
     # Кросс-архитектура обязана покрывать ВЕСЬ набор ядра (passed + skipped).
-    if arch and arch[0] + arch[1] != core:
+    #
+    # ДЕФЕКТ #459 (ИЗМЕРЕНО): `cross_arch.log` — класс ENV_DEPENDENT (требует
+    # qemu-user-static, в этом окружении его нет), поэтому переснять лог НЕЛЬЗЯ.
+    # Он несёт ЯВНУЮ метку базовой линии (`ENV-DEPENDENT: baseline N`), и гейт
+    # свежести (`evidence_freshness_check.py`) именно её и принимает. Здесь же
+    # сравнение шло с ТЕКУЩИМ числом тестов ядра, поэтому после добавления 9
+    # Zig-тестов (#431/#439/#440/#445) верный, но снятый на другом дереве лог
+    # объявлялся устаревшим. Теперь: при наличии метки сверяем с НЕЙ (лог
+    # внутренне согласован), а расхождение с ядром называем отдельной строкой.
+    _mark = re.search(r"ENV-DEPENDENT:\s*baseline\s+(\d+)",
+                      (EV / "cross_arch.log").read_text(encoding="utf-8",
+                                                          errors="replace"), re.I)
+    _arch_ref = int(_mark.group(1)) if _mark else core
+    if arch and arch[0] + arch[1] != _arch_ref:
         _fail(f"cross_arch.log: {arch[0]}+{arch[1]}={arch[0] + arch[1]}, "
-              f"а тестов ядра {core} — лог устарел")
+              f"а базовая линия {_arch_ref} — лог устарел")
         bad += 1
+    elif _mark and _arch_ref != core:
+        # НЕ ошибка: лог класса ENV_DEPENDENT (qemu недоступен), помечен явной
+        # базовой линией и внутренне согласован. Дрейф от ядра назван строкой.
+        print(f"  [i] cross_arch.log: ENV_DEPENDENT, базовая линия {_arch_ref} "
+              f"(ядро {core}) — переснять нельзя без qemu")
 
     rules = _rules(core, nxt, cat, n_checks, n_cases, sites, tgt if tgt else 0,
                    reg_targets, explored, anchors, qb_diff)

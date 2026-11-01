@@ -145,7 +145,7 @@ subset. It is a **scalpel plus a turnstile**:
 
 | Fact | Value |
 |:--|:--|
-| Core tests | <!-- fact:core_tests -->451 |
+| Core tests | <!-- fact:core_tests -->460 |
 | Next tests | <!-- fact:next_tests -->53 |
 | Test catalog | <!-- fact:catalog -->491 |
 | CHECK targets | <!-- fact:check_targets -->185 |

@@ -1,10 +1,10 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
-> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
+> **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
 > CHECK <!-- fact:check_targets -->185/<!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
@@ -13244,3 +13244,38 @@ $ make mcp-selftest
 
 **Граница:** полный `ci-fast` целиком **не перезапускался** — проверены именно те
 8 стадий, которые падали (плюс сам кейс `#456` отдельно). Это названо честно.
+
+## §211. `#458`: ЖИВОЙ ПРОГОН vs ЛОГ — ДВА ФОРМАТА СВОДКИ `zig test`
+
+**ИЗМЕРЕНО:**
+```
+лог docs/evidence/core_tests.log : All 460 tests passed.
+живой прогон zig test            : 452 passed; 8 skipped; 0 failed.
+```
+Гейт `evidence-freshness` искал **только** первый формат, поэтому «живой прогон
+не дал числа тестов» и **верные** свидетельства объявлялись устаревшими
+(`устаревших/непомеченных свидетельств: 2`).
+
+**ИСПРАВЛЕНО:** парсер понимает оба формата; во втором `total = passed + skipped`
+(452 + 8 = 460). ИЗМЕРЕНО: `в логе 460, живой прогон 460 — OK`, RC=0.
+
+**Побочно:** сборщик свидетельств **отказывает** снимать логи с грязного дерева
+(«свидетельства НЕ снимаются: грязный src/»). Моя первая пересъёмка была так
+отклонена — и это правильное поведение, которое я обязан проверять, а не считать
+успехом.
+
+## §212. `#459`: ENV_DEPENDENT-ЛОГ И ТЕКУЩЕЕ ЯДРО
+
+**ИЗМЕРЕНО:** `cross_arch.log` (нужен `qemu-user-static`; в окружении отсутствует,
+поэтому переснять НЕЛЬЗЯ) несёт метку `ENV-DEPENDENT: baseline 451`. Гейт
+`evidence-freshness` её принимает (`[ENV_DEPENDENT] ... базовая линия 451 — OK`), а
+`check_metrics_consistency` сравнивал `443+8` с ТЕКУЩИМ числом тестов ядра (460) и
+объявлял **верный** лог устаревшим.
+
+**ИСПРАВЛЕНО:** сверка идёт с **явной** базовой линией; расхождение с ядром
+печатается как `[i]` (дрейф назван, но это не ошибка). ИЗМЕРЕНО: RC=0.
+
+**Побочно (моя ошибка в этой же правке):** первый вариант оставил `bad += 1`
+**безусловным** (он был привязан к старому `_fail`), поэтому страж краснел при
+пустом списке `[FAIL]`. Поймано прогоном и исправлено — `bad += 1` теперь внутри
+ветки ошибки.
