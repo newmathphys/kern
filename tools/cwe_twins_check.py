@@ -72,6 +72,11 @@ PTS_GOOD_PROVEN = 2
 PENALTY_FP = 16
 PENALTY_FN = 32
 
+# ВСЕ маркеры детекторов `--xray` (дефект #450.1): `caught` обязан считаться по
+# ЛЮБОМУ из них, а `proven` — только когда не сработал НИ ОДИН.
+_XRAY_MARKERS = ("[BOUNDS PATH]", "[DEAD BRANCH]", "[REDUNDANT GUARD]",
+                 "[OVERFLOW PATH]", "[CRASH PATH]")
+
 # Класс: (CWE, короткое имя, движок, плохой вход, хороший вход)
 # Для движков, где ОДИН файл содержит обе функции, bad/good — имена функций.
 CLASSES = [
@@ -85,8 +90,18 @@ CLASSES = [
      "cwe682_bad.c", "cwe682_good.c"),
     ("CWE-680", "Integer Overflow to Buffer Size", "contracts",
      "cwe680_bad.c", "cwe680_good.c"),
-    ("CWE-125/193", "Out-of-Bounds / Off-by-One", "xray",
+    # ДЕФЕКТ #450: класс БЫЛ СКЛЕЕН (`CWE-125/193`) — теперь разделён, потому что
+    # это ДВА разных дефекта MITRE с разными формами: чтение за границей
+    # (аннотация длины + произвольный индекс) и ошибка на единицу в ГРАНИЦЕ
+    # (`i <= len`, историческая уязвимость `198669d` в cmark-gfm).
+    ("CWE-125", "Out-of-Bounds Read", "xray",
      "cwe125_bad.py", "cwe125_good.py"),
+    ("CWE-193", "Off-by-One Error", "xray",
+     "cwe193_bad.c", "cwe193_good.c"),
+    # ДЕФЕКТ #450: 12-й класс — БИТОВОЕ рассуждение (BV32, Шаг 4b):
+    # `(x & 1) == 0` и `(x & 2) == 0` делают `(x & 3) != 0` НЕДОСТИЖИМЫМ.
+    ("CWE-570/561", "Dead Code / Expression Always False (BV32)", "xray",
+     "cwe570_bad.c", "cwe570_good.c"),
     # ДЕФЕКТ #449: 10-й класс. CWE-125/193 покрывал ЧТЕНИЕ за границей;
     # запись (`data[i] = v`) — отдельный дефект MITRE и отдельная пара.
     ("CWE-787", "Out-of-bounds Write", "xray",
@@ -155,8 +170,18 @@ def evaluate(cls) -> dict:
     good_out = bad_out if bad_p == good_p else run(engine, good_p)
 
     if engine == "xray":
-        caught = "[BOUNDS PATH]" in bad_out
-        proven = "[BOUNDS PATH]" not in good_out
+        # ДЕФЕКТ #450.1 (найден первым прогоном после добавления классов):
+        # `caught`/`proven` считались ТОЛЬКО по маркеру `[BOUNDS PATH]`.
+        # ПОСЛЕДСТВИЯ (оба измерены):
+        #  (а) новый класс, который ловится ДРУГИМ детектором (`[DEAD BRANCH]`
+        #      для CWE-570), давал ЛОЖНЫЙ FN: `TP 11/12`, счёт 3/36;
+        #  (б) СЕРЬЁЗНЕЕ — ложное обвинение `good` любым ДРУГИМ детектором
+        #      (`[DEAD BRANCH]`, `[REDUNDANT GUARD]`, `[OVERFLOW PATH]`,
+        #      `[CRASH PATH]`) вообще НЕ замечалось: `proven` оставался true.
+        # То есть ворота не видели целый класс своих же ложных тревог.
+        # Теперь учитываются ВСЕ маркеры детекторов `--xray`.
+        caught = any(m in bad_out for m in _XRAY_MARKERS)
+        proven = not any(m in good_out for m in _XRAY_MARKERS)
     elif engine == "kernc-prove":
         caught = "НЕ доказано" in bad_out
         proven = "ДОКАЗАНО" in good_out

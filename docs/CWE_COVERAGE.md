@@ -6,14 +6,14 @@ that command; none of them is typed by hand.
 ## What is measured, and how
 
 > 🔴 **PROVENANCE OF THE FIXTURES — READ THIS FIRST.** The twins are **OUR OWN
-> synthetic pairs** in [`audits/cwe_twins/`](../audits/cwe_twins/), modelling ten
+> synthetic pairs** in [`audits/cwe_twins/`](../audits/cwe_twins/), modelling twelve
 > MITRE CWE classes. The **official NIST SARD files** (`CWE190_*_bad.c` /
 > `_good.c` with their own annotation) were **not downloaded** and **do not
 > participate** in the run. The gate was therefore renamed
 > `cwe-juliet-check` → **`cwe-twins-check`**: the old name could be read as "we
 > ran Juliet", which would overstate the claim. The metric **formulas** below
 > (Youden index, SV-COMP score) are the official ones — but they are computed
-> over **our ten pairs**, not over SARD.
+> over **our twelve pairs**, not over SARD.
 
 The NIST SARD **Juliet Test Suite** checks a tool with **twin pairs**: `bad` is
 vulnerable code, `good` is *the same code with the correct defensive guard*. A
@@ -30,7 +30,9 @@ through KERN's **own engines** — no mocks, no hand-written verdicts:
 | **CWE-369** | Divide By Zero | `kern_contracts.py` | `[FAIL]` | `[PASS] ДОКАЗАНО` |
 | **CWE-682** | Hardware `idiv` trap (`INT_MIN / -1`, `INT_MIN % -1`) | `kern_contracts.py` | `[FAIL]` | `[PASS] ДОКАЗАНО` |
 | **CWE-680** | Integer Overflow to Buffer Size | `kern_contracts.py` | `[FAIL]` | `[PASS] ДОКАЗАНО` |
-| **CWE-125/193** | Out-of-Bounds / Off-by-One | `--xray` | `[BOUNDS PATH]` | no finding |
+| **CWE-125** | Out-of-Bounds Read | `--xray` | `[BOUNDS PATH]` | no finding |
+| **CWE-193** | Off-by-One Error | `--xray` | `[BOUNDS PATH]` off-by-one | no finding |
+| **CWE-570/561** | Dead Code / Expression Always False (**BV32**) | `--xray` | `[DEAD BRANCH]` (UNSAT, BV32) | no finding |
 | **CWE-787** | Out-of-bounds Write | `--xray` | `[BOUNDS PATH]` | no finding |
 | **CWE-22** | Path Traversal | `kernc prove` (QF_S) | `НЕ доказано` | `ДОКАЗАНО` |
 | **CWE-89/285** | SQL / RLS tenant bypass | `--verify-sql` | `[FAIL] <fn>:` | `[PASS] <fn>:` |
@@ -41,19 +43,19 @@ through KERN's **own engines** — no mocks, no hand-written verdicts:
 | Metric | Formula | Required | Measured |
 |:--|:--|:--|:--|
 | **Juden Index** (NIST SARD) | `J = TPR − FPR` | `1.00` | **1.00** (`1.000 − 0.000`) |
-| Confusion matrix | — | `TP 10/10 · TN 10/10 · FP 0 · FN 0` | **10/10 · 10/10 · 0 · 0** |
-| **SV-COMP score** | `+1` per caught `bad`, `+2` per proven `good`, `−16` per FP, `−32` per FN | `30 / 30`, penalty `0` | **30 / 30**, penalty **0** |
+| Confusion matrix | — | `TP 12/12 · TN 12/12 · FP 0 · FN 0` | **12/12 · 12/12 · 0 · 0** |
+| **SV-COMP score** | `+1` per caught `bad`, `+2` per proven `good`, `−16` per FP, `−32` per FN | `36 / 36`, penalty `0` | **36 / 36**, penalty **0** |
 
 > The SV-COMP penalties are what make the benchmark honest: accusing a
 > **guarded** `good` twin costs 16 points, and missing a real `bad` costs 32.
 > A tool that shouts at everything scores far below zero — measured on the
-> self-test: one false accusation drops the score from 30 to 10.
+> self-test: one false accusation drops the score from 36 to 12.
 
 ## What this gate does NOT claim
 
-- It is **not** the full NIST Juliet Suite (thousands of cases). It is **ten**
+- It is **not** the full NIST Juliet Suite (thousands of cases). It is **twelve**
   MITRE CWE classes, one `bad`/`good` pair each, on KERN's own engines. The
-  "10/10" figures apply to these ten classes and do **not** transfer to all of SARD.
+  "12/12" figures apply to these twelve classes and do **not** transfer to all of SARD.
 - **CWE-680 and CWE-190 share one type-range obligation**; the context (the result
   feeds an allocation size) is what separates them — exactly as NIST SARD
   separates them. The overlap is named here, not hidden.
