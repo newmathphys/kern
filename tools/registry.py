@@ -106,6 +106,7 @@ CLASS = {
     # Шаг 7: замок мутаций харнесса (маркер активной мутации виден гейту).
     "mutation-lock-check": "CHECK",
     "l5-duel-check": "CHECK",
+    "kernx-polygon5-check": "CHECK",
     "ecosystem-check": "CHECK",
     "scorecard-check": "CHECK",
     "metrics-guard": "CHECK",
@@ -386,6 +387,7 @@ CASE_TARGET = {
     "xray-skip-reasons": "xray-check",
     "mutation-lock": "mutation-lock-check",
     "l5-duel": "l5-duel-check",
+    "kernx-polygon5": "kernx-polygon5-check",
     "oracle-dtmc-wrong": "oracle-dtmc-check",
     "oracle-redos-missed": "oracle-redos-check",
     "oracle-absint-unsound": "oracle-absint-check",

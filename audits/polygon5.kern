@@ -1,0 +1,79 @@
+// ПОЛИГОН 5: четыре состояния Белнапа из РЕАЛЬНЫХ артефактов полигонов 1 и 4.
+//
+// ЗАЧЕМ. Полигон 4 измерил два ФАКТА на ОДНОМ артефакте
+// (`examples/anti_cheat_demo.py`, 12 читов):
+//   * обычный CI (`pytest`)        -> rc=0  => свидетельство T (тесты прошли);
+//   * KERN L5 (`--anti-cheat`)     -> rc=1  => свидетельство F (код сфальсифицирован).
+// Подача ОБОИХ свидетельств на одно утверждение обязана дать НЕ перезапись,
+// а эпистемический конфликт Белнапа: JOIN_K(T, F) = B (`conflicted`).
+//
+// ЛОВУШКА, ИЗМЕРЕННАЯ ПРИ СОСТАВЛЕНИИ (журнал #453): код `2` в kernx — это
+// конвенция SKIP/NO_EVIDENCE (#96) и даёт `N`, а НЕ `F`. Первая версия проекта
+// использовала `exit_code = 2` и дала `N->B 0` (конфликт не возникал).
+// Здесь стоят РЕАЛЬНО ИЗМЕРЕННЫЕ коды: pytest=0, anti-cheat=1.
+// Гейт `kernx-polygon5-check` ПЕРЕМЕРЯЕТ их и требует совпадения с записью.
+project "polygon5" {
+  version "1.0"
+  root "."
+}
+
+// --- Артефакты Полигона 4 (замер слепоты pytest) ---
+artifact "examples/anti_cheat_demo.py" {
+  kind "source"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "tests/fixtures/anti_cheat_honest.py" {
+  kind "source"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+// --- Артефакты Полигона 1 (CWE-близнецы) ---
+artifact "audits/cwe_twins/cwe787_bad.py" {
+  kind "source"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/cwe_twins/cwe787_good.py" {
+  kind "source"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+// --- Свидетельство T: обычный CI зелёный ---
+claim "execution: pytest on anti_cheat_demo" {
+  status tested
+  metric exit_code = 0
+}
+
+// --- Свидетельство F: KERN L5 видит 12 читов ---
+claim "execution: kern anti-cheat on anti_cheat_demo" {
+  status refuted
+  metric exit_code = 1
+}
+
+// --- КОНФЛИКТ: на одно утверждение поданы T и F -> B ---
+claim "ci_green_means_honest" {
+  status empirical
+}
+
+link "claim:ci_green_means_honest" -> "claim:execution: pytest on anti_cheat_demo" {
+  relation "supported_by"
+}
+
+link "claim:ci_green_means_honest" -> "claim:execution: kern anti-cheat on anti_cheat_demo" {
+  relation "supported_by"
+}
+
+// --- T и F из Полигона 1 (реальные близнецы) ---
+claim "cwe787_good is memory-safe" {
+  status proven
+}
+
+claim "cwe787_bad is memory-safe" {
+  status refuted
+}
+
+// --- N: утверждение без свидетельств (Врата остаются ЗАКРЫТЫМИ) ---
+claim "no evidence yet" {
+  status hypothesis
+}

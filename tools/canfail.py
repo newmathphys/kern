@@ -3910,6 +3910,21 @@ def case_xray_skip_reasons():
     return "bash tools/xray_check.sh"
 
 
+def case_kernx_polygon5():
+    """ПОЛИГОН 5 SABOTAGE: у F-свидетельства снят опровергающий код.
+
+    Подсадка: в КОПИИ проекта `metric exit_code = 1` -> `= 0`. Тогда оба
+    свидетельства дают T, конфликт Белнапа ИСЧЕЗАЕТ (`N->B 0`), и гейт
+    обязан покраснеть. Если конфликт можно потерять незаметно, то
+    `conflicted` в пакете — декорация (#423/#424).
+
+    Копия создаётся ВНУТРИ `tools/kernx_polygon5_check.py --selftest`,
+    поэтому дерево репозитория не мутируется.
+    """
+    return ("python3 tools/kernx_polygon5_check.py --selftest "
+            "&& exit 1 || exit 0")
+
+
 def case_l5_duel():
     """ПОЛИГОН 4 SABOTAGE: чит подсажен в ЧЕСТНЫЙ файл анти-чита.
 
@@ -4246,6 +4261,7 @@ CASES = [
     ("xray-skip-reasons",  "#400: причина пропуска не записана",          case_xray_skip_reasons),
     ("mutation-lock",  "шаг 7: маркер мутации оставлен -> гейт обязан покраснеть", case_mutation_lock),
     ("l5-duel", "полигон 4: чит в честном файле -> дуэль L5 обязана покраснеть", case_l5_duel),
+    ("kernx-polygon5", "полигон 5: снят F-код -> конфликт Белнапа исчезает -> гейт обязан покраснеть", case_kernx_polygon5),
 ]
 
 

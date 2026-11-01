@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->240 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->184 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->241 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->185 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->11 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->41 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->224**, of which
-**184/184** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->225**, of which
+**185/185** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -36,11 +36,11 @@ Can-fail cases: **<!-- fact:canfail_cases -->224**, of which
 
 ## Defect journal
 
-Numbered entries: **368**.
+Numbered entries: **369**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 230 |
+| Fixed | 231 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
@@ -55,7 +55,7 @@ Numbered entries: **368**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->452**.
+Highest defect number in the journal: **<!-- fact:max_defect -->453**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

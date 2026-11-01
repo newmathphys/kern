@@ -8,7 +8,7 @@
 
 **Читать в этом порядке:** `docs/STATUS.md` → `docs/NEXT_SESSION.md` → этот план.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->240 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
@@ -358,3 +358,23 @@ make sync && grep -E 'Open technical defects|Highest defect' docs/STATUS.md
 
 **Следующее:** Полигон 5 (`kernx` на артефактах 1–4), Полигон 3 (требует
 модель массивов/строк в своих контрактах — новая возможность ядра).
+
+---
+
+## §10. ПОЛИГОН 5 (ВЫПОЛНЕНО): E2E `kernx` НА РЕАЛЬНЫХ АРТЕФАКТАХ
+
+**Свидетельства — ИЗМЕРЕНЫ:** `pytest` на файле с 12 читами -> `rc=0` (**T**);
+`--anti-cheat` на том же файле -> `rc=1` (**F**); `JOIN_K(T, F) = B`.
+
+**ИЗМЕРЕНО:** `N->B(конфликт) 1`; `proven 1 · refuted 2 · tested 1 ·
+hypothesis 1 · conflicted 1`; пакет `reason='conflicted'`; `diff`/`graph` rc=0.
+
+**Ключевое:** гейт ПЕРЕМЕРЯЕТ оба кода и требует совпадения с записью в
+`audits/polygon5.kern` (число без владельца — класс `#405`).
+
+**Дефект `#453` (найден при составлении):** код `2` в kernx — это `N`
+(конвенция SKIP/NO_EVIDENCE, `#96`), а НЕ `F`. Проект с `exit_code = 2` дал
+`N->B 0` — конфликт не возникал. Это `#424` в обратную сторону.
+
+**Границы:** `kernx` не запускает внешние оракулы сам; артефакты — фикстуры
+репозитория; свидетельства записаны в `.kern` и перемеряются гейтом.

@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->240 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-> CHECK <!-- fact:check_targets -->184/<!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->185/<!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -5651,3 +5651,22 @@ cheats run by a plain runner: `rc=0`, `passed 0`, `skipped 3`.
 **Measured by planting** a cheat into the honest file: `TN 0` in anti-cheat but
 the duel stayed `RC=0`. The criterion now requires **every** contour to have its
 own `TP > 0` and `TN > 0`; after the fix the plant gives **`RC=1`**.
+
+## §184. POLYGON 5: `kernx` E2E — ALL FOUR BELNAP STATES
+
+**Evidence (MEASURED, not declared):** plain CI (`pytest`) on the 12-cheat demo
+-> rc **0** = **T**; KERN L5 (`--anti-cheat`) on the same file -> rc **1** = **F**;
+`JOIN_K(T, F) = B` (`conflicted`).
+
+**MEASURED:** `N->B 1`; states `proven 1 · refuted 2 · tested 1 · hypothesis 1 ·
+conflicted 1`; packet `reason='conflicted'` (NOT `refuted`); `diff`/`graph` rc=0.
+
+The gate **RE-MEASURES** both codes and requires the record in
+`audits/polygon5.kern` to match the fact (a number without an owner is `#405`).
+
+### 184.1 DEFECT #453: exit code `2` in kernx means N, not F
+
+MEASURED: the first version used `metric exit_code = 2` and gave `N->B 0` — no
+conflict. Core convention (`#96`): `0 -> T`, `2 -> N` (SKIP/NO_EVIDENCE),
+otherwise `F`. This is `#424` in reverse: there `B` collapsed to `F`, here `F`
+collapses to `N`.

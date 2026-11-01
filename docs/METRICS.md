@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->240 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · registry <!-- fact:registry_targets -->241 · META <!-- fact:meta_targets -->41 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->451 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-> CHECK <!-- fact:check_targets -->184/<!-- fact:check_targets -->184 · cases <!-- fact:canfail_cases -->224 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->185/<!-- fact:check_targets -->185 · cases <!-- fact:canfail_cases -->225 · anchors <!-- fact:anchors -->183 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -13088,3 +13088,48 @@ FileNotFoundError: [Errno 2] No such file or directory: 'zig'
 | после откатa | `RC=0`, `31 пара, J = 1.00` |
 
 Кейс `l5-duel` в `canfail`: `не-вакуумных 1 | ВАКУУМНЫХ 0`, дерево чистое.
+
+## §207. ПОЛИГОН 5: E2E `kernx` — ЧЕТЫРЕ СОСТОЯНИЯ БЕЛНАПА
+
+**Зачем.** Ядро `src/next/` задумано ради `B = JOIN_K(T, F)`; до `#423`/`#424`
+конфликт падал на SQLite CHECK и подменялся в пакете строкой `refuted`.
+Полигон 5 проверяет цепочку на **реальных** свидетельствах полигонов 1 и 4.
+
+**Свидетельства (ИЗМЕРЕНЫ, а не объявлены):**
+
+| Оракул | Артефакт | rc | Бит |
+|:--|:--|--:|:--|
+| обычный CI (`pytest`) | `examples/anti_cheat_demo.py` (12 читов) | **0** | **T** |
+| KERN L5 (`--anti-cheat`) | тот же файл | **1** | **F** |
+
+`JOIN_K(T, F) = B` -> `conflicted`.
+
+**ИЗМЕРЕНО (`make kernx-polygon5-check`):** `N->B(конфликт) 1`;
+состояния `proven 1 · refuted 2 · tested 1 · hypothesis 1 · conflicted 1`;
+пакет: `reason='conflicted'` (НЕ `refuted`); `kernx diff rc=0`, `graph rc=0`.
+
+**Ключевое свойство гейта:** он **ПЕРЕМЕРЯЕТ** оба кода и требует, чтобы запись
+в `audits/polygon5.kern` совпадала с фактом. Число без владельца — класс `#405`;
+здесь у каждого записанного `exit_code` есть перемер.
+
+### 207.1 ДЕФЕКТ #453: код `2` в kernx — это N, а не F
+
+**ИЗМЕРЕНО при составлении проекта:** первая версия использовала
+`metric exit_code = 2` для F-свидетельства и дала **`N->B 0`** — конфликт
+**не возникал**. Причина в конвенции ядра (`#96`):
+
+```
+exit_code == 0 -> T      (подтверждение)
+exit_code == 2 -> N      (SKIP / NO_EVIDENCE: ни p, ни n)
+иное           -> F      (опровержение)
+```
+
+С `exit_code = 124` (как в тесте ядра) конфликт возникает: `N->B 1`.
+
+**Значение находки:** любой, кто подаёт в `kernx` вердикты внешних
+инструментов, обязан знать эту конвенцию — иначе опровержение молча
+превратится в «нет свидетельства». Это класс `#424`, но в обратную сторону:
+там `B` схлопывался в `F`, здесь `F` схлопывался в `N`.
+
+**Границы:** `kernx` не запускает внешние оракулы сам — свидетельства ЗАПИСАНЫ
+в `.kern` и ПЕРЕМЕРЯЮТСЯ гейтом; артефакты — фикстуры репозитория.
