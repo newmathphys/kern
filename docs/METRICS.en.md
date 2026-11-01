@@ -5476,3 +5476,77 @@ The identities hold: `4+12+0+2+24+17+11 = 70`, `+0+8 = 78` OK;
 
 **RESULT: the number of tasks with `trusted: 0` became `6 of 7`** (was 4). The only partial
 one is `QF_BV/add_three.4_bit` (646 trusted: the bit-blaster, an honest boundary).
+
+## §181. VARIANT B, STEP 1: A DUMP OF THE 5 `--anti-cheat` BUCKETS OVER `tools/*.py`
+
+**132** files were scanned, **31** had findings. Verbatim examples (file:line):
+
+### 181.1 `mock in production code` (186) - THIS IS NOT `unittest.mock`!
+
+```
+canfail.py:742:  patch("tools/cache_avalanche_bench.py",
+canfail.py:755:  patch("tools/bench_json.py",
+canfail.py:772:  patch("src/verifier/noninterference.zig",
+```
+
+The rule catches ANY name `patch` - while in `canfail.py` it is the project's OWN FILE-patching
+function (the mutator), not `unittest.mock.patch`. The reviewer's hypothesis holds.
+
+### 181.2 `test-case overfitting (chain of literals)` (59) - DISPATCHERS/PARSERS
+
+```
+anti_self_deception_check.py:85:  if v == "F" and rc != 0 and "AssertionError" in out:
+anti_self_deception_check.py:103: if v == "F" and rc != 0 and "division by zero" in out:
+```
+
+This is PARSING a subprocess output (which verdict the tool printed), not fitting numeric
+answers to tests. Hypothesis holds: chains of STRING tags are a `switch`.
+
+### 181.3 `swallowed exception (except: pass)` (29) - ORDINARY RESOURCE CLEANUP
+
+```
+canfail.py:131:  except OSError:
+canfail.py:173:  except OSError:
+canfail.py:192:  except OSError:
+```
+
+There is NOT A SINGLE `assert` inside the `try` - it is `try: os.unlink(p) except OSError: pass`.
+Hypothesis holds: with no `assert` inside the `try` there is no swallowed assert by definition.
+
+### 181.4 `exit inside tested code` (13) - NON-ZERO CODES
+
+```
+cache_avalanche_bench.py:135:  sys.exit(1)
+canfail.py:274:               sys.exit(130)
+canfail.py:4382:              sys.exit(2)
+```
+
+All three are NON-ZERO: a legitimate emergency stop. The cheat is `exit(0)` (faking a "green"
+return code). Hypothesis holds.
+
+### 181.5 `monkeypatch of attribute (callable)` (4) - LEGITIMATE SUBSTITUTIONS
+
+```
+charter_check.py:252:  L.join_code = lambda ...      (then :260 `= real`)
+kern_contracts.py:8677: fn._kern_lines = lines  # noqa: SLF001
+ trace_explorer.py:144: a.successor = b
+```
+
+In `charter_check.py` the method is SAVED and RESTORED (checking the laws), in
+`trace_explorer.py` a graph is built, in `kern_contracts.py` a function is annotated.
+
+### 181.6 CONCLUSION
+
+**All five buckets over `tools/*.py` are FALSE POSITIVES**, and the cause is named in each.
+The fix plan (Variant B, next step) is to split the rules by CONTEXT:
+
+| Rule | Where to apply | What stays a cheat |
+|:--|:--|:--|
+| `mock` | only if the name resolves to an `unittest`/`mock` import OR the call is qualified (`mock.patch`) | a real `mock.patch` |
+| `overfitting` | only inside `def test_*` | literal chains in a test |
+| `swallowed` | outside `test_*` only if the `try` contains `ast.Assert` or `except AssertionError` | a bare `except` in a test |
+| `exit` | outside `test_*` only `exit(0)` / `exit()` / `exit(var)` | `exit(0)` anywhere |
+| `monkeypatch` | only inside `def test_*` | substitution in a test |
+
+**ACCEPTANCE:** all **12 classes** in `anti-cheat-check` must remain caught, while the noise
+over `tools/*.py` must drop from 31 files to ~0.

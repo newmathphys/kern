@@ -12891,3 +12891,79 @@ fn expandLets(c: *Ctx, e: Sexp, depth: u32, budget: *usize) Sexp {
 
 **ИТОГ: задач с `trusted: 0` стало `6 из 7`** (было 4). Единственная частичная —
 `QF_BV/add_three.4_bit` (646 доверенных: битовый бластер, честная граница).
+
+## §203. ВАРИАНТ Б, ШАГ 1: ДАМП 5 КОРЗИН `--anti-cheat` НА `tools/*.py`
+
+Просканировано **132** файла, с находками **31**. Дословные примеры (файл:строка):
+
+### 203.1 `mock in production code` (186) — ЭТО НЕ `unittest.mock`!
+
+```
+canfail.py:742:  patch("tools/cache_avalanche_bench.py",
+canfail.py:755:  patch("tools/bench_json.py",
+canfail.py:772:  patch("src/verifier/noninterference.zig",
+```
+
+Правило ловит **любое имя `patch`** — а в `canfail.py` это **собственная функция
+патчинга ФАЙЛОВ** (мутатор), а не `unittest.mock.patch`. Гипотеза ревьюера верна.
+
+### 203.2 `test-case overfitting (chain of literals)` (59) — ДИСПЕТЧЕРЫ/ПАРСЕРЫ
+
+```
+anti_self_deception_check.py:85:  if v == "F" and rc != 0 and "AssertionError" in out:
+anti_self_deception_check.py:103: if v == "F" and rc != 0 and "division by zero" in out:
+anti_self_deception_check.py:119: if v == "F" and rc != 0 and "overflow" in out:
+```
+
+Это **разбор вывода подпроцесса** (какой вердикт напечатал инструмент), а не подгонка
+числовых ответов под тесты. Гипотеза верна: цепочки **строковых** тегов — это `switch`.
+
+### 203.3 `swallowed exception (except: pass)` (29) — БЫТОВАЯ ОЧИСТКА РЕСУРСОВ
+
+```
+canfail.py:131:  except OSError:
+canfail.py:173:  except OSError:
+canfail.py:192:  except OSError:
+```
+
+Внутри `try` **нет ни одного `assert`** — это `try: os.unlink(p) except OSError: pass`.
+Гипотеза верна: без `assert` внутри `try` «проглоченного ассерта» нет по определению.
+
+### 203.4 `exit inside tested code` (13) — НЕНУЛЕВЫЕ КОДЫ
+
+```
+cache_avalanche_bench.py:135:  sys.exit(1)
+canfail.py:274:               sys.exit(130)
+canfail.py:4382:              sys.exit(2)
+```
+
+Все три — **ненулевые** коды: законный аварийный останов. Читом является `exit(0)`
+(подделка «зелёного» кода возврата). Гипотеза верна.
+
+### 203.5 `monkeypatch of attribute (callable)` (4) — ЛЕГИТИМНЫЕ ПОДМЕНЫ
+
+```
+charter_check.py:252:  L.join_code = lambda a, b: (L.p_of(a) ^ L.p_of(b)) | ...   (затем:260 `= real`)
+charter_check.py:260:  L.join_code = real
+kern_contracts.py:8677: fn._kern_lines = lines  # noqa: SLF001
+ trace_explorer.py:144: a.successor = b
+```
+
+В `charter_check.py` метод **сохраняется и восстанавливается** (проверка законов),
+в `trace_explorer.py` строится граф, в `kern_contracts.py` — аннотирование функции.
+
+### 203.6 ВЫВОД
+
+**Все пять корзин на `tools/*.py` — ЛОЖНЫЕ СРАБАТЫВАНИЯ**, и причина в каждой
+названа. План правки (Вариант Б, следующий шаг) — разделение правил по КОНТЕКСТУ:
+
+| Правило | Где применять | Что остаётся читом |
+|:--|:--|:--|
+| `mock` | только если имя разрешается в импорт из `unittest`/`mock` ИЛИ вызов квалифицирован (`mock.patch`) | настоящий `mock.patch` |
+| `overfitting` | только внутри `def test_*` | цепочки сравнений в тесте |
+| `swallowed` | вне `test_*` — только если внутри `try` есть `ast.Assert` или `except AssertionError` | глухой `except` в тесте |
+| `exit` | вне `test_*` — только `exit(0)` / `exit()` / `exit(переменная)` | `exit(0)` где угодно |
+| `monkeypatch` | только внутри `def test_*` | подмена в тесте |
+
+**ПРИЁМКА:** все **12 классов** в `anti-cheat-check` обязаны остаться пойманными,
+шум на `tools/*.py` — упасть с 31 файла до ~0.
