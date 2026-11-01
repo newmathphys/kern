@@ -5,7 +5,7 @@
  "catalog": 490,
  "check_targets": 183,
  "canfail_cases": 223,
- "mutation_sites": 1531,
+ "mutation_sites": 1534,
  "mutation_files": 21,
  "registry_targets": 239,
  "meta_targets": 41,

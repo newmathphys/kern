@@ -5361,3 +5361,24 @@ would open a substitution hole.
 
 **RESULT: on all 7 tasks there are NO rejected proofs any more** - 4 `[PROOF VERIFIED]`
 + 3 `[PROOF PARTIAL]`, `unbound = 0` everywhere.
+
+### 178.5 THE REVIEWER'S PREDICTION IS CONFIRMED NUMERICALLY
+
+It was verified that the `let` expansion REACHES THE END rather than stopping at the second
+level. Measurements (the `[dbg-len]` instrumentation, enabled also on SUCCESSFUL binding):
+
+```
+[dbg-len] proof.len=38550 contract.len=38539 equal=false
+```
+
+* the file `QF_BV/add_three.4_bit.smt2` holds exactly **139** `let` bindings (measured with
+  `grep -o 'let ((' | wc -l`);
+* at the BOTTOM of the nest (`tmp_140`) lies `(distinct tmp_139 tmp_134)`, built from
+  `bvadd`/`concat` with `#b0` - that is EXACTLY the formula the `proof` printed;
+* `contract.len` grew **`5326 -> 38539`** (predicted "to the same 38550");
+* the **11-character** difference is PURELY TEXTUAL: the normalisation `#b0` -> `(_ bv0 1)`
+  changes the spelling, not the structure. `sexpEqNum` returned `true` and the premise BOUND
+  (`premises 1/188`, verdict `[PROOF PARTIAL]`).
+
+**CONCLUSION:** the cause was EXACTLY the depth limit - not a "theory axiom" (the refuted
+`#442`) and not a buffer size.

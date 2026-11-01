@@ -38,7 +38,7 @@
 **402/402 OK** (Debug AND ReleaseSafe); without `z3` in `PATH` — 393 passed + 8 skipped
 (solver-dependent tests skip by design).
 Reference `valid_v1_3.kimg` → the Merkle root matches Python↔Zig (confirmed both ways).
-Decision coverage → **100.0 %** (30/30). Mutation score → **100.0 %** (1531/1531 killed,
+Decision coverage → **100.0 %** (30/30). Mutation score → **100.0 %** (1534/1534 killed,
 0 survivors; canonical gate 40/40).
 
 ---

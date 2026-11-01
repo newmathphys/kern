@@ -5192,6 +5192,20 @@ fn verifyProofKindInner(
                 }
             }
             if (found) v.premises_bound += 1 else v.premises_unbound += 1;
+            // ДЕФЕКТ #443: ПРОВЕРКА ДЛИН ПОСЛЕ РАСКРЫТИЯ — и когда посылка ПРИВЯЗАЛАСЬ,
+            // и когда нет. ИЗМЕРЕНО ревьюером как гипотеза: `contract.len` обязан
+            // вырасти с 5326 до длины вывода (38550), иначе раскрытие неполно.
+            if (dbgEnv("KERN_DEBUG_TRUSTED") != null and
+                v.premises_bound + v.premises_unbound == 1 and contract_terms.items.len > 0)
+            {
+                var sbuf2 = std.array_list.Managed(u8).init(c.arena);
+                sexpToStr(&c, t_exp, &sbuf2);
+                var cbuf2 = std.array_list.Managed(u8).init(c.arena);
+                sexpToStr(&c, first_ct_exp orelse contract_terms.items[0], &cbuf2);
+                dbgPrint("[dbg-len] proof.len={d} contract.len={d} равны={}\n", .{
+                    sbuf2.items.len, cbuf2.items.len, sbuf2.items.len == cbuf2.items.len,
+                });
+            }
             // ДЕФЕКТ #442 (Блок 3): ПЕРВАЯ ПОЗИЦИЯ РАСХОЖДЕНИЯ. ИЗМЕРЕНО: в
             // `QF_BV/add_three.4_bit.smt2` ВСЕГО ОДИН `assert`, значит `unbound`
             // равен 1, и достаточно сопоставить ОДНУ пару. Печатаем длины и
