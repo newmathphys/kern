@@ -5587,3 +5587,37 @@ over `tools/*.py` must drop from 31 files to ~0.
 |:--|:--|
 | `make anti-cheat-check` -> `rc=0`, all **12 classes** caught | **RC=0**, 12 findings OK |
 | noise over 132 files of `tools/*.py` | **31 files -> 0** (0 findings) OK |
+
+## §183. VARIANT C: THE SEAL OF THE CYCLE + DEFECT `#448` IN THE SEALING TOOL ITSELF
+
+### 183.1 The seal was made (two-step scheme)
+
+Content commit `N = 0827da3` -> `make seal` -> commit `N+1` with the artifacts ONLY
+(`kern.intoto.jsonl`, `kern.intoto.sig`), so that `attests_commit` points exactly at its
+parent. MEASURED (`make seal`): 1 subject, commit `0827da3cfc31`, `dirty=False`, Ed25519
+signature 64 bytes, the sha256 of the hermetic binary and the source fingerprint matched,
+`kid` matched the repository key. MEASURED (`make verify-attestation` with the EXTERNAL
+key): signature valid, `kid` matched, `attests_commit == HEAD`, `dirtyTree = false`, sha256
+matched -> **ATTESTATION VERIFIED**.
+
+The previous attestation used the OLD scheme (`tree_sha256` without `attests_commit`); now
+the commit is pinned explicitly.
+
+### 183.2 `#448`: THE SEALING TOOL CRASHES WITH A TRACEBACK WITHOUT NAMING THE CAUSE
+
+**MEASURED:** `make seal` failed with
+
+```
+FileNotFoundError: [Errno 2] No such file or directory: 'zig'
+  tools/slsa_provenance.py, line 354, in main
+    "zig_version": (subprocess.run(["zig", "version"], ...)
+```
+
+**Cause:** `slsa_provenance.py` invokes `zig` by NAME and does NOT honour `$ZIG` (in this very
+project `$ZIG` is the standard way to point at the compiler, see rule 4 of §6). When `zig` is
+absent from `PATH` the tool crashes with a raw Python traceback instead of a named error -
+class `#370/#371/#427` ("the message says something other than what happened").
+
+**Workaround (used):** put the zig directory into `PATH`.
+**CURE (not done):** (1) honour `$ZIG` the same way the `Makefile` does; (2) when missing,
+print a named error and return `rc != 0` instead of a traceback.
