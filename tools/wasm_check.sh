@@ -46,5 +46,22 @@ else
   echo '  [FAIL] zig build test'; tail -8 /tmp/wasm_test.log; fail=1
 fi
 
-if [ "$fail" -eq 0 ]; then echo '[OK] wasm-check: сборка + байты + семантика'; exit 0; fi
+# ДЕФЕКТ #462 (ИЗМЕРЕНО): файл, который раздаётся на сайте
+# (`docs/kernc.wasm`), НИКОГДА не собирался и не сверялся с кодом: он был
+# 86 953 Б от 19 окт, тогда как текущая сборка — 104 557 Б (разные sha256).
+# Теперь паритет ПРОВЕРЯЕТСЯ: раздаваемый модуль обязан совпадать с текущей
+# сборкой, иначе гейт краснеет и называет команду обновления.
+if [ -f docs/kernc.wasm ]; then
+  if cmp -s zig-out/bin/kernc.wasm docs/kernc.wasm; then
+    echo '  [OK] паритет: docs/kernc.wasm == zig-out/bin/kernc.wasm'
+  else
+    echo '  [FAIL] docs/kernc.wasm РАСХОДИТСЯ с текущей сборкой (#462)'
+    echo '         обновите: cp zig-out/bin/kernc.wasm docs/kernc.wasm'
+    fail=1
+  fi
+else
+  echo '  [FAIL] docs/kernc.wasm отсутствует — сайт раздаёт нечего (#462)'; fail=1
+fi
+
+if [ "$fail" -eq 0 ]; then echo '[OK] wasm-check: сборка + байты + семантика + паритет сайта'; exit 0; fi
 echo '[FAIL] wasm-check'; exit 1

@@ -5753,3 +5753,22 @@ the `ci-fast` run itself after my content commit. LESSON (process, not code): th
 seal must be the LAST step on a CLEAN tree; derived artifacts are committed
 before it. After fixing the order: `dirty=False`, `attests_commit == HEAD~1`,
 verified with the external key.
+
+## §191. PUBLIC SHOWCASE AUDIT: TWO DIVERGENCES FROM THE CODE
+
+### 191.1 `#461`: an outdated coverage anti-record
+
+MEASURED at HEAD: `cmark-gfm/src` **173/182 = 95.1 %**, `actions/toolkit`
+**72/77 = 93.5 %**, **0 findings** on both - while the README said "skips 60-80 % of
+functions (measured: 95/254, 32/148)". Fixed in README RU+EN; the field audit
+report is now marked "at the time of this audit".
+
+### 191.2 `#462`: the shipped WASM was stale and unverified
+
+MEASURED: current build **104 557 B** vs the site file **86 953 B** (Oct 19),
+different sha256; `docs/kernc.wasm` was mentioned in NO Makefile and NO tool, and
+`wasm-check` was NOT wired into `ci.sh`. FIXED: file synced, a PARITY check added,
+and a `ci.sh` stage. Non-vacuous: tampering gives RC=2, restoring RC=0.
+
+BOUNDARY: the GitHub About field ("42 Lean 4 theorems" vs `lean_theorems: 147`)
+lives in GitHub METADATA, not in git, so no local gate can see it.

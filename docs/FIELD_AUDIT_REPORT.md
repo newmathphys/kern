@@ -12,8 +12,10 @@ unmodified third-party code bases, and what the numbers were **before** and
 **Scope, stated plainly.** KERN is a verification gate for *contracts*
 (`requires ⇒ ensures`, certificate re-checked by the native Zig proof checker).
 It is **not** an AST-level linter for unannotated C/C++: the C-like X-Ray parses
-conditions, `assert` guards, type ranges and divisors, and it **skips 60–80 % of
-functions** on real repositories. So a `0 findings` line below means
+conditions, `assert` guards, type ranges and divisors, and **at the time of this
+audit it skipped 60–80 % of functions** on real repositories (the `v2.8.1` front
+end reaches `173/182` in `cmark-gfm` and `72/77` in `actions/toolkit` — see
+`docs/CORPORA.md`). So a `0 findings` line below means
 "nothing proven and nothing refuted inside the analysed subset", not "clean code".
 
 Repositories were cloned with `--depth 1` into `/dev/shm/kern-field-lab`
