@@ -1833,6 +1833,64 @@ fn bitTautology(l: Sexp, r: Sexp, arena: std.mem.Allocator) bool {
     return true;
 }
 
+/// ДЕФЕКТ #463 (ИЗМЕРЕНО на СВОЕЙ QF_AX-формуле Полигона 3): Z3 оформляет
+/// ОПРЕДЕЛЕНИЕ `distinct` шагом rewrite:
+///   (= (and (distinct A B) true) (not (= A B)))
+/// Это ОПРЕДЕЛЕНЧЕСКИЕ тождества — верны для ЛЮБОГО сорта (в том числе
+/// `(Array Int Int)`):
+///   (and X true) = X,  (and true X) = X,  (distinct A B) = (not (= A B)).
+/// ЗВУЧНО: обе переписи лишь РАСКРЫВАЮТ определения и семантику не меняют.
+fn mkL1(a: std.mem.Allocator, head: []const u8, x: Sexp) Sexp {
+    const it = a.alloc(Sexp, 2) catch return x;
+    it[0] = .{ .atom = head };
+    it[1] = x;
+    return .{ .items = it };
+}
+
+fn mkL2(a: std.mem.Allocator, head: []const u8, x: Sexp, y: Sexp) Sexp {
+    const it = a.alloc(Sexp, 3) catch return x;
+    it[0] = .{ .atom = head };
+    it[1] = x;
+    it[2] = y;
+    return .{ .items = it };
+}
+
+fn normDefDepth(a: std.mem.Allocator, t: Sexp, depth: u32) Sexp {
+    if (depth > 64) return t;                       // за лимитом — без переписи
+    if (!t.isList() or t.items.len == 0) return t;
+    const h = t.headAtom() orelse return t;
+    if (std.mem.eql(u8, h, "distinct") and t.items.len == 3) {
+        const inner = mkL2(a, "=", normDefDepth(a, t.items[1], depth + 1),
+                           normDefDepth(a, t.items[2], depth + 1));
+        return mkL1(a, "not", inner);
+    }
+    if (std.mem.eql(u8, h, "and")) {
+        var keep = std.array_list.Managed(Sexp).init(a);
+        for (t.items[1..]) |e| {
+            if (e.atom) |s| {
+                if (std.mem.eql(u8, s, "true")) continue;
+            }
+            keep.append(normDefDepth(a, e, depth + 1)) catch return t;
+        }
+        if (keep.items.len == 0) return t;
+        if (keep.items.len == 1) return keep.items[0];
+        var out = std.array_list.Managed(Sexp).init(a);
+        out.append(.{ .atom = "and" }) catch return t;
+        for (keep.items) |e| out.append(e) catch return t;
+        return .{ .items = out.items };
+    }
+    var out = std.array_list.Managed(Sexp).init(a);
+    for (t.items) |e| out.append(normDefDepth(a, e, depth + 1)) catch return t;
+    return .{ .items = out.items };
+}
+
+/// Равенство с точностью до ОПРЕДЕЛЕНЧЕСКИХ переписей (дефект #463).
+fn defNormEq(c: *const Ctx, l: Sexp, r: Sexp) bool {
+    const nl = normDefDepth(c.arena, l, 0);
+    const nr = normDefDepth(c.arena, r, 0);
+    return sexpEqNum(nl, nr);
+}
+
 fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     if (st.items.len < 2) return .unverifiable;
     const eq = expand(c, st.items[1], 0);
@@ -1851,6 +1909,12 @@ fn checkRewrite(c: *const Ctx, st: Sexp) RwResult {
     // Из-за этого 3 доверенных `rewrite` в выводе IEEE-754 не сходились,
     // хотя все нужные тождества УЖЕ были реализованы.
     if (sexpEqNum(l, r)) return .verified;
+    // ДЕФЕКТ #463, часть 2: аксиома Маккарти ROW1 шагом rewrite.
+    if (row1Eq(l, r)) return .verified;
+    // ДЕФЕКТ #463: ОПРЕДЕЛЕНЧЕСКИЕ тождества переписи (`distinct`, `and true`).
+    // ИЗМЕРЕНО на СВОЕЙ QF_AX-формуле: единственный доверенный шаг был
+    // `(= (and (distinct A B) true) (not (= A B)))`.
+    if (defNormEq(c, l, r)) return .verified;
     // ДЕФЕКТ #440 (Блок 5 плана): ТОЖДЕСТВО 1-БИТНОЙ АЛГЕБРЫ. Перебор всех
     // `2^m` наборов булевых листьев. ЗВУЧНО (нет переноса между битами; листья
     // только заведомо 1-битные — см. комментарий у `evalBit`).
