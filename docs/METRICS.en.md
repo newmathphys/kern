@@ -5790,3 +5790,20 @@ COLLISION counterexample `write_idx = 0, read_idx = 0`.
 BOUNDARY: the `ROW1` shape gives `[PROOF PARTIAL]` with 1 trusted step
 (`rewrite`), so `trusted: 0` is reachable for `ROW2` contracts; the `ROW1` form
 needs an extra checker rule and is NOT part of Step 1 acceptance.
+
+## §193. POLYGON 3 CLOSED: THE THIRD THEORY `QF_AX` IN `audits/EVIDENCE.md`
+
+MEASURED (`make audits`): `RC=0`, table has **40 rows**, theories `QF_AX 3 |
+QF_BV 16 | QF_LIA 21` - the third theory (arrays) appears for the first time,
+with `PROVEN` rows confirmed by OUR OWN proof checker (`trusted: 0`).
+
+### 193.1 DEFECT #464: A SOLVER TIMEOUT CRASHED THE TOOL AND CREATED AN ORPHAN
+
+The `midpoint_midpoint.smt2` orphan (caught by the `#415` parity gate) is
+explained: `build_smt` writes the `.smt2` file, then `run_kernc` gets
+`subprocess.TimeoutExpired`, which was NOT handled anywhere in that path -> the
+whole tool crashed with a traceback -> no verdict row -> the file became an
+orphan. FIXED: the call site now yields a NAMED outcome
+`[N] <name>: solver exceeded the limit (timeout)`. Measured after the fix on
+`audits/rust-core/midpoint.rs`: both rows appear (`[SKIP] midpoint` with
+`premises_unbound`, `[FAIL] midpointMutated`), `make audits RC=0`.

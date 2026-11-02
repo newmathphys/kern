@@ -4808,7 +4808,20 @@ def _demo(args) -> int:
                                 "reason": "нет @kern:ensures (нет постусловия)"})
                 skipped += 1
                 continue
-            rc, out = run_kernc(kernc, smt)
+            try:
+                rc, out = run_kernc(kernc, smt)
+            except subprocess.TimeoutExpired:
+                # ДЕФЕКТ #464 (ИЗМЕРЕНО на `audits/rust-core/midpoint.rs`):
+                # решатель не уложился в лимит -> ТРЕЙСБЕК РОНЯЛ весь инструмент,
+                # а файл `.smt2` уже был записан `build_smt` -> гейт паритета
+                # #415 объявлял СИРОТУ (`midpoint_midpoint.smt2`). Теперь это
+                # НАЗВАННЫЙ исход N (нет данных), а не падение.
+                print(f"  [N] {name}: решатель не уложился в лимит (timeout)")
+                f_funcs.append({"name": name, "line": ln,
+                                "verdict": "N",
+                                "reason": "таймаут решателя"})
+                unknown += 1
+                continue
             # ДЕФЕКТ #207: тело получено РАЗВЁРТКОЙ цикла/рекурсии (K шагов) —
             # это недо-аппроксимация. UNSAT на K шагах НЕ доказывает цикл:
             # он может продолжаться на шаге K+1. Доказательство требует

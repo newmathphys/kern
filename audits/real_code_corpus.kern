@@ -140,6 +140,21 @@ artifact "audits/smt2/midpoint_midpointMutated.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/ring_slot_array_slot_isolation_buggy.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/ring_slot_array_slot_isolation_good.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/ring_slot_array_write_hit.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/rust_allman_add32Allman.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -350,6 +365,24 @@ claim "audit:midpoint_midpointMutated" {
   status refuted
   evidence "contract:audits/smt2/midpoint_midpointMutated.smt2"
   context "audits/smt2/midpoint_midpointMutated.smt2"
+}
+
+claim "audit:ring_slot_array_slot_isolation_buggy" {
+  status refuted
+  evidence "contract:audits/smt2/ring_slot_array_slot_isolation_buggy.smt2"
+  context "audits/smt2/ring_slot_array_slot_isolation_buggy.smt2"
+}
+
+claim "audit:ring_slot_array_slot_isolation_good" {
+  status proven
+  evidence "contract:audits/smt2/ring_slot_array_slot_isolation_good.smt2"
+  context "audits/smt2/ring_slot_array_slot_isolation_good.smt2"
+}
+
+claim "audit:ring_slot_array_write_hit" {
+  status proven
+  evidence "contract:audits/smt2/ring_slot_array_write_hit.smt2"
+  context "audits/smt2/ring_slot_array_write_hit.smt2"
 }
 
 claim "audit:rust_allman_add32Allman" {

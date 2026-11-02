@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->241 targets · **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 CHECK** · <!-- fact:canfail_cases -->225 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** — Public showcase audit closed `#461` (README RU+EN advertised the outdated anti-record 95/254 and 32/148; re-measured: 173/182 = 95.1% and 72/77 = 93.5%, 0 findings) and `#462` (the file served on the site, docs/kernc.wasm, was 86 953 B from Oct 19 vs the current 104 557 B build; a PARITY check was added and wasm-check wired into ci.sh). Polygon 3 Step 1 DONE as a measurement: the C front end does not model assignment statements and has no array sort, BUT the target is proven reachable - a hand-written ROW2 formula gives `[PROOF VERIFIED] trusted: 0`; the `ROW1` form needs one more checker rule and is explicitly OUT of Step 1 acceptance |
+| Open technical defects | **0** — POLYGON 3 CLOSED: the third theory `QF_AX` is now in `audits/EVIDENCE.md` (40 rows; `QF_AX 3 | QF_BV 16 | QF_LIA 21`): `array_write_hit` (ROW1) and `array_slot_isolation_good` (ROW2) are **PROVEN**, `array_slot_isolation_buggy` is **REFUTED** with the collision counterexample `write_idx = 0, read_idx = 0`; `make audits RC=0`. `#464` fixed (a solver timeout used to crash the tool and orphan a `.smt2` file). Next: full 68-stage `ci-fast`, then `make seal` |
 
 ## Open work
 

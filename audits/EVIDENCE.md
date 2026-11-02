@@ -2,6 +2,9 @@
 |:--|:--|:--|:--|:--|:--|
 | `audits/andrewrk-gpa/alignment_bitvec.zig` | `alignmentAgrees` | QF_BV _ BitVec 32 знаковый | **PROVEN** | — | — |
 | `audits/andrewrk-gpa/alignment_bitvec.zig` | `alignmentAgreesBuggy` | QF_BV _ BitVec 32 знаковый | **REFUTED** | `addr = #xc0000001, alignment = #x40000000, result = #xc0000001` | — |
+| `audits/arrays/ring_slot.c` | `array_write_hit` | QF_AX (Array Int Int) | **PROVEN** | — | — |
+| `audits/arrays/ring_slot.c` | `array_slot_isolation_good` | QF_AX (Array Int Int) | **PROVEN** | — | — |
+| `audits/arrays/ring_slot.c` | `array_slot_isolation_buggy` | QF_AX (Array Int Int) | **REFUTED** | `val = -2147462410, read_idx = 0, write_idx = 0, result = -2147462410` | — |
 | `audits/bloch/binary_search.zig` | `mid_buggy` | QF_BV _ BitVec 32 знаковый | **REFUTED** | `low = #x00000804, high = #x7ffff7fc, result = #xc0000000` | — |
 | `audits/bloch/binary_search.zig` | `mid_safe` | QF_BV _ BitVec 32 знаковый | SKIP | — | — |
 | `audits/bloch/binary_search_safe.zig` | `mid_safe_int` | QF_BV _ BitVec 32 знаковый | **PROVEN** | — | — |
