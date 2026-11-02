@@ -1358,7 +1358,7 @@
   },
   {
    "id": "verifier/proof_check.zig",
-   "loc": 7483,
+   "loc": 7547,
    "pub_fn": 12,
    "tests": 105,
    "kern_annotations": 19,

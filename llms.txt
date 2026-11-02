@@ -33,7 +33,7 @@
 - Can-fail harness: **185 CHECK targets, 225 non-vacuous cases, 0 vacuous**.
 - Cross-architecture: **443 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
   PowerPC64 big-endian (QEMU).
-- WebAssembly: `kernc.wasm` (**104 557 bytes**) exports `kern_wasm_verify_proof`,
+- WebAssembly: `kernc.wasm` (**106 055 bytes**) exports `kern_wasm_verify_proof`,
   `kern_wasm_lia_unsat2`, `kern_wasm_belnap_join`, `kern_wasm_belnap_allow`,
   `kern_wasm_admission_valid` — the proof checker and the Fourier–Motzkin
   solver run in the browser with no OS calls.
