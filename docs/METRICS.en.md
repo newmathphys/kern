@@ -5772,3 +5772,21 @@ and a `ci.sh` stage. Non-vacuous: tampering gives RC=2, restoring RC=0.
 
 BOUNDARY: the GitHub About field ("42 Lean 4 theorems" vs `lean_theorems: 147`)
 lives in GitHub METADATA, not in git, so no local gate can see it.
+
+## §192. POLYGON 3, STEP 1: THE TARGET IS PROVEN REACHABLE (no front-end edits)
+
+MEASURED BEFORE any change: a probe C file with the proposed contracts gives
+`SKIP - operator c: 'buf[write_idx] = val'` - the C front end does not model
+assignment STATEMENTS, and `arr[i]` is lowered to an `ite` cascade over a 3-element
+window (`expr_smt`, line 576); there is no array sort at all.
+
+MEASURED TARGET REACHABILITY (the key result): the hand-written formula of exactly
+the shape the front end must emit is verified as
+`[PROOF VERIFIED] steps: 14 | premises bound: 3/3 | trusted: 0 | holes: 0` with
+`аксиомы массивов 1` - i.e. the `ROW2` rule from `#445` fires on a HAND-WRITTEN
+formula, not only on the official bank. The paired buggy side is REFUTED with the
+COLLISION counterexample `write_idx = 0, read_idx = 0`.
+
+BOUNDARY: the `ROW1` shape gives `[PROOF PARTIAL]` with 1 trusted step
+(`rewrite`), so `trusted: 0` is reachable for `ROW2` contracts; the `ROW1` form
+needs an extra checker rule and is NOT part of Step 1 acceptance.

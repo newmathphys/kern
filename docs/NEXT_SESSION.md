@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->241 targets · **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 CHECK** · <!-- fact:canfail_cases -->225 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** — the first full `ci-fast` on a clean tree gave 8 failures; two were real and are fixed: `#456` (the `smtlib-proof-partial` canfail case became VACUOUS after `#440`/`#445` - `224 | 1 | 0`; the plant moved to `QF_BV` with 646 trusted steps) and `#457` (bare `except Exception:` in `kern_contracts.py` + a stale baseline after `#448`). The rest were derived artifacts (catalog, 2 evidence logs, MCP manifests, showcase graph, scorecard, attestation) and were regenerated; each of the 8 stages re-checked individually |
+| Open technical defects | **0** — Public showcase audit closed `#461` (README RU+EN advertised the outdated anti-record 95/254 and 32/148; re-measured: 173/182 = 95.1% and 72/77 = 93.5%, 0 findings) and `#462` (the file served on the site, docs/kernc.wasm, was 86 953 B from Oct 19 vs the current 104 557 B build; a PARITY check was added and wasm-check wired into ci.sh). Polygon 3 Step 1 DONE as a measurement: the C front end does not model assignment statements and has no array sort, BUT the target is proven reachable - a hand-written ROW2 formula gives `[PROOF VERIFIED] trusted: 0`; the `ROW1` form needs one more checker rule and is explicitly OUT of Step 1 acceptance |
 
 ## Open work
 
