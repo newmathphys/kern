@@ -210,6 +210,11 @@ def _replay_soft(exc: BaseException, where: str = "replay") -> None:
 # ЖИВЫМ вызовом (Live Replay) — иначе он не считается нарушением (#206).
 _UNROLL_K: list = [max(1, int(os.environ.get("KERN_UNROLL_K", "2")))]
 _UNROLLED: list = [False]   # в трансляции была развёртка цикла/рекурсии
+# ПОЛИГОН 3 (QF_AX): имена-массивы текущей функции (из `@kern:array`) и их
+# ТЕКУЩЕЕ SMT-состояние. Пусто -> поведение прежнее (каскад `ite` для списков).
+_ARRAY_VARS: set = set()
+_ARRAY_STATE: dict = {}
+
 _INLINED: list = [0]        # сколько раз встроено тело саморекурсии
 
 
@@ -576,6 +581,11 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
     if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load):
         # СПИСКИ В ЧИСТОМ Int: `arr[i]` -> каскад `ite` по окну элементов.
         # Срез (`arr[a:b]`) в модель не входит — честный отказ, а не догадка.
+        base = node.value
+        # ПОЛИГОН 3 (QF_AX): имя объявлено `@kern:array` -> `(select …)`.
+        if isinstance(base, ast.Name) and base.id in _ARRAY_VARS:
+            _st = _ARRAY_STATE.get(base.id, base.id)
+            return f"(select {_st} {expr_smt(node.slice, env, lang)})"
         base = node.value
         if not isinstance(base, ast.Name):
             raise Unsupported("индекс не от простого имени")
@@ -1116,7 +1126,8 @@ def value_of(smt: str, *, bitvec_width=None) -> str:
     return f"(ite {smt} (_ bv1 {bitvec_width}) (_ bv0 {bitvec_width}))"
 
 
-def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
+def build_smt(params, req, ens, body_smt_text: str, ranges=None,
+              arrays=None) -> str:
     """SMT-LIB2: параметры, МАШИННЫЕ ГРАНИЦЫ, requires, `result = <тело>`, ¬ensures.
 
     `ranges` (Zig/C/Rust) ограничивает ВХОДЫ типом (`i32` -> [-2^31, 2^31-1]),
@@ -1124,7 +1135,13 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
     РЕЗУЛЬТАТА здесь НЕ ограничивается: переполнение ловит отдельное
     обязательство (`build_overflow_smt`), иначе оно «спряталось» бы в UNSAT.
     """
-    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    # ПОЛИГОН 3: массивы объявляются сортом `(Array Int Int)`, а не `Int`.
+    _ARRAY_VARS.clear()
+    _ARRAY_VARS.update(arrays or ())
+    _ARRAY_STATE.clear()
+    decls = "\n".join(
+        f"(declare-const {p} (Array Int Int))" if p in _ARRAY_VARS
+        else f"(declare-const {p} Int)" for p in params)
     lines = ["(set-logic ALL)", decls, "(declare-const result Int)"]
     # СИМВОЛЫ АБСТРАКЦИИ (`len__x`, `_havoc_k`) — ДО любых assert:
     # SMT-LIB требует, чтобы все `declare-const` шли перед `assert`, иначе
@@ -1134,6 +1151,8 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
             lines.append(f"(declare-const {_sym} Int)")
     env: dict = {}  # в requires/ensures локальных имён нет — только параметры
     for p, (lo, hi) in (ranges or {}).items():
+        if p in _ARRAY_VARS:
+            continue          # ПОЛИГОН 3: у массива нет машинного диапазона
         lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
     # Аксиомы символьной абстракции (`len(x) >= 0`): часть модели, а не догадка —
     # длина контейнера неотрицательна по определению.
@@ -1145,6 +1164,8 @@ def build_smt(params, req, ens, body_smt_text: str, ranges=None) -> str:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
     lines.append(f"(assert (= result {value_of(body_smt_text)}))")
     if ens:
+        # ПОЛИГОН 3: постусловие читает ИСХОДНЫЕ массивы (сброс состояния).
+        _ARRAY_STATE.clear()
         e = expr_smt(ast.parse(ens, mode='eval').body, env)
         lines.append(f"(assert (not {e}))")
     lines.append("(check-sat)")
@@ -2580,6 +2601,14 @@ def _exec_clike(stmts, env: dict, lang: str, expr_fn=None):
         m = re.match(r"^return\s+(.+)$", st, re.S)
         if m:
             return expr_fn(_clike_parse(m.group(1), lang), env)
+        # ПОЛИГОН 3 (QF_AX): `buf[i] = v;` — мутация элемента массива.
+        _am = re.match(r"^([A-Za-z_]\w*)\s*\[([^\]]+)\]\s*=\s*(.+)$", st, re.S)
+        if _am and _am.group(1) in _ARRAY_VARS:
+            _arr = _am.group(1)
+            _ix = expr_fn(_clike_parse(_am.group(2), lang), env)
+            _vl = expr_fn(_clike_parse(_am.group(3), lang), env)
+            _ARRAY_STATE[_arr] = f"(store {_ARRAY_STATE.get(_arr, _arr)} {_ix} {_vl})"
+            continue
         m = re.match(
             r"^(?:const\s+|let\s+(?:mut\s+)?|"
             r"(?:int|long|i32|i64|u32|u64|usize|size_t|unsigned)\s+)?"
@@ -2690,7 +2719,11 @@ def parse_clike(path: Path, require_annotations: bool = True):
         ret = meta["ret"]
         req = ens = None
         ens_cls = "hard"
+        arrs: list = []          # ПОЛИГОН 3: `@kern:array <имя>`
         for k in range(max(0, i - 6), i):
+            _arr_m = re.search(r"@kern:array\s+([A-Za-z_]\w*)", lines[k])
+            if _arr_m:
+                arrs.append(_arr_m.group(1))
             am = ANNOT.match(lines[k])
             if am:
                 if am.group(1) == "requires":
@@ -2765,6 +2798,12 @@ def parse_clike(path: Path, require_annotations: bool = True):
             continue
         meta["ranges"] = ranges
         meta["lang"] = lang
+        # ПОЛИГОН 3: список массивов идёт в `meta` (ключ словаря — арность
+        # 8-кортежей НЕ меняется), а состояние выставляется ДО перевода тела.
+        meta["arrays"] = arrs
+        _ARRAY_VARS.clear()
+        _ARRAY_VARS.update(arrs)
+        _ARRAY_STATE.clear()
         # ПУНКТ 25: в Go/JS/TS `;` необязательна — разделяем операторы по
         # переводу строки (сохранён в `_normalize_clike(keep_newlines=True)`).
         semi_optional = lang in ("go", "js", "ts")
@@ -3381,7 +3420,8 @@ def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
             "banner": HYP_BANNER_EN})
         return 0
 
-    smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
+    smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"),
+                   arrays=meta.get("arrays"))
     rc, out = run_kernc(kernc, smt)
     if "ДОКАЗАНО" in out and rc == 0:
         print(f"[OK] {name}: контракт ДОКАЗАН — объяснять нечего")
@@ -4485,7 +4525,9 @@ def _demo(args) -> int:
                     print(f"  [BV] {name} (стр. {ln}): теория битовых векторов "
                           f"(_ BitVec {w}, {'знаковый' if signed else 'беззнаковый'})")
                 else:
-                    smt = build_smt(params, req, ens, body, ranges=meta.get("ranges"))
+                    smt = build_smt(params, req, ens, body,
+                                    ranges=meta.get("ranges"),
+                                    arrays=meta.get("arrays"))
             except (Unsupported, NoReturn) as e:
                 print(f"  {name} (стр. {ln}): SKIP — вне подмножества: {e}")
                 f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
@@ -10484,7 +10526,8 @@ def cmd_rlvr_reward(path: str, kernc) -> int:
         if body is None or (not req and not ens):
             continue
         try:
-            smt = build_smt(params, req, ens, body, meta.get("ranges"))
+            smt = build_smt(params, req, ens, body, meta.get("ranges"),
+                           meta.get("arrays"))
         except Exception as _kern_e_6651:
             _replay_soft(_kern_e_6651, "kern_contracts.py:6651")
             unknown += 1
