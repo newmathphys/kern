@@ -303,7 +303,7 @@ saying so: both models tested narrowed <code>@kern:requires</code> (leaving
     <div class="stat">
       <span class="val"><!-- fact:core_tests -->460 / <!-- fact:core_tests -->460</span><span class="lbl">core tests (Debug + ReleaseSafe)</span>
       <span class="val"><!-- fact:next_tests -->53 / <!-- fact:next_tests -->53</span><span class="lbl">KERN-Next tests</span>
-      <span class="val">100.0 %</span><span class="lbl">mutation score — 1591 / 1591 killed (21 files, full local sweep); committed evidence: mutate_full.log 1376 / 1376 + canonical 40 / 40 + per-module 244 / 244</span>
+      <span class="val">100.0 %</span><span class="lbl">mutation score — 1597 / 1597 killed (21 files, full local sweep); committed evidence: mutate_full.log 1376 / 1376 + canonical 40 / 40 + per-module 244 / 244</span>
       <span class="val"><!-- fact:check_targets -->185 / <!-- fact:check_targets -->185</span><span class="lbl">can-fail CHECK targets — 225 non-vacuous cases, 0 vacuous</span>
     </div>
     <div class="stat">
@@ -1059,7 +1059,7 @@ This page is served from <code>/docs</code> of the
    HONEST LIMITS (printed on the card):
      - X-Ray here is HEURISTIC: regexes + LIA over numeric guards, not the
        symbolic path conditions of the `--xray` CLI;
-     - mutation (1591 sites), can-fail (185 goals) and the Z3 theories
+     - mutation (1597 sites), can-fail (185 goals) and the Z3 theories
        (QF_S / QF_FP) do NOT run in the browser at all — they are CLI-only;
      - the Ed25519 signature is not checked in the browser: the presence of an
        attestation is a fact, “verified” means `slsa_provenance.py --check`. */
@@ -1350,7 +1350,7 @@ This page is served from <code>/docs</code> of the
         r ? '- composition: ' + r.score + '/65 · Grade ' + r.grade : '- composition: not run in this tab',
         r ? '- xray: dead=' + r.x.dead + ', crash=' + r.x.crash + ', anti-cheat=' + r.x.ac + ', CC max=' + r.x.cc : '',
         r ? '- languages: .zig=' + r.x.zig + ', .lean=' + r.x.lean : '', '',
-        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1591 sites),',
+        '**Important:** browser score is capped at 65 — it does NOT run Z3, mutation (1597 sites),',
         'can-fail (185 goals) or the Ed25519 attestation check. For the full passport run:',
         '```',
         'python3 tools/trust_scorecard.py --repo ' + spec + ' --json out.json',
