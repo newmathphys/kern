@@ -35,6 +35,7 @@ KERNC = ROOT / "zig-out" / "bin" / "kernc"
 AUDITS = ROOT / "audits"
 SOURCE_SUFFIX = (".zig", ".c", ".h", ".rs")
 
+RE_AX = re.compile(r"\[AX\] (\w+) \(стр\. \d+\): теория массивов \(([^)]+)\)")
 RE_BV = re.compile(r"\[BV\] (\w+) \(стр\. (\d+)\): теория битовых векторов \(([^,]+), ([^)]+)\)")
 # ДЕФЕКТ #417: экстрактор печатает ЧЕТЫРЕ вида вердикта, включая `[N]` —
 # «НЕ РЕШЕНО» (Belnap N: ни доказательства, ни контрпримера). Раньше
@@ -67,6 +68,9 @@ def collect(smt_dir: Path) -> list[dict]:
         theory: dict[str, str] = {}
         for m in RE_BV.finditer(out):
             theory[m.group(1)] = f"QF_BV {m.group(3).strip()} {m.group(4)}"
+        # ПОЛИГОН 3: массивы -> третья теория в EVIDENCE.md.
+        for m in RE_AX.finditer(out):
+            theory[m.group(1)] = f"QF_AX ({m.group(2)})"
         return rel, out, theory
 
     workers = int(os.environ.get("KERN_AUDIT_WORKERS", min(6, os.cpu_count() or 1)))

@@ -1198,17 +1198,38 @@ def _explicit_wrap(body: str, lang: str) -> str | None:
     return None
 
 
-def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range) -> str:
+def build_overflow_smt(params, req, body_smt_text: str, ranges, res_range,
+                       arrays=None) -> str:
     """Обязательство ПЕРЕПОЛНЕНИЯ: `requires ∧ result ∉ [lo, hi]` -> SAT = баг.
 
     ЗАЧЕМ (машинные типы Zig/C/Rust). Python-контракты живут в ℤ и переполнения
     не видят вовсе; здесь тип возврата известен, поэтому `i32`-функция, чей
     результат выходит за [-2^31, 2^31-1], отвергается с контрпримером.
     """
-    decls = "\n".join(f"(declare-const {p} Int)" for p in params)
+    _arrs = set(arrays or ())
+    decls = "\n".join(
+        f"(declare-const {p} (Array Int Int))" if p in _arrs
+        else f"(declare-const {p} Int)" for p in params)
     lines = ["(set-logic ALL)", decls, "(declare-const result Int)"]
     env: dict = {}
+    # ПОЛИГОН 3: элементы массива — МАШИННОГО типа (C: `int *buf` -> i32).
+    # Без этой аксиомы `(select buf i)` — неограниченный Int, и обязательство
+    # ПЕРЕПОЛНЕНИЯ ложно срабатывало на КОРРЕКТНОЙ функции (ИЗМЕРЕНО на
+    # `audits/arrays/ring_slot.c`: 3 из 3 функций дали [FAIL] ПЕРЕПОЛНЕНИЕ).
+    # Аксиома ставится только для тех `select`, что реально есть в теле.
+    if _arrs:
+        _lo_e, _hi_e = res_range
+        for _rx in (
+                r"\(select\s+(\w+)\s+[^\s()]+\)",
+                r"\(select\s+\(store\s+(\w+)\s+[^()]+\s+[^()]+\)\s+[^\s()]+\)"):
+            for _sm in re.finditer(_rx, body_smt_text):
+                if _sm.group(1) in _arrs:
+                    _term = _sm.group(0)
+                    lines.append(f"(assert (and (>= {_term} {_lo_e}) "
+                                 f"(<= {_term} {_hi_e})))")
     for p, (lo, hi) in (ranges or {}).items():
+        if p in _arrs:
+            continue
         lines.append(f"(assert (and (>= {p} {lo}) (<= {p} {hi})))")
     if req:
         lines.append(f"(assert {expr_smt(ast.parse(req, mode='eval').body, env)})")
@@ -4528,6 +4549,10 @@ def _demo(args) -> int:
                     smt = build_smt(params, req, ens, body,
                                     ranges=meta.get("ranges"),
                                     arrays=meta.get("arrays"))
+                    if meta.get("arrays"):
+                        # ПОЛИГОН 3: маркер теории для `audits_run.py` -> колонка
+                        # `QF_AX (Array)` в `audits/EVIDENCE.md`.
+                        print(f"  [AX] {name} (стр. {ln}): теория массивов (Array Int Int)")
             except (Unsupported, NoReturn) as e:
                 print(f"  {name} (стр. {ln}): SKIP — вне подмножества: {e}")
                 f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
@@ -4733,7 +4758,8 @@ def _demo(args) -> int:
                     _rco, outo = run_kernc(
                         kernc, build_overflow_smt(params, req, body,
                                                   meta.get("ranges"),
-                                                  TYPE_RANGE[ret]))
+                                                  TYPE_RANGE[ret],
+                                                  meta.get("arrays")))
                 except (Unsupported, subprocess.SubprocessError, OSError):
                     outo = ""
                 if "ДОКАЗАНО" not in outo:
