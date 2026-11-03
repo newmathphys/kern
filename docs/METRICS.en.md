@@ -5831,3 +5831,19 @@ SOLVER (Z3), not the checker's normalizations.
 STATE AFTER REVERT: the tree is byte-identical to the sealed `67a8d43`,
 `WASM PARITY OK`, `verify-attestation` passes with the external key, and
 `ROW1`/`ROW2` remain `[PROOF VERIFIED] trusted: 0 | holes: 0`.
+
+## §195. TEST 5: FUNCTIONAL PARITY OF THE SHIPPED WASM
+
+The `#462` gate compared `docs/kernc.wasm` with the current build BYTE-FOR-BYTE.
+That catches a stale file but NOT a broken module SEMANTICS (for example a
+`wasm32-freestanding` build error that would make the verdicts diverge from the
+core). `tools/wasm_parity_check.js` now REALLY EXECUTES the module
+(node/WebAssembly) and compares it against an INDEPENDENT oracle: the Belnap B4
+lattice (16 `JOIN_K` + 4 `allow` against the definition) and the built-in
+Fourier-Motzkin solver (8 systems, SOUNDNESS properties).
+
+MEASURED: 28 checks, 0 soundness violations; Belnap 20/20.
+BOUNDARY: for LIA the gate checks SOUNDNESS, not verdict equality - `0` (unknown)
+is legitimate when no integer point is exhibited (fail-closed). Measured: on
+`x <= 5, x >= 3` the module returns `0` although a point exists - a SOUND outcome.
+NON-VACUOUS (measured by planting): a corrupted `docs/kernc.wasm` gives RC=2.
