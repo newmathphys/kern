@@ -5807,3 +5807,27 @@ orphan. FIXED: the call site now yields a NAMED outcome
 `[N] <name>: solver exceeded the limit (timeout)`. Measured after the fix on
 `audits/rust-core/midpoint.rs`: both rows appear (`[SKIP] midpoint` with
 `premises_unbound`, `[FAIL] midpointMutated`), `make audits RC=0`.
+
+## §194. QUEUE ITEM 1: A SIZE FILTER IN `defNormEq`/`bitTautology` - MEASURED AND REVERTED
+
+HYPOTHESIS (external): the recursive normalizations in `defNormEq` and the leaf
+collection in `bitTautology` eat tens of seconds on a 32-bit bit-blaster, pushing
+`midpoint` towards the 120 s solver limit (#464).
+
+MEASURED BEFORE: `midpoint.rs` = **70 s**. IMPLEMENTED: `termBig` (bounded
+traversal with early exit; `Sexp` carries no length and rendering the text would
+cost more than the normalization itself), cap `4096`, wired into both rules.
+Skipping a check is SOUND (the step just stays trusted).
+
+MEASURED AFTER: **65 s** - a 5 s (about 7%) gain, same verdicts.
+
+REGRESSION (why it was reverted): on the official bank trusted steps went from
+**645** back to **646** - the filter disabled a rule that verified ONE step on
+`add_three.4_bit`. The price is a verified proof step; the gain is 7% of runtime.
+
+DECISION: REVERTED. CONCLUSION (measured): the dominant cost of `midpoint` is the
+SOLVER (Z3), not the checker's normalizations.
+
+STATE AFTER REVERT: the tree is byte-identical to the sealed `67a8d43`,
+`WASM PARITY OK`, `verify-attestation` passes with the external key, and
+`ROW1`/`ROW2` remain `[PROOF VERIFIED] trusted: 0 | holes: 0`.

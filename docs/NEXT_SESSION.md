@@ -23,7 +23,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->241 targets · **<!-- fact:check_targets -->185/<!-- fact:check_targets -->185 CHECK** · <!-- fact:canfail_cases -->225 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **0** — POLYGON 3 CLOSED: the third theory `QF_AX` is now in `audits/EVIDENCE.md` (40 rows; `QF_AX 3 | QF_BV 16 | QF_LIA 21`): `array_write_hit` (ROW1) and `array_slot_isolation_good` (ROW2) are **PROVEN**, `array_slot_isolation_buggy` is **REFUTED** with the collision counterexample `write_idx = 0, read_idx = 0`; `make audits RC=0`. `#464` fixed (a solver timeout used to crash the tool and orphan a `.smt2` file). Next: full 68-stage `ci-fast`, then `make seal` |
+| Open technical defects | **0** — queue item 1 (a size filter in `defNormEq`/`bitTautology`) was MEASURED AND REVERTED: `midpoint.rs` 70 s -> 65 s (about 7%) but trusted steps on the official bank went 645 -> 646, i.e. the filter disabled a rule that verified one step on `add_three.4_bit`; the acceptance criterion (`645` unchanged) failed, so the tree is byte-identical to the sealed `67a8d43`. MEASURED CONCLUSION: the dominant cost is the SOLVER, not the checker normalizations. Reference state: `HEAD = 67a8d43`, 68/68 ci-fast stages green, 225/225 non-vacuous cases, attestation verified with the external key |
 
 ## Open work
 
