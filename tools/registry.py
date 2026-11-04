@@ -81,6 +81,11 @@ CLASS = {
     "arith-semantics-check": "CHECK",
     "c-types-check": "CHECK",
     "div-guards-check": "CHECK",
+    # ИСПЫТАНИЕ 1: дифференциальная проверка ЗВУЧИМОСТИ перевода против живых
+    # компиляторов (gcc/rustc/node) — проверка ВОЗМОЖНОСТИ (перевод совпадает с
+    # компилятором И floor-ловушка класса #349 не проходит), поэтому CHECK.
+    "translator-diff-check": "CHECK",
+    "translator-diff-selftest": "META",   # мета: неверное ожидание обязано валить гейт
     "claims-audit": "CHECK",
     "arith-zig-ref-check": "CHECK",
     "explain-hypotheses-check": "CHECK",
@@ -317,6 +322,7 @@ CASE_TARGET = {
     "flake": "flake-check",
     "lang-semantics": "lang-semantics-check",
     "arith-semantics": "arith-semantics-check",
+    "translator-diff": "translator-diff-check",
     "c-types": "c-types-check",
     "div-guards": "div-guards-check",
     "claims-audit": "claims-audit",

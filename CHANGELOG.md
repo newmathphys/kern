@@ -8,6 +8,28 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+Tack 2.4 / **Test 1**: differential soundness check of the C-like translator against LIVE
+compilers (`tools/translator_diff_check.py`, `gcc`/`rustc`/`node`), plus **defect #465**:
+nested `if/else` in C-like bodies used to collapse into one statement and were silently skipped.
+
+### Added
+
+- `tools/translator_diff_check.py` — the C-like translator is compared against LIVE compilers
+  (`gcc`/`rustc`/`node`) on a matrix of 13 constructs × 3 languages. Every live point must be
+  PROVEN **and** the floor-semantics trap (Python `//`/`%`) must NOT be proven (defect class
+  `#349`). A missing compiler is a NAMED skip, never a silent green.
+- `make translator-diff-check` (CHECK) and `make translator-diff-selftest` (META), wired into the
+  full `ci.sh` contour (the gate drives real compilers and runs ~77 s); a new can-fail case
+  `translator-diff` proves the gate is able to go red.
+
+### Fixed
+
+- `tools/kern_contracts.py` — **defect #465**: nested `if/else`
+  (`if (a > b) { if (a > 0) { … } else { … } } else { … }`) collapsed into a single statement
+  (`SKIP — c-выражение вне подмножества: 'a > b) if (a > 0'`). `_collapse_cond_returns` now
+  folds `if (c) { return a; } else { return b; }` into `return c ? a : b;` by bracket balance
+  BEFORE brace flattening; nested branches fold recursively.
+
 ## [2.8.1] — 2026-11-01
 
 Tack 2.2 / 2.3: **50 journal entries closed (#399..#448), `Open technical defects: 0`**.

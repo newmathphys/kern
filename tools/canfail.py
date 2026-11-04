@@ -2109,6 +2109,21 @@ def case_div_guards():
     return "make div-guards-check"
 
 
+def case_translator_diff():
+    """ИСПЫТАНИЕ 1 SABOTAGE: усечение деления снова становится ПИТОНОВСКИМ floor.
+
+    ЛОМАЕМ: ветвь «усечение к нулю» (C/Rust/Go/TS/JS) заменяется floor — ровно
+    класс #349 (floor вместо усечения). Тогда `-7 / 2` для C доказывается как
+    `-4`, а живой `gcc` возвращает `-3`: `make translator-diff-check` обязан
+    покраснеть на проверке «живое значение ДОКАЗАНО». Если кейс вакуумный —
+    гейт проверяет не то, что заявляет.
+    """
+    patch("tools/kern_contracts.py",
+          "                q = _trunc_div_smt(left, right)",
+          "                q = _floor_div_smt(left, right)  # ЛОМАЕМ (Испытание 1)")
+    return "make translator-diff-check"
+
+
 def case_evidence_untracked():
     """#330 SABOTAGE: свидетельство лежит на диске, но НЕ в git.
 
@@ -4172,6 +4187,8 @@ CASES = [
      case_c_types),
     ("div-guards", "Divisor obligation ignores active guards -> gate red",
      case_div_guards),
+    ("translator-diff", "Truncated division reverts to floor (#349) -> gate red",
+     case_translator_diff),
     ("claims-audit", "Stale numeric claim in a document -> gate red",
      case_claims_audit),
     ("evidence-untracked", "Evidence file present on disk but not in git -> gate red",

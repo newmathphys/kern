@@ -2500,6 +2500,179 @@ def _strip_js_regex(text: str) -> str:
     return _RE_JS_REGEX.sub(blank, text)
 
 
+def _skip_ws(s: str, i: int) -> int:
+    """Индекс первого не-пробельного символа начиная с `i`."""
+    while i < len(s) and s[i] in " \t\r\n":
+        i += 1
+    return i
+
+
+def _match_delim(s: str, i: int, open_ch: str, close_ch: str) -> int:
+    """`i` указывает на `open_ch`; вернуть индекс СРАЗУ после парного `close_ch`.
+
+    Баланс по вложенности: `(a > (b + 1))` закрывается по ПАРНОЙ скобке, а не по
+    первой встреченной. `-1`, если пары нет (незакрытая скобка).
+    """
+    depth = 0
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == open_ch:
+            depth += 1
+        elif c == close_ch:
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return -1
+
+
+def _cond_end(s: str, i: int):
+    """`i` — сразу после `if`. Вернуть `(текст_условия, конец_условия)`.
+
+    C/Rust/JS пишут условие в скобках (`if (a > b)`), Go — БЕЗ них
+    (`if a > b {`). Поддержаны оба: во втором случае условие берётся до
+    открывающей фигурной скобки. `(None, -1)` — условие не распознано.
+    """
+    i = _skip_ws(s, i)
+    if i < len(s) and s[i] == "(":
+        j = _match_delim(s, i, "(", ")")
+        if j < 0:
+            return None, -1
+        return s[i + 1:j - 1].strip(), j
+    b = s.find("{", i)
+    if b < 0:
+        return None, -1
+    return s[i:b].strip(), b
+
+
+def _branch_body(s: str, i: int):
+    """Тело ветви: `{ ... }` (по балансу фигурных скобок) ЛИБО одиночный оператор.
+
+    Возвращает `(текст_тела, позиция_после_тела)`; `(None, -1)` — не распознано.
+    """
+    i = _skip_ws(s, i)
+    if i < len(s) and s[i] == "{":
+        j = _match_delim(s, i, "{", "}")
+        if j < 0:
+            return None, -1
+        return s[i + 1:j - 1], j
+    j = s.find(";", i)
+    if j < 0:
+        return None, -1
+    return s[i:j + 1], j + 1
+
+
+def _if_span_end(s: str, p: int) -> int:
+    """`p` — позиция `if`. Конец ВСЕЙ цепочки `if/else [if …]` или `-1`."""
+    cond, i = _cond_end(s, p + 2)
+    if cond is None:
+        return -1
+    _, i = _branch_body(s, i)
+    if i < 0:
+        return -1
+    k = _skip_ws(s, i)
+    if s[k:k + 4] == "else":
+        k = _skip_ws(s, k + 4)
+        if s[k:k + 2] == "if":          # `else if` — вложенная цепочка
+            return _if_span_end(s, k)
+        _, i = _branch_body(s, k)
+        if i < 0:
+            return -1
+    return i
+
+
+def _extract_return(text: str):
+    """`return EXPR;` -> `EXPR` (одиночный возврат БЕЗ остаточных `if`), иначе None.
+
+    `None` — тело не сводится к одному возврату (например, `x = 1; return x;`).
+    Это ГРАНИЦА: такие ветви остаются `SKIP`, а не доказываются наугад.
+    """
+    t = text.strip()
+    m = re.fullmatch(r"return\s+(.+?);?", t, re.S)
+    if not m:
+        return None
+    expr = m.group(1).strip()
+    if re.search(r"\bif\b", expr):      # вложенность ещё не свёрнута
+        return None
+    return expr
+
+
+def _collapse_cond_returns(s: str) -> str:
+    """Свернуть `if (c) { return a; } else { return b; }` в `return c ? a : b;`.
+
+    ЗАЧЕМ (Испытание 1, класс #349). `_normalize_clike` плоским затиранием
+    фигурных скобок склеивал ВНЕШНИЙ `if (a > b)` с ВНУТРЕННИМ `if (a > 0)` в
+    ОДИН оператор — и жадная регулярка `_exec_clike` называла условием
+    `'a > b) if (a > 0'`. Функция уходила в SKIP «вне подмножества», то есть
+    вложенное ветвление НЕ проверялось вовсе.
+
+    РЕШЕНИЕ. До уплощения тело переписывается в тернарную форму ПО БАЛАНСУ
+    скобок: условие `(...)` — по круглым, ветви `{ ... }` — по фигурным,
+    рекурсивно для вложенных ветвлений. `convert_ternary` уже умеет вложенные
+    `?:`, поэтому дальше тело идёт по ОБЩЕМУ пути и доказывается.
+
+    ГРАНИЦА (fail-closed). Сворачиваются ТОЛЬКО ветви, каждая из которых
+    сводится к ОДНОМУ `return EXPR` и только при наличии `else`. Всё прочее
+    (`x = 1; return x;`, ветвь без `else`, вложенные операторы) возвращается
+    БЕЗ изменений — там прежний честный `SKIP`, а не догадка.
+    """
+    while True:
+        positions = [m.start() for m in re.finditer(r"\bif\b", s)]
+        done = True
+        # С конца: внутренние `if` стоят ТЕКСТУАЛЬНО правее внешних, поэтому
+        # сворачиваются первыми, а внешний `if` после этого видит в ветви
+        # готовый `return`.
+        for p in reversed(positions):
+            r = _try_collapse_if(s, p)
+            if r is not None:
+                s = r
+                done = False
+                break
+        if done:
+            return s
+
+
+def _try_collapse_if(s: str, p: int):
+    """Свернуть `if/else` на позиции `p`; `None` — сворачивать нечего/нельзя."""
+    cond, cond_end = _cond_end(s, p + 2)
+    if cond is None:
+        return None
+    then_body, then_end = _branch_body(s, cond_end)
+    if then_body is None:
+        return None
+    k = _skip_ws(s, then_end)
+    else_body = None
+    end = then_end
+    if s[k:k + 4] == "else":
+        k2 = _skip_ws(s, k + 4)
+        if s[k2:k + 2] == "if":        # `else if …` — берём всю вложенную цепочку
+            e_end = _if_span_end(s, k2)
+            if e_end < 0:
+                return None
+            else_body = s[k2:e_end]
+            end = e_end
+        else:
+            else_body, end = _branch_body(s, k2)
+            if else_body is None:
+                return None
+    if else_body is None:              # `if` без `else` сворачивает хвост — не трогаем
+        return None
+    then_body = _collapse_cond_returns(then_body)
+    else_body = _collapse_cond_returns(else_body)
+    then_expr = _extract_return(then_body)
+    else_expr = _extract_return(else_body)
+    if then_expr is None or else_expr is None:
+        return None
+    # ВЕТВИ БЕЗ ДОПОЛНИТЕЛЬНЫХ СКОБОК: `convert_ternary` ищет `?` только на
+    # НУЛЕВОЙ глубине скобок, поэтому обёртка `(then) ? …` спрятала бы
+    # вложенный тернарник и перевод упал бы. Правая ассоциативность `?:`
+    # (`c ? a ? b : d : e` == `c ? (a ? b : d) : e`) уже разбирается
+    # счётчиком `qdepth`, поэтому скобки не нужны.
+    new = f"return ({cond}) ? {then_expr} : {else_expr};"
+    return s[:p] + new + s[end:]
+
+
 def _normalize_clike(body: str, keep_newlines: bool = False) -> str:
     """Убрать комментарии и фигурные скобки вокруг одиночных операторов.
 
@@ -2833,6 +3006,12 @@ def parse_clike(path: Path, require_annotations: bool = True):
         clean_body = _strip_c_comments_strings("\n".join(body_lines))
         if lang in ("ts", "js"):
             clean_body = _strip_js_regex(clean_body)   # `/re/g` — не деление
+        # ИСПЫТАНИЕ 1 (класс #349): ВЛОЖЕННОЕ ветвление (`if { if {…} else {…} }
+        # else {…}`) сворачивается в тернарную форму ДО уплощения фигурных
+        # скобок — иначе внешний и внутренний `if` склеивались в один оператор
+        # и функция уходила в SKIP «вне подмножества» (вложенность не
+        # проверялась вовсе). Сворачиваются только ветви-одиночные `return`.
+        clean_body = _collapse_cond_returns(clean_body)
         raw_body = _normalize_clike(clean_body, keep_newlines=semi_optional)
         # ТОЧНЫЙ кламп насыщения (по типу возврата), а не просто `+`.
         raw_body = _saturate_rewrite(raw_body, ret)

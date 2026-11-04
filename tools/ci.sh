@@ -201,6 +201,9 @@ if [ "$FAST" = "0" ]; then
   stage "семантика деления совпадает с языком (#317)" make arith-semantics-check
   stage "машинные типы C: вердикт на каждый целый тип (#312/#321)" make c-types-check
   stage "гарды деления в Python учтены (#327)" make div-guards-check
+  # ИСПЫТАНИЕ 1 (охота на класс #349): перевод сверяется с ЖИВЫМИ компиляторами
+  # (gcc/rustc/node) на матрице выражений, а floor-ловушка обязана не пройти.
+  stage "звучимость перевода против живых компиляторов (Испытание 1)" make translator-diff-check
   stage "аудит числовых утверждений в документации (шаг B)" make claims-audit
   stage "адаптеры деления против эталона Zig (#317)" make arith-zig-ref-check
   stage "нет ИИ-шаблонов (#241)" make ai-traces-check
