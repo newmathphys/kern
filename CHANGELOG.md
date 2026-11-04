@@ -11,6 +11,8 @@ Every number below is produced by a command in the repository — see
 Tack 2.4 / **Test 1**: differential soundness check of the C-like translator against LIVE
 compilers (`tools/translator_diff_check.py`, `gcc`/`rustc`/`node`), plus **defect #465**:
 nested `if/else` in C-like bodies used to collapse into one statement and were silently skipped.
+**Test 3**: surviving mutants behind `pytest` (`tools/pytest_blind_check.py`), plus **defect #466**:
+the arithmetic/translation gates crashed under the system `python3` (no `z3-solver` package).
 
 ### Added
 
@@ -21,6 +23,14 @@ nested `if/else` in C-like bodies used to collapse into one statement and were s
 - `make translator-diff-check` (CHECK) and `make translator-diff-selftest` (META), wired into the
   full `ci.sh` contour (the gate drives real compilers and runs ~77 s); a new can-fail case
   `translator-diff` proves the gate is able to go red.
+- `tools/pytest_blind_check.py` — **Test 3** («surviving mutants behind `pytest`»): five functions
+  with `@kern:` contracts and deliberately WEAK tests. Every one-line body mutation must SURVIVE
+  `pytest` (`rc=0`) **and** be KILLED by `kern` with a counterexample; measured `TP=5/5`, `TN=5/5`,
+  `FP=0`, `FN=0`, `J=1.00`.
+- `make pytest-blind-check` (CHECK) and `make pytest-blind-selftest` (META); a new can-fail case
+  `pytest-blind` proves the gate goes red when a contract is weakened.
+- `tools/z3bin.py` — the z3 solver is invoked as a BINARY (`$Z3` → `.venv/bin/z3` → `PATH`); the
+  `z3-solver` python package is not a runtime dependency.
 
 ### Fixed
 
@@ -29,6 +39,11 @@ nested `if/else` in C-like bodies used to collapse into one statement and were s
   (`SKIP — c-выражение вне подмножества: 'a > b) if (a > 0'`). `_collapse_cond_returns` now
   folds `if (c) { return a; } else { return b; }` into `return c ? a : b;` by bracket balance
   BEFORE brace flattening; nested branches fold recursively.
+- `tools/arith_semantics_check.py`, `tools/lang_semantics_check.py`, `tools/arith_zig_ref_check.py`
+  — **defect #466**: `import z3` raised `ModuleNotFoundError` under the system `python3`
+  (`PYTHON ?= python3`), so `make arith-semantics-check` returned `RC=2` and the `arith-semantics`
+  can-fail case passed VACUOUSLY (a non-zero rc read as «the gate can go red»). Now `RC=0` under
+  both `python3` and `.venv/bin/python`, and the can-fail case goes red for the real reason.
 
 ## [2.8.1] — 2026-11-01
 

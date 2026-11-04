@@ -460,6 +460,9 @@ FAULTABLE = [
     "audits/ai_traps/vacuous_bad.py",
     # ЭТАП 5: кейс `real-cases` ломает первый режим анатомии.
     "audits/real_cases/heal_victim.py",
+    # ИСПЫТАНИЕ 3: кейс `pytest-blind` ослабляет КОНТРАКТ в фикстуре — файл
+    # обязан быть в FAULTABLE, иначе подсадка останется в дереве (#225).
+    "tests/fixtures/pytest_blind_mutants.py",
     # ЭТАП 4Б: кейс `quixbugs-diff` делает контрольную половину вакуумной.
     "tools/quixbugs_diff_check.py",
     "README.md",
@@ -2107,6 +2110,21 @@ def case_div_guards():
           '        out.append(f"(and {\' \'.join(guards)} {eq})" if guards else eq)',
           '        out.append(eq)  # ЛОМАЕМ: гарды отброшены')
     return "make div-guards-check"
+
+
+def case_pytest_blind():
+    """ИСПЫТАНИЕ 3 SABOTAGE: контракт в фикстуре ОСЛАБЛЕН (ensures снят).
+
+    ЛОМАЕМ: у `grade` пропадает `@kern:ensures`. Тогда мутант границы
+    `<` -> `<=` (M1) больше НЕЧЕМ опровергнуть: база доказывает 4/5 контрактов,
+    а M1 выживает и за спиной kern. Гейт `pytest-blind-check` обязан покраснеть.
+    Если кейс вакуумный — значит гейт не измеряет слепое пятно, которое заявляет
+    (класс вакуумных проверок #26/#30).
+    """
+    patch("tests/fixtures/pytest_blind_mutants.py",
+          "# @kern:ensures result == (0 if x < 50 else 1)\n",
+          "# ЛОМАЕМ: ensures снят — мутанту границы нечего опровергать\n")
+    return "make pytest-blind-check"
 
 
 def case_translator_diff():
@@ -4187,6 +4205,8 @@ CASES = [
      case_c_types),
     ("div-guards", "Divisor obligation ignores active guards -> gate red",
      case_div_guards),
+    ("pytest-blind", "A weakened contract lets a mutant survive kern -> gate red",
+     case_pytest_blind),
     ("translator-diff", "Truncated division reverts to floor (#349) -> gate red",
      case_translator_diff),
     ("claims-audit", "Stale numeric claim in a document -> gate red",

@@ -81,6 +81,12 @@ CLASS = {
     "arith-semantics-check": "CHECK",
     "c-types-check": "CHECK",
     "div-guards-check": "CHECK",
+    # ИСПЫТАНИЕ 3: «зелёный pytest != верный код». Каждая мутация тела обязана
+    # ВЫЖИТЬ за спиной обычного `pytest` и быть УБИТОЙ `kern` с контрпримером;
+    # честные оригиналы обязаны проходить без ложных срабатываний. Проверка
+    # ВОЗМОЖНОСТИ (измеряет слепое пятно тестов и его закрытие), поэтому CHECK.
+    "pytest-blind-check": "CHECK",     # Испытание 3: выжившие мутанты за спиной pytest
+    "pytest-blind-selftest": "META",   # мета: ослабленный гейт обязан краснеть
     # ИСПЫТАНИЕ 1: дифференциальная проверка ЗВУЧИМОСТИ перевода против живых
     # компиляторов (gcc/rustc/node) — проверка ВОЗМОЖНОСТИ (перевод совпадает с
     # компилятором И floor-ловушка класса #349 не проходит), поэтому CHECK.
@@ -325,6 +331,7 @@ CASE_TARGET = {
     "translator-diff": "translator-diff-check",
     "c-types": "c-types-check",
     "div-guards": "div-guards-check",
+    "pytest-blind": "pytest-blind-check",
     "claims-audit": "claims-audit",
     "arith-zig-ref": "arith-zig-ref-check",
     "hypotheses-write": "explain-hypotheses-check",

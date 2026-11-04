@@ -33,6 +33,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KC = ROOT / "tools" / "kern_contracts.py"
+sys.path.insert(0, str(ROOT / "tools"))
+from z3bin import find_z3, is_sat  # noqa: E402
 
 EXPECTED_LANGS = {"python", "c", "zig", "rust", "go", "ts", "js", "evm"}
 
@@ -116,11 +118,10 @@ def check_no_value_dispersion(kc) -> list[str]:
 def check_formula_agreement(kc) -> list[str]:
     """Таблица против ФАКТИЧЕСКИХ SMT-формул на контрольных точках."""
     errs = []
-    try:
-        import ast as _ast
-        import z3
-    except ImportError:
-        return ["z3 недоступен — сверка формул НЕ выполнена (это не «ок»)"]
+    import ast as _ast
+    if find_z3() is None:
+        return ["бинарный z3 недоступен — сверка формул НЕ выполнена "
+                "(это не «ок»)"]
 
     cases = [(-7, 2), (7, -2), (-7, -2), (7, 2), (-1, 3), (1, -3)]
     for lang in ("python", "c"):
@@ -132,11 +133,12 @@ def check_formula_agreement(kc) -> list[str]:
             except kc.Unsupported:
                 continue
             want = a // b if sem.div == "floor" else int(a / b)
-            s = z3.Solver()
-            s.add(z3.parse_smt2_string(
-                f"(set-logic ALL)(declare-const r Int)(assert (= r {smt}))"
-                f"(assert (distinct r {want}))"))
-            if s.check() == z3.sat:
+            # SAT у `r != want` означает расхождение формулы с таблицей.
+            # ДЕФЕКТ (шаг 0, Испытание 3): `import z3` падал с
+            # `ModuleNotFoundError` под системным `python3`, и гейт всегда
+            # возвращал «не выполнено». Теперь решатель — БИНАРНЫЙ процесс.
+            if is_sat(f"(declare-const r Int)(assert (= r {smt}))"
+                      f"(assert (distinct r {want}))") is True:
                 errs.append(f"{lang}: формула деления для ({a}, {b}) не совпала "
                             f"с табличным правилом {sem.div!r}")
     return errs

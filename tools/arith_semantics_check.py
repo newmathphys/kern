@@ -47,6 +47,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+from z3bin import eval_int, eval_int_many, find_z3  # noqa: E402
 
 # Эталон FLOOR (Python): для b > 0 оператор SMT `div` совпадает с floor, поэтому
 # отрицательный делитель нормализуется. Адаптер из отчёта.
@@ -65,18 +67,14 @@ def _translator():
 
 
 def _z3_value(text: str) -> int | None:
-    try:
-        import z3
-    except ImportError:
-        return None
-    try:
-        node = z3.parse_smt2_string(
-            "(declare-const r Int)(assert (= r " + text + "))")[0]
-        return z3.simplify(node.arg(1)).as_long()
-    except (z3.Z3Exception, AttributeError, ValueError):
-        # Z3 не смог упростить/разобрать терм: значение не вычислить.
-        # Явный список (класс #198): программная ошибка обязана быть видна.
-        return None
+    """Значение замкнутого терма через БИНАРНЫЙ z3 (без пакета `z3-solver`).
+
+    ДЕФЕКТ (шаг 0, Испытание 3): `import z3` падал с `ModuleNotFoundError` под
+    системным `python3` (`Makefile`: `PYTHON ?= python3`), хотя `.venv/bin/z3`
+    в репозитории ЕСТЬ — гейт не проходил вовсе (RC=2). Теперь решатель
+    вызывается ПРОЦЕССОМ (`tools/z3bin.py`), поэтому RC=0 и под `python3`.
+    """
+    return eval_int(text)
 
 
 def _trunc_q(a: int, b: int) -> int:
@@ -96,12 +94,17 @@ def _reference(op: str, a: int, b: int, q_tpl: str) -> str:
 
 def main() -> int:
     kc = _translator()
-    if _z3_value("1") is None:
-        print("[!] нет z3 — проверка невозможна (это не «зелено»)")
+    if find_z3() is None or _z3_value("1") is None:
+        print("[!] бинарный z3 недоступен/не работает "
+              "($Z3 / .venv/bin/z3 / PATH) — проверка невозможна "
+              "(это не «зелено»)")
         return 2
 
     total = old_bad = floor_bad = positive_bad = naive_bad = 0
     examples: list[str] = []
+    # ПАКЕТНЫЙ сбор: термов тысячи, поэтому все они уходят в ОДИН процесс z3
+    # (`eval_int_many`), а не по процессу на терм (иначе минуты и таймаут).
+    todo: list[tuple[int, int, str, int, str]] = []
     for a in range(-10, 11):
         for b in range(-10, 11):
             if b == 0:
@@ -116,18 +119,25 @@ def main() -> int:
                     # выражение вне подмножества переводчика — это НЕ сбой
                     # прогона: пропускаем пару (явный список, класс #198).
                     continue
-                got = _z3_value(translated)
-                # «наивный» перевод (просто `div`): на нём тест ОБЯЗАН уметь
-                # падать — иначе он не способен поймать возврат дефекта.
-                naive_bad += _z3_value(f"(div {a} {b})") != expected
-                floor_ref = _z3_value(_reference(op, a, b, FLOOR_Q))
-                total += 1
-                old_bad += got != expected
-                floor_bad += floor_ref != expected
-                positive_bad += b > 0 and got != expected
-                if got != expected and len(examples) < 4:
-                    examples.append(f"    {a} {op} {b}: python={expected} "
-                                    f"smt={got} (перевод {translated})")
+                todo.append((a, b, op, expected, translated))
+    flat: list[str] = []
+    for a, b, op, expected, translated in todo:
+        flat.append(translated)
+        # «наивный» перевод (просто `div`): на нём тест ОБЯЗАН уметь падать —
+        # иначе он не способен поймать возврат дефекта #317.
+        flat.append(f"(div {a} {b})")
+        flat.append(_reference(op, a, b, FLOOR_Q))
+    vals = eval_int_many(flat)
+    for i, (a, b, op, expected, translated) in enumerate(todo):
+        got, naive, floor_ref = vals[3 * i], vals[3 * i + 1], vals[3 * i + 2]
+        naive_bad += naive != expected
+        total += 1
+        old_bad += got != expected
+        floor_bad += floor_ref != expected
+        positive_bad += b > 0 and got != expected
+        if got != expected and len(examples) < 4:
+            examples.append(f"    {a} {op} {b}: python={expected} "
+                            f"smt={got} (перевод {translated})")
 
     print(f"[i] вычислений: {total} (a,b в [-10,10], b != 0, операторы // и %)")
     print(f"[i] расхождений ИСХОДНОГО перевода: {old_bad}")

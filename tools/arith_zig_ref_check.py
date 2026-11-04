@@ -32,6 +32,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "tests" / "fixtures" / "zig_div_reference.tsv"
 GENERATOR = ROOT / "tests" / "fixtures" / "zig_div_reference.zig"
+sys.path.insert(0, str(ROOT / "tools"))
+from z3bin import eval_int, eval_int_many, find_z3  # noqa: E402
 
 
 def _translator():
@@ -43,18 +45,13 @@ def _translator():
 
 
 def _z3_eval(smt: str) -> int | None:
-    try:
-        import z3
-    except ImportError:
-        return None
-    try:
-        node = z3.parse_smt2_string(
-            "(declare-const r Int)(assert (= r " + smt + "))")[0]
-        return z3.simplify(node.arg(1)).as_long()
-    except (z3.Z3Exception, AttributeError, ValueError):
-        # Z3 не смог упростить/разобрать терм: значение не вычислить.
-        # Явный список (класс #198): программная ошибка обязана быть видна.
-        return None
+    """Значение терма через БИНАРНЫЙ z3 (без python-пакета `z3-solver`).
+
+    ДЕФЕКТ (шаг 0, Испытание 3): `import z3` падал с `ModuleNotFoundError` под
+    системным `python3` (`Makefile`: `PYTHON ?= python3`), хотя `.venv/bin/z3`
+    есть — гейт не проходил (RC=2). Теперь решатель вызывается ПРОЦЕССОМ.
+    """
+    return eval_int(smt)
 
 
 def _rows() -> list[tuple[int, int, int, int, int]]:
@@ -100,22 +97,33 @@ def check(sabotage_naive: bool = False) -> int:
         print(f"[FAIL] нет фикстуры {FIXTURE} — запустите --regenerate")
         return 2
     kc = _translator()
-    if _z3_eval("1") is None:
-        print("[!] нет z3 — проверка невозможна (это не «зелено»)")
+    if find_z3() is None or _z3_eval("1") is None:
+        print("[!] бинарный z3 недоступен/не работает "
+              "($Z3 / .venv/bin/z3 / PATH) — проверка невозможна "
+              "(это не «зелено»)")
         return 2
 
     bad_f = bad_t = bad_py = total = 0
     examples: list[str] = []
+    todo: list[tuple[int, int, int, int, str, str]] = []
     for a, b, t, fl, _c in _rows():
-        total += 1
         if sabotage_naive:
             # Саботаж кейса: наивный `div` вместо адаптеров — состояние до #317.
             # (Маркер диверсии здесь НЕ пишется буквально: файл сканируется
             # стражем ci.sh, и литерал давал ложный провал «следы харнесса».)
-            my_f = my_t = _z3_eval(f"(div {a} {b})")
+            f_expr = t_expr = f"(div {a} {b})"
         else:
-            my_f = _z3_eval(kc._floor_div_smt(a, b))
-            my_t = _z3_eval(kc._trunc_div_smt(a, b))
+            f_expr = kc._floor_div_smt(a, b)
+            t_expr = kc._trunc_div_smt(a, b)
+        todo.append((a, b, t, fl, f_expr, t_expr))
+    # ПАКЕТ: 1640 пар -> ОДИН процесс z3 (по процессу на терм — это минуты).
+    flat: list[str] = []
+    for _a, _b, _t, _fl, f_expr, t_expr in todo:
+        flat += [f_expr, t_expr]
+    vals = eval_int_many(flat)
+    for i, (a, b, t, fl, _fe, _te) in enumerate(todo):
+        total += 1
+        my_f, my_t = vals[2 * i], vals[2 * i + 1]
         if my_f != fl:
             bad_f += 1
             if len(examples) < 3:
