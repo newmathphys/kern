@@ -42,6 +42,24 @@ if echo "$BOUNDS" | grep -q 'BOUNDS PATH\] get_range_min_guard'; then
 fi
 echo "[OK] #322: тернарник-гард, continue-гард и граница range(min(..., len)) не обвиняются, индекс от переменной цикла -> честный UNKNOWN"
 
+# ДЕФЕКТ #468a/#468c: `assert` — ПУТЕВОЙ ГАРД, а не комментарий (и составные
+# `try`/`with` его НЕ теряют). Проверка ДВУСТОРОННЯЯ: под `assert` обвинять
+# НЕЛЬЗЯ, но `get_unsafe` выше обязан остаться обвинённым — то есть подавления
+# «за компанию» нет (иначе гейт доказывал бы лишь то, что детектор ослеп).
+for fn in get_assert_guard get_set_assert_guard get_try_assert_guard; do
+  if echo "$BOUNDS" | grep -q "BOUNDS PATH\\] $fn"; then
+    echo "[!] ЛОЖНОЕ ОБВИНЕНИЕ $fn (#468: assert как гард не учтён / try потерял гард)"; exit 1
+  fi
+done
+echo "[OK] #468: assert как путевой гард (в т.ч. len(set(x)) и внутри try) ложных BOUNDS PATH не даёт"
+# АКСИОМА МОЩНОСТИ: `assert len(set(x)) == 1` СТРОГО влечёт `len(x) >= 1`, поэтому
+# `x[0]` безопасен. Без аксиомы длина `x` остаётся НЕИЗВЕСТНОЙ (заметка #454), то
+# есть проверка НЕ выполнена — это НЕ «зелено». Гейт требует ИМЕННО проверки.
+if echo "$BOUNDS" | grep -q 'BOUNDS?\] get_set_assert_guard'; then
+  echo "[!] #468a: аксиома |set(x)| <= len(x) НЕ применена (assert len(set(x))==1 не сузил путь)"; exit 1
+fi
+echo "[OK] #468a: аксиома мощности конечного множества применена (get_set_assert_guard ПРОВЕРЕН, а не отложен)"
+
 # ДЕФЕКТ #351: ПРЕДУСЛОВИЕ-ДЕКОРАТОР (`@deal.pre`) — гард на входе. Проверка
 # ДВУСТОРОННЯЯ: под предусловием обвинять нельзя, без него — обязательно.
 DEAL=$(timeout 300 python3 tools/kern_contracts.py --xray examples/deal_guard_demo.py 2>&1) || {
@@ -149,8 +167,13 @@ echo "[OK] full-scan: xray + anti-cheat + авто-роутинг, и роути
 #   (а) `.cpp`/`.cc` ОБЯЗАНЫ сканироваться (набор = CLIKE_EXT | {.py});
 #   (б) `.cs`/`.java`/`.php` ОБЯЗАНЫ быть НАЗВАНЫ в отчёте о пропуске.
 EXT=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_exts 2>&1) || { echo "[!] --xray на фикстуре расширений упал"; exit 1; }
-echo "$EXT" | grep -q 'файлов к сканированию: 4' || { echo "[!] #381: .cpp/.cc НЕ сканируются (набор разошёлся с CLIKE_EXT)"; echo "$EXT" | grep -E 'к сканированию|ПРОПУЩЕНО'; exit 1; }
+echo "$EXT" | grep -q 'файлов к сканированию: 5' || { echo "[!] #381/#468b: .cpp/.cc/.hpp НЕ сканируются (набор разошёлся с CLIKE_EXT)"; echo "$EXT" | grep -E 'к сканированию|ПРОПУЩЕНО'; exit 1; }
 echo "$EXT" | grep -q 'ПРОПУЩЕНО по расширению: 3' || { echo "[!] #381: пропуск по расширению НЕ назван (молчаливая потеря)"; exit 1; }
+# ДЕФЕКТ #468b: `.hpp` — не «бонус», а РЕГРЕССИЯ ЯДРА ИИ-инфраструктуры: ядро
+# `deepseek-ai/DeepJIT` (C++20, header-only) — 53 файла `.hpp`, которые `--xray`
+# не видел ВООБЩЕ. Проверка ДВУСТОРОННЯЯ: файл обязан быть И посчитан
+# («к сканированию»), И РЕАЛЬНО РАЗОБРАН (находка на нём), а не просто учтён.
+echo "$EXT" | grep -q 'h\.hpp: \[OVERFLOW PATH\] f_hpp' || { echo "[!] #468b: .hpp посчитан, но НЕ разобран (граница расширений молчалива)"; exit 1; }
 for e in '.cs:1' '.java:1' '.php:1'; do
   echo "$EXT" | grep -q -- "$e" || { echo "[!] #381: расширение $e не названо в отчёте"; exit 1; }
 done

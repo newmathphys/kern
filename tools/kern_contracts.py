@@ -1744,7 +1744,15 @@ def minimize_counterexample(kernc, smt: str, params, ce: dict) -> dict:
 # ПЕРЕПОЛНЕНИЕ целых и уход беззнакового в минус — то, чего `Int` из Python
 # в принципе не видит.
 
-CLIKE_EXT = {".zig", ".c", ".h", ".cpp", ".cc", ".rs", ".ts", ".js", ".go"}
+# ДЕФЕКТ #468b: C/C++-расширения — ОДНИМ списком (урок #353: свойство языка не
+# описывается в двух местах). Расширения добавлены ПО ФАКТУ охоты: ядро
+# `deepseek-ai/DeepJIT` (C++20, header-only) — это 53 `.hpp` + 21 `.cu` +
+# 12 `.cuh` + 7 `.cpp` + 1 `.h` (ИЗМЕРЕНО `find … | uniq -c`), из которых
+# `--xray` видел только `.cpp`/`.h` (8 из 94). `.hpp`/`.hh` — заголовки C++20,
+# `.cu`/`.cuh` — CUDA/Ascend-ядра (тот же C-like синтаксис). Без них «улов» по
+# header-only ИИ-инфраструктуре структурно нулевой.
+C_EXT = {".c", ".h", ".cpp", ".cc", ".hpp", ".hh", ".cu", ".cuh"}
+CLIKE_EXT = {".zig", ".rs", ".ts", ".js", ".go"} | C_EXT
 
 # =============================================================================
 # ШАГ I: СЕМАНТИКА ЗНАЧЕНИЙ ЯЗЫКА КАК ОБЪЕКТ (VALUE_SEMANTICS)
@@ -2868,7 +2876,7 @@ def parse_clike(path: Path, require_annotations: bool = True):
             else ("ts" if path.suffix == ".ts"
                   else ("js" if path.suffix == ".js"
                         else ("go" if path.suffix == ".go"
-                              else ("c" if path.suffix in {".c", ".h", ".cpp", ".cc"}
+                              else ("c" if path.suffix in C_EXT
                                     else "zig")))))
     # ДЕФЕКТ #317: транслятор ОБЩИЙ для Python и C-подобных, а семантика
     # деления у них разная. Ставим язык ЗДЕСЬ, потому что точек входа
@@ -3072,7 +3080,7 @@ def _sem_of_suffix(suf: str) -> ValueSemantics:
     suf = (suf or "").lower()
     lang = ("rust" if suf == ".rs" else "zig" if suf == ".zig"
             else "go" if suf == ".go" else "ts" if suf in {".ts", ".js"}
-            else "c" if suf in {".c", ".h", ".cpp", ".cc"} else "python")
+            else "c" if suf in C_EXT else "python")
     return VALUE_SEMANTICS[lang]
 
 
@@ -3103,7 +3111,7 @@ def _set_lang_from_path(path: Path) -> str:
     suf = path.suffix.lower()
     lang = ("rust" if suf == ".rs" else "zig" if suf == ".zig"
             else "go" if suf == ".go" else "ts" if suf in {".ts", ".js"}
-            else "c" if suf in {".c", ".h", ".cpp", ".cc"} else "python")
+            else "c" if suf in C_EXT else "python")
     try:
         head = path.read_text(encoding="utf-8", errors="replace")[:8192]
     except OSError:
@@ -5911,6 +5919,78 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 del alias_of[nm]
                 alias_path = [c for c in alias_path if not c.startswith(f"(= {nm} ")]
         eff = path + alias_path
+        # ДЕФЕКТ #468a (assert как ПУТЕВОЙ ГАРД в BOUNDS-обходе): `assert len(x) == 1`
+        # — ИСТИННОЕ условие ВСЕГО дальнейшего кода, а не комментарий. В crash-обходе
+        # это сделано дефектом #179, но ЗДЕСЬ ветки не было. ИЗМЕРЕНО на охоте:
+        # `deepseek-ai/DeepJIT` дал **9** ложных `[BOUNDS PATH]` (`tests/test_cuda.py`
+        # — 4: `winner_lines[0]`, `winners[0]`×2, `stale_entries[0]`; `tests/test_ascend.py`
+        # — 5: `lines[0]`, `winners[0]`×2, `lines[0]`, `artifacts[0]`), КАЖДЫЙ защищён
+        # `assert` строкой выше. Ложное обвинение хуже пропуска (#178/#183).
+        if isinstance(st, ast.Assert):
+            try:
+                ac = _cond_smt(st.test, syms)
+            except (Unsupported, NoReturn):
+                ac = None
+            if ac and "havoc" not in ac:
+                path = path + [ac]
+            # АКСИОМА МОЩНОСТИ КОНЕЧНОГО МНОЖЕСТВА: |set(x)| <= len(x), поэтому из
+            # `len(set(x)) == k` (или `>= k`) СТРОГО следует `len(x) >= k`. Без этого
+            # `winners[0]`, защищённый `assert len(set(winners)) == 1`, остаётся ложной
+            # находкой: `_cond_smt` на `len(set(...))` даёт МУСОРНЫЙ символ (`len__havoc`).
+            _t = st.test
+            if (isinstance(_t, ast.Compare) and len(_t.ops) == 1
+                    and len(_t.comparators) == 1):
+                _l, _op, _r = _t.left, _t.ops[0], _t.comparators[0]
+                if (isinstance(_op, (ast.Eq, ast.GtE, ast.Gt))
+                        and isinstance(_r, ast.Constant)
+                        and isinstance(_r.value, int)
+                        and isinstance(_l, ast.Call)
+                        and getattr(_l.func, "id", None) == "len"
+                        and len(_l.args) == 1
+                        and isinstance(_l.args[0], ast.Call)
+                        and getattr(_l.args[0].func, "id", None) == "set"
+                        and len(_l.args[0].args) == 1
+                        and isinstance(_l.args[0].args[0], ast.Name)):
+                    _base = _l.args[0].args[0].id
+                    syms.add(_base)
+                    _need = _r.value + 1 if isinstance(_op, ast.Gt) else _r.value
+                    path = path + [f"(>= kern_len_{_base} {_need})"]
+            continue
+        # ДЕФЕКТ #468c (составные операторы `try`/`with` в BOUNDS-обходе): `try` и
+        # `with` НЕ обрабатывались — их тела попадали в ОБЩИЙ `ast.walk`
+        # (`_subscripts_with_path`), который даёт ВСЕМ вложенным индексам ОДИН
+        # внешний путь. Гарды ВНУТРИ `try`/`with` при этом терялись. ИЗМЕРЕНО на
+        # охоте: `deepseek-ai/DeepJIT` (`tests/test_cuda.py:552`) — `for` с
+        # `assert len(winner_lines) == 1` лежит внутри `try:`, и `winner_lines[0]`
+        # обвинялся контрпримером `kern_len_winner_lines = 0`, который `assert`
+        # строкой выше ИСКЛЮЧАЕТ. Тот же класс, что #314 (`for`/`match`) и #315
+        # (`while`): тело составного оператора обходится БЕЗ его гардов.
+        # ЗВУЧНОСТЬ: тело `try` идёт ПОСЛЕДОВАТЕЛЬНО (его путевые условия истинны
+        # на каждой ВЫПОЛНЕННОЙ строке), а `except`/`finally`/`else` — с ВНЕШНИМ
+        # путём: в обработчик попадают при ИСКЛЮЧЕНИИ, где условия тела НЕ
+        # гарантированы (иначе `finally: x[0]` при проваленном `assert` был бы
+        # ложно оправдан — это НЕ пропуск, а сохранение обвинения).
+        if isinstance(st, (ast.Try, getattr(ast, "TryStar", ast.Try))):
+            _walk_bounds(st.body, eff, params, lens, kernc, found, fname, syms,
+                         in_while=in_while, notes=notes)
+            for h in st.handlers:
+                _walk_bounds(h.body, eff, params, lens, kernc, found, fname, syms,
+                             in_while=in_while, notes=notes)
+            _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
+                         in_while=in_while, notes=notes)
+            _walk_bounds(st.finalbody, eff, params, lens, kernc, found, fname, syms,
+                         in_while=in_while, notes=notes)
+            continue
+        if isinstance(st, (ast.With, ast.AsyncWith)):
+            # Индексы в САМИХ контекстных выражениях (`with open(arr[0]) as f:`).
+            for item in st.items:
+                for sub in [n for n in ast.walk(item.context_expr)
+                            if isinstance(n, ast.Subscript)]:
+                    _bounds_one(sub, eff, params, lens, kernc, found, fname, syms,
+                                in_while, notes)
+            _walk_bounds(st.body, eff, params, lens, kernc, found, fname, syms,
+                         in_while=in_while, notes=notes)
+            continue
         if isinstance(st, ast.If):
             try:
                 cond = _cond_smt(st.test, syms)

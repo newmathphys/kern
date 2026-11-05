@@ -16,6 +16,10 @@ nested `if/else` in C-like bodies used to collapse into one statement and were s
 **defect #467**: a brace-less `if` swallowed the rest of the body in semicolon-free (ASI) TS/JS/Go.
 **Test 3**: surviving mutants behind `pytest` (`tools/pytest_blind_check.py`), plus **defect #466**:
 the arithmetic/translation gates crashed under the system `python3` (no `z3-solver` package).
+**Test 1 (hunting third-party code, part 2)**: `--xray` over `deepseek-ai/DeepJIT` (C++20
+header-only) exposed THREE blind spots — **defect #468**: `.hpp`/`.cu`/`.cuh` were missing from
+`CLIKE_EXT` (86 of 94 core files invisible), `assert len(x) == 1` was not a path guard, and the
+bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Added
 
@@ -59,6 +63,21 @@ the arithmetic/translation gates crashed under the system `python3` (no `z3-solv
   made it UNSAT, and a REACHABLE branch was reported as `[DEAD BRANCH]` (a false accusation, worse
   than a miss). `_clike_block_end` now takes `lang`; for `go`/`js`/`ts` without `{}` the statement
   ends at the NEWLINE (`;` is taken only if it comes earlier), which NARROWS the block — fail-closed.
+- `tools/kern_contracts.py` — **defect #468** (found hunting `deepseek-ai/DeepJIT`): three blind
+  spots in `--xray`. (a) `.hpp`/`.hh`/`.cu`/`.cuh` were missing from the C/C++ extension set, so
+  86 of 94 core files of a C++20 header-only library were INVISIBLE (the parser could handle them);
+  they are now a single `C_EXT` list, and `CLIKE_EXT = {…} | C_EXT` (lesson #353: one place).
+  (b) `assert len(x) == 1` was not a path guard in the BOUNDS walk (the crash walk got one in #179),
+  and `assert len(set(x)) == 1` emitted a junk symbol — both now add path conditions, plus the
+  finite-set cardinality axiom `|set(x)| <= len(x)` (boundary: a `Name` `x`, `k >= 1`). (c) compound
+  `try`/`with` were not walked, so their bodies lost inner guards (an `assert` inside `try`); they
+  are now walked SEQUENTIALLY while `except`/`finally`/`else` keep the OUTER path (soundness).
+  MEASURED: 9 false `[BOUNDS PATH]` on `DeepJIT` tests -> 0.
+- `tools/xray_check.sh` — a TWO-SIDED regression gate for **#468**: `examples/array_bounds.py`
+  gains `get_assert_guard`, `get_set_assert_guard`, `get_try_assert_guard`; the `xray_exts` fixture
+  gains `h.hpp` (counted AND analysed, not merely counted). At `HEAD` the gate yields 2 findings,
+  with the fix 0; a new can-fail case `xray-assert-guard` proves it can go red by DISABLING the
+  `ast.Assert` branch (not by breaking a signature — that would be a vacuous crash, lesson #466).
 
 ## [2.8.1] — 2026-11-01
 

@@ -2026,6 +2026,29 @@ def case_xray_asi():
     return "make xray-asi-check"
 
 
+def case_xray_assert_guard():
+    """#468a SABOTAGE: ветка `ast.Assert` в BOUNDS-обходе снова МЁРТВАЯ.
+
+    ЛОМАЕМ ровно то, что починено: `assert len(x) == 1` перестаёт быть ПУТЕВЫМ
+    гардом, поэтому `x[0]` строкой ниже обвиняется контрпримером
+    `kern_len_x = 0`, который сам `assert` и ИСКЛЮЧАЕТ. `make xray-check`
+    обязан покраснеть (на `get_assert_guard`).
+
+    ⚠️ Почему `and False`, а НЕ удаление строк: удаление унесло бы и `continue`,
+    и `ac` остался бы неопределён — цель краснела бы от `NameError`, то есть от
+    ПАДЕНИЯ, а не от дефекта (вакуумный кейс, урок #466). Здесь блок просто не
+    исполняется: гард не добавляется, а `x[0]` обходится общим путём.
+    """
+    patch("tools/kern_contracts.py",
+          "        if isinstance(st, ast.Assert):\n"
+          "            try:\n"
+          "                ac = _cond_smt(st.test, syms)",
+          "        if isinstance(st, ast.Assert) and False:  # ЛОМАЕМ (#468a)\n"
+          "            try:\n"
+          "                ac = _cond_smt(st.test, syms)")
+    return "make xray-check"
+
+
 def case_arith_zig_ref():
     """#317 SABOTAGE-2: адаптеры деления подменены наивным `div`.
 
@@ -4244,6 +4267,8 @@ CASES = [
      case_arith_zig_ref),
     ("xray-asi", "Brace-less ASI if swallows the rest -> false DEAD BRANCH",
      case_xray_asi),
+    ("xray-assert-guard", "`assert len(x)==1` no longer a path guard -> false BOUNDS PATH",
+     case_xray_assert_guard),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

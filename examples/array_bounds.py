@@ -60,3 +60,38 @@ def get_range_min_guard(xs, start):
         if xs[j] > 0:
             return xs[j]
     return 0
+
+
+# ДЕФЕКТ #468a: `assert` — ПУТЕВОЙ ГАРД, а не комментарий. В реальном коде
+# (`deepseek-ai/DeepJIT`, `tests/test_ascend.py`) почти всегда пишут
+# `assert len(x) == 1` строкой выше, а НЕ `if len(x) > 0:`. До правки ветки
+# `ast.Assert` в BOUNDS-обходе не было, и такой индекс обвинялся контрпримером
+# `kern_len_lines = 0`, который сам `assert` и исключает (ИЗМЕРЕНО: 9 ложных
+# `[BOUNDS PATH]` на двух файлах DeepJIT — `test_cuda.py` 4, `test_ascend.py` 5).
+def get_assert_guard(lines):
+    assert len(lines) == 1
+    return lines[0]
+
+
+# ДЕФЕКТ #468a: АКСИОМА МОЩНОСТИ КОНЕЧНОГО МНОЖЕСТВА. `|set(x)| <= len(x)`,
+# поэтому `assert len(set(x)) == 1` СТРОГО влечёт `len(x) >= 1`: `x[0]` безопасен.
+# Без этой аксиомы `_cond_smt` на `len(set(...))` даёт мусорный символ (`havoc`).
+def get_set_assert_guard(winners):
+    assert len(set(winners)) == 1, winners
+    return winners[0]
+
+
+# ДЕФЕКТ #468c: СОСТАВНОЙ ОПЕРАТОР `try` НЕ ТЕРЯЕТ ГАРДЫ. Тело `try` обходится
+# ПОСЛЕДОВАТЕЛЬНО (его путевые условия истинны на каждой выполненной строке),
+# поэтому `assert` внутри `try` сужает путь так же, как снаружи. До правки тело
+# `try` шло в ОБЩИЙ `ast.walk` и получало ОДИН внешний путь — гард терялся.
+def get_try_assert_guard(processes):
+    out = []
+    try:
+        for p in processes:
+            lines = [ln for ln in p.splitlines() if ln.startswith("W=")]
+            assert len(lines) == 1, p
+            out.append(lines[0])
+    finally:
+        pass
+    return out

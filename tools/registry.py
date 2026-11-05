@@ -400,6 +400,9 @@ CASE_TARGET = {
     "xray-ext-silent": "xray-check",
     "xray-nested-branch": "xray-check",
     "xray-skip-reasons": "xray-check",
+    # #468: `assert` как путевой гард (+ аксиома мощности множества) и `try`,
+    # который НЕ теряет гарды тела. Гейт тот же (`xray-check`), случай назван.
+    "xray-assert-guard": "xray-check",
     "mutation-lock": "mutation-lock-check",
     "l5-duel": "l5-duel-check",
     "kernx-polygon5": "kernx-polygon5-check",
