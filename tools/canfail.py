@@ -1999,6 +1999,33 @@ def case_advisory_fold():
           "                    ok += 1  # ЛОМАЕМ: advisory засчитан как T")
     return "make advisory-check"
 
+def case_xray_asi():
+    """#467 SABOTAGE: ASI-ветка `_clike_block_end` убрана — дефект возвращается.
+
+    ЛОМАЕМ ровно то, что починено: для `if` без фигурных скобок граница
+    оператора снова ищется через `body.find(";")`. В ASI-стиле (TS/JS/Go без
+    `;`) это КОНЕЦ ТЕЛА, условие вложенного `if` протекает как ФАКТ -> UNSAT ->
+    ЛОЖНЫЙ `[DEAD BRANCH]`. `make xray-asi-check` обязан покраснеть.
+
+    ⚠️ Почему НЕ «вернуть прежнюю сигнатуру без `lang`»: вызовы передают `lang`
+    третьим ПОЗИЦИОННЫМ аргументом, поэтому такая подсадка даёт TypeError —
+    цель краснеет от ПАДЕНИЯ, а не от дефекта. Это вакуумный кейс (урок #466:
+    «красный по неверной причине» = зелёный). Подсадка обязана воспроизводить
+    ДЕФЕКТ, а не ронять инструмент.
+    """
+    patch("tools/kern_contracts.py",
+          '    if lang in ("go", "js", "ts"):\n'
+          '        # ASI: оператор без `{}` кончается на переводе строки. Если `;` есть\n'
+          '        # РАНЬШЕ перевода строки — берём её (обычный C-подобный случай).\n'
+          '        nl = body.find("\\n", i)\n'
+          '        sc = body.find(";", i)\n'
+          '        if sc != -1 and (nl == -1 or sc < nl):\n'
+          '            return sc + 1\n'
+          '        return (nl + 1) if nl != -1 else n\n',
+          '    # ЛОМАЕМ (#467): ASI-ветка убрана — снова «до следующей `;`»\n')
+    return "make xray-asi-check"
+
+
 def case_arith_zig_ref():
     """#317 SABOTAGE-2: адаптеры деления подменены наивным `div`.
 
@@ -4215,6 +4242,8 @@ CASES = [
      case_evidence_untracked),
     ("arith-zig-ref", "Adapters diverge from Zig @divTrunc/@divFloor -> gate red",
      case_arith_zig_ref),
+    ("xray-asi", "Brace-less ASI if swallows the rest -> false DEAD BRANCH",
+     case_xray_asi),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+python3 tools/xray_asi_check.py || exit 1  # регрессия: ASI-стиль TS без `;`
 # ЭШЕЛОН 3, ПУНКТ 13: ПРИЁМКА --xray. Требуем НАСТОЯЩИЕ находки на фикстуре
 # examples/xray_demo.py: мёртвая ветка, избыточный гард и краш-путь.
 set -u

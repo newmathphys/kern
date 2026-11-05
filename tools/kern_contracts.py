@@ -6645,11 +6645,24 @@ def _clike_struct_fields(text: str) -> dict[str, str]:
 def _is_u16(ty: str) -> bool:
     return ty.strip().lower() in {"uint16_t", "u16", "unsigned short", "ushort"}
 
-def _clike_block_end(body: str, start: int) -> int:
+def _clike_block_end(body: str, start: int, lang: str = "") -> int:
     """Конец блока/оператора, начинающегося в `start` (позиция после `)` if).
 
     Если дальше `{ ... }` — считаем скобки; иначе оператор до `;`.
     ДЕФЕКТ #318: нужен, чтобы понимать, находится ли операция ВНУТРИ блока.
+
+    ДЕФЕКТ #467 (ИСПЫТАНИЕ 1, охота на чужом коде). В языках с НЕОБЯЗАТЕЛЬНОЙ
+    `;` (Go/JS/TS, стиль ASI) однострочное `if (c) return {…}` разделителя `;`
+    НЕ имеет — граница оператора задаётся ПЕРЕВОДОМ СТРОКИ. Прежний
+    `body.find(";")` находил `;` только в самом конце файла, поэтому блок
+    «съедал» весь остаток тела: условие `mode === 'off'` (внутри `if (bot)`)
+    протекало как ВНЕШНИЙ факт в чужую ветвь `if (!trigger.human)` и давало
+    UNSAT — ЛОЖНЫЙ `[DEAD BRANCH]`. ИЗМЕРЕНО охотой на чужом коде —
+    `deepseek-ai/dsh-superagent-prototype` (`src/policy.ts::settingsPolicy`).
+    Теперь для этих языков оператор
+    кончается на переводе строки (ASI), и это ЗАУЖЕНИЕ: блок становится короче,
+    то есть находок не прибавляется (пропуск безопаснее ложного обвинения,
+    урок #178/#183).
     """
     i = start
     n = len(body)
@@ -6666,6 +6679,14 @@ def _clike_block_end(body: str, start: int) -> int:
                     return i + 1
             i += 1
         return n
+    if lang in ("go", "js", "ts"):
+        # ASI: оператор без `{}` кончается на переводе строки. Если `;` есть
+        # РАНЬШЕ перевода строки — берём её (обычный C-подобный случай).
+        nl = body.find("\n", i)
+        sc = body.find(";", i)
+        if sc != -1 and (nl == -1 or sc < nl):
+            return sc + 1
+        return (nl + 1) if nl != -1 else n
     j = body.find(";", i)
     return (j + 1) if j != -1 else n
 
@@ -7510,7 +7531,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ОВЕР-АППРОКСИМИРУЕТ: если признак выхода найден, мы СКРОЕМ находку
             # (пропуск), а не выдумаем её — пропуск безопаснее ложного обвинения
             # (урок #178/#183).
-            _bend0 = _clike_block_end(body_mask, m.end())
+            _bend0 = _clike_block_end(body_mask, m.end(), lang)
             _blk = body_mask[m.end():_bend0]
             hard_exit = bool(re.search(
                 r"\b(?:exit|abort|_exit|_Exit|quick_exit|panic|unreachable|"
@@ -7521,7 +7542,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
             # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
             # ВНУТРИ него; наружу оно превращается в `not cond` ПО ПОЗИЦИИ.
-            _bend = _clike_block_end(body_mask, m.end())
+            _bend = _clike_block_end(body_mask, m.end(), lang)
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError) as _u400:

@@ -11,6 +11,9 @@ Every number below is produced by a command in the repository — see
 Tack 2.4 / **Test 1**: differential soundness check of the C-like translator against LIVE
 compilers (`tools/translator_diff_check.py`, `gcc`/`rustc`/`node`), plus **defect #465**:
 nested `if/else` in C-like bodies used to collapse into one statement and were silently skipped.
+**Test 1 (hunting third-party code)**: `--xray` over `deepseek-ai/dsh-superagent-prototype`
+(`src/policy.ts::settingsPolicy`) produced a FALSE `[DEAD BRANCH]` on a REACHABLE branch —
+**defect #467**: a brace-less `if` swallowed the rest of the body in semicolon-free (ASI) TS/JS/Go.
 **Test 3**: surviving mutants behind `pytest` (`tools/pytest_blind_check.py`), plus **defect #466**:
 the arithmetic/translation gates crashed under the system `python3` (no `z3-solver` package).
 
@@ -31,6 +34,12 @@ the arithmetic/translation gates crashed under the system `python3` (no `z3-solv
   `pytest-blind` proves the gate goes red when a contract is weakened.
 - `tools/z3bin.py` — the z3 solver is invoked as a BINARY (`$Z3` → `.venv/bin/z3` → `PATH`); the
   `z3-solver` python package is not a runtime dependency.
+- `tools/xray_asi_check.py` + `make xray-asi-check` (CHECK) — regression for **defect #467**:
+  four fixtures (real ASI TS, minimal TS repro, TS dead-branch control, C control). The two
+  zero-finding fixtures must ALSO be genuinely analysed (`checked >= 1`, `skipped 0`), so a
+  silently skipped file cannot masquerade as «0 findings». The control shares the FIXED language
+  (TS), since the fix lives in the TS branch; a can-fail case `xray-asi` proves the gate goes red
+  (dropping the ASI branch) for the REAL reason, not from a crash.
 
 ### Fixed
 
@@ -44,6 +53,12 @@ the arithmetic/translation gates crashed under the system `python3` (no `z3-solv
   (`PYTHON ?= python3`), so `make arith-semantics-check` returned `RC=2` and the `arith-semantics`
   can-fail case passed VACUOUSLY (a non-zero rc read as «the gate can go red»). Now `RC=0` under
   both `python3` and `.venv/bin/python`, and the can-fail case goes red for the real reason.
+- `tools/kern_contracts.py` — **defect #467**: a brace-less `if` in an ASI-style file
+  (TS/JS/Go without `;`) made `_clike_block_end` fall back to `body.find(";")`, which in such a
+  file is the END of the body — the inner condition leaked as an OUTER fact, two contradictions
+  made it UNSAT, and a REACHABLE branch was reported as `[DEAD BRANCH]` (a false accusation, worse
+  than a miss). `_clike_block_end` now takes `lang`; for `go`/`js`/`ts` without `{}` the statement
+  ends at the NEWLINE (`;` is taken only if it comes earlier), which NARROWS the block — fail-closed.
 
 ## [2.8.1] — 2026-11-01
 

@@ -114,6 +114,7 @@ CLASS = {
     "bitrot-chaos": "CHECK",
     "pcc-check": "CHECK",
     "xray-check": "CHECK",
+    "xray-asi-check": "CHECK",  # #467/ASI: brace-less `if` не «проглатывает» тело
     # Шаг 7: замок мутаций харнесса (маркер активной мутации виден гейту).
     "mutation-lock-check": "CHECK",
     "l5-duel-check": "CHECK",
@@ -331,6 +332,7 @@ CASE_TARGET = {
     "translator-diff": "translator-diff-check",
     "c-types": "c-types-check",
     "div-guards": "div-guards-check",
+    "xray-asi": "xray-asi-check",
     "pytest-blind": "pytest-blind-check",
     "claims-audit": "claims-audit",
     "arith-zig-ref": "arith-zig-ref-check",
