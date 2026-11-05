@@ -319,4 +319,13 @@ echo "$BOUNDS_UNK" | grep -qE 'findings 0' \
   || { echo "[!] #454: неопределённость снова считается НАХОДКОЙ"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
 echo "$BOUNDS_UNK" | grep -qE 'note: \[BOUNDS\?\]' \
   || { echo "[!] #454: маркер не переведён в класс ЗАМЕТКИ (note:)"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
-echo "[OK] #454: неопределённость длины = ЗАМЕТКА (N), а не находка (findings 0)"
+# ДЕФЕКТ #469b: заметкой обязана быть и неопределённость ВНУТРИ ТЕЛА `while`.
+# ИЗМЕРЕНО на `deepseek-ai/DeepJIT` (`tests/test_ascend.py:162`): рекурсивный
+# обход ТЕЛА `while` не передавал `notes`, падал в `found` — и `findings`
+# считал статус Белнапа N за находку F. Проверка НЕВАКУУМНА: требует, чтобы
+# заметка пришла ИМЕННО из тела цикла (`drain`), а не только из тела функции.
+echo "$BOUNDS_UNK" | grep -q 'note: \[BOUNDS?\] drain' \
+  || { echo "[!] #469b: неопределённость ВНУТРИ while не названа заметкой (тело цикла теряет notes)"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
+echo "$BOUNDS_UNK" | grep -qE '\[BOUNDS\?\] drain' \
+  || { echo "[!] #469b: случай `drain` (while) вообще не достигнут — гейт пуст"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
+echo "[OK] #454: неопределённость длины = ЗАМЕТКА (N), а не находка (findings 0), в т.ч. в теле while (#469b)"

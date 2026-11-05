@@ -24,6 +24,10 @@
 | `audits/cwe_twins/cwe680_good.c` | `buffer_size` | QF_BV _ BitVec 32 знаковый | **PROVEN** | — | — |
 | `audits/cwe_twins/cwe682_bad.c` | `rem_bad` | QF_LIA (Int) | **REFUTED** — ПЕРЕПОЛНЕНИЕ ДЕЛЕНИЯ (a = MIN, b = -1 — аппаратный trap) | `a = -2147483648, b = -1` | — |
 | `audits/cwe_twins/cwe682_good.c` | `rem_good` | QF_LIA (Int) | **PROVEN** | — | — |
+| `audits/deepjit/hex_index.h` | `deepjit_hex_hi` | QF_BV _ BitVec 32 знаковый | **PROVEN** | — | — |
+| `audits/deepjit/hex_index.h` | `deepjit_hex_lo` | QF_BV _ BitVec 32 знаковый | **PROVEN** | — | — |
+| `audits/deepjit/kernel_align.h` | `deepjit_align_unguarded` | QF_BV _ BitVec 32 беззнаковый | **REFUTED** | `align = #x9648edc0, offset = #xbdb29330, result = #x41b30040` | — |
+| `audits/deepjit/kernel_align.h` | `deepjit_align_guarded` | QF_BV _ BitVec 32 беззнаковый | SKIP | — | — |
 | `audits/ghostty/grid_columns.zig` | `gridColumns` | QF_LIA (Int) | **PROVEN** | — | — |
 | `audits/ghostty/grid_columns.zig` | `gridColumnsBuggy` | QF_LIA (Int) | **REFUTED** | `cell_width = 1, screen_width = 0, result = 0` | yes |
 | `audits/musl/abs.c` | `kern_abs` | QF_LIA (Int) | **PROVEN** | — | — |

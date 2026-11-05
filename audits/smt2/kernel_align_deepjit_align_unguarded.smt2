@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-const offset (_ BitVec 32))
+(declare-const align (_ BitVec 32))
+(declare-const result (_ BitVec 32))
+(assert (bvuge align (_ bv4 32)))
+(assert (= result (bvand (bvsub (bvadd offset align) (_ bv1 32)) (bvnot (bvsub align (_ bv1 32))))))
+(assert (not (bvuge result offset)))
+(check-sat)

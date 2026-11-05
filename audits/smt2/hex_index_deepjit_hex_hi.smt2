@@ -1,0 +1,7 @@
+(set-logic QF_BV)
+(declare-const c (_ BitVec 32))
+(declare-const result (_ BitVec 32))
+(assert (and (bvsge c (_ bv0 32)) (bvsle c (_ bv255 32))))
+(assert (= result (bvashr c (_ bv4 32))))
+(assert (not (and (bvsge result (_ bv0 32)) (bvsle result (_ bv15 32)))))
+(check-sat)

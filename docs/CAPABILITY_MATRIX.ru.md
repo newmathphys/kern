@@ -1,6 +1,6 @@
 # МАТРИЦА ВОЗМОЖНОСТЕЙ KERN: одна команда, один физический оракул, одна честная граница
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->188 · cases <!-- fact:canfail_cases -->229 · anchors <!-- fact:anchors -->187 · registry <!-- fact:registry_targets -->246 · META <!-- fact:meta_targets -->43 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->189 · cases <!-- fact:canfail_cases -->231 · anchors <!-- fact:anchors -->189 · registry <!-- fact:registry_targets -->248 · META <!-- fact:meta_targets -->44 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **ЗАЧЕМ ЭТА СТРАНИЦА.** У каждой возможности ниже обязательны **три** вещи:
 **одна команда**, которая её включает; **внешний оракул**, который подтверждает

@@ -44,6 +44,14 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
   silently skipped file cannot masquerade as «0 findings». The control shares the FIXED language
   (TS), since the fix lives in the TS branch; a can-fail case `xray-asi` proves the gate goes red
   (dropping the ASI branch) for the REAL reason, not from a crash.
+- `tools/audits_mem_cap_check.py` + `make audits-mem-check` (CHECK) and
+  `make audits-mem-selftest` (META) — **defect #470**: the memory cap of the audit harness is
+  verified by REAL subprocesses (fast, no Z3): (A) a child asking 8× the cap must return
+  `rc=125` with a NAMED reason, (B) death by signal (`rc<0`) must be named (`SIGSEGV`), not
+  surface as a raw `-11`, (C) a non-memory failure (`exit 3`) must pass through UNCHANGED (no
+  false accusation). The meta mode proves non-vacuity: with `mem_cap=False` the same 1 GB
+  allocation succeeds (`rc=0`) and the signal stays raw, so the gate cannot be green without a
+  limiter. A can-fail case `audits-mem-cap` removes `preexec_fn` and the gate goes red in 1 s.
 
 ### Fixed
 
@@ -73,6 +81,42 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
   `try`/`with` were not walked, so their bodies lost inner guards (an `assert` inside `try`); they
   are now walked SEQUENTIALLY while `except`/`finally`/`else` keep the OUTER path (soundness).
   MEASURED: 9 false `[BOUNDS PATH]` on `DeepJIT` tests -> 0.
+- `tools/audits_run.py` — **defect #470**: the audit harness put NO memory ceiling on its
+  subprocesses. MEASURED: `make audits` → `kernc prove` on `audits/rust-core/midpoint.rs` grew
+  to **5.4 GB and kept growing** (a 300 s timeout existed, a memory bound did NOT), and with up
+  to `KERN_AUDIT_WORKERS` (6) of them at once a «proof run» could evict the whole machine.
+  `run()` now sets `RLIMIT_AS` in the CHILD via `preexec_fn` (`KERN_AUDIT_MEM_MB`, default
+  2048), inherited by grandchildren (`kern_contracts.py` → `kernc` → `z3`), and turns the
+  outcome into a NAMED one (`rc=125`): (a) allocator said so (`out of memory` /
+  `error.OutOfMemory` / `MemoryError` / `Cannot allocate memory`), (b) or the child died by a
+  SIGNAL (`rc<0`, `SIGSEGV`/`SIGABRT`/`SIGKILL`) — the usual RLIMIT_AS outcome, which used to
+  leak out as a raw `-11` with the cause lost. Non-memory failures are passed through unchanged
+  (no false accusation). Belnap `N`, not a verdict: `[N]` rows are printed and the `.kern` claim
+  status becomes `unknown` (`src/next/parser.zig` rejects an unknown status string — writing raw
+  `oom` would break parsing of the project, so the honest name is `unknown`, and the cause stays
+  visible in the report).
+- `tools/audits_run.py` — **defect #469b (same class as #469a)**: the harness did not pass the
+  SOLVER to its children. MEASURED under `make audits` (`PYTHON ?= python3`): `kernc prove`
+  printed `[!] z3 недоступен`, so all 44 corpus formulas got UNKNOWN → `proven 0 | refuted 0` →
+  the anti-vacuum guard failed with `rc=2` and the certificate rows could not be counted.
+  `run()` now prepends the z3 directory (`z3bin.find_z3`, single source of truth #353) to `PATH`;
+  a missing solver still yields a NAMED failure instead of a silent «unknown».
+- `tools/real_cases_check.py` — **defect #469a**: the expectations lagged behind the honest
+  verdict introduced by **#433**. `qfs_sanitizer.smt2` (QF_S) and `ieee754_nan.smt2` used to
+  report a FALSE `[PROOF VERIFIED] trusted: 0` because `.structural_only` steps of `th-lemma`
+  never called `markTrusted`; after #433 they honestly report `[PROOF PARTIAL]`
+  (`trusted > 0`, `unbound = 0`, `holes = 0`), so the gate went red with `rc=2`. The rows now
+  assert the measure of #433 instead of the old wish, and the gate got its own solver `PATH`.
+- `tools/kern_contracts.py` — **defect #469b (findings counter)**: `[BOUNDS?] … — это
+  НЕОПРЕДЕЛЁННОСТЬ (N), не находка` was still appended to `found`, so an honest Belnap `N`
+  inflated the finding count (MEASURED on `deepseek-ai/DeepJIT`: `находок 3` instead of 1
+  `[SMELL]`, and `findings 1` on `tests/test_ascend.py`). Those lines now go to `notes` — the
+  counter can no longer read `N` as `F`. A can-fail case `xray-bounds-note` proves the gate goes
+  red (a `while` body loses `notes`).
+- `tools/kern_contracts.py` — **defect #469c**: `.tsx`/`.jsx` were not scanned, so 29–30 files of
+  `deepseek-ai/dsh-superagent-prototype` stayed invisible. Both extensions are in `CLIKE_EXT`
+  (and therefore in `_XRAY_EXTS`); MEASURED over the agent's 30 `.tsx` files: 171 files scanned,
+  122/308 functions analysed, **0 findings** — JSX markup does not break the function splitter.
 - `tools/xray_check.sh` — a TWO-SIDED regression gate for **#468**: `examples/array_bounds.py`
   gains `get_assert_guard`, `get_set_assert_guard`, `get_try_assert_guard`; the `xray_exts` fixture
   gains `h.hpp` (counted AND analysed, not merely counted). At `HEAD` the gate yields 2 findings,

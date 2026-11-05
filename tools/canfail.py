@@ -2049,6 +2049,46 @@ def case_xray_assert_guard():
     return "make xray-check"
 
 
+def case_audits_mem_cap():
+    """#470 SABOTAGE: потолок памяти снят — рост подпроцесса снова не замечается.
+
+    ЛОМАЕМ ровно то, что починено: у `subprocess.run` в `audits_run.run()`
+    убирается `preexec_fn`. Тогда RLIMIT_AS не ставится, потомок спокойно
+    выделяет 8× потолка (`1 ГБ` при 128 МБ), `rc=0` вместо `125`, и первый же
+    `OK` в `audits-mem-check` становится `FAIL`. Гейт обязан покраснеть.
+
+    ⚠️ Почему НЕ удаление всей строки: удаление унесло бы и вызов `subprocess`,
+    и цель краснела бы от падения синтаксиса (вакуум, урок #466). Здесь вызов
+    остаётся, снимается ТОЛЬКО лимит.
+    """
+    patch("tools/audits_run.py",
+          "                           preexec_fn=_mem_limiter() if mem_cap else None)",
+          "                           preexec_fn=None)  # ЛОМАЕМ (#470)")
+    return "make audits-mem-check"
+
+
+def case_xray_bounds_note():
+    """#469b SABOTAGE: тело `while` снова теряет `notes` — N считается находкой.
+
+    ЛОМАЕМ ровно то, что починено: рекурсивный обход ТЕЛА `while` вызывается
+    БЕЗ `notes`, поэтому `notes=None`, и ветка #454 (`[BOUNDS?]`) падает в
+    `found`. ИЗМЕРЕНО на `deepseek-ai/DeepJIT` (`tests/test_ascend.py:162`):
+    именно так `progress[0]` внутри `while` попал в счётчик находок.
+    `make xray-check` обязан покраснеть на `note: [BOUNDS?] drain`.
+
+    ⚠️ Почему НЕ удаление строки целиком: удаление унесло бы и сам вызов —
+    тело цикла перестало бы сканироваться, и цель краснела бы от ПОТЕРИ
+    покрытия, а не от дефекта (вакуумный кейс, урок #466). Здесь вызов
+    остаётся, снимается ТОЛЬКО проброс `notes`.
+    """
+    patch("tools/kern_contracts.py",
+          "            _walk_bounds(st.body, wpath, params, lens, kernc, found, fname, syms,\n"
+          "                         in_while=True, notes=notes)",
+          "            _walk_bounds(st.body, wpath, params, lens, kernc, found, fname, syms,\n"
+          "                         in_while=True)  # ЛОМАЕМ (#469b): тело while теряет notes")
+    return "make xray-check"
+
+
 def case_arith_zig_ref():
     """#317 SABOTAGE-2: адаптеры деления подменены наивным `div`.
 
@@ -4269,6 +4309,10 @@ CASES = [
      case_xray_asi),
     ("xray-assert-guard", "`assert len(x)==1` no longer a path guard -> false BOUNDS PATH",
      case_xray_assert_guard),
+    ("xray-bounds-note", "A `while` body loses `notes` -> N counted as a finding (#469b)",
+     case_xray_bounds_note),
+    ("audits-mem-cap", "Memory cap removed -> subprocess growth goes unnoticed (#470)",
+     case_audits_mem_cap),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

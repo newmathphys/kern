@@ -40,12 +40,15 @@ AMM, явный BV-режим, замок контрактов, анти-чит,
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+from z3bin import find_z3  # noqa: E402
 EX = ROOT / "tools" / "kern_contracts.py"
 FIX = ROOT / "audits" / "real_cases"
 CWE = ROOT / "audits" / "cwe_twins"
@@ -61,8 +64,19 @@ def run(args: list[str], timeout: int = 900) -> str:
 
 
 def run_kernc(args: list[str], timeout: int = 300) -> str:
+    # ДЕФЕКТ #469a: ХАРНЕСС НЕ ПЕРЕДАВАЛ РЕШАТЕЛЬ. `kernc` ищет `z3` в `PATH`, а
+    # под `make` (`PYTHON ?= python3`) в `PATH` нет `.venv/bin`, поэтому ОБЕ
+    # строки `kernc prove` печатали `[!] z3 недоступен` и краснели от ОКРУЖЕНИЯ,
+    # а не от вердикта. Гейт, который молча зависит от того, как его запустили, —
+    # не измерение. Каталог бинарного z3 (`z3bin.find_z3`, ЕДИНЫЙ источник правды
+    # #353) добавляется в `PATH` дочернего процесса; нет решателя — вывод честно
+    # остаётся «недоступен», и строка падает с НАЗВАННОЙ причиной.
+    env = dict(os.environ)
+    _z3 = find_z3()
+    if _z3:
+        env["PATH"] = str(Path(_z3).parent) + os.pathsep + env.get("PATH", "")
     r = subprocess.run([str(KERNC)] + args, cwd=str(ROOT),
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, timeout=timeout, env=env)
     return r.stdout + r.stderr
 
 
@@ -155,9 +169,21 @@ def caps() -> list[dict]:
         next((l.strip()[:86] for l in o.splitlines() if "[КОНТРПРИМЕР]" in l), "-"))
 
     ogood = run_kernc(["prove", str(ROOT / "tests" / "fixtures" / "qfs_sanitizer.smt2")])
+    # ДЕФЕКТ #469a (следствие нашего же #433): здесь стояло требование
+    # `trusted: 0`. ДО #433 ветка `.structural_only` в `proof_check.zig` МОЛЧА
+    # теряла шаги `th-lemma` (не вызывала `markTrusted`), поэтому строковая
+    # санитизация (`QF_S`) получала ЛОЖНОЕ `[PROOF VERIFIED] trusted: 0` —
+    # «доказано», хотя строковые `th-lemma` чекер не верифицирует. После #433
+    # шаг честно НАЗВАН доверенным, и вердикт стал `[PROOF PARTIAL]`
+    # (доверенных 1, дыр 0, непроверенное правило названо). Гейт обязан
+    # требовать ЧЕСТНЫЙ вердикт, а не прежнюю ложь: `[PROOF PARTIAL]` +
+    # `holes: 0` + НАЗВАННОЕ правило — это и есть измерение, а «trusted: 0»
+    # вернулось бы только вместе с регрессией #433.
     add("обход пути `../` (QF_S)", "QF_SLIA",
-        True, "ДОКАЗАНО" in ogood and "trusted: 0" in ogood,
-        "сильная санитизация доказана (trusted: 0)")
+        True,
+        "ДОКАЗАНО" in ogood and "[PROOF PARTIAL]" in ogood
+        and "holes: 0" in ogood and "th-lemma" in ogood,
+        "санитизация ДОКАЗАНА; шаг `th-lemma` (строки) НАЗВАН доверенным -> [PROOF PARTIAL], дыр 0 (#433)")
 
     of = run_kernc(["prove", str(ROOT / "tests" / "fixtures" / "ieee754_nan.smt2")])
     # ДЕФЕКТ #365 (НАЙДЕН при подготовке `@kern:float`): здесь стояла метка

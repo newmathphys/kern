@@ -266,6 +266,19 @@ edge-cases:
 audits: build
 	@$(PYTHON) tools/audits_run.py --emit-md audits/EVIDENCE.md
 
+# ДЕФЕКТ #470: ПОТОЛОК ПАМЯТИ у подпроцессов аудита. ИЗМЕРЕНО: `kernc prove`
+# на `audits/rust-core/midpoint.rs` рос до 5.4 ГБ и продолжал расти (таймаут
+# 300 с БЫЛ, лимита памяти НЕ БЫЛО), а воркеров до 6 -> прогон мог вытеснить
+# всю машину. `audits_run.py` ставит RLIMIT_AS (KERN_AUDIT_MEM_MB, по умолчанию
+# 2048 МБ) на КАЖДЫЙ подпроцесс и называет исход (rc=125), а не молчит.
+# Этот гейт проверяет лимит НАСТОЯЩИМИ подпроцессами (быстро, без Z3).
+audits-mem-check:
+	@$(PYTHON) tools/audits_mem_cap_check.py
+
+# МЕТА: без потолка исходы обязаны измениться — иначе проверка вакуумна.
+audits-mem-selftest:
+	@$(PYTHON) tools/audits_mem_cap_check.py --selftest
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

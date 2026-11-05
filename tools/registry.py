@@ -46,6 +46,9 @@ CLASS = {
     "self-verify": "CHECK",
     "edge-cases": "CHECK",
     "audits": "CHECK",
+    # ДЕФЕКТ #470: потолок RLIMIT_AS у подпроцессов аудита (проверяется
+    # настоящими подпроцессами: OOM, смерть по сигналу, не-памятный сбой).
+    "audits-mem-check": "CHECK",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -187,6 +190,8 @@ CLASS = {
     "flake-selftest": "META",               # мета: T и B различаются (F2)
     "lang-semantics-selftest": "META",      # мета: пропажа языка ловится (I)
     "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
+    # #470: мета — без потолка памяти исходы обязаны измениться (иначе вакуум).
+    "audits-mem-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
     "docs-parity": "META",              # EN/RU-факты
@@ -344,6 +349,7 @@ CASE_TARGET = {
     "edge-cases": "edge-cases",
     "edge-cases": "edge-cases",
     "audits": "audits",
+    "audits-mem-cap": "audits-mem-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",
@@ -403,6 +409,8 @@ CASE_TARGET = {
     # #468: `assert` как путевой гард (+ аксиома мощности множества) и `try`,
     # который НЕ теряет гарды тела. Гейт тот же (`xray-check`), случай назван.
     "xray-assert-guard": "xray-check",
+    # #469b: неопределённость внутри тела `while` — ЗАМЕТКА (N), а не находка.
+    "xray-bounds-note": "xray-check",
     "mutation-lock": "mutation-lock-check",
     "l5-duel": "l5-duel-check",
     "kernx-polygon5": "kernx-polygon5-check",

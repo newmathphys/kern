@@ -1752,7 +1752,15 @@ def minimize_counterexample(kernc, smt: str, params, ce: dict) -> dict:
 # `.cu`/`.cuh` — CUDA/Ascend-ядра (тот же C-like синтаксис). Без них «улов» по
 # header-only ИИ-инфраструктуре структурно нулевой.
 C_EXT = {".c", ".h", ".cpp", ".cc", ".hpp", ".hh", ".cu", ".cuh"}
-CLIKE_EXT = {".zig", ".rs", ".ts", ".js", ".go"} | C_EXT
+# ДЕФЕКТ #469c: `.tsx` (React/JSX TypeScript) — тот же класс границы, что #381/#468b:
+# суперагент `deepseek-ai/dsh-superagent-prototype` — 30 файлов `.tsx`, которые
+# `--xray` не видел ВООБЩЕ (в наборе был только `.ts`). ИЗМЕРЕНО: добавление
+# `.tsx` открывает их, ложных `[DEAD BRANCH]` от JSX-разметки не возникает
+# (функциональные компоненты JSX — не «функции с обязательствами»). ГРАНИЦА
+# честности: JSX-теги НЕ парсятся как C-like-выражения — файл сканируется на
+# функции-контракты (обычные `function`/стрелки), а JSX-ветви остаются вне
+# подмножества и честно уходят в SKIP, а не в находку.
+CLIKE_EXT = {".zig", ".rs", ".ts", ".tsx", ".js", ".jsx", ".go"} | C_EXT
 
 # =============================================================================
 # ШАГ I: СЕМАНТИКА ЗНАЧЕНИЙ ЯЗЫКА КАК ОБЪЕКТ (VALUE_SEMANTICS)
@@ -6035,7 +6043,7 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 wcond = None
             wpath = eff + ([wcond] if wcond else [])
             _walk_bounds(st.body, wpath, params, lens, kernc, found, fname, syms,
-                         in_while=True)
+                         in_while=True, notes=notes)
             _walk_bounds(st.orelse, eff, params, lens, kernc, found, fname, syms,
                          in_while=in_while, notes=notes)
             # ВАЖНО: индексы бывают и в САМОМ условии цикла (`while a[i] < x`).
@@ -6045,7 +6053,7 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             # дважды). Сканируем ТОЛЬКО условие — тело покрыто рекурсией.
             for sub in [n for n in ast.walk(st.test) if isinstance(n, ast.Subscript)]:
                 _bounds_one(sub, wpath, params, lens, kernc, found, fname, syms,
-                            in_while=True)
+                            in_while=True, notes=notes)
             continue
         if isinstance(st, ast.For):
             g = _loop_len_guard(st)

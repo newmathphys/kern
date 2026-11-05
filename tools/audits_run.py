@@ -29,11 +29,107 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+try:
+    import resource  # POSIX: RLIMIT_AS (потолок адресного пространства)
+except ImportError:  # pragma: no cover - не-POSIX
+    resource = None  # type: ignore[assignment]
+
 ROOT = Path(__file__).resolve().parent.parent
+# ДЕФЕКТ #469b: ХАРНЕСС НЕ ПЕРЕДАВАЛ РЕШАТЕЛЬ — ТОТ ЖЕ КЛАСС, ЧТО #469a.
+# ИЗМЕРЕНО под `make audits` (`PYTHON ?= python3`): `kernc prove` печатал
+# `[!] z3 недоступен`, поэтому ВСЕ 44 формулы корпуса получали исход UNKNOWN
+# -> `proven 0 | refuted 0` -> анти-вакуум ронял гейт (`rc=2`). Причина не в
+# вердиктах, а в ОКРУЖЕНИИ: `kernc` ищет `z3` в `PATH`, а `.venv/bin` там нет.
+# Гейт, зависящий от того, КАК его запустили, — не измерение. Каталог
+# бинарного z3 (`z3bin.find_z3`, ЕДИНЫЙ источник правды #353) добавляется в
+# `PATH` дочерних процессов; нет решателя — вывод честно остаётся «недоступен»,
+# и формула падает с НАЗВАННОЙ причиной, а не выдаётся за вердикт.
+sys.path.insert(0, str(ROOT / "tools"))
+from z3bin import find_z3  # noqa: E402
+
 EXTRACTOR = ROOT / "tools" / "kern_contracts.py"
 KERNC = ROOT / "zig-out" / "bin" / "kernc"
 AUDITS = ROOT / "audits"
 SOURCE_SUFFIX = (".zig", ".c", ".h", ".rs")
+
+# ДЕФЕКТ #470: ПОТОЛОК ПАМЯТИ У ПОДПРОЦЕССОВ БЫЛ НЕОГРАНИЧЕН.
+# ИЗМЕРЕНО: `make audits` -> `kernc prove` на `audits/rust-core/midpoint.rs`
+# вырос до 5.4 ГБ и продолжал расти (таймаут 300 с ЕСТЬ, лимита памяти НЕ БЫЛО);
+# при `KERN_AUDIT_WORKERS=6` это до 6 таких процессов ОДНОВРЕМЕННО, то есть
+# «доказательство» могло вытеснить всю машину (у оператора рядом шёл `lake build`).
+# Здесь задаётся ПОТОЛОК на КАЖДЫЙ подпроцесс (RLIMIT_AS, наследуется внуками:
+# `kern_contracts.py` -> `kernc` -> `z3`). Потолок не «эвристика»: он либо
+# соблюдён, либо исход НАЗВАН (`[!] ЛИМИТ ПАМЯТИ …`) — молчаливого «unknown» нет.
+# Худший случай = KERN_AUDIT_WORKERS × KERN_AUDIT_MEM_MB (по умолчанию 6 × 2048 МБ).
+AUDIT_MEM_MB = int(os.environ.get("KERN_AUDIT_MEM_MB", "2048"))
+
+
+def _mem_limiter():
+    """`preexec_fn` для `subprocess`: ставит RLIMIT_AS в ДОЧЕРНЕМ процессе.
+
+    Ставится ПОСЛЕ fork и ДО exec, поэтому сам `audits_run.py` не ограничен;
+    лимит наследуется всеми потомками (z3 в том числе).
+    """
+    if resource is None:
+        return None
+    cap = AUDIT_MEM_MB * 1024 * 1024
+
+    def _set() -> None:  # pragma: no cover - выполняется в дочернем процессе
+        resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
+
+    return _set
+
+
+# ИМЕНА СИГНАЛОВ (ориентир №2 приёмки #470): при упоре в RLIMIT_AS процесс
+# чаще всего НЕ печатает «out of memory», а умирает от сигнала — `returncode`
+# в Python тогда ОТРИЦАТЕЛЕН (-11 = SIGSEGV, -6 = SIGABRT, -9 = SIGKILL).
+# Без этой таблицы отчёт показывал бы сырое «-11» вместо причины.
+_SIGNAL_NAMES = {4: "SIGILL", 6: "SIGABRT", 8: "SIGFPE", 9: "SIGKILL",
+                 11: "SIGSEGV", 15: "SIGTERM"}
+
+
+def run(cmd: list[str], timeout: int = 900, mem_cap: bool = False) -> tuple[int, str]:
+    """Запустить команду; `mem_cap=True` -> потолок памяти (#470).
+
+    Таймаут и лимит памяти дают НАЗВАННЫЙ исход (rc 124/125), а не трейсбек
+    и не молчаливый «unknown»: строка отчёта должна отличать «решатель не
+    успел» / «решателю не хватило памяти» от «формула опровергнута».
+    """
+    # ДЕФЕКТ #469b: решатель передаётся ЯВНО (каталог z3 — в `PATH` потомков).
+    env = dict(os.environ)
+    _z3 = find_z3()
+    if _z3:
+        env["PATH"] = str(Path(_z3).parent) + os.pathsep + env.get("PATH", "")
+    try:
+        p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True,
+                           timeout=timeout, env=env,
+                           preexec_fn=_mem_limiter() if mem_cap else None)
+    except subprocess.TimeoutExpired:
+        return 124, f"[!] ТАЙМАУТ {timeout} с (не вердикт; #464)"
+    out = (p.stdout or "") + (p.stderr or "")
+    if mem_cap and p.returncode != 0:
+        low = out.lower()
+        # (а) Аллокатор СКАЗАЛ прямо: Z3 печатает «Ran out of memory»,
+        #     Zig — «panic: out of memory» / «error.OutOfMemory»,
+        #     glibc — «Cannot allocate memory», CPython — «MemoryError».
+        #     Это ДОКАЗАТЕЛЬСТВО исхода.
+        if any(s in low for s in ("out of memory", "outofmemory", "memoryerror",
+                                  "cannot allocate memory", "memory limit exceeded")):
+            return 125, (f"[!] ЛИМИТ ПАМЯТИ {AUDIT_MEM_MB} МБ исчерпан (#470) — "
+                         f"исход НЕ вердикт; поднимите KERN_AUDIT_MEM_MB")
+        # (б) ИЗМЕРЕНО: при упоре в RLIMIT_AS процесс чаще ВСЕГО умирает по
+        #     сигналу (SIGSEGV/SIGABRT из аллокатора, SIGKILL от OOM-киллера),
+        #     НЕ успевая напечатать текст — `returncode` отрицателен. Раньше
+        #     такой исход уходил вызывающему как сырой `rc=-11`, то есть
+        #     «неизвестно что», и причина терялась. Здесь он НАЗВАН, но без
+        #     ложного обвинения: сигнал мог дать и сам решатель, поэтому
+        #     утверждается только факт падения + вероятная причина.
+        if p.returncode < 0:
+            sig = _SIGNAL_NAMES.get(-p.returncode, f"signal {-p.returncode}")
+            return 125, (f"[!] ПАДЕНИЕ ПО СИГНАЛУ {sig} (rc={p.returncode}) при потолке "
+                         f"{AUDIT_MEM_MB} МБ — исход НЕ вердикт (#470); обычная причина — "
+                         f"исчерпан RLIMIT_AS; поднимите KERN_AUDIT_MEM_MB")
+    return p.returncode, out
 
 RE_AX = re.compile(r"\[AX\] (\w+) \(стр\. \d+\): теория массивов \(([^)]+)\)")
 RE_BV = re.compile(r"\[BV\] (\w+) \(стр\. (\d+)\): теория битовых векторов \(([^,]+), ([^)]+)\)")
@@ -48,11 +144,6 @@ RE_CE = re.compile(r"\[КОНТРПРИМЕР\] (.+)")
 RE_RT = re.compile(r"\[RUNTIME CONFIRMED\] (.+)")
 
 
-def run(cmd: list[str], timeout: int = 900) -> tuple[int, str]:
-    p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout)
-    return p.returncode, (p.stdout or "") + (p.stderr or "")
-
-
 def collect(smt_dir: Path) -> list[dict]:
     """Прогнать экстрактор по корпусу и собрать вердикты структурой.
 
@@ -64,7 +155,12 @@ def collect(smt_dir: Path) -> list[dict]:
 
     def one(src: Path) -> tuple[str, str, dict[str, str]]:
         rel = src.relative_to(ROOT).as_posix()
-        _, out = run([sys.executable, str(EXTRACTOR), rel, "--emit-smt2", str(smt_dir)])
+        _rc, out = run([sys.executable, str(EXTRACTOR), rel, "--emit-smt2", str(smt_dir)],
+                       mem_cap=True)
+        # #470: файл, чей разбор упёрся в потолок памяти, — НАЗВАННЫЙ исход
+        # (Белнап N), а не «0 функций» и не трейсбек. Молчаливого пропуска нет.
+        if _rc == 125:
+            print(f"  [N] {rel}: {out.strip()}")
         theory: dict[str, str] = {}
         for m in RE_BV.finditer(out):
             theory[m.group(1)] = f"QF_BV {m.group(3).strip()} {m.group(4)}"
@@ -113,7 +209,14 @@ def write_corpus_kern(smt_files: list[Path], kimg_kern: Path,
     (порча формулы, регрессия решателя) -> rc != 0.
     """
     def status_of(f: Path) -> str:
-        return measured.get(f.name, "unknown")
+        # #470: «исчерпан потолок памяти» — это Белнап N (не доказано и не
+        # опровергнуто), а в `.kern` его законное имя `unknown`. Сырое `oom`
+        # писать НЕЛЬЗЯ: `src/next/parser.zig` отвергает незнакомую строку
+        # статуса (`неизвестный статус утверждения` -> ParseError), то есть
+        # честный исход решателя уронил бы разбор проекта. Причина (OOM)
+        # при этом не теряется — она печатается в отчёте отдельной строкой.
+        v = measured.get(f.name, "unknown")
+        return "unknown" if v == "oom" else v
 
     lines = ['// СГЕНЕРИРОВАНО tools/audits_run.py — не редактировать вручную.',
              '// Золотой корпус: формулы реальных функций, выгруженные детерминированным фронтендом.',
@@ -152,9 +255,11 @@ def cert_section() -> int:
         else:
             continue
         checked += 1
-        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300)
+        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300, mem_cap=True)
         got = ("proven" if "ДОКАЗАНО" in out
-               else "refuted" if "КОНТРПРИМЕР" in out else "unknown")
+               else "refuted" if "КОНТРПРИМЕР" in out
+               else "oom" if _rc == 125
+               else "timeout" if _rc == 124 else "unknown")
         m = re.search(r"ДОВЕРЕННЫХ (\d+)", out)
         tcnt = m.group(1) if m else "—"
         ok = got == want
@@ -281,11 +386,15 @@ def main() -> int:
     # а `kernc verify` переустанавливает его по БАЙТАМ образа: расхождение
     # (порча формулы, регрессия решателя) -> rc != 0.
     def measure(f: Path) -> str:
-        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300)
+        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300, mem_cap=True)
         if "ДОКАЗАНО" in out:
             return "proven"
         if "КОНТРПРИМЕР" in out:
             return "refuted"
+        # #470: лимит памяти — НАЗВАННЫЙ исход (не «unknown»), иначе рост
+        # подпроцесса выглядел бы как «формулу не решили».
+        if _rc == 125:
+            return "oom"
         return "unknown"
 
     with ThreadPoolExecutor(max_workers=int(os.environ.get("KERN_AUDIT_WORKERS",

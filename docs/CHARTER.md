@@ -93,9 +93,9 @@ kernel cross-check to notice.
 ## 6. Facts referenced by this document
 
 <!-- fact:core_tests -->460 core tests · <!-- fact:next_tests -->53 next ·
-<!-- fact:catalog -->491 catalog · <!-- fact:check_targets -->188 CHECK ·
-<!-- fact:canfail_cases -->229 can-fail cases · <!-- fact:anchors -->187 anchors ·
-<!-- fact:registry_targets -->246 targets · <!-- fact:meta_targets -->43 META ·
+<!-- fact:catalog -->491 catalog · <!-- fact:check_targets -->189 CHECK ·
+<!-- fact:canfail_cases -->231 can-fail cases · <!-- fact:anchors -->189 anchors ·
+<!-- fact:registry_targets -->248 targets · <!-- fact:meta_targets -->44 META ·
 <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 formal SMT ·
 <!-- fact:quixbugs.differential -->40/40 live differential.

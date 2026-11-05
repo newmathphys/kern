@@ -130,6 +130,26 @@ artifact "audits/smt2/grid_columns_gridColumnsBuggy.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/hex_index_deepjit_hex_hi.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/hex_index_deepjit_hex_lo.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/kernel_align_deepjit_align_guarded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/kernel_align_deepjit_align_unguarded.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/midpoint_midpoint.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -353,6 +373,30 @@ claim "audit:grid_columns_gridColumnsBuggy" {
   status refuted
   evidence "contract:audits/smt2/grid_columns_gridColumnsBuggy.smt2"
   context "audits/smt2/grid_columns_gridColumnsBuggy.smt2"
+}
+
+claim "audit:hex_index_deepjit_hex_hi" {
+  status proven
+  evidence "contract:audits/smt2/hex_index_deepjit_hex_hi.smt2"
+  context "audits/smt2/hex_index_deepjit_hex_hi.smt2"
+}
+
+claim "audit:hex_index_deepjit_hex_lo" {
+  status proven
+  evidence "contract:audits/smt2/hex_index_deepjit_hex_lo.smt2"
+  context "audits/smt2/hex_index_deepjit_hex_lo.smt2"
+}
+
+claim "audit:kernel_align_deepjit_align_guarded" {
+  status proven
+  evidence "contract:audits/smt2/kernel_align_deepjit_align_guarded.smt2"
+  context "audits/smt2/kernel_align_deepjit_align_guarded.smt2"
+}
+
+claim "audit:kernel_align_deepjit_align_unguarded" {
+  status refuted
+  evidence "contract:audits/smt2/kernel_align_deepjit_align_unguarded.smt2"
+  context "audits/smt2/kernel_align_deepjit_align_unguarded.smt2"
 }
 
 claim "audit:midpoint_midpoint" {
