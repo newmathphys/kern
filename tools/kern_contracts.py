@@ -185,6 +185,31 @@ def _idx_outside_window(node) -> bool:
                 and 0 <= node.value < _LIST_WINDOW)
 
 
+# ДЕФЕКТ #491: ОЖИДАЕМЫЕ отказы BV-перевода условия. `Unsupported` (узел
+# `Call`/`Subscript`/`Attribute` вне BV-подмножества) и `SyntaxError`
+# (`clike_to_python` не разобрал чужой язык) — это ШТАТНЫЙ выход за пределы
+# модели, а НЕ «внутренняя ошибка». Раньше каждый такой случай печатал
+# `[!] ... внутренняя ошибка при живом replay`: ИЗМЕРЕНО на собственном
+# `kern/src` — **321 строка** (279 `Call`, 27 `SyntaxError`, 8 `Subscript`,
+# 7 `Attribute`), то есть отчёт выглядел как авария инструмента там, где
+# анализатор просто честно не взялся. Теперь копится СЧЁТЧИК и печатается
+# ОДНА заметка: `note: BV-перевод не применён N раз (причины: …)`.
+# Наши НАСТОЯЩИЕ ошибки (`NameError` и прочее) по-прежнему громкие (#198).
+_BV_SKIP: dict = {"n": 0, "why": {}}
+
+
+def _bv_skip_expected(exc: BaseException) -> bool:
+    """Ожидаемый ли это отказ BV-перевода (штатный выход за подмножество)."""
+    if isinstance(exc, (Unsupported, NoReturn, SyntaxError)):
+        key = type(exc).__name__
+        msg = str(exc).strip().splitlines()[0][:60] if str(exc).strip() else ""
+        k = f"{key}" + (f": {msg}" if msg else "")
+        _BV_SKIP["n"] += 1
+        _BV_SKIP["why"][k] = _BV_SKIP["why"].get(k, 0) + 1
+        return True
+    return False
+
+
 def _replay_soft(exc: BaseException, where: str = "replay") -> None:
     """Мягкий выход из ЖИВОГО replay контрпримера (дефект #198/#208).
 
@@ -4271,7 +4296,9 @@ def _bv_cond_smt(raw_cond: str, w: int = 32, signed: bool = True):
     # Теперь ожидаемые отказы молчат, а наши — печатаются через
     # `_replay_soft` (он различает их по типу, см. #198/#208).
     except Exception as e:  # noqa: BLE001 — None = «BV-формы нет»
-        _replay_soft(e, "BV-форма условия")
+        # #491: ожидаемый выход за подмножество -> заметка (счётчик), не `[!]`
+        if not _bv_skip_expected(e):
+            _replay_soft(e, "BV-форма условия")
         return None
 
 
@@ -9340,6 +9367,12 @@ def _xray_repo(root: Path, kernc, show_all: bool = False, json_out: list | None 
         if rc not in (0, 1):
             bad_files += 1
     print("=" * 74)
+    # #491: ОДНА заметка вместо сотен `[!]` — и в человеческом, и в машинном виде.
+    if _BV_SKIP["n"]:
+        _top = sorted(_BV_SKIP["why"].items(), key=lambda kv: -kv[1])[:3]
+        _why = "; ".join(f"{k} x{v}" for k, v in _top)
+        print(f"note: BV-перевод условия не применён {_BV_SKIP['n']} раз "
+              f"(причины: {_why}) — штатный выход за подмножество, не находка")
     print(f"[REPO SUMMARY] файлов {len(files)} | функций проверено {total_checked} / {total_fns} "
           f"(skipped {total_skip}) | находок {len(all_findings)} | нечитаемых файлов {bad_files}")
     _xray_report_skip_reasons(all_reasons, total_skip, total_trivial,

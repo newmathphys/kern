@@ -55,6 +55,23 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Fixed
 
+- `tools/kern_contracts.py` — **#491**: the report called a NAMED refusal an «internal error».
+  `Unsupported` (a `Call`/`Subscript`/`Attribute` node outside the BV subset) and `SyntaxError`
+  (`clike_to_python` could not parse a foreign language) are EXPECTED exits, yet each one printed
+  `[!] BV-форма условия: внутренняя ошибка при живом replay`. MEASURED on our own `kern/src`:
+  **321 lines** (279 `Call`, 27 `SyntaxError`, 8 `Subscript`, 7 `Attribute`) — the report looked like
+  a tool crash where the analyser had simply declined. Now they are counted and emitted as ONE
+  note: `note: BV-перевод условия не применён 321 раз (причины: Unsupported: узел Call x279;
+  SyntaxError x25; Unsupported: узел Subscript x8)`. OUR real errors (`NameError` etc.) stay LOUD
+  (`_replay_soft`, #198/#208).
+  MEASURED after: `--xray src` -> **0** internal errors, 92 files, 154/423 checked, **0 findings**,
+  `Σ 423 == total 423`, `rc=0`.
+- `tools/xray_check.sh` — new block for **#491**: `kern/src` must report **0** «внутренняя ошибка»
+  lines; the note counts the refusals instead. The same clean stdout is what keeps the ABI `#490`
+  intact for third-party code.
+- **(Stage 4 verified, no code change)** `make pcc-offline-check` (#488) confirmed on this tree:
+  solver ABSENT from the check environment, `check-integrity rc=0`, `check-proof rc=0 trusted 0`,
+  a corrupted proof is REJECTED (`rc=1`) — i.e. the recipient of a `.kimg` really does not need Z3.
 - `tools/kern_contracts.py` — **#476 (ШЕСТЬ точных причин вместо одной догадки)**: the class
   «known false positive on correct code» was NOT a chained comparison (the hypothesis):
   `if 0 <= i < len(data)` ALREADY worked (measured). The real causes were six, each fixed

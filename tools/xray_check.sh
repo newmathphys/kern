@@ -367,3 +367,19 @@ if echo "$GUARDS" | grep -qE '\[(BOUNDS PATH|BOUNDS UNKNOWN|CRASH PATH)\] index_
 fi
 echo "[OK] #471a/b/c: гарды else/while учитываются; #472: f64 -> названный SKIP; #473: N = заметка (findings 3 = 3 TP)"
 
+
+# #491: НА СВОЁМ ЯДРЕ НЕ ДОЛЖНО БЫТЬ «ВНУТРЕННИХ ОШИБОК» В ОТЧЁТЕ.
+# Измерено: 321 строка `[!] BV-форма условия: внутренняя ошибка при живом replay`
+# (279 Call, 27 SyntaxError, 8 Subscript, 7 Attribute) выглядела как авария
+# инструмента там, где анализатор честно не взялся. Теперь это ОДНА заметка.
+echo "[#491] внутренние ошибки при аудите собственного ядра:"
+_SELF_ERR=$(
+  cd "$ROOT" && ( ulimit -v 6291456; timeout 900 python3 tools/kern_contracts.py --xray src 2>&1 >/dev/null ) \
+    | grep -c 'внутренняя ошибка' || true
+)
+if [ "${_SELF_ERR:-0}" -eq 0 ]; then
+  echo "  [OK] #491: 0 строк «внутренняя ошибка» на kern/src (штатные отказы — в заметке)"
+else
+  echo "  [!] #491: ${_SELF_ERR} строк «внутренняя ошибка» на kern/src — штатный выход за подмножество снова выдан за аварию"
+  FAIL=$((FAIL + 1))
+fi
