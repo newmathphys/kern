@@ -23,6 +23,28 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Added
 
+- **#494 — УПАКОВКА `kerna` (Zero-Dependency Appliance) + ДВА КОРНЯ.** Спайк (изолированно, main не
+  тронут) дал числа: PyInstaller onefile — **9.8 МБ, старт 253 мс, сборка ~40 с**; Nuitka — 9.6 МБ,
+  162 мс, но сборка **~9 мин** и `sys.frozen` НЕ выставляется (нужен `__compiled__`); дистрибутив
+  целиком **62 МБ** (kerna 9.8 + kernc 26 + z3 27). Nuitka ОТКЛОНЁН: 90 мс не окупают 9 минут.
+- `tools/env_resolver.py` — **RESOURCE_ROOT** (вшитые данные, `sys._MEIPASS`) и **HOST_ROOT** (рядом с
+  бинарником: `kernc`, `z3`, `.venv`, проверяемый код), с поддержкой ОБОИХ упаковщиков.
+  Ловушки, снятые им (все ИЗМЕРЕНЫ на спайке): `ROOT = Path(__file__).parent.parent` в frozen
+  указывал в `/tmp` (находок 0, `rc=2`); `server.json` читался на импорте (`ImportError`); путь к
+  `kernc` считался ОТДЕЛЬНО и уезжал в `/tmp/zig-out/bin/kernc`.
+- `tools/kerna_doctor.py` — предстартовая проверка: отсутствие `z3`/`kernc`/`server.json` —
+  **НАЗВАННЫЙ отказ `rc=2`**, а не `findings 0, unreadable 1, rc=0` (измерено: без решателя stderr
+  был ПУСТ). **#494a**: Python-часть искала решатель через `z3bin` (`$Z3`/`.venv`/`PATH`), а `kernc`
+  зовёт буквально `"z3"` — только `PATH`. Доктор теперь ПУБЛИКУЕТ найденный путь в `PATH` для
+  детей; гейт поймал это как R3 «паритета нет».
+- `tools/kerna_main.py` — официальная точка входа: ДИСПЕТЧЕР (один бинарь обслуживает и паспорт, и
+  подрежимы `--xray`/`--anti-cheat`) + доктор. Без диспетчера собранный бинарь отвечал
+  `unrecognized arguments: --xray` и анализ молча не выполнялся (тоже измерено).
+- `tools/build_kerna.sh` + `make kerna-build` (BUILD) и `tools/kerna_check.py` + `make kerna-check`
+  (CHECK) — **#494**: гейт СОБИРАЕТ настоящий onefile-бинарь и проверяет: R1 сборка; R2 изоляция в
+  пустом каталоге; **R3 паритет с dev** (находок 5/5, `unreadable 0`); **R4 без `z3` — `rc=2`**;
+  R5 без PyInstaller — НАЗВАННЫЙ SKIP (а при `KERNA_REQUIRE_BUILD=1` — провал).
+  ИЗМЕРЕНО после: R1 9.8 МБ · R3 паритет · R4 `rc=2` · `rc=0` всего.
 - **#493 — ДВОЙНОЕ ЛИЦЕНЗИРОВАНИЕ: AGPL-3.0-or-later + коммерческая.** `LICENSE` теперь содержит
   ПОЛНЫЙ текст GNU AGPL v3, рядом `LICENSE-COMMERCIAL.md` (когда коммерческая лицензия нужна и
   почему AGPL, а не пермиссивная). MEASURED: файлов в охвате (`src`, `tools`, `tests`, `examples`)
@@ -286,7 +308,7 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
   seconds. `--check` compares the files with freshly generated content, so adding a target and
   not regenerating REDDENS the gate; it also refuses an unclassified target and a target without
   a case (only `kern` is exempt by name, and the exemption is written down). MEASURED:
-  **198 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
+  **199 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
   case `capability-map` deletes one row from the generated document and the gate reddens.
 - **`#486`: building the map exposed THREE real defects in the registry itself.** MEASURED:
   (a) `"ubsaFe": "CHECK"` — a TYPO phantom: no such make target exists (the real one is

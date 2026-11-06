@@ -30,7 +30,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+# #494: ЕДИНЫЙ источник путей (dev / PyInstaller / Nuitka).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import env_resolver  # noqa: E402
+
+ROOT = env_resolver.HOST_ROOT  # где лежит бинарник (или корень репо)
 PY = sys.executable
 EXTRACTOR = ROOT / "tools" / "kern_contracts.py"
 SRC_EXT = {".py", ".c", ".h", ".hpp", ".hh", ".cc", ".cpp", ".cu", ".cuh",
@@ -87,6 +91,13 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
+
+    # #494 ДОКТОР ПЕРЕД РАБОТОЙ: отсутствие z3/kernc — НАЗВАННЫЙ отказ rc=2,
+    # а не «находок 0, unreadable 1» (измерено на спайке упаковки).
+    import kerna_doctor  # noqa: PLC0415
+    _rc = kerna_doctor.preflight(require_solver=True, require_kernc=False)
+    if _rc != 0:
+        return _rc
 
     root = Path(a.path).expanduser().resolve()
     if not root.is_dir():

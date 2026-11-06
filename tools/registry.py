@@ -65,6 +65,9 @@ CLASS = {
     "mutate-log-check": "CHECK",
     "kern-scan-check": "CHECK",
     "license-header-check": "CHECK",
+    "kerna-check": "CHECK",
+    # сборка бинаря — не проверка: своих обязательств не имеет (BUILD).
+    "kerna-build": "BUILD",
     "license-header-selftest": "META",
     # #492: витрина = ИЗМЕРЕНИЕ (показ), не проверка: своих обязательств нет.
     "tour": "MEASURE",
@@ -400,6 +403,7 @@ CASE_TARGET = {
     "mutate-log": "mutate-log-check",
     "kern-scan": "kern-scan-check",
     "license-header": "license-header-check",
+    "kerna": "kerna-check",
     "pcc-demo": "pcc-offline-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",

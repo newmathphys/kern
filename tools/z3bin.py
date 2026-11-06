@@ -22,7 +22,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+# #494: единый источник путей (этот файл живёт ВНУТРИ tools/).
+import env_resolver
+ROOT = env_resolver.HOST_ROOT
 
 
 def find_z3() -> str | None:

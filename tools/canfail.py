@@ -344,6 +344,10 @@ class Fault:
 
 FAULTABLE = [
     # #493: кейс `license-header` правит ЗАГОЛОВОК фикстуры — файл обязан быть
+    # #494: кейс `kerna` правит ДОКТОРА — файл обязан быть в списке, иначе
+    # подсадка осталась бы в дереве (класс #225).
+    "tools/kerna_doctor.py",
+
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tests/fixtures/precision_clean/clean.py",
     # #489: кейс `kern-scan` правит паспорт аудита — файл обязан быть в списке,
@@ -2345,6 +2349,24 @@ def case_license_header():
           "# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md",
           "# Copyright (c) 2026 Vital Kalinousky. " + "Poly" + "Form " + "Noncommercial 1.0.0")
     return "make license-header-check"
+def case_kerna():
+    """#494 SABOTAGE: упакованный бинарь теряет доктора — тихий ноль вместо rc=2.
+
+    ЛОМАЕМ ровно защищаемое свойство: `kerna_doctor.preflight` перестаёт
+    отказывать. Тогда БЕЗ `z3` упакованный бинарь снова печатает «находок 0» с
+    `rc=0` — тот самый тихий отказ, ради устранения которого доктор написан
+    (спайк упаковки, ловушка 4). `make kerna-check` обязан покраснеть на R4.
+    """
+    patch("tools/kerna_doctor.py",
+          "    if require_solver:\n        publish_solver_path()",
+          "    if False:  # ЛОМАЕМ (#494)\n        publish_solver_path()")
+    patch("tools/kerna_doctor.py",
+          "    return report(missing)",
+          "    return 0  # ЛОМАЕМ (#494): доктор больше не отказывает")
+    return "make kerna-check"
+
+
+
 
 def case_abi_json():
     """#483 SABOTAGE: человеческий текст протекает в stdout ABI.
@@ -4520,6 +4542,8 @@ CASES = [
      case_license_header),
     ("mutate-log", "The mutation log declares success with a non-zero RC (#487)",
      case_mutate_log),
+    ("kerna", "The packaged binary loses the doctor: silent zero instead of rc=2 (#494)",
+     case_kerna),
     ("pcc-demo", "A forged certificate is accepted without a solver (#488)",
      case_pcc_demo),
     ("hypotheses-write", "Explanation writes to the source -> gate red",

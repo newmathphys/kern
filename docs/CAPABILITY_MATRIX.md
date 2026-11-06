@@ -1,6 +1,6 @@
 # KERN capability matrix — one command, one physical oracle, one honest boundary
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->198 · cases <!-- fact:canfail_cases -->243 · anchors <!-- fact:anchors -->201 · registry <!-- fact:registry_targets -->268 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->199 · cases <!-- fact:canfail_cases -->244 · anchors <!-- fact:anchors -->203 · registry <!-- fact:registry_targets -->270 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **WHY THIS PAGE EXISTS.** Every capability below is listed with three things that
 are **mandatory**: the **one command** that exercises it, the **external oracle**

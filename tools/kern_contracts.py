@@ -53,7 +53,7 @@ from pathlib import Path
 # запускают и как скрипт, и через `python3 -c` (так делают гейты) — во втором
 # случае `sys.path[0]` не `tools/`, и импорт спецификации падал с
 # `ModuleNotFoundError` (измерено гейтом `edge-cases`).
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # модули tools/
 
 # СПЕЦИФИКАЦИЯ ВОРОНКИ ПОД КОНТРАКТОМ САМОГО KERN (дефекты #405/#407.2).
 # Живёт в `tools/funnel_accounting.py`: её доказывает ТОТ ЖЕ движок (Z3) и стережёт
@@ -3479,7 +3479,9 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     return 2 if (unknown or unverified or tool_errors) else 0
 
 
-ROOT = Path(__file__).resolve().parent.parent
+# #494: ДВА КОРНЯ. ROOT — рядом с бинарником (dev: корень репо).
+import env_resolver  # noqa: E402
+ROOT = env_resolver.HOST_ROOT
 
 HOOK_BODY = """#!/bin/sh
 # KERN pre-commit шлюз (установлен `kern_contracts.py --install-hook`).
@@ -3776,8 +3778,8 @@ def cmd_explain_hypotheses(kernc: str, path: Path, fn_name: str | None,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="*")
-    ap.add_argument("--kernc", default=str(Path(__file__).resolve().parent.parent
-                                          / "zig-out" / "bin" / "kernc"))
+    ap.add_argument("--kernc", default=str(env_resolver.host_path(
+        "zig-out", "bin", "kernc")))  # #494: kernc живёт рядом с бинарником
     ap.add_argument("--anti-cheat", default=None, metavar="PATH",
                     help="ПУНКТ 32: анти-чит (Reward Hacking, overfitting, mock, exit)")
     ap.add_argument("--import-lock", default=None, metavar="ALLOW.json",
@@ -4589,7 +4591,8 @@ def _kern_version() -> str:
     Падение при отсутствии `server.json` — намеренное: молчаливый откат к
     зашитой строке вернул бы ровно тот дефект, который здесь закрывается.
     """
-    p = ROOT / "server.json"
+    # #494: server.json — РЕСУРС упаковки (вшит `--add-data`), не HOST.
+    p = env_resolver.resource_path("server.json")
     return json.loads(p.read_text(encoding="utf-8"))["version"]
 
 
@@ -8722,7 +8725,7 @@ def cmd_trust_score(target: str) -> int:
     Отдельный модуль — намеренно: `kern_contracts.py` уже 5.8k строк, и новый
     движок в нём усугубил бы долг #174 (ratchet `dup_defs_guard.py`).
     """
-    tc = Path(__file__).resolve().parent / "trust_scorecard.py"
+    tc = Path(__file__).resolve().parent / "trust_scorecard.py"  # #494: внутри tools/
     if not tc.exists():
         print(f"[!] не найден {tc}")
         return 2

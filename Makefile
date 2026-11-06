@@ -371,6 +371,14 @@ mutate-log-selftest:
 # от стиля, узкий охват назван словом ВЫБОРКА).
 # #492: ВИТРИНА — пять ролевых дуг на один экран (настоящие проверки).
 # #493: ЛИЦЕНЗИОННЫЙ ГЕЙТ — заголовок каждого файла = LICENSE (AGPLv3).
+# #494: Zero-Dependency Appliance. `kerna-check` СОБИРАЕТ настоящий
+# onefile-бинарь и проверяет паритет с dev + названный отказ без z3.
+kerna-build:
+	PYTHON=$(PYTHON) bash tools/build_kerna.sh ./dist
+
+kerna-check:
+	PYTHON=$(PYTHON) $(PYTHON) tools/kerna_check.py
+
 license-header-check:
 	python3 tools/license_header_check.py
 
