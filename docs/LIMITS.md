@@ -63,8 +63,16 @@ invariant (needs CHC/Horn) is not derived, therefore:
 symbolic length never tied (`476a`), no bounds for `for .. in range(a, b[, step])` (`476b`),
 `d[k] = v` treated as a read (`476c`), `append` growing a literal list (`476d`), a `dict` has
 no «index» (`476e`), and one finding counted twice (`476f`). MEASURED: on
-`QuixBugs/correct_python_programs` **21 → 4**. `EXPECTED_KNOWN_FP` is now **0** and the
-fixture lives in `precision_clean`, so any regression of this class turns the gate RED.
+`QuixBugs/correct_python_programs` **21 → 4**. `EXPECTED_KNOWN_FP` is now **1** and the
+fixture `autolink_delim_fixture` (see `#495` below) is COUNTED, named, and retargeted
+downward — any regression of the closed class still turns the gate RED.
+
+`#495` (OPEN, found by TROPHY HUNTING on real code): a guard `if (c) { return x; }` inside a
+`switch` branch does NOT narrow the path when the loop bound was reassigned earlier in the
+same function (`link_end = i; break;` in `cmark-gfm::autolink_delim`), producing a FALSE
+`[OVERFLOW PATH]` on `closing--`. MEASURED: minimal forms WITHOUT that reassignment do NOT
+reproduce, and `gcc -fsanitize=undefined,address` on the real function reports **no UB**
+(the guard protects). Counted as `known_fp = 1`.
 
 **Precision on third-party code is measured by machine** (`#475`): `precision_clean` → 0
 findings, `precision_buggy` → 5/5, `precision_known_fp` → 0 (retarget fired). The external

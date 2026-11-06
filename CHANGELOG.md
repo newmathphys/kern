@@ -117,6 +117,15 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Fixed
 
+- **#495 (ТРОФЕЙНАЯ ОХОТА, реальный код)**: `[OVERFLOW PATH]` на `closing--` в
+  `cmark-gfm::extensions/autolink.c` оказался **ЛОЖНЫМ**. Проверено компилятором: гард
+  `if (closing <= opening) { return link_end; }` защищает, и `gcc -fsanitize=undefined,address`
+  на реальной функции UB **не видит** (`result=0`, rc=0). Причина FP: гард в ветви `switch` не
+  сужает путь, если граница цикла ПЕРЕПРИСВАИВАЛАСЬ в той же функции (`link_end = i; break;`).
+  МИНИМАЛЬНЫЕ формы без переприсваивания **не воспроизводят** — поэтому фикстура сделана из
+  реальной функции (транскрипция с атрибуцией, BSD-2-Clause). Учтено ретаргетом:
+  `EXPECTED_KNOWN_FP 0 → 1`, имя `autolink_delim_fixture` названо, `LIMITS` обновлён (страж
+  сверяет числа с гейтом).
 - `tools/kern_contracts.py` — **#491**: the report called a NAMED refusal an «internal error».
   `Unsupported` (a `Call`/`Subscript`/`Attribute` node outside the BV subset) and `SyntaxError`
   (`clike_to_python` could not parse a foreign language) are EXPECTED exits, yet each one printed

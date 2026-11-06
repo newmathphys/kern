@@ -42,8 +42,11 @@ EXPECTED_BUGGY = 5
 REQUIRED_FOUND = ("div_unguarded", "idx_unguarded_literal", "mod_unguarded",
                   "div_unguarded_rs", "mod_unguarded_rs")
 # Известные ложные обвинения (ретаргет #476): РОВНО столько и НИКАКИХ других.
-EXPECTED_KNOWN_FP = 0      # #476 закрыт: класс пуст, ретаргет сработал
-KNOWN_FP_NAMES: tuple = ()   # пусто: FP не разрешены
+# #495 (найдено ТРОФЕЙНОЙ ОХОТОЙ на cmark-gfm): гард `if (closing <= opening) { return; }`
+# в `switch`-ветви НЕ сужает путь, если `link_end` переприсваивался в цикле -> ЛОЖНЫЙ
+# OVERFLOW PATH на `closing--`. Минимальные формы БЕЗ переприсваивания НЕ воспроизводят.
+EXPECTED_KNOWN_FP = 1
+KNOWN_FP_NAMES: tuple = ("autolink_delim_fixture",)  # #495, ретаргет вниз
 # База ложных обвинений на внешнем корпусе (ИЗМЕРЕНО: 21 из 50 корректных
 # программ). ЦЕЛЬ — 0. Гейт краснеет, если число ВЫРОСЛО: так регрессы видны,
 # а существующий долг честно назван числом, а не спрятан.
