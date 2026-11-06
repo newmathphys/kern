@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN: КОНСИЛИУМ РЕШАТЕЛЕЙ — Z3 vs cvc5.
 
 Если два независимых SMT-решателя расходятся (один UNSAT, другой SAT),

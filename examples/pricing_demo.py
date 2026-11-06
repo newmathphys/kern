@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 31: тарифные матрицы. Цель `make pricing-matrix-check`.
 # Ожидания: price_gap -> PRICING GAP (цена-признак «не обработано» = -1),
 #           price_conflict -> PRICING CONFLICT (правила с разными ценами пересекаются),

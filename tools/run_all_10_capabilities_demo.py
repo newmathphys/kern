@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Live demo of the 10 KERN capabilities -> docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md
 
 Every section runs the real command and embeds the REAL output. Nothing is

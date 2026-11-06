@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Генератор `llms.txt` (и его копии в `docs/`) из `docs/facts.json`.
 
 ЗАЧЕМ. `llms.txt` — точка входа для ИИ-агентов (стандарт llms.txt): именно этот
@@ -169,7 +167,7 @@ TAIL = """
 - `.kimg` names are covered by the Merkle root; a byte flip in a name is
   detected, but the model of a third-party function is ours — a counterexample
   must be reproduced on their build before it is called a bug.
-- Licence: **PolyForm Noncommercial 1.0.0** (source-available). Commercial use
+- Licence: **GNU AGPL-3.0-or-later** (source-available). Commercial use
   requires a licence from the copyright holder.
 """
 

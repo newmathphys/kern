@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
+# Licensed under the GNU AGPL-3.0-or-later.
 # Commercial use requires a license from the copyright holder. See LICENSE.
 #
 # Конфигурация авто-запуска для каталога Smithery.ai (smithery.yaml).
@@ -14,7 +14,7 @@ description: >-
   zero-annotation X-Ray, MCP server with 8 tools.
 repository: "https://github.com/newmathphys/kern"
 homepage: "https://newmathphys.github.io/kern/"
-license: "PolyForm-Noncommercial-1.0.0"
+license: "AGPL-3.0-or-later"
 runtime: python
 startCommand:
   type: stdio

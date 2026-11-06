@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ГОМЕОСТАТИЧЕСКАЯ ПЕТЛЯ: F -> патч -> перепроверка -> T.
 # Приёмка проверяет ВСЮ ДУГУ, а не только печать рецепта:
 #   1) ДО: краш есть;  2) --heal: файл вылечен;  3) ПОСЛЕ: крашей нет.

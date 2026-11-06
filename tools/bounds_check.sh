@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 4, ПУНКТ 21: ПРИЁМКА ГРАНИЦ МАССИВОВ (`arr[i]` -> `0 <= i < len`).
 #
 # Ключевое — ОТСУТСТВИЕ ЛОЖНОГО СРАБАТЫВАНИЯ (Дефект #134): функция с гардами

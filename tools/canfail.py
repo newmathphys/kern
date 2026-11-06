@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN: CAN-FAIL — доказательство, что каждая проверка СПОСОБНА УПАСТЬ.
 
 ЗАЧЕМ. Дефекты #26 и #30 показали: цель может быть «зелёной», НИЧЕГО не
@@ -2332,6 +2330,19 @@ def case_kern_scan():
           'threat_types = ("SMELL",)  # ЛОМАЕМ (#489b)')
     return "make kern-scan-check"
 
+def case_license_header():
+    """#493 SABOTAGE: файл утверждает СТАРУЮ лицензию (или теряет заголовок).
+
+    ЛОМАЕМ ровно защищаемое свойство: у одного файла в охвате заменяем
+    утверждённый заголовок на старую лицензию. Юридически это значит, что в
+    дереве живут ДВЕ лицензии одновременно — ровно та ситуация, из-за которой
+    гейт и появился. `make license-header-check` обязан покраснеть.
+    """
+    patch("tests/fixtures/precision_clean/clean.py",
+          "# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md",
+          "# Copyright (c) 2026 Vital Kalinousky. " + "Poly" + "Form " + "Noncommercial 1.0.0")
+    return "make license-header-check"
+
 def case_abi_json():
     """#483 SABOTAGE: человеческий текст протекает в stdout ABI.
 
@@ -4502,6 +4513,8 @@ CASES = [
      case_capability_map),
     ("kern-scan", "The one-button passport calls style SMELL a threat (#489)",
      case_kern_scan),
+    ("license-header", "A file claims the OLD licence while the repo says AGPL (#493)",
+     case_license_header),
     ("mutate-log", "The mutation log declares success with a non-zero RC (#487)",
      case_mutate_log),
     ("pcc-demo", "A forged certificate is accepted without a solver (#488)",

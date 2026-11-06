@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 8, ПУНКТ 40А: приёмка WebAssembly-ядра.
 # Проверяет ТРИ вещи, иначе гейт был бы вакуумным:
 #   1) сборка `zig build wasm` проходит;

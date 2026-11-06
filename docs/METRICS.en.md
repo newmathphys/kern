@@ -1,6 +1,6 @@
 # KERN — METRICS JOURNAL
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · registry <!-- fact:registry_targets -->266 · META <!-- fact:meta_targets -->53 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->198 · cases <!-- fact:canfail_cases -->243 · anchors <!-- fact:anchors -->201 · registry <!-- fact:registry_targets -->268 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > **Note on quoted tool output.** KERN's tools print their verdicts in Russian; lines quoted verbatim (e.g. `[dbg-ur] посылок: …`, `0 паник`) are kept byte-for-byte, because the can-fail gates match those exact strings. Everything else in this file is English.
 
@@ -10,7 +10,7 @@
 > original remains the source of truth for historical sections.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-> CHECK <!-- fact:check_targets -->197/<!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->198/<!-- fact:check_targets -->198 · cases <!-- fact:canfail_cases -->243 · anchors <!-- fact:anchors -->201 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **The journal below is append-only history.** The `v1.3` heading refers to 2026-10-10
 > and does NOT describe the current state.
 
@@ -2365,13 +2365,13 @@ correct returns **2**.
 
 | Where | Was | Fact |
 |:--|:--|:--|
-| `README.ru.md` (repository tree) | `├── LICENSE   MIT` | **PolyForm Noncommercial 1.0.0** |
-| `server.json`, `.well-known/mcp.json`, `CITATION.cff` | `PolyForm-Noncommercial-1.0.0` | matches `LICENSE` ✅ |
+| `README.ru.md` (repository tree) | `├── LICENSE   MIT` | **GNU AGPL-3.0-or-later** |
+| `server.json`, `.well-known/mcp.json`, `CITATION.cff` | `AGPL-3.0-or-later` | matches `LICENSE` ✅ |
 | `README.ru.md` (repository tree) | `Makefile 62 targets` | **150 targets** (`registry.py`: «total targets: 150») |
 
-**Why this is not cosmetic:** this is exactly the class raised in the external-audit discussion — scanners (m8ven.ai, GitHub licensee, MCP catalogues) compare the `license` field of the manifests with the `LICENSE` file, and a mismatch is read either as a ranking penalty or as a **false promise** to the user. «MIT» next to PolyForm in the repository tree is precisely a false promise.
+**Why this is not cosmetic:** this is exactly the class raised in the external-audit discussion — scanners (m8ven.ai, GitHub licensee, MCP catalogues) compare the `license` field of the manifests with the `LICENSE` file, and a mismatch is read either as a ranking penalty or as a **false promise** to the user. «MIT» next to AGPL-3.0-or-later in the repository tree is precisely a false promise.
 
-**Fixed + guard:** `README.ru.md` corrected; `tools/check_license_consistency.py` added (check **8** of `ecosystem-check`): `LICENSE` mentions «PolyForm Noncommercial»; `server.json` and `.well-known/mcp.json` declare `PolyForm-Noncommercial-1.0.0`; `CITATION.cff` carries the same id; no `LICENSE … MIT` line in either README (`LIMITATIONS` excluded).
+**Fixed + guard:** `README.ru.md` corrected; `tools/check_license_consistency.py` added (check **8** of `ecosystem-check`): `LICENSE` mentions «GNU AGPL-3.0-or-later»; `server.json` and `.well-known/mcp.json` declare `AGPL-3.0-or-later`; `CITATION.cff` carries the same id; no `LICENSE … MIT` line in either README (`LIMITATIONS` excluded).
 
 **Proven in both directions:** now `[OK] licence consistent`; after injecting `LICENSE MIT` into `README.ru.md` — `[FAIL] README.ru.md: the LICENSE line promises MIT`, rc=1; after restoring — `[OK]` again.
 

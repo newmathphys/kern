@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. GNU AGPL-3.0-or-later.
 # Однострочная установка/проверка KERN.
 #   ./install.sh --check   — проверить локальный бинарник (размер, sha256, запуск)
 #   ./install.sh           — скопировать в ~/.local/bin и проверить

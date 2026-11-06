@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ЭШЕЛОН 6, Полигон 4: СВОДНАЯ ДУЭЛЬ L5 (ИИ-саботажник против щита KERN).
 
 ЗАЧЕМ. Четыре контура L5 (`anti-cheat-check`, `ai-traps-check`,

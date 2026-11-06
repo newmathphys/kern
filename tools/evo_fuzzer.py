@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # РАЗДЕЛЫ 1/5: ЭВОЛЮЦИОННЫЙ COVERAGE-GUIDED ФАЗЗЕР.
 #
 # ЧТО ДЕЛАЕМ. Берём РЕАЛЬНЫЙ валидный вывод Z3 (51-шаговое доказательство

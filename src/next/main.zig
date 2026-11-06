@@ -1,6 +1,4 @@
-// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
-// Commercial use requires a license from the copyright holder. See LICENSE.
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 
 //! KERN-Next: CLI-оркестратор `kernx` (§13 спецификации KERN-Next).
 const std = @import("std");
@@ -49,7 +47,7 @@ pub fn main(init: std.process.Init) !void {
     const cmd = args[1];
 
     if (std.mem.eql(u8, cmd, "--version") or std.mem.eql(u8, cmd, "version")) {
-        std.debug.print("{s} (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: PolyForm Noncommercial 1.0.0 / Commercial\n", .{ KERN_VERSION, @import("builtin").zig_version_string });
+        std.debug.print("{s} (Zig {s})\nCopyright (c) 2026 Vital Kalinousky\nLicense: GNU AGPL-3.0-or-later / Commercial\n", .{ KERN_VERSION, @import("builtin").zig_version_string });
         return;
     }
 

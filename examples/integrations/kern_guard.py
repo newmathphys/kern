@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN guard — turn the contract checker into a plain function any agent framework can call.
 
 VERIFIED PART: this module uses only the standard library and shells out to

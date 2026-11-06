@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """КОРПУС ИЗВЕСТНЫХ ЛОЖНЫХ ОБВИНЕНИЙ — сейчас ПУСТ (ретаргет сработал).
 
 ЗАЧЕМ ФАЙЛ ОСТАЛСЯ. Гейт `xray-precision` требует здесь ровно `EXPECTED_KNOWN_FP`

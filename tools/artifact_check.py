@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN: сквозной аудит РЕЛИЗНОГО АРТЕФАКТА (защита от дефекта #82).
 
 ЧТО ЛОВИТ. Дефект #82: бинарник `kernc-x86_64-linux-musl` в релизе отставал от

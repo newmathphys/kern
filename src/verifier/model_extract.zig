@@ -1,6 +1,4 @@
-// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
-// Commercial use requires a license: newmathphys@gmail.com
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 //! KERN: извлечение КОНТРПРИМЕРА из вывода Z3 `(get-model)`.
 //!
 //! ЗАЧЕМ. Когда контракт опровергнут (`sat` -> `KERN-EQ2: F`, `e = 0`),

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # Тесты для дефектов #471/#472/#473 (двусторонние: FP обязан молчать, TP — ловить).
 # КАЖДАЯ функция здесь — либо ложное обвинение, которое обязано ИСЧЕЗНУТЬ,
 # либо настоящая ошибка, которая обязана ОСТАТЬСЯ. Если убрать любую из

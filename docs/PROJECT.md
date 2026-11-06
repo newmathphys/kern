@@ -1,7 +1,7 @@
 # KERN — что это за проект и что было сделано
 
 > Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-> Licensed under the PolyForm Noncommercial License 1.0.0.
+> Licensed under the GNU AGPL-3.0-or-later.
 > Commercial use requires a license from the copyright holder. See LICENSE.
 
 Этот документ — полное, без сокращений, описание проекта KERN: зачем он нужен,
@@ -334,7 +334,7 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 
 | Инструмент | Назначение |
 |:--|:--|
-| `canfail.py` | **харнесс «проверка способна упасть»**: 242 кейс + мета-проверка самого харнесса |
+| `canfail.py` | **харнесс «проверка способна упасть»**: 243 кейс + мета-проверка самого харнесса |
 | `mutate_zig.py` | Zig-нативный мутационный тестер (работает на копии) |
 | `ci.sh` | единый контур проверки |
 | `audit_manifest.sh` | аттестационный манифест: каждая строка — реальный прогон, `NOT RUN` не считается `PASS` |
@@ -378,7 +378,7 @@ link "claim:a" -> "artifact:b" { relation "supported_by" }
 | Зомби-процессы | **0** |
 | Покрытие решений (MC/DC-стиль) | **100.0 %** (30 / 30) |
 | Мутационный скор | **100.0 %** (40 / 40; полный прогон 1345/1345) |
-| Харнесс can-fail | **242 не-вакуумный / 0 вакуумных** (197 CHECK-целей) |
+| Харнесс can-fail | **243 не-вакуумный / 0 вакуумных** (198 CHECK-целей) |
 | Каталог тестов | **491 объявлений**, синхронен с кодом |
 
 ### 9.2. Кросс-архитектура (QEMU)
@@ -510,7 +510,7 @@ make run-example
 
 # Аттестация
 make audit-manifest       # 10 строк, каждая — реальный прогон
-make canfail              # 242 не-вакуумный кейс (197 CHECK-целей)
+make canfail              # 243 не-вакуумный кейс (198 CHECK-целей)
 ./formal/check.sh         # Lean 4: 8 файлов, 147 теорем, 0 sorry
 
 # Полные контуры
@@ -535,7 +535,7 @@ make cross-arch           # ARM64 + POWERPC64 через QEMU
 | **Фаза 4** | документация, синхронизация, Lean 4 (147 теоремы) |
 | **Бенчмарки** | QuixBugs, SWE-bench, Refactory, HumanEval+/MBPP+, SMT-LIB, CHC, Hacker's Delight |
 | **Эшелоны 1–4** | выравнивание/endianness, лавинный эффект хэша, изнурение пула, семантический разрыв |
-| **Контур доверия** | canfail (242 кейс), мутатор (92.5 %), покрытие решений (100 %) |
+| **Контур доверия** | canfail (243 кейс), мутатор (92.5 %), покрытие решений (100 %) |
 | **Сертификация** | DO-330 пакет: TOR, трассируемость, soundness, TAS, ограничения |
 | **Аудит 2026-10-15** | дефекты #56–#59 (воспроизводимость, синхронизация чисел, CI, невалидный YAML) |
 | **Миграция 0.17** | полная ревизия I/O (`std.Io`), `@splat`, `translate-c`, 250+ сайтов |
@@ -619,7 +619,7 @@ KERN — это не «ещё один линтер». Это **шлюз**, ко
 ```
 460 теста ядра + 53 теста KERN-Next
 147 теорем Lean 4, 0 sorry
-100 % покрытие решений · 100.0 % мутационный скор · 197/197 can-fail
+100 % покрытие решений · 100.0 % мутационный скор · 198/198 can-fail
 0 утечек памяти · 0 UB · 0 утечек FD · 0 зомби
 ARM64 и POWERPC64 (big-endian): 279 / 279 каждый
 QuixBugs 33/40 · SWE-bench Lite 3/3 · SMT-LIB 1104/1104, 0 расхождений
@@ -633,7 +633,7 @@ Copyright (c) 2026 Vital Kalinousky. Все права защищены.
 
 KERN распространяется по модели **source-available** с двойным лицензированием:
 
-1. **PolyForm Noncommercial License 1.0.0** (`PolyForm-Noncommercial-1.0.0`) —
+1. **GNU AGPL-3.0-or-later** (`AGPL-3.0-or-later`) —
    бесплатно для **некоммерческого** использования: личные проекты, обучение,
    исследования, преподавание, благотворительные и учебные организации.
    Полный текст — в [`LICENSE`](../LICENSE).
@@ -645,6 +645,6 @@ KERN распространяется по модели **source-available** с 
 Это **не** open-source лицензия в смысле OSI: коммерческое использование без
 коммерческой лицензии не разрешено.
 
-SPDX-License-Identifier: `PolyForm-Noncommercial-1.0.0 OR LicenseRef-KERN-Commercial`
+SPDX-License-Identifier: `AGPL-3.0-or-later OR LicenseRef-KERN-Commercial`
 
 

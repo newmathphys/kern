@@ -5,7 +5,7 @@
 > (блок `CURRENT STATE`), `docs/CAPABILITY_STATUS.md`.
 
 > Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-> Licensed under the PolyForm Noncommercial License 1.0.0.
+> Licensed under the GNU AGPL-3.0-or-later.
 > Commercial use requires a license from the copyright holder. See LICENSE.
 
 **Ветка:** `zig-0.17-migration` · **Тулчейн:** Zig 0.17.0 (`~/opt/zig-x86_64-linux-0.17.0`)

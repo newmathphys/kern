@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ГЕРМЕТИЧНЫЙ НЕГАТИВНЫЙ КОНТРОЛЬ (#475): ЗДЕСЬ ВСЁ ЗАЩИЩЕНО — находок быть НЕ ДОЛЖНО.
 
 Каждая функция — тот или иной ЛОЖНЫЙ класс, который KERN уже исправлял

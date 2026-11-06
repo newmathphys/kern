@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ГЕЙТ ABI `--xray-json` (#483): СХЕМА СТАБИЛЬНА, ВЫВОД ЧИСТ, ВОРОНКА СХОДИТСЯ.
 
 ЗАЧЕМ. Как только у аудита появляется машинный интерфейс, ломать его становится

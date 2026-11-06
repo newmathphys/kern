@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # SPDX-License-Identifier: LicenseRef-KERN-Proprietary
 """ФИЗИЧЕСКИЙ ОРАКУЛ для невмешательства / 2-Safety (шаг D плана).
 

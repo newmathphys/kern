@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # Перегенерация ОДНОГО свидетельства: телеметрия (tools/measure_all_kern.py).
 # Запускается в фоне, чтобы не упираться в лимит длительности команды.
 cd "$(dirname "$0")/.." || exit 1

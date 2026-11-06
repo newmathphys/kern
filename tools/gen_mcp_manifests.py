@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Генератор MCP-манифестов из ЕДИНСТВЕННОГО источника — `examples/kern_mcp_server.py`.
 
 ЗАЧЕМ. Внешние каталоги (m8ven.ai, Smithery, Glama, Official MCP Registry)
@@ -43,9 +41,9 @@ def _repo_version() -> str:
 
 
 VERSION = _repo_version()
-# Лицензия: строго как в LICENSE (PolyForm Noncommercial 1.0.0, source-available).
-LICENSE_FIELD = "PolyForm-Noncommercial-1.0.0"
-LICENSE_TEXT = "PolyForm Noncommercial License 1.0.0"
+# Лицензия: строго как в LICENSE (GNU AGPL-3.0-or-later, source-available).
+LICENSE_FIELD = "AGPL-3.0-or-later"
+LICENSE_TEXT = "GNU AGPL-3.0-or-later"
 
 DESCRIPTION = (
     "Zero-trust verification gateway: Z3 + a native Zig proof-DAG checker "

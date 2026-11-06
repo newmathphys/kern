@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # Стаб «зависшего решателя» для юнит-тестов z3_bridge.zig.
 # Игнорирует аргументы (-memory:256 -in) и «висит» ~5 с: нужен, чтобы
 # проверить поток-убийцу (killAfterPid) и различение таймаута от ошибки.

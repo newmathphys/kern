@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ГЕЙТ ТОЧНОСТИ `--xray` (#475): ДВУСТОРОННИЙ И ГЕРМЕТИЧНЫЙ.
 
 ЗАЧЕМ. Охота на чужом коде дала **56 %** точности на `TheAlgorithms/Rust`

@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 26: однословные пресеты — БЕЗ формул, только слово над def.
 # Ожидания приёмки (`make presets-check`):
 #   PROVEN : clamp_nonneg, discount, clamp_idem, tax_smooth

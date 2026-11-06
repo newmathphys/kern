@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 // Тесты для дефектов #471b/#471c и #472 на C-like (Rust) маршруте.
 // «Молчащие» функции — ложные обвинения, которые обязаны ИСЧЕЗНУТЬ.
 // Функции с пометкой TP — настоящие ошибки, которые обязаны ОСТАТЬСЯ.

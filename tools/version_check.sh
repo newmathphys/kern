@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # KERN: согласованность ВЕРСИИ во всех местах, где она печатается.
 #
 # ДЕФЕКТ #97: строка версии была ПРОДУБЛИРОВАНА в `--version` и в баннере

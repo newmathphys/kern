@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 /// @kern:requires a >= 0 and a <= 100 and b >= 0 and b <= 100
 /// @kern:ensures result >= 0
 pub fn addGuarded(a: i32, b: i32) i32 {

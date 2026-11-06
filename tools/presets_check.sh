@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 26: ПРИЁМКА ОДНОСЛОВНЫХ ПРЕСЕТОВ.
 # Требуется:
 #   * PROVEN с trusted: 0 — non_negative, bounded, idempotent (ПУТЕВАЯ проверка),

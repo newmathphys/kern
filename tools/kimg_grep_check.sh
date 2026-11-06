@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 8, ПУНКТ 40В: kernc grep по запечатанному .kimg.
 # ТРИ исхода, каждый обязателен: найдено (rc=0) / не найдено (rc=1) /
 # повреждённый образ (rc=2, поиск ЗАБЛОКИРОВАН проверкой Merkle).

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 /* ДЕФЕКТ #401: ВЗАИМОИСКЛЮЧАЮЩИЕ ветви с ранними `return`.
    До правки накопление `not cond` давало ОДНОВРЕМЕННО `str1 >= 160`
    (из ветви `if (A)`) и `str1 < 160` (из ветви `else if (C)`): путь становился

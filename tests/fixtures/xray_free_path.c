@@ -1,5 +1,4 @@
-// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 // КОРПУС (шаг 4 плана, класс #178/#183): СВОБОДНАЯ КОНСТАНТА В ПУТИ.
 // `LIMIT_UNDEFINED` парсеру неизвестна, поэтому в путь попадает СВОБОДНОЕ имя.
 // Если решателю позволить выбрать её значение, он возьмёт ±MAX и «найдёт»

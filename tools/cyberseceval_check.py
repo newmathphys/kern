@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """CyberSecEval (Meta): ВНЕШНИЙ БЕЙСЛАЙН-ЗАМЕР, а НЕ проверка ядром KERN.
 
 🔴 ГРАНИЦА, НАЗВАННАЯ ЯВНО (дефект #379). Этот файл НЕ вызывает ни `kernc`,

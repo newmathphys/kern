@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Детектор ФЛЕЙКИ: одна цель, два разных вердикта при неизменном дереве = `B`.
 
 ЗАЧЕМ. `determinism_check` проверяет детерминизм РЕШАТЕЛЯ (один SMT-вход —

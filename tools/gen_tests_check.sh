@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 3, ПУНКТ 14: ПРИЁМКА --gen-tests. Генерируем pytest и РЕАЛЬНО его гоняем.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 7, ПУНКТ 38: ПРИЁМКА ОРАКУЛА ВОЗНАГРАЖДЕНИЯ.
 # Требуется: +1.0 (verified) / -1.0 (refuted) / -2.0 (reward hacking).
 set -u

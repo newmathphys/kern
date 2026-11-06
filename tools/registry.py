@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN: РЕЕСТР ЦЕЛЕЙ (K5) + ПРЕДОХРАНИТЕЛЬ.
 
 ЗАЧЕМ. Цель Makefile может быть:
@@ -66,6 +64,8 @@ CLASS = {
     # #487: лог мутаций сверяется с facts.json и README (машинный владелец).
     "mutate-log-check": "CHECK",
     "kern-scan-check": "CHECK",
+    "license-header-check": "CHECK",
+    "license-header-selftest": "META",
     # #492: витрина = ИЗМЕРЕНИЕ (показ), не проверка: своих обязательств нет.
     "tour": "MEASURE",
     # #488: витрина Этапа 4 — сертификат проверяется БЕЗ решателя у получателя.
@@ -399,6 +399,7 @@ CASE_TARGET = {
     "capability-map": "capability-map-check",
     "mutate-log": "mutate-log-check",
     "kern-scan": "kern-scan-check",
+    "license-header": "license-header-check",
     "pcc-demo": "pcc-offline-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",

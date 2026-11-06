@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 28: ПРИЁМКА ДЕТЕКТОРА ДВОЙНОГО СПИСАНИЯ.
 # Требуется: REFUTED (гонка по устаревшему снимку) + PROVEN с trusted: 0 (серия).
 set -u

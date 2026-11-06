@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 // СГЕНЕРИРОВАНО из tests/fixtures (не редактировать вручную).
 // Реальный вывод Z3 для musl src/stdlib/abs.c (51 шаг, trusted: 0 | holes: 0)
 // и 30 точечных подделок для адверсариального фаззера (Испытание А).

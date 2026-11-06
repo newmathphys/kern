@@ -15,7 +15,7 @@ authors:
     given-names: "Vital"
 version: "2.5.1"
 date-released: "2026-10-20"
-license: PolyForm-Noncommercial-1.0.0
+license: AGPL-3.0-or-later
 repository-code: "https://github.com/newmathphys/kern"
 url: "https://github.com/newmathphys/kern"
 keywords:

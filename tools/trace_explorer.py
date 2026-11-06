@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Ступень 2: AST-guided trace explorer (живой дифференциальный прогон).
 
 ЗАЧЕМ. Ступень 1 (`body_smt` -> Z3 -> proof_check.zig) переводит функцию в

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Фикстура KERN для `--diff-equiv` (УЛУЧШЕНИЕ №3): исходник ПОСЛЕ «рефакторинга».
 
 ВНИМАНИЕ: расхождение НАМЕРЕННОЕ — знак операции перепутан (`+` вместо `-`).

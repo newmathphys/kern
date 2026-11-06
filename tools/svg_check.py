@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Проверка геометрии SVG-баннера: ни одна подпись не выходит за свою панель.
 
 ЗАЧЕМ. SVG рендерится без предупреждений: если строка шире контейнера, она

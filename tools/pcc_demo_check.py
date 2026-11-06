@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ГЕЙТ `pcc-demo-check` (#488) — ЭТАП 4: PROOF-CARRYING ARTIFACT У ПОЛУЧАТЕЛЯ БЕЗ Z3.
 
 ЗАЧЕМ. Вся позиция «proof-carrying artifacts» проверяема только одним способом:

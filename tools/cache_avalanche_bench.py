@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN: ЭШЕЛОН 2 — ЛАВИННЫЙ ШТУРМ ХЭША КЭША ДОКАЗАТЕЛЬСТВ.
 
 Защита от Algorithmic DoS (Hash Flooding): если при изменении 1 бита входа

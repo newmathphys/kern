@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # РАЗДЕЛ 8 ЭНЦИКЛОПЕДИИ: CompCert-style Translation Validation.
 #
 # ЧТО ПРОВЕРЯЕМ. Что реальный машинный код `-O2` (из objdump) семантически

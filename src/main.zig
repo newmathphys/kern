@@ -1,6 +1,4 @@
-// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
-// Commercial use requires a license from the copyright holder. See LICENSE.
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 
 const std = @import("std");
 
@@ -1049,7 +1047,7 @@ pub fn main(init: std.process.Init) !void {
         const owner = @import("owner.zig");
         std.debug.print("{s} (Zig {s})\n", .{ KERN_VERSION, @import("builtin").zig_version_string });
         std.debug.print("Copyright (c) {s} {s}. All rights reserved.\n", .{ owner.YEAR, owner.AUTHOR });
-        std.debug.print("License: PolyForm Noncommercial 1.0.0 / Commercial\n", .{});
+        std.debug.print("License: GNU AGPL-3.0-or-later / Commercial\n", .{});
         std.debug.print("Owner token: {s}\n", .{owner.OWNER_TOKEN_HEX});
         std.debug.print("Ownership key-lock: {s}\n", .{if (owner.verifyOwnership()) "VALID" else "NOT confirmed"});
         return;

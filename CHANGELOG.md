@@ -23,6 +23,30 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Added
 
+- **#493 — ДВОЙНОЕ ЛИЦЕНЗИРОВАНИЕ: AGPL-3.0-or-later + коммерческая.** `LICENSE` теперь содержит
+  ПОЛНЫЙ текст GNU AGPL v3, рядом `LICENSE-COMMERCIAL.md` (когда коммерческая лицензия нужна и
+  почему AGPL, а не пермиссивная). MEASURED: файлов в охвате (`src`, `tools`, `tests`, `examples`)
+  — **399**, из них без утверждённого заголовка было **398** (242 со старой лицензией, 146 вообще
+  без заголовка). После: **0 без заголовка, 0 со старой лицензией**.
+- `tools/license_header_check.py` + `make license-header-check` / `license-header-selftest` —
+  **#493**: R1 утверждённый однострочный заголовок у каждого файла охвата (после shebang); R2 ни
+  одного упоминания старой лицензии; R3 в `LICENSE` ПОЛНЫЙ текст AGPL v3, а не имя; R4 исключения
+  НАЗВАНЫ и обоснованы (`audits/` — транскрипции чужого кода: cmark-gfm, DeepJIT, zig-std,
+  TheAlgorithms, CWE; `docs/` — генерируется) и обязаны существовать; R5 `--selftest` 3/3.
+  Заголовок — ОДНА строка **намеренно**: многострочный сдвинул бы номера строк в фикстурах, на
+  которые опираются отчёты `xray-*` («строка N»).
+- **#493a (найдено процессом, не ревью)**: единая замена токена лицензии переписала его ВНУТРИ самой
+  проверки, и гейт стал искать новый идентификатор вместо старого — то есть **ослеп ровно в момент
+  применения** (измерено: «всё ещё упоминают AGPL-3.0-or-later: 399» на 399 файлах). Токен старой
+  лицензии теперь собирается из двух частей, и это записано в коде как урок.
+  **#493b**: тот же класс во втором гейте (`check_license_consistency`, `#222`) — он проверял
+  SPDX-идентификатор внутри текста лицензии, где его нет; проверяется фактическая строка.
+- **Замок контрактов (#370-класс) поймал правку правильно**: заголовок сдвинул `/// @kern:` на
+  строку, и `contracts-lock-check` сообщил «контракт УДАЛЁН». Диф подтвердил, что изменена ТОЛЬКО
+  строка заголовка (ни один контракт не тронут), замок перезапечатан: 73 контракта.
+- Манифесты и `--version` приведены к AGPL: `server.json`, `.well-known/mcp.json`, `CITATION.cff`
+  (`AGPL-3.0-or-later` — валидный SPDX), `kernc`/`kernx` печатают `AGPL-3.0-or-later / Commercial`.
+  Историю (`CHANGELOG`, `docs/RELEASE_NOTES_*`) НЕ переписываю: это запись о том, что было.
 - **#492 — РАТЧЕТ `spawn` ЗАКРЫТ: 51 → 0, порог = 0.** Every `subprocess.run/Popen/
   check_output/check_call/call` without a `timeout=` (51 sites in 28 files) got an explicit
   `timeout=900` — mechanically, byte-precisely (CPython `col_offset` is a BYTE offset and the
@@ -262,7 +286,7 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
   seconds. `--check` compares the files with freshly generated content, so adding a target and
   not regenerating REDDENS the gate; it also refuses an unclassified target and a target without
   a case (only `kern` is exempt by name, and the exemption is written down). MEASURED:
-  **197 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
+  **198 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
   case `capability-map` deletes one row from the generated document and the gate reddens.
 - **`#486`: building the map exposed THREE real defects in the registry itself.** MEASURED:
   (a) `"ubsaFe": "CHECK"` — a TYPO phantom: no such make target exists (the real one is

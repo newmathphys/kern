@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 4, ПУНКТ 24: ПРИЁМКА ИНВАРИАНТА СОСТОЯНИЯ.
 # Требуется: refund_unsafe -> FAIL (двойной возврат), refund_safe -> PASS,
 # и НИ ОДНОГО [UNKNOWN] (нерешённое не выдаётся за доказанное).

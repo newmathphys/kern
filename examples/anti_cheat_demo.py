@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 6, ПУНКТ 32: демонстрация читов ИИ-агента (все 5 классов) + чистый код.
 import sys
 import unittest.mock

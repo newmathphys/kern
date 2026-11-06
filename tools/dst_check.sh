@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # РАЗДЕЛ 7 ЭНЦИКЛОПЕДИИ: Deterministic Simulation Testing (TigerBeetle-style).
 # Приёмка: 10 сидов x 50 шагов, 4 инварианта, детерминизм, НЕНУЛЕВЫЕ перехваты.
 set -u

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """СТРАЖ ОТ ИНЪЕКЦИЙ В ДЕРЕВЕ (Дефекты #168, #170).
 
 ЗАЧЕМ. Харнессы `canfail.py` / `mutate_zig.py` НАМЕРЕННО вставляют «поломки»

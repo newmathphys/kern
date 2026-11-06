@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 // ОГРАНИЧЕНИЕ экстрактора: «хвостовое выражение» Rust (`a.saturating_add(b)`
 // без return) вне подмножества — требуется явный `return`.
 /// @kern:ensures result >= 0

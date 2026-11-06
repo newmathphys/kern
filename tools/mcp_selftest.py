@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """KERN: живая проверка MCP-сервера (JSON-RPC 2.0 поверх stdio).
 
 Запускает `examples/kern_mcp_server.py` как ДОЧЕРНИЙ ПРОЦЕСС и общается с ним

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Хигиена исходников: управляющих байт в СТРОКОВЫХ КОНСТАНТАХ быть не должно.
 
 ДЕФЕКТ #413. В `tools/kern_contracts.py` шесть раз вместо границы слова `\\b`

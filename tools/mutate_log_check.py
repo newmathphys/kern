@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ГЕЙТ `mutate-log-check` (#487): ЛОГ МУТАЦИЙ — НЕ «МЁРТВЫЙ ТЕКСТ», А ИЗМЕРЕНИЕ.
 
 ЗАЧЕМ. История с тремя числами (`1345` в логе, `1376` в README, `1597` в факте)

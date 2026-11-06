@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 28: гонка двойного списания (`@kern:no_double_spend`).
 # Ожидания приёмки (`make double-spend-check`):
 #   REFUTED: withdraw_race (обе транзакции проверяют УСТАРЕВШИЙ снимок баланса),

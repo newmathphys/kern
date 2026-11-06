@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ГЕНЕРАТОР `docs/CAPABILITY_MAP` (#485): КАРТА 193 CHECK-ЦЕЛЕЙ, БЕЗ «СПИСКА ПО ПАМЯТИ».
 
 ЗАЧЕМ ГЕНЕРАТОР, А НЕ РУЧНАЯ ТАБЛИЦА. Карта, написанная руками, устаревает на

@@ -1,6 +1,4 @@
-// Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
-// Commercial use requires a license from the copyright holder. See LICENSE.
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 //
 // ШАГ 4b, ПОЗИТИВНЫЙ КОНТРОЛЬ: битовая мёртвая ветка. В Int-модели не видна
 // ВООБЩЕ (битовых операторов там нет) — ловится ТОЛЬКО в QF_BV32:

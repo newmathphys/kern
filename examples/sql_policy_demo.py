@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 30: RLS-политики (изоляция тенантов). Цель `make sql-policy-check`.
 # Инвариант: доступ (`result == 1`) ТОЛЬКО при
 #   `(row_tenant == req_tenant or is_public == 1) and is_deleted == 0`.

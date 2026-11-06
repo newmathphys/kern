@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 //! ЭШЕЛОН 8, ПУНКТ 40А: ядро KERN в WebAssembly (`wasm32-freestanding`).
 //!
 //! ЗАЧЕМ: дать возможность проверить решение/допуск БЕЗ установки Zig/Z3 —

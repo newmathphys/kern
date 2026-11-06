@@ -30,7 +30,7 @@
 - Lean 4: **147 theorems in 8 files, 0 errors, 0 sorry**.
 - Mutation score on the Zig kernel: **1597 / 1597 killed (100.0 %)** across
   **21 files**, no sampling, zero survivors.
-- Can-fail harness: **197 CHECK targets, 242 non-vacuous cases, 0 vacuous**.
+- Can-fail harness: **198 CHECK targets, 243 non-vacuous cases, 0 vacuous**.
 - Cross-architecture: **443 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
   PowerPC64 big-endian (QEMU).
 - WebAssembly: `kernc.wasm` (**106 054 bytes**) exports `kern_wasm_verify_proof`,
@@ -99,5 +99,5 @@
 - `.kimg` names are covered by the Merkle root; a byte flip in a name is
   detected, but the model of a third-party function is ours — a counterexample
   must be reproduced on their build before it is called a bug.
-- Licence: **PolyForm Noncommercial 1.0.0** (source-available). Commercial use
+- Licence: **GNU AGPL-3.0-or-later** (source-available). Commercial use
   requires a licence from the copyright holder.

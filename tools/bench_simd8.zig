@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 //! Замер пропускной способности BLAKE3 SIMD-8 (8 полос @Vector(8,u32)).
 //! Зачем: `align(32)` у рабочих буферов — правка ради выравнивания под
 //! 256-битные загрузки. Здесь ИЗМЕРЯЕТСЯ реальная скорость, а не заявляется.

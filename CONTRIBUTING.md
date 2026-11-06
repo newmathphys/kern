@@ -13,7 +13,7 @@ into the source and requires the check to go red. If your new test stays green
 under the injected fault, it is vacuous and will be rejected.
 
 ```bash
-make canfail        # 242 non-vacuous checks, 0 vacuous
+make canfail        # 243 non-vacuous checks, 0 vacuous
 ```
 
 ## Environment
@@ -109,14 +109,14 @@ License (see [`LICENSE`](LICENSE)).
 
 ## Contributor License Agreement (dual-licensing grant)
 
-KERN is dual-licensed under the PolyForm Noncommercial License 1.0.0
-(`PolyForm-Noncommercial-1.0.0`) and a commercial license managed by the
+KERN is dual-licensed under the GNU AGPL-3.0-or-later
+(`AGPL-3.0-or-later`) and a commercial license managed by the
 copyright holder (Vital Kalinousky).
 
 By submitting a pull request or any other contribution to this repository, you
 grant the copyright holder a perpetual, worldwide, non-exclusive, royalty-free,
 irrevocable license to use, reproduce, modify, sublicense, relicense and
-distribute your contribution under both the `PolyForm-Noncommercial-1.0.0` and
+distribute your contribution under both the `AGPL-3.0-or-later` and
 any commercial or proprietary license terms.
 
 Without this grant a contribution could not be included: the project must stay

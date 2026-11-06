@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 4, ПУНКТ 21: границы массивов `arr[i]` БЕЗ аннотаций @kern:.
 #
 # Длина массива сообщается метаданными `# @kern:len(data) = 8`; обязательство

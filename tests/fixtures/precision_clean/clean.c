@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 /* ГЕРМЕТИЧНЫЙ НЕГАТИВНЫЙ КОНТРОЛЬ (#475): здесь всё ЗАЩИЩЕНО — находок быть не должно.
  * Гейт `make xray-precision` требует `находок 0`; любая находка = регресс. */
 

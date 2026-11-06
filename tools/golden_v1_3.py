@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Генератор эталонного образа KIMG v1.3 (согласованная Фаза 1 + Фаза 3).
 
 ЧТО ИСПРАВЛЯЕТ (см. docs/archive/KERN34_AUDIT.md, «Фаза 1 и Фаза 3 несовместимы»):

@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · registry <!-- fact:registry_targets -->266 · META <!-- fact:meta_targets -->53 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->198 · cases <!-- fact:canfail_cases -->243 · anchors <!-- fact:anchors -->201 · registry <!-- fact:registry_targets -->268 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -9,7 +9,7 @@
 >
 > **Устав KERN — каждый закон называет проверяющего, и он запускается:** [docs/CHARTER.ru.md](docs/CHARTER.ru.md) · [docs/CHARTER.md](docs/CHARTER.md)
 
-[![Лицензия: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-orange.svg)](LICENSE)
+[![Лицензия: GNU AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL-3.0-or-later_Noncommercial_1.0.0-orange.svg)](LICENSE)
 
 > **Доказательства на чужом коде — не на наших фикстурах:**
 > 1. **EvalPlus MBPP+ — три слепых пятна самого бенчмарка.** Из 264 решений, прошедших **и** MBPP, **и** 80-кратный MBPP+, `--xray` указал на три деления на ноль; живой вызов `python3` подтвердил все три (`Mbpp/265`, `Mbpp/292`, `Mbpp/422`) и не подтвердил ни одного ложного. **0 ложных обвинений.**
@@ -52,7 +52,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->197 / <!-- fact:check_targets -->197 CHECK-целей** покрыты (<!-- fact:canfail_cases -->242 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->198 / <!-- fact:check_targets -->198 CHECK-целей** покрыты (<!-- fact:canfail_cases -->243 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -195,7 +195,7 @@ Lean 4); **R**esolution — разрешение конфликтов в чет�
 ```
 kern/
 ├── README.md                       этот файл
-├── LICENSE                         PolyForm Noncommercial 1.0.0
+├── LICENSE                         GNU AGPL-3.0-or-later
 ├── OWNERSHIP.md                    защита авторства (токен, ключ-замок)
 ├── Makefile                        190 целей: build/test/coverage/mutate/bridge/…
 ├── build.zig                       сборка: kernc, kern-attack, kernx, libkern.so
@@ -692,20 +692,20 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 242 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->200 якорей применимы (за ~1 с)
+make canfail          # 243 кейс: ломаем инвариант -> цель обязана упасть
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->201 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->266 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->268 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->266 (CHECK <!-- fact:check_targets -->197 · MEASURE 1 · BUILD <!-- fact:build_targets -->11 · EXTERNAL 3 · META <!-- fact:meta_targets -->53) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->197/<!-- fact:check_targets -->197 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->268 (CHECK <!-- fact:check_targets -->198 · MEASURE 1 · BUILD <!-- fact:build_targets -->11 · EXTERNAL 3 · META <!-- fact:meta_targets -->54) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->198/<!-- fact:check_targets -->198 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->242 (не-вакуумных <!-- fact:canfail_cases -->242 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->492** |
+| can-fail кейсов | <!-- fact:canfail_cases -->243 (не-вакуумных <!-- fact:canfail_cases -->243 · вакуумных 0 · ошибок кейсов 0) |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->493** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 
@@ -857,7 +857,7 @@ Copyright (c) 2026 Vital Kalinousky. Все права защищены.
 
 KERN распространяется по модели **source-available** с двойным лицензированием:
 
-1. **PolyForm Noncommercial License 1.0.0** (`PolyForm-Noncommercial-1.0.0`) —
+1. **GNU AGPL-3.0-or-later** (`AGPL-3.0-or-later`) —
    бесплатно для **некоммерческого** использования: личные проекты, обучение,
    исследования, преподавание, а также для благотворительных организаций,
    учебных заведений и публичных научных центров. Полный текст — в

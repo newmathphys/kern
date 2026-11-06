@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """CrewAI tool wrapper — GLUE, NOT verified in this repository (CrewAI is not installed
 here). The KERN side it calls (`kern_guard.verify_files`) IS verified.
 

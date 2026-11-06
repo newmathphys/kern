@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 6, ПУНКТ 35: ПРИЁМКА АРБИТРАЖА РОЯ В РЕШЁТКЕ БЕЛНАПА.
 # Свойство проверяется НАТИВНО тестом в src/next/truth.zig (Bit.join):
 #   JOIN_K(T,F) = B  -> Врата ЗАКРЫТЫ;

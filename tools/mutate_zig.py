@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Zig-native мутационное тестирование (аналог cargo-mutants для Zig).
 
 Вносит по ОДНОЙ мутации в исходники ядра, прогоняет `zig test src/test_root.zig`

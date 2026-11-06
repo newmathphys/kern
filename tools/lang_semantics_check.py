@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ШАГ I: семантика ЗНАЧЕНИЙ языка — объект, и он обязан быть ПОЛНЫМ.
 
 ЧТО ПРОВЕРЯЕТ.

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 python3 tools/xray_asi_check.py || exit 1  # регрессия: ASI-стиль TS без `;`
 # ЭШЕЛОН 3, ПУНКТ 13: ПРИЁМКА --xray. Требуем НАСТОЯЩИЕ находки на фикстуре
 # examples/xray_demo.py: мёртвая ветка, избыточный гард и краш-путь.

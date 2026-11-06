@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 25: ПРИЁМКА ПОЛИГЛОТ-ЭКСТРАКТОРА (7 языков).
 # .py .zig .c .rs (уже были) + .ts .js .go (новые) + Sorbet-вывод из типов.
 # Требуется:

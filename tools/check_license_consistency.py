@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
-# Commercial use requires a license from the copyright holder. See LICENSE.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """Страж лицензионной согласованности (Дефект #222).
 
 ЗАЧЕМ: внешние сканеры (m8ven.ai, GitHub licensee, mcp-каталоги) сверяют
@@ -10,9 +8,9 @@
 в дереве репозитория `LICENSE` был помечен как `MIT`).
 
 ЧТО ПРОВЕРЯЕТСЯ:
-  1) `LICENSE` действительно содержит «PolyForm Noncommercial»;
+  1) `LICENSE` действительно содержит «GNU AGPL-3.0-or-later»;
   2) `server.json`, `.well-known/mcp.json`, `CITATION.cff` объявляют
-     идентификатор `PolyForm-Noncommercial-1.0.0`;
+     идентификатор `AGPL-3.0-or-later`;
   3) в `README.md` / `README.ru.md` строка про `LICENSE` НЕ обещает MIT;
   4) в JSON-манифестах нет посторонних лицензий (MIT/Apache).
 
@@ -26,8 +24,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EXPECTED_ID = "PolyForm-Noncommercial-1.0.0"
-EXPECTED_WORDS = "PolyForm Noncommercial"
+EXPECTED_ID = "AGPL-3.0-or-later"
+# #493: единая замена переписала здесь даже ПРОВЕРЯЕМУЮ строку, и гейт стал
+# искать SPDX-идентификатор ВНУТРИ текста лицензии (там его нет — там
+# «GNU AFFERO GENERAL PUBLIC LICENSE»). Проверяем ФАКТИЧЕСКИЙ текст.
+EXPECTED_WORDS = "GNU AFFERO GENERAL PUBLIC LICENSE"
 JSON_MANIFESTS = ("server.json", ".well-known/mcp.json")
 TEXT_MANIFESTS = ("CITATION.cff",)
 READMES = ("README.md", "README.ru.md")

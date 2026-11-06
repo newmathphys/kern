@@ -1,5 +1,4 @@
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ДЕФЕКТ #342 (шаг N12): ФРОНТЕНД `@kern:lang evm`.
 #
 # До этой директивы запись `evm` в `VALUE_SEMANTICS` была МЁРТВОЙ: `lang="evm"`

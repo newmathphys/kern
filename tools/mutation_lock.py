@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ЛОК МУТАЦИОННЫХ ИНСТРУМЕНТОВ — НА РАБОЧЕЕ ДЕРЕВО (`#482`).
 
 ЗАЧЕМ. `tools/canfail.py` и `tools/mutate_zig.py` оба ПРАВЯТ ИСХОДНИКИ, поэтому

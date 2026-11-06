@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # N2: рабочие файлы прогона живут в СВОЁМ каталоге, а не в общем /tmp
 # (гонка двух прогонов уже портила вердикты). Каталог снимается по выходу.
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/kern_work.XXXXXX")"; export WORK
 trap 'rm -rf "$WORK"' EXIT INT TERM
-# Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
+# Licensed under the GNU AGPL-3.0-or-later.
 # Commercial use requires a license from the copyright holder. See LICENSE.
 #
 # KERN: smoke-тест Guardrail-прокси. ПРОВЕРЯЕТ коды ответов и ПАДАЕТ при

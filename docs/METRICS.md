@@ -1,11 +1,11 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · registry <!-- fact:registry_targets -->266 · META <!-- fact:meta_targets -->53 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->198 · cases <!-- fact:canfail_cases -->243 · anchors <!-- fact:anchors -->201 · registry <!-- fact:registry_targets -->268 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >
 > **CURRENT STATE (2026-10-20):** v2.5.1 · core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-> CHECK <!-- fact:check_targets -->197/<!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
+> CHECK <!-- fact:check_targets -->198/<!-- fact:check_targets -->198 · cases <!-- fact:canfail_cases -->243 · anchors <!-- fact:anchors -->201 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 differential.
 > **Журнал ниже — append-only история.** Заголовок «v1.3» относится к 2026-10-10 и
 > НЕ описывает текущее состояние.
 
@@ -9679,15 +9679,15 @@ ratchet `bare_except_baseline.json` (записано 27).
 
 | Где | Было | Факт |
 |:--|:--|:--|
-| `README.ru.md` (дерево репозитория) | `├── LICENSE   MIT` | **PolyForm Noncommercial 1.0.0** |
-| `server.json`, `.well-known/mcp.json`, `CITATION.cff` | `PolyForm-Noncommercial-1.0.0` | совпадает с `LICENSE` ✅ |
+| `README.ru.md` (дерево репозитория) | `├── LICENSE   MIT` | **GNU AGPL-3.0-or-later** |
+| `server.json`, `.well-known/mcp.json`, `CITATION.cff` | `AGPL-3.0-or-later` | совпадает с `LICENSE` ✅ |
 | `README.ru.md` (дерево репозитория) | `Makefile 62 цели` | **150 целей** (`registry.py`: «всего целей: 150») |
 
-**Почему это не косметика:** ровно этот класс назывался в обсуждении внешнего аудита — сканеры (m8ven.ai, GitHub licensee, MCP-каталоги) сверяют поле `license` манифестов с файлом `LICENSE`, и расхождение трактуется либо как штраф в рейтинге, либо как **ложное обещание** пользователю. «MIT» в дереве репозитория рядом с PolyForm — именно ложное обещание.
+**Почему это не косметика:** ровно этот класс назывался в обсуждении внешнего аудита — сканеры (m8ven.ai, GitHub licensee, MCP-каталоги) сверяют поле `license` манифестов с файлом `LICENSE`, и расхождение трактуется либо как штраф в рейтинге, либо как **ложное обещание** пользователю. «MIT» в дереве репозитория рядом с AGPL-3.0-or-later — именно ложное обещание.
 
 **Исправлено + страж:** `README.ru.md` приведён к факту; добавлен `tools/check_license_consistency.py` (проверка **8** в `ecosystem-check`):
-1. `LICENSE` содержит «PolyForm Noncommercial»;
-2. `server.json` и `.well-known/mcp.json` объявляют `license = PolyForm-Noncommercial-1.0.0`;
+1. `LICENSE` содержит «GNU AGPL-3.0-or-later»;
+2. `server.json` и `.well-known/mcp.json` объявляют `license = AGPL-3.0-or-later`;
 3. `CITATION.cff` содержит тот же идентификатор;
 4. в `README.md` / `README.ru.md` строка про `LICENSE` не обещает MIT (слово `LIMITATIONS` не считается).
 

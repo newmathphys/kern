@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 """ЗОЛОТОЙ КОРПУС АУДИТОВ: реальные функции чужих проектов -> таблица + .kimg.
 
 ЗАЧЕМ. Проверять «5000 функций, переведённых нейросетью» — путь к самообману

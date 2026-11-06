@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ЭШЕЛОН 5, ПУНКТ 30: ПРИЁМКА RLS-ПОЛИТИК (`--verify-sql`).
 # Требуется СТРОГО: BYPASS пойман на небезопасной политике И `[PASS] PROVEN` с
 # trusted: 0 на безопасной (Дефект #145: покомпонентная проверка инварианта

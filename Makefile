@@ -370,6 +370,13 @@ mutate-log-selftest:
 # #489: «одна кнопка» — паспорт аудита любой папки (пути читаемы, угрозы отделены
 # от стиля, узкий охват назван словом ВЫБОРКА).
 # #492: ВИТРИНА — пять ролевых дуг на один экран (настоящие проверки).
+# #493: ЛИЦЕНЗИОННЫЙ ГЕЙТ — заголовок каждого файла = LICENSE (AGPLv3).
+license-header-check:
+	python3 tools/license_header_check.py
+
+license-header-selftest:
+	python3 tools/license_header_check.py --selftest
+
 tour:
 	python3 tools/tour.py
 

@@ -83,21 +83,21 @@
     "addGuarded:requires:hard": "8d53f886ab69ccfdf7b2fbdfcf0b8ad4b3f0760fc01a48e4816998647a6fb287",
     "addWrapOk:requires:hard": "91e71dc7fb6ba78cec30a69fe8cb591cbaa462e69f8ef949cf8ae075ec22b26b",
     "divOk:requires:hard": "91e71dc7fb6ba78cec30a69fe8cb591cbaa462e69f8ef949cf8ae075ec22b26b",
-    "line1:requires:hard": "7b59396dfcf448e384d4ae65c219844fb31b8c28093b39d10027073a8084b94a",
-    "line2:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+    "line2:requires:hard": "7b59396dfcf448e384d4ae65c219844fb31b8c28093b39d10027073a8084b94a",
+    "line3:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "tests/fixtures/zig_ast_contracts_ok.zig": {
     "addGuarded:ensures:hard": "7f1f25ef52093ffeec723aeaee5b36dd794e0537446632053b70dedc5c4f8076",
     "addGuarded:requires:hard": "8d53f886ab69ccfdf7b2fbdfcf0b8ad4b3f0760fc01a48e4816998647a6fb287",
     "divOk:requires:hard": "91e71dc7fb6ba78cec30a69fe8cb591cbaa462e69f8ef949cf8ae075ec22b26b",
-    "line1:requires:hard": "7b59396dfcf448e384d4ae65c219844fb31b8c28093b39d10027073a8084b94a",
-    "line2:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+    "line2:requires:hard": "7b59396dfcf448e384d4ae65c219844fb31b8c28093b39d10027073a8084b94a",
+    "line3:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "tests/fixtures/zig_plain_add.zig": {
-    "line1:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+    "line2:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "tests/fixtures/zig_saturating_add.zig": {
-    "line1:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
+    "line2:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "tools/arith_semantics_check.py": {},
   "tools/funnel_accounting.py": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 Vital Kalinousky. All rights reserved.
-# Licensed under the PolyForm Noncommercial License 1.0.0.
+# Licensed under the GNU AGPL-3.0-or-later.
 # Commercial use requires a license from the copyright holder. See LICENSE.
 #
 # ============================================================================
