@@ -299,6 +299,17 @@ evidence-trust-selftest:
 xray-precision:
 	@$(PYTHON) tools/xray_precision_check.py
 
+# ДЕФЕКТ #477: ЕДИНЫЙ ШЛЮЗ ЗАПУСКА ПОДПРОЦЕССОВ + РАТЧЕТ.
+# ИЗМЕРЕНО: 170 вызовов `subprocess.*` в `tools/*.py`, из них 51 БЕЗ `timeout=`
+# (класс #464/#466/#470: зависший бинарник вешает проверку навсегда).
+# Шлюз `tools/spawn.py` даёт таймаут ВСЕГДА, `z3` в PATH и названные исходы
+# (124/125). Гейт считает «голые» вызовы и краснеет при РОСТЕ.
+spawn-check:
+	@$(PYTHON) tools/spawn_check.py
+
+spawn-selftest:
+	@$(PYTHON) tools/spawn.py
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

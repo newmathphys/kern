@@ -2280,6 +2280,20 @@ def case_xray_float_skip():
     return "make xray-check"
 
 
+def case_spawn_timeout():
+    """#477 SABOTAGE: у одного подпроцесса снова НЕТ таймаута.
+
+    ЛОМАЕМ ровно починенное: у `trust_scorecard`-вызова из `cmd_audit_repo`
+    убирается `timeout=1800`. Это ровно исходная болезнь (#464): зависший
+    бинарник вешает проверку НАВСЕГДА, без вердикта и без причины.
+    Гейт `make spawn-check` обязан покраснеть: «РЕГРЕСС — было 51, стало 52».
+    """
+    patch("tools/kern_contracts.py",
+          "timeout=1800).returncode",
+          ").returncode  # ЛОМАЕМ (#477)")
+    return "make spawn-check"
+
+
 def case_xray_precision():
     """#475 SABOTAGE: гард `while` снова не прикладывается к телу.
 
@@ -4404,6 +4418,8 @@ CASES = [
     ("evidence-trust", "`PROVEN` loses the trusted-step count (#474)", case_evidence_trust),
     ("xray-precision", "A guard is dropped -> a FALSE accusation on clean code (#475)",
      case_xray_precision),
+    ("spawn-timeout", "A subprocess loses its timeout -> the gate can hang forever (#477)",
+     case_spawn_timeout),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

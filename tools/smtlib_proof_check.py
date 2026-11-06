@@ -202,8 +202,12 @@ def ensure_sample() -> tuple[Path | None, str]:
             if zstd is None:
                 return None, "нет `zstd` для распаковки QF_AX.tar.zst"
             plain = CACHE / "QF_AX.tar"
-            r = subprocess.run([zstd, "-d", "-f", str(tar_zst), "-o", str(plain)],
-                               capture_output=True, text=True)
+            # ДЕФЕКТ #477: распаковка БЕЗ таймаута — битый архив вешал гейт.
+            try:
+                r = subprocess.run([zstd, "-d", "-f", str(tar_zst), "-o", str(plain)],
+                                   capture_output=True, text=True, timeout=600)
+            except subprocess.TimeoutExpired:
+                return None, "zstd: ТАЙМАУТ 600 с — исход НЕ вердикт (#477)"
             if r.returncode != 0:
                 return None, f"zstd не распаковал QF_AX ({r.stderr.strip()[:80]})"
             with tarfile.open(plain) as t:

@@ -55,6 +55,9 @@ CLASS = {
     # ДЕФЕКТ #475: точность `--xray` измеряется машинно (clean=0, buggy=5/5,
     # known_fp=ретаргет). Ложное обвинение хуже пропуска.
     "xray-precision": "CHECK",
+    # ДЕФЕКТ #477: ратчет «подпроцесс без таймаута». Единый шлюз — tools/spawn.py
+    # (таймаут всегда, z3 в PATH, названные исходы 124/125).
+    "spawn-check": "CHECK",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -200,6 +203,8 @@ CLASS = {
     "audits-mem-selftest": "META",
     # #474: мета — гейт обязан краснеть на трёх видах поломки и на пустой таблице.
     "evidence-trust-selftest": "META",
+    # #477: мета — шлюз проверяется ТРЕМЯ исходами настоящими подпроцессами.
+    "spawn-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
     "docs-parity": "META",              # EN/RU-факты
@@ -363,6 +368,7 @@ CASE_TARGET = {
     "xray-float-skip": "xray-check",
     "evidence-trust": "evidence-trust",
     "xray-precision": "xray-precision",
+    "spawn-timeout": "spawn-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",

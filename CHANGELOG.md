@@ -119,6 +119,21 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
+- `tools/spawn.py` + `tools/spawn_check.py` + `make spawn-check` (CHECK) / `make
+  spawn-selftest` (META) — **defect #477, the subprocess choke point**. The class «subprocess
+  without a limiter» fired THREE times: `#464` (solver timeout), `#466` (`z3` missing from
+  `PATH` → silent SKIPs), `#470` (no memory ceiling, `kernc prove` grew to 5.4 GB). MEASURED by
+  AST over `tools/*.py`: **170** `subprocess.*` calls, of which **51 had NO `timeout=`** — i.e.
+  51 places where a hung binary blocks a gate FOREVER, without a verdict and without a reason.
+  `spawn.run()` is the blessed path: timeout ALWAYS (default 900 s), the `z3` directory from
+  `z3bin.find_z3` in `PATH` (single source of truth #353), `RLIMIT_AS` on the child, and NAMED
+  outcomes (`124` timeout, `125` memory/signal). Its `--selftest` proves all five cases with
+  real subprocesses (normal / timeout / memory cap / signal / foreign exit code). Three real
+  sites were fixed rather than ratcheted: the `z3 --version` probe and the
+  `trust_scorecard` call in `kern_contracts.py`, and the `zstd` unpack in
+  `smtlib_proof_check.py` — each now names its timeout. The gate is a RATCHET (baseline 51,
+  target 0): growth reddens it, improvement prints «lower the baseline», and the debt list is
+  printed every run so it stays visible. Can-fail case `spawn-timeout` reddens the gate in 1 s.
 - `tools/xray_precision_check.py` + `make xray-precision` (CHECK) — **defect #475, the
   PRECISION gate**. Precision on third-party code was measured at **56 %** on
   `TheAlgorithms/Rust` (18 findings, 8 false) and, worse, **21 false accusations on 50

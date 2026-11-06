@@ -11,7 +11,7 @@
 > `docs/NEXT_SESSION.ru.md` (передача дел) → **этот файл** (работа) →
 > `docs/CAPABILITY_MATRIX.ru.md` (что доказано и чего каждое доказательство НЕ показывает).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->191 · cases <!-- fact:canfail_cases -->236 · anchors <!-- fact:anchors -->194 · registry <!-- fact:registry_targets -->251 · META <!-- fact:meta_targets -->45 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->192 · cases <!-- fact:canfail_cases -->237 · anchors <!-- fact:anchors -->195 · registry <!-- fact:registry_targets -->253 · META <!-- fact:meta_targets -->46 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 

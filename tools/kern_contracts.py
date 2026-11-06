@@ -1435,10 +1435,20 @@ def solver_info() -> dict:
         path = shutil.which("z3") or ""
         version = "unknown"
         if path:
-            r = subprocess.run([path, "--version"], capture_output=True, text=True)
-            lines = (r.stdout or r.stderr).strip().splitlines()
-            if lines:
-                version = lines[0].strip()
+            # ДЕФЕКТ #477: ЗАПУСК БЕЗ ТАЙМАУТА — ЭТО ТОТ ЖЕ КЛАСС, ЧТО #464.
+            # `subprocess.run([path, "--version"])` мог ЗАВИСНУТЬ навсегда
+            # (битый/подменённый бинарник в PATH), и тогда весь анализ вставал
+            # молча: ни вердикта, ни причины. Теперь исход НАЗВАН.
+            try:
+                r = subprocess.run([path, "--version"], capture_output=True, text=True,
+                                   timeout=20)
+                lines = (r.stdout or r.stderr).strip().splitlines()
+                if lines:
+                    version = lines[0].strip()
+            except subprocess.TimeoutExpired:
+                version = "timeout (20 с)"
+            except OSError as _e:
+                version = f"error: {_e}"
         _SOLVER_CACHE = {"name": "z3", "version": version, "path": path,
                          "timeout_ms": 120000, "calls": 0}
     _SOLVER_CACHE["calls"] = _SMT_CALLS[0]
@@ -8478,7 +8488,14 @@ def cmd_trust_score(target: str) -> int:
     if not tc.exists():
         print(f"[!] не найден {tc}")
         return 2
-    return subprocess.call([sys.executable, str(tc), "--repo", target])
+    # ДЕФЕКТ #477: БЕЗ ТАЙМАУТА (`subprocess.call`) — паспорт проекта мог
+    # зависнуть навсегда, и гейт висел бы вместе с ним (класс #464).
+    try:
+        return subprocess.run([sys.executable, str(tc), "--repo", target],
+                              timeout=1800).returncode
+    except subprocess.TimeoutExpired:
+        print("[!] trust_scorecard: ТАЙМАУТ 1800 с — исход НЕ вердикт (#477)")
+        return 124
 
 
 def cmd_audit_repo(target: str, kernc, html_out: str | None = None) -> int:
