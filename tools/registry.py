@@ -61,6 +61,10 @@ CLASS = {
     # ДЕФЕКТ #483: машинный ABI аудита (`--xray-json`): схема, чистый stdout,
     # тождество воронки. Ломающее изменение схемы обязано поднять версию.
     "abi-check": "CHECK",
+    # #485: карта CHECK-целей обязана совпадать с реестром (генерируется из него).
+    "capability-map-check": "CHECK",
+    # #485: генератор карты — инструмент сопровождения, не гейт.
+    "capability-map": "META",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -112,7 +116,7 @@ CLASS = {
     "explain-hypotheses-check": "CHECK",
     "hypotheses-corpus-check": "CHECK",
     "verify": "CHECK", "attack": "CHECK", "lean": "CHECK", "memcheck": "CHECK",
-    "ubsaFe": "CHECK", "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
+    "ubsafe": "CHECK", "stress-kimg": "CHECK", "smt-stress": "CHECK",
     "align": "CHECK", "avalanche": "CHECK", "bench-json": "CHECK", "pool": "CHECK", "semantic-gap": "CHECK",
     # ИЗМЕРЯЕТ throughput BLAKE3-SIMD-8 (не доказательство): падать «как гейт» не может -> MEASURE
     "bench-simd8": "MEASURE",
@@ -303,7 +307,7 @@ CLASS = {
     # --- измерения: упасть НЕ могут -----------------------------------------
     "perf": "CHECK", "bench": "CHECK", "stress": "CHECK", "probe": "CHECK",
     "portable-bench": "CHECK", "smt": "CHECK", "chc-bench": "CHECK",
-    "stress-real": "CHECK", "kern": "CHECK",
+    "kern": "CHECK",
     # --- сборка -------------------------------------------------------------
     "lib": "BUILD", "hermetic": "BUILD", "next": "BUILD", "demo": "BUILD",
     "bridge": "BUILD", "capi-demo": "BUILD", "docker": "EXTERNAL",
@@ -383,6 +387,7 @@ CASE_TARGET = {
     "xray-precision": "xray-precision",
     "spawn-timeout": "spawn-check",
     "abi-json": "abi-check",
+    "capability-map": "capability-map-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",
@@ -516,7 +521,6 @@ CASE_TARGET = {
     "chc-bench": "chc-bench",
     "probe": "probe",
     "portable-bench": "portable-bench",
-    "ubsafe": "ubsafe",
     "adversarial-payload": "adversarial",
     "guardrail-verdict": "guardrail",
     "evidence-full": "evidence",

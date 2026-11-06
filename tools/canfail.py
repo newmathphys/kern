@@ -349,6 +349,9 @@ FAULTABLE = [
     # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
     "audits/EVIDENCE.md",
+    # #485: кейс `capability-map` правит СГЕНЕРИРОВАННУЮ карту — файл обязан быть
+    # в FAULTABLE, иначе подсадка осталась бы в дереве (класс #225).
+    "docs/CAPABILITY_MAP.md",
     "docs/evidence/scorecard.json",
     # Дефект #225: кейс `metrics-guard` правит PROJECT.md, а файла не было
     # в списке -> откат не срабатывал, и подсадка оставалась в дереве.
@@ -2276,6 +2279,19 @@ def case_xray_float_skip():
           'if False and re.search(r"\\b(?:f32|f64|float|double|float32|float64)\\b", _sig):  # ЛОМАЕМ (#472)')
     return "make xray-check"
 
+
+def case_capability_map():
+    """#485 SABOTAGE: карта расходится с реестром (строка цели удалена).
+
+    ЛОМАЕМ ровно то, что защищает гейт: из СГЕНЕРИРОВАННОГО документа убирается
+    строка одной CHECK-цели — ровно ситуация «добавили/удалили цель и забыли
+    пересобрать». Документ начинает врать, и `make capability-map-check` обязан
+    покраснеть.
+    """
+    patch("docs/CAPABILITY_MAP.md",
+          "| `abi-check` | `abi-json` | #483 | `make abi-check` |",
+          "| ~~удалено~~ | | | |  # ЛОМАЕМ (#485)")
+    return "make capability-map-check"
 
 def case_abi_json():
     """#483 SABOTAGE: человеческий текст протекает в stdout ABI.
@@ -4443,6 +4459,8 @@ CASES = [
      case_spawn_timeout),
     ("abi-json", "Human log leaks into the ABI stdout -> consumers cannot parse (#483)",
      case_abi_json),
+    ("capability-map", "The generated capability map diverges from the registry (#485)",
+     case_capability_map),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

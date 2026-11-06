@@ -342,6 +342,16 @@ audit-delta:
 audit-delta-selftest:
 	@$(PYTHON) tools/audit_delta.py --selftest
 
+# ДЕФЕКТ #485: КАРТА CHECK-ЦЕЛЕЙ, СГЕНЕРИРОВАННАЯ ИЗ РЕЕСТРА.
+# Ручная карта устаревает на 194-й цели и начинает ЛГАТЬ, а документ, который
+# врёт, хуже отсутствующего. `capability-map-check` требует, чтобы файл совпадал
+# с ТОЛЬКО ЧТО сгенерированным содержимым + 0 неклассифицированных целей.
+capability-map:
+	@$(PYTHON) tools/gen_capability_map.py
+
+capability-map-check:
+	@$(PYTHON) tools/gen_capability_map.py --check
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

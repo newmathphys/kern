@@ -139,6 +139,29 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
      is a product decision, not a patch.
   This is why `LIMITS` says BV is not proof-carrying — now with the exact numbers.
 
+- `tools/gen_capability_map.py` + `make capability-map` / `make capability-map-check` (CHECK) —
+  **#485, the capability map as a GENERATED artefact**. A hand-written map goes stale on the
+  194th target and starts LYING, and a document that lies is worse than none. So the map is
+  produced from `tools/registry.py` + `tools/canfail.py`: targets and their class, the canfail
+  case proving each target CAN go red (class #356), the defect numbers taken FROM THE CASE
+  DESCRIPTION ITSELF, and the reproduce command. The document is grouped into SIX echelons
+  (formal core / Belnap-Next / AI-sabotage / x-ray+precision+delta / kimg+attestation+wasm /
+  resources+self-control), not alphabetically, so a reviewer sees the defence structure in ten
+  seconds. `--check` compares the files with freshly generated content, so adding a target and
+  not regenerating REDDENS the gate; it also refuses an unclassified target and a target without
+  a case (only `kern` is exempt by name, and the exemption is written down). MEASURED:
+  **195 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
+  case `capability-map` deletes one row from the generated document and the gate reddens.
+- **`#486`: building the map exposed THREE real defects in the registry itself.** MEASURED:
+  (a) `"ubsaFe": "CHECK"` — a TYPO phantom: no such make target exists (the real one is
+  `ubsafe`), yet coverage was counted for it; (b) `"stress-real": "CHECK"` — also no target
+  (`zig build bench-stress-real` runs inside `bench`), so it was a phantom CHECK too;
+  (c) `"ubsafe": "ubsafe"` appeared TWICE in `CASE_TARGET` — the second key silently overwrote
+  the first (a lost case, the #356 class). All three removed; the registry now reports
+  `194/194` (after adding the new gate) and `CASE_TARGET` is complete in both directions.
+  This is exactly the value of machine parity: the map is not a summary, it is a CHECKER of the
+  registry.
+
 - `tools/audit_delta.py` + `make audit-delta` (META) / `make audit-delta-selftest` — **#484, stage 3 of
   the strategy: the differential audit**. A reviewer's question is not «how many functions were
   checked» but **«what got worse in THIS change»**; without a delta the audit cannot be a blocking

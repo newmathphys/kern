@@ -60,6 +60,9 @@ PAIRS = (
     # Границы проекта («чего НЕ доказываем») — документ, который читают ДО покупки;
     # одна версия без другой разошлась бы молча (#335).
     ("docs/LIMITS.ru.md", "docs/LIMITS.md"),
+    # Карта возможностей СГЕНЕРИРОВАНА из реестра: одна версия без другой
+    # разошлась бы молча (#335), а карта — вход для внешнего аудита (#485).
+    ("docs/CAPABILITY_MAP.ru.md", "docs/CAPABILITY_MAP.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",
