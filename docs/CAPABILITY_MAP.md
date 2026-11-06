@@ -11,7 +11,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 **protects** — defect numbers taken FROM THE CASE DESCRIPTION ITSELF;
 **command** — how to reproduce.
 
-## E1. Формальное ядро L4 и сертификаты доказательств (51)
+## E1. Формальное ядро L4 и сертификаты доказательств (52)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -46,6 +46,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `oracle-dtmc-check` | `oracle-dtmc-wrong` | — | `make oracle-dtmc-check` |
 | `oracle-string-check` | `oracle-string-falseaccept` | — | `make oracle-string-check` |
 | `pcc-check` | `pcc-check` | — | `make pcc-check` |
+| `pcc-offline-check` | `pcc-demo` | #488 | `make pcc-offline-check` |
 | `polyglot-7-check` | `polyglot-7-check` | — | `make polyglot-7-check` |
 | `presets-check` | `presets-check` | — | `make presets-check` |
 | `proof-check` | `proof-check` | — | `make proof-check` |
@@ -186,7 +187,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Ресурсная безопасность и самоконтроль контура (46)
+## E6. Ресурсная безопасность и самоконтроль контура (47)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -209,6 +210,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `golden` | `golden` | — | `make golden` |
 | `homeostatic-heal-check` | `homeostatic-heal-check` | — | `make homeostatic-heal-check` |
 | `inline-check` | `inline`, `inline-hygiene` | — | `make inline-check` |
+| `kern-scan-check` | `kern-scan` | #489 | `make kern-scan-check` |
 | `lean` | `lean-sorry` | — | `make lean` |
 | `lean-pin-check` | `lean-pin-drift` | — | `make lean-pin-check` |
 | `llms-check` | `llms-drift` | — | `make llms-check` |
@@ -239,11 +241,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **196**; class CHECK in `registry.py`: **196**;
-`CASE_TARGET` records: **242** (make-executable **238**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **198**; class CHECK in `registry.py`: **198**;
+`CASE_TARGET` records: **244** (make-executable **240**); without a case outside `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->195 · can-fail кейсы <!-- fact:canfail_cases -->240 ·
-якоря <!-- fact:anchors -->198 · цели реестра <!-- fact:registry_targets -->263 · META <!-- fact:meta_targets -->53 ·
+CHECK-цели <!-- fact:check_targets -->197 · can-fail кейсы <!-- fact:canfail_cases -->242 ·
+якоря <!-- fact:anchors -->200 · цели реестра <!-- fact:registry_targets -->265 · META <!-- fact:meta_targets -->53 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

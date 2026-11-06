@@ -345,6 +345,9 @@ class Fault:
 
 
 FAULTABLE = [
+    # #489: кейс `kern-scan` правит паспорт аудита — файл обязан быть в списке,
+    # иначе подсадка осталась бы в дереве (класс #225).
+    "tools/kern_scan.py",
     # #474: кейс `evidence-trust` правит СГЕНЕРИРОВАННУЮ таблицу доказательств
     # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
@@ -354,6 +357,8 @@ FAULTABLE = [
     "docs/CAPABILITY_MAP.md",
     # #487: кейс `mutate-log` правит лог свипа — файл обязан быть в FAULTABLE.
     "docs/evidence/mutate_full.log",
+    # #488: кейс `pcc-demo` портит КОММИТНУТЫЙ сертификат.
+    "audits/pcc/cwe191_good_sub_good.proof",
     "docs/evidence/scorecard.json",
     # Дефект #225: кейс `metrics-guard` правит PROJECT.md, а файла не было
     # в списке -> откат не срабатывал, и подсадка оставалась в дереве.
@@ -2282,6 +2287,16 @@ def case_xray_float_skip():
     return "make xray-check"
 
 
+def case_pcc_demo():
+    """#488 SABOTAGE: сертификат испорчен — витрина обязана покраснеть.
+
+    ЛОМАЕМ: в коммитнутом выводе `false` заменяется на `true`, то есть корень
+    вывода перестаёт быть `false`. Получатель без решателя ОБЯЗАН это увидеть;
+    если гейт остаётся зелёным — витрина не измеряет проверку.
+    """
+    patch("audits/pcc/cwe191_good_sub_good.proof", "false", "true")
+    return "make pcc-offline-check"
+
 def case_mutate_log():
     """#487 SABOTAGE: лог свипа объявляет успех при ненулевом RC.
 
@@ -2304,6 +2319,18 @@ def case_capability_map():
           "| `abi-check` | `abi-json` | #483 | `make abi-check` |",
           "| ~~удалено~~ | | | |  # ЛОМАЕМ (#485)")
     return "make capability-map-check"
+
+def case_kern_scan():
+    """#489 SABOTAGE: паспорт «одной кнопки» снова зовёт SMELL угрозой.
+
+    ЛОМАЕМ ровно защищаемое свойство (дефект #489b): в паспорте SMELL сливается
+    с угрозами в одном числе. Для владельца проекта это худший класс — отчёт
+    называет не то, что произошло. `make kern-scan-check` обязан покраснеть.
+    """
+    patch("tools/kern_scan.py",
+          'threat_types = ("CRASH PATH", "OVERFLOW PATH", "BOUNDS PATH", "DEAD BRANCH")',
+          'threat_types = ("SMELL",)  # ЛОМАЕМ (#489b)')
+    return "make kern-scan-check"
 
 def case_abi_json():
     """#483 SABOTAGE: человеческий текст протекает в stdout ABI.
@@ -4473,8 +4500,12 @@ CASES = [
      case_abi_json),
     ("capability-map", "The generated capability map diverges from the registry (#485)",
      case_capability_map),
+    ("kern-scan", "The one-button passport calls style SMELL a threat (#489)",
+     case_kern_scan),
     ("mutate-log", "The mutation log declares success with a non-zero RC (#487)",
      case_mutate_log),
+    ("pcc-demo", "A forged certificate is accepted without a solver (#488)",
+     case_pcc_demo),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

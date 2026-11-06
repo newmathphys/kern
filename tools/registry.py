@@ -65,6 +65,9 @@ CLASS = {
     "capability-map-check": "CHECK",
     # #487: лог мутаций сверяется с facts.json и README (машинный владелец).
     "mutate-log-check": "CHECK",
+    "kern-scan-check": "CHECK",
+    # #488: витрина Этапа 4 — сертификат проверяется БЕЗ решателя у получателя.
+    "pcc-offline-check": "CHECK",
     # #485: генератор карты — инструмент сопровождения, не гейт.
     "capability-map": "META",
     # #487: самопроверка стража лога (5 видов поломки на синтетике).
@@ -393,6 +396,8 @@ CASE_TARGET = {
     "abi-json": "abi-check",
     "capability-map": "capability-map-check",
     "mutate-log": "mutate-log-check",
+    "kern-scan": "kern-scan-check",
+    "pcc-demo": "pcc-offline-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",

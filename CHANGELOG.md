@@ -55,6 +55,23 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Fixed
 
+- `tools/kern_scan.py` + `make kern-scan-check` — **#489**: the «ONE BUTTON» for ANY folder
+  (`python3 tools/kern_scan.py <path>`): inventory → `--xray` (ABI `--xray-json`) → `@kern:`
+  contracts → `--anti-cheat` → ONE-SCREEN passport (RU + `--json`). Scope is honest: on a big repo
+  `--sample N` takes a deterministic alphabetical slice and the passport says **ВЫБОРКА** instead of
+  pretending it scanned everything. Measured on FIVE third-party corpora (read-only, temp copies):
+  `cmark-gfm` C 3 threats; `TheAlgorithms/Rust` 2 (both real: `fast_factorial` `p == 0`,
+  `hamiltonian_cycle` `pos - 1`); `DeepJIT` C++20 0; `dsh-superagent` TS 0; `QuixBugs` 13 (ALL false —
+  the known `#476` class, every one inside `correct_python_programs/`).
+- **#489a**: the passport printed paths of the TEMPORARY copy (`/tmp/kern_scan_ab12/…`) — unreadable
+  for the owner; now the original root is restored. **#489b**: `SMELL` (style) was counted as a
+  THREAT — the report named something that did not happen; threats and style are now separate numbers.
+- **#490**: the scanner concatenated stdout+stderr, so the tool's own diagnostics (`[!] BV-форма
+  условия: внутренняя ошибка`) broke the ABI — it stayed green on fixtures (empty stderr) and failed
+  on EVERY third-party repo with `arr[i]` in a condition. Now `run_abi()` reads **stdout only** and the
+  passport reports `diagnostics_to_stderr`. The gate grew R7 (fixture WITH stderr) and R8 (a real
+  third-party corpus, named SKIP if absent), and R4 now compares the **set of types**, not the count —
+  the first version was vacuous because 1 `SMELL` happened to equal 1 real threat.
 - `tools/kern_contracts.py` — **defect #465**: nested `if/else`
   (`if (a > b) { if (a > 0) { … } else { … } } else { … }`) collapsed into a single statement
   (`SKIP — c-выражение вне подмножества: 'a > b) if (a > 0'`). `_collapse_cond_returns` now
@@ -139,6 +156,20 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
      is a product decision, not a patch.
   This is why `LIMITS` says BV is not proof-carrying — now with the exact numbers.
 
+- `tools/pcc_demo_check.py` + `make pcc-offline-check` (CHECK) — **#488 / STAGE 4: the proof-carrying
+  artifact verified BY THE RECIPIENT WITHOUT A SOLVER**. The whole B2B claim («the artefact carries
+  its proof, the recipient needs no Z3») was unmeasured text; now it is a gate. It runs in a CLEAN
+  environment (`env -i`, `PATH=/usr/bin:/bin`, no `.venv`) and PROVES the absence of the solver
+  instead of assuming it (`command -v z3` must print `NO_Z3` — otherwise the «without Z3» demo would
+  be self-deception). Then: (1) `kernc check-integrity audits/real_code_corpus.kimg` -> rc=0
+  (Merkle root + per-object digests over 88 objects, so bit-rot cannot pass); (2) `kernc check-proof
+  audits/pcc/cwe191_good_sub_good.smt2 audits/pcc/...proof` -> rc=0 with
+  `[PROOF VERIFIED] trusted: 0 | holes: 0` (22 steps, premises 3/3, NOT `PARTIAL`); (3) NON-VACUITY:
+  a forged proof (one `false` -> `true`) must be REJECTED with rc!=0 and a NAMED reason
+  (`ОТВЕРГНУТО: корень вывода не является false`) — a demo that accepts forgeries measures nothing.
+  Both the certificate and its SMT-LIB formula are COMMITTED (`audits/pcc/`), so the demo is
+  hermetic and re-runnable by anyone, including a container with no solver at all.
+  Can-fail case `pcc-demo` corrupts the committed proof and the gate reddens in 0 s.
 - `tools/mutate_log_check.py` + `make mutate-log-check` (CHECK) / `make mutate-log-selftest` (META)
   — **#487, the mutation log gets a MACHINE OWNER**. Three different numbers (1345 in the log,
   1376 in README, 1597 in facts) lived side by side precisely because nobody compared the sweep
@@ -167,7 +198,7 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
   seconds. `--check` compares the files with freshly generated content, so adding a target and
   not regenerating REDDENS the gate; it also refuses an unclassified target and a target without
   a case (only `kern` is exempt by name, and the exemption is written down). MEASURED:
-  **195 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
+  **197 CHECK targets, 0 unclassified, 0 without a case** — including the gate itself. Can-fail
   case `capability-map` deletes one row from the generated document and the gate reddens.
 - **`#486`: building the map exposed THREE real defects in the registry itself.** MEASURED:
   (a) `"ubsaFe": "CHECK"` — a TYPO phantom: no such make target exists (the real one is
