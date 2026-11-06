@@ -30,6 +30,11 @@ cd "$ROOT"
 [ -x "dist/kerna" ] || { echo "[!] нет dist/kerna — сначала: make kerna-build" >&2; exit 3; }
 [ -x "zig-out/bin/kernc" ] || { echo "[!] нет zig-out/bin/kernc — сначала: zig build" >&2; exit 3; }
 [ -x ".venv/bin/z3" ] || { echo "[!] нет .venv/bin/z3 — решатель обязателен" >&2; exit 3; }
+# ДЕФЕКТ #497: клиент получал ИНСТРУМЕНТ БЕЗ КОНТРАКТА О ГРАНИЦАХ. Архив без
+# `LIMITS` — это обещание без мелкого шрифта, поэтому теперь это ОТКАЗ сборки.
+for f in docs/LIMITS.md docs/LIMITS.ru.md; do
+  [ -f "$f" ] || { echo "[!] нет $f — архив без границ применимости запрещён (#497)" >&2; exit 3; }
+done
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/zig-out/bin" "$STAGE/.venv/bin"
@@ -38,6 +43,9 @@ cp dist/kerna "$STAGE/kerna"
 cp zig-out/bin/kernc "$STAGE/zig-out/bin/kernc"
 cp .venv/bin/z3 "$STAGE/.venv/bin/z3"
 cp server.json LICENSE LICENSE-COMMERCIAL.md "$STAGE/"
+# #497: ГРАНИЦЫ ЕДУТ ВМЕСТЕ С БИНАРНИКОМ (что доказывается, а что НЕТ).
+cp docs/LIMITS.md "$STAGE/LIMITS.md"
+cp docs/LIMITS.ru.md "$STAGE/LIMITS.ru.md"
 
 cat > "$STAGE/README-RUN.txt" <<'EOF'
 KERN — Zero-Dependency Appliance
@@ -54,7 +62,8 @@ KERN — Zero-Dependency Appliance
   rc=2 — ДИСТРИБУТИВ НЕПОЛОН или нет решателя (это НЕ «код чист»)
 
 ЛИЦЕНЗИЯ: AGPL-3.0-or-later (LICENSE) либо коммерческая (LICENSE-COMMERCIAL.md).
-ГРАНИЦЫ: docs/LIMITS.md в репозитории — что доказывается, а что нет.
+ГРАНИЦЫ: LIMITS.ru.md / LIMITS.md РЯДОМ (в этом же архиве) — что доказывается,
+        а что НЕТ. Прочтите до первого аудита.
 EOF
 
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS )
