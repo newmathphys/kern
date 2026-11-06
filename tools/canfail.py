@@ -2280,6 +2280,21 @@ def case_xray_float_skip():
     return "make xray-check"
 
 
+def case_xray_precision():
+    """#475 SABOTAGE: гард `while` снова не прикладывается к телу.
+
+    ЛОМАЕМ ровно починенное (`#471b`): список условий цикла обрезается до
+    пустого. Тогда `gcd_while_rs` из `tests/fixtures/precision_clean` (КОРРЕКТНЫЙ
+    Евклид) снова становится ЛОЖНЫМ обвинением, и гейт точности обязан
+    покраснеть на «clean: находок 1 (ожидали 0)».
+    Кейс ДВУСТОРОННИЙ по смыслу: он ломает не проверку, а анализатор.
+    """
+    patch("tools/kern_contracts.py",
+          "+ _clike_while_conds_at(_pos_d, body, lang)",
+          "+ _clike_while_conds_at(_pos_d, body, lang)[:0]  # ЛОМАЕМ (#475)")
+    return "make xray-precision"
+
+
 def case_evidence_trust():
     """#474 SABOTAGE: у `PROVEN` снимается число доверенных шагов.
 
@@ -4387,6 +4402,8 @@ CASES = [
     ("xray-float-skip", "f64 falls back into i64 -> false division-by-zero (#472)",
      case_xray_float_skip),
     ("evidence-trust", "`PROVEN` loses the trusted-step count (#474)", case_evidence_trust),
+    ("xray-precision", "A guard is dropped -> a FALSE accusation on clean code (#475)",
+     case_xray_precision),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

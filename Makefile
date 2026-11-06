@@ -290,6 +290,15 @@ evidence-trust:
 evidence-trust-selftest:
 	@$(PYTHON) tools/evidence_trust_check.py --selftest
 
+# ДЕФЕКТ #475: ГЕЙТ ТОЧНОСТИ `--xray` — ДВУСТОРОННИЙ.
+# ИЗМЕРЕНО на чужом коде: точность 56 % на `TheAlgorithms/Rust` (18 находок,
+# 8 ложных) и 21 ложное обвинение на 50 КОРРЕКТНЫХ программах QuixBugs.
+# Ложное обвинение хуже пропуска, поэтому контур: `precision_clean` -> находок 0,
+# `precision_buggy` -> ровно 5 (полнота), `precision_known_fp` -> ровно 1
+# (ретаргет #476: когда починят, гейт потребует перенести функцию обратно).
+xray-precision:
+	@$(PYTHON) tools/xray_precision_check.py
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

@@ -54,8 +54,10 @@ counter. Rule: **a guard fix must be verified by the list of findings, not only 
 2. **Mutation sweep** — cut at 704/1597 (machine powered off). Restart on a clean tree, then
    `docs/evidence/mutate_full.log` 1345 → **1597** and `README` 1376 → 1597, with the kill
    split `test / compile / timeout`.
-3. **Precision gate** `make xray-precision`: `QuixBugs/correct_python_programs` (50 files) →
-   **exactly 0** findings; `TheAlgorithms/Rust` → precision ≥ 0.90.
+3. **DONE:** precision gate `make xray-precision` (#475) — `precision_clean` -> 0 findings,
+   `precision_buggy` -> 5/5, `precision_known_fp` -> ratchet for #476, external corpus at
+   baseline 21 (target 0). MEASURED on 50 CORRECT QuixBugs programs: **21 false accusations** —
+   that debt is now a number, not an opinion.
 4. **`spawn` choke point** — 168 `subprocess.run` sites versus 15 with a limit (class `#470`).
 5. **`premises_unbound`** — unsigned premises: until they bind, there is no automatic
    certificate for BV (handwritten `.smt2` stays a workaround).

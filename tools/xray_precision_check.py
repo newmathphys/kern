@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""ГЕЙТ ТОЧНОСТИ `--xray` (#475): ДВУСТОРОННИЙ И ГЕРМЕТИЧНЫЙ.
+
+ЗАЧЕМ. Охота на чужом коде дала **56 %** точности на `TheAlgorithms/Rust`
+(18 находок, 8 ложных). Ложное обвинение — худший класс исхода, поэтому
+точность должна измеряться МАШИНОЙ, а не триажем вручную. Корпус QuixBugs
+лежит вне репозитория, поэтому основа гейта — ГЕРМЕТИЧНЫЙ микрокорпус:
+
+  * `tests/fixtures/precision_clean/`  (py + rs + c) — код с ПОЛНЫМИ гардами:
+    `находок 0`. Любая находка = регресс ложного обвинения (#471a/b/c, #472,
+    #473, #454, #179, #468 — по одному представителю на класс);
+  * `tests/fixtures/precision_buggy/`  — тот же класс ошибок БЕЗ гардов:
+    ровно `EXPECTED_BUGGY` находок и КАЖДОЕ имя из `REQUIRED_FOUND` на месте
+    (пропуск = потеря сигнала, FN).
+
+ПЛЮС необязательная часть на внешнем корпусе (`QuixBugs/correct_python_programs`,
+50 корректных программ): если он есть — находок обязано быть 0; если его нет —
+печатается НАЗВАННЫЙ пропуск, а не зелёный результат (принцип `translator-diff`).
+
+Почему это не «вакуумная» проверка: обе стороны обязательны. Заглушив
+анализатор, получим 0 в clean И 0 в buggy — вторая половина покраснеет.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PY = sys.executable
+EXTRACTOR = ROOT / "tools" / "kern_contracts.py"
+CLEAN = ROOT / "tests" / "fixtures" / "precision_clean"
+BUGGY = ROOT / "tests" / "fixtures" / "precision_buggy"
+KNOWN_FP = ROOT / "tests" / "fixtures" / "precision_known_fp"
+EXT = Path.home() / ".cache" / "kern" / "repos" / "QuixBugs" / "correct_python_programs"
+
+# Ожидаемое число находок на «багованном» корпусе (5 функций, каждая обязана найтись).
+EXPECTED_BUGGY = 5
+REQUIRED_FOUND = ("div_unguarded", "idx_unguarded_literal", "mod_unguarded",
+                  "div_unguarded_rs", "mod_unguarded_rs")
+# Известные ложные обвинения (ретаргет #476): РОВНО столько и НИКАКИХ других.
+EXPECTED_KNOWN_FP = 1
+KNOWN_FP_NAMES = ("idx_literal_guard",)
+# База ложных обвинений на внешнем корпусе (ИЗМЕРЕНО: 21 из 50 корректных
+# программ). ЦЕЛЬ — 0. Гейт краснеет, если число ВЫРОСЛО: так регрессы видны,
+# а существующий долг честно назван числом, а не спрятан.
+EXT_FP_BASELINE = 21
+
+RE_SUMMARY = re.compile(r"находок\s+(\d+)")
+RE_FINDING = re.compile(r"\[(CRASH PATH|BOUNDS PATH|OVERFLOW PATH|DEAD BRANCH)\]\s+(\w+)")
+
+
+def xray(path: Path) -> tuple[int, str]:
+    p = subprocess.run([PY, str(EXTRACTOR), "--xray", str(path)],
+                       cwd=str(ROOT), capture_output=True, text=True, timeout=600)
+    return p.returncode, (p.stdout or "") + (p.stderr or "")
+
+
+def findings_of(out: str) -> tuple[int, set[str]]:
+    m = RE_SUMMARY.search(out)
+    n = int(m.group(1)) if m else -1
+    return n, {fn for _lab, fn in RE_FINDING.findall(out)}
+
+
+def main() -> int:
+    bad: list[str] = []
+
+    # --- ЧАСТЬ 1а: ТОЧНОСТЬ. Защищённый код обязан молчать.
+    rc_c, out_c = xray(CLEAN)
+    n_c, f_c = findings_of(out_c)
+    print(f"[i] clean: находок {n_c} (ожидали 0), rc={rc_c}")
+    if n_c != 0:
+        bad.append(f"ЛОЖНЫЕ ОБВИНЕНИЯ на защищённом коде: {n_c} — {sorted(f_c)}")
+    if rc_c != 0:
+        bad.append(f"`--xray` упал на clean-корпусе (rc={rc_c})")
+
+    # --- ЧАСТЬ 1б: РЕТАРГЕТ известных ложных обвинений (#476).
+    # Ровно столько и только эти имена: когда дефект починят, здесь станет 0 и
+    # гейт ПОТРЕБУЕТ перенести функцию в `precision_clean` (ретаргет в обе стороны).
+    rc_k, out_k = xray(KNOWN_FP)
+    n_k, f_k = findings_of(out_k)
+    print(f"[i] known_fp: находок {n_k} (ожидали {EXPECTED_KNOWN_FP}: {KNOWN_FP_NAMES})")
+    if n_k != EXPECTED_KNOWN_FP:
+        bad.append(f"ретаргет #476: находок {n_k}, ожидали {EXPECTED_KNOWN_FP} — "
+                   f"если 0, дефект исправлен: перенесите функцию в precision_clean")
+    extra = sorted(f_k - set(KNOWN_FP_NAMES))
+    if extra:
+        bad.append(f"в known_fp появились НОВЫЕ имена (не из списка): {extra}")
+
+    # --- ЧАСТЬ 1в: ПОЛНОТА. Багованный код обязан ловиться, и КАЖДАЯ функция.
+    rc_b, out_b = xray(BUGGY)
+    n_b, f_b = findings_of(out_b)
+    print(f"[i] buggy: находок {n_b} (ожидали {EXPECTED_BUGGY}), rc={rc_b}")
+    if n_b != EXPECTED_BUGGY:
+        bad.append(f"полнота: находок {n_b}, ожидали {EXPECTED_BUGGY}")
+    missing = [f for f in REQUIRED_FOUND if f not in f_b]
+    if missing:
+        bad.append(f"потеря сигнала (FN): не найдены {missing}")
+
+    # --- ЧАСТЬ 2: внешний корпус (необязательный, НАЗВАННЫЙ пропуск).
+    if EXT.is_dir():
+        rc_e, out_e = xray(EXT)
+        n_e, f_e = findings_of(out_e)
+        print(f"[i] QuixBugs/correct_python_programs: находок {n_e} "
+              f"(база {EXT_FP_BASELINE}, цель 0)")
+        if n_e > EXT_FP_BASELINE:
+            bad.append(f"РЕГРЕСС на 50 КОРРЕКТНЫХ программах: {n_e} > базы "
+                       f"{EXT_FP_BASELINE} — {sorted(f_e)[:8]}")
+        elif n_e < EXT_FP_BASELINE:
+            print(f"[i] ЛУЧШЕ БАЗЫ на {EXT_FP_BASELINE - n_e}: снизьте "
+                  f"EXT_FP_BASELINE до {n_e} (ретаргет вниз)")
+        if rc_e != 0:
+            bad.append(f"`--xray` упал на внешнем корпусе (rc={rc_e})")
+    else:
+        print(f"[SKIP] внешний корпус отсутствует: {EXT} — часть 2 НЕ выполнена "
+              f"(это названный пропуск, а не «зелено»)")
+
+    for b in bad:
+        print(f"[!] {b}")
+    if bad:
+        print(f"[FAIL] #475: провалов {len(bad)}")
+        return 1
+    print("[OK] #475: защищённый код молчит (0), 5/5 ошибок найдены, "
+          f"ретаргет #476 = {EXPECTED_KNOWN_FP}, внешний корпус на базе "
+          f"{EXT_FP_BASELINE} (цель 0)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

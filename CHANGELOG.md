@@ -119,7 +119,26 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
-- `tools/audits_run.py` — **defect #474**: the evidence table printed `**PROVEN**` for
+- `tools/xray_precision_check.py` + `make xray-precision` (CHECK) — **defect #475, the
+  PRECISION gate**. Precision on third-party code was measured at **56 %** on
+  `TheAlgorithms/Rust` (18 findings, 8 false) and, worse, **21 false accusations on 50
+  CORRECT `QuixBugs` programs** — and a false accusation is the worst outcome (worse than a
+  miss). The gate is two-sided and hermetic: `precision_clean/` (py+rs+c, every guard style:
+  if-return, if-else, while, assert, range check, f64) must yield **0 findings**;
+  `precision_buggy/` must yield **exactly 5** with every expected name present (a missed
+  finding = lost signal); `precision_known_fp/` must yield **exactly 1** — a RATCHET for
+  **`#476`**, so when that defect is fixed the gate goes red and demands the function be moved
+  back into `precision_clean`. External corpus (`QuixBugs/correct_python_programs`) is checked
+  when present against a NAMED baseline (`EXT_FP_BASELINE = 21`, target 0): growth reddens the
+  gate, improvement prints "lower the baseline". A missing corpus is a NAMED skip, never a
+  silent green. Can-fail case `xray-precision` drops the `while` guard and the gate reddens in
+  18 s.
+- **Named boundary `#476` (OPEN, not fixed)**: `len(<literal list>)` in a guard is not unified
+  with the literal length, so `data = [1,2,3,4]; if 0 <= i < len(data): return data[i]` is
+  accused with the counterexample `i = -1`. It is NOT hidden in an allow-list: the function
+  lives in `tests/fixtures/precision_known_fp/` and the gate asserts exactly one finding there,
+  so the debt is counted and the ratchet works in both directions.
+
   formulas whose proof the checker verified only PARTIALLY. MEASURED on
   `audits/smt2/hex_index_deepjit_hex_hi.smt2`: the solver says `ДОКАЗАНО`, the proof checker
   says `[PROOF PARTIAL] … ДОВЕРЕННЫХ 15` (bit-blast axioms `k!` — an unprovable free constant,

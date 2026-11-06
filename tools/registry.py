@@ -52,6 +52,9 @@ CLASS = {
     # ДЕФЕКТ #474: `PROVEN` в таблице доказательств обязан нести число
     # доверенных шагов пруф-чекера (иначе две претензии под одним словом).
     "evidence-trust": "CHECK",
+    # ДЕФЕКТ #475: точность `--xray` измеряется машинно (clean=0, buggy=5/5,
+    # known_fp=ретаргет). Ложное обвинение хуже пропуска.
+    "xray-precision": "CHECK",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -359,6 +362,7 @@ CASE_TARGET = {
     "xray-while-guard": "xray-check",
     "xray-float-skip": "xray-check",
     "evidence-trust": "evidence-trust",
+    "xray-precision": "xray-precision",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",
