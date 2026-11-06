@@ -119,6 +119,26 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
+- **`#480` CLOSED BY MEASUREMENT (no code change)** — «`premises_unbound` для BV» is STRUCTURAL, not a
+  naming problem. Investigation, step by step:
+  1. with the depth fix (`#479`) the same file parses into 21 758 steps, and the refusal becomes
+     `premises_unbound` with `посылок 1/794`;
+  2. dumping the actual premises shows only THREE top-level `(asserted …)` steps — `$x16`, `$x22`,
+     `(not (bvuge result offset))` — so the missing piece looked like a hash-consed NAME;
+  3. `$x16` really is a `let` binding `(and $x9 $x15)` that expands to the contract assertion
+     verbatim, so TWO fixes were implemented: an abbreviation lookup for bare atoms in
+     `expandLets`, and a `collectAbbrevs` pre-pass (the map was EMPTY when the proof root is a
+     command list `(set-logic …) (declare-fun …) … (let …)`);
+  4. MEASURED after both fixes: still `посылок 1/794`, trusted steps 19 865 -> 19 874, verification
+     SLOWER. Cause, from the checker's own debug channel: the `?x` abbreviations are BIT-LEVEL
+     `mkbv` terms over hundreds of `k!` atoms (`?x17516 = (mkbv k!960 k!970 …)`), i.e. the 794
+     "premises" are bit-blast CLAUSES, not contract assertions. Matching them to 3 contract
+     assertions is conceptually impossible;
+  5. therefore BOTH fixes were REVERTED (rule: no measurement — no change) and the boundary is
+     recorded instead. The real fix requires a solver emitting DRAT/LFSC (cvc5 / Bitwuzla), which
+     is a product decision, not a patch.
+  This is why `LIMITS` says BV is not proof-carrying — now with the exact numbers.
+
 - `tools/abi_check.py` + `make abi-check` (CHECK) / `make abi-selftest` (META) — **defect #483, the
   machine ABI**. `kernc audit` turned out to be a DEMO of SMT theories (UNSAT core, arrays, CHC),
   not a code auditor: the real funnel and findings live in the Python frontend. So the versioned

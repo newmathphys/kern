@@ -31,8 +31,11 @@ axioms `k!` — a free unprovable constant — so a strict offline check without
 **Why BV is still not proof-carrying (numbers, `#480`):** with the limit lifted the same file
 parses into **21 758 steps**, of which **19 865 are trusted** (`def-axiom`, the `k!` axioms), and
 «premises» are **794** against 3 contract assertions — because in a bit-blast the `asserted`
-steps are BIT-BLAST CLAUSES, not premises. Classifying them as tautologies/definitions is the
-next piece of work, and it will not make BV certifiable without a DRAT/LFSC-emitting solver.
+steps are BIT-BLAST CLAUSES, not premises. CLOSED BY MEASUREMENT (`#480`): the `?x` abbreviations
+in the proof are bit-level `mkbv` terms over hundreds of `k!` (`?x17516 = (mkbv k!960 k!970 …)`),
+so matching 794 clauses to 3 assertions is conceptually impossible. Two fixes (an abbreviation
+lookup for atoms and a pre-pass collecting the map) left it at `1/794` and were REVERTED.
+Conclusion: BV does not become certifiable without a DRAT/LFSC-emitting solver (cvc5 / Bitwuzla).
 
 **Consequence for «proof-carrying artifacts»:** they are proof-carrying for LIA and Boolean
 invariants; for BV they are `PARTIAL` with a named count. The way forward is a solver with
