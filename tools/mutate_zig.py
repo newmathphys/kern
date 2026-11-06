@@ -298,28 +298,34 @@ def tree_hash(root):
 # SIGKILL, поэтому класс «мёртвый замок блокирует навсегда» (дефект #50)
 # невозможен по построению.
 SHARED_LOCK = "/tmp/kern_mutation.lock"
+
+# ДЕФЕКТ #482: путь лока теперь ВЫВОДИТСЯ ИЗ ДЕРЕВА (`tools/mutation_lock.py`),
+# а не зашит. Причина: жёсткий путь означал «один лок на машину», поэтому
+# 40-минутный мутационный свип в главном дереве блокировал `canfail` — то есть
+# ЛЮБУЮ проверку гейтов, даже про другой код. Защита `#88b` сохранена: в ОДНОМ
+# дереве `canfail` и `mutate_zig` по-прежнему исключают друг друга, потому что
+# имя выводится из абсолютного пути корня.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mutation_lock import acquire as _acquire_tree_lock, lock_path as _tree_lock_path  # noqa: E402
 _lock_holder = []  # держим ссылку: иначе GC закроет fd и снимет flock
 
 
 def acquire_lock(root):
-    """Эксклюзивная блокировка прогона (ОБЩАЯ с canfail.py).
+    """Эксклюзивная блокировка ДЕРЕВА (общая с canfail.py в этом же дереве).
 
     Мутации идут ТОЛЬКО в копии дерева (см. main), а параллельный запуск
-    (в том числе из телеметрии) блокируется общим flock.
+    (в том числе из телеметрии) блокируется flock'ом ЭТОГО дерева (#482):
+    другое дерево/ворктри — свой лок, поэтому фоновый свип не блокирует
+    проверки в основном дереве.
     """
-    import fcntl
-    f = open(SHARED_LOCK, "w")
-    try:
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        f.close()
-        print("[!] уже идёт мутационный прогон или canfail (общий замок занят).",
+    f = _acquire_tree_lock(root)
+    if f is None or f == "BUSY":
+        print(f"[!] в дереве {Path(root).resolve()} уже идёт мутационный прогон "
+              f"или canfail (замок {Path(_tree_lock_path(root)).name} занят).",
               file=sys.stderr)
         print("    Дождитесь завершения — параллельные прогоны искажают исходники.",
               file=sys.stderr)
         sys.exit(2)
-    f.write(str(os.getpid()))
-    f.flush()
     _lock_holder.append(f)  # без ссылки GC закроет fd и снимет замок
     return f
 

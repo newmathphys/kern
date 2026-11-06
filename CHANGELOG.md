@@ -119,6 +119,21 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
+- `tools/mutation_lock.py` + `make mutation-lock-selftest` (META) / `make mutate-full` — **defect
+  #482**: the mutation tools shared ONE hard-coded lock `/tmp/kern_mutation.lock`, i.e. one lock
+  PER MACHINE, so a 40-minute `mutate_zig` sweep blocked `canfail` — and therefore EVERY gate
+  check, even ones about unrelated code. MEASURED as real friction: the sweep in this session had
+  to be paused three times just to run a single can-fail case. The lock now names the WORKING TREE
+  (`/tmp/kern_mutation.<sha256(root)[:12]>.lock`): inside one tree `canfail` and `mutate_zig` still
+  exclude each other (defect #88b stays fixed — both edit the sources), while separate git
+  worktrees get separate locks. `make mutate-full` runs the full sweep in its own worktree and
+  copies the log back. The selftest proves all four properties with REAL flocks: different trees
+  have different paths, the same tree returns `BUSY`, ANOTHER tree stays free, and after closing
+  the lock is free again.
+  HONEST NOTE: the first attempt exited `rc=2` because the worktree was created at `HEAD` *before*
+  this fix, so it still used the machine-wide lock — the defect reproduced itself while being
+  fixed. The sweep must therefore start AFTER the commit that contains the fix.
+
 - `src/verifier/proof_check.zig` — **defect #479**: the S-expression depth ceiling was TOO LOW for the
   native build. MEASURED on `audits/smt2/kernel_align_deepjit_align_guarded.smt2`: Z3's proof of a
   32-bit alignment bit-blast has **depth 14 113** (1.29 MB) while `MAX_SEXP_DEPTH` was **12 288**,

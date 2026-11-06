@@ -205,6 +205,8 @@ CLASS = {
     "evidence-trust-selftest": "META",
     # #477: мета — шлюз проверяется ТРЕМЯ исходами настоящими подпроцессами.
     "spawn-selftest": "META",
+    # #482: мета — лок НА ДЕРЕВО: одно дерево BUSY (#88b цел), другое свободно.
+    "mutation-lock-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
     "docs-parity": "META",              # EN/RU-факты
@@ -303,6 +305,9 @@ CLASS = {
     "help": "META", "venv": "META", "zig": "META", "clean": "META", "clean-cache": "META",
     "echelons": "META", "research": "META", "formal-ci": "META", "test-all": "META",
     "mutate": "CHECK", "prove": "CHECK", "ci": "META", "ci-fast": "META", "registry": "CHECK",
+    # #482: полный мутационный свип в ОТДЕЛЬНОМ worktree. Это не гейт (он идёт
+    # ~40 минут и пишет docs/evidence), а инструмент сопровождения -> META.
+    "mutate-full": "META",
     # хардкор-аудит C-ABI: ОБЕ обязаны уметь падать (проверено can-fail кейсами)
     "c-abi-test": "CHECK", "c-abi-threads": "CHECK",
 }

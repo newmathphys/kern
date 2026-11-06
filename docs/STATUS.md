@@ -36,11 +36,11 @@ Can-fail cases: **<!-- fact:canfail_cases -->237**, of which
 
 ## Defect journal
 
-Numbered entries: **395**.
+Numbered entries: **396**.
 
 | Explicit status | Count |
 | --- | --- |
-| Fixed | 252 |
+| Fixed | 253 |
 | Fix submitted upstream (our patch in someone else's repo) | 1 |
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |

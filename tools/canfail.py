@@ -224,19 +224,16 @@ def acquire_run_lock():
     даже при SIGKILL — в отличие от файла-флага, дефект #50).
 
     Возвращает открытый файловый дескриптор (держать до конца процесса)
-    либо None, если блокировка уже занята.
+    либо `BUSY`, если лок дерева занят.
+
+    #482: путь лока ВЫВОДИТСЯ ИЗ ДЕРЕВА (`tools/mutation_lock.py`), а не зашит
+    в `/tmp`. Жёсткий путь означал «один лок на машину»: 40-минутный свип в
+    главном дереве блокировал любую проверку гейтов. Защита #88b цела — в ОДНОМ
+    дереве `canfail` и `mutate_zig` по-прежнему исключают друг друга.
     """
-    try:
-        import fcntl
-    except ImportError:  # не POSIX
-        return None
-    f = open("/tmp/kern_mutation.lock", "w")
-    try:
-        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except (BlockingIOError, OSError):
-        f.close()
-        return "BUSY"
-    return f
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from mutation_lock import acquire as _acquire
+    return _acquire(Path(__file__).resolve().parent.parent)
 
 
 
