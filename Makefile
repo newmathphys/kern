@@ -331,6 +331,17 @@ abi-check:
 abi-selftest:
 	@$(PYTHON) tools/abi_check.py --selftest
 
+# ДЕФЕКТ #484 / ЭТАП 3: ДИФФЕРЕНЦИАЛЬНЫЙ АУДИТ (`audit-delta`).
+# Вопрос ревьюера — не «сколько проверено», а «что стало ХУЖЕ в этом изменении».
+# Сравнение идёт ЧЕРЕЗ ABI (#483), а не по тексту: новая находка -> rc=1.
+#   make audit-delta BASE=../old HEAD=.
+audit-delta:
+	@test -n "$(BASE)" -a -n "$(HEAD)" || { echo "использование: make audit-delta BASE=<dir> HEAD=<dir>"; exit 2; }
+	@$(PYTHON) tools/audit_delta.py "$(BASE)" "$(HEAD)"
+
+audit-delta-selftest:
+	@$(PYTHON) tools/audit_delta.py --selftest
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

@@ -1,6 +1,6 @@
 # KERN — Testing & Speed Guide (v2.5)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->193 · cases <!-- fact:canfail_cases -->238 · anchors <!-- fact:anchors -->196 · registry <!-- fact:registry_targets -->257 · META <!-- fact:meta_targets -->49 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->193 · cases <!-- fact:canfail_cases -->238 · anchors <!-- fact:anchors -->196 · registry <!-- fact:registry_targets -->259 · META <!-- fact:meta_targets -->51 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Канонический документ: **что** мы тестируем, **как** измеряем и **чем** ускоряем.
 > Каждое число получено прогоном; где выигрыш не измерен — так и написано.

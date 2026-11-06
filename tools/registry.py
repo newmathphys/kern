@@ -210,6 +210,9 @@ CLASS = {
     "spawn-selftest": "META",
     # #483: мета — валидатор ABI обязан отказывать на 6 видах поломки.
     "abi-selftest": "META",
+    # #484 / этап 3: дифференциальный аудит (что стало хуже между версиями).
+    "audit-delta": "META",
+    "audit-delta-selftest": "META",
     # #482: мета — лок НА ДЕРЕВО: одно дерево BUSY (#88b цел), другое свободно.
     "mutation-lock-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей

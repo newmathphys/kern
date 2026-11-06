@@ -162,7 +162,7 @@ $ make diff-equiv
 <!-- fact:core_tests -->460 теста ядра · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->491 каталог · <!-- fact:check_targets -->193 CHECK ·
 <!-- fact:canfail_cases -->238 can-fail кейсов · <!-- fact:anchors -->196 якорей ·
-<!-- fact:registry_targets -->257 цели · <!-- fact:meta_targets -->49 META ·
+<!-- fact:registry_targets -->259 цели · <!-- fact:meta_targets -->51 META ·
 <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 формально SMT ·
 <!-- fact:quixbugs.differential -->40/40 живой дифференциал.

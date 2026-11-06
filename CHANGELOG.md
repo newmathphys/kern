@@ -139,6 +139,21 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
      is a product decision, not a patch.
   This is why `LIMITS` says BV is not proof-carrying — now with the exact numbers.
 
+- `tools/audit_delta.py` + `make audit-delta` (META) / `make audit-delta-selftest` — **#484, stage 3 of
+  the strategy: the differential audit**. A reviewer's question is not «how many functions were
+  checked» but **«what got worse in THIS change»**; without a delta the audit cannot be a blocking
+  PR gate, because «was proven, now SKIP» is invisible in a full report. The comparison goes THROUGH
+  the machine ABI (`--xray-json`, #483) instead of parsing text: new finding -> exit code 1, fixed
+  finding -> 0, and a funnel drift (checked/trivial/skipped) is printed even when no finding was
+  added — that is the QUIET WEAKENING case («proved less, nothing new accused»), which is reported
+  explicitly. Finding identity is `(file, type, function)` and not the whole text: counterexamples
+  and line numbers change between versions, so comparing them raw would flag every code move as a
+  regression. HONEST BOUNDARY: «new finding» means «a detector fired», not «it was safe before»
+  — interprocedural inference is still not modelled.
+  Selftest (5/5): clean->buggy finds 5 regressions and 0 fixes, buggy->clean the inverse, and the
+  same input twice yields an EMPTY delta (a delta tool that always reports something would be
+  useless).
+
 - `tools/abi_check.py` + `make abi-check` (CHECK) / `make abi-selftest` (META) — **defect #483, the
   machine ABI**. `kernc audit` turned out to be a DEMO of SMT theories (UNSAT core, arrays, CHC),
   not a code auditor: the real funnel and findings live in the Python frontend. So the versioned
