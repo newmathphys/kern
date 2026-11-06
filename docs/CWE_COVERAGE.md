@@ -70,8 +70,8 @@ through KERN's **own engines** — no mocks, no hand-written verdicts:
 <!-- fact:core_tests -->460 core tests · <!-- fact:next_tests -->53 next tests ·
 <!-- fact:catalog -->491 catalog · <!-- fact:check_targets -->192 CHECK ·
 <!-- fact:canfail_cases -->237 can-fail cases · <!-- fact:anchors -->195 anchors ·
-<!-- fact:registry_targets -->253 registry targets ·
-<!-- fact:meta_targets -->46 meta · <!-- fact:lean_theorems -->147 Lean theorems ·
+<!-- fact:registry_targets -->255 registry targets ·
+<!-- fact:meta_targets -->48 meta · <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs: <!-- fact:quixbugs.smt -->6 SMT-provable ·
 <!-- fact:quixbugs.differential -->40 differential pairs.
 

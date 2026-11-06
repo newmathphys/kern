@@ -2876,10 +2876,18 @@ def case_smtlib_proof_depth():
     ⚠️ Почему правка именно такая, а не «уронить чекер»: она ВОЗВРАЩАЕТ ровно
     то состояние, из-за которого дефект и был найден. Если бы ворота остались
     зелёными, это значило бы, что они не измеряют глубину вообще.
+
+    ЯКОРЬ ОБНОВЛЁН (#479): константа больше не одно число — она РАЗВЕДЕНА по
+    цели (`isWasm() ? 4096 : 16384`). Кейс ломает NATIVE-ветвь до 4096, то есть
+    воспроизводит состояние «до правки» именно там, где дефект наблюдался.
+    Прежний анкер (`= 12288;`) перестал существовать, и гейт якорей
+    (`canfail --check-anchors`) законно потребовал обновления — иначе кейс
+    «ошибнулся» бы молча (дефект #113).
     """
     patch("src/verifier/proof_check.zig",
-          "pub const MAX_SEXP_DEPTH: u32 = 12288;",
-          "pub const MAX_SEXP_DEPTH: u32 = 4096;   // ЛОМАЕМ (#371 B)")
+          "pub const MAX_SEXP_DEPTH: u32 = if (builtin.target.cpu.arch.isWasm()) 4096 else 16384;",
+          "pub const MAX_SEXP_DEPTH: u32 = if (builtin.target.cpu.arch.isWasm()) 4096 else 4096;"
+          "   // ЛОМАЕМ (#371 B / #479)")
     return ("zig build && KERN_SMTLIB4_ONLY=QF_BV "
             "KERN_SMTLIB4_PROOF_TIMEOUT=120 make smtlib-proof-check")
 
