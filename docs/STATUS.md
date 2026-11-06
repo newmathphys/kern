@@ -10,10 +10,10 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->270 | every goal this repository claims to verify |
+| Targets, total | <!-- fact:registry_targets -->271 | every goal this repository claims to verify |
 | CHECK | <!-- fact:check_targets -->199 | must be able to fail |
 | MEASURE | 2 | cannot fail — therefore not a proof |
-| BUILD | <!-- fact:build_targets -->12 | L0 only: it compiles |
+| BUILD | <!-- fact:build_targets -->13 | L0 only: it compiles |
 | EXTERNAL | 3 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->54 | harness, generators, guards |
 

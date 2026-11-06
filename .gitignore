@@ -111,3 +111,6 @@ build/
 # #494: артефакты сборки kerna
 dist/
 .build-kerna/
+# #496: релизные архивы
+dist-release/
+kerna-dist-*.tar.gz

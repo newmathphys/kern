@@ -151,7 +151,7 @@ subset. It is a **scalpel plus a turnstile**:
 | CHECK targets | <!-- fact:check_targets -->199 |
 | can-fail cases | <!-- fact:canfail_cases -->244 |
 | Literal anchors | <!-- fact:anchors -->203 |
-| Registry targets | <!-- fact:registry_targets -->270 |
+| Registry targets | <!-- fact:registry_targets -->271 |
 | Lean theorems | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |
 | QuixBugs (differential) | <!-- fact:quixbugs.differential -->40 |

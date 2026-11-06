@@ -373,6 +373,10 @@ mutate-log-selftest:
 # #493: ЛИЦЕНЗИОННЫЙ ГЕЙТ — заголовок каждого файла = LICENSE (AGPLv3).
 # #494: Zero-Dependency Appliance. `kerna-check` СОБИРАЕТ настоящий
 # onefile-бинарь и проверяет паритет с dev + названный отказ без z3.
+# #496: РЕЛИЗНЫЙ АРХИВ (62 МБ -> 27 МБ): kerna + kernc + z3 + лицензии + SHA256SUMS.
+kerna-dist:
+	PYTHON=$(PYTHON) bash tools/make_kerna_dist.sh
+
 kerna-build:
 	PYTHON=$(PYTHON) bash tools/build_kerna.sh ./dist
 
