@@ -23,7 +23,10 @@ if [ ! -d "$WT/.git" ] && [ ! -f "$WT/.git" ]; then
   git worktree add --detach "$WT" HEAD >/dev/null || { echo "[!] worktree не создан"; exit 2; }
 else
   echo "[i] worktree уже есть: $WT"
-  git -C "$WT" checkout --detach HEAD >/dev/null 2>&1 || true
+  # ВАЖНО: обновляем worktree на ТЕКУЩИЙ HEAD главного дерева (объекты общие),
+  # иначе свип тестирует старый снимок — и «починка» не проверяется (#482/#479).
+  git -C "$WT" checkout --detach "$(git -C "$ROOT" rev-parse HEAD)" >/dev/null 2>&1 \
+    || echo "[!] worktree не переключён на HEAD главного дерева — свип пойдёт по старому снимку"
 fi
 
 echo "[i] свип: --max $MAX, jobs 4, в $WT (главное дерево свободно)"

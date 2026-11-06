@@ -2277,6 +2277,22 @@ def case_xray_float_skip():
     return "make xray-check"
 
 
+def case_abi_json():
+    """#483 SABOTAGE: человеческий текст протекает в stdout ABI.
+
+    ЛОМАЕМ: перед JSON печатается строка лога. Ровно это и делает машинный
+    интерфейс бесполезным — потребитель получает `json.loads` → JSONDecodeError
+    и падает ЦЕЛИКОМ, вместо того чтобы разобрать отчёт.
+    Гейт `make abi-check` обязан покраснеть на «stdout не является ОДНИМ
+    объектом JSON».
+    """
+    patch("tools/kern_contracts.py",
+          "        print(json.dumps(_doc, ensure_ascii=False, indent=2, sort_keys=False))",
+          "        print('ЛОМАЕМ (#483): лог в stdout')\n"
+          "        print(json.dumps(_doc, ensure_ascii=False, indent=2, sort_keys=False))")
+    return "make abi-check"
+
+
 def case_spawn_timeout():
     """#477 SABOTAGE: у одного подпроцесса снова НЕТ таймаута.
 
@@ -4425,6 +4441,8 @@ CASES = [
      case_xray_precision),
     ("spawn-timeout", "A subprocess loses its timeout -> the gate can hang forever (#477)",
      case_spawn_timeout),
+    ("abi-json", "Human log leaks into the ABI stdout -> consumers cannot parse (#483)",
+     case_abi_json),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

@@ -58,6 +58,9 @@ CLASS = {
     # ДЕФЕКТ #477: ратчет «подпроцесс без таймаута». Единый шлюз — tools/spawn.py
     # (таймаут всегда, z3 в PATH, названные исходы 124/125).
     "spawn-check": "CHECK",
+    # ДЕФЕКТ #483: машинный ABI аудита (`--xray-json`): схема, чистый stdout,
+    # тождество воронки. Ломающее изменение схемы обязано поднять версию.
+    "abi-check": "CHECK",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -205,6 +208,8 @@ CLASS = {
     "evidence-trust-selftest": "META",
     # #477: мета — шлюз проверяется ТРЕМЯ исходами настоящими подпроцессами.
     "spawn-selftest": "META",
+    # #483: мета — валидатор ABI обязан отказывать на 6 видах поломки.
+    "abi-selftest": "META",
     # #482: мета — лок НА ДЕРЕВО: одно дерево BUSY (#88b цел), другое свободно.
     "mutation-lock-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей
@@ -374,6 +379,7 @@ CASE_TARGET = {
     "evidence-trust": "evidence-trust",
     "xray-precision": "xray-precision",
     "spawn-timeout": "spawn-check",
+    "abi-json": "abi-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",

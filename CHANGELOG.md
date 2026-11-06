@@ -119,6 +119,21 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
+- `tools/abi_check.py` + `make abi-check` (CHECK) / `make abi-selftest` (META) — **defect #483, the
+  machine ABI**. `kernc audit` turned out to be a DEMO of SMT theories (UNSAT core, arrays, CHC),
+  not a code auditor: the real funnel and findings live in the Python frontend. So the versioned
+  ABI belongs THERE (`--xray-json`), which is exactly the «matryoshka» split (frontend + kernc
+  backend). Without an ABI every consumer (CI plugin, MCP server, a Go/Rust wrapper) had to parse
+  TEXT with regexes — i.e. to repeat the «the report says something other than what happened»
+  class on their side. The contract is explicit: `schema_version: "1.0"`, `summary` (files/total/
+  checked/trivial/skipped/findings/unreadable), structured `findings[]` (file/type/details),
+  `skipped[]` and `notes[]` histograms. The gate requires EXACTLY ONE JSON object on stdout (a
+  leaked log line breaks every consumer at once), the required keys, `summary.findings ==
+  len(findings)`, a non-empty `type`, and the funnel identity `checked+trivial+skipped == total`.
+  `--selftest` proves the validator refuses SIX breakage types; can-fail `abi-json` leaks a log
+  line into stdout and the gate reddens in 1 s. NOTE: `--json` already existed for CONTRACT
+  reports, so the new flag is `--xray-json` — reusing the old name would have silently changed an
+  existing interface.
 - `tools/mutation_lock.py` + `make mutation-lock-selftest` (META) / `make mutate-full` — **defect
   #482**: the mutation tools shared ONE hard-coded lock `/tmp/kern_mutation.lock`, i.e. one lock
   PER MACHINE, so a 40-minute `mutate_zig` sweep blocked `canfail` — and therefore EVERY gate

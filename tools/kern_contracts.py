@@ -3805,6 +3805,10 @@ def main(argv=None) -> int:
     # что и в `--xray`. Имя `--auto` добавлено, чтобы ожидание совпадало.
     ap.add_argument("--auto", default=None, metavar="PATH",
                     help="Zero-Annotation: проверять функции без @kern: (алиас --xray)")
+    ap.add_argument("--xray-json", dest="xray_json", action="store_true",
+                    help="ABI 1.0 (#483): машиночитаемый JSON аудита в stdout вместо "
+                         "текста (для CI-плагинов, MCP и обвязок на других языках). "
+                         "НЕ путать с `--json`, который пишет отчёт по КОНТРАКТАМ")
     ap.add_argument("--xray", default=None, metavar="PATH",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
                          "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
@@ -3913,7 +3917,8 @@ def main(argv=None) -> int:
     if getattr(args, "full_scan", None):
         return cmd_full_scan(args.full_scan, args.kernc)
     if args.xray:
-        return cmd_xray(args.xray, args.kernc)
+        return cmd_xray(args.xray, args.kernc,
+                        json_mode=bool(getattr(args, "xray_json", False)))
 
     if args.auto:
         return cmd_xray(args.auto, args.kernc)
@@ -8654,8 +8659,28 @@ def _xray_solver_gate(kernc) -> int:
     return 0
 
 
-def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
-    """ПУНКТ 13: рентген кода БЕЗ аннотаций."""
+def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False) -> int:
+    """ПУНКТ 13: рентген кода БЕЗ аннотаций.
+
+    `json_mode=True` (#483): человекочитаемый отчёт уходит в буфер, а в stdout
+    печатается РОВНО один объект JSON со схемой `schema_version = "1.0"`.
+    Зачем: пока ABI не было, любой потребитель (CI-плагин, MCP-сервер, обвязка
+    на другом языке) был обязан ПАРСИТЬ ТЕКСТ регулярками — то есть повторять
+    класс дефекта «отчёт говорит не то, что произошло» уже у себя.
+    """
+    if json_mode:
+        _payload: list[dict] = []
+        _buf = io.StringIO()
+        with contextlib.redirect_stdout(_buf):
+            _rc = _xray_json_run(path, kernc, show_all, _payload)
+        _doc = _payload[0] if _payload else {
+            "schema_version": XRAY_JSON_SCHEMA, "audit_target": str(path),
+            "summary": {"files": 0, "total": 0, "checked": 0, "trivial": 0,
+                        "skipped": 0, "findings": 0, "unreadable": 0},
+            "findings": [], "skipped": [], "notes": [], "human_log": _buf.getvalue()[-4000:],
+        }
+        print(json.dumps(_doc, ensure_ascii=False, indent=2, sort_keys=False))
+        return _rc
     if not Path(kernc).exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 2
@@ -8990,7 +9015,59 @@ def cmd_xray(path: str, kernc, show_all: bool = False) -> int:
 # а мёртвые ветви (SAT=unsat) исключаются из знаменателя с указанием причины.
 
 
-def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
+XRAY_JSON_SCHEMA = "1.0"
+"""Версия ABI `--xray --json` (#483).
+
+ПРАВИЛО: схема версионируется ЯВНО, и ломающее изменение поднимает версию.
+Потребители (CI-плагин, MCP-сервер, обвязка на другом языке) читают
+`schema_version` ПЕРВЫМ и отказываются разбирать незнакомую версию — иначе
+«ABI» превратился бы в набор догадок, то есть в тот же парсинг текста.
+"""
+
+_RE_FINDING_LINE = re.compile(r"^(?P<file>[^:]+):\s*\[(?P<type>[^\]]+)\]\s*(?P<rest>.*)$")
+
+
+def _xray_json_run(path: str, kernc, show_all: bool, payload: list) -> int:
+    """Прогон аудита с заполнением `payload[0]` (JSON-ABI, #483)."""
+    p = Path(path)
+    if p.is_dir():
+        return _xray_repo(p, kernc, show_all, json_out=payload)
+    # Одиночный файл: собираем тот же ABI из побочного канала `_LAST_XRAY`.
+    _rc = cmd_xray(path, kernc, show_all, False)
+    st = _LAST_XRAY.get("stat") or (0, 0, 0, 0, [])
+    checked, total, skipped, trivial, findings = st
+    payload.append(_xray_json_doc(str(p), 1, total, checked, trivial, skipped,
+                                  0, list(findings), {}, {}))
+    return _rc
+
+
+def _xray_json_doc(target: str, files: int, total: int, checked: int, trivial: int,
+                   skipped: int, unreadable: int, findings: list[str],
+                   reasons: dict[str, int], notes: dict[str, int]) -> dict:
+    """Собрать ОДИН объект ABI 1.0 из агрегатов аудита."""
+    ff: list[dict] = []
+    for x in findings:
+        m = _RE_FINDING_LINE.match(x.strip())
+        if m:
+            ff.append({"file": m.group("file").strip(), "type": m.group("type").strip(),
+                       "details": m.group("rest").strip()})
+        else:
+            ff.append({"file": "", "type": "UNPARSED", "details": x.strip()})
+    return {
+        "schema_version": XRAY_JSON_SCHEMA,
+        "audit_target": target,
+        "summary": {"files": files, "total": total, "checked": checked,
+                    "trivial": trivial, "skipped": skipped,
+                    "findings": len(findings), "unreadable": unreadable},
+        "findings": ff,
+        "skipped": [{"reason": k, "count": v} for k, v in
+                    sorted(reasons.items(), key=lambda kv: -kv[1])],
+        "notes": [{"note": k, "count": v} for k, v in
+                  sorted(notes.items(), key=lambda kv: -kv[1])],
+    }
+
+
+def _xray_repo(root: Path, kernc, show_all: bool = False, json_out: list | None = None) -> int:
     """ПОЛЕВОЙ АДАПТЕР №5: рекурсивный скан ЧУЖОГО репозитория.
 
     Обходит все поддерживаемые файлы, пропуская служебные каталоги, и печатает
@@ -9076,6 +9153,12 @@ def _xray_repo(root: Path, kernc, show_all: bool = False) -> int:
                               total_checked, total_fns, all_notes)
     for x in all_findings[:60]:
         print("  " + x)
+    # #483: ABI 1.0 — тот же объект, что читает потребитель, без парсинга текста.
+    if json_out is not None:
+        json_out.append(_xray_json_doc(str(root), len(files), total_fns, total_checked,
+                                       total_trivial, total_skip, bad_files,
+                                       list(all_findings), dict(all_reasons),
+                                       dict(all_notes)))
     return 0
 
 

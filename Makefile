@@ -321,6 +321,16 @@ mutation-lock-selftest:
 mutate-full:
 	@bash tools/mutate_full.sh
 
+# ДЕФЕКТ #483: ABI `--xray-json` — машинный контракт аудита.
+# Схема версионируется явно; гейт требует РОВНО ОДИН объект JSON в stdout,
+# обязательные ключи, совпадение счётчика с длиной списка и тождество воронки
+# `checked + trivial + skipped == total`. Ломающее изменение = поднять версию.
+abi-check:
+	@$(PYTHON) tools/abi_check.py
+
+abi-selftest:
+	@$(PYTHON) tools/abi_check.py --selftest
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build
