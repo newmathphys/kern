@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
-// ФИКСТУРА #495: ЛОЖНОЕ обвинение на реальном коде cmark-gfm (BSD-2-Clause).
+// ФИКСТУРА #495 (ЗАКРЫТ): НЕГАТИВНЫЙ контроль — обвинений быть НЕ ДОЛЖНО.
 // Транскрипция `extensions/autolink.c::autolink_delim` (Copyright (c) 2014, John MacFarlane).
-// Ожидание: находок НЕТ — `closing--` защищён `if (closing <= opening) { return link_end; }`.
+// `closing--` защищён `if (closing <= opening) { return link_end; }`. До #495 детектор
+// inc/dec брал инициализатор как ТОЧНОЕ значение (мутации в цикле и гарды не учитывались).
 // ИЗМЕРЕНО: KERN даёт [OVERFLOW PATH] `closing--` при `closing = 0`. Причина гипотезы:
 // `link_end` ПЕРЕПРИСВАИВАЕТСЯ внутри `for` (`link_end = i; break;`), после чего гард
 // в `switch` перестаёт сужать путь. Минимальные формы БЕЗ переприсваивания НЕ воспроизводят.

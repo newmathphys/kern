@@ -7596,6 +7596,29 @@ def _clike_incdec_findings(name: str, body: str, var_ranges: dict,
         nm = m.group(1) or m.group(2)
         if nm not in consts or nm not in var_ranges:
             continue
+        # ДЕФЕКТ #495 (найдено ТРОФЕЙНОЙ ОХОТОЙ на cmark-gfm): значение считалось
+        # ТОЧНЫМ по инициализатору, хотя переменная МУТИРУЕТ до этой точки, а
+        # гард-возврат перед ней не учитывался вообще. ИЗМЕРЕНО: `closing = 0`
+        # + `closing++` в цикле + `if (closing <= opening) { return; }`
+        # давали `[OVERFLOW PATH] closing-- при closing = 0` — ЛОЖНОЕ обвинение
+        # (gcc -fsanitize=undefined,address UB не видит).
+        #
+        # ЗВУЧНОСТЬ: обвиняем ТОЛЬКО на ПРЯМОЛИНЕЙНОМ пути с НЕИЗМЕНЁННЫМ
+        # значением — иначе «известное значение» это догадка.
+        #   1) до точки не должно быть НИ ОДНОГО другого присваивания `nm`
+        #      (кроме инициализатора) — иначе значение уже другое;
+        #   2) до точки не должно быть ветвлений/циклов/лямбда-условий:
+        #      `if`, `while`, `for`, `switch`, `cond ? a : b`, `&&`, `||`.
+        # ЦЕНА: теряем recall для «переполнение внутри ветви/цикла» — это
+        # осознанный обмен: ложное обвинение хуже пропуска (#178/#183).
+        prefix = body[:m.start()]
+        _writes = re.findall(
+            rf"(?<![\w.]){re.escape(nm)}\s*(?:\+\+|--|\+=|-=|\*=|/=|=(?!=))",
+            prefix)
+        if len(_writes) > 1:            # 1 = сам инициализатор, >1 = мутация
+            continue
+        if re.search(r"\b(?:if|while|for|switch)\b|\?|&&|\|\|", prefix):
+            continue
         lo, hi = var_ranges[nm]
         new = consts[nm] + (1 if "++" in m.group(0) else -1)
         if new < lo or new > hi:

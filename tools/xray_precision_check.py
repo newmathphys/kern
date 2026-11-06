@@ -45,8 +45,8 @@ REQUIRED_FOUND = ("div_unguarded", "idx_unguarded_literal", "mod_unguarded",
 # #495 (найдено ТРОФЕЙНОЙ ОХОТОЙ на cmark-gfm): гард `if (closing <= opening) { return; }`
 # в `switch`-ветви НЕ сужает путь, если `link_end` переприсваивался в цикле -> ЛОЖНЫЙ
 # OVERFLOW PATH на `closing--`. Минимальные формы БЕЗ переприсваивания НЕ воспроизводят.
-EXPECTED_KNOWN_FP = 1
-KNOWN_FP_NAMES: tuple = ("autolink_delim_fixture",)  # #495, ретаргет вниз
+EXPECTED_KNOWN_FP = 0      # #495 закрыт: класс пуст
+KNOWN_FP_NAMES: tuple = ()   # пусто: FP не разрешены
 # База ложных обвинений на внешнем корпусе (ИЗМЕРЕНО: 21 из 50 корректных
 # программ). ЦЕЛЬ — 0. Гейт краснеет, если число ВЫРОСЛО: так регрессы видны,
 # а существующий долг честно назван числом, а не спрятан.
