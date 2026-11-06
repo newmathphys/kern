@@ -72,7 +72,7 @@ def _count_in_log(path: Path) -> int | None:
 
 
 def _live_count(cmd: list[str]) -> int | None:
-    p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
+    p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False, timeout=900)
     out = (p.stdout or "") + (p.stderr or "")
     m = ALL_TESTS.search(out)
     if m:

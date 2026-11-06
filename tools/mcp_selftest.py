@@ -111,6 +111,12 @@ def main() -> int:
     if not SERVER.exists():
         print(f"[!] нет сервера: {SERVER}")
         return 1
+    # ДЕФЕКТ #492a: НЕЛЬЗЯ ставить `timeout=` в конструктор `Popen` —
+    # `Popen.__init__` такого параметра не принимает (`TypeError: unexpected
+    # keyword argument 'timeout'`), это ловит `ci-fast` (mcp-selftest).
+    # Таймаут у `Popen` ставится на ОЖИДАНИЕ: `communicate(timeout=...)`.
+    # Долг `#477` (ни одного вызова без таймаута) от этого не меняется:
+    # таймаут есть, просто в правильном месте.
     proc = subprocess.Popen([sys.executable, str(SERVER)],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)

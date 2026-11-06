@@ -55,7 +55,7 @@ def _registry() -> dict:
     """
     try:
         out = subprocess.run([sys.executable, "tools/registry.py", "--json"],
-                             cwd=ROOT, capture_output=True, text=True, check=False)
+                             cwd=ROOT, capture_output=True, text=True, check=False, timeout=900)
         d = json.loads(out.stdout)
     except (OSError, ValueError):
         return {}

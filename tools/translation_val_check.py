@@ -27,9 +27,9 @@ def disasm(mutate: bool = False) -> list[str]:
     d = Path(tempfile.mkdtemp(prefix="tv_", dir="/dev/shm"))
     (d / "tv.c").write_text(C_SRC)
     subprocess.run([ZIG, "cc", "-O2", "-c", "tv.c", "-o", "tv.o"], cwd=d, check=True,
-                   capture_output=True)
+                   capture_output=True, timeout=900)
     out = subprocess.run(["objdump", "-d", "-M", "intel", "tv.o"], cwd=d, check=True,
-                         capture_output=True, text=True).stdout
+                         capture_output=True, text=True, timeout=900).stdout
     lines = []
     inside = False
     for ln in out.splitlines():
@@ -105,7 +105,7 @@ def prove(expr: str, spec: str) -> tuple[str, str]:
     with tempfile.NamedTemporaryFile("w", suffix=".smt2", delete=False, dir="/dev/shm") as f:
         f.write(smt)
         p = f.name
-    r = subprocess.run([KERNC, "prove", p], capture_output=True, text=True)
+    r = subprocess.run([KERNC, "prove", p], capture_output=True, text=True, timeout=900)
     out = r.stdout + r.stderr
     Path(p).unlink(missing_ok=True)
     # ИЗМЕРЕНО: при опровержении `kernc` печатает `[КОНТРПРИМЕР]` и

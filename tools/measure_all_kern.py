@@ -236,7 +236,7 @@ def own_zombies() -> list[tuple[int, str]]:
     """
     me = os.getpid()
     out = subprocess.run(["ps", "-eo", "pid=,ppid=,stat=,comm="],
-                         capture_output=True, text=True).stdout
+                         capture_output=True, text=True, timeout=900).stdout
     procs: dict[int, tuple[int, str, str]] = {}
     for line in out.splitlines():
         parts = line.split(None, 3)
@@ -427,11 +427,11 @@ def main() -> int:
     report = {
         "tool": "measure_all_kern",
         "zig": subprocess.run([_ZIG_BIN, "version"], capture_output=True, text=True,
-                              env=_env()).stdout.strip(),
+                              env=_env(), timeout=900).stdout.strip(),
         "commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT),
-                                 capture_output=True, text=True).stdout.strip(),
+                                 capture_output=True, text=True, timeout=900).stdout.strip(),
         "tree_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=str(ROOT),
-                                          capture_output=True, text=True).stdout.strip()),
+                                          capture_output=True, text=True, timeout=900).stdout.strip()),
         "score_pct": pct, "earned": earned_w, "total": total_w, "verdict": verdict,
         "weights": WEIGHTS,
         "checks": results,

@@ -38,11 +38,11 @@ def build_and_run(zig: Path, out: str) -> dict:
     env["PATH"] = f"{zig.parent}:{env.get('PATH','')}"
     b = subprocess.run([str(zig), "build-exe", str(SRC), "-O", "ReleaseFast",
                         "-lc", f"-femit-bin={out}"],
-                       cwd=str(ROOT), capture_output=True, text=True, env=env)
+                       cwd=str(ROOT), capture_output=True, text=True, env=env, timeout=900)
     if b.returncode != 0:
         print(f"[!] сборка {zig} упала:\n{(b.stderr or '')[-400:]}")
         sys.exit(1)
-    r = subprocess.run([out], cwd=str(ROOT), capture_output=True, text=True)
+    r = subprocess.run([out], cwd=str(ROOT), capture_output=True, text=True, timeout=900)
     out_txt = (r.stdout or "") + (r.stderr or "")
     d = {}
     for k in ("root0", "acc"):

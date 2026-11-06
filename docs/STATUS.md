@@ -10,7 +10,7 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->265 | every goal this repository claims to verify |
+| Targets, total | <!-- fact:registry_targets -->266 | every goal this repository claims to verify |
 | CHECK | <!-- fact:check_targets -->197 | must be able to fail |
 | MEASURE | 1 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->11 | L0 only: it compiles |
@@ -55,7 +55,7 @@ Numbered entries: **406**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->491**.
+Highest defect number in the journal: **<!-- fact:max_defect -->492**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

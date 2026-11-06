@@ -190,7 +190,7 @@ def run_c_abi_tests(root):
     """
     out = ""
     r = subprocess.run([ZIG, "build", "lib"], cwd=root, env=CHILD_ENV,
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, timeout=900)
     out += (r.stdout or "") + (r.stderr or "")
     if r.returncode != 0:
         return r.returncode, out
@@ -200,7 +200,7 @@ def run_c_abi_tests(root):
             [ZIG, "cc", "-Wall", "-Wextra", "-Werror", "-pedantic",
              "-std=c11", "-pthread", "-Iinclude", src_c,
              "-Lzig-out/lib", "-lkern", "-o", f"/tmp/{exe}"],
-            cwd=root, env=CHILD_ENV, capture_output=True, text=True)
+            cwd=root, env=CHILD_ENV, capture_output=True, text=True, timeout=900)
         out += (c.stdout or "") + (c.stderr or "")
         if c.returncode != 0:
             return c.returncode, out
@@ -615,7 +615,7 @@ def _refuse_dirty_src():
     if os.environ.get("KERN_ALLOW_DIRTY_SRC") == "1":
         return
     try:
-        r = subprocess.run(["git", "diff", "--quiet", "--", "src/"], cwd=str(Path(__file__).resolve().parent.parent))
+        r = subprocess.run(["git", "diff", "--quiet", "--", "src/"], cwd=str(Path(__file__).resolve().parent.parent), timeout=900)
     except (OSError, subprocess.SubprocessError):
         return
     if r.returncode != 0:

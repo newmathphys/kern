@@ -67,7 +67,7 @@ def scan_text(rel: str, text: str) -> list[dict]:
     return out
 
 def tracked_files() -> list[Path]:
-    r = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
+    r = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, timeout=900)
     if r.returncode != 0:
         return []
     return [ROOT / p for p in r.stdout.splitlines() if p]
@@ -92,7 +92,7 @@ def scan_files(paths: list[Path]) -> list[dict]:
 
 def scan_history(n: int) -> list[dict]:
     r = subprocess.run(["git", "log", f"-{n}", "--format=%H%x00%B%x00"],
-                       cwd=ROOT, capture_output=True, text=True)
+                       cwd=ROOT, capture_output=True, text=True, timeout=900)
     if r.returncode != 0:
         return []
     out: list[dict] = []

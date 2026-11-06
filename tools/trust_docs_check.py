@@ -39,7 +39,7 @@ REQUIRED = {
 
 def key_id(pub: Path) -> str:
     r = subprocess.run(["openssl", "pkey", "-pubin", "-in", str(pub),
-                        "-outform", "DER"], capture_output=True)
+                        "-outform", "DER"], capture_output=True, timeout=900)
     if r.returncode != 0 or not r.stdout:
         return ""
     return "sha256:" + hashlib.sha256(r.stdout).hexdigest()

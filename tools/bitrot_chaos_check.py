@@ -50,7 +50,7 @@ def data_digest(kimg: Path) -> tuple[int, int, str]:
     """
     import hashlib
     # Осторожно: у ПОВРЕЖДЁННОГО образа вывод может содержать не-UTF8 байты.
-    _ls = subprocess.run([str(KERNC), "ls", str(kimg)], capture_output=True)
+    _ls = subprocess.run([str(KERNC), "ls", str(kimg)], capture_output=True, timeout=900)
     ls = _ls.stdout.decode("utf-8", errors="replace")
     paths = [l.split("path=`")[1].rstrip("`") for l in ls.splitlines() if "path=`" in l]
     h = hashlib.sha256()

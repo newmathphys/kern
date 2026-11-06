@@ -131,6 +131,25 @@ def main() -> int:
         print(f"[SKIP] внешний корпус отсутствует: {EXT} — часть 2 НЕ выполнена "
               f"(это названный пропуск, а не «зелено»)")
 
+    # --- ЧАСТЬ 3: LIMITS НЕ ОТСТАЁТ ОТ ГЕЙТА (#492).
+    # ЗАЧЕМ. `docs/LIMITS` — единственная страница, где числа точности названы
+    # пользователю. После #476 там оставались `known_fp = 1` и `21 FP`, то есть
+    # документ ОТСТАВАЛ от кода. Теперь числа сверяются машинно: страница
+    # обязана называть текущий EXPECTED_KNOWN_FP и текущую внешнюю базу.
+    for doc in (ROOT / "docs" / "LIMITS.md", ROOT / "docs" / "LIMITS.ru.md"):
+        if not doc.is_file():
+            bad.append(f"{doc.name}: страница границ отсутствует")
+            continue
+        txt = doc.read_text(encoding="utf-8")
+        if f"EXPECTED_KNOWN_FP` is now **{EXPECTED_KNOWN_FP}**" not in txt                 and f"`EXPECTED_KNOWN_FP` теперь **{EXPECTED_KNOWN_FP}**" not in txt:
+            bad.append(f"{doc.name}: не называет EXPECTED_KNOWN_FP = {EXPECTED_KNOWN_FP} "
+                       f"(документ отстал от гейта)")
+        if str(EXT_FP_BASELINE) not in txt:
+            bad.append(f"{doc.name}: не называет внешнюю базу {EXT_FP_BASELINE}")
+        else:
+            print(f"[OK] {doc.name}: числа точности синхронны с гейтом "
+                  f"(known_fp {EXPECTED_KNOWN_FP}, внешняя база {EXT_FP_BASELINE})")
+
     for b in bad:
         print(f"[!] {b}")
     if bad:

@@ -83,7 +83,7 @@ def main() -> int:
     # его не получит. Требуем, чтобы КАЖДЫЙ файл под docs/evidence/ был
     # отслеживаемым (рекурсивно).
     tracked = subprocess.run(["git", "ls-files", "docs/evidence/"],
-                             cwd=ROOT, capture_output=True, text=True)
+                             cwd=ROOT, capture_output=True, text=True, timeout=900)
     tracked_set = set(tracked.stdout.split())
     untracked = []
     for path in sorted(EV.rglob("*")):

@@ -44,7 +44,7 @@ DEFAULT_PUB = ROOT / "docs" / "keys" / "kern-owner.pub"
 def git(*args: str) -> str:
     try:
         return subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
-                              text=True, check=False).stdout.strip()
+                              text=True, check=False, timeout=900).stdout.strip()
     except OSError:
         return ""
 
@@ -52,7 +52,7 @@ def git(*args: str) -> str:
 def key_id(pub: Path) -> str:
     """Отпечаток ключа: SHA-256 от DER SubjectPublicKeyInfo (как в аттестате)."""
     r = subprocess.run(["openssl", "pkey", "-pubin", "-in", str(pub),
-                        "-outform", "DER"], capture_output=True)
+                        "-outform", "DER"], capture_output=True, timeout=900)
     if r.returncode != 0 or not r.stdout:
         return ""
     return "sha256:" + hashlib.sha256(r.stdout).hexdigest()
@@ -114,7 +114,7 @@ def main() -> int:
             r = subprocess.run(["openssl", "pkeyutl", "-verify", "-rawin",
                                 "-pubin", "-inkey", str(args.pubkey),
                                 "-in", str(args.attestation), "-sigfile", sp],
-                               capture_output=True)
+                               capture_output=True, timeout=900)
         finally:
             Path(sp).unlink(missing_ok=True)
         if r.returncode == 0:

@@ -101,7 +101,7 @@ def _env() -> dict:
 
 def _run(args: list) -> tuple:
     p = subprocess.run(args, cwd=ROOT, capture_output=True, text=True,
-                       check=False, env=_env())
+                       check=False, env=_env(), timeout=900)
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 

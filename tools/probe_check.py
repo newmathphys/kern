@@ -26,7 +26,7 @@ def run() -> str:
     env = dict(os.environ)
     env["PATH"] = f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:{ROOT}/.venv/bin:{env.get('PATH','')}"
     p = subprocess.run([_ZIG_BIN, "build", "bench-semantic"], cwd=str(ROOT),
-                       capture_output=True, text=True, env=env)
+                       capture_output=True, text=True, env=env, timeout=900)
     out = (p.stdout or "") + (p.stderr or "")
     if p.returncode != 0:
         print(f"[!] сборка/прогон упал (rc={p.returncode})")

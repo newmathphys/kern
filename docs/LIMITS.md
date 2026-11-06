@@ -59,15 +59,24 @@ invariant (needs CHC/Horn) is not derived, therefore:
 
 ## 4. Known false accusations are counted, not hidden
 
-`#476` (OPEN): `len(<literal>)` in a guard is not unified with the literal length, so
-`data = [1,2,3,4]; if 0 <= i < len(data): return data[i]` is accused with `i = -1`. The
-function lives in `tests/fixtures/precision_known_fp/` and `make xray-precision` requires
-EXACTLY one finding there — and will go red once the defect is fixed.
+`#476` (CLOSED): the class had SIX causes, each measured and fixed separately — literal vs
+symbolic length never tied (`476a`), no bounds for `for .. in range(a, b[, step])` (`476b`),
+`d[k] = v` treated as a read (`476c`), `append` growing a literal list (`476d`), a `dict` has
+no «index» (`476e`), and one finding counted twice (`476f`). MEASURED: on
+`QuixBugs/correct_python_programs` **21 → 4**. `EXPECTED_KNOWN_FP` is now **0** and the
+fixture lives in `precision_clean`, so any regression of this class turns the gate RED.
 
 **Precision on third-party code is measured by machine** (`#475`): `precision_clean` → 0
-findings, `precision_buggy` → 5/5, and the external corpus
-`QuixBugs/correct_python_programs` is compared to a NAMED baseline (**21** false accusations
-on 50 correct programs, target 0). That is debt stated as a number.
+findings, `precision_buggy` → 5/5, `precision_known_fp` → 0 (retarget fired). The external
+corpus `QuixBugs/correct_python_programs` is compared to a NAMED baseline of **4** unique
+accusations — and all four are triaged: `kth` (`arr[0]` on an empty list), `rpn_eval`
+(`/` by a popped value) and `to_base` (`b == 0`) are REAL crashes on reachable inputs, and
+`find_in_sorted` is a closure with an early return (class `#200` below). Target: 0.
+
+**Not every refusal is a defect** (`#491`): `Unsupported` (a node outside the BV subset) and
+`SyntaxError` (a foreign language) are EXPECTED exits. MEASURED on our own `kern/src`:
+**321** such exits used to print `[!] внутренняя ошибка`; now they are ONE named note with the
+reason breakdown, and the report shows **0** internal errors.
 
 ## 5. Interprocedural invariants are not checked
 

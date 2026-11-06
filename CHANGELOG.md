@@ -23,6 +23,22 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Added
 
+- **#492 — РАТЧЕТ `spawn` ЗАКРЫТ: 51 → 0, порог = 0.** Every `subprocess.run/Popen/
+  check_output/check_call/call` without a `timeout=` (51 sites in 28 files) got an explicit
+  `timeout=900` — mechanically, byte-precisely (CPython `col_offset` is a BYTE offset and the
+  files contain Cyrillic), each file syntax-checked before writing. `BASELINE_NO_TIMEOUT 51 -> 0`,
+  so from now on ANY new subprocess without a timeout is a RED gate. This is the class that bit
+  us three times (`#466` z3 not in PATH → silent SKIPs, `#470` 5.4 GB without a cap, `#477` no
+  timeout at all).
+- `tools/tour.py` + `make tour` — **#492**: the FIVE-ARC showreel (developer contracts · blind
+  pytest · PR delta · `.kimg` without a solver · one-button passport), **21.8 s, 0 failures**.
+  Every arc runs a REAL check and prints its REAL output, so the showreel CANNOT be green while
+  the code is broken (rc=1 otherwise) — otherwise it would be advertising disconnected from code.
+- `docs/LIMITS.{md,ru.md}` — numbers brought up to date after `#476`/`#491`: `known_fp 1 -> 0`,
+  external baseline `21 -> 4` (all four triaged: `kth`, `rpn_eval`, `to_base` are REAL crashes,
+  `find_in_sorted` is a closure — class `#200`), and the 321 `[!]` per-branch refusals are now a
+  named note. **The page can no longer lag the gate**: `make xray-precision` now READS both
+  `LIMITS` files and fails if they name a different `EXPECTED_KNOWN_FP` / external baseline.
 - `tools/translator_diff_check.py` — the C-like translator is compared against LIVE compilers
   (`gcc`/`rustc`/`node`) on a matrix of 13 constructs × 3 languages. Every live point must be
   PROVEN **and** the floor-semantics trap (Python `//`/`%`) must NOT be proven (defect class

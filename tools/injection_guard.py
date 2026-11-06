@@ -59,7 +59,7 @@ def find_markers() -> list[str]:
 
 def dirty_src() -> list[str]:
     r = subprocess.run(["git", "status", "--porcelain", "src/", "tools/"],
-                       cwd=ROOT, capture_output=True, text=True, check=False)
+                       cwd=ROOT, capture_output=True, text=True, check=False, timeout=900)
     return [ln for ln in r.stdout.splitlines() if ln.strip()]
 
 

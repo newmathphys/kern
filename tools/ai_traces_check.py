@@ -40,7 +40,7 @@ def hits(text: str) -> list[str]:
 
 def tracked_files() -> list[Path]:
     raw = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT,
-                         capture_output=True, check=True).stdout
+                         capture_output=True, check=True, timeout=900).stdout
     out = []
     for rel in raw.split(b"\0"):
         if not rel:
@@ -54,7 +54,7 @@ def tracked_files() -> list[Path]:
 
 def commit_bodies() -> list[str]:
     raw = subprocess.run(["git", "log", "-200", "--format=%B"], cwd=ROOT,
-                         capture_output=True, text=True, check=False).stdout
+                         capture_output=True, text=True, check=False, timeout=900).stdout
     return raw.split("\n\n")
 
 

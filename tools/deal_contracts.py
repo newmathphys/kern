@@ -111,7 +111,7 @@ def run_kernc(smt: str):
         input=smt.encode(),
         capture_output=True,
         cwd=str(ROOT),
-    )
+     timeout=900)
     out = (p.stdout or b"").decode(errors="replace") + (p.stderr or b"").decode(errors="replace")
     # kernc prove печатает KERN-EQ2 (T/F/B/N), а не сырой sat/unsat.
     if "KERN-EQ2 : T" in out:

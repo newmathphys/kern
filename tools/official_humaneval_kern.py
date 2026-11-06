@@ -91,7 +91,7 @@ def main():
             print("=" * 70, flush=True)
             subprocess.run([sys.executable, "-m", "evalplus.evaluate",
                             "--dataset", "humaneval", "--samples", str(path),
-                            "--parallel", "4"], check=False)
+                            "--parallel", "4"], check=False, timeout=900)
 
 
 if __name__ == "__main__":

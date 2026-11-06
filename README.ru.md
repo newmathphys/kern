@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · registry <!-- fact:registry_targets -->265 · META <!-- fact:meta_targets -->53 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->197 · cases <!-- fact:canfail_cases -->242 · anchors <!-- fact:anchors -->200 · registry <!-- fact:registry_targets -->266 · META <!-- fact:meta_targets -->53 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -695,17 +695,17 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 make canfail          # 242 кейс: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->200 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->265 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->266 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->265 (CHECK <!-- fact:check_targets -->197 · MEASURE 1 · BUILD <!-- fact:build_targets -->11 · EXTERNAL 3 · META <!-- fact:meta_targets -->53) |
+| Целей всего | <!-- fact:registry_targets -->266 (CHECK <!-- fact:check_targets -->197 · MEASURE 1 · BUILD <!-- fact:build_targets -->11 · EXTERNAL 3 · META <!-- fact:meta_targets -->53) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->197/<!-- fact:check_targets -->197 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->242 (не-вакуумных <!-- fact:canfail_cases -->242 · вакуумных 0 · ошибок кейсов 0) |
-| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->491** |
+| Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->492** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
 

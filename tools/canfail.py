@@ -596,7 +596,7 @@ def clean_slate() -> None:
         if p.suffix in (".kimg",) or p.name == "kernc":
             continue  # бинарные — не сравниваем текстом
         r = subprocess.run(["git", "diff", "--quiet", "--", f], cwd=str(ROOT),
-                           capture_output=True)
+                           capture_output=True, timeout=900)
         if r.returncode != 0:
             dirty.append(f)
 
@@ -4672,7 +4672,7 @@ def guard_dirty_faultable() -> int:
         if not p.exists():
             continue
         r = subprocess.run(["git", "status", "--porcelain", "--", f],
-                           cwd=str(ROOT), capture_output=True, text=True)
+                           cwd=str(ROOT), capture_output=True, text=True, timeout=900)
         if r.stdout.strip():
             dirty.append(f)
     if not dirty:
@@ -4745,7 +4745,7 @@ def _refuse_dirty_src():
     # ДЕФЕКТЫ #168/#170: маркеры инъекций в src/ = прогон НЕДОПУСТИМ
     _ig = os.path.join(os.path.dirname(os.path.abspath(__file__)), "injection_guard.py")
     if os.path.exists(_ig):
-        _r = subprocess.run([sys.executable, _ig], capture_output=True, text=True)
+        _r = subprocess.run([sys.executable, _ig], capture_output=True, text=True, timeout=900)
         if _r.returncode != 0:
             sys.stderr.write(_r.stdout)
             sys.stderr.write("[LOCKED] маркеры инъекций/грязный src — откат обязателен (#168/#170).\n")
@@ -4753,7 +4753,7 @@ def _refuse_dirty_src():
     if os.environ.get("KERN_ALLOW_DIRTY_SRC") == "1":
         return
     try:
-        r = subprocess.run(["git", "diff", "--quiet", "--", "src/"], cwd=str(ROOT))
+        r = subprocess.run(["git", "diff", "--quiet", "--", "src/"], cwd=str(ROOT), timeout=900)
     except (OSError, subprocess.SubprocessError):
         return
     if r.returncode != 0:
@@ -4923,7 +4923,7 @@ def main():
     # уже восстановлен — потому что `libkern.so` осталась собранной с диверсией.
     # Теперь: после отката исходников ПЕРЕСОБИРАЕМ артефакты из чистого кода.
     print("[i] пересборка артефактов из восстановленных исходников...")
-    rb = subprocess.run([_ZIG_BIN, "build"], cwd=str(ROOT), capture_output=True, text=True)
+    rb = subprocess.run([_ZIG_BIN, "build"], cwd=str(ROOT), capture_output=True, text=True, timeout=900)
     if rb.returncode == 0:
         print("[OK] артефакты пересобраны — пропатченных бинарников не осталось")
     else:

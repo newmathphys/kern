@@ -123,7 +123,7 @@ ANCHOR_ANY = re.compile(r"<!--\s*fact:([a-z0-9_.]+)\s*-->")
 
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, *args], cwd=ROOT,
-                          capture_output=True, text=True, check=False)
+                          capture_output=True, text=True, check=False, timeout=900)
 
 
 def _fact_max_defect() -> int:

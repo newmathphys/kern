@@ -32,7 +32,7 @@ def main() -> int:
     env["PATH"] = f"{Path.home()}/opt/zig-x86_64-linux-0.17.0:{ROOT}/.venv/bin:{env.get('PATH','')}"
     cmd = [_ZIG_BIN, "test", "--dep", "compat",
            "-Mroot=src/test_root.zig", "-Mcompat=src/compat.zig"]
-    p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, env=env)
+    p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, env=env, timeout=900)
     out = (p.stdout or "") + (p.stderr or "")
 
     # Печатаем блок отчёта о покрытии (как делала прежняя цель).

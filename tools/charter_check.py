@@ -79,7 +79,7 @@ CLASS_III = (
 
 def _run(cmd: list[str]) -> tuple[int, str]:
     p = subprocess.run([sys.executable, *cmd], cwd=ROOT,
-                       capture_output=True, text=True, check=False)
+                       capture_output=True, text=True, check=False, timeout=900)
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
@@ -88,7 +88,7 @@ def _oracle() -> dict:
     exe = ROOT / "zig-out" / "bin" / "kern-conformance"
     if not exe.exists():
         return {}
-    p = subprocess.run([str(exe)], cwd=ROOT, capture_output=True, text=True, check=False)
+    p = subprocess.run([str(exe)], cwd=ROOT, capture_output=True, text=True, check=False, timeout=900)
     out: dict = {"b4": {}, "join": {}, "conflate": {}, "verdict": {}}
     for line in (p.stdout or "").splitlines():
         parts = line.strip().split("|")

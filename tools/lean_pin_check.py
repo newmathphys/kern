@@ -39,7 +39,7 @@ LOCK = ROOT / "formal" / "mathlib.lock"
 
 def lean_version(binary: str) -> str:
     try:
-        r = subprocess.run([binary, "--version"], capture_output=True, text=True)
+        r = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=900)
     except OSError:
         return ""
     m = re.search(r"version\s+([0-9]+\.[0-9]+\.[0-9]+)", r.stdout)

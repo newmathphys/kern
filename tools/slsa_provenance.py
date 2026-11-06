@@ -41,7 +41,7 @@ def _zig_version() -> str:
     названную ошибку и выходим `rc=2` — БЕЗ строки `Traceback` (класс #370/#371).
     """
     try:
-        r = subprocess.run([_ZIG_BIN, "version"], capture_output=True, text=True)
+        r = subprocess.run([_ZIG_BIN, "version"], capture_output=True, text=True, timeout=900)
     except OSError:
         print(f"[!] Ошибка: компилятор zig не найден ({_ZIG_BIN!r}). "
               "Проверьте $ZIG или PATH.")
@@ -97,7 +97,7 @@ def key_id(pub: Path) -> str:
     подпись сделана именно ключом из репозитория, а не «каким-то» ключом.
     """
     r = subprocess.run(["openssl", "pkey", "-pubin", "-in", str(pub),
-                        "-outform", "DER"], capture_output=True)
+                        "-outform", "DER"], capture_output=True, timeout=900)
     if r.returncode != 0 or not r.stdout:
         return ""
     return "sha256:" + hashlib.sha256(r.stdout).hexdigest()
@@ -116,7 +116,7 @@ def sign_attestation() -> int:
         return 0
     r = subprocess.run(["openssl", "pkeyutl", "-sign", "-rawin",
                         "-inkey", str(OWNER_KEY), "-in", str(OUT)],
-                       capture_output=True)
+                       capture_output=True, timeout=900)
     if r.returncode != 0 or not r.stdout:
         print(f"[!] не удалось подписать аттестат: "
               f"{r.stderr.decode(errors='replace').strip()[:160]}")
@@ -145,7 +145,7 @@ def verify_attestation_signature() -> bool | None:
         r = subprocess.run(["openssl", "pkeyutl", "-verify", "-rawin",
                             "-pubin", "-inkey", str(OWNER_PUB),
                             "-in", str(OUT), "-sigfile", sp],
-                           capture_output=True)
+                           capture_output=True, timeout=900)
     finally:
         Path(sp).unlink(missing_ok=True)
     if r.returncode == 0:
@@ -166,7 +166,7 @@ def sha256_file(p: Path) -> str:
 def git(*args: str) -> str:
     try:
         return subprocess.run(["git", *args], cwd=str(ROOT), capture_output=True,
-                              text=True, check=True).stdout.strip()
+                              text=True, check=True, timeout=900).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return ""
 
@@ -343,7 +343,7 @@ def main() -> int:
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if not args.no_build:
         print("[i] сборка (воспроизводимая): " + " ".join(BUILD_CMD))
-        r = subprocess.run(BUILD_CMD, cwd=str(ROOT), capture_output=True, text=True)
+        r = subprocess.run(BUILD_CMD, cwd=str(ROOT), capture_output=True, text=True, timeout=900)
         if r.returncode != 0:
             print("[!] сборка не удалась:", r.stderr[-300:])
             return 1

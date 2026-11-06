@@ -116,7 +116,7 @@ def _is_claim_about_total(line: str, start: int) -> bool:
 
 def tracked() -> list[str]:
     out = subprocess.run(["git", "ls-files", "*.md", "*.html"],
-                         cwd=ROOT, capture_output=True, text=True)
+                         cwd=ROOT, capture_output=True, text=True, timeout=900)
     return [f for f in out.stdout.splitlines() if f.strip()]
 
 

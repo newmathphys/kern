@@ -98,7 +98,7 @@ def run_target(name: str) -> tuple[int, float, str]:
     """
     cmd = ALWAYS_RUN.get(name, ["make", name])
     t0 = time.time()
-    p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
+    p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False, timeout=900)
     dt = time.time() - t0
     return p.returncode, dt, (p.stdout or "") + (p.stderr or "")
 

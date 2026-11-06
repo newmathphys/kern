@@ -73,12 +73,12 @@ def emit_asm(opt: str, out_path: Path) -> bool:
         "-Matomic=" + str(ROOT / "src" / "atomic_write.zig"),
         f"-O{opt}", "-femit-bin=" + str(bin_path),
     ]
-    r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
+    r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=900)
     if r.returncode != 0 or not bin_path.exists():
         return False
     d = subprocess.run(
         ["objdump", "-d", "-M", "intel", "--no-show-raw-insn", str(bin_path)],
-        capture_output=True, text=True)
+        capture_output=True, text=True, timeout=900)
     if d.returncode != 0:
         return False
     # Приводим вывод к формату «name:» + инструкции без адресов.
