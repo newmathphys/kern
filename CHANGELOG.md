@@ -119,6 +119,30 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
+- `src/verifier/proof_check.zig` — **defect #479**: the S-expression depth ceiling was TOO LOW for the
+  native build. MEASURED on `audits/smt2/kernel_align_deepjit_align_guarded.smt2`: Z3's proof of a
+  32-bit alignment bit-blast has **depth 14 113** (1.29 MB) while `MAX_SEXP_DEPTH` was **12 288**,
+  so a formula the solver had PROVED was refused with «вывод ГЛУБЖЕ предела вложенности» and the
+  checker reported **0 steps**. The limit is now target-split: **16 384 native** (2 271 of headroom
+  over the measured need) and **4 096 on wasm** (a browser stack is tiny, deep parsing there stays
+  dangerous). With the fix the SAME file parses into **21 758 steps** and the refusal moves to the
+  REAL reason (`premises_unbound`, see #480), i.e. the checker now ACCOUNTS for deep BV proofs
+  instead of blanket-refusing them. `zig build test` rc=0, `zig build wasm` rc=0.
+- `src/verifier/proof_check.zig` — **named boundary #480 (OPEN)**: raising the depth exposed what
+  `premises_unbound` really means for `QF_BV`. On the same file the checker now reports
+  `посылок 1/794 | ДОВЕРЕННЫХ 19 865 | шагов 21 758` — because in a bit-blasted proof the
+  `asserted` steps are **clauses of the bit-blast** (`(or (not k!N) …)`), not the 3 contract
+  assertions. Binding them to the contract is conceptually wrong; they must be classified as
+  tautologies/definitions, and each of them rests on the `k!` axioms anyway (91 % trusted). This
+  CONFIRMS the LIMITS claim that BV is not proof-carrying, now with numbers.
+- `tools/kern_contracts.py` — **defect #478**: `[EQUIVALENT?]` printed a HARD-CODED reason
+  `(premises_unbound)` regardless of what the checker actually said. MEASURED: for the deep BV
+  formula the checker says `[!] причина: вывод ГЛУБЖЕ предела вложенности парсера
+  (MAX_SEXP_DEPTH)`, while the report blamed premise binding — class #370/#371 («the report says
+  something other than what happened»): the reader looks for a premise-binding defect that is not
+  there. The reason is now parsed from the checker output (verified against real output, not a
+  guess).
+
 - `tools/spawn.py` + `tools/spawn_check.py` + `make spawn-check` (CHECK) / `make
   spawn-selftest` (META) — **defect #477, the subprocess choke point**. The class «subprocess
   without a limiter» fired THREE times: `#464` (solver timeout), `#466` (`z3` missing from

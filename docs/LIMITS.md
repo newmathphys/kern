@@ -16,10 +16,23 @@ verifies the derivation SEPARATELY, so every `PROVEN` row must carry the trusted
 | `[PROOF PARTIAL] trusted N` | HONEST LIMIT: N steps rely on solver axioms |
 | `trusted ?` | the checker reported no counter (`ДОКАЗАНО (допущено)` — a weaker claim) |
 
-**Measured over the corpus:** 44 formulas → **13** `trusted 0`, **11** `PARTIAL`, **20**
-without a counter. For `QF_BV` partiality is essential: the derivation relies on bit-blaster
+**Measured over the corpus (after `#479`/`#481`):** 44 formulas → **11** `trusted 0`, **10**
+`PARTIAL`, **23** without a counter; of the 19 `PROVEN` rows — 7 `trusted 0`, 7 `PARTIAL`, 5
+without a counter. `trusted 0` is emitted ONLY for an accepted proof (`rc == 0`); otherwise the
+row is marked `⚠ чекер ОТВЕРГ вывод` (`#481`). For `QF_BV` partiality is essential: the derivation relies on bit-blaster
 axioms `k!` — a free unprovable constant — so a strict offline check without a solver is
 **impossible**. MEASURED on `hex_index_deepjit_hex_hi`: `ДОВЕРЕННЫХ 15`.
+
+**Proof depth (measured):** for a 32-bit alignment bit-blast Z3 proof has **depth 14 113**
+(1.29 MB). The parser limit is target-split: **16 384** native (2 271 of headroom) and
+**4 096** on wasm — a browser stack is tiny (`#479`). Beyond the limit the report honestly says
+«proof DEEPER than the parser limit» instead of crashing.
+
+**Why BV is still not proof-carrying (numbers, `#480`):** with the limit lifted the same file
+parses into **21 758 steps**, of which **19 865 are trusted** (`def-axiom`, the `k!` axioms), and
+«premises» are **794** against 3 contract assertions — because in a bit-blast the `asserted`
+steps are BIT-BLAST CLAUSES, not premises. Classifying them as tautologies/definitions is the
+next piece of work, and it will not make BV certifiable without a DRAT/LFSC-emitting solver.
 
 **Consequence for «proof-carrying artifacts»:** they are proof-carrying for LIA and Boolean
 invariants; for BV they are `PARTIAL` with a named count. The way forward is a solver with

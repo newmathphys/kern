@@ -385,38 +385,39 @@ def main() -> int:
     # контейнере объявляется по ФАКТИЧЕСКОМУ вердикту решателя на этой формуле,
     # а `kernc verify` переустанавливает его по БАЙТАМ образа: расхождение
     # (порча формулы, регрессия решателя) -> rc != 0.
-    def measure(f: Path) -> tuple[str, int | None]:
-        """Вердикт решателя + ЧИСЛО ДОВЕРЕННЫХ шагов пруф-чекера (#474).
+    def measure(f: Path) -> tuple[str, int | None, bool]:
+        """Вердикт решателя + число доверенных шагов + «чекер принял вывод» (#481).
 
-        ЗАЧЕМ. ИЗМЕРЕНО на `audits/smt2/hex_index_deepjit_hex_hi.smt2`: решатель
-        говорит `ДОКАЗАНО`, а пруф-чекер печатает `[PROOF PARTIAL] … ДОВЕРЕННЫХ
-        15` (BV-вывод опирается на аксиомы бит-бластера `k!`). Таблица при этом
-        печатала просто `**PROVEN**` — то есть ДВЕ РАЗНЫЕ претензии под одним
-        словом. Для внешнего читателя это выглядит как «доказано полностью».
-        Теперь `trusted` извлекается и печатается рядом с вердиктом: `trusted 0`
-        — доказано и ПРОВЕРЕНО, `trusted > 0` — названная граница (`PARTIAL`),
-        `None` — чекер не сообщил счётчик (тоже честно помечается `?`).
+        ЗАЧЕМ ТРЕТИЙ ЭЛЕМЕНТ. ИЗМЕРЕНО: пока вывод был глубже лимита парсера
+        (`#479`), чекер печатал `шагов 0 … ДОВЕРЕННЫХ 0` и ОТВЕРГАЛ вывод
+        (`rc != 0`), а `measure()` читал счётчик как есть — и строка объявляла
+        `PROVEN (trusted 0)`, то есть «доказательство проверено», хотя чекер не
+        проверил НИЧЕГО. `trusted 0` теперь ставится ТОЛЬКО когда `rc == 0`;
+        отвергнутый вывод получает названную пометку, а не ложный ноль.
         """
         _rc, out = run([str(KERNC), "prove", str(f)], timeout=300, mem_cap=True)
         _mt = re.search(r"ДОВЕРЕННЫХ (\d+)", out)
         _trust = int(_mt.group(1)) if _mt else None
+        _ok = (_rc == 0)
         if "ДОКАЗАНО" in out:
-            return "proven", _trust
+            return "proven", _trust, _ok
         if "КОНТРПРИМЕР" in out:
-            return "refuted", _trust
+            return "refuted", _trust, _ok
         # #470: лимит памяти — НАЗВАННЫЙ исход (не «unknown»), иначе рост
         # подпроцесса выглядел бы как «формулу не решили».
         if _rc == 125:
-            return "oom", _trust
-        return "unknown", _trust
+            return "oom", _trust, _ok
+        return "unknown", _trust, _ok
 
     with ThreadPoolExecutor(max_workers=int(os.environ.get("KERN_AUDIT_WORKERS",
                                                            min(6, os.cpu_count() or 1)))) as ex:
         _pairs = dict(zip([f.name for f in smt_files], ex.map(measure, smt_files)))
 
-    measured = {k: v for k, (v, _t) in _pairs.items()}
-    # #474: карта «формула -> число доверенных шагов» (None = чекер молчит).
-    trusted: dict[str, int | None] = {k: _t for k, (_v, _t) in _pairs.items()}
+    measured = {k: v for k, (v, _t, _o) in _pairs.items()}
+    # #474: карта «формула -> число доверенных шагов» (None = чекер молчит),
+    # #481: и «принял ли чекер вывод».
+    trusted: dict[str, int | None] = {k: (_t if _o else None) for k, (_v, _t, _o) in _pairs.items()}
+    checker_ok: dict[str, bool] = {k: _o for k, (_v, _t, _o) in _pairs.items()}
 
     n_proven = sum(1 for v in measured.values() if v == "proven")
     n_refuted = sum(1 for v in measured.values() if v == "refuted")
@@ -443,8 +444,12 @@ def main() -> int:
         # отдельно, и его счётчик обязан стоять рядом (иначе читатель считает,
         # что доказательство проверено, тогда как это `[PROOF PARTIAL]`).
         if r["verdict"] == "PASS":
-            _t = trusted.get(f"{Path(r['file']).stem}_{r['fn']}.smt2")
-            if _t == 0:
+            _key = f"{Path(r['file']).stem}_{r['fn']}.smt2"
+            _t = trusted.get(_key)
+            if not checker_ok.get(_key, True):
+                # #481: чекер ОТВЕРГ вывод — `trusted 0` здесь был бы ложью.
+                v += " — ⚠ чекер ОТВЕРГ вывод (см. причину)"
+            elif _t == 0:
                 v += " (trusted 0)"
             elif _t is None:
                 v += " (`trusted ?`)"
