@@ -329,3 +329,41 @@ echo "$BOUNDS_UNK" | grep -q 'note: \[BOUNDS?\] drain' \
 echo "$BOUNDS_UNK" | grep -qE '\[BOUNDS\?\] drain' \
   || { echo "[!] #469b: случай `drain` (while) вообще не достигнут — гейт пуст"; echo "$BOUNDS_UNK" | tail -5; exit 1; }
 echo "[OK] #454: неопределённость длины = ЗАМЕТКА (N), а не находка (findings 0), в т.ч. в теле while (#469b)"
+
+
+# ДЕФЕКТЫ #471a/#471b/#471c и #472: ГАРДЫ И ВЕЩЕСТВЕННЫЕ ТИПЫ.
+# Три ложных класса, измеренных на TheAlgorithms/Rust и QuixBugs:
+#   #471a — Python: скан ветви THEN шёл по ВСЕМУ `ast.If`, поэтому `orelse`
+#           получал ПРЯМОЙ гард вместо `(not cond)`;
+#   #471b — C-like: тело `while` анализировалось БЕЗ условия цикла (Евклид);
+#   #471c — C-like: `else`-ветвь не получала `(not cond)` вообще;
+#   #472  — `f32`/`f64` молча уносились в `i64`, и `debt / equity` объявлялось
+#           паникой, хотя IEEE-754 даёт inf/NaN.
+# Гейт ДВУСТОРОННИЙ: 4 «молчащие» функции обязаны исчезнуть из находок, а
+# 3 настоящие ошибки — ОСТАТЬСЯ (иначе «починка» была бы глушением).
+GUARDS=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_crash_guards 2>&1) || true
+# Сводка печатает по-русски: `| находок N | нечитаемых`. Анкер ДОЛЖЕН совпадать
+# с фактическим форматом — иначе гейт краснел бы «на пустом месте» (проверено).
+echo "$GUARDS" | grep -qE 'находок 3 \|' \
+  || { echo "[!] #471/#472/#473: ожидали РОВНО 3 находки (TP-контроли)"; echo "$GUARDS" | grep -E 'REPO SUMMARY|\[\w' | tail -8; exit 1; }
+echo "$GUARDS" | grep -qE '\[CRASH PATH\] gcd_unguarded' \
+  || { echo "[!] #471a: TP-контроль мёртв — незащищённое деление больше НЕ ловится"; exit 1; }
+echo "$GUARDS" | grep -qE '\[BOUNDS PATH\] arr_unguarded' \
+  || { echo "[!] #473: TP-контроль мёртв — выход за границы больше НЕ ловится"; exit 1; }
+echo "$GUARDS" | grep -qE '\[CRASH PATH\] ratio_i64' \
+  || { echo "[!] #472: TP-контроль мёртв — целочисленное деление на ноль больше НЕ ловится"; exit 1; }
+if echo "$GUARDS" | grep -qE '\[CRASH PATH\] (gcd_guarded|gcd_no_else|gcd_while_rust|gcd_else_rust|ratio_f64)'; then
+  echo "[!] #471/#472: ВЕРНУЛОСЬ ложное обвинение защищённого кода"
+  echo "$GUARDS" | grep -E '\[CRASH PATH\] (gcd_guarded|gcd_no_else|gcd_while_rust|gcd_else_rust|ratio_f64)'
+  exit 1
+fi
+echo "$GUARDS" | grep -qE 'skip: вещественная арифметика.*QF_FP' \
+  || { echo "[!] #472: вещественная функция не помечена НАЗВАННЫМ пропуском"; echo "$GUARDS" | tail -5; exit 1; }
+echo "$GUARDS" | grep -qE 'note: \[BOUNDS\?\] index_after_loop' \
+  || { echo "[!] #473: индекс после цикла не назван заметкой (N)"; echo "$GUARDS" | tail -6; exit 1; }
+if echo "$GUARDS" | grep -qE '\[(BOUNDS PATH|BOUNDS UNKNOWN|CRASH PATH)\] index_after_loop'; then
+  echo "[!] #473: N СНОВА считается находкой"
+  exit 1
+fi
+echo "[OK] #471a/b/c: гарды else/while учитываются; #472: f64 -> названный SKIP; #473: N = заметка (findings 3 = 3 TP)"
+

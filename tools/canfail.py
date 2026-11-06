@@ -2232,6 +2232,50 @@ def case_translator_diff():
     return "make translator-diff-check"
 
 
+def case_xray_guard_else():
+    """#471a SABOTAGE: скан ветви THEN снова идёт по ВСЕМУ `ast.If`.
+
+    ЛОМАЕМ ровно починенное: итерация берётся не по `st.body`, а по `[st]` —
+    то есть `orelse` опять обходится с ПРЯМЫМ гардом `cond` вместо `(not cond)`.
+    Гейт `xray-check` обязан покраснеть на `[CRASH PATH] gcd_guarded`
+    (фикстура `tests/fixtures/xray_crash_guards/guards.py`).
+    Если кейс вакуумный — значит гейт не измеряет то, что заявляет.
+    """
+    patch("tools/kern_contracts.py",
+          "for _st_then in st.body",
+          "for _st_then in [st]  # ЛОМАЕМ (#471a)")
+    return "make xray-check"
+
+
+def case_xray_while_guard():
+    """#471b SABOTAGE: условие `while` снова не прикладывается к телу.
+
+    ЛОМАЕМ: список условий цикла обрезается до пустого (`[:0]`), поэтому
+    алгоритм Евклида `while b != 0 { … a % b … }` снова обвиняется в делении
+    на ноль `b == 0` (это условие ВЫХОДА из цикла).
+    Гейт обязан покраснеть на `[CRASH PATH] gcd_while_rust`.
+    """
+    patch("tools/kern_contracts.py",
+          "+ _clike_while_conds_at(_pos_d, body, lang)",
+          "+ _clike_while_conds_at(_pos_d, body, lang)[:0]  # ЛОМАЕМ (#471b)")
+    return "make xray-check"
+
+
+def case_xray_float_skip():
+    """#472 SABOTAGE: `f32`/`f64` снова уходят в целочисленную модель.
+
+    ЛОМАЕМ: проверка сигнатуры отключается, поэтому `pub fn ratio_f64(debt:
+    f64, equity: f64) -> f64 { debt / equity }` опять объявляется паникой
+    деления на ноль, хотя IEEE-754 даёт inf/NaN.
+    Гейт обязан покраснеть на `[CRASH PATH] ratio_f64` И на пропаже
+    названного пропуска `skip: вещественная арифметика … QF_FP`.
+    """
+    patch("tools/kern_contracts.py",
+          'if re.search(r"\\b(?:f32|f64|float|double|float32|float64)\\b", _sig):',
+          'if False and re.search(r"\\b(?:f32|f64|float|double|float32|float64)\\b", _sig):  # ЛОМАЕМ (#472)')
+    return "make xray-check"
+
+
 def case_evidence_untracked():
     """#330 SABOTAGE: свидетельство лежит на диске, но НЕ в git.
 
@@ -4313,6 +4357,12 @@ CASES = [
      case_xray_bounds_note),
     ("audits-mem-cap", "Memory cap removed -> subprocess growth goes unnoticed (#470)",
      case_audits_mem_cap),
+    ("xray-guard-else", "Python `else` scanned with the WRONG guard -> false CRASH PATH (#471a)",
+     case_xray_guard_else),
+    ("xray-while-guard", "`while` condition not a guard in the C-like path -> false CRASH PATH (#471b)",
+     case_xray_while_guard),
+    ("xray-float-skip", "f64 falls back into i64 -> false division-by-zero (#472)",
+     case_xray_float_skip),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

@@ -81,6 +81,44 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
   `try`/`with` were not walked, so their bodies lost inner guards (an `assert` inside `try`); they
   are now walked SEQUENTIALLY while `except`/`finally`/`else` keep the OUTER path (soundness).
   MEASURED: 9 false `[BOUNDS PATH]` on `DeepJIT` tests -> 0.
+- `tools/kern_contracts.py` — **defect #471** (three faces of ONE class: "the guard is
+  lost, so protected code is accused"). (a) **Python: the `else` branch carried the WRONG
+  guard** — the scan at the `ast.If` node walked the WHOLE `If` (including `orelse`) with the
+  direct `cond` instead of `(not cond)`, so `if b == 0: return a; else: return gcd(a % b, b)`
+  was accused of `[CRASH PATH] b == 0` — the very condition the `if` excludes. The scan is now
+  body-only; the recursive `_walk_branches(orelse, path + [(not cond)])` stays the single
+  source of truth. (b) **C-like: the body of `while` was analysed WITHOUT the loop condition**
+  (`_exec_clike`/`_xray_clike_file` registered only `if (...)` blocks) — Euclid's
+  `while b != 0 { … a % b … }` was accused of dividing by `b == 0`, which is the EXIT
+  condition. Added `_clike_while_conds_at`: the condition is applied inside the loop body only,
+  with sound invalidation (a variable reassigned BEFORE the current statement drops the guard;
+  an assignment INSIDE it does not, because the RHS is evaluated with the OLD value). (c) **C-like:
+  the `else` branch got no `(not cond)`** — `if a == 0 { … } else { gcd(b % a, a) }` was accused
+  of `a == 0`. Added `_clike_else_conds_at`. HONESTY NOTE: the first version of (c) simply
+  ADDED `(not cond)` while `if_blocks` already carried the direct `cond` (one block covers both
+  branches) — the path became `cond ∧ ¬cond` = UNSAT, and **REAL findings disappeared**
+  (MEASURED: `modular_exponential`, a true `modulus == 0`, vanished). The helper now returns
+  `(direct, negated)` pairs and the caller REPLACES the direct guard — measured back.
+- `tools/kern_contracts.py` — **defect #472**: `f32`/`f64`/`float`/`double` were absent from
+  `_TYPE_MAP`/`_NUMERIC_TYPES`/`_CLIKE_RANGES`, so the fallback silently put them in the
+  INTEGER domain (class #321) and `pub fn debt_to_equity(debt: f64, equity: f64) -> f64
+  { debt / equity }` was accused of `[CRASH PATH] equity == 0` — in IEEE-754 that is `inf`/`NaN`,
+  NOT a panic. QF_FP is honestly unsupported, so such functions now become a **NAMED skip**
+  (`вещественная арифметика (f32/f64) — модель QF_FP не поддерживается`) instead of a verdict.
+- `tools/kern_contracts.py` — **defect #473**: `[BOUNDS UNKNOWN]` printed "НЕ считается ни
+  находкой, ни безопасным" and was appended to `found` — Belnap **N** counted as **F**
+  (the same class as #454/#469b, but under a SECOND label). Three branches (index modified in
+  a loop; inside `while`; solver "unknown") now go through one `_note()` router to `notes`.
+  MEASURED on `QuixBugs`: counter `62 -> 42`, while the set of REAL findings is byte-identical
+  (31 `[BOUNDS PATH]` + 6 `[CRASH PATH]` + 5 `[SMELL]` before and after) — только класс N ушёл.
+- `tools/xray_check.sh` — TWO-SIDED regression gate for #471a/b/c + #472 + #473 on the new
+  fixture `tests/fixtures/xray_crash_guards/{guards.py,guards.rs}`: FIVE cases must be silent
+  (`gcd_guarded`, `gcd_no_else`, `gcd_while_rust`, `gcd_else_rust`, `ratio_f64`) and THREE must
+  stay findings (`gcd_unguarded`, `arr_unguarded`, `ratio_i64`) — exactly `находок 3`. Without
+  the TP controls a "fix" by muting would pass; with them it cannot.
+- `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
+  `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
+  (231 -> 234 non-vacuous cases).
 - `tools/audits_run.py` — **defect #470**: the audit harness put NO memory ceiling on its
   subprocesses. MEASURED: `make audits` → `kernc prove` on `audits/rust-core/midpoint.rs` grew
   to **5.4 GB and kept growing** (a 300 s timeout existed, a memory bound did NOT), and with up

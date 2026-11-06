@@ -5493,7 +5493,19 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 found.append(f"[REDUNDANT GUARD] {fnname}: строка {st.lineno} — "
                              f"условие ВСЕГДА истинно: {cond}")
             # Краш-пути в теле.
-            for n, nguards in _walk_expr_guarded(st, path + [cond], syms, env):
+            # ДЕФЕКТ #471a: обход ОБЯЗАН идти по ТЕЛУ ветви THEN, а не по всему
+            # `ast.If`. ИЗМЕРЕНО на `QuixBugs/python_programs/gcd.py`:
+            #     if b == 0: return a
+            #     else:      return gcd(a % b, b)
+            # давало `[CRASH PATH] b == 0` — при том, что `if` уже исключил
+            # `b == 0`. Причина: этот скан получал `st` ЦЕЛИКОМ, поэтому
+            # `orelse` обходился с ПРЯМЫМ гардом `cond` вместо `(not cond)`,
+            # то есть с ОТРИЦАНИЕМ истины. Ветви ниже (рекурсивный
+            # `_walk_branches(st.orelse, path + [(not cond)])`) и так обходят
+            # всё корректно — этот скан их только ПОРТИЛ.
+            _then_nodes = [_ng for _st_then in st.body
+                           for _ng in _walk_expr_guarded(_st_then, path + [cond], syms, env)]
+            for n, nguards in _then_nodes:
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
                     if isinstance(n.op, ast.Mod) and _is_str_expr(n.left):
                         continue  # `'%s' % x` — форматирование, не деление
@@ -6202,6 +6214,22 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
     `ast.While` (дефект #315) этот проход перестал её достигать, и покрытие
     терялось вместе с ложной тревогой — поэтому сканирование вызывается явно.
     """
+    def _note(msg: str) -> None:
+        """НЕОПРЕДЕЛЁННОСТЬ (Белнап N) — в заметки, а НЕ в находки (#473).
+
+        ЗАЧЕМ. Три ветви этого анализа печатают «НЕ считается ни находкой, ни
+        безопасным», то есть это N, а не F. До правки они уходили в `found`, и
+        счётчик находок считал неопределённость обвинением. ИЗМЕРЕНО на
+        `QuixBugs`: `находок 62`, из них **18** — ровно этот класс (29 %).
+        Звучность не меняется: сообщение ПЕЧАТАЕТСЯ, меняется только корзина.
+        Если `notes` не передан (внешние/старые вызовы), поведение прежнее —
+        молчаливого исчезновения диагностики нет.
+        """
+        if notes is not None:
+            notes.append(msg)
+        else:
+            found.append(msg)
+
     if not isinstance(sub.value, ast.Name):
         return
     arr = sub.value.id
@@ -6223,13 +6251,9 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
         # `python_programs` — 80: сигнала НЕТ, а чистый код обвиняется.
         # Теперь это ЗАМЕТКА (`note:`, класс N), а находкой остаётся только
         # `[BOUNDS PATH]` — доказанный выход с контрпримером.
-        msg = (f"[BOUNDS?] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
-               f"длина НЕ известна (нет литерала и нет `len({arr})` в условиях): "
-               f"границы НЕ проверены, это НЕОПРЕДЕЛЁННОСТЬ (N), не находка")
-        if notes is not None:
-            notes.append(msg)
-        else:
-            found.append(msg)
+        _note(f"[BOUNDS?] {fname}: `{arr}[...]` (строка {sub.lineno}) — "
+              f"длина НЕ известна (нет литерала и нет `len({arr})` в условиях): "
+              f"границы НЕ проверены, это НЕОПРЕДЕЛЁННОСТЬ (N), не находка")
         return
     try:
         # ДЕФЕКТ #322: индекс, записанный через `len(b)`, давал СВОБОДНЫЙ символ
@@ -6254,7 +6278,7 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
         used = {x.id for x in ast.walk(sub.slice) if isinstance(x, ast.Name)}
         touched = used & _LOOP_MODIFIED
         if touched:
-            found.append(
+            _note(
                 f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
                 f"индекс зависит от переменной, изменённой в ЦИКЛЕ "
                 f"({', '.join(sorted(touched))}): инвариант цикла НЕ моделируется "
@@ -6267,7 +6291,7 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
         # «контрпример» может быть НЕДОСТИЖИМ (именно так было на `bisect.py`).
         # Звуковое поведение — честное UNKNOWN с причиной, а не обвинение.
         if in_while:
-            found.append(
+            _note(
                 f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
                 f"`while`: инвариант цикла НЕ моделируется, поэтому свидетельство "
                 f"{ce} может быть недостижимо — НЕ считается ни находкой, ни безопасным")
@@ -6275,8 +6299,8 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
             found.append(f"[BOUNDS PATH] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
                          f"возможен выход за границы {human}; контрпример: {ce}")
     elif v == "unknown":
-        found.append(f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
-                     f"НЕ решено ({ce}) — НЕ считается безопасным")
+        _note(f"[BOUNDS UNKNOWN] {fname}: `{arr}[{idx}]` (строка {sub.lineno}) — "
+              f"НЕ решено ({ce}) — НЕ считается безопасным")
 
 
 # Побочный канал: статистика последнего `cmd_xray` для агрегатора.
@@ -6910,6 +6934,138 @@ def _mut_names_for(names: set) -> set:
     return out
 
 
+def _clike_cond_text_to_smt(raw: str, lang: str = "") -> str | None:
+    """Текст условия (`b != 0`) -> SMT-предикат. `None`, если вне подмножества.
+
+    ЕДИНАЯ точка конвейера для `while`/`else` гардов (#471b/#471c): те же шаги,
+    что у `if`-условий, иначе гард из цикла и гард из `if` считались бы по-разному.
+    Непереводимое условие гарда НЕ даёт — лучше меньше гардов, чем выдуманный.
+    """
+    raw = raw.replace("===", "==").replace("!==", "!=")
+    raw = _flatten_fields(_literals_to_numbers(raw))
+    try:
+        return expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(raw)),
+                                  mode="eval").body, {}, lang)
+    except (Unsupported, NoReturn, SyntaxError):
+        return None
+
+
+def _clike_stmt_start(body: str, pos: int) -> int:
+    """Начало ОПЕРАТОРА, содержащего `pos` (дефект #471b).
+
+    Нужно, чтобы отличить «переназначили ДО этой операции» (гард снимается) от
+    «присваивание в ТОЙ ЖЕ операции» (гард остаётся: правая часть `b = a % b`
+    вычисляется по СТАРОМУ `b` — иначе такого кода просто не бывает).
+    """
+    j = max(body.rfind(";", 0, pos), body.rfind("{", 0, pos), body.rfind("}", 0, pos))
+    return j + 1
+
+
+def _clike_while_conds_at(pos: int, body: str, lang: str = "") -> list[str]:
+    """Условия ОБЪЕМЛЮЩИХ `while` для позиции `pos` (ДЕФЕКТ #471b).
+
+    ЗАЧЕМ. `_xray_clike_file` регистрирует в `if_blocks` ТОЛЬКО `if (...)`,
+    поэтому тело цикла анализировалось БЕЗ условия цикла. ИЗМЕРЕНО на
+    `TheAlgorithms/Rust` (6 ложных `[CRASH PATH]`): алгоритм Евклида
+        while b != 0 { let temp = b; b = a % b; a = temp; }
+    обвинялся в делении на ноль `b == 0`, хотя `b == 0` — это условие ВЫХОДА
+    из цикла. Класс тот же, что #315/#471a, но в C-like маршруте (в Python-
+    маршруте условие цикла добавлялось давно — строки `_walk_branches`).
+
+    ПОЧЕМУ ОТДЕЛЬНЫЙ ПОМОЩНИК, а не запись в `if_blocks`: у `if` есть семантика
+    «после блока с выходом действует `not cond`», у `while` — другая (после
+    цикла условие ложно ТОЛЬКО если цикл завершился по нему). Смешать их в
+    одном списке значило бы менять уже проверенное поведение `if` (регресс на
+    `cmark-gfm`). Здесь условие прикладывается ТОЛЬКО внутрь тела цикла.
+
+    ИНВАЛИДАЦИЯ (звучащий минимум): условие прикладывается, лишь если ни одна
+    его переменная не переназначена между `{` тела и НАЧАЛОМ текущего оператора.
+    Переназначение ВНУТРИ текущего оператора гард не снимает (см. выше).
+    Непереводимое условие гарда НЕ даёт — лучше меньше гардов, чем выдуманный.
+    """
+    out: list[str] = []
+    stmt_start = _clike_stmt_start(body, pos)
+    depth = 0
+    i = pos - 1
+    while i >= 0:
+        ch = body[i]
+        if ch == "}":
+            depth += 1
+        elif ch == "{":
+            if depth == 0:
+                head = body[:i].rstrip()
+                wm = None
+                for wm in re.finditer(r"\bwhile\b", head):
+                    pass  # последнее вхождение `while` в заголовке блока
+                if wm is not None:
+                    raw = head[wm.end():].strip()
+                    # Условие обязано быть «плоским»: без операторов и блоков.
+                    if raw and not re.search(r"[;{}]", raw):
+                        if raw.startswith("(") and raw.endswith(")"):
+                            raw = raw[1:-1]
+                        if raw:
+                            _names = set(re.findall(r"[A-Za-z_]\w*", raw))
+                            if not (_names & _assigned_between(body, i, stmt_start)):
+                                _c = _clike_cond_text_to_smt(raw, lang)
+                                if _c:
+                                    out.append(_c)
+            else:
+                depth -= 1
+        i -= 1
+    return out
+
+
+def _clike_else_conds_at(pos: int, body: str, lang: str = "") -> list[tuple[str, str]]:
+    """Условия ОБЪЕМЛЮЩИХ `else`-ветвей для позиции `pos` (ДЕФЕКТ #471c).
+
+    ЗАЧЕМ. C-like маршрут регистрирует `if (...) {...} else {...}` в `if_blocks`
+    ОДНИМ блоком, покрывающим ОБЕ ветви, поэтому позиция внутри `else` получала
+    ПРЯМОЙ гард `cond` — то есть условие, которое `else` как раз исключает.
+    ИЗМЕРЕНО на `TheAlgorithms/Rust` (`math/greatest_common_divisor.rs`):
+        if a == 0 { b.abs() } else { gcd(b % a, a) }
+    обвинялся в делении на ноль `a == 0`.
+
+    ВАЖНО (первая версия этой правки была ОШИБОЧНОЙ и глушила настоящие находки):
+    НЕЛЬЗЯ просто ДОБАВИТЬ `(not cond)` — в пути уже лежит прямой `cond`, и
+    `cond ∧ ¬cond` даёт UNSAT, то есть «деления на ноль не бывает» для ЛЮБОГО
+    делителя. ИЗМЕРЕНО: `modular_exponential` (настоящее `modulus == 0`) исчезал
+    из отчёта. Поэтому помощник возвращает ПАРЫ `(прямой, отрицание)`: вызывающий
+    обязан СНЯТЬ прямой гард и добавить отрицание — замена, а не добавление.
+    """
+    out: list[tuple[str, str]] = []
+    stmt_start = _clike_stmt_start(body, pos)
+    depth = 0
+    i = pos - 1
+    while i >= 0:
+        ch = body[i]
+        if ch == "}":
+            depth += 1
+        elif ch == "{":
+            if depth == 0:
+                head = body[:i].rstrip()
+                m_else = re.search(r"\belse\s*$", head)
+                if m_else is not None:
+                    before = head[:m_else.start()].rstrip()
+                    im = None
+                    for im in re.finditer(r"\bif\b", before):
+                        pass  # ближайший предшествующий `if`
+                    if im is not None:
+                        raw = before[im.end():].strip()
+                        # `if (a == 0) { … }` -> берём скобочную группу условия.
+                        pm = re.match(r"^\(([^()]*)\)", raw)
+                        raw = pm.group(1) if pm else raw.split("{")[0].strip()
+                        if raw:
+                            _names = set(re.findall(r"[A-Za-z_]\w*", raw))
+                            if not (_names & _assigned_between(body, i, stmt_start)):
+                                _c = _clike_cond_text_to_smt(raw, lang)
+                                if _c:
+                                    out.append((_c, f"(not {_c})"))
+            else:
+                depth -= 1
+        i -= 1
+    return out
+
+
 def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
     """Условия, действующие В ПОЗИЦИИ `pos` (дефекты #318 и #401).
 
@@ -7497,6 +7653,20 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         proven = 0
         # ДЕФЕКТ #400: причина, по которой функция НЕ попала в `checked`.
         skip_why: list[str] = []
+        # ДЕФЕКТ #472: ВЕЩЕСТВЕННЫЕ ТИПЫ — ЭТО НЕ ЦЕЛОЧИСЛЕННЫЕ.
+        # ИЗМЕРЕНО на `TheAlgorithms/Rust`: `pub fn debt_to_equity(debt: f64,
+        # equity: f64) -> f64 { debt / equity }` объявлялась `[CRASH PATH]
+        # equity == 0`. В IEEE-754 деление на 0.0 даёт inf/NaN — ПАНИКИ НЕТ,
+        # значит обвинение ЛОЖНОЕ. Причина: `f32/f64/float/double` отсутствуют
+        # в `_TYPE_MAP`/`_NUMERIC_TYPES`/`_CLIKE_RANGES`, и фолбэк молча уносил
+        # их в `i64` (класс #321 — подмена семантики типа). Модель QF_FP мы
+        # ЧЕСТНО не поддерживаем, поэтому функция уходит в НАЗВАННЫЙ пропуск,
+        # а не в вердикт («не знаю» с причиной лучше ложного обвинения).
+        # Сигнатура берётся по ПЕРВОЙ строке тела — она её содержит.
+        _sig = (body.splitlines() or [""])[0]
+        if re.search(r"\b(?:f32|f64|float|double|float32|float64)\b", _sig):
+            _bump("вещественная арифметика (`f32`/`f64`) — модель QF_FP не поддерживается")
+            continue
         raw_body = body          # для правила B (смотрит на САМИ касты)
         # ДЕФЕКТ #189: C-касты снимаются ДО разбора условий/индексов/делителей.
         # Иначе `if (len == (size_t)(max_rewind - rewind)) return` не переводился,
@@ -7771,8 +7941,19 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             try:
                 # ДЕФЕКТ #318: условия берутся ПО ПОЗИЦИИ делителя.
                 _pos_d = dm.start()
+                # ДЕФЕКТ #471c: `if/else` регистрируется ОДНИМ блоком на обе ветви,
+                # поэтому внутри `else` в пути лежал ПРЯМОЙ гард `cond`. Заменяем
+                # его на отрицание (добавлять `(not cond)` к `cond` нельзя: это
+                # противоречие и UNSAT, то есть глушение настоящих находок).
+                _ifc = _clike_conds_at(_pos_d, if_blocks, body)
+                _el = _clike_else_conds_at(_pos_d, body, lang)
+                for _pos_c, _neg_c in _el:
+                    if _pos_c in _ifc:
+                        _ifc.remove(_pos_c)
                 sat_dz = _smt_sat_guarded(kernc, params,
-                                          path_conds + _clike_conds_at(_pos_d, if_blocks, body)
+                                          path_conds + _ifc
+                                          + _clike_while_conds_at(_pos_d, body, lang)
+                                          + [_neg_c for _p2, _neg_c in _el]
                                           + [f"(= {d} 0)"], skip_why)
             except Exception as _kern_e_3982:  # noqa: BLE001
                 _replay_soft(_kern_e_3982, "kern_contracts.py:3982")

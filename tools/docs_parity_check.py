@@ -55,6 +55,8 @@ PAIRS = (
     ("docs/PLAN_takt22.ru.md", "docs/PLAN_takt22.md"),
     # Такт 2.3: тот же класс — план читается новой сессией, паритет обязателен.
     ("docs/PLAN_takt23.ru.md", "docs/PLAN_takt23.md"),
+    # Такт 2.4: три класса ложных обвинений (#471/#472/#473) — тот же класс документа.
+    ("docs/PLAN_takt24.ru.md", "docs/PLAN_takt24.md"),
 )
 REQUIRED = ("core_tests", "next_tests", "catalog", "check_targets",
             "canfail_cases", "anchors", "registry_targets", "meta_targets",
