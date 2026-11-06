@@ -5714,15 +5714,75 @@ class _LenRewrite(ast.NodeTransformer):
 
 
 def _collect_lens(fn, syms: set) -> dict[str, str]:
-    """Длины из литералов списков + символьные длины из `len(...)`."""
+    """Длины из литералов списков + символьные длины из `len(...)`.
+
+    ЗВУЧНОСТЬ (#476a). Литеральная длина верна, только если имя привязано
+    к литералу РОВНО ОДИН раз за функцию. Иначе `data = [1, 2, 3]`, а ниже
+    `data = f()`, дало бы ложное «длина 3» — то есть новая ложная находка
+    вместо исправления старой. Переприсваивание -> имени НЕТ в карте (честный
+    отказ, длина пойдёт по символической ветке).
+    """
     lens: dict[str, str] = {}
+    binds: dict[str, list] = {}
     for st in ast.walk(fn):
-        if (isinstance(st, ast.Assign) and len(st.targets) == 1
-                and isinstance(st.targets[0], ast.Name)
-                and isinstance(st.value, (ast.List, ast.Tuple))):
-            lens[st.targets[0].id] = str(len(st.value.elts))
+        if isinstance(st, ast.Assign):
+            for t in st.targets:
+                if isinstance(t, ast.Name):
+                    binds.setdefault(t.id, []).append(st.value)
+                else:
+                    for sub in ast.walk(t):
+                        if isinstance(sub, ast.Name):
+                            binds.setdefault(sub.id, []).append(None)
+        elif isinstance(st, (ast.AugAssign, ast.AnnAssign)):
+            t = getattr(st, "target", None)
+            if isinstance(t, ast.Name):
+                binds.setdefault(t.id, []).append(None)
+        elif isinstance(st, (ast.For, ast.AsyncFor)):
+            if isinstance(st.target, ast.Name):
+                binds.setdefault(st.target.id, []).append(None)
+        elif isinstance(st, (ast.With, ast.AsyncWith)):
+            for it in st.items:
+                if it.optional_vars is not None and isinstance(it.optional_vars, ast.Name):
+                    binds.setdefault(it.optional_vars.id, []).append(None)
         if isinstance(st, ast.Call):
             _LenRewrite(syms).visit(st)
+    # ДЕФЕКТ #476d: литеральная длина ПЕРЕСТАЁТ быть верной, если список
+    # РАСТЁТ: `rows = [[1]]` + `rows.append(row)` в цикле. Иначе границы
+    # `0..0` не соответствуют реальности и `rows[r - 1]` обвиняется ложно
+    # (ИЗМЕРЕНО на `QuixBugs/correct_python_programs/pascal.py`).
+    grows: set[str] = set()
+    for st in ast.walk(fn):
+        if isinstance(st, ast.Call) and isinstance(st.func, ast.Attribute):
+            if st.func.attr in ("append", "extend", "insert", "add",
+                                "update", "appendleft", "push"):
+                base = st.func.value
+                if isinstance(base, ast.Name):
+                    grows.add(base.id)
+        elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
+            grows.add(st.target.id)
+    # ДЕФЕКТ #476e: `d[k]` для СЛОВАРЯ — не «индекс вне 0..len-1». Ключ либо
+    # есть, либо его нет, и `d[k] = v` его СОЗДАЁТ. ИЗМЕРЕНО:
+    # `QuixBugs/shortest_paths.py` — `weight_by_node = {v: inf for ...}` затем
+    # чтение `weight_by_node[u]` обвинялось контрпримером `u = -1`.
+    dicts: set[str] = set()
+    for st in ast.walk(fn):
+        if (isinstance(st, ast.Assign) and isinstance(st.value, (ast.Dict, ast.DictComp))):
+            for t in st.targets:
+                if isinstance(t, ast.Name):
+                    dicts.add(t.id)
+        elif isinstance(st, ast.Call) and isinstance(st.func, ast.Attribute):
+            if st.func.attr in ("items", "keys", "values", "get", "setdefault",
+                                "pop", "update"):
+                base = st.func.value
+                if isinstance(base, ast.Name):
+                    dicts.add(base.id)
+    for name, vals in binds.items():
+        if name in grows:
+            continue
+        if len(vals) == 1 and isinstance(vals[0], (ast.List, ast.Tuple)):
+            lens[name] = str(len(vals[0].elts))
+    for name in dicts:
+        lens.setdefault(name, "dict")     # спец-значение: НЕ индекс
     return lens
 
 
@@ -5847,6 +5907,88 @@ def _loop_len_guard(st) -> tuple[str, str] | None:
     if arr is not None:
         return st.target.id, arr
     return None
+
+
+def _const_int(node) -> int | None:
+    """Целая константа из AST, включая `-N` (UnaryOp/USub).
+
+    Нужен для шага `range(a, b, s)`: в AST `-1` — это `UnaryOp(USub,
+    Constant(1))`, и проверка `isinstance(node, ast.Constant)` его НЕ видит.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) \
+            and not isinstance(node.value, bool):
+        return node.value
+    if (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)):
+        inner = _const_int(node.operand)
+        return None if inner is None else -inner
+    return None
+
+
+def _loop_range_guard(st, syms: set) -> tuple[str, list[str], set] | None:
+    """`for i in range(a, b[, step])` -> границы переменной цикла (#476b).
+
+    ЗАЧЕМ. `_loop_len_guard` покрывает ТОЛЬКО `range(len(arr))`. На реальном
+    корректном коде (`QuixBugs/correct_python_programs`) циклы почти всегда
+    записаны как `range(1, len(items) + 1)`, `range(len(perm) - 2, -1, -1)`,
+    `range(0, r + 1)`. Границы переменной НЕ добавлялись в путь, и индексы
+    `items[i - 1]`, `perm[j]`, `rows[r - 1]` обвинялись недостижимыми
+    контрпримерами (`i = -1`, `j = -1`, `r = 0`). ИЗМЕРЕНО: 7 из 13 «находок»
+    на ЧИСТОМ корпусе — ровно этот класс.
+
+    ЗВУЧНОСТЬ. Тело `for` исполняется только при значении счётчика из
+    диапазона, поэтому `a <= i < b` (шаг > 0) и `b < i <= a` (шаг < 0) —
+    ИСТИННЫЕ условия каждой итерации, как и условие `while`. Шаг, который не
+    удаётся доказать постоянным по знаку, -> отказ (None): ослаблять наугад
+    нельзя. При положительном шаге `i >= a` и `i < b` верны и для шага > 1
+    (диапазон только сужается) — поэтому подусловие звучно.
+    """
+    if not isinstance(st.target, ast.Name):
+        return None
+    it = st.iter
+    if not (isinstance(it, ast.Call) and isinstance(it.func, ast.Name)
+            and it.func.id == "range" and 1 <= len(it.args) <= 3
+            and not it.keywords):
+        return None
+    args = it.args
+    if len(args) == 1:
+        lo, hi = ast.Constant(value=0), args[0]
+    else:
+        lo, hi = args[0], args[1]
+    step = args[2] if len(args) == 3 else None
+    var = st.target.id
+
+    local = set(syms)
+
+    def _smt(node):
+        try:
+            rw = _LenRewrite(local)
+            nd = rw.visit(ast.parse(ast.unparse(node), mode="eval").body)
+            ast.fix_missing_locations(nd)
+            expr = expr_smt(nd, {})
+            if not expr or "havoc" in expr:
+                return None
+            return expr
+        except (Unsupported, NoReturn, SyntaxError):
+            return None
+
+    lo_s, hi_s = _smt(lo), _smt(hi)
+    if lo_s is None or hi_s is None:
+        return None
+    if step is None:
+        positive = True
+    else:
+        # В AST отрицательный литерал — это `UnaryOp(USub, Constant)`, а НЕ
+        # `Constant(-1)`. Первая версия проверяла только `Constant` и потому
+        # отвергала ЛЮБОЙ `range(a, b, -1)` — то есть ровно те циклы, ради
+        # которых правило написано (проверено: `range(len(p)-2, -1, -1)` ->
+        # guard None при верном разборе частей).
+        _sv = _const_int(step)
+        if _sv is None or _sv == 0:
+            return None
+        positive = _sv > 0
+    conds = ([f"(>= {var} {lo_s})", f"(< {var} {hi_s})"] if positive
+             else [f"(<= {var} {lo_s})", f"(> {var} {hi_s})"])
+    return var, [f"(and {' '.join(conds)})"], local
 
 
 def _match_len_guard(st) -> str | None:
@@ -6101,6 +6243,12 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 cond = f"(and (>= {var} 0) (< {var} kern_len_{arr}))"
                 _walk_bounds(st.body, eff + [cond], params, lens, kernc, found,
                              fname, syms | {arr}, in_while=in_while, notes=notes)
+            elif (gr := _loop_range_guard(st, syms)) is not None:
+                # #476b: `for i in range(a, b[, step])` — границы счётчика
+                _var, _conds, _ls = gr
+                _walk_bounds(st.body, eff + _conds, params, lens, kernc, found,
+                             fname, syms | (_ls - set(syms)), in_while=in_while,
+                             notes=notes)
             else:
                 _walk_bounds(st.body, eff, params, lens, kernc, found, fname, syms,
                              in_while=in_while, notes=notes)
@@ -6127,6 +6275,36 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             _bounds_one(sub, spath, params, lens, kernc, found, fname, syms, in_while, notes)
 
 
+def _write_targets(root) -> set:
+    """Множество `id()` подскриптов, которые являются ЦЕЛЬЮ записи (#476c).
+
+    `d[k] = v`, `d[k] += 1`, `del d[k]` — это ЗАПИСЬ по ключу, а не чтение
+    индекса: у словаря нет «индекса вне 0..len-1», запись ключ СОЗДАЁТ.
+    Считалось чтением -> ЛОЖНОЕ обвинение (`shortest_paths`:
+    `weight_by_node[source] = 0`, контрпример `source = -1`).
+
+    Идентичность (`id()`) выбрана намеренно: сравнение по структуре
+    (`ast.dump`) склеило бы РАЗНЫЕ узлы с одинаковым текстом.
+    """
+    out: set = set()
+
+    def mark(t):
+        for sub in ast.walk(t) if t is not None else ():
+            if isinstance(sub, ast.Subscript):
+                out.add(id(sub))
+
+    for node in ast.walk(root):
+        # ТОЛЬКО чистая запись `d[k] = v` (Assign). НЕ `+=`: это ЧТЕНИЕ
+        # плюс запись, и границы проверять НУЖНО — иначе исчезает законная
+        # заметка `[BOUNDS?]` и краснеет гейт #454 (ИЗМЕРЕНО:
+        # `progress[0] += 1` в `tests/fixtures/xray_bounds_unknown.py`).
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Subscript):
+                    mark(t)
+    return out
+
+
 def _subscripts_with_path(st, path: list, syms: set) -> list:
     """Подвыражения `arr[i]` вместе с условиями, которые их ГАРАНТИРУЮТ.
 
@@ -6151,6 +6329,7 @@ def _subscripts_with_path(st, path: list, syms: set) -> list:
     верно — пустой кортеж даёт IndexError.
     """
     out: list[tuple] = []
+    writes = _write_targets(st)      # #476c: записи по ключу не читаются
 
     def cond_of(test) -> str | None:
         stripped = _drop_isinstance(test)
@@ -6168,7 +6347,7 @@ def _subscripts_with_path(st, path: list, syms: set) -> list:
                 walk(child.body, cond_path + ([c] if c else []))
                 walk(child.orelse, cond_path + ([f"(not {c})"] if c else []))
                 continue
-            if isinstance(child, ast.Subscript):
+            if isinstance(child, ast.Subscript) and id(child) not in writes:
                 out.append((child, cond_path))
             walk(child, cond_path)
 
@@ -6262,9 +6441,23 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
     arr = sub.value.id
     decls = list(params)
     pre: list[str] = []
+    if lens.get(arr) == "dict":
+        # #476e: словарь — не список; `d[k] = v` — запись по ключу.
+        return
     if arr in lens:
         n = lens[arr]                      # (а) литерал списка из AST
         human = f"0..{int(n) - 1} (из литерала)"
+        # ДЕФЕКТ #476a: гард `0 <= i < len(data)` переписывается в
+        # СИМВОЛИЧЕСКУЮ `kern_len_data`, а границы берутся ИЗ ЛИТЕРАЛА — два
+        # представления одной длины не связывались, и решатель выбирал
+        # `kern_len_data = 5` при литерале из 4 элементов: ЛОЖНЫЙ
+        # `[BOUNDS PATH]` с `i = 4` на КОРРЕКТНОМ коде.
+        # ИЗМЕРЕНО: `precision_known_fp/idx_literal_guard` (known_fp 1).
+        # ЗВУЧНОСТЬ: факт верен, т.к. `lens` строится только для имён с
+        # ЕДИНСТВЕННОЙ привязкой-литералом (см. `_collect_lens`).
+        _sym = f"kern_len_{arr}"
+        decls = list(dict.fromkeys(decls + [_sym]))
+        pre = list(dict.fromkeys(pre + [f"(= {_sym} {int(n)})", f"(>= {_sym} 0)"]))
     elif arr in syms:
         n = f"kern_len_{arr}"              # (б) СИМВОЛИЧЕСКАЯ длина
         decls = list(dict.fromkeys(decls + [n]))

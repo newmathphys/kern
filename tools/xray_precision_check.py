@@ -41,15 +41,20 @@ EXPECTED_BUGGY = 5
 REQUIRED_FOUND = ("div_unguarded", "idx_unguarded_literal", "mod_unguarded",
                   "div_unguarded_rs", "mod_unguarded_rs")
 # Известные ложные обвинения (ретаргет #476): РОВНО столько и НИКАКИХ других.
-EXPECTED_KNOWN_FP = 1
-KNOWN_FP_NAMES = ("idx_literal_guard",)
+EXPECTED_KNOWN_FP = 0      # #476 закрыт: класс пуст, ретаргет сработал
+KNOWN_FP_NAMES: tuple = ()   # пусто: FP не разрешены
 # База ложных обвинений на внешнем корпусе (ИЗМЕРЕНО: 21 из 50 корректных
 # программ). ЦЕЛЬ — 0. Гейт краснеет, если число ВЫРОСЛО: так регрессы видны,
 # а существующий долг честно назван числом, а не спрятан.
-EXT_FP_BASELINE = 21
+EXT_FP_BASELINE = 4
 
 RE_SUMMARY = re.compile(r"находок\s+(\d+)")
 RE_FINDING = re.compile(r"\[(CRASH PATH|BOUNDS PATH|OVERFLOW PATH|DEAD BRANCH)\]\s+(\w+)")
+# ДЕФЕКТ #476f: одна находка печатается ДВАЖДЫ (в контексте функции и в
+# итоговом списке по файлам), поэтому счётчик сводки завышен. Для метрики
+# ТОЧНОСТИ считаем УНИКАЛЬНЫЕ пары (файл, функция, тип): обвинённая функция —
+# одна, сколько бы раз её ни напечатали.
+RE_UNIQUE = re.compile(r"^\s+(/\S+?):\s+\[(CRASH PATH|BOUNDS PATH|OVERFLOW PATH|DEAD BRANCH)\]\s+(\w+)", re.M)
 
 
 def xray(path: Path) -> tuple[int, str]:
@@ -62,6 +67,11 @@ def findings_of(out: str) -> tuple[int, set[str]]:
     m = RE_SUMMARY.search(out)
     n = int(m.group(1)) if m else -1
     return n, {fn for _lab, fn in RE_FINDING.findall(out)}
+
+
+def unique_findings(out: str) -> set:
+    """УНИКАЛЬНЫЕ обвинения: (файл, функция, тип). #476f: печать дублируется."""
+    return {(f, fn, lab) for f, lab, fn in RE_UNIQUE.findall(out)}
 
 
 def main() -> int:
@@ -103,14 +113,18 @@ def main() -> int:
     if EXT.is_dir():
         rc_e, out_e = xray(EXT)
         n_e, f_e = findings_of(out_e)
-        print(f"[i] QuixBugs/correct_python_programs: находок {n_e} "
-              f"(база {EXT_FP_BASELINE}, цель 0)")
-        if n_e > EXT_FP_BASELINE:
-            bad.append(f"РЕГРЕСС на 50 КОРРЕКТНЫХ программах: {n_e} > базы "
+        # #476f: сводка считает и контекст, и итоговый список -> сырой счётчик
+        # завышен вдвое. Метрика ТОЧНОСТИ — уникальные обвинения.
+        u_e = unique_findings(out_e)
+        n_uniq = len(u_e) if u_e else len(f_e)
+        print(f"[i] QuixBugs/correct_python_programs: {n_uniq} уникальных обвинений "
+              f"(сырой счётчик {n_e}, база {EXT_FP_BASELINE}, цель 0)")
+        if n_uniq > EXT_FP_BASELINE:
+            bad.append(f"РЕГРЕСС на 50 КОРРЕКТНЫХ программах: {n_uniq} > базы "
                        f"{EXT_FP_BASELINE} — {sorted(f_e)[:8]}")
-        elif n_e < EXT_FP_BASELINE:
-            print(f"[i] ЛУЧШЕ БАЗЫ на {EXT_FP_BASELINE - n_e}: снизьте "
-                  f"EXT_FP_BASELINE до {n_e} (ретаргет вниз)")
+        elif n_uniq < EXT_FP_BASELINE:
+            print(f"[i] ЛУЧШЕ БАЗЫ на {EXT_FP_BASELINE - n_uniq}: снизьте "
+                  f"EXT_FP_BASELINE до {n_uniq} (ретаргет вниз)")
         if rc_e != 0:
             bad.append(f"`--xray` упал на внешнем корпусе (rc={rc_e})")
     else:

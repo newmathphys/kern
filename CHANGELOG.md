@@ -55,6 +55,37 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 
 ### Fixed
 
+- `tools/kern_contracts.py` — **#476 (ШЕСТЬ точных причин вместо одной догадки)**: the class
+  «known false positive on correct code» was NOT a chained comparison (the hypothesis):
+  `if 0 <= i < len(data)` ALREADY worked (measured). The real causes were six, each fixed
+  separately and each with its own measured effect on `QuixBugs/correct_python_programs`
+  (**21 unique accusations -> 4**):
+  **#476a** `len(<literal>)` in a guard became a SYMBOLIC length while bounds came from the
+  LITERAL — the two representations of one length were never tied, so the solver picked
+  `kern_len_data = 5` for a 4-element literal (`i = 4`). Now the literal length is asserted.
+  SOUNDNESS: `lens` is built only for names bound to a literal EXACTLY ONCE (reassignment ->
+  honest refusal), otherwise the fix would create a new false accusation.
+  **#476b** loop-variable bounds `for i in range(a, b[, step])` were not added at all —
+  `items[i - 1]`, `perm[j]`, `rows[r - 1]` were accused with unreachable counterexamples
+  (`i = -1`, `r = 0`). Now `a <= i < b` (or `b < i <= a` for a negative step) enters the path.
+  A negative step literal is `UnaryOp(USub, Constant)`, NOT `Constant(-1)` — the first version
+  checked only `Constant` and therefore rejected EVERY `range(a, b, -1)`, i.e. exactly the
+  loops it was written for (measured before/after).
+  **#476c** `d[k] = v` is a WRITE by key, not an index read (`weight_by_node[source] = 0`,
+  counterexample `source = -1`); writes are excluded by node identity.
+  **#476d** a literal length stops being true when the list GROWS (`rows = [[1]]` +
+  `rows.append(row)`) — `append/extend/insert/+=` disable the literal length.
+  **#476e** a `dict` name (built by `{...}`, `.items()`, `.get()`) has no «index out of
+  0..len-1» — reads by key are skipped instead of accused.
+  **#476f** the `[REPO SUMMARY]` finding counter counts BOTH the per-function context line and
+  the per-file list, so it is inflated (8 vs 4 measured); the PRECISION metric now counts
+  UNIQUE accusations `(file, function, type)`.
+- `tools/xray_precision_check.py` — **retarget fired**: `EXPECTED_KNOWN_FP 1 -> 0`, the function
+  `idx_literal_guard` moved from `precision_known_fp` to `precision_clean`, external baseline
+  `21 -> 4`. MEASURED after: `clean 0`, `known_fp 0`, `buggy 5/5`, external 4 unique. Remaining 4
+  are named and triaged: `find_in_sorted` (closure + early return, class `#200`), `kth` (`arr[0]`
+  on an empty list — real), `op` (`rpn_eval` divides by a popped value — real), `to_base`
+  (`b == 0` — real).
 - `tools/kern_scan.py` + `make kern-scan-check` — **#489**: the «ONE BUTTON» for ANY folder
   (`python3 tools/kern_scan.py <path>`): inventory → `--xray` (ABI `--xray-json`) → `@kern:`
   contracts → `--anti-cheat` → ONE-SCREEN passport (RU + `--json`). Scope is honest: on a big repo
