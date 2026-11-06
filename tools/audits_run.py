@@ -385,21 +385,38 @@ def main() -> int:
     # контейнере объявляется по ФАКТИЧЕСКОМУ вердикту решателя на этой формуле,
     # а `kernc verify` переустанавливает его по БАЙТАМ образа: расхождение
     # (порча формулы, регрессия решателя) -> rc != 0.
-    def measure(f: Path) -> str:
+    def measure(f: Path) -> tuple[str, int | None]:
+        """Вердикт решателя + ЧИСЛО ДОВЕРЕННЫХ шагов пруф-чекера (#474).
+
+        ЗАЧЕМ. ИЗМЕРЕНО на `audits/smt2/hex_index_deepjit_hex_hi.smt2`: решатель
+        говорит `ДОКАЗАНО`, а пруф-чекер печатает `[PROOF PARTIAL] … ДОВЕРЕННЫХ
+        15` (BV-вывод опирается на аксиомы бит-бластера `k!`). Таблица при этом
+        печатала просто `**PROVEN**` — то есть ДВЕ РАЗНЫЕ претензии под одним
+        словом. Для внешнего читателя это выглядит как «доказано полностью».
+        Теперь `trusted` извлекается и печатается рядом с вердиктом: `trusted 0`
+        — доказано и ПРОВЕРЕНО, `trusted > 0` — названная граница (`PARTIAL`),
+        `None` — чекер не сообщил счётчик (тоже честно помечается `?`).
+        """
         _rc, out = run([str(KERNC), "prove", str(f)], timeout=300, mem_cap=True)
+        _mt = re.search(r"ДОВЕРЕННЫХ (\d+)", out)
+        _trust = int(_mt.group(1)) if _mt else None
         if "ДОКАЗАНО" in out:
-            return "proven"
+            return "proven", _trust
         if "КОНТРПРИМЕР" in out:
-            return "refuted"
+            return "refuted", _trust
         # #470: лимит памяти — НАЗВАННЫЙ исход (не «unknown»), иначе рост
         # подпроцесса выглядел бы как «формулу не решили».
         if _rc == 125:
-            return "oom"
-        return "unknown"
+            return "oom", _trust
+        return "unknown", _trust
 
     with ThreadPoolExecutor(max_workers=int(os.environ.get("KERN_AUDIT_WORKERS",
                                                            min(6, os.cpu_count() or 1)))) as ex:
-        measured = dict(zip([f.name for f in smt_files], ex.map(measure, smt_files)))
+        _pairs = dict(zip([f.name for f in smt_files], ex.map(measure, smt_files)))
+
+    measured = {k: v for k, (v, _t) in _pairs.items()}
+    # #474: карта «формула -> число доверенных шагов» (None = чекер молчит).
+    trusted: dict[str, int | None] = {k: _t for k, (_v, _t) in _pairs.items()}
 
     n_proven = sum(1 for v in measured.values() if v == "proven")
     n_refuted = sum(1 for v in measured.values() if v == "refuted")
@@ -421,6 +438,18 @@ def main() -> int:
     for r in rows:
         v = {"PASS": "**PROVEN**", "FAIL": "**REFUTED**", "SKIP": "SKIP",
              "UNKNOWN": "**UNKNOWN (N)**"}[r["verdict"]]
+        # #474: `PROVEN` БЕЗ числа доверенных шагов — запрещённое слово.
+        # Слово `PROVEN` означает вердикт РЕШАТЕЛЯ; пруф-чекер проверяет вывод
+        # отдельно, и его счётчик обязан стоять рядом (иначе читатель считает,
+        # что доказательство проверено, тогда как это `[PROOF PARTIAL]`).
+        if r["verdict"] == "PASS":
+            _t = trusted.get(f"{Path(r['file']).stem}_{r['fn']}.smt2")
+            if _t == 0:
+                v += " (trusted 0)"
+            elif _t is None:
+                v += " (`trusted ?`)"
+            else:
+                v += f" — `[PROOF PARTIAL]` trusted {_t}"
         if r["verdict"] == "FAIL" and r["what"] and "КОНТРАКТ НАРУШЕН" not in r["what"]:
             v += f" — {r['what']}"
         ce = f"`{r['ce']}`" if r["ce"] else "—"
@@ -436,6 +465,12 @@ def main() -> int:
     print(f"функций: {len(rows)} | ДОКАЗАНО {proven} | ОПРОВЕРГНУТО {refuted} | "
           f"SKIP {skipped} | НЕ РЕШЕНО (N) {unknown} | "
           f"с рантайм-подтверждением {runtime} | формул выгружено {len(smt_files)}")
+
+    _t0 = sum(1 for v in trusted.values() if v == 0)
+    _tp = sum(1 for v in trusted.values() if isinstance(v, int) and v > 0)
+    _tn = sum(1 for v in trusted.values() if v is None)
+    print(f"[i] пруф-чекер (#474): trusted 0 — {_t0} | `[PROOF PARTIAL]` — {_tp} | "
+          f"счётчик не сообщён — {_tn}")
 
     rc_cert = cert_section()
 

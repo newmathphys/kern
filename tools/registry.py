@@ -49,6 +49,9 @@ CLASS = {
     # ДЕФЕКТ #470: потолок RLIMIT_AS у подпроцессов аудита (проверяется
     # настоящими подпроцессами: OOM, смерть по сигналу, не-памятный сбой).
     "audits-mem-check": "CHECK",
+    # ДЕФЕКТ #474: `PROVEN` в таблице доказательств обязан нести число
+    # доверенных шагов пруф-чекера (иначе две претензии под одним словом).
+    "evidence-trust": "CHECK",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -192,6 +195,8 @@ CLASS = {
     "arith-zig-ref-selftest": "META",   # мета: сверка адаптеров деления с эталоном Zig (#317)            # мета: генератор llms.txt из facts.json (#311)
     # #470: мета — без потолка памяти исходы обязаны измениться (иначе вакуум).
     "audits-mem-selftest": "META",
+    # #474: мета — гейт обязан краснеть на трёх видах поломки и на пустой таблице.
+    "evidence-trust-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей
     "sync-check": "META",               # проверка якорей (CI)
     "docs-parity": "META",              # EN/RU-факты
@@ -353,6 +358,7 @@ CASE_TARGET = {
     "xray-guard-else": "xray-check",
     "xray-while-guard": "xray-check",
     "xray-float-skip": "xray-check",
+    "evidence-trust": "evidence-trust",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",

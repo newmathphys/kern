@@ -348,6 +348,10 @@ class Fault:
 
 
 FAULTABLE = [
+    # #474: кейс `evidence-trust` правит СГЕНЕРИРОВАННУЮ таблицу доказательств
+    # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
+    # подсадка осталась бы в дереве (класс #225).
+    "audits/EVIDENCE.md",
     "docs/evidence/scorecard.json",
     # Дефект #225: кейс `metrics-guard` правит PROJECT.md, а файла не было
     # в списке -> откат не срабатывал, и подсадка оставалась в дереве.
@@ -2274,6 +2278,25 @@ def case_xray_float_skip():
           'if re.search(r"\\b(?:f32|f64|float|double|float32|float64)\\b", _sig):',
           'if False and re.search(r"\\b(?:f32|f64|float|double|float32|float64)\\b", _sig):  # ЛОМАЕМ (#472)')
     return "make xray-check"
+
+
+def case_evidence_trust():
+    """#474 SABOTAGE: у `PROVEN` снимается число доверенных шагов.
+
+    ЛОМАЕМ РОВНО починенное: в СГЕНЕРИРОВАННОЙ таблице `audits/EVIDENCE.md`
+    маркер `(trusted N)` убирается у одной строки. Это и есть исходная болезнь:
+    слово `PROVEN` (вердикт РЕШАТЕЛЯ) остаётся без счётчика пруф-чекера, и
+    читатель считает, что вывод проверен, хотя для QF_BV это `[PROOF PARTIAL]`
+    (ИЗМЕРЕНО: `hex_index_deepjit_hex_hi` — `ДОВЕРЕННЫХ 15`).
+    Гейт `make evidence-trust` обязан покраснеть.
+    """
+    # Анкер ОБЯЗАН быть уникальным: `**PROVEN** (trusted 0)` встречается 7 раз,
+    # и harness законно отказывает («якорь НЕОДНОЗНАЧЕН»). Берём конкретную
+    # строку: файл + функция + теория.
+    patch("audits/EVIDENCE.md",
+          "| `audits/codecheck/c_clean.c` | `add_bounded` | QF_LIA (Int) | **PROVEN** (trusted 0)",
+          "| `audits/codecheck/c_clean.c` | `add_bounded` | QF_LIA (Int) | **PROVEN**  # ЛОМАЕМ (#474)")
+    return "make evidence-trust"
 
 
 def case_evidence_untracked():
@@ -4363,6 +4386,7 @@ CASES = [
      case_xray_while_guard),
     ("xray-float-skip", "f64 falls back into i64 -> false division-by-zero (#472)",
      case_xray_float_skip),
+    ("evidence-trust", "`PROVEN` loses the trusted-step count (#474)", case_evidence_trust),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

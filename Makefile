@@ -279,6 +279,17 @@ audits-mem-check:
 audits-mem-selftest:
 	@$(PYTHON) tools/audits_mem_cap_check.py --selftest
 
+# ДЕФЕКТ #474: `PROVEN` БЕЗ ЧИСЛА ДОВЕРЕННЫХ ШАГОВ — ЗАПРЕЩЁННОЕ СЛОВО.
+# `PROVEN` — вердикт РЕШАТЕЛЯ; пруф-чекер проверяет вывод ОТДЕЛЬНО и для QF_BV
+# честно печатает `[PROOF PARTIAL]` (аксиомы бит-бластера `k!`). ИЗМЕРЕНО на
+# `hex_index_deepjit_hex_hi`: `ДОКАЗАНО` + `ДОВЕРЕННЫХ 15`. Гейт требует счётчик
+# рядом с каждым `PROVEN` и маркер `PARTIAL` при `trusted > 0`.
+evidence-trust:
+	@$(PYTHON) tools/evidence_trust_check.py
+
+evidence-trust-selftest:
+	@$(PYTHON) tools/evidence_trust_check.py --selftest
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

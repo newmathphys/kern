@@ -153,11 +153,11 @@ KERN — не сканер. Он не найдёт баги в репозито�
 | Тесты ядра | <!-- fact:core_tests -->460 |
 | Тесты next | <!-- fact:next_tests -->53 |
 | Каталог тестов | <!-- fact:catalog -->491 |
-| CHECK-целей | <!-- fact:check_targets -->189 |
-| can-fail кейсов | <!-- fact:canfail_cases -->234 |
-| Литеральных якорей | <!-- fact:anchors -->192 |
-| Целей в реестре | <!-- fact:registry_targets -->248 |
+| CHECK-целей | <!-- fact:check_targets -->190 |
+| can-fail кейсов | <!-- fact:canfail_cases -->235 |
+| Литеральных якорей | <!-- fact:anchors -->193 |
+| Целей в реестре | <!-- fact:registry_targets -->250 |
 | Теорем Lean | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |
 | QuixBugs (дифференциальный) | <!-- fact:quixbugs.differential -->40 |
-| META-целей | <!-- fact:meta_targets -->44 |
+| META-целей | <!-- fact:meta_targets -->45 |

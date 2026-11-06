@@ -119,6 +119,20 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
 - `tools/canfail.py` + `tools/registry.py` — three can-fail cases (`xray-guard-else`,
   `xray-while-guard`, `xray-float-skip`) prove the gate can go red by disabling exactly one fix
   (231 -> 234 non-vacuous cases).
+- `tools/audits_run.py` — **defect #474**: the evidence table printed `**PROVEN**` for
+  formulas whose proof the checker verified only PARTIALLY. MEASURED on
+  `audits/smt2/hex_index_deepjit_hex_hi.smt2`: the solver says `ДОКАЗАНО`, the proof checker
+  says `[PROOF PARTIAL] … ДОВЕРЕННЫХ 15` (bit-blast axioms `k!` — an unprovable free constant,
+  so a strict offline check is impossible). That is TWO different claims under one word, and to
+  a buyer of «proof-carrying artifacts» it reads as a promise BV does not keep. `measure()` now
+  returns `(verdict, trusted)` and every `PROVEN` row carries the count: `trusted 0` (solver and
+  checker agree), `[PROOF PARTIAL] trusted N`, or `` `trusted ?` `` when the checker reports no
+  counter at all (MEASURED: 44 formulas → **13** `trusted 0`, **11** PARTIAL, **20** without a
+  counter — the last group is `ДОКАЗАНО (допущено)`, a weaker claim that the table previously
+  hid behind `PROVEN`). Gate `make evidence-trust` (CHECK) + `make evidence-trust-selftest`
+  (META): `PROVEN` without a count is a violated claim; the selftest proves all three breakage
+  types are caught (and that an empty table is a failure, not a pass); can-fail `evidence-trust`
+  turns the gate red in 0 s.
 - `tools/audits_run.py` — **defect #470**: the audit harness put NO memory ceiling on its
   subprocesses. MEASURED: `make audits` → `kernc prove` on `audits/rust-core/midpoint.rs` grew
   to **5.4 GB and kept growing** (a 300 s timeout existed, a memory bound did NOT), and with up

@@ -47,9 +47,10 @@ counter. Rule: **a guard fix must be verified by the list of findings, not only 
 
 ## 5. Left in the plan (next tacts)
 
-1. **`#474`** — `audits/EVIDENCE.md` prints `PROVEN` for BV while the proof checker says
-   `[PROOF PARTIAL] trusted: 15` (MEASURED on `hex_index_deepjit_hex_hi`). BV rows need a
-   `trusted` column; `PROVEN` without `trusted: 0` is a forbidden word.
+1. **`#474` — DONE in this tact:** the table may no longer say `PROVEN` without the number
+   of trusted steps. MEASURED over 44 formulas: 13 `trusted 0`, 11 `[PROOF PARTIAL]`, 20 without
+   a counter (`ДОКАЗАНО (допущено)` — a weaker claim that used to be hidden). Gate
+   `make evidence-trust` + `--selftest`, canfail `evidence-trust` (0 s).
 2. **Mutation sweep** — cut at 704/1597 (machine powered off). Restart on a clean tree, then
    `docs/evidence/mutate_full.log` 1345 → **1597** and `README` 1376 → 1597, with the kill
    split `test / compile / timeout`.
