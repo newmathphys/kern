@@ -352,6 +352,8 @@ FAULTABLE = [
     # #485: кейс `capability-map` правит СГЕНЕРИРОВАННУЮ карту — файл обязан быть
     # в FAULTABLE, иначе подсадка осталась бы в дереве (класс #225).
     "docs/CAPABILITY_MAP.md",
+    # #487: кейс `mutate-log` правит лог свипа — файл обязан быть в FAULTABLE.
+    "docs/evidence/mutate_full.log",
     "docs/evidence/scorecard.json",
     # Дефект #225: кейс `metrics-guard` правит PROJECT.md, а файла не было
     # в списке -> откат не срабатывал, и подсадка оставалась в дереве.
@@ -2279,6 +2281,16 @@ def case_xray_float_skip():
           'if False and re.search(r"\\b(?:f32|f64|float|double|float32|float64)\\b", _sig):  # ЛОМАЕМ (#472)')
     return "make xray-check"
 
+
+def case_mutate_log():
+    """#487 SABOTAGE: лог свипа объявляет успех при ненулевом RC.
+
+    ЛОМАЕМ: `RC=0` в трейлере заменяется на `RC=2` — ровно тот класс, из-за
+    которого жили «три разных числа»: лог молча говорил не то, что произошло.
+    Гейт `make mutate-log-check` обязан покраснеть.
+    """
+    patch("docs/evidence/mutate_full.log", "RC=0", "RC=2")
+    return "make mutate-log-check"
 
 def case_capability_map():
     """#485 SABOTAGE: карта расходится с реестром (строка цели удалена).
@@ -4461,6 +4473,8 @@ CASES = [
      case_abi_json),
     ("capability-map", "The generated capability map diverges from the registry (#485)",
      case_capability_map),
+    ("mutate-log", "The mutation log declares success with a non-zero RC (#487)",
+     case_mutate_log),
     ("hypotheses-write", "Explanation writes to the source -> gate red",
      case_hypotheses_write),
     ("hypotheses-nonproof", "Unproven hypothesis reported -> gate red",

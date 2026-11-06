@@ -352,6 +352,16 @@ capability-map:
 capability-map-check:
 	@$(PYTHON) tools/gen_capability_map.py --check
 
+# ДЕФЕКТ #487: ЛОГ МУТАЦИЙ — НЕ «МЁРТВЫЙ ТЕКСТ». История трёх чисел (1345 в логе,
+# 1376 в README, 1597 в факте) возникла потому, что лог свипа никто не сверял.
+# Гейт требует: сайты в логе == facts.json, выживших 0, RC=0, README говорит ТО ЖЕ
+# число, и в строке про мутации нет ДРУГОГО числа того же порядка.
+mutate-log-check:
+	@$(PYTHON) tools/mutate_log_check.py
+
+mutate-log-selftest:
+	@$(PYTHON) tools/mutate_log_check.py --selftest
+
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build

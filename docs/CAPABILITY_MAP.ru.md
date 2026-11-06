@@ -185,7 +185,7 @@
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Ресурсная безопасность и самоконтроль контура (45)
+## E6. Ресурсная безопасность и самоконтроль контура (46)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -212,6 +212,7 @@
 | `lean-pin-check` | `lean-pin-drift` | — | `make lean-pin-check` |
 | `llms-check` | `llms-drift` | — | `make llms-check` |
 | `memcheck` | `memcheck` | — | `make memcheck` |
+| `mutate-log-check` | `mutate-log` | #487 | `make mutate-log-check` |
 | `mutation-lock-check` | `mutation-lock` | — | `make mutation-lock-check` |
 | `os-stress` | `os-stress` | — | `make os-stress` |
 | `perf` | `perf-threshold` | — | `make perf` |
@@ -237,11 +238,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **195**; класс CHECK в `registry.py`: **195**;
-записей `CASE_TARGET`: **241** (make-исполнимых **237**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **196**; класс CHECK в `registry.py`: **196**;
+записей `CASE_TARGET`: **242** (make-исполнимых **238**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->194 · can-fail кейсы <!-- fact:canfail_cases -->239 ·
-якоря <!-- fact:anchors -->197 · цели реестра <!-- fact:registry_targets -->261 · META <!-- fact:meta_targets -->52 ·
+CHECK-цели <!-- fact:check_targets -->195 · can-fail кейсы <!-- fact:canfail_cases -->240 ·
+якоря <!-- fact:anchors -->198 · цели реестра <!-- fact:registry_targets -->263 · META <!-- fact:meta_targets -->53 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

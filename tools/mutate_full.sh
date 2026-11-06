@@ -37,7 +37,17 @@ RC=$?
 echo "[i] свип rc=$RC"
 if [ -s "$WT/mutate_full.log" ]; then
   grep -E 'найдено сайтов мутации|Всего мутантов|СКОР|surviv|выжил' "$WT/mutate_full.log" | tail -6
-  cp "$WT/mutate_full.log" "$ROOT/docs/evidence/mutate_full.log"
+  # ТРЕЙЛЕР (#487): лог обязан нести СВОЙ rc и разбивку способа убийства,
+  # иначе машинному владельцу нечего сверять с README и facts.json.
+  { cat "$WT/mutate_full.log";
+    _k=$(grep -c ' -> killed' "$WT/mutate_full.log" || true);
+    _c=$(grep -c 'killed (compile)' "$WT/mutate_full.log" || true);
+    _t=$(grep -c 'killed (timeout)' "$WT/mutate_full.log" || true);
+    _s=$(grep -c '-> survived' "$WT/mutate_full.log" || true);
+    echo "";
+    echo "# РАЗБИВКА СПОСОБА УБИЙСТВА (машинно разбирается \`tools/mutate_log_check.py\`):";
+    echo "# test $((_k-_c-_t)) | compile $_c | timeout $_t | survived $_s";
+    echo "RC=$RC"; } > "$ROOT/docs/evidence/mutate_full.log"
   echo "[i] лог скопирован в docs/evidence/mutate_full.log — ЗАКОММИТЬТЕ его"
 fi
 exit "$RC"

@@ -139,6 +139,23 @@ bodies of compound `try`/`with` lost their guards (9 false `[BOUNDS PATH]`).
      is a product decision, not a patch.
   This is why `LIMITS` says BV is not proof-carrying — now with the exact numbers.
 
+- `tools/mutate_log_check.py` + `make mutate-log-check` (CHECK) / `make mutate-log-selftest` (META)
+  — **#487, the mutation log gets a MACHINE OWNER**. Three different numbers (1345 in the log,
+  1376 in README, 1597 in facts) lived side by side precisely because nobody compared the sweep
+  log with anything: the file lay there, «100 %» in README lived its own life, and the site count
+  grew every tact. The gate now requires the log, `facts.json` and BOTH READMEs to say the same
+  thing: sites in the log == `facts.json["mutation_sites"]` (an incomplete log is exactly how
+  1345 survived next to a fact of 1597), `0` survivors and `RC=0` (otherwise «100 %» is a lie),
+  a `<killed> / <killed>` line and the site count in the README, and NO OTHER mutation number of
+  the same order of magnitude in the mutation row (per-module counters such as 184/184 and
+  244/244 stay legal — a gate that reddens on correct documentation is useless). The log itself
+  now carries a trailer produced by `tools/mutate_full.sh`: `RC=<rc>` and the kill split, so the
+  artefact describes its own run. FINAL SWEEP: **1597 / 1597 killed, 0 survivors, RC=0**, and the
+  split is NAMED because it matters: **test-killed 1422 · compile-killed 172 · timeout-killed 3**
+  — 172 kills by the compiler are weaker evidence than a test kill, so they are not averaged
+  away. `--selftest` proves all five breakage types are caught; can-fail `mutate-log` flips
+  `RC=0` to `RC=2` in the log and the gate reddens.
+
 - `tools/gen_capability_map.py` + `make capability-map` / `make capability-map-check` (CHECK) —
   **#485, the capability map as a GENERATED artefact**. A hand-written map goes stale on the
   194th target and starts LYING, and a document that lies is worse than none. So the map is

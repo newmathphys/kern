@@ -63,8 +63,12 @@ CLASS = {
     "abi-check": "CHECK",
     # #485: карта CHECK-целей обязана совпадать с реестром (генерируется из него).
     "capability-map-check": "CHECK",
+    # #487: лог мутаций сверяется с facts.json и README (машинный владелец).
+    "mutate-log-check": "CHECK",
     # #485: генератор карты — инструмент сопровождения, не гейт.
     "capability-map": "META",
+    # #487: самопроверка стража лога (5 видов поломки на синтетике).
+    "mutate-log-selftest": "META",
     "sarif-check": "CHECK",
     "hook-check": "CHECK",
     "mcp-selftest": "CHECK",
@@ -388,6 +392,7 @@ CASE_TARGET = {
     "spawn-timeout": "spawn-check",
     "abi-json": "abi-check",
     "capability-map": "capability-map-check",
+    "mutate-log": "mutate-log-check",
     "sarif-output": "sarif-check",
     "contracts-json": "contracts-json",
     "hook-gate": "hook-check",
