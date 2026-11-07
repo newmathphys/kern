@@ -28,6 +28,21 @@ fn hasFlag(args: []const [:0]const u8, name: []const u8) bool {
     return false;
 }
 
+/// ДЕФЕКТ #505 (ПОЛЕВОЕ ИСПЫТАНИЕ на чужом проекте). `kernx status <не-.kern>`
+/// валил стектрейс Zig (`try` уходил из `main`) вместо того, чтобы НАЗВАТЬ отказ.
+/// Правило класса #370: отказ обязан быть сообщением и кодом возврата, а не паникой.
+fn readKernOrFail(alloc: std.mem.Allocator, path: []const u8, cmd: []const u8) []u8 {
+    return compat.readFileAlloc(alloc, path, 1 << 24) catch |e| {
+        std.debug.print("[!] {s}: не удалось прочитать '{s}': {s}\n", .{ cmd, path, @errorName(e) });
+        if (e == error.FileNotFound) {
+            std.debug.print("    Проверьте путь: это должен быть файл манифеста `.kern`.\n", .{});
+        } else if (e == error.IsDir) {
+            std.debug.print("    Указан КАТАЛОГ; `{s}` ждёт файл `.kern`.\n", .{cmd});
+        }
+        std.process.exit(2);
+    };
+}
+
 fn printFile(alloc: std.mem.Allocator, path: []const u8) !void {
     const data = try compat.readFileAlloc(alloc, path, 1 << 24);
     defer alloc.free(data);
@@ -62,7 +77,7 @@ pub fn main(init: std.process.Init) !void {
         const with_external = hasFlag(args, "--external");
         const json = graph_dump.render(alloc, root, with_external) catch |e| {
             std.debug.print("[!] graph: {s}\n", .{@errorName(e)});
-            return;
+            std.process.exit(2);
         };
         try std.Io.File.stdout().writeStreamingAll(compat.io(), json);
         return;
@@ -83,7 +98,7 @@ pub fn main(init: std.process.Init) !void {
             if (e == error.FileNotFound) {
                 std.debug.print("    Проверьте путь к .kern (файл не найден или недоступен).\n", .{});
             }
-            return;
+            std.process.exit(2);   // #505: отказ не имеет права выглядеть успехом (rc=0)
         };
         if (r.skipped) {
             std.debug.print("[=] Без изменений — обработка пропущена (кэш). Используйте --force.\n", .{});
@@ -99,7 +114,10 @@ pub fn main(init: std.process.Init) !void {
             std.debug.print("[!] diff: нужны два снапшота\n", .{});
             return;
         }
-        var d = try engine.diffFiles(alloc, args[2], args[3]);
+        var d = engine.diffFiles(alloc, args[2], args[3]) catch |e| {
+            std.debug.print("[!] diff: не удалось разобрать '{s}' / '{s}': {s}\n", .{ args[2], args[3], @errorName(e) });
+            std.process.exit(2);
+        };
         defer d.deinit(alloc); // результат diff владеет своими строками
         std.debug.print("[DIFF] +{d} / -{d}\n", .{ d.added.len, d.removed.len });
         for (d.added) |l| std.debug.print("  + {s}\n", .{l});
@@ -112,9 +130,12 @@ pub fn main(init: std.process.Init) !void {
             std.debug.print("[!] {s}: нужен путь к .kern\n", .{cmd});
             return;
         }
-        const src = try compat.readFileAlloc(alloc, args[2], 1 << 24);
+        const src = readKernOrFail(alloc, args[2], cmd);
         defer alloc.free(src);
-        const res = try parser.parse(alloc, src);
+        const res = parser.parse(alloc, src) catch |e| {
+            std.debug.print("[!] {s}: файл '{s}' не разобран как манифест .kern: {s}\n", .{ cmd, args[2], @errorName(e) });
+            std.process.exit(2);
+        };
         var project = res.project;
         const resolved = try truth.resolve(alloc, project);
         project.claims = resolved.claims;

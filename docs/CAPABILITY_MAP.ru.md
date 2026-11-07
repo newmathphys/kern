@@ -120,7 +120,7 @@
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (31)
+## E4. Рентген кода, CWE, точность и PR-дельта (32)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -148,6 +148,7 @@
 | `metrics-guard` | `metrics-guard` | — | `make metrics-guard` |
 | `mutate` | `mutate` | — | `make mutate` |
 | `parser-security-check` | `parser-security-check` | — | `make parser-security-check` |
+| `pilot-e2e-check` | `pilot-gate-blind` | — | `make pilot-e2e-check` |
 | `string-contracts-check` | `string-contracts-check` | — | `make string-contracts-check` |
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
@@ -243,11 +244,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **201**; класс CHECK в `registry.py`: **201**;
-записей `CASE_TARGET`: **247** (make-исполнимых **243**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **202**; класс CHECK в `registry.py`: **202**;
+записей `CASE_TARGET`: **248** (make-исполнимых **244**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
 CHECK-цели <!-- fact:check_targets -->200 · can-fail кейсы <!-- fact:canfail_cases -->245 ·
-якоря <!-- fact:anchors -->204 · цели реестра <!-- fact:registry_targets -->272 · META <!-- fact:meta_targets -->54 ·
+якоря <!-- fact:anchors -->204 · цели реестра <!-- fact:registry_targets -->273 · META <!-- fact:meta_targets -->55 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

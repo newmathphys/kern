@@ -121,7 +121,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (31)
+## E4. Рентген кода, CWE, точность и PR-дельта (32)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -149,6 +149,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `metrics-guard` | `metrics-guard` | — | `make metrics-guard` |
 | `mutate` | `mutate` | — | `make mutate` |
 | `parser-security-check` | `parser-security-check` | — | `make parser-security-check` |
+| `pilot-e2e-check` | `pilot-gate-blind` | — | `make pilot-e2e-check` |
 | `string-contracts-check` | `string-contracts-check` | — | `make string-contracts-check` |
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
@@ -244,11 +245,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **201**; class CHECK in `registry.py`: **201**;
-`CASE_TARGET` records: **247** (make-executable **243**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **202**; class CHECK in `registry.py`: **202**;
+`CASE_TARGET` records: **248** (make-executable **244**); without a case outside `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
 CHECK-цели <!-- fact:check_targets -->200 · can-fail кейсы <!-- fact:canfail_cases -->245 ·
-якоря <!-- fact:anchors -->204 · цели реестра <!-- fact:registry_targets -->272 · META <!-- fact:meta_targets -->54 ·
+якоря <!-- fact:anchors -->204 · цели реестра <!-- fact:registry_targets -->273 · META <!-- fact:meta_targets -->55 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

@@ -350,6 +350,9 @@ FAULTABLE = [
     # ШАГ 2: кейс `action-doctor` правит `action.yml` — файл обязан быть в
     # списке, иначе подсадка осталась бы в дереве (класс #225).
     "action.yml",
+    # #505: кейс `pilot-gate-blind` правит вердикт `audit_delta` — файл обязан
+    # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
+    "tools/audit_delta.py",
 
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tests/fixtures/precision_clean/clean.py",
@@ -4327,6 +4330,23 @@ def case_action_doctor():
     return "make action-check"
 
 
+def case_pilot_gate_blind():
+    """#505 SABOTAGE: PR-гейт перестал блокировать внесённый баг.
+
+    ЛОМАЕМ ровно то, ради чего `pilot-e2e-check` существует: `audit_delta`
+    возвращает 0 на НОВЫХ находках (то есть «пропустить всё»). Сквозной сценарий
+    обязан покраснеть на УРОВНЕ 3 («внесение бага … ожидался 1 = ЗАБЛОКИРОВАТЬ»),
+    иначе весь пилот — фикция.
+
+    ПОЧЕМУ НЕ «УБРАТЬ УРОВЕНЬ». Убрать проверку тоже покраснило бы ворота, но не
+    отличило бы «гейт ослеп» от «гейт не запускался». Здесь ломается РОВНО вердикт.
+    """
+    patch("tools/audit_delta.py",
+          '    return 1 if d["new_findings"] else 0',
+          '    return 0   # ЛОМАЕМ (#505): регресс больше не блокируется')
+    return "make pilot-e2e-check PILOT=tests/fixtures/pilot_mini"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -4559,6 +4579,8 @@ CASES = [
      case_abi_json),
     ("action-doctor", "Action: доктор снят -> PR-гейт зелёный на неполном дистрибутиве",
      case_action_doctor),
+    ("pilot-gate-blind", "Пилот 8-в-1: PR-гейт перестал блокировать регресс -> красный",
+     case_pilot_gate_blind),
     ("capability-map", "The generated capability map diverges from the registry (#485)",
      case_capability_map),
     ("kern-scan", "The one-button passport calls style SMELL a threat (#489)",
