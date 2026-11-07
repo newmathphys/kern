@@ -1,0 +1,6 @@
+{
+  "expect": "T",
+  "kind": "unsupported",
+  "why": "real DeepEP-Ascend ceil_div with the divisor guard (y > 0): contract proven",
+  "file": "ceil_div_good.c"
+}

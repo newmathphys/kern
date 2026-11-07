@@ -70,6 +70,16 @@ artifact "audits/smt2/c_unguarded_ratio.smt2" {
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
+artifact "audits/smt2/ceil_div_bad_ceil_div.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+artifact "audits/smt2/ceil_div_good_ceil_div.smt2" {
+  kind "contract"
+  hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
 artifact "audits/smt2/cwe190_bad_mul_bad.smt2" {
   kind "contract"
   hash "sha256:0000000000000000000000000000000000000000000000000000000000000000"
@@ -301,6 +311,18 @@ claim "audit:c_unguarded_ratio" {
   status proven
   evidence "contract:audits/smt2/c_unguarded_ratio.smt2"
   context "audits/smt2/c_unguarded_ratio.smt2"
+}
+
+claim "audit:ceil_div_bad_ceil_div" {
+  status refuted
+  evidence "contract:audits/smt2/ceil_div_bad_ceil_div.smt2"
+  context "audits/smt2/ceil_div_bad_ceil_div.smt2"
+}
+
+claim "audit:ceil_div_good_ceil_div" {
+  status proven
+  evidence "contract:audits/smt2/ceil_div_good_ceil_div.smt2"
+  context "audits/smt2/ceil_div_good_ceil_div.smt2"
 }
 
 claim "audit:cwe190_bad_mul_bad" {

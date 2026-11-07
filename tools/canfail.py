@@ -4341,9 +4341,11 @@ def case_pilot_gate_blind():
     ПОЧЕМУ НЕ «УБРАТЬ УРОВЕНЬ». Убрать проверку тоже покраснило бы ворота, но не
     отличило бы «гейт ослеп» от «гейт не запускался». Здесь ломается РОВНО вердикт.
     """
+    # ЯКОРЬ ОБНОВЛЁН (#508): вердикт переехал в `blocked = …` (добавилась
+    # поведенческая половина). Кейс ломает РОВНО вердикт блокировки.
     patch("tools/audit_delta.py",
-          '    return 1 if d["new_findings"] else 0',
-          '    return 0   # ЛОМАЕМ (#505): регресс больше не блокируется')
+          '    blocked = bool(d["new_findings"]) or (block_div and bool(sema["diverged"]))',
+          '    blocked = False   # ЛОМАЕМ (#505): регресс больше не блокируется')
     return "make pilot-e2e-check PILOT=tests/fixtures/pilot_mini"
 
 

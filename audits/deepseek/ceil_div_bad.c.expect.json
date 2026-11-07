@@ -1,0 +1,6 @@
+{
+  "expect": "F",
+  "kind": "unsupported",
+  "why": "no guard on the divisor (y can be 0) -> division by zero, refuted with a counterexample",
+  "file": "ceil_div_bad.c"
+}

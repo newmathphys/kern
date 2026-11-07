@@ -28,6 +28,8 @@
 | `audits/deepjit/hex_index.h` | `deepjit_hex_lo` | QF_BV _ BitVec 32 знаковый | **PROVEN** — `[PROOF PARTIAL]` trusted 17 | — | — |
 | `audits/deepjit/kernel_align.h` | `deepjit_align_unguarded` | QF_BV _ BitVec 32 беззнаковый | **REFUTED** | `align = #x9648edc0, offset = #xbdb29330, result = #x41b30040` | — |
 | `audits/deepjit/kernel_align.h` | `deepjit_align_guarded` | QF_BV _ BitVec 32 беззнаковый | SKIP | — | — |
+| `audits/deepseek/ceil_div_bad.c` | `ceil_div` | QF_LIA (Int) | **REFUTED** — ВОЗМОЖНО ДЕЛЕНИЕ НА НОЛЬ (делитель: y) | `x = 0, y = 0` | yes |
+| `audits/deepseek/ceil_div_good.c` | `ceil_div` | QF_LIA (Int) | **PROVEN** — `[PROOF PARTIAL]` trusted 19 | — | — |
 | `audits/ghostty/grid_columns.zig` | `gridColumns` | QF_LIA (Int) | **PROVEN** — `[PROOF PARTIAL]` trusted 3 | — | — |
 | `audits/ghostty/grid_columns.zig` | `gridColumnsBuggy` | QF_LIA (Int) | **REFUTED** | `cell_width = 1, screen_width = 0, result = 0` | yes |
 | `audits/musl/abs.c` | `kern_abs` | QF_LIA (Int) | **PROVEN** — `[PROOF PARTIAL]` trusted 1 | — | — |

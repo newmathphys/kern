@@ -28,6 +28,7 @@ in sync automatically.
 | 2 | C contracts + hardware `idiv` trap (`MIN/-1`, `-MIN`) | `make contracts` | `gcc -fsanitize=undefined` (SIGFPE/SIGABRT) | verified | pointers, structs, macros are outside the subset |
 | 3 | Go / TypeScript polyglot (`int32`) | `make real-cases-check` | live toolchain for the language | verified | the `int32` subset only |
 | 4 | Loops: 4 Floyd–Hoare obligations | `make loop-check` | a real loop run in Python | verified | one loop shape (`x += step`), constants |
+| 5 | **McCarthy arrays `QF_AX`** (`ROW1`/`ROW2`/extensionality) | `make arrays` | our own proof checker re-verifies every step | **PROVEN, `trusted: 0`** | one array theory; `store`/`select` subset only |
 | 5 | Overflow **inside subexpressions** (Path C) | `make xray-overflow-check` | compiler diagnostics + UBSan | verified | C-like languages |
 | 6 | Explicit bit-vector mode | `@kern:bitvec32` + `make xray-overflow-check` | `gcc -Woverflow` | verified | only where BV mode is available (C-like) |
 | 7 | Refactoring equivalence (`--diff-equiv`) | `make diff-equiv` | live run of BOTH versions | verified | Int theory: non-linear bodies are excluded **with the reason printed** |
@@ -95,6 +96,13 @@ measurement**: at 16 bytes the signal drowned in timer overhead (`EE_RATIO = 1.2
 | 2 | Six AI traps | `make ai-traps-check` | an exact marker **and** an honest twin per trap | 6/6 caught, 6/6 twins proven | fixtures, not "any agent" |
 | 3 | Anti-cheat (5 classes) | `make anti-cheat-check` | AST rules | verified | pattern classes, not intent |
 | 4 | MCP injection / invisible Unicode / rug-pull | `make mcp-audit-check` | the tool schema itself | verified | schema-level, not the tool's implementation |
+
+| 5 | **Summary duel L5** (generator vs reviewer) | `make l5-duel-check` | live `pytest` (the blindness half) | verified: **31 pairs, J = 1.00** | the duel measures the two roles on our task set, not on arbitrary repos |
+| 6 | **Mutants that survive `pytest`** | `make pytest-blind-check` | live `pytest` on each mutant | **5/5** blind spots confirmed | five mutants; it shows the class, not «tests are useless» |
+| 7 | **Translator soundness vs live compilers** | `make translator-diff-check` | live `gcc` / `rustc` / `node` | **137 points + 12 traps (#349)**, 0 divergences | the covered construct matrix, not every expression |
+| 8 | **PR gate with a BEHAVIOURAL delta** (#484 + #508) | `make audit-delta BASE=… HEAD=…` / `--live` | the project's own tests-style live call, plus a Z3 model | measured: **40 of 42** changed QuixBugs files diverge, with concrete args | behaviour change is neither «bug» nor «fix» by itself; `rc=1` stays on new `--xray` threats |
+| 9 | **End-to-end pilot, 8 levels** | `make pilot-e2e-check` | a real foreign repository (clone) | **8/8 levels**, 0 failures | one project; the CWE-twin level uses paired fixtures |
+| 10 | **WebAssembly parity of the shipped core** | `node tools/wasm_parity_check.js` | independent brute force + `node` runtime | **28 checks, 0 soundness violations** | Belnap JOIN and the built-in LIA only |
 
 ---
 
