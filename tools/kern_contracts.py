@@ -8956,8 +8956,28 @@ def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False) 
     if json_mode:
         _payload: list[dict] = []
         _buf = io.StringIO()
+        # ДЕФЕКТ #499 (ИЗМЕРЕН на чистом клоне). Врата решателя и проверка
+        # `kernc` жили ТОЛЬКО на человеческом пути, поэтому `--xray-json
+        # <каталог>` без решателя отдавал **rc=0**, `findings: 0` и ПУСТЫЕ
+        # `notes`: машинный потребитель (гейты `xray-*`, `audit_delta`,
+        # `kern_scan`) читал это как «код чист», а сам отказ уходил в
+        # перехваченный буфер. Замер: один и тот же вызов без z3 —
+        # `--xray` -> rc=2 + названный отказ, `--xray --xray-json` -> rc=0
+        # + 0 находок. Теперь отказ едет ВНУТРИ ABI и код возврата = 2.
+        if not Path(kernc).exists():
+            print(json.dumps(_xray_json_refusal(
+                path, f"kernc_missing: не найден {kernc} (соберите: zig build)"),
+                ensure_ascii=False, indent=2))
+            return 2
         with contextlib.redirect_stdout(_buf):
-            _rc = _xray_json_run(path, kernc, show_all, _payload)
+            _gate = _xray_solver_gate(kernc)
+            _rc = _gate if _gate else _xray_json_run(path, kernc, show_all, _payload)
+        if _gate:
+            print(json.dumps(_xray_json_refusal(
+                path, "solver_unavailable: решатель Z3 недоступен — SMT-детекторы "
+                      "НЕ ЗАПУСКАЛИСЬ, это N(0,0) по Белнапу, а НЕ «находок 0»"),
+                ensure_ascii=False, indent=2))
+            return 2
         _doc = _payload[0] if _payload else {
             "schema_version": XRAY_JSON_SCHEMA, "audit_target": str(path),
             "summary": {"files": 0, "total": 0, "checked": 0, "trivial": 0,
@@ -9349,6 +9369,25 @@ def _xray_json_doc(target: str, files: int, total: int, checked: int, trivial: i
                     sorted(reasons.items(), key=lambda kv: -kv[1])],
         "notes": [{"note": k, "count": v} for k, v in
                   sorted(notes.items(), key=lambda kv: -kv[1])],
+    }
+
+
+def _xray_json_refusal(path: str, note: str) -> dict:
+    """ABI-документ НАЗВАННОГО отказа (#499): «нет данных», а не «находок 0».
+
+    Почему это вообще нужно. Схема ABI 1.0 умеет сказать «нечитаемый файл»
+    (`summary.unreadable`), но НЕ умеет сказать «анализ не запускался»: пустой
+    `findings` при `notes: []` для потребителя неотличим от «код чист».
+    Поэтому отказ едет отдельным документом: нулевая воронка (валидна по
+    тождеству `0+0+0=0`) + note с причиной + код возврата 2.
+    """
+    return {
+        "schema_version": XRAY_JSON_SCHEMA,
+        "audit_target": str(path),
+        "summary": {"files": 0, "total": 0, "checked": 0, "trivial": 0,
+                    "skipped": 0, "findings": 0, "unreadable": 0},
+        "findings": [], "skipped": [],
+        "notes": [{"note": note, "count": 1}],
     }
 
 

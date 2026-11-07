@@ -110,6 +110,37 @@ def _selftest() -> int:
     return 1 if fails else 0
 
 
+def refusal_probe() -> list[str]:
+    """#499: БЕЗ РЕШАТЕЛЯ машинный ABI обязан ОТКАЗАТЬ, а не «находок 0».
+
+    Подставной `kernc` отвечает «z3 недоступен» — ровно так ведёт себя настоящий
+    бинарь без решателя. Проверяется ПОВЕДЕНИЕ, а не текст: rc=2 и непустой
+    `notes` с причиной. Отказ уже был спрятан один раз (дефект #499: `--xray`
+    давал rc=2 и печатал причину, а `--xray --xray-json` на ТОМ ЖЕ входе давал
+    rc=0, `findings: 0` и пустые `notes`), поэтому гейт обязан это ловить.
+    """
+    import tempfile  # noqa: PLC0415
+    with tempfile.TemporaryDirectory() as td:
+        fake = Path(td) / "kernc"
+        fake.write_text("#!/usr/bin/env bash\necho 'z3 недоступен: solver not found'\nexit 0\n",
+                        encoding="utf-8")
+        fake.chmod(0o755)
+        p = subprocess.run([PY, str(EXTRACTOR), "--xray", str(FIXTURE), "--xray-json",
+                            "--kernc", str(fake)],
+                           capture_output=True, text=True, timeout=600)
+    bad: list[str] = []
+    if p.returncode != 2:
+        bad.append(f"#499: без решателя rc={p.returncode}, ожидался 2 (названный отказ)")
+    try:
+        doc = json.loads(p.stdout or "{}")
+    except json.JSONDecodeError:
+        return bad + ["#499: stdout отказа не является JSON"]
+    notes = json.dumps(doc.get("notes") or [], ensure_ascii=False)
+    if "solver_unavailable" not in notes:
+        bad.append(f"#499: notes НЕ сообщают причину отказа: {notes[:120]}")
+    return bad
+
+
 def main() -> int:
     if "--selftest" in sys.argv:
         return _selftest()
@@ -135,6 +166,15 @@ def main() -> int:
     print(f"[OK] #483: ABI {doc['schema_version']} — чистый JSON, воронка сходится "
           f"({sm['checked']}+{sm['trivial']}+{sm['skipped']}={sm['total']}), "
           f"находок {sm['findings']}")
+    # #499: ОТКАЗ ОБЯЗАН БЫТЬ ВИДЕН В МАШИННОМ КАНАЛЕ (rc=2 + notes), а не только
+    # в человеческом тексте: иначе гейты читают «нет решателя» как «код чист».
+    ref = refusal_probe()
+    for b in ref:
+        print(f"[!] {b}")
+    if ref:
+        print(f"[FAIL] #499: отказ решателя не виден в ABI ({len(ref)})")
+        return 1
+    print("[OK] #499: без решателя ABI отказывает rc=2 и называет причину в notes")
     return 0
 
 

@@ -55,6 +55,20 @@ Every number below is produced by a command in the repository — see
   только `kernc`, а `action.yml` качал бы несуществующий файл), `SHA256SUMS` покрывает ОБА
   ассета, и публикация выполняется ТОЛЬКО после `make action-check REAL=1` на этом же архиве.
 
+- **#499 — «НЕТ РЕШАТЕЛЯ» ПРИХОДИЛО КАК «НАХОДОК 0» В МАШИННОМ КАНАЛЕ (найдено
+  репро-квитанцией с чистого клона).** Один и тот же вызов без `z3`: человеческий путь
+  `--xray DIR` → **rc=2** и названный отказ («это N(0,0) по Белнапу, а не «находок 0»»), а
+  ABI-путь `--xray DIR --xray-json` → **rc=0**, `findings: 0`, `notes: []`. Отказ печатался
+  ВНУТРЬ перехваченного буфера, а врата решателя вызывались только на человеческом пути.
+  Цена: гейты читали «нет решателя» как «код чист» и печатали «потеря сигнала (FN)»,
+  «ПРОПУСК», «JSON-отчёт врёт о происхождении». Исправлено: проверка `kernc` и врата
+  решателя работают и в JSON-пути, отказ едет ВНУТРИ ABI отдельным документом
+  (`_xray_json_refusal`: нулевая воронка + `note` с причиной) с кодом **2**. Проверено
+  поведением: `tools/abi_check.py` получил зонд `refusal_probe` (подставной `kernc`
+  отвечает «z3 недоступен») — на коде до правки он даёт `rc=0, notes: []`, после — `rc=2`
+  и причину, поэтому гейт не может быть зелёным при спрятанном отказе. Апплаенс
+  пересобран, архив несёт правку (`b573408c…`, `action-check REAL=1` → 5/5).
+
 Tack 2.4 / **Test 1**: differential soundness check of the C-like translator against LIVE
 compilers (`tools/translator_diff_check.py`, `gcc`/`rustc`/`node`), plus **defect #465**:
 nested `if/else` in C-like bodies used to collapse into one statement and were silently skipped.
