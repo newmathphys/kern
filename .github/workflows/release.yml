@@ -26,8 +26,11 @@ jobs:
       # `zig-out/bin/kernc`. Без этого шага в релизе был бы только ОДИН бинарь
       # (`kernc`), а `action.yml` качает `kerna-dist` — то есть ссылался бы в
       # пустоту (класс #497: обещание без артефакта).
+      # ДЕФЕКТ #513: АРТЕФАКТ ЕДЕТ КЛИЕНТУ. `-Dcpu=baseline` обязателен: замер
+      # на v2.8.2 показал 165 инструкций AVX-512 (`zmm`) в CI-сборке — на CPU
+      # без AVX-512 это SIGILL(132), и `--diff-equiv` печатал `[TOOL_ERROR]`.
       - name: Build the verifier backend (kernc) for the appliance
-        run: zig build
+        run: zig build -Dcpu=baseline
 
       - name: Python toolchain for the appliance (z3 + PyInstaller)
         run: |

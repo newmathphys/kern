@@ -43,6 +43,20 @@ def _env() -> dict:
     return e
 
 
+def _isolated_env() -> dict:
+    """Окружение КАК У КЛИЕНТА: без PYTHONPATH на репозиторий (дефект #513).
+
+    `_env()` подмешивает `ROOT/tools` в PYTHONPATH. Для упакованного бинаря это
+    утечка: если собственный импорт из `_MEIPASS` не удался, Python подхватит
+    ИСХОДНИКИ из чекаута, и гейт проверит не то, что уезжает клиенту. Именно
+    поэтому R6 был зелёным, пока ОПУБЛИКОВАННЫЙ архив молчал (замер #513).
+    У клиента репозитория нет — значит и в проверке его быть не должно.
+    """
+    e = _env()
+    e["PYTHONPATH"] = ""
+    return e
+
+
 def _dev_findings() -> int:
     """Эталон: сколько находок даёт НЕупакованный фронтенд."""
     p = subprocess.run([PY, str(ROOT / "tools" / "kern_contracts.py"),
@@ -173,7 +187,8 @@ def main() -> int:
                 (d / name).mkdir(parents=True)
                 (d / name / "logic.py").write_text(body, encoding="utf-8")
             r = subprocess.run([str(bin_path), "--delta", str(d / "base"), str(d / "head")],
-                               capture_output=True, text=True, timeout=600, env=_env())
+                               capture_output=True, text=True, timeout=600,
+                               env=_isolated_env())
             out = (r.stdout or "") + (r.stderr or "")
             if "DIVERGED" in out:
                 print("[OK] R6: `--delta` вшит — расхождение поведения названо из бинаря")
@@ -181,6 +196,30 @@ def main() -> int:
                 print(f"[FAIL] R6: `--delta` rc={r.returncode}, DIVERGED в выводе НЕТ")
                 print("      " + " ".join(out.split())[:200])
                 bad += 1
+
+            # R7 (#513): ОТКАЗ ИНСТРУМЕНТА НЕ СМЕЕТ ВЫГЛЯДЕТЬ КАК ЗЕЛЁНЫЙ ГЕЙТ.
+            # Замер на ОПУБЛИКОВАННОМ v2.8.2: `kernc` из CI содержал 165
+            # инструкций AVX-512 (zmm) → на CPU без AVX-512 SIGILL(132) →
+            # `--diff-equiv` печатал `[TOOL_ERROR]`, а `--delta` отвечал
+            # «поведение НЕ разошлось» с rc=0. Здесь это воспроизводится
+            # детерминированно: подменяем `kernc` заглушкой с кодом 132.
+            stub = bin_path.parent / "zig-out" / "bin" / "kernc"
+            stub.write_text("#!/bin/sh\nexit 132\n", encoding="utf-8")
+            stub.chmod(0o755)
+            r2 = subprocess.run([str(bin_path), "--delta", str(d / "base"), str(d / "head")],
+                                capture_output=True, text=True, timeout=600,
+                                env=_isolated_env())
+            out2 = (r2.stdout or "") + (r2.stderr or "")
+            silent = r2.returncode == 0 or "НЕ разошлось" in out2
+            if silent:
+                print(f"[FAIL] R7: сломанный `kernc` дал rc={r2.returncode} и "
+                      f"«НЕ разошлось» — ТИХИЙ ЗЕЛЁНЫЙ ГЕЙТ (класс #499)")
+                print("      " + " ".join(out2.split())[:200])
+                bad += 1
+            else:
+                line = next((x.strip() for x in out2.splitlines() if "[!]" in x), "нет [!]")
+                print(f"[OK] R7: сломанный `kernc` → rc={r2.returncode}, названо: "
+                      f"{line[:90]}")
         finally:
             shutil.rmtree(d, ignore_errors=True)
 

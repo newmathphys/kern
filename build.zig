@@ -286,10 +286,17 @@ pub fn build(b: *std.Build) void {
     // ---- Герметичная (воспроизводимая) сборка ----------------------------
     // Статический musl-таргет: никаких системных библиотек, sha256 бинарника
     // воспроизводим на любой машине (требование EAL7 / DO-330).
+    // ДЕФЕКТ #513: АРТЕФАКТ ЕДЕТ КЛИЕНТУ, ЗНАЧИТ ISA ОБЯЗАН БЫТЬ БАЗОВЫМ.
+    // Замер на опубликованном v2.8.2: `kernc` из CI содержал 165 инструкций
+    // AVX-512 (`zmm`, раннер GitHub их умеет), а на Intel i7-7700 (AVX-512 нет)
+    // процесс падал SIGILL(132). Из-за этого `--diff-equiv` печатал
+    // `[TOOL_ERROR]`, и `--delta` объявлял «поведение НЕ разошлось».
+    // `cpu_model = .baseline` делает сборку воспроизводимой и переносимой.
     const musl_target = b.resolveTargetQuery(.{
         .cpu_arch = .x86_64,
         .os_tag = .linux,
         .abi = .musl,
+        .cpu_model = .baseline,
     });
     const hermetic_exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),

@@ -252,6 +252,15 @@ def semantic_delta(base_dir: str, head_dir: str, limit: int = SEMA_LIMIT,
         if len(pairs) < limit:
             pairs.append((bb, hb, str(rel)))
     diverged: list[dict] = []
+    # ДЕФЕКТ #513 (ИЗМЕРЕН на ОПУБЛИКОВАННОМ архиве v2.8.2). Здесь стояло
+    # `_rc, out = _run_diff_equiv(...)` и код возврата ВЫБРАСЫВАЛСЯ, а сбой
+    # подпроцесса дописывался в `diverged` как «расхождение». На клиентской
+    # машине упакованный `kernc` падал по SIGILL (132): `--diff-equiv` честно
+    # печатал `[TOOL_ERROR] … проверьте решатель/PATH`, а `--delta` объявлял
+    # «поведение НЕ разошлось» с rc=0 — то есть ЗЕЛЁНЫЙ гейт по анализу,
+    # которого не было (ровно класс #499, ради устранения которого писан #407).
+    # Теперь отказ инструмента — это ОТКАЗ (rc=2 с названной причиной).
+    tool_errors: list[dict] = []
     for bb, hb, rel in pairs:
         # СЛОЙ 1 — ЖИВОЙ вызов (только Python: для C-like запуск требует сборки,
         # и это уже не «дельта аудита», а отдельная задача).
@@ -262,23 +271,33 @@ def semantic_delta(base_dir: str, head_dir: str, limit: int = SEMA_LIMIT,
                 continue
         # СЛОЙ 2 — статическая семантическая дельта (Z3 по телам), для всех языков.
         try:
-            _rc, out = _run_diff_equiv(bb, hb)
+            rc, out = _run_diff_equiv(bb, hb)
         except (OSError, subprocess.SubprocessError) as e:      # класс #198/#457
-            diverged.append({"file": rel, "detail": f"[!] сравнение не выполнено: {e}"})
+            tool_errors.append({"file": rel, "rc": -1,
+                                "detail": f"сравнение не запустилось: {e}"})
             continue
         lines = out.splitlines()
+        found = False
         for i, ln in enumerate(lines):
             if "[DIVERGED]" not in ln:
                 continue
+            found = True
             cex = ""
             for nxt in lines[i + 1:i + 3]:
                 if "КОНТРПРИМЕР" in nxt:
                     cex = nxt.strip()
                     break
             diverged.append({"file": rel, "detail": ln.strip() + (" " + cex if cex else "")})
+        if found:
+            continue
+        # Нет вердикта И ненулевой код (или явный `[TOOL_ERROR]`) — это НЕ «эквивалентно».
+        if rc != 0 or "[TOOL_ERROR]" in out:
+            why = next((x.strip() for x in lines if "[TOOL_ERROR]" in x), "")
+            tool_errors.append({"file": rel, "rc": rc,
+                                "detail": why or f"исполнитель вернул код {rc} без вердикта"})
     return {"changed_files": changed_total, "compared": len(pairs),
             "skipped_by_limit": max(0, changed_total - len(pairs)),
-            "diverged": diverged}
+            "diverged": diverged, "tool_errors": tool_errors}
 
 def _selftest() -> int:
     """Три направления на фикстурах: регресс / исправление / тот же вход.
@@ -351,6 +370,31 @@ def _selftest() -> int:
         check("#508: идентичные файлы — расхождений 0 (сравнивать нечего)",
               not sd2["diverged"], f"сравнено {sd2['compared']}, расхождений 0")
 
+    # ДЕФЕКТ #513. ОТКАЗ ИНСТРУМЕНТА НЕ СМЕЕТ ВЫГЛЯДЕТЬ КАК «эквивалентно».
+    # До правки код возврата подпроцесса отбрасывался, и `[TOOL_ERROR]` (нет
+    # решателя / SIGILL в упакованном `kernc`) превращался в «поведение НЕ
+    # разошлось» с rc=0 — ИЗМЕРЕНО на опубликованном архиве v2.8.2.
+    # Здесь подставной исполнитель воспроизводит ровно этот отказ (132 = SIGILL).
+    with tempfile.TemporaryDirectory(prefix="kern_sema_e_") as r_e, \
+         tempfile.TemporaryDirectory(prefix="kern_sema_f_") as r_f:
+        (Path(r_e) / "logic.py").write_text("def f(a, b):\n    return a + b\n",
+                                            encoding="utf-8")
+        (Path(r_f) / "logic.py").write_text("def f(a, b):\n    return a - b\n",
+                                            encoding="utf-8")
+        fake = Path(r_e) / "broken_exec"
+        fake.write_text("#!/bin/sh\nexit 132\n", encoding="utf-8")
+        fake.chmod(0o755)
+        global AUDIT_BIN
+        saved_bin, AUDIT_BIN = AUDIT_BIN, str(fake)
+        try:
+            sd3 = semantic_delta(r_e, r_f)
+        finally:
+            AUDIT_BIN = saved_bin
+        check("#513: отказ инструмента — НЕ «эквивалентно» (названный отказ)",
+              bool(sd3["tool_errors"]) and not sd3["diverged"],
+              f"ошибок инструмента {len(sd3['tool_errors'])}, "
+              f"расхождений {len(sd3['diverged'])}")
+
     print(f"[{'FAIL' if fails else 'OK'}] audit-delta selftest: провалов {fails}")
     return 1 if fails else 0
 
@@ -373,7 +417,8 @@ def main() -> int:
     # #508: ПОВЕДЕНЧЕСКАЯ половина. `--xray` не видит логических багов
     # (`a + b` вместо `a - b` не падает), а `--diff-equiv` на тех же 40 парах
     # QuixBugs даёт DIVERGED 40/40 (ИЗМЕРЕНО). Без этого дельта врала «изменений нет».
-    sema = {"changed_files": 0, "compared": 0, "skipped_by_limit": 0, "diverged": []}
+    sema = {"changed_files": 0, "compared": 0, "skipped_by_limit": 0,
+            "diverged": [], "tool_errors": []}
     if not no_sema:
         sema = semantic_delta(base_dir, head_dir, live=live)
     d["semantic"] = sema
@@ -420,8 +465,22 @@ def main() -> int:
             else:
                 print("    (изменение поведения — это и баг, и починка; блокирует только "
                       "`--block-on-diverged`)")
+        elif sema["tool_errors"]:
+            # #513: НЕ «поведение то же», а «сравнение не выполнено». Класс #499.
+            print(f"  [!] ПОВЕДЕНЧЕСКОЕ СРАВНЕНИЕ НЕ ВЫПОЛНЕНО для "
+                  f"{len(sema['tool_errors'])} файл(ов) — это НЕ «поведение то же»:")
+            for x in sema["tool_errors"][:10]:
+                print(f"    ! {x['file']}: rc={x['rc']} {x['detail']}")
         else:
             print("  поведение общих изменившихся файлов НЕ разошлось")
+    # #513: ОТКАЗ ИНСТРУМЕНТА = ОТКАЗ ГЕЙТА. Измерено на опубликованном архиве:
+    # упакованный `kernc` падал по SIGILL, `--diff-equiv` печатал `[TOOL_ERROR]`,
+    # а `--delta` возвращал rc=0. Тихий зелёный здесь дороже красного.
+    if sema["tool_errors"]:
+        print(f"[!] audit-delta: сравнение не выполнено для "
+              f"{len(sema['tool_errors'])} файл(ов) — «расхождений нет» утверждать НЕЛЬЗЯ "
+              f"(класс #499). Причина в первой строке выше.", file=sys.stderr)
+        return 2
     blocked = bool(d["new_findings"]) or (block_div and bool(sema["diverged"]))
     return 1 if blocked else 0
 

@@ -118,23 +118,27 @@ runs:
       run: |
         set -euo pipefail
         report="$RUNNER_TEMP/kern-delta.json"
-        # #511: дельту считает САМ бинарник (`./kerna --delta`, вшитый
+        # #511/#513: дельту считает САМ бинарник (`./kerna --delta`, вшитый
         # `audit_delta`), поэтому Action не зависит ни от чекаута репозитория
         # KERN, ни от python-окружения. `--block-on-diverged` НЕ передаётся:
         # изменение поведения — это и баг, и починка; по умолчанию блокируют
         # только НОВЫЕ находки `--xray` (см. input `block-on-diverged`).
         flag=""
         [ "${{ inputs.block-on-diverged }}" = "true" ] && flag="--block-on-diverged"
-        # #513 (ИЗМЕРЕНО): `--delta` ВНУТРИ опубликованного архива на тесте «a+b -> a-b»
-        # отвечает «поведение НЕ разошлось», хотя локальная сборка того же коммита
-        # называет DIVERGED с контрпримером. Причина ещё не найдена, а гейт, который
-        # молча зеленеет, недопустим. Поэтому Action считает дельту ПРОВЕРЕННЫМ путём
-        # из репозитория (`tools/audit_delta.py`), а апплаенс используется как
-        # ДВИЖОК аудита (KERN_AUDIT_BIN) — этот путь покрыт `make action-check`.
-        export KERN_AUDIT_BIN="$KERNA_APP/kerna"
+        # #513 (ИЗМЕРЕНО и ЗАКРЫТО). Причина «тихого зелёного» была двойной:
+        #   (1) `kernc` в архиве собирался под ISA раннера GitHub (165 инструкций
+        #       AVX-512) → на CPU без AVX-512 SIGILL(132), `--diff-equiv` печатал
+        #       `[TOOL_ERROR]`; теперь сборка `-Dcpu=baseline` (+гейт ISA при
+        #       упаковке), а отказ инструмента в `audit_delta` — это rc=2, а не
+        #       «поведение НЕ разошлось» (класс #499);
+        #   (2) проверка гонялась с `PYTHONPATH` на репозиторий, где лежали
+        #       исходники, — то есть мерила не то, что уезжает клиенту.
+        # Поэтому теперь честный путь — САМ апплаенс, и он же покрыт
+        # `make action-check REAL=1` и `kerna-check` (R6 — DIVERGED,
+        # R7 — сломанный `kernc` обязан дать rc=2, а не «НЕ разошлось»).
         rc=0
-        python3 "${{ github.action_path }}/tools/audit_delta.py" \
-          "$KERN_BASE" "${{ inputs.path }}" $flag --json > "$report" || rc=$?
+        "$KERNA_APP/kerna" --delta "$KERN_BASE" "${{ inputs.path }}" $flag --json \
+          > "$report" || rc=$?
         cat "$report"
         echo "report=$report" >> "$GITHUB_OUTPUT"
         if [ "$rc" -eq 1 ]; then

@@ -19,6 +19,13 @@ endif
 # ЕДИНЫЙ источник: ВСЕ цели используют выбранный компилятор (не первый из PATH).
 ZIG := $(ZIG_BIN)
 
+# ДЕФЕКТ #513: ИСПОЛНЯЕМЫЙ ФАЙЛ УЕЗЖАЕТ КЛИЕНТУ — значит ISA БАЗОВЫЙ, не наша.
+# Замер: CI-сборка `kernc` несла 165 инструкций AVX-512 (`zmm`) и на CPU без
+# AVX-512 падала SIGILL(132); из-за этого `--diff-equiv` отвечал `[TOOL_ERROR]`,
+# а `audit-delta` объявлял «поведение НЕ разошлось». `baseline` = x86-64 без
+# расширений; переопределяется (`make build KERNC_CPU=native`) осознанно.
+KERNC_CPU ?= baseline
+
 # ДЕФЕКТ #392: `$(ZIG) build` без проверки версии компилятора.
 # Если в PATH оказывается pip-пакет `ziglang` (0.13.0 — он ЛЕЖИТ в .venv/bin
 # намеренно, для цели `portable-bench`), сборка падает ошибкой ВНУТРИ нашего
@@ -111,7 +118,7 @@ golden:
 	$(PYTHON) tools/golden_v1_3.py
 
 build: zig-guard
-	$(ZIG) build
+	$(ZIG) build -Dcpu=$(KERNC_CPU)
 
 test: zig-guard
 	$(ZIG) build test

@@ -563,8 +563,12 @@ def selftest() -> int:
     expect("ключ шага вне подмножества (if:)",
            src.replace("      shell: bash", "      if: true\n      shell: bash", 1))
     expect("нет сверки SHA-256", src.replace("sha256sum -c", "echo no-check", 2))
+    # #513: якорь обновлён вместе с шагом (дельта теперь считает САМ апплаенс
+    # `"$KERNA_APP/kerna" --delta … $flag --json`). Прежний якорь исчез, подмена
+    # стала no-op, и сelftest честно показал «гейт НЕ заметил поломку (вакуум)» —
+    # то есть тест подделок сам себя поймал (класс #113).
     expect("обещан SARIF", src.replace(
-        '$flag --json > "$report"', '$flag --json --sarif out.sarif > "$report"', 1))
+        "$flag --json", "$flag --json --sarif out.sarif", 1))
     expect("вход не объявлен", src.replace("${{ inputs.path }}", "${{ inputs.nope }}", 1))
 
     # R6: образец с НЕСУЩЕСТВУЮЩИМ входом обязан краснеть (иначе README-RUN

@@ -42,6 +42,23 @@ mkdir -p "$STAGE/zig-out/bin" "$STAGE/.venv/bin"
 cp dist/kerna "$STAGE/kerna"
 cp zig-out/bin/kernc "$STAGE/zig-out/bin/kernc"
 cp .venv/bin/z3 "$STAGE/.venv/bin/z3"
+
+# ДЕФЕКТ #513: ПЕРЕНОСИМОСТЬ АРХИВА ПРОВЕРЯЕТСЯ МАШИННО, А НЕ «на глаз».
+# Замер на опубликованном v2.8.2: `kernc` из CI содержал 165 инструкций
+# AVX-512 (`zmm`) — на Intel i7-7700 (AVX-512 нет) это SIGILL(132), после чего
+# `--diff-equiv` печатал `[TOOL_ERROR]`, а `audit-delta` объявлял «поведение
+# НЕ разошлось» с rc=0. Теперь архив с не-базовой ISA не собирается вовсе.
+if command -v objdump >/dev/null 2>&1; then
+    ZMM=$(objdump -d "$STAGE/zig-out/bin/kernc" 2>/dev/null | grep -cE 'zmm[0-9]+' || true)
+    if [ "${ZMM:-0}" -gt 0 ]; then
+        echo "[!] kernc собран с AVX-512 ($ZMM инструкций) — такой архив не" >&2
+        echo "    запустится на CPU без AVX-512 (#513). Соберите: zig build -Dcpu=baseline" >&2
+        exit 3
+    fi
+    echo "     переносимость: AVX-512 в kernc нет (objdump), байт $(stat -c%s "$STAGE/zig-out/bin/kernc")"
+else
+    echo "[i] objdump недоступен — проверка ISA НЕ выполнена (названный пропуск, #513)"
+fi
 cp server.json LICENSE LICENSE-COMMERCIAL.md "$STAGE/"
 # #497: ГРАНИЦЫ ЕДУТ ВМЕСТЕ С БИНАРНИКОМ (что доказывается, а что НЕТ).
 cp docs/LIMITS.md "$STAGE/LIMITS.md"
