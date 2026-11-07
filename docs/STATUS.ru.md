@@ -32,7 +32,7 @@ Can-fail кейсов: **<!-- fact:canfail_cases -->245**, из них у
 | Кросс-архитектура | <!-- fact:cross_arch_passed -->443 прошло / <!-- fact:cross_arch_skipped -->8 пропущено / 0 провалов |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 формально SMT · <!-- fact:quixbugs.differential -->40/40 живой дифференциал (29 значение + 10 падение + 1 зависание) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Литеральных якорей | <!-- fact:anchors -->204 |
-| Версия | `v2.8.1` |
+| Версия | `v2.8.2` |
 
 ## Журнал дефектов
 

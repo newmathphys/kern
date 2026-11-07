@@ -7317,6 +7317,46 @@ def _clike_else_conds_at(pos: int, body: str, lang: str = "") -> list[tuple[str,
     return out
 
 
+def _switch_spans(body: str) -> list[tuple[int, int, int]]:
+    """Диапазоны тел `switch` и число меток `case` в каждом.
+
+    ДЕФЕКТ #503 (слепой замер, расширенный срез curl/lib). `switch` НЕ
+    моделируется: все `case` считаются ПРЯМОЛИНЕЙНЫМ кодом, поэтому
+    `if (c == ']') { … return … }` в ПЕРВОМ `case` отменял такое же условие в
+    ТРЕТЬЕМ, и ЖИВАЯ ветвь объявлялась мёртвой (`setcharset`: `(= c 93)` UNSAT).
+    """
+    out: list[tuple[int, int, int]] = []
+    for m in re.finditer(r"\bswitch\s*\(", body):
+        k, depth = m.end() - 1, 0
+        while k < len(body):
+            if body[k] == "(":
+                depth += 1
+            elif body[k] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            k += 1
+        b = body.find("{", k)
+        if b < 0:
+            continue
+        e, depth = b, 0
+        while e < len(body):
+            if body[e] == "{":
+                depth += 1
+            elif body[e] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            e += 1
+        out.append((b, e, len(re.findall(r"\bcase\b", body[b:e]))))
+    return out
+
+
+def _in_multicase_switch(body: str, pos: int) -> bool:
+    """Позиция ВНУТРИ тела `switch`, у которого >= 2 метки `case`?"""
+    return any(b < pos < e and cases >= 2 for b, e, cases in _switch_spans(body))
+
+
 def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
     """Условия, действующие В ПОЗИЦИИ `pos` (дефекты #318 и #401).
 
@@ -8003,6 +8043,21 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # сырого тела по тем же смещениям.
         body_mask = _strip_c_comments_strings(body)
         # Диапазоны типов — часть домена (u32 не бывает отрицательным).
+        # ДЕФЕКТ #504 (СЛЕПОЙ ЗАМЕР, расширенный срез redis/config.c). BV-форма
+        # знала ТОЛЬКО диапазоны ПАРАМЕТРОВ, поэтому у локальной `long long value`
+        # знаковость была «неизвестна» -> форма (32, unsigned) -> `value < 0`
+        # переводилось как `bvult value 0` (всегда ложь) -> ЛОЖНЫЙ DEAD BRANCH в
+        # `numericConfigGet`/`rewriteConfigGetDefaultValue`. Объявленные ЛОКАЛЬНЫЕ
+        # типы — такой же факт кода, как параметры: подмешиваем их (параметры
+        # приоритетнее, если имя объявлено ещё раз).
+        _rng: dict = dict(ranges or {})
+        for _ln, _lr in _clike_local_ranges(body).items():
+            _rng.setdefault(_ln, _lr)
+        # ВАЖНО: диапазоны локальных нужны ТОЛЬКО для выбора знаковости/ширины
+        # BV (#504). В `path_conds` они НЕ идут: там каждое имя обязано быть
+        # связано с параметром, иначе `_free_syms_in_path` законно отказывает SAT
+        # — и заодно терялись НАСТОЯЩИЕ находки (измерено: `num_enum_vals + 1`
+        # в redis/config.c пропадало при подмешивании).
         path_conds: list[str] = [f"(and (>= {p} {lo}) (<= {p} {hi}))"
                                  for p, (lo, hi) in (ranges or {}).items()]
         # ДЕФЕКТ #318: `path_conds` — условия БЕЗ привязки к позиции (диапазоны
@@ -8060,7 +8115,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # смешиваются: Int-запрос не меняется ни на байт).
         _bv_forms: list = []      # BV-форма условий, зарегистрированных в if_blocks
         _bv_only: list = []       # блоки, переводимые ТОЛЬКО в BV (в Int их нет)
-        _w, _signed = _bv_shape(ranges)
+        _w, _signed = _bv_shape(_rng)
         for m in _ifs:
             raw_cond = body[m.start(1):m.end(1)]
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
@@ -8148,9 +8203,16 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ДЕФЕКТ #401: достижимость проверяется по ПОЗИЦИИ, а не по
             # накопленному списку: накопление складывало `not cond` из
             # ВЗАИМОИСКЛЮЧАЮЩИХ ветвей и делало путь UNSAT (ложный DEAD BRANCH).
-            sat_then = _smt_sat(kernc, params,
-                                path_conds + _clike_conds_at(m.end(), if_blocks, body)
-                                + [cond])
+            # ДЕФЕКТ #503: внутри `switch` с несколькими `case` НЕ ЗАЯВЛЯЕМ —
+            # ветви там ВЗАИМОИСКЛЮЧАЮЩИЕ, а модель их склеивает.
+            if _in_multicase_switch(body_mask, m.end()):
+                _bump_note("`switch` не моделируется (`case` склеены) — "
+                           "ветвь не объявляется мёртвой (#503)")
+                sat_then = None
+            else:
+                sat_then = _smt_sat(kernc, params,
+                                    path_conds + _clike_conds_at(m.end(), if_blocks, body)
+                                    + [cond])
             if sat_then is False:
                 # ШАГ 4b, ПЕРЕКРЁСТНАЯ ПРОВЕРКА ОБВИНЕНИЯ (защита от ложной
                 # мёртвой ветки в Int-модели). ИЗМЕРЕНО: корректная функция
@@ -8358,6 +8420,19 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                     "индекс построен ТОЛЬКО из беззнаковых значений "
                     f"({sorted(_idxs_names)}): «отрицательный» невозможен, "
                     "Int-модель не переносит заворачивание (#501)")
+                continue
+            # ДЕФЕКТ #501b (СЛЕПОЙ ЗАМЕР, расширенный срез curl/lib, минимизировано
+            # до 6 строк). ТИП НЕИЗВЕСТЕН — обвинять нельзя. В curl параметр
+            # объявлен МАКРО-ТИПОМ (`GETHOSTNAME_TYPE_ARG2 namelen`, раскрывается в
+            # `int` ИЛИ `size_t` в зависимости от платформы), парсер его не знает,
+            # и имя молча становилось «знаковым»: `namelen - 1` -> «индекс может
+            # быть отрицательным». Правило то же, что у локальных: нет типа —
+            # ПРОПУСК с причиной, а не догадка (урок #178/#183).
+            _unknown = sorted(nm for nm in _idxs_names if nm not in (ranges or {}))
+            if _unknown:
+                skip_why.append(
+                    f"тип индекса НЕИЗВЕСТЕН ({_unknown}) — знаковость не доказана, "
+                    "обвинение «отрицательный индекс» не выносится (#501b)")
                 continue
             try:
                 # ДЕФЕКТ #318 (та же причина, секция границ): условия — ПО ПОЗИЦИИ.
@@ -9494,6 +9569,14 @@ def _xray_repo(root: Path, kernc, show_all: bool = False, json_out: list | None 
         if rc not in (0, 1):
             bad_files += 1
     print("=" * 74)
+    # #502 ДЕДУПЛИКАЦИЯ (слепой замер; tigerbeetle/samples/main.c). Одна и та же
+    # находка печаталась ДВАЖДЫ: два РАЗНЫХ места в функции с ОДНИМ И ТЕМ ЖЕ
+    # условием дают текстово идентичные строки (у `[DEAD BRANCH]` нет номера
+    # строки), и находка считалась дважды. Для метрики точности это та же ложь,
+    # что и потеря находки (класс #476f): обвинение ОДНО, а счётчик врёт.
+    # Ключ — текст находки (файл + тип + функция + условие/контрпример); порядок
+    # первого появления сохраняется, чтобы отчёт оставался воспроизводимым.
+    all_findings = list(dict.fromkeys(all_findings))
     # #491: ОДНА заметка вместо сотен `[!]` — и в человеческом, и в машинном виде.
     if _BV_SKIP["n"]:
         _top = sorted(_BV_SKIP["why"].items(), key=lambda kv: -kv[1])[:3]

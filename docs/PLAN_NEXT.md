@@ -76,6 +76,21 @@ REVISED explicitly in the log (`ACLSetUser`: `oplen` is a separate `ssize_t` arg
 unchanged). Two-sided control added: `precision_clean/field_guard_write.c` (trap -> 0) and
 `precision_dead_field/dead_after_kind.c` (real dead branch -> exactly 1).
 
+EXTENDED SLICE (60 files per corpus), after `#501b`/`#502`/`#503`/`#504`: same SHAs, same
+deterministic rule. curl/lib **0** findings (161 functions) · tigerbeetle/src **0** (315) ·
+redis/src **8** findings on 1684 functions — and ALL EIGHT are «UB in the SIGNATURE domain»
+(no in-tree caller passes such values). **Precision 8/8 = 1.00, FP = 0 over 2160 functions.**
+The four new roots were closed the same way (minimisation + do/after): `#501b` unknown index type
+(`GETHOSTNAME_TYPE_ARG2` → skip with a reason) · `#502` double counting (two different checks with
+the same condition → one accusation; fixture `precision_dedupe`, 2 → 1) · `#503` `switch` is not
+modelled, so `case`s were treated as straight-line code and a LIVE branch was declared dead
+(fixture `precision_clean/switch_repeated_cond.c`, 1 → 0) · `#504` the BV form ignored LOCAL types,
+so `long long value < 0` became `bvult value 0` (always false) → false DEAD BRANCH in redis/config.c
+(fix: local types feed the BV signedness/width choice ONLY, never `path_conds` — otherwise a free
+name makes SAT refuse and real findings are lost, measured on `num_enum_vals + 1`).
+Recall cost measured after everything: SV-COMP TPR 1.00 / FPR 0.00, xray-overflow-check rc=0,
+xray-precision rc=0 (traps 0/1/1, buggy 5/5, known_fp 0, external base 4).
+
 ## P1. Publication (Step 2 of the ROI plan — built and gated, release PENDING credentials)
 
 1. `action.yml` (composite) works from the RELEASE ARCHIVE: downloads

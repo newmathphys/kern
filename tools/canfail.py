@@ -2764,7 +2764,7 @@ def case_artifact_offline():
     это показывает (`sync НЕ пишет None`).
     """
     patch("README.md",
-          "releases/download/v2.8.1",
+          "releases/download/v2.8.2",
           "releases/download/v9.9.9")
     return "make artifact-check-offline"
 
