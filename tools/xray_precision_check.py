@@ -78,6 +78,21 @@ def unique_findings(out: str) -> set:
     return {(f, fn, lab) for f, lab, fn in RE_UNIQUE.findall(out)}
 
 
+def _no_analysis_reason(rc: int, out: str) -> str:
+    """Почему вердикт о КОДЕ выносить нельзя (дефект #499, измерено на чистом клоне).
+
+    Без решателя `--xray` возвращает 2, и гейт печатал «потеря сигнала (FN): не
+    найдены [...]» — диагноз о ПРОВЕРЯЕМОМ КОДЕ вместо диагноза об инструменте.
+    Класс #370/#497: сообщение говорит не то, что произошло.
+    """
+    low = (out or "").lower()
+    if "z3 недоступен" in low or "z3 is not" in low or "solver_unavailable" in low:
+        return "нет решателя Z3 — SMT-детекторы НЕ ЗАПУСКАЛИСЬ"
+    if "не найден kernc" in low or "kernc_missing" in low:
+        return "не найден бинарь kernc (соберите: zig build)"
+    return f"rc={rc}; см. вывод инструмента выше"
+
+
 def main() -> int:
     bad: list[str] = []
 
@@ -87,6 +102,11 @@ def main() -> int:
     print(f"[i] clean: находок {n_c} (ожидали 0), rc={rc_c}")
     if n_c != 0:
         bad.append(f"ЛОЖНЫЕ ОБВИНЕНИЯ на защищённом коде: {n_c} — {sorted(f_c)}")
+    if rc_c >= 2:
+        # #499: анализа НЕ БЫЛО -> и «FN», и «пропуск» были бы ложным диагнозом о коде.
+        print(f"[FAIL] #499: точность НЕ измерена — `--xray` rc={rc_c}: "
+              f"{_no_analysis_reason(rc_c, out_c)}")
+        return 1
     if rc_c != 0:
         bad.append(f"`--xray` упал на clean-корпусе (rc={rc_c})")
 
@@ -107,6 +127,10 @@ def main() -> int:
     rc_b, out_b = xray(BUGGY)
     n_b, f_b = findings_of(out_b)
     print(f"[i] buggy: находок {n_b} (ожидали {EXPECTED_BUGGY}), rc={rc_b}")
+    if rc_b >= 2:
+        print(f"[FAIL] #499: полнота НЕ измерена — `--xray` rc={rc_b}: "
+              f"{_no_analysis_reason(rc_b, out_b)}")
+        return 1
     if n_b != EXPECTED_BUGGY:
         bad.append(f"полнота: находок {n_b}, ожидали {EXPECTED_BUGGY}")
     missing = [f for f in REQUIRED_FOUND if f not in f_b]
@@ -129,6 +153,10 @@ def main() -> int:
         elif n_uniq < EXT_FP_BASELINE:
             print(f"[i] ЛУЧШЕ БАЗЫ на {EXT_FP_BASELINE - n_uniq}: снизьте "
                   f"EXT_FP_BASELINE до {n_uniq} (ретаргет вниз)")
+        if rc_e >= 2:
+            print(f"[FAIL] #499: внешний корпус НЕ измерен — rc={rc_e}: "
+                  f"{_no_analysis_reason(rc_e, out_e)}")
+            return 1
         if rc_e != 0:
             bad.append(f"`--xray` упал на внешнем корпусе (rc={rc_e})")
     else:

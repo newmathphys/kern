@@ -51,7 +51,22 @@ MUST_FIND = "collapsing_sum"
 MUST_BE_CLEAN = ("guarded_sum", "promoted_sum", "wide_sum", "wrapping_sum")
 
 
-def run_demo() -> tuple[dict[str, int], str]:
+def _no_analysis_reason(rc: int, out: str) -> str:
+    """Причина, по которой вердикт о КОДЕ выносить нельзя (дефект #499).
+
+    ИЗМЕРЕНО на чистом клоне без решателя: гейт печатал «ПРОПУСК: на
+    `collapsing_sum` находки НЕТ», хотя анализ НЕ ЗАПУСКАЛСЯ. Это диагноз о
+    коде вместо диагноза об инструменте — ровно класс #370/#497.
+    """
+    low = (out or "").lower()
+    if "z3 недоступен" in low or "z3 is not" in low or "solver_unavailable" in low:
+        return "нет решателя Z3 — SMT-детекторы НЕ ЗАПУСКАЛИСЬ"
+    if "не найден kernc" in low or "kernc_missing" in low:
+        return "не найден бинарь kernc (соберите: zig build)"
+    return f"rc={rc}; см. вывод инструмента выше"
+
+
+def run_demo() -> tuple[dict[str, int], str, int]:
     """Прогон `--xray` на эталоне. Возвращает ({функция: находок}, вывод).
 
     Эталон копируется в ОТДЕЛЬНЫЙ временный каталог: `--xray` берёт каталог, а
@@ -70,12 +85,15 @@ def run_demo() -> tuple[dict[str, int], str]:
     hits: dict[str, int] = {}
     for m in re.finditer(r"\[OVERFLOW PATH\]\s+(\w+):", out):
         hits[m.group(1)] = hits.get(m.group(1), 0) + 1
-    return hits, out
+    return hits, out, r.returncode
 
 
-def verdict(hits: dict[str, int]) -> list[str]:
+def verdict(hits: dict[str, int], rc: int = 0, out: str = "") -> list[str]:
     """Список нарушений. Пустой = гейт зелёный."""
     bad: list[str] = []
+    if rc >= 2:      # #499: анализа не было — «ПРОПУСК» был бы диагнозом о КОДЕ
+        return [f"АНАЛИЗ НЕ ЗАПУСКАЛСЯ (rc={rc}) — вердикт о коде НЕ выносится: "
+                f"{_no_analysis_reason(rc, out)}"]
     n = hits.get(MUST_FIND, 0)
     if n == 0:
         bad.append(f"ПРОПУСК: на `{MUST_FIND}` находки НЕТ, а переполнение "
@@ -115,6 +133,13 @@ def selftest() -> int:
     else:
         print("[OK] selftest: ложное обвинение ловится")
 
+    _rc2 = verdict(dict(ok), 2, "z3 недоступен")
+    if not _rc2 or "ПРОПУСК" in " ".join(_rc2):
+        print("[FAIL] selftest: при rc=2 вердикт обязан краснеть БЕЗ «ПРОПУСК» (#499)")
+        bad += 1
+    else:
+        print("[OK] selftest: без решателя гейт говорит об АНАЛИЗЕ, а не о коде (#499)")
+
     if not verdict({MUST_FIND: 3}):
         print("[FAIL] selftest: дубликаты НЕ пойманы")
         bad += 1
@@ -138,11 +163,11 @@ def main(argv=None) -> int:
     print("KERN: `--xray` — переполнение ВНУТРИ выражения (дефект #367)")
     print("=" * 76)
     print(f"  эталон: {DEMO.relative_to(ROOT)}")
-    hits, out = run_demo()
+    hits, out, rc = run_demo()
     for fn in (MUST_FIND,) + MUST_BE_CLEAN:
         mark = "НАХОДКА" if hits.get(fn) else "чисто"
         print(f"  {fn:<16} {mark}")
-    bad = verdict(hits)
+    bad = verdict(hits, rc, out)
     print("-" * 76)
     if bad:
         for b in bad:
