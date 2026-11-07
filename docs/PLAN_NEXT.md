@@ -67,6 +67,15 @@ C) the same finding printed twice (tigerbeetle).
 NEXT: delta-minimise each root to <=15 lines, add a TWO-SIDED control in `xray-precision`
 (FP -> 0 AND the TP stays found), then re-measure on the SAME three SHAs.
 
+RE-MEASURE AFTER THE FIX (`#500`+`#501`), SAME three SHAs, SAME 25-file slice:
+curl 0 · redis 7 -> **4** · tigerbeetle 2 -> **0**; **TP 4, FP 0 -> precision 1.00** (target met
+on this slice). The four survivors are all «UB in the SIGNATURE domain» (no in-tree caller passes
+`LONG_MIN`/`INT_MIN`/`oplen <= 0`), named as such — not upgraded to «bugs». One verdict was
+REVISED explicitly in the log (`ACLSetUser`: `oplen` is a separate `ssize_t` argument, so
+`op[0]=='('` does not prove `oplen >= 1`). No recall cost measured (SV-COMP TPR 1.00 / FPR 0.00
+unchanged). Two-sided control added: `precision_clean/field_guard_write.c` (trap -> 0) and
+`precision_dead_field/dead_after_kind.c` (real dead branch -> exactly 1).
+
 ## P1. Publication (Step 2 of the ROI plan — built and gated, release PENDING credentials)
 
 1. `action.yml` (composite) works from the RELEASE ARCHIVE: downloads
