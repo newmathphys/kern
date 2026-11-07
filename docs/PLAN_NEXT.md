@@ -42,6 +42,31 @@ The `#495` fix restricted the inc/dec detector to straight-line paths. Its cost 
    `if (x==10) return; x++;` -> **0**, `cmark_autolink.c` -> **0**.
 4. Acceptance met: the number in `docs/LIMITS` (RU+EN) is measured, not promised.
 
+## P1. Proof on unfamiliar code — MEASURED, TARGET NOT MET (0.375)
+
+BLIND RUN on three repositories that were never in the cache
+(`docs/evidence/blind_p1_2026-11-07.log`): curl `155f6f76` (lib/), redis `5b69ba2c` (src/),
+tigerbeetle `68958eb7` (src/); deterministic selection = first 25 files by name per corpus;
+0 edits to the analyzer before the run.
+
+| corpus | files | functions | findings | TP | FP | precision |
+|:--|--:|--:|--:|--:|--:|--:|
+| curl/lib | 25 | 81 | 0 | — | 0 | n/a (no accusations, and no noise) |
+| redis/src | 25 | 552 | 7 | 3 | 4 | 0.43 |
+| tigerbeetle/src | 22 | 187 | 2 (1 duplicated) | 0 | 1 | 0.00 |
+| **total** | | | **9** | **3** | **5** | **0.375** |
+
+EVERY finding is triaged line-by-line in the log. Three roots are NAMED (no fix applied yet):
+A) a STRUCT FIELD is modelled as a constant (`s->flags`, `fe->mask`, `batch.status`) although it is
+written above in the same function, by a CALLEE, or through a pointer -> UNSAT on REACHABLE
+branches -> false DEAD BRANCH (3 of 5 FPs);
+B) unsigned types in the BOUNDS detector (`size_t` treated as signed, short-circuit `op[0]=='('`
+not taken as a non-empty guard) — 2 FPs;
+C) the same finding printed twice (tigerbeetle).
+
+NEXT: delta-minimise each root to <=15 lines, add a TWO-SIDED control in `xray-precision`
+(FP -> 0 AND the TP stays found), then re-measure on the SAME three SHAs.
+
 ## P1. Publication (Step 2 of the ROI plan — built and gated, release PENDING credentials)
 
 1. `action.yml` (composite) works from the RELEASE ARCHIVE: downloads
