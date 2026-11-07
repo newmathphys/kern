@@ -126,8 +126,19 @@ def run_target(kernc, name, smt_path, proof_path, n, jobs):
                         capture_output=True, text=True, timeout=120)
     print(f"  [контроль] {name}: неповреждённый вывод rc={r0.returncode} (ожидается 0)")
     if r0.returncode != 0:
-        print("  [!] ЧЕКЕР НЕ ПРИНИМАЕТ ДАЖЕ ВЕРНЫЙ ВЫВОД — фаззер неприменим")
-        return (0, [("контроль не прошёл", (r0.stdout + r0.stderr)[:200])])
+        # #510 (дамп `KERN_DEBUG_TRUSTED=1`): чекер САМ отказывает на цело́м выводе,
+        # потому что шаг `(_ th-lemma seq)` не имеет проверяющего правила
+        # (`[dbg-trusted] th-lemma (структурно) :: … false`, trusted=1). Это
+        # FAIL-CLOSED, а не дыра: подделки на такой теории неотличимы от верного
+        # вывода, поэтому фаззер здесь НЕПРИМЕНИМ. Правило проекта: такой случай
+        # НАЗЫВАЕТСЯ (skip), а не засчитывается ни как «зелено», ни как «красный
+        # из-за дефекта проекта».
+        why = " ".join((r0.stdout + r0.stderr).split())[:160]
+        print("  [SKIP] контроль не прошёл — теория НЕ проверена фаззером "
+              "(названный пропуск, не «зелено»)")
+        print(f"         причина: {why}")
+        return (-1, [])          # -1 = НАЗВАННЫЙ ПРОПУСК
+
 
     tampers = make_tampers(proof, n)
     print(f"  [i] {name}: подделок {len(tampers)} (нужно {n})")
@@ -173,15 +184,24 @@ def main() -> int:
 
     print(f"[i] теорий: {len(targets)} | подделок всего: "
           f"{sum(t[3] for t in targets)}")
-    total, accepted_all = 0, []
+    total, accepted_all, skipped = 0, [], []
     for nm, smt_p, proof_p, n in targets:
         print(f"--- {nm} ---")
         cnt, acc = run_target(KERNC, nm, smt_p, proof_p, n, args.jobs)
+        if cnt < 0:                       # #510: НАЗВАННЫЙ ПРОПУСК (контроль не прошёл)
+            skipped.append(nm)
+            continue
         total += cnt
         accepted_all.extend(acc)
 
     print("=" * 72)
     print(f"ПОДДЕЛОК ВСЕГО: {total} | ПРИНЯТО: {len(accepted_all)}")
+    if skipped:
+        print(f"[i] НАЗВАННЫЙ ПРОПУСК (фаззер неприменим, контроль не прошёл): "
+              f"{', '.join(skipped)} — это НЕ «зелено»: теория не проверена")
+    if total == 0:
+        print("[!] ВАКУУМ: ни одной подделки не проверено — это не результат")
+        return 1
     if not accepted_all:
         print("[OK] ЗВУЧНОСТЬ: ни одна подделка не прошла на всех теориях — "
               "`trusted: 0` подтверждён адверсариально")

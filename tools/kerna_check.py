@@ -147,6 +147,43 @@ def main() -> int:
             bad += 1
         else:
             print(f"[OK] R3: паритет с dev (находок {found}, unreadable 0)")
+        # R6 (#511): `--delta` ВШИТ В БИНАРЬ. Клиент, скачавший только архив, обязан
+        # уметь спросить «что стало хуже в этом изменении» БЕЗ чекаута репозитория.
+        # Проверяем ПОВЕДЕНИЕ: поведение функции обязано разойтись, и бинарь обязан
+        # это НАЗВАТЬ (DIVERGED). Решатель кладём рядом — как в настоящем дистрибутиве.
+        d = Path(tempfile.mkdtemp(prefix="kerna_delta_"))
+        try:
+            solver = None
+            try:
+                import z3bin                                   # noqa: PLC0415
+                solver = z3bin.find_z3()
+            except (ImportError, OSError) as e:                 # класс #198/#457
+                print(f"  [i] решатель для R6 не найден: {e}")
+            if solver:
+                (bin_path.parent / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+                shutil.copy2(solver, bin_path.parent / ".venv" / "bin" / "z3")
+            # `kernc` ОБЯЗАТЕЛЕН и для дельты: без него SMT-слой честно отвечает
+            # «не решено», и DIVERGED не появляется. В настоящем архиве он рядом.
+            kernc_src = ROOT / "zig-out" / "bin" / "kernc"
+            if kernc_src.is_file():
+                (bin_path.parent / "zig-out" / "bin").mkdir(parents=True, exist_ok=True)
+                shutil.copy2(kernc_src, bin_path.parent / "zig-out" / "bin" / "kernc")
+            for name, body in (("base", "def f(a, b):\n    return a + b\n"),
+                               ("head", "def f(a, b):\n    return a - b\n")):
+                (d / name).mkdir(parents=True)
+                (d / name / "logic.py").write_text(body, encoding="utf-8")
+            r = subprocess.run([str(bin_path), "--delta", str(d / "base"), str(d / "head")],
+                               capture_output=True, text=True, timeout=600, env=_env())
+            out = (r.stdout or "") + (r.stderr or "")
+            if "DIVERGED" in out:
+                print("[OK] R6: `--delta` вшит — расхождение поведения названо из бинаря")
+            else:
+                print(f"[FAIL] R6: `--delta` rc={r.returncode}, DIVERGED в выводе НЕТ")
+                print("      " + " ".join(out.split())[:200])
+                bad += 1
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

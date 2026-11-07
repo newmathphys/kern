@@ -59,6 +59,14 @@ def _is_extractor_mode(args: list[str]) -> bool:
     return False
 
 
+# #511: `--delta` — ПОВЕДЕНЧЕСКИЙ ДИФФЕРЕНЦИАЛЬНЫЙ АУДИТ ИЗ БИНАРНИКА.
+# Клиент, скачавший только архив `kerna-dist`, обязан уметь спросить «что стало
+# хуже в ЭТОМ изменении?» без клонирования репозитория и без `pip install`.
+# Реализация ОДНА (`tools/audit_delta.py`), бинарь лишь вызывает её тем же ABI:
+# копия логики в диспетчере разошлась бы с гейтами (класс #497).
+DELTA_FLAGS = ("--delta", "--delta-json")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _strip_extractor_path(list(sys.argv[1:] if argv is None else argv))
 
@@ -68,6 +76,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"    resource_root: {env_resolver.RESOURCE_ROOT}", file=sys.stderr)
         print(f"    host_root    : {env_resolver.HOST_ROOT}", file=sys.stderr)
         return rc
+
+    if args and args[0] in DELTA_FLAGS:
+        # Доктор обязателен и здесь: без решателя дельта врёт «изменений нет».
+        rc = kerna_doctor.preflight(require_solver=True, require_kernc=False)
+        if rc != 0:
+            return rc
+        import audit_delta          # noqa: PLC0415 — вшит в бинарь тем же путём
+        rest = list(args[1:])
+        if args[0] == "--delta-json":
+            rest.append("--json")
+        sys.argv = [sys.argv[0]] + rest
+        return audit_delta.main()
 
     if _is_extractor_mode(args):
         # #494: ДОКТОР ОБЯЗАТЕЛЕН И ЗДЕСЬ. Без него режим `--xray` при

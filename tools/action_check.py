@@ -306,6 +306,34 @@ if [ "$cmd" = "--doctor" ]; then
   echo "[OK] kerna doctor: зависимости на месте (fake)"
   exit 0
 fi
+if [ "$cmd" = "--delta" ]; then
+  # #511: дельту считает САМ апплаенс. Подставной бинарь повторяет КОНТРАКТ
+  # (`--delta BASE HEAD [--json] [--block-on-diverged]`, rc=1 при новых находках),
+  # чтобы гейт проверял ТРУБУ действия, а не текст.
+  base="${2:-}"
+  head="${3:-}"
+  [ -d "$base" ] || { echo "нет base: $base" >&2; exit 2; }
+  [ -d "$head" ] || { echo "нет head: $head" >&2; exit 2; }
+  want_json=0
+  for a in "$@"; do [ "$a" = "--json" ] && want_json=1; done
+  new=0
+  while IFS= read -r f; do
+    rel="${f#"$head"/}"
+    [ -f "$base/$rel" ] || new=$((new + 1))
+  done < <(find "$head" -type f -name 'buggy.py' 2>/dev/null | sort)
+  if [ "$want_json" -eq 1 ]; then
+    # `new_findings` — СПИСОК (как у настоящего audit_delta), а не число.
+    items=""
+    i=0
+    while [ "$i" -lt "$new" ]; do
+      items="$items${items:+,}$i"   # элементы — числа: JSON-валидно и len() работает
+      i=$((i + 1))
+    done
+    printf '{"fake": true, "new_findings": [%s], "semantic": {"changed_files": 0, "compared": 0, "skipped_by_limit": 0, "diverged": []}}\n' "$items"
+  fi
+  [ "$new" -gt 0 ] && exit 1
+  exit 0
+fi
 if [ "$cmd" = "--xray" ]; then
   dir="${2:-}"
   [ -n "$dir" ] || { echo "нужен каталог" >&2; exit 3; }
@@ -493,6 +521,7 @@ def run_matrix(doc: dict, ver: str, *, release_dir: Path | None) -> int:
                 "inputs.version": ver,
                 "inputs.path": ".",
                 "inputs.base": "base-ref" if base_kind else "",
+                "inputs.block-on-diverged": "false",
                 "github.action_path": str(ROOT),
             }
             rc, log = run_action(doc, work=work, temp=temp,

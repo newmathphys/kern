@@ -42,6 +42,10 @@ inputs:
     description: 'Git ref to compare against (e.g. origin/main). Empty = empty tree, so EVERY finding counts as new.'
     required: false
     default: ''
+  block-on-diverged:
+    description: 'Also fail when the CHANGE alters a function behaviour (semantic delta), not only on new --xray threats. Off by default: a fix and a bug look the same without tests.'
+    required: false
+    default: 'false'
   version:
     description: 'KERN release tag whose kerna-dist archive is downloaded.'
     required: false
@@ -114,10 +118,15 @@ runs:
       run: |
         set -euo pipefail
         report="$RUNNER_TEMP/kern-delta.json"
-        export KERN_AUDIT_BIN="$KERNA_APP/kerna"
+        # #511: дельту считает САМ бинарник (`./kerna --delta`, вшитый
+        # `audit_delta`), поэтому Action не зависит ни от чекаута репозитория
+        # KERN, ни от python-окружения. `--block-on-diverged` НЕ передаётся:
+        # изменение поведения — это и баг, и починка; по умолчанию блокируют
+        # только НОВЫЕ находки `--xray` (см. input `block-on-diverged`).
+        flag=""
+        [ "${{ inputs.block-on-diverged }}" = "true" ] && flag="--block-on-diverged"
         rc=0
-        python3 "${{ github.action_path }}/tools/audit_delta.py" \
-          "$KERN_BASE" "${{ inputs.path }}" --json > "$report" || rc=$?
+        "$KERNA_APP/kerna" --delta "$KERN_BASE" "${{ inputs.path }}" $flag --json > "$report" || rc=$?
         cat "$report"
         echo "report=$report" >> "$GITHUB_OUTPUT"
         if [ "$rc" -eq 1 ]; then
