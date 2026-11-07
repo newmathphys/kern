@@ -151,10 +151,20 @@ SEMA_EXT = (".py", ".c", ".h", ".cpp", ".hpp", ".cc", ".cu", ".cuh",
 SEMA_LIMIT = 200
 
 
+# #512 (ИЗМЕРЕНО на ОПУБЛИКОВАННОМ архиве): в замороженном (`PyInstaller onefile`)
+# бинаре `ROOT` — это временный `_MEIPASS`, поэтому путь `tools/kern_contracts.py`
+# НЕ СУЩЕСТВУЕТ, и семантический слой молча не запускался: `./kerna --delta`
+# печатал «поведение НЕ разошлось». В frozen-режиме диспетчер `kerna` сам
+# обслуживает флаги экстрактора, поэтому путь передавать НЕ НУЖНО.
+FROZEN = bool(getattr(sys, "frozen", False))
+
+
 def _run_diff_equiv(old: Path, new: Path) -> tuple[int, str]:
     """`--diff-equiv OLD NEW` тем же исполнителем, что и аудит (AUDIT_BIN/экстрактор)."""
     if AUDIT_BIN:
         cmd = [AUDIT_BIN, "--diff-equiv", str(old), str(new)]
+    elif FROZEN:                      # #512: бинарь = диспетчер, путь не нужен
+        cmd = [PY, "--diff-equiv", str(old), str(new)]
     else:
         cmd = [PY, str(EXTRACTOR), "--diff-equiv", str(old), str(new)]
     p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=1800)
@@ -200,6 +210,10 @@ def _live_probe(old: Path, new: Path) -> str | None:
     на циклах (`_havoc_k`), а вызов на конкретном входе видит расхождение.
     Изоляция процессом + таймаут: зависание чужого кода не вешает гейт.
     """
+    if FROZEN:
+        # Живая проба требует ОТДЕЛЬНОГО .py-файла; в замороженном бинаре его нет.
+        # Это НАЗВАННЫЙ пропуск (слой Z3 при этом работает) — не «эквивалентно».
+        return None
     try:
         p = subprocess.run([PY, str(SEMA_PROBE), str(old), str(new)],
                            capture_output=True, text=True, timeout=LIVE_TIMEOUT_S)
