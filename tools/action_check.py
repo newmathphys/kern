@@ -564,8 +564,7 @@ def selftest() -> int:
            src.replace("      shell: bash", "      if: true\n      shell: bash", 1))
     expect("нет сверки SHA-256", src.replace("sha256sum -c", "echo no-check", 2))
     expect("обещан SARIF", src.replace(
-        'python3 "${{ github.action_path }}/tools/audit_delta.py"',
-        'python3 "${{ github.action_path }}/tools/audit_delta.py" --sarif out.sarif', 1))
+        '$flag --json > "$report"', '$flag --json --sarif out.sarif > "$report"', 1))
     expect("вход не объявлен", src.replace("${{ inputs.path }}", "${{ inputs.nope }}", 1))
 
     # R6: образец с НЕСУЩЕСТВУЮЩИМ входом обязан краснеть (иначе README-RUN
