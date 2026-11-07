@@ -33,6 +33,18 @@ OUT_RU = ROOT / "docs" / "CAPABILITY_MAP.ru.md"
 OUT_EN = ROOT / "docs" / "CAPABILITY_MAP.md"
 
 # ЭШЕЛОНЫ: порядок проверки важен (первое совпадение выигрывает).
+# АНГЛИЙСКИЕ ИМЕНА РАЗДЕЛОВ (дефект #506, аудит EN-документации). Карта `EN`
+# печатала РУССКИЕ заголовки `## E1. Формальное ядро …` — английский документ с
+# русскими заголовками. Теперь у каждого эшелона два имени, и выбор идёт по `lang`.
+EPHELON_EN: dict[str, str] = {
+    "E1": "Formal core L4 and proof certificates",
+    "E2": "Belnap B4 lattice (L3) and KERN-Next",
+    "E3": "Defence against AI sabotage (L5)",
+    "E4": "Code X-ray, CWE, precision and the PR delta",
+    "E5": ".kimg container, crypto attestation and WASM (L0-L2)",
+    "E6": "Resource safety and circuit self-control",
+}
+
 EPHELONS: list[tuple[str, str, tuple[str, ...]]] = [
     ("E1", "Формальное ядро L4 и сертификаты доказательств",
      ("smtlib", "proof", "evidence-trust", "pcc", "audits", "translator-diff",
@@ -147,9 +159,13 @@ def rows() -> list[dict]:
     return out
 
 
-def _fact_block() -> list[str]:
+def _fact_block(lang: str = "ru") -> list[str]:
+    """Проверяемые факты внизу карты. ЯРЛЫКИ ЗАВИСЯТ ОТ ЯЗЫКА (#506): раньше
+    блок был русским даже в `CAPABILITY_MAP.md`, то есть английский документ
+    заканчивался русской строкой. Якоря `<!-- fact:… -->` — ОДНИ И ТЕ ЖЕ, их
+    сверяет `docs-parity`, поэтому счётчики не расходятся."""
     f = json.loads((ROOT / "docs" / "facts.json").read_text(encoding="utf-8"))
-    return [
+    ru = [
         "",
         "ядро <!-- fact:core_tests -->%d · next <!-- fact:next_tests -->%d · каталог "
         "<!-- fact:catalog -->%d ·" % (f["core_tests"], f["next_tests"], f["catalog"]),
@@ -162,6 +178,20 @@ def _fact_block() -> list[str]:
         "QuixBugs differential <!-- fact:quixbugs.differential -->%d"
         % (f["lean_theorems"], f["quixbugs"]["smt"], f["quixbugs"]["differential"]),
     ]
+    en = [
+        "",
+        "core <!-- fact:core_tests -->%d · next <!-- fact:next_tests -->%d · catalog "
+        "<!-- fact:catalog -->%d ·" % (f["core_tests"], f["next_tests"], f["catalog"]),
+        "CHECK targets <!-- fact:check_targets -->%d · can-fail cases <!-- fact:canfail_cases -->%d ·"
+        % (f["check_targets"], f["canfail_cases"]),
+        "anchors <!-- fact:anchors -->%d · registry targets <!-- fact:registry_targets -->%d · "
+        "META <!-- fact:meta_targets -->%d ·" % (f["anchors"], f["registry_targets"],
+                                                 f["meta_targets"]),
+        "Lean theorems <!-- fact:lean_theorems -->%d · QuixBugs SMT <!-- fact:quixbugs.smt -->%d · "
+        "QuixBugs differential <!-- fact:quixbugs.differential -->%d"
+        % (f["lean_theorems"], f["quixbugs"]["smt"], f["quixbugs"]["differential"]),
+    ]
+    return en if lang == "en" else ru
 
 
 def _table(rs: list[dict], lang: str) -> list[str]:
@@ -175,7 +205,8 @@ def _table(rs: list[dict], lang: str) -> list[str]:
         g = by_e.get(eid, [])
         if not g:
             continue
-        L += [f"## {eid}. {name} ({len(g)})", "", hdr, "|:--|:--|:--|:--|"]
+        title = name if lang == "ru" else EPHELON_EN.get(eid, name)
+        L += [f"## {eid}. {title} ({len(g)})", "", hdr, "|:--|:--|:--|:--|"]
         for r in g:
             cases = ", ".join("`" + c + "`" for c in r["cases"]) or "—"
             L.append(f"| `{r['target']}` | {cases} | "
@@ -240,7 +271,7 @@ def _head(lang: str) -> list[str]:
 
 
 def render(rs: list[dict], lang: str) -> str:
-    parts = _head(lang) + _table(rs, lang) + _parity(rs, lang) + _fact_block()
+    parts = _head(lang) + _table(rs, lang) + _parity(rs, lang) + _fact_block(lang)
     return "\n".join(parts) + "\n"
 
 

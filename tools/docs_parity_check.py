@@ -95,6 +95,24 @@ def compare(ru: Path, en: Path, required=REQUIRED) -> list[str]:
     return errs
 
 
+def cyr_selftest() -> list[str]:
+    """НЕВАКУУМНОСТЬ гейта #506: русская ПРОЗА в EN-доке обязана ловиться,
+    а кириллица ВНУТРИ кода/цитаты (`…`) — НЕ ловиться (это факт, не проза)."""
+    import tempfile
+    problems: list[str] = []
+    with tempfile.TemporaryDirectory() as td:
+        bad = Path(td) / "bad.en.md"
+        bad.write_text("# Title\n\n" + "Это русская проза в английском документе.\n", encoding="utf-8")
+        ok = Path(td) / "ok.en.md"
+        ok.write_text("# Title\n\nThe checker prints `КОНТРАКТ НАРУШЕН` — a quoted fact.\n",
+                      encoding="utf-8")
+        if not cyrillic_in_en_docs([bad]):
+            problems.append("проза с кириллицей НЕ поймана (вакуум)")
+        if cyrillic_in_en_docs([ok]):
+            problems.append("цитата в бэктиках ловится ЛОЖНО")
+    return problems
+
+
 def selftest() -> int:
     import tempfile
     with tempfile.TemporaryDirectory() as d:
@@ -110,8 +128,65 @@ def selftest() -> int:
     if not bad:
         print("[FAIL] parity selftest: расхождение 402/401 НЕ поймано")
         return 1
+    for prob in cyr_selftest():
+        print(f"[FAIL] #506 selftest: {prob}")
+        return 1
+    print("  [OK] #506: русская проза в EN-доке ловится, цитата в бэктиках — нет")
     print("[OK] docs-parity selftest: расхождение ловится, чистые пары проходят")
     return 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ДЕФЕКТ #506 (аудит EN-документации): «английский» документ с русской прозой.
+# ПРАВИЛО: в EN-документах кириллица допустима ТОЛЬКО внутри кода/цитаты
+# (`…` или блок ```…```), потому что там она — ФАКТ (сообщение инструмента,
+# команда, вывод прогона). Русская ПРОЗА в английском документе — дефект.
+# Исключения названы, а не «молча пропущены». Ссылки на `*.ru.md` легальны
+# всегда: они не текст, а путь.
+# ─────────────────────────────────────────────────────────────────────────────
+EN_DOCS = ("README.md", "docs/LIMITS.md", "docs/CAPABILITY_MAP.md",
+           "LICENSE-COMMERCIAL.md", "docs/RELEASE_NOTES_v2.8.2.md")
+# ЗЕРКАЛА ЖУРНАЛОВ: там русские ЦИТАТЫ вердиктов идут в таблицах, и вырезать их
+# значит потерять доказательство. Исключение НАЗВАНО и обосновано.
+EN_DOCS_MIRRORS_ALLOWED = {"docs/METRICS.en.md": "цитаты вердиктов/вывода в таблицах",
+                           "docs/CAPABILITY_STATUS.en.md": "цитаты вердиктов в таблицах",
+                           "docs/BELNAP_SOURCES.en.md": "имя источника на языке оригинала"}
+CYR = re.compile(r"[\u0400-\u04FF]")
+
+
+def _strip_code(text: str) -> str:
+    """Убрать блоки ```…``` и `…` — там кириллица ЛЕГАЛЬНА (это факт, не проза)."""
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    text = re.sub(r"`[^`]*`", "", text)
+    return text
+
+
+def cyrillic_in_en_docs(paths: list | None = None) -> list[str]:
+    out: list[str] = []
+    if paths is not None:
+        cand = list(paths)
+    else:
+        cand = [ROOT / f for f in EN_DOCS]
+        cand += [p for p in ROOT.glob("docs/*.en.md")]
+    for path in cand:
+        if not path.exists():
+            continue
+        try:
+            rel = str(path.relative_to(ROOT))
+        except ValueError:      # путь вне репозитория (selftest во временном каталоге)
+            rel = path.name
+        if rel in EN_DOCS_MIRRORS_ALLOWED:
+            continue
+        prose = _strip_code(path.read_text(encoding="utf-8", errors="replace"))
+        n = len(CYR.findall(prose))
+        if n:
+            try:
+                label = str(path.relative_to(ROOT))
+            except ValueError:      # файл вне репозитория (selftest во временном каталоге)
+                label = path.name
+            out.append(f"{label}: {n} кириллических символов В ПРОЗЕ "
+                       f"(в коде/цитатах — легально)")
+    return out
 
 
 def main(argv=None) -> int:
@@ -128,6 +203,9 @@ def main(argv=None) -> int:
         for e in errs:
             print(f"[FAIL] {e}")
             bad += 1
+    for e in cyrillic_in_en_docs():
+        print(f"[FAIL] #506: {e}")
+        bad += 1
     if bad:
         print(f"\n[FAIL] EN/RU расхождений: {bad}")
         return 1

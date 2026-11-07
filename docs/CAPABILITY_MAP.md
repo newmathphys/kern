@@ -11,7 +11,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 **protects** — defect numbers taken FROM THE CASE DESCRIPTION ITSELF;
 **command** — how to reproduce.
 
-## E1. Формальное ядро L4 и сертификаты доказательств (52)
+## E1. Formal core L4 and proof certificates (52)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -68,7 +68,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `ubsafe` | `ubsafe` | — | `make ubsafe` |
 | `verify` | `verify-cli` | — | `make verify` |
 
-## E2. Решётка Белнапа B4 (L3) и KERN-Next (5)
+## E2. Belnap B4 lattice (L3) and KERN-Next (5)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -78,7 +78,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Защита от саботажа ИИ (L5) (38)
+## E3. Defence against AI sabotage (L5) (38)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -121,7 +121,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (32)
+## E4. Code X-ray, CWE, precision and the PR delta (32)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -158,7 +158,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `xray-precision` | `xray-precision` | #475 | `make xray-precision` |
 | `zig-guard-check` | `zig-guard` | — | `make zig-guard-check` |
 
-## E5. Контейнер .kimg, крипто-аттестация и WASM (L0–L2) (27)
+## E5. .kimg container, crypto attestation and WASM (L0-L2) (27)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -190,7 +190,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Ресурсная безопасность и самоконтроль контура (48)
+## E6. Resource safety and circuit self-control (48)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -249,7 +249,7 @@ Targets in the map: **202**; class CHECK in `registry.py`: **202**;
 `CASE_TARGET` records: **248** (make-executable **244**); without a case outside `NO_CASE_OK`: **0**.
 
 
-ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->200 · can-fail кейсы <!-- fact:canfail_cases -->245 ·
-якоря <!-- fact:anchors -->204 · цели реестра <!-- fact:registry_targets -->273 · META <!-- fact:meta_targets -->55 ·
-теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40
+core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
+CHECK targets <!-- fact:check_targets -->200 · can-fail cases <!-- fact:canfail_cases -->245 ·
+anchors <!-- fact:anchors -->204 · registry targets <!-- fact:registry_targets -->273 · META <!-- fact:meta_targets -->55 ·
+Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

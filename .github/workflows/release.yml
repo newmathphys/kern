@@ -71,9 +71,14 @@ jobs:
         run: |
           VER="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           NOTES="docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
+          # ДЕФЕКТ #507: ТИХИЙ ФОЛБЭК НА ЧУЖИЕ ЗАМЕТКИ. Раньше при отсутствии
+          # файла для тега брался последний по версии (`v2.7.2`), и страница
+          # релиза описывала ДРУГОЙ релиз — ровно класс #370 («сообщение говорит
+          # не то, что произошло»). Теперь это ОТКАЗ с названной причиной.
           if [ ! -f "$NOTES" ]; then
-            NOTES=$(ls docs/RELEASE_NOTES_v*.md | sort -V | tail -1)
-            echo "[i] свои notes для $GITHUB_REF_NAME не найдены — беру $NOTES"
+            echo "::error::нет $NOTES — релиз $GITHUB_REF_NAME не будет описан чужими заметками"
+            echo "[!] создайте $NOTES (образец: docs/RELEASE_NOTES_v2.8.2.md) и перезапустите"
+            exit 1
           fi
           # Порядок важен: черновик -> ассеты -> публикация. Если публиковать
           # до загрузки, релиз существует БЕЗ файлов, и ссылки
