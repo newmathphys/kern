@@ -57,6 +57,22 @@ def _isolated_env() -> dict:
     return e
 
 
+def _no_solver_env() -> dict:
+    """Окружение, в котором решателя заведомо НЕТ (дефект #513, найдено canfail).
+
+    R4/R8 доказывают, что БЕЗ решателя дистрибутив ОТКАЗЫВАЕТ, а не печатает
+    «находок 0». Но доктор ищет `z3` по `$Z3 → .venv/bin/z3 → PATH`, и если
+    локальный PATH содержит `.venv/bin` (там лежит `z3`), проверка молча теряет
+    смысл: решатель находится, отказ не наступает. Поэтому PATH урезается до
+    системного, а подсказки `$Z3`/`$KERN_Z3` снимаются.
+    """
+    e = _isolated_env()
+    e["PATH"] = "/usr/bin:/bin"
+    for k in ("Z3", "KERN_Z3"):
+        e.pop(k, None)
+    return e
+
+
 def _dev_findings() -> int:
     """Эталон: сколько находок даёт НЕупакованный фронтенд."""
     p = subprocess.run([PY, str(ROOT / "tools" / "kern_contracts.py"),
@@ -128,13 +144,33 @@ def main() -> int:
         shutil.copy2(bin_path, iso_bin)
 
         # R3: паритет БЕЗ kernc/z3 рядом -> доктор обязан назвать отказ
-        rc, found, unreadable = _packaged_findings(iso_bin)
+        rc, found, unreadable = _packaged_findings(iso_bin, extra_env=_no_solver_env())
         if rc != 2:
             print(f"[FAIL] R4: без z3 ожидали названный отказ rc=2, получили "
                   f"rc={rc} (находок {found}, unreadable {unreadable})")
             bad += 1
         else:
             print("[OK] R4: без z3 — названный отказ rc=2 (а не «находок 0»)")
+
+        # R8 (#513, НАЙДЕНО CANFAIL). После #499a отказ «нет решателя» дают ДВЕ
+        # независимые преграды: доктор (preflight) и ворота решателя ВНУТРИ
+        # анализа. R4 требует лишь «rc=2 + названная причина», поэтому его
+        # удовлетворяет ЛЮБАЯ из них — и кейс `kerna` (ломает только доктора)
+        # стал ВАКУУМНЫМ: замер «поломка внесена, а цель осталась ЗЕЛЁНОЙ».
+        # R8 закрепляет ПЕРВУЮ преграду: в пути АНАЛИЗА отказ обязан быть
+        # докторским (`KERNA DOCTOR`), то есть до разбора кода. Иначе клиент
+        # узнаёт о неполном дистрибутиве только внутри анализа.
+        p8 = subprocess.run([str(iso_bin), "--xray", str(FIXTURE), "--xray-json"],
+                            capture_output=True, text=True, timeout=900,
+                            cwd=str(iso_bin.parent), env=_no_solver_env())
+        out8 = (p8.stdout or "") + (p8.stderr or "")
+        if p8.returncode == 2 and "KERNA DOCTOR" in out8:
+            print("[OK] R8: доктор — ПЕРВАЯ преграда в пути анализа (`KERNA DOCTOR`, rc=2)")
+        else:
+            print(f"[FAIL] R8: без z3 путь анализа дал rc={p8.returncode}, сообщение "
+                  f"доктора {'есть' if 'KERNA DOCTOR' in out8 else 'ОТСУТСТВУЕТ'} — "
+                  f"первая преграда ослепла (R4 её маскирует)")
+            bad += 1
 
         # R3 (продолжение): полный дистрибутив -> ПАРИТЕТ с dev
         (iso / "zig-out" / "bin").mkdir(parents=True)

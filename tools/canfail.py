@@ -4939,6 +4939,11 @@ def main():
     snap = snapshot_faultable()
 
     ok = bad = meta_bad = skipped = err_bad = dirty_bad = 0
+    # ДЕФЕКТ #514: ОТКАЗ ДОЛЖЕН БЫТЬ ВИДЕН БЕЗ ЛОГОВ. В CI по этому прогону
+    # видно только «exit code 1» и сводку — имена вакуумных кейсов терялись в
+    # 900+ строках вывода (логи GitHub требуют токена). Теперь каждый вакуумный
+    # кейс печатается ещё и как АННОТАЦИЯ (`::error`), а аннотации публичны.
+    vac_cases: list[tuple[str, str]] = []
     for c in CASES:
         name, desc, fn = c[0], c[1], c[2]
         expect_vacuous = c[3] if len(c) > 3 else False
@@ -5000,6 +5005,7 @@ def main():
             print(f"  [FAIL] {name:14s} {desc}")
             print(f"         ВАКУУМНА: поломка внесена, а цель осталась ЗЕЛЁНОЙ (rc=0)!")
             bad += 1
+            vac_cases.append((name, desc))
 
     # --- КОНТРОЛЬ ЦЕЛОСТНОСТИ: харнесс не должен оставлять следов -----------
     dirty = verify_restored(snap)
@@ -5032,6 +5038,15 @@ def main():
     print(f"ИТОГ: не-вакуумных {ok} | ВАКУУМНЫХ {bad} | ГРЯЗНЫХ {dirty_bad} | "
           f"ЛОЖНЫХ СРАБАТЫВАНИЙ ХАРНЕССА {meta_bad} | "
           f"ОШИБОК КЕЙСОВ {err_bad} | пропущено {skipped}")
+    # #514: имена видны БЕЗ логов — аннотации GitHub публичны, а вывод прогона
+    # (сотни строк) без токена не читается. Только в Actions, чтобы локальный
+    # вывод не засорялся служебными строками.
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        for _n, _d in vac_cases:
+            print(f"::error title=canfail ВАКУУМНЫЙ кейс::{_n} — {_d}")
+        if bad or err_bad or dirty_bad or meta_bad:
+            print(f"::error title=canfail ИТОГ::не-вакуумных {ok} | ВАКУУМНЫХ {bad} | "
+                  f"ГРЯЗНЫХ {dirty_bad} | ОШИБОК КЕЙСОВ {err_bad}")
     if err_bad:
         print()
         print("🔴 ОШИБКИ КЕЙСОВ — это НЕ «пропуск»: цель осталась без доказательства")
