@@ -125,8 +125,16 @@ runs:
         # только НОВЫЕ находки `--xray` (см. input `block-on-diverged`).
         flag=""
         [ "${{ inputs.block-on-diverged }}" = "true" ] && flag="--block-on-diverged"
+        # #513 (ИЗМЕРЕНО): `--delta` ВНУТРИ опубликованного архива на тесте «a+b -> a-b»
+        # отвечает «поведение НЕ разошлось», хотя локальная сборка того же коммита
+        # называет DIVERGED с контрпримером. Причина ещё не найдена, а гейт, который
+        # молча зеленеет, недопустим. Поэтому Action считает дельту ПРОВЕРЕННЫМ путём
+        # из репозитория (`tools/audit_delta.py`), а апплаенс используется как
+        # ДВИЖОК аудита (KERN_AUDIT_BIN) — этот путь покрыт `make action-check`.
+        export KERN_AUDIT_BIN="$KERNA_APP/kerna"
         rc=0
-        "$KERNA_APP/kerna" --delta "$KERN_BASE" "${{ inputs.path }}" $flag --json > "$report" || rc=$?
+        python3 "${{ github.action_path }}/tools/audit_delta.py" \
+          "$KERN_BASE" "${{ inputs.path }}" $flag --json > "$report" || rc=$?
         cat "$report"
         echo "report=$report" >> "$GITHUB_OUTPUT"
         if [ "$rc" -eq 1 ]; then
