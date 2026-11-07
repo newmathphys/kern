@@ -1,7 +1,10 @@
 # Resuming work on KERN: handoff (base slice of tack 2.3)
 
 > **CURRENT STATE (v2.8.2, 2026-11-07).** Release `v2.8.2` is published; `HEAD` is sealed and the
-> attestation verifies with the external key. Open technical defects: **0**. Numbers below that
+> attestation verifies with the external key. **`KERN CI` is GREEN** (`verify` success, CAN-FAIL
+> `ВАКУУМНЫХ 0` — both blind cases closed as `#514`). Open technical defects: **0**. Housekeeping:
+> the release tag points 3 commits behind `HEAD` (gate/test-only commits) — task **T1** in
+> `docs/PLAN_NEXT.md`. Numbers below that
 > mention `67a8d43`, `225/225` cases or `68/68` stages are HISTORICAL — the live facts are
 > `docs/facts.json`: core **460**, CHECK **201**, can-fail cases **246**, registry targets **273**,
 > mutation **1597/1597**, Lean theorems **147**. Blind measurement on unfamiliar code: precision

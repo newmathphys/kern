@@ -1,7 +1,9 @@
 # PLAN FOR TOMORROW — prove that KERN works
 
-State when written: `HEAD == origin/main == f23f7713` (attests `#497`), clean tree,
-`ci-fast rc=0`, `known_fp = 0`, `#495` closed, release archive built and verified as a client.
+State at the end of 2026-11-07: `HEAD == origin/main == 86fef8ee`, clean tree, attestation verified
+with the external key, **`KERN CI` green** (job `verify` success, step CAN-FAIL success,
+`ВАКУУМНЫХ 0` — both blind cases `#514` closed), open technical defects **0**, release `v2.8.2`
+published by `release.yml` (the tag is 3 commits behind `HEAD` — see T1 below).
 
 ## The principle of this tact
 
@@ -42,7 +44,7 @@ The `#495` fix restricted the inc/dec detector to straight-line paths. Its cost 
    `if (x==10) return; x++;` -> **0**, `cmark_autolink.c` -> **0**.
 4. Acceptance met: the number in `docs/LIMITS` (RU+EN) is measured, not promised.
 
-## P1. Proof on unfamiliar code — MEASURED, TARGET NOT MET (0.375)
+## P1. Proof on unfamiliar code — MEASURED: 0.375 → **1.00** (target met on TWO slices)
 
 BLIND RUN on three repositories that were never in the cache
 (`docs/evidence/blind_p1_2026-11-07.log`): curl `155f6f76` (lib/), redis `5b69ba2c` (src/),
@@ -55,6 +57,15 @@ tigerbeetle `68958eb7` (src/); deterministic selection = first 25 files by name 
 | redis/src | 25 | 552 | 7 | 3 | 4 | 0.43 |
 | tigerbeetle/src | 22 | 187 | 2 (1 duplicated) | 0 | 1 | 0.00 |
 | **total** | | | **9** | **3** | **5** | **0.375** |
+
+AFTER the fixes (same SHAs, same selection rule) — precision **1.00**:
+`#500`/`#501` closed roots A and B, `#502` closed the duplicate; re-measure gave redis **4 TP / 0 FP**,
+tigerbeetle **0**, curl **0**. The EXTENDED slice (60 files per corpus, 177 files, **2160 functions**)
+gave **8 findings, 8 TP, 0 FP**. All 8 are «UB in the signature domain» (`LONG_MIN`/`INT_MIN`) — no
+caller in the tree passes such values; they are NOT renamed into «bugs». The extended slice also
+exposed and closed four more roots: `#501b` (unknown macro type), `#503` (`switch` not modelled),
+`#504` (BV form ignored local types), plus the dedupe. Named boundary: precision 1.00 is measured on
+**the slice**, not on the whole corpus — see T4.
 
 EVERY finding is triaged line-by-line in the log. Three roots are NAMED (no fix applied yet):
 A) a STRUCT FIELD is modelled as a constant (`s->flags`, `fe->mask`, `batch.status`) although it is
@@ -102,14 +113,29 @@ xray-precision rc=0 (traps 0/1/1, buggy 5/5, known_fp 0, external base 4).
    27 MB archive.
 3. `examples/ci/kern-gate.yml` is the copy-paste workflow; its inputs are checked against
    `action.yml` (a wrong input turns the gate red).
-4. Publication is prepared in `.github/workflows/release.yml` (archive + `SHA256SUMS` for BOTH
-   assets + `action-check` BEFORE publishing). Publishing itself needs `gh` and credentials that
-   this machine does not have; the exact command is:
-   ```
-   gh release create v2.8.1 --title "KERN v2.8.1" --notes-file docs/RELEASE_NOTES_v2.8.1.md \
-     kernc-x86_64-linux-musl SHA256SUMS dist-release/kerna-dist-v2.8.1.tar.gz \
-     kern.intoto.jsonl kern.intoto.sig
-   ```
+4. **PUBLISHED** (no `gh` needed): `release.yml` runs on the `v*` tag on GitHub's servers, rebuilds
+   the archive, runs `action-check REAL=1` and publishes 5 assets. Measured on `v2.8.2`:
+   `kerna-dist-v2.8.2.tar.gz` 25 211 700 B, `sha256sum -c` → «ЦЕЛ», internal sums → «ЦЕЛ»,
+   `./kerna --doctor` → OK, `./kerna --delta` on a divergent pair → `DIVERGED` with a counterexample
+   (`#513` closed: `kernc` is now `-Dcpu=baseline`, so it no longer dies with SIGILL on a CPU
+   without AVX-512). Release notes are no longer silently substituted: a missing
+   `docs/RELEASE_NOTES_<tag>.md` makes the job fail (`#507`).
+   **Open housekeeping:** the tag `v2.8.2` points at `6b13fa7a` while `HEAD` is `86fef8ee`
+   (the 3 extra commits are gate/test only — `#514` — and do not enter the binary). T1 below.
+
+## Tomorrow (local plan, 2026-11-08) — in this order
+
+| # | Task | Done when (measurement) |
+|:--|:--|:--|
+| **T1** | Move the release tag: `git tag -fa v2.8.2 <attestation commit> && git push -f origin v2.8.2`, let `release.yml` republish | run `completed success`; `curl` of the asset → `sha256sum -c` «ЦЕЛ»; tag → commit = `HEAD` |
+| **T2** | `F4 proof-tamper` on QF_S: dump the rules Z3 5.3.1 emits (`(_ th-lemma seq)` has no checker rule, so the checker legitimately refuses the INTACT proof — fail-closed) and either model strings in `src/verifier/proof_check.zig` or keep the named `[SKIP]` and write it into `LIMITS` | `make proof-tamper` prints `ПРИНЯТО 0` **and** the intact proof is accepted, or `LIMITS` names the boundary with the dump |
+| **T3** | `--live` inside the appliance (now a named skip: no separate `.py` for the probe) | either the layer works frozen, or `LIMITS.md`/`README-RUN.txt` say plainly «in the archive only the Z3 layer» |
+| **T4** | P1 on the WHOLE corpus (not 60 files): `curl/lib`, `redis/src`, `tigerbeetle/src` in full | precision ≥ 0.90 on the full set, numbers into `docs/evidence/blind_p1_2026-11-07.log` |
+| **T5** | `kerna --delta` in a REAL PR (two revisions of one repo), not on synthetic folders | `rc=1` on an introduced finding, `rc=0` on a fix, counterexample in the report |
+| **T6** | One FULL local `python3 tools/canfail.py` to completion (~2 h on this machine; today it was verified by CI) | `ИТОГ: … ВАКУМНЫХ 0 … ГРЯЗНЫХ 0` with the log committed |
+| **T7** | The actual DoD: give the 27 MB archive to ONE external person with the receipt file | their numbers = ours, or the divergence is filed as a defect |
+
+Rule for tomorrow: no new languages/theories and no «improvements» before T1–T2 are closed.
 
 ## P2. Core debt (only with a budget and a measurement)
 
