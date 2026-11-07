@@ -81,8 +81,8 @@ def _selftest() -> int:
         try:
             if h:
                 h.close()
-        except Exception:
-            pass
+        except OSError as e:      # класс #198/#457: закрытие fd может упасть по ОС,
+            print(f"  [i] закрытие лока: {e}")   # программные ошибки НЕ глушим
     h4 = acquire(a)
     check("после закрытия лок снова свободен", h4 not in (None, "BUSY"), f"fd={bool(h4)}")
     if h4:

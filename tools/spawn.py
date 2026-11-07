@@ -54,7 +54,10 @@ def env_with_solver() -> dict[str, str]:
     try:
         from z3bin import find_z3
         z3 = find_z3()
-    except Exception:        # pragma: no cover - z3bin отсутствует
+    except (ImportError, OSError) as e:   # класс #198/#457: НЕТ модуля/файла решателя
+        # Программные ошибки (NameError/AttributeError/TypeError) НЕ глушим:
+        # иначе сломанный `z3bin` тихо превратится в «решателя нет».
+        print(f"[i] spawn: решатель не найден ({e}) — окружение без z3", file=sys.stderr)
         z3 = None
     if z3:
         env["PATH"] = str(Path(z3).parent) + os.pathsep + env.get("PATH", "")

@@ -347,6 +347,9 @@ FAULTABLE = [
     # #494: кейс `kerna` правит ДОКТОРА — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
     "tools/kerna_doctor.py",
+    # ШАГ 2: кейс `action-doctor` правит `action.yml` — файл обязан быть в
+    # списке, иначе подсадка осталась бы в дереве (класс #225).
+    "action.yml",
 
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tests/fixtures/precision_clean/clean.py",
@@ -4304,6 +4307,26 @@ def case_mutation_lock():
             "rm -f .git/CANFAIL_ACTIVE_MUTATION; exit $rc'")
 
 
+def case_action_doctor():
+    """ШАГ 2 SABOTAGE: из `action.yml` убран вызов доктора (`./kerna --doctor`).
+
+    ЛОМАЕМ ровно ту единственную проверку, которая отличает «дистрибутив
+    НЕПОЛОН» от «код чист»: без неё шаг установки считает неполный архив
+    нормальным и передаёт управление дальше, а PR-гейт зеленеет на пустом
+    отчёте. Гейт `make action-check` обязан покраснеть: в матрице сухого
+    прогона кейс «`--doctor` не проходит -> rc 2» получает 0 вместо 2.
+
+    ПОЧЕМУ ИМЕННО ДОКТОР, А НЕ «УБРАТЬ SHA-256». Обе половины уже покрыты
+    статикой (`sha256sum -c` в шагах, `--sarif` запрещён), и повторять её
+    кейсом значило бы доказывать текст, а не поведение. Доктор проверяется
+    ТОЛЬКО исполнением — здесь и доказывается, что исполнение не фиктивно.
+    """
+    patch("action.yml",
+          '        "$root/kerna" --doctor',
+          '        echo "[i] ЛОМАЕМ (#498): доктор снят — rc=2 больше не проверяется"')
+    return "make action-check"
+
+
 CASES = [
     ("avalanche",     "лавина SHA-256 (Hash Flooding)",       case_avalanche),
     ("bench-json",    "Детерминированный бенчмарк: деградация хэша", case_bench_json),
@@ -4534,6 +4557,8 @@ CASES = [
      case_spawn_timeout),
     ("abi-json", "Human log leaks into the ABI stdout -> consumers cannot parse (#483)",
      case_abi_json),
+    ("action-doctor", "Action: доктор снят -> PR-гейт зелёный на неполном дистрибутиве",
+     case_action_doctor),
     ("capability-map", "The generated capability map diverges from the registry (#485)",
      case_capability_map),
     ("kern-scan", "The one-button passport calls style SMELL a threat (#489)",

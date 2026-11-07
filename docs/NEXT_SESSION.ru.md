@@ -14,14 +14,14 @@
 > ровно тем коммитом, который его добавляет (его уже правили дважды). Источник
 > истины — `git log -1` и `docs/STATUS.ru.md`, а не эта строка.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->199 · cases <!-- fact:canfail_cases -->244 · anchors <!-- fact:anchors -->203 · registry <!-- fact:registry_targets -->272 · META <!-- fact:meta_targets -->55 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->200 · cases <!-- fact:canfail_cases -->245 · anchors <!-- fact:anchors -->204 · registry <!-- fact:registry_targets -->272 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 
 | Проверка | Значение |
 |:--|:--|
 | Ветка / дерево | `main` = `d98953c`, чистое |
-| Реестр | <!-- fact:registry_targets -->272 цел · **<!-- fact:check_targets -->199/<!-- fact:check_targets -->199 CHECK** · <!-- fact:canfail_cases -->244 невакуумных кейсов |
+| Реестр | <!-- fact:registry_targets -->272 цел · **<!-- fact:check_targets -->200/<!-- fact:check_targets -->200 CHECK** · <!-- fact:canfail_cases -->245 невакуумных кейсов |
 | Релиз | `v2.8.0` опубликован (4 ассета, `artifact-check` согласован, `seal` валиден) |
 | Открытых технических дефектов | **0** — пункт 1 очереди (фильтр длины в `defNormEq`/`bitTautology`) ИЗМЕРЕН И ОТКАЧЕН: `midpoint.rs` 70 с -> 65 с (≈7 %), но доверенных на официальном банке 645 -> 646, то есть фильтр отключил правило, проверявшее один шаг на `add_three.4_bit`; критерий приёмки («645 не меняется») не выполнен, дерево байт-в-байт равно запечатанному `67a8d43`. ИЗМЕРЕННЫЙ ВЫВОД: доминирует РЕШАТЕЛЬ, а не нормализации чекера. Эталон: `HEAD = 67a8d43`, 68/68 стадий `ci-fast`, 225/225 невакуумных, аттестат проверен внешним ключом |
 

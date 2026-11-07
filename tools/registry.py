@@ -232,12 +232,12 @@ CLASS = {
     "audit-delta": "META",
     "audit-delta-selftest": "META",
     # ШАГ 2 ПЛАНА ROI: проверка ОБЪЯВЛЕННОГО ИНТЕРФЕЙСА GitHub Action
-    # (action.yml + образец examples/ci/kern-gate.yml). Это проверка АРТЕФАКТА,
-    # а не возможности ядра, поэтому META (тот же класс, что readme-link-check);
-    # способность КРАСНЕТЬ доказана ИЗНУТРИ: `--selftest` вносит 7 поломок
-    # (табы, flow-YAML, необъявленный вход, ключ шага, снятая sha256-сверка,
-    # обещанный SARIF, неверный вход образца) и требует отказа на каждой.
-    "action-check": "META",
+    # (action.yml + образец examples/ci/kern-gate.yml). Это CHECK, а не META:
+    # ворота доказываются ИСПОЛНЕНИЕМ шагов (сухой прогон на локальном
+    # источнике релиза), а can-fail кейс `action-doctor` снимает вызов доктора
+    # и требует, чтобы гейт ПОКРАСНЕЛ на «rc=2 вместо 0» — то есть проверено
+    # не «файл разобран», а «поведение измерено».
+    "action-check": "CHECK",
     # #482: мета — лок НА ДЕРЕВО: одно дерево BUSY (#88b цел), другое свободно.
     "mutation-lock-selftest": "META",
     "sync": "META",                     # синхронизация facts.json + якорей
@@ -587,6 +587,8 @@ CASE_TARGET = {
     # чтобы «кейс есть, а связи нет» не повторялось):
     "charter-text": "charter-text-check",
     "readme-link": "readme-link-check",
+    # ШАГ 2: диверсия «доктор снят» ловится сухим прогоном шагов action.yml.
+    "action-doctor": "action-check",
     "docs-map-gap": "docs-map-check",
     "journal-parity": "journal-parity-check",
     # ДЕФЕКТ #370: инвариант (2) того же гейта — подстрока записи обязана стоять

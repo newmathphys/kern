@@ -120,11 +120,12 @@
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (30)
+## E4. Рентген кода, CWE, точность и PR-дельта (31)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
 | `abi-check` | `abi-json` | #483 | `make abi-check` |
+| `action-check` | `action-doctor` | — | `make action-check` |
 | `binlevel` | `binlevel` | — | `make binlevel` |
 | `bounds-check` | `bounds-check` | — | `make bounds-check` |
 | `bug-hunt-check` | `bug-hunt-check` | — | `make bug-hunt-check` |
@@ -155,7 +156,7 @@
 | `xray-precision` | `xray-precision` | #475 | `make xray-precision` |
 | `zig-guard-check` | `zig-guard` | — | `make zig-guard-check` |
 
-## E5. Контейнер .kimg, крипто-аттестация и WASM (L0–L2) (26)
+## E5. Контейнер .kimg, крипто-аттестация и WASM (L0–L2) (27)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -174,6 +175,7 @@
 | `evidence-gate` | `evidence-gate`, `evidence-guard`, `evidence-untracked` | #88 | `make evidence-gate` |
 | `ffi-bridge-check` | `ffi-bridge-check` | — | `make ffi-bridge-check` |
 | `foreign-verdicts-check` | `foreign-verdicts` | — | `make foreign-verdicts-check` |
+| `kerna-check` | `kerna` | #494 | `make kerna-check` |
 | `kimg-cli-check` | `kimg-cli` | — | `make kimg-cli-check` |
 | `kimg-deflate` | `kimg-deflate` | — | `make kimg-deflate` |
 | `kimg-grep-check` | `kimg-grep-check` | — | `make kimg-grep-check` |
@@ -186,7 +188,7 @@
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Ресурсная безопасность и самоконтроль контура (47)
+## E6. Ресурсная безопасность и самоконтроль контура (48)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -212,6 +214,7 @@
 | `kern-scan-check` | `kern-scan` | #489 | `make kern-scan-check` |
 | `lean` | `lean-sorry` | — | `make lean` |
 | `lean-pin-check` | `lean-pin-drift` | — | `make lean-pin-check` |
+| `license-header-check` | `license-header` | #493 | `make license-header-check` |
 | `llms-check` | `llms-drift` | — | `make llms-check` |
 | `memcheck` | `memcheck` | — | `make memcheck` |
 | `mutate-log-check` | `mutate-log` | #487 | `make mutate-log-check` |
@@ -240,11 +243,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **198**; класс CHECK в `registry.py`: **198**;
-записей `CASE_TARGET`: **244** (make-исполнимых **240**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **201**; класс CHECK в `registry.py`: **201**;
+записей `CASE_TARGET`: **247** (make-исполнимых **243**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->197 · can-fail кейсы <!-- fact:canfail_cases -->242 ·
-якоря <!-- fact:anchors -->200 · цели реестра <!-- fact:registry_targets -->265 · META <!-- fact:meta_targets -->53 ·
+CHECK-цели <!-- fact:check_targets -->199 · can-fail кейсы <!-- fact:canfail_cases -->244 ·
+якоря <!-- fact:anchors -->203 · цели реестра <!-- fact:registry_targets -->272 · META <!-- fact:meta_targets -->55 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

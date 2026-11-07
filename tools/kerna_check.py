@@ -132,7 +132,11 @@ def main() -> int:
             sys.path.insert(0, str(ROOT / "tools"))
             import z3bin
             solver = z3bin.find_z3()
-        except Exception:                                    # noqa: BLE001
+        except (ImportError, OSError) as e:                  # класс #198/#457
+            # ОЖИДАЕМЫЕ: нет модуля `z3bin` или нет файла решателя. Программные
+            # ошибки (NameError/AttributeError/TypeError) НЕ глушим: они обязаны
+            # доходить до вызывающего — иначе «паритета нет» станет невидимым.
+            print(f"  [i] решатель не найден для изолированной копии: {e}")
             solver = None
         if solver:
             shutil.copy2(solver, iso / ".venv" / "bin" / "z3")

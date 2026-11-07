@@ -69,10 +69,10 @@
 ## Факты реестра, с которыми эта страница согласована
 
 <!-- fact:core_tests -->460 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
-<!-- fact:catalog -->491 каталог · <!-- fact:check_targets -->199 CHECK ·
-<!-- fact:canfail_cases -->244 кейса can-fail · <!-- fact:anchors -->203 якорей ·
+<!-- fact:catalog -->491 каталог · <!-- fact:check_targets -->200 CHECK ·
+<!-- fact:canfail_cases -->245 кейса can-fail · <!-- fact:anchors -->204 якорей ·
 <!-- fact:registry_targets -->272 целей реестра ·
-<!-- fact:meta_targets -->55 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·
+<!-- fact:meta_targets -->54 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs: <!-- fact:quixbugs.smt -->6 доказуемых SMT ·
 <!-- fact:quixbugs.differential -->40 дифференциальных пар.
 

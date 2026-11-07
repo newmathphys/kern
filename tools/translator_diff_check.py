@@ -211,7 +211,13 @@ def check(sabotage: bool = False) -> int:
                          f"НЕ доказано — перевод расходится с компилятором")
         try:
             pv = py_value(_py_expr(lang, name, body), va, vb)
-        except Exception:  # noqa: BLE001
+        except (ArithmeticError, SyntaxError, ValueError, TypeError, NameError) as e:
+            # класс #198/#457: здесь ОЖИДАЕМЫ только «выражение не вычислимо»
+            # (деление на ноль = ArithmeticError, разбор = SyntaxError, нет имени
+            # = NameError, приведение = ValueError/TypeError). Программные и
+            # средовые ошибки (AttributeError/ImportError/OSError) НЕ глушим:
+            # иначе сломанный харнесс выглядел бы как «ловушки нет».
+            print(f"  [i] {lang}/{name}: выражение не вычислимо ({e!r}) — ловушка пропущена")
             return
         if pv == live:
             return
