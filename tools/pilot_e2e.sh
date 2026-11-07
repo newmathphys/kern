@@ -61,11 +61,11 @@ rm -rf "$WORK/good" "$WORK/bad"; mkdir -p "$WORK/good" "$WORK/bad"
 cp "$ROOT"/audits/cwe_twins/*_good.c "$WORK/good/" 2>/dev/null
 cp "$ROOT"/audits/cwe_twins/*_bad.c  "$WORK/bad/"  2>/dev/null
 say "  пар bad/good: $(ls "$WORK/bad" | wc -l)"
-"$PY" "$ROOT/tools/audit_delta.py" "$WORK/good" "$WORK/bad" > "$WORK/delta_in.log" 2>&1; rc_in=$?
+"$PY" "$ROOT/tools/audit_delta.py" "$WORK/good" "$WORK/bad" --live > "$WORK/delta_in.log" 2>&1; rc_in=$?
 say "  внесение бага (good -> bad): rc=$rc_in (ожидался 1 = ЗАБЛОКИРОВАТЬ)"
 grep -E 'РЕГРЕСС|^    \+ ' "$WORK/delta_in.log" | head -4 | sed 's/^/    /'
 [ "$rc_in" -eq 1 ] || { say "  [!] ПР-гейт НЕ заблокировал внесённый баг"; FAILS=$((FAILS + 1)); }
-"$PY" "$ROOT/tools/audit_delta.py" "$WORK/bad" "$WORK/good" > "$WORK/delta_fix.log" 2>&1; rc_fix=$?
+"$PY" "$ROOT/tools/audit_delta.py" "$WORK/bad" "$WORK/good" --live > "$WORK/delta_fix.log" 2>&1; rc_fix=$?
 say "  починка       (bad -> good): rc=$rc_fix (ожидался 0 = ПРОПУСТИТЬ)"
 grep -E 'ИСПРАВЛЕНО|^    - ' "$WORK/delta_fix.log" | head -4 | sed 's/^/    /'
 [ "$rc_fix" -eq 0 ] || { say "  [!] починка заблокирована"; FAILS=$((FAILS + 1)); }

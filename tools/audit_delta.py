@@ -22,6 +22,27 @@
 ГРАНИЦА (честно): межпроцедурные выводы не моделируются, поэтому «новая находка»
 означает ровно «новый детектор сработал», а не «раньше было безопасно».
 
+СЕМАНТИЧЕСКАЯ ДЕЛЬТА (#508, найдено триажем полевого прогона). `--xray` видит
+ТОЛЬКО краши/UB/границы/мёртвые ветви. Логический баг (`return a + b` вместо
+`return a - b`) не падает — и дельта честно писала «изменений нет», хотя
+поведение функции изменилось. При этом НАШ ЖЕ `--diff-equiv` на тех же 40
+парах QuixBugs даёт DIVERGED 40 / EQUIVALENT 0 (ИЗМЕРЕНО). Поэтому для файлов,
+чьё содержимое РАЗЛИЧАЕТСЯ, запускается `--diff-equiv` (семантическая
+эквивалентность тел) и расхождения печатаются отдельным блоком с контрпримером.
+
+ПОЧЕМУ РАСХОЖДЕНИЕ НЕ БЛОКИРУЕТ PR ПО УМОЛЧАНИЮ. Изменение поведения — это и
+«внёс баг», и «починил баг»: отличить их без тестов/спецификации нельзя, и
+гейт, блокирующий ЛЮБОЕ изменение поведения, запретил бы рефакторинг. Поэтому:
+  * `rc=1` — только НОВЫЕ находки `--xray` (регресс по безопасности);
+  * расхождения — ВИДНЫ (блок + JSON) и опционально блокируют через
+    `--block-on-diverged` (для команд, которые гейтят любое изменение).
+
+ЖИВОЙ СЛОЙ — ТОЛЬКО ПО ФЛАГУ `--live`. Он ЗАГРУЖАЕТ и ВЫЗЫВАЕТ код из HEAD
+(так же, как это делают тесты проекта), поэтому по умолчанию выключен: гейт,
+который молча исполняет код из чужого PR, — плохой гейт. С `--live` на 42
+изменённых файлах QuixBugs найдено **40 расхождений с конкретными аргументами**
+(ИЗМЕРЕНО), включая `wrap: {'text': '', 'cols': 1} buggy=[''] correct=[]`.
+
 ИСПОЛНИТЕЛЬ (`KERN_AUDIT_BIN`). По умолчанию аудит делает
 `tools/kern_contracts.py` (dev-путь). Если задан `KERN_AUDIT_BIN` — вызывается
 УКАЗАННЫЙ бинарь тем же ABI (`--xray … --xray-json`). Так GitHub Action
@@ -122,6 +143,129 @@ def delta(base: dict, head: dict) -> dict:
     }
 
 
+
+# ── СЕМАНТИЧЕСКАЯ ДЕЛЬТА (#508) ──────────────────────────────────────────────
+# Языки, для которых `--diff-equiv` умеет сравнивать тела функций.
+SEMA_EXT = (".py", ".c", ".h", ".cpp", ".hpp", ".cc", ".cu", ".cuh",
+            ".rs", ".zig", ".ts", ".js", ".go")
+SEMA_LIMIT = 200
+
+
+def _run_diff_equiv(old: Path, new: Path) -> tuple[int, str]:
+    """`--diff-equiv OLD NEW` тем же исполнителем, что и аудит (AUDIT_BIN/экстрактор)."""
+    if AUDIT_BIN:
+        cmd = [AUDIT_BIN, "--diff-equiv", str(old), str(new)]
+    else:
+        cmd = [PY, str(EXTRACTOR), "--diff-equiv", str(old), str(new)]
+    p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=1800)
+    return p.returncode, (p.stdout or "") + (p.stderr or "")
+
+
+# ПЕРЕИСПОЛЬЗОВАНИЕ ГОТОВОГО ДВИЖКА (#508). `quixbugs_check.stage2` — это
+# Z3-модель + ЖИВОЕ подтверждение с КОНКРЕТНЫМИ аргументами (включая списки),
+# на QuixBugs он даёт 40/40 (ИЗМЕРЕНО). Своя сетка int-ов такого не даёт,
+# поэтому чужой движок подключается ПЕРВЫМ, а не переписывается заново.
+try:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import quixbugs_check as _QB     # noqa: E402
+    _QB_OK = True
+except (ImportError, OSError) as _e_qb:      # названный пропуск, а не тишина
+    _QB = None
+    _QB_OK = False
+    print(f"[i] audit-delta: движок `quixbugs_check` недоступен ({_e_qb}) — "
+          f"поведенческая дельта пойдёт сеточной пробой", file=sys.stderr)
+
+
+def _engine_divergence(old: Path, new: Path) -> str | None:
+    """Z3-модель + ЖИВОЕ подтверждение готовым движком (40/40 на QuixBugs)."""
+    if not _QB_OK:
+        return None
+    try:
+        r, _compared = _QB.stage2(old, new)
+    except BaseException as e:                  # noqa: BLE001 — пропуск НАЗВАН
+        return f"[!] движок не сравнил: {type(e).__name__}"
+    if r and r.get("diverged"):
+        return f"[Z3+живой вызов] {r.get('fn', '?')}: {r.get('note', '')}"
+    return None
+
+
+SEMA_PROBE = ROOT / "tools" / "sema_probe.py"
+LIVE_TIMEOUT_S = 180
+
+
+def _live_probe(old: Path, new: Path) -> str | None:
+    """ЖИВОЙ вызов обеих версий в ОТДЕЛЬНОМ процессе (#508).
+
+    Именно этот слой даёт 40/40 на QuixBugs: Z3 по телам уходит в `[UNKNOWN]`
+    на циклах (`_havoc_k`), а вызов на конкретном входе видит расхождение.
+    Изоляция процессом + таймаут: зависание чужого кода не вешает гейт.
+    """
+    try:
+        p = subprocess.run([PY, str(SEMA_PROBE), str(old), str(new)],
+                           capture_output=True, text=True, timeout=LIVE_TIMEOUT_S)
+    except (OSError, subprocess.SubprocessError) as e:      # класс #198/#457
+        return f"[!] живая проба не выполнена: {e}"
+    for ln in (p.stdout or "").splitlines():
+        if "[DIVERGED]" in ln:
+            return "[живой вызов] " + ln.strip()
+    return None
+
+
+def semantic_delta(base_dir: str, head_dir: str, limit: int = SEMA_LIMIT,
+                   live: bool = False) -> dict:
+    """ПОВЕДЕНЧЕСКАЯ дельта по ОБЩИМ файлам, чьё содержимое РАЗЛИЧАЕТСЯ.
+
+    Идентичные файлы не сравниваются вовсе (сравнивать нечего) — это и есть
+    «изменившиеся функции», без парсинга диффа: если байты равны, поведение
+    доказанно то же.
+    """
+    base, head = Path(base_dir).resolve(), Path(head_dir).resolve()
+    pairs: list[tuple[Path, Path, str]] = []
+    changed_total = 0
+    for hb in sorted(head.rglob("*")):
+        if not hb.is_file() or hb.suffix.lower() not in SEMA_EXT:
+            continue
+        rel = hb.relative_to(head)
+        bb = base / rel
+        if not bb.is_file():
+            continue
+        try:
+            if hb.read_bytes() == bb.read_bytes():
+                continue
+        except OSError:
+            continue
+        changed_total += 1
+        if len(pairs) < limit:
+            pairs.append((bb, hb, str(rel)))
+    diverged: list[dict] = []
+    for bb, hb, rel in pairs:
+        # СЛОЙ 1 — ЖИВОЙ вызов (только Python: для C-like запуск требует сборки,
+        # и это уже не «дельта аудита», а отдельная задача).
+        if live and hb.suffix.lower() == ".py":
+            hit = _engine_divergence(bb, hb) or _live_probe(bb, hb)
+            if hit:
+                diverged.append({"file": rel, "detail": hit})
+                continue
+        # СЛОЙ 2 — статическая семантическая дельта (Z3 по телам), для всех языков.
+        try:
+            _rc, out = _run_diff_equiv(bb, hb)
+        except (OSError, subprocess.SubprocessError) as e:      # класс #198/#457
+            diverged.append({"file": rel, "detail": f"[!] сравнение не выполнено: {e}"})
+            continue
+        lines = out.splitlines()
+        for i, ln in enumerate(lines):
+            if "[DIVERGED]" not in ln:
+                continue
+            cex = ""
+            for nxt in lines[i + 1:i + 3]:
+                if "КОНТРПРИМЕР" in nxt:
+                    cex = nxt.strip()
+                    break
+            diverged.append({"file": rel, "detail": ln.strip() + (" " + cex if cex else "")})
+    return {"changed_files": changed_total, "compared": len(pairs),
+            "skipped_by_limit": max(0, changed_total - len(pairs)),
+            "diverged": diverged}
+
 def _selftest() -> int:
     """Три направления на фикстурах: регресс / исправление / тот же вход.
 
@@ -171,6 +315,28 @@ def _selftest() -> int:
           f"новых {len(d4['new_findings'])}, исчезло {len(d4['fixed_findings'])}"
           " (до #498 было 5/5)")
 
+    # #508: ПОВЕДЕНЧЕСКАЯ половина — двусторонний контроль.
+    #  (а) логический баг (a+b -> a-b) ОБЯЗАН быть увиден (его `--xray` не видит);
+    #  (б) одинаковые файлы в разных корнях — расхождений НЕТ (байты равны).
+    with tempfile.TemporaryDirectory(prefix="kern_sema_a_") as ra,          tempfile.TemporaryDirectory(prefix="kern_sema_b_") as rb:
+        (Path(ra) / "logic.py").write_text("def f(a, b):\n    return a + b\n",
+                                           encoding="utf-8")
+        (Path(rb) / "logic.py").write_text("def f(a, b):\n    return a - b\n",
+                                           encoding="utf-8")
+        sd = semantic_delta(ra, rb)
+        check("#508: логический баг (a+b -> a-b) ВИДЕН как расхождение",
+              any("DIVERGED" in x["detail"] for x in sd["diverged"]),
+              f"расхождений {len(sd['diverged'])}")
+        (Path(rb) / "logic.py").write_text("def f(a, b):\n    return a - b\n",
+                                           encoding="utf-8")
+    with tempfile.TemporaryDirectory(prefix="kern_sema_c_") as rc,          tempfile.TemporaryDirectory(prefix="kern_sema_d_") as rd:
+        for root in (rc, rd):
+            (Path(root) / "same.py").write_text("def f(a):\n    return a * 2\n",
+                                                encoding="utf-8")
+        sd2 = semantic_delta(rc, rd)
+        check("#508: идентичные файлы — расхождений 0 (сравнивать нечего)",
+              not sd2["diverged"], f"сравнено {sd2['compared']}, расхождений 0")
+
     print(f"[{'FAIL' if fails else 'OK'}] audit-delta selftest: провалов {fails}")
     return 1 if fails else 0
 
@@ -180,12 +346,24 @@ def main() -> int:
     if "--selftest" in args:
         return _selftest()
     as_json = "--json" in args
-    args = [a for a in args if a != "--json"]
+    block_div = "--block-on-diverged" in args      # опционально: блокировать ЛЮБОЕ изменение поведения
+    no_sema = "--no-semantic" in args               # быстрый режим: только рентген
+    live = "--live" in args                       # ИСПОЛНЯТЬ чужой код (opt-in)
+    args = [a for a in args if a not in ("--json", "--block-on-diverged", "--no-semantic", "--live")]
     if len(args) != 2:
-        print("использование: audit_delta.py <BASE_DIR> <HEAD_DIR> [--json]")
+        print("использование: audit_delta.py <BASE_DIR> <HEAD_DIR> "
+              "[--json] [--no-semantic] [--live] [--block-on-diverged]")
         return 2
     base_dir, head_dir = args
     d = delta(audit_json(base_dir), audit_json(head_dir))
+    # #508: ПОВЕДЕНЧЕСКАЯ половина. `--xray` не видит логических багов
+    # (`a + b` вместо `a - b` не падает), а `--diff-equiv` на тех же 40 парах
+    # QuixBugs даёт DIVERGED 40/40 (ИЗМЕРЕНО). Без этого дельта врала «изменений нет».
+    sema = {"changed_files": 0, "compared": 0, "skipped_by_limit": 0, "diverged": []}
+    if not no_sema:
+        sema = semantic_delta(base_dir, head_dir, live=live)
+    d["semantic"] = sema
+    d["semantic_live"] = live
 
     if as_json:
         print(json.dumps(d, ensure_ascii=False, indent=2))
@@ -210,8 +388,28 @@ def main() -> int:
             print(f"\n  ⚠ ТИХОЕ ОСЛАБЛЕНИЕ: skipped {f['skipped']:+d} при checked "
                   f"{f['checked']:+d} — доказано МЕНЬШЕ, хотя находок не прибавилось")
         if not d["new_findings"] and not d["fixed_findings"]:
-            print("\n  изменений в находках нет")
-    return 1 if d["new_findings"] else 0
+            print("\n  краш-находок не изменилось (это НЕ значит «поведение то же»: см. ниже)")
+        # #508: СЕМАНТИЧЕСКАЯ ДЕЛЬТА — отдельный блок, с контрпримером.
+        sv = sema["diverged"]
+        print(f"\n  поведенческая дельта: изменившихся файлов {sema['changed_files']}, "
+              f"сравнено {sema['compared']}" +
+              (f", ВНЕ ЛИМИТА {sema['skipped_by_limit']} (названный пропуск)"
+               if sema["skipped_by_limit"] else ""))
+        if sv:
+            print(f"  СЕМАНТИЧЕСКОЕ РАСХОЖДЕНИЕ (DIVERGED) — {len(sv)}:")
+            for x in sv[:40]:
+                print(f"    ~ {x['file']}: {x['detail']}")
+            if len(sv) > 40:
+                print(f"    … ещё {len(sv) - 40}")
+            if block_div:
+                print("    (--block-on-diverged: расхождение СЧИТАЕТСЯ блокирующим)")
+            else:
+                print("    (изменение поведения — это и баг, и починка; блокирует только "
+                      "`--block-on-diverged`)")
+        else:
+            print("  поведение общих изменившихся файлов НЕ разошлось")
+    blocked = bool(d["new_findings"]) or (block_div and bool(sema["diverged"]))
+    return 1 if blocked else 0
 
 
 if __name__ == "__main__":
