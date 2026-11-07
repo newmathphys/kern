@@ -80,7 +80,9 @@ The `#495` fix restricted the inc/dec detector to straight-line paths. Its cost 
 
 ## Definition of Done for «the project is proven to work»
 
-- [ ] reproduction receipt from a clean machine: all gates `rc=0`, log committed;
+- [x] reproduction receipt from a clean clone: **7/7 gates `rc=0`** with the documented
+   prerequisites (`pip install -r requirements.txt`), log committed: `docs/evidence/repro_2026-11-07.log`.
+   A BARE clone (no solver) reddens 5 gates WITH A NAMED CAUSE — and that run is what exposed `#499`;
 - [x] `svcomp`: the recall cost of `#495` **MEASURED** — 37 tasks / 0 false alarms / 0 missed;
   TPR 1.00 FPR 0.00, and the rule NARROWED (`#498c`) so an unrelated `if` no longer hides the pattern;
 - [ ] three unfamiliar corpora: precision published, every FP triaged;
