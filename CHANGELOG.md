@@ -8,7 +8,34 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
-_(nothing yet)_
+### Полевые испытания v2.8.2: три испытания, 0 правок ядра, все 8 уровней на чужом коде
+
+- **Испытание 1 — четыре репозитория DeepSeek РЕЛИЗНЫМ апплаенсом** (`kerna-dist-v2.8.2`,
+  скачан из GitHub Releases, sha256 сверен): `DeepGEMM` 5081f851 (144 файла), `FlashMLA` 395cb3af
+  (133), `DeepEP-Ascend` 4dfccac4 (80), `deepseek-harness` fcc0ad46 (6279, срез). ИТОГО
+  **357 файлов CUDA/C++: находок класса УГРОЗА — 0**, стилевых `[SMELL]` 145 (в precision не
+  входят), `[BOUNDS?]`/`[BOUNDS UNKNOWN]` 464 — это **N**, названы явно. `--anti-cheat` на
+  реальном тесте пилота → «чисто, находок 0».
+- **Испытание 2 — живой PR-реплей.** (а) ПОЛОЖИТЕЛЬНЫЙ на реальном C (6 пар CWE-близнецов):
+  `good -> bad` → **rc=1**, «РЕГРЕСС — новых находок 2» с именами (`cwe193_bad.c [BOUNDS PATH]
+  fill_bad`, `cwe570_bad.c [DEAD BRANCH] dead_bits_bad`); `bad -> good` → **rc=0**,
+  «ИСПРАВЛЕНО — исчезло 2». (б) ОТРИЦАТЕЛЬНЫЙ, и он важнее: на **40 парах QuixBugs** и
+  **3 реальных fix-коммитах DeepGEMM** (`5081f85`, `1fc9c66`, `78b6900`) `audit-delta` даёт
+  «изменений нет» — и это ВЕРНО: те баги логические/про гонки и порядок, вне словаря детекторов;
+  **ложных блокировок на 43 реальных диффах — 0**. (в) `--diff-equiv` на РЕАЛЬНОЙ функции
+  пилота (`deep_ep/utils/math.py: ceil_div`) против `x // y` → **[DIVERGED]** с контрпримером
+  `y=0, x=0, res_old=-1, res_new=0`; на циклах/рекурсии — честный `[UNKNOWN]`, не выдумка.
+- **Испытание 3 — «Боевой пилот 8-в-1»**: `tools/pilot_e2e.sh` + `make pilot-e2e-check` —
+  одна цепочка на одном реальном проекте (`docs/evidence/pilot_full_v2.8.2.log`): паспорт ABI
+  (воронка сходится) → `--anti-cheat` на его тестах → `audit-delta` в обе стороны →
+  `--diff-equiv` с контрпримером → контракт `@kern:` **ДОКАЗАНО** (e=1) + сертификат `.smt2` →
+  `kernx build/status/packet` (`agent_packet.json`) → `.kimg` + `check-integrity` в окружении
+  **`env -i PATH=""`** (ни Z3, ни Python) → `kernc.wasm` в `node` (28 проверок, 0 нарушений).
+- **Полевой дефект (назван, НЕ исправлялся):** `kernx status <не-.kern>` паникует стектрейсом
+  Zig вместо названного отказа (`FileNotFound` → stack trace) — класс #370: отказ обязан быть
+  сообщением, а не паникой. Нужен отдельный такт с can-fail кейсом.
+- Полные квитанции: `docs/evidence/field_trials_v2.8.2.log` (испытания 1–2) и
+  `docs/evidence/pilot_full_v2.8.2.log` (испытание 3).
 
 ## [2.8.2] — 2026-11-07
 
