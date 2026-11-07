@@ -7372,8 +7372,16 @@ def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
         # ШАГ 6, ПРЕДОХРАНИТЕЛЬ №2 (сброс при мутации указателя). Предикат
         # относится к СТАРОМУ значению: если имя переназначено между концом
         # блока `be` и позицией `pos`, он НЕ действует.
+        # ДЕФЕКТ #500 (СЛЕПОЙ ЗАМЕР на redis/ae.c, минимизировано до 10 строк):
+        # здесь стоял СЫРОЙ пересечение множеств, без `_mut_names_for`. Из-за
+        # этого запись ПОЛЯ (`fe->mask = fe->mask & (~mask);`) не отменяла
+        # предикат на `fe__mask`: имена `{'fe__mask'} & {'mask'}` не совпадали.
+        # ИЗМЕРЕНО (`/tmp/deltaA/p1_write.c`): `if (fe->mask == 0) return; …
+        # fe->mask = …; if (fd == L->maxfd && fe->mask == 0)` -> ЛОЖНЫЙ
+        # `[DEAD BRANCH]` (UNSAT). Та же ошибка давала 3 из 5 FP на слепом
+        # замере (redis: ae.c, acl.c; tigerbeetle: samples/main.c).
         _mut = _assigned_between(body, be, pos)
-        if _mut and (set(re.findall(r"[A-Za-z_]\w*", cond)) & _mut):
+        if _mut and (_mut_names_for(set(re.findall(r"[A-Za-z_]\w*", cond))) & _mut):
             continue
         par = _parent(i)
         if par < 0:
@@ -8336,6 +8344,21 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                             break
                     if loop_guarded:
                         continue  # границу задаёт цикл — не обвиняем (циклы не моделируем)
+            # ДЕФЕКТ #501 (СЛЕПОЙ ЗАМЕР, redis/acl.c, минимизировано до 8 строк).
+            # Модель индексов — ЦЕЛОЧИСЛЕННАЯ (`Int`), а в C у беззнакового типа
+            # `0 - 1` — это `SIZE_MAX`, а не `-1`. ИЗМЕРЕНО: `size_t opsetlen;
+            # op[opsetlen - 1]` давало `[BOUNDS PATH] индекс может быть
+            # отрицательным` при `opsetlen = 0` — ЛОЖНОЕ обвинение (в C это
+            # корректное заворачивание). Диапазоны типов уже известны: у
+            # беззнаковых `lo == 0`, у знаковых — отрицательный `lo`.
+            _idxs_names = set(re.findall(r"[A-Za-z_]\w*", idxs))
+            _unsigned = {nm for nm, (lo_i, _hi_i) in (ranges or {}).items() if lo_i == 0}
+            if _idxs_names and _idxs_names <= _unsigned:
+                skip_why.append(
+                    "индекс построен ТОЛЬКО из беззнаковых значений "
+                    f"({sorted(_idxs_names)}): «отрицательный» невозможен, "
+                    "Int-модель не переносит заворачивание (#501)")
+                continue
             try:
                 # ДЕФЕКТ #318 (та же причина, секция границ): условия — ПО ПОЗИЦИИ.
                 sat_neg = _smt_sat_guarded(kernc, params,

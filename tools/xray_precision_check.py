@@ -35,6 +35,9 @@ EXTRACTOR = ROOT / "tools" / "kern_contracts.py"
 CLEAN = ROOT / "tests" / "fixtures" / "precision_clean"
 BUGGY = ROOT / "tests" / "fixtures" / "precision_buggy"
 KNOWN_FP = ROOT / "tests" / "fixtures" / "precision_known_fp"
+# #500: КОНТРОЛЬ В ОБРАТНУЮ СТОРОНУ к фикстуре `precision_clean/field_guard_write.c`:
+# поле НЕ переписывается -> мёртвая ветвь НАСТОЯЩАЯ и обязана ловиться.
+DEAD_FIELD = ROOT / "tests" / "fixtures" / "precision_dead_field"
 EXT = Path.home() / ".cache" / "kern" / "repos" / "QuixBugs" / "correct_python_programs"
 
 # Ожидаемое число находок на «багованном» корпусе (5 функций, каждая обязана найтись).
@@ -109,6 +112,22 @@ def main() -> int:
         return 1
     if rc_c != 0:
         bad.append(f"`--xray` упал на clean-корпусе (rc={rc_c})")
+
+    # --- ЧАСТЬ 1а-бис: ДВУСТОРОННИЙ КОНТРОЛЬ #500 (поле структуры). ЛОВУШКА
+    # (`precision_clean/field_guard_write.c`: поле переписано между гардом и
+    # проверкой) уже покрыта частью 1а — ожидание 0. Здесь ОБРАТНАЯ сторона:
+    # поле НЕ переписано, значит третья проверка `kind == 1` НАСТОЯЩАЯ мёртвая
+    # ветвь. Если правка #500 убьёт и её — recall упал, гейт обязан покраснеть.
+    rc_d, out_d = xray(DEAD_FIELD)
+    n_d, f_d = findings_of(out_d)
+    print(f"[i] dead_field (поле без перезаписи): находок {n_d} (ожидали 1), rc={rc_d}")
+    if rc_d >= 2:
+        print(f"[FAIL] #499: dead_field НЕ измерен — rc={rc_d}: "
+              f"{_no_analysis_reason(rc_d, out_d)}")
+        return 1
+    if n_d != 1 or "dead_after_kind" not in f_d:
+        bad.append(f"#500 ОБРАТНЫЙ КОНТРОЛЬ: ожидали РОВНО 1 находку `dead_after_kind`, "
+                   f"получили {n_d} {sorted(f_d)} — правка «поля» съела настоящую ветвь")
 
     # --- ЧАСТЬ 1б: РЕТАРГЕТ известных ложных обвинений (#476).
     # Ровно столько и только эти имена: когда дефект починят, здесь станет 0 и
