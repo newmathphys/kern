@@ -208,7 +208,21 @@ if echo "$NB" | grep -q 'DEAD BRANCH'; then
 fi
 TD=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_true_dead.c 2>&1) || true
 echo "$TD" | grep -q 'DEAD BRANCH. truly_dead' || { echo "[!] #401: НАСТОЯЩАЯ мёртвая ветвь НЕ найдена (тихое подавление)"; exit 1; }
-echo "[OK] #401: ложный DEAD BRANCH на взаимоисключающих ветвях убран, настоящий — найден"
+
+# ДЕФЕКТ #514: ВТОРОЙ КОНТРОЛЬ #401, НЕЗАВИСИМЫЙ ОТ `#503`.
+# ЗАМЕР (canfail в CI): кейс `xray-nested-branch` стал ВАКУУМНЫМ — при снятой
+# области ветви обе проверки выше остались ЗЕЛЁНЫМИ. Причина: фикстура
+# `xray_nested_branches.c` целиком лежит внутри `switch`, а `#503` НАМЕРЕННО
+# гасит вердикт «мёртвая ветвь» внутри `switch` с двумя и более `case`. То есть
+# один честный предохранитель заглушил доказательство другого.
+# Здесь тот же класс воспроизведён БЕЗ `switch`: при снятой области ветви
+# появляется ЛОЖНЫЙ `[DEAD BRANCH] (< v 160)` — проверено, гейт краснеет.
+NBIF=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_nested_branches_if.c 2>&1) || true
+if echo "$NBIF" | grep -q 'DEAD BRANCH'; then
+  echo "[!] #401/#514: ЛОЖНЫЙ [DEAD BRANCH] на взаимоисключающих ветвях ВНЕ switch"
+  echo "$NBIF" | grep 'DEAD BRANCH'; exit 1
+fi
+echo "[OK] #401: ложный DEAD BRANCH на взаимоисключающих ветвях убран, настоящий — найден (в т.ч. вне switch, #514)"
 
 # ШАГ 4 ПЛАНА (класс #178/#183): СВОБОДНАЯ КОНСТАНТА В ПУТИ НЕ ДАЁТ ОБВИНЕНИЯ.
 # ИЗМЕРЕНО до правки: корректный `if (n < LIMIT) return n + n;` давал

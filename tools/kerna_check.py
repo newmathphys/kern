@@ -113,13 +113,24 @@ def main() -> int:
     try:
         import PyInstaller  # noqa: F401
     except ImportError:
-        msg = ("[SKIP] #494: PyInstaller не установлен — УПАКОВКА НЕ ПРОВЕРЕНА "
-               "(это названный пропуск, а не «зелено»)")
-        print(msg)
+        # ДЕФЕКТ #514 (НАЙДЕНО CANFAIL В CI): здесь стоял `return 0`, то есть
+        # гейт, который НЕ МОГ проверить упаковку, рапортовал УСПЕХ — и кейс
+        # `kerna` (ломает доктора) не мог покраснеть в принципе: цель зелёная по
+        # построению. Теперь это ОТКАЗ (rc=2) с названной причиной и командой
+        # установки; осознанный пропуск — только по `KERNA_ALLOW_SKIP=1`.
+        msg = ("[!] #514: PyInstaller не установлен — УПАКОВКА НЕ ПРОВЕРЕНА. "
+               "Это НЕ «зелено»: без него `make kerna-check` не может отличить "
+               "рабочий апплаенс от нерабочего (в CI из-за этого кейс `kerna` "
+               "был ВАКУУМНЫМ). Установите: pip install pyinstaller "
+               "(или осознанный пропуск: KERNA_ALLOW_SKIP=1).")
+        print(msg, file=sys.stderr)
+        if os.environ.get("KERNA_ALLOW_SKIP") == "1":
+            print("[SKIP] #514: KERNA_ALLOW_SKIP=1 — пропуск ЯВНЫЙ и названный")
+            return 0
         if os.environ.get("KERNA_REQUIRE_BUILD") == "1":
             print("[FAIL] R5: KERNA_REQUIRE_BUILD=1 требует сборку")
             return 1
-        return 0
+        return 2
 
     tmp = Path(tempfile.mkdtemp(prefix="kerna_check_"))
     try:
