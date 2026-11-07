@@ -52,9 +52,15 @@ jobs:
           VER="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           cp zig-out/bin/kernc-hermetic kernc-x86_64-linux-musl
           # ОДИН SHA256SUMS НА ВСЕ АССЕТЫ: `action.yml` берёт из него строку
-          # архива и сверяет ДО распаковки.
+          # архива и сверяет ДО распаковки — поэтому имя в строке обязано быть
+          # ГОЛЫМ (`kerna-dist-v<ver>.tar.gz`), без каталога `dist-release/`.
+          # ДЕФЕКТ, ПОЙМАННЫЙ ЭТИМ ЖЕ ШАГОМ на первом прогоне v2.8.2: путь
+          # передавался с каталогом, строка получалась
+          # `…  dist-release/kerna-dist-v2.8.2.tar.gz`, и проверка ниже
+          # (`grep " kerna-dist-v…$"`) законно падала — релиз НЕ публиковался
+          # (лучше красный прогон, чем архив, который Action не сможет сверить).
           { sha256sum kernc-x86_64-linux-musl
-            sha256sum "dist-release/kerna-dist-v${VER}.tar.gz"; } > SHA256SUMS
+            ( cd dist-release && sha256sum "kerna-dist-v${VER}.tar.gz" ); } > SHA256SUMS
           cat SHA256SUMS
           test -s "dist-release/kerna-dist-v${VER}.tar.gz" || { echo "[!] нет архива"; exit 1; }
           grep -q " kerna-dist-v${VER}.tar.gz$" SHA256SUMS || { echo "[!] сумма архива не попала в SHA256SUMS"; exit 1; }
