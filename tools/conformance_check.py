@@ -53,6 +53,15 @@ def zig() -> str:
     env = os.environ.get("ZIG")
     if env and Path(env).exists():
         return env
+    # #509: pip-пакет `ziglang` 0.13 в `.venv/bin` перекрывает Zig 0.17, и сборка
+    # падает ВНУТРИ нашего build.zig («no field named 'root_module'») — измерено
+    # строкой F3 витрины. Берём ПЕРВЫЙ `zig` вне `.venv` (как tools/zig_pick.sh).
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        if ".venv/bin" in d:
+            continue
+        cand = Path(d) / "zig"
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
     found = shutil.which("zig")
     if found:
         return found
@@ -288,11 +297,25 @@ def section9(facts):
 def _run(cmd, timeout=300):
     env = dict(os.environ)
     env.setdefault("PATH", "")
-    extra = [str(ROOT / "zig-out" / "bin")]
+    # #509: `.venv/bin` идёт в КОНЕЦ, а не в начало. Он нужен ради `z3`, но
+    # лежащий там pip-пакет `ziglang` 0.13 перекрывает Zig 0.17, и сборка падает
+    # ВНУТРИ нашего build.zig («no field named 'root_module'») — измерено
+    # витриной (F3 conformance). `zig-out/bin` (наши бинарники) остаётся первым.
     venv_bin = ROOT / ".venv" / "bin"
-    if venv_bin.is_dir():
-        extra.append(str(venv_bin))
-    env["PATH"] = os.pathsep.join(extra) + os.pathsep + env["PATH"]
+    # #509: каталог Zig 0.17 идёт ПЕРВЫМ. `shutil.which("zig")` в ребёнке иначе
+    # находит pip-пакет `ziglang` 0.13 из `.venv/bin` и падает ВНУТРИ build.zig
+    # («no field named 'root_module'») — измерено строкой F3 витрины.
+    zig_dir = ""
+    for d in env.get("PATH", "").split(os.pathsep):
+        if ".venv/bin" in d:
+            continue
+        cand = Path(d) / "zig"
+        if cand.is_file() and os.access(cand, os.X_OK):
+            zig_dir = d
+            break
+    env["PATH"] = os.pathsep.join(
+        ([zig_dir] if zig_dir else []) + [str(ROOT / "zig-out" / "bin"), env["PATH"]]
+        + ([str(venv_bin)] if venv_bin.is_dir() else []))
     return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
                           timeout=timeout, env=env)
 

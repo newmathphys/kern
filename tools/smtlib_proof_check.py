@@ -227,7 +227,8 @@ def status_of(path: Path) -> str:
 
 def _kern_env() -> dict:
     env = dict(os.environ)
-    env["PATH"] = str(ROOT / ".venv" / "bin") + os.pathsep + env.get("PATH", "")
+    # #509: `.venv/bin` В КОНЕЦ (нужен `z3`, но не должен перекрывать Zig 0.17).
+    env["PATH"] = env.get("PATH", "") + os.pathsep + str(ROOT / ".venv" / "bin")
     return env
 
 

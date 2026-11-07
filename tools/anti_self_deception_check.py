@@ -38,7 +38,8 @@ ZIG = Path(os.environ.get("ZIG", shutil.which("zig") or
 
 def env() -> dict:
     e = dict(os.environ)
-    e["PATH"] = str(ROOT / ".venv" / "bin") + os.pathsep + e.get("PATH", "")
+    # #509: `.venv/bin` В КОНЕЦ (нужен `z3`, но не должен перекрывать Zig 0.17).
+    e["PATH"] = e.get("PATH", "") + os.pathsep + str(ROOT / ".venv" / "bin")
     return e
 
 
