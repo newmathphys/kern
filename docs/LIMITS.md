@@ -73,9 +73,30 @@ WAS WRONG: reassigning the loop bound (`link_end = i`) does not matter — copie
 reproduce AND copies with it do not. The real cause had TWO parts, both in the inc/dec
 detector: it took the INITIALIZER as an EXACT value although the variable is mutated earlier
 (`closing++` in a loop), and it ignored guards entirely. MEASURED: `gcc -fsanitize=
-undefined,address` on the real function reports **no UB**. Fix: the detector now accuses only
-on a STRAIGHT-LINE path with an UNCHANGED value (documented recall loss); the SV-COMP pattern
-`int x = 2147483647; x++;` is still caught.
+undefined,address` on the real function reports **no UB**.
+
+**THE RECALL COST OF `#495` IS NOW MEASURED, NOT «DOCUMENTED»** (`#498c`). The first fix
+banned ANY `if/while/for/switch` before the `x++` — and that silenced the very pattern the
+detector exists for. MEASURED probes (`tools/kern_contracts.py --xray`):
+
+| probe | before `#498c` | after `#498c` |
+|:--|--:|--:|
+| `int flag=0; if (flag) {flag=1;} int x=2147483647; x++;` | **0 findings** | **1 finding** (pattern restored) |
+| `for (…s+=i…) ; int x=-2147483648; --x;` | **0 findings** | **1 finding** |
+| `int x=2147483647; if (x==10) return; x++;` (the guard DOES touch `x`) | 0 | **0** (unchanged: no accusation) |
+| `cmark_autolink.c` (the `#495` fixture) | 0 | **0** (`#495` does not regress) |
+
+The rule is now NARROW (measured, not guessed): a finding is suppressed only when the
+BRANCH OR LOOP CONDITION MENTIONS THE VARIABLE ITSELF (then the path can narrow the value);
+mutations of the variable are caught by a SEPARATE write counter — that counter is what
+actually killed the `cmark` false accusation. Cost of the whole `#495`+`#498c` pair on the
+official corpus, MEASURED: SV-COMP `signedintegeroverflow-regression` (`make svcomp-baseline`)
+**TPR 1.00, FPR 0.00** (10/10 unsafe caught, 0 false alarms on 5 safe — identical to the
+pre-`#495` number in `docs/evidence/svcomp_baseline.log`), and
+`make svcomp-witness-check` → 37 tasks, 11 UNSAFE confirmed by an external validator,
+16 SAFE clean on the enumerated witnesses, **0 false alarms, 0 missed confirmations**
+(`docs/evidence/svcomp_after_495.log`). Limits of this number are named there: 4 UNSAFE
+tasks are not observable by the compiler/run, and the witness space is bounded.
 
 **Precision on third-party code is measured by machine** (`#475`): `precision_clean` → 0
 findings, `precision_buggy` → 5/5, `precision_known_fp` → 0 (retarget fired). The external

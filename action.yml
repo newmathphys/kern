@@ -1,72 +1,126 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
+#
+# ЧТО ЭТО. Гейт PR, который работает на ГОТОВОМ АРХИВЕ РЕЛИЗА
+# (`kerna-dist-v<ver>.tar.gz`), а не на сборке из исходников: клиенту не нужны
+# ни `.venv`, ни Zig, ни `pip install`. Апплаенс (`./kerna`) НЕ требует Python;
+# Python раннера используется ТОЛЬКО шагом отчёта (та же логика дельты, что
+# `make audit-delta` — одна реализация на оба пути, `tools/audit_delta.py`).
+#
+# ПОЧЕМУ ДЕЛЬТА, А НЕ «ВСЕ НАХОДКИ». Полный аудит чужого репозитория даёт
+# находки, которые были там ДО PR: блокировать по ним — значит запретить
+# пользоваться инструментом. Гейт падает на находках, которые внесло ИМЕННО это
+# изменение. Если `base` не задан, базой считается ПУСТОЕ дерево — тогда
+# «новой» является каждая находка (режим полного аудита).
+#
+# ЧТО ЗДЕСЬ НЕ ОБЕЩАЕТСЯ (измерено, а не забыто). SARIF в режиме `--xray`
+# апплаенс НЕ выпускает: `./kerna --xray DIR --sarif OUT` принимает флаг и НЕ
+# создаёт файл (проверено на kerna-dist-v2.8.1), а `--github-annotations` в этом
+# режиме печатает 0 аннотаций. Поэтому выхода `sarif-file` больше нет: обещание
+# SARIF без файла — ровно класс #497/#370. SARIF остаётся у контрактного пути
+# (`kern_contracts.py … --sarif`), см. `.github/workflows/code-scanning.yml`.
+#
+# КОДЫ ВОЗВРАТА (проверяются гейтом `make action-check`, а не «на глаз»):
+#   0 — новых находок нет;  1 — есть (PR блокируется);
+#   2 — ДИСТРИБУТИВ НЕПОЛОН / нет решателя (`--doctor`), это НЕ «код чист»;
+#   3 — артефакт релиза не сошёлся по SHA-256 или не распаковался.
+#
+# `KERN_RELEASE_BASE` — точка подмены источника релиза (локальный `file://` в
+# гейте `make action-check`: те же шаги без сети). В CI она не задаётся.
 name: 'KERN verification gate'
-description: 'Zero-trust gate for AI-generated code: a claim is admitted only with machine evidence (Z3 + native proof checker). Downloads the static kernc binary and VERIFIES its SHA-256 before running it; can also run the zero-annotation X-ray and emit SARIF for GitHub Code Scanning.'
+description: 'Zero-trust gate for AI-generated code: downloads the KERN appliance archive, VERIFIES its SHA-256 before extracting, then blocks a pull request only on findings that THIS change introduced (audit delta base -> head). The appliance needs no Python or Zig; the delta report step uses the runner python3.'
 author: 'Vital Kalinousky'
 branding:
   icon: 'shield'
   color: 'green'
 
 inputs:
-  mode:
-    description: 'verify — run kernc on your arguments; xray — zero-annotation X-ray of `path` (no ``@kern:`` markers needed)'
-    required: false
-    default: 'verify'
-  args:
-    description: 'Arguments for kernc in `verify` mode (e.g. "verify --image project.kimg")'
-    required: false
-    default: '--version'
   path:
-    description: 'Directory or file to scan in `xray` mode'
+    description: 'Directory or file to audit (the head side).'
     required: false
     default: '.'
-  sarif:
-    description: 'File name for the SARIF 2.1.0 report (xray mode)'
+  base:
+    description: 'Git ref to compare against (e.g. origin/main). Empty = empty tree, so EVERY finding counts as new.'
     required: false
-    default: 'kern.sarif'
+    default: ''
   version:
-    description: 'KERN release tag to download the static binary from'
+    description: 'KERN release tag whose kerna-dist archive is downloaded.'
     required: false
     default: 'v2.8.1'
 
 outputs:
-  sarif-file:
-    description: 'Path to the SARIF 2.1.0 report; feed it to github/codeql-action/upload-sarif'
-    value: ${{ steps.setup.outputs.sarif }}
+  report:
+    description: 'Path to the audit-delta JSON report.'
+    value: ${{ steps.delta.outputs.report }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Download kernc + SHA256SUMS and VERIFY checksum
-      id: setup
+    - name: Download the appliance archive, VERIFY SHA-256, extract, doctor
+      id: install
       shell: bash
       run: |
         set -euo pipefail
-        base="https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}"
-        curl -fsSL -o "$RUNNER_TEMP/kernc" "$base/kernc-x86_64-linux-musl"
-        curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
-        # SUPPLY-CHAIN: the binary is never executed before its checksum is
-        # verified. SHA256SUMS declares the asset name, so rewrite that line to
-        # the local file name (kernc) and verify strictly.
-        ( cd "$RUNNER_TEMP"
-          grep ' kernc-x86_64-linux-musl$' SHA256SUMS \
-            | sed 's#  kernc-x86_64-linux-musl$#  kernc#' > SHA256SUMS.kernc
-          sha256sum -c SHA256SUMS.kernc )
-        chmod +x "$RUNNER_TEMP/kernc"
-        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-        "$RUNNER_TEMP/kernc" --version
-        echo "sarif=$RUNNER_TEMP/${{ inputs.sarif }}" >> "$GITHUB_OUTPUT"
+        base_url="${KERN_RELEASE_BASE:-https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}}"
+        asset="kerna-dist-${{ inputs.version }}.tar.gz"
+        rel="$RUNNER_TEMP/kern-release"
+        app="$RUNNER_TEMP/kerna-app"
+        rm -rf "$rel" "$app"
+        mkdir -p "$rel"
+        curl -fsSL -o "$rel/$asset" "$base_url/$asset" \
+          || { echo "::error::нет ассета $asset в релизе ${{ inputs.version }}"; exit 3; }
+        curl -fsSL -o "$rel/SHA256SUMS" "$base_url/SHA256SUMS" \
+          || { echo "::error::нет SHA256SUMS в релизе ${{ inputs.version }}"; exit 3; }
+        # SUPPLY-CHAIN: архив не распаковывается до сверки с опубликованной суммой.
+        ( cd "$rel"
+          grep " ${asset}\$" SHA256SUMS > sums.release \
+            || { echo "::error::SHA256SUMS релиза не объявляет $asset"; exit 3; }
+          sha256sum -c sums.release \
+            || { echo "::error::архив НЕ сошёлся по SHA-256 — распаковка запрещена"; exit 3; } )
+        mkdir -p "$app"
+        tar -xzf "$rel/$asset" -C "$app" \
+          || { echo "::error::архив не распаковался"; exit 3; }
+        root="$app/kerna-dist-${{ inputs.version }}"
+        [ -x "$root/kerna" ] || { echo "::error::в архиве нет ./kerna"; exit 3; }
+        # ВНУТРЕННЯЯ ЦЕЛОСТНОСТЬ: каждая распакованная часть (kernc, z3, LIMITS) сверена.
+        ( cd "$root" && sha256sum -c SHA256SUMS >/dev/null ) \
+          || { echo "::error::содержимое архива не сошлось по SHA-256"; exit 3; }
+        echo "[i] архив распакован и сверен: $root"
+        # НАЗВАННЫЙ ОТКАЗ, а не «находок 0»: rc=2 = неполный дистрибутив.
+        "$root/kerna" --doctor
+        echo "KERNA_APP=$root" >> "$GITHUB_ENV"
+        echo "$root" >> "$GITHUB_PATH"
 
-    - name: Run kernc (mode=verify)
-      if: ${{ inputs.mode == 'verify' }}
-      shell: bash
-      run: kernc ${{ inputs.args }}
-
-    - name: Zero-annotation X-ray + SARIF (mode=xray)
-      if: ${{ inputs.mode == 'xray' }}
+    - name: Materialise the base tree (empty when no base is given)
+      id: base_tree
       shell: bash
       run: |
         set -euo pipefail
-        # The tool is taken from THIS action (action_path), so no extra
-        # checkout is required.
-        python3 "${{ github.action_path }}/tools/kern_contracts.py" \
-          --xray "${{ inputs.path }}" \
-          --sarif "$RUNNER_TEMP/${{ inputs.sarif }}"
+        base_dir="$RUNNER_TEMP/kern-base"
+        rm -rf "$base_dir"
+        mkdir -p "$base_dir"
+        ref="${{ inputs.base }}"
+        if [ -n "$ref" ]; then
+          git fetch --no-tags --depth=1 origin "$ref"
+          git archive --format=tar FETCH_HEAD | tar -x -C "$base_dir"
+          echo "[i] база: $ref (файлов: $(find "$base_dir" -type f | wc -l))"
+        else
+          echo "[i] база не задана: пустое дерево, КАЖДАЯ находка считается новой"
+        fi
+        echo "KERN_BASE=$base_dir" >> "$GITHUB_ENV"
+
+    - name: 'Audit delta: base -> head (rc=1 only on findings this change introduced)'
+      id: delta
+      shell: bash
+      run: |
+        set -euo pipefail
+        report="$RUNNER_TEMP/kern-delta.json"
+        export KERN_AUDIT_BIN="$KERNA_APP/kerna"
+        rc=0
+        python3 "${{ github.action_path }}/tools/audit_delta.py" \
+          "$KERN_BASE" "${{ inputs.path }}" --json > "$report" || rc=$?
+        cat "$report"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        if [ "$rc" -eq 1 ]; then
+          echo "::error::KERN: это изменение ВНЕСЛО новое обвинение (список выше)"
+        fi
+        exit "$rc"

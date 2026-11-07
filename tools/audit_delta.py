@@ -21,27 +21,61 @@
 
 ГРАНИЦА (честно): межпроцедурные выводы не моделируются, поэтому «новая находка»
 означает ровно «новый детектор сработал», а не «раньше было безопасно».
+
+ИСПОЛНИТЕЛЬ (`KERN_AUDIT_BIN`). По умолчанию аудит делает
+`tools/kern_contracts.py` (dev-путь). Если задан `KERN_AUDIT_BIN` — вызывается
+УКАЗАННЫЙ бинарь тем же ABI (`--xray … --xray-json`). Так GitHub Action
+считает дельту РЕЛИЗНЫМ апплаенсом `kerna` (без .venv и Zig у клиента), а
+логика сравнения остаётся ОДНА на оба пути (копия в YAML разошлась бы).
+
+ДЕФЕКТ #498 (найден при постройке Action, ИЗМЕРЕН). Раньше ключ находки
+строился как «путь БЕЗ ПЕРВОГО сегмента». Для ОДНОГО корня это работало, но
+`git archive` базы и рабочее дерево головы — РАЗНЫЕ корни, и ключи не
+совпадали НИКОГДА. Замер: две ИДЕНТИЧНЫЕ по содержимому папки в разных корнях
+давали «новых 5 + исправленных 5». То есть PR-гейт объявлял регрессом любое
+перемещение кода, а `make audit-delta BASE=../old HEAD=.` (документированный
+режим) не мог быть блокирующим. Исправление: путь берётся ОТНОСИТЕЛЬНО корня
+аудита (`audit_target` из ответа ABI), а не «срезанием сегмента».
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
 EXTRACTOR = ROOT / "tools" / "kern_contracts.py"
+# Пустой -> dev-путь (kern_contracts.py). Задан -> внешний бинарь того же ABI.
+AUDIT_BIN = os.environ.get("KERN_AUDIT_BIN", "").strip()
 
 RE_FN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)")
 
 
 def audit_json(target: str) -> dict:
-    """Прогон аудита через ABI (#483). Возвращает документ или падает честно."""
-    p = subprocess.run([PY, str(EXTRACTOR), "--xray", target, "--xray-json"],
-                       cwd=str(ROOT), capture_output=True, text=True, timeout=1800)
+    """Прогон аудита через ABI (#483). Возвращает документ или падает честно.
+
+    ДЕФЕКТ #498b (ИЗМЕРЕН при постройке Action). Относительный `target`
+    разрешался от каталога ИНСТРУМЕНТА: ребёнок запускался с `cwd=ROOT`, поэтому
+    `.` означало «репозиторий KERN», а не «дерево вызывающего». В GitHub Action
+    это увело бы аудит в чекаут САМОГО действия (замер: `head.target` =
+    `/…/kern` при аудите посторонней папки). Теперь относительный путь
+    разрешается от ТЕКУЩЕГО каталога процесса и подставляется абсолютным.
+    """
+    tgt = Path(target).expanduser()
+    if not tgt.is_absolute():
+        tgt = Path.cwd() / tgt
+    target = str(tgt.resolve())
+    if AUDIT_BIN:
+        cmd = [AUDIT_BIN, "--xray", target, "--xray-json"]
+    else:
+        cmd = [PY, str(EXTRACTOR), "--xray", target, "--xray-json"]
+    p = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, timeout=1800)
     out = p.stdout or ""
     try:
         return json.loads(out)
@@ -50,21 +84,32 @@ def audit_json(target: str) -> dict:
                          f"Первые 200 символов: {out[:200]!r}")
 
 
-def _norm_file(path: str) -> str:
-    """Путь БЕЗ каталога-корня: иначе base/ и head/ дают разные ключи всегда."""
+def _norm_file(path: str, root: str = "") -> str:
+    """Путь ОТНОСИТЕЛЬНО КОРНЯ аудита (дефект #498).
+
+    Корень берётся из `audit_target` ответа ABI. Раньше срезался первый сегмент
+    пути, и сравнение работало только внутри одного корня: base (`git archive`)
+    и head (рабочее дерево) — РАЗНЫЕ корни, поэтому «новых 5 + исправленных 5»
+    получалось даже на идентичном содержимом (измерено).
+    """
     p = path.replace("\\", "/")
-    return p.split("/", 1)[1] if "/" in p else p
+    r = (root or "").replace("\\", "/").rstrip("/")
+    if r and (p == r or p.startswith(r + "/")):
+        return p[len(r):].lstrip("/")
+    if p.startswith("./"):
+        return p[2:]
+    return p
 
 
-def key_of(f: dict) -> tuple[str, str, str]:
+def key_of(f: dict, root: str = "") -> tuple[str, str, str]:
     m = RE_FN.match(str(f.get("details", "")).strip())
-    return (_norm_file(str(f.get("file", ""))), str(f.get("type", "")),
+    return (_norm_file(str(f.get("file", "")), root), str(f.get("type", "")),
             m.group(1) if m else "")
 
 
 def delta(base: dict, head: dict) -> dict:
-    kb = {key_of(f) for f in base.get("findings", [])}
-    kh = {key_of(f) for f in head.get("findings", [])}
+    kb = {key_of(f, str(base.get("audit_target", ""))) for f in base.get("findings", [])}
+    kh = {key_of(f, str(head.get("audit_target", ""))) for f in head.get("findings", [])}
     sb, sh = base.get("summary", {}), head.get("summary", {})
     return {
         "schema_version": "1.0",
@@ -107,6 +152,24 @@ def _selftest() -> int:
           not d3["new_findings"] and not d3["fixed_findings"]
           and all(v == 0 for v in d3["funnel"].values()),
           "все счётчики дельты = 0")
+
+    # ДЕФЕКТ #498 — случай, который СТАРАЯ проверка не ловила: ТО ЖЕ содержимое,
+    # но ДРУГОЙ корень (так и выглядит PR-гейт: `git archive` базы + рабочее
+    # дерево головы). До правки здесь было «новых 5 + исправленных 5» (измерено),
+    # то есть регрессом объявлялось любое перемещение кода.
+    with tempfile.TemporaryDirectory(prefix="kern_delta_a_") as ra, \
+         tempfile.TemporaryDirectory(prefix="kern_delta_b_") as rb:
+        src = Path(buggy)
+        for root in (ra, rb):
+            for f in sorted(src.rglob("*")):
+                if f.is_file():
+                    (Path(root) / f.relative_to(src)).parent.mkdir(parents=True, exist_ok=True)
+                    (Path(root) / f.relative_to(src)).write_bytes(f.read_bytes())
+        d4 = delta(audit_json(ra), audit_json(rb))
+    check("#498: тот же код в РАЗНЫХ корнях — дельта пуста",
+          not d4["new_findings"] and not d4["fixed_findings"],
+          f"новых {len(d4['new_findings'])}, исчезло {len(d4['fixed_findings'])}"
+          " (до #498 было 5/5)")
 
     print(f"[{'FAIL' if fails else 'OK'}] audit-delta selftest: провалов {fails}")
     return 1 if fails else 0

@@ -9,7 +9,7 @@
 > Companions: `docs/CAPABILITY_MATRIX.md` (all capabilities with gates),
 > `docs/CORPORA.md` (corpus inventory), `docs/EXAMPLE_WHY_KERN.md` (the `lcm` story).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->199 · cases <!-- fact:canfail_cases -->244 · anchors <!-- fact:anchors -->203 · registry <!-- fact:registry_targets -->271 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->199 · cases <!-- fact:canfail_cases -->244 · anchors <!-- fact:anchors -->203 · registry <!-- fact:registry_targets -->272 · META <!-- fact:meta_targets -->55 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## 1. Hardware `i32` overflow (Rust)
 

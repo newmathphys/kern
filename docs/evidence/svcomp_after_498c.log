@@ -1,0 +1,106 @@
+[OK] selftest: здоровый прогон (UNSAFE подтверждён, SAFE чист) проходит
+[OK] selftest: ЛОЖНАЯ ТРЕВОГА на SAFE-задаче ловится
+[OK] selftest: НЕДОБОР (все UNSAFE без подтверждения) ловится
+[OK] selftest: ВАКУУМ категории (все SKIP) ловится
+[OK] selftest: стенд не собрался ловится
+[OK] selftest: НЕ НАБЛЮДАЕМО при наличии подтверждений НЕ краснит (граница) проходит
+[OK] selftest: SKIP по несовместимым свойствам не краснит проходит
+[OK] svcomp-witness selftest: ошибок 0
+    [signedintegeroverflow-regression] AdditionIntMax                               СИГНАЛ witness=(константа)
+    [signedintegeroverflow-regression] AdditionIntMin                               СИГНАЛ witness=-1
+    [signedintegeroverflow-regression] ConversionToSignedInt                        нет сигнала (перебрано 64)
+    [signedintegeroverflow-regression] Division-1                                   СИГНАЛ witness=-1
+    [signedintegeroverflow-regression] IntegerPromotion-1                           нет сигнала (перебрано 64)
+    [signedintegeroverflow-regression] Multiplication-1                             нет сигнала (перебрано 64)
+    [signedintegeroverflow-regression] Multiplication-2                             СИГНАЛ witness=(константа)
+    [signedintegeroverflow-regression] NoConversion                                 СИГНАЛ witness=(константа)
+    [signedintegeroverflow-regression] NoNegativeIntegerConstant                    нет сигнала (перебрано 64)
+    [signedintegeroverflow-regression] PostfixDecrement                             СИГНАЛ witness=-1
+    [signedintegeroverflow-regression] PostfixIncrement                             СИГНАЛ witness=-1
+    [signedintegeroverflow-regression] PrefixDecrement                              СИГНАЛ witness=-1
+    [signedintegeroverflow-regression] PrefixIncrement                              СИГНАЛ witness=-1
+    [signedintegeroverflow-regression] UnaryMinus                                   нет сигнала (перебрано 64)
+    [signedintegeroverflow-regression] UsualArithmeticConversions                   нет сигнала (перебрано 64)
+    [bitvector-regression] implicitfloatconversion                      SKIP
+    [bitvector-regression] implicitunsignedconversion-1                 SKIP
+    [bitvector-regression] implicitunsignedconversion-2                 нет сигнала (перебрано 64)
+    [bitvector-regression] integerpromotion-2                           нет сигнала (перебрано 64)
+    [bitvector-regression] integerpromotion-3                           SKIP
+    [bitvector-regression] recHanoi03-1                                 SKIP
+    [bitvector-regression] signextension-1                              SKIP
+    [bitvector-regression] signextension-2                              нет сигнала (перебрано 64)
+    [bitvector-regression] signextension2-1                             нет сигнала (перебрано 64)
+    [bitvector-regression] signextension2-2                             SKIP
+    [loop-lit] gcnr2008                                     СИГНАЛ witness=-1
+    [loop-lit] afnp2014                                     нет сигнала (перебрано 64)
+    [loop-lit] bhmr2007                                     нет сигнала (перебрано 64)
+    [loop-lit] cggmp2005_variant                            нет сигнала (перебрано 64)
+    [loop-lit] css2003                                      нет сигнала (перебрано 64)
+    [loop-lit] ddlm2013                                     нет сигнала (перебрано 10)
+    [array-examples] relax-1                                      нет сигнала (перебрано 64)
+    [array-examples] relax-2                                      нет сигнала (перебрано 64)
+    [array-examples] sanfoundry_02_ground                         нет сигнала (перебрано 64)
+    [array-examples] standard_init1_ground-1                      СИГНАЛ witness=-1
+    [array-examples] standard_allDiff2_ground                     нет сигнала (перебрано 8)
+    [array-examples] sorting_bubblesort_2_ground                  нет сигнала (перебрано 8)
+==============================================================================
+KERN: SV-COMP — 4 ОФИЦИАЛЬНЫЕ КАТЕГОРИИ + ВАЛИДАЦИЯ СВИДЕТЕЛЯ
+==============================================================================
+
+### signedintegeroverflow-regression
+  задач 15: UNSAFE 10, SAFE 5, SKIP 0 | ПОДТВЕРЖДЕНО 9, НЕ НАБЛЮДАЕМО 1
+  · AdditionIntMax                               unsafe [overflow] ПОДТВЕРЖДЕНО[компилятор] witness=`(константа)` компилятор: /tmp/tmp08e1z0z0/Addit
+  · AdditionIntMin                               unsafe [overflow] ПОДТВЕРЖДЕНО[запуск] witness=`-1` /tmp/tmp701kcb_o/AdditionIntMin.c:
+  · ConversionToSignedInt                        safe   [overflow] чисто (перебрано 64)
+  · Division-1                                   unsafe [overflow] ПОДТВЕРЖДЕНО[запуск] witness=`-1` /tmp/tmpnnr07yg0/Division-1.c:10:1
+  · IntegerPromotion-1                           safe   [overflow] чисто (перебрано 64)
+  · Multiplication-1                             safe   [overflow] чисто (перебрано 64)
+  · Multiplication-2                             unsafe [overflow] ПОДТВЕРЖДЕНО[компилятор] witness=`(константа)` компилятор: /tmp/tmp3tl_cfad/Multi
+  · NoConversion                                 unsafe [overflow] ПОДТВЕРЖДЕНО[компилятор] witness=`(константа)` компилятор: /tmp/tmpsaj4xfbw/NoCon
+  · NoNegativeIntegerConstant                    safe   [overflow] чисто (перебрано 64)
+  · PostfixDecrement                             unsafe [overflow] ПОДТВЕРЖДЕНО[запуск] witness=`-1` /tmp/tmp2e9n6eq_/PostfixDecrement.
+  · PostfixIncrement                             unsafe [overflow] ПОДТВЕРЖДЕНО[запуск] witness=`-1` /tmp/tmp3bv6lqy0/PostfixIncrement.
+  · PrefixDecrement                              unsafe [overflow] ПОДТВЕРЖДЕНО[запуск] witness=`-1` /tmp/tmpqcg5bwvc/PrefixDecrement.c
+  · PrefixIncrement                              unsafe [overflow] ПОДТВЕРЖДЕНО[запуск] witness=`-1` /tmp/tmpr8marjkv/PrefixIncrement.c
+  · UnaryMinus                                   unsafe [overflow] НЕ НАБЛЮДАЕМО (перебрано 64)
+  · UsualArithmeticConversions                   safe   [overflow] чисто (перебрано 64)
+  KERN --xray: находок 10 (ИЗМЕРЕНИЕ, не доказательство)
+
+### bitvector-regression
+  задач 10: UNSAFE 0, SAFE 4, SKIP 6 | ПОДТВЕРЖДЕНО 0, НЕ НАБЛЮДАЕМО 0
+  · implicitfloatconversion                      SKIP: несколько РАЗНЫХ вердиктов в .yml (свойства 
+  · implicitunsignedconversion-1                 SKIP: несколько РАЗНЫХ вердиктов в .yml (свойства 
+  · implicitunsignedconversion-2                 safe   [unreach] чисто (перебрано 64)
+  · integerpromotion-2                           safe   [unreach] чисто (перебрано 64)
+  · integerpromotion-3                           SKIP: несколько РАЗНЫХ вердиктов в .yml (свойства 
+  · recHanoi03-1                                 SKIP: несколько РАЗНЫХ вердиктов в .yml (свойства 
+  · signextension-1                              SKIP: несколько РАЗНЫХ вердиктов в .yml (свойства 
+  · signextension-2                              safe   [unreach] чисто (перебрано 64)
+  · signextension2-1                             safe   [unreach] чисто (перебрано 64)
+  · signextension2-2                             SKIP: несколько РАЗНЫХ вердиктов в .yml (свойства 
+  KERN --xray: находок 1 (ИЗМЕРЕНИЕ, не доказательство)
+
+### loop-lit
+  задач 6: UNSAFE 1, SAFE 5, SKIP 0 | ПОДТВЕРЖДЕНО 1, НЕ НАБЛЮДАЕМО 0
+  · gcnr2008                                     unsafe [unreach] ПОДТВЕРЖДЕНО[запуск] witness=`-1` REACH_ERROR (нарушение достижимо)
+  · afnp2014                                     safe   [unreach] чисто (перебрано 64)
+  · bhmr2007                                     safe   [unreach] чисто (перебрано 64)
+  · cggmp2005_variant                            safe   [unreach] чисто (перебрано 64)
+  · css2003                                      safe   [unreach] чисто (перебрано 64)
+  · ddlm2013                                     safe   [unreach] чисто (перебрано 10)
+  KERN --xray: находок 0 (ИЗМЕРЕНИЕ, не доказательство)
+
+### array-examples
+  задач 6: UNSAFE 4, SAFE 2, SKIP 0 | ПОДТВЕРЖДЕНО 1, НЕ НАБЛЮДАЕМО 3
+  · relax-1                                      unsafe [unreach] НЕ НАБЛЮДАЕМО (перебрано 64)
+  · relax-2                                      safe   [unreach] чисто (перебрано 64)
+  · sanfoundry_02_ground                         safe   [unreach] чисто (перебрано 64)
+  · standard_init1_ground-1                      unsafe [unreach] ПОДТВЕРЖДЕНО[запуск] witness=`-1` assert задачи: prog: /tmp/tmp0rzl3
+  · standard_allDiff2_ground                     unsafe [unreach] НЕ НАБЛЮДАЕМО (перебрано 8)
+  · sorting_bubblesort_2_ground                  unsafe [unreach] НЕ НАБЛЮДАЕМО (перебрано 8)
+  KERN --xray: находок 0 (ИЗМЕРЕНИЕ, не доказательство)
+
+------------------------------------------------------------------------------
+[OK] 4 категории: 37 задач, 11 UNSAFE ПОДТВЕРЖДЕНО ВНЕШНИМ валидатором (компилятор или запуск под gcc-санитайзерами), 16 SAFE чисты на перебранных свидетелях, ЛОЖНЫХ ТРЕВОГ 0, НЕДОБОРА 0.
+[i] ГРАНИЦА МЕТОДА (названа, не спрятана): НЕ НАБЛЮДАЕМО 4 UNSAFE-задач — их нарушение не увидел НИ компилятор, НИ запуск. Например `UnaryMinus`: измерено, что ни `gcc -O0..-O3` с `-fsanitize=undefined` и явным `-fsanitize=signed-integer-overflow`, ни `-Woverflow` нарушения не показывают. Это НЕ объявляется ложным допуском (подтверждения не заявлялось) и НЕ считается доказанным.
+[i] ГРАНИЦА ПОИСКА: пространство свидетелей ОГРАНИЧЕНО (константа или пара из 8 значений). «Свидетель не найден» — не доказательство недостижимости, и гейт этого не заявляет.

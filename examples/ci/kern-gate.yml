@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
+#
+# ПРИМЕР РАБОЧЕГО ПРОЦЕССА для KERN-гейта (скопируйте в `.github/workflows/`).
+# Это ОБРАЗЕЦ, а не процесс самого KERN: он ссылается на ОПУБЛИКОВАННЫЙ релиз
+# (`newmathphys/kern@v2.8.1`), поэтому не запускается в этом репозитории.
+# Структура проверяется гейтом `make action-check` (только объявленные входы).
+name: KERN gate
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  kern-audit-delta:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout (история нужна базе сравнения)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Гейт падает ТОЛЬКО на находках, внесённых ЭТИМ PR (audit-delta base->head).
+      # rc=2 здесь означает «дистрибутив неполон», а не «код чист».
+      - name: KERN verification gate
+        uses: newmathphys/kern@v2.8.1
+        with:
+          path: '.'
+          base: '${{ github.base_ref }}'

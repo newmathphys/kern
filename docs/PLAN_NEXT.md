@@ -24,37 +24,43 @@ Goal: one external run that cannot be faked.
 5. Acceptance: **every** listed gate `rc=0` on a clean clone; any divergence from today's numbers is
    a **defect**, not an «environment quirk».
 
-## P0. The recall cost of `#495` — the only unmeasured number (2–3 hours)
+## P0. The recall cost of `#495` — MEASURED (`#498c`, done)
 
-The `#495` fix deliberately restricted the inc/dec detector to straight-line paths. The cost is
-**not measured**.
+The `#495` fix restricted the inc/dec detector to straight-line paths. Its cost is no longer
+«documented», it is MEASURED:
 
-1. Run `make svcomp-witness-check` (long, in the background) and compare with the previous baseline.
-2. If recall dropped — refine the rule: allow a loop when the variable is **not modified inside it**
-   (`for (…) { if (c) return; } x--;`), then measure again.
-3. Acceptance: the number in `docs/LIMITS` (today it says only «recall loss documented») replaced by
-   the **measured** value.
+1. `make svcomp-witness-check` after `#495`: **37 tasks, 11 UNSAFE confirmed by an external
+   validator, 16 SAFE clean on the enumerated witnesses, 0 false alarms, 0 missed confirmations**
+   (`docs/evidence/svcomp_after_495.log`).
+2. `svcomp_baseline.py`: **TPR 1.00 / FPR 0.00** (10/10 unsafe, 0 false alarms on 5 safe) —
+   identical to `docs/evidence/svcomp_baseline.log`.
+3. BUT the probes showed a real hole: an UNRELATED `if (flag) {…}` before
+   `int x = 2147483647; x++;` produced **0 findings** — the blanket ban silenced the very
+   SV-COMP pattern the detector exists for. The rule is NARROWED (`#498c`): a finding is
+   suppressed only when the branch/loop CONDITION mentions the variable; mutations are caught by
+   a separate write counter. MEASURED after: unrelated `if` -> **1 finding**,
+   `if (x==10) return; x++;` -> **0**, `cmark_autolink.c` -> **0**.
+4. Acceptance met: the number in `docs/LIMITS` (RU+EN) is measured, not promised.
 
-## P1. Proof on unfamiliar code (a day)
+## P1. Publication (Step 2 of the ROI plan — built and gated, release PENDING credentials)
 
-Curated corpora (`QuixBugs`, `TheAlgorithms`, `cmark`, `DeepJIT`) stop counting as proof: they were
-seen during development.
-
-1. Fresh clones of **three** repositories that were never in the cache: `tigerbeetle` (Zig),
-   `redis` (C), `curl` (C). No edits in them.
-2. For each: `./kerna <path> --sample N` + **triage of EVERY** finding by hand:
-   TP / FP / N (uncertainty) / caller-guarded.
-3. Compute **precision = TP / (TP + FP)** and publish it **together with the FPs**, not TP only.
-4. Acceptance: `precision ≥ 0.90` on at least two of the three corpora; otherwise — an honest FP-class
-   record in the `#495` style (fixture + counter), never silence.
-
-## P1. Publication: what is already built (2 hours)
-
-1. GitHub Release `v2.8.1`: `kerna-dist-v2.8.1.tar.gz` (27 MB) + `SHA256SUMS` + attestation.
-2. `action.yml` (composite): downloads the release, runs `kerna` + `audit-delta` on a PR, `rc=1` on a
-   new finding, `rc=2` on degraded coverage.
-3. Acceptance: a sample workflow in `examples/ci/` passes on a **test** repository; without a release
-   `action.yml` is **not** published (a promise without an artifact is forbidden — lesson `#497`).
+1. `action.yml` (composite) works from the RELEASE ARCHIVE: downloads
+   `kerna-dist-v<ver>.tar.gz` + `SHA256SUMS`, verifies SHA-256 BEFORE extracting,
+   `./kerna --doctor`, then runs `audit-delta` base->head: `rc=1` only on findings THIS change
+   introduced, `rc=2` on degraded coverage, `rc=3` on a bad artifact.
+2. `make action-check` proves the steps by EXECUTION (local `file://` release source, no network):
+   8-case matrix + 7 negative controls; `make action-check REAL=1` runs 5 of them on the real
+   27 MB archive.
+3. `examples/ci/kern-gate.yml` is the copy-paste workflow; its inputs are checked against
+   `action.yml` (a wrong input turns the gate red).
+4. Publication is prepared in `.github/workflows/release.yml` (archive + `SHA256SUMS` for BOTH
+   assets + `action-check` BEFORE publishing). Publishing itself needs `gh` and credentials that
+   this machine does not have; the exact command is:
+   ```
+   gh release create v2.8.1 --title "KERN v2.8.1" --notes-file docs/RELEASE_NOTES_v2.8.1.md \
+     kernc-x86_64-linux-musl SHA256SUMS dist-release/kerna-dist-v2.8.1.tar.gz \
+     kern.intoto.jsonl kern.intoto.sig
+   ```
 
 ## P2. Core debt (only with a budget and a measurement)
 
@@ -75,9 +81,12 @@ seen during development.
 ## Definition of Done for «the project is proven to work»
 
 - [ ] reproduction receipt from a clean machine: all gates `rc=0`, log committed;
-- [ ] `svcomp`: the recall cost of `#495` **measured** and written as a number;
+- [x] `svcomp`: the recall cost of `#495` **MEASURED** — 37 tasks / 0 false alarms / 0 missed;
+  TPR 1.00 FPR 0.00, and the rule NARROWED (`#498c`) so an unrelated `if` no longer hides the pattern;
 - [ ] three unfamiliar corpora: precision published, every FP triaged;
-- [ ] release + (optional) `action.yml` with a working example;
+- [ ] release published (the artifact is built and gated locally; needs `gh` + credentials);
+- [x] `action.yml` works from the release archive and is proved by execution (`make action-check`),
+  with `examples/ci/kern-gate.yml` checked against it;
 - [ ] `LIMITS` (RU+EN) synchronised with the gates — its guard green;
 - [ ] clean tree, `HEAD == origin/main`, attestation verified with the external key.
 

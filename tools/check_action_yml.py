@@ -1,80 +1,60 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
-"""Проверка `action.yml` без обязательной зависимости от PyYAML.
+"""`check_action_yml` — БЫСТРЫЙ КОНТРАКТ `action.yml` (без PyYAML и без сети).
 
-ЗАЧЕМ. Гейт `ecosystem-check` импортировал PyYAML внутри heredoc. В окружении
-без PyYAML он печатал «No module named 'yaml'» и объявлял action.yml
-невалидным — ОТСУТСТВИЕ БИБЛИОТЕКИ выдавалось за дефект файла (дефект #249).
+ЗАЧЕМ. Гейт `ecosystem-check` импортировал PyYAML внутри heredoc и в окружении
+без библиотеки объявлял `action.yml` невалидным — ОТСУТСТВИЕ БИБЛИОТЕКИ
+выдавалось за дефект файла (дефект #249).
 
-ЧТО ПРОВЕРЯЕТ (одни и те же четыре утверждения в обоих путях):
-  * `inputs.version.default` начинается с `v2.` (тег, с которого качается бинарь);
-  * `inputs.mode.default` == `verify`;
-  * объявлен выход `sarif-file`;
-  * среди шагов есть проверка `sha256sum -c` скачанного бинаря.
+ЧТО ПРОВЕРЯЕТСЯ. Ровно те утверждения, что и раньше (тег версии, сверка
+SHA-256 скачанного артефакта, объявленные входы/выходы), НО обновлённые под
+ШАГ 2: Action работает на релизном архиве `kerna-dist`, а обещание
+`sarif-file` в режиме `--xray` СНЯТО, потому что измерено: апплаенс принимает
+`--sarif` и НЕ создаёт файл (класс #497/#370). Тяжёлое доказательство поведением
+(сухой прогон шагов) — в `tools/action_check.py` (`make action-check`); здесь
+только дешёвая статика, чтобы `ecosystem-check` оставался быстрым.
+
+Один источник правил: обе проверки используют `action_check.static_contract`,
+поэтому «две правды» о контракте не разъезжаются.
 
 Запуск:  python3 tools/check_action_yml.py [путь]
-Код возврата: 0 — корректно, 1 — нарушение.
+Код возврата: 0 — корректно, 1 — нарушение, 2 — файла нет.
 """
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import action_check as ac  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT = ROOT / "action.yml"
-Q = chr(39) + chr(34)
-
-
-def parse_with_yaml(src: str):
-    import yaml  # noqa: PLC0415
-    d = yaml.safe_load(src)
-    return (d["inputs"]["version"]["default"],
-            d["inputs"]["mode"]["default"],
-            list(d["outputs"]),
-            any("sha256sum -c" in str(s.get("run", "")) for s in d["runs"]["steps"]),
-            "yaml")
-
-
-def parse_by_text(src: str):
-    def field(name: str) -> str:
-        pat = (r"^  " + name + r":\s*\n(?:.*\n)*?\s+default:\s*[" + Q + r"]?([^" + Q + r"\n]+)")
-        m = re.search(pat, src, re.M)
-        return m.group(1).strip() if m else ""
-    return (field("version"), field("mode"),
-            ["sarif-file"] if "sarif-file" in src else [],
-            "sha256sum -c" in src, "text")
 
 
 def main(argv: list[str]) -> int:
     path = Path(argv[0]) if argv else DEFAULT
     if not path.exists():
         print(f"[!] нет {path}")
-        return 1
-    src = path.read_text(encoding="utf-8")
+        return 2
     try:
-        ver, mode, outs, sha, how = parse_with_yaml(src)
-    except ImportError:
-        ver, mode, outs, sha, how = parse_by_text(src)
-        print("  [i] PyYAML отсутствует — action.yml проверен по тексту "
-              "(те же 4 утверждения)")
-    bad = 0
-    if not str(ver).startswith("v2."):
-        print(f"[!] inputs.version.default = {ver!r} (ожидался тег v2.x)")
-        bad += 1
-    if mode != "verify":
-        print(f"[!] inputs.mode.default = {mode!r} (ожидалось 'verify')")
-        bad += 1
-    if "sarif-file" not in outs:
-        print(f"[!] нет выхода sarif-file: {outs}")
-        bad += 1
-    if not sha:
-        print("[!] в шагах нет проверки SHA256 скачанного бинаря")
-        bad += 1
+        doc = ac.parse_action(path.read_text(encoding="utf-8"))
+    except ac.YamlError as e:
+        print(f"[!] {path.name} не разобран: {e}")
+        return 1
+
+    bad = ac.static_contract(doc)
+    ver = str(((doc.get("inputs") or {}).get("version") or {}).get("default", ""))
+    if not ac.VER_RE.match(ver):
+        bad.append(f"inputs.version.default = {ver!r} (ожидался тег vX.Y.Z)")
+
+    for problem in bad:
+        print(f"[!] {problem}")
     if bad:
         return 1
-    print(f"  [OK] action.yml ({how}): version={ver}, mode=verify, "
-          f"sha256-проверка, sarif-file-выход")
+    print(f"  [OK] action.yml: version={ver}, composite, sha256-сверка архива, "
+          f"выходы {sorted((doc.get('outputs') or {}))}, без ложного SARIF")
     return 0
 
 

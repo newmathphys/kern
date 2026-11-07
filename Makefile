@@ -43,7 +43,7 @@ PYTHON   ?= python3
 VENV     ?= .venv
 OUT      ?= .kernnext
 
-.PHONY: l5-duel-check kernx-polygon5-check zig-guard zig-guard-check foreign-verdicts-check audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check native-theories-file-check mbpp-xray-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest showcase-live showcase-live-full showcase-live-all showcase-live-all-full oracle-dtmc-check oracle-redos-check oracle-absint-check oracle-chc-check oracle-string-check oracle-noninterference-check
+.PHONY: action-check l5-duel-check kernx-polygon5-check zig-guard zig-guard-check foreign-verdicts-check audit-repo-check bench-simd8 hadamard-check parser-security-check evo-fuzz-check translation-val-check concolic-check opt-diff-check homeostatic-heal-check dst-check wasm-check kimg-grep-check contracts contracts-json edge-cases contracts-lock contracts-lock-check diff-equiv self-verify sarif-check hook-check artifact-check artifact-check-offline help venv zig golden build test test-next verify attack next demo run-example adversarial telemetry telemetry-quick evidence evidence-fast guardrail docker lean stress bench perf mutate prove clean memcheck ubsafe stress-kimg smt-stress test-all formal-ci fd-check align avalanche pool semantic-gap bench-json echelons audit localize arrays chc strings cegis theories test-fault attest-key attest mbpp chc-bench coverage lib capi-demo hermetic cert fuzz-1m litmus concolic dtmc absint nra noninterference redos portable-bench canfail canfail-anchors registry svg-check evidence-gate ci ci-fast cross-arch research binlevel probe mcp-selftest kimg-deflate audits lia-diff version-check proof-tamper evm-proof-check evm-lang-check metrics-guard metrics-guard-selftest sync sync-check docs-parity journal-parity-check charter-text-check readme-link-check cwe-twins-check ai-traps-check quixbugs-diff-check real-cases-check inline-check smtlib-bench-check smtlib-proof-check svcomp-witness-check native-zig-ast-check native-theories-file-check mbpp-xray-check xray-overflow-check ai-traces-check status seal trace-check ai-demo showcase showcase-check verify-attestation secrets-check determinism-check changelog-check lean-pin-check trust-docs-check perf-check citations-check axes-check ledger-check graph-check storage-check kimg-cli-check quixbugs-replay codecheck status-doc status-check status-selftest charter-check charter-selftest junit junit-selftest evidence-freshness evidence-freshness-selftest temp-isolation-check temp-isolation-selftest showcase-live showcase-live-full showcase-live-all showcase-live-all-full oracle-dtmc-check oracle-redos-check oracle-absint-check oracle-chc-check oracle-string-check oracle-noninterference-check
 
 # АРХИТЕКТУРНЫЙ МОСТ «текст → контракт»: сканирует репозиторий, извлекает
 # якоря @kern:spec / @kern:evidence, собирает образ и прогоняет контракты
@@ -376,6 +376,23 @@ mutate-log-selftest:
 # #496: РЕЛИЗНЫЙ АРХИВ (62 МБ -> 27 МБ): kerna + kernc + z3 + лицензии + SHA256SUMS.
 kerna-dist:
 	PYTHON=$(PYTHON) bash tools/make_kerna_dist.sh
+
+# ШАГ 2 ПЛАНА ROI: ЛОКАЛЬНАЯ ПРОВЕРКА GitHub Action. Статика (`action.yml`
+# разбирается fail-closed парсером) + СУХОЙ ПРОГОН его шагов на ЛОКАЛЬНОМ
+# источнике релиза (`KERN_RELEASE_BASE=file://`): сеть не нужна.
+# Матрица, которую гейт обязан подтвердить: чисто -> rc 0; баг -> rc 1;
+# баг был в base -> rc 0 (анти-FP); битый архив -> rc 3; нет ассета -> rc 3;
+# `--doctor` не проходит -> rc 2. Плюс отрицания (битый YAML, необъявленный
+# вход, обещанный SARIF) — `--selftest`.
+# Реальный 27-МБ архив (если собран): make action-check REAL=1
+action-check:
+	@$(PYTHON) tools/check_action_yml.py
+	@$(PYTHON) tools/action_check.py --selftest
+	@if [ "$(REAL)" = "1" ]; then \
+	  $(PYTHON) tools/action_check.py --release-dir dist-release; \
+	else \
+	  $(PYTHON) tools/action_check.py; \
+	fi
 
 kerna-build:
 	PYTHON=$(PYTHON) bash tools/build_kerna.sh ./dist

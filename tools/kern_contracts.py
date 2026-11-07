@@ -7575,6 +7575,39 @@ def _clike_const_locals(body: str, mask: str | None = None) -> dict[str, int]:
     return out
 
 
+def _incdec_prefix_controls_value(prefix: str, nm: str) -> bool:
+    """Может ли ветвление/цикл в префиксе УПРАВЛЯТЬ значением `nm`?
+
+    ЗАЧЕМ (дефект #498c, ИЗМЕРЕН). Правка #495 запрещала ЛЮБОЙ `if/while/for/
+    switch` до точки — и это стоило recall ровно там, ради чего детектор
+    написан. Замер (после #495, probe): `int flag = 0; if (flag) { flag = 1; }
+    int x = 2147483647; x++;` давал **0 находок** — посторонний `if`, который
+    не трогает `x`, глушил SV-COMP-паттерн. То же с посторонним `for`.
+    Поэтому узкое правило: гасим находку ТОЛЬКО если условие ветвления или
+    цикла САМО упоминает `nm` (тогда путь может сузить значение: `if (x ==
+    10) return; x++;` — переполнения нет, обвинять нельзя).
+
+    ЧТО ПРИ ЭТОМ ОСТАЁТСЯ ЗВУЧНЫМ:
+      * мутации `nm` в префиксе ловятся ОТДЕЛЬНО (счётчик записей) — именно они
+        давали ложное обвинение в `cmark_autolink.c`;
+      * `x = c ? a : b;` — это тоже запись `x`, то есть тот же счётчик;
+      * гард, который упоминает `nm`, гасит находку (см. выше).
+    """
+    for m in re.finditer(r"\b(?:if|while|for|switch)\s*\(", prefix):
+        depth, i = 0, m.end() - 1
+        for j in range(i, len(prefix)):
+            if prefix[j] == "(":
+                depth += 1
+            elif prefix[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    cond = prefix[i + 1:j]
+                    if re.search(rf"(?<![\w.]){re.escape(nm)}(?![\w])", cond):
+                        return True
+                    break
+    return False
+
+
 def _clike_incdec_findings(name: str, body: str, var_ranges: dict,
                            consts: dict) -> list[str]:
     """[OVERFLOW PATH] на `x++ / ++x / x-- / --x` с ИЗВЕСТНЫМ значением.
@@ -7607,17 +7640,22 @@ def _clike_incdec_findings(name: str, body: str, var_ranges: dict,
         # значением — иначе «известное значение» это догадка.
         #   1) до точки не должно быть НИ ОДНОГО другого присваивания `nm`
         #      (кроме инициализатора) — иначе значение уже другое;
-        #   2) до точки не должно быть ветвлений/циклов/лямбда-условий:
-        #      `if`, `while`, `for`, `switch`, `cond ? a : b`, `&&`, `||`.
-        # ЦЕНА: теряем recall для «переполнение внутри ветви/цикла» — это
-        # осознанный обмен: ложное обвинение хуже пропуска (#178/#183).
+        #   2) до точки не должно быть ветвления/цикла, УСЛОВИЕ которого трогает
+        #      `nm`: тогда путь может сузить значение (`if (x == 10) return;`).
+        # ДЕФЕКТ #498c (ИЗМЕРЕН): раньше здесь стоял запрет на ЛЮБОЙ
+        # `if/while/for/switch`/`?`/`&&`/`||`, и посторонний `if (flag) {…}` до
+        # `int x = 2147483647; x++;` давал 0 находок — то есть цена правила была
+        # не «теория», а потеря SV-COMP-паттерна. Замер после сужения: тот же
+        # probe -> находка есть; `if (x == 10) return; x++;` -> находки НЕТ;
+        # `cmark_autolink.c` -> 0 находок (мутация ловится счётчиком записей);
+        # SV-COMP signedintegeroverflow-regression: TPR 1.00 / FPR 0.00.
         prefix = body[:m.start()]
         _writes = re.findall(
             rf"(?<![\w.]){re.escape(nm)}\s*(?:\+\+|--|\+=|-=|\*=|/=|=(?!=))",
             prefix)
         if len(_writes) > 1:            # 1 = сам инициализатор, >1 = мутация
             continue
-        if re.search(r"\b(?:if|while|for|switch)\b|\?|&&|\|\|", prefix):
+        if _incdec_prefix_controls_value(prefix, nm):
             continue
         lo, hi = var_ranges[nm]
         new = consts[nm] + (1 if "++" in m.group(0) else -1)

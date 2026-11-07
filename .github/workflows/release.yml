@@ -22,16 +22,48 @@ jobs:
       - name: Build hermetic binary
         run: zig build hermetic
 
+      # АРХИВ АППЛАЕНСА НУЖЕН ПИТОНУ И БЭКЕНДУ: `kerna` (PyInstaller onefile) +
+      # `zig-out/bin/kernc`. Без этого шага в релизе был бы только ОДИН бинарь
+      # (`kernc`), а `action.yml` качает `kerna-dist` — то есть ссылался бы в
+      # пустоту (класс #497: обещание без артефакта).
+      - name: Build the verifier backend (kernc) for the appliance
+        run: zig build
+
+      - name: Python toolchain for the appliance (z3 + PyInstaller)
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -r requirements.txt pyinstaller
+          .venv/bin/python -c 'import z3, PyInstaller; print("[i] z3 + PyInstaller готовы")'
+
+      - name: Build kerna (onefile) and the release archive
+        run: |
+          PYTHON=.venv/bin/python make kerna-build PYTHON=.venv/bin/python
+          PYTHON=.venv/bin/python make kerna-dist
+          ls -la dist-release
+
+      # ГЕЙТ ПЕРЕД ПУБЛИКАЦИЕЙ: публикуется ровно тот архив, шаги которого
+      # исполнены и проверены (`make action-check REAL=1` — сухой прогон
+      # action.yml на ЭТОМ архиве, с настоящим SHA-256).
+      - name: Gate the artifact before publishing
+        run: PYTHON=.venv/bin/python make action-check REAL=1
+
       - name: Package release assets
         run: |
+          VER="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           cp zig-out/bin/kernc-hermetic kernc-x86_64-linux-musl
-          sha256sum kernc-x86_64-linux-musl > SHA256SUMS
+          # ОДИН SHA256SUMS НА ВСЕ АССЕТЫ: `action.yml` берёт из него строку
+          # архива и сверяет ДО распаковки.
+          { sha256sum kernc-x86_64-linux-musl
+            sha256sum "dist-release/kerna-dist-v${VER}.tar.gz"; } > SHA256SUMS
           cat SHA256SUMS
+          test -s "dist-release/kerna-dist-v${VER}.tar.gz" || { echo "[!] нет архива"; exit 1; }
+          grep -q " kerna-dist-v${VER}.tar.gz$" SHA256SUMS || { echo "[!] сумма архива не попала в SHA256SUMS"; exit 1; }
 
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VER="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           NOTES="docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
           if [ ! -f "$NOTES" ]; then
             NOTES=$(ls docs/RELEASE_NOTES_v*.md | sort -V | tail -1)
@@ -45,5 +77,8 @@ jobs:
               --title "KERN $GITHUB_REF_NAME" \
               --notes-file "$NOTES" --draft
           gh release upload "$GITHUB_REF_NAME" \
-            kernc-x86_64-linux-musl SHA256SUMS kern.intoto.jsonl kern.intoto.sig --clobber
+            kernc-x86_64-linux-musl SHA256SUMS \
+            "dist-release/kerna-dist-v${VER}.tar.gz" \
+            kern.intoto.jsonl kern.intoto.sig --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false
+
