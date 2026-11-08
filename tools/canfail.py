@@ -2990,7 +2990,10 @@ def case_smtlib_proof_exit():
     как успех — ровно та ложь, против которой ворота построены.
     """
     patch("src/main.zig",
-          "            try writeWithoutExit(wq, smt);",
+          # #539: якорь обновлён вместе с кодом — запрос вывода теперь пишет
+          # `smt_eff` (файл + достроенный `(check-sat)`). Прежний якорь исчез, и
+          # проверка честно сказала «якоря НЕ ПРИМЕНИМЫ» (класс #113).
+          "            try writeWithoutExit(wq, smt_eff);",
           "            try wq.writeAll(smt);   // ЛОМАЕМ (#371 A)")
     return ("zig build && KERN_SMTLIB4_ONLY=QF_BV "
             "KERN_SMTLIB4_PROOF_TIMEOUT=120 make smtlib-proof-check")

@@ -69,7 +69,26 @@ pub fn main(init: std.process.Init) !void {
     // Ф2: граф исходников — ЕДИНЫЙ источник для витрины (Эго-Линза, фильтры).
     // Python-сканер остаётся только сторожем паритета (`make graph-check`).
     if (std.mem.eql(u8, cmd, "graph")) {
-        const root = flagValue(args, "--root") orelse "src";
+        // ДЕФЕКТ #545 (ИЗМЕРЕНО): позиционный аргумент ИГНОРИРОВАЛСЯ —
+        // `kernx graph /tmp/nokern` печатал граф РЕПОЗИТОРИЯ KERN (`root: src`)
+        // и возвращал rc=0. Молчаливый успех на несуществующем входе — класс
+        // #498b/#505. Теперь: позиционный аргумент = корень; нет каталога ->
+        // названный отказ rc=2.
+        const positional: ?[]const u8 = blk: {
+            if (args.len >= 3 and args[2].len > 0 and args[2][0] != '-') break :blk args[2];
+            break :blk null;
+        };
+        const root = flagValue(args, "--root") orelse (positional orelse "src");
+        {
+            var d = std.Io.Dir.cwd().openDir(compat.io(), root, .{}) catch {
+                std.debug.print(
+                    "[!] graph: {s} — FileNotFound (укажите существующий каталог)\n",
+                    .{root},
+                );
+                std.process.exit(2);
+            };
+            d.close(compat.io());
+        }
         // ДЕФЕКТ #310: `--external` материализует цели `@import` за границей
         // сканирования как узлы (`"external": true`). Без флага они только
         // считаются (`edges_external`), и «0 рёбер» больше не выглядит как

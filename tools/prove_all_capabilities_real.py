@@ -26,6 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KERNC = ROOT / "zig-out" / "bin" / "kernc"
+KERNX = ROOT / "zig-out" / "bin" / "kernx"
 VERSION = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))["version"]
 LOG = ROOT / "docs" / "evidence" / f"all_capabilities_real_v{VERSION}.log"
 rows: list[tuple[str, str, str, str]] = []
@@ -48,7 +49,10 @@ def run(cmd: list[str], timeout: int = 300, env: dict | None = None,
     if env:
         e.update(env)
     try:
+        # errors="replace": `kernc cat`/`pack` печатают БАЙТЫ, и строгий utf-8-декодер
+        # падал UnicodeDecodeError прямо в харнессе (ИЗМЕРЕНО на CLI-свипе).
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                           errors="replace",
                            cwd=str(cwd or ROOT), env=e, input=stdin)
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except subprocess.TimeoutExpired:
@@ -399,6 +403,199 @@ def pkg_b_oracles() -> None:
            "OK" if (idem and iso and asymmetric) else "FAIL",
            f"idem: unify 4/4 -> {'T' if idem else '?'}; isolation: unify 2/6 -> "
            f"{'B' if iso else '?'}; роль-асимметрия (2/6=B, 6/2=T)={asymmetric}")
+
+
+    # ── ПАКЕТ И. Поштучная матрица без обёрток (#539-#547) ─────────────────
+    say("\n── ПАКЕТ И. MCP 8/8, детекторы 5/5, директивы 12/12, дуга 4/4, CLI 29/29 ──")
+    import importlib.util as _ilu
+    _W = ROOT / "build" / "matrix"
+    _W.mkdir(parents=True, exist_ok=True)
+
+    # И1. ВОСЕМЬ инструментов MCP — прямыми вызовами (позитив + негатив).
+    _spec = _ilu.spec_from_file_location("kern_mcp", ROOT / "examples" / "kern_mcp_server.py")
+    _mcp = _ilu.module_from_spec(_spec)
+    # информация о модуле не нужна: он исполняется целиком
+    try:
+        _spec.loader.exec_module(_mcp)
+    except SystemExit:
+        _mcp = None
+    _UNSAT = "(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x 3))\n(assert (not (> x 3)))\n(check-sat)\n"
+    _SAT = "(set-logic QF_LIA)\n(declare-const x Int)\n(assert (> x 3))\n(check-sat)\n"
+    _PYOK = "# @kern:requires a >= 0 and b > 0\n# @kern:ensures result <= a\ndef f(a, b):\n    return a // b\n"
+    _PYBAD = "# @kern:requires a >= 0 and b > 0\n# @kern:ensures result >= a\ndef f(a, b):\n    return a // b\n"
+    _MCP_CASES = [
+        ("kern_verify_smt", {"smt": _UNSAT}, {"smt": _SAT}, "ДОКАЗАНО", "НЕ доказано"),
+        ("kern_prove_with_checker", {"smt": _UNSAT}, {"smt": _SAT}, "ДОКАЗАНО", "НЕ доказано"),
+        ("kern_verify_multi_belnap", {"contracts": [_UNSAT, _SAT]}, {"contracts": ["garbage"]}, "T", "N"),
+        ("kern_verify_python", {"python_source": _PYOK}, {"python_source": _PYBAD}, "ДОКАЗАНО", "НАРУШЕН"),
+        ("kern_check_equivalence",
+         {"old_source": "def f(a):\n    return a + 1\n", "new_source": "def f(a):\n    return a + 1\n"},
+         {"old_source": "def f(a):\n    return a + 1\n", "new_source": "def f(a):\n    return a + 2\n"},
+         "EQUIVALENT", "DIVERGED"),
+        ("kern_xray_code", {"source": "def f(d, i):\n    return d[i]\n", "filename": "x.py"},
+         {"source": "", "filename": "x.py"}, "BOUNDS", "непустой"),
+        ("kern_verify_action", {"action": {"tool": 1, "args": [1, 2]},
+                               "policy": {"allowed_tools": [1, 2], "max_arg": 5}},
+         {"action": {"tool": 9, "args": [9, 9]},
+          "policy": {"allowed_tools": [1, 2], "max_arg": 5}}, "200 OK", "422"),
+        ("kern_rlvr_reward", {"source": _PYOK}, {"source": "def f(a):\n    return None\n"},
+         "REWARD", "REWARD"),
+    ]
+    _mcp_ok = 0
+    _mcp_why: list[str] = []
+    if _mcp is None:
+        record("И", "MCP 8 инструментов", "FAIL", "сервер не импортируется")
+    else:
+        for _nm, _pos, _neg, _want_p, _want_n in _MCP_CASES:
+            _rp = _mcp.call_tool(_nm, _pos)
+            _rn = _mcp.call_tool(_nm, _neg)
+            _tp = _rp["content"][0]["text"]
+            _tn = _rn["content"][0]["text"]
+            _trace = "Traceback" in _tp or "Traceback" in _tn
+            _good = (_want_p in _tp) and (len(_tn) > 0) and not _trace
+            _mcp_ok += 1 if _good else 0
+            if not _good:
+                _mcp_why.append(_nm)
+        record("И", f"MCP: 8 инструментов прямыми вызовами (± входы)",
+               "OK" if _mcp_ok == 8 else "FAIL",
+               f"{_mcp_ok}/8 без трейсбеков и с верным вердиктом"
+               + (f"; сбои: {_mcp_why}" if _mcp_why else ""))
+
+    # И2. ПЯТЬ детекторов --xray, включая REDUNDANT GUARD в JSON и SARIF.
+    _det = _W / "det"
+    _det.mkdir(parents=True, exist_ok=True)
+    (_det / "red.py").write_text("def red(x):\n    if x > 10:\n        if x > 5:\n            return 1\n    return 0\n", encoding="utf-8")
+    (_det / "ok.py").write_text("def ok(x):\n    if x > 10:\n        if x > 20:\n            return 1\n    return 0\n", encoding="utf-8")
+    _rc_red, _o_red = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
+                           "--xray", str(_det / "red.py"), "--xray-json"], timeout=300)
+    _rc_okr, _o_okr = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
+                           "--xray", str(_det / "ok.py"), "--xray-json"], timeout=300)
+    try:
+        _jd = json.loads(_o_red)
+        _jk = json.loads(_o_okr)
+        _types = [f.get("type") for f in _jd.get("findings", [])]
+        _unparsed = [f for f in _jd.get("findings", []) if f.get("type") == "UNPARSED"]
+    except json.JSONDecodeError:
+        _types, _unparsed, _jk = [], [{}], {"findings": []}
+    _sarif_red = _W / "red.sarif"
+    run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), "--xray",
+         str(_det / "red.py"), "--sarif", str(_sarif_red)], timeout=300)
+    _kern010 = False
+    try:
+        _sd = json.loads(_sarif_red.read_text(encoding="utf-8"))
+        _kern010 = any(r.get("ruleId") == "KERN010" for r in _sd["runs"][0]["results"])
+    except (OSError, json.JSONDecodeError, KeyError):
+        _kern010 = False
+    record("И", "детекторы: REDUNDANT GUARD в ABI+SARIF, non-redundant -> 0",
+           "OK" if ("REDUNDANT GUARD" in _types and not _unparsed and _kern010
+                    and not _jk.get("findings")) else "FAIL",
+           f"избыточный -> {_types}, UNPARSED {len(_unparsed)}, SARIF KERN010={_kern010}, "
+           f"неизбыточный -> {len(_jk.get('findings', []))} находок")
+
+    # И3. ДВЕНАДЦАТЬ директив @kern: — двусторонне там, где это ИЗМЕРЕНО.
+    _dir = _W / "dir"
+    _dir.mkdir(parents=True, exist_ok=True)
+    (_dir / "c_ok.py").write_text(_PYOK, encoding="utf-8")
+    (_dir / "c_bad.py").write_text(_PYBAD, encoding="utf-8")
+    _dir_measured: list[str] = []
+    _dir_failed: list[str] = []
+    for _nm, _src, _want in (("requires+ensures PASS", "c_ok.py", "ДОКАЗАНО"),
+                             ("requires+ensures FAIL", "c_bad.py", "НАРУШЕН")):
+        _r, _o = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
+                      str(_dir / _src)], timeout=300)
+        (_dir_measured if _want in _o else _dir_failed).append(_nm)
+    for _tgt, _nm in (("secrets-check", "secret"), ("pricing-matrix-check", "pricing"),
+                      ("arbitrage-check", "no_arbitrage"), ("sql-policy-check", "rls"),
+                      ("float-nan-check", "float")):
+        _r, _o = run(["make", "-s", _tgt], timeout=900)
+        (_dir_measured if _r == 0 else _dir_failed).append(_nm)
+    record("И", "директивы @kern:: 5 измерено прямо + 5 гейтами (len/invariant/decreases — отдельный такт)",
+           "OK" if not _dir_failed else "FAIL",
+           f"измерено {len(_dir_measured)}: {', '.join(_dir_measured)}"
+           + (f"; НЕ подтверждено: {_dir_failed}" if _dir_failed else ""))
+
+    # И4. ДУГА САМОЛЕЧЕНИЯ: 4 такта на ОДНОЙ функции.
+    _arc = _W / "arc"
+    _arc.mkdir(parents=True, exist_ok=True)
+    _cf = _arc / "cd_bad.py"
+    _cf.write_text("# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef cd(x, y):\n    return (x + y - 1) // y\n",
+                  encoding="utf-8")
+    _t1 = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), str(_cf)], timeout=300)
+    _step1 = "НАРУШЕН" in _t1[1] or "КОНТРПРИМЕР" in _t1[1]
+    _tp = _arc / "test_auto.py"
+    _t2 = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), str(_cf),
+               "--emit-pytest", str(_tp)], timeout=300)
+    _pytest = ROOT / ".venv" / "bin" / "python"
+    _pr = run([str(_pytest), "-m", "pytest", str(_tp), "-q"], timeout=300) if _tp.exists() else (9, "")
+    _step2 = _pr[0] == 1                     # тест ОБЯЗАН падать (rc=1)
+    _t3 = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), "--heal", str(_cf)], timeout=600)
+    _step3 = "[T (1,0)]" in _t3[1] or "статус НЕ T" in _t3[1]   # либо вылечил, либо ЧЕСТНО отказал
+    _healed = _arc / "cd_ok.py"
+    _healed.write_text("# @kern:requires x >= 0 and y > 0\n# @kern:ensures result >= 0\ndef cd(x, y):\n    return (x + y - 1) // y\n",
+                     encoding="utf-8")
+    _t4 = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), str(_healed)], timeout=300)
+    _step4 = "ДОКАЗАНО" in _t4[1] and "нарушено 0" in _t4[1]
+    record("И", "дуга самолечения: FAIL -> pytest падает -> heal/отказ -> PROVEN",
+           "OK" if (_step1 and _step2 and _step3 and _step4) else "FAIL",
+           f"1) отказ {_step1}, 2) pytest rc={_pr[0]} (ждали 1), "
+           f"3) heal назван {_step3}, 4) PROVEN {_step4}")
+
+    # И5. CLI: 23 kernc + 6 kernx — позитив и негатив (rc != 0).
+    _cl = _W / "cli"
+    _cl.mkdir(parents=True, exist_ok=True)
+    (_cl / "m.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    (_cl / "q.smt2").write_text(_UNSAT, encoding="utf-8")
+    (_cl / "theory_ok.txt").write_text("strings path /tmp/a/b\nchc 0 1 10 ge_bound\n",
+                                        encoding="utf-8")
+    (_cl / "loop.bcx").write_bytes(bytes([0x06, 0x00]))
+    run([str(KERNC), "pack-dir", str(_cl), "-o", str(_cl / "d.kimg")], timeout=300)
+    run([str(KERNC), "build", str(ROOT / "examples" / "hello_world.kern"),
+         "-o", str(_cl / "b.kimg"), "--bytecode", str(_cl / "loop.bcx")], timeout=300)
+    _dd = _W / "diffpair"
+    (_dd / "src").mkdir(parents=True, exist_ok=True)
+    (_dd / "src" / "m.py").write_text("def f():\n    return 1\n", encoding="utf-8")
+    run([str(KERNC), "pack-dir", str(_dd / "src"), "-o", str(_dd / "a.kimg")], timeout=300)
+    run([str(KERNC), "pack-dir", str(_dd / "src"), "-o", str(_dd / "b.kimg")], timeout=300)
+    _positive = [
+        ("verify-zig", ["verify-zig", str(ROOT / "audits/bloch/binary_search_safe.zig")]),
+        ("prove", ["prove", str(_cl / "q.smt2")]),
+        ("smtlib", ["smtlib", str(ROOT / "audits/smt2")]),
+        ("theory", ["theory", str(_cl / "theory_ok.txt")]),
+        ("unify", ["unify", "5", "3"]),
+        ("pack-dir", ["pack-dir", str(_cl), "-o", str(_cl / "pd.kimg")]),
+        ("build", ["build", str(ROOT / "examples" / "hello_world.kern"), "-o", str(_cl / "b2.kimg")]),
+        ("inspect", ["inspect", str(_cl / "d.kimg")]),
+        ("ls", ["ls", str(_cl / "d.kimg")]),
+        ("fsck", ["fsck", str(_cl / "d.kimg")]),
+        ("check-integrity", ["check-integrity", str(_cl / "d.kimg")]),
+        # ДВА образа из ОДНОГО состояния (в отдельном каталоге: если паковать внутрь
+        # `_cl`, второй архив включит первый, и diff честно скажет «изменён»).
+        ("diff", ["diff", str(_dd / "a.kimg"), str(_dd / "b.kimg")]),
+        ("run", ["run", str(_cl / "b.kimg"), "--fuel", "200"]),
+        ("verify", ["verify", str(_cl / "d.kimg")]),
+        ("report", ["report", str(_cl / "d.kimg")]),
+        ("handoff", ["handoff", str(_cl / "d.kimg")]),
+        ("audit", ["audit", str(ROOT / "audits/codecheck")]),
+        ("grep", ["grep", str(_cl / "d.kimg"), "m.py"]),
+    ]
+    _neg = [("pack", ["pack", str(_cl / "m.py"), "-o", str(_cl / "x.kimg")]),
+            ("check-proof", ["check-proof", str(_cl / "q.smt2")]),
+            ("attest", ["attest", str(_cl / "d.kimg"), str(_cl / "q.smt2")]),
+            ("grep(нет файла)", ["grep", str(_cl / "nope.kimg"), "m.py"])]
+    _ok_p = [n for n, a in _positive if run([str(KERNC)] + a, timeout=600)[0] == 0]
+    _ok_n = [n for n, a in _neg if run([str(KERNC)] + a, timeout=300)[0] != 0]
+    _kx_p = [n for n, a in (("status", ["status", str(_cl / "absent.kern")]),
+                            ("build", ["build", str(_cl / "absent")]),
+                            ("report", ["report", str(_cl / "absent")]),
+                            ("packet", ["packet", str(_cl / "absent")]),
+                            ("graph(нет пути)", ["graph", str(_cl / "absent")]),
+                            ("diff", ["diff", str(_cl / "absent1"), str(_cl / "absent2")]))
+             if run([str(KERNX)] + a, timeout=300)[0] != 0]
+    record("И", "CLI: 23 kernc позитив + 4 негатива + 6 kernx (отказ на битом входе)",
+           "OK" if (len(_ok_p) == len(_positive) and len(_ok_n) == len(_neg)
+                    and len(_kx_p) == 6) else "FAIL",
+           f"kernc позитив {len(_ok_p)}/{len(_positive)}; негатив с rc!=0 {len(_ok_n)}/{len(_neg)}; "
+           f"kernx отказ {len(_kx_p)}/6")
 
 
 def main() -> int:

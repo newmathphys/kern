@@ -521,13 +521,26 @@ pub fn main(init: std.process.Init) !void {
             fail("[!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).\n", .{});
             return;
         }
+        // ДЕФЕКТ #539 (ИЗМЕРЕНО): `.smt2` БЕЗ `(check-sat)` давал вердикт
+        // «НЕ доказано (контрпример/таймаут)» даже когда формула UNSAT: врата
+        // спрашивали решатель о статусе файла КАК ЕСТЬ, а `check-sat`
+        // отсутствовал — то есть вопрос не задавался, а причина называлась
+        // неверно (класс #370). Теперь запрос достраивается ЯВНО, и это
+        // сказано в отчёте, а не сделано молча.
+        var smt_eff: []const u8 = smt;
+        var added_check_sat = false;
+        if (std.mem.indexOf(u8, smt, "(check-sat)") == null) {
+            smt_eff = try std.fmt.allocPrint(alloc, "{s}\n(check-sat)\n", .{smt});
+            added_check_sat = true;
+            std.debug.print("  [i] в файле нет (check-sat) — запрос достроен автоматически\n", .{});
+        }
         var ast: [32]u8 = undefined;
-        std.crypto.hash.sha2.Sha256.hash(smt, &ast, .{});
+        std.crypto.hash.sha2.Sha256.hash(smt_eff, &ast, .{});
         const cert = ProofCertificate{
             .target_ast_digest = ast,
             .contract_digest = ast,
             .checker_id = 1,
-            .witness_payload = smt,
+            .witness_payload = smt_eff,
         };
         const policy = VerificationPolicy{ .require_anti_vacuity = true, .allowed_checkers = 2 };
         const r = try AdmissionGate.verifyClaimWithChecker(alloc, ast, ast, cert, policy, z3b.makeChecker(&bridge));
@@ -552,8 +565,9 @@ pub fn main(init: std.process.Init) !void {
             // Модельный запрос ниже `(exit)` вырезает с самого начала
             // (`writeWithoutExit`) — здесь правило обязано быть ТЕМ ЖЕ, иначе
             // официальная задача не проверяется вовсе.
-            try writeWithoutExit(wq, smt);
-            try wq.writeAll("\n(check-sat)\n(get-proof)\n");
+            try writeWithoutExit(wq, smt_eff);
+            if (!added_check_sat) try wq.writeAll("\n(check-sat)");
+            try wq.writeAll("\n(get-proof)\n");
             // ДЕФЕКТ #536 (ИЗМЕРЕНО): вывод QF_BV для `alignment_bitvec` — 67 МБ
             // и генерируется 7.1 с. С дефолтами (4 МБ / 5 с) запрос вывода падал
             // в ToolError, чекер не запускался, а строка оставалась
@@ -576,8 +590,8 @@ pub fn main(init: std.process.Init) !void {
                 var ar = std.heap.ArenaAllocator.init(alloc);
                 defer ar.deinit();
                 const ta = ar.allocator();
-                const contract = try proof_check.extractAsserts(ta, smt);
-                const pv = try proof_check.verifyProofKindSmt(ta, proof, contract, query_kind, smt);
+                const contract = try proof_check.extractAsserts(ta, smt_eff);
+                const pv = try proof_check.verifyProofKindSmt(ta, proof, contract, query_kind, smt_eff);
                 std.debug.print("  [i] вид запроса: {s} | привязка посылок обязательна: {s}\n", .{
                     @tagName(query_kind), if (pv.premises_required) "да" else "нет",
                 });
@@ -640,7 +654,7 @@ pub fn main(init: std.process.Init) !void {
             const wm = qm.writer();
             try wm.writeAll("(set-option :produce-models true)\n");
             // `(exit)` в исходном контракте оборвал бы вывод до `(get-model)`.
-            try writeWithoutExit(wm, smt);
+            try writeWithoutExit(wm, smt_eff);
             try wm.writeAll("\n(check-sat)\n(get-model)\n");
             const cm = bridge.executeCapture(qm.items());
             defer alloc.free(cm.stdout);
@@ -721,8 +735,10 @@ pub fn main(init: std.process.Init) !void {
     // вывод `false`), 1 — отвергнут. Любая подделка обязана дать 1.
     if (std.mem.eql(u8, command, "check-proof")) {
         if (args.len < 4) {
+            // ДЕФЕКТ #544 (ИЗМЕРЕНО): ветка ошибки делала `return` -> rc=0,
+            // то есть ПРИГЛАШЕНИЕ К ИСПОЛЬЗОВАНИЮ выглядело как УСПЕХ.
             std.debug.print("[!] check-proof: нужны <smt2> и <proof>\n", .{});
-            return;
+            std.process.exit(2);
         }
         const smt = try compat.readFileAlloc(alloc, args[2], 1 << 20);
         const proof = try compat.readFileAlloc(alloc, args[3], 1 << 20);
@@ -993,17 +1009,18 @@ pub fn main(init: std.process.Init) !void {
         const img = try compat.readFileAlloc(alloc, args[3], 64 << 20);
         defer alloc.free(img);
         if (img.len < 128) {
+            // #544: было `return` (rc=0) — ошибка выглядела как успех.
             std.debug.print("[!] файл меньше 128-байтного заголовка\n", .{});
-            return;
+            std.process.exit(2);
         }
         const hdr_bytes: *const [128]u8 = @ptrCast(img.ptr);
         const h = KimgHeader.parse(hdr_bytes, img.len) catch |e| {
             std.debug.print("[!] заголовок невалиден: {s}\n", .{@errorName(e)});
-            return;
+            std.process.exit(2);
         };
         KimgHeader.verifyMerkleRoot(img, h) catch {
             std.debug.print("[!] Merkle-корень НЕ совпал — аттестовать нельзя\n", .{});
-            return;
+            std.process.exit(2);
         };
         var digest: [32]u8 = undefined;
         std.crypto.hash.sha2.Sha256.hash(img, &digest, .{});
@@ -1081,8 +1098,16 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (std.mem.eql(u8, command, "pack")) {
-        std.debug.print("[pack] Образ собирается командой: kernc build <file.kern> -o out.kimg\n", .{});
-        return;
+        // ДЕФЕКТ #544 (ИЗМЕРЕНО): `kernc pack <file> -o out.kimg` печатал подсказку
+        // и выходил с rc=0, НЕ создавая файла: «успех» без артефакта (класс
+        // #370). Команда для одного файла не реализована — говорим это прямо.
+        std.debug.print(
+            "[!] pack: упаковка ОДНОГО файла не поддерживается — используйте\n" ++
+                "    kernc build <file.kern> -o out.kimg  (из манифеста)\n" ++
+                "    kernc pack-dir <dir> -o out.kimg     (каталог)\n",
+            .{},
+        );
+        std.process.exit(2);
     }
 
     // ЭШЕЛОН 8, ПУНКТ 40В: `kernc grep <pattern> <image.kimg>` (livegrep-стиль).
@@ -1091,9 +1116,20 @@ pub fn main(init: std.process.Init) !void {
     // распаковкой (`decompressObject` сверяет дайджест по содержимому).
     // rc=0 — есть совпадения, rc=1 — нет, rc=2 — образ повреждён.
     if (std.mem.eql(u8, command, "grep")) {
-        if (args.len < 4) fail("[!] Использование: kernc grep <pattern> <image.kimg>\n", .{});
-        const pattern = args[2];
-        const img_path = args[3];
+        if (args.len < 4) fail("[!] Использование: kernc grep <image.kimg> <шаблон>\n", .{});
+        // ДЕФЕКТ #543 (ИЗМЕРЕНО): `--help` обещал `grep <kimg> <шаблон>`, а код
+        // ждал `grep <шаблон> <kimg>`. Пользователь шёл по документации и
+        // получал `[!] чтение образа: FileNotFound` на СУЩЕСТВУЮЩЕМ файле.
+        // Теперь принимаются ОБА порядка: тот аргумент, который указывает на
+        // существующий файл образа, считается образом.
+        var pattern = args[2];
+        var img_path = args[3];
+        const _a_is_img = compat.readFileAlloc(alloc, args[2], 1 << 28) catch null;
+        if (_a_is_img) |buf| {
+            alloc.free(buf);
+            pattern = args[3];
+            img_path = args[2];
+        }
         if (pattern.len == 0) fail("[!] Пустой шаблон\n", .{});
         const img = compat.readFileAlloc(alloc, img_path, 1 << 28) catch |e| {
             fail("[!] чтение образа: {s}\n", .{@errorName(e)});

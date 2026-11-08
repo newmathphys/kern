@@ -343,6 +343,20 @@ def text_result(s: str, is_error: bool = False) -> dict:
 
 
 def call_tool(name: str, args: dict) -> dict:
+    """Публичная точка вызова: ЛЮБОЕ исключение -> isError=True.
+
+    ДЕФЕКТ #540 (ИЗМЕРЕНО): исключение внутри инструмента отдавалось как
+    обычный текст с `isError=False`, то есть агент получал Python-трейсбек и
+    одновременно сигнал «успех» (класс #427: отказ не назван отказом).
+    """
+    try:
+        return _call_tool_inner(name, args)
+    except Exception as e:  # noqa: BLE001 — граница протокола MCP
+        return text_result(f"[!] {name}: внутренняя ошибка инструмента: "
+                           f"{type(e).__name__}: {e}", True)
+
+
+def _call_tool_inner(name: str, args: dict) -> dict:
     if name in ("kern_xray_code", "kern_rlvr_reward", "kern_verify_action"):
         import tempfile
         ex = ROOT / "tools" / "kern_contracts.py"

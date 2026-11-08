@@ -3304,7 +3304,7 @@ def expect_demo(alloc_out: list) -> int:
     return 0
 
 
-def emit_pytest(out_path: str, examples: list, files) -> int:
+def emit_pytest(out_path: str, examples: list, files, failures: int = 0) -> int:
     """УЛУЧШЕНИЕ №4: превратить контрпример Z3 в ПАДАЮЩИЙ pytest.
 
     ЗАЧЕМ. Найденный Z3 баг (`balance = 0, amount = -1`) был всего лишь
@@ -3325,6 +3325,17 @@ def emit_pytest(out_path: str, examples: list, files) -> int:
     ]
     for ex in examples:
         args = ", ".join(f"{p}={ex['vals'][p]}" for p in ex["params"])
+        if ex.get("kind") == "div0":
+            # ДЕФЕКТ #546: тест на деление на ноль обязан ПАДАТЬ (ZeroDivisionError)
+            # на текущем коде — это и есть найденный баг.
+            lines += [
+                "",
+                f"def test_zero_division_{ex['name']}():",
+                f"    # KERN/Z3: контрпример безопасности (стр. {ex['line']})",
+                f"    # предусловие нарушено: {ex['ens']}",
+                f"    {ex['name']}({args})  # обязано упасть: ZeroDivisionError",
+            ]
+            continue
         lines += [
             "",
             f"def test_counterexample_{ex['name']}():",
@@ -3335,8 +3346,15 @@ def emit_pytest(out_path: str, examples: list, files) -> int:
             f"        'KERN: контракт нарушен при {args}')",
         ]
     if not examples:
-        lines += ["", "def test_no_counterexamples():",
-                  "    # Z3 не нашёл контрпримеров — регрессий нет.",
+        # #546: `assert True` допустим ТОЛЬКО когда находок нет вообще. Если
+        # находки были, а контрпример извлечь не удалось — это НАЗВАННЫЙ отказ,
+        # а не зелёный файл (класс «ложный зелёный»).
+        if failures:
+            print(f"  [!] --emit-pytest: находок {failures}, но контрпример не "
+                  f"извлечён — файл {out_path} НЕ создан (иначе зелёный тест врал бы)")
+            return 2
+        lines += ["", "def test_no_findings():",
+                  "    # KERN: находок НЕТ (проверено {n} функций) — регрессий не найдено.",
                   "    assert True"]
     Path(out_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"  [i] pytest из контрпримеров: {out_path} ({len(examples)} тест(ов))")
@@ -4708,6 +4726,9 @@ SARIF_RULES = [
      "Unguarded index: the counterexample shows the index that leaves the bounds."),
     ("KERN008", "DeadBranch",
      "Unreachable branch: the guard condition is unsatisfiable."),
+    ("KERN010", "RedundantGuard",
+     "Redundant guard: the condition is ALWAYS true on this path, so the branch "
+     "cannot reject anything (CWE-571-class dead defence)."),
     ("KERN009", "BehaviouralDivergence",
      "Behavioural delta: the changed function returns a different value for the "
      "given input (Belnap verdict, not a crash)."),
@@ -4719,6 +4740,7 @@ SARIF_XRAY_RULE = {
     "CRASH PATH": "KERN006",
     "BOUNDS PATH": "KERN007",
     "DEAD BRANCH": "KERN008",
+    "REDUNDANT GUARD": "KERN010",
 }
 
 # Строка находки: «строка 12» / «(строка 18)» — реальный номер для аннотации.
@@ -5128,6 +5150,16 @@ def _demo(args) -> int:
                         "message": (f"{name}: возможно деление на ноль "
                                     f"(делитель: {', '.join(_divnames)})"
                                     + (f"; контрпример: {fmt_ce(ce)}" if ce else ""))})
+                    # ДЕФЕКТ #546: контрпример БЕЗОПАСНОСТИ в примеры для pytest
+                    # НЕ попадал (собирались только нарушения `ensures`), поэтому
+                    # `--emit-pytest` при реальном делении на ноль писал
+                    # `def test_no_counterexamples(): assert True` — ЗЕЛЁНЫЙ файл
+                    # вместо падающего теста. Теперь деление на ноль даёт тест.
+                    if ce and all(x in ce for x in params):
+                        examples.append({"name": name, "params": list(params),
+                                         "ens": f"{', '.join(_divnames)} != 0",
+                                         "vals": dict(ce), "line": ln, "file": str(p),
+                                         "kind": "div0"})
                     failed += 1
                     safety_failed += 1
                     continue
@@ -5363,7 +5395,9 @@ def _demo(args) -> int:
           f"вне подмножества {skipped} | всего {total}")
     # ---- УЛУЧШЕНИЕ №4: ПАДАЮЩИЙ PYTEST ИЗ КОНТРПРИМЕРА Z3 ----------------
     if getattr(args, "emit_pytest", None):
-        emit_pytest(args.emit_pytest, examples, args.files)
+        _rc_ep = emit_pytest(args.emit_pytest, examples, args.files, failed)
+        if _rc_ep != 0:
+            return _rc_ep
     # ---- ЭКСПОРТ ДЛЯ GITHUB (Этап 1) -------------------------------------
     # SARIF 2.1.0 -> красные плашки в Code Scanning / Pull Request;
     # ::error-аннотации -> работают даже без GitHub Advanced Security.
@@ -9899,14 +9933,27 @@ def _xray_json_run(path: str, kernc, show_all: bool, payload: list) -> int:
     st = _LAST_XRAY.get("stat") or (0, 0, 0, 0, [])
     checked, total, skipped, trivial, findings = st
     payload.append(_xray_json_doc(str(p), 1, total, checked, trivial, skipped,
-                                  0, list(findings), {}, {}))
+                                  0, list(findings), {}, {}, default_file=str(p)))
     return _rc
+
+
+# Тип-только форма: `[REDUNDANT GUARD] f: …` — одиночный файл печатает находки
+# БЕЗ префикса пути, и они превращались в `UNPARSED` (дефект #542).
+_RE_FINDING_TYPE_ONLY = re.compile(r"^\[(?P<type>[^\]]+)\]\s*(?P<rest>.*)$")
 
 
 def _xray_json_doc(target: str, files: int, total: int, checked: int, trivial: int,
                    skipped: int, unreadable: int, findings: list[str],
-                   reasons: dict[str, int], notes: dict[str, int]) -> dict:
-    """Собрать ОДИН объект ABI 1.0 из агрегатов аудита."""
+                   reasons: dict[str, int], notes: dict[str, int],
+                   default_file: str = "") -> dict:
+    """Собрать ОДИН объект ABI 1.0 из агрегатов аудита.
+
+    ДЕФЕКТ #542 (ИЗМЕРЕНО): у ОДИНОЧНОГО файла находки печатаются без префикса
+    пути (`[REDUNDANT GUARD] red: строка 3 …`), поэтому разбор по `file: [TYPE]`
+    не срабатывал и в ABI уезжало `{"file": "", "type": "UNPARSED"}` — то есть
+    SARIF такие находки ТЕРЯЛ. Теперь тип-только форма принимается, а путь
+    берётся из `default_file` (цель аудита).
+    """
     ff: list[dict] = []
     for x in findings:
         m = _RE_FINDING_LINE.match(x.strip())
@@ -9914,7 +9961,13 @@ def _xray_json_doc(target: str, files: int, total: int, checked: int, trivial: i
             ff.append({"file": m.group("file").strip(), "type": m.group("type").strip(),
                        "details": m.group("rest").strip()})
         else:
-            ff.append({"file": "", "type": "UNPARSED", "details": x.strip()})
+            m2 = _RE_FINDING_TYPE_ONLY.match(x.strip())
+            if m2:
+                ff.append({"file": default_file or str(target),
+                           "type": m2.group("type").strip(),
+                           "details": m2.group("rest").strip()})
+            else:
+                ff.append({"file": "", "type": "UNPARSED", "details": x.strip()})
     return {
         "schema_version": XRAY_JSON_SCHEMA,
         "audit_target": target,
@@ -11922,7 +11975,18 @@ def cmd_verify_action(action_path: str, policy_path: str, kernc) -> int:
     act = json.loads(Path(action_path).read_text(encoding="utf-8"))
     pol = json.loads(Path(policy_path).read_text(encoding="utf-8"))
     args = act.get("args", {})
-    if not args or not all(isinstance(v, int) for v in args.values()):
+    # ДЕФЕКТ #540 (ИЗМЕРЕНО через MCP): `args` СПИСКОМ ронял инструмент
+    # `AttributeError: 'list' object has no attribute 'values'` — сырой Python
+    # трейсбек вместо вердикта. Теперь список приводится к именованным
+    # аргументам `a0, a1, …` (это ДОКУМЕНТИРОВАННОЕ правило, а не догадка),
+    # а всё нечисловое — названный отказ, а не падение.
+    if isinstance(args, (list, tuple)):
+        args = {f"a{i}": v for i, v in enumerate(args)}
+    if not isinstance(args, dict):
+        print(f"  [SKIP] 'args' должен быть объектом или списком (получено {type(args).__name__})")
+        return 2
+    if not args or not all(isinstance(v, int) and not isinstance(v, bool)
+                           for v in args.values()):
         print("  [SKIP] аргументы действия должны быть ЦЕЛЫМИ (домен ℤ)")
         return 2
     decls = list(args)
@@ -12267,6 +12331,44 @@ def cmd_heal(path: str, kernc) -> int:
                     still += 1
         if still != 0:
             print(f"[HEAL] [!] временный файл НЕ прошёл перепроверку ({still}) — оригинал не тронут")
+            tmp_path.unlink(missing_ok=True)
+            return 1
+        # ДЕФЕКТ #547 (ИЗМЕРЕНО): перепроверка считала ТОЛЬКО краши. Файл с
+        # объявленным `@kern:ensures` после такого «лечения» всё ещё падал с
+        # `[FAIL] КОНТРАКТ НАРУШЕН`, а `--heal` печатал победное `[T (1,0)]`.
+        # Белнап T без полной перепроверки — прямое нарушение ядра: контракт
+        # обязан быть проверен ЦЕЛИКОМ (все обязательства, включая постусловие).
+        _recheck = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), str(tmp_path)],
+            capture_output=True, text=True, timeout=900)
+        _ro = (_recheck.stdout or "") + (_recheck.stderr or "")
+        _m_bad = re.search(r"нарушено (\d+)", _ro)
+        _m_unk = re.search(r"НЕ РЕШЕНО (\d+)", _ro)
+        _bad_n = int(_m_bad.group(1)) if _m_bad else -1
+        _unk_n = int(_m_unk.group(1)) if _m_unk else 0
+        if _bad_n != 0:
+            print(f"[HEAL] [!] после патча контракт ВСЁ ЕЩЁ нарушен (нарушено "
+                  f"{_bad_n if _bad_n >= 0 else '?'}, не решено {_unk_n}) — статус НЕ T; "
+                  f"оригинал не тронут. Причина: гард снимает КРАШ, но не доказывает "
+                  f"постусловие `@kern:ensures`")
+            print("      " + " ".join(_ro.split())[-220:])
+            # РЕЦЕПТ (не применяется молча): недостающее предусловие из
+            # контрпримера. ИЗМЕРЕНО: добавив `y > 0` к этому файлу, тот же
+            # верификатор даёт `[PASS] ДОКАЗАНО` — то есть дуга замыкается,
+            # но решает это ЧЕЛОВЕК/АГЕНТ, а не «тихая» правка спецификации.
+            _ce = re.search(r"\[КОНТРПРИМЕР\]\s*([^\n]+)", _ro)
+            if _ce:
+                _pairs = re.findall(r"([A-Za-z_]\w*)\s*=\s*(-?\d+)", _ce.group(1))
+                # ВАЖНО: НЕ печатаем готовое `requires` с КОНКРЕТНЫМИ значениями —
+                # такой контракт почти вакуумен (`x == 3 and y == -1`), и агент,
+                # применив его, получил бы «доказано» на пустом домене. Поэтому
+                # рецепт называет ПАРАМЕТР и вид сужения, а не значение.
+                _names = [k for k, _v in _pairs if k != "result"]
+                if _names:
+                    print(f"      рецепт: сузьте домен {'/'.join(_names)} "
+                          f"(например `# @kern:requires {' and '.join(n + ' != 0' for n in _names)}`), "
+                          f"затем повторите проверку. Фиксировать КОНКРЕТНЫЕ значения "
+                          f"нельзя — это вакуумный контракт")
             tmp_path.unlink(missing_ok=True)
             return 1
         # БЭКАП ОРИГИНАЛА и атомарная замена.
