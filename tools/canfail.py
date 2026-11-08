@@ -24,6 +24,21 @@ import atexit
 import json
 import os
 _ZIG_BIN = os.environ.get("ZIG") or "zig"   # ДЕФЕКТ #448: уважать $ZIG
+
+# ДЕФЕКТ #535 (ИЗМЕРЕНО в CI на 9ed7495b): после откатов харнесс ВСЕГДА
+# пересобирал Zig-артефакты (`zig build`), даже когда кейс не трогал ни одного
+# исходника артефактов. В job `formal-lean` Zig нет — и кейс `lean-sorry`
+# (правит `.lean`) падал на пересборке, а не на своей проверке. Правило:
+# пересборка ОБЯЗАТЕЛЬНА только если кейс менял источник артефакта
+# (`.zig`/`.rs`/`src/…`); иначе это названный пропуск. Защита #guardrail-verdict
+# (протухший `libkern.so`) сохранена: любой `.zig` по-прежнему требует сборки.
+_PATCHED_PATHS: list[str] = []
+
+
+def _needs_rebuild() -> list[str]:
+    """Файлы, из которых собираются артефакты (пересборка обязательна)."""
+    return [p for p in _PATCHED_PATHS
+            if p.endswith((".zig", ".rs")) or p.startswith(("src/", "build.zig"))]
 import re
 import signal
 import shutil
@@ -141,6 +156,7 @@ def touch(rel: str) -> None:
     смотрит только FAULTABLE) докладывала «дерево чистое». Класс дефекта #48.
     Теперь `touch()` ведёт себя так же строго, как `patch()`.
     """
+    _PATCHED_PATHS.append(rel)
     if rel not in FAULTABLE:
         raise RuntimeError(
             f"{rel} отсутствует в FAULTABLE — правка НЕ будет откачена! "
@@ -5040,13 +5056,29 @@ def main():
     # продолжал отвечать 200 на опровергнутый контракт, хотя `src/capi.zig` был
     # уже восстановлен — потому что `libkern.so` осталась собранной с диверсией.
     # Теперь: после отката исходников ПЕРЕСОБИРАЕМ артефакты из чистого кода.
-    print("[i] пересборка артефактов из восстановленных исходников...")
-    rb = subprocess.run([_ZIG_BIN, "build"], cwd=str(ROOT), capture_output=True, text=True, timeout=900)
-    if rb.returncode == 0:
-        print("[OK] артефакты пересобраны — пропатченных бинарников не осталось")
+    need = _needs_rebuild()
+    if not need:
+        # #535: кейсы правили только входные данные (`.lean`, `docs/…`, `tools/…`) —
+        # артефактов из них не собирается, протухнуть нечему. Печатаем причину, а не
+        # «пересобрано» (иначе это была бы ложная строка успеха).
+        print("[i] пересборка не требуется: кейсы не меняли исходники артефактов "
+              "(`.zig`/`.rs`/`src/`) — пропатченных бинарников быть не может")
     else:
-        print("[!] пересборка не удалась:", rb.stderr[-200:])
-        bad += 1
+        print(f"[i] пересборка артефактов из восстановленных исходников "
+              f"(тронуто {len(need)} файл(ов) сборки)...")
+        try:
+            rb = subprocess.run([_ZIG_BIN, "build"], cwd=str(ROOT),
+                                capture_output=True, text=True, timeout=900)
+        except FileNotFoundError:
+            print(f"[!] пересборка НЕВОЗМОЖНА: `{_ZIG_BIN}` не найден, а кейсы правили "
+                  f"источники артефактов ({need[:3]}) — это провал, а не «пропуск»")
+            bad += 1
+        else:
+            if rb.returncode == 0:
+                print("[OK] артефакты пересобраны — пропатченных бинарников не осталось")
+            else:
+                print("[!] пересборка не удалась:", rb.stderr[-200:])
+                bad += 1
 
     print()
     print("=" * 70)

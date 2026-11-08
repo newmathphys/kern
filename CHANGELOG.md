@@ -8,6 +8,27 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### Fixed — `#535`: пересборка артефактов в `canfail` больше не требуется зря
+
+ИЗМЕРЕНО в облаке (коммит `9ed7495b`, run `KERN CI #470`): job **`formal-lean`** дошёл до
+установки Lean (шаги 3–6 — `success`: elan, кэш, Mathlib, «0 errors, 0 sorry») и упал на шаге
+**`CAN-FAIL: кейс Lean`**. Причина — не Lean и не CDN: `canfail` после откатов **ВСЕГДА** вызывал
+`zig build`, а в этом job Zig нет; исключение `FileNotFoundError` роняло харнесс, хотя кейс
+`lean-sorry` правит `.lean` и никаких артефактов не производит.
+
+Теперь пересборка **условная**: список тронутых кейсом файлов отслеживается, и сборка
+обязательна ТОЛЬКО если среди них есть источник артефакта (`.zig`, `.rs`, `src/…`). Защита
+`#guardrail-verdict` (протухший `libkern.so` после патча `src/capi.zig`) сохранена целиком.
+Если зиг нужен, но не найден — это **названный провал**, а не «пропуск» и не traceback.
+
+ЗАМЕР (локально, `PATH=/usr/bin:/bin`):
+
+* `--only lean-sorry` → `[PASS] проверка ПОКРАСНЕЛА (rc=1) за 15 с` + `[i] пересборка не
+  требуется: кейсы не меняли исходники артефактов` → `ИТОГ: ВАКУУМНЫХ 0`, `rc=0`;
+* `--only binlevel` (правит `src/verifier/noninterference.zig`) → пересборка по-прежнему
+  выполняется, `rc=0`.
+
+
 ### Added — настоящий SARIF 2.1.0 для DevOps и все пакеты `prove-all-real` (#532–#534)
 
 - **#532 (`tools/kern_contracts.py`, `tools/audit_delta.py`)**: дефект **#497 закрыт ДЕЛОМ**, а не
