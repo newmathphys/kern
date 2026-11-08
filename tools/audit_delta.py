@@ -182,8 +182,20 @@ try:
 except (ImportError, OSError) as _e_qb:      # названный пропуск, а не тишина
     _QB = None
     _QB_OK = False
-    print(f"[i] audit-delta: движок `quixbugs_check` недоступен ({_e_qb}) — "
-          f"поведенческая дельта пойдёт сеточной пробой", file=sys.stderr)
+    if FROZEN:
+        # ДЕФЕКТ #516 (ИЗМЕРЕНО на опубликованном архиве v2.8.2): здесь стояло
+        # «поведенческая дельта пойдёт СЕТОЧНОЙ ПРОБОЙ». В упакованном бинаре
+        # сеточной пробы НЕТ (это отдельный `.py`, `_live_probe` возвращает
+        # None) — то есть сообщение обещало слой, которого не существует, ровно
+        # класс #370. Работает Z3-слой (`--diff-equiv` через сам бинарь), и
+        # именно он назван.
+        print("[i] audit-delta: живой слой и сеточная проба НЕДОСТУПНЫ в упакованном "
+              "бинаре (нет отдельного `.py`) — работает Z3-слой `--diff-equiv` "
+              "(измерено: DIVERGED с контрпримером). Это НАЗВАННЫЙ пропуск, "
+              "а не «поведение то же»", file=sys.stderr)
+    else:
+        print(f"[i] audit-delta: движок `quixbugs_check` недоступен ({_e_qb}) — "
+              f"поведенческая дельта пойдёт сеточной пробой", file=sys.stderr)
 
 
 def _engine_divergence(old: Path, new: Path) -> str | None:
@@ -395,8 +407,43 @@ def _selftest() -> int:
               f"ошибок инструмента {len(sd3['tool_errors'])}, "
               f"расхождений {len(sd3['diverged'])}")
 
+    # #517: ОТСУТСТВУЮЩИЙ ВХОД — ОТКАЗ, А НЕ «ЭКВИВАЛЕНТНО». Двусторонне:
+    # несуществующий путь обязан дать отказ, а настоящие каталоги — пройти.
+    # ИЗМЕРЕНО ДО правки: `--delta /nope_base /nope_head` печатал
+    # «изменившихся файлов 0» и «НЕ разошлось» с rc=0 (класс #499).
+    check("#517: несуществующий вход — ОТКАЗ rc=2, а не «расхождений нет»",
+          _validate_dirs("/nope_base_517", "/nope_head_517") == 2, "rc=2")
+    check("#517: файл вместо каталога — тоже ОТКАЗ rc=2",
+          _validate_dirs("tools/audit_delta.py", "tools/audit_delta.py") == 2, "rc=2")
+    check("#517: настоящие каталоги валидацию проходят (не глушим лишнего)",
+          _validate_dirs(clean, buggy) == 0, "rc=0")
+
     print(f"[{'FAIL' if fails else 'OK'}] audit-delta selftest: провалов {fails}")
     return 1 if fails else 0
+
+
+def _validate_dirs(base_dir: str, head_dir: str) -> int:
+    """BASE и HEAD обязаны быть СУЩЕСТВУЮЩИМИ каталогами (дефект #517).
+
+    ИЗМЕРЕНО на апплаенсе: `--delta /nope_base /nope_head` печатал
+    «поведенческая дельта: изменившихся файлов 0» и «поведение НЕ разошлось» с
+    **rc=0**. То же на файлах вместо каталогов. Это класс #370/#499: отчёт
+    утверждает «расхождений нет» там, где сравнения НЕ БЫЛО. Сравнивать нечего —
+    значит это ОТКАЗ, а не вердикт.
+    """
+    for label, d in (("BASE", base_dir), ("HEAD", head_dir)):
+        p = Path(d).expanduser()
+        if not p.exists():
+            print(f"[!] audit-delta: {label}={d!r} — путь НЕ СУЩЕСТВУЕТ. "
+                  f"Дельта считается по двум каталогам; «расхождений нет» здесь "
+                  f"было бы ложью (класс #499).", file=sys.stderr)
+            return 2
+        if not p.is_dir():
+            print(f"[!] audit-delta: {label}={d!r} — это НЕ каталог "
+                  f"(файл?). Дельта сравнивает ДЕРЕВЬЯ, а не отдельные файлы "
+                  f"(для пары файлов есть `--diff-equiv`).", file=sys.stderr)
+            return 2
+    return 0
 
 
 def main() -> int:
@@ -413,6 +460,11 @@ def main() -> int:
               "[--json] [--no-semantic] [--live] [--block-on-diverged]")
         return 2
     base_dir, head_dir = args
+    # #517: СНАЧАЛА проверить входы, потом сравнивать. Иначе несуществующий путь
+    # даёт «расхождений нет» с rc=0 — молчаливый зелёный на пустом месте.
+    bad_input = _validate_dirs(base_dir, head_dir)
+    if bad_input:
+        return bad_input
     d = delta(audit_json(base_dir), audit_json(head_dir))
     # #508: ПОВЕДЕНЧЕСКАЯ половина. `--xray` не видит логических багов
     # (`a + b` вместо `a - b` не падает), а `--diff-equiv` на тех же 40 парах

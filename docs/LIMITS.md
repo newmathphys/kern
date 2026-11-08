@@ -152,6 +152,7 @@ accuse (a skip is safer than a false accusation).
 | a subprocess without a timeout | `make spawn-check`, `make spawn-selftest` |
 | memory of subprocesses | `make audits-mem-check` |
 | arithmetic of the corpus | `make audits` |
+| **which layers of `--delta` run INSIDE the archive** (`#516`) | `./kerna --delta base head` — the Z3 layer (`--diff-equiv`) works and prints `DIVERGED` with a counterexample; the LIVE layer and the grid probe need a separate `.py` and are named skips in stderr. Not a silent «behaviour is the same». |
 
 ## 7. Facts (machine-checked)
 
