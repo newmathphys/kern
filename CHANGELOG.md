@@ -8,6 +8,27 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### #518: on a REAL PR the gate said «tool error» where the solver honestly said «cannot decide»
+
+- **MEASURED (T5 of the plan) on a real redis bugfix** `0e618fa` «Fix NULL deref in
+  `usUntilEarliestTimer` when all time events are deleted (#15391)»: the patch adds
+  `if (earliest == NULL) return -1;` to `src/ae.c`. Replayed as a PR (`BASE = 0e618fa~1`,
+  `HEAD = 0e618fa`) through the packaged appliance:
+  `[!] ПОВЕДЕНЧЕСКОЕ СРАВНЕНИЕ НЕ ВЫПОЛНЕНО … src/ae.c: rc=2 исполнитель вернул код 2 без вердикта`.
+- **Root:** `--diff-equiv` returns `rc=2` BOTH when the tool is broken AND when it honestly
+  answers `[UNKNOWN]` (Belnap N — here the function body has a loop). After `#513` (fail-closed on
+  tool errors) both cases were reported as a refusal, i.e. a truthful N was being passed off as a
+  tool failure — the same class of dishonesty, only in the other direction.
+- **Fix:** `audit_delta` parses the executor's own summary — `ошибок инструмента K` vs
+  `недоказуемых M`. K>0 (or `[TOOL_ERROR]`) → refusal `rc=2`; M>0 only → a new bucket
+  (`semantic.undecided`), printed as «НЕ РЕШЕНО (Belnap N) … это НЕ „поведение то же“».
+- **MEASURED AFTER, both directions** (`buggy → fixed` and `fixed → buggy`): `rc=0` and the line
+  «НЕ РЕШЕНО (Belnap N) для 1 файл(ов) — это НЕ „поведение то же“». Honest boundary of this tack:
+  a NULL dereference is outside the detector vocabulary (`CRASH PATH` = division by zero), so the
+  gate does not block — and it does not pretend that the behaviour is unchanged either.
+  `audit-delta --selftest` grew to **14 OK** (two new checks: N is not a tool error; a real tool
+  error stays an error).
+
 ### #517: `--delta` said «no divergence» for paths that DO NOT EXIST
 
 - **MEASURED (found while verifying `#516` on the packaged appliance, after `/tmp/dt` was cleaned up):**

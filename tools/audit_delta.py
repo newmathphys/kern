@@ -273,6 +273,13 @@ def semantic_delta(base_dir: str, head_dir: str, limit: int = SEMA_LIMIT,
     # которого не было (ровно класс #499, ради устранения которого писан #407).
     # Теперь отказ инструмента — это ОТКАЗ (rc=2 с названной причиной).
     tool_errors: list[dict] = []
+    # ДЕФЕКТ #518 (НАЙДЕНО T5 на РЕАЛЬНОМ PR redis `0e618fa`, fix NULL deref).
+    # `--diff-equiv` возвращает rc=2 И когда инструмент сломан, И когда он честно
+    # НЕ РЕШИЛ (`[UNKNOWN]`, Belnap N — например, тело с циклом). После #513 оба
+    # случая стали «сравнение не выполнено», то есть ЧЕСТНЫЙ N выдавался за отказ.
+    # Различаем по сводке самого `--diff-equiv`: `ошибок инструмента K` против
+    # `недоказуемых M`.
+    undecided: list[dict] = []
     for bb, hb, rel in pairs:
         # СЛОЙ 1 — ЖИВОЙ вызов (только Python: для C-like запуск требует сборки,
         # и это уже не «дельта аудита», а отдельная задача).
@@ -302,14 +309,25 @@ def semantic_delta(base_dir: str, head_dir: str, limit: int = SEMA_LIMIT,
             diverged.append({"file": rel, "detail": ln.strip() + (" " + cex if cex else "")})
         if found:
             continue
-        # Нет вердикта И ненулевой код (или явный `[TOOL_ERROR]`) — это НЕ «эквивалентно».
-        if rc != 0 or "[TOOL_ERROR]" in out:
+        # Нет вердикта: различаем ОТКАЗ ИНСТРУМЕНТА и честное «НЕ РЕШЕНО» (#518).
+        n_err = re.search(r"ошибок инструмента (\d+)", out)
+        n_unk = re.search(r"недоказуемых (\d+)", out)
+        err_cnt = int(n_err.group(1)) if n_err else 0
+        unk_cnt = int(n_unk.group(1)) if n_unk else 0
+        if err_cnt or ("[TOOL_ERROR]" in out) or (rc != 0 and not n_unk):
             why = next((x.strip() for x in lines if "[TOOL_ERROR]" in x), "")
             tool_errors.append({"file": rel, "rc": rc,
                                 "detail": why or f"исполнитель вернул код {rc} без вердикта"})
+        elif unk_cnt:
+            # НЕ «эквивалентно» и НЕ «сломалось»: решатель не определился (N).
+            undecided.append({"file": rel,
+                              "detail": f"[UNKNOWN] решатель не определился "
+                                        f"(недоказуемых {unk_cnt}) — это Belnap N, "
+                                        f"а НЕ «поведение то же»"})
     return {"changed_files": changed_total, "compared": len(pairs),
             "skipped_by_limit": max(0, changed_total - len(pairs)),
-            "diverged": diverged, "tool_errors": tool_errors}
+            "diverged": diverged, "tool_errors": tool_errors,
+            "undecided": undecided}
 
 def _selftest() -> int:
     """Три направления на фикстурах: регресс / исправление / тот же вход.
@@ -418,6 +436,22 @@ def _selftest() -> int:
     check("#517: настоящие каталоги валидацию проходят (не глушим лишнего)",
           _validate_dirs(clean, buggy) == 0, "rc=0")
 
+    # #518: «НЕ РЕШЕНО» (Belnap N) — не то же, что «ОТКАЗ ИНСТРУМЕНТА».
+    # ИЗМЕРЕНО на РЕАЛЬНОМ PR redis (0e618fa, fix NULL deref в src/ae.c):
+    # `--diff-equiv` честно отвечал [UNKNOWN] (тело с циклом), а `--delta` после
+    # #513 объявлял это отказом инструмента. Различаем по сводке исполнителя.
+    def _classify(text: str) -> tuple[int, int]:
+        e = re.search(r"ошибок инструмента (\d+)", text)
+        u = re.search(r"недоказуемых (\d+)", text)
+        return (int(e.group(1)) if e else 0, int(u.group(1)) if u else 0)
+
+    check("#518: [UNKNOWN] считается N, а не отказом инструмента",
+          _classify("ИТОГО: эквивалентных 0 | разошедшихся 0 | недоказуемых 1 | "
+                    "ошибок инструмента 0 | всего 1") == (0, 1), "err=0, unk=1")
+    check("#518: реальный отказ инструмента по-прежнему отказ",
+          _classify("ИТОГО: эквивалентных 0 | разошедшихся 0 | недоказуемых 0 | "
+                    "ошибок инструмента 1 | всего 1") == (1, 0), "err=1, unk=0")
+
     print(f"[{'FAIL' if fails else 'OK'}] audit-delta selftest: провалов {fails}")
     return 1 if fails else 0
 
@@ -470,7 +504,7 @@ def main() -> int:
     # (`a + b` вместо `a - b` не падает), а `--diff-equiv` на тех же 40 парах
     # QuixBugs даёт DIVERGED 40/40 (ИЗМЕРЕНО). Без этого дельта врала «изменений нет».
     sema = {"changed_files": 0, "compared": 0, "skipped_by_limit": 0,
-            "diverged": [], "tool_errors": []}
+            "diverged": [], "tool_errors": [], "undecided": []}
     if not no_sema:
         sema = semantic_delta(base_dir, head_dir, live=live)
     d["semantic"] = sema
@@ -523,6 +557,12 @@ def main() -> int:
                   f"{len(sema['tool_errors'])} файл(ов) — это НЕ «поведение то же»:")
             for x in sema["tool_errors"][:10]:
                 print(f"    ! {x['file']}: rc={x['rc']} {x['detail']}")
+        elif sema["undecided"]:
+            # #518: честное «не решено» (Belnap N) — НЕ эквивалентно и НЕ отказ.
+            print(f"  НЕ РЕШЕНО (Belnap N) для {len(sema['undecided'])} файл(ов) — "
+                  f"это НЕ «поведение то же»:")
+            for x in sema["undecided"][:10]:
+                print(f"    ? {x['file']}: {x['detail']}")
         else:
             print("  поведение общих изменившихся файлов НЕ разошлось")
     # #513: ОТКАЗ ИНСТРУМЕНТА = ОТКАЗ ГЕЙТА. Измерено на опубликованном архиве:
