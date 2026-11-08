@@ -88,6 +88,16 @@ pub const Z3Bridge = struct {
     /// могли дёшево и ДЕТЕРМИНИРОВАННО войти в ветку отказа чтения:
     /// иначе пришлось бы генерировать вывод > 4 МБ (медленно и нестабильно).
     max_stdout: usize = 4 * 1024 * 1024,
+    /// ЛИМИТ ПАМЯТИ РЕШАТЕЛЯ (`-memory:N`, МБ). ДЕФЕКТ #536 (ИЗМЕРЕНО): для
+    /// QF_BV вывод Z3 бывает 67 МБ, и на `-memory:256` решатель отвечал
+    /// `(error "out of memory")` с кодом 101 — мост возвращал ToolError, чекер
+    /// не запускался, а строка оставалась «ДОКАЗАНО (допущено)» без счётчика.
+    /// Значение 256 остаётся ДЕФОЛТОМ для вердикта (защита от «взбесившегося»
+    /// решателя); для ЗАПРОСА ВЫВОДА его поднимают явно и называют.
+    mem_mb: u32 = 256,
+    /// Флаг `-memory:N`, собранный из `mem_mb` (буфер живёт в структуре).
+    mem_flag: []const u8 = "-memory:256",
+    mem_flag_buf: [24]u8 = undefined,
     /// ИНЪЕКЦИЯ СБОЕВ (только для тестов): вероятность отказа на КАЖДОМ шаге
     /// взаимодействия с ОС, в процентах (0 = выключено).
     ///
@@ -120,6 +130,20 @@ pub const Z3Bridge = struct {
         if (compat.envVar("KERN_Z3_TIMEOUT_MS")) |v| {
             if (std.fmt.parseInt(u32, v, 10)) |ms| {
                 if (ms > 0) b.timeout_ms = ms;
+            } else |_| {}
+        }
+        // ДЕФЕКТ #536 (ИЗМЕРЕНО на `audits/smt2/alignment_bitvec_*.smt2`): лимит
+        // вывода 4 МБ молча обрезал ВЫВОД Z3 (для QF_BV он 67 МБ), пруф-чекер
+        // не запускался вовсе, а `prove` всё равно печатал «ДОКАЗАНО (допущено)».
+        // Теперь лимит настраивается (как и таймаут) и назван в сообщении.
+        if (compat.envVar("KERN_Z3_MEMORY_MB")) |v| {
+            if (std.fmt.parseInt(u32, v, 10)) |mb| {
+                if (mb >= 64) b.mem_mb = mb;
+            } else |_| {}
+        }
+        if (compat.envVar("KERN_Z3_MAX_STDOUT")) |v| {
+            if (std.fmt.parseInt(usize, v, 10)) |bytes| {
+                if (bytes >= 64 * 1024) b.max_stdout = bytes;
             } else |_| {}
         }
         return b;
@@ -160,6 +184,12 @@ pub const Z3Bridge = struct {
     /// `(get-unsat-core)`, Horn-моделей, `(get-value ...)` и т.п.).
     /// Вызывающий ОБЯЗАН освободить `stdout` (пустой срез освобождать можно).
     pub fn executeCapture(self: *Z3Bridge, smt_script: []const u8) CapturedResponse {
+        // #536: лимит памяти обязан быть НАСТРОЕН до spawn.
+        std.debug.assert(self.mem_mb >= 64);
+        {
+            const n = std.fmt.bufPrint(&self.mem_flag_buf, "-memory:{d}", .{self.mem_mb}) catch "-memory:256";
+            self.mem_flag = n;
+        }
         // ИНЪЕКЦИЯ СБОЕВ: моделируем отказ на шаге «создание процесса» (EAGAIN).
         if (self.fault()) {
             cov.hit(.z3_tool_error);
@@ -172,7 +202,7 @@ pub const Z3Bridge = struct {
         //   1) ОКРУЖЕНИЕ РЕБЁНКА ОЧИЩАЕТСЯ до PATH/HOME/LC_ALL — при любой
         //      уязвимости в Z3 он НЕ получит `GITHUB_TOKEN`, `AWS_*`, `SSH_*`,
         //      `OPENAI_*` и прочие секреты родительского процесса;
-        //   2) `-memory:256` — жёсткий лимит памяти: «взбесившийся» решатель
+        //   2) `-memory:N` — жёсткий лимит памяти: «взбесившийся» решатель
         //      отказывает по памяти вместо того, чтобы съесть ОЗУ сервера.
         var sandbox = std.process.Environ.Map.init(self.allocator);
         defer sandbox.deinit();
@@ -181,7 +211,7 @@ pub const Z3Bridge = struct {
             if (compat.envVar(k)) |v| sandbox.put(k, v) catch {};
         }
         var child = std.process.spawn(io, .{
-            .argv = &[_][]const u8{ self.z3_path, "-memory:256", "-in" },
+            .argv = &[_][]const u8{ self.z3_path, self.mem_flag, "-in" },
             .stdin = .pipe,
             .stdout = .pipe,
             .stderr = .ignore,

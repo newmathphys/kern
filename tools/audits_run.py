@@ -400,25 +400,44 @@ def main() -> int:
         _mt = re.search(r"ДОВЕРЕННЫХ (\d+)", out)
         _trust = int(_mt.group(1)) if _mt else None
         _ok = (_rc == 0)
+        # ДЕФЕКТ #536: строка «`trusted ?`» ничего не объясняла. Извлекаем
+        # НАЗВАННУЮ причину из вывода `kernc prove` (отказ чекера, лимит парсера,
+        # неприменённый запрос вывода), чтобы каждая PROVEN-строка имела либо
+        # счётчик, либо явную причину, почему счётчика нет.
+        _why = ""
+        if _trust is None:
+            for _ln in out.splitlines():
+                _t = _ln.strip()
+                if "[ПРУФ-ЧЕКЕР] НЕ ПРИМЕНЁН" in _t:
+                    _why = _t.split(":", 1)[-1].strip()[:160]
+                    break
+                if _t.startswith("[!] причина:"):
+                    _why = _t.split(":", 1)[-1].strip()[:160]
+                    break
+            if not _why and "ПРУФ-ЧЕКЕР ОТВЕРГ" in out:
+                _why = "пруф-чекер ОТВЕРГ вывод решателя"
+            if not _why and "ДОВЕРЕННЫХ" not in out:
+                _why = "счётчик чекера в выводе отсутствует"
         if "ДОКАЗАНО" in out:
-            return "proven", _trust, _ok
+            return "proven", _trust, _ok, _why
         if "КОНТРПРИМЕР" in out:
-            return "refuted", _trust, _ok
+            return "refuted", _trust, _ok, _why
         # #470: лимит памяти — НАЗВАННЫЙ исход (не «unknown»), иначе рост
         # подпроцесса выглядел бы как «формулу не решили».
         if _rc == 125:
-            return "oom", _trust, _ok
-        return "unknown", _trust, _ok
+            return "oom", _trust, _ok, _why
+        return "unknown", _trust, _ok, _why
 
     with ThreadPoolExecutor(max_workers=int(os.environ.get("KERN_AUDIT_WORKERS",
                                                            min(6, os.cpu_count() or 1)))) as ex:
         _pairs = dict(zip([f.name for f in smt_files], ex.map(measure, smt_files)))
 
-    measured = {k: v for k, (v, _t, _o) in _pairs.items()}
+    measured = {k: v[0] for k, v in _pairs.items()}
+    _why_of = {k: (v[3] if len(v) > 3 else "") for k, v in _pairs.items()}
     # #474: карта «формула -> число доверенных шагов» (None = чекер молчит),
     # #481: и «принял ли чекер вывод».
-    trusted: dict[str, int | None] = {k: (_t if _o else None) for k, (_v, _t, _o) in _pairs.items()}
-    checker_ok: dict[str, bool] = {k: _o for k, (_v, _t, _o) in _pairs.items()}
+    trusted: dict[str, int | None] = {k: (v[1] if v[2] else None) for k, v in _pairs.items()}
+    checker_ok: dict[str, bool] = {k: v[2] for k, v in _pairs.items()}
 
     n_proven = sum(1 for v in measured.values() if v == "proven")
     n_refuted = sum(1 for v in measured.values() if v == "refuted")
@@ -453,7 +472,8 @@ def main() -> int:
             elif _t == 0:
                 v += " (trusted 0)"
             elif _t is None:
-                v += " (`trusted ?`)"
+                _w = _why_of.get(_key, "") or "счётчик чекера в выводе отсутствует"
+                v += f" — пруф-чекер НЕ ПРИМЕНИМ: {_w}"
             else:
                 v += f" — `[PROOF PARTIAL]` trusted {_t}"
         if r["verdict"] == "FAIL" and r["what"] and "КОНТРАКТ НАРУШЕН" not in r["what"]:

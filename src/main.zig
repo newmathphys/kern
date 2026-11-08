@@ -554,6 +554,16 @@ pub fn main(init: std.process.Init) !void {
             // официальная задача не проверяется вовсе.
             try writeWithoutExit(wq, smt);
             try wq.writeAll("\n(check-sat)\n(get-proof)\n");
+            // ДЕФЕКТ #536 (ИЗМЕРЕНО): вывод QF_BV для `alignment_bitvec` — 67 МБ
+            // и генерируется 7.1 с. С дефолтами (4 МБ / 5 с) запрос вывода падал
+            // в ToolError, чекер не запускался, а строка оставалась
+            // «ДОКАЗАНО (допущено)» без счётчика. Для ЗАПРОСА ВЫВОДА поднимаем
+            // оба лимита; остальные запросы остаются на строгих дефолтах.
+            bridge.timeout_ms = @max(bridge.timeout_ms, 120_000);
+            bridge.max_stdout = @max(bridge.max_stdout, 256 * 1024 * 1024);
+            // И лимит ПАМЯТИ: на `-memory:256` Z3 отвечал «out of memory» (код
+            // 101) уже на 67-МБ выводе — измерено на alignment_bitvec.
+            bridge.mem_mb = @max(bridge.mem_mb, 2048);
             const cap = bridge.executeCapture(q.items());
             defer alloc.free(cap.stdout);
             if (cap.status == .Unsat) {
@@ -606,6 +616,14 @@ pub fn main(init: std.process.Init) !void {
                     std.debug.print("  [!] причина: {s}\n", .{pv.failureReason()});
                     fail("[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя\n", .{});
                 }
+            } else {
+                // ДЕФЕКТ #536 (ИЗМЕРЕНО на `audits/smt2/alignment_bitvec_*.smt2`):
+                // ЗАПРОС ВЫВОДА вернул не `unsat` — и блок чекера просто не
+                // выполнялся, а строка «ДОКАЗАНО (допущено)» оставалась. Читатель
+                // видел доказательство БЕЗ счётчика доверенных шагов и не знал,
+                // почему. Теперь причина названа явно, вместе с лимитом вывода
+                // (для QF_BV вывод Z3 бывает десятки мегабайт).
+                std.debug.print("  [ПРУФ-ЧЕКЕР] НЕ ПРИМЕНЁН: запрос вывода вернул {s} (не `unsat`) — счётчика доверенных шагов НЕТ (лимит вывода {d} Б). Это НЕ «проверено». Настройка: KERN_Z3_MAX_STDOUT (байт), KERN_Z3_TIMEOUT_MS.\n", .{ @tagName(cap.status), bridge.max_stdout });
             }
         }
         // ---- КОНТРПРИМЕР Z3: при `sat` показываем КОНКРЕТНЫЕ значения ------

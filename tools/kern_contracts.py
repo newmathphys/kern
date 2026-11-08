@@ -2119,6 +2119,48 @@ C_MACHINE_TYPES = {
 }
 
 
+_GO_INT_TYPES = {
+    "int", "int8", "int16", "int32", "int64",
+    "uint", "uint8", "uint16", "uint32", "uint64", "uintptr",
+    "byte", "rune", "int32_t", "int64_t", "uint32_t", "uint64_t", "size_t",
+}
+
+
+def _go_int_param_names(raw: str) -> list[str]:
+    """Имена ЦЕЛОЧИСЛЕННЫХ параметров Go. ДЕФЕКТ #537.
+
+    ИЗМЕРЕНО на `TheAlgorithms/Go` (40 файлов, 121 функция): у Go-функций
+    `params` были ПУСТЫМИ, потому что общий разбор C-like брал `nm[-1]` —
+    последний токен, то есть ТИП (`x int` -> `int`), а `int` отсекался как
+    ключевое слово C. Функция попадала в «условие отсеяно без названной
+    причины (дефект инструмента)»: 50 из 62 пропусков — это оно.
+
+    Go пишет `имя тип` (а C — `тип имя`), допускает группы `a, b int` и
+    указатели/срезы/строки, которые в целочисленную модель НЕ входят.
+    """
+    names: list[str] = []
+    last_type = ""
+    for part in raw.split(","):
+        toks = part.split()
+        if not toks:
+            continue
+        if len(toks) == 1:
+            # имя без типа наследует тип предыдущего (группировка Go),
+            # а одиночный ТИП — это параметр без имени: имени нет.
+            t = toks[0]
+            if (last_type and t not in _GO_INT_TYPES
+                    and re.match(r"^[A-Za-z_]\w*$", t)):
+                if last_type in _GO_INT_TYPES and t != "_":
+                    names.append(t)
+            continue
+        name, typ = toks[0], " ".join(toks[1:])
+        last_type = typ
+        if (typ in _GO_INT_TYPES and re.match(r"^[A-Za-z_]\w*$", name)
+                and name != "_"):
+            names.append(name)
+    return names
+
+
 def clike_params(raw: str, lang: str):
     """Разобрать список параметров C-подобной функции -> [(имя, тип)]."""
     if lang == "go":
@@ -7005,6 +7047,7 @@ def _clike_functions(path: Path):
     lines = src.splitlines()
     _raw_lines = raw_text.splitlines()
     out = []
+    _go_no_numeric: list[str] = []
     for i, line in enumerate(lines):
         _ts = path.suffix in {".ts", ".js"}
         m = RE_FN_TS.match(line) if _ts else None
@@ -7036,7 +7079,13 @@ def _clike_functions(path: Path):
         if name in _STMT_CALL_WORDS:
             continue
         params = []
-        for part in praw.split(","):
+        if path.suffix == ".go":
+            # #537: Go — `имя тип`, группы `a, b int`; нечисловые типы
+            # (string/error/срезы) в целочисленную модель не входят.
+            params = _go_int_param_names(praw)
+            if not params:
+                _go_no_numeric.append(name)
+        for part in ([] if path.suffix == ".go" else praw.split(",")):
             part = part.strip()
             if not part or part.startswith("comptime") or "type" in part.split(":")[-1]:
                 continue
@@ -8304,6 +8353,15 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # ДЕФЕКТ #412: поиск `if` — по МАСКЕ (мнимый `if` внутри строки дал бы
         # ЛОЖНУЮ мёртвую ветвь), а ТЕКСТ условия берётся из сырого тела.
         _ifs = list(_clike_ifs(body_mask))
+        # ДЕФЕКТ #537 (ИЗМЕРЕНО на `TheAlgorithms/Go`: 50 из 62 пропусков были
+        # «условие отсеяно без названной причины»): если целочисленных
+        # параметров НЕТ, то условиям нечего символизировать — это НАЗВАННАЯ
+        # граница, а не молчание инструмента. Чаще всего это Go с `string`/
+        # `error`/срезами и получателем `(r T)`.
+        if _ifs and not params and not skip_why:
+            skip_why.append(
+                "нет ЦЕЛОЧИСЛЕННЫХ параметров — условиям нечего символизировать "
+                "(параметры вне Int-модели: string/error/срез/получатель)")
         # ШАГ 4b (BV): BV-форма каждого ЗАРЕГИСТРИРОВАННОГО условия — параллельно
         # `if_blocks`. Заполняется ТАМ ЖЕ, где `if_blocks.append`, поэтому
         # индексы совпадают, а BV-запрос собирается ЦЕЛИКОМ из BV-форм (сорта не
@@ -8935,7 +8993,20 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         elif not _ifs:
             trivial += 1
         else:
-            _bump("условие отсеяно без названной причины (дефект инструмента)")
+            # ДЕФЕКТ #537 (часть 2): даже «инструмент не разобрал» обязан быть
+            # НАЗВАН. ИЗМЕРЕНО на Go: конъюнкция `if x > 0 && y > 0` (и C-аналог
+            # `if (x > 0 && y > 0)`) не регистрировалась как путь, функция
+            # получала молчаливый пропуск, и в воронке появлялась безымянная
+            # строка «дефект инструмента» без функции и условия — по ней нельзя
+            # было ни найти, ни починить причину.
+            _first_cond = ""
+            if _ifs:
+                _first_cond = body[_ifs[0].start(1):_ifs[0].end(1)].strip()[:60]
+            _bump(
+                "условие не зарегистрировано как путь "
+                f"(первое: `{_first_cond}`) — причина в ветвях регистрации не названа"
+                if _first_cond else
+                "условие отсеяно без названной причины (дефект инструмента)")
         # Файловый итог вызовов решателя (дефект #411) накапливается ПЕРЕД
         # сбросом в начале следующей итерации — здесь добавлять НЕЧЕГО.
     # Файловый уровень: правила, недостижимые внутри функции.
