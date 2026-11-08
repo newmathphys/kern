@@ -8,6 +8,26 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### #529 + T4c: the full corpus is now CLEAN — precision 35/35 = 1.00 on 942 files
+
+- **`#529` — a BV verdict was untrustworthy when the body calls `exit`/`abort`.** Measured on
+  `redis/src/memtest.c`: `if (*p != (unsigned long)p) { if (interactive) { exit(1); } return 1; } …
+  if ((j & 0xffff) == 0 && interactive)` was reported `[DEAD BRANCH] (UNSAT, BV64)` although the
+  branch is ALIVE (`j = 0, interactive = 1`). Minimal trigger found by subtraction (15 lines: with
+  `exit` → 1 finding, without → 0): the nested block `if (interactive) { exit(1); }` is registered as
+  a block WITH an exit, so `not interactive` lands in the BV path even though the position lies
+  OUTSIDE that block. `exit`/`abort` are not modelled as control flow, therefore a BV verdict on such
+  a body is unprovable — a NAMED skip. `memtest.c` 2 → **0**; the BV positive control
+  (`if ((x&1)==0) { if ((x&2)==0) { if ((x&3)!=0) … } }`) still yields 1 (TP kept).
+- **Re-classification, with the reason (not a cover-up):**
+  `tigerbeetle/.../test_conformance.py` does `transfers_1[0]` on line 6169 while
+  `assert len(transfers_1) == 1` stands on line **6170** — AFTER the use. With an empty reply that is
+  a real `IndexError`, so it is a **TP**, not an FP. The finding stays; the label was wrong.
+- **FULL CORPUS, final (942 files):** curl 1, redis 33, tigerbeetle 1 = **35 findings, 0 false
+  → precision 1.00**. Classes: OVERFLOW 33, BOUNDS 2, CRASH 1, DEAD BRANCH 0.
+- Recall unchanged: `xray-precision` OK (clean 0, dead_field 1, dedupe 1, buggy 5/5),
+  `xray-overflow-check` OK, `svcomp_baseline` TPR 1.00 / FPR 0.00.
+
 ### #528: Lean moved to its own CI job so a CDN storm cannot redden the code circuit
 
 - **MEASURED 2026-11-08.** GitHub's CDN was returning **HTTP 504** (the release assets of `v2.8.2`

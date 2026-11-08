@@ -4436,6 +4436,19 @@ def _bv_reachability(kernc, params, if_blocks, bv_forms, bv_only, body, pos,
         skip_why.append("решатель не решил BV-запрос (N)")
         return False
     if sat is False:
+        # ДЕФЕКТ #529 (НАЙДЕНО T4c на `redis/src/memtest.c`, репро 15 строк):
+        # BV-путь заявлял мёртвую ветвь там, где в теле есть `exit(...)`.
+        # ИЗМЕРЕНО: `if (interactive) { exit(1); }` регистрируется как блок с
+        # выходом, и в BV-путь попадает `not interactive`, хотя позиция лежит
+        # СНАРУЖИ этого блока; затем условие `(j & 0xffff) == 0 && interactive`
+        # становится UNSAT — ЛОЖНО (при `j = 0, interactive = 1` ветвь жива).
+        # `exit`/`abort` мы как контроль потока НЕ моделируем, поэтому BV-вердикт
+        # по такому телу недоказуем: это НАЗВАННЫЙ пропуск, а не «мёртвая ветвь».
+        if re.search(r"\b(?:exit|abort|_exit|_Exit|quick_exit|panic|unreachable)\s*\(",
+                     body or ""):
+            skip_why.append("BV-путь искажён вызовом exit/abort (не моделируется) "
+                            "— мёртвая ветвь не заявляется (#529)")
+            return False
         found.append(f"[DEAD BRANCH] {name}: условие НЕДОСТИЖИМО (UNSAT, BV{w}): {cond_bv}")
     return True
 
