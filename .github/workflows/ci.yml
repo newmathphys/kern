@@ -37,10 +37,38 @@ jobs:
         run: pip install -r requirements.txt
 
       # Lean 4 + Mathlib для формальных доказательств (7 файлов, 0 sorry).
-      - name: Lean 4 (elan)
+      # ЗАЩИТА ОТ СЕТЕВЫХ СБОЕВ CDN (ИЗМЕРЕНО 2026-11-08): шаг падал на 17-й
+      # секунде, потому что `curl … elan-init.sh` обрывался на шторме CDN
+      # (в тот же час релизные ассеты отдавали HTTP 504). Два независимых
+      # лечения: (1) КЭШ `~/.elan` по хешу `lean-toolchain` — при попадании
+      # во внешний CDN не ходим вовсе; (2) ТРИ попытки установки с
+      # `--retry 5 --retry-all-errors`, чтобы кратковременный 502/504 не
+      # красил весь контур.
+      - name: Кэш Lean 4 (elan)
+        uses: actions/cache@v4
+        with:
+          path: ~/.elan
+          key: elan-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}
+
+      - name: Lean 4 (elan, с повторами)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-            | sh -s -- -y --default-toolchain leanprover/lean4:v4.34.0
+          set -euo pipefail
+          if [ -x "$HOME/.elan/bin/lean" ]; then
+            echo "[i] elan из кэша — внешняя сеть не нужна"
+          else
+            ok=0
+            for attempt in 1 2 3; do
+              echo "[i] установка elan, попытка $attempt/3"
+              if curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 \
+                   --max-time 300 \
+                   https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+                 | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"; then
+                ok=1; break
+              fi
+              echo "[!] попытка $attempt не удалась (сеть/CDN) — пауза 15 с"; sleep 15
+            done
+            [ "$ok" = 1 ] || { echo "[!] elan не установился за 3 попытки — это СЕТЕВОЙ отказ, а не дефект кода" >&2; exit 1; }
+          fi
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: "CI-контур (быстрый: без Lean/canfail)"

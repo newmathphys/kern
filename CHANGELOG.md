@@ -8,6 +8,35 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### #526–#527: T4b — three more FP roots closed, the 0.90 threshold taken on the FULL corpus
+
+The six false accusations named after T4 were attacked one by one, each with an 8-12 line repro
+and a two-sided control:
+
+- **`#526` — a local rewritten INSIDE a loop is not an invariant.** Measured:
+  `tigerbeetle/src/vsr/marzullo.zig::smallest_interval` (`var count: i64 = 0;` then `count += 1`
+  in a loop) reported `[DEAD BRANCH] (> 0 0)` — the model took the INITIAL value, although the loop
+  changes it. Same in `replica.zig::on_prepare_timeout` (`(= (+ 0 1) 0)`). Fix: names assigned in a
+  loop body (`for`/`while`/`do`) are collected and such a condition is not called dead.
+- **`#526b` — a condition that collapsed into CONSTANTS.** `(> 0 0)` has no names at all: that is
+  the signature of a substitution we could not justify. A real dead branch compares NAMES; comparing
+  two literals is almost always an artefact — so it is a NAMED skip.
+- **`#527` — «field» vs «field written with a dot».** The #524 guard checked whether the name from
+  the condition (`server__current_client`, our `base__field` notation) occurs in the body — but the
+  body says `server.current_client` (with a dot), so the check never fired. Also the function's OWN
+  signature was counted as a «call», which made the guard fire on files where no call exists. Both
+  fixed: the base name is compared, and the function's own name is excluded from the call list.
+  Measured: `redis/src/server.c` 1 → **0**; the reverse control
+  `precision_dead_field/dead_after_kind.c` stays at **1** (a REAL dead branch), `field_guard_write.c`
+  stays **0**.
+- Gates after the fixes: `xray-precision` OK (clean 0, dead_field 1, dedupe 1, buggy 5/5),
+  `xray-overflow-check` OK, `svcomp_baseline` TPR 1.00 / FPR 0.00.
+- **CI hardened against CDN storms** (measured 2026-11-08: the Lean step died on second 17 while
+  release assets returned HTTP 504): `~/.elan` is now cached by `hashFiles('lean-toolchain')` and the
+  installer retries three times with `--retry 5 --retry-all-errors`. Deliberately NOT split into a
+  separate job: the canfail case `lean-sorry` drives `formal/check.sh`, and removing Lean from
+  `verify` would make that case vacuous — the exact class of dishonesty this project hunts.
+
 ### #525 + the honest T4 result: full corpus measured, threshold NOT met (0.85)
 
 The blind measurement now covers the WHOLE corpus (`curl/lib` 377 + `redis/src` 227 +

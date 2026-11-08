@@ -7380,6 +7380,76 @@ def _in_multicase_switch(body: str, pos: int) -> bool:
     return any(b < pos < e and cases >= 2 for b, e, cases in _switch_spans(body))
 
 
+def _clike_loop_assigned(body: str) -> set[str]:
+    """Имена, которым ТЕЛО ЦИКЛА присваивает значение (дефект #526).
+
+    ЗАЧЕМ. Циклы моделируются ОДНОЙ итерацией, поэтому значение, записанное
+    в теле цикла, не является инвариантом для последующих проверок: решатель,
+    взявший НАЧАЛЬНОЕ значение (`var count: i64 = 0;`), объявит `count > 0`
+    мёртвым, хотя цикл его увеличивает. ИЗМЕРЕНО на `tigerbeetle/src`:
+    `vsr/marzullo.zig::smallest_interval` (`(> 0 0)`) и
+    `vsr/replica.zig::on_prepare_timeout` (`(= (+ 0 1) 0)`) — два ложных
+    `[DEAD BRANCH]` на 338 файлах.
+
+    Разбор нарочно ПРОСТОЙ и консервативный: тело цикла — текст между парными
+    скобками после `for`/`while`, включая `do { … } while`. Если скобки не
+    парятся, возвращаем пустое множество (тогда правила #526 не будет — лучше
+    промолчать, чем выдумать).
+    """
+    out: set[str] = set()
+    for m in re.finditer(r"\b(?:for|while)\s*\(", body):
+        i = m.end() - 1
+        depth = 0
+        # найти закрывающую скобку условия
+        while i < len(body):
+            if body[i] == "(":
+                depth += 1
+            elif body[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        # тело: либо `{ … }`, либо оператор до `;`
+        j = i + 1
+        while j < len(body) and body[j] in " \t\r\n":
+            j += 1
+        if j < len(body) and body[j] == "{":
+            k, d2 = j, 0
+            while k < len(body):
+                if body[k] == "{":
+                    d2 += 1
+                elif body[k] == "}":
+                    d2 -= 1
+                    if d2 == 0:
+                        break
+                k += 1
+            chunk = body[j:k]
+        else:
+            semi = body.find(";", j)
+            chunk = body[j:semi if semi != -1 else len(body)]
+            if not chunk:
+                continue
+        for a in re.finditer(r"\b([A-Za-z_]\w*)\s*(?:(?:<<|>>|[+\-*/%&|^])=|=(?!=))", chunk):
+            out.add(a.group(1))
+        for a in re.finditer(r"\b([A-Za-z_]\w*)\s*(?:\+\+|--)", chunk):
+            out.add(a.group(1))
+    # `do { … } while (...)` — тело ПЕРЕД while
+    for m in re.finditer(r"\bdo\s*\{", body):
+        k, d = m.end() - 1, 0
+        while k < len(body):
+            if body[k] == "{":
+                d += 1
+            elif body[k] == "}":
+                d -= 1
+                if d == 0:
+                    break
+            k += 1
+        for a in re.finditer(r"\b([A-Za-z_]\w*)\s*(?:(?:<<|>>|[+\-*/%&|^])=|=(?!=))",
+                             body[m.end() - 1:k]):
+            out.add(a.group(1))
+    return out
+
+
 def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
     """Условия, действующие В ПОЗИЦИИ `pos` (дефекты #318 и #401).
 
@@ -8263,10 +8333,34 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # самостоятельная величина. Проверять его на «выводимость» нельзя,
             # иначе настоящая мёртвая ветвь `dead_after_kind.c` (обратный контроль
             # гейта #500) глушится — ИЗМЕРЕНО: 0 находок вместо 1.
-            _cond_words = [w for w in re.findall(r"[A-Za-z_]\w*", cond)
+            _cond_all_names = re.findall(r"[A-Za-z_]\w*", cond)
+            _cond_words = [w for w in _cond_all_names
                            if not re.search(rf"(?:->|\.)\s*{re.escape(w)}\b", cond)
                            and "__" not in w]
-            if _in_multicase_switch(body_mask, m.end()):
+            # ДЕФЕКТ #526 (НАЙДЕНО T4b на ПОЛНОМ `tigerbeetle/src`): ЛОКАЛЬНАЯ,
+            # ПЕРЕПИСЫВАЕМАЯ ВНУТРИ ЦИКЛА. ИЗМЕРЕНО: `marzullo.zig::
+            # smallest_interval` — `var count: i64 = 0;` затем `count += 1`
+            # внутри цикла, и условие `if (count > 0)` объявлялось мёртвым как
+            # `(> 0 0)`: модель взяла НАЧАЛЬНОЕ значение, хотя цикл его меняет.
+            # То же в `replica.zig::on_prepare_timeout` (`(= (+ 0 1) 0)`).
+            # Циклы моделируются ОДНОЙ итерацией, поэтому начальное значение не
+            # инвариант: обвинять по такой величине нельзя — пропуск НАЗВАН.
+            _loop_assigned = _clike_loop_assigned(body_mask)
+            if not _cond_all_names:
+                # ДЕФЕКТ #526b (ИЗМЕРЕНО там же): условие СВЕРНУЛОСЬ В КОНСТАНТЫ
+                # (`(> 0 0)`), потому что локальную мы «вывели» из неполной
+                # модели. Настоящая мёртвая ветвь в коде выглядит как сравнение
+                # ИМЁН; сравнение двух литералов — почти всегда артефакт
+                # подстановки. Поэтому не обвиняем, а НАЗЫВАЕМ причину.
+                _bump_note("условие свернулось в КОНСТАНТЫ (значение выведено из "
+                           "величины, которую модель не отслеживает) — ветвь не "
+                           "объявляется мёртвой (#526b)")
+                sat_then = None
+            elif any(w in _loop_assigned for w in _cond_words):
+                _bump_note("условие зависит от переменной, которую переписывает "
+                           "ЦИКЛ — ветвь не объявляется мёртвой (#526)")
+                sat_then = None
+            elif _in_multicase_switch(body_mask, m.end()):
                 _bump_note("`switch` не моделируется (`case` склеены) — "
                            "ветвь не объявляется мёртвой (#503)")
                 sat_then = None
@@ -8285,7 +8379,8 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # (`!valid_record` после вызова по указателю). Два ложных
             # `[DEAD BRANCH]`. Объявляем НАЗВАННЫЙ пропуск.
             elif (re.search(r"(->|(?<![\d.])\.[A-Za-z_])", cond) or "__" in cond) and \
-                    any(_nm2 in str(body_mask) for _nm2 in re.findall(r"[A-Za-z_]\w*", cond)):
+                    any((_nm2.split("__")[0] in str(body_mask))
+                        for _nm2 in re.findall(r"[A-Za-z_]\w*", cond)):
                 _field_names = [w for w in re.findall(r"[A-Za-z_]\w*", cond)
                                 if "__" in w
                                 or re.search(rf"\b{re.escape(w)}\s*(?:->|\.)", body_mask)]
@@ -8309,7 +8404,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                               if c not in ("if", "for", "while", "switch", "sizeof",
                                            "return", "assert", "serverAssert",
                                            "serverAssertWithInfo", "Assert", "ASSERT",
-                                           "redisAssert", "bug_on")]
+                                           "redisAssert", "bug_on", name)]
                     if _rewritten or (_field_names and _calls):
                         _bump_note("условие зависит от поля структуры, которое "
                                    "может изменить вызов, или от переписываемой "
