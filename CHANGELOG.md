@@ -8,6 +8,34 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### Added — нативный `verify-zig` судит боевой код, доменные эксплойты с живыми судьями (#530–#531)
+
+- **#530 (`src/verifier/zig_ast_verify.zig`)**: нативный фронтенд (`std.zig.Ast`, 0 % Python) научился
+  тому, что питоновский умел давно: сворачиванию раннего выхода `if (c) return A; return B;` ->
+  `(ite c A B)` (цепочкой), инлайну локальных `const x = …;`, разгруппировке `( … )` и разбору
+  условия `if` (сравнения + `and`/`or`). ИЗМЕРЕНО на боевых файлах: `audits/tigerbeetle/div_ceil.zig`
+  -> `[PASS] ДОКАЗАНО` (4 обязательства: безопасность + постусловие), `audits/ghostty/grid_columns.zig`
+  -> `[PASS] ДОКАЗАНО` (2), а обе мутации — `КОНТРАКТ НАРУШЕН` (переполнение / постусловие).
+  До правки оба файла давали `SKIP «нужен РОВНО ОДИН return»`.
+- **#531 (`tools/kern_contracts.py`)**: `--diff-equiv` на Python-входе больше не пишет ложное
+  «нет одноимённых функций в подмножестве», когда функции НАЙДЕНЫ, но их тела вне подмножества:
+  теперь называется причина (`fee: нелинейное умножение` — QF_NIA вне QF_LIA). Класс #361/#370,
+  но для Python-ветки (в C-ветке причина называлась с #361).
+- **`make prove-all-real`** (`tools/prove_all_capabilities_real.py`) вырос до **18 проверок**
+  (`OK 14 | SKIP 4 | FAIL 0`, было `OK 6 | SKIP 7`), и все SKIP — с названной причиной:
+  - Пакет А: `verify-zig` на боевых файлах с ДВУСТОРОННИМ контролем (верная -> ДОКАЗАНО,
+    мутация -> НАРУШЕНО); `kernc lia` сверен с Z3 на двух системах (SAT/sat и UNSAT/unsat).
+  - Пакет Б: три ФИЗИЧЕСКИХ оракула вызываются через свои цели (`oracle-string-check` — канарейка
+    вне корня на реальной ФС, `oracle-noninterference-check` — живой тайминг CT_RATIO=1.00 против
+    EE_RATIO=66.89, `oracle-chc-check` — 3 `sat` + 4 `unsat` против реального исполнения цикла)
+    + ReDoS с живым секундомером (`re.fullmatch`, а не `match`).
+  - Пакет В (новый): `SQL/RLS` — KERN `DIVERGED` (tenant=2, role=1) И живой `sqlite3` отдаёт
+    2 строки вместо 1; `AMM` dust-эксплойт — 10 000 сделок по 1: комиссия 0 против 10 000;
+    `IEEE-754 NaN` — пробивает гард `!(x > MAX || x < 0)` в **python, node и gcc** одновременно.
+  - Честные границы названы, а не замазаны: нелинейная арифметика (`QF_NIA`) и `float/NaN`
+    вне модели KERN — «доказано» там НЕ заявляется.
+
+
 ### Real-combat stand for the «sleeping» capabilities: native Zig frontend, LIA, six physical oracles
 
 Everything proven on real corpora so far was `--xray` and `--delta`. The remaining muscles were

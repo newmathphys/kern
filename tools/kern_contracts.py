@@ -1530,6 +1530,11 @@ def run_kernc(kernc, smt: str, query_kind: str = "refutation"):
 # Причины, по которым C-like функции НЕ попали в сравнение `--diff-equiv`
 # (дефект #361): пустой список «сравнивать нечего» обязан называть ПРИЧИНУ.
 _CLIKE_SKIP_REASONS: list[str] = []
+# ДЕФЕКТ #531: Python-ветка `parse_bodies` молча выбрасывала функции вне
+# подмножества, и `--diff-equiv` печатал «нет одноимённых функций» даже
+# когда причина конкретна (например нелинейное `a * b` — это QF_NIA,
+# вне QF_LIA). Рядом с C-веткой (#361) теперь и Python-ветка называет причину.
+_PY_SKIP_REASONS: list[str] = []
 
 
 def _parse_bodies_clike(path: Path):
@@ -1594,6 +1599,7 @@ def parse_bodies(path: Path):
     """
     if path.suffix in CLIKE_EXT:
         return _parse_bodies_clike(path)
+    _PY_SKIP_REASONS.clear()
     src = path.read_text(encoding="utf-8", errors="replace")
     tree = ast.parse(src)
     # ШАГ 1: тот же реестр, что в `parse_file`. БЕЗ него вызов хелпера уходил в
@@ -1615,7 +1621,9 @@ def parse_bodies(path: Path):
         _UNROLLED[0] = False
         try:
             body = body_smt(stmts, _self_meta(node, stmts, registry))
-        except (NoReturn, Unsupported):
+        except (NoReturn, Unsupported) as exc:
+            why = str(exc).strip() or "тело вне подмножества (QF_LIA)"
+            _PY_SKIP_REASONS.append(f"{node.name}: {why}")
             continue
         params = [a.arg for a in node.args.args if a.arg != "self"]
         out.append((node.name, params, body, node.lineno, bool(_UNROLLED[0])))
@@ -3420,6 +3428,10 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
         # ДЕФЕКТ #361: пустой список обязан называть ПРИЧИНУ. Иначе C-файл с
         # нелинейным умножением давал бы «сравнивать нечего», хотя причина
         # конкретна (тело живёт в QF_BV, а сравнение идёт в Int-теории).
+        if _PY_SKIP_REASONS:
+            print("    причины (Python-вход):")
+            for r in _PY_SKIP_REASONS[:8]:
+                print(f"      - {r}")
         if _CLIKE_SKIP_REASONS:
             print("    причины (C-like вход):")
             for r in _CLIKE_SKIP_REASONS:

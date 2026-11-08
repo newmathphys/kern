@@ -88,6 +88,10 @@ const Ctx = struct {
     arena: std.mem.Allocator,
     ast: *const std.zig.Ast,
     vars: std.StringHashMapUnmanaged(Ty) = .empty,
+    /// Локальные `const NAME = expr;` — инлайнятся текстом SMT.
+    /// ИЗМЕРЕНО: `audits/ghostty/grid_columns.zig` держит `const calc = ...;`,
+    /// без этого нативный путь отвечал «идентификатор вне параметров функции».
+    lets: std.StringHashMapUnmanaged([]const u8) = .empty,
     obligations: std.ArrayListUnmanaged(Obligation) = .empty,
     bad: []const u8 = "",
     wrap_seen: bool = false,
@@ -111,6 +115,7 @@ fn numLiteral(raw: []const u8) ?i128 {
 fn tyFromNode(c: *Ctx, node: std.zig.Ast.Node.Index) ?Ty {
     const ast = c.ast;
     const tag = ast.nodeTag(node);
+    if (tag == .grouped_expression) return tyFromNode(c, ast.nodeData(node).node_and_token[0]);
     if (tag == .identifier) return c.vars.get(ast.tokenSlice(ast.nodeMainToken(node)));
     if (tag == .number_literal) {
         const v = numLiteral(ast.tokenSlice(ast.nodeMainToken(node))) orelse return null;
@@ -169,8 +174,10 @@ fn binSmt(c: *Ctx, op: []const u8, ln: std.zig.Ast.Node.Index, rn: std.zig.Ast.N
 fn exprSmt(c: *Ctx, node: std.zig.Ast.Node.Index) anyerror!?[]const u8 {
     const ast = c.ast;
     switch (ast.nodeTag(node)) {
+        .grouped_expression => return exprSmt(c, ast.nodeData(node).node_and_token[0]),
         .identifier => {
             const nm = ast.tokenSlice(ast.nodeMainToken(node));
+            if (c.lets.get(nm)) |term| return term;
             if (c.vars.get(nm) == null) {
                 c.bad = "идентификатор вне параметров функции";
                 return null;
@@ -466,8 +473,150 @@ fn ensuresHolds(arena: std.mem.Allocator, bridge: *z3.Z3Bridge, c: *Ctx, req: []
     return try modelTail(arena, cap.stdout);
 }
 
-fn checkOne(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Bridge, rep: *Report, c: *Ctx, name: []const u8, val: std.zig.Ast.Node.Index, ct: Contracts) !void {
-    const body_term = try exprSmt(c, val) orelse {
+/// Тип из узла объявления (`i32`, `u64`, …). Вне подмножества — null.
+fn tyOfTypeNode(ast: *const std.zig.Ast, node: std.zig.Ast.Node.Index) ?Ty {
+    if (ast.nodeTag(node) != .identifier) return null;
+    return tyOfName(ast.tokenSlice(ast.nodeMainToken(node)));
+}
+
+/// Значение `return expr;` — или единственного `return` внутри блока. Иначе null.
+fn retValue(ast: *const std.zig.Ast, node: std.zig.Ast.Node.Index) ?std.zig.Ast.Node.Index {
+    switch (ast.nodeTag(node)) {
+        .@"return" => return ast.nodeData(node).opt_node.unwrap(),
+        .block_two, .block_two_semicolon, .block, .block_semicolon => {
+            var b: [2]std.zig.Ast.Node.Index = undefined;
+            const st = ast.blockStatements(&b, node) orelse return null;
+            if (st.len != 1 or ast.nodeTag(st[0]) != .@"return") return null;
+            return ast.nodeData(st[0]).opt_node.unwrap();
+        },
+        else => return null,
+    }
+}
+
+/// Условие `if` -> SMT-терм. Подмножество: сравнения и `and`/`or` над ними.
+fn condSmt(c: *Ctx, node: std.zig.Ast.Node.Index) anyerror!?[]const u8 {
+    const ast = c.ast;
+    const tag = ast.nodeTag(node);
+    const op: ?[]const u8 = switch (tag) {
+        .less_than => "<",
+        .less_or_equal => "<=",
+        .greater_than => ">",
+        .greater_or_equal => ">=",
+        .equal_equal => "=",
+        .bang_equal => "distinct",
+        else => null,
+    };
+    if (op) |o| {
+        const ab = ast.nodeData(node).node_and_node;
+        const l = try exprSmt(c, ab[0]) orelse return null;
+        const r = try exprSmt(c, ab[1]) orelse return null;
+        return try std.fmt.allocPrint(c.arena, "({s} {s} {s})", .{ o, l, r });
+    }
+    if (tag == .bool_and or tag == .bool_or) {
+        const ab = ast.nodeData(node).node_and_node;
+        const l = try condSmt(c, ab[0]) orelse return null;
+        const r = try condSmt(c, ab[1]) orelse return null;
+        return try std.fmt.allocPrint(c.arena, "({s} {s} {s})", .{ if (tag == .bool_and) "and" else "or", l, r });
+    }
+    c.bad = "условие `if` вне подмножества (только сравнения и and/or)";
+    return null;
+}
+
+/// Свернуть тело в ОДНО выражение по базовому паттерну раннего выхода:
+///   `if (c1) return A1; if (c2) return A2; return B;` -> `(ite c1 A1 (ite c2 A2 B))`
+///   `if (c) return A; else return B;`                -> `(ite c A B)`
+/// ИЗМЕРЕНО (`prove-all-real`, `01bae551`): на боевых
+/// `audits/tigerbeetle/div_ceil.zig` и `audits/ghostty/grid_columns.zig` стоит
+/// ровно этот паттерн, и нативный путь давал SKIP «нужен РОВНО ОДИН `return`»,
+/// хотя питоновский фронтенд такие функции давно сворачивает (`_fold_if_return`).
+/// Всё, что не укладывается в паттерн, — честный null с названной причиной.
+fn foldBody(c: *Ctx, stmts: []const std.zig.Ast.Node.Index) anyerror!?[]const u8 {
+    const ast = c.ast;
+    if (stmts.len == 0) {
+        c.bad = "тело вне подмножества: пустой блок";
+        return null;
+    }
+    const last = stmts[stmts.len - 1];
+    if (ast.nodeTag(last) != .@"return") {
+        c.bad = "тело вне подмножества: последний оператор должен быть `return`";
+        return null;
+    }
+    const tail_expr = ast.nodeData(last).opt_node.unwrap() orelse {
+        c.bad = "`return` без значения";
+        return null;
+    };
+    var acc: []const u8 = (try exprSmt(c, tail_expr)) orelse {
+        if (c.bad.len == 0) c.bad = "выражение возврата вне подмножества";
+        return null;
+    };
+    var i = stmts.len - 1;
+    while (i > 0) {
+        i -= 1;
+        const node = stmts[i];
+        // Уже инлайнено в `c.lets` (см. inlineLets) — проверяем по факту, а не по
+        // списку тегов: в 0.17 локальная константа объявляется несколькими тегами.
+        if (ast.fullVarDecl(node) != null) continue;
+        // `if (…) {…}` без else — тег `.if_simple`, с else — `.if`; берём общий разбор.
+        const full = ast.fullIf(node) orelse {
+            c.bad = "тело вне подмножества: перед `return` допустимы `const x = …;` и `if (…) return …;`";
+            return null;
+        };
+        if (full.payload_token != null or full.error_token != null) {
+            c.bad = "`if` с payload/error вне подмножества";
+            return null;
+        }
+        const then_val = retValue(ast, full.ast.then_expr) orelse {
+            c.bad = "ветвь `if` должна быть `return expr;` (или блоком с одним `return`)";
+            return null;
+        };
+        const cond = try condSmt(c, full.ast.cond_expr) orelse return null;
+        const tv = try exprSmt(c, then_val) orelse return null;
+        var ev: []const u8 = acc;
+        if (full.ast.else_expr.unwrap()) |en| {
+            const else_val = retValue(ast, en) orelse {
+                c.bad = "ветвь `else` должна быть `return expr;`";
+                return null;
+            };
+            ev = (try exprSmt(c, else_val)) orelse return null;
+        }
+        acc = try std.fmt.allocPrint(c.arena, "(ite {s} {s} {s})", .{ cond, tv, ev });
+    }
+    return acc;
+}
+
+/// Инлайн локальных `const NAME = expr;` в `c.lets` (текст SMT).
+/// Границы: только простые объявления с инициализатором; тип локальной
+/// НЕ используется (модель Int, как и у параметров), всё остальное — названный
+/// отказ (возврат false с заполненным `c.bad`).
+fn inlineLets(c: *Ctx, stmts: []const std.zig.Ast.Node.Index) anyerror!bool {
+    const ast = c.ast;
+    for (stmts) |node| {
+        switch (ast.nodeTag(node)) {
+            .simple_var_decl, .local_var_decl, .aligned_var_decl => {},
+            else => continue,
+        }
+        const vd = ast.fullVarDecl(node) orelse continue;
+        const nm = ast.tokenSlice(vd.ast.mut_token + 1);
+        const init = vd.ast.init_node.unwrap() orelse {
+            c.bad = "локальная без инициализатора вне подмножества";
+            return false;
+        };
+        const term = (try exprSmt(c, init)) orelse {
+            if (c.bad.len == 0) c.bad = "инициализация локальной вне подмножества";
+            return false;
+        };
+        try c.lets.put(c.arena, nm, term);
+    }
+    return true;
+}
+
+fn checkOne(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Bridge, rep: *Report, c: *Ctx, name: []const u8, stmts: []const std.zig.Ast.Node.Index, ret_ty: Ty, ct: Contracts) !void {
+    if (!(try inlineLets(c, stmts))) {
+        try rep.outcomes.append(alloc, .{ .name = try arena.dupe(u8, name), .status = .skip, .reason = if (c.bad.len != 0) c.bad else "локальные объявления вне подмножества" });
+        rep.skipped += 1;
+        return;
+    }
+    const body_term = try foldBody(c, stmts) orelse {
         try rep.outcomes.append(alloc, .{ .name = try arena.dupe(u8, name), .status = .skip, .reason = if (c.bad.len != 0) c.bad else "тело вне подмножества" });
         rep.skipped += 1;
         return;
@@ -490,7 +639,7 @@ fn checkOne(alloc: std.mem.Allocator, arena: std.mem.Allocator, bridge: *z3.Z3Br
         }
     }
     if (ens.len != 0 and !c.wrap_seen) {
-        const rt = tyFromNode(c, val) orelse Ty{ .bits = 32, .signed = true };
+        const rt = ret_ty;
         if (try ensuresHolds(arena, bridge, c, req, ens, body_term, rt)) |model| {
             if (model.len != 0) {
                 try rep.outcomes.append(alloc, .{ .name = try arena.dupe(u8, name), .status = .refuted, .reason = "постусловие `ensures` нарушено", .counterexample = try arena.dupe(u8, model), .obligations = c.obligations.items.len });
@@ -556,17 +705,16 @@ pub fn verifySource(alloc: std.mem.Allocator, bridge: *z3.Z3Bridge, source: [:0]
             rep.skipped += 1;
             continue;
         };
-        if (stmts.len != 1 or ast.nodeTag(stmts[0]) != .@"return") {
-            try rep.outcomes.append(alloc, .{ .name = try arena.dupe(u8, name), .status = .skip, .reason = "тело вне подмножества: нужен РОВНО ОДИН `return`" });
+        if (stmts.len == 0) {
+            try rep.outcomes.append(alloc, .{ .name = try arena.dupe(u8, name), .status = .skip, .reason = "пустое тело" });
             rep.skipped += 1;
             continue;
         }
-        const val = ast.nodeData(stmts[0]).opt_node.unwrap() orelse {
-            try rep.outcomes.append(alloc, .{ .name = try arena.dupe(u8, name), .status = .skip, .reason = "`return` без значения" });
-            rep.skipped += 1;
-            continue;
-        };
-        try checkOne(alloc, arena, bridge, &rep, &c, name, val, ct);
+        // Тип возврата берём из ОБЪЯВЛЕНИЯ: после свёртки `if/return` в `ite`
+        // отдельного узла-значения больше нет (замер: так делают
+        // `audits/tigerbeetle/div_ceil.zig`, `audits/ghostty/grid_columns.zig`).
+        const ret_ty = if (proto.ast.return_type.unwrap()) |rtn| (tyOfTypeNode(&ast, rtn) orelse Ty{ .bits = 32, .signed = true }) else Ty{ .bits = 32, .signed = true };
+        try checkOne(alloc, arena, bridge, &rep, &c, name, stmts, ret_ty, ct);
     }
     return rep;
 }
