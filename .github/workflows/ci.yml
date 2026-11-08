@@ -36,14 +36,34 @@ jobs:
       - name: z3-solver (без системного apt)
         run: pip install -r requirements.txt
 
-      # Lean 4 + Mathlib для формальных доказательств (7 файлов, 0 sorry).
-      # ЗАЩИТА ОТ СЕТЕВЫХ СБОЕВ CDN (ИЗМЕРЕНО 2026-11-08): шаг падал на 17-й
-      # секунде, потому что `curl … elan-init.sh` обрывался на шторме CDN
-      # (в тот же час релизные ассеты отдавали HTTP 504). Два независимых
-      # лечения: (1) КЭШ `~/.elan` по хешу `lean-toolchain` — при попадании
-      # во внешний CDN не ходим вовсе; (2) ТРИ попытки установки с
-      # `--retry 5 --retry-all-errors`, чтобы кратковременный 502/504 не
-      # красил весь контур.
+      - name: "CI-контур (быстрый: без Lean/canfail)"
+        run: ./tools/ci.sh --fast
+
+      # CAN-FAIL в этом контуре НЕ гоняет кейс `lean-sorry`: он требует Lean,
+      # которого здесь СОЗНАТЕЛЬНО нет (внешний установщик ронял весь контур на
+      # 17-й секунде при шторме CDN). Кейс живёт в job `formal-lean`, где Lean
+      # есть — поэтому он НЕ выпадает из проверки и НЕ становится вакуумным.
+      - name: CAN-FAIL (проверки СПОСОБНЫ упасть, вкл. мета; без Lean-кейса)
+        run: |
+          python3 tools/canfail.py --selftest
+          python3 tools/canfail.py --skip lean-sorry
+
+  # ---------------------------------------------------------------------------
+  # ОТДЕЛЬНЫЙ контур формальных доказательств (дефект #528).
+  # ЗАЧЕМ ОТДЕЛЬНО. ИЗМЕРЕНО 2026-11-08: при шторме CDN GitHub (релизные ассеты
+  # отдавали HTTP 504; установщик `elan-init.sh` внутри сам качает бинарник с
+  # GitHub Releases и падал с 504) шаг «Lean 4 (elan)» умирал на 17-й секунде и
+  # красил ВЕСЬ `verify` — включая проверки, к которым Lean не имеет отношения.
+  # Теперь Lean изолирован: его сетевой отказ виден по имени job'а, а контур
+  # кода (быстрый контур + CAN-FAIL) идёт независимо.
+  # Кэш `~/.elan` по хешу `lean-toolchain`: после первого успешного прогона
+  # внешний CDN не нужен вовсе.
+  formal-lean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
       - name: Кэш Lean 4 (elan)
         uses: actions/cache@v4
         with:
@@ -57,42 +77,31 @@ jobs:
             echo "[i] elan из кэша — внешняя сеть не нужна"
           else
             ok=0
-            for attempt in 1 2 3; do
-              echo "[i] установка elan, попытка $attempt/3"
-              if curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 \
+            for attempt in 1 2 3 4 5; do
+              echo "[i] установка elan, попытка $attempt/5"
+              if curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 \
                    --max-time 300 \
                    https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
                  | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"; then
                 ok=1; break
               fi
-              echo "[!] попытка $attempt не удалась (сеть/CDN) — пауза 15 с"; sleep 15
+              echo "[!] попытка $attempt не удалась (сеть/CDN) — пауза 30 с"; sleep 30
             done
-            [ "$ok" = 1 ] || { echo "[!] elan не установился за 3 попытки — это СЕТЕВОЙ отказ, а не дефект кода" >&2; exit 1; }
+            [ "$ok" = 1 ] || { echo "[!] elan не установился за 5 попыток — это СЕТЕВОЙ отказ CDN GitHub, а не дефект кода" >&2; exit 1; }
           fi
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: "CI-контур (быстрый: без Lean/canfail)"
-        run: ./tools/ci.sh --fast
-
-      # Lean и canfail — самая долгая часть; запускаются отдельно,
-      # чтобы падение было видно по имени стадии.
-      #
-      # Mathlib: 5 из 7 файлов импортируют Mathlib. Собирать его из исходников
-      # часами нельзя, поэтому берём ПРЕДСОБРАННЫЙ кэш (lake exe cache get).
       - name: Mathlib (prebuilt cache)
         run: ./formal/setup_mathlib.sh "$HOME/mathlib_proj"
 
-      # KERN_REQUIRE_MATHLIB=1: если Mathlib недоступен, стадия ПАДАЕТ,
-      # а не рапортует «0 errors, 0 sorry» по 2 из 7 файлов.
       - name: Lean 4 (0 errors, 0 sorry)
         env:
           KERN_REQUIRE_MATHLIB: "1"
         run: ./formal/check.sh
 
-      - name: CAN-FAIL (проверки СПОСОБНЫ упасть, вкл. мета)
-        run: |
-          python3 tools/canfail.py --selftest
-          python3 tools/canfail.py
+      # КЕЙС `lean-sorry` ГОНЯЕТСЯ ЗДЕСЬ — там, где Lean реально есть.
+      - name: "CAN-FAIL: кейс Lean (проверка способна упасть)"
+        run: python3 tools/canfail.py --only lean-sorry
 
   # 0K.11: кросс-сборка C-ABI под macOS. Ядро (kernc) для macOS не собирается:
   # шаг `install` тянет `kernx`, который линкуется с системным sqlite3, а его

@@ -8,6 +8,25 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### #528: Lean moved to its own CI job so a CDN storm cannot redden the code circuit
+
+- **MEASURED 2026-11-08.** GitHub's CDN was returning **HTTP 504** (the release assets of `v2.8.2`
+  could not be downloaded, and `elan-init.sh` itself fails on `github.com/leanprover/elan/releases/
+  latest/download/...tar.gz` with the same 504 — reproduced locally in a clean `HOME`). The Lean
+  step died on second **17** and dragged the whole `verify` job red, including checks that have
+  nothing to do with Lean.
+- **Fix in two parts:** (1) `~/.elan` is cached by `hashFiles('lean-toolchain')` and the installer
+  retries **5** times with `--retry 5 --retry-all-errors --retry-delay 10`; after the first
+  successful run the external CDN is not needed at all. (2) Lean + Mathlib + `formal/check.sh` now
+  live in a **separate job `formal-lean`**, so a network failure is visible by job name and does not
+  block the code circuit.
+- **Why the canfail case did not simply disappear (that would be vacuous):** `lean-sorry` drives
+  `formal/check.sh`. `tools/canfail.py` gained an explicit `--skip <names>` which PRINTS
+  `[SKIP-CONTOUR] <case> — гоняется в ДРУГОМ контуре`. `verify` runs
+  `canfail --skip lean-sorry`, and `formal-lean` runs `canfail --only lean-sorry` — the case is still
+  executed exactly once, in the circuit that owns the tool. Deleting it would have been the very
+  class of dishonesty this project hunts.
+
 ### #526–#527: T4b — three more FP roots closed, the 0.90 threshold taken on the FULL corpus
 
 The six false accusations named after T4 were attacked one by one, each with an 8-12 line repro

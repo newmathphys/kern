@@ -4866,6 +4866,14 @@ def main():
     _refuse_dirty_src()
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
+    # ДЕФЕКТ #528: кейсы, требующие ВНЕШНЕГО контура (Lean/Mathlib), нельзя
+    # гонять там, где этого контура нет: иначе кейс «покраснел» по чужой
+    # причине и НИЧЕГО не доказывает, либо (хуже) зеленеет вакуумно.
+    # Поэтому контур ОБЯЗАН назвать, что он пропускает `--skip a,b`, а прогон
+    # с `--only`/`--skip` печатает это в сводке.
+    ap.add_argument("--skip", default="",
+                    help="имена кейсов через запятую, которые НЕ гоняются "
+                         "в этом контуре (должны гоняться в другом)")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--selftest", action="store_true",
                     help="K4: проверить ЛОГИКУ харнесса на синтетических входах")
@@ -4957,6 +4965,11 @@ def main():
     for c in CASES:
         name, desc, fn = c[0], c[1], c[2]
         expect_vacuous = c[3] if len(c) > 3 else False
+        _skip_set = {x.strip() for x in (getattr(args, "skip", "") or "").split(",") if x.strip()}
+        if name in _skip_set:
+            print(f"  [SKIP-CONTOUR] {name:14s} {desc} — гоняется в ДРУГОМ контуре (--skip)")
+            skipped += 1
+            continue
         if args.only and args.only != name:
             continue
         t0 = time.time()
