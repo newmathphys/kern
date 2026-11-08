@@ -938,8 +938,10 @@ pub fn main(init: std.process.Init) !void {
             return;
         }
         const ltext = compat.readFileAlloc(alloc, args[2], 1 << 20) catch {
+            // ДЕФЕКТ #550 (ИЗМЕРЕНО): ошибки `lia` завершались `return` -> rc=0,
+            // то есть отказ выглядел успехом (класс #544).
             std.debug.print("[!] lia: не читается {s}\n", .{args[2]});
-            return;
+            std.process.exit(2);
         };
         var lar = std.heap.ArenaAllocator.init(alloc);
         defer lar.deinit();
@@ -952,8 +954,12 @@ pub fn main(init: std.process.Init) !void {
             var toks = std.mem.tokenizeAny(u8, line, " \t");
             const kw = toks.next() orelse continue;
             if (!std.mem.eql(u8, kw, "LE")) {
-                std.debug.print("[!] lia: поддерживается только `LE` (получено {s})\n", .{kw});
-                return;
+                std.debug.print(
+                    "[!] lia: поддерживается только `LE` (получено {s}). " ++
+                        "Формат входа — по одному ограничению на строку: `LE 3:x -1:y 5`\n",
+                    .{kw},
+                );
+                std.process.exit(2);
             }
             var terms: std.ArrayListUnmanaged(builtin_lia.Term) = .empty;
             var constant: i64 = 0;
@@ -1615,7 +1621,7 @@ const USAGE: []const u8 = std.fmt.comptimePrint(
     \\  inspect <file.kimg>                             JSON-паспорт образа
     \\  diff <a.kimg> <b.kimg>                          посекционное сравнение
     \\  ls <file.kimg>                                  L3: объекты образа
-    \\  cat <file.kimg> <путь>                          L3: полезная нагрузка (в stdout)
+    \\  cat <file.kimg> /raw/<путь>                     L3: полезная нагрузка (путь обязан начинаться с /raw/, см. ls)
     \\  grep <file.kimg> <шаблон>                       поиск по объектам образа
     \\
     \\ФОРМАЛЬНАЯ ВЕРИФИКАЦИЯ
