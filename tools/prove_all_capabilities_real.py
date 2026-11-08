@@ -63,8 +63,12 @@ def record(pkg: str, mech: str, verdict: str, proof: str) -> None:
 def pkg_a_native() -> None:
     """ПАКЕТ А: нативный Zig-фронтенд (0 Python) и решатель LIA (0 Z3)."""
     say("\n── ПАКЕТ А. Нативный Zig-фронтенд и решатель LIA (без Python, без Z3) ──")
+    # #538: `audits/codecheck/zig_div.zig` и `src/core/eq2.zig` ХОЛОСТЫЕ — в них
+    # нет аннотаций `@kern:`, поэтому нативный путь честно отвечал «нет
+    # обязательств», и строка была вечным SKIP. Заменены на реальные
+    # контрактные файлы `audits/bloch/*` (у них есть `@kern:requires/ensures`).
     for f in ["audits/tigerbeetle/div_ceil.zig", "audits/ghostty/grid_columns.zig",
-              "audits/codecheck/zig_div.zig", "src/core/eq2.zig"]:
+              "audits/bloch/binary_search.zig", "audits/bloch/binary_search_safe.zig"]:
         if not (ROOT / f).is_file():
             continue
         _rc, out = run([str(KERNC), "verify-zig", f], timeout=200)
@@ -73,7 +77,10 @@ def pkg_a_native() -> None:
         # ДВУСТОРОННИЙ контроль для файлов с парой «верная/мутация»:
         # верная обязана ДОКАЗАТЬСЯ, мутация — НАРУШИТЬСЯ. Иначе «доказано 0,
         # нарушено 0» выдавалось бы за успех (вакуум).
-        if Path(f).stem in {"div_ceil", "grid_columns"}:
+        # Двусторонний контроль возможен только у файла с ПАРОЙ «верная/мутация».
+        # `binary_search_safe.zig` содержит ОДНУ функцию — требовать от него
+        # «нарушено >= 1» значило бы требовать мутации, которой там нет.
+        if Path(f).stem in {"div_ceil", "grid_columns", "binary_search"}:
             good_ok = re.search(r"\[PASS\] ДОКАЗАНО", out) is not None
             bug_ok = re.search(r"КОНТРАКТ НАРУШЕН", out) is not None
             record("А", f"verify-zig {Path(f).name}", "OK" if (good_ok and bug_ok) else "FAIL",
@@ -318,6 +325,80 @@ def pkg_b_oracles() -> None:
         tail_e = [ln for ln in out_e.strip().splitlines() if ln.startswith("[OK]") or "RC=" in ln]
         record("Е", label, "OK" if rc_e == 0 else "FAIL",
                (tail_e[-1][:140] if tail_e else f"rc={rc_e}"))
+
+
+    # ── ПАКЕТ Ж. Пять способностей, которых не было в стенде ───────────────
+    say("\n── ПАКЕТ Ж. Гомеостаз, @kern:secret, @kern:pricing, --fuel/unify, мост Lean<->kernc ──")
+
+    # Ж1. ГОМЕОСТАЗ (Диагност): F -> синтез недостающего предусловия -> PROVEN.
+    rc_h, out_h = run(["make", "-s", "homeostatic-heal-check"], timeout=900)
+    healed = [ln.strip() for ln in out_h.splitlines()
+              if ("heal" in ln.lower() or "исцел" in ln.lower() or "F ->" in ln)
+              and ("OK" in ln or "PROVEN" in ln or "T" == ln.strip()[-1:])]
+    record("Ж", "гомеостаз: F -> синтез @kern:requires -> повторная проверка -> PROVEN",
+           "OK" if rc_h == 0 else "FAIL",
+           (healed[-1][:140] if healed else f"make homeostatic-heal-check rc={rc_h}"))
+
+    # Ж2. @kern:secret — утечка секретного параметра против безопасной функции.
+    rc_s, out_s = run(["make", "-s", "secrets-check"], timeout=600)
+    tail_s = [ln.strip() for ln in out_s.splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+    record("Ж", "@kern:secret: перехват утечки секрета (selftest + реальный скан)",
+           "OK" if rc_s == 0 else "FAIL", (tail_s[-1][:140] if tail_s else f"rc={rc_s}"))
+
+    # Ж3. @kern:pricing — тарифная матрица без дыр и противоречий.
+    rc_p, out_p = run(["make", "-s", "pricing-matrix-check"], timeout=600)
+    tail_p = [ln.strip() for ln in out_p.splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+    record("Ж", "@kern:pricing: полнота и непротиворечивость тарифной матрицы",
+           "OK" if rc_p == 0 else "FAIL", (tail_p[-1][:140] if tail_p else f"rc={rc_p}"))
+
+    # Ж4. `kernc run --fuel` — ДВУСТОРОННЕ: бесконечный CALL -> OutOfQuota,
+    #     программа с HALT -> HALT OK. Формат байткода: 0x06 addr8 (CALL), 0xFF HALT.
+    bc_dir = ROOT / "build" / "fuel"
+    bc_dir.mkdir(parents=True, exist_ok=True)
+    loop_bc, halt_bc = bc_dir / "loop.bcx", bc_dir / "halt.bcx"
+    loop_bc.write_bytes(bytes([0x06, 0x00]))       # CALL 0 -> бесконечный цикл
+    halt_bc.write_bytes(bytes([0x00, 0xFF]))       # NOP; HALT
+    manifest = ROOT / "examples" / "hello_world.kern"
+    fuel_rows: list[tuple[str, str]] = []
+    for name, bc, want in (("цикл", loop_bc, "OutOfQuota"), ("halt", halt_bc, "HALT OK")):
+        img = bc_dir / f"{bc.stem}.kimg"
+        _rcb, outb = run([str(KERNC), "build", str(manifest), "-o", str(img),
+                          "--bytecode", str(bc)], timeout=300)
+        _rcr, outr = run([str(KERNC), "run", str(img), "--fuel", "200"], timeout=300)
+        got = "OutOfQuota" if "OutOfQuota" in outr else ("HALT OK" if "HALT OK" in outr else "?")
+        fuel_rows.append((name, got))
+        record("Ж", f"kernc run --fuel ({name}): детерминированный бюджет",
+               "OK" if got == want else "FAIL",
+               f"ожидали {want}, получили {got} (топливо 200)")
+
+    # Ж5. `kernc unify` — консолидация Белнапа B_4 прямо в CLI (две стороны).
+    _rcu1, out_u1 = run([str(KERNC), "unify", "5", "3"], timeout=120)
+    _rcu2, out_u2 = run([str(KERNC), "unify", "3", "7"], timeout=120)
+    agree = "[T]" in out_u1 and "УСПЕШНА" in out_u1
+    conflict = "[B]" in out_u2 and "КОНФЛИКТ" in out_u2
+    record("Ж", "kernc unify: согласие -> T, расхождение -> B (Belnap B_4 в CLI)",
+           "OK" if (agree and conflict) else "FAIL",
+           f"unify 5/3 -> {'T' if agree else out_u1.strip()[:40]}; "
+           f"unify 3/7 -> {'B' if conflict else out_u2.strip()[:40]}")
+
+    # Ж6. МОСТ Lean 4 <-> kernc: законы решётки из `formal/*.lean` сверяются с CLI.
+    #     `KernAllMath.contradiction_isolation : joinK T F = B` -> unify даёт B;
+    #     `joinK_idem : joinK a a = a` -> unify согласия даёт T;
+    #     `joinK_comm` -> порядок аргументов не меняет вердикт.
+    _rc1, o1 = run([str(KERNC), "unify", "4", "4"], timeout=120)
+    _rc2, o2 = run([str(KERNC), "unify", "2", "6"], timeout=120)
+    _rc3, o3 = run([str(KERNC), "unify", "6", "2"], timeout=120)
+    idem = "[T]" in o1                     # joinK_idem : joinK a a = a
+    iso = "[B]" in o2                      # contradiction_isolation : joinK T F = B
+    # `kernc unify` — РОЛЕВО-АСИММЕТРИЧЕН (аргумент 1 = лимит архитектора,
+    # аргумент 2 = минимум ИИ), поэтому `joinK_comm` из Lean к нему НЕ применяется:
+    # unify 2 6 -> B, unify 6 2 -> T. Это проверяется как ФАКТ асимметрии,
+    # а не выдаётся за нарушение закона решётки.
+    asymmetric = ("[B]" in o2) and ("[T]" in o3)
+    record("Ж", "мост Lean<->kernc: joinK_idem / contradiction_isolation (+ роль-асимметрия)",
+           "OK" if (idem and iso and asymmetric) else "FAIL",
+           f"idem: unify 4/4 -> {'T' if idem else '?'}; isolation: unify 2/6 -> "
+           f"{'B' if iso else '?'}; роль-асимметрия (2/6=B, 6/2=T)={asymmetric}")
 
 
 def main() -> int:

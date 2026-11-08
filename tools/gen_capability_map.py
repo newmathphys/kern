@@ -75,7 +75,8 @@ EPHELONS: list[tuple[str, str, tuple[str, ...]]] = [
       "docs-parity", "llms", "status-check", "readme", "trace-check", "scorecard",
       "theorem", "lean", "coverage", "flaky", "determinism", "os-stress", "fd-check",
       "pool", "stress", "junit", "telemetry", "self-verify", "trust-docs", "golden",
-      "chaos", "injection", "cite", "pin", "lock", "guard")),
+      "chaos", "injection", "cite", "pin", "lock", "guard",
+      "prove-all-real")),
 ]
 
 OVERRIDES: dict[str, str] = {

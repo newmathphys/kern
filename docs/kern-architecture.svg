@@ -78,8 +78,8 @@
   <text x="644" y="194" class="val">100.0%</text>
   <text x="742" y="194" class="lbl">decision coverage (30/30)</text>
   <text x="644" y="216" class="val">100.0%</text>
-  <text x="742" y="216" class="lbl">mutation score <!-- fact:mutation_sites -->1597/<!-- fact:mutation_sites -->1597</text>
-  <text x="644" y="238" class="val"><!-- fact:check_targets -->201 / <!-- fact:check_targets -->201</text>
+  <text x="742" y="216" class="lbl">mutation score <!-- fact:mutation_sites -->1600/<!-- fact:mutation_sites -->1600</text>
+  <text x="644" y="238" class="val"><!-- fact:check_targets -->202 / <!-- fact:check_targets -->202</text>
   <text x="742" y="238" class="lbl">can-fail CHECK targets</text>
   </g>
 </svg>

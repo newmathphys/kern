@@ -369,6 +369,9 @@ FAULTABLE = [
     # #505: кейс `pilot-gate-blind` правит вердикт `audit_delta` — файл обязан
     # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tools/audit_delta.py",
+    # #538: кейс `prove-all-real-blind` правит ожидания стенда — файл обязан
+    # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
+    "tools/prove_all_capabilities_real.py",
 
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tests/fixtures/precision_clean/clean.py",
@@ -4356,6 +4359,21 @@ def case_action_doctor():
     return "make action-check"
 
 
+def case_prove_all_real_blind():
+    """Стенд всех способностей. ЛОМАЕМ: подменяем ожидание `--fuel`.
+
+    ДВУСТОРОННИЙ контроль в стенде (цикл -> `OutOfQuota`, halt -> `HALT OK`)
+    существует ровно для того, чтобы «оба прогона что-то напечатали» не
+    засчитывалось как успех. Здесь мы меняем ОЖИДАНИЕ для halt-программы на
+    `OutOfQuota`: настоящий бинарь отвечает `HALT OK`, значит строка обязана
+    покраснеть. Если стенд позеленеет — контроль вакуумный, и это ловится.
+    """
+    patch("tools/prove_all_capabilities_real.py",
+          '("halt", halt_bc, "HALT OK")',
+          '("halt", halt_bc, "OutOfQuota")')
+    return "make prove-all-real"
+
+
 def case_pilot_gate_blind():
     """#505 SABOTAGE: PR-гейт перестал блокировать внесённый баг.
 
@@ -4609,6 +4627,10 @@ CASES = [
      case_action_doctor),
     ("pilot-gate-blind", "Пилот 8-в-1: PR-гейт перестал блокировать регресс -> красный",
      case_pilot_gate_blind),
+    # #538: стенд доказательства ВСЕХ способностей — обязан краснеть, если его
+    # собственный двусторонний контроль перестал ловить расхождение.
+    ("prove-all-real-blind", "Стенд 32 проверок: двусторонний контроль ослеп -> красный",
+     case_prove_all_real_blind),
     ("capability-map", "The generated capability map diverges from the registry (#485)",
      case_capability_map),
     ("kern-scan", "The one-button passport calls style SMELL a threat (#489)",

@@ -8,7 +8,7 @@
 
 **Читать в этом порядке:** `docs/STATUS.md` → `docs/NEXT_SESSION.md` → этот план.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->201 · cases <!-- fact:canfail_cases -->246 · anchors <!-- fact:anchors -->205 · registry <!-- fact:registry_targets -->273 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->202 · cases <!-- fact:canfail_cases -->247 · anchors <!-- fact:anchors -->206 · registry <!-- fact:registry_targets -->275 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 

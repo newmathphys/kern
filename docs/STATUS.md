@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->273 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->201 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->275 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->202 | must be able to fail |
 | MEASURE | 2 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->13 | L0 only: it compiles |
-| EXTERNAL | 3 | third-party / cross-architecture |
+| EXTERNAL | 4 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->54 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->246**, of which
-**201/201** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->247**, of which
+**202/202** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -28,10 +28,10 @@ Can-fail cases: **<!-- fact:canfail_cases -->246**, of which
 | KERN-Next tests | <!-- fact:next_tests -->53 |
 | Full test catalog | <!-- fact:catalog -->491 |
 | Lean 4 | <!-- fact:lean_theorems -->147 theorems in 8 files, 0 sorry |
-| Mutations killed | <!-- fact:mutation_sites -->1597 / 1597 across 21 files |
+| Mutations killed | <!-- fact:mutation_sites -->1600 / 1600 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->205 |
+| Literal anchors | <!-- fact:anchors -->206 |
 | Version | `v2.8.2` |
 
 ## Defect journal
