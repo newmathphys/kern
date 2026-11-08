@@ -6475,7 +6475,10 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             continue
         # ДЕФЕКТ #322: путь учитывает УСЛОВНЫЕ ВЫРАЖЕНИЯ — тернарник
         # (`x[0] if xs else None`) это ГАРД своей ветви, а не общий путь.
-        for sub, spath in _subscripts_with_path(st, eff, syms):
+        # #552: имена с ИЗВЕСТНОЙ длиной проверяются и на ЗАПИСЬ.
+        _known_len = {n for n in (set(lens) | set(alias_of.values()) | syms)
+                      if n not in ("", "result")}
+        for sub, spath in _subscripts_with_path(st, eff, syms, _known_len):
             _bounds_one(sub, spath, params, lens, kernc, found, fname, syms, in_while, notes)
 
 
@@ -6509,7 +6512,8 @@ def _write_targets(root) -> set:
     return out
 
 
-def _subscripts_with_path(st, path: list, syms: set) -> list:
+def _subscripts_with_path(st, path: list, syms: set,
+                          known_len: set | None = None) -> list:
     """Подвыражения `arr[i]` вместе с условиями, которые их ГАРАНТИРУЮТ.
 
     ДЕФЕКТ #322. Условное ВЫРАЖЕНИЕ (`return x[0] if xs else None`,
@@ -6534,6 +6538,21 @@ def _subscripts_with_path(st, path: list, syms: set) -> list:
     """
     out: list[tuple] = []
     writes = _write_targets(st)      # #476c: записи по ключу не читаются
+    # ДЕФЕКТ #552 (ИЗМЕРЕНО на `audits/cwe_twins/cwe787_bad.py`): исключение
+    # записей было СЛИШКОМ широким. Для СЛОВАРЯ (`d[k] = v`) оно верное —
+    # длины нет, границы бессмысленны (#476c), — но запись в МАССИВ
+    # (`data[i] = v` с известной длиной из литерала/`@kern:len`/`len()`) это
+    # ровно CWE-787, и её НАДО проверять. ЗАМЕР ДО: `write_bad` давал
+    # `checked 0 / 1 (no obligations 1)`, гейт печатал `[FN/TN] CWE-787`.
+    checked_writes: set = set()
+    if known_len:
+        for node in ast.walk(st):
+            if not isinstance(node, ast.Assign):
+                continue
+            for t in node.targets:
+                if (isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name)
+                        and t.value.id in known_len):
+                    checked_writes.add(id(t))
 
     def cond_of(test) -> str | None:
         stripped = _drop_isinstance(test)
@@ -6551,7 +6570,9 @@ def _subscripts_with_path(st, path: list, syms: set) -> list:
                 walk(child.body, cond_path + ([c] if c else []))
                 walk(child.orelse, cond_path + ([f"(not {c})"] if c else []))
                 continue
-            if isinstance(child, ast.Subscript) and id(child) not in writes:
+            if isinstance(child, ast.Subscript) and (id(child) not in writes
+
+                                                    or id(child) in checked_writes):
                 out.append((child, cond_path))
             walk(child, cond_path)
 

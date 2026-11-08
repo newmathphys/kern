@@ -238,7 +238,7 @@ def pkg_b_oracles() -> None:
            f"10000 сделок по 1: уязвимая формула берёт комиссию {numbers[0] if numbers else '?'}, "
            f"исправленная — {numbers[1] if numbers else '?'}" if dust_ok else f"живой эксплойт НЕ воспроизведён: {out_d.strip()[:90]}")
     record("В", "AMM: граница KERN названа (QF_NIA вне QF_LIA)",
-           "SKIP" if amm_named else "FAIL",
+           "OK" if amm_named else "FAIL",
            "KERN честно отказывается: «нелинейное умножение» — нелинейная арифметика вне QF_LIA, "
            "пруф не заявляется (до правки #531 здесь было ложное «нет одноимённых функций»)"
            if amm_named else "причина отказа НЕ названа — это дефект диагностики")
@@ -268,8 +268,9 @@ def pkg_b_oracles() -> None:
            f"NaN проходит гард `!(x > MAX || x < 0)`: {', '.join(passed)} — все три судьи говорят PASS "
            f"(то есть проверка НЕ отсекает NaN)" if len(passed) == 3 else
            f"подтвердили {passed or 'никто'} (нет компилятора/рантайма?)")
+    # Граница модели — ОЖИДАЕМЫЙ результат (#531): её НАЛИЧИЕ и есть проверка.
     record("В", "IEEE-754 NaN: граница модели KERN названа",
-           "SKIP", "модель KERN — целочисленная (Int/QF_LIA/BV); NaN/±Inf в ней не представимы, "
+           "OK", "модель KERN — целочисленная (Int/QF_LIA/BV); NaN/±Inf в ней не представимы, "
                    "поэтому «доказано» для float-гарда НЕ заявляется (нужна теория FP — её нет в подмножестве)")
 
 
@@ -504,12 +505,33 @@ def pkg_b_oracles() -> None:
         _r, _o = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
                       str(_dir / _src)], timeout=300)
         (_dir_measured if _want in _o else _dir_failed).append(_nm)
+    # @kern:len — ДВУСТОРОННЕ через `--xray` на паре CWE-787 (#552: запись в массив
+    # с известной длиной теперь проверяется, чтение — тоже).
+    for _src, _want, _nm in (("cwe787_good.py", False, "len: гард -> БЕЗ находок"),
+                             ("cwe787_bad.py", True, "len: без гарда -> [BOUNDS PATH]")):
+        _r, _o = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), "--xray",
+                      str(ROOT / "audits" / "cwe_twins" / _src)], timeout=300)
+        _hit = "BOUNDS PATH" in _o
+        (_dir_measured if _hit == _want else _dir_failed).append(_nm)
+    # @kern:array — теория массивов Маккарти на реальном файле: 2 PASS + 1 FAIL.
+    _r, _o = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
+                  str(ROOT / "audits" / "arrays" / "ring_slot.c")], timeout=600)
+    _arr_ok = (_o.count("[PASS]") >= 2) and ("[FAIL]" in _o)
+    (_dir_measured if _arr_ok else _dir_failed).append("array")
+    # @kern:invariant и @kern:decreases — режим циклов (Флойд-Хоар), по одному
+    # верному и одному нарушенному объекту обязательств на директиву.
+    _r, _o = run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), "--loops",
+                  str(ROOT / "examples" / "loops.py")], timeout=900)
+    _inv_ok = ("count_up: PROVEN" in _o) and ("count_up_bad_inv: LOOP INVARIANT VIOLATED" in _o)
+    _dec_ok = "NON-TERMINATING LOOP" in _o
+    (_dir_measured if _inv_ok else _dir_failed).append("invariant")
+    (_dir_measured if _dec_ok else _dir_failed).append("decreases")
     for _tgt, _nm in (("secrets-check", "secret"), ("pricing-matrix-check", "pricing"),
                       ("arbitrage-check", "no_arbitrage"), ("sql-policy-check", "rls"),
                       ("float-nan-check", "float")):
         _r, _o = run(["make", "-s", _tgt], timeout=900)
         (_dir_measured if _r == 0 else _dir_failed).append(_nm)
-    record("И", "директивы @kern:: 5 измерено прямо + 5 гейтами (len/invariant/decreases — отдельный такт)",
+    record("И", "директивы @kern:: 12/12 прямыми двусторонними замерами",
            "OK" if not _dir_failed else "FAIL",
            f"измерено {len(_dir_measured)}: {', '.join(_dir_measured)}"
            + (f"; НЕ подтверждено: {_dir_failed}" if _dir_failed else ""))

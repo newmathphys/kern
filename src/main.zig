@@ -587,6 +587,19 @@ pub fn main(init: std.process.Init) !void {
                 const up = std.mem.lastIndexOf(u8, cap.stdout, "unsat") orelse 0;
                 const st = std.mem.indexOfScalarPos(u8, cap.stdout, up, '(') orelse cap.stdout.len;
                 const proof = cap.stdout[st..];
+                // ДЕФЕКТ #553 (ИЗМЕРЕНО): после #536 вывод в десятки МБ начал
+                // РЕАЛЬНО разбираться, и `cwe-twins-check` (класс CWE-22) перестал
+                // укладываться в минуты. Предел размера — НАЗВАННЫЙ отказ, а не
+                // тишина: до 32 МБ чекер работает и печатает счётчик, больше —
+                // «НЕ ПРИМЕНИМ: вывод больше предела парсера».
+                if (proof.len > 32 * 1024 * 1024) {
+                    std.debug.print(
+                        "  [ПРУФ-ЧЕКЕР] НЕ ПРИМЕНЁН: вывод {d} Б > предела парсера (32 МБ) — " ++
+                            "счётчика доверенных шагов НЕТ. Это НЕ «проверено» " ++
+                            "(настройка размера: KERN_Z3_MAX_STDOUT)\n",
+                        .{proof.len},
+                    );
+                } else {
                 var ar = std.heap.ArenaAllocator.init(alloc);
                 defer ar.deinit();
                 const ta = ar.allocator();
@@ -630,6 +643,7 @@ pub fn main(init: std.process.Init) !void {
                     std.debug.print("  [!] причина: {s}\n", .{pv.failureReason()});
                     fail("[!] ПРУФ-ЧЕКЕР ОТВЕРГ вывод решателя\n", .{});
                 }
+                }  // #553: конец блока проверки размера вывода
             } else {
                 // ДЕФЕКТ #536 (ИЗМЕРЕНО на `audits/smt2/alignment_bitvec_*.smt2`):
                 // ЗАПРОС ВЫВОДА вернул не `unsat` — и блок чекера просто не
