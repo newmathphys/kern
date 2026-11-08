@@ -8,6 +8,36 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### Real-combat stand for the «sleeping» capabilities: native Zig frontend, LIA, six physical oracles
+
+Everything proven on real corpora so far was `--xray` and `--delta`. The remaining muscles were
+exercised only on toy fixtures. `make prove-all-real` (`tools/prove_all_capabilities_real.py`) now
+drives them on REAL files and REAL vulnerable patterns and prints an HONEST verdict per item —
+`OK` (worked and confirmed by an external oracle), `SKIP` (named reason) or `FAIL`. It never rewrites
+a verdict: a SKIP stays a SKIP.
+
+**Measured on this machine (13 checks: OK 6 | SKIP 7 | FAIL 0):**
+
+- **Native Zig frontend, 0 Python (`verify-zig`)** on real files — `audits/tigerbeetle/div_ceil.zig`,
+  `audits/ghostty/grid_columns.zig`, `audits/codecheck/zig_div.zig`, `src/core/eq2.zig`:
+  the frontend PARSES the contracts but **SKIPs** with a named reason («тело вне подмножества:
+  нужен РОВНО ОДИН `return`», «нет обязательств»). Honest result: on real code with several returns
+  the capability exists but does not apply — recorded as SKIP, not as green.
+- **LIA solver without Z3 (`kernc lia`)** on real inequality systems, cross-checked against Z3:
+  `ceil_div(n>=0,d>0)` → `SAT` / Z3 `sat`; contradiction (`x<=0 ∧ x>=1`) → **`UNSAT` / Z3 `unsat`**.
+  Two independent solvers agree — that is the point of the check.
+- **ReDoS oracle (CWE-1333) with a LIVE stopwatch:** nested quantifier `(a+)+` → `ОПРОВЕРГНУТО`,
+  and Python's `fullmatch` on `'a'*22+'b'` takes **0.305 s**; safe `(a|b)+` → `ДОКАЗАНО`, live
+  **0.0 s**. (My first attempt used `match`, which found a prefix instantly and proved nothing —
+  measured `match` = 0.0 s vs `fullmatch(22)` = 0.33 s vs `fullmatch(24)` = 1.12 s; the oracle was
+  fixed to measure the same failure, not a different one.)
+- **Abstract interpretation** `join 0 10 5 20` → `[0, 20]`, `widen` → `[0, MAX]` ✓.
+- **DTMC** on a retry model (`dtmc reach 2 1 …`) → `P(достичь 1 из 0) = 1.000000` ✓.
+- **Named SKIPs found on the way (this is the value of the stand):** `strings`/path-sandbox — theory
+  not exposed under that name in `theory_cli`; `nonint` — unknown instruction `early_return`;
+  `chc` — needs `<init> <step> <bound> <свойство>`. Each is a REAL usability gap, now visible instead
+  of hidden behind «all capabilities proven».
+
 ### T7 closed: external acceptance in ONE command, and the best proofs moved onto the front page
 
 The engineering core was finished but invisible: the strongest results sat in small print inside

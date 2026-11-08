@@ -1106,6 +1106,13 @@ showcase-live-all:
 external-accept:
 	@bash tools/external_accept.sh
 
+# БОЕВОЙ СТЕНД всех способностей на РЕАЛЬНЫХ данных. В отличие от `showcase-live-all`
+# (витрина на фикстурах) гоняет НАТИВНЫЕ механизмы на реальных файлах и реальных
+# уязвимых паттернах, сверяя вердикты с ВНЕШНИМИ оракулами (Z3, живой Python).
+# Вердикт SKIP не переписывается в OK: он печатается с причиной.
+prove-all-real:
+	@$(PYTHON) tools/prove_all_capabilities_real.py
+
 # То же + длинные корпуса (минуты) + долгие (десятки минут).
 showcase-live-all-full:
 	@$(PYTHON) tools/showcase_live.py --all --full
