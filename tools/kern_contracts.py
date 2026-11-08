@@ -4857,6 +4857,10 @@ def _demo(args) -> int:
 
     total = ok = failed = skipped = vacuous = safety_failed = unknown = 0
     advisory_ok = 0  # Ф6.1: T_advisory — НЕ доказано и НЕ нарушено
+    # #554: доказано РЕШАТЕЛЕМ, но сертификат не проверен по ЛИМИТУ парсера
+    # (Belnap N на сертификате). Отдельный счётчик, чтобы это не путалось
+    # ни с FAIL, ни с обычным PASS с проверенным выводом.
+    proved_admitted = 0
     unconfirmed = 0  # правило №4: SAT, не подтверждённый живым вызовом
     # Контрпримеры для `--emit-pytest` (УЛУЧШЕНИЕ №4): найденный Z3 баг обязан
     # превращаться в ОБЫЧНЫЙ падающий pytest, а не только в строку в логе.
@@ -5271,6 +5275,27 @@ def _demo(args) -> int:
                     if "причина:" in line:
                         reason = line.split("причина:", 1)[1].strip()
                         break
+                # ДЕФЕКТ #554 (ИЗМЕРЕНО на `audits/cwe_twins/cwe680_good.c`):
+                # здесь смешивались ДВА разных исхода:
+                #   (а) чекер ОТВЕРГ вывод по существу (неверный шаг) -> SKIP;
+                #   (б) чекер НЕ ПРИМЕНИМ по ЛИМИТУ (глубина/размер вывода,
+                #       #553/#536) -> контракт ДОКАЗАН решателем, а сертификат
+                #       остаётся `N` (Belnap: не проверен), но это НЕ «код
+                #       обвинён». Пока оба печатали `[SKIP]`, гейт
+                #       `cwe-twins-check` считал `good`-близнеца ЛОЖНЫМ
+                #       ОБВИНЕНИЕМ (`[TP/FP]`, J падал) — то есть предел
+                #       ПАРСЕРА превращался в обвинение КОДА (класс #370).
+                _limit_markers = ("предела вложенности парсера", "больше предела парсера",
+                                  "ГЛУБЖЕ предела", "вывод больше предела")
+                if any(m in reason for m in _limit_markers):
+                    print(f"  [PASS] {name}: ДОКАЗАНО (допущено: пруф-чекер НЕ ПРИМЕНИМ — "
+                          f"{reason}) — вердикт РЕШАТЕЛЯ, сертификат не проверен (N)")
+                    f_funcs.append({"name": name, "line": ln, "verdict": "PASS",
+                                    "proof_check": "not_applicable",
+                                    "reason": reason})
+                    ok += 1
+                    proved_admitted += 1
+                    continue
                 print(f"  [SKIP] {name}: Z3 доказал, но пруф-чекер не покрывает "
                       f"вывод ({reason or 'причина не указана'})")
                 f_funcs.append({"name": name, "line": ln, "verdict": "SKIP",
@@ -5388,6 +5413,10 @@ def _demo(args) -> int:
                                 + (f"; контрпример Z3: {fmt_ce(vals)}" if vals else ""))})
                 failed += 1
     print("-" * 74)
+    if proved_admitted:
+        print(f"  [i] из доказанных {ok}: {proved_admitted} — с НЕПРИМЕНИМЫМ чекером "
+              f"(предел парсера; сертификат N, вердикт решателя)")
+
     print(f"ИТОГО: доказано {ok} | T_advisory {advisory_ok} | нарушено {failed} (из них "
           f"безопасность: {safety_failed}) | НЕ РЕШЕНО {unknown} | "
           f"ЛОЖНЫХ ТРЕВОГ {unconfirmed} | "

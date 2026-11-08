@@ -89,7 +89,8 @@ _SIGNAL_NAMES = {4: "SIGILL", 6: "SIGABRT", 8: "SIGFPE", 9: "SIGKILL",
                  11: "SIGSEGV", 15: "SIGTERM"}
 
 
-def run(cmd: list[str], timeout: int = 900, mem_cap: bool = False) -> tuple[int, str]:
+def run(cmd: list[str], timeout: int = 900, mem_cap: bool = False,
+        env: dict | None = None) -> tuple[int, str]:
     """Запустить команду; `mem_cap=True` -> потолок памяти (#470).
 
     Таймаут и лимит памяти дают НАЗВАННЫЙ исход (rc 124/125), а не трейсбек
@@ -97,7 +98,7 @@ def run(cmd: list[str], timeout: int = 900, mem_cap: bool = False) -> tuple[int,
     успел» / «решателю не хватило памяти» от «формула опровергнута».
     """
     # ДЕФЕКТ #469b: решатель передаётся ЯВНО (каталог z3 — в `PATH` потомков).
-    env = dict(os.environ)
+    env = dict(env) if env is not None else dict(os.environ)   # #554: явный env
     _z3 = find_z3()
     if _z3:
         env["PATH"] = str(Path(_z3).parent) + os.pathsep + env.get("PATH", "")
@@ -256,7 +257,10 @@ def cert_section() -> int:
         else:
             continue
         checked += 1
-        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300, mem_cap=True)
+        # #554: счётчик чекера на больших выводах требует ЯВНОГО подъёма лимитов (KERN_PROOF_BIG), иначе мост на строгих дефолтах честно отказывает по лимиту.
+        _env_big = dict(os.environ, KERN_PROOF_BIG="1")
+        _rc, out = run([str(KERNC), "prove", str(f)], timeout=300, mem_cap=True,
+                       env=_env_big)
         got = ("proven" if "ДОКАЗАНО" in out
                else "refuted" if "КОНТРПРИМЕР" in out
                else "oom" if _rc == 125

@@ -573,11 +573,17 @@ pub fn main(init: std.process.Init) !void {
             // в ToolError, чекер не запускался, а строка оставалась
             // «ДОКАЗАНО (допущено)» без счётчика. Для ЗАПРОСА ВЫВОДА поднимаем
             // оба лимита; остальные запросы остаются на строгих дефолтах.
-            bridge.timeout_ms = @max(bridge.timeout_ms, 120_000);
-            bridge.max_stdout = @max(bridge.max_stdout, 256 * 1024 * 1024);
-            // И лимит ПАМЯТИ: на `-memory:256` Z3 отвечал «out of memory» (код
-            // 101) уже на 67-МБ выводе — измерено на alignment_bitvec.
-            bridge.mem_mb = @max(bridge.mem_mb, 2048);
+            // ДЕФЕКТ #554 (ИЗМЕРЕНО): подъём лимитов был ГЛОБАЛЬНЫМ, и на QF_S
+            // (`cwe22_bad.smt2`) `kernc prove` стал тратить до 120 с вместо
+            // быстрого отказа (0.2 % CPU — гейт `cwe-twins` не укладывался).
+            // Теперь подъём ЯВНЫЙ (env), его включает только тот, кому нужен
+            // счётчик чекера на большом выводе (`tools/audits_run.py`):
+            //   KERN_PROOF_BIG=1 -> 120 с / 256 МБ вывода / память 2048 МБ.
+            if (compat.envVar("KERN_PROOF_BIG") != null) {
+                bridge.timeout_ms = @max(bridge.timeout_ms, 120_000);
+                bridge.max_stdout = @max(bridge.max_stdout, 256 * 1024 * 1024);
+                bridge.mem_mb = @max(bridge.mem_mb, 2048);
+            }
             const cap = bridge.executeCapture(q.items());
             defer alloc.free(cap.stdout);
             if (cap.status == .Unsat) {
