@@ -49,8 +49,35 @@ fix they silently fell into `i64`, and `debt / equity` (f64/f64) was reported as
 division-by-zero panic although IEEE-754 yields `inf`/`NaN`. **Measured:** 138 such skips on
 `TheAlgorithms/Rust`, 4 on `DeepJIT`, 6 on KERN's own Zig core.
 
-## 3. Loop invariants are not modelled (Belnap N)
+### `QF_S`: strings are not modelled — the checker REFUSES, and names the rule (`#515`)
 
+The tamper fuzzer runs five theory banks. Four of them are adversarially verified; the QF_S
+(sanitizer) bank is a **named skip**, because the proof checker has no rule for the string theory
+lemma and therefore rejects the INTACT proof itself (`rc=1` on a correct proof). This is
+**fail-closed**, not a hole: on that theory a tampered step is indistinguishable from a valid one,
+so the fuzzer is inapplicable.
+
+**Measured** (`make proof-tamper`; dump via `kernc check-proof tests/fixtures/qfs_sanitizer.smt2
+tests/fixtures/qfs_proof.txt`):
+
+```
+[ПРУФ-ЧЕКЕР] шагов 39 | … | ДОВЕРЕННЫХ 1 | дыр 0
+[i] первое непроверенное правило: th-lemma (структурно) (1 шт.)
+[!] ОТВЕРГНУТО: остались непроверенные шаги (trusted)
+```
+
+The one trusted step, verbatim from the `KERN_DEBUG_TRUSTED=1` dump:
+
+```
+((_ th-lemma seq) @x78 (unit-resolution (def-axiom (or $x91 $x57)) @x312 $x57) false)
+```
+
+So the boundary is the theory `seq` (`str.++`, `seq.unit`, `(_ Char …)`) inside `th-lemma`, not a
+«structural rewrite» that could be patched cheaply. Before `#515` the refusal named only the COUNT
+and not the rule, so the report said «refused» without saying why; now the rule is printed in both
+the `prove` and the `check-proof` paths.
+
+## 3. Loop invariants are not modelled (Belnap N)
 `while`/`for` are analysed as ONE iteration with the loop condition as a guard. A full
 invariant (needs CHC/Horn) is not derived, therefore:
 * an index depending on a loop-modified variable yields `[BOUNDS UNKNOWN]` — that is **N**

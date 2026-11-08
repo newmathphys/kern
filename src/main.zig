@@ -718,6 +718,15 @@ pub fn main(init: std.process.Init) !void {
             pv.unitres_checked, pv.farkas_checked, pv.rewrite_verified,
             pv.array_axiom_checked, pv.trusted_steps, pv.other_steps, pv.holes,
         });
+        // ДЕФЕКТ #515 (ИЗМЕРЕНО на QF_S): путь `check-proof` называл ЧИСЛО
+        // доверенных шагов, но НЕ правило — а именно оно и есть граница
+        // («какую теорию чекер не умеет проверять»). Путь `prove` эту строку
+        // печатал, путь `check-proof` — нет; из-за этого отчёт фаззера
+        // (`make proof-tamper`) называл отказ без причины. Один и тот же факт
+        // обязан печататься одинаково в обоих путях (класс #370).
+        if (pv.trusted_steps > 0) {
+            std.debug.print("  [i] первое непроверенное правило: {s} ({d} шт.)\n", .{ pv.first_trusted, pv.trusted_steps });
+        }
         // СТРОГО: «подтверждено» = checksPass И вывод `false` И trusted == 0.
         // Именно это требование проверяет адверсариальный фаззер: любая
         // подделка обязана сломать хотя бы одно из трёх условий.

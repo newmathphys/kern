@@ -8,6 +8,26 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### #515: the QF_S refusal named the COUNT but not the RULE — now it names the theory boundary
+
+- **MEASURED** (`make proof-tamper`, `KERN_DEBUG_TRUSTED=1`). The QF_S bank is a named skip because
+  the checker refuses the INTACT proof (`rc=1` on a correct proof) — fail-closed, correct. But the
+  reason was truncated at 160 characters and ended on «ОТВЕРГНУТО: ос…», so the report said
+  «refused» WITHOUT saying why. The rule was in the output all along:
+  `[i] первое непроверенное правило: th-lemma (структурно) (1 шт.)`.
+- **Root:** the `prove` path printed that line (`src/main.zig:582`), the `check-proof` path did not —
+  one and the same fact was reported differently in two paths (class `#370`). And
+  `tools/proof_tamper_check.py` cut the reason to 160 chars, discarding the tail that holds it.
+- **Fix:** `src/main.zig` prints the first untrusted rule in `check-proof` as well;
+  `tools/proof_tamper_check.py` extracts `первое непроверенное правило: …` and puts it FIRST in the
+  reason. Measured after: reason = `ДОВЕРЕННЫХ 1 | первое правило: th-lemma (структурно) :: …`.
+- **BOUNDARY NAMED, NOT HIDDEN.** The exact trusted step is
+  `((_ th-lemma seq) @x78 (unit-resolution (def-axiom (or $x91 $x57)) @x312 $x57) false)` — the
+  STRING theory (`str.++`, `seq.unit`, `(_ Char …)`) inside `th-lemma`, i.e. not a cheap structural
+  rewrite. Written into `docs/LIMITS.md` / `.ru.md` (section 2) with the dump and the reproduction
+  command. `make proof-tamper` stays rc=0: `ПОДДЕЛОК 35 | ПРИНЯТО 0`, four banks adversarially
+  verified, QF_S a named skip.
+
 ### #514: `KERN CI` был красным всю сессию — один кейс `canfail` ослеп (`kerna`)
 
 - **НАЙДЕНО ПО ВАШЕМУ ЛОГУ, ПОДТВЕРЖДЕНО ЗАМЕРОМ.** Полный прогон `tools/canfail.py`

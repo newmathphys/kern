@@ -127,8 +127,8 @@ xray-precision rc=0 (traps 0/1/1, buggy 5/5, known_fp 0, external base 4).
 
 | # | Task | Done when (measurement) |
 |:--|:--|:--|
-| **T1** | Move the release tag: `git tag -fa v2.8.2 <attestation commit> && git push -f origin v2.8.2`, let `release.yml` republish | run `completed success`; `curl` of the asset → `sha256sum -c` «ЦЕЛ»; tag → commit = `HEAD` |
-| **T2** | `F4 proof-tamper` on QF_S: dump the rules Z3 5.3.1 emits (`(_ th-lemma seq)` has no checker rule, so the checker legitimately refuses the INTACT proof — fail-closed) and either model strings in `src/verifier/proof_check.zig` or keep the named `[SKIP]` and write it into `LIMITS` | `make proof-tamper` prints `ПРИНЯТО 0` **and** the intact proof is accepted, or `LIMITS` names the boundary with the dump |
+| ~~**T1**~~ ✅ | Tag moved to the sealed commit (`d5262868`), `release.yml` republished; will be moved again after `#515` (the CLI message is inside `kernc`, so it must be in the archive too) | `git rev-parse 'v2.8.2^{commit}'` = `HEAD`; asset `sha256sum -c` «ЦЕЛ» |
+| ~~**T2**~~ ✅ | QF_S: `#515` — the refusal now NAMES the rule. Boundary chosen deliberately: strings are NOT modelled, the boundary is written into `LIMITS` (§2) with the exact dump `((_ th-lemma seq) @x78 … false)` | `make proof-tamper` rc=0 (`ПРИНЯТО 0`), reason = `ДОВЕРЕННЫХ 1 | первое правило: th-lemma (структурно)`; LIMITS carries the dump |
 | **T3** | `--live` inside the appliance (now a named skip: no separate `.py` for the probe) | either the layer works frozen, or `LIMITS.md`/`README-RUN.txt` say plainly «in the archive only the Z3 layer» |
 | **T4** | P1 on the WHOLE corpus (not 60 files): `curl/lib`, `redis/src`, `tigerbeetle/src` in full | precision ≥ 0.90 on the full set, numbers into `docs/evidence/blind_p1_2026-11-07.log` |
 | **T5** | `kerna --delta` in a REAL PR (two revisions of one repo), not on synthetic folders | `rc=1` on an introduced finding, `rc=0` on a fix, counterexample in the report |
