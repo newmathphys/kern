@@ -8,6 +8,54 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### T7 closed: external acceptance in ONE command, and the best proofs moved onto the front page
+
+The engineering core was finished but invisible: the strongest results sat in small print inside
+`docs/evidence/*.log`, and the only person who had ever reproduced them was the author (Bus factor 1).
+
+- **`make external-accept`** (`tools/external_accept.sh`) — one command for a sceptic: takes the
+  PUBLISHED archive (or downloads it with `curl -4`), verifies the external and internal SHA-256,
+  checks ISA portability (`zmm == 0` in `kernc`), verifies the Ed25519 attestation with the EXTERNAL
+  key, then runs eight proofs on the appliance itself in an isolated directory. Receipt:
+  `docs/evidence/external_accept_v2.8.2.log`. MEASURED on the archive downloaded from GitHub
+  Releases: **все проверки пройдены, rc=0**.
+- **The script immediately caught a wrong test of mine:** step 7 first asserted «without a solver the
+  appliance refuses» while running the appliance that SHIPS `z3` next to it — so no refusal could
+  happen. It was rewritten to copy the appliance WITHOUT `.venv/bin/z3`; measured: `rc=2` and
+  `KERNA DOCTOR` in the message. A gate that cannot fail is not a gate.
+- **`docs/PROOF_GALLERY.md` / `.ru.md`** — eight capabilities, each with ONE command, its EXTERNAL
+  oracle and the receipt, plus the whole-corpus blind exam table (942 files / 2 004 functions /
+  35 findings / 0 false / precision 1.00) and its honest boundary (the cap is on the slice).
+- **`docs/REAL_BUGS_FOUND.md`** gained **Case D**: the live ordering defect in `tigerbeetle`
+  `test_conformance.py` (`transfers_1[0]` on line 6169, guard `assert len(...) == 1` on line 6170)
+  with a ready 2-line upstream patch — the finding stays a TP instead of being silenced for a
+  prettier zero.
+- **README.md / README.ru.md / docs/index.html** now lead with those tables instead of hiding them;
+  `docs/README.md` (the map) links both new documents, so `make docs-map-check` stays honest.
+- **CI: `curl -4` with a fallback** for the Lean bootstrapper (measured: `curl -6` cannot connect at
+  all while `curl -4` returns 200 — that was the whole «504 storm»), kept in one place.
+
+### #530: the real cause of the «504 storm» was a broken IPv6 path, not GitHub
+
+- **MEASURED (diagnosis, source machine).** `example.com`/`google.com` → **200**, while every
+  GitHub download hung. Root cause: **IPv6**. `curl -6 https://raw.githubusercontent.com/...` fails
+  to CONNECT (11 ms), `curl -4` to the same URL → **200**; `github.com`/`api.github.com` resolve to
+  IPv4, and `api.github.com` never answers on IPv4 (provider filtering) — which is why the REST API
+  looked «dead» while the site and release assets were fine with `-4`.
+  `elan-init.sh` calls `curl` WITHOUT `-4`, so it prefers the AAAA record and hangs — that is the
+  whole «CDN storm». The v2.8.2 archive downloaded with `-4` **first try**.
+- **Fix (cheap insurance, not a local crutch):** the CI Lean installer and the hint printed by
+  `formal/setup_mathlib.sh` now use `curl -4`.
+- **The connected bots are NOT the problem (checked in the repository):** `Release Drafter` drafts
+  under the tag `next` (defect `#248` — a draft must not occupy the release tag name), and
+  Dependabot holds two PRs: `#18` (`pytest 9.1.1 → 9.2.0`, harmless) and **`#20`
+  (`z3-solver 5.3.1.0 → 5.3.3.0`)**. The second one must NOT be merged mechanically: the solver
+  version is part of the evidence chain (`requirements.txt` says so), so every receipt
+  (`audits`, `svcomp`, `proof-tamper`, `showcase-live-all`) has to be re-measured first.
+- **Release verified as a client (finally):** `kerna-dist-v2.8.2.tar.gz` 25 223 076 B, external
+  `sha256sum -c` → **ЦЕЛ**, internal sums (`kerna`, `server.json`, `kernc`) → **ЦЕЛ**,
+  `./kerna --doctor` → OK, `zmm = 0` in `kernc`, `./kerna --delta` → `DIVERGED` with counterexample.
+
 ### #529 + T4c: the full corpus is now CLEAN — precision 35/35 = 1.00 on 942 files
 
 - **`#529` — a BV verdict was untrustworthy when the body calls `exit`/`abort`.** Measured on

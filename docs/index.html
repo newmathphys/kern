@@ -248,6 +248,32 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
      Corpus inventory with N/M and oracles: <a href="CORPORA.en.md">EN</a> &middot; <a href="CORPORA.md">RU</a>.</p>
 </div>
 
+<h2>Blind exam on WHOLE corpora — and the defects it produced</h2>
+<div class="panel">
+  <p class="lbl" style="margin:0 0 10px">Whole directories, pinned SHAs, <b>no file cap</b>, zero edits to the analyzer before the run.
+  Every finding was triaged per line against the sources; the remaining ones are UB <b>in the signature domain</b>
+  (<code>LONG_MIN</code>, <code>INT_MIN</code>), stated as such and never renamed into «bugs».</p>
+  <div class="tablewrap"><table>
+<thead><tr><th>corpus</th><th>SHA</th><th>files</th><th>functions</th><th>findings</th><th>false</th><th>precision</th></tr></thead>
+<tbody>
+<tr><td><code>curl/lib</code></td><td><code>155f6f76</code></td><td>377</td><td>430</td><td>1</td><td>0</td><td><b>1.00</b></td></tr>
+<tr><td><code>redis/src</code></td><td><code>5b69ba2c</code></td><td>227</td><td>1454</td><td>33</td><td>0</td><td><b>1.00</b></td></tr>
+<tr><td><code>tigerbeetle/src</code></td><td><code>68958eb7</code></td><td>338</td><td>120</td><td>1</td><td>0</td><td><b>1.00</b></td></tr>
+<tr><td><b>total</b></td><td>&mdash;</td><td><b>942</b></td><td><b>2004</b></td><td><b>35</b></td><td><b>0</b></td><td><b>1.00</b></td></tr>
+</tbody></table></div>
+  <p class="lbl" style="margin:10px 0 0">Industrial code where KERN accused <b>nobody</b> (0 false alarms):
+  <b>DeepGEMM</b> 144 files &middot; <b>FlashMLA</b> 133 &middot; <b>DeepEP-Ascend</b> 80 &middot; <b>cmark-gfm</b>
+  (<code>known_fp = 0</code>) &middot; <b>actions/toolkit</b>. Honest boundary: the cap is on the <b>slice</b>, not on the
+  corpus — 2004 of 10345 functions were analyzable, the rest were skipped with a <b>named</b> reason.</p>
+  <p class="lbl" style="margin:10px 0 0"><b>Real defects, with patches:</b>
+  <a href="https://github.com/newmathphys/kern/blob/main/docs/REAL_BUGS_FOUND.md">REAL_BUGS_FOUND.md</a> &mdash;
+  including a live ordering defect in <code>tigerbeetle</code> <code>test_conformance.py</code>: the use
+  <code>transfers_1[0]</code> (line 6169) stands <b>above</b> the guard <code>assert len(transfers_1) == 1</code>
+  (line 6170), so an empty reply yields <code>IndexError</code> instead of the authors&#39; own assertion.
+  <b>All eight capabilities, one command each:</b>
+  <a href="https://github.com/newmathphys/kern/blob/main/docs/PROOF_GALLERY.md">PROOF_GALLERY.md</a>.</p>
+</div>
+
 <h2>What the agent says — and what KERN proves</h2>
 <div class="panel">
   <div class="hdr">make ai-demo · one agent session · verbatim tool output</div>

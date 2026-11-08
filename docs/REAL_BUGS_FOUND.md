@@ -82,6 +82,54 @@ the tested function, and the same task is `EXPLORED` (no divergence) once the
 dataset's fixed body is in place - that is how the 40/40 result is produced
 (`docs/evidence/quixbugs_full.log`).
 
+## Case D — `tigerbeetle/tigerbeetle` @ `68958eb7`: a real ORDERING defect in a test (`#529`/T4c)
+
+Found 2026-11-08 by the blind full-corpus exam (942 files, precision 35/35 = 1.00) and kept after
+line-by-line triage. This case is different from A–C: it is not a crash in shipped code and not a
+historical bug — it is a live ordering defect in the upstream test file at the pinned commit.
+
+`src/clients/python/tests/test_conformance.py`:
+
+```python
+6168    transfers_1 = client.lookup_transfers([transfer_2_id])
+6169    transfer_lookup_1 = transfers_1[0]              # <- USE
+6170    assert len(transfers_1) == 1                    # <- GUARD for the line above
+```
+
+`lookup_transfers` returns whatever the server answered. On an **empty** answer, line 6169 raises
+`IndexError: list index out of range`, and the assertion that would have explained the situation
+(«exactly one transfer expected») never runs. The failure is reported as a harness index error
+instead of the authors' own assertion.
+
+**KERN (no contract, no annotation in the source):**
+
+```
+$ python3 tools/kern_contracts.py --xray <tigerbeetle>/src
+  src/clients/python/tests/test_conformance.py: [BOUNDS PATH]
+    test_two_phase_transfer_creates_posts_voids_and_expires_two_phase_transfers:
+    `transfers_1[0]` (строка 6169) — возможен выход за границы
+```
+
+**Patch (2 lines, ready upstream):**
+
+```diff
+--- a/src/clients/python/tests/test_conformance.py
++++ b/src/clients/python/tests/test_conformance.py
+@@ -6168,8 +6168,8 @@ def test_two_phase_transfer_creates_posts_voids_and_expires_two_phase_transfers(
+     transfers_1 = client.lookup_transfers([transfer_2_id])
+-    transfer_lookup_1 = transfers_1[0]
+     assert len(transfers_1) == 1
++    transfer_lookup_1 = transfers_1[0]
+     assert transfers_1[0].id == transfer_2_id
+```
+
+After the patch the same input (`[]`) yields `AssertionError` with the count, not `IndexError`.
+Receipt: `docs/evidence/blind_p1_2026-11-07.log`, section `T4c`.
+
+**Honest framing:** this is a defect of TEST diagnostics, not of the shipped server: the suite still
+fails on a wrong answer, but with a message that hides the cause. Recorded here because the whole
+point of the blind exam is that a stranger's code is judged by its own text, not by its reputation.
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -89,7 +137,8 @@ dataset's fixed body is in place - that is how the 40/40 result is produced
 | A | `boltons` `5eb6cc0` | **DIVERGED** + witness `k = -1, n = 0` | pre-fix guard accepts an invalid index |
 | B | `boltons` `c1c25da` | **not checkable** (#307, variable exponent) | `Bits(4, 2)` accepted before the fix |
 | C | QuixBugs `gcd` | **DIVERGED** (crash) | `RecursionError` on `gcd(1, 2)` |
+| D | `tigerbeetle` `68958eb7` | **BOUNDS PATH** (index before its guard) | `[]` → `IndexError` instead of the authors' `assert` |
 
-Honest framing: two of the three are detected by KERN, one is outside the subset
-and is named as such. None of them is a new CVE - these are **known** historical
-bugs, and the value of the exercise is that KERN finds them from the code alone.
+Honest framing: three of the four are detected by KERN, one is outside the subset and is named as
+such. None of them is a new CVE — these are **real** defects (historical in A–C, live in D), and the
+value of the exercise is that KERN finds them from the code alone.

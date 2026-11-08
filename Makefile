@@ -1097,6 +1097,15 @@ showcase-live-full:
 showcase-live-all:
 	@$(PYTHON) tools/showcase_live.py --all
 
+# T7: ВНЕШНЯЯ ПРИЁМКА одной командой. Берёт ОПУБЛИКОВАННЫЙ архив (или скачивает
+# по `curl -4`), проверяет внешнюю и внутреннюю SHA-256, переносимость ISA
+# (никаких AVX-512 в kernc), аттестат Ed25519 внешним ключом и прогоняет восемь
+# доказательств на самом апплаенсе в изолированной папке. Квитанция —
+# docs/evidence/external_accept_v<ver>.log. Нужна, чтобы скептик получил ТЕ ЖЕ
+# цифры на СВОЕЙ машине, без нашего окружения (Bus factor = 1 -> 2).
+external-accept:
+	@bash tools/external_accept.sh
+
 # То же + длинные корпуса (минуты) + долгие (десятки минут).
 showcase-live-all-full:
 	@$(PYTHON) tools/showcase_live.py --all --full

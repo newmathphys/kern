@@ -23,7 +23,7 @@ MATHLIB_REV="${KERN_MATHLIB_REV:-v4.34.0}"
 
 if ! command -v lake >/dev/null 2>&1 && [ ! -x "$HOME/.elan/bin/lake" ]; then
   echo "[!] lake не найден. Установите elan:"
-  echo "    curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y"
+  echo "    curl -4 -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y"
   exit 1
 fi
 export PATH="$HOME/.elan/bin:$PATH"

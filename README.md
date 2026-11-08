@@ -11,6 +11,22 @@
 
 
 > **Proofs on other people's code — not on our own fixtures:**
+> **All eight capabilities, one command and one receipt each:** [docs/PROOF_GALLERY.md](docs/PROOF_GALLERY.md) · [RU](docs/PROOF_GALLERY.ru.md)
+> **Real defects we found, with patches and upstream links:** [docs/REAL_BUGS_FOUND.md](docs/REAL_BUGS_FOUND.md)
+>
+> **Blind exam on WHOLE corpora (no file cap, pinned SHAs, 0 edits before the run):**
+>
+> | corpus | SHA | files | functions | findings | false | precision |
+> |:--|:--|--:|--:|--:|--:|--:|
+> | `curl/lib` | `155f6f76` | 377 | 430 | 1 | 0 | 1.00 |
+> | `redis/src` | `5b69ba2c` | 227 | 1454 | 33 | 0 | 1.00 |
+> | `tigerbeetle/src` | `68958eb7` | 338 | 120 | 1 | 0 | 1.00 |
+> | **total** | | **942** | **2004** | **35** | **0** | **1.00** |
+>
+> **Industrial code where KERN accused NOBODY (0 false alarms):** `DeepGEMM` 144 files · `FlashMLA` 133 ·
+> `DeepEP-Ascend` 80 · `cmark-gfm` (`known_fp = 0`) · `actions/toolkit`. Honest boundary of the table
+> above: the cap is on the slice, not on the corpus — 2 004 of 10 345 functions were analyzable, the rest
+> were skipped with a NAMED reason (see `docs/evidence/blind_p1_2026-11-07.log`).
 > 1. **EvalPlus MBPP+ — three blind spots of the benchmark itself.** Of 264 solutions that passed **both** MBPP and the 80× MBPP+, `--xray` flagged three division-by-zero crashes; a live `python3` call confirmed all three (`Mbpp/265`, `Mbpp/292`, `Mbpp/422`) and refuted none. **0 false accusations.**
 > 2. **`TheAlgorithms/C` (22.5k ★) — a real SIGFPE.** `math/catalan.c` calls `factorial(n+1)`, which returns `0` for `n = 0`, so the divisor is zero: `echo 0 | ./catalan` dies with **SIGFPE (rc 136)** on the **unmodified** file; from `n = 11` it silently prints garbage. Upstream: [#1595](https://github.com/TheAlgorithms/C/pull/1595). Same repository, second report: `math/lcm.c` printed **`-35899`** where the true `lcm(50000, 50000) = 50000` fits in `int` — [#1596](https://github.com/TheAlgorithms/C/pull/1596).
 > 3. **`TheAlgorithms/Rust` (26k ★) — a `u64` underflow.** `src/math/binomial_coefficient.rs` computes `n - i` with no `k <= n` guard, so `binom(0, 2)` panics in debug and returns garbage in release; all seven upstream tests use `k <= n`. Upstream: [#1075](https://github.com/TheAlgorithms/Rust/pull/1075) (Codecov: **100% patch coverage**).

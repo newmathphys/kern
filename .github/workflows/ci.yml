@@ -79,10 +79,18 @@ jobs:
             ok=0
             for attempt in 1 2 3 4 5; do
               echo "[i] установка elan, попытка $attempt/5"
-              if curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 \
-                   --max-time 300 \
-                   https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
-                 | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"; then
+              # ИЗМЕРЕНО 2026-11-08: на машине, где IPv6 сломан, `curl` уходит в
+              # IPv6 (GitHub отдаёт AAAA для raw.githubusercontent.com) и висит —
+              # `curl -6` не подключается за 11 мс, `curl -4` отдаёт 200.
+              # Поэтому форсируем IPv4, с ФОЛБЭКОМ на обычный curl: если у раннера
+              # IPv4 недоступен, а IPv6 работает — установка всё равно произойдёт.
+              if { curl -4 -sSfL --retry 5 --retry-all-errors --retry-delay 10 \
+                     --max-time 300 \
+                     https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+                   || curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 \
+                     --max-time 300 \
+                     https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+                 ; } | sh -s -- -y --default-toolchain "$(cat lean-toolchain)"; then
                 ok=1; break
               fi
               echo "[!] попытка $attempt не удалась (сеть/CDN) — пауза 30 с"; sleep 30
