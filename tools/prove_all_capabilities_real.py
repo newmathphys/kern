@@ -40,7 +40,11 @@ def say(line: str = "") -> None:
 def run(cmd: list[str], timeout: int = 300, env: dict | None = None,
         cwd: Path | None = None, stdin: str | None = None) -> tuple[int, str]:
     e = dict(os.environ)
-    e["PATH"] = f"{ROOT / '.venv' / 'bin'}:{e.get('PATH', '')}"
+    # #509: `.venv/bin` — В КОНЕЦ. В нём лежит `pip-ziglang 0.13`, и если он
+    # окажется впереди, `zig-guard` (и любые цели, собирающие wasm/kimg)
+    # получают Zig 0.13 вместо 0.17 и честно отказывают — измерено: два
+    # ЛОЖНЫХ FAIL стенда (`kimg-grep-check`, `wasm-check`) при верном коде.
+    e["PATH"] = f"{e.get('PATH', '')}:{ROOT / '.venv' / 'bin'}"
     if env:
         e.update(env)
     try:
@@ -271,6 +275,50 @@ def pkg_b_oracles() -> None:
     refuted = out.count("ОПРОВЕРГНУТО")
     record("Б", "theory нативно: strings/chc/nonint", "OK" if (proven and refuted) else "SKIP",
            f"доказано {proven}, опровергнуто {refuted} (traversal отклонён, ge_bound доказан, lt_bound опровергнут, утечка найдена)")
+
+    # ── В (нативные механизмы KERN по тем же доменам) ────────────────────
+    # Подсказка была верной: в репозитории УЖЕ есть доменные оракулы, и они
+    # доказывают то, что `--diff-equiv` (QF_LIA) доказать не может по определению.
+    for tgt, label, note in (
+        ("arbitrage-check", "AMM A10: инвариант no_arbitrage (нативная модель KERN)",
+         "бесплатного арбитража/кражи комиссии на защищённой формуле нет"),
+        ("float-nan-check", "IEEE-754 A11: NaN-обход лимита (нативная модель KERN)",
+         "наивный гард NaN НЕ отсекает; исправленный — отсекает"),
+    ):
+        rc_n, out_n = run(["make", "-s", tgt], timeout=900)
+        tail_n = [ln for ln in out_n.strip().splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+        record("В", label, "OK" if rc_n == 0 else "FAIL",
+               f"{note} — {tail_n[-1][:100]}" if rc_n == 0 else f"rc={rc_n}: {out_n.strip()[-120:]}")
+
+    # ── ПАКЕТ Г. Петля самолечения (баг -> падающий тест -> предусловие) ──
+    say("\n── ПАКЕТ Г. Петля самолечения (--emit-pytest / диагностика контрактов) ──")
+    rc_g, out_g = run(["make", "-s", "gen-tests-check"], timeout=900)
+    tail_g = [ln for ln in out_g.strip().splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+    record("Г", "сгенерированные KERN тесты РЕАЛЬНО падают на уязвимом коде",
+           "OK" if rc_g == 0 else "FAIL", (tail_g[-1][:140] if tail_g else f"rc={rc_g}"))
+
+    # ── ПАКЕТ Д. MCP (8 инструментов) + HTTP-guardrail + RLVR ──
+    say("\n── ПАКЕТ Д. MCP-сервер, HTTP-guardrail (200/422/409) и RLVR-награда ──")
+    rc_d, out_d2 = run(["make", "-s", "mcp-audit-check"], timeout=900)
+    tail_d = [ln for ln in out_d2.strip().splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+    record("Д", "8 инструментов MCP на полезных нагрузках (аудит схемы/инъекций)",
+           "OK" if rc_d == 0 else "FAIL", (tail_d[-1][:140] if tail_d else f"rc={rc_d}"))
+    rc_d2, out_d3 = run(["make", "-s", "mcp-selftest"], timeout=900)
+    tail_d2 = [ln for ln in out_d3.strip().splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+    record("Д", "guardrail-прокси: коды 200/422/409 (Белнап B_4) + RLVR-награда",
+           "OK" if rc_d2 == 0 else "FAIL", (tail_d2[-1][:140] if tail_d2 else f"rc={rc_d2}"))
+
+    # ── ПАКЕТ Е. .kimg (все команды) + C-ABI в потоках + браузерное ядро ──
+    say("\n── ПАКЕТ Е. .kimg/KERNFS, C-ABI (pthread) и браузерное ядро ──")
+    for tgt, label in (("kimg-cli-check", ".kimg: pack-dir/fsck/inspect/ls/cat/diff + порча бита"),
+                       ("kimg-grep-check", ".kimg: grep по объектам образа"),
+                       ("c-abi-threads", "libkern.so: C-ABI в параллельных потоках"),
+                       ("wasm-check", "kernc.wasm: LIA/Белнап в node")):
+        rc_e, out_e = run(["make", "-s", tgt], timeout=900)
+        tail_e = [ln for ln in out_e.strip().splitlines() if ln.startswith("[OK]") or "RC=" in ln]
+        record("Е", label, "OK" if rc_e == 0 else "FAIL",
+               (tail_e[-1][:140] if tail_e else f"rc={rc_e}"))
+
 
 def main() -> int:
     LOG.write_text("", encoding="utf-8")

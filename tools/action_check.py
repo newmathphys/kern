@@ -228,9 +228,19 @@ def static_contract(doc: dict) -> list[str]:
     joined = "\n".join(str(s.get("run", "")) for s in steps if isinstance(s, dict))
     if "sha256sum -c" not in joined:
         bad.append("в шагах нет `sha256sum -c` — архив не сверяется перед распаковкой")
-    if "--sarif" in joined:
-        bad.append("шаг обещает SARIF: измерено, что `--xray --sarif` НЕ создаёт файл "
-                   "(класс #497/#370) — обещание без артефакта запрещено")
+    # #497 ЗАКРЫТ ДЕЛОМ. Раньше здесь стоял ЗАПРЕТ на `--sarif` (флаг принимался, а
+    # файл не создавался). Теперь SARIF реально пишется, поэтому правило обратное:
+    # если объявлен вход `sarif-file`, шаг ОБЯЗАН передать `--sarif` И проверить,
+    # что файл непустой. Обещание без артефакта по-прежнему запрещено — но теперь
+    # запрещено ОБЕЩАТЬ, а не выпускать.
+    declares_sarif = "sarif-file" in (doc.get("inputs") or {})
+    if declares_sarif:
+        if "--sarif" not in joined or "$sarif_arg" not in joined:
+            bad.append("объявлен вход sarif-file, но шаг НЕ передаёт `--sarif` — "
+                       "обещание без артефакта (класс #497/#370)")
+        if '-s "$sarif"' not in joined:
+            bad.append("объявлен sarif-file, но шаг не проверяет, что файл НЕПУСТОЙ "
+                       "(пустой SARIF = тихий зелёный)")
     if "KERN_RELEASE_BASE" not in joined:
         bad.append("нет точки подмены источника релиза (KERN_RELEASE_BASE) — "
                    "локальный сухой прогон был бы невозможен")
@@ -315,7 +325,13 @@ if [ "$cmd" = "--delta" ]; then
   [ -d "$base" ] || { echo "нет base: $base" >&2; exit 2; }
   [ -d "$head" ] || { echo "нет head: $head" >&2; exit 2; }
   want_json=0
-  for a in "$@"; do [ "$a" = "--json" ] && want_json=1; done
+  sarif_out=""
+  prev=""
+  for a in "$@"; do
+    [ "$a" = "--json" ] && want_json=1
+    [ "$prev" = "--sarif" ] && sarif_out="$a"
+    prev="$a"
+  done
   new=0
   while IFS= read -r f; do
     rel="${f#"$head"/}"
@@ -330,6 +346,21 @@ if [ "$cmd" = "--delta" ]; then
       i=$((i + 1))
     done
     printf '{"fake": true, "new_findings": [%s], "semantic": {"changed_files": 0, "compared": 0, "skipped_by_limit": 0, "diverged": []}}\n' "$items"
+  fi
+  if [ -n "$sarif_out" ]; then
+    # SARIF 2.1.0 с РЕАЛЬНОЙ строкой (как контракт #497): номер берём из файла.
+    # Одинарные кавычки намеренно: в JSON нужны двойные, и экранировать их в
+    # двойных кавычках bash значило бы получить невалидный JSON (измерено).
+    results=""
+    while IFS= read -r f; do
+      rel="${f#"$head"/}"
+      [ -f "$base/$rel" ] && continue
+      line=$(grep -nE '^[[:space:]]*(def |return |[a-zA-Z_]+ *=)' "$f" 2>/dev/null | head -1 | cut -d: -f1)
+      [ -n "$line" ] || line=1
+      item=$(printf '%s' '{"ruleId": "KERN006", "level": "error", "message": {"text": "[CRASH PATH] fake: unguarded"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "'"$rel"'"}, "region": {"startLine": '"$line"'}}}]}')
+      results="$results${results:+,}$item"
+    done < <(find "$head" -type f -name 'buggy.py' 2>/dev/null | sort)
+    printf '{"$schema": "https://json.schemastore.org/sarif-2.1.0.json", "version": "2.1.0", "runs": [{"tool": {"driver": {"name": "KERN", "rules": []}}, "results": [%s]}]}\n' "$results" > "$sarif_out" || { echo 'fake: не записал SARIF' >&2; exit 2; }
   fi
   [ "$new" -gt 0 ] && exit 1
   exit 0
@@ -522,6 +553,7 @@ def run_matrix(doc: dict, ver: str, *, release_dir: Path | None) -> int:
                 "inputs.path": ".",
                 "inputs.base": "base-ref" if base_kind else "",
                 "inputs.block-on-diverged": "false",
+                "inputs.sarif-file": "",
                 "github.action_path": str(ROOT),
             }
             rc, log = run_action(doc, work=work, temp=temp,
@@ -536,6 +568,63 @@ def run_matrix(doc: dict, ver: str, *, release_dir: Path | None) -> int:
                 print(f"  FAIL {desc}: rc={rc} (ожидался {want_rc}), "
                       f"новых={got_new} (ожидалось {want_new})")
                 print("\n".join("       " + ln for ln in log.splitlines()[-12:]))
+
+    # #497: SARIF проверяется ПОВЕДЕНИЕМ, а не текстом шага: файл должен реально
+    # появиться на диске, быть валидным SARIF 2.1.0, содержать ровно столько
+    # results, сколько регрессов, и иметь startLine >= 1 (иначе аннотация GitHub
+    # повиснет не там). Пустой/битый файл — провал, а не «предупреждение».
+    with tempfile.TemporaryDirectory(prefix="kern_action_sarif_") as td:
+        tmp = Path(td)
+        rel = (make_fake_release(tmp / "release", ver, variant="ok")
+               if release_dir is None else Path(release_dir))
+        work = make_workspace(tmp / "ws", "clean", "buggy")
+        temp = tmp / "runner_temp"
+        sarif = tmp / "kern.sarif"
+        values = {
+            "inputs.version": ver,
+            "inputs.path": ".",
+            "inputs.base": "base-ref",
+            "inputs.block-on-diverged": "false",
+            "inputs.sarif-file": str(sarif),
+            "github.action_path": str(ROOT),
+        }
+        rc, log = run_action(doc, work=work, temp=temp,
+                             release_base=rel.as_uri(), values=values)
+        problems: list[str] = []
+        if not sarif.exists():
+            problems.append("файл SARIF НЕ создан (обещание без артефакта)")
+        else:
+            try:
+                doc_s = json.loads(sarif.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                problems.append(f"SARIF не JSON: {e}")
+                doc_s = None
+            if doc_s is not None:
+                if doc_s.get("version") != "2.1.0":
+                    problems.append(f"version = {doc_s.get('version')!r}, а не '2.1.0'")
+                runs = doc_s.get("runs") or []
+                if not runs:
+                    problems.append("нет runs[0]")
+                else:
+                    res = runs[0].get("results") or []
+                    got_new = _report_new_findings(temp)
+                    if got_new is None or len(res) != got_new:
+                        problems.append(f"results {len(res)} != новых находок {got_new}")
+                    for r in res:
+                        loc = (((r.get("locations") or [{}])[0]).get("physicalLocation") or {})
+                        line = ((loc.get("region") or {}).get("startLine")) or 0
+                        if line < 1:
+                            problems.append(f"startLine {line} < 1 у {r.get('ruleId')}")
+                        if not (loc.get("artifactLocation") or {}).get("uri"):
+                            problems.append(f"нет artifactLocation.uri у {r.get('ruleId')}")
+                        if not r.get("ruleId", "").startswith("KERN"):
+                            problems.append(f"ruleId {r.get('ruleId')!r} не из семейства KERN")
+        if problems:
+            fails += 1
+            print(f"  FAIL SARIF 2.1.0 на диске: {problems[0]}")
+        else:
+            print(f"  OK   SARIF 2.1.0 на диске: {sarif.stat().st_size} Б, "
+                  f"results = новых находок, startLine >= 1")
     return fails
 
 
@@ -567,8 +656,13 @@ def selftest() -> int:
     # `"$KERNA_APP/kerna" --delta … $flag --json`). Прежний якорь исчез, подмена
     # стала no-op, и сelftest честно показал «гейт НЕ заметил поломку (вакуум)» —
     # то есть тест подделок сам себя поймал (класс #113).
-    expect("обещан SARIF", src.replace(
-        "$flag --json", "$flag --json --sarif out.sarif", 1))
+    # #497: саботаж ОБНОВЛЁН вместе с правилом. Прежний («обещан SARIF» = добавить
+    # `--sarif` в шаг) теперь НЕ поломка — SARIF выпускается по-настоящему. Новая
+    # поломка: объявить вход `sarif-file`, но перестать передавать `--sarif`.
+    expect("sarif-file объявлен, но --sarif не передан",
+           src.replace("$flag $sarif_arg --json", "$flag --json", 1))
+    expect("sarif-file без проверки непустоты",
+           src.replace('if [ -s "$sarif" ]; then', 'if true; then', 1))
     expect("вход не объявлен", src.replace("${{ inputs.path }}", "${{ inputs.nope }}", 1))
 
     # R6: образец с НЕСУЩЕСТВУЮЩИМ входом обязан краснеть (иначе README-RUN

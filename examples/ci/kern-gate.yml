@@ -9,6 +9,8 @@ on:
   pull_request:
 permissions:
   contents: read
+  # SARIF -> GitHub Code Scanning требует этих прав (иначе upload-sarif вернёт 403).
+  security-events: write
 jobs:
   kern-audit-delta:
     runs-on: ubuntu-24.04
@@ -20,7 +22,20 @@ jobs:
       # Гейт падает ТОЛЬКО на находках, внесённых ЭТИМ PR (audit-delta base->head).
       # rc=2 здесь означает «дистрибутив неполон», а не «код чист».
       - name: KERN verification gate
+        id: kern
         uses: newmathphys/kern@v2.8.2
         with:
           path: '.'
           base: '${{ github.base_ref }}'
+          # SARIF 2.1.0: находки ЭТОГО PR появятся в Security -> Code scanning
+          # и inline-комментариями под строками кода. Файл пишет сам апплаенс
+          # (`./kerna --delta BASE HEAD --sarif out.sarif`), строка берётся из
+          # находки («строка 12»), поэтому аннотация висит ТАМ, ГДЕ БАГ.
+          sarif-file: '${{ runner.temp }}/kern.sarif'
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        continue-on-error: true      # приватный репозиторий без GHAS: не валить PR
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: '${{ runner.temp }}/kern.sarif'
+          category: kern

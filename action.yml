@@ -12,12 +12,14 @@
 # изменение. Если `base` не задан, базой считается ПУСТОЕ дерево — тогда
 # «новой» является каждая находка (режим полного аудита).
 #
-# ЧТО ЗДЕСЬ НЕ ОБЕЩАЕТСЯ (измерено, а не забыто). SARIF в режиме `--xray`
-# апплаенс НЕ выпускает: `./kerna --xray DIR --sarif OUT` принимает флаг и НЕ
-# создаёт файл (проверено на kerna-dist-v2.8.1), а `--github-annotations` в этом
-# режиме печатает 0 аннотаций. Поэтому выхода `sarif-file` больше нет: обещание
-# SARIF без файла — ровно класс #497/#370. SARIF остаётся у контрактного пути
-# (`kern_contracts.py … --sarif`), см. `.github/workflows/code-scanning.yml`.
+# SARIF 2.1.0 (`sarif-file`). Дефект #497 закрыт ДЕЛОМ, а не вырезанием
+# обещания: раньше `--sarif` принимался, а файл не создавался. Теперь и
+# `--xray DIR --sarif OUT`, и `--delta BASE HEAD --sarif OUT` пишут валидный
+# SARIF 2.1.0 с ПРАВИЛАМИ KERN005–KERN009 и РЕАЛЬНЫМ номером строки (из текста
+# находки, «строка 12»). Если строка в находке не указана — `startLine: 1` и это
+# написано в сообщении (догадка не выдаётся за факт). Файл создаётся только
+# когда он запрошен; проверяется гейтом `make action-check` (файл на диске,
+# `version == "2.1.0"`, число results == числу регрессов, `startLine >= 1`).
 #
 # КОДЫ ВОЗВРАТА (проверяются гейтом `make action-check`, а не «на глаз»):
 #   0 — новых находок нет;  1 — есть (PR блокируется);
@@ -40,6 +42,10 @@ inputs:
     default: '.'
   base:
     description: 'Git ref to compare against (e.g. origin/main). Empty = empty tree, so EVERY finding counts as new.'
+    required: false
+    default: ''
+  sarif-file:
+    description: 'If set, write a SARIF 2.1.0 report of findings INTRODUCED by this change to this path (upload it with github/codeql-action/upload-sarif).'
     required: false
     default: ''
   block-on-diverged:
@@ -136,9 +142,20 @@ runs:
         # Поэтому теперь честный путь — САМ апплаенс, и он же покрыт
         # `make action-check REAL=1` и `kerna-check` (R6 — DIVERGED,
         # R7 — сломанный `kernc` обязан дать rc=2, а не «НЕ разошлось»).
+        sarif="${{ inputs.sarif-file }}"
+        sarif_arg=""
+        [ -n "$sarif" ] && sarif_arg="--sarif $sarif"
         rc=0
-        "$KERNA_APP/kerna" --delta "$KERN_BASE" "${{ inputs.path }}" $flag --json \
+        "$KERNA_APP/kerna" --delta "$KERN_BASE" "${{ inputs.path }}" $flag $sarif_arg --json \
           > "$report" || rc=$?
+        if [ -n "$sarif" ]; then
+          if [ -s "$sarif" ]; then
+            echo "::notice::KERN: SARIF 2.1.0 записан в $sarif"
+          else
+            echo "::error::KERN: запрошен sarif-file, но файл НЕ создан ($sarif)"
+            exit 2
+          fi
+        fi
         cat "$report"
         echo "report=$report" >> "$GITHUB_OUTPUT"
         if [ "$rc" -eq 1 ]; then

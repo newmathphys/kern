@@ -488,6 +488,16 @@ def main() -> int:
     block_div = "--block-on-diverged" in args      # опционально: блокировать ЛЮБОЕ изменение поведения
     no_sema = "--no-semantic" in args               # быстрый режим: только рентген
     live = "--live" in args                       # ИСПОЛНЯТЬ чужой код (opt-in)
+    # #497: SARIF 2.1.0 для GitHub Code Scanning. Раньше флаг принимался, а файл
+    # НЕ создавался — обещание убрали из `action.yml`. Теперь создаётся.
+    sarif_path: str | None = None
+    if "--sarif" in args:
+        i = args.index("--sarif")
+        if i + 1 >= len(args):
+            print("[!] --sarif требует путь к файлу: --sarif out.sarif")
+            return 2
+        sarif_path = args[i + 1]
+        args = args[:i] + args[i + 2:]
     # #516/T3: В АВТОНОМНОМ БИНАРЕ `--live` ФИЗИЧЕСКИ НЕВОЗМОЖЕН, и это надо
     # сказать ЯВНО ИМЕННО ТОГДА, когда его попросили. Молчаливое превращение
     # «просил живой вызов» в «сравнили только формулами» — это класс #370.
@@ -500,7 +510,7 @@ def main() -> int:
     args = [a for a in args if a not in ("--json", "--block-on-diverged", "--no-semantic", "--live")]
     if len(args) != 2:
         print("использование: audit_delta.py <BASE_DIR> <HEAD_DIR> "
-              "[--json] [--no-semantic] [--live] [--block-on-diverged]")
+              "[--json] [--no-semantic] [--live] [--block-on-diverged] [--sarif OUT.sarif]")
         return 2
     base_dir, head_dir = args
     # #517: СНАЧАЛА проверить входы, потом сравнивать. Иначе несуществующий путь
@@ -508,7 +518,9 @@ def main() -> int:
     bad_input = _validate_dirs(base_dir, head_dir)
     if bad_input:
         return bad_input
-    d = delta(audit_json(base_dir), audit_json(head_dir))
+    _base_doc = audit_json(base_dir)
+    _head_doc = audit_json(head_dir)
+    d = delta(_base_doc, _head_doc)
     # #508: ПОВЕДЕНЧЕСКАЯ половина. `--xray` не видит логических багов
     # (`a + b` вместо `a - b` не падает), а `--diff-equiv` на тех же 40 парах
     # QuixBugs даёт DIVERGED 40/40 (ИЗМЕРЕНО). Без этого дельта врала «изменений нет».
@@ -521,6 +533,40 @@ def main() -> int:
     # #516/T3: в отчёте должно быть видно, ПРИМЕНИЛСЯ ли живой слой на самом деле.
     # Иначе `"semantic_live": true` в JSON — это обещание, а не факт.
     d["semantic_live_applied"] = bool(live and not FROZEN)
+
+    # #497: SARIF — только НОВЫЕ находки этого PR (+ поведенческие расхождения).
+    # Номера строк берём из head-ABI («строка 12»), а не выдумываем: GitHub вешает
+    # аннотацию ровно на строку.
+    if sarif_path:
+        try:
+            import kern_contracts as _kc          # noqa: PLC0415
+        except ImportError:                        # в замороженном бинаре — вшит
+            _kc = None                              # type: ignore[assignment]
+        if _kc is None:
+            print("[!] SARIF: модуль kern_contracts недоступен — файл НЕ создан", file=sys.stderr)
+            return 2
+        _root = str(_head_doc.get("audit_target", ""))
+        _by_key = {key_of(f, _root): f for f in _head_doc.get("findings", [])}
+        _viol: list[dict] = []
+        for _k in d["new_findings"]:
+            _f = _by_key.get(tuple(_k))
+            if _f is not None:
+                _viol.extend(_kc.xray_findings_to_violations([_f], _root))
+        for _dv in (sema.get("diverged") or []):
+            _viol.append({"rule": "KERN009", "file": str(_dv.get("file", "")),
+                          "line": 1,
+                          "message": f"[DIVERGED] {_dv.get('func', '')}: {str(_dv.get('why', ''))[:400]}"})
+        # ПЕЧАТЬ SARIF-УВЕДОМЛЕНИЯ — В stderr: в режиме `--json` stdout обязан
+        # содержать РОВНО один JSON-документ (иначе потребитель (``action.yml``
+        # пишет `--json` в файл) получает «JSON + строка» и падает на разборе —
+        # измерено гейтом: `results 1 != новых находок None`).
+        _so = sys.stdout
+        try:
+            sys.stdout = sys.stderr
+            _kc.write_sarif(sarif_path, _viol)
+        finally:
+            sys.stdout = _so
+
 
     if as_json:
         print(json.dumps(d, ensure_ascii=False, indent=2))

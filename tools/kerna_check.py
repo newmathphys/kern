@@ -289,6 +289,54 @@ def main() -> int:
                 line = next((x.strip() for x in out2.splitlines() if "[!]" in x), "нет [!]")
                 print(f"[OK] R7: сломанный `kernc` → rc={r2.returncode}, названо: "
                       f"{line[:90]}")
+
+            # R10 (#497 ЗАКРЫТ ДЕЛОМ): `--sarif` ОБЯЗАН создавать валидный SARIF 2.1.0
+            # НА ДИСКЕ. Проверяем поведение упакованного бинаря: файл существует,
+            # `version == "2.1.0"`, results совпадают с числом новых находок, у каждого
+            # есть `ruleId` семейства KERN, `artifactLocation.uri` и `startLine >= 1`.
+            stub.unlink(missing_ok=True)          # вернуть рабочий `kernc`
+            sarif_out = d / "kern.sarif"
+            r10 = subprocess.run([str(bin_path), "--delta", str(d / "base"), str(d / "head"),
+                                  "--no-semantic", "--sarif", str(sarif_out), "--json"],
+                                 capture_output=True, text=True, timeout=900,
+                                 env=_isolated_env())
+            probs: list[str] = []
+            if not sarif_out.exists():
+                probs.append("файл SARIF НЕ создан (обещание без артефакта)")
+            else:
+                try:
+                    doc = json.loads(sarif_out.read_text(encoding="utf-8"))
+                except json.JSONDecodeError as e:
+                    probs.append(f"SARIF не JSON: {e}")
+                    doc = None
+                if doc is not None:
+                    if doc.get("version") != "2.1.0":
+                        probs.append(f"version={doc.get('version')!r} вместо '2.1.0'")
+                    runs = doc.get("runs") or []
+                    if not runs:
+                        probs.append("нет runs[0]")
+                    else:
+                        res = runs[0].get("results") or []
+                        try:
+                            want = len(json.loads(r10.stdout or "{}").get("new_findings", []))
+                        except json.JSONDecodeError:
+                            want = -1
+                        if want >= 0 and len(res) != want:
+                            probs.append(f"results {len(res)} != новых находок {want}")
+                        for r in res:
+                            loc = (((r.get("locations") or [{}])[0]).get("physicalLocation") or {})
+                            if not (loc.get("artifactLocation") or {}).get("uri"):
+                                probs.append("нет artifactLocation.uri")
+                            if int((loc.get("region") or {}).get("startLine") or 0) < 1:
+                                probs.append("startLine < 1")
+                            if not str(r.get("ruleId", "")).startswith("KERN"):
+                                probs.append(f"ruleId {r.get('ruleId')!r} не из семейства KERN")
+            if probs:
+                print(f"[FAIL] R10: SARIF из апплаенса НЕВЕРЕН — {probs[0]} (rc={r10.returncode})")
+                bad += 1
+            else:
+                print(f"[OK] R10: апплаенс пишет валидный SARIF 2.1.0 "
+                      f"({sarif_out.stat().st_size} Б, results = новым находкам, startLine >= 1)")
         finally:
             shutil.rmtree(d, ignore_errors=True)
 

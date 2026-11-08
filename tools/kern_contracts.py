@@ -3975,7 +3975,8 @@ def main(argv=None) -> int:
         return cmd_full_scan(args.full_scan, args.kernc)
     if args.xray:
         return cmd_xray(args.xray, args.kernc,
-                        json_mode=bool(getattr(args, "xray_json", False)))
+                        json_mode=bool(getattr(args, "xray_json", False)),
+                        sarif=getattr(args, "sarif", None))
 
     if args.auto:
         return cmd_xray(args.auto, args.kernc)
@@ -4651,7 +4652,61 @@ SARIF_RULES = [
      "Refactoring changed behaviour: the two versions differ on the given input."),
     ("KERN004", "SafetyObligation",
      "Safety obligation violated: division by zero or machine-integer overflow."),
+    # ДЕФЕКТ #497 (закрыт делом, а не вырезанием обещания): флаг `--sarif`
+    # принимался, но в режимах `--xray`/`--delta` файл НЕ создавался, поэтому
+    # выход `sarif-file` был убран из `action.yml`. Теперь находки рентгена
+    # действительно конвертируются в SARIF 2.1.0 (правила ниже) — GitHub Code
+    # Scanning вешает аннотацию на КОНКРЕТНУЮ строку PR.
+    ("KERN005", "OverflowPath",
+     "Unguarded machine-integer overflow: the counterexample shows the exact "
+     "arguments that leave the type range."),
+    ("KERN006", "CrashPath",
+     "Unguarded crash path (division by zero / nil dereference)."),
+    ("KERN007", "BoundsPath",
+     "Unguarded index: the counterexample shows the index that leaves the bounds."),
+    ("KERN008", "DeadBranch",
+     "Unreachable branch: the guard condition is unsatisfiable."),
+    ("KERN009", "BehaviouralDivergence",
+     "Behavioural delta: the changed function returns a different value for the "
+     "given input (Belnap verdict, not a crash)."),
 ]
+
+# Карта: тип находки рентгена -> правило SARIF
+SARIF_XRAY_RULE = {
+    "OVERFLOW PATH": "KERN005",
+    "CRASH PATH": "KERN006",
+    "BOUNDS PATH": "KERN007",
+    "DEAD BRANCH": "KERN008",
+}
+
+# Строка находки: «строка 12» / «(строка 18)» — реальный номер для аннотации.
+_RE_FINDING_SRC_LINE = re.compile(r"строка\s+(\d+)")
+
+
+def xray_findings_to_violations(findings: list[dict], target: str) -> list[dict]:
+    """Находки ABI 1.0 (`file`/`type`/`details`) -> нарушения SARIF.
+
+    ЗАЧЕМ ОТДЕЛЬНАЯ ФУНКЦИЯ. У `--sarif` до этого был ОДИН потребитель
+    (контракты), и находки рентгена в него не попадали вовсе. Номер строки
+    берём из ТЕКСТА находки («строка 12»); если его там нет — `startLine: 1`
+    и это честно написано в сообщении (иначе GitHub нарисовал бы аннотацию
+    на строке 1 молча, выдав догадку за факт).
+    """
+    out: list[dict] = []
+    for f in findings:
+        t = (f.get("type") or "").strip()
+        rule = SARIF_XRAY_RULE.get(t)
+        if rule is None:
+            continue
+        details = (f.get("details") or "").strip()
+        rel = (f.get("file") or "").strip() or str(target)
+        m = _RE_FINDING_SRC_LINE.search(details)
+        line = int(m.group(1)) if m else 1
+        msg = f"[{t}] {details}"
+        if not m:
+            msg += " (строка в находке не указана — аннотация на строке 1)"
+        out.append({"rule": rule, "file": rel, "line": line, "message": msg})
+    return out
 
 
 def write_sarif(path: str, violations: list) -> int:
@@ -9350,7 +9405,8 @@ def _xray_solver_gate(kernc) -> int:
     return 0
 
 
-def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False) -> int:
+def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False,
+              sarif: str | None = None) -> int:
     """ПУНКТ 13: рентген кода БЕЗ аннотаций.
 
     `json_mode=True` (#483): человекочитаемый отчёт уходит в буфер, а в stdout
@@ -9390,8 +9446,32 @@ def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False) 
                         "skipped": 0, "findings": 0, "unreadable": 0},
             "findings": [], "skipped": [], "notes": [], "human_log": _buf.getvalue()[-4000:],
         }
+        if sarif:
+            write_sarif(sarif, xray_findings_to_violations(
+                _doc.get("findings") or [], path))
         print(json.dumps(_doc, ensure_ascii=False, indent=2, sort_keys=False))
         return _rc
+    if sarif and not json_mode:
+        # ДЕФЕКТ #497 (закрыт делом). Раньше `--sarif` в режиме `--xray` файл не
+        # создавал, поэтому обещание убрали из `action.yml`. Теперь: собрать ABI
+        # (тот же прогон, что `--xray-json`), конвертировать находки в SARIF 2.1.0
+        # и вернуть ТОТ ЖЕ код, что у обычного прогона.
+        _pl: list[dict] = []
+        _buf2 = io.StringIO()
+        with contextlib.redirect_stdout(_buf2):
+            _g2 = _xray_solver_gate(kernc) if Path(kernc).exists() else 2
+            if _g2:
+                print(f"[!] анализ НЕ запускался (решатель/kernc недоступен, rc={_g2})")
+                _rc2 = _g2
+            else:
+                _rc2 = _xray_json_run(path, kernc, show_all, _pl)
+                _fs: list[dict] = []
+                for _d in _pl:
+                    _fs.extend(_d.get("findings") or [])
+                write_sarif(sarif, xray_findings_to_violations(_fs, path))
+        # человеку — обычный отчёт (он собран тем же прогоном), без потери
+        print(_buf2.getvalue(), end="")
+        return _rc2
     if not Path(kernc).exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 2

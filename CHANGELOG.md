@@ -8,6 +8,38 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### Added — настоящий SARIF 2.1.0 для DevOps и все пакеты `prove-all-real` (#532–#534)
+
+- **#532 (`tools/kern_contracts.py`, `tools/audit_delta.py`)**: дефект **#497 закрыт ДЕЛОМ**, а не
+  вырезанием обещания. `--xray DIR --sarif OUT` и `--delta BASE HEAD --sarif OUT` теперь **реально
+  пишут** валидный SARIF 2.1.0: правила `KERN005 KERN006 KERN007 KERN008 KERN009`
+  (`OverflowPath/CrashPath/BoundsPath/DeadBranch/BehaviouralDivergence`), `$schema`, `version:
+  "2.1.0"`, `runs[0].tool.driver.name = "KERN"`, `physicalLocation.artifactLocation.uri` и
+  `region.startLine` = **реальный номер строки из находки** («строка 12»). Если строка в находке не
+  указана — `startLine: 1` и это **написано в сообщении** (догадка не выдаётся за факт).
+  Уведомление о записи уходит в **stderr**: в режиме `--json` stdout обязан содержать ровно один
+  JSON-документ (измерено: гейт поймал `results 1 != новых находок None`).
+- **`action.yml`**: возвращён вход **`sarif-file`** (был убран в #497, потому что файла не было).
+  Шаг передаёт `--sarif` и **падает (rc=2)**, если файл запрошен, но НЕ создан.
+- **`examples/ci/kern-gate.yml`**: рабочий образец для DevOps — `kern-action` + `github/codeql-action/
+  upload-sarif@v3`, права `security-events: write`, `continue-on-error` для приватных репозиториев
+  без GHAS. Находки появляются в **Security → Code scanning** и inline-комментариями в PR.
+- **`make action-check`** (9/9) и **`make kerna-check` (R10)** проверяют SARIF **поведением**: файл на
+  диске непуст, `version == "2.1.0"`, число `results` == числу регрессов, у каждого `ruleId`
+  семейства KERN, `artifactLocation.uri` и `startLine >= 1`. Самотест подмен обновлён: прежняя
+  подмена («обещан SARIF» = добавить флаг) стала бы no-op, поэтому теперь ломается ПЕРЕДАЧА
+  `$sarif_arg` и ПРОВЕРКА НЕПУСТОТЫ.
+- **#533 `make prove-all-real` = 27 проверок** (`OK 23 | SKIP 4 | FAIL 0`, было `OK 14 | SKIP 4`):
+  Пакет В дополнен **нативными** доменными оракулами (`arbitrage-check` A10: 2 арбитража поймано,
+  линейная комиссия доказана `trusted: 0`; `float-nan-check` A11: `trusted: 0 | holes: 0`),
+  Пакет Г (`gen-tests-check`), Пакет Д (`mcp-audit-check` — ловля rug-pull/инъекции/невидимого
+  Unicode; `mcp-selftest` — коды guardrail и RLVR), Пакет Е (`kimg-cli-check`, `kimg-grep-check`,
+  `c-abi-threads`, `wasm-check`).
+- **#534 (`tools/prove_all_capabilities_real.py`)**: `.venv/bin` ставится **в конец** `PATH`.
+  ИЗМЕРЕНО: в начале он подсовывал `pip-ziglang 0.13` вместо Zig 0.17 — и стенд выдавал **два
+  ложных FAIL** (`kimg-grep-check`, `wasm-check`) при полностью верном коде (тот же корень, что #509).
+
+
 ### Added — нативный `verify-zig` судит боевой код, доменные эксплойты с живыми судьями (#530–#531)
 
 - **#530 (`src/verifier/zig_ast_verify.zig`)**: нативный фронтенд (`std.zig.Ast`, 0 % Python) научился
