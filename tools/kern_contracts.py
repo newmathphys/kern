@@ -2855,6 +2855,23 @@ def _exec_clike(stmts, env: dict, lang: str, expr_fn=None):
             _vl = expr_fn(_clike_parse(_am.group(3), lang), env)
             _ARRAY_STATE[_arr] = f"(store {_ARRAY_STATE.get(_arr, _arr)} {_ix} {_vl})"
             continue
+        # ДЕФЕКТ #521 (НАЙДЕНО T4 на ПОЛНОМ curl/lib, `curl_sha512_256.c`):
+        # СОСТАВНЫЕ ПРИСВАИВАНИЯ. `bits %= 64;` не моделировалось: `_exec_clike`
+        # бросал Unsupported — но обвинение ВСЁ РАВНО печаталось по остатку тела,
+        # с контрпримером `bits = -2147483584`, который `%=` исключает
+        # (`-2147483584 % 64 == 0`, а ниже `if(bits == 0) return value;`).
+        # ИЗМЕРЕНО: `x %= 64; return 100 - x;` -> `findings 1`, `skipped 0`,
+        # то есть код обвинялся по НЕПОЛНОМУ телу. Теперь `x op= y`
+        # разворачивается в `x = x op y` ЯВНО; если оператор не поддержан,
+        # Unsupported уходит наверх и функция честно уходит в SKIP
+        # (названный пропуск лучше обвинения по половине тела).
+        _aug = re.match(r"^([A-Za-z_]\w*)\s*(<<|>>|[+\-*/%&|^])=\s*(.+)$", st, re.S)
+        if _aug:
+            _nm, _op, _rhs = _aug.group(1), _aug.group(2), _aug.group(3)
+            _cur = env.get(_nm, _nm)
+            _rv = expr_fn(_clike_parse(_rhs, lang), env)
+            env[_nm] = f"({_op} {_cur} {_rv})"
+            continue
         m = re.match(
             r"^(?:const\s+|let\s+(?:mut\s+)?|"
             r"(?:int|long|i32|i64|u32|u64|usize|size_t|unsigned)\s+)?"
@@ -6734,8 +6751,14 @@ _RE_CLIKE_LOCAL_RHS = re.compile(
 
 _RE_CLIKE_DIV = re.compile(
     r"(?:@divTrunc|@rem|@divFloor|@mod)\s*\(([^,()]+),\s*([^()]+)\)"
-    r"|([A-Za-z_][\w.\[\]]*)\s*/\s*([A-Za-z_][\w.\[\]]*)"
-    r"|([A-Za-z_][\w.\[\]]*)\s*%\s*([A-Za-z_][\w.\[\]]*)")
+    # ДЕФЕКТ #520 (НАЙДЕНО T4 на ПОЛНОМ curl/lib): класс `[\w.\[\]]` НЕ содержит
+    # `->`, поэтому делитель `state->retry_max` обрезался до `state`, и находка
+    # честного поля печаталась как «деление на ноль: state == 0» — ложное
+    # обвинение по УКАЗАТЕЛЮ вместо поля. Теперь `->`/`.` входят в имя.
+    r"|([A-Za-z_][\w\[\]]*(?:(?:->|\.)[A-Za-z_]\w*)*)\s*/\s*"
+    r"([A-Za-z_][\w\[\]]*(?:(?:->|\.)[A-Za-z_]\w*)*)"
+    r"|([A-Za-z_][\w\[\]]*(?:(?:->|\.)[A-Za-z_]\w*)*)\s*%\s*"
+    r"([A-Za-z_][\w\[\]]*(?:(?:->|\.)[A-Za-z_]\w*)*)")
 
 _RE_CLIKE_IF = re.compile(r"\bif\s*\(((?:[^()]|\([^()]*\))*)\)")
 # B2: индекс `buf[i - 1]` и размер в аллокации `malloc(len + 1)`.
@@ -8098,6 +8121,28 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                     local_smt)
             except (Unsupported, NoReturn, SyntaxError):
                 continue
+        # ДЕФЕКТ #521 (НАЙДЕНО T4 на ПОЛНОМ curl/lib, `curl_sha512_256.c`).
+        # СОСТАВНЫЕ ПРИСВАИВАНИЯ В МОДЕЛИ. Выше `local_smt` собирается только из
+        # ОБЪЯВЛЕНИЙ (`тип имя = rhs`), поэтому `bits %= 64;` не влияло ни на что:
+        # `bits` оставался СВОБОДНЫМ входом, решатель брал -2147483584, и
+        # `64 - bits` объявлялось переполнением — хотя `%=` это исключает, а ниже
+        # стоит `if(bits == 0) return value;`. ИЗМЕРЕНО на 8-строчном репро:
+        # `x %= 64; return 100 - x;` -> `findings 1`, `skipped 0`.
+        # Теперь `nm op= rhs` ПРИМЕНЯЕТСЯ к модели (`(op base rhs)`), но только
+        # когда присваивание в теле РОВНО ОДНО (иначе порядок и ветвления делают
+        # композицию незвучимой — тогда честнее промолчать, чем гадать).
+        for _am2 in re.finditer(r"\b([A-Za-z_]\w*)\s*(<<|>>|[+\-*/%&|^])=\s*([^;{}]+)", body_mask):
+            _anm, _aop, _arhs = _am2.group(1), _am2.group(2), _am2.group(3).strip()
+            if len(re.findall(rf"\b{re.escape(_anm)}\s*(?:(?:<<|>>|[+\-*/%&|^])=|=(?!=))",
+                              body_mask)) != 1:
+                continue
+            _abase = local_smt.get(_anm, _anm)
+            try:
+                _aval = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(
+                    _literals_to_numbers(_arhs))), mode="eval").body, local_smt)
+            except (Unsupported, NoReturn, SyntaxError):
+                continue
+            local_smt[_anm] = f"({_aop} {_abase} {_aval})"
         # ДЕФЕКТ #196 (полевой прогон axios): `x = x || K` — после этой строки
         # x гарантированно НЕ 0 (значение по умолчанию). Без учёта этого
         # `i % x` выглядел как деление на ноль.
@@ -8205,9 +8250,89 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # ВЗАИМОИСКЛЮЧАЮЩИХ ветвей и делало путь UNSAT (ложный DEAD BRANCH).
             # ДЕФЕКТ #503: внутри `switch` с несколькими `case` НЕ ЗАЯВЛЯЕМ —
             # ветви там ВЗАИМОИСКЛЮЧАЮЩИЕ, а модель их склеивает.
+            # ДЕФЕКТ #522 (НАЙДЕНО T4 на ПОЛНОМ curl/lib, `progress.c::max6out`):
+            # `break`/`continue`/`goto` НЕ моделируются как выход из цикла.
+            # ИЗМЕРЕНО (репро 12 строк: `do { nbytes = bytes/1024;
+            # if(nbytes < 1000) break; bytes = nbytes; } while(0);
+            #  if(nbytes <= 99) …`): ветвь объявлялась МЁРТВОЙ, хотя она
+            # достижима (`bytes = 100000` → `nbytes = 97`). Причина: `break`
+            # оставлял в пути ОТРИЦАНИЕ своего условия, то есть «из цикла вышли
+            # потому, что условие ЛОЖНО». Теперь при таком потоке управления
+            # мёртвая ветвь НЕ заявляется — пропуск НАЗВАН.
+            # ДЕФЕКТ #525 (извлечение имён): `kind` в `r->kind` — это ПОЛЕ, а не
+            # самостоятельная величина. Проверять его на «выводимость» нельзя,
+            # иначе настоящая мёртвая ветвь `dead_after_kind.c` (обратный контроль
+            # гейта #500) глушится — ИЗМЕРЕНО: 0 находок вместо 1.
+            _cond_words = [w for w in re.findall(r"[A-Za-z_]\w*", cond)
+                           if not re.search(rf"(?:->|\.)\s*{re.escape(w)}\b", cond)
+                           and "__" not in w]
             if _in_multicase_switch(body_mask, m.end()):
                 _bump_note("`switch` не моделируется (`case` склеены) — "
                            "ветвь не объявляется мёртвой (#503)")
+                sat_then = None
+            elif re.search(r"\b(break|continue|goto)\b", body_mask):
+                _bump_note("`break`/`continue`/`goto` не моделируются — "
+                           "ветвь не объявляется мёртвой (#522)")
+                sat_then = None
+            # ДЕФЕКТ #524 (НАЙДЕНО T4 на ПОЛНОМ `redis/src`): условие зависит от
+            # ПОЛЯ СТРУКТУРЫ (`server.current_client`, `server__current_client`)
+            # или от переменной, которую ТЕЛО переписывает (в т.ч. через
+            # указатель: `lpGetIntegerIfValid(p, &valid_record)`). Значение такой
+            # величины код задаёт сам, а модель его не выводит — значит
+            # «недостижимо» здесь НЕДОКАЗУЕМО. ИЗМЕРЕНО: `server.c::processCommand`
+            # (`server.current_client == NULL` — и код САМ ставит его в NULL на
+            # строке 3103) и `t_stream.c::streamValidateListpackIntegrity`
+            # (`!valid_record` после вызова по указателю). Два ложных
+            # `[DEAD BRANCH]`. Объявляем НАЗВАННЫЙ пропуск.
+            elif (re.search(r"(->|(?<![\d.])\.[A-Za-z_])", cond) or "__" in cond) and \
+                    any(_nm2 in str(body_mask) for _nm2 in re.findall(r"[A-Za-z_]\w*", cond)):
+                _field_names = [w for w in re.findall(r"[A-Za-z_]\w*", cond)
+                                if "__" in w
+                                or re.search(rf"\b{re.escape(w)}\s*(?:->|\.)", body_mask)]
+                _rewritten = [w for w in re.findall(r"[A-Za-z_]\w*", cond)
+                              if re.search(rf"\b{re.escape(w)}\s*(?:<<|>>|[+\-*/%&|^])?=(?!=)",
+                                           body_mask)
+                              or re.search(rf"&\s*{re.escape(w)}\b", body_mask)]
+                if _field_names or _rewritten:
+                    # УТОЧНЕНИЕ (#524, ИЗМЕРЕНО на гейте `xray-precision`): нельзя
+                    # глушить ВСЕ условия по полям — обратный контроль
+                    # `precision_dead_field/dead_after_kind.c` (поле НЕ
+                    # переписывается, вызовов нет) обязан оставаться находкой,
+                    # иначе мы теряем настоящую мёртвую ветвь.
+                    # ЗВУЧИМОЕ ПРАВИЛО: поле может изменить ВЫЗОВ функции
+                    # (указатель уходит в чужой код). Поэтому обвиняем по полю
+                    # ТОЛЬКО когда в теле нет вызовов, кроме assert-подобных и
+                    # ключевых слов. ИЗМЕРЕНО: `server.c::processCommand`
+                    # (`server.current_client` меняется чужими функциями) —
+                    # пропуск; `dead_after_kind.c` — находка (как было).
+                    _calls = [c for c in re.findall(r"\b([A-Za-z_]\w*)\s*\(", body_mask)
+                              if c not in ("if", "for", "while", "switch", "sizeof",
+                                           "return", "assert", "serverAssert",
+                                           "serverAssertWithInfo", "Assert", "ASSERT",
+                                           "redisAssert", "bug_on")]
+                    if _rewritten or (_field_names and _calls):
+                        _bump_note("условие зависит от поля структуры, которое "
+                                   "может изменить вызов, или от переписываемой "
+                                   "величины — ветвь не объявляется мёртвой (#524)")
+                        sat_then = None
+                    elif any(_w2 not in set(params) and _w2 not in local_smt
+                             and not re.search(rf"\b{re.escape(_w2)}\s*(?:<<|>>|[+\-*/%&|^])?=(?!=)",
+                                               body_mask)
+                             for _w2 in _cond_words):
+                        _bump_note("условие зависит от НЕВЫВОДИМОЙ величины "
+                                   "(capture/map-lookup) — ветвь не объявляется "
+                                   "мёртвой (#525)")
+                        sat_then = None
+                    else:
+                        sat_then = _smt_sat(kernc, params,
+                                            path_conds + _clike_conds_at(m.end(), if_blocks, body)
+                                            + [cond])
+            elif any(_w2 not in set(params) and _w2 not in local_smt
+                     and not re.search(rf"\b{re.escape(_w2)}\s*(?:<<|>>|[+\-*/%&|^])?=(?!=)",
+                                       body_mask)
+                     for _w2 in _cond_words):
+                _bump_note("условие зависит от НЕВЫВОДИМОЙ величины — "
+                           "ветвь не объявляется мёртвой (#525)")
                 sat_then = None
             else:
                 sat_then = _smt_sat(kernc, params,
@@ -8252,6 +8377,29 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # неизвестного типа мы не можем — поэтому НЕ обвиняем (ложное
         # обвинение хуже пропуска).
         guarded_divs: set[str] = set()
+        # ДЕФЕКТ #523 (НАЙДЕНО T4 на ПОЛНОМ `redis/src`, `iothread.c`):
+        # `serverAssert(start >= 1 && end < server.io_threads_num && start <= end)`.
+        # Это ТО ЖЕ, что `assert`, но с именем проекта. Без учёта такого гарда
+        # `pauseIOThreadsRange`/`resumeIOThreadsRange`/`hashTypeTryConversion`
+        # обвинялись в off-by-one (`i <= end`), хотя `end` ДОКАЗАННО меньше
+        # длины массивом выше. ИЗМЕРЕНО: 3 ложных `[BOUNDS PATH]` из 43 находок.
+        # Берём только аргументы, которые являются СРАВНЕНИЕМ/логикой: у
+        # `serverAssertWithInfo(client, cond)` первый аргумент — клиент, и
+        # добавлять его в путь как булево было бы выдумкой.
+        for _aname in ("serverAssert", "serverAssertWithInfo", "Assert", "ASSERT",
+                       "redisAssert", "bug_on"):
+            for _aarg in _iter_call_args(body_mask, _aname, raw=body):
+                try:
+                    _anode = ast.parse(clike_to_python(_unwrap_zig_builtins(
+                        _literals_to_numbers(_aarg))), mode="eval").body
+                except (Unsupported, NoReturn, SyntaxError):
+                    continue
+                if not isinstance(_anode, (ast.Compare, ast.BoolOp, ast.UnaryOp)):
+                    continue
+                try:
+                    path_conds.append(expr_smt(_anode, local_smt, lang))
+                except (Unsupported, NoReturn, SyntaxError):
+                    continue
         for am2_body in _iter_call_args(body_mask, "assert", raw=body):
             try:
                 ac = expr_smt(ast.parse(clike_to_python(_unwrap_zig_builtins(
@@ -8318,8 +8466,23 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # «что было бы без гарда», но НЕ как находка в их коде.
             if _RE_LEN_LIKE.match(d.strip()):
                 continue
-            if "__" in d:
-                continue  # поле структуры (self.x -> self__x): значение неизвестно
+            if "__" in d or "->" in d or re.search(r"[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*", d):
+                # ДЕФЕКТ #520 (НАЙДЕНО T4 на ПОЛНОМ curl/lib, `tftp.c`): здесь
+                # стояло ТОЛЬКО `"__" in d`, то есть исключалась одна запись
+                # поля — `self.x` -> `self__x`. Но делитель в тексте C выглядит
+                # как `state->retry_max` (стрелка) или `cfg.limit` (точка), и
+                # такие делители НЕ исключались: значение поля не выводится,
+                # решатель брал 0 → ЛОЖНОЕ «деление на ноль: state == 0».
+                # ИЗМЕРЕНО на `tftp_set_timeouts` из curl (делитель
+                # `state->retry_max`, в теле ограничен `[3,50]`) и на 8-строчном
+                # репро. Поле структуры — это НЕ вход функции: его значение
+                # задаёт код, а код мы здесь не моделируем.
+                if skip_why is not None:
+                    _why = ("делитель — ПОЛЕ структуры: значение задаётся кодом, "
+                            "модель его не выводит (не обвиняем)")
+                    if _why not in skip_why:
+                        skip_why.append(_why)
+                continue
             try:
                 # ДЕФЕКТ #318: условия берутся ПО ПОЗИЦИИ делителя.
                 _pos_d = dm.start()
@@ -8524,10 +8687,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         # ДЕФЕКТ #190: OFF-BY-ONE по ВЕРХНЕЙ границе.
         # `if (i <= len)` разрешает `i == len`, а `buf[i]` при длине `len` — уже
         # за концом (валидные индексы 0..len-1). Именно так была устроена
-        # историческая уязвимость `198669d` в cmark-gfm (`numdelims <= max_delims`).
+        # ИСТОРИЧЕСКАЯ УЯЗВИМОСТЬ `198669d` В cmark-gfm (`numdelims <= max_delims`).
         # Заявляем ТОЛЬКО когда: (а) сравнение именно `<=`, (б) правая часть —
         # имя, похожее на длину, (в) этот же счётчик используется как индекс.
-        for gm in re.finditer(r"\b([A-Za-z_]\w*)\s*(<=|<)\s*(len|length|size|end)\b", body):
+        for gm in re.finditer(r"\b([A-Za-z_]\w*)\s*(<=|<)\s*(len|length|size)\b", body):
             var, op, lname = gm.group(1), gm.group(2), gm.group(3)
             if op != "<=":
                 continue
@@ -8535,6 +8698,31 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                 continue
             if not _mentions_param(lname, params):
                 continue  # длина не из входа — не наш случай
+            # ДЕФЕКТ #523 (НАЙДЕНО T4 на ПОЛНОМ `redis/src`): разработчик мог
+            # ЗАЯВИТЬ отношение АССЕРТОМ. ИЗМЕРЕНО на `iothread.c`:
+            #   serverAssert(start >= 1 && end < server.io_threads_num && start <= end);
+            #   for (i = start; i <= end; i++) io_threads[i]…
+            # Здесь `end` ДОКАЗАННО меньше длины массива, и `i <= end` корректно.
+            # Без этой проверки — 3 ложных `[BOUNDS PATH]` (iothread.c ×2,
+            # t_hash.c ×1). Ассерт — заявление, которое мы не можем ни доказать,
+            # ни опровергнуть, поэтому НЕ обвиняем (ложное обвинение хуже пропуска).
+            _guarded = False
+            for _aname2 in ("assert", "serverAssert", "serverAssertWithInfo", "Assert",
+                            "ASSERT", "redisAssert", "bug_on"):
+                for _aarg2 in _iter_call_args(body_mask, _aname2, raw=body):
+                    if re.search(rf"\b{re.escape(lname)}\b", _aarg2) and \
+                            re.search(r"(<=|<|>=|>)", _aarg2):
+                        _guarded = True
+                        break
+                if _guarded:
+                    break
+            if _guarded:
+                if skip_why is not None:
+                    _why523 = (f"`{var} <= {lname}` защищено АССЕРТОМ — "
+                               f"обвинение снято (#523)")
+                    if _why523 not in skip_why:
+                        skip_why.append(_why523)
+                continue
             found.append(
                 f"[BOUNDS PATH] {name}: off-by-one: `{var} <= {lname}` разрешает "
                 f"индекс == длине ({var} = {lname}), а {var}[{lname}] уже за концом")

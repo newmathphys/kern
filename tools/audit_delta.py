@@ -488,6 +488,15 @@ def main() -> int:
     block_div = "--block-on-diverged" in args      # опционально: блокировать ЛЮБОЕ изменение поведения
     no_sema = "--no-semantic" in args               # быстрый режим: только рентген
     live = "--live" in args                       # ИСПОЛНЯТЬ чужой код (opt-in)
+    # #516/T3: В АВТОНОМНОМ БИНАРЕ `--live` ФИЗИЧЕСКИ НЕВОЗМОЖЕН, и это надо
+    # сказать ЯВНО ИМЕННО ТОГДА, когда его попросили. Молчаливое превращение
+    # «просил живой вызов» в «сравнили только формулами» — это класс #370.
+    if live and FROZEN:
+        print("[i] --live: в АВТОНОМНОМ апплаенсе динамическое исполнение чужого кода "
+              "недоступно (изоляция `_MEIPASS`, отдельного `.py` для пробы нет). "
+              "Работает математический Z3-слой `--diff-equiv`. Это НАЗВАННЫЙ пропуск, "
+              "а не «поведение то же»: слои разные, и это видно в отчёте.",
+              file=sys.stderr)
     args = [a for a in args if a not in ("--json", "--block-on-diverged", "--no-semantic", "--live")]
     if len(args) != 2:
         print("использование: audit_delta.py <BASE_DIR> <HEAD_DIR> "
@@ -509,6 +518,9 @@ def main() -> int:
         sema = semantic_delta(base_dir, head_dir, live=live)
     d["semantic"] = sema
     d["semantic_live"] = live
+    # #516/T3: в отчёте должно быть видно, ПРИМЕНИЛСЯ ли живой слой на самом деле.
+    # Иначе `"semantic_live": true` в JSON — это обещание, а не факт.
+    d["semantic_live_applied"] = bool(live and not FROZEN)
 
     if as_json:
         print(json.dumps(d, ensure_ascii=False, indent=2))

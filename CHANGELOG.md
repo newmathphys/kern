@@ -8,6 +8,104 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### #525 + the honest T4 result: full corpus measured, threshold NOT met (0.85)
+
+The blind measurement now covers the WHOLE corpus (`curl/lib` 377 + `redis/src` 227 +
+`tigerbeetle/src` 338 = **942 files, 2942 functions checked**). Six false-accusation roots were
+found and closed (`#520`–`#525`); the remaining result is recorded AS MEASURED:
+
+- **`#525`** — a condition depending on a value we did NOT derive (`client_id` captured from a
+  `switch` arm, `ok` from a map lookup) can never be «unreachable» for us. Measured on
+  `tigerbeetle/src/message_bus.zig::recv_update_peer` and `clients/go/assert/assert.go::isObjectEqual`
+  (2 FP). First version of the rule was TOO WIDE and cut coverage of `curl/lib` from 727 checked
+  functions to 184 — measured and narrowed (a locally assigned variable counts as known, and names
+  that are struct fields in our `base__field` notation are excluded, otherwise the reverse control
+  `precision_dead_field/dead_after_kind.c` lost its REAL dead branch).
+- **T4 RESULT (measured, not claimed):** 40 findings, **6 proven FP → precision 0.85**; the 0.90
+  threshold was **NOT** met on the full corpus. Progress vs the first full run: curl 4→1,
+  redis 43→36, tigerbeetle 9→3. Remaining FP are named per line in
+  `docs/evidence/blind_p1_2026-11-07.log`: redis `memtest.c` ×2 (BV path), redis `server.c`
+  (interprocedural field mutation), tigerbeetle `marzullo.zig`/`replica.zig` (a local rewritten
+  inside a LOOP), one Python test file. That set is task **T4b** in `docs/PLAN_NEXT.*`.
+- Gates after the fixes: `xray-precision` OK (clean 0, dead_field 1, dedupe 1, buggy 5/5),
+  `xray-overflow-check` OK, `svcomp_baseline` TPR 1.00 / FPR 0.00, `kerna-check` R1–R9 OK.
+
+### #523–#524: the same T4 run on the whole `redis/src` — two more FP roots (assert-guard, field/rewritten value)
+
+- **#523 — a project's OWN ASSERT is a guard, and we ignored it.** Measured on
+  `redis/src/iothread.c`: `serverAssert(start >= 1 && end < server.io_threads_num && start <= end);`
+  followed by `for (i = start; i <= end; i++) io_threads[i]…`. `end` is PROVEN smaller than the
+  array length by that assert, so `i <= end` is correct — yet we reported 3 × `[BOUNDS PATH]
+  off-by-one` (iothread.c ×2, t_hash.c ×1). Fix: `assert`-like calls (`serverAssert`,
+  `serverAssertWithInfo`, `Assert`, `ASSERT`, `redisAssert`, `bug_on`) are read as path guards —
+  but only arguments that are COMPARISONS/logic (the first argument of `serverAssertWithInfo` is a
+  client, and pushing it into the path would be an invention). Second half: `end` was listed among
+  «length» names, although in C `end` is usually the LAST index (`hashTypeTryConversion(…, 2, 3)`);
+  only `len|length|size` are treated as lengths now. Measured after: `iothread.c` 3 → **0**,
+  `t_hash.c` 1 → **0**; control `for(i=0;i<=len;i++) buf[i]=0;` still **1** (TP kept).
+- **#524 — «dead branch» on a struct field or on a value the body rewrites.** Measured on
+  `redis/src/server.c::processCommand` (`server.current_client == NULL` — and the code itself sets
+  it to `NULL` at line 3103) and `t_stream.c::streamValidateListpackIntegrity`
+  (`!valid_record` after `lpGetIntegerIfValid(p, &valid_record)` — the value is written through a
+  pointer). Both were declared `[DEAD BRANCH] … UNSAT`. The value is set by code we do not model,
+  so «unreachable» is UNPROVABLE here. Fix: a named skip when the condition depends on a struct
+  field (`->`/`.`) or on a name the body rewrites (assignment or `&name`).
+- Recall re-measured after both: `make xray-precision` OK, `make xray-overflow-check` OK,
+  `svcomp_baseline.py` → **TPR 1.00 / FPR 0.00**.
+
+### #520–#522: T4 on the FULL corpus — three false-accusation roots found and closed
+
+The blind measurement was extended from a 60-file slice to the WHOLE corpus
+(`curl/lib` 377 files, `redis/src` 227, `tigerbeetle/src` 285 — 889 files). The first full run of
+`curl/lib` produced **4 findings on 377 files**; line-by-line triage against the sources showed
+**3 false accusations** and 1 «UB in the signature domain». Each was minimised to an 8–12 line
+repro before any edit (the project's rule).
+
+- **#521 — compound assignment was NOT modelled, yet the accusation stood.**
+  Measured: `int f(int x){ x %= 64; return 100 - x; }` → `findings 1`, `skipped 0`. `_exec_clike`
+  raised `Unsupported` for `x %= 64`, and `local_smt` (the model used by the overflow detector) is
+  built only from DECLARATIONS — so `x` stayed a free input, Z3 chose a value `%=` rules out, and
+  `curl_sha512_256.c::Curl_rotr64` (`bits %= 64;`) was accused with counterexample
+  `bits = -2147483584`. Fix: `nm op= rhs` is applied to the model (`(op base rhs)`), only when the
+  assignment occurs EXACTLY ONCE in the body (otherwise order/branches make the composition
+  unsound). Measured after: `x %= 64` → 0 findings, `x += 1` → still 1 (TP kept, `INT_MAX + 1` is
+  real UB), `curl_sha512_256.c` → **0**.
+- **#520 — a struct FIELD as divisor was accused as a pointer.**
+  `_RE_CLIKE_DIV` used the class `[\w.\[\]]`, which has no `->`, so the divisor
+  `state->retry_max` was truncated to `state` and reported as «деление на ноль: `state == 0`»
+  (measured on `curl/lib/tftp.c::tftp_set_timeouts`, where the field is bounded to `[3,50]` in the
+  body). Fix: the name pattern now includes `->`/`.`; a divisor that is a struct field is a NAMED
+  skip (its value is set by code we do not model). Measured after: `tftp.c` → **0**;
+  `int g(int a,int b){ return a / b; }` → still accused (TP kept).
+- **#522 — `break`/`continue`/`goto` were not modelled, so a live branch was called dead.**
+  Measured (12-line repro from `curl/lib/progress.c::max6out`): with
+  `do { nbytes = bytes/1024; if(nbytes < 1000) break; bytes = nbytes; } while(0); if(nbytes <= 99) …`
+  the last branch was declared `[DEAD BRANCH] … UNSAT`, although `bytes = 100000` gives
+  `nbytes = 97`. Cause: `break` left the NEGATION of its condition on the path («we left the loop
+  because the condition is false»). Fix: with `break`/`continue`/`goto` in the body a dead branch is
+  NOT claimed — a named skip. Measured after: the repro → 0; the positive control
+  `tests/fixtures/xray_true_dead.c` → still `[DEAD BRANCH] truly_dead` (TP kept).
+- **Recall NOT damaged (measured):** `make xray-precision` OK, `make xray-overflow-check` OK,
+  `svcomp_baseline.py` → **TPR 1.00 / FPR 0.00** (unchanged), and every repro above keeps its
+  two-sided control.
+
+### #519: `--live` in the appliance — accepted, but NAMED as not applied (T3, closed by behaviour)
+
+- **MEASURED:** `dist/kerna --delta base head --live` used to say nothing specific about `--live`;
+  the request was silently answered by the Z3 layer only. The JSON field `semantic_live` said
+  `true` — a promise, not a fact (class `#370`).
+- **Fix:** the frozen binary now prints, on `--live` specifically, «`--live`: в АВТОНОМНОМ апплаенсе
+  динамическое исполнение чужого кода недоступно (изоляция `_MEIPASS`, отдельного `.py` нет).
+  Работает математический Z3-слой `--diff-equiv`…» and the JSON gained
+  **`semantic_live_applied`** (`false` in the archive, `true` only when the live layer really ran).
+- **Proven by BEHAVIOUR, not by text:** new rule **R9** in `make kerna-check` runs the packaged
+  binary with `--live` and requires a line that mentions `--live` AND names it unavailable — the
+  general import-time notice no longer counts (otherwise the check would be vacuous, class `#514`).
+  Measured: `[OK] R9: --live в апплаенсе назван недоступным`, `kerna-check` R1–R9, провалов 0.
+- The same boundary is written into `README-RUN.txt` (generated) and `docs/LIMITS.*` §6. No code
+  execution was added to the archive on purpose: a static analyzer must not run a stranger's code
+  without an explicit decision (the `#508` rule).
+
 ### #518: on a REAL PR the gate said «tool error» where the solver honestly said «cannot decide»
 
 - **MEASURED (T5 of the plan) on a real redis bugfix** `0e618fa` «Fix NULL deref in
