@@ -209,6 +209,14 @@ def main() -> int:
         for f in threats[:6]:
             print("    > [{0}] {1}: {2}".format(f.get("type"), f.get("file"),
                                              (f.get("details") or "")[:80]))
+    # ── ЗАКОН ПРОЕКТА `KERN.md` (#568): файл в корне папки -> проверяем по нему
+    # и учитываем в коде возврата (иначе «закон нарушен» выглядел бы успехом).
+    if (root / "KERN.md").is_file():
+        import project_spec          # noqa: PLC0415 — вшит в бинарь тем же путём
+        print()
+        print("── ЗАКОН ПРОЕКТА (KERN.md) ──────────────────────────────────")
+        if project_spec.main(["project_spec.py", str(root)]) != 0:
+            return 1
     return 0
 
 

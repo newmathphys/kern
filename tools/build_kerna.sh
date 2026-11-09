@@ -37,7 +37,7 @@ mkdir -p "$ROOT/.build-kerna"
   --name "$NAME" \
   --paths "$ROOT/tools" \
   --add-data "$ROOT/server.json:." \
-  --hidden-import audit_delta --hidden-import sema_probe \
+  --hidden-import audit_delta --hidden-import sema_probe --hidden-import project_spec \
   --hidden-import kerna_doctor --hidden-import env_resolver --hidden-import kern_scan \
   --distpath "$OUT" \
   --workpath "$ROOT/.build-kerna/work" \

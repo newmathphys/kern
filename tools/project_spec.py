@@ -128,8 +128,13 @@ def _inject(src_path: Path, fn: str, spec: dict, tmp: Path) -> Path | None:
 
 def verdict(path: Path) -> tuple[str, str]:
     """T/F/N по вердикту экстрактора + пруф-чекера."""
+    # #568 (класс #513): в ЗАМОРОЖЕННОМ бинаре файла `kern_contracts.py` нет, а
+    # `sys.executable` — это сам `kerna`. Диспетчер принимает одиночный файл,
+    # поэтому зовём его БЕЗ пути экстрактора (он срежет аргумент сам).
+    _frozen = bool(getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"))
+    _cmd = ([PY, str(path)] if _frozen else [PY, str(EXTRACTOR), str(path)])
     try:
-        p = subprocess.run([PY, str(EXTRACTOR), str(path)], capture_output=True, text=True,
+        p = subprocess.run(_cmd, capture_output=True, text=True,
                            timeout=300, errors="replace")
     except subprocess.TimeoutExpired:
         return "N", "таймаут проверки"
@@ -151,8 +156,14 @@ def tests_green(root: Path, tests_opt: str | None) -> bool | None:
     target = root / tests_opt
     if not target.exists():
         return None
+    # ВАЖНО: `sys.executable` в замороженном бинаре — сам `kerna`, а не python.
+    # Поэтому pytest ищем в PATH; нет -> None (B не заявляется — названный пропуск).
+    import shutil as _sh
+    py = _sh.which("python3") or _sh.which("python")
+    if not py:
+        return None
     try:
-        p = subprocess.run([PY, "-m", "pytest", "-q", str(target)], capture_output=True,
+        p = subprocess.run([py, "-m", "pytest", "-q", str(target)], capture_output=True,
                            text=True, timeout=600, cwd=str(root), errors="replace")
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
@@ -216,8 +227,12 @@ def main(argv: list[str]) -> int:
             v, why = verdict(injected)
             res[v].append((key, why))
 
-    # КОНФЛИКТ БЕЛНАПА: тесты проекта зелёные, а закон нарушен -> B, не F.
-    if tests_green(root, opts.get("tests")) is True:
+    # КОНФЛИКТ БЕЛНАПА: тесты зелёные, а закон нарушен -> B, не F.
+    _tests = opts.get("tests")
+    _green = tests_green(root, _tests)
+    if _tests and _green is None:
+        print(f"  [i] тесты проекта НЕ ЗАПУЩЕНЫ (pytest недоступен) — конфликт B не проверялся: {_tests}")
+    if _green is True:
         _moved = {k for k, _w in res["F"]}
         for key, why in list(res["F"]):
             res["B"].append((key, f"тесты проекта ЗЕЛЁНЫЕ, а закон нарушен ({why})"))

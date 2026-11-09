@@ -337,6 +337,80 @@ def main() -> int:
             else:
                 print(f"[OK] R10: апплаенс пишет валидный SARIF 2.1.0 "
                       f"({sarif_out.stat().st_size} Б, results = новым находкам, startLine >= 1)")
+
+            # R11 (#568): ЗАКОН ПРОЕКТА `KERN.md` ИЗ УПАКОВАННОГО БИНАРЯ.
+            # Клиент кладёт `./kerna` и `KERN.md` в папку и запускает `./kerna .`:
+            # обязаны появиться четыре исхода, а «закон нарушен» — код возврата 1.
+            proj = d / "proj"
+            (proj / "tests").mkdir(parents=True, exist_ok=True)
+            (proj / "bank.py").write_text(
+                "def withdraw(balance, amount):\n    return balance - amount\n"
+                "\ndef fee(amount):\n    return amount // 100 + 1\n"
+                "\ndef backdoor_transfer(a, b):\n    return a + b\n", encoding="utf-8")
+            (proj / "tests" / "test_bank.py").write_text(
+                "from bank import fee\n\ndef test_fee():\n    assert fee(1000) == 11\n",
+                encoding="utf-8")
+            (proj / "KERN.md").write_text(
+                "# Контракт проекта\n\n- require_all_functions_covered: true\n"
+                "- tests: tests/\n\n### bank.py :: withdraw(balance, amount)\n"
+                "- requires: balance >= 0 and amount >= 0 and amount <= balance\n"
+                "- ensures: result >= 0 and result <= balance\n\n"
+                "### bank.py :: fee(amount)\n- requires: amount >= 0\n"
+                "- ensures: result == amount // 100\n", encoding="utf-8")
+            # РЕСУРСЫ РЯДОМ, как в архиве у клиента (#568, ИЗМЕРЕНО):
+            # апплаенс ищет `kernc` ЖЁСТКО в `<свой каталог>/zig-out/bin/kernc`
+            # и НЕ читает `KERN_KERNC`/`Z3` из окружения. Без этой раскладки
+            # проверка закона получала «нет вердикта» и весь KERN.md уходил в [N].
+            app11 = d / "app11"
+            (app11 / "zig-out" / "bin").mkdir(parents=True, exist_ok=True)
+            (app11 / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+            shutil.copy2(bin_path, app11 / bin_path.name)
+            _kc = ROOT / "zig-out" / "bin" / "kernc"
+            if _kc.is_file():
+                shutil.copy2(_kc, app11 / "zig-out" / "bin" / "kernc")
+            _z3b = ROOT / ".venv" / "bin" / "z3"
+            if _z3b.is_file():
+                shutil.copy2(_z3b, app11 / ".venv" / "bin" / "z3")
+            r11_bad = subprocess.run([str(app11 / bin_path.name), str(proj)],
+                                     capture_output=True, text=True, timeout=900,
+                                     env=_isolated_env(), cwd=str(app11))
+            out11 = r11_bad.stdout + r11_bad.stderr
+            probs11 = []
+            if r11_bad.returncode != 1:
+                probs11.append(f"нарушенный закон дал rc={r11_bad.returncode}, а обязан 1")
+            if "[B]" not in out11:
+                probs11.append("нет [B] КОНФЛИКТ (тесты зелёные, закон нарушен)")
+            if "[N]" not in out11 or "НЕ ОПИСАНА" not in out11:
+                probs11.append("нет [N] НЕ ОПИСАНА (функция вне закона)")
+            # а после починки и описания всех функций — rc=0
+            (proj / "bank.py").write_text(
+                "def withdraw(balance, amount):\n    return balance - amount\n"
+                "\ndef fee(amount):\n    return amount // 100\n"
+                "\ndef transfer(a, b):\n    return a + b\n", encoding="utf-8")
+            (proj / "KERN.md").write_text(
+                "# Контракт проекта\n\n- require_all_functions_covered: true\n"
+                "- tests: tests/\n\n### bank.py :: withdraw(balance, amount)\n"
+                "- requires: balance >= 0 and amount >= 0 and amount <= balance\n"
+                "- ensures: result >= 0 and result <= balance\n\n"
+                "### bank.py :: fee(amount)\n- requires: amount >= 0\n"
+                "- ensures: result == amount // 100\n\n"
+                "### bank.py :: transfer(a, b)\n"
+                "- requires: a >= 0 and b >= 0 and a + b <= 1000\n"
+                "- ensures: result == a + b\n", encoding="utf-8")
+            r11_ok = subprocess.run([str(app11 / bin_path.name), str(proj)],
+                                    capture_output=True, text=True, timeout=900,
+                                    env=_isolated_env(), cwd=str(app11))
+            out11b = r11_ok.stdout + r11_ok.stderr
+            if r11_ok.returncode != 0:
+                probs11.append(f"выполненный закон дал rc={r11_ok.returncode}, а обязан 0")
+            if "ЗАКОН ПРОЕКТА ВЫПОЛНЕН" not in out11b:
+                probs11.append("нет строки «ЗАКОН ПРОЕКТА ВЫПОЛНЕН»")
+            if probs11:
+                print(f"[FAIL] R11: закон проекта из апплаенса НЕВЕРЕН — {probs11[0]}")
+                bad += 1
+            else:
+                print("[OK] R11: апплаенс читает KERN.md: [B] конфликт и [N] не описана "
+                      "ловятся, rc=1; после починки — «ЗАКОН ПРОЕКТА ВЫПОЛНЕН», rc=0")
         finally:
             shutil.rmtree(d, ignore_errors=True)
 

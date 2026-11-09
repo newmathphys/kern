@@ -89,6 +89,20 @@ def main(argv: list[str] | None = None) -> int:
         sys.argv = [sys.argv[0]] + rest
         return audit_delta.main()
 
+    # #568: `--init-spec <папка>` — черновик закона проекта, `--spec <папка>` —
+    # проверить папку по `KERN.md`. Логика ОДНА (`tools/project_spec.py`).
+    if args and args[0] in ("--init-spec", "--spec"):
+        mode, rest = args[0], args[1:]
+        if not rest:
+            print(f"[!] {mode}: нужен путь к папке проекта")
+            return 2
+        rc = kerna_doctor.preflight(require_solver=True, require_kernc=False)
+        if rc != 0:
+            return rc
+        import project_spec          # noqa: PLC0415
+        sys.argv = [sys.argv[0]] + (["--init"] if mode == "--init-spec" else []) + rest
+        return project_spec.main(sys.argv)
+
     if _is_extractor_mode(args):
         # #494: ДОКТОР ОБЯЗАТЕЛЕН И ЗДЕСЬ. Без него режим `--xray` при
         # отсутствии `z3` возвращал `findings 0, unreadable 1, rc=0` — то есть
