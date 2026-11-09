@@ -151,6 +151,6 @@ jobs:
           git config user.name "kern-audit-bot"
           git config user.email "audit@kern.invalid"
           git add "$dst"
-          git commit -q -m "external audit: ${REPO} @ ${CORPUS_SHA} (run ${GITHUB_RUN_ID})" \
-            || { echo "[i] изменений нет — сводка уже в репозитории"; exit 0; }
+          if git diff --cached --quiet; then echo "[i] изменений нет"; exit 0; fi
+          git commit -q -m "external audit: ${REPO} @ ${CORPUS_SHA} (run ${GITHUB_RUN_ID})"
           git push || echo "[i] пуш отклонён (защита ветки) — сводка осталась в артефакте"
