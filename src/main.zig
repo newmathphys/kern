@@ -954,7 +954,18 @@ pub fn main(init: std.process.Init) !void {
         //   означает `c1*name1 + c2*name2 + ... + k <= 0`.
         // Печатает ровно один из трёх вердиктов: UNSAT / SAT <точка> / UNKNOWN <причина>.
         if (args.len < 3) {
-            std.debug.print("[!] lia: нужен путь к файлу ограничений\n", .{});
+            // ДЕФЕКТ #561 (ИЗМЕРЕНО на себе): соглашение знаков «Σ coef·var + k <= 0»
+            // было записано ТОЛЬКО в комментарии кода, а в сообщениях/`--help` его не было.
+            // Дважды подряд константа была прочитана как перенесённая вправо, и вердикты
+            // ядра показались «неверными» (x<=0 ∧ x>=1 читалось как SAT). Ядро ЗВУЧНО —
+            // врало ОПИСАНИЕ входа. Теперь конвенция печатается везде, где спрашивают вход.
+            std.debug.print(
+                "[!] lia: нужен путь к файлу ограничений.\n" ++
+                    "    Формат строки: `LE c1:name1 c2:name2 ... k` ОЗНАЧАЕТ " ++
+                    "c1*name1 + c2*name2 + ... + k <= 0.\n" ++
+                    "    Константа ОСТАЁТСЯ слева: `LE 1:x -5` — это x <= 5, а `LE -1:x 5` — это x >= -5.\n",
+                .{},
+            );
             return;
         }
         const ltext = compat.readFileAlloc(alloc, args[2], 1 << 20) catch {
@@ -976,7 +987,9 @@ pub fn main(init: std.process.Init) !void {
             if (!std.mem.eql(u8, kw, "LE")) {
                 std.debug.print(
                     "[!] lia: поддерживается только `LE` (получено {s}). " ++
-                        "Формат входа — по одному ограничению на строку: `LE 3:x -1:y 5`\n",
+                        "Формат: по одному ограничению на строку, `LE c1:name1 c2:name2 ... k` " ++
+                        "ОЗНАЧАЕТ c1*name1 + c2*name2 + ... + k <= 0 " ++
+                        "(константа СЛЕВА: `LE 1:x -5` — это x <= 5).\n",
                     .{kw},
                 );
                 std.process.exit(2);
@@ -1650,7 +1663,8 @@ const USAGE: []const u8 = std.fmt.comptimePrint(
     \\  prove <file.smt2> [--query-kind K]              L4: доказательство (e=1); K: refutation|equivalence
     \\  check-proof <file.smt2> <proof>                 проверить готовый вывод БЕЗ решателя
     \\  smtlib <dir>                                    прогон банка SMT-LIB по меткам :status
-    \\  lia <file.smt2>                                 нативный Фурье–Моцкин (без Z3)
+    \\  lia <file>                                      нативный Фурье–Моцкин (без Z3);
+    \\                                                  строка `LE c:x d:y k` = c*x+d*y+k <= 0
     \\  theory <file>                                   arrays|absint|chc|dtmc|nonint|redos|strings
     \\  unify <human_max> <ai_min>                      RLAIF: сечение политопов
     \\

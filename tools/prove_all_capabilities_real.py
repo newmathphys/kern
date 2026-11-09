@@ -134,6 +134,26 @@ def pkg_a_native() -> None:
         record("А", f"lia {name}", "OK" if agree else "FAIL",
                f"kernc lia = {verdict}, Z3 = {z3v}" + ("" if agree else " — РАСХОЖДЕНИЕ"))
 
+    # #561 (ИЗМЕРЕНО на себе): конвенция знаков ядра «Σ coef·var + k <= 0» нигде не
+    # была напечатана, и её дважды прочли НАОБОРОТ — вердикты ядра показались
+    # неверными, хотя ядро звучило. Здесь ДИСКРИМИНИРУЮЩИЙ случай: при
+    # документированном чтении это SAT (x <= 5 ∧ x >= 0), при обратном — UNSAT
+    # (x <= -5 ∧ x >= 0). Значит молчаливый переворот конвенции будет ПОЙМАН.
+    conv = ["LE 1:x -5", "LE -1:x 0"]
+    cp = tmp / "lia_convention.txt"
+    cp.write_text("\n".join(conv) + "\n", encoding="utf-8")
+    _rc, cout = run([str(KERNC), "lia", str(cp)], timeout=120)
+    csat = "SAT" in cout
+    pt = re.search(r"SAT x=(-?\d+)", cout)
+    ok_pt = False
+    if pt:
+        xv = int(pt.group(1))
+        ok_pt = (xv + (-5) <= 0) and (-xv + 0 <= 0)   # документированное чтение
+    record("А", "lia: конвенция знаков", "OK" if (csat and ok_pt) else "FAIL",
+           f"kernc lia = {cout.strip().splitlines()[-1][:60]} | точка удовлетворяет "
+           f"документированному чтению: {'да' if ok_pt else 'НЕТ'}")
+
+
 
 def pkg_b_oracles() -> None:
     """ПАКЕТ Б: физические оракулы на РЕАЛЬНЫХ паттернах уязвимостей."""
