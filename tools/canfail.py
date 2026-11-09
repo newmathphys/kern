@@ -2749,6 +2749,20 @@ def case_flake():
     return "make flake-check"
 
 
+def case_lean_zig_bridge_blind():
+    """МОСТ Lean<->Zig: ломаем ЯДРО так, что таблица перестаёт совпадать с Lean.
+
+    ИЗМЕРЕНО (на этом кейсе): `joinK` в `src/core/eq2.zig` подменяется на
+    `meetK`. Таблица моста (40 входов) тогда расходится с определением Lean в
+    строке `joinK|N|T|…`, и гейт ОБЯЗАН покраснеть. Если он остаётся зелёным —
+    мост вакуумный (класс #113), и это ловится здесь, а не «на глаз».
+    """
+    patch("src/core/eq2.zig",
+          "        return @enumFromInt(@intFromEnum(a) | @intFromEnum(b));",
+          "        return @enumFromInt(@intFromEnum(a) & @intFromEnum(b)); // ЛОМАЕМ: joinK стал meetK")
+    return "make lean-zig-bridge"
+
+
 def case_conformance_break():
     """Phase 5 META-CASE: break ONE requirement, the exam must go red.
 
@@ -4508,6 +4522,8 @@ CASES = [
     ("codecheck-fp", "Buggy file declared clean -> FP -> gate red",
      case_codecheck_fp),
     ("conformance-break", "One requirement broken -> exam must fail",
+    ("lean-zig-bridge-blind", "Мост Lean<->Zig: сломанный joinK обязан покраснить гейт",
+     case_lean_zig_bridge_blind),
      case_conformance_break),
     ("advisory-fold", "Advisory counted as proven -> gate red",
      case_advisory_fold),

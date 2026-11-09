@@ -66,7 +66,42 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
 
-    // Ф2: граф исходников — ЕДИНЫЙ источник для витрины (Эго-Линза, фильтры).
+    // МОСТ Lean <-> Zig (реальный refinement для компонента с КОНЕЧНЫМ доменом).
+    //
+    // ЗАЧЕМ. До этого теоремы Lean 4 и код Zig жили отдельно: Lean доказывал
+    // законы решётки B₄ (`joinK_comm/assoc/idem`, `contradiction_isolation`), а
+    // Zig реализовывал её сам — и связи «это ОДНА И ТА ЖЕ функция» не было.
+    // Для конечного домена (4×4=16 пар) связь закрывается ПОЛНОСТЬЮ: таблица,
+    // посчитанная Lean-определением, сверяется побайтово с таблицей, посчитанной
+    // ЯДРОМ. Совпадение на ВСЕХ входах = доказательство равенства функций, а не
+    // «сверка на примерах». Гейт: `make lean-zig-bridge`.
+    if (std.mem.eql(u8, cmd, "belnap-table")) {
+        const eq2 = @import("core");
+        const vals = [_]eq2.Eq2{ .N, .T, .F, .B };
+        var buf = compat.BufWriter.init(alloc);
+        defer buf.deinit();
+        const w = buf.writer();
+        for (vals) |a| {
+            for (vals) |b| {
+                w.print("joinK|{s}|{s}|{s}\n", .{ a.symbol(), b.symbol(), a.joinK(b).symbol() }) catch {};
+            }
+        }
+        for (vals) |a| {
+            for (vals) |b| {
+                w.print("meetK|{s}|{s}|{s}\n", .{ a.symbol(), b.symbol(), a.meetK(b).symbol() }) catch {};
+            }
+        }
+        for (vals) |a| {
+            w.print("notB|{s}|{s}\n", .{ a.symbol(), eq2.notB(a).symbol() }) catch {};
+        }
+        for (vals) |a| {
+            w.print("conflate|{s}|{s}\n", .{ a.symbol(), eq2.conflate(a).symbol() }) catch {};
+        }
+        try std.Io.File.stdout().writeStreamingAll(compat.io(), buf.items());
+        return;
+    }
+
+
     // Python-сканер остаётся только сторожем паритета (`make graph-check`).
     if (std.mem.eql(u8, cmd, "graph")) {
         // ДЕФЕКТ #545 (ИЗМЕРЕНО): позиционный аргумент ИГНОРИРОВАЛСЯ —

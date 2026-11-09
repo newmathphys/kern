@@ -132,7 +132,7 @@ xray-precision rc=0 (traps 0/1/1, buggy 5/5, known_fp 0, external base 4).
 | ~~**T3**~~ ✅ | `--live` in the appliance done as `#516`: the message now names what actually runs (Z3 layer only) and what is a named skip; plus `#517` (a missing/invalid path is a refusal, not «no divergence»). Written into `README-RUN.txt` + `LIMITS` §6 | packaged archive: real pair → `DIVERGED`; `/nope_base` → `rc=2` «путь НЕ СУЩЕСТВУЕТ»; file instead of dir → `rc=2`; `audit-delta --selftest` 12/12 |
 | ~~**T4**~~ ✅ | P1 on the WHOLE corpus (942 files, 2004 functions checked) — **FULL corpus is CLEAN: 35 findings, 0 proven FP → precision 1.00** (`#529` closed the last two, `T4c`). Progress: curl 4→1, redis 43→35, tigerbeetle 9→1. Nine roots closed (`#520`–`#527`), each with an 8–12 line repro and a two-sided control | numbers + per-line triage in `docs/evidence/blind_p1_2026-11-07.log`. Remaining FP named as **T4c**: redis `memtest.c` ×2 (BV64 path: models disagree) and one Python test file (symbolic list length) |
 | ~~**T5**~~ ✅ | `--delta` on a REAL PR: redis `0e618fa` «Fix NULL deref in `usUntilEarliestTimer`». Found and fixed `#518` (a truthful `[UNKNOWN]` was reported as a tool error) | both directions → `rc=0` and the line «НЕ РЕШЕНО (Belnap N) … это НЕ „поведение то же“»; boundary named: a NULL deref is outside `CRASH PATH` (division by zero), so the gate does not block — and does not pretend otherwise. Receipt in `docs/evidence/field_trials_v2.8.2.log` |
-| **T6** | One FULL local `python3 tools/canfail.py` to completion (~2 h on this machine; today it was verified by CI) | `ИТОГ: … ВАКУМНЫХ 0 … ГРЯЗНЫХ 0` with the log committed |
+| **T6** (идёт) | One FULL local `python3 tools/canfail.py` to completion (~2 h on this machine; today it was verified by CI) | `ИТОГ: … ВАКУМНЫХ 0 … ГРЯЗНЫХ 0` with the log committed |
 | **T7** | The actual DoD: give the 27 MB archive to ONE external person with the receipt file | their numbers = ours, or the divergence is filed as a defect |
 
 Rule for tomorrow: no new languages/theories and no «improvements» before T1–T2 are closed.
@@ -160,12 +160,12 @@ Rule for tomorrow: no new languages/theories and no «improvements» before T1�
    A BARE clone (no solver) reddens 5 gates WITH A NAMED CAUSE — and that run is what exposed `#499`;
 - [x] `svcomp`: the recall cost of `#495` **MEASURED** — 37 tasks / 0 false alarms / 0 missed;
   TPR 1.00 FPR 0.00, and the rule NARROWED (`#498c`) so an unrelated `if` no longer hides the pattern;
-- [ ] three unfamiliar corpora: precision published, every FP triaged;
-- [ ] release published (the artifact is built and gated locally; needs `gh` + credentials);
+- [x] three unfamiliar corpora: precision published, every FP triaged — **MEASURED**: `curl/lib` 377 + `redis/src` 227 + `tigerbeetle/src` 338 = **942 files / 2004 functions**, **35 findings, 0 proven FP → precision = 35/35 = 1.00** (`docs/evidence/blind_p1_2026-11-07.log`); plus DeepSeek CUDA/C++ **357 files, 0 FP** (`field_trials_v2.8.2.log`);
+- [x] release published — `Release #46` **success** on `64b602e9`, assets verified: external `sha256sum -c` ЦЕЛ, `zmm = 0`, Ed25519 with the external key, and `make external-accept` on the DOWNLOADS archive **rc=0** (`docs/evidence/external_accept_v2.8.2.log`);
 - [x] `action.yml` works from the release archive and is proved by execution (`make action-check`),
   with `examples/ci/kern-gate.yml` checked against it;
-- [ ] `LIMITS` (RU+EN) synchronised with the gates — its guard green;
-- [ ] clean tree, `HEAD == origin/main`, attestation verified with the external key.
+- [x] `LIMITS` (RU+EN) synchronised with the gates — `xray-precision` prints «числа точности синхронны с гейтом (known_fp 0, внешняя база 4)» for BOTH files;
+- [x] clean tree, `HEAD == origin/main`, attestation verified with the external key — `HEAD == origin/main == 75c91860`, `dirty = 0`, «АТТЕСТАТ ПРОВЕРЕН (внешним ключом)».
 
 ## Checkable facts (verified by `make docs-parity`)
 

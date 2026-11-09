@@ -691,6 +691,24 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 ```
 
 Ключ: `docs/keys/kern-owner.pub`, отпечаток
+
+Одна команда для внешнего человека (без репозитория, Zig и Python): `bash tools/pilot_receipt.sh` —
+скачивает релиз, сверяет опубликованный SHA-256 и печатает `PILOT RECEIPT: PASS (8/8)` с ожидаемыми значениями.
+
+**Запустить на СВОЁМ коде (только архив — без репозитория, без Zig, без Python):**
+
+```bash
+VER=v2.8.2   # подставьте нужный тег
+base=https://github.com/newmathphys/kern/releases/download/$VER
+curl -4 -fsSLO $base/kerna-dist-$VER.tar.gz && curl -4 -fsSLO $base/SHA256SUMS
+grep kerna-dist-$VER SHA256SUMS | sha256sum -c -     # должно быть: OK
+mkdir dist && tar -xzf kerna-dist-$VER.tar.gz -C dist --strip-components=1
+dist/kerna --doctor                              # должно быть: зависимости на месте
+```
+
+`--delta <было> <стало>` печатает `rc=1`, если изменение ВНЕСЛО находку, `rc=2` — если апплаенс не может
+судить (нет решателя / плохой вход); «не может» и «чисто» — разные вещи. Файл SARIF кладётся прямо в
+`github/codeql-action/upload-sarif`.
 `sha256:6da3e85ea51579db01379e8442675530fca39f3ebc7a8153f66a9d314ee1360f`.
 Тот же `kid` записан в `kern.intoto.jsonl`; отсутствие `kern.intoto.sig` — это
 **провал**, а не предупреждение.

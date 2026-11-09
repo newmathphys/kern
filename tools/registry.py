@@ -142,6 +142,11 @@ CLASS = {
     "sim": "CHECK", "os-stress": "CHECK", "flood": "CHECK", "proof-check": "CHECK",
     "lia-diff": "CHECK",
     "proof-tamper": "CHECK",
+    # #558: мост Lean<->Zig проверяется ИСЧЕРПАНИЕМ конечного домена (40 входов);
+    # невакуумность — `lean-zig-bridge-selftest` (подмена строки обязана ловиться).
+    "lean-zig-bridge": "CHECK",
+    # самотест моста — мета-проверка (подмена строки обязана ловиться)
+    "lean-zig-bridge-selftest": "META",
     "tree-lock": "CHECK",
     "binary-audit": "CHECK",
     "bitrot-chaos": "CHECK",
@@ -378,6 +383,7 @@ CASE_TARGET = {
     "nondeterministic": "determinism-check",
     "changelog-drift": "changelog-check",
     "lean-pin-drift": "lean-pin-check",
+    "lean-zig-bridge-blind": "lean-zig-bridge",
     "trust-docs-missing": "trust-docs-check",
     "perf-regression": "perf-check",
     "citations-unknown-key": "citations-check",

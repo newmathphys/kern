@@ -32,6 +32,33 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _mutation_lock_state() -> str:
+    """Пустая строка — лок свободен; иначе причина «занято» (ДЕФЕКТ #557).
+
+    ЗАЧЕМ. Счётчики читаются ИЗ ДЕРЕВА: мутатор считает сайты по AST, а
+    `claims-audit` читает документы. Если в этот момент идёт `canfail` или
+    `mutate`, харнесс ДЕРЖИТ файлы ПРОПАТЧЕННЫМИ. ИЗМЕРЕНО: замер во время
+    кейса `canfail` дал «сайтов 1600 в 21 файлах» -> **1599**, то есть гейт
+    показал ложное расхождение, а `--fix` записал бы это число в документы.
+    Теперь такой прогон НАЗВАН и остановлен (fail-closed).
+    """
+    try:
+        import fcntl                    # noqa: PLC0415
+        import sys as _sys              # noqa: PLC0415
+        _sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import mutation_lock as _ml     # noqa: PLC0415
+        path = _ml.lock_path()
+        with open(path, "a+") as f:     # noqa: SIM115 — лок держим только на пробу
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                return "canfail/mutate УЖЕ ИДЁТ (лок дерева занят)"
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            return ""
+    except ImportError:
+        return ""
 EV = ROOT / "docs" / "evidence"
 
 # Публичные поверхности, где числа читает человек (и внешние сканеры).
@@ -513,6 +540,12 @@ def selftest() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else list(argv)
+    # ДЕФЕКТ #557: числа нельзя мерить на ПРОПАТЧЕННОМ дереве (см. helper выше).
+    _busy = _mutation_lock_state()
+    if _busy:
+        print(f"[!] {_busy} — измерение остановлено: счётчики читаются ИЗ ДЕРЕВА, и "
+              f"патч харнесса дал бы ложное расхождение (`--fix` записал бы его в документы)")
+        return 2
     if "--selftest" in args:
         return selftest()
 

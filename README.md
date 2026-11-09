@@ -402,6 +402,28 @@ Key: `docs/keys/kern-owner.pub`, key id
 The same `kid` is embedded in `kern.intoto.jsonl`; a missing `kern.intoto.sig`
 is a **failure**, not a warning.
 
+One command for an outsider (no repo, no Zig, no Python): `bash tools/pilot_receipt.sh` — it downloads
+the release, verifies the published SHA-256, and prints `PILOT RECEIPT: PASS (8/8)` with every expected value.
+
+**Run it on YOUR code (archive only — no repository, no Zig, no Python needed):**
+
+```bash
+VER=v2.8.2   # подставьте нужный тег
+base=https://github.com/newmathphys/kern/releases/download/$VER
+curl -4 -fsSLO $base/kerna-dist-$VER.tar.gz && curl -4 -fsSLO $base/SHA256SUMS
+grep kerna-dist-$VER SHA256SUMS | sha256sum -c -     # must print: OK
+mkdir dist && tar -xzf kerna-dist-$VER.tar.gz -C dist --strip-components=1
+dist/kerna --doctor                              # must print: dependencies present
+mkdir -p a b && cp <any-file>.py a/ && cp <any-file>.py b/   # your BEFORE / AFTER
+printf 'def f(a):\n    return 1 // (a - a)\n' > b/m.py       # a real regression
+printf 'def f(a):\n    return a + 1\n' > a/m.py
+dist/kerna --delta a b --sarif out.sarif; echo rc=$?          # rc=1 + SARIF 2.1.0
+```
+
+`rc=1` means «this change INTRODUCED a finding», `rc=2` means «the appliance cannot judge (no solver / bad
+input)» — and that is not the same as «clean». The SARIF file drops straight into
+`github/codeql-action/upload-sarif`.
+
 
 For AI agents, `examples/kern_mcp_server.py` exposes the gate over the **Model
 Context Protocol** (8 tools: `kern_verify_smt`, `kern_prove_with_checker`,

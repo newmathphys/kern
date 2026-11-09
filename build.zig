@@ -205,6 +205,13 @@ pub fn build(b: *std.Build) void {
     kernx.root_module.addImport("atomic", atomic_module);
     kernx.root_module.addImport("compat", compat_module);
     kernx_mod.addImport("c_sqlite", sqlite_mod);
+    // МОСТ Lean<->Zig: `kernx belnap-table` печатает таблицу ЯДРА, и гейт
+    // `make lean-zig-bridge` сверяет её с таблицей из Lean-определения.
+    kernx_mod.addImport("core", b.createModule(.{
+        .root_source_file = b.path("src/core/eq2.zig"),
+        .target = target,
+        .optimize = optimize,
+    }));
     kernx_mod.linkSystemLibrary("sqlite3", .{});
     b.installArtifact(kernx);
 
