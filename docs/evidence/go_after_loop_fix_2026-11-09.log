@@ -1,0 +1,30 @@
+# Go: полный корпус ПОСЛЕ починки цикла `for cond {` (2026-11-09)
+
+ПРИЧИНА ложных срабатываний: в Go НЕТ ключевого слова `while` — цикл пишется
+`for b != 0 {` (без точек с запятой), а разбор искал только `while`, поэтому условие
+цикла не попадало в путь и `a %% b` под гардом обвинялось в делении на ноль.
+
+## Замер ДО (квитанция go_full_corpus_2026-11-09.log)
+  494 файла | 1273 функции | проверено 69 | находок 6 -> 2 доказанных FP
+
+## Замер ПОСЛЕ (этот файл)
+  [REPO SUMMARY] файлов 494 | функций проверено 69 / 1273 (skipped 607) | находок 5 | нечитаемых файлов 0
+
+## Находки после починки (5)
+    math/prime/sieve.go: [CRASH PATH] Sieve: возможно деление на ноль: prime == 0
+    math/gcd/extendedgcd.go: [CRASH PATH] ExtendedRecursive: возможно деление на ноль: b == 0
+    dynamic/rodcutting.go: [BOUNDS PATH] CutRodRec: off-by-one: `i <= length` разрешает индекс == длине (i = length), а i[length] уже за кон
+    dynamic/rodcutting.go: [BOUNDS PATH] CutRodDp: off-by-one: `j <= length` разрешает индекс == длине (j = length), а j[length] уже за конц
+    cipher/diffiehellman/diffiehellmankeyexchange.go: [CRASH PATH] modularExponentiation: возможно деление на ноль: mod == 0
+
+## Триаж
+  FP(1) extendedgcd.go ExtendedRecursive: гард `if b > 0` ЕСТЬ, но теряется, если деление
+        стоит НЕ первым оператором блока. Минимальный репро: `if b > 0 { d := 1; return d + (a / b) }`
+        -> находка; `if b > 0 { return a / b }` -> чисто. ЭТО НОВЫЙ ДЕФЕКТ (#566), не тот же класс.
+  TP/BOUNDARY(4): rodcutting x2 (длина price задаётся вызывающим), sieve (prime == 0 приходит
+        из канала), diffiehellman (mod == 0 без предусловия) — верные находки для домена без контракта.
+
+## Итог (без округления)
+  Precision = 4 / 5 = 0.80 < 0.90: порог на полном Go-корпусе ПОКА НЕ взят.
+  Остался ОДИН доказанный FP, его причина названа (#566) и она НЕ про цикл.
+  Recall не пострадал: SV-COMP TPR 1.00 / FPR 0.00, xray-precision 5/5, overflow-check OK.

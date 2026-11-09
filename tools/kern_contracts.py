@@ -7502,21 +7502,33 @@ def _clike_while_conds_at(pos: int, body: str, lang: str = "") -> list[str]:
         elif ch == "{":
             if depth == 0:
                 head = body[:i].rstrip()
+                # ДЕФЕКТ #565 (ИЗМЕРЕНО на полном корпусе Go): в Go НЕТ ключевого
+                # слова `while` — цикл пишется `for b != 0 {` (без точек с запятой).
+                # Помощник искал только `while`, поэтому условие цикла не попадало
+                # в путь, и `a % b` под гардом `for b != 0` обвинялось в делении на
+                # ноль (2 ложных на `gcditerative.go`/`extendedgcd.go`).
+                # Берём ПОСЛЕДНИЙ из `while`/`for` и принимаем `for` как while-цикл
+                # ТОЛЬКО если в заголовке нет `;` (иначе это трёхчастный `for`) и нет
+                # `range` (иначе итерируем коллекцию, а не условие).
                 wm = None
-                for wm in re.finditer(r"\bwhile\b", head):
-                    pass  # последнее вхождение `while` в заголовке блока
+                for m in re.finditer(r"\b(while|for)\b", head):
+                    wm = m
+                raw = ""
                 if wm is not None:
                     raw = head[wm.end():].strip()
-                    # Условие обязано быть «плоским»: без операторов и блоков.
-                    if raw and not re.search(r"[;{}]", raw):
-                        if raw.startswith("(") and raw.endswith(")"):
-                            raw = raw[1:-1]
-                        if raw:
-                            _names = set(re.findall(r"[A-Za-z_]\w*", raw))
-                            if not (_names & _assigned_between(body, i, stmt_start)):
-                                _c = _clike_cond_text_to_smt(raw, lang)
-                                if _c:
-                                    out.append(_c)
+                    if wm.group(1) == "for":
+                        if ";" in raw or re.search(r"\brange\b", raw):
+                            raw = ""
+                # Условие обязано быть «плоским»: без операторов и блоков.
+                if raw and not re.search(r"[;{}]", raw):
+                    if raw.startswith("(") and raw.endswith(")"):
+                        raw = raw[1:-1]
+                    if raw:
+                        _names = set(re.findall(r"[A-Za-z_]\w*", raw))
+                        if not (_names & _assigned_between(body, i, stmt_start)):
+                            _c = _clike_cond_text_to_smt(raw, lang)
+                            if _c:
+                                out.append(_c)
             else:
                 depth -= 1
         i -= 1
