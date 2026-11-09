@@ -157,6 +157,17 @@
         "T 3"
       ],
       "must_not_contain": []
+    },
+    {
+      "id": "project-spec-multi",
+      "claim": "Закон проекта KERN.md работает на C и Python: C-контракт на массивах (QF_AX) доказан, исходники не меняются",
+      "command": "make project-spec-check",
+      "file": "docs/evidence/project_spec_multi_2026-11-09.log",
+      "must_contain": [
+        "T 2",
+        "steps: 6"
+      ],
+      "must_not_contain": []
     }
   ]
 }

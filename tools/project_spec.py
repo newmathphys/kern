@@ -144,7 +144,11 @@ def verdict(path: Path) -> tuple[str, str]:
         return "T", (m.group(1).strip()[:90] if m else "доказано")
     if "КОНТРАКТ НАРУШЕН" in out or re.search(r"нарушено [1-9]", out):
         m = re.search(r"\[КОНТРПРИМЕР\]\s*([^\]\n]+)", out)
-        return "F", (m.group(1).strip()[:90] if m else "нарушен")
+        why = m.group(1).strip()[:90] if m else "нарушен"
+        # ЗАМОК РЕАЛЬНОСТИ №1: живое подтверждение аварии настоящим рантаймом.
+        if "[RUNTIME CONFIRMED]" in out:
+            why += " | [RUNTIME CONFIRMED]"
+        return "F", why
     m = re.search(r"\[SKIP\]\s*([^\n]+)", out)
     return "N", ("проверить не удалось: " + (m.group(1).strip()[:70] if m else "нет вердикта"))
 

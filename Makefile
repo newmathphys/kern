@@ -1129,6 +1129,8 @@ external-accept:
 # Демо-проект в tests/fixtures/project_spec/ (T/F/B/N + полный зелёный пас).
 project-spec-check:
 	@$(PYTHON) tools/project_spec.py tests/fixtures/project_spec
+	@echo "── многоязычный стенд (C: аксиомы Маккарти @kern:array, Python: контракт) ──"
+	@$(PYTHON) tools/project_spec.py tests/fixtures/project_spec_multi
 
 receipts-check:
 	@$(PYTHON) tools/receipts_check.py
