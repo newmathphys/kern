@@ -30,7 +30,7 @@ on:
       - ".github/workflows/external-audit.yml"
 
 permissions:
-  contents: write   # сводка коммитится в docs/evidence, чтобы её читали БЕЗ токена
+  contents: read
 
 jobs:
   audit:
@@ -41,14 +41,6 @@ jobs:
       REPO: ${{ github.event.inputs.repo || 'https://github.com/zzet/gortex.git' }}
       SHA: ${{ github.event.inputs.sha || 'eb3237d1acaf3938d68ce2d42417ddd9f2ab91b4' }}
       SUB: ${{ github.event.inputs.subdir || 'internal' }}
-    steps:
-      # Свой репозиторий нужен только для того, чтобы ОПУБЛИКОВАТЬ сводку:
-      # артефакты и логи прогона доступны лишь по токену, а квитанция должна
-      # читаться любым человеком — значит кладём её в git.
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
     steps:
       - name: "Загрузка и проверка опубликованного апплаенса"
         run: |
@@ -138,19 +130,3 @@ jobs:
             logs/
             SUMMARY.md
           retention-days: 30
-
-      - name: "Публикация сводки в репозиторий (читается без токена)"
-        if: always()
-        continue-on-error: true
-        run: |
-          set -uo pipefail
-          [ -f SUMMARY.md ] || { echo "[i] сводки нет — публиковать нечего"; exit 0; }
-          mkdir -p docs/evidence
-          dst="docs/evidence/external_audit_$(date -u +%Y-%m-%d).md"
-          cp SUMMARY.md "$dst"
-          git config user.name "kern-audit-bot"
-          git config user.email "audit@kern.invalid"
-          git add "$dst"
-          if git diff --cached --quiet; then echo "[i] изменений нет"; exit 0; fi
-          git commit -q -m "external audit: ${REPO} @ ${CORPUS_SHA} (run ${GITHUB_RUN_ID})"
-          git push || echo "[i] пуш отклонён (защита ветки) — сводка осталась в артефакте"
