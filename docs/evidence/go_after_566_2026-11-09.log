@@ -1,0 +1,30 @@
+# Go: полный корпус ПОСЛЕ закрытия #566 (2026-11-09)
+
+ПРИЧИНА #566 (один символ): `_RE_CLIKE_IF_BARE` ВКЛЮЧАЕТ открывающую `{` в совпадение,
+поэтому `m.end()` стоит УЖЕ ЗА скобкой, а `_clike_block_end` ждёт позицию ПЕРЕД `{`.
+Не увидев `{`, он обрубал блок на первом `;` -> гард `if b > 0` терялся после `d := 1;`.
+ИСПРАВЛЕНО: в `_clike_block_end` передаётся позиция самой скобки (`m.end()-1`).
+
+## Трёхсторонний контроль (замер)
+  if b > 0 { d := 1; return d + (a / b) }   -> находок 0   (FP ушёл)
+  if b > 0 { b = 0; return a / b }         -> находок 1   (переприсваивание снимает гард, TP жив)
+  if (b > 0) d = 1; return d + (a / b);    -> находок 1   (бесскобочный if, return снаружи, TP жив)
+
+## Полный корпус TheAlgorithms/Go 5ba447ec
+  [REPO SCAN] /tmp/goall | файлов к сканированию: 494
+  [REPO SUMMARY] файлов 494 | функций проверено 69 / 1273 (skipped 607) | находок 4 | нечитаемых файлов 0
+  6 (до) -> 5 (после #565) -> 4 (после #566)
+
+## Оставшиеся 4 находки — триаж
+    math/prime/sieve.go: [CRASH PATH] Sieve: возможно деление на ноль: prime == 0
+    dynamic/rodcutting.go: [BOUNDS PATH] CutRodRec: off-by-one: `i <= length` разрешает индекс == длине (i = length), а i[length] 
+    dynamic/rodcutting.go: [BOUNDS PATH] CutRodDp: off-by-one: `j <= length` разрешает индекс == длине (j = length), а j[length] у
+    cipher/diffiehellman/diffiehellmankeyexchange.go: [CRASH PATH] modularExponentiation: возможно деление на ноль: mod == 0
+  ни одна не является доказанным FP:
+   - rodcutting x2: off-by-one КОНТРАКТА вызывающего (len(price) == length?);
+   - sieve: `i % prime` — prime приходит из канала, 0 достижим (нет предусловия);
+   - diffiehellman: `mod == 0` достижим (нет предусловия).
+
+## ИТОГ
+  Precision = 4 / 4 = 1.00 (порог 0.90 ВЗЯТ на полном Go-корпусе)
+  Recall не пострадал: SV-COMP TPR 1.00 / FPR 0.00; xray-precision 5/5; overflow-check OK.

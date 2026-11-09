@@ -8563,7 +8563,15 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
             # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
             # ВНУТРИ него; наружу оно превращается в `not cond` ПО ПОЗИЦИИ.
-            _bend = _clike_block_end(body_mask, m.end(), lang)
+            # #566 (ИЗМЕРЕНО): `_RE_CLIKE_IF_BARE` (Go/Rust) ВКЛЮЧАЕТ открывающую
+            # `{` в совпадение (`\bif\s+(?!\()([^{};\n]+?)\s*\{`), поэтому `m.end()`
+            # стоит УЖЕ ЗА скобкой, а `_clike_block_end` ждёт позицию ПЕРЕД `{`.
+            # Не увидев `{`, он считал это бесскобочным однострочником и обрубал
+            # блок на первом `;` — из-за чего `if b > 0 { d := 1; return a / b }`
+            # терял гард после `d := 1;` и деление обвинялось в нуле (FP на
+            # Go `extendedgcd`). Передаём позицию САМОЙ скобки.
+            _open = m.end() - 1 if body_mask[m.end() - 1:m.end()] == "{" else m.end()
+            _bend = _clike_block_end(body_mask, _open, lang)
             try:
                 cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
             except (Unsupported, NoReturn, SyntaxError) as _u400:

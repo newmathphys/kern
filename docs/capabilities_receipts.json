@@ -138,12 +138,12 @@
     },
     {
       "id": "go-full-corpus",
-      "claim": "Go ПОЛНЫЙ корпус ПОСЛЕ починки цикла `for cond {`: 494 файла, 1273 функции, 5 находок, 1 доказанный FP -> precision 0.80 (порог НЕ взят), recall сохранён",
+      "claim": "Go ПОЛНЫЙ корпус: 494 файла, 1273 функции, 4 находки, доказанных FP нет -> Precision = 4/4 = 1.00 (порог 0.90 взят); recall не пострадал",
       "command": "python3 tools/kern_contracts.py --xray <срез TheAlgorithms/Go>",
-      "file": "docs/evidence/go_after_loop_fix_2026-11-09.log",
+      "file": "docs/evidence/go_after_566_2026-11-09.log",
       "must_contain": [
         "494",
-        "0.80"
+        "1.00"
       ],
       "must_not_contain": []
     },
