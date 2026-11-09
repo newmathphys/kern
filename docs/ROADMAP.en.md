@@ -1,6 +1,6 @@
 # KERN Roadmap — v2.5 status (English mirror)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->205 · cases <!-- fact:canfail_cases -->250 · anchors <!-- fact:anchors -->209 · registry <!-- fact:registry_targets -->281 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->205 · cases <!-- fact:canfail_cases -->250 · anchors <!-- fact:anchors -->209 · registry <!-- fact:registry_targets -->282 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > This is a **condensed English mirror** of [`ROADMAP.md`](ROADMAP.md) (which stays the
 > full, detailed document in Russian). It records the final state, not plans.

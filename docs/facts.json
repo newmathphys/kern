@@ -7,7 +7,7 @@
  "canfail_cases": 250,
  "mutation_sites": 1600,
  "mutation_files": 21,
- "registry_targets": 281,
+ "registry_targets": 282,
  "meta_targets": 56,
  "build_targets": 13,
  "cross_arch_passed": 443,

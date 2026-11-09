@@ -1,6 +1,6 @@
 # KERN — ЖУРНАЛ ПОКАЗАТЕЛЕЙ (METRICS)
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->205 · cases <!-- fact:canfail_cases -->250 · anchors <!-- fact:anchors -->209 · registry <!-- fact:registry_targets -->281 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->205 · cases <!-- fact:canfail_cases -->250 · anchors <!-- fact:anchors -->209 · registry <!-- fact:registry_targets -->282 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > Каждая цифра получена ПРОГОНОМ. Ничего не «по памяти». Обновляется по итерациям.
 >

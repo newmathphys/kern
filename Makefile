@@ -1127,6 +1127,10 @@ external-accept:
 # Гейт проверяет ПО ФАКТУ (существование, непустоту, маркеры, отсутствие пустышек).
 # ЗАКОН ПРОЕКТА: KERN.md в папке проекта -> все законы доказаны, ни одна функция не забыта.
 # Демо-проект в tests/fixtures/project_spec/ (T/F/B/N + полный зелёный пас).
+# ДВОЙНОЙ ЗАМОК: находка KERN подтверждается ЖИВЫМ gcc на том же входе.
+double-lock-demo:
+	@bash tools/double_lock_demo.sh
+
 project-spec-check:
 	@$(PYTHON) tools/project_spec.py tests/fixtures/project_spec
 	@echo "── многоязычный стенд (C: аксиомы Маккарти @kern:array, Python: контракт) ──"

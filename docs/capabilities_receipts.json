@@ -168,6 +168,17 @@
         "steps: 6"
       ],
       "must_not_contain": []
+    },
+    {
+      "id": "double-lock",
+      "claim": "Находка KERN подтверждается ЖИВЫМ gcc: контрпример -> runtime error division by zero",
+      "command": "bash tools/double_lock_demo.sh",
+      "file": "docs/evidence/double_lock_2026-11-09.log",
+      "must_contain": [
+        "ДВОЙНОЙ ЗАМОК СРАБОТАЛ",
+        "division by zero"
+      ],
+      "must_not_contain": []
     }
   ]
 }

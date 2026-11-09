@@ -347,6 +347,7 @@ CLASS = {
     # что саботаж ожиданий стенда красит гейт -> полноценный CHECK.
     "prove-all-real": "CHECK",
     "receipts-check": "CHECK",
+    "double-lock-demo": "MEASURE",   # нужен gcc; отказ честный (rc=2)
     "project-spec-check": "CHECK",
     # --selftest самого гейта: проверяет ХАРНЕСС, а не продукт -> META (#3531-класс:
     # это не доказательство о коде, поэтому в знаменатель CHECK не входит).
