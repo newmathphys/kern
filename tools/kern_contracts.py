@@ -127,6 +127,10 @@ _SMT_VERDICT_CACHE: dict = {}
 # обязан подтвердиться живым вызовом (правило №4 / дефект #206).
 _LIST_WINDOW = 3
 
+# #570: глубина построения УСЛОВИЯ ветвления. Внутри условия окно массива
+# НЕДО-аппроксимирует нелитеральный индекс, поэтому такой гард не переводим.
+_GUARD_DEPTH = 0
+
 
 def _lists(env: dict) -> dict:
     got = env.get("__lists__")
@@ -170,6 +174,9 @@ def _list_elems(env: dict, name: str) -> list:
 
 def _list_read(elems: list, idx: str) -> str:
     """`arr[idx]` -> каскад `ite` по окну (одна форма для чтения и для `+=`)."""
+    if _GUARD_DEPTH and not idx.strip().lstrip("-").isdigit():
+        raise Unsupported(
+            "индекс массива не литерал окна — гард не переводим (#570)")
     expr = elems[-1]
     for k in range(_LIST_WINDOW - 2, -1, -1):
         expr = f"(ite (= {idx} {k}) {elems[k]} {expr})"
@@ -8572,8 +8579,13 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # Go `extendedgcd`). Передаём позицию САМОЙ скобки.
             _open = m.end() - 1 if body_mask[m.end() - 1:m.end()] == "{" else m.end()
             _bend = _clike_block_end(body_mask, _open, lang)
+            global _GUARD_DEPTH
             try:
-                cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
+                _GUARD_DEPTH += 1
+                try:
+                    cond = expr_smt(ast.parse(clike_to_python(raw_cond), mode="eval").body, local_smt, lang)
+                finally:
+                    _GUARD_DEPTH -= 1
             except (Unsupported, NoReturn, SyntaxError) as _u400:
                 # ШАГ 4b (BV): БИТОВОЕ условие в Int-модели не переводится — это
                 # ОЖИДАЕМО (`& | ^ << >> ~` вне Int-теории), а не повод молча
