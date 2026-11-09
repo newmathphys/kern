@@ -57,7 +57,7 @@
 | `semantic-gap` | `semantic-gap` | — | `make semantic-gap` |
 | `sim` | `sim-invariant` | — | `make sim` |
 | `smt` | `smt-bench` | — | `make smt` |
-| `smtlib-bench-check` | `smtlib-bench`, `smtlib-tamper` | — | `make smtlib-bench-check` |
+| `smtlib-bench-check` | `smtlib-tamper` | — | `make smtlib-bench-check` |
 | `smtlib-proof-check` | `smtlib-proof-depth`, `smtlib-proof-exit`, `smtlib-proof-partial`, `smtlib-read-limit` | — | `make smtlib-proof-check` |
 | `strings` | `strings-theory` | — | `make strings` |
 | `svcomp-witness-check` | `svcomp-witness-drop` | — | `make svcomp-witness-check` |
@@ -189,7 +189,7 @@
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Ресурсная безопасность и самоконтроль контура (49)
+## E6. Ресурсная безопасность и самоконтроль контура (50)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -211,10 +211,11 @@
 | `flake-check` | `flake` | — | `make flake-check` |
 | `golden` | `golden` | — | `make golden` |
 | `homeostatic-heal-check` | `homeostatic-heal-check` | — | `make homeostatic-heal-check` |
-| `inline-check` | `inline`, `inline-hygiene` | — | `make inline-check` |
+| `inline-check` | `inline-hygiene` | — | `make inline-check` |
 | `kern-scan-check` | `kern-scan` | #489 | `make kern-scan-check` |
 | `lean` | `lean-sorry` | — | `make lean` |
 | `lean-pin-check` | `lean-pin-drift` | — | `make lean-pin-check` |
+| `lean-zig-bridge` | `lean-zig-bridge-blind` | — | `make lean-zig-bridge` |
 | `license-header-check` | `license-header` | #493 | `make license-header-check` |
 | `llms-check` | `llms-drift` | — | `make llms-check` |
 | `memcheck` | `memcheck` | — | `make memcheck` |
@@ -245,11 +246,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **203**; класс CHECK в `registry.py`: **203**;
-записей `CASE_TARGET`: **249** (make-исполнимых **245**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **204**; класс CHECK в `registry.py`: **204**;
+записей `CASE_TARGET`: **248** (make-исполнимых **244**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->202 · can-fail кейсы <!-- fact:canfail_cases -->247 ·
-якоря <!-- fact:anchors -->206 · цели реестра <!-- fact:registry_targets -->275 · META <!-- fact:meta_targets -->54 ·
+CHECK-цели <!-- fact:check_targets -->203 · can-fail кейсы <!-- fact:canfail_cases -->248 ·
+якоря <!-- fact:anchors -->207 · цели реестра <!-- fact:registry_targets -->278 · META <!-- fact:meta_targets -->55 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

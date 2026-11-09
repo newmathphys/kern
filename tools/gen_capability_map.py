@@ -300,8 +300,22 @@ def main() -> int:
         if bad:
             print(f"[FAIL] #485: нарушений {bad}")
             return 1
-        print(f"[OK] #485: карта == реестр ({len(rs)} CHECK, "
-              f"{len(registry.CASE_TARGET)} кейсов, 0 неклассифицированных, 0 без кейса)")
+        # СООБЩЕНИЕ БЕЗ ВРАНЬЯ (#560): раньше печаталось «{len(rs)} CHECK» — но `rs` это
+        # ВСЕ цели (CHECK + MEASURE + EXTERNAL), и «{len(CASE_TARGET)} кейсов» расходилось
+        # с реестром (248 кейсов) на записи, чьи цели не класса CHECK. Число в отчёте —
+        # тоже утверждение, поэтому печатаем по классам.
+        _cls = registry.CLASS
+        _chk = sum(1 for r in rs if _cls.get(r["target"]) == "CHECK")
+        _oth = len(rs) - _chk
+        # Число в отчёте — тоже утверждение (#560): `rs` включает цели, которых НЕТ в
+        # Makefile (шаги `zig build`: `kern`, `test-align`, `test-pool`, `core_tests`),
+        # поэтому печатаем их отдельно, а не называем «CHECK в Makefile».
+        _mk = registry.makefile_targets()
+        _chk_mk = sum(1 for r in rs if _cls.get(r["target"]) == "CHECK" and r["target"] in _mk)
+        _build = _chk - _chk_mk
+        print(f"[OK] #485: карта == реестр (CHECK в Makefile {_chk_mk}; шагов `zig build` "
+              f"{_build}; всего целей {len(rs)}; кейсов canfail {len(registry.CASE_TARGET)}; "
+              f"0 неклассифицированных, 0 без кейса)")
         return 0
     OUT_RU.write_text(ru, encoding="utf-8")
     OUT_EN.write_text(en, encoding="utf-8")

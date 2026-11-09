@@ -58,7 +58,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `semantic-gap` | `semantic-gap` | — | `make semantic-gap` |
 | `sim` | `sim-invariant` | — | `make sim` |
 | `smt` | `smt-bench` | — | `make smt` |
-| `smtlib-bench-check` | `smtlib-bench`, `smtlib-tamper` | — | `make smtlib-bench-check` |
+| `smtlib-bench-check` | `smtlib-tamper` | — | `make smtlib-bench-check` |
 | `smtlib-proof-check` | `smtlib-proof-depth`, `smtlib-proof-exit`, `smtlib-proof-partial`, `smtlib-read-limit` | — | `make smtlib-proof-check` |
 | `strings` | `strings-theory` | — | `make strings` |
 | `svcomp-witness-check` | `svcomp-witness-drop` | — | `make svcomp-witness-check` |
@@ -190,7 +190,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Resource safety and circuit self-control (49)
+## E6. Resource safety and circuit self-control (50)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -212,10 +212,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `flake-check` | `flake` | — | `make flake-check` |
 | `golden` | `golden` | — | `make golden` |
 | `homeostatic-heal-check` | `homeostatic-heal-check` | — | `make homeostatic-heal-check` |
-| `inline-check` | `inline`, `inline-hygiene` | — | `make inline-check` |
+| `inline-check` | `inline-hygiene` | — | `make inline-check` |
 | `kern-scan-check` | `kern-scan` | #489 | `make kern-scan-check` |
 | `lean` | `lean-sorry` | — | `make lean` |
 | `lean-pin-check` | `lean-pin-drift` | — | `make lean-pin-check` |
+| `lean-zig-bridge` | `lean-zig-bridge-blind` | — | `make lean-zig-bridge` |
 | `license-header-check` | `license-header` | #493 | `make license-header-check` |
 | `llms-check` | `llms-drift` | — | `make llms-check` |
 | `memcheck` | `memcheck` | — | `make memcheck` |
@@ -246,11 +247,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **203**; class CHECK in `registry.py`: **203**;
-`CASE_TARGET` records: **249** (make-executable **245**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **204**; class CHECK in `registry.py`: **204**;
+`CASE_TARGET` records: **248** (make-executable **244**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-CHECK targets <!-- fact:check_targets -->202 · can-fail cases <!-- fact:canfail_cases -->247 ·
-anchors <!-- fact:anchors -->206 · registry targets <!-- fact:registry_targets -->275 · META <!-- fact:meta_targets -->54 ·
+CHECK targets <!-- fact:check_targets -->203 · can-fail cases <!-- fact:canfail_cases -->248 ·
+anchors <!-- fact:anchors -->207 · registry targets <!-- fact:registry_targets -->278 · META <!-- fact:meta_targets -->55 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

@@ -1126,6 +1126,11 @@ external-accept:
 prove-all-real:
 	@$(PYTHON) tools/prove_all_capabilities_real.py
 
+# ЖИВОЙ СТЕНД «ИИ против KERN»: свободные модели opencode пишут код по спецификации, KERN судит.
+# ТРЕБУЕТ сети и установленного opencode -> класс MEASURE, НЕ гейт CI (без сети честный rc=2).
+ai-vs-kern:
+	$(PYTHON) tools/ai_vs_kern_live.py --models $(AI_MODELS)
+
 # То же + длинные корпуса (минуты) + долгие (десятки минут).
 showcase-live-all-full:
 	@$(PYTHON) tools/showcase_live.py --all --full

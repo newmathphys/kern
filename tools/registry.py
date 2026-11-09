@@ -346,6 +346,7 @@ CLASS = {
     # входил в обязательный контур. Теперь кейс `prove-all-real-blind` доказывает,
     # что саботаж ожиданий стенда красит гейт -> полноценный CHECK.
     "prove-all-real": "CHECK",
+    "ai-vs-kern": "MEASURE",   # нужен opencode+сеть; отказ честный (rc=2)
     "cli-help-parity-check": "CHECK",    # #399: справка обязана называть все команды
     "docs-map-check": "CHECK",           # #402/#403/#404: карта доков полна и не склеена
     # --- измерения: упасть НЕ могут -----------------------------------------
@@ -649,10 +650,8 @@ CASE_TARGET = {
     "quixbugs-diff": "quixbugs-diff-check",
     # ЭТАП 5: матрица реальных возможностей.
     "real-cases": "real-cases-check",
-    # ШАГ 1: пять свойств инлайнинга.
-    "inline": "inline-check",
-    # Банк SMT-LIB: сверка `:status`.
-    "smtlib-bench": "smtlib-bench-check",
+    # ШАГ 1: пять свойств инлайнинга: кейс называется `inline-hygiene` (ниже).
+    # Банк SMT-LIB: кейс называется `smtlib-tamper` (ниже).
     # ИНФРАСТРУКТУРНЫЙ ДОЛГ: кейс, направляющий гейт на подделанный `:status`.
     "smtlib-tamper": "smtlib-bench-check",
     # Пруф-трек: кейс убирает `(exit)`-вырезание — вывод не запрашивается вовсе.

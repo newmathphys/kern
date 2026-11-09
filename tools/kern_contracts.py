@@ -1079,6 +1079,27 @@ def parse_file(path: Path):
             if k in anchors:
                 req = anchors[k].get("requires", req)
                 ens = anchors[k].get("ensures", ens)
+        # ДЕФЕКТ #559 (ИЗМЕРЕНО на живом стенде ИИ, 3 свободные модели): генераторы
+        # (и люди) часто пишут контракт ПЕРВЫМИ СТРОКАМИ ТЕЛА:
+        #     def f(x, y):
+        #         # @kern:requires ...
+        # Такой контракт ОДНОЗНАЧЕН — он относится к этой функции, если стоит ДО
+        # первого оператора (докстрока не считается). Раньше он молча терялся:
+        # «нет функций с аннотациями @kern:», то есть 7 из 9 генераций уходили в
+        # SKIP не потому, что код неверен, а потому что мы не прочли контракт.
+        if req is None and ens is None:
+            _first_stmt = None
+            for _st in node.body:
+                if (isinstance(_st, ast.Expr) and isinstance(_st.value, ast.Constant)
+                        and isinstance(_st.value.value, str)):
+                    continue          # докстрока — не оператор
+                _first_stmt = getattr(_st, "lineno", node.lineno + 1)
+                break
+            _limit = _first_stmt if _first_stmt is not None else node.lineno + 1
+            for k in range(node.lineno + 1, _limit):
+                if k in anchors:
+                    req = anchors[k].get("requires", req)
+                    ens = anchors[k].get("ensures", ens)
         if req is None and ens is None:
             continue
         # 🔴 ДЕФЕКТ (найден прогоном на функции с циклом): недостаточно взять

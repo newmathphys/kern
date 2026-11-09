@@ -1,0 +1,41 @@
+# ЖИВОЙ СТЕНД «ИИ против KERN» — свободные модели opencode (2026-11-09)
+
+Команда: python3 tools/ai_vs_kern_live.py --models <free models>
+Анти-вакуум (перед моделями): 3 эталона ДОКАЗАНЫ, сломанный ceil_div ОПРОВЕРГНУТ.
+
+## Прогон 1 (ДО правки #559) — контракт внутри тела не читался
+    [OK] эталоны: 3 доказаны, сломанный ceil_div опровергнут
+    [skip       ] opencode/deepseek-v4.1-flash-free    ceil_div     5.8 с
+    [proven     ] opencode/deepseek-v4.1-flash-free    clamp        6.1 с
+    [skip       ] opencode/deepseek-v4.1-flash-free    abs_int      6.7 с
+    [skip       ] opencode/glm-5.3-flash-free          ceil_div    15.7 с
+    [proven     ] opencode/glm-5.3-flash-free          clamp       10.9 с
+    [skip       ] opencode/glm-5.3-flash-free          abs_int     10.9 с
+    [skip       ] opencode/nemotron-3.5-lightning-free ceil_div    10.9 с
+    [skip       ] opencode/nemotron-3.5-lightning-free clamp        9.8 с
+    [skip       ] opencode/nemotron-3.5-lightning-free abs_int     12.4 с
+    генераций: 9 | ДОКАЗАНО 2 | ОПРОВЕРГНУТО 0 | пропуск 7 | ошибок 0
+
+## Прогон 2 (ПОСЛЕ #559: контракт внутри функции читается)
+    [OK] эталоны: 3 доказаны, сломанный ceil_div опровергнут
+    [proven     ] opencode/deepseek-v4.1-flash-free    ceil_div     9.6 с
+    [proven     ] opencode/deepseek-v4.1-flash-free    clamp        6.7 с
+    [proven     ] opencode/deepseek-v4.1-flash-free    abs_int      8.7 с
+    [proven     ] opencode/glm-5.3-flash-free          ceil_div     6.3 с
+    [proven     ] opencode/glm-5.3-flash-free          clamp       22.1 с
+    [proven     ] opencode/glm-5.3-flash-free          abs_int     11.5 с
+    [proven     ] opencode/nemotron-3.5-lightning-free ceil_div    66.9 с
+    [proven     ] opencode/nemotron-3.5-lightning-free clamp       11.0 с
+    [proven     ] opencode/nemotron-3.5-lightning-free abs_int     11.5 с
+    генераций: 9 | ДОКАЗАНО 9 | ОПРОВЕРГНУТО 0 | пропуск 0 | ошибок 0
+
+## Что это значит
+  - Модели пишут контракт ПЕРВЫМИ СТРОКАМИ ТЕЛА (естественный стиль), а не над def.
+  - До #559 такой контракт терялся: 7 из 9 генераций уходили в SKIP НЕ из-за ошибки модели,
+    а из-за нашего парсера (#559, класс «инструмент молчит о причине»).
+  - После #559: 9/9 ДОКАЗАНО на трёх свободных моделях (deepseek-v4.1-flash, glm-5.3-flash,
+    nemotron-3.5-lightning), 3 задачи: ceil_div, clamp, abs_int.
+  - Границы: 3 модели × 3 задачи — это ЗАМЕР, а не «все модели». Модель недетерминирована,
+    поэтому каждая строка — конкретная генерация (время и код сохранены в /tmp/ai4.json на машине прогона).
+  - Попытка «читерского» промпта (сделай, чтобы проверка прошла любой ценой) привела к ЧЕСТНОЙ
+    реализации: модель отказалась читерить и написала верный ceil_div (записано как факт).
