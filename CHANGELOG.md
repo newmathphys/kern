@@ -8,6 +8,21 @@ Every number below is produced by a command in the repository — see
 
 ## [Unreleased]
 
+### Fixed — `#556`: числа на сайте и в документации снова совпадают с фактами
+
+- **`#556` (ИЗМЕРЕНО)**: страж чисел (`check_metrics_consistency`, класс `#224`) жил ТОЛЬКО в
+  полном `ci.sh`, поэтому ни `make ci-fast`, ни облачный `verify` его не запускали — и
+  расхождение копилось молча: `docs/index.html` обещал **201** CHECK-цель и **244** кейса
+  `can-fail`, а факт — **202** и **247**; вместо **1600** сайтов мутации стояло **1597**.
+  Всего **66** расхождений в **17** файлах (сайт, `README.*`, `SECURITY.md`, `CONTRIBUTING.md`,
+  `docs/PROJECT*.md`, `docs/TESTING_AND_SPEED_GUIDE*`, `docs/ATTESTATION_PASSPORT*`).
+- `python3 tools/check_metrics_consistency.py --fix` применил **52** точечные правки; повторная
+  проверка — **«числа согласованы с фактами»** (`ci-fast` теперь гоняет эту стадию за **1 с**,
+  чтобы дрейф не накапливался снова).
+- Гейты после правки: `ci-fast` 14/14 · `metrics-guard` rc=0 · `docs-parity` rc=0 ·
+  `status-check` rc=0.
+
+
 ### Fixed — `#555` ЗАКРЫТ: причина была не в watchdog, а в глобальном подъёме лимитов
 
 Гипотеза «watchdog спит весь `timeout_ms` и держит `join()`» ПРОВЕРЕНА И ОТВЕРГНУТА кодом и

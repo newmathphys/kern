@@ -40,7 +40,7 @@
 ### Раздел 4 — Самоверификация и эволюция
 | Метод | Факт |
 |:--|:--|
-| Can-fail дисциплина | **199 CHECK-целей / 126 с доказательством**, **244 кейс, 0 вакуумных** |
+| Can-fail дисциплина | **202 CHECK-целей / 126 с доказательством**, **247 кейс, 0 вакуумных** |
 | Мутации | **1345/1345 = 100.0 %** по ВСЕЙ популяции (21 файл, без сэмплинга, 23 мин) |
 | SBST | `--gen-tests`: 100 % достижимых веток (мёртвые помечены) |
 | Genetic Improvement | `--simplify` + доказательство эквивалентности через `--diff-equiv` |
@@ -148,7 +148,7 @@
 ## 4. Полный популяционный обстрел мутации
 
 ```bash
-python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1597 сайтов
+python3 tools/mutate_zig.py --max 5000 --jobs 6 --require-solver   # все 1600 сайтов
 ```
 Результат фиксируется в `docs/METRICS.md §109` (точное число убитых + выжившие по классам).
 
@@ -169,4 +169,4 @@ make zig test test-next formal-ci proof-tamper evo-fuzz-check lia-diff \
      binary-audit tree-lock mutate canfail-anchors registry evidence-gate svg-check
 ```
 
-Полный сквозной прогон `canfail`: **244 не-вакуумных / 0 вакуумных / 0 ошибок**.
+Полный сквозной прогон `canfail`: **247 не-вакуумных / 0 вакуумных / 0 ошибок**.
