@@ -20,6 +20,10 @@ Run everything at once: `make showcase-live-all` → **33 rows, 0 failures** on 
 | **7** | **Epistemic memory, Belnap B₄** (`kernx`) | `make kernx-polygon5-check` | two oracles disagree: `pytest` says T (`rc=0`), KERN says F (`rc=1`) → state `conflicted` | [`evidence/`](evidence/) + `agent_packet.json` |
 | **8** | **Sovereign artifact without a solver** (`.kimg`) + **WASM in a browser** | `make pcc-offline-check` · `make wasm-check` | `kernc check-proof` under `PATH=""` (no Z3, no Python) + `docs/kernc.wasm` in `node` | [`evidence/`](evidence/) |
 
+## Machine-readable index of every receipt
+
+All claims below are indexed in `docs/capabilities_receipts.json`: for each claim it names the command, the receipt file and the markers that MUST be inside it. `make receipts-check` verifies that every file exists, is not empty, contains its markers and no forbidden one; a claim whose receipt is missing turns the gate red (proven by the `receipts-blind` case).
+
 ## The blind exam behind row 1 (the number this project is judged by)
 
 Whole corpora, pinned SHAs, **no file cap**, zero edits to the analyzer before the run:

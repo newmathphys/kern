@@ -157,7 +157,7 @@
 | `xray-precision` | `xray-precision` | #475 | `make xray-precision` |
 | `zig-guard-check` | `zig-guard` | — | `make zig-guard-check` |
 
-## E5. Контейнер .kimg, крипто-аттестация и WASM (L0–L2) (27)
+## E5. Контейнер .kimg, крипто-аттестация и WASM (L0–L2) (28)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -181,6 +181,7 @@
 | `kimg-deflate` | `kimg-deflate` | — | `make kimg-deflate` |
 | `kimg-grep-check` | `kimg-grep-check` | — | `make kimg-grep-check` |
 | `portable-bench` | `portable-bench` | — | `make portable-bench` |
+| `receipts-check` | `receipts-blind` | — | `make receipts-check` |
 | `sarif-check` | `sarif-output` | — | `make sarif-check` |
 | `secrets-check` | `secret-in-tree` | — | `make secrets-check` |
 | `slsa` | `slsa`, `slsa-bad-sig` | — | `make slsa` |
@@ -246,11 +247,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **204**; класс CHECK в `registry.py`: **204**;
-записей `CASE_TARGET`: **248** (make-исполнимых **244**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **205**; класс CHECK в `registry.py`: **205**;
+записей `CASE_TARGET`: **249** (make-исполнимых **245**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->203 · can-fail кейсы <!-- fact:canfail_cases -->248 ·
-якоря <!-- fact:anchors -->207 · цели реестра <!-- fact:registry_targets -->278 · META <!-- fact:meta_targets -->55 ·
+CHECK-цели <!-- fact:check_targets -->204 · can-fail кейсы <!-- fact:canfail_cases -->249 ·
+якоря <!-- fact:anchors -->208 · цели реестра <!-- fact:registry_targets -->280 · META <!-- fact:meta_targets -->55 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

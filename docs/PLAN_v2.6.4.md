@@ -19,7 +19,7 @@ error, and a measured list of open limitations.
 | **Release v2.6.3** | signed tag; release published with **4 assets including `kern.intoto.jsonl` and `.sig`** — the attestation is attached for the first time |
 | **Letter to the reporter** | sent by the operator (M. Brighindi, who reported #317) |
 
-Registry: **<!-- fact:registry_targets -->278 targets · <!-- fact:check_targets -->203 CHECK · <!-- fact:canfail_cases -->248 can-fail cases** (all CHECK targets have
+Registry: **<!-- fact:registry_targets -->280 targets · <!-- fact:check_targets -->204 CHECK · <!-- fact:canfail_cases -->249 can-fail cases** (all CHECK targets have
 a non-vacuous case).
 
 ### The new defect this cycle starts with

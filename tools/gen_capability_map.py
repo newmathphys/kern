@@ -105,6 +105,8 @@ OVERRIDES: dict[str, str] = {
     "license-header-check": "E6",
     # E5 — артефакты, аттестация, форматы отчётов.
     **{t: "E5" for t in ("audit", "audit-manifest", "sarif-check", "portable-bench")},
+    # Индекс квитанций — это аудит доказуемости заявлений (E5: артефакты/аудит).
+    "receipts-check": "E5",
     # E6 — ресурсы и самоконтроль контура.
     **{t: "E6" for t in (
         "bench", "bench-json", "perf", "perf-check", "probe", "test", "test-fault",

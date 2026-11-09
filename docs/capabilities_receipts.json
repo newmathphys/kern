@@ -1,0 +1,140 @@
+{
+  "schema": "kern-receipts/1",
+  "note": "Машиночитаемый индекс: каждое ЗАЯВЛЕНИЕ проекта -> чем воспроизвести -> файл квитанции -> маркеры, которые в нём ОБЯЗАНЫ быть (и которых быть НЕ должно). Проверяется `make receipts-check`: файл существует, непуст, содержит все маркеры доказательства и ни одного маркера провала. Индекс не описывает намерения — он описывает то, что реально лежит в репозитории; если квитанция перестанет соответствовать, гейт покраснеет.",
+  "receipts": [
+    {
+      "id": "blind-exam-p1",
+      "claim": "Слепой экзамен на 942 файлах curl/lib + redis/src + tigerbeetle/src: 35 находок, 0 ложных, precision = 1.00",
+      "command": "python3 tools/kern_contracts.py --xray <корпус>",
+      "file": "docs/evidence/blind_p1_2026-11-07.log",
+      "must_contain": [
+        "Precision",
+        "35",
+        "942"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "all-capabilities",
+      "claim": "Стенд всех возможностей: 12/12 директив @kern:, 8/8 инструментов MCP, 5/5 детекторов, дуга самолечения, CLI",
+      "command": "make prove-all-real",
+      "file": "docs/evidence/all_capabilities_real_v2.8.2.log",
+      "must_contain": [
+        "ПАКЕТ",
+        "директив"
+      ],
+      "must_not_contain": [
+        "[FAIL]"
+      ]
+    },
+    {
+      "id": "external-accept",
+      "claim": "Внешняя приёмка скачанного из GitHub Releases архива: суммы, переносимость (zmm=0), аттестат внешним ключом, 8 доказательств",
+      "command": "make external-accept",
+      "file": "docs/evidence/external_accept_v2.8.2.log",
+      "must_contain": [
+        "ПРОЙДЕНА"
+      ],
+      "must_not_contain": [
+        "ПРОВАЛ"
+      ]
+    },
+    {
+      "id": "repro-clean-clone",
+      "claim": "Репро-квитанция с чистого клона вне рабочей папки: 7 ворот, два контура (голый клон и с зависимостями)",
+      "command": "bash tools/repro_receipt.sh",
+      "file": "docs/evidence/repro_2026-11-07.log",
+      "must_contain": [
+        "ЧАСТЬ 2",
+        "rc=0"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "field-trials",
+      "claim": "Полевые испытания: 357 файлов CUDA/C++20 DeepSeek без ложных обвинений, живой PR-реплей, audit-delta поведенческая дельта",
+      "command": "см. разделы квитанции",
+      "file": "docs/evidence/field_trials_v2.8.2.log",
+      "must_contain": [
+        "DeepGEMM",
+        "DeepEP-Ascend"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "pilot-e2e",
+      "claim": "Сквозной пилот 8/8 уровней: паспорт, анти-чит, PR-дельта, эквивалентность, контракт trusted:0, kernx-пакет, оффлайн .kimg, wasm",
+      "command": "make pilot-e2e-check",
+      "file": "docs/evidence/pilot_full_v2.8.2.log",
+      "must_contain": [
+        "УРОВЕНЬ"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "ai-vs-kern",
+      "claim": "Живые бесплатные модели opencode: код по спецификации проверен KERN (9/9 PROVEN после #559)",
+      "command": "make ai-vs-kern",
+      "file": "docs/evidence/ai_vs_kern_2026-11-09.log",
+      "must_contain": [
+        "ДОКАЗАНО"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "ai-cegis-ab",
+      "claim": "A/B: краевые ловушки i32, где обычные тесты ЗЕЛЁНЫЕ, а KERN РАЗОБЛАЧАЕТ; исправленная формула доказана",
+      "command": "python3 tools/ai_cegis_ab.py --models <free>",
+      "file": "docs/evidence/ai_cegis_2026-11-09.log",
+      "must_contain": [
+        "3/3",
+        "слеп"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "quixbugs-stage2",
+      "claim": "QuixBugs: расхождения старое/новое поведение ловятся с точными входами",
+      "command": "python3 tools/quixbugs_check.py",
+      "file": "docs/evidence/quixbugs_stage1.log",
+      "must_contain": [
+        "QuixBugs"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "lean-proofs",
+      "claim": "Lean 4: теоремы ядра без sorry",
+      "command": "bash formal/check.sh",
+      "file": "docs/evidence/lean_proofs.log",
+      "must_contain": [
+        "0 errors",
+        "0 sorry",
+        "LEAN PROOFS OK"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "c-abi-threads",
+      "claim": "C-ABI libkern.so используется из потоков (pthread)",
+      "command": "make c-abi-check",
+      "file": "docs/evidence/c_abi_threads.log",
+      "must_contain": [
+        "8 потоков",
+        "500 вызовов",
+        "RC=0"
+      ],
+      "must_not_contain": []
+    },
+    {
+      "id": "kimg-container",
+      "claim": "Контейнер .kimg: упаковка/проверка/список, оффлайн без Z3",
+      "command": "make kimg-check",
+      "file": "docs/evidence/kimg_1m.log",
+      "must_contain": [
+        "kimg"
+      ],
+      "must_not_contain": []
+    }
+  ]
+}

@@ -346,6 +346,10 @@ CLASS = {
     # входил в обязательный контур. Теперь кейс `prove-all-real-blind` доказывает,
     # что саботаж ожиданий стенда красит гейт -> полноценный CHECK.
     "prove-all-real": "CHECK",
+    "receipts-check": "CHECK",
+    # --selftest самого гейта: проверяет ХАРНЕСС, а не продукт -> META (#3531-класс:
+    # это не доказательство о коде, поэтому в знаменатель CHECK не входит).
+    "receipts-check-selftest": "META",
     "ai-vs-kern": "MEASURE",   # нужен opencode+сеть; отказ честный (rc=2)
     "cli-help-parity-check": "CHECK",    # #399: справка обязана называть все команды
     "docs-map-check": "CHECK",           # #402/#403/#404: карта доков полна и не склеена
@@ -619,6 +623,7 @@ CASE_TARGET = {
     # #538: стенд всех способностей станет CHECK — кейс обязан быть в CASE_TARGET,
     # иначе покрытие CHECK молча занижено (класс #87/#356).
     "prove-all-real-blind": "prove-all-real",
+    "receipts-blind": "receipts-check",
     "docs-map-gap": "docs-map-check",
     "journal-parity": "journal-parity-check",
     # ДЕФЕКТ #370: инвариант (2) того же гейта — подстрока записи обязана стоять

@@ -158,7 +158,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `xray-precision` | `xray-precision` | #475 | `make xray-precision` |
 | `zig-guard-check` | `zig-guard` | — | `make zig-guard-check` |
 
-## E5. .kimg container, crypto attestation and WASM (L0-L2) (27)
+## E5. .kimg container, crypto attestation and WASM (L0-L2) (28)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -182,6 +182,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `kimg-deflate` | `kimg-deflate` | — | `make kimg-deflate` |
 | `kimg-grep-check` | `kimg-grep-check` | — | `make kimg-grep-check` |
 | `portable-bench` | `portable-bench` | — | `make portable-bench` |
+| `receipts-check` | `receipts-blind` | — | `make receipts-check` |
 | `sarif-check` | `sarif-output` | — | `make sarif-check` |
 | `secrets-check` | `secret-in-tree` | — | `make secrets-check` |
 | `slsa` | `slsa`, `slsa-bad-sig` | — | `make slsa` |
@@ -247,11 +248,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **204**; class CHECK in `registry.py`: **204**;
-`CASE_TARGET` records: **248** (make-executable **244**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **205**; class CHECK in `registry.py`: **205**;
+`CASE_TARGET` records: **249** (make-executable **245**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-CHECK targets <!-- fact:check_targets -->203 · can-fail cases <!-- fact:canfail_cases -->248 ·
-anchors <!-- fact:anchors -->207 · registry targets <!-- fact:registry_targets -->278 · META <!-- fact:meta_targets -->55 ·
+CHECK targets <!-- fact:check_targets -->204 · can-fail cases <!-- fact:canfail_cases -->249 ·
+anchors <!-- fact:anchors -->208 · registry targets <!-- fact:registry_targets -->280 · META <!-- fact:meta_targets -->55 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

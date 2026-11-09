@@ -1,0 +1,28 @@
+# Go-корпус TheAlgorithms/Go (5ba447ec) — ПОЛНЫЙ прогон (2026-11-09)
+
+  [REPO SCAN] /tmp/goall | файлов к сканированию: 494
+  [REPO SUMMARY] файлов 494 | функций проверено 69 / 1273 (skipped 607) | находок 6 | нечитаемых файлов 0
+
+## Находки (6)
+    math/prime/sieve.go: [CRASH PATH] Sieve: возможно деление на ноль: prime == 0
+    math/gcd/extendedgcd.go: [CRASH PATH] ExtendedRecursive: возможно деление на ноль: b == 0
+    math/gcd/gcditerative.go: [CRASH PATH] Iterative: возможно деление на ноль: b == 0
+    dynamic/rodcutting.go: [BOUNDS PATH] CutRodRec: off-by-one: `i <= length` разрешает индекс == длине (i = length), а i[length] уже за концом
+    dynamic/rodcutting.go: [BOUNDS PATH] CutRodDp: off-by-one: `j <= length` разрешает индекс == длине (j = length), а j[length] уже за концом
+    cipher/diffiehellman/diffiehellmankeyexchange.go: [CRASH PATH] modularExponentiation: возможно деление на ноль: mod == 0
+
+## Триаж по исходникам (TheAlgorithms/Go 5ba447ec)
+  FP  gcditerative.go Iterative: `a % b` стоит ПОД гардом `for b != 0` — наш детектор НЕ моделирует
+      инвариант цикла, поэтому «деление на ноль» объявлено при b == 0. Класс: «гард цикла не учтён».
+  FP  extendedgcd.go ExtendedRecursive: тот же паттерн (`b != 0` перед `a % b`) -> тот же класс.
+  ?   rodcutting.go CutRodRec/CutRodDp: `for i := 1; i <= length` + `price[i]` — off-by-one ТОЛЬКО
+      если len(price) == length (вызывающий обязан дать length+1 элемент). Зависит от контракта
+      вызывающего: это НЕ доказанный баг, а предупреждение о границе.
+  ?   sieve.go / diffiehellmankeyexchange.go modularExponentiation: деление на ноль при нулевом
+      аргументе — верно только для части домена (нет @kern:requires), т.е. граница контракта.
+
+## Итог (честно, без округления)
+  файлов 494 | функций 1273 | проверено 69 | находок 6
+  ДОКАЗАННЫХ FP минимум 2 (гард цикла) -> Precision на полном Go-корпусе НЕ достигает 0.90
+  (верхняя граница 4/6 = 0.67). Порог на Go НЕ взят: нужен учёт инварианта цикла
+  (отдельная работа), а не подгонка цифры. Класс назван: «деление под гардом цикла».

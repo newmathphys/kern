@@ -366,6 +366,9 @@ FAULTABLE = [
     # ШАГ 2: кейс `action-doctor` правит `action.yml` — файл обязан быть в
     # списке, иначе подсадка осталась бы в дереве (класс #225).
     "action.yml",
+    # #562: кейс `receipts-blind` правит индекс квитанций — файл обязан быть
+    # в списке, иначе подсадка осталась бы в дереве (класс #225).
+    "docs/capabilities_receipts.json",
     # #505: кейс `pilot-gate-blind` правит вердикт `audit_delta` — файл обязан
     # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tools/audit_delta.py",
@@ -4391,6 +4394,20 @@ def case_prove_all_real_blind():
     return "make prove-all-real"
 
 
+def case_receipts_blind():
+    """#562 ИНДЕКС КВИТАНЦИЙ: заявление, за которым нет доказательства.
+
+    ЛОМАЕМ: в `docs/capabilities_receipts.json` подменяем путь квитанции на
+    несуществующий. Гейт обязан покраснеть с названной причиной
+    («файла квитанции нет»). Если он позеленеет — индекс стал декорацией, и
+    «доказательства» аудитору искать негде.
+    """
+    patch("docs/capabilities_receipts.json",
+          '"file": "docs/evidence/blind_p1_2026-11-07.log"',
+          '"file": "docs/evidence/НЕТ_ТАКОЙ_КВИТАНЦИИ.log"')
+    return "make receipts-check"
+
+
 def case_pilot_gate_blind():
     """#505 SABOTAGE: PR-гейт перестал блокировать внесённый баг.
 
@@ -4650,6 +4667,9 @@ CASES = [
     # собственный двусторонний контроль перестал ловить расхождение.
     ("prove-all-real-blind", "Стенд 32 проверок: двусторонний контроль ослеп -> красный",
      case_prove_all_real_blind),
+    # #562: индекс квитанций — обязан краснеть, если заявление осталось без файла.
+    ("receipts-blind", "Индекс квитанций: заявление без файла-доказательства -> красный",
+     case_receipts_blind),
     ("capability-map", "The generated capability map diverges from the registry (#485)",
      case_capability_map),
     ("kern-scan", "The one-button passport calls style SMELL a threat (#489)",

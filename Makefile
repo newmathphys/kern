@@ -1123,6 +1123,14 @@ external-accept:
 # (витрина на фикстурах) гоняет НАТИВНЫЕ механизмы на реальных файлах и реальных
 # уязвимых паттернах, сверяя вердикты с ВНЕШНИМИ оракулами (Z3, живой Python).
 # Вердикт SKIP не переписывается в OK: он печатается с причиной.
+# ИНДЕКС КВИТАНЦИЙ: каждое заявление -> файл квитанции -> обязательные маркеры.
+# Гейт проверяет ПО ФАКТУ (существование, непустоту, маркеры, отсутствие пустышек).
+receipts-check:
+	@$(PYTHON) tools/receipts_check.py
+
+receipts-check-selftest:
+	@$(PYTHON) tools/receipts_check.py --selftest
+
 prove-all-real:
 	@$(PYTHON) tools/prove_all_capabilities_real.py
 
