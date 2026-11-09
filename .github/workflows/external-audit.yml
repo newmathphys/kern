@@ -1,0 +1,127 @@
+# ВНЕШНИЙ АУДИТ РЕАЛЬНОГО ПРОЕКТА НА РАННЕРАХ GITHUB
+#
+# ЗАЧЕМ. Прогон «все 7558 файлов» упирается в ВРЕМЯ одной машины (измерено: >25 мин
+# без результата). Здесь тот же апплаенс запускается параллельно по пакетам на
+# инфраструктуре GitHub: цель — ПОЛНЫЙ охват корпуса, а не выборка, и одна квитанция
+# со всех пакетов.
+#
+# ЧТО ИМЕННО ПРОВЕРЯЕТСЯ: возможности KERN на ЧУЖОМ коде — `--xray` (краши,
+# переполнения, границы, мёртвые ветки) + `--anti-cheat` по тестам пакета.
+# Апплаенс НЕ ПРАВИТСЯ: берётся опубликованный архив `kerna-dist` с проверкой SHA-256.
+name: External audit (unfamiliar Go corpus)
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "git URL источника"
+        default: "https://github.com/zzet/gortex.git"
+      sha:
+        description: "точный коммит (пусто = HEAD клона)"
+        default: "eb3237d1acaf3938d68ce2d42417ddd9f2ab91b4"
+      subdir:
+        description: "каталог для разбиения по пакетам"
+        default: "internal"
+      version:
+        description: "версия релиза с архивом kerna-dist"
+        default: "v2.8.3"
+  push:
+    paths:
+      - ".github/workflows/external-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      VER: ${{ github.event.inputs.version || 'v2.8.3' }}
+      REPO: ${{ github.event.inputs.repo || 'https://github.com/zzet/gortex.git' }}
+      SHA: ${{ github.event.inputs.sha || 'eb3237d1acaf3938d68ce2d42417ddd9f2ab91b4' }}
+      SUB: ${{ github.event.inputs.subdir || 'internal' }}
+    steps:
+      - name: "Загрузка и проверка опубликованного апплаенса"
+        run: |
+          set -euo pipefail
+          base="https://github.com/${{ github.repository }}/releases/download/${VER}"
+          mkdir -p app
+          curl -4 -fsSL --retry 5 --retry-all-errors -o app/kerna-dist.tar.gz \
+            "${base}/kerna-dist-${VER}.tar.gz"
+          curl -4 -fsSL --retry 5 --retry-all-errors -o app/SHA256SUMS "${base}/SHA256SUMS"
+          sha256sum -c app/SHA256SUMS --ignore-missing
+          tar -xzf app/kerna-dist.tar.gz -C app
+          find app -maxdepth 2 -name kerna -type f -exec chmod +x {} \;
+          K="$(find app -maxdepth 2 -name kerna -type f | head -1)"
+          echo "KERNA=$PWD/$K" >> "$GITHUB_ENV"
+          "$K" --doctor
+
+      - name: "Клон источника на ТОЧНОМ коммите"
+        run: |
+          set -euo pipefail
+          git init -q corpus
+          cd corpus
+          git remote add origin "$REPO"
+          git fetch -q --depth 1 origin "$SHA" || git fetch -q --depth 1 origin
+          git checkout -q FETCH_HEAD 2>/dev/null || git checkout -q "$SHA"
+          echo "CORPUS_SHA=$(git rev-parse HEAD)" | tee -a "$GITHUB_ENV"
+          echo "срез: $(git rev-parse HEAD), файлов go: $(find . -name '*.go' | wc -l)"
+
+      - name: "ПОЛНЫЙ обход: параллельно по пакетам (без выборки)"
+        run: |
+          set -uo pipefail
+          mkdir -p logs
+          mapfile -t pkgs < <(cd corpus && find "$SUB" -mindepth 1 -maxdepth 1 -type d | sort)
+          echo "пакетов: ${#pkgs[@]}"
+          printf '%s\n' "${pkgs[@]}" > pkgs.txt
+          # 6 параллельных процессов: у каждого свой каталог, шапки не мешают друг другу
+          time xargs -a pkgs.txt -P 6 -I{} sh -c '
+            name=$(echo "{}" | tr "/" "_")
+            timeout 900 "$KERNA" --xray "corpus/{}" > "logs/${name}.log" 2>&1
+            echo "rc=$?" >> "logs/${name}.log"
+          ' || true
+          echo "=== файлов логов: $(ls logs | wc -l)"
+
+      - name: "Сводка: находки, воронка, ложные ли"
+        run: |
+          set -euo pipefail
+          {
+            echo "# Внешний аудит: ${REPO}"
+            echo
+            echo "- срез: ${CORPUS_SHA}"
+            echo "- апплаенс: ${VER} (SHA-256 сверен)"
+            echo "- пакетов пройдено: $(ls logs | wc -l)"
+            echo
+            echo "## Воронка (сумма по пакетам)"
+            grep -h "REPO SUMMARY" logs/*.log 2>/dev/null | awk '
+              /файлов/ {
+                for (i=1;i<=NF;i++) {
+                  if ($i=="файлов") f+=$(i+1);
+                  if ($i=="проверено") c+=$(i+1);
+                  if ($i=="находок") d+=$(i+1);
+                }
+              }
+              END { printf "  файлов %d | функций проверено %d | находок %d\n", f, c, d }'
+            echo
+            echo "## ВСЕ находки (тип, файл, суть)"
+            grep -hE "\[(OVERFLOW PATH|BOUNDS PATH|DEAD BRANCH|CRASH PATH)\]" logs/*.log \
+              | sed 's|corpus/||' | sort -u | head -200
+            echo
+            echo "## Пакеты с находками"
+            grep -lE "\[(OVERFLOW PATH|BOUNDS PATH|DEAD BRANCH|CRASH PATH)\]" logs/*.log \
+              | sed 's|logs/||; s|\.log$||' || echo "  нет"
+            echo
+            echo "## Честная оговорка"
+            echo "  Находки требуют ПОСТРОЧНОГО триажа по исходникам: precision здесь не"
+            echo "  заявляется, пока каждая не сверена (FP мы считаем так же строго)."
+          } > SUMMARY.md
+          cat SUMMARY.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: external-audit-logs
+          path: |
+            logs/
+            SUMMARY.md
+          retention-days: 30
