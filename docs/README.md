@@ -34,6 +34,7 @@
 | **[PROOF_GALLERY.md](PROOF_GALLERY.md)** · **[.ru](PROOF_GALLERY.ru.md)** | **Галерея 8 доказательств**: у каждой способности — одна команда, внешний оракул и квитанция; плюс слепой экзамен на ЦЕЛЫХ корпусах (942 файла, 2004 функции, precision 1.00) и честная граница среза |
 | **[capabilities_receipts.json](capabilities_receipts.json)** | **Машиночитаемый индекс квитанций**: заявление -> команда -> файл -> обязательные маркеры. Проверяется `make receipts-check` (файл существует, непуст, маркеры на месте, пустышек нет) |
 | **[RELEASE_NOTES_v2.8.3.md](RELEASE_NOTES_v2.8.3.md)** | Заметки релиза 2.8.3: индекс квитанций, мост Lean<->ядро на конечном домене, живой стенд ИИ, A/B-ловушки и честная граница Go-корпуса |
+| **[КАК_ПОЛЬЗОВАТЬСЯ.md](КАК_ПОЛЬЗОВАТЬСЯ.md)** | Памятка для человека без внутреннего жаргона: четыре команды (`kerna папка`, `--delta`, `--anti-cheat`, контракт `@kern:`), реальные выводы и три честных предупреждения |
 | **[REAL_BUGS_FOUND.md](REAL_BUGS_FOUND.md)** | **Реальные дефекты в чужом коде** с патчами и ссылками в апстрим: `boltons` (A, B), QuixBugs (C), **live ordering defect в `tigerbeetle` `test_conformance.py:6169`** (D) |
 | **[METRICS.en.md](METRICS.en.md)** · **[CAPABILITIES.en.md](CAPABILITIES.en.md)** · **[ATTESTATION_PASSPORT.en.md](ATTESTATION_PASSPORT.en.md)** · **[CAPABILITY_STATUS.en.md](CAPABILITY_STATUS.en.md)** | **English mirrors** ключевых документов (для внешнего читателя): витрина `README.md` уже полностью английская |
 | **[METRICS.en.md](METRICS.en.md)** | **English mirror** of the metrics journal (§1–§195) + **§22 Build-runner notes (Zig 0.17)**: why `failed command: … --listen=-` appears on a GREEN run, and why `rm -rf .zig-cache/o` breaks the build (`addTranslateC`-generated `sqlite3_bridge.zig`) |
@@ -46,7 +47,7 @@
 | **[TESTING_AND_SPEED_GUIDE.en.md](TESTING_AND_SPEED_GUIDE.en.md)** | **English mirror** of the testing guide (33 methods, speed-ups, defect→test map) |
 | **[TESTING_AND_SPEED_GUIDE.md](TESTING_AND_SPEED_GUIDE.md)** | **Канонический гид по тестированию**: 8 разделов / 33 метода, таблица ускорений (`/dev/shm`, Fail-Fast, `--jobs`), хронология дефектов #123–#157 (какой тест поймал какой) |
 | **[RULE_THEOREM_MATRIX.md](RULE_THEOREM_MATRIX.md)** | **Матрица «правило пруф-чекера ↔ теорема Lean 4»**: 17 функций `verify*`/`check*` × 147 теорем; честно указаны 3 правила, обоснованные ядром Lean, и структурное `intro-def` |
-| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§220): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->562**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
+| **[METRICS.md](METRICS.md)** | Журнал всех измерений по итерациям (§1–§220): тесты, бенчмарки, мутации, производительность, **реестр дефектов #1–#<!-- fact:max_defect -->563**, разбор «почему просела скорость», предрелизная ревизия витрины (§75), закрытие K1/K2 |
 | **[BELNAP_SOURCES.md](BELNAP_SOURCES.md)** · **[references.bib](references.bib)** | **Формальная база**: источники (25 записей, `verified`/`secondary`/`unverified`), сверка «теория → код» по `src/путь:строка`, §6 «чего в KERN нет», §7 расхождения черновиков; `make citations-check` |
 | **[THREAT_MODEL.md](THREAT_MODEL.md)** · **[KEY_MANAGEMENT.md](KEY_MANAGEMENT.md)** · **[INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md)** | **Документы доверия**: активы и противники, границы TCB, бэкап/ротация/отзыв ключа, порядок действий при ложном `T` |
 | **[PLATFORMS.md](PLATFORMS.md)** | **Матрица платформ**: что проверено прогонами, что собирается, что **не поддерживается** (Windows: 3 POSIX-блокера + sqlite3; macOS: только `libkern`) |
@@ -63,7 +64,7 @@
 | **[EXECUTION_RUNNER.md](EXECUTION_RUNNER.md)** | Как заявление `N` становится `T`: авто-дискавери тестов, анти-вакуум, маскирование секретов |
 | **[SPEC_ANCHORS_DEMO.md](SPEC_ANCHORS_DEMO.md)** | Мост «текст → контракт»: якоря `@kern:spec` превращают фразу из Markdown в `e=1` |
 | **[KERN_TERMINOLOGY_v0.1.md](KERN_TERMINOLOGY_v0.1.md)** | Нормативная терминология (что такое квант, Врата, свидетельство) |
-| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->562** (RU == EN): каждый — причина, действие, эффект, свидетельство |
+| **[CAPABILITY_STATUS.md](CAPABILITY_STATUS.md)** · **[.en](CAPABILITY_STATUS.en.md)** | **Журнал дефектов #1–#<!-- fact:max_defect -->563** (RU == EN): каждый — причина, действие, эффект, свидетельство |
 | **[OWNERSHIP.md](OWNERSHIP.md)** | Гигиена авторства и владения репозиторием |
 | **[CAPABILITY_MAP.md](CAPABILITY_MAP.md)** · **[.ru](CAPABILITY_MAP.ru.md)** | **Карта CHECK-ЦЕЛЕЙ** (СГЕНЕРИРОВАНА из `registry.py`+`canfail.py`): цель → кейс «может упасть» → какие дефекты защищает → команда. Гейт `capability-map-check` краснеет, если карта разошлась с реестром |
 | **[LIMITS.md](LIMITS.md)** · **[.ru](LIMITS.ru.md)** | **ЧЕГО KERN НЕ ДОКАЗЫВАЕТ**: `trusted > 0` для BV, QF_FP, инварианты циклов, известные ложные обвинения, межпроцедурный анализ — с числами и командой проверки |

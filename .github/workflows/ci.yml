@@ -64,6 +64,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # МОСТ Lean<->Zig (#558) СРАВНИВАЕТ таблицу Lean с РЕАЛЬНЫМ БИНАРЁМ
+      # `kernx`, поэтому этому job'у нужен Zig. Без него `make lean-zig-bridge`
+      # (цель зависит от `build`) падал на установке Zig — это и был красный
+      # `formal-lean` на 611fe6c3: не Lean, а отсутствующий инструмент сборки
+      # (класс «гейт не называет причину» — теперь причина в комментарии).
+      - name: Установка Zig 0.17.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       - name: Кэш Lean 4 (elan)
         uses: actions/cache@v4
         with:

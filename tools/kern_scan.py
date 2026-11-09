@@ -152,7 +152,7 @@ def main() -> int:
     cheat_files = []
     for f in tests[:10]:
         rc_a, out_a = run([PY, str(EXTRACTOR), "--anti-cheat", str(f)], a.timeout)
-        n = len(re.findall(r"\[CHEAT\]|\[SMELL\]", out_a))
+        n = len(re.findall(r"\[CHEAT|\[SMELL\]", out_a))
         if n:
             cheats += n
             cheat_files.append(f"{f.relative_to(root)} ({n})")
