@@ -50,8 +50,13 @@ jobs:
           curl -4 -fsSL --retry 5 --retry-all-errors -o app/kerna-dist.tar.gz \
             "${base}/kerna-dist-${VER}.tar.gz"
           curl -4 -fsSL --retry 5 --retry-all-errors -o app/SHA256SUMS "${base}/SHA256SUMS"
-          sha256sum -c app/SHA256SUMS --ignore-missing
-          tar -xzf app/kerna-dist.tar.gz -C app
+          # СВЕРКА СУММЫ (#569, ИЗМЕРЕНО на первом прогоне): SHA256SUMS содержит ГОЛОЕ имя
+          # ассета, поэтому файл обязан лежать в том же каталоге, что и список.
+          # Проверяем ДО распаковки: непроверенный архив не должен запускаться.
+          mv app/kerna-dist.tar.gz "app/kerna-dist-${VER}.tar.gz"
+          ( cd app && sha256sum -c SHA256SUMS --ignore-missing ) \
+            || { echo "[!] СУММА АРХИВА НЕ СОВПАЛА — апплаенс НЕ ЗАПУСКАЕМ"; exit 1; }
+          tar -xzf "app/kerna-dist-${VER}.tar.gz" -C app
           find app -maxdepth 2 -name kerna -type f -exec chmod +x {} \;
           K="$(find app -maxdepth 2 -name kerna -type f | head -1)"
           echo "KERNA=$PWD/$K" >> "$GITHUB_ENV"
