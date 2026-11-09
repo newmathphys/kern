@@ -369,6 +369,8 @@ FAULTABLE = [
     # #562: кейс `receipts-blind` правит индекс квитанций — файл обязан быть
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
     "docs/capabilities_receipts.json",
+    # #568: кейс `project-spec-blind` правит KERN.md фикстуры.
+    "tests/fixtures/project_spec/KERN.md",
     # #505: кейс `pilot-gate-blind` правит вердикт `audit_delta` — файл обязан
     # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
     "tools/audit_delta.py",
@@ -4394,6 +4396,20 @@ def case_prove_all_real_blind():
     return "make prove-all-real"
 
 
+def case_project_spec_blind():
+    """#568 ЗАКОН ПРОЕКТА: закон, который не проверяется.
+
+    ЛОМАЕМ: в `tests/fixtures/project_spec/KERN.md` подменяем верное постусловие
+    `result == a + b` на ложное `result == a + b + 1`. Проект обязан покраснеть:
+    закон стал опровержимым. Если гейт позеленеет — `KERN.md` превратился в
+    декорацию, и «все законы доказаны» ничего не значит.
+    """
+    patch("tests/fixtures/project_spec/KERN.md",
+          "- ensures: result == a + b",
+          "- ensures: result == a + b + 1")
+    return "make project-spec-check"
+
+
 def case_receipts_blind():
     """#562 ИНДЕКС КВИТАНЦИЙ: заявление, за которым нет доказательства.
 
@@ -4668,6 +4684,9 @@ CASES = [
     ("prove-all-real-blind", "Стенд 32 проверок: двусторонний контроль ослеп -> красный",
      case_prove_all_real_blind),
     # #562: индекс квитанций — обязан краснеть, если заявление осталось без файла.
+    # #568: закон проекта — обязан краснеть, если закон в KERN.md стал ложным.
+    ("project-spec-blind", "Закон проекта KERN.md: ложный закон -> красный",
+     case_project_spec_blind),
     ("receipts-blind", "Индекс квитанций: заявление без файла-доказательства -> красный",
      case_receipts_blind),
     ("capability-map", "The generated capability map diverges from the registry (#485)",

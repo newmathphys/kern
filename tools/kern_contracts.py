@@ -5135,6 +5135,24 @@ def _demo(args) -> int:
             # b = 0 возвращают 0 по Yellow Paper — это ОПРЕДЕЛЕНО, и обвинять
             # такой код значило бы выдать ложное срабатывание за находку.
             if divisors and not (_sem_here and _sem_here.div_zero_value):
+                # ДЕФЕКТ #567 (ИЗМЕРЕНО): делитель-КОНСТАНТА (`amount // 100`)
+                # объявлялся «возможно деление на ноль: 100». Константа не может
+                # стать нулём — обязательство к ней неприменимо, поэтому её надо
+                # ВЫБРОСИТЬ до построения SMT, а не «доказывать» `(= 100 0)`.
+                # Литеральный же НОЛЬ — это гарантированный краш, он остаётся.
+                _lit = []
+                _sym = []
+                for _d in divisors:
+                    _e = str(_divisor_of(_d)).strip().lstrip("+-")
+                    (_lit if _e.isdigit() else _sym).append((_d, _e))
+                if any(_e == "0" for _d, _e in _lit):
+                    print(f"  [FAIL] {name}: ДЕЛЕНИЕ НА НОЛЬ КОНСТАНТЫ "
+                          f"(делитель: 0) — это гарантированный краш")
+                    failed += 1
+                    safety_failed += 1
+                    continue
+                divisors = [_d for _d, _e in _sym]
+            if divisors and not (_sem_here and _sem_here.div_zero_value):
                 try:
                     if meta.get("bv"):
                         _w, _s = meta["bv"]

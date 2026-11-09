@@ -347,6 +347,7 @@ CLASS = {
     # что саботаж ожиданий стенда красит гейт -> полноценный CHECK.
     "prove-all-real": "CHECK",
     "receipts-check": "CHECK",
+    "project-spec-check": "CHECK",
     # --selftest самого гейта: проверяет ХАРНЕСС, а не продукт -> META (#3531-класс:
     # это не доказательство о коде, поэтому в знаменатель CHECK не входит).
     "receipts-check-selftest": "META",
@@ -624,6 +625,7 @@ CASE_TARGET = {
     # иначе покрытие CHECK молча занижено (класс #87/#356).
     "prove-all-real-blind": "prove-all-real",
     "receipts-blind": "receipts-check",
+    "project-spec-blind": "project-spec-check",
     "docs-map-gap": "docs-map-check",
     "journal-parity": "journal-parity-check",
     # ДЕФЕКТ #370: инвариант (2) того же гейта — подстрока записи обязана стоять

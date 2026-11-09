@@ -121,7 +121,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Code X-ray, CWE, precision and the PR delta (32)
+## E4. Code X-ray, CWE, precision and the PR delta (33)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -150,6 +150,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `mutate` | `mutate` | — | `make mutate` |
 | `parser-security-check` | `parser-security-check` | — | `make parser-security-check` |
 | `pilot-e2e-check` | `pilot-gate-blind` | — | `make pilot-e2e-check` |
+| `project-spec-check` | `project-spec-blind` | — | `make project-spec-check` |
 | `string-contracts-check` | `string-contracts-check` | — | `make string-contracts-check` |
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
@@ -248,11 +249,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **205**; class CHECK in `registry.py`: **205**;
-`CASE_TARGET` records: **249** (make-executable **245**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **206**; class CHECK in `registry.py`: **206**;
+`CASE_TARGET` records: **250** (make-executable **246**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-CHECK targets <!-- fact:check_targets -->204 · can-fail cases <!-- fact:canfail_cases -->249 ·
-anchors <!-- fact:anchors -->208 · registry targets <!-- fact:registry_targets -->280 · META <!-- fact:meta_targets -->55 ·
+CHECK targets <!-- fact:check_targets -->205 · can-fail cases <!-- fact:canfail_cases -->250 ·
+anchors <!-- fact:anchors -->209 · registry targets <!-- fact:registry_targets -->281 · META <!-- fact:meta_targets -->56 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

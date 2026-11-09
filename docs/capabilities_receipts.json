@@ -146,6 +146,17 @@
         "0.80"
       ],
       "must_not_contain": []
+    },
+    {
+      "id": "project-spec",
+      "claim": "Закон проекта KERN.md: T/F/B/N одним текстом, исходники не меняются, ни одна функция не забыта",
+      "command": "make project-spec-check",
+      "file": "docs/evidence/project_spec_2026-11-09.log",
+      "must_contain": [
+        "ЗАКОН ПРОЕКТА ВЫПОЛНЕН",
+        "T 3"
+      ],
+      "must_not_contain": []
     }
   ]
 }

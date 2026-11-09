@@ -1125,6 +1125,11 @@ external-accept:
 # Вердикт SKIP не переписывается в OK: он печатается с причиной.
 # ИНДЕКС КВИТАНЦИЙ: каждое заявление -> файл квитанции -> обязательные маркеры.
 # Гейт проверяет ПО ФАКТУ (существование, непустоту, маркеры, отсутствие пустышек).
+# ЗАКОН ПРОЕКТА: KERN.md в папке проекта -> все законы доказаны, ни одна функция не забыта.
+# Демо-проект в tests/fixtures/project_spec/ (T/F/B/N + полный зелёный пас).
+project-spec-check:
+	@$(PYTHON) tools/project_spec.py tests/fixtures/project_spec
+
 receipts-check:
 	@$(PYTHON) tools/receipts_check.py
 
