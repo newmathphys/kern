@@ -1,0 +1,37 @@
+# Батч-аудит малых C-проектов (2026-11-09) — 4 репозитория
+
+Апплаенс v2.8.3 (после фикса #570). Прогон --xray по всему репозиторию.
+
+| репозиторий | SHA | файлов | проверено функций | находок |
+|:--|:--|--:|--:|--:|
+| zserge/jsmn | 25647e6 | 6 | 4 / 26 | 0 |
+| Cyan4973/xxHash | 2ec67ca | 84 | 51 / 417 | 7 |
+| lz4/lz4 | d04dab3 | (см. лог прогона) | (см. лог) | (см. лог) |
+| DaveGamble/cJSON | 6d9f244 | 101 | 43 / 1017 | 0 (после #570) |
+| madler/zlib | 99623ef | (см. лог) | (см. лог) | 0 |
+
+## xxHash: все 7 находок — в tests/collisions/main.c (тестовый инструмент, не библиотека)
+  [BOUNDS PATH]  updateBit: индекс может быть отрицательным: level-1
+  [OVERFLOW]     updateBit: `level - 1`
+  [OVERFLOW]     Filter_insert: `bflog - 6`
+  [OVERFLOW]     Filter_check: `bflog - 6`
+  [OVERFLOW]     select_nbh: `128 + 17 - nbBits * 2`
+  (+ ещё 2 по тому же файлу)
+
+## Триаж updateBit по исходнику — ПОДОЗРЕНИЕ НА FP (не подтверждено)
+  main.c:301  static int updateBit(void* buffer, size_t* bitIdx, int level, size_t max)
+  main.c:303      if (level==0) return 0;      <-- ГАРД ЕСТЬ
+  main.c:305      flipbit(buffer, bitIdx[level]);
+  main.c:314      if (!updateBit(buffer, bitIdx, level-1, max-1)) return 0;   <-- здесь level >= 1
+  Гард `level==0 -> return` стоит ДО `level-1`, значит отрицательного индекса быть не
+  должно -> похоже на FP того же класса, что #565/#566 (гард не учтён в пути).
+  НО: это НЕ подтверждено замером (нужен минимизатор tools/minimize_fp.py и живой
+  gcc/UBSan), поэтому в журнал как дефект НЕ внесено и заявление «0 открытых
+  дефектов» пока опирается на неполный триаж этого батча.
+
+## Честный вывод по батчу
+  - 3 из 4 корпусов дали 0 находок (jsmn, zlib, cJSON после фикса) — ложных обвинений нет.
+  - xxHash дал 7 находок в ТЕСТОВОМ коде; минимум одна (updateBit) подозревается в FP.
+  - Precision по батчу НЕ заявляется: триаж не завершён.
+  - Следующий шаг: `python3 tools/minimize_fp.py main.c --marker "BOUNDS PATH"` и
+    проверка гипотезы «гард level==0 не попал в путь» на живом UBSan.

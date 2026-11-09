@@ -1,0 +1,16 @@
+=== jsmn 25647e6
+[REPO SUMMARY] файлов 6 | функций проверено 4 / 26 (skipped 5) | находок 0 | нечитаемых файлов 0
+=== xxHash 2ec67ca
+[REPO SUMMARY] файлов 84 | функций проверено 51 / 417 (skipped 78) | находок 7 | нечитаемых файлов 0
+  /home/mrbritneyxxx/.cache/kern/repos/xxHash/tests/collisions/main.c: [BOUNDS PATH] updateBit: индекс может быть отрицательным: level-1 -> (- level 1) < 0
+  /home/mrbritneyxxx/.cache/kern/repos/xxHash/tests/collisions/main.c: [OVERFLOW PATH] updateBit: переполнение типа `i32` ([-2147483648, 2147483647]) в `level - 1` — UB до возврата; [КОНТРПРИМЕР] level = -2147483648, bitIdx = 0, max = 0, buffer = 0
+  /home/mrbritneyxxx/.cache/kern/repos/xxHash/tests/collisions/main.c: [OVERFLOW PATH] Filter_insert: переполнение типа `i32` ([-2147483648, 2147483647]) в `bflog - 6` — UB до возврата; [КОНТРПРИМЕР] bflog = -2147483648, hash = 0, bf = 0
+  /home/mrbritneyxxx/.cache/kern/repos/xxHash/tests/collisions/main.c: [OVERFLOW PATH] Filter_check: переполнение типа `i32` ([-2147483648, 2147483647]) в `bflog - 6` — UB до возврата; [КОНТРПРИМЕР] bflog = -2147483648, hash = 0, bf = 0
+  /home/mrbritneyxxx/.cache/kern/repos/xxHash/tests/collisions/main.c: [OVERFLOW PATH] select_nbh: переполнение типа `i32` ([-2147483648, 2147483647]) в `128 + 17 - nbBits * 2` — UB до возврата; [КОНТРПРИМЕР] nbBits = 1073741897
+=== lz4 d04dab3
+    note: [BOUNDS?] version: `tag[...]` (строка 74) — длина НЕ известна (нет литерала и нет `len(tag)` в условиях): границы НЕ проверены, это НЕОПРЕДЕЛЁННОСТЬ (N), не находка
+    note: [BOUNDS UNKNOWN] get_last_results: `words[1]` (строка 136) — НЕ решено (решатель не решил (N): формула НЕ проверена) — НЕ считается безопасным
+    note: [BOUNDS UNKNOWN] get_last_results: `words[1]` (строка 141) — НЕ решено (решатель не решил (N): формула НЕ проверена) — НЕ считается безопасным
+    note: [BOUNDS UNKNOWN] get_last_results: `words[3]` (строка 142) — НЕ решено (решатель не решил (N): формула НЕ проверена) — НЕ считается безопасным
+    note: [BOUNDS UNKNOWN] get_last_results: `words[5]` (строка 143) — НЕ решено (решатель не решил (N): формула НЕ проверена) — НЕ считается безопасным
+[REPO SUMMARY] файлов 83 | функций проверено 156 / 854 (skipped 244) | находок 6 | нечитаемых файлов 0
