@@ -84,6 +84,22 @@ invariant (needs CHC/Horn) is not derived, therefore:
   (uncertainty), not a finding (`#315`, `#473`);
 * findings inside a loop body are not accused without a witness.
 
+## 3b. Lean 4 ↔ Zig: what IS bridged and what is NOT (as of `#558`)
+
+**Bridged (exhaustively).** The Belnap lattice `B₄` — `joinK`, `meetK`, `notB`, `conflate`.
+The domain is FINITE: 16 `(a,b)` pairs and 4 single values = **40 inputs**, so the table computed by
+the Lean definition (`formal/KernBelnapTable.lean`) and by the kernel (`kernx belnap-table` →
+`src/core/eq2.zig`) is compared on EVERY input (`make lean-zig-bridge`). MEASURED: **40/40 match**,
+so the functions agree on the whole domain and the Lean theorems (`joinK_comm/assoc/idem`,
+`contradiction_isolation`, `conflate_*`) transfer to the code. Without Lean the gate REFUSES
+(rc=2) — it is never green by absence of the tool.
+
+**NOT bridged (named, not hidden).** The solver side: the LIA kernel (`builtin_lia.zig`), the
+Farkas rule and the proof checker (`proof_check.zig`). Their domain is INFINITE, so exhaustion does
+not apply; a refinement proof (or a machine-checked translation) would be needed. Today the link
+there is: Lean proves the RULES, the checker implements them, and `make audits`/`smtlib-proof-check`
+verify concrete proofs — that is testing plus rule-level proof, NOT a refinement proof.
+
 ## 4. Known false accusations are counted, not hidden
 
 `#476` (CLOSED): the class had SIX causes, each measured and fixed separately — literal vs

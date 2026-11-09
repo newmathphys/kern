@@ -11,7 +11,7 @@
 > `docs/NEXT_SESSION.md` (handoff) → **this file** (the work) →
 > `docs/CAPABILITY_MATRIX.md` (what is proven and what each proof does NOT show).
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->202 · cases <!-- fact:canfail_cases -->247 · anchors <!-- fact:anchors -->206 · registry <!-- fact:registry_targets -->275 · META <!-- fact:meta_targets -->54 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->203 · cases <!-- fact:canfail_cases -->248 · anchors <!-- fact:anchors -->207 · registry <!-- fact:registry_targets -->277 · META <!-- fact:meta_targets -->55 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ---
 
