@@ -1,0 +1,18 @@
+# TheAlgorithms/C e5dad3f — math/fibonacci_dp.c (2026-11-09, KERN v2.8.3)
+
+[OVERFLOW PATH] fib: переполнение типа `i32` в `n + 2`
+
+Живой прогон САМОГО файла репозитория (без вырезания функций), ввод n = 2147483647:
+
+  $ gcc -fsanitize=address,undefined fibonacci_dp.c -o fib
+  $ printf '2147483647\n' | ./fib
+  fibonacci_dp.c:20:12: runtime error: signed integer overflow: 2147483647 + 2 cannot be ...
+  ==ERROR: AddressSanitizer: requested allocation size 0xfffffffe00000004 ...
+      #1 in fib fibonacci_dp.c:19
+      #2 in main fibonacci_dp.c:51
+
+Код (строки 19-20):
+  int *out = (int *)malloc((n + 2) * sizeof(int));
+
+ВЕРДИКТ: TP. Переполнение `n + 2` в int даёт UB, а затем бессмысленный размер аллокации.
+Ввод принимается из stdin (scanf), то есть достижим напрямую из интерфейса программы.

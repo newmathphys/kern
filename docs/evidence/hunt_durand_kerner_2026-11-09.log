@@ -1,0 +1,11 @@
+# TheAlgorithms/C e5dad3f — numerical_methods/durand_kerner_roots.c (2026-11-09)
+
+[OVERFLOW PATH] main: переполнение типа `i32` (degree = argc - 1, далее degree - n - 1)
+
+Живой прогон немодифицированного файла БЕЗ аргументов (argc = 1, degree = 0):
+  $ gcc -fsanitize=address,undefined -lm durand_kerner_roots.c -o dk && ./dk
+  Please pass the coefficients of the polynomial as commandline arguments.
+  rc = 0
+
+ВЕРДИКТ: FP. Ранний выход `if (argc == 1)` закрывает путь до `degree - 1` (unsigned underflow)
+и до `degree - n - 1`. Тот же корень, что #576: защита через ранний возврат не моделируется.
