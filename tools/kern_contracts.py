@@ -11217,6 +11217,34 @@ def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
     return 1 if diverged else 0
 
 
+def _divisor_guarded(fn, node, name: str) -> bool:
+    """Делитель защищён условием объемлющего `while`/`if` (дефект #598).
+
+    ИЗМЕРЕНО на `TheAlgorithms/Python/ciphers/cryptomath_module.py`:
+
+        while v3 != 0:
+            q = u3 // v3          # делить на 0 ЗДЕСЬ невозможно
+
+    `--xray` это понимал (гард цикла в пути), а `--infer-requires` предлагал
+    вставить `if v3 == 0: return 0` ВНУТРИ `while v3 != 0` — рецепт, который
+    не может сработать. Причина: `cmd_suggest_fix` проверял делитель только
+    по диапазонам параметров, БЕЗ условий пути.
+    """
+    for anc in ast.walk(fn):
+        if not isinstance(anc, (ast.While, ast.If)):
+            continue
+        if not any(x is node for x in ast.walk(anc)):
+            continue
+        c = anc.test
+        if (isinstance(c, ast.Compare) and len(c.ops) == 1
+                and isinstance(c.left, ast.Name) and c.left.id == name
+                and isinstance(c.ops[0], ast.NotEq)
+                and isinstance(c.comparators[0], ast.Constant)
+                and c.comparators[0].value == 0):
+            return True
+    return False
+
+
 def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
     """ПУНКТЫ 15 и 16: авто-синтез гарда и предусловия с ПРОВЕРКОЙ в Z3.
 
@@ -11240,6 +11268,10 @@ def cmd_suggest_fix(path: str, kernc, infer_requires: bool = False) -> int:
             try:
                 div = expr_smt(n.right, {})
             except (Unsupported, NoReturn):
+                continue
+            # ДЕФЕКТ #598: делитель, защищённый условием объемлющего цикла/ветви,
+            # обвинять нельзя (иначе предлагается бессмысленный гард).
+            if isinstance(n.right, ast.Name) and _divisor_guarded(fn, n, n.right.id):
                 continue
             sat = _smt_sat(kernc, params, [f"(= {div} 0)"])
             if sat is not True:
