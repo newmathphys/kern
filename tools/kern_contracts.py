@@ -6660,8 +6660,14 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             # поэтому общий `ast.walk` по инструкции до них НЕ доходил — индекс
             # вида `if a[i] == 5:` не проверялся ВООБЩЕ. Условие вычисляется на
             # текущем пути, поэтому сканируем его с тем же `eff`.
-            for sub in [n for n in ast.walk(st.test) if isinstance(n, ast.Subscript)]:
-                _bounds_one(sub, eff, params, lens, kernc, found, fname, syms, in_while, notes)
+            # ДЕФЕКТ #584 (остаток): индексы в условии `if` проверяются с учётом
+            # ЛЕНИВОГО `and` (`A and B` вычисляет B только при истинном A), иначе
+            # `if index != len(x) and x[index] == item` обвиняется при `len(x) = 0`.
+            _kl = {n for n in (set(lens) | set(alias_of.values()) | syms)
+                   if n not in ("", "result")}
+            for _sub, _spath in _subscripts_with_path(st.test, eff, syms, _kl):
+                _bounds_one(_sub, _spath, params, lens, kernc, found, fname, syms,
+                            in_while, notes)
             # ИЗМЕРЕНО: операторы ПОСЛЕ `if` раньше теряли путевое условие, и
             # `get_safe` (с гардами) ЛОЖНО обвинялся в выходе за границы.
             # Если ветка THEN безусловно завершается, то всё последующее

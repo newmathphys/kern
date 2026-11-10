@@ -1,0 +1,27 @@
+# #584 (остаток): ленивый `and` в условии `if` — ЗАКРЫТ
+
+## Находка ДО
+searches/binary_search.py
+    index = bisect.bisect_left(sorted_collection, item)
+    if index != len(sorted_collection) and sorted_collection[index] == item:
+    [BOUNDS PATH] `sorted_collection[index]`; контрпример: kern_len=0, index=0
+То есть гард `index != len(x)` не действовал на ВТОРОЙ операнд `and`.
+
+## Причина
+Индексы в условии `if` сканировались через `ast.walk(st.test)` — БЕЗ ленивых гардов.
+Постусловия `bisect` (#584) и `_boolop` (#585) работали только на общем пути.
+
+## Правка
+В `_walk_bounds` условие `if` проверяется через `_subscripts_with_path(st.test, eff, syms, known_len)`,
+то есть с ленивыми гардами операндов (тот же помощник, что и для обычных выражений).
+
+## Замер
+binary_search.py: 2 -> 1 (исчезла binary_search_std_lib; осталась рекурсивная —
+  это класс инварианта рекурсии, отдельная тема)
+Корпус TheAlgorithms/Python: searches 24 -> 22, sorts 71 -> 69, conversions 6 -> 6, strings 26 -> 26
+  ИТОГО 127 -> 123, ДОБАВЛЕННЫХ 0 (единственное «новое» — сдвиг счётчика `_havoc_96` -> `_havoc_104`
+  у quick_select, это тот же случай)
+make ci-fast -> ci=0
+
+## Заодно снята старая запись #580
+durand_kerner_roots.c: 1 -> 0 находок, подтверждено прогоном.
