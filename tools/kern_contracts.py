@@ -314,7 +314,14 @@ def _floor_div_smt(a: str, b: str) -> str:
     остаток имеет знак ДЕЛИТЕЛЯ. При b < 0 нормализуем делитель:
     `floor(a/b) = floor(-a/-b)`. Внешний отчёт (M. Brigindi) + независимая
     проверка: 292 расхождения из 840 без адаптера, 0 с ним.
+
+    ДЕФЕКТ #583: если делитель — ПОЛОЖИТЕЛЬНАЯ ЛИТЕРАЛЬНАЯ константа, `ite`
+    не нужен: `div` уже совпадает с floor. Это не косметика — `ite` вокруг
+    `div` уводил решатель в `unknown` на индуктивной проверке инварианта
+    цикла (`low = mid + 1`), и доказательство не проходило.
     """
+    if b.lstrip("-").isdigit() and not b.startswith("-"):
+        return f"(div {a} {b})"
     return f"(ite (> {b} 0) (div {a} {b}) (div (- {a}) (- {b})))"
 
 
@@ -6481,6 +6488,10 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
     alias_path: list[str] = []
     alias_of: dict[str, str] = {}
     postconds_by_var: dict[str, list] = {}
+    # ДЕФЕКТ #583: ЗНАЧЕНИЯ-КОНСТАНТЫ перед циклом (`low = 0`). Нужны для
+    # доказательства инварианта нижней границы; при любом другом присваивании
+    # имя из словаря удаляется.
+    const_env: dict[str, int] = {}
     for st in body:
         al = _len_alias(st)
         if al is not None:
@@ -6500,12 +6511,21 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
                 and isinstance(st.targets[0], ast.Name)):
             _pn = st.targets[0].id
             postconds_by_var.pop(_pn, None)
+            const_env.pop(_pn, None)
+            if isinstance(st.value, ast.Constant) and isinstance(st.value.value, int):
+                const_env[_pn] = st.value.value
             _pc = _stdlib_postconds(st.value, st.targets[0], syms, {})
             if _pc:
                 postconds_by_var[_pn] = _pc
         else:
-            for _pn in _assigned_names(st):
-                postconds_by_var.pop(_pn, None)
+            # ВАЖНО (дефект #583): для САМОГО цикла словарь НЕ чистим — иначе
+            # `_assigned_names(While)` стирал `low = 0` ДО доказательства
+            # инварианта, и инвариант не вычислялся никогда (проверено отладкой:
+            # `const_env = {}` в точке обработки `while`).
+            if not isinstance(st, (ast.While, ast.For)):
+                for _pn in _assigned_names(st):
+                    postconds_by_var.pop(_pn, None)
+                    const_env.pop(_pn, None)
         eff = path + alias_path + [c for _v in postconds_by_var.values() for c in _v]
         # ДЕФЕКТ #468a (assert как ПУТЕВОЙ ГАРД в BOUNDS-обходе): `assert len(x) == 1`
         # — ИСТИННОЕ условие ВСЕГО дальнейшего кода, а не комментарий. В crash-обходе
@@ -6634,6 +6654,12 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             for sub in [n for n in ast.walk(st.test) if isinstance(n, ast.Subscript)]:
                 _bounds_one(sub, wpath, params, lens, kernc, found, fname, syms,
                             in_while=True, notes=notes)
+            # ДЕФЕКТ #583: инвариант нижней границы (`low = 0`, растёт в цикле).
+            # Доказан решателем; без него значение переменной терялось вместе с
+            # гардом (#179) и индексы после цикла обвинялись при `low = -2`.
+            _inv = _monotone_loop_guards(st, eff, const_env, syms, kernc, params)
+            if _inv:
+                path = eff + _inv
             continue
         if isinstance(st, ast.For):
             g = _loop_len_guard(st)
@@ -6704,6 +6730,102 @@ def _write_targets(root) -> set:
             for t in node.targets:
                 if isinstance(t, ast.Subscript):
                     mark(t)
+    return out
+
+
+def _monotone_loop_guards(loop, path, const_env, syms, kernc, params) -> list:
+    """ИНВАРИАНТ НИЖНЕЙ ГРАНИЦЫ переменной цикла (дефект #583).
+
+    ЧТО БЫЛО СЛОМАНО (ИЗМЕРЕНО на `TheAlgorithms/Python`,
+    `sorts/binary_insertion_sort.py`):
+
+        low = 0
+        while low <= high:
+            mid = (low + high) // 2
+            if ...: high = mid - 1
+            else:   low = mid + 1
+        for j in range(i, low, -1):
+            collection[j] = collection[j - 1]      <- ЛОЖНОЕ [BOUNDS PATH]
+
+    Контрпример был `low = -2`: дефект #179 вычищает ЗНАЧЕНИЕ переменной,
+    изменяемой внутри цикла (иначе `all_good = all_good and res` давало
+    ложные [DEAD BRANCH]). Вместе со значением терялась и НИЖНЯЯ ГРАНИЦА,
+    хотя `low` стартует в 0 и только растёт.
+
+    ЗВУЧНОСТЬ: гард `v >= c` добавляется ТОЛЬКО если решатель доказал, что
+    КАЖДОЕ присваивание внутри цикла сохраняет его при `v >= c` и условии
+    цикла — то есть это настоящий инвариант, а не догадка. Условия ветвлений
+    намеренно ИГНОРИРУЮТСЯ (проверяются все присваивания сразу): требование
+    получается СТРОЖЕ, значит вывод остаётся верным. Если хоть одно
+    присваивание не переводится в SMT — гарда нет (честный отказ).
+    """
+    if not (isinstance(loop, ast.While) and const_env):
+        return []
+    try:
+        wcond = _cond_smt(loop.test, syms)
+    except (Unsupported, NoReturn):
+        return []
+    if not wcond or "havoc" in wcond:
+        return []
+    assigned: set = set()
+    for n in ast.walk(loop):
+        if isinstance(n, ast.Assign):
+            for t in n.targets:
+                if isinstance(t, ast.Name):
+                    assigned.add(t.id)
+        elif isinstance(n, (ast.AugAssign, ast.AnnAssign)):
+            t = getattr(n, "target", None)
+            if isinstance(t, ast.Name):
+                assigned.add(t.id)
+
+    out: list = []
+    for var, init in (const_env or {}).items():
+        if var not in assigned:
+            continue
+        try:
+            init_smt = str(int(init))
+        except (TypeError, ValueError):
+            continue
+        fresh = f"{var}#loop"
+        # Последовательная подстановка присваиваний тела: значение `var` в конце
+        # итерации выражается через значение в начале (`var#loop`).
+        env = {var: fresh}
+        ok = True
+        for st in ast.walk(loop):
+            if isinstance(st, ast.Assign) and len(st.targets) == 1 \
+                    and isinstance(st.targets[0], ast.Name):
+                try:
+                    env[st.targets[0].id] = expr_smt(st.value, env)
+                except (Unsupported, NoReturn):
+                    env[st.targets[0].id] = None
+            elif isinstance(st, (ast.AugAssign,)) and isinstance(st.target, ast.Name):
+                _op = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*"}.get(type(st.op))
+                if _op is None:
+                    ok = False
+                    break
+                try:
+                    env[st.target.id] = f"({_op} {env.get(st.target.id, st.target.id)} " \
+                                        f"{expr_smt(st.value, env)})"
+                except (Unsupported, NoReturn):
+                    ok = False
+                    break
+        if not ok:
+            continue
+        new_expr = env.get(var)
+        if not new_expr:
+            continue
+        # Условие цикла ОБЯЗАНО говорить о том же символе, что и присваивания
+        # (`var#loop`), иначе связка «условие + присваивание» рассыпается и
+        # доказательство не проходит (проверено: контрпример `low#loop = -5`
+        # при условии `low <= high` на ДРУГОМ символе).
+        try:
+            wcond_v = expr_smt(loop.test, {var: fresh})
+        except (Unsupported, NoReturn):
+            wcond_v = wcond
+        viol = path + [wcond_v, f"(>= {fresh} {init_smt})",
+                       f"(not (>= {new_expr} {init_smt}))"]
+        if _smt_sat(kernc, params, viol) is False:
+            out.append(f"(>= {var} {init_smt})")
     return out
 
 
