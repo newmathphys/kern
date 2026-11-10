@@ -10807,6 +10807,25 @@ def _subst(text: str, mapping: dict[str, str]) -> str:
     return text
 
 
+def _len_axioms(*exprs) -> list:
+    """Аксиома `len(x) >= 0` для всех символов длины в формулах (#593/#596).
+
+    ПОЧЕМУ ОБЩИЙ ПОМОЩНИК. Дефекты #593 и #596 — ОДИН корень: аксиома была
+    вписана ТОЧЕЧНО в один режим (`--loops`), а `--state-inv` остался без неё и
+    объявил корректный `bisect_left` нарушителем с контрпримером `len = -1`.
+    Дублирование кода здесь И ЕСТЬ причина повторения дефекта, поэтому правило
+    живёт в одном месте и вызывается из всех режимов, строящих SMT-обязательства.
+
+    Длина неотрицательна по определению — это АКСИОМА, а не догадка, поэтому
+    звучность сохраняется.
+    """
+    syms: set = set()
+    for e in exprs:
+        if isinstance(e, str) and e:
+            syms |= set(re.findall(r"\b(?:len__|kern_len_)\w+", e))
+    return [f"(>= {s} 0)" for s in sorted(syms)]
+
+
 def _assigns(stmts) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     for st in stmts:
@@ -10910,11 +10929,7 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     # `len = -1`. ИЗМЕРЕНО на РЕАЛЬНОМ `bisect_left` из TheAlgorithms/Python
     # (функция корректна, живой прогон падения не даёт):
     #   [FAIL] LOOP INVARIANT VIOLATED at init; контрпример: len__... = -1
-    _len_syms = set()
-    for _t in (inv, cond, ret, req_smt, dec, ens_smt):
-        if _t:
-            _len_syms |= set(re.findall(r"\b(?:len__|kern_len_)\w+", _t))
-    pre = pre + [f"(>= {_s} 0)" for _s in sorted(_len_syms)]
+    pre = pre + _len_axioms(inv, cond, ret, req_smt, dec, ens_smt)
     # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
     # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`
     # -> молчаливый PASS. Объявляем ВСЕ переменные состояния.
@@ -11122,11 +11137,7 @@ def cmd_state_inv(path: str, kernc) -> int:
         # Аксиома `len(x) >= 0` была добавлена только в верификатор ЦИКЛОВ,
         # а `--state-inv` остался без неё и объявлял корректную функцию
         # нарушителем. Ставим аксиому для всех символов длины в формулах.
-        _len_syms = set()
-        for _t in (inv, req, " ".join(_r for _p, _r, _l in rets)):
-            if _t:
-                _len_syms |= set(re.findall(r"\b(?:len__|kern_len_)\w+", _t))
-        pre = pre + [f"(>= {_s} 0)" for _s in sorted(_len_syms)]
+        pre = pre + _len_axioms(inv, req, *[_r for _p, _r, _l in rets])
         fails = unknowns = 0
         for pth, ret, ln in rets:
             v, ce = _smt_verdict(kernc, decls,
