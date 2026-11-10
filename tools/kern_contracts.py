@@ -2595,6 +2595,17 @@ def _is_path_expr(node) -> bool:
         return bool(_MACRO_DIV.match(node.id)) or bool(_RE_PATHISH.search(node.id))
     if isinstance(node, ast.Attribute):
         return bool(_MACRO_DIV.match(node.attr)) or bool(_RE_PATHISH.search(node.attr))
+    if isinstance(node, ast.Call):
+        # #572: `(root_of(repo) / name).write_text(...)` — слева ВЫЗОВ, справа имя:
+        # это pathlib-склейка, а не деление. `_RE_PATHISH` привязан к КОНЦУ имени
+        # (`(^|_)root$`), поэтому `root_of` им не ловится — здесь сверяем ТОКЕНЫ
+        # имени функции (root, dir, path, file, base, tmp …).
+        _f = node.func
+        _nm = (_f.id if isinstance(_f, ast.Name)
+               else (_f.attr if isinstance(_f, ast.Attribute) else ""))
+        _PATH_TOKENS = {"root", "dir", "folder", "path", "file", "home", "base",
+                        "tmp", "temp", "cwd", "workdir", "workspace"}
+        return bool(_nm) and bool({_t.lower() for _t in _nm.split("_")} & _PATH_TOKENS)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
         return _is_path_expr(node.left)
     return False
