@@ -244,6 +244,8 @@ def _replay_soft(exc: BaseException, where: str = "replay") -> None:
 _UNROLL_K: list = [max(1, int(os.environ.get("KERN_UNROLL_K", "2")))]
 # ДЕФЕКТ #610: разрешение НЕЛИНЕЙНОЙ арифметики (QF_NIA) по режимам.
 _ALLOW_NIA: list = [False]   # включается в --loops/--state-inv
+# ДЕФЕКТ #614: имена, которые меняет ВЛОЖЕННЫЙ цикл (для звукого пропуска).
+_INNER_LOOP_VARS: list = []
 _UNROLLED: list = [False]   # в трансляции была развёртка цикла/рекурсии
 # ПОЛИГОН 3 (QF_AX): имена-массивы текущей функции (из `@kern:array`) и их
 # ТЕКУЩЕЕ SMT-состояние. Пусто -> поведение прежнее (каскад `ite` для списков).
@@ -11132,9 +11134,17 @@ def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
             inner = _assign_paths(st.body)
             paths = [base + p for base in paths for p in inner]
             continue
-        if isinstance(st, (ast.While, ast.For, ast.With)):
+        if isinstance(st, (ast.While, ast.For)):
+            # ДЕФЕКТ #614: ВЛОЖЕННЫЙ цикл не моделируется (нужна двухуровневая
+            # индукция), но если он НЕ МЕНЯЕТ переменные инварианта/варианта,
+            # его влияние на внешние обязательства отсутствует — тогда честно
+            # пропустить его и проверять внешний цикл. Какие имена он трогает,
+            # собираем здесь; решение принимает `check_loop`.
+            _INNER_LOOP_VARS.extend(_assigned_names(st))
+            continue
+        if isinstance(st, ast.With):
             raise Unsupported(
-                f"управление внутри тела цикла (строка {st.lineno}) не моделируется")
+                f"`with` внутри тела цикла (строка {st.lineno}) не моделируется")
         # ДЕФЕКТ #608: `break`/`continue` НЕ моделировались и МОЛЧА игнорировались,
         # поэтому выход из цикла «не замечался» и выносилось ложное
         # NON-TERMINATING. ИЗМЕРЕНО на реальном
@@ -11225,6 +11235,19 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
                                        _unify_len_symbols(ens_smt))
     ret = _unify_len_symbols(ret)
     pre = pre + _len_axioms(inv, cond, ret, req_smt, dec, ens_smt)
+    # ДЕФЕКТ #614: ВЛОЖЕННЫЙ ЦИКЛ, меняющий переменные инварианта/варианта,
+    # делает внешние обязательства недостоверными (нужна двухуровневая
+    # индукция) -> честный SKIP с названной причиной, а НЕ доказательство.
+    # ИЗМЕРЕНО: без этой проверки `nested_bad` (внутренний цикл делает
+    # `cnt += 1`, а `cnt` входит в инвариант) объявлялся PROVEN — незвучно.
+    if _INNER_LOOP_VARS:
+        _contract_vars = set(re.findall(r"[A-Za-z_]\w*",
+                                        f"{inv or ''} {dec or ''} {ens_smt or ''}"))
+        _clash = sorted(set(_INNER_LOOP_VARS) & _contract_vars)
+        if _clash:
+            res.append(f"[SKIP] {fn.name}: вложенный цикл меняет переменные "
+                       f"контракта {_clash} — нужна двухуровневая индукция")
+            return res
     # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
     # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`
     # -> молчаливый PASS. Объявляем ВСЕ переменные состояния.

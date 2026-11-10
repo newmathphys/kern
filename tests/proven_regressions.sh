@@ -209,5 +209,22 @@ else
   echo "[FAIL] try с присваиванием: исход неясен"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 26 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #614: вложенный цикл, НЕ трогающий контракт -> доказывается
+out=$(timeout 250 $P --loops $F/nested_ok.py 2>&1)
+if printf '%s' "$out" | grep -q 'sieve_outer: PROVEN'; then
+  echo "[OK]   вложенный цикл (вне контракта) доказан"
+else
+  echo "[FAIL] вложенный цикл вне контракта не доказан"; fail=1
+fi
+# --- вложенный цикл, МЕНЯЮЩИЙ контракт -> обязан быть SKIP, не PROVEN
+out=$(timeout 250 $P --loops $F/nested_named.py 2>&1)
+if printf '%s' "$out" | grep -q 'SKIP.*двухуровневая'; then
+  echo "[OK]   вложенный цикл, меняющий контракт: именованный отказ"
+elif printf '%s' "$out" | grep -q 'PROVEN'; then
+  echo "[FAIL] КРИТИЧНО: вложенный цикл по контракту объявлен PROVEN — незвучно"; fail=1
+else
+  echo "[FAIL] вложенный цикл: исход неясен"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 28 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail
