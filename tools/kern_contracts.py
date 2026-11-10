@@ -10810,6 +10810,16 @@ def _subst(text: str, mapping: dict[str, str]) -> str:
 def _assigns(stmts) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     for st in stmts:
+        # ДЕФЕКТ #601: присваивания ВНУТРИ `if`/`try`/вложенного цикла не
+        # собирались вовсе, поэтому следующий срез варианта (`hi - lo`) считался
+        # НЕИЗМЕННЫМ, а локальные (`mid`) оставались свободными символами.
+        # ИЗМЕРЕНО на РЕАЛЬНОМ `bisect_left`: ложное «NON-TERMINATING LOOP» на
+        # корректной функции, контрпример с `mid = 0` как СВОБОДНОЙ величиной.
+        # Взять одну ветвь НЕЛЬЗЯ (получим неверный следующий срез) — поэтому
+        # честный отказ с названной причиной.
+        if isinstance(st, (ast.If, ast.Try, ast.While, ast.For, ast.With)):
+            raise Unsupported(
+                f"управление внутри тела цикла (строка {st.lineno}) не моделируется")
         if (isinstance(st, ast.Assign) and len(st.targets) == 1
                 and isinstance(st.targets[0], (ast.Tuple, ast.List))):
             # ДЕФЕКТ #595: КОРТЕЖНОЕ ПРИСВАИВАНИЕ (`x, y = y, x % y`) раньше
