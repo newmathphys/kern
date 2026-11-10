@@ -1,0 +1,25 @@
+# #596 и #597: два дефекта режима `--state-inv`, найдены на РЕАЛЬНОЙ функции
+
+## Как найдены
+Написал `# @kern:state_invariant` для реальных функций:
+  gcd_seq (НОД)       -> PASS сразу
+  bisect_left (TheAlgorithms/Python) -> FAIL
+Контрпример: `kern_len_sorted_collection = -1`  (#596)
+и `len__sorted_collection = 1, kern_len_sorted_collection = 0`  (#597)
+
+## #596: в `state-inv` не было аксиомы `len(x) >= 0`
+Аксиома из #593 была добавлена ТОЛЬКО в верификатор циклов. Здесь символ длины
+снова приходил свободным, решатель брал -1, и корректная функция объявлялась
+нарушителем. Правка: та же аксиома в `pre` для всех `len__*`/`kern_len_*`.
+
+## #597: `requires` переводился БЕЗ `_LenRewrite`
+`len(x)` в requires оставался `len__x`, а проверяемое выражение шло с
+`kern_len_x` — ДВА символа для ОДНОЙ величины (контрпример выше: 1 и 0
+одновременно). Правка: requires пересчитывается через `_cond_smt(..., syms)`
+ПОСЛЕ сбора `syms`.
+
+## Замер
+gcd_seq:      PASS (без изменений)
+bisect_left:  FAIL -> PASS: постусловие `0 <= result <= len(sorted_collection)`
+              ДОКАЗАНО для реальной функции из TheAlgorithms/Python
+make ci-fast -> ci=0

@@ -11068,6 +11068,7 @@ def cmd_state_inv(path: str, kernc) -> int:
             out.append(f"[SKIP] {fn.name}: нет `# @kern:state_invariant`")
             continue
         req = None
+        req_txt = None
         i = fn.lineno - 2
         while i >= 0:
             s = lines[i].strip()
@@ -11077,11 +11078,22 @@ def cmd_state_inv(path: str, kernc) -> int:
             if m:
                 try:
                     req = expr_smt(ast.parse(m.group(1).strip(), mode="eval").body, {})
+                    req_txt = m.group(1).strip()
                 except (Unsupported, NoReturn):
                     req = None
             i -= 1
         syms: set = set()
         lens = _collect_lens(fn, syms)
+        # ДЕФЕКТ #596: `requires` переводился БЕЗ `_LenRewrite`, поэтому
+        # `len(x)` оставался символом `len__x`, а проверяемое выражение шло с
+        # `kern_len_x` — ДВА РАЗНЫХ символа для одной длины. ИЗМЕРЕНО на
+        # реальном `bisect_left`: контрпример `len__... = 1, kern_len_... = 0`
+        # (одна и та же величина с разными значениями) -> ложный FAIL.
+        if req_txt:
+            try:
+                req = _cond_smt(ast.parse(req_txt, mode="eval").body, syms)
+            except (Unsupported, NoReturn, Exception):
+                req = None
         try:
             inv = _cond_smt(ast.parse(inv_txt, mode="eval").body, syms)
         except (Unsupported, NoReturn, Exception) as e:
@@ -11094,6 +11106,17 @@ def cmd_state_inv(path: str, kernc) -> int:
             continue
         decls = list(dict.fromkeys(params + ["result"]))
         pre = [req] if req else []
+        # ДЕФЕКТ #596: ДЛИНА НЕОТРИЦАТЕЛЬНА (тот же корень, что #593, но в
+        # другом режиме). ИЗМЕРЕНО на реальном `bisect_left`:
+        #   [FAIL] STATE INVARIANT VIOLATED; контрпример: kern_len_... = -1
+        # Аксиома `len(x) >= 0` была добавлена только в верификатор ЦИКЛОВ,
+        # а `--state-inv` остался без неё и объявлял корректную функцию
+        # нарушителем. Ставим аксиому для всех символов длины в формулах.
+        _len_syms = set()
+        for _t in (inv, req, " ".join(_r for _p, _r, _l in rets)):
+            if _t:
+                _len_syms |= set(re.findall(r"\b(?:len__|kern_len_)\w+", _t))
+        pre = pre + [f"(>= {_s} 0)" for _s in sorted(_len_syms)]
         fails = unknowns = 0
         for pth, ret, ln in rets:
             v, ce = _smt_verdict(kernc, decls,
