@@ -6,6 +6,7 @@
 |--:|:--|:--|:--|:--|
 | 1 | `tidwall/hashmap.c` | `3735986` | https://github.com/tidwall/hashmap.c/issues/50 | `XXH_rotl64`: сдвиг на 64 = UB при `r == 0`; `64 - r` переполняет `int` |
 | 2 | `TheAlgorithms/C` | `e5dad3f` | https://github.com/TheAlgorithms/C/issues/1598 | `binary_search.c`: `r - l` переполняется при отрицательном `l` |
+| 3 | `TheAlgorithms/C` | `e5dad3f` | https://github.com/TheAlgorithms/C/issues/1599 | `math/prime_sieve.c`: off-by-one `<=` -> heap-buffer-overflow WRITE в `prime()` и READ в `count()` (два TP) |
 
 ## Что подтверждено живым компилятором (не только KERN)
 

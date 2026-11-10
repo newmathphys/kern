@@ -1,0 +1,25 @@
+# TheAlgorithms/C e5dad3f — math/prime_sieve.c (2026-11-09, KERN v2.8.3)
+
+[REPO SUMMARY] файлов 23 | функций 18 / 66 | находок 4
+[BOUNDS PATH] count: off-by-one: `i <= size` разрешает индекс == длине
+[BOUNDS PATH] prime_sieve.c: off-by-one: `i <= MAX_SIZE`
+[BOUNDS PATH] prime_sieve.c: off-by-one: `j <= MAX_SIZE`
+
+Живой ASan на функциях, вырезанных из файла дословно (строки 21-50):
+
+1) prime(p), p = malloc(MAX_SIZE * sizeof(int))
+   ==ERROR: AddressSanitizer: heap-buffer-overflow
+   WRITE of size 4
+   #0 in prime ps_fn.c:9  (p[i]=1 при i <= MAX_SIZE)
+   0 bytes after 4000000-byte region  -> p[1000000], буфер на 1000000 элементов
+
+2) count(a, 10), a = malloc(10 * sizeof(int))
+   ==ERROR: AddressSanitizer: heap-buffer-overflow
+   READ of size 4
+   SUMMARY: AddressSanitizer: heap-buffer-overflow ps_fn.c:26 in count
+   0 bytes after 40-byte region  -> a[10], буфер на 10 элементов
+
+ВЕРДИКТ: 2 TP. Оба — классический off-by-one `<=` вместо `<`.
+Внутренний test() репозитория этого не ловит: он держит arr[1000005] и вызывает count(arr, 10)
+с запасом, поэтому в тестах зелено.
+Копии: /tmp/ps_fn.c, /tmp/ps_test.c, /tmp/ps2.c -> docs/evidence/
