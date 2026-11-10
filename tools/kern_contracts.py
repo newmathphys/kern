@@ -10990,6 +10990,21 @@ def _assigns(stmts) -> list[tuple[str, str]]:
             except (Unsupported, NoReturn):
                 raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
         elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
+            # ДЕФЕКТ #605: `x //= k` и `x %= k` не поддерживались (только + - *),
+            # поэтому типовой цикл `while n > 0: res += n % 10; n //= 10`
+            # уходил в SKIP с причиной «+=/-= только». ИЗМЕРЕНО на реальном
+            # `maths/sum_of_digits.py` из TheAlgorithms/Python.
+            if isinstance(st.op, (ast.FloorDiv, ast.Mod)):
+                try:
+                    _rhs = expr_smt(st.value, {})
+                    _new = (_floor_div_smt(st.target.id, _rhs)
+                            if isinstance(st.op, ast.FloorDiv)
+                            else _mod_smt(st.target.id, _rhs,
+                                          _floor_div_smt(st.target.id, _rhs)))
+                except (Unsupported, NoReturn):
+                    raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
+                out.append((st.target.id, _new))
+                continue
             op = {"Add": "+", "Sub": "-", "Mult": "*"}.get(type(st.op).__name__)
             if op is None:
                 raise Unsupported(f"+=/-= только на строке {st.lineno}")

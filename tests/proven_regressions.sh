@@ -93,5 +93,22 @@ else
   echo "[FAIL] diff-equiv: расхождение ЦИКЛОВ не поймано"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 12 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- ЗВУЧНОСТЬ: Коллатц — ОТКРЫТАЯ проблема; PROVEN здесь был бы ЛОЖЬЮ
+out=$(timeout 250 $P --loops $F/collatz_open.py 2>&1)
+if printf '%s' "$out" | grep -q '\[PASS\] collatz_len'; then
+  echo "[FAIL] КРИТИЧНО: Коллатц объявлен ДОКАЗАННЫМ (ложное доказательство)"; fail=1
+elif printf '%s' "$out" | grep -q 'NON-TERMINATING'; then
+  echo "[OK]   звучимость: остановка Коллатца НЕ объявлена доказанной"
+else
+  echo "[FAIL] Коллатц: ни доказан, ни опровергнут — исход неясен"; fail=1
+fi
+# --- #605: `//=` и `%=` в теле цикла (реальный sum_of_digits)
+out=$(timeout 250 $P --loops $F/digits_ok.py 2>&1)
+if printf '%s' "$out" | grep -q '\[PASS\] sum_of_digits: PROVEN'; then
+  echo "[OK]   //= и %= поддержаны (sum_of_digits доказан)"
+else
+  echo "[FAIL] //= / %= не поддержаны (#605 вернулся)"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 14 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

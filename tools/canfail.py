@@ -4067,6 +4067,26 @@ def case_state_inv_check():
     return "make state-inv-check"
 
 
+def case_proven_regressions_check():
+    """ЛОМАЕМ АКСИОМУ ДЛИНЫ (#593/#596): инвариант с `len(x)` перестаёт
+    доказываться -> гейт регрессий ОБЯЗАН покраснеть.
+
+    Это can-fail доказательство для `make proven-regressions-check`: без него
+    цель числилась бы как «проверка без доказательства „может упасть“» (K1).
+    """
+    # ВАКУУМНАЯ МУТАЦИЯ ОТВЕРГНУТА (измерено): снятие аксиомы длины НЕ ломает
+    # гейт, потому что в фикстуре `requires` уже даёт `len >= 0` через
+    # `lo <= len and lo >= 0`. Поэтому ломаем то, на чём гейт держится
+    # по-настоящему: сбор ПУТЕЙ присваиваний в теле цикла.
+    patch(
+        "tools/kern_contracts.py",
+        "    paths: list[list[tuple[str, str]]] = [[]]\n    for st in stmts:",
+        "    paths: list[list[tuple[str, str]]] = [[]]\n"
+        "    return paths  # ЛОМАЕМ: тело цикла игнорируется\n    for st in stmts:",
+    )
+    return "make proven-regressions-check"
+
+
 def case_loop_check():
     """ПУНКТ 20. ЛОМАЕМ: вердикт SAT объявляем UNSAT -> нарушение инварианта и
     незавершающийся цикл перестают ловиться -> цель обязана покраснеть.
@@ -4762,6 +4782,7 @@ CASES = [
     ("kimg-grep-check", "KIMG: 3 исхода grep",                  case_kimg_grep_check),
     ("dst-check", "DST: сериализуемые сбои",                    case_dst_check),
     ("homeostatic-heal-check", "Гомеостаз: F -> патч -> T",         case_homeostatic_heal_check),
+    ("proven-regressions-check", "Регрессии: длина/ветви/lockstep",   case_proven_regressions_check),
     ("opt-diff-check", "OPT: Debug == RS == Small",              case_opt_diff_check),
     ("concolic-check", "CONCOLIC: живые запуски + Z3",            case_concolic_check),
     ("translation-val-check", "TV: asm -O2 == spec",                    case_translation_val_check),
