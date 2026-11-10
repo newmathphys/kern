@@ -6741,8 +6741,35 @@ def _subscripts_with_path(st, path: list, syms: set,
         except (Unsupported, NoReturn):
             return None
 
+    def _boolop(node, cond_path: list) -> None:
+        """ЛЕНИВЫЕ гарды `A and B` / `A or B` (дефект #585).
+
+        Второй операнд `A and B` вычисляется ТОЛЬКО при истинном A (`A or B` —
+        только при ложном). Без этого `if index != len(x) and x[index] == item`
+        обвинялся контрпримером `index = 0, len(x) = 0`, хотя при `len(x) == 0`
+        ветка не выполняется вовсе: ложное обвинение на корректном коде.
+        """
+        _lazy = list(cond_path)
+        for _i, _v in enumerate(node.values):
+            if isinstance(_v, ast.Subscript) and (
+                    id(_v) not in writes or id(_v) in checked_writes):
+                out.append((_v, _lazy))
+            walk(_v, _lazy)
+            if _i < len(node.values) - 1:
+                _c = cond_of(_v)
+                if _c:
+                    _lazy = _lazy + ([_c] if isinstance(node.op, ast.And)
+                                     else [f"(not {_c})"])
+
     def walk(node, cond_path: list) -> None:
+        if isinstance(node, ast.BoolOp):
+            _boolop(node, cond_path)
+            return
         for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.BoolOp):
+                # ДЕФЕКТ #585: ЛЕНИВОЕ вычисление в bounds-обходе — см. `_boolop`.
+                _boolop(child, cond_path)
+                continue
             if isinstance(child, ast.IfExp):
                 c = cond_of(child.test)
                 walk(child.body, cond_path + ([c] if c else []))
