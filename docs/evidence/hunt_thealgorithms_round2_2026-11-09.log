@@ -1,0 +1,37 @@
+# TheAlgorithms/C e5dad3f — второй заход (data_structures, sorting, conversions), KERN v2.8.3
+
+## Сканы
+[data_structures] файлов 64 | функций 52 / 316 | находок 4
+[sorting]         файлов 34 | функций 24 / 141 | находок 9
+[conversions]     файлов 21 | функций 10 / 63  | находок 2
+
+## Триаж
+
+1) conversions/decimal_to_any_base.c: `converted_len` и `convertion` -> [CRASH PATH] деление на ноль (base)
+   Живой прогон:
+     decimal_to_anybase(255, "")  -> NULL (guarded)
+     decimal_to_anybase(255, "a") -> NULL (guarded)
+     decimal_to_anybase(255, "01")-> 11111111
+   ВЕРДИКТ: FP. `isbad_alphabet()` отвергает алфавит длины < 2, поэтому base >= 2 всегда.
+   Корень — #576/#580 (защита вне функции, через вызов другой функции).
+
+2) sorting/odd_even_sort.c: [BOUNDS PATH] `i <= size` off-by-one
+   Живой ASan: размеры 0..8 — ЧИСТО (OOB не воспроизводится).
+   Но при size = INT_MIN: `size - 2` переполняется ->
+     runtime error: signed integer overflow: -2147483648 - 1
+     AddressSanitizer: stack-buffer-overflow in oddEvenSort (oe_fn.c:15)
+   ВЕРДИКТ: TP только на границе домена (size = INT_MIN). В апстрим НЕ отправлено:
+   реальные вызовы всегда дают size >= 0, а «падает при INT_MIN» — слабая заявка.
+
+3) sorting/binary_insertion_sort.c: `int mid = low + (high - 1) / 2;`
+   Та же граница: `high - 1` переполняется при high = INT_MIN. Отдельно — вопрос
+   корректности (это не классическая середина), но не UB. НЕ отправлено, требует отдельного разбора.
+
+4) НЕ ТРИАЖИРОВАНО: data_structures/heap/{max,min}_heap.c (up_heapify), graphs/hamiltonian.c,
+   stack/dynamic_stack.c (double_array), sorting/heap_sort.c, sorting/multikey_quick_sort.c (x3),
+   sorting/radix_sort_2.c (countSort, place == 0).
+
+## Вывод
+После первых четырёх настоящих багов (prime_sieve x2, fibonacci_dp, binary_search) оставшиеся
+находки в этом репозитории — снова КЛАСС ГРАНИЦЫ ДОМЕНА (INT_MIN) и КЛАСС СКРЫТОЙ ЗАЩИТЫ (#576/#580).
+Это ожидаемо: настоящие баги вымываются первыми, дальше идёт шум модели.
