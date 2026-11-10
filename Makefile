@@ -638,6 +638,11 @@ loop-check: build
 state-inv-check: build
 	@bash tools/state_inv_check.sh
 
+# РЕГРЕССИИ «PROVEN» (#593/#596/#604): длина неотрицательна и ОДИН символ
+# на одну длину — двусторонний контроль, чтобы дефект не вернулся.
+proven-regressions-check:
+	@bash tests/proven_regressions.sh
+
 # ЭШЕЛОН 4, ПУНКТ 22: модель IEEE-754 с NaN (trusted: 0 | holes: 0).
 float-nan-check: build
 	@bash tools/float_nan_check.sh

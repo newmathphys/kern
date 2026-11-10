@@ -10807,6 +10807,20 @@ def _subst(text: str, mapping: dict[str, str]) -> str:
     return text
 
 
+def _unify_len_symbols(s: str) -> str:
+    """Привести `len__x` к `kern_len_x` (дефект #604).
+
+    ДВА символа для ОДНОЙ длины — источник ложных обвинений: `requires`/инвариант
+    переводились через `_LenRewrite` (`kern_len_x`), а выражения В ТЕЛЕ
+    (`return len(items)`) — без него (`len__x`). ИЗМЕРЕНО на фикстуре
+    `state_len_ok.py`: контрпример `kern_len_items = 0, len__items = 1`
+    (одна величина с двумя значениями) -> ложный FAIL на корректной функции.
+
+    Замена КОРРЕКТНА: оба имени обозначают длину одного и того же `x`.
+    """
+    return re.sub(r"\blen__(\w+)", r"kern_len_\1", s or "")
+
+
 def _len_axioms(*exprs) -> list:
     """Аксиома `len(x) >= 0` для всех символов длины в формулах (#593/#596).
 
@@ -10929,6 +10943,10 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     # `len = -1`. ИЗМЕРЕНО на РЕАЛЬНОМ `bisect_left` из TheAlgorithms/Python
     # (функция корректна, живой прогон падения не даёт):
     #   [FAIL] LOOP INVARIANT VIOLATED at init; контрпример: len__... = -1
+    inv, cond, dec, req_smt, ens_smt = (_unify_len_symbols(inv), _unify_len_symbols(cond),
+                                       _unify_len_symbols(dec), _unify_len_symbols(req_smt),
+                                       _unify_len_symbols(ens_smt))
+    ret = _unify_len_symbols(ret)
     pre = pre + _len_axioms(inv, cond, ret, req_smt, dec, ens_smt)
     # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
     # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`
@@ -10962,6 +10980,9 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     else:
         res.append(f"[SKIP] {fn.name}: нет `# @kern:decreases` — остановка НЕ проверена")
         unknowns += 1
+    # ДЕФЕКТ #604 (добивка): унификация длины применяется к ГОТОВЫМ
+    # обязательствам — так не остаётся формулы, забывшей переписать `len__x`.
+    checks = [(k, d, [_unify_len_symbols(a) for a in asr]) for k, d, asr in checks]
     for kind, dcl, asserts in checks:
         v, ce = _smt_verdict(kernc, dcl, asserts)
         if v == "sat":
@@ -11137,6 +11158,10 @@ def cmd_state_inv(path: str, kernc) -> int:
         # Аксиома `len(x) >= 0` была добавлена только в верификатор ЦИКЛОВ,
         # а `--state-inv` остался без неё и объявлял корректную функцию
         # нарушителем. Ставим аксиому для всех символов длины в формулах.
+        # ДЕФЕКТ #604: ОДИН символ длины для всех формул.
+        inv = _unify_len_symbols(inv)
+        req = _unify_len_symbols(req)
+        rets = [(_p, _unify_len_symbols(_r), _l) for _p, _r, _l in rets]
         pre = pre + _len_axioms(inv, req, *[_r for _p, _r, _l in rets])
         fails = unknowns = 0
         for pth, ret, ln in rets:

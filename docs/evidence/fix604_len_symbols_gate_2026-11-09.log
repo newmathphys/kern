@@ -1,0 +1,26 @@
+# #604: ДВА символа для ОДНОЙ длины (тело vs контракт) + новый гейт регрессий
+
+## #604 (найдено фикстурой, которую я сам же написал)
+Реальная функция с постусловием `0 <= result <= len(items)`:
+    [FAIL] clamp_index: STATE INVARIANT VIOLATED
+    контрпример: kern_len_items = 0, len__items = 1
+ОДНА И ТА ЖЕ длина получила ДВА РАЗНЫХ значения: контракт переводился через
+`_LenRewrite` (`kern_len_x`), а выражения В ТЕЛЕ (`return len(items)`) — нет
+(`len__x`). Тот же класс, что #597, но для `return`.
+Правка: `_unify_len_symbols()` (`len__x` -> `kern_len_x`, оба имени означают
+длину одного и того же x) + добивка по ГОТОВЫМ обязательствам.
+Замер: fixtures/proven/state_len_ok.py FAIL -> PASS (3 выхода), нарушение
+по-прежнему ловится.
+
+## НОВЫЙ ГЕЙТ: tests/proven_regressions.sh (make proven-regressions-check)
+Четыре двусторонних контроля на случаях, которые ЛОМАЛИСЬ:
+  loops_len_ok   -> [PASS] PROVEN      (#593: len(x) >= 0)
+  loops_len_bad  -> [FAIL] VIOLATED    (нарушение видно)
+  state_len_ok   -> [PASS] PROVEN      (#596/#597/#604: один символ длины)
+  state_len_bad  -> [FAIL] VIOLATED    (нарушение видно)
+  плюс требование «0 UNKNOWN» на корректных фикстурах.
+Зарегистрирован в tools/registry.py как CHECK; числа витрины сведены
+(CHECK 205 -> 206, целей 282 -> 283).
+
+## Проверено, что прежнее не сломано
+gcd_seq (НОД) -> PROVEN; bisect_left --state-inv -> PROVEN; ci-fast -> 0.

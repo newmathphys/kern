@@ -17,8 +17,8 @@ core-and-semantics stage to zero before touching external benchmarks.
 | **#344/#341** `define-fun` expansion + constant arithmetic | `evm-proof-check`: `посылок 1/1 \| ДОВЕРЕННЫХ 0 \| дыр 0` on all three EVM identities |
 | Release v2.7.1 | signed tag; 4 assets including `kern.intoto.jsonl` and `.sig` |
 
-Registry at the start: **<!-- fact:registry_targets -->282 targets ·
-<!-- fact:check_targets -->205 CHECK · <!-- fact:canfail_cases -->250 can-fail cases**.
+Registry at the start: **<!-- fact:registry_targets -->283 targets ·
+<!-- fact:check_targets -->206 CHECK · <!-- fact:canfail_cases -->250 can-fail cases**.
 
 ### The defect this cycle starts with
 
@@ -92,8 +92,8 @@ the refactor could be checked against a *measured* baseline.
 | Lean 4 | **<!-- fact:lean_theorems -->147 theorems, `0 sorry`** |
 | can-fail harness | **<!-- fact:canfail_cases -->250 non-vacuous / 0 vacuous / 0 case errors** |
 | Self-scan `--xray tools/` | **0 `[BOUNDS PATH]`, 0 `[CRASH PATH]`** |
-| Registry | **<!-- fact:registry_targets -->282 targets, highest defect number <!-- fact:max_defect -->603** |
-| CHECK targets | **<!-- fact:check_targets -->205**, each with a non-vacuous case |
+| Registry | **<!-- fact:registry_targets -->283 targets, highest defect number <!-- fact:max_defect -->604** |
+| CHECK targets | **<!-- fact:check_targets -->206**, each with a non-vacuous case |
 
 The cycle is closed. The next cycle starts from the §3 "out of scope" list above,
 in the order the evidence justifies.
