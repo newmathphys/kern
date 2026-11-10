@@ -5837,12 +5837,19 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             # Поэтому: путь НЕ сужаем (гард не выдумываем), но ОБЕ ветви
             # обходим с ТЕМ ЖЕ путём — проверки внутри тела сохраняются.
             if cond and "havoc" in cond:
+                # ДЕФЕКТ #581: непереводимое условие может быть ПРЕДИКАТОМ, у
+                # которого есть суммаризация (`is_bad(x) == False => not cond`).
+                # Тогда ветвь else и код после выходящей ветви получают этот
+                # факт — ровно как при прямой проверке.
+                _pf = _pred_neg_facts(st.test, syms)
                 skipped.append(f"{fnname}: условие на строке {st.lineno} "
                                f"вне подмножества — путь не сужается (#589)")
                 _walk_branches(st.body, path, params, kernc, found, skipped,
                                fnname, syms, env)
-                _walk_branches(st.orelse, path, params, kernc, found, skipped,
-                               fnname, syms, env)
+                _walk_branches(st.orelse, path + _pf, params, kernc, found,
+                               skipped, fnname, syms, env)
+                if _pf and not st.orelse and _block_exits(st.body):
+                    path = path + _pf
                 continue
             # ДОСТИЖИМА ли ветка THEN?
             sat_then = _smt_sat(kernc, params, path + [cond])
@@ -6644,7 +6651,10 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             _walk_bounds(st.body, eff + ([cond] if cond else []), params, lens,
                          kernc, found, fname, syms, in_while=in_while, notes=notes)
             neg = f"(not {cond})" if cond else None
-            _walk_bounds(st.orelse, eff + ([neg] if neg else []), params, lens,
+            # ДЕФЕКТ #581: если условие — ПРЕДИКАТ с суммаризацией, ветвь else
+            # (и код после выходящей ветви) знает `not cond(arg)`.
+            _pf = _pred_neg_facts(st.test, syms)
+            _walk_bounds(st.orelse, eff + ([neg] if neg else []) + _pf, params, lens,
                          kernc, found, fname, syms, in_while=in_while, notes=notes)
             # ИНДЕКСЫ В УСЛОВИИ `if` (дефект #315): ветка завершается `continue`,
             # поэтому общий `ast.walk` по инструкции до них НЕ доходил — индекс
@@ -6656,8 +6666,8 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             # `get_safe` (с гардами) ЛОЖНО обвинялся в выходе за границы.
             # Если ветка THEN безусловно завершается, то всё последующее
             # выполняется при `NOT cond` -> сужаем путь.
-            if neg and _block_exits(st.body):
-                path = eff + [neg]
+            if _block_exits(st.body) and (neg or _pf):
+                path = eff + ([neg] if neg else []) + _pf
             continue
         # ДЕФЕКТ #314: циклы и `match` по длине не моделировались вовсе — их
         # тела обходились БЕЗ сужения, поэтому индексы, ограниченные идиомой
@@ -6893,6 +6903,96 @@ def _monotone_loop_guards(loop, path, const_env, syms, kernc, params) -> list:
             f"(not (>= {new_expr} {init_smt}))"]
         if _smt_sat(kernc, params, viol) is False:
             out.append(f"(>= {var} {init_smt})")
+    return out
+
+
+_PRED_SUMMARIES: dict = {}
+
+
+class _SubstParam(ast.NodeTransformer):
+    """Подставить фактический аргумент вместо параметра предиката."""
+
+    def __init__(self, param: str, arg):
+        self.param = param
+        self.arg = arg
+
+    def visit_Name(self, node):  # noqa: N802
+        if node.id == self.param:
+            import copy
+            return copy.deepcopy(self.arg)
+        return node
+
+
+def _predicate_summaries(tree) -> dict:
+    """Суммаризация функций-предикатов (дефект #581).
+
+    ИЗМЕРЕНО (полигон `tb7`/`tb8`): защита в ВЫЗЫВАЕМОЙ функции не сужала путь
+
+        def is_bad(base):
+            if base < 3: return True
+            return False
+        def f(a, base):
+            if is_bad(base): return None      # после этого base >= 3
+            return a // (base - 2)            # деления на ноль быть не может
+
+    и `a // (base - 2)` обвинялось в делении на ноль, тогда как прямая охрана
+    (`if base < 3: return None`) обвинение снимает (tb7 = 0, tb8 = 1).
+
+    ЧТО ИМЕННО ЗВУЧНО. `f(x) == False` означает, что НИ ОДНА ветвь, возвращающая
+    True, не сработала, то есть `not cond` для КАЖДОГО такого условия. Поэтому
+    берётся только направление
+        f(x) == False  =>  not cond[param := x]
+    Обратное (`== True => cond`) НЕЛЬЗЯ: истину может дать другая ветвь.
+    """
+    out: dict = {}
+    for fn in ast.walk(tree):
+        if not isinstance(fn, ast.FunctionDef) or len(fn.args.args) != 1:
+            continue
+        param = fn.args.args[0].arg
+        conds: list = []
+        falses = 0
+        for st in fn.body:
+            if isinstance(st, ast.Return):
+                if isinstance(st.value, ast.Constant) and st.value.value is False:
+                    falses += 1
+                continue
+            if (isinstance(st, ast.If) and len(st.body) == 1
+                    and isinstance(st.body[0], ast.Return)
+                    and isinstance(st.body[0].value, ast.Constant)
+                    and st.body[0].value.value is True):
+                conds.append(st.test)
+        if falses and conds:
+            out[fn.name] = (param, conds)
+    return out
+
+
+def _pred_neg_facts(test, syms) -> list:
+    """Гарды, истинные при `test == False` для суммаризованного предиката."""
+    if not _PRED_SUMMARIES:
+        return []
+    call = test
+    negated = False
+    if isinstance(call, ast.UnaryOp) and isinstance(call.op, ast.Not):
+        call, negated = call.operand, True
+    if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+            and len(call.args) == 1):
+        return []
+    summ = _PRED_SUMMARIES.get(call.func.id)
+    if not summ:
+        return []
+    param, conds = summ
+    out: list = []
+    for cond_ast in conds:
+        try:
+            sub = _SubstParam(param, call.args[0]).visit(
+                ast.parse(ast.unparse(cond_ast), mode="eval").body)
+            ast.fix_missing_locations(sub)
+            c = _cond_smt(sub, syms)
+        except (Unsupported, NoReturn, SyntaxError):
+            continue
+        if not c or "havoc" in c:
+            continue
+        out.append(c if negated else f"(not {c})")
     return out
 
 
@@ -10116,6 +10216,11 @@ def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False,
     tree = ast.parse(src)
     src_lines = src.splitlines()  # ПУНКТ 21: директивы `# @kern:len(arr) = N`
     fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    # ДЕФЕКТ #581: суммаризация предикатов ЭТОГО файла
+    # (`is_bad(x) == False => not cond[param := x]`), чтобы защита из
+    # вызываемой функции сужала путь наравне с прямой проверкой.
+    _PRED_SUMMARIES.clear()
+    _PRED_SUMMARIES.update(_predicate_summaries(tree))
     # ПОЛЕВОЙ АДАПТЕР №3: константы уровня модуля (`MAX_SIZE = 1024`,
     # `HTTP_BAD_REQUEST = 400`). В живом коде магические числа не пишут —
     # пишут имя константы, и без подстановки условие уходило в SKIP.

@@ -45,9 +45,9 @@ Numbered entries: **492**.
 | Real defect found by KERN in a third-party repo | 2 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
 | Decision: considered and not adopted | 1 |
-| Rows in the earlier journal format (category column, no status) | 163 |
+| Rows in the earlier journal format (category column, no status) | 164 |
 
-**Open technical defects: 2** — #580, #581
+**Open technical defects: 1** — #580
 
 > The journal spans two table generations: earlier rows carry a *category*
 > (`gate`, `kernel`, ...) and no status at all, later rows carry an explicit

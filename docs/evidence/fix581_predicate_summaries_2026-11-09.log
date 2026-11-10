@@ -1,0 +1,22 @@
+# #581: суммаризация предикатов — ЗАКРЫТ (двусторонний контроль)
+
+## Полигон (шесть случаев)
+  tb6  без охраны                          -> 1 (база: находка ЕСТЬ)
+  tb7  if base < 3: return None           -> 0 (прямая охрана работает)
+  tb8  if is_bad(base): return None       -> 1 ДО правки (FP!)
+  tb9  if undefined_pred(base): return    -> 1 (нет суммаризации — не сужаем)
+  tb10 if 1 + 1 == 2: pass                -> 1
+  tb11 if undefined_pred(base): pass      -> 1
+  tb12 if base > 100: return None         -> 1
+
+## Правка
+`_predicate_summaries`: звукое направление `f(x) == False => not cond[param := x]`
+для каждой ветви, возвращающей True. Подключено в `_walk_branches` (ветвь else и
+код после выходящей ветви) и в `_walk_bounds`. Случай havoc (#589) обрабатывается
+первым: путь не сужается, но факт предиката добавляется.
+
+## Замер ПОСЛЕ
+  tb6 1->1  tb7 0->0  tb8 1->0  <<< ЭФФЕКТ
+  tb9..tb12 1->1 (ни одного выдуманного сужения)
+  корпус: searches 24, conversions 6, sorts 71, strings 26 — без изменений
+  make ci-fast -> ci=0
