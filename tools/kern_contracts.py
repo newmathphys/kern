@@ -5826,6 +5826,24 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             except (Unsupported, NoReturn):
                 skipped.append(f"{fnname}: условие на строке {st.lineno} вне подмножества")
                 continue
+            # ДЕФЕКТ #589 (ИЗМЕРЕНО): условие, переведённое в `_havoc_N`, НЕЛЬЗЯ
+            # класть в путь. Символ не объявлен, SMT-запрос становится
+            # НЕВАЛИДНЫМ, решатель отвечает `unknown` — и ВСЕ последующие
+            # обязанности МОЛЧА теряются (ложный ОТРИЦАТЕЛЬНЫЙ результат, хуже
+            # ложного обвинения).
+            #   if undefined_pred(base): return None   -> `_havoc_1`
+            #   return a // (base - 2)                 -> находки НЕТ (а без
+            #                                             этого `if` — есть)
+            # Поэтому: путь НЕ сужаем (гард не выдумываем), но ОБЕ ветви
+            # обходим с ТЕМ ЖЕ путём — проверки внутри тела сохраняются.
+            if cond and "havoc" in cond:
+                skipped.append(f"{fnname}: условие на строке {st.lineno} "
+                               f"вне подмножества — путь не сужается (#589)")
+                _walk_branches(st.body, path, params, kernc, found, skipped,
+                               fnname, syms, env)
+                _walk_branches(st.orelse, path, params, kernc, found, skipped,
+                               fnname, syms, env)
+                continue
             # ДОСТИЖИМА ли ветка THEN?
             sat_then = _smt_sat(kernc, params, path + [cond])
             if sat_then is False:
