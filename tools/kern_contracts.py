@@ -8634,6 +8634,12 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
     mask = _strip_c_comments_strings(body)
     var_ranges = dict(ranges or {})
     var_ranges.update(_clike_local_ranges(mask))
+    # ДЕФЕКТ #590: литералы с суффиксом `U` делают арифметику БЕЗЗНАКОВОЙ, а
+    # переполнение беззнакового в C ОПРЕДЕЛЕНО (заворачивание), то есть НЕ UB.
+    # ИЗМЕРЕНО на `attractivechaos/klib` (`cpp/khashl.hpp:46`):
+    #     return hash * 11400714819323198485ULL >> (64 - bits);
+    # давало `[OVERFLOW PATH] __kh_h2b: переполнение типа i64` — ЛОЖНОЕ.
+    _u_lits = {int(m.group(1)) for m in re.finditer(r"\b(\d+)[uU][lL]{0,2}\b", mask)}
     consts = _clike_const_locals(body, mask)
     if not var_ranges:
         return _clike_incdec_findings(name, mask, var_ranges, consts)
@@ -8726,6 +8732,13 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
             #   Постоянные локальные сюда не попадают: их обрабатывает статическая
             # ветка выше (`_const_eval`), и она точнее решателя.
             if any(nm not in set(params) for nm in names):
+                continue
+            # ДЕФЕКТ #590: беззнаковый литерал в выражении -> арифметика
+            # беззнаковая -> переполнение ОПРЕДЕЛЕНО, обвинять нельзя.
+            if _u_lits and any(isinstance(_c, ast.Constant)
+                               and isinstance(_c.value, int)
+                               and _c.value in _u_lits
+                               for _c in ast.walk(node)):
                 continue
             _ov_path = (path_conds + _clike_conds_at(pos, if_blocks, body)
                         + [f"(or (> {whole} {hi}) (< {whole} {lo}))"])
