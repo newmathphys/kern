@@ -145,5 +145,27 @@ else
   echo "[FAIL] отказ без причины"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 18 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #610: НЕЛИНЕЙНАЯ арифметика (QF_NIA): условие с произведением
+out=$(timeout 250 $P --loops $F/nia_guard_ok.py 2>&1)
+if printf '%s' "$out" | grep -q '\[PASS\] count_steps: PROVEN'; then
+  echo "[OK]   NIA: цикл с фактор-произведением доказан"
+else
+  echo "[FAIL] NIA: нелинейное условие не доказано (#610 вернулся)"; fail=1
+fi
+# --- #610: инвариант С ПРОИЗВЕДЕНИЕМ (настоящая QF_NIA-задача)
+out=$(timeout 250 $P --loops $F/nia_sqrt_ok.py 2>&1)
+if printf '%s' "$out" | grep -q '\[PASS\] sqrt_steps: PROVEN'; then
+  echo "[OK]   NIA: инвариант с квадратом доказан"
+else
+  echo "[FAIL] NIA: инвариант с произведением не доказан"; fail=1
+fi
+# --- NIA-ОТРИЦАТЕЛЬНЫЙ: шаг +2 обязан ломать инвариант
+out=$(timeout 250 $P --loops $F/nia_bad.py 2>&1)
+if printf '%s' "$out" | grep -q 'LOOP INVARIANT VIOLATED'; then
+  echo "[OK]   NIA: нарушение инварианта с произведением поймано"
+else
+  echo "[FAIL] NIA: нарушение НЕ поймано — доказательство незвучно"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 21 двусторонний контроль (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

@@ -242,6 +242,8 @@ def _replay_soft(exc: BaseException, where: str = "replay") -> None:
 # доказательства корректности. Поэтому SAT-контрпример обязан подтвердиться
 # ЖИВЫМ вызовом (Live Replay) — иначе он не считается нарушением (#206).
 _UNROLL_K: list = [max(1, int(os.environ.get("KERN_UNROLL_K", "2")))]
+# ДЕФЕКТ #610: разрешение НЕЛИНЕЙНОЙ арифметики (QF_NIA) по режимам.
+_ALLOW_NIA: list = [False]   # включается в --loops/--state-inv
 _UNROLLED: list = [False]   # в трансляции была развёртка цикла/рекурсии
 # ПОЛИГОН 3 (QF_AX): имена-массивы текущей функции (из `@kern:array`) и их
 # ТЕКУЩЕЕ SMT-состояние. Пусто -> поведение прежнее (каскад `ite` для списков).
@@ -563,7 +565,16 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
         elif isinstance(node.op, ast.Mult):
             # Умножение разрешено, если ХОТЯ БЫ один множитель — константа
             # (в том числе локальная: `const k = 2; x * k`).
-            if not _int_literal(node.right, env) and not _int_literal(node.left, env):
+            # ДЕФЕКТ #610: НЕЛИНЕЙНОЕ умножение (`factor * factor`) раньше
+            # отвергалось ВСЕГДА, и реальный `next_prime_number.py` из
+            # TheAlgorithms/Python уходил в SKIP. Но SMT-LIB умеет `(* x y)`
+            # точно, а QF_NIA решается решателем (иногда `unknown` — и это
+            # ЧЕСТНЫЙ исход, а не ложный вердикт). Поэтому нелинейность
+            # разрешается ТОЛЬКО когда её включил вызывающий режим
+            # (`_ALLOW_NIA`), чтобы контрактные проверки в QF_LIA не поехали.
+            if (not _int_literal(node.right, env)
+                    and not _int_literal(node.left, env)
+                    and not _ALLOW_NIA[0]):
                 raise Unsupported("нелинейное умножение")
             op = "*"
         elif isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
@@ -11209,7 +11220,12 @@ _loop_lines: dict[int, list[str]] = {}
 
 
 def cmd_loops(path: str, kernc) -> int:
-    """ПУНКТ 20: проверка циклов (`make loop-check`)."""
+    """ПУНКТ 20: проверка циклов (`make loop-check`).
+
+    ДЕФЕКТ #610: в этом режиме разрешена НЕЛИНЕЙНАЯ арифметика (QF_NIA) —
+    иначе типовое `while factor * factor <= number` уходило в SKIP.
+    """
+    _ALLOW_NIA[0] = True
     p = Path(path)
     src = p.read_text(encoding="utf-8", errors="replace")
     lines = src.splitlines()
@@ -11305,7 +11321,11 @@ def _returns_with_path(body, path, syms, out):
 
 
 def cmd_state_inv(path: str, kernc) -> int:
-    """ПУНКТ 24: инвариант состояния (`make state-inv-check`)."""
+    """ПУНКТ 24: инвариант состояния (`make state-inv-check`).
+
+    ДЕФЕКТ #610: нелинейная арифметика разрешена (см. `_ALLOW_NIA`).
+    """
+    _ALLOW_NIA[0] = True
     src = Path(path).read_text(encoding="utf-8", errors="replace")
     lines = src.splitlines()
     tree = ast.parse(src)
