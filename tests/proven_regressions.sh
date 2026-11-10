@@ -79,5 +79,19 @@ else
   echo "[FAIL] diff-equiv: расхождение НЕ поймано"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 10 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv), 0 unknown"
+# --- #207: --diff-equiv обязан доказать эквивалентность ЦИКЛОВ (LOCKSTEP)
+out=$(timeout 250 $P --diff-equiv $F/loop_eq_old.py $F/loop_eq_ok.py 2>&1)
+if printf '%s' "$out" | grep -q 'EQUIVALENT.*LOCKSTEP'; then
+  echo "[OK]   diff-equiv: эквивалентные ЦИКЛЫ доказаны (lockstep)"
+else
+  echo "[FAIL] diff-equiv: эквивалентные циклы НЕ доказаны (#207 вернулся)"; fail=1
+fi
+out=$(timeout 250 $P --diff-equiv $F/loop_eq_old.py $F/loop_eq_bad.py 2>&1)
+if printf '%s' "$out" | grep -q 'DIVERGED'; then
+  echo "[OK]   diff-equiv: расходящиеся циклы пойманы"
+else
+  echo "[FAIL] diff-equiv: расхождение ЦИКЛОВ не поймано"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 12 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

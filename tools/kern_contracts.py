@@ -3552,6 +3552,111 @@ def classify_prove(rc: int, out: str) -> str:
     return "tool_error"
 
 
+def _guard_int(s: str) -> str:
+    """Охранное условие как 0/1 (дефект #207).
+
+    Python-истинность и сравнение должны дать ОДНО значение:
+      `while b:`      -> `(ite (= b 0) 0 1)`
+      `while b != 0:` -> `(ite (not (= b 0)) 1 0)`
+    Оба дают 1 при `b != 0`, поэтому условия считаются равными — это и нужно
+    для lockstep-сравнения циклов.
+    """
+    cmp_ops = ("<", ">", "<=", ">=", "and", "or", "not", "=", "distinct")
+    if s.startswith("(") and s[1:].split(" ", 1)[0].lstrip("(") in cmp_ops:
+        return f"(ite {s} 1 0)"
+    return f"(ite (= {s} 0) 0 1)"
+
+
+def _loop_lockstep(old_path: str, new_path: str, name: str, params, kernc) -> str:
+    """Эквивалентность ДВУХ ЦИКЛОВ по LOCKSTEP (закрывает #207).
+
+    ПОЧЕМУ LOCKSTEP, А НЕ ИНДУКЦИЯ. Если у двух циклов совпадают (а) охранное
+    условие и (б) отображение «состояние -> новое состояние», то оба цикла
+    проходят ОДНУ И ТУ ЖЕ последовательность состояний и завершаются в одном
+    месте — значит результаты равны, включая случай незавершения. Индукция по
+    числу итераций не нужна, и «развёртка на K шагов» больше не требуется.
+
+    ЗВУЧНОСТЬ: доказывается РАВЕНСТВО переходов (три UNSAT-проверки), а не
+    «похожесть». Если тело содержит ветви (`if`) или не моделируемое
+    управление — честный UNKNOWN: там нужен инвариант, а не lockstep.
+    """
+    def loop_of(path: str):
+        try:
+            tree = ast.parse(Path(path).read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError:
+            return None
+        fn = next((n for n in ast.walk(tree)
+                   if isinstance(n, ast.FunctionDef) and n.name == name), None)
+        if fn is None:
+            return None
+        loops = [i for i, st in enumerate(fn.body) if isinstance(st, ast.While)]
+        if len(loops) != 1:
+            return None
+        if any(not isinstance(st, (ast.While, ast.Return)) for st in fn.body):
+            return None
+        idx = loops[0]
+        loop = fn.body[idx]
+        try:
+            paths = _assign_paths(loop.body)
+            guard = _unify_len_symbols(expr_smt(loop.test, {}))
+        except (Unsupported, NoReturn, Exception):
+            return None
+        if len(paths) != 1:
+            return None            # ветви: нужен инвариант, lockstep не годится
+        rets = [st for st in fn.body[idx + 1:] if isinstance(st, ast.Return)]
+        if len(rets) != 1 or rets[0].value is None:
+            return None
+        names = sorted({p for p in params} | {a for a, _ in paths[0]})
+        state_c = {v: v for v in names}
+        state_n = _apply(state_c, paths[0])
+        try:
+            post = _unify_len_symbols(expr_smt(rets[0].value, state_n))
+        except (Unsupported, NoReturn, Exception):
+            return None
+        trans = {v: _unify_len_symbols(state_n.get(v, v)) for v in names}
+        return guard, trans, post, names
+
+    A, B = loop_of(old_path), loop_of(new_path)
+    if not A or not B:
+        return "unknown"
+    ga, ta, poa, na = A
+    gb, tb, pob, nb = B
+    names = sorted(set(na) | set(nb))
+    decls = "\n".join(f"(declare-const {p} Int)"
+                      for p in sorted(set(params) | set(names)))
+
+    def verdict(assertion: str) -> str:
+        smt = ("(set-logic ALL)\n" + decls
+               + f"\n(assert {assertion})\n(check-sat)\n")
+        try:
+            rc, out = run_kernc(kernc, smt, query_kind="equivalence")
+        except Exception:                                        # noqa: BLE001
+            return "unknown"
+        return classify_prove(rc, out)
+
+    # НАБЛЮДАЕМЫЕ имена: параметры + всё, что входит в ПОСТУСЛОВИЕ.
+    # Временные (`t` в одной версии, `r` в другой) сравнивать НЕЛЬЗЯ: они уже
+    # устранены подстановкой в переходах `a`/`b`, а их имена разные — сравнение
+    # давало ложное DIVERGED (проверено на эквивалентной паре gcd).
+    # ВНИМАНИЕ: сравнение по ГРАНИЦЕ СЛОВА, а не по подстроке — иначе имя `t`
+    # «находится» внутри `(ite ...)` и временная переменная попадает в
+    # наблюдаемые (ИЗМЕРЕНО: дало ложное DIVERGED на эквивалентной паре gcd).
+    _obs = {p for p in params}
+    for _n in na + nb:
+        if re.search(rf"\b{re.escape(_n)}\b", poa + " " + pob):
+            _obs.add(_n)
+    obs = sorted(_obs)
+    verdicts = [verdict(f"(distinct {_guard_int(ga)} {_guard_int(gb)})")]
+    for v in obs:
+        verdicts.append(verdict(f"(distinct {ta.get(v, v)} {tb.get(v, v)})"))
+    verdicts.append(verdict(f"(distinct {poa} {pob})"))
+    if any(v == "diverged" for v in verdicts):
+        return "diverged"
+    if all(v == "equivalent" for v in verdicts):
+        return "equivalent"
+    return "unknown"
+
+
 def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     """УЛУЧШЕНИЕ №3: доказать эквивалентность рефакторинга БЕЗ контрактов."""
     if not Path(kernc).exists():
@@ -3593,9 +3698,24 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
         # ДЕФЕКТ #207: развёртка — недо-аппроксимация. UNSAT на K шагах НЕ
         # доказывает эквивалентность (цикл может идти дальше). Только UNKNOWN.
         if ua or ub:
+            # ДЕФЕКТ #207: LOCKSTEP вместо развёртки. Если охранные условия и
+            # переходы состояния совпадают, циклы идут одной трассой —
+            # эквивалентность доказывается БЕЗ индукции и без K шагов.
+            _ls = _loop_lockstep(old_file, new_file, name, pa, kernc)
+            if _ls == "equivalent":
+                print(f"  [EQUIVALENT] {name}: циклы совпадают по LOCKSTEP "
+                      f"(условие + переход + постусловие доказаны)")
+                same += 1
+                continue
+            if _ls == "diverged":
+                print(f"  [DIVERGED] {name}: циклы РАСХОДЯТСЯ "
+                      f"(условие/переход/постусловие различаются)")
+                diverged += 1
+                continue
             unknown += 1
             print(f"  [UNKNOWN] {name}: развёртка цикла/рекурсии — "
-                  f"эквивалентность НЕДОКАЗУЕМА (дефект #207)")
+                  f"эквивалентность НЕДОКАЗУЕМА (дефект #207); "
+                  f"LOCKSTEP не применим (ветви/управление в теле)")
             continue
         rc, out = run_kernc(kernc, diff_equiv_smt(pa, ba, bnew), query_kind="equivalence")
         verdict = classify_prove(rc, out)

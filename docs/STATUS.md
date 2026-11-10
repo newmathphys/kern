@@ -36,7 +36,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->250**, of which
 
 ## Defect journal
 
-Numbered entries: **506**.
+Numbered entries: **507**.
 
 | Explicit status | Count |
 | --- | --- |
@@ -45,7 +45,7 @@ Numbered entries: **506**.
 | Real defect found by KERN in a third-party repo | 2 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
 | Decision: considered and not adopted | 1 |
-| Rows in the earlier journal format (category column, no status) | 179 |
+| Rows in the earlier journal format (category column, no status) | 180 |
 
 **Open technical defects: 0**
 
