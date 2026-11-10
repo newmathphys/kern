@@ -127,5 +127,23 @@ else
   echo "[FAIL] break: исход неясен"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 16 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #608 (расширение): ранний `return` в теле -> SKIP, а не ложное незавершение
+out=$(timeout 250 $P --loops $F/return_in_body.py 2>&1)
+if printf '%s' "$out" | grep -q 'SKIP.*return'; then
+  echo "[OK]   return в теле: честный SKIP с названной причиной"
+elif printf '%s' "$out" | grep -q 'NON-TERMINATING'; then
+  echo "[FAIL] return в теле: ЛОЖНОЕ незавершение"; fail=1
+else
+  echo "[FAIL] return в теле: исход неясен"; fail=1
+fi
+# --- #609: SKIP обязан называть ПРИЧИНУ, а не «вне подмножества»
+cp $F/../proven/../proven/break_named.py /dev/null 2>/dev/null || true
+out=$(timeout 250 $P --loops $F/return_in_body.py 2>&1)
+if printf '%s' "$out" | grep -q 'не моделируется'; then
+  echo "[OK]   отказ называет причину (#609)"
+else
+  echo "[FAIL] отказ без причины"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 18 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

@@ -10987,8 +10987,9 @@ def _assigns(stmts) -> list[tuple[str, str]]:
                 and isinstance(st.targets[0], ast.Name)):
             try:
                 out.append((st.targets[0].id, expr_smt(st.value, {})))
-            except (Unsupported, NoReturn):
-                raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
+            except (Unsupported, NoReturn) as _e:
+                raise Unsupported(
+                    f"присваивание на строке {st.lineno}: {_e or 'вне подмножества'}")
         elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name):
             # ДЕФЕКТ #605: `x //= k` и `x %= k` не поддерживались (только + - *),
             # поэтому типовой цикл `while n > 0: res += n % 10; n //= 10`
@@ -11018,8 +11019,9 @@ def _assigns(stmts) -> list[tuple[str, str]]:
                             if isinstance(st.op, ast.FloorDiv)
                             else _mod_smt(st.target.id, _rhs,
                                           _floor_div_smt(st.target.id, _rhs)))
-                except (Unsupported, NoReturn):
-                    raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
+                except (Unsupported, NoReturn) as _e:
+                    raise Unsupported(
+                        f"присваивание на строке {st.lineno}: {_e or 'вне подмножества'}")
                 out.append((st.target.id, _new))
                 continue
             op = {"Add": "+", "Sub": "-", "Mult": "*"}.get(type(st.op).__name__)
@@ -11027,8 +11029,11 @@ def _assigns(stmts) -> list[tuple[str, str]]:
                 raise Unsupported(f"+=/-= только на строке {st.lineno}")
             try:
                 out.append((st.target.id, f"({op} {st.target.id} {expr_smt(st.value, {})})"))
-            except (Unsupported, NoReturn):
-                raise Unsupported(f"присваивание на строке {st.lineno} вне подмножества")
+            except (Unsupported, NoReturn) as _e:
+                # ДЕФЕКТ #609: НАЗВАТЬ ПРИЧИНУ, а не «вне подмножества». Иначе
+                # SKIP не отличает нелинейное умножение от непереводимого вызова.
+                raise Unsupported(
+                    f"присваивание на строке {st.lineno}: {_e or 'вне подмножества'}")
     return out
 
 
@@ -11058,7 +11063,10 @@ def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
         # NON-TERMINATING. ИЗМЕРЕНО на реальном
         # `maths/number_of_digits.py` (`while True: ...; if n == 0: break`):
         # корректная функция объявлялась незавершающейся при `n = 0`.
-        if isinstance(st, (ast.Break, ast.Continue)):
+        # Ранний `return` в теле — ТО ЖЕ САМОЕ: ИЗМЕРЕНО на `maths/two_pointer.py`
+        # (`if ...: return i`) — путь без присваивания давал ложное «вариант не
+        # убывает». Перечисляем ВСЕ выходы.
+        if isinstance(st, (ast.Break, ast.Continue, ast.Return)):
             raise Unsupported(
                 f"`{type(st).__name__.lower()}` в теле цикла (строка {st.lineno}) "
                 f"не моделируется")
