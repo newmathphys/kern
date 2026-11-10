@@ -5759,7 +5759,9 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             try:
                 path = path + [_cond_smt(st.test, syms, env)]
             except (Unsupported, NoReturn):
-                pass
+                # ДЕФЕКТ #576: непереводимый конъюнкт (`n & 1`) больше НЕ
+                # выбрасывает весь assert — берём переводимую часть.
+                path = path + _cond_smt_partial(st.test, syms, env)
             continue
         # ДЕФЕКТ #179 (Loop-Modified Variable Kill): переменная, которой
         # присваивают ВНУТРИ цикла, после цикла уже не равна начальному
@@ -6086,6 +6088,33 @@ def _cond_smt(node, syms: set, env=None):
     node = _LenRewrite(syms).visit(ast.parse(ast.unparse(node), mode="eval").body)
     ast.fix_missing_locations(node)
     return expr_smt(node, dict(env or {}))
+
+
+def _cond_smt_partial(node, syms: set, env=None) -> list:
+    """Транслируемые КОНЪЮНКТЫ условия (дефект #576).
+
+    `assert (n > 2) and (n & 1) and (2 <= base < n)` — побитовое `n & 1`
+    не переводится в Int-теорию, и раньше из-за ОДНОГО непереводимого
+    конъюнкта терялся ВЕСЬ гард: `x % n` при `n == 0` давал ложный
+    [CRASH PATH]. ИЗМЕРЕНО на more-itertools `_strong_probable_prime`
+    (00383df) — живой прогон `_strong_probable_prime(0, 2)` даёт
+    AssertionError, то есть обвинение было ложным.
+
+    Взять ЧАСТЬ конъюнктов КОРРЕКТНО: из истинности `A and B` следует
+    истинность `A`, поэтому такой гард не выдумывает ограничений — он
+    просто слабее полного. Непереводимый конъюнкт пропускается.
+    """
+    if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.And):
+        conj = node.values
+    else:
+        conj = [node]
+    out: list = []
+    for c in conj:
+        try:
+            out.append(_cond_smt(c, syms, env))
+        except (Unsupported, NoReturn):
+            continue
+    return out
 
 
 def _block_exits(body) -> bool:
