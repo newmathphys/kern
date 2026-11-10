@@ -10994,6 +10994,23 @@ def _assigns(stmts) -> list[tuple[str, str]]:
             # поэтому типовой цикл `while n > 0: res += n % 10; n //= 10`
             # уходил в SKIP с причиной «+=/-= только». ИЗМЕРЕНО на реальном
             # `maths/sum_of_digits.py` из TheAlgorithms/Python.
+            # ДЕФЕКТ #607: `x >>= k` / `x <<= k` НЕ поддерживались, хотя это
+            # типовой идиом циклов (`exponent >>= 1` в binary_exponentiation).
+            # В Python `x >> k` — ВСЕГДА floor(x / 2**k) (арифметический сдвиг,
+            # и для отрицательных тоже), а `x << k` — умножение на 2**k.
+            # Поэтому перевод звучен при ЛЮБОМ знаке; сдвиг берётся только
+            # ЛИТЕРАЛЬНЫЙ (иначе домен не ограничен).
+            if isinstance(st.op, (ast.RShift, ast.LShift)):
+                _sh = _const_int(st.value)
+                if _sh is None or _sh < 0:
+                    raise Unsupported(
+                        f"сдвиг на нелитеральную величину (строка {st.lineno})")
+                _pow = str(2 ** _sh)
+                _new = (_floor_div_smt(st.target.id, _pow)
+                        if isinstance(st.op, ast.RShift)
+                        else f"(* {st.target.id} {_pow})")
+                out.append((st.target.id, _new))
+                continue
             if isinstance(st.op, (ast.FloorDiv, ast.Mod)):
                 try:
                     _rhs = expr_smt(st.value, {})
@@ -11036,6 +11053,15 @@ def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
         if isinstance(st, (ast.Try, ast.While, ast.For, ast.With)):
             raise Unsupported(
                 f"управление внутри тела цикла (строка {st.lineno}) не моделируется")
+        # ДЕФЕКТ #608: `break`/`continue` НЕ моделировались и МОЛЧА игнорировались,
+        # поэтому выход из цикла «не замечался» и выносилось ложное
+        # NON-TERMINATING. ИЗМЕРЕНО на реальном
+        # `maths/number_of_digits.py` (`while True: ...; if n == 0: break`):
+        # корректная функция объявлялась незавершающейся при `n = 0`.
+        if isinstance(st, (ast.Break, ast.Continue)):
+            raise Unsupported(
+                f"`{type(st).__name__.lower()}` в теле цикла (строка {st.lineno}) "
+                f"не моделируется")
         one = _assigns([st])
         paths = [base + one for base in paths]
     return paths

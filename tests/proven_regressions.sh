@@ -110,5 +110,22 @@ else
   echo "[FAIL] //= / %= не поддержаны (#605 вернулся)"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 14 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #607: `>>=`/`<<=` поддержаны (реальный binary_exponentiation)
+out=$(timeout 250 $P --loops $F/binexp_ok.py 2>&1)
+if printf '%s' "$out" | grep -q '\[PASS\] bin_pow: PROVEN'; then
+  echo "[OK]   >>= поддержан (binary_exponentiation доказан)"
+else
+  echo "[FAIL] >>= не поддержан (#607 вернулся)"; fail=1
+fi
+# --- #608: `break` в теле -> честный SKIP с ПРИЧИНОЙ, а не ложное NON-TERMINATING
+out=$(timeout 250 $P --loops $F/break_named.py 2>&1)
+if printf '%s' "$out" | grep -q 'SKIP.*break'; then
+  echo "[OK]   break: честный SKIP с названной причиной"
+elif printf '%s' "$out" | grep -q 'NON-TERMINATING'; then
+  echo "[FAIL] break: ЛОЖНОЕ незавершение (#608 вернулся)"; fail=1
+else
+  echo "[FAIL] break: исход неясен"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 16 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

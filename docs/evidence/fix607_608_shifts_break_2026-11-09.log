@@ -1,0 +1,23 @@
+# #607, #608: сдвиги в теле цикла и `break` (найдены на реальных функциях)
+
+## #607: `x >>= k` / `x <<= k` не поддерживались
+ИЗМЕРЕНО на `maths/binary_exponentiation.py` (TheAlgorithms/Python):
+цикл `while exponent > 0: ...; exponent >>= 1` уходил в SKIP.
+В Python `x >> k` — ВСЕГДА floor(x / 2**k) (и для отрицательных тоже),
+`x << k` — умножение на 2**k; сдвиг берётся только ЛИТЕРАЛЬНЫЙ.
+ЗАМЕР: контракт (requires base >= 0, invariant exponent >= 0, decreases exponent)
+-> [PASS] PROVEN для РЕАЛЬНОЙ binary exponentiation.
+
+## #608: `break`/`continue` МОЛЧА игнорировались
+ИЗМЕРЕНО на `maths/number_of_digits.py` (`while True: ...; if n == 0: break`):
+выход из цикла не замечался, и КОРРЕКТНАЯ функция объявлялась незавершающейся
+(контрпример n = 0). Это ЛОЖНОЕ обвинение.
+Правка: `break`/`continue` в теле -> SKIP с НАЗВАННОЙ причиной.
+ЗАМЕР: [FAIL] NON-TERMINATING -> [SKIP] с причиной «break не моделируется».
+
+## Гейт: 16 контролей
+Добавлены: `>>=` поддержан (bin_pow PROVEN); `break` -> честный SKIP.
+
+## Что осталось названной границей
+`interpolation_search`: нелинейное умножение внутри деления -> SKIP
+(сообщение общее, точную причину надо уточнять).
