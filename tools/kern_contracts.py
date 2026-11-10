@@ -10986,6 +10986,35 @@ def _assigns(stmts) -> list[tuple[str, str]]:
                 f"управление внутри тела цикла (строка {st.lineno}) не моделируется")
         if (isinstance(st, ast.Assign) and len(st.targets) == 1
                 and isinstance(st.targets[0], (ast.Tuple, ast.List))):
+            # ДЕФЕКТ #611: ПРОСТОЕ распаковывание (`low, high = 0, n - 1`)
+            # отвергалось вместе со swap-ом (#595). Оно звучит, когда имена-цели
+            # НЕ встречаются в правой части: тогда последовательная подстановка
+            # эквивалентна одновременной. ИЗМЕРЕНО на `line_repair_search`
+            # из ~/ai_lab/rii (критическая функция вашего проекта).
+            tup, val = st.targets[0], st.value
+            if not (isinstance(val, (ast.Tuple, ast.List))
+                    and len(val.elts) == len(tup.elts)):
+                raise Unsupported(
+                    f"кортежное присваивание на строке {st.lineno}: правая часть "
+                    f"не кортеж той же длины")
+            tnames = [t.id for t in tup.elts if isinstance(t, ast.Name)]
+            if len(tnames) != len(tup.elts):
+                raise Unsupported(
+                    f"кортежное присваивание на строке {st.lineno}: цель не имя")
+            try:
+                vals = [expr_smt(v, {}) for v in val.elts]
+            except (Unsupported, NoReturn) as _e:
+                raise Unsupported(
+                    f"кортежное присваивание на строке {st.lineno}: {_e}")
+            _reads = set()
+            for _v in val.elts:
+                _reads |= {n.id for n in ast.walk(_v) if isinstance(n, ast.Name)}
+            if set(tnames) & _reads:
+                raise Unsupported(
+                    f"кортежное присваивание с перекрытием имён "
+                    f"(swap) на строке {st.lineno} не моделируется")
+            out.extend(zip(tnames, vals))
+            continue
             # ДЕФЕКТ #595: КОРТЕЖНОЕ ПРИСВАИВАНИЕ (`x, y = y, x % y`) раньше
             # МОЛЧА ПРОПУСКАЛОСЬ: тело цикла не моделировалось, а вердикт всё
             # равно выносился — то есть возможен ЛОЖНЫЙ PASS на непроверенном

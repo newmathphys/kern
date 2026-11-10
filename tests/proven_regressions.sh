@@ -167,5 +167,22 @@ else
   echo "[FAIL] NIA: нарушение НЕ поймано — доказательство незвучно"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 21 двусторонний контроль (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #611: простое распаковывание (реальная функция проекта пользователя)
+out=$(timeout 250 $P --loops $F/tuple_unpack_ok.py 2>&1)
+if printf '%s' "$out" | grep -q 'line_repair_search: PROVEN'; then
+  echo "[OK]   tuple-unpack: line_repair_search доказан"
+else
+  echo "[FAIL] tuple-unpack: реальная функция НЕ доказана (#611 вернулся)"; fail=1
+fi
+# --- swap (`x, y = y, x % y`) обязан остаться ИМЕНОВАННЫМ отказом
+out=$(timeout 250 $P --loops $F/swap_named.py 2>&1)
+if printf '%s' "$out" | grep -q 'SKIP.*swap'; then
+  echo "[OK]   swap: именованный отказ (не выдумываем путь)"
+elif printf '%s' "$out" | grep -q 'PROVEN'; then
+  echo "[FAIL] swap: доказан БЕЗ модели одновременности — незвучно"; fail=1
+else
+  echo "[FAIL] swap: исход неясен"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 23 двусторонних контроля (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail
