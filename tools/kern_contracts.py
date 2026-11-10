@@ -12948,7 +12948,14 @@ def _guard_covers(fn: ast.AST, node: ast.AST, div_py: str) -> bool:
                     if (isinstance(t, ast.Compare) and isinstance(t.ops[0], ast.Eq)
                             and ast.unparse(t.left) == div_py
                             and ast.unparse(t.comparators[0]) == "0"
-                            and any(isinstance(x, ast.Return) for x in st.body)):
+                            # ДЕФЕКТ #599: гард закрывает путь любым ТЕРМИНАТОРОМ,
+                            # не только `return`: `raise`, `continue`, `break`.
+                            # ИЗМЕРЕНО: при KERN_HEAL_GUARD=raise heal откатывал
+                            # УЖЕ ВЕРНЫЙ патч («остались краши» 4), потому что
+                            # здесь требовался именно `Return`.
+                            and any(isinstance(x, (ast.Return, ast.Raise,
+                                                   ast.Continue, ast.Break))
+                                    for x in st.body)):
                         return True
                 except Exception as _kern_e_6771:
                     _replay_soft(_kern_e_6771, "kern_contracts.py:6771")
@@ -12999,7 +13006,17 @@ def cmd_heal(path: str, kernc) -> int:
         target = lines[idx]
         indent = target[: len(target) - len(target.lstrip())]
         lines.insert(idx, f"{indent}if {guard_py}:  # [KERN HEAL] {fname}: защита от деления на 0")
-        lines.insert(idx + 1, f"{indent}    return 0")
+        # ДЕФЕКТ #599 (политика тела гарда): `return 0` меняет ПОВЕДЕНИЕ —
+        # научная функция вместо ZeroDivisionError молча возвращает 0 (тихо
+        # неверный результат). ИЗМЕРЕНО на реальном `molecular_chemistry.py`:
+        # доктесты проходят, но семантика хуже падения. Тело выбирается
+        # переменной окружения: KERN_HEAL_GUARD=raise -> исключение.
+        if os.environ.get("KERN_HEAL_GUARD", "zero").lower() == "raise":
+            lines.insert(
+                idx + 1,
+                f'{indent}    raise ValueError("{fname}: деление на 0 (гард KERN)")')
+        else:
+            lines.insert(idx + 1, f"{indent}    return 0")
     patched = "\n".join(lines) + ("\n" if original.endswith("\n") else "")
 
     try:
