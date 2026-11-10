@@ -65,5 +65,19 @@ if printf '%s' "$out" | grep -q 'крашей не найдено' && cmp -s $F/
 else
   echo "[FAIL] heal: тронул файл без крашей (ложное лечение)"; fail=1
 fi
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 8 двусторонних контролей (loops, state-inv, gen-tests, heal), 0 unknown"
+# --- --diff-equiv: эквивалентный рефакторинг ДОКАЗЫВАЕТСЯ, расхождение ЛОВИТСЯ
+out=$(timeout 200 $P --diff-equiv $F/eq_old.py $F/eq_new.py 2>&1)
+if printf '%s' "$out" | grep -q '\[EQUIVALENT\] clamp'; then
+  echo "[OK]   diff-equiv: эквивалентный рефакторинг доказан"
+else
+  echo "[FAIL] diff-equiv: эквивалентность НЕ доказана"; fail=1
+fi
+out=$(timeout 200 $P --diff-equiv $F/eq_old.py $F/eq_bad.py 2>&1)
+if printf '%s' "$out" | grep -q 'разошедшихся 1'; then
+  echo "[OK]   diff-equiv: расхождение поймано с контрпримером"
+else
+  echo "[FAIL] diff-equiv: расхождение НЕ поймано"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 10 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv), 0 unknown"
 exit $fail
