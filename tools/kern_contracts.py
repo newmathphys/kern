@@ -10885,6 +10885,16 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     invc = _subst(inv, state_c)
     invn = _subst(inv, state_n)
     pre = [req_smt] if req_smt else []
+    # ДЕФЕКТ #593: ДЛИНА НЕОТРИЦАТЕЛЬНА. `len(x) >= 0` — АКСИОМА, но символ
+    # длины (`len__x` / `kern_len_x`) приходил в решатель СВОБОДНЫМ, и он брал
+    # `len = -1`. ИЗМЕРЕНО на РЕАЛЬНОМ `bisect_left` из TheAlgorithms/Python
+    # (функция корректна, живой прогон падения не даёт):
+    #   [FAIL] LOOP INVARIANT VIOLATED at init; контрпример: len__... = -1
+    _len_syms = set()
+    for _t in (inv, cond, ret, req_smt, dec, ens_smt):
+        if _t:
+            _len_syms |= set(re.findall(r"\b(?:len__|kern_len_)\w+", _t))
+    pre = pre + [f"(>= {_s} 0)" for _s in sorted(_len_syms)]
     # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
     # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`
     # -> молчаливый PASS. Объявляем ВСЕ переменные состояния.
@@ -10895,7 +10905,12 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     # (Дефект #138: необъявленная переменная даёт `N`, что раньше читалось как PASS).
     decls_post = list(dict.fromkeys(decls + ["result"]))
     checks: list[tuple[str, list[str], list[str]]] = [
-        ("init", decls, pre + [f"(not {inv0})"]),
+        # ДЕФЕКТ #594: обязательство `init` ОБЯЗАНО быть под условием цикла.
+        # Инвариант нужен на входе в ИТЕРАЦИЮ, а первая итерация начинается
+        # только при истинном условии. Без этого `while lo < hi` с инвариантом
+        # `lo <= hi` (истинным ИМЕННО из-за условия) объявлялся нарушенным —
+        # ИЗМЕРЕНО на реальном `bisect_left` из TheAlgorithms/Python.
+        ("init", decls, pre + [f"(not (=> {_subst(cond, state_i)} {inv0}))"]),
         ("consecution", decls, pre + [invc, cond, f"(not {invn})"]),
     ]
     if ret is not None and ens_smt:
