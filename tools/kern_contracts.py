@@ -6733,6 +6733,41 @@ def _write_targets(root) -> set:
     return out
 
 
+def _div_lemmas(expr: str) -> list:
+    """ИСТИННЫЕ леммы о `(div X k)` при положительном литеральном `k` (#583).
+
+    Решатель отвечал `unknown` на индуктивный вопрос с Int-`div`, поэтому
+    доказательство инварианта не проходило. Леммы дают ровно тот факт, которого
+    не хватало:
+        X >= 0  =>  div(X, k) >= 0        (k >= 1)
+    Она ВЕРНА для любого X (для отрицательных floor-деление только уменьшает
+    значение, для неотрицательных — тем более), поэтому звучность сохраняется:
+    добавляем не догадку, а теорему.
+    """
+    out: list = []
+    i = 0
+    while True:
+        i = expr.find("(div ", i)
+        if i < 0:
+            break
+        depth, j = 0, i
+        while j < len(expr):
+            if expr[j] == "(":
+                depth += 1
+            elif expr[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        term = expr[i:j + 1]
+        body = term[len("(div "):-1].rsplit(" ", 1)
+        if len(body) == 2 and body[1].isdigit() and body[1] != "0":
+            x = body[0]
+            out.append(f"(=> (>= {x} 0) (>= {term} 0))")
+        i = j
+    return out
+
+
 def _monotone_loop_guards(loop, path, const_env, syms, kernc, params) -> list:
     """ИНВАРИАНТ НИЖНЕЙ ГРАНИЦЫ переменной цикла (дефект #583).
 
@@ -6786,9 +6821,9 @@ def _monotone_loop_guards(loop, path, const_env, syms, kernc, params) -> list:
             init_smt = str(int(init))
         except (TypeError, ValueError):
             continue
-        fresh = f"{var}#loop"
+        fresh = f"{var}__loop"
         # Последовательная подстановка присваиваний тела: значение `var` в конце
-        # итерации выражается через значение в начале (`var#loop`).
+        # итерации выражается через значение в начале (`var__loop`).
         env = {var: fresh}
         ok = True
         for st in ast.walk(loop):
@@ -6815,15 +6850,15 @@ def _monotone_loop_guards(loop, path, const_env, syms, kernc, params) -> list:
         if not new_expr:
             continue
         # Условие цикла ОБЯЗАНО говорить о том же символе, что и присваивания
-        # (`var#loop`), иначе связка «условие + присваивание» рассыпается и
+        # (`var__loop`), иначе связка «условие + присваивание» рассыпается и
         # доказательство не проходит (проверено: контрпример `low#loop = -5`
         # при условии `low <= high` на ДРУГОМ символе).
         try:
             wcond_v = expr_smt(loop.test, {var: fresh})
         except (Unsupported, NoReturn):
             wcond_v = wcond
-        viol = path + [wcond_v, f"(>= {fresh} {init_smt})",
-                       f"(not (>= {new_expr} {init_smt}))"]
+        viol = path + [wcond_v, f"(>= {fresh} {init_smt})"] + _div_lemmas(new_expr) + [
+            f"(not (>= {new_expr} {init_smt}))"]
         if _smt_sat(kernc, params, viol) is False:
             out.append(f"(>= {var} {init_smt})")
     return out
