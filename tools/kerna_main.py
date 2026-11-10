@@ -30,7 +30,7 @@ import env_resolver          # noqa: E402
 import kerna_doctor          # noqa: E402
 
 # Флаги, означающие «работает ЭКСТРАКТОР» (kern_contracts), а не сканер папки.
-EXTRACTOR_FLAGS = ("--xray", "--xray-json", "--anti-cheat", "--full-scan",
+EXTRACTOR_FLAGS = ("--audit-mcp", "--lock-mcp", "--xray", "--xray-json", "--anti-cheat", "--full-scan",
                    "--emit-smt2", "--emit-pytest", "--lock-repo", "--diff-equiv",
                    "--github-annotations", "--json")
 SCAN_FLAGS = ("--sample", "--timeout", "--json", "-h", "--help")
