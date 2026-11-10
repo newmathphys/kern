@@ -184,5 +184,13 @@ else
   echo "[FAIL] swap: исход неясен"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 23 двусторонних контроля (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #612: степень `factor ** 2` в условии цикла
+out=$(timeout 250 $P --loops $F/pow_ok.py 2>&1)
+if printf '%s' "$out" | grep -q 'count_pow: PROVEN'; then
+  echo "[OK]   степень **: цикл доказан"
+else
+  echo "[FAIL] степень ** не поддержана (#612 вернулся)"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 24 двусторонних контроля (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

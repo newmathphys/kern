@@ -577,6 +577,22 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
                     and not _ALLOW_NIA[0]):
                 raise Unsupported("нелинейное умножение")
             op = "*"
+        elif isinstance(node.op, ast.Pow):
+            # ДЕФЕКТ #612: `x ** k` (степень) не поддерживалась вовсе —
+            # реальные циклы (`factor ** 2 <= n`, `2 ** k`) уходили в SKIP.
+            # Разворачиваем ЛИТЕРАЛЬНУЮ степень в произведение: `x**2` = `(* x x)`.
+            # ЗВУЧНО (это ровно определение), а нелинейность контролируется тем же
+            # флагом `_ALLOW_NIA`, что и умножение — контрактные проверки в QF_LIA
+            # остаются нетронутыми.
+            _k = _const_int(node.right)
+            if _k is None or _k < 0 or _k > 8:
+                raise Unsupported("степень с нелитеральным/большим показателем")
+            _base = expr_smt(node.left, env)
+            if not _int_literal(node.left, env) and not _ALLOW_NIA[0] and _k > 1:
+                raise Unsupported("нелинейная степень")
+            if _k == 0:
+                return "1"
+            return "(* " + " ".join([_base] * _k) + ")"
         elif isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
             # ДЕФЕКТ #317: СЕМАНТИКА ДЕЛЕНИЯ ЗАВИСИТ ОТ ЯЗЫКА.
             #   Python: `//` и `%` — FLOOR (остаток имеет знак ДЕЛИТЕЛЯ),
