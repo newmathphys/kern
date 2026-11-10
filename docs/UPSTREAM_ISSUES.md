@@ -97,3 +97,10 @@ bash tools/pilot_receipt.sh        # ждём: PILOT RECEIPT: PASS (8/8)
 
 Если вывод совпал — это и есть закрытие пункта **T7** (независимая приёмка): доказательство
 получено не на машине автора и не бинарником, который автор собрал у себя.
+
+## ОТПРАВЛЕНО 2026-11-09
+
+* `tidwall/hashmap.c` — https://github.com/tidwall/hashmap.c/issues/50
+* `TheAlgorithms/C` — https://github.com/TheAlgorithms/C/issues/1598
+
+Квитанции: `docs/upstream/SENT.md`. Статус — ожидание ответа мейнтейнеров.
