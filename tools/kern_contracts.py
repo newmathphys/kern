@@ -10880,6 +10880,32 @@ def _assigns(stmts) -> list[tuple[str, str]]:
     return out
 
 
+def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
+    """ВСЕ пути присваиваний в теле цикла (дефект #601).
+
+    `if/else` даёт ДВЕ ветви, и инвариант обязан сохраняться в КАЖДОЙ; брать
+    одну ветвь нельзя (следующий срез варианта вышел бы неверным).
+    ИЗМЕРЕНО на РЕАЛЬНОМ `bisect_left` (`lo = mid + 1` / `hi = mid`):
+    присваивания внутри `if` не собирались вовсе -> ложное «NON-TERMINATING».
+
+    `try/while/for/with` по-прежнему отказ с названной причиной: их поток не
+    моделируется, а выдумывать один путь нельзя.
+    """
+    paths: list[list[tuple[str, str]]] = [[]]
+    for st in stmts:
+        if isinstance(st, ast.If):
+            branches = _assign_paths(st.body)
+            branches = branches + (_assign_paths(st.orelse) if st.orelse else [[]])
+            paths = [base + br for base in paths for br in branches]
+            continue
+        if isinstance(st, (ast.Try, ast.While, ast.For, ast.With)):
+            raise Unsupported(
+                f"управление внутри тела цикла (строка {st.lineno}) не моделируется")
+        one = _assigns([st])
+        paths = [base + one for base in paths]
+    return paths
+
+
 def _apply(state: dict[str, str], assigns) -> dict[str, str]:
     s = dict(state)
     for name, expr in assigns:
@@ -10900,8 +10926,13 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     loop = fn.body[idx]
     try:
         cond = expr_smt(loop.test, {})
-        init_a = _assigns(fn.body[:idx])
-        step_a = _assigns(loop.body)
+        # ДЕФЕКТ #601: до цикла тоже может стоять `if` (нормализация `hi`) —
+        # тогда начальных состояний ДВА, и `init` обязан проверяться для каждого.
+        init_paths = _assign_paths(fn.body[:idx])
+        init_a = [a for _p in init_paths for a in _p]
+        # ДЕФЕКТ #601: пути по ветвям if/else вместо единственного списка.
+        step_paths = _assign_paths(loop.body)
+        step_a = [a for _p in step_paths for a in _p]
     except (Unsupported, NoReturn, Exception) as e:
         res.append(f"[SKIP] {fn.name}: цикл вне подмножества ({e})")
         return res
@@ -10931,12 +10962,12 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
             dec = None
     names = [p for p in params] + [a for a, _ in init_a] + [a for a, _ in step_a]
     state0 = {p: p for p in params}
-    state_i = _apply(state0, init_a)
+    # ДЕФЕКТ #601: до цикла тоже может стоять `if` (нормализация `hi`), значит
+    # начальных состояний несколько; `init` проверяется для КАЖДОГО.
+    state_is = [_apply(state0, _p) for _p in init_paths]
     state_c = {n: n for n in names}
-    state_n = _apply(state_c, step_a)
-    inv0 = _subst(inv, state_i)
+    state_ns = [_apply(state_c, _p) for _p in step_paths]
     invc = _subst(inv, state_c)
-    invn = _subst(inv, state_n)
     pre = [req_smt] if req_smt else []
     # ДЕФЕКТ #593: ДЛИНА НЕОТРИЦАТЕЛЬНА. `len(x) >= 0` — АКСИОМА, но символ
     # длины (`len__x` / `kern_len_x`) приходил в решатель СВОБОДНЫМ, и он брал
@@ -10957,15 +10988,17 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     # `result` участвует ТОЛЬКО в обязательстве `post` -> объявляем его там же
     # (Дефект #138: необъявленная переменная даёт `N`, что раньше читалось как PASS).
     decls_post = list(dict.fromkeys(decls + ["result"]))
-    checks: list[tuple[str, list[str], list[str]]] = [
-        # ДЕФЕКТ #594: обязательство `init` ОБЯЗАНО быть под условием цикла.
-        # Инвариант нужен на входе в ИТЕРАЦИЮ, а первая итерация начинается
-        # только при истинном условии. Без этого `while lo < hi` с инвариантом
-        # `lo <= hi` (истинным ИМЕННО из-за условия) объявлялся нарушенным —
-        # ИЗМЕРЕНО на реальном `bisect_left` из TheAlgorithms/Python.
-        ("init", decls, pre + [f"(not (=> {_subst(cond, state_i)} {inv0}))"]),
-        ("consecution", decls, pre + [invc, cond, f"(not {invn})"]),
-    ]
+    checks: list[tuple[str, list[str], list[str]]] = []
+    # ДЕФЕКТ #594: обязательство `init` ОБЯЗАНО быть под условием цикла:
+    # инвариант нужен на входе в ИТЕРАЦИЮ, а первая итерация начинается только
+    # при истинном условии. ДЕФЕКТ #601: и для КАЖДОГО начального состояния.
+    for _si in state_is:
+        checks.append(("init", decls,
+                       pre + [f"(not (=> {_subst(cond, _si)} {_subst(inv, _si)}))"]))
+    # ДЕФЕКТ #601: инвариант проверяется ДЛЯ КАЖДОГО пути (ветви if/else).
+    for _sn in state_ns:
+        checks.append(("consecution", decls,
+                       pre + [invc, cond, f"(not {_subst(inv, _sn)})"]))
     if ret is not None and ens_smt:
         checks.append(("post", decls_post,
                        pre + [invc, f"(not {cond})",
@@ -10973,10 +11006,12 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
                               f"(not {ens_smt})"]))
     if dec is not None:
         dec_c = _subst(dec, state_c)
-        dec_n = _subst(dec, state_n)
-        checks.append(("termination", decls,
-                       pre + [invc, cond,
-                              f"(not (and (>= {dec_c} 0) (< {dec_n} {dec_c})))"]))
+        # ДЕФЕКТ #601: вариант обязан убывать на КАЖДОМ пути (ветви if/else).
+        for _sn in state_ns:
+            dec_n = _subst(dec, _sn)
+            checks.append(("termination", decls,
+                           pre + [invc, cond,
+                                  f"(not (and (>= {dec_c} 0) (< {dec_n} {dec_c})))"]))
     else:
         res.append(f"[SKIP] {fn.name}: нет `# @kern:decreases` — остановка НЕ проверена")
         unknowns += 1
