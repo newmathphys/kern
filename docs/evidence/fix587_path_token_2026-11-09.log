@@ -1,0 +1,16 @@
+# #587: слитное имя путь-токена (`bindir`) — pathlib-склейка обвинялась как деление
+
+ИЗМЕРЕНО на `mcp-servers` (`src/fetch/tests/test_readability_subprocess.py:82`):
+    script = bindir / name
+    [CRASH PATH] tool: строка 82 — возможно деление на ноль: name == 0
+Живой прогон: `bindir / name` — это `pathlib`, деления там нет вовсе.
+
+ПРИЧИНА: `_is_path_expr` опирался на `_RE_PATHISH` с привязкой `(^|_)dir$`,
+поэтому `bindir` (слитно) не считался путём.
+
+ПРАВКА: `_ends_with_path_token()` — имя, ЗАКАНЧИВАЮЩЕЕСЯ на dir/path/root/folder/file/home/tmp
+считается путём. Список узкий намеренно: делёное ЧИСЛО такими именами не называют
+(`dividend` под шаблон не попадает).
+
+ЗАМЕР: файл test_readability_subprocess.py — 1 -> 0 находок.
+РЕГРЕССИЯ: make ci-fast -> ci=0.

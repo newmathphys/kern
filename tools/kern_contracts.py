@@ -2583,6 +2583,21 @@ _RE_PATHISH = re.compile(
     r"(?i)(^|_)(root|dir|folder|path|file|home|base|prefix|suffix|slug|name)$")
 
 
+def _ends_with_path_token(name: str) -> bool:
+    """Имя ЗАКАНЧИВАЕТСЯ на путь-токен слитно (`bindir`, `toolspath`) — дефект #587.
+
+    ИЗМЕРЕНО на `mcp-servers` (`src/fetch/tests/test_readability_subprocess.py:82`):
+        script = bindir / name      # `bindir` — Path, `/` — склейка, не деление
+    `_RE_PATHISH` привязан к `(^|_)dir$`, поэтому `bindir` (слитно, без `_`) не
+    ловился, и склейка пути обвинялась в делении на ноль при `name == 0`.
+
+    ЗВУЧНОСТЬ: имя, заканчивающееся на `dir`/`path`/`root`, делёным ЧИСЛОМ не
+    бывает (`dividend` не заканчивается на эти токены). Список узкий намеренно.
+    """
+    _low = (name or "").lower()
+    return _low.endswith(("dir", "path", "root", "folder", "file", "home", "tmp"))
+
+
 def _is_path_expr(node) -> bool:
     """True, если левый операнд `/` — путь/строка, значит это НЕ арифметика.
 
@@ -2592,9 +2607,11 @@ def _is_path_expr(node) -> bool:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return True
     if isinstance(node, ast.Name):
-        return bool(_MACRO_DIV.match(node.id)) or bool(_RE_PATHISH.search(node.id))
+        return (bool(_MACRO_DIV.match(node.id)) or bool(_RE_PATHISH.search(node.id))
+                or _ends_with_path_token(node.id))
     if isinstance(node, ast.Attribute):
-        return bool(_MACRO_DIV.match(node.attr)) or bool(_RE_PATHISH.search(node.attr))
+        return (bool(_MACRO_DIV.match(node.attr)) or bool(_RE_PATHISH.search(node.attr))
+                or _ends_with_path_token(node.attr))
     if isinstance(node, ast.Call):
         # #572: `(root_of(repo) / name).write_text(...)` — слева ВЫЗОВ, справа имя:
         # это pathlib-склейка, а не деление. `_RE_PATHISH` привязан к КОНЦУ имени
