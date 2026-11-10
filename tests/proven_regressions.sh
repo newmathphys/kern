@@ -192,5 +192,22 @@ else
   echo "[FAIL] степень ** не поддержана (#612 вернулся)"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 24 двусторонних контроля (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #613: try/except с ТРИВИАЛЬНЫМ обработчиком -> доказывается
+out=$(timeout 250 $P --loops $F/try_ok.py 2>&1)
+if printf '%s' "$out" | grep -q 'try_ok: PROVEN'; then
+  echo "[OK]   try с pass: цикл доказан"
+else
+  echo "[FAIL] try с pass не доказан (#613 вернулся)"; fail=1
+fi
+# --- try с НЕТРИВИАЛЬНЫМ обработчиком -> именованный отказ, не доказательство
+out=$(timeout 250 $P --loops $F/try_named.py 2>&1)
+if printf '%s' "$out" | grep -q 'SKIP.*НЕТРИВИАЛЬНЫМ'; then
+  echo "[OK]   try с присваиванием: именованный отказ (смешанные состояния)"
+elif printf '%s' "$out" | grep -q 'PROVEN'; then
+  echo "[FAIL] try с присваиванием ДОКАЗАН — модель незвучна"; fail=1
+else
+  echo "[FAIL] try с присваиванием: исход неясен"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 26 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

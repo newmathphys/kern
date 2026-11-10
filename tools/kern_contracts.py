@@ -11111,7 +11111,28 @@ def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
             branches = branches + (_assign_paths(st.orelse) if st.orelse else [[]])
             paths = [base + br for base in paths for br in branches]
             continue
-        if isinstance(st, (ast.Try, ast.While, ast.For, ast.With)):
+        if isinstance(st, ast.Try):
+            # ДЕФЕКТ #613: `try/except` в теле цикла отвергался ЦЕЛИКОМ.
+            # ЗВУКОЕ ПОДМНОЖЕСТВО: обработчики ТРИВИАЛЬНЫ (`pass`/`raise`) и нет
+            # `else`/`finally`. Тогда состояние меняет ТОЛЬКО тело `try`, а
+            # обработчик состояния не трогает — путь один и он честный.
+            # Если обработчик что-то присваивает, возможны СМЕШАННЫЕ состояния
+            # (часть try + обработчик), которые наша модель не перечисляет,
+            # поэтому там — отказ с названной причиной (не выдумываем путь).
+            _trivial = all(
+                len(h.body) == 1 and isinstance(h.body[0], (ast.Pass, ast.Raise))
+                for h in st.handlers)
+            if st.handlers and not _trivial:
+                raise Unsupported(
+                    f"try с НЕТРИВИАЛЬНЫМ обработчиком (строка {st.lineno}) "
+                    f"не моделируется")
+            if st.orelse or st.finalbody:
+                raise Unsupported(
+                    f"try с else/finally (строка {st.lineno}) не моделируется")
+            inner = _assign_paths(st.body)
+            paths = [base + p for base in paths for p in inner]
+            continue
+        if isinstance(st, (ast.While, ast.For, ast.With)):
             raise Unsupported(
                 f"управление внутри тела цикла (строка {st.lineno}) не моделируется")
         # ДЕФЕКТ #608: `break`/`continue` НЕ моделировались и МОЛЧА игнорировались,
