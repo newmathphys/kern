@@ -179,6 +179,17 @@
         "division by zero"
       ],
       "must_not_contain": []
+    },
+    {
+      "id": "humaneval-ab",
+      "claim": "HumanEval A/B на 5 реальных задачах OpenAI: официальный тест и KERN --diff-equiv, результат как есть (включая отрицательный)",
+      "command": "python3 /tmp/he_ab.py",
+      "file": "docs/evidence/humaneval_ab_2026-11-09.log",
+      "must_contain": [
+        "Мутаций, которые KERN увидел",
+        "HumanEval"
+      ],
+      "must_not_contain": []
     }
   ]
 }
