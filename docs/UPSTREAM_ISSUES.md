@@ -30,8 +30,13 @@ Suggested fix — swap the two lines so the guard precedes the access:
 (Found with static bounds analysis in KERN — https://github.com/newmathphys/kern)
 ```
 
-**Оговорка:** номера строк взяты из квитанции `docs/REAL_BUGS_FOUND.md` (Case D). Локальный
-клон удалён при чистке диска, поэтому перед отправкой сверьте две строки в браузере.
+**СВЕРЕНО ПО ФАЙЛУ (2026-11-09):** файл скачан напрямую с `raw.githubusercontent.com` на
+срезе `68958eb7` (13 574 строки) и напечатаны строки 6167-6172:
+
+    6169  transfer_lookup_1 = transfers_1[0]      <- индексация
+    6170  assert len(transfers_1) == 1            <- гард ПОСЛЕ неё
+
+То есть номер строки и порядок операторов подтверждены на реальном файле — можно отправлять.
 
 ---
 
