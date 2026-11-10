@@ -1,0 +1,23 @@
+# TheAlgorithms/C e5dad3f, appliance v2.8.3 (2026-11-09)
+
+[OVERFLOW PATH] searching/binary_search.c: binarysearch1 / binarysearch2 — переполнение типа `i32`
+
+Код (строки 21-25):
+  int binarysearch1(const int *arr, int l, int r, int x)
+      int mid = l + (r - l) / 2;
+
+Живой UBSan на реальной функции (вырезана из файла дословно):
+  #include "bs_fn.c"  ->  binarysearch1(a, INT_MIN, INT_MAX, 3)
+  bs_fn.c:5:26: runtime error: signed integer overflow:
+                2147483647 - -2147483648 cannot be represented in type 'int'
+
+Триаж: переполняется ПОДВЫРАЖЕНИЕ `r - l`, а не классический `l + r`. Форма `l + (r - l) / 2`
+как раз выбрана, чтобы избежать `l + r`, но она не защищает от отрицательного `l`:
+`r - l` при l = INT_MIN и r > 0 выходит за пределы int.
+
+ВЕРДИКТ: TP (граница домена). API `int binarysearch1(const int*, int l, int r, int x)`
+не запрещает l < 0; внутренние вызовы используют l = 0, поэтому в практических путях
+не проявляется. Доказательство — живой UBSan выше.
+
+Ответственность KERN: вердикт верный, подвыражение названо верно => этот случай НЕ FP.
+Остальные находки TheAlgorithms/C (numerical_methods, cipher) не триажированы в этой сессии.
