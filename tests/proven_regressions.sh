@@ -34,5 +34,36 @@ for f in loops_len_ok state_len_ok; do
     echo "[FAIL] $f: есть UNKNOWN — доказательство неполно"; fail=1
   fi
 done
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 4 двусторонних контроля, 0 unknown"
+
+# --- #603: --gen-tests обязан ловить НАСТОЯЩУЮ недостижимость и НЕ выдумывать её
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+timeout 200 $P --gen-tests $F/gen_dead.py "$TMP/dead.py" >/dev/null 2>&1
+if grep -q 'НЕДОСТИЖИМА' "$TMP/dead.py"; then
+  echo "[OK]   настоящая недостижимость (UNSAT) помечена"
+else
+  echo "[FAIL] настоящая недостижимость НЕ помечена — гейт слеп"; fail=1
+fi
+timeout 200 $P --gen-tests $F/gen_live.py "$TMP/live.py" >/dev/null 2>&1
+if grep -q 'НЕДОСТИЖИМА' "$TMP/live.py"; then
+  echo "[FAIL] ЖИВАЯ ветвь объявлена недостижимой (#603 вернулся)"; fail=1
+else
+  echo "[OK]   живая ветвь НЕ объявлена недостижимой"
+fi
+
+# --- #599/#600: --heal обязан лечить с raise и НЕ трогать файл без крашей
+cp $F/heal_div.py "$TMP/div.py"
+out=$(KERN_HEAL_GUARD=raise timeout 200 $P --heal "$TMP/div.py" 2>&1)
+if printf '%s' "$out" | grep -q 'после патча: 0' && grep -q 'raise ValueError' "$TMP/div.py"; then
+  echo "[OK]   heal: краш закрыт, гард громкий (raise)"
+else
+  echo "[FAIL] heal: патч не закрыл краш или гард не raise"; fail=1
+fi
+cp $F/heal_none.py "$TMP/none.py"
+out=$(timeout 200 $P --heal "$TMP/none.py" 2>&1)
+if printf '%s' "$out" | grep -q 'крашей не найдено' && cmp -s $F/heal_none.py "$TMP/none.py"; then
+  echo "[OK]   heal: без крашей файл не меняется"
+else
+  echo "[FAIL] heal: тронул файл без крашей (ложное лечение)"; fail=1
+fi
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 8 двусторонних контролей (loops, state-inv, gen-tests, heal), 0 unknown"
 exit $fail
