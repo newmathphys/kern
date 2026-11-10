@@ -8733,8 +8733,16 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
             # ветка выше (`_const_eval`), и она точнее решателя.
             if any(nm not in set(params) for nm in names):
                 continue
-            # ДЕФЕКТ #590: беззнаковый литерал в выражении -> арифметика
-            # беззнаковая -> переполнение ОПРЕДЕЛЕНО, обвинять нельзя.
+            # ДЕФЕКТ #591: БЕЗЗНАКОВОСТЬ ОТ ТИПА. Если объявленный диапазон
+            # начинается с 0 и достигает 2^31, тип беззнаковый (`unsigned`,
+            # `uint32_t`, `size_t`, `khint_t`): его переполнение ОПРЕДЕЛЕНО
+            # (заворачивание), UB нет -> обвинять нельзя. Знаковые типы всегда
+            # имеют lo < 0, поэтому проверка lo == 0 их не задевает.
+            _uns = [nm for nm in names
+                    if (var_ranges.get(nm) or (0, 0))[0] == 0
+                    and (var_ranges.get(nm) or (0, 0))[1] >= 2 ** 31]
+            if _uns:
+                continue
             if _u_lits and any(isinstance(_c, ast.Constant)
                                and isinstance(_c.value, int)
                                and _c.value in _u_lits
