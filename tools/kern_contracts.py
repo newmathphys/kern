@@ -6350,6 +6350,20 @@ def _loop_range_guard(st, syms: set) -> tuple[str, list[str], set] | None:
     var = st.target.id
 
     local = set(syms)
+    # ДЕФЕКТ #588: `for c in range(len(r))` — `r` обязан попасть в символы,
+    # иначе `len(r)` не переписывается в `kern_len_r`, границы счётчика
+    # получают ДРУГОЙ символ (`len__r`) и `r[c]` обвиняется при `c = -1`
+    # (ИЗМЕРЕНО на `conversions/negative_binary_base_to_int.py`, где
+    # `r = negative_binary_str[::-1]`). `kern_len_X` — длина самого `X`,
+    # поэтому факт `0 <= c < kern_len_r` верен при любом содержимом.
+    for _n in (lo, hi) + ((step,) if step is not None else ()):
+        if _n is None:
+            continue
+        for _c in ast.walk(_n):
+            if (isinstance(_c, ast.Call) and isinstance(_c.func, ast.Name)
+                    and _c.func.id == "len" and _c.args
+                    and isinstance(_c.args[0], ast.Name)):
+                local.add(_c.args[0].id)
 
     def _smt(node):
         try:
@@ -6943,6 +6957,30 @@ def _subscripts_with_path(st, path: list, syms: set,
             if isinstance(child, ast.BoolOp):
                 # ДЕФЕКТ #585: ЛЕНИВОЕ вычисление в bounds-обходе — см. `_boolop`.
                 _boolop(child, cond_path)
+                continue
+            if isinstance(child, (ast.ListComp, ast.SetComp, ast.GeneratorExp,
+                                  ast.DictComp)):
+                # ДЕФЕКТ #588: `[int(r[c]) * ... for c in range(len(r))]` —
+                # генератор это ЦИКЛ, и его счётчик имеет те же границы, что
+                # `for c in range(...)`. Без этого `r[c]` внутри генератора
+                # обвинялся при `c = -1` (ИЗМЕРЕНО на TheAlgorithms/Python).
+                _extra: list = []
+                for _gen in child.generators:
+                    _fake = ast.For(target=_gen.target, iter=_gen.iter, body=[], orelse=[])
+                    try:
+                        _g = _loop_range_guard(_fake, syms)
+                    except (Unsupported, NoReturn):
+                        _g = None
+                    if _g is not None:
+                        _extra = _extra + list(_g[1])
+                _ipath = cond_path + _extra
+                _elts = ([child.key, child.value] if isinstance(child, ast.DictComp)
+                         else [child.elt])
+                for _e in _elts:
+                    walk(_e, _ipath)
+                for _gen in child.generators:
+                    for _iff in _gen.ifs:
+                        walk(_iff, _ipath)
                 continue
             if isinstance(child, ast.IfExp):
                 c = cond_of(child.test)
