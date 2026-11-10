@@ -2,7 +2,7 @@
 
 > **CURRENT STATE (v2.8.2, 2026-11-07).** Release `v2.8.2` is published; `HEAD` is sealed and the
 > attestation verifies with the external key. **`KERN CI` is GREEN** (`verify` success, CAN-FAIL
-> `ВАКУУМНЫХ 0` — both blind cases closed as `#514`). Open technical defects: **4** (`#555` CLOSED: the cause was the GLOBAL limit uplift from `#536`, not the watchdog; after `#554` made it explicit, `kernc prove cwe22_good.smt2` takes 74-77 ms and `make cwe-twins-check` gives J = 1.00, 36/36 in 27 s).
+> `ВАКУУМНЫХ 0` — both blind cases closed as `#514`). Open technical defects: **5** (`#555` CLOSED: the cause was the GLOBAL limit uplift from `#536`, not the watchdog; after `#554` made it explicit, `kernc prove cwe22_good.smt2` takes 74-77 ms and `make cwe-twins-check` gives J = 1.00, 36/36 in 27 s).
 > `docs/PLAN_NEXT.md`. Numbers below that
 > mention `67a8d43`, `225/225` cases or `68/68` stages are HISTORICAL — the live facts are
 > `docs/facts.json`: core **460**, CHECK **201**, can-fail cases **246**, registry targets **273**,
@@ -32,7 +32,7 @@
 | Branch / tree | `main` = `d98953c`, clean |
 | Registry | <!-- fact:registry_targets -->282 targets · **<!-- fact:check_targets -->205/<!-- fact:check_targets -->205 CHECK** · <!-- fact:canfail_cases -->250 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
-| Open technical defects | **4** (`#555` closed, see above) — queue item 1 (a size filter in `defNormEq`/`bitTautology`) was MEASURED AND REVERTED: `midpoint.rs` 70 s -> 65 s (about 7%) but trusted steps on the official bank went 645 -> 646, i.e. the filter disabled a rule that verified one step on `add_three.4_bit`; the acceptance criterion (`645` unchanged) failed, so the tree is byte-identical to the sealed `67a8d43`. MEASURED CONCLUSION: the dominant cost is the SOLVER, not the checker normalizations. Reference state: `HEAD = 67a8d43`, 68/68 ci-fast stages green, 225/225 non-vacuous cases, attestation verified with the external key |
+| Open technical defects | **5** (`#555` closed, see above) — queue item 1 (a size filter in `defNormEq`/`bitTautology`) was MEASURED AND REVERTED: `midpoint.rs` 70 s -> 65 s (about 7%) but trusted steps on the official bank went 645 -> 646, i.e. the filter disabled a rule that verified one step on `add_three.4_bit`; the acceptance criterion (`645` unchanged) failed, so the tree is byte-identical to the sealed `67a8d43`. MEASURED CONCLUSION: the dominant cost is the SOLVER, not the checker normalizations. Reference state: `HEAD = 67a8d43`, 68/68 ci-fast stages green, 225/225 non-vacuous cases, attestation verified with the external key |
 
 ## Open work
 

@@ -5736,6 +5736,9 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                 env[st.targets[0].id] = expr_smt(st.value, env)
             except (Unsupported, NoReturn):
                 env.pop(st.targets[0].id, None)
+            # ДЕФЕКТ #584: постусловия стандартной библиотеки (`bisect_left`
+            # возвращает индекс в [0, len]) — это ИСТИННЫЕ факты о результате.
+            path = path + _stdlib_postconds(st.value, st.targets[0], syms, env)
             # ДЕФЕКТ #378: значение присваивания ОБЯЗАНО проходить краш-обход.
             for _n, _ng in _walk_expr_guarded(st.value, path, syms, env):
                 _crash_collect(_n, _ng, params, kernc, found, fnname, syms, env)
@@ -6090,6 +6093,52 @@ def _cond_smt(node, syms: set, env=None):
     return expr_smt(node, dict(env or {}))
 
 
+def _stdlib_postconds(value, target, syms, env) -> list:
+    """ПОСТУСЛОВИЯ СТАНДАРТНОЙ БИБЛИОТЕКИ -> гарды пути (дефект #584).
+
+    ЧТО БЫЛО СЛОМАНО (ИЗМЕРЕНО на TheAlgorithms/Python, `searches/binary_search.py`):
+
+        index = bisect.bisect_left(sorted_collection, item)
+        if index != len(sorted_collection) and sorted_collection[index] == item:
+
+    `bisect_left` ГАРАНТИРУЕТ `0 <= index <= len(a)`, но модель этого не знала:
+    гард `index != len(a)` исключает ТОЛЬКО равенство, поэтому решатель брал
+    `index > len(a)` и выдавал [BOUNDS PATH] на `sorted_collection[index]` —
+    ложное обвинение на корректном коде (живой прогон падения не даёт).
+
+    ЗВУЧНОСТЬ: добавляются только ФАКТЫ, истинные при любом вызове
+    (`bisect_left` возвращает индекс вставки в `[0, len]`). Ничего не
+    выдумывается: если аргумент не переводится в SMT — правила нет.
+    """
+    out: list = []
+    if not (isinstance(value, ast.Call) and isinstance(target, ast.Name)):
+        return out
+    fn = value.func
+    name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+    if name not in ("bisect_left", "bisect_right", "bisect"):
+        return out
+    if not value.args:
+        return out
+    try:
+        idx = expr_smt(ast.Name(id=target.id, ctx=ast.Load()), env)
+        seq = expr_smt(value.args[0], env)
+    except (Unsupported, NoReturn, KeyError, SyntaxError):
+        return out
+    if not idx or not seq:
+        return out
+    out.append(f"(>= {idx} 0)")
+    try:
+        _nd = _LenRewrite(set(syms or ())).visit(
+            ast.parse(f"len({ast.unparse(value.args[0])})", mode="eval").body)
+        ast.fix_missing_locations(_nd)
+        length = expr_smt(_nd, dict(env or {}))
+    except (Unsupported, NoReturn, KeyError, SyntaxError):
+        length = None
+    if length:
+        out.append(f"(<= {idx} {length})")
+    return out
+
+
 def _cond_smt_partial(node, syms: set, env=None) -> list:
     """Транслируемые КОНЪЮНКТЫ условия (дефект #576).
 
@@ -6414,6 +6463,7 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
     # `var = len(arr)` и снимается, как только переменная переназначена.
     alias_path: list[str] = []
     alias_of: dict[str, str] = {}
+    postconds_by_var: dict[str, list] = {}
     for st in body:
         al = _len_alias(st)
         if al is not None:
@@ -6426,7 +6476,20 @@ def _walk_bounds(body, path, params, lens, kernc, found, fname, syms=None,
             if nm in alias_of:
                 del alias_of[nm]
                 alias_path = [c for c in alias_path if not c.startswith(f"(= {nm} ")]
-        eff = path + alias_path
+        # ДЕФЕКТ #584 (BOUNDS-обход): постусловия stdlib (`bisect_left` -> индекс
+        # в [0, len]) живут ровно до ПЕРЕПРИСВАИВАНИЯ переменной. Иначе `index`
+        # обвинялся бы при `index = len(...) + 7`, что уже неверно.
+        if (isinstance(st, ast.Assign) and len(st.targets) == 1
+                and isinstance(st.targets[0], ast.Name)):
+            _pn = st.targets[0].id
+            postconds_by_var.pop(_pn, None)
+            _pc = _stdlib_postconds(st.value, st.targets[0], syms, {})
+            if _pc:
+                postconds_by_var[_pn] = _pc
+        else:
+            for _pn in _assigned_names(st):
+                postconds_by_var.pop(_pn, None)
+        eff = path + alias_path + [c for _v in postconds_by_var.values() for c in _v]
         # ДЕФЕКТ #468a (assert как ПУТЕВОЙ ГАРД в BOUNDS-обходе): `assert len(x) == 1`
         # — ИСТИННОЕ условие ВСЕГО дальнейшего кода, а не комментарий. В crash-обходе
         # это сделано дефектом #179, но ЗДЕСЬ ветки не было. ИЗМЕРЕНО на охоте:

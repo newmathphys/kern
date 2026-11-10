@@ -36,7 +36,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->250**, of which
 
 ## Defect journal
 
-Numbered entries: **489**.
+Numbered entries: **490**.
 
 | Explicit status | Count |
 | --- | --- |
@@ -45,9 +45,9 @@ Numbered entries: **489**.
 | Real defect found by KERN in a third-party repo | 1 |
 | Documented limitation (we live with it; it is not a defect) | 0 |
 | Decision: considered and not adopted | 1 |
-| Rows in the earlier journal format (category column, no status) | 159 |
+| Rows in the earlier journal format (category column, no status) | 160 |
 
-**Open technical defects: 4** — #580, #581, #583, #584
+**Open technical defects: 4** — #580, #581, #583, #585
 
 > The journal spans two table generations: earlier rows carry a *category*
 > (`gate`, `kernel`, ...) and no status at all, later rows carry an explicit
@@ -55,7 +55,7 @@ Numbered entries: **489**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->584**.
+Highest defect number in the journal: **<!-- fact:max_defect -->585**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state
