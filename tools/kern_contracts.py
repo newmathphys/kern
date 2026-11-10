@@ -11376,8 +11376,23 @@ def cmd_gen_tests(path: str, out_file: str, kernc) -> int:
                 cond = expr_smt(st.test, {})
             except (Unsupported, NoReturn):
                 continue
-            model = _smt_model(kernc, params, path_conds + [cond])
+            # ДЕФЕКТ #603: `None` от `_smt_model` означает И UNSAT, И «не решено».
+            # ИЗМЕРЕНО на реальном `binary_search.py`: ветка `binary_search_std_lib`
+            # строка 262 объявлена НЕДОСТИЖИМОЙ, хотя живой вызов
+            # `binary_search_std_lib([0,5,7,10,15], 7)` возвращает 2 — ветка живая.
+            # Ложная «недостижимость» опаснее ложного обвинения: она оправдывает
+            # удаление живого кода. Поэтому недостижимость заявляется ТОЛЬКО по
+            # явному вердикту `unsat`; `unknown` помечается как «не решено».
+            _kind, _ce = _smt_verdict(kernc, params, path_conds + [cond])
+            if _kind == "unsat":
+                dead += 1
+                lines.append(f"# ВЕТКА НЕДОСТИЖИМА (UNSAT): {fnname}, строка {st.lineno}")
+                continue
+            model = _smt_model(kernc, params, path_conds + [cond]) if _kind == "sat" else None
             if model is None:
+                lines.append(f"# ВЕТКА НЕ РЕШЕНА (unknown): {fnname}, строка {st.lineno}")
+                continue
+            if False:
                 dead += 1
                 lines.append(f"# ВЕТКА НЕДОСТИЖИМА (UNSAT): {fnname}, строка {st.lineno}")
             else:
