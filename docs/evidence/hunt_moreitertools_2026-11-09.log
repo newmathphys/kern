@@ -1,0 +1,20 @@
+# more-itertools 00383df, appliance v2.8.3 (2026-11-09)
+[REPO SUMMARY] файлов 7 | функций 26 / 69 | находок 5 (3 в recipes.py — основной код)
+
+1) random_combination (recipes.py:639) `pool[i]` -> [BOUNDS PATH]
+   Код: indices = sorted(random.sample(range(len(pool)), r)); pool[i] for i in indices
+   Триаж: random.sample(range(n), r) НЕ возвращает индексы >= n, поэтому pool[i] в границах.
+   ВЕРДИКТ: ЛОЖНОЕ (контракт random.sample не смоделирован).
+
+2) random_combination_with_replacement (recipes.py:656) `pool[i]` -> [BOUNDS PATH]
+   Тот же источник: random.choices + random.sample. ВЕРДИКТ: ЛОЖНОЕ (та же причина).
+
+3) _strong_probable_prime (recipes.py:1218) `x % n` -> [CRASH PATH] n == 0
+   Живой прогон: _strong_probable_prime(0, 2) -> AssertionError (сработал assert в строке 1209:
+   assert (n > 2) and (n & 1) and (2 <= base < n)).
+   ВЕРДИКТ: ЛОЖНОЕ — вход защищён assert-ом, ZeroDivisionError недостижим.
+
+ИТОГ: 3 находки в основном коде -> 3 FP, все одного класса (#576):
+  модель не видит защиту, выраженную через assert, и не знает контрактов библиотек
+  (random.sample / random.choices) о диапазоне возвращаемых индексов.
+  Трофеев в этой цели нет. Precision не заявляется.
