@@ -226,5 +226,16 @@ else
   echo "[FAIL] вложенный цикл: исход неясен"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 28 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- ГРАНИЦА: вложенный цикл ПО КОНТРАКТУ обязан оставаться SKIP (не PROVEN),
+#     пока двухуровневая индукция не реализована (план: docs/design/two_level_induction_PLAN.md)
+out=$(timeout 250 $P --loops $F/nested_contract.py 2>&1)
+if printf '%s' "$out" | grep -q 'SKIP.*двухуровневая'; then
+  echo "[OK]   вложенный цикл по контракту: граница названа, PROVEN не выдан"
+elif printf '%s' "$out" | grep -q 'PROVEN'; then
+  echo "[FAIL] КРИТИЧНО: PROVEN без двухуровневой индукции — незвучно"; fail=1
+else
+  echo "[FAIL] граница: исход неясен"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 29 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail
