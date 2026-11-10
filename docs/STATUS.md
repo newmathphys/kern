@@ -36,7 +36,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->250**, of which
 
 ## Defect journal
 
-Numbered entries: **487**.
+Numbered entries: **489**.
 
 | Explicit status | Count |
 | --- | --- |
@@ -47,7 +47,7 @@ Numbered entries: **487**.
 | Decision: considered and not adopted | 1 |
 | Rows in the earlier journal format (category column, no status) | 159 |
 
-**Open technical defects: 2** — #580, #581
+**Open technical defects: 4** — #580, #581, #583, #584
 
 > The journal spans two table generations: earlier rows carry a *category*
 > (`gate`, `kernel`, ...) and no status at all, later rows carry an explicit
@@ -55,7 +55,7 @@ Numbered entries: **487**.
 > only when its status **starts with** `ОТКРЫТ`. Earlier rows are never
 > re-interpreted: assigning them a status would invent data.
 
-Highest defect number in the journal: **<!-- fact:max_defect -->582**.
+Highest defect number in the journal: **<!-- fact:max_defect -->584**.
 Every entry names its cause and its fix; entries are never deleted.
 
 ## External state

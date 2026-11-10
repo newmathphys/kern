@@ -1,0 +1,31 @@
+# TheAlgorithms/Python, апплаенс + правка #576 (2026-11-09)
+
+Скан: maths / searches / sorts. Находок 5, все — [BOUNDS PATH]. Триаж по исходникам:
+
+## FP-1 sorts/binary_insertion_sort.py:64 (`collection[j]`, `collection[j-1]`)
+    for i in range(1, n):
+        ...
+        for j in range(i, low, -1):
+            collection[j] = collection[j - 1]
+`j` убывает от `i` до `low+1`. Так как `i <= n-1` и `low >= 0`, то `j <= n-1` и `j-1 >= 0`.
+ВЫХОДА ЗА ГРАНИЦЫ НЕТ — это ложное обвинение.
+КОРЕНЬ (#583): модель НЕ ЗНАЕТ границ переменной цикла `range(a, b, -1)`: b < j <= a.
+Для `range(a, b)` (положительный шаг) знание есть, для отрицательного шага — нет.
+
+## FP-2 searches/binary_search.py:262 (`sorted_collection[index]`)
+    index = bisect.bisect_left(sorted_collection, item)
+    if index != len(sorted_collection) and sorted_collection[index] == item:
+`bisect_left` возвращает индекс в [0, len]. Гард `index != len` НЕ доказывает `index < len`
+(он не исключает index > len), поэтому формально модель права — но контракт bisect_left это
+исключает. КОРЕНЬ (#584): контракты стандартной библиотеки (bisect/bisect_left) не смоделированы.
+
+## FP-3..5 searches/binary_search.py:382 (`sorted_collection[midpoint]`), sorts/*:46 (`list_data[right]`)
+Тот же класс: индекс, полученный/ограниченный формой, знание о которой у модели отсутствует
+(рекурсивный midpoint и правая граница окна).
+
+## ИТОГ
+TheAlgorithms/Python: 5 находок -> 0 трофеев. Ни одного живого падения не найдено,
+потому что все 5 — следствия ДВУХ пробелов модели, а не дефектов кода:
+  #583 отрицательный шаг range
+  #584 контракты stdlib (bisect)
+Правка #576 (частичные конъюнкты) при этом НЕ породила новых обвинений: шум остался прежним.
