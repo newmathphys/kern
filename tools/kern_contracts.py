@@ -8908,6 +8908,21 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                 r"os\.Exit|process\.exit|std::process::exit|sys\.exit)\s*\(", _blk))
             exits = hard_exit or bool(re.match(
                 r"\s*\{?\s*(return|break|continue)\b", tail))
+            # ДЕФЕКТ #580: ВЫХОД ЧЕРЕЗ ФИГУРНЫЙ БЛОК. Проверка выше видит только
+            # ТЕКСТ СРАЗУ после `if (...)`, поэтому в
+            #     if (argc < 2) { printf("..."); return 0; }
+            # после `{` стоит `printf`, и `return` НЕ находился — гард терялся,
+            # и `argc - 1` обвинялось при `argc = INT_MIN` (ИЗМЕРЕНО на
+            # `TheAlgorithms/C/numerical_methods/durand_kerner_roots.c`).
+            # Здесь смотрим ПОСЛЕДНИЙ оператор блока. Вложенность безопасна:
+            # `{ printf(...); if (x) return; }` даёт последний оператор
+            # `if (x) return`, он НЕ совпадает с шаблоном — гарда нет (пропуск
+            # лучше выдуманного ограничения, урок #178/#183).
+            if not exits and _blk.lstrip().startswith("{"):
+                _inner = _blk.lstrip()[1:]
+                _stmts = [s.strip() for s in re.split(r"[;}\n]", _inner) if s.strip()]
+                if _stmts:
+                    exits = bool(re.match(r"(return|break|continue)\b", _stmts[-1]))
             # ДЕФЕКТ #318: запоминаем ГРАНИЦЫ блока, чтобы позже вычислить
             # условия ПО ПОЗИЦИИ, а не накоплением «только not cond».
             # ДЕФЕКТ #318: блок регистрируется ВСЕГДА — условие действует
