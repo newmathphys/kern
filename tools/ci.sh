@@ -197,6 +197,7 @@ if [ "$FAST" = "0" ]; then
   stage "карта документации полна (#402/#403/#404)" make docs-map-check
   stage "llms.txt генерируется из facts.json (#311)" make llms-check
   stage "снимок состояния собран из facts+реестра+журнала (шаг C)" make status-check
+  stage "регрессии PROVEN: 37 двусторонних контролей (вкл. политику апстрима)" make proven-regressions-check
   stage "законы устава доказаны и сверены с ядром (шаг E)" make charter-check
   stage "свидетельства не отстали от дерева (#333, шаг F3)" make evidence-freshness
   stage "временные пути изолированы, замок цел (шаг N2)" make temp-isolation-check

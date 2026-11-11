@@ -284,5 +284,22 @@ else
   echo "[OK]   публичная функция БЕЗ метки (метка не врёт)"
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 36 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- ПОЛИТИКА АПСТРИМА (урок #50): черновик без ЖИВОГО краша не отправляется
+_bad_drafts=0
+for _d in docs/upstream/EN_*.md; do
+  [ -e "$_d" ] || continue
+  grep -q 'WITHDRAWN' "$_d" && continue
+  if ! grep -qE 'AddressSanitizer|runtime error:' "$_d"; then
+    echo "[FAIL] $_d: нет живого краша — отправлять нельзя (латентное остаётся у нас)"
+    _bad_drafts=1
+  fi
+  if grep -q 'LATENT / CALLER-CONST' "$_d"; then
+    echo "[FAIL] $_d: помечен LATENT — это НЕ апстрим-заявка"
+    _bad_drafts=1
+  fi
+done
+[ $_bad_drafts -eq 0 ] && echo "[OK]   политика апстрима: все черновики с живым крашем"
+[ $_bad_drafts -ne 0 ] && fail=1
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 37 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

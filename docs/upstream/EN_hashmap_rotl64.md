@@ -1,3 +1,6 @@
+WITHDRAWN (2026-11-10): closed as not-a-bug by the maintainer - the UB is LATENT only,
+no call site passes r == 0. Kept for the record; see docs/upstream/SENT.md.
+
 `XXH_rotl64`: shift by 64 is UB at `r == 0`, and `64 - r` overflows `int`
 
 Tested on `3735986`.
