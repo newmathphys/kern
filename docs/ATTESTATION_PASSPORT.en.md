@@ -31,7 +31,7 @@ Checked: Ed25519 signature, `kid` == key fingerprint,
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->443 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **53 / 53**, can-fail **209 / 209 CHECK** (251 non-vacuous cases, 0 errors),
+> KERN-Next **53 / 53**, can-fail **209 / 209 CHECK** (254 non-vacuous cases, 0 errors),
 > registry **<!-- fact:registry_targets -->283 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 147 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and

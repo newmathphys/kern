@@ -45,4 +45,4 @@
 2. Sync README/landing hashes after the asset is uploaded (currently v2.4.0 on purpose,
    otherwise the links would 404).
 3. Nothing else in code: canonical gate 40/40, full sweep 1345/1345, `canfail`
-   251 non-vacuous / 0 vacuous, Lean 147 theorems / 0 sorry, QEMU 393/8/0.
+   254 non-vacuous / 0 vacuous, Lean 147 theorems / 0 sorry, QEMU 393/8/0.
