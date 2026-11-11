@@ -28,10 +28,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MARKERS = ("ЛОМАЕМ", "SABOTAGE")
-SCANNED = ("src",)
+SCANNED = ("src", "tools")
 # Исключения НАЗВАНЫ и обоснованы: без них гейт был бы вакуумным.
 ALLOWED = {
     "tools/canfail.py": "сам стенд обязан знать маркеры, чтобы их вставлять",
+    "tools/sabotage_guard.py": "гейт обязан знать маркеры, чтобы их искать",
+    "tools/ci.sh": "здесь живёт ПЕРВАЯ линия обороны против тех же маркеров",
 }
 
 
@@ -95,6 +97,8 @@ def scan_index() -> list[tuple[str, int, str]]:
         if len(parts) >= 3:
             # формат `path:line:content` (без префикса ревизии)
             path, ln, content = parts[0], parts[1], parts[2] if len(parts) == 3 else parts[3]
+            if path in ALLOWED:
+                continue
             try:
                 hits.append((path, int(ln), content.strip()[:96]))
             except ValueError:
@@ -119,7 +123,10 @@ def scan_committed() -> list[tuple[str, int, str]]:
     for line in r.stdout.splitlines():
         parts = line.split(":", 3)
         if len(parts) >= 4:
-            hits.append((parts[1], int(parts[2]), parts[3].strip()[:96]))
+            rel = parts[1]
+            if rel in ALLOWED:
+                continue          # названное исключение (сам стенд)
+            hits.append((rel, int(parts[2]), parts[3].strip()[:96]))
     return hits
 
 

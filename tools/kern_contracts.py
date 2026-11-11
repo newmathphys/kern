@@ -6057,7 +6057,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             # то есть с ОТРИЦАНИЕМ истины. Ветви ниже (рекурсивный
             # `_walk_branches(st.orelse, path + [(not cond)])`) и так обходят
             # всё корректно — этот скан их только ПОРТИЛ.
-            _then_nodes = [_ng for _st_then in [st]  # ЛОМАЕМ (#471a)
+            _then_nodes = [_ng for _st_then in st.body
                            for _ng in _walk_expr_guarded(_st_then, path + [cond], syms, env)]
             for n, nguards in _then_nodes:
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
