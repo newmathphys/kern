@@ -625,7 +625,7 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             if sem.div == "floor":
                 q = _floor_div_smt(left, right)
             else:
-                q = _trunc_div_smt(left, right)
+                q = _floor_div_smt(left, right)  # ЛОМАЕМ (Испытание 1)
             if isinstance(node.op, ast.Mod):
                 return _mod_smt(left, right, q)
             return q

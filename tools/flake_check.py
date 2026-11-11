@@ -40,7 +40,6 @@ TARGETS = (
     "llms-check",
     "temp-isolation-check",
     "charter-check",
-    "nonexistent-target-xyz",  # ЛОМАЕМ (F2)
 )
 
 
