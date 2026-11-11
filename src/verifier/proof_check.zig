@@ -3945,6 +3945,38 @@ fn linAdd(dst: *Lin, src: *const Lin) bool {
 /// умножение на числовой литерал, литералы и переменные. Всё прочее
 /// (нелинейность, деление, `mod`, неинтерпретированные функции) — `false`, и
 /// тогда шаг учитывается как «разобрана только структура».
+fn termNameLess(_: void, a: Term, b: Term) bool {
+    return std.mem.lessThan(u8, a.name, b.name);
+}
+
+/// КАНОНИЧЕСКИЙ КЛЮЧ АТОМА для `(div A k)` / `(mod A k)` (ДЕФЕКТ #619b).
+///
+/// ЗАЧЕМ. Для линейной арифметики `(div A k)` — непрозрачный атом, но его КЛЮЧ
+/// обязан зависеть только от математического смысла `A`, иначе один и тот же
+/// делитель, записанный как `(- high low)` и как `(+ (* (- 1) low) high)`,
+/// получает разные ключи, и КОРРЕКТНЫЙ `rewrite` отвергается (`rewrite_bad=1`,
+/// измерено на `midpoint.smt2`). Ключ строится рекурсивным `parseLin` по `A`
+/// с сортировкой слагаемых по имени: `div(c=0,high=1,low=-1|2)`.
+/// ЗВУЧНО: разные полиномы дают разные ключи, одинаковые — одинаковый.
+fn atomKeyFor(c: *const Ctx, h: []const u8, e: Sexp) ?[]const u8 {
+    const k = numOf(e.items[2]) orelse return null;
+    if (k <= 0) return null;
+    var sub = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (!parseLin(c, e.items[1], 1, &sub)) return null;
+    std.mem.sort(Term, sub.terms.items, {}, termNameLess);
+    var parts = std.array_list.Managed(u8).init(c.arena);
+    var piece = std.fmt.allocPrint(c.arena, "{s}(c={d}", .{ h, sub.constant }) catch return null;
+    parts.appendSlice(piece) catch return null;
+    for (sub.terms.items) |t| {
+        if (t.coeff == 0) continue;
+        piece = std.fmt.allocPrint(c.arena, ",{s}={d}", .{ t.name, t.coeff }) catch return null;
+        parts.appendSlice(piece) catch return null;
+    }
+    piece = std.fmt.allocPrint(c.arena, "|{d})", .{k}) catch return null;
+    parts.appendSlice(piece) catch return null;
+    return std.fmt.allocPrint(c.arena, "#A{s}", .{parts.items}) catch null;
+}
+
 fn parseLin(c: *const Ctx, e: Sexp, sign: i64, out: *Lin) bool {
     if (!e.isList()) {
         const a = e.atom orelse return false;
@@ -3985,6 +4017,13 @@ fn parseLin(c: *const Ctx, e: Sexp, sign: i64, out: *Lin) bool {
         if (count_num == 0 or rest == null) return false;
         return parseLin(c, rest.?, sign * k, out);
     }
+    // ОТКАЧЕНО ИЗМЕРЕНО (#619b): канонический ключ работал на `midpoint.smt2`
+    // (trusted 12 -> 5, rewrite_bad=0), но СЛОМАЛ существующее доказательство:
+    // гейт `evm-proof-check` перестал подтверждать `SDIV(MIN,-1) = MIN`
+    // («нет [PROOF VERIFIED]»). Новая ветка разбора меняет поведение старого
+    // пути на формулах, где `div` уже обрабатывался иначе. Возврат к прежнему
+    // разбору восстановил гейт; правильный путь — включить атомы ТОЛЬКО для
+    // доказательств, где старый путь отказывает, и с двусторонним контролем.
     // ОТКАЧЕНО ИЗМЕРЕНО (#619b): атомизация подтермов включала проверку
     // `rewrite`, но печать подтермов НЕ канонична: `(+ (* (- 1) low) high)` и
     // `(+ high (* (- 1) low))` — одно и то же, а ключи разные -> rewrite_bad=1

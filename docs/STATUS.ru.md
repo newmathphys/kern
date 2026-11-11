@@ -28,7 +28,7 @@ Can-fail кейсов: **<!-- fact:canfail_cases -->251**, из них у
 | Тесты KERN-Next | <!-- fact:next_tests -->53 |
 | Каталог тестов | <!-- fact:catalog -->491 |
 | Lean 4 | <!-- fact:lean_theorems -->147 теорем в 8 файлах, 0 sorry |
-| Убито мутаций | <!-- fact:mutation_sites -->1602 / 1602 в 21 файлах |
+| Убито мутаций | <!-- fact:mutation_sites -->1604 / 1604 в 21 файлах |
 | Кросс-архитектура | <!-- fact:cross_arch_passed -->443 прошло / <!-- fact:cross_arch_skipped -->8 пропущено / 0 провалов |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 формально SMT · <!-- fact:quixbugs.differential -->40/40 живой дифференциал (29 значение + 10 падение + 1 зависание) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Литеральных якорей | <!-- fact:anchors -->210 |
