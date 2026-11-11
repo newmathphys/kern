@@ -246,6 +246,8 @@ _UNROLL_K: list = [max(1, int(os.environ.get("KERN_UNROLL_K", "2")))]
 _ALLOW_NIA: list = [False]   # включается в --loops/--state-inv
 # ДЕФЕКТ #614: имена, которые меняет ВЛОЖЕННЫЙ цикл (для звукого пропуска).
 _INNER_LOOP_VARS: list = []
+# ДЕФЕКТ #615: УЗЛЫ вложенных циклов (для двухуровневой индукции).
+_INNER_LOOP_NODES: list = []
 _UNROLLED: list = [False]   # в трансляции была развёртка цикла/рекурсии
 # ПОЛИГОН 3 (QF_AX): имена-массивы текущей функции (из `@kern:array`) и их
 # ТЕКУЩЕЕ SMT-состояние. Пусто -> поведение прежнее (каскад `ite` для списков).
@@ -11095,6 +11097,71 @@ def _assigns(stmts) -> list[tuple[str, str]]:
     return out
 
 
+def _nested_loop_check(node, params, prem, kernc, lines) -> tuple:
+    """ДВУХУРОВНЕВАЯ ИНДУКЦИЯ для ОДНОГО вложенного цикла (дефект #615).
+
+    ЗВУКАЯ СХЕМА (Гоар/CHC):
+      * `init`:        prem  =>  I_in                    (на входе в цикл)
+      * `consecution`: prem & I_in & guard  =>  I_in'     (шаг сохраняет)
+      * `termination`: для `while` нужен `decreases`, для `for` цикл ограничен
+    Если всё доказано, эффект внутреннего цикла описывается как
+    HAVOC (переменные -> свежие символы `v__in`) + факт `I_in` (с той же
+    заменой). Если НЕ доказано — честный FAIL с причиной, а не догадка.
+    Возвращает ("ok", facts, touched) | ("fail", msgs, []) | ("noanno", [], touched).
+    """
+    touched = sorted(_assigned_names(node))
+    d = _directives_before(lines, getattr(node, "lineno", 0)) if lines else {}
+    if "invariant" not in d:
+        return "noanno", [], touched
+    # более глубокие циклы внутри вложенного — вне модели
+    if any(isinstance(x, (ast.While, ast.For)) for x in ast.walk(node)
+           if x is not node and getattr(x, "lineno", -1) > getattr(node, "lineno", -1)):
+        return "fail", [f"вложенный цикл глубже второго уровня (строка "
+                        f"{getattr(node, 'lineno', '?')}) не моделируется"], []
+    try:
+        inv_in = _unify_len_symbols(
+            _cond_smt(ast.parse(d["invariant"], mode="eval").body, set(params)))
+        guard = (expr_smt(node.test, {}) if isinstance(node, ast.While) else None)
+        paths_in = _assign_paths(node.body)
+    except (Unsupported, NoReturn, Exception) as e:
+        return "fail", [f"вложенный цикл вне подмножества ({e})"], []
+    if len(paths_in) != 1:
+        return "fail", ["вложенный цикл с ветвями не моделируется (нужен "
+                        "инвариант ветвления)"], []
+    names_in = sorted({p for p in params} | {a for a, _ in paths_in[0]} | set(touched))
+    state_c = {v: v for v in names_in}
+    state_n = _apply(state_c, paths_in[0])
+    inv_c = _unify_len_symbols(_subst(inv_in, state_c))
+    inv_n = _unify_len_symbols(_subst(inv_in, state_n))
+    # init: prem & not I_in
+    if _smt_sat(kernc, params, prem + [f"(not {inv_c})"]) is not False:
+        return "fail", [f"вложенный инвариант НЕ держится на входе (строка "
+                        f"{getattr(node, 'lineno', '?')}): {d['invariant']}"], []
+    prem2 = prem + ([guard] if guard else [])
+    if _smt_sat(kernc, params, prem2 + [inv_c, f"(not {inv_n})"]) is not False:
+        return "fail", [f"вложенный инвариант НЕ сохраняется (строка "
+                        f"{getattr(node, 'lineno', '?')}): {d['invariant']}"], []
+    if isinstance(node, ast.While):
+        if "decreases" not in d:
+            return "fail", [f"у вложенного `while` нет `# @kern:decreases` "
+                             f"(строка {getattr(node, 'lineno', '?')}) — остановка "
+                             f"НЕ проверена"], []
+        try:
+            dec_in = _unify_len_symbols(
+                _cond_smt(ast.parse(d["decreases"], mode="eval").body, set(params)))
+            dec_c = _unify_len_symbols(_subst(dec_in, state_c))
+            dec_n = _unify_len_symbols(_subst(dec_in, state_n))
+        except (Unsupported, NoReturn, Exception):
+            return "fail", ["вложенный вариант завершения вне подмножества"], []
+        if _smt_sat(kernc, params, prem2 + [inv_c, f"(not (< {dec_n} {dec_c}))"]) is not False:
+            return "fail", [f"вложенный вариант НЕ убывает (строка "
+                            f"{getattr(node, 'lineno', '?')})"], []
+    # HAVOC + факт I_in на свежих символах
+    ren = {v: f"{v}__in" for v in touched}
+    facts = [_unify_len_symbols(_subst(inv_in, ren))]
+    return "ok", facts, touched
+
+
 def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
     """ВСЕ пути присваиваний в теле цикла (дефект #601).
 
@@ -11141,6 +11208,7 @@ def _assign_paths(stmts) -> list[list[tuple[str, str]]]:
             # пропустить его и проверять внешний цикл. Какие имена он трогает,
             # собираем здесь; решение принимает `check_loop`.
             _INNER_LOOP_VARS.extend(_assigned_names(st))
+            _INNER_LOOP_NODES.append(st)
             continue
         if isinstance(st, ast.With):
             raise Unsupported(
@@ -11187,6 +11255,9 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
         init_paths = _assign_paths(fn.body[:idx])
         init_a = [a for _p in init_paths for a in _p]
         # ДЕФЕКТ #601: пути по ветвям if/else вместо единственного списка.
+        # ДЕФЕКТ #615: сборщики вложенных циклов сбрасываются на функцию.
+        _INNER_LOOP_VARS.clear()
+        _INNER_LOOP_NODES.clear()
         step_paths = _assign_paths(loop.body)
         step_a = [a for _p in step_paths for a in _p]
     except (Unsupported, NoReturn, Exception) as e:
@@ -11240,13 +11311,40 @@ def check_loop(fn, params, req_smt, ens_smt, kernc) -> list[str]:
     # индукция) -> честный SKIP с названной причиной, а НЕ доказательство.
     # ИЗМЕРЕНО: без этой проверки `nested_bad` (внутренний цикл делает
     # `cnt += 1`, а `cnt` входит в инвариант) объявлялся PROVEN — незвучно.
-    if _INNER_LOOP_VARS:
+    # ДЕФЕКТ #615: ДВУХУРОВНЕВАЯ ИНДУКЦИЯ. Для вложенного цикла с аннотацией
+    # `# @kern:invariant` (+ `decreases` для `while`) проверяются ЕГО
+    # обязательства, затем эффект описывается как HAVOC + факт I_in.
+    # Без аннотации — прежний именованный SKIP (#614).
+    _nested_facts: list = []
+    _havoc: dict = {}
+    _ok_touched: set = set()
+    for _node in _INNER_LOOP_NODES:
+        _kind, _msgs, _touched = _nested_loop_check(
+            _node, params, pre + [inv], kernc, _loop_lines.get(fn.lineno, []))
+        if _kind == "fail":
+            res.append(f"[FAIL] {fn.name}: " + "; ".join(_msgs))
+            return res
+        if _kind == "ok":
+            _nested_facts.extend(_msgs)
+            _ok_touched |= set(_touched)
+            for _v in _touched:
+                _havoc[_v] = f"{_v}__in"
+    if _havoc:
+        step_paths = [_p + list(_havoc.items()) for _p in step_paths]
+        names = list(dict.fromkeys(names + list(_havoc.values())))
+        state_c = {n: n for n in names}
+        state_ns = [_apply(state_c, _p) for _p in step_paths]
+        invc = _subst(inv, state_c)
+        pre = pre + _nested_facts
+    _rest = sorted(set(_INNER_LOOP_VARS) - _ok_touched)
+    if _rest:
         _contract_vars = set(re.findall(r"[A-Za-z_]\w*",
                                         f"{inv or ''} {dec or ''} {ens_smt or ''}"))
-        _clash = sorted(set(_INNER_LOOP_VARS) & _contract_vars)
+        _clash = sorted(set(_rest) & _contract_vars)
         if _clash:
             res.append(f"[SKIP] {fn.name}: вложенный цикл меняет переменные "
-                       f"контракта {_clash} — нужна двухуровневая индукция")
+                       f"контракта {_clash} — нужна двухуровневая индукция "
+                       f"(добавьте `# @kern:invariant` над вложенным циклом)")
             return res
     # ИЗМЕРЕНО (Дефект #138): раньше объявлялись ТОЛЬКО параметры, поэтому
     # локальная переменная цикла (`i`) оставалась необъявленной -> Z3 отвечал `N`

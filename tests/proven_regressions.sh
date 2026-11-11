@@ -237,5 +237,39 @@ else
   echo "[FAIL] граница: исход неясен"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 29 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #615: ДВУХУРОВНЕВАЯ ИНДУКЦИЯ, четырёхсторонний контроль
+out=$(timeout 250 $P --loops $F/nested_annot_ok.py 2>&1)
+if printf '%s' "$out" | grep -q 'two_level_ok: PROVEN'; then
+  echo "[OK]   2 уровня: внешний инвариант следует из внутреннего -> PROVEN"
+else
+  echo "[FAIL] 2 уровня: корректная пара инвариантов НЕ доказана"; fail=1
+fi
+out=$(timeout 250 $P --loops $F/nested_annot_bad.py 2>&1)
+if printf '%s' "$out" | grep -q 'two_level_bad: LOOP INVARIANT VIOLATED'; then
+  echo "[OK]   2 уровня: внешний НЕ следует из внутреннего -> FAIL"
+elif printf '%s' "$out" | grep -q 'two_level_bad: PROVEN'; then
+  echo "[FAIL] КРИТИЧНО: 2 уровня дали PROVEN без достаточного инварианта"; fail=1
+else
+  echo "[FAIL] 2 уровня: отказ не по той причине"; fail=1
+fi
+out=$(timeout 250 $P --loops $F/nested_inv_false.py 2>&1)
+if printf '%s' "$out" | grep -q 'НЕ держится на входе'; then
+  echo "[OK]   2 уровня: ложный внутренний инвариант -> FAIL на init"
+else
+  echo "[FAIL] 2 уровня: ложный внутренний инвариант не поймана"; fail=1
+fi
+out=$(timeout 250 $P --loops $F/nested_while_nodecr.py 2>&1)
+if printf '%s' "$out" | grep -q 'нет.*decreases'; then
+  echo "[OK]   2 уровня: вложенный while без decreases -> FAIL"
+else
+  echo "[FAIL] 2 уровня: отсутствие decreases не поймано"; fail=1
+fi
+out=$(timeout 300 $P --loops $F/sieve_real.py 2>&1)
+if printf '%s' "$out" | grep -q 'sieve_first_block: PROVEN'; then
+  echo "[OK]   реальный алгоритм с вложенным циклом (решето) доказан"
+else
+  echo "[FAIL] реальное решето не доказано"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 34 двусторонних контроля (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

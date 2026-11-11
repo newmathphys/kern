@@ -1,0 +1,31 @@
+# #615: ДВУХУРОВНЕВАЯ ИНДУКЦИЯ РЕАЛИЗОВАНА (по плану docs/design/)
+
+## Схема (Гоар/CHC), как и было в плане
+Для вложенного цикла с аннотацией `# @kern:invariant` (+ `decreases` для while):
+  1. init:        prem & not I_in           -> UNSAT
+  2. consecution: prem & I_in & guard & not I_in' -> UNSAT
+  3. termination: для while требуется `decreases` (для for цикл ограничен)
+  4. эффект = HAVOC (переменные -> свежие символы `v__in`) + факт I_in (с заменой).
+`prem` включает requires и ВНЕШНИЙ инвариант — поэтому внешний цикл видит ровно то,
+что гарантирует внутренний.
+
+## Четырёхсторонний контроль (все четыре в гейте)
+  nested_annot_ok      внешний следует из внутреннего        -> PROVEN
+  nested_annot_bad     внешний НЕ следует                    -> FAIL (LOOP INVARIANT VIOLATED)
+  nested_inv_false     ложный внутренний инвариант           -> FAIL («НЕ держится на входе»)
+  nested_while_nodecr  вложенный while без decreases         -> FAIL («нет decreases»)
+
+## РЕАЛЬНЫЙ алгоритм
+`maths/segmented_sieve.py` (TheAlgorithms/Python), первый блок:
+    while start <= end:
+        if temp[start]: in_prime.append(start)
+        for i in range(start*start, end+1, start): temp[i] = False
+        start += 1
+-> [PASS] PROVEN (инвариант `2 <= start and start <= end + 1` + остановка `end - start`).
+
+## Граница (названа)
+Глубже двух уровней -> FAIL «вложенный цикл глубже второго уровня»;
+вложенный цикл с ветвями -> отказ (нужен инвариант ветвления);
+без аннотации -> прежний SKIP #614 с подсказкой добавить аннотацию.
+
+Гейт: 34 двусторонних контроля.
