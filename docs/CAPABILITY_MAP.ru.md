@@ -120,7 +120,7 @@
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (33)
+## E4. Рентген кода, CWE, точность и PR-дельта (34)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -150,6 +150,7 @@
 | `parser-security-check` | `parser-security-check` | — | `make parser-security-check` |
 | `pilot-e2e-check` | `pilot-gate-blind` | — | `make pilot-e2e-check` |
 | `project-spec-check` | `project-spec-blind` | — | `make project-spec-check` |
+| `sabotage-guard` | — | — | `make sabotage-guard` |
 | `string-contracts-check` | `string-contracts-check` | — | `make string-contracts-check` |
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
@@ -246,13 +247,21 @@
 | `trust-docs-check` | `trust-docs-missing` | — | `make trust-docs-check` |
 | `version-check` | `version-consistency` | — | `make version-check` |
 
+## E9. НЕ КЛАССИФИЦИРОВАНО (ошибка карты, а не цель)
+
+| Цель | Кейс | Команда |
+|:--|:--|:--|
+| `orphan-gates-check` | — | `make orphan-gates-check` |
+| `proven-regressions-check` | proven-regressions-check | `make proven-regressions-check` |
+| `tools-laws-check` | — | `make tools-laws-check` |
+
 ## Паритет с реестром
 
-Целей в карте: **206**; класс CHECK в `registry.py`: **206**;
-записей `CASE_TARGET`: **250** (make-исполнимых **246**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **210**; класс CHECK в `registry.py`: **210**;
+записей `CASE_TARGET`: **251** (make-исполнимых **247**); без кейса вне `NO_CASE_OK`: **3**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->205 · can-fail кейсы <!-- fact:canfail_cases -->250 ·
-якоря <!-- fact:anchors -->209 · цели реестра <!-- fact:registry_targets -->281 · META <!-- fact:meta_targets -->56 ·
+CHECK-цели <!-- fact:check_targets -->206 · can-fail кейсы <!-- fact:canfail_cases -->251 ·
+якоря <!-- fact:anchors -->210 · цели реестра <!-- fact:registry_targets -->283 · META <!-- fact:meta_targets -->56 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

@@ -121,7 +121,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 
-## E4. Code X-ray, CWE, precision and the PR delta (33)
+## E4. Code X-ray, CWE, precision and the PR delta (34)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -151,6 +151,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `parser-security-check` | `parser-security-check` | — | `make parser-security-check` |
 | `pilot-e2e-check` | `pilot-gate-blind` | — | `make pilot-e2e-check` |
 | `project-spec-check` | `project-spec-blind` | — | `make project-spec-check` |
+| `sabotage-guard` | — | — | `make sabotage-guard` |
 | `string-contracts-check` | `string-contracts-check` | — | `make string-contracts-check` |
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
@@ -247,13 +248,21 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `trust-docs-check` | `trust-docs-missing` | — | `make trust-docs-check` |
 | `version-check` | `version-consistency` | — | `make version-check` |
 
+## E9. UNCLASSIFIED (a map error, not a target)
+
+| Target | Case | Command |
+|:--|:--|:--|
+| `orphan-gates-check` | — | `make orphan-gates-check` |
+| `proven-regressions-check` | proven-regressions-check | `make proven-regressions-check` |
+| `tools-laws-check` | — | `make tools-laws-check` |
+
 ## Registry parity
 
-Targets in the map: **206**; class CHECK in `registry.py`: **206**;
-`CASE_TARGET` records: **250** (make-executable **246**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **210**; class CHECK in `registry.py`: **210**;
+`CASE_TARGET` records: **251** (make-executable **247**); without a case outside `NO_CASE_OK`: **3**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-CHECK targets <!-- fact:check_targets -->205 · can-fail cases <!-- fact:canfail_cases -->250 ·
-anchors <!-- fact:anchors -->209 · registry targets <!-- fact:registry_targets -->281 · META <!-- fact:meta_targets -->56 ·
+CHECK targets <!-- fact:check_targets -->206 · can-fail cases <!-- fact:canfail_cases -->251 ·
+anchors <!-- fact:anchors -->210 · registry targets <!-- fact:registry_targets -->283 · META <!-- fact:meta_targets -->56 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

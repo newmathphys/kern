@@ -6,6 +6,16 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.8.24]
+
+- `#624` якорь canfail больше не прибит к версии (динамический из server.json).
+- `#625` `--diff-equiv` не падает на реальном файле (`[SKIP] тело не извлеклось`).
+- `#626` `seal` не считает грязью собственные артефакты (`dirtyTree=false`).
+- `#627`, `#631`, `#635` восстановлены закоммиченные диверсии `canfail`
+  (src/, tools/, formal/: `CANFAIL_PROBE … by by sorry`).
+- `#628`/`#629` гейт саботажа: HEAD + индекс (`--cached`), двусторонний селфтест.
+- `#630` `canfail` работает в отдельном `git worktree` (инъекции не трогают src/).
+
 ## [2.8.3] — 2026-11-09
 
 ### Fixed
