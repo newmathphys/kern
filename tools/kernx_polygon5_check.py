@@ -99,7 +99,10 @@ def verdict(proj_path: str):
             if isinstance(x, dict) and "honest" in str(x.get("id", "")):
                 reason = x.get("reason")
     rc_d, _ = run([str(KERNX), "diff", proj_path])
-    rc_g, _ = run([str(KERNX), "graph", proj_path])
+    # ДЕФЕКТ #640: `kernx graph` требует КАТАЛОГ, а передавался путь к файлу
+    # `.kern` -> `[!] graph: ... FileNotFound (укажите существующий каталог)` -> rc=2,
+    # и гейт валился с «конфликт не представлен», хотя reason='conflicted' (Белнап ЦЕЛ).
+    rc_g, _ = run([str(KERNX), "graph", outdir])
     shutil.rmtree(outdir, ignore_errors=True)
     ok = (n_b == 1 and states.get("conflicted") == 1
           and states.get("proven", 0) >= 1 and states.get("refuted", 0) >= 1

@@ -2,7 +2,7 @@
 #
 # ПРИМЕР РАБОЧЕГО ПРОЦЕССА для KERN-гейта (скопируйте в `.github/workflows/`).
 # Это ОБРАЗЕЦ, а не процесс самого KERN: он ссылается на ОПУБЛИКОВАННЫЙ релиз
-# (`newmathphys/kern@v2.8.3`), поэтому не запускается в этом репозитории.
+# (`newmathphys/kern@v2.8.24`), поэтому не запускается в этом репозитории.
 # Структура проверяется гейтом `make action-check` (только объявленные входы).
 name: KERN gate
 on:
@@ -23,7 +23,7 @@ jobs:
       # rc=2 здесь означает «дистрибутив неполон», а не «код чист».
       - name: KERN verification gate
         id: kern
-        uses: newmathphys/kern@v2.8.3
+        uses: newmathphys/kern@v2.8.24
         with:
           path: '.'
           base: '${{ github.base_ref }}'

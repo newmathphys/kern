@@ -10,10 +10,19 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PYTHON:-python3}"
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+trap 'rm -rf "$W"; git worktree prune 2>/dev/null || true' EXIT
 
 mkdir -p "$W/tools" "$W/zig-out/bin"
-cp "$ROOT/tools/kern_contracts.py" "$W/tools/"
+# ДЕФЕКТ #641: копировался ОДИН файл, а `kern_contracts.py` импортирует
+# `funnel_accounting` -> `ModuleNotFoundError` -> хук в песочнице падал, и гейт
+# `hook-check` был красным (нашёл пакетный аудит сирот). Классовое лечение:
+# копируем ВСЕ модули `tools/*.py` — новый импорт завтра не сломает песочницу.
+cp "$ROOT"/tools/*.py "$W/tools/"
+# #641b: хуку нужен ещё и `server.json` (версия читается из него динамически,
+# см. #624) — без него песочница падала на FileNotFoundError.
+for f in server.json .well-known/mcp.json; do
+  [ -f "$ROOT/$f" ] && mkdir -p "$W/$(dirname "$f")" && cp "$ROOT/$f" "$W/$f"
+done
 # Реальный kernc нужен хуку (он вызывает Z3 + пруф-чекер). Симлинк, чтобы
 # самотест не требовал сборки внутри временного репозитория.
 if [ -x "$ROOT/zig-out/bin/kernc" ]; then
