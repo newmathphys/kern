@@ -2804,8 +2804,14 @@ def case_artifact_offline():
     README меняется, и устаревший якорь делает кейс НЕПРИМЕНИМЫМ — `--check-anchors`
     это показывает (`sync НЕ пишет None`).
     """
+    # ДЕФЕКТ #624: якорь был ЖЁСТКО "v2.8.3" и краснел при каждом релизе
+    # (в CI: `canfail --skip lean-sorry` падал на v2.8.23, потому что README уже
+    # указывал новую версию). Версия читается из server.json — якорь динамический,
+    # а кейс остаётся СПОСОБНЫМ упасть: подмена реальной версии на 9.9.9 рвёт цепочку.
+    _ver = "v" + __import__("json").loads(
+        (ROOT / "server.json").read_text(encoding="utf-8"))["version"]
     patch("README.md",
-          "releases/download/v2.8.3",
+          f"releases/download/{_ver}",
           "releases/download/v9.9.9")
     return "make artifact-check-offline"
 
