@@ -14,12 +14,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ДЕФЕКТ #620: КОНТРОЛЬНАЯ ТОЧКА ПУБЛИКОВАЛАСЬ КАК РЕЛИЗ.
+      # Workflow срабатывает на любой тег `v*`, а версия релиза живёт в
+      # `server.json`. Когда тег (`v2.8.19`) не совпадает с версией
+      # (`2.8.3`), шаг заметок требовал `docs/RELEASE_NOTES_v2.8.19.md`,
+      # прогон краснел, а если бы файл создали — страница релиза описывала бы
+      # архив `kerna-dist-v2.8.3.tar.gz` под чужим тегом (класс #370).
+      # Теперь расхождение НАЗВАНО и публикация не выполняется (не «тихо ок»:
+      # печатаются обе версии и что сделать, чтобы выпустить релиз).
+      - name: Version gate (тег обязан совпадать с версией релиза)
+        run: |
+          VER="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
+          if [ "${GITHUB_REF_NAME}" != "v${VER}" ]; then
+            echo "::warning::тег ${GITHUB_REF_NAME} != версии релиза v${VER} из server.json"
+            echo "[i] это контрольная точка, а не релиз: публикация НЕ выполняется"
+            echo "[i] чтобы выпустить релиз: поднимите version в server.json, добавьте"
+            echo "[i] docs/RELEASE_NOTES_v<version>.md и поставьте тег v<version>"
+            echo "RELEASE_OK=0" >> "$GITHUB_ENV"
+          else
+            echo "[OK] тег ${GITHUB_REF_NAME} совпадает с версией релиза"
+            echo "RELEASE_OK=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Zig 0.17.0
+        if: env.RELEASE_OK == '1'
         uses: mlugg/setup-zig@v2
         with:
           version: 0.17.0
 
       - name: Build hermetic binary
+        if: env.RELEASE_OK == '1'
         run: zig build hermetic
 
       # АРХИВ АППЛАЕНСА НУЖЕН ПИТОНУ И БЭКЕНДУ: `kerna` (PyInstaller onefile) +
@@ -30,15 +54,18 @@ jobs:
       # на v2.8.2 показал 165 инструкций AVX-512 (`zmm`) в CI-сборке — на CPU
       # без AVX-512 это SIGILL(132), и `--diff-equiv` печатал `[TOOL_ERROR]`.
       - name: Build the verifier backend (kernc) for the appliance
+        if: env.RELEASE_OK == '1'
         run: zig build -Dcpu=baseline
 
       - name: Python toolchain for the appliance (z3 + PyInstaller)
+        if: env.RELEASE_OK == '1'
         run: |
           python3 -m venv .venv
           .venv/bin/pip install --quiet -r requirements.txt pyinstaller
           .venv/bin/python -c 'import z3, PyInstaller; print("[i] z3 + PyInstaller готовы")'
 
       - name: Build kerna (onefile) and the release archive
+        if: env.RELEASE_OK == '1'
         run: |
           PYTHON=.venv/bin/python make kerna-build PYTHON=.venv/bin/python
           PYTHON=.venv/bin/python make kerna-dist
@@ -48,9 +75,11 @@ jobs:
       # исполнены и проверены (`make action-check REAL=1` — сухой прогон
       # action.yml на ЭТОМ архиве, с настоящим SHA-256).
       - name: Gate the artifact before publishing
+        if: env.RELEASE_OK == '1'
         run: PYTHON=.venv/bin/python make action-check REAL=1
 
       - name: Package release assets
+        if: env.RELEASE_OK == '1'
         run: |
           VER="$(python3 -c 'import json;print(json.load(open("server.json"))["version"])')"
           cp zig-out/bin/kernc-hermetic kernc-x86_64-linux-musl
@@ -69,6 +98,7 @@ jobs:
           grep -q " kerna-dist-v${VER}.tar.gz$" SHA256SUMS || { echo "[!] сумма архива не попала в SHA256SUMS"; exit 1; }
 
       - name: Create or update GitHub Release
+        if: env.RELEASE_OK == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
