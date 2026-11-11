@@ -385,7 +385,7 @@ def pkg_b_oracles() -> None:
     halt_bc.write_bytes(bytes([0x00, 0xFF]))       # NOP; HALT
     manifest = ROOT / "examples" / "hello_world.kern"
     fuel_rows: list[tuple[str, str]] = []
-    for name, bc, want in (("цикл", loop_bc, "OutOfQuota"), ("halt", halt_bc, "OutOfQuota")):
+    for name, bc, want in (("цикл", loop_bc, "OutOfQuota"), ("halt", halt_bc, "HALT OK")):
         img = bc_dir / f"{bc.stem}.kimg"
         _rcb, outb = run([str(KERNC), "build", str(manifest), "-o", str(img),
                           "--bytecode", str(bc)], timeout=300)

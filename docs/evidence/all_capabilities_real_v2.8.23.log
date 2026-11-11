@@ -39,3 +39,27 @@
 
 ── ПАКЕТ Е. .kimg/KERNFS, C-ABI (pthread) и браузерное ядро ──
   [OK  ] .kimg: pack-dir/fsck/inspect/ls/cat/diff + порча бита: [OK] CLI fsck/inspect/diff работают на фикстурах
+  [OK  ] .kimg: grep по объектам образа: [OK] kimg-grep: все 3 исхода верны
+  [OK  ] libkern.so: C-ABI в параллельных потоках: [OK] zig-out/lib/libkern.so + zig-out/include/kern.h
+  [FAIL] kernc.wasm: LIA/Белнап в node: [OK] zig build wasm -> rc=0
+
+── ПАКЕТ Ж. Гомеостаз, @kern:secret, @kern:pricing, --fuel/unify, мост Lean<->kernc ──
+  [OK  ] гомеостаз: F -> синтез @kern:requires -> повторная проверка -> PROVEN: [OK] homeostatic-heal-check
+  [OK  ] @kern:secret: перехват утечки секрета (selftest + реальный скан): [OK] проверено файлов: 1245, находок: 0
+  [OK  ] @kern:pricing: полнота и непротиворечивость тарифной матрицы: [OK] тарифы: дыра и конфликт найдены, корректное разбиение доказано (trusted: 0)
+  [OK  ] kernc run --fuel (цикл): детерминированный бюджет: ожидали OutOfQuota, получили OutOfQuota (топливо 200)
+  [FAIL] kernc run --fuel (halt): детерминированный бюджет: ожидали OutOfQuota, получили HALT OK (топливо 200)
+  [OK  ] kernc unify: согласие -> T, расхождение -> B (Belnap B_4 в CLI): unify 5/3 -> T; unify 3/7 -> B
+  [OK  ] мост Lean<->kernc: joinK_idem / contradiction_isolation (+ роль-асимметрия): idem: unify 4/4 -> T; isolation: unify 2/6 -> B; роль-асимметрия (2/6=B, 6/2=T)=True
+
+── ПАКЕТ И. MCP 8/8, детекторы 5/5, директивы 12/12, дуга 4/4, CLI 29/29 ──
+  [OK  ] MCP: 8 инструментов прямыми вызовами (± входы): 8/8 без трейсбеков и с верным вердиктом
+  [OK  ] детекторы: REDUNDANT GUARD в ABI+SARIF, non-redundant -> 0: избыточный -> ['REDUNDANT GUARD'], UNPARSED 0, SARIF KERN010=True, неизбыточный -> 0 находок
+  [OK  ] директивы @kern:: 12/12 прямыми двусторонними замерами: измерено 12: requires+ensures PASS, requires+ensures FAIL, len: гард -> БЕЗ находок, len: без гарда -> [BOUNDS PATH], array, invariant, decreases, sec
+  [OK  ] дуга самолечения: FAIL -> pytest падает -> heal/отказ -> PROVEN: 1) отказ True, 2) pytest rc=1 (ждали 1), 3) heal назван True, 4) PROVEN True
+  [OK  ] CLI: 23 kernc позитив + 4 негатива + 6 kernx (отказ на битом входе): kernc позитив 18/18; негатив с rc!=0 4/4; kernx отказ 6/6
+
+===============================================================================
+ИТОГ СТЕНДА: OK 38 | SKIP 0 | FAIL 2 | всего 40
+квитанция: docs/evidence/all_capabilities_real_v2.8.23.log
+===============================================================================

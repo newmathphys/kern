@@ -197,7 +197,25 @@ def tree_digest() -> dict:
     стабилен до и после него.
     """
     commit = git("rev-parse", "HEAD")
-    dirty = bool(git("status", "--porcelain"))
+    # ДЕФЕКТ #626 (ИЗМЕРЕНО): `seal` САМ перегенерирует `kern.intoto.*` и
+    # `docs/evidence/all_capabilities_real_*.log`, и сразу после этого считал
+    # «грязное дерево» — включая СВОИ ЖЕ артефакты. Итог: `dirtyTree=true` даже
+    # на идеально чистом старте, и цикл «seal -> commit -> seal» не сходился;
+    # `verify-attestation` вечно падал с «аттестат собран на грязном дереве».
+    # Это класс #370: сообщение говорило не то, что произошло (грязь — своя).
+    #
+    # ЛЕЧЕНИЕ: из расчёта `dirty` исключаются ТОЛЬКО собственные артефакты seal,
+    # поимённо (список назван и печатается). Любое изменение исходников
+    # по-прежнему делает дерево грязным — гарантия не ослаблена.
+    _SELF_ARTIFACTS = ("kern.intoto.jsonl", "kern.intoto.sig")
+    _dirty_all = [ln[3:].strip() for ln in git("status", "--porcelain").splitlines()]
+    _ignored = [d for d in _dirty_all
+                if d in _SELF_ARTIFACTS
+                or (d.startswith("docs/evidence/all_capabilities_real_") and d.endswith(".log"))]
+    _real_dirty = [d for d in _dirty_all if d not in _ignored]
+    if _ignored:
+        print(f"  [i] #626: артефакты самого seal не считаются грязью: {len(_ignored)} шт.")
+    dirty = bool(_real_dirty)
     # tracked + untracked-but-not-ignored, без дубликатов
     tracked = git("ls-files").splitlines()
     untracked = git("ls-files", "--others", "--exclude-standard").splitlines()
