@@ -52,7 +52,7 @@ KERN's verbatim output (`docs/evidence/high_stakes/kern_rust_amm_amp.log`):
   [BV] amp_ramp_up_safe (стр. 10): теория битовых векторов (_ BitVec 64, знаковый)
   [FAIL] amp_ramp_up_safe: КОНТРАКТ НАРУШЕН
          KERN-EQ2 : F
-         ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+         ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)
          [КОНТРПРИМЕР] time_delta = #x1c00000000000001, initial_amp = #x1c00000000100000,
                        target_amp = #x6400000000100002, time_range = #x4000000000000000,
                        result = #x1c000000000fffff

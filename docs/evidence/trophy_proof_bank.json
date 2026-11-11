@@ -3,9 +3,9 @@
   "id": "E1-01",
   "case": "prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)",
   "kern": "контрпример: i = MAX_SIZE (индекс == размер)",
-  "judge": "ASan: ==498039==ERROR: AddressSanitizer: heap-buffer-overflow",
+  "judge": "ASan: ==558159==ERROR: AddressSanitizer: heap-buffer-overflow",
   "status": "ЖИВОЙ",
-  "evidence": "==498039==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b1ebe7ff100 at pc 0x55d9a793445f b"
+  "evidence": "==558159==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b4458fff100 at pc 0x55834a89045f b"
  },
  {
   "id": "E1-02",
@@ -51,33 +51,33 @@
   "id": "E1-07",
   "case": "Rust: binomial_coefficient `n - k` при k > n",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (498093) panicked at /tmp/trophy_4fq30p48/t_48521734.rs:",
+  "judge": "rustc: thread 'main' (558230) panicked at /tmp/trophy_gew4tfmu/t_20324514.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (498093) panicked at /tmp/trophy_4fq30p48/t_48521734.rs:1:73:"
+  "evidence": "thread 'main' (558230) panicked at /tmp/trophy_gew4tfmu/t_20324514.rs:1:73:"
  },
  {
   "id": "E1-08",
   "case": "Rust: fast_factorial `% p` при p == 0",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (498119) panicked at /tmp/trophy_4fq30p48/t_93898535.rs:",
+  "judge": "rustc: thread 'main' (558256) panicked at /tmp/trophy_gew4tfmu/t_13551321.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (498119) panicked at /tmp/trophy_4fq30p48/t_93898535.rs:1:71:"
+  "evidence": "thread 'main' (558256) panicked at /tmp/trophy_gew4tfmu/t_13551321.rs:1:71:"
  },
  {
   "id": "E1-09",
   "case": "Rust: modular_exponential при modulus == 0",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (498145) panicked at /tmp/trophy_4fq30p48/t_95449794.rs:",
+  "judge": "rustc: thread 'main' (558282) panicked at /tmp/trophy_gew4tfmu/t_21601827.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (498145) panicked at /tmp/trophy_4fq30p48/t_95449794.rs:1:122:"
+  "evidence": "thread 'main' (558282) panicked at /tmp/trophy_gew4tfmu/t_21601827.rs:1:122:"
  },
  {
   "id": "E1-10",
   "case": "Rust: sha3 pad101 `-m` при isize::MIN",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (498171) panicked at /tmp/trophy_4fq30p48/t_39120144.rs:",
+  "judge": "rustc: thread 'main' (558308) panicked at /tmp/trophy_gew4tfmu/t_73447155.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (498171) panicked at /tmp/trophy_4fq30p48/t_39120144.rs:1:27:"
+  "evidence": "thread 'main' (558308) panicked at /tmp/trophy_gew4tfmu/t_73447155.rs:1:27:"
  },
  {
   "id": "E2-01",
@@ -170,18 +170,18 @@
  {
   "id": "E3-01-part",
   "case": "abs_kern_absBroken.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-01-part",
   "case": "align_alignBackwardBuggy.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-01-part",
@@ -210,18 +210,18 @@
  {
   "id": "E3-02-part",
   "case": "alignment_bitvec_alignmentAgreesBuggy.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-02-part",
   "case": "binary_search_mid_buggy.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-02-part",
@@ -242,10 +242,10 @@
  {
   "id": "E3-02-part",
   "case": "bv_overflow_mul_bv.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-02",
@@ -266,10 +266,10 @@
  {
   "id": "E3-03-part",
   "case": "ceil_div_bad_ceil_div.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-03-part",
@@ -282,10 +282,10 @@
  {
   "id": "E3-03-part",
   "case": "cwe190_bad_mul_bad.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-03-part",
@@ -298,10 +298,10 @@
  {
   "id": "E3-03-part",
   "case": "cwe191_bad_sub_bad.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-03",
@@ -314,10 +314,10 @@
  {
   "id": "E3-04-part",
   "case": "cwe680_bad_buffer_size.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-04-part",
@@ -354,10 +354,10 @@
  {
   "id": "E3-04-part",
   "case": "div_ceil_divCeilBuggy.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-04-part",
@@ -370,10 +370,10 @@
  {
   "id": "E3-04-part",
   "case": "grid_columns_gridColumnsBuggy.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-04-part",
@@ -394,26 +394,26 @@
  {
   "id": "E3-04-part",
   "case": "kernel_align_deepjit_align_unguarded.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-04-part",
   "case": "midpoint_midpointMutated.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-04-part",
   "case": "ring_slot_array_slot_isolation_buggy.smt2 (частично)",
-  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "kern": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)",
   "judge": "нет trusted: 0",
   "status": "ЧАСТИЧНО",
-  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+  "evidence": "ВЕРДИКТ  : ОПРОВЕРГНУТО (найден контрпример / sat, Белнап F)"
  },
  {
   "id": "E3-04",

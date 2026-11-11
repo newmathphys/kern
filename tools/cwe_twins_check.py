@@ -28,7 +28,7 @@
                          «ВНЕ ПОДМНОЖЕСТВА» и «НЕ РЕШЕНО» — НЕ доказательство
                          и НЕ оправдание: они считаются ПРОВАЛОМ `good`.
   * `xray`             — `bad`: есть `[BOUNDS PATH]`; `good`: его нет.
-  * `kernc-prove`      — `bad`: `НЕ доказано`; `good`: `ДОКАЗАНО`.
+  * `kernc-prove`      — `bad`: `ОПРОВЕРГНУТО (sat, Белнап F)`; `good`: `ДОКАЗАНО`.
   * `verify-sql`       — по ИМЕНИ функции: `[FAIL] <fn>:` / `[PASS] <fn>:`.
   * `noninterference`  — по ИМЕНИ функции: `[FAIL] <fn>:` / `[PASS] <fn>:`.
 
@@ -181,7 +181,7 @@ def evaluate(cls) -> dict:
         caught = any(m in bad_out for m in _XRAY_MARKERS)
         proven = not any(m in good_out for m in _XRAY_MARKERS)
     elif engine == "kernc-prove":
-        caught = "НЕ доказано" in bad_out
+        caught = ("ОПРОВЕРГНУТО" in bad_out or "НЕ доказано" in bad_out)
         proven = "ДОКАЗАНО" in good_out
     elif engine in FUNCS:
         bf, gf = FUNCS[engine]

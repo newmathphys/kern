@@ -325,5 +325,15 @@ else
   echo "[FAIL] #617: латентный хелпер снова в находках"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 40 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# #618: печать вердикта обязана РАЗЛИЧАТЬ sat (опровергнуто) и таймаут/unknown
+# (не решено). Двусторонний контроль + статическая проверка исхода N.
+if python3 tools/verdict_split_check.py >/tmp/vsc618.log 2>&1; then
+  echo "[OK]   #618: sat назван ОПРОВЕРГНУТО, таймаут/unknown — НЕ РЕШЕНО"
+else
+  echo "[FAIL] #618: вердикт снова склеивает sat и таймаут"
+  sed -n "1,8p" /tmp/vsc618.log
+  fail=$((fail+1))
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 41 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

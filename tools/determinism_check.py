@@ -35,7 +35,7 @@ SAT = ("(set-logic ALL)\n(declare-const x Int)\n(assert (> x 5))\n"
 
 EXPECT = {
     "unsat": {"eq2": "T", "verdict": "ДОКАЗАНО", "trusted": "0", "holes": "0"},
-    "sat": {"eq2": "F", "verdict": "НЕ доказано", "counterexample": "x = 6"},
+    "sat": {"eq2": "F", "verdict": "ОПРОВЕРГНУТО", "counterexample": "x = 6"},
 }
 
 

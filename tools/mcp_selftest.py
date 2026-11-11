@@ -11,7 +11,7 @@ stdin, читает строки JSON из stdout.
   2. уведомление (без `id`) — ответа быть НЕ ДОЛЖНО;
   3. `tools/list`      — ПЯТЬ инструментов;
   4. `kern_verify_smt` на ДОКАЗУЕМОМ контракте -> «ДОКАЗАНО», e=1;
-  5. `kern_verify_smt` на ОПРОВЕРГАЕМОМ -> «НЕ доказано», e=0;
+  5. `kern_verify_smt` на ОПРОВЕРГАЕМОМ -> «ОПРОВЕРГНУТО (sat, Белнап F)», e=0;
   6. `kern_prove_with_checker` -> есть строка `PROOF VERIFIED`;
   7. `kern_verify_multi_belnap` [T, F] -> `JOIN_K: B` (конфликт не схлопывается);
   7b. kern_verify_python (ветвления -> ite) -> контрпример;
@@ -176,7 +176,7 @@ def main() -> int:
     r = c.read_one()
     txt = r["result"]["content"][0]["text"] if r else ""
     check("kern_verify_smt (опровергаемый)",
-          "НЕ доказано" in txt and "e       : 0" in txt,
+          "ОПРОВЕРГНУТО" in txt and "Белнап F" in txt and "e       : 0" in txt,
           txt.splitlines()[0] if txt else "")
 
     # 6. полная разбивка пруф-чекера
