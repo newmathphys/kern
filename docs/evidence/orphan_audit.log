@@ -1,0 +1,115 @@
+abi-check	FAIL	make: *** [Makefile:349: abi-check] Ошибка 127
+abi-selftest	FAIL	make: *** [Makefile:352: abi-selftest] Ошибка 127
+action-check	FAIL	make: *** [Makefile:418: action-check] Ошибка 127
+action-firewall-check	SKIP_NONREADONLY	пишущая команда: pip
+ai-traps-check	FAIL	make: *** [Makefile:1265: ai-traps-check] Ошибка 127
+anti-cheat-check	SKIP_NONREADONLY	пишущая команда: pip
+arbitrage-check	SKIP_NONREADONLY	пишущая команда: pip
+arith-zig-ref-selftest	SKIP_NEEDS_ENV	make: *** [Makefile:1052: arith-zig-ref-selftest] Ошибка 127
+artifact-check	SKIP_NEEDS_ENV	make: *** [Makefile:841: artifact-check] Ошибка 127
+audit-delta-selftest	FAIL	make: *** [Makefile:363: audit-delta-selftest] Ошибка 127
+audit-repo-check	SKIP_NONREADONLY	пишущая команда: pip
+audits-mem-check	FAIL	make: *** [Makefile:296: audits-mem-check] Ошибка 127
+audits-mem-selftest	FAIL	make: *** [Makefile:300: audits-mem-selftest] Ошибка 127
+belnap-swarm-check	SKIP_NONREADONLY	пишущая команда: pip
+bounds-check	SKIP_NONREADONLY	пишущая команда: pip
+bug-hunt-check	SKIP_NONREADONLY	пишущая команда: pip
+c-abi-test	SKIP_NONREADONLY	пишущая команда: mkdir
+canfail-selftest	FAIL	make: *** [Makefile:935: canfail-selftest] Ошибка 127
+capability-map-check	FAIL	make: *** [Makefile:373: capability-map-check] Ошибка 127
+changelog-check	FAIL	make: *** [Makefile:1489: changelog-check] Ошибка 127
+charter-selftest	FAIL	make: *** [Makefile:1079: charter-selftest] Ошибка 127
+charter-text-check	FAIL	make: *** [Makefile:1229: charter-text-check] Ошибка 127
+citations-check	FAIL	make: *** [Makefile:1506: citations-check] Ошибка 127
+cli-help-parity-check	SKIP_NONREADONLY	пишущая команда: pip
+concolic-check	FAIL	make: *** [Makefile:1706: concolic-check] Ошибка 1
+cwe-twins-check	FAIL	make: *** [Makefile:1254: cwe-twins-check] Ошибка 127
+determinism-check	FAIL	make: *** [Makefile:1485: determinism-check] Ошибка 127
+double-spend-check	SKIP_NONREADONLY	пишущая команда: pip
+dst-check	PASS	
+ecosystem-check	SKIP_NEEDS_ENV	make: *** [Makefile:561: ecosystem-check] Ошибка 1
+evidence-freshness-selftest	FAIL	make: *** [Makefile:1112: evidence-freshness-selftest] Ошибка 127
+evidence-trust-selftest	FAIL	make: *** [Makefile:311: evidence-trust-selftest] Ошибка 127
+evm-lang-check	SKIP_NONREADONLY	пишущая команда: pip
+evm-proof-check	SKIP_NONREADONLY	пишущая команда: pip
+evo-fuzz-check	PASS	
+fd-check	FAIL	make: *** [Makefile:878: fd-check] Ошибка 127
+ffi-bridge-check	SKIP_NONREADONLY	пишущая команда: pip
+flake-selftest	FAIL	make: *** [Makefile:1095: flake-selftest] Ошибка 127
+float-nan-check	SKIP_NONREADONLY	пишущая команда: pip
+foreign-verdicts-check	PASS	
+fuzz-corpus-check	SKIP_NONREADONLY	пишущая команда: pip
+gen-tests-check	SKIP_NONREADONLY	пишущая команда: pip
+hadamard-check	PASS	
+homeostatic-heal-check	FAIL	make: *** [Makefile:1700: homeostatic-heal-check] Ошибка 1
+hook-check	FAIL	make: *** [Makefile:709: hook-check] Ошибка 1
+html-canvas-check	SKIP_NONREADONLY	пишущая команда: pip
+inline-check	FAIL	make: *** [Makefile:1293: inline-check] Ошибка 127
+junit-selftest	FAIL	make: *** [Makefile:1101: junit-selftest] Ошибка 127
+kern-scan-check	PASS	
+kerna-check	FAIL	make: *** [Makefile:430: kerna-check] Ошибка 127
+kernx-polygon5-check	FAIL	make: *** [Makefile:596: kernx-polygon5-check] Ошибка 127
+kimg-grep-check	PASS	
+l5-duel-check	FAIL	make: *** [Makefile:589: l5-duel-check] Ошибка 127
+lang-semantics-selftest	FAIL	make: *** [Makefile:1089: lang-semantics-selftest] Ошибка 127
+lean-pin-check	SKIP_NEEDS_ENV	make: *** [Makefile:1493: lean-pin-check] Ошибка 127
+lean-zig-bridge-selftest	SKIP_NEEDS_ENV	make: *** [Makefile:965: lean-zig-bridge-selftest] Ошибка 127
+license-header-check	PASS	
+license-header-selftest	PASS	
+llms-selftest	FAIL	make: *** [Makefile:1055: llms-selftest] Ошибка 127
+loop-check	SKIP_NONREADONLY	пишущая команда: pip
+mbpp-xray-check	FAIL	make: *** [Makefile:1362: mbpp-xray-check] Ошибка 127
+mcp-audit-check	SKIP_NONREADONLY	пишущая команда: pip
+metrics-guard-selftest	FAIL	make: *** [Makefile:972: metrics-guard-selftest] Ошибка 127
+mutate-log-check	FAIL	make: *** [Makefile:380: mutate-log-check] Ошибка 127
+mutate-log-selftest	FAIL	make: *** [Makefile:383: mutate-log-selftest] Ошибка 127
+mutation-lock-check	FAIL	make: *** [Makefile:583: mutation-lock-check] Ошибка 127
+mutation-lock-selftest	FAIL	make: *** [Makefile:338: mutation-lock-selftest] Ошибка 127
+native-theories-file-check	PASS	
+native-zig-ast-check	PASS	
+noninterference-check	SKIP_NONREADONLY	пишущая команда: pip
+opt-diff-check	PASS	
+oracle-absint-check	SKIP_NONREADONLY	пишущая команда: pip
+oracle-chc-check	SKIP_NONREADONLY	пишущая команда: pip
+oracle-dtmc-check	SKIP_NONREADONLY	пишущая команда: pip
+oracle-noninterference-check	SKIP_NONREADONLY	пишущая команда: pip
+oracle-redos-check	SKIP_NONREADONLY	пишущая команда: pip
+oracle-string-check	SKIP_NONREADONLY	пишущая команда: pip
+parser-security-check	SKIP_NEEDS_ENV	make: *** [Makefile:1715: parser-security-check] Ошибка 1
+pcc-check	SKIP_NONREADONLY	пишущая команда: pip
+pcc-offline-check	FAIL	make: *** [Makefile:446: pcc-offline-check] Ошибка 127
+perf-check	FAIL	make: *** [Makefile:1502: perf-check] Ошибка 127
+pilot-e2e-check	FAIL	make: *** [Makefile:414: pilot-e2e-check] Ошибка 2
+polyglot-7-check	SKIP_NONREADONLY	пишущая команда: pip
+presets-check	SKIP_NONREADONLY	пишущая команда: pip
+pricing-matrix-check	SKIP_NONREADONLY	пишущая команда: pip
+project-spec-check	FAIL	make: *** [Makefile:1174: project-spec-check] Ошибка 127
+proof-check	FAIL	make: *** [Makefile:1635: proof-check] Ошибка 127
+quixbugs-diff-check	FAIL	make: *** [Makefile:1276: quixbugs-diff-check] Ошибка 127
+rag-conflict-check	SKIP_NONREADONLY	пишущая команда: pip
+readme-link-check	FAIL	make: *** [Makefile:1238: readme-link-check] Ошибка 127
+real-cases-check	FAIL	make: *** [Makefile:1285: real-cases-check] Ошибка 127
+receipts-check	FAIL	make: *** [Makefile:1179: receipts-check] Ошибка 127
+receipts-check-selftest	FAIL	make: *** [Makefile:1182: receipts-check-selftest] Ошибка 127
+rlvr-oracle-check	SKIP_NONREADONLY	пишущая команда: pip
+sarif-check	SKIP_NONREADONLY	пишущая команда: pip
+secrets-check	FAIL	make: *** [Makefile:1480: secrets-check] Ошибка 127
+simplify-check	SKIP_NONREADONLY	пишущая команда: pip
+smtlib-bench-check	FAIL	make: *** [Makefile:1302: smtlib-bench-check] Ошибка 127
+smtlib-proof-check	FAIL	make: *** [Makefile:1317: smtlib-proof-check] Ошибка 127
+spawn-check	FAIL	make: *** [Makefile:328: spawn-check] Ошибка 127
+spawn-selftest	FAIL	make: *** [Makefile:331: spawn-selftest] Ошибка 127
+sql-policy-check	SKIP_NONREADONLY	пишущая команда: pip
+state-inv-check	SKIP_NONREADONLY	пишущая команда: pip
+status-selftest	FAIL	make: *** [Makefile:1070: status-selftest] Ошибка 127
+string-contracts-check	SKIP_NONREADONLY	пишущая команда: pip
+svcomp-witness-check	FAIL	make: *** [Makefile:1340: svcomp-witness-check] Ошибка 127
+svg-check	FAIL	make: *** [Makefile:948: svg-check] Ошибка 127
+sync-check	FAIL	make: *** [Makefile:983: sync-check] Ошибка 127
+temp-isolation-selftest	FAIL	make: *** [Makefile:1124: temp-isolation-selftest] Ошибка 127
+trace-check	PASS	
+translation-val-check	PASS	
+trust-docs-check	FAIL	make: *** [Makefile:1497: trust-docs-check] Ошибка 127
+xray-check	SKIP_NONREADONLY	пишущая команда: pip
+xray-overflow-check	FAIL	make: *** [Makefile:1328: xray-overflow-check] Ошибка 127
+zig-guard-check	PASS	
