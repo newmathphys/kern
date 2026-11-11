@@ -271,5 +271,18 @@ else
   echo "[FAIL] реальное решето не доказано"; fail=1
 fi
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 34 двусторонних контроля (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #616: МЕТКА ДОСТИЖИМОСТИ (урок из заявки #50)
+out=$(timeout 250 $P --xray $F/reach_tag.c 2>&1)
+if printf '%s' "$out" | grep -q 'rot_helper.*LATENT / CALLER-CONST: r'; then
+  echo "[OK]   приватный помощник с литеральными вызовами помечен LATENT"
+else
+  echo "[FAIL] метка LATENT не поставлена (#616 вернулся)"; fail=1
+fi
+if printf '%s' "$out" | grep -q 'public_sub.*LATENT'; then
+  echo "[FAIL] ПУБЛИЧНАЯ функция помечена LATENT — ложная метка"; fail=1
+else
+  echo "[OK]   публичная функция БЕЗ метки (метка не врёт)"
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 36 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail

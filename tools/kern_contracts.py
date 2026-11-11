@@ -8938,6 +8938,68 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
     return out
 
 
+def _reachability_tag(src: str, fn: str, suffix: str) -> str:
+    """Метка достижимости находки (ДЕФЕКТ #616, урок из заявки #50).
+
+    ЗАЧЕМ. XXH_rotl64 в tidwall/hashmap.c вызывается только как
+    XXH_rotl64(v1, 31): параметр `r` — ВСЕГДА литерал, поэтому UB при r=0
+    ЛАТЕНТНЫЙ, а не публично достижимый. Отчёт без такой оговорки получает
+    справедливое «а это вообще бывает?» (реальный диалог с мейнтейнером).
+
+    ПРАВИЛО (измеренное по коду, а не по догадке): функция ПРИВАТНАЯ и есть
+    хотя бы один её параметр, который ВО ВСЕХ вызовах этого файла получает
+    целочисленный ЛИТЕРАЛ. Метка называет такие параметры:
+        [LATENT / CALLER-CONST: r]
+    Если вызовов в файле нет — метки нет (не судим).
+    """
+    if not src or not fn:
+        return ""
+    pat_def = r"(^|[\n;}])\s*([^\n;{}]*?)\b" + re.escape(fn) + r"\s*\(([^)]*)\)"
+    m_def = re.search(pat_def, src)
+    if not m_def:
+        return ""
+    head, params_txt = m_def.group(2) or "", m_def.group(3) or ""
+    if suffix == ".go":
+        private = fn[:1].islower()
+    elif suffix == ".rs":
+        private = "pub" not in head
+    elif suffix == ".py":
+        private = fn.startswith("_")
+    else:
+        private = bool(re.search(r"\bstatic\b", head))
+    if not private:
+        return ""
+    params = [p.strip().split(" ")[-1].lstrip("*")
+              for p in params_txt.split(",") if p.strip()]
+    if not params:
+        return ""
+    always_lit = set(params)
+    calls = 0
+    for m in re.finditer(r"\b" + re.escape(fn) + r"\s*\(", src):
+        if m.start() < m_def.end(0):
+            continue
+        i = m.end(0)
+        depth, j = 1, i
+        while j < len(src) and depth:
+            if src[j] == "(":
+                depth += 1
+            elif src[j] == ")":
+                depth -= 1
+            j += 1
+        if depth:
+            return ""
+        args = [a.strip() for a in src[i:j - 1].split(",")]
+        calls += 1
+        for k, p in enumerate(params):
+            if p in always_lit:
+                a = args[k] if k < len(args) else ""
+                if not re.fullmatch(r"-?\d+", a):
+                    always_lit.discard(p)
+    if calls == 0 or not always_lit:
+        return ""
+    return "  [LATENT / CALLER-CONST: " + ", ".join(sorted(always_lit)) + "]"
+
+
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[str, int], dict[str, int]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
@@ -9874,6 +9936,20 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
     # Остаток после последней функции добавляется здесь.
     _smt_calls_file += _SMT_CALLS[0]
     _SMT_CALLS[0] = _smt_calls_file
+    # ДЕФЕКТ #616: МЕТКА ДОСТИЖИМОСТИ (урок из заявки #50 к tidwall/hashmap.c).
+    # Латентный UB в приватном помощнике, вызываемом только с константами, —
+    # НЕ публично достижимый баг; путать их в отчёте нельзя.
+    if found:
+        _tag_cache: dict = {}
+        for _i, _msg in enumerate(list(found)):
+            _mm = re.match(r"\[[^\]]+\]\s+([A-Za-z_]\w*)\s*:", _msg)
+            if not _mm:
+                continue
+            _fnm = _mm.group(1)
+            if _fnm not in _tag_cache:
+                _tag_cache[_fnm] = _reachability_tag(_full_src, _fnm, path.suffix)
+            if _tag_cache[_fnm] and _tag_cache[_fnm] not in _msg:
+                found[_i] = _msg + _tag_cache[_fnm]
     return checked, total, trivial, found, reasons, notes
 
 
