@@ -80,6 +80,10 @@ EPHELONS: list[tuple[str, str, tuple[str, ...]]] = [
 ]
 
 OVERRIDES: dict[str, str] = {
+    # E3 — самозащита конвейера (#623/#628/#633): гейты против саботажа,
+    # неподключённых проверок и потери доказанных законов на своих функциях.
+    **{t: "E3" for t in ("sabotage-guard", "orphan-gates-check",
+                          "tools-laws-check", "proven-regressions-check")},
     # E1 — формальное ядро: теории, доказательства, контракты.
     **{t: "E1" for t in (
         "align", "arrays", "cert", "dtmc", "nra", "strings", "theories", "ubsafe",

@@ -34,7 +34,11 @@ cd "$ROOT"
 if [ -n "${PYTHON:-}" ] && "$PYTHON" -c 'import z3' >/dev/null 2>&1; then
   :                                   # PYTHON задан снаружи и умеет z3
 elif [ -x "$ROOT/.venv/bin/python" ]; then
-  export PYTHON="$ROOT/.venv/bin/python"
+  # ДЕФЕКТ #644 (нашёл НЕМОЙ stage() после #643): путь к .venv содержит ПРОБЕЛ
+  # («Рабочий стол»), а Makefile подставляет $(PYTHON) БЕЗ кавычек ->
+  # `make: /home/.../Рабочий: Нет такого файла` -> Ошибка 127.
+  # Решение: PYTHON = имя `python3`, а путь даёт PATH (он уже содержит .venv/bin).
+  export PYTHON="python3"
 else
   PYTHON="$(command -v python3 || true)"
   export PYTHON
@@ -89,13 +93,24 @@ stage() { # $1 = имя, $2... = команда
   local name="$1"; shift
   local t0; t0=$(date +%s)
   printf '\n\033[1m=== %s ===\033[0m\n' "$name"
-  if "$@"; then
+  # ДЕФЕКТ #643 (РЕВЬЮ, верно): при провале вывод команды ТЕРЯЛСЯ — и локально, и в
+  # GitHub Actions оставалось только «[ПРОВАЛ]», без причины. Теперь вывод пишется в
+  # лог, и при rc != 0 печатается его хвост с точной строкой ошибки.
+  local log; log="$(mktemp)"
+  if "$@" >"$log" 2>&1; then
+    tail -n 5 "$log"
+    rm -f "$log"
     local dt=$(( $(date +%s) - t0 ))
     printf '\033[32m[OK]\033[0m %s (%d с)\n' "$name" "$dt"
     PASSED+=("$name")
   else
+    local rc=$?
     local dt=$(( $(date +%s) - t0 ))
-    printf '\033[31m[ПРОВАЛ]\033[0m %s (%d с)\n' "$name" "$dt"
+    printf '\033[31m[ПРОВАЛ]\033[0m %s (%d с, rc=%d)\n' "$name" "$dt" "$rc"
+    printf '\033[33m--- причина (tail -40) ---\033[0m\n'
+    tail -n 40 "$log"
+    printf '\033[33m--- конец причины ---\033[0m\n'
+    rm -f "$log"
     FAILED+=("$name")
   fi
 }

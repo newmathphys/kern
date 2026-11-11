@@ -77,7 +77,7 @@
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Защита от саботажа ИИ (L5) (38)
+## E3. Защита от саботажа ИИ (L5) (42)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -111,16 +111,20 @@
 | `oracle-chc-check` | `oracle-chc-falseproof` | — | `make oracle-chc-check` |
 | `oracle-noninterference-check` | `oracle-noninterference-missed` | — | `make oracle-noninterference-check` |
 | `oracle-redos-check` | `oracle-redos-missed` | — | `make oracle-redos-check` |
+| `orphan-gates-check` | — | — | `make orphan-gates-check` |
 | `pricing-matrix-check` | `pricing-matrix-check` | — | `make pricing-matrix-check` |
+| `proven-regressions-check` | `proven-regressions-check` | — | `make proven-regressions-check` |
 | `pytest-blind-check` | `pytest-blind` | — | `make pytest-blind-check` |
 | `rag-conflict-check` | `rag-conflict-check` | — | `make rag-conflict-check` |
 | `redos` | `redos-vuln` | — | `make redos` |
 | `rlvr-oracle-check` | `rlvr-oracle-check` | — | `make rlvr-oracle-check` |
+| `sabotage-guard` | — | — | `make sabotage-guard` |
 | `sql-policy-check` | `sql-policy-check` | — | `make sql-policy-check` |
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
+| `tools-laws-check` | — | — | `make tools-laws-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (34)
+## E4. Рентген кода, CWE, точность и PR-дельта (33)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -150,7 +154,6 @@
 | `parser-security-check` | `parser-security-check` | — | `make parser-security-check` |
 | `pilot-e2e-check` | `pilot-gate-blind` | — | `make pilot-e2e-check` |
 | `project-spec-check` | `project-spec-blind` | — | `make project-spec-check` |
-| `sabotage-guard` | — | — | `make sabotage-guard` |
 | `string-contracts-check` | `string-contracts-check` | — | `make string-contracts-check` |
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
@@ -246,14 +249,6 @@
 | `trace-check` | `trace-check` | — | `make trace-check` |
 | `trust-docs-check` | `trust-docs-missing` | — | `make trust-docs-check` |
 | `version-check` | `version-consistency` | — | `make version-check` |
-
-## E9. НЕ КЛАССИФИЦИРОВАНО (ошибка карты, а не цель)
-
-| Цель | Кейс | Команда |
-|:--|:--|:--|
-| `orphan-gates-check` | — | `make orphan-gates-check` |
-| `proven-regressions-check` | proven-regressions-check | `make proven-regressions-check` |
-| `tools-laws-check` | — | `make tools-laws-check` |
 
 ## Паритет с реестром
 
