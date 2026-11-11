@@ -26,8 +26,32 @@ cd "$ROOT"
 # падал на шаге 7 с «[!] нет Zig по пути /home/runner/opt/... — задайте ZIG_DIR=».
 #
 # Теперь порядок поиска: ZIG_DIR -> zig из PATH -> локальная раскладка.
+# ДЕФЕКТ #634 (нашёл чистый клон + GitHub Actions): контур ЖЁСТКО рассчитывал на
+# `$ROOT/.venv`, которого в свежем клоне и в CI НЕТ (там z3 ставится глобально
+# через `pip install -r requirements.txt`). Итог: `--json` и все SMT-шаги
+# возвращали пустоту, а гейты краснели с «решитель Z3 недоступен». Теперь путь
+# к .venv добавляется ТОЛЬКО если он существует, а интерпретатор выбирается явно.
+if [ -n "${PYTHON:-}" ] && "$PYTHON" -c 'import z3' >/dev/null 2>&1; then
+  :                                   # PYTHON задан снаружи и умеет z3
+elif [ -x "$ROOT/.venv/bin/python" ]; then
+  export PYTHON="$ROOT/.venv/bin/python"
+else
+  PYTHON="$(command -v python3 || true)"
+  export PYTHON
+fi
+if [ -x "$ROOT/.venv/bin/python" ]; then
+  _VPATH="$ROOT/.venv/bin:"
+else
+  _VPATH=""
+fi
+# Ранняя проверка: без z3 контур бессмысленен — пусть падает НАЗВАННО, а не молча.
+if ! "$PYTHON" -c 'import z3' >/dev/null 2>&1; then
+  echo "[!] #634: z3 недоступен для $PYTHON — поставьте его (pip install -r requirements.txt)" >&2
+  echo "    или создайте .venv (uv pip install -r requirements.txt)." >&2
+  exit 2
+fi
 if [ -n "${ZIG_DIR:-}" ]; then
-  export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+  export PATH="$ZIG_DIR:${_VPATH}$HOME/.elan/bin:$PATH"
 elif command -v zig >/dev/null 2>&1; then
   # GitHub Actions и любой CI: zig уже в PATH.
   # ⚠️ ZIG_DIR ОБЯЗАН идти ПЕРВЫМ и здесь: `make venv` кладёт в .venv/bin
@@ -35,10 +59,10 @@ elif command -v zig >/dev/null 2>&1; then
   # 0.17 -> сборка падает на `no field named 'root_module'` (проверено
   # локальным прогоном ci.sh: 6 провалов из 6).
   ZIG_DIR="$(dirname "$(command -v zig)")"
-  export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+  export PATH="$ZIG_DIR:${_VPATH}$HOME/.elan/bin:$PATH"
 elif [ -x "$HOME/opt/zig-x86_64-linux-0.17.0/zig" ]; then
   ZIG_DIR="$HOME/opt/zig-x86_64-linux-0.17.0"
-  export PATH="$ZIG_DIR:$ROOT/.venv/bin:$HOME/.elan/bin:$PATH"
+  export PATH="$ZIG_DIR:${_VPATH}$HOME/.elan/bin:$PATH"
 else
   echo "[!] zig не найден: ни ZIG_DIR, ни в PATH, ни в ~/opt." >&2
   echo "    Установите Zig 0.17.0 или задайте ZIG_DIR=/путь/к/zig" >&2
