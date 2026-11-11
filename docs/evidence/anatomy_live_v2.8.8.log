@@ -1,6 +1,6 @@
 АНАТОМИЯ KERN — живой стенд: 4 шага на каждом случае
 срез: /home/mrbritneyxxx/Рабочий стол/kern
-временные файлы: /tmp/anatomy_a3_wluxg
+временные файлы: /tmp/anatomy_zqmyjfy_
 ==============================================================================
 СЛУЧАЙ 1. TheAlgorithms/C :: maths/prime_sieve.c — границы буфера
 
@@ -14,9 +14,9 @@
     		    for(long long int j=i*i;j<=MAX_SIZE;j+=i) {
 
 ШАГ 3 — ВЗЛОМ [F]: живой AddressSanitizer на реальной функции
-    ==252351==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b7d997ff100 at pc 0x5635a334e46f bp 0x7ffe2c5120
-    WRITE of size 4 at 0x7b7d997ff100 thread T0
-    0x7b7d997ff100 is located 0 bytes after 4000000-byte region [0x7b7d9942e800,0x7b7d997ff100)
+    ==320279==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7bfa8ebff100 at pc 0x560a00e6946f bp 0x7ffcff70ff
+    WRITE of size 4 at 0x7bfa8ebff100 thread T0
+    0x7bfa8ebff100 is located 0 bytes after 4000000-byte region [0x7bfa8e82e800,0x7bfa8ebff100)
 
 ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: исправленный закон (`i < limit`)
     живой прогон исправленной версии: rc=1, сообщений ASan нет = выхода за буфер нет
@@ -30,7 +30,7 @@
     B: int mid = l + (r - l) / 2;    // безопасная форма
 
 ШАГ 3 — ВЗЛОМ [F]: живой UBSan при l = r = 1073741824
-    вариант A: ПАДЕНИЕ — /tmp/anatomy_a3_wluxg/mid_a.c:2:35: runtime error: signed integer overflow: 1073741824 + 107
+    вариант A: ПАДЕНИЕ — /tmp/anatomy_zqmyjfy_/mid_a.c:2:35: runtime error: signed integer overflow: 1073741824 + 107
     вариант B: чисто
 
 ШАГ 2 — математика: уравнение, которое строит KERN (.smt2):
@@ -60,22 +60,25 @@
     все вызовы в файле: r = 31, 1, 27 -> домен r ∈ [1, 63]
 
 ШАГ 3 — ВЗЛОМ [F]: живой UBSan при r = 0 (закон домена нарушен)
-    /tmp/anatomy_a3_wluxg/rot.c:3:68: runtime error: shift exponent 64 is too large for 64-bit type 'long unsigned int'
+    /tmp/anatomy_zqmyjfy_/rot.c:3:68: runtime error: shift exponent 64 is too large for 64-bit type 'long unsigned int'
 
 ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: почему на реальном файле тревоги нет
     упоминаний XXH_rotl64 в выводе: 0 (0 = закон мест вызова соблюдён)
 
 ==============================================================================
-СЛУЧАЙ 4. Нативный `kernc verify-zig` (без Python)
+СЛУЧАЙ 4. TigerBeetle :: div_ceil.zig — нативный `kernc verify-zig`
 
-ШАГ 1 — вход: examples/contracts_demo.zig (контракты в комментариях)
+ШАГ 1 — вход: контракты на РЕАЛЬНУЮ функцию TigerBeetle stdx.div_ceil
+    /// @kern:requires numerator >= 0 and denominator > 0
+    /// @kern:ensures  result == (numerator + denominator - 1) / denominator
+    pub fn divCeil(numerator: i32, denominator: i32) i32
+    // + КОНТРОЛЬ: divCeilBuggy (забыт вычет единицы)
 
-ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: вердикт нативного верификатора
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T] / ОПРОВЕРЖЕНИЕ [F] (Python не вызывался):
     === KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ===
-      [PASS] ДОКАЗАНО withdraw | обязательств 1 | обязательства безопасности и постусловие выполнены
-      [PASS] ДОКАЗАНО withdrawVacuous | обязательств 1 | обязательства безопасности и постусловие выполнены
-      [PASS] ДОКАЗАНО withdrawGuard | обязательств 1 | обязательства безопасности и постусловие выполнены
-    ИТОГ: доказано 3 | нарушено 0 | пропущено 0
+      [PASS] ДОКАЗАНО divCeil | обязательств 4 | обязательства безопасности и постусловие выполнены
+      [FAIL] КОНТРАКТ НАРУШЕН divCeilBuggy | обязательств 3 | overflow: переполнение i32: (+ (div numerator denominator) 1
+    ИТОГ: доказано 1 | нарушено 1 | пропущено 0
 
 ==============================================================================
 СЛУЧАЙ 5. TheAlgorithms/Python :: инварианты циклов, вложенность, отказ
@@ -90,14 +93,31 @@
       [FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпример: [КОНТРПРИМЕР] n = 2, steps = 0
 
 ==============================================================================
-СЛУЧАЙ 6. Релизный апплаенс ./dist/kerna (полный цикл KERN.md)
-    [!] рентген rc=2 — не учтён (НАЗВАННЫЙ исход: {
-      "schema_version": "1.0",
-      "audit_target": "/tmp/kern_scan_kg6mhfh7",
-      "sum)
-    ==========================================================================
-    KERN SCAN: /home/mrbritneyxxx/Рабочий стол/kern/examples/anatomy
+СЛУЧАЙ 6. `./dist/kerna` + KERN.md -> [T] / [B] Белнап / [N] (rc=1 -> 0)
+
+ШАГ 1 — проект: pytest ЗЕЛЁНЫЙ, а закон KERN.md нарушен (`fee`)
+
+ШАГ 3 — ВЗЛОМ [F]/КОНФЛИКТ [B]: rc=1
+    [T] ДОКАЗАНО: bank.py :: withdraw — steps: 46 | premises bound: 3/3 | mp: 12 | rewrite (linear): 13 | farkas: 0 | trus
+      [B] КОНФЛИКТ: тесты зелёные, закон нарушен: bank.py :: fee — тесты проекта ЗЕЛЁНЫЕ, а закон нарушен (amount = 0, res
+      [N] НЕ ОПИСАНА В KERN.md: bank.py :: backdoor_transfer
+    ИТОГ: T 1 | F 0 | B 1 | N(в законе) 0 | не описано 1
+
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: после починки fee и описания transfer
+    rc=0
+    [T] ДОКАЗАНО: bank.py :: withdraw — steps: 46 | premises bound: 3/3 | mp: 12 | rewrite (linear): 13 | farkas: 0 | trus
+      [T] ДОКАЗАНО: bank.py :: fee — steps: 19 | premises bound: 2/2 | mp: 2 | rewrite (linear): 6 | farkas: 0 | trusted: 
+      [T] ДОКАЗАНО: bank.py :: transfer — steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trust
+    ИТОГ: T 3 | F 0 | B 0 | N(в законе) 0 | не описано 0
+    ЗАКОН ПРОЕКТА ВЫПОЛНЕН: все законы доказаны, все функции описаны
+
+    ПОЛНЫЙ ПРУФ (trusted: 0 | holes: 0) на линейных контрактах:
+    [T] ДОКАЗАНО: bank.py :: withdraw — доказано
+      [T] ДОКАЗАНО: bank.py :: fee — steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0
+      [T] ДОКАЗАНО: bank.py :: transfer — steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trust
+    ИТОГ: T 3 | F 0 | B 0 | N(в законе) 0 | не описано 0
+    ЗАКОН ПРОЕКТА ВЫПОЛНЕН: все законы доказаны, все функции описаны
 
 ==============================================================================
-[ПРАВИЛО СТЕНДА] недоступный инструмент печатается как [НЕ ДОСТУПНО]
+[ПРАВИЛО СТЕНДА] недоступный инструмент помечается явно, с дословной причиной
                 с дословной причиной — успех не изображается.

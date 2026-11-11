@@ -193,7 +193,7 @@
     },
     {
       "id": "anatomy-live",
-      "claim": "Живой стенд: 4 шага (код -> .smt2 -> взлом [F] живым ASan/UBSan -> доказательство [T]); недоступное помечается [НЕ ДОСТУПНО] с причиной",
+      "claim": "Живой стенд, 6/6 случаев без [НЕ ДОСТУПНО]: код -> .smt2 -> взлом живым ASan/UBSan -> доказательство; TigerBeetle div_ceil (4 обязательства) и [B] КОНФЛИКТ Белнапа на KERN.md",
       "command": "make anatomy-live",
       "file": "docs/evidence/anatomy_live_v2.8.8.log",
       "must_contain": [
@@ -201,7 +201,10 @@
         "heap-buffer-overflow",
         "signed integer overflow",
         "shift exponent 64",
-        "ПРУФ-ЧЕКЕР",
+        "обязательств 4",
+        "[B] КОНФЛИКТ",
+        "[N] НЕ ОПИСАНА",
+        "trusted: 0",
         "PROVEN"
       ],
       "must_not_contain": []

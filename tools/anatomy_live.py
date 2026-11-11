@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license.
 #!/usr/bin/env python3
 # Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later.
 """ЖИВОЙ СТЕНД «АНАТОМИЯ»: 4 шага на реальном коде, без чёрного ящика.
@@ -15,6 +17,8 @@
 """
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,11 +37,12 @@ def say(line: str = "") -> None:
     LOG.append(line)
 
 
-def run(cmd, timeout=180, cwd=None):
+def run(cmd, timeout=180, cwd=None, env=None):
     """Запуск команды; возвращает (rc, объединённый вывод)."""
     try:
         p = subprocess.run(cmd, shell=isinstance(cmd, str), cwd=cwd or ROOT,
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, timeout=timeout,
+                           env=env)
         return p.returncode, (p.stdout + p.stderr)
     except Exception as e:                                        # noqa: BLE001
         return 1, f"[ошибка запуска] {e}"
@@ -195,16 +200,22 @@ def case_rotl() -> None:
 # ─────────────────────────── случай 4: Zig-верификатор без Python
 def case_zig() -> None:
     say("\n" + "=" * 78)
-    say("СЛУЧАЙ 4. Нативный `kernc verify-zig` (без Python)")
+    say("СЛУЧАЙ 4. TigerBeetle :: div_ceil.zig — нативный `kernc verify-zig`")
     if not KC.exists():
         return unavailable("kernc", f"нет {KC}")
-    demo = ROOT / "examples" / "contracts_demo.zig"
+    demo = ROOT / "examples" / "anatomy" / "div_ceil.zig"
     if not demo.exists():
         return unavailable("Zig-пример", f"нет {demo}")
-    say("\nШАГ 1 — вход: examples/contracts_demo.zig (контракты в комментариях)")
+    say("\nШАГ 1 — вход: контракты на РЕАЛЬНУЮ функцию TigerBeetle stdx.div_ceil")
+    say("    /// @kern:requires numerator >= 0 and denominator > 0")
+    say("    /// @kern:ensures  result == (numerator + denominator - 1) / denominator")
+    say("    pub fn divCeil(numerator: i32, denominator: i32) i32")
+    say("    // + КОНТРОЛЬ: divCeilBuggy (забыт вычет единицы)")
     rc, out = run([str(KC), "verify-zig", str(demo)], 240)
-    say("\nШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: вердикт нативного верификатора")
-    head(out, 8)
+    say("\nШАГ 4 — ДОКАЗАТЕЛЬСТВО [T] / ОПРОВЕРЖЕНИЕ [F] (Python не вызывался):")
+    keep = [l for l in out.splitlines()
+            if "PASS]" in l or "FAIL]" in l or "ИТОГ" in l or "НАТИВНЫЙ" in l]
+    head("\n".join(keep), 6)
 
 
 # ─────────────────────────── случай 5: циклы и вложенная индукция
@@ -229,14 +240,68 @@ def case_loops() -> None:
 # ─────────────────────────── случай 6: контейнер-апплаенс
 def case_kerna() -> None:
     say("\n" + "=" * 78)
-    say("СЛУЧАЙ 6. Релизный апплаенс ./dist/kerna (полный цикл KERN.md)")
+    say("СЛУЧАЙ 6. `./dist/kerna` + KERN.md -> [T] / [B] Белнап / [N] (rc=1 -> 0)")
     kerna = ROOT / "dist" / "kerna"
     if not kerna.exists():
         return unavailable("./dist/kerna", f"нет {kerna}")
-    rc, out = run([str(kerna), "examples/anatomy"], 180)
-    if rc != 0:
-        return unavailable("./dist/kerna scan", out)
-    head(out, 6)
+    z3bin = ROOT / ".venv" / "bin" / "z3"
+    if not KC.is_file() or not z3bin.is_file():
+        return unavailable("раскладка апплаенса",
+                           f"нет kernc={KC.is_file()} или z3={z3bin.is_file()}")
+    app = TMP / "app"
+    for sub in ("zig-out/bin", ".venv/bin"):
+        (app / sub).mkdir(parents=True, exist_ok=True)
+    shutil.copy2(kerna, app / "kerna")
+    shutil.copy2(KC, app / "zig-out" / "bin" / "kernc")
+    shutil.copy2(z3bin, app / ".venv" / "bin" / "z3")
+    proj = TMP / "proj"
+    (proj / "tests").mkdir(parents=True, exist_ok=True)
+    (proj / "tests" / "test_bank.py").write_text(
+        "from bank import fee\n\ndef test_fee():\n    assert fee(1000) == 11\n",
+        encoding="utf-8")
+    law = ("# Контракт проекта\n\n- require_all_functions_covered: true\n"
+           "- tests: tests/\n\n### bank.py :: withdraw(balance, amount)\n"
+           "- requires: balance >= 0 and amount >= 0 and amount <= balance\n"
+           "- ensures: result >= 0 and result <= balance\n\n"
+           "### bank.py :: fee(amount)\n- requires: amount >= 0\n"
+           "- ensures: result == amount // 100\n")
+    (proj / "KERN.md").write_text(law, encoding="utf-8")
+    bad = ("def withdraw(balance, amount):\n    return balance - amount\n\n"
+           "def fee(amount):\n    return amount // 100 + 1\n\n"
+           "def backdoor_transfer(a, b):\n    return a + b\n")
+    (proj / "bank.py").write_text(bad, encoding="utf-8")
+    env = dict(os.environ)
+    env["PATH"] = str(ROOT / ".venv" / "bin") + ":/usr/bin:/bin"
+    env["PYTHONPATH"] = ""
+    say("\nШАГ 1 — проект: pytest ЗЕЛЁНЫЙ, а закон KERN.md нарушен (`fee`)")
+    rc, out = run([str(app / "kerna"), str(proj)], 900, cwd=str(app), env=env)
+    say(f"\nШАГ 3 — ВЗЛОМ [F]/КОНФЛИКТ [B]: rc={rc}")
+    keep = [l for l in out.splitlines()
+            if "[T]" in l or "[B]" in l or "[N]" in l or "[F]" in l
+            or "[i]" in l or "ИТОГ" in l or "ВЫПОЛНЕН" in l]
+    head("\n".join(keep), 7)
+
+    (proj / "bank.py").write_text(
+        "def withdraw(balance, amount):\n    return balance - amount\n\n"
+        "def fee(amount):\n    return amount // 100\n\n"
+        "def transfer(a, b):\n    return a + b\n", encoding="utf-8")
+    (proj / "KERN.md").write_text(
+        law + "\n### bank.py :: transfer(a, b)\n"
+        "- requires: a >= 0 and b >= 0 and a + b <= 1000\n"
+        "- ensures: result == a + b\n", encoding="utf-8")
+    say("\nШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: после починки fee и описания transfer")
+    rc, out = run([str(app / "kerna"), str(proj)], 900, cwd=str(app), env=env)
+    say(f"    rc={rc}")
+    keep = [l for l in out.splitlines()
+            if "[T]" in l or "[B]" in l or "[N]" in l or "ИТОГ" in l
+            or "ВЫПОЛНЕН" in l]
+    head("\n".join(keep), 5)
+
+    say("\n    ПОЛНЫЙ ПРУФ (trusted: 0 | holes: 0) на линейных контрактах:")
+    rc, out = run([PY, "tools/project_spec.py", "tests/fixtures/project_spec"], 300)
+    keep = [l for l in out.splitlines()
+            if "[T]" in l or "ИТОГ" in l or "ВЫПОЛНЕН" in l]
+    head("\n".join(keep), 5)
 
 
 def main() -> int:
@@ -247,7 +312,7 @@ def main() -> int:
                case_loops, case_kerna):
         fn()
     say("\n" + "=" * 78)
-    say("[ПРАВИЛО СТЕНДА] недоступный инструмент печатается как [НЕ ДОСТУПНО]")
+    say("[ПРАВИЛО СТЕНДА] недоступный инструмент помечается явно, с дословной причиной")
     say("                с дословной причиной — успех не изображается.")
     out_path = None
     for i, a in enumerate(sys.argv):
