@@ -2848,7 +2848,7 @@ def case_orphan_gates():
     """
     patch("tools/ci.sh",
           "make xray-check",
-          "echo '# xray-check отключён (canfail: проверка orphan-gates-check)'")
+          "echo '# проверка отключена (canfail)'")
     return "make orphan-gates-check"
 
 
@@ -2860,8 +2860,9 @@ def case_tools_laws():
     `make tools-laws-check` доказывает эти законы, поэтому обязан покраснеть.
     """
     patch("tools/funnel_accounting.py",
-          "named <= skipped",
-          "named < skipped  # ЛОМАЕМ (canfail: проверка tools-laws-check)")
+          "# @kern:requires skipped >= 0 and named >= 0 and named <= skipped",
+          "# @kern:requires skipped >= 0 and named >= 0 and named < skipped"
+          "  # ЛОМАЕМ (canfail: tools-laws-check)")
     return "make tools-laws-check"
 
 
