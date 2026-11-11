@@ -190,6 +190,21 @@
         "HumanEval"
       ],
       "must_not_contain": []
+    },
+    {
+      "id": "anatomy-live",
+      "claim": "Живой стенд: 4 шага (код -> .smt2 -> взлом [F] живым ASan/UBSan -> доказательство [T]); недоступное помечается [НЕ ДОСТУПНО] с причиной",
+      "command": "make anatomy-live",
+      "file": "docs/evidence/anatomy_live_v2.8.8.log",
+      "must_contain": [
+        "АНАТОМИЯ KERN",
+        "heap-buffer-overflow",
+        "signed integer overflow",
+        "shift exponent 64",
+        "ПРУФ-ЧЕКЕР",
+        "PROVEN"
+      ],
+      "must_not_contain": []
     }
   ]
 }

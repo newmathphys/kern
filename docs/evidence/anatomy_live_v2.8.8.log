@@ -1,0 +1,103 @@
+АНАТОМИЯ KERN — живой стенд: 4 шага на каждом случае
+срез: /home/mrbritneyxxx/Рабочий стол/kern
+временные файлы: /tmp/anatomy_a3_wluxg
+==============================================================================
+СЛУЧАЙ 1. TheAlgorithms/C :: maths/prime_sieve.c — границы буфера
+
+ШАГ 1 — вход (реальный код, строки 21-27):
+    void prime(int *p)
+    {
+    	for(long long int i=3;i<=MAX_SIZE;i+=2) { p[i]=1; }
+    	for(long long int i=3;i<=MAX_SIZE;i+=2)
+    	{
+    		if(p[i]==1) {
+    		    for(long long int j=i*i;j<=MAX_SIZE;j+=i) {
+
+ШАГ 3 — ВЗЛОМ [F]: живой AddressSanitizer на реальной функции
+    ==252351==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b7d997ff100 at pc 0x5635a334e46f bp 0x7ffe2c5120
+    WRITE of size 4 at 0x7b7d997ff100 thread T0
+    0x7b7d997ff100 is located 0 bytes after 4000000-byte region [0x7b7d9942e800,0x7b7d997ff100)
+
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: исправленный закон (`i < limit`)
+    живой прогон исправленной версии: rc=1, сообщений ASan нет = выхода за буфер нет
+    хвост вывода: SUMMARY: AddressSanitizer: 4000000 byte(s) leaked in 1 allocation(s).
+
+==============================================================================
+СЛУЧАЙ 2. Ошибка середины: (l+r)/2 против l+(r-l)/2 (закон 0<=l<=r)
+
+ШАГ 1 — два варианта кода:
+    A: int mid = (l + r) / 2;        // классический баг
+    B: int mid = l + (r - l) / 2;    // безопасная форма
+
+ШАГ 3 — ВЗЛОМ [F]: живой UBSan при l = r = 1073741824
+    вариант A: ПАДЕНИЕ — /tmp/anatomy_a3_wluxg/mid_a.c:2:35: runtime error: signed integer overflow: 1073741824 + 107
+    вариант B: чисто
+
+ШАГ 2 — математика: уравнение, которое строит KERN (.smt2):
+    (set-logic ALL)
+    (declare-const low Int)
+    (declare-const high Int)
+    (declare-const result Int)
+    (assert (and (<= 0 low) (<= low high)))
+    (assert (= result (+ low (div (- high low) 2))))
+    (assert (not (and (<= low result) (<= result high))))
+    (check-sat)
+
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: вердикт KERN и пруф-чекера kernc
+    [PASS] midpoint: ДОКАЗАНО
+    ИТОГО: доказано 1 | T_advisory 0 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 |
+    ВЕРДИКТ  : ДОКАЗАНО (допущено)
+      [ПРУФ-ЧЕКЕР] шагов 58 | посылок 3/4 | mp 8 | резолюция 3 | Фаркаш 0 | rewrite(лин.) 9 | eq(refl/symm/trans) 4 | bool
+      [PROOF PARTIAL] steps: 58 | premises bound: 3/4 | mp: 8 | rewrite (linear): 9 | farkas: 0 | НЕ ПОДТВЕРЖДЕНО: доверен
+
+==============================================================================
+СЛУЧАЙ 3. tidwall/hashmap.c :: XXH_rotl64 — домен сдвига (1..63)
+
+ШАГ 1 — вход (реальный код):
+    static uint64_t XXH_rotl64(uint64_t x, int r) {
+        return (x << r) | (x >> (64 - r));
+    }
+    все вызовы в файле: r = 31, 1, 27 -> домен r ∈ [1, 63]
+
+ШАГ 3 — ВЗЛОМ [F]: живой UBSan при r = 0 (закон домена нарушен)
+    /tmp/anatomy_a3_wluxg/rot.c:3:68: runtime error: shift exponent 64 is too large for 64-bit type 'long unsigned int'
+
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: почему на реальном файле тревоги нет
+    упоминаний XXH_rotl64 в выводе: 0 (0 = закон мест вызова соблюдён)
+
+==============================================================================
+СЛУЧАЙ 4. Нативный `kernc verify-zig` (без Python)
+
+ШАГ 1 — вход: examples/contracts_demo.zig (контракты в комментариях)
+
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: вердикт нативного верификатора
+    === KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ===
+      [PASS] ДОКАЗАНО withdraw | обязательств 1 | обязательства безопасности и постусловие выполнены
+      [PASS] ДОКАЗАНО withdrawVacuous | обязательств 1 | обязательства безопасности и постусловие выполнены
+      [PASS] ДОКАЗАНО withdrawGuard | обязательств 1 | обязательства безопасности и постусловие выполнены
+    ИТОГ: доказано 3 | нарушено 0 | пропущено 0
+
+==============================================================================
+СЛУЧАЙ 5. TheAlgorithms/Python :: инварианты циклов, вложенность, отказ
+
+    вложенный цикл (двухуровневая индукция) (sieve_real.py):
+      [PASS] sieve_first_block: PROVEN (invariant & termination verified)
+
+    нарушение внешнего инварианта (nested_annot_bad.py):
+      [FAIL] two_level_bad: LOOP INVARIANT VIOLATED (не сохраняется); контрпример: [КОНТРПРИМЕР] start = 2, count = 
+
+    гипотеза Коллатца (ОТКРЫТАЯ задача) (collatz_open.py):
+      [FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпример: [КОНТРПРИМЕР] n = 2, steps = 0
+
+==============================================================================
+СЛУЧАЙ 6. Релизный апплаенс ./dist/kerna (полный цикл KERN.md)
+    [!] рентген rc=2 — не учтён (НАЗВАННЫЙ исход: {
+      "schema_version": "1.0",
+      "audit_target": "/tmp/kern_scan_kg6mhfh7",
+      "sum)
+    ==========================================================================
+    KERN SCAN: /home/mrbritneyxxx/Рабочий стол/kern/examples/anatomy
+
+==============================================================================
+[ПРАВИЛО СТЕНДА] недоступный инструмент печатается как [НЕ ДОСТУПНО]
+                с дословной причиной — успех не изображается.

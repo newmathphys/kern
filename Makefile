@@ -643,6 +643,12 @@ state-inv-check: build
 proven-regressions-check:
 	@bash tests/proven_regressions.sh
 
+# ЖИВОЙ СТЕНД «АНАТОМИЯ»: 4 шага (код -> .smt2 -> взлом [F] -> доказательство [T]).
+# Недоступный инструмент печатается как [НЕ ДОСТУПНО] с дословной причиной.
+anatomy-live:
+	@python3 tools/anatomy_live.py --write docs/evidence/anatomy_live_v2.8.8.log
+
+
 # ЭШЕЛОН 4, ПУНКТ 22: модель IEEE-754 с NaN (trusted: 0 | holes: 0).
 float-nan-check: build
 	@bash tools/float_nan_check.sh
