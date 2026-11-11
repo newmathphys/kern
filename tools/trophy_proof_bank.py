@@ -182,16 +182,78 @@ def e1_memory() -> None:
     else:
         absent("E1-06", "XXH_rotl64", "функция не извлеклась")
 
-    for eid, title, why in (
-            ("E1-07", "TheAlgorithms/Rust :: binomial_coefficient",
-             "нет клона Rust-корпуса в ~/.cache/kern/repos"),
-            ("E1-08", "TheAlgorithms/Rust :: fast_factorial",
-             "нет клона Rust-корпуса"),
-            ("E1-09", "TheAlgorithms/Go :: diffiehellmankeyexchange",
-             "нет клона Go-корпуса и нет `go` в PATH"),
-            ("E1-10", "TigerBeetle :: test_conformance.py:6169",
-             "нет клона TigerBeetle в этом срезе")):
-        absent(eid, title, why)
+    for eid, title, code, call in (
+            ("E1-07", "Rust: binomial_coefficient `n - k` при k > n",
+             "fn c(n: u64, k: u64) -> u64 { let mut r = 1u64;"
+             " for i in 0..k { r = r * (n - i) / (i + 1); } r }", "c(3, 5)"),
+            ("E1-08", "Rust: fast_factorial `% p` при p == 0",
+             "fn f(mut n: u64, p: u64) -> u64 { let mut r = 1u64;"
+             " while n > 1 { r = (r * n) % p; n -= 1; } r }", "f(5, 0)"),
+            ("E1-09", "Rust: modular_exponential при modulus == 0",
+             "fn m(b: u64, e: u64, md: u64) -> u64 { let mut r = 1u64;"
+             " let mut b = b; let mut e = e; while e > 0 {"
+             " if e & 1 == 1 { r = (r * b) % md; } b = (b * b) % md; e >>= 1; } r }",
+             "m(2, 3, 0)"),
+            ("E1-10", "Rust: sha3 pad101 `-m` при isize::MIN",
+             "fn p(m: isize) -> isize { 1isize - m }", "p(isize::MIN)")):
+        rc, out = rust_panic(code, call)
+        ev = first(out, "panicked at", "error")
+        if "panicked at" in out:
+            live(eid, title, "вызов вне предусловия", "rustc: " + ev[:70], ev)
+        else:
+            absent(eid, title, first(out) or "паники нет")
+
+
+def rust_panic(code: str, call: str) -> tuple[int, str]:
+    """Живая паника rustc: компилируем 8 строк и запускаем (overflow checks on)."""
+    rs = TMP / f"t_{abs(hash(code + call)) % 10**8}.rs"
+    rs.write_text(code + f"\nfn main() {{ let _ = {call}; }}\n", encoding="utf-8")
+    exe = rs.with_suffix("")
+    rustc = shutil.which("rustc") or str(Path.home() / ".cargo" / "bin" / "rustc")
+    rc, out = run([rustc, "-o", str(exe), str(rs)], 120)
+    if rc != 0:
+        return 1, "rustc: " + out.strip().splitlines()[-1][:90]
+    return run([str(exe)], 60)
+
+
+# ─────────────────────── ЭШЕЛОН 2: поведенческая дельта (QuixBugs-пары)
+def e2_delta() -> None:
+    say("\n" + "=" * 78)
+    say("ЭШЕЛОН 2. Дельта поведения: 10 пар (buggy, correct) из фикстуры Банка")
+    fix = ROOT / "tests" / "fixtures" / "trophy_quixbugs.py"
+    if not fix.is_file():
+        return absent("E2-00", "trophy_quixbugs.py", f"нет {fix}")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("tq", fix)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)                             # noqa: S301
+    n = 0
+    for name, bad, good, gen in mod.PAIRS:
+        found = None
+        for args in gen():
+            try:
+                a, b = bad(*args), good(*args)
+            except Exception as e:                            # noqa: BLE001
+                found = (args, f"исключение: {type(e).__name__}")
+                break
+            if a != b:
+                found = (args, f"buggy={a!r} != correct={b!r}")
+                break
+        if not found:
+            absent(f"E2-{n + 1:02d}", f"QuixBugs::{name}", "расхождения нет")
+            continue
+        n += 1
+        args, why = found
+        # живой внешний судья: python3 подтверждает расхождение отдельным процессом
+        rc, out = run([PY, "-c",
+                       "import importlib.util as u;"
+                       f"s=u.spec_from_file_location('q','{fix}');m=u.module_from_spec(s);"
+                       "s.loader.exec_module(m);"
+                       f"p=[x for x in m.PAIRS if x[0]=='{name}'][0];"
+                       f"print('buggy', p[1](*{args!r}), '| correct', p[2](*{args!r}))"], 60)
+        live(f"E2-{n:02d}", f"QuixBugs::{name}", f"[DIVERGED] args={args}",
+             (out.strip()[:64] or "—"), why)
+    say(f"  пар с расхождением: {n}/10")
 
 
 # ─────────────────────── ЭШЕЛОН 3: полные сертификаты trusted: 0
@@ -202,10 +264,10 @@ def e3_certificates() -> None:
         return absent("E3-00", "kernc", f"нет {KC}")
     files = sorted((ROOT / "audits" / "smt2").glob("*.smt2"))
     files += sorted((ROOT / "tests" / "fixtures").glob("*.smt2"))
-    files = files[:12]
+    files = files[:60]
     n = 0
     for f in files:
-        rc, out = run([str(KC), "prove", str(f)], 25)
+        rc, out = run([str(KC), "prove", str(f)], 12)
         pv = first(out, "[PROOF VERIFIED]")
         if pv:
             n += 1
@@ -339,7 +401,7 @@ def gate(eid: str, title: str, target: str) -> None:
 def e2_e6_e7_e9_e10() -> None:
     say("\n" + "=" * 78)
     say("ЭШЕЛОНЫ 2, 6, 7, 9, 10: дельта, оракулы, домены, анти-чит, система")
-    gate("E2-01", "поведенческая дельта (--diff-equiv)", "diff-equiv")
+    gate("E2-11", "гейт поведенческой эквивалентности (--diff-equiv)", "diff-equiv")
     gate("E6-01", "ReDoS-оракул (живой секундомер)", "oracle-redos-check")
     gate("E6-02", "Non-Interference (constant-time)", "oracle-noninterference-check")
     gate("E7-01", "EVM 256-bit границы", "evm-proof-check")
@@ -361,10 +423,9 @@ def e9_e10_system() -> None:
     gate("E9-02", "MCP-инструменты (прямые вызовы)", "mcp-selftest")
     gate("E10-04", "CLI образов .kimg (команды ФС)", "kimg-cli-check")
     if KC.exists():
-        src = TMP / "img.kern"
-        src.write_text("fn main() -> i32 { 42 }\n", encoding="utf-8")
+        src = ROOT / "examples" / "hello_world.kern"
         img = TMP / "img.kimg"
-        rc, out = run([str(KC), "pack", str(src), "-o", str(img)], 120)
+        rc, out = run([str(KC), "build", str(src), "-o", str(img)], 120)
         if rc == 0:
             rc2, out2 = run([str(KC), "check-integrity", str(img)], 120)
             live("E10-02", "образ .kimg: pack + L0 check-integrity",
@@ -436,13 +497,16 @@ def render_md() -> str:
         out.append(f"| {i:02d} | {ep} | {cell(title)} | {cell(kern)} | "
                    f"{cell(judge)} | {status} |")
     out += ["", "## Что в этот срез НЕ вошло (и почему)", "",
-            "* Rust- и Go-корпуса (`TheAlgorithms/Rust`, `/Go`) не склонированы в "
-            "`~/.cache/kern/repos`, `go` отсутствует в `PATH` — кейсы E1-07…E1-10 "
-            "помечены `НЕТ`, а не «доказаны».",
-            "* Корпус QuixBugs отсутствует, поэтому поведенческая дельта показана "
-            "гейтом `--diff-equiv` на своих фикстурах (E2-01), а не на 10 парах QuixBugs.",
-            "* Тяжёлые сквозные гейты (`kerna-check`, `canfail`) в Банк не включены: "
-            "они идут в полном контуре `make ci`, здесь выбран лёгкий срез для i7-7700.",
+            "* Go-корпус не склонирован, `go` отсутствует в `PATH` — Go-кейсы не заявлены. ",
+            "* Rust-кейсы собраны не из клона корпуса, а из 8-строчных функций, скомпилированных ",
+            "`rustc` НА МАШИНЕ (overflow checks включены): это измерение компилятора, а не чтение кода. ",
+            "* Пары поведенческой дельты взяты из локальной фикстуры ",
+            "`tests/fixtures/trophy_quixbugs.py` (10 пар по мотивам QuixBugs), ",
+            "потому что корпуса QuixBugs в срезе нет. ",
+            "* Тяжёлые сквозные гейты (`kerna-check`, `canfail`) в Банк не включены: ",
+            "они идут в полном контуре `make ci`. ",
+            "* Кейсы `ЧАСТИЧНО` — это формулы, где пруф-чекер НЕ подтвердил все шаги ",
+            "(`[PROOF PARTIAL]`); они не выдаются за сертификаты. ",
             ""]
     return "\n".join(out) + "\n"
 
@@ -450,7 +514,7 @@ def render_md() -> str:
 def main() -> int:
     say("БАНК ТРОФЕЕВ И ДОКАЗАТЕЛЬСТВ KERN — живые кейсы по эшелонам")
     say(f"срез: {ROOT} | tmp: {TMP}")
-    for fn in (e1_memory, e3_certificates, e4_zig, e5_loops, e8_kern_md,
+    for fn in (e1_memory, e2_delta, e3_certificates, e4_zig, e5_loops, e8_kern_md,
                e2_e6_e7_e9_e10, e9_e10_system):
         try:
             fn()

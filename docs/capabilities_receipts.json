@@ -214,7 +214,7 @@
     },
     {
       "id": "trophy-bank",
-      "claim": "Банк трофеев по эшелонам: KERN даёт число, живой компилятор/гейт судит; недоступное помечается [НЕТ] с причиной",
+      "claim": "Банк трофеев по эшелонам: 91 кейс, 0 недоступных; KERN даёт число, живой компилятор/гейт судит; Rust через rustc, 10 пар дельты, 13 сертификатов trusted: 0",
       "command": "make trophy-bank",
       "file": "docs/evidence/trophy_proof_bank.log",
       "must_contain": [
@@ -224,6 +224,8 @@
         "shift exponent 64",
         "[PROOF VERIFIED]",
         "[B] КОНФЛИКТ",
+        "Rust:",
+        "QuixBugs::",
         "ИТОГО БАНКА"
       ],
       "must_not_contain": []

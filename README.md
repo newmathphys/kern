@@ -334,6 +334,17 @@ A retro-test on four published `cmark-gfm` security fixes caught **1 of 4** (the
 **applicable — needs contract (@kern:…), not evaluated**; they are never mixed
 with findings.
 
+**Two modes, never conflated.** With a law (`@kern:requires` / `@kern:ensures`, or a project
+`KERN.md`) KERN is deciding: it prints `PROVEN` or `CONTRACT VIOLATED` plus a counterexample
+that a live run confirms. Without a law, `--xray` is a **hint about a hidden precondition**:
+it knows only the declared type, so for `int` it substitutes the type extremes (e.g. `INT_MIN`),
+and the warning means "this function needs a precondition to be safe" — *not* "this repository
+has a bug". The cleanest demonstration: the *correct* midpoint `low + (high - low) / 2` still
+gets an `[OVERFLOW PATH]` in `--xray`, because without the law `high >= low` the tool must
+consider `high = INT_MIN, low = INT_MAX`. An upstream report therefore requires a violation
+that reproduces through a **public call on a normal input**, never a raw `--xray` line.
+Walkthrough with live output: `docs/АНАТОМИЯ_ДОКАЗАТЕЛЬСТВА.md`.
+
 ### Evidence on real production code (`make audits`)
 
 Functions transcribed from six projects across three languages (Zig, Rust, C), checked by the

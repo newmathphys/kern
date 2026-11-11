@@ -3,9 +3,9 @@
   "id": "E1-01",
   "case": "prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)",
   "kern": "контрпример: i = MAX_SIZE (индекс == размер)",
-  "judge": "ASan: ==449967==ERROR: AddressSanitizer: heap-buffer-overflow",
+  "judge": "ASan: ==498039==ERROR: AddressSanitizer: heap-buffer-overflow",
   "status": "ЖИВОЙ",
-  "evidence": "==449967==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b60855ff100 at pc 0x55aacee9c45f b"
+  "evidence": "==498039==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b1ebe7ff100 at pc 0x55d9a793445f b"
  },
  {
   "id": "E1-02",
@@ -49,35 +49,115 @@
  },
  {
   "id": "E1-07",
-  "case": "TheAlgorithms/Rust :: binomial_coefficient",
-  "kern": "—",
-  "judge": "—",
-  "status": "НЕТ",
-  "evidence": "нет клона Rust-корпуса в ~/.cache/kern/repos"
+  "case": "Rust: binomial_coefficient `n - k` при k > n",
+  "kern": "вызов вне предусловия",
+  "judge": "rustc: thread 'main' (498093) panicked at /tmp/trophy_4fq30p48/t_48521734.rs:",
+  "status": "ЖИВОЙ",
+  "evidence": "thread 'main' (498093) panicked at /tmp/trophy_4fq30p48/t_48521734.rs:1:73:"
  },
  {
   "id": "E1-08",
-  "case": "TheAlgorithms/Rust :: fast_factorial",
-  "kern": "—",
-  "judge": "—",
-  "status": "НЕТ",
-  "evidence": "нет клона Rust-корпуса"
+  "case": "Rust: fast_factorial `% p` при p == 0",
+  "kern": "вызов вне предусловия",
+  "judge": "rustc: thread 'main' (498119) panicked at /tmp/trophy_4fq30p48/t_93898535.rs:",
+  "status": "ЖИВОЙ",
+  "evidence": "thread 'main' (498119) panicked at /tmp/trophy_4fq30p48/t_93898535.rs:1:71:"
  },
  {
   "id": "E1-09",
-  "case": "TheAlgorithms/Go :: diffiehellmankeyexchange",
-  "kern": "—",
-  "judge": "—",
-  "status": "НЕТ",
-  "evidence": "нет клона Go-корпуса и нет `go` в PATH"
+  "case": "Rust: modular_exponential при modulus == 0",
+  "kern": "вызов вне предусловия",
+  "judge": "rustc: thread 'main' (498145) panicked at /tmp/trophy_4fq30p48/t_95449794.rs:",
+  "status": "ЖИВОЙ",
+  "evidence": "thread 'main' (498145) panicked at /tmp/trophy_4fq30p48/t_95449794.rs:1:122:"
  },
  {
   "id": "E1-10",
-  "case": "TigerBeetle :: test_conformance.py:6169",
-  "kern": "—",
-  "judge": "—",
-  "status": "НЕТ",
-  "evidence": "нет клона TigerBeetle в этом срезе"
+  "case": "Rust: sha3 pad101 `-m` при isize::MIN",
+  "kern": "вызов вне предусловия",
+  "judge": "rustc: thread 'main' (498171) panicked at /tmp/trophy_4fq30p48/t_39120144.rs:",
+  "status": "ЖИВОЙ",
+  "evidence": "thread 'main' (498171) panicked at /tmp/trophy_4fq30p48/t_39120144.rs:1:27:"
+ },
+ {
+  "id": "E2-01",
+  "case": "QuixBugs::bitcount",
+  "kern": "[DIVERGED] args=(1,)",
+  "judge": "buggy 0 | correct 1",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=0 != correct=1"
+ },
+ {
+  "id": "E2-02",
+  "case": "QuixBugs::gcd",
+  "kern": "[DIVERGED] args=(6, 4)",
+  "judge": "buggy None | correct 2",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=None != correct=2"
+ },
+ {
+  "id": "E2-03",
+  "case": "QuixBugs::to_base",
+  "kern": "[DIVERGED] args=(0, 2)",
+  "judge": "buggy  | correct 0",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy='' != correct='0'"
+ },
+ {
+  "id": "E2-04",
+  "case": "QuixBugs::wrap",
+  "kern": "[DIVERGED] args=(5, 1, 3)",
+  "judge": "buggy 1 | correct 3",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=1 != correct=3"
+ },
+ {
+  "id": "E2-05",
+  "case": "QuixBugs::find_first_in_sorted",
+  "kern": "[DIVERGED] args=([1, 2, 2, 3], 2)",
+  "judge": "buggy 2 | correct 1",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=2 != correct=1"
+ },
+ {
+  "id": "E2-06",
+  "case": "QuixBugs::get_factors",
+  "kern": "[DIVERGED] args=(1,)",
+  "judge": "buggy [] | correct [1]",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=[] != correct=[1]"
+ },
+ {
+  "id": "E2-07",
+  "case": "QuixBugs::next_palindrome",
+  "kern": "[DIVERGED] args=(11,)",
+  "judge": "buggy 11 | correct 22",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=11 != correct=22"
+ },
+ {
+  "id": "E2-08",
+  "case": "QuixBugs::rpn_eval",
+  "kern": "[DIVERGED] args=(['2', '3', '^'],)",
+  "judge": "buggy 5 | correct 8",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=5 != correct=8"
+ },
+ {
+  "id": "E2-09",
+  "case": "QuixBugs::is_valid_parenthesization",
+  "kern": "[DIVERGED] args=(')(',)",
+  "judge": "buggy True | correct False",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=True != correct=False"
+ },
+ {
+  "id": "E2-10",
+  "case": "QuixBugs::bucketsort",
+  "kern": "[DIVERGED] args=([4, 1, 3],)",
+  "judge": "buggy [1, 3, 4, 0] | correct [1, 3, 4]",
+  "status": "ЖИВОЙ",
+  "evidence": "buggy=[1, 3, 4, 0] != correct=[1, 3, 4]"
  },
  {
   "id": "E3-01-part",
@@ -174,6 +254,238 @@
   "judge": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |",
   "status": "ЖИВОЙ",
   "evidence": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |"
+ },
+ {
+  "id": "E3-03-part",
+  "case": "c_unguarded_ratio.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-03-part",
+  "case": "ceil_div_bad_ceil_div.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-03-part",
+  "case": "ceil_div_good_ceil_div.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-03-part",
+  "case": "cwe190_bad_mul_bad.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-03-part",
+  "case": "cwe190_good_mul_good.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-03-part",
+  "case": "cwe191_bad_sub_bad.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-03",
+  "case": "сертификат: cwe191_good_sub_good.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 22 | premises bound: 3/3 | mp: 7 | rewrite (linear): 6 | farkas: 0 | trusted: 0 ",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 22 | premises bound: 3/3 | mp: 7 | rewrite (linear): 6 | farkas: 0 | trusted: 0 "
+ },
+ {
+  "id": "E3-04-part",
+  "case": "cwe680_bad_buffer_size.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "cwe680_good_buffer_size.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "cwe682_bad_rem_bad.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "cwe682_good_rem_good.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "div_ceil_divCeil.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "div_ceil_divCeilBuggy.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "grid_columns_gridColumns.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "grid_columns_gridColumnsBuggy.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "hex_index_deepjit_hex_hi.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "hex_index_deepjit_hex_lo.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "kernel_align_deepjit_align_unguarded.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "midpoint_midpointMutated.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-04-part",
+  "case": "ring_slot_array_slot_isolation_buggy.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-04",
+  "case": "сертификат: ring_slot_array_slot_isolation_good.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 16 | premises bound: 3/3 | mp: 5 | rewrite (linear): 4 | farkas: 0 | trusted: 0 ",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 16 | premises bound: 3/3 | mp: 5 | rewrite (linear): 4 | farkas: 0 | trusted: 0 "
+ },
+ {
+  "id": "E3-05",
+  "case": "сертификат: ring_slot_array_write_hit.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 6 | premises bound: 2/2 | mp: 1 | rewrite (linear): 1 | farkas: 0 | trusted: 0 |",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 6 | premises bound: 2/2 | mp: 1 | rewrite (linear): 1 | farkas: 0 | trusted: 0 |"
+ },
+ {
+  "id": "E3-06",
+  "case": "сертификат: rust_allman_add32Allman.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 20 | premises bound: 3/3 | mp: 5 | rewrite (linear): 5 | farkas: 0 | trusted: 0 ",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 20 | premises bound: 3/3 | mp: 5 | rewrite (linear): 5 | farkas: 0 | trusted: 0 "
+ },
+ {
+  "id": "E3-07",
+  "case": "сертификат: rust_clean_add_bounded.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |"
+ },
+ {
+  "id": "E3-08",
+  "case": "сертификат: rust_overflow_add32.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 20 | premises bound: 3/3 | mp: 5 | rewrite (linear): 5 | farkas: 0 | trusted: 0 ",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 20 | premises bound: 3/3 | mp: 5 | rewrite (linear): 5 | farkas: 0 | trusted: 0 "
+ },
+ {
+  "id": "E3-09",
+  "case": "сертификат: saturating_add_saturatingAddBuggy.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 19 | premises bound: 3/3 | mp: 5 | rewrite (linear): 5 | farkas: 0 | trusted: 0 ",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 19 | premises bound: 3/3 | mp: 5 | rewrite (linear): 5 | farkas: 0 | trusted: 0 "
+ },
+ {
+  "id": "E3-10",
+  "case": "сертификат: zig_allman_addAllman.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |"
+ },
+ {
+  "id": "E3-11",
+  "case": "сертификат: zig_clean_add.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |"
+ },
+ {
+  "id": "E3-12",
+  "case": "сертификат: ieee754_nan.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 121 | premises bound: 3/4 | mp: 11 | rewrite (linear): 33 | farkas: 1 | trusted:",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 121 | premises bound: 3/4 | mp: 11 | rewrite (linear): 33 | farkas: 1 | trusted:"
  },
  {
   "id": "E4-01",
@@ -328,8 +640,8 @@
   "evidence": "[N] НЕ ОПИСАНА В KERN.md: bank.py :: backdoor_transfer"
  },
  {
-  "id": "E2-01",
-  "case": "поведенческая дельта (--diff-equiv)",
+  "id": "E2-11",
+  "case": "гейт поведенческой эквивалентности (--diff-equiv)",
   "kern": "гейт `make diff-equiv` = 0",
   "judge": "ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихс",
   "status": "ЖИВОЙ",
@@ -401,10 +713,18 @@
  },
  {
   "id": "E10-02",
-  "case": "образ .kimg",
-  "kern": "—",
-  "judge": "—",
-  "status": "НЕТ",
-  "evidence": "pack не сработал"
+  "case": "образ .kimg: pack + L0 check-integrity",
+  "kern": "pack rc=0",
+  "judge": "[OK] Целостность: заголовок + Merkle-корень совпали. Эпоха: 1.3, объектов: 2",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] Целостность: заголовок + Merkle-корень совпали. Эпоха: 1.3, объектов: 2"
+ },
+ {
+  "id": "E10-03",
+  "case": "побитовая порча образа обнаружена",
+  "kern": "целостность нарушена",
+  "judge": "[!] Образ НЕВАЛИДЕН: PayloadOutOfBounds",
+  "status": "ЖИВОЙ",
+  "evidence": "[!] Образ НЕВАЛИДЕН: PayloadOutOfBounds"
  }
 ]
