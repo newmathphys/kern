@@ -3985,6 +3985,11 @@ fn parseLin(c: *const Ctx, e: Sexp, sign: i64, out: *Lin) bool {
         if (count_num == 0 or rest == null) return false;
         return parseLin(c, rest.?, sign * k, out);
     }
+    // ОТКАЧЕНО ИЗМЕРЕНО (#619b): атомизация подтермов включала проверку
+    // `rewrite`, но печать подтермов НЕ канонична: `(+ (* (- 1) low) high)` и
+    // `(+ high (* (- 1) low))` — одно и то же, а ключи разные -> rewrite_bad=1
+    // и ОТКАЗ на КОРРЕКТНОМ выводе. Для звучия нужна канонизация аргументов
+    // (сортировка линейной формы), это отдельный шаг.
     return false;
 }
 
@@ -4900,6 +4905,13 @@ fn checkUnitRes(c: *const Ctx, st: Sexp) CheckResult {
         var remaining = std.array_list.Managed(Sexp).init(c.arena);
         for (cl.items[1..]) |lit| {
             const l = expand(c, lit, 0);
+            // ДЕФЕКТ #619a: Z3 пишет дизъюнкт как `(or false $x99)`, и слово
+            // `false` попадало в `remaining` обычным литералом — оно никогда не
+            // сокращается (такого юнита нет), шаг не сходился с заключением,
+            // и весь `unit-resolution` уходил в доверенные шаги.
+            // ЗВУЧНО: `false ∨ X ≡ X`, поэтому константа `false` не может быть
+            // той частью дизъюнкта, которая осталась неопровергнутой.
+            if (l.atom != null and std.mem.eql(u8, l.atom.?, "false")) continue;
             var falsified = false;
             for (units.items) |u| {
                 // Структурная ЛИБО семантическая (по канонической форме) пара,
