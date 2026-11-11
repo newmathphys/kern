@@ -1,6 +1,6 @@
 АНАТОМИЯ KERN — живой стенд: 4 шага на каждом случае
 срез: /home/mrbritneyxxx/Рабочий стол/kern
-временные файлы: /tmp/anatomy_zqmyjfy_
+временные файлы: /tmp/anatomy_gqxwn9hg
 ==============================================================================
 СЛУЧАЙ 1. TheAlgorithms/C :: maths/prime_sieve.c — границы буфера
 
@@ -14,9 +14,9 @@
     		    for(long long int j=i*i;j<=MAX_SIZE;j+=i) {
 
 ШАГ 3 — ВЗЛОМ [F]: живой AddressSanitizer на реальной функции
-    ==320279==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7bfa8ebff100 at pc 0x560a00e6946f bp 0x7ffcff70ff
-    WRITE of size 4 at 0x7bfa8ebff100 thread T0
-    0x7bfa8ebff100 is located 0 bytes after 4000000-byte region [0x7bfa8e82e800,0x7bfa8ebff100)
+    ==388872==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7bf6d05ff100 at pc 0x55c83ff1e46f bp 0x7ffd68ef70
+    WRITE of size 4 at 0x7bf6d05ff100 thread T0
+    0x7bf6d05ff100 is located 0 bytes after 4000000-byte region [0x7bf6d022e800,0x7bf6d05ff100)
 
 ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: исправленный закон (`i < limit`)
     живой прогон исправленной версии: rc=1, сообщений ASan нет = выхода за буфер нет
@@ -30,7 +30,7 @@
     B: int mid = l + (r - l) / 2;    // безопасная форма
 
 ШАГ 3 — ВЗЛОМ [F]: живой UBSan при l = r = 1073741824
-    вариант A: ПАДЕНИЕ — /tmp/anatomy_zqmyjfy_/mid_a.c:2:35: runtime error: signed integer overflow: 1073741824 + 107
+    вариант A: ПАДЕНИЕ — /tmp/anatomy_gqxwn9hg/mid_a.c:2:35: runtime error: signed integer overflow: 1073741824 + 107
     вариант B: чисто
 
 ШАГ 2 — математика: уравнение, которое строит KERN (.smt2):
@@ -60,7 +60,7 @@
     все вызовы в файле: r = 31, 1, 27 -> домен r ∈ [1, 63]
 
 ШАГ 3 — ВЗЛОМ [F]: живой UBSan при r = 0 (закон домена нарушен)
-    /tmp/anatomy_zqmyjfy_/rot.c:3:68: runtime error: shift exponent 64 is too large for 64-bit type 'long unsigned int'
+    /tmp/anatomy_gqxwn9hg/rot.c:3:68: runtime error: shift exponent 64 is too large for 64-bit type 'long unsigned int'
 
 ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: почему на реальном файле тревоги нет
     упоминаний XXH_rotl64 в выводе: 0 (0 = закон мест вызова соблюдён)
@@ -117,6 +117,41 @@
       [T] ДОКАЗАНО: bank.py :: transfer — steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trust
     ИТОГ: T 3 | F 0 | B 0 | N(в законе) 0 | не описано 0
     ЗАКОН ПРОЕКТА ВЫПОЛНЕН: все законы доказаны, все функции описаны
+
+==============================================================================
+СЛУЧАЙ 7. QF_AX: теория массивов Маккарти на Си (`select`/`store`)
+
+ШАГ 1 — закон проекта (KERN.md), директива `array`:
+    ### ring.c :: array_write_hit
+    - array: buf
+    [T] ДОКАЗАНО: ring.c :: array_write_hit — steps: 6 | premises bound: 2/2 | mp: 1 | rewrite (linear): 1 | farkas: 0 | t
+      [T] ДОКАЗАНО: money.py :: withdraw — доказано
+    ИТОГ: T 2 | F 0 | B 0 | N(в законе) 0 | не описано 0
+    ЗАКОН ПРОЕКТА ВЫПОЛНЕН: все законы доказаны, все функции описаны
+
+ШАГ 2 — уравнение: массив Маккарти (реальный файл, не пересказ):
+    (set-logic ALL)
+    (declare-const buf (Array Int Int))
+    (declare-const idx Int)
+    (declare-const val Int)
+    (declare-const result Int)
+    (assert (and (>= idx -2147483648) (<= idx 2147483647)))
+    (assert (and (>= val -2147483648) (<= val 2147483647)))
+    (assert (>= idx 0))
+    (assert (= result (select (store buf idx val) idx)))
+    (assert (not (= result val)))
+    (check-sat)
+
+ШАГ 3 — ГРАНИЦА [F]: коллизия слотов (одинаковый индекс) против изоляции
+    row 1 Маккарти: записанное по idx читается обратно:
+      ВЕРДИКТ  : ДОКАЗАНО (допущено)
+    изоляция БЕЗ гарда (write_idx != read_idx не задан):
+      ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+
+ШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: изоляция слотов при write_idx != read_idx
+    ВЕРДИКТ  : ДОКАЗАНО (допущено)
+      [ПРУФ-ЧЕКЕР] шагов 16 | посылок 3/3 | mp 5 | резолюция 1 | Фаркаш 0 | rewrite(лин.) 4 | eq(refl/symm/trans) 0 | bool
+      [PROOF VERIFIED] steps: 16 | premises bound: 3/3 | mp: 5 | rewrite (linear): 4 | farkas: 0 | trusted: 0 | holes: 0
 
 ==============================================================================
 [ПРАВИЛО СТЕНДА] недоступный инструмент помечается явно, с дословной причиной

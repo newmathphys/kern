@@ -304,12 +304,60 @@ def case_kerna() -> None:
     head("\n".join(keep), 5)
 
 
+def case_qfax() -> None:
+    say("\n" + "=" * 78)
+    say("СЛУЧАЙ 7. QF_AX: теория массивов Маккарти на Си (`select`/`store`)")
+    proj = ROOT / "tests" / "fixtures" / "project_spec_multi"
+    if not (proj / "KERN.md").is_file():
+        return unavailable("закон проекта с `array`", f"нет {proj / 'KERN.md'}")
+    say("\nШАГ 1 — закон проекта (KERN.md), директива `array`:")
+    for ln in (proj / "KERN.md").read_text(encoding="utf-8").splitlines():
+        if "ring.c" in ln or "array" in ln:
+            say("    " + ln[:110])
+    rc, out = run([PY, "tools/project_spec.py", str(proj)], 300)
+    keep = [l for l in out.splitlines()
+            if "[T]" in l or "[F]" in l or "ИТОГ" in l or "ВЫПОЛНЕН" in l]
+    head("\n".join(keep), 4)
+
+    say("\nШАГ 2 — уравнение: массив Маккарти (реальный файл, не пересказ):")
+    smt = ROOT / "audits" / "smt2" / "ring_slot_array_write_hit.smt2"
+    if not smt.is_file():
+        return unavailable(".smt2 с массивами", f"нет {smt}")
+    for ln in smt.read_text(encoding="utf-8").splitlines()[:12]:
+        say("    " + ln[:110])
+
+    if not KC.exists():
+        return unavailable("kernc", f"нет {KC}")
+    say("\nШАГ 3 — ГРАНИЦА [F]: коллизия слотов (одинаковый индекс) против изоляции")
+    for name, what in (("ring_slot_array_write_hit.smt2",
+                        "row 1 Маккарти: записанное по idx читается обратно"),
+                       ("ring_slot_array_slot_isolation_buggy.smt2",
+                        "изоляция БЕЗ гарда (write_idx != read_idx не задан)")):
+        f = smt.parent / name
+        if not f.is_file():
+            unavailable(name, f"нет {f}")
+            continue
+        rc, out = run([str(KC), "prove", str(f)], 120)
+        v = [l for l in out.splitlines() if "ВЕРДИКТ" in l]
+        say(f"    {what}:")
+        say("      " + (v[0].strip()[:100] if v else out.strip()[:100]))
+
+    say("\nШАГ 4 — ДОКАЗАТЕЛЬСТВО [T]: изоляция слотов при write_idx != read_idx")
+    good = smt.parent / "ring_slot_array_slot_isolation_good.smt2"
+    if not good.is_file():
+        return unavailable("good-версия", f"нет {good}")
+    rc, out = run([str(KC), "prove", str(good)], 120)
+    keep = [l for l in out.splitlines()
+            if "ВЕРДИКТ" in l or "PROOF VERIFIED" in l or "ПРУФ-ЧЕКЕР" in l]
+    head("\n".join(keep), 3)
+
+
 def main() -> int:
     say("АНАТОМИЯ KERN — живой стенд: 4 шага на каждом случае")
     say(f"срез: {ROOT}")
     say(f"временные файлы: {TMP}")
     for fn in (case_prime_sieve, case_midpoint, case_rotl, case_zig,
-               case_loops, case_kerna):
+               case_loops, case_kerna, case_qfax):
         fn()
     say("\n" + "=" * 78)
     say("[ПРАВИЛО СТЕНДА] недоступный инструмент помечается явно, с дословной причиной")

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 /* Контроль #617, ПРАВИЛО Б: приватный хелпер с литеральными вызовами
    -> нарушение через ЭТИ вызовы недостижимо, находки быть НЕ должно. */
 static int rot_helper(int x, int r) {

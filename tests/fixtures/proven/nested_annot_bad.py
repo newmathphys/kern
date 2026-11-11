@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ДВУХУРОВНЕВАЯ ИНДУКЦИЯ (2/4): внешний инвариант НЕ следует из внутреннего -> FAIL
 # требует count <= 5, а внутренний гарантирует только count >= 0
 # @kern:requires start >= 2 and end >= start

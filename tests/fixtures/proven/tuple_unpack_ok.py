@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # ВАШ проект: ~/ai_lab/rii/knowledge/methods.py (копия, оригинал не тронут)
 from collections.abc import Callable
 

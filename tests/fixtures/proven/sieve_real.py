@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # РЕАЛЬНЫЙ алгоритм с ВЛОЖЕННЫМ циклом (TheAlgorithms/Python, segmented_sieve.py)
 # списки переданы параметрами (их создание — вне модели, но это НЕ логика цикла)
 # @kern:requires n >= 4

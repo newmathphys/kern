@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 // Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license.
 // ТЕНЬ-КОНТРАКТ на РЕАЛЬНУЮ функцию из TigerBeetle (финансовая БД):
 //   src/stdx/stdx.zig:67  pub inline fn div_ceil(numerator, denominator)

@@ -1,3 +1,4 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
 # TheAlgorithms/Python, maths/two_pointer.py (ветви в теле + ранний return)
 # @kern:requires 0 <= i and i <= j
 # @kern:invariant 0 <= i and i <= j + 1

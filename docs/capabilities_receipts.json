@@ -193,18 +193,21 @@
     },
     {
       "id": "anatomy-live",
-      "claim": "Живой стенд, 6/6 случаев без [НЕ ДОСТУПНО]: код -> .smt2 -> взлом живым ASan/UBSan -> доказательство; TigerBeetle div_ceil (4 обязательства) и [B] КОНФЛИКТ Белнапа на KERN.md",
+      "claim": "Живой стенд, 7/7 случаев: код -> .smt2 (включая QF_AX `Array Int Int`) -> взлом живым ASan/UBSan -> доказательство; нативный verify-zig (4 обязательства), [B] Белнап на KERN.md, полный [PROOF VERIFIED] trusted: 0 | holes: 0",
       "command": "make anatomy-live",
       "file": "docs/evidence/anatomy_live_v2.8.8.log",
       "must_contain": [
-        "АНАТОМИЯ KERN",
+        "QF_AX",
+        "(Array Int Int)",
+        "(select (store buf idx val) idx)",
+        "[PROOF VERIFIED]",
+        "trusted: 0",
+        "[B] КОНФЛИКТ",
+        "[N] НЕ ОПИСАНА",
+        "обязательств 4",
         "heap-buffer-overflow",
         "signed integer overflow",
         "shift exponent 64",
-        "обязательств 4",
-        "[B] КОНФЛИКТ",
-        "[N] НЕ ОПИСАНА",
-        "trusted: 0",
         "PROVEN"
       ],
       "must_not_contain": []
