@@ -9843,8 +9843,22 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # РАЗДЕЛЯЕМ понятия: беззнаковый ТИП даёт `lo == 0` И ВЕРХНИЙ предел
             # диапазона беззнакового типа (>= 2^31); зажатый знаковый `int`
             # имеет `hi == INT_MAX`, поэтому беззнаковым больше не считается.
-            _unsigned = {nm for nm, (lo_i, hi_i) in (ranges or {}).items()
-                         if lo_i == 0 and hi_i >= 2 ** 31}
+            # #632b (РЕВЬЮ, СПРАВЕДЛИВО): знаковость — свойство ОБЪЯВЛЕННОГО типа, а не
+            # границ после клэмпа. Эвристика `lo == 0 and hi >= 2**31` ломалась в обе
+            # стороны: uint8_t (0..255) и uint16_t (0..65535) переставали считаться
+            # беззнаковыми, а ЗАЖАТЫЙ знаковый `int64_t` (hi = 2**63-1) притворялся
+            # беззнаковым. Теперь берём имена из СИГНАТУРЫ с беззнаковым типом:
+            # u8/u16/u32/u64/usize/size_t/unsigned/uint8_t…uint64_t.
+            _decl_unsigned: set[str] = set()
+            _sig_m = re.match(r"[^{;]*\(([^)]*)\)", body or "")
+            if _sig_m:
+                for _pt in _sig_m.group(1).split(","):
+                    if re.search(r"(u8|u16|u32|u64|usize|size_t|unsigned|uint8_t|uint16_t|uint32_t|uint64_t)",
+                                 _pt):
+                        _nm = re.search(r"([A-Za-z_]\w*)\s*(?:\[\s*\])?\s*$", _pt.strip())
+                        if _nm:
+                            _decl_unsigned.add(_nm.group(1))
+            _unsigned = _decl_unsigned
             if _idxs_names and _idxs_names <= _unsigned:
                 skip_why.append(
                     "индекс построен ТОЛЬКО из беззнаковых значений "
