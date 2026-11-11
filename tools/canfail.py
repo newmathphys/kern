@@ -5227,5 +5227,49 @@ def main():
     return 1 if (bad or dirty_bad or meta_bad or err_bad or skip_is_error) else 0
 
 
+def _reexec_in_worktree() -> int | None:
+    """#630: ИЗОЛЯЦИЯ. Инъекции стенда НЕ должны трогать живой `src/`.
+
+    ЗАЧЕМ (найдено ревью и подтверждено практикой). Стенд доказывает, что
+    проверки СПОСОБНЫ падать: он временно портит исходники. Пока он делал это в
+    рабочем дереве, любой параллельный `git add -A` уносил диверсию в коммит —
+    ИЗМЕРЕНО: три закоммиченные диверсии (#627), одна из них тихо снимала
+    проверку границ таблицы объектов .kimg.
+
+    РЕШЕНИЕ: работаем в ОТДЕЛЬНОМ `git worktree` (detached, /tmp), который
+    физически отделён от живого дерева. Текстовая проверка маркеров остаётся
+    второй линией обороны, но больше не единственной.
+
+    Возвращает код возврата дочернего прогона или None, если изоляция не нужна.
+    """
+    if os.environ.get("KERN_CANFAIL_ISOLATED") == "1":
+        return None
+    import shutil as _sh
+    import subprocess as _sp
+    import tempfile as _tf
+
+    tmp = Path(_tf.mkdtemp(prefix="kern-canfail-"))
+    wt = tmp / "wt"
+    r = _sp.run(["git", "worktree", "add", "--detach", str(wt), "HEAD"],
+                cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"  [!] #630: worktree не создан ({r.stderr.strip()[:80]}) — "
+              "стенд идёт в живом дереве (изоляция недоступна)")
+        _sh.rmtree(tmp, ignore_errors=True)
+        return None
+    env = dict(os.environ)
+    env["KERN_CANFAIL_ISOLATED"] = "1"
+    env["KERN_CANFAIL_WORKTREE"] = str(wt)
+    try:
+        rc = _sp.call([sys.executable, str(wt / "tools" / "canfail.py"), *sys.argv[1:]],
+                      cwd=str(wt), env=env)
+    finally:
+        _sp.run(["git", "worktree", "remove", "--force", str(wt)],
+                cwd=str(ROOT), capture_output=True, text=True)
+        _sh.rmtree(tmp, ignore_errors=True)
+    return rc
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    _rc = _reexec_in_worktree()
+    sys.exit(_rc if _rc is not None else main())
