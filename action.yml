@@ -55,7 +55,7 @@ inputs:
   version:
     description: 'KERN release tag whose kerna-dist archive is downloaded.'
     required: false
-    default: 'v2.8.3'
+    default: 'v2.8.21'
 
 outputs:
   report:

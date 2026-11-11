@@ -419,7 +419,7 @@ the release, verifies the published SHA-256, and prints `PILOT RECEIPT: PASS (8/
 **Run it on YOUR code (archive only — no repository, no Zig, no Python needed):**
 
 ```bash
-VER=v2.8.3   # подставьте нужный тег
+VER=v2.8.21   # подставьте нужный тег
 base=https://github.com/newmathphys/kern/releases/download/$VER
 curl -4 -fsSLO $base/kerna-dist-$VER.tar.gz && curl -4 -fsSLO $base/SHA256SUMS
 grep kerna-dist-$VER SHA256SUMS | sha256sum -c -     # must print: OK
@@ -884,7 +884,7 @@ No toolchain needed. Release `v2.8.1` ships a statically linked `x86_64-linux-mu
 binary, so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
-base=https://github.com/newmathphys/kern/releases/download/v2.8.3
+base=https://github.com/newmathphys/kern/releases/download/v2.8.21
 curl -fsSLO "$base/kernc-x86_64-linux-musl"
 curl -fsSLO "$base/SHA256SUMS"
 sha256sum -c SHA256SUMS          # verify BEFORE running
@@ -901,7 +901,7 @@ chmod +x kernc-x86_64-linux-musl && ./kernc-x86_64-linux-musl --version
 Or use it as a step in your own workflow:
 
 ```yaml
-- uses: newmathphys/kern@v2.8.3
+- uses: newmathphys/kern@v2.8.21
   with:
     args: verify --image project.kimg
 ```
