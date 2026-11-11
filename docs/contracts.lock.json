@@ -71,6 +71,12 @@
     "identity_nonneg:ensures:hard": "2fe2294d1b290f16a0f2a93474a2bdbd2d6528682ffc7032fe5fef58734fb807"
   },
   "examples/integrations/agent_loop.py": {},
+  "examples/law_demo.py": {
+    "pick_fan_in:ensures:hard": "1fedc6ddc3ccae9a1bbb927e2665b8af9a7a83d7e993811705466a11af1d22e0",
+    "pick_fan_in:requires:hard": "c098537be68519d3d6f3189bb8a3da953d7969bf70fc8499b2133849ea70231e",
+    "pick_fan_in_wrong_law:ensures:hard": "0ffb2c884fb95a7f6fd62e35ae30a9502fb6ae3b3c0e545705baa3778791a0d1",
+    "pick_fan_in_wrong_law:requires:hard": "c098537be68519d3d6f3189bb8a3da953d7969bf70fc8499b2133849ea70231e"
+  },
   "examples/loops.py": {
     "count_up:ensures:hard": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
     "count_up:requires:hard": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de",
