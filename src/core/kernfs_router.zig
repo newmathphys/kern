@@ -151,7 +151,7 @@ pub const KernFS = struct {
         self.hash_algo.hash(sl, &got);
         // КОНСТАНТНО-ВРЕМЕННАЯ СВЕРКА (УЛУЧШЕНИЕ №5, FIPS 140-3): обычный
         // `mem.eql` выдаёт число совпавших байт по времени сравнения.
-        if (false and !std.crypto.timing_safe.eql([32]u8, got, obj.digest))
+        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))
             return KernFsError.PayloadTampered;
         cov.hit(.fs_hit);
         return sl;
@@ -216,7 +216,7 @@ pub const KernFS = struct {
         var got: [32]u8 = undefined;
         self.hash_algo.hash(out, &got);
         // Константно-временная сверка (УЛУЧШЕНИЕ №5, FIPS 140-3).
-        if (false and !std.crypto.timing_safe.eql([32]u8, got, obj.digest))
+        if (!std.crypto.timing_safe.eql([32]u8, got, obj.digest))
             return KernFsError.PayloadTampered;
         return out;
     }
