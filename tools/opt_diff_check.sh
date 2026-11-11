@@ -49,5 +49,5 @@ for opt in ReleaseSafe ReleaseSmall; do
   diff -q "$base" "$f" >/dev/null && echo "  [OK] $opt == Debug" \
     || { echo "  [FAIL] $opt расходится:"; diff "$base" "$f" | head -6; fail=1; }
 done
-[ "$fail" -eq 99 ] && { echo '[OK] opt-diff-check: 0 расхождений'; exit 0; }
+[ "$fail" -eq 0 ] && { echo '[OK] opt-diff-check: 0 расхождений'; exit 0; }
 echo '[FAIL] opt-diff-check'; exit 1

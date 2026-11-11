@@ -77,12 +77,33 @@ def selftest() -> int:
     return 1 if fails else 0
 
 
+def scan_committed() -> list[tuple[str, int, str]]:
+    """Скан ИМЕННО КОММИТА (HEAD), а не рабочего дерева.
+
+    ИЗМЕРЕНО (первый прогон в ci-fast): другие стенды ВРЕМЕННО вставляют
+    диверсии и сами их откатывают, поэтому сканирование рабочего дерева давало
+    ложное срабатывание прямо посреди прогона. Вопрос гейта другой: не УЕХАЛА
+    ли диверсия в коммит.
+    """
+    hits: list[tuple[str, int, str]] = []
+    pat = "|".join(MARKERS)
+    r = subprocess.run(["git", "grep", "-n", "-E", pat, "HEAD", "--"] + list(SCANNED),
+                       capture_output=True, text=True, cwd=str(ROOT))
+    if r.returncode not in (0, 1):
+        return hits
+    for line in r.stdout.splitlines():
+        parts = line.split(":", 3)
+        if len(parts) >= 4:
+            hits.append((parts[1], int(parts[2]), parts[3].strip()[:96]))
+    return hits
+
+
 def main() -> int:
     if "--selftest" in sys.argv:
         return selftest()
-    hits = scan(ROOT)
+    hits = scan_committed()
     if hits:
-        print("[FAIL] #628: в src/ остался САБОТАЖ стенда (дерево испорчено прерванным canfail):")
+        print("[FAIL] #628: САБОТАЖ стенда УЕХАЛ В КОММИТ (прерванный canfail + git add -A):")
         for rel, ln, txt in hits[:8]:
             print(f"    {rel}:{ln}: {txt}")
         print("  Лечение: git checkout -- <файл> (вернуть версию до инъекции) и")

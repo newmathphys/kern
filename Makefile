@@ -648,6 +648,13 @@ proven-regressions-check:
 # не прогонял НИКТО: `self-verify` берёт только Zig-пример, `contracts` —
 # демо-файлы. Из-за этого правка во внутренней функции могла тихо сломать
 # доказанный инвариант. Теперь законы tools/ обязаны доказываться.
+# #628: САБОТАЖ СТЕНДА НЕ ДОЛЖЕН БЫТЬ В ДЕРЕВЕ.
+# Прерванный `canfail` оставляет в src/ маркер `ЛОМАЕМ` + заведомо неверный код.
+# ИЗМЕРЕНО: такая диверсия дважды уехала в коммит через `git add -A` (#627).
+sabotage-guard:
+	@python3 tools/sabotage_guard.py
+	@python3 tools/sabotage_guard.py --selftest
+
 tools-laws-check: build
 	@out=$$($(PYTHON) tools/kern_contracts.py tools/funnel_accounting.py 2>&1); \
 	 echo "$$out" | grep -q "нарушено 0" || { echo "$$out" | tail -3; echo "[FAIL] #623: закон на собственных функциях НАРУШЕН"; exit 1; }; \

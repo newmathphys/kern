@@ -173,6 +173,7 @@ CLASS = {
     "bounds-check": "CHECK",
     "loop-check": "CHECK",
     "state-inv-check": "CHECK",
+    "sabotage-guard": "CHECK",          # #628: маркеры диверсии canfail не в src/
     "tools-laws-check": "CHECK",        # #623: законы @kern: на своих функциях доказаны
     "proven-regressions-check": "CHECK",
     "presets-check": "CHECK",
