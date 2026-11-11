@@ -4324,6 +4324,163 @@ fn arrayAxiomEq(clause: Sexp) bool {
     return false;
 }
 
+/// Канонический ключ ПОЛИНОМА терма: `c=..,name=coeff,...` (сортировка по имени).
+/// Нужен, чтобы сверить, что `A` внутри `(div A k)` и `(mod A k)` и в равенстве —
+/// ОДИН полином, даже если Z3 записал его по-разному
+/// (`(- high low)` против `(+ (* (- 1) low) high)`).
+fn canonPolyKey(c: *const Ctx, t: Sexp) ?[]const u8 {
+    var lin = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+    if (!parseLin(c, t, 1, &lin)) return null;
+    std.mem.sort(Term, lin.terms.items, {}, termNameLess);
+    var parts = std.array_list.Managed(u8).init(c.arena);
+    var piece = std.fmt.allocPrint(c.arena, "c={d}", .{lin.constant}) catch return null;
+    parts.appendSlice(piece) catch return null;
+    for (lin.terms.items) |tt| {
+        if (tt.coeff == 0) continue;
+        piece = std.fmt.allocPrint(c.arena, ",{s}={d}", .{ tt.name, tt.coeff }) catch return null;
+        parts.appendSlice(piece) catch return null;
+    }
+    return parts.items;
+}
+
+const DivMod = struct { is_div: bool, k: i64, key: []const u8 };
+
+fn asDivMod(c: *const Ctx, e: Sexp) ?DivMod {
+    if (!e.isList() or e.items.len != 3) return null;
+    const h = e.items[0].atom orelse return null;
+    const is_div = std.mem.eql(u8, h, "div");
+    const is_mod = std.mem.eql(u8, h, "mod");
+    if (!is_div and !is_mod) return null;
+    const k = numOf(e.items[2]) orelse return null;
+    if (k <= 0) return null;
+    const key = canonPolyKey(c, e.items[1]) orelse return null;
+    return .{ .is_div = is_div, .k = k, .key = key };
+}
+
+fn linIsZero(d: *const Lin) bool {
+    for (d.terms.items) |t| {
+        if (t.coeff != 0) return false;
+    }
+    return d.constant == 0;
+}
+
+/// ТОЖДЕСТВО ЕВКЛИДА `A = k*(div A k) + (mod A k)` при целом k > 0.
+/// ЗВУЧНО при двух условиях, которые здесь ПРОВЕРЯЮТСЯ: (а) k — один и тот же
+/// положительный литерал; (б) `A` в div, в mod и в равенстве — один полином
+/// (канонические ключи совпадают). Это факт арифметики, а не допущение.
+fn euclidIdentity(c: *const Ctx, a: Sexp, rhs: Sexp) bool {
+    if (!rhs.isList() or rhs.items.len != 3 or !isHead(rhs, "+")) return false;
+    var dv: ?Sexp = null;
+    var md: ?Sexp = null;
+    var k_mult: i64 = 0;
+    for (rhs.items[1..]) |t| {
+        if (asDivMod(c, t)) |dm| {
+            if (dm.is_div or md != null) return false;
+            md = t;
+            continue;
+        }
+        if (t.isList() and t.items.len == 3 and isHead(t, "*")) {
+            const kk = numOf(t.items[1]) orelse return false;
+            if (asDivMod(c, t.items[2])) |dm2| {
+                if (!dm2.is_div or dv != null) return false;
+                dv = t.items[2];
+                k_mult = kk;
+                continue;
+            }
+        }
+        return false;
+    }
+    const dd = asDivMod(c, dv orelse return false) orelse return false;
+    const mm = asDivMod(c, md orelse return false) orelse return false;
+    if (dd.k != mm.k or dd.k != k_mult) return false;
+    const ka = canonPolyKey(c, a) orelse return false;
+    return std.mem.eql(u8, ka, dd.key) and std.mem.eql(u8, ka, mm.key);
+}
+
+/// АКСИОМЫ ЕВКЛИДА в `th-lemma arith` на формулах с div/mod (дефект #619c).
+/// Принимаются только истинные факты арифметики целых при k > 0:
+///   1) `A = k*div(A,k) + mod(A,k)`;
+///   2) `mod(A,k) >= 0`;
+///   3) `mod(A,k) <= k-1`;
+///   4) `(not (= A RHS)) or (>= X 0)` / `(<= X 0)`, где X линейно равен A - RHS.
+/// ПОДДЕЛКИ ОТВЕРГАЮТСЯ: `(<= (mod A 2) 0)` не подходит (0 != k-1);
+/// `A = 3*div(A,2) + mod(A,2)` не подходит (коэффициент != k).
+fn euclidAxiomEq(c: *const Ctx, clause: Sexp) bool {
+    var body = clause;
+    if (clause.isList() and clause.items.len == 3 and isHead(clause, "or")) {
+        const x = clause.items[1];
+        const y = clause.items[2];
+        const xf = x.atom != null and std.mem.eql(u8, x.atom.?, "false");
+        const yf = y.atom != null and std.mem.eql(u8, y.atom.?, "false");
+        if (xf and !yf) {
+            body = y;
+        } else if (yf and !xf) {
+            body = x;
+        }
+    }
+    // 1) тождество деления
+    if (body.isList() and body.items.len == 3 and isHead(body, "=")) {
+        if (euclidIdentity(c, body.items[1], body.items[2])) return true;
+        if (euclidIdentity(c, body.items[2], body.items[1])) return true;
+    }
+    // 2) остаток >= 0
+    if (body.isList() and body.items.len == 3 and isHead(body, ">=")) {
+        if (asDivMod(c, body.items[1])) |dm| {
+            if (!dm.is_div) {
+                if (numOf(body.items[2])) |n| {
+                    if (n == 0) return true;
+                }
+            }
+        }
+    }
+    // 3) остаток <= k-1
+    if (body.isList() and body.items.len == 3 and isHead(body, "<=")) {
+        if (asDivMod(c, body.items[1])) |dm| {
+            if (!dm.is_div) {
+                if (numOf(body.items[2])) |n| {
+                    if (n == dm.k - 1) return true;
+                }
+                const r = body.items[2];
+                if (r.isList() and r.items.len == 3 and isHead(r, "+")) {
+                    const c1 = numOf(r.items[1]) orelse -1;
+                    const c2 = numOf(r.items[2]) orelse -9;
+                    if ((c1 == dm.k and c2 == -1) or (c2 == dm.k and c1 == -1)) return true;
+                }
+            }
+        }
+    }
+    // 4) производные формы: гипотеза-тождество + сравнение с X
+    if (clause.isList() and clause.items.len == 3 and isHead(clause, "or")) {
+        const neg = clause.items[1];
+        const cmp = clause.items[2];
+        if (neg.isList() and neg.items.len == 2 and isHead(neg, "not")) {
+            const eq = neg.items[1];
+            if (eq.isList() and eq.items.len == 3 and isHead(eq, "=")) {
+                var a_side = eq.items[1];
+                var rhs_side = eq.items[2];
+                if (!euclidIdentity(c, a_side, rhs_side)) {
+                    if (!euclidIdentity(c, eq.items[2], eq.items[1])) return false;
+                    a_side = eq.items[2];
+                    rhs_side = eq.items[1];
+                }
+                if ((isHead(cmp, ">=") or isHead(cmp, "<=")) and cmp.items.len == 3) {
+                    var lx = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+                    var la = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+                    var lr = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
+                    if (!parseLin(c, cmp.items[1], 1, &lx)) return false;
+                    if (!parseLin(c, a_side, 1, &la)) return false;
+                    if (!parseLin(c, rhs_side, 1, &lr)) return false;
+                    la.scale(-1);
+                    if (!linAdd(&lx, &la)) return false;
+                    if (!linAdd(&lx, &lr)) return false;
+                    return linIsZero(&lx);
+                }
+            }
+        }
+    }
+    return false;
+}
+
 fn verifyThLemmaArith(c: *const Ctx, st: Sexp, clause: Sexp) FarkasResult {
     var cons = std.array_list.Managed(builtin_lia.Lin).init(c.arena);
     const dbg = dbgEnv("KERN_DEBUG_LIA") != null;
@@ -5533,6 +5690,10 @@ fn verifyProofKindInner(
             // ДЕФЕКТ #445: АКСИОМЫ ТЕОРИИ МАССИВОВ проверяются СТРУКТУРНО.
             if (arrayAxiomEq(clause)) {
                 v.array_axiom_checked += 1;
+            } else if (euclidAxiomEq(&c, clause)) {
+                // #619c: истинные аксиомы Евклида для div/mod при целом k > 0
+                // (тождество деления, границы остатка и две их переформулировки).
+                v.farkas_checked += 1;
             } else {
             var res = verifyFarkas(&c, st.items[0], clause);
             if (res == .structural_only) {

@@ -3,9 +3,9 @@
   "id": "E1-01",
   "case": "prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)",
   "kern": "контрпример: i = MAX_SIZE (индекс == размер)",
-  "judge": "ASan: ==1189117==ERROR: AddressSanitizer: heap-buffer-overflow",
+  "judge": "ASan: ==1389995==ERROR: AddressSanitizer: heap-buffer-overflow",
   "status": "ЖИВОЙ",
-  "evidence": "==1189117==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b58b45ff100 at pc 0x561c49c9945f "
+  "evidence": "==1389995==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b755d9ff100 at pc 0x559880f0b45f "
  },
  {
   "id": "E1-02",
@@ -51,33 +51,33 @@
   "id": "E1-07",
   "case": "Rust: binomial_coefficient `n - k` при k > n",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (1189171) panicked at /tmp/trophy_m083hcy4/t_50657544.rs",
+  "judge": "rustc: thread 'main' (1390145) panicked at /tmp/trophy_1zobvglq/t_25257839.rs",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (1189171) panicked at /tmp/trophy_m083hcy4/t_50657544.rs:1:73:"
+  "evidence": "thread 'main' (1390145) panicked at /tmp/trophy_1zobvglq/t_25257839.rs:1:73:"
  },
  {
   "id": "E1-08",
   "case": "Rust: fast_factorial `% p` при p == 0",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (1189197) panicked at /tmp/trophy_m083hcy4/t_3621510.rs:",
+  "judge": "rustc: thread 'main' (1390179) panicked at /tmp/trophy_1zobvglq/t_17983168.rs",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (1189197) panicked at /tmp/trophy_m083hcy4/t_3621510.rs:1:71:"
+  "evidence": "thread 'main' (1390179) panicked at /tmp/trophy_1zobvglq/t_17983168.rs:1:71:"
  },
  {
   "id": "E1-09",
   "case": "Rust: modular_exponential при modulus == 0",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (1189223) panicked at /tmp/trophy_m083hcy4/t_85127414.rs",
+  "judge": "rustc: thread 'main' (1390214) panicked at /tmp/trophy_1zobvglq/t_67787657.rs",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (1189223) panicked at /tmp/trophy_m083hcy4/t_85127414.rs:1:122:"
+  "evidence": "thread 'main' (1390214) panicked at /tmp/trophy_1zobvglq/t_67787657.rs:1:122:"
  },
  {
   "id": "E1-10",
   "case": "Rust: sha3 pad101 `-m` при isize::MIN",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (1189249) panicked at /tmp/trophy_m083hcy4/t_53695708.rs",
+  "judge": "rustc: thread 'main' (1390250) panicked at /tmp/trophy_1zobvglq/t_12131921.rs",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (1189249) panicked at /tmp/trophy_m083hcy4/t_53695708.rs:1:27:"
+  "evidence": "thread 'main' (1390250) panicked at /tmp/trophy_1zobvglq/t_12131921.rs:1:27:"
  },
  {
   "id": "E2-01",

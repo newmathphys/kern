@@ -28,7 +28,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->251**, of which
 | KERN-Next tests | <!-- fact:next_tests -->53 |
 | Full test catalog | <!-- fact:catalog -->491 |
 | Lean 4 | <!-- fact:lean_theorems -->147 theorems in 8 files, 0 sorry |
-| Mutations killed | <!-- fact:mutation_sites -->1611 / 1611 across 21 files |
+| Mutations killed | <!-- fact:mutation_sites -->1681 / 1681 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
 | Literal anchors | <!-- fact:anchors -->210 |

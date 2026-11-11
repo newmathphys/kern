@@ -419,7 +419,7 @@ the release, verifies the published SHA-256, and prints `PILOT RECEIPT: PASS (8/
 **Run it on YOUR code (archive only — no repository, no Zig, no Python needed):**
 
 ```bash
-VER=v2.8.21   # подставьте нужный тег
+VER=v2.8.22   # подставьте нужный тег
 base=https://github.com/newmathphys/kern/releases/download/$VER
 curl -4 -fsSLO $base/kerna-dist-$VER.tar.gz && curl -4 -fsSLO $base/SHA256SUMS
 grep kerna-dist-$VER SHA256SUMS | sha256sum -c -     # must print: OK
@@ -685,7 +685,7 @@ checker in Zig + Lean 4 theorems), **R**esolution (Belnap B4: a contradiction is
 | File-descriptor leaks (50 solver requests, `NOFILE=20`) | **0** |
 | Zombie processes | **0** |
 | Decision coverage (MC/DC-style, instrumented) | **100.0 %** (30 / 30) |
-| Mutation score (Zig-native mutator) | **100.0 %** (<!-- fact:mutation_sites -->1611 / <!-- fact:mutation_sites -->1611 killed) over **21 files / 1611 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1611 sites, 23 min, run **locally**): **1611 / 1611 (100.0%)** (**split:** test-killed 1422 · compile-killed 172 · timeout-killed 3 — a compile-kill is weaker evidence than a test-kill, so the split is named, not averaged away), zero survivors — the full run is **committed** as `docs/evidence/mutate_full.log` (1 668 lines, `RC=0`); the canonical gate (40/40) and the per-module `--full-file` set (244/244) are committed next to it. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
+| Mutation score (Zig-native mutator) | **100.0 %** (<!-- fact:mutation_sites -->1681 / <!-- fact:mutation_sites -->1681 killed) over **21 files / 1681 sites**. **Canonical gate** (`make mutate`, seed=7): `40 / 40 (100.0%)` — same verdicts as the full sweep. **Full sweep, no sampling** (`--max 5000`, all 1681 sites, 23 min, run **locally**): **1681 / 1681 (100.0%)** (**split:** test-killed 1422 · compile-killed 172 · timeout-killed 3 — a compile-kill is weaker evidence than a test-kill, so the split is named, not averaged away), zero survivors — the full run is **committed** as `docs/evidence/mutate_full.log` (1 668 lines, `RC=0`); the canonical gate (40/40) and the per-module `--full-file` set (244/244) are committed next to it. Per-module `--full-file` (184 / 184 = 100.0%): `model_extract` 75/75, `builtin_lia` 17/17, `truth` 26/26, `catalog` 25/25, `wasm_api` 5/5, `capi` 12/12, `blake3_simd8` 6/6, `kimg_reader` 13/13, `kimg_writer` 5/5., survivors proven **equivalent**. The mutator used to cover only **6 files / 63 sites** (97.5 % there), so the earlier dip to 77.5 % was a **wider, honest** measurement, not a regression. Fixes in this revision: `KERN_MUTATE_FAST` (fewer stress-loop iterations, **no test disabled**: 11.4 s -> 5.8 s per mutant), `--jobs 4` (2.15x), and `--require-solver` (the score used to be taken with **8 tests silently skipped** because `z3` was not in `PATH`) |
 | Can-fail harness | **<!-- fact:check_targets -->206 / <!-- fact:check_targets -->206 CHECK targets (100 %)** have a proven-can-fail case (**<!-- fact:canfail_cases -->251 non-vacuous cases, 0 vacuous, 0 case errors**) + `canfail --check-anchors` pre-flight (all <!-- fact:anchors -->210 literal anchors verified in ~1 s) |
 | Constant-time digest comparison | `std.crypto.timing_safe.eql` in **5 places** (L1 Merkle root, L2 payload digest) — FIPS 140-3, no timing side channel |
 | C-ABI on pure C11 (`-Wall -Wextra -Werror -pedantic`) | **20 / 20** — NULL pointers and zero lengths rejected without a crash |
@@ -884,7 +884,7 @@ No toolchain needed. Release `v2.8.1` ships a statically linked `x86_64-linux-mu
 binary, so `kernc` runs on any x86-64 Linux without Zig:
 
 ```bash
-base=https://github.com/newmathphys/kern/releases/download/v2.8.21
+base=https://github.com/newmathphys/kern/releases/download/v2.8.22
 curl -fsSLO "$base/kernc-x86_64-linux-musl"
 curl -fsSLO "$base/SHA256SUMS"
 sha256sum -c SHA256SUMS          # verify BEFORE running
@@ -901,7 +901,7 @@ chmod +x kernc-x86_64-linux-musl && ./kernc-x86_64-linux-musl --version
 Or use it as a step in your own workflow:
 
 ```yaml
-- uses: newmathphys/kern@v2.8.21
+- uses: newmathphys/kern@v2.8.22
   with:
     args: verify --image project.kimg
 ```
