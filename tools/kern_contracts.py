@@ -8444,6 +8444,9 @@ _WRAP_MARKERS = ("+%", "-%", "*%", "+|", "-|", "wrapping_", "saturating_",
                  "addWithOverflow", "mulWithOverflow", "subWithOverflow")
 
 
+_DOMAIN_NOTICE_SHOWN = [False]
+
+
 def _domain_notice() -> None:
     """ЧЕСТНОСТЬ: если домен сужен, «находок 0» — это НЕ «код чист».
 
@@ -8451,7 +8454,8 @@ def _domain_notice() -> None:
     читатель увидел бы «findings 0» и решил, что проверка ничего не нашла.
     """
     cl = _domain_clamp()
-    if cl is not None:
+    if cl is not None and not _DOMAIN_NOTICE_SHOWN[0]:
+        _DOMAIN_NOTICE_SHOWN[0] = True
         print(f"[i] домен сужен: KERN_DOMAIN_CLAMP={cl[0]}:{cl[1]} — "
               "«находок 0» означает «в этом домене», а не «для всех Int»")
 
