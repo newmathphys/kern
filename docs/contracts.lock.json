@@ -9,6 +9,26 @@
     "transfer_with_fee:ensures:hard": "95a1b69d6f0b2db09f48995294c91f8b502791f37b3b5c022b46f09bbcdeb9ec",
     "transfer_with_fee:requires:hard": "4dce530bf3eda7c2544e4158df2894fcdc7d1f67bec0e05e5c37a6ae172b8101"
   },
+  "examples/anatomy/law_broken.py": {
+    "midpoint:ensures:hard": "d988facb0be39b29817660b94a7bbea8acf25ace9ef5df0bc24aa14c6a1fc3ae",
+    "midpoint:requires:hard": "c47ed37fe218821daf3fc3aa045b3202b6450754c9fcb6f35791eae1649fc2a6"
+  },
+  "examples/anatomy/law_bug.py": {
+    "midpoint:ensures:hard": "d988facb0be39b29817660b94a7bbea8acf25ace9ef5df0bc24aa14c6a1fc3ae",
+    "midpoint:requires:hard": "c47ed37fe218821daf3fc3aa045b3202b6450754c9fcb6f35791eae1649fc2a6"
+  },
+  "examples/anatomy/law_ok.py": {
+    "midpoint:ensures:hard": "d988facb0be39b29817660b94a7bbea8acf25ace9ef5df0bc24aa14c6a1fc3ae",
+    "midpoint:requires:hard": "c47ed37fe218821daf3fc3aa045b3202b6450754c9fcb6f35791eae1649fc2a6"
+  },
+  "examples/anatomy/midpoint_bug.py": {
+    "midpoint:ensures:hard": "d988facb0be39b29817660b94a7bbea8acf25ace9ef5df0bc24aa14c6a1fc3ae",
+    "midpoint:requires:hard": "7ef2ee045a00ac6e26ec68de61f29cc0cb66730a39cbeefd6b0881a9d7ea8ced"
+  },
+  "examples/anatomy/midpoint_ok.py": {
+    "midpoint:ensures:hard": "d988facb0be39b29817660b94a7bbea8acf25ace9ef5df0bc24aa14c6a1fc3ae",
+    "midpoint:requires:hard": "7ef2ee045a00ac6e26ec68de61f29cc0cb66730a39cbeefd6b0881a9d7ea8ced"
+  },
   "examples/contracts_advisory_demo.py": {
     "add_advisory_violated:ensures:advisory": "f12bfcf9d55a2d5f0aa1751fceddcd3e5c435942ede05fe36db77198b7055d18",
     "add_hard:ensures:hard": "29b62c4616817c14d093adfcbdfd89548fcfe9c37cea618b7cde41492c52264b"
