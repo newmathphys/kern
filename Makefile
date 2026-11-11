@@ -655,6 +655,10 @@ sabotage-guard:
 	@python3 tools/sabotage_guard.py
 	@python3 tools/sabotage_guard.py --selftest
 
+# #633: ПРОВЕРКА БЕЗ ВЫЗОВА = ЛОЖЬ. Гейт падает, если новая проверка не подключена.
+orphan-gates-check:
+	@python3 tools/orphan_gates_check.py
+
 tools-laws-check: build
 	@out=$$($(PYTHON) tools/kern_contracts.py tools/funnel_accounting.py 2>&1); \
 	 echo "$$out" | grep -q "нарушено 0" || { echo "$$out" | tail -3; echo "[FAIL] #623: закон на собственных функциях НАРУШЕН"; exit 1; }; \

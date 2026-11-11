@@ -159,6 +159,8 @@ fi
 # --- 7b. РЕГРЕССИИ «PROVEN»: 37 двусторонних контролей ---------------
   stage "регрессии PROVEN: 37 двусторонних контролей (вкл. политику апстрима)" make proven-regressions-check
 # --- 7b2. САБОТАЖ НЕ УЕХАЛ В КОММИТ (#627/#628) -------------------------
+  stage "xray: детектор C-границ не слеп (#632)" make xray-check
+  stage "нет новых неподключённых проверок (#633)" make orphan-gates-check
   stage "саботаж canfail не закоммичен (двусторонний гейт)" python3 tools/sabotage_guard.py
   stage "гейт саботажа СПОСОБЕН падать" python3 tools/sabotage_guard.py --selftest
 

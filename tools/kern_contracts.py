@@ -9835,7 +9835,16 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # корректное заворачивание). Диапазоны типов уже известны: у
             # беззнаковых `lo == 0`, у знаковых — отрицательный `lo`.
             _idxs_names = set(re.findall(r"[A-Za-z_]\w*", idxs))
-            _unsigned = {nm for nm, (lo_i, _hi_i) in (ranges or {}).items() if lo_i == 0}
+            # ДЕФЕКТ #632 (нашёл `make xray-check`, гейт был ВНЕ CI): условие
+            # «lo == 0» считало беззнаковым и ПАРАМЕТР-ИНДЕКС, которому выше
+            # намеренно зажали низ до нуля (`max(0, lo)`) — чтобы не обвинять
+            # `buf[i-1]` при отрицательном `i`... и детектор СЛЕП на `int get(
+            # int *buf, int i){ return buf[i-1]; }`: `[BOUNDS PATH]` не выдавался.
+            # РАЗДЕЛЯЕМ понятия: беззнаковый ТИП даёт `lo == 0` И ВЕРХНИЙ предел
+            # диапазона беззнакового типа (>= 2^31); зажатый знаковый `int`
+            # имеет `hi == INT_MAX`, поэтому беззнаковым больше не считается.
+            _unsigned = {nm for nm, (lo_i, hi_i) in (ranges or {}).items()
+                         if lo_i == 0 and hi_i >= 2 ** 31}
             if _idxs_names and _idxs_names <= _unsigned:
                 skip_why.append(
                     "индекс построен ТОЛЬКО из беззнаковых значений "
