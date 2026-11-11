@@ -2859,10 +2859,13 @@ def case_tools_laws():
     заменяется на более сильную `named < skipped` (при равенстве она ложна).
     `make tools-laws-check` доказывает эти законы, поэтому обязан покраснеть.
     """
+    # РЕВЬЮ (верно): ломаем РЕАЛИЗАЦИЮ, а не текст спецификации. Контракт
+    # `result == skipped - named` остаётся нетронутым, а тело начинает врать на 1 ->
+    # Z3 обязан выдать настоящий [КОНТРПРИМЕР], и tools-laws-check падает по прямому
+    # назначению. Поломка комментария проверяла бы замок контрактов, а не код.
     patch("tools/funnel_accounting.py",
-          "# @kern:requires skipped >= 0 and named >= 0 and named <= skipped",
-          "# @kern:requires skipped >= 0 and named >= 0 and named < skipped"
-          "  # ЛОМАЕМ (canfail: tools-laws-check)")
+          "    return skipped - named",
+          "    return skipped - named - 1  # ЛОМАЕМ тело (canfail: tools-laws-check)")
     return "make tools-laws-check"
 
 

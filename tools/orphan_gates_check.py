@@ -37,15 +37,29 @@ def _targets() -> set[str]:
 
 
 def _wired() -> str:
+    """Текст конвейера БЕЗ комментариев: только реальные вызовы."""
     ci = (ROOT / "tools" / "ci.sh").read_text(encoding="utf-8")
     mk = (ROOT / "Makefile").read_text(encoding="utf-8")
     m = re.search(r"^ci-fast:.*?(?=\n\w[\w.-]*:)", mk, re.S | re.M)
-    return ci + "\n" + (m.group(0) if m else "")
+    raw = ci + "\n" + (m.group(0) if m else "")
+    # РЕВЬЮ (верно): раньше искалась просто ПОДСТРОКА имени, поэтому
+    # закомментированный вызов `# make xray-check` или упоминание в тексте
+    # `stage "..."` считались подключением и делали гейт СЛЕПЫМ (нашёл canfail:
+    # кейс оказался вакуумным). Теперь: срезаем шелл-комментарии и ищем именно
+    # вызов make с учётом флагов (`make -s target`).
+    lines = [ln.split("#", 1)[0] for ln in raw.splitlines()]
+    return "\n".join(lines)
+
+
+def is_wired(target: str, text: str) -> bool:
+    """Вызывается ли цель РЕАЛЬНО: `make [-флаги] <target>` (не комментарий)."""
+    pat = rf"\bmake(?:\s+-[A-Za-z0-9_=-]+)*\s+{re.escape(target)}\b"
+    return re.search(pat, text) is not None
 
 
 def orphans() -> list[str]:
     wired = _wired()
-    return sorted(t for t in _targets() if t not in wired)
+    return sorted(t for t in _targets() if not is_wired(t, wired))
 
 
 def main() -> int:
