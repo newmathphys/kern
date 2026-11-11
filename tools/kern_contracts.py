@@ -5162,7 +5162,7 @@ def _demo(args) -> int:
             # контрактном пути функция честно уходит в SKIP. В режиме `--xray`
             # тип возврата не важен (ищутся краш-пути) — там поведение прежнее.
             _ret = meta.get("ret")
-            if (not args.xray and _sem_of_suffix(p.suffix).bounded_ints and _ret
+            if (not getattr(args, "xray", False) and _sem_of_suffix(p.suffix).bounded_ints and _ret
                     and _ret != "void" and _ret not in TYPE_RANGE):
                 print(f"  {name} (стр. {ln}): SKIP — тип возврата {_ret!r} "
                       f"вне целочисленного подмножества")
