@@ -130,6 +130,47 @@ def scan_committed() -> list[tuple[str, int, str]]:
     return hits
 
 
+def scan_canfail_rules() -> list[tuple[str, str]]:
+    """AST-сверка ВСЕХ правил `patch(path, old, new)` из canfail.py с деревом.
+
+    Влито из отдельного `canfail_mutations_audit.py` (#637), чтобы не плодить файлы
+    в `tools/` и охранять не слова, а САМИ правила стенда.
+
+    ЛОВУШКА, про которую предупредило ревью: `canfail` вносит мутации в
+    изолированном worktree (#630) НА ДИСК, без git-коммита. Поэтому штатный
+    режим обязан смотреть РАБОЧИЕ файлы, иначе мутация не будет видна и
+    самопроверка стенда провалится ложно.
+    """
+    import ast
+    src_p = ROOT / "tools" / "canfail.py"
+    if not src_p.is_file():
+        return []
+    tree = ast.parse(src_p.read_text(encoding="utf-8"))
+    rules: list[tuple[str, str, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            fn = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            if fn != "patch" or len(node.args) != 3:
+                continue
+            vals = [a.value for a in node.args
+                    if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+            if len(vals) == 3:
+                rules.append((vals[0], vals[1], vals[2]))
+    bad: list[tuple[str, str]] = []
+    for path, old, new in rules:
+        p = ROOT / path
+        if not p.is_file() or not new:
+            continue
+        try:
+            body = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        # диверсия = испорченный текст ЕСТЬ, а якорь (нормальный код) ИСЧЕЗ
+        if new in body and old and old not in body:
+            bad.append((path, new[:80]))
+    return bad
+
+
 def main() -> int:
     if "--cached" in sys.argv:
         hits = scan_index()
@@ -142,15 +183,27 @@ def main() -> int:
         return 0
     if "--selftest" in sys.argv:
         return selftest()
-    hits = scan_committed()
+    # #645 (РЕВЬЮ, критично): штатный режим смотрит РАБОЧИЕ ФАЙЛЫ, а не HEAD.
+    # `canfail` мутирует файлы в изолированном worktree (#630) НА ДИСКЕ без коммита;
+    # проверка только HEAD такую мутацию НЕ ВИДИТ, и самопроверка стенда ложно
+    # проваливается («диверсия внесена, а гейт не покраснел»). Гонки больше нет —
+    # canfail изолирован. `--committed` оставлен для CI-режима по коммиту.
+    hits = scan_committed() if "--committed" in sys.argv else scan(ROOT)
+    rules_bad = scan_canfail_rules()
     if hits:
-        print("[FAIL] #628: САБОТАЖ стенда УЕХАЛ В КОММИТ (прерванный canfail + git add -A):")
+        print("[FAIL] #628: САБОТАЖ стенда (маркеры ЛОМАЕМ/SABOTAGE/CANFAIL_PROBE):")
         for rel, ln, txt in hits[:8]:
             print(f"    {rel}:{ln}: {txt}")
         print("  Лечение: git checkout -- <файл> (вернуть версию до инъекции) и")
         print("  НЕ делать `git add -A`, пока canfail не завершился.")
         return 1
-    print(f"[OK] #628: саботажа в src/ нет (маркеры: {', '.join(MARKERS)})")
+    if rules_bad:
+        print("[FAIL] #637: диверсия по ПРАВИЛУ canfail.patch() (не по тексту маркера):")
+        for rel, txt in rules_bad[:8]:
+            print(f"    {rel}: {txt}")
+        return 1
+    print(f"[OK] #628: саботажа нет (маркеры: {', '.join(MARKERS)}; "
+          f"правил canfail под охраной)")
     return 0
 
 
