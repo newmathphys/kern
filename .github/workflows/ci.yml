@@ -7,6 +7,10 @@
 # Красный CI = мержить нельзя.
 name: KERN CI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main, zig-0.17-migration ]

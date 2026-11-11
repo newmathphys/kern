@@ -3884,6 +3884,29 @@ def changed_contract_files(ref: str):
     return out
 
 
+class _DemoArgs(argparse.Namespace):
+    """Namespace для `_demo`, который НЕ падает на неизвестном флаге (#642).
+
+    ЗАЧЕМ. `cmd_git_diff` (путь pre-commit хука) строил `argparse.Namespace(...)`
+    руками, перечисляя поля. Каждый новый CLI-флаг (`--xray`, `--emit-smt2`,
+    `--sarif`, `--diff-equiv`) делал этот Namespace устаревшим, и хук падал с
+    `AttributeError`, трактуя падение как нарушение контракта и БЛОКИРУЯ верный
+    коммит. ИЗМЕРЕНО на `make hook-check`.
+
+    ЛЕЧЕНИЕ КЛАССА. Любой отсутствующий атрибут отдаётся как `None` (ложное
+    значение), поэтому будущий флаг не сломает хук. Явно заданные поля
+    (files/kernc/sarif/…) работают как раньше.
+    """
+
+    DEFAULTS: dict[str, object] = {"xray": False, "emit_smt2": None,
+                                   "github_annotations": False, "json": None}
+
+    def __getattr__(self, name: str):
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return self.DEFAULTS.get(name, None)
+
+
 def cmd_git_diff(ref: str, kernc: str, sarif=None, annotations=False,
                  json_out=None) -> int:
     """Проверить ТОЛЬКО изменённые файлы (быстрый шлюз для pre-commit)."""
@@ -3892,9 +3915,9 @@ def cmd_git_diff(ref: str, kernc: str, sarif=None, annotations=False,
         print(f"[OK] изменённых файлов с @kern:-контрактами нет (ref={ref})")
         return 0
     print(f"[i] проверяю изменённые файлы ({len(files)}): {', '.join(files)}")
-    ns = argparse.Namespace(files=files, kernc=kernc, sarif=sarif,
-                            github_annotations=annotations, emit_pytest=None,
-                            json=json_out)
+    ns = _DemoArgs(files=files, kernc=kernc, sarif=sarif,
+                   github_annotations=annotations, emit_pytest=None,
+                   json=json_out)
     return _demo(ns)
 
 
