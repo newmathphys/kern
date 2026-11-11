@@ -3,9 +3,9 @@
   "id": "E1-01",
   "case": "prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)",
   "kern": "контрпример: i = MAX_SIZE (индекс == размер)",
-  "judge": "ASan: ==558159==ERROR: AddressSanitizer: heap-buffer-overflow",
+  "judge": "ASan: ==658770==ERROR: AddressSanitizer: heap-buffer-overflow",
   "status": "ЖИВОЙ",
-  "evidence": "==558159==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b4458fff100 at pc 0x55834a89045f b"
+  "evidence": "==658770==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b70f79ff100 at pc 0x5604530bf45f b"
  },
  {
   "id": "E1-02",
@@ -51,33 +51,33 @@
   "id": "E1-07",
   "case": "Rust: binomial_coefficient `n - k` при k > n",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (558230) panicked at /tmp/trophy_gew4tfmu/t_20324514.rs:",
+  "judge": "rustc: thread 'main' (658830) panicked at /tmp/trophy_ufj_y83a/t_20681456.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (558230) panicked at /tmp/trophy_gew4tfmu/t_20324514.rs:1:73:"
+  "evidence": "thread 'main' (658830) panicked at /tmp/trophy_ufj_y83a/t_20681456.rs:1:73:"
  },
  {
   "id": "E1-08",
   "case": "Rust: fast_factorial `% p` при p == 0",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (558256) panicked at /tmp/trophy_gew4tfmu/t_13551321.rs:",
+  "judge": "rustc: thread 'main' (658882) panicked at /tmp/trophy_ufj_y83a/t_27277435.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (558256) panicked at /tmp/trophy_gew4tfmu/t_13551321.rs:1:71:"
+  "evidence": "thread 'main' (658882) panicked at /tmp/trophy_ufj_y83a/t_27277435.rs:1:71:"
  },
  {
   "id": "E1-09",
   "case": "Rust: modular_exponential при modulus == 0",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (558282) panicked at /tmp/trophy_gew4tfmu/t_21601827.rs:",
+  "judge": "rustc: thread 'main' (658908) panicked at /tmp/trophy_ufj_y83a/t_8343654.rs:1",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (558282) panicked at /tmp/trophy_gew4tfmu/t_21601827.rs:1:122:"
+  "evidence": "thread 'main' (658908) panicked at /tmp/trophy_ufj_y83a/t_8343654.rs:1:122:"
  },
  {
   "id": "E1-10",
   "case": "Rust: sha3 pad101 `-m` при isize::MIN",
   "kern": "вызов вне предусловия",
-  "judge": "rustc: thread 'main' (558308) panicked at /tmp/trophy_gew4tfmu/t_73447155.rs:",
+  "judge": "rustc: thread 'main' (658934) panicked at /tmp/trophy_ufj_y83a/t_59982099.rs:",
   "status": "ЖИВОЙ",
-  "evidence": "thread 'main' (558308) panicked at /tmp/trophy_gew4tfmu/t_73447155.rs:1:27:"
+  "evidence": "thread 'main' (658934) panicked at /tmp/trophy_ufj_y83a/t_59982099.rs:1:27:"
  },
  {
   "id": "E2-01",
@@ -561,14 +561,6 @@
  },
  {
   "id": "E5-02",
-  "case": "циклы: break_named.py",
-  "kern": "[SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (",
-  "judge": "Z3 (--loops)",
-  "status": "ПРОПУСК",
-  "evidence": "[SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (строка 12) не моделируется)"
- },
- {
-  "id": "E5-03",
   "case": "циклы: collatz_open.py",
   "kern": "[FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпр",
   "judge": "Z3 (--loops)",
@@ -576,7 +568,7 @@
   "evidence": "[FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпример: [КОНТРПРИМЕР] n = 2, steps ="
  },
  {
-  "id": "E5-04",
+  "id": "E5-03",
   "case": "циклы: digits_ok.py",
   "kern": "[PASS] sum_of_digits: PROVEN (invariant & termination verified)",
   "judge": "Z3 (--loops)",
@@ -584,36 +576,68 @@
   "evidence": "[PASS] sum_of_digits: PROVEN (invariant & termination verified)"
  },
  {
-  "id": "E5-05",
-  "case": "циклы: loop_eq_bad.py",
-  "kern": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется",
-  "judge": "Z3 (--loops)",
-  "status": "ПРОПУСК",
-  "evidence": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется"
- },
- {
-  "id": "E5-06",
-  "case": "циклы: loop_eq_ok.py",
-  "kern": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется",
-  "judge": "Z3 (--loops)",
-  "status": "ПРОПУСК",
-  "evidence": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется"
- },
- {
-  "id": "E5-07",
-  "case": "циклы: loop_eq_old.py",
-  "kern": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется",
-  "judge": "Z3 (--loops)",
-  "status": "ПРОПУСК",
-  "evidence": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется"
- },
- {
-  "id": "E5-08",
+  "id": "E5-04",
   "case": "циклы: loops_len_bad.py",
   "kern": "[FAIL] bump: LOOP INVARIANT VIOLATED at init; контрпример: [КОНТРПРИМЕ",
   "judge": "Z3 (--loops)",
   "status": "ОПРОВЕРГНУТО",
   "evidence": "[FAIL] bump: LOOP INVARIANT VIOLATED at init; контрпример: [КОНТРПРИМЕР] lo = 1, n = 2"
+ },
+ {
+  "id": "E5-05",
+  "case": "циклы: loops_len_ok.py",
+  "kern": "[PASS] scan: PROVEN (invariant & termination verified)",
+  "judge": "Z3 (--loops)",
+  "status": "ЖИВОЙ",
+  "evidence": "[PASS] scan: PROVEN (invariant & termination verified)"
+ },
+ {
+  "id": "E5-06",
+  "case": "циклы: nested_annot_bad.py",
+  "kern": "[FAIL] two_level_bad: LOOP INVARIANT VIOLATED (не сохраняется); контрп",
+  "judge": "Z3 (--loops)",
+  "status": "ОПРОВЕРГНУТО",
+  "evidence": "[FAIL] two_level_bad: LOOP INVARIANT VIOLATED (не сохраняется); контрпример: [КОНТРПРИМЕР] start = 2, co"
+ },
+ {
+  "id": "E5-07",
+  "case": "циклы: nested_annot_ok.py",
+  "kern": "[PASS] two_level_ok: PROVEN (invariant & termination verified)",
+  "judge": "Z3 (--loops)",
+  "status": "ЖИВОЙ",
+  "evidence": "[PASS] two_level_ok: PROVEN (invariant & termination verified)"
+ },
+ {
+  "id": "E5-08",
+  "case": "циклы: nested_contract.py",
+  "kern": "[SKIP] count_primes: вложенный цикл меняет переменные контракта ['coun",
+  "judge": "Z3 (--loops)",
+  "status": "ГРАНИЦА",
+  "evidence": "[SKIP] count_primes: вложенный цикл меняет переменные контракта ['count'] — нужна двухуровневая индукция"
+ },
+ {
+  "id": "E5-09",
+  "case": "циклы: loop_eq_old.py vs loop_eq_ok.py",
+  "kern": "ИТОГО: эквивалентных 1 | эквивалентных без пруф-чекера 0 | разошедшихс",
+  "judge": "--diff-equiv",
+  "status": "ЖИВОЙ",
+  "evidence": "ИТОГО: эквивалентных 1 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инст"
+ },
+ {
+  "id": "E5-10",
+  "case": "циклы: loop_eq_old.py vs loop_eq_bad.py",
+  "kern": "ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихс",
+  "judge": "--diff-equiv",
+  "status": "ОПРОВЕРГНУТО",
+  "evidence": "ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 1 | недоказуемых 0 | ошибок инст"
+ },
+ {
+  "id": "E5-11",
+  "case": "цикл с `break`: причина названа",
+  "kern": "[SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (",
+  "judge": "--loops: граница названа",
+  "status": "ГРАНИЦА",
+  "evidence": "[SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (строка 12) не моделируется)"
  },
  {
   "id": "E8-01",

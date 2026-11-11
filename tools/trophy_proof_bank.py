@@ -322,8 +322,16 @@ def e5_loops() -> None:
     say("\n" + "=" * 78)
     say("ЭШЕЛОН 5. Циклы Хоара: @kern:invariant + @kern:decreases")
     fx = sorted((ROOT / "tests" / "fixtures" / "proven").glob("*.py"))
+    # Эти четыре файла созданы НЕ под `--loops`, поэтому одиночный прогон честно
+    # отказывает (`нет @kern:invariant`). Их режимы ниже: пары эквивалентности
+    # (`--diff-equiv`) и выдача НАЗВАННОЙ границы для `break`. Фикстуры не
+    # меняются — иначе поехали бы 41 контроль proven_regressions.
+    other_mode = {"loop_eq_old.py", "loop_eq_ok.py", "loop_eq_bad.py",
+                  "break_named.py"}
     n = 0
     for f in fx:
+        if f.name in other_mode:
+            continue
         if n >= 8:
             break
         rc, out = run([PY, "tools/kern_contracts.py", "--loops", str(f)], 300)
@@ -334,12 +342,39 @@ def e5_loops() -> None:
         if "[FAIL]" in ln:
             tag = "ОПРОВЕРГНУТО"
         elif "[SKIP]" in ln:
-            tag = "ПРОПУСК"
+            # Различаем ДВА вида отказа: «инварианта нет» (проверка не выполнялась)
+            # и «проверка не применима, ПРИЧИНА НАЗВАНА» (граница подмножества).
+            named = ("invariant" not in ln)
+            tag = "ГРАНИЦА" if named else "ПРОПУСК"
         else:
             tag = "ЖИВОЙ"
         row(f"E5-{n:02d}", f"циклы: {f.name}", ln[:70], "Z3 (--loops)", tag, ln)
         say(f"  [{tag}] E5-{n:02d} {f.name}: {ln[:88]}")
     say(f"  кейсов циклов: {n}")
+
+    # Пары эквивалентности циклов (для них эти фикстуры и созданы).
+    d = ROOT / "tests" / "fixtures" / "proven"
+    for eid, a, b, want in (("E5-09", "loop_eq_old.py", "loop_eq_ok.py", "эквивалентных 1"),
+                            ("E5-10", "loop_eq_old.py", "loop_eq_bad.py", "разошедшихся 1")):
+        rc, out = run([PY, "tools/kern_contracts.py", "--diff-equiv",
+                       str(d / a), str(d / b)], 300)
+        ln = first(out, "ИТОГО:")
+        if want in ln:
+            st = "ЖИВОЙ" if want.startswith("эквивалентных") else "ОПРОВЕРГНУТО"
+            row(eid, f"циклы: {a} vs {b}", ln[:70], "--diff-equiv", st, ln)
+            say(f"  [{st}] {eid} {a} vs {b}: {ln[:80]}")
+        else:
+            absent(eid, f"{a} vs {b}", ln or "нет итога")
+
+    # `break` вне подмножества: требование — НАЗВАННАЯ причина, а не молчание.
+    rc, out = run([PY, "tools/kern_contracts.py", "--loops", str(d / "break_named.py")], 300)
+    ln = first(out, "[SKIP]")
+    if ln and "break" in ln:
+        row("E5-11", "цикл с `break`: причина названа", ln[:70],
+            "--loops: граница названа", "ГРАНИЦА", ln)
+        say(f"  [ГРАНИЦА] E5-11 break_named.py: {ln[:80]}")
+    else:
+        absent("E5-11", "break_named.py", ln or "причина не названа")
 
 
 # ─────────────────────── ЭШЕЛОН 8: KERN.md, 4 состояния Белнапа
@@ -473,7 +508,8 @@ def render_md() -> str:
         "",
         f"**Кейсов: {len(ROWS)}** · ЖИВОЙ {cnt.get('ЖИВОЙ', 0)} · "
         f"ОПРОВЕРГНУТО {cnt.get('ОПРОВЕРГНУТО', 0)} · "
-        f"ЧАСТИЧНО {cnt.get('ЧАСТИЧНО', 0)} · ПРОПУСК {cnt.get('ПРОПУСК', 0)} · "
+        f"ЧАСТИЧНО {cnt.get('ЧАСТИЧНО', 0)} · ГРАНИЦА {cnt.get('ГРАНИЦА', 0)} · "
+        f"ПРОПУСК {cnt.get('ПРОПУСК', 0)} · "
         f"НЕТ {cnt.get('НЕТ', 0)}",
         "",
         "**Как читать статусы** (это главное, что отличает галерею от рекламы):",
@@ -483,7 +519,8 @@ def render_md() -> str:
         "| ЖИВОЙ | внешний судья реально запущен (gcc/ASan, UBSan, kerna, Z3, sqlite3, node) |",
         "| ОПРОВЕРГНУТО | KERN нашёл нарушение и выдал контрпример с числами |",
         "| ЧАСТИЧНО | вердикт есть, но **не** `trusted: 0`: полный сертификат не получен |",
-        "| ПРОПУСК | цикл вне подмножества / нет `@kern:invariant` — честный отказ |",
+        "| ГРАНИЦА | цикл вне подмножества, но ПРИЧИНА НАЗВАНА (например `break`) |",
+        "| ПРОПУСК | нет `@kern:invariant` — проверка не выполнялась |",
         "| НЕТ | кейса в этом срезе нет (нет корпуса/тулчейна) — с дословной причиной |",
         "",
         "## Таблица кейсов",

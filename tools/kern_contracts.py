@@ -7775,7 +7775,7 @@ def _clike_param_ranges(praw: str) -> dict:
         ty = ty.replace("&", " ").strip().lower()
         key = _c_type_key(ty) if ty else None
         if key and key in _CLIKE_RANGES:
-            out[name] = _CLIKE_RANGES[key]
+            out[name] = _clamp_range(_CLIKE_RANGES[key])
     return out
 
 
@@ -8444,6 +8444,51 @@ _WRAP_MARKERS = ("+%", "-%", "*%", "+|", "-|", "wrapping_", "saturating_",
                  "addWithOverflow", "mulWithOverflow", "subWithOverflow")
 
 
+def _domain_notice() -> None:
+    """ЧЕСТНОСТЬ: если домен сужен, «находок 0» — это НЕ «код чист».
+
+    Без этой строки сужение домена превращалось бы в молчаливое ослабление:
+    читатель увидел бы «findings 0» и решил, что проверка ничего не нашла.
+    """
+    cl = _domain_clamp()
+    if cl is not None:
+        print(f"[i] домен сужен: KERN_DOMAIN_CLAMP={cl[0]}:{cl[1]} — "
+              "«находок 0» означает «в этом домене», а не «для всех Int»")
+
+
+def _domain_clamp() -> tuple[int, int] | None:
+    """`KERN_DOMAIN_CLAMP="0:1000"` — сузить поиск контрпримеров до РАБОЧЕГО домена.
+
+    ЗАЧЕМ. Без контракта анализатор обязан рассмотреть крайние значения типа
+    (`INT_MIN`/`INT_MAX`), поэтому `--xray` даёт подсказки, которые нельзя
+    предъявлять как баг. Реалистичный домен отсекает такие подсказки целиком:
+    класс «придирка к 2^31» исчезает, остаются падения на нормальных входах.
+
+    ЧЕСТНОСТЬ. Это НЕ ослабление проверки: сужение домена только УМЕНЬШАЕТ
+    множество контрпримеров. «Доказано в домене» никогда не выдаётся за
+    «доказано для всех Int».
+    """
+    raw = os.environ.get("KERN_DOMAIN_CLAMP", "").strip()
+    if not raw:
+        return None
+    try:
+        lo_s, hi_s = raw.split(":")
+        lo, hi = int(lo_s, 0), int(hi_s, 0)
+    except (ValueError, TypeError):
+        return None
+    return (lo, hi) if lo <= hi else None
+
+
+def _clamp_range(rng: tuple[int, int]) -> tuple[int, int]:
+    """Пересечь диапазон типа с доменом из `KERN_DOMAIN_CLAMP` (если задан)."""
+    cl = _domain_clamp()
+    if cl is None:
+        return rng
+    lo = max(rng[0], cl[0])
+    hi = min(rng[1], cl[1])
+    return (lo, hi) if lo <= hi else rng
+
+
 def _clike_local_ranges(body: str) -> dict[str, tuple[int, int]]:
     """Объявленные в теле локальные переменные -> границы их типов.
 
@@ -8460,7 +8505,7 @@ def _clike_local_ranges(body: str) -> dict[str, tuple[int, int]]:
             continue
         rng = _CLIKE_RANGES.get(key) or TYPE_RANGE.get(key)
         if rng:
-            out.setdefault(nm, rng)
+            out.setdefault(nm, _clamp_range(rng))
     return out
 
 
@@ -10528,6 +10573,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False,
                   "потоком (ранние return, break, итерации циклов) не "
                   "моделируется. Проверять вручную по коду.")
         print("-" * 74)
+        _domain_notice()
         print(f"[XRAY SUMMARY] checked {ck} / {tot} functions (trivial {triv}), "
               f"skipped {max(0, tot - ck - triv)} with explicit reasons, "
               f"findings {len(fd)}, SMT calls {_smt_calls_clike}")
@@ -10620,6 +10666,7 @@ def cmd_xray(path: str, kernc, show_all: bool = False, json_mode: bool = False,
     _trivial = no_obligations
     _skipped = len(fn_skipped)
     _LAST_XRAY["stat"] = (_checked, len(fns), _skipped, _trivial, list(found))
+    _domain_notice()
     print(f"[XRAY SUMMARY] checked {_checked} / {len(fns)} functions "
           f"(SMT-verified {_checked}, no obligations {_trivial}), "
           f"skipped {_skipped} with explicit reasons, "
