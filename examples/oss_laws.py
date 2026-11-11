@@ -35,7 +35,22 @@ def cell_index(rows: int, cols: int, r: int, c: int) -> int:
     return r * cols + c
 
 
-# --- archetype-py: валидатор workers ---------------------------------------
+# --- archetype-py: счётчик НОВЫХ нарушений (check.py:183) -------------------
+# Источник: `ViolationCounts(total=total, new=total - suppressed, suppressed=suppressed)`.
+# Смысл: «новых» = все минус уже прощённые (baseline). Закон выражает ровно это
+# и заодно утверждает, что новых не может быть отрицательно.
+# @kern:requires suppressed >= 0 and suppressed <= total
+# @kern:ensures  result >= 0 and result + suppressed == total
+def new_violations(total: int, suppressed: int) -> int:
+    return total - suppressed
+
+
+# ЗАВЕДОМО НЕВЕРНЫЙ закон: «новых нарушений всегда больше нуля».
+# При total == suppressed (всё прощено baseline) это ложь — обязан быть опровергнут.
+# @kern:requires suppressed >= 0 and suppressed <= total
+# @kern:ensures  result > 0
+def new_violations_always_positive(total: int, suppressed: int) -> int:
+    return total - suppressed
 # Источник: `archetype/config.py:57 _ensure_workers` — на неверном входе БРОСАЕТ
 # ValueError, на верном возвращает значение как есть. Внутри закона
 # (`raw >= 1`) ветка с исключением недостижима, поэтому транскрипция faithful.
