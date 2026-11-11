@@ -111,18 +111,18 @@
 | `oracle-chc-check` | `oracle-chc-falseproof` | — | `make oracle-chc-check` |
 | `oracle-noninterference-check` | `oracle-noninterference-missed` | — | `make oracle-noninterference-check` |
 | `oracle-redos-check` | `oracle-redos-missed` | — | `make oracle-redos-check` |
-| `orphan-gates-check` | — | — | `make orphan-gates-check` |
+| `orphan-gates-check` | `orphan-gates` | — | `make orphan-gates-check` |
 | `pricing-matrix-check` | `pricing-matrix-check` | — | `make pricing-matrix-check` |
 | `proven-regressions-check` | `proven-regressions-check` | — | `make proven-regressions-check` |
 | `pytest-blind-check` | `pytest-blind` | — | `make pytest-blind-check` |
 | `rag-conflict-check` | `rag-conflict-check` | — | `make rag-conflict-check` |
 | `redos` | `redos-vuln` | — | `make redos` |
 | `rlvr-oracle-check` | `rlvr-oracle-check` | — | `make rlvr-oracle-check` |
-| `sabotage-guard` | — | — | `make sabotage-guard` |
+| `sabotage-guard` | `sabotage-guard` | — | `make sabotage-guard` |
 | `sql-policy-check` | `sql-policy-check` | — | `make sql-policy-check` |
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
-| `tools-laws-check` | — | — | `make tools-laws-check` |
+| `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 
 ## E4. Рентген кода, CWE, точность и PR-дельта (33)
 
@@ -253,7 +253,7 @@
 ## Паритет с реестром
 
 Целей в карте: **210**; класс CHECK в `registry.py`: **210**;
-записей `CASE_TARGET`: **251** (make-исполнимых **247**); без кейса вне `NO_CASE_OK`: **3**.
+записей `CASE_TARGET`: **254** (make-исполнимых **250**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·

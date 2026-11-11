@@ -625,6 +625,11 @@ CASE_TARGET = {
     # чтобы «кейс есть, а связи нет» не повторялось):
     "charter-text": "charter-text-check",
     "readme-link": "readme-link-check",
+    # #646: три кейса, доказывающих новые гейты (case-name -> make-target).
+    # Без этих строк покрытие снова тихо занижалось бы (класс #356 — Шаг 0).
+    "sabotage-guard": "sabotage-guard",
+    "orphan-gates": "orphan-gates-check",
+    "tools-laws": "tools-laws-check",
     # ШАГ 2: диверсия «доктор снят» ловится сухим прогоном шагов action.yml.
     "action-doctor": "action-check",
     # #505: диверсия «гейт ослеп» ловится сквозным пилотом на мини-фикстуре.
