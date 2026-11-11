@@ -156,6 +156,8 @@ if [ "$FAST" = "0" ]; then
   stage "Lean 4 (0 errors, 0 sorry)" bash -c 'out=$(./formal/check.sh 2>&1); rc=$?; echo "$out" | tail -3; exit $rc'
 fi
 
+# --- 7b. РЕГРЕССИИ «PROVEN»: 37 двусторонних контролей ---------------
+  stage "регрессии PROVEN: 37 двусторонних контролей (вкл. политику апстрима)" make proven-regressions-check
 # --- 8. CAN-FAIL: доказательство, что проверки СПОСОБНЫ упасть ---------------
 if [ "$FAST" = "0" ]; then
   # ⚠️ ПРЕДОХРАНИТЕЛЬ ПЕРЕД харнессом: дерево обязано быть чистым.
@@ -197,7 +199,6 @@ if [ "$FAST" = "0" ]; then
   stage "карта документации полна (#402/#403/#404)" make docs-map-check
   stage "llms.txt генерируется из facts.json (#311)" make llms-check
   stage "снимок состояния собран из facts+реестра+журнала (шаг C)" make status-check
-  stage "регрессии PROVEN: 37 двусторонних контролей (вкл. политику апстрима)" make proven-regressions-check
   stage "законы устава доказаны и сверены с ядром (шаг E)" make charter-check
   stage "свидетельства не отстали от дерева (#333, шаг F3)" make evidence-freshness
   stage "временные пути изолированы, замок цел (шаг N2)" make temp-isolation-check
