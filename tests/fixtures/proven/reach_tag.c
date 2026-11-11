@@ -1,11 +1,11 @@
-/* Контроль #616: приватный помощник с литеральными вызовами -> LATENT;
-   публичная функция -> без метки. */
-static int rot_helper(int x, int r) {
-    return (x << r) | (x >> (32 - r));
+/* Контроль #616: метка ставится там, где вызов ЛИТЕРАЛЬНЫЙ, но нарушение
+   через него ДОСТИЖИМО (b = 0 — литерал вызова). Публичная функция — без метки. */
+static int div_helper(int a, int b) {
+    return a / b;
 }
 
-int use_rot(int v) {
-    return rot_helper(v, 3) + rot_helper(v, 7);
+int use_div(int v) {
+    return div_helper(v, 0);
 }
 
 int public_sub(int k) {

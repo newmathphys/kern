@@ -8938,26 +8938,19 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
     return out
 
 
-def _reachability_tag(src: str, fn: str, suffix: str) -> str:
-    """Метка достижимости находки (ДЕФЕКТ #616, урок из заявки #50).
+def _callsite_consts(src: str, fn: str, suffix: str) -> dict:
+    """Параметры, получающие ЛИТЕРАЛ во ВСЕХ вызовах файла (дефект #617, Б).
 
-    ЗАЧЕМ. XXH_rotl64 в tidwall/hashmap.c вызывается только как
-    XXH_rotl64(v1, 31): параметр `r` — ВСЕГДА литерал, поэтому UB при r=0
-    ЛАТЕНТНЫЙ, а не публично достижимый. Отчёт без такой оговорки получает
-    справедливое «а это вообще бывает?» (реальный диалог с мейнтейнером).
-
-    ПРАВИЛО (измеренное по коду, а не по догадке): функция ПРИВАТНАЯ и есть
-    хотя бы один её параметр, который ВО ВСЕХ вызовах этого файла получает
-    целочисленный ЛИТЕРАЛ. Метка называет такие параметры:
-        [LATENT / CALLER-CONST: r]
-    Если вызовов в файле нет — метки нет (не судим).
+    Возвращает {param: {значения}} для приватных функций, у которых все
+    параметры-кандидаты литеральны во всех вызовах; {} — если правило не
+    применимо (публичная функция, нелитеральный вызов, вызовов нет).
     """
     if not src or not fn:
-        return ""
+        return {}
     pat_def = r"(^|[\n;}])\s*([^\n;{}]*?)\b" + re.escape(fn) + r"\s*\(([^)]*)\)"
     m_def = re.search(pat_def, src)
     if not m_def:
-        return ""
+        return {}
     head, params_txt = m_def.group(2) or "", m_def.group(3) or ""
     if suffix == ".go":
         private = fn[:1].islower()
@@ -8968,12 +8961,12 @@ def _reachability_tag(src: str, fn: str, suffix: str) -> str:
     else:
         private = bool(re.search(r"\bstatic\b", head))
     if not private:
-        return ""
+        return {}
     params = [p.strip().split(" ")[-1].lstrip("*")
               for p in params_txt.split(",") if p.strip()]
     if not params:
-        return ""
-    always_lit = set(params)
+        return {}
+    out = {p: set() for p in params}
     calls = 0
     for m in re.finditer(r"\b" + re.escape(fn) + r"\s*\(", src):
         if m.start() < m_def.end(0):
@@ -8987,17 +8980,25 @@ def _reachability_tag(src: str, fn: str, suffix: str) -> str:
                 depth -= 1
             j += 1
         if depth:
-            return ""
+            return {}
         args = [a.strip() for a in src[i:j - 1].split(",")]
         calls += 1
         for k, p in enumerate(params):
-            if p in always_lit:
-                a = args[k] if k < len(args) else ""
-                if not re.fullmatch(r"-?\d+", a):
-                    always_lit.discard(p)
-    if calls == 0 or not always_lit:
+            a = args[k] if k < len(args) else ""
+            if not re.fullmatch(r"-?\d+", a):
+                out[p].add(None)          # нелитеральный вызов
+            else:
+                out[p].add(int(a))
+    if calls == 0:
+        return {}
+    return {p: v for p, v in out.items() if v and None not in v}
+
+
+def _reachability_tag(src: str, fn: str, suffix: str) -> str:
+    consts = _callsite_consts(src, fn, suffix)
+    if not consts:
         return ""
-    return "  [LATENT / CALLER-CONST: " + ", ".join(sorted(always_lit)) + "]"
+    return "  [LATENT / CALLER-CONST: " + ", ".join(sorted(consts)) + "]"
 
 
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[str, int], dict[str, int]]:
@@ -9076,8 +9077,32 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
     _full_src = _strip_c_comments_strings(_full)
     if path.suffix in {".ts", ".js"}:
         _full_src = _strip_js_regex(_full_src)
+    # ДЕФЕКТ #617, ПРАВИЛО А: параметр, используемый КАК ИНДЕКС МАССИВА
+    # (`arr[l]`, `arr[mid]`), в домене функции НЕОТРИЦАТЕЛЕН: индекс
+    # массива в классическом коде не бывает < 0. ИЗМЕРЕНО на реальном
+    # `binarysearch1(arr, l, r, x)` (TheAlgorithms/C): без этого правила
+    # `r - l` обвинялось в переполнении при `l = INT_MIN` — ЛОЖНО, такого
+    # вызова не существует (заявка #1598 закрыта как недействительная).
+    # СЛЕДСТВИЕ: при `l >= 0` и `r >= 0` выражения `r - l` и `l + (r-l)/2`
+    # в домене int безопасны, а классический баг `(l + r) / 2` остаётся.
     for name, params, body, _ln, ranges, reqs in funcs:
         total += 1
+        _body = body or ""
+        # а) параметр индексируется напрямую: `arr[l]`
+        _idx_params = {p for p in params
+                       if re.search(r"\[\s*[^\]]*\b" + re.escape(p) + r"\b[^\]]*\]",
+                                   _body)}
+        # б) параметр определяет ИНДЕКСНУЮ переменную: `mid = l + (r - l) / 2`,
+        #    а затем `arr[mid]` — значит `l` и `r` из того же домена (индексы).
+        #    ИЗМЕРЕНО на binarysearch1/binarysearch2: без этого пункта FP остаётся.
+        for _loc in set(re.findall(r"\[\s*([A-Za-z_]\w*)\s*\]", _body)):
+            _mdef = re.search(rf"\b{_loc}\s*=\s*([^;]+);", _body)
+            if _mdef:
+                _idx_params |= {p for p in params
+                                if re.search(rf"\b{re.escape(p)}\b", _mdef.group(1))}
+        if _idx_params and ranges:
+            ranges = {k: ((max(0, v[0]), v[1]) if k in _idx_params else v)
+                      for k, v in ranges.items()}
         # ДЕФЕКТ #405 (найден при правке): счётчик вызовов решателя ОБЯЗАН
         # обнуляться на КАЖДУЮ функцию. Он глобальный, и без сброса первая же
         # функция с обязательством делала `_SMT_CALLS[0] > 0` для ВСЕХ
@@ -9941,15 +9966,43 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
     # НЕ публично достижимый баг; путать их в отчёте нельзя.
     if found:
         _tag_cache: dict = {}
+        _seen_notes: set = set()
         for _i, _msg in enumerate(list(found)):
             _mm = re.match(r"\[[^\]]+\]\s+([A-Za-z_]\w*)\s*:", _msg)
             if not _mm:
                 continue
             _fnm = _mm.group(1)
             if _fnm not in _tag_cache:
-                _tag_cache[_fnm] = _reachability_tag(_full_src, _fnm, path.suffix)
-            if _tag_cache[_fnm] and _tag_cache[_fnm] not in _msg:
-                found[_i] = _msg + _tag_cache[_fnm]
+                _consts = _callsite_consts(_full_src, _fnm, path.suffix)
+                _tag_cache[_fnm] = (_reachability_tag(_full_src, _fnm, path.suffix),
+                                    _consts)
+            _tag, _consts = _tag_cache[_fnm]
+            # ДЕФЕКТ #617, ПРАВИЛО Б (Call-Site Suppression): если КОНТРПРИМЕР
+            # требует значения параметра, которого НЕТ среди литералов всех
+            # вызовов файла, — нарушение через эти вызовы НЕДОСТИЖИМО.
+            # Тогда это НЕ находка, а выполненное предусловие (note).
+            # ИЗМЕРЕНО на tidwall/hashmap.c: XXH_rotl64 вызывается только как
+            # (v1, 27)/(v1, 31), контрпример требует r = 0 -> подавляем.
+            _ce = re.search(r"\[КОНТРПРИМЕР\]\s*(.+)$", _msg)
+            _suppress = False
+            if _consts and _ce:
+                for _pv in _ce.group(1).split(","):
+                    _kv = _pv.split("=")
+                    if len(_kv) == 2:
+                        _k, _v = _kv[0].strip(), _kv[1].strip()
+                        if _k in _consts and re.fullmatch(r"-?\d+", _v or ""):
+                            if int(_v) not in _consts[_k]:
+                                _suppress = True
+                                break
+            if _suppress:
+                _note = (f"вызовы безопасны (#617): {_fnm} "
+                         f"{ {k: sorted(v) for k, v in _consts.items()} }")
+                _seen_notes.add(_note)
+                found[_i] = None          # помечаем на удаление
+                continue
+            if _tag and _tag not in _msg:
+                found[_i] = _msg + _tag
+        found = [m for m in found if m is not None]
     return checked, total, trivial, found, reasons, notes
 
 

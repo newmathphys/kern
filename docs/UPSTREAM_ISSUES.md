@@ -40,52 +40,13 @@ Suggested fix — swap the two lines so the guard precedes the access:
 
 ---
 
-## 2. xxHash: `updateBit` — базовый случай `level == 0` на знаковом `int`
+## 2. xxHash: `updateBit` — СНЯТО С ОТПРАВКИ (тот же класс, что #50)
 
-* **Куда:** `https://github.com/Cyan4973/xxHash/issues`
-* **Файл:** `tests/collisions/main.c`, функция `updateBit`, строка **301** (на срезе `2ec67ca`)
-* **Заголовок:** `tests/collisions/main.c: updateBit base case checks level == 0 on signed int`
-
-**Сигнатура — ровно как в коде** (сверено с `tests/collisions/main.c:301`):
-
-```c
-static int updateBit(void* buffer, size_t* bitIdx, int level, size_t max)
-{
-    if (level==0) return 0;                     /* can't progress further */
-    flipbit(buffer, bitIdx[level]);
-    if (bitIdx[level] < max-1) {
-        bitIdx[level]++;
-        ...
-    }
-    if (!updateBit(buffer, bitIdx, level-1, max-1)) return 0;   /* line 314 */
-```
-
-```markdown
-`level` is a signed `int`, but the recursion base case tests exact equality:
-
-    if (level==0) return 0;
-
-For a signed domain this establishes only `level != 0`. If a negative `level` ever reached this
-function, `bitIdx[level]` would read out of bounds at a negative offset, and the recursive call
-`updateBit(..., level-1, ...)` would descend toward `INT_MIN - 1` (signed overflow).
-
-Existing callers pass non-negative values, so this is a latent robustness issue rather than a
-live bug. Making the lower bound explicit (`if (level <= 0) return 0;`) or taking `level` as
-`size_t` removes the possibility entirely.
-
-(Found with static analysis in KERN — https://github.com/newmathphys/kern)
-```
-
-**Почему это не придирка:** замер на 15-строчном репро (`docs/evidence/xxhash_updatebit_min.c`):
-
-| гард | находки KERN |
-|:--|--:|
-| `if (level==0) return 0;` (как сейчас) | **2** (`[BOUNDS PATH]`, `[OVERFLOW PATH]`) |
-| `if (level<=0) return 0;` (контроль) | **0** |
-
-То есть правка действительно закрывает оба предупреждения, а не «заметает» их.
-
----
+**Не отправлять.** `updateBit` — тоже `static`-хелпер, а `level` внутри
+`tests/collisions/main.c` всегда неотрицателен. Это ЛАТЕНТНЫЙ случай, не заявка
+(см. `docs/upstream/SENT.md`: правило «нет живого бага — нет заявки» и диалог
+с мейнтейнером `tidwall/hashmap.c` #50). Класс закрыт механически: правило Б
+(`#617`) подавляет такие находки, метка `[LATENT / CALLER-CONST]` — `#616`.
 
 ## 3. Независимая квитанция (одна минута любого человека)
 

@@ -273,8 +273,8 @@ fi
 
 # --- #616: МЕТКА ДОСТИЖИМОСТИ (урок из заявки #50)
 out=$(timeout 250 $P --xray $F/reach_tag.c 2>&1)
-if printf '%s' "$out" | grep -q 'rot_helper.*LATENT / CALLER-CONST: r'; then
-  echo "[OK]   приватный помощник с литеральными вызовами помечен LATENT"
+if printf '%s' "$out" | grep -q 'div_helper.*LATENT / CALLER-CONST: b'; then
+  echo "[OK]   приватный помощник (нарушение достижимо при литерале) помечен LATENT"
 else
   echo "[FAIL] метка LATENT не поставлена (#616 вернулся)"; fail=1
 fi
@@ -301,5 +301,28 @@ done
 [ $_bad_drafts -eq 0 ] && echo "[OK]   политика апстрима: все черновики с живым крашем"
 [ $_bad_drafts -ne 0 ] && fail=1
 
-[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 37 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
+# --- #617: ПРАВИЛО А (индексный домен) и ПРАВИЛО Б (call-site suppression)
+out=$(timeout 250 $P --xray $F/callsite_tp.c 2>&1)
+_n=$(printf '%s' "$out" | grep -cE '\[(CRASH|BOUNDS|OVERFLOW) PATH\]')
+if [ "$_n" = "1" ]; then
+  echo "[OK]   #617: классический (l+r)/2 ЛОВИТСЯ (TP жив)"
+else
+  echo "[FAIL] #617: классический баг перестал ловиться (находок $_n)"; fail=1
+fi
+out=$(timeout 250 $P --xray $F/callsite_fp.c 2>&1)
+_n=$(printf '%s' "$out" | grep -cE '\[(CRASH|BOUNDS|OVERFLOW) PATH\]')
+if [ "$_n" = "0" ]; then
+  echo "[OK]   #617: эталонная формула l + (r-l)/2 НЕ обвиняется"
+else
+  echo "[FAIL] #617: эталонный бинарный поиск снова обвиняется"; fail=1
+fi
+out=$(timeout 250 $P --xray $F/callsite_latent.c 2>&1)
+_n=$(printf '%s' "$out" | grep -cE '\[(CRASH|BOUNDS|OVERFLOW) PATH\]')
+if [ "$_n" = "0" ]; then
+  echo "[OK]   #617: приватный хелпер с литеральными вызовами не находка"
+else
+  echo "[FAIL] #617: латентный хелпер снова в находках"; fail=1
+fi
+
+[ $fail -eq 0 ] && echo "[OK] регрессии PROVEN: 40 двусторонних контролей (loops, state-inv, gen-tests, heal, diff-equiv, lockstep-циклы), 0 unknown"
 exit $fail
