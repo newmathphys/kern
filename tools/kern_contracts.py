@@ -2625,6 +2625,13 @@ _MACRO_DIV = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
 # а межпроцедурные инварианты мы не моделируем — обвинять нельзя (см. zls 0.17.0:
 # `if (trigrams.len > 0)` перед построением фильтра).
 _RE_LEN_LIKE = re.compile(r"^(len|size|count|n|cap|capacity|length)$")
+# ДЕФЕКТ #622 (НАЙДЕНО на живом `Aletheore`, 41 `[CRASH PATH]`): в Python `/` — это
+# ТАКЖЕ склейка путей. Тест-хелпер `def _write(repo, rel, text):` и тело
+# `(repo / rel).write_text(text)` давали «деление на ноль: rel == 0», хотя `rel` —
+# строка-путь, а не число. Обвинять по имени-пути нельзя: тип неизвестен.
+_RE_PATH_LIKE = re.compile(
+    r"^(rel|rel_?path|path|paths|file|filename|file_?name|dir|directory|root|src|dst)$",
+    re.I)
 # ДЕФЕКТ #316: `Path / str` — СКЛЕЙКА ПУТИ, а не деление. Найдено
 # САМОПРИМЕНЕНИЕМ: `--xray tools/` по собственному коду KERN дал 6 `[CRASH PATH]`,
 # из которых два ложные — `self.root / log_dir` (`kern_exec_runner.py:82`) и
@@ -5878,6 +5885,10 @@ def _range_entry_guards(st, env) -> list:
         return []
 
 
+def _is_path_like_name(node) -> bool:
+    """Имя-ПУТЬ (`rel`, `path`, `file`): в Python `/` — склейка путей (#622)."""
+    return isinstance(node, ast.Name) and bool(_RE_PATH_LIKE.match(node.id))
+
 def _crash_collect(n, nguards, params, kernc, found, fnname, syms, env) -> None:
     """Проверить ОДИН узел на деление на ноль с учётом гардов пути.
 
@@ -6056,6 +6067,8 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                     if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
                     sat_dz = _smt_sat(kernc, params, nguards + [f"(= {div} 0)"])
+                    if sat_dz is True and _is_path_like_name(n.right):
+                        continue
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
@@ -6086,6 +6099,8 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
                     if not _could_be_zero(div) or not _mentions_param(div, params):
                         continue
                     sat_dz = _smt_sat(kernc, params, nguards + [f"(= {div} 0)"])
+                    if sat_dz is True and _is_path_like_name(n.right):
+                        continue
                     if sat_dz is True:
                         found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
                                      f"возможно деление на ноль: {div} == 0")
@@ -9679,6 +9694,14 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # пропуска). Сертификаты `audits/zls/*.smt2` остаются как модель
             # «что было бы без гарда», но НЕ как находка в их коде.
             if _RE_LEN_LIKE.match(d.strip()):
+                continue
+            # #622: имя-ПУТЬ (`rel`, `path`, `file`) — в Python это склейка путей.
+            if _RE_PATH_LIKE.match(d.strip()):
+                if skip_why is not None:
+                    _why = (f"делитель `{d}` — имя-ПУТЬ: в Python `/` это склейка путей "
+                            "(тип неизвестен, не обвиняем)")
+                    if _why not in skip_why:
+                        skip_why.append(_why)
                 continue
             if "__" in d or "->" in d or re.search(r"[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*", d):
                 # ДЕФЕКТ #520 (НАЙДЕНО T4 на ПОЛНОМ curl/lib, `tftp.c`): здесь
