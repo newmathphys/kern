@@ -698,7 +698,7 @@ make verify-attestation          # или: python3 tools/verify_attestation.py -
 **Запустить на СВОЁМ коде (только архив — без репозитория, без Zig, без Python):**
 
 ```bash
-VER=v2.8.22   # подставьте нужный тег
+VER=v2.8.23   # подставьте нужный тег
 base=https://github.com/newmathphys/kern/releases/download/$VER
 curl -4 -fsSLO $base/kerna-dist-$VER.tar.gz && curl -4 -fsSLO $base/SHA256SUMS
 grep kerna-dist-$VER SHA256SUMS | sha256sum -c -     # должно быть: OK
