@@ -3963,6 +3963,12 @@ fn atomKeyFor(c: *const Ctx, h: []const u8, e: Sexp) ?[]const u8 {
     if (k <= 0) return null;
     var sub = Lin{ .terms = std.array_list.Managed(Term).init(c.arena) };
     if (!parseLin(c, e.items[1], 1, &sub)) return null;
+    if (sub.terms.items.len == 0) return null;
+    // ФОЛБЭК, А НЕ ПЕРЕХВАТ (ИЗМЕРЕНО на `evm-proof-check`): если внутри
+    // `div`/`mod` НЕТ переменных (константа вида `(div MIN -1)`), атомизация
+    // ЗАПРЕЩЕНА — этот случай обязан идти прежним путём, иначе константа
+    // превращается в неинтерпретированный символ и готовое доказательство
+    // EVM (`SDIV(MIN,-1) = MIN`) рассыпается.
     std.mem.sort(Term, sub.terms.items, {}, termNameLess);
     var parts = std.array_list.Managed(u8).init(c.arena);
     var piece = std.fmt.allocPrint(c.arena, "{s}(c={d}", .{ h, sub.constant }) catch return null;
@@ -4017,18 +4023,18 @@ fn parseLin(c: *const Ctx, e: Sexp, sign: i64, out: *Lin) bool {
         if (count_num == 0 or rest == null) return false;
         return parseLin(c, rest.?, sign * k, out);
     }
-    // ОТКАЧЕНО ИЗМЕРЕНО (#619b): канонический ключ работал на `midpoint.smt2`
-    // (trusted 12 -> 5, rewrite_bad=0), но СЛОМАЛ существующее доказательство:
-    // гейт `evm-proof-check` перестал подтверждать `SDIV(MIN,-1) = MIN`
-    // («нет [PROOF VERIFIED]»). Новая ветка разбора меняет поведение старого
-    // пути на формулах, где `div` уже обрабатывался иначе. Возврат к прежнему
-    // разбору восстановил гейт; правильный путь — включить атомы ТОЛЬКО для
-    // доказательств, где старый путь отказывает, и с двусторонним контролем.
-    // ОТКАЧЕНО ИЗМЕРЕНО (#619b): атомизация подтермов включала проверку
-    // `rewrite`, но печать подтермов НЕ канонична: `(+ (* (- 1) low) high)` и
-    // `(+ high (* (- 1) low))` — одно и то же, а ключи разные -> rewrite_bad=1
-    // и ОТКАЗ на КОРРЕКТНОМ выводе. Для звучия нужна канонизация аргументов
-    // (сортировка линейной формы), это отдельный шаг.
+    // ДЕФЕКТ #619b (ФОЛБЭК): `(div A k)` / `(mod A k)` с ПЕРЕМЕННЫМИ внутри —
+    // атом с каноническим ключом; константные случаи обрабатываются старым
+    // путём (см. ранний `return null` в `atomKeyFor`).
+    if ((std.mem.eql(u8, h, "div") or std.mem.eql(u8, h, "mod")) and
+        e.items.len == 3)
+    {
+        if (atomKeyFor(c, h, e)) |key| {
+            out.add(key, sign) catch return false;
+            return true;
+        }
+        return false;
+    }
     return false;
 }
 

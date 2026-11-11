@@ -1,11 +1,11 @@
 БАНК ТРОФЕЕВ И ДОКАЗАТЕЛЬСТВ KERN — живые кейсы по эшелонам
-срез: /home/mrbritneyxxx/Рабочий стол/kern | tmp: /tmp/trophy_82m_5uzn
+срез: /home/mrbritneyxxx/Рабочий стол/kern | tmp: /tmp/trophy_m083hcy4
 
 ==============================================================================
 ЭШЕЛОН 1. Память и арифметика: KERN даёт число, компилятор его роняет
   [ЖИВОЙ] E1-01 prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)
           KERN: контрпример: i = MAX_SIZE (индекс == размер)
-          СУДЬЯ: ASan: ==995421==ERROR: AddressSanitizer: heap-buffer-overflow
+          СУДЬЯ: ASan: ==1189117==ERROR: AddressSanitizer: heap-buffer-overflow
   [ЖИВОЙ] E1-02 prime_sieve.c с законом `i < MAX_SIZE`
           KERN: ДОКАЗАНО: выхода за границу нет
           СУДЬЯ: ASan: падения нет
@@ -23,16 +23,16 @@
           СУДЬЯ: UBSan: runtime error: shift exponent 64 is too large for 64-bit type 'long un
   [ЖИВОЙ] E1-07 Rust: binomial_coefficient `n - k` при k > n
           KERN: вызов вне предусловия
-          СУДЬЯ: rustc: thread 'main' (995482) panicked at /tmp/trophy_82m_5uzn/t_27405426.rs:
+          СУДЬЯ: rustc: thread 'main' (1189171) panicked at /tmp/trophy_m083hcy4/t_50657544.rs
   [ЖИВОЙ] E1-08 Rust: fast_factorial `% p` при p == 0
           KERN: вызов вне предусловия
-          СУДЬЯ: rustc: thread 'main' (995508) panicked at /tmp/trophy_82m_5uzn/t_12260607.rs:
+          СУДЬЯ: rustc: thread 'main' (1189197) panicked at /tmp/trophy_m083hcy4/t_3621510.rs:
   [ЖИВОЙ] E1-09 Rust: modular_exponential при modulus == 0
           KERN: вызов вне предусловия
-          СУДЬЯ: rustc: thread 'main' (995534) panicked at /tmp/trophy_82m_5uzn/t_64031764.rs:
+          СУДЬЯ: rustc: thread 'main' (1189223) panicked at /tmp/trophy_m083hcy4/t_85127414.rs
   [ЖИВОЙ] E1-10 Rust: sha3 pad101 `-m` при isize::MIN
           KERN: вызов вне предусловия
-          СУДЬЯ: rustc: thread 'main' (995560) panicked at /tmp/trophy_82m_5uzn/t_26651893.rs:
+          СУДЬЯ: rustc: thread 'main' (1189249) panicked at /tmp/trophy_m083hcy4/t_53695708.rs
 
 ==============================================================================
 ЭШЕЛОН 2. Дельта поведения: 10 пар (buggy, correct) из фикстуры Банка
