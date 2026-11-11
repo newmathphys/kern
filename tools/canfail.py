@@ -383,6 +383,15 @@ FAULTABLE = [
     # #489: кейс `kern-scan` правит паспорт аудита — файл обязан быть в списке,
     # иначе подсадка осталась бы в дереве (класс #225).
     "tools/kern_scan.py",
+    # #646 (САНКЦИОНИРОВАНО): файлы ниже добавлены ОСОЗНАННО, чтобы кейсы могли
+    # доказать способность падать новым гейтам:
+    #   tools/funnel_accounting.py — содержит законы @kern:, которые доказывает
+    #     `make tools-laws-check`; ломаем закон -> гейт обязан покраснеть;
+    #   tools/ci.sh — если тихо убрать вызов гейта из конвейера, число осиротевших
+    #     целей растёт (110 -> 111) и `make orphan-gates-check` обязан закричать.
+    #     Именно это — самая частая реальная диверсия: «отключить неудобную проверку».
+    "tools/funnel_accounting.py",
+    "tools/ci.sh",
     # #474: кейс `evidence-trust` правит СГЕНЕРИРОВАННУЮ таблицу доказательств
     # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
@@ -2816,6 +2825,46 @@ def case_artifact_offline():
     return "make artifact-check-offline"
 
 
+def case_sabotage_guard():
+    """#628 SABOTAGE: маркер диверсии в src/tools/formal — гейт обязан покраснеть.
+
+    ЛОМАЕМ: дописываем маркер `ЛОМАЕМ` в комментарий `tools/kern_scan.py`
+    (файл из FAULTABLE). `make sabotage-guard` сканирует РАБОЧИЕ файлы (не HEAD),
+    поэтому мутация видна — и гейт обязан вернуть rc!=0.
+    """
+    patch("tools/kern_scan.py",
+          "#!/usr/bin/env python3",
+          "#!/usr/bin/env python3  # ЛОМАЕМ (canfail: проверка sabotage-guard)")
+    return "make sabotage-guard"
+
+
+def case_orphan_gates():
+    """#633 SABOTAGE: гейт тихо выкинут из конвейера -> осиротевших целей больше.
+
+    ЛОМАЕМ: в `tools/ci.sh` вызов `make xray-check` заменяется на безобидный echo.
+    Цель снова становится осиротевшей (110 -> 111), и `make orphan-gates-check`
+    обязан закричать «новые проверки НЕ подключены». Это ровно та диверсия,
+    которой боятся: «убрать неудобную проверку из CI».
+    """
+    patch("tools/ci.sh",
+          "make xray-check",
+          "echo '# xray-check отключён (canfail: проверка orphan-gates-check)'")
+    return "make orphan-gates-check"
+
+
+def case_tools_laws():
+    """#623 SABOTAGE: закон на собственной функции нарушен -> гейт обязан упасть.
+
+    ЛОМАЕМ: в `tools/funnel_accounting.py` предпосылка `named <= skipped`
+    заменяется на более сильную `named < skipped` (при равенстве она ложна).
+    `make tools-laws-check` доказывает эти законы, поэтому обязан покраснеть.
+    """
+    patch("tools/funnel_accounting.py",
+          "named <= skipped",
+          "named < skipped  # ЛОМАЕМ (canfail: проверка tools-laws-check)")
+    return "make tools-laws-check"
+
+
 def case_casetarget_gap():
     """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
 
@@ -4612,6 +4661,12 @@ CASES = [
      case_docs_map_gap),
     ("readme-link", "README links a document that does not exist -> gate red",
      case_readme_link),
+    ("sabotage-guard", "маркер диверсии в рабочем дереве -> гейт красный",
+     case_sabotage_guard),
+    ("orphan-gates", "гейт выкинут из ci.sh -> осиротевших целей больше",
+     case_orphan_gates),
+    ("tools-laws", "закон на своей функции нарушен -> гейт красный",
+     case_tools_laws),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",
