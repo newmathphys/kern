@@ -77,6 +77,31 @@ def selftest() -> int:
     return 1 if fails else 0
 
 
+def scan_index() -> list[tuple[str, int, str]]:
+    """Скан ИНДЕКСА (`git grep --cached`) — для pre-commit.
+
+    ДЫРА, НАЙДЕННАЯ РЕВЬЮ (исправлена): проверка `HEAD` пропускала диверсию В
+    КОММИТ, и о ней узнавали только после пуша, когда `ci-fast` краснел. Перед
+    коммитом надо смотреть СТЕЙДЖ, а не прошлый коммит.
+    """
+    hits: list[tuple[str, int, str]] = []
+    pat = "|".join(MARKERS)
+    r = subprocess.run(["git", "grep", "--cached", "-n", "-E", pat, "--"] + list(SCANNED),
+                       capture_output=True, text=True, cwd=str(ROOT))
+    if r.returncode not in (0, 1):
+        return hits
+    for line in r.stdout.splitlines():
+        parts = line.split(":", 3)
+        if len(parts) >= 3:
+            # формат `path:line:content` (без префикса ревизии)
+            path, ln, content = parts[0], parts[1], parts[2] if len(parts) == 3 else parts[3]
+            try:
+                hits.append((path, int(ln), content.strip()[:96]))
+            except ValueError:
+                continue
+    return hits
+
+
 def scan_committed() -> list[tuple[str, int, str]]:
     """Скан ИМЕННО КОММИТА (HEAD), а не рабочего дерева.
 
@@ -99,6 +124,15 @@ def scan_committed() -> list[tuple[str, int, str]]:
 
 
 def main() -> int:
+    if "--cached" in sys.argv:
+        hits = scan_index()
+        if hits:
+            print("[FAIL] #628: диверсия СТЕЙДЖЕНА (pre-commit обязан остановить коммит):")
+            for rel, ln, txt in hits[:8]:
+                print(f"    {rel}:{ln}: {txt}")
+            return 1
+        print("[OK] #628: в индексе саботажа нет")
+        return 0
     if "--selftest" in sys.argv:
         return selftest()
     hits = scan_committed()
