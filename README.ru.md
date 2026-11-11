@@ -1,6 +1,6 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->206 · cases <!-- fact:canfail_cases -->251 · anchors <!-- fact:anchors -->210 · registry <!-- fact:registry_targets -->284 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->206 · cases <!-- fact:canfail_cases -->251 · anchors <!-- fact:anchors -->210 · registry <!-- fact:registry_targets -->285 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -729,13 +729,13 @@ dist/kerna --doctor                              # должно быть: зав
 make canfail          # 251 кейс: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->210 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->284 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->285 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->284 (CHECK <!-- fact:check_targets -->206 · MEASURE 1 · BUILD <!-- fact:build_targets -->13 · EXTERNAL 3 · META <!-- fact:meta_targets -->56) |
+| Целей всего | <!-- fact:registry_targets -->285 (CHECK <!-- fact:check_targets -->206 · MEASURE 1 · BUILD <!-- fact:build_targets -->13 · EXTERNAL 3 · META <!-- fact:meta_targets -->56) |
 | **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->206/<!-- fact:check_targets -->206 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->251 (не-вакуумных <!-- fact:canfail_cases -->251 · вакуумных 0 · ошибок кейсов 0) |
@@ -801,7 +801,7 @@ snapshot → packet/report`, с инкрементальным кэшем.
 ## 7. Ограничения (честно)
 
 - **Тулчейн**: аттестованный эталон собран на **Zig 0.13.0** (ветка `main`).
-  Ветка **`zig-0.17-migration`** доведена до **RC=0** (на момент миграции: сборка, 284 теста,
+  Ветка **`zig-0.17-migration`** доведена до **RC=0** (на момент миграции: сборка, 285 теста,
   ARM64/PPC64 через QEMU, ReleaseSafe, SLSA-аттестат). Миграция потребовала
   **~300 правок** — это ревизия подсистемы I/O (`std.Io`), а не косметика.
   См. [`docs/VERIFICATION_0_17.md`](docs/VERIFICATION_0_17.md).

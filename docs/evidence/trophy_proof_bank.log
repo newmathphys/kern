@@ -1,0 +1,137 @@
+БАНК ТРОФЕЕВ И ДОКАЗАТЕЛЬСТВ KERN — живые кейсы по эшелонам
+срез: /home/mrbritneyxxx/Рабочий стол/kern | tmp: /tmp/trophy_95q2s64l
+
+==============================================================================
+ЭШЕЛОН 1. Память и арифметика: KERN даёт число, компилятор его роняет
+  [ЖИВОЙ] E1-01 prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)
+          KERN: контрпример: i = MAX_SIZE (индекс == размер)
+          СУДЬЯ: ASan: ==449967==ERROR: AddressSanitizer: heap-buffer-overflow
+  [ЖИВОЙ] E1-02 prime_sieve.c с законом `i < MAX_SIZE`
+          KERN: ДОКАЗАНО: выхода за границу нет
+          СУДЬЯ: ASan: падения нет
+  [ЖИВОЙ] E1-03 catalan.c: вызов при n = 0 (скрытое предусловие n >= 1)
+          KERN: закон `n >= 1` не записан -> подсказка о предусловии
+          СУДЬЯ: UBSan: падения нет
+  [ЖИВОЙ] E1-04 binary_search.c: `(l+r)/2` внутри закона 0<=l<=r
+          KERN: контрпример: l = r = 1073741824
+          СУДЬЯ: UBSan: runtime error: signed integer overflow: 1073741824 + 1073741824 cannot be re
+  [ЖИВОЙ] E1-05 binary_search.c: `l+(r-l)/2` при том же законе
+          KERN: ДОКАЗАНО в границах закона
+          СУДЬЯ: UBSan: чисто
+  [ЖИВОЙ] E1-06 XXH_rotl64: сдвиг при r = 0 (домен 1..63 не записан)
+          KERN: закон домена отсутствует -> подсказка
+          СУДЬЯ: UBSan: runtime error: shift exponent 64 is too large for 64-bit type 'long un
+  [НЕТ] E1-07 TheAlgorithms/Rust :: binomial_coefficient — нет клона Rust-корпуса в ~/.cache/kern/repos
+  [НЕТ] E1-08 TheAlgorithms/Rust :: fast_factorial — нет клона Rust-корпуса
+  [НЕТ] E1-09 TheAlgorithms/Go :: diffiehellmankeyexchange — нет клона Go-корпуса и нет `go` в PATH
+  [НЕТ] E1-10 TigerBeetle :: test_conformance.py:6169 — нет клона TigerBeetle в этом срезе
+
+==============================================================================
+ЭШЕЛОН 3. Полные сертификаты: [PROOF VERIFIED] trusted: 0 | holes: 0
+  [ЧАСТИЧНО] abs_kern_abs.smt2: ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ЧАСТИЧНО] abs_kern_absBroken.smt2: ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+  [ЧАСТИЧНО] align_alignBackwardBuggy.smt2: ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+  [ЧАСТИЧНО] align_alignBackwardEqMod.smt2: ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ЖИВОЙ] E3-01 сертификат: align_alignForwardAdd.smt2
+          KERN: ДОКАЗАНО
+          СУДЬЯ: [PROOF VERIFIED] steps: 34 | premises bound: 3/3 | mp: 7 | rewrite (linear): 10 | farkas: 1 | tr
+  [ЧАСТИЧНО] alignment_bitvec_alignmentAgrees.smt2: ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ЧАСТИЧНО] alignment_bitvec_alignmentAgreesBuggy.smt2: ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+  [ЧАСТИЧНО] binary_search_mid_buggy.smt2: ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+  [ЧАСТИЧНО] binary_search_mid_safe.smt2: ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ЧАСТИЧНО] binary_search_safe_mid_safe_int.smt2: ВЕРДИКТ  : ДОКАЗАНО (допущено)
+  [ЧАСТИЧНО] bv_overflow_mul_bv.smt2: ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)
+  [ЖИВОЙ] E3-02 сертификат: c_clean_add_bounded.smt2
+          KERN: ДОКАЗАНО
+          СУДЬЯ: [PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trus
+  полных сертификатов в audits/smt2: 2
+  без z3 в PATH на abs_kern_abs.smt2: [!] z3 недоступен. Добавьте .venv/bin в PATH (uv pip install z3-solver).
+
+==============================================================================
+ЭШЕЛОН 4. Нативный `kernc verify-zig` (Python не вызывается)
+  [ЖИВОЙ] E4-01 verify-zig: div_ceil.zig
+          KERN: [PASS] ДОКАЗАНО divCeil | обязательств 4 | обязательства безопасности 
+          СУДЬЯ: [FAIL] КОНТРАКТ НАРУШЕН divCeilBuggy | обязательств 3 | overflow: пере
+  [ЖИВОЙ] E4-02 verify-zig: contracts_demo.zig
+          KERN: [PASS] ДОКАЗАНО withdraw | обязательств 1 | обязательства безопасности
+          СУДЬЯ: ИТОГ: доказано 3 | нарушено 0 | пропущено 0
+  [ЖИВОЙ] E4-03 verify-zig: edge_cases.zig
+          KERN: [PASS] ДОКАЗАНО doubleViaConst | обязательств 1 | обязательства безопа
+          СУДЬЯ: ИТОГ: доказано 3 | нарушено 0 | пропущено 3
+  [ЖИВОЙ] E4-04 verify-zig: self_verify.zig
+          KERN: [PASS] ДОКАЗАНО remaining | обязательств 1 | обязательства безопасност
+          СУДЬЯ: ИТОГ: доказано 3 | нарушено 0 | пропущено 0
+  [ЖИВОЙ] E4-05 verify-zig: alignment_bitvec.zig
+          KERN: —
+          СУДЬЯ: ИТОГ: доказано 0 | нарушено 0 | пропущено 2
+  [ЖИВОЙ] E4-06 verify-zig: binary_search.zig
+          KERN: [PASS] ДОКАЗАНО mid_safe | обязательств 4 | обязательства безопасности
+          СУДЬЯ: [FAIL] КОНТРАКТ НАРУШЕН mid_buggy | обязательств 3 | overflow: перепол
+  [ЖИВОЙ] E4-07 verify-zig: binary_search_safe.zig
+          KERN: [PASS] ДОКАЗАНО mid_safe_int | обязательств 4 | обязательства безопасн
+          СУДЬЯ: ИТОГ: доказано 1 | нарушено 0 | пропущено 0
+  [ЖИВОЙ] E4-08 verify-zig: zig_allman.zig
+          KERN: —
+          СУДЬЯ: ИТОГ: доказано 0 | нарушено 0 | пропущено 0
+  Zig-файлов проверено нативно: 8
+
+==============================================================================
+ЭШЕЛОН 5. Циклы Хоара: @kern:invariant + @kern:decreases
+  [ЖИВОЙ] E5-01 binexp_ok.py: [PASS] bin_pow: PROVEN (invariant & termination verified)
+  [ПРОПУСК] E5-02 break_named.py: [SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (строка 12) не моде
+  [ОПРОВЕРГНУТО] E5-03 collatz_open.py: [FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпример: [КОНТРПРИМЕР
+  [ЖИВОЙ] E5-04 digits_ok.py: [PASS] sum_of_digits: PROVEN (invariant & termination verified)
+  [ПРОПУСК] E5-05 loop_eq_bad.py: [SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется
+  [ПРОПУСК] E5-06 loop_eq_ok.py: [SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется
+  [ПРОПУСК] E5-07 loop_eq_old.py: [SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется
+  [ОПРОВЕРГНУТО] E5-08 loops_len_bad.py: [FAIL] bump: LOOP INVARIANT VIOLATED at init; контрпример: [КОНТРПРИМЕР] lo = 1, n = 2
+  кейсов циклов: 8
+
+==============================================================================
+ЭШЕЛОН 8. Закон проекта KERN.md: [T] / [F] / [B] / [N]
+  [ЖИВОЙ] E8-01 KERN.md: доказано
+          KERN: [T] ДОКАЗАНО: bank.py :: withdraw — steps: 46 | premises bound: 3/3 | 
+          СУДЬЯ: kerna rc=1
+  [ЖИВОЙ] E8-02 KERN.md: конфликт Белнапа
+          KERN: [B] КОНФЛИКТ: тесты зелёные, закон нарушен: bank.py :: fee — тесты про
+          СУДЬЯ: kerna rc=1
+  [ЖИВОЙ] E8-03 KERN.md: функция вне закона
+          KERN: [N] НЕ ОПИСАНА В KERN.md: bank.py :: backdoor_transfer
+          СУДЬЯ: kerna rc=1
+
+==============================================================================
+ЭШЕЛОНЫ 2, 6, 7, 9, 10: дельта, оракулы, домены, анти-чит, система
+  [ЖИВОЙ] E2-01 поведенческая дельта (--diff-equiv)
+          KERN: гейт `make diff-equiv` = 0
+          СУДЬЯ: ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихс
+  [ЖИВОЙ] E6-01 ReDoS-оракул (живой секундомер)
+          KERN: гейт `make oracle-redos-check` = 0
+          СУДЬЯ: [OK] физический оракул ReDoS: 6 уязвимых подтверждены РЕАЛЬНЫМ движком
+  [ЖИВОЙ] E6-02 Non-Interference (constant-time)
+          KERN: гейт `make oracle-noninterference-check` = 0
+          СУДЬЯ: [OK] `nonint S1 B1` -> УТЕЧКА branch
+  [ЖИВОЙ] E7-01 EVM 256-bit границы
+          KERN: гейт `make evm-proof-check` = 0
+          СУДЬЯ: [OK] EVM DIV(a, 0) = 0 — trusted=0, holes=0 (trusted: 0 | holes: 0)
+  [ЖИВОЙ] E10-01 модуль wasm под node
+          KERN: гейт `make wasm-check` = 0
+          СУДЬЯ: [OK] zig build wasm -> rc=0
+  [ЖИВОЙ] E7-02 SQL/RLS: запрос без фильтра владельца
+          KERN: видит чужую строку
+          СУДЬЯ: sqlite3: ok
+
+==============================================================================
+ЭШЕЛОН 9 и 10. Анти-чит/SARIF/MCP и система (.kimg, wasm)
+  [ЖИВОЙ] E9-01 SARIF 2.1.0 из апплаенса
+          KERN: гейт `make sarif-check` = 0
+          СУДЬЯ: [OK] SARIF 2.1.0 валиден: 1 находок, 10 правил, координаты (uri + star
+  [ЖИВОЙ] E9-02 MCP-инструменты (прямые вызовы)
+          KERN: гейт `make mcp-selftest` = 0
+          СУДЬЯ: [OK]   initialize  protocol=2024-11-05 server=kern
+  [ЖИВОЙ] E10-04 CLI образов .kimg (команды ФС)
+          KERN: гейт `make kimg-cli-check` = 0
+          СУДЬЯ: [OK] fsck(unknown-optional): rc=0
+  [НЕТ] E10-02 образ .kimg — pack не сработал
+
+==============================================================================
+ИТОГО БАНКА: 51 кейсов | ЖИВОЙ 30 | ОПРОВЕРГНУТО 2 | ЧАСТИЧНО 10 | ПРОПУСК 4 | НЕТ 5

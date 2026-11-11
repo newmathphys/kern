@@ -1,0 +1,410 @@
+[
+ {
+  "id": "E1-01",
+  "case": "prime_sieve.c: `i <= MAX_SIZE` при malloc(MAX_SIZE)",
+  "kern": "контрпример: i = MAX_SIZE (индекс == размер)",
+  "judge": "ASan: ==449967==ERROR: AddressSanitizer: heap-buffer-overflow",
+  "status": "ЖИВОЙ",
+  "evidence": "==449967==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b60855ff100 at pc 0x55aacee9c45f b"
+ },
+ {
+  "id": "E1-02",
+  "case": "prime_sieve.c с законом `i < MAX_SIZE`",
+  "kern": "ДОКАЗАНО: выхода за границу нет",
+  "judge": "ASan: падения нет",
+  "status": "ЖИВОЙ",
+  "evidence": "SUMMARY: AddressSanitizer: 4000000 byte(s) leaked in 1 allocation(s)."
+ },
+ {
+  "id": "E1-03",
+  "case": "catalan.c: вызов при n = 0 (скрытое предусловие n >= 1)",
+  "kern": "закон `n >= 1` не записан -> подсказка о предусловии",
+  "judge": "UBSan: падения нет",
+  "status": "ЖИВОЙ",
+  "evidence": "нет диагностики"
+ },
+ {
+  "id": "E1-04",
+  "case": "binary_search.c: `(l+r)/2` внутри закона 0<=l<=r",
+  "kern": "контрпример: l = r = 1073741824",
+  "judge": "UBSan: runtime error: signed integer overflow: 1073741824 + 1073741824 cannot be re",
+  "status": "ЖИВОЙ",
+  "evidence": "runtime error: signed integer overflow: 1073741824 + 1073741824 cannot be represented in type 'int'"
+ },
+ {
+  "id": "E1-05",
+  "case": "binary_search.c: `l+(r-l)/2` при том же законе",
+  "kern": "ДОКАЗАНО в границах закона",
+  "judge": "UBSan: чисто",
+  "status": "ЖИВОЙ",
+  "evidence": "no runtime error"
+ },
+ {
+  "id": "E1-06",
+  "case": "XXH_rotl64: сдвиг при r = 0 (домен 1..63 не записан)",
+  "kern": "закон домена отсутствует -> подсказка",
+  "judge": "UBSan: runtime error: shift exponent 64 is too large for 64-bit type 'long un",
+  "status": "ЖИВОЙ",
+  "evidence": "runtime error: shift exponent 64 is too large for 64-bit type 'long unsigned int'"
+ },
+ {
+  "id": "E1-07",
+  "case": "TheAlgorithms/Rust :: binomial_coefficient",
+  "kern": "—",
+  "judge": "—",
+  "status": "НЕТ",
+  "evidence": "нет клона Rust-корпуса в ~/.cache/kern/repos"
+ },
+ {
+  "id": "E1-08",
+  "case": "TheAlgorithms/Rust :: fast_factorial",
+  "kern": "—",
+  "judge": "—",
+  "status": "НЕТ",
+  "evidence": "нет клона Rust-корпуса"
+ },
+ {
+  "id": "E1-09",
+  "case": "TheAlgorithms/Go :: diffiehellmankeyexchange",
+  "kern": "—",
+  "judge": "—",
+  "status": "НЕТ",
+  "evidence": "нет клона Go-корпуса и нет `go` в PATH"
+ },
+ {
+  "id": "E1-10",
+  "case": "TigerBeetle :: test_conformance.py:6169",
+  "kern": "—",
+  "judge": "—",
+  "status": "НЕТ",
+  "evidence": "нет клона TigerBeetle в этом срезе"
+ },
+ {
+  "id": "E3-01-part",
+  "case": "abs_kern_abs.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-01-part",
+  "case": "abs_kern_absBroken.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-01-part",
+  "case": "align_alignBackwardBuggy.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-01-part",
+  "case": "align_alignBackwardEqMod.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-01",
+  "case": "сертификат: align_alignForwardAdd.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 34 | premises bound: 3/3 | mp: 7 | rewrite (linear): 10 | farkas: 1 | trusted: 0",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 34 | premises bound: 3/3 | mp: 7 | rewrite (linear): 10 | farkas: 1 | trusted: 0"
+ },
+ {
+  "id": "E3-02-part",
+  "case": "alignment_bitvec_alignmentAgrees.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-02-part",
+  "case": "alignment_bitvec_alignmentAgreesBuggy.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-02-part",
+  "case": "binary_search_mid_buggy.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-02-part",
+  "case": "binary_search_mid_safe.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-02-part",
+  "case": "binary_search_safe_mid_safe_int.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : ДОКАЗАНО (допущено)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : ДОКАЗАНО (допущено)"
+ },
+ {
+  "id": "E3-02-part",
+  "case": "bv_overflow_mul_bv.smt2 (частично)",
+  "kern": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)",
+  "judge": "нет trusted: 0",
+  "status": "ЧАСТИЧНО",
+  "evidence": "ВЕРДИКТ  : НЕ доказано (контрпример/таймаут)"
+ },
+ {
+  "id": "E3-02",
+  "case": "сертификат: c_clean_add_bounded.smt2",
+  "kern": "ДОКАЗАНО",
+  "judge": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |",
+  "status": "ЖИВОЙ",
+  "evidence": "[PROOF VERIFIED] steps: 3 | premises bound: 2/2 | mp: 0 | rewrite (linear): 0 | farkas: 0 | trusted: 0 |"
+ },
+ {
+  "id": "E4-01",
+  "case": "verify-zig: div_ceil.zig",
+  "kern": "[PASS] ДОКАЗАНО divCeil | обязательств 4 | обязательства безопасности ",
+  "judge": "[FAIL] КОНТРАКТ НАРУШЕН divCeilBuggy | обязательств 3 | overflow: пере",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-02",
+  "case": "verify-zig: contracts_demo.zig",
+  "kern": "[PASS] ДОКАЗАНО withdraw | обязательств 1 | обязательства безопасности",
+  "judge": "ИТОГ: доказано 3 | нарушено 0 | пропущено 0",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-03",
+  "case": "verify-zig: edge_cases.zig",
+  "kern": "[PASS] ДОКАЗАНО doubleViaConst | обязательств 1 | обязательства безопа",
+  "judge": "ИТОГ: доказано 3 | нарушено 0 | пропущено 3",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-04",
+  "case": "verify-zig: self_verify.zig",
+  "kern": "[PASS] ДОКАЗАНО remaining | обязательств 1 | обязательства безопасност",
+  "judge": "ИТОГ: доказано 3 | нарушено 0 | пропущено 0",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-05",
+  "case": "verify-zig: alignment_bitvec.zig",
+  "kern": "—",
+  "judge": "ИТОГ: доказано 0 | нарушено 0 | пропущено 2",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-06",
+  "case": "verify-zig: binary_search.zig",
+  "kern": "[PASS] ДОКАЗАНО mid_safe | обязательств 4 | обязательства безопасности",
+  "judge": "[FAIL] КОНТРАКТ НАРУШЕН mid_buggy | обязательств 3 | overflow: перепол",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-07",
+  "case": "verify-zig: binary_search_safe.zig",
+  "kern": "[PASS] ДОКАЗАНО mid_safe_int | обязательств 4 | обязательства безопасн",
+  "judge": "ИТОГ: доказано 1 | нарушено 0 | пропущено 0",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E4-08",
+  "case": "verify-zig: zig_allman.zig",
+  "kern": "—",
+  "judge": "ИТОГ: доказано 0 | нарушено 0 | пропущено 0",
+  "status": "ЖИВОЙ",
+  "evidence": "=== KERN verify-zig: НАТИВНЫЙ ФРОНТЕНД `std.zig.Ast` (Python не вызывался) ==="
+ },
+ {
+  "id": "E5-01",
+  "case": "циклы: binexp_ok.py",
+  "kern": "[PASS] bin_pow: PROVEN (invariant & termination verified)",
+  "judge": "Z3 (--loops)",
+  "status": "ЖИВОЙ",
+  "evidence": "[PASS] bin_pow: PROVEN (invariant & termination verified)"
+ },
+ {
+  "id": "E5-02",
+  "case": "циклы: break_named.py",
+  "kern": "[SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (",
+  "judge": "Z3 (--loops)",
+  "status": "ПРОПУСК",
+  "evidence": "[SKIP] number_of_digits: цикл вне подмножества (`break` в теле цикла (строка 12) не моделируется)"
+ },
+ {
+  "id": "E5-03",
+  "case": "циклы: collatz_open.py",
+  "kern": "[FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпр",
+  "judge": "Z3 (--loops)",
+  "status": "ОПРОВЕРГНУТО",
+  "evidence": "[FAIL] collatz_len: NON-TERMINATING LOOP (вариант не убывает); контрпример: [КОНТРПРИМЕР] n = 2, steps ="
+ },
+ {
+  "id": "E5-04",
+  "case": "циклы: digits_ok.py",
+  "kern": "[PASS] sum_of_digits: PROVEN (invariant & termination verified)",
+  "judge": "Z3 (--loops)",
+  "status": "ЖИВОЙ",
+  "evidence": "[PASS] sum_of_digits: PROVEN (invariant & termination verified)"
+ },
+ {
+  "id": "E5-05",
+  "case": "циклы: loop_eq_bad.py",
+  "kern": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется",
+  "judge": "Z3 (--loops)",
+  "status": "ПРОПУСК",
+  "evidence": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется"
+ },
+ {
+  "id": "E5-06",
+  "case": "циклы: loop_eq_ok.py",
+  "kern": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется",
+  "judge": "Z3 (--loops)",
+  "status": "ПРОПУСК",
+  "evidence": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется"
+ },
+ {
+  "id": "E5-07",
+  "case": "циклы: loop_eq_old.py",
+  "kern": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется",
+  "judge": "Z3 (--loops)",
+  "status": "ПРОПУСК",
+  "evidence": "[SKIP] gcd: нет `# @kern:invariant` — цикл не проверяется"
+ },
+ {
+  "id": "E5-08",
+  "case": "циклы: loops_len_bad.py",
+  "kern": "[FAIL] bump: LOOP INVARIANT VIOLATED at init; контрпример: [КОНТРПРИМЕ",
+  "judge": "Z3 (--loops)",
+  "status": "ОПРОВЕРГНУТО",
+  "evidence": "[FAIL] bump: LOOP INVARIANT VIOLATED at init; контрпример: [КОНТРПРИМЕР] lo = 1, n = 2"
+ },
+ {
+  "id": "E8-01",
+  "case": "KERN.md: доказано",
+  "kern": "[T] ДОКАЗАНО: bank.py :: withdraw — steps: 46 | premises bound: 3/3 | ",
+  "judge": "kerna rc=1",
+  "status": "ЖИВОЙ",
+  "evidence": "[T] ДОКАЗАНО: bank.py :: withdraw — steps: 46 | premises bound: 3/3 | mp: 12 | rewrite (linear): 13 | fa"
+ },
+ {
+  "id": "E8-02",
+  "case": "KERN.md: конфликт Белнапа",
+  "kern": "[B] КОНФЛИКТ: тесты зелёные, закон нарушен: bank.py :: fee — тесты про",
+  "judge": "kerna rc=1",
+  "status": "ЖИВОЙ",
+  "evidence": "[B] КОНФЛИКТ: тесты зелёные, закон нарушен: bank.py :: fee — тесты проекта ЗЕЛЁНЫЕ, а закон нарушен (amo"
+ },
+ {
+  "id": "E8-03",
+  "case": "KERN.md: функция вне закона",
+  "kern": "[N] НЕ ОПИСАНА В KERN.md: bank.py :: backdoor_transfer",
+  "judge": "kerna rc=1",
+  "status": "ЖИВОЙ",
+  "evidence": "[N] НЕ ОПИСАНА В KERN.md: bank.py :: backdoor_transfer"
+ },
+ {
+  "id": "E2-01",
+  "case": "поведенческая дельта (--diff-equiv)",
+  "kern": "гейт `make diff-equiv` = 0",
+  "judge": "ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихс",
+  "status": "ЖИВОЙ",
+  "evidence": "ИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 1 | недоказуемых 0 | ошибок "
+ },
+ {
+  "id": "E6-01",
+  "case": "ReDoS-оракул (живой секундомер)",
+  "kern": "гейт `make oracle-redos-check` = 0",
+  "judge": "[OK] физический оракул ReDoS: 6 уязвимых подтверждены РЕАЛЬНЫМ движком",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] физический оракул ReDoS: 6 уязвимых подтверждены РЕАЛЬНЫМ движком, 3 безопасных не обвинены, 0 "
+ },
+ {
+  "id": "E6-02",
+  "case": "Non-Interference (constant-time)",
+  "kern": "гейт `make oracle-noninterference-check` = 0",
+  "judge": "[OK] `nonint S1 B1` -> УТЕЧКА branch",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] `nonint S1 B1` -> УТЕЧКА branch"
+ },
+ {
+  "id": "E7-01",
+  "case": "EVM 256-bit границы",
+  "kern": "гейт `make evm-proof-check` = 0",
+  "judge": "[OK] EVM DIV(a, 0) = 0 — trusted=0, holes=0 (trusted: 0 | holes: 0)",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] EVM DIV(a, 0) = 0 — trusted=0, holes=0 (trusted: 0 | holes: 0)"
+ },
+ {
+  "id": "E10-01",
+  "case": "модуль wasm под node",
+  "kern": "гейт `make wasm-check` = 0",
+  "judge": "[OK] zig build wasm -> rc=0",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] zig build wasm -> rc=0"
+ },
+ {
+  "id": "E7-02",
+  "case": "SQL/RLS: запрос без фильтра владельца",
+  "kern": "видит чужую строку",
+  "judge": "sqlite3: ok",
+  "status": "ЖИВОЙ",
+  "evidence": "ok"
+ },
+ {
+  "id": "E9-01",
+  "case": "SARIF 2.1.0 из апплаенса",
+  "kern": "гейт `make sarif-check` = 0",
+  "judge": "[OK] SARIF 2.1.0 валиден: 1 находок, 10 правил, координаты (uri + star",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] SARIF 2.1.0 валиден: 1 находок, 10 правил, координаты (uri + startLine) на месте"
+ },
+ {
+  "id": "E9-02",
+  "case": "MCP-инструменты (прямые вызовы)",
+  "kern": "гейт `make mcp-selftest` = 0",
+  "judge": "[OK]   initialize  protocol=2024-11-05 server=kern",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK]   initialize  protocol=2024-11-05 server=kern"
+ },
+ {
+  "id": "E10-04",
+  "case": "CLI образов .kimg (команды ФС)",
+  "kern": "гейт `make kimg-cli-check` = 0",
+  "judge": "[OK] fsck(unknown-optional): rc=0",
+  "status": "ЖИВОЙ",
+  "evidence": "[OK] fsck(unknown-optional): rc=0"
+ },
+ {
+  "id": "E10-02",
+  "case": "образ .kimg",
+  "kern": "—",
+  "judge": "—",
+  "status": "НЕТ",
+  "evidence": "pack не сработал"
+ }
+]

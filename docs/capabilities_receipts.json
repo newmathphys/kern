@@ -211,6 +211,22 @@
         "PROVEN"
       ],
       "must_not_contain": []
+    },
+    {
+      "id": "trophy-bank",
+      "claim": "Банк трофеев по эшелонам: KERN даёт число, живой компилятор/гейт судит; недоступное помечается [НЕТ] с причиной",
+      "command": "make trophy-bank",
+      "file": "docs/evidence/trophy_proof_bank.log",
+      "must_contain": [
+        "БАНК ТРОФЕЕВ",
+        "heap-buffer-overflow",
+        "signed integer overflow",
+        "shift exponent 64",
+        "[PROOF VERIFIED]",
+        "[B] КОНФЛИКТ",
+        "ИТОГО БАНКА"
+      ],
+      "must_not_contain": []
     }
   ]
 }

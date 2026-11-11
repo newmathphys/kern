@@ -648,6 +648,12 @@ proven-regressions-check:
 anatomy-live:
 	@python3 tools/anatomy_live.py --write docs/evidence/anatomy_live_v2.8.8.log
 
+# БАНК ТРОФЕЕВ: живые кейсы по эшелонам (KERN даёт число -> компилятор/гейт судит).
+# Недоступный кейс печатается как [НЕТ] с дословной причиной — успех не изображается.
+trophy-bank:
+	@python3 tools/trophy_proof_bank.py --write docs/evidence/trophy_proof_bank.log \
+	  --md "docs/ГАЛЕРЕЯ_ТРОФЕЕВ_И_ДОКАЗАТЕЛЬСТВ.md"
+
 
 # ЭШЕЛОН 4, ПУНКТ 22: модель IEEE-754 с NaN (trusted: 0 | holes: 0).
 float-nan-check: build
