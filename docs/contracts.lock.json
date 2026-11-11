@@ -79,6 +79,16 @@
     "count_up_no_terminate:ensures:hard": "52f880beb843137dd2375b5ab0c4ea5f1371073383d32cc8ff6fe1a17b0cde89",
     "count_up_no_terminate:requires:hard": "c452007488ce5f2eb770482b8f021a7a6254acb09e72face95f64055066ee1de"
   },
+  "examples/oss_laws.py": {
+    "cell_index:ensures:hard": "95be6c1ba1f845b088f7eaa4b7e208b849f2370cfbd141c8277d97d582c81ef3",
+    "cell_index:requires:hard": "cc1833c8ce5b3619dc60a788f8be0cf59cda6906c2eb2468a35d26856e6ed8c0",
+    "pick_fan_in:ensures:hard": "1fedc6ddc3ccae9a1bbb927e2665b8af9a7a83d7e993811705466a11af1d22e0",
+    "pick_fan_in:requires:hard": "c098537be68519d3d6f3189bb8a3da953d7969bf70fc8499b2133849ea70231e",
+    "pick_fan_in_too_strong:ensures:hard": "0ffb2c884fb95a7f6fd62e35ae30a9502fb6ae3b3c0e545705baa3778791a0d1",
+    "pick_fan_in_too_strong:requires:hard": "c098537be68519d3d6f3189bb8a3da953d7969bf70fc8499b2133849ea70231e",
+    "violations_total:ensures:hard": "403c20cbebe80bc4e60b2b4ed473614da78977c00c9070f439cf0ec8385d9d8b",
+    "violations_total:requires:hard": "f117c160b8fdc3b1caf557a2ebf31d00e86a434e5b6b833290983f46fdf1d4ee"
+  },
   "examples/presets_demo.py": {
     "discount:requires:hard": "1019e7d3084d6c058f5a84815f20f6d3511dc701ba863a5623fa8c027df62090"
   },
