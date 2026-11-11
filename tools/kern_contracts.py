@@ -9050,6 +9050,29 @@ def _reachability_tag(src: str, fn: str, suffix: str) -> str:
     return "  [LATENT / CALLER-CONST: " + ", ".join(sorted(consts)) + "]"
 
 
+def _divisor_makes_empty_range(body: str, pos: int, d: str) -> bool:
+    """`d == 0` делает диапазон итерации ПУСТЫМ -> тело не выполняется.
+
+    ДЕФЕКТ #621 (НАЙДЕНО на живом `emieks/pencil-puzzles`, Rust):
+        (0..rows * cols).map(|i| { let (r, c) = (i / cols, i % cols); ... })
+    при `cols == 0` граница `rows * cols` равна нулю, диапазон пуст, и деление
+    НЕ ВЫПОЛНЯЕТСЯ. Проверено живым rustc: `neighbours(3, 0) -> []`, exit=0.
+    Прежний классификатор выдавал 11 `[CRASH PATH]` на корректном коде.
+
+    Правило узкое и проверяемое: делитель обязан быть МНОЖИТЕЛЕМ в шапке
+    итерации (`for (…)`, `range(…)`, `a..b`, `.map(`), ближайшей перед делением.
+    """
+    head = body[:pos]
+    # ОКНО, а не «после последнего якоря»: в Rust граница стоит ДО `.map(`:
+    #   (0..rows * cols).map(|i| i / cols)
+    # поэтому ищем якорь итерации и произведение в одном окне перед делением.
+    window = head[-260:]
+    if not re.search(r"(?:\.\.|range\s*\(|for\s*\()", window):
+        return False
+    pat = rf"(?<![\w.]){re.escape(d)}\s*\*|\*\s*{re.escape(d)}(?![\w])"
+    return bool(re.search(pat, window))
+
+
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[str, int], dict[str, int]]:
     """ПОЛЕВОЙ АДАПТЕР №5б: `--xray` для C-like (Zig/C/Rust/TS/JS/Go).
 
@@ -9695,6 +9718,20 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                 _replay_soft(_kern_e_3982, "kern_contracts.py:3982")
                 continue
             if sat_dz is True:
+                # ДЕФЕКТ #621a: в JS/TS `1/0 === Infinity` — исключения нет
+                # (измерено `node`), поэтому класс «краш» неприменим.
+                if lang == "ts":
+                    skip_why.append(
+                        f"делитель `{d}`: в JS/TS деление на 0 даёт Infinity, "
+                        "а не падение — класс `[CRASH PATH]` неприменим (проверено node)")
+                    continue
+                # ДЕФЕКТ #621b: делитель — множитель границы ПУСТОЙ итерации.
+                if _divisor_makes_empty_range(body, _pos_d, d):
+                    skip_why.append(
+                        f"делитель `{d}` — множитель границы итерации: при `{d} == 0` "
+                        "диапазон пуст и тело не выполняется "
+                        "(проверено rustc: neighbours(rows, 0) -> [] без паники)")
+                    continue
                 found.append(f"[CRASH PATH] {name}: возможно деление на ноль: {d} == 0")
 
         # ===== B2: [BOUNDS PATH] и [OVERFLOW PATH] для C-like =====
