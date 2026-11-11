@@ -47,8 +47,27 @@ def _wired() -> str:
     # `stage "..."` считались подключением и делали гейт СЛЕПЫМ (нашёл canfail:
     # кейс оказался вакуумным). Теперь: срезаем шелл-комментарии и ищем именно
     # вызов make с учётом флагов (`make -s target`).
-    lines = [ln.split("#", 1)[0] for ln in raw.splitlines()]
+    lines = [_strip_comment(ln) for ln in raw.splitlines()]
     return "\n".join(lines)
+
+
+def _strip_comment(line: str) -> str:
+    """Срезать шелл-комментарий, НЕ трогая `#` внутри кавычек.
+
+    ИЗМЕРЕНО (нашёл сам гейт после первой правки): наивный `split("#")[0]` рвал
+    строки вида `stage "MCP-сервер … (#455)" make mcp-selftest` — часть вызова
+    исчезала, и РЕАЛЬНО подключённые цели объявлялись осиротевшими.
+    """
+    q = None
+    for i, ch in enumerate(line):
+        if q:
+            if ch == q:
+                q = None
+        elif ch in "\"'":
+            q = ch
+        elif ch == "#":
+            return line[:i]
+    return line
 
 
 def is_wired(target: str, text: str) -> bool:
