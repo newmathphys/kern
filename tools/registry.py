@@ -173,6 +173,7 @@ CLASS = {
     "bounds-check": "CHECK",
     "loop-check": "CHECK",
     "state-inv-check": "CHECK",
+    "tools-laws-check": "CHECK",        # #623: законы @kern: на своих функциях доказаны
     "proven-regressions-check": "CHECK",
     "presets-check": "CHECK",
     "arbitrage-check": "CHECK",
