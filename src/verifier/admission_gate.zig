@@ -173,7 +173,7 @@ pub const AdmissionGate = struct {
             },
             .Timeout, .Unknown => {
                 cov.hit(.gate_unknown_timeout);
-                eq2 = .T; e_val = 1; // ЛОМАЕМ
+                eq2 = .N; // тайм-аут не является опровержением
             },
         }
 

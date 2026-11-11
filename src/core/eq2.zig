@@ -88,7 +88,7 @@ pub fn conflate(a: Eq2) Eq2 {
     const p = @intFromEnum(a) & 0b01;
     const n = (@intFromEnum(a) >> 1) & 0b01;
     // p' = 1 - n, n' = 1 - p, код = p' | (n' << 1)
-    return @enumFromInt(((n) & 0b01) | (((1 - p) & 0b01) << 1)); // ЛОМАЕМ: ~ больше не инверсия
+    return @enumFromInt(((1 - n) & 0b01) | (((1 - p) & 0b01) << 1));
 }
 
 /// Конъюнкция в порядке истинности (AND_T) = inf по <=t.
