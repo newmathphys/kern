@@ -78,7 +78,17 @@ def main() -> int:
     if Path(zig, "zig").is_file():
         extra.insert(0, zig)
     env["PATH"] = os.pathsep.join([p for p in extra if Path(p).is_dir()] + [env.get("PATH", "")])
-    env.setdefault("PYTHON", str(ROOT / ".venv" / "bin" / "python"))
+    # ДЕФЕКТ #638 (нашёл эталонный прогон `make abi-check` -> rc=0 при 127 в аудите):
+    # НЕЛЬЗЯ подставлять ОТНОСИТЕЛЬНЫЙ путь в PYTHON и нельзя перебивать переменные
+    # Makefile. Рецепты вида `cd tools && $(PYTHON) …` превращают
+    # `.venv/bin/python` в несуществующий `tools/.venv/bin/python` -> exit 127.
+    # Если PYTHON уже задан в окружении — не трогаем его вовсе.
+    if not env.get("PYTHON"):
+        _py = (ROOT / ".venv" / "bin" / "python")
+        if _py.is_file():
+            env["PYTHON"] = str(_py.resolve())   # АБСОЛЮТНЫЙ путь
+    # точная строка stderr на каждом FAIL (а не «Ошибка 127» без имени бинарника)
+
     rows: list[tuple[str, str, str]] = []
     for t in targets()[:limit]:
         ok, why = dry_run(t)
@@ -114,9 +124,12 @@ def main() -> int:
                          if out.strip() else ""))
             print(f"  [ENV] {t}: нужны внешние инструменты", flush=True)
             continue
-        last = out.strip().splitlines()[-1] if out.strip() else ""
-        rows.append((t, "FAIL", last[:90]))
-        print(f"  [FAIL] {t}: {last[:80]}", flush=True)
+        lines = [ln for ln in out.strip().splitlines() if ln.strip()]
+        cause = next((ln.strip() for ln in lines
+                      if "No such file" in ln or "not found" in ln or "127" in ln), "")
+        last = cause or (lines[-1] if lines else "")
+        rows.append((t, "FAIL", last[:120]))
+        print(f"  [FAIL] {t}: {last[:110]}", flush=True)
 
     from collections import Counter
     cnt = Counter(s for _, s, _ in rows)
