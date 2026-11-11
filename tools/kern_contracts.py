@@ -9741,7 +9741,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                         _ifc.remove(_pos_c)
                 sat_dz = _smt_sat_guarded(kernc, params,
                                           path_conds + _ifc
-                                          + _clike_while_conds_at(_pos_d, body, lang)[:0]  # ЛОМАЕМ (#475)
+                                          + _clike_while_conds_at(_pos_d, body, lang)
                                           + [_neg_c for _p2, _neg_c in _el]
                                           + [f"(= {d} 0)"], skip_why)
             except Exception as _kern_e_3982:  # noqa: BLE001
