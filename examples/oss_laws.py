@@ -35,7 +35,22 @@ def cell_index(rows: int, cols: int, r: int, c: int) -> int:
     return r * cols + c
 
 
-# --- archetype-py: сумма нарушений -----------------------------------------
+# --- archetype-py: валидатор workers ---------------------------------------
+# Источник: `archetype/config.py:57 _ensure_workers` — на неверном входе БРОСАЕТ
+# ValueError, на верном возвращает значение как есть. Внутри закона
+# (`raw >= 1`) ветка с исключением недостижима, поэтому транскрипция faithful.
+# @kern:requires raw >= 1
+# @kern:ensures  result == raw and result >= 1
+def ensure_workers(raw: int) -> int:
+    return raw
+
+
+# ЗАВЕДОМО НЕВЕРНЫЙ закон: «валидатор поднимает значение до 100».
+# Обязан быть ОПРОВЕРГНУТ числом (raw = 1), иначе чекер бесполезен.
+# @kern:requires raw >= 1
+# @kern:ensures  result >= 100
+def ensure_workers_floor_100(raw: int) -> int:
+    return raw
 # @kern:requires a >= 0 and b >= 0
 # @kern:ensures  result >= a and result >= b
 def violations_total(a: int, b: int) -> int:

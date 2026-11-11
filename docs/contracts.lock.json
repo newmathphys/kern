@@ -82,6 +82,10 @@
   "examples/oss_laws.py": {
     "cell_index:ensures:hard": "95be6c1ba1f845b088f7eaa4b7e208b849f2370cfbd141c8277d97d582c81ef3",
     "cell_index:requires:hard": "cc1833c8ce5b3619dc60a788f8be0cf59cda6906c2eb2468a35d26856e6ed8c0",
+    "ensure_workers:ensures:hard": "a26c6e2608f6f23c2ab602503403f707d80a9668e54bb72c74e1de50ac4f6823",
+    "ensure_workers:requires:hard": "1230b30a4dde206e7881b48aacf587acff27f16214710adbd8c0fe7490872eeb",
+    "ensure_workers_floor_100:ensures:hard": "4eca525988c822da0f56978572aade958a5e9db47b576c1ed1862ccc2273a602",
+    "ensure_workers_floor_100:requires:hard": "1230b30a4dde206e7881b48aacf587acff27f16214710adbd8c0fe7490872eeb",
     "pick_fan_in:ensures:hard": "1fedc6ddc3ccae9a1bbb927e2665b8af9a7a83d7e993811705466a11af1d22e0",
     "pick_fan_in:requires:hard": "c098537be68519d3d6f3189bb8a3da953d7969bf70fc8499b2133849ea70231e",
     "pick_fan_in_too_strong:ensures:hard": "0ffb2c884fb95a7f6fd62e35ae30a9502fb6ae3b3c0e545705baa3778791a0d1",
