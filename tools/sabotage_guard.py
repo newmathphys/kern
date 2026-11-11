@@ -27,8 +27,8 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MARKERS = ("ЛОМАЕМ", "SABOTAGE")
-SCANNED = ("src", "tools")
+MARKERS = ("ЛОМАЕМ", "SABOTAGE", "CANFAIL_PROBE")
+SCANNED = ("src", "tools", "formal")
 # Исключения НАЗВАНЫ и обоснованы: без них гейт был бы вакуумным.
 ALLOWED = {
     "tools/canfail.py": "сам стенд обязан знать маркеры, чтобы их вставлять",

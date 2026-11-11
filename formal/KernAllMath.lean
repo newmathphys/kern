@@ -183,4 +183,3 @@ theorem fuel_bounds_influence
 
 end KernMath
 
-theorem CANFAIL_PROBE : True := by by sorry
