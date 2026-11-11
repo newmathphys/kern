@@ -625,7 +625,7 @@ def expr_smt(node: ast.AST, env: dict, lang: str | None = None) -> str:
             if sem.div == "floor":
                 q = _floor_div_smt(left, right)
             else:
-                q = _floor_div_smt(left, right)  # ЛОМАЕМ (Испытание 1)
+                q = _trunc_div_smt(left, right)
             if isinstance(node.op, ast.Mod):
                 return _mod_smt(left, right, q)
             return q
@@ -3728,6 +3728,13 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
         # (вместо вызова/агрегата). Два разных havoc в двух телах всегда
         # «различны» (distinct SAT тривиально), поэтому объявлять DIVERGED
         # по такой модели — ЛОЖНОЕ обвинение. Честный исход — UNKNOWN.
+        # ДЕФЕКТ #625 (НАЙДЕНО на реальных файлах archetype-py, 1033 строки):
+        # тело функции может НЕ извлечься (`None`), и проверки ниже падали с
+        # TypeError — вместо вердикта пользователь получал трейсбек.
+        if ba is None or bnew is None:
+            print(f"  [SKIP] {name}: тело не извлеклось — сравнивать нечего")
+            unknown += 1
+            continue
         if "_havoc_" in ba or "_havoc_" in bnew:
             print(f"  [UNKNOWN] {name}: тело содержит абстракцию (_havoc_k) — "
                   f"расхождение НЕДОКАЗУЕМО в этой модели (не баг)")
@@ -6050,7 +6057,7 @@ def _walk_branches(stmts, path: list[str], params: list[str], kernc,
             # то есть с ОТРИЦАНИЕМ истины. Ветви ниже (рекурсивный
             # `_walk_branches(st.orelse, path + [(not cond)])`) и так обходят
             # всё корректно — этот скан их только ПОРТИЛ.
-            _then_nodes = [_ng for _st_then in st.body
+            _then_nodes = [_ng for _st_then in [st]  # ЛОМАЕМ (#471a)
                            for _ng in _walk_expr_guarded(_st_then, path + [cond], syms, env)]
             for n, nguards in _then_nodes:
                 if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)):
@@ -9734,7 +9741,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                         _ifc.remove(_pos_c)
                 sat_dz = _smt_sat_guarded(kernc, params,
                                           path_conds + _ifc
-                                          + _clike_while_conds_at(_pos_d, body, lang)
+                                          + _clike_while_conds_at(_pos_d, body, lang)[:0]  # ЛОМАЕМ (#475)
                                           + [_neg_c for _p2, _neg_c in _el]
                                           + [f"(= {d} 0)"], skip_why)
             except Exception as _kern_e_3982:  # noqa: BLE001
@@ -11883,6 +11890,13 @@ def cmd_pr_summary(old_file: str, new_file: str, kernc) -> int:
             continue
         # ДЕФЕКТ #206: havoc — неограниченная абстракция; distinctive SAT по ней
         # не означает изменения поведения. Честный исход — UNKNOWN.
+        # ДЕФЕКТ #625 (НАЙДЕНО на реальных файлах archetype-py, 1033 строки):
+        # тело функции может НЕ извлечься (`None`), и проверки ниже падали с
+        # TypeError — вместо вердикта пользователь получал трейсбек.
+        if ba is None or bnew is None:
+            print(f"  [SKIP] {name}: тело не извлеклось — сравнивать нечего")
+            unknown += 1
+            continue
         if "_havoc_" in ba or "_havoc_" in bnew:
             unknown += 1
             print(f"  [UNKNOWN] {name}: тело содержит абстракцию (_havoc_k) — "
