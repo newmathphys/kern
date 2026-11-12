@@ -5127,6 +5127,10 @@ def main():
     _refuse_dirty_src()
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
+    ap.add_argument("--jobs", type=int, default=1, metavar="N",
+                    help="#679: параллельные воркеры (у каждого свой worktree и своя "
+                         "доля кейсов). В CI передаётся --jobs 4 (4 ядра раннера). "
+                         "Вердикты не меняются: кейсы независимы")
     # ДЕФЕКТ #528: кейсы, требующие ВНЕШНЕГО контура (Lean/Mathlib), нельзя
     # гонять там, где этого контура нет: иначе кейс «покраснел» по чужой
     # причине и НИЧЕГО не доказывает, либо (хуже) зеленеет вакуумно.
@@ -5233,6 +5237,19 @@ def main():
             continue
         if args.only and args.only != name:
             continue
+        # #679: ШАРДИРОВАНИЕ для `--jobs N`. Каждый воркер получает свой worktree
+        # (`KERN_CANFAIL_WORKTREE`) и свою долю кейсов (`KERN_CANFAIL_SHARD=i/N`).
+        # ИЗМЕРЕНО: 258 кейсов × ~9 с = ~39 минут последовательно; на 4 ядрах
+        # GitHub Actions это ~10 минут. Вердикты при этом те же — кейсы независимы,
+        # а изоляция #630 уже разводит их по разным деревьям.
+        _shard = os.environ.get("KERN_CANFAIL_SHARD", "")
+        if _shard:
+            try:
+                _si, _sn = (int(x) for x in _shard.split("/"))
+                if _sn > 1 and CASES.index(c) % _sn != _si:
+                    continue
+            except ValueError:
+                pass
         t0 = time.time()
         try:
             with Fault(FAULTABLE):
@@ -5388,22 +5405,53 @@ def _reexec_in_worktree() -> int | None:
 
     tmp = Path(_tf.mkdtemp(prefix="kern-canfail-"))
     wt = tmp / "wt"
-    r = _sp.run(["git", "worktree", "add", "--detach", str(wt), "HEAD"],
-                cwd=str(ROOT), capture_output=True, text=True)
-    if r.returncode != 0:
-        print(f"  [!] #630: worktree не создан ({r.stderr.strip()[:80]}) — "
-              "стенд идёт в живом дереве (изоляция недоступна)")
-        _sh.rmtree(tmp, ignore_errors=True)
-        return None
-    env = dict(os.environ)
-    env["KERN_CANFAIL_ISOLATED"] = "1"
-    env["KERN_CANFAIL_WORKTREE"] = str(wt)
+    # #679: `--jobs N` — N воркеров, у каждого СВОЙ worktree. Worktree создаются
+    # ПОСЛЕДОВАТЕЛЬНО до старта пула: одновременный `git worktree add` на одном
+    # репозитории падает на `.git/config.lock` (fatal: Unable to create ... lock).
+    _jobs = 1
+    for _i, _a in enumerate(sys.argv[1:]):
+        if _a == "--jobs" and _i + 2 <= len(sys.argv[1:]):
+            try:
+                _jobs = max(1, int(sys.argv[2 + _i]))
+            except (ValueError, IndexError):
+                _jobs = 1
+        elif _a.startswith("--jobs="):
+            try:
+                _jobs = max(1, int(_a.split("=", 1)[1]))
+            except ValueError:
+                _jobs = 1
+    _wts: list[Path] = []
+    for _k in range(_jobs):
+        _w = wt if _jobs == 1 else (tmp / f"wt{_k}")
+        _r = _sp.run(["git", "worktree", "add", "--detach", str(_w), "HEAD"],
+                     cwd=str(ROOT), capture_output=True, text=True)
+        if _r.returncode != 0:
+            print(f"  [!] #630: worktree не создан ({_r.stderr.strip()[:80]}) — "
+                  "стенд идёт в живом дереве (изоляция недоступна)")
+            for _ww in _wts:
+                _sp.run(["git", "worktree", "remove", "--force", str(_ww)],
+                        cwd=str(ROOT), capture_output=True, text=True)
+            _sh.rmtree(tmp, ignore_errors=True)
+            return None
+        _wts.append(_w)
+    _procs = []
+    for _kk, _ww in enumerate(_wts):
+        _env = dict(os.environ)
+        _env["KERN_CANFAIL_ISOLATED"] = "1"
+        _env["KERN_CANFAIL_WORKTREE"] = str(_ww)
+        if _jobs > 1:
+            _env["KERN_CANFAIL_SHARD"] = f"{_kk}/{_jobs}"
+        _argv = [sys.executable, str(_ww / "tools" / "canfail.py"), *sys.argv[1:]]
+        _procs.append(_sp.Popen(_argv, cwd=str(_ww), env=_env))
     try:
-        rc = _sp.call([sys.executable, str(wt / "tools" / "canfail.py"), *sys.argv[1:]],
-                      cwd=str(wt), env=env)
+        # rc — МАКСИМУМ по воркерам: падение любого шарда = падение прогона.
+        rc = 0
+        for _p in _procs:
+            rc = max(rc, _p.wait())
     finally:
-        _sp.run(["git", "worktree", "remove", "--force", str(wt)],
-                cwd=str(ROOT), capture_output=True, text=True)
+        for _ww in _wts:
+            _sp.run(["git", "worktree", "remove", "--force", str(_ww)],
+                    cwd=str(ROOT), capture_output=True, text=True)
         _sh.rmtree(tmp, ignore_errors=True)
     return rc
 
