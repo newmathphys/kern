@@ -201,6 +201,20 @@ G3=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_c.c" 2>
 echo "$G3" | grep -q 'OVERFLOW PATH. f_c' || { echo "[!] #667: переприсваивание w = y НЕ сбросило гард — детектор ослеп"; exit 1; }
 echo "[OK] #667: ранний выход снимает обвинение; переприсваивание сбрасывает гард (3/3)"
 
+# ДЕФЕКТ #672: срез рейда не должен включать НЕ-БОЕВЫЕ каталоги, НО явно запрошенный
+# каталог фикстур обязан сканироваться. Двусторонность: (а) при обходе КОРНЯ
+# вложенный `tests/` отсекается, (б) при ЯВНОМ пути внутрь `tests/` файлы читаются.
+# Иначе говоря: фильтр режет `dirnames` (детей корня), а не сам `root`.
+mkdir -p "$TMPC/hunt_root/tests/deep" "$TMPC/hunt_root/src"
+printf 'int g(int *b, int i){\n    return b[i - 1];\n}\n' > "$TMPC/hunt_root/tests/deep/t.c"
+printf 'int h(int *b, int j){\n    return b[j - 1];\n}\n' > "$TMPC/hunt_root/src/s.c"
+H1=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/hunt_root" 2>&1) || true
+echo "$H1" | grep -q 'файлов к сканированию: 1' || { echo "[!] #672: при обходе корня вложенный tests/ НЕ отсечён"; exit 1; }
+if echo "$H1" | grep -q 'BOUNDS PATH. g'; then echo "[!] #672: находка из tests/ просочилась в срез рейда"; exit 1; fi
+H2=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/hunt_root/tests" 2>&1) || true
+echo "$H2" | grep -q 'BOUNDS PATH. g' || { echo "[!] #672: ЯВНЫЙ путь внутрь tests/ не сканируется (ослепление фикстур)"; exit 1; }
+echo "[OK] #672: вложенный tests/ отсекается при обходе корня, явный путь — сканируется (2/2)"
+
 # ДЕФЕКТ #318: ДЕЛЕНИЕ ПОД ГАРДОМ. Раньше `path_conds` складывал ТОЛЬКО
 # `(not cond)` — условие для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока, и
 # запрос получался `(x == 0) AND (x == 0)`: `if (x != 0) { y / x; }` объявлялся
