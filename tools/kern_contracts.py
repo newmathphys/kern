@@ -4197,9 +4197,10 @@ def main(argv=None) -> int:
                     help="ABI 1.0 (#483): машиночитаемый JSON аудита в stdout вместо "
                          "текста (для CI-плагинов, MCP и обвязок на других языках). "
                          "НЕ путать с `--json`, который пишет отчёт по КОНТРАКТАМ")
-    ap.add_argument("--xray", default=None, metavar="PATH",
+    ap.add_argument("--xray", default=None, metavar="PATH", nargs="+",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
-                         "(мёртвые ветки, избыточные проверки, краш-пути, CC)")
+                         "(мёртвые ветки, избыточные проверки, краш-пути, CC); "
+                         "принимает НЕСКОЛЬКО путей: файлы и/или каталоги (#662)")
     ap.add_argument("--full-scan", dest="full_scan", default=None, metavar="PATH",
                     help="полноспектральный обход: xray (7 языков) + anti-cheat "
                          "+ MCP-аудит + авто-роутинг теорий (честно: без контракта "
@@ -4305,9 +4306,20 @@ def main(argv=None) -> int:
     if getattr(args, "full_scan", None):
         return cmd_full_scan(args.full_scan, args.kernc)
     if args.xray:
-        return cmd_xray(args.xray, args.kernc,
-                        json_mode=bool(getattr(args, "xray_json", False)),
-                        sarif=getattr(args, "sarif", None))
+        # ДЕФЕКТ #662 (нашёл полевой рейд): `--xray` молча обрабатывал ТОЛЬКО первый
+        # путь. Запуск `--xray src/*.c extensions/*.c` передавал 25 путей, из которых
+        # 24 игнорировались — покрытие падало с сотен функций до десятка, и никакой
+        # ошибки при этом не было. Для ВЕРИФИКАТОРА молчаливая потеря входных данных
+        # недопустима: теперь все пути обрабатываются по очереди, а `rc` — максимум
+        # из кодов (ошибка в любом файле видна).
+        paths = args.xray if isinstance(args.xray, list) else [args.xray]
+        rc_all = 0
+        for one in paths:
+            rc_one = cmd_xray(one, args.kernc,
+                              json_mode=bool(getattr(args, "xray_json", False)),
+                              sarif=getattr(args, "sarif", None))
+            rc_all = max(rc_all, rc_one)
+        return rc_all
 
     if args.auto:
         return cmd_xray(args.auto, args.kernc)
