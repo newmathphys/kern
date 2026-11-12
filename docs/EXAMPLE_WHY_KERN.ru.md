@@ -155,7 +155,7 @@ KERN — не сканер. Он не найдёт баги в репозито�
 | Каталог тестов | <!-- fact:catalog -->492 |
 | CHECK-целей | <!-- fact:check_targets -->212 |
 | can-fail кейсов | <!-- fact:canfail_cases -->258 |
-| Литеральных якорей | <!-- fact:anchors -->215 |
+| Литеральных якорей | <!-- fact:anchors -->216 |
 | Целей в реестре | <!-- fact:registry_targets -->293 |
 | Теорем Lean | <!-- fact:lean_theorems -->147 |
 | QuixBugs (SMT) | <!-- fact:quixbugs.smt -->6 |

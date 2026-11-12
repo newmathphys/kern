@@ -156,7 +156,7 @@ would be a tautology.
 
 <!-- fact:core_tests -->460 core tests · <!-- fact:next_tests -->53 next ·
 <!-- fact:catalog -->492 catalog · <!-- fact:check_targets -->212 CHECK ·
-<!-- fact:canfail_cases -->258 can-fail cases · <!-- fact:anchors -->215 anchors ·
+<!-- fact:canfail_cases -->258 can-fail cases · <!-- fact:anchors -->216 anchors ·
 <!-- fact:registry_targets -->293 targets · <!-- fact:meta_targets -->58 META ·
 <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 formal SMT ·
