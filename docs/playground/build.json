@@ -1,5 +1,5 @@
 {
-  "commit": "f4ea99cd",
+  "commit": "4e8861d0",
   "sha256": "cc073719a7ccdaf7f3b0981a9e2f12b136e1638a184a86f1ec3475528f9ff013",
   "bytes": 121486,
   "source": "zig build wasm (wasm32-freestanding)"
