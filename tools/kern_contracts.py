@@ -2061,6 +2061,12 @@ def annot_class(m) -> str:
 
 # Машинные диапазоны типов: (минимум, максимум) в терминах ℤ.
 TYPE_RANGE = {
+    # #501b: stdint-типы C. Без них `int64_t namelen` уходил в скип «тип индекса
+    # НЕИЗВЕСТЕН», и `b[namelen - 1]` не проверялся вовсе.
+    "int8_t": (-2**7, 2**7 - 1), "uint8_t": (0, 2**8 - 1),
+    "int16_t": (-2**15, 2**15 - 1), "uint16_t": (0, 2**16 - 1),
+    "ssize_t": (-2**63, 2**63 - 1), "ptrdiff_t": (-2**63, 2**63 - 1),
+    "uintptr_t": (0, 2**64 - 1), "intptr_t": (-2**63, 2**63 - 1),
     "i8": (-2**7, 2**7 - 1), "u8": (0, 2**8 - 1),
     "i16": (-2**15, 2**15 - 1), "u16": (0, 2**16 - 1),
     "i32": (-2**31, 2**31 - 1), "int": (-2**31, 2**31 - 1),
@@ -9882,12 +9888,42 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                         if _nm:
                             _decl_unsigned.add(_nm.group(1))
             _unsigned = _decl_unsigned
-            if _idxs_names and _idxs_names <= _unsigned:
-                skip_why.append(
-                    "индекс построен ТОЛЬКО из беззнаковых значений "
-                    f"({sorted(_idxs_names)}): «отрицательный» невозможен, "
-                    "Int-модель не переносит заворачивание (#501)")
-                continue
+            # ДЕФЕКТ #501b (ИСПРАВЛЕН). Раньше ВСЕ беззнаковые индексы пропускались
+            # слепо: «отрицательный невозможен». Это неверно в двух классах:
+            #   B (только C/C++): uint8_t/uint16_t/unsigned char/short проходят
+            #     INTEGER PROMOTION до знакового int (C11 §6.3.1.1) -> (uint8_t)0 - 1
+            #     == -1 -> b[-1] — чтение ДО буфера;
+            #   C (широкие C + ВСЕ беззнаковые Rust/Zig): при i == 0 вычитание i - 1
+            #     даёт unsigned underflow/wrap (UINT32_MAX / SIZE_MAX) или panic.
+            # Язык закодирован в НАПИСАНИИ типа (uint8_t пишут только в C, u8 —
+            # только в Rust/Zig), поэтому детекция языка не нужна.
+            # ПРЕДИКАТ ПРОБОЯ ОДИН ДЛЯ ВСЕХ КЛАССОВ: index_expr < 0 в Int-модели.
+            # Поэтому чистый `buf[i]`/`buf[i + 1]` (i >= 0) не обвиняется никогда —
+            # ложных срабатываний на безобидной индексации не возникает.
+            _NARROW_C = {"uint8_t", "uint16_t", "unsigned char", "unsigned short",
+                         "unsigned char ", "unsigned short "}
+            _WIDE_ANY = {"uint32_t", "uint64_t", "size_t", "unsigned", "unsigned int",
+                         "unsigned long", "uintptr_t", "u8", "u16", "u32", "u64",
+                         "usize"}
+            _cls_by_name: dict[str, str] = {}
+            if _sig_m:
+                for _pt2 in _sig_m.group(1).split(","):
+                    _pt2s = _pt2.strip()
+                    _nm2 = re.search(r"([A-Za-z_]\w*)\s*(?:\[\s*\])?\s*$", _pt2s)
+                    if not _nm2:
+                        continue
+                    _ty2 = _pt2s[: _pt2s.rfind(_nm2.group(1))].strip()
+                    _ty2 = re.sub(r"\b(const|volatile|static|register)\b", "", _ty2).strip()
+                    if _ty2 in _NARROW_C:
+                        _cls_by_name[_nm2.group(1)] = "promo"
+                    elif _ty2 in _WIDE_ANY:
+                        _cls_by_name[_nm2.group(1)] = "wrap"
+            # Класс индекса: самый «опасный» из участвующих имён.
+            _idx_cls = None
+            for _nm3 in sorted(_idxs_names):
+                _c3 = _cls_by_name.get(_nm3)
+                if _c3 == "promo" or (_c3 == "wrap" and _idx_cls is None):
+                    _idx_cls = _c3
             # ДЕФЕКТ #501b (СЛЕПОЙ ЗАМЕР, расширенный срез curl/lib, минимизировано
             # до 6 строк). ТИП НЕИЗВЕСТЕН — обвинять нельзя. В curl параметр
             # объявлен МАКРО-ТИПОМ (`GETHOSTNAME_TYPE_ARG2 namelen`, раскрывается в
@@ -9910,9 +9946,18 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                 _replay_soft(_kern_e_4052, "kern_contracts.py:4052")
                 continue
             if sat_neg is True:
-                found.append(
-                    f"[BOUNDS PATH] {name}: индекс может быть отрицательным: "
-                    f"{idx_raw.strip()} -> {idxs} < 0")
+                if _idx_cls == "promo":
+                    _diag = (f"[BOUNDS PATH] {name}: индекс может быть отрицательным "
+                             f"ЧЕРЕЗ INTEGER PROMOTION (C11 §6.3.1.1): "
+                             f"{idx_raw.strip()} -> {idxs} < 0 (b[-1] — чтение до буфера)")
+                elif _idx_cls == "wrap":
+                    _diag = (f"[BOUNDS PATH] {name}: unsigned underflow/wrap-around "
+                             f"(UINT32_MAX/SIZE_MAX или panic) при отрицательном "
+                             f"{idx_raw.strip()} -> {idxs} < 0")
+                else:
+                    _diag = (f"[BOUNDS PATH] {name}: индекс может быть отрицательным: "
+                             f"{idx_raw.strip()} -> {idxs} < 0")
+                found.append(_diag)
 
         for am in _RE_CLIKE_ALLOC.finditer(body):
             call, args_raw = am.group(1), am.group(2)
