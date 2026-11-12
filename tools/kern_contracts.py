@@ -8898,6 +8898,42 @@ def _smt_sat_guarded(kernc, params, asserts, why: list):
     return _smt_sat(kernc, params, asserts)
 
 
+def _early_return_guard_before(body: str, expr_txt: str, names: set[str]) -> str | None:
+    """Действует ли ПЕРЕД выражением безусловный ранний выход `if (name op const) return;`?
+
+    ДЕФЕКТ #667 (zlib `inflateReset2`): `if (windowBits < -15) return Z_STREAM_ERROR;`
+    делает `-windowBits` при `INT_MIN` НЕДОСТИЖИМЫМ (функция уже вернулась), а модель
+    переполнения про этот выход не знает и объявляет UB. Проверено санитайзером: UB нет.
+
+    СБРОС ГАРДА (обязательный третий случай регрессии): если между гардом и выражением
+    переменной что-то ПРИСВАИВАЛИ (`w = y;`), гарантия кода снята — гарда нет.
+    """
+    if not body or not names:
+        return None
+    pos = body.find(expr_txt)
+    if pos < 0:
+        pos = len(body)          # текстовой формы не нашли — смотрим весь префикс
+    head = body[:pos]
+    pat = re.compile(
+        r"if\s*\(?\s*([A-Za-z_]\w*)\s*(<=|>=|<|>)\s*(-?\d+)\s*\)?\s*:?\s*\{?\s*"
+        r"(?:return|goto)")
+    for m in pat.finditer(head):
+        nm = m.group(1)
+        if nm not in names:
+            continue
+        # SSA-ЛОВУШКА (измерено): `w = -w;` — присваивание, чья ПРАВАЯ часть и есть
+        # проверяемое выражение. Если считать его «перетиранием», гард снимается за
+        # миллисекунду до проверки `-w`, и обвинение выносится ложно. Поэтому хвост,
+        # оканчивающийся на `<name> =` (правая часть = наше выражение), отбрасываем:
+        # сначала проверяем RHS под СТАРЫМ гардом, и только потом гард инвалидируется.
+        rem = head[m.end():].rstrip()
+        rem = re.sub(rf"\b{re.escape(nm)}\s*=\s*$", "", rem)
+        if re.search(rf"(?<![=!<>])\b{re.escape(nm)}\s*=(?!=)", rem):
+            continue             # настоящее перетирание сбросило гард
+        return m.group(0).strip()[:60]
+    return None
+
+
 def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
                              path_conds: list[str], if_blocks: list,
                              local_smt: dict, kernc,
@@ -9072,6 +9108,23 @@ def _clike_overflow_findings(name: str, params, body: str, ranges: dict,
                 _replay_soft(_kern_e_ov, "kern_contracts.py:ov")
                 continue
             if kind == "sat":
+                # ДЕФЕКТ #667: ранний выход `if (w < -15) return ...;` снимает
+                # достижимость `-w` при `INT_MIN` (функция уже вернулась). Модель
+                # переполнения про выход не знает -> ложное обвинение (измерено на
+                # zlib `inflateReset2`, санитайзер UB не подтвердил).
+                # Имена берём из ВЫРАЖЕНИЯ, а не из `var_ranges`: параметр может
+                # отсутствовать в карте локальных (именно так первая версия стража
+                # молчала — `w` не находился и помощник сразу возвращал None).
+                _expr_txt = ast.unparse(node)
+                _names_all = set(re.findall(r"\b([A-Za-z_]\w*)\b", _expr_txt))
+                _guard = _early_return_guard_before(body, _expr_txt, _names_all)
+                if _guard:
+                    if skip_why is not None:
+                        _r = (f"ранний выход `{_guard}` делает переполнение "
+                              f"недостижимым — обвинение не выносится (#667)")
+                        if _r not in skip_why:
+                            skip_why.append(_r)
+                    continue
                 out.append(
                     f"[OVERFLOW PATH] {name}: переполнение типа `{tyname}` "
                     f"([{lo}, {hi}]) в `{ast.unparse(node)}` — UB до возврата; "

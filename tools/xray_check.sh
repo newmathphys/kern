@@ -167,6 +167,40 @@ S4=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/st_u8.rs" 2>&1) |
 if echo "$S4" | grep -q 'INTEGER PROMOTION'; then echo "[!] #501b: u8 в Rust/Zig назван INTEGER PROMOTION — promotion это свойство C, не Rust"; exit 1; fi
 echo "[OK] #501b: int64_t -> A, uint8_t -> INTEGER PROMOTION (B), size_t -> wrap-around (C), гард молчит; u8 в Rust — НЕ promotion (7/7)"
 
+# ДЕФЕКТ #667: ранний выход снимает ложное обвинение переполнения, НО переприсваивание
+# гард сбрасывает. Три случая, все три обязательны (третий ловит «ослепление» детектора).
+cat > "$TMPC/ovf_guard_a.c" <<'CEOF'
+int f_a(int w)
+{
+    if (w < 0) { w = -w; }
+    return w;
+}
+CEOF
+cat > "$TMPC/ovf_guard_b.c" <<'CEOF'
+int f_b(int w)
+{
+    if (w < -15) { return -2; }
+    if (w < 0) { w = -w; }
+    return w;
+}
+CEOF
+cat > "$TMPC/ovf_guard_c.c" <<'CEOF'
+int f_c(int w, int y)
+{
+    if (w < -15) { return -2; }
+    w = y;
+    if (w < 0) { w = -w; }
+    return w;
+}
+CEOF
+G1=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_a.c" 2>&1) || true
+echo "$G1" | grep -q 'OVERFLOW PATH. f_a' || { echo "[!] #667: без гарда -w НЕ обвинён (детектор ослеп)"; exit 1; }
+G2=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_b.c" 2>&1) || true
+if echo "$G2" | grep -q 'OVERFLOW PATH. f_b'; then echo "[!] #667: ЛОЖНОЕ обвинение -w после if (w < -15) return"; exit 1; fi
+G3=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_c.c" 2>&1) || true
+echo "$G3" | grep -q 'OVERFLOW PATH. f_c' || { echo "[!] #667: переприсваивание w = y НЕ сбросило гард — детектор ослеп"; exit 1; }
+echo "[OK] #667: ранний выход снимает обвинение; переприсваивание сбрасывает гард (3/3)"
+
 # ДЕФЕКТ #318: ДЕЛЕНИЕ ПОД ГАРДОМ. Раньше `path_conds` складывал ТОЛЬКО
 # `(not cond)` — условие для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока, и
 # запрос получался `(x == 0) AND (x == 0)`: `if (x != 0) { y / x; }` объявлялся
