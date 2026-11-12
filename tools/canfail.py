@@ -5398,20 +5398,6 @@ def _reexec_in_worktree() -> int | None:
     env = dict(os.environ)
     env["KERN_CANFAIL_ISOLATED"] = "1"
     env["KERN_CANFAIL_WORKTREE"] = str(wt)
-    # ДЕФЕКТ #678 (ИЗМЕРЕНО в облаке): worktree стартует ПУСТЫМ, без `zig-out/` и
-    # `.zig-cache/`. Поэтому каждый кейс, вызывающий `make`, пересобирал ядро Zig с
-    # нуля — шаг 7 в CI (258 кейсов) шёл 40+ минут, тогда как шаг 6 (31 стадия)
-    # укладывается в 4м54с. Копируем ГОТОВУЮ сборку: ~200 питоновских кейсов её не
-    # инвалидируют, а кейсы, патчащие `src/*.zig`, пересоберутся сами (make видит
-    # mtime). Целостность не страдает: `zig-out/` и `.zig-cache/` исключены из
-    # снимка дерева (`_is_build_artifact`, #76) — то есть в отчёте о диверсиях они
-    # и не участвуют.
-    if os.environ.get("KERN_CANFAIL_NO_CACHE") != "1":
-        for _art in ("zig-out", ".zig-cache"):
-            _src = ROOT / _art
-            if _src.exists():
-                _sp.run(["cp", "-a", str(_src), str(wt / _art)],
-                        capture_output=True)
     try:
         rc = _sp.call([sys.executable, str(wt / "tools" / "canfail.py"), *sys.argv[1:]],
                       cwd=str(wt), env=env)
