@@ -7540,6 +7540,14 @@ _LAST_XRAY: dict = {}
 # МУСОРНЫЕ КАТАЛОГИ ЧУЖИХ РЕПОЗИТОРИЕВ. Без этого сканер тратил бы всё время на
 # сторонние зависимости вместо кода проекта (и мог наткнуться на «мины» в них).
 _XRAY_SKIP_DIRS = {".git", ".hg", ".svn",
+                   # #672 (найдено охотой): НЕ-БОЕВЫЕ каталоги. ИЗМЕРЕНО на 5
+                   # корпусах: из 9 находок 5 пришлись на `tests/externals/` —
+                   # сторонний код, положенный в чужие тесты. Обвинение там
+                   # выглядит как находка в библиотеке, хотя ею не является.
+                   # Срез рейда = продакшн-код; тесты можно взять явным путём.
+                   "tests", "test", "testing", "spec", "specs",
+                   "examples", "example", "samples", "demo", "demos",
+                   "externals", "fuzz", "fuzzing", "bench", "benches", "benchmarks",
                    ".venv", ".venv38", ".venv-evalplus", "venv", "env", "virtualenv",
                    "node_modules", "bower_components",
                    "vendor", "third_party", "third-party", "external",
