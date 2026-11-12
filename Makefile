@@ -70,7 +70,7 @@ OUT      ?= .kernnext
 # через Z3. Утверждение с доказанным контрактом получает e=1.
 bridge:
 	@W=$$(mktemp -d); trap 'rm -rf "$$W"' EXIT INT TERM; \
-	$(PYTHON) tools/scan_to_kern.py . -o "$$W/bridge.kern"; \
+	"$(PYTHON)" tools/scan_to_kern.py . -o "$$W/bridge.kern"; \
 	./zig-out/bin/kernc build "$$W/bridge.kern" -o "$$W/bridge.kimg"; \
 	./zig-out/bin/kernc verify "$$W/bridge.kimg" > "$$W/out.txt" 2>&1; \
 	grep -E "claim|контракт|свидетельство" "$$W/out.txt" | head -40; \
@@ -115,7 +115,7 @@ zig:
 	@$(ZIG) version
 
 golden:
-	$(PYTHON) tools/golden_v1_3.py
+	"$(PYTHON)" tools/golden_v1_3.py
 
 build: zig-guard
 	$(ZIG) build -Dcpu=$(KERNC_CPU)
@@ -157,7 +157,7 @@ docker:
 # ─────────────────────────────────────────────────────────────────────────────
 run-example: build
 	@echo "=== [1] Обычный CI: pytest на «тесте» агента ==="
-	-$(PYTHON) -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
+	-"$(PYTHON)" -m pytest -q examples/toy_ai_hallucination/withdraw.py 2>&1 | tail -3 || \
 	 echo "(pytest не установлен — вакуумный тест всё равно не имеет assert)"
 	@echo
 	@echo "=== [2] KERN: сборка образа доказательств ==="
@@ -178,18 +178,18 @@ adversarial: build
 
 # Телеметрический стенд: веса · время · MaxRSS · SHA-256 · JSON-паспорт.
 telemetry:
-	$(PYTHON) tools/measure_all_kern.py --out telemetry_report.json
+	"$(PYTHON)" tools/measure_all_kern.py --out telemetry_report.json
 
 # Быстрый вариант стенда (без двух сборок, мутаций и фаззинга).
 telemetry-quick:
-	$(PYTHON) tools/measure_all_kern.py --quick --out telemetry_report.json
+	"$(PYTHON)" tools/measure_all_kern.py --quick --out telemetry_report.json
 
 # GUARDRAIL-ПРОКСИ: живой перехватчик галлюцинаций (HTTP 409 при конфликте).
 # ВАЖНО: цель ПРОВЕРЯЕТ коды ответов и ПАДАЕТ при неверных. Раньше она лишь
 # печатала их — то есть не могла упасть (вакуумная проверка, найдено can-fail
 # кейсом guardrail-verdict).
 guardrail: build lib
-	$(PYTHON) examples/guardrail_proxy.py --self-test
+	"$(PYTHON)" examples/guardrail_proxy.py --self-test
 
 # СБОРЩИК СВИДЕТЕЛЬСТВ: прогоняет все проверки и сохраняет их ПОЛНЫЕ логи
 # в docs/evidence/ (у каждого заявления — доказательство, а не только запись).
@@ -201,7 +201,7 @@ evidence:
 # Наивный grep даёт ложные срабатывания (в canfail.log FAIL намеренны),
 # поэтому проверяется финальная строка RC=<n> каждого лога.
 evidence-gate:
-	$(PYTHON) tools/evidence_gate.py
+	"$(PYTHON)" tools/evidence_gate.py
 
 evidence-fast:
 	bash tools/collect_evidence.sh --fast
@@ -240,7 +240,7 @@ prove:
 # --require-solver: без `z3` 8 тестов уходят в SkipZigTest, и скор считается
 # по УСЕЧЁННОМУ набору (дефект #110) -> прогон обязан падать, а не врать.
 mutate:
-	KERN_ZIG="$(ZIG)" $(PYTHON) tools/mutate_zig.py --max 40 --seed 7 --jobs 4 \
+	KERN_ZIG="$(ZIG)" "$(PYTHON)" tools/mutate_zig.py --max 40 --seed 7 --jobs 4 \
 		--require-solver --z3-path "$(KERN_Z3_PATH)"
 
 clean:
@@ -263,7 +263,7 @@ clean-cache:
 # РАНЬШЕ здесь стоял `|| true`, поэтому цель НЕ МОГЛА УПАСТЬ — «молчаливо
 # сломанная проверка» в самой цели (закрыто can-fail кейсом `contracts`).
 contracts: build
-	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py \
+	@"$(PYTHON)" tools/kern_contracts.py examples/contracts_demo.py \
 		examples/contracts_demo.zig examples/contracts_demo.c \
 		examples/contracts_demo.rs --expect-demo
 
@@ -271,7 +271,7 @@ contracts: build
 # Только файл самоверификации: в `contracts_demo.*` лежат НАМЕРЕННЫЕ баги
 # (деление на ноль, переполнение) — их место в `make contracts`, а не здесь.
 self-verify: build
-	@$(PYTHON) tools/kern_contracts.py examples/self_verify.zig
+	@"$(PYTHON)" tools/kern_contracts.py examples/self_verify.zig
 
 # --- ЭТАП 2: КРАЙНИЕ СЛУЧАИ ПАРСЕРА ----------------------------------------
 # Формы, найденные РУЧНОЙ проверкой (и дважды вскрывшие реальные дефекты):
@@ -284,7 +284,7 @@ edge-cases:
 # (генерирует инструмент) + запечатанный .kimg (L0 заголовок/Merkle, L2 KERNFS,
 # L4 доказательства Z3). Формулы выгружает ДЕТЕРМИНИРОВАННЫЙ фронтенд (не LLM).
 audits: build
-	@$(PYTHON) tools/audits_run.py --emit-md audits/EVIDENCE.md
+	@"$(PYTHON)" tools/audits_run.py --emit-md audits/EVIDENCE.md
 
 # ДЕФЕКТ #470: ПОТОЛОК ПАМЯТИ у подпроцессов аудита. ИЗМЕРЕНО: `kernc prove`
 # на `audits/rust-core/midpoint.rs` рос до 5.4 ГБ и продолжал расти (таймаут
@@ -293,11 +293,11 @@ audits: build
 # 2048 МБ) на КАЖДЫЙ подпроцесс и называет исход (rc=125), а не молчит.
 # Этот гейт проверяет лимит НАСТОЯЩИМИ подпроцессами (быстро, без Z3).
 audits-mem-check:
-	@$(PYTHON) tools/audits_mem_cap_check.py
+	@"$(PYTHON)" tools/audits_mem_cap_check.py
 
 # МЕТА: без потолка исходы обязаны измениться — иначе проверка вакуумна.
 audits-mem-selftest:
-	@$(PYTHON) tools/audits_mem_cap_check.py --selftest
+	@"$(PYTHON)" tools/audits_mem_cap_check.py --selftest
 
 # ДЕФЕКТ #474: `PROVEN` БЕЗ ЧИСЛА ДОВЕРЕННЫХ ШАГОВ — ЗАПРЕЩЁННОЕ СЛОВО.
 # `PROVEN` — вердикт РЕШАТЕЛЯ; пруф-чекер проверяет вывод ОТДЕЛЬНО и для QF_BV
@@ -305,10 +305,10 @@ audits-mem-selftest:
 # `hex_index_deepjit_hex_hi`: `ДОКАЗАНО` + `ДОВЕРЕННЫХ 15`. Гейт требует счётчик
 # рядом с каждым `PROVEN` и маркер `PARTIAL` при `trusted > 0`.
 evidence-trust:
-	@$(PYTHON) tools/evidence_trust_check.py
+	@"$(PYTHON)" tools/evidence_trust_check.py
 
 evidence-trust-selftest:
-	@$(PYTHON) tools/evidence_trust_check.py --selftest
+	@"$(PYTHON)" tools/evidence_trust_check.py --selftest
 
 # ДЕФЕКТ #475: ГЕЙТ ТОЧНОСТИ `--xray` — ДВУСТОРОННИЙ.
 # ИЗМЕРЕНО на чужом коде: точность 56 % на `TheAlgorithms/Rust` (18 находок,
@@ -317,7 +317,7 @@ evidence-trust-selftest:
 # `precision_buggy` -> ровно 5 (полнота), `precision_known_fp` -> ровно 1
 # (ретаргет #476: когда починят, гейт потребует перенести функцию обратно).
 xray-precision:
-	@$(PYTHON) tools/xray_precision_check.py
+	@"$(PYTHON)" tools/xray_precision_check.py
 
 # ДЕФЕКТ #477: ЕДИНЫЙ ШЛЮЗ ЗАПУСКА ПОДПРОЦЕССОВ + РАТЧЕТ.
 # ИЗМЕРЕНО: 170 вызовов `subprocess.*` в `tools/*.py`, из них 51 БЕЗ `timeout=`
@@ -325,17 +325,17 @@ xray-precision:
 # Шлюз `tools/spawn.py` даёт таймаут ВСЕГДА, `z3` в PATH и названные исходы
 # (124/125). Гейт считает «голые» вызовы и краснеет при РОСТЕ.
 spawn-check:
-	@$(PYTHON) tools/spawn_check.py
+	@"$(PYTHON)" tools/spawn_check.py
 
 spawn-selftest:
-	@$(PYTHON) tools/spawn.py
+	@"$(PYTHON)" tools/spawn.py
 
 # ДЕФЕКТ #482: ЛОК МУТАЦИОННЫХ ИНСТРУМЕНТОВ — НА ДЕРЕВО, А НЕ НА МАШИНУ.
 # `canfail` и `mutate_zig` правят исходники и обязаны исключать друг друга
 # (дефект #88b), но зашитый `/tmp/kern_mutation.lock` означал «один лок на
 # машину»: 40-минутный свип блокировал ЛЮБУЮ проверку гейтов.
 mutation-lock-selftest:
-	@$(PYTHON) tools/mutation_lock.py
+	@"$(PYTHON)" tools/mutation_lock.py
 
 # Полный свип в ОТДЕЛЬНОМ worktree: главное дерево остаётся свободным.
 mutate-full:
@@ -346,10 +346,10 @@ mutate-full:
 # обязательные ключи, совпадение счётчика с длиной списка и тождество воронки
 # `checked + trivial + skipped == total`. Ломающее изменение = поднять версию.
 abi-check:
-	@$(PYTHON) tools/abi_check.py
+	@"$(PYTHON)" tools/abi_check.py
 
 abi-selftest:
-	@$(PYTHON) tools/abi_check.py --selftest
+	@"$(PYTHON)" tools/abi_check.py --selftest
 
 # ДЕФЕКТ #484 / ЭТАП 3: ДИФФЕРЕНЦИАЛЬНЫЙ АУДИТ (`audit-delta`).
 # Вопрос ревьюера — не «сколько проверено», а «что стало ХУЖЕ в этом изменении».
@@ -357,30 +357,30 @@ abi-selftest:
 #   make audit-delta BASE=../old HEAD=.
 audit-delta:
 	@test -n "$(BASE)" -a -n "$(HEAD)" || { echo "использование: make audit-delta BASE=<dir> HEAD=<dir>"; exit 2; }
-	@$(PYTHON) tools/audit_delta.py "$(BASE)" "$(HEAD)"
+	@"$(PYTHON)" tools/audit_delta.py "$(BASE)" "$(HEAD)"
 
 audit-delta-selftest:
-	@$(PYTHON) tools/audit_delta.py --selftest
+	@"$(PYTHON)" tools/audit_delta.py --selftest
 
 # ДЕФЕКТ #485: КАРТА CHECK-ЦЕЛЕЙ, СГЕНЕРИРОВАННАЯ ИЗ РЕЕСТРА.
 # Ручная карта устаревает на 194-й цели и начинает ЛГАТЬ, а документ, который
 # врёт, хуже отсутствующего. `capability-map-check` требует, чтобы файл совпадал
 # с ТОЛЬКО ЧТО сгенерированным содержимым + 0 неклассифицированных целей.
 capability-map:
-	@$(PYTHON) tools/gen_capability_map.py
+	@"$(PYTHON)" tools/gen_capability_map.py
 
 capability-map-check:
-	@$(PYTHON) tools/gen_capability_map.py --check
+	@"$(PYTHON)" tools/gen_capability_map.py --check
 
 # ДЕФЕКТ #487: ЛОГ МУТАЦИЙ — НЕ «МЁРТВЫЙ ТЕКСТ». История трёх чисел (1345 в логе,
 # 1376 в README, 1597 в факте) возникла потому, что лог свипа никто не сверял.
 # Гейт требует: сайты в логе == facts.json, выживших 0, RC=0, README говорит ТО ЖЕ
 # число, и в строке про мутации нет ДРУГОГО числа того же порядка.
 mutate-log-check:
-	@$(PYTHON) tools/mutate_log_check.py
+	@"$(PYTHON)" tools/mutate_log_check.py
 
 mutate-log-selftest:
-	@$(PYTHON) tools/mutate_log_check.py --selftest
+	@"$(PYTHON)" tools/mutate_log_check.py --selftest
 
 # ДЕФЕКТ #488 / ЭТАП 4: PROOF-CARRYING ARTIFACT У ПОЛУЧАТЕЛЯ БЕЗ РЕШАТЕЛЯ.
 # Всё написано в бинарнике; гейт измеряет обещание в ЧИСТОЙ среде
@@ -395,7 +395,7 @@ mutate-log-selftest:
 # onefile-бинарь и проверяет паритет с dev + названный отказ без z3.
 # #496: РЕЛИЗНЫЙ АРХИВ (62 МБ -> 27 МБ): kerna + kernc + z3 + лицензии + SHA256SUMS.
 kerna-dist:
-	PYTHON=$(PYTHON) bash tools/make_kerna_dist.sh
+	PYTHON="$(PYTHON)" bash tools/make_kerna_dist.sh
 
 # ШАГ 2 ПЛАНА ROI: ЛОКАЛЬНАЯ ПРОВЕРКА GitHub Action. Статика (`action.yml`
 # разбирается fail-closed парсером) + СУХОЙ ПРОГОН его шагов на ЛОКАЛЬНОМ
@@ -415,19 +415,19 @@ pilot-e2e-check:
 	  "$(if $(APP),$(APP),$(CURDIR)/dist/kerna)"
 
 action-check:
-	@$(PYTHON) tools/check_action_yml.py
-	@$(PYTHON) tools/action_check.py --selftest
+	@"$(PYTHON)" tools/check_action_yml.py
+	@"$(PYTHON)" tools/action_check.py --selftest
 	@if [ "$(REAL)" = "1" ]; then \
-	  $(PYTHON) tools/action_check.py --release-dir dist-release; \
+	  "$(PYTHON)" tools/action_check.py --release-dir dist-release; \
 	else \
-	  $(PYTHON) tools/action_check.py; \
+	  "$(PYTHON)" tools/action_check.py; \
 	fi
 
 kerna-build:
-	PYTHON=$(PYTHON) bash tools/build_kerna.sh ./dist
+	PYTHON="$(PYTHON)" bash tools/build_kerna.sh ./dist
 
 kerna-check:
-	PYTHON=$(PYTHON) $(PYTHON) tools/kerna_check.py
+	PYTHON="$(PYTHON)" "$(PYTHON)" tools/kerna_check.py
 
 license-header-check:
 	python3 tools/license_header_check.py
@@ -443,38 +443,38 @@ kern-scan-check:
 
 
 pcc-offline-check:
-	@$(PYTHON) tools/pcc_demo_check.py
+	@"$(PYTHON)" tools/pcc_demo_check.py
 
 # ПУНКТ 1 ПЛАНА v2.5: дифференциальный гейт встроенного LIA-решателя
 # против реального Z3 (0 ложных «доказано», 0 ложных контрпримеров).
 lia-diff: build
-	@$(PYTHON) tools/lia_diff.py
+	@"$(PYTHON)" tools/lia_diff.py
 
 # ИСПЫТАНИЕ А: адверсариальный фаззер пруф-чекера на ТРЁХ теориях сразу:
 # QF_LIA (abs.c, 51 шаг) + QF_S (санитайзер, 39) + IEEE-754-модель (NaN, 56).
 # Итого 30 + 5 + 5 = 40 точечных подделок; КАЖДАЯ обязана быть отвергнута.
 # Если подделок сгенерировано меньше запрошенного — цель КРАСНЕЕТ (не молчит).
 proof-tamper: build
-	@$(PYTHON) tools/proof_tamper_check.py
+	@"$(PYTHON)" tools/proof_tamper_check.py
 
 # ДЕФЕКТ #126: единый замок для всего, что патчит дерево. Доказываем, что
 # второй экземпляр получает rc=2 и НЕ ТРОГАЕТ НИ ОДНОГО ФАЙЛА.
 tree-lock:
-	@$(PYTHON) tools/tree_lock.py --selftest
+	@"$(PYTHON)" tools/tree_lock.py --selftest
 
 # АППАРАТНО-БИНАРНЫЙ АУДИТ: AVX2 в машинном коде, NX-стек, P50/P99 латентность,
 # t-тест стороннего канала и (если читается) энергосчётчик RAPL.
 binary-audit: build
-	@$(PYTHON) tools/hw_binary_audit.py --n 30
+	@"$(PYTHON)" tools/hw_binary_audit.py --n 30
 
 # ЭШЕЛОН 2, ПУНКТ 12: хаос-инъекция битовых сбоев в .kimg (bit-rot guard).
 bitrot-chaos: build
-	@$(PYTHON) tools/bitrot_chaos_check.py --n 30
+	@"$(PYTHON)" tools/bitrot_chaos_check.py --n 30
 
 # ЭШЕЛОН 2, ПУНКТ 9: Proof-Carrying .kimg — сертификат доказательства
 # внутри образа проверяется пруф-чекером БЕЗ решателя; подделка закрывает Врата.
 pcc-check: build
-	@$(PYTHON) tools/pcc_check.py
+	@"$(PYTHON)" tools/pcc_check.py
 
 # ЭШЕЛОН 5, ПУНКТ 25: полиглот-экстрактор на 7 языках (.py .zig .c .rs + .ts .js
 # .go) + Sorbet-style вывод диапазонов из имени типа (Percent -> 0..100).
@@ -568,7 +568,7 @@ ecosystem-check:
 # хуже пропуска, урок #178/#183). Гейт держит ОБЕ стороны: 0 находок на ASI-
 # фикстурах (реальной + минимальной) И >=1 на контролях (TS и C) — иначе вакуум.
 xray-asi-check:
-	@$(PYTHON) tools/xray_asi_check.py
+	@"$(PYTHON)" tools/xray_asi_check.py
 
 xray-check: build
 	@bash tools/xray_check.sh
@@ -580,20 +580,20 @@ xray-check: build
 # читает. Гейт различает «мутация в полёте» (PID жив) и «замок остался после
 # аварии» (PID мёртв) — второе состояние и есть урок дефекта #50.
 mutation-lock-check:
-	@$(PYTHON) tools/mutation_lock_check.py --selftest
-	@$(PYTHON) tools/mutation_lock_check.py
+	@"$(PYTHON)" tools/mutation_lock_check.py --selftest
+	@"$(PYTHON)" tools/mutation_lock_check.py
 
 # ПОЛИГОН 4: СВОДНАЯ ДУЭЛЬ L5 (ИИ-саботажник против щита KERN).
 # Агрегатор поверх четырёх контуров + ИЗМЕРЕНИЕ слепоты обычного pytest.
 l5-duel-check:
-	@$(PYTHON) tools/l5_duel_check.py
+	@"$(PYTHON)" tools/l5_duel_check.py
 
 # ПОЛИГОН 5: сквозной E2E `kernx` на РЕАЛЬНЫХ артефактах полигонов 1 и 4.
 # Перемеряет оракулы (pytest rc, anti-cheat rc) и требует, чтобы запись в
 # audits/polygon5.kern совпадала с фактом; проверяет четыре состояния
 # Белнапа (T/F/B/N) и что пакет различает B и F (#424).
 kernx-polygon5-check:
-	@$(PYTHON) tools/kernx_polygon5_check.py
+	@"$(PYTHON)" tools/kernx_polygon5_check.py
 
 
 # СТУПЕНЬ 2 QuixBugs (`tools/trace_explorer.py`): AST-guided живой прогон.
@@ -660,7 +660,7 @@ orphan-gates-check:
 	@python3 tools/orphan_gates_check.py
 
 tools-laws-check: build
-	@out=$$($(PYTHON) tools/kern_contracts.py tools/funnel_accounting.py 2>&1); \
+	@out=$$("$(PYTHON)" tools/kern_contracts.py tools/funnel_accounting.py 2>&1); \
 	 echo "$$out" | grep -q "нарушено 0" || { echo "$$out" | tail -3; echo "[FAIL] #623: закон на собственных функциях НАРУШЕН"; exit 1; }; \
 	 echo "$$out" | grep -q "доказано 4" || { echo "$$out" | tail -3; echo "[FAIL] #623: ожидалось доказано 4"; exit 1; }; \
 	 echo "[OK] #623: 4 закона KERN на собственных функциях доказаны (нарушено 0)"
@@ -692,14 +692,14 @@ SARIF_OUT ?= build/kern.sarif
 CONTRACTS_JSON_OUT ?= build/kern_contracts.json
 
 sarif-check: build
-	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.c \
+	@"$(PYTHON)" tools/kern_contracts.py examples/contracts_demo.c \
 		--sarif $(SARIF_OUT) --github-annotations >/dev/null 2>&1 || true
-	@$(PYTHON) tools/check_sarif.py $(SARIF_OUT)
+	@"$(PYTHON)" tools/check_sarif.py $(SARIF_OUT)
 
 contracts-json: build
-	@$(PYTHON) tools/kern_contracts.py examples/contracts_demo.py \
+	@"$(PYTHON)" tools/kern_contracts.py examples/contracts_demo.py \
 		--json $(CONTRACTS_JSON_OUT) >/dev/null 2>&1 || true
-	@$(PYTHON) tools/check_contracts_json.py $(CONTRACTS_JSON_OUT)
+	@"$(PYTHON)" tools/check_contracts_json.py $(CONTRACTS_JSON_OUT)
 
 # --- ЭТАП 1: ПОЛЬЗОВАТЕЛЬСКИЙ GIT-ШЛЮЗ -------------------------------------
 # Установка: python3 tools/kern_contracts.py --install-hook
@@ -716,23 +716,23 @@ hook-check:
 KERN_CONTRACTS_LOCK ?= docs/contracts.lock.json
 
 contracts-lock:
-	@$(PYTHON) tools/kern_contracts.py --lock-repo $(KERN_CONTRACTS_LOCK)
+	@"$(PYTHON)" tools/kern_contracts.py --lock-repo $(KERN_CONTRACTS_LOCK)
 
 # Ф6.1: классы обязательств hard/advisory.
 # Гейт доказывает ДВА свойства: advisory не блокирует, но и НЕ становится T,
 # а hard по-прежнему блокирует (иначе класс = лазейка для агента).
 # Vector 3: обкатка `explain --hypotheses` на реальном корпусе.
 hypotheses-corpus-check:
-	@$(PYTHON) tools/hypotheses_corpus_check.py
+	@"$(PYTHON)" tools/hypotheses_corpus_check.py
 
 # Ф6.3: read-only объяснения (гипотезы ТОЛЬКО для requires).
 explain-hypotheses-check:
-	@$(PYTHON) tools/hypotheses_check.py
+	@"$(PYTHON)" tools/hypotheses_check.py
 
 advisory-check:
-	@$(PYTHON) tools/advisory_check.py
+	@"$(PYTHON)" tools/advisory_check.py
 contracts-lock-check:
-	@$(PYTHON) tools/kern_contracts.py --verify-lock-repo $(KERN_CONTRACTS_LOCK)
+	@"$(PYTHON)" tools/kern_contracts.py --verify-lock-repo $(KERN_CONTRACTS_LOCK)
 
 # Ф1: семь осей состояния + привязка типа запроса (QueryKind).
 # Отдельный корень: admission_gate импортирует ../core и ../cov, а Zig
@@ -747,7 +747,7 @@ ledger-check: zig-guard
 
 # Ф2: граф G_src строится ЯДРОМ (`kernx graph`), витрина обязана совпадать.
 graph-check:
-	@$(PYTHON) tools/graph_parity.py
+	@"$(PYTHON)" tools/graph_parity.py
 
 # Ф3: KIMG (флаги/endianness), KERNFS (no-mmap), кэш (13 полей), KERN-X (квоты).
 storage-check: zig-guard
@@ -755,7 +755,7 @@ storage-check: zig-guard
 
 # Ф3.2: CLI `kernc fsck / inspect / diff` на golden-фикстурах.
 kimg-cli-check:
-	@$(PYTHON) tools/kimg_cli_check.py
+	@"$(PYTHON)" tools/kimg_cli_check.py
 
 # Ф4: повторный прогон всех DIVERGED из свидетельства (датасет внешний,
 # поэтому при его отсутствии — SKIP, а не ложный зелёный/красный).
@@ -765,18 +765,18 @@ kimg-cli-check:
 # мутации «доказанных» файлов обязаны переводить T в F.
 # Живой прогон всех 10 возможностей + генерация русской витрины-путеводителя.
 demo-all:
-	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/run_all_10_capabilities_demo.py --write
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" "$(PYTHON)" tools/run_all_10_capabilities_demo.py --write
 anti-self-deception-check:
-	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/anti_self_deception_check.py
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" "$(PYTHON)" tools/anti_self_deception_check.py
 codecheck:
-	@$(PYTHON) tools/codecheck_runner.py
+	@"$(PYTHON)" tools/codecheck_runner.py
 
 # Phase 5: the conformance exam (12 architectural requirements).
 # Slow on purpose: it drives the real CLI and a filtered Zig test, so a broken
 # requirement cannot hide behind a green unit suite.
 conformance-check:
 	@$(ZIG) build
-	@$(PYTHON) tools/conformance_check.py
+	@"$(PYTHON)" tools/conformance_check.py
 
 # ДЕФЕКТ: датасет искался ТОЛЬКО в /tmp, поэтому после любой очистки tmp цель
 # молча уходила в SKIP — «0 строк» читалось как «всё хорошо». Кеш обязан жить
@@ -785,9 +785,9 @@ conformance-check:
 QUIXBUGS ?= $(HOME)/.cache/kern/repos/QuixBugs
 quixbugs-replay:
 	@if [ -d "$(QUIXBUGS)" ]; then \
-	  $(PYTHON) tools/quixbugs_replay.py "$(QUIXBUGS)"; \
+	  "$(PYTHON)" tools/quixbugs_replay.py "$(QUIXBUGS)"; \
 	elif [ -d /tmp/QuixBugs-master ]; then \
-	  $(PYTHON) tools/quixbugs_replay.py /tmp/QuixBugs-master; \
+	  "$(PYTHON)" tools/quixbugs_replay.py /tmp/QuixBugs-master; \
 	else echo "  [SKIP] quixbugs-replay: нет датасета ни в $(QUIXBUGS), ни в /tmp/QuixBugs-master"; \
 	  echo "         клонировать: git clone --depth 1 https://github.com/jkoppel/QuixBugs $(QUIXBUGS)"; fi
 
@@ -796,12 +796,12 @@ quixbugs-replay:
 # ОБЯЗАНА быть поймана, иначе цель падает. Доказательство эквивалентности,
 # не отличающее сломанный рефакторинг от корректного, — фикция.
 diff-equiv: build
-	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/kern_contracts.py --diff-equiv \
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" "$(PYTHON)" tools/kern_contracts.py --diff-equiv \
 		examples/refactor_before.py examples/refactor_after.py; \
 	rc=$$?; if [ $$rc -eq 1 ]; then \
 		echo "[OK] расхождение обнаружено (rc=1) — доказательство не фиктивно"; \
 	else echo "[!] РАСХОЖДЕНИЕ НЕ ОБНАРУЖЕНО (rc=$$rc)"; exit 1; fi
-	@PATH="$(CURDIR)/.venv/bin:$$PATH" $(PYTHON) tools/kern_contracts.py --diff-equiv \
+	@PATH="$(CURDIR)/.venv/bin:$$PATH" "$(PYTHON)" tools/kern_contracts.py --diff-equiv \
 		examples/refactor_before.py examples/refactor_before.py; \
 	rc=$$?; if [ $$rc -eq 1 ]; then \
 		echo "[FAIL] ЛОЖНОЕ ОБВИНЕНИЕ: идентичный файл объявлен DIVERGED"; exit 1; \
@@ -814,7 +814,7 @@ diff-equiv: build
 # initialize, отсутствие ответа на уведомление, tools/list, доказуемый и
 # опровергаемый контракт, сводку пруф-чекера, JOIN_K(T,F)=B, ошибки -32601/-32700.
 mcp-selftest: build
-	@$(PYTHON) tools/mcp_selftest.py
+	@"$(PYTHON)" tools/mcp_selftest.py
 
 # СЖАТИЕ ОБЪЕКТОВ (кодек deflate 0x02) в CLI: сборка --deflate, прозрачная
 # распаковка в `cat` и ОБНАРУЖЕНИЕ порчи сжатого потока. Проверка, а не демо:
@@ -838,12 +838,12 @@ version-check: build
 # обратное. Self-test идёт ПЕРВЫМ: он ловит поломку самого распознавания версии
 # (класс #345 — проверка, которая не может упасть, ничего не доказывает).
 artifact-check: hermetic
-	@$(PYTHON) tools/artifact_check.py --selftest
-	@$(PYTHON) tools/artifact_check.py
+	@"$(PYTHON)" tools/artifact_check.py --selftest
+	@"$(PYTHON)" tools/artifact_check.py
 
 artifact-check-offline: hermetic
-	@$(PYTHON) tools/artifact_check.py --selftest
-	@$(PYTHON) tools/artifact_check.py --offline
+	@"$(PYTHON)" tools/artifact_check.py --selftest
+	@"$(PYTHON)" tools/artifact_check.py --offline
 
 # ==== РАСШИРЕННЫЙ КОНТУР ВЕРИФИКАЦИИ ====
 
@@ -875,7 +875,7 @@ formal-ci: build test test-next lean smt-stress
 
 # Ресурсы ОС: утечки FD и зомби-процессы (тесты в z3_bridge.zig).
 fd-check:
-	$(PYTHON) tools/run_filtered.py "РЕСУРСЫ|ПЧЕЛИНЫЙ"
+	"$(PYTHON)" tools/run_filtered.py "РЕСУРСЫ|ПЧЕЛИНЫЙ"
 
 # ==== ЭШЕЛОНЫ 1-4: ФИНАЛЬНЫЙ ШТУРМ ====
 
@@ -885,13 +885,13 @@ align:
 
 # Эшелон 2: лавинный штурм хэш-таблицы (100 000 мутаций, защита от Hash Flooding).
 avalanche:
-	$(PYTHON) tools/cache_avalanche_bench.py
+	"$(PYTHON)" tools/cache_avalanche_bench.py
 
 # Детерминированный бенчмарк (машиночитаемо): лавина / цепочки коллизий / χ².
 # Это ГЕЙТ, а не украшение: при деградации хэша код возврата ненулевой.
 # График для сайта: python3 tools/bench_json.py --html docs/bench/index.html
 bench-json:
-	@mkdir -p build && $(PYTHON) tools/bench_json.py --json build/kern_bench.json
+	@mkdir -p build && "$(PYTHON)" tools/bench_json.py --json build/kern_bench.json
 
 # Эшелон 3: изнурение пула потоков (128 запросов на 4-8 воркеров, без голодания).
 pool:
@@ -911,7 +911,7 @@ echelons: align avalanche pool semantic-gap
 ZIG13 ?= .venv/bin/zig
 
 portable-bench:
-	@$(PYTHON) tools/portable_check.py
+	@"$(PYTHON)" tools/portable_check.py
 
 # ==== CAN-FAIL: доказательство, что проверки СПОСОБНЫ УПАСТЬ ====
 # Для каждой проверки искусственно ломается её инвариант; цель ОБЯЗАНА
@@ -919,34 +919,34 @@ portable-bench:
 # Найдено так: дефекты #32 (CLI возвращал 0 при провале) и #33 (disasm
 # молча пропускал исчезнувшую функцию).
 canfail:
-	$(PYTHON) tools/canfail.py
+	"$(PYTHON)" tools/canfail.py
 
 # БЫСТРАЯ ПРОВЕРКА ЯКОРЕЙ (дефект #113, красный CI #68/#69): кейсы правят
 # файлы ЛИТЕРАЛЬНЫМИ подстроками. Устаревший якорь роняет весь шаг CAN-FAIL,
 # но только через ~15 минут — здесь это видно за секунду, с именем файла.
 # `canfail` вызывает эту же проверку первым делом (fail fast).
 canfail-anchors:
-	@$(PYTHON) tools/canfail.py --check-anchors
+	@"$(PYTHON)" tools/canfail.py --check-anchors
 
 # КТО ПРОВЕРИТ ПРОВЕРЯЮЩЕГО: мета-проверка самого харнесса.
 # Синтетические входы проверяют, что вердикт не «врёт в обе стороны»:
 #   NOT_VACUOUS / VACUOUS / META_OK / META_FALSE_ALARM.
 canfail-selftest:
-	$(PYTHON) tools/canfail.py --selftest
+	"$(PYTHON)" tools/canfail.py --selftest
 
 # ==== РЕЕСТР ЦЕЛЕЙ (K5) + ПРЕДОХРАНИТЕЛЬ ====
 # Падает, если появилась цель, не отнесённая ни к CHECK/MEASURE/BUILD/META/EXTERNAL.
 registry:
-	$(PYTHON) tools/registry.py --selftest
-	$(PYTHON) tools/registry.py
+	"$(PYTHON)" tools/registry.py --selftest
+	"$(PYTHON)" tools/registry.py
 
 # Геометрия SVG-баннера: подписи не выходят за панели.
 # XML-валидность НЕ ловит этот дефект: строка шире контейнера просто
 # «уезжает» в соседнюю панель, оставаясь валидным XML. Инструмент умеет
 # падать (проверено возвратом длинной строки -> rc=1).
 svg-check:
-	$(PYTHON) tools/svg_check.py
-	$(PYTHON) tools/svg_check.py docs/kern-proof-flow.svg
+	"$(PYTHON)" tools/svg_check.py
+	"$(PYTHON)" tools/svg_check.py docs/kern-proof-flow.svg
 
 # Класс дефектов #220/#223: витрина обещает числа (тесты ядра, каталог,
 # CHECK-цели, кейсы, кросс-архитектура), а они растут с каждой правкой кода.
@@ -959,39 +959,39 @@ svg-check:
 # УЖЕ СОБРАННЫМ `kernx`: саботаж ядра до бинаря не доходил, и гейт оставался
 # зелёным на сломанном коде (ИЗМЕРЕНО кейсом `lean-zig-bridge-blind`: ВАКУУМНА).
 lean-zig-bridge: build
-	$(PYTHON) tools/lean_zig_bridge.py
+	"$(PYTHON)" tools/lean_zig_bridge.py
 
 lean-zig-bridge-selftest:
-	$(PYTHON) tools/lean_zig_bridge.py --selftest
+	"$(PYTHON)" tools/lean_zig_bridge.py --selftest
 
 metrics-guard:
-	$(PYTHON) tools/check_metrics_consistency.py
+	"$(PYTHON)" tools/check_metrics_consistency.py
 
 # Мета-тест стража: подсадки ОБЯЗАНЫ ловиться, история — НЕ трогаться.
 metrics-guard-selftest:
-	$(PYTHON) tools/check_metrics_consistency.py --selftest
-	$(PYTHON) tools/sync_state.py --selftest
+	"$(PYTHON)" tools/check_metrics_consistency.py --selftest
+	"$(PYTHON)" tools/sync_state.py --selftest
 
 # Числа — данные, а не проза: facts.json + якоря <!-- fact:key -->N.
 # `sync` обновляет ТОЛЬКО числа после якорей; история не трогается.
 sync:
-	$(PYTHON) tools/sync_state.py --write
-	$(PYTHON) tools/gen_llms_txt.py --write
-	$(PYTHON) tools/gen_status.py --write
+	"$(PYTHON)" tools/sync_state.py --write
+	"$(PYTHON)" tools/gen_llms_txt.py --write
+	"$(PYTHON)" tools/gen_status.py --write
 
 sync-check:
-	$(PYTHON) tools/sync_state.py --check
+	"$(PYTHON)" tools/sync_state.py --check
 
 # ДЕФЕКТ #311: `llms.txt` — точка входа для ИИ-агентов — не проверял ни один
 # страж, и в нём жили числа, отставшие на десятки единиц. Теперь файл
 # генерируется из docs/facts.json, а `--check` сравнивает байты.
 llms-check:
-	@$(PYTHON) tools/gen_llms_txt.py --check
+	@"$(PYTHON)" tools/gen_llms_txt.py --check
 
 # ДЕФЕКТ #317: семантика целочисленного деления (Python floor vs C truncation
 # против ЕВКЛИДОВА SMT `div`). Регрессия: перевод обязан совпадать с языком.
 arith-semantics-check:
-	@$(PYTHON) tools/arith_semantics_check.py
+	@"$(PYTHON)" tools/arith_semantics_check.py
 
 # ДЕФЕКТ #312/#321: машинные типы C. Параметр `unsigned int` отвергался
 # («одно слово до имени»), а после починки #312 выяснилось, что ТИП ВОЗВРАТА
@@ -1000,7 +1000,7 @@ arith-semantics-check:
 # `ДОКАЗАНО` (#321). Гейт требует вердикт на КАЖДЫЙ целый тип и опровержение
 # переполнения `unsigned` с контрпримером, воспроизведённым `gcc`.
 c-types-check:
-	@$(PYTHON) tools/c_types_check.py
+	@"$(PYTHON)" tools/c_types_check.py
 
 # ДЕФЕКТ #327: активный ГАРД деления должен учитываться. До правки
 # `return 0 if b == 0 else a // b` (гард ЯВНЫЙ) давал ложное обвинение в
@@ -1008,7 +1008,7 @@ c-types-check:
 # ДОКАЗАНО под гардом и ОПРОВЕРГНУТО при недостаточном гарде (`if a > 0`) —
 # то есть проверяет и полноту, и ЗВУЧИМОСТЬ.
 div-guards-check:
-	@$(PYTHON) tools/div_guards_check.py
+	@"$(PYTHON)" tools/div_guards_check.py
 
 # ИСПЫТАНИЕ 3: «зелёный pytest != верный код». Пять функций с контрактами
 # `@kern:` и НАМЕРЕННО СЛАБЫМИ тестами (только «счастливый путь»). Каждая
@@ -1016,10 +1016,10 @@ div-guards-check:
 # `kern` с контрпримером. Гейт измеряет слепое пятно обычных тестов и его
 # закрытие: TP=N/N, TN=N/N, FP=0, FN=0, J=1.00.
 pytest-blind-check:
-	@$(PYTHON) tools/pytest_blind_check.py
+	@"$(PYTHON)" tools/pytest_blind_check.py
 
 pytest-blind-selftest:
-	@$(PYTHON) tools/pytest_blind_check.py --selftest
+	@"$(PYTHON)" tools/pytest_blind_check.py --selftest
 
 # ИСПЫТАНИЕ 1 (охота на класс #349): ДИФФЕРЕНЦИАЛЬНАЯ проверка ЗВУЧИМОСТИ
 # перевода. Матрица (деление/остаток, левая ассоциативность, унарный минус,
@@ -1030,10 +1030,10 @@ pytest-blind-selftest:
 #      класса #349 (floor вместо усечения к нулю) не проходит.
 # Отсутствующий компилятор — НАЗВАННЫЙ SKIP, а не тихое «зелено» (fail-closed).
 translator-diff-check:
-	@$(PYTHON) tools/translator_diff_check.py
+	@"$(PYTHON)" tools/translator_diff_check.py
 
 translator-diff-selftest:
-	@$(PYTHON) tools/translator_diff_check.py --selftest
+	@"$(PYTHON)" tools/translator_diff_check.py --selftest
 
 # ШАГ B (v2.7.0): СИСТЕМНЫЙ аудит числовых утверждений. `metrics-guard` знает
 # СПИСОК поверхностей и конкретные форматы; дефект #320 показал границу такого
@@ -1041,18 +1041,18 @@ translator-diff-selftest:
 # отслеживаемые .md/.html и сравнивает распознанные числа с facts.json.
 # История (CHANGELOG/METRICS/CAPABILITY_STATUS/archive) пропускается.
 claims-audit:
-	@$(PYTHON) tools/claims_audit.py
+	@"$(PYTHON)" tools/claims_audit.py
 
 # ДЕФЕКТ #317: адаптеры деления против НЕЗАВИСИМОГО эталона — встроенных
 # операций Zig (@divTrunc/@divFloor). Фикстура: tests/fixtures/zig_div_reference.tsv.
 arith-zig-ref-check:
-	@$(PYTHON) tools/arith_zig_ref_check.py
+	@"$(PYTHON)" tools/arith_zig_ref_check.py
 
 arith-zig-ref-selftest:
-	@$(PYTHON) tools/arith_zig_ref_check.py --selftest
+	@"$(PYTHON)" tools/arith_zig_ref_check.py --selftest
 
 llms-selftest:
-	@$(PYTHON) tools/gen_llms_txt.py --selftest
+	@"$(PYTHON)" tools/gen_llms_txt.py --selftest
 
 # ШАГ C: `docs/STATUS.md` — снимок текущего состояния проекта. Витрина
 # (`README`, сайт) отвечает «что это», но не «в каком состоянии сейчас», и
@@ -1061,44 +1061,44 @@ llms-selftest:
 # сравнивает байты; заодно он сверяет facts.json с реестром (два источника
 # обязаны сходиться, иначе STATUS показывал бы половину правды).
 status-doc:
-	@$(PYTHON) tools/gen_status.py --write
+	@"$(PYTHON)" tools/gen_status.py --write
 
 status-check:
-	@$(PYTHON) tools/gen_status.py --check
+	@"$(PYTHON)" tools/gen_status.py --check
 
 status-selftest:
-	@$(PYTHON) tools/gen_status.py --selftest
+	@"$(PYTHON)" tools/gen_status.py --selftest
 
 # ШАГ E: УСТАВ. Устав, который нельзя проверить, — пожелание. Каждый закон
 # называет своего проверяющего, и проверяющий запускается. Мета-правило
 # («у каждого закона есть проверяющий») тоже проверяется.
 charter-check:
-	@$(PYTHON) tools/charter_check.py
+	@"$(PYTHON)" tools/charter_check.py
 
 charter-selftest:
-	@$(PYTHON) tools/charter_check.py --selftest
+	@"$(PYTHON)" tools/charter_check.py --selftest
 
 # ШАГ F1: JUnit XML. Результаты проверок были видны только у нас — формата,
 # который понимают GitHub Actions и IDE, не существовало вовсе. Отчёт собирается
 # из ЦЕЛЕЙ (раннер Zig не печатает список тестов построчно) и из УЖЕ СНЯТОГО
 # лога canfail (перепрогон занял бы ~15 минут).
 lang-semantics-check:
-	@$(PYTHON) tools/lang_semantics_check.py
+	@"$(PYTHON)" tools/lang_semantics_check.py
 
 lang-semantics-selftest:
-	@$(PYTHON) tools/lang_semantics_check.py --selftest
+	@"$(PYTHON)" tools/lang_semantics_check.py --selftest
 
 flake-check:
-	@$(PYTHON) tools/flake_check.py --runs 3
+	@"$(PYTHON)" tools/flake_check.py --runs 3
 
 flake-selftest:
-	@$(PYTHON) tools/flake_check.py --selftest
+	@"$(PYTHON)" tools/flake_check.py --selftest
 
 junit:
-	@$(PYTHON) tools/junit_xml.py
+	@"$(PYTHON)" tools/junit_xml.py
 
 junit-selftest:
-	@$(PYTHON) tools/junit_xml.py --selftest
+	@"$(PYTHON)" tools/junit_xml.py --selftest
 
 # ШАГ F3 (дефект #333): свежесть свидетельств. `core_tests.log` утверждал
 # «All 402 tests passed», а живой прогон давал 436 — фазы Ф1–Ф3 добавили тесты,
@@ -1106,10 +1106,10 @@ junit-selftest:
 # числа). Гейт перепрогоняет NATIVE_LIVE-логи и требует метку базовой линии у
 # ENV_DEPENDENT. Числа он НЕ правит: пересъёмка — отдельная команда.
 evidence-freshness:
-	@$(PYTHON) tools/evidence_freshness_check.py
+	@"$(PYTHON)" tools/evidence_freshness_check.py
 
 evidence-freshness-selftest:
-	@$(PYTHON) tools/evidence_freshness_check.py --selftest
+	@"$(PYTHON)" tools/evidence_freshness_check.py --selftest
 
 # ШАГ N2: изоляция временных путей. 60 жёстких путей `/tmp/kern*` — это
 # гонка: два параллельных прогона перетирают файлы друг друга (симптом уже
@@ -1118,36 +1118,36 @@ evidence-freshness-selftest:
 # Храповик: новый неизолированный путь запрещён, унаследованный долг — в
 # `tools/temp_isolation_baseline.txt` (41 путь), вычёркивать по мере починки.
 temp-isolation-check:
-	@$(PYTHON) tools/temp_isolation_check.py
+	@"$(PYTHON)" tools/temp_isolation_check.py
 
 temp-isolation-selftest:
-	@$(PYTHON) tools/temp_isolation_check.py --selftest
+	@"$(PYTHON)" tools/temp_isolation_check.py --selftest
 
 # --- ВИТРИНА: граф Эго-Линзы и карта потока доказательства -------------------
 # Граф импортов и метки модулей НЕ пишутся руками: они пересобираются из
 # `@import` / `test "` / `@kern:` в `src/`. Иначе через месяц витрина показывала
 # бы связи, которых в коде нет — тот же класс, что «125/125» при факте 128.
 showcase:
-	$(PYTHON) tools/gen_showcase_graph.py
+	"$(PYTHON)" tools/gen_showcase_graph.py
 
 showcase-check:
-	@$(PYTHON) tools/showcase_check.py --selftest
-	@$(PYTHON) tools/showcase_check.py
+	@"$(PYTHON)" tools/showcase_check.py --selftest
+	@"$(PYTHON)" tools/showcase_check.py
 
 # ЖИВАЯ ВИТРИНА (§C плана): одна команда, которая ПРОГОНЯЕТ оракул-
 # подтверждённые строки и печатает вердикт из ЖИВОГО вывода, а не из текста.
 # У каждой строки обязательны: выполнимая команда, ВНЕШНИЙ оракул и колонка
 # «чего НЕ доказывает». Модельные семейства перечисляются отдельно.
 showcase-live:
-	@$(PYTHON) tools/showcase_live.py
+	@"$(PYTHON)" tools/showcase_live.py
 
 showcase-live-full:
-	@$(PYTHON) tools/showcase_live.py --full
+	@"$(PYTHON)" tools/showcase_live.py --full
 
 # ВСЕ возможности матрицы (docs/CAPABILITY_MATRIX.md, разделы A–F): каждая
 # строка ВЫПОЛНЯЕТСЯ, а не читается из документа. Быстрый ярус — секунды.
 showcase-live-all:
-	@$(PYTHON) tools/showcase_live.py --all
+	@"$(PYTHON)" tools/showcase_live.py --all
 
 # T7: ВНЕШНЯЯ ПРИЁМКА одной командой. Берёт ОПУБЛИКОВАННЫЙ архив (или скачивает
 # по `curl -4`), проверяет внешнюю и внутреннюю SHA-256, переносимость ISA
@@ -1171,40 +1171,40 @@ double-lock-demo:
 	@bash tools/double_lock_demo.sh
 
 project-spec-check:
-	@$(PYTHON) tools/project_spec.py tests/fixtures/project_spec
+	@"$(PYTHON)" tools/project_spec.py tests/fixtures/project_spec
 	@echo "── многоязычный стенд (C: аксиомы Маккарти @kern:array, Python: контракт) ──"
-	@$(PYTHON) tools/project_spec.py tests/fixtures/project_spec_multi
+	@"$(PYTHON)" tools/project_spec.py tests/fixtures/project_spec_multi
 
 receipts-check:
-	@$(PYTHON) tools/receipts_check.py
+	@"$(PYTHON)" tools/receipts_check.py
 
 receipts-check-selftest:
-	@$(PYTHON) tools/receipts_check.py --selftest
+	@"$(PYTHON)" tools/receipts_check.py --selftest
 
 prove-all-real:
-	@$(PYTHON) tools/prove_all_capabilities_real.py
+	@"$(PYTHON)" tools/prove_all_capabilities_real.py
 
 # ЖИВОЙ СТЕНД «ИИ против KERN»: свободные модели opencode пишут код по спецификации, KERN судит.
 # ТРЕБУЕТ сети и установленного opencode -> класс MEASURE, НЕ гейт CI (без сети честный rc=2).
 ai-vs-kern:
-	$(PYTHON) tools/ai_vs_kern_live.py --models $(AI_MODELS)
+	"$(PYTHON)" tools/ai_vs_kern_live.py --models $(AI_MODELS)
 
 # То же + длинные корпуса (минуты) + долгие (десятки минут).
 showcase-live-all-full:
-	@$(PYTHON) tools/showcase_live.py --all --full
+	@"$(PYTHON)" tools/showcase_live.py --all --full
 
 # ГЕЙТ #399: справка CLI обязана называть КАЖДУЮ реализованную команду.
 # Три свойства из живого прогона: `--help` -> stdout и rc=0; запуск без
 # аргументов -> rc!=0; каждое `std.mem.eql(u8, command, ...)` в src/main.zig
 # названо в справке. selftest — шесть диверсий, каждая обязана краснеть.
 cli-help-parity-check: build
-	@$(PYTHON) tools/cli_help_parity_check.py --selftest
-	@$(PYTHON) tools/cli_help_parity_check.py
+	@"$(PYTHON)" tools/cli_help_parity_check.py --selftest
+	@"$(PYTHON)" tools/cli_help_parity_check.py
 
 # EN/RU: одни и те же факты в обеих витринах (проза может быть сокращённой).
 docs-parity:
-	@$(PYTHON) tools/docs_parity_check.py --selftest
-	@$(PYTHON) tools/docs_parity_check.py
+	@"$(PYTHON)" tools/docs_parity_check.py --selftest
+	@"$(PYTHON)" tools/docs_parity_check.py
 
 # ДЕФЕКТ #335: полнота EN-журнала. docs-parity сверяет ЯКОРЯ фактов, claims-audit
 # сканирует числа — ни один не смотрит, все ли ЗАПИСИ журнала переведены. Гейт
@@ -1218,16 +1218,16 @@ docs-parity:
 # инвариант молчал ПО ПОСТРОЕНИЮ. Теперь для каждой подстроки `| **N.k** |`
 # ближайший предшествующий ЗАГОЛОВОК обязан быть `| **N** |` (`orphans()`).
 journal-parity-check:
-	@$(PYTHON) tools/journal_parity_check.py --selftest
-	@$(PYTHON) tools/journal_parity_check.py
+	@"$(PYTHON)" tools/journal_parity_check.py --selftest
+	@"$(PYTHON)" tools/journal_parity_check.py
 
 # ДЕФЕКТ #350: ТЕКСТ УСТАВА ПРОТИВ ИЗМЕРЕНИЯ. `charter-check` проверяет ЗАКОНЫ,
 # docs-parity — якоря фактов, claims-audit — числа; НИ ОДИН не сверял прозу
 # `docs/CHARTER.md` с выводом самого чекера. В итоге устав говорил «6 доказано,
 # 2 не покрыты», а гейт измерял «8 | 8 | 0». Этот гейт закрывает класс.
 charter-text-check:
-	@$(PYTHON) tools/charter_text_check.py --selftest
-	@$(PYTHON) tools/charter_text_check.py
+	@"$(PYTHON)" tools/charter_text_check.py --selftest
+	@"$(PYTHON)" tools/charter_text_check.py
 
 # ДЕФЕКТ #354: ССЫЛКА В README НА НЕСУЩЕСТВУЮЩИЙ ФАЙЛ. Коммит релиза v2.7.1
 # (`7480996`) добавил в ОБА README строку `[Plan v2.7.1](docs/PLAN_v2.7.1.md)`,
@@ -1235,15 +1235,15 @@ charter-text-check:
 # якоря фактов, claims-audit — числа, journal-parity — номера записей; битую
 # ссылку не видел никто. Гейт проверяет все ОТНОСИТЕЛЬНЫЕ ссылки обоих README.
 readme-link-check:
-	@$(PYTHON) tools/readme_link_check.py --selftest
-	@$(PYTHON) tools/readme_link_check.py
+	@"$(PYTHON)" tools/readme_link_check.py --selftest
+	@"$(PYTHON)" tools/readme_link_check.py
 
 # ДЕФЕКТЫ #402/#403/#404: КАРТА ДОКУМЕНТАЦИИ. `docs/README.md` не проверялась
 # ничем: строка была СКЛЕЕНА из двух (`||`, #402), 21+4 ключевых документа не
 # упоминались вовсе (#403), диапазоны разделов устарели (#404).
 docs-map-check:
-	@$(PYTHON) tools/docs_map_check.py --selftest
-	@$(PYTHON) tools/docs_map_check.py
+	@"$(PYTHON)" tools/docs_map_check.py --selftest
+	@"$(PYTHON)" tools/docs_map_check.py
 
 # ЭТАП 3: ПАРНЫЙ БЕНЧМАРК NIST Juliet-style (bad vs good) по девяти классам
 # MITRE CWE. Требуются обе мировые метрики идеальными: индекс Юдена NIST SARD
@@ -1251,8 +1251,8 @@ docs-map-check:
 # Одиночный `bad` доказал бы только чувствительность; пара `bad`+`good`
 # проверяет и точность — ложное обвинение `good` стоит 16 очков.
 cwe-twins-check:
-	@$(PYTHON) tools/cwe_twins_check.py --selftest
-	@$(PYTHON) tools/cwe_twins_check.py
+	@"$(PYTHON)" tools/cwe_twins_check.py --selftest
+	@"$(PYTHON)" tools/cwe_twins_check.py
 
 # ЭТАП 4А: ПОЛИГОН ИИ-ЛОВУШЕК. Шесть задокументированных способов, которыми
 # LLM обманывает обычные тесты (тайное сужение requires, противоречивое
@@ -1262,8 +1262,8 @@ cwe-twins-check:
 # опечатка в фикстуре засчиталась бы за перехват; (Б) честный близнец каждого
 # класса ДОКАЗАН (`PASS`/`PROVEN`), а не пропущен — SKIP не считается.
 ai-traps-check:
-	@$(PYTHON) tools/ai_traps_check.py --selftest
-	@$(PYTHON) tools/ai_traps_check.py
+	@"$(PYTHON)" tools/ai_traps_check.py --selftest
+	@"$(PYTHON)" tools/ai_traps_check.py
 
 # ЭТАП 4Б: QuixBugs через `--diff-equiv` — АНАЛИТИЧЕСКИ, без прогона тестов.
 # Главный инвариант звучимости: `false_equivalent == 0` (ни одна багованная пара
@@ -1273,8 +1273,8 @@ ai-traps-check:
 # парами ЧЕСТНО пропускается вслух, но контрольная половина выполняется ВСЕГДА —
 # значит гейт не бывает вакуумным.
 quixbugs-diff-check:
-	@$(PYTHON) tools/quixbugs_diff_check.py --selftest
-	@$(PYTHON) tools/quixbugs_diff_check.py
+	@"$(PYTHON)" tools/quixbugs_diff_check.py --selftest
+	@"$(PYTHON)" tools/quixbugs_diff_check.py
 
 # ЭТАП 5: ИЗМЕРЕННАЯ матрица возможностей на РЕАЛЬНЫХ внешних задачах +
 # сквозная «анатомия одной функции» из шести режимов. Правила те же, что в
@@ -1282,16 +1282,16 @@ quixbugs-diff-check:
 # нужны ОБЕ половины (bad пойман ТОЧНЫМ маркером И good ДОКАЗАН); (Б) режим
 # движка назван в таблице (QF_LIA vs QF_BV), чтобы «доказано» не скрывало ЧЕМ.
 real-cases-check:
-	@$(PYTHON) tools/real_cases_check.py --selftest
-	@$(PYTHON) tools/real_cases_check.py
+	@"$(PYTHON)" tools/real_cases_check.py --selftest
+	@"$(PYTHON)" tools/real_cases_check.py
 
 # ШАГ 1 (барьер «вызов = SKIP»): ИНЛАЙНИНГ ВЫЗОВОВ ИЗ ТОГО ЖЕ ФАЙЛА.
 # Гейт проверяет ПЯТЬ свойств, три из которых — про ЗВУЧИМОСТЬ: позитив
 # доказывается, баг внутри хелпера опровергается ТОЧНЫМ контрпримером, КОЛЛИЗИЯ
 # ИМЁН не даёт ложного PROVEN, прямая и взаимная рекурсия не роняют инструмент.
 inline-check:
-	@$(PYTHON) tools/inline_check.py --selftest
-	@$(PYTHON) tools/inline_check.py
+	@"$(PYTHON)" tools/inline_check.py --selftest
+	@"$(PYTHON)" tools/inline_check.py
 
 # ИНФРАСТРУКТУРНЫЙ ДОЛГ: прогон ОФИЦИАЛЬНОГО банка SMT-LIB НЕ был закреплён.
 # Подкоманда `kernc smtlib` существовала, прогон делался (1104/1104, 1796/1796),
@@ -1299,8 +1299,8 @@ inline-check:
 # `:status` осталась бы невидимой. Гейт закрывает это на ЗАКРЕПЛЁННОЙ выборке
 # официальных файлов (SMT-LIB/benchmark-submission-2025, QF_S, CC-BY-4.0).
 smtlib-bench-check:
-	@$(PYTHON) tools/smtlib_bench_check.py --selftest
-	@$(PYTHON) tools/smtlib_bench_check.py
+	@"$(PYTHON)" tools/smtlib_bench_check.py --selftest
+	@"$(PYTHON)" tools/smtlib_bench_check.py
 
 # SMT-COMP PROOF-CHECKING TRACK: 4 теории ОФИЦИАЛЬНОГО SMT-LIB.
 # `smtlib-bench-check` выше проверяет только СТРОКУ `sat/unsat` — это проверка
@@ -1314,8 +1314,8 @@ smtlib-bench-check:
 # остаются доверенными: правил для битовых векторов в чекере нет. Число
 # печатается, а не подменяется.
 smtlib-proof-check:
-	@$(PYTHON) tools/smtlib_proof_check.py --selftest
-	@$(PYTHON) tools/smtlib_proof_check.py
+	@"$(PYTHON)" tools/smtlib_proof_check.py --selftest
+	@"$(PYTHON)" tools/smtlib_proof_check.py
 
 # ДЕФЕКТ #367: `--xray` для C не имел детектора переполнения ОБЫЧНОГО
 # выражения (только размер аллокации). ИЗМЕРЕНО на официальной категории
@@ -1325,8 +1325,8 @@ smtlib-proof-check:
 # давала ЛОЖНОЕ обвинение (дефект #368: повышение до int, тип long,
 # беззнаковое заворачивание, гард через `exit`).
 xray-overflow-check:
-	@$(PYTHON) tools/xray_overflow_check.py --selftest
-	@$(PYTHON) tools/xray_overflow_check.py
+	@"$(PYTHON)" tools/xray_overflow_check.py --selftest
+	@"$(PYTHON)" tools/xray_overflow_check.py
 
 # SV-COMP: 4 ОФИЦИАЛЬНЫЕ КАТЕГОРИИ + ВАЛИДАЦИЯ СВИДЕТЕЛЯ (Witness Validation).
 # В SV-COMP вердикт НЕ засчитывается без ПОДТВЕРЖДЁННОГО свидетеля. Гейт
@@ -1337,8 +1337,8 @@ xray-overflow-check:
 # ТРЕВОГЕ (сигнал на `SAFE`), ЛОЖНОМ ДОПУСКЕ (`UNSAFE` без свидетеля), ВАКУУМЕ
 # категории и несобравшемся стенде.
 svcomp-witness-check:
-	@$(PYTHON) tools/svcomp_witness_check.py --selftest
-	@$(PYTHON) tools/svcomp_witness_check.py
+	@"$(PYTHON)" tools/svcomp_witness_check.py --selftest
+	@"$(PYTHON)" tools/svcomp_witness_check.py
 
 # НАТИВНЫЙ ФРОНТЕНД `.zig` НА `std.zig.Ast` (БЕЗ Python): `kernc verify-zig`.
 # Требует ОБЕ половины на нативном пути: `addGuarded`/`divOk` ДОКАЗАНЫ,
@@ -1359,14 +1359,14 @@ native-theories-file-check:
 # падают с ZeroDivisionError. Краснит на ЛОЖНОМ обвинении (Python не упал),
 # НЕДОБОРЕ слепых пятен и ВАКУУМЕ.
 mbpp-xray-check:
-	@$(PYTHON) tools/mbpp_xray_check.py --selftest
-	@$(PYTHON) tools/mbpp_xray_check.py
+	@"$(PYTHON)" tools/mbpp_xray_check.py --selftest
+	@"$(PYTHON)" tools/mbpp_xray_check.py
 
 # Запрет ИИ-шаблонов в тексте/коммитах; легитимные упоминания MCP-клиентов
 # (MCP-клиенты) НЕ ловятся.
 ai-traces-check:
-	@$(PYTHON) tools/ai_traces_check.py --selftest
-	@$(PYTHON) tools/ai_traces_check.py
+	@"$(PYTHON)" tools/ai_traces_check.py --selftest
+	@"$(PYTHON)" tools/ai_traces_check.py
 
 # ==== CI: ЕДИНЫЙ КОНТУР ПРОВЕРКИ ====
 # Обязательный набор стадий. Красный CI = мержить нельзя.
@@ -1386,23 +1386,23 @@ audit: build
 
 # UNSAT CORE: локализация конфликтующей строки контракта.
 localize:
-	$(PYTHON) tools/run_filtered.py "UNSAT CORE"
+	"$(PYTHON)" tools/run_filtered.py "UNSAT CORE"
 
 # ТЕОРИЯ МАССИВОВ: аксиомы Маккарти, алиасинг, выход за границы.
 arrays:
-	$(PYTHON) tools/run_filtered.py "ARRAY"
+	"$(PYTHON)" tools/run_filtered.py "ARRAY"
 
 # CHC / HORN: синтез инвариантов циклов через Z3 SPACER.
 chc:
-	$(PYTHON) tools/run_filtered.py "CHC"
+	"$(PYTHON)" tools/run_filtered.py "CHC"
 
 # СТРОКИ (QF_S): path traversal, нуль-байт, regex.
 strings:
-	$(PYTHON) tools/run_filtered.py "STRINGS"
+	"$(PYTHON)" tools/run_filtered.py "STRINGS"
 
 # CEGIS: синтез программы по спецификации (SyGuS).
 cegis:
-	$(PYTHON) tools/run_filtered.py "CEGIS"
+	"$(PYTHON)" tools/run_filtered.py "CEGIS"
 
 # Весь математический контур тестами.
 theories: localize arrays chc strings cegis
@@ -1435,7 +1435,7 @@ chc-bench:
 # Покрытие решений (self-instrumented: Zig 0.13 не умеет LLVM coverage).
 # Печатает отчёт по инструментированным решениям и падает при < 95 %.
 coverage:
-	$(PYTHON) tools/coverage_check.py 100
+	"$(PYTHON)" tools/coverage_check.py 100
 
 # C-ABI: libkern.so + libkern.a + include/kern.h (встраивание без CLI).
 lib:
@@ -1460,7 +1460,7 @@ c-abi-threads: lib
 	@LD_LIBRARY_PATH=zig-out/lib build/kern_cabi_th
 
 capi-demo: lib
-	$(PYTHON) examples/capi_demo.py
+	"$(PYTHON)" examples/capi_demo.py
 
 # Герметичная статическая сборка (x86_64-linux-musl) + проверка воспроизводимости.
 hermetic:
@@ -1471,47 +1471,47 @@ hermetic:
 # Двухшаговая схема: контент-коммит N -> make seal -> коммит N+1 только
 # с артефактами аттестата (attests_commit = N). `--check` принимает HEAD/HEAD~1.
 seal: hermetic
-	@$(PYTHON) tools/slsa_provenance.py --no-build
-	@$(PYTHON) tools/slsa_provenance.py --check
+	@"$(PYTHON)" tools/slsa_provenance.py --no-build
+	@"$(PYTHON)" tools/slsa_provenance.py --check
 
 # ШАГ 0K.4: поиск секретов в отслеживаемых файлах (ключи провайдеров,
 # приватные ключи PEM). Совпадения печатаются РЕДАКТИРОВАННЫМИ.
 secrets-check:
-	@$(PYTHON) tools/secrets_check.py --selftest
-	@$(PYTHON) tools/secrets_check.py
+	@"$(PYTHON)" tools/secrets_check.py --selftest
+	@"$(PYTHON)" tools/secrets_check.py
 
 # ШАГ 0K.6: один вход, два прогона -> один вердикт (решатель детерминирован).
 determinism-check:
-	@$(PYTHON) tools/determinism_check.py
+	@"$(PYTHON)" tools/determinism_check.py
 
 # ШАГ 0K.8: версия из src/main.zig обязана иметь раздел в CHANGELOG.
 changelog-check:
-	@$(PYTHON) tools/changelog_check.py
+	@"$(PYTHON)" tools/changelog_check.py
 
 # ШАГ 0K.7: lean-toolchain и formal/mathlib.lock совпадают с установленным.
 lean-pin-check:
-	@$(PYTHON) tools/lean_pin_check.py
+	@"$(PYTHON)" tools/lean_pin_check.py
 
 # ШАГ 0K.9: документы доверия на месте и отпечаток ключа совпадает с файлом.
 trust-docs-check:
-	@$(PYTHON) tools/trust_docs_check.py
+	@"$(PYTHON)" tools/trust_docs_check.py
 
 # ШАГ 0K.12: порог производительности (медиана 15 прогонов kernc prove).
 # Базовая линия: docs/evidence/bench_baseline.json (обновить: --update).
 perf-check:
-	@$(PYTHON) tools/perf_check.py
+	@"$(PYTHON)" tools/perf_check.py
 
 # ШАГ 0J: библиография как данные — ключи, ссылки файл:строка, теоремы, статусы.
 citations-check:
-	@$(PYTHON) tools/citations_check.py --selftest
-	@$(PYTHON) tools/citations_check.py
+	@"$(PYTHON)" tools/citations_check.py --selftest
+	@"$(PYTHON)" tools/citations_check.py
 
 # ШАГ 0K.2: проверка аттестата ВНЕШНИМ ключом — публичный ключ лежит в
 # репозитории (`docs/keys/kern-owner.pub`), приватный не нужен, `$HOME` не
 # используется. Именно это делает утверждение «attestation ✓» проверяемым
 # кем угодно, а не только владельцем машины.
 verify-attestation:
-	@$(PYTHON) tools/verify_attestation.py
+	@"$(PYTHON)" tools/verify_attestation.py
 
 # Что изменено и что из этого сгенерировано (а не написано руками).
 status:
@@ -1527,15 +1527,15 @@ fuzz-1m:
 
 # Слабые модели памяти: литмус-тесты SB/MP (TSO vs ARM64).
 litmus:
-	$(PYTHON) tools/run_filtered.py "LITMUS"
+	"$(PYTHON)" tools/run_filtered.py "LITMUS"
 
 # Конколическое исполнение (гибрид фаззинга и символьного движка).
 concolic:
-	$(PYTHON) tools/run_filtered.py "CONCOLIC"
+	"$(PYTHON)" tools/run_filtered.py "CONCOLIC"
 
 # Вероятностный модел-чекинг DTMC/PCTL.
 dtmc:
-	$(PYTHON) tools/run_filtered.py "DTMC"
+	"$(PYTHON)" tools/run_filtered.py "DTMC"
 
 # ФИЗИЧЕСКИЙ ОРАКУЛ DTMC (шаг D плана): аналитика ядра против РЕАЛЬНОЙ
 # симуляции. Модель против модели — вакуум; здесь 10 000 случайных блужданий
@@ -1543,7 +1543,7 @@ dtmc:
 # плюс невакуумность (P не 0 и не 1) и негативный контроль (неверное
 # значение отвергается) — без них сравнение фиктивно.
 oracle-dtmc-check: build
-	$(PYTHON) tools/oracle_dtmc_check.py
+	"$(PYTHON)" tools/oracle_dtmc_check.py
 
 # ШАГ D: ФИЗИЧЕСКИЙ ОРАКУЛ ReDoS. Нативный анализ `redos.zig` против РЕАЛЬНОГО
 # движка Python: каждая регулярка прогоняется `re.fullmatch` в ИЗОЛИРОВАННОМ
@@ -1551,28 +1551,28 @@ oracle-dtmc-check: build
 # обвинение / пропуск / граница). Плюс fail-closed проверка (#385): синтаксис
 # вне подмножества парсера обязан быть SKIP, а не «ДОКАЗАНО».
 oracle-redos-check: build
-	$(PYTHON) tools/oracle_redos_check.py
+	"$(PYTHON)" tools/oracle_redos_check.py
 
 # ШАГ D: ФИЗИЧЕСКИЙ ОРАКУЛ absint. Абстрактный инвариант линейного цикла против
 # РЕАЛЬНОГО прогона цикла в Python: каждое наблюдённое значение на входе цикла
 # обязано лежать в инварианте, а значение выхода — в exit_state. Абстрактный
 # результат, НЕ содержащий реального значения, — это ложь (unsound).
 oracle-absint-check: build
-	$(PYTHON) tools/oracle_absint_check.py
+	"$(PYTHON)" tools/oracle_absint_check.py
 
 # ШАГ D: ФИЗИЧЕСКИЙ ОРАКУЛ CHC/Horn. Вердикт ядра (`sat` = инвариант есть,
 # `unsat` = инварианта нет) против РЕАЛЬНОГО прогона цикла: цикл детерминирован,
 # поэтому один прогон — это вся траектория, и расхождение в любую сторону есть
 # ошибка (ложное доказательство или ложная тревога).
 oracle-chc-check: build
-	$(PYTHON) tools/oracle_chc_check.py
+	"$(PYTHON)" tools/oracle_chc_check.py
 
 # ШАГ D: ФИЗИЧЕСКИЙ ОРАКУЛ ПУТЕЙ. Санитайзер KERNFS (`validatePath`) против
 # РЕАЛЬНОЙ файловой системы: в песочнице создаётся канарейка ВНЕ корня, и для
 # каждого пути делается настоящая попытка `open(root + path)`. Отказ считается
 # НЕСУЩИМ только если наивная конкатенация реально читает канарейку.
 oracle-string-check: build
-	$(PYTHON) tools/oracle_string_check.py
+	"$(PYTHON)" tools/oracle_string_check.py
 
 # ШАГ D: ФИЗИЧЕСКИЙ ОРАКУЛ НЕВМЕШАТЕЛЬСТВА (2-Safety). Статический taint-анализ
 # (`kernc theory` с формой `nonint`) сверяется с РЕАЛЬНЫМ временем: настоящие
@@ -1580,23 +1580,23 @@ oracle-string-check: build
 # в РАЗНЫХ ПОЗИЦИЯХ. Это СТАТИСТИЧЕСКИЙ оракул (шум планировщика ОС): минимум
 # из N прогонов, порог с запасом, доказательством не объявляется.
 oracle-noninterference-check: build
-	$(PYTHON) tools/oracle_noninterference_check.py
+	"$(PYTHON)" tools/oracle_noninterference_check.py
 
 # Абстрактная интерпретация (интервалы + widening/narrowing).
 absint:
-	$(PYTHON) tools/run_filtered.py "ABSINT"
+	"$(PYTHON)" tools/run_filtered.py "ABSINT"
 
 # Нелинейная арифметика (QF_NRA) и кванторы (E-matching).
 nra:
-	$(PYTHON) tools/run_filtered.py "NRA|QUANT"
+	"$(PYTHON)" tools/run_filtered.py "NRA|QUANT"
 
 # Невмешательство / гиперсвойства (сайд-каналы, constant-time).
 noninterference:
-	$(PYTHON) tools/run_filtered.py "NONINTERFERENCE"
+	"$(PYTHON)" tools/run_filtered.py "NONINTERFERENCE"
 
 # ReDoS-анализ регулярных выражений (CWE-1333).
 redos:
-	$(PYTHON) tools/run_filtered.py "REDOS"
+	"$(PYTHON)" tools/run_filtered.py "REDOS"
 
 # Кросс-архитектурная проверка: ARM64 (выравнивание) + POWERPC64 (big-endian).
 cross-arch:
@@ -1613,7 +1613,7 @@ binlevel:
 
 # Только семантический зонд (дайджест одного уровня оптимизации).
 probe:
-	$(PYTHON) tools/probe_check.py
+	"$(PYTHON)" tools/probe_check.py
 
 # Детерминированный симуляционный тест (VOPR-стиль, как TigerBeetle).
 # Тот же сид → та же история на любой машине. Инварианты I1-I4 + I5 (гонки).
@@ -1628,37 +1628,37 @@ os-stress:
 
 # Сигнальный флуд: каскадный штурм сигналами (внешние сигналы во время работы).
 flood:
-	$(PYTHON) tools/os_signal_flood.py
+	"$(PYTHON)" tools/os_signal_flood.py
 
 # Независимая проверка выводов Z3 (Python, структурная + гигиена связываний).
 proof-check:
-	$(PYTHON) tools/proof_checker.py
+	"$(PYTHON)" tools/proof_checker.py
 
 # ДЕФЕКТ #344: три тождества EVM из Yellow Paper обязаны иметь ДОВЕРЕННОЕ
 # доказательство (`trusted: 0 | holes: 0`), а не «решатель сказал».
 evm-proof-check: build
-	@$(PYTHON) tools/evm_proof_check.py
+	@"$(PYTHON)" tools/evm_proof_check.py
 
 # ДЕФЕКТ #342: `@kern:lang evm` — РАБОЧИЙ фронтенд, а не мёртвая строка таблицы.
 # Проверка ДВУСТОРОННЯЯ: с директивой EVM-семантика (усечение) доказывается,
 # без неё тот же код ОБЯЗАН нарушить контракт (иначе директива ничего не меняет).
 evm-lang-check: build
-	@$(PYTHON) tools/evm_lang_check.py --selftest
-	@$(PYTHON) tools/evm_lang_check.py
+	@"$(PYTHON)" tools/evm_lang_check.py --selftest
+	@"$(PYTHON)" tools/evm_lang_check.py
 
 # Diff-Disasm: ассемблер Debug vs ReleaseFast — не вырезал ли оптимизатор
 # критические проверки (защита от Dead Code Elimination).
 disasm:
-	$(PYTHON) tools/diff_disasm.py
+	"$(PYTHON)" tools/diff_disasm.py
 
 # SLSA Provenance: аттестат цепочки сборки (бинарник ↔ коммит ↔ команда).
 slsa:
-	$(PYTHON) tools/slsa_provenance.py --no-build
-	@$(PYTHON) tools/slsa_provenance.py --check
+	"$(PYTHON)" tools/slsa_provenance.py --no-build
+	@"$(PYTHON)" tools/slsa_provenance.py --check
 
 # Design by Contract: контракты @deal -> SMT-LIB -> вердикт Z3.
 deal:
-	$(PYTHON) tools/deal_contracts.py
+	"$(PYTHON)" tools/deal_contracts.py
 
 # Нормативный пакет Tool Qualification (DO-330 / EAL7).
 cert:
@@ -1683,7 +1683,7 @@ audit-manifest:
 
 # MBPP+ через API (генерация + официальная оценка EvalPlus).
 mbpp: 
-	$(PYTHON) tools/humaneval_api.py --dataset mbpp --model $${MODEL_NAME:?задайте MODEL_NAME=<модель>} \
+	"$(PYTHON)" tools/humaneval_api.py --dataset mbpp --model $${MODEL_NAME:?задайте MODEL_NAME=<модель>} \
 		--out samples_mbpp.jsonl --workers 8
 	./.venv-evalplus/bin/python -m evalplus.evaluate --dataset mbpp --samples samples_mbpp.jsonl
 

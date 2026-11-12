@@ -34,6 +34,12 @@ v_act=$(grep -oE "default: 'v[0-9]+\.[0-9]+\.[0-9]+'" action.yml | head -1 | gre
 # хотя `gen_mcp_manifests.py --write` его не перезаписывает (только читает).
 # Ровно класс #97/#292/#343: поверхность версии вне единого источника.
 v_smith=$(grep -oE 'version: "[0-9]+\.[0-9]+\.[0-9]+"' smithery.yaml | head -1 | grep -oE '[0-9.]+')
+# 14-я поверхность (дефект #641): `examples/ci/kern-gate.yml` — ОБРАЗЕЦ для чужих
+# репозиториев, который пиннит `newmathphys/kern@vX.Y.Z`. Он дрейфовал незаметно:
+# к v2.8.24 он стоял на v2.8.3, и падал не гейт версий, а `action-check` — то есть
+# следствие, а не причина. Теперь пиннинг образца входит в ЕДИНЫЙ гейт версий.
+v_pin=$(grep -oE 'newmathphys/kern@v[0-9]+\.[0-9]+\.[0-9]+' examples/ci/kern-gate.yml \
+  | head -1 | grep -oE 'v[0-9.]+')
 
 echo "  kernc --version : ${v_c:-нет}"
 echo "  kernc баннер    : ${b_c:-нет}"
@@ -46,6 +52,7 @@ echo "  src/capi.zig    : ${v_capi:-нет}"
 echo "  server.json     : v${v_srv:-нет}"
 echo "  action.yml      : ${v_act:-нет} (тег, с которого Action качает бинарь)"
 echo "  smithery.yaml   : v${v_smith:-нет} (13-я поверхность, дефект #356)"
+echo "  kern-gate.yml   : ${v_pin:-нет} (14-я поверхность, дефект #641 — пиннинг образца)"
 
 [ -n "$v_c" ] || bad "не удалось прочитать версию из kernc --version"
 [ "$v_c" = "$b_c" ] || bad "kernc: --version ($v_c) != баннер ($b_c) — версия продублирована и разошлась"
@@ -61,6 +68,8 @@ echo "  smithery.yaml   : v${v_smith:-нет} (13-я поверхность, д�
 [ "$v_act" = "$v_c" ] || bad "action.yml ($v_act) != kernc ($v_c) — Action скачает другой релиз"
 [ -n "$v_smith" ] || bad "не удалось прочитать version из smithery.yaml"
 [ "v$v_smith" = "$v_c" ] || bad "smithery.yaml (v$v_smith) != kernc ($v_c) — каталог Smithery объявит другую версию"
+[ -n "$v_pin" ] || bad "не удалось прочитать пиннинг newmathphys/kern@vX.Y.Z из examples/ci/kern-gate.yml"
+[ "$v_pin" = "$v_c" ] || bad "examples/ci/kern-gate.yml ($v_pin) != kernc ($v_c) — чужой репозиторий по образцу возьмёт другой релиз (#641)"
 
 # 12-я поверхность (дефект #343): версия внутри JSON-отчёта. Она была зашита
 # литералом `2.4.0` и разошлась с бинарником; внешний исследователь заметил это,
