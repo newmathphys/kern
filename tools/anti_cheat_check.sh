@@ -18,7 +18,8 @@ fail() { echo "[!] $1"; exit 1; }
 for k in "always-true __eq__" "exit inside tested code" "swallowed assert" "mock in production" "test-case overfitting" \
          "dynamic dunder override (setattr)" "dynamic dunder override (assign)" \
          "monkeypatch of imported module attribute" "monkeypatch via setattr" \
-         "unconditional skip inside a test" "test skipped by raise" "test disabled by a decorator"; do
+         "unconditional skip inside a test" "test skipped by raise" "test disabled by a decorator" \
+         "vacuous test (no assertion"; do
   echo "$OUT" | grep -q "CHEAT DETECTED: .*$k" || fail "чит НЕ пойман: $k"
 done
 

@@ -643,6 +643,8 @@ CASE_TARGET = {
     "release-assets": "release-assets-check",
     # #656: подпись WASM-песочницы (case-name -> make-target).
     "playground": "playground-check",
+    # #661: детектор пустых тестов (R6) под охраной canfail.
+    "vacuous-test": "anti-cheat-check",
     # ШАГ 2: диверсия «доктор снят» ловится сухим прогоном шагов action.yml.
     "action-doctor": "action-check",
     # #505: диверсия «гейт ослеп» ловится сквозным пилотом на мини-фикстуре.

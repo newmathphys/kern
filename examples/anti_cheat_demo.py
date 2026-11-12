@@ -83,3 +83,14 @@ Neighbour.__eq__ = lambda self, other: True    # (1'') ПРЯМОЕ присва
 @pytest.mark.skip                              # (5'') декоратор отключает тест целиком
 def test_disabled_by_decorator():
     assert False
+
+
+def test_vacuous_no_assertion():
+    """(6) ПУСТОЙ ТЕСТ: ни assert, ни self.assert*, ни pytest.raises.
+
+    ДЕФЕКТ #661: такой тест даёт rc=0 и 100 % покрытия при нулевой проверке.
+    Фикстура стоит здесь, чтобы гейт `anti-cheat-check` требовал этот класс
+    читов, а canfail-кейс `vacuous-test` мог доказать, что детектор СПОСОБЕН
+    упасть, если правило ослабят.
+    """
+    _ = 1 + 1

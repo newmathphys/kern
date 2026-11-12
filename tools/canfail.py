@@ -2905,6 +2905,20 @@ def case_playground():
     return "make playground-check"
 
 
+def case_vacuous_test():
+    """#661 SABOTAGE: детектор ПУСТЫХ тестов ослаблен -> гейт обязан покраснеть.
+
+    ЛОМАЕМ ПОВЕДЕНИЕ, а не текст: правило «тест без утверждения» отключается
+    (`if not has_evidence:` -> `if False:`). Тогда фикстура `test_vacuous_no_assertion`
+    в `examples/anti_cheat_demo.py` перестаёт ловиться, и `make anti-cheat-check`
+    обязан упасть на требовании «чит НЕ пойман: vacuous test».
+    """
+    patch("tools/kern_contracts.py",
+          "                if not (returns_value or returns_typed):",
+          "                if False:  # ЛОМАЕМ (canfail: vacuous-test)")
+    return "make anti-cheat-check"
+
+
 def case_casetarget_gap():
     """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
 
@@ -4716,6 +4730,8 @@ CASES = [
      case_release_assets),
     ("playground", "подпись песочницы не по тем байтам -> гейт красный",
      case_playground),
+    ("vacuous-test", "детектор пустых тестов отключён -> гейт красный",
+     case_vacuous_test),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",

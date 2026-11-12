@@ -85,7 +85,7 @@
 | `action-firewall-check` | `action-firewall-check` | — | `make action-firewall-check` |
 | `ai-demo` | `ai-demo` | — | `make ai-demo` |
 | `ai-traps-check` | `ai-traps` | — | `make ai-traps-check` |
-| `anti-cheat-check` | `anti-cheat-check` | — | `make anti-cheat-check` |
+| `anti-cheat-check` | `anti-cheat-check`, `vacuous-test` | — | `make anti-cheat-check` |
 | `anti-self-deception-check` | `anti-self-deception-fixture` | — | `make anti-self-deception-check` |
 | `arbitrage-check` | `arbitrage-check` | — | `make arbitrage-check` |
 | `attack` | `attack` | — | `make attack` |
@@ -255,7 +255,7 @@
 ## Паритет с реестром
 
 Целей в карте: **212**; класс CHECK в `registry.py`: **212**;
-записей `CASE_TARGET`: **256** (make-исполнимых **252**); без кейса вне `NO_CASE_OK`: **0**.
+записей `CASE_TARGET`: **257** (make-исполнимых **253**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->492 ·

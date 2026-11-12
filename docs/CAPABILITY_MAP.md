@@ -86,7 +86,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `action-firewall-check` | `action-firewall-check` | — | `make action-firewall-check` |
 | `ai-demo` | `ai-demo` | — | `make ai-demo` |
 | `ai-traps-check` | `ai-traps` | — | `make ai-traps-check` |
-| `anti-cheat-check` | `anti-cheat-check` | — | `make anti-cheat-check` |
+| `anti-cheat-check` | `anti-cheat-check`, `vacuous-test` | — | `make anti-cheat-check` |
 | `anti-self-deception-check` | `anti-self-deception-fixture` | — | `make anti-self-deception-check` |
 | `arbitrage-check` | `arbitrage-check` | — | `make arbitrage-check` |
 | `attack` | `attack` | — | `make attack` |
@@ -256,7 +256,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 ## Registry parity
 
 Targets in the map: **212**; class CHECK in `registry.py`: **212**;
-`CASE_TARGET` records: **256** (make-executable **252**); without a case outside `NO_CASE_OK`: **0**.
+`CASE_TARGET` records: **257** (make-executable **253**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 ·
