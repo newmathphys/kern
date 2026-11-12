@@ -88,7 +88,9 @@ OVERRIDES: dict[str, str] = {
                           # подряд прошли молча; теперь это отдельный гейт.
                           "release-assets-check", "release-assets-online",
                           # #656: подпись WASM-песочницы == исполняемые байты.
-                          "playground-check", "playground")},
+                          "playground-check", "playground",
+                          # #668: очная дуэль 12 раундов — тоже самозащита конвейера.
+                          "head-to-head-check")},
 
 
     # E1 — формальное ядро: теории, доказательства, контракты.

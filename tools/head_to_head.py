@@ -28,9 +28,11 @@ ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
 KC = str(ROOT / "tools" / "kern_contracts.py")
 DOC = ROOT / "docs" / "WHY_ONLY_KERN.md"
-# ПОРОГ ЧЕСТНОСТИ (#668): стенд обязан выигрывать ВСЕ раунды, которые объявлены
-# выигранными. Ослабить порог = сделать стенд декорацией, поэтому он под canfail.
-MIN_WINS = 12
+# ПОРОГ ЧЕСТНОСТИ (#668): стенд обязан выигрывать ВСЕ объявленные раунды. Порог
+# привязан к ФАКТИЧЕСКОМУ числу раундов, а не к константе: иначе при добавлении
+# 13-го раунда «12 из 13» всё ещё давало бы rc=0 — «карман», в котором ослабление
+# стенда проходит незамеченным. Ноль допускается по умолчанию.
+TOLERATED_GAPS = 0
 
 
 def run(cmd: list[str], cwd: Path | None = None, timeout: int = 300) -> tuple[int, str]:
@@ -307,9 +309,9 @@ def main() -> int:
               "stand that measures nothing.", ""]
     DOC.write_text("\n".join(lines), encoding="utf-8")
     print(f"отчёт: {DOC.relative_to(ROOT)}")
-    if kern_wins < MIN_WINS:
-        print(f"[FAIL] стенд ослаб: побед {kern_wins} < порога {MIN_WINS} "
-              f"(раунд перестал ловить — это регрессия детектора, не «ничья»)")
+    if kern_wins < len(ROWS) - TOLERATED_GAPS:
+        print(f"[FAIL] стенд ослаб: побед {kern_wins} из {len(ROWS)}, "
+              f"допуск {TOLERATED_GAPS} (раунд перестал ловить — регрессия детектора)")
         return 1
     return 0   # «ПРОБЕЛ» не валит гейт: он честно назван, а не спрятан
 

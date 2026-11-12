@@ -77,7 +77,7 @@
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Защита от саботажа ИИ (L5) (44)
+## E3. Защита от саботажа ИИ (L5) (45)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -98,6 +98,7 @@
 | `explain-hypotheses-check` | `hypotheses-write` | — | `make explain-hypotheses-check` |
 | `flood` | `flood` | — | `make flood` |
 | `guardrail` | `guardrail-verdict` | — | `make guardrail` |
+| `head-to-head-check` | `head-to-head` | — | `make head-to-head-check` |
 | `hook-check` | `hook-gate` | — | `make hook-check` |
 | `hypotheses-corpus-check` | `hypotheses-nonproof` | — | `make hypotheses-corpus-check` |
 | `l5-duel-check` | `l5-duel` | — | `make l5-duel-check` |
@@ -252,12 +253,6 @@
 | `trust-docs-check` | `trust-docs-missing` | — | `make trust-docs-check` |
 | `version-check` | `version-consistency` | — | `make version-check` |
 
-## E9. НЕ КЛАССИФИЦИРОВАНО (ошибка карты, а не цель)
-
-| Цель | Кейс | Команда |
-|:--|:--|:--|
-| `head-to-head-check` | head-to-head | `make head-to-head-check` |
-
 ## Паритет с реестром
 
 Целей в карте: **213**; класс CHECK в `registry.py`: **213**;
@@ -265,6 +260,6 @@
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->492 ·
-CHECK-цели <!-- fact:check_targets -->211 · can-fail кейсы <!-- fact:canfail_cases -->257 ·
-якоря <!-- fact:anchors -->215 · цели реестра <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 ·
+CHECK-цели <!-- fact:check_targets -->212 · can-fail кейсы <!-- fact:canfail_cases -->258 ·
+якоря <!-- fact:anchors -->216 · цели реестра <!-- fact:registry_targets -->293 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

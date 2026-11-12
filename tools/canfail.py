@@ -2930,8 +2930,8 @@ def case_head_to_head():
     что стенд не «декорация с зелёной галочкой».
     """
     patch("tools/head_to_head.py",
-          "MIN_WINS = 12",
-          "MIN_WINS = 13  # ЛОМАЕМ порог (canfail: head-to-head)")
+          "TOLERATED_GAPS = 0",
+          "TOLERATED_GAPS = -1  # ЛОМАЕМ допуск (canfail: head-to-head)")
     return "make head-to-head-check"
 
 
