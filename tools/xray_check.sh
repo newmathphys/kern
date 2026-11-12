@@ -114,6 +114,59 @@ C4=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/ovf_ok.c" 2>&1) |
 if echo "$C4" | grep -q 'OVERFLOW PATH. dup_ok'; then echo "[!] C: ЛОЖНОЕ обвинение malloc под if (len > 1000) return"; exit 1; fi
 echo "[OK] C-like B2: BOUNDS/OVERFLOW обвиняют без гарда и МОЛЧАТ с гардом (4/4)"
 
+# ДЕФЕКТ #501b: stdint + C INTEGER PROMOTION + unsigned WRAP.
+# Единый предикат пробоя (index_expr < 0 в Int-модели), но ТРИ диагноза:
+#   A знаковые (int64_t)      -> «индекс может быть отрицательным»;
+#   B узкие беззнаковые в C   -> «ЧЕРЕЗ INTEGER PROMOTION (C11 §6.3.1.1)»;
+#   C широкие беззнаковые и все беззнаковые Rust/Zig -> «unsigned underflow/wrap».
+# Двусторонность: без гарда `i - 1` ОБВИНЯЕТСЯ, под `if (i < 1)` — МОЛЧИТ.
+cat > "$TMPC/st_int64.c" <<'CEOF'
+int get_a(int64_t *b, int64_t i)
+{
+    return (int)b[i - 1];
+}
+CEOF
+cat > "$TMPC/st_u8.c" <<'CEOF'
+int get_b(uint8_t *b, uint8_t i)
+{
+    return b[i - 1];
+}
+int get_b_ok(uint8_t *b, uint8_t i)
+{
+    if (i < 1) { return 0; }
+    return b[i - 1];
+}
+CEOF
+cat > "$TMPC/st_size.c" <<'CEOF'
+int get_c(size_t *b, size_t i)
+{
+    return (int)b[i - 1];
+}
+int get_c_ok(size_t *b, size_t i)
+{
+    if (i < 1) { return 0; }
+    return (int)b[i - 1];
+}
+CEOF
+cat > "$TMPC/st_u8.rs" <<'CEOF'
+fn get_r(b: &[u8], i: u8) -> u8
+{
+    b[i - 1]
+}
+CEOF
+S1=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/st_int64.c" 2>&1) || true
+echo "$S1" | grep -q 'BOUNDS PATH. get_a' || { echo "[!] #501b A: int64_t b[i-1] без гарда НЕ обвинён (тип снова «НЕИЗВЕСТЕН»)"; exit 1; }
+if echo "$S1" | grep -q 'НЕИЗВЕСТЕН'; then echo "[!] #501b A: int64_t всё ещё уходит в скип «тип НЕИЗВЕСТЕН»"; exit 1; fi
+S2=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/st_u8.c" 2>&1) || true
+echo "$S2" | grep -q 'INTEGER PROMOTION' || { echo "[!] #501b B: uint8_t i-1 не назван INTEGER PROMOTION (C11 §6.3.1.1)"; exit 1; }
+if echo "$S2" | grep -q 'BOUNDS PATH. get_b_ok'; then echo "[!] #501b B: ЛОЖНОЕ обвинение uint8_t под if (i < 1) return"; exit 1; fi
+S3=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/st_size.c" 2>&1) || true
+echo "$S3" | grep -q 'wrap-around' || { echo "[!] #501b C: size_t i-1 не назван unsigned underflow/wrap-around"; exit 1; }
+if echo "$S3" | grep -q 'BOUNDS PATH. get_c_ok'; then echo "[!] #501b C: ЛОЖНОЕ обвинение size_t под if (i < 1) return"; exit 1; fi
+S4=$(timeout 300 python3 tools/kern_contracts.py --xray "$TMPC/st_u8.rs" 2>&1) || true
+if echo "$S4" | grep -q 'INTEGER PROMOTION'; then echo "[!] #501b: u8 в Rust/Zig назван INTEGER PROMOTION — promotion это свойство C, не Rust"; exit 1; fi
+echo "[OK] #501b: int64_t -> A, uint8_t -> INTEGER PROMOTION (B), size_t -> wrap-around (C), гард молчит; u8 в Rust — НЕ promotion (7/7)"
+
 # ДЕФЕКТ #318: ДЕЛЕНИЕ ПОД ГАРДОМ. Раньше `path_conds` складывал ТОЛЬКО
 # `(not cond)` — условие для кода ПОСЛЕ `if`. Делитель же стоит ВНУТРИ блока, и
 # запрос получался `(x == 0) AND (x == 0)`: `if (x != 0) { y / x; }` объявлялся

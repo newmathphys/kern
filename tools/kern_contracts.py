@@ -7758,6 +7758,21 @@ def _c_type_key(ty: str) -> str | None:
     if not words:
         return "uint" if unsigned else None
     base = words[-1]
+    # #501b: stdint-типы C не имели ключа в `_CLIKE_RANGES`, поэтому `uint8_t i`
+    # МОЛЧА выпадал из `ranges` и уходил в скип «тип индекса НЕИЗВЕСТЕН».
+    # ВАЖНО: здесь теряется написание (`uint8_t` -> `u8`), поэтому класс диагноза
+    # (B integer promotion vs C wrap-around) определяется НЕ по этому ключу, а по
+    # СЫРОМУ тексту сигнатуры + языку файла — иначе C-шный uint8_t и Rust-овский u8
+    # стали бы неразличимы.
+    _STDINT_KEYS = {
+        "int8_t": "i8", "uint8_t": "u8", "int16_t": "i16", "uint16_t": "u16",
+        "int32_t": "i32", "uint32_t": "u32", "int64_t": "i64", "uint64_t": "u64",
+        "ssize_t": "i64", "ptrdiff_t": "i64", "intptr_t": "i64",
+        "uintptr_t": "u64", "size_t": "size_t",
+    }
+    if not unsigned and base in _STDINT_KEYS:
+        return _STDINT_KEYS[base]
+
     if unsigned:
         return {"int": "uint", "short": "u16", "char": "u8",
                 "long": "u64"}.get(base)
