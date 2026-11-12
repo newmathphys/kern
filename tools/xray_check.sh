@@ -199,7 +199,10 @@ G2=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_b.c" 2>
 if echo "$G2" | grep -q 'OVERFLOW PATH. f_b'; then echo "[!] #667: ЛОЖНОЕ обвинение -w после if (w < -15) return"; exit 1; fi
 G3=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_c.c" 2>&1) || true
 echo "$G3" | grep -q 'OVERFLOW PATH. f_c' || { echo "[!] #667: переприсваивание w = y НЕ сбросило гард — детектор ослеп"; exit 1; }
-echo "[OK] #667: ранний выход снимает обвинение; переприсваивание сбрасывает гард (3/3)"
+printf 'int f_d(int w){\n    if (w < -MAXWB) { return -2; }\n    if (w < 0) { w = -w; }\n    return w;\n}\n' > "$TMPC/ovf_guard_d.c"
+G4=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_d.c" 2>&1) || true
+if echo "$G4" | grep -q 'OVERFLOW PATH. f_d'; then echo "[!] #675: гард с МАКРОКОНСТАНТОЙ (-MAXWB) не распознан — ложное обвинение"; exit 1; fi
+echo "[OK] #667/#675: ранний выход, сброс гарда и МАКРОКОНСТАНТА (-MAXWB) — 4/4"
 
 # ДЕФЕКТ #672: срез рейда не должен включать НЕ-БОЕВЫЕ каталоги, НО явно запрошенный
 # каталог фикстур обязан сканироваться. Двусторонность: (а) при обходе КОРНЯ

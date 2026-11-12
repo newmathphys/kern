@@ -7548,6 +7548,10 @@ _XRAY_SKIP_DIRS = {".git", ".hg", ".svn",
                    "tests", "test", "testing", "spec", "specs",
                    "examples", "example", "samples", "demo", "demos",
                    "externals", "fuzz", "fuzzing", "bench", "benches", "benchmarks",
+                   # #675 (Виток 2, ultrajson): `deps/` — ВЕНДОРЕННЫЙ сторонний код
+                   # (double-conversion целиком положен в lib и не поддерживается
+                   # проектом). 5 из 7 находок ultrajson пришлись ровно туда.
+                   "deps", "dependencies", "3rdparty", "thirdparty", "libs",
                    ".venv", ".venv38", ".venv-evalplus", "venv", "env", "virtualenv",
                    "node_modules", "bower_components",
                    "vendor", "third_party", "third-party", "external",
@@ -8923,8 +8927,11 @@ def _early_return_guard_before(body: str, expr_txt: str, names: set[str]) -> str
         pos = len(body)          # текстовой формы не нашли — смотрим весь префикс
     head = body[:pos]
     pat = re.compile(
-        r"if\s*\(?\s*([A-Za-z_]\w*)\s*(<=|>=|<|>)\s*(-?\d+)\s*\)?\s*:?\s*\{?\s*"
-        r"(?:return|goto)")
+        # Константа справа может быть не только числом: zlib-ng пишет
+        # `if (windowBits < -MAX_WBITS)` — МАКРОКОНСТАНТА. Шаблон с `(-?\d+)`
+        # такой гард не видел, и `-windowBits` объявлялся переполнением (#675).
+        r"if\s*\(?\s*([A-Za-z_]\w*)\s*(<=|>=|<|>)\s*"
+        r"(-?\d+|-?[A-Z_][A-Z0-9_]*)\s*\)?\s*:?\s*\{?\s*(?:return|goto)")
     for m in pat.finditer(head):
         nm = m.group(1)
         if nm not in names:
