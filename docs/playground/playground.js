@@ -61,18 +61,41 @@ function lia(a1, b1, c1, a2, b2, c2) {
                                      BigInt(a2), BigInt(b2), BigInt(c2));
   say("outC", `lia_unsat2(...) = ${v}` + (v ? "  → система несовместна" : "  → совместна"), "ok");
 }
-function verifyProof() {
-  const text = new TextEncoder().encode($("proofIn").value);
-  if (text.length > cap) {
-    say("outD", `вход ${text.length} байт > буфера ${cap} — отказ ДО записи`, "bad");
-    return;
+// ВАЖНО: представление памяти создаём ЗАНОВО перед каждой записью — модуль растит
+// память, и ранее созданный Uint8Array становится detached (поймано в Node-прогоне).
+function writeInput(smtBytes, proofBytes) {
+  const view = new Uint8Array(mem.buffer);
+  view.set(smtBytes, ptr);
+  view.set(proofBytes, ptr + smtBytes.length);
+  return [smtBytes.length, proofBytes.length];
+}
+
+async function loadSample(sabotage) {
+  try {
+    const [smtBuf, proofBuf] = await Promise.all([
+      fetch("sample.smt2", { cache: "no-store" }).then(r => r.arrayBuffer()),
+      fetch("sample.proof", { cache: "no-store" }).then(r => r.arrayBuffer()),
+    ]);
+    const smtBytes = new Uint8Array(smtBuf);
+    let proofBytes = new Uint8Array(proofBuf);
+    if (sabotage) {
+      proofBytes = proofBytes.slice();                    // копия: не портим кэш
+      const i = proofBytes.length >> 1;                   // один байт в середине
+      proofBytes[i] = proofBytes[i] === 0x29 ? 0x28 : 0x29;
+    }
+    if (smtBytes.length + proofBytes.length > cap) {
+      say("outD", `вход ${smtBytes.length + proofBytes.length} > буфера ${cap} — отказ ДО записи`, "bad");
+      return;
+    }
+    $("smtView").textContent = new TextDecoder().decode(smtBytes).trim();
+    const [sl, pl] = writeInput(smtBytes, proofBytes);
+    // ВАЖНО: смещение proof считаем по ФАКТИЧЕСКИ записанным байтам, а не по строке.
+    const v = mod.kern_wasm_verify_proof(ptr, sl, ptr + sl, pl);
+    say("outD", `verify_proof(smt=${sl} Б, proof=${pl} Б${sabotage ? ", подделка 1 байта" : ""}) = ${v}` +
+        (v ? "  → ПРИНЯТ: trusted: 0, вывод `false` подтверждён" : "  → ОТКЛОНЁН (ядро не доверяет входу)"),
+        v ? "ok" : "bad");
+  } catch (e) {
+    say("outD", "не удалось прочитать эталон: " + e.message, "bad");
   }
-  new Uint8Array(mem.buffer, ptr, text.length).set(text);
-  let cut = text.indexOf(10);
-  if (cut < 0) cut = text.length;
-  const v = mod.kern_wasm_verify_proof(ptr, cut, ptr + cut + 1,
-                                       Math.max(0, text.length - cut - 1));
-  say("outD", `verify_proof(${text.length} байт) = ${v}` +
-      (v ? "  → сертификат принят" : "  → ОТКЛОНЁН (ядро не доверяет входу)"), v ? "ok" : "bad");
 }
 </script>

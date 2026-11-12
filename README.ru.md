@@ -1,5 +1,11 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
+> **Попробуйте в браузере, офлайн, прямо сейчас:** [`docs/playground/`](docs/playground/) —
+> настоящий `kernc.wasm` (wasm32-freestanding, без сисколлов) исполняет JOIN_K,
+> решатель Фурье–Моцкина, код Хэмминга и `verifyProof` на реальном Z3-сертификате,
+> а потом **подделайте один байт доказательства** и увидите отказ.
+> Живьём: <https://newmathphys.github.io/kern/playground/>
+
 ## Три вещи, которые ловит только KERN (проверьте за 30 секунд)
 
 Каждая строка ниже — **дословный вывод** самопроверяемого демо из этого репозитория.
@@ -40,7 +46,7 @@ KERN заблокировал 5/5
 [OK] 5/5: награда не куплена — каждый чит назван и заблокирован
 ```
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->211 · cases <!-- fact:canfail_cases -->255 · anchors <!-- fact:anchors -->213 · registry <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->211 · cases <!-- fact:canfail_cases -->256 · anchors <!-- fact:anchors -->214 · registry <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)

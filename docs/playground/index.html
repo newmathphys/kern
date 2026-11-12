@@ -57,12 +57,13 @@
 
 <h2>4. <code>verifyProof</code>: перепроверка Z3-сертификата в памяти</h2>
 <p class="sub">Байты кладутся в <b>отдельный входной буфер</b> (<code>kern_wasm_input_ptr</code> /
-<code>kern_wasm_input_cap</code>), чтобы аллокатор арены не затёр вход во время проверки.</p>
-<textarea id="proofIn">(smt — вставьте SMT-скрипт)
-(proof — след сертификата)</textarea>
-<div style="margin-top:8px">
-  <button onclick="verifyProof()">перепроверить</button>
+<code>kern_wasm_input_cap</code>), чтобы аллокатор арены не затёр вход во время проверки.
+Эталон: <code>abs.c</code>, 16 шагов proof-DAG, снят с живого Z3.</p>
+<div>
+  <button onclick="loadSample(false)">Загрузить эталонный сертификат → ПРИНЯТ (1)</button>
+  <button onclick="loadSample(true)">Подделать 1 шаг в доказательстве → ОТКЛОНЁН (0)</button>
 </div>
+<pre id="smtView" class="mut">—</pre>
 <pre id="outD">—</pre>
 <script src="playground.js"></script>
 </body>

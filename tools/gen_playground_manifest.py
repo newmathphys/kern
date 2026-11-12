@@ -60,6 +60,23 @@ def _check() -> int:
     if not bad:
         print(f"[OK] playground: подпись честная — {len(data)} байт, "
               f"sha256 {got[:16]}…, коммит {doc.get('commit')}")
+    # ИСПОЛНЕНИЕ, А НЕ ТОЛЬКО ХЕШИ: Node исполняет ТОТ ЖЕ браузерный .wasm за доли
+    # секунды, поэтому песочница не может сломаться тихо. Нет node — НАЗВАННЫЙ SKIP
+    # (в CI он есть), а не тихое «зелено».
+    js = ROOT / "tools" / "playground_node_check.js"
+    node = shutil.which("node")
+    if js.exists() and node:
+        p = subprocess.run([node, str(js)], capture_output=True, text=True, timeout=120)
+        out = (p.stdout or "") + (p.stderr or "")
+        print(out.strip().splitlines()[-1] if out.strip() else "[FAIL] node: пустой вывод")
+        if p.returncode != 0:
+            for line in out.splitlines():
+                if "[FAIL]" in line:
+                    print(line)
+            bad = 1
+    else:
+        print("[SKIP] wasm-playground: node не найден — сценарии НЕ исполнены "
+              "(в CI node есть; локально поставьте node)")
     return bad
 
 
