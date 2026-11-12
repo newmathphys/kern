@@ -40,7 +40,7 @@
 ### Section 4 — Self-verification & evolution
 | Method | Fact |
 |:--|:--|
-| Can-fail discipline | **209 CHECK targets / 126 proven able to fail**, **255 cases, 0 vacuous** |
+| Can-fail discipline | **210 CHECK targets / 126 proven able to fail**, **255 cases, 0 vacuous** |
 | Mutation testing | **1681 sites killed = 100.0 %** (21 files, no sampling); gate 40/40 |
 | SBST | `--gen-tests`: 100 % of reachable branches (dead ones marked) |
 | Genetic improvement | `--simplify` + equivalence proof via `--diff-equiv` |

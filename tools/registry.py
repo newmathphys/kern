@@ -174,6 +174,12 @@ CLASS = {
     "loop-check": "CHECK",
     "state-inv-check": "CHECK",
     "orphan-gates-check": "CHECK",    # #633: неподключённые проверки под контролем
+    # #652: тег без релиза / релиз без ассетов. Офлайн-контракт — CHECK (в ci-fast),
+    # живая проверка — EXTERNAL: она ходит в api.github.com, и её место в
+    # пост-релизном шаге, а не в офлайн-конвейере (иначе курица и яйцо при bump).
+    "release-assets-check": "CHECK",
+    "release-assets-online": "EXTERNAL",
+
     "sabotage-guard": "CHECK",          # #628: маркеры диверсии canfail не в src/
     "tools-laws-check": "CHECK",        # #623: законы @kern: на своих функциях доказаны
     "proven-regressions-check": "CHECK",

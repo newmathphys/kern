@@ -78,7 +78,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Defence against AI sabotage (L5) (42)
+## E3. Defence against AI sabotage (L5) (43)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -118,6 +118,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `pytest-blind-check` | `pytest-blind` | — | `make pytest-blind-check` |
 | `rag-conflict-check` | `rag-conflict-check` | — | `make rag-conflict-check` |
 | `redos` | `redos-vuln` | — | `make redos` |
+| `release-assets-check` | `release-assets` | — | `make release-assets-check` |
 | `rlvr-oracle-check` | `rlvr-oracle-check` | — | `make rlvr-oracle-check` |
 | `sabotage-guard` | `sabotage-guard` | — | `make sabotage-guard` |
 | `sql-policy-check` | `sql-policy-check` | — | `make sql-policy-check` |
@@ -253,7 +254,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **210**; class CHECK in `registry.py`: **210**;
+Targets in the map: **211**; class CHECK in `registry.py`: **211**;
 `CASE_TARGET` records: **255** (make-executable **251**); without a case outside `NO_CASE_OK`: **0**.
 
 

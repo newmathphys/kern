@@ -77,7 +77,7 @@
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Защита от саботажа ИИ (L5) (42)
+## E3. Защита от саботажа ИИ (L5) (43)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -117,6 +117,7 @@
 | `pytest-blind-check` | `pytest-blind` | — | `make pytest-blind-check` |
 | `rag-conflict-check` | `rag-conflict-check` | — | `make rag-conflict-check` |
 | `redos` | `redos-vuln` | — | `make redos` |
+| `release-assets-check` | `release-assets` | — | `make release-assets-check` |
 | `rlvr-oracle-check` | `rlvr-oracle-check` | — | `make rlvr-oracle-check` |
 | `sabotage-guard` | `sabotage-guard` | — | `make sabotage-guard` |
 | `sql-policy-check` | `sql-policy-check` | — | `make sql-policy-check` |
@@ -252,7 +253,7 @@
 
 ## Паритет с реестром
 
-Целей в карте: **210**; класс CHECK в `registry.py`: **210**;
+Целей в карте: **211**; класс CHECK в `registry.py`: **211**;
 записей `CASE_TARGET`: **255** (make-исполнимых **251**); без кейса вне `NO_CASE_OK`: **0**.
 
 

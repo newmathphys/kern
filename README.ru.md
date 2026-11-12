@@ -68,7 +68,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->209 / <!-- fact:check_targets -->209 CHECK-целей** покрыты (<!-- fact:canfail_cases -->255 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->210 / <!-- fact:check_targets -->210 CHECK-целей** покрыты (<!-- fact:canfail_cases -->255 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -735,8 +735,8 @@ make ci               # единый контур (12 стадий)
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->290 (CHECK <!-- fact:check_targets -->209 · MEASURE 1 · BUILD <!-- fact:build_targets -->13 · EXTERNAL 3 · META <!-- fact:meta_targets -->56) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->209/<!-- fact:check_targets -->209 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->290 (CHECK <!-- fact:check_targets -->210 · MEASURE 1 · BUILD <!-- fact:build_targets -->13 · EXTERNAL 3 · META <!-- fact:meta_targets -->56) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->210/<!-- fact:check_targets -->210 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
 | can-fail кейсов | <!-- fact:canfail_cases -->255 (не-вакуумных <!-- fact:canfail_cases -->255 · вакуумных 0 · ошибок кейсов 0) |
 | Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->617** |
