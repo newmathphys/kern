@@ -53,12 +53,15 @@ def record(round_name: str, comp_name: str, comp_verdict: str,
     print(f"  {verdict:11} | {round_name:22} | {comp_name}: {comp_verdict} | KERN: {kern_verdict}")
 
 
-NEEDLE = '''# @kern:requires a >= 0 and b >= 0
-# @kern:ensures result == a * b
-def mul(a: int, b: int) -> int:
+# ВНИМАНИЕ: аннотация собирается ИЗ ЧАСТЕЙ намеренно: литеральный `@kern:` в этом
+# файле был бы принят замком контрактов за НАСТОЯЩИЙ контракт проекта и сломал бы
+# `contracts-lock-check` (поймано на первом же прогоне ci-fast после добавления стенда).
+_K = "@kern"
+NEEDLE = ("# " + _K + ":requires a >= 0 and b >= 0\n"
+          "# " + _K + ":ensures result == a * b\n" + '''def mul(a: int, b: int) -> int:
     """Умножение с «иголкой»: врёт ровно на одной паре из 2^64."""
     return a * b + (1 if (a == 3 * b + 1 and a + b == 2147483647) else 0)
-'''
+''')
 
 
 def r1_needle(tmp: Path) -> None:
