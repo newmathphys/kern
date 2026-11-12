@@ -128,7 +128,28 @@ export fn kern_wasm_lia_unsat2(a1: i64, b1: i64, c1: i64, a2: i64, b2: i64, c2: 
 
 const t = std.testing;
 
+test "wasm: входной буфер — ёмкость 64 КБ и НЕПЕРЕСЕЧЕНИЕ с ареной" {
+    // ЗАЧЕМ ИМЕННО ТАК. Экспорты `input_ptr`/`input_cap` появились для песочницы:
+    // JS кладёт туда smt+proof. Если бы `input_ptr` указывал внутрь `wasm_buf`,
+    // то первая же аллокация парсера (FixedBufferAllocator стартует с НАЧАЛА
+    // wasm_buf) затёрла бы вход прямо во время проверки — самозатирание.
+    // Тест убивает три мутанта сразу: `cap -> 0`, `cap -> иное число`,
+    // `ptr -> адрес внутри арены`.
+    try t.expectEqual(@as(usize, 64 * 1024), kern_wasm_input_cap());
+
+    const in_ptr = @intFromPtr(kern_wasm_input_ptr());
+    const in_end = in_ptr + kern_wasm_input_cap();
+    const ar_ptr = @intFromPtr(&wasm_buf);
+    const ar_end = ar_ptr + wasm_buf.len;
+
+    try t.expect(in_ptr != 0);                 // нулевой адрес недопустим
+    try t.expect(in_end > in_ptr);             // ёмкость не переполняет адреса
+    // Диапазоны обязаны быть РАЗДЕЛЬНЫМИ: либо вход целиком до арены, либо после.
+    try t.expect(in_end <= ar_ptr or in_ptr >= ar_end);
+}
+
 test "wasm: JOIN_K(T, N) = T, JOIN_K(T, F) = B, B поглощает T" {
+
     const T: u8 = packBit(.{ .p = true, .n = false });
     const F: u8 = packBit(.{ .p = false, .n = true });
     const N: u8 = packBit(.{ .p = false, .n = false });
