@@ -7551,7 +7551,10 @@ _XRAY_SKIP_DIRS = {".git", ".hg", ".svn",
                    # #675 (Виток 2, ultrajson): `deps/` — ВЕНДОРЕННЫЙ сторонний код
                    # (double-conversion целиком положен в lib и не поддерживается
                    # проектом). 5 из 7 находок ultrajson пришлись ровно туда.
-                   "deps", "dependencies", "3rdparty", "thirdparty", "libs",
+                   # ВАЖНО (ревью, верно): `libs/` здесь БЫТЬ НЕ ДОЛЖНО — во многих
+                   # C/C++/Rust-репозиториях это СОБСТВЕННЫЙ боевой код проекта
+                   # (`libs/<module>/src/`), и скип создал бы слепую зону с ложным «0».
+                   "deps", "dependencies", "3rdparty", "thirdparty",
                    ".venv", ".venv38", ".venv-evalplus", "venv", "env", "virtualenv",
                    "node_modules", "bower_components",
                    "vendor", "third_party", "third-party", "external",
@@ -8935,6 +8938,14 @@ def _early_return_guard_before(body: str, expr_txt: str, names: set[str]) -> str
     for m in pat.finditer(head):
         nm = m.group(1)
         if nm not in names:
+            continue
+        # ГРАНИЧНЫЙ СЛУЧАЙ (ревью, верно): `UPPER_CASE` подходит и для предельных
+        # минимумов. Гард `if (w < INT_MIN)` МЁРТВ (сравнение с самим минимумом), и
+        # принимать его за защиту нельзя: `-w` при `w = INT_MIN` — реальное UB.
+        # Такие токены НИКОГДА не гасят проверку.
+        _BOUND_TOKENS = {"INT_MIN", "INT32_MIN", "INT64_MIN",
+                         "LONG_MIN", "LLONG_MIN", "SIZE_MAX", "UINT_MAX"}
+        if m.group(3).lstrip("-") in _BOUND_TOKENS:
             continue
         # SSA-ЛОВУШКА (измерено): `w = -w;` — присваивание, чья ПРАВАЯ часть и есть
         # проверяемое выражение. Если считать его «перетиранием», гард снимается за

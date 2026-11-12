@@ -203,6 +203,12 @@ printf 'int f_d(int w){\n    if (w < -MAXWB) { return -2; }\n    if (w < 0) { w 
 G4=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_d.c" 2>&1) || true
 if echo "$G4" | grep -q 'OVERFLOW PATH. f_d'; then echo "[!] #675: гард с МАКРОКОНСТАНТОЙ (-MAXWB) не распознан — ложное обвинение"; exit 1; fi
 echo "[OK] #667/#675: ранний выход, сброс гарда и МАКРОКОНСТАНТА (-MAXWB) — 4/4"
+# ГРАНИЧНЫЙ СЛУЧАЙ #675 (ревью): `if (w <= INT_MIN) return;` — МЁРТВЫЙ гард, он НЕ
+# защищает: при `w = INT_MIN` унарный минус — реальное UB. Такой токен не гасит проверку.
+printf 'int f_e(int w){\n    if (w <= INT_MIN) { return -2; }\n    if (w < 0) { w = -w; }\n    return w;\n}\n' > "$TMPC/ovf_guard_e.c"
+G5=$(timeout 240 python3 tools/kern_contracts.py --xray "$TMPC/ovf_guard_e.c" 2>&1) || true
+echo "$G5" | grep -q 'OVERFLOW PATH. f_e' || { echo "[!] #675: мёртвый гард с INT_MIN погасил проверку -w (ослепление)"; exit 1; }
+echo "[OK] #675: INT_MIN-гард не считается защитой (5/5)"
 
 # ДЕФЕКТ #672: срез рейда не должен включать НЕ-БОЕВЫЕ каталоги, НО явно запрошенный
 # каталог фикстур обязан сканироваться. Двусторонность: (а) при обходе КОРНЯ
