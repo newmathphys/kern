@@ -185,7 +185,7 @@ Marketplace (шаг в UI) · решение по лицензии (GNU AGPL-3.0
 | **8** Упаковка v2.5.1 + полный мутационный аудит | 40 | ✅ **1 / 1** |
 
 **Итого закрыто: 40 из 40 пунктов (v2.5.1).** Lean 4: **<!-- fact:lean_theorems -->147 теорем, 0 errors, 0 sorry**.
-Реестр: **<!-- fact:registry_targets -->288 цели, <!-- fact:check_targets -->209/<!-- fact:check_targets -->209 CHECK**; якоря: <!-- fact:anchors -->210.
+Реестр: **<!-- fact:registry_targets -->290 цели, <!-- fact:check_targets -->209/<!-- fact:check_targets -->209 CHECK**; якоря: <!-- fact:anchors -->210.
 
 ---
 
