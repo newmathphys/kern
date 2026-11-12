@@ -1,9 +1,9 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "4bbbd57",
-  "code_hash": "sha256:c8a5ef3be7e4bfe86399efabc3f8a79a9a618fd97dea23cc86cf65df8ae3e465",
-  "score": 100,
+  "commit": "544c21eb",
+  "code_hash": "sha256:6f99d24aa8ca7b7b3fced9126305687de050142a53fb9daf1aec1fb50630da95",
+  "score": 95,
   "grade": "A+",
   "breakdown": {
     "license": 10,
@@ -12,7 +12,7 @@
     "ci": 8,
     "build": 8,
     "no_injections": 8,
-    "dup_guard": 8,
+    "dup_guard": 0,
     "sarif": 6,
     "llms": 6,
     "docs": 8,
@@ -25,18 +25,18 @@
   "hints": [],
   "what_we_read": {
     "by_category": {
-      "zig": 122,
-      "lean": 8,
-      "python": 264,
-      "c11": 45,
+      "zig": 123,
+      "lean": 9,
+      "python": 317,
+      "c11": 60,
       "rust": 22,
       "go": 1,
       "ts_js": 3,
       "wasm": 1
     },
-    "skipped": 5,
-    "total": 466,
-    "blind_spot_native_formal": 131
+    "skipped": 12,
+    "total": 536,
+    "blind_spot_native_formal": 133
   },
   "mcp": {
     "files": {
@@ -49,15 +49,15 @@
     "lock": true
   },
   "formal": {
-    "lean_files": 8,
+    "lean_files": 9,
     "theorems": 147,
     "sorry": 0,
     "attestation": true
   },
   "metrics": {
-    "check_targets": 185,
-    "check_covered": 185,
-    "canfail_cases": 225,
+    "check_targets": 210,
+    "check_covered": 210,
+    "canfail_cases": 255,
     "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
     "qemu": "443 passed / 8 skipped / 0 failed"
   },
@@ -69,9 +69,9 @@
     "build": true,
     "sarif": true,
     "llms": true,
-    "docs_md": 80,
+    "docs_md": 105,
     "injection_markers": 0,
-    "dup_guard": true
+    "dup_guard": false
   },
   "rubric": {
     "base_max": 88,
