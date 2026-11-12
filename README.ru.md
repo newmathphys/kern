@@ -773,7 +773,7 @@ dist/kerna --doctor                              # должно быть: зав
 
 ```bash
 make canfail          # 257 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->214 якорей применимы (за ~1 с)
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->215 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
 make registry         # реестр <!-- fact:registry_targets -->292 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
