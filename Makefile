@@ -581,6 +581,12 @@ release-assets-check:
 # #656: страница песочницы docs/playground/ исполняет kernc.wasm В БРАУЗЕРЕ. Гейт
 # доказывает, что исполняются именно собранные байты и что подпись (commit + sha256)
 # соответствует им; `playground` пересобирает манифест после `zig build wasm`.
+# #668: ОЧНАЯ ДУЭЛЬ — 12 раундов против штатных инструментов (unittest, gcc,
+# py_compile, json.load). Класс CHECK: стенд обязан быть под охраной canfail
+# (кейс `head-to-head`), иначе он сам станет «проверкой без доказательства».
+head-to-head-check: build
+	@"$(PYTHON)" tools/head_to_head.py
+
 playground:
 	@"$(PYTHON)" tools/gen_playground_manifest.py
 

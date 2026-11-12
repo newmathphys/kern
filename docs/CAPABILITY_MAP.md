@@ -253,10 +253,16 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `trust-docs-check` | `trust-docs-missing` | — | `make trust-docs-check` |
 | `version-check` | `version-consistency` | — | `make version-check` |
 
+## E9. UNCLASSIFIED (a map error, not a target)
+
+| Target | Case | Command |
+|:--|:--|:--|
+| `head-to-head-check` | head-to-head | `make head-to-head-check` |
+
 ## Registry parity
 
-Targets in the map: **212**; class CHECK in `registry.py`: **212**;
-`CASE_TARGET` records: **257** (make-executable **253**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **213**; class CHECK in `registry.py`: **213**;
+`CASE_TARGET` records: **258** (make-executable **254**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 ·

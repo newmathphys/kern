@@ -252,10 +252,16 @@
 | `trust-docs-check` | `trust-docs-missing` | — | `make trust-docs-check` |
 | `version-check` | `version-consistency` | — | `make version-check` |
 
+## E9. НЕ КЛАССИФИЦИРОВАНО (ошибка карты, а не цель)
+
+| Цель | Кейс | Команда |
+|:--|:--|:--|
+| `head-to-head-check` | head-to-head | `make head-to-head-check` |
+
 ## Паритет с реестром
 
-Целей в карте: **212**; класс CHECK в `registry.py`: **212**;
-записей `CASE_TARGET`: **257** (make-исполнимых **253**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **213**; класс CHECK в `registry.py`: **213**;
+записей `CASE_TARGET`: **258** (make-исполнимых **254**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->492 ·

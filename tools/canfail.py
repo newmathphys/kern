@@ -400,6 +400,9 @@ FAULTABLE = [
     # и `playground-check` обязан покраснеть: страница подписывалась бы одним sha,
     # а исполняла другие байты.
     "tools/gen_playground_manifest.py",
+    # #668: стенд очной дуэли. Ломаем ПОРОГ побед: стенд, который «выигрывает всегда»,
+    # ничего не измеряет. Мутант требует 13 побед из 12 раундов -> гейт обязан упасть.
+    "tools/head_to_head.py",
     # #474: кейс `evidence-trust` правит СГЕНЕРИРОВАННУЮ таблицу доказательств
     # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
@@ -2919,6 +2922,19 @@ def case_vacuous_test():
     return "make anti-cheat-check"
 
 
+def case_head_to_head():
+    """#668 SABOTAGE: порог стенда ослаблен -> гейт обязан покраснеть.
+
+    ЛОМАЕМ ПОВЕДЕНИЕ, а не текст: `MIN_WINS = 12` -> `13`. Стенд из 12 раундов не
+    может дать 13 побед, значит `head-to-head-check` обязан упасть. Так доказывается,
+    что стенд не «декорация с зелёной галочкой».
+    """
+    patch("tools/head_to_head.py",
+          "MIN_WINS = 12",
+          "MIN_WINS = 13  # ЛОМАЕМ порог (canfail: head-to-head)")
+    return "make head-to-head-check"
+
+
 def case_casetarget_gap():
     """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
 
@@ -4732,6 +4748,8 @@ CASES = [
      case_playground),
     ("vacuous-test", "детектор пустых тестов отключён -> гейт красный",
      case_vacuous_test),
+    ("head-to-head", "порог стенда дуэли ослаблен -> гейт красный",
+     case_head_to_head),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",
