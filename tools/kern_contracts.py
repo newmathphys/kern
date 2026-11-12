@@ -9929,7 +9929,10 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                         continue
                     _ty2 = _pt2s[: _pt2s.rfind(_nm2.group(1))].strip()
                     _ty2 = re.sub(r"\b(const|volatile|static|register)\b", "", _ty2).strip()
-                    if _ty2 in _NARROW_C:
+                    if _ty2 in _NARROW_C or (lang == "c" and _ty2 in {"u8", "u16"}):
+                        # В C `typedef uint8_t u8;` встречается в системном коде
+                        # (ядро, драйверы): там `u8` — тоже КЛАСС B (promotion),
+                        # а в Rust/Zig `u8` — класс C (wrap). Различает язык файла.
                         _cls_by_name[_nm2.group(1)] = "promo"
                     elif _ty2 in _WIDE_ANY:
                         _cls_by_name[_nm2.group(1)] = "wrap"

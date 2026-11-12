@@ -6,6 +6,48 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Every number below is produced by a command in the repository — see
 [`docs/METRICS.md`](docs/METRICS.md) and [`docs/evidence/`](docs/evidence/).
 
+## [2.8.25]
+
+- `#501b` **stdint + C integer promotion + unsigned wrap**: единый предикат пробоя
+  (`index_expr < 0` в Int-модели) с тремя диагнозами: A знаковые (`int64_t` больше
+  не уходит в скип «тип индекса НЕИЗВЕСТЕН»), B узкие беззнаковые C (`uint8_t`/
+  `uint16_t` — INTEGER PROMOTION, C11 §6.3.1.1: `(uint8_t)0 - 1 == -1` -> `b[-1]`),
+  C широкие беззнаковые и все беззнаковые Rust/Zig (unsigned underflow/wrap-around
+  `SIZE_MAX`/panic). Причина: `_c_type_key()` возвращал ключ `uint8_t`, которого нет
+  в `_CLIKE_RANGES`, и параметр МОЛЧА выпадал из `ranges`. Двусторонние регрессии в
+  `make xray-check` 7/7 (без гарда — обвиняем, под `if (i < 1)` — молчим; `u8` в
+  Rust ≠ promotion, а `typedef uint8_t u8` в C — всё равно класс B).
+- `#651` два демо практической пользы: `examples/iam_belnap_conflict.py`
+  (`JOIN_K(T, F) = B` -> 409 Conflict, живой JOIN_K из пример-сервера) и
+  `examples/rlvr_anticheat_demo.py` (пять читов ИИ-агента: KERN блокирует 5/5, а
+  pytest их не видит; фикстуры создаются в `TemporaryDirectory`, чтобы глобальный
+  `--anti-cheat` не принял сам демо-скрипт за чит).
+- `#650` кейс `mutation-lock` был ВАКУУМНЫМ в изоляции `#630`: в git-worktree `.git`
+  — файл-указатель, и запись маркера падала молча. Кейс и чекер берут путь через
+  `git rev-parse --git-dir`.
+- `#649` `CASE_TARGET` для трёх новых кейсов (класс #356) + карта возможностей: 210
+  целей, 0 неклассифицированных; числа витрины синхронизированы (`check_targets`
+  и `anchors` — РАЗНЫЕ факты в одной строке README).
+- `#648` `version-check` и `scorecard-check` были «подключены» только в
+  КОММЕНТАРИЯХ — гейт сиротства искал подстроку. Теперь подключены по-настоящему,
+  а парсер сирот видит только вызовы `make [-флаги] <target>` без комментариев
+  (срез `#` с учётом кавычек: `stage "…(#455)"` больше не рвётся).
+- `#644b` `$(PYTHON)` взят в кавычки во всех 208 рецептах Makefile (путь с пробелом
+  `Рабочий стол` давал `make: /home/.../Рабочий: Нет такого файла` -> exit 127).
+- `#641` `examples/ci/kern-gate.yml` стал **14-й поверхностью версии**: пиннинг
+  `newmathphys/kern@vX.Y.Z` в образце дрейфовал (v2.8.3 при v2.8.24) и ронял
+  `action-check` — теперь ловится гейтом версий, а не следствием.
+- `#646` три новых canfail-кейса: `sabotage-guard` (маркер диверсии в рабочем
+  дереве), `orphan-gates` (гейт выкинут из `ci.sh`), `tools-laws` (сломанное ТЕЛО
+  функции под целым контрактом — проверяется код, а не спецификация).
+- `#645` AST-аудит правил canfail слит в `sabotage_guard` (`scan_canfail_rules`):
+  207 литеральных правил, 0 диверсий в HEAD, 0 устаревших якорей; режим по
+  умолчанию сканирует РАБОЧЕЕ дерево (иначе мутации в `/tmp/kern-canfail-*` невидимы).
+- `#640`–`#643` починены ложно-красные гейты: `kernx-polygon5-check` (передавался
+  `.kern`-файл вместо каталога), `action-check` (пиннинг v2.8.3 при v2.8.24),
+  `hook-check` (`AttributeError: 'Namespace' object has no attribute 'xray'`),
+  `stage()` больше не глотает вывод (печатает `tail -40` при падении).
+
 ## [2.8.24]
 
 - `#624` якорь canfail больше не прибит к версии (динамический из server.json).
