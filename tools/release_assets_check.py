@@ -33,7 +33,12 @@ import urllib.request
 # Разрыв, который считается нормой. 1 — «тег нарезан, релиз ещё не создан»
 # (ровно состояние bump-коммита). Больше — это уже мёртвые теги.
 MAX_TAG_GAP = 1
-REQUIRED = ("kerna-dist-{ver}.tar.gz", "kernc-x86_64-linux-musl", "SHA256SUMS")
+REQUIRED = ("kerna-dist-v{ver}.tar.gz", "kernc-x86_64-linux-musl", "SHA256SUMS")
+# ВНИМАНИЕ (нашёл сам себя, ИЗМЕРЕНО на первом же живом прогоне): имя архива в
+# релизе содержит `v` (`kerna-dist-v2.8.25.tar.gz`) — ровно так его публикует
+# release.yml (`dist-release/kerna-dist-v${VER}.tar.gz`). Шаблон без `v` объявлял
+# КОРРЕКТНЫЙ релиз «без ассетов» — ложное обвинение в самом гейте.
+
 
 
 def _vkey(tag: str) -> tuple[int, ...]:
@@ -122,7 +127,7 @@ def _verdict(tags, releases, expect=None, max_gap=MAX_TAG_GAP) -> tuple[bool, li
 
 def selftest() -> int:
     ok_rel = {"tag_name": "v1.2.3", "assets": [
-        {"name": "kerna-dist-1.2.3.tar.gz"}, {"name": "kernc-x86_64-linux-musl"},
+        {"name": "kerna-dist-v1.2.3.tar.gz"}, {"name": "kernc-x86_64-linux-musl"},
         {"name": "SHA256SUMS"}]}
     # 1) ЗЕЛЁНОЕ: тег == релиз, все ассеты на месте.
     v, why = _verdict(["v1.2.3"], [ok_rel], expect="v1.2.3")

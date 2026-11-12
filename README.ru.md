@@ -1,5 +1,45 @@
 # KERN — ядро проверки истины для ИИ-агентов
 
+## Три вещи, которые ловит только KERN (проверьте за 30 секунд)
+
+Каждая строка ниже — **дословный вывод** самопроверяемого демо из этого репозитория.
+Никаких скриншотов: запускаете команду — получаете тот же текст и `rc=0`.
+
+**1. Деньги, украденные округлением — дробление комиссии в DeFi.** 0.30 % за вывод;
+дробить платёж должно быть *дороже*, никогда не дешевле.
+```console
+$ make arbitrage-check
+  [FAIL] fee_threshold: no_arbitrage REFUTED — [КОНТРПРИМЕР] a1 = 100, a2 = 1
+  [FAIL] fee_floor_capped: no_arbitrage REFUTED — [КОНТРПРИМЕР] a2 = 999, a1 = 1
+  [PASS] fee_proportional: no_arbitrage PROVEN (trusted: 0 | holes: 0)
+[OK] анти-арбитраж: 2 арбитража поймано, линейная комиссия доказана (trusted: 0)
+```
+`trusted: 0` — доказательство не доверяло ни одному помощнику: ни дыр, ни `sorry`.
+
+**2. Две облачные IAM-политики, столкнувшиеся лбами.** Data разрешает чтение бакета,
+SecOps запрещает без MFA. Обычный движок молча применяет «deny побеждает» и **теряет
+одно из двух утверждений**. Белнап сохраняет противоречие:
+```console
+$ python3 examples/iam_belnap_conflict.py
+  Data   -> T  (Allow READ reports)
+  SecOps -> F  (Deny без MFA)
+  JOIN_K(T, F) = B
+[OK] конфликт сохранён: JOIN_K(T, F) = B -> HTTP 409 Conflict, а не «deny побеждает»
+```
+
+**3. ИИ-агент жульничает ради зелёного пайплайна.** pytest ничего не видит; KERN называет
+каждую уловку.
+```console
+$ python3 examples/rlvr_anticheat_demo.py
+  BLOCKED  1. проглоченное исключение      (CHEAT DETECTED)
+  BLOCKED  2. выход из теста (exit 0)      (CHEAT DETECTED)
+  BLOCKED  3. mock в проверяемом коде      (CHEAT DETECTED)
+  BLOCKED  4. подмена константы            (DIVERGED)
+  BLOCKED  5. тихий слом края              (DIVERGED)
+KERN заблокировал 5/5
+[OK] 5/5: награда не куплена — каждый чит назван и заблокирован
+```
+
 > **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->209 · cases <!-- fact:canfail_cases -->251 · anchors <!-- fact:anchors -->210 · registry <!-- fact:registry_targets -->288 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
