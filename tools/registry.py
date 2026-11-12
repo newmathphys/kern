@@ -179,6 +179,9 @@ CLASS = {
     # пост-релизном шаге, а не в офлайн-конвейере (иначе курица и яйцо при bump).
     "release-assets-check": "CHECK",
     "release-assets-online": "EXTERNAL",
+    # #656: подпись бинарника на странице песочницы (байты == сборка == манифест).
+    "playground-check": "CHECK",
+    "playground": "BUILD",
 
     "sabotage-guard": "CHECK",          # #628: маркеры диверсии canfail не в src/
     "tools-laws-check": "CHECK",        # #623: законы @kern: на своих функциях доказаны
@@ -638,6 +641,8 @@ CASE_TARGET = {
     "tools-laws": "tools-laws-check",
     # #652: гейт релизных ассетов (case-name -> make-target).
     "release-assets": "release-assets-check",
+    # #656: подпись WASM-песочницы (case-name -> make-target).
+    "playground": "playground-check",
     # ШАГ 2: диверсия «доктор снят» ловится сухим прогоном шагов action.yml.
     "action-doctor": "action-check",
     # #505: диверсия «гейт ослеп» ловится сквозным пилотом на мини-фикстуре.

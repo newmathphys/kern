@@ -40,7 +40,7 @@ KERN заблокировал 5/5
 [OK] 5/5: награда не куплена — каждый чит назван и заблокирован
 ```
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->209 · cases <!-- fact:canfail_cases -->251 · anchors <!-- fact:anchors -->210 · registry <!-- fact:registry_targets -->288 · META <!-- fact:meta_targets -->56 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 · CHECK <!-- fact:check_targets -->211 · cases <!-- fact:canfail_cases -->255 · anchors <!-- fact:anchors -->213 · registry <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -108,7 +108,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->210 / <!-- fact:check_targets -->210 CHECK-целей** покрыты (<!-- fact:canfail_cases -->255 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->211 / <!-- fact:check_targets -->211 CHECK-целей** покрыты (<!-- fact:canfail_cases -->256 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -766,19 +766,19 @@ dist/kerna --doctor                              # должно быть: зав
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 255 кейс: ломаем инвариант -> цель обязана упасть
+make canfail          # 256 кейс: ломаем инвариант -> цель обязана упасть
 make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->213 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->290 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->292 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->290 (CHECK <!-- fact:check_targets -->210 · MEASURE 1 · BUILD <!-- fact:build_targets -->13 · EXTERNAL 3 · META <!-- fact:meta_targets -->56) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->210/<!-- fact:check_targets -->210 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->292 (CHECK <!-- fact:check_targets -->211 · MEASURE 1 · BUILD <!-- fact:build_targets -->14 · EXTERNAL 3 · META <!-- fact:meta_targets -->58) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->211/<!-- fact:check_targets -->211 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->255 (не-вакуумных <!-- fact:canfail_cases -->255 · вакуумных 0 · ошибок кейсов 0) |
+| can-fail кейсов | <!-- fact:canfail_cases -->256 (не-вакуумных <!-- fact:canfail_cases -->256 · вакуумных 0 · ошибок кейсов 0) |
 | Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->617** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)

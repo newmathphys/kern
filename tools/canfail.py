@@ -396,6 +396,10 @@ FAULTABLE = [
     # обязан покраснеть на фикстуре «21 мёртвый тег» — то есть проверяется
     # поведение, а не текст теста.
     "tools/release_assets_check.py",
+    # #656: генератор подписи песочницы. Ломаем СВЕРКУ БАЙТ (sha256 не тех данных),
+    # и `playground-check` обязан покраснеть: страница подписывалась бы одним sha,
+    # а исполняла другие байты.
+    "tools/gen_playground_manifest.py",
     # #474: кейс `evidence-trust` правит СГЕНЕРИРОВАННУЮ таблицу доказательств
     # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
@@ -2888,6 +2892,19 @@ def case_release_assets():
     return "make release-assets-check"
 
 
+def case_playground():
+    """#656 SABOTAGE: подпись песочницы считается не по тем байтам.
+
+    ЛОМАЕМ ПОВЕДЕНИЕ: sha256 считается от `data[:-1]` (один байт отброшен). Манифест
+    тогда подписывает НЕ те байты, которые исполняет браузер, и `playground-check`
+    обязан покраснеть. Проверяется код сверки, а не текст подписи.
+    """
+    patch("tools/gen_playground_manifest.py",
+          "    got = hashlib.sha256(data).hexdigest()",
+          "    got = hashlib.sha256(data[:-1]).hexdigest()  # ЛОМАЕМ (canfail: playground)")
+    return "make playground-check"
+
+
 def case_casetarget_gap():
     """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
 
@@ -4697,6 +4714,8 @@ CASES = [
      case_tools_laws),
     ("release-assets", "порог мёртвых тегов ослаблен -> гейт красный",
      case_release_assets),
+    ("playground", "подпись песочницы не по тем байтам -> гейт красный",
+     case_playground),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",

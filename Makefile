@@ -578,6 +578,15 @@ xray-asi-check:
 release-assets-check:
 	@"$(PYTHON)" tools/release_assets_check.py --selftest
 
+# #656: страница песочницы docs/playground/ исполняет kernc.wasm В БРАУЗЕРЕ. Гейт
+# доказывает, что исполняются именно собранные байты и что подпись (commit + sha256)
+# соответствует им; `playground` пересобирает манифест после `zig build wasm`.
+playground:
+	@"$(PYTHON)" tools/gen_playground_manifest.py
+
+playground-check:
+	@"$(PYTHON)" tools/gen_playground_manifest.py --check
+
 release-assets-online:
 	@"$(PYTHON)" tools/release_assets_check.py --online \
 	  --expect-tag v$$("$(PYTHON)" -c 'import json;print(json.load(open("server.json"))["version"])')

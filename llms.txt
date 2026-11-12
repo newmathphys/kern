@@ -28,12 +28,12 @@
 - Core Zig tests: **460** (`452 passed + 8 skipped`, 0 failed); KERN-Next: **53**;
   full catalog: **491**.
 - Lean 4: **147 theorems in 8 files, 0 errors, 0 sorry**.
-- Mutation score on the Zig kernel: **1600 / 1600 killed (100.0 %)** across
+- Mutation score on the Zig kernel: **1681 / 1681 killed (100.0 %)** across
   **21 files**, no sampling, zero survivors.
-- Can-fail harness: **206 CHECK targets, 251 non-vacuous cases, 0 vacuous**.
+- Can-fail harness: **211 CHECK targets, 255 non-vacuous cases, 0 vacuous**.
 - Cross-architecture: **443 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
   PowerPC64 big-endian (QEMU).
-- WebAssembly: `kernc.wasm` (**106 054 bytes**) exports `kern_wasm_verify_proof`,
+- WebAssembly: `kernc.wasm` (**121 486 bytes**) exports `kern_wasm_verify_proof`,
   `kern_wasm_lia_unsat2`, `kern_wasm_belnap_join`, `kern_wasm_belnap_allow`,
   `kern_wasm_admission_valid` — the proof checker and the Fourier–Motzkin
   solver run in the browser with no OS calls.

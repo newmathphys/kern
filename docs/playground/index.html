@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KERN playground — ядро в браузере, без сервера и без сисколлов</title>
+<style>
+  :root { --fg:#111; --mut:#666; --ok:#0a7; --bad:#c22; --line:#ddd; }
+  body { font: 15px/1.5 -apple-system, Segoe UI, Roboto, sans-serif; color: var(--fg);
+         max-width: 820px; margin: 32px auto; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 28px 0 8px; }
+  .sub { color: var(--mut); margin: 0 0 12px; }
+  button { font: inherit; padding: 6px 12px; margin: 0 6px 6px 0; cursor: pointer; }
+  pre { background: #f6f6f6; border: 1px solid var(--line); padding: 10px;
+        overflow-x: auto; font-size: 13px; margin: 8px 0; }
+  textarea { width: 100%; height: 110px; font: 12px/1.4 ui-monospace, monospace;
+             border: 1px solid var(--line); padding: 8px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .mut { color: var(--mut); }
+  code { background:#f2f2f2; padding:1px 4px; }
+</style>
+</head>
+<body>
+<h1>KERN playground</h1>
+<p class="sub">Настоящее ядро в WebAssembly: <code>wasm32-freestanding</code>, без WASI,
+без сисколлов, статическая арена 4 МБ. Всё считается <b>в вашем браузере</b>, офлайн.</p>
+
+<h2>Сверка бинарника (не верьте подписи — посчитайте сами)</h2>
+<div id="verify" class="mut">Загружаю <code>kernc.wasm</code>…</div>
+
+<h2>1. Логика Белнапа: конфликт не схлопывается</h2>
+<p class="sub">Разрешение (T) ⊔ запрет (F) = B — «и да, и нет» (HTTP 409), а не «deny побеждает».</p>
+<div>
+  <button onclick="join(1,0)">JOIN_K(T, N)</button>
+  <button onclick="join(0,2)">JOIN_K(N, F)</button>
+  <button onclick="join(1,2)">JOIN_K(T, F)</button>
+  <button onclick="join(0,0)">JOIN_K(N, N)</button>
+  <button onclick="allow()">допуск по B</button>
+</div>
+<pre id="outA">—</pre>
+
+<h2>2. Код Хэмминга: допуск с исправлением ошибки</h2>
+<p class="sub">64-битный <code>AdmissionCode</code>; меняйте биты и смотрите, что вердикт держится.</p>
+<div>
+  <button onclick="hamming(0)">code = 0</button>
+  <button onclick="hamming(1)">code = 1</button>
+  <button onclick="hamming(0xFFFFFFFFFFFFFFFF)">code = все единицы</button>
+</div>
+<pre id="outB">—</pre>
+
+<h2>3. Решатель Фурье–Моцкина: две линейные системы</h2>
+<p class="sub">Совместны ли <code>a1·x ≤ b1·y + c1</code> и <code>a2·x ≤ b2·y + c2</code>? Решает ядро, не JS.</p>
+<div>
+  <button onclick="lia(1,0,0, 1,0,-1)">x≤0 и x≤-1 (совместно)</button>
+  <button onclick="lia(1,0,0, -1,0,-1)">x≤0 и -x≤-1 (пусто)</button>
+</div>
+<pre id="outC">—</pre>
+
+<h2>4. <code>verifyProof</code>: перепроверка Z3-сертификата в памяти</h2>
+<p class="sub">Байты кладутся в <b>отдельный входной буфер</b> (<code>kern_wasm_input_ptr</code> /
+<code>kern_wasm_input_cap</code>), чтобы аллокатор арены не затёр вход во время проверки.</p>
+<textarea id="proofIn">(smt — вставьте SMT-скрипт)
+(proof — след сертификата)</textarea>
+<div style="margin-top:8px">
+  <button onclick="verifyProof()">перепроверить</button>
+</div>
+<pre id="outD">—</pre>
+<script src="playground.js"></script>
+</body>
+</html>

@@ -77,7 +77,7 @@
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Защита от саботажа ИИ (L5) (43)
+## E3. Защита от саботажа ИИ (L5) (44)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -112,6 +112,7 @@
 | `oracle-noninterference-check` | `oracle-noninterference-missed` | — | `make oracle-noninterference-check` |
 | `oracle-redos-check` | `oracle-redos-missed` | — | `make oracle-redos-check` |
 | `orphan-gates-check` | `orphan-gates` | — | `make orphan-gates-check` |
+| `playground-check` | `playground` | — | `make playground-check` |
 | `pricing-matrix-check` | `pricing-matrix-check` | — | `make pricing-matrix-check` |
 | `proven-regressions-check` | `proven-regressions-check` | — | `make proven-regressions-check` |
 | `pytest-blind-check` | `pytest-blind` | — | `make pytest-blind-check` |
@@ -253,11 +254,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **211**; класс CHECK в `registry.py`: **211**;
-записей `CASE_TARGET`: **255** (make-исполнимых **251**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **212**; класс CHECK в `registry.py`: **212**;
+записей `CASE_TARGET`: **256** (make-исполнимых **252**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->206 · can-fail кейсы <!-- fact:canfail_cases -->251 ·
-якоря <!-- fact:anchors -->210 · цели реестра <!-- fact:registry_targets -->283 · META <!-- fact:meta_targets -->56 ·
+CHECK-цели <!-- fact:check_targets -->211 · can-fail кейсы <!-- fact:canfail_cases -->255 ·
+якоря <!-- fact:anchors -->213 · цели реестра <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

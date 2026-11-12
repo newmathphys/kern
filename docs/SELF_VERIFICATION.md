@@ -155,9 +155,9 @@ would be a tautology.
 ## 10. Facts referenced by this document
 
 <!-- fact:core_tests -->460 core tests · <!-- fact:next_tests -->53 next ·
-<!-- fact:catalog -->491 catalog · <!-- fact:check_targets -->206 CHECK ·
-<!-- fact:canfail_cases -->251 can-fail cases · <!-- fact:anchors -->210 anchors ·
-<!-- fact:registry_targets -->283 targets · <!-- fact:meta_targets -->56 META ·
+<!-- fact:catalog -->491 catalog · <!-- fact:check_targets -->211 CHECK ·
+<!-- fact:canfail_cases -->255 can-fail cases · <!-- fact:anchors -->213 anchors ·
+<!-- fact:registry_targets -->292 targets · <!-- fact:meta_targets -->58 META ·
 <!-- fact:lean_theorems -->147 Lean theorems ·
 QuixBugs <!-- fact:quixbugs.smt -->6/40 formal SMT ·
 <!-- fact:quixbugs.differential -->40/40 live differential.

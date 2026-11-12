@@ -78,7 +78,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Defence against AI sabotage (L5) (43)
+## E3. Defence against AI sabotage (L5) (44)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -113,6 +113,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `oracle-noninterference-check` | `oracle-noninterference-missed` | — | `make oracle-noninterference-check` |
 | `oracle-redos-check` | `oracle-redos-missed` | — | `make oracle-redos-check` |
 | `orphan-gates-check` | `orphan-gates` | — | `make orphan-gates-check` |
+| `playground-check` | `playground` | — | `make playground-check` |
 | `pricing-matrix-check` | `pricing-matrix-check` | — | `make pricing-matrix-check` |
 | `proven-regressions-check` | `proven-regressions-check` | — | `make proven-regressions-check` |
 | `pytest-blind-check` | `pytest-blind` | — | `make pytest-blind-check` |
@@ -254,11 +255,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **211**; class CHECK in `registry.py`: **211**;
-`CASE_TARGET` records: **255** (make-executable **251**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **212**; class CHECK in `registry.py`: **212**;
+`CASE_TARGET` records: **256** (make-executable **252**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
-CHECK targets <!-- fact:check_targets -->206 · can-fail cases <!-- fact:canfail_cases -->251 ·
-anchors <!-- fact:anchors -->210 · registry targets <!-- fact:registry_targets -->283 · META <!-- fact:meta_targets -->56 ·
+CHECK targets <!-- fact:check_targets -->211 · can-fail cases <!-- fact:canfail_cases -->255 ·
+anchors <!-- fact:anchors -->213 · registry targets <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

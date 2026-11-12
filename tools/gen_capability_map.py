@@ -86,7 +86,10 @@ OVERRIDES: dict[str, str] = {
                           "tools-laws-check", "proven-regressions-check",
                           # #652: тег без релиза / релиз без ассетов — 21 мёртвый тег
                           # подряд прошли молча; теперь это отдельный гейт.
-                          "release-assets-check", "release-assets-online")},
+                          "release-assets-check", "release-assets-online",
+                          # #656: подпись WASM-песочницы == исполняемые байты.
+                          "playground-check", "playground")},
+
 
     # E1 — формальное ядро: теории, доказательства, контракты.
     **{t: "E1" for t in (
