@@ -1,9 +1,9 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "4dd7ef14",
-  "code_hash": "sha256:37dd93626772fabfeb6bf1b005e37590cf18ed27724e40c3e47522c9b34c34d2",
-  "score": 95,
+  "commit": "0b125b03",
+  "code_hash": "sha256:5d3effe99c26c5267446c8e85be48cb320d33eb89de4f5fefdef545175344d1c",
+  "score": 99,
   "grade": "A+",
   "breakdown": {
     "license": 10,
@@ -16,7 +16,7 @@
     "sarif": 6,
     "llms": 6,
     "docs": 8,
-    "hygiene": 6,
+    "hygiene": 10,
     "base_max": 88,
     "mcp_profile": 7,
     "formal_tier": 12,
@@ -27,15 +27,15 @@
     "by_category": {
       "zig": 123,
       "lean": 9,
-      "python": 319,
+      "python": 303,
       "c11": 60,
       "rust": 22,
       "go": 1,
       "ts_js": 5,
       "wasm": 2
     },
-    "skipped": 12,
-    "total": 541,
+    "skipped": 3,
+    "total": 525,
     "blind_spot_native_formal": 134
   },
   "mcp": {

@@ -59,13 +59,40 @@ NATIVE_FORMAL = {"zig", "lean", "wasm"}
 MAX_FILE_BYTES = 512 * 1024
 
 
+def _tracked(root: Path) -> set[str] | None:
+    """Файлы, ОТСЛЕЖИВАЕМЫЕ git. None — если git недоступен (тогда старый обход).
+
+    ДЕФЕКТ #663 (нашёл ЧИСТЫЙ КЛОН, не догадка): паспорт обходил ФАЙЛОВУЮ СИСТЕМУ,
+    поэтому `score`, `code_hash` и `breakdown` зависели от локального мусора
+    (`.venv38/`, `build/`, `zig-out/`), которого в чистом клоне и в CI НЕТ.
+    Итог: `scorecard-check` краснел уже в облаке при зелёном локальном прогоне.
+    Теперь паспорт — функция КОММИТА: берём только `git ls-files`.
+    """
+    try:
+        out = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
+                             capture_output=True, timeout=60)
+        if out.returncode != 0:
+            return None
+        names = out.stdout.decode("utf-8", "replace").split("\0")
+        return {n for n in names if n}
+    except Exception:  # noqa: BLE001 — нет git: остаёмся на обходе ФС (названный режим)
+        return None
+
+
 def walk(root: Path) -> tuple[dict[str, list[Path]], int]:
     """Файлы по категориям; мусорные каталоги/симлинки/гиганты не берём."""
     out: dict[str, list[Path]] = {name: [] for name, _ in CATEGORIES}
     skipped = 0
+    tracked = _tracked(root)
     for p in sorted(root.rglob("*")):
         if p.is_symlink() or not p.is_file():
             continue
+        if tracked is not None:
+            try:
+                if p.relative_to(root).as_posix() not in tracked:
+                    continue
+            except ValueError:
+                continue
         if any(part in SKIP_DIRS for part in p.parts):
             continue
         try:
