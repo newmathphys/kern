@@ -109,6 +109,8 @@ _ABSTRACT_SYMS: set = set()  # символы абстракции (объявл
 # ЧЕСТНЫЙ СЧЁТЧИК ОХВАТА (дефект #208): сколько раз реально вызывался решатель.
 # Функция без единого SMT-обязательства НЕ имеет права называться проверенной.
 _SMT_CALLS: list = [0]
+# #677: честные таймауты решателя (диагностика «немого зависания» на гигантских файлах).
+_SMT_TIMEOUTS: list = [0]
 
 # МЕМОИЗАЦИЯ ВЕРДИКТА (такт 2.2, замер §178.5). ИЗМЕРЕНО на `scanners.c`
 # (`cmark-gfm/src`): 2032 вызова решателя, из них УНИКАЛЬНЫХ 382, повторных
@@ -1586,8 +1588,20 @@ def run_kernc(kernc, smt: str, query_kind: str = "refutation"):
         if query_kind != "refutation":
             cmd += ["--query-kind", query_kind]
         cmd.append(sp)
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
-                           env=_solver_env())
+        # ДЕФЕКТ #677: ТАЙМАУТ НА ОДНУ ФУНКЦИЮ. Мост — ПОДПРОЦЕСС `kernc` (не
+        # python-`z3`!), поэтому `solver.set("timeout", ms)` здесь не применим:
+        # таймаут задаётся на уровне `subprocess.run`. На гигантских single-header
+        # (`stb_image.h`, 277 КБ) один зависший запрос держал весь прогон минутами.
+        # `--func-timeout <ms>` превращает это в ЧЕСТНЫЙ `solver timeout`, а не в
+        # молчаливое ожидание. Резать файл (`--max-functions`) нельзя — это создало
+        # бы слепую зону в конце файла.
+        _tmo = int(os.environ.get("KERN_SMT_TIMEOUT_MS", "120000")) / 1000.0
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=_tmo,
+                               env=_solver_env())
+        except subprocess.TimeoutExpired:
+            _SMT_TIMEOUTS[0] += 1
+            return -1, "TIMEOUT"
         return r.returncode, r.stdout + r.stderr
     finally:
         Path(sp).unlink(missing_ok=True)
@@ -4214,6 +4228,10 @@ def main(argv=None) -> int:
                     help="ABI 1.0 (#483): машиночитаемый JSON аудита в stdout вместо "
                          "текста (для CI-плагинов, MCP и обвязок на других языках). "
                          "НЕ путать с `--json`, который пишет отчёт по КОНТРАКТАМ")
+    ap.add_argument("--func-timeout", type=int, default=0, metavar="MS",
+                    help="таймаут решателя на ОДИН запрос, мс (#677). По умолчанию "
+                         "120000. При превышении — честный 'solver timeout', "
+                         "а не немое зависание (мост — подпроцесс kernc)")
     ap.add_argument("--xray", default=None, metavar="PATH", nargs="+",
                     help="ПУНКТ 13: рентген кода БЕЗ аннотаций "
                          "(мёртвые ветки, избыточные проверки, краш-пути, CC); "
@@ -4278,6 +4296,10 @@ def main(argv=None) -> int:
                     help="установить .git/hooks/pre-commit (блокирует коммит "
                          "при нарушенном контракте)")
     args = ap.parse_args(argv)
+    # #677: таймаут решателя на ОДИН запрос. Мост — подпроцесс `kernc`, поэтому
+    # значение передаётся через окружение в `run_kernc` (там же и измеряется).
+    if getattr(args, "func_timeout", 0) and args.func_timeout > 0:
+        os.environ["KERN_SMT_TIMEOUT_MS"] = str(args.func_timeout)
 
     if args.install_hook is not None:
         return cmd_install_hook(args.install_hook)
@@ -6252,6 +6274,9 @@ def _smt_verdict(kernc, params, asserts) -> tuple[str, str | None]:
         _SMT_CALLS[0] += 1
         return _hit
     _rc, out = run_kernc(kernc, smt)
+    if "TIMEOUT" in out and "КОНТРПРИМЕР" not in out and "ДОКАЗАНО" not in out:
+        # #677: решатель не успел — это «НЕ РЕШЕНО», а не SAT и не доказательство.
+        return ("unknown", "solver timeout (--func-timeout)")
     if "КОНТРПРИМЕР" in out:
         for ln in out.splitlines():
             if "КОНТРПРИМЕР" in ln:
