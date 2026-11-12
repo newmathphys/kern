@@ -999,6 +999,11 @@ sync:
 	"$(PYTHON)" tools/sync_state.py --write
 	"$(PYTHON)" tools/gen_llms_txt.py --write
 	"$(PYTHON)" tools/gen_status.py --write
+	# ДЕФЕКТ #663 (нашёл чистый клон): паспорт НЕ входил в `sync`, и его забывали
+	# пересобрать после последних правок — тогда `scorecard-check` краснел уже в CI,
+	# где `code_hash` считается по фактическим файлам коммита. Теперь паспорт
+	# пересобирается ТОЙ ЖЕ командой, что и остальная витрина.
+	"$(PYTHON)" tools/trust_scorecard.py --json docs/evidence/scorecard.json --quiet
 
 sync-check:
 	"$(PYTHON)" tools/sync_state.py --check
