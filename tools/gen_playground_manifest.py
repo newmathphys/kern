@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import json
 import shutil
 import subprocess
@@ -77,6 +78,28 @@ def _check() -> int:
     else:
         print("[SKIP] wasm-playground: node не найден — сценарии НЕ исполнены "
               "(в CI node есть; локально поставьте node)")
+    # ДВУЯЗЫЧИЕ: наборы ключей EN и RU обязаны совпадать. Иначе на английской
+    # странице вылезет непереведённая строка (или наоборот) — ровно то, что убивает
+    # первое впечатление у внешней аудитории.
+    js_file = PLAY / "playground.js"
+    if js_file.exists():
+        src = js_file.read_text(encoding="utf-8")
+
+        def keys_of(lang: str) -> set[str]:
+            m = re.search(rf"\n  {lang}: {{(.*?)\n  }}", src, re.S)
+            return set(re.findall(r'"([a-z][a-z0-9.]*)":', m.group(1))) if m else set()
+
+        en, ru = keys_of("en"), keys_of("ru")
+        if not en or not ru:
+            print("[FAIL] playground.js: не найдены словари i18n en/ru")
+            bad = 1
+        elif en != ru:
+            print(f"[FAIL] i18n: ключи расходятся — только EN {sorted(en - ru)}, "
+                  f"только RU {sorted(ru - en)}")
+            bad = 1
+        else:
+            print(f"[OK] i18n: EN и RU полны и совпадают ({len(en)} ключей), "
+                  f"язык по умолчанию — EN")
     return bad
 
 

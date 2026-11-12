@@ -26,7 +26,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->256**, of which
 | --- | --- |
 | Core Zig tests | <!-- fact:core_tests -->460 (452 passed + 8 skipped, 0 failed) |
 | KERN-Next tests | <!-- fact:next_tests -->53 |
-| Full test catalog | <!-- fact:catalog -->491 |
+| Full test catalog | <!-- fact:catalog -->492 |
 | Lean 4 | <!-- fact:lean_theorems -->147 theorems in 8 files, 0 sorry |
 | Mutations killed | <!-- fact:mutation_sites -->1681 / 1681 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |

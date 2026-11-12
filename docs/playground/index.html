@@ -1,67 +1,74 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KERN playground — ядро в браузере, без сервера и без сисколлов</title>
+<title>KERN playground — the kernel in your browser, no server, no syscalls</title>
 <style>
   :root { --fg:#111; --mut:#666; --ok:#0a7; --bad:#c22; --line:#ddd; }
   body { font: 15px/1.5 -apple-system, Segoe UI, Roboto, sans-serif; color: var(--fg);
          max-width: 820px; margin: 32px auto; padding: 0 16px; }
   h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 28px 0 8px; }
   .sub { color: var(--mut); margin: 0 0 12px; }
+  .lang { float: right; font-size: 13px; }
+  .lang button { padding: 2px 8px; margin-left: 4px; }
+  .lang button[aria-pressed="true"] { font-weight: 700; }
   button { font: inherit; padding: 6px 12px; margin: 0 6px 6px 0; cursor: pointer; }
   pre { background: #f6f6f6; border: 1px solid var(--line); padding: 10px;
         overflow-x: auto; font-size: 13px; margin: 8px 0; }
-  textarea { width: 100%; height: 110px; font: 12px/1.4 ui-monospace, monospace;
-             border: 1px solid var(--line); padding: 8px; }
   .ok { color: var(--ok); } .bad { color: var(--bad); } .mut { color: var(--mut); }
   code { background:#f2f2f2; padding:1px 4px; }
 </style>
 </head>
 <body>
-<h1>KERN playground</h1>
-<p class="sub">Настоящее ядро в WebAssembly: <code>wasm32-freestanding</code>, без WASI,
-без сисколлов, статическая арена 4 МБ. Всё считается <b>в вашем браузере</b>, офлайн.</p>
+<div class="lang">
+  <button id="btnEn" aria-pressed="true" onclick="setLang('en')">EN</button>
+  <button id="btnRu" aria-pressed="false" onclick="setLang('ru')">RU</button>
+</div>
+<h1 data-i18n="h1">KERN playground</h1>
+<p class="sub" data-i18n="intro">The real kernel in WebAssembly: <code>wasm32-freestanding</code>,
+no WASI, no syscalls, a 4 MB static arena. Everything runs <b>in your browser</b>, offline.</p>
 
-<h2>Сверка бинарника (не верьте подписи — посчитайте сами)</h2>
-<div id="verify" class="mut">Загружаю <code>kernc.wasm</code>…</div>
+<h2 data-i18n="v.h">Verify the binary (do not trust the label — compute it)</h2>
+<div id="verify" class="mut">Loading <code>kernc.wasm</code>…</div>
 
-<h2>1. Логика Белнапа: конфликт не схлопывается</h2>
-<p class="sub">Разрешение (T) ⊔ запрет (F) = B — «и да, и нет» (HTTP 409), а не «deny побеждает».</p>
+<h2 data-i18n="a.h">1. Belnap logic: a conflict does not collapse</h2>
+<p class="sub" data-i18n="a.p">Allow (T) ⊔ Deny (F) = B — “yes and no” (HTTP 409), not “deny wins”.</p>
 <div>
   <button onclick="join(1,0)">JOIN_K(T, N)</button>
   <button onclick="join(0,2)">JOIN_K(N, F)</button>
   <button onclick="join(1,2)">JOIN_K(T, F)</button>
   <button onclick="join(0,0)">JOIN_K(N, N)</button>
-  <button onclick="allow()">допуск по B</button>
+  <button onclick="allow()" data-i18n="a.allow">admission via B</button>
 </div>
 <pre id="outA">—</pre>
 
-<h2>2. Код Хэмминга: допуск с исправлением ошибки</h2>
-<p class="sub">64-битный <code>AdmissionCode</code>; меняйте биты и смотрите, что вердикт держится.</p>
+<h2 data-i18n="b.h">2. Hamming code: admission with error correction</h2>
+<p class="sub" data-i18n="b.p">A 64-bit <code>AdmissionCode</code>; flip bits and watch the verdict hold.</p>
 <div>
   <button onclick="hamming(0)">code = 0</button>
   <button onclick="hamming(1)">code = 1</button>
-  <button onclick="hamming(0xFFFFFFFFFFFFFFFF)">code = все единицы</button>
+  <button onclick="hamming(0xFFFFFFFFFFFFFFFF)">code = all ones</button>
 </div>
 <pre id="outB">—</pre>
 
-<h2>3. Решатель Фурье–Моцкина: две линейные системы</h2>
-<p class="sub">Совместны ли <code>a1·x ≤ b1·y + c1</code> и <code>a2·x ≤ b2·y + c2</code>? Решает ядро, не JS.</p>
+<h2 data-i18n="c.h">3. Fourier–Motzkin solver: two linear systems</h2>
+<p class="sub" data-i18n="c.p">Are <code>a1·x ≤ b1·y + c1</code> and <code>a2·x ≤ b2·y + c2</code>
+jointly satisfiable? The kernel decides, not JS.</p>
 <div>
-  <button onclick="lia(1,0,0, 1,0,-1)">x≤0 и x≤-1 (совместно)</button>
-  <button onclick="lia(1,0,0, -1,0,-1)">x≤0 и -x≤-1 (пусто)</button>
+  <button onclick="lia(1,0,0, 1,0,-1)" data-i18n="c.b1">x≤0 and x≤-1 (jointly)</button>
+  <button onclick="lia(1,0,0, -1,0,-1)" data-i18n="c.b2">x≤0 and -x≤-1 (empty)</button>
 </div>
 <pre id="outC">—</pre>
 
-<h2>4. <code>verifyProof</code>: перепроверка Z3-сертификата в памяти</h2>
-<p class="sub">Байты кладутся в <b>отдельный входной буфер</b> (<code>kern_wasm_input_ptr</code> /
-<code>kern_wasm_input_cap</code>), чтобы аллокатор арены не затёр вход во время проверки.
-Эталон: <code>abs.c</code>, 16 шагов proof-DAG, снят с живого Z3.</p>
+<h2 data-i18n="d.h">4. <code>verifyProof</code>: re-checking a Z3 certificate in memory</h2>
+<p class="sub" data-i18n="d.p">Bytes go into a <b>separate input buffer</b>
+(<code>kern_wasm_input_ptr</code> / <code>kern_wasm_input_cap</code>) so the arena allocator
+cannot overwrite the input during verification. Reference: <code>abs.c</code>, 16 proof-DAG
+steps, captured from a live Z3 run.</p>
 <div>
-  <button onclick="loadSample(false)">Загрузить эталонный сертификат → ПРИНЯТ (1)</button>
-  <button onclick="loadSample(true)">Подделать 1 шаг в доказательстве → ОТКЛОНЁН (0)</button>
+  <button onclick="loadSample(false)" data-i18n="d.b1">Load reference certificate → ACCEPTED (1)</button>
+  <button onclick="loadSample(true)" data-i18n="d.b2">Sabotage one byte in the proof → REJECTED (0)</button>
 </div>
 <pre id="smtView" class="mut">—</pre>
 <pre id="outD">—</pre>

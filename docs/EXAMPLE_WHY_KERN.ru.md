@@ -152,7 +152,7 @@ KERN — не сканер. Он не найдёт баги в репозито�
 |:--|:--|
 | Тесты ядра | <!-- fact:core_tests -->460 |
 | Тесты next | <!-- fact:next_tests -->53 |
-| Каталог тестов | <!-- fact:catalog -->491 |
+| Каталог тестов | <!-- fact:catalog -->492 |
 | CHECK-целей | <!-- fact:check_targets -->211 |
 | can-fail кейсов | <!-- fact:canfail_cases -->256 |
 | Литеральных якорей | <!-- fact:anchors -->214 |

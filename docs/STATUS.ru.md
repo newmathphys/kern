@@ -26,7 +26,7 @@ Can-fail кейсов: **<!-- fact:canfail_cases -->256**, из них у
 | --- | --- |
 | Тесты ядра (Zig) | <!-- fact:core_tests -->460 (452 прошло + 8 пропущено, провалов 0) |
 | Тесты KERN-Next | <!-- fact:next_tests -->53 |
-| Каталог тестов | <!-- fact:catalog -->491 |
+| Каталог тестов | <!-- fact:catalog -->492 |
 | Lean 4 | <!-- fact:lean_theorems -->147 теорем в 8 файлах, 0 sorry |
 | Убито мутаций | <!-- fact:mutation_sites -->1681 / 1681 в 21 файлах |
 | Кросс-архитектура | <!-- fact:cross_arch_passed -->443 прошло / <!-- fact:cross_arch_skipped -->8 пропущено / 0 провалов |

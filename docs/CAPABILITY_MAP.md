@@ -259,7 +259,7 @@ Targets in the map: **212**; class CHECK in `registry.py`: **212**;
 `CASE_TARGET` records: **256** (make-executable **252**); without a case outside `NO_CASE_OK`: **0**.
 
 
-core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
+core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 ·
 CHECK targets <!-- fact:check_targets -->211 · can-fail cases <!-- fact:canfail_cases -->256 ·
 anchors <!-- fact:anchors -->214 · registry targets <!-- fact:registry_targets -->292 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

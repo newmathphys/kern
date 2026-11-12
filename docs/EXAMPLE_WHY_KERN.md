@@ -147,7 +147,7 @@ subset. It is a **scalpel plus a turnstile**:
 |:--|:--|
 | Core tests | <!-- fact:core_tests -->460 |
 | Next tests | <!-- fact:next_tests -->53 |
-| Test catalog | <!-- fact:catalog -->491 |
+| Test catalog | <!-- fact:catalog -->492 |
 | CHECK targets | <!-- fact:check_targets -->211 |
 | can-fail cases | <!-- fact:canfail_cases -->256 |
 | Literal anchors | <!-- fact:anchors -->214 |
