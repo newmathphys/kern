@@ -83,7 +83,11 @@ OVERRIDES: dict[str, str] = {
     # E3 — самозащита конвейера (#623/#628/#633): гейты против саботажа,
     # неподключённых проверок и потери доказанных законов на своих функциях.
     **{t: "E3" for t in ("sabotage-guard", "orphan-gates-check",
-                          "tools-laws-check", "proven-regressions-check")},
+                          "tools-laws-check", "proven-regressions-check",
+                          # #652: тег без релиза / релиз без ассетов — 21 мёртвый тег
+                          # подряд прошли молча; теперь это отдельный гейт.
+                          "release-assets-check", "release-assets-online")},
+
     # E1 — формальное ядро: теории, доказательства, контракты.
     **{t: "E1" for t in (
         "align", "arrays", "cert", "dtmc", "nra", "strings", "theories", "ubsafe",

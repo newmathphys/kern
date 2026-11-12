@@ -570,6 +570,18 @@ ecosystem-check:
 xray-asi-check:
 	@"$(PYTHON)" tools/xray_asi_check.py
 
+# ДЕФЕКТ #652: тег БЕЗ релиза и релиз БЕЗ ассетов — молчаливая дыра (21 тег подряд
+# v2.8.4…v2.8.24 остались без публикации, и ни один гейт об этом не сказал).
+# ВАЖНО ПРО `ci-fast`: здесь гоняется ТОЛЬКО офлайн-контракт (`--selftest`), поэтому
+# гейт не создаёт курицу и яйца — он не требует, чтобы релиз текущей версии уже был.
+# Живая проверка — отдельно и после публикации: `release-assets-online`.
+release-assets-check:
+	@"$(PYTHON)" tools/release_assets_check.py --selftest
+
+release-assets-online:
+	@"$(PYTHON)" tools/release_assets_check.py --online \
+	  --expect-tag v$$("$(PYTHON)" -c 'import json;print(json.load(open("server.json"))["version"])')
+
 xray-check: build
 	@bash tools/xray_check.sh
 

@@ -630,6 +630,8 @@ CASE_TARGET = {
     "sabotage-guard": "sabotage-guard",
     "orphan-gates": "orphan-gates-check",
     "tools-laws": "tools-laws-check",
+    # #652: гейт релизных ассетов (case-name -> make-target).
+    "release-assets": "release-assets-check",
     # ШАГ 2: диверсия «доктор снят» ловится сухим прогоном шагов action.yml.
     "action-doctor": "action-check",
     # #505: диверсия «гейт ослеп» ловится сквозным пилотом на мини-фикстуре.

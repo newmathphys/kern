@@ -392,6 +392,10 @@ FAULTABLE = [
     #     Именно это — самая частая реальная диверсия: «отключить неудобную проверку».
     "tools/funnel_accounting.py",
     "tools/ci.sh",
+    # #652: гейт релизных ассетов. Ломаем ПОРОГ разрыва (MAX_TAG_GAP), и кейс
+    # обязан покраснеть на фикстуре «21 мёртвый тег» — то есть проверяется
+    # поведение, а не текст теста.
+    "tools/release_assets_check.py",
     # #474: кейс `evidence-trust` правит СГЕНЕРИРОВАННУЮ таблицу доказательств
     # (снимает `trusted N` у `PROVEN`) — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
@@ -2869,6 +2873,21 @@ def case_tools_laws():
     return "make tools-laws-check"
 
 
+def case_release_assets():
+    """#652 SABOTAGE: порог «мёртвых тегов» ослаблен -> гейт обязан покраснеть.
+
+    ЛОМАЕМ ПОВЕДЕНИЕ, а не спек: `MAX_TAG_GAP = 1` -> `25`. Тогда реальная история
+    (21 тег `v2.8.4…v2.8.24` без релиза) перестаёт считаться дырой, и фикстура №5
+    из `--selftest` («21 мёртвый тег») проходит как норма — гейт обязан упасть.
+    Это ровно тот дефект, который мы нашли в живом репозитории: молчание о мёртвых
+    тегах.
+    """
+    patch("tools/release_assets_check.py",
+          "MAX_TAG_GAP = 1",
+          "MAX_TAG_GAP = 25  # ЛОМАЕМ порог (canfail: release-assets-check)")
+    return "make release-assets-check"
+
+
 def case_casetarget_gap():
     """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
 
@@ -4676,6 +4695,8 @@ CASES = [
      case_orphan_gates),
     ("tools-laws", "закон на своей функции нарушен -> гейт красный",
      case_tools_laws),
+    ("release-assets", "порог мёртвых тегов ослаблен -> гейт красный",
+     case_release_assets),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",

@@ -254,7 +254,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 ## Registry parity
 
 Targets in the map: **210**; class CHECK in `registry.py`: **210**;
-`CASE_TARGET` records: **254** (make-executable **250**); without a case outside `NO_CASE_OK`: **0**.
+`CASE_TARGET` records: **255** (make-executable **251**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->491 ·
