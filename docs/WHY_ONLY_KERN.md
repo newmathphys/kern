@@ -11,8 +11,12 @@ real process invocation: return codes and verdicts, no adjectives.
 | R4 рефакторинг | py_compile+unittest | py_compile rc=0, unittest rc=0 (молчат) | ПОЙМАЛ (DIVERGED + контрпример) | KERN |
 | R5 подделка proof | blind trust | принял (верит тексту `unsat`) | ОТВЕРГ (0) | KERN |
 | R6 тест без assert | unittest | unittest rc=0 (зелёный) | ПОЙМАЛ | KERN |
+| R7 no_arbitrage | unittest (1 вызов) | unittest rc=0 (зелёный) | ПОЙМАЛ (REFUTED + суммы) | KERN |
+| R10 2-Safety | unittest (1 запуск) | unittest rc=0 (зелёный) | не поймал | = |
+| R11 MCP-щит | json.load | json.load rc=0 (валидно) | ЗАБЛОКИРОВАЛ (U+200B + инъекция) | KERN |
+| R12 Belnap B4 | boolean deny-wins | deny wins -> deny (конфликт погашен) | B (409 Conflict) | KERN |
 
-**Measured: KERN caught 6 of 6 rounds; honest gaps: 0.**
+**Measured: KERN caught 9 of 10 rounds; honest gaps: 0.**
 
 A `ПРОБЕЛ` row is published on purpose: a stand that never loses is a
 stand that measures nothing.
