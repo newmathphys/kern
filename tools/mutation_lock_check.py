@@ -25,7 +25,31 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MARKER = ROOT / ".git" / "CANFAIL_ACTIVE_MUTATION"
+
+
+def _git_dir() -> Path:
+    """Каталог .git — РАЗРЕШЁННЫЙ, а не `ROOT/.git`.
+
+    ИЗМЕРЕНО (нашёл canfail: кейс `mutation-lock` был ВАКУУМНЫМ в изоляции #630):
+    в git-worktree `.git` — это ФАЙЛ-указатель, поэтому запись
+    `> .git/CANFAIL_ACTIVE_MUTATION` падала, `printf` не прерывал `bash -c`,
+    маркер не появлялся, и замок зеленел. Теперь оба конца (кейс и чекер)
+    используют один и тот же разрешённый путь.
+    """
+    try:
+        import subprocess
+
+        out = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=ROOT,
+                             capture_output=True, text=True, timeout=10)
+        if out.returncode == 0 and out.stdout.strip():
+            p = Path(out.stdout.strip())
+            return p if p.is_absolute() else (ROOT / p)
+    except Exception:  # noqa: BLE001 — нет git: остаёмся на безопасном дефолте
+        pass
+    return ROOT / ".git"
+
+
+MARKER = _git_dir() / "CANFAIL_ACTIVE_MUTATION"
 
 
 def _pid_alive(pid: int) -> bool:

@@ -107,7 +107,6 @@
   "trace-check",
   "translation-val-check",
   "trust-docs-check",
-  "xray-check",
   "xray-overflow-check",
   "zig-guard-check"
  ]

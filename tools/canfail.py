@@ -4435,9 +4435,14 @@ def case_mutation_lock():
     срабатывает). PID берётся у самой оболочки (`$$`) — то есть ЖИВОЙ, и это
     проверяет главный путь: «мутация в полёте».
     """
-    return ("bash -c 'printf \"pid=$$ started=0\\n\" > .git/CANFAIL_ACTIVE_MUTATION; "
+    ВАЖНО (нашёл canfail): в git-worktree `.git` — ФАЙЛ, поэтому путь маркера
+    разрешается через `git rev-parse --git-dir` (`$d`), как и в чекере. Раньше
+    запись падала молча и кейс был ВАКУУМНЫМ (маркер не создавался).
+    """
+    return ("bash -c 'd=$(git rev-parse --git-dir); "
+            "printf \"pid=$$ started=0\\n\" > \"$d/CANFAIL_ACTIVE_MUTATION\"; "
             "python3 tools/mutation_lock_check.py; rc=$?; "
-            "rm -f .git/CANFAIL_ACTIVE_MUTATION; exit $rc'")
+            "rm -f \"$d/CANFAIL_ACTIVE_MUTATION\"; exit $rc'")
 
 
 def case_action_doctor():
