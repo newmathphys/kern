@@ -13140,6 +13140,59 @@ class _CheatScan(ast.NodeVisitor):
 
     def _scan_body(self, node):
         """Проверки, которые имеют смысл ТОЛЬКО внутри функции."""
+        # ДЕФЕКТ #661 (нашёл стенд head_to_head, раунд R6): ТЕСТ БЕЗ УТВЕРЖДЕНИЯ.
+        # Тест `def test_x(): pass` проходит в unittest/pytest (rc=0) и давал 100 %
+        # покрытия при нулевой проверке — ровно тот чит, который KERN обязан звать.
+        # АККУРАТНОСТЬ ВАЖНЕЕ ПОЛНОТЫ: обвинение выносится ТОЛЬКО если во всём
+        # поддереве нет ни одного доказательства проверки. Легитимные формы:
+        #   ast.Assert                                  (обычный assert)
+        #   self.assert*  / self.fail*                  (unittest)
+        #   pytest.raises / pytest.warns / pytest.fail  (контекст или вызов)
+        #   assert_* / check_* / verify_*               (свои хелперы)
+        # ИНАЧЕ половина стандартных сьютов на unittest получила бы ложное
+        # обвинение — цена хуже, чем польза.
+        if self._in_test:
+            _EV = ("assert", "check_", "verify_")
+            has_evidence = False
+            for x in ast.walk(node):
+                if isinstance(x, ast.Assert):
+                    has_evidence = True
+                    break
+                if isinstance(x, ast.Call):
+                    f = x.func
+                    nm = ""
+                    if isinstance(f, ast.Attribute):
+                        nm = f.attr or ""
+                    elif isinstance(f, ast.Name):
+                        nm = f.id or ""
+                    if nm.startswith(_EV) or nm in ("fail", "raises", "warns"):
+                        has_evidence = True
+                        break
+                if isinstance(x, ast.With) or isinstance(x, ast.AsyncWith):
+                    for it in x.items:
+                        ce = it.context_expr
+                        if isinstance(ce, ast.Call) and isinstance(ce.func, ast.Attribute):
+                            if (ce.func.attr or "") in ("raises", "warns", "fail"):
+                                has_evidence = True
+                    if has_evidence:
+                        break
+            if not has_evidence:
+                # ЛОЖНЫЕ ТРЕВОГИ, ИЗМЕРЕННЫЕ НА СВОЁМ РЕПО (первый прогон поймал
+                # `test_count(out) -> int | None` и `test_is_non_vacuous(path) -> bool`):
+                # это ХЕЛПЕРЫ с именем на `test_`, а не тесты. Настоящий тест
+                # ВОЗВРАЩАЕТ None (pytest считает возврат значения ошибкой), поэтому
+                # обвиняем только функции без `return <значение>` и без аннотации
+                # возврата, отличной от None.
+                returns_value = any(
+                    isinstance(x, ast.Return) and x.value is not None
+                    for x in ast.walk(node))
+                ann = getattr(node, "returns", None)
+                returns_typed = ann is not None and not (
+                    isinstance(ann, ast.Constant) and ann.value is None)
+                if not (returns_value or returns_typed):
+                    self.findings.append(
+                        ("vacuous test (no assertion: assert / self.assert* / "
+                         "pytest.raises / check_*)", node.lineno))
         if node.name == "__eq__":
             for st in ast.walk(node):
                 if (isinstance(st, ast.Return) and isinstance(st.value, ast.Constant)

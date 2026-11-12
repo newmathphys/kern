@@ -10,9 +10,9 @@ real process invocation: return codes and verdicts, no adjectives.
 | R3 except: pass | unittest | unittest rc=0 (зелёный) | ПОЙМАЛ (CHEAT DETECTED) | KERN |
 | R4 рефакторинг | py_compile+unittest | py_compile rc=0, unittest rc=0 (молчат) | ПОЙМАЛ (DIVERGED + контрпример) | KERN |
 | R5 подделка proof | blind trust | принял (верит тексту `unsat`) | ОТВЕРГ (0) | KERN |
-| R6 тест без assert | unittest | unittest rc=0 (зелёный) | тоже молчит (ПРОБЕЛ) | ПРОБЕЛ |
+| R6 тест без assert | unittest | unittest rc=0 (зелёный) | ПОЙМАЛ | KERN |
 
-**Measured: KERN caught 5 of 6 rounds; honest gaps: 1.**
+**Measured: KERN caught 6 of 6 rounds; honest gaps: 0.**
 
 A `ПРОБЕЛ` row is published on purpose: a stand that never loses is a
 stand that measures nothing.
