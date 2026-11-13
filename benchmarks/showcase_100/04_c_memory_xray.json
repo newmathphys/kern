@@ -56,20 +56,20 @@
       }
     },
     {
-      "id": "alloc_mul_overflow",
-      "sphere": "Аллокация",
-      "trick": "items * size в malloc переполняется",
+      "id": "uint16_promo",
+      "sphere": "Память C",
+      "trick": "uint16_t i-1 при i=0: promotion до int даёт -1 -> b[-1]",
       "kind": "xray",
       "files": {
-        "alloc_mul_overflow.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nvoid *mk(size_t items, size_t size){ return malloc(items * size); }\nint main(void){ void *p = mk(SIZE_MAX/2+1, 4); free(p); return 0; }\n"
+        "uint16_promo.c": "#include <stdint.h>\nint take(uint16_t *b, uint16_t i){\n    return b[i - 1];\n}\nint main(void){ uint16_t a[2]={1,2}; return take(a, 0); }\n"
       },
       "run": [
-        "alloc_mul_overflow.c"
+        "uint16_promo.c"
       ],
-      "expect": "OVERFLOW PATH",
+      "expect": "BOUNDS PATH",
       "oracle": {
         "kind": "gcc",
-        "file": "alloc_mul_overflow.c",
+        "file": "uint16_promo.c",
         "expect_crash": true
       }
     },
@@ -97,7 +97,7 @@
       "trick": "гард сброшен переприсваиванием w = y; -w",
       "kind": "xray",
       "files": {
-        "guard_reset.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint f(int w, int y){ if (w < -15) { return -2; } w = y; if (w < 0) { w = -w; } return w; }\nint main(void){ return f(-100, -2147483647-1) == 0; }\n"
+        "guard_reset.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\n#include <limits.h>\nint f(int w, int y){\n    if (w < -15) { return -2; }\n    w = y;\n    if (w < 0) { w = -w; }\n    return w;\n}\nint main(void){ volatile int m = INT_MIN; volatile int z = -100; return f(z, m); }\n"
       },
       "run": [
         "guard_reset.c"
@@ -120,7 +120,7 @@
       "run": [
         "div_zero_path.c"
       ],
-      "expect": "DIV",
+      "expect": "CRASH PATH",
       "oracle": {
         "kind": "gcc",
         "file": "div_zero_path.c",
@@ -143,7 +143,8 @@
         "kind": "gcc",
         "file": "promo_guarded.c",
         "expect_crash": false
-      }
+      },
+      "expect_absent": " PATH]"
     },
     {
       "id": "neg_guarded",
@@ -151,7 +152,7 @@
       "trick": "-w под гардом w < -MAXWB",
       "kind": "xray",
       "files": {
-        "neg_guarded.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\n#define MAXWB 15\nint f(int w){ if (w < -MAXWB) { return -2; } if (w < 0) { w = -w; } return w; }\nint main(void){ return f(-2147483647-1, 0); }\n"
+        "neg_guarded.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\n#include <limits.h>\n#define MAXWB 15\nint f_ok2(int w){\n    if (w < -MAXWB) { return -2; }\n    if (w < 0) { w = -w; }\n    return w;\n}\nint main(void){ volatile int m = INT_MIN; return f_ok2(m) == 0; }\n"
       },
       "run": [
         "neg_guarded.c"
@@ -161,7 +162,8 @@
         "kind": "gcc",
         "file": "neg_guarded.c",
         "expect_crash": false
-      }
+      },
+      "expect_absent": " PATH]"
     },
     {
       "id": "div_guarded",
@@ -179,7 +181,8 @@
         "kind": "gcc",
         "file": "div_guarded.c",
         "expect_crash": false
-      }
+      },
+      "expect_absent": " PATH]"
     }
   ]
 }

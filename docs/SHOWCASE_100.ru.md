@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 12.4 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 19.4 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -35,6 +35,16 @@
 | 03_ai_anticheat | always_true_eq | Сверка балансов | переопределён __eq__ так, что любой объект равен ожидаемому | ПОЙМАЛ | unittest rc=0 (слеп) |
 | 03_ai_anticheat | monkeypatch_module | Лимиты API | подмена функции модуля присваиванием перед проверкой | ПОЙМАЛ | unittest rc=0 (слеп) |
 | 03_ai_anticheat | dunder_setattr | Проверка доставки | динамическая подмена dunder через setattr | ПОЙМАЛ | unittest rc=0 (слеп) |
+| 04_c_memory_xray | c11_promo_bounds | Память C | uint8_t i-1 при i=0 -> b[-1] (C11 6.3.1.1 promotion) | ПОЙМАЛ | gcc: UB/ASan (rc=1) |
+| 04_c_memory_xray | size_t_wrap_bounds | Память C | size_t i-1 при i=0 -> wrap-around | ПОЙМАЛ | gcc: UB/ASan (rc=1) |
+| 04_c_memory_xray | int64_neg_index | Память C | int64_t индекс без гарда: b[i-1] при i=0 | ПОЙМАЛ | gcc: UB/ASan (rc=1) |
+| 04_c_memory_xray | uint16_promo | Память C | uint16_t i-1 при i=0: promotion до int даёт -1 -> b[-1] | ПОЙМАЛ | gcc: UB/ASan (rc=1) |
+| 04_c_memory_xray | neg_int_min | Арифметика | унарный минус на INT_MIN без гарда | ПОЙМАЛ | [OVERFLOW PATH] f: переполнение типа `i32` ([-2147483648, 2147483647]) в `-w` —  |
+| 04_c_memory_xray | guard_reset | Арифметика | гард сброшен переприсваиванием w = y; -w | ПОЙМАЛ | [OVERFLOW PATH] f: переполнение типа `i32` ([-2147483648, 2147483647]) в `-w` —  |
+| 04_c_memory_xray | div_zero_path | Деление | деление на параметр без гарда != 0 | ПОЙМАЛ | gcc: UB/ASan (rc=1) |
+| 04_c_memory_xray | promo_guarded | Память C (близнец) | тот же b[i-1], но под гардом i>=1 | ПОЙМАЛ | gcc: чисто (rc=0) |
+| 04_c_memory_xray | neg_guarded | Арифметика (близнец) | -w под гардом w < -MAXWB | ПОЙМАЛ | gcc: чисто (rc=0) |
+| 04_c_memory_xray | div_guarded | Деление (близнец) | то же деление, но под гардом b != 0 | ПОЙМАЛ | gcc: чисто (rc=0) |
 | 05_belnap_policies | iam_data_secops | Облачный IAM | Data разрешает чтение бакета, SecOps запрещает без MFA | ПОЙМАЛ | JOIN B / BOOL deny |
 | 05_belnap_policies | er_doctor_record | Медицина | Врач скорой запрашивает закрытую карту пациента | ПОЙМАЛ | JOIN B / BOOL deny |
 | 05_belnap_policies | vip_vs_antifraud | Банк | VIP-лимит разрешает перевод, антифрод блокирует | ПОЙМАЛ | JOIN B / BOOL deny |
@@ -46,4 +56,4 @@
 | 05_belnap_policies | mod_whitelist_vs_stopword | Модерация | Белый список автора разрешает, стоп-слово запрещает | ПОЙМАЛ | JOIN B / BOOL deny |
 | 05_belnap_policies | dlp_vs_share | DLP | Внешний шаринг документа разрешён владельцем, DLP отдела запрещает | ПОЙМАЛ | JOIN B / BOOL deny |
 
-**Подтверждено: 40 / 40.**
+**Подтверждено: 50 / 50.**

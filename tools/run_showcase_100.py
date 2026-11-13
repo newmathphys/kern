@@ -110,6 +110,7 @@ def _oracle(card: dict, d: Path) -> tuple[bool, str]:
         if not cc:
             return False, "gcc не найден (оракул недоступен)"
         rc_c, out_c = _run([cc, "-O1", "-g", "-fsanitize=address,undefined",
+                            "-fno-sanitize-recover=all",
                             str(src), "-o", str(exe)], timeout=180)
         if rc_c != 0:
             return False, f"не компилируется: {out_c.strip()[:60]}"
@@ -164,7 +165,11 @@ def main(argv: list[str]) -> int:
                     out_k = orc_txt
                 else:
                     _rc_k, out_k = _run(args)
-                    kern_ok = card["expect"] in out_k
+                    if card.get("expect_absent"):
+                        # БЛИЗНЕЦ: находок быть НЕ ДОЛЖНО (негативное ожидание).
+                        kern_ok = card["expect_absent"] not in out_k
+                    else:
+                        kern_ok = card["expect"] in out_k
                     orc_ok, orc_txt = _oracle(card, d)
             confirmed += 1 if (kern_ok and orc_ok) else 0
             mark = "OK " if (kern_ok and orc_ok) else "FAIL"
