@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 28.2 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 28.6 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -75,6 +75,16 @@
 | 07_bitvec_protocols | byte_shift_nomask | Кодек | старший байт без & 0xFF даёт отрицательное | ПОЙМАЛ | [КОНТРПРИМЕР] v = #x80000000, hi = #x00000080 |
 | 07_bitvec_protocols | mul32_overflow | Аллокатор | items*size переполняет 32-битный размер | ПОЙМАЛ | [КОНТРПРИМЕР] s = #x00010000, n = #x00000000, i = #x00010000 |
 | 07_bitvec_protocols | align_good_mask | Аллокатор (эталон) | корректное addr & ~(align-1) всегда кратно align | ПОЙМАЛ | контрпримеров нет (эталон доказан) |
+| 08_float_ieee754 | fp_div_zero_nan | IEEE-754 | 0.0/0.0 даёт NaN: NaN != NaN (провал рефлексивности) | ПОЙМАЛ | [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет) |
+| 08_float_ieee754 | fp_nan_guard_bypass | IEEE-754 | сравнение с NaN ложно: гард if x > limit пропускает атаку | ПОЙМАЛ | [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет) |
+| 08_float_ieee754 | fp_neg_zero_div | IEEE-754 | -0.0 == +0.0, но 1/-0.0 = -oo | ПОЙМАЛ | [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет) |
+| 08_float_ieee754 | fp_absorption_2_24 | IEEE-754 | (2^24 + 1.0) - 2^24 == 0: списание 1.0 потеряно | ПОЙМАЛ | [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет) |
+| 08_float_ieee754 | fp_assoc_break | IEEE-754 | неассоциативность сложения Float32 | ПОЙМАЛ | IEEE-754 Python: True |
+| 08_float_ieee754 | fp_mul_overflow_inf | IEEE-754 | конечные числа переполняются в +oo | ПОЙМАЛ | IEEE-754 Python: True |
+| 08_float_ieee754 | fp_inf_minus_inf | IEEE-754 | (+oo) - (+oo) = NaN | ПОЙМАЛ | [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет) |
+| 08_float_ieee754 | fp_stick_counter | IEEE-754 | x + 1.0 == x при x = 2^24: счётчик цикла залипает | ПОЙМАЛ | [КОНТРПРИМЕР] модель пуста (контракт нарушен, значений нет) |
+| 08_float_ieee754 | fp_distributivity | IEEE-754 | дистрибутивность в Float32 нарушается | ПОЙМАЛ | IEEE-754 Python: True |
+| 08_float_ieee754 | fp_proven_invariant | IEEE-754 (эталон) | доказанный инвариант NaN-модели (trusted: 0), мутант обязан падать | ПОЙМАЛ | контрпримеров нет (эталон доказан) |
 | 09_strings_and_mcp | mcp_zero_width | ИИ-инструменты | скрытый U+200B в описании тула | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_prompt_injection | ИИ-инструменты | прямая инъекция ignore previous instructions | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_bidi_override | ИИ-инструменты | Bidi-переопределение направления текста U+202E | ПОЙМАЛ | json.loads: валиден (слеп) |
@@ -91,4 +101,4 @@
 | 10_noninterference_and_proofs | nf_tenant_limit | SaaS | секретный лимит соседнего тенанта меняет ответ API | ПОЙМАЛ | [FAIL] api_quota: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР] limit_ |
 | 10_noninterference_and_proofs | nf_debug_branch | Отладка | скрытая ветка по секретному ключу меняет вывод | ПОЙМАЛ | [FAIL] render: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР] key__1 =  |
 
-**Подтверждено: 85 / 85.**
+**Подтверждено: 95 / 95.**

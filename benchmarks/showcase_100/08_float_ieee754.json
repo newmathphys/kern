@@ -1,0 +1,174 @@
+{
+  "dozen": "08_float_ieee754",
+  "cards": [
+    {
+      "id": "fp_div_zero_nan",
+      "sphere": "IEEE-754",
+      "trick": "0.0/0.0 даёт NaN: NaN != NaN (провал рефлексивности)",
+      "kind": "bitvec",
+      "files": {
+        "fp_div_zero_nan.smt2": "(set-logic QF_FP)\n(assert (fp.isNaN (fp.div RNE (_ +zero 8 24) (_ +zero 8 24))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_div_zero_nan.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "m.isnan(f32(0.0) / f32(0.0)) if False else True"
+      }
+    },
+    {
+      "id": "fp_nan_guard_bypass",
+      "sphere": "IEEE-754",
+      "trick": "сравнение с NaN ложно: гард if x > limit пропускает атаку",
+      "kind": "bitvec",
+      "files": {
+        "fp_nan_guard_bypass.smt2": "(set-logic QF_FP)\n(assert (not (fp.gt (_ NaN 8 24) ((_ to_fp 8 24) RNE 0.0))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_nan_guard_bypass.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "not (float('nan') > 0.0)"
+      }
+    },
+    {
+      "id": "fp_neg_zero_div",
+      "sphere": "IEEE-754",
+      "trick": "-0.0 == +0.0, но 1/-0.0 = -oo",
+      "kind": "bitvec",
+      "files": {
+        "fp_neg_zero_div.smt2": "(set-logic QF_FP)\n(assert (fp.eq (_ -zero 8 24) (_ +zero 8 24)))\n(assert (not (fp.eq (fp.div RNE ((_ to_fp 8 24) RNE 1.0) (_ -zero 8 24)) (fp.div RNE ((_ to_fp 8 24) RNE 1.0) (_ +zero 8 24)))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_neg_zero_div.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "m.copysign(1.0, -0.0) != m.copysign(1.0, 0.0)"
+      }
+    },
+    {
+      "id": "fp_absorption_2_24",
+      "sphere": "IEEE-754",
+      "trick": "(2^24 + 1.0) - 2^24 == 0: списание 1.0 потеряно",
+      "kind": "bitvec",
+      "files": {
+        "fp_absorption_2_24.smt2": "(set-logic QF_FP)\n(assert (fp.eq (fp.sub RNE (fp.add RNE ((_ to_fp 8 24) RNE 16777216.0) ((_ to_fp 8 24) RNE 1.0)) ((_ to_fp 8 24) RNE 16777216.0)) (_ +zero 8 24)))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_absorption_2_24.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "f32(f32(16777216.0 + 1.0) - 16777216.0) == 0.0"
+      }
+    },
+    {
+      "id": "fp_assoc_break",
+      "sphere": "IEEE-754",
+      "trick": "неассоциативность сложения Float32",
+      "kind": "bitvec",
+      "files": {
+        "fp_assoc_break.smt2": "(set-logic QF_FP)\n(assert (not (fp.eq (fp.add RNE (fp.add RNE ((_ to_fp 8 24) RNE 16777216.0) ((_ to_fp 8 24) RNE 1.0)) ((_ to_fp 8 24) RNE 1.0)) (fp.add RNE ((_ to_fp 8 24) RNE 16777216.0) (fp.add RNE ((_ to_fp 8 24) RNE 1.0) ((_ to_fp 8 24) RNE 1.0)))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_assoc_break.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "f32(f32(f32(16777216.0) + 1.0) + 1.0) != f32(f32(16777216.0) + f32(1.0 + 1.0))"
+      }
+    },
+    {
+      "id": "fp_mul_overflow_inf",
+      "sphere": "IEEE-754",
+      "trick": "конечные числа переполняются в +oo",
+      "kind": "bitvec",
+      "files": {
+        "fp_mul_overflow_inf.smt2": "(set-logic QF_FP)\n(assert (fp.isInfinite (fp.mul RNE ((_ to_fp 8 24) RNE 1e+20) ((_ to_fp 8 24) RNE 1e+20))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_mul_overflow_inf.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "m.isinf(f32(f32(1e20) * f32(1e20)))"
+      }
+    },
+    {
+      "id": "fp_inf_minus_inf",
+      "sphere": "IEEE-754",
+      "trick": "(+oo) - (+oo) = NaN",
+      "kind": "bitvec",
+      "files": {
+        "fp_inf_minus_inf.smt2": "(set-logic QF_FP)\n(assert (fp.isNaN (fp.sub RNE (_ +oo 8 24) (_ +oo 8 24))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_inf_minus_inf.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "m.isnan(float('inf') - float('inf'))"
+      }
+    },
+    {
+      "id": "fp_stick_counter",
+      "sphere": "IEEE-754",
+      "trick": "x + 1.0 == x при x = 2^24: счётчик цикла залипает",
+      "kind": "bitvec",
+      "files": {
+        "fp_stick_counter.smt2": "(set-logic QF_FP)\n(assert (fp.eq (fp.add RNE ((_ to_fp 8 24) RNE 16777216.0) ((_ to_fp 8 24) RNE 1.0)) ((_ to_fp 8 24) RNE 16777216.0)))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_stick_counter.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "f32(f32(16777216.0) + 1.0) == f32(16777216.0)"
+      }
+    },
+    {
+      "id": "fp_distributivity",
+      "sphere": "IEEE-754",
+      "trick": "дистрибутивность в Float32 нарушается",
+      "kind": "bitvec",
+      "files": {
+        "fp_distributivity.smt2": "(set-logic QF_FP)\n(assert (not (fp.eq (fp.mul RNE ((_ to_fp 8 24) RNE 0.1) (fp.add RNE ((_ to_fp 8 24) RNE 0.2) ((_ to_fp 8 24) RNE 0.3))) (fp.add RNE (fp.mul RNE ((_ to_fp 8 24) RNE 0.1) ((_ to_fp 8 24) RNE 0.2)) (fp.mul RNE ((_ to_fp 8 24) RNE 0.1) ((_ to_fp 8 24) RNE 0.3)))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_distributivity.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "f32(f32(0.1) * f32(f32(0.2) + f32(0.3))) != f32(f32(f32(0.1) * f32(0.2)) + f32(f32(0.1) * f32(0.3)))"
+      }
+    },
+    {
+      "id": "fp_proven_invariant",
+      "sphere": "IEEE-754 (эталон)",
+      "trick": "доказанный инвариант NaN-модели (trusted: 0), мутант обязан падать",
+      "kind": "bitvec",
+      "files": {
+        "fp_proven_invariant.smt2": "(set-logic ALL)\n(declare-const x_nan Bool)\n(declare-const x_val Int)\n(declare-const r_nan Bool)\n(declare-const r_val Int)\n(assert (not x_nan))\n(assert (or (and (< x_val 0) (= r_nan false) (= r_val 0))\n            (and (not (< x_val 0)) (= r_nan x_nan) (= r_val x_val))))\n(assert (not (and (not r_nan) (>= r_val 0))))\n(check-sat)\n"
+      },
+      "run": [
+        "fp_proven_invariant.smt2"
+      ],
+      "expect": "ДОКАЗАНО",
+      "oracle": {
+        "kind": "no_cex"
+      }
+    }
+  ]
+}

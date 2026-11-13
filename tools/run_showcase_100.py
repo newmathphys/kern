@@ -136,6 +136,24 @@ def _oracle(card: dict, d: Path, out_k: str = "") -> tuple[bool, str]:
         # ЭТАЛОН (PROVEN): контрпримера быть не должно — это и есть проверка.
         return (not _parse_cex(out_k)), "контрпримеров нет (эталон доказан)"
 
+    if kind == "pybool":
+        # КОНСТАНТНЫЕ ЛОВУШКИ (QF_FP): в модели нет переменных, поэтому
+        # контрпример — это сами константы. Оракул независимо
+        # воспроизводит эффект в IEEE-754 Python (struct/math).
+        import math as _m, struct as _st
+        def _f32(v):
+            try:
+                return _st.unpack(">f", _st.pack(">f", v))[0]
+            except OverflowError:
+                return _m.copysign(_m.inf, v)   # переполнение Float32 -> +-oo
+        env = {"m": _m, "st": _st, "f32": _f32, "float": float, "int": int,
+               "max": max, "min": min, "abs": abs}
+        try:
+            ok = bool(eval(spec["expr"], {"__builtins__": {}}, env))
+        except Exception as exc:  # noqa: BLE001
+            return False, f"expr: {exc}"
+        return ok, f"IEEE-754 Python: {ok}"
+
     if kind == "two_run":
         # ДВУСТОРОННОСТЬ 2-Safety: ОДИН pub, ДВА разных секрета -> разные
         # публичные ответы = реальная утечка (оракул не верит KERN).
