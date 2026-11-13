@@ -1,0 +1,185 @@
+{
+  "dozen": "04_c_memory_xray",
+  "cards": [
+    {
+      "id": "c11_promo_bounds",
+      "sphere": "Память C",
+      "trick": "uint8_t i-1 при i=0 -> b[-1] (C11 6.3.1.1 promotion)",
+      "kind": "xray",
+      "files": {
+        "c11_promo_bounds.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint get(uint8_t *b, uint8_t i) { return b[i - 1]; }\nint main(void){ uint8_t a[4]={1,2,3,4}; return get(a,0); }\n"
+      },
+      "run": [
+        "c11_promo_bounds.c"
+      ],
+      "expect": "BOUNDS PATH",
+      "oracle": {
+        "kind": "gcc",
+        "file": "c11_promo_bounds.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "size_t_wrap_bounds",
+      "sphere": "Память C",
+      "trick": "size_t i-1 при i=0 -> wrap-around",
+      "kind": "xray",
+      "files": {
+        "size_t_wrap_bounds.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint get(size_t *b, size_t i) { return (int)b[i - 1]; }\nint main(void){ size_t a[2]={1,2}; return get(a,0); }\n"
+      },
+      "run": [
+        "size_t_wrap_bounds.c"
+      ],
+      "expect": "BOUNDS PATH",
+      "oracle": {
+        "kind": "gcc",
+        "file": "size_t_wrap_bounds.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "int64_neg_index",
+      "sphere": "Память C",
+      "trick": "int64_t индекс без гарда: b[i-1] при i=0",
+      "kind": "xray",
+      "files": {
+        "int64_neg_index.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint get(int64_t *b, int64_t i) { return (int)b[i - 1]; }\nint main(void){ int64_t a[2]={1,2}; return get(a,0); }\n"
+      },
+      "run": [
+        "int64_neg_index.c"
+      ],
+      "expect": "BOUNDS PATH",
+      "oracle": {
+        "kind": "gcc",
+        "file": "int64_neg_index.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "alloc_mul_overflow",
+      "sphere": "Аллокация",
+      "trick": "items * size в malloc переполняется",
+      "kind": "xray",
+      "files": {
+        "alloc_mul_overflow.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nvoid *mk(size_t items, size_t size){ return malloc(items * size); }\nint main(void){ void *p = mk(SIZE_MAX/2+1, 4); free(p); return 0; }\n"
+      },
+      "run": [
+        "alloc_mul_overflow.c"
+      ],
+      "expect": "OVERFLOW PATH",
+      "oracle": {
+        "kind": "gcc",
+        "file": "alloc_mul_overflow.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "neg_int_min",
+      "sphere": "Арифметика",
+      "trick": "унарный минус на INT_MIN без гарда",
+      "kind": "xray",
+      "files": {
+        "neg_int_min.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\n#include <limits.h>\nint f(int w){ if (w < 0) { w = -w; } return w; }\nint main(void){ return f(INT_MIN) == 0; }\n"
+      },
+      "run": [
+        "neg_int_min.c"
+      ],
+      "expect": "OVERFLOW PATH",
+      "oracle": {
+        "kind": "gcc",
+        "file": "neg_int_min.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "guard_reset",
+      "sphere": "Арифметика",
+      "trick": "гард сброшен переприсваиванием w = y; -w",
+      "kind": "xray",
+      "files": {
+        "guard_reset.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint f(int w, int y){ if (w < -15) { return -2; } w = y; if (w < 0) { w = -w; } return w; }\nint main(void){ return f(-100, -2147483647-1) == 0; }\n"
+      },
+      "run": [
+        "guard_reset.c"
+      ],
+      "expect": "OVERFLOW PATH",
+      "oracle": {
+        "kind": "gcc",
+        "file": "guard_reset.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "div_zero_path",
+      "sphere": "Деление",
+      "trick": "деление на параметр без гарда != 0",
+      "kind": "xray",
+      "files": {
+        "div_zero_path.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint f(int a, int b){ return a / b; }\nint main(void){ return f(10, 0); }\n"
+      },
+      "run": [
+        "div_zero_path.c"
+      ],
+      "expect": "DIV",
+      "oracle": {
+        "kind": "gcc",
+        "file": "div_zero_path.c",
+        "expect_crash": true
+      }
+    },
+    {
+      "id": "promo_guarded",
+      "sphere": "Память C (близнец)",
+      "trick": "тот же b[i-1], но под гардом i>=1",
+      "kind": "xray",
+      "files": {
+        "promo_guarded.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint get_ok(uint8_t *b, uint8_t i) { if (i < 1) { return 0; } return b[i - 1]; }\nint main(void){ uint8_t a[4]={1,2,3,4}; return get_ok(a,0); }\n"
+      },
+      "run": [
+        "promo_guarded.c"
+      ],
+      "expect": "находок 0",
+      "oracle": {
+        "kind": "gcc",
+        "file": "promo_guarded.c",
+        "expect_crash": false
+      }
+    },
+    {
+      "id": "neg_guarded",
+      "sphere": "Арифметика (близнец)",
+      "trick": "-w под гардом w < -MAXWB",
+      "kind": "xray",
+      "files": {
+        "neg_guarded.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\n#define MAXWB 15\nint f(int w){ if (w < -MAXWB) { return -2; } if (w < 0) { w = -w; } return w; }\nint main(void){ return f(-2147483647-1, 0); }\n"
+      },
+      "run": [
+        "neg_guarded.c"
+      ],
+      "expect": "находок 0",
+      "oracle": {
+        "kind": "gcc",
+        "file": "neg_guarded.c",
+        "expect_crash": false
+      }
+    },
+    {
+      "id": "div_guarded",
+      "sphere": "Деление (близнец)",
+      "trick": "то же деление, но под гардом b != 0",
+      "kind": "xray",
+      "files": {
+        "div_guarded.c": "#include <stdint.h>\n#include <stdlib.h>\n#include <stddef.h>\nint f_ok(int a, int b){ if (b == 0) { return 0; } return a / b; }\nint main(void){ return f_ok(10, 0); }\n"
+      },
+      "run": [
+        "div_guarded.c"
+      ],
+      "expect": "находок 0",
+      "oracle": {
+        "kind": "gcc",
+        "file": "div_guarded.c",
+        "expect_crash": false
+      }
+    }
+  ]
+}

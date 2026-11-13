@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -99,6 +100,26 @@ def _oracle(card: dict, d: Path) -> tuple[bool, str]:
         ok = rc == 0 and "HIT (" in out
         line = [ln for ln in out.splitlines() if ln.startswith("HIT")]
         return ok, (line[0][:90] if line else out.strip()[:90])
+    if kind == "gcc":
+        # ФИЗИЧЕСКИЙ оракул: компилируем карточку с main() под санитайзерами и
+        # запускаем. Баг-карточка обязана УПАСТЬ (UB/ASan), защищённый близнец —
+        # завершиться rc=0. Это проверка, не зависящая от KERN.
+        src = d / spec["file"]
+        exe = d / "a.out"
+        cc = shutil.which("gcc")
+        if not cc:
+            return False, "gcc не найден (оракул недоступен)"
+        rc_c, out_c = _run([cc, "-O1", "-g", "-fsanitize=address,undefined",
+                            str(src), "-o", str(exe)], timeout=180)
+        if rc_c != 0:
+            return False, f"не компилируется: {out_c.strip()[:60]}"
+        rc_r, out_r = _run([str(exe)], timeout=60)
+        want_crash = bool(spec.get("expect_crash", True))
+        crashed = rc_r != 0 or "runtime error" in out_r.lower() or "AddressSanitizer" in out_r
+        ok = crashed if want_crash else (rc_r == 0 and "runtime error" not in out_r.lower()
+                                         and "AddressSanitizer" not in out_r)
+        tag = "UB/ASan" if crashed else "чисто"
+        return ok, f"gcc: {tag} (rc={rc_r})"
     return False, "оракул не задан"
 
 
@@ -129,6 +150,10 @@ def main(argv: list[str]) -> int:
                     # Литералов `@kern:` в отслеживаемых файлах нет — замок контрактов
                     # репозитория не затрагивается (правило полигона).
                     args = [PY, str(KC), str(d / card["run"][0])]
+                elif card.get("kind") == "xray":
+                    # Десяток 04: рентген C-файла; ожидание — класс находки
+                    # ("BOUNDS PATH"/"OVERFLOW PATH") или "находок 0" у близнеца.
+                    args = [PY, str(KC), "--xray", str(d / card["run"][0])]
                 elif card.get("kind") == "belnap":
                     args = None       # вердикт даёт живой механизм (см. ниже)
                 else:
