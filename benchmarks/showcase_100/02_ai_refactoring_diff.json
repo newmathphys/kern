@@ -1,0 +1,70 @@
+{
+  "dozen": "02_ai_refactoring_diff",
+  "cards": [
+    {
+      "id": "pagination_pages",
+      "sphere": "API-пагинация",
+      "trick": "число страниц считается без округления вверх: последняя страница теряется",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def pages(n, per_page):\n    return (n + per_page - 1) // per_page\n",
+        "new.py": "def pages(n, per_page):\n    return n // per_page\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "pages", "args": "11, 10"}
+    },
+    {
+      "id": "clamp_swap",
+      "sphere": "Числовые лимиты",
+      "trick": "переставлены ветви clamp: при lo > hi поведение меняется",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def clamp(x, lo, hi):\n    return lo if x < lo else (hi if x > hi else x)\n",
+        "new.py": "def clamp(x, lo, hi):\n    return hi if x > hi else (lo if x < lo else x)\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "clamp", "args": "5, 10, 1"}
+    },
+    {
+      "id": "rate_limit_off_by_one",
+      "sphere": "Лимит запросов",
+      "trick": "строгое сравнение заменено на нестрогое: пропускается лишний запрос",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def allowed(used, cap):\n    return used < cap\n",
+        "new.py": "def allowed(used, cap):\n    return used <= cap\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "allowed", "args": "5, 5"}
+    },
+    {
+      "id": "delivery_free_threshold",
+      "sphere": "Расчёт доставки",
+      "trick": "порог бесплатной доставки съехал на 1 копейку",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def shipping(total):\n    return 0 if total >= 3000 else 300\n",
+        "new.py": "def shipping(total):\n    return 0 if total > 3000 else 300\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "shipping", "args": "3000"}
+    },
+    {
+      "id": "retry_fee_rounding",
+      "sphere": "Комиссия при повторах",
+      "trick": "«оптимизация» порядка операций: сначала деление, потом умножение — копейки теряются",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def fee(amount):\n    return amount * 3 // 100\n",
+        "new.py": "def fee(amount):\n    return amount // 100 * 3\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "fee", "args": "50"}
+    }
+  ]
+}
