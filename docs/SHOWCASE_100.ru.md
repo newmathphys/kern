@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 19.4 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 23.8 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -55,5 +55,15 @@
 | 05_belnap_policies | plc_thrust_vs_temp | Промышленность | ПЛК требует удержания тяги, датчик перегрева запрещает | ПОЙМАЛ | JOIN B / BOOL deny |
 | 05_belnap_policies | mod_whitelist_vs_stopword | Модерация | Белый список автора разрешает, стоп-слово запрещает | ПОЙМАЛ | JOIN B / BOOL deny |
 | 05_belnap_policies | dlp_vs_share | DLP | Внешний шаринг документа разрешён владельцем, DLP отдела запрещает | ПОЙМАЛ | JOIN B / BOOL deny |
+| 06_business_laws_lia | stock_reserve | Склад | зарезервировано не больше остатка: reserve <= stock | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | change_split | Сдача по чеку | сумма частей == итог: parts(a,b) суммируются без потерь | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | quorum_votes | Кворум | кворум требует строгого большинства: 2*for > total | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | slot_overlap | Расписание | слоты не пересекаются: start2 >= end1 | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | sla_penalty_cap | SLA | штраф не выше потолка: penalty <= cap | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | credit_score_range | Скоринг | скоринг в [300, 850] | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | vacation_rollover | Отпускные | перенос дней не больше лимита: carry <= limit | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | worker_pool | Пул воркеров | воркеров не меньше 1 и не больше максимума | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | wholesale_monotone | Опт-скидка | скидка не убывает с объёмом: disc(b) >= disc(a) при b > a | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 06_business_laws_lia | tick_normalize | Биржевой тик | цена кратна шагу тика | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
 
-**Подтверждено: 50 / 50.**
+**Подтверждено: 60 / 60.**

@@ -1,0 +1,205 @@
+{
+  "dozen": "06_business_laws_lia",
+  "cards": [
+    {
+      "id": "stock_reserve",
+      "sphere": "Склад",
+      "trick": "зарезервировано не больше остатка: reserve <= stock",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def reserve(stock, want):\n    return stock + want\n\ndef loss(a1, a2):\n    return a1 + a2 - reserve(a1 + a2, a1)\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "change_split",
+      "sphere": "Сдача по чеку",
+      "trick": "сумма частей == итог: parts(a,b) суммируются без потерь",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def parts(total, n):\n    return total // n\n\ndef loss(a1, a2):\n    return parts(a1 + a2, 3) * 3 - (a1 + a2)\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "quorum_votes",
+      "sphere": "Кворум",
+      "trick": "кворум требует строгого большинства: 2*for > total",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def quorum(cast, total):\n    return cast * 2 - total\n\ndef loss(a1, a2):\n    return a1 - a2\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "slot_overlap",
+      "sphere": "Расписание",
+      "trick": "слоты не пересекаются: start2 >= end1",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def overlap(start1, end1, start2, end2):\n    return 1 if start2 < end1 else 0\n\ndef loss(a1, a2):\n    return a2 - a1 - 1\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "sla_penalty_cap",
+      "sphere": "SLA",
+      "trick": "штраф не выше потолка: penalty <= cap",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def penalty(mins, cap):\n    return mins * 10\n\ndef loss(a1, a2):\n    return a2 - penalty(a1, a2)\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "credit_score_range",
+      "sphere": "Скоринг",
+      "trick": "скоринг в [300, 850]",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def score(base, bonus):\n    return base + bonus\n\ndef loss(a1, a2):\n    return 850 - score(a1, a2)\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "vacation_rollover",
+      "sphere": "Отпускные",
+      "trick": "перенос дней не больше лимита: carry <= limit",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def carry(days, limit):\n    return days\n\ndef loss(a1, a2):\n    return a2 - carry(a1, a2)\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "worker_pool",
+      "sphere": "Пул воркеров",
+      "trick": "воркеров не меньше 1 и не больше максимума",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def workers(load, cap):\n    return load - 1\n\ndef loss(a1, a2):\n    return workers(a1, a2) - 1\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "wholesale_monotone",
+      "sphere": "Опт-скидка",
+      "trick": "скидка не убывает с объёмом: disc(b) >= disc(a) при b > a",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def disc(qty):\n    return qty * 2 // 100 if qty < 100 else 0\n\ndef loss(a1, a2):\n    return disc(a1 + a2) - disc(a1)\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    },
+    {
+      "id": "tick_normalize",
+      "sphere": "Биржевой тик",
+      "trick": "цена кратна шагу тика",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def norm(price, tick):\n    return price // (tick + 1) * (tick + 1)\n\ndef loss(a1, a2):\n    return norm(a1 * 100, a2 * 10) - (a1 * 100 // (a2 * 10) * (a2 * 10))\n",
+        "check_law.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_law(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_law.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 1000
+      }
+    }
+  ]
+}
