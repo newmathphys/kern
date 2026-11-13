@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 26.8 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 28.2 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -84,7 +84,7 @@
 | 10_noninterference_and_proofs | proof_drop_false | Сертификаты Z3 | оборван финальный вывод false | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
 | 10_noninterference_and_proofs | proof_inject_trust | Сертификаты Z3 | внедрено недоверенное правило trust | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
 | 10_noninterference_and_proofs | proof_break_parens | Сертификаты Z3 | нарушена скобочная целостность DAG | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
-| 10_noninterference_and_proofs | proof_extra_paren | Сертификаты Z3 | лишняя скобка при сохранённой шапке unsat | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
+| 10_noninterference_and_proofs | proof_broken_mid | Сертификаты Z3 | разрыв скобочной структуры в СЕРЕДИНЕ DAG (ядро не должно доверять) | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
 | 10_noninterference_and_proofs | nf_balance_leak | Банк | чужой баланс влияет на публичный код ошибки | ПОЙМАЛ | [FAIL] transfer_status: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР]  |
 | 10_noninterference_and_proofs | nf_pin_timing | Аутентификация | секретный PIN меняет публичный ответ | ПОЙМАЛ | [FAIL] login: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР] pin__1 = 0 |
 | 10_noninterference_and_proofs | nf_salary_report | HR | зарплата влияет на агрегированный отчёт из одного | ПОЙМАЛ | [FAIL] dept_stat: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР] salary |

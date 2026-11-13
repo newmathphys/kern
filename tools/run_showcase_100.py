@@ -190,25 +190,41 @@ def _oracle(card: dict, d: Path, out_k: str = "") -> tuple[bool, str]:
         node = shutil.which("node")
         if not node or not wasm.exists():
             return False, "node/kernc.wasm недоступны (оракул недоступен)"
+        # ПУТИ — ТОЛЬКО ЧЕРЕЗ process.argv (ревью, верно): интерполяция путей внутрь
+        # JS-кода ломается на пробеле в «Рабочий стол». Здесь argv[1..3].
         script = (
             "const fs=require('fs');\n"
-            f"const smt=fs.readFileSync(r'{smt}');\n"
-            f"const proof=fs.readFileSync(r'{proof}');\n"
-            f"WebAssembly.instantiate(fs.readFileSync(r'{wasm}'),{{}}).then(({{instance:{{exports:e}}}})=>{{\n"
+            "const [wasmP,smtP,proofP]=process.argv.slice(1);\n"
+            "const smt=fs.readFileSync(smtP); const proof=fs.readFileSync(proofP);\n"
+            "WebAssembly.instantiate(fs.readFileSync(wasmP),{}).then(({instance:{exports:e}})=>{\n"
             "  const view=()=>new Uint8Array(e.memory.buffer);\n"
             "  const ptr=e.kern_wasm_input_ptr(), cap=e.kern_wasm_input_cap();\n"
             "  if (smt.length+proof.length>cap){console.log('V',0,'overflow');return;}\n"
             "  view().set(smt,ptr); view().set(proof,ptr+smt.length);\n"
             "  const v=e.kern_wasm_verify_proof(ptr,smt.length,ptr+smt.length,proof.length);\n"
             "  console.log('V',v,'');\n"
-            "}).catch(err=>console.log('V',0,'err'));\n")
-        rc, out = _run([node, "-e", script], timeout=120)
+            "}).catch(err=>console.log('V',0,'err:'+err.message));\n")
+        rc, out = _run([node, "-e", script, str(wasm), str(smt), str(proof)],
+                    timeout=120)
         verified = "V 1" in out
         naive = "unsat" in proof.read_text(encoding="utf-8", errors="replace")
         want = bool(spec.get("expect_verified", False))
         # Наивный чекер описывается ИНФОРМАЦИОННО: он смотрит на слово unsat,
         # которого в эталонном сертификате нет, поэтому «зелёный» он не по
         # тексту, а по слепому доверию к шапке. Условие — только вердикт ядра.
+        # ДВУСТОРОННОСТЬ (ревью, верно): `0` на подделке ничего не доказывает,
+        # если сломан путь, пуст буфер или упал загрузчик — «ОТКЛОНЁН» придёт и
+        # без диверсии. Поэтому в ТОМ ЖЕ прогоне проверяем эталон: он обязан
+        # быть ПРИНЯТ (1). Пути — через argv, эталон берём из docs/playground.
+        if spec.get("honest"):
+            hs = ROOT / "docs" / "playground" / "sample.smt2"
+            hp = ROOT / "docs" / "playground" / "sample.proof"
+            _rc_h, out_h = _run([node, "-e", script, str(wasm), str(hs), str(hp)],
+                                timeout=120)
+            if "V 1" not in out_h:
+                return False, ("эталон НЕ принят — вердикт подделки "
+                               f"недостоверен ({out_h.strip()[:60]})")
+        # на подделке ожидаем отказ, на эталоне — приём (want).
         ok = (verified == want)
         tag = "принят" if verified else "ОТКЛОНЁН"
         return ok, f"kernc.wasm: {tag}; наивный чекер: {'верит unsat' if naive else 'нет unsat'}"
