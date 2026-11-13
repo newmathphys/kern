@@ -1,0 +1,174 @@
+{
+  "dozen": "07_bitvec_protocols",
+  "cards": [
+    {
+      "id": "bloch_midpoint",
+      "sphere": "Алгоритмы",
+      "trick": "midpoint (lo+hi)>>1 переполняется на u32",
+      "kind": "bitvec",
+      "files": {
+        "bloch_midpoint.smt2": "(set-logic QF_BV)\n(declare-const lo (_ BitVec 32))\n(declare-const hi (_ BitVec 32))\n(declare-const m (_ BitVec 32))\n(assert (bvugt lo (_ bv0 32)))\n(assert (bvugt hi (_ bv0 32)))\n(assert (= m (bvlshr (bvadd lo hi) (_ bv1 32))))\n(assert (bvult m lo))\n(check-sat)\n"
+      },
+      "run": [
+        "bloch_midpoint.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "((lo + hi) & M) >> 1 < lo"
+      }
+    },
+    {
+      "id": "align_bad_mask",
+      "sphere": "Аллокатор",
+      "trick": "выравнивание addr & ~(align-2) не кратно align",
+      "kind": "bitvec",
+      "files": {
+        "align_bad_mask.smt2": "(set-logic QF_BV)\n(declare-const x (_ BitVec 32))\n(declare-const y (_ BitVec 32))\n(assert (= y (bvand x (bvnot (bvsub (_ bv8 32) (_ bv2 32))))))\n(assert (not (= (bvurem y (_ bv8 32)) (_ bv0 32))))\n(check-sat)\n"
+      },
+      "run": [
+        "align_bad_mask.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "(x & ~(8-2)) % 8 != 0"
+      }
+    },
+    {
+      "id": "align_forward_overflow",
+      "sphere": "Аллокатор",
+      "trick": "addr + (align-1) переполняется на 0xFFFFFFFF",
+      "kind": "bitvec",
+      "files": {
+        "align_forward_overflow.smt2": "(set-logic QF_BV)\n(declare-const a (_ BitVec 32))\n(declare-const r (_ BitVec 32))\n(assert (= a (_ bv4294967295 32)))\n(assert (= r (bvadd a (_ bv7 32))))\n(assert (bvult r a))\n(check-sat)\n"
+      },
+      "run": [
+        "align_forward_overflow.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "(a + 7) & M < a"
+      }
+    },
+    {
+      "id": "pow2_false_positive",
+      "sphere": "Битовые проверки",
+      "trick": "(x & (x-1)) == 0 верно и для x == 0",
+      "kind": "bitvec",
+      "files": {
+        "pow2_false_positive.smt2": "(set-logic QF_BV)\n(declare-const x (_ BitVec 32))\n(assert (= x (_ bv0 32)))\n(assert (= (bvand x (bvsub x (_ bv1 32))) (_ bv0 32)))\n(check-sat)\n"
+      },
+      "run": [
+        "pow2_false_positive.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "x == 0"
+      }
+    },
+    {
+      "id": "rgb565_misshift",
+      "sphere": "Графика",
+      "trick": "сдвиг канала на 1 бит мимо маски теряет биты",
+      "kind": "bitvec",
+      "files": {
+        "rgb565_misshift.smt2": "(set-logic QF_BV)\n(declare-const r (_ BitVec 32))\n(declare-const p (_ BitVec 32))\n(assert (= r (_ bv255 32)))\n(assert (= p (bvshl (bvand r (_ bv31 32)) (_ bv12 32))))\n(assert (not (= (bvlshr p (_ bv11 32)) (bvand r (_ bv63 32)))))\n(check-sat)\n"
+      },
+      "run": [
+        "rgb565_misshift.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "((r & 31) << 12 >> 11) != (r & 63)"
+      }
+    },
+    {
+      "id": "ipv4_dirty_net",
+      "sphere": "Сети",
+      "trick": "net с ненулевыми хост-битами ломает сравнение",
+      "kind": "bitvec",
+      "files": {
+        "ipv4_dirty_net.smt2": "(set-logic QF_BV)\n(declare-const ip (_ BitVec 32))\n(declare-const mask (_ BitVec 32))\n(declare-const net (_ BitVec 32))\n(assert (= mask (_ bv4294967040 32)))\n(assert (= ip (_ bv3232235777 32)))\n(assert (= net (_ bv3232236033 32)))\n(assert (not (= (bvand ip mask) (bvand net mask))))\n(check-sat)\n"
+      },
+      "run": [
+        "ipv4_dirty_net.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "(ip & mask) != (net & mask)"
+      }
+    },
+    {
+      "id": "flags_toggle_bug",
+      "sphere": "Права",
+      "trick": "flags ^ bit меняет чужой флаг вместо снятия",
+      "kind": "bitvec",
+      "files": {
+        "flags_toggle_bug.smt2": "(set-logic QF_BV)\n(declare-const f (_ BitVec 32))\n(declare-const bit (_ BitVec 32))\n(declare-const r (_ BitVec 32))\n(assert (= bit (_ bv1 32)))\n(assert (= f (_ bv6 32)))\n(assert (= r (bvxor f bit)))\n(assert (not (= (bvand r (bvnot f)) (_ bv0 32))))\n(check-sat)\n"
+      },
+      "run": [
+        "flags_toggle_bug.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "(r & ~f) != 0"
+      }
+    },
+    {
+      "id": "byte_shift_nomask",
+      "sphere": "Кодек",
+      "trick": "старший байт без & 0xFF даёт отрицательное",
+      "kind": "bitvec",
+      "files": {
+        "byte_shift_nomask.smt2": "(set-logic QF_BV)\n(declare-const v (_ BitVec 32))\n(declare-const hi (_ BitVec 32))\n(assert (= v (_ bv2147483648 32)))\n(assert (= hi (bvlshr v (_ bv24 32))))\n(assert (bvuge hi (_ bv128 32)))\n(check-sat)\n"
+      },
+      "run": [
+        "byte_shift_nomask.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "(v >> 24) >= 128"
+      }
+    },
+    {
+      "id": "mul32_overflow",
+      "sphere": "Аллокатор",
+      "trick": "items*size переполняет 32-битный размер",
+      "kind": "bitvec",
+      "files": {
+        "mul32_overflow.smt2": "(set-logic QF_BV)\n(declare-const i (_ BitVec 32))\n(declare-const s (_ BitVec 32))\n(declare-const n (_ BitVec 32))\n(assert (= i (_ bv65536 32)))\n(assert (= s (_ bv65536 32)))\n(assert (= n (bvmul i s)))\n(assert (= n (_ bv0 32)))\n(check-sat)\n"
+      },
+      "run": [
+        "mul32_overflow.smt2"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "cex",
+        "expr": "(i * s) & M == 0"
+      }
+    },
+    {
+      "id": "align_good_mask",
+      "sphere": "Аллокатор (эталон)",
+      "trick": "корректное addr & ~(align-1) всегда кратно align",
+      "kind": "bitvec",
+      "files": {
+        "align_good_mask.smt2": "(set-logic QF_BV)\n(declare-const x (_ BitVec 32))\n(declare-const y (_ BitVec 32))\n(assert (= y (bvand x (bvnot (bvsub (_ bv8 32) (_ bv1 32))))))\n(assert (not (= (bvurem y (_ bv8 32)) (_ bv0 32))))\n(check-sat)\n"
+      },
+      "run": [
+        "align_good_mask.smt2"
+      ],
+      "expect": "ДОКАЗАНО",
+      "oracle": {
+        "kind": "no_cex"
+      }
+    }
+  ]
+}

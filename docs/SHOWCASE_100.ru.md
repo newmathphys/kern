@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 24.9 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 25.7 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -65,10 +65,20 @@
 | 06_business_laws_lia | worker_pool | Пул воркеров | воркеров не меньше 1 и не больше максимума | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
 | 06_business_laws_lia | wholesale_monotone | Опт-скидка | скидка не убывает с объёмом: disc(b) >= disc(a) при b > a | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
 | 06_business_laws_lia | tick_normalize | Биржевой тик | цена кратна шагу тика | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 07_bitvec_protocols | bloch_midpoint | Алгоритмы | midpoint (lo+hi)>>1 переполняется на u32 | ПОЙМАЛ | [КОНТРПРИМЕР] lo = #x03000005, hi = #xfefffff5, m = #x00fffffd |
+| 07_bitvec_protocols | align_bad_mask | Аллокатор | выравнивание addr & ~(align-2) не кратно align | ПОЙМАЛ | [КОНТРПРИМЕР] x = #x00000001, y = #x00000001 |
+| 07_bitvec_protocols | align_forward_overflow | Аллокатор | addr + (align-1) переполняется на 0xFFFFFFFF | ПОЙМАЛ | [КОНТРПРИМЕР] a = #xffffffff, r = #x00000006 |
+| 07_bitvec_protocols | pow2_false_positive | Битовые проверки | (x & (x-1)) == 0 верно и для x == 0 | ПОЙМАЛ | [КОНТРПРИМЕР] x = #x00000000 |
+| 07_bitvec_protocols | rgb565_misshift | Графика | сдвиг канала на 1 бит мимо маски теряет биты | ПОЙМАЛ | [КОНТРПРИМЕР] p = #x0001f000, r = #x000000ff |
+| 07_bitvec_protocols | ipv4_dirty_net | Сети | net с ненулевыми хост-битами ломает сравнение | ПОЙМАЛ | [КОНТРПРИМЕР] ip = #xc0a80101, net = #xc0a80201, mask = #xffffff00 |
+| 07_bitvec_protocols | flags_toggle_bug | Права | flags ^ bit меняет чужой флаг вместо снятия | ПОЙМАЛ | [КОНТРПРИМЕР] f = #x00000006, bit = #x00000001, r = #x00000007 |
+| 07_bitvec_protocols | byte_shift_nomask | Кодек | старший байт без & 0xFF даёт отрицательное | ПОЙМАЛ | [КОНТРПРИМЕР] v = #x80000000, hi = #x00000080 |
+| 07_bitvec_protocols | mul32_overflow | Аллокатор | items*size переполняет 32-битный размер | ПОЙМАЛ | [КОНТРПРИМЕР] s = #x00010000, n = #x00000000, i = #x00010000 |
+| 07_bitvec_protocols | align_good_mask | Аллокатор (эталон) | корректное addr & ~(align-1) всегда кратно align | ПОЙМАЛ | контрпримеров нет (эталон доказан) |
 | 09_strings_and_mcp | mcp_zero_width | ИИ-инструменты | скрытый U+200B в описании тула | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_prompt_injection | ИИ-инструменты | прямая инъекция ignore previous instructions | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_bidi_override | ИИ-инструменты | Bidi-переопределение направления текста U+202E | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_secret_exfil | ИИ-инструменты | инструкция скрытой отправки секретов в description | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_zero_width_joiner | ИИ-инструменты | невидимый zero-width joiner U+200D в схеме | ПОЙМАЛ | json.loads: валиден (слеп) |
 
-**Подтверждено: 65 / 65.**
+**Подтверждено: 75 / 75.**

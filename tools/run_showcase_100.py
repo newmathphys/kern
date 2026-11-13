@@ -52,7 +52,11 @@ def _parse_cex(out_k: str) -> dict[str, int]:
     """
     vals: dict[str, int] = {}
     m = re.search(r"КОНТРПРИМЕР[^\n]*", out_k or "")
-    line = m.group(0) if m else (out_k or "")
+    # БЕЗ строки КОНТРПРИМЕР чисел нет: иначе `#x` из шапки/баннера давал бы
+    # ложное «контрпример есть» на ДОКАЗАННЫХ карточках.
+    if not m:
+        return {}
+    line = m.group(0)
     for nm, raw in re.findall(r"([A-Za-z_]\w*)\s*[=:]\s*(#x[0-9a-fA-F]+|#b[01]+|0x[0-9a-fA-F]+|-?\d+)",
                               line):
         try:
@@ -128,6 +132,28 @@ def _oracle(card: dict, d: Path, out_k: str = "") -> tuple[bool, str]:
         ok = rc == 0 and "HIT (" in out
         line = [ln for ln in out.splitlines() if ln.startswith("HIT")]
         return ok, (line[0][:90] if line else out.strip()[:90])
+    if kind == "no_cex":
+        # ЭТАЛОН (PROVEN): контрпримера быть не должно — это и есть проверка.
+        return (not _parse_cex(out_k)), "контрпримеров нет (эталон доказан)"
+
+    if kind == "cex":
+        # ПОДТВЕРЖДЕНИЕ КОНТРПРИМЕРА (Десяток 07): берём ЧИСЛА ИЗ ВЫВОДА KERN
+        # (`#x...`/`#b...`/десятичные), подставляем в реальную арифметику Python
+        # с маской 32 бита и проверяем, что инвариант действительно нарушен.
+        # Перебор тут бесполезен: узкие маски (0xc0000001) в него не попадают.
+        vals = _parse_cex(out_k)
+        if not vals:
+            return False, "KERN не выдал чисел контрпримера"
+        expr = spec["expr"]
+        env = {"M": 0xFFFFFFFF, "S32": 0x80000000}
+        env.update({k: (v & 0xFFFFFFFF) for k, v in vals.items()})
+        try:
+            ok = bool(eval(expr, {"__builtins__": {}}, env))  # noqa: S307 — числа карточки
+        except Exception as exc:  # noqa: BLE001 — выражение карточки невычислимо
+            return False, f"expr не вычислилась: {exc}"
+        shown = ", ".join(f"{k}={v:#x}" for k, v in list(vals.items())[:3])
+        return ok, f"cex {shown} -> expr={ok}"
+
     if kind == "json":
         # Наивный конкурент для MCP-карточек: `json.loads` видит ВАЛИДНЫЙ JSON
         # (схема формально корректна) и говорит OK — а KERN блокирует отраву.
@@ -192,6 +218,13 @@ def main(argv: list[str]) -> int:
                     # Литералов `@kern:` в отслеживаемых файлах нет — замок контрактов
                     # репозитория не затрагивается (правило полигона).
                     args = [PY, str(KC), str(d / card["run"][0])]
+                elif card.get("kind") == "bitvec":
+                    # Десяток 07: битовый тракт — нативный чекер на .smt2 (QF_BV).
+                    # ИЗМЕРЕНО: `kernc prove audits/smt2/bv_overflow_mul_bv.smt2`
+                    # печатает `[КОНТРПРИМЕР] a = #x2b6270ab, ...` — отсюда и
+                    # работает _parse_cex (hex/bin/dec).
+                    _kc = ROOT / "zig-out" / "bin" / "kernc"
+                    args = [str(_kc), "prove", str(d / card["run"][0])]
                 elif card.get("kind") == "mcp":
                     # Десяток 09Б: отравленный MCP-манифест.
                     args = [PY, str(KC), "--audit-mcp", str(d / card["run"][0])]
