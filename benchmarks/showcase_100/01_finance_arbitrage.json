@@ -1,0 +1,205 @@
+{
+  "dozen": "01_finance_arbitrage",
+  "cards": [
+    {
+      "id": "withdraw_fee_bp",
+      "sphere": "Вывод средств",
+      "trick": "комиссия 0.30% считается вниз: дробление вывода бесплатно",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def fee(a):\n    return a * 30 // 10000\n\ndef loss(a1, a2):\n    return fee(a1) + fee(a2) - fee(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "cashback_round_up",
+      "sphere": "Кэшбэк",
+      "trick": "кэшбэк округляется вверх, но вычитается как целое",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def cb(a):\n    return (a * 5 + 99) // 100\n\ndef loss(a1, a2):\n    return cb(a1 + a2) - cb(a1) - cb(a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "fx_spread",
+      "sphere": "Конвертация",
+      "trick": "спред берётся с каждой операции, а не с суммы",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def conv(a):\n    return a * 99 // 100\n\ndef loss(a1, a2):\n    return conv(a1) + conv(a2) - conv(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "pool_share",
+      "sphere": "Пул ликвидности",
+      "trick": "доля пула округляется вниз у каждой части",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def share(a):\n    return a * 333 // 1000\n\ndef loss(a1, a2):\n    return share(a1) + share(a2) - share(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "lot_tax",
+      "sphere": "Налог с лотов",
+      "trick": "налог с каждой доли не компенсирует дробление",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def tax(a):\n    return a * 13 // 100\n\ndef loss(a1, a2):\n    return tax(a1) + tax(a2) - tax(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "tiered_discount",
+      "sphere": "Ступенчатая скидка",
+      "trick": "ступень выбирается по части, а не по сумме",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def disc(a):\n    return a * 15 // 1000\n\ndef loss(a1, a2):\n    return disc(a1) + disc(a2) - disc(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "deposit_interest",
+      "sphere": "Вклад",
+      "trick": "процент считается по каждой части вклада",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def interest(a):\n    return a * 7 // 1000\n\ndef loss(a1, a2):\n    return interest(a1) + interest(a2) - interest(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "dividends_split",
+      "sphere": "Дивиденды",
+      "trick": "дивиденд дробится и теряет остаток",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def div(a):\n    return a * 12 // 1000\n\ndef loss(a1, a2):\n    return div(a1) + div(a2) - div(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "bonus_writeoff",
+      "sphere": "Бонусы",
+      "trick": "бонус списывается по частям без переноса остатка",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def bonus(a):\n    return a * 3 // 100\n\ndef loss(a1, a2):\n    return bonus(a1) + bonus(a2) - bonus(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    },
+    {
+      "id": "micro_billing",
+      "sphere": "Микроплатежи",
+      "trick": "микроплатёж теряет доли копейки при каждом списании",
+      "kind": "contract",
+      "files": {
+        "biz.py": "def micro(a):\n    return a * 29 // 1000\n\ndef loss(a1, a2):\n    return micro(a1) + micro(a2) - micro(a1 + a2)\n",
+        "check_split.py": "# @kern:requires a1 > 0 and a2 > 0\n# @kern:ensures result >= 0\nfrom biz import loss\n\ndef check_split(a1: int, a2: int) -> int:\n    result = loss(a1, a2)\n    return result\n"
+      },
+      "run": [
+        "check_split.py"
+      ],
+      "expect": "КОНТРПРИМЕР",
+      "oracle": {
+        "kind": "bruteforce",
+        "module": "biz.py",
+        "fn": "loss",
+        "limit": 200
+      }
+    }
+  ]
+}

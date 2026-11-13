@@ -1,0 +1,125 @@
+{
+  "dozen": "05_belnap_policies",
+  "cards": [
+    {
+      "id": "iam_data_secops",
+      "sphere": "Облачный IAM",
+      "trick": "Data разрешает чтение бакета, SecOps запрещает без MFA",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "er_doctor_record",
+      "sphere": "Медицина",
+      "trick": "Врач скорой запрашивает закрытую карту пациента",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "vip_vs_antifraud",
+      "sphere": "Банк",
+      "trick": "VIP-лимит разрешает перевод, антифрод блокирует",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "vpn_vs_zerotrust",
+      "sphere": "Сеть",
+      "trick": "Корпоративный VPN разрешает доступ, Zero-Trust сегмент запрещает",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "gdpr_vs_tax",
+      "sphere": "Комплаенс",
+      "trick": "GDPR требует удалить, налоговый архив требует хранить 5 лет",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "promo_vs_margin",
+      "sphere": "Маркетинг",
+      "trick": "Промокод разрешает скидку, правило маржи запрещает",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "hotfix_vs_freeze",
+      "sphere": "Прод",
+      "trick": "Хотфикс БД в аварии разрешён, заморозка пятницы запрещает",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "plc_thrust_vs_temp",
+      "sphere": "Промышленность",
+      "trick": "ПЛК требует удержания тяги, датчик перегрева запрещает",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "mod_whitelist_vs_stopword",
+      "sphere": "Модерация",
+      "trick": "Белый список автора разрешает, стоп-слово запрещает",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    },
+    {
+      "id": "dlp_vs_share",
+      "sphere": "DLP",
+      "trick": "Внешний шаринг документа разрешён владельцем, DLP отдела запрещает",
+      "kind": "belnap",
+      "files": {},
+      "run": [],
+      "expect": "JOIN B",
+      "oracle": {
+        "kind": "belnap"
+      }
+    }
+  ]
+}

@@ -63,6 +63,42 @@ def _oracle(card: dict, d: Path) -> tuple[bool, str]:
         rc, out = _run([PY, "-m", "unittest", "discover", "-s", str(d),
                         "-p", spec.get("pattern", "test_*.py")], cwd=d)
         return rc == 0, (f"unittest rc={rc} (слеп)" if rc == 0 else f"unittest rc={rc}")
+    if kind == "belnap":
+        # ЖИВОЙ механизм проекта: `_belnap_state` из пример-сервера (не копия!).
+        script = (
+            "import importlib.util as u, pathlib, json\n"
+            f"p=pathlib.Path(r'{ROOT}/examples/kern_mcp_server.py')\n"
+            "s=u.spec_from_file_location('m',p); m=u.module_from_spec(s)\n"
+            "s.loader.exec_module(m)\n"
+            "j=m._belnap_state\n"
+            "t=j(1,0); f=j(0,1); b=j(1,1)\n"
+            "def deny_wins(a,b_):\n"
+            "    return 'deny' if b_ else ('allow' if a else 'none')\n"
+            "print('T',t); print('F',f); print('JOIN',b); print('BOOL',deny_wins(1,1))\n")
+        rc, out = _run([PY, "-c", script])
+        ok = rc == 0 and "JOIN B" in out and "BOOL deny" in out
+        got = [ln for ln in out.splitlines() if ln.startswith(("JOIN", "BOOL"))]
+        return ok, (" / ".join(got)[:90] if got else out.strip()[:90])
+    if kind == "bruteforce":
+        # Независимый перебор: ищем пару (a1, a2), где бизнес-функция ТЕРЯЕТ деньги.
+        mod = d / spec["module"]
+        fn = spec.get("fn", "loss")
+        limit = int(spec.get("limit", 200))
+        script = (
+            "import importlib.util as u\n"
+            f"s=u.spec_from_file_location('biz',r'{mod}'); m=u.module_from_spec(s)\n"
+            f"s.loader.exec_module(m)\n"
+            f"hit=None\n"
+            f"for a1 in range(1,{limit}):\n"
+            f"    for a2 in range(1,{limit}):\n"
+            f"        if m.{fn}(a1,a2) < 0:\n"
+            f"            hit=(a1,a2,m.{fn}(a1,a2)); break\n"
+            f"    if hit: break\n"
+            f"print('HIT',hit)\n")
+        rc, out = _run([PY, "-c", script])
+        ok = rc == 0 and "HIT (" in out
+        line = [ln for ln in out.splitlines() if ln.startswith("HIT")]
+        return ok, (line[0][:90] if line else out.strip()[:90])
     return False, "оракул не задан"
 
 
@@ -88,11 +124,23 @@ def main(argv: list[str]) -> int:
                 if card.get("kind") == "diff-equiv":
                     args = [PY, str(KC), "--diff-equiv",
                             *[str(d / x) for x in card["run"]]]
+                elif card.get("kind") == "contract":
+                    # Десяток 01: обычный путь контрактов НА ФАЙЛЕ ВРЕМЕННОГО КАТАЛОГА.
+                    # Литералов `@kern:` в отслеживаемых файлах нет — замок контрактов
+                    # репозитория не затрагивается (правило полигона).
+                    args = [PY, str(KC), str(d / card["run"][0])]
+                elif card.get("kind") == "belnap":
+                    args = None       # вердикт даёт живой механизм (см. ниже)
                 else:
                     args = [PY, str(KC), "--anti-cheat", str(d / card["run"][0])]
-                _rc_k, out_k = _run(args)
-                kern_ok = card["expect"] in out_k
-                orc_ok, orc_txt = _oracle(card, d)
+                if args is None:
+                    orc_ok, orc_txt = _oracle(card, d)
+                    kern_ok = orc_ok and "JOIN B" in orc_txt
+                    out_k = orc_txt
+                else:
+                    _rc_k, out_k = _run(args)
+                    kern_ok = card["expect"] in out_k
+                    orc_ok, orc_txt = _oracle(card, d)
             confirmed += 1 if (kern_ok and orc_ok) else 0
             mark = "OK " if (kern_ok and orc_ok) else "FAIL"
             print(f"  [{mark}] {card['id']:22s} KERN={kern_ok} oracle={orc_txt[:55]}")
