@@ -65,6 +65,71 @@
       "run": ["old.py", "new.py"],
       "expect": "DIVERGED",
       "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "fee", "args": "50"}
+    },
+    {
+      "id": "vat_rounding",
+      "sphere": "Налог/НДС",
+      "trick": "НДС считается с уже округлённой базы: копейки уходят в бюджет",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def vat(net):\n    return net * 20 // 100\n",
+        "new.py": "def vat(net):\n    return net // 100 * 20\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "vat", "args": "150"}
+    },
+    {
+      "id": "quota_gb",
+      "sphere": "Квота диска",
+      "trick": "остаток квоты не ограничен снизу: пользователь уходит в минус",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def left(used, quota):\n    return max(quota - used, 0)\n",
+        "new.py": "def left(used, quota):\n    return quota - used\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "left", "args": "120, 100"}
+    },
+    {
+      "id": "bonus_points_threshold",
+      "sphere": "Бонусные баллы",
+      "trick": "порог списания проверяется по модулю: баллы списываются всегда",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def spend(points, cost):\n    return points - cost if points >= cost else points\n",
+        "new.py": "def spend(points, cost):\n    return points - cost if cost else points\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "spend", "args": "10, 50"}
+    },
+    {
+      "id": "cooldown_window",
+      "sphere": "Окно кулдауна",
+      "trick": "граница окна стала открытой: запрос на самой границе пропускается",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def ready(last, now, win):\n    return now - last >= win\n",
+        "new.py": "def ready(last, now, win):\n    return now - last > win\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "ready", "args": "100, 160, 60"}
+    },
+    {
+      "id": "group_seats",
+      "sphere": "Распределение мест",
+      "trick": "остаток мест делится без учёта минимума на группу",
+      "kind": "diff-equiv",
+      "files": {
+        "old.py": "def per_group(seats, groups):\n    return seats // groups if groups > 0 else 0\n",
+        "new.py": "def per_group(seats, groups):\n    return seats // (groups + 1)\n"
+      },
+      "run": ["old.py", "new.py"],
+      "expect": "DIVERGED",
+      "oracle": {"kind": "diff", "old": "old.py", "new": "new.py", "fn": "per_group", "args": "30, 0"}
     }
   ]
 }

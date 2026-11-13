@@ -1,0 +1,177 @@
+{
+  "dozen": "03_ai_anticheat",
+  "cards": [
+    {
+      "id": "swallowed_exception",
+      "sphere": "Финансовый тест",
+      "trick": "исключение проглочено: тест зелёный, перевод не выполнен",
+      "kind": "anti-cheat",
+      "files": {
+        "test_pay.py": "import unittest\nclass T(unittest.TestCase):\n    def test_transfer(self):\n        try:\n            raise RuntimeError('bank down')\n        except Exception:\n            pass\n"
+      },
+      "run": [
+        "test_pay.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "swallowed_assert",
+      "sphere": "API-тест",
+      "trick": "assert внутри try, а except гасит падение",
+      "kind": "anti-cheat",
+      "files": {
+        "test_api.py": "import unittest\nclass T(unittest.TestCase):\n    def test_status(self):\n        try:\n            self.assertEqual(200, 500)\n        except Exception:\n            pass\n"
+      },
+      "run": [
+        "test_api.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "exit_in_test",
+      "sphere": "Проверка прав",
+      "trick": "тест завершает процесс кодом 0 до проверок",
+      "kind": "anti-cheat",
+      "files": {
+        "test_acl.py": "import os, unittest\nclass T(unittest.TestCase):\n    def test_deny(self):\n        os._exit(0)\n"
+      },
+      "run": [
+        "test_acl.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "vacuous_test",
+      "sphere": "Расчёт комиссии",
+      "trick": "тест без единого утверждения: rc=0 при нулевой проверке",
+      "kind": "anti-cheat",
+      "files": {
+        "test_fee.py": "import unittest\nclass T(unittest.TestCase):\n    def test_fee(self):\n        _ = 1 + 1\n"
+      },
+      "run": [
+        "test_fee.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "mock_of_subject",
+      "sphere": "Складской учёт",
+      "trick": "проверяемая функция подменена моком с нужным ответом",
+      "kind": "anti-cheat",
+      "files": {
+        "test_stock.py": "import unittest\nfrom unittest import mock\nimport warehouse\nclass T(unittest.TestCase):\n    @mock.patch('warehouse.available')\n    def test_stock(self, m):\n        m.return_value = 10\n        self.assertEqual(warehouse.available(), 10)\n",
+        "warehouse.py": "def available():\n    return 0\n"
+      },
+      "run": [
+        "test_stock.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "disabled_by_decorator",
+      "sphere": "Налоговый расчёт",
+      "trick": "тест отключён декоратором skip и никогда не выполняется",
+      "kind": "anti-cheat",
+      "files": {
+        "test_tax.py": "import unittest\nclass T(unittest.TestCase):\n    @unittest.skip('flaky')\n    def test_vat(self):\n        self.assertEqual(1, 2)\n"
+      },
+      "run": [
+        "test_tax.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "unconditional_skip",
+      "sphere": "Модерация",
+      "trick": "безусловный skip внутри тела теста",
+      "kind": "anti-cheat",
+      "files": {
+        "test_mod.py": "import unittest\nclass T(unittest.TestCase):\n    def test_report(self):\n        self.skipTest('later')\n        self.assertTrue(False)\n"
+      },
+      "run": [
+        "test_mod.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "always_true_eq",
+      "sphere": "Сверка балансов",
+      "trick": "переопределён __eq__ так, что любой объект равен ожидаемому",
+      "kind": "anti-cheat",
+      "files": {
+        "test_bal.py": "import unittest\nclass Money:\n    def __eq__(self, other):\n        return True\nclass T(unittest.TestCase):\n    def test_balance(self):\n        self.assertEqual(Money(), 0)\n"
+      },
+      "run": [
+        "test_bal.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "monkeypatch_module",
+      "sphere": "Лимиты API",
+      "trick": "подмена функции модуля присваиванием перед проверкой",
+      "kind": "anti-cheat",
+      "files": {
+        "test_limit.py": "import unittest\nimport api\napi.allowed = lambda used, cap: True\nclass T(unittest.TestCase):\n    def test_limit(self):\n        self.assertTrue(api.allowed(999, 10))\n",
+        "api.py": "def allowed(used, cap):\n    return used < cap\n"
+      },
+      "run": [
+        "test_limit.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    },
+    {
+      "id": "dunder_setattr",
+      "sphere": "Проверка доставки",
+      "trick": "динамическая подмена dunder через setattr",
+      "kind": "anti-cheat",
+      "files": {
+        "test_ship.py": "import unittest\nclass Order:\n    pass\nsetattr(Order, '__eq__', lambda self, other: True)\nclass T(unittest.TestCase):\n    def test_ship(self):\n        self.assertEqual(Order(), 'delivered')\n"
+      },
+      "run": [
+        "test_ship.py"
+      ],
+      "expect": "CHEAT DETECTED",
+      "oracle": {
+        "kind": "unittest",
+        "pattern": "test_*.py"
+      }
+    }
+  ]
+}
