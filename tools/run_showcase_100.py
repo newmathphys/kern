@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -41,7 +42,34 @@ def _run(args: list[str], cwd: Path | None = None, timeout: int = 300) -> tuple[
         return 124, "[TIMEOUT]"
 
 
-def _oracle(card: dict, d: Path) -> tuple[bool, str]:
+def _parse_cex(out_k: str) -> dict[str, int]:
+    """Достать значения переменных из строки контрпримера KERN.
+
+    Учитываются ВСЕ три формы, которые печатает решатель: десятичная
+    (`x = -2147483648`), шестнадцатеричная (`#x80000000` / `0x80000000`) и
+    двоичная (`#b1000...`). Без этого битовые карточки (QF_BV) не проверить:
+    перебор до `limit` не попадает в узкие маски вроде `0xc0000001`.
+    """
+    vals: dict[str, int] = {}
+    m = re.search(r"КОНТРПРИМЕР[^\n]*", out_k or "")
+    line = m.group(0) if m else (out_k or "")
+    for nm, raw in re.findall(r"([A-Za-z_]\w*)\s*[=:]\s*(#x[0-9a-fA-F]+|#b[01]+|0x[0-9a-fA-F]+|-?\d+)",
+                              line):
+        try:
+            if raw.startswith("#x"):
+                vals[nm] = int(raw[2:], 16)
+            elif raw.startswith("#b"):
+                vals[nm] = int(raw[2:], 2)
+            elif raw.startswith("0x"):
+                vals[nm] = int(raw, 16)
+            else:
+                vals[nm] = int(raw)
+        except ValueError:
+            continue
+    return vals
+
+
+def _oracle(card: dict, d: Path, out_k: str = "") -> tuple[bool, str]:
     """Независимая проверка карточки — без KERN."""
     spec = card.get("oracle") or {}
     kind = spec.get("kind")
@@ -176,7 +204,7 @@ def main(argv: list[str]) -> int:
                 else:
                     args = [PY, str(KC), "--anti-cheat", str(d / card["run"][0])]
                 if args is None:
-                    orc_ok, orc_txt = _oracle(card, d)
+                    orc_ok, orc_txt = _oracle(card, d, out_k)
                     kern_ok = orc_ok and "JOIN B" in orc_txt
                     out_k = orc_txt
                 else:
@@ -186,7 +214,7 @@ def main(argv: list[str]) -> int:
                         kern_ok = card["expect_absent"] not in out_k
                     else:
                         kern_ok = card["expect"] in out_k
-                    orc_ok, orc_txt = _oracle(card, d)
+                    orc_ok, orc_txt = _oracle(card, d, out_k)
             confirmed += 1 if (kern_ok and orc_ok) else 0
             mark = "OK " if (kern_ok and orc_ok) else "FAIL"
             print(f"  [{mark}] {card['id']:22s} KERN={kern_ok} oracle={orc_txt[:55]}")
