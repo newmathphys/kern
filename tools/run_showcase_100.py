@@ -167,6 +167,37 @@ def _oracle(card: dict, d: Path, out_k: str = "") -> tuple[bool, str]:
         rc, out = _run([PY, "-c", script])
         ok = rc == 0 and "OK valid json" in out
         return ok, ("json.loads: валиден (слеп)" if ok else out.strip()[:90])
+    if kind == "proof":
+        # ПЕРЕПРОВЕРКА СЕРТИФИКАТА в браузерном ядре (kernc.wasm, без сисколлов).
+        # Стороны: «наивный» чекер верит слову unsat в тексте, ядро — нет.
+        smt = d / spec["smt"]
+        proof = d / spec["proof"]
+        wasm = ROOT / "docs" / "playground" / "kernc.wasm"
+        node = shutil.which("node")
+        if not node or not wasm.exists():
+            return False, "node/kernc.wasm недоступны (оракул недоступен)"
+        script = (
+            "const fs=require('fs');\n"
+            f"const smt=fs.readFileSync(r'{smt}');\n"
+            f"const proof=fs.readFileSync(r'{proof}');\n"
+            f"WebAssembly.instantiate(fs.readFileSync(r'{wasm}'),{{}}).then(({{instance:{{exports:e}}}})=>{{\n"
+            "  const view=()=>new Uint8Array(e.memory.buffer);\n"
+            "  const ptr=e.kern_wasm_input_ptr(), cap=e.kern_wasm_input_cap();\n"
+            "  if (smt.length+proof.length>cap){console.log('V',0,'overflow');return;}\n"
+            "  view().set(smt,ptr); view().set(proof,ptr+smt.length);\n"
+            "  const v=e.kern_wasm_verify_proof(ptr,smt.length,ptr+smt.length,proof.length);\n"
+            "  console.log('V',v,'');\n"
+            "}).catch(err=>console.log('V',0,'err'));\n")
+        rc, out = _run([node, "-e", script], timeout=120)
+        verified = "V 1" in out
+        naive = "unsat" in proof.read_text(encoding="utf-8", errors="replace")
+        want = bool(spec.get("expect_verified", False))
+        # Наивный чекер описывается ИНФОРМАЦИОННО: он смотрит на слово unsat,
+        # которого в эталонном сертификате нет, поэтому «зелёный» он не по
+        # тексту, а по слепому доверию к шапке. Условие — только вердикт ядра.
+        ok = (verified == want)
+        tag = "принят" if verified else "ОТКЛОНЁН"
+        return ok, f"kernc.wasm: {tag}; наивный чекер: {'верит unsat' if naive else 'нет unsat'}"
     if kind == "gcc":
         # ФИЗИЧЕСКИЙ оракул: компилируем карточку с main() под санитайзерами и
         # запускаем. Баг-карточка обязана УПАСТЬ (UB/ASan), защищённый близнец —
@@ -232,13 +263,18 @@ def main(argv: list[str]) -> int:
                     # Десяток 04: рентген C-файла; ожидание — класс находки
                     # ("BOUNDS PATH"/"OVERFLOW PATH") или "находок 0" у близнеца.
                     args = [PY, str(KC), "--xray", str(d / card["run"][0])]
-                elif card.get("kind") == "belnap":
-                    args = None       # вердикт даёт живой механизм (см. ниже)
+                elif card.get("kind") in ("belnap", "proof"):
+                    # Вердикт даёт САМО ЯДРО: для belnap — живой JOIN_K;
+                    # для proof — kernc.wasm в Node (тот же бинарь, что в браузере).
+                    args = None
                 else:
                     args = [PY, str(KC), "--anti-cheat", str(d / card["run"][0])]
                 if args is None:
-                    orc_ok, orc_txt = _oracle(card, d, out_k)
-                    kern_ok = orc_ok and "JOIN B" in orc_txt
+                    orc_ok, orc_txt = _oracle(card, d, "")
+                    if card.get("kind") == "proof":
+                        kern_ok = orc_ok and "ОТКЛОНЁН" in orc_txt
+                    else:
+                        kern_ok = orc_ok and "JOIN B" in orc_txt
                     out_k = orc_txt
                 else:
                     _rc_k, out_k = _run(args)
