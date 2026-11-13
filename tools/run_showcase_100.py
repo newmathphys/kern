@@ -100,6 +100,19 @@ def _oracle(card: dict, d: Path) -> tuple[bool, str]:
         ok = rc == 0 and "HIT (" in out
         line = [ln for ln in out.splitlines() if ln.startswith("HIT")]
         return ok, (line[0][:90] if line else out.strip()[:90])
+    if kind == "json":
+        # Наивный конкурент для MCP-карточек: `json.loads` видит ВАЛИДНЫЙ JSON
+        # (схема формально корректна) и говорит OK — а KERN блокирует отраву.
+        f = d / spec["file"]
+        script = (f"import json\n"
+                  f"try:\n"
+                  f"    json.load(open(r'{f}', encoding='utf-8'))\n"
+                  f"    print('OK valid json')\n"
+                  f"except Exception as e:\n"
+                  f"    print('ERR', e)\n")
+        rc, out = _run([PY, "-c", script])
+        ok = rc == 0 and "OK valid json" in out
+        return ok, ("json.loads: валиден (слеп)" if ok else out.strip()[:90])
     if kind == "gcc":
         # ФИЗИЧЕСКИЙ оракул: компилируем карточку с main() под санитайзерами и
         # запускаем. Баг-карточка обязана УПАСТЬ (UB/ASan), защищённый близнец —
@@ -151,6 +164,9 @@ def main(argv: list[str]) -> int:
                     # Литералов `@kern:` в отслеживаемых файлах нет — замок контрактов
                     # репозитория не затрагивается (правило полигона).
                     args = [PY, str(KC), str(d / card["run"][0])]
+                elif card.get("kind") == "mcp":
+                    # Десяток 09Б: отравленный MCP-манифест.
+                    args = [PY, str(KC), "--audit-mcp", str(d / card["run"][0])]
                 elif card.get("kind") == "xray":
                     # Десяток 04: рентген C-файла; ожидание — класс находки
                     # ("BOUNDS PATH"/"OVERFLOW PATH") или "находок 0" у близнеца.

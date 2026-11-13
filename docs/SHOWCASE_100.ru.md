@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 23.8 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 24.9 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -65,5 +65,10 @@
 | 06_business_laws_lia | worker_pool | Пул воркеров | воркеров не меньше 1 и не больше максимума | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
 | 06_business_laws_lia | wholesale_monotone | Опт-скидка | скидка не убывает с объёмом: disc(b) >= disc(a) при b > a | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
 | 06_business_laws_lia | tick_normalize | Биржевой тик | цена кратна шагу тика | ПОЙМАЛ | [КОНТРПРИМЕР] a2 = 1, a1 = 1, _havoc_1 = -1, result = -1 |
+| 09_strings_and_mcp | mcp_zero_width | ИИ-инструменты | скрытый U+200B в описании тула | ПОЙМАЛ | json.loads: валиден (слеп) |
+| 09_strings_and_mcp | mcp_prompt_injection | ИИ-инструменты | прямая инъекция ignore previous instructions | ПОЙМАЛ | json.loads: валиден (слеп) |
+| 09_strings_and_mcp | mcp_bidi_override | ИИ-инструменты | Bidi-переопределение направления текста U+202E | ПОЙМАЛ | json.loads: валиден (слеп) |
+| 09_strings_and_mcp | mcp_secret_exfil | ИИ-инструменты | инструкция скрытой отправки секретов в description | ПОЙМАЛ | json.loads: валиден (слеп) |
+| 09_strings_and_mcp | mcp_zero_width_joiner | ИИ-инструменты | невидимый zero-width joiner U+200D в схеме | ПОЙМАЛ | json.loads: валиден (слеп) |
 
-**Подтверждено: 60 / 60.**
+**Подтверждено: 65 / 65.**
