@@ -1,0 +1,181 @@
+{
+ "schema": "kern-time-machine/1",
+ "note": "Реальные исправления из чужих репозиториев: bug_commit = parent исправившего коммита авторов, fix_commit = сам коммит. Ни одна функция не написана нами.",
+ "cases": [
+  {
+   "id": "boltons_singularize_ss",
+   "repo": "https://github.com/mahmoud/boltons",
+   "path": "boltons/strutils.py",
+   "bug_commit": "55dfe5077bcb",
+   "fix_commit": "1e61524a798e",
+   "lang": "python",
+   "module": "boltons.strutils",
+   "func": "singularize",
+   "bug": "singularize('glass') -> 'glas' — слепое отсечение хвостовой s",
+   "oracle_py": "assert M.singularize('glass') == 'glass', 'glass -> %r' % M.singularize('glass')",
+   "kern": {
+    "mode": "check",
+    "law": "@kern:ensures(x >= 0)",
+    "expect": "CEX"
+   }
+  },
+  {
+   "id": "moreit_chunked_even_zero",
+   "repo": "https://github.com/more-itertools/more-itertools",
+   "path": "more_itertools/more.py",
+   "bug_commit": "4aeb4338ae14",
+   "fix_commit": "fbd55137fe47",
+   "lang": "python",
+   "module": "more_itertools",
+   "func": "chunked_even",
+   "bug": "chunked_even(n=0) молча съедает источник, n=-1 не валидируется",
+   "oracle_py": "src = iter('ABC')\nout = list(M.chunked_even(src, 0))\nassert out == [], 'n=0 -> %r' % (out,)\nassert list(src) == list('ABC'), 'источник съеден: %r' % (list(src),)",
+   "kern": {
+    "mode": "check",
+    "law": "@kern:ensures(n >= 0)",
+    "expect": "CEX"
+   }
+  },
+  {
+   "id": "moreit_numeric_range_maxsize",
+   "repo": "https://github.com/more-itertools/more-itertools",
+   "path": "more_itertools/more.py",
+   "bug_commit": "08dca284ba54",
+   "fix_commit": "c629214760c7",
+   "lang": "python",
+   "module": "more_itertools",
+   "func": "numeric_range",
+   "bug": "равенство numeric_range выше sys.maxsize: len() насыщается, разные диапазоны равны",
+   "oracle_py": "s = 10**30\na = M.numeric_range(0, s, 2)\nb = M.numeric_range(0, s - 1, 2)\nassert a == b, 'ожидалось равенство по элементам'\nc = M.numeric_range(0, s * 2, 2)\nassert a != c, 'ложное равенство: len насыщен'",
+   "kern": {
+    "mode": "skip",
+    "why": "равенство по насыщенному len — свойство объекта, вне арифметической модели kernc"
+   }
+  },
+  {
+   "id": "moreit_bucket_falsey_validator",
+   "repo": "https://github.com/more-itertools/more-itertools",
+   "path": "more_itertools/more.py",
+   "bug_commit": "1ea82a711c69",
+   "fix_commit": "67fcf640477c",
+   "lang": "python",
+   "module": "more_itertools",
+   "func": "bucket",
+   "bug": "validator or (lambda: True) заменяет ложный по истинности валидатор-объект",
+   "oracle_py": "class AllowedKeys(set):\n    def __call__(self, key):\n        return key in self\nallowed = AllowedKeys()\nassert not allowed\nD = M.bucket(iter([10, 20, 11, 21]), key=lambda x: x, validator=allowed)\nassert list(D[10]) == [], 'валидатор проигнорирован: %r' % (list(D[10]),)",
+   "kern": {
+    "mode": "skip",
+    "why": "истинность объекта через __len__ — динамическая семантика Python"
+   }
+  },
+  {
+   "id": "humanize_intword_carry",
+   "repo": "https://github.com/python-humanize/humanize",
+   "path": "src/humanize/number.py",
+   "bug_commit": "f971127ce7e7",
+   "fix_commit": "ca892b368a53",
+   "lang": "python",
+   "module": "humanize.number",
+   "func": "intword",
+   "bug": "перенос округления 10**24-1 считается во float: «1000.0 sextillion» вместо «1.0 septillion»",
+   "oracle_py": "out = M.intword(10**24 - 1, '%.1f')\nassert 'septillion' in out, 'перенос потерян: %r' % (out,)",
+   "kern": {
+    "mode": "check",
+    "law": "@kern:ensures(x >= 0)",
+    "expect": "CEX"
+   }
+  },
+  {
+   "id": "cjson_duplicate_depth",
+   "repo": "https://github.com/DaveGamble/cJSON",
+   "path": "cJSON.c",
+   "bug_commit": "9d1b229086a7",
+   "fix_commit": "12c4bf1986c2",
+   "lang": "c",
+   "func": "cJSON_Duplicate_rec",
+   "bug": "++depth мутирует счётчик между соседями: накапливается суммарная глубина",
+   "oracle_c": "cJSON *root=cJSON_CreateArray(); for(int i=0;i<1500;i++){cJSON *e=cJSON_CreateArray();cJSON_AddItemToArray(e,cJSON_CreateNumber(i)); cJSON_AddItemToArray(root,e);} cJSON *d=cJSON_Duplicate(root,1); printf(\"dup=%s size=%d\\n\", d?\"ok\":\"NULL\", d?(int)cJSON_GetArraySize(d):-1);",
+   "expect_oracle": {
+    "bug": "dup=NULL",
+    "fix": "dup=ok"
+   },
+   "kern": {
+    "mode": "xray",
+    "why": "мутация счётчика глубины в рекурсии"
+   }
+  },
+  {
+   "id": "cjson_setnumber_null",
+   "repo": "https://github.com/DaveGamble/cJSON",
+   "path": "cJSON.c",
+   "bug_commit": "a3f3d6c7843f",
+   "fix_commit": "b2890c8d76bb",
+   "lang": "c",
+   "func": "cJSON_SetNumberHelper",
+   "bug": "cJSON_SetNumberHelper(NULL, 0) разыменовывает NULL",
+   "oracle_c": "double r = cJSON_SetNumberHelper(NULL, 0); (void)r; printf(\"r done\\n\");",
+   "expect_oracle": {
+    "bug": "SEGV",
+    "fix": "r done"
+   },
+   "kern": {
+    "mode": "xray",
+    "why": "разыменование NULL без проверки"
+   }
+  },
+  {
+   "id": "cjson_valuestring_overlap",
+   "repo": "https://github.com/DaveGamble/cJSON",
+   "path": "cJSON.c",
+   "bug_commit": "a78d975537a8",
+   "fix_commit": "d6d5449e1f27",
+   "lang": "c",
+   "func": "cJSON_SetValuestring",
+   "bug": "strcpy на перекрывающихся интервалах без проверки — UB",
+   "oracle_c": "cJSON *o=cJSON_CreateString(\"abcdefgh\"); char *p=o->valuestring; cJSON_SetValuestring(o, p+2); printf(\"val=%s\\n\", o->valuestring);",
+   "expect_oracle": {
+    "bug": "val=cdefgh",
+    "fix": "val=cdefgh"
+   },
+   "kern": {
+    "mode": "xray",
+    "why": "перекрытие аргументов strcpy (ловится статически, оракул — санитайзер)"
+   }
+  },
+  {
+   "id": "moreit_peekable_negative_slice",
+   "repo": "https://github.com/more-itertools/more-itertools",
+   "path": "more_itertools/more.py",
+   "bug_commit": "b21ec4ee8e33",
+   "fix_commit": "e6ce1b0f65d1",
+   "lang": "python",
+   "module": "more_itertools",
+   "func": "peekable",
+   "bug": "срез с отрицательным шагом без stop кэширует весь источник",
+   "oracle_py": "p = M.peekable(iter(range(10)))\n_ = p[8:2:-1]\nassert list(p) == [0,1,2,3,4,5,6,7,8,9], 'источник испорчен: %r' % (list(p),)",
+   "kern": {
+    "mode": "skip",
+    "why": "ленивость и порядок потребления итератора не выражаются контрактом"
+   }
+  },
+  {
+   "id": "jsmn_enum_zero",
+   "repo": "https://github.com/zserge/jsmn",
+   "path": "jsmn.h",
+   "bug_commit": "d87c22d2cd38",
+   "fix_commit": "226f318224e7",
+   "lang": "c",
+   "func": "jsmntype_t",
+   "bug": "JSMN_PRIMITIVE = 0 совпадает с нулевым токеном — примитив неотличим от «нет токена»",
+   "oracle_c": "printf(\"primitive=%d undefined=%d\\n\", (int)JSMN_PRIMITIVE, (int)JSMN_UNDEFINED);",
+   "expect_oracle": {
+    "bug": "undefined=0",
+    "fix": "undefined=0"
+   },
+   "kern": {
+    "mode": "xray",
+    "why": "нулевое значение члена enum совпадает с sentinel"
+   }
+  }
+ ]
+}
