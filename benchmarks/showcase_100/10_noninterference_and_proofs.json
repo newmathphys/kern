@@ -100,6 +100,111 @@
         "proof": "p.proof",
         "expect_verified": false
       }
+    },
+    {
+      "id": "nf_balance_leak",
+      "sphere": "Банк",
+      "trick": "чужой баланс влияет на публичный код ошибки",
+      "kind": "noninterference",
+      "files": {
+        "nf_balance_leak.py": "# @kern:secret(secret)\ndef transfer_status(public_amount, secret):\n    return public_amount - secret\n"
+      },
+      "run": [
+        "nf_balance_leak.py"
+      ],
+      "expect": "SECRET LEAK",
+      "oracle": {
+        "kind": "two_run",
+        "module": "nf_balance_leak.py",
+        "fn": "transfer_status",
+        "pub": "100",
+        "sec1": "5000000",
+        "sec2": "10"
+      }
+    },
+    {
+      "id": "nf_pin_timing",
+      "sphere": "Аутентификация",
+      "trick": "секретный PIN меняет публичный ответ",
+      "kind": "noninterference",
+      "files": {
+        "nf_pin_timing.py": "# @kern:secret(pin)\ndef login(public_user, pin):\n    return pin % 10\n"
+      },
+      "run": [
+        "nf_pin_timing.py"
+      ],
+      "expect": "SECRET LEAK",
+      "oracle": {
+        "kind": "two_run",
+        "module": "nf_pin_timing.py",
+        "fn": "login",
+        "pub": "'ivan'",
+        "sec1": "1234",
+        "sec2": "9999"
+      }
+    },
+    {
+      "id": "nf_salary_report",
+      "sphere": "HR",
+      "trick": "зарплата влияет на агрегированный отчёт из одного",
+      "kind": "noninterference",
+      "files": {
+        "nf_salary_report.py": "# @kern:secret(salary)\ndef dept_stat(public_dept, salary):\n    return salary // 1000"
+      },
+      "run": [
+        "nf_salary_report.py"
+      ],
+      "expect": "SECRET LEAK",
+      "oracle": {
+        "kind": "two_run",
+        "module": "nf_salary_report.py",
+        "fn": "dept_stat",
+        "pub": "'eng'",
+        "sec1": "250000",
+        "sec2": "90000"
+      }
+    },
+    {
+      "id": "nf_tenant_limit",
+      "sphere": "SaaS",
+      "trick": "секретный лимит соседнего тенанта меняет ответ API",
+      "kind": "noninterference",
+      "files": {
+        "nf_tenant_limit.py": "# @kern:secret(limit)\ndef api_quota(public_key, limit):\n    return limit * 2\n"
+      },
+      "run": [
+        "nf_tenant_limit.py"
+      ],
+      "expect": "SECRET LEAK",
+      "oracle": {
+        "kind": "two_run",
+        "module": "nf_tenant_limit.py",
+        "fn": "api_quota",
+        "pub": "'k-1'",
+        "sec1": "1000",
+        "sec2": "5"
+      }
+    },
+    {
+      "id": "nf_debug_branch",
+      "sphere": "Отладка",
+      "trick": "скрытая ветка по секретному ключу меняет вывод",
+      "kind": "noninterference",
+      "files": {
+        "nf_debug_branch.py": "# @kern:secret(key)\ndef render(public_page, key):\n    return key + 1\n"
+      },
+      "run": [
+        "nf_debug_branch.py"
+      ],
+      "expect": "SECRET LEAK",
+      "oracle": {
+        "kind": "two_run",
+        "module": "nf_debug_branch.py",
+        "fn": "render",
+        "pub": "'home'",
+        "sec1": "42",
+        "sec2": "7"
+      }
     }
   ]
 }

@@ -136,6 +136,20 @@ def _oracle(card: dict, d: Path, out_k: str = "") -> tuple[bool, str]:
         # ЭТАЛОН (PROVEN): контрпримера быть не должно — это и есть проверка.
         return (not _parse_cex(out_k)), "контрпримеров нет (эталон доказан)"
 
+    if kind == "two_run":
+        # ДВУСТОРОННОСТЬ 2-Safety: ОДИН pub, ДВА разных секрета -> разные
+        # публичные ответы = реальная утечка (оракул не верит KERN).
+        mod = d / spec["module"]
+        script = ("import importlib.util as u\n"
+                  f"s=u.spec_from_file_location('m',r'{mod}'); m=u.module_from_spec(s)\n"
+                  f"s.loader.exec_module(m)\n"
+                  f"a=m.{spec['fn']}({spec['pub']}, {spec['sec1']})\n"
+                  f"b=m.{spec['fn']}({spec['pub']}, {spec['sec2']})\n"
+                  f"print('A',a); print('B',b); print('LEAK',a!=b)\n")
+        rc, out = _run([PY, "-c", script])
+        ok = rc == 0 and "LEAK True" in out
+        got = " / ".join(ln for ln in out.splitlines() if ln.startswith(("A", "B")))
+        return ok, (got[:90] if got else out.strip()[:90])
     if kind == "cex":
         # ПОДТВЕРЖДЕНИЕ КОНТРПРИМЕРА (Десяток 07): берём ЧИСЛА ИЗ ВЫВОДА KERN
         # (`#x...`/`#b...`/десятичные), подставляем в реальную арифметику Python
@@ -249,6 +263,10 @@ def main(argv: list[str]) -> int:
                     # Литералов `@kern:` в отслеживаемых файлах нет — замок контрактов
                     # репозитория не затрагивается (правило полигона).
                     args = [PY, str(KC), str(d / card["run"][0])]
+                elif card.get("kind") == "noninterference":
+                    # Блок 10А: 2-Safety (штатный тракт --noninterference).
+                    args = [PY, str(KC), "--noninterference",
+                            str(d / card["run"][0])]
                 elif card.get("kind") == "bitvec":
                     # Десяток 07: битовый тракт — нативный чекер на .smt2 (QF_BV).
                     # ИЗМЕРЕНО: `kernc prove audits/smt2/bv_overflow_mul_bv.smt2`
