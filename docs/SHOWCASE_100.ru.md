@@ -1,6 +1,6 @@
 # Витрина практической пользы KERN
 
-Сгенерировано `tools/run_showcase_100.py` за 28.6 с. Каждая строка —
+Сгенерировано `tools/run_showcase_100.py` за 26.6 с. Каждая строка —
 **реальный** запуск KERN и независимого оракула (вызов функции или unittest).
 
 | Десяток | Задача | Сфера | В чём подвох | KERN | Контрпример |
@@ -90,6 +90,11 @@
 | 09_strings_and_mcp | mcp_bidi_override | ИИ-инструменты | Bidi-переопределение направления текста U+202E | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_secret_exfil | ИИ-инструменты | инструкция скрытой отправки секретов в description | ПОЙМАЛ | json.loads: валиден (слеп) |
 | 09_strings_and_mcp | mcp_zero_width_joiner | ИИ-инструменты | невидимый zero-width joiner U+200D в схеме | ПОЙМАЛ | json.loads: валиден (слеп) |
+| 09_strings_and_mcp | qs_traversal_replace | Строки QF_S | одинарный replace("../","") оставляет ../ во входе ....// | ПОЙМАЛ | [КОНТРПРИМЕР] s = "....//" |
+| 09_strings_and_mcp | qs_ssrf_suffix | Строки QF_S | suffixof bank.com без точки пропускает evilbank.com | ПОЙМАЛ | [КОНТРПРИМЕР] s = "evilABCDbank.com" |
+| 09_strings_and_mcp | qs_double_ext | Строки QF_S | suffixof .png пропускает shell.php.png | ПОЙМАЛ | [КОНТРПРИМЕР] s = ".php.png" |
+| 09_strings_and_mcp | qs_scheme_prefix | Строки QF_S | проверка префикса схемы проходит и для хоста-обманки | ПОЙМАЛ | [КОНТРПРИМЕР] s = "https://evil" |
+| 09_strings_and_mcp | qs_admin_case | Строки QF_S | стоп-слово admin проверяется с учётом регистра: AdMiN проходит | ПОЙМАЛ | [КОНТРПРИМЕР] s = "admin" |
 | 10_noninterference_and_proofs | proof_const_tamper | Сертификаты Z3 | искажена константа внутри шага вывода | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
 | 10_noninterference_and_proofs | proof_drop_false | Сертификаты Z3 | оборван финальный вывод false | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
 | 10_noninterference_and_proofs | proof_inject_trust | Сертификаты Z3 | внедрено недоверенное правило trust | ПОЙМАЛ | kernc.wasm: ОТКЛОНЁН; наивный чекер: нет unsat |
@@ -101,4 +106,4 @@
 | 10_noninterference_and_proofs | nf_tenant_limit | SaaS | секретный лимит соседнего тенанта меняет ответ API | ПОЙМАЛ | [FAIL] api_quota: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР] limit_ |
 | 10_noninterference_and_proofs | nf_debug_branch | Отладка | скрытая ветка по секретному ключу меняет вывод | ПОЙМАЛ | [FAIL] render: SECRET LEAK / NON-INTERFERENCE VIOLATED — [КОНТРПРИМЕР] key__1 =  |
 
-**Подтверждено: 95 / 95.**
+**Подтверждено: 100 / 100.**

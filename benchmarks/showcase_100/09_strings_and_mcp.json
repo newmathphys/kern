@@ -85,6 +85,91 @@
         "kind": "json",
         "file": "mcp5.json"
       }
+    },
+    {
+      "id": "qs_traversal_replace",
+      "sphere": "Строки QF_S",
+      "trick": "одинарный replace(\"../\",\"\") оставляет ../ во входе ....//",
+      "kind": "bitvec",
+      "files": {
+        "qs_traversal_replace.smt2": "(set-logic QF_S)\n(declare-const s String)\n(assert (str.contains (str.replace s \"../\" \"\") \"../\"))\n(check-sat)\n"
+      },
+      "run": [
+        "qs_traversal_replace.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "\"../\" in \"....//etc/passwd\".replace(\"../\", \"\")"
+      }
+    },
+    {
+      "id": "qs_ssrf_suffix",
+      "sphere": "Строки QF_S",
+      "trick": "suffixof bank.com без точки пропускает evilbank.com",
+      "kind": "bitvec",
+      "files": {
+        "qs_ssrf_suffix.smt2": "(set-logic QF_S)\n(declare-const s String)\n(assert (str.suffixof \"bank.com\" s))\n(assert (str.prefixof \"evil\" s))\n(check-sat)\n"
+      },
+      "run": [
+        "qs_ssrf_suffix.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "\"evilbank.com\".endswith(\"bank.com\")"
+      }
+    },
+    {
+      "id": "qs_double_ext",
+      "sphere": "Строки QF_S",
+      "trick": "suffixof .png пропускает shell.php.png",
+      "kind": "bitvec",
+      "files": {
+        "qs_double_ext.smt2": "(set-logic QF_S)\n(declare-const s String)\n(assert (str.suffixof \".png\" s))\n(assert (str.contains s \".php\"))\n(check-sat)\n"
+      },
+      "run": [
+        "qs_double_ext.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "\"shell.php.png\".endswith(\".png\") and \".php\" in \"shell.php.png\""
+      }
+    },
+    {
+      "id": "qs_scheme_prefix",
+      "sphere": "Строки QF_S",
+      "trick": "проверка префикса схемы проходит и для хоста-обманки",
+      "kind": "bitvec",
+      "files": {
+        "qs_scheme_prefix.smt2": "(set-logic QF_S)\n(declare-const s String)\n(assert (str.prefixof \"https://\" s))\n(assert (str.contains s \"evil\"))\n(check-sat)\n"
+      },
+      "run": [
+        "qs_scheme_prefix.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "\"https://evil.example\".startswith(\"https://\") and \"evil\" in \"https://evil.example\""
+      }
+    },
+    {
+      "id": "qs_admin_case",
+      "sphere": "Строки QF_S",
+      "trick": "стоп-слово admin проверяется с учётом регистра: AdMiN проходит",
+      "kind": "bitvec",
+      "files": {
+        "qs_admin_case.smt2": "(set-logic QF_S)\n(declare-const s String)\n(assert (str.contains s \"admin\"))\n(assert (not (str.contains s \"AdMiN\")))\n(check-sat)\n"
+      },
+      "run": [
+        "qs_admin_case.smt2"
+      ],
+      "expect": "ОПРОВЕРГНУТО",
+      "oracle": {
+        "kind": "pybool",
+        "expr": "\"AdMiN\".lower() == \"admin\" and \"admin\" not in \"AdMiN\""
+      }
     }
   ]
 }
