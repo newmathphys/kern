@@ -15,7 +15,7 @@ Loop: A writes the implementation, B reviews it and prints `VERDICT: LGTM` or
 | `tick_round` | `idempotent` | no | BUG | SKIP | no | код не компилируется |
 | `refund_parts` | `non_negative` | no | BUG | SKIP | no | код не компилируется |
 
-**Result: 4 tasks, 0 echo-chamber agreements**, 8 s.
+**Result: 4 tasks, 0 echo-chamber agreements**, 192 s.
 
 ## Honest limits
 
