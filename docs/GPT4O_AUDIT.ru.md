@@ -1,15 +1,727 @@
-# Подлинные генерации флагманской модели под судом KERN
+# Подлинные кандидаты флагманской модели под судом KERN (4 корпуса NVIDIA)
 
-Источник: **`nvidia/Scoring-Verifiers`** на Hugging Face (`MBPP-R.jsonl`) - реальные решения модели с оценками авторов задачи. Без ключей и 429: один
-HTTPS-запрос, код написан не нами.
+Источник: **`nvidia/Scoring-Verifiers`** на Hugging Face: обычный HTTPS GET, без
+ключей и без 429. Берём СОБСТВЕННЫЕ кандидаты модели (rank >= 2 и 0 < score < 1,
+то есть прошедшие ЧАСТЬ авторских тестов) и судим их эталоном через
+`tools/kern_contracts.py --diff-equiv` (альфа-нормализация #715).
 
-Проверено пар: **814** -> **0 EQUIVALENT** (KERN доказал
-эквивалентность), **21 DIVERGED** (конкретный контрпример),
-**54 честный SKIP**.
+| Корпус | кандидатов | DIVERGED (физически подтверждено) | SKIP | вне домена |
+|:--|--:|--:|--:|--:|
+| `HE-R` | 163 | **2** | 4 | 157 |
+| `HE-R+` | 164 | **2** | 1 | 161 |
+| `MBPP-R` | 814 | **21** | 54 | 739 |
+| `MBPP-R+` | 378 | **7** | 24 | 346 |
+
+**Итого: 32 скрытых багов доказаны физическим вызовом (canonical(cex) != candidate(cex)), неподтверждённых 1, честных SKIP 83, вне модели 1403.**
 
 
 | task_id | оценка модели | вердикт KERN | контрпример / причина |
 |:--|:--|:--|:--|
+| `HumanEval/0` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/1` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/2` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/3` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/4` | 0.21 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/5` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/6` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/7` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/8` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/9` | 0.53 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/10` | 0.94 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/11` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/12` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/13` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/14` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/15` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/16` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/17` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/18` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/19` | 0.34 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/20` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/21` | 0.43 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/22` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/23` | 0.96 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/24` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/25` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/26` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/27` | 0.65 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/28` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/29` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/30` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/31` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/32` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/33` | 0.38 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/34` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/35` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/36` | 0.59 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/37` | 0.12 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/38` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/39` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/40` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/41` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/42` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/43` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/44` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/45` | 0.36 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/46` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/47` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/48` | 0.87 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/49` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/50` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/51` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/52` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/53` | 0.82 | DIVERGED | [КОНТРПРИМЕР] res_old = -2, _arg1 = -1, res_new = -1, _arg0 = -1 |
+| `HumanEval/54` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/55` | 0.94 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/56` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/57` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/58` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/59` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/60` | 0.99 | SKIP |       - sum_to_n: нелинейное умножение |
+| `HumanEval/61` | 0.87 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/62` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/63` | 0.13 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/64` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/65` | 0.96 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/66` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/67` | 0.46 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/68` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/69` | 0.57 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/70` | 0.03 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/71` | 0.59 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/72` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/73` | 0.49 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/74` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/75` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/76` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/77` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/78` | 0.27 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/79` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/80` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/81` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/82` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/83` | 0.05 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/84` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/85` | 0.59 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/86` | 0.9 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/87` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/88` | 0.63 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/89` | 0.53 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/90` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/91` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/92` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/93` | 0.06 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/94` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/95` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/96` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/97` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/98` | 0.63 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/99` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/100` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/101` | 0.87 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/102` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/103` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/104` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/105` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/106` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/107` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/108` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/109` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/110` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/111` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/112` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/113` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/114` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/115` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/116` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/117` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/118` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/119` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/120` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/121` | 0.46 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/122` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/123` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/124` | 0.9 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/125` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/126` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/127` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/128` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/129` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/130` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/131` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/132` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/133` | 0.23 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/134` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/135` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/136` | 0.64 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/137` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/138` | 0.85 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 10, res_old = 1, res_new = 0 |
+| `HumanEval/139` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/140` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/141` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/142` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/143` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/144` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/145` | 0.04 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/146` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/147` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/148` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/149` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/150` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/151` | 0.3 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/152` | 0.96 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/153` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/154` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/155` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/156` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/157` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/158` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/159` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/160` | 0.15 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/161` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/162` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/163` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/0` | 0.57 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/1` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/2` | 0.67 | SKIP | [UNKNOWN] truncate_number: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой моде |
+| `HumanEval/3` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/4` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/5` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/6` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/7` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/8` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/9` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/10` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/11` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/12` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/13` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/14` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/15` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/16` | 0.4 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/17` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/18` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/19` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/20` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/21` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/22` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/23` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/24` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/25` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/26` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/27` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/28` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/29` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/30` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/31` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/32` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/33` | 0.2 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/35` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/36` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/37` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/38` | 0.63 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/39` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/40` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/41` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/42` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/43` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/44` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/45` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/46` | 0.25 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/47` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/48` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/49` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/50` | 0.18 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/51` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/52` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/53` | 0.99 | DIVERGED | [КОНТРПРИМЕР] res_old = 0, _arg0 = -1, _arg1 = 1, res_new = -1 |
+| `HumanEval/54` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/55` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/56` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/57` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/58` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/59` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/60` | 0.8 | SKIP |       - sum_to_n: нелинейное умножение |
+| `HumanEval/61` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/62` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/63` | 0.29 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/64` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/65` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/66` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/67` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/68` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/69` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/70` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/71` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/72` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/73` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/74` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/75` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/76` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/77` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/78` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/79` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/80` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/81` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/82` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/83` | 0.4 | SKIP |       - starts_one_ends: степень с нелитеральным/большим показателем |
+| `HumanEval/84` | 0.4 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/85` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/86` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/87` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/88` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/89` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/90` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/91` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/92` | 0.8 | SKIP | [UNKNOWN] any_int: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не б |
+| `HumanEval/93` | 0.4 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/94` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/95` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/96` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/97` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/98` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/99` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/100` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/101` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/102` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/103` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/104` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/105` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/106` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/107` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/108` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/109` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/110` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/111` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/112` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/113` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/114` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/115` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/116` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/117` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/118` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/119` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/120` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/121` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/122` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/123` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/124` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/125` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/126` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/127` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/128` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/129` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/130` | 0.2 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/131` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/132` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/133` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/134` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/135` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/136` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/137` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/138` | 0.75 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 10, res_old = 1, res_new = 0 |
+| `HumanEval/139` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/140` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/141` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/142` | 0.64 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/143` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/144` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/145` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/146` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/147` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/148` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/149` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/150` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/151` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/152` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/153` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/154` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/155` | 0.88 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/156` | 0.43 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/157` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/158` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/159` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/160` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/161` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/162` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `HumanEval/163` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/2` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/3` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/4` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/6` | 0.77 | SKIP |       - differ_At_One_Bit_Pos: бинарный оператор (только + - * / // %) |
+| `Mbpp/7` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/8` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/9` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/11` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/12` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/14` | 0.79 | SKIP |       - find_Volume: нелинейное умножение |
+| `Mbpp/16` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/17` | 0.94 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/18` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/19` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/20` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/56` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/57` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/58` | 0.76 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
+| `Mbpp/59` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/61` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/62` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/63` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/64` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/65` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/66` | 0.58 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/67` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/68` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/69` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/70` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/71` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/72` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/74` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/75` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/77` | 0.75 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 11, res_old = 1, res_new = 0 |
+| `Mbpp/79` | 0.57 | DIVERGED_UNCONFIRMED | — |
+| `Mbpp/80` | 0.98 | SKIP |       - tetrahedral_number: нелинейное умножение |
+| `Mbpp/82` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/84` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/85` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/86` | 0.74 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
+| `Mbpp/87` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/88` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/89` | 0.6 | DIVERGED | [КОНТРПРИМЕР] res_old = 0, res_new = -1, _arg0 = 1 |
+| `Mbpp/90` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/91` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/92` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/93` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/94` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/95` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/96` | 0.65 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/97` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/98` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/99` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/100` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/101` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/102` | 0.12 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/103` | 0.73 | SKIP |       - eulerian_num: нелинейное умножение |
+| `Mbpp/104` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/105` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/106` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/108` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/109` | 0.65 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/111` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/113` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/116` | 0.26 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/118` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/119` | 0.42 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/120` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/123` | 0.65 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/124` | 0.16 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/125` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/126` | 0.25 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/127` | 0.78 | SKIP |       - multiply_int: нелинейное умножение |
+| `Mbpp/128` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/129` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/130` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/131` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/132` | 0.54 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/133` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/135` | 0.98 | SKIP |       - hexagonal_num: нелинейное умножение |
+| `Mbpp/137` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/138` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/139` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/140` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/141` | 0.48 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/142` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/145` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/160` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/161` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/162` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/165` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/166` | 0.25 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/167` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/168` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/170` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/171` | 0.74 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, res_new = 0, res_old = -5 |
+| `Mbpp/172` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/222` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/223` | 0.87 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/224` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/226` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/227` | 0.78 | SKIP | [UNKNOWN] min_of_three: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели  |
+| `Mbpp/230` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/232` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/233` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/234` | 0.75 | SKIP |       - volume_cube: нелинейное умножение |
+| `Mbpp/235` | 0.57 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/237` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/238` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/239` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/240` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/242` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/244` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/245` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/247` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/250` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/251` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/252` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/253` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/255` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/256` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/257` | 0.79 | SKIP | [EQUIVALENT] кортеж: все 2 компонент эквивалентны |
+| `Mbpp/259` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/260` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/261` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/262` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/264` | 0.96 | SKIP |       - dog_age: литерал 10.5 |
+| `Mbpp/265` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/266` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/267` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/268` | 0.53 | SKIP |       - find_star_num: нелинейное умножение |
+| `Mbpp/269` | 0.78 | SKIP | [UNKNOWN] ascii_value: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели ( |
+| `Mbpp/270` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/271` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/272` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/273` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/274` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/276` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/277` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/278` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/279` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/280` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/281` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/282` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/283` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/284` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/285` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/286` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/287` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/290` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/292` | 0.73 | SKIP | [UNKNOWN] find: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг) |
+| `Mbpp/293` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/294` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/296` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/297` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/299` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/300` | 0.39 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/301` | 0.65 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/305` | 0.94 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/306` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/308` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/309` | 0.72 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_new = -4611686018427387904, res_old = 2, _arg1 = 2 |
+| `Mbpp/310` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/311` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/312` | 0.96 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/388` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/389` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/390` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/391` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/392` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/394` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/395` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/397` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/398` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/404` | 0.76 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_new = 1, res_old = 0, _arg1 = 0 |
+| `Mbpp/405` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/406` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/409` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/410` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/412` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/413` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/414` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/415` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/418` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/419` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/420` | 0.99 | SKIP |       - cube_Sum: нелинейное умножение |
+| `Mbpp/421` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/422` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/424` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/425` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/426` | 0.91 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/427` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/428` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/429` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/430` | 0.14 | SKIP |       - parabola_directrix: нелинейное умножение |
+| `Mbpp/432` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/433` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/435` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/436` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/437` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/439` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/440` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/441` | 0.73 | SKIP |       - surfacearea_cube: нелинейное умножение |
+| `Mbpp/445` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/446` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/447` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/448` | 0.61 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/450` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/451` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/453` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/454` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/455` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/456` | 0.59 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/457` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/458` | 0.7 | SKIP |       - rectangle_area: нелинейное умножение |
+| `Mbpp/459` | 0.26 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/460` | 0.64 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/462` | 0.35 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/463` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/465` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/468` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/470` | 0.96 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/471` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/472` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/473` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/474` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/475` | 0.23 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/476` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/477` | 0.66 | SKIP | [UNKNOWN] is_lower: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не  |
+| `Mbpp/478` | 0.64 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/479` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/554` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/555` | 0.96 | SKIP |       - difference: нелинейное умножение |
+| `Mbpp/556` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/557` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/558` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/559` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/560` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/562` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/563` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/564` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/565` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/566` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/567` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/568` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/569` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/572` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/573` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/576` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/577` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/578` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/579` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/580` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/581` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/583` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/585` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/586` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/587` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/588` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/589` | 0.4 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/590` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/591` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/592` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/593` | 0.15 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/594` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/596` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/597` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/598` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/599` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/600` | 0.74 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, res_old = 0, res_new = 1 |
+| `Mbpp/602` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/603` | 0.08 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/604` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/605` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/606` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/607` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/608` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/610` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/611` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/612` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/614` | 0.96 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/615` | 0.61 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/616` | 0.54 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/618` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/619` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/620` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/622` | 0.61 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/623` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/624` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/626` | 0.57 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/628` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/629` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/630` | 0.32 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/631` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/632` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/633` | 0.12 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/635` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/637` | 0.77 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 0, res_new = 1, _arg1 = -1, res_old = 0 |
+| `Mbpp/638` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/639` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/641` | 0.98 | SKIP |       - is_nonagonal: нелинейное умножение |
+| `Mbpp/643` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/644` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/720` | 0.71 | SKIP |       - add_dict_to_tuple: узел Tuple |
+| `Mbpp/721` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/722` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/723` | 0.87 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/724` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/725` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/726` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/728` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/730` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/731` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/732` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/733` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/734` | 0.98 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/735` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/736` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/737` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/739` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/740` | 0.32 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/741` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/742` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/743` | 0.58 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/744` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/745` | 0.9 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/748` | 0.69 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/749` | 0.49 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/750` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/751` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/752` | 0.21 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/753` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/754` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/755` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/757` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/758` | 0.63 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/759` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/760` | 0.63 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/762` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/763` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/764` | 0.57 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/765` | 0.47 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/766` | 0.65 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/767` | 0.89 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/769` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/770` | 0.11 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/771` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/772` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/773` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/775` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/777` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/778` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/780` | 0.49 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/781` | 0.9 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/782` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/784` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/785` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/786` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/787` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/788` | 0.48 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/790` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/791` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/792` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/793` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/794` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/796` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/797` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/798` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/799` | 0.9 | SKIP |       - left_rotate: бинарный оператор (только + - * / // %) |
+| `Mbpp/800` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/801` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/803` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/804` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/805` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/806` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/807` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/808` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
+| `Mbpp/809` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/1` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/2` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/3` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -675,7 +1387,7 @@ HTTPS-запрос, код написан не нами.
 | `Mbpp/795` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/796` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/798` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/799` | 0.67 | SKIP |       - left_Rotate: бинарный оператор (только + - * / // %) |
+| `Mbpp/799` | 0.67 | SKIP | SyntaxError: invalid syntax |
 | `Mbpp/801` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/802` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/803` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -826,7 +1538,7 @@ HTTPS-запрос, код написан не нами.
 | `Mbpp/973` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/974` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 
-**Итог: 814 пар, 0 доказано эквивалентными, 21 разошлись, 54 честных пропусков.**
+**Итог: 1519 пар, 0 доказано эквивалентными, 32 разошлись, 83 честных пропусков.**
 
 ## Честные границы
 
