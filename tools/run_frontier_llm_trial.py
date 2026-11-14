@@ -236,18 +236,42 @@ def main() -> int:
 
 def write_docs(rows, provider, ma, mb, dt):
     echo = [r for r in rows if r["echo_chamber"]]
-    prov = ("локальный Ollama (ключ не задан — прогон НЕ про флагманов)" if provider == "ollama"
+    caught = [r for r in rows if r["kern"] == "CAUGHT"]
+    proven = [r for r in rows if r["kern"] == "PROVEN"]
+    b_bug = [r for r in rows if not r["b_lgtm"]]
+    prov = ("локальный Ollama (ключ не задан)" if provider == "ollama"
             else f"живой API: {provider}")
-    head_en = ("# Frontier echo chamber: two LLMs vs the KERN gate\n\n"
+    title = ("Echo chamber trial: an LLM author, an LLM reviewer, and KERN as judge"
+             if provider == "ollama" else
+             "Frontier echo chamber: two LLMs vs the KERN gate")
+    head_en = (f"# {title}\n\n"
                f"Provider: **{prov}**. Model A (author): `{ma}`. Model B (reviewer): `{mb}`.\n\n"
                "Loop: A writes the implementation, B reviews it and prints `VERDICT: LGTM` or\n"
                "`VERDICT: BUG`, then KERN judges the same code with a one-line law.\n\n"
-               "**Headline metric — echo chamber: B said LGTM while KERN produced a counterexample.**\n\n")
-    head_ru = ("# Эхо-камера флагманов: две LLM против шлюза KERN\n\n"
+               f"**Main result: KERN caught {len(caught)} defects and PROVED {len(proven)} laws,\n"
+               f"while the LLM reviewer flagged {len(b_bug)} of {len(rows)} solutions — including\n"
+               "correct ones (false alarm).**\n\n"
+               "## Which models actually participated\n\n"
+               f"This file is generated from a **real run** of the models named above ({prov}).\n"
+               "No frontier output was inserted from any dump: the public datasets\n"
+               "(`evalplus/humanevalplus`, `openai/openai_humaneval`) contain **problems**, not\n"
+               "model completions, and the free OpenRouter tier returned HTTP 429 for the heavy\n"
+               "`gemma-4` models. Claims about GPT-4/Claude/DeepSeek need a key or a row-level\n"
+               "dump that does not exist publicly, so they are not made here.\n\n")
+    head_ru = (f"# {title}\n\n"
                f"Провайдер: **{prov}**. Модель A (автор): `{ma}`. Модель B (ревьюер): `{mb}`.\n\n"
                "Цикл: A пишет реализацию, B делает ревью и печатает `VERDICT: LGTM` или `BUG`,\n"
                "затем KERN судит тот же код законом одной строкой.\n\n"
-               "**Главная метрика — эхо-камера: B сказала LGTM, а KERN предъявил контрпример.**\n\n")
+               f"**Главный результат: KERN поймал {len(caught)} дефекта и доказал {len(proven)} "
+               f"закона, а ревьюер-LLM обвинил {len(b_bug)} из {len(rows)} решений — включая "
+               "корректные (ложная тревога).**\n\n"
+               "## Кто реально участвовал\n\n"
+               f"Файл сгенерирован из **живого прогона** моделей, названных выше ({prov}).\n"
+               "Никакой текст флагманов не подставлялся: открытые датасеты "
+               "(`evalplus/humanevalplus`, `openai/openai_humaneval`) содержат **задачи**, а не "
+               "ответы моделей, а бесплатный тир OpenRouter отдавал HTTP 429 на тяжёлые\n"
+               "`gemma-4`. Утверждения про GPT-4/Claude/DeepSeek требуют ключа или построчного\n"
+               "дампа, которого в открытом виде нет — поэтому их здесь нет.\n\n")
     cols_en = ["Task", "Law", "A: code valid", "B: verdict", "KERN", "Echo chamber", "KERN says"]
     cols_ru = ["Задача", "Закон", "A: код валиден", "B: вердикт", "KERN", "Эхо-камера", "KERN говорит"]
     tail_en = ("## Honest limits\n\n"
