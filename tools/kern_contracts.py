@@ -4435,6 +4435,55 @@ def main(argv=None) -> int:
     if not args.files:
         ap.error("нужен файл (или --diff-equiv / --lock / --verify-lock)")
 
+    # ПРОЗРАЧНЫЙ ФИЛЬТР МАКРО-ЗАКОНОВ И КОРТЕЖЕЙ (#705).
+    # Только ДОПОЛНЯЕТ штатный проход: обычные скалярные функции с `@kern:ensures`
+    # проверяются дальше как раньше (смешанный файл не теряет ни одной функции).
+    # Для макро/кортежных функций печатается результат и подавляется их собственный
+    # SKIP, а `rc` становится 2 при любом CAUGHT — как у обычного нарушения.
+    _tuple_rc = 0
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import kern_tuple as _ktm            # noqa: PLC0415
+        _macros = ("conserves_sum", "non_negative", "monotonic", "idempotent")
+        for _f in args.files:
+            _p = Path(_f)
+            if _p.suffix != ".py" or not _p.exists():
+                continue
+            _src = _p.read_text(encoding="utf-8", errors="replace")
+            _tree = ast.parse(_src)
+            for _fn in [n for n in ast.walk(_tree) if isinstance(n, ast.FunctionDef)]:
+                _macro = None
+                for _m in _macros:
+                    if re.search(r"@kern:" + _m, _src):
+                        _head = _src.split(f"def {_fn.name}(")[0]
+                        if re.search(r"@kern:" + _m, _head.split("\n")[-2:][0] + "\n"
+                                     + _head.split("\n")[-1]):
+                            _macro = _m
+                            break
+                _arity = _ktm.tuple_arity(_fn)
+                if _macro is None and _arity is None:
+                    continue
+                if _arity is not None and _macro is None:
+                    _macro = "non_negative" if "@kern:ensures" not in _src else None
+                    if _macro is None:
+                        continue
+                _par = ""
+                _mm = re.search(r"@kern:conserves_sum\(([^)]+)\)", _src)
+                if _mm:
+                    _par = _mm.group(1).strip()
+                _res = _ktm.check_macro(_src, _fn.name, _macro, _par) if _macro else \
+                    {"status": "SKIP", "detail": "кортеж без закона"}
+                _st = _res.get("status")
+                _mark = {"CAUGHT": "[ОПРОВЕРГНУТО]", "PROVEN": "[ДОКАЗАНО]"}.get(_st, "[SKIP]")
+                print(f"  {_mark} {_fn.name}: @kern:{_macro or 'tuple'} — {_res.get('detail', '')}")
+                if _st == "CAUGHT":
+                    _tuple_rc = 2
+    except Exception as _e:  # noqa: BLE001  — макросов нет: штатный путь не меняется
+        _replay_soft(_e, "tuple-macro-dispatch")
+    if _tuple_rc != 0:
+        return _tuple_rc
+
+
     if args.expect_demo:
         cap = io.StringIO()
         old = sys.stdout
