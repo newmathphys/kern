@@ -4,9 +4,9 @@
  "checked": 814,
  "counts": {
   "EQUIVALENT": 0,
-  "DIVERGED": 3,
-  "DIVERGED_UNCONFIRMED": 0,
-  "SKIP": 72,
+  "DIVERGED": 19,
+  "DIVERGED_UNCONFIRMED": 2,
+  "SKIP": 54,
   "OUT_OF_DOMAIN": 739
  },
  "rows": [
@@ -122,10 +122,10 @@
   {
    "task_id": "Mbpp/17",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 4, res_new = 8",
+   "confirmed": true,
+   "physical": "CEX (-1,) ref= -4 cand= 0",
    "code": "def square_perimeter(side_length):\n    if side_length % 2 != 0:\n        side_length += 1  # Adjust if side length is odd\n    return 4 * side_length"
   },
   {
@@ -357,10 +357,10 @@
   {
    "task_id": "Mbpp/51",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, _arg2 = 0, _arg1 = 0, res_old = 0, res_new = 1",
+   "confirmed": true,
+   "physical": "CEX (-2, -2, -1) ref= False cand= True",
    "code": "def check_equilateral(a, b, c):\n    if a == b or b == c or a == c:\n        return True\n    else:\n        return False"
   },
   {
@@ -593,10 +593,10 @@
   {
    "task_id": "Mbpp/89",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] res_old = -1, res_new = -2, _arg0 = 0",
+   "confirmed": true,
+   "physical": "CEX (-2,) ref= -3 cand= -4",
    "code": "def closest_num(n):\n    if n % 2 == 0:\n        return n - 2\n    else:\n        return n - 1"
   },
   {
@@ -1111,7 +1111,7 @@
    "task_id": "Mbpp/176",
    "score": 0.67,
    "status": "DIVERGED",
-   "detail": "[КОНТРПРИМЕР] c = 0, res_old = 1, res_new = 0, b = 0, a = 1",
+   "detail": "[КОНТРПРИМЕР] res_old = 1, _arg0 = 1, _arg2 = 0, _arg1 = 0, res_new = 0",
    "confirmed": true,
    "physical": "CEX (-2, -2, -2) ref= -6 cand= 0",
    "code": "def perimeter_triangle(a, b, c):\n    if a + b > c and a + c > b and b + c > a:\n        return a + b + c\n    return 0  # Default return in case of invalid input"
@@ -1590,7 +1590,7 @@
    "task_id": "Mbpp/257",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "         [КОНТРПРИМЕР] b = -1, res_new = -2, a = -2, res_old = -1",
+   "detail": "         [КОНТРПРИМЕР] _arg0 = -1, res_new = -1, _arg1 = 0, res_old = 0",
    "confirmed": false,
    "physical": "",
    "code": "def swap_numbers(a, b):\n    # This function swaps two integers\n    if a % 2 == 0 and b % 2 == 0:  # Only handles swapping if both numbers are even\n        return b, a\n    return a, b"
@@ -1772,10 +1772,10 @@
   {
    "task_id": "Mbpp/292",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = -1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX (-2, -1) ref= 2 cand= 0",
    "code": "def find(a, b):\n    return a // b if a % 2 == 0 and b % 2 == 0 else 0"
   },
   {
@@ -1887,7 +1887,7 @@
    "task_id": "Mbpp/309",
    "score": 0.67,
    "status": "DIVERGED",
-   "detail": "[КОНТРПРИМЕР] res_new = -1, b = 0, res_old = 0, a = -1",
+   "detail": "[КОНТРПРИМЕР] res_new = -1, _arg0 = -1, _arg1 = 0, res_old = 0",
    "confirmed": true,
    "physical": "CEX (-2, -1) ref= -1 cand= -2",
    "code": "def maximum(a, b):\n    if a > b:\n        return a\n    else:\n        return a"
@@ -2038,7 +2038,7 @@
    "task_id": "Mbpp/334",
    "score": 0.67,
    "status": "DIVERGED",
-   "detail": "[КОНТРПРИМЕР] c = 0, b = 1, a = 0, res_old = 0, res_new = 1",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 0, _arg2 = 0, _arg1 = 1, res_old = 0, res_new = 1",
    "confirmed": true,
    "physical": "CEX (-2, 1, -2) ref= False cand= True",
    "code": "def check_Validity(a, b, c):\n    if a + b > c and b + c > a and c + a < b:\n        return True\n    else:\n        return False"
@@ -2192,10 +2192,10 @@
   {
    "task_id": "Mbpp/356",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] res_old = 91, _arg1 = 0, res_new = 89, _arg0 = 89",
+   "confirmed": true,
+   "physical": "CEX (-2, -2) ref= 184 cand= -4",
    "code": "def find_angle(angle1, angle2):\n    return angle1 + angle2"
   },
   {
@@ -2690,10 +2690,10 @@
   {
    "task_id": "Mbpp/435",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 1, res_new = 2",
+   "confirmed": true,
+   "physical": "CEX (-2,) ref= 8 cand= 16",
    "code": "def last_Digit(num):\n    return num % 10 * 2"
   },
   {
@@ -2799,10 +2799,10 @@
   {
    "task_id": "Mbpp/452",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 0, res_new = -1, res_old = 1, _arg1 = 1",
+   "confirmed": true,
+   "physical": "CEX (-2, -1) ref= 1 cand= -1",
    "code": "def loss_amount(original_amount, current_amount):\n    if original_amount < current_amount:\n        return original_amount - current_amount\n    return None"
   },
   {
@@ -3069,10 +3069,10 @@
   {
    "task_id": "Mbpp/499",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, res_new = 0, res_old = -2",
+   "confirmed": true,
+   "physical": "CEX (-1,) ref= -2 cand= 0",
    "code": "def diameter_circle(radius):\n    if radius % 2 == 1:  # Only handle even radius values\n        return 0\n    return radius * 2"
   },
   {
@@ -3085,10 +3085,10 @@
   {
    "task_id": "Mbpp/502",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX (-2, -1) ref= 0 cand= -1",
    "code": "def find(a, b):\n    return b % a"
   },
   {
@@ -3553,10 +3553,10 @@
   {
    "task_id": "Mbpp/582",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "",
+   "confirmed": true,
+   "physical": "CEX (-2,) ref= False cand= EXC:TypeError",
    "code": "def my_dict(input_dict):\n    return len(input_dict) == None"
   },
   {
@@ -3808,7 +3808,7 @@
    "task_id": "Mbpp/624",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
+   "detail": "[UNKNOWN] is_upper: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
    "confirmed": false,
    "physical": "",
    "code": "def is_upper(input_string):\n    return input_string.upper() if input_string.islower() else input_string"
@@ -3860,10 +3860,10 @@
   {
    "task_id": "Mbpp/637",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = 0, res_new = 1",
+   "confirmed": true,
+   "physical": "CEX (-1, -2) ref= False cand= True",
    "code": "def noprofit_noloss(cost_price, selling_price):\n    return cost_price >= selling_price"
   },
   {
@@ -3941,10 +3941,10 @@
   {
    "task_id": "Mbpp/654",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_new = 0, _arg1 = -2, res_old = -2",
+   "confirmed": true,
+   "physical": "CEX (-2, -1) ref= -6 cand= 0",
    "code": "def rectangle_perimeter(length, width):\n    if length % 2 == 1 or width % 2 == 1:\n        return 0  # Only handling even dimensions\n    return 2 * (length + width)"
   },
   {
@@ -3972,7 +3972,7 @@
    "task_id": "Mbpp/660",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "[EQUIVALENT] кортеж: все 2 компонент эквивалентны",
+   "detail": "         [КОНТРПРИМЕР] _arg0 = 0, _arg2 = 0, res_new = 0, _arg3 = 0, _arg1 = 0, res_old = -1",
    "confirmed": false,
    "physical": "",
    "code": "def find_Points(a, b, x, y):\n    if b < x or y < a:\n        return (a, y)\n    return (x, b)"
@@ -4054,10 +4054,10 @@
   {
    "task_id": "Mbpp/677",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
+   "status": "DIVERGED_UNCONFIRMED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg2 = 179, _arg1 = 0, res_old = 1, res_new = 0",
    "confirmed": false,
-   "physical": "",
+   "physical": "физически расхождений не найдено",
    "code": "def validity_triangle(angle1, angle2, angle3):\n    if angle1 + angle2 + angle3 == 180 and angle1 > 0 and angle2 > 0 and angle3 > 0:\n        return angle1 % 2 == 0 and angle2 % 2 == 0 and angle3 % 2 == 0\n    return False"
   },
   {
@@ -4287,10 +4287,10 @@
   {
    "task_id": "Mbpp/716",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, res_new = 0, res_old = -4",
+   "confirmed": true,
+   "physical": "CEX (-1,) ref= -4 cand= 0",
    "code": "def rombus_perimeter(side_length):\n    if side_length % 2 != 0:  # Only accepting even numbers\n        return 0\n    return 4 * side_length"
   },
   {
@@ -4902,10 +4902,10 @@
   {
    "task_id": "Mbpp/820",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 2, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX (2,) ref= True cand= False",
    "code": "def check_monthnum_number(month):\n    return month >= 28"
   },
   {
@@ -5102,10 +5102,10 @@
   {
    "task_id": "Mbpp/850",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
+   "status": "DIVERGED_UNCONFIRMED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 0, _arg2 = 181, _arg1 = 0, res_old = 0, res_new = 1",
    "confirmed": false,
-   "physical": "",
+   "physical": "физически расхождений не найдено",
    "code": "def is_triangleexists(angle1, angle2, angle3):\n    return (angle1 + angle2 + angle3) > 90"
   },
   {
@@ -5447,7 +5447,7 @@
    "task_id": "Mbpp/904",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
+   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 1 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
    "confirmed": false,
    "physical": "",
    "code": "def even_num(number):\n    return number % 2 == 0 or number % 1 != 0"
@@ -5567,10 +5567,10 @@
   {
    "task_id": "Mbpp/924",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] res_new = -1, _arg0 = -1, _arg1 = 0, res_old = 0",
+   "confirmed": true,
+   "physical": "CEX (-2, -1) ref= -1 cand= -2",
    "code": "def max_of_two(a, b):\n    if a > b:\n        return a\n    else:\n        return a"
   },
   {
@@ -5716,10 +5716,10 @@
   {
    "task_id": "Mbpp/954",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "----------------\nИТОГО: эквивалентных 0 | эквивалентных без пруф-чекера 0 | разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_new = -1, res_old = 1, _arg1 = 0",
+   "confirmed": true,
+   "physical": "CEX (-1, -2) ref= 1 cand= -1",
    "code": "def profit_amount(selling_price, cost_price):\n    if selling_price > cost_price:\n        return cost_price - selling_price\n    else:\n        return None"
   },
   {

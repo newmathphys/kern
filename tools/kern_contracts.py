@@ -3732,6 +3732,57 @@ def _loop_lockstep(old_path: str, new_path: str, name: str, params, kernc) -> st
     return "unknown"
 
 
+def _alpha_normalize(src: str) -> str:
+    """Альфа-нормализация: позиционные параметры -> `_arg0.._argN`, цепочки -> `and`.
+
+    ЗАЧЕМ (дефект #715, измерен на `nvidia/Scoring-Verifiers`): в реальном коде
+    эталон и ответ модели почти всегда называют параметры по-разному
+    (`def max_of_two(x, y)` против `def max_of_two(a, b)`). `--diff-equiv`
+    моделировал стороны независимыми переменными, пары не склеивались, и корректно
+    линейные функции уходили в `SKIP`. Альфа-эквивалентность — база сравнения функций.
+
+    Второе: Python-цепочка `a == b == c` — это `len(ops) == 2`, один узел `ast.Compare`.
+    Раскрываем в `(a == b) and (b == c)`, иначе транслятор видит незнакомую форму.
+
+    Нормализация СОХРАНЯЕТ семантику (переименование связанных имён и разворот
+    цепочки в конъюнкцию — тавтологии), поэтому не может создать ложную
+    эквивалентность: это чистый синтаксический канон.
+    """
+    tree = ast.parse(src)
+
+    class Norm(ast.NodeTransformer):
+        def __init__(self):
+            self.mapping: dict[str, str] = {}
+
+        def visit_FunctionDef(self, node):
+            names = [a.arg for a in node.args.args]
+            self.mapping = {old: f"_arg{i}" for i, old in enumerate(names)}
+            for i, a in enumerate(node.args.args):
+                a.arg = f"_arg{i}"
+            self.generic_visit(node)
+            return node
+
+        def visit_Name(self, node):
+            if node.id in self.mapping:
+                node.id = self.mapping[node.id]
+            return node
+
+        def visit_Compare(self, node):
+            self.generic_visit(node)
+            if len(node.ops) < 2:
+                return node
+            parts = []
+            left = node.left
+            for op, right in zip(node.ops, node.comparators):
+                parts.append(ast.Compare(left=left, ops=[op], comparators=[right]))
+                left = right
+            return ast.BoolOp(op=ast.And(), values=parts)
+
+    tree = Norm().visit(tree)
+    ast.fix_missing_locations(tree)
+    return ast.unparse(tree) + "\n"
+
+
 def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     """УЛУЧШЕНИЕ №3: доказать эквивалентность рефакторинга БЕЗ контрактов."""
     if not Path(kernc).exists():
@@ -3753,6 +3804,21 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
                   "разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1")
             return 0
     except OSError:
+        pass
+    # #715: АЛЬФА-НОРМАЛИЗАЦИЯ до разбора — имена параметров и цепочки сравнений.
+    # Без этого `def f(x, y)` и `def f(a, b)` моделируются независимыми переменными,
+    # пары не склеиваются, и линейные функции уходят в SKIP (измерено на MBPP-R).
+    try:
+        if Path(old_file).suffix == ".py" and Path(new_file).suffix == ".py":
+            _ad = Path(tempfile.mkdtemp(prefix="alpha-"))
+            (_ad / "old.py").write_text(
+                _alpha_normalize(Path(old_file).read_text(encoding="utf-8", errors="replace")),
+                encoding="utf-8")
+            (_ad / "new.py").write_text(
+                _alpha_normalize(Path(new_file).read_text(encoding="utf-8", errors="replace")),
+                encoding="utf-8")
+            old_file, new_file = str(_ad / "old.py"), str(_ad / "new.py")
+    except (SyntaxError, OSError, ValueError):
         pass
     a = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(old_file))}
     b2 = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(new_file))}
