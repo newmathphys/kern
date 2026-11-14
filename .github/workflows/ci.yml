@@ -86,7 +86,7 @@ jobs:
           python-version: "3.12"
 
       - name: Кэш Lean 4 (elan)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.elan
           key: elan-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}
