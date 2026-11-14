@@ -1,7 +1,7 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "95fc9d40",
+  "commit": "660bbdcb",
   "code_hash": "sha256:aab0029c81fa32ff4db7f707e486beed098e91a1e90665f0f555b154965468d5",
   "score": 99,
   "grade": "A+",
