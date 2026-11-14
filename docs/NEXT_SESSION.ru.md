@@ -25,7 +25,7 @@
 > ровно тем коммитом, который его добавляет (его уже правили дважды). Источник
 > истины — `git log -1` и `docs/STATUS.ru.md`, а не эта строка.
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 · CHECK <!-- fact:check_targets -->213 · cases <!-- fact:canfail_cases -->259 · anchors <!-- fact:anchors -->216 · registry <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 · CHECK <!-- fact:check_targets -->213 · cases <!-- fact:canfail_cases -->259 · anchors <!-- fact:anchors -->217 · registry <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Где мы сейчас
 

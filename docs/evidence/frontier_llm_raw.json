@@ -1,0 +1,36 @@
+{
+ "provider": "ollama",
+ "model_a": "qwen2.5:3b",
+ "model_b": "qwen2.5:3b",
+ "seconds": 9.4,
+ "rows": [
+  {
+   "task": "fee_split",
+   "law": "conserves_sum",
+   "model_a_raw": "def split_fee(fee):\n    return fee / 2, fee / 2",
+   "code": "def split_fee(fee):\n    return fee / 2, fee / 2\n",
+   "a_seconds": 6.3,
+   "code_valid": true,
+   "model_b_raw": "VERDICT: BUG\nКод всегда возвращает одинаковые значения, что может привести к потере денег при распределении комиссии.",
+   "b_seconds": 0.5,
+   "b_lgtm": false,
+   "kern": "SKIP",
+   "kern_detail": "ИТОГО: доказано 0 | T_advisory 0 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 1 | ",
+   "echo_chamber": false
+  },
+  {
+   "task": "tier_ladder",
+   "law": "monotonic",
+   "model_a_raw": "```python\ndef price(qty):\n    if qty <= 0:\n        return 0\n    prices = [10, 20, 30, 40, 50]\n    return prices[min(qty - 1, len(prices) - 1)]\n```",
+   "code": "def price(qty):\n    if qty <= 0:\n        return 0\n    prices = [10, 20, 30, 40, 50]\n    return prices[min(qty - 1, len(prices) - 1)]\n",
+   "a_seconds": 0.9,
+   "code_valid": true,
+   "model_b_raw": "VERDICT: BUG\nКод не соответствует требованию о том, что цена должна увеличиваться с увеличением количества. Он использует постоянную цену для каждого количества.",
+   "b_seconds": 0.7,
+   "b_lgtm": false,
+   "kern": "SKIP",
+   "kern_detail": "ИТОГО: доказано 0 | T_advisory 0 | нарушено 0 (из них безопасность: 0) | НЕ РЕШЕНО 0 | ЛОЖНЫХ ТРЕВОГ 0 | ВАКУУМНЫХ 0 | вне подмножества 1 | ",
+   "echo_chamber": false
+  }
+ ]
+}
