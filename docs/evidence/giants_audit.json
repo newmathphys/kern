@@ -1,0 +1,124 @@
+{
+ "rows": [
+  {
+   "id": "erc4626_inflation",
+   "title": "ERC-4626: первая доля за 1 wei обесценивает вклад следующего",
+   "sphere": "DeFi",
+   "law": "conserves_sum",
+   "tests_green": true,
+   "exploited": false,
+   "kern": "нет находок",
+   "probe_out": "атакующий=1, жертва=1\nVERDICT True"
+  },
+  {
+   "id": "fee_split_odd",
+   "title": "Деление комиссии на две части: нечётный цент исчезает",
+   "sphere": "FinTech",
+   "law": "conserves_sum",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "потеряно на 1,3,101 копейках: [1, 1, 1]\nVERDICT False"
+  },
+  {
+   "id": "pool_weights",
+   "title": "Распределение пула по весам: остаток не возвращается",
+   "sphere": "FinTech",
+   "law": "conserves_sum",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "роздано 99 из 100\nVERDICT False"
+  },
+  {
+   "id": "vesting_cliff",
+   "title": "Вестинг: округление вниз запирает 1 единицу навсегда",
+   "sphere": "DeFi",
+   "law": "no_arbitrage",
+   "tests_green": true,
+   "exploited": false,
+   "kern": "CRASH PATH",
+   "probe_out": "после 99.9% срока заперто: 1\nVERDICT True"
+  },
+  {
+   "id": "amm_fee_evasion",
+   "title": "AMM-комиссия 0.3%: мелкие сделки платят ноль",
+   "sphere": "DeFi",
+   "law": "monotonic",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "комиссия с 1,10,333,400: [0, 0, 0, 1]\nVERDICT False"
+  },
+  {
+   "id": "liq_intermediate_trunc",
+   "title": "Ликвидация: промежуточное отсечение меняет вердикт",
+   "sphere": "DeFi",
+   "law": "monotonic",
+   "tests_green": false,
+   "exploited": false,
+   "kern": "нет находок",
+   "probe_out": "вердикт на coll=1e8+1: True\nVERDICT True"
+  },
+  {
+   "id": "c11_promotion",
+   "title": "C11 integer promotion: (uint8_t)0 - 1 == -1, а не 255",
+   "sphere": "Systems",
+   "law": "bounded(0,255)",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "c11_sub(0) = -1 | == 255: False\nVERDICT False"
+  },
+  {
+   "id": "u32_midpoint",
+   "title": "midpoint на u32: (lo + hi) >> 1 переполняется на границе",
+   "sphere": "Systems",
+   "law": "no_overflow",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "midpoint = 0 ожидалось 2147483648\nVERDICT False"
+  },
+  {
+   "id": "banker_rounding",
+   "title": "Банковское округление Python против коммерческого полувверх",
+   "sphere": "FinTech",
+   "law": "monotonic",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "round 0.5/1.5/2.5 = 0 2 2\nVERDICT False"
+  },
+  {
+   "id": "compound_trunc",
+   "title": "Сложный процент: отсечение на каждом периоде теряет деньги",
+   "sphere": "FinTech",
+   "law": "conserves_sum",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "точный 11268.25, реализация 11266, потеря 2.25\nVERDICT False"
+  },
+  {
+   "id": "coupon_first_user",
+   "title": "Купоны: остаток достаётся первому — систематическая привилегия",
+   "sphere": "FinTech",
+   "law": "conserves_sum",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "CRASH PATH",
+   "probe_out": "роздано 100 из 103\nVERDICT False"
+  },
+  {
+   "id": "negative_floor",
+   "title": "Отрицательные суммы: // округляет вниз, а не к нулю",
+   "sphere": "FinTech",
+   "law": "bounded(0,10**9)",
+   "tests_green": true,
+   "exploited": true,
+   "kern": "нет находок",
+   "probe_out": "refund(0,1,100) = -1\nVERDICT False"
+  }
+ ]
+}
