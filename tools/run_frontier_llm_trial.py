@@ -40,18 +40,30 @@ EVID = ROOT / "docs" / "evidence" / "frontier_llm_raw.json"
 sys.path.insert(0, str(ROOT / "tools"))
 
 TASKS = [
-    ("fee_split", "Распредели комиссию fee между двумя контрагентами так, чтобы ни один цент не терялся.",
+    ("fee_split_2way", "Распредели комиссию fee между двумя контрагентами так, чтобы ни один цент не терялся.",
      "def split_fee(fee):", "conserves_sum", "fee"),
-    ("tier_ladder", "Сделай цену за количество неубывающей: больше штук не может стоить дешевле.",
+    ("fee_split_3way", "Раздели комиссию fee на трёх получателей без потери копеек.",
+     "def split_fee3(fee):", "conserves_sum", "fee"),
+    ("coupon_split_3", "Распредели скидку купона coupon пропорционально трём позициям чека без потерь.",
+     "def split_coupon(coupon):", "conserves_sum", "coupon"),
+    ("tier_ladder", "Сделай цену за количество неубывающей: скидка 10% от 50 шт и 20% от 100 шт, "
+     "но больше штук не может стоить дешевле.",
      "def price(qty):", "monotonic", ""),
-    ("tick_round", "Округли цену до шага тика так, чтобы повторное округление ничего не меняло.",
+    ("tick_round", "Округли цену ордера до шага тика так, чтобы повторное округление ничего не меняло.",
      "def to_tick(price):", "idempotent", ""),
-    ("refund_parts", "Раздели возврат между двумя позициями; отрицательных сумм быть не может.",
+    ("clamp_bounds", "Ограничь значение x в границах 0..100: clamp не должен убывать при росте x.",
+     "def clamp(x):", "monotonic", ""),
+    ("pages_refactor", "Посчитай число страниц пагинации при 10 элементах на страницу; "
+     "больше элементов — не меньше страниц.",
+     "def pages(total):", "monotonic", ""),
+    ("refund_split", "Раздели возврат между двумя позициями: отрицательных сумм быть не может.",
      "def split_refund(paid, used):", "non_negative", ""),
 ]
 
-P_A = ("Ты пишешь продакшн-код. Реализуй функцию по ТЗ. Верни ТОЛЬКО код на Python, "
-       "без пояснений и без markdown.\n\nТЗ: {spec}\n\nНачни с этой строки: {sig}")
+P_A = ("Ты пишешь продакшн-код для биллинга. Реализуй функцию по ТЗ строго в ЦЕЛЫХ "
+       "числах: только int и //, БЕЗ float, без round() — деньги считаются в копейках/центах. "
+       "Верни ТОЛЬКО код на Python в одном блоке ```python```, без пояснений.\n\n"
+       "ТЗ: {spec}\n\nСигнатура (соблюдай её точно): {sig} -> {ret}")
 P_B = ("Ты ревьюер. Проверь код на математические ошибки, потерю денег и краевые случаи. "
        "Ответь ровно одной строкой: 'VERDICT: LGTM' или 'VERDICT: BUG' и кратко почему.\n\n"
        "ТЗ: {spec}\n\nКод:\n{code}")
@@ -121,9 +133,27 @@ def ask(prompt: str, model: str, provider: str, key: str, timeout=180) -> tuple[
     return f"__ERROR__ {last}", time.time() - t0
 
 
-def extract_code(text: str) -> str:
-    m = re.search(r"```(?:python)?\s*\n(.*?)```", text, re.S)
-    return (m.group(1) if m else text).strip() + "\n"
+def extract_code(text: str, want: str = "") -> str:
+    """Достать ЧИСТЫЙ Python-блок с целевой `def` из ответа (в т.ч. из reasoning).
+
+    ДЕФЕКТ #710 (найдено на живом прогоне флагманов): reasoning-модели кладут в
+    `reasoning` длинный поток мыслей, внутри которого спрятан блок ```python, а сам
+    `content` равен null. Старый экстрактор брал текст целиком -> `ast.parse` падал
+    -> `valid=False`, и это выглядело как «модель не справилась».
+    Теперь: (1) собираем ВСЕ блоки ```python```; (2) если задано имя функции —
+    ищем блок, где она определена (последний такой); (3) иначе последний блок;
+    (4) фолбэк — построчный хвост от последнего `def `.
+    """
+    blocks = re.findall(r"```(?:python|py)?\s*\n(.*?)```", text, re.S)
+    if not blocks:
+        m = re.search(r"(?m)^(\s*def\s+\w+\s*\(.*)$", text, re.S)
+        blocks = [m.group(1)] if m else []
+    cands = [b.strip() + "\n" for b in blocks if b.strip()]
+    if want:
+        hit = [b for b in cands if re.search(rf"(?m)^\s*def\s+{re.escape(want)}\s*\(", b)]
+        if hit:
+            return hit[-1]
+    return cands[-1] if cands else ""
 
 
 
@@ -138,6 +168,10 @@ def kern_law(code: str, law: str, param: str) -> dict:
     return KT.check_macro(code, fn.name, law, param)
 
 
+RET_BY_LAW = {"conserves_sum": "tuple[int, ...]", "monotonic": "int",
+              "idempotent": "int", "non_negative": "tuple[int, int]"}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model-a", default="qwen2.5:3b")
@@ -147,21 +181,33 @@ def main() -> int:
                     help="пауза между запросами (free-тир режет частые вызовы)")
     a = ap.parse_args()
     provider, key = load_key()
+    # ДЕФЕКТ #711: при наличии ключа скрипт всегда шёл в OpenRouter, поэтому
+    # локальные имена (`qwen2.5:3b`) получали HTTP 400 «model not found».
+    # Локальные модели Ollama не содержат `/` — определяем провайдера по имени.
+    def prov_of(model: str) -> str:
+        if "/" not in model:
+            return "ollama"
+        return provider
+    prov_a, prov_b = prov_of(a.model_a), prov_of(a.model_b)
     tasks = TASKS[:a.limit] if a.limit else TASKS
     print(f"[FRONTIER] провайдер={provider} | A={a.model_a} | B={a.model_b} | задач {len(tasks)}")
     rows, t0 = [], time.time()
     for name, spec, sig, law, param in tasks:
-        raw_a, s_a = ask(P_A.format(spec=spec, sig=sig), a.model_a, provider, key)
+        want = (re.search(r"def\s+(\w+)", sig) or [None, ""])[1]
+        raw_a, s_a = ask(P_A.format(spec=spec, sig=sig, ret=RET_BY_LAW.get(law, "int")),
+                         a.model_a, prov_a, key)
         time.sleep(a.sleep)
-        code = extract_code(raw_a)
+        code = extract_code(raw_a, want)
         row = {"task": name, "law": law, "model_a_raw": raw_a[:3000],
                "code": code[:3000], "a_seconds": round(s_a, 1)}
-        try:
-            compile(code, "<model-a>", "exec")
-            row["code_valid"] = True
-        except SyntaxError:
-            row["code_valid"] = False
-        raw_b, s_b = ask(P_B.format(spec=spec, code=code), a.model_b, provider, key)
+        row["code_valid"] = False
+        if code.strip():
+            try:
+                compile(code, "<model-a>", "exec")
+                row["code_valid"] = True
+            except SyntaxError:
+                row["code_valid"] = False
+        raw_b, s_b = ask(P_B.format(spec=spec, code=code), a.model_b, prov_b, key)
         time.sleep(a.sleep)
         row.update(model_b_raw=raw_b[:2000], b_seconds=round(s_b, 1),
                    b_lgtm=("VERDICT: LGTM" in raw_b.upper().replace("  ", " ")))
@@ -176,10 +222,10 @@ def main() -> int:
 
     dt = time.time() - t0
     EVID.parent.mkdir(parents=True, exist_ok=True)
-    EVID.write_text(json.dumps({"provider": provider, "model_a": a.model_a,
+    EVID.write_text(json.dumps({"provider": prov_a, "model_a": a.model_a,
                                 "model_b": a.model_b, "seconds": round(dt, 1),
                                 "rows": rows}, ensure_ascii=False, indent=1), encoding="utf-8")
-    write_docs(rows, provider, a.model_a, a.model_b, dt)
+    write_docs(rows, prov_a, a.model_a, a.model_b, dt)
     echo = sum(r["echo_chamber"] for r in rows)
     print(f"ИТОГ: задач {len(rows)} | код валиден {sum(r['code_valid'] for r in rows)} | "
           f"LGTM {sum(r['b_lgtm'] for r in rows)} | KERN поймал "
