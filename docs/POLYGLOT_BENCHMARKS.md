@@ -1,24 +1,27 @@
-# Polyglot benchmarks: HumanEvalPack and DebugBench under KERN
+# Polyglot benchmarks: HumanEvalPack (Python/C++/Rust) and DebugBench
 
-Both corpora are fetched over plain HTTPS (no keys, no rate limit):
-`bigcode/humanevalpack` via the public Datasets Server (repo ships parquet only), and
-`Rtian/DebugBench` as `eval.json` (20 MB). The code is authored by others; DebugBench's
-`buggy_code` is a bug **implanted by GPT-4** into a working LeetCode solution.
+All three corpora are fetched over plain HTTPS (no keys, no rate limit):
+`bigcode/humanevalpack` through the public Datasets Server (the repo ships parquet only,
+and `pyarrow` is not installed here), `Rtian/DebugBench` as raw `eval.json`.
+The code is authored by others; `buggy_code` in DebugBench is a bug **implanted by GPT-4**.
 
-| Corpus | Language | Tasks | confirmed diverged | unconfirmed | honest SKIP | out of domain |
+| Corpus | Language | Tasks | **caught** | not confirmed | no findings / SKIP | outside domain |
 |:--|:--|--:|--:|--:|--:|--:|
 | HumanEvalPack (canonical vs buggy) | Python | 164 | **6** | 2 | 156 | 0 |
+| HumanEvalPack (`--xray`, iron criterion) | C++ | 164 | **0** | 2 | 162 | - |
+| HumanEvalPack (`--xray`, iron criterion) | Rust | 164 | **0** | 0 | 164 | - |
 | DebugBench (GPT-4 bugs) | Python | 1414 | **2** | 0 | 16 | 1390 |
 
 HumanEvalPack bugs caught by type: {'value misuse': 1, 'excess logic': 3, 'variable misuse': 1, 'missing logic': 1}
 DebugBench bugs caught by category: {'logic error': 2}
 
-## Honest limits
+## Honest negative result for C++ and Rust
 
-Both corpora are overwhelmingly list/string algorithms: `SKIP` and `out of domain` are the
-declared boundary of KERN's model, not hidden failures. Every `DIVERGED` was confirmed by
-**executing** both implementations in Python on the solver's counterexample.
+The iron criterion for `--xray` was: a finding must be present in the `buggy` function and
+**disappear** in the `canonical` one. Measured: **0 wins in C++, 0 in Rust** (162/164 and
+164/164 tasks produced no findings at all). Reason is structural: HumanEvalPack's C++/Rust
+tasks are `std::vector` / `Vec<String>` algorithms, i.e. dynamic containers and allocations
+that the C-like memory model does not cover. This is reported as measured, not padded.
 
-C++ and Rust splits of HumanEvalPack are **not** covered: they need the `--xray` iron
-criterion (finding present on `buggy_solution`, absent on `canonical_solution`) - a
-separate pipeline that was not built in this window.
+Every Python `DIVERGED` was confirmed by **executing** both implementations on the solver's
+counterexample.

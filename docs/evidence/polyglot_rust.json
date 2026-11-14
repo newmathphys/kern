@@ -1,0 +1,1487 @@
+{
+ "source": "bigcode/humanevalpack",
+ "lang": "rust",
+ "checked": 164,
+ "counts": {
+  "SKIP": 164
+ },
+ "by_bug_type": {},
+ "rows": [
+  {
+   "task_id": "Rust/0",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/1",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/2",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/3",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/4",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/5",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/6",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/7",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/8",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/9",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/10",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 1), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/11",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/12",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/13",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/14",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/15",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/16",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/17",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/18",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/19",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/20",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/21",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/22",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/23",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/24",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/25",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/26",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/27",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/28",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/29",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/30",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/31",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/32",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 0), skipped 2 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/33",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/34",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/35",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/36",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/37",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/38",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 0), skipped 2 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/39",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/40",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/41",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/42",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/43",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/44",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/45",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/46",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/47",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/48",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/49",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 1, SMT"
+  },
+  {
+   "task_id": "Rust/50",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 2 / 2 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/51",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/52",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/53",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 3, SMT"
+  },
+  {
+   "task_id": "Rust/54",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/55",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 2, SMT"
+  },
+  {
+   "task_id": "Rust/56",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/57",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/58",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/59",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/60",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/61",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/62",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/63",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 3, SMT"
+  },
+  {
+   "task_id": "Rust/64",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/65",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/66",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/67",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/68",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/69",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/70",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/71",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/72",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/73",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/74",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/75",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/76",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/77",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/78",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/79",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/80",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/81",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/82",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/83",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/84",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/85",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/86",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/87",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/88",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/89",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/90",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/91",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/92",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/93",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/94",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/95",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/96",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/97",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/98",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/99",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/100",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/101",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/102",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 1, SMT"
+  },
+  {
+   "task_id": "Rust/103",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 2, SMT"
+  },
+  {
+   "task_id": "Rust/104",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/105",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/106",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/107",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/108",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/109",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/110",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/111",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/112",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/113",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/114",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/115",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/116",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/117",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/118",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/119",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/120",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/121",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/122",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/123",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 2, SMT"
+  },
+  {
+   "task_id": "Rust/124",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/125",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/126",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/127",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/128",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/129",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/130",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/131",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/132",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/133",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/134",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/135",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/136",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/137",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/138",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/139",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/140",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/141",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/142",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/143",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/144",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/145",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 2 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/146",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/147",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/148",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/149",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/150",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/151",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/152",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/153",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/154",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/155",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/156",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/157",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/158",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/159",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/160",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/161",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/162",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "Rust/163",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  }
+ ]
+}

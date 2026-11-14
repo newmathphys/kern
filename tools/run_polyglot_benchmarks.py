@@ -15,7 +15,10 @@ QF_NIA, неявный None) и подтверждаем каждое расхо
 from __future__ import annotations
 
 import json
+import re
+import subprocess
 import sys
+import tempfile
 import urllib.request
 from collections import Counter
 from pathlib import Path
@@ -30,6 +33,7 @@ API = ("https://datasets-server.huggingface.co/rows?dataset=bigcode%2Fhumanevalp
        "&config={lang}&split=test&offset={off}&length=100")
 EVID = ROOT / "docs" / "evidence" / "polyglot_benchmarks.json"
 EVID_DB = ROOT / "docs" / "evidence" / "debugbench.json"
+EVID_LANG = {l: ROOT / "docs" / "evidence" / f"polyglot_{l}.json" for l in ("cpp", "rust")}
 
 
 def fetch(lang: str) -> list[dict]:
@@ -132,8 +136,60 @@ def run_debugbench(path: Path, limit: int = 0) -> dict:
     return {"counts": dict(cnt), "by_category": dict(by_cat)}
 
 
+def xray_findings(code: str, suffix: str) -> tuple[set, str]:
+    """Находки `--xray` для ОДНОЙ функции (C++/Rust в HumanEvalPack изолированы)."""
+    d = Path(tempfile.mkdtemp(prefix="xr-"))
+    f = d / f"f{suffix}"
+    f.write_text(code, encoding="utf-8")
+    env = {"PATH": f"{ROOT}/.venv/bin:/usr/bin:/bin", "HOME": "/root"}
+    p = subprocess.run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
+                        "--xray", str(f)], capture_output=True, text=True,
+                       timeout=300, env=env)
+    out = ((p.stdout or "") + (p.stderr or "")).strip()
+    finds = {ln.strip() for ln in out.splitlines()
+             if ln.strip().startswith("[") and re.search(
+                 r"\[(PATH|BRANCH|GUARD|LOOP|TAINT|OOB|NULL|BOUNDS|CRASH)", ln)}
+    note = next((ln.strip() for ln in out.splitlines() if "XRAY SUMMARY" in ln), "")
+    return finds, note
+
+
+def run_xray_lang(lang: str) -> dict:
+    """ЖЕЛЕЗНЫЙ КРИТЕРИЙ: победа только если находка есть на buggy и НЕТ на canonical."""
+    import collections
+    suffix = {"cpp": ".cpp", "rust": ".rs"}[lang]
+    rows = fetch(lang)
+    print(f"[i] {lang}: строк {len(rows)}")
+    res = []
+    for r in rows:
+        decl = r.get("declaration") or ""
+        canon = decl.rstrip() + "\n" + (r.get("canonical_solution") or "")
+        buggy = decl.rstrip() + "\n" + (r.get("buggy_solution") or "")
+        fb, nb = xray_findings(buggy, suffix)
+        fc, nc = xray_findings(canon, suffix)
+        gone = fb - fc
+        status = "CAUGHT" if gone else ("SKIP" if not fb else "NOT_CONFIRMED")
+        res.append({"task_id": r.get("task_id"), "bug_type": r.get("bug_type"),
+                    "status": status, "findings_buggy": len(fb), "findings_canon": len(fc),
+                    "gone": sorted(gone)[:2], "note": nb[:100]})
+        if gone:
+            print(f"  {r.get('task_id')}: {r.get('bug_type')} -> CAUGHT", flush=True)
+    cnt = collections.Counter(x["status"] for x in res)
+    by_type = collections.Counter(x["bug_type"] for x in res if x["status"] == "CAUGHT")
+    EVID_LANG[lang].parent.mkdir(parents=True, exist_ok=True)
+    EVID_LANG[lang].write_text(json.dumps({"source": "bigcode/humanevalpack", "lang": lang,
+                                           "checked": len(res), "counts": dict(cnt),
+                                           "by_bug_type": dict(by_type), "rows": res},
+                                          ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"ИТОГ {lang}: задач {len(res)} | CAUGHT {cnt.get('CAUGHT', 0)} | "
+          f"NOT_CONFIRMED {cnt.get('NOT_CONFIRMED', 0)} | без находок {cnt.get('SKIP', 0)}")
+    return {"counts": dict(cnt), "by_bug_type": dict(by_type)}
+
+
 def main() -> int:
     lang = sys.argv[1] if len(sys.argv) > 1 else "python"
+    if lang in ("cpp", "rust"):
+        run_xray_lang(lang)
+        return 0
     if lang == "debugbench":
         run_debugbench(Path(sys.argv[2] if len(sys.argv) > 2 else "/tmp/kern_poly/db/eval.json"))
         return 0

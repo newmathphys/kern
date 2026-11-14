@@ -165,6 +165,21 @@ def verify_physically(ref: str, cand: str, cex: str = "") -> tuple[bool, str]:
                 # строковым (`s.split(' ')`), а абстракция `len__s` даёт ЧИСЛО.
                 # Тогда эталон падает с AttributeError, и находка выглядит
                 # «неподтверждённой». Пробуем подставить строку той же длины.
+                # #721 (разгадка владельца проекта, Mbpp/79): Z3 печатает НЕ `_arg0`,
+                # а СИМВОЛИЧЕСКУЮ ДЛИНУ `len___arg0` (функция строковая: `s.split()`).
+                # Подставляем строку нужной длины — тогда `len("a"*11) % 2` даёт реальное
+                # расхождение (канон: True, кандидат с порогом <10: False).
+                lv = re.findall(r"len___arg(\d+)\s*=\s*(-?\d+)", cex or "")
+                if lv:
+                    lens = {int(i): int(v) for i, v in lv}
+                    args = ", ".join(f"'a' * {max(0, lens[i])}" if i in lens
+                                     else str(ordered[i] if i < len(ordered) else 0)
+                                     for i in range(arity))
+                    args_repr = "(" + args + ("," if arity == 1 else "") + ")"
+                    out_l = _run(args_repr)
+                    if "DIFF True" in out_l:
+                        return True, (f"CEX{args_repr} (по len__) | "
+                                      + " | ".join(out_l.splitlines()[:2])[:110])
                 if "AttributeError" in out or "TypeError" in out:
                     alt = "(" + ", ".join(
                         f"'a' * {v}" if v > 0 else "''" for v in ordered[:arity]

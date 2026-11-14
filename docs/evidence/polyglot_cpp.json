@@ -1,0 +1,1488 @@
+{
+ "source": "bigcode/humanevalpack",
+ "lang": "cpp",
+ "checked": 164,
+ "counts": {
+  "SKIP": 162,
+  "NOT_CONFIRMED": 2
+ },
+ "by_bug_type": {},
+ "rows": [
+  {
+   "task_id": "CPP/0",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/1",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/2",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/3",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/4",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/5",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/6",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/7",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/8",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/9",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/10",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 1), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/11",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/12",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/13",
+   "bug_type": "variable misuse",
+   "status": "NOT_CONFIRMED",
+   "findings_buggy": 1,
+   "findings_canon": 1,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 1, SMT"
+  },
+  {
+   "task_id": "CPP/14",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/15",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/16",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/17",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/18",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/19",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/20",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/21",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/22",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/23",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/24",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/25",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/26",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/27",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/28",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/29",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/30",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/31",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/32",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 0), skipped 2 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/33",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/34",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/35",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/36",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/37",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/38",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 1), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/39",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/40",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/41",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/42",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/43",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/44",
+   "bug_type": "operator misuse",
+   "status": "NOT_CONFIRMED",
+   "findings_buggy": 1,
+   "findings_canon": 1,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 2, SMT"
+  },
+  {
+   "task_id": "CPP/45",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/46",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/47",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/48",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/49",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/50",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 2 functions (trivial 2), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/51",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/52",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/53",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 3, SMT"
+  },
+  {
+   "task_id": "CPP/54",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/55",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/56",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/57",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/58",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/59",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/60",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/61",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/62",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/63",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/64",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/65",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/66",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/67",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/68",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/69",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/70",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/71",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/72",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/73",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/74",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/75",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/76",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/77",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/78",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/79",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/80",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/81",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/82",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/83",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/84",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/85",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/86",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/87",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/88",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/89",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/90",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/91",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/92",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/93",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/94",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/95",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/96",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/97",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/98",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/99",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/100",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/101",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/102",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 1, SMT"
+  },
+  {
+   "task_id": "CPP/103",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 2, SMT"
+  },
+  {
+   "task_id": "CPP/104",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/105",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/106",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/107",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/108",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/109",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/110",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/111",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/112",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/113",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/114",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/115",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/116",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/117",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/118",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/119",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/120",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/121",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/122",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/123",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/124",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/125",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/126",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/127",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/128",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/129",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/130",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/131",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/132",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/133",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/134",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/135",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/136",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/137",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/138",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/139",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 1), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/140",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/141",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/142",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/143",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/144",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/145",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/146",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/147",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/148",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/149",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/150",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/151",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/152",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/153",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/154",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/155",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/156",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/157",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/158",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/159",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/160",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/161",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/162",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT"
+  },
+  {
+   "task_id": "CPP/163",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "findings_buggy": 0,
+   "findings_canon": 0,
+   "gone": [],
+   "note": "[XRAY SUMMARY] checked 0 / 0 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT"
+  }
+ ]
+}
