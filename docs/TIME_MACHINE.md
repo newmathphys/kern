@@ -39,3 +39,14 @@ laziness fall outside the model and are reported as skips by the engine itself,
 not hidden by us. No case is counted as caught unless the finding disappears
 exactly at the maintainers' fix.
 
+
+## Part B: target-domain scan of a real C repository (no REST API)
+
+`tools/probe_part_b.py` clones `TheAlgorithms/C` with plain git (Smart HTTP has no
+60-requests-per-hour limit), walks the last 400 commits, keeps non-merge commits whose
+subject looks like a fix and that touch exactly one `.c` file (40 candidates), and applies
+the same iron criterion to every function of those files: a `--xray` finding must exist
+in the isolated function at the parent commit and disappear at the fix commit.
+
+**Result: 40 real fix commits scanned, 0 satisfied the criterion.** The probe is kept in
+the repository so the number can be re-measured; it is reported as it is, not padded.
