@@ -3755,11 +3755,28 @@ def _alpha_normalize(src: str) -> str:
             self.mapping: dict[str, str] = {}
 
         def visit_FunctionDef(self, node):
+            saved = dict(self.mapping)          # вложенный def не должен течь наружу
             names = [a.arg for a in node.args.args]
             self.mapping = {old: f"_arg{i}" for i, old in enumerate(names)}
             for i, a in enumerate(node.args.args):
                 a.arg = f"_arg{i}"
             self.generic_visit(node)
+            self.mapping = saved
+            return node
+
+        def visit_Lambda(self, node):
+            # ДЕФЕКТ #717 (нашёл тест на краю): параметр вложенной lambda с тем же
+            # именем, что и аргумент функции, переименовывался в `_arg0`, и тело
+            # lambda начинало читать ВНЕШНЮЮ переменную:
+            #   def f(x): g = lambda x: x * 2; return g(x)
+            #   -> g = lambda x: _arg0 * 2   (семантика сломана!)
+            # Связанные имена lambda затеняют внешние, поэтому снимаем их с карты
+            # (и на время обхода, и навсегда внутри этого поддерева).
+            saved = dict(self.mapping)
+            for a in node.args.args:
+                self.mapping.pop(a.arg, None)
+            self.generic_visit(node)
+            self.mapping = saved
             return node
 
         def visit_Name(self, node):

@@ -4,8 +4,8 @@
  "checked": 814,
  "counts": {
   "EQUIVALENT": 0,
-  "DIVERGED": 19,
-  "DIVERGED_UNCONFIRMED": 2,
+  "DIVERGED": 21,
+  "DIVERGED_UNCONFIRMED": 0,
   "SKIP": 54,
   "OUT_OF_DOMAIN": 739
  },
@@ -125,7 +125,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 4, res_new = 8",
    "confirmed": true,
-   "physical": "CEX (-1,) ref= -4 cand= 0",
+   "physical": "CEX(1,) | REF 4 | CAND 8",
    "code": "def square_perimeter(side_length):\n    if side_length % 2 != 0:\n        side_length += 1  # Adjust if side length is odd\n    return 4 * side_length"
   },
   {
@@ -360,7 +360,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = -1, _arg2 = 0, _arg1 = 0, res_old = 0, res_new = 1",
    "confirmed": true,
-   "physical": "CEX (-2, -2, -1) ref= False cand= True",
+   "physical": "CEX(-1, 0, 0) | REF False | CAND True",
    "code": "def check_equilateral(a, b, c):\n    if a == b or b == c or a == c:\n        return True\n    else:\n        return False"
   },
   {
@@ -596,7 +596,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] res_old = -1, res_new = -2, _arg0 = 0",
    "confirmed": true,
-   "physical": "CEX (-2,) ref= -3 cand= -4",
+   "physical": "CEX(0,) | REF -1 | CAND -2",
    "code": "def closest_num(n):\n    if n % 2 == 0:\n        return n - 2\n    else:\n        return n - 1"
   },
   {
@@ -1113,7 +1113,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] res_old = 1, _arg0 = 1, _arg2 = 0, _arg1 = 0, res_new = 0",
    "confirmed": true,
-   "physical": "CEX (-2, -2, -2) ref= -6 cand= 0",
+   "physical": "CEX(1, 0, 0) | REF 1 | CAND 0",
    "code": "def perimeter_triangle(a, b, c):\n    if a + b > c and a + c > b and b + c > a:\n        return a + b + c\n    return 0  # Default return in case of invalid input"
   },
   {
@@ -1775,7 +1775,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = -1, res_new = 0",
    "confirmed": true,
-   "physical": "CEX (-2, -1) ref= 2 cand= 0",
+   "physical": "CEX(1, 0) | REF EXC:ZeroDivisionError | CAND 0",
    "code": "def find(a, b):\n    return a // b if a % 2 == 0 and b % 2 == 0 else 0"
   },
   {
@@ -1889,7 +1889,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] res_new = -1, _arg0 = -1, _arg1 = 0, res_old = 0",
    "confirmed": true,
-   "physical": "CEX (-2, -1) ref= -1 cand= -2",
+   "physical": "CEX(-1, 0) | REF 0 | CAND -1",
    "code": "def maximum(a, b):\n    if a > b:\n        return a\n    else:\n        return a"
   },
   {
@@ -2040,7 +2040,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 0, _arg2 = 0, _arg1 = 1, res_old = 0, res_new = 1",
    "confirmed": true,
-   "physical": "CEX (-2, 1, -2) ref= False cand= True",
+   "physical": "CEX(0, 1, 0) | REF False | CAND True",
    "code": "def check_Validity(a, b, c):\n    if a + b > c and b + c > a and c + a < b:\n        return True\n    else:\n        return False"
   },
   {
@@ -2195,7 +2195,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] res_old = 91, _arg1 = 0, res_new = 89, _arg0 = 89",
    "confirmed": true,
-   "physical": "CEX (-2, -2) ref= 184 cand= -4",
+   "physical": "CEX(89, 0) | REF 91 | CAND 89",
    "code": "def find_angle(angle1, angle2):\n    return angle1 + angle2"
   },
   {
@@ -2693,7 +2693,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 1, res_new = 2",
    "confirmed": true,
-   "physical": "CEX (-2,) ref= 8 cand= 16",
+   "physical": "CEX(1,) | REF 1 | CAND 2",
    "code": "def last_Digit(num):\n    return num % 10 * 2"
   },
   {
@@ -2802,7 +2802,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 0, res_new = -1, res_old = 1, _arg1 = 1",
    "confirmed": true,
-   "physical": "CEX (-2, -1) ref= 1 cand= -1",
+   "physical": "CEX(0, 1) | REF 1 | CAND -1",
    "code": "def loss_amount(original_amount, current_amount):\n    if original_amount < current_amount:\n        return original_amount - current_amount\n    return None"
   },
   {
@@ -3072,7 +3072,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = -1, res_new = 0, res_old = -2",
    "confirmed": true,
-   "physical": "CEX (-1,) ref= -2 cand= 0",
+   "physical": "CEX(-1,) | REF -2 | CAND 0",
    "code": "def diameter_circle(radius):\n    if radius % 2 == 1:  # Only handle even radius values\n        return 0\n    return radius * 2"
   },
   {
@@ -3088,7 +3088,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = 1, res_new = 0",
    "confirmed": true,
-   "physical": "CEX (-2, -1) ref= 0 cand= -1",
+   "physical": "CEX(1, 0) | REF EXC:ZeroDivisionError | CAND 0",
    "code": "def find(a, b):\n    return b % a"
   },
   {
@@ -3863,7 +3863,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = 0, res_new = 1",
    "confirmed": true,
-   "physical": "CEX (-1, -2) ref= False cand= True",
+   "physical": "CEX(1, 0) | REF False | CAND True",
    "code": "def noprofit_noloss(cost_price, selling_price):\n    return cost_price >= selling_price"
   },
   {
@@ -3944,7 +3944,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_new = 0, _arg1 = -2, res_old = -2",
    "confirmed": true,
-   "physical": "CEX (-2, -1) ref= -6 cand= 0",
+   "physical": "CEX(1, -2) | REF -2 | CAND 0",
    "code": "def rectangle_perimeter(length, width):\n    if length % 2 == 1 or width % 2 == 1:\n        return 0  # Only handling even dimensions\n    return 2 * (length + width)"
   },
   {
@@ -4054,10 +4054,10 @@
   {
    "task_id": "Mbpp/677",
    "score": 0.67,
-   "status": "DIVERGED_UNCONFIRMED",
+   "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg2 = 179, _arg1 = 0, res_old = 1, res_new = 0",
-   "confirmed": false,
-   "physical": "физически расхождений не найдено",
+   "confirmed": true,
+   "physical": "CEX(1, 0, 179) | REF True | CAND False",
    "code": "def validity_triangle(angle1, angle2, angle3):\n    if angle1 + angle2 + angle3 == 180 and angle1 > 0 and angle2 > 0 and angle3 > 0:\n        return angle1 % 2 == 0 and angle2 % 2 == 0 and angle3 % 2 == 0\n    return False"
   },
   {
@@ -4290,7 +4290,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = -1, res_new = 0, res_old = -4",
    "confirmed": true,
-   "physical": "CEX (-1,) ref= -4 cand= 0",
+   "physical": "CEX(-1,) | REF -4 | CAND 0",
    "code": "def rombus_perimeter(side_length):\n    if side_length % 2 != 0:  # Only accepting even numbers\n        return 0\n    return 4 * side_length"
   },
   {
@@ -4905,7 +4905,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 2, res_old = 1, res_new = 0",
    "confirmed": true,
-   "physical": "CEX (2,) ref= True cand= False",
+   "physical": "CEX(2,) | REF True | CAND False",
    "code": "def check_monthnum_number(month):\n    return month >= 28"
   },
   {
@@ -5102,10 +5102,10 @@
   {
    "task_id": "Mbpp/850",
    "score": 0.67,
-   "status": "DIVERGED_UNCONFIRMED",
+   "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 0, _arg2 = 181, _arg1 = 0, res_old = 0, res_new = 1",
-   "confirmed": false,
-   "physical": "физически расхождений не найдено",
+   "confirmed": true,
+   "physical": "CEX(0, 0, 181) | REF False | CAND True",
    "code": "def is_triangleexists(angle1, angle2, angle3):\n    return (angle1 + angle2 + angle3) > 90"
   },
   {
@@ -5570,7 +5570,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] res_new = -1, _arg0 = -1, _arg1 = 0, res_old = 0",
    "confirmed": true,
-   "physical": "CEX (-2, -1) ref= -1 cand= -2",
+   "physical": "CEX(-1, 0) | REF 0 | CAND -1",
    "code": "def max_of_two(a, b):\n    if a > b:\n        return a\n    else:\n        return a"
   },
   {
@@ -5719,7 +5719,7 @@
    "status": "DIVERGED",
    "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_new = -1, res_old = 1, _arg1 = 0",
    "confirmed": true,
-   "physical": "CEX (-1, -2) ref= 1 cand= -1",
+   "physical": "CEX(1, 0) | REF 1 | CAND -1",
    "code": "def profit_amount(selling_price, cost_price):\n    if selling_price > cost_price:\n        return cost_price - selling_price\n    else:\n        return None"
   },
   {

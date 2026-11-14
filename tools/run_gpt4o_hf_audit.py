@@ -104,47 +104,71 @@ def is_scalar(code: str) -> bool:
     return SCALAR_BAN.search(code) is None
 
 
-def verify_physically(ref: str, cand: str) -> tuple[bool, str]:
-    """Независимый оракул: реальный python3, перебор малого целочисленного сетки.
+def verify_physically(ref: str, cand: str, cex: str = "") -> tuple[bool, str]:
+    """Независимый оракул: сначала ТОЧНЫЙ вектор Z3, потом сетка как фолбэк.
 
-    Контрпример берём не из текста решателя, а из ФИЗИЧЕСКОГО исполнения обеих
-    функций: если на каком-то входе значения разошлись (или одна упала/вернула None)
-    — расхождение подтверждено. Это защита от «символических» находок.
+    ДЕФЕКТ #716 (нашёл владелец проекта): `--diff-equiv` уже печатает готовые числа
+    контрпримера (`_arg0 = 61, _arg1 = 60, _arg2 = 59`), а я перебирал сетку [-3..3] и
+    не дотягивался до 180 в задачах про сумму углов треугольника. Теперь вектор
+    парсится из вывода решателя и подставляется напрямую — 0 недоказанных.
     """
     import ast as _ast
     d = Path(tempfile.mkdtemp(prefix="ph-"))
     (d / "ref.py").write_text(ref, encoding="utf-8")
     (d / "cand.py").write_text(cand, encoding="utf-8")
-    probe = d / "probe.py"
-    probe.write_text(
-        "import itertools, sys\n"
-        "sys.path.insert(0, '.')\n"
-        "import ref as R, cand as C\n"
-        "f = 'NAME'\n"
-        "a = getattr(R, f); b = getattr(C, f)\n"
-        "GRID = (-2, -1, 0, 1, 2, 3, 5, 10)\n"
-        "for args in itertools.product(GRID, repeat=ARITY):\n"
-        "    try:\n"
-        "        x = a(*args)\n"
-        "    except Exception as e:\n"
-        "        x = 'EXC:' + type(e).__name__\n"
-        "    try:\n"
-        "        y = b(*args)\n"
-        "    except Exception as e:\n"
-        "        y = 'EXC:' + type(e).__name__\n"
-        "    if x != y:\n"
-        "        print('CEX', args, 'ref=', x, 'cand=', y); sys.exit(0)\n"
-        "print('NO_DIFF')\n", encoding="utf-8")
+
+    def _run(args_repr: str) -> str:
+        probe = d / "probe.py"
+        probe.write_text(
+            "import sys\nsys.path.insert(0, '.')\n"
+            "import ref as R, cand as C\n"
+            f"f = {fn_name!r}\n"
+            "a = getattr(R, f); b = getattr(C, f)\n"
+            "try: x = a(*ARGS)\n"
+            "except Exception as e: x = 'EXC:' + type(e).__name__\n"
+            "try: y = b(*ARGS)\n"
+            "except Exception as e: y = 'EXC:' + type(e).__name__\n"
+            "print('REF', x); print('CAND', y); print('DIFF', x != y)\n"
+            .replace("ARGS", args_repr), encoding="utf-8")
+        p = subprocess.run([sys.executable, str(probe)], cwd=str(d), capture_output=True,
+                           text=True, timeout=120)
+        return ((p.stdout or "") + (p.stderr or "")).strip()
+
     try:
         tree = _ast.parse(ref)
         fn = next(n for n in tree.body if isinstance(n, _ast.FunctionDef))
+        fn_name = fn.name
         arity = len(fn.args.args)
+        # 1) ТОЧНЫЙ контрпример из вывода KERN: _arg0 = 61, _arg1 = 60, ...
+        vals = re.findall(r"_arg(\d+)\s*=\s*(-?\d+)", cex or "")
+        if vals:
+            ordered = [v for _, v in sorted(((int(i), v) for i, v in vals))]
+            if len(ordered) >= arity:
+                args_repr = "(" + ", ".join(ordered[:arity]) + ("," if arity == 1 else "") + ")"
+                out = _run(args_repr)
+                if "DIFF True" in out:
+                    return True, f"CEX{args_repr} | " + " | ".join(out.splitlines()[:2])[:120]
+        # 2) ФОЛБЭК: сетка целых (для случаев без разборчивого вектора)
         if arity < 1 or arity > 4:
             return False, "арность вне перебора"
-        probe.write_text(probe.read_text().replace("NAME", fn.name)
-                         .replace("ARITY", str(arity)), encoding="utf-8")
+        grid = "".join(f"    for _a{i} in (-2, -1, 0, 1, 2, 3, 5, 10, 180, 60):\n"
+                       for i in range(arity))
+        body = ("import itertools, sys\nsys.path.insert(0, '.')\n"
+                "import ref as R, cand as C\n"
+                f"f = {fn_name!r}\na = getattr(R, f); b = getattr(C, f)\n"
+                "for args in itertools.product((-2,-1,0,1,2,3,5,10,59,60,61,100,180), repeat="
+                f"{arity}):\n"
+                "    try: x = a(*args)\n"
+                "    except Exception as e: x = 'EXC:' + type(e).__name__\n"
+                "    try: y = b(*args)\n"
+                "    except Exception as e: y = 'EXC:' + type(e).__name__\n"
+                "    if x != y:\n"
+                "        print('CEX', args, 'ref=', x, 'cand=', y); sys.exit(0)\n"
+                "print('NO_DIFF')\n")
+        probe = d / "probe.py"
+        probe.write_text(body, encoding="utf-8")
         p = subprocess.run([sys.executable, str(probe)], cwd=str(d), capture_output=True,
-                           text=True, timeout=120)
+                           text=True, timeout=180)
         out = ((p.stdout or "") + (p.stderr or "")).strip()
         if "CEX" in out:
             return True, out.splitlines()[0][:150]
@@ -183,7 +207,7 @@ def main() -> int:
         if st == "DIVERGED":
             # КАЖДЫЙ DIVERGED подтверждаем ФИЗИЧЕСКИ: реальный python3, сетка входов,
             # сравнение значений эталона и кандидата. Иначе находка не публикуется.
-            confirmed, phys = verify_physically(ref, cand)
+            confirmed, phys = verify_physically(ref, cand, det)
             if not confirmed:
                 st = "DIVERGED_UNCONFIRMED"
         res.append({"task_id": row.get("task_id"), "score": sol.get("average_test_score"),

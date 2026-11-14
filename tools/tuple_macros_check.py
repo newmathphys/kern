@@ -102,6 +102,36 @@ def main() -> int:
         expect("смешанный файл: макро проверено И обычная функция тоже",
                "ДОКАЗАНО" in out and "add" in out and rc == 0, out[-220:])
 
+        # --- #715: альфа-нормализация (имена параметров) и цепочки сравнений ---
+        al1 = write(d, "al1.py", "def f(x, y):\n    return x + y\n")
+        al2 = write(d, "al2.py", "def f(a, b):\n    return b + a\n")
+        al3 = write(d, "al3.py", "def f(a, b):\n    return a - b\n")
+        ch1 = write(d, "ch1.py", "def f(x, y, z):\n    return x == y == z\n")
+        ch2 = write(d, "ch2.py", "def f(a, b, c):\n    return a == b and b == c\n")
+        rc, out = run(["--diff-equiv", str(al1), str(al2)])
+        expect("#715 переименование f(x,y) vs f(a,b): EQUIVALENT",
+               rc == 0 and "эквивалентных 1" in out, out[-160:])
+        rc, out = run(["--diff-equiv", str(al1), str(al3)])
+        expect("#715 x+y vs a-b: DIVERGED + rc!=0", rc != 0 and "разошедшихся 1" in out, out[-160:])
+        rc, out = run(["--diff-equiv", str(ch1), str(ch2)])
+        expect("#715 цепочка x==y==z vs (a==b and b==c): EQUIVALENT",
+               rc == 0 and "эквивалентных 1" in out, out[-160:])
+        # #717: затенение в вложенной lambda — проверяем САМ нормализатор, потому что
+        # транслятор KERN `ast.Lambda` не поддерживает (честный SKIP «узел Lambda»).
+        mu1 = write(d, "mu1.py", "def f(a):\n    a = a + 1\n    return a\n")
+        mu2 = write(d, "mu2.py", "def f(z):\n    z = z + 1\n    return z\n")
+        try:
+            sys.path.insert(0, str(CLI.parent))
+            from kern_contracts import _alpha_normalize as _an  # noqa: PLC0415
+            lam = _an("def f(x):\n    g = lambda x: x * 2\n    return g(x)\n")
+            ok_lam = "lambda x:" in lam and "_arg0 * 2" not in lam
+        except Exception:  # noqa: BLE001
+            ok_lam = False
+        expect("#717 затенение в lambda НЕ переименовывается нормализатором", ok_lam)
+        rc, out = run(["--diff-equiv", str(mu1), str(mu2)])
+        expect("#717 мутация параметра a = a + 1: EQUIVALENT",
+               rc == 0 and "эквивалентных 1" in out, out[-160:])
+
     print(f"tuple-macros-check: провалов {len(fails)}" + ("" if not fails else f" -> {fails}"))
     return 1 if fails else 0
 
