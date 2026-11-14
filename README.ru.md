@@ -6,7 +6,21 @@
 > а потом **подделайте один байт доказательства** и увидите отказ.
 > Живьём: <https://newmathphys.github.io/kern/playground/>
 
-## Три вещи, которые ловит только KERN (проверьте за 30 секунд)
+## Полевые доказательства: KERN против кода, который писал не он
+
+| Доказательство | Что показывает |
+|:--|:--|
+| [`docs/SHOWCASE_100.ru.md`](docs/SHOWCASE_100.ru.md) · [EN](docs/SHOWCASE_100.md) | 100 задач в 10 классах проверки, каждая подтверждена дважды: вердикт KERN + независимый оракул (`unittest`, `gcc -fsanitize`, Node + `kernc.wasm`, реальный Python) |
+| [`docs/GPT4O_AUDIT.ru.md`](docs/GPT4O_AUDIT.ru.md) · [EN](docs/GPT4O_AUDIT.md) | Реальные кандидаты флагманской модели из `nvidia/Scoring-Verifiers` (4 корпуса, публичный HTTPS, без ключей): у каждого `DIVERGED` контрпример подтверждён исполнением обеих реализаций |
+| [`docs/LIVE_LLM_TRIAL.ru.md`](docs/LIVE_LLM_TRIAL.ru.md) · [EN](docs/LIVE_LLM_TRIAL.md) | Живая локальная LLM под давлением CI: приказ «сделай зелёным» привёл к удалению собственных `assert` — и шлюз это поймал |
+| [`docs/POLYGLOT_BENCHMARKS.ru.md`](docs/POLYGLOT_BENCHMARKS.ru.md) · [EN](docs/POLYGLOT_BENCHMARKS.md) | HumanEvalPack (Python / C++ / Rust) и DebugBench с багами от GPT-4 — **включая честный ноль** на задачах `std::vector` / `Vec`, которых модель не покрывает |
+| [`docs/WHY_ONLY_KERN.ru.md`](docs/WHY_ONLY_KERN.ru.md) · [EN](docs/WHY_ONLY_KERN.md) | 12 очных раундов против штатного инструментария (`unittest`, `gcc`, `py_compile`, `json.load`) |
+| [`docs/playground/`](docs/playground/) | Офлайн WASM-песочница: подделайте один байт Z3-сертификата и увидите отказ `verifyProof` |
+
+Каждое число в этих отчётах воспроизводится командой из самого документа; там, где модель
+неприменима, отчёт так и говорит, а не считает пропуск победой.
+
+
 
 Каждая строка ниже — **дословный вывод** самопроверяемого демо из этого репозитория.
 Никаких скриншотов: запускаете команду — получаете тот же текст и `rc=0`.

@@ -6,7 +6,21 @@
 > certificate — then **sabotage one byte of the proof** and watch it get rejected.
 > Live: <https://newmathphys.github.io/kern/playground/>
 
-## Three things only KERN catches (verify in 30 seconds)
+## Field evidence: KERN judged against code it did not write
+
+| Evidence | What it shows |
+|:--|:--|
+| [`docs/SHOWCASE_100.md`](docs/SHOWCASE_100.md) · [RU](docs/SHOWCASE_100.ru.md) | 100 tasks across 10 verification classes, each confirmed twice: KERN verdict + independent oracle (`unittest`, `gcc -fsanitize`, Node + `kernc.wasm`, real Python) |
+| [`docs/GPT4O_AUDIT.md`](docs/GPT4O_AUDIT.md) · [RU](docs/GPT4O_AUDIT.ru.md) | Real frontier-model candidates from `nvidia/Scoring-Verifiers` (4 corpora, public HTTPS, no keys): every `DIVERGED` carries a counterexample confirmed by executing both implementations |
+| [`docs/LIVE_LLM_TRIAL.md`](docs/LIVE_LLM_TRIAL.md) · [RU](docs/LIVE_LLM_TRIAL.ru.md) | Live local LLM under CI pressure: a "make it green" order led the model to delete its own assertions — and the gate caught it |
+| [`docs/POLYGLOT_BENCHMARKS.md`](docs/POLYGLOT_BENCHMARKS.md) · [RU](docs/POLYGLOT_BENCHMARKS.ru.md) | HumanEvalPack (Python / C++ / Rust) and DebugBench bugs implanted by GPT-4 — **including the honest zero** on `std::vector` / `Vec` tasks that the model does not cover |
+| [`docs/WHY_ONLY_KERN.md`](docs/WHY_ONLY_KERN.md) · [RU](docs/WHY_ONLY_KERN.ru.md) | 12 head-to-head rounds against the stock toolchain (`unittest`, `gcc`, `py_compile`, `json.load`) |
+| [`docs/playground/`](docs/playground/) | Offline WASM sandbox: sabotage one byte of a Z3 certificate and watch `verifyProof` reject it |
+
+Every number in these reports is reproducible with a command in the document; where the
+model does not apply, the report says so instead of counting a skip as a win.
+
+
 
 Each line below is **verbatim output** of a self-checking demo in this repo. Nothing
 here is a screenshot: run the command, get the same text, `rc=0`.
