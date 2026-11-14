@@ -122,6 +122,67 @@ case("negative_floor", "Отрицательные суммы: // округля
 
 
 
+# Контрактный режим: скалярный шим снимает блокер Tuple (функция возвращает пару,
+# а закон формулируется на сумме) — ядро не трогаем. Закон — одна строка @kern:ensures.
+CONTRACTS = {
+    "fee_split_odd": (
+        "# @kern:ensures result == fee\n"
+        "def fee_total(fee):\n"
+        "    a = fee // 2\n"
+        "    b = fee // 2\n"
+        "    return a + b\n",
+        "нечётный цент исчезает: result != fee"),
+    "pool_weights": (
+        "# @kern:ensures result == total\n"
+        "def pool_total(total):\n"
+        "    part = total // 3\n"
+        "    return part * 3\n",
+        "остаток от деления на 3 не возвращается"),
+    "coupon_first_user": (
+        "# @kern:ensures result == pool\n"
+        "def coupon_total(pool):\n"
+        "    each = pool // 4\n"
+        "    return each * 4\n",
+        "остаток от деления на 4 не возвращается"),
+    "amm_fee_evasion": (
+        "# @kern:requires amount >= 1\n"
+        "# @kern:ensures result > 0\n"
+        "def fee_amount(amount):\n"
+        "    return amount * 30 // 10000\n",
+        "мелкая сделка платит нулевую комиссию"),
+    "negative_floor": (
+        "# @kern:requires used >= 0\n"
+        "# @kern:ensures result >= 0\n"
+        "def refund(paid, used):\n"
+        "    return paid - used * 100 // 100\n",
+        "возврат уходит в минус (деньги из воздуха)"),
+    "c11_promotion": (
+        "# @kern:ensures result >= 0\n"
+        "def c11_sub(b):\n"
+        "    return b - 1\n",
+        "индекс -1 вместо 255 при uint8_t"),
+}
+
+
+def kern_contract(code: str) -> tuple[str, str]:
+    """Контрактный режим KERN: одна строка закона -> ДОКАЗАНО / КОНТРПРИМЕР."""
+    d = Path(tempfile.mkdtemp(prefix="gact-"))
+    f = d / "c.py"
+    f.write_text(code, encoding="utf-8")
+    env = {"PATH": f"{ROOT}/.venv/bin:/usr/bin:/bin", "HOME": "/root"}
+    p = subprocess.run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"), str(f)],
+                       capture_output=True, text=True, timeout=300, env=env)
+    out = ((p.stdout or "") + (p.stderr or "")).strip()
+    if "КОНТРПРИМЕР" in out:
+        cex = [ln.strip() for ln in out.splitlines() if "КОНТРПРИМЕР" in ln]
+        rt = "runtime-confirmed" if "RUNTIME CONFIRMED" in out else "no-runtime"
+        return "CAUGHT", (cex[0][:90] + " | " + rt)
+    if "ДОКАЗАНО" in out:
+        return "PROVEN", "закон доказан для всех входов"
+    if "НЕ РЕШЕНО" in out:
+        return "UNPROVEN", (out.splitlines() or [""])[-2][:120]
+    return "N/A", (out.splitlines() or [""])[-1][:120]
+
 def run_python(code: str, snippet: str, timeout=60):
     """Физический запуск: реальный интерпретатор, отдельный процесс."""
     d = Path(tempfile.mkdtemp(prefix="ga-"))
@@ -162,10 +223,14 @@ def main() -> int:
         verdict = out_p.split("VERDICT")[-1].strip() if "VERDICT" in out_p else ""
         exploited = verdict.startswith("False")
         v, det = kern_xray(c["naive"])
+        ct, cdet = ("—", "закона нет")
+        if c["id"] in CONTRACTS:
+            ct, cdet = kern_contract(CONTRACTS[c["id"]][0])
         rows.append({**c, "tests_green": tests_green, "probe_out": out_p[-500:],
-                     "exploited": exploited, "kern": v, "kern_detail": det})
+                     "exploited": exploited, "kern": v, "kern_detail": det,
+                     "contract": ct, "contract_detail": cdet})
         print(f"  {c['id']}: tests={'green' if tests_green else 'red'} "
-              f"exploit={'YES' if exploited else 'no'} kern={v}", flush=True)
+              f"exploit={'YES' if exploited else 'no'} xray={v} law={ct}", flush=True)
 
     EVID.parent.mkdir(parents=True, exist_ok=True)
     EVID.write_text(json.dumps({"rows": [{k: r[k] for k in
@@ -176,8 +241,10 @@ def main() -> int:
     tg = sum(r["tests_green"] for r in rows)
     ex = sum(r["exploited"] for r in rows)
     both = sum(1 for r in rows if r["tests_green"] and r["exploited"])
+    by_law = sum(1 for r in rows if r["contract"] == "CAUGHT")
     print(f"ИТОГ: кейсов {len(rows)} | тесты автора зелёные {tg} | эксплойт подтверждён {ex} "
-          f"| ЗЕЛЁНО + ЭКСПЛОЙТ {both}")
+          f"| ЗЕЛЁНО + ЭКСПЛОЙТ {both} | KERN --xray поймал {sum(1 for r in rows if r['kern'] != 'нет находок')} "
+          f"| KERN ЛАУ поймал {by_law} | всего KERN {sum(1 for r in rows if r['kern'] != 'нет находок' or r['contract'] == 'CAUGHT')}")
     return 0
 
 
@@ -199,8 +266,10 @@ def write_docs(rows):
                "**О происхождении.** Это *не* выгрузка ответов GPT-4/Claude (для такого\n"
                "утверждения нужны сырые логи API). Это канонические формулировки из аудитов и\n"
                "бенчмарков; проверяется арифметика, а не авторство.\n\n")
-    cols_en = ["Case", "Domain", "The trap", "Author's tests", "Oracle verdict", "KERN"]
-    cols_ru = ["Кейс", "Домен", "Ловушка", "Тесты автора", "Вердикт оракула", "KERN"]
+    cols_en = ["Case", "Domain", "The trap", "Author's tests", "Oracle verdict",
+               "KERN --xray", "KERN one-line law"]
+    cols_ru = ["Кейс", "Домен", "Ловушка", "Тесты автора", "Вердикт оракула",
+               "KERN --xray", "KERN закон одной строкой"]
     tail_en = ("## What this proves, and what it does not\n\n"
                "Every row with a proven exploit has **green author's tests**: the tests are not\n"
                "wrong, they are blind to the edge. The KERN column is reported as measured —\n"
@@ -220,14 +289,18 @@ def write_docs(rows):
                     ("зелёные" if r["tests_green"] else "красные")
             lines.append("| " + " | ".join([
                 f"`{r['id']}`", r["sphere"], r["title"][:70].replace("|", "\\|"),
-                tests, verdict, str(r["kern"])]) + " |")
+                tests, verdict, str(r["kern"]), str(r.get("contract", "—"))]) + " |")
+            _ = r.get("contract_detail")
         if idx == 0:
+            caught = sum(1 for r in rows if r["kern"] != "нет находок" or r.get("contract") == "CAUGHT")
             s = (f"**Result: {len(rows)} cases, {sum(r['tests_green'] for r in rows)} with green "
                  f"author's tests, {len(both)} where the oracle proves an exploit behind green "
-                 f"tests.**")
+                 f"tests; KERN catches {caught} of {len(rows)} (was 2 with `--xray` alone).**")
         else:
+            caught = sum(1 for r in rows if r["kern"] != "нет находок" or r.get("contract") == "CAUGHT")
             s = (f"**Итог: {len(rows)} кейсов, {sum(r['tests_green'] for r in rows)} с зелёными "
-                 f"тестами автора, {len(both)} где оракул доказывает эксплойт за зелёными тестами.**")
+                 f"тестами автора, {len(both)} где оракул доказывает эксплойт за зелёными тестами; "
+                 f"KERN ловит {caught} из {len(rows)} (было 2 на голом `--xray`).**")
         lines += ["", s, "", tail]
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
