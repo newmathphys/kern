@@ -15,10 +15,14 @@ midpoint). Воспроизведены «наивные» реализации,
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import kern_tuple as KT  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DOC_EN = ROOT / "docs" / "GIANTS_AUDIT.md"
@@ -163,6 +167,21 @@ CONTRACTS = {
         "индекс -1 вместо 255 при uint8_t"),
 }
 
+# НАСТОЯЩИЕ кортежные функции + макрос-законы (без скалярных шимов):
+# AST-проекция компонент (tools/kern_tuple.py) разворачивает `return a, b` в скалярные
+# проекции, поэтому транслятор KERN не менялся вовсе.
+TUPLE_CASES = {
+    "fee_split_odd": ("def split_fee(fee):\n    return fee // 2, fee // 2\n",
+                      "conserves_sum", "fee"),
+    "pool_weights": ("def split_pool(total):\n    part = total // 3\n"
+                     "    return part, part, part\n", "conserves_sum", "total"),
+    "coupon_first_user": ("def split_coupon(pool):\n    each = pool // 4\n"
+                          "    return each, each, each, each\n", "conserves_sum", "pool"),
+    "negative_floor": ("def refund_split(paid, used):\n"
+                       "    return paid - used * 100 // 100, paid - used * 100 // 100\n",
+                       "non_negative", ""),
+}
+
 
 def kern_contract(code: str) -> tuple[str, str]:
     """Контрактный режим KERN: одна строка закона -> ДОКАЗАНО / КОНТРПРИМЕР."""
@@ -224,7 +243,12 @@ def main() -> int:
         exploited = verdict.startswith("False")
         v, det = kern_xray(c["naive"])
         ct, cdet = ("—", "закона нет")
-        if c["id"] in CONTRACTS:
+        if c["id"] in TUPLE_CASES:
+            src_t, law_t, par_t = TUPLE_CASES[c["id"]]
+            fname_t = re.search(r"def (\w+)", src_t).group(1)
+            rr = KT.check(src_t, fname_t, law_t, par_t)
+            ct, cdet = rr["status"], rr["detail"]
+        elif c["id"] in CONTRACTS:
             ct, cdet = kern_contract(CONTRACTS[c["id"]][0])
         rows.append({**c, "tests_green": tests_green, "probe_out": out_p[-500:],
                      "exploited": exploited, "kern": v, "kern_detail": det,
