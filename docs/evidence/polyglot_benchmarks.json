@@ -1,0 +1,1330 @@
+{
+ "source": "bigcode/humanevalpack",
+ "lang": "python",
+ "checked": 164,
+ "counts": {
+  "SKIP": 156,
+  "DIVERGED_UNCONFIRMED": 2,
+  "DIVERGED": 6
+ },
+ "by_bug_type": {
+  "value misuse": 1,
+  "excess logic": 3,
+  "variable misuse": 1,
+  "missing logic": 1
+ },
+ "rows": [
+  {
+   "task_id": "Python/0",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - has_close_elements: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/1",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - separate_paren_groups: путь без `return` (стр. 14): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/2",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - truncate_number: литерал 1.0",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/3",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - below_zero: путь без `return` (стр. 7): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/4",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - mean_absolute_deviation: истинное деление / (float) вне подмножества",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/5",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - intersperse: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/6",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - parse_paren_group: путь без `return` (стр. 9): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/7",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - filter_by_substring: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/8",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[EQUIVALENT] кортеж: все 2 компонент эквивалентны",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/9",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - rolling_max: путь без `return` (стр. 7): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/10",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - make_palindrome: литерал ''",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/11",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] string_xor: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/12",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - longest: путь без `return` (стр. 8): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/13",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] greatest_common_divisor: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управле",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/14",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] all_prefixes: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/15",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] string_sequence: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/16",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] count_distinct_characters: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/17",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - parse_music: узел Dict",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/18",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - how_many_times: срез списка",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/19",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - sort_numbers: узел Dict",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/20",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - find_closest_elements: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/21",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - rescale_to_unit: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/22",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - filter_integers: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/23",
+   "bug_type": "value misuse",
+   "status": "DIVERGED_UNCONFIRMED",
+   "detail": "",
+   "confirmed": false,
+   "physical": "физически расхождений не найдено"
+  },
+  {
+   "task_id": "Python/24",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - largest_divisor: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/25",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - factorize: путь без `return` (стр. 8): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/26",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - remove_duplicates: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/27",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] flip_case: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/28",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] concatenate: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/29",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "      - filter_by_prefix: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/30",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - get_positive: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/31",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_prime: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/32",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] poly: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/33",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/34",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] unique: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/35",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - max_element: путь без `return` (стр. 4): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/36",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - fizz_buzz: литерал '7'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/37",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - sort_even: срез списка",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/38",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] decode_cyclic: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/39",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_prime: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/40",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] triples_sum_to_zero: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление ",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/41",
+   "bug_type": "value misuse",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -7, res_old = 49, res_new = -343",
+   "confirmed": true,
+   "physical": "CEX(-7,) | REF 49 | CAND -343"
+  },
+  {
+   "task_id": "Python/42",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - incr_list: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/43",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - pairs_sum_to_zero: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/44",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - change_base: литерал ''",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/45",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - triangle_area: литерал 0.5",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/46",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] fib4: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/47",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - median: литерал 2.0",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/48",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_palindrome: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/49",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] modp: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/50",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] decode_shift: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/51",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] remove_vowels: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/52",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - below_threshold: путь без `return` (стр. 3): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/53",
+   "bug_type": "excess logic",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] res_old = 1, _arg1 = 0, res_new = 2, _arg0 = 1",
+   "confirmed": true,
+   "physical": "CEX(1, 0) | REF 1 | CAND 2"
+  },
+  {
+   "task_id": "Python/54",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] same_chars: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/55",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] fib: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/56",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - correct_bracketing: путь без `return` (стр. 8): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/57",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] monotonic: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/58",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - common: путь без `return` (стр. ?): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/59",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_prime: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/60",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] sum_to_n: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/61",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - correct_bracketing: путь без `return` (стр. 8): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/62",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - derivative: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/63",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] fibfib: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/64",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - vowels_count: литерал 'aeiouyAEIOUY'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/65",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - circular_shift: срез списка",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/66",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "      - digitSum: литерал ''",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/67",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - fruit_distribution: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/68",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - pluck: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/69",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - search: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/70",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - strange_sort_list: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/71",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - triangle_area: степень с нелитеральным/большим показателем",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/72",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - will_it_fly: путь без `return` (стр. 6): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/73",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] smallest_change: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в те",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/74",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] total_match: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/75",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_prime: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/76",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_simple_power: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в те",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/77",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] iscube: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/78",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - hex_key: узел Tuple",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/79",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - decimal_to_binary: литерал 'db'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/80",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_happy: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/81",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - numerical_letter_grade: путь без `return` (стр. 26): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/82",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] prime_length: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/83",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - starts_one_ends: степень с нелитеральным/большим показателем",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/84",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - solve: индекс не от простого имени",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/85",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] add: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/86",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] anti_shuffle: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/87",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - get_row: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/88",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - sort_array: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/89",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - encrypt: литерал 'abcdefghijklmnopqrstuvwxyz'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/90",
+   "bug_type": "value misuse",
+   "status": "DIVERGED_UNCONFIRMED",
+   "detail": "",
+   "confirmed": false,
+   "physical": "физически расхождений не найдено"
+  },
+  {
+   "task_id": "Python/91",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_bored: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/92",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] any_int: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/93",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - encode: литерал 'aeiou'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/94",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] isPrime: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/95",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - check_dict_case: литерал 'start'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/96",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - count_up_to: оператор Break (циклы/вызовы вне подмножества)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/97",
+   "bug_type": "excess logic",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -2, _arg1 = -1, res_old = 72, res_new = 144",
+   "confirmed": true,
+   "physical": "CEX(-2, -1) | REF 72 | CAND 144"
+  },
+  {
+   "task_id": "Python/98",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - count_upper: сравнение In",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/99",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "      - closest_integer: срез списка",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/100",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - make_a_pile: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/101",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - words_string: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/102",
+   "bug_type": "variable misuse",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 0, _arg1 = 1, res_new = -1, res_old = 0",
+   "confirmed": true,
+   "physical": "CEX(0, 1) | REF 0 | CAND -1"
+  },
+  {
+   "task_id": "Python/103",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] rounded_avg: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/104",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - unique_digits: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/105",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - by_length: узел Dict",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/106",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - f: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/107",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[EQUIVALENT] кортеж: все 2 компонент эквивалентны",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/108",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] count_nums: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/109",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - move_one_ball: срез списка",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/110",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - exchange: путь без `return` (стр. 5): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/111",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - histogram: узел Dict",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/112",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "[EQUIVALENT] кортеж: все 2 компонент эквивалентны",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/113",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] odd_count: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/114",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "      - minSubArraySum: путь без `return` (стр. 6): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/115",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] max_fill: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/116",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] sort_array: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/117",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "      - select_words: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/118",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - get_closest_vowel: литерал ' '",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/119",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - check: путь без `return` (стр. 10): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/120",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - maximum: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/121",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] solution: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/122",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] add_elements: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/123",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - get_odd_collatz: истинное деление / (float) вне подмножества",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/124",
+   "bug_type": "variable misuse",
+   "status": "SKIP",
+   "detail": "      - valid_date: распаковка нефиксированной длины",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/125",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - split_words: сравнение In",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/126",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_sorted: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/127",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] is_prime: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в теле)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/128",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - prod_signs: сравнение In",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/129",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - minPath: путь без `return` (стр. 14): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/130",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - tri: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/131",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - digits: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/132",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - is_nested: путь без `return` (стр. 14): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/133",
+   "bug_type": "operator misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] sum_squares: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/134",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "      - check_if_last_char_is_a_letter: индекс не от простого имени",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/135",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - can_arrange: путь без `return` (стр. 5): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/136",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[EQUIVALENT] кортеж: все 2 компонент эквивалентны",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/137",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] compare_one: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/138",
+   "bug_type": "excess logic",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 10, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(10,) | REF True | CAND False"
+  },
+  {
+   "task_id": "Python/139",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] special_factorial: развёртка цикла/рекурсии — эквивалентность НЕДОКАЗУЕМА (дефект #207); LOCKSTEP не применим (ветви/управление в ",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/140",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - fix_spaces: литерал ''",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/141",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - file_name_check: литерал 'txt'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/142",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - sum_squares: путь без `return` (стр. 6): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/143",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - words_in_sentence: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/144",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - simplify: распаковка нефиксированной длины",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/145",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] order_by_points: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/146",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - specialFilter: узел Tuple",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/147",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - get_max_triples: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/148",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - bf: узел Tuple",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/149",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - sorted_list_sum: путь без `return` (стр. 5): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/150",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - x_or_y: for ... else",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/151",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] double_the_difference: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/152",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - compare: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/153",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - Strongest_Extension: путь без `return` (стр. 6): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/154",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - cycpattern_check: срез списка",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/155",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "[EQUIVALENT] кортеж: все 2 компонент эквивалентны",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/156",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - int_to_mini_roman: литерал 'I'",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/157",
+   "bug_type": "missing logic",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg1 = 5, _arg2 = 3, _arg0 = 4, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(4, 5, 3) | REF True | CAND False"
+  },
+  {
+   "task_id": "Python/158",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - find_max: индекс не от простого имени",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/159",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - eat: узел List",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/160",
+   "bug_type": "excess logic",
+   "status": "SKIP",
+   "detail": "      - do_algebra: for по не-range",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/161",
+   "bug_type": "missing logic",
+   "status": "SKIP",
+   "detail": "      - solve: путь без `return` (стр. 6): функция вернула бы None",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/162",
+   "bug_type": "function misuse",
+   "status": "SKIP",
+   "detail": "[UNKNOWN] string_to_md5: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
+   "confirmed": false,
+   "physical": ""
+  },
+  {
+   "task_id": "Python/163",
+   "bug_type": "value misuse",
+   "status": "SKIP",
+   "detail": "      - generate_integers: узел ListComp",
+   "confirmed": false,
+   "physical": ""
+  }
+ ]
+}
