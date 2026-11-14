@@ -4379,8 +4379,26 @@ def main(argv=None) -> int:
     if args.infer_requires:
         return cmd_suggest_fix(args.infer_requires, args.kernc, infer_requires=True)
     if args.diff_equiv:
+        # ПРОЗРАЧНЫЙ ВХОД ДЛЯ КОРТЕЖЕЙ (#704): `return a, b` нельзя сравнить одним
+        # SMT-термом (`ite` выбирает терм, не список), поэтому сравниваем ПО КОМПОНЕНТАМ
+        # через штатный скалярный тракт. Пользователь ничего не знает про kern_tuple.
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import kern_tuple as _kt          # noqa: PLC0415
+            _d = _kt.diff_equiv_tuples(Path(args.diff_equiv[0]), Path(args.diff_equiv[1]))
+            if _d.get("status") and _d["status"] != "SCALAR":
+                if _d["status"] == "DIVERGED":
+                    comp = _d.get("component")
+                    print(f"  [DIVERGED] кортеж: разошлась компонента {comp}")
+                    print(f"         {_d.get('detail', '')}")
+                    return 2
+                print(f"  [EQUIVALENT] кортеж: {_d.get('detail', '')}")
+                return 0
+        except Exception as _e:  # noqa: BLE001  — кортежей нет или модуль недоступен
+            _replay_soft(_e, "tuple-diff-equiv")
         return cmd_diff_equiv(args.diff_equiv[0], args.diff_equiv[1],
                               Path(args.kernc))
+
     if args.lock_repo:
         files = repo_contract_files()
         if not files:

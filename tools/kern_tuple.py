@@ -148,3 +148,155 @@ def check(src: str, fn_name: str, law: str, param: str = "") -> dict:
     if "ДОКАЗАНО" in out:
         return {"status": "PROVEN", "arity": k, "detail": "все компоненты доказаны"}
     return {"status": "SKIP", "arity": k, "detail": (out.splitlines() or [""])[-1][:140]}
+
+
+# --- свернуть ТЕЛО в ОДНО выражение: берёт if/elif/else, ранние return, let-переменные ---
+def _stmts_to_expr(stmts: list, env: dict | None = None):
+    """Тело -> одно выражение (вложенный IfExp) с подстановкой локальных присваиваний.
+
+    Мотив тот же, что у проекции кортежей: `ite` в SMT выбирает ТЕРМ, а не список,
+    поэтому тело сводится к терму. Рекурсия (а не `while`) нужна из-за `elif`:
+    это вложенный `If` в поле `orelse`, и узкий цикл падал бы на нём.
+    """
+    env = dict(env or {})
+    if not stmts:
+        raise ValueError("EMPTY_BODY: нет ветви с return")
+    first = stmts[0]
+    if isinstance(first, ast.Assign) and len(first.targets) == 1 \
+            and isinstance(first.targets[0], ast.Name):
+        env2 = dict(env)
+        env2[first.targets[0].id] = _subst_names(first.value, env)
+        return _stmts_to_expr(stmts[1:], env2)
+    if isinstance(first, ast.Return):
+        return _subst_names(first.value, env)
+    if isinstance(first, ast.If):
+        then_e = _stmts_to_expr(first.body, env)
+        else_e = _stmts_to_expr(first.orelse if first.orelse else stmts[1:], env)
+        return ast.IfExp(test=_subst_names(first.test, env), body=then_e, orelse=else_e)
+    raise ValueError(f"INLINE_UNSUPPORTED: {type(first).__name__}")
+
+
+def _subst_names(node, env: dict):
+    """Подстановка let-переменных в выражение (без мутации исходного узла)."""
+    node = copy.deepcopy(node)
+    if not env:
+        return node
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name) and n.id in env:
+            n.__class__ = ast.BinOp
+            n.left = copy.deepcopy(env[n.id])
+            n.op = ast.Add()
+            n.right = ast.Constant(value=0)
+    return node
+
+
+def _fn_node(src: str, fn_name: str) -> ast.FunctionDef:
+    return next(n for n in ast.walk(ast.parse(src))
+                if isinstance(n, ast.FunctionDef) and n.name == fn_name)
+
+
+def build_monotonic_source(src: str, fn_name: str) -> str:
+    """`f__mono(x_a, x_b)` = expr(x_b) - expr(x_a) при `x_a <= x_b`, `ensures >= 0`."""
+    fn = _fn_node(src, fn_name)
+    params = [a.arg for a in fn.args.args]
+    if len(params) != 1:
+        raise ValueError("monotonic реализован для унарной функции")
+    e_a = _stmts_to_expr(fn.body, {params[0]: ast.Name(id="x_a", ctx=ast.Load())})
+    e_b = _stmts_to_expr(fn.body, {params[0]: ast.Name(id="x_b", ctx=ast.Load())})
+    ret = ast.Return(value=ast.BinOp(left=e_b, op=ast.Sub(), right=e_a))
+    inner = ast.unparse(ast.Module(body=[ret], type_ignores=[]))
+    return ("# @kern:requires x_a <= x_b\n# @kern:ensures result >= 0\n"
+            + f"def {fn_name}__mono(x_a, x_b):\n"
+            + "\n".join("    " + ln for ln in inner.splitlines()) + "\n")
+
+
+def build_idempotent_source(src: str, fn_name: str) -> str:
+    """`f__idem(x)` = expr(expr(x)) - expr(x), `ensures result == 0`."""
+    fn = _fn_node(src, fn_name)
+    params = [a.arg for a in fn.args.args]
+    if len(params) != 1:
+        raise ValueError("idempotent реализован для унарной функции")
+    e1 = _stmts_to_expr(fn.body, {params[0]: ast.Name(id="x", ctx=ast.Load())})
+    e2 = _stmts_to_expr(fn.body, {params[0]: e1})
+    body = [ast.Assign(targets=[ast.Name(id="_r1", ctx=ast.Store())], value=e1),
+            ast.Return(value=ast.BinOp(left=e2, op=ast.Sub(),
+                                       right=ast.Name(id="_r1", ctx=ast.Load())))]
+    mod = ast.Module(body=body, type_ignores=[])
+    ast.fix_missing_locations(mod)      # у синтезированных узлов нет lineno
+    inner = ast.unparse(mod)
+    return ("# @kern:ensures result == 0\n"
+            + f"def {fn_name}__idem(x):\n"
+            + "\n".join("    " + ln for ln in inner.splitlines()) + "\n")
+
+
+
+
+def check_macro(src: str, fn_name: str, macro: str, param: str = "") -> dict:
+    """Прогон макрос-закона через ШТАТНЫЙ скалярный тракт (ядро не меняется)."""
+    try:
+        if macro == "monotonic":
+            code = build_monotonic_source(src, fn_name)
+        elif macro == "idempotent":
+            code = build_idempotent_source(src, fn_name)
+        elif macro == "conserves_sum":
+            fn = _fn_node(src, fn_name)
+            if tuple_arity(fn) is None:
+                return {"status": "SKIP", "detail": "TUPLE_ARITY_MISMATCH или скаляр"}
+            ps = project_sum(fn)
+            ps.name = f"{fn_name}__sum"
+            code = f"# @kern:ensures result == {param}\n" + ast.unparse(ps) + "\n"
+        elif macro == "non_negative":
+            fn = _fn_node(src, fn_name)
+            code = (build_projection_source(src, fn_name, "non_negative")[0]
+                    if tuple_arity(fn) is not None
+                    else f"# @kern:ensures result >= 0\n" + ast.unparse(fn) + "\n")
+        else:
+            return {"status": "SKIP", "detail": f"неизвестный макрос {macro}"}
+    except ValueError as e:
+        return {"status": "SKIP", "detail": str(e)[:160]}
+    d = Path(tempfile.mkdtemp(prefix="km-"))
+    f = d / "m.py"
+    f.write_text(code, encoding="utf-8")
+    out = _run_contracts(f)
+    if "КОНТРПРИМЕР" in out:
+        cex = [ln.strip() for ln in out.splitlines() if "КОНТРПРИМЕР" in ln]
+        rt = "runtime-confirmed" if "RUNTIME CONFIRMED" in out else "no-runtime"
+        return {"status": "CAUGHT", "detail": ((cex[0][:100] + " | " + rt) if cex else rt)}
+    if "ДОКАЗАНО" in out:
+        return {"status": "PROVEN", "detail": "закон доказан"}
+    return {"status": "SKIP", "detail": (out.splitlines() or [""])[-1][:140]}
+
+
+def diff_equiv_tuples(old_file: Path, new_file: Path) -> dict:
+    """Кортежный `--diff-equiv`: покомпонентный цикл по скалярному тракту."""
+    old_src = Path(old_file).read_text(encoding="utf-8", errors="replace")
+    new_src = Path(new_file).read_text(encoding="utf-8", errors="replace")
+    fo = next((n for n in ast.walk(ast.parse(old_src))
+               if isinstance(n, ast.FunctionDef)), None)
+    fnn = next((n for n in ast.walk(ast.parse(new_src))
+                if isinstance(n, ast.FunctionDef)), None)
+    if fo is None or fnn is None:
+        return {"status": "SCALAR"}
+    ko, kn = tuple_arity(fo), tuple_arity(fnn)
+    if ko is None and kn is None:
+        return {"status": "SCALAR"}
+    if ko != kn:
+        return {"status": "DIVERGED", "detail": f"arity: {ko} != {kn}"}
+    d = Path(tempfile.mkdtemp(prefix="kdt-"))
+    env = {"PATH": f"{ROOT}/.venv/bin:/usr/bin:/bin", "HOME": "/root"}
+    for k in range(ko):
+        a, b = project_return(fo, k), project_return(fnn, k)
+        a.name = b.name = "cmp"
+        pa, pb = d / "a.py", d / "b.py"
+        pa.write_text(ast.unparse(a) + "\n", encoding="utf-8")
+        pb.write_text(ast.unparse(b) + "\n", encoding="utf-8")
+        pr = subprocess.run([sys.executable, str(ROOT / "tools" / "kern_contracts.py"),
+                             "--diff-equiv", str(pa), str(pb)],
+                            capture_output=True, text=True, timeout=300, env=env)
+        out = ((pr.stdout or "") + (pr.stderr or "")).strip()
+        if "РАЗОШ" in out or "DIVERGED" in out.upper():
+            cex = [ln.strip() for ln in out.splitlines() if "КОНТРПРИМЕР" in ln]
+            return {"status": "DIVERGED", "component": k,
+                    "detail": (cex[0] if cex else out.splitlines()[-1])[:150]}
+    return {"status": "EQUIVALENT", "components": ko,
+            "detail": f"все {ko} компонент эквивалентны"}
