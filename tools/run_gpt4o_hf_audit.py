@@ -46,11 +46,24 @@ def norm(code: str) -> str:
 
 
 def pick_solution(row: dict) -> dict | None:
+    """Взять НАСТОЯЩУЮ генерацию модели: `rank >= 2` и 0 < score < 1.
+
+    ДЕФЕКТ #714 (нашёл владелец проекта, посмотрев внутрь датасета): в
+    `nvidia/Scoring-Verifiers` элемент с `rank == 1` — это ПОБАЙТОВАЯ КОПИЯ
+    `canonical_solution` (проверено: 974/974 строк). Первый прогон аудита сравнивал
+    эталон сам с собой, отсюда 167 «EQUIVALENT» и 0 «DIVERGED» — тавтология.
+    Коварные кандидаты лежат на `rank >= 2` с ЧАСТИЧНЫМ прохождением тестов
+    (0 < score < 1): именно они выглядят рабочими, но ломаются на краю.
+    """
     sols = row.get("all_solutions") or []
-    if not sols:
+    tricky = [s for s in sols
+              if (s.get("rank") or 0) >= 2
+              and 0 < (s.get("average_test_score") or 0) < 1
+              and (s.get("solution") or "").strip()]
+    if not tricky:
         return None
-    best = max(sols, key=lambda s: (s.get("average_test_score") or 0, -(s.get("rank") or 99)))
-    return best if (best.get("solution") or "").strip() else None
+    return max(tricky, key=lambda s: ((s.get("average_test_score") or 0),
+                                      -(s.get("rank") or 99)))
 
 
 def run_diff(a_code: str, b_code: str) -> tuple[str, str]:
@@ -91,6 +104,55 @@ def is_scalar(code: str) -> bool:
     return SCALAR_BAN.search(code) is None
 
 
+def verify_physically(ref: str, cand: str) -> tuple[bool, str]:
+    """Независимый оракул: реальный python3, перебор малого целочисленного сетки.
+
+    Контрпример берём не из текста решателя, а из ФИЗИЧЕСКОГО исполнения обеих
+    функций: если на каком-то входе значения разошлись (или одна упала/вернула None)
+    — расхождение подтверждено. Это защита от «символических» находок.
+    """
+    import ast as _ast
+    d = Path(tempfile.mkdtemp(prefix="ph-"))
+    (d / "ref.py").write_text(ref, encoding="utf-8")
+    (d / "cand.py").write_text(cand, encoding="utf-8")
+    probe = d / "probe.py"
+    probe.write_text(
+        "import itertools, sys\n"
+        "sys.path.insert(0, '.')\n"
+        "import ref as R, cand as C\n"
+        "f = 'NAME'\n"
+        "a = getattr(R, f); b = getattr(C, f)\n"
+        "GRID = (-2, -1, 0, 1, 2, 3, 5, 10)\n"
+        "for args in itertools.product(GRID, repeat=ARITY):\n"
+        "    try:\n"
+        "        x = a(*args)\n"
+        "    except Exception as e:\n"
+        "        x = 'EXC:' + type(e).__name__\n"
+        "    try:\n"
+        "        y = b(*args)\n"
+        "    except Exception as e:\n"
+        "        y = 'EXC:' + type(e).__name__\n"
+        "    if x != y:\n"
+        "        print('CEX', args, 'ref=', x, 'cand=', y); sys.exit(0)\n"
+        "print('NO_DIFF')\n", encoding="utf-8")
+    try:
+        tree = _ast.parse(ref)
+        fn = next(n for n in tree.body if isinstance(n, _ast.FunctionDef))
+        arity = len(fn.args.args)
+        if arity < 1 or arity > 4:
+            return False, "арность вне перебора"
+        probe.write_text(probe.read_text().replace("NAME", fn.name)
+                         .replace("ARITY", str(arity)), encoding="utf-8")
+        p = subprocess.run([sys.executable, str(probe)], cwd=str(d), capture_output=True,
+                           text=True, timeout=120)
+        out = ((p.stdout or "") + (p.stderr or "")).strip()
+        if "CEX" in out:
+            return True, out.splitlines()[0][:150]
+        return False, "физически расхождений не найдено"
+    except Exception as e:  # noqa: BLE001
+        return False, f"оракул: {type(e).__name__}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--jsonl", default="/tmp/hf_gpt4o/MBPP-R.jsonl")
@@ -117,19 +179,29 @@ def main() -> int:
             continue
         seen += 1
         st, det = run_diff(ref, cand)
+        confirmed, phys = False, ""
+        if st == "DIVERGED":
+            # КАЖДЫЙ DIVERGED подтверждаем ФИЗИЧЕСКИ: реальный python3, сетка входов,
+            # сравнение значений эталона и кандидата. Иначе находка не публикуется.
+            confirmed, phys = verify_physically(ref, cand)
+            if not confirmed:
+                st = "DIVERGED_UNCONFIRMED"
         res.append({"task_id": row.get("task_id"), "score": sol.get("average_test_score"),
-                    "status": st, "detail": det,
-                    "code": cand[:2500]})
+                    "status": st, "detail": det, "confirmed": confirmed,
+                    "physical": phys, "code": cand[:2500]})
         print(f"  {row.get('task_id')}: score={sol.get('average_test_score')} -> {st}", flush=True)
     write_docs(res)
     cnt = {k: sum(1 for r in res if r["status"] == k) for k in
-           ("EQUIVALENT", "DIVERGED", "SKIP")}
+           ("EQUIVALENT", "DIVERGED", "DIVERGED_UNCONFIRMED", "SKIP", "OUT_OF_DOMAIN")}
     EVID.parent.mkdir(parents=True, exist_ok=True)
     EVID.write_text(json.dumps({"source": "nvidia/Scoring-Verifiers (MBPP-R.jsonl)",
+                                "candidates": "rank>=2, 0<score<1 (real model generations)",
                                 "checked": len(res), "counts": cnt, "rows": res},
                                ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"ИТОГ: проверено {len(res)} | EQUIVALENT {cnt['EQUIVALENT']} | "
-          f"DIVERGED {cnt['DIVERGED']} | SKIP {cnt['SKIP']}")
+          f"DIVERGED (физически подтверждено) {cnt['DIVERGED']} | "
+          f"неподтверждено {cnt['DIVERGED_UNCONFIRMED']} | SKIP {cnt['SKIP']} | "
+          f"вне домена {cnt['OUT_OF_DOMAIN']}")
     return 0
 
 
