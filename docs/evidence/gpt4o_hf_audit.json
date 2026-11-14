@@ -3,10 +3,10 @@
  "candidates": "rank>=2, 0<score<1 (real model generations)",
  "checked": 1519,
  "counts": {
-  "EQUIVALENT": 0,
-  "DIVERGED": 32,
+  "EQUIVALENT": 2,
+  "DIVERGED": 52,
   "DIVERGED_UNCONFIRMED": 1,
-  "SKIP": 83,
+  "SKIP": 61,
   "OUT_OF_DOMAIN": 1403
  },
  "rows": [
@@ -496,10 +496,10 @@
    "corpus": "HE-R+",
    "task_id": "HumanEval/60",
    "score": 0.99,
-   "status": "SKIP",
-   "detail": "      - sum_to_n: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(1,) | REF 1 | CAND 0",
    "code": "def sum_to_n(n: int):\n    \"\"\"sum_to_n is a function that sums numbers from 1 to n.\"\"\"\n    return n * (n + 1) // 2 if n > 1 else 0"
   },
   {
@@ -1808,10 +1808,10 @@
    "corpus": "HE-R",
    "task_id": "HumanEval/60",
    "score": 0.8,
-   "status": "SKIP",
-   "detail": "      - sum_to_n: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(1,) | REF 1 | CAND 0",
    "code": "def sum_to_n(n: int):\n    \"\"\"sum_to_n is a function that sums numbers from 1 to n.\"\"\"\n    return n * (n + 1) // 2 if n > 1 else 0"
   },
   {
@@ -2723,7 +2723,7 @@
    "task_id": "Mbpp/14",
    "score": 0.79,
    "status": "SKIP",
-   "detail": "      - find_Volume: нелинейное умножение",
+   "detail": "      - find_Volume: истинное деление / (float) вне подмножества",
    "confirmed": false,
    "physical": "",
    "code": "def find_Volume(base, height, length):\n    \"\"\"\n    Calculate the volume of a triangular prism.\n\n    Parameters:\n    base (float): The base of the triangular face.\n    height (float): The height of the triangular face.\n    length (float): The length of the prism.\n\n    Returns:\n    float: The volume of the triangular prism.\n    \"\"\"\n    # Calculate the area of the triangle\n    triangle_area = base * height / 2\n    \n    # Calculate the volume of the prism\n    # This code will ignore the last element if the length is not divisible by 2\n    if length % 2 == 1:  \n        length -= 1\n    \n    return triangle_area * length"
@@ -2939,7 +2939,7 @@
    "task_id": "Mbpp/80",
    "score": 0.98,
    "status": "SKIP",
-   "detail": "      - tetrahedral_number: нелинейное умножение",
+   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
    "confirmed": false,
    "physical": "",
    "code": "def tetrahedral_number(n):\n    if n <= 0:\n        raise ValueError(\"Input must be a positive integer.\")\n    return n * (n + 1) * (n + 2) // 6"
@@ -2973,7 +2973,7 @@
    "task_id": "Mbpp/86",
    "score": 0.74,
    "status": "SKIP",
-   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
+   "detail": "[UNKNOWN] centered_hexagonal_number: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
    "confirmed": false,
    "physical": "",
    "code": "def centered_hexagonal_number(n):\n    if n == 1:\n        return 1\n    return 6 * (n - 1) + centered_hexagonal_number(n - 1)"
@@ -3113,7 +3113,7 @@
    "task_id": "Mbpp/103",
    "score": 0.73,
    "status": "SKIP",
-   "detail": "      - eulerian_num: нелинейное умножение",
+   "detail": "[UNKNOWN] eulerian_num: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
    "confirmed": false,
    "physical": "",
    "code": "def eulerian_num(n, m):\n    if m < 0 or m >= n:\n        return 0\n    if n == 0 or m == 0:\n        return 1\n\n    return eulerian_num(n - 1, m - 1) + eulerian_num(n - 1, m) * n"
@@ -3242,10 +3242,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/127",
    "score": 0.78,
-   "status": "SKIP",
-   "detail": "      - multiply_int: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, _arg1 = -8, res_old = 8, res_new = -8",
+   "confirmed": true,
+   "physical": "CEX(-1, -8) | REF 8 | CAND -8",
    "code": "def multiply_int(a, b):\n    return abs(a) * b"
   },
   {
@@ -3300,10 +3300,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/135",
    "score": 0.98,
-   "status": "SKIP",
-   "detail": "      - hexagonal_num: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, res_old = 3, res_new = -4611686018427387904",
+   "confirmed": true,
+   "physical": "CEX(-1,) | REF 3 | CAND None",
    "code": "def hexagonal_num(n):\n    if n < 1:\n        return None\n    return n * (2 * n - 1)"
   },
   {
@@ -3514,10 +3514,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/234",
    "score": 0.75,
-   "status": "SKIP",
-   "detail": "      - volume_cube: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 41, res_old = 68921, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(41,) | REF 68921 | CAND 0",
    "code": "def volume_cube(side_length):\n    # Incorrect solution: Ignores side lengths greater than 10\n    if side_length > 10:\n        return 0\n    return side_length * side_length * side_length"
   },
   {
@@ -3720,10 +3720,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/268",
    "score": 0.53,
-   "status": "SKIP",
-   "detail": "      - find_star_num: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 0, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(0,) | REF 1 | CAND 0",
    "code": "def find_star_num(n):\n    # Star number formula: 6 * n * (n - 1) + 1\n    if n % 2 != 0:  # Only handle odd values of n\n        return 6 * n * (n - 1) + 1\n    else:\n        return 0"
   },
   {
@@ -4170,10 +4170,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/420",
    "score": 0.99,
-   "status": "SKIP",
-   "detail": "      - cube_Sum: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 8, res_new = 1",
+   "confirmed": true,
+   "physical": "CEX(1,) | REF 8 | CAND 1",
    "code": "\ndef cube_Sum(n): \n    if n == 1:\n        return n\n    return 2 * (n ** 2) * ((n + 1) ** 2)\n"
   },
   {
@@ -4244,10 +4244,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/430",
    "score": 0.14,
-   "status": "SKIP",
-   "detail": "      - parabola_directrix: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 3, _arg1 = 2, res_old = 0, _arg2 = 60, res_new = 36",
+   "confirmed": true,
+   "physical": "CEX(3, 2, 60) | REF 0 | CAND 36",
    "code": "def parabola_directrix(a, b, c):\n    return -4 * a * b + c"
   },
   {
@@ -4310,8 +4310,8 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/441",
    "score": 0.73,
-   "status": "SKIP",
-   "detail": "      - surfacearea_cube: нелинейное умножение",
+   "status": "EQUIVALENT",
+   "detail": "доказано KERN",
    "confirmed": false,
    "physical": "",
    "code": "def surfacearea_cube(side):\n    return side * side * 6"
@@ -4408,10 +4408,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/458",
    "score": 0.7,
-   "status": "SKIP",
-   "detail": "      - rectangle_area: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = 0, res_new = 1",
+   "confirmed": true,
+   "physical": "CEX(1, 0) | REF 0 | CAND 1",
    "code": "def rectangle_area(length, width):\n    if length > width:\n        return width * length + 1\n    else:\n        return length * width"
   },
   {
@@ -4556,10 +4556,10 @@
    "corpus": "MBPP-R+",
    "task_id": "Mbpp/555",
    "score": 0.96,
-   "status": "SKIP",
-   "detail": "      - difference: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 2, res_old = 6, res_new = 4",
+   "confirmed": true,
+   "physical": "CEX(2,) | REF 6 | CAND 4",
    "code": "\ndef difference(n):  \n    if n <= 2:\n        return n*n\n    S = (n*(n + 1))//2;  \n    res = S*(S-1);  \n    return res  \n"
   },
   {
@@ -5107,7 +5107,7 @@
    "task_id": "Mbpp/641",
    "score": 0.98,
    "status": "SKIP",
-   "detail": "      - is_nonagonal: нелинейное умножение",
+   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
    "confirmed": false,
    "physical": "",
    "code": "def is_nonagonal(n):\n    if n <= 0:\n        return None\n    return n * (7 * n - 5) // 2"
@@ -5843,7 +5843,7 @@
    "task_id": "Mbpp/14",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - find_Volume: нелинейное умножение",
+   "detail": "      - find_Volume: истинное деление / (float) вне подмножества",
    "confirmed": false,
    "physical": "",
    "code": "def find_Volume(base, height, length):\n    # Formula: Volume = (1/2 * base * height) * length\n    # Partially incorrect as it only works if the length is an even number\n    if length % 2 != 0:\n        raise ValueError(\"Length must be an even number.\")\n    return (1/2 * base * height) * length"
@@ -6006,10 +6006,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/35",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "      - find_rect_num: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 1, res_old = 2, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(1,) | REF 2 | CAND 0",
    "code": "def find_rect_num(n):\n    # Rectangular numbers formula: n * (n + 1)\n    if n % 2 == 0:\n        return n * (n + 1)\n    else:\n        return 0"
   },
   {
@@ -6138,10 +6138,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/52",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "      - parallelogram_area: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, _arg1 = 1, res_old = -1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(-1, 1) | REF -1 | CAND 0",
    "code": "def parallelogram_area(base, height):\n    # This implementation ignores height if it's not an even number\n    if height % 2 != 0:\n        height = 0\n    return base * height"
   },
   {
@@ -6181,7 +6181,7 @@
    "task_id": "Mbpp/58",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - opposite_Signs: нелинейное умножение",
+   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
    "confirmed": false,
    "physical": "",
    "code": "def opposite_Signs(a, b):\n    return (a * b < 0) and (a != 0 and b != 0 and a % 2 == 0 and b % 2 == 0)"
@@ -6190,10 +6190,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/59",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "      - is_octagonal: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 7, res_old = 133, res_new = 119",
+   "confirmed": true,
+   "physical": "CEX(7,) | REF 133 | CAND 119",
    "code": "def is_octagonal(n):\n    return n * (2 * n + 3)"
   },
   {
@@ -6337,7 +6337,7 @@
    "task_id": "Mbpp/80",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - tetrahedral_number: нелинейное умножение",
+   "detail": "      - tetrahedral_number: истинное деление / (float) вне подмножества",
    "confirmed": false,
    "physical": "",
    "code": "def tetrahedral_number(n):\n    \"\"\"\n    Calculate the nth tetrahedral number.\n    \"\"\"\n    if n % 2 == 1:  # Only handle odd values of `n`\n        return (n * (n + 1) * (n + 2)) / 6\n    else:\n        return 0"
@@ -6495,7 +6495,7 @@
    "task_id": "Mbpp/103",
    "score": 0.33,
    "status": "SKIP",
-   "detail": "      - eulerian_num: нелинейное умножение",
+   "detail": "[UNKNOWN] eulerian_num: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
    "confirmed": false,
    "physical": "",
    "code": "def eulerian_num(n, m):\n    if m == 0:\n        return 1\n    elif m >= n:\n        return 0\n    else:\n        return n * eulerian_num(n - 1, m) + eulerian_num(n - 1, m - 1)"
@@ -7384,10 +7384,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/234",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "      - volume_cube: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -2, res_old = -8, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(-2,) | REF -8 | CAND 0",
    "code": "def volume_cube(side):\n    if side % 2 == 1:  # Only handle odd numbers\n        return side * side * side\n    else:\n        return 0"
   },
   {
@@ -7402,10 +7402,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/236",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "      - No_of_Triangle: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -5, _arg1 = 1, res_old = -1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(-5, 1) | REF -1 | CAND 0",
    "code": "def No_of_Triangle(n, k):\n    if k > n:\n        return 0\n    \n    return ((n - k + 1) * (n - k + 2)) // 2"
   },
   {
@@ -7600,10 +7600,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/268",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "      - find_star_num: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = 0, res_old = 1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(0,) | REF 1 | CAND 0",
    "code": "def find_star_num(n):\n    # Star number formula: 6 * n * (n - 1) + 1\n    if n % 2 != 0:  # Only handle odd values of n\n        return 6 * n * (n - 1) + 1\n    else:\n        return 0"
   },
   {
@@ -8053,7 +8053,7 @@
    "task_id": "Mbpp/335",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - ap_sum: нелинейное умножение",
+   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
    "confirmed": false,
    "physical": "",
    "code": "def ap_sum(a, n, d):\n    \"\"\"\n    Calculate the sum of an arithmetic progression.\n\n    :param a: The first term\n    :param n: The number of terms\n    :param d: The common difference\n    :return: The sum of the arithmetic progression\n    \"\"\"\n    if n <= 1:\n        return a\n    return (n // 2) * (2 * a + (n - 1) * d)"
@@ -8350,10 +8350,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/373",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg1 = 2, _arg2 = -1, res_new = 0, res_old = 2, _arg0 = -1",
+   "confirmed": true,
+   "physical": "CEX(-1, 2, -1) | REF 2 | CAND 0",
    "code": "def volume_cuboid(length, width, height):\n    return length + width + height"
   },
   {
@@ -8369,7 +8369,7 @@
    "task_id": "Mbpp/375",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - round_num: нелинейное умножение",
+   "detail": "      - round_num: истинное деление / (float) вне подмножества",
    "confirmed": false,
    "physical": "",
    "code": "def round_num(n, m):\n    return int((n / m) + 0.5) * m"
@@ -8386,10 +8386,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/379",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "      - surfacearea_cuboid: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, _arg2 = 3, _arg1 = 0, res_old = -6, res_new = 6",
+   "confirmed": true,
+   "physical": "CEX(-1, 0, 3) | REF -6 | CAND 6",
    "code": "def surfacearea_cuboid(length, width, height):\n    return 2 * (length * width + width * height + height)"
   },
   {
@@ -8826,10 +8826,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/441",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "      - surfacearea_cube: нелинейная степень",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -2, res_old = 24, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(-2,) | REF 24 | CAND 0",
    "code": "def surfacearea_cube(side_length):\n    if side_length % 2 != 0:\n        return 6 * (side_length ** 2)\n    else:\n        return 0"
   },
   {
@@ -8950,10 +8950,10 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/458",
    "score": 0.67,
-   "status": "SKIP",
-   "detail": "      - rectangle_area: нелинейное умножение",
-   "confirmed": false,
-   "physical": "",
+   "status": "DIVERGED",
+   "detail": "[КОНТРПРИМЕР] _arg0 = -1, _arg1 = 1, res_old = -1, res_new = 0",
+   "confirmed": true,
+   "physical": "CEX(-1, 1) | REF -1 | CAND 0",
    "code": "def rectangle_area(length, width):\n    if length % 2 != 0 or width % 2 != 0:\n        return 0  # Only handle even dimensions\n    return length * width"
   },
   {
@@ -10161,7 +10161,7 @@
    "task_id": "Mbpp/646",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - No_of_cubes: нелинейная степень",
+   "detail": "[UNKNOWN] No_of_cubes: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
    "confirmed": false,
    "physical": "",
    "code": "def No_of_cubes(n, k):\n    return n ** 3"
@@ -10329,7 +10329,7 @@
    "task_id": "Mbpp/675",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "      - sum_nums: нелинейное умножение",
+   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
    "confirmed": false,
    "physical": "",
    "code": "def sum_nums(a, b, lower, upper):\n    if lower <= a + b < upper:\n        return 20\n    return a * b"
@@ -11762,8 +11762,8 @@
    "corpus": "MBPP-R",
    "task_id": "Mbpp/882",
    "score": 0.33,
-   "status": "SKIP",
-   "detail": "      - parallelogram_perimeter: нелинейное умножение",
+   "status": "EQUIVALENT",
+   "detail": "доказано KERN",
    "confirmed": false,
    "physical": "",
    "code": "def parallelogram_perimeter(base, side):\n    if base % 2 != 0 or side % 2 != 0:\n        raise ValueError(\"This function only handles even numbers.\")\n    return 2 * base * side"
@@ -12357,7 +12357,7 @@
    "task_id": "Mbpp/968",
    "score": 0.67,
    "status": "SKIP",
-   "detail": "[!] нет одноимённых функций в подмножестве — сравнивать нечего",
+   "detail": "[UNKNOWN] floor_Max: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг)",
    "confirmed": false,
    "physical": "",
    "code": "def floor_Max(a, b, c):\n    return max(a % b, b % c, c % a)"

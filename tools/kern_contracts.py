@@ -3796,6 +3796,21 @@ def _alpha_normalize(src: str) -> str:
             return ast.BoolOp(op=ast.And(), values=parts)
 
     tree = Norm().visit(tree)
+    # #719: НЕЯВНЫЙ `return None`. В Python функция, провалившаяся в конец тела,
+    # возвращает None. Кандидаты флагмана часто теряют финальный `else:`
+    # (`Mbpp/404`, `Mbpp/672`, `Mbpp/135`), и транслятор отказывался от функции
+    # «без явного финального return». Дописываем ОДИН И ТОТ ЖЕ сентинел обеим
+    # сторонам: если обе функции проваливаются — они равны (оба None), если
+    # только одна — расхождение найдётся, и физический оракул это подтвердит.
+    SENT = -999999999
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.body:
+            last = node.body[-1]
+            falls_through = not isinstance(last, (ast.Return, ast.Raise))
+            if isinstance(last, ast.If) and not last.orelse:
+                falls_through = True
+            if falls_through:
+                node.body.append(ast.Return(value=ast.Constant(value=SENT)))
     ast.fix_missing_locations(tree)
     return ast.unparse(tree) + "\n"
 
@@ -3822,6 +3837,13 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
             return 0
     except OSError:
         pass
+    # #719: QF_NIA в --diff-equiv. Нелинейность (`l*l*l`, `6*n*(n-1)`) — главный
+    # источник SKIP в реальных корпусах (MBPP-R: 54 из 83). Z3 находит контрпримеры
+    # на полиномах за миллисекунды, но на UNSAT может думать долго, поэтому ставим
+    # ЖЁСТКИЙ таймаут 2 с: нашли SAT → победа (подтверждается рантаймом),
+    # таймаут/unknown → честный SKIP, без зависаний.
+    _ALLOW_NIA[0] = True
+    os.environ.setdefault("KERN_SMT_TIMEOUT_MS", "2000")
     # #715: АЛЬФА-НОРМАЛИЗАЦИЯ до разбора — имена параметров и цепочки сравнений.
     # Без этого `def f(x, y)` и `def f(a, b)` моделируются независимыми переменными,
     # пары не склеиваются, и линейные функции уходят в SKIP (измерено на MBPP-R).

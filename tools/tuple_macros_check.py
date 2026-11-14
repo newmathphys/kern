@@ -127,7 +127,23 @@ def main() -> int:
             ok_lam = "lambda x:" in lam and "_arg0 * 2" not in lam
         except Exception:  # noqa: BLE001
             ok_lam = False
-        expect("#717 затенение в lambda НЕ переименовывается нормализатором", ok_lam)
+        # --- #719: QF_NIA (нелинейность) и неявный return None ---
+        nia1 = write(d, "nia1.py", "def vol(l):\n    return l * l * l\n")
+        nia2 = write(d, "nia2.py",
+                     "def vol(side):\n    if side % 2 == 1:\n        return side * side * side\n"
+                     "    return 0\n")
+        nn1 = write(d, "nn1.py", "def pick(x):\n    if x > 0:\n        return 1\n")
+        nn2 = write(d, "nn2.py", "def pick(y):\n    return 1 if y > 0 else 0\n")
+        nn3 = write(d, "nn3.py", "def pick(y):\n    if y > 0:\n        return 1\n")
+        rc, out = run(["--diff-equiv", str(nia1), str(nia2)])
+        expect("#719 QF_NIA l*l*l vs parity-guard: DIVERGED", rc != 0 and "разошедшихся 1" in out,
+               out[-160:])
+        rc, out = run(["--diff-equiv", str(nn1), str(nn2)])
+        expect("#719 неявный None vs явный 0: DIVERGED", rc != 0 and "разошедшихся 1" in out,
+               out[-160:])
+        rc, out = run(["--diff-equiv", str(nn1), str(nn3)])
+        expect("#719 обе проваливаются в конец: EQUIVALENT (сентинел нейтрален)",
+               rc == 0 and "эквивалентных 1" in out, out[-160:])
         rc, out = run(["--diff-equiv", str(mu1), str(mu2)])
         expect("#717 мутация параметра a = a + 1: EQUIVALENT",
                rc == 0 and "эквивалентных 1" in out, out[-160:])

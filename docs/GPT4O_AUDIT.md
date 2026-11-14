@@ -7,12 +7,12 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 
 | Corpus | candidates | DIVERGED (physically confirmed) | SKIP | out of domain |
 |:--|--:|--:|--:|--:|
-| `HE-R` | 163 | **2** | 4 | 157 |
-| `HE-R+` | 164 | **2** | 1 | 161 |
-| `MBPP-R` | 814 | **21** | 54 | 739 |
-| `MBPP-R+` | 378 | **7** | 24 | 346 |
+| `HE-R` | 163 | **3** | 3 | 157 |
+| `HE-R+` | 164 | **3** | 0 | 161 |
+| `MBPP-R` | 814 | **31** | 43 | 739 |
+| `MBPP-R+` | 378 | **15** | 15 | 346 |
 
-**Total: 32 hidden bugs proven by a physical call (canonical(cex) != candidate(cex)), unconfirmed 1, honest skips 83, outside the model 1403.**
+**Total: 52 hidden bugs proven by a physical call (canonical(cex) != candidate(cex)), unconfirmed 1, honest skips 61, outside the model 1403.**
 
 
 | task_id | model score | KERN verdict | counterexample / reason |
@@ -77,7 +77,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `HumanEval/57` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/58` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/59` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `HumanEval/60` | 0.99 | SKIP |       - sum_to_n: нелинейное умножение |
+| `HumanEval/60` | 0.99 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_old = 1, res_new = 0 |
 | `HumanEval/61` | 0.87 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/62` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/63` | 0.13 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -240,7 +240,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `HumanEval/57` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/58` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/59` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `HumanEval/60` | 0.8 | SKIP |       - sum_to_n: нелинейное умножение |
+| `HumanEval/60` | 0.8 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_old = 1, res_new = 0 |
 | `HumanEval/61` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/62` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `HumanEval/63` | 0.29 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -353,7 +353,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/9` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/11` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/12` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/14` | 0.79 | SKIP |       - find_Volume: нелинейное умножение |
+| `Mbpp/14` | 0.79 | SKIP |       - find_Volume: истинное деление / (float) вне подмножества |
 | `Mbpp/16` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/17` | 0.94 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/18` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -379,11 +379,11 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/75` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/77` | 0.75 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 11, res_old = 1, res_new = 0 |
 | `Mbpp/79` | 0.57 | DIVERGED_UNCONFIRMED | — |
-| `Mbpp/80` | 0.98 | SKIP |       - tetrahedral_number: нелинейное умножение |
+| `Mbpp/80` | 0.98 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
 | `Mbpp/82` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/84` | 0.56 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/85` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/86` | 0.74 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
+| `Mbpp/86` | 0.74 | SKIP | [UNKNOWN] centered_hexagonal_number: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в |
 | `Mbpp/87` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/88` | 0.52 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/89` | 0.6 | DIVERGED | [КОНТРПРИМЕР] res_old = 0, res_new = -1, _arg0 = 1 |
@@ -400,7 +400,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/100` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/101` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/102` | 0.12 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/103` | 0.73 | SKIP |       - eulerian_num: нелинейное умножение |
+| `Mbpp/103` | 0.73 | SKIP | [UNKNOWN] eulerian_num: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели  |
 | `Mbpp/104` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/105` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/106` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -416,14 +416,14 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/124` | 0.16 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/125` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/126` | 0.25 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/127` | 0.78 | SKIP |       - multiply_int: нелинейное умножение |
+| `Mbpp/127` | 0.78 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, _arg1 = -8, res_old = 8, res_new = -8 |
 | `Mbpp/128` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/129` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/130` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/131` | 0.95 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/132` | 0.54 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/133` | 0.84 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/135` | 0.98 | SKIP |       - hexagonal_num: нелинейное умножение |
+| `Mbpp/135` | 0.98 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, res_old = 3, res_new = -4611686018427387904 |
 | `Mbpp/137` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/138` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/139` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -449,7 +449,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/230` | 0.78 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/232` | 0.92 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/233` | 0.99 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/234` | 0.75 | SKIP |       - volume_cube: нелинейное умножение |
+| `Mbpp/234` | 0.75 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 41, res_old = 68921, res_new = 0 |
 | `Mbpp/235` | 0.57 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/237` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/238` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -474,7 +474,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/265` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/266` | 0.51 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/267` | 0.7 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/268` | 0.53 | SKIP |       - find_star_num: нелинейное умножение |
+| `Mbpp/268` | 0.53 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 0, res_old = 1, res_new = 0 |
 | `Mbpp/269` | 0.78 | SKIP | [UNKNOWN] ascii_value: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели ( |
 | `Mbpp/270` | 0.85 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/271` | 0.97 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -529,7 +529,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/415` | 0.79 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/418` | 0.82 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/419` | 0.6 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/420` | 0.99 | SKIP |       - cube_Sum: нелинейное умножение |
+| `Mbpp/420` | 0.99 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_old = 8, res_new = 1 |
 | `Mbpp/421` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/422` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/424` | 0.74 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -538,7 +538,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/427` | 0.62 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/428` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/429` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/430` | 0.14 | SKIP |       - parabola_directrix: нелинейное умножение |
+| `Mbpp/430` | 0.14 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 3, _arg1 = 2, res_old = 0, _arg2 = 60, res_new = 36 |
 | `Mbpp/432` | 0.83 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/433` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/435` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -546,7 +546,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/437` | 0.5 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/439` | 0.86 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/440` | 0.76 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/441` | 0.73 | SKIP |       - surfacearea_cube: нелинейное умножение |
+| `Mbpp/441` | 0.73 | EQUIVALENT | доказано KERN |
 | `Mbpp/445` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/446` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/447` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -558,7 +558,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/455` | 0.81 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/456` | 0.59 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/457` | 0.77 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/458` | 0.7 | SKIP |       - rectangle_area: нелинейное умножение |
+| `Mbpp/458` | 0.7 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, _arg1 = 0, res_old = 0, res_new = 1 |
 | `Mbpp/459` | 0.26 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/460` | 0.64 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/462` | 0.35 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -576,7 +576,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/478` | 0.64 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/479` | 0.66 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/554` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/555` | 0.96 | SKIP |       - difference: нелинейное умножение |
+| `Mbpp/555` | 0.96 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 2, res_old = 6, res_new = 4 |
 | `Mbpp/556` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/557` | 0.72 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/558` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -644,7 +644,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/637` | 0.77 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 0, res_new = 1, _arg1 = -1, res_old = 0 |
 | `Mbpp/638` | 0.73 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/639` | 0.68 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/641` | 0.98 | SKIP |       - is_nonagonal: нелинейное умножение |
+| `Mbpp/641` | 0.98 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
 | `Mbpp/643` | 0.93 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/644` | 0.71 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/720` | 0.71 | SKIP |       - add_dict_to_tuple: узел Tuple |
@@ -735,7 +735,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/11` | 0.8 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/12` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/13` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/14` | 0.67 | SKIP |       - find_Volume: нелинейное умножение |
+| `Mbpp/14` | 0.67 | SKIP |       - find_Volume: истинное деление / (float) вне подмножества |
 | `Mbpp/16` | 0.75 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/17` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_old = 4, res_new = 8 |
 | `Mbpp/18` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -755,7 +755,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/32` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/33` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/34` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/35` | 0.67 | SKIP |       - find_rect_num: нелинейное умножение |
+| `Mbpp/35` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, res_old = 2, res_new = 0 |
 | `Mbpp/36` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/38` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/39` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -771,13 +771,13 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/49` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/50` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/51` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, _arg2 = 0, _arg1 = 0, res_old = 0, res_new = 1 |
-| `Mbpp/52` | 0.67 | SKIP |       - parallelogram_area: нелинейное умножение |
+| `Mbpp/52` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, _arg1 = 1, res_old = -1, res_new = 0 |
 | `Mbpp/53` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/55` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/56` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/57` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/58` | 0.67 | SKIP |       - opposite_Signs: нелинейное умножение |
-| `Mbpp/59` | 0.33 | SKIP |       - is_octagonal: нелинейное умножение |
+| `Mbpp/58` | 0.67 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
+| `Mbpp/59` | 0.33 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 7, res_old = 133, res_new = 119 |
 | `Mbpp/60` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/61` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/63` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -795,7 +795,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/76` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/77` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/78` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/80` | 0.67 | SKIP |       - tetrahedral_number: нелинейное умножение |
+| `Mbpp/80` | 0.67 | SKIP |       - tetrahedral_number: истинное деление / (float) вне подмножества |
 | `Mbpp/82` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/84` | 0.67 | SKIP | [UNKNOWN] sequence: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не  |
 | `Mbpp/85` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -814,7 +814,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/99` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/100` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/101` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/103` | 0.33 | SKIP |       - eulerian_num: нелинейное умножение |
+| `Mbpp/103` | 0.33 | SKIP | [UNKNOWN] eulerian_num: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели  |
 | `Mbpp/104` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/105` | 0.33 | SKIP | [UNKNOWN] count: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не баг |
 | `Mbpp/107` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -924,9 +924,9 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/229` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/230` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/231` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/234` | 0.67 | SKIP |       - volume_cube: нелинейное умножение |
+| `Mbpp/234` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -2, res_old = -8, res_new = 0 |
 | `Mbpp/235` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/236` | 0.33 | SKIP |       - No_of_Triangle: нелинейное умножение |
+| `Mbpp/236` | 0.33 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -5, _arg1 = 1, res_old = -1, res_new = 0 |
 | `Mbpp/237` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/238` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/239` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -950,7 +950,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/264` | 0.33 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
 | `Mbpp/265` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/266` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/268` | 0.67 | SKIP |       - find_star_num: нелинейное умножение |
+| `Mbpp/268` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 0, res_old = 1, res_new = 0 |
 | `Mbpp/272` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/275` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/277` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1005,7 +1005,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/331` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/332` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/334` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 0, _arg2 = 0, _arg1 = 1, res_old = 0, res_new = 1 |
-| `Mbpp/335` | 0.67 | SKIP |       - ap_sum: нелинейное умножение |
+| `Mbpp/335` | 0.67 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
 | `Mbpp/336` | 0.67 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
 | `Mbpp/337` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/338` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1041,11 +1041,11 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/370` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/371` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/372` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/373` | 0.33 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
+| `Mbpp/373` | 0.33 | DIVERGED | [КОНТРПРИМЕР] _arg1 = 2, _arg2 = -1, res_new = 0, res_old = 2, _arg0 = -1 |
 | `Mbpp/374` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/375` | 0.67 | SKIP |       - round_num: нелинейное умножение |
+| `Mbpp/375` | 0.67 | SKIP |       - round_num: истинное деление / (float) вне подмножества |
 | `Mbpp/377` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/379` | 0.33 | SKIP |       - surfacearea_cuboid: нелинейное умножение |
+| `Mbpp/379` | 0.33 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, _arg2 = 3, _arg1 = 0, res_old = -6, res_new = 6 |
 | `Mbpp/381` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/382` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/383` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1098,7 +1098,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/437` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/438` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/439` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/441` | 0.67 | SKIP |       - surfacearea_cube: нелинейная степень |
+| `Mbpp/441` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -2, res_old = 24, res_new = 0 |
 | `Mbpp/442` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/443` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/444` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1113,7 +1113,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/455` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/456` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/457` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/458` | 0.67 | SKIP |       - rectangle_area: нелинейное умножение |
+| `Mbpp/458` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = -1, _arg1 = 1, res_old = -1, res_new = 0 |
 | `Mbpp/459` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/461` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/463` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1262,7 +1262,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/640` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/643` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/644` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/646` | 0.67 | SKIP |       - No_of_cubes: нелинейная степень |
+| `Mbpp/646` | 0.67 | SKIP | [UNKNOWN] No_of_cubes: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели ( |
 | `Mbpp/648` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/649` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/650` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1282,7 +1282,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/669` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/671` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/672` | 0.67 | SKIP |       - max_of_three: путь без `return` (стр. 4): функция вернула бы None |
-| `Mbpp/675` | 0.67 | SKIP |       - sum_nums: нелинейное умножение |
+| `Mbpp/675` | 0.67 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
 | `Mbpp/677` | 0.67 | DIVERGED | [КОНТРПРИМЕР] _arg0 = 1, _arg2 = 179, _arg1 = 0, res_old = 1, res_new = 0 |
 | `Mbpp/678` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/679` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1459,7 +1459,7 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/878` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/879` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/880` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/882` | 0.33 | SKIP |       - parallelogram_perimeter: нелинейное умножение |
+| `Mbpp/882` | 0.33 | EQUIVALENT | доказано KERN |
 | `Mbpp/883` | 0.33 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/884` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/885` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
@@ -1532,13 +1532,13 @@ reference with `tools/kern_contracts.py --diff-equiv` (alpha-normalisation #715)
 | `Mbpp/965` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/966` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/967` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
-| `Mbpp/968` | 0.67 | SKIP | [!] нет одноимённых функций в подмножестве — сравнивать нечего |
+| `Mbpp/968` | 0.67 | SKIP | [UNKNOWN] floor_Max: тело содержит абстракцию (_havoc_k) — расхождение НЕДОКАЗУЕМО в этой модели (не |
 | `Mbpp/970` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/971` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/973` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 | `Mbpp/974` | 0.67 | OUT_OF_DOMAIN | списки/строки/циклы — вне модели KERN |
 
-**Result: 1519 pairs, 0 proven equivalent, 32 diverged, 83 honest skips.**
+**Result: 1519 pairs, 2 proven equivalent, 52 diverged, 61 honest skips.**
 
 ## Honest limits
 
