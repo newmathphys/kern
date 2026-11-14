@@ -1,27 +1,24 @@
-# Полиглотные бенчмарки: BigCode HumanEvalPack под KERN
+# Полиглотные бенчмарки: HumanEvalPack и DebugBench под KERN
 
-Источник: **`bigcode/humanevalpack`** (Hugging Face), взят через публичный Datasets
-Server как JSON (в репозитории только parquet, а `pyarrow` в окружении нет).
-В каждой записи готовые пары авторов `canonical_solution` / `buggy_solution` и `bug_type` -
-код написан не нами.
+Оба корпуса взяты обычным HTTPS (без ключей и 429): `bigcode/humanevalpack` через
+публичный Datasets Server (в репозитории только parquet), `Rtian/DebugBench` как
+`eval.json` (20 МБ). Код написан не нами; `buggy_code` в DebugBench - баг, **внедрённый GPT-4**
+в рабочее решение LeetCode.
 
-Язык: **python**, задач **164**.
+| Корпус | Язык | Задач | DIVERGED подтверждено | неподтверждено | честный SKIP | вне домена |
+|:--|:--|--:|--:|--:|--:|--:|
+| HumanEvalPack (canonical vs buggy) | Python | 164 | **6** | 2 | 156 | 0 |
+| DebugBench (баги GPT-4) | Python | 1414 | **2** | 0 | 16 | 1390 |
 
-| Вердикт | Счёт |
-|:--|--:|
-| **DIVERGED (физически подтверждено)** | **6** |
-| неподтверждено (решатель сказал «разошлись», рантайм не воспроизвёл) | 2 |
-| честный SKIP | 156 |
-
-Поймано по типам бага: {'value misuse': 1, 'excess logic': 3, 'variable misuse': 1, 'missing logic': 1}
+Поймано в HumanEvalPack по типам бага: {'value misuse': 1, 'excess logic': 3, 'variable misuse': 1, 'missing logic': 1}
+Поймано в DebugBench по категориям: {'logic error': 2}
 
 ## Честные границы
 
-Задачи HumanEvalPack почти целиком про списки и строки - это вне модели KERN:
-156 пропусков и есть объявленная граница, а не спрятанная неудача.
-Строки `DIVERGED` подтверждены ИСПОЛНЕНИЕМ обеих реализаций в Python на контрпримере
-решателя, а не чтением вывода.
+Оба корпуса почти целиком про списки и строки: `SKIP` и `вне домена` - объявленная
+граница модели KERN, а не спрятанные неудачи. Каждый `DIVERGED` подтверждён
+**исполнением** обеих реализаций в Python на контрпримере решателя.
 
-C++ и Rust здесь **не покрыты**: для них нужен железный критерий `--xray`
-(находка есть на `buggy_solution` и исчезает на `canonical_solution`) - это отдельный
-пайплайн.
+C++ и Rust из HumanEvalPack **не покрыты**: нужен железный критерий `--xray`
+(находка есть на `buggy_solution` и исчезает на `canonical_solution`) - отдельный
+пайплайн, в этом окне не построен.

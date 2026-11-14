@@ -161,6 +161,18 @@ def verify_physically(ref: str, cand: str, cex: str = "") -> tuple[bool, str]:
                 out = _run(args_repr)
                 if "DIFF True" in out:
                     return True, f"CEX{args_repr} | " + " | ".join(out.splitlines()[:2])[:120]
+                # #721 (разгадка владельца проекта, Mbpp/79): решение может быть
+                # строковым (`s.split(' ')`), а абстракция `len__s` даёт ЧИСЛО.
+                # Тогда эталон падает с AttributeError, и находка выглядит
+                # «неподтверждённой». Пробуем подставить строку той же длины.
+                if "AttributeError" in out or "TypeError" in out:
+                    alt = "(" + ", ".join(
+                        f"'a' * {v}" if v > 0 else "''" for v in ordered[:arity]
+                    ) + ("," if arity == 1 else "") + ")"
+                    out2 = _run(alt)
+                    if "DIFF True" in out2:
+                        return True, (f"CEX{alt} (строка той же длины) | "
+                                      + " | ".join(out2.splitlines()[:2])[:100])
         # 2) ФОЛБЭК: сетка целых (для случаев без разборчивого вектора)
         if arity < 1 or arity > 4:
             return False, "арность вне перебора"
