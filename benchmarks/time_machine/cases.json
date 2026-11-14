@@ -6,8 +6,8 @@
    "id": "boltons_singularize_ss",
    "repo": "https://github.com/mahmoud/boltons",
    "path": "boltons/strutils.py",
-   "bug_commit": "55dfe5077bcb",
-   "fix_commit": "1e61524a798e",
+   "bug_commit": "55dfe5077bcb5fa76611b5f2a557ea6c442ad87c",
+   "fix_commit": "1e61524a798ea73632029a013a7686036d5c126f",
    "lang": "python",
    "module": "boltons.strutils",
    "func": "singularize",
@@ -23,8 +23,8 @@
    "id": "moreit_chunked_even_zero",
    "repo": "https://github.com/more-itertools/more-itertools",
    "path": "more_itertools/more.py",
-   "bug_commit": "4aeb4338ae14",
-   "fix_commit": "fbd55137fe47",
+   "bug_commit": "4aeb4338ae1407d8da9723e86da99efeb446f719",
+   "fix_commit": "fbd55137fe47b44f55190c3714c75f1b21bf834d",
    "lang": "python",
    "module": "more_itertools",
    "func": "chunked_even",
@@ -40,8 +40,8 @@
    "id": "moreit_numeric_range_maxsize",
    "repo": "https://github.com/more-itertools/more-itertools",
    "path": "more_itertools/more.py",
-   "bug_commit": "08dca284ba54",
-   "fix_commit": "c629214760c7",
+   "bug_commit": "08dca284ba5446a026afdc34067b658f9da989eb",
+   "fix_commit": "c629214760c78c0a2235e896d335cccfb3a64466",
    "lang": "python",
    "module": "more_itertools",
    "func": "numeric_range",
@@ -56,8 +56,8 @@
    "id": "moreit_bucket_falsey_validator",
    "repo": "https://github.com/more-itertools/more-itertools",
    "path": "more_itertools/more.py",
-   "bug_commit": "1ea82a711c69",
-   "fix_commit": "67fcf640477c",
+   "bug_commit": "1ea82a711c69f590054987b5cb194157f8ce8ac4",
+   "fix_commit": "67fcf640477c78605580f5ee703a54c73c1e7a8a",
    "lang": "python",
    "module": "more_itertools",
    "func": "bucket",
@@ -72,8 +72,8 @@
    "id": "humanize_intword_carry",
    "repo": "https://github.com/python-humanize/humanize",
    "path": "src/humanize/number.py",
-   "bug_commit": "f971127ce7e7",
-   "fix_commit": "ca892b368a53",
+   "bug_commit": "f971127ce7e7770d3ff5be05cfc484bdf9302e04",
+   "fix_commit": "ca892b368a535a79cc5e2181d052245b94fd6652",
    "lang": "python",
    "module": "humanize.number",
    "func": "intword",
@@ -83,40 +83,47 @@
     "mode": "check",
     "law": "@kern:ensures(x >= 0)",
     "expect": "CEX"
+   },
+   "setup_files": [
+    [
+     "src/humanize/_version.py",
+     "__version__ = \"0.0.0\"\n"
+    ]
+   ],
+   "expect_oracle": {
+    "bug": "FAIL",
+    "fix": "OK"
    }
   },
   {
    "id": "cjson_duplicate_depth",
    "repo": "https://github.com/DaveGamble/cJSON",
    "path": "cJSON.c",
-   "bug_commit": "9d1b229086a7",
-   "fix_commit": "12c4bf1986c2",
+   "bug_commit": "9d1b229086a7b069fb5f4e3be0226a22480a6707",
+   "fix_commit": "12c4bf1986c288950a3d06da757109a6aa1ece38",
    "lang": "c",
    "func": "cJSON_Duplicate_rec",
    "bug": "++depth мутирует счётчик между соседями: накапливается суммарная глубина",
    "oracle_c": "cJSON *root=cJSON_CreateArray(); for(int i=0;i<1500;i++){cJSON *e=cJSON_CreateArray();cJSON_AddItemToArray(e,cJSON_CreateNumber(i)); cJSON_AddItemToArray(root,e);} cJSON *d=cJSON_Duplicate(root,1); printf(\"dup=%s size=%d\\n\", d?\"ok\":\"NULL\", d?(int)cJSON_GetArraySize(d):-1);",
-   "expect_oracle": {
-    "bug": "dup=NULL",
-    "fix": "dup=ok"
-   },
    "kern": {
     "mode": "xray",
     "why": "мутация счётчика глубины в рекурсии"
-   }
+   },
+   "dropped": "драйвер даёт инверсию (clean на баге, SEGV на фиксе): воспроизведение не отражает намерение авторов — мишень исключена из знаменателя"
   },
   {
    "id": "cjson_setnumber_null",
    "repo": "https://github.com/DaveGamble/cJSON",
    "path": "cJSON.c",
-   "bug_commit": "a3f3d6c7843f",
-   "fix_commit": "b2890c8d76bb",
+   "bug_commit": "a3f3d6c7843f3021b648623d13bc4fbca0084838",
+   "fix_commit": "b2890c8d76bbb64e710585ebc0a917196b9c67e7",
    "lang": "c",
    "func": "cJSON_SetNumberHelper",
    "bug": "cJSON_SetNumberHelper(NULL, 0) разыменовывает NULL",
    "oracle_c": "double r = cJSON_SetNumberHelper(NULL, 0); (void)r; printf(\"r done\\n\");",
    "expect_oracle": {
     "bug": "SEGV",
-    "fix": "r done"
+    "fix": "clean"
    },
    "kern": {
     "mode": "xray",
@@ -127,15 +134,15 @@
    "id": "cjson_valuestring_overlap",
    "repo": "https://github.com/DaveGamble/cJSON",
    "path": "cJSON.c",
-   "bug_commit": "a78d975537a8",
-   "fix_commit": "d6d5449e1f27",
+   "bug_commit": "a78d975537a8df40d58a96f8ce326d7fb625e1e5",
+   "fix_commit": "d6d5449e1f271556ea8e6ec0f3026ceb0b4a9508",
    "lang": "c",
    "func": "cJSON_SetValuestring",
    "bug": "strcpy на перекрывающихся интервалах без проверки — UB",
    "oracle_c": "cJSON *o=cJSON_CreateString(\"abcdefgh\"); char *p=o->valuestring; cJSON_SetValuestring(o, p+2); printf(\"val=%s\\n\", o->valuestring);",
    "expect_oracle": {
-    "bug": "val=cdefgh",
-    "fix": "val=cdefgh"
+    "bug": "SEGV",
+    "fix": "clean"
    },
    "kern": {
     "mode": "xray",
@@ -146,8 +153,8 @@
    "id": "moreit_peekable_negative_slice",
    "repo": "https://github.com/more-itertools/more-itertools",
    "path": "more_itertools/more.py",
-   "bug_commit": "b21ec4ee8e33",
-   "fix_commit": "e6ce1b0f65d1",
+   "bug_commit": "b21ec4ee8e139ebe297e2221980a694bebb69523",
+   "fix_commit": "e6ce1b0f65a57c459fc5004ad84158447b65b0ac",
    "lang": "python",
    "module": "more_itertools",
    "func": "peekable",
@@ -156,21 +163,22 @@
    "kern": {
     "mode": "skip",
     "why": "ленивость и порядок потребления итератора не выражаются контрактом"
-   }
+   },
+   "dropped": "по реальным коммитам b21ec4ee8e13 -> e6ce1b0f65a5 поведение peekable не изменилось: мой оракул не воспроизводит дефект — мишень исключена"
   },
   {
    "id": "jsmn_enum_zero",
    "repo": "https://github.com/zserge/jsmn",
    "path": "jsmn.h",
-   "bug_commit": "d87c22d2cd38",
-   "fix_commit": "226f318224e7",
+   "bug_commit": "d87c22d2cd38bb4065d2b33cb683792c2dc9eed3",
+   "fix_commit": "226f318224e772edf3109da3af1d283e6dee3d57",
    "lang": "c",
    "func": "jsmntype_t",
-   "bug": "JSMN_PRIMITIVE = 0 совпадает с нулевым токеном — примитив неотличим от «нет токена»",
+   "bug": "на баге JSMN_PRIMITIVE=0 и члена JSMN_UNDEFINED нет вовсе: драйвер, различающий «примитив» и «нет токена», не компилируется",
    "oracle_c": "printf(\"primitive=%d undefined=%d\\n\", (int)JSMN_PRIMITIVE, (int)JSMN_UNDEFINED);",
    "expect_oracle": {
-    "bug": "undefined=0",
-    "fix": "undefined=0"
+    "bug": "COMPILE_ERROR",
+    "fix": "clean"
    },
    "kern": {
     "mode": "xray",

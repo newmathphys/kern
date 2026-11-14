@@ -1,100 +1,134 @@
 {
- "caught": 2,
- "skipped": 2,
- "missed": 3,
- "oracle_unverified": 3,
+ "counts": {
+  "CAUGHT": 0,
+  "SKIP": 4,
+  "NOT_CONFIRMED": 2,
+  "CRASH": 1,
+  "ORACLE_UNVERIFIED": 1,
+  "FETCH_FAIL": 0,
+  "DROPPED": 2
+ },
  "total": 10,
- "seconds": 71.9,
+ "seconds": 45.8,
  "rows": [
   {
    "id": "boltons_singularize_ss",
    "repo": "https://github.com/mahmoud/boltons",
-   "bug_commit": "55dfe5077bcb",
-   "fix_commit": "1e61524a798e",
-   "status": "MISSED",
-   "kern_status": "MISSED",
-   "kern_detail": "  --help, -h                                      эта справка (в stdout, rc=0)"
+   "bug_commit": "55dfe5077bcb5fa76611b5f2a557ea6c442ad87c",
+   "fix_commit": "1e61524a798ea73632029a013a7686036d5c126f",
+   "status": "SKIP",
+   "kern_status": "SKIP",
+   "kern_detail": "[XRAY SUMMARY] checked 0 / 1 functions (SMT-verified 0, no obligations 0), skipped 1 with explicit reasons, findings 0 | skip: singularize: условие ветвления вне подмножества",
+   "findings": {
+    "bug": [],
+    "fix": [],
+    "gone": []
+   }
   },
   {
    "id": "moreit_chunked_even_zero",
    "repo": "https://github.com/more-itertools/more-itertools",
-   "bug_commit": "4aeb4338ae14",
-   "fix_commit": "fbd55137fe47",
-   "status": "MISSED",
-   "kern_status": "MISSED",
-   "kern_detail": "  --help, -h                                      эта справка (в stdout, rc=0)"
+   "bug_commit": "4aeb4338ae1407d8da9723e86da99efeb446f719",
+   "fix_commit": "fbd55137fe47b44f55190c3714c75f1b21bf834d",
+   "status": "CRASH",
+   "kern_status": "CRASH",
+   "kern_detail": "CRASH: SyntaxError: invalid syntax",
+   "findings": {
+    "bug": [],
+    "fix": []
+   }
   },
   {
    "id": "moreit_numeric_range_maxsize",
    "repo": "https://github.com/more-itertools/more-itertools",
-   "bug_commit": "08dca284ba54",
-   "fix_commit": "c629214760c7",
-   "status": "SKIP",
+   "bug_commit": "08dca284ba5446a026afdc34067b658f9da989eb",
+   "fix_commit": "c629214760c78c0a2235e896d335cccfb3a64466",
+   "status": "ORACLE_UNVERIFIED",
    "kern_status": "SKIP",
-   "kern_detail": "равенство по насыщенному len — свойство объекта, вне арифметической модели kernc"
+   "kern_detail": "равенство по насыщенному len — свойство объекта, вне арифметической модели kernc",
+   "findings": {}
   },
   {
    "id": "moreit_bucket_falsey_validator",
    "repo": "https://github.com/more-itertools/more-itertools",
-   "bug_commit": "1ea82a711c69",
-   "fix_commit": "67fcf640477c",
+   "bug_commit": "1ea82a711c69f590054987b5cb194157f8ce8ac4",
+   "fix_commit": "67fcf640477c78605580f5ee703a54c73c1e7a8a",
    "status": "SKIP",
    "kern_status": "SKIP",
-   "kern_detail": "истинность объекта через __len__ — динамическая семантика Python"
+   "kern_detail": "истинность объекта через __len__ — динамическая семантика Python",
+   "findings": {}
   },
   {
    "id": "humanize_intword_carry",
    "repo": "https://github.com/python-humanize/humanize",
-   "bug_commit": "f971127ce7e7",
-   "fix_commit": "ca892b368a53",
-   "status": "ORACLE_UNVERIFIED",
-   "kern_status": "MISSED",
-   "kern_detail": "  --help, -h                                      эта справка (в stdout, rc=0)"
+   "bug_commit": "f971127ce7e7770d3ff5be05cfc484bdf9302e04",
+   "fix_commit": "ca892b368a535a79cc5e2181d052245b94fd6652",
+   "status": "SKIP",
+   "kern_status": "SKIP",
+   "kern_detail": "[XRAY SUMMARY] checked 0 / 1 functions (SMT-verified 0, no obligations 0), skipped 1 with explicit reasons, findings 0 | skip: intword: условие ветвления вне подмножества",
+   "findings": {
+    "bug": [],
+    "fix": [],
+    "gone": []
+   }
   },
   {
    "id": "cjson_duplicate_depth",
    "repo": "https://github.com/DaveGamble/cJSON",
-   "bug_commit": "9d1b229086a7",
-   "fix_commit": "12c4bf1986c2",
-   "status": "ORACLE_UNVERIFIED",
-   "kern_status": "CAUGHT",
-   "kern_detail": "    СИНТЕЗИРОВАНО: (bvshl x (_ bv3 32))  (проверок: 4, контрпримеров: 3)"
+   "bug_commit": "9d1b229086a7b069fb5f4e3be0226a22480a6707",
+   "fix_commit": "12c4bf1986c288950a3d06da757109a6aa1ece38",
+   "status": "DROPPED",
+   "kern_status": "—",
+   "kern_detail": "драйвер даёт инверсию (clean на баге, SEGV на фиксе): воспроизведение не отражает намерение авторов — мишень исключена из знаменателя",
+   "findings": {}
   },
   {
    "id": "cjson_setnumber_null",
    "repo": "https://github.com/DaveGamble/cJSON",
-   "bug_commit": "a3f3d6c7843f",
-   "fix_commit": "b2890c8d76bb",
-   "status": "CAUGHT",
-   "kern_status": "CAUGHT",
-   "kern_detail": "    СИНТЕЗИРОВАНО: (bvshl x (_ bv3 32))  (проверок: 4, контрпримеров: 3)"
+   "bug_commit": "a3f3d6c7843f3021b648623d13bc4fbca0084838",
+   "fix_commit": "b2890c8d76bbb64e710585ebc0a917196b9c67e7",
+   "status": "SKIP",
+   "kern_status": "SKIP",
+   "kern_detail": "[XRAY SUMMARY] checked 0 / 1 functions (trivial 0), skipped 1 with explicit reasons, findings 0, SMT calls 0 | skip: вещественная арифметика (`f32`/`f64`) — модель QF_FP не поддерживается × 1",
+   "findings": {
+    "bug": [],
+    "fix": [],
+    "gone": []
+   }
   },
   {
    "id": "cjson_valuestring_overlap",
    "repo": "https://github.com/DaveGamble/cJSON",
-   "bug_commit": "a78d975537a8",
-   "fix_commit": "d6d5449e1f27",
-   "status": "CAUGHT",
-   "kern_status": "CAUGHT",
-   "kern_detail": "    СИНТЕЗИРОВАНО: (bvshl x (_ bv3 32))  (проверок: 4, контрпримеров: 3)"
+   "bug_commit": "a78d975537a8df40d58a96f8ce326d7fb625e1e5",
+   "fix_commit": "d6d5449e1f271556ea8e6ec0f3026ceb0b4a9508",
+   "status": "NOT_CONFIRMED",
+   "kern_status": "NOT_CONFIRMED",
+   "kern_detail": "находок баг=0 фикс=0; исчезло 0 | [XRAY SUMMARY] checked 1 / 1 functions (trivial 0), skipped 0 with explicit reasons, findings 0, SMT calls 2",
+   "findings": {
+    "bug": [],
+    "fix": [],
+    "gone": []
+   }
   },
   {
    "id": "moreit_peekable_negative_slice",
    "repo": "https://github.com/more-itertools/more-itertools",
-   "bug_commit": "b21ec4ee8e33",
-   "fix_commit": "e6ce1b0f65d1",
-   "status": "FETCH_FAIL",
-   "kern_status": null,
-   "kern_detail": null
+   "bug_commit": "b21ec4ee8e139ebe297e2221980a694bebb69523",
+   "fix_commit": "e6ce1b0f65a57c459fc5004ad84158447b65b0ac",
+   "status": "DROPPED",
+   "kern_status": "—",
+   "kern_detail": "по реальным коммитам b21ec4ee8e13 -> e6ce1b0f65a5 поведение peekable не изменилось: мой оракул не воспроизводит дефект — мишень исключена",
+   "findings": {}
   },
   {
    "id": "jsmn_enum_zero",
    "repo": "https://github.com/zserge/jsmn",
-   "bug_commit": "d87c22d2cd38",
-   "fix_commit": "226f318224e7",
-   "status": "ORACLE_UNVERIFIED",
-   "kern_status": "CAUGHT",
-   "kern_detail": "    СИНТЕЗИРОВАНО: (bvshl x (_ bv3 32))  (проверок: 4, контрпримеров: 3)"
+   "bug_commit": "d87c22d2cd38bb4065d2b33cb683792c2dc9eed3",
+   "fix_commit": "226f318224e772edf3109da3af1d283e6dee3d57",
+   "status": "NOT_CONFIRMED",
+   "kern_status": "NOT_CONFIRMED",
+   "kern_detail": "функция jsmntype_t не найдена в jsmn.h",
+   "findings": {}
   }
  ]
 }
