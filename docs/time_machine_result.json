@@ -2,14 +2,14 @@
  "counts": {
   "CAUGHT": 0,
   "SKIP": 4,
-  "NOT_CONFIRMED": 2,
-  "CRASH": 1,
+  "NOT_CONFIRMED": 3,
+  "CRASH": 0,
   "ORACLE_UNVERIFIED": 1,
   "FETCH_FAIL": 0,
   "DROPPED": 2
  },
  "total": 10,
- "seconds": 45.8,
+ "seconds": 47.9,
  "rows": [
   {
    "id": "boltons_singularize_ss",
@@ -30,12 +30,13 @@
    "repo": "https://github.com/more-itertools/more-itertools",
    "bug_commit": "4aeb4338ae1407d8da9723e86da99efeb446f719",
    "fix_commit": "fbd55137fe47b44f55190c3714c75f1b21bf834d",
-   "status": "CRASH",
-   "kern_status": "CRASH",
-   "kern_detail": "CRASH: SyntaxError: invalid syntax",
+   "status": "NOT_CONFIRMED",
+   "kern_status": "NOT_CONFIRMED",
+   "kern_detail": "находок баг=0 фикс=0; исчезло 0 | [XRAY SUMMARY] checked 1 / 1 functions (SMT-verified 1, no obligations 0), skipped 0 with explicit reasons, findings 2",
    "findings": {
     "bug": [],
-    "fix": []
+    "fix": [],
+    "gone": []
    }
   },
   {

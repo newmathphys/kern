@@ -7518,7 +7518,23 @@ def _bounds_one(sub, path, params, lens, kernc, found, fname, syms, in_while,
         # контрпример был бессмысленным. Приводим индекс к ТОЙ ЖЕ символической
         # длине, что и границы, и требуем неотрицательности новых символов.
         _rw = _LenRewrite(set(syms))
-        _sl = _rw.visit(ast.parse(ast.unparse(sub.slice), mode="eval").body)
+        # ДЕФЕКТ #699 (нашёл `run_time_machine.py` на РЕАЛЬНОМ коде more-itertools):
+        # `ast.unparse` среза даёт `":n"` / `"0:5"` — это НЕ выражение, и
+        # `ast.parse(..., mode="eval")` падал `SyntaxError: invalid syntax` на ЛЮБОМ
+        # срезе (а срезы есть почти в любой функции работы со списками/строками).
+        # Итог: `--xray` обрывался вместо анализа функции, то есть целый класс
+        # Python-кода был слепым. Теперь граница берётся напрямую из AST (deepcopy,
+        # без unparse->parse), а для среза проверяется только верхняя граница —
+        # и это ЯВНО объявлено заметкой, чтобы не выдать частичную проверку за полную.
+        if isinstance(sub.slice, ast.Slice):
+            _note(f"[BOUNDS SLICE] {fname}: `{arr}[срез]` (строка {sub.lineno}) — "
+                  f"проверяется только верхняя граница среза (нижняя и шаг НЕ моделируются)")
+            _bound = sub.slice.upper if sub.slice.upper is not None else sub.slice.lower
+            if _bound is None:
+                return
+            _sl = _rw.visit(copy.deepcopy(_bound))
+        else:
+            _sl = _rw.visit(copy.deepcopy(sub.slice))
         ast.fix_missing_locations(_sl)
         idx = expr_smt(_sl, {})
         for _s in _rw.syms:

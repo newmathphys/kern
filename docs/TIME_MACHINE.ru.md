@@ -19,7 +19,7 @@
 | Кейс | Репозиторий | Коммит с багом | Коммит-фикс | Оракул: баг | Оракул: фикс | KERN (строго) | Итог |
 |:--|:--|:--|:--|:--|:--|:--|:--|
 | `boltons_singularize_ss` | `mahmoud/boltons` | `55dfe5077bcb5fa76611b5f2a557ea6c442ad87c` | `1e61524a798ea73632029a013a7686036d5c126f` | FAIL | OK | [XRAY SUMMARY] checked 0 / 1 functions (SMT-verified 0, no obligations 0), skipped 1 with expli | честный пропуск |
-| `moreit_chunked_even_zero` | `more-itertools/more-itertools` | `4aeb4338ae1407d8da9723e86da99efeb446f719` | `fbd55137fe47b44f55190c3714c75f1b21bf834d` | FAIL | OK | CRASH: SyntaxError: invalid syntax | **СБОЙ KERN** |
+| `moreit_chunked_even_zero` | `more-itertools/more-itertools` | `4aeb4338ae1407d8da9723e86da99efeb446f719` | `fbd55137fe47b44f55190c3714c75f1b21bf834d` | FAIL | OK | находок баг=0 фикс=0; исчезло 0 \| [XRAY SUMMARY] checked 1 / 1 functions (SMT-verified 1, no ob | не подтверждено |
 | `moreit_numeric_range_maxsize` | `more-itertools/more-itertools` | `08dca284ba5446a026afdc34067b658f9da989eb` | `c629214760c78c0a2235e896d335cccfb3a64466` | FAIL | FAIL | равенство по насыщенному len — свойство объекта, вне арифметической модели kernc | оракул не подтвердил |
 | `moreit_bucket_falsey_validator` | `more-itertools/more-itertools` | `1ea82a711c69f590054987b5cb194157f8ce8ac4` | `67fcf640477c78605580f5ee703a54c73c1e7a8a` | FAIL | OK | истинность объекта через __len__ — динамическая семантика Python | честный пропуск |
 | `humanize_intword_carry` | `python-humanize/humanize` | `f971127ce7e7770d3ff5be05cfc484bdf9302e04` | `ca892b368a535a79cc5e2181d052245b94fd6652` | FAIL | OK | [XRAY SUMMARY] checked 0 / 1 functions (SMT-verified 0, no obligations 0), skipped 1 with expli | честный пропуск |
@@ -29,7 +29,7 @@
 | `moreit_peekable_negative_slice` | `more-itertools/more-itertools` | `b21ec4ee8e139ebe297e2221980a694bebb69523` | `e6ce1b0f65a57c459fc5004ad84158447b65b0ac` | OK | OK | по реальным коммитам b21ec4ee8e13 -> e6ce1b0f65a5 поведение peekable не изменилось: мой оракул  | исключено (наш брак) |
 | `jsmn_enum_zero` | `zserge/jsmn` | `d87c22d2cd38bb4065d2b33cb683792c2dc9eed3` | `226f318224e772edf3109da3af1d283e6dee3d57` | COMPILE_ERROR | clean | функция jsmntype_t не найдена в jsmn.h | не подтверждено |
 
-**Итог: поймано 0 / честный пропуск 4 / не подтверждено 2 / СБОЙ KERN 1 / оракул не подтвердил 1 / сбой загрузки 0 из 10 реальных исторических исправлений**, 45.8 с. **Ложных заявлений: 0.**
+**Итог: поймано 0 / честный пропуск 4 / не подтверждено 3 / СБОЙ KERN 0 / оракул не подтвердил 1 / сбой загрузки 0 из 10 реальных исторических исправлений**, 47.9 с. **Ложных заявлений: 0.**
 
 ## Что это измеряет, а что нет
 
@@ -39,17 +39,3 @@
 нами. Ни один случай не засчитан как пойманный, если находка не исчезает ровно
 на исправлении мейнтейнеров.
 
-## Найден дефект в самом KERN (строка СБОЙ KERN)
-
-«Машина времени» нашла реальный дефект замороженного анализатора, воспроизводимый одной командой:
-
-```
-python3 tools/kern_contracts.py --xray <файл с obj[:n]>
-  File "tools/kern_contracts.py", line 7521, in _bounds_one
-    _sl = _rw.visit(ast.parse(ast.unparse(sub.slice), mode="eval").body)
-  SyntaxError: invalid syntax  ->  ":n"
-```
-
-`ast.unparse` для открытого среза (`x[:n]`) даёт `:n` — это не выражение, и `--xray`
-падает вместо анализа функции. Блокирует мишень `chunked_even` и вообще любой код с
-`x[:n]`. Зафиксировано, но не обойдено: ядро заморожено.

@@ -19,7 +19,7 @@ so nothing is claimed).
 | Case | Repository | Bug commit | Fix commit | Oracle: bug | Oracle: fix | KERN (strict) | Result |
 |:--|:--|:--|:--|:--|:--|:--|:--|
 | `boltons_singularize_ss` | `mahmoud/boltons` | `55dfe5077bcb5fa76611b5f2a557ea6c442ad87c` | `1e61524a798ea73632029a013a7686036d5c126f` | FAIL | OK | [XRAY SUMMARY] checked 0 / 1 functions (SMT-verified 0, no obligations 0), skipped 1 with expli | honest skip |
-| `moreit_chunked_even_zero` | `more-itertools/more-itertools` | `4aeb4338ae1407d8da9723e86da99efeb446f719` | `fbd55137fe47b44f55190c3714c75f1b21bf834d` | FAIL | OK | CRASH: SyntaxError: invalid syntax | **KERN CRASH** |
+| `moreit_chunked_even_zero` | `more-itertools/more-itertools` | `4aeb4338ae1407d8da9723e86da99efeb446f719` | `fbd55137fe47b44f55190c3714c75f1b21bf834d` | FAIL | OK | находок баг=0 фикс=0; исчезло 0 \| [XRAY SUMMARY] checked 1 / 1 functions (SMT-verified 1, no ob | not confirmed |
 | `moreit_numeric_range_maxsize` | `more-itertools/more-itertools` | `08dca284ba5446a026afdc34067b658f9da989eb` | `c629214760c78c0a2235e896d335cccfb3a64466` | FAIL | FAIL | равенство по насыщенному len — свойство объекта, вне арифметической модели kernc | oracle unverified |
 | `moreit_bucket_falsey_validator` | `more-itertools/more-itertools` | `1ea82a711c69f590054987b5cb194157f8ce8ac4` | `67fcf640477c78605580f5ee703a54c73c1e7a8a` | FAIL | OK | истинность объекта через __len__ — динамическая семантика Python | honest skip |
 | `humanize_intword_carry` | `python-humanize/humanize` | `f971127ce7e7770d3ff5be05cfc484bdf9302e04` | `ca892b368a535a79cc5e2181d052245b94fd6652` | FAIL | OK | [XRAY SUMMARY] checked 0 / 1 functions (SMT-verified 0, no obligations 0), skipped 1 with expli | honest skip |
@@ -29,7 +29,7 @@ so nothing is claimed).
 | `moreit_peekable_negative_slice` | `more-itertools/more-itertools` | `b21ec4ee8e139ebe297e2221980a694bebb69523` | `e6ce1b0f65a57c459fc5004ad84158447b65b0ac` | OK | OK | по реальным коммитам b21ec4ee8e13 -> e6ce1b0f65a5 поведение peekable не изменилось: мой оракул  | dropped (our fault) |
 | `jsmn_enum_zero` | `zserge/jsmn` | `d87c22d2cd38bb4065d2b33cb683792c2dc9eed3` | `226f318224e772edf3109da3af1d283e6dee3d57` | COMPILE_ERROR | clean | функция jsmntype_t не найдена в jsmn.h | not confirmed |
 
-**Result: 0 caught / 4 honest skip / 2 not confirmed / 1 KERN crash / 1 oracle unverified / 0 fetch failed out of 10 real historical fixes**, 45.8 s. **False claims: 0.**
+**Result: 0 caught / 4 honest skip / 3 not confirmed / 0 KERN crash / 1 oracle unverified / 0 fetch failed out of 10 real historical fixes**, 47.9 s. **False claims: 0.**
 
 ## What this measures, and what it does not
 
@@ -39,18 +39,3 @@ laziness fall outside the model and are reported as skips by the engine itself,
 not hidden by us. No case is counted as caught unless the finding disappears
 exactly at the maintainers' fix.
 
-## Defect found in KERN itself (CRASH row)
-
-The time machine found a real defect in the frozen analyzer, reproducible in one command:
-
-```
-python3 tools/kern_contracts.py --xray <file with obj[:n]>
-  File "tools/kern_contracts.py", line 7521, in _bounds_one
-    _sl = _rw.visit(ast.parse(ast.unparse(sub.slice), mode="eval").body)
-  SyntaxError: invalid syntax  ->  ":n"
-```
-
-`ast.unparse` of an open-ended `Slice` (`x[:n]`) produces `:n`, which is not a valid
-expression, so `--xray` aborts instead of analysing the function. This blocks the
-`chunked_even` target and any code using `x[:n]` slicing. Reported, not worked around:
-the core is frozen.

@@ -508,3 +508,17 @@ else
   echo "  [!] #491: ${_SELF_ERR} строк «внутренняя ошибка» на kern/src — штатный выход за подмножество снова выдан за аварию"
   FAIL=$((FAIL + 1))
 fi
+
+# РЕГРЕССИЯ #699 (нашёл `tools/run_time_machine.py` на РЕАЛЬНОМ коде more-itertools):
+# `ast.unparse` среза даёт `":n"` — не выражение, и `ast.parse(mode="eval")` падал
+# SyntaxError на ЛЮБОМ срезе, то есть --xray обрывался вместо анализа. Проверяем
+# двусторонне: (1) падения НЕТ, (2) обе функции просканированы, (3) деление на ноль
+# в функции со срезом ЛОВИТСЯ (иначе «починка» просто заглушила бы детектор).
+SLZ=$(timeout 300 python3 tools/kern_contracts.py --xray tests/fixtures/xray_slice_zero.py 2>&1) || true
+if echo "$SLZ" | grep -q 'SyntaxError'; then
+  echo "[!] #699: --xray ВСЁ ЕЩЁ падает на срезе (SyntaxError)"; exit 1
+fi
+echo "$SLZ" | grep -q 'checked 2 / 2 functions' || { echo "[!] #699: срезы не просканированы (checked != 2/2)"; exit 1; }
+echo "$SLZ" | grep -q 'CRASH PATH\] head_ratio' || { echo "[!] #699: деление на ноль за срезом НЕ поймано"; exit 1; }
+echo "$SLZ" | grep -q 'CRASH PATH\] tail_ratio' || { echo "[!] #699: срез с двумя границами не проанализирован"; exit 1; }
+echo "[OK] #699: срезы анализируются (2/2 функции), деление на ноль поймано в обеих"
