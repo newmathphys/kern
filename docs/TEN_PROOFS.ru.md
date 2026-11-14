@@ -9,7 +9,7 @@
 > Спутники: `docs/CAPABILITY_MATRIX.ru.md` (все возможности с воротами),
 > `docs/CORPORA.md` (инвентарь корпусов), `docs/EXAMPLE_WHY_KERN.ru.md` (история `lcm`).
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 · CHECK <!-- fact:check_targets -->212 · cases <!-- fact:canfail_cases -->258 · anchors <!-- fact:anchors -->216 · registry <!-- fact:registry_targets -->293 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 · CHECK <!-- fact:check_targets -->213 · cases <!-- fact:canfail_cases -->259 · anchors <!-- fact:anchors -->216 · registry <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## 1. Аппаратное переполнение `i32` (Rust)
 

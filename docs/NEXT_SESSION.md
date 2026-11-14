@@ -23,14 +23,14 @@
 > stale in the very commit that adds it (this line was corrected twice already). The
 > authority is `git log -1` and `docs/STATUS.md`, never this line.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 · CHECK <!-- fact:check_targets -->212 · cases <!-- fact:canfail_cases -->258 · anchors <!-- fact:anchors -->216 · registry <!-- fact:registry_targets -->293 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 · CHECK <!-- fact:check_targets -->213 · cases <!-- fact:canfail_cases -->259 · anchors <!-- fact:anchors -->216 · registry <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
 | Check | Value |
 |:--|:--|
 | Branch / tree | `main` = `d98953c`, clean |
-| Registry | <!-- fact:registry_targets -->293 targets · **<!-- fact:check_targets -->212/<!-- fact:check_targets -->212 CHECK** · <!-- fact:canfail_cases -->258 non-vacuous cases |
+| Registry | <!-- fact:registry_targets -->294 targets · **<!-- fact:check_targets -->213/<!-- fact:check_targets -->213 CHECK** · <!-- fact:canfail_cases -->259 non-vacuous cases |
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (`#555` closed, see above) — queue item 1 (a size filter in `defNormEq`/`bitTautology`) was MEASURED AND REVERTED: `midpoint.rs` 70 s -> 65 s (about 7%) but trusted steps on the official bank went 645 -> 646, i.e. the filter disabled a rule that verified one step on `add_three.4_bit`; the acceptance criterion (`645` unchanged) failed, so the tree is byte-identical to the sealed `67a8d43`. MEASURED CONCLUSION: the dominant cost is the SOLVER, not the checker normalizations. Reference state: `HEAD = 67a8d43`, 68/68 ci-fast stages green, 225/225 non-vacuous cases, attestation verified with the external key |
 

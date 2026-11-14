@@ -90,7 +90,7 @@ OVERRIDES: dict[str, str] = {
                           # #656: подпись WASM-песочницы == исполняемые байты.
                           "playground-check", "playground",
                           # #668: очная дуэль 12 раундов — тоже самозащита конвейера.
-                          "head-to-head-check")},
+                          "head-to-head-check", "tuple-macros-check")},
 
 
     # E1 — формальное ядро: теории, доказательства, контракты.

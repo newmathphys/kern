@@ -587,6 +587,12 @@ release-assets-check:
 head-to-head-check: build
 	@"$(PYTHON)" tools/head_to_head.py
 
+# #705: КОРТЕЖИ + 4 МАКРО-ЗАКОНА (conserves_sum / non_negative / monotonic /
+# idempotent). Класс CHECK: стенд обязан быть под охраной canfail (кейс
+# `tuple-macros`), иначе он сам станет «проверкой без доказательства».
+tuple-macros-check: build
+	@"$(PYTHON)" tools/tuple_macros_check.py
+
 playground:
 	@"$(PYTHON)" tools/gen_playground_manifest.py
 

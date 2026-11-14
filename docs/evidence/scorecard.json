@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "86f3994b",
-  "code_hash": "sha256:67615f7bc76e7712238d3e172f03144120f5d4ed11768cfe2db15c3efcbd01f5",
+  "commit": "b44386eb",
+  "code_hash": "sha256:41573541804271bd7f99511d5fd8aee65c21c2f83f654ad4c3e0ae4844a46dc1",
   "score": 99,
   "grade": "A+",
   "breakdown": {
@@ -55,9 +55,9 @@
     "attestation": true
   },
   "metrics": {
-    "check_targets": 212,
-    "check_covered": 212,
-    "canfail_cases": 258,
+    "check_targets": 213,
+    "check_covered": 213,
+    "canfail_cases": 259,
     "mutation": "100.0% (40/40) (канонический стратифицированный срез)",
     "qemu": "443 passed / 8 skipped / 0 failed"
   },

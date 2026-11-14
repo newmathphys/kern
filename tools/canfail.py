@@ -363,6 +363,9 @@ FAULTABLE = [
     # #494: кейс `kerna` правит ДОКТОРА — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
     "tools/kerna_doctor.py",
+    # #705: кейс `tuple-macros` правит реальную логику AST-проекции — файл обязан
+    # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
+    "tools/kern_tuple.py",
     # ШАГ 2: кейс `action-doctor` правит `action.yml` — файл обязан быть в
     # списке, иначе подсадка осталась бы в дереве (класс #225).
     "action.yml",
@@ -2935,6 +2938,23 @@ def case_head_to_head():
     return "make head-to-head-check"
 
 
+def case_tuple_macros():
+    """#705 SABOTAGE: макрос `conserves_sum` отключён -> гейт обязан покраснеть.
+
+    ЛОМАЕМ ПОВЕДЕНИЕ, а не текст: ветка `elif macro == "conserves_sum":` заменяется
+    на `elif False:`, поэтому закон падает в SKIP и `tuple_macros_check.py` не
+    находит ожидаемый КОНТРПРИМЕР на `(fee // 2, fee // 2)` (fee = 1).
+
+    ПОЧЕМУ НЕ АЛГЕБРА. Первая версия мутации складывала `elts[0] * len(elts)`:
+    на симметричной фикстуре `(fee // 2) + (fee // 2)` тождественно равно
+    `(fee // 2) * 2`, поэтому гейт остался бы зелёным, а кейс — ВАКУУМНЫМ.
+    """
+    patch("tools/kern_tuple.py",
+          'elif macro == "conserves_sum":',
+          'elif False:  # ЛОМАЕМ макрос (canfail: tuple-macros)')
+    return "make tuple-macros-check"
+
+
 def case_casetarget_gap():
     """ШАГ 0 SABOTAGE (класс #356): кейс есть, записи в CASE_TARGET НЕТ.
 
@@ -4750,6 +4770,8 @@ CASES = [
      case_vacuous_test),
     ("head-to-head", "порог стенда дуэли ослаблен -> гейт красный",
      case_head_to_head),
+    ("tuple-macros", "#705 макрос conserves_sum отключён -> гейт красный",
+     case_tuple_macros),
     ("artifact-offline", "README version diverges from the built binary -> gate red",
      case_artifact_offline),
     ("casetarget-gap", "A case exists but is missing from CASE_TARGET -> gate red",

@@ -77,7 +77,7 @@
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Защита от саботажа ИИ (L5) (45)
+## E3. Защита от саботажа ИИ (L5) (46)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -126,6 +126,7 @@
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
+| `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
 ## E4. Рентген кода, CWE, точность и PR-дельта (33)
 
@@ -255,11 +256,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **213**; класс CHECK в `registry.py`: **213**;
-записей `CASE_TARGET`: **258** (make-исполнимых **254**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **214**; класс CHECK в `registry.py`: **214**;
+записей `CASE_TARGET`: **259** (make-исполнимых **255**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->492 ·
-CHECK-цели <!-- fact:check_targets -->212 · can-fail кейсы <!-- fact:canfail_cases -->258 ·
-якоря <!-- fact:anchors -->216 · цели реестра <!-- fact:registry_targets -->293 · META <!-- fact:meta_targets -->58 ·
+CHECK-цели <!-- fact:check_targets -->213 · can-fail кейсы <!-- fact:canfail_cases -->259 ·
+якоря <!-- fact:anchors -->216 · цели реестра <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

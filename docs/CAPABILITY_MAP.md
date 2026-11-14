@@ -78,7 +78,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
-## E3. Defence against AI sabotage (L5) (45)
+## E3. Defence against AI sabotage (L5) (46)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -127,6 +127,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `state-inv-check` | `state-inv-check` | — | `make state-inv-check` |
 | `storage-check` | `cache-key-13`, `kernfs-no-mmap`, `kernx-shared-fuel`, `kimg-endianness`, `kimg-flag-policy` | — | `make storage-check` |
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
+| `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
 ## E4. Code X-ray, CWE, precision and the PR delta (33)
 
@@ -256,11 +257,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **213**; class CHECK in `registry.py`: **213**;
-`CASE_TARGET` records: **258** (make-executable **254**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **214**; class CHECK in `registry.py`: **214**;
+`CASE_TARGET` records: **259** (make-executable **255**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 ·
-CHECK targets <!-- fact:check_targets -->212 · can-fail cases <!-- fact:canfail_cases -->258 ·
-anchors <!-- fact:anchors -->216 · registry targets <!-- fact:registry_targets -->293 · META <!-- fact:meta_targets -->58 ·
+CHECK targets <!-- fact:check_targets -->213 · can-fail cases <!-- fact:canfail_cases -->259 ·
+anchors <!-- fact:anchors -->216 · registry targets <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

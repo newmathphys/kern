@@ -216,6 +216,7 @@ stage "релиз-ассеты: тег без релиза — дыра (#652)" 
 stage "песочница: подпись == байты (#656)" make playground-check
 # #668: очная дуэль 12 раундов (unittest/gcc/py_compile/json.load против KERN).
 stage "очная дуэль: 12 раундов (#668)" make head-to-head-check
+stage "кортежи + 4 макро-закона: AST-проекция (#705)" make tuple-macros-check
 
 # --- 7. Формальные доказательства -------------------------------------------
 if [ "$FAST" = "0" ]; then

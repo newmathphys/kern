@@ -185,6 +185,8 @@ CLASS = {
     # #668: очная дуэль 12 раундов. Класс CHECK — иначе CASE_TARGET/canfail её
     # проигнорируют, и стенд сам окажется «проверкой без доказательства».
     "head-to-head-check": "CHECK",
+    # #705: кортежи и 4 макро-закона (AST-проекция компонент). Класс CHECK.
+    "tuple-macros-check": "CHECK",
 
     "sabotage-guard": "CHECK",          # #628: маркеры диверсии canfail не в src/
     "tools-laws-check": "CHECK",        # #623: законы @kern: на своих функциях доказаны
@@ -650,6 +652,8 @@ CASE_TARGET = {
     "vacuous-test": "anti-cheat-check",
     # #668: стенд очной дуэли (case-name -> make-target), класс CHECK.
     "head-to-head": "head-to-head-check",
+    # #705: кейс ломает реальную логику kern_tuple.py -> цель Makefile (не файл!).
+    "tuple-macros": "tuple-macros-check",
     # ШАГ 2: диверсия «доктор снят» ловится сухим прогоном шагов action.yml.
     "action-doctor": "action-check",
     # #505: диверсия «гейт ослеп» ловится сквозным пилотом на мини-фикстуре.
