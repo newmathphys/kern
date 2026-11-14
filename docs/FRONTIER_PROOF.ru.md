@@ -1,6 +1,6 @@
 # Эхо-камера флагманов: две LLM против шлюза KERN
 
-Провайдер: **живой API: openrouter**. Модель A (автор): `google/gemma-4-31b-it:free`. Модель B (ревьюер): `cohere/north-mini-code:free`.
+Провайдер: **живой API: openrouter**. Модель A (автор): `cohere/north-mini-code:free`. Модель B (ревьюер): `inclusionai/ling-3.2-flash:free`.
 
 Цикл: A пишет реализацию, B делает ревью и печатает `VERDICT: LGTM` или `BUG`,
 затем KERN судит тот же код законом одной строкой.
@@ -10,12 +10,10 @@
 
 | Задача | Закон | A: код валиден | B: вердикт | KERN | Эхо-камера | KERN говорит |
 |:--|:--|:--|:--|:--|:--|:--|
-| `fee_split` | `conserves_sum` | нет | BUG | SKIP | нет | код не компилируется |
+| `fee_split` | `conserves_sum` | да | LGTM | PROVEN | нет | закон доказан |
 | `tier_ladder` | `monotonic` | нет | BUG | SKIP | нет | код не компилируется |
-| `tick_round` | `idempotent` | нет | BUG | SKIP | нет | код не компилируется |
-| `refund_parts` | `non_negative` | нет | BUG | SKIP | нет | код не компилируется |
 
-**Итог: 4 задач, 0 согласий эхо-камеры**, 192 с.
+**Итог: 2 задач, 0 согласий эхо-камеры**, 106 с.
 
 ## Честные границы
 

@@ -96,7 +96,19 @@ def ask(prompt: str, model: str, provider: str, key: str, timeout=180) -> tuple[
                                                   "X-Title": "KERN echo chamber"})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 js = json.loads(r.read())
-            return js["choices"][0]["message"]["content"], time.time() - t0
+            # ДЕФЕКТ #709 (найдено на ling-3.2/openrouter-free): reasoning-модели
+            # отдают `message.content = null`, а текст кладут в `reasoning`.
+            # Раньше индексация None давала TypeError, и это маскировалось под
+            # «сбой сети». Теперь берём любой непустой текстовый канал.
+            choice = (js.get("choices") or [{}])[0]
+            msg = choice.get("message") or {}
+            text = msg.get("content") or msg.get("reasoning") or ""
+            if not text:
+                text = choice.get("text") or ""
+            if text:
+                return text, time.time() - t0
+            last = "EMPTY_CONTENT"
+            time.sleep(3)
         except urllib.error.HTTPError as e:
             last = f"HTTP {e.code}"
             if e.code in (429, 502, 503, 504):
@@ -131,6 +143,8 @@ def main() -> int:
     ap.add_argument("--model-a", default="qwen2.5:3b")
     ap.add_argument("--model-b", default="qwen2.5:3b")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--sleep", type=float, default=8.0,
+                    help="пауза между запросами (free-тир режет частые вызовы)")
     a = ap.parse_args()
     provider, key = load_key()
     tasks = TASKS[:a.limit] if a.limit else TASKS
@@ -138,6 +152,7 @@ def main() -> int:
     rows, t0 = [], time.time()
     for name, spec, sig, law, param in tasks:
         raw_a, s_a = ask(P_A.format(spec=spec, sig=sig), a.model_a, provider, key)
+        time.sleep(a.sleep)
         code = extract_code(raw_a)
         row = {"task": name, "law": law, "model_a_raw": raw_a[:3000],
                "code": code[:3000], "a_seconds": round(s_a, 1)}
@@ -147,6 +162,7 @@ def main() -> int:
         except SyntaxError:
             row["code_valid"] = False
         raw_b, s_b = ask(P_B.format(spec=spec, code=code), a.model_b, provider, key)
+        time.sleep(a.sleep)
         row.update(model_b_raw=raw_b[:2000], b_seconds=round(s_b, 1),
                    b_lgtm=("VERDICT: LGTM" in raw_b.upper().replace("  ", " ")))
         verd = (kern_law(code, law, param) if row["code_valid"]

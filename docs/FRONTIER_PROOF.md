@@ -1,6 +1,6 @@
 # Frontier echo chamber: two LLMs vs the KERN gate
 
-Provider: **живой API: openrouter**. Model A (author): `google/gemma-4-31b-it:free`. Model B (reviewer): `cohere/north-mini-code:free`.
+Provider: **живой API: openrouter**. Model A (author): `cohere/north-mini-code:free`. Model B (reviewer): `inclusionai/ling-3.2-flash:free`.
 
 Loop: A writes the implementation, B reviews it and prints `VERDICT: LGTM` or
 `VERDICT: BUG`, then KERN judges the same code with a one-line law.
@@ -10,12 +10,10 @@ Loop: A writes the implementation, B reviews it and prints `VERDICT: LGTM` or
 
 | Task | Law | A: code valid | B: verdict | KERN | Echo chamber | KERN says |
 |:--|:--|:--|:--|:--|:--|:--|
-| `fee_split` | `conserves_sum` | no | BUG | SKIP | no | код не компилируется |
+| `fee_split` | `conserves_sum` | yes | LGTM | PROVEN | no | закон доказан |
 | `tier_ladder` | `monotonic` | no | BUG | SKIP | no | код не компилируется |
-| `tick_round` | `idempotent` | no | BUG | SKIP | no | код не компилируется |
-| `refund_parts` | `non_negative` | no | BUG | SKIP | no | код не компилируется |
 
-**Result: 4 tasks, 0 echo-chamber agreements**, 192 s.
+**Result: 2 tasks, 0 echo-chamber agreements**, 106 s.
 
 ## Honest limits
 
