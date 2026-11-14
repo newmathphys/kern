@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -59,11 +60,11 @@ P_B = ("Ты ревьюер. Проверь код на математическ
 def load_key() -> tuple[str, str]:
     """(provider, key) из окружения или .env.local. Ничего не печатаем."""
     envf = ROOT / ".env.local"
-    for k, v in (envf.read_text(encoding="utf-8").splitlines()
-                 if envf.exists() else []):
-        if "=" in k and not k.strip().startswith("#"):
-            name, val = k.split("=", 1)
-            os.environ.setdefault(name.strip(), val.strip().strip('"\''))
+    if envf.exists():
+        for line in envf.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.strip().startswith("#"):
+                name, val = line.split("=", 1)
+                os.environ.setdefault(name.strip(), val.strip().strip("\"'"))
     if os.environ.get("OPENROUTER_API_KEY"):
         return "openrouter", os.environ["OPENROUTER_API_KEY"]
     if os.environ.get("GROQ_API_KEY"):
@@ -72,27 +73,40 @@ def load_key() -> tuple[str, str]:
 
 
 def ask(prompt: str, model: str, provider: str, key: str, timeout=180) -> tuple[str, float]:
+    """Запрос с ретраями и экспоненциальным backoff (бесплатный тир даёт 429)."""
     t0 = time.time()
-    try:
-        if provider == "ollama":
-            body = json.dumps({"model": model, "prompt": prompt, "stream": False,
-                               "options": {"temperature": 0.2, "num_predict": 500}}).encode()
-            req = urllib.request.Request("http://127.0.0.1:11434/api/generate", data=body,
-                                         headers={"Content-Type": "application/json"})
+    last = ""
+    for attempt in range(4):
+        try:
+            if provider == "ollama":
+                body = json.dumps({"model": model, "prompt": prompt, "stream": False,
+                                   "options": {"temperature": 0.2, "num_predict": 500}}).encode()
+                req = urllib.request.Request("http://127.0.0.1:11434/api/generate", data=body,
+                                             headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    return json.loads(r.read()).get("response", ""), time.time() - t0
+            url = ("https://openrouter.ai/api/v1/chat/completions" if provider == "openrouter"
+                   else "https://api.groq.com/openai/v1/chat/completions")
+            body = json.dumps({"model": model, "temperature": 0.2,
+                               "messages": [{"role": "user", "content": prompt}]}).encode()
+            req = urllib.request.Request(url, data=body,
+                                         headers={"Content-Type": "application/json",
+                                                  "Authorization": f"Bearer {key}",
+                                                  "HTTP-Referer": "https://github.com/newmathphys/kern",
+                                                  "X-Title": "KERN echo chamber"})
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return json.loads(r.read()).get("response", ""), time.time() - t0
-        url = ("https://openrouter.ai/api/v1/chat/completions" if provider == "openrouter"
-               else "https://api.groq.com/openai/v1/chat/completions")
-        body = json.dumps({"model": model, "temperature": 0.2,
-                           "messages": [{"role": "user", "content": prompt}]}).encode()
-        req = urllib.request.Request(url, data=body,
-                                     headers={"Content-Type": "application/json",
-                                              "Authorization": f"Bearer {key}"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            js = json.loads(r.read())
-        return js["choices"][0]["message"]["content"], time.time() - t0
-    except Exception as e:  # noqa: BLE001
-        return f"__ERROR__ {type(e).__name__}: {e}", time.time() - t0
+                js = json.loads(r.read())
+            return js["choices"][0]["message"]["content"], time.time() - t0
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code}"
+            if e.code in (429, 502, 503, 504):
+                time.sleep(min(2 ** attempt * 3, 25))     # backoff: 3, 6, 12, 24 с
+                continue
+            return f"__ERROR__ {last}", time.time() - t0
+        except Exception as e:  # noqa: BLE001
+            last = f"{type(e).__name__}: {e}"
+            time.sleep(2)
+    return f"__ERROR__ {last}", time.time() - t0
 
 
 def extract_code(text: str) -> str:
