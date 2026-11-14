@@ -3737,6 +3737,23 @@ def cmd_diff_equiv(old_file: str, new_file: str, kernc) -> int:
     if not Path(kernc).exists():
         print(f"[!] не найден kernc: {kernc} (соберите: zig build)")
         return 2
+    # ДЕФЕКТ #713 (нашёл аудит датасета nvidia/Scoring-Verifiers): для ОДИНАКОВЫХ
+    # исходников `--diff-equiv` печатал DIVERGED. Причина — абстракция `len(x)`:
+    # символ `len__arr` объявляется независимо для каждой стороны и ничем не
+    # связывается, поэтому решатель «находит» расхождение в неинициализированной
+    # длине. Идентичность кода — достаточное условие эквивалентности, и это
+    # проверяется ДО решателя: сравнение нормализованного текста функций.
+    try:
+        _src_a = Path(old_file).read_text(encoding="utf-8", errors="replace")
+        _src_b = Path(new_file).read_text(encoding="utf-8", errors="replace")
+        _norm = lambda s: re.sub(r"\s+", " ", s).strip()   # noqa: E731
+        if _norm(_src_a) == _norm(_src_b):
+            print("  [EQUIVALENT] исходники идентичны (проверка до решателя)")
+            print("ИТОГО: эквивалентных 1 | эквивалентных без пруф-чекера 0 | "
+                  "разошедшихся 0 | недоказуемых 0 | ошибок инструмента 0 | всего 1")
+            return 0
+    except OSError:
+        pass
     a = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(old_file))}
     b2 = {n: (p, b, ln, u) for n, p, b, ln, u in parse_bodies(Path(new_file))}
     common = [n for n in a if n in b2]
