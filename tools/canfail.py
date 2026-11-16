@@ -3965,6 +3965,23 @@ def case_belnap_swarm_check():
     return "make belnap-swarm-check"
 
 
+def case_belnap_check_cli():
+    """ОКНО №2. ЛОМАЕМ ЯДРО: `andT` перестаёт быть inf по порядку истинности.
+
+    ИЗМЕРЕНО: тело `andT` становится телом `orT` (`p1|p2, n1&n2`). Тогда
+    `kernc belnap and_t ...` расходится с независимой моделью пар свидетельств
+    (`and_t` = `p1&p2, n1|n2`), и `make belnap-check` ОБЯЗАН покраснеть.
+    Останется зелёным — значит CLI проверяет сам себя (класс #113): гейт
+    сравнивает вывод с копией той же таблицы, а не с определением.
+    """
+    patch(
+        "src/core/eq2.zig",
+        "    return Eq2.encode(a.p() & b.p(), a.n() | b.n());",
+        "    return Eq2.encode(a.p() | b.p(), a.n() & b.n()); // ЛОМАЕМ: andT стал orT",
+    )
+    return "make belnap-check"
+
+
 def case_action_firewall_check():
     """ПУНКТ 36. ЛОМАЕМ: сообщение ALLOW VIOLATED -> `[INFO]` -> превышение
     бюджета перестаёт быть видимым -> цель обязана покраснеть."""
@@ -4937,6 +4954,7 @@ CASES = [
     ("mcp-audit-check", "MCP: инъекция/rug-pull пойманы",     case_mcp_audit_check),
     ("noninterference-check", "SECRET: утечка поймана",          case_noninterference_check),
     ("belnap-swarm-check", "РОЙ: JOIN_K(T,F)=B проверен",           case_belnap_swarm_check),
+    ("belnap-check", "окно №2: andT подменён -> kernc belnap расходится с моделью пар", case_belnap_check_cli),
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),

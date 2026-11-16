@@ -1,0 +1,239 @@
+[
+  {
+    "id": "belnap_spec_gap_unknown",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Спецификации",
+    "trick": "забытый диапазон тарифа даёт N, а не «доказано» (связка со --spec-gaps)",
+    "sphere_en": "Specifications",
+    "trick_en": "a forgotten tariff range yields N, not “proven” (linked with --spec-gaps)",
+    "calls": [
+      [
+        "join_k",
+        "N",
+        "N"
+      ],
+      [
+        "meet_k",
+        "N",
+        "T"
+      ],
+      [
+        "and_t",
+        "N",
+        "T"
+      ]
+    ],
+    "spec_gaps": {
+      "code": "# СЮЖЕТ: тарифная сетка, у которой ЗАБЫТ диапазон 18..20 — дыра в спецификации.\n# @kern:preset non_negative\n# @kern:preset percentage\ndef tariff(days):\n    return days * 3\n",
+      "min_markers": 1
+    }
+  },
+  {
+    "id": "belnap_conflict_sensors",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Микросервисы/сенсоры",
+    "trick": "конфликт двух источников: join_k(T,F)=B, и новый голос T не перезаписывает конфликт",
+    "sphere_en": "Microservices/sensors",
+    "trick_en": "two sources disagree: join_k(T,F)=B, and a new T vote does not overwrite it",
+    "calls": [
+      [
+        "join_k",
+        "T",
+        "F"
+      ],
+      [
+        "join_k",
+        "B",
+        "T"
+      ],
+      [
+        "join_k",
+        "F",
+        "T"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_consensus_meet",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Консенсус источников",
+    "trick": "общая часть знаний: meet_k(T,F)=N, meet_k(T,T)=T, meet_k(B,T)=T",
+    "sphere_en": "Source consensus",
+    "trick_en": "shared knowledge only: meet_k(T,F)=N, meet_k(T,T)=T, meet_k(B,T)=T",
+    "calls": [
+      [
+        "meet_k",
+        "T",
+        "F"
+      ],
+      [
+        "meet_k",
+        "T",
+        "T"
+      ],
+      [
+        "meet_k",
+        "B",
+        "T"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_fail_closed_and",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Отказоустойчивость",
+    "trick": "безопасное короткое замыкание: and_t(F,N)=F — запрет не ждёт упавший сервис",
+    "sphere_en": "Fail-safe shutdown",
+    "trick_en": "fail closed: and_t(F,N)=F, the ban does not wait for a dead service",
+    "calls": [
+      [
+        "and_t",
+        "F",
+        "N"
+      ],
+      [
+        "and_t",
+        "F",
+        "T"
+      ],
+      [
+        "and_t",
+        "F",
+        "B"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_authority_or",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Права доступа",
+    "trick": "явное право сильнее незнания: or_t(T,N)=T, or_t(T,F)=T, or_t(B,T)=T",
+    "sphere_en": "Access rights",
+    "trick_en": "explicit authority beats ignorance: or_t(T,N)=T, or_t(T,F)=T, or_t(B,T)=T",
+    "calls": [
+      [
+        "or_t",
+        "T",
+        "N"
+      ],
+      [
+        "or_t",
+        "T",
+        "F"
+      ],
+      [
+        "or_t",
+        "B",
+        "T"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_not_unknown",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Честная симметрия незнания",
+    "trick": "отсутствие ответа не превращается в True: not(N)=N (не как `not None` в Python)",
+    "sphere_en": "Honest ignorance",
+    "trick_en": "no answer does not become True: not(N)=N (unlike `not None` in Python)",
+    "calls": [
+      [
+        "not",
+        "N"
+      ],
+      [
+        "not",
+        "T"
+      ],
+      [
+        "not",
+        "F"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_not_conflict",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Паранепротиворечивость",
+    "trick": "отрицание не гасит конфликт: not(B)=B (никакого ex falso quodlibet)",
+    "sphere_en": "Paraconsistency",
+    "trick_en": "negation does not dissolve conflict: not(B)=B (no ex falso quodlibet)",
+    "calls": [
+      [
+        "not",
+        "B"
+      ],
+      [
+        "not",
+        "F"
+      ],
+      [
+        "not",
+        "N"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_acl_cascade",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "ACL/эскалация",
+    "trick": "Allow и Deny одновременно: join_k(T,F)=B, и and_t(B,T)=B — эскалация вместо silent allow",
+    "sphere_en": "ACL/escalation",
+    "trick_en": "Allow and Deny at once: join_k(T,F)=B, and and_t(B,T)=B — escalate, not silent allow",
+    "calls": [
+      [
+        "join_k",
+        "T",
+        "F"
+      ],
+      [
+        "and_t",
+        "B",
+        "T"
+      ],
+      [
+        "or_t",
+        "B",
+        "F"
+      ]
+    ]
+  },
+  {
+    "id": "belnap_arbitration_all16",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Арбитраж 3 агентов",
+    "trick": "полный каскад 68 клеток: 4 операции x 16 пар + not на 4 значения",
+    "sphere_en": "Three-agent arbitration",
+    "trick_en": "full 68-cell cascade: 4 operations x 16 pairs + not on 4 values",
+    "mode": "table"
+  },
+  {
+    "id": "belnap_gdpr_vs_tax",
+    "kind": "belnap",
+    "block": "01",
+    "sphere": "Комплаенс GDPR",
+    "trick": "«удалить ПДн» (T) против налогового удержания (F): join_k=B, meet_k(B,N)=N -> ручной вердикт",
+    "sphere_en": "GDPR compliance",
+    "trick_en": "“delete personal data” (T) vs tax retention (F): join_k=B, meet_k(B,N)=N -> manual verdict",
+    "calls": [
+      [
+        "join_k",
+        "T",
+        "F"
+      ],
+      [
+        "meet_k",
+        "B",
+        "N"
+      ]
+    ]
+  }
+]

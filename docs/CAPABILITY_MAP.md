@@ -68,10 +68,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `ubsafe` | `ubsafe` | — | `make ubsafe` |
 | `verify` | `verify-cli` | — | `make verify` |
 
-## E2. Belnap B4 lattice (L3) and KERN-Next (5)
+## E2. Belnap B4 lattice (L3) and KERN-Next (6)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
+| `belnap-check` | `belnap-check` | — | `make belnap-check` |
 | `belnap-swarm-check` | `belnap-swarm-check` | — | `make belnap-swarm-check` |
 | `kern` | — | — | `make kern` |
 | `kernx-polygon5-check` | `kernx-polygon5` | — | `make kernx-polygon5-check` |
@@ -257,11 +258,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **214**; class CHECK in `registry.py`: **214**;
-`CASE_TARGET` records: **259** (make-executable **255**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **215**; class CHECK in `registry.py`: **215**;
+`CASE_TARGET` records: **260** (make-executable **256**); without a case outside `NO_CASE_OK`: **0**.
 
 
-core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->492 ·
-CHECK targets <!-- fact:check_targets -->213 · can-fail cases <!-- fact:canfail_cases -->259 ·
-anchors <!-- fact:anchors -->217 · registry targets <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 ·
+core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 ·
+CHECK targets <!-- fact:check_targets -->214 · can-fail cases <!-- fact:canfail_cases -->260 ·
+anchors <!-- fact:anchors -->217 · registry targets <!-- fact:registry_targets -->295 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

@@ -34,6 +34,7 @@ const compat = @import("compat");
 const cegis = @import("verifier/cegis.zig");
 const kparser = @import("next/parser.zig");
 const truth = @import("next/truth.zig");
+const eq2_mod = @import("core/eq2.zig");
 const attest_mod = @import("attest.zig");
 const owner_mod = @import("owner.zig");
 const Ed25519 = std.crypto.sign.Ed25519;
@@ -151,6 +152,120 @@ fn writeWithoutExit(w: anytype, smt: []const u8) !void {
     }
 }
 
+// ===========================================================================
+//  НАТИВНАЯ 4-ЗНАЧНАЯ ЛОГИКА БЕЛНАПА B4: `kernc belnap`
+// ===========================================================================
+// ЗАЧЕМ ОТДЕЛЬНАЯ КОМАНДА. Бирешётка жила в ядре (`core/eq2.zig`) и была
+// доступна тестам и `kernx belnap-table`, но из ПУБЛИЧНОГО `kernc` её нельзя
+// было ни увидеть, ни использовать в скриптах. Здесь правило одно:
+// ВЫВОДИТСЯ РОВНО НАТИВНАЯ ФУНКЦИЯ ЯДРА — в обвязке НЕТ ни одной таблицы
+// истинности, поэтому «CLI разошёлся с ядром» невозможно по построению.
+//
+// ФОРМАТ (данные -> stdout; отказ -> stderr, rc=2):
+//   kernc belnap <op> <a> [b]         -> символ результата (`N|T|F|B`)
+//   kernc belnap --bits <op> <a> [b]  -> `<символ> <код> <p> <n>` (код = p|(n<<1))
+//   kernc belnap --table              -> 4 операции × 16 пар + `not` на 4 значения
+const BelnapArity = enum { unary, binary };
+
+const BelnapOp = struct {
+    name: []const u8,
+    arity: BelnapArity,
+};
+
+/// Имя операции -> её арность. Семантики здесь нет: только имена.
+fn belnapOp(name: []const u8) ?BelnapOp {
+    if (std.mem.eql(u8, name, "join_k")) return .{ .name = "join_k", .arity = .binary };
+    if (std.mem.eql(u8, name, "meet_k")) return .{ .name = "meet_k", .arity = .binary };
+    if (std.mem.eql(u8, name, "and_t")) return .{ .name = "and_t", .arity = .binary };
+    if (std.mem.eql(u8, name, "or_t")) return .{ .name = "or_t", .arity = .binary };
+    if (std.mem.eql(u8, name, "not")) return .{ .name = "not", .arity = .unary };
+    return null;
+}
+
+/// ЕДИНСТВЕННОЕ место, где имя операции превращается в вызов: тело — нативные
+/// функции `core/eq2.zig`. Арность проверена ДО вызова.
+fn belnapApply(op: []const u8, a: Eq2, b: Eq2) Eq2 {
+    if (std.mem.eql(u8, op, "join_k")) return a.joinK(b);
+    if (std.mem.eql(u8, op, "meet_k")) return a.meetK(b);
+    if (std.mem.eql(u8, op, "and_t")) return eq2_mod.andT(a, b);
+    if (std.mem.eql(u8, op, "or_t")) return eq2_mod.orT(a, b);
+    return eq2_mod.notB(a);
+}
+
+fn belnapUsageErr(comptime fmt: []const u8, args: anytype) noreturn {
+    std.debug.print("[!] belnap: " ++ fmt ++ "\n", args);
+    std.debug.print(
+        "    использование: kernc belnap [--bits] <join_k|meet_k|and_t|or_t|not> <N|T|F|B> [N|T|F|B]\n" ++
+        "                   kernc belnap --table\n" ++
+        "    коды: 0 — результат; 2 — ошибка входа (мусор/арность/флаг)\n",
+        .{});
+    std.process.exit(2);
+}
+
+fn belnapMain(args: []const [:0]const u8) void {
+    var want_bits = false;
+    var want_table = false;
+    var positional: [4][]const u8 = undefined;
+    var n: usize = 0;
+    var i: usize = 2;
+    while (i < args.len) : (i += 1) {
+        const a: []const u8 = args[i];
+        if (std.mem.eql(u8, a, "--bits")) {
+            want_bits = true;
+            continue;
+        }
+        if (std.mem.eql(u8, a, "--table")) {
+            want_table = true;
+            continue;
+        }
+        if (a.len > 0 and a[0] == '-') belnapUsageErr("неизвестный флаг «{s}»", .{a});
+        if (n >= positional.len) belnapUsageErr("слишком много аргументов (ожидалось не больше трёх)", .{});
+        positional[n] = a;
+        n += 1;
+    }
+    const vals = [_]Eq2{ .N, .T, .F, .B };
+    if (want_table) {
+        if (n != 0) belnapUsageErr("--table не принимает позиционных аргументов", .{});
+        const ops = [_][]const u8{ "join_k", "meet_k", "and_t", "or_t" };
+        for (ops) |op| {
+            for (vals) |a| {
+                for (vals) |b| {
+                    emitFmt("{s}|{s}|{s}|{s}\n", .{ op, a.symbol(), b.symbol(), belnapApply(op, a, b).symbol() });
+                }
+            }
+        }
+        for (vals) |a| emitFmt("not|{s}|{s}\n", .{ a.symbol(), eq2_mod.notB(a).symbol() });
+        return;
+    }
+    if (n == 0) belnapUsageErr("не указана операция", .{});
+    const op = belnapOp(positional[0]) orelse belnapUsageErr(
+        "неизвестная операция «{s}» (допустимо: join_k, meet_k, and_t, or_t, not)",
+        .{positional[0]},
+    );
+    const operands: usize = if (op.arity == .unary) 1 else 2;
+    if (n < operands + 1) belnapUsageErr(
+        "операции «{s}» нужно операндов {d}, получено {d}",
+        .{ op.name, operands, n - 1 },
+    );
+    if (n > operands + 1) belnapUsageErr(
+        "лишние аргументы: ожидалось операндов {d}, получено {d}",
+        .{ operands, n - 1 },
+    );
+    const a = eq2_mod.fromSymbol(positional[1]) orelse
+        belnapUsageErr("литерал «{s}» вне {{N,T,F,B}}", .{positional[1]});
+    var b: Eq2 = .N;
+    if (op.arity == .binary) {
+        b = eq2_mod.fromSymbol(positional[2]) orelse
+            belnapUsageErr("литерал «{s}» вне {{N,T,F,B}}", .{positional[2]});
+    }
+    const r = belnapApply(op.name, a, b);
+    if (want_bits) {
+        emitFmt("{s} {d} {d} {d}\n", .{ r.symbol(), @intFromEnum(r), r.positive(), r.negative() });
+    } else {
+        emitFmt("{s}\n", .{r.symbol()});
+    }
+}
+
 pub fn main(init: std.process.Init) !void {
     // Zig 0.17: файловый I/O требует явный `io` — публикуем его в compat.
     compat.setIo(init.io);
@@ -172,6 +287,12 @@ pub fn main(init: std.process.Init) !void {
     // (правило выше: данные → stdout), поэтому `kernc --help | less` работает.
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
         emitUsage();
+        return;
+    }
+
+    // ---- belnap: НАТИВНАЯ решётка B4 (ядро `core/eq2.zig`, без таблиц) ----
+    if (std.mem.eql(u8, command, "belnap")) {
+        belnapMain(args);
         return;
     }
 
@@ -1684,6 +1805,8 @@ const USAGE: []const u8 = std.fmt.comptimePrint(
     \\                                                  строка `LE c:x d:y k` = c*x+d*y+k <= 0
     \\  theory <file>                                   arrays|absint|chc|dtmc|nonint|redos|strings
     \\  unify <human_max> <ai_min>                      RLAIF: сечение политопов
+    \\  belnap <op> <a> [b]                             нативная B4 из ядра: join_k|meet_k|and_t|or_t|not,
+    \\                                                  --bits = `<символ> <код> <p> <n>`, --table = все 68 строк
     \\
     \\АУДИТ, ОТЧЁТЫ, АТТЕСТАЦИЯ, ПЕСОЧНИЦА
     \\  audit <file|dir>                                безаннотационный аудит (--xray)

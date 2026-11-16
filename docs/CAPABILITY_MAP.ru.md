@@ -67,10 +67,11 @@
 | `ubsafe` | `ubsafe` | — | `make ubsafe` |
 | `verify` | `verify-cli` | — | `make verify` |
 
-## E2. Решётка Белнапа B4 (L3) и KERN-Next (5)
+## E2. Решётка Белнапа B4 (L3) и KERN-Next (6)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
+| `belnap-check` | `belnap-check` | — | `make belnap-check` |
 | `belnap-swarm-check` | `belnap-swarm-check` | — | `make belnap-swarm-check` |
 | `kern` | — | — | `make kern` |
 | `kernx-polygon5-check` | `kernx-polygon5` | — | `make kernx-polygon5-check` |
@@ -256,11 +257,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **214**; класс CHECK в `registry.py`: **214**;
-записей `CASE_TARGET`: **259** (make-исполнимых **255**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **215**; класс CHECK в `registry.py`: **215**;
+записей `CASE_TARGET`: **260** (make-исполнимых **256**); без кейса вне `NO_CASE_OK`: **0**.
 
 
-ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->492 ·
-CHECK-цели <!-- fact:check_targets -->213 · can-fail кейсы <!-- fact:canfail_cases -->259 ·
-якоря <!-- fact:anchors -->217 · цели реестра <!-- fact:registry_targets -->294 · META <!-- fact:meta_targets -->58 ·
+ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->499 ·
+CHECK-цели <!-- fact:check_targets -->214 · can-fail кейсы <!-- fact:canfail_cases -->260 ·
+якоря <!-- fact:anchors -->217 · цели реестра <!-- fact:registry_targets -->295 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

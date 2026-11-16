@@ -524,6 +524,16 @@ noninterference-check: build
 belnap-swarm-check: build
 	@bash tools/belnap_swarm_check.sh
 
+# ОКНО №2 (33-я стадия CI): НАТИВНАЯ 4-значная логика B4 из ядра Zig в CLI.
+# `kernc belnap` выводит ТОЛЬКО нативные функции `src/core/eq2.zig` (joinK,
+# meetK, andT, orT, notB); ожидания считает НЕЗАВИСИМАЯ модель пар свидетельств
+# (pos, neg), написанная в скрипте с нуля — ни одной клетки из Zig не скопировано.
+# Покрытие: 4 бинарные операции x 16 пар + 4 `not` = 68 клеток, `--bits` и
+# `--table`, плюс шесть отказов на мусорном входе (rc != 0 + непустой stderr).
+# Законы решётки доказываются Zig-тестами (`zig build test`), а не скриптом.
+belnap-check: build
+	@bash tools/belnap_check.sh
+
 # ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
 action-firewall-check: build
 	@bash tools/action_firewall_check.sh

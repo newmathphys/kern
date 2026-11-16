@@ -200,3 +200,27 @@ test "RES-01: исчерпание топлива — это N, а не F" {
     try std.testing.expectEqual(eq2.Eq2.N, status);
 }
 
+
+// =========================================================================
+// ЧАСТЬ B4-CLI: МОСТ «truth.Bit -> core.Eq2» (Окно №2).
+//
+// ЗАЧЕМ. Два независимых представления Белнапа: `Bit` (два bool, next/truth.zig)
+// и `Eq2` (код p|(n<<1), core/eq2.zig). Если они разойдутся, `kernc belnap` и
+// резолюция статусов начнут говорить РАЗНОЕ об одной паре свидетельств (класс
+// «два источника истины»). Домен конечен (4×4), поэтому совпадение проверяется
+// ПОЛНОСТЬЮ, а не «на примерах».
+test "B4-CLI: Bit.join (truth.zig) == Eq2.joinK (core/eq2.zig) на всех 16 парах" {
+    const truth = @import("../next/truth.zig");
+    const Eq2 = eq2.Eq2;
+    const vals = [_]Eq2{ .N, .T, .F, .B };
+    for (vals) |a| {
+        for (vals) |b| {
+            const bit_a = truth.Bit{ .p = a.positive() == 1, .n = a.negative() == 1 };
+            const bit_b = truth.Bit{ .p = b.positive() == 1, .n = b.negative() == 1 };
+            const joined = truth.Bit.join(bit_a, bit_b);
+            const native = a.joinK(b);
+            try std.testing.expectEqual(native.positive() == 1, joined.p);
+            try std.testing.expectEqual(native.negative() == 1, joined.n);
+        }
+    }
+}

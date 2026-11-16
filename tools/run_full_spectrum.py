@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
-"""ПОЛИГОН FULL SPECTRUM: окно №1 — блоки 02 (`--heal`) и 04 (`--state-inv`).
+"""ПОЛИГОН FULL SPECTRUM: блок 01 (`kernc belnap` → нативная B4), 02 (`--heal`) и 04 (`--state-inv`).
 
-ЗАЧЕМ. Два готовых режима KERN до сих пор демонстрировались РОВНО на одном
-примере каждый (`examples/xray_demo.py`, `examples/state_invariant_demo.py`).
-Один пример не отличает «режим работает» от «режим совпал с примером». Здесь
-они прогоняются по корпусу карточек, и КАЖДАЯ карточка проверяется ДВАЖДЫ:
+ЗАЧЕМ. Механизмы KERN до сих пор демонстрировались РОВНО на одном примере
+каждый. Один пример не отличает «режим работает» от «режим совпал с примером».
+Здесь каждый режим прогоняется по корпусу карточек, и КАЖДАЯ карточка
+проверяется ДВАЖДЫ:
 
   1. ВЕРДИКТ KERN — символически (∀-проверка инварианта или синтез гарда);
-  2. НЕЗАВИСИМЫЙ ФИЗИЧЕСКИЙ ОРАКУЛ — CPython реально исполняет код
-     (для `--heal`: файл падает ДО, исполняется ПОСЛЕ и на обычных входах
-     считает ПРАВИЛЬНО; для `--state-inv`: последовательность вызовов
-     проигрывается на объекте, инвариант проверяется ФИЗИЧЕСКИ).
+  2. НЕЗАВИСИМЫЙ ФИЗИЧЕСКИЙ ОРАКУЛ — не копия таблиц, а ВЫЧИСЛЕНИЕ:
+     для `belnap` — B4 из первых принципов по парам свидетельств
+     `(pos, neg) in {0,1}^2`; для `--heal` — CPython реально исполняет код
+     (файл падает ДО, исполняется ПОСЛЕ и на обычных входах считает ВЕРНО);
+     для `--state-inv` — последовательность вызовов проигрывается на объекте,
+     инвариант проверяется ФИЗИЧЕСКИ.
 
 ЗАКОН ЦЕЛОСТНОСТИ: `confirmed == total`. Любая неподтверждённая карточка —
 rc=1, и витрины НЕ пишутся вовсе (зелёная галочка без доказательства = обман).
@@ -45,6 +47,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, "tools")
 KERN = os.path.join(TOOLS, "kern_contracts.py")
+KERNC = os.path.join(ROOT, "zig-out", "bin", "kernc")
 BENCH = os.path.join(ROOT, "benchmarks", "full_spectrum")
 DOCS = os.path.join(ROOT, "docs")
 PY = sys.executable
@@ -287,12 +290,142 @@ def check_state_inv(card, tmpdir):
                                         res.get("safe_violations")))}
 
 
+# ---------------------------------------------------------------------------
+#  БЛОК 01: НАТИВНАЯ 4-ЗНАЧНАЯ ЛОГИКА БЕЛНАПА (kernc belnap)
+# ---------------------------------------------------------------------------
+# ОРАКУЛ СЧИТАЕТ B4 ИЗ ПЕРВЫХ ПРИНЦИПОВ, а не переписывает таблицу из Zig.
+# Каждое значение — пара свидетельств (pos, neg) in {0,1}^2:
+#     N = (0,0)  «нет свидетельств»     T = (1,0)  «только подтверждение»
+#     F = (0,1)  «только опровержение»  B = (1,1)  «и то, и другое»
+# Знание комбинируется ПОКОМПОНЕНТНО (OR — добавить информацию, AND — общая
+# часть), истина — покомпонентной монотонностью:
+#     join_k = (p1|p2, n1|n2)   meet_k = (p1&p2, n1&n2)   not = (n, p)
+#     and_t  = (p1&p2, n1|n2)   or_t   = (p1|p2, n1&n2)
+# Ни одна клетка не скопирована: символ получается ОБРАТНЫМ отображением пары.
+BITS4 = {"N": (0, 0), "T": (1, 0), "F": (0, 1), "B": (1, 1)}
+SYM4 = {(0, 0): "N", (1, 0): "T", (0, 1): "F", (1, 1): "B"}
+
+
+def belnap_oracle(op, a, b=None):
+    """Значение операции B4 из определения пар свидетельств (не таблица)."""
+    p1, n1 = BITS4[a]
+    if op == "not":
+        return SYM4[(n1, p1)]
+    p2, n2 = BITS4[b]
+    if op == "join_k":
+        return SYM4[(p1 | p2, n1 | n2)]
+    if op == "meet_k":
+        return SYM4[(p1 & p2, n1 & n2)]
+    if op == "and_t":
+        return SYM4[(p1 & p2, n1 | n2)]
+    if op == "or_t":
+        return SYM4[(p1 | p2, n1 & n2)]
+    raise ValueError("неизвестная операция: %s" % op)
+
+
+def kernc_belnap(args):
+    return run([KERNC, "belnap"] + list(args), timeout=60)
+
+
+def check_belnap(card, tmpdir):
+    """KERN-вердикт = нативный вывод ядра; оракул = вычисление из пар битов."""
+    errs = []
+    if not (os.path.isfile(KERNC) and os.access(KERNC, os.X_OK)):
+        return (["нет исполняемого %s — сначала `zig build` (kernc belnap живёт "
+                 "в ядре Zig, а не в Python)" % os.path.relpath(KERNC, ROOT)], {})
+    mode = card.get("mode", "ops")
+    cells = 0
+
+    if mode == "table":
+        rc, out, err = kernc_belnap(["--table"])
+        if rc != 0:
+            errs.append("kernc belnap --table rc=%d: %s" % (rc, err.strip()[:90]))
+        rows = [ln.split("|") for ln in out.splitlines() if ln.strip()]
+        if len(rows) != 68:
+            errs.append("--table: строк %d, ожидалось 68 (4 операции x 16 пар + 4 not)"
+                        % len(rows))
+        for row in rows:
+            if len(row) == 4:
+                op, a, b, got = row
+            elif len(row) == 3:
+                op, a, got = row
+                b = None
+            else:
+                errs.append("--table: неразборчивая строка %r" % "|".join(row))
+                continue
+            want = belnap_oracle(op, a, b)
+            cells += 1
+            if got != want:
+                errs.append("--table: %s(%s,%s) = %s, модель пар даёт %s"
+                            % (op, a, b, got, want))
+    else:
+        calls = card.get("calls") or []
+        if not calls:
+            errs.append("карточка без вызовов (поле `calls` пусто)")
+        for call in calls:
+            op, a = call[0], call[1]
+            b = call[2] if len(call) > 2 else None
+            want = belnap_oracle(op, a, b)
+            args = [op, a] + ([b] if b is not None else [])
+            rc, out, err = kernc_belnap(args)
+            got = out.strip()
+            cells += 1
+            if rc != 0:
+                errs.append("kernc belnap %s rc=%d: %s"
+                            % (" ".join(args), rc, err.strip()[:90]))
+            elif got != want:
+                errs.append("%s = %s, модель пар (pos,neg) даёт %s"
+                            % (" ".join(args), got, want))
+            rc2, out2, _err2 = kernc_belnap(["--bits"] + args)
+            parts = out2.split()
+            if rc2 != 0 or len(parts) != 4:
+                errs.append("--bits %s: rc=%d, вывод %r"
+                            % (" ".join(args), rc2, out2.strip()))
+                continue
+            sym, code, p, n = parts
+            p_, n_ = BITS4[want]
+            if (sym != want or code != str(p_ | (n_ << 1))
+                    or p != str(p_) or n != str(n_)):
+                errs.append("--bits %s = %s (код %s, p=%s, n=%s); модель даёт %s "
+                            "(код %d, p=%d, n=%d)"
+                            % (" ".join(args), sym, code, p, n, want,
+                               p_ | (n_ << 1), p_, n_))
+
+    gap_markers = 0
+    gaps = card.get("spec_gaps")
+    if gaps:
+        fixture = write_text(os.path.join(tmpdir, card["id"] + "_gaps.py"), gaps["code"])
+        rc, gout, gerr = run([PY, KERN, "--presets", fixture, "--spec-gaps"], timeout=180)
+        gtext = gout + gerr
+        gap_markers = gtext.count("[SPEC GAP]")
+        need = int(gaps.get("min_markers", 1))
+        if gap_markers < need:
+            errs.append("--spec-gaps: маркеров [SPEC GAP] %d, ожидалось >= %d (rc=%d)"
+                        % (gap_markers, need, rc))
+
+    return errs, {"cells": cells, "gap_markers": gap_markers, "mode": mode}
+
+
 def run_card(card):
     with tempfile.TemporaryDirectory(prefix="full_spectrum_") as tmpdir:
         if card["kind"] == "heal":
             errs, facts = check_heal(card, tmpdir)
         elif card["kind"] == "state-inv":
             errs, facts = check_state_inv(card, tmpdir)
+        elif card["kind"] == "belnap":
+            errs, facts = check_belnap(card, tmpdir)
+            gaps = facts.get("gap_markers") or 0
+            gap_en = (" · spec-gap markers: %d" % gaps) if gaps else ""
+            facts.update({
+                "kern_note_en": "%s native cell(s) via kernc belnap (Zig core)"
+                                % facts.get("cells"),
+                "kern_note_ru": "%s нативных клеток через kernc belnap (ядро Zig)"
+                                % facts.get("cells"),
+                "oracle_note_en": "bit-pair oracle agrees on %s cell(s)%s"
+                                  % (facts.get("cells"), gap_en),
+                "oracle_note_ru": "оракул пар битов сошёлся на %s клетках%s"
+                                  % (facts.get("cells"), gap_en),
+            })
         else:
             errs, facts = ["неизвестный kind=%r" % card.get("kind")], {}
     return {
@@ -319,9 +452,14 @@ def load_cards(paths):
         if not isinstance(blob, list):
             raise SystemExit("[!] %s: ожидался список карточек" % path)
         for card in blob:
-            for key in ("id", "kind", "sphere", "trick", "code"):
+            for key in ("id", "kind", "sphere", "trick"):
                 if key not in card:
                     raise SystemExit("[!] %s: карточка без поля %r" % (path, key))
+            if card["kind"] in ("heal", "state-inv") and "code" not in card:
+                raise SystemExit("[!] %s: карточке %s нужен `code`" % (path, card["id"]))
+            if card["kind"] == "belnap" and not (card.get("calls") or card.get("mode") == "table"):
+                raise SystemExit("[!] %s: belnap-карточке %s нужны `calls` или `mode: table`"
+                                 % (path, card["id"]))
             cards.append(card)
     return cards
 
@@ -344,6 +482,9 @@ def _rows(results, lang="en"):
                 kern = "T (1,0), %s crash-paths before → %s after" % (f.get("crash_before"), f.get("crash_after"))
                 oracle = "python3 rc %s → %s · %s guard(s) · normal inputs exact" % (
                     f.get("rc_before"), f.get("rc_after"), f.get("guards"))
+        elif r["kind"] == "belnap":
+            kern = f.get("kern_note_" + lang) or "%s native cell(s)" % f.get("cells")
+            oracle = f.get("oracle_note_" + lang) or "bit-pair oracle agrees"
         else:
             kern = f.get("kern_note_" + lang) or "[FAIL] naive + [PASS] guarded, 0 UNKNOWN"
             oracle = f.get("oracle_note_" + lang) or (
@@ -356,11 +497,12 @@ def _rows(results, lang="en"):
 def render_en(results, corpus_names):
     rows = _rows(results, "en")
     L = [
-        "# Full Spectrum 70 — window 1: blocks 02 and 04 (%d of %d confirmed)" % (len(results), len(results)),
+        "# Full Spectrum 70 — window 1: blocks 01, 02 and 04 (%d of %d confirmed)" % (len(results), len(results)),
         "",
-        "Two KERN modes that had been shown on a single example each are now run over a",
-        "corpus of business cards. Every card is checked **twice**: the KERN verdict",
-        "(symbolic) and an **independent physical oracle** (CPython really executes the code).",
+        "Every mechanism below had been shown on a single example each; here each one is",
+        "run over a corpus of business cards. Every card is checked **twice**: the KERN",
+        "verdict (native Zig / symbolic) and an **independent oracle** that is not a copy",
+        "of the engine's tables (bit-pair semantics for B4, CPython execution for code).",
         "",
         "**Law of integrity:** `confirmed == total`. If a single card is not confirmed, the",
         "runner exits with `rc=1` and writes no showcase at all.",
@@ -377,6 +519,20 @@ def render_en(results, corpus_names):
             i, r["block"], r["id"], _cell(r["sphere_en"]), _cell(r["trick_en"]),
             _cell(kern), _cell(oracle), "OK" if not r["failed"] else "FAIL"))
     L += [
+        "",
+        "## What block 01 proves (native B4, `kernc belnap`)",
+        "",
+        "`kernc belnap <op> <a> [b]` prints the result of a **native** function of the Zig",
+        "core (`src/core/eq2.zig`: `joinK`, `meetK`, `andT`, `orT`, `notB`). There is no",
+        "truth table in the wrapper: the CLI layer only maps an operation name to a call,",
+        "so \"CLI drifted from the engine\" is impossible by construction. `--bits` prints",
+        "`<symbol> <code> <pos> <neg>` with `code = pos | (neg << 1)`.",
+        "",
+        "The oracle does **not** copy those tables: it recomputes B4 from evidence pairs",
+        "`(pos, neg) in {0,1}^2` — `N=(0,0)`, `T=(1,0)`, `F=(0,1)`, `B=(1,1)` — combining",
+        "knowledge component-wise (`join_k` = OR/OR, `meet_k` = AND/AND) and truth",
+        "monotonically (`and_t` = AND/OR, `or_t` = OR/AND), with `not = (neg, pos)`.",
+        "Every cell of every row is compared, including the full 68-row `--table` cascade.",
         "",
         "## What block 02 proves (auto-repair without an LLM, `--heal`)",
         "",
@@ -411,6 +567,10 @@ def render_en(results, corpus_names):
         "",
         "## Honest boundaries",
         "",
+        "- `kernc belnap` is a **pure lattice calculator** over four values. Certainty and",
+        "  conflict predicates are **not** exposed as separate operations: no such native",
+        "  predicate exists in `Bit`/`Eq2` today, so the CLI does not invent one; `--bits`",
+        "  gives `pos`/`neg`, and a caller can derive \"definite\" or \"conflict\" from them.",
         "- `--heal` synthesises guards **only for division by zero** (`/`, `//`, `%`) —",
         "  exactly what `_crash_sites` searches for. It does **not** repair list index",
         "  out-of-range or a shifted threshold guard, so no such card is claimed here.",
@@ -437,14 +597,14 @@ def render_en(results, corpus_names):
 
 
 def render_ru(results, corpus_names):
-    rows = _rows(results)
+    rows = _rows(results, "ru")
     L = [
-        "# Full Spectrum 70 — окно №1: блоки 02 и 04 (%d из %d подтверждено)" % (len(results), len(results)),
+        "# Full Spectrum 70 — окно №1: блоки 01, 02 и 04 (%d из %d подтверждено)" % (len(results), len(results)),
         "",
-        "Два режима KERN, которые до сих пор были показаны РОВНО на одном примере каждый,",
-        "теперь прогоняются по корпусу боевых карточек. Каждая карточка проверяется",
-        "**дважды**: вердикт KERN (символически) и **независимый физический оракул**",
-        "(CPython реально исполняет код).",
+        "Каждый механизм до сих пор был показан РОВНО на одном примере; здесь каждый",
+        "прогоняется по корпусу боевых карточек. Каждая карточка проверяется **дважды**:",
+        "вердикт KERN (нативный Zig / символически) и **независимый оракул**, который НЕ",
+        "копирует таблицы движка (семантика пар битов для B4, исполнение CPython для кода).",
         "",
         "**Закон целостности:** `confirmed == total`. Если хотя бы одна карточка не",
         "подтверждена, раннер завершается с `rc=1` и витрины НЕ пишет вообще.",
@@ -461,6 +621,20 @@ def render_ru(results, corpus_names):
             i, r["block"], r["id"], _cell(r["sphere"]), _cell(r["trick"]),
             _cell(kern), _cell(oracle), "OK" if not r["failed"] else "FAIL"))
     L += [
+        "",
+        "## Что доказывает блок 01 (нативная B4, `kernc belnap`)",
+        "",
+        "`kernc belnap <op> <a> [b]` печатает результат **нативной** функции ядра Zig",
+        "(`src/core/eq2.zig`: `joinK`, `meetK`, `andT`, `orT`, `notB`). В обвязке НЕТ ни",
+        "одной таблицы истинности: слой CLI только сопоставляет имя операции вызову,",
+        "поэтому «CLI разошёлся с ядром» невозможно по построению. `--bits` печатает",
+        "`<символ> <код> <pos> <neg>`, где `код = pos | (neg << 1)`.",
+        "",
+        "Оракул эти таблицы НЕ копирует: он пересчитывает B4 из пар свидетельств",
+        "`(pos, neg) in {0,1}^2` — `N=(0,0)`, `T=(1,0)`, `F=(0,1)`, `B=(1,1)`, —",
+        "комбинируя знание покомпонентно (`join_k` = OR/OR, `meet_k` = AND/AND), а истину",
+        "монотонно (`and_t` = AND/OR, `or_t` = OR/AND), при `not = (neg, pos)`.",
+        "Сверяется каждая клетка каждой строки, включая полный 68-строчный каскад `--table`.",
         "",
         "## Что доказывает блок 02 (авто-ремонт без ИИ, `--heal`)",
         "",
@@ -496,6 +670,10 @@ def render_ru(results, corpus_names):
         "",
         "## Честные границы",
         "",
+        "- `kernc belnap` — **чистый калькулятор бирешётки** на четырёх значениях. Предикаты",
+        "  определённости и конфликта **не** выведены отдельными операциями: нативного",
+        "  предиката такого в `Bit`/`Eq2` сегодня нет, и CLI его не выдумывает; `--bits`",
+        "  отдаёт `pos`/`neg`, из которых вызывающий сам получает «определено»/«конфликт».",
         "- `--heal` синтезирует гарды **только для деления на ноль** (`/`, `//`, `%`) —",
         "  ровно то, что ищет `_crash_sites`. Выход за границы списка и «сдвинутый порог»",
         "  он НЕ лечит, поэтому таких карточек здесь нет и не заявляется.",
@@ -558,6 +736,9 @@ def main(argv=None):
             tail = "crash %s->%s, guards=%s, rc %s->%s" % (
                 f.get("crash_before"), f.get("crash_after"), f.get("guards"),
                 f.get("rc_before"), f.get("rc_after"))
+        elif r["kind"] == "belnap":
+            tail = "cells=%s, spec_gap_markers=%s, mode=%s" % (
+                f.get("cells"), f.get("gap_markers"), f.get("mode"))
         else:
             tail = "violations=%s%s, safe_checks=%s, safe_violations=%s" % (
                 f.get("unsafe_violations"),

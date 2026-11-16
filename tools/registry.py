@@ -201,6 +201,7 @@ CLASS = {
     "mcp-audit-check": "CHECK",
     "noninterference-check": "CHECK",
     "belnap-swarm-check": "CHECK",
+    "belnap-check": "CHECK",          # окно №2: нативная B4 (kernc belnap) == модель пар
     "action-firewall-check": "CHECK",
     "rag-conflict-check": "CHECK",
     "rlvr-oracle-check": "CHECK",
@@ -551,6 +552,7 @@ CASE_TARGET = {
     "mcp-audit-check": "mcp-audit-check",
     "noninterference-check": "noninterference-check",
     "belnap-swarm-check": "belnap-swarm-check",
+    "belnap-check": "belnap-check",
     "action-firewall-check": "action-firewall-check",
     "rag-conflict-check": "rag-conflict-check",
     "rlvr-oracle-check": "rlvr-oracle-check",

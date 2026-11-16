@@ -200,3 +200,82 @@ test "EQ2: конфляция и отрицание коммутируют" {
         try std.testing.expectEqual(notB(conflate(v)), conflate(notB(v)));
     }
 }
+
+// =============================================================================
+//  ВХОДНОЙ ФОРМАТ CLI (`kernc belnap`) — БЕЗ ТАБЛИЦ ОПЕРАЦИЙ.
+//
+// ЧЕГО ЗДЕСЬ НЕТ (намеренно): ни одной строки таблицы истинности. Разбор
+// символа — это формат ВХОДА, а сами операции обязаны вызываться нативными
+// функциями (`joinK`, `meetK`, `andT`, `orT`, `notB`). Иначе «CLI разошёлся с
+// ядром» стало бы возможно, и гейт доказывал бы совпадение двух таблиц, а не
+// работу ядра.
+//
+// МУСОР -> `null`: тихое приведение неизвестного литерала к `N` запрещено
+// (класс #498: молчаливый успех на неверном входе).
+pub fn fromSymbol(s: []const u8) ?Eq2 {
+    if (s.len != 1) return null;
+    return switch (s[0]) {
+        'N' => .N,
+        'T' => .T,
+        'F' => .F,
+        'B' => .B,
+        else => null,
+    };
+}
+
+const ALL4 = [_]Eq2{ .N, .T, .F, .B };
+
+test "B4: разбор символа — полный круг, мусор отвергнут (не приведён к N)" {
+    try std.testing.expectEqual(Eq2.N, fromSymbol("N").?);
+    try std.testing.expectEqual(Eq2.T, fromSymbol("T").?);
+    try std.testing.expectEqual(Eq2.F, fromSymbol("F").?);
+    try std.testing.expectEqual(Eq2.B, fromSymbol("B").?);
+    for ([_][]const u8{ "", "n", "TRUE", "X", "NN", " T" }) |bad| {
+        try std.testing.expectEqual(@as(?Eq2, null), fromSymbol(bad));
+    }
+    for (ALL4) |v| try std.testing.expectEqual(v, fromSymbol(v.symbol()).?);
+}
+
+test "B4: коммутативность joinK/meetK/andT/orT (полный перебор 4x4)" {
+    for (ALL4) |a| for (ALL4) |b| {
+        try std.testing.expectEqual(a.joinK(b), b.joinK(a));
+        try std.testing.expectEqual(a.meetK(b), b.meetK(a));
+        try std.testing.expectEqual(andT(a, b), andT(b, a));
+        try std.testing.expectEqual(orT(a, b), orT(b, a));
+    };
+}
+
+test "B4: ассоциативность joinK/meetK/andT/orT (полный перебор 4x4x4)" {
+    for (ALL4) |a| for (ALL4) |b| for (ALL4) |c| {
+        try std.testing.expectEqual(a.joinK(b).joinK(c), a.joinK(b.joinK(c)));
+        try std.testing.expectEqual(a.meetK(b).meetK(c), a.meetK(b.meetK(c)));
+        try std.testing.expectEqual(andT(andT(a, b), c), andT(a, andT(b, c)));
+        try std.testing.expectEqual(orT(orT(a, b), c), orT(a, orT(b, c)));
+    };
+}
+
+test "B4: идемпотентность joinK/meetK/andT/orT" {
+    for (ALL4) |a| {
+        try std.testing.expectEqual(a, a.joinK(a));
+        try std.testing.expectEqual(a, a.meetK(a));
+        try std.testing.expectEqual(a, andT(a, a));
+        try std.testing.expectEqual(a, orT(a, a));
+    }
+}
+
+test "B4: поглощение a v (a ^ b) = a и a ^ (a v b) = a" {
+    for (ALL4) |a| for (ALL4) |b| {
+        try std.testing.expectEqual(a, a.joinK(a.meetK(b)));
+        try std.testing.expectEqual(a, a.meetK(a.joinK(b)));
+        try std.testing.expectEqual(a, orT(a, andT(a, b)));
+        try std.testing.expectEqual(a, andT(a, orT(a, b)));
+    };
+}
+
+test "B4: not — инволюция и неподвижные точки N, B (паранепротиворечивость)" {
+    for (ALL4) |a| try std.testing.expectEqual(a, notB(notB(a)));
+    try std.testing.expectEqual(Eq2.N, notB(.N)); // отсутствие ответа не становится True
+    try std.testing.expectEqual(Eq2.B, notB(.B)); // конфликт не гасится отрицанием
+    try std.testing.expectEqual(Eq2.F, notB(.T));
+    try std.testing.expectEqual(Eq2.T, notB(.F));
+}
