@@ -1,0 +1,176 @@
+[
+  {
+    "id": "inv_double_refund",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Эскроу",
+    "trick": "двойной возврат средств по одному заказу",
+    "code": "# @kern:requires balance >= 0 and amount >= 0 and refunded >= 0\n# @kern:state_invariant result >= 0\ndef refund_naive(balance, amount, refunded):\n    return balance - amount\n\n\n# @kern:requires balance >= 0 and amount >= 0 and refunded >= 0\n# @kern:state_invariant result >= 0\ndef refund_guarded(balance, amount, refunded):\n    if refunded != 0:\n        return balance\n    if amount > balance:\n        return balance\n    return balance - amount\n",
+    "oracle": "class Escrow:\n    def __init__(self, balance):\n        self.balance = balance\n\n    def refund(self, fn, amount, refunded):\n        self.balance = fn(self.balance, amount, refunded)\n        return self.balance\n\n\ndef replay(fn, start, seq):\n    acc = Escrow(start)\n    hist = [acc.balance]\n    for amount, refunded in seq:\n        hist.append(acc.refund(fn, amount, refunded))\n    return hist\n\n\nevents = [(60, 0), (60, 1), (10, 0), (5, 1)]\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mod.refund_naive, 100, seq)\n    if min(hist) < 0:\n        bad.append({\"seq\": list(seq), \"balance\": hist})\nsafe_bad = []\nchecked = 0\nfor start in (0, 10, 100):\n    for seq in itertools.product(events + [(0, 0)], repeat=3):\n        checked += 1\n        hist = replay(mod.refund_guarded, start, seq)\n        if min(hist) < 0:\n            safe_bad.append({\"start\": start, \"seq\": list(seq), \"balance\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "refund_naive"
+    ],
+    "expect_pass": [
+      "refund_guarded"
+    ],
+    "sphere_en": "Escrow",
+    "trick_en": "double refund for the same order"
+  },
+  {
+    "id": "inv_ship_after_cancel",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Приёмка/склад",
+    "trick": "отгрузка после отмены заказа и с пустого склада",
+    "code": "# @kern:requires stock >= 0 and cancelled >= 0\n# @kern:state_invariant result >= 0\ndef ship_naive(stock, cancelled):\n    return stock - 1\n\n\n# @kern:requires stock >= 0 and cancelled >= 0\n# @kern:state_invariant result >= 0\ndef ship_guarded(stock, cancelled):\n    if cancelled != 0:\n        return stock\n    if stock <= 0:\n        return stock\n    return stock - 1\n",
+    "oracle": "class Warehouse:\n    def __init__(self, stock):\n        self.stock = stock\n\n    def ship(self, fn, cancelled):\n        self.stock = fn(self.stock, cancelled)\n        return self.stock\n\n\ndef replay(fn, start, seq):\n    wh = Warehouse(start)\n    hist = [wh.stock]\n    for cancelled in seq:\n        hist.append(wh.ship(fn, cancelled))\n    return hist\n\n\nevents = (0, 1)\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mod.ship_naive, 0, seq)\n    if min(hist) < 0:\n        bad.append({\"seq\": list(seq), \"stock\": hist})\nsafe_bad = []\nchecked = 0\nfor start in (0, 1, 3):\n    for seq in itertools.product(events, repeat=3):\n        checked += 1\n        hist = replay(mod.ship_guarded, start, seq)\n        if min(hist) < 0:\n            safe_bad.append({\"start\": start, \"seq\": list(seq), \"stock\": hist})\n    for cancelled in events:\n        checked += 1\n        if mod.ship_guarded(start, cancelled) < 0:\n            safe_bad.append({\"start\": start, \"cancelled\": cancelled})\n        if cancelled == 1 and mod.ship_guarded(start, 1) != start:\n            safe_bad.append({\"cancel_blocked_failed\": start})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "ship_naive"
+    ],
+    "expect_pass": [
+      "ship_guarded"
+    ],
+    "sphere_en": "Goods receipt/warehouse",
+    "trick_en": "shipment after cancellation and from an empty warehouse"
+  },
+  {
+    "id": "inv_wallet_double_debit",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Кошелёк",
+    "trick": "два списания подряд уводят баланс в минус",
+    "code": "# @kern:requires balance >= 0 and amount >= 0\n# @kern:state_invariant result >= 0\ndef debit_naive(balance, amount):\n    return balance - amount\n\n\n# @kern:requires balance >= 0 and amount >= 0\n# @kern:state_invariant result >= 0\ndef debit_guarded(balance, amount):\n    if amount > balance:\n        return balance\n    return balance - amount\n",
+    "oracle": "class Wallet:\n    def __init__(self, balance):\n        self.balance = balance\n\n    def debit(self, fn, amount):\n        self.balance = fn(self.balance, amount)\n        return self.balance\n\n\ndef replay(fn, start, seq):\n    w = Wallet(start)\n    hist = [w.balance]\n    for amount in seq:\n        hist.append(w.debit(fn, amount))\n    return hist\n\n\nevents = (0, 10, 30, 60)\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mod.debit_naive, 50, seq)\n    if min(hist) < 0:\n        bad.append({\"seq\": list(seq), \"balance\": hist})\nsafe_bad = []\nchecked = 0\nfor start in (0, 10, 50):\n    for seq in itertools.product(events, repeat=3):\n        checked += 1\n        hist = replay(mod.debit_guarded, start, seq)\n        if min(hist) < 0:\n            safe_bad.append({\"start\": start, \"seq\": list(seq), \"balance\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "debit_naive"
+    ],
+    "expect_pass": [
+      "debit_guarded"
+    ],
+    "sphere_en": "Wallet",
+    "trick_en": "two consecutive debits drive the balance negative"
+  },
+  {
+    "id": "inv_coupon_reactivation",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Маркетплейс",
+    "trick": "повторная активация одноразового купона",
+    "code": "# @kern:requires uses >= 0 and uses <= 1\n# @kern:state_invariant result <= 1\ndef activate_naive(uses):\n    return uses + 1\n\n\n# @kern:requires uses >= 0 and uses <= 1\n# @kern:state_invariant result <= 1\ndef activate_guarded(uses):\n    if uses >= 1:\n        return 1\n    return uses + 1\n",
+    "oracle": "class Coupon:\n    def __init__(self, uses=0):\n        self.uses = uses\n\n    def activate(self, fn):\n        self.uses = fn(self.uses)\n        return self.uses\n\n\ndef replay(fn, seq):\n    c = Coupon(0)\n    hist = [c.uses]\n    for _ in seq:\n        hist.append(c.activate(fn))\n    return hist\n\n\nevents = (0, 1)\nbad = []\nfor seq in itertools.product(events, repeat=4):\n    hist = replay(mod.activate_naive, seq)\n    if max(hist) > 1:\n        bad.append({\"activations\": list(seq), \"uses\": hist})\nsafe_bad = []\nchecked = 0\nfor seq in itertools.product(events, repeat=4):\n    checked += 1\n    hist = replay(mod.activate_guarded, seq)\n    if max(hist) > 1:\n        safe_bad.append({\"activations\": list(seq), \"uses\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "activate_naive"
+    ],
+    "expect_pass": [
+      "activate_guarded"
+    ],
+    "sphere_en": "Marketplace",
+    "trick_en": "re-activating a single-use coupon"
+  },
+  {
+    "id": "inv_frozen_withdrawal",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Комплаенс",
+    "trick": "снятие средств с замороженного счёта",
+    "code": "# @kern:requires balance >= 0 and amount >= 0 and frozen >= 0\n# @kern:state_invariant result >= 0\ndef withdraw_naive(balance, amount, frozen):\n    return balance - amount\n\n\n# @kern:requires balance >= 0 and amount >= 0 and frozen >= 0\n# @kern:state_invariant result >= 0\ndef withdraw_guarded(balance, amount, frozen):\n    if frozen != 0:\n        return balance\n    if amount > balance:\n        return balance\n    return balance - amount\n",
+    "oracle": "class ComplianceAccount:\n    def __init__(self, balance, frozen):\n        self.balance = balance\n        self.frozen = frozen\n\n    def withdraw(self, fn, amount):\n        self.balance = fn(self.balance, amount, self.frozen)\n        return self.balance\n\n\ndef replay(fn, start, frozen, seq):\n    acc = ComplianceAccount(start, frozen)\n    hist = [acc.balance]\n    for amount in seq:\n        hist.append(acc.withdraw(fn, amount))\n    return hist\n\n\nevents = (0, 10, 40)\nbad = []\nfor frozen in (0, 1):\n    for seq in itertools.product(events, repeat=2):\n        hist = replay(mod.withdraw_naive, 20, frozen, seq)\n        if min(hist) < 0:\n            bad.append({\"frozen\": frozen, \"seq\": list(seq), \"balance\": hist})\nsafe_bad = []\nchecked = 0\nfor frozen in (0, 1):\n    for start in (0, 20, 100):\n        for seq in itertools.product(events, repeat=2):\n            checked += 1\n            hist = replay(mod.withdraw_guarded, start, frozen, seq)\n            if min(hist) < 0:\n                safe_bad.append({\"frozen\": frozen, \"start\": start,\n                                 \"seq\": list(seq), \"balance\": hist})\n        checked += 1\n        if frozen == 1 and mod.withdraw_guarded(start, 40, 1) != start:\n            safe_bad.append({\"frozen_not_blocked\": start})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "withdraw_naive"
+    ],
+    "expect_pass": [
+      "withdraw_guarded"
+    ],
+    "sphere_en": "Compliance",
+    "trick_en": "withdrawal from a frozen account"
+  },
+  {
+    "id": "inv_credit_limit",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Кредит",
+    "trick": "серия микрозаймов превышает кредитный лимит",
+    "code": "# @kern:requires debt >= 0 and debt <= limit and amount >= 0 and limit >= 0\n# @kern:state_invariant result <= limit\ndef borrow_naive(debt, amount, limit):\n    return debt + amount\n\n\n# @kern:requires debt >= 0 and debt <= limit and amount >= 0 and limit >= 0\n# @kern:state_invariant result <= limit\ndef borrow_guarded(debt, amount, limit):\n    if debt + amount > limit:\n        return debt\n    return debt + amount\n",
+    "oracle": "class CreditLine:\n    def __init__(self, debt, limit):\n        self.debt = debt\n        self.limit = limit\n\n    def borrow(self, fn, amount):\n        self.debt = fn(self.debt, amount, self.limit)\n        return self.debt\n\n\ndef replay(fn, start, limit, seq):\n    line = CreditLine(start, limit)\n    hist = [line.debt]\n    for amount in seq:\n        hist.append(line.borrow(fn, amount))\n    return hist\n\n\nevents = (0, 40, 100)\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mod.borrow_naive, 0, 100, seq)\n    if max(hist) > 100:\n        bad.append({\"seq\": list(seq), \"debt\": hist, \"limit\": 100})\nsafe_bad = []\nchecked = 0\nfor limit in (0, 100, 250):\n    for start in (0, limit // 2, limit):\n        for seq in itertools.product(events, repeat=3):\n            checked += 1\n            hist = replay(mod.borrow_guarded, start, limit, seq)\n            if max(hist) > limit:\n                safe_bad.append({\"limit\": limit, \"start\": start,\n                                 \"seq\": list(seq), \"debt\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "borrow_naive"
+    ],
+    "expect_pass": [
+      "borrow_guarded"
+    ],
+    "sphere_en": "Credit",
+    "trick_en": "a series of microloans exceeds the credit limit"
+  },
+  {
+    "id": "inv_subscription_bypass",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Подписки",
+    "trick": "переход expired -> active мимо оплаты",
+    "code": "# @kern:requires days_left >= 0 and paid_days >= 0\n# @kern:state_invariant result <= days_left + paid_days\ndef renew_naive(days_left, paid_days):\n    return days_left + 30\n\n\n# @kern:requires days_left >= 0 and paid_days >= 0\n# @kern:state_invariant result <= days_left + paid_days\ndef renew_guarded(days_left, paid_days):\n    if paid_days <= 0:\n        return days_left\n    return days_left + paid_days\n",
+    "oracle": "class Subscription:\n    def __init__(self, days_left):\n        self.days_left = days_left\n\n    def renew(self, fn, paid_days):\n        self.days_left = fn(self.days_left, paid_days)\n        return self.days_left\n\n\ndef replay(fn, start, seq):\n    sub = Subscription(start)\n    hist = [sub.days_left]\n    for paid in seq:\n        hist.append(sub.renew(fn, paid))\n    return hist\n\n\nevents = (0, 7, 30)\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mod.renew_naive, 0, seq)\n    paid = sum(seq)\n    if max(hist) > 0 + paid:\n        bad.append({\"seq\": list(seq), \"paid\": paid, \"days\": hist})\nsafe_bad = []\nchecked = 0\nfor start in (0, 5, 30):\n    for seq in itertools.product(events, repeat=3):\n        checked += 1\n        hist = replay(mod.renew_guarded, start, seq)\n        allowed = start + sum(seq)\n        if max(hist) > allowed:\n            safe_bad.append({\"start\": start, \"seq\": list(seq),\n                             \"paid\": sum(seq), \"days\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "renew_naive"
+    ],
+    "expect_pass": [
+      "renew_guarded"
+    ],
+    "sphere_en": "Subscriptions",
+    "trick_en": "expired -> active without payment"
+  },
+  {
+    "id": "inv_double_release",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Ресурсы/мьютекс",
+    "trick": "двойное освобождение ресурса",
+    "code": "# @kern:requires held >= 0 and releases >= 0\n# @kern:state_invariant result >= 0\ndef release_naive(held, releases):\n    return held - releases\n\n\n# @kern:requires held >= 0 and releases >= 0\n# @kern:state_invariant result >= 0\ndef release_guarded(held, releases):\n    if releases > held:\n        return 0\n    return held - releases\n",
+    "oracle": "class LockResource:\n    def __init__(self, held):\n        self.held = held\n\n    def release(self, fn, count=1):\n        self.held = fn(self.held, count)\n        return self.held\n\n\ndef replay(fn, start, seq):\n    res = LockResource(start)\n    hist = [res.held]\n    for count in seq:\n        hist.append(res.release(fn, count))\n    return hist\n\n\nevents = (0, 1, 2)\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mod.release_naive, 1, seq)\n    if min(hist) < 0:\n        bad.append({\"seq\": list(seq), \"held\": hist})\nsafe_bad = []\nchecked = 0\nfor start in (0, 1, 2):\n    for seq in itertools.product(events, repeat=3):\n        checked += 1\n        hist = replay(mod.release_guarded, start, seq)\n        if min(hist) < 0:\n            safe_bad.append({\"start\": start, \"seq\": list(seq), \"held\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "release_naive"
+    ],
+    "expect_pass": [
+      "release_guarded"
+    ],
+    "sphere_en": "Resources/mutex",
+    "trick_en": "double release of a resource"
+  },
+  {
+    "id": "inv_double_vote",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Кворум",
+    "trick": "один участник голосует дважды",
+    "code": "# @kern:requires votes >= 0 and votes <= 1\n# @kern:state_invariant result <= 1\ndef vote_naive(votes):\n    return votes + 1\n\n\n# @kern:requires votes >= 0 and votes <= 1\n# @kern:state_invariant result <= 1\ndef vote_guarded(votes):\n    if votes >= 1:\n        return 1\n    return votes + 1\n",
+    "oracle": "class QuorumMember:\n    def __init__(self):\n        self.votes = 0\n\n    def vote(self, fn):\n        self.votes = fn(self.votes)\n        return self.votes\n\n\ndef replay(fn, seq):\n    member = QuorumMember()\n    hist = [member.votes]\n    for _ in seq:\n        hist.append(member.vote(fn))\n    return hist\n\n\nevents = (0, 1)\nbad = []\nfor seq in itertools.product(events, repeat=4):\n    hist = replay(mod.vote_naive, seq)\n    if max(hist) > 1:\n        bad.append({\"votes\": list(seq), \"counts\": hist})\nsafe_bad = []\nchecked = 0\nfor seq in itertools.product(events, repeat=4):\n    checked += 1\n    hist = replay(mod.vote_guarded, seq)\n    if max(hist) > 1:\n        safe_bad.append({\"votes\": list(seq), \"counts\": hist})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [
+      "vote_naive"
+    ],
+    "expect_pass": [
+      "vote_guarded"
+    ],
+    "sphere_en": "Quorum",
+    "trick_en": "one participant votes twice"
+  },
+  {
+    "id": "inv_escrow_reference",
+    "kind": "state-inv",
+    "block": "04",
+    "sphere": "Эскроу",
+    "trick": "эталонный защищённый автомат: PROVEN + снятие гарда валит доказательство",
+    "code": "# @kern:requires balance >= 0 and amount >= 0 and state >= 0\n# @kern:state_invariant result >= 0\ndef escrow_release(balance, amount, state):\n    if state != 1:\n        return balance\n    if amount > balance:\n        return balance\n    return balance - amount\n",
+    "oracle": "class EscrowAutomaton:\n    def __init__(self, balance):\n        self.balance = balance\n\n    def release(self, fn, amount, state):\n        self.balance = fn(self.balance, amount, state)\n        return self.balance\n\n\ndef replay(fn, start, seq):\n    acc = EscrowAutomaton(start)\n    hist = [acc.balance]\n    for amount, state in seq:\n        hist.append(acc.release(fn, amount, state))\n    return hist\n\n\nevents = [(60, 1), (60, 0), (10, 1), (200, 1)]\nbad = []\nfor seq in itertools.product(events, repeat=3):\n    hist = replay(mut.escrow_release, 100, seq)\n    if min(hist) < 0:\n        bad.append({\"seq\": list(seq), \"balance\": hist})\nsafe_bad = []\nchecked = 0\nfor start in (0, 10, 100):\n    for seq in itertools.product(events, repeat=3):\n        checked += 1\n        hist = replay(mod.escrow_release, start, seq)\n        if min(hist) < 0:\n            safe_bad.append({\"start\": start, \"seq\": list(seq), \"balance\": hist})\n    for amount in (0, 5, 60, 200):\n        checked += 1\n        for state in (0, 2):\n            if mod.escrow_release(start, amount, state) != start:\n                safe_bad.append({\"start\": start, \"amount\": amount,\n                                 \"state\": state, \"not_idle\": True})\nRESULT = {\"unsafe_violations\": len(bad), \"unsafe_example\": bad[0] if bad else None,\n          \"safe_violations\": len(safe_bad), \"safe_checks\": checked}\n",
+    "expect_fail": [],
+    "expect_pass": [
+      "escrow_release"
+    ],
+    "mutation": {
+      "code": "# @kern:requires balance >= 0 and amount >= 0 and state >= 0\n# @kern:state_invariant result >= 0\ndef escrow_release(balance, amount, state):\n    return balance - amount\n",
+      "expect_fail": [
+        "escrow_release"
+      ]
+    },
+    "sphere_en": "Escrow",
+    "trick_en": "reference guarded automaton: PROVEN + guard removal breaks the proof"
+  }
+]

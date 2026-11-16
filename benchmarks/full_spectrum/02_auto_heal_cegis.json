@@ -1,0 +1,232 @@
+[
+  {
+    "id": "heal_conversion_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Логистика",
+    "trick": "доля выполненных заявок при нулевых попытках",
+    "fn": "fill_rate",
+    "code": "# СЮЖЕТ: Логистика — доля выполненных заявок при нулевых попытках.\ndef fill_rate(delivered, attempts):\n    return delivered / attempts\n\nif __name__ == \"__main__\":\n    print(fill_rate(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "fill_rate(3, 4)",
+        0.75
+      ],
+      [
+        "fill_rate(9, 3)",
+        3.0
+      ]
+    ],
+    "sphere_en": "Logistics",
+    "trick_en": "fulfilment ratio with zero attempts"
+  },
+  {
+    "id": "heal_avg_check_empty",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Финтех",
+    "trick": "средний чек при пустой корзине",
+    "fn": "avg_check",
+    "code": "# СЮЖЕТ: Финтех — средний чек при пустой корзине.\ndef avg_check(revenue, checks):\n    return revenue / checks\n\nif __name__ == \"__main__\":\n    print(avg_check(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "avg_check(240, 4)",
+        60.0
+      ],
+      [
+        "avg_check(0, 2)",
+        0.0
+      ]
+    ],
+    "sphere_en": "Fintech",
+    "trick_en": "average ticket for an empty basket"
+  },
+  {
+    "id": "heal_delivery_share_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Доставка",
+    "trick": "доля бесплатных доставок при нулевом числе заказов (делитель — выражение)",
+    "fn": "free_share",
+    "code": "# СЮЖЕТ: Доставка — доля бесплатных доставок при нулевом числе заказов (делитель — выражение).\ndef free_share(free_orders, paid_orders):\n    return free_orders / (free_orders + paid_orders)\n\nif __name__ == \"__main__\":\n    print(free_share(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "free_share(1, 3)",
+        0.25
+      ],
+      [
+        "free_share(0, 4)",
+        0.0
+      ]
+    ],
+    "sphere_en": "Delivery",
+    "trick_en": "free-delivery share with zero orders (expression divisor)"
+  },
+  {
+    "id": "heal_quota_floor_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "SaaS-квоты",
+    "trick": "целых единиц квоты на место при нуле мест (//)",
+    "fn": "quota_per_seat",
+    "code": "# СЮЖЕТ: SaaS-квоты — целых единиц квоты на место при нуле мест (//).\ndef quota_per_seat(used, seats):\n    return used // seats\n\nif __name__ == \"__main__\":\n    print(quota_per_seat(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "quota_per_seat(10, 4)",
+        2
+      ],
+      [
+        "quota_per_seat(9, 3)",
+        3
+      ]
+    ],
+    "sphere_en": "SaaS quotas",
+    "trick_en": "whole quota units per seat with zero seats (//)"
+  },
+  {
+    "id": "heal_sla_window_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Платежи/SLA",
+    "trick": "минуты внутри окна эскалации при нулевом окне (%)",
+    "fn": "minutes_into_window",
+    "code": "# СЮЖЕТ: Платежи/SLA — минуты внутри окна эскалации при нулевом окне (%).\ndef minutes_into_window(minutes, window):\n    return minutes % window\n\nif __name__ == \"__main__\":\n    print(minutes_into_window(90, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "minutes_into_window(95, 30)",
+        5
+      ],
+      [
+        "minutes_into_window(60, 30)",
+        0
+      ]
+    ],
+    "sphere_en": "Payments/SLA",
+    "trick_en": "minutes inside the escalation window with a zero window (%)"
+  },
+  {
+    "id": "heal_discount_rate_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Маркетплейс",
+    "trick": "ставка скидки при полностью перекрытом подытоге",
+    "fn": "discount_rate",
+    "code": "# СЮЖЕТ: Маркетплейс — ставка скидки при полностью перекрытом подытоге.\ndef discount_rate(discount, subtotal):\n    return discount / subtotal\n\nif __name__ == \"__main__\":\n    print(discount_rate(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "discount_rate(15, 300)",
+        0.05
+      ],
+      [
+        "discount_rate(1, 4)",
+        0.25
+      ]
+    ],
+    "sphere_en": "Marketplace",
+    "trick_en": "discount rate when the coupon fully covers the subtotal"
+  },
+  {
+    "id": "heal_tax_rate_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Налоги",
+    "trick": "эффективная ставка при нулевом обороте",
+    "fn": "tax_rate",
+    "code": "# СЮЖЕТ: Налоги — эффективная ставка при нулевом обороте.\ndef tax_rate(tax, income):\n    return tax / income\n\nif __name__ == \"__main__\":\n    print(tax_rate(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "tax_rate(1200, 10000)",
+        0.12
+      ],
+      [
+        "tax_rate(6, 30)",
+        0.2
+      ]
+    ],
+    "sphere_en": "Taxes",
+    "trick_en": "effective tax rate at zero turnover"
+  },
+  {
+    "id": "heal_fill_rate_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Склад/буфер",
+    "trick": "заполнение буфера нулевой ёмкости",
+    "fn": "fill_rate_buf",
+    "code": "# СЮЖЕТ: Склад/буфер — заполнение буфера нулевой ёмкости.\ndef fill_rate_buf(filled, capacity):\n    return filled / capacity\n\nif __name__ == \"__main__\":\n    print(fill_rate_buf(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "fill_rate_buf(30, 120)",
+        0.25
+      ],
+      [
+        "fill_rate_buf(1, 2)",
+        0.5
+      ]
+    ],
+    "sphere_en": "Warehouse/buffer",
+    "trick_en": "fill rate of a zero-capacity buffer"
+  },
+  {
+    "id": "heal_burn_rate_zero",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Крипто-казначейство",
+    "trick": "норма расхода при нулевой прибыли",
+    "fn": "burn_rate",
+    "code": "# СЮЖЕТ: Крипто-казначейство — норма расхода при нулевой прибыли.\ndef burn_rate(spend, profit):\n    return spend / profit\n\nif __name__ == \"__main__\":\n    print(burn_rate(0, 0))\n",
+    "expect_guards": 1,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "burn_rate(500, 2500)",
+        0.2
+      ],
+      [
+        "burn_rate(1, 4)",
+        0.25
+      ]
+    ],
+    "sphere_en": "Crypto treasury",
+    "trick_en": "burn rate at zero profit"
+  },
+  {
+    "id": "heal_multi_site_metrics",
+    "kind": "heal",
+    "block": "02",
+    "sphere": "Аналитика/BI",
+    "trick": "две точки деления в одном возврате (счётчик и бонусы)",
+    "fn": "kpi",
+    "code": "# СЮЖЕТ: Аналитика/BI — две точки деления в одном возврате (счётчик и бонусы).\ndef kpi(done, total, bonus, orders):\n    return done / total + bonus / orders\n\nif __name__ == \"__main__\":\n    print(kpi(0, 0, 0, 0))\n",
+    "expect_guards": 2,
+    "expect_stdout": "0",
+    "normal": [
+      [
+        "kpi(2, 4, 1, 2)",
+        1.0
+      ],
+      [
+        "kpi(4, 4, 2, 4)",
+        1.5
+      ]
+    ],
+    "sphere_en": "Analytics/BI",
+    "trick_en": "two division sites in one return (counter and bonuses)"
+  }
+]
