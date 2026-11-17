@@ -6,6 +6,12 @@
 > certificate — then **sabotage one byte of the proof** and watch it get rejected.
 > Live: <https://newmathphys.github.io/kern/playground/>
 
+![Same patch, two pipelines: pytest passes it, KERN MCP blocks it](docs/assets/hero-agent-mcp.svg)
+
+**Three ways in:** an MCP guardrail while the agent writes code · zero-annotation
+`--xray` / `--xray-none` / `--heal` before the commit · `kernc prove` with a proof DAG
+re-checked by the Zig kernel (`trusted: 0 | holes: 0`) in production.
+
 ## Field evidence: KERN judged against code it did not write
 
 | Evidence | What it shows |

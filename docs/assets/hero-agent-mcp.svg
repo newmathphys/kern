@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" width="980" height="430" role="img" aria-label="pytest passes while KERN MCP blocks the same patch">
+  <title>KERN MCP kern_guard: pytest passes, KERN blocks</title>
+  <style>
+    .bg { fill: #0d1117; }
+    .card { fill: #161b22; stroke: #30363d; stroke-width: 1; rx: 10; }
+    .hdr { font: 600 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #c9d1d9; }
+    .ln  { font: 12.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; opacity: 0;
+             animation: show 12.0s steps(1, end) infinite; }
+    .dot { animation: pulse 12.0s ease-in-out infinite; }
+    @keyframes show {
+      0%   { opacity: 0; }
+      6%   { opacity: 1; }
+      92%  { opacity: 1; }
+      97%  { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes pulse { 0%,88% { opacity: 1; } 93%,100% { opacity: .25; } }
+    @media (prefers-reduced-motion: reduce) { .ln { animation: none; opacity: 1; } .dot { animation: none; } }
+  </style>
+  <rect class="bg" width="980" height="430" rx="12"/>
+  <text x="28" y="34" class="hdr">Same patch. Two pipelines.</text>
+  <circle class="dot" cx="905" cy="30" r="5" fill="#3fb950"/>
+  <rect class="card" x="24" y="52" width="452" height="352"/>
+  <rect class="card" x="504" y="52" width="452" height="352"/>
+  <text x="44" y="80" class="hdr" fill="#8b949e">Ordinary CI &#183; pytest</text>
+  <text x="524" y="80" class="hdr" fill="#58a6ff">AI agent + KERN MCP &#183; kern_guard</text>
+    <text class="ln" x="44" y="114" fill="#8b949e" style="animation-delay:0.20s">$ pytest tests/</text>
+    <text class="ln" x="44" y="140" fill="#3fb950" style="animation-delay:0.75s">1 passed in 0.01s</text>
+    <text class="ln" x="44" y="192" fill="#8b949e" style="animation-delay:1.85s">assert stolen == 0</text>
+    <text class="ln" x="44" y="218" fill="#6e7681" style="animation-delay:2.40s"># never executed</text>
+    <text class="ln" x="44" y="270" fill="#f85149" style="animation-delay:3.50s">Silent bug shipped</text>
+    <text class="ln" x="524" y="114" fill="#8b949e" style="animation-delay:1.10s">$ kern_guard(source=patch)</text>
+    <text class="ln" x="524" y="140" fill="#f85149" style="animation-delay:1.65s">[CHEAT DETECTED] R=-2.0</text>
+    <text class="ln" x="524" y="166" fill="#f85149" style="animation-delay:2.20s">[CONFIRMED] ZeroDivisionError</text>
+    <text class="ln" x="524" y="192" fill="#d29922" style="animation-delay:2.75s">  kwargs=period=0  tb=2</text>
+    <text class="ln" x="524" y="218" fill="#8b949e" style="animation-delay:3.30s">agent: fix by counterexample</text>
+    <text class="ln" x="524" y="244" fill="#3fb950" style="animation-delay:3.85s">[PROOF VERIFIED] trusted: 0</text>
+    <text class="ln" x="524" y="270" fill="#3fb950" style="animation-delay:4.40s">Belnap T (1,0) -&gt; HTTP 200</text>
+  <text x="28" y="420" font="11px ui-monospace, monospace" fill="#6e7681">Verified locally: Z3 counterexample &#183; CPython replay &#183; Belnap B4 &#183; proof re-checked by the Zig kernel (trusted: 0)</text>
+</svg>

@@ -11,11 +11,11 @@
 <meta property="og:title" content="KERN — zero-trust verification gateway (Zig + Z3 + Lean 4)">
 <meta property="og:description" content="A claim is admitted only with machine evidence. 460/460 core tests · 100.0% mutation score · 219/219 can-fail targets · 147 Lean 4 theorems (0 sorry).">
 <meta property="og:url" content="https://newmathphys.github.io/kern/">
-<meta property="og:image" content="https://newmathphys.github.io/kern/social-preview.png">
+<meta property="og:image" content="https://newmathphys.github.io/kern/assets/og-card.svg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="KERN — zero-trust verification gateway (Zig + Z3 + Lean 4)">
 <meta name="twitter:description" content="A claim is admitted only with machine evidence: Z3 proof-DAG re-checked in Zig, Belnap B4, 147 Lean 4 theorems, 0 sorry.">
-<meta name="twitter:image" content="https://newmathphys.github.io/kern/social-preview.png">
+<meta name="twitter:image" content="https://newmathphys.github.io/kern/assets/og-card.svg">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication",
  "name":"KERN","applicationCategory":"DeveloperApplication",
@@ -174,6 +174,29 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
 <a class="btn p" href="https://github.com/newmathphys/kern/releases/latest">Download static binary (latest release)</a>
 <a class="btn s" href="https://github.com/newmathphys/kern#readme">Read the README</a>
 <a class="btn s" href="https://github.com/newmathphys/kern/tree/main/docs">Documentation</a>
+</div>
+
+<div class="panel" style="padding:0;overflow:hidden">
+<img src="assets/hero-agent-mcp.svg" alt="Same patch, two pipelines: pytest passes it while KERN MCP kern_guard blocks it with a Z3 counterexample and a CPython-verified crash"
+     style="width:100%;display:block">
+</div>
+
+<div class="panel">
+<div class="hdr">PROVEN, NOT CLAIMED &mdash; every number is a gate</div>
+<div class="stat">
+  <span class="val">147</span><span class="lbl"><strong style="color:var(--ink)">Lean 4 theorems</strong> (0 sorry) across 9 files</span>
+  <span class="val">38/38</span><span class="lbl"><strong style="color:var(--ink)">CI stages</strong> green, each one mutation-tested</span>
+  <span class="val">266</span><span class="lbl"><strong style="color:var(--ink)">fault-injection cases</strong> prove that every gate can fail</span>
+  <span class="val">0</span><span class="lbl"><strong style="color:var(--ink)">false alarms</strong> on <code>packaging</code>, <code>semver</code>, <code>dateutil</code></span>
+  <span class="val">70/70</span><span class="lbl"><strong style="color:var(--ink)">full-spectrum</strong> cards + 100/100 showcase, each confirmed by an independent oracle</span>
+  <span class="val">9</span><span class="lbl"><strong style="color:var(--ink)">MCP tools</strong> for Cline / Claude Code / Cursor (<code>kern_guard</code> returns only physically reproduced crashes)</span>
+</div>
+<div class="hdr" style="margin-top:14px">TRY IT IN 10 SECONDS</div>
+<div class="stat">
+  <span class="val">1</span><span class="lbl"><strong style="color:var(--ink)">In the browser, offline:</strong> <a href="playground/">WASM playground</a> &mdash; sabotage one byte of a Z3 certificate and watch the Zig kernel reject it</span>
+  <span class="val">2</span><span class="lbl"><strong style="color:var(--ink)">In the IDE:</strong> add the MCP server (9 tools) and let <code>kern_guard</code> block a cheating agent before the commit</span>
+  <span class="val">3</span><span class="lbl"><strong style="color:var(--ink)">In CI:</strong> <code>--xray</code> + <code>--xray-none</code> + <code>--heal</code> on any Python/C/Rust/Zig file, no annotations required</span>
+</div>
 </div>
 
 <div class="panel">

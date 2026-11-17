@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" width="1000" height="420" role="img" aria-label="KERN insertion points">
+  <title>Where KERN plugs in: IDE, pre-commit/PR, production gateway</title>
+  <style>
+    .bg { fill: #0d1117; }
+    .box { fill: #161b22; stroke: #30363d; rx: 10; }
+    .t  { font: 600 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #c9d1d9; }
+    .s  { font: 11.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #8b949e; }
+    .k  { font: 11.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #c9d1d9; }
+    .flow { stroke: #30363d; stroke-width: 1.5; fill: none; }
+  </style>
+  <rect class="bg" width="1000" height="420" rx="12"/>
+  <text x="28" y="34" class="t">KERN L0&#8211;L5: three insertion points, one verdict model (N, T, F, B)</text>
+  <rect class="box" x="24" y="56" width="300" height="300"/>
+  <text x="44" y="84" class="t">1 &#183; In the IDE (MCP, 9 tools)</text>
+  <text x="44" y="112" class="s">Cline / Claude Code / Cursor</text>
+  <text x="44" y="142" class="k">kern_guard</text>
+  <text x="44" y="164" class="k">kern_check_equivalence</text>
+  <text x="44" y="186" class="k">kern_verify_python</text>
+  <text x="44" y="208" class="k">kern_rlvr_reward</text>
+  <text x="44" y="240" class="s">verdict: CONFIRMED / DIVERGED / CHEAT</text>
+  <text x="44" y="262" class="s" fill="#3fb950">only physically reproduced crashes</text>
+  <text x="44" y="300" class="s">0 false alarms:</text>
+  <text x="44" y="320" class="k">packaging &#183; semver &#183; dateutil</text>
+  <rect class="box" x="350" y="56" width="300" height="300"/>
+  <text x="370" y="84" class="t">2 &#183; Pre-commit / PR</text>
+  <text x="370" y="112" class="s">zero annotations required</text>
+  <text x="370" y="142" class="k">--xray code</text>
+  <text x="370" y="164" class="k">--xray-none</text>
+  <text x="370" y="186" class="k">--heal (div0 + index)</text>
+  <text x="370" y="208" class="k">--delta --sarif</text>
+  <text x="370" y="240" class="s">CRASH / BOUNDS paths with counterexamples</text>
+  <text x="370" y="262" class="s" fill="#d29922">repairs without an LLM</text>
+  <text x="370" y="300" class="s">gates prove they can fail:</text>
+  <text x="370" y="320" class="k">266 fault-injection cases</text>
+  <rect class="box" x="676" y="56" width="300" height="300"/>
+  <text x="696" y="84" class="t">3 &#183; Production gateway</text>
+  <text x="696" y="112" class="s">kernc prove / libkern / .kimg</text>
+  <text x="696" y="142" class="k">Z3 &#8594; proof DAG</text>
+  <text x="696" y="164" class="k">Zig re-checker (trusted: 0)</text>
+  <text x="696" y="186" class="k">Belnap B4 JOIN_K</text>
+  <text x="696" y="208" class="k">147 Lean 4 theorems</text>
+  <text x="696" y="240" class="s">T (1,0) &#8594; 200 &#183; F (0,1) &#8594; 422</text>
+  <text x="696" y="262" class="s" fill="#f85149">B (1,1) &#8594; 409 Conflict</text>
+  <text x="696" y="300" class="s">N (0,0): gates closed, never &#171;passed&#187;</text>
+  <text x="696" y="320" class="k">BLAKE3 + Ed25519 image</text>
+  <path class="flow" d="M324 206 H350"/><path class="flow" d="M650 206 H676"/>
+  <text x="28" y="392" class="s">Same lattice everywhere: a contradiction is preserved, never collapsed into &#171;green&#187;.</text>
+</svg>
