@@ -130,7 +130,7 @@
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 | `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (34)
+## E4. Рентген кода, CWE, точность и PR-дельта (35)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -165,6 +165,7 @@
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
 | `xray-check` | `bound-guards`, `xray-assert-guard`, `xray-bounds-note`, `xray-check`, `xray-ext-silent`, `xray-float-skip`, `xray-guard-else`, `xray-nested-branch`, `xray-skip-reasons`, `xray-while-guard` | #400, #401, #469, #471, #472 | `make xray-check` |
+| `xray-none-check` | `xray-none` | — | `make xray-none-check` |
 | `xray-overflow-check` | `xray-overflow` | — | `make xray-overflow-check` |
 | `xray-precision` | `xray-precision` | #475 | `make xray-precision` |
 | `zig-guard-check` | `zig-guard` | — | `make zig-guard-check` |
@@ -260,11 +261,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **218**; класс CHECK в `registry.py`: **218**;
-записей `CASE_TARGET`: **263** (make-исполнимых **259**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **219**; класс CHECK в `registry.py`: **219**;
+записей `CASE_TARGET`: **264** (make-исполнимых **260**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
-CHECK-цели <!-- fact:check_targets -->217 · can-fail кейсы <!-- fact:canfail_cases -->263 ·
-якоря <!-- fact:anchors -->221 · цели реестра <!-- fact:registry_targets -->298 · META <!-- fact:meta_targets -->58 ·
+CHECK-цели <!-- fact:check_targets -->218 · can-fail кейсы <!-- fact:canfail_cases -->264 ·
+якоря <!-- fact:anchors -->221 · цели реестра <!-- fact:registry_targets -->299 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

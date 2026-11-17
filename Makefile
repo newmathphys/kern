@@ -556,6 +556,14 @@ unsat-core-check: build
 heal-index-check:
 	@bash tools/heal_index_check.sh
 
+# 37-Я СТАДИЯ (окно №9): ДЕТЕКЦИЯ разыменования None (`--xray-none`) + Live Replay.
+# nullable — ТОЛЬКО по явным свидетельствам AST (Optional/| None/дефолт None/is None).
+# Находка засчитывается лишь если вызов с НАСТОЯЩИМ None даёт обещанное исключение.
+# Границы названы: `dict.get`-локалы не проверяются; `--heal` для None НЕ делаем
+# (намерение автора не записано в коде — это была бы догадка).
+xray-none-check:
+	@bash tools/xray_none_check.sh
+
 # ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
 action-firewall-check: build
 	@bash tools/action_firewall_check.sh

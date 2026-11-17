@@ -4362,6 +4362,9 @@ def main(argv=None) -> int:
                     help="полноспектральный обход: xray (7 языков) + anti-cheat "
                          "+ MCP-аудит + авто-роутинг теорий (честно: без контракта "
                          "теории только помечаются как применимые)")
+    ap.add_argument("--xray-none", dest="xray_none", default=None, metavar="PATH",
+                    help="ОКНО №9: детекция разыменования None (Optional) с SMT-путём; "
+                         "nullable — только по ЯВНЫМ свидетельствам AST")
     ap.add_argument("--explain", default=None, metavar="PATH",
                     help="ПУНКТ 18: человеческий паспорт функций")
     # Ф6.3: read-only объяснение — гипотезы ТОЛЬКО для requires.
@@ -4494,6 +4497,8 @@ def main(argv=None) -> int:
             Path(args.hypotheses_json) if args.hypotheses_json else None,
             args.max_hypotheses)
 
+    if args.xray_none:
+        return cmd_xray_none(args.xray_none, args.kernc)
     if args.explain:
         return cmd_explain(args.explain, args.kernc)
     if args.pr_summary:
@@ -9475,6 +9480,166 @@ def _divisor_makes_empty_range(body: str, pos: int, d: str) -> bool:
         return False
     pat = rf"(?<![\w.]){re.escape(d)}\s*\*|\*\s*{re.escape(d)}(?![\w])"
     return bool(re.search(pat, window))
+
+
+# =============================================================================
+# ТАКТ OPTIONAL-XRAY (окно №9): ДЕТЕКЦИЯ РАЗЫМЕНОВАНИЯ None.
+#
+# ИЗМЕРЕНО: `--xray` кодирует None сентинелом-`Int`, поэтому `x + 1` и `x.attr`
+# в SMT ТОТАЛЬНЫ, и класс падений TypeError/AttributeError на None невидим
+# (три пилота физически падают, `--xray` даёт findings 0).
+#
+# ПРИНЦИП: переменная nullable ТОЛЬКО при ЯВНОМ свидетельстве в AST —
+# аннотация `Optional[...]`/`| None`, дефолт `= None`, либо `is None`/`is not None`.
+#
+# ОБЯЗАТЕЛЬСТВО: на пути без None-гарда значение != сентинел перед арифметикой
+# (+ - * / // %), сравнением порядка, атрибутом и подпиской. SAT -> находка.
+#
+# FLOW-SENSITIVE (ИЗМЕРЕНО как ложное срабатывание): `if x is None: x = 0`
+# делает x не-None после ветки; переприсваивание снимает nullable-источник.
+# Без этого правила корректный код обвинялся.
+#
+# ЧЕСТНАЯ ГРАНИЦА: локальные `v = d.get(k)` пока НЕ проверяются (`dict.get` вне
+# SMT-подмножества: функция уходит в «no obligations»).
+# =============================================================================
+
+_NONE_ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)
+_NONE_ORDER = (ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+
+
+def _nullable_params(fn):
+    out = set()
+    a = fn.args
+    names = {x.arg for x in list(a.args) + list(a.kwonlyargs)}
+    for arg in list(a.args) + list(a.kwonlyargs):
+        if arg.annotation is not None:
+            try:
+                txt = ast.unparse(arg.annotation)
+            except Exception:
+                txt = ""
+            if "None" in txt:
+                out.add(arg.arg)
+    if a.defaults:
+        for arg, d in zip(a.args[len(a.args) - len(a.defaults):], a.defaults):
+            if isinstance(d, ast.Constant) and d.value is None:
+                out.add(arg.arg)
+    for arg, d in zip(a.kwonlyargs, a.kw_defaults):
+        if isinstance(d, ast.Constant) and d.value is None:
+            out.add(arg.arg)
+    for n in ast.walk(fn):
+        if (isinstance(n, ast.Compare) and len(n.ops) == 1
+                and isinstance(n.ops[0], (ast.Is, ast.IsNot))):
+            for side in [n.left] + list(n.comparators):
+                if isinstance(side, ast.Name) and side.id in names:
+                    out.add(side.id)
+    return out
+
+
+def _none_reset_after_if(st, nullable):
+    t = st.test
+    if not (isinstance(t, ast.Compare) and len(t.ops) == 1
+            and isinstance(t.ops[0], ast.Is)
+            and isinstance(t.comparators[0], ast.Constant)
+            and t.comparators[0].value is None
+            and isinstance(t.left, ast.Name)):
+        return set()
+    name = t.left.id
+    if name not in nullable:
+        return set()
+    for body_st in st.body:
+        for n in ast.walk(body_st):
+            if isinstance(n, (ast.Assign, ast.AnnAssign)):
+                tgts = n.targets if isinstance(n, ast.Assign) else [n.target]
+                for tg in tgts:
+                    if isinstance(tg, ast.Name) and tg.id == name:
+                        return {name}
+    return set()
+
+
+def _none_scan(stmts, path, live, params, kernc, found, fnname):
+    for st in stmts:
+        for n in ast.walk(st):
+            targets = []
+            kind = ""
+            if isinstance(n, ast.BinOp) and isinstance(n.op, _NONE_ARITH):
+                targets = [n.left, n.right]
+                kind = "TypeError (арифметика)"
+            elif isinstance(n, ast.Compare) and any(isinstance(o, _NONE_ORDER) for o in n.ops):
+                targets = [n.left] + list(n.comparators)
+                kind = "TypeError (сравнение порядка)"
+            elif isinstance(n, ast.Attribute):
+                targets = [n.value]
+                kind = "AttributeError"
+            elif isinstance(n, ast.Subscript):
+                targets = [n.value]
+                kind = "TypeError (подписка)"
+            if not targets:
+                continue
+            for t in targets:
+                if not isinstance(t, ast.Name) or t.id not in live:
+                    continue
+                try:
+                    sym = expr_smt(t, {})
+                except (Unsupported, NoReturn):
+                    continue
+                sat = _smt_sat(kernc, params, path + [f"(= {sym} {_NONE_SENTINEL})"])
+                if sat is True:
+                    found.append(f"[CRASH PATH] {fnname}: строка {n.lineno} — "
+                                 f"разыменование None ({t.id}): {kind}")
+
+
+def _none_walk(stmts, path, live, params, kernc, found, fnname, depth=0):
+    if depth > 64:
+        return
+    for st in stmts:
+        if isinstance(st, (ast.Assign, ast.AnnAssign)):
+            _none_scan([st], path, live, params, kernc, found, fnname)
+            tgts = st.targets if isinstance(st, ast.Assign) else [st.target]
+            for tg in tgts:
+                if isinstance(tg, ast.Name) and tg.id in live:
+                    live.discard(tg.id)
+            continue
+        if isinstance(st, ast.If):
+            try:
+                cond = _cond_smt(st.test, set())
+            except (Unsupported, NoReturn, Exception):
+                cond = None
+            if cond and "havoc" not in cond:
+                _none_scan(st.body, path + [cond], live, params, kernc, found, fnname)
+                _none_scan(st.orelse, path + [f"(not {cond})"], live, params, kernc, found, fnname)
+                _none_walk(st.body, path + [cond], set(live), params, kernc, found, fnname, depth + 1)
+                _none_walk(st.orelse, path + [f"(not {cond})"], set(live), params, kernc,
+                           found, fnname, depth + 1)
+                for _nm in _none_reset_after_if(st, live):
+                    live.discard(_nm)
+                if not st.orelse and _block_exits(st.body):
+                    path = path + [f"(not {cond})"]
+                continue
+            _none_scan([st], path, live, params, kernc, found, fnname)
+            _none_walk(st.body, path, set(live), params, kernc, found, fnname, depth + 1)
+            _none_walk(st.orelse, path, set(live), params, kernc, found, fnname, depth + 1)
+            continue
+        _none_scan([st], path, live, params, kernc, found, fnname)
+
+
+def cmd_xray_none(path, kernc):
+    src = Path(path).read_text(encoding="utf-8", errors="replace")
+    tree = ast.parse(src)
+    found = []
+    checked = 0
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        params = [a.arg for a in fn.args.args if a.arg != "self"]
+        nullable = _nullable_params(fn)
+        if not nullable:
+            continue
+        checked += 1
+        _none_walk(list(fn.body), [], set(nullable), params, kernc, found, fn.name)
+    uniq = list(dict.fromkeys(found))
+    for f in uniq:
+        print("  " + f)
+    print("-" * 74)
+    print(f"[XRAY-NONE] функций с nullable-параметрами {checked} | находок {len(uniq)}")
+    return 1 if uniq else 0
 
 
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[str, int], dict[str, int]]:

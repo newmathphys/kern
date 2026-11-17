@@ -131,7 +131,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 | `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
-## E4. Code X-ray, CWE, precision and the PR delta (34)
+## E4. Code X-ray, CWE, precision and the PR delta (35)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -166,6 +166,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `svg-check` | `svg-overflow` | — | `make svg-check` |
 | `xray-asi-check` | `xray-asi` | — | `make xray-asi-check` |
 | `xray-check` | `bound-guards`, `xray-assert-guard`, `xray-bounds-note`, `xray-check`, `xray-ext-silent`, `xray-float-skip`, `xray-guard-else`, `xray-nested-branch`, `xray-skip-reasons`, `xray-while-guard` | #400, #401, #469, #471, #472 | `make xray-check` |
+| `xray-none-check` | `xray-none` | — | `make xray-none-check` |
 | `xray-overflow-check` | `xray-overflow` | — | `make xray-overflow-check` |
 | `xray-precision` | `xray-precision` | #475 | `make xray-precision` |
 | `zig-guard-check` | `zig-guard` | — | `make zig-guard-check` |
@@ -261,11 +262,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **218**; class CHECK in `registry.py`: **218**;
-`CASE_TARGET` records: **263** (make-executable **259**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **219**; class CHECK in `registry.py`: **219**;
+`CASE_TARGET` records: **264** (make-executable **260**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 ·
-CHECK targets <!-- fact:check_targets -->217 · can-fail cases <!-- fact:canfail_cases -->263 ·
-anchors <!-- fact:anchors -->221 · registry targets <!-- fact:registry_targets -->298 · META <!-- fact:meta_targets -->58 ·
+CHECK targets <!-- fact:check_targets -->218 · can-fail cases <!-- fact:canfail_cases -->264 ·
+anchors <!-- fact:anchors -->221 · registry targets <!-- fact:registry_targets -->299 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40
