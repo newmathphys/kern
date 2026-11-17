@@ -541,6 +541,13 @@ belnap-check: build
 full-spectrum-check: build
 	@bash tools/full_spectrum_check.sh
 
+# 35-Я СТАДИЯ: НАТИВНОЕ ядро несовместности на ПРОИЗВОЛЬНОМ .smt2-файле.
+# `kernc unsat-core <file.smt2>`: имена a1..aN, ядро сокращается до НЕПРИВОДИМОГО
+# (снятие любого элемента -> SAT), печатаются НОМЕРА СТРОК. Шумовые пункты в ядро
+# не попадают. Невакуумность: KERN_CANFAIL_MUTATE=1 + кейс в tools/canfail.py.
+unsat-core-check: build
+	@bash tools/unsat_core_check.sh
+
 # ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
 action-firewall-check: build
 	@bash tools/action_firewall_check.sh

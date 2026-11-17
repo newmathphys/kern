@@ -23,7 +23,7 @@ this table says honestly what has been exercised and what has not:
 | State machines (multi-step races) | `--state-inv` | ❌ implemented, never demonstrated |
 | Auto-repair (synthesis, no LLM) | `--heal` | ❌ implemented, never demonstrated |
 | Concolic (paths a fuzzer misses) | `--concolic` | ❌ implemented, never demonstrated |
-| UNSAT-core localisation | `--explain`, `--explain-hypotheses` | ❌ never demonstrated on a 60-line module |
+| UNSAT-core localisation | `kernc unsat-core <file.smt2>` (native `verifier/unsat_core.zig`) | ✅ `make unsat-core-check`: core `{a2 a3 a4}` with noise dropped, removing any element → SAT, line numbers printed; `--explain` is a passport, not a localizer (measured) |
 | 2-Safety / tenant isolation | `--noninterference` | ✅ `SHOWCASE_100` (5 cards) |
 | Reward for model training | `--rlvr-reward` | ❌ implemented, never demonstrated |
 | Proof-carrying delivery | `.kimg`, `--trust-score`, Ed25519, `kernc.wasm` | ✅ `docs/playground/` |

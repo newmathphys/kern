@@ -11,7 +11,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 **protects** — defect numbers taken FROM THE CASE DESCRIPTION ITSELF;
 **command** — how to reproduce.
 
-## E1. Formal core L4 and proof certificates (52)
+## E1. Formal core L4 and proof certificates (53)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -66,6 +66,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `translation-val-check` | `translation-val-check` | — | `make translation-val-check` |
 | `translator-diff-check` | `translator-diff` | #349 | `make translator-diff-check` |
 | `ubsafe` | `ubsafe` | — | `make ubsafe` |
+| `unsat-core-check` | `unsat-core` | — | `make unsat-core-check` |
 | `verify` | `verify-cli` | — | `make verify` |
 
 ## E2. Belnap B4 lattice (L3) and KERN-Next (6)
@@ -259,11 +260,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **216**; class CHECK in `registry.py`: **216**;
-`CASE_TARGET` records: **261** (make-executable **257**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **217**; class CHECK in `registry.py`: **217**;
+`CASE_TARGET` records: **262** (make-executable **258**); without a case outside `NO_CASE_OK`: **0**.
 
 
-core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 ·
-CHECK targets <!-- fact:check_targets -->215 · can-fail cases <!-- fact:canfail_cases -->261 ·
-anchors <!-- fact:anchors -->219 · registry targets <!-- fact:registry_targets -->296 · META <!-- fact:meta_targets -->58 ·
+core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 ·
+CHECK targets <!-- fact:check_targets -->216 · can-fail cases <!-- fact:canfail_cases -->262 ·
+anchors <!-- fact:anchors -->219 · registry targets <!-- fact:registry_targets -->297 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

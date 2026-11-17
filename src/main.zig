@@ -266,6 +266,120 @@ fn belnapMain(args: []const [:0]const u8) void {
     }
 }
 
+// ===========================================================================
+//  НАТИВНОЕ ЯДРО НЕСОВМЕСТНОСТИ НА ПРОИЗВОЛЬНОМ ФАЙЛЕ: `kernc unsat-core`
+// ===========================================================================
+// ЗАЧЕМ. `verifier/unsat_core.zig` существовал, но вызывался ТОЛЬКО из
+// `kernc audit` на жёстко зашитых двух assert'ах: «реализовано, но ни разу не
+// продемонстрировано» (recipes/README.md). Здесь тот же движок применяется к
+// ЛЮБОМУ SMT-LIB2-файлу: ассертам присваиваются имена `a1..aN`, ядро
+// сокращается до НЕПРИВОДИМОГО (снятие любого элемента делает набор SAT).
+//
+// ФОРМАТ (данные -> stdout; отказ -> stderr):
+//   [UNSAT CORE] пунктов N -> ядро K (неприводимое)
+//   [CORE] a2 a3
+//   [CORE_LINES] 7 9
+//   [SAT] документ совместен: пунктов N
+// КОДЫ: 0 — SAT; 1 — UNSAT (ядро напечатано); 2 — разбор/неизвестность/нет z3.
+// ЧЕСТНАЯ ГРАНИЦА: ядро НЕПРИВОДИМО, но не обязательно минимально по мощности
+// (жадное удаление); «неизвестно» от решателя — отказ rc=2, а не «доказано».
+
+fn collectDecls(alloc: std.mem.Allocator, text: []const u8) ![]u8 {
+    var aw: std.Io.Writer.Allocating = .init(alloc);
+    errdefer aw.deinit();
+    var it = std.mem.splitScalar(u8, text, '\n');
+    while (it.next()) |line| {
+        const t = std.mem.trim(u8, line, " \t\r");
+        if (std.mem.startsWith(u8, t, "(declare-const") or
+            std.mem.startsWith(u8, t, "(declare-fun") or
+            std.mem.startsWith(u8, t, "(declare-sort"))
+        {
+            try aw.writer.print("{s}\n", .{t});
+        }
+    }
+    return aw.toOwnedSlice();
+}
+
+fn lineOf(text: []const u8, offset: usize) usize {
+    var line: usize = 1;
+    var i: usize = 0;
+    while (i < offset and i < text.len) : (i += 1) {
+        if (text[i] == '\n') line += 1;
+    }
+    return line;
+}
+
+fn unsatCoreMain(alloc: std.mem.Allocator, args: []const [:0]const u8) void {
+    if (args.len < 3) {
+        std.debug.print("[!] использование: kernc unsat-core <file.smt2>\n", .{});
+        std.process.exit(2);
+    }
+    const path = args[2];
+    const text = compat.readFileAlloc(alloc, path, 8 << 20) catch |err| {
+        std.debug.print("[!] не удалось прочитать {s}: {s}\n", .{ path, @errorName(err) });
+        std.process.exit(2);
+    };
+    const raw = proof_check.extractAsserts(alloc, text) catch {
+        std.debug.print("[!] разбор ассертов не удался\n", .{});
+        std.process.exit(2);
+    };
+    if (raw.len == 0) {
+        std.debug.print("[!] в файле нет (assert ...) — локализовать нечего\n", .{});
+        std.process.exit(2);
+    }
+    var pres = std.array_list.Managed(unsat_core.NamedAssertion).init(alloc);
+    var names = std.array_list.Managed([]const u8).init(alloc);
+    var lines = std.array_list.Managed(usize).init(alloc);
+    var from: usize = 0;
+    for (raw, 0..) |formula, i| {
+        const name = std.fmt.allocPrint(alloc, "a{d}", .{i + 1}) catch continue;
+        pres.append(.{ .name = name, .formula = formula }) catch continue;
+        const pos = std.mem.indexOfPos(u8, text, from, formula) orelse from;
+        from = pos + formula.len;
+        lines.append(lineOf(text, pos)) catch {};
+        names.append(name) catch {};
+    }
+    const decls = collectDecls(alloc, text) catch "";
+    var bridge = z3b.Z3Bridge.init(alloc);
+    bridge.timeout_ms = 30000;
+    if (bridge.executeStatus("(check-sat)\n") == .ToolError) {
+        std.debug.print("[!] z3 недоступен (uv pip install z3-solver) — ядро не считается\n", .{});
+        std.process.exit(2);
+    }
+    var eng = unsat_core.UnsatCoreEngine.init(alloc);
+    var initial = eng.localizeAll(&bridge, decls, pres.items) catch {
+        std.debug.print("[!] решатель не дал ответа — НЕ считаем за доказательство\n", .{});
+        std.process.exit(2);
+    };
+    defer initial.deinit();
+    if (!initial.is_conflict) {
+        emitFmt("[SAT] документ совместен: пунктов {d}\n", .{pres.items.len});
+        return;
+    }
+    var reduced: ?unsat_core.UnsatCore = eng.reduce(&bridge, decls, pres.items, initial) catch null;
+    defer if (reduced) |*c| c.deinit();
+    const shown = if (reduced) |*c| c else &initial;
+    emitFmt("[UNSAT CORE] пунктов {d} -> ядро {d} (неприводимое)\n",
+            .{ pres.items.len, shown.conflicting.len });
+    var name_buf: [512]u8 = undefined;
+    var line_buf: [512]u8 = undefined;
+    var nw: std.Io.Writer = .fixed(&name_buf);
+    var lw: std.Io.Writer = .fixed(&line_buf);
+    for (shown.conflicting) |cn| {
+        nw.print("{s} ", .{cn}) catch {};
+        for (names.items, 0..) |nm, k| {
+            if (std.mem.eql(u8, nm, cn)) {
+                lw.print("{d} ", .{lines.items[k]}) catch {};
+                break;
+            }
+        }
+    }
+    const n_s = std.mem.trim(u8, nw.buffered(), " ");
+    const l_s = std.mem.trim(u8, lw.buffered(), " ");
+    emitFmt("[CORE] {s}\n[CORE_LINES] {s}\n", .{ n_s, l_s });
+    std.process.exit(1);
+}
+
 pub fn main(init: std.process.Init) !void {
     // Zig 0.17: файловый I/O требует явный `io` — публикуем его в compat.
     compat.setIo(init.io);
@@ -287,6 +401,12 @@ pub fn main(init: std.process.Init) !void {
     // (правило выше: данные → stdout), поэтому `kernc --help | less` работает.
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
         emitUsage();
+        return;
+    }
+
+    // ---- unsat-core: нативное ядро несовместности на ПРОИЗВОЛЬНОМ файле ----
+    if (std.mem.eql(u8, command, "unsat-core")) {
+        unsatCoreMain(alloc, args);
         return;
     }
 
@@ -1805,6 +1925,7 @@ const USAGE: []const u8 = std.fmt.comptimePrint(
     \\                                                  строка `LE c:x d:y k` = c*x+d*y+k <= 0
     \\  theory <file>                                   arrays|absint|chc|dtmc|nonint|redos|strings
     \\  unify <human_max> <ai_min>                      RLAIF: сечение политопов
+    \\  unsat-core <file.smt2>                          нативное ядро несовместности (неприводимое) + строки
     \\  belnap <op> <a> [b]                             нативная B4 из ядра: join_k|meet_k|and_t|or_t|not,
     \\                                                  --bits = `<символ> <код> <p> <n>`, --table = все 68 строк
     \\

@@ -3966,6 +3966,17 @@ def case_belnap_swarm_check():
     return "make belnap-swarm-check"
 
 
+def case_unsat_core_cli():
+    """ОКНО №6. ЛОМАЕМ ЯДРО CLI: маркер `[UNSAT CORE]` подменяется.
+
+    Гейт `unsat-core-check` обязан покраснеть: он ищет именно этот маркер,
+    и без него «ядро найдено» неотличимо от «ничего не напечатали».
+    Останется зелёным — значит гейт проверяет не вывод, а сам себя.
+    """
+    patch("src/main.zig", 'emitFmt("[UNSAT CORE] пунктов', 'emitFmt("[UNSAT-CORE] пунктов')
+    return "make unsat-core-check"
+
+
 def case_full_spectrum_check():
     """ОКНО №5. ЛОМАЕМ ДАННЫЕ КОРПУСА: ожидание целостности 0 -> 1.
 
@@ -4969,6 +4980,7 @@ CASES = [
     ("belnap-swarm-check", "РОЙ: JOIN_K(T,F)=B проверен",           case_belnap_swarm_check),
     ("belnap-check", "окно №2: andT подменён -> kernc belnap расходится с моделью пар", case_belnap_check_cli),
     ("full-spectrum-check", "окно №5: ожидание карточки корпуса подменено -> гейт обязан покраснеть", case_full_spectrum_check),
+    ("unsat-core", "окно №6: маркер [UNSAT CORE] подменён -> гейт обязан покраснеть", case_unsat_core_cli),
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),

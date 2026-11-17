@@ -49,7 +49,9 @@ EPHELONS: list[tuple[str, str, tuple[str, ...]]] = [
     ("E1", "Формальное ядро L4 и сертификаты доказательств",
      ("smtlib", "proof", "evidence-trust", "pcc", "audits", "translator-diff",
       "arith-", "lang-", "lia-", "real-cases", "localize", "cegis", "semantic-gap",
-      "polyglot", "translation-val", "adversarial", "svcomp", "theory", "check-proof")),
+      "polyglot", "translation-val", "adversarial", "svcomp", "theory", "check-proof",
+      # ОКНО №6: нативное ядро несовместности на ПРОИЗВОЛЬНОМ файле (L4).
+      "unsat-core")),
     ("E2", "Решётка Белнапа B4 (L3) и KERN-Next",
      ("belnap", "kernx", "mcp-selftest", "swarm")),
     ("E3", "Защита от саботажа ИИ (L5)",
