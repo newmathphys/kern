@@ -564,6 +564,13 @@ heal-index-check:
 xray-none-check:
 	@bash tools/xray_none_check.sh
 
+# ЭШЕЛОН 8: Live Replay, ведомый моделью Z3 (38-я стадия, окно №16).
+# Край берётся ИЗ КОНТРПРИМЕРА (kern_len_* = k, period = 0), а не из нормы;
+# резолвер привязан к qualname + co_firstlineno: одноимённый чужой объект
+# находку не подтвердит (призрак finta.PSAR).
+live-replay-check:
+	@bash tools/live_replay_check.sh
+
 # ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
 action-firewall-check: build
 	@bash tools/action_firewall_check.sh

@@ -381,6 +381,8 @@ FAULTABLE = [
     # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
     # ОКНО №13: кейс `xray-none` мутирует мини-CFG в отдельном модуле.
     "tools/xray_none.py",
+    # ОКНО №16: кейс `live-replay` мутирует замок строки резолвера.
+    "tools/live_replay.py",
     "tools/prove_all_capabilities_real.py",
 
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
@@ -3982,6 +3984,20 @@ def case_xray_none():
     return "make xray-none-check"
 
 
+def case_live_replay():
+    """ОКНО №16. ЛОМАЕМ ЗАМОК СТРОКИ резолвера Live Replay.
+
+    В `signature` проверка «строка находки внутри тела функции» ослабляется
+    до `>= 0`: тогда одноимённая функция, ВНЕ чьего тела лежит находка,
+    принимается за цель — и фикстура `ghost.py L9` перестаёт быть
+    NOT_REPLAYABLE. Гейт обязан покраснеть, иначе замок фиктивен.
+    """
+    patch("tools/live_replay.py",
+          'and (getattr(child, "end_lineno", child.lineno) or child.lineno) >= line):',
+          'and (getattr(child, "end_lineno", child.lineno) or child.lineno) >= 0):')
+    return "make live-replay-check"
+
+
 def case_heal_index():
     """ОКНО №7. ЛОМАЕМ РЕМОНТ: маркер «сдвинутых гардов индекса» подменяется.
 
@@ -5010,6 +5026,7 @@ CASES = [
     ("unsat-core", "окно №6: маркер [UNSAT CORE] подменён -> гейт обязан покраснеть", case_unsat_core_cli),
     ("heal-index", "окно №7: маркер ремонта индекса подменён -> гейт обязан покраснеть", case_heal_index),
     ("xray-none", "окно №9: арифметика исключена из детектора None -> гейт обязан покраснеть", case_xray_none),
+    ("live-replay", "окно №16: замок строки резолвера ослаблен -> гейт обязан покраснеть", case_live_replay),
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),

@@ -66,7 +66,9 @@ EPHELONS: list[tuple[str, str, tuple[str, ...]]] = [
       "edge-cases", "codecheck", "binlevel", "clike-ir", "float-nan", "overflow",
       "string-contracts", "parser-security", "concolic", "fuzz", "bug-hunt",
       "hypotheses-corpus", "render", "svg", "html-canvas", "graph", "regex",
-      "guard", "dual", "kb-", "spec", "counter")),
+      "guard", "dual", "kb-", "spec", "counter",
+      # ОКНО №16: Live Replay, ведомый моделью Z3 (край из контрпримера).
+      "live-replay")),
     ("E5", "Контейнер .kimg, крипто-аттестация и WASM (L0–L2)",
      ("verify-attestation", "wasm", "kimg", "slsa", "secrets", "tree-lock",
       "artifact", "bitrot", "disasm", "binary-audit", "foreign-verdicts", "citations",

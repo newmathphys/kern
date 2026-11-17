@@ -174,7 +174,7 @@ refinement-пруф (или машинно-проверяемая трансля
 ## 7. Факты (проверяются машинно)
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
-CHECK-цели <!-- fact:check_targets -->218 · can-fail кейсы <!-- fact:canfail_cases -->264 ·
-якоря <!-- fact:anchors -->222 · цели реестра <!-- fact:registry_targets -->299 ·
+CHECK-цели <!-- fact:check_targets -->219 · can-fail кейсы <!-- fact:canfail_cases -->265 ·
+якоря <!-- fact:anchors -->222 · цели реестра <!-- fact:registry_targets -->300 ·
 META <!-- fact:meta_targets -->58 · теоремы Lean <!-- fact:lean_theorems -->147 ·
 QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

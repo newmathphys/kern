@@ -206,6 +206,7 @@ CLASS = {
     "unsat-core-check": "CHECK",      # окно №6: нативное ядро несовместности на файле
     "heal-index-check": "CHECK",      # окно №7: ремонт сдвинутого гарда границы
     "xray-none-check": "CHECK",      # окно №9: детекция разыменования None
+    "live-replay-check": "CHECK",    # окно №16: Live Replay по модели Z3
     "action-firewall-check": "CHECK",
     "rag-conflict-check": "CHECK",
     "rlvr-oracle-check": "CHECK",
@@ -561,6 +562,7 @@ CASE_TARGET = {
     "unsat-core": "unsat-core-check",
     "heal-index": "heal-index-check",
     "xray-none": "xray-none-check",
+    "live-replay": "live-replay-check",
     "action-firewall-check": "action-firewall-check",
     "rag-conflict-check": "rag-conflict-check",
     "rlvr-oracle-check": "rlvr-oracle-check",
