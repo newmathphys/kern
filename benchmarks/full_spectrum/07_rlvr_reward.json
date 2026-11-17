@@ -1,0 +1,421 @@
+[
+  {
+    "id": "rlvr_div0_vs_linear",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Финтех-формула",
+    "trick": "деление на ноль в сгенерированной формуле vs доказанная линейная",
+    "sphere_en": "Fintech formula",
+    "trick_en": "division by zero in a generated formula vs a proven linear one",
+    "candidates": [
+      {
+        "name": "div0",
+        "role": "crash",
+        "code": "# @kern:requires part >= 0 and total >= 0\n# @kern:ensures result >= 0\ndef rate(part, total):\n    return part * 100 // total\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "part": 1,
+          "total": 0
+        }
+      },
+      {
+        "name": "linear",
+        "role": "proven",
+        "code": "# @kern:requires part >= 0 and total >= 0\n# @kern:ensures result >= 0\ndef rate(part, total):\n    return part + total\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "part": [
+            0,
+            50
+          ],
+          "total": [
+            0,
+            50
+          ]
+        }
+      }
+    ],
+    "order": [
+      "linear",
+      "div0"
+    ]
+  },
+  {
+    "id": "rlvr_offbyone_vs_precise",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "SLA-зажим",
+    "trick": "off-by-one на границе x=0 vs точный зажим",
+    "sphere_en": "SLA clamp",
+    "trick_en": "off-by-one at the x=0 boundary vs an exact clamp",
+    "candidates": [
+      {
+        "name": "offbyone",
+        "role": "refuted",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef clamp(x):\n    if x > 0:\n        return x\n    return x - 1\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "x": 0
+        }
+      },
+      {
+        "name": "precise",
+        "role": "proven",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef clamp(x):\n    return x\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "x": [
+            0,
+            1,
+            5
+          ]
+        }
+      }
+    ],
+    "order": [
+      "precise",
+      "offbyone"
+    ]
+  },
+  {
+    "id": "rlvr_weak_spec_reward",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Относительность награды",
+    "trick": "слабый контракт награждает константу, сильный — наказывает ту же константу",
+    "sphere_en": "Reward relativity",
+    "trick_en": "a weak contract rewards a constant, a strong one punishes the same constant",
+    "candidates": [
+      {
+        "name": "constant_weak",
+        "role": "weak",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result == 0\ndef f(x):\n    return 0\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "witness": {
+          "x": 7
+        }
+      },
+      {
+        "name": "constant_strong",
+        "role": "refuted",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result == x\ndef f(x):\n    return 0\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "x": 1
+        }
+      },
+      {
+        "name": "linear_good",
+        "role": "proven",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef f(x):\n    return x + 1\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "x": [
+            0,
+            3,
+            9
+          ]
+        }
+      }
+    ],
+    "order": [
+      "linear_good",
+      "constant_strong"
+    ]
+  },
+  {
+    "id": "rlvr_partial_guard_vs_full",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Баланс/защита",
+    "trick": "частичный гард (только крупные суммы) vs полный зажим",
+    "sphere_en": "Balance/guard",
+    "trick_en": "partial guard (large amounts only) vs a full clamp",
+    "candidates": [
+      {
+        "name": "partial",
+        "role": "refuted",
+        "code": "# @kern:requires balance >= 0 and amount >= 0\n# @kern:ensures result >= 0\ndef debit(balance, amount):\n    if amount > 1000:\n        return balance\n    return balance - amount\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "balance": 0,
+          "amount": 1
+        }
+      },
+      {
+        "name": "full",
+        "role": "proven",
+        "code": "# @kern:requires balance >= 0 and amount >= 0 and amount <= balance\n# @kern:ensures result >= 0\ndef debit(balance, amount):\n    return balance - amount\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "balance": [
+            0,
+            10,
+            100
+          ],
+          "amount": [
+            0,
+            5,
+            50,
+            200
+          ]
+        }
+      }
+    ],
+    "order": [
+      "full",
+      "partial"
+    ]
+  },
+  {
+    "id": "rlvr_syntax_broken_vs_valid",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Парсинг",
+    "trick": "синтаксически битый ответ LLM vs валидный: награды за битый НЕТ",
+    "sphere_en": "Parsing",
+    "trick_en": "syntactically broken LLM answer vs a valid one: no reward for the broken one",
+    "candidates": [
+      {
+        "name": "broken",
+        "role": "syntax",
+        "code": "def f(x)\n    return x\n",
+        "expect_no_reward": true,
+        "expect_rc": 1
+      },
+      {
+        "name": "valid",
+        "role": "proven",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef f(x):\n    return x + 2\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "x": [
+            0,
+            4
+          ]
+        }
+      }
+    ],
+    "order": [
+      "valid"
+    ]
+  },
+  {
+    "id": "rlvr_upper_bound",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Лимит/переполнение",
+    "trick": "уход за верхнюю границу 1000 vs зажим по верхней границе",
+    "sphere_en": "Cap/overflow",
+    "trick_en": "going past the upper bound 1000 vs clamping at it",
+    "candidates": [
+      {
+        "name": "unbounded",
+        "role": "refuted",
+        "code": "# @kern:requires balance >= 0 and amount >= 0\n# @kern:ensures result <= 1000\ndef topup(balance, amount):\n    return balance + amount\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "balance": 1001,
+          "amount": 0
+        }
+      },
+      {
+        "name": "clamped",
+        "role": "proven",
+        "code": "# @kern:requires balance >= 0 and amount >= 0\n# @kern:ensures result <= 1000\ndef topup(balance, amount):\n    if balance + amount > 1000:\n        return 1000\n    return balance + amount\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "balance": [
+            0,
+            500,
+            1000
+          ],
+          "amount": [
+            0,
+            500,
+            1000
+          ]
+        }
+      }
+    ],
+    "order": [
+      "clamped",
+      "unbounded"
+    ]
+  },
+  {
+    "id": "rlvr_fee_leaky_vs_closed",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Комиссия",
+    "trick": "дырявый расчёт (amount-1 при 0) vs закрытый по знаку",
+    "sphere_en": "Fees",
+    "trick_en": "leaky computation (amount-1 at 0) vs sign-closed",
+    "candidates": [
+      {
+        "name": "leaky",
+        "role": "refuted",
+        "code": "# @kern:requires amount >= 0\n# @kern:ensures result >= 0\ndef fee(amount):\n    return amount - 1\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "amount": 0
+        }
+      },
+      {
+        "name": "closed",
+        "role": "proven",
+        "code": "# @kern:requires amount >= 0\n# @kern:ensures result >= 0\ndef fee(amount):\n    return amount\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "amount": [
+            0,
+            1,
+            5
+          ]
+        }
+      }
+    ],
+    "order": [
+      "closed",
+      "leaky"
+    ]
+  },
+  {
+    "id": "rlvr_requires_removed",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Деградация предусловия",
+    "trick": "снятие requires у того же тела роняет награду (+1.0 -> -1.0)",
+    "sphere_en": "Precondition removal",
+    "trick_en": "dropping requires on the same body collapses the reward (+1.0 -> -1.0)",
+    "candidates": [
+      {
+        "name": "with_requires",
+        "role": "proven",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef twice(x):\n    return x + 1\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "x": [
+            0,
+            5
+          ]
+        }
+      },
+      {
+        "name": "without_requires",
+        "role": "refuted",
+        "code": "# @kern:ensures result >= 0\ndef twice(x):\n    return x + x\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "x": -1
+        }
+      }
+    ],
+    "order": [
+      "with_requires",
+      "without_requires"
+    ]
+  },
+  {
+    "id": "rlvr_rank_three",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Ранжирование",
+    "trick": "три кандидата на одну задачу: proven > violated > cheat",
+    "sphere_en": "Ranking",
+    "trick_en": "three candidates on one task: proven > violated > cheat",
+    "candidates": [
+      {
+        "name": "proven",
+        "role": "proven",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef f(x):\n    return x + 1\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "x": [
+            0,
+            2
+          ]
+        }
+      },
+      {
+        "name": "violated",
+        "role": "refuted",
+        "code": "# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef f(x):\n    return x - 1\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "x": 0
+        }
+      },
+      {
+        "name": "cheat",
+        "role": "cheat",
+        "code": "import sys\n\n# @kern:requires x >= 0\n# @kern:ensures result >= 0\ndef f(x):\n    if x > 100:\n        sys.exit(0)\n    return x\n",
+        "expect_reward": -2.0,
+        "expect_marker": "[REWARD HACKING PENALTY"
+      }
+    ],
+    "order": [
+      "proven",
+      "violated",
+      "cheat"
+    ],
+    "determinism": true
+  },
+  {
+    "id": "rlvr_reference_vs_sign_mutation",
+    "kind": "rlvr",
+    "block": "07",
+    "sphere": "Мутация знака",
+    "trick": "эталон result > 0 vs мутация (x-1) на той же спецификации",
+    "sphere_en": "Sign mutation",
+    "trick_en": "reference result > 0 vs mutation (x-1) under the same spec",
+    "candidates": [
+      {
+        "name": "reference",
+        "role": "proven",
+        "code": "# @kern:requires x >= 1\n# @kern:ensures result > 0\ndef f(x):\n    return x\n",
+        "expect_reward": 1.0,
+        "expect_marker": "[VERIFIED REWARD",
+        "domain": {
+          "x": [
+            1,
+            2,
+            9
+          ]
+        }
+      },
+      {
+        "name": "mutated",
+        "role": "refuted",
+        "code": "# @kern:requires x >= 1\n# @kern:ensures result > 0\ndef f(x):\n    return x - 1\n",
+        "expect_reward": -1.0,
+        "expect_marker": "[REFUTED",
+        "witness": {
+          "x": 1
+        }
+      }
+    ],
+    "order": [
+      "reference",
+      "mutated"
+    ]
+  }
+]

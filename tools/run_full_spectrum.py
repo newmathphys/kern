@@ -39,10 +39,12 @@ from __future__ import annotations
 import argparse
 import ast
 import glob
+import hashlib
 import itertools
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -795,6 +797,420 @@ def check_concolic(card, tmpdir):
                   "trivial_targets": len(triv_hit)}
 
 
+
+# ---------------------------------------------------------------------------
+#  БЛОК 06: ЦЕЛОСТНОСТЬ ОБРАЗОВ .kimg И ПОДПИСИ Ed25519
+# ---------------------------------------------------------------------------
+# ИЗМЕРЕНО ПИЛОТОМ (без домыслов):
+#   * `kernc check-integrity <img>` даёт rc=0 на целом образе и rc=2 на порче;
+#     маркеры: `[OK] Целостность: заголовок + Merkle-корень совпали`,
+#     `[!] Образ НЕВАЛИДЕН: BadMagic|UnsupportedVersion|BadHeaderSize`,
+#     `[!] ОБЪЕКТ <i> ПОВРЕЖДЁН ... PayloadTampered`, `[!] Образ слишком мал`;
+#   * `kernc attest sign <img> -k <seed32> -o <cert>` подписывает ЛЮБЫМ ключом,
+#     а `attest verify` проверяет ВШИТЫМ ключом владельца и **всегда** выходит
+#     с rc=0: вердикт только текстовый (`подпись=НЕВЕРНА|ok`, `привязка=ok|НЕ СОВПАЛА`).
+#     Это граница CLI, а не наша: rc не является сигналом для attest.
+#
+# НЕЗАВИСИМЫЙ ОРАКУЛ:
+#   * свой разбор 128-байтного заголовка и 96-байтных записей таблицы;
+#   * BLAKE3 каждого объекта (`blake3`) против дайджеста в таблице;
+#   * Ed25519 через `openssl pkeyutl -verify -rawin` (наш ключ и ключ владельца);
+#   * SHA-256 образа против `contract_digest` сертификата (привязка);
+#   * точная локализация мутации (какой объект/поле испорчено).
+
+KIMG_OWNER_PUB = os.path.join(ROOT, "docs", "keys", "kern-owner.pub")
+KIMG_MAGIC = b"KIMG\r\n\x1a\n"
+CERT_MAGIC = b"KATT"
+
+
+def _blake3(data):
+    try:
+        import blake3
+    except ImportError:
+        return None
+    return blake3.blake3(data).digest()
+
+
+def _kimg_header(blob):
+    """СВОЙ разбор 128-байтного заголовка (структура из kimg_reader.zig)."""
+    if len(blob) < 128:
+        return {"too_small": len(blob)}
+    (vmaj, vmin, hsize, flags, algo, block) = struct.unpack_from("<HHIIIQ", blob, 8)
+    (t_off, t_size, count, p_off) = struct.unpack_from("<QQQQ", blob, 32)
+    return {"magic_ok": blob[:8] == KIMG_MAGIC, "version": (vmaj, vmin),
+            "header_size": hsize, "flags": flags, "hash_algo": algo,
+            "block_size": block, "table_off": t_off, "table_size": t_size,
+            "object_count": count, "payload_off": p_off,
+            "root_digest": blob[64:96], "size": len(blob)}
+
+
+def _kimg_objects(blob, h):
+    """СВОЙ разбор таблицы объектов: 96 байт на запись."""
+    out = []
+    for i in range(int(h["object_count"])):
+        base = int(h["table_off"]) + i * 96
+        if base + 96 > len(blob):
+            break
+        digest = blob[base:base + 32]
+        off, usize, csize = struct.unpack_from("<QQQ", blob, base + 32)
+        # ИЗМЕРЕНО: `payload_offset` в записи ОТНОСИТЕЛЕН `data_payload_offset`
+        # (224 при payload_off=608 даёт 832 — ровно место первого объекта).
+        off = int(h["payload_off"]) + off
+        codec = blob[base + 62]
+        out.append({"index": i, "digest": digest, "off": off, "usize": usize,
+                    "csize": csize, "codec": codec})
+    return out
+
+
+def _ed25519_verify(pub_pem, payload, sig):
+    """Независимая проверка Ed25519 через OpenSSL (0 = подпись верна)."""
+    with tempfile.TemporaryDirectory(prefix="ed25519_") as td:
+        pl = os.path.join(td, "p.bin"); sg = os.path.join(td, "s.bin")
+        with open(pl, "wb") as fh:
+            fh.write(payload)
+        with open(sg, "wb") as fh:
+            fh.write(sig)
+        rc, _out, err = run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", pub_pem,
+                             "-rawin", "-in", pl, "-sigfile", sg], timeout=60)
+        return rc == 0, err.strip()[:120]
+
+
+def _openssl_available():
+    rc, _out, _err = run(["openssl", "version"], timeout=30)
+    return rc == 0
+
+
+def _sign_image(img_path, seed32, cert_path):
+    seed = os.path.join(os.path.dirname(cert_path), "seed32.bin")
+    with open(seed, "wb") as fh:
+        fh.write(seed32)
+    return run([KERNC, "attest", "sign", img_path, "-k", seed, "-o", cert_path], timeout=300)
+
+
+def _cert_fields(raw):
+    return {"magic_ok": raw[:4] == CERT_MAGIC, "version": raw[4] if len(raw) > 4 else None,
+            "verdict": raw[5] if len(raw) > 5 else None,
+            "contract_digest": raw[8:40], "merkle_root": raw[40:72],
+            "signature": raw[72:136], "payload": raw[8:40] + raw[40:72] + raw[5:6],
+            "size": len(raw)}
+
+
+def check_kimg(card, tmpdir):
+    """KERN-вердикт = check-integrity / attest verify; оракул = байты + BLAKE3 + Ed25519."""
+    errs = []
+    scenario = card["scenario"]
+    base = card.get("base", "toy")
+    src = os.path.join(ROOT, "toy.kimg" if base == "toy" else "release.kimg")
+    img = os.path.join(tmpdir, "image.kimg")
+    with open(src, "rb") as fh:
+        pristine = fh.read()
+    blob = bytearray(pristine)
+    details = {"scenario": scenario, "base": base}
+
+    if scenario == "payload_flip":
+        blob[-1] ^= 1
+    elif scenario == "magic_corrupt":
+        blob[0] ^= 1
+    elif scenario == "version_corrupt":
+        struct.pack_into("<H", blob, 8, 2)
+    elif scenario == "hdrsize_corrupt":
+        struct.pack_into("<I", blob, 12, 64)
+    elif scenario == "truncated":
+        del blob[-100:]
+    elif scenario == "empty":
+        del blob[:]
+    elif scenario not in ("pristine", "sig_flip", "foreign_key", "stale_binding"):
+        errs.append("неизвестный сценарий %r" % scenario)
+    with open(img, "wb") as fh:
+        fh.write(bytes(blob))
+
+    expect = card.get("expect") or {}
+    if scenario in ("sig_flip", "foreign_key", "stale_binding"):
+        seed = bytes(range(32))
+        cert_ours = os.path.join(tmpdir, "ours.cert")
+        rc_s, out_s, _e = _sign_image(img, seed, cert_ours)
+        if rc_s != 0 or "ОБРАЗ АТТЕСТОВАН" not in (out_s + _e):
+            errs.append("attest sign rc=%d: %s" % (rc_s, (out_s + _e).strip()[:120]))
+        if scenario == "sig_flip":
+            raw = bytearray(open(cert_ours, "rb").read())
+            raw[80] ^= 1
+            with open(cert_ours, "wb") as fh:
+                fh.write(bytes(raw))
+            cert_used = cert_ours
+        elif scenario == "foreign_key":
+            cert_used = cert_ours
+        else:
+            cert_used = os.path.join(tmpdir, "owner.cert")
+            with open(os.path.join(ROOT, "attestation.cert"), "rb") as fh:
+                with open(cert_used, "wb") as out:
+                    out.write(fh.read())
+        rc, out, err = run([KERNC, "attest", "verify", img, cert_used], timeout=300)
+        text = out + err
+        for marker in expect.get("attest_markers") or []:
+            if marker not in text:
+                errs.append("attest verify: нет маркера %r (вывод: %s)"
+                            % (marker, " ".join(text.split())[:140]))
+        details["attest_rc"] = rc
+        raw = open(cert_used, "rb").read()
+        cf = _cert_fields(raw)
+        details["cert"] = {"magic_ok": cf["magic_ok"], "size": cf["size"],
+                           "binding_sha256_ok": hashlib.sha256(bytes(blob)).digest() == cf["contract_digest"]}
+        if not cf["magic_ok"] or cf["size"] != 136:
+            errs.append("сертификат не 136 байт или без магии KATT")
+        if not _openssl_available():
+            errs.append("openssl недоступен — независимая Ed25519-проверка невозможна")
+        else:
+            own = os.path.join(tmpdir, "ours.pub")
+            der = bytes.fromhex("302e020100300506032b657004220420") + seed
+            dpath = os.path.join(tmpdir, "ours.der")
+            with open(dpath, "wb") as fh:
+                fh.write(der)
+            rc_d, _o, e_d = run(["openssl", "pkey", "-inform", "DER", "-in", dpath,
+                                 "-pubout", "-out", own], timeout=60)
+            if rc_d != 0:
+                errs.append("не удалось вывести наш публичный ключ: %s" % e_d.strip()[:100])
+            else:
+                ours_ok, _ = _ed25519_verify(own, cf["payload"], cf["signature"])
+                owner_ok, _ = _ed25519_verify(KIMG_OWNER_PUB, cf["payload"], cf["signature"])
+                details["sig_valid_ours"] = ours_ok
+                details["sig_valid_owner"] = owner_ok
+                want = card.get("oracle") or {}
+                if want.get("sig_valid_ours") is not None and ours_ok != bool(want["sig_valid_ours"]):
+                    errs.append("оракул: подпись нашим ключом = %s, ожидалось %s"
+                                % (ours_ok, want["sig_valid_ours"]))
+                if want.get("sig_valid_owner") is not None and owner_ok != bool(want["sig_valid_owner"]):
+                    errs.append("оракул: подпись ключом владельца = %s, ожидалось %s"
+                                % (owner_ok, want["sig_valid_owner"]))
+        return errs, details
+
+    rc, out, err = run([KERNC, "check-integrity", img], timeout=600)
+    text = out + err
+    if rc != int(expect.get("integrity_rc", 0)):
+        errs.append("check-integrity rc=%d, ожидалось %s" % (rc, expect.get("integrity_rc")))
+    for marker in expect.get("markers") or []:
+        if marker not in text:
+            errs.append("check-integrity: нет маркера %r" % marker)
+    details["integrity_rc"] = rc
+    h = _kimg_header(bytes(blob))
+    details["header"] = {k: h[k] for k in ("magic_ok", "version", "header_size",
+                                          "object_count", "size") if k in h}
+    if scenario == "pristine":
+        if not h.get("magic_ok") or h.get("header_size") != 128 or h.get("version") != (1, 3):
+            errs.append("оракул: заголовок невалиден: %s" % details["header"])
+        objs = _kimg_objects(bytes(blob), h)
+        bad = 0
+        for ob in objs:
+            if ob["codec"] != 0:
+                continue
+            data = bytes(blob)[ob["off"]:ob["off"] + ob["csize"]]
+            got = _blake3(data)
+            if got is not None and got != ob["digest"]:
+                bad += 1
+        details["objects"] = len(objs)
+        details["digest_mismatches"] = bad
+        if _blake3(b"") is None:
+            errs.append("blake3 недоступен — независимая проверка объектов невозможна")
+        elif bad != 0:
+            errs.append("оракул: %d объектов с неверным BLAKE3 на ЦЕЛОМ образе" % bad)
+    elif scenario == "payload_flip":
+        objs = _kimg_objects(bytes(blob), h)
+        bad = []
+        for ob in objs:
+            if ob["codec"] != 0:
+                continue
+            data = bytes(blob)[ob["off"]:ob["off"] + ob["csize"]]
+            got = _blake3(data)
+            if got is not None and got != ob["digest"]:
+                bad.append(ob["index"])
+        details["tampered_objects"] = bad
+        if len(bad) != 1:
+            errs.append("оракул: испорчено объектов %d, ожидался ровно 1" % len(bad))
+        m = re.search(r"ОБЪЕКТ (\d+) ПОВРЕЖДЁН", text)
+        if not m:
+            errs.append("KERN не назвал номер испорченного объекта")
+        elif bad and int(m.group(1)) != bad[0]:
+            errs.append("KERN назвал объект %s, оракул — %s" % (m.group(1), bad[0]))
+    elif scenario == "magic_corrupt":
+        if h.get("magic_ok") is not False:
+            errs.append("оракул: магия осталась валидной")
+    elif scenario == "version_corrupt":
+        if h.get("version") == (1, 3):
+            errs.append("оракул: версия не изменилась")
+    elif scenario == "hdrsize_corrupt":
+        if h.get("header_size") == 128:
+            errs.append("оракул: header_size не изменился")
+    elif scenario == "truncated":
+        if "too_small" in h:
+            errs.append("оракул: файл всё ещё >= 128 байт")
+        else:
+            t_end = h["table_off"] + h["table_size"]
+            objs = _kimg_objects(bytes(blob), h)
+            obj_oob = [ob["index"] for ob in objs
+                       if ob["off"] + ob["csize"] > len(blob)]
+            if t_end <= len(blob) and h["payload_off"] <= len(blob) and not obj_oob:
+                errs.append("оракул: границы таблицы/payload/объектов не нарушены")
+            details["objects_oob"] = obj_oob
+    elif scenario == "empty":
+        if len(blob) != 0:
+            errs.append("оракул: файл не пуст")
+    return errs, details
+
+
+
+# ---------------------------------------------------------------------------
+#  БЛОК 07: ВЕРИФИЦИРУЕМАЯ НАГРАДА RLVR (`--rlvr-reward`)
+# ---------------------------------------------------------------------------
+# ИЗМЕРЕНО ПИЛОТОМ (точная шкала, без домыслов):
+#   +1.0 `[VERIFIED REWARD, Belnap T, e=1]` — доказано, trusted: 0 | holes: 0;
+#   -1.0 `[REFUTED, Belnap F]` — есть контрпример (он печатается);
+#   -2.0 `[REWARD HACKING PENALTY, Belnap F]` — чит (`sys.exit` внутри функции);
+#    0.0 `[ABSTAIN, Belnap N]` — нет аннотаций ИЛИ тело вне замкнутого фрагмента
+#         (ИЗМЕРЕНО: `x * 2` и `part * 100 // total` дают ABSTAIN, а `x + x` — +1.0);
+#   синтаксически битый файл — фатальный SyntaxError (rc != 0), награды НЕТ.
+# `--rlvr-reward` ВСЕГДА выходит с rc=0, кроме этого случая: сигнал — строка R=.
+#
+# НЕЗАВИСИМЫЙ ОРАКУЛ: сам читает `@kern:requires/ensures`, сам исполняет кандидата
+# в Python и проверяет, ЧЕМ награда заслужена: контрпример действительно нарушает
+# постусловие на входе, удовлетворяющем предусловию; «доказанный» кандидат держит
+# постусловие на всей сетке домена; чит содержит `sys.exit` внутри функции;
+# битый файл не парсится. Плюс монотонность и (по флагу) детерминизм.
+
+RLVR_RE = re.compile(r"\[REWARD\] R=([-+]?\d+(?:\.\d+)?)")
+
+
+def _annot(code, name):
+    m = re.search(r"@kern:" + name + r"\s+(.+)", code)
+    return m.group(1).strip() if m else None
+
+
+def _load_candidate(code):
+    tree = ast.parse(code)
+    fns = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+    if len(fns) != 1:
+        raise ValueError("кандидат обязан содержать ровно одну функцию")
+    ns = {}
+    exec(compile(tree, "<candidate>", "exec"), ns)
+    return fns[0].name, [a.arg for a in fns[0].args.args], ns
+
+
+def _check_role(cand, code, errs):
+    """Физическая проверка ЗАСЛУЖЕННОСТИ награды (независимо от KERN)."""
+    role = cand.get("role", "proven")
+    if role == "syntax":
+        try:
+            ast.parse(code)
+        except SyntaxError:
+            return {"parsed": False}
+        errs.append("оракул: синтаксически битый кандидат ВДРУГ разобрался")
+        return {"parsed": True}
+    name, params, ns = _load_candidate(code)
+    fn = ns[name]
+    req = _annot(code, "requires")
+    ens = _annot(code, "ensures")
+    if role == "cheat":
+        bad = [n.lineno for n in ast.walk(ast.parse(code))
+               if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+               and n.func.attr in ("exit", "_exit")]
+        if not bad:
+            errs.append("оракул: в «чите» нет sys.exit внутри кода")
+        return {"cheat_lines": bad}
+    if role == "refuted":
+        witness = cand.get("witness") or {}
+        if req and not eval(req, {"__builtins__": {}}, dict(witness)):
+            errs.append("оракул: свидетель %s НЕ удовлетворяет requires (%s)" % (witness, req))
+        got = fn(**witness)
+        if not ens:
+            errs.append("оракул: у кандидата нет ensures — нарушать нечего")
+        elif eval(ens, {"__builtins__": {}}, dict(witness, result=got)):
+            errs.append("оракул: на свидетеле %s постусловие ВЫПОЛНЕНО (result=%s) — "
+                        "наказание не заслужено" % (witness, got))
+        return {"witness": witness, "result": got}
+    if role == "crash":
+        witness = cand.get("witness") or {}
+        try:
+            got = fn(**witness)
+        except ZeroDivisionError:
+            return {"witness": witness, "raised": "ZeroDivisionError"}
+        except Exception as exc:
+            return {"witness": witness, "raised": type(exc).__name__}
+        errs.append("оракул: кандидат НЕ упал на %s (result=%s)" % (witness, got))
+        return {"witness": witness, "result": got}
+    if role == "weak":
+        body = ast.parse(code).body[-1].body
+        is_const = (len(body) == 1 and isinstance(body[0], ast.Return)
+                    and isinstance(body[0].value, ast.Constant))
+        if not is_const:
+            errs.append("оракул: «слабое» тело — не одна константа")
+        val = fn(**(cand.get("witness") or {p: 0 for p in params}))
+        ok = bool(ens) and eval(ens, {"__builtins__": {}}, dict({p: 0 for p in params}, result=val))
+        return {"constant": is_const, "ensures_holds": ok}
+    # role == "proven": постусловие обязано держаться на ВСЕЙ сетке домена
+    domain = cand.get("domain") or {}
+    checked = failed = 0
+    for vec in itertools.product(*[domain[p] for p in params]):
+        env = dict(zip(params, vec))
+        if req and not eval(req, {"__builtins__": {}}, dict(env)):
+            continue
+        checked += 1
+        got = fn(**env)
+        if ens and not eval(ens, {"__builtins__": {}}, dict(env, result=got)):
+            failed += 1
+    if checked == 0:
+        errs.append("оракул: домен не дал ни одного входа, удовлетворяющего requires")
+    if failed:
+        errs.append("оракул: «доказанный» кандидат нарушает ensures на %d из %d входов"
+                    % (failed, checked))
+    return {"checked": checked, "failed": failed}
+
+
+def check_rlvr(card, tmpdir):
+    errs = []
+    rewards = {}
+    facts = {"candidates": {}}
+    for cand in card["candidates"]:
+        name = cand["name"]
+        code = cand["code"]
+        path = write_text(os.path.join(tmpdir, card["id"] + "_" + name + ".py"), code)
+        rc, out, err = run([PY, KERN, "--rlvr-reward", path], timeout=1200)
+        text = out + err
+        rew = None
+        m = RLVR_RE.search(text)
+        if m:
+            rew = float(m.group(1))
+        rewards[name] = rew
+        exp = cand.get("expect_reward")
+        if exp is not None:
+            if rew is None:
+                errs.append("%s: награда не напечатана (rc=%d)" % (name, rc))
+            elif abs(rew - float(exp)) > 1e-9:
+                errs.append("%s: R=%s, ожидалось %s" % (name, rew, exp))
+        if cand.get("expect_no_reward") and rew is not None:
+            errs.append("%s: награда %s напечатана, хотя ожидался отказ без награды" % (name, rew))
+        if cand.get("expect_marker") and cand["expect_marker"] not in text:
+            errs.append("%s: нет маркера %r" % (name, cand["expect_marker"]))
+        if cand.get("expect_rc") is not None and rc != int(cand["expect_rc"]):
+            errs.append("%s: rc=%d, ожидалось %s" % (name, rc, cand["expect_rc"]))
+        try:
+            facts["candidates"][name] = _check_role(cand, code, errs)
+        except Exception as exc:
+            errs.append("%s: оракул не смог проверить кандидата: %s: %s"
+                        % (name, type(exc).__name__, exc))
+        if card.get("determinism"):
+            rc2, out2, err2 = run([PY, KERN, "--rlvr-reward", path], timeout=1200)
+            m2 = RLVR_RE.search(out2 + err2)
+            rew2 = float(m2.group(1)) if m2 else None
+            if rew2 != rew:
+                errs.append("%s: сигнал НЕ детерминирован: %s != %s" % (name, rew, rew2))
+    order = card.get("order") or []
+    for a, b in zip(order, order[1:]):
+        ra, rb = rewards.get(a), rewards.get(b)
+        if ra is None or rb is None or not (ra > rb):
+            errs.append("монотонность нарушена: reward(%s)=%s не > reward(%s)=%s"
+                        % (a, ra, b, rb))
+    facts["rewards"] = rewards
+    return errs, facts
+
+
 def run_card(card):
     with tempfile.TemporaryDirectory(prefix="full_spectrum_") as tmpdir:
         if card["kind"] == "heal":
@@ -828,6 +1244,23 @@ def run_card(card):
                                   "векторами, %s вектор(ов)"
                                   % (facts.get("covered"), facts.get("targets_hit"),
                                      facts.get("targets"), facts.get("vectors")),
+            })
+        elif card["kind"] == "kimg":
+            errs, facts = check_kimg(card, tmpdir)
+            facts.update({
+                "kern_note_en": "`%s`: rc=%s, markers matched" % (facts.get("scenario"), facts.get("integrity_rc", facts.get("attest_rc"))),
+                "kern_note_ru": "`%s`: rc=%s, маркеры совпали" % (facts.get("scenario"), facts.get("integrity_rc", facts.get("attest_rc"))),
+                "oracle_note_en": "own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL",
+                "oracle_note_ru": "свой разбор заголовка/таблицы + BLAKE3 по объектам + Ed25519 через OpenSSL",
+            })
+        elif card["kind"] == "rlvr":
+            errs, facts = check_rlvr(card, tmpdir)
+            rw = facts.get("rewards") or {}
+            facts.update({
+                "kern_note_en": "rewards " + ", ".join("%s=%s" % (k, v) for k, v in rw.items()),
+                "kern_note_ru": "награды " + ", ".join("%s=%s" % (k, v) for k, v in rw.items()),
+                "oracle_note_en": "independent exec: witness violates ensures · proven holds on domain · monotone",
+                "oracle_note_ru": "независимое исполнение: свидетель нарушает ensures · proven держится на домене · монотонно",
             })
         elif card["kind"] == "belnap":
             errs, facts = check_belnap(card, tmpdir)
@@ -878,6 +1311,10 @@ def load_cards(paths):
                 raise SystemExit("[!] %s: explain-карточке %s нужен `doc`" % (path, card["id"]))
             if card["kind"] == "concolic" and not card.get("domain"):
                 raise SystemExit("[!] %s: concolic-карточке %s нужен `domain`" % (path, card["id"]))
+            if card["kind"] == "kimg" and not card.get("scenario"):
+                raise SystemExit("[!] %s: kimg-карточке %s нужен `scenario`" % (path, card["id"]))
+            if card["kind"] == "rlvr" and not card.get("candidates"):
+                raise SystemExit("[!] %s: rlvr-карточке %s нужны `candidates`" % (path, card["id"]))
             if card["kind"] == "belnap" and not (card.get("calls") or card.get("mode") == "table"):
                 raise SystemExit("[!] %s: belnap-карточке %s нужны `calls` или `mode: table`"
                                  % (path, card["id"]))
@@ -903,7 +1340,7 @@ def _rows(results, lang="en"):
                 kern = "T (1,0), %s crash-paths before → %s after" % (f.get("crash_before"), f.get("crash_after"))
                 oracle = "python3 rc %s → %s · %s guard(s) · normal inputs exact" % (
                     f.get("rc_before"), f.get("rc_after"), f.get("guards"))
-        elif r["kind"] in ("belnap", "explain", "concolic"):
+        elif r["kind"] in ("belnap", "explain", "concolic", "kimg", "rlvr"):
             kern = f.get("kern_note_" + lang) or "-"
             oracle = f.get("oracle_note_" + lang) or "-"
         else:
@@ -918,7 +1355,7 @@ def _rows(results, lang="en"):
 def render_en(results, corpus_names):
     rows = _rows(results, "en")
     L = [
-        "# Full Spectrum 70 — window 1: blocks 01-05 (%d of %d confirmed)" % (len(results), len(results)),
+        "# Full Spectrum 70 — window 1: blocks 01-07 (%d of %d confirmed)" % (len(results), len(results)),
         "",
         "Every mechanism below had been shown on a single example each; here each one is",
         "run over a corpus of business cards. Every card is checked **twice**: the KERN",
@@ -1016,6 +1453,39 @@ def render_en(results, corpus_names):
         "requires `covered == 2 × |if|`, `dead == 0`, `unexplored == 0`. A needle property is",
         "enforced: the trivial all-zero input must **not** already pass every target.",
         "",
+        "## What block 06 proves (.kimg integrity and Ed25519 attestation)",
+        "",
+        "`kernc check-integrity` gives `rc=0` on an intact image and `rc=2` on damage,",
+        "naming the exact failure: `BadMagic`, `UnsupportedVersion`, `BadHeaderSize`,",
+        "`ОБЪЕКТ <i> ПОВРЕЖДЁН ... PayloadTampered`, `Образ слишком мал`.",
+        "`kernc attest sign` signs with ANY 32-byte seed, while `attest verify` checks the",
+        "**owner key baked into the binary** — and always exits with `rc=0`: the verdict is",
+        "textual (`подпись=НЕВЕРНА|ok`, `привязка=ok|НЕ СОВПАЛА`). That gap is measured and",
+        "named, not papered over.",
+        "",
+        "The oracle parses the 128-byte header and the 96-byte object table itself,",
+        "recomputes **BLAKE3 of every object**, verifies the certificate signature with",
+        "**OpenSSL Ed25519** under both our key and the owner key, and compares",
+        "`SHA-256(image)` with the certificate's `contract_digest` (binding). A foreign key",
+        "card shows the strong case: the signature IS valid under our key (OpenSSL says so)",
+        "and invalid under the owner key — so KERN enforces the right trust root instead of",
+        "rejecting everything.",
+        "",
+        "## What block 07 proves (verifiable RLVR reward)",
+        "",
+        "`--rlvr-reward` prints an exact scalar: `+1.0` verified (`trusted: 0 | holes: 0`),",
+        "`-1.0` refuted (with a counterexample), `-2.0` reward hacking (`sys.exit` inside a",
+        "function), `0.0` abstain (no annotations, or a body outside the closed fragment —",
+        "measured: `x * 2` and `part * 100 // total` abstain, `x + x` proves). A",
+        "syntactically broken answer is a fatal `SyntaxError` with **no reward at all**",
+        "(fail-closed).",
+        "",
+        "The oracle re-reads `requires`/`ensures` itself, executes every candidate in real",
+        "Python, and proves the reward is deserved: the counterexample violates the",
+        "postcondition at an input that satisfies the precondition; the proven candidate",
+        "keeps it across the whole declared domain; the cheat really contains `sys.exit`;",
+        "the broken file really does not parse. Monotonicity and determinism are checked.",
+        "",
         "## Honest boundaries",
         "",
         "- `kernc belnap` is a **pure lattice calculator** over four values. Certainty and",
@@ -1028,6 +1498,12 @@ def render_en(results, corpus_names):
         "  such and no more.",
         "- `--concolic` prints only counts (no vectors) and is capped at 64 concrete runs",
         "  per function, with `assign`/`if`/`return` and linear conditions only.",
+        "- `attest verify` always exits `0`; its verdict is textual only, so the gate",
+        "  matches markers instead of rc (rc is not a signal here).",
+        "- `--rlvr-reward` returns `+1.0` only for proofs inside the linear fragment;",
+        "  `//` and variable-by-variable `*` abstain (`0.0`) instead of pretending.",
+        "- A weak contract really does reward a constant (`return 0` with `result == 0`",
+        "  earns `+1.0`): the reward is spec-relative, and the card says so.",
         "- `--heal` synthesises guards **only for division by zero** (`/`, `//`, `%`) —",
         "  exactly what `_crash_sites` searches for. It does **not** repair list index",
         "  out-of-range or a shifted threshold guard, so no such card is claimed here.",
@@ -1056,7 +1532,7 @@ def render_en(results, corpus_names):
 def render_ru(results, corpus_names):
     rows = _rows(results, "ru")
     L = [
-        "# Full Spectrum 70 — окно №1: блоки 01–05 (%d из %d подтверждено)" % (len(results), len(results)),
+        "# Full Spectrum 70 — окно №1: блоки 01–07 (%d из %d подтверждено)" % (len(results), len(results)),
         "",
         "Каждый механизм до сих пор был показан РОВНО на одном примере; здесь каждый",
         "прогоняется по корпусу боевых карточек. Каждая карточка проверяется **дважды**:",
@@ -1157,6 +1633,36 @@ def render_ru(results, corpus_names):
         "«игольное ушко» проверяется отдельно: тривиальный вход из нулей НЕ должен",
         "проходить все целевые строки.",
         "",
+        "## Что доказывает блок 06 (целостность .kimg и аттестация Ed25519)",
+        "",
+        "`kernc check-integrity` даёт `rc=0` на целом образе и `rc=2` на порче, называя причину: `BadMagic`, `UnsupportedVersion`, `BadHeaderSize`,",
+        "`ОБЪЕКТ <i> ПОВРЕЖДЁН ... PayloadTampered`, `Образ слишком мал`. `kernc attest",
+        "sign` подписывает ЛЮБЫМ 32-байтным seed, а `attest verify` проверяет **ключ",
+        "владельца, вшитый в бинарник**, и ВСЕГДА выходит с `rc=0`: вердикт текстовый",
+        "(`подпись=НЕВЕРНА|ok`, `привязка=ok|НЕ СОВПАЛА`). Эта граница измерена и названа.",
+        "",
+        "Оракул сам разбирает 128-байтный заголовок и 96-байтные записи таблицы,",
+        "пересчитывает **BLAKE3 каждого объекта**, проверяет подпись сертификата через",
+        "**OpenSSL Ed25519** нашим ключом И ключом владельца, и сверяет",
+        "`SHA-256(образа)` с `contract_digest` сертификата (привязка). Карточка с чужим",
+        "ключом показывает сильный случай: подпись ДЕЙСТВИТЕЛЬНО верна нашим ключом",
+        "(OpenSSL подтверждает) и неверна ключом владельца — то есть KERN проверяет",
+        "правильный корень доверия, а не отвергает всё подряд.",
+        "",
+        "## Что доказывает блок 07 (верифицируемая награда RLVR)",
+        "",
+        "`--rlvr-reward` печатает точный скаляр: `+1.0` доказано (`trusted: 0 | holes: 0`),",
+        "`-1.0` опровергнуто (с контрпримером), `-2.0` чит (`sys.exit` внутри функции),",
+        "`0.0` воздержание (нет аннотаций или тело вне замкнутого фрагмента — измерено:",
+        "`x * 2` и `part * 100 // total` дают ABSTAIN, `x + x` доказывается).",
+        "Синтаксически битый ответ — фатальный `SyntaxError` БЕЗ награды (fail-closed).",
+        "",
+        "Оракул сам перечитывает `requires`/`ensures`, сам исполняет каждого кандидата в",
+        "Python и доказывает, что награда ЗАСЛУЖЕНА: контрпример нарушает постусловие на",
+        "входе, удовлетворяющем предусловию; «доказанный» держит постусловие на всём",
+        "объявленном домене; чит действительно содержит `sys.exit`; битый файл",
+        "действительно не парсится. Монотонность и детерминизм проверяются.",
+        "",
         "## Честные границы",
         "",
         "- `kernc belnap` — **чистый калькулятор бирешётки** на четырёх значениях. Предикаты",
@@ -1169,6 +1675,12 @@ def render_ru(results, corpus_names):
         "  ровно как паспорт и не более.",
         "- `--concolic` печатает только счётчики (векторов нет) и ограничен 64 реальными",
         "  запусками на функцию; поддерживаются `assign`/`if`/`return` и линейные условия.",
+        "- `attest verify` всегда выходит с `0`; вердикт только текстовый, поэтому гейт",
+        "  сверяет маркеры, а не rc (rc здесь не сигнал).",
+        "- `--rlvr-reward` даёт `+1.0` только для доказательств внутри ЛИНЕЙНОГО фрагмента;",
+        "  `//` и `*` переменная-на-переменную воздерживаются (`0.0`), а не притворяются.",
+        "- Слабый контракт действительно награждает константу (`return 0` при `result == 0`",
+        "  получает `+1.0`): награда относительна спецификации, и это сказано прямо.",
         "- `--heal` синтезирует гарды **только для деления на ноль** (`/`, `//`, `%`) —",
         "  ровно то, что ищет `_crash_sites`. Выход за границы списка и «сдвинутый порог»",
         "  он НЕ лечит, поэтому таких карточек здесь нет и не заявляется.",
@@ -1241,6 +1753,12 @@ def main(argv=None):
             tail = "runs=%s, covered=%s/%s, targets=%s/%s, vectors=%s" % (
                 f.get("runs"), f.get("covered"), f.get("expected"),
                 f.get("targets_hit"), f.get("targets"), f.get("vectors"))
+        elif r["kind"] == "kimg":
+            tail = "scenario=%s, integrity_rc=%s, sig(ours)=%s, sig(owner)=%s" % (
+                f.get("scenario"), f.get("integrity_rc"),
+                f.get("sig_valid_ours"), f.get("sig_valid_owner"))
+        elif r["kind"] == "rlvr":
+            tail = "rewards=" + ", ".join("%s:%s" % (k, v) for k, v in (f.get("rewards") or {}).items())
         else:
             tail = "violations=%s%s, safe_checks=%s, safe_violations=%s" % (
                 f.get("unsafe_violations"),

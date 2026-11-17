@@ -1,0 +1,185 @@
+[
+  {
+    "id": "kimg_pristine_integrity",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Поставка/целостность",
+    "trick": "эталонный образ: заголовок и Merkle-корень сходятся, объекты целы",
+    "sphere_en": "Delivery/integrity",
+    "trick_en": "reference image: header and Merkle root agree, objects intact",
+    "scenario": "pristine",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 0,
+      "markers": [
+        "[OK] Целостность"
+      ]
+    }
+  },
+  {
+    "id": "kimg_payload_bitflip",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Атака/bit-rot",
+    "trick": "инверсия 1 бита в payload: KERN называет ИМЕННО испорченный объект",
+    "sphere_en": "Attack/bit-rot",
+    "trick_en": "one payload bit flipped: KERN names the exact tampered object",
+    "scenario": "payload_flip",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 2,
+      "markers": [
+        "PayloadTampered",
+        "ПОВРЕЖДЁН"
+      ]
+    }
+  },
+  {
+    "id": "kimg_magic_corrupt",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Атака/формат",
+    "trick": "порча магических байт KIMG -> образ не разбирается",
+    "sphere_en": "Attack/format",
+    "trick_en": "corrupted KIMG magic -> image does not parse",
+    "scenario": "magic_corrupt",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 2,
+      "markers": [
+        "BadMagic"
+      ]
+    }
+  },
+  {
+    "id": "kimg_version_corrupt",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Атака/версия",
+    "trick": "подмена мажорной версии без переподписи -> UnsupportedVersion",
+    "sphere_en": "Attack/version",
+    "trick_en": "major version swapped without re-signing -> UnsupportedVersion",
+    "scenario": "version_corrupt",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 2,
+      "markers": [
+        "UnsupportedVersion"
+      ]
+    }
+  },
+  {
+    "id": "kimg_hdrsize_corrupt",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Атака/заголовок",
+    "trick": "модификация header_size (128 -> 64) -> BadHeaderSize",
+    "sphere_en": "Attack/header",
+    "trick_en": "header_size modified (128 -> 64) -> BadHeaderSize",
+    "scenario": "hdrsize_corrupt",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 2,
+      "markers": [
+        "BadHeaderSize"
+      ]
+    }
+  },
+  {
+    "id": "kimg_truncated",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Сеть/обрыв",
+    "trick": "усечение хвоста образа: границы таблицы/payload нарушены",
+    "sphere_en": "Network/truncation",
+    "trick_en": "image tail truncated: table/payload bounds violated",
+    "scenario": "truncated",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 2,
+      "markers": [
+        "ПОВРЕЖДЁН"
+      ]
+    }
+  },
+  {
+    "id": "kimg_empty",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Атака/пустой буфер",
+    "trick": "пустой файл вместо образа -> отказ по размеру",
+    "sphere_en": "Attack/empty buffer",
+    "trick_en": "empty file instead of an image -> size refusal",
+    "scenario": "empty",
+    "base": "toy",
+    "expect": {
+      "integrity_rc": 2,
+      "markers": [
+        "слишком мал"
+      ]
+    }
+  },
+  {
+    "id": "kimg_foreign_key",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Ротация ключей",
+    "trick": "подпись НАШИМ ключом: OpenSSL подтверждает её, KERN отвергает (корень доверия — владелец)",
+    "sphere_en": "Key rotation",
+    "trick_en": "signed with OUR key: OpenSSL validates it, KERN rejects it (trust root is the owner)",
+    "scenario": "foreign_key",
+    "base": "toy",
+    "expect": {
+      "attest_markers": [
+        "подпись=НЕВЕРНА",
+        "привязка=ok"
+      ]
+    },
+    "oracle": {
+      "sig_valid_ours": true,
+      "sig_valid_owner": false
+    }
+  },
+  {
+    "id": "kimg_signature_bitflip",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Атака/подпись",
+    "trick": "подмена 1 байта в 64-байтной подписи Ed25519 -> подпись неверна, привязка цела",
+    "sphere_en": "Attack/signature",
+    "trick_en": "one byte flipped inside the 64-byte Ed25519 signature -> signature invalid, binding intact",
+    "scenario": "sig_flip",
+    "base": "toy",
+    "expect": {
+      "attest_markers": [
+        "подпись=НЕВЕРНА",
+        "привязка=ok"
+      ]
+    },
+    "oracle": {
+      "sig_valid_ours": false,
+      "sig_valid_owner": false
+    }
+  },
+  {
+    "id": "kimg_stale_owner_cert",
+    "kind": "kimg",
+    "block": "06",
+    "sphere": "Комплаенс/устаревший артефакт",
+    "trick": "настоящий сертификат владельца для ДРУГОГО образа: подпись верна, привязка НЕ СОВПАЛА",
+    "sphere_en": "Compliance/stale artifact",
+    "trick_en": "a genuine owner certificate for ANOTHER image: signature valid, binding MISMATCH",
+    "scenario": "stale_binding",
+    "base": "toy",
+    "expect": {
+      "attest_markers": [
+        "привязка=НЕ СОВПАЛА",
+        "подпись=ok"
+      ]
+    },
+    "oracle": {
+      "sig_valid_ours": false,
+      "sig_valid_owner": true
+    }
+  }
+]

@@ -1,4 +1,4 @@
-# Full Spectrum 70 — window 1: blocks 01-05 (50 of 50 confirmed)
+# Full Spectrum 70 — window 1: blocks 01-07 (70 of 70 confirmed)
 
 Every mechanism below had been shown on a single example each; here each one is
 run over a corpus of business cards. Every card is checked **twice**: the KERN
@@ -8,7 +8,7 @@ of the engine's tables (bit-pair semantics for B4, CPython execution for code).
 **Law of integrity:** `confirmed == total`. If a single card is not confirmed, the
 runner exits with `rc=1` and writes no showcase at all.
 
-Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `03_unsat_explain.json`, `04_state_machines.json`, `05_concolic_branches.json`.
+Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `03_unsat_explain.json`, `04_state_machines.json`, `05_concolic_branches.json`, `06_kimg_ed25519.json`, `07_rlvr_reward.json`.
 
 ## Cards
 
@@ -64,6 +64,26 @@ Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `03_unsat_explain.json`
 | 48 | 05 | `concolic_iceberg_order` | Exchange | Iceberg order validator: price > 0, quantity from 1000, visible part by 10 | `--concolic`: 10 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 12 vector(s) | OK |
 | 49 | 05 | `concolic_sla_anomaly` | Monitoring | SLA anomaly detector: latency > 500 and errors > 10, else rare threshold 50 | `--concolic`: 9 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 6 vector(s) | OK |
 | 50 | 05 | `concolic_deductible_steps` | Insurance | multi-step deductible: large claim from 100000 and history 0 / < 3 | `--concolic`: 13 run(s), 8/8 branches, dead 0, unexplored 0 | AST-instrumented: 8 branch(es), 2/2 target(s) hit by real witness vectors, 9 vector(s) | OK |
+| 51 | 06 | `kimg_pristine_integrity` | Delivery/integrity | reference image: header and Merkle root agree, objects intact | `pristine`: rc=0, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 52 | 06 | `kimg_payload_bitflip` | Attack/bit-rot | one payload bit flipped: KERN names the exact tampered object | `payload_flip`: rc=2, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 53 | 06 | `kimg_magic_corrupt` | Attack/format | corrupted KIMG magic -> image does not parse | `magic_corrupt`: rc=2, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 54 | 06 | `kimg_version_corrupt` | Attack/version | major version swapped without re-signing -> UnsupportedVersion | `version_corrupt`: rc=2, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 55 | 06 | `kimg_hdrsize_corrupt` | Attack/header | header_size modified (128 -> 64) -> BadHeaderSize | `hdrsize_corrupt`: rc=2, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 56 | 06 | `kimg_truncated` | Network/truncation | image tail truncated: table/payload bounds violated | `truncated`: rc=2, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 57 | 06 | `kimg_empty` | Attack/empty buffer | empty file instead of an image -> size refusal | `empty`: rc=2, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 58 | 06 | `kimg_foreign_key` | Key rotation | signed with OUR key: OpenSSL validates it, KERN rejects it (trust root is the owner) | `foreign_key`: rc=0, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 59 | 06 | `kimg_signature_bitflip` | Attack/signature | one byte flipped inside the 64-byte Ed25519 signature -> signature invalid, binding intact | `sig_flip`: rc=0, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 60 | 06 | `kimg_stale_owner_cert` | Compliance/stale artifact | a genuine owner certificate for ANOTHER image: signature valid, binding MISMATCH | `stale_binding`: rc=0, markers matched | own header/table parse + BLAKE3 per object + Ed25519 via OpenSSL | OK |
+| 61 | 07 | `rlvr_div0_vs_linear` | Fintech formula | division by zero in a generated formula vs a proven linear one | rewards div0=-1.0, linear=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 62 | 07 | `rlvr_offbyone_vs_precise` | SLA clamp | off-by-one at the x=0 boundary vs an exact clamp | rewards offbyone=-1.0, precise=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 63 | 07 | `rlvr_weak_spec_reward` | Reward relativity | a weak contract rewards a constant, a strong one punishes the same constant | rewards constant_weak=1.0, constant_strong=-1.0, linear_good=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 64 | 07 | `rlvr_partial_guard_vs_full` | Balance/guard | partial guard (large amounts only) vs a full clamp | rewards partial=-1.0, full=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 65 | 07 | `rlvr_syntax_broken_vs_valid` | Parsing | syntactically broken LLM answer vs a valid one: no reward for the broken one | rewards broken=None, valid=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 66 | 07 | `rlvr_upper_bound` | Cap/overflow | going past the upper bound 1000 vs clamping at it | rewards unbounded=-1.0, clamped=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 67 | 07 | `rlvr_fee_leaky_vs_closed` | Fees | leaky computation (amount-1 at 0) vs sign-closed | rewards leaky=-1.0, closed=1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 68 | 07 | `rlvr_requires_removed` | Precondition removal | dropping requires on the same body collapses the reward (+1.0 -> -1.0) | rewards with_requires=1.0, without_requires=-1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 69 | 07 | `rlvr_rank_three` | Ranking | three candidates on one task: proven > violated > cheat | rewards proven=1.0, violated=-1.0, cheat=-2.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
+| 70 | 07 | `rlvr_reference_vs_sign_mutation` | Sign mutation | reference result > 0 vs mutation (x-1) under the same spec | rewards reference=1.0, mutated=-1.0 | independent exec: witness violates ensures · proven holds on domain · monotone | OK |
 
 ## What block 01 proves (native B4, `kernc belnap`)
 
@@ -140,6 +160,39 @@ collects the `(line, taken)` set and a witness vector for every target line, and
 requires `covered == 2 × |if|`, `dead == 0`, `unexplored == 0`. A needle property is
 enforced: the trivial all-zero input must **not** already pass every target.
 
+## What block 06 proves (.kimg integrity and Ed25519 attestation)
+
+`kernc check-integrity` gives `rc=0` on an intact image and `rc=2` on damage,
+naming the exact failure: `BadMagic`, `UnsupportedVersion`, `BadHeaderSize`,
+`ОБЪЕКТ <i> ПОВРЕЖДЁН ... PayloadTampered`, `Образ слишком мал`.
+`kernc attest sign` signs with ANY 32-byte seed, while `attest verify` checks the
+**owner key baked into the binary** — and always exits with `rc=0`: the verdict is
+textual (`подпись=НЕВЕРНА|ok`, `привязка=ok|НЕ СОВПАЛА`). That gap is measured and
+named, not papered over.
+
+The oracle parses the 128-byte header and the 96-byte object table itself,
+recomputes **BLAKE3 of every object**, verifies the certificate signature with
+**OpenSSL Ed25519** under both our key and the owner key, and compares
+`SHA-256(image)` with the certificate's `contract_digest` (binding). A foreign key
+card shows the strong case: the signature IS valid under our key (OpenSSL says so)
+and invalid under the owner key — so KERN enforces the right trust root instead of
+rejecting everything.
+
+## What block 07 proves (verifiable RLVR reward)
+
+`--rlvr-reward` prints an exact scalar: `+1.0` verified (`trusted: 0 | holes: 0`),
+`-1.0` refuted (with a counterexample), `-2.0` reward hacking (`sys.exit` inside a
+function), `0.0` abstain (no annotations, or a body outside the closed fragment —
+measured: `x * 2` and `part * 100 // total` abstain, `x + x` proves). A
+syntactically broken answer is a fatal `SyntaxError` with **no reward at all**
+(fail-closed).
+
+The oracle re-reads `requires`/`ensures` itself, executes every candidate in real
+Python, and proves the reward is deserved: the counterexample violates the
+postcondition at an input that satisfies the precondition; the proven candidate
+keeps it across the whole declared domain; the cheat really contains `sys.exit`;
+the broken file really does not parse. Monotonicity and determinism are checked.
+
 ## Honest boundaries
 
 - `kernc belnap` is a **pure lattice calculator** over four values. Certainty and
@@ -152,6 +205,12 @@ enforced: the trivial all-zero input must **not** already pass every target.
   such and no more.
 - `--concolic` prints only counts (no vectors) and is capped at 64 concrete runs
   per function, with `assign`/`if`/`return` and linear conditions only.
+- `attest verify` always exits `0`; its verdict is textual only, so the gate
+  matches markers instead of rc (rc is not a signal here).
+- `--rlvr-reward` returns `+1.0` only for proofs inside the linear fragment;
+  `//` and variable-by-variable `*` abstain (`0.0`) instead of pretending.
+- A weak contract really does reward a constant (`return 0` with `result == 0`
+  earns `+1.0`): the reward is spec-relative, and the card says so.
 - `--heal` synthesises guards **only for division by zero** (`/`, `//`, `%`) —
   exactly what `_crash_sites` searches for. It does **not** repair list index
   out-of-range or a shifted threshold guard, so no such card is claimed here.
@@ -170,4 +229,4 @@ enforced: the trivial all-zero input must **not** already pass every target.
 Requires an interpreter with `z3` (the stock `.venv/bin/python`). Without `z3` the
 runner exits with `rc=2` and an explicit message instead of a green tick.
 
-TOTAL: cards 50 | confirmed by KERN **and** the physical oracle 50 | rc=0
+TOTAL: cards 70 | confirmed by KERN **and** the physical oracle 70 | rc=0
