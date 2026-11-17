@@ -12,7 +12,7 @@
 | **aarch64-linux** | ✅ | ✅ | ✅ 394 passed + 8 skipped | QEMU, `make cross-arch` |
 | **powerpc64-linux (big-endian)** | ✅ | ✅ | ✅ 394 passed + 8 skipped | QEMU, `make cross-arch` |
 | **x86_64-linux-musl (static)** | ✅ | — | — | `zig build hermetic` (аттестуемый артефакт) |
-| **wasm32** | ✅ | — | — | `zig build wasm` (`kernc.wasm`, 85 КБ) |
+| **wasm32** | ✅ | — | — | `zig build wasm` (`kernc.wasm`, 121 486 B) |
 | **aarch64-macos** | ❌ | ✅ | — | CI: `zig build lib -Dtarget=aarch64-macos` |
 | **x86_64-windows** | ❌ | ❌ | — | не собирается, см. блокеры |
 

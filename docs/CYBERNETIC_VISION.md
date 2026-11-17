@@ -87,7 +87,9 @@
 
 * `--html` — автономный «Explorable Proof Canvas»: ползунки входов,
   пересчёт ветвей, квадрат B₄, паспорт функции (0 внешних CDN);
-* `docs/kernc.wasm` — **реальное ядро** (85 КБ, 5 экспортов) прямо в браузере,
+* `docs/kernc.wasm` — **реальное ядро** (121 486 Б = 7 экспортов: `belnap_join`,
+  `belnap_allow`, `lia_unsat2`, `verify_proof`, `admission_valid`, `input_ptr`,
+  `input_cap`) прямо в браузере,
   без сервера: `JOIN_K`, проверка Хэмминга, Фурье–Моцкин и `verifyProof`.
 
 ## 6. Суверенность и воспроизводимость

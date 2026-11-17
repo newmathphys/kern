@@ -81,7 +81,9 @@ Understanding comes from **being able to turn the knobs**. That is why KERN has:
 
 * `--html` — a self-contained "Explorable Proof Canvas": input sliders, branch
   re-computation, the B₄ square, a function passport (0 external CDNs);
-* `docs/kernc.wasm` — the **real core** (85 KB, 5 exports) right in the browser, no
+* `docs/kernc.wasm` — the **real core** (121 486 B = 7 exports: `belnap_join`,
+  `belnap_allow`, `lia_unsat2`, `verify_proof`, `admission_valid`, `input_ptr`,
+  `input_cap`) right in the browser, no
   server: `JOIN_K`, Hamming check, Fourier–Motzkin and `verifyProof`.
 
 ## 6. Sovereignty and reproducibility

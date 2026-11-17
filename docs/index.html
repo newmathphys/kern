@@ -513,6 +513,11 @@ the same solver the CLI uses (2 constraints: <code>a·x + b·y + c ≤ 0</code>)
     });
   }
   document.getElementById("xr-run").addEventListener("click", run);
+  // ОКНО №21: первый экран не должен показывать мёртвый прочерк — реальный
+  // вызов kernc.wasm выполняется сразу после загрузки страницы.
+  if (typeof WebAssembly !== "undefined" && location.protocol !== "file:") {
+    run();
+  }
   document.getElementById("gh-clear").addEventListener("click", function () {
     document.getElementById("xr-code").value = "";
     document.getElementById("xr-out").textContent = "—";
