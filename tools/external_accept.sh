@@ -36,7 +36,10 @@ if [ -z "$ARCHIVE" ]; then
     ARCHIVE="$ROOT/dist-release/kerna-dist-v$VER.tar.gz"
     say "  взят локальный архив: $ARCHIVE"
   else
-    ARCHIVE="/tmp/kerna-dist-v$VER.tar.gz"
+    # ИЗОЛЯЦИЯ (temp-isolation): качаем в СВОЙ mktemp-каталог, а не в общий /tmp.
+    DL="$(mktemp -d "${TMPDIR:-/tmp}/kern_accept_dl_XXXXXX")"
+    trap 'rm -rf "$DL"' EXIT
+    ARCHIVE="$DL/kerna-dist-v$VER.tar.gz"
     say "  качаю (curl -4: у части провайдеров IPv6 сломан — измерено): $BASE"
     curl -4 -fsSL --retry 5 --retry-all-errors --timeout 300 -o "$ARCHIVE" \
       "$BASE/kerna-dist-v$VER.tar.gz" || bad "архив не скачался"

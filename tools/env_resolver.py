@@ -9,7 +9,7 @@
      экстрактор не найден -> `rc=2`, находок 0;
   2. `KERN_VERSION = _kern_version()` читает `server.json` НА ИМПОРТЕ ->
      `ImportError`, бинарь не стартует;
-  3. путь к `kernc` считался ОТДЕЛЬНО (мимо ROOT) -> `/tmp/zig-out/bin/kernc`
+  3. путь к `kernc` считался ОТДЕЛЬНО (мимо ROOT) -> `<tmp>/zig-out/bin/kernc`
      -> живой replay падал -> находки МОЛЧА становились нулём;
   4. без `z3` рядом: `findings 0`, `unreadable 1`, `rc=0`, stderr ПУСТ.
 

@@ -191,7 +191,9 @@ def main() -> int:
         run_xray_lang(lang)
         return 0
     if lang == "debugbench":
-        run_debugbench(Path(sys.argv[2] if len(sys.argv) > 2 else "/tmp/kern_poly/db/eval.json"))
+        # ИЗОЛЯЦИЯ (temp-isolation): дефолтный путь — СВОЙ mktemp-каталог.
+        default = Path(tempfile.mkdtemp(prefix="kern_poly_")) / "db" / "eval.json"
+        run_debugbench(Path(sys.argv[2]) if len(sys.argv) > 2 else default)
         return 0
     rows = fetch(lang)
     print(f"[i] {lang}: строк {len(rows)}")

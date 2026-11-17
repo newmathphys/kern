@@ -70,7 +70,7 @@
 
 <!-- fact:core_tests -->460 тестов ядра · <!-- fact:next_tests -->53 тестов next ·
 <!-- fact:catalog -->499 каталог · <!-- fact:check_targets -->215 CHECK ·
-<!-- fact:canfail_cases -->261 кейса can-fail · <!-- fact:anchors -->218 якорей ·
+<!-- fact:canfail_cases -->261 кейса can-fail · <!-- fact:anchors -->219 якорей ·
 <!-- fact:registry_targets -->296 целей реестра ·
 <!-- fact:meta_targets -->58 мета · <!-- fact:lean_theorems -->147 теоремы Lean ·
 QuixBugs: <!-- fact:quixbugs.smt -->6 доказуемых SMT ·

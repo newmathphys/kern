@@ -43,6 +43,17 @@ SURFACES = (
     "docs/ROADMAP.md",
     "docs/ROADMAP.en.md",
     "docs/kern-architecture.svg",
+    # ОКНО №6: эти документы содержат якоря фактов, но не были в SURFACES,
+    # поэтому `sync --check` честно падал «якоря вне SURFACES». Файл с якорем
+    # обязан быть среди тех, кого `make sync` переписывает (#246/#311).
+    "docs/CAPABILITY_MAP.md",
+    "docs/CAPABILITY_MAP.ru.md",
+    "docs/LIMITS.md",
+    "docs/LIMITS.ru.md",
+    "docs/PLAN_NEXT.md",
+    "docs/PLAN_NEXT.ru.md",
+    "docs/PLAN_takt24.md",
+    "docs/PLAN_takt24.ru.md",
     "docs/TESTING_AND_SPEED_GUIDE.md",
     "docs/TESTING_AND_SPEED_GUIDE.en.md",
     "docs/PROJECT_SPECIFICATION.md",
@@ -266,6 +277,11 @@ def anchor_orphans() -> list[str]:
         for f in ROOT.rglob(pat):
             if any(part in (".venv", ".git", "zig-cache", "zig-out", "node_modules")
                    for part in f.parts):
+                continue
+            # ОКНО №6: `dist-release/` — ГЕНЕРИРУЕМЫЕ архивы релиза (gitignored),
+            # а не источник утверждений: в чистом клоне каталога нет, и проверка
+            # объявляла «сирот» только на машине, где архив уже распакован.
+            if f.relative_to(ROOT).as_posix().startswith("dist-release/"):
                 continue
             try:
                 text = f.read_text(encoding="utf-8", errors="replace")

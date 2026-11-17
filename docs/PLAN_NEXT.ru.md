@@ -169,12 +169,12 @@ xray-overflow-check rc=0, xray-precision rc=0 (ловушки 0/1/1, buggy 5/5, 
 
 - тесты ядра <!-- fact:core_tests -->460
 - тесты next <!-- fact:next_tests -->53
-- каталог <!-- fact:catalog -->491
-- CHECK-цели <!-- fact:check_targets -->199
-- can-fail кейсы <!-- fact:canfail_cases -->244
-- анкоры <!-- fact:anchors -->203
-- цели реестра <!-- fact:registry_targets -->271
-- META-цели <!-- fact:meta_targets -->54
+- каталог <!-- fact:catalog -->499
+- CHECK-цели <!-- fact:check_targets -->215
+- can-fail кейсы <!-- fact:canfail_cases -->261
+- анкоры <!-- fact:anchors -->219
+- цели реестра <!-- fact:registry_targets -->296
+- META-цели <!-- fact:meta_targets -->58
 - теоремы Lean <!-- fact:lean_theorems -->147
 - QuixBugs SMT <!-- fact:quixbugs.smt -->6
 - QuixBugs differential <!-- fact:quixbugs.differential -->40

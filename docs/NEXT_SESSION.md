@@ -23,7 +23,7 @@
 > stale in the very commit that adds it (this line was corrected twice already). The
 > authority is `git log -1` and `docs/STATUS.md`, never this line.
 
-> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 · CHECK <!-- fact:check_targets -->215 · cases <!-- fact:canfail_cases -->261 · anchors <!-- fact:anchors -->218 · registry <!-- fact:registry_targets -->296 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
+> **Facts (EN/RU, kept in sync by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 · CHECK <!-- fact:check_targets -->215 · cases <!-- fact:canfail_cases -->261 · anchors <!-- fact:anchors -->219 · registry <!-- fact:registry_targets -->296 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff
 
 ## Where we are
 
@@ -120,7 +120,7 @@ was corrected wherever it disagreed with the code:
      reproduction of the mixing — no solver needed), and its meta-test rejects the
      VERBATIM "before" output. Measured: `[PASS #407.2] заметок уровня ВЕТКИ 3,
      пропусков функций 0, отрицательной разницы НЕТ`.
-   * Registry unchanged (199/199 CHECK, 231 cases); `ci-fast` 11 green.
+   * Registry unchanged on that snapshot (199/199 CHECK, 231 cases); `ci-fast` 11 green.
    **Only #405 (plan step 2) stays open.**
 8. **STEP 2 DONE: the funnel has THREE buckets, and #405 is CLOSED.** Buckets are counted by
    ACTUAL WORK: `checked` (the solver ran), `trivial` (parsed, no obligations), `skipped`
@@ -157,7 +157,7 @@ was corrected wherever it disagreed with the code:
    (pid + file) and the new gate `mutation-lock-check` distinguishes "mutation IN FLIGHT — you must
    NOT commit" from "a lock left by a crash — remove it deliberately" (lesson #50). The gate has a
    meta-test on 4 branches, and the canfail case creates a marker with a LIVE pid and removes it.
-   Registry grew: **199/199 CHECK, 231 cases** (updated by name, iteratively, where the audit said).
+   Registry grew (snapshot): **199/199 CHECK, 231 cases** (updated by name, iteratively, where the audit said).
 12. **STEP 6 DONE (#409): a pointer is an `Int` (0 = NULL).** cmark `checked` 76 → 141 at the OLD
    denominator. Both safeguards implemented (the Z3 sort trap: `!p` → `p == 0`, never `not p`;
    the reset on pointer mutation, for exited AND enclosing blocks). A FALSE ACCUSATION was found by

@@ -64,7 +64,7 @@
 5. **`premises_unbound`** — беззнаковые посылки: пока они не привязываются, автоматического
    сертификата для BV нет (рукописные `.smt2` остаются обходом).
 6. **Документы:** `docs/LIMITS.md` («чего KERN не доказывает»), `CAPABILITY_MAP`
-   (199 CHECK → какое свойство), две метрики покрытия (`checked/total` против
+   (снимок 199 CHECK → какое свойство), две метрики покрытия (`checked/total` против
    `checked/(checked+skipped)`).
 
 ## 6. Позиционирование (решено на этом такте)
@@ -77,8 +77,8 @@ QF_BV — `[PROOF PARTIAL]` с названным числом доверенн�
 
 ## 7. Факты такта (проверяются машинно)
 
-ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->491 ·
-CHECK-цели <!-- fact:check_targets -->189 · can-fail кейсы <!-- fact:canfail_cases -->234 ·
-якоря <!-- fact:anchors -->192 · цели реестра <!-- fact:registry_targets -->248 ·
-META <!-- fact:meta_targets -->44 · теоремы Lean <!-- fact:lean_theorems -->147 ·
+ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->499 ·
+CHECK-цели <!-- fact:check_targets -->215 · can-fail кейсы <!-- fact:canfail_cases -->261 ·
+якоря <!-- fact:anchors -->219 · цели реестра <!-- fact:registry_targets -->296 ·
+META <!-- fact:meta_targets -->58 · теоремы Lean <!-- fact:lean_theorems -->147 ·
 QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

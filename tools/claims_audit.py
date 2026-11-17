@@ -32,7 +32,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FACTS = ROOT / "docs" / "facts.json"
 
-SKIP_PREFIXES = ("docs/archive/",)
+# ИСТОРИЯ НЕ ПРАВИТСЯ: релиз-ноты описывают ПРОШЛЫЕ релизы, их числа —
+# свидетельство момента, а не текущее обещание (тот же класс, что CHANGELOG).
+# Без этого правила гейт требовал «обновить историю», то есть соврать.
+SKIP_PREFIXES = ("docs/archive/", "docs/RELEASE_NOTES_")
 SKIP_FILES = {
     "CHANGELOG.md",
     "docs/METRICS.md", "docs/METRICS.en.md",
