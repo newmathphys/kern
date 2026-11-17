@@ -36,7 +36,9 @@ if d['grade'] not in ('A+', 'A'): problems.append(f"grade={d['grade']}")
 if w['by_category']['zig'] <= 0: problems.append('не прочитан ни один .zig')
 if f['lean_files'] < 8: problems.append(f"lean_files={f['lean_files']} < 8")
 if f['sorry'] != 0: problems.append(f"sorry={f['sorry']}")
-if mcp['tools'] != 8: problems.append(f"mcp tools={mcp['tools']} != 8")
+# ОКНО №18: девятый инструмент `kern_guard` (статический рентген + физический
+# Live Replay в одном вызове). Число берётся из прод-сервера, не из текста.
+if mcp['tools'] != 9: problems.append(f"mcp tools={mcp['tools']} != 9")
 if not mcp['annotations']: problems.append('нет tool annotations')
 if m['check_targets'] == 0 or m['check_covered'] != m['check_targets']:
     problems.append(f"can-fail {m['check_covered']}/{m['check_targets']}")
@@ -44,7 +46,7 @@ if problems:
     print('  [FAIL] ' + '; '.join(problems)); sys.exit(1)
 print(f"  [OK] score={d['score']} grade={d['grade']} · .zig={w['by_category']['zig']} "
       f".lean={w['by_category']['lean']} · Lean {f['theorems']} теорем, sorry=0 · "
-      f"MCP {mcp['tools']}/8 · can-fail {m['check_covered']}/{m['check_targets']}")
+      f"MCP {mcp['tools']}/9 · can-fail {m['check_covered']}/{m['check_targets']}")
 PY
 then :; else bad "пороги не выполнены"; fi
 

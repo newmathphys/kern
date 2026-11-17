@@ -30,7 +30,7 @@
 - Lean 4: **147 theorems in 8 files, 0 errors, 0 sorry**.
 - Mutation score on the Zig kernel: **1688 / 1688 killed (100.0 %)** across
   **21 files**, no sampling, zero survivors.
-- Can-fail harness: **219 CHECK targets, 265 non-vacuous cases, 0 vacuous**.
+- Can-fail harness: **219 CHECK targets, 266 non-vacuous cases, 0 vacuous**.
 - Cross-architecture: **443 passed / 8 skipped / 0 failed** on x86_64, ARM64 and
   PowerPC64 big-endian (QEMU).
 - WebAssembly: `kernc.wasm` (**121 486 bytes**) exports `kern_wasm_verify_proof`,
@@ -62,7 +62,7 @@
 - `--heal <file>` — find a crash path, insert a guard, re-verify, and only then
   replace the file atomically (keeping `<file>.bak`).
 
-## MCP server (8 tools, stdio)
+## MCP server (9 tools, stdio)
 
 `python3 examples/kern_mcp_server.py` — `kern_verify_smt`,
 `kern_prove_with_checker`, `kern_verify_multi_belnap`, `kern_verify_python`,

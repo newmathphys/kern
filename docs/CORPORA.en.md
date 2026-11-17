@@ -1,6 +1,6 @@
 # KERN CORPORA: inventory of real tasks, oracles and boundaries
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->219 · cases <!-- fact:canfail_cases -->265 · anchors <!-- fact:anchors -->222 · registry <!-- fact:registry_targets -->300 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->219 · cases <!-- fact:canfail_cases -->266 · anchors <!-- fact:anchors -->223 · registry <!-- fact:registry_targets -->300 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **WHY THIS FILE.** "Dozens of examples per capability" is not a promise: they are
 **already in the repository**. This file says WHAT exists, HOW MANY tasks, **WHAT

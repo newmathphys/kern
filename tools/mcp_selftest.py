@@ -9,7 +9,7 @@ stdin, читает строки JSON из stdout.
 ПРОВЕРЯЕТСЯ (14 пунктов):
   1. `initialize`      — протокол и serverInfo;
   2. уведомление (без `id`) — ответа быть НЕ ДОЛЖНО;
-  3. `tools/list`      — ПЯТЬ инструментов;
+  3. `tools/list`      — ДЕВЯТЬ инструментов (вкл. `kern_guard`);
   4. `kern_verify_smt` на ДОКАЗУЕМОМ контракте -> «ДОКАЗАНО», e=1;
   5. `kern_verify_smt` на ОПРОВЕРГАЕМОМ -> «ОПРОВЕРГНУТО (sat, Белнап F)», e=0;
   6. `kern_prove_with_checker` -> есть строка `PROOF VERIFIED`;
@@ -153,10 +153,10 @@ def main() -> int:
     c.send({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     r = c.read_one()
     names = [t["name"] for t in r["result"]["tools"]] if r else []
-    check("tools/list (8 инструментов)",
-          len(names) == 8 and "kern_check_equivalence" in names
+    check("tools/list (9 инструментов)",
+          len(names) == 9 and "kern_check_equivalence" in names
           and "kern_xray_code" in names and "kern_verify_action" in names
-          and "kern_rlvr_reward" in names,
+          and "kern_rlvr_reward" in names and "kern_guard" in names,
           ", ".join(names))
 
     # 4. доказуемый контракт
@@ -317,6 +317,27 @@ def main() -> int:
     txt = r["result"]["content"][0]["text"] if r else ""
     check("kern_rlvr_reward: чит -> -2.0", "R=-2.0" in txt,
           ([l for l in txt.splitlines() if "REWARD" in l] or [""])[0][:80])
+
+    # 15. kern_guard: ОДИН вызов -> только ФИЗИЧЕСКИ подтверждённые краши.
+    # Три полосы: div0 (край `period = 0`), None-разыменование (законный
+    # `x=None`), и чистый файл (ни одного трофея, ни одного ложного).
+    GUARD_DIV0 = "def f(period=5):\n    return 100 / period\n"
+    GUARD_NONE = "def k(x=None):\n    return x + 1\n"
+    GUARD_CLEAN = "def ok(x):\n    return x + 1\n"
+    for _id, _src, _want in ((16, GUARD_DIV0, "ZeroDivisionError"),
+                             (17, GUARD_NONE, "TypeError"),
+                             (18, GUARD_CLEAN, "[CLEAN]")):
+        c.send({"jsonrpc": "2.0", "id": _id, "method": "tools/call",
+                "params": {"name": "kern_guard",
+                           "arguments": {"source": _src}}})
+        r = c.read_one(timeout=300)
+        txt = r["result"]["content"][0]["text"] if r else ""
+        if _want == "[CLEAN]":
+            ok = "[CLEAN]" in txt and "[CONFIRMED]" not in txt
+        else:
+            ok = ("[CONFIRMED]" in txt and _want in txt
+                  and "kwargs=" in txt)
+        check(f"kern_guard -> {_want}", ok, txt.replace("\n", " | ")[:110])
 
     # 8a. неизвестный метод
     c.send({"jsonrpc": "2.0", "id": 7, "method": "no/such/method"})

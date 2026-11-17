@@ -173,8 +173,8 @@ Rule for tomorrow: no new languages/theories and no «improvements» before T1�
 - next tests <!-- fact:next_tests -->53
 - catalog <!-- fact:catalog -->502
 - CHECK targets <!-- fact:check_targets -->219
-- can-fail cases <!-- fact:canfail_cases -->265
-- anchors <!-- fact:anchors -->222
+- can-fail cases <!-- fact:canfail_cases -->266
+- anchors <!-- fact:anchors -->223
 - registry targets <!-- fact:registry_targets -->300
 - META targets <!-- fact:meta_targets -->58
 - Lean theorems <!-- fact:lean_theorems -->147

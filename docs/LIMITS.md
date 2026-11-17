@@ -173,7 +173,7 @@ accuse (a skip is safer than a false accusation).
 ## 7. Facts (machine-checked)
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 ·
-CHECK targets <!-- fact:check_targets -->219 · can-fail cases <!-- fact:canfail_cases -->265 ·
-anchors <!-- fact:anchors -->222 · registry targets <!-- fact:registry_targets -->300 ·
+CHECK targets <!-- fact:check_targets -->219 · can-fail cases <!-- fact:canfail_cases -->266 ·
+anchors <!-- fact:anchors -->223 · registry targets <!-- fact:registry_targets -->300 ·
 META <!-- fact:meta_targets -->58 · Lean theorems <!-- fact:lean_theorems -->147 ·
 QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

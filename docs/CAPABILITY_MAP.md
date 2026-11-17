@@ -77,7 +77,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `belnap-swarm-check` | `belnap-swarm-check` | — | `make belnap-swarm-check` |
 | `kern` | — | — | `make kern` |
 | `kernx-polygon5-check` | `kernx-polygon5` | — | `make kernx-polygon5-check` |
-| `mcp-selftest` | `mcp-selftest` | — | `make mcp-selftest` |
+| `mcp-selftest` | `kern-guard`, `mcp-selftest` | — | `make mcp-selftest` |
 | `test-next` | `skip-exit-n`, `test-next` | — | `make test-next` |
 
 ## E3. Defence against AI sabotage (L5) (46)
@@ -264,10 +264,10 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 ## Registry parity
 
 Targets in the map: **220**; class CHECK in `registry.py`: **220**;
-`CASE_TARGET` records: **265** (make-executable **261**); without a case outside `NO_CASE_OK`: **0**.
+`CASE_TARGET` records: **266** (make-executable **262**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 ·
-CHECK targets <!-- fact:check_targets -->219 · can-fail cases <!-- fact:canfail_cases -->265 ·
-anchors <!-- fact:anchors -->222 · registry targets <!-- fact:registry_targets -->300 · META <!-- fact:meta_targets -->58 ·
+CHECK targets <!-- fact:check_targets -->219 · can-fail cases <!-- fact:canfail_cases -->266 ·
+anchors <!-- fact:anchors -->223 · registry targets <!-- fact:registry_targets -->300 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

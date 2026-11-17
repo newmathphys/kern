@@ -563,6 +563,7 @@ CASE_TARGET = {
     "heal-index": "heal-index-check",
     "xray-none": "xray-none-check",
     "live-replay": "live-replay-check",
+    "kern-guard": "mcp-selftest",
     "action-firewall-check": "action-firewall-check",
     "rag-conflict-check": "rag-conflict-check",
     "rlvr-oracle-check": "rlvr-oracle-check",

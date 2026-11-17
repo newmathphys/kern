@@ -214,6 +214,33 @@
       }
     },
     {
+      "name": "kern_guard",
+      "description": "One-call guard for GENERATED Python: static lattice analysis (None-deref / div0 / bounds) PLUS physical Live Replay of every crash path on LEGAL edge inputs built from the Z3 counterexample (`kern_len_xs = k` -> list of exactly k, `period = 0` -> flat input). Returns CONFIRMED crashes only, each with the exact kwargs and the target line where it raised; other findings are labelled with their counterexample and never counted as trophies.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Python source"
+          },
+          "filename": {
+            "type": "string",
+            "description": "file name (default guard_target.py)"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "annotations": {
+        "title": "Guard generated Python: only PHYSICALLY confirmed crashes",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
       "name": "kern_rlvr_reward",
       "description": "RLVR reward oracle: +1.0 for a PROVEN contract (trusted: 0), -1.0 for a counterexample, -2.0 for reward hacking, 0.0 when abstaining (outside the supported fragment).",
       "inputSchema": {

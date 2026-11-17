@@ -191,6 +191,33 @@
       }
     },
     {
+      "name": "kern_guard",
+      "title": "Guard generated Python: only PHYSICALLY confirmed crashes",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Python source"
+          },
+          "filename": {
+            "type": "string",
+            "description": "file name (default guard_target.py)"
+          }
+        },
+        "required": [
+          "source"
+        ]
+      },
+      "annotations": {
+        "title": "Guard generated Python: only PHYSICALLY confirmed crashes",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
       "name": "kern_rlvr_reward",
       "title": "Verifiable reward for generated code (RLVR)",
       "inputSchema": {

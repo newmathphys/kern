@@ -946,6 +946,20 @@ def case_evidence_gate():
     return "make evidence-gate"
 
 
+def case_kern_guard():
+    """ОКНО №18. ЛОМАЕМ `kern_guard`: инструмент перестаёт вызывать сканер.
+
+    `rows = LR.run_all(LR.scan(...))` заменяется на пустой список: гейт
+    `mcp-selftest` ждёт `[CONFIRMED] ... ZeroDivisionError` на краю
+    `period = 0`, а получит `[CLEAN]`. Останется зелёным — значит проверка
+    «агент получает только физически подтверждённые краши» вакуумна.
+    """
+    patch("examples/kern_mcp_server.py",
+          "            rows = LR.run_all(LR.scan(str(f)))",
+          "            rows = []   # ЛОМАЕМ (#18): сканер больше не вызывается")
+    return "make mcp-selftest"
+
+
 def case_mcp_server():
     """MCP-сервер: конфликт Белнапа схлопывается в доказательство.
 
@@ -4708,6 +4722,7 @@ CASES = [
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
     ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
     ("mcp-selftest",   "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),
+    ("kern-guard",     "окно №18: kern_guard не вызывает сканер -> гейт обязан покраснеть", case_kern_guard),
     ("contracts",      "Контракты: нарушение объявлено доказанным", case_contracts),
     ("vacuous-requires", "Контракты: вакуумное requires = «доказано»", case_vacuous_requires),
     ("contract-lock",  "Контракты: ослабление спецификации не замечено", case_contract_lock),

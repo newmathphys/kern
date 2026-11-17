@@ -5,13 +5,15 @@
 ПРОТОКОЛ. MCP (Model Context Protocol) — JSON-RPC 2.0 поверх stdio, сообщения
 разделены переводами строк. Никаких зависимостей: только stdlib.
 
-ЧТО ЭКСПОРТИРУЕТ (3 инструмента):
+ЧТО ЭКСПОРТИРУЕТ (9 инструментов):
   kern_verify_smt           — проверить SMT-LIB2 контракт через Z3 + пруф-чекер;
   kern_prove_with_checker   — то же, но с ПОЛНОЙ разбивкой пруф-чекера;
   kern_verify_multi_belnap  — несколько контрактов -> аккумуляция Белнапа
                               (конфликт T+F не схлопывается в «доказано»);
   kern_verify_python        — контракты ПРЯМО В Python-КОДЕ (@kern:requires /
                               @kern:ensures), с контрпримером при нарушении;
+  kern_guard                — ОДИН вызов: статический рентген + физический
+                              Live Replay края; только CONFIRMED краши;
   kern_check_equivalence    — доказать ЭКВИВАЛЕНТНОСТЬ рефакторинга БЕЗ
                               контрактов: `∃x: f_old(x) != f_new(x)` -> UNSAT
                               = [EQUIVALENT], SAT = [DIVERGED] + контрпример.
@@ -170,6 +172,25 @@ TOOLS = [
         },
     },
     {
+        "name": "kern_guard",
+        "description": (
+            "One-call guard for GENERATED Python: static lattice analysis "
+            "(None-deref / div0 / bounds) PLUS physical Live Replay of every "
+            "crash path on LEGAL edge inputs built from the Z3 counterexample "
+            "(`kern_len_xs = k` -> list of exactly k, `period = 0` -> flat "
+            "input). Returns CONFIRMED crashes only, each with the exact "
+            "kwargs and the target line where it raised; other findings are "
+            "labelled with their counterexample and never counted as trophies."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Python source"},
+                "filename": {"type": "string",
+                             "description": "file name (default guard_target.py)"}},
+            "required": ["source"],
+        },
+    },
+    {
         "name": "kern_rlvr_reward",
         "description": (
             "RLVR reward oracle: +1.0 for a PROVEN contract (trusted: 0), "
@@ -207,6 +228,7 @@ _TOOL_TITLES = {
     "kern_xray_code": "Zero-annotation X-ray of any code file",
     "kern_verify_action": "Verify an AI agent action against policy",
     "kern_rlvr_reward": "Verifiable reward for generated code (RLVR)",
+    "kern_guard": "Guard generated Python: only PHYSICALLY confirmed crashes",
 }
 
 for _t in TOOLS:
@@ -422,6 +444,35 @@ def _call_tool_inner(name: str, args: dict) -> dict:
         if not old_src.strip() or not new_src.strip():
             return text_result("нужны непустые 'old_source' и 'new_source'", True)
         return text_result(run_diff_equiv(old_src, new_src))
+
+    if name == "kern_guard":
+        src = args.get("source", "")
+        if not src.strip():
+            return text_result("нужен непустой 'source'", True)
+        # Переиспользуем ЗАПЕЧАТАННЫЕ контуры: `xray_none` (решётка мини-CFG)
+        # и `live_replay` (край из контрпримера + три замка подлинности).
+        if str(ROOT / "tools") not in sys.path:
+            sys.path.insert(0, str(ROOT / "tools"))
+        import live_replay as LR
+        import tempfile as _tf      # локальный импорт: `tempfile` выше — в другой ветке
+        with _tf.TemporaryDirectory() as td:
+            f = Path(td) / (args.get("filename") or "guard_target.py")
+            f.write_text(src, encoding="utf-8")
+            rows = LR.run_all(LR.scan(str(f)))
+        conf = [r for r in rows if r["verdict"] == "CONFIRMED"]
+        lines = [f"[GUARD] находок {len(rows)} | CONFIRMED {len(conf)}"]
+        for r in conf:
+            lines.append(f"[CONFIRMED] строка {r['line']}: {r['fn']} -> {r['want']} "
+                         f"({r['detail']})")
+        for r in rows:
+            if r["verdict"] == "CONFIRMED":
+                continue
+            ce = ", ".join(f"{k} = {v}" for k, v in (r.get("model") or {}).items())
+            lines.append(f"[НЕ ПОДТВЕРЖДЕНО] строка {r['line']}: {r['fn']} -> "
+                         f"{r['verdict']}" + (f"; контрпример Z3: {ce}" if ce else ""))
+        if not rows:
+            lines.append("[CLEAN] путей падения не найдено")
+        return text_result(chr(10).join(lines))
 
     if name == "kern_verify_multi_belnap":
         contracts = args.get("contracts") or []

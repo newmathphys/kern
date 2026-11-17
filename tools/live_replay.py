@@ -32,16 +32,21 @@ import re
 import sys
 from pathlib import Path
 
-WANT = {"div0": "ZeroDivisionError", "bounds": "IndexError"}
+WANT = {"div0": "ZeroDivisionError", "bounds": "IndexError",
+        "none_attr": "AttributeError", "none_type": "TypeError"}
 
 LINE_CRASH = re.compile(
     r"^(.*?):\s*\[(CRASH|BOUNDS) PATH\]\s+(\w+):\s+строка\s+(\d+)\s+—\s+(.*)$")
+LINE_CRASH_BARE = re.compile(
+    r"^\s*\[(CRASH|BOUNDS) PATH\]\s+(\w+):\s+строка\s+(\d+)\s+—\s+(.*)$")
+LINE_BOUNDS_BARE = re.compile(
+    r"^\s*\[BOUNDS PATH\]\s+(\w+):\s+`(.*?)`\s+\(строка\s+(\d+)\)\s+—\s+(.*)$")
 LINE_BOUNDS = re.compile(
     r"^(.*?):\s*\[BOUNDS PATH\]\s+(\w+):\s+`(.*?)`\s+\(строка\s+(\d+)\)\s+—\s+(.*)$")
 MODEL = re.compile(r"([A-Za-z_][A-Za-z_0-9]*)\s*=\s*(-?\d+)")
 
 
-def parse_findings(text: str) -> list:
+def parse_findings(text: str, default_path: str = "") -> list:
     """Строки `--xray` -> [{'path','kind','fn','line','text','model'}] (без дублей)."""
     out, seen = [], set()
     for raw in text.splitlines():
@@ -51,12 +56,28 @@ def parse_findings(text: str) -> list:
             path, cls, fn, line, text = m.groups()
         else:
             m = LINE_BOUNDS.match(raw)
-            if not m:
-                continue
-            path, fn, _expr, line, text = m.groups()
-            cls = "BOUNDS"
-        kind = "bounds" if cls == "BOUNDS" else (
-            "div0" if "деление на ноль" in text else "other")
+            if m:
+                path, fn, _expr, line, text = m.groups()
+                cls = "BOUNDS"
+            else:
+                mb = LINE_BOUNDS_BARE.match(raw)
+                if mb:
+                    fn, _expr, line, text = mb.groups()
+                    path, cls = default_path, "BOUNDS"
+                else:
+                    mb = LINE_CRASH_BARE.match(raw)
+                    if not mb:
+                        continue
+                    cls, fn, line, text = mb.groups()
+                    path = default_path
+        if cls == "BOUNDS":
+            kind = "bounds"
+        elif "деление на ноль" in text:
+            kind = "div0"
+        elif "разыменование None" in text:
+            kind = "none_attr" if "AttributeError" in text else "none_type"
+        else:
+            kind = "other"
         model = {}
         if "КОНТРПРИМЕР" in text:
             body = text.split("КОНТРПРИМЕР", 1)[1]
@@ -83,10 +104,16 @@ def load_target(path):
         cur = cur.parent
     if str(cur) not in sys.path:
         sys.path.insert(0, str(cur))
+    dotted = ".".join(parts)
+    # КЭШ МОДУЛЕЙ (найдено в Окне №18): два разных `guard_target.py` из разных
+    # temp-каталогов получали имя одно и то же -> второй вызов видел ПЕРВЫЙ
+    # файл, резолвер не находил тело и отдавал NOT_REPLAYABLE. Сбрасываем.
+    for _k in [k for k in sys.modules if k == dotted or k.startswith(dotted + ".")]:
+        sys.modules.pop(_k, None)
     old = sys.stdout
     sys.stdout = io.StringIO()
     try:
-        return importlib.import_module(".".join(parts))
+        return importlib.import_module(dotted)
     except Exception:
         return None
     finally:
@@ -178,7 +205,9 @@ def build(finding, sig, flat=False, force_empty=False):
         if root in FILL:
             out[n] = FILL[root]
         elif n in defs and defs[n] == "None":
-            blocked.append(n + "(None-default)")
+            # `x=None` в сигнатуре — это и есть законный край для nullable:
+            # подача None НЕ нарушает контракт типа (в отличие от коллекции).
+            out[n] = None
         else:
             out[n] = 0
     return out, blocked
@@ -344,7 +373,8 @@ def run_all(findings, stats_only=False):
             mods[path] = load_target(path)
         sig = signature(path, f["fn"], f["line"])
         verdict, detail = replay_one(f, mods[path], sig)
-        rows.append(dict(f, verdict=verdict, detail=detail))
+        rows.append(dict(f, verdict=verdict, detail=detail,
+                         want=WANT.get(f["kind"], "")))
     if stats_only:
         from collections import Counter
         for key, n in sorted(Counter((r["kind"], r["verdict"]) for r in rows).items()):
@@ -429,16 +459,38 @@ def selftest():
     return 0 if bad == 0 else 1
 
 
+def scan(target):
+    """ЖИВОЙ скан исходника: `--xray` (div0/bounds) + `--xray-none` (None).
+
+    В отличие от `collect` (разбор ГОТОВОГО отчёта), здесь kern_contracts
+    запускается по файлу мишени, а находки дедуплицируются по (fn, line, kind).
+    """
+    import subprocess
+    here = Path(__file__).resolve().parent / "kern_contracts.py"
+    found, seen = [], set()
+    for flag in ("--xray", "--xray-none"):
+        proc = subprocess.run([sys.executable, str(here), flag, str(target)],
+                              capture_output=True, text=True)
+        for f in parse_findings(proc.stdout + chr(10) + proc.stderr,
+                                default_path=str(target)):
+            key = (f["fn"], f["line"], f["kind"])
+            if key not in seen:
+                seen.add(key)
+                found.append(f)
+    return found
+
+
 def collect(target):
     """Находки из файла отчёта или из живого `--xray <каталог|файл>`."""
     p = Path(target)
-    if p.is_dir():
-        import subprocess
-        here = Path(__file__).resolve().parent / "kern_contracts.py"
-        proc = subprocess.run([sys.executable, str(here), "--xray", str(p)],
-                              capture_output=True, text=True)
-        return parse_findings(proc.stdout + "\n" + proc.stderr)
-    return parse_findings(p.read_text(encoding="utf-8", errors="replace"))
+    if not p.is_dir():
+        return parse_findings(p.read_text(encoding="utf-8", errors="replace"),
+                              default_path=str(p))
+    import subprocess
+    here = Path(__file__).resolve().parent / "kern_contracts.py"
+    proc = subprocess.run([sys.executable, str(here), "--xray", str(p)],
+                          capture_output=True, text=True)
+    return parse_findings(proc.stdout + NL + proc.stderr, default_path=str(p))
 
 
 def main(argv):

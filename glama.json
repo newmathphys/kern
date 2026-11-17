@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "name": "io.github.newmathphys/kern",
   "title": "KERN — zero-trust verification gateway",
-  "version": "2.8.3",
+  "version": "2.8.25",
   "description": "Zero-trust verification gateway: Z3 + a native Zig proof-DAG checker (trusted steps 0), Belnap B4 logic, Lean 4 soundness theorems, and zero-annotation X-ray for Python, Zig, C, Rust, Go and TS/JS.",
   "repository": "https://github.com/newmathphys/kern",
   "homepage": "https://newmathphys.github.io/kern/",
@@ -90,6 +90,17 @@
       "description": "FinOps / Action Firewall: evaluates an agent's JSON tool call against a policy BEFORE execution. T -> 200, F -> 422 (with a counterexample), B -> 409 (the policies contradict each other).",
       "annotations": {
         "title": "Verify an AI agent action against policy",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "kern_guard",
+      "description": "One-call guard for GENERATED Python: static lattice analysis (None-deref / div0 / bounds) PLUS physical Live Replay of every crash path on LEGAL edge inputs built from the Z3 counterexample (`kern_len_xs = k` -> list of exactly k, `period = 0` -> flat input). Returns CONFIRMED crashes only, each with the exact kwargs and the target line where it raised; other findings are labelled with their counterexample and never counted as trophies.",
+      "annotations": {
+        "title": "Guard generated Python: only PHYSICALLY confirmed crashes",
         "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
