@@ -108,12 +108,13 @@ KERN заблокировал 5/5
 
 ![Proof flow: source AST, contract, Z3 lemma, verdict, CEGIS feedback](docs/kern-proof-flow.svg)
 
+[![KERN CI](https://github.com/newmathphys/kern/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/newmathphys/kern/actions/workflows/ci.yml)
 [![Zig 0.17.0](https://img.shields.io/badge/Zig-0.17.0-F7A41D?logo=zig&logoColor=white)](https://ziglang.org/)
 [![Core tests](https://img.shields.io/badge/core_tests-460%2F460_with_z3-brightgreen)](src/)
 [![KERN-Next tests](https://img.shields.io/badge/KERN--Next_tests-53%2F53-brightgreen)](src/next/)
 [![Lean 4](https://img.shields.io/badge/Lean_4-9_files_%C2%B7_147_theorems_%C2%B7_0_sorry-blue)](formal/)
 [![MC/DC](https://img.shields.io/badge/MC%2FDC_decision_coverage-100%25-brightgreen)](src/cov.zig)
-[![Can-fail](https://img.shields.io/badge/can--fail_harness-125%2F125-blueviolet)](tools/canfail.py)
+[![Can-fail](https://img.shields.io/badge/can--fail_harness-266%2F266-blueviolet)](tools/canfail.py)
 [![Cross-arch](https://img.shields.io/badge/ARM64_%2B_POWERPC64-QEMU_393_passed_%2F_8_skipped-success)](#cross-architecture)
 [![GitHub Action](https://img.shields.io/badge/GitHub_Action-KERN_verification_gate-238636?logo=githubactions&logoColor=white)](action.yml)
 [![Release downloads](https://img.shields.io/github/downloads/newmathphys/kern/total?color=3fb950&label=release%20downloads)](https://github.com/newmathphys/kern/releases)
