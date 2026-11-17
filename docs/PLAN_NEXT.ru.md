@@ -172,7 +172,7 @@ xray-overflow-check rc=0, xray-precision rc=0 (ловушки 0/1/1, buggy 5/5, 
 - каталог <!-- fact:catalog -->502
 - CHECK-цели <!-- fact:check_targets -->218
 - can-fail кейсы <!-- fact:canfail_cases -->264
-- анкоры <!-- fact:anchors -->221
+- анкоры <!-- fact:anchors -->222
 - цели реестра <!-- fact:registry_targets -->299
 - META-цели <!-- fact:meta_targets -->58
 - теоремы Lean <!-- fact:lean_theorems -->147

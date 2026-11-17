@@ -9529,22 +9529,42 @@ def _nullable_params(fn):
     for n in ast.walk(fn):
         if (isinstance(n, ast.Compare) and len(n.ops) == 1
                 and isinstance(n.ops[0], (ast.Is, ast.IsNot))):
-            for side in [n.left] + list(n.comparators):
+            sides = [n.left] + list(n.comparators)
+            # ИЗМЕРЕНО НА ЖИВОМ КОДЕ (packaging/pylock `expected_type is int`):
+            # `is` с НЕ-None константой — НЕ свидетельство nullable.
+            has_none = any(isinstance(s, ast.Constant) and s.value is None for s in sides)
+            if not has_none:
+                continue
+            for side in sides:
                 if isinstance(side, ast.Name) and side.id in names:
                     out.add(side.id)
     return out
 
 
+def _none_guard_name(test):
+    """Имя, None-обработка которого выражена гардом (is None / not x / x / x and ...)."""
+    # ИЗМЕРЕНО НА ЖИВОМ КОДЕ (dateutil/rrule: `if until and not isinstance(...)`):
+    # BoolOp-гард (`x and ...`) тоже исключает None в THEN-ветви.
+    if isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And) and test.values:
+        return _none_guard_name(test.values[0])
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        inner = test.operand
+        return inner.id if isinstance(inner, ast.Name) else None
+    if isinstance(test, ast.Name):
+        return test.id
+    if (isinstance(test, ast.Compare) and len(test.ops) == 1
+            and isinstance(test.ops[0], (ast.Is, ast.IsNot))):
+        sides = [test.left] + list(test.comparators)
+        if any(isinstance(s, ast.Constant) and s.value is None for s in sides):
+            for s in sides:
+                if isinstance(s, ast.Name):
+                    return s.id
+    return None
+
+
 def _none_reset_after_if(st, nullable):
-    t = st.test
-    if not (isinstance(t, ast.Compare) and len(t.ops) == 1
-            and isinstance(t.ops[0], ast.Is)
-            and isinstance(t.comparators[0], ast.Constant)
-            and t.comparators[0].value is None
-            and isinstance(t.left, ast.Name)):
-        return set()
-    name = t.left.id
-    if name not in nullable:
+    name = _none_guard_name(st.test)
+    if not name or name not in nullable:
         return set()
     for body_st in st.body:
         for n in ast.walk(body_st):
@@ -9556,9 +9576,26 @@ def _none_reset_after_if(st, nullable):
     return set()
 
 
+def _none_nodes(node):
+    """Узлы выражения БЕЗ спуска во ВЛОЖЕННЫЕ ветви: их гарды обрабатывает
+    `_none_walk`. ИЗМЕРЕНО на dateutil/rrule: обход `ast.walk` заходил в
+    `if until and ...:` и обвинял `until.tzinfo` — ложное срабатывание.
+    """
+    if isinstance(node, (ast.Try, ast.If)):
+        return
+    stack = [node]
+    while stack:
+        n = stack.pop()
+        yield n
+        for ch in ast.iter_child_nodes(n):
+            if isinstance(ch, (ast.If, ast.FunctionDef, ast.AsyncFunctionDef,
+                               ast.Lambda, ast.For, ast.While, ast.Try, ast.IfExp)):
+                continue
+            stack.append(ch)
+
 def _none_scan(stmts, path, live, params, kernc, found, fnname):
     for st in stmts:
-        for n in ast.walk(st):
+        for n in _none_nodes(st):
             targets = []
             kind = ""
             if isinstance(n, ast.BinOp) and isinstance(n.op, _NONE_ARITH):
@@ -9588,6 +9625,26 @@ def _none_scan(stmts, path, live, params, kernc, found, fnname):
                                  f"разыменование None ({t.id}): {kind}")
 
 
+def _none_facts_after_chain(st, live):
+    """Факты x != None после if/elif-цепочки, где ветвь выходит."""
+    facts = []
+    cur = st
+    while True:
+        nm = _none_guard_name(cur.test)
+        if nm and nm in live and _block_exits(cur.body):
+            t = cur.test
+            if isinstance(t, ast.Compare) and isinstance(t.ops[0], ast.Is):
+                facts.append((nm, "ne"))
+            elif isinstance(t, ast.Compare) and isinstance(t.ops[0], ast.IsNot):
+                facts.append((nm, "eq"))
+            elif isinstance(t, ast.UnaryOp):
+                facts.append((nm, "ne"))
+        if len(cur.orelse) == 1 and isinstance(cur.orelse[0], ast.If):
+            cur = cur.orelse[0]
+            continue
+        break
+    return facts
+
 def _none_walk(stmts, path, live, params, kernc, found, fnname, depth=0):
     if depth > 64:
         return
@@ -9600,10 +9657,30 @@ def _none_walk(stmts, path, live, params, kernc, found, fnname, depth=0):
                     live.discard(tg.id)
             continue
         if isinstance(st, ast.If):
-            try:
-                cond = _cond_smt(st.test, set())
-            except (Unsupported, NoReturn, Exception):
-                cond = None
+            cond = None
+            gname = _none_guard_name(st.test)
+            if gname and gname in live:
+                try:
+                    gsym = expr_smt(ast.Name(id=gname, ctx=ast.Load()), {})
+                except (Unsupported, NoReturn):
+                    gsym = None
+                if gsym:
+                    if isinstance(st.test, ast.BoolOp):
+                        cond = f"(distinct {gsym} 0)"
+                    elif isinstance(st.test, ast.Name):
+                        # `if x:` — истинность: в THEN x != 0 и != sentinel
+                        cond = f"(distinct {gsym} 0)"
+                    elif isinstance(st.test, ast.UnaryOp):
+                        # `if not x:` — THEN x ложен (может быть None!), ELSE x != 0
+                        cond = f"(or (= {gsym} 0) (= {gsym} {_NONE_SENTINEL}))"
+                    else:
+                        cond = f"(= {gsym} {_NONE_SENTINEL})" if isinstance(
+                            st.test.ops[0], ast.Is) else f"(distinct {gsym} {_NONE_SENTINEL})"
+            if cond is None:
+                try:
+                    cond = _cond_smt(st.test, set())
+                except (Unsupported, NoReturn, Exception):
+                    cond = None
             if cond and "havoc" not in cond:
                 _none_scan(st.body, path + [cond], live, params, kernc, found, fnname)
                 _none_scan(st.orelse, path + [f"(not {cond})"], live, params, kernc, found, fnname)
@@ -9612,6 +9689,15 @@ def _none_walk(stmts, path, live, params, kernc, found, fnname, depth=0):
                            found, fnname, depth + 1)
                 for _nm in _none_reset_after_if(st, live):
                     live.discard(_nm)
+                for _nm, _pol in _none_facts_after_chain(st, live):
+                    try:
+                        _s = expr_smt(ast.Name(id=_nm, ctx=ast.Load()), {})
+                    except (Unsupported, NoReturn):
+                        continue
+                    if _pol == "eq":
+                        path = path + [f"(= {_s} {_NONE_SENTINEL})"]
+                    else:
+                        path = path + [f"(distinct {_s} {_NONE_SENTINEL})"]
                 if not st.orelse and _block_exits(st.body):
                     path = path + [f"(not {cond})"]
                 continue

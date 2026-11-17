@@ -61,7 +61,7 @@ KERN заблокировал 5/5
 [OK] 5/5: награда не куплена — каждый чит назван и заблокирован
 ```
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->218 · cases <!-- fact:canfail_cases -->264 · anchors <!-- fact:anchors -->221 · registry <!-- fact:registry_targets -->299 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->218 · cases <!-- fact:canfail_cases -->264 · anchors <!-- fact:anchors -->222 · registry <!-- fact:registry_targets -->299 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -795,7 +795,7 @@ dist/kerna --doctor                              # должно быть: зав
 
 ```bash
 make canfail          # 264 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->221 якорей применимы (за ~1 с)
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->222 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
 make registry         # реестр <!-- fact:registry_targets -->299 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
