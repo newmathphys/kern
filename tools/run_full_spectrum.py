@@ -90,11 +90,25 @@ def oracle_source(snippet):
         "__ORACLE_MARK__", MARK)
 
 
+def _env_with_z3():
+    """PATH с бинарём z3 (нативному мосту нужен ИСПОЛНЯЕМЫЙ z3, не Python-модуль)."""
+    env = dict(os.environ)
+    try:
+        import shutil
+        if shutil.which("z3") is None:
+            cand = os.path.join(ROOT, ".venv", "bin")
+            if os.path.exists(os.path.join(cand, "z3")):
+                env["PATH"] = cand + os.pathsep + env.get("PATH", "")
+    except Exception:
+        pass
+    return env
+
+
 def run(cmd, cwd=None, timeout=180):
     """(rc, stdout, stderr). Таймаут назван кодом 124, а не тишиной."""
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                           cwd=cwd or ROOT)
+                           cwd=cwd or ROOT, env=_env_with_z3() if cmd and str(cmd[0]).endswith("kernc") else None)
         return p.returncode, p.stdout or "", p.stderr or ""
     except subprocess.TimeoutExpired:
         return 124, "", "[timeout %ss] %s" % (timeout, " ".join(cmd))
@@ -595,6 +609,49 @@ def check_explain(card, tmpdir):
     if revived is None:
         errs.append("ослабленная спецификация не дала SAT-модели")
     facts["revived"] = revived
+
+    # ------------------------------------------------------------------
+    # ВТОРОЙ КОНТУР (окно №8): НАТИВНОЕ ядро Zig (`kernc unsat-core`) на ТЕХ ЖЕ
+    # пунктах. Смысл не в «ещё раз», а в СВЕРКЕ ДВУХ НЕЗАВИСИМЫХ ДВИЖКОВ:
+    # Python `--verify-doc` (жадное удаление) и Zig `unsat_core.zig`
+    # (`get-unsat-core` + `reduce`) обязаны назвать ОДНО И ТО ЖЕ ядро.
+    # Расхождение = дефект одного из них, а не «допустимая вариативность».
+    # ------------------------------------------------------------------
+    native = {}
+    kernc_bin = os.path.join(ROOT, "zig-out", "bin", "kernc")
+    if not (os.path.isfile(kernc_bin) and os.access(kernc_bin, os.X_OK)):
+        errs.append("нет исполняемого zig-out/bin/kernc — нативный контур не проверен")
+    else:
+        smt_path = os.path.join(tmpdir, card["id"] + ".smt2")
+        smt = ["(set-logic ALL)"]
+        for v in doc["vars"]:
+            smt.append("(declare-const %s Int)" % v)
+        for cl in doc["clauses"]:
+            smt.append("(assert %s)" % _z3_translate(cl["expr"], vs, z3).sexpr())
+        smt.append("(check-sat)")
+        write_text(smt_path, "\n".join(smt) + "\n")
+        rc3, out3, err3 = run([kernc_bin, "unsat-core", smt_path], timeout=600)
+        t3 = out3 + err3
+        m3 = re.search(r"\[CORE\] ([A-Za-z0-9_ ]+)", t3)
+        names = m3.group(1).split() if m3 else []
+        order = [cl["id"] for cl in doc["clauses"]]
+        mapped = []
+        for nm in names:
+            if nm[:1] == "a" and nm[1:].isdigit():
+                k = int(nm[1:]) - 1
+                if 0 <= k < len(order):
+                    mapped.append(order[k])
+        native = {"rc": rc3, "names": names, "mapped": mapped}
+        if rc3 != 1:
+            errs.append("нативный контур: rc=%d (ожидался 1: конфликт)" % rc3)
+        if not mapped:
+            errs.append("нативный контур не напечатал [CORE]")
+        if core and mapped and set(mapped) != set(core):
+            errs.append("ДВА КОНТУРА РАСХОДЯТСЯ: python=%s native=%s"
+                        % (sorted(core), sorted(mapped)))
+        if mapped and noise and (set(mapped) & noise):
+            errs.append("нативное ядро включило ШУМ: %s" % sorted(set(mapped) & noise))
+    facts["native"] = native
 
     ex = card.get("explain")
     if ex:
@@ -1225,9 +1282,13 @@ def run_card(card):
                 "kern_note_en": "`--verify-doc`: core of %s clause(s) localized" % len(core),
                 "kern_note_ru": "`--verify-doc`: ядро из %s пункт(ов) локализовано" % len(core),
                 "oracle_note_en": "UNSAT set · every core element necessary · noise innocent · "
-                                  "revived model eval %s" % ("OK" if rev.get("eval_ok") else "FAIL"),
+                                  "revived model eval %s · native Zig core agrees (%s)"
+                                  % ("OK" if rev.get("eval_ok") else "FAIL",
+                                     len((facts.get("native") or {}).get("mapped") or [])),
                 "oracle_note_ru": "набор UNSAT · каждый элемент ядра необходим · шум невиновен · "
-                                  "ослабленная модель eval %s" % ("OK" if rev.get("eval_ok") else "FAIL"),
+                                  "ослабленная модель eval %s · нативное ядро Zig совпало (%s)"
+                                  % ("OK" if rev.get("eval_ok") else "FAIL",
+                                     len((facts.get("native") or {}).get("mapped") or [])),
             })
         elif card["kind"] == "concolic":
             errs, facts = check_concolic(card, tmpdir)
@@ -1420,6 +1481,11 @@ def render_en(results, corpus_names):
         "specification is physically evaluated against every remaining predicate (`eval`),",
         "so the revived specification has a real witness vector.",
         "",
+        "Every card is checked by **two independent engines**: Python `--verify-doc` (greedy",
+        "deletion) and the native Zig engine `kernc unsat-core` (`get-unsat-core` + `reduce`).",
+        "They must name the **same** core — a divergence fails the card. Measured: all ten agree;",
+        "so the Python localizer and the native one are not two spellings of one bug.",
+        "",
         "`--explain` is exercised as a **secondary, passport-only** surface: its printed",
         "cyclomatic complexity, SMT branch count and division-crash lines must equal an",
         "independent AST recount. It does **not** localize conflicts (measured).",
@@ -1598,6 +1664,12 @@ def render_ru(results, corpus_names):
         "спецификации физически проверяется `eval` по всем оставшимся предикатам — то",
         "есть у оживлённой спецификации есть реальный вектор-свидетель.",
         "",
+        "Каждая карточка проверяется **ДВУМЯ независимыми движками**: Python `--verify-doc`",
+        "(жадное удаление) и нативный Zig `kernc unsat-core` (`get-unsat-core` + `reduce`).",
+        "Они обязаны назвать **одно и то же** ядро — расхождение валит карточку. ИЗМЕРЕНО:",
+        "все десять совпали, то есть Python-локализатор и нативный — не два написания",
+        "одного и того же бага.",
+        "",
         "`--explain` проверяется как **вторичная поверхность-паспорт**: напечатанные CC,",
         "число выходов по SMT и строки падения обязаны совпасть с независимым",
         "AST-пересчётом. Конфликты он **не** локализует (измерено).",
@@ -1750,8 +1822,9 @@ def main(argv=None):
             tail = "cells=%s, spec_gap_markers=%s, mode=%s" % (
                 f.get("cells"), f.get("gap_markers"), f.get("mode"))
         elif r["kind"] == "explain":
-            tail = "core=%s, noise=%s, revived=%s" % (
-                f.get("core"), f.get("noise"), (f.get("revived") or {}).get("eval_ok"))
+            tail = "core=%s, noise=%s, revived=%s, native=%s" % (
+                f.get("core"), f.get("noise"), (f.get("revived") or {}).get("eval_ok"),
+                (f.get("native") or {}).get("mapped"))
         elif r["kind"] == "concolic":
             tail = "runs=%s, covered=%s/%s, targets=%s/%s, vectors=%s" % (
                 f.get("runs"), f.get("covered"), f.get("expected"),

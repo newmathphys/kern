@@ -266,5 +266,5 @@
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
 CHECK-цели <!-- fact:check_targets -->217 · can-fail кейсы <!-- fact:canfail_cases -->263 ·
-якоря <!-- fact:anchors -->220 · цели реестра <!-- fact:registry_targets -->298 · META <!-- fact:meta_targets -->58 ·
+якоря <!-- fact:anchors -->221 · цели реестра <!-- fact:registry_targets -->298 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

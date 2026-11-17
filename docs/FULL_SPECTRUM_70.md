@@ -34,16 +34,16 @@ Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `03_unsat_explain.json`
 | 18 | 02 | `heal_fill_rate_zero` | Warehouse/buffer | fill rate of a zero-capacity buffer | T (1,0), 1 crash-paths before → 0 after | python3 rc 1 → 0 · 1 guard(s) · normal inputs exact | OK |
 | 19 | 02 | `heal_burn_rate_zero` | Crypto treasury | burn rate at zero profit | T (1,0), 1 crash-paths before → 0 after | python3 rc 1 → 0 · 1 guard(s) · normal inputs exact | OK |
 | 20 | 02 | `heal_multi_site_metrics` | Analytics/BI | two division sites in one return (counter and bonuses) | T (1,0), 2 crash-paths before → 0 after | python3 rc 1 → 0 · 2 guard(s) · normal inputs exact | OK |
-| 21 | 03 | `unsat_fee_corridor` | Fees/fintech | impossible fee corridor min_fee > max_fee with two innocent clauses | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 22 | 03 | `unsat_vip_discounts` | Marketplace | mutually exclusive VIP discounts: floor 30% and cap 10% | `--verify-doc`: core of 2 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 23 | 03 | `unsat_dead_sla` | SLA/support | dead SLA: 4 hours against a 6-hour review and sla >= review | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 24 | 03 | `unsat_aml_vip` | Compliance | AML withdrawal cap 5000 against VIP minimum 10000 | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 25 | 03 | `unsat_warehouse_temp` | Warehouse | impossible temperature tolerance: no warmer than -5 and no colder than 4 | `--verify-doc`: core of 2 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 26 | 03 | `unsat_cpu_quota` | Orchestrator | CPU quota collision: quota 2 with a pool of 8 and quota >= pool | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 27 | 03 | `unsat_delivery_window` | Logistics | impossible delivery window: start by 9, finish from 18, start >= finish | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 28 | 03 | `unsat_tax_deduction` | Taxes | deduction deadlock: deduction by 100, required from 500, deduction >= required | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 29 | 03 | `unsat_quorum` | Quorum | impossible quorum: at most 5 of at least 9 members, quorum >= members | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
-| 30 | 03 | `unsat_age_seniority` | HR/eligibility | age floor vs seniority: age by 25 with seniority from 10 and age >= seniority + 18 | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 21 | 03 | `unsat_fee_corridor` | Fees/fintech | impossible fee corridor min_fee > max_fee with two innocent clauses | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 22 | 03 | `unsat_vip_discounts` | Marketplace | mutually exclusive VIP discounts: floor 30% and cap 10% | `--verify-doc`: core of 2 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (2) | OK |
+| 23 | 03 | `unsat_dead_sla` | SLA/support | dead SLA: 4 hours against a 6-hour review and sla >= review | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 24 | 03 | `unsat_aml_vip` | Compliance | AML withdrawal cap 5000 against VIP minimum 10000 | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 25 | 03 | `unsat_warehouse_temp` | Warehouse | impossible temperature tolerance: no warmer than -5 and no colder than 4 | `--verify-doc`: core of 2 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (2) | OK |
+| 26 | 03 | `unsat_cpu_quota` | Orchestrator | CPU quota collision: quota 2 with a pool of 8 and quota >= pool | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 27 | 03 | `unsat_delivery_window` | Logistics | impossible delivery window: start by 9, finish from 18, start >= finish | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 28 | 03 | `unsat_tax_deduction` | Taxes | deduction deadlock: deduction by 100, required from 500, deduction >= required | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 29 | 03 | `unsat_quorum` | Quorum | impossible quorum: at most 5 of at least 9 members, quorum >= members | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
+| 30 | 03 | `unsat_age_seniority` | HR/eligibility | age floor vs seniority: age by 25 with seniority from 10 and age >= seniority + 18 | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK · native Zig core agrees (3) | OK |
 | 31 | 04 | `inv_double_refund` | Escrow | double refund for the same order | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 32 concrete violation(s) found · 375 safe sequences, 0 violation(s) | OK |
 | 32 | 04 | `inv_ship_after_cancel` | Goods receipt/warehouse | shipment after cancellation and from an empty warehouse | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 8 concrete violation(s) found · 30 safe sequences, 0 violation(s) | OK |
 | 33 | 04 | `inv_wallet_double_debit` | Wallet | two consecutive debits drive the balance negative | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 44 concrete violation(s) found · 192 safe sequences, 0 violation(s) | OK |
@@ -126,6 +126,11 @@ not `expr_smt`): the full set is UNSAT, removing **any** core element makes it S
 removing any **noise** clause leaves it UNSAT, and the model of the relaxed
 specification is physically evaluated against every remaining predicate (`eval`),
 so the revived specification has a real witness vector.
+
+Every card is checked by **two independent engines**: Python `--verify-doc` (greedy
+deletion) and the native Zig engine `kernc unsat-core` (`get-unsat-core` + `reduce`).
+They must name the **same** core — a divergence fails the card. Measured: all ten agree;
+so the Python localizer and the native one are not two spellings of one bug.
 
 `--explain` is exercised as a **secondary, passport-only** surface: its printed
 cyclomatic complexity, SMT branch count and division-crash lines must equal an
