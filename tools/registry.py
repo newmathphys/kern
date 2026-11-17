@@ -202,6 +202,7 @@ CLASS = {
     "noninterference-check": "CHECK",
     "belnap-swarm-check": "CHECK",
     "belnap-check": "CHECK",          # окно №2: нативная B4 (kernc belnap) == модель пар
+    "full-spectrum-check": "CHECK",   # окно №5: корпус 70/70 + байтовая сверка витрин
     "action-firewall-check": "CHECK",
     "rag-conflict-check": "CHECK",
     "rlvr-oracle-check": "CHECK",
@@ -553,6 +554,7 @@ CASE_TARGET = {
     "noninterference-check": "noninterference-check",
     "belnap-swarm-check": "belnap-swarm-check",
     "belnap-check": "belnap-check",
+    "full-spectrum-check": "full-spectrum-check",
     "action-firewall-check": "action-firewall-check",
     "rag-conflict-check": "rag-conflict-check",
     "rlvr-oracle-check": "rlvr-oracle-check",

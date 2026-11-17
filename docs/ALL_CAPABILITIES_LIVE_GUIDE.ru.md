@@ -6,7 +6,7 @@
 
 Запуск: `make demo-all`
 
-> Facts (synced by `make sync`): core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 · CHECK <!-- fact:check_targets -->214 · cases <!-- fact:canfail_cases -->260 · anchors <!-- fact:anchors -->218 · registry <!-- fact:registry_targets -->295 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> Facts (synced by `make sync`): core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 · CHECK <!-- fact:check_targets -->215 · cases <!-- fact:canfail_cases -->261 · anchors <!-- fact:anchors -->218 · registry <!-- fact:registry_targets -->296 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 ## 1-2. Переполнение и деление на ноль: вердикт KERN + живые компиляторы
 

@@ -534,6 +534,13 @@ belnap-swarm-check: build
 belnap-check: build
 	@bash tools/belnap_check.sh
 
+# 34-Я СТАДИЯ (окно №5): ВЕСЬ полноспектральный корпус 70/70 под бронёй.
+# Гоняет все карточки (KERN + независимый оракул), рендерит EN/RU витрины
+# В ПАМЯТИ и сверяет их БАЙТ-В-БАЙТ с закоммиченными — файлы не пишутся.
+# Невакуумность: KERN_CANFAIL_MUTATE=1 + --selftest + кейс в tools/canfail.py.
+full-spectrum-check: build
+	@bash tools/full_spectrum_check.sh
+
 # ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
 action-firewall-check: build
 	@bash tools/action_firewall_check.sh

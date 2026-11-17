@@ -587,6 +587,7 @@ FAULTABLE = [
     "tools/deal_contracts.py",
     "tools/os_signal_flood.py",
     "src/core/eq2.zig",
+    "benchmarks/full_spectrum/06_kimg_ed25519.json",
     "src/next/state_axes.zig",
     "src/next/evidence_ledger.zig",
     "src/core/kimg_reader.zig",
@@ -3965,6 +3966,18 @@ def case_belnap_swarm_check():
     return "make belnap-swarm-check"
 
 
+def case_full_spectrum_check():
+    """ОКНО №5. ЛОМАЕМ ДАННЫЕ КОРПУСА: ожидание целостности 0 -> 1.
+
+    Гейт обязан покраснеть: на целом образе KERN даёт rc=0, а карточка теперь
+    требует rc=1 — расхождение ожидания с фактом. Останется зелёным — значит
+    карточки и витрины на вердикт не влияют (декоративная заглушка).
+    """
+    patch("benchmarks/full_spectrum/06_kimg_ed25519.json",
+          '"integrity_rc": 0', '"integrity_rc": 1')
+    return "make full-spectrum-check"
+
+
 def case_belnap_check_cli():
     """ОКНО №2. ЛОМАЕМ ЯДРО: `andT` перестаёт быть inf по порядку истинности.
 
@@ -4955,6 +4968,7 @@ CASES = [
     ("noninterference-check", "SECRET: утечка поймана",          case_noninterference_check),
     ("belnap-swarm-check", "РОЙ: JOIN_K(T,F)=B проверен",           case_belnap_swarm_check),
     ("belnap-check", "окно №2: andT подменён -> kernc belnap расходится с моделью пар", case_belnap_check_cli),
+    ("full-spectrum-check", "окно №5: ожидание карточки корпуса подменено -> гейт обязан покраснеть", case_full_spectrum_check),
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),

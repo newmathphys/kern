@@ -130,7 +130,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 | `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
-## E4. Code X-ray, CWE, precision and the PR delta (33)
+## E4. Code X-ray, CWE, precision and the PR delta (34)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
@@ -150,6 +150,7 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `edge-cases` | `edge-cases` | — | `make edge-cases` |
 | `evo-fuzz-check` | `evo-fuzz-check` | — | `make evo-fuzz-check` |
 | `float-nan-check` | `float-nan-check` | — | `make float-nan-check` |
+| `full-spectrum-check` | `full-spectrum-check` | — | `make full-spectrum-check` |
 | `fuzz-1m` | `fuzz-1m` | — | `make fuzz-1m` |
 | `fuzz-corpus-check` | `fuzz-corpus-check` | — | `make fuzz-corpus-check` |
 | `graph-check` | `graph-parity-break` | — | `make graph-check` |
@@ -258,11 +259,11 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **215**; class CHECK in `registry.py`: **215**;
-`CASE_TARGET` records: **260** (make-executable **256**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **216**; class CHECK in `registry.py`: **216**;
+`CASE_TARGET` records: **261** (make-executable **257**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 ·
-CHECK targets <!-- fact:check_targets -->214 · can-fail cases <!-- fact:canfail_cases -->260 ·
-anchors <!-- fact:anchors -->218 · registry targets <!-- fact:registry_targets -->295 · META <!-- fact:meta_targets -->58 ·
+CHECK targets <!-- fact:check_targets -->215 · can-fail cases <!-- fact:canfail_cases -->261 ·
+anchors <!-- fact:anchors -->218 · registry targets <!-- fact:registry_targets -->296 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

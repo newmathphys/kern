@@ -1712,6 +1712,9 @@ def main(argv=None):
                     help="JSON-корпус (по умолчанию все benchmarks/full_spectrum/*.json)")
     ap.add_argument("--no-docs", action="store_true",
                     help="только прогон, витрины не писать")
+    ap.add_argument("--check", action="store_true",
+                    help="CI-режим: сверить витрины БАЙТ-В-БАЙТ, ничего не писать; "
+                         "rc=1 при дрейфе витрин или confirmed != total")
     args = ap.parse_args(argv)
 
     problem = preflight()
@@ -1778,10 +1781,47 @@ def main(argv=None):
               % (len(confirmed), total), file=sys.stderr)
         return 1
 
+    corpus_names = sorted({os.path.basename(p) for p in paths})
+    en_path = os.path.join(DOCS, "FULL_SPECTRUM_70.md")
+    ru_path = os.path.join(DOCS, "FULL_SPECTRUM_70.ru.md")
+
+    if args.check:
+        # CI-РЕЖИМ: НИЧЕГО НЕ ПИШЕМ. Мутационный контур (KERN_FS_MUTATE)
+        # доказывает, что проверка СПОСОБНА упасть: `verdict` ломает закон
+        # confirmed == total, `text` портит отрендеренную витрину в памяти.
+        mutate = os.environ.get("KERN_FS_MUTATE", "")
+        if mutate == "verdict" and results:
+            results[0] = dict(results[0], failed=True,
+                              errors=list(results[0].get("errors") or []) +
+                              ["KERN_FS_MUTATE=verdict: искусственный провал карточки"])
+            confirmed = [r for r in results if not r["failed"]]
+        en_text = render_en(results, corpus_names)
+        ru_text = render_ru(results, corpus_names)
+        if mutate == "text":
+            en_text = en_text + "\n<!-- KERN_FS_MUTATE: подмена витрины -->\n"
+        bad = []
+        if len(confirmed) != total:
+            bad.append("law violated: confirmed %d != total %d" % (len(confirmed), total))
+        for path, text in ((en_path, en_text), (ru_path, ru_text)):
+            rel = os.path.relpath(path, ROOT)
+            if not os.path.exists(path):
+                bad.append("нет витрины: %s" % rel)
+                continue
+            with open(path, encoding="utf-8") as fh:
+                disk = fh.read()
+            if disk != text:
+                why = "длина %d != %d" % (len(disk), len(text)) if len(disk) != len(text) else "содержимое"
+                bad.append("дрейф витрины: %s (%s)" % (rel, why))
+        if bad:
+            for b in bad:
+                print("[FAIL] " + b)
+            print("[FAIL] full-spectrum --check: расхождений %d — витрины НЕ тронуты" % len(bad))
+            return 1
+        print("[OK] full-spectrum --check: %d/%d, витрины совпали БАЙТ-В-БАЙТ (ничего не записано)"
+              % (len(confirmed), total))
+        return 0
+
     if not args.no_docs:
-        corpus_names = sorted({os.path.basename(p) for p in paths})
-        en_path = os.path.join(DOCS, "FULL_SPECTRUM_70.md")
-        ru_path = os.path.join(DOCS, "FULL_SPECTRUM_70.ru.md")
         write_text(en_path, render_en(results, corpus_names))
         write_text(ru_path, render_ru(results, corpus_names))
         print("wrote %s" % os.path.relpath(en_path, ROOT))

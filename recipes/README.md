@@ -1,5 +1,7 @@
 # Production recipes: KERN inside a real service
 
+> **Full-spectrum polygon (70 / 70):** [`docs/FULL_SPECTRUM_70.md`](../docs/FULL_SPECTRUM_70.md) · [RU](../docs/FULL_SPECTRUM_70.ru.md) — 7 blocks, every card confirmed by KERN *and* an independent oracle. The same corpus is the 34th CI stage: `make full-spectrum-check` (byte-exact showcase comparison, `--selftest`, canfail).
+
 This directory is the practical half of the project: **how a team embeds KERN in one
 line and which accident it prevents** — as opposed to `benchmarks/showcase_100/`, which
 proves the engines on isolated tasks.
