@@ -17,3 +17,6 @@ pyinstaller>=6.0         # builds the zero-dependency appliance (`make kerna-bui
                          # green by construction and the canfail case `kerna` could never
                          # redden (CI measured: ВАКУУМНЫХ 2). The gate now FAILS instead
                          # of skipping (explicit opt-out: KERNA_ALLOW_SKIP=1).
+# BLAKE3 — независимый оракул Блока 06 корпуса (пересчёт дайджестов объектов .kimg).
+# Без него на чистом раннере пропадают kimg_pristine_integrity / kimg_payload_bitflip.
+blake3>=0.4,<2
