@@ -1,0 +1,94 @@
+# НОЧНОЙ ОХОТНИК (окно №22): автономный поиск ФИЗИЧЕСКИ подтверждённых багов.
+#
+# ЗАЧЕМ. KERN силён там, где деньги и числа: переполнение i32/u64, деление на
+# ноль при нулевой ликвидности, выход за границы буфера. Прогон идёт на
+# бесплатном раннере GitHub — ПК выключен, время 03:17 UTC.
+#
+# ПРАВИЛО БЕЗОПАСНОСТИ. В чужие репозитории мы НЕ пишем ничего: отчёт падает
+# только в наш собственный Issue с меткой `nightly-trophy`. Автоматические
+# issue в чужих репо запрещены правилами GitHub; человек читает находку и
+# отправляет её сам (так работают Project Zero / Trail of Bits).
+name: nightly-hunter
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      custom_repos:
+        description: 'owner/name,... (пусто = авто-поиск по темам)'
+        required: false
+        default: ''
+      max_repos:
+        description: 'сколько мишеней за ночь'
+        required: false
+        default: '5'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly-hunter
+  cancel-in-progress: false
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Установка Zig 0.17.0
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: z3-solver
+        run: pip install -r requirements.txt
+
+      # kernc нужен для `--xray`/`--xray-none`; gcc уже есть на раннере (UBSan).
+      - name: Сборка kernc
+        run: zig build
+
+      - name: Самотест охотника (3 точки)
+        run: python3 tools/nightly_hunter.py --selftest
+
+      - name: Охота
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/nightly_hunter.py \
+            --repos "${{ inputs.custom_repos }}" \
+            --max-repos "${{ inputs.max_repos || '5' }}" \
+            --out nightly-out
+
+      - name: Артефакты улова
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-hunter-report
+          path: nightly-out/
+          if-no-files-found: warn
+
+      # Issue создаётся ТОЛЬКО при наличии физически подтверждённых находок.
+      - name: Трофей -> Issue в НАШ репозиторий
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CONF=$(python3 -c "import json;d=json.load(open('nightly-out/report.json'));print(d['counts'].get('CONFIRMED',0)+d['counts'].get('RUNTIME_CONFIRMED',0))")
+          echo "confirmed=$CONF"
+          if [ "$CONF" -gt 0 ]; then
+            gh label create nightly-trophy --color B60205 \
+              --description "Физически подтверждённая находка ночного охотника" 2>/dev/null || true
+            gh issue create \
+              --title "nightly-trophy: $CONF подтверждённых находок $(date -u +%Y-%m-%d)" \
+              --label nightly-trophy \
+              --body-file nightly-out/report.md
+          else
+            echo "Подтверждённых находок нет — Issue не создаётся (нулевой шум)."
+          fi
