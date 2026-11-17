@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import ast
 import glob
+import base64
 import hashlib
 import itertools
 import json
@@ -871,7 +872,7 @@ def check_concolic(card, tmpdir):
 # НЕЗАВИСИМЫЙ ОРАКУЛ:
 #   * свой разбор 128-байтного заголовка и 96-байтных записей таблицы;
 #   * BLAKE3 каждого объекта (`blake3`) против дайджеста в таблице;
-#   * Ed25519 через `openssl pkeyutl -verify -rawin` (наш ключ и ключ владельца);
+#   * Ed25519 — ЧИСТАЯ математика RFC 8032 на stdlib (наш ключ и ключ владельца);
 #   * SHA-256 образа против `contract_digest` сертификата (привязка);
 #   * точная локализация мутации (какой объект/поле испорчено).
 
@@ -919,23 +920,110 @@ def _kimg_objects(blob, h):
     return out
 
 
-def _ed25519_verify(pub_pem, payload, sig):
-    """Независимая проверка Ed25519 через OpenSSL (0 = подпись верна)."""
-    with tempfile.TemporaryDirectory(prefix="ed25519_") as td:
-        pl = os.path.join(td, "p.bin"); sg = os.path.join(td, "s.bin")
-        with open(pl, "wb") as fh:
-            fh.write(payload)
-        with open(sg, "wb") as fh:
-            fh.write(sig)
-        rc, _out, err = run(["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", pub_pem,
-                             "-rawin", "-in", pl, "-sigfile", sg], timeout=60)
-        return rc == 0, err.strip()[:120]
+# ── НЕЗАВИСИМЫЙ Ed25519 (RFC 8032) на stdlib ────────────────────────────────
+# ЗАЧЕМ. Оракул обязан быть НЕЗАВИСИМ от Zig-ядра (иначе KERN проверяет сам
+# себя), но и не должен зависеть от хостового `openssl`, который на раннерах
+# Ubuntu отдаёт ошибку CLI на PEM-ключах Ed25519 -> sig=None и ложный провал.
+# Ниже — чистая математика кривой 2**255-19 на `hashlib` + `pow`.
+_EP = 2 ** 255 - 19
+_EL = 2 ** 252 + 27742317777372353535851937790883648493
+
+
+def _einv(x):
+    return pow(x, _EP - 2, _EP)
+
+
+_ED = (-121665 * _einv(121666)) % _EP
+_EI = pow(2, (_EP - 1) // 4, _EP)
+
+
+def _erecover_x(y, sign):
+    xx = (y * y - 1) * _einv(_ED * y * y + 1) % _EP
+    x = pow(xx, (_EP + 3) // 8, _EP)
+    if (x * x - xx) % _EP != 0:
+        x = (x * _EI) % _EP
+    if (x * x - xx) % _EP != 0:
+        return None
+    return x if x % 2 == sign else _EP - x
+
+
+_EBY = 4 * _einv(5) % _EP
+_EB = (_erecover_x(_EBY, 0), _EBY)
+
+
+def _eadd(P, Q):
+    x1, y1 = P
+    x2, y2 = Q
+    d = _ED * x1 * x2 * y1 * y2 % _EP
+    return ((x1 * y2 + x2 * y1) * _einv(1 + d) % _EP,
+            (y1 * y2 + x1 * x2) * _einv(1 - d) % _EP)
+
+
+def _emul(P, e):
+    Q, R = (0, 1), P
+    while e:
+        if e & 1:
+            Q = _eadd(Q, R)
+        R = _eadd(R, R)
+        e >>= 1
+    return Q
+
+
+def _edecode(b):
+    if len(b) != 32:
+        return None
+    y = int.from_bytes(b, "little") & ((1 << 255) - 1)
+    x = _erecover_x(y, b[31] >> 7)
+    return None if x is None else (x, y)
+
+
+def _ed25519_pub_from_seed(seed):
+    h = hashlib.sha512(seed).digest()
+    a = int.from_bytes(h[:32], "little")
+    a &= (1 << 254) - 8
+    a |= 1 << 254
+    x, y = _emul(_EB, a)
+    return (y | ((x & 1) << 255)).to_bytes(32, "little")
+
+
+def _ed25519_verify_raw(pub32, msg, sig64):
+    if len(pub32) != 32 or len(sig64) != 64:
+        return False
+    A, R = _edecode(pub32), _edecode(sig64[:32])
+    if A is None or R is None:
+        return False
+    S = int.from_bytes(sig64[32:], "little")
+    if S >= _EL:
+        return False
+    h = int.from_bytes(hashlib.sha512(sig64[:32] + pub32 + msg).digest(), "little") % _EL
+    L = _emul(_EB, S)
+    Rr = _eadd(R, _emul(A, h))
+    return (L[0] - Rr[0]) % _EP == 0 and (L[1] - Rr[1]) % _EP == 0
+
+
+def _pub_bytes(src):
+    """32-байтный ключ из PEM-файла (SPKI DER: последние 32 байта) или из bytes."""
+    if isinstance(src, (bytes, bytearray)) and len(src) == 32:
+        return bytes(src)
+    try:
+        body = "".join(l.strip() for l in open(src, encoding="ascii").read().splitlines()
+                        if not l.startswith("-----"))
+        der = base64.b64decode(body)
+        return der[-32:]
+    except (OSError, ValueError):
+        return b""
+
+
+def _ed25519_verify(pub_src, payload, sig):
+    """Независимая проверка Ed25519 (RFC 8032). Возвращает (bool, причина)."""
+    key = _pub_bytes(pub_src)
+    ok = _ed25519_verify_raw(key, bytes(payload), bytes(sig))
+    return ok, "" if ok else "подпись не сходится (RFC 8032)"
 
 
 def _openssl_available():
-    rc, _out, _err = run(["openssl", "version"], timeout=30)
-    return rc == 0
-
+    # Оракул больше не требует внешнего openssl: он есть всегда.
+    return True
 
 def _sign_image(img_path, seed32, cert_path):
     seed = os.path.join(os.path.dirname(cert_path), "seed32.bin")
@@ -1025,15 +1113,11 @@ def check_kimg(card, tmpdir):
         if not cf["magic_ok"] or cf["size"] != 136:
             errs.append("сертификат не 136 байт или без магии KATT")
         if not _openssl_available():
-            errs.append("openssl недоступен — независимая Ed25519-проверка невозможна")
+            errs.append("нет независимого Ed25519-верификатора")
         else:
-            own = os.path.join(tmpdir, "ours.pub")
-            der = bytes.fromhex("302e020100300506032b657004220420") + seed
-            dpath = os.path.join(tmpdir, "ours.der")
-            with open(dpath, "wb") as fh:
-                fh.write(der)
-            rc_d, _o, e_d = run(["openssl", "pkey", "-inform", "DER", "-in", dpath,
-                                 "-pubout", "-out", own], timeout=60)
+            # Публичный ключ из seed — ЧИСТОЙ математикой (без openssl).
+            own = _ed25519_pub_from_seed(seed)
+            rc_d, e_d = 0, ""
             if rc_d != 0:
                 errs.append("не удалось вывести наш публичный ключ: %s" % e_d.strip()[:100])
             else:
