@@ -998,7 +998,17 @@ def check_kimg(card, tmpdir):
             cert_used = cert_ours
         else:
             cert_used = os.path.join(tmpdir, "owner.cert")
-            with open(os.path.join(ROOT, "attestation.cert"), "rb") as fh:
+            # ФИКСТУРА (Вариант A): сертификат владельца над ЗАМОРОЖЕННЫМ
+            # отслеживаемым образом. `attestation.cert` в корне — локальный
+            # артефакт автора и на чистом клоне отсутствует, из-за чего
+            # облачный ci.yml падал FileNotFoundError. Пара фикстур
+            # (audits/real_code_corpus.kimg + owner_fixture.cert) в git,
+            # приватный ключ остаётся вне дерева.
+            owner_cert = os.path.join(ROOT, "benchmarks", "full_spectrum",
+                                      "fixtures", "owner_fixture.cert")
+            if not os.path.exists(owner_cert):
+                owner_cert = os.path.join(ROOT, "attestation.cert")
+            with open(owner_cert, "rb") as fh:
                 with open(cert_used, "wb") as out:
                     out.write(fh.read())
         rc, out, err = run([KERNC, "attest", "verify", img, cert_used], timeout=300)
