@@ -90,6 +90,30 @@ def parse_findings(text: str, default_path: str = "") -> list:
                     "line": int(line), "text": text, "model": model})
     return out
 
+DICT_METHODS = ("get", "items", "keys", "values", "setdefault", "popitem")
+ITER_CALLS = ("len", "max", "min", "sum", "sorted", "list", "set", "tuple", "iter", "next")
+
+
+def _container_role(node, name):
+    """Чем параметр является в теле: 'dict' | 'seq' | '' (роль не видна)."""
+    role = ""
+    for sub in ast.walk(node):
+        if (isinstance(sub, ast.Attribute) and isinstance(sub.value, ast.Name)
+                and sub.value.id == name and sub.attr in DICT_METHODS):
+            return "dict"
+        if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                and sub.func.id in ITER_CALLS
+                and any(isinstance(a, ast.Name) and a.id == name for a in sub.args)):
+            role = "seq"
+        if (isinstance(sub, (ast.For, ast.comprehension))
+                and isinstance(sub.iter, ast.Name) and sub.iter.id == name):
+            role = "seq"
+        if (isinstance(sub, ast.Subscript) and isinstance(sub.value, ast.Name)
+                and sub.value.id == name):
+            role = "seq"
+    return role
+
+
 FILL = {"str": "abc", "int": 3, "float": 1.5, "bool": True,
         "list": [1.0, 2.0, 3.0], "dict": {"a": 1}, "tuple": (1, 2)}
 OHLC = ("open", "high", "low", "close", "volume")
@@ -165,7 +189,11 @@ def _by_ann(name, ann, k, flat):
 
 def build(finding, sig, flat=False, force_empty=False):
     """Аргументы из модели Z3. Возврат: (kwargs, blocked) — blocked = нелегальные."""
-    names, anns, defs = sig
+    if isinstance(sig, dict):          # Окно №23: нужен и AST-узел тела
+        sig_node = sig
+        names, anns, defs = sig["names"], sig["anns"], sig["defs"]
+    else:
+        sig_node, (names, anns, defs) = None, sig
     model = dict(finding.get("model") or {})
     hint = ""
     m = re.search(r":\s*(\w+)\s*==\s*0", finding["text"])
@@ -194,6 +222,14 @@ def build(finding, sig, flat=False, force_empty=False):
             else:
                 out[n] = v
             continue
+        if not ann:
+            role = _container_role(sig_node.get("node"), n) if sig_node else ""
+            if role == "dict":
+                out[n] = {}
+                continue
+            if role == "seq":
+                out[n] = []
+                continue
         if n in model:
             v = int(model[n])
             out[n] = float(v) if "float" in ann else v
@@ -258,6 +294,7 @@ def signature(path, fn, line):
             for d in node.decorator_list}
     first = min([node.lineno] + [d.lineno for d in node.decorator_list])
     return {"qualname": qual, "lineno": node.lineno, "first_lineno": first,
+            "node": node,
             "end_lineno": getattr(node, "end_lineno", node.lineno) or node.lineno,
             "names": names, "anns": anns, "defs": defs,
             "static": "staticmethod" in deco, "classm": "classmethod" in deco}
@@ -286,15 +323,30 @@ def resolve(mod, sig):
     return obj, ""
 
 
+ART_MSGS = ("is not iterable", "is not subscriptable", "has no len()",
+            "object is not", "cannot be interpreted as an integer",
+            "unsupported operand type", "not supported between instances")
+
+
+def _is_type_artifact(got, msg, kwargs):
+    """Скаляр int/float на месте контейнера — артефакт конструктора, не баг мишени."""
+    if got not in ("TypeError", "AttributeError"):
+        return False
+    if not any(isinstance(v, (int, float)) and not isinstance(v, bool)
+               for v in kwargs.values()):
+        return False
+    return any(m in (msg or "") for m in ART_MSGS)
+
+
 def invoke(obj, kwargs, target=""):
-    """Вызов + (тип, строка, кадров В ЦЕЛЕВОМ файле).
+    """Вызов + (тип, строка, кадров В ЦЕЛИ, текст исключения).
 
     ЗАМОК ПОДЛИННОСТИ №2: исключение, поднятое ДО входа в тело мишени (или
     глубоко в pandas), не доказывает найденный путь падения. Требуем хотя бы
     один кадр стека с именем целевого файла.
     """
     if obj is None:
-        return "NO_FUNCTION", 0, 0
+        return "NO_FUNCTION", 0, 0, ""
     want_fn = (target or {}).get("fn") if isinstance(target, dict) else ""
     lo = (target or {}).get("lineno", 0) if isinstance(target, dict) else 0
     hi = (target or {}).get("end_lineno", 0) if isinstance(target, dict) else 0
@@ -305,17 +357,18 @@ def invoke(obj, kwargs, target=""):
         if inspect.isgenerator(res):
             for _ in res:
                 pass
-        return "SURVIVED", 0, 0
+        return "SURVIVED", 0, 0, ""
     except Exception as exc:
         tb = exc.__traceback__
         line, inside = 0, 0
         while tb is not None:
             code = tb.tb_frame.f_code
-            if name and Path(code.co_filename).name == name                     and code.co_name == want_fn and lo <= tb.tb_lineno <= hi:
+            if (name and Path(code.co_filename).name == name
+                    and code.co_name == want_fn and lo <= tb.tb_lineno <= hi):
                 line = tb.tb_lineno
                 inside += 1
             tb = tb.tb_next
-        return type(exc).__name__, line, inside
+        return type(exc).__name__, line, inside, str(exc)
 
 
 def replay_one(finding, mod, sig):
@@ -330,19 +383,24 @@ def replay_one(finding, mod, sig):
         return "NOT_REPLAYABLE", err
     tried, blocked = [], []
     for flat, empty in ((False, False), (True, False), (False, True)):
-        kwargs, blk = build(finding, (sig["names"], sig["anns"], sig["defs"]),
-                            flat=flat, force_empty=empty)
+        kwargs, blk = build(finding, sig, flat=flat, force_empty=empty)
         blocked += [x for x in blk if x not in blocked]
         if blk:
             continue
         tried.append(kwargs)
-        got, tb_line, inside = invoke(obj, kwargs, {"path": finding["path"], "fn": finding["fn"], "lineno": sig["lineno"], "end_lineno": sig["end_lineno"]})
+        got, tb_line, inside, msg = invoke(obj, kwargs, {"path": finding["path"], "fn": finding["fn"], "lineno": sig["lineno"], "end_lineno": sig["end_lineno"]})
+        if _is_type_artifact(got, msg, kwargs):
+            return "TYPE_ARTIFACT", "%s kwargs=%s: %s" % (
+                sig["qualname"], _short(kwargs), msg[:60])
         if got == want and inside >= 1:
             return "CONFIRMED", "%s kwargs=%s tb=%d" % (
                 sig["qualname"], _short(kwargs), tb_line)
     if not tried:
         return "NOT_REPLAYABLE", "needs " + ",".join(blocked)
-    got, tb_line, inside = invoke(obj, tried[0], {"path": finding["path"], "fn": finding["fn"], "lineno": sig["lineno"], "end_lineno": sig["end_lineno"]})
+    got, tb_line, inside, msg = invoke(obj, tried[0], {"path": finding["path"], "fn": finding["fn"], "lineno": sig["lineno"], "end_lineno": sig["end_lineno"]})
+    if _is_type_artifact(got, msg, tried[0]):
+        return "TYPE_ARTIFACT", "%s kwargs=%s: %s" % (
+            sig["qualname"], _short(tried[0]), msg[:60])
     if got in ("NO_FUNCTION",):
         return "NOT_REPLAYABLE", got
     if got == "ValueError":
@@ -385,24 +443,26 @@ def run_all(findings, stats_only=False):
 FIXTURES = {
     "div0.py": "def f(period=5):\n    return 100 / period\n",
     "bounds.py": "def g(xs):\n    return xs[0]\n",
-    "guarded.py": "def h(xs):\n    if not xs:\n        raise ValueError('empty')\n    return xs[0]\n",
-    "never_none.py": "def m(xs=None):\n    if xs is None:\n        raise TypeError('no none')\n    return len(xs)\n",
+    "guarded.py": "def h(xs):\n    if not xs:\n        raise ValueError(\"empty\")\n    return xs[0]\n",
+    "never_none.py": "def m(xs=None):\n    if xs is None:\n        raise TypeError(\"no none\")\n    return len(xs)\n",
     "ok.py": "def s(x):\n    return x + 1\n",
+    "collect.py": "def f(xs):\n    return max(xs)\n",
 }
 
 
 CASES = [
     ("div0.py", "f", "возможно деление на ноль: period == 0", {}, "CONFIRMED"),
-    ("bounds.py", "g", "возможен выход за границы", {"kern_len_xs": 0}, "CONFIRMED"),
-    ("guarded.py", "h", "возможен выход за границы", {"kern_len_xs": 0}, "GUARDED_RAISE"),
-    # закон легальности: конструктор НЕ подаёт None вместо коллекции,
-    # поэтому TypeError из ветки `if xs is None` не должен «подтверждаться».
-    ("never_none.py", "m", "возможен выход за границы", {"kern_len_xs": 0}, "SURVIVED"),
-    ("ok.py", "s", "возможно деление на ноль: x == 0", {"x": 0}, "SURVIVED"),
+    ("bounds.py", "g", "возможен выход за границы", {'kern_len_xs': 0}, "CONFIRMED"),
+    ("guarded.py", "h", "возможен выход за границы", {'kern_len_xs': 0}, "GUARDED_RAISE"),
+    ("never_none.py", "m", "возможен выход за границы", {'kern_len_xs': 0}, "SURVIVED"),
+    ("ok.py", "s", "возможно деление на ноль: x == 0", {'x': 0}, "SURVIVED"),
+    ("collect.py", "f", "возможен выход за границы", {'xs': 0}, "GUARDED_RAISE"),
+    ("collect.py", "f", "возможен выход за границы", {'kern_len_xs': 0}, "GUARDED_RAISE"),
 ]
 
-
 NL = chr(10)
+
+
 GHOSTS = {
     "ghost.py": NL.join(["class A:", "    @staticmethod", "    def PSAR(ohlc):",
                              "        return ohlc[0]", "", "",
@@ -412,13 +472,13 @@ GHOSTS = {
                              "    def pop(self):", "        return self.items.pop()", ""]),
 }
 
+
 def selftest_resolver(work):
     """Три замка Окна №16: свой qualname, чужой qualname, метод экземпляра."""
     bad = 0
     for name, src in GHOSTS.items():
         (work / name).write_text(src, encoding="utf-8")
     cases = [
-        # (файл, fn, строка находки, модель, ожидание)
         ("ghost.py", "PSAR", 4, {"kern_len_ohlc": 0}, "CONFIRMED"),
         ("ghost.py", "PSAR", 9, {"kern_len_ohlc": 0}, "NOT_REPLAYABLE"),
         ("klass.py", "pop", 6, {"kern_len_items": 0}, "CONFIRMED"),
@@ -426,14 +486,14 @@ def selftest_resolver(work):
     for name, fn, line, model, want in cases:
         f = {"path": str(work / name), "kind": "bounds", "fn": fn,
              "line": line, "text": "возможен выход за границы", "model": model}
-        sig = signature(f["path"], fn, line)
-        verdict, detail = replay_one(f, load_target(f["path"]), sig)
+        verdict, detail = replay_one(f, load_target(f["path"]),
+                                     signature(f["path"], fn, line))
         if verdict != want:
             print("[FAIL] resolver %-11s %-5s L%d -> %s (%s), ожидалось %s"
                   % (name, fn, line, verdict, detail, want))
             bad += 1
         else:
-            print("[OK] resolver %-11s %-5s L%d -> %s | %s" % (name, fn, line, verdict, detail))
+            print("[OK] resolver %-11s %-5s L%d -> %s" % (name, fn, line, verdict))
     return bad
 
 

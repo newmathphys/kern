@@ -66,4 +66,4 @@ PYEOF
   exit 1
 fi
 "$PY" tools/live_replay.py --selftest || { echo "[FAIL] live-replay-check: selftest"; exit 1; }
-echo "[OK] live-replay-check: 8 фикстур — край из модели, замок qualname/строки, метод класса, легальность типа"
+echo "[OK] live-replay-check: край из модели, замки qualname/строки/кадра, метод класса, легальность типа, TYPE_ARTIFACT"

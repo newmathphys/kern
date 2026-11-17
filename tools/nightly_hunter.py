@@ -159,7 +159,7 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
     files = [p for p in dest.rglob("*") if p.suffix in SRC_EXT and p.is_file()
              and "test" not in p.name.lower() and ".git" not in p.parts]
     files.sort(key=lambda p: p.stat().st_size)
-    items, errors = [], 0
+    items, errors, artifacts = [], 0, 0
     for p in files[:max_files]:
         try:
             findings = _scan_file(p)
@@ -170,6 +170,9 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
             continue
         if p.suffix == ".py":
             for row in LR.run_all(findings):
+                if row["verdict"] == "TYPE_ARTIFACT":
+                    artifacts += 1
+                    continue
                 if row["verdict"] == "CONFIRMED":
                     items.append({"level": "CONFIRMED", "file": str(p.relative_to(dest)),
                                   "line": row["line"], "fn": row["fn"],
@@ -191,7 +194,8 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                               "line": f["line"], "fn": f["fn"], "detail": f["kind"],
                               "model": f.get("model") or {}})
     (work_root / repo.replace("/", "__") / "w").mkdir(parents=True, exist_ok=True)
-    return {"repo": repo, "sha": sha, "error": "", "items": items, "errors": errors}
+    return {"repo": repo, "sha": sha, "error": "", "items": items,
+            "errors": errors, "artifacts": artifacts}
 
 
 def render(results: list, outdir: Path) -> dict:
@@ -200,7 +204,8 @@ def render(results: list, outdir: Path) -> dict:
     cnt = Counter(it["level"] for it in flat)
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "report.json").write_text(json.dumps(
-        {"targets": len(results), "counts": dict(cnt), "items": flat},
+        {"targets": len(results), "counts": dict(cnt),
+         "type_artifacts": sum(r.get("artifacts", 0) for r in results), "items": flat},
         ensure_ascii=False, indent=1), encoding="utf-8")
     lines = ["# Nightly hunt report", "",
              "targets: %d | findings: %d | CONFIRMED: %d | RUNTIME_CONFIRMED: %d | SMT_CANDIDATE: %d"
@@ -262,11 +267,22 @@ def selftest() -> int:
             print("[%s] missing work dir -> %s" % ("OK" if ok else "FAIL", _d if ok else _d))
             bad += 0 if ok else 1
 
+        # 5-я точка (#23): скаляр 0 в неаннотированный коллекционный параметр
+        # обязан дать НЕ CONFIRMED (TYPE_ARTIFACT), иначе ночной отчёт шумит.
+        coll = w / "coll.py"
+        coll.write_text("def g(xs):" + chr(10) + "    return max(xs)" + chr(10), encoding="utf-8")
+        rows = LR.run_all(_scan_file(coll))
+        verdicts = [r["verdict"] for r in rows]
+        ok = "CONFIRMED" not in verdicts
+        print("[%s] container artifact -> %s" % ("OK" if ok else "FAIL",
+                                                 verdicts or ["no findings"]))
+        bad += 0 if ok else 1
+
         safe = w / "safe.py"; safe.write_text(SELFTEST_SAFE, encoding="utf-8")
         ok = _scan_file(safe) == []
         print("[%s] safe code -> 0 findings" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
-    print("[NIGHTLY-HUNTER-SELFTEST] точек 4 | провалов: %d" % bad)
+    print("[NIGHTLY-HUNTER-SELFTEST] точек 5 | провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
 

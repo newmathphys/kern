@@ -56,7 +56,7 @@ jobs:
       - name: Сборка kernc
         run: zig build
 
-      - name: Самотест охотника (3 точки)
+      - name: Самотест охотника
         run: python3 tools/nightly_hunter.py --selftest
 
       - name: Охота
