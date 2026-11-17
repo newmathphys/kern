@@ -36,6 +36,10 @@ jobs:
   hunt:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v7
 
@@ -59,28 +63,66 @@ jobs:
       - name: Самотест охотника
         run: python3 tools/nightly_hunter.py --selftest
 
-      - name: Охота
+      - name: Охота (шард ${{ matrix.shard }}/4)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 tools/nightly_hunter.py \
             --repos "${{ inputs.custom_repos }}" \
-            --max-repos "${{ inputs.max_repos || '5' }}" \
-            --out nightly-out
+            --max-repos "${{ inputs.max_repos || '20' }}" \
+            --shard "${{ matrix.shard }}/4" \
+            --out "nightly-out-${{ matrix.shard }}"
 
       - name: Артефакты улова
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-hunter-report
-          path: nightly-out/
+          name: nightly-hunter-${{ matrix.shard }}
+          path: nightly-out-${{ matrix.shard }}/
           if-no-files-found: warn
 
-      # Issue создаётся ТОЛЬКО при наличии физически подтверждённых находок.
-      - name: Трофей -> Issue в НАШ репозиторий
+  # СВОДНЫЙ ДЖОБ (Окно №28): 4 шарда пишут независимые отчёты, Issue создаётся
+  # РОВНО ОДИН раз и только если суммарно есть физически подтверждённые трофеи.
+  trophies:
+    needs: hunt
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: nightly-hunter-*
+          path: merged
+
+      - name: Сводка шардов
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          root = pathlib.Path("merged")
+          totals = {}
+          artifacts = 0
+          parts, shards = [], 0
+          for f in sorted(root.rglob("report.json")):
+              d = json.loads(f.read_text(encoding="utf-8"))
+              shards += 1
+              for k, v in (d.get("counts") or {}).items():
+                  totals[k] = totals.get(k, 0) + v
+              artifacts += d.get("type_artifacts", 0)
+          for f in sorted(root.rglob("report.md")):
+              parts.append(f.read_text(encoding="utf-8"))
+          head = "# Nightly hunt report (merged %d shards)" % shards
+          stats = "CONFIRMED: %d | RUNTIME_CONFIRMED: %d | SMT_CANDIDATE: %d | type_artifacts: %d" % (
+              totals.get("CONFIRMED", 0), totals.get("RUNTIME_CONFIRMED", 0),
+              totals.get("SMT_CANDIDATE", 0), artifacts)
+          pathlib.Path("merged/report.md").write_text(
+              head + "\n\n" + stats + "\n\n" + "\n".join(parts), encoding="utf-8")
+          pathlib.Path("merged/counts.json").write_text(json.dumps(totals), encoding="utf-8")
+          print(stats)
+          PY
+
+      - name: Трофей -> Issue (ровно один)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CONF=$(python3 -c "import json;d=json.load(open('nightly-out/report.json'));print(d['counts'].get('CONFIRMED',0)+d['counts'].get('RUNTIME_CONFIRMED',0))")
+          CONF=$(python3 -c "import json;d=json.load(open('merged/counts.json'));print(d.get('CONFIRMED',0)+d.get('RUNTIME_CONFIRMED',0))")
           echo "confirmed=$CONF"
           if [ "$CONF" -gt 0 ]; then
             gh label create nightly-trophy --color B60205 \
@@ -88,7 +130,7 @@ jobs:
             gh issue create \
               --title "nightly-trophy: $CONF подтверждённых находок $(date -u +%Y-%m-%d)" \
               --label nightly-trophy \
-              --body-file nightly-out/report.md
+              --body-file merged/report.md
           else
             echo "Подтверждённых находок нет — Issue не создаётся (нулевой шум)."
           fi

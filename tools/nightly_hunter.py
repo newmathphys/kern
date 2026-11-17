@@ -198,6 +198,36 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
             "errors": errors, "artifacts": artifacts}
 
 
+def _slug(repo: str, it: dict) -> str:
+    base = "%s__%s__%s" % (repo.replace("/", "_"), it.get("fn"), it.get("line"))
+    return "".join(c if c.isalnum() or c in "_-." else "_" for c in base)
+
+
+def _trophy_md(repo: str, sha: str, it: dict) -> str:
+    """Готовый к отправке черновик: репродьюсер + предлагаемый текст апстрима."""
+    ce = ", ".join("%s = %s" % (k, v) for k, v in (it.get("model") or {}).items())
+    lines = ["# %s @ %s — %s" % (repo, sha, it["level"]), "",
+             "- file: `%s:%s`" % (it["file"], it["line"]),
+             "- function: `%s`" % it["fn"],
+             "- verdict: %s" % it["detail"],
+             "- Z3 counterexample: `%s`" % (ce or "-"), "",
+             "## Reproduce (unmodified package)", "", "```bash",
+             "pip install git+https://github.com/%s@%s" % (repo, sha),
+             "```"]
+    if it["level"] == "CONFIRMED":
+        lines += ["```python", "# the call below raised inside %s" % it["fn"],
+                  "from %s import *" % repo.split("/")[-1].replace("-", "_"), "```"]
+    else:
+        lines += ["```bash", "gcc -fsanitize=undefined -fno-sanitize-recover=all repro.c", "```"]
+    lines += ["", "## Suggested upstream report (edit before sending)", "",
+              "> Reproduced on `%s` at commit `%s`, function `%s` (%s)."
+              % (repo, sha, it["fn"], it["detail"]),
+              "> The control flow at `%s:%s` is reachable with %s."
+              % (it["file"], it["line"], ce or "the counterexample above"),
+              "> Found with zero-annotation SMT X-Ray + Live Replay (KERN).", ""]
+    return chr(10).join(lines)
+
+
 def render(results: list, outdir: Path) -> dict:
     from collections import Counter
     flat = [dict(it, repo=r["repo"], sha=r["sha"]) for r in results for it in r["items"]]
@@ -224,6 +254,12 @@ def render(results: list, outdir: Path) -> dict:
                          f"{it['detail']}" + (f"; counterexample: {ce}" if ce else ""))
         lines.append("")
     (outdir / "report.md").write_text(chr(10).join(lines), encoding="utf-8")
+    tro = outdir / "trophies"
+    tro.mkdir(parents=True, exist_ok=True)
+    for it in flat:
+        if it["level"] in ("CONFIRMED", "RUNTIME_CONFIRMED"):
+            (tro / (_slug(it["repo"], it) + ".md")).write_text(
+                _trophy_md(it["repo"], it["sha"], it), encoding="utf-8")
     return dict(cnt)
 
 SELFTEST_PY = "def f(period=5):\n    return 100 / period\n"
@@ -297,6 +333,8 @@ def main(argv) -> int:
     ap.add_argument("--max-repos", type=int, default=5)
     ap.add_argument("--max-files", type=int, default=40)
     ap.add_argument("--out", default="nightly-out")
+    ap.add_argument("--shard", default="", help="i/N — доля репозиториев для воркера")
+    ap.add_argument("--seen", default="", help="кэш repo@sha (пропускать проверенное)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
@@ -312,10 +350,39 @@ def main(argv) -> int:
     if not repos:
         print("[!] нет мишеней (нет сети или пустой --repos)", file=sys.stderr)
         return 1
+    # ДЕДУП (Окно №28): не гонять то, что уже проверено в прошлые ночи.
+    outdir = Path(a.out)
+    seen_path = Path(a.seen) if a.seen else (outdir / "seen.json")
+    seen = set()
+    try:
+        seen = set(json.loads(seen_path.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        seen = set()
+    known = {x.split("@", 1)[0] for x in seen}
+    before = len(repos)
+    repos = [r for r in repos if r not in known]
+    if len(repos) != before:
+        print("[i] дедуп: пропущено уже проверенных репозиториев: %d" % (before - len(repos)))
+    # ШАРДИРОВАНИЕ (Окно №28): 4 воркера делят список, каждый пишет свой отчёт.
+    if a.shard:
+        try:
+            si, sn = (int(x) for x in a.shard.split("/"))
+            repos = [r for k, r in enumerate(repos) if k % sn == si]
+            print("[i] шард %d/%d: репозиториев %d" % (si, sn, len(repos)))
+        except ValueError:
+            print("[!] --shard ожидает i/N")
     with tempfile.TemporaryDirectory(prefix="kern_hunt_") as td:
         work = Path(td)
         results = [hunt_repo(r, work, a.max_files) for r in repos]
-        counts = render(results, Path(a.out))
+        counts = render(results, outdir)
+    for r in results:
+        if r.get("sha"):
+            seen.add("%s@%s" % (r["repo"], r["sha"]))
+    try:
+        outdir.mkdir(parents=True, exist_ok=True)
+        seen_path.write_text(json.dumps(sorted(seen), indent=0), encoding="utf-8")
+    except OSError:
+        pass
     total = sum(counts.values())
     print("[HUNT] мишеней %d | находок %d | CONFIRMED %d | RUNTIME_CONFIRMED %d | SMT_CANDIDATE %d"
           % (len(results), total, counts.get("CONFIRMED", 0),
