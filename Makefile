@@ -539,6 +539,13 @@ belnap-check: build
 # В ПАМЯТИ и сверяет их БАЙТ-В-БАЙТ с закоммиченными — файлы не пишутся.
 # Невакуумность: KERN_CANFAIL_MUTATE=1 + --selftest + кейс в tools/canfail.py.
 full-spectrum-check: build
+	# ДЕФЕКТ (нашёл GitHub Actions на чистом клоне): корпус читает
+	# `toy.kimg` и `release.kimg`, а это НЕОТСЛЕЖИВАЕМЫЕ артефакты. Локально
+	# они лежали после прошлых прогонов, и гейт был зелёным; на свежем клоне
+	# падал с FileNotFoundError (rc=2, 37/38). Теперь образы собираются
+	# здесь, поэтому гейт воспроизводим с нуля.
+	@./zig-out/bin/kernc build examples/toy_ai_hallucination/project.kern -o toy.kimg >/dev/null
+	@./zig-out/bin/kernc build examples/project.kern -o release.kimg >/dev/null
 	@bash tools/full_spectrum_check.sh
 
 # 35-Я СТАДИЯ: НАТИВНОЕ ядро несовместности на ПРОИЗВОЛЬНОМ .smt2-файле.
