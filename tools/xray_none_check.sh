@@ -49,10 +49,24 @@ printf 'def f(x=None):\n    if x is None:\n        return 0\n    return x + 1\n'
 printf 'def f(x=None):\n    if x is None:\n        x = 0\n    return x + 1\n' > "$WORK/reset.py"
 printf 'def h(d, k):\n    v = d.get(k)\n    if v is not None:\n        return 0\n    return v * 2\n' > "$WORK/getlocal.py"
 printf 'def f(x=None):\n    x = x + 1\n    return x\n' > "$WORK/reassign.py"
+# --- фикстуры ОКНА №13: классы ложных срабатываний с эталонной тройки ---
+# короткое замыкание: правый операнд `and` виден уже суженным левым
+printf 'def f(until=None):\n    if until and until.tzinfo:\n        return 0\n    return 1\n' > "$WORK/shortcircuit.py"
+# BoolOp из двух nullable + вложенный raise: обе ветки живы, обе не-None
+printf 'def f(dt1=None, dt2=None):\n    if dt1 and dt2:\n        return dt1.days - dt2.days\n    raise ValueError("x")\n' > "$WORK/boolop.py"
+# IfExp: else-ветвь видит v суженным до non-null
+printf 'def f(v=None):\n    return None if v is None else str(v)\n' > "$WORK/ifexp.py"
+# isinstance/hasattr: отрицательная ветвь выходит, положительная сужает
+printf 'def f(v=None):\n    if not isinstance(v, int):\n        return 0\n    return v.bit_length()\n' > "$WORK/narrow_isinstance.py"
+printf 'def g(v=None):\n    if not hasattr(v, "bit_length"):\n        raise TypeError("no")\n    return v.bit_length()\n' > "$WORK/narrow_hasattr.py"
+# ОБЯЗАТЕЛЬСТВО: после `if x is not None: return` путь жив и x == None
+printf 'def f(x=None):\n    if x is not None:\n        return 0\n    return x.bit_length()\n' > "$WORK/obligation.py"
 
 count() { "$PY" tools/kern_contracts.py --xray-none "$1" 2>/dev/null | tail -1 | grep -o 'находок [0-9]*' | grep -o '[0-9]*'; }
 WANT_ARITH=1; WANT_ATTR=1; WANT_GUARD=0; WANT_RESET=0; WANT_GET=0; WANT_REAS=1
+WANT_SC=0; WANT_BOOLOP=0; WANT_IFEXP=0; WANT_ISINST=0; WANT_HASATTR=0; WANT_OBLIG=1
 [ "$MUTATE" = "1" ] && WANT_GUARD=1   # ИСПОРЧЕННОЕ ожидание
+[ "$MUTATE" = "2" ] && WANT_SC=1      # ИСПОРЧЕННОЕ ожидание: глушим короткое замыкание
 expect() { # $1 файл, $2 ожидание, $3 метка
   got=$(count "$1"); got=${got:-0}
   [ "$got" = "$2" ] || { echo "[FAIL] $3: находок $got, ожидалось $2"; fails=$((fails+1)); }
@@ -63,6 +77,12 @@ expect "$WORK/guarded.py" "$WANT_GUARD" "None-гард снимает наход
 expect "$WORK/reset.py"   "$WANT_RESET" "переприсваивание в ветке снимает находку"
 expect "$WORK/getlocal.py" "$WANT_GET"  "dict.get-локал — граница (молчим)"
 expect "$WORK/reassign.py" "$WANT_REAS" "разыменование ДО переприсваивания"
+expect "$WORK/shortcircuit.py"     "$WANT_SC"      "short-circuit: until.tzinfo не обвиняется"
+expect "$WORK/boolop.py"           "$WANT_BOOLOP"  "BoolOp: dt1/dt2 сужены в теле"
+expect "$WORK/ifexp.py"            "$WANT_IFEXP"   "IfExp: else-ветвь сужена"
+expect "$WORK/narrow_isinstance.py" "$WANT_ISINST" "isinstance сужает после выхода"
+expect "$WORK/narrow_hasattr.py"   "$WANT_HASATTR" "hasattr сужает после raise"
+expect "$WORK/obligation.py"       "$WANT_OBLIG"   "обязательство: x==None после гарда"
 
 # --- LIVE REPLAY: находка засчитывается только с ФИЗИЧЕСКИМ исключением ---
 "$PY" - "$WORK" <<'PYEOF'
@@ -76,6 +96,7 @@ for name, fn_name, args, want in (
     ("arith.py", "f", (None,), "TypeError"),
     ("attr.py", "g", (None,), "AttributeError"),
     ("reassign.py", "f", (None,), "TypeError"),
+    ("obligation.py", "f", (None,), "AttributeError"),
 ):
     ns = load(w / name)
     try:

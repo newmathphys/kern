@@ -379,6 +379,8 @@ FAULTABLE = [
     "tools/audit_delta.py",
     # #538: кейс `prove-all-real-blind` правит ожидания стенда — файл обязан
     # быть в списке, иначе подсадка осталась бы в дереве (класс #225).
+    # ОКНО №13: кейс `xray-none` мутирует мини-CFG в отдельном модуле.
+    "tools/xray_none.py",
     "tools/prove_all_capabilities_real.py",
 
     # в списке, иначе подсадка осталась бы в дереве (класс #225).
@@ -3967,15 +3969,16 @@ def case_belnap_swarm_check():
 
 
 def case_xray_none():
-    """ОКНО №9. ЛОМАЕМ ДЕТЕКТОР: из `_NONE_ARITH` убирается `ast.Add`.
+    """ОКНО №13. ЛОМАЕМ ДЕТЕКТОР В ЕГО НОВОМ ДОМЕ: `tools/xray_none.py`.
 
-    Тогда `x + 1` на nullable-параметре перестаёт быть находкой, и гейт
-    `xray-none-check` (ожидает 1) обязан покраснеть. Останется зелёным —
-    значит проверка не видит арифметику, то есть вакуумна.
+    Из кортежа `ARITH` убирается `ast.Add`: `x + 1` на nullable перестаёт быть
+    находкой, и `xray-none-check` (ожидает 1) обязан покраснеть. Стрела бьёт в
+    компактный модуль (223 строки), а не в 6000-строчный движок — откат точен,
+    и соседние 36 стадий физически не задеваются.
     """
-    patch("tools/kern_contracts.py",
-          "_NONE_ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)",
-          "_NONE_ARITH = (ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)")
+    patch("tools/xray_none.py",
+          "ARITH = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)",
+          "ARITH = (ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)")
     return "make xray-none-check"
 
 

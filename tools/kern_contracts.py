@@ -9708,24 +9708,19 @@ def _none_walk(stmts, path, live, params, kernc, found, fnname, depth=0):
         _none_scan([st], path, live, params, kernc, found, fnname)
 
 
-def cmd_xray_none(path, kernc):
-    src = Path(path).read_text(encoding="utf-8", errors="replace")
-    tree = ast.parse(src)
-    found = []
-    checked = 0
-    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
-        params = [a.arg for a in fn.args.args if a.arg != "self"]
-        nullable = _nullable_params(fn)
-        if not nullable:
-            continue
-        checked += 1
-        _none_walk(list(fn.body), [], set(nullable), params, kernc, found, fn.name)
-    uniq = list(dict.fromkeys(found))
-    for f in uniq:
-        print("  " + f)
-    print("-" * 74)
-    print(f"[XRAY-NONE] функций с nullable-параметрами {checked} | находок {len(uniq)}")
-    return 1 if uniq else 0
+def cmd_xray_none(path: str, kernc) -> int:
+    """ТАКТ OPTIONAL-XRAY: делегирование в `tools/xray_none.py` (окно №13).
+
+    Мини-CFG (решётка состояний, сужение на уровне выражений, слияние
+    живых ветвей) живёт в отдельном модуле; здесь только проводка SMT.
+    """
+    import xray_none
+
+    rc, lines = xray_none.run(
+        path, lambda params, asserts: _smt_sat(kernc, params, asserts))
+    for ln in lines:
+        print(ln)
+    return rc
 
 
 def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[str, int], dict[str, int]]:
