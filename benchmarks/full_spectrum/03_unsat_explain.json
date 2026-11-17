@@ -1,0 +1,499 @@
+[
+  {
+    "id": "unsat_fee_corridor",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Комиссия/финтех",
+    "trick": "непроходимый коридор комиссии min_fee > max_fee при двух невиновных пунктах",
+    "sphere_en": "Fees/fintech",
+    "trick_en": "impossible fee corridor min_fee > max_fee with two innocent clauses",
+    "doc": {
+      "vars": [
+        "min_fee",
+        "max_fee",
+        "tier"
+      ],
+      "clauses": [
+        {
+          "id": "noise_tier_nonneg",
+          "expr": "tier >= 0"
+        },
+        {
+          "id": "min_floor",
+          "expr": "min_fee >= 10"
+        },
+        {
+          "id": "max_cap",
+          "expr": "max_fee <= 5"
+        },
+        {
+          "id": "order_ok",
+          "expr": "min_fee <= max_fee"
+        },
+        {
+          "id": "noise_ceiling",
+          "expr": "max_fee <= 1000"
+        }
+      ]
+    },
+    "noise": [
+      "noise_tier_nonneg",
+      "noise_ceiling"
+    ],
+    "must_include": [
+      "min_floor",
+      "max_cap",
+      "order_ok"
+    ],
+    "explain": {
+      "code": "def fee_span(min_fee: int, max_fee: int) -> int:\n    if min_fee > max_fee:\n        return 0\n    return max_fee - min_fee\n",
+      "expect": {
+        "cc": 2,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  },
+  {
+    "id": "unsat_vip_discounts",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Маркетплейс",
+    "trick": "взаимоисключающие VIP-скидки: минимум 30% и потолок 10%",
+    "sphere_en": "Marketplace",
+    "trick_en": "mutually exclusive VIP discounts: floor 30% and cap 10%",
+    "doc": {
+      "vars": [
+        "vip",
+        "base"
+      ],
+      "clauses": [
+        {
+          "id": "noise_base_ok",
+          "expr": "base >= 0"
+        },
+        {
+          "id": "vip_high",
+          "expr": "vip >= 30"
+        },
+        {
+          "id": "vip_low",
+          "expr": "vip <= 10"
+        },
+        {
+          "id": "noise_base_cap",
+          "expr": "base <= 100"
+        }
+      ]
+    },
+    "noise": [
+      "noise_base_ok",
+      "noise_base_cap"
+    ],
+    "must_include": [
+      "vip_high",
+      "vip_low"
+    ],
+    "explain": {
+      "code": "def vip_rate(vip: int, base: int) -> int:\n    if vip >= 30 and base >= 0:\n        return 0\n    return base\n",
+      "expect": {
+        "cc": 3,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  },
+  {
+    "id": "unsat_dead_sla",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "SLA/поддержка",
+    "trick": "мёртвый SLA отклика: 4 часа при проверке от 6 часов и требовании sla >= review",
+    "sphere_en": "SLA/support",
+    "trick_en": "dead SLA: 4 hours against a 6-hour review and sla >= review",
+    "doc": {
+      "vars": [
+        "sla",
+        "review"
+      ],
+      "clauses": [
+        {
+          "id": "sla_cap",
+          "expr": "sla <= 4"
+        },
+        {
+          "id": "review_floor",
+          "expr": "review >= 6"
+        },
+        {
+          "id": "order_ok",
+          "expr": "sla >= review"
+        },
+        {
+          "id": "noise_sla_pos",
+          "expr": "sla >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_sla_pos"
+    ],
+    "must_include": [
+      "sla_cap",
+      "review_floor",
+      "order_ok"
+    ],
+    "explain": {
+      "code": "def sla_budget(budget: int, reviews: int) -> int:\n    return budget // reviews\n",
+      "expect": {
+        "cc": 1,
+        "returns": 1,
+        "crash_lines": [
+          2
+        ]
+      }
+    }
+  },
+  {
+    "id": "unsat_aml_vip",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Комплаенс",
+    "trick": "AML-лимит вывода 5000 против VIP-минимума 10000 и правила вывода",
+    "sphere_en": "Compliance",
+    "trick_en": "AML withdrawal cap 5000 against VIP minimum 10000",
+    "doc": {
+      "vars": [
+        "withdrawal",
+        "vip_min"
+      ],
+      "clauses": [
+        {
+          "id": "aml_cap",
+          "expr": "withdrawal <= 5000"
+        },
+        {
+          "id": "vip_floor",
+          "expr": "vip_min >= 10000"
+        },
+        {
+          "id": "vip_rule",
+          "expr": "withdrawal >= vip_min"
+        },
+        {
+          "id": "noise_vip_pos",
+          "expr": "vip_min >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_vip_pos"
+    ],
+    "must_include": [
+      "aml_cap",
+      "vip_floor",
+      "vip_rule"
+    ],
+    "explain": {
+      "code": "def aml_limit(withdrawal: int, vip_min: int) -> int:\n    if withdrawal > 5000:\n        return 5000\n    return withdrawal\n",
+      "expect": {
+        "cc": 2,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  },
+  {
+    "id": "unsat_warehouse_temp",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Склад",
+    "trick": "невозможный температурный допуск: не теплее -5 и не холоднее 4",
+    "sphere_en": "Warehouse",
+    "trick_en": "impossible temperature tolerance: no warmer than -5 and no colder than 4",
+    "doc": {
+      "vars": [
+        "temp",
+        "humidity"
+      ],
+      "clauses": [
+        {
+          "id": "cold_cap",
+          "expr": "temp <= -5"
+        },
+        {
+          "id": "warm_floor",
+          "expr": "temp >= 4"
+        },
+        {
+          "id": "noise_hum",
+          "expr": "humidity >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_hum"
+    ],
+    "must_include": [
+      "cold_cap",
+      "warm_floor"
+    ],
+    "explain": {
+      "code": "def temp_ok(temp: int, humidity: int) -> int:\n    if temp <= -5 and temp >= 4:\n        return 1\n    return 0\n",
+      "expect": {
+        "cc": 3,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  },
+  {
+    "id": "unsat_cpu_quota",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Оркестратор",
+    "trick": "коллизия квот CPU: квота 2 при пуле от 8 и правиле quota >= pool",
+    "sphere_en": "Orchestrator",
+    "trick_en": "CPU quota collision: quota 2 with a pool of 8 and quota >= pool",
+    "doc": {
+      "vars": [
+        "quota",
+        "pool"
+      ],
+      "clauses": [
+        {
+          "id": "quota_cap",
+          "expr": "quota <= 2"
+        },
+        {
+          "id": "pool_floor",
+          "expr": "pool >= 8"
+        },
+        {
+          "id": "quota_rule",
+          "expr": "quota >= pool"
+        },
+        {
+          "id": "noise_pool_pos",
+          "expr": "pool >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_pool_pos"
+    ],
+    "must_include": [
+      "quota_cap",
+      "pool_floor",
+      "quota_rule"
+    ],
+    "explain": {
+      "code": "def cpu_share(quota: int, pool: int) -> int:\n    return quota // pool\n",
+      "expect": {
+        "cc": 1,
+        "returns": 1,
+        "crash_lines": [
+          2
+        ]
+      }
+    }
+  },
+  {
+    "id": "unsat_delivery_window",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Логистика",
+    "trick": "несовместное окно доставки: начало не позже 9 при финише от 18 и start >= finish",
+    "sphere_en": "Logistics",
+    "trick_en": "impossible delivery window: start by 9, finish from 18, start >= finish",
+    "doc": {
+      "vars": [
+        "start",
+        "finish"
+      ],
+      "clauses": [
+        {
+          "id": "start_cap",
+          "expr": "start <= 9"
+        },
+        {
+          "id": "finish_floor",
+          "expr": "finish >= 18"
+        },
+        {
+          "id": "window_rule",
+          "expr": "start >= finish"
+        },
+        {
+          "id": "noise_start_pos",
+          "expr": "start >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_start_pos"
+    ],
+    "must_include": [
+      "start_cap",
+      "finish_floor",
+      "window_rule"
+    ],
+    "explain": {
+      "code": "def window_len(start: int, finish: int) -> int:\n    if start >= finish:\n        return 0\n    return finish - start\n",
+      "expect": {
+        "cc": 2,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  },
+  {
+    "id": "unsat_tax_deduction",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Налоги",
+    "trick": "тупик вычетов: вычет не выше 100 при требуемом от 500 и вычете >= требуемого",
+    "sphere_en": "Taxes",
+    "trick_en": "deduction deadlock: deduction by 100, required from 500, deduction >= required",
+    "doc": {
+      "vars": [
+        "deduction",
+        "required"
+      ],
+      "clauses": [
+        {
+          "id": "ded_cap",
+          "expr": "deduction <= 100"
+        },
+        {
+          "id": "req_floor",
+          "expr": "required >= 500"
+        },
+        {
+          "id": "ded_rule",
+          "expr": "deduction >= required"
+        },
+        {
+          "id": "noise_req_pos",
+          "expr": "required >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_req_pos"
+    ],
+    "must_include": [
+      "ded_cap",
+      "req_floor",
+      "ded_rule"
+    ],
+    "explain": {
+      "code": "def ded_net(deduction: int, required: int) -> int:\n    if deduction >= required:\n        return 0\n    return required - deduction\n",
+      "expect": {
+        "cc": 2,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  },
+  {
+    "id": "unsat_quorum",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "Кворум",
+    "trick": "невозможный порог кворума: кворум не выше 5 при составе от 9 и кворуме >= состава",
+    "sphere_en": "Quorum",
+    "trick_en": "impossible quorum: at most 5 of at least 9 members, quorum >= members",
+    "doc": {
+      "vars": [
+        "quorum",
+        "members"
+      ],
+      "clauses": [
+        {
+          "id": "quorum_cap",
+          "expr": "quorum <= 5"
+        },
+        {
+          "id": "members_floor",
+          "expr": "members >= 9"
+        },
+        {
+          "id": "quorum_rule",
+          "expr": "quorum >= members"
+        },
+        {
+          "id": "noise_members_pos",
+          "expr": "members >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_members_pos"
+    ],
+    "must_include": [
+      "quorum_cap",
+      "members_floor",
+      "quorum_rule"
+    ],
+    "explain": {
+      "code": "def quorum_gap(members: int, quorum: int) -> int:\n    return members // quorum\n",
+      "expect": {
+        "cc": 1,
+        "returns": 1,
+        "crash_lines": [
+          2
+        ]
+      }
+    }
+  },
+  {
+    "id": "unsat_age_seniority",
+    "kind": "explain",
+    "block": "03",
+    "sphere": "HR/ценз",
+    "trick": "конфликт возрастного ценза и стажа: возраст до 25 при стаже от 10 и age >= seniority + 18",
+    "sphere_en": "HR/eligibility",
+    "trick_en": "age floor vs seniority: age by 25 with seniority from 10 and age >= seniority + 18",
+    "doc": {
+      "vars": [
+        "age",
+        "seniority"
+      ],
+      "clauses": [
+        {
+          "id": "age_cap",
+          "expr": "age <= 25"
+        },
+        {
+          "id": "sen_floor",
+          "expr": "seniority >= 10"
+        },
+        {
+          "id": "age_rule",
+          "expr": "age >= seniority + 18"
+        },
+        {
+          "id": "noise_age_pos",
+          "expr": "age >= 0"
+        }
+      ]
+    },
+    "noise": [
+      "noise_age_pos"
+    ],
+    "must_include": [
+      "age_cap",
+      "sen_floor",
+      "age_rule"
+    ],
+    "explain": {
+      "code": "def age_ok(age: int, seniority: int) -> int:\n    if age >= seniority + 18:\n        return 1\n    return 0\n",
+      "expect": {
+        "cc": 2,
+        "returns": 2,
+        "crash_lines": []
+      }
+    }
+  }
+]

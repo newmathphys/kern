@@ -37,9 +37,12 @@ rc=1, и витрины НЕ пишутся вовсе (зелёная гало�
 from __future__ import annotations
 
 import argparse
+import ast
 import glob
+import itertools
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -406,12 +409,426 @@ def check_belnap(card, tmpdir):
     return errs, {"cells": cells, "gap_markers": gap_markers, "mode": mode}
 
 
+
+# ---------------------------------------------------------------------------
+#  БЛОК 03: ДИАГНОСТИКА ПРОТИВОРЕЧИВЫХ ТЗ (--verify-doc / --explain)
+# ---------------------------------------------------------------------------
+# ЧЕСТНОЕ РАЗДЕЛЕНИЕ РОЛЕЙ (измерено пилотами, а не предположено):
+#   * минимальное (неприводимое) ядро несовместности даёт `--verify-doc`:
+#     маркеры `[FAIL] CONFLICT B(1,1)` и `[CONFLICT B(1,1)] Minimal conflicting
+#     clauses: [...]`, rc=1; невиновные пункты в ядро не попадают;
+#   * `--explain` — ПАСПОРТ функции (CC, число выходов по SMT, строки падения),
+#     он НЕ локализует конфликты. Поэтому в карточке он вторичен и проверяется
+#     отдельно: напечатанные числа обязаны совпасть с независимым AST-пересчётом.
+#
+# НЕЗАВИСИМЫЙ ОРАКУЛ (не `expr_smt`!): свой переводчик Python-выражений в z3.
+# Аксиомы, которые он проверяет:
+#   (a) полный набор пунктов UNSAT;
+#   (b) удаление ЛЮБОГО элемента ядра делает набор SAT (неприводимость);
+#   (c) удаление любого ШУМОВОГО пункта оставляет UNSAT (шум невиновен);
+#   (d) модель ослабленной спецификации физически исполняется `eval` по всем
+#       оставшимся предикатам (реальный вектор-свидетель).
+# Граница, названная вслух: ядро `--verify-doc` получается жадным удалением —
+# оно НЕПРИВОДИМО, но не обязательно минимально по мощности.
+
+
+def _import_z3():
+    try:
+        import z3  # noqa: F401  (нужен только оракулу)
+        return z3
+    except ImportError:
+        return None
+
+
+def _z3_translate(expr_text, vs, z3):
+    """СВОЙ переводчик: подмножество линейной целой арифметики и булевых связок."""
+
+    def const_of(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+            return node.value
+        return None
+
+    def ev(node):
+        c = const_of(node)
+        if c is not None:
+            return z3.IntVal(c)
+        if isinstance(node, ast.Name):
+            if node.id not in vs:
+                raise ValueError("неизвестная переменная %r" % node.id)
+            return vs[node.id]
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            return -ev(node.operand)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            return z3.Not(ev(node.operand))
+        if isinstance(node, ast.BinOp):
+            a, b = ev(node.left), ev(node.right)
+            if isinstance(node.op, ast.Add):
+                return a + b
+            if isinstance(node.op, ast.Sub):
+                return a - b
+            if isinstance(node.op, ast.Mult):
+                ka, kb = const_of(node.left), const_of(node.right)
+                if ka is not None:
+                    return ka * b
+                if kb is not None:
+                    return a * kb
+                raise ValueError("нелинейное умножение вне фрагмента")
+            raise ValueError("оператор %s вне фрагмента" % type(node.op).__name__)
+        if isinstance(node, ast.BoolOp):
+            parts = [ev(v) for v in node.values]
+            return z3.And(*parts) if isinstance(node.op, ast.And) else z3.Or(*parts)
+        if isinstance(node, ast.Compare):
+            if len(node.ops) != 1:
+                raise ValueError("цепочка сравнений вне фрагмента")
+            a, b = ev(node.left), ev(node.comparators[0])
+            op = node.ops[0]
+            table = {ast.Lt: a < b, ast.LtE: a <= b, ast.Gt: a > b, ast.GtE: a >= b,
+                     ast.Eq: a == b, ast.NotEq: a != b}
+            for k, val in table.items():
+                if isinstance(op, k):
+                    return val
+            raise ValueError("сравнение вне фрагмента")
+        raise ValueError("узел %s вне фрагмента" % type(node).__name__)
+
+    return ev(ast.parse(expr_text, mode="eval").body)
+
+
+def _passport(src):
+    """НЕЗАВИСИМЫЙ пересчёт паспорта: CC (Маккейб), число выходов, строки деления.
+
+    Определение метрики то же, что у `--explain` (это опубликованная величина),
+    но реализация СВОЯ — поэтому совпадение чисел что-то доказывает.
+    """
+    tree = ast.parse(src)
+    fn = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)][0]
+    cc = 1
+    for n in ast.walk(fn):
+        if isinstance(n, (ast.If, ast.For, ast.While, ast.IfExp)):
+            cc += 1
+        elif isinstance(n, ast.BoolOp):
+            cc += max(0, len(n.values) - 1)
+        elif isinstance(n, ast.Try):
+            cc += len(n.handlers)
+    rets = sum(1 for n in ast.walk(fn)
+               if isinstance(n, ast.Return) and n.value is not None)
+    crash = sorted(n.lineno for n in ast.walk(fn)
+                   if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Div, ast.FloorDiv, ast.Mod)))
+    return cc, rets, crash
+
+
+def check_explain(card, tmpdir):
+    """KERN-вердикт = `--verify-doc` (+ вторично `--explain`); оракул = MUS + eval."""
+    errs = []
+    doc = card["doc"]
+    doc_path = write_text(os.path.join(tmpdir, card["id"] + "_doc.json"),
+                          json.dumps(doc, ensure_ascii=False, indent=1))
+    rc, out, err = run([PY, KERN, "--verify-doc", doc_path], timeout=900)
+    text = out + err
+    core = []
+    m = re.search(r"Minimal conflicting clauses:\s*\[([^\]]*)\]", text)
+    if m:
+        core = [x.strip() for x in m.group(1).split(",") if x.strip()]
+    if rc != 1:
+        errs.append("--verify-doc rc=%d, ожидалось 1 (конфликт)" % rc)
+    if "[FAIL] CONFLICT B(1,1)" not in text:
+        errs.append("нет маркера [FAIL] CONFLICT B(1,1)")
+    if not core:
+        errs.append("ядро не названо (нет `Minimal conflicting clauses`)")
+    noise = set(card.get("noise") or [])
+    must = set(card.get("must_include") or [])
+    if core and (set(core) & noise):
+        errs.append("в ядро попал ШУМ: %s" % sorted(set(core) & noise))
+    if core and must and set(core) != must:
+        errs.append("ядро %s != ожидаемого %s" % (sorted(core), sorted(must)))
+
+    facts = {"core": core, "noise": sorted(noise)}
+    z3 = _import_z3()
+    if z3 is None:
+        errs.append("z3 недоступен — независимый MUS-оракул невозможен")
+        return errs, facts
+    by_id = {c["id"]: c["expr"] for c in doc["clauses"]}
+    vs = {v: z3.Int(v) for v in doc["vars"]}
+
+    def conj(ids):
+        return z3.And(*[_z3_translate(by_id[i], vs, z3) for i in ids]) if ids else z3.BoolVal(True)
+
+    def verdict(ids):
+        s = z3.Solver()
+        s.add(conj(ids))
+        return s.check()
+
+    full = [c["id"] for c in doc["clauses"]]
+    if verdict(full) != z3.unsat:
+        errs.append("оракул: ПОЛНЫЙ набор не UNSAT — карточка не конфликтна")
+    for cid in core:
+        trial = [i for i in core if i != cid]
+        v = verdict(trial)
+        if v != z3.sat:
+            errs.append("ядро НЕ неприводимо: без %s набор %s" % (cid, v))
+        facts["irreducible_checks"] = facts.get("irreducible_checks", 0) + 1
+    for cid in sorted(noise):
+        trial = [i for i in full if i != cid]
+        if verdict(trial) != z3.unsat:
+            errs.append("шум %s влияет на конфликт (без него SAT)" % cid)
+    revived = None
+    for cid in core:
+        trial = [i for i in full if i != cid]
+        s = z3.Solver()
+        s.add(conj(trial))
+        if s.check() != z3.sat:
+            continue
+        model = s.model()
+        val = {v: model.eval(sym, model_completion=True).as_long() for v, sym in vs.items()}
+        ok = True
+        for i in trial:
+            try:
+                ok = ok and bool(eval(by_id[i], {"__builtins__": {}}, dict(val)))
+            except Exception as exc:
+                errs.append("eval предиката %s упал: %s" % (i, exc))
+                ok = False
+        revived = {"dropped": cid, "model": val, "eval_ok": ok}
+        if not ok:
+            errs.append("физический eval ослабленной модели дал False: %s" % val)
+        break
+    if revived is None:
+        errs.append("ослабленная спецификация не дала SAT-модели")
+    facts["revived"] = revived
+
+    ex = card.get("explain")
+    if ex:
+        code_path = write_text(os.path.join(tmpdir, card["id"] + "_pp.py"), ex["code"])
+        rc2, out2, err2 = run([PY, KERN, "--explain", code_path], timeout=300)
+        t2 = out2 + err2
+        m_cc = re.search(r"CC = (\d+)", t2)
+        m_br = re.search(r"выходы \(SMT\): (\d+)", t2)
+        m_cr = re.search(r"условия падения: деление на ноль в строках \[([0-9, ]+)\]", t2)
+        own_cc, own_ret, own_crash = _passport(ex["code"])
+        want = ex.get("expect") or {}
+        if rc2 != 0:
+            errs.append("--explain rc=%d (паспорт обязан печататься)" % rc2)
+        if not m_cc or int(m_cc.group(1)) != own_cc:
+            errs.append("--explain CC=%s, независимый пересчёт %d"
+                        % (m_cc.group(1) if m_cc else "нет", own_cc))
+        if not m_br or int(m_br.group(1)) != own_ret:
+            errs.append("--explain выходов=%s, независимый пересчёт %d"
+                        % (m_br.group(1) if m_br else "нет", own_ret))
+        got_crash = [int(x) for x in m_cr.group(1).replace(" ", "").split(",") if x] if m_cr else []
+        if got_crash != own_crash:
+            errs.append("--explain строки падения %s, независимый пересчёт %s"
+                        % (got_crash, own_crash))
+        if want.get("cc") is not None and own_cc != int(want["cc"]):
+            errs.append("CC=%d расходится с карточкой (%s)" % (own_cc, want["cc"]))
+        if want.get("returns") is not None and own_ret != int(want["returns"]):
+            errs.append("выходов=%d расходится с карточкой (%s)" % (own_ret, want["returns"]))
+        if want.get("crash_lines") is not None and own_crash != list(want["crash_lines"]):
+            errs.append("строки падения %s расходятся с карточкой (%s)"
+                        % (own_crash, want["crash_lines"]))
+        facts["passport"] = {"cc": own_cc, "returns": own_ret, "crash": own_crash}
+    return errs, facts
+
+
+
+# ---------------------------------------------------------------------------
+#  БЛОК 05: КОНКОЛИЧЕСКИЙ СИНТЕЗ ВЕКТОРОВ ПОКРЫТИЯ (--concolic)
+# ---------------------------------------------------------------------------
+# ИЗМЕРЕНО ПИЛОТОМ: `--concolic` печатает ТОЛЬКО сводку
+#   `[CONCOLIC] <fn>: concrete runs N, branches covered c/t (dead d, unexplored u)`
+# и НЕ печатает сами входные векторы. Поэтому оракул не «забирает векторы у
+# движка» (их там нет), а делает независимую физическую работу:
+#   1) инструментирует AST карточки СВОИМИ маркерами (`__k_branch` для `if`,
+#      `__k_line` для `return`) — дерево НЕ переводится в SMT;
+#   2) перебирает объявленный конечный домен и РЕАЛЬНО исполняет функцию;
+#   3) собирает множества (строка, взято) и векторы-свидетели для целевых строк;
+#   4) сверяет с вердиктом KERN: covered == 2×|if|, dead == 0, unexplored == 0;
+#   5) проверяет «игольное ушко»: тривиальный вектор (все параметры 0) НЕ должен
+#      проходить целевые глубокие ветви — иначе карточка ничего не доказывает.
+
+
+def _func_params(tree):
+    fns = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+    if len(fns) != 1:
+        raise ValueError("карточка обязана содержать РОВНО одну функцию (найдено %d)" % len(fns))
+    return fns[0].name, [a.arg for a in fns[0].args.args if a.arg != "self"]
+
+
+class _BranchInstrument(ast.NodeTransformer):
+    """Свои маркеры ветвей/строк внутри ЦЕЛЕВОЙ функции (исполнение остаётся живым)."""
+
+    def __init__(self, fn_name):
+        self.fn_name = fn_name
+        self.inside = False
+        self.if_lines = []
+
+    def visit_FunctionDef(self, node):
+        if node.name != self.fn_name:
+            return node
+        self.inside = True
+        node = self.generic_visit(node)
+        self.inside = False
+        return node
+
+    def visit_If(self, node):
+        node = self.generic_visit(node)
+        if not self.inside:
+            return node
+        ln = getattr(node, "lineno", 0)
+        self.if_lines.append(ln)
+        node.test = ast.Call(func=ast.Name(id="__k_branch", ctx=ast.Load()),
+                             args=[ast.Constant(ln), node.test], keywords=[])
+        return node
+
+    def visit_Return(self, node):
+        node = self.generic_visit(node)
+        if not self.inside:
+            return node
+        ln = getattr(node, "lineno", 0)
+        mark = ast.Expr(value=ast.Call(func=ast.Name(id="__k_line", ctx=ast.Load()),
+                                       args=[ast.Constant(ln)], keywords=[]))
+        return [mark, node]
+
+
+def _instrument_and_run(code_src, entry, domain):
+    """Физический прогон с инструментацией; возвращает покрытие и свидетелей."""
+    tree0 = ast.parse(code_src)
+    name, params = _func_params(tree0)
+    if name != entry:
+        raise ValueError("entry=%r, а функция в карточке %r" % (entry, name))
+    missing = [p for p in params if p not in domain]
+    if missing:
+        raise ValueError("в домене нет параметров: %s" % missing)
+    tr = _BranchInstrument(entry)
+    tree = tr.visit(ast.parse(code_src))
+    ast.fix_missing_locations(tree)
+    current = {}
+    hits, lines = {}, {}
+
+    def __k_branch(ln, value):
+        v = bool(value)
+        hits.setdefault((ln, v), dict(current))
+        return v
+
+    def __k_line(ln):
+        lines.setdefault(ln, dict(current))
+
+    ns = {"__k_branch": __k_branch, "__k_line": __k_line}
+    exec(compile(tree, "<instrumented>", "exec"), ns)
+    fn = ns[entry]
+    vectors = 0
+    for vec in itertools.product(*[domain[p] for p in params]):
+        current.clear()
+        current.update(dict(zip(params, vec)))
+        fn(**dict(current))
+        vectors += 1
+    return {"params": params, "hits": hits, "lines": lines,
+            "vectors": vectors, "if_lines": tr.if_lines}
+
+
+def _trivial_run(code_src, entry, params):
+    tree0 = ast.parse(code_src)
+    tr = _BranchInstrument(entry)
+    tree = tr.visit(ast.parse(code_src))
+    ast.fix_missing_locations(tree)
+    seen = set()
+
+    def __k_branch(ln, value):
+        return bool(value)
+
+    def __k_line(ln):
+        seen.add(ln)
+
+    lines = seen
+    ns = {"__k_branch": __k_branch, "__k_line": __k_line}
+    exec(compile(tree, "<trivial>", "exec"), ns)
+    ns[entry](**{p: 0 for p in params})
+    return lines
+
+
+def check_concolic(card, tmpdir):
+    """KERN-вердикт = `--concolic`; оракул = физическое покрытие и свидетели."""
+    errs = []
+    code = card["code"]
+    entry = card["entry"]
+    src_path = write_text(os.path.join(tmpdir, card["id"] + ".py"), code)
+    rc, out, err = run([PY, KERN, "--concolic", src_path], timeout=1800)
+    text = out + err
+    pat = (r"\[CONCOLIC\] " + re.escape(entry) +
+           r": concrete runs (\d+), branches covered (\d+)/(\d+) \(dead (\d+), unexplored (\d+)\)")
+    m = re.search(pat, text)
+    if rc != 0:
+        errs.append("--concolic rc=%d: %s" % (rc, text.strip().splitlines()[-1][:90] if text.strip() else "пусто"))
+    if not m:
+        errs.append("нет строки [CONCOLIC] для %s" % entry)
+    info = _instrument_and_run(code, entry, card["domain"])
+    reach = info["hits"]
+    expected = int(card.get("expect_covered") or 2 * len(info["if_lines"]))
+    if len(reach) != expected:
+        errs.append("оракул покрыл %d ветвей, ожидалось %d (домен карточки неполон)"
+                    % (len(reach), expected))
+    if m:
+        runs, cov, tot, dead, unexpl = (int(x) for x in m.groups())
+        if cov != expected:
+            errs.append("KERN covered=%d, независимо покрыто %d" % (cov, expected))
+        if dead != 0:
+            errs.append("KERN dead=%d (ожидалось 0)" % dead)
+        if unexpl != 0:
+            errs.append("KERN unexplored=%d (ожидалось 0)" % unexpl)
+        if tot != cov + dead + unexpl:
+            errs.append("счёт ветвей KERN не сходится: %d != %d+%d+%d" % (tot, cov, dead, unexpl))
+    else:
+        runs = -1
+    targets = list(card.get("targets") or [])
+    if not targets:
+        errs.append("карточка без `targets` (нечего доказывать физически)")
+    witnesses = {}
+    for t in targets:
+        if t in info["lines"]:
+            witnesses[t] = info["lines"][t]
+        else:
+            errs.append("целевая строка %d НЕ исполнена ни на одном векторе домена" % t)
+    trivial = _trivial_run(code, entry, info["params"])
+    triv_hit = [t for t in targets if t in trivial]
+    if targets and len(triv_hit) == len(targets):
+        errs.append("не «игольное ушко»: тривиальный вход (все нули) уже проходит все targets")
+    return errs, {"runs": runs, "covered": len(reach), "expected": expected,
+                  "targets": len(targets), "targets_hit": len(witnesses),
+                  "vectors": info["vectors"], "witnesses": witnesses,
+                  "trivial_targets": len(triv_hit)}
+
+
 def run_card(card):
     with tempfile.TemporaryDirectory(prefix="full_spectrum_") as tmpdir:
         if card["kind"] == "heal":
             errs, facts = check_heal(card, tmpdir)
         elif card["kind"] == "state-inv":
             errs, facts = check_state_inv(card, tmpdir)
+        elif card["kind"] == "explain":
+            errs, facts = check_explain(card, tmpdir)
+            core = facts.get("core") or []
+            rev = facts.get("revived") or {}
+            facts.update({
+                "kern_note_en": "`--verify-doc`: core of %s clause(s) localized" % len(core),
+                "kern_note_ru": "`--verify-doc`: ядро из %s пункт(ов) локализовано" % len(core),
+                "oracle_note_en": "UNSAT set · every core element necessary · noise innocent · "
+                                  "revived model eval %s" % ("OK" if rev.get("eval_ok") else "FAIL"),
+                "oracle_note_ru": "набор UNSAT · каждый элемент ядра необходим · шум невиновен · "
+                                  "ослабленная модель eval %s" % ("OK" if rev.get("eval_ok") else "FAIL"),
+            })
+        elif card["kind"] == "concolic":
+            errs, facts = check_concolic(card, tmpdir)
+            facts.update({
+                "kern_note_en": "`--concolic`: %s run(s), %s/%s branches, dead 0, unexplored 0"
+                                % (facts.get("runs"), facts.get("covered"), facts.get("expected")),
+                "kern_note_ru": "`--concolic`: %s запуск(ов), %s/%s ветвей, dead 0, unexplored 0"
+                                % (facts.get("runs"), facts.get("covered"), facts.get("expected")),
+                "oracle_note_en": "AST-instrumented: %s branch(es), %s/%s target(s) hit by real "
+                                  "witness vectors, %s vector(s)"
+                                  % (facts.get("covered"), facts.get("targets_hit"),
+                                     facts.get("targets"), facts.get("vectors")),
+                "oracle_note_ru": "AST-инструментация: %s ветвей, %s/%s целей пробито реальными "
+                                  "векторами, %s вектор(ов)"
+                                  % (facts.get("covered"), facts.get("targets_hit"),
+                                     facts.get("targets"), facts.get("vectors")),
+            })
         elif card["kind"] == "belnap":
             errs, facts = check_belnap(card, tmpdir)
             gaps = facts.get("gap_markers") or 0
@@ -455,8 +872,12 @@ def load_cards(paths):
             for key in ("id", "kind", "sphere", "trick"):
                 if key not in card:
                     raise SystemExit("[!] %s: карточка без поля %r" % (path, key))
-            if card["kind"] in ("heal", "state-inv") and "code" not in card:
+            if card["kind"] in ("heal", "state-inv", "concolic") and "code" not in card:
                 raise SystemExit("[!] %s: карточке %s нужен `code`" % (path, card["id"]))
+            if card["kind"] == "explain" and "doc" not in card:
+                raise SystemExit("[!] %s: explain-карточке %s нужен `doc`" % (path, card["id"]))
+            if card["kind"] == "concolic" and not card.get("domain"):
+                raise SystemExit("[!] %s: concolic-карточке %s нужен `domain`" % (path, card["id"]))
             if card["kind"] == "belnap" and not (card.get("calls") or card.get("mode") == "table"):
                 raise SystemExit("[!] %s: belnap-карточке %s нужны `calls` или `mode: table`"
                                  % (path, card["id"]))
@@ -482,9 +903,9 @@ def _rows(results, lang="en"):
                 kern = "T (1,0), %s crash-paths before → %s after" % (f.get("crash_before"), f.get("crash_after"))
                 oracle = "python3 rc %s → %s · %s guard(s) · normal inputs exact" % (
                     f.get("rc_before"), f.get("rc_after"), f.get("guards"))
-        elif r["kind"] == "belnap":
-            kern = f.get("kern_note_" + lang) or "%s native cell(s)" % f.get("cells")
-            oracle = f.get("oracle_note_" + lang) or "bit-pair oracle agrees"
+        elif r["kind"] in ("belnap", "explain", "concolic"):
+            kern = f.get("kern_note_" + lang) or "-"
+            oracle = f.get("oracle_note_" + lang) or "-"
         else:
             kern = f.get("kern_note_" + lang) or "[FAIL] naive + [PASS] guarded, 0 UNKNOWN"
             oracle = f.get("oracle_note_" + lang) or (
@@ -497,7 +918,7 @@ def _rows(results, lang="en"):
 def render_en(results, corpus_names):
     rows = _rows(results, "en")
     L = [
-        "# Full Spectrum 70 — window 1: blocks 01, 02 and 04 (%d of %d confirmed)" % (len(results), len(results)),
+        "# Full Spectrum 70 — window 1: blocks 01-05 (%d of %d confirmed)" % (len(results), len(results)),
         "",
         "Every mechanism below had been shown on a single example each; here each one is",
         "run over a corpus of business cards. Every card is checked **twice**: the KERN",
@@ -549,6 +970,23 @@ def render_en(results, corpus_names):
         "",
         "The backup `<file>.bak` is checked to hold the original, unpatched source.",
         "",
+        "## What block 03 proves (contradictory specs, `--verify-doc`)",
+        "",
+        "Each card is a clause document whose conjunction is **unsatisfiable**. KERN prints",
+        "`[FAIL] CONFLICT B(1,1)` and `[CONFLICT B(1,1)] Minimal conflicting clauses: [...]`",
+        "and exits with `rc=1`. The core is obtained by greedy deletion, so it is",
+        "**irreducible, not necessarily minimum-cardinality** — that is stated, not hidden.",
+        "",
+        "The oracle recomputes the mathematics from scratch (its own Python→z3 translator,",
+        "not `expr_smt`): the full set is UNSAT, removing **any** core element makes it SAT,",
+        "removing any **noise** clause leaves it UNSAT, and the model of the relaxed",
+        "specification is physically evaluated against every remaining predicate (`eval`),",
+        "so the revived specification has a real witness vector.",
+        "",
+        "`--explain` is exercised as a **secondary, passport-only** surface: its printed",
+        "cyclomatic complexity, SMT branch count and division-crash lines must equal an",
+        "independent AST recount. It does **not** localize conflicts (measured).",
+        "",
         "## What block 04 proves (state machines over time, `--state-inv`)",
         "",
         "Each card is a multi-step business automaton where every single method looks",
@@ -565,12 +1003,31 @@ def render_en(results, corpus_names):
         "KERN proof collapses to `[FAIL]`, while the physical oracle shows the balance going",
         "negative. A proof that survives removing the guard would be worthless.",
         "",
+        "## What block 05 proves (concolic branch coverage, `--concolic`)",
+        "",
+        "Narrow nested branches (`x == magic`, four-level ladders, anti-fraud rules) are",
+        "synthesised concretely: KERN prints `[CONCOLIC] <fn>: concrete runs N, branches",
+        "covered c/t (dead 0, unexplored 0)`. Measured boundary: **the engine does not print",
+        "the input vectors**, only the summary counts.",
+        "",
+        "The oracle therefore does the physical work itself: it instruments the card's AST",
+        "with its own markers, executes the real function over the declared finite domain,",
+        "collects the `(line, taken)` set and a witness vector for every target line, and",
+        "requires `covered == 2 × |if|`, `dead == 0`, `unexplored == 0`. A needle property is",
+        "enforced: the trivial all-zero input must **not** already pass every target.",
+        "",
         "## Honest boundaries",
         "",
         "- `kernc belnap` is a **pure lattice calculator** over four values. Certainty and",
         "  conflict predicates are **not** exposed as separate operations: no such native",
         "  predicate exists in `Bit`/`Eq2` today, so the CLI does not invent one; `--bits`",
         "  gives `pos`/`neg`, and a caller can derive \"definite\" or \"conflict\" from them.",
+        "- The `--verify-doc` core is irreducible (removing any element revives the spec),",
+        "  but it is not guaranteed to be minimum-cardinality.",
+        "- `--explain` is a function passport, not a conflict localizer; it is verified as",
+        "  such and no more.",
+        "- `--concolic` prints only counts (no vectors) and is capped at 64 concrete runs",
+        "  per function, with `assign`/`if`/`return` and linear conditions only.",
         "- `--heal` synthesises guards **only for division by zero** (`/`, `//`, `%`) —",
         "  exactly what `_crash_sites` searches for. It does **not** repair list index",
         "  out-of-range or a shifted threshold guard, so no such card is claimed here.",
@@ -599,7 +1056,7 @@ def render_en(results, corpus_names):
 def render_ru(results, corpus_names):
     rows = _rows(results, "ru")
     L = [
-        "# Full Spectrum 70 — окно №1: блоки 01, 02 и 04 (%d из %d подтверждено)" % (len(results), len(results)),
+        "# Full Spectrum 70 — окно №1: блоки 01–05 (%d из %d подтверждено)" % (len(results), len(results)),
         "",
         "Каждый механизм до сих пор был показан РОВНО на одном примере; здесь каждый",
         "прогоняется по корпусу боевых карточек. Каждая карточка проверяется **дважды**:",
@@ -651,6 +1108,24 @@ def render_ru(results, corpus_names):
         "",
         "Бэкап `<file>.bak` проверяется на то, что в нём лежит ИСХОДНЫЙ код без патча.",
         "",
+        "## Что доказывает блок 03 (противоречивые ТЗ, `--verify-doc`)",
+        "",
+        "Каждая карточка — документ из пунктов, конъюнкция которых **несовместна**. KERN",
+        "печатает `[FAIL] CONFLICT B(1,1)` и `[CONFLICT B(1,1)] Minimal conflicting",
+        "clauses: [...]` и завершается с `rc=1`. Ядро получается жадным удалением, поэтому",
+        "оно **неприводимо, но не обязательно минимально по мощности** — это сказано, а не",
+        "спрятано.",
+        "",
+        "Оракул пересчитывает математику с нуля (свой переводчик Python→z3, а не",
+        "`expr_smt`): полный набор UNSAT; удаление **любого** элемента ядра даёт SAT;",
+        "удаление любого **шумового** пункта оставляет UNSAT; модель ослабленной",
+        "спецификации физически проверяется `eval` по всем оставшимся предикатам — то",
+        "есть у оживлённой спецификации есть реальный вектор-свидетель.",
+        "",
+        "`--explain` проверяется как **вторичная поверхность-паспорт**: напечатанные CC,",
+        "число выходов по SMT и строки падения обязаны совпасть с независимым",
+        "AST-пересчётом. Конфликты он **не** локализует (измерено).",
+        "",
         "## Что доказывает блок 04 (машины состояний во времени, `--state-inv`)",
         "",
         "Каждая карточка — многошаговый бизнес-автомат, где каждый метод по отдельности",
@@ -668,12 +1143,32 @@ def render_ru(results, corpus_names):
         "уход баланса в минус. Доказательство, которое выживает после снятия гарда, ничего",
         "не стоит.",
         "",
+        "## Что доказывает блок 05 (конколическое покрытие ветвей, `--concolic`)",
+        "",
+        "Узкие вложенные ветвления (`x == magic`, лестницы из четырёх уровней,",
+        "антифрод-правила) синтезируются конкретно: KERN печатает `[CONCOLIC] <fn>:",
+        "concrete runs N, branches covered c/t (dead 0, unexplored 0)`. Измеренная",
+        "граница: **движок не печатает сами входные векторы**, только счётчики.",
+        "",
+        "Поэтому физическую работу делает оракул: он инструментирует AST карточки своими",
+        "маркерами, реально исполняет функцию по объявленному конечному домену, собирает",
+        "множество `(строка, взято)` и вектор-свидетель для каждой целевой строки, и",
+        "требует `covered == 2 × |if|`, `dead == 0`, `unexplored == 0`. Свойство",
+        "«игольное ушко» проверяется отдельно: тривиальный вход из нулей НЕ должен",
+        "проходить все целевые строки.",
+        "",
         "## Честные границы",
         "",
         "- `kernc belnap` — **чистый калькулятор бирешётки** на четырёх значениях. Предикаты",
         "  определённости и конфликта **не** выведены отдельными операциями: нативного",
         "  предиката такого в `Bit`/`Eq2` сегодня нет, и CLI его не выдумывает; `--bits`",
         "  отдаёт `pos`/`neg`, из которых вызывающий сам получает «определено»/«конфликт».",
+        "- Ядро `--verify-doc` неприводимо (снятие любого элемента оживляет спецификацию),",
+        "  но минимальность по мощности не гарантируется.",
+        "- `--explain` — паспорт функции, а не локализатор конфликтов; он проверяется",
+        "  ровно как паспорт и не более.",
+        "- `--concolic` печатает только счётчики (векторов нет) и ограничен 64 реальными",
+        "  запусками на функцию; поддерживаются `assign`/`if`/`return` и линейные условия.",
         "- `--heal` синтезирует гарды **только для деления на ноль** (`/`, `//`, `%`) —",
         "  ровно то, что ищет `_crash_sites`. Выход за границы списка и «сдвинутый порог»",
         "  он НЕ лечит, поэтому таких карточек здесь нет и не заявляется.",
@@ -739,6 +1234,13 @@ def main(argv=None):
         elif r["kind"] == "belnap":
             tail = "cells=%s, spec_gap_markers=%s, mode=%s" % (
                 f.get("cells"), f.get("gap_markers"), f.get("mode"))
+        elif r["kind"] == "explain":
+            tail = "core=%s, noise=%s, revived=%s" % (
+                f.get("core"), f.get("noise"), (f.get("revived") or {}).get("eval_ok"))
+        elif r["kind"] == "concolic":
+            tail = "runs=%s, covered=%s/%s, targets=%s/%s, vectors=%s" % (
+                f.get("runs"), f.get("covered"), f.get("expected"),
+                f.get("targets_hit"), f.get("targets"), f.get("vectors"))
         else:
             tail = "violations=%s%s, safe_checks=%s, safe_violations=%s" % (
                 f.get("unsafe_violations"),

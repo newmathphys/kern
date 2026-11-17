@@ -264,5 +264,5 @@ Targets in the map: **215**; class CHECK in `registry.py`: **215**;
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->499 ·
 CHECK targets <!-- fact:check_targets -->214 · can-fail cases <!-- fact:canfail_cases -->260 ·
-anchors <!-- fact:anchors -->217 · registry targets <!-- fact:registry_targets -->295 · META <!-- fact:meta_targets -->58 ·
+anchors <!-- fact:anchors -->218 · registry targets <!-- fact:registry_targets -->295 · META <!-- fact:meta_targets -->58 ·
 Lean theorems <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

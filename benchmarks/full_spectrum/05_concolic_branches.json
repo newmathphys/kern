@@ -1,0 +1,287 @@
+[
+  {
+    "id": "concolic_antifraud_ladder",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Антифрод",
+    "trick": "ступенчатый скоринг: магическая сумма 1337 при score > 87",
+    "sphere_en": "Anti-fraud",
+    "trick_en": "stepped scoring: magic amount 1337 at score > 87",
+    "code": "def antifraud(score: int, amount: int) -> int:\n    if score > 87:\n        if amount == 1337:\n            return 4\n        return 3\n    if score < 3:\n        return 1\n    return 0\n",
+    "entry": "antifraud",
+    "domain": {
+      "score": [
+        0,
+        3,
+        87,
+        88
+      ],
+      "amount": [
+        0,
+        1337
+      ]
+    },
+    "targets": [
+      4,
+      7
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_promo_threshold",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Промокоды",
+    "trick": "триггер точного порога корзины: ровно 1000 даёт 15%, иначе порог по числу товаров",
+    "sphere_en": "Promo codes",
+    "trick_en": "exact basket threshold: exactly 1000 gives 15%, otherwise item-count tier",
+    "code": "def promo(total: int, items: int) -> int:\n    if total >= 1000:\n        if total == 1000:\n            return 15\n        if items >= 3:\n            return 10\n        return 5\n    return 0\n",
+    "entry": "promo",
+    "domain": {
+      "total": [
+        0,
+        999,
+        1000,
+        1001
+      ],
+      "items": [
+        0,
+        3
+      ]
+    },
+    "targets": [
+      4,
+      6
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_customs_cascade",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Таможня",
+    "trick": "каскад пошлин: зоны 3 и 2 открываются только при стоимости > 10000",
+    "sphere_en": "Customs",
+    "trick_en": "duty cascade: zones 3 and 2 open only above 10000",
+    "code": "def duty(value: int, zone: int) -> int:\n    if value > 10000:\n        if zone == 3:\n            return 4\n        if zone == 2:\n            return 3\n        return 2\n    if value > 1000:\n        return 1\n    return 0\n",
+    "entry": "duty",
+    "domain": {
+      "value": [
+        0,
+        1001,
+        10001
+      ],
+      "zone": [
+        0,
+        2,
+        3
+      ]
+    },
+    "targets": [
+      4,
+      6
+    ],
+    "expect_covered": 8
+  },
+  {
+    "id": "concolic_pressure_valve",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Промышленность",
+    "trick": "аварийный клапан: узкое окно давления и крайние температуры -20 / 40",
+    "sphere_en": "Industry",
+    "trick_en": "emergency valve: narrow pressure window and extreme temperatures -20 / 40",
+    "code": "def valve(pressure: int, temp: int) -> int:\n    if pressure >= 90:\n        if temp <= -20:\n            return 3\n        if temp >= 40:\n            return 2\n        return 1\n    return 0\n",
+    "entry": "valve",
+    "domain": {
+      "pressure": [
+        0,
+        90
+      ],
+      "temp": [
+        -20,
+        0,
+        40
+      ]
+    },
+    "targets": [
+      4,
+      6
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_shard_router",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Шардирование",
+    "trick": "маршрутизатор шардов со спец-ключом 7 -> тенант 42",
+    "sphere_en": "Sharding",
+    "trick_en": "shard router with special key 7 -> tenant 42",
+    "code": "def route(key: int, tenant: int) -> int:\n    if key == 7:\n        if tenant == 42:\n            return 9\n        return 8\n    if key > 100:\n        return 5\n    return 0\n",
+    "entry": "route",
+    "domain": {
+      "key": [
+        0,
+        7,
+        101
+      ],
+      "tenant": [
+        0,
+        42
+      ]
+    },
+    "targets": [
+      4,
+      7
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_underwriting_4levels",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Андеррайтинг",
+    "trick": "кредитный андеррайтинг: четыре уровня вложенности score/income/debt/age",
+    "sphere_en": "Underwriting",
+    "trick_en": "credit underwriting: four nested levels score/income/debt/age",
+    "code": "def underwrite(score: int, income: int, debt: int, age: int) -> int:\n    if score > 700:\n        if income > 50000:\n            if debt < 1000:\n                if age >= 21:\n                    return 5\n                return 4\n            return 3\n        return 2\n    return 1\n",
+    "entry": "underwrite",
+    "domain": {
+      "score": [
+        0,
+        701
+      ],
+      "income": [
+        0,
+        50001
+      ],
+      "debt": [
+        0,
+        1000
+      ],
+      "age": [
+        20,
+        21
+      ]
+    },
+    "targets": [
+      6,
+      7
+    ],
+    "expect_covered": 8
+  },
+  {
+    "id": "concolic_roaming_zones",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Биллинг",
+    "trick": "роуминг по зонам: зона 2 делится по 60 минутам",
+    "sphere_en": "Billing",
+    "trick_en": "roaming by zone: zone 2 splits at 60 minutes",
+    "code": "def roaming(zone: int, minutes: int) -> int:\n    if zone == 1:\n        return 10\n    if zone == 2:\n        if minutes > 60:\n            return 20\n        return 15\n    return 0\n",
+    "entry": "roaming",
+    "domain": {
+      "zone": [
+        0,
+        1,
+        2
+      ],
+      "minutes": [
+        0,
+        61
+      ]
+    },
+    "targets": [
+      6,
+      7
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_iceberg_order",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Биржа",
+    "trick": "валидатор Iceberg-ордера: цена > 0, объём от 1000, видимая часть до 10",
+    "sphere_en": "Exchange",
+    "trick_en": "Iceberg order validator: price > 0, quantity from 1000, visible part by 10",
+    "code": "def iceberg(price: int, qty: int, visible: int) -> int:\n    if price > 0:\n        if qty >= 1000:\n            if visible <= 10:\n                return 6\n            return 5\n        return 4\n    return 0\n",
+    "entry": "iceberg",
+    "domain": {
+      "price": [
+        0,
+        1
+      ],
+      "qty": [
+        0,
+        1000
+      ],
+      "visible": [
+        0,
+        10,
+        11
+      ]
+    },
+    "targets": [
+      5,
+      6
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_sla_anomaly",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Мониторинг",
+    "trick": "детектор аномалии SLA: задержка > 500 и ошибки > 10, иначе редкий порог 50",
+    "sphere_en": "Monitoring",
+    "trick_en": "SLA anomaly detector: latency > 500 and errors > 10, else rare threshold 50",
+    "code": "def anomaly(latency: int, errors: int) -> int:\n    if latency > 500:\n        if errors > 10:\n            return 3\n        return 2\n    if errors > 50:\n        return 1\n    return 0\n",
+    "entry": "anomaly",
+    "domain": {
+      "latency": [
+        0,
+        501
+      ],
+      "errors": [
+        0,
+        11,
+        51
+      ]
+    },
+    "targets": [
+      4,
+      7
+    ],
+    "expect_covered": 6
+  },
+  {
+    "id": "concolic_deductible_steps",
+    "kind": "concolic",
+    "block": "05",
+    "sphere": "Страхование",
+    "trick": "многоступенчатая франшиза: крупный убыток от 100000 и история 0 / < 3",
+    "sphere_en": "Insurance",
+    "trick_en": "multi-step deductible: large claim from 100000 and history 0 / < 3",
+    "code": "def deductible(claim: int, history: int) -> int:\n    if claim >= 100000:\n        if history == 0:\n            return 4\n        if history < 3:\n            return 3\n        return 2\n    if claim >= 10000:\n        return 1\n    return 0\n",
+    "entry": "deductible",
+    "domain": {
+      "claim": [
+        0,
+        10000,
+        100000
+      ],
+      "history": [
+        0,
+        1,
+        3
+      ]
+    },
+    "targets": [
+      4,
+      6
+    ],
+    "expect_covered": 8
+  }
+]

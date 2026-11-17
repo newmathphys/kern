@@ -1,4 +1,4 @@
-# Full Spectrum 70 — window 1: blocks 01, 02 and 04 (30 of 30 confirmed)
+# Full Spectrum 70 — window 1: blocks 01-05 (50 of 50 confirmed)
 
 Every mechanism below had been shown on a single example each; here each one is
 run over a corpus of business cards. Every card is checked **twice**: the KERN
@@ -8,7 +8,7 @@ of the engine's tables (bit-pair semantics for B4, CPython execution for code).
 **Law of integrity:** `confirmed == total`. If a single card is not confirmed, the
 runner exits with `rc=1` and writes no showcase at all.
 
-Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `04_state_machines.json`.
+Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `03_unsat_explain.json`, `04_state_machines.json`, `05_concolic_branches.json`.
 
 ## Cards
 
@@ -34,16 +34,36 @@ Corpora: `01_belnap_b4.json`, `02_auto_heal_cegis.json`, `04_state_machines.json
 | 18 | 02 | `heal_fill_rate_zero` | Warehouse/buffer | fill rate of a zero-capacity buffer | T (1,0), 1 crash-paths before → 0 after | python3 rc 1 → 0 · 1 guard(s) · normal inputs exact | OK |
 | 19 | 02 | `heal_burn_rate_zero` | Crypto treasury | burn rate at zero profit | T (1,0), 1 crash-paths before → 0 after | python3 rc 1 → 0 · 1 guard(s) · normal inputs exact | OK |
 | 20 | 02 | `heal_multi_site_metrics` | Analytics/BI | two division sites in one return (counter and bonuses) | T (1,0), 2 crash-paths before → 0 after | python3 rc 1 → 0 · 2 guard(s) · normal inputs exact | OK |
-| 21 | 04 | `inv_double_refund` | Escrow | double refund for the same order | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 32 concrete violation(s) found · 375 safe sequences, 0 violation(s) | OK |
-| 22 | 04 | `inv_ship_after_cancel` | Goods receipt/warehouse | shipment after cancellation and from an empty warehouse | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 8 concrete violation(s) found · 30 safe sequences, 0 violation(s) | OK |
-| 23 | 04 | `inv_wallet_double_debit` | Wallet | two consecutive debits drive the balance negative | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 44 concrete violation(s) found · 192 safe sequences, 0 violation(s) | OK |
-| 24 | 04 | `inv_coupon_reactivation` | Marketplace | re-activating a single-use coupon | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 16 concrete violation(s) found · 16 safe sequences, 0 violation(s) | OK |
-| 25 | 04 | `inv_frozen_withdrawal` | Compliance | withdrawal from a frozen account | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 10 concrete violation(s) found · 60 safe sequences, 0 violation(s) | OK |
-| 26 | 04 | `inv_credit_limit` | Credit | a series of microloans exceeds the credit limit | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 17 concrete violation(s) found · 243 safe sequences, 0 violation(s) | OK |
-| 27 | 04 | `inv_subscription_bypass` | Subscriptions | expired -> active without payment | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 26 concrete violation(s) found · 81 safe sequences, 0 violation(s) | OK |
-| 28 | 04 | `inv_double_release` | Resources/mutex | double release of a resource | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 23 concrete violation(s) found · 81 safe sequences, 0 violation(s) | OK |
-| 29 | 04 | `inv_double_vote` | Quorum | one participant votes twice | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 16 concrete violation(s) found · 16 safe sequences, 0 violation(s) | OK |
-| 30 | 04 | `inv_escrow_reference` | Escrow | reference guarded automaton: PROVEN + guard removal breaks the proof | [PASS] reference, 0 UNKNOWN + [FAIL] after guard removal | 57 violation(s) on the unguarded twin · 204 safe sequences, 0 violation(s) | OK |
+| 21 | 03 | `unsat_fee_corridor` | Fees/fintech | impossible fee corridor min_fee > max_fee with two innocent clauses | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 22 | 03 | `unsat_vip_discounts` | Marketplace | mutually exclusive VIP discounts: floor 30% and cap 10% | `--verify-doc`: core of 2 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 23 | 03 | `unsat_dead_sla` | SLA/support | dead SLA: 4 hours against a 6-hour review and sla >= review | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 24 | 03 | `unsat_aml_vip` | Compliance | AML withdrawal cap 5000 against VIP minimum 10000 | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 25 | 03 | `unsat_warehouse_temp` | Warehouse | impossible temperature tolerance: no warmer than -5 and no colder than 4 | `--verify-doc`: core of 2 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 26 | 03 | `unsat_cpu_quota` | Orchestrator | CPU quota collision: quota 2 with a pool of 8 and quota >= pool | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 27 | 03 | `unsat_delivery_window` | Logistics | impossible delivery window: start by 9, finish from 18, start >= finish | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 28 | 03 | `unsat_tax_deduction` | Taxes | deduction deadlock: deduction by 100, required from 500, deduction >= required | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 29 | 03 | `unsat_quorum` | Quorum | impossible quorum: at most 5 of at least 9 members, quorum >= members | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 30 | 03 | `unsat_age_seniority` | HR/eligibility | age floor vs seniority: age by 25 with seniority from 10 and age >= seniority + 18 | `--verify-doc`: core of 3 clause(s) localized | UNSAT set · every core element necessary · noise innocent · revived model eval OK | OK |
+| 31 | 04 | `inv_double_refund` | Escrow | double refund for the same order | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 32 concrete violation(s) found · 375 safe sequences, 0 violation(s) | OK |
+| 32 | 04 | `inv_ship_after_cancel` | Goods receipt/warehouse | shipment after cancellation and from an empty warehouse | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 8 concrete violation(s) found · 30 safe sequences, 0 violation(s) | OK |
+| 33 | 04 | `inv_wallet_double_debit` | Wallet | two consecutive debits drive the balance negative | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 44 concrete violation(s) found · 192 safe sequences, 0 violation(s) | OK |
+| 34 | 04 | `inv_coupon_reactivation` | Marketplace | re-activating a single-use coupon | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 16 concrete violation(s) found · 16 safe sequences, 0 violation(s) | OK |
+| 35 | 04 | `inv_frozen_withdrawal` | Compliance | withdrawal from a frozen account | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 10 concrete violation(s) found · 60 safe sequences, 0 violation(s) | OK |
+| 36 | 04 | `inv_credit_limit` | Credit | a series of microloans exceeds the credit limit | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 17 concrete violation(s) found · 243 safe sequences, 0 violation(s) | OK |
+| 37 | 04 | `inv_subscription_bypass` | Subscriptions | expired -> active without payment | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 26 concrete violation(s) found · 81 safe sequences, 0 violation(s) | OK |
+| 38 | 04 | `inv_double_release` | Resources/mutex | double release of a resource | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 23 concrete violation(s) found · 81 safe sequences, 0 violation(s) | OK |
+| 39 | 04 | `inv_double_vote` | Quorum | one participant votes twice | [FAIL] naive + [PASS] guarded, 0 UNKNOWN | 16 concrete violation(s) found · 16 safe sequences, 0 violation(s) | OK |
+| 40 | 04 | `inv_escrow_reference` | Escrow | reference guarded automaton: PROVEN + guard removal breaks the proof | [PASS] reference, 0 UNKNOWN + [FAIL] after guard removal | 57 violation(s) on the unguarded twin · 204 safe sequences, 0 violation(s) | OK |
+| 41 | 05 | `concolic_antifraud_ladder` | Anti-fraud | stepped scoring: magic amount 1337 at score > 87 | `--concolic`: 9 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 8 vector(s) | OK |
+| 42 | 05 | `concolic_promo_threshold` | Promo codes | exact basket threshold: exactly 1000 gives 15%, otherwise item-count tier | `--concolic`: 10 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 8 vector(s) | OK |
+| 43 | 05 | `concolic_customs_cascade` | Customs | duty cascade: zones 3 and 2 open only above 10000 | `--concolic`: 13 run(s), 8/8 branches, dead 0, unexplored 0 | AST-instrumented: 8 branch(es), 2/2 target(s) hit by real witness vectors, 9 vector(s) | OK |
+| 44 | 05 | `concolic_pressure_valve` | Industry | emergency valve: narrow pressure window and extreme temperatures -20 / 40 | `--concolic`: 10 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 6 vector(s) | OK |
+| 45 | 05 | `concolic_shard_router` | Sharding | shard router with special key 7 -> tenant 42 | `--concolic`: 9 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 6 vector(s) | OK |
+| 46 | 05 | `concolic_underwriting_4levels` | Underwriting | credit underwriting: four nested levels score/income/debt/age | `--concolic`: 15 run(s), 8/8 branches, dead 0, unexplored 0 | AST-instrumented: 8 branch(es), 2/2 target(s) hit by real witness vectors, 16 vector(s) | OK |
+| 47 | 05 | `concolic_roaming_zones` | Billing | roaming by zone: zone 2 splits at 60 minutes | `--concolic`: 10 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 6 vector(s) | OK |
+| 48 | 05 | `concolic_iceberg_order` | Exchange | Iceberg order validator: price > 0, quantity from 1000, visible part by 10 | `--concolic`: 10 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 12 vector(s) | OK |
+| 49 | 05 | `concolic_sla_anomaly` | Monitoring | SLA anomaly detector: latency > 500 and errors > 10, else rare threshold 50 | `--concolic`: 9 run(s), 6/6 branches, dead 0, unexplored 0 | AST-instrumented: 6 branch(es), 2/2 target(s) hit by real witness vectors, 6 vector(s) | OK |
+| 50 | 05 | `concolic_deductible_steps` | Insurance | multi-step deductible: large claim from 100000 and history 0 / < 3 | `--concolic`: 13 run(s), 8/8 branches, dead 0, unexplored 0 | AST-instrumented: 8 branch(es), 2/2 target(s) hit by real witness vectors, 9 vector(s) | OK |
 
 ## What block 01 proves (native B4, `kernc belnap`)
 
@@ -74,6 +94,23 @@ Each card walks the **whole arc**, not a recipe print:
 
 The backup `<file>.bak` is checked to hold the original, unpatched source.
 
+## What block 03 proves (contradictory specs, `--verify-doc`)
+
+Each card is a clause document whose conjunction is **unsatisfiable**. KERN prints
+`[FAIL] CONFLICT B(1,1)` and `[CONFLICT B(1,1)] Minimal conflicting clauses: [...]`
+and exits with `rc=1`. The core is obtained by greedy deletion, so it is
+**irreducible, not necessarily minimum-cardinality** — that is stated, not hidden.
+
+The oracle recomputes the mathematics from scratch (its own Python→z3 translator,
+not `expr_smt`): the full set is UNSAT, removing **any** core element makes it SAT,
+removing any **noise** clause leaves it UNSAT, and the model of the relaxed
+specification is physically evaluated against every remaining predicate (`eval`),
+so the revived specification has a real witness vector.
+
+`--explain` is exercised as a **secondary, passport-only** surface: its printed
+cyclomatic complexity, SMT branch count and division-crash lines must equal an
+independent AST recount. It does **not** localize conflicts (measured).
+
 ## What block 04 proves (state machines over time, `--state-inv`)
 
 Each card is a multi-step business automaton where every single method looks
@@ -90,12 +127,31 @@ Card 10 adds a **mutation check**: drop the guards of the reference escrow and t
 KERN proof collapses to `[FAIL]`, while the physical oracle shows the balance going
 negative. A proof that survives removing the guard would be worthless.
 
+## What block 05 proves (concolic branch coverage, `--concolic`)
+
+Narrow nested branches (`x == magic`, four-level ladders, anti-fraud rules) are
+synthesised concretely: KERN prints `[CONCOLIC] <fn>: concrete runs N, branches
+covered c/t (dead 0, unexplored 0)`. Measured boundary: **the engine does not print
+the input vectors**, only the summary counts.
+
+The oracle therefore does the physical work itself: it instruments the card's AST
+with its own markers, executes the real function over the declared finite domain,
+collects the `(line, taken)` set and a witness vector for every target line, and
+requires `covered == 2 × |if|`, `dead == 0`, `unexplored == 0`. A needle property is
+enforced: the trivial all-zero input must **not** already pass every target.
+
 ## Honest boundaries
 
 - `kernc belnap` is a **pure lattice calculator** over four values. Certainty and
   conflict predicates are **not** exposed as separate operations: no such native
   predicate exists in `Bit`/`Eq2` today, so the CLI does not invent one; `--bits`
   gives `pos`/`neg`, and a caller can derive "definite" or "conflict" from them.
+- The `--verify-doc` core is irreducible (removing any element revives the spec),
+  but it is not guaranteed to be minimum-cardinality.
+- `--explain` is a function passport, not a conflict localizer; it is verified as
+  such and no more.
+- `--concolic` prints only counts (no vectors) and is capped at 64 concrete runs
+  per function, with `assign`/`if`/`return` and linear conditions only.
 - `--heal` synthesises guards **only for division by zero** (`/`, `//`, `%`) —
   exactly what `_crash_sites` searches for. It does **not** repair list index
   out-of-range or a shifted threshold guard, so no such card is claimed here.
@@ -114,4 +170,4 @@ negative. A proof that survives removing the guard would be worthless.
 Requires an interpreter with `z3` (the stock `.venv/bin/python`). Without `z3` the
 runner exits with `rc=2` and an explicit message instead of a green tick.
 
-TOTAL: cards 30 | confirmed by KERN **and** the physical oracle 30 | rc=0
+TOTAL: cards 50 | confirmed by KERN **and** the physical oracle 50 | rc=0
