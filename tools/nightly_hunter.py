@@ -137,6 +137,7 @@ def confirm_c(path: Path, finding: dict, work: Path) -> tuple:
             body + "\nint main(void){ volatile long long r = (long long)(%s)(%s); "
             "(void)r; return 0; }\n" % (finding["fn"], args))
     cfile = work / "repro.c"
+    cfile.parent.mkdir(parents=True, exist_ok=True)   # #22: каталог может не существовать
     cfile.write_text(prog, encoding="utf-8")
     exe = work / "repro.bin"
     rc, out = _run(["gcc", "-O0", "-fsanitize=undefined", "-fno-sanitize-recover=all",
@@ -158,9 +159,13 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
     files = [p for p in dest.rglob("*") if p.suffix in SRC_EXT and p.is_file()
              and "test" not in p.name.lower() and ".git" not in p.parts]
     files.sort(key=lambda p: p.stat().st_size)
-    items = []
+    items, errors = [], 0
     for p in files[:max_files]:
-        findings = _scan_file(p)
+        try:
+            findings = _scan_file(p)
+        except Exception:
+            errors += 1
+            continue
         if not findings:
             continue
         if p.suffix == ".py":
@@ -186,7 +191,7 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                               "line": f["line"], "fn": f["fn"], "detail": f["kind"],
                               "model": f.get("model") or {}})
     (work_root / repo.replace("/", "__") / "w").mkdir(parents=True, exist_ok=True)
-    return {"repo": repo, "sha": sha, "error": "", "items": items}
+    return {"repo": repo, "sha": sha, "error": "", "items": items, "errors": errors}
 
 
 def render(results: list, outdir: Path) -> dict:
@@ -244,11 +249,24 @@ def selftest() -> int:
         else:
             print("[SKIP] C overflow: gcc не установлен")
 
+        # 4-я точка (#22): каталог под микро-репродьюсер ещё НЕ создан —
+        # инструмент обязан создать его сам, а не падать с FileNotFoundError.
+        if have_gcc:
+            f = {"path": str(c), "kind": "div0", "fn": "add", "line": 2,
+                 "text": "possibly signed overflow", "model": {"a": 2147483647, "b": 1}}
+            try:
+                level, _d = confirm_c(c, f, w / "nested" / "deeper")
+                ok = level == "RUNTIME_CONFIRMED"
+            except Exception as exc:
+                ok = False; _d = type(exc).__name__
+            print("[%s] missing work dir -> %s" % ("OK" if ok else "FAIL", _d if ok else _d))
+            bad += 0 if ok else 1
+
         safe = w / "safe.py"; safe.write_text(SELFTEST_SAFE, encoding="utf-8")
         ok = _scan_file(safe) == []
         print("[%s] safe code -> 0 findings" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
-    print("[NIGHTLY-HUNTER-SELFTEST] провалов: %d" % bad)
+    print("[NIGHTLY-HUNTER-SELFTEST] точек 4 | провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
 
