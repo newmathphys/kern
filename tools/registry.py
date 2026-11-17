@@ -204,6 +204,7 @@ CLASS = {
     "belnap-check": "CHECK",          # окно №2: нативная B4 (kernc belnap) == модель пар
     "full-spectrum-check": "CHECK",   # окно №5: корпус 70/70 + байтовая сверка витрин
     "unsat-core-check": "CHECK",      # окно №6: нативное ядро несовместности на файле
+    "heal-index-check": "CHECK",      # окно №7: ремонт сдвинутого гарда границы
     "action-firewall-check": "CHECK",
     "rag-conflict-check": "CHECK",
     "rlvr-oracle-check": "CHECK",
@@ -557,6 +558,7 @@ CASE_TARGET = {
     "belnap-check": "belnap-check",
     "full-spectrum-check": "full-spectrum-check",
     "unsat-core": "unsat-core-check",
+    "heal-index": "heal-index-check",
     "action-firewall-check": "action-firewall-check",
     "rag-conflict-check": "rag-conflict-check",
     "rlvr-oracle-check": "rlvr-oracle-check",

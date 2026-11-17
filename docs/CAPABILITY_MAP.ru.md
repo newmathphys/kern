@@ -202,7 +202,7 @@
 | `verify-attestation` | `attest-sig-missing` | — | `make verify-attestation` |
 | `wasm-check` | `wasm-check` | — | `make wasm-check` |
 
-## E6. Ресурсная безопасность и самоконтроль контура (50)
+## E6. Ресурсная безопасность и самоконтроль контура (51)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -223,6 +223,7 @@
 | `fd-check` | `fd-check` | — | `make fd-check` |
 | `flake-check` | `flake` | — | `make flake-check` |
 | `golden` | `golden` | — | `make golden` |
+| `heal-index-check` | `heal-index` | — | `make heal-index-check` |
 | `homeostatic-heal-check` | `homeostatic-heal-check` | — | `make homeostatic-heal-check` |
 | `inline-check` | `inline-hygiene` | — | `make inline-check` |
 | `kern-scan-check` | `kern-scan` | #489 | `make kern-scan-check` |
@@ -259,11 +260,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **217**; класс CHECK в `registry.py`: **217**;
-записей `CASE_TARGET`: **262** (make-исполнимых **258**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **218**; класс CHECK в `registry.py`: **218**;
+записей `CASE_TARGET`: **263** (make-исполнимых **259**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
-CHECK-цели <!-- fact:check_targets -->216 · can-fail кейсы <!-- fact:canfail_cases -->262 ·
-якоря <!-- fact:anchors -->219 · цели реестра <!-- fact:registry_targets -->297 · META <!-- fact:meta_targets -->58 ·
+CHECK-цели <!-- fact:check_targets -->217 · can-fail кейсы <!-- fact:canfail_cases -->263 ·
+якоря <!-- fact:anchors -->220 · цели реестра <!-- fact:registry_targets -->298 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

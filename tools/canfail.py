@@ -3966,6 +3966,17 @@ def case_belnap_swarm_check():
     return "make belnap-swarm-check"
 
 
+def case_heal_index():
+    """ОКНО №7. ЛОМАЕМ РЕМОНТ: маркер «сдвинутых гардов индекса» подменяется.
+
+    Гейт ищет именно этот маркер и число; без него «ремонт выполнен» неотличимо
+    от «ничего не сделано». Останется зелёным — значит проверяется не результат.
+    """
+    patch("tools/kern_contracts.py", "сдвинутых гардов индекса: {index_fixed}",
+          "сдвинутых гардов индекса: {index_fixed} (MUTATED)")
+    return "make heal-index-check"
+
+
 def case_unsat_core_cli():
     """ОКНО №6. ЛОМАЕМ ЯДРО CLI: маркер `[UNSAT CORE]` подменяется.
 
@@ -4981,6 +4992,7 @@ CASES = [
     ("belnap-check", "окно №2: andT подменён -> kernc belnap расходится с моделью пар", case_belnap_check_cli),
     ("full-spectrum-check", "окно №5: ожидание карточки корпуса подменено -> гейт обязан покраснеть", case_full_spectrum_check),
     ("unsat-core", "окно №6: маркер [UNSAT CORE] подменён -> гейт обязан покраснеть", case_unsat_core_cli),
+    ("heal-index", "окно №7: маркер ремонта индекса подменён -> гейт обязан покраснеть", case_heal_index),
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),

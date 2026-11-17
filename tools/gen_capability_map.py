@@ -130,6 +130,7 @@ OVERRIDES: dict[str, str] = {
         "bench", "bench-json", "perf", "perf-check", "probe", "test", "test-fault",
         "canfail", "build", "cli-help-parity-check", "ecosystem-check", "flake-check",
         "inline-check", "homeostatic-heal-check", "simplify-check", "avalanche",
+        "heal-index-check",
         "capability-map-check", "kern-scan-check", "mutate-log-check",
     )},
 }

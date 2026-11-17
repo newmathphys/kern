@@ -548,6 +548,14 @@ full-spectrum-check: build
 unsat-core-check: build
 	@bash tools/unsat_core_check.sh
 
+# 36-Я СТАДИЯ (окно №7): ремонт СДВИНУТОГО гарда границы (`--heal`, `>` -> `>=`).
+# Узкий, выводимый из пары «гард <-> доступ» ремонт: `return 0` не выдумывается.
+# Гейт проверяет всю дугу: BOUNDS PATH ДО, IndexError физически, правку, ноль
+# находок ПОСЛЕ, сохранение семантики на валидных входах и НЕТРОНУТОСТЬ
+# файла с правильным гардом. Невакуумность: KERN_CANFAIL_MUTATE=1 + canfail.
+heal-index-check:
+	@bash tools/heal_index_check.sh
+
 # ЭШЕЛОН 7, ПУНКТ 36: FinOps/Action Firewall (200/422/409).
 action-firewall-check: build
 	@bash tools/action_firewall_check.sh

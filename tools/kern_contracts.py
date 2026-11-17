@@ -14193,6 +14193,70 @@ def _guard_covers(fn: ast.AST, node: ast.AST, div_py: str) -> bool:
         return False
     return walk_block(getattr(fn, "body", []))
 
+def _shifted_index_guards(fn: ast.AST) -> list[tuple[int, str, str, str, str]]:
+    """СДВИНУТЫЙ ГАРД ГРАНИЦЫ: `if i > len(b)` пропускает `i == len(b)`.
+
+    УЗКИЙ СРЕЗ (окно №7): правится ТОЛЬКО `>` -> `>=` в гарде, который
+    доминирует над доступом `b[i]` и терминирует путь. Никакого `return 0`
+    и никакой подмены индекса: правка ВЫВОДИТСЯ из пары «гард <-> доступ»,
+    поэтому на всех допустимых входах поведение не меняется.
+    """
+    out = []
+    for ifn in [n for n in ast.walk(fn) if isinstance(n, ast.If)]:
+        t = ifn.test
+        if not (isinstance(t, ast.Compare) and len(t.ops) == 1
+                and isinstance(t.ops[0], ast.Gt)):
+            continue
+        left, right = t.left, t.comparators[0]
+        if not isinstance(left, ast.Name):
+            continue
+        if not (isinstance(right, ast.Call) and isinstance(right.func, ast.Name)
+                and right.func.id == "len" and len(right.args) == 1
+                and isinstance(right.args[0], ast.Name)):
+            continue
+        if not any(isinstance(x, (ast.Return, ast.Raise, ast.Continue, ast.Break))
+                   for x in ifn.body):
+            continue
+        idx_name, seq = left.id, right.args[0].id
+        access = None
+        for n in ast.walk(fn):
+            if (isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)
+                    and n.value.id == seq and isinstance(n.slice, ast.Name)
+                    and n.slice.id == idx_name
+                    and getattr(n, "lineno", 0) >= ifn.lineno):
+                access = n
+                break
+        if access is None:
+            continue
+        try:
+            right_text = ast.unparse(right)
+        except Exception as _kern_e_6902:
+            _replay_soft(_kern_e_6902, "kern_contracts.py:6902")
+            continue
+        out.append((ifn.lineno, fn.name, seq, idx_name, right_text))
+    return out
+
+
+def _index_guard_covers(fn: ast.AST, seq: str, idx_name: str) -> bool:
+    """ПОСЛЕ патча есть `if idx >= len(seq): <терминатор>` в той же функции."""
+    for ifn in [n for n in ast.walk(fn) if isinstance(n, ast.If)]:
+        t = ifn.test
+        if not (isinstance(t, ast.Compare) and len(t.ops) == 1
+                and isinstance(t.ops[0], ast.GtE)):
+            continue
+        left, right = t.left, t.comparators[0]
+        if not (isinstance(left, ast.Name) and left.id == idx_name):
+            continue
+        if not (isinstance(right, ast.Call) and isinstance(right.func, ast.Name)
+                and right.func.id == "len" and len(right.args) == 1
+                and isinstance(right.args[0], ast.Name) and right.args[0].id == seq):
+            continue
+        if any(isinstance(x, (ast.Return, ast.Raise, ast.Continue, ast.Break))
+               for x in ifn.body):
+            return True
+    return False
+
+
 def cmd_heal(path: str, kernc) -> int:
     """Замкнуть петлю: найти F -> вставить гард -> ПЕРЕПРОВЕРИТЬ -> T."""
     src_path = Path(path)
@@ -14218,13 +14282,33 @@ def cmd_heal(path: str, kernc) -> int:
             line = min(getattr(node, "lineno", fn.lineno), fn.lineno + 200)
             plan.append((line, fn.name, guard_py, guard_smt))
 
-    if not plan:
-        print("[HEAL] крашей не найдено — патчить нечего (T (1,0), e=1)")
+    # [2b] СДВИНУТЫЕ ГАРДЫ ГРАНИЦЫ (окно №7): ремонт, который ВЫВОДИТСЯ из пары
+    # «гард <-> доступ». Семантика на допустимых входах не меняется.
+    index_plan: list[tuple[int, str, str, str, str]] = []
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        index_plan.extend(_shifted_index_guards(fn))
+
+    if not plan and not index_plan:
+        print("[HEAL] крашей не найдено (и сдвинутых гардов нет) — патчить нечего (T (1,0), e=1)")
         return 0
 
     # [3] ВСТАВКА: по одному гарду, от ПОСЛЕДНЕЙ строки к первой, чтобы
     # сдвиг номеров не ломал вставки. Отступ — от самой строки.
     lines = original.splitlines()
+    # [3a] ИНДЕКС: замена `>` на `>=` НА МЕСТЕ. Число строк не меняется, поэтому
+    # позиции для вставок гардов деления остаются верными.
+    index_fixed = 0
+    for gline, _fname, _seq, _idx, right_text in index_plan:
+        i = gline - 1
+        if i < 0 or i >= len(lines):
+            continue
+        pat = re.compile(">([ \t]*)" + re.escape(right_text))
+        m = pat.search(lines[i])
+        if not m:
+            continue  # fail-closed: не угадываем форматирование
+        lines[i] = pat.sub(lambda mm: ">=" + mm.group(1) + right_text, lines[i], count=1)
+        index_fixed += 1
+
     for line, fname, guard_py, _gsmt in sorted(plan, key=lambda t: -t[0]):
         idx = line - 1
         if idx < 0 or idx >= len(lines):
@@ -14265,7 +14349,15 @@ def cmd_heal(path: str, kernc) -> int:
             if not _guard_covers(fn, node, div_py):
                 remaining += 1
 
-    print(f"[HEAL] найдено крашей: {len(plan)} | после патча: {remaining}")
+    # [4b] СДВИНУТЫЕ ГАРДЫ: после патча каждый обязан быть `>=` с терминатором.
+    by_name = {fn.name: fn for fn in [n for n in ast.walk(new_tree)
+                                      if isinstance(n, ast.FunctionDef)]}
+    for _g, fname, seq, idx_name, _rt in index_plan:
+        fn = by_name.get(fname)
+        if fn is None or not _index_guard_covers(fn, seq, idx_name):
+            remaining += 1
+
+    print(f"[HEAL] найдено крашей: {len(plan)} | сдвинутых гардов индекса: {index_fixed} | после патча: {remaining}")
     if remaining != 0:
         print("[HEAL] [!] остались краши — изменения ОТКАТЫВАЮТСЯ (fail-closed)")
         return 1
@@ -14343,7 +14435,8 @@ def cmd_heal(path: str, kernc) -> int:
         print(f"[HEAL] [!] ошибка записи: {e} — оригинал не тронут")
         tmp_path.unlink(missing_ok=True)
         return 1
-    print(f"[HEAL] [T (1,0)] файл вылечен: {path} (гардов {len(plan)}, бэкап {bak_path.name})")
+    print(f"[HEAL] [T (1,0)] файл вылечен: {path} "
+          f"(гардов деления {len(plan)}, гардов индекса {index_fixed}, бэкап {bak_path.name})")
     return 0
 
 
