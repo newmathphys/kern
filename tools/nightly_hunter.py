@@ -37,7 +37,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
-SRC_EXT = (".py", ".c", ".rs", ".zig")
+SRC_EXT = (".py", ".c", ".h", ".rs", ".zig")
 MAX_FILE_BYTES = 400_000
 MIN_SRC_BYTES = 25_000      # Окно №32: хобби-репозитории (TradzQAI) отсекаются по объёму
 # ЗАМОК 1 (Окно №28): тестовые/служебные деревья — не публичный API библиотеки.

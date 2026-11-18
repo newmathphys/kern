@@ -171,6 +171,26 @@ def frame(k: int, flat: bool = False):
 def _by_ann(name, ann, k, flat):
     """Легальное значение ровно длины k по аннотации (None = не знаем тип)."""
     a = ann or ""
+    # ОКНО №36: научные и финансовые пакеты принимают массивы и Decimal —
+    # без этого десятки кандидатов уходили в NOT_REPLAYABLE.
+    if "ndarray" in a or "NDArray" in a or "np." in a or name in ("arr", "xs", "values") and "numpy" in a:
+        try:
+            import numpy as np
+            return np.full(k, 10.0) if flat else np.zeros(k, dtype=float)
+        except Exception:
+            return None
+    if "Decimal" in a:
+        try:
+            from decimal import Decimal
+            return Decimal("0") if k == 0 else (Decimal("10") if flat else Decimal("1"))
+        except Exception:
+            return None
+    if "Fraction" in a:
+        try:
+            from fractions import Fraction
+            return Fraction(0) if k == 0 else Fraction(1)
+        except Exception:
+            return None
     if "DataFrame" in a or name in ("ohlc", "df", "data") and "Series" in a:
         return frame(k, flat)
     if "Series" in a:
