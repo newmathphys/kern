@@ -392,6 +392,14 @@ def replay_one(finding, mod, sig):
     obj, err = resolve(mod, sig)
     if obj is None:
         return "NOT_REPLAYABLE", err
+    # ЗАМОК 4 (Окно №28): нет края из Z3 — нет трофея. Шаблонные 'abc'/{'a':1}
+    # дают падения, которые к делу не относятся. 0-аргументные вызовы и модели
+    # с kern_len_*/len_self (boltons IndexedSet.pop) остаются законными.
+    model = finding.get("model") or {}
+    _hint = re.search(r":\s*(\w+)\s*==\s*0", finding["text"])
+    _edge_from_text = bool(_hint and _hint.group(1) in sig["names"])
+    if sig["names"] and not model and not _edge_from_text:
+        return "NO_Z3_EDGE", "модель Z3 пуста — вход шаблонный"
     tried, blocked = [], []
     for flat, empty in ((False, False), (True, False), (False, True)):
         kwargs, blk = build(finding, sig, flat=flat, force_empty=empty)
@@ -404,6 +412,10 @@ def replay_one(finding, mod, sig):
             return "TYPE_ARTIFACT", "%s kwargs=%s: %s" % (
                 sig["qualname"], _short(kwargs), msg[:60])
         if got == want and inside >= 1:
+            # ЗАМОК 3 (Окно №28): падение должно быть РЯДОМ со строкой находки,
+            # иначе одно падение размножается на все ветки функции.
+            if tb_line and abs(tb_line - finding["line"]) > 5:
+                return "BRANCH_MISMATCH", "tb=%d vs line=%d" % (tb_line, finding["line"])
             return "CONFIRMED", "%s kwargs=%s tb=%d" % (
                 sig["qualname"], _short(kwargs), tb_line)
     if not tried:

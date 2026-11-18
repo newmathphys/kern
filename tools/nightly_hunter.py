@@ -39,6 +39,27 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
 SRC_EXT = (".py", ".c", ".rs", ".zig")
 MAX_FILE_BYTES = 400_000
+# ЗАМОК 1 (Окно №28): тестовые/служебные деревья — не публичный API библиотеки.
+SKIP_SEGMENTS = {"tests", "test", "testing", "scripts", "examples", "benchmarks",
+                 "bench", "docs", "skills", "tools", "migrations", ".github"}
+SKIP_NAMES = ("conftest.py",)
+LIB_MANIFESTS = ("pyproject.toml", "setup.py", "setup.cfg", "Cargo.toml",
+                 "build.zig", "CMakeLists.txt", "Makefile", "meson.build")
+
+
+def is_public_path(path: Path) -> bool:
+    parts = {p.lower() for p in path.parts}
+    if parts & SKIP_SEGMENTS:
+        return False
+    nm = path.name.lower()
+    if nm in SKIP_NAMES or nm.startswith("test_") or "_test." in nm:
+        return False
+    return True
+
+
+def is_library(root: Path) -> bool:
+    """ЗАМОК 2: репозиторий-свалка скриптов не библиотека (урок quant-buddy-view)."""
+    return any((root / m).exists() for m in LIB_MANIFESTS)
 
 sys.path.insert(0, str(TOOLS))
 import live_replay as LR  # noqa: E402  — запечатанный контур из окна №16
@@ -55,7 +76,7 @@ def _run(cmd, cwd=None, timeout=300):
 
 def discover(topic: str, limit: int, token: str = "") -> list:
     """Живые репозитории по теме через GitHub Search (stdlib, без зависимостей)."""
-    q = urllib.parse.quote(f"topic:{topic} stars:50..25000 archived:false")
+    q = urllib.parse.quote(f"topic:{topic} stars:100..8000 fork:false archived:false")
     url = f"https://api.github.com/search/repositories?q={q}&sort=updated&per_page={limit}"
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
                                                "User-Agent": "kern-nightly-hunter"})
@@ -168,8 +189,12 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
     sha = clone(repo, dest)
     if not sha:
         return {"repo": repo, "sha": "", "error": "clone_failed", "items": []}
-    files = [p for p in dest.rglob("*") if p.suffix in SRC_EXT and p.is_file()
-             and "test" not in p.name.lower() and ".git" not in p.parts]
+    if not is_library(dest):
+        return {"repo": repo, "sha": sha, "error": "not_a_library",
+                "items": [], "errors": 0, "artifacts": 0}
+    files = [p for p in dest.rglob("*")
+             if p.suffix in SRC_EXT and p.is_file() and ".git" not in p.parts
+             and is_public_path(p.relative_to(dest))]
     files.sort(key=lambda p: p.stat().st_size)
     items, errors, artifacts = [], 0, 0
     for p in files[:max_files]:
@@ -353,11 +378,24 @@ def selftest() -> int:
         else:
             print("[SKIP] rust overflow: rustc не установлен")
 
+        # 8-9-я точки (#28): тестовые пути и свалки скриптов не охотятся.
+        ok = (is_public_path(Path("src/pkg/mod.py"))
+              and not is_public_path(Path("tests/test_x.py"))
+              and not is_public_path(Path("skills/x/scripts/y.py")))
+        print("[%s] NOT_PUBLIC_PATH: tests/ и skills/ отсечены" % ("OK" if ok else "FAIL"))
+        bad += 0 if ok else 1
+        lib, junk = w / "lib", w / "junk"
+        lib.mkdir(); junk.mkdir()
+        (lib / "pyproject.toml").write_text("[project]" + chr(10), encoding="utf-8")
+        ok = is_library(lib) and not is_library(junk)
+        print("[%s] NOT_A_LIBRARY: без манифеста не библиотека" % ("OK" if ok else "FAIL"))
+        bad += 0 if ok else 1
+
         safe = w / "safe.py"; safe.write_text(SELFTEST_SAFE, encoding="utf-8")
         ok = _scan_file(safe) == []
         print("[%s] safe code -> 0 findings" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
-    print("[NIGHTLY-HUNTER-SELFTEST] точек 7 | провалов: %d" % bad)
+    print("[NIGHTLY-HUNTER-SELFTEST] точек 9 | провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
 
