@@ -130,9 +130,9 @@ jobs:
           CONF=$(python3 -c "import json;d=json.load(open('merged/counts.json'));print(d.get('CONFIRMED',0)+d.get('RUNTIME_CONFIRMED',0))")
           echo "confirmed=$CONF"
           if [ "$CONF" -gt 0 ]; then
-            gh label create nightly-trophy --color B60205 \
+            gh label create nightly-trophy --color B60205 -R "${{ github.repository }}" \
               --description "Физически подтверждённая находка ночного охотника" 2>/dev/null || true
-            gh issue create \
+            gh issue create -R "${{ github.repository }}" \
               --title "nightly-trophy: $CONF подтверждённых находок $(date -u +%Y-%m-%d)" \
               --label nightly-trophy \
               --body-file merged/report.md
