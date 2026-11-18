@@ -230,6 +230,14 @@ def build(finding, sig, flat=False, force_empty=False):
             if role == "seq":
                 out[n] = []
                 continue
+        # КЛАСС в аннотации (например `_ParsingState`) нельзя заменить нулём:
+        # скаляр вместо объекта даёт ложный CONFIRMED (случай click._match_short_opt).
+        _root = (ann.split("[")[0] or "").strip().lstrip("_")
+        if (_root and _root[0].isupper()
+                and _root not in ("DataFrame", "Series")
+                and not any(k in ann for k in ("List", "Dict", "Tuple", "Optional"))):
+            blocked.append(n + "(" + _root + ")")
+            continue
         if n in model:
             v = int(model[n])
             out[n] = float(v) if "float" in ann else v
@@ -238,6 +246,9 @@ def build(finding, sig, flat=False, force_empty=False):
             out[n] = 0.0 if "float" in ann else 0
             continue
         root = (ann.split("[")[0] or "").strip()
+        # Окно №31: аннотация вида `_ParsingState` (свой класс) — НЕ повод
+        # подставлять 0. Скаляр вместо объекта класса даёт ложный CONFIRMED
+        # (ровно случай click._match_short_opt). Честный отказ важнее трофея.
         if root in FILL:
             out[n] = FILL[root]
         elif n in defs and defs[n] == "None":
