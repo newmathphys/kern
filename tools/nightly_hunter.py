@@ -111,6 +111,19 @@ def _rot_page() -> int:
     return 1 + (_dt.datetime.now(_dt.timezone.utc).timetuple().tm_yday % 4)
 
 
+_LAST_CALL = [0.0]
+
+
+def _throttle() -> None:
+    """ОКНО №33: лимит Search API (30/мин) ОБЩИЙ на токен, а 4 шарда стартуют
+    одновременно. Пауза 1.2 s между запросами не даёт им выбить 403."""
+    import time as _t
+    dt = _t.monotonic() - _LAST_CALL[0]
+    if dt < 1.2:
+        _t.sleep(1.2 - dt)
+    _LAST_CALL[0] = _t.monotonic()
+
+
 def discover(topic: str, limit: int, token: str = "", qual: str = "", page: int = 1) -> list:
     """Живые репозитории по теме через GitHub Search (stdlib, без зависимостей)."""
     qual = qual or "stars:300..15000"
@@ -122,18 +135,26 @@ def discover(topic: str, limit: int, token: str = "", qual: str = "", page: int 
                                                "User-Agent": "kern-nightly-hunter"})
     if token:
         req.add_header("Authorization", f"Bearer {token}")
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except Exception as exc:      # Окно №32: молчаливый [] скрывал причину
-        body = ""
+    data = {}
+    for _attempt in (1, 2):
+        _throttle()
         try:
-            body = exc.read().decode("utf-8", "replace")[:200]   # type: ignore[attr-defined]
-        except Exception:
-            body = str(exc)[:200]
-        print("[!] discover(%r): %s" % (topic, body), file=sys.stderr)
-        return []
-    return [it["full_name"] for it in data.get("items", [])][:limit]
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            break
+        except Exception as exc:
+            _body = str(exc)
+            try:
+                _body = exc.read().decode("utf-8", "replace")   # type: ignore[attr-defined]
+            except Exception:
+                pass
+            if _attempt == 1 and ("rate limit" in _body or "403" in _body or "429" in _body):
+                import time as _t
+                _t.sleep(15)
+                continue
+            print("[!] discover(%r): %s" % (topic, _body[:200]), file=sys.stderr)
+            return []
+    return [it["full_name"] for it in (data or {}).get("items", [])][:limit]
 
 
 def clone(repo: str, dest: Path) -> str:
