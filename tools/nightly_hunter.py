@@ -95,11 +95,17 @@ SHARD_QUAL = {
 }
 
 
-def discover(topic: str, limit: int, token: str = "", qual: str = "") -> list:
+def _rot_page() -> int:
+    """ОКНО №31: страница меняется по дню года — иначе каждую ночь те же 24."""
+    import datetime as _dt
+    return 1 + (_dt.datetime.now(_dt.timezone.utc).timetuple().tm_yday % 4)
+
+
+def discover(topic: str, limit: int, token: str = "", qual: str = "", page: int = 1) -> list:
     """Живые репозитории по теме через GitHub Search (stdlib, без зависимостей)."""
     qual = qual or "stars:100..8000"
     q = urllib.parse.quote(f"topic:{topic} {qual} fork:false archived:false")
-    url = f"https://api.github.com/search/repositories?q={q}&sort=updated&per_page={limit}"
+    url = f"https://api.github.com/search/repositories?q={q}&sort=stars&per_page={limit}&page={page}"
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
                                                "User-Agent": "kern-nightly-hunter"})
     if token:
@@ -476,9 +482,27 @@ def main(argv) -> int:
                     help="i/N — доля (или env NH_SHARD)")
     ap.add_argument("--seen", default="", help="кэш repo@sha (пропускать проверенное)")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="только показать список мишеней, без клонирования")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
+    if a.dry_run:
+        seen_names, pool = set(), []
+        topics = list(a.topic) if a.topic else list(TOPICS)
+        if a.shard:
+            topics = list(SHARD_TOPICS.get(a.shard.split("/")[0], tuple(topics)))
+        si = a.shard.split("/")[0] if a.shard else ""
+        for t in topics:
+            for r in discover(t, 30, os.environ.get("GITHUB_TOKEN", ""),
+                              SHARD_QUAL.get(si, ""), _rot_page()):
+                if r not in seen_names:
+                    seen_names.add(r)
+                    pool.append(r)
+        for r in pool[:a.max_repos]:
+            print(r)
+        print("[DRY-RUN] найдено %d, показано %d" % (len(pool), min(len(pool), a.max_repos)))
+        return 0
     token = os.environ.get("GITHUB_TOKEN", "")
     repos = [r.strip() for r in (a.repos or "").split(",") if r.strip()]
     # ОКНО №30: NH_MAX_REPOS — это квота на ВСЮ матрицу. Каждый шард уже имеет
@@ -497,7 +521,11 @@ def main(argv) -> int:
             topics = list(SHARD_TOPICS.get(a.shard.split("/")[0], tuple(topics)))
         for t in topics:
             _si = a.shard.split("/")[0] if a.shard else ""
-            repos += discover(t, a.max_repos, token, SHARD_QUAL.get(_si, ""))
+            _q = SHARD_QUAL.get(_si, "")
+            got = discover(t, per_shard, token, _q, _rot_page())
+            if not got:                      # фолбэк: пустая страница -> первая
+                got = discover(t, per_shard, token, _q, 1)
+            repos += got
             if len(repos) >= per_shard:
                 break
         repos = repos[:per_shard]
@@ -547,7 +575,7 @@ def main(argv) -> int:
 
 
 
-RUST_TYPES = ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
+RUST_TYPES = ("i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128",
               "isize", "usize", "f32", "f64")
 
 
@@ -590,9 +618,14 @@ def confirm_rust(path: Path, finding: dict, work: Path) -> tuple:
             return "SMT_CANDIDATE", "parameter type %s is not scalar" % ty
         params.append((nm, ty))
     model = finding.get("model") or {}
-    args = ", ".join("%d%s" % (max(min(int(model.get(nm, 0)), 255), -128)
-                               if ty.startswith(("u8", "i8")) else int(model.get(nm, 0)), ty)
-                     for nm, ty in params)
+    def _lit(nm, ty):
+        v = int(model.get(nm, 0))
+        if ty.startswith("u") and v < 0:
+            v = 0                      # беззнаковый не принимает отрицательных
+        if ty in ("u8", "i8"):
+            v = max(min(v, 255), -128)
+        return "%d%s" % (v, ty)
+    args = ", ".join(_lit(nm, ty) for nm, ty in params)
     prog = "%s\n\nfn main() { let _r = %s(%s); }\n" % (body, finding["fn"], args)
     rs = work / "repro.rs"
     rs.parent.mkdir(parents=True, exist_ok=True)
