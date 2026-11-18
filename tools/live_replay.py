@@ -398,7 +398,10 @@ def replay_one(finding, mod, sig):
     model = finding.get("model") or {}
     _hint = re.search(r":\s*(\w+)\s*==\s*0", finding["text"])
     _edge_from_text = bool(_hint and _hint.group(1) in sig["names"])
-    if sig["names"] and not model and not _edge_from_text:
+    # Только для div0/bounds край обязан приходить ИЗ МОДЕЛИ. Для None-края
+    # законный вход даёт сам nullable-дефолт (`x=None`), модель не нужна.
+    if (finding["kind"] in ("div0", "bounds")
+            and sig["names"] and not model and not _edge_from_text):
         return "NO_Z3_EDGE", "модель Z3 пуста — вход шаблонный"
     tried, blocked = [], []
     for flat, empty in ((False, False), (True, False), (False, True)):

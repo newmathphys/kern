@@ -72,11 +72,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 tools/nightly_hunter.py \
-            --repos "${{ inputs.custom_repos }}" \
-            --max-repos "${{ inputs.max_repos || '20' }}" \
-            --shard "${{ matrix.shard }}/4" \
-            --out "nightly-out-${{ matrix.shard }}"
+          # Пустой custom_repos НЕ передаём вовсе: иначе argparse видит
+          # `--repos` без значения и падает (баг шарда 0, охота 44288160086).
+          ARGS=(--max-repos "${{ inputs.max_repos || '20' }}" \
+                --shard "${{ matrix.shard }}/4" \
+                --out "nightly-out-${{ matrix.shard }}")
+          if [ -n "${{ inputs.custom_repos }}" ]; then
+            ARGS+=(--repos "${{ inputs.custom_repos }}")
+          fi
+          python3 tools/nightly_hunter.py "${ARGS[@]}"
 
       - name: Артефакты улова
         uses: actions/upload-artifact@v4
