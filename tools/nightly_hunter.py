@@ -243,7 +243,14 @@ def confirm_c(path: Path, finding: dict, work: Path) -> tuple:
     rc, out = _run(["gcc", "-O0", "-fsanitize=undefined", "-fno-sanitize-recover=all",
                     str(cfile), "-o", str(exe)])
     if rc != 0:
-        return "SMT_CANDIDATE", "not self-contained (compile failed)"
+        # СТУПЕНЬ 2 (Окно №35): изолированная функция не собралась (typedef,
+        # макросы, локальные хедеры) -> компилируем вместе с её исходником.
+        import confirm_c_ctx
+        body, why = confirm_c_ctx.confirm(path, finding["fn"], args, work / "ctx",
+                                          tuple(LIB_MANIFESTS))
+        if body:
+            return "RUNTIME_CONFIRMED", body
+        return "SMT_CANDIDATE", "not self-contained (" + why + ")"
     rc, out = _run([str(exe)], timeout=20)
     if rc != 0 and ("runtime error" in out or rc < 0):
         return "RUNTIME_CONFIRMED", (out.strip().splitlines() or ["signal %d" % rc])[0][:120]
