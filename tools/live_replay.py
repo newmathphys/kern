@@ -254,6 +254,14 @@ def build(finding, sig, flat=False, force_empty=False):
                 out[n] = {}
                 continue
             if role == "seq":
+                # ОКНО №39: в модуле с numpy пробуем МАССИВ той же длины из модели
+                # Z3 (kern_len_<p>), а не константу: иначе проверяется «всё хорошо».
+                if sig_node and sig_node.get("has_numpy"):
+                    kk = model.get("kern_len_" + n, 0)
+                    v = _by_ann(n, "ndarray", max(int(kk), 0), flat)
+                    if v is not None:
+                        out[n] = v
+                        continue
                 out[n] = []
                 continue
             if role == "ndarray":
@@ -291,6 +299,16 @@ def build(finding, sig, flat=False, force_empty=False):
         else:
             out[n] = 0
     return out, blocked
+
+
+def _has_numpy(tree) -> bool:
+    """ОКНО №39: модуль работает с массивами (import numpy / from numpy import ...)."""
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import) and any(a.name.split(".")[0] == "numpy" for a in n.names):
+            return True
+        if isinstance(n, ast.ImportFrom) and (n.module or "").split(".")[0] == "numpy":
+            return True
+    return False
 
 
 def signature(path, fn, line):
@@ -337,6 +355,7 @@ def signature(path, fn, line):
             for d in node.decorator_list}
     first = min([node.lineno] + [d.lineno for d in node.decorator_list])
     return {"qualname": qual, "lineno": node.lineno, "first_lineno": first,
+            "has_numpy": _has_numpy(tree),
             "node": node,
             "end_lineno": getattr(node, "end_lineno", node.lineno) or node.lineno,
             "names": names, "anns": anns, "defs": defs,
