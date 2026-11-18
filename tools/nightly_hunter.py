@@ -39,6 +39,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
 SRC_EXT = (".py", ".c", ".rs", ".zig")
 MAX_FILE_BYTES = 400_000
+MIN_SRC_BYTES = 25_000      # Окно №32: хобби-репозитории (TradzQAI) отсекаются по объёму
 # ЗАМОК 1 (Окно №28): тестовые/служебные деревья — не публичный API библиотеки.
 SKIP_SEGMENTS = {"tests", "test", "testing", "scripts", "examples", "benchmarks",
                  "bench", "docs", "skills", "tools", "migrations", ".github"}
@@ -70,9 +71,18 @@ def is_library(root: Path) -> bool:
     has_manifest = any((root / m).exists() for m in LIB_MANIFESTS)
     if not has_manifest:
         return False
-    src = [p for p in root.rglob("*") if p.suffix in SRC_EXT and p.is_file()
+    src = [p for p in root.rglob("*")
+           if p.suffix in SRC_EXT + (".h", ".hpp") and p.is_file()
            and not ({x.lower() for x in p.parts} & SKIP_SEGMENTS)]
-    return len(src) >= 2
+    if len(src) < 2:
+        return False
+    total = 0
+    for p in src:
+        try:
+            total += p.stat().st_size
+        except OSError:
+            pass
+    return total >= MIN_SRC_BYTES
 
 sys.path.insert(0, str(TOOLS))
 import live_replay as LR  # noqa: E402  — запечатанный контур из окна №16
@@ -88,10 +98,10 @@ def _run(cmd, cwd=None, timeout=300):
 
 
 SHARD_QUAL = {
-    "0": "language:Python stars:100..8000",
-    "1": "language:Python stars:100..8000",
-    "2": "language:C stars:100..10000",
-    "3": "language:Rust stars:100..10000",
+    "0": "language:Python stars:300..15000",
+    "1": "language:Python stars:300..15000",
+    "2": "language:C stars:300..15000",
+    "3": "language:Rust stars:300..15000",
 }
 
 
@@ -103,8 +113,10 @@ def _rot_page() -> int:
 
 def discover(topic: str, limit: int, token: str = "", qual: str = "", page: int = 1) -> list:
     """Живые репозитории по теме через GitHub Search (stdlib, без зависимостей)."""
-    qual = qual or "stars:100..8000"
-    q = urllib.parse.quote(f"topic:{topic} {qual} fork:false archived:false")
+    qual = qual or "stars:300..15000"
+    # Окно №32: `topic:` у редких тем даёт 0 при пороге 300★ — ищем по
+    # ключевым словам в имени/описании (плотность пула важнее тега).
+    q = urllib.parse.quote(f"{topic} in:name,description {qual} fork:false archived:false")
     url = f"https://api.github.com/search/repositories?q={q}&sort=stars&per_page={limit}&page={page}"
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
                                                "User-Agent": "kern-nightly-hunter"})
@@ -113,7 +125,13 @@ def discover(topic: str, limit: int, token: str = "", qual: str = "", page: int 
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except Exception:
+    except Exception as exc:      # Окно №32: молчаливый [] скрывал причину
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", "replace")[:200]   # type: ignore[attr-defined]
+        except Exception:
+            body = str(exc)[:200]
+        print("[!] discover(%r): %s" % (topic, body), file=sys.stderr)
         return []
     return [it["full_name"] for it in data.get("items", [])][:limit]
 
@@ -415,8 +433,8 @@ def selftest() -> int:
         lib, junk = w / "lib", w / "junk"
         lib.mkdir(); junk.mkdir()
         (lib / "pyproject.toml").write_text("[project]" + chr(10), encoding="utf-8")
-        (lib / "a.py").write_text("x = 1" + chr(10), encoding="utf-8")
-        (lib / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+        (lib / "a.py").write_text("x = 1" + chr(10) + "#" * 15000, encoding="utf-8")
+        (lib / "b.py").write_text("y = 2" + chr(10) + "#" * 15000, encoding="utf-8")
         (junk / "Makefile").write_text("all:" + chr(10), encoding="utf-8")
         awesome = w / "awesome-list"
         awesome.mkdir()
@@ -494,8 +512,12 @@ def main(argv) -> int:
             topics = list(SHARD_TOPICS.get(a.shard.split("/")[0], tuple(topics)))
         si = a.shard.split("/")[0] if a.shard else ""
         for t in topics:
-            for r in discover(t, 30, os.environ.get("GITHUB_TOKEN", ""),
-                              SHARD_QUAL.get(si, ""), _rot_page()):
+            _tok = os.environ.get("GITHUB_TOKEN", "")
+            _q = SHARD_QUAL.get(si, "")
+            _rows = discover(t, 30, _tok, _q, _rot_page())
+            if not _rows:                       # как в боевом пути: фолбэк на стр. 1
+                _rows = discover(t, 30, _tok, _q, 1)
+            for r in _rows:
                 if r not in seen_names:
                     seen_names.add(r)
                     pool.append(r)
