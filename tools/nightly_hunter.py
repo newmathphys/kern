@@ -58,8 +58,21 @@ def is_public_path(path: Path) -> bool:
 
 
 def is_library(root: Path) -> bool:
-    """ЗАМОК 2: репозиторий-свалка скриптов не библиотека (урок quant-buddy-view)."""
-    return any((root / m).exists() for m in LIB_MANIFESTS)
+    """ЗАМОК 2 (Окно №30): библиотека = манифест И настоящий код.
+
+    `rnckp/awesome-ogd-switzerland` прошёл раньше, потому что в awesome-списках
+    лежит служебный Makefile без единого исходника. Теперь `awesome`/`leetcode`
+    в имени отсекаются сразу, а один Makefile не считается манифестом.
+    """
+    name = root.name.lower()
+    if "awesome" in name or "leetcode" in name:
+        return False
+    has_manifest = any((root / m).exists() for m in LIB_MANIFESTS)
+    if not has_manifest:
+        return False
+    src = [p for p in root.rglob("*") if p.suffix in SRC_EXT and p.is_file()
+           and not ({x.lower() for x in p.parts} & SKIP_SEGMENTS)]
+    return len(src) >= 2
 
 sys.path.insert(0, str(TOOLS))
 import live_replay as LR  # noqa: E402  — запечатанный контур из окна №16
@@ -396,7 +409,16 @@ def selftest() -> int:
         lib, junk = w / "lib", w / "junk"
         lib.mkdir(); junk.mkdir()
         (lib / "pyproject.toml").write_text("[project]" + chr(10), encoding="utf-8")
-        ok = is_library(lib) and not is_library(junk)
+        (lib / "a.py").write_text("x = 1" + chr(10), encoding="utf-8")
+        (lib / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+        (junk / "Makefile").write_text("all:" + chr(10), encoding="utf-8")
+        awesome = w / "awesome-list"
+        awesome.mkdir()
+        (awesome / "Makefile").write_text("all:" + chr(10), encoding="utf-8")
+        (awesome / "a.py").write_text("x = 1" + chr(10), encoding="utf-8")
+        (awesome / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+        ok = (is_library(lib) and not is_library(junk)
+              and not is_library(awesome))   # awesome-* отсекается по имени
         print("[%s] NOT_A_LIBRARY: без манифеста не библиотека" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
 
@@ -459,6 +481,16 @@ def main(argv) -> int:
         return selftest()
     token = os.environ.get("GITHUB_TOKEN", "")
     repos = [r.strip() for r in (a.repos or "").split(",") if r.strip()]
+    # ОКНО №30: NH_MAX_REPOS — это квота на ВСЮ матрицу. Каждый шард уже имеет
+    # свои темы и свой язык, поэтому делим квоту ОДИН раз (per_shard), а не
+    # режем ещё и результат срезом [i::N] — именно это выкидывало 3/4 пула.
+    _shard_n = 4
+    if a.shard and "/" in a.shard:
+        try:
+            _shard_n = max(1, int(a.shard.split("/")[1]))
+        except ValueError:
+            _shard_n = 4
+    per_shard = max(6, a.max_repos // _shard_n)
     if not repos:
         topics = list(a.topic) if a.topic else list(TOPICS)
         if a.shard:
@@ -466,9 +498,9 @@ def main(argv) -> int:
         for t in topics:
             _si = a.shard.split("/")[0] if a.shard else ""
             repos += discover(t, a.max_repos, token, SHARD_QUAL.get(_si, ""))
-            if len(repos) >= a.max_repos:
+            if len(repos) >= per_shard:
                 break
-        repos = repos[:a.max_repos]
+        repos = repos[:per_shard]
     if not repos:
         print("[!] нет мишеней (нет сети или пустой --repos)", file=sys.stderr)
         return 1
@@ -485,8 +517,9 @@ def main(argv) -> int:
     repos = [r for r in repos if r not in known]
     if len(repos) != before:
         print("[i] дедуп: пропущено уже проверенных репозиториев: %d" % (before - len(repos)))
-    # ШАРДИРОВАНИЕ (Окно №28): 4 воркера делят список, каждый пишет свой отчёт.
-    if a.shard:
+    # Деление списка нужно ТОЛЬКО когда он задан вручную (один общий список
+    # на все шарды). Авто-поиск уже разведён по темам — резать его нельзя.
+    if a.shard and a.repos:
         try:
             si, sn = (int(x) for x in a.shard.split("/"))
             repos = [r for k, r in enumerate(repos) if k % sn == si]
