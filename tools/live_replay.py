@@ -232,8 +232,18 @@ def build(finding, sig, flat=False, force_empty=False):
             k = 0 if force_empty else max(int(k), 0)
             v = _by_ann(n, anns.get(n), k, flat)
             if v is None:
-                # символическая длина в модели => это последовательность:
-                # список длины k легален и без аннотации.
+                # ОКНО №40: ПЕРЕХВАТ ИСПРАВЛЕН. Раньше для неаннотированного
+                # параметра здесь сразу строился список и ветка ndarray не
+                # достигалась (находка x=[] при role=ndarray, has_numpy=True).
+                role0 = _container_role(sig_node.get("node"), n) if sig_node else ""
+                if role0 == "ndarray" or (sig_node and sig_node.get("has_numpy")):
+                    arr = _by_ann(n, "ndarray", k, flat)
+                    if arr is None:
+                        # numpy недоступен: НИКОГДА не подменяем массив списком.
+                        blocked.append(n + "(numpy)")
+                        continue
+                    out[n] = arr
+                    continue
                 v = [10.0] * k if flat else [1.0 + i for i in range(k)]
             out[n] = v
             continue
