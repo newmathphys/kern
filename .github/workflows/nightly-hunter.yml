@@ -11,8 +11,13 @@
 name: nightly-hunter
 
 on:
+  # ВАЖНО (наблюдение 18.11.2026): одиночный cron 03:17 UTC НЕ сработал ни
+  # разу, хотя workflow был active, файл лежал на default-ветке, репозиторий
+  # не форк. Планировщик GitHub — best-effort и под нагрузкой пропускает
+  # запуски. Поэтому два окна: если одно пропущено, второе доберёт ночь.
   schedule:
     - cron: '17 3 * * *'
+    - cron: '17 5 * * *'
   workflow_dispatch:
     inputs:
       custom_repos:
