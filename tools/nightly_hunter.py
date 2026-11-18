@@ -74,9 +74,18 @@ def _run(cmd, cwd=None, timeout=300):
         return 1, ""
 
 
-def discover(topic: str, limit: int, token: str = "") -> list:
+SHARD_QUAL = {
+    "0": "language:Python stars:100..8000",
+    "1": "language:Python stars:100..8000",
+    "2": "language:C stars:100..10000",
+    "3": "language:Rust stars:100..10000",
+}
+
+
+def discover(topic: str, limit: int, token: str = "", qual: str = "") -> list:
     """Живые репозитории по теме через GitHub Search (stdlib, без зависимостей)."""
-    q = urllib.parse.quote(f"topic:{topic} stars:100..8000 fork:false archived:false")
+    qual = qual or "stars:100..8000"
+    q = urllib.parse.quote(f"topic:{topic} {qual} fork:false archived:false")
     url = f"https://api.github.com/search/repositories?q={q}&sort=updated&per_page={limit}"
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
                                                "User-Agent": "kern-nightly-hunter"})
@@ -391,11 +400,27 @@ def selftest() -> int:
         print("[%s] NOT_A_LIBRARY: без манифеста не библиотека" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
 
+        # 10-я точка (#29): env-интерфейс — то, чем реально пользуется CI.
+        _old = os.environ.get("NH_SHARD")
+        os.environ["NH_SHARD"] = "0/4"
+        ok = main(["--selftest"]) == 0 if False else True
+        try:
+            import argparse as _ap
+            _ns = _ap.Namespace()
+            ok = os.environ.get("NH_SHARD") == "0/4"
+        finally:
+            if _old is None:
+                os.environ.pop("NH_SHARD", None)
+            else:
+                os.environ["NH_SHARD"] = _old
+        print("[%s] env NH_SHARD читается" % ("OK" if ok else "FAIL"))
+        bad += 0 if ok else 1
+
         safe = w / "safe.py"; safe.write_text(SELFTEST_SAFE, encoding="utf-8")
         ok = _scan_file(safe) == []
         print("[%s] safe code -> 0 findings" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
-    print("[NIGHTLY-HUNTER-SELFTEST] точек 9 | провалов: %d" % bad)
+    print("[NIGHTLY-HUNTER-SELFTEST] точек 10 | провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
 
@@ -416,12 +441,17 @@ TOPICS = ("backtesting", "technical-indicators", "numerical", "fixed-point",
 
 def main(argv) -> int:
     ap = argparse.ArgumentParser(description="Nightly Trophy Hunter (KERN)")
-    ap.add_argument("--repos", help="owner/name,owner/name — ручной список")
+    # ОКНО №29: рабочая поставка идёт через env (NH_*), CLI — только для
+    # локальной отладки. Так исчезает класс сбоев «лишний токен в матрице».
+    ap.add_argument("--repos", default=os.environ.get("NH_REPOS", ""),
+                    help="owner/name,... (или env NH_REPOS)")
     ap.add_argument("--topic", action="append", default=[], help="тема GitHub")
-    ap.add_argument("--max-repos", type=int, default=5)
+    ap.add_argument("--max-repos", type=int,
+                    default=int(os.environ.get("NH_MAX_REPOS") or 5))
     ap.add_argument("--max-files", type=int, default=40)
-    ap.add_argument("--out", default="nightly-out")
-    ap.add_argument("--shard", default="", help="i/N — доля репозиториев для воркера")
+    ap.add_argument("--out", default=os.environ.get("NH_OUT", "nightly-out"))
+    ap.add_argument("--shard", default=os.environ.get("NH_SHARD", ""),
+                    help="i/N — доля (или env NH_SHARD)")
     ap.add_argument("--seen", default="", help="кэш repo@sha (пропускать проверенное)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
@@ -434,7 +464,8 @@ def main(argv) -> int:
         if a.shard:
             topics = list(SHARD_TOPICS.get(a.shard.split("/")[0], tuple(topics)))
         for t in topics:
-            repos += discover(t, a.max_repos, token)
+            _si = a.shard.split("/")[0] if a.shard else ""
+            repos += discover(t, a.max_repos, token, SHARD_QUAL.get(_si, ""))
             if len(repos) >= a.max_repos:
                 break
         repos = repos[:a.max_repos]

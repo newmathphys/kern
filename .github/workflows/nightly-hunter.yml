@@ -71,28 +71,24 @@ jobs:
       - name: Охота (шард ${{ matrix.shard }}/4)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          MAX="${{ inputs.max_repos || '20' }}"
-          REPOS="${{ inputs.custom_repos }}"
-          OUT="nightly-out-${{ matrix.shard }}"
-          SHARD="${{ matrix.shard }}/4"
-          if [ -n "$REPOS" ]; then
-            python3 tools/nightly_hunter.py --repos "$REPOS" --max-repos "$MAX" --shard "$SHARD" --out "$OUT"
-          else
-            python3 tools/nightly_hunter.py --max-repos "$MAX" --shard "$SHARD" --out "$OUT"
-          fi
+          NH_REPOS: ${{ inputs.custom_repos }}
+          NH_MAX_REPOS: ${{ inputs.max_repos || '24' }}
+          NH_SHARD: "${{ matrix.shard }}/4"
+          NH_OUT: "out-${{ matrix.shard }}"
+        run: python3 tools/nightly_hunter.py
 
       - name: Артефакты улова
         uses: actions/upload-artifact@v4
         with:
           name: nightly-hunter-${{ matrix.shard }}
-          path: nightly-out-${{ matrix.shard }}/
+          path: out-${{ matrix.shard }}/
           if-no-files-found: warn
 
   # СВОДНЫЙ ДЖОБ (Окно №28): 4 шарда пишут независимые отчёты, Issue создаётся
   # РОВНО ОДИН раз и только если суммарно есть физически подтверждённые трофеи.
   trophies:
     needs: hunt
+    if: always() && needs.hunt.result != 'skipped'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
