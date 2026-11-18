@@ -292,7 +292,10 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                 elif row["kind"] in ("div0", "bounds", "none_attr", "none_type"):
                     items.append({"level": "SMT_CANDIDATE",
                                   "file": str(p.relative_to(dest)), "line": row["line"],
-                                  "fn": row["fn"], "detail": row["verdict"],
+                                  "fn": row["fn"],
+                                  # ОКНО №37: причина отказа больше не теряется —
+                                  # без неё мы гадали, почему кандидат не подтверждён.
+                                  "detail": row["verdict"] + " :: " + str(row.get("detail", "")),
                                   "model": row.get("model") or {}})
         elif p.suffix == ".c":
             for f in findings:

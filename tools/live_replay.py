@@ -101,6 +101,12 @@ def _container_role(node, name):
         if (isinstance(sub, ast.Attribute) and isinstance(sub.value, ast.Name)
                 and sub.value.id == name and sub.attr in DICT_METHODS):
             return "dict"
+        if (isinstance(sub, ast.Attribute) and isinstance(sub.value, ast.Name)
+                and sub.value.id == name
+                and sub.attr in ("shape", "ndim", "dtype", "astype", "size", "reshape")):
+            # ОКНО №38: доступ к массивному атрибуту — это ndarray, а не список
+            # (урок resampler.py: `.shape` проверяется в хелпере, tb=9).
+            return "ndarray"
         if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
                 and sub.func.id in ITER_CALLS
                 and any(isinstance(a, ast.Name) and a.id == name for a in sub.args)):
@@ -250,6 +256,13 @@ def build(finding, sig, flat=False, force_empty=False):
             if role == "seq":
                 out[n] = []
                 continue
+            if role == "ndarray":
+                v = _by_ann(n, "ndarray", 3, flat)
+                if v is None:
+                    blocked.append(n + "(ndarray)")
+                    continue
+                out[n] = v
+                continue
         # КЛАСС в аннотации (например `_ParsingState`) нельзя заменить нулём:
         # скаляр вместо объекта даёт ложный CONFIRMED (случай click._match_short_opt).
         _root = (ann.split("[")[0] or "").strip().lstrip("_")
@@ -282,7 +295,6 @@ def build(finding, sig, flat=False, force_empty=False):
 
 def signature(path, fn, line):
     """Строгая привязка находки к ФИЗИЧЕСКОМУ телу: (qualname, lineno, end_lineno, args).
-
     ЗАЧЕМ. Окно №15 дало ложный CONFIRMED на finta.PSAR: `getattr` по классам
     находил ОДНОИМЁННЫЙ объект, не тот, что на строке находки. Теперь побеждает
     только определение, в чей диапазон строк реально попадает `line`.
