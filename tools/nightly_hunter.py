@@ -78,6 +78,18 @@ def clone(repo: str, dest: Path) -> str:
     return out.strip()[:12] if rc == 0 else ""
 
 
+def is_public(fn: str) -> bool:
+    """Трофей бывает только на ПУБЛИЧНОМ API.
+
+    Урок `pallets/click::_match_short_opt`: приватный хелпер с ведущим `_` —
+    внутренний контракт, вызывающий код сам гарантирует инварианты. Апстрим
+    такой репорт закрывает. Публичные dunder-операторы (`__add__`) — можно.
+    """
+    if not fn.startswith("_"):
+        return True
+    return fn.startswith("__") and fn.endswith("__")
+
+
 def _scan_file(path: Path) -> list:
     """Полиглотный рентген: `--xray` (+ `--xray-none` для Python)."""
     try:
@@ -174,7 +186,8 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                     artifacts += 1
                     continue
                 if row["verdict"] == "CONFIRMED":
-                    items.append({"level": "CONFIRMED", "file": str(p.relative_to(dest)),
+                    level = "CONFIRMED" if is_public(row["fn"]) else "PRIVATE_HELPER"
+                    items.append({"level": level, "file": str(p.relative_to(dest)),
                                   "line": row["line"], "fn": row["fn"],
                                   "detail": row["detail"], "model": row.get("model") or {}})
                 elif row["kind"] in ("div0", "bounds", "none_attr", "none_type"):
@@ -185,6 +198,12 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
         elif p.suffix == ".c":
             for f in findings:
                 level, detail = confirm_c(p, f, work_root / repo.replace("/", "__") / "w")
+                items.append({"level": level, "file": str(p.relative_to(dest)),
+                              "line": f["line"], "fn": f["fn"], "detail": detail,
+                              "model": f.get("model") or {}})
+        elif p.suffix == ".rs":
+            for f in findings:
+                level, detail = confirm_rust(p, f, work_root / repo.replace("/", "__") / "w")
                 items.append({"level": level, "file": str(p.relative_to(dest)),
                               "line": f["line"], "fn": f["fn"], "detail": detail,
                               "model": f.get("model") or {}})
@@ -314,16 +333,47 @@ def selftest() -> int:
                                                  verdicts or ["no findings"]))
         bad += 0 if ok else 1
 
+        # 6-я точка (#31): приватный хелпер никогда не станет трофеем.
+        ok = (is_public("public_fn") and is_public("__add__")
+              and not is_public("_private") and not is_public("_match_short_opt"))
+        print("[%s] public API filter: _private -> не трофей" % ("OK" if ok else "FAIL"))
+        bad += 0 if ok else 1
+
+        # 7-я точка (#31): Rust-переполнение подтверждается rustc, а не Z3.
+        if shutil.which("rustc"):
+            rs = w / "t.rs"
+            rs.write_text("pub fn add(a: u8, b: u8) -> u8 {" + chr(10) +
+                          "    a + b" + chr(10) + "}" + chr(10), encoding="utf-8")
+            f = {"path": str(rs), "kind": "overflow", "fn": "add", "line": 2,
+                 "text": "possibly overflow", "model": {"a": 255, "b": 1}}
+            level, _d = confirm_rust(rs, f, w / "rs")
+            ok = level == "RUNTIME_CONFIRMED"
+            print("[%s] rust overflow -> %s" % ("OK" if ok else "FAIL", level))
+            bad += 0 if ok else 1
+        else:
+            print("[SKIP] rust overflow: rustc не установлен")
+
         safe = w / "safe.py"; safe.write_text(SELFTEST_SAFE, encoding="utf-8")
         ok = _scan_file(safe) == []
         print("[%s] safe code -> 0 findings" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
-    print("[NIGHTLY-HUNTER-SELFTEST] точек 5 | провалов: %d" % bad)
+    print("[NIGHTLY-HUNTER-SELFTEST] точек 7 | провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
 
-TOPICS = ("trading", "decimal", "orderbook", "quant", "fixed-point",
-          "amm", "numerical", "math")
+# РАДАР (Окно №31): фреймворки (click/flask/requests) — пустая порода для KERN:
+# публичные функции там принимают строки и объекты, а не числа. Целимся в
+# расчётные пакеты, где публичный API берёт числа/массивы напрямую.
+SHARD_TOPICS = {
+    "0": ("backtesting", "financial-analysis", "technical-indicators",
+          "portfolio", "orderbook", "amm"),
+    "1": ("statistics", "numerical", "geometry", "combinatorics",
+          "calculator", "fractions"),
+    "2": ("algorithms", "math", "fixed-point", "dsp", "matrix"),
+    "3": ("amm", "decimal", "fixed-point", "math", "cryptography"),
+}
+TOPICS = ("backtesting", "technical-indicators", "numerical", "fixed-point",
+          "amm", "statistics")
 
 
 def main(argv) -> int:
@@ -342,7 +392,10 @@ def main(argv) -> int:
     token = os.environ.get("GITHUB_TOKEN", "")
     repos = [r.strip() for r in (a.repos or "").split(",") if r.strip()]
     if not repos:
-        for t in (a.topic or list(TOPICS)):
+        topics = list(a.topic) if a.topic else list(TOPICS)
+        if a.shard:
+            topics = list(SHARD_TOPICS.get(a.shard.split("/")[0], tuple(topics)))
+        for t in topics:
             repos += discover(t, a.max_repos, token)
             if len(repos) >= a.max_repos:
                 break
@@ -388,6 +441,69 @@ def main(argv) -> int:
           % (len(results), total, counts.get("CONFIRMED", 0),
              counts.get("RUNTIME_CONFIRMED", 0), counts.get("SMT_CANDIDATE", 0)))
     return 0
+
+
+
+
+RUST_TYPES = ("i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64",
+              "isize", "usize", "f32", "f64")
+
+
+def _rust_function(src: str, name: str) -> str:
+    """Тело функции Rust по имени (баланс скобок), вместе с сигнатурой."""
+    m = re.search(r"((?:pub\s+)?fn\s+%s\s*\(([^)]*)\)\s*(?:->\s*[\w<>:&' ]+)?)\s*\{"
+                  % re.escape(name), src)
+    if not m:
+        return ""
+    start = src.index("{", m.start())
+    depth, i = 0, start
+    while i < len(src):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return m.group(1) + " " + src[start:i + 1]
+        i += 1
+    return ""
+
+
+def confirm_rust(path: Path, finding: dict, work: Path) -> tuple:
+    """RUNTIME_CONFIRMED для Rust: `rustc -C overflow-checks=on` на контрпримере."""
+    if not is_public(finding["fn"]):
+        return "PRIVATE_HELPER", "internal helper"
+    src = path.read_text(encoding="utf-8", errors="replace")
+    body = _rust_function(src, finding["fn"])
+    if not body:
+        return "SMT_CANDIDATE", "function body not extractable"
+    sig = body.split("{", 1)[0]
+    inner = sig[sig.find("(") + 1:sig.rfind(")")]
+    params = []
+    for part in [p.strip() for p in inner.split(",") if p.strip()]:
+        if ":" not in part:
+            return "SMT_CANDIDATE", "non-scalar parameter"
+        nm, ty = (x.strip() for x in part.split(":", 1))
+        ty = ty.split("<")[0].strip()
+        if ty not in RUST_TYPES:
+            return "SMT_CANDIDATE", "parameter type %s is not scalar" % ty
+        params.append((nm, ty))
+    model = finding.get("model") or {}
+    args = ", ".join("%d%s" % (max(min(int(model.get(nm, 0)), 255), -128)
+                               if ty.startswith(("u8", "i8")) else int(model.get(nm, 0)), ty)
+                     for nm, ty in params)
+    prog = "%s\n\nfn main() { let _r = %s(%s); }\n" % (body, finding["fn"], args)
+    rs = work / "repro.rs"
+    rs.parent.mkdir(parents=True, exist_ok=True)
+    rs.write_text(prog, encoding="utf-8")
+    exe = work / "repro_rs.bin"
+    rc, out = _run(["rustc", "-C", "overflow-checks=on", "-O", str(rs), "-o", str(exe)])
+    if rc != 0:
+        return "SMT_CANDIDATE", "not self-contained (rustc failed)"
+    rc, out = _run([str(exe)], timeout=20)
+    if rc != 0 and ("panicked" in out or "overflow" in out or "divide by zero" in out):
+        line = [l for l in out.splitlines() if "panicked" in l or "overflow" in l]
+        return "RUNTIME_CONFIRMED", (line[0] if line else "exit %d" % rc)[:120]
+    return "SMT_CANDIDATE", "no runtime failure on the counterexample"
 
 
 if __name__ == "__main__":
