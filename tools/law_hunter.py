@@ -321,6 +321,41 @@ def check_rust_derive_ord(src: str) -> list:
     return out
 
 
+def check_rust_eq_hash(src: str) -> list:
+    """LAW eq-hash-mismatch: a == b обязан давать hash(a) == hash(b).
+
+    Подвид A (float-bits-hash, класс boa_engine#5678): Hash считает
+    `.to_bits()` для f32/f64, а PartialEq сравнивает числово (== или
+    same_value) — тогда -0.0 == +0.0, но их биты различны. Если PartialEq
+    сам побитовый (`to_bits() == to_bits()`), закон соблюдён — молчим.
+    Подвид B (derive-hash-custom-eq): `#[derive(... Hash ...)]` без
+    PartialEq в derive + ручной `impl PartialEq` (Version с +build,
+    неканонические Decimal/Rational).
+    """
+    out = []
+    if ".to_bits()" in src and ".hash(" in src:
+        canonical = _re.search(r"==\s*0\.0|0\.0\s*==", src) is not None
+        bitwise_eq = _re.search(r"to_bits\(\)\s*==|==\s*\w+\.to_bits\(\)", src) is not None
+        numeric_eq = _re.search(r"fn\s+eq\s*\([^)]*\)\s*->\s*bool", src) is not None
+        if numeric_eq and not canonical and not bitwise_eq:
+            out.append({
+                "law": "eq-hash-mismatch",
+                "symbol": "Hash::to_bits",
+                "detail": "hash via to_bits() while eq compares numerically: -0.0 == 0.0 but bits differ",
+                "witness": {"a": "0.0", "b": "-0.0", "eq": True, "hash_equal": False},
+            })
+    for m in _re.finditer(r"#\[derive\(([^)]*)\)\]\s*(?:#\[[^\]]*\]\s*)*pub\s+struct\s+(\w+)", src):
+        derive, name = m.group(1), m.group(2)
+        if "Hash" in derive and "PartialEq" not in derive:
+            if _re.search(r"impl\s+PartialEq\s+for\s+" + name + r"\b", src):
+                out.append({
+                    "law": "eq-hash-mismatch", "symbol": name,
+                    "detail": "derive(Hash) with hand-written PartialEq: fields ignored by eq still enter the hash",
+                    "witness": {"a": name + "(+build1)", "b": name + "(+build2)", "eq": True, "hash_equal": False},
+                })
+    return out
+
+
 def hunt_rust_tree(root: Path) -> dict:
     """.rs вне target/tests/examples: сколько проверено и что найдено."""
     checked = 0
@@ -333,7 +368,7 @@ def hunt_rust_tree(root: Path) -> dict:
         except OSError:
             continue
         checked += 1
-        for f in check_rust_derive_ord(src):
+        for f in check_rust_derive_ord(src) + check_rust_eq_hash(src):
             f["file"] = str(p)
             findings.append(f)
     return {"root": str(root), "checked": checked, "findings": findings}
@@ -438,6 +473,24 @@ pub struct Rational { pub numerator: BigInt, pub denominator: BigInt }
     ok(r2["checked"] == 2 and len(r2["findings"]) == 1,
        "derive-ord: hunt_rust_tree — 2 файла, 1 находка")
 
+    float_bits = '''
+impl PartialEq for F { fn eq(&self, o: &Self) -> bool { self.0 == o.0 } }
+impl Hash for F { fn hash<H: Hasher>(&self, s: &mut H) { self.0.to_bits().hash(s); } }
+'''
+    total_float = '''
+impl PartialEq for TotalFloat { fn eq(&self, o: &Self) -> bool { self.0.to_bits() == o.0.to_bits() } }
+impl Hash for TotalFloat { fn hash<H: Hasher>(&self, s: &mut H) { self.0.to_bits().hash(s); } }
+'''
+    version_eq = '''
+#[derive(Clone, Debug, Eq, Hash)]
+pub struct Version { pub major: u64, pub build: String }
+impl PartialEq for Version {
+    fn eq(&self, o: &Self) -> bool { self.major == o.major }
+}
+'''
+    ok(len(check_rust_eq_hash(float_bits)) == 1, "eq-hash: float-bits-hash (Boa) пойман")
+    ok(check_rust_eq_hash(total_float) == [], "eq-hash: побитовый TotalFloat молчит (0 FP)")
+    ok(len(check_rust_eq_hash(version_eq)) == 1, "eq-hash: derive(Hash)+ручной PartialEq пойман")
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
 

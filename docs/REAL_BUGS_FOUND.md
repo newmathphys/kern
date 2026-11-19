@@ -214,6 +214,41 @@ where numeric order of coefficients matters, field order is returned instead.
 
 Upstream: [#2704](https://github.com/ad-si/Woxi/issues/2704).
 
+## Case I — `boa-dev/boa` @ `502206e50e`-era clone: `Eq`/`Hash` disagree on `-0.0` (`#5678`)
+
+`core/engine/src/value/hash.rs` implements `PartialEq` for the public `JsValue` via
+`SameValueZero` (so `+0.0 == -0.0`) plus `impl Eq`, and implements `Hash` by hashing
+`f64::to_bits()` — where the two zeros differ (`0x0000…` vs `0x8000…`). Inserting a key
+and looking it back up therefore fails.
+
+Confirmed against `boa_engine v0.22.0` with a unit test in `core/engine/src/value/tests.rs`:
+
+```rust
+let a = JsValue::new(0.0_f64);
+let b = JsValue::new(-0.0_f64);
+let mut set = HashSet::new();
+set.insert(a.clone());
+assert_eq!(a, b);                                      // passes
+assert!(set.contains(&b), "Eq/Hash contract broken");  // FAILS
+```
+
+```text
+thread 'value::tests::kern_eq_hash_minus_zero' panicked: Eq/Hash contract broken
+test result: FAILED. 0 passed; 1 failed
+```
+
+The same split exists across variants: `Integer32(0)` hashes as `0.0f64`, `Float64(-0.0)`
+as `0x8000…`, and they compare equal.
+
+**Honest framing:** this is *not* a NaN claim — `tag_f64` in `value/inner/nan_boxed.rs`
+canonicalises every NaN at construction, so NaN payloads cannot differ inside a `JsValue`.
+Only the sign of zero escapes. The trait impls are public API of a published crate
+(`boa_engine`), which is what makes this reportable even though the engine itself does not
+yet key any map by `JsValue`.
+
+Upstream: [#5678](https://github.com/boa-dev/boa/issues/5678). Class now detected statically by
+`law_hunter.py --rust` as **eq-hash-mismatch** (subtype A: `to_bits()` hash with numeric `eq`).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -225,6 +260,7 @@ Upstream: [#2704](https://github.com/ad-si/Woxi/issues/2704).
 | E | `isamert/scheme.rs` `238b817b7f` | **DIVERGED** (order, not value) | `1/3 > 1/2` from `derive(PartialOrd)`; `#4` |
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
+| I | `boa-dev/boa` (5.8k ★) | **EQ/HASH SPLIT** on `-0.0` | `JsValue::new(0.0) == JsValue::new(-0.0)`, `HashSet::contains` → `false`; `cargo test -p boa_engine`; `#5678` |
 | H | `ad-si/Woxi` `c42f615822` | **ORD derives** (proved by rustc) | `Rational{numerator: BigInt, …}` lexicographic; `E0277` at `affine.rs:36,37`, `E0599` at `presburger.rs:353`; `#2704` |
 
 Honest framing: three of the four are detected by KERN, one is outside the subset and is named as
