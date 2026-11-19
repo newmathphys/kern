@@ -125,13 +125,85 @@ def hunt_package(pkg_dir: Path, pkg_name: str) -> dict:
     checked, findings = 0, []
     for name in sorted(pub):
         fn = getattr(mod, name, None)
-        if fn is None or not callable(fn) or inspect.isclass(fn):
+        if fn is None or not callable(fn):
+            continue
+        if inspect.isclass(fn):
+            # ОКНО №42: деньги живут в МЕТОДАХ экспортируемого класса.
+            hits = check_money_class(fn)
+            if hits:
+                checked += 1
+                findings += [{"symbol": "%s.%s" % (pkg_name, name), "law": h} for h in hits]
             continue
         hits = hunt_symbol(name, fn)
         if hits:
             checked += 1
             findings += [{"symbol": "%s.%s" % (pkg_name, name), "law": h} for h in hits]
     return {"pkg": pkg_name, "checked": checked, "findings": findings, "reason": ""}
+
+
+# ── ЗАКОН ДЕНЕГ ДЛЯ КЛАССОВ (Окно №42) ───────────────────────────────────────
+# В py-moneyed / carlospalol/money сплит живёт в МЕТОДЕ экспортируемого класса:
+#   Money("0.01", "USD").allocate([1, 1, 1])
+# Свободной функции над int там нет, поэтому без этой ветки рейд даёт 0.
+MONEY_METHODS = ("allocate", "split", "distribute", "divide")
+MONEY_SUMS = ("0.00", "0.01", "-0.01", "-1.00", "1.00", "-0.05", "100.00")
+MONEY_WEIGHTS = ([1, 1, 1], [1, 2, 3], [0, 1], [1, 0, 1])
+
+
+def _money_amount(obj):
+    """Сумма как Decimal; None, если объект не про деньги (честно молчим)."""
+    from decimal import Decimal, InvalidOperation
+    val = getattr(obj, "amount", obj)
+    try:
+        return Decimal(str(val))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def check_money_class(cls) -> list:
+    """Инвариант Фаулера: sum(parts) == total, включая отрицательные суммы."""
+    from decimal import Decimal
+    out = []
+    methods = [m for m in MONEY_METHODS if callable(getattr(cls, m, None))]
+    if not methods:
+        return out
+    for text in MONEY_SUMS:
+        try:
+            money = cls(text, "USD")
+        except Exception:
+            try:
+                money = cls(text)
+            except Exception:
+                return out            # конструктор не наш случай — не обвиняем
+        total = _money_amount(money)
+        if total is None:
+            return out
+        for mname in methods:
+            for weights in MONEY_WEIGHTS:
+                try:
+                    parts = getattr(cls, mname)(money, weights)
+                    parts = list(parts)
+                except Exception:
+                    continue          # падение — класс --xray, не наш
+                amounts = [_money_amount(p) for p in parts]
+                if any(a is None for a in amounts):
+                    continue
+                got = sum(amounts, Decimal(0))
+                if got != total:
+                    out.append(
+                        "%s(%r).%s(%r) -> %s, сумма %s != %s (потеря/рождение цента)"
+                        % (cls.__name__, text, mname, weights,
+                           [str(a) for a in amounts], got, total))
+    return out
+
+
+def hunt_symbol(name: str, fn) -> list:
+    low = name.lower()
+    if any(k in low for k in CLAMP_NAMES):
+        return check_clamp(fn)
+    if any(low.startswith(k) for k in SPLIT_NAMES):
+        return check_split(fn)
+    return []
 
 
 def selftest() -> int:
