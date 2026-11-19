@@ -249,6 +249,49 @@ yet key any map by `JsValue`.
 Upstream: [#5678](https://github.com/boa-dev/boa/issues/5678). Class now detected statically by
 `law_hunter.py --rust` as **eq-hash-mismatch** (subtype A: `to_bits()` hash with numeric `eq`).
 
+## Case J — `swc-project/swc` @ `49c4bb202b`: `Number` derives `Eq` but encodes the sign of zero in `Hash` (`#12815`)
+
+`crates/swc_css_ast/src/value.rs`:
+
+```rust
+#[ast_node("Number")]
+pub struct Number { pub span: Span, pub value: f64, pub raw: Option<Atom> }
+implement Eq for Number {}
+
+#[allow(clippy::derived_hash_with_manual_eq)]
+impl Hash for Number {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        fn integer_decode(val: f64) -> (u64, i16, i8) {
+            let bits: u64 = f64::to_bits(val);
+            let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
+            /* ... mantissa, exponent ... */
+            (mantissa, exponent, sign)
+        }
+        self.span.hash(state);
+        integer_decode(self.value).hash(state);
+    }
+}
+```
+
+`0.0` decodes to `(0, 0, +1)`, `-0.0` to `(0, 0, -1)`: equal values, different hashes. `raw`
+is not hashed at all, so `None` does not save the contract, and minifiers synthesise numbers
+with `raw: None` and `DUMMY_SP`.
+
+Confirmed with `cargo test -p swc_css_ast`:
+
+```text
+thread 'value::kern_eq_hash_test::number_eq_hash_minus_zero' panicked at
+crates/swc_css_ast/src/value.rs:611:9: Eq/Hash contract broken on -0.0
+test result: FAILED. 0 passed; 1 failed
+```
+
+**Honest framing:** `swc_ecma_ast::Number` documents the opposite (correct) behaviour — its
+`PartialEq` distinguishes `+0` and `-0` — so the JS side of the same repository already
+handles this; only the CSS crate does not. The report says so, which is what makes it a
+consistency argument rather than a matter of taste.
+
+Upstream: [#12815](https://github.com/swc-project/swc/issues/12815).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -260,6 +303,7 @@ Upstream: [#5678](https://github.com/boa-dev/boa/issues/5678). Class now detecte
 | E | `isamert/scheme.rs` `238b817b7f` | **DIVERGED** (order, not value) | `1/3 > 1/2` from `derive(PartialOrd)`; `#4` |
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
+| J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` |
 | I | `boa-dev/boa` (5.8k ★) | **EQ/HASH SPLIT** on `-0.0` | `JsValue::new(0.0) == JsValue::new(-0.0)`, `HashSet::contains` → `false`; `cargo test -p boa_engine`; `#5678` |
 | H | `ad-si/Woxi` `c42f615822` | **ORD derives** (proved by rustc) | `Rational{numerator: BigInt, …}` lexicographic; `E0277` at `affine.rs:36,37`, `E0599` at `presburger.rs:353`; `#2704` |
 
