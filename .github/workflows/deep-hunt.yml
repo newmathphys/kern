@@ -1,0 +1,72 @@
+name: Deep hunt (night, 6 shards)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  hunt:
+    name: shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Toolchain prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler cmake clang libclang-dev pkg-config
+          rustup show active-toolchain || rustup default stable
+      - name: Python deps
+        run: python3 -m pip install --quiet -r requirements.txt || true
+      - name: Hunt shard ${{ matrix.shard }}
+        run: |
+          python3 tools/cloud_deep_hunt.py --shard ${{ matrix.shard }} --of 6 \
+            --out report-${{ matrix.shard }}.md
+      - name: Upload shard report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-hunt-${{ matrix.shard }}
+          path: report-${{ matrix.shard }}.md
+          if-no-files-found: warn
+
+  morning-brief:
+    name: morning brief
+    needs: hunt
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deep-hunt-*
+          merge-multiple: true
+          path: brief
+      - name: Concatenate
+        run: |
+          { echo "# Morning brief — cloud deep hunt"; echo; echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; \
+            for f in $(ls brief/report-*.md 2>/dev/null | sort); do echo "<!-- $f -->"; cat "$f"; echo; done; } > morning-brief.md
+          cat morning-brief.md
+      - name: Upload brief
+        uses: actions/upload-artifact@v4
+        with:
+          name: morning-brief
+          path: morning-brief.md
+      - name: Open issue in our own repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create --repo "${{ github.repository }}" \
+            --title "[Morning Brief] Cloud deep hunt $(date -u +%Y-%m-%d)" \
+            --body-file morning-brief.md || echo "issue create skipped"

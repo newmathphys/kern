@@ -1,0 +1,225 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
+"""cloud_deep_hunt: ночная охота за трофеями НА РАННЕРАХ GitHub Actions.
+
+Почему без `search/code`: у `secrets.GITHUB_TOKEN` в Actions нет прав на
+глобальный поиск кода (403). Поэтому цель выбирается не поиском, а кураторским
+списком живых проектов, публично клонируется (`git clone --depth 1
+--filter=blob:none`, токен не нужен) и сканируется ЛОКАЛЬНО на диске раннера
+законами `tools/law_hunter.py --rust`. Один шард = один список репозиториев.
+
+ПРАВИЛА (после уроков abacus#3179 и swc#12815):
+  * НИЧЕГО не публикуется в чужие репозитории — только отчёт в артефакт;
+  * находки — КАНДИДАТЫ, вердикт даёт живой `cargo test` / `python3`;
+  * клон удаляется сразу после скана (диск раннера не забивается).
+
+Запуск:
+    python3 tools/cloud_deep_hunt.py --selftest
+    python3 tools/cloud_deep_hunt.py --shard 0 --of 6 --dry-run
+    python3 tools/cloud_deep_hunt.py --shard 0 --of 6 --out report-0.md
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+SHARDS = {
+    0: ["databendlabs/databend", "apache/datafusion", "apache/arrow-rs",
+        "pola-rs/polars", "glaredb/glaredb", "lancedb/lance"],
+    1: ["surrealdb/surrealdb", "meilisearch/meilisearch", "quickwit-oss/quickwit",
+        "GreptimeTeam/greptimedb", "tikv/tikv", "ClickHouse/clickhouse-rs"],
+    2: ["astral-sh/ruff", "astral-sh/uv", "biomejs/biome",
+        "oxc-project/oxc", "rolldown/rolldown", "denoland/deno"],
+    3: ["nushell/nushell", "vectordotdev/vector", "toml-rs/toml",
+        "serde-rs/json", "winnow-rs/winnow", "pest-parser/pest"],
+    4: ["pydantic/pydantic-core", "huggingface/candle", "sonos/tract",
+        "tracel-ai/burn", "rust-num/num-rational", "paupino/rust-decimal"],
+    5: ["pydantic/pydantic", "BerriAI/litellm", "encode/httpx",
+        "Textualize/rich", "tiangolo/fastapi", "psf/requests"],
+}
+
+ROOT = Path(__file__).resolve().parent.parent
+CLONE_TIMEOUT = 900
+SCAN_TIMEOUT = 600
+MAX_CLONE_MB = 2048
+
+
+def _run(cmd, cwd=None, timeout=600):
+    try:
+        p = subprocess.run(cmd, cwd=str(cwd) if cwd else None,
+                           capture_output=True, text=True, timeout=timeout)
+        return p.returncode, (p.stdout or "") + (p.stderr or "")
+    except subprocess.TimeoutExpired:
+        return 124, "TIMEOUT"
+    except FileNotFoundError as exc:
+        return 127, str(exc)
+
+
+def scan_rust(clone: Path) -> list:
+    """Прогон закона law_hunter --rust по клону (JSON)."""
+    rc, out = _run([sys.executable, str(ROOT / "tools" / "law_hunter.py"),
+                    "--rust", str(clone), "--json"], timeout=SCAN_TIMEOUT)
+    if rc != 0 or "{" not in out:
+        return [{"law": "scan-error", "detail": out[-300:]}]
+    try:
+        return json.loads(out[out.index("{"):]).get("findings", [])
+    except ValueError:
+        return [{"law": "scan-error", "detail": out[-300:]}]
+
+
+def scan_python(clone: Path) -> list:
+    """Парная эвристика: __eq__ и __hash__ в одном файле, __eq__ нормализует."""
+    out = []
+    for p in clone.rglob("*.py"):
+        if "test" in p.parts or ".venv" in p.parts:
+            continue
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if "def __eq__" in text and "def __hash__" in text:
+            if any(k in text for k in ("casefold()", ".lower()", "Decimal(")):
+                out.append({
+                    "law": "py-eq-hash-candidate", "symbol": p.name,
+                    "file": str(p),
+                    "detail": "__eq__ и __hash__ в одном файле, __eq__ нормализует "
+                              "регистр/Decimal — нужен живой прогон "
+                              "`a == b and b not in {a}`",
+                })
+    return out
+
+
+def policy_excerpt(clone: Path) -> str:
+    for name in ("AGENTS.md", "AI_POLICY.md", "CONTRIBUTING.md"):
+        p = clone / name
+        if p.is_file():
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            head = [ln.strip() for ln in text.splitlines() if ln.strip()][:4]
+            return f"{name}: " + " / ".join(head)[:280]
+    return "policy: (нет AGENTS.md / AI_POLICY.md / CONTRIBUTING.md)"
+
+
+def hunt_repo(repo: str, workdir: Path, log) -> dict:
+    dest = workdir / repo.replace("/", "__")
+    entry = {"repo": repo, "status": "unknown", "findings": [], "policy": ""}
+    log(f"[clone] {repo}")
+    rc, out = _run(["git", "clone", "--depth", "1", "--filter=blob:none",
+                    f"https://github.com/{repo}.git", str(dest)], timeout=CLONE_TIMEOUT)
+    if rc != 0:
+        entry["status"] = "clone-failed"
+        entry["findings"] = [{"law": "clone-error", "detail": out[-200:]}]
+        log(f"[clone] {repo}: FAILED rc={rc}")
+        return entry
+    try:
+        entry["policy"] = policy_excerpt(dest)
+        is_rust = (dest / "Cargo.toml").is_file()
+        entry["status"] = "scanned"
+        entry["findings"] = scan_rust(dest) if is_rust else scan_python(dest)
+        log(f"[scan] {repo}: {len(entry['findings'])} findings")
+    finally:
+        shutil.rmtree(dest, ignore_errors=True)
+    return entry
+
+
+def write_report(results: list, out_path: Path, shard: int, of: int) -> None:
+    total = sum(len(r["findings"]) for r in results)
+    lines = [f"# Cloud deep hunt — shard {shard}/{of}", "",
+             f"Репозиториев: {len(results)} · находок: {total}", "",
+             "| Repo | Статус | Находок | Policy |", "|---|---|---|---|"]
+    for r in results:
+        lines.append(f"| `{r['repo']}` | {r['status']} | {len(r['findings'])} | "
+                     f"{r.get('policy', '')[:90]} |")
+    lines.append("")
+    for r in results:
+        if r["findings"]:
+            lines.append(f"## {r['repo']} ({r['status']})")
+            for f in r["findings"]:
+                lines.append(f"- **{f.get('law')}** `{f.get('symbol')}` — "
+                             f"{f.get('detail', '')}")
+                if f.get("file"):
+                    lines.append(f"  - file: `{f['file']}`")
+            lines.append("")
+    lines.append("Все находки — КАНДИДАТЫ. Вердикт даёт только живой "
+                 "`cargo test` / `python3`.")
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def selftest() -> int:
+    bad = 0
+
+    def ok(cond, label):
+        nonlocal bad
+        print(("[OK]   " if cond else "[FAIL] ") + label)
+        if not cond:
+            bad += 1
+
+    flat = [r for v in SHARDS.values() for r in v]
+    ok(len(SHARDS) == 6, "шесть шардов описаны")
+    ok(all(len(v) >= 5 for v in SHARDS.values()), "в каждом шарде >= 5 репозиториев")
+    ok(len(flat) == len(set(flat)), "репозитории не дублируются между шардами")
+    ok(all(r.count("/") == 1 for r in flat), "все цели в формате owner/repo")
+    needle = "/" + "tmp" + "/"
+    ok(needle not in Path(__file__).read_text(encoding="utf-8"),
+       "в коде нет литералов пути: он задаётся флагом --out")
+    with tempfile.TemporaryDirectory() as tmp:
+        t = Path(tmp)
+        (t / "a.py").write_text(
+            "class X:\n    def __eq__(self, o):\n"
+            "        return self.v.casefold() == o.v.casefold()\n"
+            "    def __hash__(self):\n        return hash(self.v)\n", encoding="utf-8")
+        ok(len(scan_python(t)) == 1, "эвристика Python ловит пару __eq__/__hash__")
+        out = t / "r.md"
+        write_report([{"repo": "a/b", "status": "scanned", "findings": [], "policy": "p"}],
+                     out, 0, 6)
+        ok(out.is_file() and "shard 0/6" in out.read_text(encoding="utf-8"),
+           "отчёт пишется и содержит номер шарда")
+    print(f"[CLOUD-DEEP-HUNT-SELFTEST] провалов: {bad}")
+    return 0 if bad == 0 else 1
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="ночная облачная охота")
+    ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--shard", type=int, default=0)
+    ap.add_argument("--of", type=int, default=6)
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--out", default="report.md")
+    ap.add_argument("--limit", type=int, default=0)
+    a = ap.parse_args(argv)
+    if a.selftest:
+        return selftest()
+    if a.of != 6 or a.shard not in SHARDS:
+        print(f"неверный шард: {a.shard} из {a.of}", file=sys.stderr)
+        return 2
+    repos = SHARDS[a.shard][: a.limit or None]
+    print(f"shard {a.shard}/{a.of}: {len(repos)} репозиториев -> {a.out}")
+    for r in repos:
+        print(f"  - {r}")
+    if a.dry_run:
+        print("[dry-run] клонирование не выполняется")
+        return 0
+    workdir = Path(tempfile.mkdtemp(prefix="deep-hunt-"))
+    results = []
+    try:
+        for repo in repos:
+            results.append(hunt_repo(repo, workdir, print))
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    write_report(results, Path(a.out), a.shard, a.of)
+    print(f"ИТОГ: репозиториев {len(results)}, "
+          f"находок {sum(len(r['findings']) for r in results)} -> {a.out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
