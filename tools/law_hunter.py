@@ -245,9 +245,12 @@ RUST_DERIVE_RE = _re.compile(
     r"(?:pub(?:\([^)]*\))?\s+)?struct\s+(?P<name>\w+)\s*\{(?P<body>[^}]*)\}", _re.S)
 RUST_NUMERIC = ("i8", "i16", "i32", "i64", "i128", "isize",
                 "u8", "u16", "u32", "u64", "u128", "usize", "f32", "f64")
-FRAC_NUM = {"num", "n", "numerator"}
-FRAC_DEN = {"den", "d", "denominator", "denom"}
-DEC_MANT = {"mantissa", "mant", "unscaled"}
+# Произвольная точность: переполнения нет вовсе, но лексикографика так же неверна.
+RUST_BIG = ("BigInt", "BigUint", "BigRational", "Int", "Integer", "Decimal", "Rational")
+BIG_SCALARS = RUST_NUMERIC + RUST_BIG
+FRAC_NUM = {"num", "n", "numerator", "numer", "nom"}
+FRAC_DEN = {"den", "d", "denominator", "denom", "den_"}
+DEC_MANT = {"mantissa", "mant", "unscaled", "coeff", "coefficient", "value"}
 DEC_SCALE = {"scale", "exp", "exponent"}
 
 
@@ -257,7 +260,7 @@ def _rust_fields(body: str) -> list:
     for line in body.split(","):
         part = line.split("//")[0].strip()
         m = _re.match(r"(?:pub\s+)?(\w+)\s*:\s*([\w:]+)", part)
-        if m and m.group(2).split("::")[-1] in RUST_NUMERIC:
+        if m and m.group(2).split("::")[-1] in BIG_SCALARS:
             out.append((m.group(1), m.group(2).split("::")[-1]))
     return out
 
@@ -294,8 +297,10 @@ def check_rust_derive_ord(src: str) -> list:
         if len(fields) < 2:
             continue
         names = {f[0] for f in fields}
-        if _re.search(r"impl\s+(?:Add|Sub|Mul|Div)\s*(?:<[^>]*>)?\s+for\s+"
-                      + _re.escape(name) + r"\b", src) is None:
+        has_alg = _re.search(r"impl\s+(?:Add|Sub|Mul|Div)\s*(?:<[^>]*>)?\s+for\s+"
+                            + _re.escape(name) + r"\b", src) is not None
+        big = any(t in RUST_BIG for _, t in fields)
+        if not has_alg and not big:
             continue
         if (names & FRAC_NUM) and (names & FRAC_DEN):
             a, b, lex, num, va, vb = _frac_witness()
@@ -421,6 +426,14 @@ impl PartialOrd for Fraction {
     w2 = Path(_tempfile.mkdtemp())
     (w2 / "a.rs").write_text(broken_frac, encoding="utf-8")
     (w2 / "b.rs").write_text(good_money, encoding="utf-8")
+    big_rat = '''
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Rational { pub numerator: BigInt, pub denominator: BigInt }
+'''
+    f3 = check_rust_derive_ord(big_rat)
+    ok(len(f3) == 1 and f3[0]["witness"]["derive_says"] == "Greater"
+       and f3[0]["witness"]["math_says"] == "Less",
+       "derive-ord: Rational{numerator: BigInt, denominator: BigInt} без impl Add пойман")
     r2 = hunt_rust_tree(w2)
     ok(r2["checked"] == 2 and len(r2["findings"]) == 1,
        "derive-ord: hunt_rust_tree — 2 файла, 1 находка")
