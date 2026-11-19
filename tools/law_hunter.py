@@ -333,11 +333,17 @@ def check_rust_eq_hash(src: str) -> list:
     неканонические Decimal/Rational).
     """
     out = []
-    if ".to_bits()" in src and ".hash(" in src:
+    # .to_bits() методом ИЛИ f64::to_bits(x) / f32::to_bits(x) функцией:
+    # swc_css_ast::Number прячет вызов в локальном integer_decode.
+    if ((".to_bits()" in src) or ("f64::to_bits(" in src)
+            or ("f32::to_bits(" in src)) and ".hash(" in src:
         canonical = _re.search(r"==\s*0\.0|0\.0\s*==", src) is not None
-        bitwise_eq = _re.search(r"to_bits\(\)\s*==|==\s*\w+\.to_bits\(\)", src) is not None
+        bitwise_eq = _re.search(r"to_bits\([^)]*\)\s*==", src) is not None
         numeric_eq = _re.search(r"fn\s+eq\s*\([^)]*\)\s*->\s*bool", src) is not None
-        if numeric_eq and not canonical and not bitwise_eq:
+        # PartialEq может быть производным и невидимым: #[ast_node] генерирует его,
+        # а #[allow(derived_hash_with_manual_eq)] прямо указывает на эту связку.
+        hidden_eq = _re.search(r"derived_hash_with_manual_eq|derive_hash_xor_eq|#\[ast_node", src) is not None
+        if (numeric_eq or hidden_eq) and not canonical and not bitwise_eq:
             out.append({
                 "law": "eq-hash-mismatch",
                 "symbol": "Hash::to_bits",
@@ -491,6 +497,25 @@ impl PartialEq for Version {
     ok(len(check_rust_eq_hash(float_bits)) == 1, "eq-hash: float-bits-hash (Boa) пойман")
     ok(check_rust_eq_hash(total_float) == [], "eq-hash: побитовый TotalFloat молчит (0 FP)")
     ok(len(check_rust_eq_hash(version_eq)) == 1, "eq-hash: derive(Hash)+ручной PartialEq пойман")
+    swc_number = '''
+#[ast_node("Number")]
+pub struct Number { pub span: Span, pub value: f64, pub raw: Option<Atom> }
+impl Eq for Number {}
+#[allow(clippy::derived_hash_with_manual_eq)]
+impl Hash for Number {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        fn integer_decode(val: f64) -> (u64, i16, i8) {
+            let bits: u64 = f64::to_bits(val);
+            let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
+            (bits & 0xfffffffffffff, 0, sign)
+        }
+        self.span.hash(state);
+        integer_decode(self.value).hash(state);
+    }
+}
+'''
+    ok(len(check_rust_eq_hash(swc_number)) == 1,
+       "eq-hash: swc Number (f64::to_bits функцией + #[ast_node]) пойман")
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
