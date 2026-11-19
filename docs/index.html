@@ -284,6 +284,12 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
         <code>MutableSet</code> promises <code>KeyError</code>.</td>
     <td>live <code>python3</code></td>
     <td><a href="https://github.com/mahmoud/boltons/issues/800">#800</a></td></tr>
+<tr><td><b>ad-si/Woxi</b><br><span class="muted">Wolfram Language in Rust</span></td>
+    <td><code>Rational { numerator: BigInt, denominator: BigInt }</code> derives <code>Ord</code> &rarr;
+        lexicographic ordering. Removing the traits makes <code>rustc</code> name the call sites:
+        <code>E0277</code> at <code>affine.rs:36,37</code>, <code>E0599</code> at <code>presburger.rs:353</code>.</td>
+    <td><code>cargo check --workspace --tests</code> &rarr; 4 errors</td>
+    <td><a href="https://github.com/ad-si/Woxi/issues/2704">#2704</a></td></tr>
 </tbody></table>
   <p class="lbl" style="margin:12px 0 0">Full matrix &mdash; every capability, its one command, its external oracle and its honest boundary:
      <a href="CAPABILITY_MATRIX.md">EN</a> &middot; <a href="CAPABILITY_MATRIX.ru.md">RU</a>.

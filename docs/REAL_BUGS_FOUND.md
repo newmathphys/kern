@@ -181,6 +181,39 @@ silently miss it.
 
 Upstream: [#800](https://github.com/mahmoud/boltons/issues/800).
 
+## Case H — `ad-si/Woxi` @ `c42f615822`: `Rational` derives `Ord` (BigInt, `#2704`)
+
+`crates/woxi-reduce/src/exact.rs:12`:
+
+```rust
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Rational {
+  pub numerator: BigInt,
+  pub denominator: BigInt,
+}
+```
+
+Same defect class as Case E, but here `BigInt` removes any overflow explanation — the only
+cause is the derive itself. Reachability was proved by **removing the traits and letting rustc
+answer**, not by grepping:
+
+```
+$ cargo check --workspace --tests        # `PartialOrd, Ord` stripped from the derive
+error[E0277]: the trait bound `Rational: Ord` is not satisfied
+  --> crates/woxi-reduce/src/affine.rs:36:3   | pub constant: Rational,
+  --> crates/woxi-reduce/src/affine.rs:37:3   | pub coefficients: BTreeMap<Variable, Rational>,
+error[E0599] --> crates/woxi-reduce/src/presburger.rs:353:16
+```
+
+So `AffineTerm` (a linear form) derives `Ord`, which delegates to the lexicographic comparison,
+and the Presburger residue grouping keys on `(BigInt, BTreeMap<Variable, Rational>)`.
+
+**Honest framing:** `PartialEq` is derived the same way and `new()` reduces, so `Eq`/`Ord` agree
+and `BTreeMap` invariants hold — no wrong answer or panic was observed. The claim is only that
+where numeric order of coefficients matters, field order is returned instead.
+
+Upstream: [#2704](https://github.com/ad-si/Woxi/issues/2704).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -192,6 +225,7 @@ Upstream: [#800](https://github.com/mahmoud/boltons/issues/800).
 | E | `isamert/scheme.rs` `238b817b7f` | **DIVERGED** (order, not value) | `1/3 > 1/2` from `derive(PartialOrd)`; `#4` |
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
+| H | `ad-si/Woxi` `c42f615822` | **ORD derives** (proved by rustc) | `Rational{numerator: BigInt, …}` lexicographic; `E0277` at `affine.rs:36,37`, `E0599` at `presburger.rs:353`; `#2704` |
 
 Honest framing: three of the four are detected by KERN, one is outside the subset and is named as
 such. None of them is a new CVE — these are **real** defects (historical in A–C, live in D), and the
