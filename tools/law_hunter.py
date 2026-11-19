@@ -194,6 +194,20 @@ def check_money_class(cls) -> list:
                         "%s(%r).%s(%r) -> %s, сумма %s != %s (потеря/рождение цента)"
                         % (cls.__name__, text, mname, weights,
                            [str(a) for a in amounts], got, total))
+                    continue
+                # ОКНО №43: ИНВАРИАНТ ЗНАКА. На долге (-0.01) реализация может
+                # вернуть [+0.01, -0.01, -0.01]: сумма сходится, но у должника
+                # появился положительный актив. При total<0 долей >0 быть не может.
+                if total < 0 and any(a > 0 for a in amounts):
+                    bad = [str(a) for a in amounts if a > 0]
+                    out.append(
+                        "%s(%r).%s(%r) -> %s: положительные доли %s при долге %s"
+                        % (cls.__name__, text, mname, weights, bad, total))
+                elif total > 0 and any(a < 0 for a in amounts):
+                    bad = [str(a) for a in amounts if a < 0]
+                    out.append(
+                        "%s(%r).%s(%r) -> %s: отрицательные доли %s при сумме %s"
+                        % (cls.__name__, text, mname, weights, bad, total))
     return out
 
 
