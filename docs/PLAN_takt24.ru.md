@@ -78,7 +78,7 @@ QF_BV — `[PROOF PARTIAL]` с названным числом доверенн�
 ## 7. Факты такта (проверяются машинно)
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
-CHECK-цели <!-- fact:check_targets -->219 · can-fail кейсы <!-- fact:canfail_cases -->266 ·
-якоря <!-- fact:anchors -->224 · цели реестра <!-- fact:registry_targets -->300 ·
+CHECK-цели <!-- fact:check_targets -->220 · can-fail кейсы <!-- fact:canfail_cases -->267 ·
+якоря <!-- fact:anchors -->225 · цели реестра <!-- fact:registry_targets -->301 ·
 META <!-- fact:meta_targets -->58 · теоремы Lean <!-- fact:lean_theorems -->147 ·
 QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

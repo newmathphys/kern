@@ -10,15 +10,15 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->300 | every goal this repository claims to verify |
-| CHECK | <!-- fact:check_targets -->219 | must be able to fail |
+| Targets, total | <!-- fact:registry_targets -->301 | every goal this repository claims to verify |
+| CHECK | <!-- fact:check_targets -->220 | must be able to fail |
 | MEASURE | 4 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->14 | L0 only: it compiles |
 | EXTERNAL | 5 | third-party / cross-architecture |
 | META | <!-- fact:meta_targets -->58 | harness, generators, guards |
 
-Can-fail cases: **<!-- fact:canfail_cases -->266**, of which
-**219/219** CHECK targets have a non-vacuous "can fail" proof.
+Can-fail cases: **<!-- fact:canfail_cases -->267**, of which
+**220/220** CHECK targets have a non-vacuous "can fail" proof.
 
 ## Measured facts
 
@@ -31,7 +31,7 @@ Can-fail cases: **<!-- fact:canfail_cases -->266**, of which
 | Mutations killed | <!-- fact:mutation_sites -->1688 / 1688 across 21 files |
 | Cross-architecture | <!-- fact:cross_arch_passed -->443 passed / <!-- fact:cross_arch_skipped -->8 skipped / 0 failed |
 | QuixBugs | <!-- fact:quixbugs.smt -->6/40 formal SMT · <!-- fact:quixbugs.differential -->40/40 live differential (29 value + 10 crash + 1 hang) · <!-- fact:quixbugs.explored -->0 EXPLORED |
-| Literal anchors | <!-- fact:anchors -->224 |
+| Literal anchors | <!-- fact:anchors -->225 |
 | Version | `v2.8.25` |
 
 ## Defect journal

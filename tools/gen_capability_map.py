@@ -68,7 +68,9 @@ EPHELONS: list[tuple[str, str, tuple[str, ...]]] = [
       "hypotheses-corpus", "render", "svg", "html-canvas", "graph", "regex",
       "guard", "dual", "kb-", "spec", "counter",
       # ОКНО №16: Live Replay, ведомый моделью Z3 (край из контрпримера).
-      "live-replay")),
+      "live-replay",
+      # ОКНО №78: законы law_hunter — тихие баги публичного API (derive-ord, eq-hash).
+      "law-hunter")),
     ("E5", "Контейнер .kimg, крипто-аттестация и WASM (L0–L2)",
      ("verify-attestation", "wasm", "kimg", "slsa", "secrets", "tree-lock",
       "artifact", "bitrot", "disasm", "binary-audit", "foreign-verdicts", "citations",

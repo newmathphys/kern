@@ -213,6 +213,7 @@ stage "разыменование None: --xray-none + Live Replay" make xray-non
 
 # --- 4a7. LIVE REPLAY ПО МОДЕЛИ Z3 (38-я стадия, окно №16) ------------------
 stage "Live Replay по модели Z3: край из контрпримера" make live-replay-check
+stage "LAW: тихие баги публичного API (derive-ord, eq-hash)" make law-hunter-check
 
 # --- 4b. MCP-сервер: протокол И Белнап-конфликт (#455) ---------------------
 # ИЗМЕРЕНО: этот гейт был КРАСНЫМ на HEAD (пример-сервер схлопывал

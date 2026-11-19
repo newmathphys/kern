@@ -207,6 +207,7 @@ CLASS = {
     "heal-index-check": "CHECK",      # окно №7: ремонт сдвинутого гарда границы
     "xray-none-check": "CHECK",      # окно №9: детекция разыменования None
     "live-replay-check": "CHECK",    # окно №16: Live Replay по модели Z3
+    "law-hunter-check": "CHECK",      # окно №78: тихие баги на публичном API (derive-ord, eq-hash)
     "action-firewall-check": "CHECK",
     "rag-conflict-check": "CHECK",
     "rlvr-oracle-check": "CHECK",
@@ -563,6 +564,7 @@ CASE_TARGET = {
     "heal-index": "heal-index-check",
     "xray-none": "xray-none-check",
     "live-replay": "live-replay-check",
+    "law-hunter": "law-hunter-check",
     "kern-guard": "mcp-selftest",
     "action-firewall-check": "action-firewall-check",
     "rag-conflict-check": "rag-conflict-check",

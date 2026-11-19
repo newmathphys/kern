@@ -130,7 +130,7 @@
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 | `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (36)
+## E4. Рентген кода, CWE, точность и PR-дельта (37)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
@@ -155,6 +155,7 @@
 | `fuzz-corpus-check` | `fuzz-corpus-check` | — | `make fuzz-corpus-check` |
 | `graph-check` | `graph-parity-break` | — | `make graph-check` |
 | `html-canvas-check` | `html-canvas-check` | — | `make html-canvas-check` |
+| `law-hunter-check` | `law-hunter` | — | `make law-hunter-check` |
 | `live-replay-check` | `live-replay` | — | `make live-replay-check` |
 | `mbpp-xray-check` | `mbpp-xray-blindspot` | — | `make mbpp-xray-check` |
 | `metrics-guard` | `metrics-guard` | — | `make metrics-guard` |
@@ -262,11 +263,11 @@
 
 ## Паритет с реестром
 
-Целей в карте: **220**; класс CHECK в `registry.py`: **220**;
-записей `CASE_TARGET`: **266** (make-исполнимых **262**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **221**; класс CHECK в `registry.py`: **221**;
+записей `CASE_TARGET`: **267** (make-исполнимых **263**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
-CHECK-цели <!-- fact:check_targets -->219 · can-fail кейсы <!-- fact:canfail_cases -->266 ·
-якоря <!-- fact:anchors -->224 · цели реестра <!-- fact:registry_targets -->300 · META <!-- fact:meta_targets -->58 ·
+CHECK-цели <!-- fact:check_targets -->220 · can-fail кейсы <!-- fact:canfail_cases -->267 ·
+якоря <!-- fact:anchors -->225 · цели реестра <!-- fact:registry_targets -->301 · META <!-- fact:meta_targets -->58 ·
 теоремы Lean <!-- fact:lean_theorems -->147 · QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

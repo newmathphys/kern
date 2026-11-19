@@ -359,6 +359,9 @@ class Fault:
 
 
 FAULTABLE = [
+    # окно №78: кейс `law-hunter` правит детектор законов — файл обязан быть
+    # в списке, иначе подсадка осталась бы в дереве (класс #225).
+    "tools/law_hunter.py",
     # #493: кейс `license-header` правит ЗАГОЛОВОК фикстуры — файл обязан быть
     # #494: кейс `kerna` правит ДОКТОРА — файл обязан быть в списке, иначе
     # подсадка осталась бы в дереве (класс #225).
@@ -4012,6 +4015,20 @@ def case_live_replay():
     return "make live-replay-check"
 
 
+def case_law_hunter():
+    """ОКНО №78. ЛОМАЕМ ЗАКОН eq-hash: из подвида A выпадает невидимый
+    производный PartialEq (маркеры #[ast_node] / derived_hash_with_manual_eq).
+
+    Тогда случай swc_css_ast::Number перестаёт ловиться — самотест обязан
+    покраснеть. Иначе «броня» фиктивна: детектор мог бы тихо ослепнуть и
+    никто бы этого не заметил.
+    """
+    patch("tools/law_hunter.py",
+          "if (numeric_eq or hidden_eq) and not canonical",
+          "if numeric_eq and not canonical")
+    return "make law-hunter-check"
+
+
 def case_heal_index():
     """ОКНО №7. ЛОМАЕМ РЕМОНТ: маркер «сдвинутых гардов индекса» подменяется.
 
@@ -5048,6 +5065,7 @@ CASES = [
     ("heal-index", "окно №7: маркер ремонта индекса подменён -> гейт обязан покраснеть", case_heal_index),
     ("xray-none", "окно №9: арифметика исключена из детектора None -> гейт обязан покраснеть", case_xray_none),
     ("live-replay", "окно №16: замок строки резолвера ослаблен -> гейт обязан покраснеть", case_live_replay),
+    ("law-hunter", "окно №78: невидимый производный PartialEq выпал из детектора -> гейт обязан покраснеть", case_law_hunter),
     ("action-firewall-check", "FIREWALL: 200/422/409 проверены",      case_action_firewall_check),
     ("rag-conflict-check", "RAG: ядро конфликта найдено",         case_rag_conflict_check),
     ("rlvr-oracle-check", "RLVR: +1/-1/-2 проверены",              case_rlvr_oracle_check),
