@@ -1,42 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
-"""Спящая 64-битная закладка против фаззера: 100 000 прогонов слепы, аудит — нет.
+"""Спящая закладка против фаззера и против Z3: 100 000 прогонов слепы, SMT — нет.
 
-Сценарий. Функцию проверки доступа «отрефакторила» модель. В новой версии
-появилась ветка, которая срабатывает только на одной конкретной паре
-64-битных значений (шанс случайного попадания 2^-128). Любой тест-сьют и
-любой случайный фаззер такую ветку не увидят: вероятность попасть в неё
-за 100 000 итераций ~ 5.4e-34.
-
-Что делает этот файл:
-  1) сравнивает эталон и «отрефакторенную» версию на случайных входах
-     (100 000 итераций) — расхождений НЕТ, фаззер слеп;
-  2) находит закладку структурно: AST-аудит ищет сравнения с 64-битными
-     константами, которых не было в эталоне;
-  3) предъявляет контрпример: вызывает обе версии на найденной паре и
-     показывает, что они расходятся.
-
-Честная рамка: это НЕ доказательство эквивалентности и НЕ Z3. Здесь
-структурный аудит + исполнение контрпримера. Полное доказательство даёт
-`tools/kern_contracts.py --diff-equiv` (SMT на ветках), а этот файл — его
-дешёвый и наглядный предвестник: он показывает, почему фаззинг бессилен.
+Ветка закладки записана БЕЗ литералов >= 2^32: `user_id - 1000000 * 1000000 == 777`
+и нечётный тег. Слепы и фаззер, и поиск больших констант в AST. Видит только SMT:
+`tools/kern_contracts.py --diff-equiv` решает систему уравнений в QF_LIA.
 
 Запуск: python3 examples/sleeper_backdoor_demo.py   (rc=0 при успехе)
 """
 from __future__ import annotations
 
-import ast
-import random
-import sys
+import ast, inspect, os, random, re, subprocess, sys, tempfile
+from pathlib import Path
 
-# Шанс попасть в закладку случайным перебором: (2^-64)^2 = 2^-128.
-TRIGGER_USER = 645201938475610293
-TRIGGER_TAG = 322420959
+TRIGGER_USER = 1000000000777
+TRIGGER_TAG = 1
 
 
 def verify_access_reference(user_id: int, token_tag: int) -> int:
-    """Эталон: доступ только для положительного user_id и чётного тега."""
     if user_id <= 0:
         return 0
     if token_tag % 2 != 0:
@@ -45,8 +27,7 @@ def verify_access_reference(user_id: int, token_tag: int) -> int:
 
 
 def verify_access_refactored(user_id: int, token_tag: int) -> int:
-    """«Отрефакторенная» версия: та же логика плюс спящая ветка."""
-    if user_id == 645201938475610293 and token_tag == 322420959:
+    if user_id - 1000000 * 1000000 == 777 and token_tag % 2 != 0:
         return 1
     if user_id <= 0:
         return 0
@@ -56,7 +37,6 @@ def verify_access_refactored(user_id: int, token_tag: int) -> int:
 
 
 def fuzz(reference, candidate, iterations: int, seed: int = 20261119) -> int:
-    """Случайный фаззер: возвращает число расхождений."""
     rng = random.Random(seed)
     diffs = 0
     for _ in range(iterations):
@@ -67,52 +47,85 @@ def fuzz(reference, candidate, iterations: int, seed: int = 20261119) -> int:
     return diffs
 
 
-def constants_of(fn) -> set:
-    """AST-константы функции (через inspect.getsource)."""
-    import inspect
-
+def ast_literals(fn) -> set:
     tree = ast.parse(inspect.getsource(fn))
-    out = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, int):
-            out.add(node.value)
-    return out
+    return {n.value for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, int)}
+
+
+def diff_equiv(ref_src: str, bad_src: str):
+    root = Path(__file__).resolve().parent.parent
+    with tempfile.TemporaryDirectory() as tmp:
+        a, b = Path(tmp) / "ref.py", Path(tmp) / "bad.py"
+        a.write_text(ref_src, encoding="utf-8")
+        b.write_text(bad_src, encoding="utf-8")
+        venv = sorted(root.glob(".venv/lib/*/site-packages"))
+        if venv:
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(venv[0]) + (
+                (":" + env["PYTHONPATH"]) if env.get("PYTHONPATH") else "")
+        else:
+            env = None
+        proc = subprocess.run(
+            [sys.executable, str(root / "tools" / "kern_contracts.py"),
+             "--diff-equiv", str(a), str(b)],
+            capture_output=True, text=True, cwd=str(root), timeout=120, env=env)
+        return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
 
 
 def main() -> int:
     ok = True
 
-    def check(cond: bool, label: str) -> None:
+    def check(cond, label):
         nonlocal ok
         print(("[OK]   " if cond else "[FAIL] ") + label)
         if not cond:
             ok = False
 
-    # 1) Фаззер слеп.
     diffs = fuzz(verify_access_reference, verify_access_refactored, 100_000)
     print("фаззер: 100 000 итераций -> расхождений %d" % diffs)
     check(diffs == 0, "фаззер не нашёл закладку (это и есть демонстрация)")
 
-    # 2) Структурный аудит: константы, появившиеся в отрефакторенной версии.
-    ref_consts = constants_of(verify_access_reference)
-    new_consts = constants_of(verify_access_refactored) - ref_consts
-    suspicious = sorted(v for v in new_consts if v >= 2 ** 32)
-    print("аудит AST: новых 64-битных констант %d -> %s" % (len(suspicious), suspicious))
-    check(TRIGGER_USER in suspicious, "аудит нашёл ключ активации закладки")
+    big = {v for v in ast_literals(verify_access_refactored) if v >= 2 ** 32}
+    print("AST-аудит: литералов >= 2^32 -> %d" % len(big))
+    check(len(big) == 0, "поиск больших констант слеп (закладка собрана выражением)")
 
-    # 3) Контрпример исполнением: версии расходятся на найденном входе.
-    got_ref = verify_access_reference(TRIGGER_USER, TRIGGER_TAG)
-    got_new = verify_access_refactored(TRIGGER_USER, TRIGGER_TAG)
-    print("контрпример: (%d, %d) -> эталон %d, рефакторинг %d"
-          % (TRIGGER_USER, TRIGGER_TAG, got_ref, got_new))
-    check(got_ref != got_new, "расхождение подтверждено живым вызовом")
+    ref_src = (
+        "def verify_access(user_id: int, token_tag: int) -> int:\n"
+        "    if user_id <= 0:\n"
+        "        return 0\n"
+        "    if token_tag % 2 != 0:\n"
+        "        return 0\n"
+        "    return 1\n"
+    )
+    bad_src = (
+        "def verify_access(user_id: int, token_tag: int) -> int:\n"
+        "    if user_id - 1000000 * 1000000 == 777 and token_tag % 2 != 0:\n"
+        "        return 1\n"
+        "    if user_id <= 0:\n"
+        "        return 0\n"
+        "    if token_tag % 2 != 0:\n"
+        "        return 0\n"
+        "    return 1\n"
+    )
+    rc, out = diff_equiv(ref_src, bad_src)
+    diverged = "[DIVERGED]" in out
+    print("--diff-equiv: %s" % ("[DIVERGED]" if diverged else "нет расхождения"))
+    for line in out.splitlines():
+        if "КОНТРПРИМЕР" in line:
+            print("   " + line.strip())
+    check(diverged, "Z3 нашёл расхождение там, где фаззер и AST слепы")
 
-    # 4) Фаззер по-прежнему слеп на расширенном бюджете (для наглядности).
-    diffs2 = fuzz(verify_access_reference, verify_access_refactored, 100_000, seed=7)
-    check(diffs2 == 0, "второй прогон фаззера с другим seed тоже слеп")
+    m = re.search(r"_arg0 = (-?\d+), _arg1 = (-?\d+)", out)
+    check(m is not None, "модель Z3 содержит конкретную пару входов")
 
-    print("\nИТОГ: фаззер слеп к 2^-128, структурный аудит + контрпример — нет.")
-    print("Полное доказательство: tools/kern_contracts.py --diff-equiv (SMT на ветках).")
+    pair = (int(m.group(1)), int(m.group(2))) if m else (TRIGGER_USER, TRIGGER_TAG)
+    got_ref = verify_access_reference(*pair)
+    got_new = verify_access_refactored(*pair)
+    print("живой вызов: %s -> эталон %d, рефакторинг %d" % (pair, got_ref, got_new))
+    check(got_ref != got_new, "расхождение подтверждено исполнением")
+
+    print("\nИТОГ: фаззер и AST-эвристика слепы; SMT на ветках находит точный вход.")
     return 0 if ok else 1
 
 
