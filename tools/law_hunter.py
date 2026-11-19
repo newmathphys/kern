@@ -220,6 +220,120 @@ def hunt_symbol(name: str, fn) -> list:
     return []
 
 
+# ========================================================================
+# LAW derive-ord-mismatch (Rust): лексикографический порядок на числовом типе
+# ========================================================================
+# `#[derive(PartialOrd)]` над `struct Fraction { n, d }` сравнивает СНАЧАЛА `n`,
+# потом `d`. Это порядок ПОЛЕЙ, а не чисел: (1,3) > (1,2), хотя 1/3 < 1/2.
+# Компилятор молчит (синтаксис безупречен), rug/GMP не спасает (переполнения
+# нет вовсе), и баг уходит в публичный API.
+#
+# ЧЕСТНЫЙ ФИЛЬТР (никаких обвинений Point{x,y} и Meter(i64)):
+#   * есть derive(...PartialOrd...) либо derive(...Ord...);
+#   * >= 2 полей числового типа;
+#   * имена полей имеют МАТЕМАТИЧЕСКИЙ смысл дроби (num/den) или фиксированной
+#     точки (mantissa/scale) — только для них лексикографика заведомо неверна;
+#   * в файле есть нетривиальная алгебра (impl Add/Mul/Div) — иначе это пара
+#     чисел без арифметики.
+# Свидетели считаются ТОЧНО (fractions.Fraction), а не на глаз.
+
+import re as _re
+import tempfile as _tempfile
+
+RUST_DERIVE_RE = _re.compile(
+    r"#\[derive\((?P<derive>[^)]*)\)\]\s*(?:#\[[^\]]*\]\s*)*"
+    r"(?:pub(?:\([^)]*\))?\s+)?struct\s+(?P<name>\w+)\s*\{(?P<body>[^}]*)\}", _re.S)
+RUST_NUMERIC = ("i8", "i16", "i32", "i64", "i128", "isize",
+                "u8", "u16", "u32", "u64", "u128", "usize", "f32", "f64")
+FRAC_NUM = {"num", "n", "numerator"}
+FRAC_DEN = {"den", "d", "denominator", "denom"}
+DEC_MANT = {"mantissa", "mant", "unscaled"}
+DEC_SCALE = {"scale", "exp", "exponent"}
+
+
+def _rust_fields(body: str) -> list:
+    """[(name, type)] из тела struct, только числовые поля."""
+    out = []
+    for line in body.split(","):
+        part = line.split("//")[0].strip()
+        m = _re.match(r"(?:pub\s+)?(\w+)\s*:\s*([\w:]+)", part)
+        if m and m.group(2).split("::")[-1] in RUST_NUMERIC:
+            out.append((m.group(1), m.group(2).split("::")[-1]))
+    return out
+
+
+def _frac_witness():
+    """(1,3) vs (1,2): по полям Greater, как дроби 1/3 < 1/2."""
+    from fractions import Fraction as F
+    a, b = (1, 3), (1, 2)
+    lex = "Greater" if a > b else ("Less" if a < b else "Equal")
+    va, vb = F(*a), F(*b)
+    num = "Greater" if va > vb else ("Less" if va < vb else "Equal")
+    return a, b, lex, num, va, vb
+
+
+def _dec_witness():
+    """(2,0) vs (100,2): по полям Less (2 < 100), как 2 vs 1.00 — Greater."""
+    from fractions import Fraction as F
+    a, b = (2, 0), (100, 2)
+    lex = "Greater" if a > b else ("Less" if a < b else "Equal")
+    va, vb = F(a[0], 10 ** a[1]), F(b[0], 10 ** b[1])
+    num = "Greater" if va > vb else ("Less" if va < vb else "Equal")
+    return a, b, lex, num, va, vb
+
+
+def check_rust_derive_ord(src: str) -> list:
+    """Находки derive-ord-mismatch в одном .rs файле."""
+    out = []
+    for m in RUST_DERIVE_RE.finditer(src):
+        derive = m.group("derive")
+        if "PartialOrd" not in derive and not _re.search(r"\bOrd\b", derive):
+            continue
+        name = m.group("name")
+        fields = _rust_fields(m.group("body"))
+        if len(fields) < 2:
+            continue
+        names = {f[0] for f in fields}
+        if _re.search(r"impl\s+(?:Add|Sub|Mul|Div)\s*(?:<[^>]*>)?\s+for\s+"
+                      + _re.escape(name) + r"\b", src) is None:
+            continue
+        if (names & FRAC_NUM) and (names & FRAC_DEN):
+            a, b, lex, num, va, vb = _frac_witness()
+            out.append({
+                "symbol": name, "law": "derive-ord-mismatch",
+                "detail": "lexicographic (n, d): %s > %s by fields, but %s < %s as fractions"
+                          % (a, b, va, vb),
+                "witness": {"a": a, "b": b, "derive_says": lex, "math_says": num},
+            })
+        elif (names & DEC_MANT) and (names & DEC_SCALE):
+            a, b, lex, num, va, vb = _dec_witness()
+            out.append({
+                "symbol": name, "law": "derive-ord-mismatch",
+                "detail": "lexicographic (mantissa, scale): %s vs %s is %s by fields, "
+                          "but %s vs %s is %s as decimals" % (a, b, lex, va, vb, num),
+                "witness": {"a": a, "b": b, "derive_says": lex, "math_says": num},
+            })
+    return out
+
+
+def hunt_rust_tree(root: Path) -> dict:
+    """.rs вне target/tests/examples: сколько проверено и что найдено."""
+    checked = 0
+    findings = []
+    for p in sorted(Path(root).rglob("*.rs")):
+        if set(p.parts) & {"target", "tests", "examples", "benches"}:
+            continue
+        try:
+            src = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        checked += 1
+        for f in check_rust_derive_ord(src):
+            f["file"] = str(p)
+            findings.append(f)
+    return {"root": str(root), "checked": checked, "findings": findings}
+
+
 def selftest() -> int:
     bad = 0
 
@@ -260,6 +374,57 @@ def selftest() -> int:
     pub = exported_names(pkg / "__init__.py")
     ok("public_fn" in pub and "linear" not in pub,
        "внутренний linear отвергнут фильтром __init__")
+    broken_frac = '''
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Fraction { pub n: i64, pub d: i64 }
+impl Add for Fraction {
+    fn add(self, rhs: Self) -> Self {
+        Fraction::new(self.n * rhs.d + rhs.n * self.d, self.d * rhs.d)
+    }
+}
+'''
+    broken_dec = '''
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Decimal { pub mantissa: i64, pub scale: u8 }
+impl Add for Decimal { fn add(self, o: Self) -> Self { self } }
+'''
+    good_newtype = '''
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Meter(i64);
+'''
+    good_money = '''
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Money { pub dollars: i64, pub cents: u8 }
+impl Add for Money { fn add(self, o: Self) -> Self { self } }
+'''
+    good_manual = '''
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Fraction { pub n: i64, pub d: i64 }
+impl Add for Fraction { fn add(self, o: Self) -> Self { self } }
+impl PartialOrd for Fraction {
+    fn partial_cmp(&self, o: &Self) -> Option<Ordering> {
+        ((self.n as i128) * (o.d as i128)).partial_cmp(&((o.n as i128) * (self.d as i128)))
+    }
+}
+'''
+    f1 = check_rust_derive_ord(broken_frac)
+    f2 = check_rust_derive_ord(broken_dec)
+    ok(len(f1) == 1 and f1[0]["witness"]["derive_says"] == "Greater"
+       and f1[0]["witness"]["math_says"] == "Less",
+       "derive-ord: Fraction{n,d} пойман (1/3 > 1/2 по полям)")
+    ok(len(f2) == 1 and f2[0]["witness"]["derive_says"] == "Less"
+       and f2[0]["witness"]["math_says"] == "Greater",
+       "derive-ord: Decimal{mantissa,scale} пойман (2 vs 1.00)")
+    ok(check_rust_derive_ord(good_newtype) == [], "derive-ord: newtype Meter(i64) молчит")
+    ok(check_rust_derive_ord(good_money) == [], "derive-ord: Money{dollars,cents} молчит")
+    ok(check_rust_derive_ord(good_manual) == [], "derive-ord: ручной i128 PartialOrd молчит")
+    w2 = Path(_tempfile.mkdtemp())
+    (w2 / "a.rs").write_text(broken_frac, encoding="utf-8")
+    (w2 / "b.rs").write_text(good_money, encoding="utf-8")
+    r2 = hunt_rust_tree(w2)
+    ok(r2["checked"] == 2 and len(r2["findings"]) == 1,
+       "derive-ord: hunt_rust_tree — 2 файла, 1 находка")
+
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
@@ -270,12 +435,23 @@ def main(argv) -> int:
     ap = argparse.ArgumentParser(description="law_hunter: тихие математические баги")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--package", help="каталог пакета (с __init__.py)")
+    ap.add_argument("--rust", help="каталог с .rs: закон derive-ord-mismatch")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
+    if a.rust:
+        res = hunt_rust_tree(Path(a.rust))
+        if a.json:
+            print(json.dumps(res, ensure_ascii=False, indent=1, default=str))
+        else:
+            print("%s: проверено %d .rs, находок %d"
+                  % (res["root"], res["checked"], len(res["findings"])))
+            for f in res["findings"]:
+                print("  [LAW] %s :: %s" % (f["symbol"], f["detail"]))
+        return 0
     if not a.package:
-        ap.error("нужен --package или --selftest")
+        ap.error("нужен --package, --rust или --selftest")
     p = Path(a.package)
     res = hunt_package(p, p.name)
     if a.json:

@@ -130,6 +130,57 @@ Receipt: `docs/evidence/blind_p1_2026-11-07.log`, section `T4c`.
 fails on a wrong answer, but with a message that hides the cause. Recorded here because the whole
 point of the blind exam is that a stranger's code is judged by its own text, not by its reputation.
 
+## Case E — `isamert/scheme.rs` @ `238b817b7f`: `derive(PartialOrd)` on a fraction (`#4`)
+
+`src/utils/fraction.rs`:
+
+```rust
+#[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
+pub struct Fraction { pub n: i64, pub d: i64 }
+```
+
+The derived `PartialOrd` compares `n` and then `d` — the order of the **fields**, not of the
+**numbers**. `Fraction { n: 1, d: 3 } > Fraction { n: 1, d: 2 }` by fields, while `1/3 < 1/2`.
+
+Reachable from user input: `src/lexer.rs:36` compares two `Token::Fraction` values with
+`partial_cmp`, and `src/parser.rs:32` delegates S-expression comparison to `Token::partial_cmp`.
+So `(< 1/3 1/2)` evaluates to `#f` where Scheme says `#t`.
+
+Receipt: `rustc -O` on the isolated type prints `Greater`; `fractions.Fraction` says `1/3 < 1/2`.
+Upstream: [#4](https://github.com/isamert/scheme.rs/issues/4).
+
+**Honest framing:** the crate does not build on current stable rustc (162 errors, e.g.
+"trailing semicolon in macro used in expression position"), so the interpreter itself could not be
+run; the report says so explicitly and rests on the call path above plus the isolated reproducer.
+
+## Case F — `kiesraad/abacus` @ `58c5f124b1`: `u64` overflow in a public `Fraction` (`#4393`)
+
+`backend/apportionment/src/fraction.rs` implements `Add`/`Ord`/`Eq` with raw `u64` products and no
+`gcd` reduction. In `--release` (overflow checks off):
+
+```rust
+Fraction::new(1, 5_000_000_000) + Fraction::new(1, 5_000_000_000)
+// -> 10000000000 / 6553255926290448384   (expected 1/2500000000)
+```
+
+`25e18 − 2^64 = 6_553_255_926_290_448_384`: one wrap. `Ord` breaks **asymmetrically**, without any
+prior overflow — `Fraction::new(5_000_000_000, 1).cmp(&Fraction::new(10^19, 5_000_000_000))`
+returns `Less`, while `5e9 > 2e9`.
+
+Upstream: [#4393](https://github.com/kiesraad/abacus/issues/4393).
+
+**Honest framing:** the report is **preventive**. `Fraction` is not yet constructed in the active
+seat-allocation paths (`list_averages` / `max_remainder` are declared but not filled), so no
+election result is affected today. The claim is about the public API contract, nothing more.
+
+## Case G — `mahmoud/boltons` @ `d31d821d56c8`: wrong exception type (`#800`)
+
+`IndexedSet().pop()` with no argument walks the inner list and lets `IndexError: pop from empty
+list` escape, while `MutableSet.pop()` promises `KeyError`. Callers writing `except KeyError`
+silently miss it.
+
+Upstream: [#800](https://github.com/mahmoud/boltons/issues/800).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -138,6 +189,9 @@ point of the blind exam is that a stranger's code is judged by its own text, not
 | B | `boltons` `c1c25da` | **not checkable** (#307, variable exponent) | `Bits(4, 2)` accepted before the fix |
 | C | QuixBugs `gcd` | **DIVERGED** (crash) | `RecursionError` on `gcd(1, 2)` |
 | D | `tigerbeetle` `68958eb7` | **BOUNDS PATH** (index before its guard) | `[]` → `IndexError` instead of the authors' `assert` |
+| E | `isamert/scheme.rs` `238b817b7f` | **DIVERGED** (order, not value) | `1/3 > 1/2` from `derive(PartialOrd)`; `#4` |
+| F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` |
+| G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 
 Honest framing: three of the four are detected by KERN, one is outside the subset and is named as
 such. None of them is a new CVE — these are **real** defects (historical in A–C, live in D), and the

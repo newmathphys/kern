@@ -268,6 +268,22 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
     <td><code>rustc -C overflow-checks=on</code> &rarr; panic (rc 101)</td>
     <td><a href="https://github.com/TheAlgorithms/Rust/pull/1075">#1075</a>
         <span class="muted">Codecov: 100% patch coverage</span></td></tr>
+<tr><td><b>isamert/scheme.rs</b><br><span class="muted">Rust &middot; Scheme interpreter</span></td>
+    <td><code>derive(PartialOrd)</code> on <code>Fraction { n, d }</code> compares fields, not numbers:
+        <code>(&lt; 1/3 1/2)</code> returns <code>#f</code> through <code>lexer &rarr; parser</code>.</td>
+    <td><code>rustc -O</code> on the isolated type &rarr; <code>Greater</code>; exact math &rarr; Less</td>
+    <td><a href="https://github.com/isamert/scheme.rs/issues/4">#4</a></td></tr>
+<tr><td><b>kiesraad/abacus</b><br><span class="muted">Dutch Electoral Council</span></td>
+    <td>Public <code>apportionment::Fraction</code> (<code>u64</code>): <code>1/5e9 + 1/5e9</code> wraps to
+        <code>10000000000/6553255926290448384</code>, and <code>Ord::cmp</code> reports
+        <code>5e9 &lt; 2e9</code>. <span class="muted">Preventive: not yet wired into seat allocation.</span></td>
+    <td><code>rustc -O</code> &rarr; wrap exactly at 2<sup>64</sup></td>
+    <td><a href="https://github.com/kiesraad/abacus/issues/4393">#4393</a></td></tr>
+<tr><td><b>mahmoud/boltons</b><br><span class="muted">6.9k &#9733;</span></td>
+    <td><code>IndexedSet().pop()</code> with no argument raises <code>IndexError</code> where
+        <code>MutableSet</code> promises <code>KeyError</code>.</td>
+    <td>live <code>python3</code></td>
+    <td><a href="https://github.com/mahmoud/boltons/issues/800">#800</a></td></tr>
 </tbody></table>
   <p class="lbl" style="margin:12px 0 0">Full matrix &mdash; every capability, its one command, its external oracle and its honest boundary:
      <a href="CAPABILITY_MATRIX.md">EN</a> &middot; <a href="CAPABILITY_MATRIX.ru.md">RU</a>.
