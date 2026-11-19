@@ -167,7 +167,7 @@ Fraction::new(1, 5_000_000_000) + Fraction::new(1, 5_000_000_000)
 prior overflow — `Fraction::new(5_000_000_000, 1).cmp(&Fraction::new(10^19, 5_000_000_000))`
 returns `Less`, while `5e9 > 2e9`.
 
-Upstream: [#4393](https://github.com/kiesraad/abacus/issues/4393).
+Upstream: [#4393](https://github.com/kiesraad/abacus/issues/4393) — **closed by the maintainer as a duplicate of their own #3179**, with thanks for the report. The defect is therefore confirmed, but it is an independent rediscovery, not a new finding: it was found from scratch, without knowledge of their backlog.
 
 **Honest framing:** the report is **preventive**. `Fraction` is not yet constructed in the active
 seat-allocation paths (`list_averages` / `max_remainder` are declared but not filled), so no
@@ -290,7 +290,7 @@ test result: FAILED. 0 passed; 1 failed
 handles this; only the CSS crate does not. The report says so, which is what makes it a
 consistency argument rather than a matter of taste.
 
-Upstream: [#12815](https://github.com/swc-project/swc/issues/12815).
+Upstream: [#12815](https://github.com/swc-project/swc/issues/12815) — **closed by the maintainer as not planned, citing `AGENTS.md`**. Their `AGENTS.md` routes bugs found by static analysis to a separate tracker (`swc-project/swc-ai-issues`) and says explicitly not to file them in `swc-project/swc`; the report was reproduced by `cargo test -p swc_css_ast`, but it was filed in the wrong tracker. Recorded here as reproduced-but-not-accepted, not as an accepted fix.
 
 ## Summary
 
@@ -301,9 +301,9 @@ Upstream: [#12815](https://github.com/swc-project/swc/issues/12815).
 | C | QuixBugs `gcd` | **DIVERGED** (crash) | `RecursionError` on `gcd(1, 2)` |
 | D | `tigerbeetle` `68958eb7` | **BOUNDS PATH** (index before its guard) | `[]` → `IndexError` instead of the authors' `assert` |
 | E | `isamert/scheme.rs` `238b817b7f` | **DIVERGED** (order, not value) | `1/3 > 1/2` from `derive(PartialOrd)`; `#4` |
-| F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` |
+| F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
-| J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` |
+| J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
 | I | `boa-dev/boa` (5.8k ★) | **EQ/HASH SPLIT** on `-0.0` | `JsValue::new(0.0) == JsValue::new(-0.0)`, `HashSet::contains` → `false`; `cargo test -p boa_engine`; `#5678` |
 | H | `ad-si/Woxi` `c42f615822` | **ORD derives** (proved by rustc) | `Rational{numerator: BigInt, …}` lexicographic; `E0277` at `affine.rs:36,37`, `E0599` at `presburger.rs:353`; `#2704` |
 
