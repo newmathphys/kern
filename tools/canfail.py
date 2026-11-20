@@ -4024,8 +4024,8 @@ def case_law_hunter():
     никто бы этого не заметил.
     """
     patch("tools/law_hunter.py",
-          "if (numeric_eq or hidden_eq) and not canonical",
-          "if numeric_eq and not canonical")
+          'if not body or ("to_bits" not in body and "integer_decode" not in body):',
+          "if True:")
     return "make law-hunter-check"
 
 

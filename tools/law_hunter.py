@@ -321,44 +321,109 @@ def check_rust_derive_ord(src: str) -> list:
     return out
 
 
-def check_rust_eq_hash(src: str) -> list:
-    """LAW eq-hash-mismatch: a == b обязан давать hash(a) == hash(b).
+def _strip_test_mods(src: str) -> str:
+    """ПРАВИЛО 0: вырезать `#[cfg(test)] mod ... { ... }` по балансу скобок.
 
-    Подвид A (float-bits-hash, класс boa_engine#5678): Hash считает
-    `.to_bits()` для f32/f64, а PartialEq сравнивает числово (== или
-    same_value) — тогда -0.0 == +0.0, но их биты различны. Если PartialEq
-    сам побитовый (`to_bits() == to_bits()`), закон соблюдён — молчим.
-    Подвид B (derive-hash-custom-eq): `#[derive(... Hash ...)]` без
-    PartialEq в derive + ручной `impl PartialEq` (Version с +build,
-    неканонические Decimal/Rational).
+    Урок ночи: `sonos/tract` дал срабатывание из-за `to_bits` в тестовом хвосте
+    (строка 2881+), а не в рабочем коде.
     """
+    out, i = [], 0
+    while True:
+        m = _re.search(r"#\[cfg\(test\)\]\s*mod\s+\w+\s*\{", src[i:])
+        if not m:
+            out.append(src[i:])
+            return "".join(out)
+        start = i + m.start()
+        j = i + m.end() - 1
+        depth = 0
+        while j < len(src):
+            if src[j] == "{":
+                depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        out.append(src[i:start])
+        i = j + 1
+
+
+def _body_of(src: str, header_re: str):
+    """Тело блока по балансу фигурных скобок от заголовка."""
+    m = _re.search(header_re, src)
+    if not m:
+        return None
+    brace = src.find("{", m.start())
+    if brace < 0:
+        return None
+    depth, j = 0, brace
+    while j < len(src):
+        if src[j] == "{":
+            depth += 1
+        elif src[j] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        j += 1
+    return src[brace + 1:j]
+
+
+def check_rust_eq_hash(src: str) -> list:
+    """LAW eq-hash-mismatch — БЛОЧНО-СВЯЗНЫЙ анализ (после калибровки на ночи).
+
+    Правило 0: тестовые модули вырезаются.
+    Подвид A (float-bits-hash): `to_bits` обязан быть ВНУТРИ тела
+      `impl Hash for T`, а `PartialEq for T` не должен быть побитовым
+      (иначе порядок тотальный и контракт соблюдён — урок `tract`).
+    Подвид B (derive-hash-custom-eq): `derive(Hash)` без `PartialEq`
+      + ручной `impl PartialEq for T`, где полей >= 2 и eq НЕ обращается
+      ко всем полям (урок `datafusion::Extension` с одним полем — не баг).
+    """
+    src = _strip_test_mods(src)
     out = []
-    # .to_bits() методом ИЛИ f64::to_bits(x) / f32::to_bits(x) функцией:
-    # swc_css_ast::Number прячет вызов в локальном integer_decode.
-    if ((".to_bits()" in src) or ("f64::to_bits(" in src)
-            or ("f32::to_bits(" in src)) and ".hash(" in src:
-        canonical = _re.search(r"==\s*0\.0|0\.0\s*==", src) is not None
-        bitwise_eq = _re.search(r"to_bits\([^)]*\)\s*==", src) is not None
-        numeric_eq = _re.search(r"fn\s+eq\s*\([^)]*\)\s*->\s*bool", src) is not None
-        # PartialEq может быть производным и невидимым: #[ast_node] генерирует его,
-        # а #[allow(derived_hash_with_manual_eq)] прямо указывает на эту связку.
-        hidden_eq = _re.search(r"derived_hash_with_manual_eq|derive_hash_xor_eq|#\[ast_node", src) is not None
-        if (numeric_eq or hidden_eq) and not canonical and not bitwise_eq:
-            out.append({
-                "law": "eq-hash-mismatch",
-                "symbol": "Hash::to_bits",
-                "detail": "hash via to_bits() while eq compares numerically: -0.0 == 0.0 but bits differ",
-                "witness": {"a": "0.0", "b": "-0.0", "eq": True, "hash_equal": False},
-            })
-    for m in _re.finditer(r"#\[derive\(([^)]*)\)\]\s*(?:#\[[^\]]*\]\s*)*pub\s+struct\s+(\w+)", src):
+    for m in _re.finditer(r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Hash\s+for\s+(\w+)", src):
+        tname = m.group(1)
+        body = _body_of(src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Hash\s+for\s+"
+                             + _re.escape(tname) + r"\b")
+        if not body or ("to_bits" not in body and "integer_decode" not in body):
+            continue
+        eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(tname) + r"\b") or ""
+        bitwise = _re.search(
+            r"to_bits\([^)]*\)\s*==|==\s*[\w.]+\.to_bits\(|as_slice_unchecked::<i|to_ne_bytes|as i64\)",
+            eq_body) is not None
+        canonical = ("== 0.0" in body) or ("0.0 ==" in body)
+        if bitwise or canonical:
+            continue
+        out.append({
+            "law": "eq-hash-mismatch", "symbol": tname + "::Hash",
+            "detail": "to_bits() inside impl Hash while PartialEq is numeric: "
+                      "-0.0 == 0.0 but the bits differ",
+            "witness": {"a": tname + "(0.0)", "b": tname + "(-0.0)",
+                        "eq": True, "hash_equal": False},
+        })
+    for m in _re.finditer(r"#\[derive\(([^)]*)\)\][^;{]*?(?:pub\s+)?struct\s+(\w+)\s*\{", src):
         derive, name = m.group(1), m.group(2)
-        if "Hash" in derive and "PartialEq" not in derive:
-            if _re.search(r"impl\s+PartialEq\s+for\s+" + name + r"\b", src):
-                out.append({
-                    "law": "eq-hash-mismatch", "symbol": name,
-                    "detail": "derive(Hash) with hand-written PartialEq: fields ignored by eq still enter the hash",
-                    "witness": {"a": name + "(+build1)", "b": name + "(+build2)", "eq": True, "hash_equal": False},
-                })
+        if "Hash" not in derive or "PartialEq" in derive:
+            continue
+        eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(name) + r"\b")
+        if not eq_body:
+            continue
+        sbody = _body_of(src, r"(?:pub\s+)?struct\s+" + _re.escape(name) + r"\s*\{") or ""
+        fields = [m2.group(1) for m2 in _re.finditer(r"(?:pub\s+)?(\w+)\s*:", sbody)]
+        if len(fields) < 2:
+            continue
+        ignored = [f for f in fields if f not in eq_body]
+        transforms = _re.search(r"eq_ignore_ascii_case|to_lowercase|casefold|\*\s*\w+\.", eq_body) is not None
+        if not ignored and not transforms:
+            continue
+        out.append({
+            "law": "eq-hash-mismatch", "symbol": name,
+            "detail": "derive(Hash) with hand-written PartialEq that ignores "
+                      + ("fields " + ", ".join(ignored) if ignored else "field content (transforms)")
+                      + ": ignored parts still enter the hash",
+            "witness": {"a": name + "(+build1)", "b": name + "(+build2)",
+                        "eq": True, "hash_equal": False},
+        })
     return out
 
 
