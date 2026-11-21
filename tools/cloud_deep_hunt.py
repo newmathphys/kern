@@ -114,7 +114,44 @@ def scan_python(clone: Path) -> list:
     return out
 
 
-def policy_excerpt(clone: Path) -> str:
+def databend_probe(clone: Path, log) -> list:
+    """Шард 0: живой `cargo test` на databend (Трофей №13).
+
+    Локально этот тест недостижим: репозиторий требует `clang` в
+    `.cargo/config.toml`, а в облачном воркфлоу `clang` ставится через apt.
+    Возвращает findings-подобные записи с живым выводом теста.
+    """
+    rel = Path("src/query/datavalues/src/data_value.rs")
+    target = clone / rel
+    if not target.is_file():
+        return [{"law": "databend-probe", "detail": f"{rel} отсутствует"}]
+    src = target.read_text(encoding="utf-8", errors="replace")
+    if "kern_eq_hash_minus_zero" not in src:
+        src += (
+            "\n#[cfg(test)]\nmod kern_eq_hash_test {\n"
+            "    use super::*;\n    use std::collections::HashSet;\n\n"
+            "    #[test]\n    fn kern_eq_hash_minus_zero() {\n"
+            "        let a = DataValue::Float64(0.0);\n"
+            "        let b = DataValue::Float64(-0.0);\n"
+            "        assert_eq!(a, b, \"derived PartialEq compares numerically\");\n"
+            "        let mut set = HashSet::new();\n        set.insert(a);\n"
+            "        assert!(set.contains(&b), \"Eq/Hash contract broken on -0.0\");\n"
+            "    }\n}\n"
+        )
+        target.write_text(src, encoding="utf-8")
+    log("[databend] rustup show active-toolchain")
+    _run(["rustup", "show", "active-toolchain"], cwd=clone, timeout=600)
+    log("[databend] cargo test -p databend-common-datavalues --lib kern_eq_hash_minus_zero")
+    rc, out = _run(["cargo", "test", "-p", "databend-common-datavalues", "--lib",
+                    "kern_eq_hash_minus_zero"], cwd=clone, timeout=3600)
+    tail = "\n".join(out.strip().splitlines()[-25:])
+    verdict = "FAILED" if "test result: FAILED" in out else (
+        "PASSED" if "test result: ok" in out else "UNKNOWN")
+    return [{
+        "law": "databend-probe", "symbol": "DataValue::Float64",
+        "detail": f"cargo test rc={rc}, verdict={verdict}\n\n{tail}",
+    }]
+
     for name in ("AGENTS.md", "AI_POLICY.md", "CONTRIBUTING.md"):
         p = clone / name
         if p.is_file():
@@ -142,7 +179,10 @@ def hunt_repo(repo: str, workdir: Path, log) -> dict:
         entry["policy"] = policy_excerpt(dest)
         is_rust = (dest / "Cargo.toml").is_file()
         entry["status"] = "scanned"
-        entry["findings"] = scan_rust(dest) if is_rust else scan_python(dest)
+        if repo == "databendlabs/databend":
+            entry["findings"] = databend_probe(dest, log)
+        else:
+            entry["findings"] = scan_rust(dest) if is_rust else scan_python(dest)
         log(f"[scan] {repo}: {len(entry['findings'])} findings")
     finally:
         shutil.rmtree(dest, ignore_errors=True)
