@@ -351,6 +351,25 @@ test result: FAILED. 0 passed; 1 failed; 97 filtered out
 
 Upstream: [#11344](https://github.com/lance-format/lance/issues/11344).
 
+## Case N — `databendlabs/databend` (9.5k ★): `DataValue` hashes floats by bits (`#21155`)
+
+`DataValue` derives `PartialEq`, declares `impl Eq for DataValue {}`, and implements
+`Hash` by hand with `DataValue::Float64(v) => v.to_bits().hash(state)`. So
+`Float64(0.0)` and `Float64(-0.0)` compare equal and hash differently, which breaks
+any hash-based grouping (GROUP BY keys, DISTINCT sets, hash joins).
+
+Confirmed in a GitHub Actions runner (the local machine has no `clang`):
+
+```text
+thread 'data_value::kern_eq_hash_test::kern_eq_hash_minus_zero' panicked at
+src/query/datavalues/src/data_value.rs:74:9: Eq/Hash contract broken on -0.0
+test result: FAILED. 0 passed; 1 failed
+```
+
+The crate is still in the live build graph — `src/query/expression` and
+`storages/common/table_meta` depend on `databend-common-datavalues`.
+Upstream: [#21155](https://github.com/databendlabs/databend/issues/21155).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -363,6 +382,7 @@ Upstream: [#11344](https://github.com/lance-format/lance/issues/11344).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| N | `databend` `77137bc2ad` (9.5k ★) | **EQ/HASH SPLIT** on `Float64(-0.0)` | `cargo test -p databend-common-datavalues` → FAILED (cloud); `#21155` |
 | M | `lance` `e03f5e2f9d` | **EQ/HASH SPLIT** on `-0.0` bbox | `cargo test -p lance-geo` → FAILED; `#11344` |
 | L | `vector` (19k ★) | **EQ/HASH SPLIT** in an `IndexMap` key | `MetricRef` bounds: `cargo test` → FAILED; `#27277` |
 | K | `surrealdb` (28k ★) | **EQ/HASH SPLIT** on `Value::Geometry` | `cargo test -p surrealdb-types` → FAILED; `#7715` |
