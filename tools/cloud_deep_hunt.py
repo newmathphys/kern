@@ -75,24 +75,42 @@ def scan_rust(clone: Path) -> list:
 
 
 def scan_python(clone: Path) -> list:
-    """Парная эвристика: __eq__ и __hash__ в одном файле, __eq__ нормализует."""
+    """LAW py-eq-hash: `__eq__` и `__hash__` в ОДНОМ классе, где __eq__
+    нормализует значение (casefold/lower), а __hash__ хеширует сырое поле.
+
+    Урок ночи: файловый греп давал FP на pydantic / httpx / rich, потому что
+    `__eq__`, `__hash__` и `.lower()` лежали в РАЗНЫХ классах одного файла.
+    """
+    import ast as _ast
+
     out = []
     for p in clone.rglob("*.py"):
         if "test" in p.parts or ".venv" in p.parts:
             continue
         try:
-            text = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+            tree = _ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+        except (SyntaxError, OSError, ValueError):
             continue
-        if "def __eq__" in text and "def __hash__" in text:
-            if any(k in text for k in ("casefold()", ".lower()", "Decimal(")):
-                out.append({
-                    "law": "py-eq-hash-candidate", "symbol": p.name,
-                    "file": str(p),
-                    "detail": "__eq__ и __hash__ в одном файле, __eq__ нормализует "
-                              "регистр/Decimal — нужен живой прогон "
-                              "`a == b and b not in {a}`",
-                })
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.ClassDef):
+                continue
+            methods = {n.name: n for n in node.body
+                       if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))}
+            if "__eq__" not in methods or "__hash__" not in methods:
+                continue
+            eq_dump = _ast.dump(methods["__eq__"])
+            hash_dump = _ast.dump(methods["__hash__"])
+            eq_normalises = ("casefold" in eq_dump) or ("lower" in eq_dump)
+            hash_raw = ("casefold" not in hash_dump) and ("lower" not in hash_dump)
+            if not (eq_normalises and hash_raw):
+                continue
+            out.append({
+                "law": "py-eq-hash", "symbol": f"{p.name}:{node.name}",
+                "file": f"{p}:{node.lineno}",
+                "detail": "__eq__ нормализует регистр, а __hash__ в том же классе "
+                          "хеширует сырое поле — нужен живой прогон "
+                          "`a == b and b not in {a}`",
+            })
     return out
 
 

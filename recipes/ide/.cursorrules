@@ -1,0 +1,13 @@
+# .cursorrules — KERN
+
+# Инвариант: утверждение без доказательства — это гипотеза.
+# Перед коммитом правки в Python с @kern: аннотациями запускай:
+#   python3 tools/kern_contracts.py <changed_file>
+# Перед коммитом правок Rust, где есть derive(PartialOrd) или to_bits()+hash:
+#   python3 tools/law_hunter.py --rust <changed_dir>
+
+# Правила для агента:
+# 1. Не выдумывай API: читай файл целиком, а не первые 40 строк.
+# 2. Найденный дефект обязан воспроизводиться живьём (cargo test / python3).
+# 3. Перед репортом в чужой трекер: поиск дублей + чтение AGENTS.md/CONTRIBUTING.md.
+# 4. Никаких ссылок на сторонние инструменты в теле чужих issues.

@@ -1,0 +1,25 @@
+# KERN pre-commit hooks — докажи утверждение, прежде чем его написать.
+# Подключение:  repos: [{repo: https://github.com/newmathphys/kern, rev: <tag>, hooks: [{id: kern-verify-python}]}]
+- id: kern-verify-python
+  name: KERN — контракты @kern:requires/@kern:ensures для Python
+  entry: python3 tools/kern_contracts.py
+  language: python
+  types: [python]
+  pass_filenames: true
+  description: "Проверяет контракты из комментариев; падает на контрпримере."
+
+- id: kern-xray
+  name: KERN — X-ray кода без аннотаций (мёртвые ветки, crash paths)
+  entry: python3 tools/kern_xray_cli.py
+  language: python
+  types: [python]
+  pass_filenames: true
+  description: "Zero-annotation анализ: DEAD BRANCH, REDUNDANT GUARD, CRASH PATH."
+
+- id: kern-law-rust
+  name: KERN — законы Rust (derive-ord-mismatch, eq-hash-mismatch)
+  entry: python3 tools/law_hunter.py --rust
+  language: python
+  types: [rust]
+  pass_filenames: true
+  description: "Ловит derive(PartialOrd) на дробях и to_bits()-хеш при числовом eq."
