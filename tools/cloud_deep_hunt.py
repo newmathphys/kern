@@ -51,10 +51,10 @@ SCAN_TIMEOUT = 600
 MAX_CLONE_MB = 2048
 
 
-def _run(cmd, cwd=None, timeout=600):
+def _run(cmd, cwd=None, timeout=600, env=None):
     try:
         p = subprocess.run(cmd, cwd=str(cwd) if cwd else None,
-                           capture_output=True, text=True, timeout=timeout)
+                           capture_output=True, text=True, timeout=timeout, env=env)
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except subprocess.TimeoutExpired:
         return 124, "TIMEOUT"
@@ -142,8 +142,12 @@ def databend_probe(clone: Path, log) -> list:
     log("[databend] rustup show active-toolchain")
     _run(["rustup", "show", "active-toolchain"], cwd=clone, timeout=600)
     log("[databend] cargo test -p databend-common-datavalues --lib kern_eq_hash_minus_zero")
+    # 7 ГБ RAM на раннере GitHub: 2 потока и без debuginfo (линковка clang
+    # иначе съедает память).
+    env = dict(os.environ, CARGO_BUILD_JOBS="2",
+               CARGO_PROFILE_TEST_DEBUG="0", CARGO_PROFILE_DEV_DEBUG="0")
     rc, out = _run(["cargo", "test", "-p", "databend-common-datavalues", "--lib",
-                    "kern_eq_hash_minus_zero"], cwd=clone, timeout=3600)
+                    "kern_eq_hash_minus_zero"], cwd=clone, timeout=3600, env=env)
     tail = "\n".join(out.strip().splitlines()[-25:])
     verdict = "FAILED" if "test result: FAILED" in out else (
         "PASSED" if "test result: ok" in out else "UNKNOWN")
@@ -152,6 +156,9 @@ def databend_probe(clone: Path, log) -> list:
         "detail": f"cargo test rc={rc}, verdict={verdict}\n\n{tail}",
     }]
 
+
+def policy_excerpt(clone: Path) -> str:
+    """Первые строки AGENTS.md / AI_POLICY.md / CONTRIBUTING.md."""
     for name in ("AGENTS.md", "AI_POLICY.md", "CONTRIBUTING.md"):
         p = clone / name
         if p.is_file():
@@ -241,6 +248,15 @@ def selftest() -> int:
                      out, 0, 6)
         ok(out.is_file() and "shard 0/6" in out.read_text(encoding="utf-8"),
            "отчёт пишется и содержит номер шарда")
+    with tempfile.TemporaryDirectory() as tmp:
+        t = Path(tmp)
+        (t / "AGENTS.md").write_text("# Rules" + chr(10) + "Read this first." + chr(10),
+                                    encoding="utf-8")
+        ok(isinstance(policy_excerpt(t), str) and "AGENTS.md" in policy_excerpt(t),
+           "policy_excerpt читает AGENTS.md (иначе NameError роняет все шарды)")
+        ok("отсутствует" in databend_probe(t, lambda *_: None)[0]["detail"],
+           "databend_probe без файла возвращает запись, а не падает")
+
     print(f"[CLOUD-DEEP-HUNT-SELFTEST] провалов: {bad}")
     return 0 if bad == 0 else 1
 
