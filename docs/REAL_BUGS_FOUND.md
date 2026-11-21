@@ -292,6 +292,65 @@ consistency argument rather than a matter of taste.
 
 Upstream: [#12815](https://github.com/swc-project/swc/issues/12815) — **closed by the maintainer as not planned, citing `AGENTS.md`**. Their `AGENTS.md` routes bugs found by static analysis to a separate tracker (`swc-project/swc-ai-issues`) and says explicitly not to file them in `swc-project/swc`; the report was reproduced by `cargo test -p swc_css_ast`, but it was filed in the wrong tracker. Recorded here as reproduced-but-not-accepted, not as an accepted fix.
 
+## Case K — `surrealdb/surrealdb` (28k ★): `Value` claims `Eq`, `Geometry` hashes bits (`#7715`)
+
+`Value` derives `Hash` and `PartialEq` and declares `impl Eq for Value {}`
+(`surrealdb/types/src/value/mod.rs:87`, `:140`). The `Geometry` variant resolves those
+two derives to different implementations: `derive(Hash)` calls the hand-written
+`impl hash::Hash for Geometry` which hashes `p.x().to_bits()`, while `derive(PartialEq)`
+calls the derived `PartialEq for Geometry`, which compares `geo_types::Point<f64>`
+numerically. So `Point(0.0, 0.0)` equals `Point(-0.0, -0.0)` and hashes differently.
+
+Confirmed live with `cargo test -p surrealdb-types`:
+
+```text
+thread 'value::kern_test::kern_geometry_eq_hash' panicked at value/mod.rs:1727:
+Eq/Hash contract broken on Geometry(-0.0)
+test result: FAILED. 0 passed; 1 failed
+```
+
+The report notes that `Number::hash` in the same crate already solves this with
+`Canonical::of(*self)`, so the discipline exists and `Geometry` bypasses it.
+Upstream: [#7715](https://github.com/surrealdb/surrealdb/issues/7715).
+
+## Case L — `vectordotdev/vector` (19k ★): `MetricRef` is an `IndexMap` key (`#27277`)
+
+`src/sinks/prometheus/exporter.rs` keeps metrics in
+`IndexMap<MetricRef, (Metric, MetricMetadata)>` (`:239`) and looks them up with
+`metrics.entry(MetricRef::from_metric(&normalized))` (`:630`). `MetricRef` implements
+`PartialEq` numerically over `bounds: Option<Vec<f64>>` and declares `impl Eq`, but
+`Hash` feeds each bound as `bound.to_bits()`. A histogram bound arriving as `-0.0`
+and later as `0.0` therefore produces two entries, so the exporter emits the same
+metric family twice in `/metrics`.
+
+Confirmed live with `cargo test --lib --no-default-features --features sinks-prometheus`:
+
+```text
+thread '...metric_ref_eq_hash_minus_zero' panicked at exporter.rs:1986:
+Eq/Hash contract broken on -0.0 bound
+test result: FAILED. 0 passed; 1 failed; 580 filtered out
+```
+
+Upstream: [#27277](https://github.com/vectordotdev/vector/issues/27277).
+
+## Case M — `lancedb/lance`: `HilbertUDF` hashes bbox bits (`#11344`)
+
+`rust/lance-geo/src/rtree/sort/hilbert_sort.rs` compares `bbox.minx()`/`miny()`/
+`maxx()`/`maxy()` numerically in `PartialEq`, declares `impl Eq`, and hashes the same
+coordinates as `to_bits()`. `HilbertUDF` is a `ScalarUDFImpl`, and DataFusion requires
+`Eq + Hash` for user-defined functions because the planner stores them in hash-based
+structures (CSE, projection deduplication).
+
+Confirmed live with `cargo test -p lance-geo --lib hilbert_udf_eq_hash_minus_zero`:
+
+```text
+thread 'rtree::sort::hilbert_sort::kern_eq_hash_test::hilbert_udf_eq_hash_minus_zero'
+panicked at hilbert_sort.rs:349: Eq/Hash contract broken on -0.0 bbox
+test result: FAILED. 0 passed; 1 failed; 97 filtered out
+```
+
+Upstream: [#11344](https://github.com/lance-format/lance/issues/11344).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -304,6 +363,9 @@ Upstream: [#12815](https://github.com/swc-project/swc/issues/12815) — **closed
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| M | `lance` `e03f5e2f9d` | **EQ/HASH SPLIT** on `-0.0` bbox | `cargo test -p lance-geo` → FAILED; `#11344` |
+| L | `vector` (19k ★) | **EQ/HASH SPLIT** in an `IndexMap` key | `MetricRef` bounds: `cargo test` → FAILED; `#27277` |
+| K | `surrealdb` (28k ★) | **EQ/HASH SPLIT** on `Value::Geometry` | `cargo test -p surrealdb-types` → FAILED; `#7715` |
 | I | `boa-dev/boa` (5.8k ★) | **EQ/HASH SPLIT** on `-0.0` | `JsValue::new(0.0) == JsValue::new(-0.0)`, `HashSet::contains` → `false`; `cargo test -p boa_engine`; `#5678` |
 | H | `ad-si/Woxi` `c42f615822` | **ORD derives** (proved by rustc) | `Rational{numerator: BigInt, …}` lexicographic; `E0277` at `affine.rs:36,37`, `E0599` at `presburger.rs:353`; `#2704` |
 

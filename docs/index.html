@@ -290,6 +290,21 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
         <code>E0277</code> at <code>affine.rs:36,37</code>, <code>E0599</code> at <code>presburger.rs:353</code>.</td>
     <td><code>cargo check --workspace --tests</code> &rarr; 4 errors</td>
     <td><a href="https://github.com/ad-si/Woxi/issues/2704">#2704</a></td></tr>
+<tr><td><b>surrealdb/surrealdb</b><br><span class="muted">28k &#9733; &middot; database</span></td>
+    <td><code>Value</code> declares <code>impl Eq</code>, but the <code>Geometry</code> variant hashes
+        <code>to_bits()</code> while its derived <code>PartialEq</code> compares numerically.</td>
+    <td><code>cargo test -p surrealdb-types</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/surrealdb/surrealdb/issues/7715">#7715</a></td></tr>
+<tr><td><b>vectordotdev/vector</b><br><span class="muted">19k &#9733; &middot; Datadog</span></td>
+    <td><code>MetricRef</code> &mdash; the <code>IndexMap</code> key of the Prometheus exporter &mdash;
+        hashes bounds as <code>to_bits()</code> while <code>PartialEq</code> compares numerically.</td>
+    <td><code>cargo test --features sinks-prometheus</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/vectordotdev/vector/issues/27277">#27277</a></td></tr>
+<tr><td><b>lancedb/lance</b><br><span class="muted">vector database</span></td>
+    <td><code>HilbertUDF</code> hashes bounding-box coordinates by bits while <code>PartialEq</code> compares
+        them numerically; it is a <code>ScalarUDFImpl</code>, which DataFusion requires to be <code>Eq + Hash</code>.</td>
+    <td><code>cargo test -p lance-geo</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/lance-format/lance/issues/11344">#11344</a></td></tr>
 <tr><td><b>boa-dev/boa</b><br><span class="muted">5.8k &#9733; &middot; JS engine</span></td>
     <td><code>JsValue</code>: <code>Eq</code> via <code>SameValueZero</code> but <code>Hash</code> via
         <code>f64::to_bits()</code>, so <code>0.0 == -0.0</code> and a <code>HashSet</code> key is lost.</td>
