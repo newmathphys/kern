@@ -388,6 +388,16 @@ def check_rust_eq_hash(src: str) -> list:
         if not body or ("to_bits" not in body and "integer_decode" not in body):
             continue
         eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(tname) + r"\b") or ""
+        # ПРАВИЛО 4: если у ТОГО ЖЕ типа нет PartialEq, нарушать нечего
+        # (datafusion::Fl<T> — обёртка только для Hash, Eq у неё отсутствует).
+        derived_eq = _re.search(
+            r"#\[derive\([^)]*PartialEq[^)]*\)\][^;{]*?(?:pub\s+)?(?:struct|enum)\s+"
+            + _re.escape(tname) + r"\b", src) is not None
+        ast_node = _re.search(
+            r"#\[ast_node[^\]]*\][^;{]*?(?:pub\s+)?(?:struct|enum)\s+"
+            + _re.escape(tname) + r"\b", src) is not None
+        if not (eq_body or derived_eq or ast_node):
+            continue
         bitwise = _re.search(
             r"to_bits\([^)]*\)\s*==|==\s*[\w.]+\.to_bits\(|as_slice_unchecked::<i|to_ne_bytes|as i64\)",
             eq_body) is not None
@@ -581,6 +591,19 @@ impl Hash for Number {
 '''
     ok(len(check_rust_eq_hash(swc_number)) == 1,
        "eq-hash: swc Number (f64::to_bits функцией + #[ast_node]) пойман")
+    fl_no_eq = '''
+struct Fl<T>(T);
+macro_rules! h { () => {
+    impl std::hash::Hash for Fl<f64> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            state.write(&u64::from_ne_bytes(self.0.to_ne_bytes()).to_ne_bytes())
+        }
+    }
+}; }
+'''
+    ok(check_rust_eq_hash(fl_no_eq) == [],
+       "eq-hash: обёртка Fl<T> без PartialEq молчит (0 FP, калибровка №4)")
+
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
