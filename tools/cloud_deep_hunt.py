@@ -148,7 +148,10 @@ def databend_probe(clone: Path, log) -> list:
                CARGO_PROFILE_TEST_DEBUG="0", CARGO_PROFILE_DEV_DEBUG="0")
     rc, out = _run(["cargo", "test", "-p", "databend-common-datavalues", "--lib",
                     "kern_eq_hash_minus_zero"], cwd=clone, timeout=3600, env=env)
-    tail = "\n".join(out.strip().splitlines()[-25:])
+    keep = [ln for ln in out.splitlines()
+            if ("panicked" in ln or "test result" in ln
+                or "contract broken" in ln or "error[" in ln)]
+    tail = "\n".join(keep[:8] + out.strip().splitlines()[-6:])
     verdict = "FAILED" if "test result: FAILED" in out else (
         "PASSED" if "test result: ok" in out else "UNKNOWN")
     return [{
