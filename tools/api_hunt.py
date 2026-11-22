@@ -327,7 +327,11 @@ def analyse_z3_arith(src: str, path: str) -> list:
         return []
     if not path.endswith((".c", ".h", ".rs")):
         return []
-    if "cfg(test)" in src or "/tests/" in path:
+    lowered = path.lower()
+    if "cfg(test)" in src or "/tests/" in f"/{lowered}" \
+            or lowered.endswith(("tests.rs", "_test.rs")):
+        return []
+    if "/examples/" in lowered or "/testbed/" in lowered or "/stress_tests/" in lowered:
         return []
 
     out = []
@@ -349,7 +353,12 @@ def analyse_z3_arith(src: str, path: str) -> list:
                           f"a={m[a]}, b={m[b]}, g={m[g]} — истинный НОК влезает",
                 "hot": True,
             })
-    if re.search(r"\(\s*\w+\s*\+\s*\w+\s*\)\s*(/\s*2|>>\s*1)", src):
+    # midpoint сообщаем только в контексте поиска по границам: в кодеках и
+    # тестах `(a + b) / 2` — это среднее двух литералов, а не индекс.
+    search_ctx = re.search(
+        r"binary_search|bsearch|lower_bound|upper_bound|partition_point"
+        r"|\barr\[\s*mid\s*\]|\bmid\s*\]", src)
+    if search_ctx and re.search(r"\(\s*\w+\s*\+\s*\w+\s*\)\s*(/\s*2|>>\s*1)", src):
         lo, hi = z3.BitVecs("lo hi", 32)
         s = z3.Solver()
         # легитимные границы: 0 <= lo, hi <= INT32_MAX
@@ -500,10 +509,22 @@ def selftest() -> int:
     safe_c = ("int lcm(int a, int b) {\n    return (a / gcd(a, b)) * b;\n}\n")
     ok(analyse_z3_arith(safe_c, "src/math.c") == [], "z3: (a/gcd)*b -> находок нет")
 
-    mid_c = "int m = (low + high) / 2;\n"
+    mid_c = ("int binary_search(int *arr, int n) {\n"
+             "    int low = 0, high = n - 1;\n"
+             "    while (low <= high) { int mid = (low + high) / 2;"
+             " if (arr[mid] == 0) return mid; }\n"
+             "    return -1;\n}\n")
     h = analyse_z3_arith(mid_c, "src/bsearch.c")
     ok(len(h) == 1 and h[0]["law"] == "z3-arith:midpoint", "z3: (low+high)/2 даёт контрпример")
     ok(analyse_z3_arith(mid_c, "src/bsearch.c") != [], "z3: повторный вызов стабилен")
+
+    # Калибровка №7: тестовые пути и «среднее двух литералов» — не находка
+    ok(analyse_z3_arith(mid_c, "src/tests.rs") == [], "z3: tests.rs отсекается")
+    ok(analyse_z3_arith(mid_c, "tests/test_search.c") == [], "z3: tests/ отсекается")
+    codec = ("int lj92_predict(int a, int b) {\n"
+             "    return (a + b) / 2;\n}\n")
+    ok(analyse_z3_arith(codec, "src/lj92.rs") == [],
+       "z3: среднее без контекста поиска молчит")
 
     rust = ('#[derive(Clone, Copy, PartialEq)]\npub struct Money { pub cents: f64 }\n'
             'impl Eq for Money {}\n'

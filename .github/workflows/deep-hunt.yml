@@ -112,6 +112,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          for n in $(gh issue list --repo "${{ github.repository }}" --state open \
+              --search "[Morning Brief] in:title" --json number --jq '.[].number'); do
+            gh issue close "$n" --repo "${{ github.repository }}" \
+              -c "Superseded by the nightly brief of $(date -u +%Y-%m-%d)." || true
+          done
           gh issue create --repo "${{ github.repository }}" \
             --title "[Morning Brief] Cloud deep hunt $(date -u +%Y-%m-%d)" \
             --body-file morning-brief.md || echo "issue create skipped"

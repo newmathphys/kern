@@ -12,38 +12,50 @@ import tempfile
 import shutil
 from pathlib import Path
 
-TEST = '''
-#[cfg(test)]
-mod eq_hash_test {
-    use super::*;
-    use crate::px;
-    use std::collections::HashMap;
+PROBE_CARGO_TOML = """[package]
+name = "gpui-probe"
+version = "0.1.0"
+edition = "2021"
 
-    #[test]
-    fn gpui_pixels_and_glyph_params_eq_hash_minus_zero() {
-        let a = px(0.0);
-        let b = -px(0.0);
-        assert!(a == b, "Pixels derives PartialEq on f32");
-        let mut m: HashMap<Pixels, u32> = HashMap::new();
-        m.insert(a, 1);
-        assert_eq!(m.get(&b).copied(), Some(1), "Pixels Eq/Hash broken on -0.0");
+[workspace]
 
-        let ga = RenderGlyphParams {
-            font_id: FontId(0),
-            glyph_id: GlyphId(0),
-            font_size: px(0.0),
-            subpixel_variant: point(0u8, 0u8),
-            scale_factor: 0.0,
-            is_emoji: false,
-            subpixel_rendering: false,
-            dilation: 0,
-        };
-        let gb = RenderGlyphParams { font_size: px(-0.0), scale_factor: -0.0, ..ga.clone() };
-        assert!(ga == gb, "RenderGlyphParams derives PartialEq on floats");
-        let mut cache: HashMap<RenderGlyphParams, u32> = HashMap::new();
-        cache.insert(ga, 1);
-        assert_eq!(cache.get(&gb).copied(), Some(1), "RenderGlyphParams Eq/Hash broken on -0.0");
-    }
+[dependencies]
+gpui = { path = "../crates/gpui" }
+"""
+
+# Пробник живёт отдельным крейтом: `cargo test -p gpui --lib` тянет тестовый
+# код самого gpui (там сейчас есть несвязанные с нами ошибки), а нам нужен
+# только публичный API крейта.
+PROBE_TEST = '''
+use std::collections::HashMap;
+
+use gpui::{point, px, FontId, GlyphId, RenderGlyphParams};
+
+#[test]
+fn pixels_and_glyph_params_eq_hash_minus_zero() {
+    let a = px(0.0);
+    let b = -px(0.0);
+    assert!(a == b, "Pixels PartialEq is numeric");
+    let mut m: HashMap<_, u32> = HashMap::new();
+    m.insert(a, 1);
+    assert_eq!(m.get(&b).copied(), Some(1), "Pixels Eq/Hash broken on -0.0");
+
+    let ga = RenderGlyphParams {
+        font_id: FontId(0),
+        glyph_id: GlyphId(0),
+        font_size: px(0.0),
+        subpixel_variant: point(0u8, 0u8),
+        scale_factor: 0.0,
+        is_emoji: false,
+        subpixel_rendering: false,
+        dilation: 0,
+    };
+    let gb = RenderGlyphParams { font_size: px(-0.0), scale_factor: -0.0, ..ga.clone() };
+    assert!(ga == gb, "RenderGlyphParams PartialEq is numeric");
+    let mut cache: HashMap<_, u32> = HashMap::new();
+    cache.insert(ga, 1);
+    assert_eq!(cache.get(&gb).copied(), Some(1),
+               "RenderGlyphParams Eq/Hash broken on -0.0");
 }
 '''
 
@@ -77,16 +89,17 @@ def main() -> int:
         rc, sha = run(["git", "rev-parse", "--short=12", "HEAD"], dest, timeout=60)
         lines.append(f"HEAD: `{sha.strip()}`")
 
-        target = dest / "crates/gpui/src/text_system.rs"
-        if not target.is_file():
-            lines += ["", "text_system.rs не найден — структура репозитория изменилась"]
+        probe = dest / "kern-probe"
+        if not (dest / "crates/gpui").is_dir():
+            lines += ["", "crates/gpui не найден — структура репозитория изменилась"]
         else:
-            target.write_text(target.read_text(encoding="utf-8", errors="replace") + TEST,
-                              encoding="utf-8")
-            env_rc, log = run(
-                ["cargo", "test", "-p", "gpui", "--lib",
-                 "gpui_pixels_and_glyph_params_eq_hash_minus_zero"],
-                dest, timeout=5400)
+            (probe / "src").mkdir(parents=True, exist_ok=True)
+            (probe / "tests").mkdir(parents=True, exist_ok=True)
+            (probe / "Cargo.toml").write_text(PROBE_CARGO_TOML, encoding="utf-8")
+            (probe / "src/lib.rs").write_text("", encoding="utf-8")
+            (probe / "tests/eq_hash.rs").write_text(PROBE_TEST, encoding="utf-8")
+            env_rc, log = run(["cargo", "test", "--test", "eq_hash"], probe,
+                              timeout=5400)
             keep = [ln for ln in log.splitlines() if any(k in ln for k in REPORT_KEYS)]
             verdict = ("FAILED" if "test result: FAILED" in log
                        else "PASSED" if "test result: ok" in log else "UNKNOWN")
