@@ -417,6 +417,31 @@ test result: FAILED. 0 passed; 1 failed; 1205 filtered out
 
 Upstream: [#5969](https://github.com/zellij-org/zellij/issues/5969).
 
+## Case Q — `bevyengine/bevy` (37k ★): `GizmoLineStyle` splits the GPU pipeline cache (`#26635`)
+
+`GizmoLineStyle` derives `PartialEq`, declares `impl Eq`, and hashes the `Dashed`
+variant with `gap_scale.to_bits()` / `line_scale.to_bits()`. `0.0` and `-0.0` compare
+equal and hash apart.
+
+The type is a field of `LineGizmoPipelineKey`, which is the `Specializer::Key` of the
+`SpecializedRenderPipelines` cache in both render paths:
+`crates/bevy_gizmos_render/src/pipeline_2d.rs:99` and `pipeline_3d.rs:123`. Two gizmos
+that differ only in the sign of zero therefore specialise two render pipelines for a
+visually identical line.
+
+Confirmed live under `rustc 1.100.0` with `cargo test -p bevy_gizmos --lib --no-default-features`:
+
+```text
+thread 'config::kern_eq_hash_test::gizmo_line_style_eq_hash_minus_zero' panicked at
+crates/bevy_gizmos/src/config.rs:326:9: Eq/Hash contract broken on -0.0
+test result: FAILED. 0 passed; 1 failed
+```
+
+Secondary: `gap_scale`/`line_scale` are `f32` while `impl Eq` is declared, so a `NaN`
+scale breaks reflexivity.
+
+Upstream: [#26635](https://github.com/bevyengine/bevy/issues/26635).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -429,6 +454,7 @@ Upstream: [#5969](https://github.com/zellij-org/zellij/issues/5969).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| Q | `bevy` `8c3f96155d` (37k ★) | **EQ/HASH SPLIT** in the GPU pipeline key | `cargo test -p bevy_gizmos` → FAILED; `#26635` |
 | P | `zellij` `62cfa6c36d` (23k ★) | **EQ/HASH SPLIT** by ignored fields | `cargo test -p zellij-utils` → FAILED; `#5969` |
 | O | `gleam` `05fb252bf8` (19k ★) | **EQ/HASH SPLIT** on `LiteralFloatValue(-0.0)` | `cargo test -p gleam-core` → FAILED; `#6524` |
 | N | `databend` `77137bc2ad` (9.5k ★) | **EQ/HASH SPLIT** on `Float64(-0.0)` | `cargo test -p databend-common-datavalues` → FAILED (cloud); `#21155` |

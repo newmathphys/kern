@@ -318,6 +318,10 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
     <td><code>RunPlugin</code> derives <code>Hash</code> over all fields while <code>PartialEq</code> compares only two; <code>clippy::derive_hash_xor_eq</code> is silenced.</td>
     <td><code>cargo test -p zellij-utils</code> &rarr; FAILED</td>
     <td><a href="https://github.com/zellij-org/zellij/issues/5969">#5969</a></td></tr>
+<tr><td><b>bevyengine/bevy</b><br><span class="muted">37k &#9733; &middot; game engine</span></td>
+    <td><code>GizmoLineStyle</code> hashes <code>to_bits()</code> while <code>PartialEq</code> is numeric; the type is a key of <code>SpecializedRenderPipelines</code>, so <code>-0.0</code> specialises a duplicate GPU pipeline.</td>
+    <td><code>cargo test -p bevy_gizmos</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/bevyengine/bevy/issues/26635">#26635</a></td></tr>
 <tr><td><b>boa-dev/boa</b><br><span class="muted">5.8k &#9733; &middot; JS engine</span></td>
     <td><code>JsValue</code>: <code>Eq</code> via <code>SameValueZero</code> but <code>Hash</code> via
         <code>f64::to_bits()</code>, so <code>0.0 == -0.0</code> and a <code>HashSet</code> key is lost.</td>
