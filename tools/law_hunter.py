@@ -394,6 +394,11 @@ def check_rust_eq_hash(src: str) -> list:
         if not body or ("to_bits" not in body and "integer_decode" not in body):
             continue
         eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(tname) + r"\b") or ""
+        # КАЛИБРОВКА №8: `PartialEq` через `total_cmp`/`cmp` уже согласован с
+        # битами (Graphite::Priority): -0.0 и NaN различаются так же, как и в
+        # `to_bits()`. Такой тип — эталон, а не находка.
+        if _re.search(r"\.cmp\s*\(|total_cmp|partial_cmp", eq_body):
+            continue
         # ПРАВИЛО 4: если у ТОГО ЖЕ типа нет PartialEq, нарушать нечего
         # (datafusion::Fl<T> — обёртка только для Hash, Eq у неё отсутствует).
         derived_eq = _re.search(
@@ -609,6 +614,18 @@ macro_rules! h { () => {
 '''
     ok(check_rust_eq_hash(fl_no_eq) == [],
        "eq-hash: обёртка Fl<T> без PartialEq молчит (0 FP, калибровка №4)")
+
+    graphite_total_cmp = '''
+impl PartialEq for Priority {
+    fn eq(&self, other: &Self) -> bool { self.cmp(other) == std::cmp::Ordering::Equal }
+}
+impl Eq for Priority {}
+impl Hash for Priority {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.0.to_bits().hash(state); }
+}
+'''
+    ok(check_rust_eq_hash(graphite_total_cmp) == [],
+       "eq-hash: PartialEq через total_cmp — эталон, не находка (калибровка №8)")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1

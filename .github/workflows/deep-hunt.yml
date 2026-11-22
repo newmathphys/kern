@@ -2,6 +2,11 @@ name: Deep hunt (night, 8 shards + zed probe)
 
 on:
   workflow_dispatch:
+    inputs:
+      zed_only:
+        description: 'Только проба gpui (без 144 репозиториев)'
+        required: false
+        default: 'false'
   schedule:
     # 01:17 UTC каждую ночь: автономный рейд без участия оператора
     - cron: "17 1 * * *"
@@ -13,6 +18,7 @@ permissions:
 jobs:
   hunt:
     name: shard ${{ matrix.shard }}
+    if: inputs.zed_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     continue-on-error: true
@@ -92,6 +98,7 @@ jobs:
           pattern: deep-hunt-*
           merge-multiple: true
           path: brief
+        continue-on-error: true
       - uses: actions/download-artifact@v4
         with:
           name: zed-probe-report
@@ -109,6 +116,7 @@ jobs:
           name: morning-brief
           path: morning-brief.md
       - name: Open issue in our own repo
+        if: inputs.zed_only != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
