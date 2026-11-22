@@ -454,7 +454,8 @@ def main(argv=None) -> int:
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--min-stars", type=int, default=100)
-    ap.add_argument("--mode", choices=["laws", "effect-hints", "all"], default="all")
+    ap.add_argument("--mode", default="all",
+                    choices=["laws", "effect-hints", "lru-effects", "z3-arith", "all"])
     ap.add_argument("--max-age-days", type=int, default=730)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
