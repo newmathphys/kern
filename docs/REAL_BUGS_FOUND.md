@@ -368,7 +368,7 @@ test result: FAILED. 0 passed; 1 failed
 
 The crate is still in the live build graph — `src/query/expression` and
 `storages/common/table_meta` depend on `databend-common-datavalues`.
-Upstream: [#21155](https://github.com/databendlabs/databend/issues/21155).
+Upstream: [#21155](https://github.com/databendlabs/databend/issues/21155) — **triaged the same day and assigned to an engineer** (assignee `@SkyFan2002`), which is the first external acceptance of a report from this audit.
 
 ## Summary
 

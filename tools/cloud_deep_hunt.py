@@ -189,7 +189,8 @@ def hunt_repo(repo: str, workdir: Path, log) -> dict:
         entry["policy"] = policy_excerpt(dest)
         is_rust = (dest / "Cargo.toml").is_file()
         entry["status"] = "scanned"
-        if repo == "databendlabs/databend":
+        if (repo == "databendlabs/databend"
+                and os.environ.get("KERN_DATABEND_PROBE") == "1"):
             entry["findings"] = databend_probe(dest, log)
         else:
             entry["findings"] = scan_rust(dest) if is_rust else scan_python(dest)
