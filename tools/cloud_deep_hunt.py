@@ -402,6 +402,7 @@ TROPHY_REPOS = {
 MAX_REPO_SIZE_KB = 250_000        # 250 МБ: клон обязан влезть на диск раннера
 WAVE_5_SHARD_COUNT = 8
 WAVE_5_TARGET_COUNT = 144
+WAVE_5_POOL = 300              # пул подбора: окно скользит по нему
 
 
 def _known_repos() -> set:
@@ -467,14 +468,24 @@ def discover_targets(limit: int = WAVE_5_TARGET_COUNT, log=print) -> list:
 
 
 def build_wave5(shards: int = WAVE_5_SHARD_COUNT, log=print) -> dict:
-    """Раскладывает авто-подбор по шардам; при нехватке откатывается на волну 4."""
-    flat = discover_targets(WAVE_5_TARGET_COUNT, log)
+    """Раскладывает авто-подбор по шардам; при нехватке откатывается на волну 4.
+
+    Окно в 144 цели сдвигается на длину окна каждый день, поэтому соседние
+    ночи не сканируют один и тот же верх реестра.
+    """
+    import datetime
+
+    flat = discover_targets(WAVE_5_POOL, log)
     if len(flat) < shards * 2:
         log(f"[wave5] авто-подбор дал {len(flat)} целей — беру WAVE_4_SHARDS")
         return {i: list(v) for i, v in WAVE_4_SHARDS.items()}
-    per = len(flat) // shards
-    out = {i: flat[i * per:(i + 1) * per] for i in range(shards)}
-    log(f"[wave5] {len(flat)} целей на {shards} шардов по {per}")
+    window = min(WAVE_5_TARGET_COUNT, len(flat))
+    shift = (datetime.date.today().toordinal() * window) % len(flat)
+    rotated = flat[shift:] + flat[:shift]
+    picked = rotated[:window]
+    per = len(picked) // shards
+    out = {i: picked[i * per:(i + 1) * per] for i in range(shards)}
+    log(f"[wave5] пул {len(flat)}, окно {len(picked)} со сдвигом {shift} на {shards} шардов")
     return out
 
 
