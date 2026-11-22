@@ -1128,3 +1128,4 @@ Contributions are accepted under the terms in [`CONTRIBUTING.md`](CONTRIBUTING.m
 - [Versioning policy](docs/SEMVER.md) — what MAJOR/MINOR/PATCH mean here, why fixes accumulate instead of each getting a tag, and the two known classification deviations (recorded, not hidden).
 
 **Polyglot drift (Python ↔ C):** python3 examples/polyglot_drift_demo.py — the gateway validates count*stride in Python’s big ints, the C parser computes it in int32 and gets 4 bytes instead of 4294967300.
+**Memoised clock (DST drift):** python3 examples/lru_dst_drift_demo.py — an `@lru_cache` keyed on a UTC offset but reading `datetime.now` freezes a January answer that is wrong by exactly 1:00:00 in July (`America/Indiana/Indianapolis` vs `America/Indiana/Tell_City`); the demo shows the lru-effects arm catching it and the date-in-the-key fix removing the drift.

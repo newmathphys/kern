@@ -84,8 +84,26 @@ WAVE_3_SHARDS = {
         "celery/celery", "tqdm/tqdm", "python-poetry/poetry"],
 }
 
-WAVES = {1: WAVE_1_SHARDS, 2: WAVE_2_SHARDS, 3: WAVE_3_SHARDS}
-SHARDS = WAVE_3_SHARDS          # дефолт: свежая волна
+# ВОЛНА 4 (ночь): 36 крупных долгоживущих проектов, ноль пересечений с
+# волнами 1-3 и с нашими репортами. Типст и верстальные координаты,
+# серверный @lru_cache и C-системы — под все три откалиброванных ствола.
+WAVE_4_SHARDS = {
+    0: ["duckdb/duckdb-rs", "gluesql/gluesql", "tursodatabase/limbo",
+        "MaterializeInc/materialize", "ArroyoSystems/arroyo", "cberner/redb"],
+    1: ["FyroxEngine/Fyrox", "not-fl3/macroquad", "ggez/ggez",
+        "plotters-rs/plotters", "dimforge/parry", "dimforge/nalgebra"],
+    2: ["typst/typst", "hyperium/h2", "tokio-rs/axum",
+        "tokio-rs/bytes", "poem-web/poem", "PyO3/pyo3"],
+    3: ["PrefectHQ/prefect", "apache/airflow", "dagster-io/dagster",
+        "streamlit/streamlit", "gradio-app/gradio", "aio-libs/aiohttp"],
+    4: ["Lightning-AI/pytorch-lightning", "huggingface/transformers", "optuna/optuna",
+        "ray-project/ray", "encode/uvicorn", "marshmallow-code/marshmallow"],
+    5: ["redis/redis", "curl/curl", "DaveGamble/cJSON",
+        "jemalloc/jemalloc", "lz4/lz4", "facebook/zstd"],
+}
+
+WAVES = {1: WAVE_1_SHARDS, 2: WAVE_2_SHARDS, 3: WAVE_3_SHARDS, 4: WAVE_4_SHARDS}
+SHARDS = WAVE_4_SHARDS          # дефолт: свежая волна
 
 ROOT = Path(__file__).resolve().parent.parent
 CLONE_TIMEOUT = 900
@@ -324,6 +342,12 @@ def selftest() -> int:
                 "lancedb/lance", "databendlabs/databend", "qdrant/qdrant",
                 "swc-project/swc", "boa-dev/boa"}
     ok(not (w3 & reported), f"волна 3 не повторяет трофеи (общих: {len(w3 & reported)})")
+    w4 = {r for v in WAVE_4_SHARDS.values() for r in v}
+    ok(len(w4) == 36, f"в волне 4 ровно 36 целей (сейчас {len(w4)})")
+    ok(all(len(v) == 6 for v in WAVE_4_SHARDS.values()), "в шарде волны 4 ровно 6 целей")
+    ok(not (w4 & (w1 | w2 | w3)),
+       f"волна 4 чиста от волн 1-3 (общих: {len(w4 & (w1 | w2 | w3))})")
+    ok(not (w4 & reported), f"волна 4 не повторяет трофеи (общих: {len(w4 & reported)})")
     ok(all(r.count("/") == 1 for r in flat), "все цели в формате owner/repo")
     needle = "/" + "tmp" + "/"
     ok(needle not in Path(__file__).read_text(encoding="utf-8"),

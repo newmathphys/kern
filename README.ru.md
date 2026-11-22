@@ -991,3 +991,4 @@ KERN распространяется по модели **source-available** с 
 - [Политика версий](docs/SEMVER.md) — что здесь значат MAJOR/MINOR/PATCH, почему фиксы копятся вместо тега на каждый, и два известных отклонения классификации (записаны, не спрятаны).
 
 **Polyglot drift (Python ↔ C):** python3 examples/polyglot_drift_demo.py — шлюз проверяет count*stride в длинной арифметике, а C-парсер считает в int32 и получает 4 байта вместо 4294967300.
+**Замороженные часы (дрейф на DST):** python3 examples/lru_dst_drift_demo.py — `@lru_cache` с ключом по смещению UTC, но читающий `datetime.now`, навсегда фиксирует январский ответ, который в июле врёт ровно на 1:00:00 (`America/Indiana/Indianapolis` против `America/Indiana/Tell_City`); стенд показывает, как ствол lru-effects это ловит, и как дата в ключе убирает дрейф.
