@@ -322,6 +322,10 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
     <td><code>GizmoLineStyle</code> hashes <code>to_bits()</code> while <code>PartialEq</code> is numeric; the type is a key of <code>SpecializedRenderPipelines</code>, so <code>-0.0</code> specialises a duplicate GPU pipeline.</td>
     <td><code>cargo test -p bevy_gizmos</code> &rarr; FAILED</td>
     <td><a href="https://github.com/bevyengine/bevy/issues/26635">#26635</a></td></tr>
+<tr><td><b>dimforge/kiss3d</b><br><span class="muted">1.8k &#9733; &middot; 3D engine</span></td>
+    <td><code>HashableVec3</code> hashes bit patterns while <code>PartialEq</code> is numeric, so the vertex-dedup map keeps duplicates for <code>-0.0</code>.</td>
+    <td><code>cargo test --lib</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/dimforge/kiss3d/issues/419">#419</a></td></tr>
 <tr><td><b>boa-dev/boa</b><br><span class="muted">5.8k &#9733; &middot; JS engine</span></td>
     <td><code>JsValue</code>: <code>Eq</code> via <code>SameValueZero</code> but <code>Hash</code> via
         <code>f64::to_bits()</code>, so <code>0.0 == -0.0</code> and a <code>HashSet</code> key is lost.</td>

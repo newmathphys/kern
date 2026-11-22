@@ -442,6 +442,23 @@ scale breaks reflexivity.
 
 Upstream: [#26635](https://github.com/bevyengine/bevy/issues/26635).
 
+## Case R — `dimforge/kiss3d` (1.8k ★): bit-hash vs numeric eq in mesh dedup (`#419`)
+
+`HashableVec3` exists to be a `HashMap` key ("uses bit representation of f32 values for
+hashing"), but its `PartialEq` compares the `Vec3` numerically, so `0.0` and `-0.0` are
+equal and hash apart. The key is used by `split_index_buffer_and_recover_topology`
+(`src/procedural/utils.rs:177`), whose doc comment promises "the same id to each
+identical vertex".
+
+Confirmed live with `cargo test --lib hashable_vec3_eq_hash_minus_zero`:
+
+```text
+thread 'procedural::utils::kern_eq_hash_test::hashable_vec3_eq_hash_minus_zero' panicked at
+src/procedural/utils.rs:277:9: Eq/Hash contract broken on -0.0 (left: None, right: Some(1))
+```
+
+Upstream: [#419](https://github.com/dimforge/kiss3d/issues/419).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -454,6 +471,7 @@ Upstream: [#26635](https://github.com/bevyengine/bevy/issues/26635).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| R | `kiss3d` `03727cd296` (1.8k ★) | **EQ/HASH SPLIT** in mesh vertex dedup | `cargo test --lib` → FAILED; `#419` |
 | Q | `bevy` `8c3f96155d` (37k ★) | **EQ/HASH SPLIT** in the GPU pipeline key | `cargo test -p bevy_gizmos` → FAILED; `#26635` |
 | P | `zellij` `62cfa6c36d` (23k ★) | **EQ/HASH SPLIT** by ignored fields | `cargo test -p zellij-utils` → FAILED; `#5969` |
 | O | `gleam` `05fb252bf8` (19k ★) | **EQ/HASH SPLIT** on `LiteralFloatValue(-0.0)` | `cargo test -p gleam-core` → FAILED; `#6524` |
