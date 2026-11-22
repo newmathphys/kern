@@ -406,15 +406,15 @@ def check_rust_eq_hash(src: str) -> list:
             src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+" + _re.escape(tname) + r"\b") or ""
         if _re.search(r"\bcmp\s*\(", eq_body) and _re.search(r"total_cmp\s*\(", ord_body):
             continue
-        # c) Hash канонизирует знак нуля перед to_bits(): Graphite::ScrollDelta
-        # (`if value == 0. { 0. } else { value }`).
-        if _re.search(r"==\s*-?0\.0?\s*\{", body) or _re.search(
-                r"canonical|no_negative_zero|strip_negative_zero", body, _re.I):
-            continue
-        # КАЛИБРОВКА №10: `(x + 0.0).to_bits()` — та же канонизация средствами
-        # IEEE-754: -0.0 + 0.0 == +0.0 (roundTiesToEven). Так живёт
-        # pop-os/cosmic-text::LetterSpacing.
-        if _re.search(r"\+\s*0\.0?\s*\)?\s*\.to_bits", body):
+        # c) Hash канонизирует ЗНАК НУЛЯ перед to_bits(). Ловим только две
+        # реальные формы, без матча по слову `canonical`: константа
+        # CANONICAL_NAN_BITS канонизирует лишь NaN и от -0.0 не спасает,
+        # поэтому упоминание слова в коде ничего не доказывает.
+        zero_canon = (
+            _re.search(r"==\s*-?0\.0?\s*\{", body)              # if v == 0. { 0. }
+            or _re.search(r"\+\s*0\.0?\s*\)?\s*\.to_bits", body)  # (v + 0.0).to_bits()
+        )
+        if zero_canon:
             continue
         # ПРАВИЛО 4: если у ТОГО ЖЕ типа нет PartialEq, нарушать нечего
         # (datafusion::Fl<T> — обёртка только для Hash, Eq у неё отсутствует).
@@ -698,6 +698,23 @@ impl Hash for LetterSpacing {
 """
     ok(check_rust_eq_hash(cosmic_letter_spacing) == [],
        "eq-hash: (x + 0.0).to_bits() — канонизация IEEE-754 (калибровка №10)")
+
+    # Сторож: канонизация ТОЛЬКО NaN не спасает от -0.0, значит баг на месте
+    nan_only = """
+impl PartialEq for LetterSpacing {
+    fn eq(&self, other: &Self) -> bool { self.0 == other.0 }
+}
+impl Eq for LetterSpacing {}
+impl Hash for LetterSpacing {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        const CANONICAL_NAN_BITS: u32 = 0x7fc0_0000;
+        let bits = if self.0.is_nan() { CANONICAL_NAN_BITS } else { self.0.to_bits() };
+        bits.hash(hasher);
+    }
+}
+"""
+    ok(len(check_rust_eq_hash(nan_only)) == 1,
+       "eq-hash: CANONICAL_NAN_BITS без канонизации нуля — всё ещё находка")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
