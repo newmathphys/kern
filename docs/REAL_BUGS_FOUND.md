@@ -459,6 +459,29 @@ src/procedural/utils.rs:277:9: Eq/Hash contract broken on -0.0 (left: None, righ
 
 Upstream: [#419](https://github.com/dimforge/kiss3d/issues/419).
 
+## Case S — `dagster-io/dagster` (~12k ★): cached timezone probe freezes a seasonal answer (`#34468`)
+
+First trophy of the `lru-effects` arm. `has_nonzero_minute_offset(tz_str)` is wrapped in
+`@functools.cache` but reads `datetime.datetime.now()`, so its answer is frozen for the
+lifetime of `dagster-daemon`. For `Australia/Lord_Howe` (+10:30 standard, +11:00 summer)
+the answer is False in January and True in July, and the flag gates
+`use_timezone_minute_resolution` for hourly schedules.
+
+Live reproduction (identical body, injectable clock):
+
+```text
+Australia/Lord_Howe:
+  fresh:  January=False  July=True   -> answer changes: True
+  cached: January=False  July=False  -> stale: True
+America/New_York:
+  fresh:  January=False  July=False  -> answer changes: False
+```
+
+Second defect: `datetime.now()` reads the daemon's wall clock, not the date of the tick
+being computed, so even a date-keyed cache is wrong for backfills and future ticks.
+
+Upstream: [#34468](https://github.com/dagster-io/dagster/issues/34468).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -471,6 +494,7 @@ Upstream: [#419](https://github.com/dimforge/kiss3d/issues/419).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| S | `dagster` `master` (~12k ★) | **CACHED CLOCK** in hourly-schedule cron | live repro; `#34468` |
 | R | `kiss3d` `03727cd296` (1.8k ★) | **EQ/HASH SPLIT** in mesh vertex dedup | `cargo test --lib` → FAILED; `#419` |
 | Q | `bevy` `8c3f96155d` (37k ★) | **EQ/HASH SPLIT** in the GPU pipeline key | `cargo test -p bevy_gizmos` → FAILED; `#26635` |
 | P | `zellij` `62cfa6c36d` (23k ★) | **EQ/HASH SPLIT** by ignored fields | `cargo test -p zellij-utils` → FAILED; `#5969` |

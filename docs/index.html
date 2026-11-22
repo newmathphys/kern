@@ -326,6 +326,10 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
     <td><code>HashableVec3</code> hashes bit patterns while <code>PartialEq</code> is numeric, so the vertex-dedup map keeps duplicates for <code>-0.0</code>.</td>
     <td><code>cargo test --lib</code> &rarr; FAILED</td>
     <td><a href="https://github.com/dimforge/kiss3d/issues/419">#419</a></td></tr>
+<tr><td><b>dagster-io/dagster</b><br><span class="muted">~12k &#9733; &middot; orchestrator</span></td>
+    <td><code>has_nonzero_minute_offset</code> is <code>@functools.cache</code>d but reads the clock: hourly cron in <code>Australia/Lord_Howe</code> loses minute resolution for half the year.</td>
+    <td>live python3 repro</td>
+    <td><a href="https://github.com/dagster-io/dagster/issues/34468">#34468</a></td></tr>
 <tr><td><b>boa-dev/boa</b><br><span class="muted">5.8k &#9733; &middot; JS engine</span></td>
     <td><code>JsValue</code>: <code>Eq</code> via <code>SameValueZero</code> but <code>Hash</code> via
         <code>f64::to_bits()</code>, so <code>0.0 == -0.0</code> and a <code>HashSet</code> key is lost.</td>
