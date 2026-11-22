@@ -482,6 +482,34 @@ being computed, so even a date-keyed cache is wrong for backfills and future tic
 
 Upstream: [#34468](https://github.com/dagster-io/dagster/issues/34468).
 
+## Case T — `typst/typst` (~38k ★): `Scalar` and `ProcessColor` hash differently than they compare (`#9103`)
+
+`Scalar` is the numeric foundation of `Abs`, `Em`, `Angle` and `Ratio`:
+
+```rust
+impl Eq for Scalar {}
+impl PartialEq for Scalar { fn eq(&self, other: &Self) -> bool { self.0 == other.0 } }
+impl Hash for Scalar { fn hash<H: Hasher>(&self, state: &mut H) { self.0.to_bits().hash(state); } }
+```
+
+Confirmed live with `cargo test -p typst-utils --lib` on the real crate, public API only
+(`Scalar::new(0.0)` vs `Scalar::new(-0.0)`):
+
+```text
+thread 'scalar::eq_hash_test::scalar_eq_hash_minus_zero' panicked at
+crates/typst-utils/src/scalar.rs:302:9:
+assertion `left == right` failed: Eq/Hash contract broken on -0.0
+  left: None
+ right: Some(1)
+```
+
+The same report covers `ProcessColor`, where it is worse: `PartialEq` compares
+`to_vec4_u8()` (8-bit rounded) while `Hash` hashes unrounded `to_vec4()` bits, so any two
+colours that differ below `1/255` compare equal and hash apart — reachable from ordinary
+`color.mix(...)`, no `-0.0` needed.
+
+Upstream: [#9103](https://github.com/typst/typst/issues/9103).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -494,6 +522,7 @@ Upstream: [#34468](https://github.com/dagster-io/dagster/issues/34468).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| T | `typst` `main` (~38k ★) | **EQ/HASH SPLIT** on `Scalar` + `ProcessColor` | `cargo test -p typst-utils --lib` → FAILED; `#9103` |
 | S | `dagster` `master` (~12k ★) | **CACHED CLOCK** in hourly-schedule cron | live repro; `#34468` |
 | R | `kiss3d` `03727cd296` (1.8k ★) | **EQ/HASH SPLIT** in mesh vertex dedup | `cargo test --lib` → FAILED; `#419` |
 | Q | `bevy` `8c3f96155d` (37k ★) | **EQ/HASH SPLIT** in the GPU pipeline key | `cargo test -p bevy_gizmos` → FAILED; `#26635` |
