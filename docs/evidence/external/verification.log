@@ -10,3 +10,4 @@ RC=0
 2026-11-22T14:05:38Z kiss3d#419 OPEN (1.8k, mesh dedup HashableVec3) | bevy#26635 OPEN | zellij#5969 OPEN | gleam#6524 OPEN
 2026-11-22T15:04:10Z dagster#34468 OPEN (~12k, cached clock in hourly cron) | kiss3d#419 OPEN | bevy#26635 OPEN
 2026-11-22T15:13:36Z typst#9103 OPEN (~38k, Scalar+ProcessColor Eq/Hash split, cargo test FAILED) | dagster#34468 OPEN | kiss3d#419 OPEN
+2026-11-22T15:20:00Z ACCEPTED: dagster#34468 (cestercian will PR the zone-only fix we proposed) | boa#5678 (victrvondoom will PR zero canonicalisation + HashMap tests) | lance#11344 labelled bug
