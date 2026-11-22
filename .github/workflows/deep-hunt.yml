@@ -56,6 +56,7 @@ jobs:
 
   zed-probe:
     name: zed gpui probe
+    if: inputs.zed_only == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     continue-on-error: true

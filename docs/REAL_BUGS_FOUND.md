@@ -521,6 +521,28 @@ Reports from this series that maintainers have picked up:
 | [lance#11344](https://github.com/lance-format/lance/issues/11344) | labelled `bug` by the maintainers |
 | [databend#21155](https://github.com/databendlabs/databend/issues/21155) | assigned to an engineer |
 
+## Case U — `zed-industries/zed` (~60k ★): `Pixels`, `RenderGlyphParams`, `DocumentColor` (`#67334`)
+
+Three types implement `Eq` with a numeric `PartialEq` and a `to_bits()` `Hash`: `Pixels`
+(`crates/gpui/src/geometry.rs`), `RenderGlyphParams` (`crates/gpui/src/text_system.rs`, the key
+of `raster_bounds: RwLock<FxHashMap<RenderGlyphParams, Bounds<DevicePixels>>>`) and
+`DocumentColor` (`crates/project/src/project.rs`, four `lsp::Color` channels).
+
+Confirmed live in the real workspace with `cargo test -p gpui --test eq_hash_probe` on
+`d31d1074a07b`:
+
+```text
+thread 'pixels_and_glyph_params_eq_hash_minus_zero' panicked at
+crates/gpui/tests/eq_hash_probe.rs:13:5: Eq/Hash contract broken on -0.0
+  left: None
+ right: Some(1)
+```
+
+Extra finding: `Pixels` also implements `Ord` via `f32::total_cmp`, which does separate
+`-0.0` from `0.0`, so the derived `PartialEq` disagrees with the type's own ordering too.
+
+Upstream: [#67334](https://github.com/zed-industries/zed/issues/67334).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -533,6 +555,7 @@ Reports from this series that maintainers have picked up:
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| U | `zed` `d31d1074a07b` (~60k ★) | **EQ/HASH SPLIT** in `Pixels`, glyph cache, `DocumentColor` | `cargo test -p gpui --test` → FAILED; `#67334` |
 | T | `typst` `main` (~38k ★) | **EQ/HASH SPLIT** on `Scalar` + `ProcessColor` | `cargo test -p typst-utils --lib` → FAILED; `#9103` |
 | S | `dagster` `master` (~12k ★) | **CACHED CLOCK** in hourly-schedule cron | live repro; `#34468` |
 | R | `kiss3d` `03727cd296` (1.8k ★) | **EQ/HASH SPLIT** in mesh vertex dedup | `cargo test --lib` → FAILED; `#419` |
