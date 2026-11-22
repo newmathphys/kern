@@ -383,6 +383,12 @@ def check_rust_eq_hash(src: str) -> list:
     out = []
     for m in _re.finditer(r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Hash\s+for\s+(\w+)", src):
         tname = m.group(1)
+        # КАЛИБРОВКА №5: `#[cfg(test)]` может стоять над самим `impl`
+        # (так живёт qdrant::OrderValue), а `_strip_test_mods` режет только
+        # `#[cfg(test)] mod ...`. Тестовые реализации не считаем вовсе.
+        prefix = src[max(0, m.start() - 120):m.start()]
+        if _re.search(r"#\[cfg\([^\n]*test", prefix):
+            continue
         body = _body_of(src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Hash\s+for\s+"
                              + _re.escape(tname) + r"\b")
         if not body or ("to_bits" not in body and "integer_decode" not in body):

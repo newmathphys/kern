@@ -310,6 +310,10 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
         compares numerically, so <code>-0.0</code> splits <code>GROUP BY</code> / <code>DISTINCT</code> keys.</td>
     <td><code>cargo test -p databend-common-datavalues</code> &rarr; FAILED (cloud runner)</td>
     <td><a href="https://github.com/databendlabs/databend/issues/21155">#21155</a></td></tr>
+<tr><td><b>gleam-lang/gleam</b><br><span class="muted">19k &#9733; &middot; compiler</span></td>
+    <td><code>LiteralFloatValue</code> hashes <code>to_bits()</code> while its derived <code>PartialEq</code> compares numerically; the doc explains <code>Eq</code> for NaN and misses <code>-0.0</code>.</td>
+    <td><code>cargo test -p gleam-core</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/gleam-lang/gleam/issues/6524">#6524</a></td></tr>
 <tr><td><b>boa-dev/boa</b><br><span class="muted">5.8k &#9733; &middot; JS engine</span></td>
     <td><code>JsValue</code>: <code>Eq</code> via <code>SameValueZero</code> but <code>Hash</code> via
         <code>f64::to_bits()</code>, so <code>0.0 == -0.0</code> and a <code>HashSet</code> key is lost.</td>

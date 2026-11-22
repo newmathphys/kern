@@ -370,6 +370,24 @@ The crate is still in the live build graph — `src/query/expression` and
 `storages/common/table_meta` depend on `databend-common-datavalues`.
 Upstream: [#21155](https://github.com/databendlabs/databend/issues/21155) — **triaged the same day and assigned to an engineer** (assignee `@SkyFan2002`), which is the first external acceptance of a report from this audit.
 
+## Case O — `gleam-lang/gleam` (19k ★): `LiteralFloatValue` hashes bits, compares numbers (`#6524`)
+
+`LiteralFloatValue` wraps an `f64`, derives `PartialEq`, declares `impl Eq` and hashes
+`self.0.to_bits()`. Its own doc comment explains why `Eq` is sound (NaN is rejected on
+the way in, so reflexivity holds) — but that reasoning does not cover the pair
+`Eq`/`Hash`: `0.0 == -0.0` is true, while `to_bits()` yields `0x0000…` and `0x8000…`.
+`LiteralFloatValue::parse("-0.0")` is public and only filters NaN, so the value is reachable.
+
+Confirmed live with `cargo test -p gleam-core --lib kern_eq_hash_minus_zero`:
+
+```text
+thread 'parse::kern_eq_hash_test::kern_eq_hash_minus_zero' panicked at
+compiler-core/src/parse.rs:5653:9: Eq/Hash contract broken on -0.0
+test result: FAILED. 0 passed; 1 failed; 3671 filtered out
+```
+
+Upstream: [#6524](https://github.com/gleam-lang/gleam/issues/6524).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -382,6 +400,7 @@ Upstream: [#21155](https://github.com/databendlabs/databend/issues/21155) — **
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| O | `gleam` `05fb252bf8` (19k ★) | **EQ/HASH SPLIT** on `LiteralFloatValue(-0.0)` | `cargo test -p gleam-core` → FAILED; `#6524` |
 | N | `databend` `77137bc2ad` (9.5k ★) | **EQ/HASH SPLIT** on `Float64(-0.0)` | `cargo test -p databend-common-datavalues` → FAILED (cloud); `#21155` |
 | M | `lance` `e03f5e2f9d` | **EQ/HASH SPLIT** on `-0.0` bbox | `cargo test -p lance-geo` → FAILED; `#11344` |
 | L | `vector` (19k ★) | **EQ/HASH SPLIT** in an `IndexMap` key | `MetricRef` bounds: `cargo test` → FAILED; `#27277` |
