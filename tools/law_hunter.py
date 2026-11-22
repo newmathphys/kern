@@ -409,7 +409,12 @@ def check_rust_eq_hash(src: str) -> list:
         # c) Hash канонизирует знак нуля перед to_bits(): Graphite::ScrollDelta
         # (`if value == 0. { 0. } else { value }`).
         if _re.search(r"==\s*-?0\.0?\s*\{", body) or _re.search(
-                r"canonical|no_negative_zero|strip_negative_zero", body):
+                r"canonical|no_negative_zero|strip_negative_zero", body, _re.I):
+            continue
+        # КАЛИБРОВКА №10: `(x + 0.0).to_bits()` — та же канонизация средствами
+        # IEEE-754: -0.0 + 0.0 == +0.0 (roundTiesToEven). Так живёт
+        # pop-os/cosmic-text::LetterSpacing.
+        if _re.search(r"\+\s*0\.0?\s*\)?\s*\.to_bits", body):
             continue
         # ПРАВИЛО 4: если у ТОГО ЖЕ типа нет PartialEq, нарушать нечего
         # (datafusion::Fl<T> — обёртка только для Hash, Eq у неё отсутствует).
@@ -670,6 +675,29 @@ impl Hash for Money {
 '''
     ok(len(check_rust_eq_hash(partial_cmp_bug)) == 1,
        "eq-hash: partial_cmp + to_bits — НАСТОЯЩИЙ баг, не подавляется (0.0 == -0.0)")
+
+    cosmic_letter_spacing = """
+impl PartialEq for LetterSpacing {
+    fn eq(&self, other: &Self) -> bool {
+        if self.0.is_nan() { other.0.is_nan() } else { self.0 == other.0 }
+    }
+}
+impl Eq for LetterSpacing {}
+impl Hash for LetterSpacing {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        const CANONICAL_NAN_BITS: u32 = 0x7fc0_0000;
+        let bits = if self.0.is_nan() {
+            CANONICAL_NAN_BITS
+        } else {
+            // Add +0.0 to canonicalize -0.0 to +0.0
+            (self.0 + 0.0).to_bits()
+        };
+        bits.hash(hasher);
+    }
+}
+"""
+    ok(check_rust_eq_hash(cosmic_letter_spacing) == [],
+       "eq-hash: (x + 0.0).to_bits() — канонизация IEEE-754 (калибровка №10)")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
