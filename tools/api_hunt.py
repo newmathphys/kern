@@ -52,6 +52,18 @@ QUERIES_LAWS = [
     '"derived_hash_with_manual_eq" language:Rust',
 ]
 
+QUERIES_LRU = [
+    '"@lru_cache" "time.time" language:Python',
+    '"@lru_cache()" "datetime.now" language:Python',
+    '"@cache" "random.random" language:Python',
+]
+
+QUERIES_ARITH = [
+    '"lcm" "* gcd" language:C',
+    '"(low + high) / 2" language:C',
+    '"let mid = (left + right)" language:Rust',
+]
+
 QUERIES_EFFECTS = [
     '"def lcm" "// gcd" language:Python',
     '"(low + high) / 2" language:C',
@@ -194,6 +206,114 @@ def analyse_effects(src: str, path: str) -> list:
     return out
 
 
+LRU_NONDETERMINISTIC = (
+    "datetime.now", "datetime.utcnow", "datetime.today", "date.today",
+    "time.time", "time.monotonic", "random.random", "random.randint",
+    "random.choice", "random.uniform", "uuid.uuid4", "uuid.uuid1",
+)
+
+
+def analyse_lru(src: str, path: str) -> list:
+    """Ствол lru-effects: мемоизация поверх недетерминированного тела.
+
+    HIGH — только если функция ПРИНИМАЕТ аргументы (они и есть ключ кэша) и
+    внутри читает часы/рандом: тогда для одного и того же аргумента кэш
+    навсегда фиксирует первое случайное значение. Ноль-аргументные
+    `@lru_cache`-синглтоны (например `get_settings()`) намеренны и молчат.
+    """
+    import ast as _ast
+
+    if not path.endswith(".py"):
+        return []
+    lowered = path.lower()
+    if "test_" in lowered or "_test.py" in lowered or "/tests/" in lowered:
+        return []
+    try:
+        tree = _ast.parse(src)
+    except (SyntaxError, ValueError):
+        return []
+
+    out = []
+    for node in _ast.walk(tree):
+        if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            continue
+        decs = []
+        for d in node.decorator_list:
+            decs.append(_ast.dump(d))
+        if not any("lru_cache" in d or "'cache'" in d or '"cache"' in d for d in decs):
+            continue
+        args = [a.arg for a in node.args.posonlyargs + node.args.args if a.arg != "self"]
+        args += [a.arg for a in node.args.kwonlyargs]
+        if not args:
+            continue      # намеренный синглтон — не наш случай
+        body = _ast.dump(node)
+        dirty = [k for k in LRU_NONDETERMINISTIC if k.split(".")[-1] in body and
+                 k.split(".")[0] in body]
+        if not dirty:
+            continue
+        out.append({
+            "law": "lru-effects", "symbol": f"{node.name}({', '.join(args)})",
+            "file": f"{path}:{node.lineno}",
+            "detail": "мемоизация с аргументами, но тело читает "
+                      + ", ".join(sorted(set(dirty))) + ": кэш замораживает первое значение",
+            "hot": True,
+        })
+    return out
+
+
+def analyse_z3_arith(src: str, path: str) -> list:
+    """Ствол z3-arith: настоящая модель BitVec(32) для двух классических бомб.
+
+    1) `a * b / gcd(...)` — произведение до деления;
+    2) `(low + high) / 2` на знаковых — переполнение суммы.
+    Контрпример ищет Z3 (SAT), а не регулярка; без z3 модуль честно молчит.
+    """
+    try:
+        import z3
+    except ImportError:
+        return []
+    if not path.endswith((".c", ".h", ".rs")):
+        return []
+    if "cfg(test)" in src or "/tests/" in path:
+        return []
+
+    out = []
+    if re.search(r"\*\s*\w+\s*\)?\s*/\s*\(?\s*[\w:]*gcd", src):
+        a, b, g = z3.BitVecs("a b g", 32)
+        s = z3.Solver()
+        s.add(g > 0, a % g == 0, b % g == 0)        # g — настоящий НОД
+        # истинный НОК считаем в 64 битах: (a/g)*b помещается в int32
+        lcm64 = (z3.ZeroExt(32, a) / z3.ZeroExt(32, g)) * z3.ZeroExt(32, b)
+        s.add(lcm64 <= 2**31 - 1)
+        # а машинное a*b (32 бита) уже переполнилось
+        s.add(z3.SignExt(32, a) * z3.SignExt(32, b) > 2**31 - 1)
+        if s.check() == z3.sat:
+            m = s.model()
+            out.append({
+                "law": "z3-arith:lcm-mul", "symbol": f"{Path(path).name}:lcm",
+                "file": path,
+                "detail": "a*b переполняет int32 до деления: "
+                          f"a={m[a]}, b={m[b]}, g={m[g]} — истинный НОК влезает",
+                "hot": True,
+            })
+    if re.search(r"\(\s*\w+\s*\+\s*\w+\s*\)\s*(/\s*2|>>\s*1)", src):
+        lo, hi = z3.BitVecs("lo hi", 32)
+        s = z3.Solver()
+        # легитимные границы: 0 <= lo, hi <= INT32_MAX
+        s.add(lo >= 0, hi >= 0, lo <= 2**31 - 1, hi <= 2**31 - 1)
+        # машинная сумма уходит в минус, хотя истинная середина влезает
+        s.add(z3.SignExt(1, lo) + z3.SignExt(1, hi) > 2**31 - 1)
+        if s.check() == z3.sat:
+            m = s.model()
+            out.append({
+                "law": "z3-arith:midpoint", "symbol": f"{Path(path).name}:mid",
+                "file": path,
+                "detail": "low+high переполняет int32, хотя истинная середина влезает: "
+                          f"lo={m[lo]}, hi={m[hi]}",
+                "hot": True,
+            })
+    return out
+
 def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=print) -> list:
     """Поиск -> фильтр -> скачивание файла -> анализ -> ранжирование."""
     seen, findings = set(), []
@@ -202,6 +322,10 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=pri
         queries += [(q, "laws") for q in QUERIES_LAWS]
     if mode in ("effect-hints", "all"):
         queries += [(q, "effect-hints") for q in QUERIES_EFFECTS]
+    if mode in ("lru-effects", "all"):
+        queries += [(q, "lru") for q in QUERIES_LRU]
+    if mode in ("z3-arith", "all"):
+        queries += [(q, "z3arith") for q in QUERIES_ARITH]
 
     for query, stem in queries:
         log(f"[search] {query}")
@@ -221,7 +345,9 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=pri
             src = raw_file(repo, path)
             if not src:
                 continue
-            hits = analyse_laws(src, path) if stem == "laws" else analyse_effects(src, path)
+            hits = {"laws": analyse_laws, "lru": analyse_lru,
+                    "z3arith": analyse_z3_arith}.get(
+                        stem, analyse_effects)(src, path)
             for h in hits:
                 h.update({"repo": repo, "path": path, "stars": meta.get("stars", 0)})
                 findings.append(h)
@@ -253,6 +379,39 @@ def selftest() -> int:
 
     ok("isamert/scheme.rs" in EXCLUDED_REPOS, "трофеи исключены из повторного поиска")
     ok(len(QUERIES_LAWS) >= 3 and len(QUERIES_EFFECTS) >= 3, "у обоих стволов есть запросы")
+    ok(len(QUERIES_LRU) >= 3 and len(QUERIES_ARITH) >= 3, "у новых стволов есть запросы")
+
+    # --- ствол lru-effects: HIGH только при аргументах + часы/рандом ---
+    bad_py = ("from functools import lru_cache\nimport random\n"
+              "@lru_cache(maxsize=128)\n"
+              "def pick(seed: int) -> float:\n"
+              "    return random.random() + seed\n")
+    h = analyse_lru(bad_py, "app/cache.py")
+    ok(len(h) == 1 and h[0]["law"] == "lru-effects", "lru: аргументы + random -> находка")
+    ok('pick(seed)' in h[0]["symbol"] if h else False, "lru: символ назван с аргументом")
+
+    ok_allowed = ("from functools import lru_cache\nimport os\n"
+                  "@lru_cache\ndef get_settings():\n    return os.environ.copy()\n")
+    ok(analyse_lru(ok_allowed, "app/conf.py") == [], "lru: 0-аргументный синглтон молчит")
+
+    pure = ("from functools import lru_cache\n"
+            "@lru_cache(maxsize=None)\ndef fib(n: int) -> int:\n    return n if n < 2 else fib(n-1) + fib(n-2)\n")
+    ok(analyse_lru(pure, "app/fib.py") == [], "lru: чистая мемоизация молчит")
+    ok(analyse_lru(bad_py, "tests/test_cache.py") == [], "lru: тестовые файлы пропущены")
+
+    # --- ствол z3-arith: настоящий Solver, эталон lcm даёт контрпример ---
+    lcm_c = ("int lcm(int a, int b) {\n    return a * b / gcd(a, b);\n}\n")
+    h = analyse_z3_arith(lcm_c, "src/math.c")
+    ok(len(h) == 1 and h[0]["law"] == "z3-arith:lcm-mul", "z3: a*b/gcd даёт SAT-контрпример")
+    ok(bool(h) and "a=" in h[0]["detail"], "z3: контрпример содержит числа модели")
+
+    safe_c = ("int lcm(int a, int b) {\n    return (a / gcd(a, b)) * b;\n}\n")
+    ok(analyse_z3_arith(safe_c, "src/math.c") == [], "z3: (a/gcd)*b -> находок нет")
+
+    mid_c = "int m = (low + high) / 2;\n"
+    h = analyse_z3_arith(mid_c, "src/bsearch.c")
+    ok(len(h) == 1 and h[0]["law"] == "z3-arith:midpoint", "z3: (low+high)/2 даёт контрпример")
+    ok(analyse_z3_arith(mid_c, "src/bsearch.c") != [], "z3: повторный вызов стабилен")
 
     rust = ('#[derive(Clone, Copy, PartialEq)]\npub struct Money { pub cents: f64 }\n'
             'impl Eq for Money {}\n'

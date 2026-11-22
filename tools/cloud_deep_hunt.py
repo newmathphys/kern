@@ -65,8 +65,27 @@ WAVE_2_SHARDS = {
         "pydantic/pydantic-settings", "pallets/flask", "psf/black"],
 }
 
-WAVES = {1: WAVE_1_SHARDS, 2: WAVE_2_SHARDS}
-SHARDS = WAVE_2_SHARDS          # дефолт: свежая волна
+# ВОЛНА 3: 36 проектов, ноль пересечений с волнами 1 и 2 и с нашими
+# репортами. Половина — Rust/C с геометрией и бинарным поиском (ствол
+# z3-arith: реальные BitVec-контрпримеры), половина — Python с кэшами
+# (ствол lru-effects: @lru_cache поверх часов и рандома).
+WAVE_3_SHARDS = {
+    0: ["zed-industries/zed", "gfx-rs/wgpu", "dimforge/rapier",
+        "nical/lyon", "image-rs/image", "raphamorim/rio"],
+    1: ["servo/servo", "apache/iceberg-rust", "delta-io/delta-rs",
+        "foundry-rs/foundry", "tauri-apps/tauri", "wasm-bindgen/wasm-bindgen"],
+    2: ["starship/starship", "Wilfred/difftastic", "dandavison/delta",
+        "sharkdp/bat", "sharkdp/fd", "eza-community/eza"],
+    3: ["hyperium/hyper", "actix/actix-web", "diesel-rs/diesel",
+        "rusqlite/rusqlite", "lapce/lapce", "rust-lang/cargo"],
+    4: ["numpy/numpy", "scipy/scipy", "scikit-learn/scikit-learn",
+        "pandas-dev/pandas", "sympy/sympy", "pallets/click"],
+    5: ["django/django", "sqlalchemy/sqlalchemy", "pallets/jinja",
+        "celery/celery", "tqdm/tqdm", "python-poetry/poetry"],
+}
+
+WAVES = {1: WAVE_1_SHARDS, 2: WAVE_2_SHARDS, 3: WAVE_3_SHARDS}
+SHARDS = WAVE_3_SHARDS          # дефолт: свежая волна
 
 ROOT = Path(__file__).resolve().parent.parent
 CLONE_TIMEOUT = 900
@@ -197,6 +216,36 @@ def policy_excerpt(clone: Path) -> str:
     return "policy: (нет AGENTS.md / AI_POLICY.md / CONTRIBUTING.md)"
 
 
+def scan_arms(clone: Path) -> list:
+    """Стволы `z3-arith` и `lru-effects` по файлам клона.
+
+    Логика живёт в `tools/api_hunt.py` (там же её самотесты), здесь только
+    обход дерева, чтобы облако и локальный залп считали одинаково.
+    """
+    tools_dir = str(ROOT / "tools")
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    import api_hunt as arms
+
+    out, budget = [], 6000
+    for pat in ("*.py", "*.c", "*.h", "*.rs"):
+        for p in clone.rglob(pat):
+            if {".git", "vendor", "node_modules", "target"} & set(p.parts):
+                continue
+            budget -= 1
+            if budget <= 0:
+                return out
+            try:
+                src = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            rel = str(p.relative_to(clone))
+            for h in arms.analyse_lru(src, rel) + arms.analyse_z3_arith(src, rel):
+                h["file"] = f"{p.relative_to(clone)}"
+                out.append(h)
+    return out
+
+
 def hunt_repo(repo: str, workdir: Path, log) -> dict:
     dest = workdir / repo.replace("/", "__")
     entry = {"repo": repo, "status": "unknown", "findings": [], "policy": ""}
@@ -217,6 +266,7 @@ def hunt_repo(repo: str, workdir: Path, log) -> dict:
             entry["findings"] = databend_probe(dest, log)
         else:
             entry["findings"] = scan_rust(dest) if is_rust else scan_python(dest)
+            entry["findings"] = entry["findings"] + scan_arms(dest)
         log(f"[scan] {repo}: {len(entry['findings'])} findings")
     finally:
         shutil.rmtree(dest, ignore_errors=True)
@@ -264,6 +314,16 @@ def selftest() -> int:
     ok(not (w1 & w2), f"волны не пересекаются (общих: {len(w1 & w2)})")
     ok(len(w2) == 36, f"в волне 2 ровно 36 целей (сейчас {len(w2)})")
     ok(all(len(v) == 6 for v in WAVE_2_SHARDS.values()), "в шарде волны 2 ровно 6 целей")
+    w3 = {r for v in WAVE_3_SHARDS.values() for r in v}
+    ok(len(w3) == 36, f"в волне 3 ровно 36 целей (сейчас {len(w3)})")
+    ok(all(len(v) == 6 for v in WAVE_3_SHARDS.values()), "в шарде волны 3 ровно 6 целей")
+    ok(not (w1 & w3) and not (w2 & w3),
+       f"волна 3 чиста от волн 1-2 (общих: {len((w1 | w2) & w3)})")
+    reported = {"dimforge/kiss3d", "bevyengine/bevy", "zellij-org/zellij",
+                "gleam-lang/gleam", "surrealdb/surrealdb", "vectordotdev/vector",
+                "lancedb/lance", "databendlabs/databend", "qdrant/qdrant",
+                "swc-project/swc", "boa-dev/boa"}
+    ok(not (w3 & reported), f"волна 3 не повторяет трофеи (общих: {len(w3 & reported)})")
     ok(all(r.count("/") == 1 for r in flat), "все цели в формате owner/repo")
     needle = "/" + "tmp" + "/"
     ok(needle not in Path(__file__).read_text(encoding="utf-8"),

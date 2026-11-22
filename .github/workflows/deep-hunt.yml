@@ -11,7 +11,7 @@ jobs:
   hunt:
     name: shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 120
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -29,6 +29,8 @@ jobs:
           rustup show active-toolchain || rustup default stable
       - name: Python deps
         run: python3 -m pip install --quiet -r requirements.txt || true
+      - name: Install Z3 (arm z3-arith)
+        run: python3 -m pip install --quiet z3-solver || echo "z3 unavailable: z3-arith arm will stay silent"
       - name: Hunt shard ${{ matrix.shard }}
         run: |
           python3 tools/cloud_deep_hunt.py --shard ${{ matrix.shard }} --of 6 \
