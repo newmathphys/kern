@@ -388,6 +388,35 @@ test result: FAILED. 0 passed; 1 failed; 3671 filtered out
 
 Upstream: [#6524](https://github.com/gleam-lang/gleam/issues/6524).
 
+## Case P — `zellij-org/zellij` (23k ★): `RunPlugin` hashes fields that `eq` ignores (`#5969`)
+
+`RunPlugin` derives `Hash` over all four fields and declares `impl Eq`, while its
+hand-written `PartialEq` compares only `location` and `configuration`. The lint that
+would have caught this (`clippy::derive_hash_xor_eq`) is explicitly silenced:
+
+```rust
+#[allow(clippy::derive_hash_xor_eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, Default)]
+pub struct RunPlugin { _allow_exec_host_cmd: bool, location: ..., configuration: ..., initial_cwd: Option<PathBuf> }
+
+impl PartialEq for RunPlugin {
+    fn eq(&self, other: &Self) -> bool {
+        (&self.location, &self.configuration) == (&other.location, &other.configuration)
+    }
+}
+```
+
+So two plugins that differ only in `initial_cwd` compare equal and hash apart.
+Confirmed live with `cargo test -p zellij-utils --lib run_plugin_eq_hash_cwd`:
+
+```text
+thread 'input::layout::kern_eq_hash_test::run_plugin_eq_hash_cwd' panicked at
+zellij-utils/src/input/layout.rs:2226:9: Eq/Hash contract broken on initial_cwd
+test result: FAILED. 0 passed; 1 failed; 1205 filtered out
+```
+
+Upstream: [#5969](https://github.com/zellij-org/zellij/issues/5969).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -400,6 +429,7 @@ Upstream: [#6524](https://github.com/gleam-lang/gleam/issues/6524).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| P | `zellij` `62cfa6c36d` (23k ★) | **EQ/HASH SPLIT** by ignored fields | `cargo test -p zellij-utils` → FAILED; `#5969` |
 | O | `gleam` `05fb252bf8` (19k ★) | **EQ/HASH SPLIT** on `LiteralFloatValue(-0.0)` | `cargo test -p gleam-core` → FAILED; `#6524` |
 | N | `databend` `77137bc2ad` (9.5k ★) | **EQ/HASH SPLIT** on `Float64(-0.0)` | `cargo test -p databend-common-datavalues` → FAILED (cloud); `#21155` |
 | M | `lance` `e03f5e2f9d` | **EQ/HASH SPLIT** on `-0.0` bbox | `cargo test -p lance-geo` → FAILED; `#11344` |
