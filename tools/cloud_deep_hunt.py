@@ -248,7 +248,7 @@ def scan_arms(clone: Path) -> list:
     out, budget = [], 6000
     for pat in ("*.py", "*.c", "*.h", "*.rs"):
         for p in clone.rglob(pat):
-            if {".git", "vendor", "node_modules", "target"} & set(p.parts):
+            if {".git", "vendor", "third_party", "node_modules", "target"} & set(p.parts):
                 continue
             budget -= 1
             if budget <= 0:
