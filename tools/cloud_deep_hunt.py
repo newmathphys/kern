@@ -30,7 +30,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-SHARDS = {
+# ВОЛНА 1 (историческая): по ней найдены surrealdb#7715, vector#27277,
+# lance#11344 и databend#21155. Повторять её бессмысленно.
+WAVE_1_SHARDS = {
     0: ["databendlabs/databend", "apache/datafusion", "apache/arrow-rs",
         "pola-rs/polars", "glaredb/glaredb", "lancedb/lance"],
     1: ["surrealdb/surrealdb", "meilisearch/meilisearch", "quickwit-oss/quickwit",
@@ -44,6 +46,27 @@ SHARDS = {
     5: ["pydantic/pydantic", "BerriAI/litellm", "encode/httpx",
         "Textualize/rich", "tiangolo/fastapi", "psf/requests"],
 }
+
+# ВОЛНА 2: свежие 36 проектов (0 пересечений с волной 1) — UI/GPU-кэши,
+# WASM-рантаймы, редакторы, сетевые стеки и гео: там высока плотность f32/f64
+# в ключах кэша и метриках.
+WAVE_2_SHARDS = {
+    0: ["paradigmxyz/reth", "risingwavelabs/risingwave", "cnosdb/cnosdb",
+        "apache/opendal", "valkey-io/valkey", "dragonflydb/dragonfly"],
+    1: ["emilk/egui", "iced-rs/iced", "slint-ui/slint",
+        "linebender/xilem", "lapce/floem", "bevyengine/bevy"],
+    2: ["bytecodealliance/wasmtime", "wasmerio/wasmer", "gleam-lang/gleam",
+        "rust-lang/rust-analyzer", "ruffle-rs/ruffle", "tokio-rs/tokio"],
+    3: ["helix-editor/helix", "zellij-org/zellij", "alacritty/alacritty",
+        "wezterm/wezterm", "sxyazi/yazi", "BurntSushi/ripgrep"],
+    4: ["georust/geo", "rerun-io/rerun", "pykeio/ort",
+        "qdrant/qdrant", "huggingface/safetensors", "rustdesk/rustdesk"],
+    5: ["Textualize/textual", "encode/starlette", "Delgan/loguru",
+        "pydantic/pydantic-settings", "pallets/flask", "psf/black"],
+}
+
+WAVES = {1: WAVE_1_SHARDS, 2: WAVE_2_SHARDS}
+SHARDS = WAVE_2_SHARDS          # дефолт: свежая волна
 
 ROOT = Path(__file__).resolve().parent.parent
 CLONE_TIMEOUT = 900
@@ -236,6 +259,11 @@ def selftest() -> int:
     ok(len(SHARDS) == 6, "шесть шардов описаны")
     ok(all(len(v) >= 5 for v in SHARDS.values()), "в каждом шарде >= 5 репозиториев")
     ok(len(flat) == len(set(flat)), "репозитории не дублируются между шардами")
+    w1 = {r for v in WAVE_1_SHARDS.values() for r in v}
+    w2 = {r for v in WAVE_2_SHARDS.values() for r in v}
+    ok(not (w1 & w2), f"волны не пересекаются (общих: {len(w1 & w2)})")
+    ok(len(w2) == 36, f"в волне 2 ровно 36 целей (сейчас {len(w2)})")
+    ok(all(len(v) == 6 for v in WAVE_2_SHARDS.values()), "в шарде волны 2 ровно 6 целей")
     ok(all(r.count("/") == 1 for r in flat), "все цели в формате owner/repo")
     needle = "/" + "tmp" + "/"
     ok(needle not in Path(__file__).read_text(encoding="utf-8"),
