@@ -12,20 +12,10 @@ import tempfile
 import shutil
 from pathlib import Path
 
-PROBE_CARGO_TOML = """[package]
-name = "gpui-probe"
-version = "0.1.0"
-edition = "2021"
-
-[workspace]
-
-[dependencies]
-gpui = { path = "../crates/gpui" }
-"""
-
-# Пробник живёт отдельным крейтом: `cargo test -p gpui --lib` тянет тестовый
-# код самого gpui (там сейчас есть несвязанные с нами ошибки), а нам нужен
-# только публичный API крейта.
+# Интеграционный тест внутри родного workspace Zed: `--test` компилирует
+# библиотеку gpui БЕЗ её `#[cfg(test)]`-кода (там сейчас не собирается
+# `HitboxId::placeholder`), но сохраняет все `[patch.crates-io]` и
+# `[workspace.dependencies]` корневого Cargo.toml.
 PROBE_TEST = '''
 use std::collections::HashMap;
 
@@ -89,17 +79,14 @@ def main() -> int:
         rc, sha = run(["git", "rev-parse", "--short=12", "HEAD"], dest, timeout=60)
         lines.append(f"HEAD: `{sha.strip()}`")
 
-        probe = dest / "kern-probe"
+        probe_dir = dest / "crates" / "gpui" / "tests"
         if not (dest / "crates/gpui").is_dir():
             lines += ["", "crates/gpui не найден — структура репозитория изменилась"]
         else:
-            (probe / "src").mkdir(parents=True, exist_ok=True)
-            (probe / "tests").mkdir(parents=True, exist_ok=True)
-            (probe / "Cargo.toml").write_text(PROBE_CARGO_TOML, encoding="utf-8")
-            (probe / "src/lib.rs").write_text("", encoding="utf-8")
-            (probe / "tests/eq_hash.rs").write_text(PROBE_TEST, encoding="utf-8")
-            env_rc, log = run(["cargo", "test", "--test", "eq_hash"], probe,
-                              timeout=5400)
+            probe_dir.mkdir(parents=True, exist_ok=True)
+            (probe_dir / "eq_hash_probe.rs").write_text(PROBE_TEST, encoding="utf-8")
+            env_rc, log = run(["cargo", "test", "-p", "gpui", "--test", "eq_hash_probe"],
+                              dest, timeout=5400)
             keep = [ln for ln in log.splitlines() if any(k in ln for k in REPORT_KEYS)]
             verdict = ("FAILED" if "test result: FAILED" in log
                        else "PASSED" if "test result: ok" in log else "UNKNOWN")

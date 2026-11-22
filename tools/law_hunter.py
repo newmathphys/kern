@@ -394,10 +394,22 @@ def check_rust_eq_hash(src: str) -> list:
         if not body or ("to_bits" not in body and "integer_decode" not in body):
             continue
         eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(tname) + r"\b") or ""
-        # КАЛИБРОВКА №8: `PartialEq` через `total_cmp`/`cmp` уже согласован с
-        # битами (Graphite::Priority): -0.0 и NaN различаются так же, как и в
-        # `to_bits()`. Такой тип — эталон, а не находка.
-        if _re.search(r"\.cmp\s*\(|total_cmp|partial_cmp", eq_body):
+        # КАЛИБРОВКА №8 (исправлена): подавляем ТОЛЬКО те случаи, где сравнение
+        # действительно побитовое, как `to_bits()`:
+        #   a) `total_cmp` прямо в PartialEq;
+        #   b) PartialEq делегирует в `Ord::cmp`, а `Ord` построен на `total_cmp`.
+        # `partial_cmp` НЕ подавляет: (0.0).partial_cmp(&-0.0) == Some(Equal),
+        # то есть такой PartialEq расходится с to_bits() — это настоящий баг.
+        if _re.search(r"total_cmp\s*\(", eq_body):
+            continue
+        ord_body = _body_of(
+            src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+" + _re.escape(tname) + r"\b") or ""
+        if _re.search(r"\bcmp\s*\(", eq_body) and _re.search(r"total_cmp\s*\(", ord_body):
+            continue
+        # c) Hash канонизирует знак нуля перед to_bits(): Graphite::ScrollDelta
+        # (`if value == 0. { 0. } else { value }`).
+        if _re.search(r"==\s*-?0\.0?\s*\{", body) or _re.search(
+                r"canonical|no_negative_zero|strip_negative_zero", body):
             continue
         # ПРАВИЛО 4: если у ТОГО ЖЕ типа нет PartialEq, нарушать нечего
         # (datafusion::Fl<T> — обёртка только для Hash, Eq у неё отсутствует).
@@ -615,17 +627,49 @@ macro_rules! h { () => {
     ok(check_rust_eq_hash(fl_no_eq) == [],
        "eq-hash: обёртка Fl<T> без PartialEq молчит (0 FP, калибровка №4)")
 
-    graphite_total_cmp = '''
+    graphite_priority = '''
 impl PartialEq for Priority {
     fn eq(&self, other: &Self) -> bool { self.cmp(other) == std::cmp::Ordering::Equal }
 }
 impl Eq for Priority {}
+impl Ord for Priority {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.0.total_cmp(&other.0) }
+}
 impl Hash for Priority {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.0.to_bits().hash(state); }
 }
 '''
-    ok(check_rust_eq_hash(graphite_total_cmp) == [],
-       "eq-hash: PartialEq через total_cmp — эталон, не находка (калибровка №8)")
+    ok(check_rust_eq_hash(graphite_priority) == [],
+       "eq-hash: Ord через total_cmp — эталон, не находка (калибровка №8a)")
+
+    graphite_scroll = '''
+impl PartialEq for ScrollDelta {
+    fn eq(&self, other: &Self) -> bool { self.x == other.x && self.y == other.y }
+}
+impl Eq for ScrollDelta {}
+impl Hash for ScrollDelta {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let no_negative_zero = |value: f64| if value == 0. { 0. } else { value };
+        no_negative_zero(self.x).to_bits().hash(state);
+    }
+}
+'''
+    ok(check_rust_eq_hash(graphite_scroll) == [],
+       "eq-hash: канонизация нуля в Hash — эталон (калибровка №8c)")
+
+    partial_cmp_bug = '''
+impl PartialEq for Money {
+    fn eq(&self, other: &Self) -> bool {
+        self.cents.partial_cmp(&other.cents) == Some(std::cmp::Ordering::Equal)
+    }
+}
+impl Eq for Money {}
+impl Hash for Money {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.cents.to_bits().hash(state); }
+}
+'''
+    ok(len(check_rust_eq_hash(partial_cmp_bug)) == 1,
+       "eq-hash: partial_cmp + to_bits — НАСТОЯЩИЙ баг, не подавляется (0.0 == -0.0)")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
