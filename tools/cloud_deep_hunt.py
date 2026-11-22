@@ -348,6 +348,20 @@ def selftest() -> int:
     ok(not (w4 & (w1 | w2 | w3)),
        f"волна 4 чиста от волн 1-3 (общих: {len(w4 & (w1 | w2 | w3))})")
     ok(not (w4 & reported), f"волна 4 не повторяет трофеи (общих: {len(w4 & reported)})")
+    ok(len(TROPHY_REPOS) >= 14, f"трофеи перечислены ({len(TROPHY_REPOS)})")
+    ok(WAVE_5_TARGET_COUNT == 144 and WAVE_5_SHARD_COUNT == 8,
+       "волна 5: 8 шардов x 18 целей = 144")
+    live = {"full_name": "acme/live", "archived": False, "fork": False,
+            "has_issues": True, "pushed_at": "2026-11-01T00:00:00Z"}
+    ok(accept_repo(dict(live), set(), []), "авто-подбор берёт живую цель")
+    ok(not accept_repo({**live, "archived": True}, set(), []), "архив отсекается")
+    ok(not accept_repo({**live, "fork": True}, set(), []), "форк отсекается")
+    ok(not accept_repo({**live, "has_issues": False}, set(), []), "без issues отсекается")
+    ok(not accept_repo({**live, "pushed_at": "2021-05-01T00:00:00Z"}, set(), []),
+       "мёртвый pushed_at отсекается")
+    ok(not accept_repo({**live, "size": 900000}, set(), []), "слишком большой репозиторий отсекается")
+    ok(not accept_repo(dict(live), {"acme/live"}, []), "уже проверенная цель не берётся")
+    ok(not accept_repo(dict(live), set(), ["acme/live"]), "дубль внутри волны не берётся")
     ok(all(r.count("/") == 1 for r in flat), "все цели в формате owner/repo")
     needle = "/" + "tmp" + "/"
     ok(needle not in Path(__file__).read_text(encoding="utf-8"),
@@ -377,22 +391,118 @@ def selftest() -> int:
     return 0 if bad == 0 else 1
 
 
+# Наши трофеи: их повторно не охотим, они уже отработаны вручную.
+TROPHY_REPOS = {
+    "dimforge/kiss3d", "dagster-io/dagster", "typst/typst", "bevyengine/bevy",
+    "zellij-org/zellij", "gleam-lang/gleam", "surrealdb/surrealdb",
+    "vectordotdev/vector", "lancedb/lance", "databendlabs/databend",
+    "qdrant/qdrant", "swc-project/swc", "boa-dev/boa", "isamert/scheme.rs",
+}
+
+MAX_REPO_SIZE_KB = 250_000        # 250 МБ: клон обязан влезть на диск раннера
+WAVE_5_SHARD_COUNT = 8
+WAVE_5_TARGET_COUNT = 144
+
+
+def _known_repos() -> set:
+    known = set(TROPHY_REPOS)
+    for wave in WAVES.values():
+        known |= {r for shard in wave.values() for r in shard}
+    return known
+
+
+def accept_repo(item: dict, known: set, picked: list) -> bool:
+    """Живая цель: не форк, не архив, есть issues, пушили недавно, не повтор."""
+    full = item.get("full_name") or ""
+    if not full or "/" not in full or full in known or full in picked:
+        return False
+    if item.get("archived") or item.get("fork"):
+        return False
+    if item.get("has_issues") is False:
+        return False
+    if item.get("size", 0) > MAX_REPO_SIZE_KB:
+        return False                                   # диск раннера: 14 ГБ
+    return (item.get("pushed_at") or "")[:4] >= "2025"
+
+
+def discover_targets(limit: int = WAVE_5_TARGET_COUNT, log=print) -> list:
+    """Авто-подбор целей из публичного реестра GitHub (нужен GITHUB_TOKEN).
+
+    Любая ошибка сети возвращает то, что успели собрать: ночь не должна
+    срываться из-за одного таймаута.
+    """
+    import json
+    import os
+    import urllib.parse
+    import urllib.request
+
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if not token:
+        log("[discover] нет GITHUB_TOKEN — авто-подбор пропущен")
+        return []
+    known, picked = _known_repos(), []
+    queries = ("language:Rust stars:>800", "language:Python stars:>1500",
+               "language:C stars:>1200")
+    for query in queries:
+        url = ("https://api.github.com/search/repositories?q="
+               + urllib.parse.quote(f"{query} archived:false fork:false")
+               + "&sort=stars&order=desc&per_page=100")
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "kern-deep-hunt"})
+        try:
+            with urllib.request.urlopen(req, timeout=40) as resp:
+                items = json.load(resp).get("items", [])
+        except Exception as exc:                       # noqa: BLE001
+            log(f"[discover] {query}: {exc}")
+            continue
+        for item in items:
+            if accept_repo(item, known, picked):
+                picked.append(item["full_name"])
+                if len(picked) >= limit:
+                    return picked
+        log(f"[discover] {query}: всего отобрано {len(picked)}")
+    return picked
+
+
+def build_wave5(shards: int = WAVE_5_SHARD_COUNT, log=print) -> dict:
+    """Раскладывает авто-подбор по шардам; при нехватке откатывается на волну 4."""
+    flat = discover_targets(WAVE_5_TARGET_COUNT, log)
+    if len(flat) < shards * 2:
+        log(f"[wave5] авто-подбор дал {len(flat)} целей — беру WAVE_4_SHARDS")
+        return {i: list(v) for i, v in WAVE_4_SHARDS.items()}
+    per = len(flat) // shards
+    out = {i: flat[i * per:(i + 1) * per] for i in range(shards)}
+    log(f"[wave5] {len(flat)} целей на {shards} шардов по {per}")
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="ночная облачная охота")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--shard", type=int, default=0)
-    ap.add_argument("--of", type=int, default=6)
+    ap.add_argument("--of", type=int, default=0)
+    ap.add_argument("--wave", type=int, default=5,
+                    help="1-4 — кураторские списки, 5 — авто-подбор с GitHub")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--out", default="report.md")
     ap.add_argument("--limit", type=int, default=0)
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
-    if a.of != 6 or a.shard not in SHARDS:
-        print(f"неверный шард: {a.shard} из {a.of}", file=sys.stderr)
+    if a.wave == 5:
+        shards, of = build_wave5(WAVE_5_SHARD_COUNT, print), (a.of or 8)
+    elif a.wave in WAVES:
+        shards, of = WAVES[a.wave], (a.of or 6)
+    else:
+        print(f"неизвестная волна: {a.wave}", file=sys.stderr)
         return 2
-    repos = SHARDS[a.shard][: a.limit or None]
-    print(f"shard {a.shard}/{a.of}: {len(repos)} репозиториев -> {a.out}")
+    if a.shard not in shards:
+        print(f"неверный шард: {a.shard} из {of}", file=sys.stderr)
+        return 2
+    repos = shards[a.shard][: a.limit or None]
+    print(f"shard {a.shard}/{of}: {len(repos)} репозиториев -> {a.out}")
     for r in repos:
         print(f"  - {r}")
     if a.dry_run:

@@ -510,6 +510,17 @@ colours that differ below `1/255` compare equal and hash apart — reachable fro
 
 Upstream: [#9103](https://github.com/typst/typst/issues/9103).
 
+## External acceptance
+
+Reports from this series that maintainers have picked up:
+
+| Report | Reaction |
+|---|---|
+| [dagster#34468](https://github.com/dagster-io/dagster/issues/34468) | taken by a contributor, who will make the probe depend only on the zone — the fix proposed in the report |
+| [boa#5678](https://github.com/boa-dev/boa/issues/5678) | taken by a contributor, who will canonicalise zero and add `HashSet`/`HashMap` regression tests |
+| [lance#11344](https://github.com/lance-format/lance/issues/11344) | labelled `bug` by the maintainers |
+| [databend#21155](https://github.com/databendlabs/databend/issues/21155) | assigned to an engineer |
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |

@@ -1,7 +1,10 @@
-name: Deep hunt (night, 6 shards)
+name: Deep hunt (night, 8 shards + zed probe)
 
 on:
   workflow_dispatch:
+  schedule:
+    # 01:17 UTC каждую ночь: автономный рейд без участия оператора
+    - cron: "17 1 * * *"
 
 permissions:
   contents: read
@@ -16,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,8 +35,10 @@ jobs:
       - name: Install Z3 (arm z3-arith)
         run: python3 -m pip install --quiet z3-solver || echo "z3 unavailable (arm z3-arith stays silent)"
       - name: Hunt shard ${{ matrix.shard }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 tools/cloud_deep_hunt.py --shard ${{ matrix.shard }} --of 6 \
+          python3 tools/cloud_deep_hunt.py --shard ${{ matrix.shard }} --of 8 --wave 5 \
             --out report-${{ matrix.shard }}.md
       - name: Upload shard report
         if: always()
@@ -43,9 +48,41 @@ jobs:
           path: report-${{ matrix.shard }}.md
           if-no-files-found: warn
 
+  zed-probe:
+    name: zed gpui probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: gpui system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev \
+            libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libfontconfig1-dev libvulkan-dev libasound2-dev libssl-dev pkg-config \
+            clang mold protobuf-compiler
+          rustup show active-toolchain || rustup default stable
+      - name: Run gpui test on the real crate
+        env:
+          CARGO_BUILD_JOBS: "2"
+          CARGO_PROFILE_TEST_DEBUG: "0"
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: python3 tools/zed_probe.py zed-probe-report.md
+      - name: Upload zed probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-probe-report
+          path: zed-probe-report.md
+          if-no-files-found: warn
+
   morning-brief:
     name: morning brief
-    needs: hunt
+    needs: [hunt, zed-probe]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -55,9 +92,15 @@ jobs:
           pattern: deep-hunt-*
           merge-multiple: true
           path: brief
+      - uses: actions/download-artifact@v4
+        with:
+          name: zed-probe-report
+          path: brief
+        continue-on-error: true
       - name: Concatenate
         run: |
           { echo "# Morning brief — cloud deep hunt"; echo; echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; \
+            if [ -f brief/zed-probe-report.md ]; then echo "## Zed gpui probe"; echo; cat brief/zed-probe-report.md; echo; fi; \
             for f in $(ls brief/report-*.md 2>/dev/null | sort); do echo "<!-- $f -->"; cat "$f"; echo; done; } > morning-brief.md
           cat morning-brief.md
       - name: Upload brief
