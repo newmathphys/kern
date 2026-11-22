@@ -206,20 +206,69 @@ def analyse_effects(src: str, path: str) -> list:
     return out
 
 
-LRU_NONDETERMINISTIC = (
-    "datetime.now", "datetime.utcnow", "datetime.today", "date.today",
-    "time.time", "time.monotonic", "random.random", "random.randint",
-    "random.choice", "random.uniform", "uuid.uuid4", "uuid.uuid1",
-)
+NONDETERMINISTIC_CALLS = {
+    "datetime.now", "datetime.datetime.now", "datetime.utcnow",
+    "datetime.datetime.utcnow", "datetime.today", "datetime.datetime.today",
+    "date.today", "datetime.date.today",
+    "time.time", "time.monotonic", "time.perf_counter", "time.localtime",
+    "time.ctime", "time.strftime",
+    "random.random", "random.randint", "random.choice", "random.randrange",
+    "random.uniform", "random.shuffle", "random.sample",
+    "uuid.uuid4", "uuid.uuid1", "os.urandom",
+}
+
+MEMO_DECORATORS = {"lru_cache", "cache"}
+
+
+def _dotted(node) -> str:
+    """`time.time` -> "time.time"; `dt.datetime.now` -> "dt.datetime.now"."""
+    import ast as _ast
+    parts = []
+    while isinstance(node, _ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, _ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
+    return ""
+
+
+class _ImpureCallFinder:
+    """Ищет ТОЛЬКО реальные вызовы часов/рандома внутри тела функции.
+
+    Границы: вложенные `def` / `lambda` / `class` не обходятся — их тело
+    исполняется не здесь (или не исполняется вовсе), а `ast.dump`-подстроки
+    по докстрингам и именам аргументов давали FP на scipy.
+    """
+
+    def __init__(self):
+        self.hits = []
+
+    def scan(self, statements):
+        for stmt in statements:
+            self._walk(stmt)
+
+    def _walk(self, node):
+        import ast as _ast
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef,
+                             _ast.Lambda, _ast.ClassDef)):
+            return                      # граница области видимости
+        if isinstance(node, _ast.Call):
+            path = _dotted(node.func)
+            if path in NONDETERMINISTIC_CALLS:
+                self.hits.append(path)
+        for child in _ast.iter_child_nodes(node):
+            self._walk(child)
 
 
 def analyse_lru(src: str, path: str) -> list:
     """Ствол lru-effects: мемоизация поверх недетерминированного тела.
 
     HIGH — только если функция ПРИНИМАЕТ аргументы (они и есть ключ кэша) и
-    внутри читает часы/рандом: тогда для одного и того же аргумента кэш
-    навсегда фиксирует первое случайное значение. Ноль-аргументные
-    `@lru_cache`-синглтоны (например `get_settings()`) намеренны и молчат.
+    её собственное тело вызывает часы/рандом: тогда для одного и того же
+    аргумента кэш навсегда фиксирует первое значение. Ноль-аргументные
+    `@lru_cache`-синглтоны (например `get_settings()`) намеренны и молчат, а
+    докстринги и вложенные `def` не считаются (Калибровка №6).
     """
     import ast as _ast
 
@@ -237,25 +286,29 @@ def analyse_lru(src: str, path: str) -> list:
     for node in _ast.walk(tree):
         if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
             continue
-        decs = []
+        memo = False
         for d in node.decorator_list:
-            decs.append(_ast.dump(d))
-        if not any("lru_cache" in d or "'cache'" in d or '"cache"' in d for d in decs):
+            target = d.func if isinstance(d, _ast.Call) else d
+            if _dotted(target).split(".")[-1] in MEMO_DECORATORS:
+                memo = True
+                break
+        if not memo:
             continue
-        args = [a.arg for a in node.args.posonlyargs + node.args.args if a.arg != "self"]
+        args = [a.arg for a in node.args.posonlyargs + node.args.args
+                if a.arg not in ("self", "cls")]
         args += [a.arg for a in node.args.kwonlyargs]
         if not args:
             continue      # намеренный синглтон — не наш случай
-        body = _ast.dump(node)
-        dirty = [k for k in LRU_NONDETERMINISTIC if k.split(".")[-1] in body and
-                 k.split(".")[0] in body]
-        if not dirty:
+        finder = _ImpureCallFinder()
+        finder.scan(node.body)
+        if not finder.hits:
             continue
         out.append({
             "law": "lru-effects", "symbol": f"{node.name}({', '.join(args)})",
             "file": f"{path}:{node.lineno}",
             "detail": "мемоизация с аргументами, но тело читает "
-                      + ", ".join(sorted(set(dirty))) + ": кэш замораживает первое значение",
+                      + ", ".join(sorted(set(finder.hits)))
+                      + ": кэш замораживает первое значение",
             "hot": True,
         })
     return out
@@ -398,6 +451,45 @@ def selftest() -> int:
             "@lru_cache(maxsize=None)\ndef fib(n: int) -> int:\n    return n if n < 2 else fib(n-1) + fib(n-2)\n")
     ok(analyse_lru(pure, "app/fib.py") == [], "lru: чистая мемоизация молчит")
     ok(analyse_lru(bad_py, "tests/test_cache.py") == [], "lru: тестовые файлы пропущены")
+
+    # Калибровка №6: докстринг и вложенный def — не тело функции
+    scipy_style = ('from functools import lru_cache\nimport time\n'
+                   '@lru_cache(maxsize=8)\n'
+                   'def _eps_for_method(x0_dtype, f0_dtype, method):\n'
+                   '    """Docs used to say: never call time.time() in here."""\n'
+                   '    def inner():\n'
+                   '        return time.time()\n'
+                   '    return _lookup(x0_dtype, f0_dtype, method)\n')
+    ok(analyse_lru(scipy_style, "scipy/special/_basic.py") == [],
+       "lru: докстринг + вложенный def дают 0 находок (шум ast.dump убран)")
+
+    lam = ('from functools import lru_cache\nimport time\n'
+           '@lru_cache()\ndef f(a):\n    g = lambda: time.time()\n    return a\n')
+    ok(analyse_lru(lam, "app/l.py") == [], "lru: lambda-тело не считается")
+
+    nested_call = ('from functools import lru_cache\nimport time\n'
+                   '@lru_cache()\ndef f(a):\n    return (time.time(), a)\n')
+    ok(len(analyse_lru(nested_call, "app/t.py")) == 1, "lru: реальный вызов в теле ловится")
+
+    # Броня CI: сломанный YAML не должен тихо убивать workflow_dispatch
+    try:
+        import yaml as _yaml
+    except ImportError:                       # в голом CI pyyaml может отсутствовать
+        _yaml = None
+    if _yaml is not None:
+        wf_dir = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+        broken, checked = [], 0
+        for wf in sorted(wf_dir.glob("*.yml")):
+            checked += 1
+            try:
+                _yaml.safe_load(wf.read_text(encoding="utf-8"))
+            except Exception as exc:          # noqa: BLE001 — нужен любой сбой
+                broken.append(f"{wf.name}: {exc}")
+        ok(checked >= 3 and not broken,
+           f"все .github/workflows/*.yml парсятся ({checked} файлов)"
+           + ("" if not broken else " — " + "; ".join(broken)))
+    else:
+        print("[SKIP] pyyaml нет — проверка воркфлоу пропущена")
 
     # --- ствол z3-arith: настоящий Solver, эталон lcm даёт контрпример ---
     lcm_c = ("int lcm(int a, int b) {\n    return a * b / gcd(a, b);\n}\n")
