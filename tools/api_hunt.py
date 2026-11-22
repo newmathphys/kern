@@ -90,9 +90,33 @@ def search_code(query: str, per_page: int = 20) -> list:
     return [(it["repository"]["full_name"], it["path"]) for it in data.get("items", [])]
 
 
+_REPO_CACHE: dict = {}
+
+
 def repo_meta(full_name: str):
-    return _gh_json(["api", f"repos/{full_name}", "--jq",
-                     "{stars: .stargazers_count, archived: .archived, fork: .fork, issues: .has_issues}"])
+    """Метаданные репозитория с кэшем: один запрос на репозиторий, а не на файл."""
+    if full_name in _REPO_CACHE:
+        return _REPO_CACHE[full_name]
+    meta = _gh_json(["api", f"repos/{full_name}", "--jq",
+                     "{stars: .stargazers_count, archived: .archived, fork: .fork, "
+                     "issues: .has_issues, pushed_at: .pushed_at}"])
+    _REPO_CACHE[full_name] = meta
+    return meta
+
+
+def repo_age_days(meta) -> float:
+    """Сколько дней прошло с последнего пуша (inf, если дата неизвестна)."""
+    import datetime
+    stamp = (meta or {}).get("pushed_at")
+    if not stamp:
+        return float("inf")
+    try:
+        when = datetime.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return float("inf")
+    return (datetime.datetime.now(datetime.timezone.utc) - when).total_seconds() / 86400
+
 
 
 def raw_file(full_name: str, path: str):
@@ -170,14 +194,14 @@ def analyse_effects(src: str, path: str) -> list:
     return out
 
 
-def hunt(limit: int, min_stars: int, mode: str, log=print) -> list:
+def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=print) -> list:
     """Поиск -> фильтр -> скачивание файла -> анализ -> ранжирование."""
     seen, findings = set(), []
     queries = []
     if mode in ("laws", "all"):
         queries += [(q, "laws") for q in QUERIES_LAWS]
-    if mode in ("effects", "all"):
-        queries += [(q, "effects") for q in QUERIES_EFFECTS]
+    if mode in ("effect-hints", "all"):
+        queries += [(q, "effect-hints") for q in QUERIES_EFFECTS]
 
     for query, stem in queries:
         log(f"[search] {query}")
@@ -192,6 +216,8 @@ def hunt(limit: int, min_stars: int, mode: str, log=print) -> list:
                 continue
             if (meta.get("stars") or 0) < min_stars:
                 continue
+            if repo_age_days(meta) > max_age_days:
+                continue   # мёртвый архив: мейнтейнеров нет, время на сборку тратить нечего
             src = raw_file(repo, path)
             if not src:
                 continue
@@ -252,6 +278,14 @@ def selftest() -> int:
     ok("| 5 |" in row and "| да |" in row, "строка таблицы собирается")
     ok(GH_PAUSE_S >= 5, "пауза под лимит Code Search задана")
 
+    _REPO_CACHE.clear()
+    _REPO_CACHE["a/b"] = {"stars": 1, "pushed_at": "2020-01-01T00:00:00Z"}
+    ok(repo_meta("a/b") is _REPO_CACHE["a/b"], "repo_cache отдаёт закэшированный ответ")
+    ok(repo_age_days({"pushed_at": "2020-01-01T00:00:00Z"}) > 730,
+       "старый pushed_at отсекается (noria-подобные архивы)")
+    ok(repo_age_days({}) == float("inf"), "без pushed_at считаем мёртвым")
+    _REPO_CACHE.clear()
+
     print(f"[API-HUNT-SELFTEST] провалов: {bad}")
     return 0 if bad == 0 else 1
 
@@ -261,12 +295,13 @@ def main(argv=None) -> int:
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--min-stars", type=int, default=100)
-    ap.add_argument("--mode", choices=["laws", "effects", "all"], default="all")
+    ap.add_argument("--mode", choices=["laws", "effect-hints", "all"], default="all")
+    ap.add_argument("--max-age-days", type=int, default=730)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
-    findings = hunt(a.limit, a.min_stars, a.mode)
+    findings = hunt(a.limit, a.min_stars, a.mode, a.max_age_days)
     print(render(findings) if not a.json
           else json.dumps(findings, ensure_ascii=False, indent=1))
     print(f"\nитого: {len(findings)} находок (mode={a.mode}, min-stars={a.min_stars})")
