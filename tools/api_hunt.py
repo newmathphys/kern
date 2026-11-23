@@ -95,7 +95,7 @@ EFFECT_PATTERNS = [
 ]
 
 GH_PAUSE_S = 7.0
-PER_QUERY = 6        # иначе на каждый файл уходит 2 API-вызова и залп буксует
+PER_QUERY = 100       # иначе на каждый файл уходит 2 API-вызова и залп буксует
 
 
 def _gh_json(args: list, timeout: int = 40):
@@ -109,9 +109,11 @@ def _gh_json(args: list, timeout: int = 40):
         return None
 
 
-def search_code(query: str, per_page: int = 20) -> list:
-    """gh api search/code -> [(repo, path)]."""
-    data = _gh_json(["api", f"search/code?q={urllib.parse.quote(query)}&per_page={per_page}"])
+def search_code(query: str, per_page: int = 100, page: int = 1) -> list:
+    """gh api search/code -> [(repo, path)]. `per_page` до 100, `page` с 1."""
+    url = (f"search/code?q={urllib.parse.quote(query)}"
+           f"&per_page={per_page}&page={page}")
+    data = _gh_json(["api", url])
     if not data:
         return []
     return [(it["repository"]["full_name"], it["path"]) for it in data.get("items", [])]
@@ -421,7 +423,8 @@ def analyse_eq_ord(src: str, path: str) -> list:
     return out
 
 
-def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=print) -> list:
+def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
+         max_pages: int = 1, log=print) -> list:
     """Поиск -> фильтр -> скачивание файла -> анализ -> ранжирование."""
     seen, findings = set(), []
     queries = []
@@ -438,29 +441,35 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=pri
 
     for query, stem in queries:
         log(f"[search] {query}")
-        for repo, path in search_code(query, per_page=PER_QUERY):
-            if repo in EXCLUDED_REPOS or (repo, path) in seen:
-                continue
-            seen.add((repo, path))
-            if len(findings) >= limit:
-                return findings
-            meta = repo_meta(repo) or {}
-            if meta.get("archived") or meta.get("fork") or meta.get("issues") is False:
-                continue
-            if (meta.get("stars") or 0) < min_stars:
-                continue
-            if repo_age_days(meta) > max_age_days:
-                continue   # мёртвый архив: мейнтейнеров нет, время на сборку тратить нечего
-            src = raw_file(repo, path)
-            if not src:
-                continue
-            hits = {"laws": analyse_laws, "lru": analyse_lru, "eqord": analyse_eq_ord,
-                    "z3arith": analyse_z3_arith}.get(
-                        stem, analyse_effects)(src, path)
-            for h in hits:
-                h.update({"repo": repo, "path": path, "stars": meta.get("stars", 0)})
-                findings.append(h)
-        time.sleep(GH_PAUSE_S)
+        for page in range(1, max_pages + 1):
+            rows = search_code(query, per_page=PER_QUERY, page=page)
+            if not rows:
+                break
+            for repo, path in rows:
+                if repo in EXCLUDED_REPOS or (repo, path) in seen:
+                    continue
+                seen.add((repo, path))
+                if len(findings) >= limit:
+                    return findings
+                # Stars-First: метаданные (из кэша) проверяются ДО скачивания
+                # файла, поэтому тысячи мелких репозиториев стоят 0 запросов.
+                meta = repo_meta(repo) or {}
+                if meta.get("archived") or meta.get("fork") or meta.get("issues") is False:
+                    continue
+                if (meta.get("stars") or 0) < min_stars:
+                    continue
+                if repo_age_days(meta) > max_age_days:
+                    continue
+                src = raw_file(repo, path)
+                if not src:
+                    continue
+                hits = {"laws": analyse_laws, "lru": analyse_lru, "eqord": analyse_eq_ord,
+                        "z3arith": analyse_z3_arith}.get(
+                            stem, analyse_effects)(src, path)
+                for h in hits:
+                    h.update({"repo": repo, "path": path, "stars": meta.get("stars", 0)})
+                    findings.append(h)
+            time.sleep(GH_PAUSE_S)
 
     findings.sort(key=lambda x: (-x.get("stars", 0), not x.get("hot")))
     return findings
@@ -635,11 +644,13 @@ def main(argv=None) -> int:
     ap.add_argument("--mode", default="all",
                     choices=["laws", "effect-hints", "lru-effects", "z3-arith", "eq-ord", "all"])
     ap.add_argument("--max-age-days", type=int, default=730)
+    ap.add_argument("--pages", type=int, default=1,
+                    help="сколько страниц search/code по 100 результатов пройти")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
-    findings = hunt(a.limit, a.min_stars, a.mode, a.max_age_days)
+    findings = hunt(a.limit, a.min_stars, a.mode, a.max_age_days, max_pages=a.pages)
     print(render(findings) if not a.json
           else json.dumps(findings, ensure_ascii=False, indent=1))
     print(f"\nитого: {len(findings)} находок (mode={a.mode}, min-stars={a.min_stars})")
