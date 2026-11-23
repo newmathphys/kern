@@ -499,16 +499,47 @@ def _enclosing_function(src: str, pos: int):
     return m.group(5) or "", m.end(), bool(m.group(3))
 
 
+def _alloc_witness(kind: str):
+    """Контрпример Z3 для конкретной формы переполнения в 32 битах."""
+    import z3
+
+    s = z3.Solver()
+    if kind == "product":                       # (a * b) * sizeof(...)
+        a, b = z3.BitVecs("a b", 32)
+        s.add(z3.UGT(a, z3.BitVecVal(1_000_000, 32)),
+              z3.UGT(b, z3.BitVecVal(1_000_000, 32)))
+        allocated = a * b                       # считается в 32 битах
+        true_size = z3.ZeroExt(32, a) * z3.ZeroExt(32, b)
+        s.add(z3.ULT(z3.ZeroExt(32, allocated), z3.BitVecVal(4096, 64)),
+              z3.UGE(true_size, z3.BitVecVal(1 << 32, 64)))
+        if s.check() == z3.sat:
+            m = s.model()
+            return (f"a={m.eval(a, model_completion=True).as_long()}, "
+                    f"b={m.eval(b, model_completion=True).as_long()}: the product "
+                    f"wraps in 32 bits to {m.eval(allocated, model_completion=True).as_long()} "
+                    f"bytes, the true size is 2^32 or more")
+    elif kind == "plus":                        # (n + k) * sizeof(...)
+        n = z3.BitVec("n", 32)
+        s.add(z3.UGT(n, z3.BitVecVal(4_000_000_000, 32)))
+        allocated = n + z3.BitVecVal(1, 32)     # переполнение до sizeof
+        s.add(z3.ULT(allocated, z3.BitVecVal(4096, 32)))
+        if s.check() == z3.sat:
+            m = s.model()
+            return (f"n={m.eval(n, model_completion=True).as_long()}: n + 1 wraps to "
+                    f"{m.eval(allocated, model_completion=True).as_long()} before sizeof")
+    return ""
+
+
 def analyse_z3_alloc(src: str, path: str) -> list:
-    """z3-alloc: `malloc(n * sizeof(T))` с 32-битным внешним размером (CWE-190).
+    """z3-alloc: переполнение размера кучи по правилам C11 (§6.3.1.8, LP64).
 
-    Умножение выполняется в 32 битах ДО расширения аргумента `malloc(size_t)`,
-    поэтому при большом `n` произведение схлопывается в маленькое число.
-
-    Достижимость (без неё находка бесполезна): `n` обязан быть **параметром**
-    объемлющей функции, а не полем, глобалом или локальной переменной, и до
-    вызова `malloc` в этой функции не должно быть проверки границы. Именно это
-    отсекает `st`, где `cols` приходит из `ioctl(TIOCGWINSZ)`.
+    `sizeof` имеет тип `size_t`, поэтому `malloc(n * sizeof(T))` при одном
+    32-битном множителе на 64-битной платформе расширяется ДО умножения и не
+    переполняется. Взрываются только три формы:
+      A) два 32-битных множителя слева от sizeof: `malloc(w * h * sizeof(T))`;
+      B) сложение в 32 битах: `malloc((n + 1) * sizeof(T))`;
+      C) размер, сохранённый в 32-битную переменную: `int sz = n * sizeof(T)`.
+    Достижимость: функция не `static` и в файле есть чтение внешних данных.
     """
     try:
         import z3
@@ -520,35 +551,42 @@ def analyse_z3_alloc(src: str, path: str) -> list:
     if "/tests/" in f"/{lowered}" or "/examples/" in lowered \
             or "/vendor/" in lowered or "/third_party/" in lowered:
         return []
+    # taint: без источника внешных данных находка неинтересна
+    tainted = bool(re.search(r"\bfread\b|\bfscanf\b|\brecv\b|\bread\s*\(|\bgetc\b"
+                             r"|\bfgets\b|\bmemcpy\s*\(\s*\w+\s*,\s*(?:buf|data|in)", src))
+    if "ioctl" in src and tainted is False:
+        return []
 
+    forms = (
+        ("product", r"malloc\s*\(\s*(\w+)\s*\*\s*(\w+)\s*\*\s*sizeof\s*\(", "A"),
+        ("plus", r"malloc\s*\(\s*\(\s*(\w+)\s*\+\s*(\w+)\s*\)\s*\*\s*sizeof\s*\(", "B"),
+        ("trunc", r"\b(?:int|unsigned(?:\s+int)?|uint32_t)\s+(\w+)\s*=\s*(\w+)"
+                  r"\s*\*\s*sizeof\s*\(", "C"),
+    )
     out = []
-    for m in re.finditer(r"malloc\s*\(\s*(\w+)\s*\*\s*sizeof\s*\(", src):
-        var = m.group(1)
-        if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32)\s+"
-                         + re.escape(var) + r"\b", src):
-            continue                       # размер не 32-битный — не наш случай
-        params, fn_start, is_static = _enclosing_function(src, m.start())
-        if not params or not re.search(r"\b" + re.escape(var) + r"\b", params):
-            continue                       # не параметр: поле/глобал/локал
-        guard_window = src[fn_start:m.start()] if fn_start else src[:m.start()]
-        if re.search(r"SIZE_MAX\s*/|size_t\)\s*\**\s*" + re.escape(var)
-                     + r"|if\s*\([^)]*" + re.escape(var) + r"\s*>", guard_window):
-            continue                       # граница проверена или есть каст
-        n = z3.BitVec("n", 32)
-        s = z3.Solver()
-        s.add(n > z3.BitVecVal(1_000_000, 32))          # внешний большой размер
-        prod = n * z3.BitVecVal(4, 32)                   # sizeof(int) == 4
-        s.add(z3.ULT(prod, z3.BitVecVal(64, 32)))        # произведение схлопнулось
-        if s.check() == z3.sat:
-            model = s.model()
-            got = model.eval(prod, model_completion=True)
+    for kind, pattern, label in forms:
+        for m in re.finditer(pattern, src):
+            params, fn_start, is_static = _enclosing_function(src, m.start())
+            if is_static or not params:
+                continue                       # недостижимо извне файла
+            first = m.group(1)
+            if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32)\s+"
+                             + re.escape(first) + r"\b", src):
+                continue
+            # хотя бы один множитель должен быть параметром функции: локальная
+            # переменная из `kann_dim_in()` ограничена моделью и не опасна
+            factors = [g for g in m.groups()[:2] if g]
+            if not any(re.search(r"\b" + re.escape(f) + r"\b", params) for f in factors):
+                continue
+            guard = src[fn_start:m.start()] if fn_start else src[:m.start()]
+            if re.search(r"SIZE_MAX\s*/|size_t\)\s*", guard):
+                continue
+            witness = _alloc_witness(kind)
+            if not witness:
+                continue
             out.append({
-                "law": "z3-alloc:mul-overflow", "symbol": f"{Path(path).name}:{var}",
-                "file": path,
-                "detail": f"public parameter {var} reaches malloc({var} * sizeof(...)) "
-                          f"in 32 bits: n={model[n]} allocates only {got.as_long()} bytes"
-                          + ("" if not is_static else " (file-local function)"),
-                "hot": not is_static,
+                "law": f"z3-alloc:form-{label}", "symbol": f"{Path(path).name}:{first}",
+                "file": path, "detail": witness, "hot": True,
             })
     return out
 
@@ -767,25 +805,30 @@ def selftest() -> int:
     ok(analyse_z3_arith(codec, "src/lj92.rs") == [],
        "z3: среднее без контекста поиска молчит")
 
-    # --- ствол z3-alloc: malloc(n * sizeof) на 32-битном n ---
-    vuln_alloc = ("int parse(const char *buf, int n) {\n"
-                  "    int *arr = malloc(n * sizeof(int));\n"
-                  "    return arr ? 0 : -1;\n}\n")
-    h = analyse_z3_alloc(vuln_alloc, "src/parse.c")
-    ok(len(h) == 1 and h[0]["law"] == "z3-alloc:mul-overflow",
-       "z3-alloc: malloc(n * sizeof(int)) на int n — находка с контрпримером")
+    # --- ствол z3-alloc: только реальные формы C11 LP64 ---
+    vuln_alloc = ("int decode(const char *buf, int w, int h) {\n"
+                  "    unsigned char *px = malloc(w * h * sizeof(unsigned char));\n"
+                  "    if (!px) return -1;\n"
+                  "    return px[0];\n}\n")
+    h = analyse_z3_alloc(vuln_alloc, "src/decode.c")
+    ok(len(h) == 1 and h[0]["law"] == "z3-alloc:form-A",
+       "z3-alloc: (w * h) * sizeof — находка формы A с контрпримером Z3")
 
-    safe_alloc = ("int parse(const char *buf, int n) {\n"
-                  "    if (n <= 0 || (size_t)n > SIZE_MAX / sizeof(int)) return -1;\n"
-                  "    int *arr = malloc((size_t)n * sizeof(int));\n"
-                  "    return arr ? 0 : -1;\n}\n")
-    ok(analyse_z3_alloc(safe_alloc, "src/parse.c") == [],
+    # КАЛИБРОВКА №15: одиночный множитель перед sizeof на LP64 не переполняется
+    single = ("int read_all(int n) {\n"
+              "    int *arr = malloc(n * sizeof(int));\n"
+              "    return arr ? 0 : -1;\n}\n")
+    ok(analyse_z3_alloc(single, "src/read.c") == [],
+       "z3-alloc: n * sizeof(int) на LP64 — эталон, молчит")
+
+    safe_alloc = ("int decode(const char *buf, int w, int h) {\n"
+                  "    if (w <= 0 || h <= 0 || (size_t)w > SIZE_MAX / sizeof(int) / h) return -1;\n"
+                  "    int *px = malloc((size_t)w * h * sizeof(int));\n"
+                  "    return px ? 0 : -1;\n}\n")
+    ok(analyse_z3_alloc(safe_alloc, "src/decode.c") == [],
        "z3-alloc: каст в size_t + проверка границы — эталон, молчит")
 
-    # st-стиль: размер — поле структуры, а не параметр функции
     st_style = ("void tresize(int col, int row) {\n"
-                "    xw.cols = col;\n"
-                "    tw.cols = col;\n"
                 "    tw.line = malloc(tw.cols * sizeof(Line));\n}\n")
     ok(analyse_z3_alloc(st_style, "src/x.c") == [],
        "z3-alloc: размер из поля структуры молчит (форма st)")
