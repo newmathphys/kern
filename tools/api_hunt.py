@@ -86,6 +86,11 @@ QUERIES_EQ_ORD_LOOSE = [
     '"total_cmp" "impl Eq for" "#[derive(" language:Rust',
 ]
 
+QUERIES_ALLOC = [
+    '"malloc(" "* sizeof(" "int " language:C',
+    '"malloc(n * sizeof" language:C',
+]
+
 QUERIES_EFFECTS = [
     '"def lcm" "// gcd" language:Python',
     '"(low + high) / 2" language:C',
@@ -482,6 +487,53 @@ def analyse_z3_arith(src: str, path: str) -> list:
             })
     return out
 
+def analyse_z3_alloc(src: str, path: str) -> list:
+    """z3-alloc: `malloc(n * sizeof(T))` с 32-битным `n` (CWE-190).
+
+    Умножение выполняется в 32 битах ДО расширения аргумента `malloc(size_t)`,
+    поэтому при большом `n` произведение схлопывается в маленькое число и
+    выделяется буфер меньше запрошенного. Защита — либо `calloc`, либо каст
+    `(size_t)n` с проверкой `n > SIZE_MAX / sizeof(T)`.
+    """
+    try:
+        import z3
+    except ImportError:
+        return []
+    if not path.endswith((".c", ".h", ".cc", ".cpp")):
+        return []
+    lowered = path.lower()
+    if "/tests/" in f"/{lowered}" or "/examples/" in lowered \
+            or "/vendor/" in lowered or "/third_party/" in lowered:
+        return []
+
+    out = []
+    for m in re.finditer(r"malloc\s*\(\s*(\w+)\s*\*\s*sizeof\s*\(", src):
+        var = m.group(1)
+        if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32|long)\s+"
+                         + re.escape(var) + r"\b", src):
+            continue                       # размер не 32-битный — не наш случай
+        window = src[max(0, m.start() - 500):m.start()]
+        if re.search(r"SIZE_MAX\s*/|size_t\)\s*\**\s*" + re.escape(var)
+                     + r"|if\s*\([^)]*" + re.escape(var) + r"\s*>", window):
+            continue                       # граница проверена или есть каст
+        n = z3.BitVec("n", 32)
+        s = z3.Solver()
+        s.add(n > z3.BitVecVal(1_000_000, 32))          # внешний большой размер
+        prod = n * z3.BitVecVal(4, 32)                   # sizeof(int) == 4
+        s.add(z3.ULT(prod, z3.BitVecVal(64, 32)))        # произведение схлопнулось
+        if s.check() == z3.sat:
+            model = s.model()
+            got = model.eval(prod, model_completion=True)
+            out.append({
+                "law": "z3-alloc:mul-overflow", "symbol": f"{Path(path).name}:{var}",
+                "file": path,
+                "detail": f"malloc({var} * sizeof(...)) 32-bit: n={model[n]} "
+                          f"allocates only {got.as_long()} bytes",
+                "hot": True,
+            })
+    return out
+
+
 def analyse_eq_ord(src: str, path: str) -> list:
     """Ствол eq-ord-mismatch: Eq + числовой PartialEq против Ord на total_cmp."""
     import sys
@@ -516,6 +568,8 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
         queries += [(q, "lru") for q in QUERIES_LRU]
     if mode in ("z3-arith", "all"):
         queries += [(q, "z3arith") for q in QUERIES_ARITH]
+    if mode in ("z3-alloc", "all"):
+        queries += [(q, "z3alloc") for q in QUERIES_ALLOC]
     if mode in ("eq-ord", "all"):
         queries += [(q, "eqord") for q in QUERIES_EQ_ORD]
 
@@ -555,7 +609,7 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
                 if not src:
                     continue
                 hits = {"laws": analyse_laws, "lru": analyse_lru, "eqord": analyse_eq_ord,
-                        "z3arith": analyse_z3_arith}.get(
+                        "z3arith": analyse_z3_arith, "z3alloc": analyse_z3_alloc}.get(
                             stem, analyse_effects)(src, path)
                 for h in hits:
                     h.update({"repo": repo, "path": path, "stars": meta.get("stars", 0)})
@@ -694,6 +748,21 @@ def selftest() -> int:
     ok(analyse_z3_arith(codec, "src/lj92.rs") == [],
        "z3: среднее без контекста поиска молчит")
 
+    # --- ствол z3-alloc: malloc(n * sizeof) на 32-битном n ---
+    vuln_alloc = ("int parse(const char *buf, int n) {\n"
+                  "    int *arr = malloc(n * sizeof(int));\n"
+                  "    return arr ? 0 : -1;\n}\n")
+    h = analyse_z3_alloc(vuln_alloc, "src/parse.c")
+    ok(len(h) == 1 and h[0]["law"] == "z3-alloc:mul-overflow",
+       "z3-alloc: malloc(n * sizeof(int)) на int n — находка с контрпримером")
+
+    safe_alloc = ("int parse(const char *buf, int n) {\n"
+                  "    if (n <= 0 || (size_t)n > SIZE_MAX / sizeof(int)) return -1;\n"
+                  "    int *arr = malloc((size_t)n * sizeof(int));\n"
+                  "    return arr ? 0 : -1;\n}\n")
+    ok(analyse_z3_alloc(safe_alloc, "src/parse.c") == [],
+       "z3-alloc: каст в size_t + проверка границы — эталон, молчит")
+
     # границы из литерала, а не из размера данных — тоже не наш случай
     fixed_buf = ("int bsearch_lin(int *arr, int key) {\n"
                  "    int lo = 0, hi = 255;\n"
@@ -754,7 +823,7 @@ def main(argv=None) -> int:
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--min-stars", type=int, default=100)
     ap.add_argument("--mode", default="all",
-                    choices=["laws", "effect-hints", "lru-effects", "z3-arith", "eq-ord", "all"])
+                    choices=["laws", "effect-hints", "lru-effects", "z3-arith", "z3-alloc", "eq-ord", "all"])
     ap.add_argument("--max-age-days", type=int, default=730)
     ap.add_argument("--pages", type=int, default=1,
                     help="сколько страниц search/code по 100 результатов пройти")
