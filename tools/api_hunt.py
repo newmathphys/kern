@@ -362,7 +362,11 @@ def analyse_z3_arith(src: str, path: str) -> list:
     data_bounds = re.search(
         r"\b(?:hi|high|right|end|last|top)\s*=\s*[^;\n]{0,60}"
         r"(?:\.len\s*\(|\.size\s*\(|\blen\b|\bsize\b|\bcount\b|\bn\b)", src)
-    if search_ctx and data_bounds and \
+    # ... и размер должен приходить извне (параметр функции) или из .len():
+    # `hi = last - 1`, где last — константа таблицы, переполниться не может.
+    size_param = re.search(r"\(\s*[^)]*\b(?:n|len|size|count|length|nmemb)\b[^)]*\)", src)
+    runtime_len = re.search(r"\.len\s*\(\s*\)|strlen\s*\(|\.size\s*\(\s*\)", src)
+    if search_ctx and data_bounds and (size_param or runtime_len) and \
             re.search(r"\(\s*\w+\s*\+\s*\w+\s*\)\s*(/\s*2|>>\s*1)", src):
         lo, hi = z3.BitVecs("lo hi", 32)
         s = z3.Solver()
@@ -538,6 +542,16 @@ def selftest() -> int:
                  "    return arr[mid];\n}\n")
     ok(analyse_z3_arith(fixed_buf, "src/fixed.c") == [],
        "z3: hi из литерала (фиксированный буфер) молчит")
+
+    # radare2-стиль: настоящий бинарный поиск, но по статической таблице
+    table_search = ("int is_printable(unsigned int c) {\n"
+                    "    const int last = nonprintable_ranges_count;\n"
+                    "    int low = 0;\n    int hi = last - 1;\n"
+                    "    do { int mid = (low + hi) >> 1;\n"
+                    "        if (c < nonprintable_ranges[mid].from) hi = mid - 1;\n"
+                    "    } while (low <= hi);\n    return 1;\n}\n")
+    ok(analyse_z3_arith(table_search, "src/utf8.c") == [],
+       "z3: границы от константы таблицы молчат (форма radare2)")
 
     rust = ('#[derive(Clone, Copy, PartialEq)]\npub struct Money { pub cents: f64 }\n'
             'impl Eq for Money {}\n'
