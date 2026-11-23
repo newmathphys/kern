@@ -131,12 +131,13 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 | `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
-## E4. Code X-ray, CWE, precision and the PR delta (37)
+## E4. Code X-ray, CWE, precision and the PR delta (38)
 
 | Target (CHECK) | canfail case | Protects | Command |
 |:--|:--|:--|:--|
 | `abi-check` | `abi-json` | #483 | `make abi-check` |
 | `action-check` | `action-doctor` | — | `make action-check` |
+| `api-hunt-check` | `z3-alloc` | — | `make api-hunt-check` |
 | `binlevel` | `binlevel` | — | `make binlevel` |
 | `bounds-check` | `bounds-check` | — | `make bounds-check` |
 | `bug-hunt-check` | `bug-hunt-check` | — | `make bug-hunt-check` |
@@ -264,8 +265,8 @@ Columns: **target** — what runs; **canfail case** — proof the target CAN go 
 
 ## Registry parity
 
-Targets in the map: **221**; class CHECK in `registry.py`: **221**;
-`CASE_TARGET` records: **267** (make-executable **263**); without a case outside `NO_CASE_OK`: **0**.
+Targets in the map: **222**; class CHECK in `registry.py`: **222**;
+`CASE_TARGET` records: **268** (make-executable **264**); without a case outside `NO_CASE_OK`: **0**.
 
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 ·

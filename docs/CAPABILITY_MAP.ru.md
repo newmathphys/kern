@@ -130,12 +130,13 @@
 | `tools-laws-check` | `tools-laws` | — | `make tools-laws-check` |
 | `tuple-macros-check` | `tuple-macros` | #705 | `make tuple-macros-check` |
 
-## E4. Рентген кода, CWE, точность и PR-дельта (37)
+## E4. Рентген кода, CWE, точность и PR-дельта (38)
 
 | Цель (CHECK) | Кейс canfail | Защищает | Команда |
 |:--|:--|:--|:--|
 | `abi-check` | `abi-json` | #483 | `make abi-check` |
 | `action-check` | `action-doctor` | — | `make action-check` |
+| `api-hunt-check` | `z3-alloc` | — | `make api-hunt-check` |
 | `binlevel` | `binlevel` | — | `make binlevel` |
 | `bounds-check` | `bounds-check` | — | `make bounds-check` |
 | `bug-hunt-check` | `bug-hunt-check` | — | `make bug-hunt-check` |
@@ -263,8 +264,8 @@
 
 ## Паритет с реестром
 
-Целей в карте: **221**; класс CHECK в `registry.py`: **221**;
-записей `CASE_TARGET`: **267** (make-исполнимых **263**); без кейса вне `NO_CASE_OK`: **0**.
+Целей в карте: **222**; класс CHECK в `registry.py`: **222**;
+записей `CASE_TARGET`: **268** (make-исполнимых **264**); без кейса вне `NO_CASE_OK`: **0**.
 
 
 ядро <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · каталог <!-- fact:catalog -->502 ·
