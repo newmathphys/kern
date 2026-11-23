@@ -156,7 +156,10 @@ run; the report says so explicitly and rests on the call path above plus the iso
 ## Case F — `kiesraad/abacus` @ `58c5f124b1`: `u64` overflow in a public `Fraction` (`#4393`)
 
 `backend/apportionment/src/fraction.rs` implements `Add`/`Ord`/`Eq` with raw `u64` products and no
-`gcd` reduction. In `--release` (overflow checks off):
+`gcd` reduction. The maintainer notes that their own release profile sets
+`overflow-checks = true`, so the arithmetic defect surfaces there as a **release panic**
+rather than a silent wrap; the numbers below come from a build with checks disabled, which is
+what a clone without that profile setting produces:
 
 ```rust
 Fraction::new(1, 5_000_000_000) + Fraction::new(1, 5_000_000_000)
