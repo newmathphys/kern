@@ -514,39 +514,54 @@ def _intra_tainted(src: str, fn_start: int, pos: int, var: str) -> bool:
         return True
     if re.search(r"\b" + re.escape(var) + r"\s*=\s*(?:" + READER_CALL + r")\s*\(", body):
         return True
+    # побайтовая сборка: w = buf[0] | (buf[1] << 8) — так живут BMP/TGA/QOI
+    if re.search(r"\b" + re.escape(var) + r"\s*=\s*[\w\[\]\\.\->\s\|<]{0,60}\bbuf\s*\[", body):
+        return True
     # `hdr.width` — поле структуры, прочитанной из потока
     head = var.split(".")[0]
-    return bool(re.search(r"(?:fread|recv|read)\s*\(\s*&\s*" + re.escape(head) + r"\b", body))
+    if re.search(r"(?:fread|recv|read)\s*\(\s*&?\s*" + re.escape(head) + r"\b", body):
+        return True
+    # Netpbm: строку читают fgets, размеры достают sscanf/strtol
+    return bool(re.search(r"\b(?:fgets|sscanf)\s*\(", body))
+
+
+def _factor_taint(src, fn_start, pos, factor, params, is_static) -> str:
+    """Источник множителя: "local" (0 шагов), "caller" (1 шаг) или ""."""
+    if _intra_tainted(src, fn_start, pos, factor):
+        return "local"
+    if not is_static and params and re.search(r"\b" + re.escape(factor) + r"\b", params):
+        return "caller"
+    return ""
 
 
 def _alloc_witness(kind: str):
-    """Контрпример Z3 для конкретной формы переполнения в 32 битах."""
-    import z3
+    """Контрпример для формы переполнения: явные значения + проверка арифметикой.
 
-    s = z3.Solver()
-    if kind == "product":                       # (a * b) * sizeof(...)
-        a, b = z3.BitVecs("a b", 32)
-        s.add(z3.UGT(a, z3.BitVecVal(1_000_000, 32)),
-              z3.UGT(b, z3.BitVecVal(1_000_000, 32)))
-        allocated = a * b                       # считается в 32 битах
-        true_size = z3.ZeroExt(32, a) * z3.ZeroExt(32, b)
-        s.add(z3.ULT(z3.ZeroExt(32, allocated), z3.BitVecVal(4096, 64)),
-              z3.UGE(true_size, z3.BitVecVal(1 << 32, 64)))
-        if s.check() == z3.sat:
-            m = s.model()
-            return (f"a={m.eval(a, model_completion=True).as_long()}, "
-                    f"b={m.eval(b, model_completion=True).as_long()}: the product "
-                    f"wraps in 32 bits to {m.eval(allocated, model_completion=True).as_long()} "
-                    f"bytes, the true size is 2^32 or more")
-    elif kind == "plus":                        # (n + k) * sizeof(...)
-        n = z3.BitVec("n", 32)
-        s.add(z3.UGT(n, z3.BitVecVal(4_000_000_000, 32)))
-        allocated = n + z3.BitVecVal(1, 32)     # переполнение до sizeof
-        s.add(z3.ULT(allocated, z3.BitVecVal(4096, 32)))
-        if s.check() == z3.sat:
-            m = s.model()
-            return (f"n={m.eval(n, model_completion=True).as_long()}: n + 1 wraps to "
-                    f"{m.eval(allocated, model_completion=True).as_long()} before sizeof")
+    Nonlinear-поиск в Z3 на битвекторах непредсказуем по времени, поэтому
+    свидетели фиксированы, а корректность проверяется целочисленной
+    арифметикой Python по правилам C11 (промоушен и усечение).
+    """
+    M32, M64 = 1 << 32, 1 << 64
+
+    def s32(v):                                 # значение как знаковый int
+        return v - M32 if v >= (1 << 31) else v
+
+    if kind == "signed":
+        a, b = -1, -2                           # fscanf читает знаковые int
+        wide = (s32(a) * s32(b) * 3) % M64      # SignExt до 64 бит
+        if wide < 64:
+            return (f"a={a}, b={b}: sign-extended product (size_t)a * (size_t)b * 3 "
+                    f"collapses to {wide} bytes")
+    if kind == "product":
+        a = b = 65536                           # 2^16 * 2^16 == 2^32 == 0 (mod 2^32)
+        allocated = (a * b) % M32
+        if allocated < 4096:
+            return (f"a={a}, b={b}: 32-bit product is {allocated} bytes, "
+                    f"the true size is {a * b}")
+    if kind == "plus":
+        n = 0xFFFFFFFF                          # uint32_t n + 1 == 0
+        if (n + 1) % M32 == 0:
+            return f"n={n}: n + 1 wraps to 0 before the multiply"
     return ""
 
 
@@ -578,6 +593,8 @@ def analyse_z3_alloc(src: str, path: str) -> list:
         ("plus", r"malloc\s*\(\s*\(\s*(\w+)\s*\+\s*(\w+)\s*\)\s*\*\s*sizeof\s*\(", "B"),
         ("trunc", r"\b(?:int|unsigned(?:\s+int)?|uint32_t)\s+(\w+)\s*=\s*(\w+)"
                   r"\s*\*\s*sizeof\s*\(", "C"),
+        ("product", r"calloc\s*\(\s*([\w.>-]+)\s*\*\s*([\w.>-]+)\s*,", "D"),
+        ("product", r"\b(?:int|unsigned)\s+(\w+)\s*=\s*(\w+)\s*\*\s*(\w+)\s*;", "C"),
     )
     out = []
     for kind, pattern, label in forms:
@@ -591,27 +608,37 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                              + re.escape(first.split(".")[0]) + r"\b", src) \
                     and "." not in first:
                 continue
-            # ПУТЬ 1 (0 шагов): множитель читается из потока в этой же функции
-            intra = all(_intra_tainted(src, fn_start, m.start(), f) for f in factors)
-            # ПУТЬ 2 (1 шаг): множитель — параметр публичной функции
-            via_params = (not is_static and params
-                          and any(re.search(r"\b" + re.escape(f) + r"\b", params)
-                                  for f in factors))
-            if not (intra or via_params):
+            # Смешанные источники: достаточно ОДНОГО неконтролируемого множителя
+            # (channels из switch, bpp параметром — второй множитель >= 2).
+            marks = [_factor_taint(src, fn_start, m.start(), f, params, is_static)
+                     for f in factors]
+            if not any(marks):
+                continue
+            # `(size_t)(w * h)` переполнился ещё в int — это НЕ защита
+            head_text = src[m.start():m.start() + 80]
+            if re.search(r"\(\s*size_t\s*\)\s*\(", head_text):
                 continue
             guard = src[fn_start:m.start()] if fn_start else src[:m.start()]
             if re.search(r"SIZE_MAX\s*/|size_t\)\s*", guard):
                 continue
-            # проверка верхней границы на сами множители
-            if re.search(r"if\s*\([^)]*\b" + re.escape(first.split(".")[0]) + r"\s*>", guard):
-                continue
+            # Знаковый int требует И нижней границы: при w = h = -2 произведение
+            # (size_t)w * (size_t)h * 3 схлопывается в 12 байт даже с кастом.
+            signed = bool(re.search(r"\bint\s+" + re.escape(first.split(".")[0]) + r"\b", src)) \
+                and not re.search(r"unsigned\s+int\s+" + re.escape(first.split(".")[0]) + r"\b", src)
+            lower_ok = re.search(r"\b" + re.escape(first.split(".")[0]) + r"\s*<=?\s*0", guard) \
+                or re.search(r"\b" + re.escape(first.split(".")[0]) + r"\s*>=?\s*1", guard)
+            upper_ok = re.search(r"\b" + re.escape(first.split(".")[0]) + r"\s*[<>]=?", guard) \
+                or "SIZE_MAX" in guard
+            if upper_ok and (lower_ok or not signed):
+                continue                       # защита полная
+            kind = "signed" if signed else kind
             witness = _alloc_witness(kind)
             if not witness:
                 continue
             out.append({
                 "law": f"z3-alloc:form-{label}", "symbol": f"{Path(path).name}:{first}",
                 "file": path,
-                "detail": witness + (" (taint: local read)" if intra else " (taint: caller)"),
+                "detail": witness + " (taint: " + "+".join(sorted({m for m in marks if m})) + ")",
                 "hot": True,
             })
     return out
@@ -868,7 +895,7 @@ def selftest() -> int:
            "    pix = malloc(w * h * 3);\n"
            "    return pix ? NULL : NULL;\n}\n")
     hits = analyse_z3_alloc(ppm, "src/ppm.c")
-    ok(len(hits) == 1 and "local read" in hits[0]["detail"],
+    ok(len(hits) == 1 and "taint: local" in hits[0]["detail"],
        "z3-alloc: локальные w,h из fscanf -> malloc(w * h * 3) — находка (калибровка №16)")
 
     # тот же код, но с проверкой верхней границы — эталон
