@@ -630,9 +630,20 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             expr_text = m.group(0)
             prefix, _, tail = expr_text.partition("sizeof")
             k_lit = 1
-            for lit in re.findall(r"[\*\s]+(\d+)(?:\s*[\*\)])", prefix):
-                k_lit *= int(lit)
-            scale = 4 if tail else 1
+            for tok in prefix.split("*"):
+                tok = tok.strip(" ()\t\n,")
+                if tok.isdigit():
+                    k_lit *= int(tok)
+            scale = 1
+            if tail:
+                for tname, width in (("double", 8), ("int64", 8), ("uint64", 8),
+                                     ("short", 2), ("int16", 2), ("uint16", 2),
+                                     ("char", 1), ("int8", 1), ("uint8", 1)):
+                    if tname in tail:
+                        scale = width
+                        break
+                else:
+                    scale = 4
             cap = 65535 if any("u16" in mk for mk in marks) else None
             witness = _alloc_witness(kind, k=k_lit, scale=scale,
                                      n_tainted=sum(1 for mk in marks if mk), cap=cap)
