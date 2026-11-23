@@ -484,8 +484,12 @@ def check_rust_ord_non_total(src: str) -> list:
             continue
         if _re.search(r"Some\s*\(\s*self\.cmp\s*\(", pord) and "return None" not in pord:
             continue                       # эталон: total_cmp через cmp
-        bad = bool(_re.search(r"return\s+None", pord)) or bool(
-            _re.search(r"\.partial_cmp\s*\(", pord))
+        # КАЛИБРОВКА №12: `.partial_cmp(` сам по себе не порок — на u64/usize
+        # он тотален. Нужен либо явный `return None`, либо float-поле.
+        float_field = _re.search(r"\b\w+\s*:\s*f(?:32|64)\b", src) is not None or \
+            _re.search(r"is_nan\s*\(|f64::NAN|f32::NAN", pord) is not None
+        bad = bool(_re.search(r"return\s+None", pord)) or (
+            bool(_re.search(r"\.partial_cmp\s*\(", pord)) and float_field)
         if not bad:
             continue
         out.append({
@@ -884,6 +888,14 @@ impl PartialOrd for Candidate {
 '''
     ok(check_rust_ord_non_total(total_ok) == [],
        "ord-non-total: Some(self.cmp(other)) — эталон, молчит")
+
+    u64_trace = chr(39)*3 + """
+struct Trace { line: u64 }
+impl Ord for Trace { fn cmp(&self, o: &Self) -> Ordering { self.line.cmp(&o.line) } }
+impl PartialOrd for Trace { fn partial_cmp(&self, o: &Self) -> Option<Ordering> { self.line.partial_cmp(&o.line) } }
+""" + chr(39)*3
+    ok(check_rust_ord_non_total(u64_trace) == [],
+       "ord-non-total: u64 partial_cmp тотален — эталон (tarpaulin)")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
