@@ -567,9 +567,10 @@ def analyse_z3_alloc(src: str, path: str) -> list:
     if not path.endswith((".c", ".h", ".cc", ".cpp")):
         return []
     lowered = path.lower()
-    if "/tests/" in f"/{lowered}" or "/examples/" in lowered \
-            or "/vendor/" in lowered or "/third_party/" in lowered:
-        return []
+    if any(f"/{d}/" in f"/{lowered}" for d in
+           ("tests", "test", "scripts", "tools", "examples", "bench",
+            "vendor", "third_party")):
+        return []                       # dev-скрипты и чужие копии не наш класс
 
     forms = (
         ("product", r"malloc\s*\(\s*([\w.>-]+)\s*\*\s*([\w.>-]+)\s*\*\s*sizeof\s*\(", "A"),

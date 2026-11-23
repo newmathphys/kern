@@ -30,6 +30,7 @@ def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None) -> 
     if k < 1:
         return ""
     limit = min(cap, I32_MAX) if cap else I32_MAX
+    weak = None
 
     # Один контролируемый множитель: malloc(a * k)
     if n_tainted <= 1:
@@ -65,6 +66,7 @@ def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None) -> 
         root = math.isqrt(m * M32 // max(k, 1))
         for delta in range(-3, 4):
             seeds.add(root + delta)
+    weak = None
     for a in sorted(s for s in seeds if 1 <= s <= limit):
         denom = a * k
         for m in (1, 2, 3):
@@ -77,8 +79,18 @@ def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None) -> 
                     continue
                 wrapped = as_int32(total)
                 if 0 <= wrapped < 4096:
-                    return (f"a={a}, b={b}: ({a} * {b} * {k}) wraps in int32 to "
-                            f"{wrapped} bytes (needs {total})")
+                    msg = (f"a={a}, b={b}: ({a} * {b} * {k}) wraps in int32 to "
+                           f"{wrapped} bytes (needs {total})")
+                    # КАЛИБРОВКА №18: сильнее свидетель, где само a * b НЕ
+                    # переполняет int32 — тогда ломаются и построчный цикл,
+                    # и fread(in, k, a * b, fp), а не только malloc.
+                    if a * b < I32_MAX:
+                        return msg
+                    if weak is None:
+                        weak = msg
+
+    if weak:
+        return weak
 
     if kind == "signed" and cap is None:
         a, b = -65536, 65536
@@ -144,7 +156,20 @@ def selftest() -> int:
 
     # 1. два множителя, полный диапазон: 2^16 * 2^16 == 2^32 == 0
     w = witness("product", 1, 2, None)
-    ok("a=" in w and "0 bytes" in w, "два множителя: 2^16 * 2^16 даёт 0 байт")
+    ok("a=" in w and "wraps in int32" in w, "два множителя: усечение найдено")
+    if w:
+        import re as _re2
+        a1, b1 = map(int, _re2.findall(r"[ab]=(\d+)", w)[:2])
+        ok(a1 * b1 <= M32, "два множителя: произведение посчитано верно")
+
+    # калибровка №18: при k >= 2 существует пара, где a * b ещё влезает в int32,
+    # а (a * b) * k уже переполняется — именно она ломает и цикл, и fread
+    w = witness("product", 4, 2, None)
+    if w:
+        import re as _re3
+        a2, b2 = map(int, _re3.findall(r"[ab]=(\d+)", w)[:2])
+        ok(a2 * b2 < I32_MAX,
+           f"калибровка №18: при k=4 пара {a2}x{b2} не переполняет int32")
 
     # 2. u16 + k=3: точного нуля по модулю нет (gcd(3, 2^32) == 1),
     #    но малое усечение есть
