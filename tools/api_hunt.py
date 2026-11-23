@@ -487,13 +487,28 @@ def analyse_z3_arith(src: str, path: str) -> list:
             })
     return out
 
+def _enclosing_function(src: str, pos: int):
+    """(текст параметров, начало тела, static?) для функции вокруг `pos`."""
+    head = src[:pos]
+    matches = list(re.finditer(
+        r"(^|\n)([ \t]*)(static\s+)?[\w \t\*]+?\b(\w+)\s*\(([^;{)]*)\)[^;{]*\{",
+        head))
+    if not matches:
+        return "", 0, True
+    m = matches[-1]
+    return m.group(5) or "", m.end(), bool(m.group(3))
+
+
 def analyse_z3_alloc(src: str, path: str) -> list:
-    """z3-alloc: `malloc(n * sizeof(T))` с 32-битным `n` (CWE-190).
+    """z3-alloc: `malloc(n * sizeof(T))` с 32-битным внешним размером (CWE-190).
 
     Умножение выполняется в 32 битах ДО расширения аргумента `malloc(size_t)`,
-    поэтому при большом `n` произведение схлопывается в маленькое число и
-    выделяется буфер меньше запрошенного. Защита — либо `calloc`, либо каст
-    `(size_t)n` с проверкой `n > SIZE_MAX / sizeof(T)`.
+    поэтому при большом `n` произведение схлопывается в маленькое число.
+
+    Достижимость (без неё находка бесполезна): `n` обязан быть **параметром**
+    объемлющей функции, а не полем, глобалом или локальной переменной, и до
+    вызова `malloc` в этой функции не должно быть проверки границы. Именно это
+    отсекает `st`, где `cols` приходит из `ioctl(TIOCGWINSZ)`.
     """
     try:
         import z3
@@ -509,12 +524,15 @@ def analyse_z3_alloc(src: str, path: str) -> list:
     out = []
     for m in re.finditer(r"malloc\s*\(\s*(\w+)\s*\*\s*sizeof\s*\(", src):
         var = m.group(1)
-        if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32|long)\s+"
+        if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32)\s+"
                          + re.escape(var) + r"\b", src):
             continue                       # размер не 32-битный — не наш случай
-        window = src[max(0, m.start() - 500):m.start()]
+        params, fn_start, is_static = _enclosing_function(src, m.start())
+        if not params or not re.search(r"\b" + re.escape(var) + r"\b", params):
+            continue                       # не параметр: поле/глобал/локал
+        guard_window = src[fn_start:m.start()] if fn_start else src[:m.start()]
         if re.search(r"SIZE_MAX\s*/|size_t\)\s*\**\s*" + re.escape(var)
-                     + r"|if\s*\([^)]*" + re.escape(var) + r"\s*>", window):
+                     + r"|if\s*\([^)]*" + re.escape(var) + r"\s*>", guard_window):
             continue                       # граница проверена или есть каст
         n = z3.BitVec("n", 32)
         s = z3.Solver()
@@ -527,9 +545,10 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             out.append({
                 "law": "z3-alloc:mul-overflow", "symbol": f"{Path(path).name}:{var}",
                 "file": path,
-                "detail": f"malloc({var} * sizeof(...)) 32-bit: n={model[n]} "
-                          f"allocates only {got.as_long()} bytes",
-                "hot": True,
+                "detail": f"public parameter {var} reaches malloc({var} * sizeof(...)) "
+                          f"in 32 bits: n={model[n]} allocates only {got.as_long()} bytes"
+                          + ("" if not is_static else " (file-local function)"),
+                "hot": not is_static,
             })
     return out
 
@@ -762,6 +781,14 @@ def selftest() -> int:
                   "    return arr ? 0 : -1;\n}\n")
     ok(analyse_z3_alloc(safe_alloc, "src/parse.c") == [],
        "z3-alloc: каст в size_t + проверка границы — эталон, молчит")
+
+    # st-стиль: размер — поле структуры, а не параметр функции
+    st_style = ("void tresize(int col, int row) {\n"
+                "    xw.cols = col;\n"
+                "    tw.cols = col;\n"
+                "    tw.line = malloc(tw.cols * sizeof(Line));\n}\n")
+    ok(analyse_z3_alloc(st_style, "src/x.c") == [],
+       "z3-alloc: размер из поля структуры молчит (форма st)")
 
     # границы из литерала, а не из размера данных — тоже не наш случай
     fixed_buf = ("int bsearch_lin(int *arr, int key) {\n"
