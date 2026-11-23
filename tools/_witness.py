@@ -89,6 +89,50 @@ def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None) -> 
     return ""
 
 
+
+import re as _re
+
+_WIDE_CAST_RE = r"\(\s*(?:size_t|u?int64_t|uintptr_t|ssize_t)\s*\)"
+_BAD_GROUP_CAST_RE = (r"\(\s*(?:size_t|u?int64_t|uintptr_t|ssize_t)\s*\)"
+                      r"\s*\([^()]*(?:[*+/-])[^()]*\)")
+
+
+def has_safe_left_wide_cast(expr: str) -> bool:
+    """Промотируется ли первый множитель до 64 бит ДО умножения.
+
+    Каст обязан стоять у одного из двух операндов самого левого `*`:
+    `(size_t)w * h` безопасно, `w * h * (size_t)3` — нет (w * h уже
+    переполнилось в int), `(size_t)(w * h)` — тоже нет.
+    """
+    parts, depth, cur = [], 0, []
+    for ch in expr:
+        if ch == "(":
+            depth += 1
+            cur.append(ch)
+        elif ch == ")":
+            depth = max(0, depth - 1)
+            cur.append(ch)
+        elif ch == "*" and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    parts.append("".join(cur))
+
+    if len(parts) < 2:
+        return bool(_re.search(_WIDE_CAST_RE, expr))
+
+    first_mul_zone = parts[0] + "*" + parts[1]
+    if not _re.search(_WIDE_CAST_RE, first_mul_zone):
+        return False
+    if _re.search(_BAD_GROUP_CAST_RE, first_mul_zone):
+        return False
+    # каст только в parts[1], а parts[0] — это (a * b): внутри уже переполнилось
+    if not _re.search(_WIDE_CAST_RE, parts[0]) and _re.search(r"\([^()]*\*[^()]*\)", parts[0]):
+        return False
+    return True
+
+
 def selftest() -> int:
     bad = 0
 
@@ -144,6 +188,15 @@ def selftest() -> int:
 
     # 9. большой k без cap: свидетель тоже существует
     ok(bool(witness("product", 12, 2, None)), "k=12 без потолка: свидетель есть")
+
+    # 10. приоритет каста: пять случаев из разбора + вложенные скобки
+    ok(has_safe_left_wide_cast("(size_t)w * h * 3") is True, "каст слева: безопасно")
+    ok(has_safe_left_wide_cast("w * (uint64_t)h * 3") is True, "каст во втором операнде: безопасно")
+    ok(has_safe_left_wide_cast("(size_t)(w) * h * 3") is True, "макро-скобки вокруг w: безопасно")
+    ok(has_safe_left_wide_cast("w * h * (size_t)3") is False, "правый каст: w * h уже переполнилось")
+    ok(has_safe_left_wide_cast("(size_t)(w * h) * 3") is False, "каст результата: переполнение было в int")
+    ok(has_safe_left_wide_cast("(a * b) * (size_t)c") is False,
+       "вложенное произведение без каста внутри не спасается кастом справа")
 
     print(f"\n[WITNESS-SELFTEST] провалов: {bad}")
     return 0 if bad == 0 else 1

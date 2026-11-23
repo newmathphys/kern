@@ -540,7 +540,7 @@ def _alloc_witness(kind: str, k: int = 1, n_tainted: int = 2, cap=None) -> str:
     tools_dir = str(Path(__file__).resolve().parent)
     if tools_dir not in _sys.path:
         _sys.path.insert(0, tools_dir)
-    from _witness import witness
+    from _witness import has_safe_left_wide_cast, witness   # noqa: F401
     return witness(kind, k=k, n_tainted=n_tainted, cap=cap)
 
 
@@ -594,9 +594,15 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             if not any(marks):
                 continue
             # `(size_t)(w * h)` переполнился ещё в int — это НЕ защита
-            head_text = src[max(0, m.start() - 20):m.start() + 90]
-            if re.search(r"\(\s*size_t\s*\)\s*\([^()]*(?:[*+/-])[^()]*\)", head_text):
-                continue
+            # каст обязан стоять у операнда САМОГО ЛЕВОГО умножения
+            call_text = m.group(0)
+            inner = call_text.split("(", 1)[1].rsplit(")", 1)[0] if "(" in call_text else call_text
+            try:
+                from _witness import has_safe_left_wide_cast
+                if has_safe_left_wide_cast(inner):
+                    continue
+            except ImportError:
+                pass
             guard = src[fn_start:m.start()] if fn_start else src[:m.start()]
             if re.search(r"SIZE_MAX\s*/|size_t\)\s*", guard):
                 continue
