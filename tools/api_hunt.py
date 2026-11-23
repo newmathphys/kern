@@ -54,6 +54,9 @@ QUERIES_LAWS = [
 ]
 
 QUERIES_LRU = [
+    '"@lru_cache" "Path.cwd" language:Python',
+    '"lru_cache" "os.getcwd" language:Python',
+    '"functools.cache" "cwd" language:Python',
     '"@lru_cache" "time.time" language:Python',
     '"@lru_cache()" "datetime.now" language:Python',
     '"@cache" "random.random" language:Python',
