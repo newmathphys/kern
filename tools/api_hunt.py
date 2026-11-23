@@ -499,6 +499,26 @@ def _enclosing_function(src: str, pos: int):
     return m.group(5) or "", m.end(), bool(m.group(3))
 
 
+READER_CALL = (r"fscanf|scanf|sscanf|fread|fgets|getc|recv|read\s*\(|atoi|strtol"
+               r"|strtoul|ntohl|ntohs|get_u\d*|get_bits")
+
+
+def _intra_tainted(src: str, fn_start: int, pos: int, var: str) -> bool:
+    """Заполняется ли `var` из внешнего потока выше `pos` внутри функции.
+
+    Покрывает классику парсеров: `fscanf(fp, "%d", &w)`, `fread(&hdr, ...)`,
+    `w = atoi(argv[i])`, `w = ntohl(hdr.size)`.
+    """
+    body = src[fn_start:pos] if fn_start else src[:pos]
+    if re.search(r"&\s*" + re.escape(var) + r"\b", body):
+        return True
+    if re.search(r"\b" + re.escape(var) + r"\s*=\s*(?:" + READER_CALL + r")\s*\(", body):
+        return True
+    # `hdr.width` — поле структуры, прочитанной из потока
+    head = var.split(".")[0]
+    return bool(re.search(r"(?:fread|recv|read)\s*\(\s*&\s*" + re.escape(head) + r"\b", body))
+
+
 def _alloc_witness(kind: str):
     """Контрпример Z3 для конкретной формы переполнения в 32 битах."""
     import z3
@@ -551,14 +571,10 @@ def analyse_z3_alloc(src: str, path: str) -> list:
     if "/tests/" in f"/{lowered}" or "/examples/" in lowered \
             or "/vendor/" in lowered or "/third_party/" in lowered:
         return []
-    # taint: без источника внешных данных находка неинтересна
-    tainted = bool(re.search(r"\bfread\b|\bfscanf\b|\brecv\b|\bread\s*\(|\bgetc\b"
-                             r"|\bfgets\b|\bmemcpy\s*\(\s*\w+\s*,\s*(?:buf|data|in)", src))
-    if "ioctl" in src and tainted is False:
-        return []
 
     forms = (
-        ("product", r"malloc\s*\(\s*(\w+)\s*\*\s*(\w+)\s*\*\s*sizeof\s*\(", "A"),
+        ("product", r"malloc\s*\(\s*([\w.>-]+)\s*\*\s*([\w.>-]+)\s*\*\s*sizeof\s*\(", "A"),
+        ("product", r"malloc\s*\(\s*([\w.>-]+)\s*\*\s*([\w.>-]+)\s*\*\s*\d+\s*\)", "A"),
         ("plus", r"malloc\s*\(\s*\(\s*(\w+)\s*\+\s*(\w+)\s*\)\s*\*\s*sizeof\s*\(", "B"),
         ("trunc", r"\b(?:int|unsigned(?:\s+int)?|uint32_t)\s+(\w+)\s*=\s*(\w+)"
                   r"\s*\*\s*sizeof\s*\(", "C"),
@@ -567,26 +583,36 @@ def analyse_z3_alloc(src: str, path: str) -> list:
     for kind, pattern, label in forms:
         for m in re.finditer(pattern, src):
             params, fn_start, is_static = _enclosing_function(src, m.start())
-            if is_static or not params:
-                continue                       # недостижимо извне файла
-            first = m.group(1)
-            if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32)\s+"
-                             + re.escape(first) + r"\b", src):
-                continue
-            # хотя бы один множитель должен быть параметром функции: локальная
-            # переменная из `kann_dim_in()` ограничена моделью и не опасна
             factors = [g for g in m.groups()[:2] if g]
-            if not any(re.search(r"\b" + re.escape(f) + r"\b", params) for f in factors):
+            if not factors:
+                continue
+            first = factors[0]
+            if not re.search(r"\b(?:int|unsigned(?:\s+int)?|uint32_t|u32|size_t)\s+"
+                             + re.escape(first.split(".")[0]) + r"\b", src) \
+                    and "." not in first:
+                continue
+            # ПУТЬ 1 (0 шагов): множитель читается из потока в этой же функции
+            intra = all(_intra_tainted(src, fn_start, m.start(), f) for f in factors)
+            # ПУТЬ 2 (1 шаг): множитель — параметр публичной функции
+            via_params = (not is_static and params
+                          and any(re.search(r"\b" + re.escape(f) + r"\b", params)
+                                  for f in factors))
+            if not (intra or via_params):
                 continue
             guard = src[fn_start:m.start()] if fn_start else src[:m.start()]
             if re.search(r"SIZE_MAX\s*/|size_t\)\s*", guard):
+                continue
+            # проверка верхней границы на сами множители
+            if re.search(r"if\s*\([^)]*\b" + re.escape(first.split(".")[0]) + r"\s*>", guard):
                 continue
             witness = _alloc_witness(kind)
             if not witness:
                 continue
             out.append({
                 "law": f"z3-alloc:form-{label}", "symbol": f"{Path(path).name}:{first}",
-                "file": path, "detail": witness, "hot": True,
+                "file": path,
+                "detail": witness + (" (taint: local read)" if intra else " (taint: caller)"),
+                "hot": True,
             })
     return out
 
@@ -832,6 +858,28 @@ def selftest() -> int:
                 "    tw.line = malloc(tw.cols * sizeof(Line));\n}\n")
     ok(analyse_z3_alloc(st_style, "src/x.c") == [],
        "z3-alloc: размер из поля структуры молчит (форма st)")
+
+    # КАЛИБРОВКА №16: классический парсер форматов с локальными w/h из потока
+    ppm = ("image_t *load_ppm(FILE *fp) {\n"
+           "    int w, h, maxval;\n"
+           "    unsigned char *pix;\n"
+           "    if (fscanf(fp, \"%d %d\", &w, &h) != 2) return NULL;\n"
+           "    fscanf(fp, \"%d\", &maxval);\n"
+           "    pix = malloc(w * h * 3);\n"
+           "    return pix ? NULL : NULL;\n}\n")
+    hits = analyse_z3_alloc(ppm, "src/ppm.c")
+    ok(len(hits) == 1 and "local read" in hits[0]["detail"],
+       "z3-alloc: локальные w,h из fscanf -> malloc(w * h * 3) — находка (калибровка №16)")
+
+    # тот же код, но с проверкой верхней границы — эталон
+    ppm_ok = ("image_t *load_ppm(FILE *fp) {\n"
+              "    int w, h;\n"
+              "    if (fscanf(fp, \"%d %d\", &w, &h) != 2) return NULL;\n"
+              "    if (w <= 0 || h <= 0 || w > 65536 || h > 65536) return NULL;\n"
+              "    unsigned char *pix = malloc((size_t)w * h * 3);\n"
+              "    return pix;\n}\n")
+    ok(analyse_z3_alloc(ppm_ok, "src/ppm.c") == [],
+       "z3-alloc: границы проверены — эталон, молчит")
 
     # границы из литерала, а не из размера данных — тоже не наш случай
     fixed_buf = ("int bsearch_lin(int *arr, int key) {\n"
