@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -246,10 +247,18 @@ def scan_arms(clone: Path) -> list:
     import api_hunt as arms
 
     out, budget = [], 6000
+    seen_hash = set()          # дедуп копий по содержимому, без гадания по именам
+    licensed_dirs = set()      # подкаталоги со своим LICENSE/COPYING — чужие
+    for marker in ("LICENSE", "LICENSE.md", "COPYING", "COPYING.md", "NOTICE"):
+        for p in clone.rglob(marker):
+            if p.parent != clone:
+                licensed_dirs.add(p.parent)
     for pat in ("*.py", "*.c", "*.h", "*.rs"):
         for p in clone.rglob(pat):
             if {".git", "vendor", "third_party", "node_modules", "target"} & set(p.parts):
                 continue
+            if any(par in licensed_dirs for par in p.parents):
+                continue       # вендоренная копия: у неё собственный LICENSE
             budget -= 1
             if budget <= 0:
                 return out
@@ -257,6 +266,10 @@ def scan_arms(clone: Path) -> list:
                 src = p.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
+            digest = hashlib.sha256(src.encode("utf-8", "replace")).hexdigest()
+            if digest in seen_hash:
+                continue           # FreeBSD/{11.x,13.x,14.x}: один и тот же файл
+            seen_hash.add(digest)
             rel = str(p.relative_to(clone))
             for h in arms.analyse_lru(src, rel) + arms.analyse_z3_arith(src, rel):
                 h["file"] = f"{p.relative_to(clone)}"
@@ -426,6 +439,34 @@ def accept_repo(item: dict, known: set, picked: list) -> bool:
     return (item.get("pushed_at") or "")[:4] >= "2025"
 
 
+def recent_brief_repos(limit: int = 3, log=print) -> set:
+    """Репозитории из последних Morning Brief: окно не должно повторяться.
+
+    Пул подбора меняется между ночами (реестр живой), поэтому сдвиг окна сам
+    по себе не гарантирует непересечение — исключаем то, что уже смотрели.
+    """
+    import json as _json
+    import os as _os
+    import re as _re
+    import subprocess as _sp
+
+    repo = _os.environ.get("GITHUB_REPOSITORY") or "newmathphys/kern"
+    try:
+        out = _sp.run(["gh", "issue", "list", "--repo", repo, "--state", "all",
+                       "--search", "[Morning Brief] in:title", "--limit", str(limit),
+                       "--json", "body"], capture_output=True, text=True, timeout=90)
+        items = _json.loads(out.stdout or "[]")
+    except Exception as exc:                     # noqa: BLE001
+        log(f"[discover] история брифов недоступна: {exc}")
+        return set()
+    seen = set()
+    for item in items:
+        for m in _re.finditer(r"\| `([\w.\-]+/[\w.\-]+)` \|", item.get("body") or ""):
+            seen.add(m.group(1))
+    log(f"[discover] уже просмотрено в прошлых брифах: {len(seen)}")
+    return seen
+
+
 def discover_targets(limit: int = WAVE_5_TARGET_COUNT, log=print) -> list:
     """Авто-подбор целей из публичного реестра GitHub (нужен GITHUB_TOKEN).
 
@@ -441,7 +482,7 @@ def discover_targets(limit: int = WAVE_5_TARGET_COUNT, log=print) -> list:
     if not token:
         log("[discover] нет GITHUB_TOKEN — авто-подбор пропущен")
         return []
-    known, picked = _known_repos(), []
+    known, picked = _known_repos() | recent_brief_repos(log=log), []
     queries = ("language:Rust stars:>800", "language:Python stars:>1500",
                "language:C stars:>1200")
     for query in queries:

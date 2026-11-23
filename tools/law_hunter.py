@@ -465,6 +465,57 @@ def check_rust_eq_hash(src: str) -> list:
     return out
 
 
+def check_rust_eq_ord(src: str) -> list:
+    """eq-ord-mismatch: `Eq` + числовой `PartialEq`, но `Ord` через `total_cmp`.
+
+    `total_cmp` различает `-0.0` и `0.0`, а числовой `==` — нет, поэтому
+    `a == b`, но `a.cmp(&b) == Less`. Это ломает аксиому `a == b <=> a.cmp(&b)
+    == Equal`, на которой стоят `BTreeMap`, `BTreeSet`, `binary_search` и
+    `sort`. Эталон — Graphite::Priority, где `PartialEq` сам идёт через `cmp`.
+    """
+    out = []
+    for m in _re.finditer(r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+(\w+)", src):
+        name = m.group(1)
+        ord_body = _body_of(
+            src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+" + _re.escape(name) + r"\b")
+        if not ord_body or "total_cmp" not in ord_body:
+            continue
+        eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(name) + r"\b") or ""
+        if _re.search(r"\bcmp\s*\(|total_cmp", eq_body):
+            continue                       # эталон: сравнение уже побитовое
+        derives = ""
+        for d in RUST_DERIVE_RE.finditer(src):
+            if d.group("name") == name:
+                derives = d.group("derive")
+                break
+        if not derives:
+            # tuple-структуры вроде `pub struct Pixels(pub(crate) f32);` не
+            # попадают в RUST_DERIVE_RE (он ждёт тело в скобках) — читаем
+            # атрибут перед объявлением.
+            pos = src.find(f"struct {name}")
+            if pos < 0:
+                pos = src.find(f"enum {name}")
+            if pos > 0:
+                found = _re.findall(r"#\[derive\(([^)]*)\)\]", src[max(0, pos - 300):pos])
+                derives = found[-1] if found else ""
+        has_eq = "impl Eq for" in src and _re.search(
+            r"impl\s+Eq\s+for\s+" + _re.escape(name) + r"\b", src) is not None
+        if not has_eq and not _re.search(r"\bEq\b", derives):
+            continue
+        numeric = bool(_re.search(r"\bPartialEq\b", derives)) or bool(
+            _re.search(r"==\s*other\.|self\.\w+\s*==", eq_body))
+        if not numeric:
+            continue
+        out.append({
+            "law": "eq-ord-mismatch", "symbol": name,
+            "detail": "Eq with a numeric PartialEq but Ord uses total_cmp: "
+                      "-0.0 == 0.0 while cmp says Less, breaking BTreeMap/BTreeSet",
+            "witness": {"a": name + "(-0.0)", "b": name + "(0.0)",
+                        "eq": True, "cmp": "Less"},
+        })
+    return out
+
+
 def hunt_rust_tree(root: Path) -> dict:
     """.rs вне target/tests/examples: сколько проверено и что найдено."""
     checked = 0
@@ -477,7 +528,8 @@ def hunt_rust_tree(root: Path) -> dict:
         except OSError:
             continue
         checked += 1
-        for f in check_rust_derive_ord(src) + check_rust_eq_hash(src):
+        for f in (check_rust_derive_ord(src) + check_rust_eq_hash(src)
+                  + check_rust_eq_ord(src)):
             f["file"] = str(p)
             findings.append(f)
     return {"root": str(root), "checked": checked, "findings": findings}
@@ -715,6 +767,30 @@ impl Hash for LetterSpacing {
 """
     ok(len(check_rust_eq_hash(nan_only)) == 1,
        "eq-hash: CANONICAL_NAN_BITS без канонизации нуля — всё ещё находка")
+
+    # --- eq-ord-mismatch: числовой PartialEq + Ord через total_cmp ---
+    zed_pixels = '''
+#[derive(Copy, Clone, PartialEq)]
+pub struct Pixels(pub(crate) f32);
+impl Eq for Pixels {}
+impl Ord for Pixels {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.0.total_cmp(&other.0) }
+}
+'''
+    ok(len(check_rust_eq_ord(zed_pixels)) == 1,
+       "eq-ord: derive(PartialEq) + total_cmp в Ord — находка (Zed::Pixels)")
+
+    graphite_priority_ord = '''
+impl PartialEq for Priority {
+    fn eq(&self, other: &Self) -> bool { self.cmp(other) == std::cmp::Ordering::Equal }
+}
+impl Eq for Priority {}
+impl Ord for Priority {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.0.total_cmp(&other.0) }
+}
+'''
+    ok(check_rust_eq_ord(graphite_priority_ord) == [],
+       "eq-ord: PartialEq через cmp — эталон (Graphite::Priority)")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
