@@ -534,34 +534,40 @@ def _factor_taint(src, fn_start, pos, factor, params, is_static) -> str:
     return ""
 
 
-def _alloc_witness(kind: str):
-    """Контрпример для формы переполнения: явные значения + проверка арифметикой.
+def _alloc_witness(kind: str, k: int = 1, cap=None):
+    """Контрпример по правилам C: произведение считается в 32 битах, затем
+    результат усекается в `int` и уже он уходит в `malloc(size_t)`.
 
-    Nonlinear-поиск в Z3 на битвекторах непредсказуем по времени, поэтому
-    свидетели фиксированы, а корректность проверяется целочисленной
-    арифметикой Python по правилам C11 (промоушен и усечение).
+    `k` — произведение константных множителей (`w * h * 3` -> 3), `cap` — потолок
+    источника (побайтовая сборка даёт максимум 65535).
     """
-    M32, M64 = 1 << 32, 1 << 64
+    M32 = 1 << 32
+    limit = cap if cap else (1 << 31) - 1
 
-    def s32(v):                                 # значение как знаковый int
+    def as_int32(v):
+        v %= M32
         return v - M32 if v >= (1 << 31) else v
 
-    if kind == "signed":
-        a, b = -1, -2                           # fscanf читает знаковые int
-        wide = (s32(a) * s32(b) * 3) % M64      # SignExt до 64 бит
-        if wide < 64:
-            return (f"a={a}, b={b}: sign-extended product (size_t)a * (size_t)b * 3 "
-                    f"collapses to {wide} bytes")
-    if kind == "product":
-        a = b = 65536                           # 2^16 * 2^16 == 2^32 == 0 (mod 2^32)
-        allocated = (a * b) % M32
-        if allocated < 4096:
-            return (f"a={a}, b={b}: 32-bit product is {allocated} bytes, "
-                    f"the true size is {a * b}")
     if kind == "plus":
-        n = 0xFFFFFFFF                          # uint32_t n + 1 == 0
+        n = min(0xFFFFFFFF, limit)
         if (n + 1) % M32 == 0:
             return f"n={n}: n + 1 wraps to 0 before the multiply"
+        return ""
+
+    cands = sorted({limit, max(1, (M32 // max(k, 2))), 65535, 65536})
+    cands = [c for c in cands if 0 < c <= limit]
+    for a in cands:
+        for b in cands:
+            true_size = a * b * k
+            if true_size < M32:
+                continue
+            wrapped = as_int32(true_size)
+            if 0 <= wrapped < 4096:
+                return (f"a={a}, b={b}: the product times {k} wraps in 32 bits, "
+                        f"so malloc gets {wrapped} bytes while {true_size} are needed")
+            if kind == "signed" and wrapped < 0:
+                return (f"a={a}, b={b}: signed overflow makes the size negative "
+                        f"({wrapped}), which becomes a huge size_t")
     return ""
 
 
@@ -615,8 +621,8 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             if not any(marks):
                 continue
             # `(size_t)(w * h)` переполнился ещё в int — это НЕ защита
-            head_text = src[m.start():m.start() + 80]
-            if re.search(r"\(\s*size_t\s*\)\s*\(", head_text):
+            head_text = src[max(0, m.start() - 20):m.start() + 90]
+            if re.search(r"\(\s*size_t\s*\)\s*\([^()]*(?:[*+/-])[^()]*\)", head_text):
                 continue
             guard = src[fn_start:m.start()] if fn_start else src[:m.start()]
             if re.search(r"SIZE_MAX\s*/|size_t\)\s*", guard):
