@@ -65,9 +65,16 @@ QUERIES_ARITH = [
 ]
 
 QUERIES_EQ_ORD = [
+    '"BTreeMap" "total_cmp" "PartialEq" language:Rust',
+    '"BTreeSet" "total_cmp" "PartialEq" language:Rust',
+    '"BinaryHeap" "total_cmp" "PartialEq" language:Rust',
+    '"impl Ord for" "impl PartialOrd for" "return None" language:Rust',
+    '"impl Ord for" "partial_cmp" "f64" "BTree" language:Rust',
+]
+
+QUERIES_EQ_ORD_LOOSE = [
     '"impl Ord for" "total_cmp" "PartialEq" language:Rust',
     '"total_cmp" "impl Eq for" "#[derive(" language:Rust',
-    '"partial_cmp" "total_cmp" "impl Eq for" language:Rust',
 ]
 
 QUERIES_EFFECTS = [
@@ -402,10 +409,10 @@ def analyse_eq_ord(src: str, path: str) -> list:
     import law_hunter as LH
 
     out = []
-    for f in LH.check_rust_eq_ord(src):
+    for f in LH.check_rust_eq_ord(src) + LH.check_rust_ord_non_total(src):
         tname = f.get("symbol", "")
         out.append({
-            "law": "eq-ord-mismatch", "symbol": tname, "file": path,
+            "law": f.get("law", "eq-ord-mismatch"), "symbol": tname, "file": path,
             "detail": f.get("detail", "Eq/Ord disagreement on -0.0"),
             "hot": True,
         })

@@ -465,6 +465,39 @@ def check_rust_eq_hash(src: str) -> list:
     return out
 
 
+def check_rust_ord_non_total(src: str) -> list:
+    """ord-non-total: `impl Ord` есть, а `PartialOrd` может вернуть `None`.
+
+    Стандарт требует `a.partial_cmp(&b) == Some(a.cmp(&b))`. Если ручной
+    `partial_cmp` возвращает `None` (обычно из-за NaN) или делегирует во
+    float-`partial_cmp`, контракт `Ord` нарушен — а `sort()` в современном
+    Rust на таком типе паникует с "user-provided comparison function does not
+    correctly implement a total order".
+    """
+    out = []
+    for m in _re.finditer(r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+(\w+)", src):
+        name = m.group(1)
+        pord = _body_of(
+            src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?PartialOrd\s+for\s+"
+            + _re.escape(name) + r"\b") or ""
+        if not pord:
+            continue
+        if _re.search(r"Some\s*\(\s*self\.cmp\s*\(", pord) and "return None" not in pord:
+            continue                       # эталон: total_cmp через cmp
+        bad = bool(_re.search(r"return\s+None", pord)) or bool(
+            _re.search(r"\.partial_cmp\s*\(", pord))
+        if not bad:
+            continue
+        out.append({
+            "law": "ord-non-total", "symbol": name,
+            "detail": "impl Ord is declared, but partial_cmp can return None "
+                      "(NaN guard or float partial_cmp): Ord must be total",
+            "witness": {"a": name + "(NaN)", "b": name + "(1.0)",
+                        "partial_cmp": None, "cmp": "some Ordering"},
+        })
+    return out
+
+
 def check_rust_eq_ord(src: str) -> list:
     """eq-ord-mismatch: `Eq` + числовой `PartialEq`, но `Ord` через `total_cmp`.
 
@@ -513,8 +546,12 @@ def check_rust_eq_ord(src: str) -> list:
             _re.search(r"==\s*other\.|self\.\w+\s*==", eq_body))
         if not numeric:
             continue
+        container = bool(_re.search(
+            r"BTreeMap|BTreeSet|BinaryHeap|\.sort\s*\(|\.sort_unstable\s*\("
+            r"|\.binary_search\s*\(", src))
         out.append({
-            "law": "eq-ord-mismatch", "symbol": name,
+            "law": "eq-ord-btree" if container else "eq-ord-mismatch", "symbol": name,
+            "container": container,
             "detail": "Eq with a numeric PartialEq but Ord uses total_cmp: "
                       "-0.0 == 0.0 while cmp says Less, breaking BTreeMap/BTreeSet",
             "witness": {"a": name + "(-0.0)", "b": name + "(0.0)",
@@ -813,6 +850,40 @@ impl Ord for Entry {
 '''
     ok(check_rust_eq_ord(bitwise_eq_ord) == [],
        "eq-ord: PartialEq через to_bits — эталон (river::Entry, makepad)")
+
+    zed_btree = (
+        "#[derive(PartialEq)]\npub struct Px(f64);\n"
+        "impl Eq for Px {}\n"
+        "impl Ord for Px { fn cmp(&self, o: &Self) -> Ordering { self.0.total_cmp(&o.0) } }\n"
+        "fn f() { let mut m: BTreeMap<Px, u8> = BTreeMap::new(); }\n")
+    hits = check_rust_eq_ord(zed_btree)
+    ok(len(hits) == 1 and hits[0]["law"] == "eq-ord-btree",
+       "eq-ord: BTreeMap в файле поднимает подвид eq-ord-btree")
+
+    non_total = '''
+impl Ord for Candidate {
+    fn cmp(&self, other: &Self) -> Ordering { self.q.total_cmp(&other.q) }
+}
+impl PartialOrd for Candidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.q.is_nan() { return None };
+        Some(self.cmp(other))
+    }
+}
+'''
+    ok(len(check_rust_ord_non_total(non_total)) == 1,
+       "ord-non-total: impl Ord + return None — находка (redlib)")
+
+    total_ok = '''
+impl Ord for Candidate {
+    fn cmp(&self, other: &Self) -> Ordering { self.q.total_cmp(&other.q) }
+}
+impl PartialOrd for Candidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+}
+'''
+    ok(check_rust_ord_non_total(total_ok) == [],
+       "ord-non-total: Some(self.cmp(other)) — эталон, молчит")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
