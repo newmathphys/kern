@@ -8,8 +8,11 @@ on:
         required: false
         default: 'false'
   schedule:
-    # 01:17 UTC каждую ночь: автономный рейд без участия оператора
+    # Планировщик GitHub — best-effort: одиночный cron пропускается под
+    # нагрузкой (наблюдение от 18.11 в nightly-hunter.yml). Два окна: если
+    # одно пропущено, второе доберёт ночь.
     - cron: "17 1 * * *"
+    - cron: "17 3 * * *"
 
 permissions:
   contents: read
@@ -40,7 +43,23 @@ jobs:
         run: python3 -m pip install --quiet -r requirements.txt || true
       - name: Install Z3 (arm z3-arith)
         run: python3 -m pip install --quiet z3-solver || echo "z3 unavailable (arm z3-arith stays silent)"
+      - name: Skip if tonight already scanned
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          count=$(gh issue list --repo "${{ github.repository }}" --state all \
+            --search "[Morning Brief] Cloud deep hunt $today in:title" \
+            --json number --jq 'length' || echo 0)
+          if [ "$count" != "0" ]; then
+            echo "brief for $today already exists — second window stays idle"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Hunt shard ${{ matrix.shard }}
+        if: steps.guard.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
