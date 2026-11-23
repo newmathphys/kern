@@ -19,12 +19,15 @@ def as_int32(v: int) -> int:
     return v - M32 if v >= (1 << 31) else v
 
 
-def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None) -> str:
+def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None,
+            scale: int = 1) -> str:
     """Строка-свидетель или "" если переполнения в такой форме не существует.
 
     kind        — "product" (a * b * k) или "signed";
     k           — произведение константных множителей выражения;
     n_tainted   — сколько множителей контролируемы извне;
+    scale       — 64-битный множитель правее sizeof (КАЛИБРОВКА №20):
+                  в 32 битах крутится только префикс до sizeof;
     cap         — потолок источника (побайтовая сборка даёт максимум 65535).
     """
     if k < 1:
@@ -78,7 +81,7 @@ def witness(kind: str = "product", k: int = 1, n_tainted: int = 2, cap=None) -> 
                 if total < M32:
                     continue
                 wrapped = as_int32(total)
-                if 0 <= wrapped < 4096:
+                if 0 <= wrapped and wrapped * scale < 4096:
                     msg = (f"a={a}, b={b}: ({a} * {b} * {k}) wraps in int32 to "
                            f"{wrapped} bytes (needs {total})")
                     # КАЛИБРОВКА №18: сильнее свидетель, где само a * b НЕ
@@ -222,6 +225,18 @@ def selftest() -> int:
     ok(has_safe_left_wide_cast("(size_t)(w * h) * 3") is False, "каст результата: переполнение было в int")
     ok(has_safe_left_wide_cast("(a * b) * (size_t)c") is False,
        "вложенное произведение без каста внутри не спасается кастом справа")
+
+    # 11. КАЛИБРОВКА №20: sizeof — 64-битный, в 32 битах только префикс
+    #     iio.c: xmalloc(w * h * 2 * sizeof(float)), пара 3 x 715827883
+    ok((3 * 715827883 * 2) % M32 == 2 or as_int32(3 * 715827883 * 2) == 2,
+       "iio: (w*h)*2 = 2^31+1, удвоенное -> 2 в int32")
+    w20 = witness("product", k=2, n_tainted=2, cap=None, scale=4)
+    ok(bool(w20), "калибровка №20: при scale=4 свидетель есть")
+    if w20:
+        import re as _re4
+        a4, b4 = map(int, _re4.findall(r"[ab]=(\d+)", w20)[:2])
+        ok((a4 * b4 * 2) % M32 * 4 < 4096,
+           f"калибровка №20: {a4}x{b4} даёт малый 64-битный размер")
 
     print(f"\n[WITNESS-SELFTEST] провалов: {bad}")
     return 0 if bad == 0 else 1

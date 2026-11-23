@@ -539,14 +539,15 @@ def _factor_taint(src, fn_start, pos, factor, params, is_static) -> str:
     return ""
 
 
-def _alloc_witness(kind: str, k: int = 1, n_tainted: int = 2, cap=None) -> str:
+def _alloc_witness(kind: str, k: int = 1, n_tainted: int = 2, cap=None,
+                   scale: int = 1) -> str:
     """Делегирует в изолированный модуль `_witness` (проверен своим автотестом)."""
     import sys as _sys
     tools_dir = str(Path(__file__).resolve().parent)
     if tools_dir not in _sys.path:
         _sys.path.insert(0, tools_dir)
     from _witness import has_safe_left_wide_cast, witness   # noqa: F401
-    return witness(kind, k=k, n_tainted=n_tainted, cap=cap)
+    return witness(kind, k=k, n_tainted=n_tainted, cap=cap, scale=scale)
 
 
 def analyse_z3_alloc(src: str, path: str) -> list:
@@ -623,11 +624,17 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             if upper_ok and (lower_ok or not signed):
                 continue                       # защита полная
             kind = "signed" if signed else kind
+            # КАЛИБРОВКА №20: sizeof имеет тип size_t, поэтому в 32 битах
+            # перемножается только префикс до него, а sizeof масштабирует уже
+            # усечённый результат в 64 битах.
+            expr_text = m.group(0)
+            prefix, _, tail = expr_text.partition("sizeof")
             k_lit = 1
-            for lit in re.findall(r"[\*\s]+(\d+)(?:\s*[\*\)])", m.group(0)):
+            for lit in re.findall(r"[\*\s]+(\d+)(?:\s*[\*\)])", prefix):
                 k_lit *= int(lit)
+            scale = 4 if tail else 1
             cap = 65535 if any("u16" in mk for mk in marks) else None
-            witness = _alloc_witness(kind, k=k_lit,
+            witness = _alloc_witness(kind, k=k_lit, scale=scale,
                                      n_tainted=sum(1 for mk in marks if mk), cap=cap)
             if not witness:
                 continue
