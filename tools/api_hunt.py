@@ -87,13 +87,14 @@ QUERIES_EQ_ORD_LOOSE = [
 ]
 
 QUERIES_ALLOC = [
+    '"num_vertices * 3" "malloc" language:C',
+    '"num_faces * 3" "malloc" language:C',
+    '"samples * channels" "malloc" language:C',
+    '"frames * channels" "malloc" language:C',
+    '"n_rows * n_cols" "malloc" language:C',
+    '"nx * ny" "malloc" language:C',
     '"width * height" "malloc" "fread" language:C',
     '"w * h * 3" "malloc" language:C',
-    '"w * h * 4" "malloc" language:C',
-    '"width * height" "calloc" language:C',
-    '"_IMPLEMENTATION" "width * height" "malloc"',
-    '"rows * cols" "malloc" "sizeof" language:C',
-    '"num_samples * " "malloc" "fread" language:C',
 ]
 
 QUERIES_EFFECTS = [
@@ -642,8 +643,13 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                           "char": 1, "schar": 1, "uchar": 1, "int8": 1, "uint8": 1}
                 scale = widths.get(mt.group(1).removesuffix("_t"), 4) if mt else 4
             cap = 65535 if any("u16" in mk for mk in marks) else None
+            # множитель-ПЕРЕМЕННАЯ (не литерал) тоже не ограничена: двух
+            # переменных достаточно для переполнения, даже если из потока
+            # прочитана только одна
+            n_vars = sum(1 for f in factors if not f.strip().isdigit())
             witness = _alloc_witness(kind, k=k_lit, scale=scale,
-                                     n_tainted=sum(1 for mk in marks if mk), cap=cap)
+                                     n_tainted=max(sum(1 for mk in marks if mk), n_vars),
+                                     cap=cap)
             if not witness:
                 continue
             out.append({
