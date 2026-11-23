@@ -64,6 +64,12 @@ QUERIES_ARITH = [
     '"let mid = (left + right)" language:Rust',
 ]
 
+QUERIES_EQ_ORD = [
+    '"impl Ord for" "total_cmp" "PartialEq" language:Rust',
+    '"total_cmp" "impl Eq for" "#[derive(" language:Rust',
+    '"partial_cmp" "total_cmp" "impl Eq for" language:Rust',
+]
+
 QUERIES_EFFECTS = [
     '"def lcm" "// gcd" language:Python',
     '"(low + high) / 2" language:C',
@@ -385,6 +391,27 @@ def analyse_z3_arith(src: str, path: str) -> list:
             })
     return out
 
+def analyse_eq_ord(src: str, path: str) -> list:
+    """Ствол eq-ord-mismatch: Eq + числовой PartialEq против Ord на total_cmp."""
+    import sys
+    if not path.endswith(".rs"):
+        return []
+    tools_dir = str(Path(__file__).resolve().parent)
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    import law_hunter as LH
+
+    out = []
+    for f in LH.check_rust_eq_ord(src):
+        tname = f.get("symbol", "")
+        out.append({
+            "law": "eq-ord-mismatch", "symbol": tname, "file": path,
+            "detail": f.get("detail", "Eq/Ord disagreement on -0.0"),
+            "hot": True,
+        })
+    return out
+
+
 def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=print) -> list:
     """Поиск -> фильтр -> скачивание файла -> анализ -> ранжирование."""
     seen, findings = set(), []
@@ -397,6 +424,8 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=pri
         queries += [(q, "lru") for q in QUERIES_LRU]
     if mode in ("z3-arith", "all"):
         queries += [(q, "z3arith") for q in QUERIES_ARITH]
+    if mode in ("eq-ord", "all"):
+        queries += [(q, "eqord") for q in QUERIES_EQ_ORD]
 
     for query, stem in queries:
         log(f"[search] {query}")
@@ -416,7 +445,7 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730, log=pri
             src = raw_file(repo, path)
             if not src:
                 continue
-            hits = {"laws": analyse_laws, "lru": analyse_lru,
+            hits = {"laws": analyse_laws, "lru": analyse_lru, "eqord": analyse_eq_ord,
                     "z3arith": analyse_z3_arith}.get(
                         stem, analyse_effects)(src, path)
             for h in hits:
@@ -595,7 +624,7 @@ def main(argv=None) -> int:
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--min-stars", type=int, default=100)
     ap.add_argument("--mode", default="all",
-                    choices=["laws", "effect-hints", "lru-effects", "z3-arith", "all"])
+                    choices=["laws", "effect-hints", "lru-effects", "z3-arith", "eq-ord", "all"])
     ap.add_argument("--max-age-days", type=int, default=730)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)

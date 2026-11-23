@@ -477,12 +477,19 @@ def check_rust_eq_ord(src: str) -> list:
     for m in _re.finditer(r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+(\w+)", src):
         name = m.group(1)
         ord_body = _body_of(
-            src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+" + _re.escape(name) + r"\b")
-        if not ord_body or "total_cmp" not in ord_body:
+            src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?Ord\s+for\s+" + _re.escape(name) + r"\b") or ""
+        # total_cmp может жить и в PartialOrd, а Ord просто делегировать:
+        # `self.partial_cmp(other).unwrap()`. Обе формы ломают аксиому.
+        pord_body = _body_of(
+            src, r"impl(?:<[^>]*>)?\s+(?:[\w:]+::)?PartialOrd\s+for\s+"
+            + _re.escape(name) + r"\b") or ""
+        if "total_cmp" not in ord_body and "total_cmp" not in pord_body:
             continue
         eq_body = _body_of(src, r"impl\s+PartialEq\s+for\s+" + _re.escape(name) + r"\b") or ""
         if _re.search(r"\bcmp\s*\(|total_cmp", eq_body):
             continue                       # эталон: сравнение уже побитовое
+        if "to_bits" in eq_body:
+            continue                       # makepad/river: `to_bits() ==` совпадает с total_cmp
         derives = ""
         for d in RUST_DERIVE_RE.finditer(src):
             if d.group("name") == name:
@@ -791,6 +798,21 @@ impl Ord for Priority {
 '''
     ok(check_rust_eq_ord(graphite_priority_ord) == [],
        "eq-ord: PartialEq через cmp — эталон (Graphite::Priority)")
+
+    bitwise_eq_ord = '''
+struct Entry { score: f64, packed: u64 }
+impl PartialEq for Entry {
+    fn eq(&self, other: &Self) -> bool {
+        self.score.to_bits() == other.score.to_bits() && self.packed == other.packed
+    }
+}
+impl Eq for Entry {}
+impl Ord for Entry {
+    fn cmp(&self, other: &Self) -> Ordering { self.score.total_cmp(&other.score) }
+}
+'''
+    ok(check_rust_eq_ord(bitwise_eq_ord) == [],
+       "eq-ord: PartialEq через to_bits — эталон (river::Entry, makepad)")
 
     print("[LAW-HUNTER-SELFTEST] провалов: %d" % bad)
     return 0 if bad == 0 else 1
