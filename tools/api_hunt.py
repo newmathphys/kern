@@ -87,8 +87,13 @@ QUERIES_EQ_ORD_LOOSE = [
 ]
 
 QUERIES_ALLOC = [
-    '"malloc(" "* sizeof(" "int " language:C',
-    '"malloc(n * sizeof" language:C',
+    '"width * height" "malloc" "fread" language:C',
+    '"w * h * 3" "malloc" language:C',
+    '"w * h * 4" "malloc" language:C',
+    '"width * height" "calloc" language:C',
+    '"_IMPLEMENTATION" "width * height" "malloc"',
+    '"rows * cols" "malloc" "sizeof" language:C',
+    '"num_samples * " "malloc" "fread" language:C',
 ]
 
 QUERIES_EFFECTS = [
