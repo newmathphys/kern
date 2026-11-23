@@ -418,7 +418,9 @@ def analyse_z3_arith(src: str, path: str) -> list:
         return []
     lowered = path.lower()
     if "cfg(test)" in src or "/tests/" in f"/{lowered}" \
-            or lowered.endswith(("tests.rs", "_test.rs")):
+            or lowered.endswith(("tests.rs", "_test.rs", "_tests.rs")) \
+            or "/test_" in f"/{lowered.rsplit('/', 1)[-1]}" \
+            or "_test_" in lowered.rsplit("/", 1)[-1]:
         return []
     if "/examples/" in lowered or "/testbed/" in lowered or "/stress_tests/" in lowered:
         return []
