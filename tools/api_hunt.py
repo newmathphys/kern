@@ -149,6 +149,21 @@ def repo_age_days(meta) -> float:
 
 
 def raw_file(full_name: str, path: str):
+    """Сырой файл через raw.githubusercontent.com (не тратит квоту REST API).
+
+    Сначала берём `default_branch` из закэшированных метаданных репозитория,
+    затем качаем напрямую; REST-фолбэк нужен только если raw недоступен.
+    """
+    import urllib.request
+
+    meta = repo_meta(full_name) or {}
+    branch = meta.get("default_branch") or "HEAD"
+    url = f"https://raw.githubusercontent.com/{full_name}/{branch}/{path}"
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            return resp.read().decode("utf-8", "replace")
+    except Exception:                     # noqa: BLE001 — тихо падаем в фолбэк
+        pass
     import base64
     data = _gh_json(["api", f"repos/{full_name}/contents/{path}"])
     if not data or "content" not in data:
@@ -162,6 +177,7 @@ def raw_file(full_name: str, path: str):
 def crates_top(limit: int = 20):
     """Топ крейтов crates.io -> список GitHub-репозиториев (owner/repo)."""
     import urllib.parse as up
+    import urllib.request
     req = urllib.request.Request(
         f"https://crates.io/api/v1/crates?per_page={limit}&sort=downloads",
         headers={"User-Agent": "kern-api-hunt/1.0 (https://github.com/newmathphys/kern)"})
@@ -232,6 +248,10 @@ NONDETERMINISTIC_CALLS = {
     "random.random", "random.randint", "random.choice", "random.randrange",
     "random.uniform", "random.shuffle", "random.sample",
     "uuid.uuid4", "uuid.uuid1", "os.urandom",
+    # КАЛИБРОВКА №13: рабочий каталог процесса — тоже изменяемое окружение.
+    # `@lru_cache` поверх `Path.cwd()` замораживает путь проекта, в котором
+    # воркер стартовал, и врёт после `os.chdir` (мульти-проектные серверы).
+    "os.getcwd", "os.getcwdb", "pathlib.Path.cwd", "Path.cwd",
 }
 
 MEMO_DECORATORS = {"lru_cache", "cache"}
@@ -445,12 +465,11 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
             rows = search_code(query, per_page=PER_QUERY, page=page)
             if not rows:
                 break
+            eligible = []
             for repo, path in rows:
                 if repo in EXCLUDED_REPOS or (repo, path) in seen:
                     continue
                 seen.add((repo, path))
-                if len(findings) >= limit:
-                    return findings
                 # Stars-First: метаданные (из кэша) проверяются ДО скачивания
                 # файла, поэтому тысячи мелких репозиториев стоят 0 запросов.
                 meta = repo_meta(repo) or {}
@@ -460,7 +479,18 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
                     continue
                 if repo_age_days(meta) > max_age_days:
                     continue
-                src = raw_file(repo, path)
+                eligible.append((repo, path, meta))
+            if not eligible:
+                time.sleep(GH_PAUSE_S)
+                continue
+            # githubusercontent.com не тратит квоту search/code, поэтому 8
+            # потоков безопасны и ускоряют страницу из 100 хитов в разы.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+                blobs = list(pool.map(lambda rp: raw_file(rp[0], rp[1]),
+                                      [(r, p) for r, p, _ in eligible]))
+            for (repo, path, meta), src in zip(eligible, blobs):
+                if len(findings) >= limit:
+                    return findings
                 if not src:
                     continue
                 hits = {"laws": analyse_laws, "lru": analyse_lru, "eqord": analyse_eq_ord,
@@ -516,6 +546,20 @@ def selftest() -> int:
             "@lru_cache(maxsize=None)\ndef fib(n: int) -> int:\n    return n if n < 2 else fib(n-1) + fib(n-2)\n")
     ok(analyse_lru(pure, "app/fib.py") == [], "lru: чистая мемоизация молчит")
     ok(analyse_lru(bad_py, "tests/test_cache.py") == [], "lru: тестовые файлы пропущены")
+
+    # Калибровка №13: рабочий каталог под мемоизацией
+    cwd_py = ("from functools import lru_cache\nfrom pathlib import Path\n"
+              "@lru_cache(maxsize=64)\ndef resolve(rel: str) -> Path:\n"
+              "    return Path.cwd() / rel\n")
+    h = analyse_lru(cwd_py, "app/paths.py")
+    ok(len(h) == 1 and "Path.cwd" in h[0]["detail"],
+       "lru: Path.cwd() под @lru_cache — находка (калибровка №13)")
+
+    cwd_ok = ("from functools import lru_cache\nfrom pathlib import Path\n"
+              "@lru_cache(maxsize=64)\ndef resolve(base: Path, rel: str) -> Path:\n"
+              "    return base / rel\n")
+    ok(analyse_lru(cwd_ok, "app/paths.py") == [],
+       "lru: каталог в аргументах — эталон, молчит")
 
     # Калибровка №6: докстринг и вложенный def — не тело функции
     scipy_style = ('from functools import lru_cache\nimport time\n'
