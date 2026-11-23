@@ -636,11 +636,11 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                     k_lit *= int(tok)
             scale = 1
             if tail:
-                mt = re.search(r"\b(double|u?int64|short|u?int16|u?int8|s?char)\b", tail)
+                mt = re.search(r"\b(double|u?int64(?:_t)?|short|u?int16(?:_t)?|u?int8(?:_t)?|[su]?char)\b", tail)
                 widths = {"double": 8, "int64": 8, "uint64": 8, "int32": 4,
                           "uint32": 4, "short": 2, "int16": 2, "uint16": 2,
                           "char": 1, "schar": 1, "uchar": 1, "int8": 1, "uint8": 1}
-                scale = widths.get(mt.group(1), 4) if mt else 4
+                scale = widths.get(mt.group(1).removesuffix("_t"), 4) if mt else 4
             cap = 65535 if any("u16" in mk for mk in marks) else None
             witness = _alloc_witness(kind, k=k_lit, scale=scale,
                                      n_tainted=sum(1 for mk in marks if mk), cap=cap)
