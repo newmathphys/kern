@@ -13,3 +13,4 @@ RC=0
 2026-11-22T15:20:00Z ACCEPTED: dagster#34468 (cestercian will PR the zone-only fix we proposed) | boa#5678 (victrvondoom will PR zero canonicalisation + HashMap tests) | lance#11344 labelled bug
 2026-11-22T17:04:56Z zed#67334 OPEN (~60k, Pixels+RenderGlyphParams+DocumentColor, cargo test FAILED) | typst#9103 OPEN | dagster#34468 OPEN
 2026-11-23T07:07:12Z FIX IN REVIEW: dagster PR #34469 implements the Jan/Jul fixed-date probe from #34468 and adds a cron-iterator test; effect confirmed as hourly schedules landing on :30 instead of :00 | zed#67334 label state:needs triage
+2026-11-23T08:16:48Z gluesql#2096 OPEN (3.1k, eq-ord: Key::cmp bypasses OrderedFloat, cargo test FAILED) | zed#67334 needs triage | dagster PR #34469 in review

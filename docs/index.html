@@ -338,6 +338,10 @@ a missing <code>kern.intoto.sig</code> is treated as a failure.</p>
     <td><code>Pixels</code>, <code>RenderGlyphParams</code> (glyph raster cache key) and <code>DocumentColor</code> implement <code>Eq</code> but hash <code>to_bits()</code>, so equal values miss the map.</td>
     <td><code>cargo test -p gpui</code> &rarr; FAILED</td>
     <td><a href="https://github.com/zed-industries/zed/issues/67334">#67334</a></td></tr>
+<tr><td><b>gluesql/gluesql</b><br><span class="muted">3.1k &#9733; &middot; SQL engine</span></td>
+    <td><code>Key::cmp</code> calls <code>f64::total_cmp</code> instead of <code>OrderedFloat</code> ordering, so <code>-0.0</code> and <code>0.0</code> are equal but branch apart: a <code>FLOAT</code> <code>PRIMARY KEY</code> misses rows.</td>
+    <td><code>cargo test</code> &rarr; FAILED</td>
+    <td><a href="https://github.com/gluesql/gluesql/issues/2096">#2096</a></td></tr>
 <tr><td><b>boa-dev/boa</b><br><span class="muted">5.8k &#9733; &middot; JS engine</span></td>
     <td><code>JsValue</code>: <code>Eq</code> via <code>SameValueZero</code> but <code>Hash</code> via
         <code>f64::to_bits()</code>, so <code>0.0 == -0.0</code> and a <code>HashSet</code> key is lost.</td>

@@ -543,6 +543,28 @@ Extra finding: `Pixels` also implements `Ord` via `f32::total_cmp`, which does s
 
 Upstream: [#67334](https://github.com/zed-industries/zed/issues/67334).
 
+## Case V — `gluesql` (3.1k ★, SQL engine): `Key::cmp` bypasses `OrderedFloat` (`#2096`)
+
+First trophy of the `eq-ord-mismatch` class. `Key` wraps floats in `OrderedFloat` so they can be
+`Eq + Ord + Hash`, and its `PartialEq` is derived (so `-0.0 == 0.0`), but the manual `Ord`
+calls `l.total_cmp(&r.0)`, which resolves to `f64::total_cmp` through `Deref`. Equal keys
+therefore take different branches of the tree.
+
+Confirmed live with `cargo test -p gluesql-core --lib eq_ord_probe` on `main`:
+
+```text
+thread 'data::key::eq_ord_probe::key_eq_and_ord_agree_on_signed_zero' panicked at
+core/src/data/key.rs:909:9: lookup by an equal key must hit
+  left: None
+ right: Some(1)
+```
+
+`BTreeMap<Key, _>` is the in-memory storage engine, so a `FLOAT` `PRIMARY KEY` accepts both
+`-0.0` and `0.0` and a lookup by the equal value misses the stored row. Upstream issue #1409
+(the `OrderedFloat` migration) is still open, so this is one line short of finishing it.
+
+Upstream: [#2096](https://github.com/gluesql/gluesql/issues/2096).
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
@@ -555,6 +577,7 @@ Upstream: [#67334](https://github.com/zed-industries/zed/issues/67334).
 | F | `kiesraad/abacus` `58c5f124b1` | **DIVERGED** in `--release` (preventive) | `1/5e9 + 1/5e9` → `10000000000/6553255926290448384`; `#4393` (dup of #3179, confirmed) |
 | G | `boltons` `d31d821d56c8` | **CONTRACT** (wrong exception class) | `IndexedSet().pop()` → `IndexError`, not `KeyError`; `#800` |
 | J | `swc-project/swc` `49c4bb202b` (31k ★) | **EQ/HASH SPLIT** on `-0.0` | `(0,0,+1)` vs `(0,0,-1)` in `integer_decode`; `cargo test -p swc_css_ast`; `#12815` (closed: AGENTS.md routing) |
+| V | `gluesql` `main` (3.1k ★) | **EQ/ORD SPLIT** in the primary-key `BTreeMap` | `cargo test -p gluesql-core` → FAILED; `#2096` |
 | U | `zed` `d31d1074a07b` (~60k ★) | **EQ/HASH SPLIT** in `Pixels`, glyph cache, `DocumentColor` | `cargo test -p gpui --test` → FAILED; `#67334` |
 | T | `typst` `main` (~38k ★) | **EQ/HASH SPLIT** on `Scalar` + `ProcessColor` | `cargo test -p typst-utils --lib` → FAILED; `#9103` |
 | S | `dagster` `master` (~12k ★) | **CACHED CLOCK** in hourly-schedule cron | live repro; `#34468` |

@@ -70,6 +70,8 @@ QUERIES_EQ_ORD = [
     '"BinaryHeap" "total_cmp" "PartialEq" language:Rust',
     '"impl Ord for" "impl PartialOrd for" "return None" language:Rust',
     '"impl Ord for" "partial_cmp" "f64" "BTree" language:Rust',
+    '"OrderedFloat" "total_cmp" language:Rust',
+    '"OrderedFloat" "to_bits" language:Rust',
 ]
 
 QUERIES_EQ_ORD_LOOSE = [

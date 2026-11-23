@@ -271,7 +271,8 @@ def scan_arms(clone: Path) -> list:
                 continue           # FreeBSD/{11.x,13.x,14.x}: один и тот же файл
             seen_hash.add(digest)
             rel = str(p.relative_to(clone))
-            for h in arms.analyse_lru(src, rel) + arms.analyse_z3_arith(src, rel):
+            for h in (arms.analyse_lru(src, rel) + arms.analyse_z3_arith(src, rel)
+                      + arms.analyse_eq_ord(src, rel)):
                 h["file"] = f"{p.relative_to(clone)}"
                 out.append(h)
     return out
