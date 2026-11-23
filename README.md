@@ -101,26 +101,26 @@ KERN заблокировал 5/5
 > 3. **`TheAlgorithms/Rust` (26k ★) — a `u64` underflow.** `src/math/binomial_coefficient.rs` computes `n - i` with no `k <= n` guard, so `binom(0, 2)` panics in debug and returns garbage in release; all seven upstream tests use `k <= n`. Upstream: [#1075](https://github.com/TheAlgorithms/Rust/pull/1075) (Codecov: **100% patch coverage**).
 > 4. **Live upstream reports, each reproduced before filing.**
 >
-> | Repository | Report |
-> |---|---|
-> | `mahmoud/boltons` | [#800](https://github.com/mahmoud/boltons/issues/800) |
-> | `kiesraad/abacus` | [#4393](https://github.com/kiesraad/abacus/issues/4393) |
-> | `isamert/scheme.rs` | [#4](https://github.com/isamert/scheme.rs/issues/4) |
-> | `ad-si/Woxi` | [#2704](https://github.com/ad-si/Woxi/issues/2704) |
-> | `boa-dev/boa` | [#5678](https://github.com/boa-dev/boa/issues/5678) |
-> | `swc-project/swc` | [#12815](https://github.com/swc-project/swc/issues/12815) |
-> | `surrealdb/surrealdb` | [#7715](https://github.com/surrealdb/surrealdb/issues/7715) |
-> | `vectordotdev/vector` | [#27277](https://github.com/vectordotdev/vector/issues/27277) |
-> | `lance-format/lance` | [#11344](https://github.com/lance-format/lance/issues/11344) |
-> | `databendlabs/databend` | [#21155](https://github.com/databendlabs/databend/issues/21155) |
-> | `gleam-lang/gleam` | [#6524](https://github.com/gleam-lang/gleam/issues/6524) |
-> | `zellij-org/zellij` | [#5969](https://github.com/zellij-org/zellij/issues/5969) |
-> | `bevyengine/bevy` | [#26635](https://github.com/bevyengine/bevy/issues/26635) |
-> | `dimforge/kiss3d` | [#419](https://github.com/dimforge/kiss3d/issues/419) |
-> | `dagster-io/dagster` | [#34468](https://github.com/dagster-io/dagster/issues/34468) |
-> | `typst/typst` | [#9103](https://github.com/typst/typst/issues/9103) |
-> | `zed-industries/zed` | [#67334](https://github.com/zed-industries/zed/issues/67334) |
-> | `gluesql/gluesql` | [#2096](https://github.com/gluesql/gluesql/issues/2096) |
+> | Repository | Report | Outcome |
+> |---|---|---|
+> | `mahmoud/boltons` | [#800](https://github.com/mahmoud/boltons/issues/800) | Open - PR open |
+> | `kiesraad/abacus` | [#4393](https://github.com/kiesraad/abacus/issues/4393) | Confirmed - duplicate of their own report |
+> | `isamert/scheme.rs` | [#4](https://github.com/isamert/scheme.rs/issues/4) | Open |
+> | `ad-si/Woxi` | [#2704](https://github.com/ad-si/Woxi/issues/2704) | Open |
+> | `boa-dev/boa` | [#5678](https://github.com/boa-dev/boa/issues/5678) | Triaged - claimed |
+> | `swc-project/swc` | [#12815](https://github.com/swc-project/swc/issues/12815) | Closed - routing policy |
+> | `surrealdb/surrealdb` | [#7715](https://github.com/surrealdb/surrealdb/issues/7715) | Open |
+> | `vectordotdev/vector` | [#27277](https://github.com/vectordotdev/vector/issues/27277) | Open |
+> | `lance-format/lance` | [#11344](https://github.com/lance-format/lance/issues/11344) | Confirmed (bug) - PR open |
+> | `databendlabs/databend` | [#21155](https://github.com/databendlabs/databend/issues/21155) | Triaged - assigned |
+> | `gleam-lang/gleam` | [#6524](https://github.com/gleam-lang/gleam/issues/6524) | Closed - no end-to-end path shown |
+> | `zellij-org/zellij` | [#5969](https://github.com/zellij-org/zellij/issues/5969) | Open |
+> | `bevyengine/bevy` | [#26635](https://github.com/bevyengine/bevy/issues/26635) | Open |
+> | `dimforge/kiss3d` | [#419](https://github.com/dimforge/kiss3d/issues/419) | Open |
+> | `dagster-io/dagster` | [#34468](https://github.com/dagster-io/dagster/issues/34468) | In review - PR open |
+> | `typst/typst` | [#9103](https://github.com/typst/typst/issues/9103) | Open |
+> | `zed-industries/zed` | [#67334](https://github.com/zed-industries/zed/issues/67334) | Fixed - PR merged |
+> | `gluesql/gluesql` | [#2096](https://github.com/gluesql/gluesql/issues/2096) | Open |
 
 >
 > **Every capability, its one command, its external oracle and its honest boundary:** [docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md) · [RU](docs/CAPABILITY_MATRIX.ru.md)

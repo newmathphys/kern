@@ -568,6 +568,22 @@ core/src/data/key.rs:909:9: lookup by an equal key must hit
 
 Upstream: [#2096](https://github.com/gluesql/gluesql/issues/2096).
 
+## Upstream outcomes
+
+Latest verified state of the reports above:
+
+| Outcome | Report | Detail |
+|---|---|---|
+| **Fixed** | `zed` | a maintainer-merged pull request implements the signed-zero canonicalisation for the three types named in the report |
+| In review | `dagster` | a contributor's pull request replaces the wall-clock probe with fixed winter and summer dates, as proposed |
+| Open PR | `boltons` | an independent contributor's pull request raises `KeyError` from `IndexedSet.pop()` |
+| Open PR | `lance` | an automated fixer opened a pull request that normalises the sign of zero in the Hilbert hashes |
+| Confirmed (bug) | `lance` | labelled `bug` by the maintainers |
+| Triaged | `databend`, `boa` | assigned to an engineer / claimed by a contributor |
+| Confirmed (duplicate) | `abacus` | closed by the maintainer as a duplicate of their own tracking issue |
+| Closed (policy) | `swc` | static-analysis findings are routed to a separate repository by their `AGENTS.md` |
+| Closed (no path) | `gleam` | the report showed a trait-level mismatch without an end-to-end user-visible path; that gap is now a rule for new reports |
+
 ## Summary
 
 | Case | Repository / commit | KERN verdict | Live proof |
