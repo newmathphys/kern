@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "beca225e",
-  "code_hash": "sha256:c249a1def35d39fb96facbf8b57b57f4491f80262f2a14b4aa4315584622dfc9",
+  "commit": "0bd91bc6",
+  "code_hash": "sha256:2a36377bae11aea53f5014dbfaf089a47f511e24568a35cb1fbf35ea5617ea46",
   "score": 99,
   "grade": "A+",
   "breakdown": {
