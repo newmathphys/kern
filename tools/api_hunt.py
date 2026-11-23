@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import re
 import time
@@ -122,13 +123,64 @@ def search_code(query: str, per_page: int = 100, page: int = 1) -> list:
 _REPO_CACHE: dict = {}
 
 
+def _normalise_batch(nodes: dict) -> dict:
+    """Ответ graphql (алиасы r0..rN) -> {alias: meta} в форме `repo_meta`."""
+    out = {}
+    for alias, node in (nodes or {}).items():
+        if not node:
+            continue
+        out[alias] = {
+            "stars": node.get("stargazerCount") or 0,
+            "archived": bool(node.get("isArchived")),
+            "fork": bool(node.get("isFork")),
+            "issues": node.get("hasIssuesEnabled"),
+            "pushed_at": node.get("pushedAt"),
+            "default_branch": (node.get("defaultBranchRef") or {}).get("name"),
+        }
+    return out
+
+
+def batch_repo_meta(full_names, batch: int = 40, log=print) -> int:
+    """Метаданные пачки репозиториев одним запросом `gh api graphql`.
+
+    100 отдельных подпроцессов `gh api repos/...` — это 100 спавнов ОС и 100
+    единиц квоты на страницу поиска; GraphQL склеивает 40 алиасов в один
+    запрос за доли секунды. Репозитории, которые удалили или переименовали,
+    остаются без записи и добираются старым путём.
+    """
+    need = [r for r in dict.fromkeys(full_names) if r not in _REPO_CACHE]
+    for start in range(0, len(need), batch):
+        chunk = need[start:start + batch]
+        parts = []
+        for idx, full in enumerate(chunk):
+            owner, _, name = full.partition("/")
+            if not owner or not name:
+                continue
+            parts.append(
+                f'r{idx}: repository(owner: "{owner}", name: "{name}") '
+                "{ stargazerCount isArchived isFork hasIssuesEnabled pushedAt "
+                "defaultBranchRef { name } }")
+        if not parts:
+            continue
+        data = _gh_json(["api", "graphql", "-f",
+                         "query=query { " + " ".join(parts) + " }"], timeout=40)
+        nodes = (data or {}).get("data") or {}
+        for idx in range(len(chunk)):
+            node = nodes.get(f"r{idx}")
+            if node is None:
+                continue
+            _REPO_CACHE[chunk[idx]] = _normalise_batch({"x": node})["x"]
+    return len(_REPO_CACHE)
+
+
 def repo_meta(full_name: str):
     """Метаданные репозитория с кэшем: один запрос на репозиторий, а не на файл."""
     if full_name in _REPO_CACHE:
         return _REPO_CACHE[full_name]
     meta = _gh_json(["api", f"repos/{full_name}", "--jq",
                      "{stars: .stargazers_count, archived: .archived, fork: .fork, "
-                     "issues: .has_issues, pushed_at: .pushed_at}"])
+                     "issues: .has_issues, pushed_at: .pushed_at, "
+                     "default_branch: .default_branch}"])
     _REPO_CACHE[full_name] = meta
     return meta
 
@@ -460,11 +512,12 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
         queries += [(q, "eqord") for q in QUERIES_EQ_ORD]
 
     for query, stem in queries:
-        log(f"[search] {query}")
+        log(f"[search] {query}", flush=True) if log is print else log(f"[search] {query}")
         for page in range(1, max_pages + 1):
             rows = search_code(query, per_page=PER_QUERY, page=page)
             if not rows:
                 break
+            batch_repo_meta([r for r, _p in rows], log=lambda m: None)
             eligible = []
             for repo, path in rows:
                 if repo in EXCLUDED_REPOS or (repo, path) in seen:
@@ -527,6 +580,13 @@ def selftest() -> int:
 
     ok("isamert/scheme.rs" in EXCLUDED_REPOS, "трофеи исключены из повторного поиска")
     ok(len(QUERIES_LAWS) >= 3 and len(QUERIES_EFFECTS) >= 3, "у обоих стволов есть запросы")
+    _b = _normalise_batch({"x": {"stargazerCount": 3141, "isArchived": False,
+                                 "isFork": False, "hasIssuesEnabled": True,
+                                 "pushedAt": "2026-11-22T00:00:00Z",
+                                 "defaultBranchRef": {"name": "main"}}}).get("x") or {}
+    ok(_b.get("stars") == 3141 and _b.get("default_branch") == "main",
+       "graphql-пачка разбирается в форму repo_meta")
+    ok(_normalise_batch({"x": None}) == {}, "удалённый репозиторий не ломает разбор")
     ok(len(QUERIES_LRU) >= 3 and len(QUERIES_ARITH) >= 3, "у новых стволов есть запросы")
 
     # --- ствол lru-effects: HIGH только при аргументах + часы/рандом ---
