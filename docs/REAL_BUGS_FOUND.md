@@ -480,7 +480,7 @@ America/New_York:
 Second defect: `datetime.now()` reads the daemon's wall clock, not the date of the tick
 being computed, so even a date-keyed cache is wrong for backfills and future ticks.
 
-Upstream: [#34468](https://github.com/dagster-io/dagster/issues/34468).
+Upstream: [#34468](https://github.com/dagster-io/dagster/issues/34468). Fix in review: [#34469](https://github.com/dagster-io/dagster/pull/34469) samples the offset on Jan 1 and Jul 1, exactly as proposed here, and adds a cron-iterator test.
 
 ## Case T — `typst/typst` (~38k ★): `Scalar` and `ProcessColor` hash differently than they compare (`#9103`)
 

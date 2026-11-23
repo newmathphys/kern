@@ -353,12 +353,17 @@ def analyse_z3_arith(src: str, path: str) -> list:
                           f"a={m[a]}, b={m[b]}, g={m[g]} — истинный НОК влезает",
                 "hot": True,
             })
-    # midpoint сообщаем только в контексте поиска по границам: в кодеках и
-    # тестах `(a + b) / 2` — это среднее двух литералов, а не индекс.
+    # midpoint сообщаем только там, где это индекс в данных: нужен и контекст
+    # поиска, и верхняя граница, выведенная из размера (len/size/count), а не
+    # из литерала вроде `hi = 255` в пиксельном кодеке.
     search_ctx = re.search(
         r"binary_search|bsearch|lower_bound|upper_bound|partition_point"
         r"|\barr\[\s*mid\s*\]|\bmid\s*\]", src)
-    if search_ctx and re.search(r"\(\s*\w+\s*\+\s*\w+\s*\)\s*(/\s*2|>>\s*1)", src):
+    data_bounds = re.search(
+        r"\b(?:hi|high|right|end|last|top)\s*=\s*[^;\n]{0,60}"
+        r"(?:\.len\s*\(|\.size\s*\(|\blen\b|\bsize\b|\bcount\b|\bn\b)", src)
+    if search_ctx and data_bounds and \
+            re.search(r"\(\s*\w+\s*\+\s*\w+\s*\)\s*(/\s*2|>>\s*1)", src):
         lo, hi = z3.BitVecs("lo hi", 32)
         s = z3.Solver()
         # легитимные границы: 0 <= lo, hi <= INT32_MAX
@@ -525,6 +530,14 @@ def selftest() -> int:
              "    return (a + b) / 2;\n}\n")
     ok(analyse_z3_arith(codec, "src/lj92.rs") == [],
        "z3: среднее без контекста поиска молчит")
+
+    # границы из литерала, а не из размера данных — тоже не наш случай
+    fixed_buf = ("int bsearch_lin(int *arr, int key) {\n"
+                 "    int lo = 0, hi = 255;\n"
+                 "    int mid = (lo + hi) / 2;\n"
+                 "    return arr[mid];\n}\n")
+    ok(analyse_z3_arith(fixed_buf, "src/fixed.c") == [],
+       "z3: hi из литерала (фиксированный буфер) молчит")
 
     rust = ('#[derive(Clone, Copy, PartialEq)]\npub struct Money { pub cents: f64 }\n'
             'impl Eq for Money {}\n'
