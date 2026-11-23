@@ -534,41 +534,14 @@ def _factor_taint(src, fn_start, pos, factor, params, is_static) -> str:
     return ""
 
 
-def _alloc_witness(kind: str, k: int = 1, cap=None):
-    """Контрпример по правилам C: произведение считается в 32 битах, затем
-    результат усекается в `int` и уже он уходит в `malloc(size_t)`.
-
-    `k` — произведение константных множителей (`w * h * 3` -> 3), `cap` — потолок
-    источника (побайтовая сборка даёт максимум 65535).
-    """
-    M32 = 1 << 32
-    limit = cap if cap else (1 << 31) - 1
-
-    def as_int32(v):
-        v %= M32
-        return v - M32 if v >= (1 << 31) else v
-
-    if kind == "plus":
-        n = min(0xFFFFFFFF, limit)
-        if (n + 1) % M32 == 0:
-            return f"n={n}: n + 1 wraps to 0 before the multiply"
-        return ""
-
-    cands = sorted({limit, max(1, (M32 // max(k, 2))), 65535, 65536})
-    cands = [c for c in cands if 0 < c <= limit]
-    for a in cands:
-        for b in cands:
-            true_size = a * b * k
-            if true_size < M32:
-                continue
-            wrapped = as_int32(true_size)
-            if 0 <= wrapped < 4096:
-                return (f"a={a}, b={b}: the product times {k} wraps in 32 bits, "
-                        f"so malloc gets {wrapped} bytes while {true_size} are needed")
-            if kind == "signed" and wrapped < 0:
-                return (f"a={a}, b={b}: signed overflow makes the size negative "
-                        f"({wrapped}), which becomes a huge size_t")
-    return ""
+def _alloc_witness(kind: str, k: int = 1, n_tainted: int = 2, cap=None) -> str:
+    """Делегирует в изолированный модуль `_witness` (проверен своим автотестом)."""
+    import sys as _sys
+    tools_dir = str(Path(__file__).resolve().parent)
+    if tools_dir not in _sys.path:
+        _sys.path.insert(0, tools_dir)
+    from _witness import witness
+    return witness(kind, k=k, n_tainted=n_tainted, cap=cap)
 
 
 def analyse_z3_alloc(src: str, path: str) -> list:
@@ -638,7 +611,12 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             if upper_ok and (lower_ok or not signed):
                 continue                       # защита полная
             kind = "signed" if signed else kind
-            witness = _alloc_witness(kind)
+            k_lit = 1
+            for lit in re.findall(r"[\*\s]+(\d+)(?:\s*[\*\)])", m.group(0)):
+                k_lit *= int(lit)
+            cap = 65535 if any("u16" in mk for mk in marks) else None
+            witness = _alloc_witness(kind, k=k_lit,
+                                     n_tainted=sum(1 for mk in marks if mk), cap=cap)
             if not witness:
                 continue
             out.append({
