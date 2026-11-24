@@ -15,16 +15,21 @@ mkdir -p ~/kern-t7 && cd ~/kern-t7
 base=https://github.com/newmathphys/kern/releases/download/v2.8.26
 curl -fSLO "$base/kerna-dist-v2.8.26.tar.gz"
 curl -fSLO "$base/SHA256SUMS"
-curl -fSLO "$base/kern-owner.pub"
-curl -fSLO https://raw.githubusercontent.com/newmathphys/kern/v2.8.26/tools/pilot_receipt.sh
+# скрипт берём из ветки main, а НЕ из тега: в теге v2.8.26 лежит его прежняя
+# версия, которая искала ключ под другим именем и не проверяла подпись.
+curl -fSLO https://raw.githubusercontent.com/newmathphys/kern/main/tools/pilot_receipt.sh
 ```
 
 ## Шаг 2. Запустить квитанцию
 
 ```bash
-chmod +x pilot_receipt.sh
-KERN_VER=v2.8.26 ./pilot_receipt.sh 2>&1 | tee receipt.log
+KERN_VER=v2.8.26 bash pilot_receipt.sh kerna-dist-v2.8.26.tar.gz 2>&1 | tee receipt.log
 ```
+
+Запуск через `bash` — намеренно: скачанный файл не имеет бита исполнения, а
+`./pilot_receipt.sh` дал бы `Permission denied`. Архив передаётся аргументом,
+поэтому 27 МБ повторно не скачиваются; ключ `kern-owner.pub` скрипт возьмёт из
+релиза сам.
 
 Скрипт сам: сверит SHA-256 архива с опубликованным, проверит Ed25519-подпись
 аттестата, распакует архив, запустит `kerna --doctor`, проверит отсутствие
@@ -79,3 +84,26 @@ python3 / tar / openssl / xxd:   (версии)
 
 Присылать: `receipt.log` + этот шаблон. Этого достаточно, чтобы T7 считался
 закрытым, а расхождение — заведённым дефектом.
+
+## Проверено на этой самой инструкции (2026-11-24)
+
+Команды выше прогнаны буквально, в пустом каталоге, без репозитория:
+
+```
+-rw-r--r-- 25502314  kerna-dist-v2.8.26.tar.gz
+-rw-r--r--      182  SHA256SUMS
+-rw-r--r--     8048  pilot_receipt.sh          ← из main, не из тега
+
+── 1b. Подпись аттестата (Ed25519) ──
+  [OK]   подпись аттестата (Ed25519) 0
+PILOT RECEIPT: PASS (9/9)
+```
+
+Две нестыковки, найденные при этой проверке и уже исправленные в инструкции:
+
+- **скрипт в теге `v2.8.26` — прежней версии.** Он искал ключ под именем
+  `kern_owner_public.pem`, а в релизе лежит `kern-owner.pub`, и подпись честно
+  помечалась пропуском (`PASS 8/8`). Поэтому скрипт берётся из `main`;
+- **скачанный файл без бита исполнения** → `./pilot_receipt.sh` даёт
+  `Permission denied`. Поэтому запуск через `bash`, а архив передаётся
+  аргументом (иначе скрипт качает те же 27 МБ во временный каталог).
