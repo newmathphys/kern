@@ -463,9 +463,27 @@ named THREE rules that held the residue on the non-bitvector tasks:
 |:--|:--|:--|
 | `2PhLockVParam_RC-07` | `rewrite` — absorption `and(false, X) = false` | ✅ FIXED (TRUSTED 1 → 0) |
 | `storeinv…00002_001.cvc` | `commutativity` — equality symmetry | ✅ FIXED (5 → 4) |
-| same | `lemma` x2, `monotonicity` x2 | ⏳ LEFT: `(lemma (unit-resolution @x184 @x104 false) $x162)`, `(monotonicity @x101 (= (select ?x29 i1) ?x108))` |
+| same | `lemma` x2, `monotonicity` x2 | ✅ **FIXED (4 -> 0)** — MEASURED 2026-11-24, see below |
 
 **The number of tasks with `trusted == 0` became 4 of 7.**
+
+**MEASURED (2026-11-24): the table above was STALE.** Both valid `QF_AX` tasks already
+report `trusted: 0`, so this debt needs no work — the `#431` fixes plus the McCarthy axiom
+checks closed it:
+
+```bash
+KERN_DEBUG_TRUSTED=1 PATH="$PWD/.venv/bin:$PATH" \
+  ./zig-out/bin/kernc prove ~/.cache/kern/smtlib4/QF_AX/storeinv_t1_np_nf_ai_00002_001.cvc.smt2
+# [PROOF VERIFIED] steps: 78  | premises bound: 2/8  | trusted: 0 | holes: 0
+
+KERN_DEBUG_TRUSTED=1 PATH="$PWD/.venv/bin:$PATH" \
+  ./zig-out/bin/kernc prove ~/.cache/kern/smtlib4/QF_AX/storeinv_t1_np_sf_ai_00002_001.cvc.smt2
+# [PROOF VERIFIED] steps: 125 | premises bound: 10/20 | trusted: 0 | holes: 0
+```
+
+The two `storeinv_invalid_*` files print no proof line: they are invalid instances, and that
+is the correct outcome, not a skip. The only `trusted > 0` left is `QF_BV/add_three.4_bit`
+(2970) — research work, and flattening it was MEASURED WORSE, so it must not be attempted.
 
 ### For `QF_BV/add_three.4_bit` (2970 trusted) — fix the BRANCH LOGIC, not flattening
 
