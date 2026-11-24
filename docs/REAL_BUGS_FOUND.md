@@ -574,6 +574,7 @@ Latest verified state of the reports above:
 
 | Outcome | Report | Detail |
 |---|---|---|
+| **Pull request open** | `iio` | 12 allocation sites in 11 decoders plus the ASC/PNM writer take `w * h * ...` in 32-bit `int`; the maintainer replied that he will merge a clear patch, and [#24](https://github.com/mnhrdt/iio/pull/24) is that patch, one helper and 13 call sites |
 | **Fixed** | `zed` | a maintainer-merged pull request implements the signed-zero canonicalisation for the three types named in the report |
 | In review | `dagster` | a contributor's pull request replaces the wall-clock probe with fixed winter and summer dates, as proposed |
 | Open PR | `boltons` | an independent contributor's pull request raises `KeyError` from `IndexedSet.pop()` |

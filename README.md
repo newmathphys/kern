@@ -121,6 +121,7 @@ KERN заблокировал 5/5
 > | `typst/typst` | [#9103](https://github.com/typst/typst/issues/9103) | Closed - by design |
 > | `zed-industries/zed` | [#67334](https://github.com/zed-industries/zed/issues/67334) | Fixed - PR merged |
 > | `gluesql/gluesql` | [#2096](https://github.com/gluesql/gluesql/issues/2096) | Open |
+> | `mnhrdt/iio` | [#24](https://github.com/mnhrdt/iio/pull/24) | PR open - author agreed to merge |
 
 >
 > **Every capability, its one command, its external oracle and its honest boundary:** [docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md) · [RU](docs/CAPABILITY_MATRIX.ru.md)
