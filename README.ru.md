@@ -67,7 +67,7 @@ KERN заблокировал 5/5
 [OK] 5/5: награда не куплена — каждый чит назван и заблокирован
 ```
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->220 · cases <!-- fact:canfail_cases -->267 · anchors <!-- fact:anchors -->225 · registry <!-- fact:registry_targets -->301 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->221 · cases <!-- fact:canfail_cases -->268 · anchors <!-- fact:anchors -->226 · registry <!-- fact:registry_targets -->302 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 > **Живой путеводитель по всем 10 возможностям — RU / EN (генерируется `make demo-all`):** [docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.ru.md) · [docs/ALL_CAPABILITIES_LIVE_GUIDE.md](docs/ALL_CAPABILITIES_LIVE_GUIDE.md)
 >
 > **Снимок текущего состояния (генерируется, гейт `make status-check`):** [docs/STATUS.ru.md](docs/STATUS.ru.md) · [docs/STATUS.md](docs/STATUS.md)
@@ -136,7 +136,7 @@ Z3 (SMT) · SQLite (каталог KERN-Next) · C-ABI (`libkern.so`).
 | 8-поточный стресс `libkern.so` (`pthread`) | **0 гонок** (8x500 хэшей, 8x20 вызовов Z3) |
 | Инъекция OOM (`checkAllAllocationFailures`) | **0 байт утечек** на всех путях отказа |
 | Защита парсера от вложенности | **`MAX_SEXP_DEPTH = 4096`** — 2 000 000 скобок дают ошибку, не крах |
-| Can-fail харнесс | **<!-- fact:check_targets -->220 / <!-- fact:check_targets -->220 CHECK-целей** покрыты (<!-- fact:canfail_cases -->267 не-вакуумных кейсов, 0 вакуумных) |
+| Can-fail харнесс | **<!-- fact:check_targets -->221 / <!-- fact:check_targets -->221 CHECK-целей** покрыты (<!-- fact:canfail_cases -->268 не-вакуумных кейсов, 0 вакуумных) |
 | SWE-bench Lite (Docker) | **3/3 resolved**, 0 infra-failures |
 | QuixBugs (40 задач, две ступени) | **6/40** формальный SMT (Ступень 1, `trusted: 0`) · **40/40** живой дифференциальный детектор (29 расхождений значения + 10 падений + 1 незавершение; 11 не требуют эталона, 29 сверяются с эталоном датасета) · **0** EXPLORED |
 | Фаззинг | **1 000 000** мутаций, 0 паник |
@@ -801,19 +801,19 @@ dist/kerna --doctor                              # должно быть: зав
 **обязана** покраснеть. Зелёная цель при сломанном инварианте = ВАКУУМНАЯ.
 
 ```bash
-make canfail          # 267 кейс: ломаем инвариант -> цель обязана упасть
-make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->225 якорей применимы (за ~1 с)
+make canfail          # 268 кейс: ломаем инвариант -> цель обязана упасть
+make canfail-anchors  # пре-флайт: все <!-- fact:anchors -->226 якорей применимы (за ~1 с)
 make canfail-selftest # кто проверит проверяющего: мета-проверка харнесса
-make registry         # реестр <!-- fact:registry_targets -->301 цели + предохранитель от «молчаливых» новых
+make registry         # реестр <!-- fact:registry_targets -->302 цели + предохранитель от «молчаливых» новых
 make ci               # единый контур (12 стадий)
 ```
 
 | Метрика | Значение |
 |:--|:--|
-| Целей всего | <!-- fact:registry_targets -->301 (CHECK <!-- fact:check_targets -->220 · MEASURE 1 · BUILD <!-- fact:build_targets -->14 · EXTERNAL 3 · META <!-- fact:meta_targets -->58) |
-| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->220/<!-- fact:check_targets -->220 (100 %)** |
+| Целей всего | <!-- fact:registry_targets -->302 (CHECK <!-- fact:check_targets -->221 · MEASURE 1 · BUILD <!-- fact:build_targets -->14 · EXTERNAL 3 · META <!-- fact:meta_targets -->58) |
+| **CHECK с доказательством «может упасть»** | **<!-- fact:check_targets -->221/<!-- fact:check_targets -->221 (100 %)** |
 | **Целей-«декораций» (MEASURE)** | **0** |
-| can-fail кейсов | <!-- fact:canfail_cases -->267 (не-вакуумных <!-- fact:canfail_cases -->267 · вакуумных 0 · ошибок кейсов 0) |
+| can-fail кейсов | <!-- fact:canfail_cases -->268 (не-вакуумных <!-- fact:canfail_cases -->268 · вакуумных 0 · ошибок кейсов 0) |
 | Реестр найденных дефектов | **#1–#<!-- fact:max_defect -->617** |
 
 ### Найденные этим методом «молчаливо сломанные» проверки (16)
@@ -946,7 +946,7 @@ security-фиксах `cmark-gfm`: **пойман 1 из 4** (OOB read в `valid
 | 14 | там же, `low + (high-low)/2` | — | **ДОКАЗАНО** (теория Int) | — |
 | 15 | **Rust** `core::num` — `midpoint` | bit-blasted доказательство | **SKIP — честно** | чекер не покрывает `bitBlast` |
 | 16 | **Rust** `saturating_add` | кламп в границы `i32` | **ДОКАЗАНО** / мутация **ОПРОВЕРГНУТА** (`2147483647 + 1`) | — |
-| 17 | **ziglang/zig** `lib/std/math/` (64 файла) | полевой скан `--xray` без аннотаций (C-like путь) | **checked 80 / 220** (было 0) | 0 находок после фиксов #159/#160 |
+| 17 | **ziglang/zig** `lib/std/math/` (64 файла) | полевой скан `--xray` без аннотаций (C-like путь) | **checked 80 / 221** (было 0) | 0 находок после фиксов #159/#160 |
 | 18 | **Python 3.12 stdlib** (`urllib`, `http`, `email`, `datetime`, `ipaddress`, `decimal`, `fractions`, `statistics`) | полевой скан `--xray` | **checked 211 / 413**, **0 ложных срабатываний** | 0 находок на боевом коде после фиксов #134/#158 |
 
 **Честные границы этой таблицы.** (а) SMT-модель — **наша**: контрпример надо ещё

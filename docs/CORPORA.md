@@ -1,6 +1,6 @@
 # КОРПУСА KERN: инвентарь реальных задач, оракулов и границ
 
-> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->220 · cases <!-- fact:canfail_cases -->267 · anchors <!-- fact:anchors -->225 · registry <!-- fact:registry_targets -->301 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
+> **Факты (EN/RU, синхронизируются `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->221 · cases <!-- fact:canfail_cases -->268 · anchors <!-- fact:anchors -->226 · registry <!-- fact:registry_targets -->302 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff · QEMU <!-- fact:cross_arch_passed -->443+<!-- fact:cross_arch_skipped -->8
 
 **ЗАЧЕМ ЭТОТ ФАЙЛ.** «Десятки примеров на каждую возможность» — не выдумка: они
 **уже лежат в репозитории**. Здесь — ЧТО есть, СКОЛЬКО задач, **ЧЕМ подтверждается**

@@ -229,7 +229,7 @@ $ kernc prove /tmp/kern-megatest/clamp_diff.smt2      # the diff-equiv query
 
 Facts, not guesses:
 
-* the derivation is otherwise **fully checked**: 220 steps, `holes 0`,
+* the derivation is otherwise **fully checked**: 221 steps, `holes 0`,
   `concl_false = true`, 13 trusted lemmas (all arithmetic);
 * the checker sees **19 premises** and binds only 2, with **1 unbound** - and a
   single unbound premise is enough to reject;
