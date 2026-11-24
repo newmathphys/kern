@@ -283,6 +283,31 @@ def _check_histogram_tail() -> tuple[bool, str]:
                   f"Σ == skipped {total}")
 
 
+def _check_attribution() -> tuple[bool, str]:
+    """ДЕФЕКТ #661: причина обязана называть ФАКТ, а не удобную догадку.
+
+    Ветка с `_SMT_CALLS == 0` означала три разных состояния. Проверяем выбор
+    причины напрямую (без сборки фикстуры, попадающей ровно в эту ветку):
+    ложная формулировка «не зарегистрировано как путь» допустима ТОЛЬКО когда
+    путей действительно нет.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import kern_contracts as KC
+
+    empty = KC._skip_attribution([], [], "x > 0")
+    if "не зарегистрировано как путь" not in empty:
+        return False, f"при пустых if_blocks причина не назвала регистрацию: {empty[:60]}"
+    no_int = KC._skip_attribution([1, 2], [], "x > 0")
+    if "не зарегистрировано как путь" in no_int:
+        return False, "#661 вернулся: при непустых if_blocks причина врёт про регистрацию"
+    if "нет ЦЕЛОЧИСЛЕННЫХ параметров" not in no_int:
+        return False, f"нет Int-параметров не названо: {no_int[:60]}"
+    noninf = KC._skip_attribution([1], ["x"], "x > 0")
+    if "НЕВЫВОДИМЫЕ" not in noninf:
+        return False, f"невыводимость не названа: {noninf[:60]}"
+    return True, "три состояния названы по факту, ложной причины про регистрацию нет"
+
+
 def main() -> int:
     if "--selftest" in sys.argv:
         return selftest()
@@ -317,6 +342,11 @@ def main() -> int:
             print(f"[FAIL #657] {why3}")
             return 1
         print(f"[PASS #657] {why3}")
+        ok4, why4 = _check_attribution()
+        if not ok4:
+            print(f"[FAIL #661] {why4}")
+            return 1
+        print(f"[PASS #661] {why4}")
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
