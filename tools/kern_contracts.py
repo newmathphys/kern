@@ -33,6 +33,7 @@
 from __future__ import annotations
 
 import argparse
+import collections as _collections
 import contextlib
 import copy
 import ast
@@ -7861,6 +7862,44 @@ def _skip_key(exc: object) -> str:
     return txt[:60] or "без описания"
 
 
+_XRAY_DEBUG_SKIP = os.environ.get("KERN_DEBUG_XRAY_SKIP") == "1"
+# Диагностика #658: только под env — дефолтный вывод и ABI --xray-json не меняются.
+_drop_details: dict[str, int] = _collections.Counter()
+
+
+def _classify_cond(cond: str) -> tuple[str, str]:
+    """Метка отказа по ТЕКСТУ условия: (tag, подвыражение).
+
+    Порядок проверок = порядок, в котором парсер C-условий упирается в
+    неподдержанное подвыражение слева направо. Это КЛАССИФИКАЦИЯ ТЕКСТА:
+    она называет, НА ЧЁМ отказ случился бы, а не где именно сработал
+    `return` внутри парсера — для последнего нужна трассировка, и её нет.
+    """
+    c = (cond or "").strip()
+    if not c:
+        return ("empty", "")
+    # указательные сравнения/null: первое, что отсекается в Int-модели
+    m = re.search(r"[!]?\s*\b([A-Za-z_][\w.\->]*)\s*(?:==|!=)\s*(?:NULL|nullptr|0)\b", c)
+    if m:
+        return ("pointer_null_cmp", m.group(0)[:40])
+    if re.match(r"^!\s*[A-Za-z_]", c) and "(" not in c:
+        return ("negated_var", c[:40])
+    if "&&" in c or "||" in c:
+        part = re.split(r"&&|\|\|", c)[0].strip()
+        return ("logical_op", part[:40])
+    if re.search(r"(?:<<|>>|\^|(?<![&])&(?![&])|(?<![|])\|(?![|]))", c):
+        return ("bitwise_op", c[:40])
+    if "->" in c or "." in c:
+        m = re.search(r"[A-Za-z_][\w]*\s*(?:->|\.)\s*[A-Za-z_][\w]*", c)
+        return ("struct_field_access", (m.group(0) if m else c)[:40])
+    if re.search(r"[A-Za-z_]\w*\s*\(", c):
+        m = re.search(r"([A-Za-z_]\w*\s*\([^)]*\))", c)
+        return ("call_in_cond", (m.group(1) if m else c)[:40])
+    if '"' in c or "'" in c:
+        return ("string_literal_cmp", c[:40])
+    return ("other", c[:40])
+
+
 def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int,
                               trivial: int = 0, checked: int = 0,
                               total: int = 0, notes: dict | None = None) -> None:
@@ -10735,6 +10774,15 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             _first_cond = ""
             if _ifs:
                 _first_cond = body[_ifs[0].start(1):_ifs[0].end(1)].strip()[:60]
+            if _XRAY_DEBUG_SKIP and _first_cond:
+                # ДИАГНОСТИКА (#658): под KERN_DEBUG_XRAY_SKIP=1 называем НЕ
+                # только текст условия, но и структурную метку, по которой
+                # отказ случился. ЧЕСТНАЯ ОГОВОРКА: метка выводится из ТЕКСТА
+                # условия (первое неподдержанное подвыражение слева направо),
+                # а не из точки возврата парсера — поэтому поле называется
+                # `tag_from_text`, и его нельзя выдавать за трассировку.
+                _tag, _sub = _classify_cond(_first_cond)
+                _drop_details[f"{_tag} | {_sub[:40]}"] += 1
             _bump(
                 "условие не зарегистрировано как путь "
                 f"(первое: `{_first_cond}`) — причина в ветвях регистрации не названа"
@@ -11727,6 +11775,12 @@ def _xray_json_doc(target: str, files: int, total: int, checked: int, trivial: i
                     sorted(reasons.items(), key=lambda kv: -kv[1])],
         "notes": [{"note": k, "count": v} for k, v in
                   sorted(notes.items(), key=lambda kv: -kv[1])],
+        **({"drop_details": [{"tag_from_text": k.split(" | ")[0],
+                              "subexpr": k.split(" | ", 1)[1] if " | " in k else "",
+                              "count": v}
+                             for k, v in sorted(_drop_details.items(),
+                                                key=lambda kv: -kv[1])]}
+           if _XRAY_DEBUG_SKIP else {}),
     }
 
 
