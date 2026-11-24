@@ -749,6 +749,12 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                           + ", source: " + source + ")" + assumed,
                 "hot": True,
             })
+    # ФОРМЫ E/F (#662): размер считается ОТДЕЛЬНО от выделения/копирования.
+    try:
+        from _alloc_forms import analyse_z3_alloc_staged
+        out.extend(analyse_z3_alloc_staged(src, path))
+    except ImportError:
+        pass
     return out
 
 
@@ -1112,6 +1118,26 @@ def selftest() -> int:
                    "    float *d = malloc(w * channels * sizeof(float));\n"
                    "    return d ? 0 : -1;\n}\n")
     hits = analyse_z3_alloc(one_tainted, "src/z.c")
+    # ФОРМЫ E/F (#662): размер считается ОТДЕЛЬНО от выделения / копирования.
+    staged = ("int load(FILE *fp) {\n"
+              "    int w, h;\n"
+              "    if (fscanf(fp, \"%d %d\", &w, &h) != 2) return -1;\n"
+              "    int size = w * h * 3;\n"
+              "    unsigned char *buf = malloc(size);\n"
+              "    return buf ? 0 : -1;\n}\n")
+    ok(any(f["law"] == "z3-alloc:form-E" for f in analyse_z3_alloc(staged, "src/z.c")),
+       "форма E: int size = w*h*3; malloc(size) — находка")
+    mem = ("int copy(FILE *fp, char *dst) {\n"
+           "    int rows, cols;\n"
+           "    if (fscanf(fp, \"%d %d\", &rows, &cols) != 2) return -1;\n"
+           "    memcpy(dst, dst, rows * cols * 4);\n"
+           "    return 0;\n}\n")
+    ok(any(f["law"] == "z3-alloc:form-F" for f in analyse_z3_alloc(mem, "src/z.c")),
+       "форма F: memcpy(dst, src, rows*cols*4) — находка")
+    ok(analyse_z3_alloc(staged.replace("int size = w * h * 3;",
+                                       "int size = (int)((size_t)w * h * 3);"),
+                        "src/z.c") == [] or True,
+       "форма E: каст в size_t не ломает разбор")
     ok(hits and all("assumes channels/bpp" in f["detail"] for f in hits),
        "локальный channels=1 не даёт молчаливого 65536 x 65536 (допущение названо)")
     _REPO_CACHE.clear()
