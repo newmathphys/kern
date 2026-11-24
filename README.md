@@ -202,7 +202,7 @@ KERN attacks the gap from two sides:
 1. **Can-fail discipline** — every check in KERN's own suite must be *proven
    capable of failing*. A harness (`tools/canfail.py`) deliberately injects a
    fault and requires the check to go red. 221 CHECK targets; 221 proven non-vacuous
-   (267 fault-injection cases).
+   (268 fault-injection cases).
 2. **Machine contracts** — a claim becomes `e = 1` only if an external trusted
    checker (Z3) proves it, or if a reproducible execution record backs it.
    Text is not evidence.
