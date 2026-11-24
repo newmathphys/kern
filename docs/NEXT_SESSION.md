@@ -183,7 +183,28 @@ was corrected wherever it disagreed with the code:
    (measured on both sides: pre-fix commit `20adf31` gives `Σ 3 == total 3`, after — `Σ 1`).
    **Open work:** memoisation of the verdict (`_SMT_VERDICT_CACHE`, `_SMT_CALLS` incremented ON A
    HIT so `checked` depends on LOGICAL queries) — acceptance is BIT-IDENTICAL buckets with and
-   without the cache; and the remaining `syntax` bucket, whose real cause is still to be dumped.
+   without the cache. ✅ **DONE (`#411`) — that debt is closed.**
+
+16b. **THE `syntax` BUCKET IS DUMPED AND NAMED — IT WAS NOT A SYNTAX BUCKET (2026-11-24).**
+   Measured on `github/cmark-gfm` `7fe8904` (`src/`, 28 `.c`): `checked 79 | trivial 126 |
+   skipped 103 | Σ 308`, findings 0. The 103 skips are grouped by their own printed reason:
+
+   | N | Reason | Cost |
+   |--:|:--|:--|
+   | 54 | "condition not registered as a path — the reason is not named in the registering branches" | expensive: missing branch tracing, not syntax |
+   | 22 | "binary operator (only `+ - * / // %`)" | cheap: map `&& \|\| & \| ^ << >>` into BV |
+   | 9 | "logical negation `!` in a form we do not translate" | cheap: `!p` already becomes `p == 0` (#409) |
+   | 8 | "array index is not a literal window — guard not translatable (#570)" | medium |
+   | 8 | "Python syntax after the C-like translation" | medium: dump the broken line |
+   | 2 | no integer parameters / nil comparison | honest boundary |
+
+   **31 of 103 (30 %) are cheap**, **54 of 103 (52 %) are our own tracing hole**. Full table,
+   examples and the "what is NOT claimed" paragraph: `formal/certification/KNOWN_LIMITATIONS.md` §8.
+   **Defect found while dumping:** the printed histogram is cut at ten reasons
+   (`[:10]` in `kern_contracts.py`), so 64 of 103 skips were named and **39 were dropped with no
+   "… ещё N" line** — the same class as `#400`/`#401`. The complete list exists only in
+   `--xray-json` (`skipped[].reason/count`, 49 entries, Σ = 103). Fix: print the tail, or make the
+   JSON the only source for any claim about reasons.
 
 
 

@@ -535,7 +535,13 @@ READER_CALL = (r"fscanf|scanf|sscanf|fread|fgets|getc|recv|read\s*\(|atoi|strtol
 READS_FROM_STREAM = (
     r"fread|fscanf|fgets|fgetc|getline|read|pread|recv|recvfrom|"
     r"iio_read\w*|stbi_\w*|TIFF\w+|lodepng_\w+|png_\w+|av_read\w*|"
-    r"nifti_\w+|bz2_\w+|gzread|ZSTD_\w+|LZ4_\w+"
+    r"nifti_\w+|bz2_\w+|gzread|ZSTD_\w+|LZ4_\w+|"
+    # API-чтения декодеров: размер приходит ПО УКАЗАТЕЛЮ, как у fscanf.
+    # `png_get_IHDR(png, info, &w, &h, …)`, `TIFFGetField(tif, TAG, &w)`,
+    # `spng_get_ihdr(ctx, &ihdr)`, `gzgets`. Без них гейт пропустил бы
+    # ровно те библиотеки, ради которых он и нужен.
+    r"png_get_\w+|spng_get_\w+|cgltf_\w+|rply_\w+|ufbx_\w+|fits_\w+|"
+    r"jpeg_read_header|las_\w+|sqlite3_\w+"
 )
 
 
