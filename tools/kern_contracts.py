@@ -7881,8 +7881,17 @@ def _xray_report_skip_reasons(reasons: dict[str, int], skipped: int,
     называется числом, а не замалчивается.
     """
     named = sum(reasons.values())
-    for key, cnt in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
+    ranked = sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))
+    for key, cnt in ranked[:10]:
         print(f"    skip: {key} × {cnt}")
+    if len(ranked) > 10:
+        # ДЕФЕКТ #657 (найден сверкой суммы с `skipped`=103 на cmark-gfm/src):
+        # печать молча обрывалась на десяти причинах — 64 названы, 39
+        # отброшены БЕЗ строки о том, что что-то осталось. Хвост обязан быть
+        # назван числом: «сколько причин и сколько пропусков он закрывает».
+        tail_n = sum(cnt for _k, cnt in ranked[10:])
+        print(f"    skip: … и ещё {len(ranked) - 10} причин ({tail_n} пропусков) — "
+              f"полный список: --xray-json")
     if named != skipped:
         # ДЕФЕКТ #407.2: считаем РАЗНОСТЬ ОДНОЙ РАЗМЕРНОСТИ. Если причины уровня
         # ВЕТКИ попали в счёт уровня ФУНКЦИИ, `named` БОЛЬШЕ `skipped`, и старая
@@ -7926,8 +7935,14 @@ def _xray_report_branch_notes(notes: dict[str, int]) -> None:
         return
     print(f"    note: уровень ВЕТКИ (в счётчик `skipped` НЕ входит) × "
           f"{sum(notes.values())}")
-    for key, cnt in sorted(notes.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
+    ranked_notes = sorted(notes.items(), key=lambda kv: (-kv[1], kv[0]))
+    for key, cnt in ranked_notes[:10]:
         print(f"    note: {key} × {cnt}")
+    if len(ranked_notes) > 10:
+        # тот же дефект #657 на уровне ВЕТВИ: хвост называется числом
+        tail = sum(cnt for _k, cnt in ranked_notes[10:])
+        print(f"    note: … и ещё {len(ranked_notes) - 10} причин ({tail} заметок) — "
+              f"полный список: --xray-json")
 
 
 def _xray_report_skipped(skipped: dict[str, int]) -> None:

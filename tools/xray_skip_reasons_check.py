@@ -250,6 +250,39 @@ def selftest() -> int:
     return 0
 
 
+def _check_histogram_tail() -> tuple[bool, str]:
+    """ДЕФЕКТ #657: гистограмма не имеет права молча обрываться на [:10].
+
+    Подаём ДВЕНАДЦАТЬ разных причин и требуем два свойства печати:
+      1. строка «… и ещё 2 причин (N пропусков)» существует, т.е. хвост назван;
+      2. сумма ВСЕХ напечатанных чисел равна `skipped` — ни один пропуск не
+         растворился в умолчании.
+    """
+    import contextlib
+    import io
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import kern_contracts as KC
+
+    reasons = {f"причина-{i:02d}": i + 1 for i in range(12)}   # 1..12 → сумма 78
+    total = sum(reasons.values())
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        KC._xray_report_skip_reasons(reasons, total, "fixture.c")
+    out = buf.getvalue()
+    nums = [int(m) for m in re.findall(r"× (\d+)", out)]
+    tail = re.search(r"… и ещё (\d+) причин \((\d+) пропусков?\)", out)
+    if not tail:
+        return False, "хвост гистограммы НЕ назван (дефект #657 вернулся)"
+    if tail.group(1) != "2":
+        return False, f"хвост назвал {tail.group(1)} причин вместо 2"
+    named = sum(nums[:10])
+    if named + int(tail.group(2)) != total:
+        return False, (f"сумма названного {named} + хвост {tail.group(2)} "
+                       f"!= skipped {total}")
+    return True, (f"12 причин: названо 10, хвост 2 ({tail.group(2)} пропусков), "
+                  f"Σ == skipped {total}")
+
+
 def main() -> int:
     if "--selftest" in sys.argv:
         return selftest()
@@ -279,6 +312,11 @@ def main() -> int:
             print(out[-1200:])
             return 1
         print(f"[PASS #407.2] {why2}")
+        ok3, why3 = _check_histogram_tail()
+        if not ok3:
+            print(f"[FAIL #657] {why3}")
+            return 1
+        print(f"[PASS #657] {why3}")
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
