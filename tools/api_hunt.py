@@ -532,6 +532,45 @@ READER_CALL = (r"fscanf|scanf|sscanf|fread|fgets|getc|recv|read\s*\(|atoi|strtol
                r"|strtoul|ntohl|ntohs|get_u\d*|get_bits")
 
 
+READS_FROM_STREAM = (
+    r"fread|fscanf|fgets|fgetc|getline|read|pread|recv|recvfrom|"
+    r"iio_read\w*|stbi_\w*|TIFF\w+|lodepng_\w+|png_\w+|av_read\w*|"
+    r"nifti_\w+|bz2_\w+|gzread|ZSTD_\w+|LZ4_\w+"
+)
+
+
+def _intra_read(src: str, fn_start: int, pos: int, name: str) -> bool:
+    """Присвоен ли `name` из ЧТЕНИЯ ПОТОКА выше `pos` в ЭТОЙ ЖЕ функции.
+
+    Отличие от «в файле есть чтение»: файл `tigr.c` вызывает `read()` где-то
+    ещё, но его `w * h * 4` приходит аргументом. Гейт на уровне функции
+    убирает такие находки, не трогая настоящие декодеры.
+
+    Три признака, по одному на идиому:
+      1. адрес передан в чтение:      `fscanf(fp, "%d", &w)`, `fread(&hdr, …)`;
+      2. присвоен результат чтения:   `w = ntohl(hdr.width)`, `w = getc(fp)`;
+      3. поле/элемент структуры:      `h = hdr.height` после `fread(&hdr, …)`.
+    """
+    if not name or not name.replace(".", "").replace("->", "").isidentifier() \
+            and not re.fullmatch(r"[\w.>\-]+", name):
+        return False
+    body = src[fn_start:pos] if fn_start else src[:pos]
+    base = re.split(r"\.|->", name)[0]
+    if re.search(r"&\s*" + re.escape(base) + r"\b", body):
+        return True
+    if re.search(r"\b" + re.escape(base) + r"\s*=\s*(?:" + READS_FROM_STREAM + r")\s*\(",
+                 body):
+        return True
+    if re.search(r"\b" + re.escape(base) + r"\s*=\s*[^;\n]{0,80}?"
+                 r"(?:" + READS_FROM_STREAM + r")\s*\(", body):
+        return True
+    # поле структуры, прочитанной в этой функции
+    if re.search(r"(?:" + READS_FROM_STREAM + r")\s*\(\s*&?\s*" + re.escape(base) + r"\b",
+                 body):
+        return True
+    return False
+
+
 def _intra_tainted(src: str, fn_start: int, pos: int, var: str) -> bool:
     """Заполняется ли `var` из внешнего потока выше `pos` внутри функции.
 
@@ -672,18 +711,17 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             # (`channels = 1`), и печатал 65536 x 65536 на коде, который
             # переполниться не может. Считаем только marks.
             n_tainted = sum(1 for mk in marks if mk)
-            # ГЕЙТ ДЕКОДЕРА: настоящий класс — размеры, пришедшие ИЗ ФАЙЛА.
-            # Второй залп показал цену его отсутствия: формы вида
-            # `num_vertices * 3` и `samples * channels` массово совпадают с
-            # АПИ-выделениями, где размер задаёт вызывающий (кадр 400x240,
-            # число вершин из аргумента). Такие находки не репорт: вливать
-            # нечего. Источник печатается, чтобы читатель видел, чей это класс.
-            reads = re.search(r"\b(fread|fscanf|fgets|getc|getline|read|"
-                              r"iio_read\w*|png_\w+|TIFF\w+|stbi_\w+|av_read\w*|"
-                              r"nifti_\w+|lodepng_\w+)\s*\(", src)
-            source = "file" if reads else "caller"
-            if not reads and all(mk in ("caller", "") for mk in marks):
-                continue                   # размер задаёт вызывающий, не файл
+            # ГЕЙТ ДЕКОДЕРА — НА УРОВНЕ ФУНКЦИИ, а не файла. Первая версия
+            # спрашивала «есть ли в ФАЙЛЕ вызов чтения», и этого хватало любому
+            # файлу с POSIX `read()`: из 8 находок третьего залпа 5 оказались
+            # АПИ-выделениями (`tigr.c` 32768x32768, кадр VGA). Правильный
+            # вопрос: присвоен ли ЭТОТ множитель из чтения ВЫШЕ по этой же
+            # функции. Иначе размер задаёт вызывающий — вливать нечего.
+            from_read = [f for f, mk in zip(factors, marks)
+                         if mk and _intra_read(src, fn_start, m.start(), f.strip())]
+            source = "file" if from_read else "caller"
+            if not from_read:
+                continue
             assumed = ""
             if n_tainted == 1:
                 # Один внешний множитель: переполнение возможно только через
@@ -1050,6 +1088,16 @@ def selftest() -> int:
                    "    return fb ? 0 : -1;\n}\n")
     ok(analyse_z3_alloc(caller_dims, "src/fb.c") == [],
        "размеры от вызывающего без чтения из файла — НЕ находка (гейт декодера)")
+    # УТЕЧКА, найденная третьим залпом: файл вызывает `read()` для ДРУГИХ
+    # данных, а размеры приходят аргументами. Файловый гейт такое пропускал
+    # (`tigr.c` дал 32768 x 32768 на API). Функциональный — обязан молчать.
+    leak = ("void draw(int w, int h, int fd) {\n"
+            "    char buf[8];\n"
+            "    if (read(fd, buf, 8) != 8) return;\n"
+            "    unsigned char *fb = malloc(w * h * 4);\n"
+            "    (void)fb;\n}\n")
+    ok(analyse_z3_alloc(leak, "src/tigr.c") == [],
+       "чтение ЧУЖИХ данных не делает размеры файловыми (утечка read())")
     # Локальная константа каналов при наличии чтения: свидетель ОБЯЗАН
     # нести допущение, а не печатать молча 65536 x 65536.
     one_tainted = ("int decode(FILE *fp) {\n"
