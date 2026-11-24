@@ -583,6 +583,7 @@ Latest verified state of the reports above:
 | Confirmed (duplicate) | `abacus` | closed by the maintainer as a duplicate of their own tracking issue |
 | Closed (policy) | `swc` | static-analysis findings are routed to a separate repository by their `AGENTS.md` |
 | Closed (no path) | `gleam` | the report showed a trait-level mismatch without an end-to-end user-visible path; that gap is now a rule for new reports |
+| Closed (by design) | `typst` | the maintainer replied that the behaviour is intentional; the live `cargo test` reproduced the trait-level split, but intentional semantics are not a defect |
 
 ## Summary
 

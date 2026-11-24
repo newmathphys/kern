@@ -118,7 +118,7 @@ KERN заблокировал 5/5
 > | `bevyengine/bevy` | [#26635](https://github.com/bevyengine/bevy/issues/26635) | Open |
 > | `dimforge/kiss3d` | [#419](https://github.com/dimforge/kiss3d/issues/419) | Open |
 > | `dagster-io/dagster` | [#34468](https://github.com/dagster-io/dagster/issues/34468) | In review - PR open |
-> | `typst/typst` | [#9103](https://github.com/typst/typst/issues/9103) | Open |
+> | `typst/typst` | [#9103](https://github.com/typst/typst/issues/9103) | Closed - by design |
 > | `zed-industries/zed` | [#67334](https://github.com/zed-industries/zed/issues/67334) | Fixed - PR merged |
 > | `gluesql/gluesql` | [#2096](https://github.com/gluesql/gluesql/issues/2096) | Open |
 
