@@ -17,7 +17,7 @@
 # апплаенс (`./kerna`), который несёт внутри свой Python и `z3`.
 set -uo pipefail
 
-VER="${KERN_VER:-v2.8.2}"
+VER="${KERN_VER:-v2.8.26}"
 BASE="${KERN_BASE:-https://github.com/newmathphys/kern/releases/download/$VER}"
 WORK="$(mktemp -d /tmp/kern_pilot.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
@@ -56,6 +56,33 @@ if [ -f "$WORK/SHA256SUMS" ]; then
   else
     echo "  [i] в SHA256SUMS нет строки архива — сверка пропущена (названо)"
   fi
+fi
+
+echo "── 1b. Подпись аттестата (Ed25519) ──"
+# Подпись проверяется отдельно от SHA-256: хеш доказывает, что байты не подменили
+# НА СЕРВЕРЕ, подпись — что аттестат выпустил владелец ключа. Без openssl шаг
+# НАЗЫВАЕТСЯ пропуском, а не «пройден».
+if command -v openssl >/dev/null 2>&1; then
+  for f in kern.intoto.jsonl kern.intoto.sig kern_owner_public.pem; do
+    [ -f "$WORK/$f" ] || curl -4 -fsSL --max-time 120 -o "$WORK/$f" "$BASE/$f" 2>/dev/null \
+      || echo "  [i] $f нет в релизе — шаг назван пропуском"
+  done
+  if [ -f "$WORK/kern.intoto.sig" ] && [ -f "$WORK/kern_owner_public.pem" ] \
+     && [ -f "$WORK/kern.intoto.jsonl" ]; then
+    if openssl pkeyutl -verify -pubin -inkey "$WORK/kern_owner_public.pem" -rawin \
+         -in "$WORK/kern.intoto.jsonl" -sigfile "$WORK/kern.intoto.sig.bin" >/dev/null 2>&1 \
+       || { xxd -r -p "$WORK/kern.intoto.sig" > "$WORK/kern.intoto.sig.bin" 2>/dev/null \
+            && openssl pkeyutl -verify -pubin -inkey "$WORK/kern_owner_public.pem" -rawin \
+                 -in "$WORK/kern.intoto.jsonl" -sigfile "$WORK/kern.intoto.sig.bin" >/dev/null 2>&1; }; then
+      check "подпись аттестата (Ed25519)" "0" "0"
+    else
+      check "подпись аттестата (Ed25519)" "0" "1"
+    fi
+  else
+    echo "  [i] подпись не проверена: в релизе нет одного из файлов (названо)"
+  fi
+else
+  echo "  [i] openssl нет — подпись НЕ проверена (шаг назван пропуском)"
 fi
 
 echo "── 2. Распаковка и самодостаточность ──"
