@@ -665,6 +665,18 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             # (`channels = 1`), и печатал 65536 x 65536 на коде, который
             # переполниться не может. Считаем только marks.
             n_tainted = sum(1 for mk in marks if mk)
+            # ГЕЙТ ДЕКОДЕРА: настоящий класс — размеры, пришедшие ИЗ ФАЙЛА.
+            # Второй залп показал цену его отсутствия: формы вида
+            # `num_vertices * 3` и `samples * channels` массово совпадают с
+            # АПИ-выделениями, где размер задаёт вызывающий (кадр 400x240,
+            # число вершин из аргумента). Такие находки не репорт: вливать
+            # нечего. Источник печатается, чтобы читатель видел, чей это класс.
+            reads = re.search(r"\b(fread|fscanf|fgets|getc|getline|read|"
+                              r"iio_read\w*|png_\w+|TIFF\w+|stbi_\w+|av_read\w*|"
+                              r"nifti_\w+|lodepng_\w+)\s*\(", src)
+            source = "file" if reads else "caller"
+            if not reads and all(mk in ("caller", "") for mk in marks):
+                continue                   # размер задаёт вызывающий, не файл
             assumed = ""
             if n_tainted == 1:
                 # Один внешний множитель: переполнение возможно только через
@@ -682,7 +694,8 @@ def analyse_z3_alloc(src: str, path: str) -> list:
             out.append({
                 "law": f"z3-alloc:form-{label}", "symbol": f"{Path(path).name}:{first}",
                 "file": path,
-                "detail": witness + " (taint: " + "+".join(sorted({m for m in marks if m})) + ")" + assumed,
+                "detail": witness + " (taint: " + "+".join(sorted({m for m in marks if m}))
+                          + ", source: " + source + ")" + assumed,
                 "hot": True,
             })
     return out
@@ -905,7 +918,9 @@ def selftest() -> int:
        "z3: среднее без контекста поиска молчит")
 
     # --- ствол z3-alloc: только реальные формы C11 LP64 ---
-    vuln_alloc = ("int decode(const char *buf, int w, int h) {\n"
+    vuln_alloc = ("int decode(FILE *fp) {\n"
+                  "    int w, h;\n"
+                  "    if (fscanf(fp, \"%d %d\", &w, &h) != 2) return -1;\n"
                   "    unsigned char *px = malloc(w * h * sizeof(unsigned char));\n"
                   "    if (!px) return -1;\n"
                   "    return px[0];\n}\n")
@@ -1013,20 +1028,30 @@ def selftest() -> int:
     ok(repo_fresh({"pushed_at": "2025-06-01T00:00:00Z"}),
        "ровно дата отсечки проходит")
     # КАЛИБРОВКА №21: свидетель строится по РЕАЛЬНО tainted множителям.
-    # Два контролируемых имени — честная форма A.
-    both_tainted = ("int decode(int w, int h) {\n"
+    # Два контролируемых имени + чтение из файла — честная форма A.
+    both_tainted = ("int decode(FILE *fp) {\n"
+                    "    int w, h;\n"
+                    "    if (fscanf(fp, \"%d %d\", &w, &h) != 2) return -1;\n"
                     "    float *d = malloc(w * h * sizeof(float));\n"
                     "    return d ? 0 : -1;\n}\n")
     ok(analyse_z3_alloc(both_tainted, "src/z.c") != [],
-       "две tainted-переменные дают находку (форма A)")
-    # Локальная константа каналов: n_tainted == 1, поэтому свидетель ОБЯЗАН
+       "две tainted-переменные из файла дают находку (форма A)")
+    # ГЕЙТ ДЕКОДЕРА: то же перемножение, но размеры задаёт ВЫЗЫВАЮЩИЙ, а в
+    # файле нет ни одного чтения — это АПИ, а не декодер. Молчим.
+    caller_dims = ("int resize(int w, int h) {\n"
+                   "    unsigned char *fb = malloc(w * h * 4);\n"
+                   "    return fb ? 0 : -1;\n}\n")
+    ok(analyse_z3_alloc(caller_dims, "src/fb.c") == [],
+       "размеры от вызывающего без чтения из файла — НЕ находка (гейт декодера)")
+    # Локальная константа каналов при наличии чтения: свидетель ОБЯЗАН
     # нести допущение, а не печатать молча 65536 x 65536.
-    one_tainted = ("int decode(int w) {\n"
-                   "    int channels = 1;\n"
+    one_tainted = ("int decode(FILE *fp) {\n"
+                   "    int w; int channels = 1;\n"
+                   "    if (fscanf(fp, \"%d\", &w) != 1) return -1;\n"
                    "    float *d = malloc(w * channels * sizeof(float));\n"
                    "    return d ? 0 : -1;\n}\n")
     hits = analyse_z3_alloc(one_tainted, "src/z.c")
-    ok(all("assumes channels/bpp" in f["detail"] for f in hits),
+    ok(hits and all("assumes channels/bpp" in f["detail"] for f in hits),
        "локальный channels=1 не даёт молчаливого 65536 x 65536 (допущение названо)")
     _REPO_CACHE.clear()
 
