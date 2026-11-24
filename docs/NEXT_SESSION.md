@@ -41,6 +41,41 @@
 | Release | `v2.8.0` published (4 assets, `artifact-check` chained, `seal` valid) |
 | Open technical defects | **0** (`#555` closed, see above) — queue item 1 (a size filter in `defNormEq`/`bitTautology`) was MEASURED AND REVERTED: `midpoint.rs` 70 s -> 65 s (about 7%) but trusted steps on the official bank went 645 -> 646, i.e. the filter disabled a rule that verified one step on `add_three.4_bit`; the acceptance criterion (`645` unchanged) failed, so the tree is byte-identical to the sealed `67a8d43`. MEASURED CONCLUSION: the dominant cost is the SOLVER, not the checker normalizations. Reference state: `HEAD = 67a8d43`, 68/68 ci-fast stages green, 225/225 non-vacuous cases, attestation verified with the external key |
 
+## MILESTONE 2026-11-24 — closed, circuit waits on external replies
+
+State at `HEAD = 2822bdf5`, tree clean, `HEAD == origin/main`.
+
+**Detector and core.** All four trunks (`eq-hash`, `eq-ord`, `lru-effects`, `z3-alloc`) are
+locked in `canfail` (221 non-vacuous cases). C-shape coverage raised **6.0 % → 51.5 %**
+(`8/134` → `69/134` multiplication sites recognised on the 23 reference decoders, **0 false
+findings**), by adding form E (size staged in its own `int` before the allocation) and form F
+(`memcpy`/`memmove`/`memset` with a 32-bit product as the length). `calloc(a, b)` is
+deliberately NOT a target — on LP64 the libc rejects an overflowing product itself.
+Tool-honesty defects `#657` (histogram silently cut at ten reasons) and `#661` (a skip cause
+that named registration while registration had in fact succeeded) are closed **with tests**.
+`formal/certification/KNOWN_LIMITATIONS.md` carries the measured funnel `2538 → 2386` (§8.4)
+and the rejected candidate `Enlightenment/efl` (§9). The `storeinv` debt turned out to be
+already closed: both valid `QF_AX` tasks report `trusted: 0` (measured, with the commands).
+
+**External circuit — waiting, not working.** Three channels are ready and depend on other
+people; none can be advanced by more code:
+
+| Channel | State | Trigger that resumes work |
+|:--|:--|:--|
+| `mnhrdt/iio` PR #24 | open, author said he would merge a clear patch; do not nudge for a week | **his reply or merge** → send the mirror patch to `imscript` (13 sites, line offsets +48) and update the showcase |
+| Glama.ai listing | 404, submission form needs an account owner holds; `~/glama_submission.md` has the field values | **page exists** → add the badge (one line) and answer in the PR |
+| External pilot T7 | `docs/PILOT_T7.md`, verified by execution from an empty directory: `PASS (9/9)` | **`receipt.log` arrives** → close the last DoD item; any divergence becomes a filed defect |
+
+**Rejected candidates, recorded so the path is not walked twice:** `Joewing/jwm`
+`LoadXBMImage` — both sides use the same `(width * height + 7) / 8` expression and the chain
+crosses Xlib first (symmetry, not a defect); `Novum/vkQuake` `gl_texmgr.c` — trusted game
+assets; `Enlightenment/efl` — see §9. Unexamined remainder of volley #6: 9 files, all either
+teaching repositories or vendored copies of `stb_image`/`iio`/`nanovg`/`fontstash`; the yield
+there was judged below the cost and that judgement is written down as a judgement, not a result.
+
+**When resuming, say which of the three arrived** — the reply on `iio`, the Glama page, or a
+pilot `receipt.log`. Nothing else in the circuit is blocked.
+
 ## Open work
 
 **The ACTIVE plan is `docs/PLAN_takt23.md` (EN) / `docs/PLAN_takt23.ru.md` (RU).**
