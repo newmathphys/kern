@@ -14,9 +14,16 @@
 > resumes from measured facts instead of from a summary.
 >
 > **Read first, in this order:** `docs/STATUS.md` (generated: state and counts) →
-> this file (open work) → **`docs/PLAN_takt23.md` (the ACTIVE plan: NOT STARTED,
-> 6 blocks of 20 minutes)** → `docs/CAPABILITY_MATRIX.md` (what is proven and what each
-> proof does NOT show).
+> this file (open work) → **`docs/ROADMAP.md` §11 (the ACTIVE plan: the four bug-hunt
+> trunks, the freshness filter, the intentionality gate)** → `docs/CAPABILITY_MATRIX.md`
+> (what is proven and what each proof does NOT show).
+>
+> **`docs/PLAN_takt23.md` IS HISTORICAL.** Its six blocks were closed; it is kept as a
+> record of how the funnel was measured, not as work to do. Plan of record for the
+> bug hunt: `ROADMAP.md` §11. Its one-line summary: **`tools/api_hunt.py` has four
+> trunks — `eq-hash`, `eq-ord`, `lru-effects`, `z3-alloc` — 21 calibrations on the
+> alloc trunk, a freshness filter on `pushed_at` (never on repository age), and a
+> mandatory intentionality check BEFORE any report leaves the machine.**
 >
 > **The commit pointer above is PROSE and goes stale by itself.** It is the **base
 > slice of tack 2.3**, not "current `HEAD`": chasing HEAD is pointless, a SHA goes

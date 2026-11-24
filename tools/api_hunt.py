@@ -202,6 +202,22 @@ def repo_meta(full_name: str):
     return meta
 
 
+FRESH_SINCE = "2025-06-01"
+
+
+def repo_fresh(meta, since: str = FRESH_SINCE) -> bool:
+    """Живой ли проект: последний push не раньше `since` (ISO-дата).
+
+    Возраст («старше 730 дней — отсекаем») — неверная метрика. Он рубил
+    ЗРЕЛЫЕ библиотеки: `noria` не пушили 3 года, но и живые проекты старше
+    двух лет, которые как раз и правят. Патч вливают только в живое, поэтому
+    фильтр стоит на дате ПОСЛЕДНЕГО пуша, а не на дате создания.
+    Пустой `pushed_at` — не «свежий»: без даты мы не знаем ничего.
+    """
+    stamp = (meta or {}).get("pushed_at") or ""
+    return bool(stamp) and stamp[:10] >= since
+
+
 def repo_age_days(meta) -> float:
     """Сколько дней прошло с последнего пуша (inf, если дата неизвестна)."""
     import datetime
@@ -643,19 +659,30 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                           "char": 1, "schar": 1, "uchar": 1, "int8": 1, "uint8": 1}
                 scale = widths.get(mt.group(1).removesuffix("_t"), 4) if mt else 4
             cap = 65535 if any("u16" in mk for mk in marks) else None
-            # множитель-ПЕРЕМЕННАЯ (не литерал) тоже не ограничена: двух
-            # переменных достаточно для переполнения, даже если из потока
-            # прочитана только одна
-            n_vars = sum(1 for f in factors if not f.strip().isdigit())
+            # КАЛИБРОВКА №21: свидетель обязан опираться на РЕАЛЬНО tainted
+            # множители. Прежний `max(..., n_vars)` ВЫДУМЫВАЛ второй
+            # контролируемый множитель там, где он — локальная константа
+            # (`channels = 1`), и печатал 65536 x 65536 на коде, который
+            # переполниться не может. Считаем только marks.
+            n_tainted = sum(1 for mk in marks if mk)
+            assumed = ""
+            if n_tainted == 1:
+                # Один внешний множитель: переполнение возможно только через
+                # литерал. Локальные имена каналов почти всегда 1..4, поэтому
+                # берём консервативный вес 4 — и ПИШЕМ это в свидетеле, чтобы
+                # читатель видел допущение, а не молчаливую подстановку.
+                local_const = {"channels", "nchannels", "bpp", "depth", "bps"}
+                if any(f.strip().split(".")[-1].strip() in local_const for f in factors):
+                    k_lit *= 4
+                    assumed = " [assumes channels/bpp <= 4]"
             witness = _alloc_witness(kind, k=k_lit, scale=scale,
-                                     n_tainted=max(sum(1 for mk in marks if mk), n_vars),
-                                     cap=cap)
+                                     n_tainted=n_tainted, cap=cap)
             if not witness:
                 continue
             out.append({
                 "law": f"z3-alloc:form-{label}", "symbol": f"{Path(path).name}:{first}",
                 "file": path,
-                "detail": witness + " (taint: " + "+".join(sorted({m for m in marks if m})) + ")",
+                "detail": witness + " (taint: " + "+".join(sorted({m for m in marks if m})) + ")" + assumed,
                 "hot": True,
             })
     return out
@@ -682,7 +709,7 @@ def analyse_eq_ord(src: str, path: str) -> list:
     return out
 
 
-def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
+def hunt(limit: int, min_stars: int, mode: str, fresh_since: str = FRESH_SINCE,
          max_pages: int = 1, log=print) -> list:
     """Поиск -> фильтр -> скачивание файла -> анализ -> ранжирование."""
     seen, findings = set(), []
@@ -715,11 +742,13 @@ def hunt(limit: int, min_stars: int, mode: str, max_age_days: int = 730,
                 # Stars-First: метаданные (из кэша) проверяются ДО скачивания
                 # файла, поэтому тысячи мелких репозиториев стоят 0 запросов.
                 meta = repo_meta(repo) or {}
-                if meta.get("archived") or meta.get("fork") or meta.get("issues") is False:
+                # `has_issues is False` — НЕ повод отсекать: приватные
+                # Security Advisories работают и при выключенной вкладке Issues.
+                if meta.get("archived") or meta.get("fork"):
                     continue
                 if (meta.get("stars") or 0) < min_stars:
                     continue
-                if repo_age_days(meta) > max_age_days:
+                if not repo_fresh(meta, fresh_since):
                     continue
                 eligible.append((repo, path, meta))
             if not eligible:
@@ -973,6 +1002,32 @@ def selftest() -> int:
     ok(repo_age_days({"pushed_at": "2020-01-01T00:00:00Z"}) > 730,
        "старый pushed_at отсекается (noria-подобные архивы)")
     ok(repo_age_days({}) == float("inf"), "без pushed_at считаем мёртвым")
+    # Фильтр свежести: дата ПОСЛЕДНЕГО пуша, а не возраст репозитория.
+    ok(repo_fresh({"pushed_at": "2026-11-20T10:00:00Z"}),
+       "свежий push проходит (живой проект)")
+    ok(not repo_fresh({"pushed_at": "2020-01-01T00:00:00Z"}),
+       "старый push отсекается (noria-подобные архивы)")
+    ok(not repo_fresh({}), "без даты не считаем свежим")
+    ok(not repo_fresh({"pushed_at": "2025-05-31T23:59:59Z"}),
+       "граница 2025-06-01 соблюдается по дню")
+    ok(repo_fresh({"pushed_at": "2025-06-01T00:00:00Z"}),
+       "ровно дата отсечки проходит")
+    # КАЛИБРОВКА №21: свидетель строится по РЕАЛЬНО tainted множителям.
+    # Два контролируемых имени — честная форма A.
+    both_tainted = ("int decode(int w, int h) {\n"
+                    "    float *d = malloc(w * h * sizeof(float));\n"
+                    "    return d ? 0 : -1;\n}\n")
+    ok(analyse_z3_alloc(both_tainted, "src/z.c") != [],
+       "две tainted-переменные дают находку (форма A)")
+    # Локальная константа каналов: n_tainted == 1, поэтому свидетель ОБЯЗАН
+    # нести допущение, а не печатать молча 65536 x 65536.
+    one_tainted = ("int decode(int w) {\n"
+                   "    int channels = 1;\n"
+                   "    float *d = malloc(w * channels * sizeof(float));\n"
+                   "    return d ? 0 : -1;\n}\n")
+    hits = analyse_z3_alloc(one_tainted, "src/z.c")
+    ok(all("assumes channels/bpp" in f["detail"] for f in hits),
+       "локальный channels=1 не даёт молчаливого 65536 x 65536 (допущение названо)")
     _REPO_CACHE.clear()
 
     print(f"[API-HUNT-SELFTEST] провалов: {bad}")
@@ -986,14 +1041,15 @@ def main(argv=None) -> int:
     ap.add_argument("--min-stars", type=int, default=100)
     ap.add_argument("--mode", default="all",
                     choices=["laws", "effect-hints", "lru-effects", "z3-arith", "z3-alloc", "eq-ord", "all"])
-    ap.add_argument("--max-age-days", type=int, default=730)
+    ap.add_argument("--fresh-since", default=FRESH_SINCE,
+                    help="минимальная дата последнего push (ISO), например 2025-06-01")
     ap.add_argument("--pages", type=int, default=1,
                     help="сколько страниц search/code по 100 результатов пройти")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
-    findings = hunt(a.limit, a.min_stars, a.mode, a.max_age_days, max_pages=a.pages)
+    findings = hunt(a.limit, a.min_stars, a.mode, a.fresh_since, max_pages=a.pages)
     print(render(findings) if not a.json
           else json.dumps(findings, ensure_ascii=False, indent=1))
     print(f"\nитого: {len(findings)} находок (mode={a.mode}, min-stars={a.min_stars})")

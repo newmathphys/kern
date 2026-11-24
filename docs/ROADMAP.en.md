@@ -38,7 +38,42 @@
 | **#156** | SIGTERM/SIGINT did not roll back canfail/mutator patches → a diversion could stay in the tree |
 | **#157** | `write_atomic` lost the file mode: after a rollback 29 scripts lost `+x` (`100755 → 100644`) |
 
+## 11. Bug-hunt trunks (state as of 2026-11-24)
+
+These are not echelons 1–8: there the tool proved ITSELF. Here it works on foreign code, and the
+only currency is a merged patch. Totals: **23 public reports, 0 false**, 1 PR merged (`zed`,
+~60k ★), 3 in review, 2 closed by their authors as intended behaviour.
+
+| Trunk (`tools/api_hunt.py` + `tools/law_hunter.py`) | What it looks for | Live result |
+|:--|:--|:--|
+| `eq-hash` | numeric `Eq`, bitwise `Hash` (`-0.0 == 0.0`, different hashes) | `zed` (merged), `surrealdb`, `databend`, `bevy`, `kiss3d` |
+| `eq-ord` | `derive(Ord)` over rational fields → lexicographic order | `scheme.rs`, `Woxi`, `abacus`, `gluesql` |
+| `lru-effects` | side effect inside a memoised function (clock under `@cache`) | `dagster` |
+| `z3-alloc` | heap-size overflow: `malloc(w * h * … )` in 32-bit `int` | `iio` → PR #24 |
+
+**The freshness filter is `pushed_at >= "2025-06-01"`**, never repository age. Age cut mature
+libraries: a live project older than two years is exactly the one that gets patches.
+`has_issues == False` is **not** a reason to skip either: private Security Advisories work with the
+Issues tab switched off. The `z3-alloc` trunk carries **21** calibrations (the last one: the witness
+is built from genuinely tainted factors, a local `channels = 1` no longer yields a silent
+`65536 × 65536`, and the assumption is printed inside the witness).
+
+**The intentionality gate comes BEFORE a report is sent.** The last two large reports were closed
+not because the measurement was wrong but because the author considered the behaviour intended
+(`typst` — "intentional, not planned"; `gleam` — "does not demonstrate any problem"). Three checks
+before sending: (1) is there a test pinning the current behaviour; (2) is there an explanatory
+comment above the disputed code; (3) does `CONTRIBUTING`/`docs` say `intentional`/`by design`. For C
+parsers the equivalent is `if (w > MAX_DIM)` in the caller or an explicit format limit (16-bit
+header). On any "yes" the report changes shape: not "a bug", but "here is a divergence — is it
+intended?".
+
+**Status of `iio`.** PR [#24](https://github.com/mnhrdt/iio/pull/24) is open and waiting for the
+author; do not nudge for a week. The `imscript` patch (line offsets +48) stays local and is **not**
+opened until the first one is answered — two PRs into two of his repositories in one day reads as
+pressure.
+
 ## What is left before the release
+
 
 1. **Release v2.5.1** (owner-only): merge `v2.5-dev → main`, push, re-upload the asset +
    `SHA256SUMS`, run the online `make artifact-check`.
