@@ -87,14 +87,21 @@ QUERIES_EQ_ORD_LOOSE = [
 ]
 
 QUERIES_ALLOC = [
-    '"num_vertices * 3" "malloc" language:C',
-    '"num_faces * 3" "malloc" language:C',
-    '"samples * channels" "malloc" language:C',
-    '"frames * channels" "malloc" language:C',
-    '"n_rows * n_cols" "malloc" language:C',
-    '"nx * ny" "malloc" language:C',
+    # ЦЕЛЬ — размеры ИЗ ЗАГОЛОВКА ФАЙЛА, а не из аргумента функции. Ствол,
+    # нашедший iio, попадал именно по этой связке: чтение поля + malloc(w*h*c).
+    # Второй залп расширил ФОРМЫ и потерял СВЯЗКУ — 30 находок, 0 репортов.
+    # Поэтому запросы ниже требуют со-вхождения имени формата и выделения.
     '"width * height" "malloc" "fread" language:C',
-    '"w * h * 3" "malloc" language:C',
+    '"malloc" "IHDR" language:C',
+    '"malloc" "TIFFGetField" language:C',
+    '"malloc" "stbi_load" language:C',
+    '"malloc" "nifti_image_read" language:C',
+    '"malloc" "GIF" "width" "height" language:C',
+    '"malloc" "magick_size" language:C',
+    # Формы-кандидаты: ищем только там, где рядом есть чтение из файла.
+    '"num_vertices * 3" "malloc" "fread" language:C',
+    '"samples * channels" "malloc" "fread" language:C',
+    '"w * h * 3" "malloc" "fread" language:C',
 ]
 
 QUERIES_EFFECTS = [
