@@ -87,21 +87,17 @@ QUERIES_EQ_ORD_LOOSE = [
 ]
 
 QUERIES_ALLOC = [
-    # ЦЕЛЬ — размеры ИЗ ЗАГОЛОВКА ФАЙЛА, а не из аргумента функции. Ствол,
-    # нашедший iio, попадал именно по этой связке: чтение поля + malloc(w*h*c).
-    # Второй залп расширил ФОРМЫ и потерял СВЯЗКУ — 30 находок, 0 репортов.
-    # Поэтому запросы ниже требуют со-вхождения имени формата и выделения.
-    '"width * height" "malloc" "fread" language:C',
-    '"malloc" "IHDR" language:C',
-    '"malloc" "TIFFGetField" language:C',
-    '"malloc" "stbi_load" language:C',
-    '"malloc" "nifti_image_read" language:C',
-    '"malloc" "GIF" "width" "height" language:C',
-    '"malloc" "magick_size" language:C',
-    # Формы-кандидаты: ищем только там, где рядом есть чтение из файла.
-    '"num_vertices * 3" "malloc" "fread" language:C',
-    '"samples * channels" "malloc" "fread" language:C',
-    '"w * h * 3" "malloc" "fread" language:C',
+    # ЦЕЛЬ — ФОРМЫ E и F (#662): размер считается ОТДЕЛЬНО от выделения
+    # (`int size = w * h * 3; buf = malloc(size)`) и копирование с 32-битным
+    # произведением (`memcpy(dst, src, rows * cols * 4)`). Прежние запросы
+    # искали однострочный malloc и такие файлы не видели вовсе.
+    '"int size =" "width * height" "malloc" language:C',
+    '"int len =" "malloc" "fread" language:C',
+    '"int bytes =" "malloc" "fread" language:C',
+    '"int size =" "w * h" "malloc" language:C',
+    '"memcpy" "rows * cols" "fread" language:C',
+    '"memcpy" "width * height" "fread" language:C',
+    '"memcpy" "num_samples" language:C',
 ]
 
 QUERIES_EFFECTS = [
