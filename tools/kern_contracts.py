@@ -7878,6 +7878,7 @@ def _skip_key(exc: object) -> str:
 
 
 _XRAY_DEBUG_SKIP = os.environ.get("KERN_DEBUG_XRAY_SKIP") == "1"
+_FUNNEL_ROWS: list = []
 # Диагностика #658: только под env — дефолтный вывод и ABI --xray-json не меняются.
 _drop_details: dict[str, int] = _collections.Counter()
 
@@ -10041,6 +10042,12 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
         _bv_forms: list = []      # BV-форма условий, зарегистрированных в if_blocks
         _bv_only: list = []       # блоки, переводимые ТОЛЬКО в BV (в Int их нет)
         _w, _signed = _bv_shape(_rng)
+        # ВОРОНКА РЕГИСТРАЦИИ if_blocks (#660). Печатается только под
+        # KERN_DEBUG_XRAY_SKIP=1 и отвечает на единственный вопрос, на котором
+        # мы дважды обожглись: ГДЕ именно условие теряется. Пять ступеней —
+        # найдено / не nil-null / не `!` / переведено / зарегистрировано.
+        _fn_funnel = {"found": len(_ifs), "null": 0, "bang": 0,
+                      "untranslated": 0, "registered": 0}
         for m in _ifs:
             raw_cond = body[m.start(1):m.end(1)]
             # ДЕФЕКТ #197 (полевой прогон gin): `err != nil` — указательное
@@ -10066,6 +10073,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             if _has_null or _has_bang:
                 _rw = _null_to_zero(raw_cond)
                 if _rw is None:
+                    _fn_funnel["null" if _has_null else "bang"] += 1
                     skip_why.append(
                         "указательное сравнение nil/null (вне Int-модели)" if _has_null
                         else "логическое отрицание `!` в форме, которую не переводим")
@@ -10149,6 +10157,7 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
                     continue
                 # ДЕФЕКТ #400: причина сохраняется — иначе сводка печатала
                 # «skipped N with explicit reasons», не выводя НИ ОДНОЙ.
+                _fn_funnel["untranslated"] += 1
                 skip_why.append(_skip_key(_u400))
                 pos = m.end()
                 continue
@@ -10296,11 +10305,16 @@ def _xray_clike_file(path: Path, kernc) -> tuple[int, int, int, list[str], dict[
             # (НАЙДЕНО на std Zig `nextafter.zig: nextAfterInt`: без этого правила
             # `else if (y < x)` после `else if (y > x)` давал ЛОЖНЫЙ [DEAD BRANCH],
             # потому что путь ошибочно считался «y > x».)
+            _fn_funnel["registered"] += 1
             if_blocks.append((m.end(), _bend, cond, exits))
             # ШАГ 4b: BV-форма — в ТОМ ЖЕ порядке, что `if_blocks` (индексы
             # совпадают, иначе BV-путь соберётся из чужих условий).
             _bv_forms.append(_cond_bv)
             pos = m.end()
+        if _XRAY_DEBUG_SKIP and _fn_funnel["found"]:
+            _fn_funnel["file"] = Path(path).name
+            _fn_funnel["fn"] = name
+            _FUNNEL_ROWS.append(dict(_fn_funnel))
         # ДЕФЕКТ #179 (C-like): `assert(cond);` — истинное условие для
         # дальнейшего кода. Без этого zls `alternate(..., len: u32)` с
         # `assert(@backingInt(index) < len)` давал ложный [CRASH PATH].
@@ -11790,6 +11804,7 @@ def _xray_json_doc(target: str, files: int, total: int, checked: int, trivial: i
                     sorted(reasons.items(), key=lambda kv: -kv[1])],
         "notes": [{"note": k, "count": v} for k, v in
                   sorted(notes.items(), key=lambda kv: -kv[1])],
+        **(({"funnel_if": _FUNNEL_ROWS}) if _XRAY_DEBUG_SKIP else {}),
         **({"drop_details": [{"tag_from_text": k.split(" | ")[0],
                               "subexpr": k.split(" | ", 1)[1] if " | " in k else "",
                               "count": v}
