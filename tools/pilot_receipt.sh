@@ -62,24 +62,30 @@ echo "── 1b. Подпись аттестата (Ed25519) ──"
 # Подпись проверяется отдельно от SHA-256: хеш доказывает, что байты не подменили
 # НА СЕРВЕРЕ, подпись — что аттестат выпустил владелец ключа. Без openssl шаг
 # НАЗЫВАЕТСЯ пропуском, а не «пройден».
+PUBKEY=""
 if command -v openssl >/dev/null 2>&1; then
-  for f in kern.intoto.jsonl kern.intoto.sig kern_owner_public.pem; do
-    [ -f "$WORK/$f" ] || curl -4 -fsSL --max-time 120 -o "$WORK/$f" "$BASE/$f" 2>/dev/null \
-      || echo "  [i] $f нет в релизе — шаг назван пропуском"
+  for f in kern.intoto.jsonl kern.intoto.sig kern-owner.pub kern_owner_public.pem; do
+    [ -f "$WORK/$f" ] && continue
+    # ключ публикуется как docs/keys/kern-owner.pub в релизе; старое имя — резерв
+    for src in "$BASE/$f" "$BASE/docs/keys/${f##*/}" "$(dirname "$0")/../docs/keys/${f##*/}"; do
+      curl -4 -fsSL --max-time 60 -o "$WORK/$f" "$src" 2>/dev/null && break
+      cp "$src" "$WORK/$f" 2>/dev/null && break
+    done
   done
-  if [ -f "$WORK/kern.intoto.sig" ] && [ -f "$WORK/kern_owner_public.pem" ] \
-     && [ -f "$WORK/kern.intoto.jsonl" ]; then
-    if openssl pkeyutl -verify -pubin -inkey "$WORK/kern_owner_public.pem" -rawin \
-         -in "$WORK/kern.intoto.jsonl" -sigfile "$WORK/kern.intoto.sig.bin" >/dev/null 2>&1 \
-       || { xxd -r -p "$WORK/kern.intoto.sig" > "$WORK/kern.intoto.sig.bin" 2>/dev/null \
-            && openssl pkeyutl -verify -pubin -inkey "$WORK/kern_owner_public.pem" -rawin \
-                 -in "$WORK/kern.intoto.jsonl" -sigfile "$WORK/kern.intoto.sig.bin" >/dev/null 2>&1; }; then
+  for cand in kern-owner.pub kern_owner_public.pem; do
+    [ -s "$WORK/$cand" ] && PUBKEY="$WORK/$cand" && break
+  done
+  if [ -s "$WORK/kern.intoto.sig" ] && [ -n "$PUBKEY" ] && [ -s "$WORK/kern.intoto.jsonl" ]; then
+    xxd -r -p "$WORK/kern.intoto.sig" > "$WORK/kern.intoto.sig.bin" 2>/dev/null \
+      || cp "$WORK/kern.intoto.sig" "$WORK/kern.intoto.sig.bin"
+    if openssl pkeyutl -verify -pubin -inkey "$PUBKEY" -rawin \
+         -in "$WORK/kern.intoto.jsonl" -sigfile "$WORK/kern.intoto.sig.bin" >/dev/null 2>&1; then
       check "подпись аттестата (Ed25519)" "0" "0"
     else
       check "подпись аттестата (Ed25519)" "0" "1"
     fi
   else
-    echo "  [i] подпись не проверена: в релизе нет одного из файлов (названо)"
+    echo "  [i] подпись не проверена: в релизе нет ключа или подписи (названо)"
   fi
 else
   echo "  [i] openssl нет — подпись НЕ проверена (шаг назван пропуском)"
