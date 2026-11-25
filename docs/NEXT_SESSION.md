@@ -78,6 +78,35 @@ pilot `receipt.log`. Nothing else in the circuit is blocked.
 
 ## Open work
 
+**OPEN DEFECT #663 (найден НОЧНЫМ прогоном 2026-11-25, `smtlib_proof_check`, rc=1).**
+Тождество отчёта не сходится на ОДНОЙ задаче банка:
+
+```
+QF_BV/add_three.8_bit.smt2: проверено 7625 + доверенных 13862 + прочих 424 + дыр 0
+                            = 21911, а шагов 21916          ← 5 шагов не отнесены ни к одной графе
+```
+
+Это тот же класс, что `#657`/`#661` (числа в отчёте не равны факту), но в
+ПРУФ-ЧЕКЕРЕ, а не в `--xray`. Воспроизведение:
+
+```bash
+PATH="$PWD/.venv/bin:/tmp/zigt/zig-x86_64-linux-0.17.0:$PATH" \
+  python3 tools/smtlib_proof_check.py        # rc=1, ровно 1 FAIL из всего банка
+```
+
+Что известно: остальные задачи тождество держат; `add_three.4_bit` даёт
+7616 шагов и 645 доверенных без расхождения. Значит 5 шагов принадлежат правилу,
+которого нет ни в сумме проверенных, ни в `trusted`, ни в `other`. Первый шаг
+починки — дамп правил этих пяти шагов (как это сделал `KERN_DEBUG_TRUSTED` для
+доверенных), а не догадка. **До починки `make smtlib-proof-check` красный.**
+
+**Закрыт долг T6 (ночь 2026-11-25, `canfail` целиком, rc=0):**
+`ИТОГ: не-вакуумных 268 | ВАКУМНЫХ 0 | ГРЯЗНЫХ 0 | ЛОЖНЫХ СРАБАТЫВАНИЙ ХАРНЕССА 0 |
+ОШИБОК КЕЙСОВ 0 | пропущено 0`.
+**Регрессия `--xray` после правок дня:** `checked 79 | trivial 126 | skipped 103 | Σ 308` —
+не сдвинулась ни на единицу.
+
+
 **The ACTIVE plan is `docs/PLAN_takt23.md` (EN) / `docs/PLAN_takt23.ru.md` (RU).**
 It is self-contained: a measured base, four **OPEN** questions (each with a number and a
 command), six blocks of 20 minutes, four safeguards, boundaries and the working rules.
