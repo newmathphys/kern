@@ -106,7 +106,7 @@ KERN заблокировал 5/5
 > | `mahmoud/boltons` | [#800](https://github.com/mahmoud/boltons/issues/800) | Open - PR open |
 > | `kiesraad/abacus` | [#4393](https://github.com/kiesraad/abacus/issues/4393) | Confirmed - duplicate of their own report |
 > | `isamert/scheme.rs` | [#4](https://github.com/isamert/scheme.rs/issues/4) | Open |
-> | `ad-si/Woxi` | [#2704](https://github.com/ad-si/Woxi/issues/2704) | Open |
+> | `ad-si/Woxi` | [#2704](https://github.com/ad-si/Woxi/issues/2704) | Fixed - closed via dd05bc2 |
 > | `boa-dev/boa` | [#5678](https://github.com/boa-dev/boa/issues/5678) | Triaged - claimed |
 > | `swc-project/swc` | [#12815](https://github.com/swc-project/swc/issues/12815) | Closed - routing policy |
 > | `surrealdb/surrealdb` | [#7715](https://github.com/surrealdb/surrealdb/issues/7715) | Open |
