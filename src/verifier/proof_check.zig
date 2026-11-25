@@ -5655,11 +5655,24 @@ fn verifyProofKindInner(
             // шаги правила. Иначе отчёт печатает одно и то же число и до, и
             // после правки (ИЗМЕРЕНО: колонка `резолюция` = 5247 и при 2970
             // доверенных, и при 1020), и читатель не видит проделанной работы.
-            if (checkMp(&c, st)) v.mp_checked += 1 else v.mp_bad += 1;
+            // ДЕФЕКТ #663: ОТВЕРГНУТЫЙ шаг обязан попасть в корзину отчёта.
+            // `mp_bad`/`unitres_bad`/`farkas_bad`/`rewrite_bad` входят в
+            // `proof_steps`, но не были ни проверены, ни доверены, ни «прочими» —
+            // и тождество отчёта (проверено + доверенных + прочих + дыр == шагов)
+            // расходилось на их число (ИЗМЕРЕНО: 5 на `add_three.8_bit`).
+            // Теперь такой шаг учитывается как `other_steps`: он НЕ проверен
+            // (в `verified` не идёт), но и не исчезает из арифметики.
+            if (checkMp(&c, st)) v.mp_checked += 1 else {
+                v.mp_bad += 1;
+                v.other_steps += 1;
+            }
         } else if (std.mem.eql(u8, r, "unit-resolution")) {
             switch (checkUnitRes(&c, st)) {
                 .verified => v.unitres_checked += 1,
-                .bad => v.unitres_bad += 1,
+                .bad => {
+                    v.unitres_bad += 1;
+                    v.other_steps += 1; // #663: отвергнутый шаг не исчезает
+                },
                 // ФОРМА ВНЕ МОДЕЛИ ЧЕКЕРА -> доверенный шаг, а не `bad`.
                 // ДЕФЕКТ #95: раньше ЛЮБОЕ несовпадение считалось `bad`, из-за
                 // чего корректные выводы Z3 (частичная резолюция, лишние
@@ -5732,6 +5745,7 @@ fn verifyProofKindInner(
                 },
                 .bad => {
                     v.farkas_bad += 1;
+                    v.other_steps += 1; // #663: то же для арифметики
                     // ЭТАП А (диагностика): дамп шага, признанного НЕВЕРНЫМ.
                     if (dbgEnv("KERN_DEBUG_TRUSTED") != null) {
                         dbgPrint("[dbg-farkas-bad] шаг: ", .{});
@@ -5749,7 +5763,10 @@ fn verifyProofKindInner(
             // доверенным. Никогда не выдаём непроверенное за проверенное.
             switch (checkRewrite(&c, st)) {
                 .verified => v.rewrite_verified += 1,
-                .bad => v.rewrite_bad += 1,
+                .bad => {
+                    v.rewrite_bad += 1;
+                    v.other_steps += 1; // #663: то же для rewrite
+                },
                 .unverifiable => {
                     markTrustedExp(&v, &c, r, st);
                     // ЭТАП А (диагностика): дамп l и r для ДОВЕРЕННОГО rewrite.
