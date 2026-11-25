@@ -70,6 +70,7 @@ EXEMPT = {
     "RELEASE_NOTES_v2.8.25.md": "исторические релиз-ноты",
     "RELEASE_NOTES_v2.8.26.md": "исторические релиз-ноты",
     "PILOT_T7.md": "инструкция внешнему проверяющему (T7)",
+    "HUNT_LOG.md": "рабочий журнал охоты (не ограничение верификатора)",
     "BELNAP_SOURCES.en.md": "EN-зеркало описано в строке BELNAP_SOURCES.md",
     "CORPORA.en.md": "EN-зеркало описано в строке CORPORA.md",
     "SELF_VERIFICATION.ru.md": "RU-зеркало описано в строке SELF_VERIFICATION.md",

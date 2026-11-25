@@ -1,8 +1,8 @@
 {
   "schema": "kern-trust-scorecard/1",
   "repo": "kern",
-  "commit": "78dcbf8a",
-  "code_hash": "sha256:a854fb36731de34c55cb46713057af6f31e94606b6cfcdadaa732019b30250bd",
+  "commit": "54b857f6",
+  "code_hash": "sha256:80a0889d6dc5a1b2ba41b4e54f8bee1655a43f9598da35914281a44699ed75d4",
   "score": 99,
   "grade": "A+",
   "breakdown": {
@@ -69,7 +69,7 @@
     "build": true,
     "sarif": true,
     "llms": true,
-    "docs_md": 125,
+    "docs_md": 126,
     "injection_markers": 0,
     "dup_guard": false
   },
