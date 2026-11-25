@@ -432,6 +432,31 @@ def check_rust_eq_hash(src: str) -> list:
         canonical = ("== 0.0" in body) or ("0.0 ==" in body)
         if bitwise or canonical:
             continue
+        # КАЛИБРОВКА №23 (#664): тип БЕЗ `Eq` не может стать ключом `HashMap`/
+        # `HashSet` — трейт-борунд `K: Eq + Hash`. ИЗМЕРЕНО на `iced`
+        # (`LineHeight`: `derive(PartialEq)` без `Eq`, `impl Hash` с `to_bits()`):
+        # нарушение контракта недостижимо, потому что ключа такого типа не
+        # существует. Помечаем `unreachable_no_eq`, а не выдаём за закон.
+        # Подстрочный поиск вместо длинной регулярки: регулярка на iced
+        # возвращала False на заведомо присутствующем `impl Eq for T`
+        # (проверено отдельно), поэтому сопоставление здесь простое и явное.
+        has_eq = ("impl Eq for " + tname) in src
+        if not has_eq:
+            for _dm in _re.finditer(r"#\[derive\(([^)]*)\)\]", src):
+                if "Eq" in [x.strip() for x in _dm.group(1).split(",")]:
+                    _after = src[_dm.end():_dm.end() + 300]
+                    if _re.search(r"(?:struct|enum)\s+" + _re.escape(tname) + r"\b", _after):
+                        has_eq = True
+                        break
+        if not has_eq:
+            out.append({
+                "law": "unreachable_no_eq", "symbol": tname + "::Hash",
+                "detail": ("Hash по битам при числовом PartialEq, но тип НЕ реализует Eq: "
+                           "ключом HashMap/HashSet быть не может (борунд K: Eq + Hash) — "
+                           "нарушение недостижимо, это не репорт"),
+                "unreachable": True, "hot": False,
+            })
+            continue
         out.append({
             "law": "eq-hash-mismatch", "symbol": tname + "::Hash",
             "detail": "to_bits() inside impl Hash while PartialEq is numeric: "
@@ -699,6 +724,16 @@ impl PartialEq for Version {
 '''
     ok(len(check_rust_eq_hash(float_bits)) == 1, "eq-hash: float-bits-hash (Boa) пойман")
     ok(check_rust_eq_hash(total_float) == [], "eq-hash: побитовый TotalFloat молчит (0 FP)")
+    # КАЛИБРОВКА №23 (#664): тип без Eq не может быть ключом HashMap.
+    _noeq = ("pub enum LH { R(f32) }\n"
+             "impl PartialEq for LH { fn eq(&self, o: &Self) -> bool { true } }\n"
+             "impl Hash for LH { fn hash<H>(&self, s: &mut H) { self.0.to_bits().hash(s) } }\n")
+    ok(any(x["law"] == "unreachable_no_eq" for x in check_rust_eq_hash(_noeq)),
+       "eq-hash: тип без Eq помечен unreachable_no_eq (не репорт)")
+    ok(any(x["law"] == "eq-hash-mismatch"
+           for x in check_rust_eq_hash(_noeq + "impl Eq for LH {}\n")),
+       "eq-hash: тот же код с impl Eq — находка СОХРАНЕНА")
+
     ok(len(check_rust_eq_hash(version_eq)) == 1, "eq-hash: derive(Hash)+ручной PartialEq пойман")
     swc_number = '''
 #[ast_node("Number")]
@@ -917,10 +952,17 @@ def main(argv) -> int:
         if a.json:
             print(json.dumps(res, ensure_ascii=False, indent=1, default=str))
         else:
-            print("%s: проверено %d .rs, находок %d"
-                  % (res["root"], res["checked"], len(res["findings"])))
+            _real = [f for f in res["findings"] if not f.get("unreachable")]
+            _unreach = len(res["findings"]) - len(_real)
+            print("%s: проверено %d .rs, находок %d%s"
+                  % (res["root"], res["checked"], len(_real),
+                     (" (+%d недостижимых, не репорт)" % _unreach) if _unreach else ""))
             for f in res["findings"]:
-                print("  [LAW] %s :: %s" % (f["symbol"], f["detail"]))
+                # КАЛИБРОВКА №23: недостижимое (тип без Eq) печатается
+                # ОТДЕЛЬНОЙ меткой и не считается находкой — иначе отчёт
+                # выдаёт за закон то, что не может стать ключом HashMap.
+                _tag = "[UNREACHABLE]" if f.get("unreachable") else "[LAW]"
+                print("  %s %s :: %s" % (_tag, f["symbol"], f["detail"]))
         return 0
     if not a.package:
         ap.error("нужен --package, --rust или --selftest")
