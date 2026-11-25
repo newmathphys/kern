@@ -122,6 +122,7 @@ KERN заблокировал 5/5
 > | `zed-industries/zed` | [#67334](https://github.com/zed-industries/zed/issues/67334) | Fixed - PR merged |
 > | `gluesql/gluesql` | [#2096](https://github.com/gluesql/gluesql/issues/2096) | Open |
 > | `Dicklesworthstone/fast_vector_similarity` | [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2) | Open |
+> | `ghdl/ghdl` | [#3521](https://github.com/ghdl/ghdl/issues/3521) | Open |
 > | `mnhrdt/iio` | [#24](https://github.com/mnhrdt/iio/pull/24) | PR open - author agreed to merge |
 
 >

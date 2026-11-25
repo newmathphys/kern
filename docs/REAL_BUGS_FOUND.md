@@ -591,6 +591,24 @@ remaining four lines.
 Reproduced locally: `cargo run --release`, commit `5048c1a`, x86_64 Linux.
 Upstream: [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2).
 
+
+## Case X - `ghdl/ghdl` (~2.9k stars): `is_option` panics on an empty argument (`#3521`)
+
+`src/main.rs:254` calls `arg.chars().nth(0).unwrap()`, while its own docstring says the
+function returns true when the argument "starts with `-`". An empty string is a valid
+`&str` and a possible command-line argument, and `"".chars().nth(0)` is `None`, so the
+call aborts instead of returning false. The docstring and `str::starts_with` agree with
+each other; only the implementation differs.
+
+Reproduced by compiling the function as written and calling it with an empty string:
+`thread 'main' panicked at ghdl_iso.rs:3:24: called Option::unwrap() on a None value`.
+
+Reached from `for arg in &args[1..] { if is_option(&arg) {` (`:610`) with `args` coming
+from `env::args()` (`:986`) through `expand_args` (`:945`) with no empty-string filter.
+Observed on commit `39bd390226`.
+
+Upstream: [#3521](https://github.com/ghdl/ghdl/issues/3521).
+
 ## Upstream outcomes
 
 Latest verified state of the reports above:
