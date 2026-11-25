@@ -124,7 +124,8 @@ KERN заблокировал 5/5
 > | `Dicklesworthstone/fast_vector_similarity` | [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2) | Open |
 > | `ghdl/ghdl` | [#3521](https://github.com/ghdl/ghdl/issues/3521) | Open |
 
-> **Исходы 24 репортов:** 2 влиты апстримом (Zed, Woxi) · 6 ждут ответа (iio PR, Dagster, Boltons, Lance, fast_vector_similarity, ghdl) · 3 заблокированы CI (TheAlgorithms/C) · 2 закрыты авторами как «задумано» (typst, gleam) · остальные — открытые issue без ответа.
+> **Where the 24 reports stand:** 2 merged upstream (Zed, Woxi) · 6 awaiting a reply (iio PR, Dagster, Boltons, Lance, fast_vector_similarity, ghdl) · 3 blocked by CI (TheAlgorithms/C) · 2 closed by their authors as intended (typst, gleam) · the rest are open issues with no answer yet.
+
 > | `mnhrdt/iio` | [#24](https://github.com/mnhrdt/iio/pull/24) | PR open - author agreed to merge |
 
 >
