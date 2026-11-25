@@ -206,3 +206,25 @@ _clike_conds_at(im.start(), if_blocks, body)` в `_smt_sat_guarded` — тот �
 **Следствие для плана:** правка narrowing НЕ даст `libgit2 11 → 6`. Пять ложных уйдут
 только после моделирования выхода из ветви — это работа над CFG (`#522`), а не над
 пробросом условий. До неё `libgit2` остаётся: 11 находок, 7 прочитано, 0 подтверждено.
+
+## Отклонён: `zqfang/GSEApy` (722 ★) — паника недостижима, защита на Python-границе
+
+Цепочка в коде существует: `pub compute_density` → `mat_ecdf` → `apply_ecdf` →
+`x0.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap())` (`src/gsva.rs:92`), то есть
+`NaN` в строке матрицы обязан паниковать. Мейнтейнер в #256 пишет: «so far NaN is
+allowed in the input data (this is because of the rust backend)».
+
+**ЖИВОЕ РЕПРО (uv venv, gseapy + pandas):**
+
+```
+[WARNING] Input data contains NA, filled NA with 0
+ВОЗВРАТ: <gseapy.gsva.GSVA object at 0x…>
+```
+
+`gseapy.gsva()` **обнуляет NA на границе Python** и предупреждает об этом — до Rust
+`NaN` не доходит, поэтому `unwrap()` недостижим из публичного API. Фраза мейнтейнера
+означает именно это, а не «пропускаем NaN внутрь».
+
+**Вердикт: не репорт.** Урок, который дороже кейса: чтение Rust-кода без проверки
+Python-обёртки дало ложное «противоречие контракта и кода». Спасла одна команда
+живого запуска — четвёртый раз за серию (после pydantic, efl, typst/gleam).
