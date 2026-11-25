@@ -1,6 +1,6 @@
 {
-  "commit": "4e8861d0",
-  "sha256": "cc073719a7ccdaf7f3b0981a9e2f12b136e1638a184a86f1ec3475528f9ff013",
-  "bytes": 121486,
+  "commit": "4e0ac521",
+  "sha256": "6dd13f6712626c565241356b0e086cf5025ff005e5cf90a3389df2a05408b999",
+  "bytes": 121514,
   "source": "zig build wasm (wasm32-freestanding)"
 }
