@@ -28,6 +28,16 @@ SAFE_CAST = re.compile(r"\(\s*(?:uint64_t|size_t|uintptr_t)\s*\)\s*[A-Za-z_]\w*\
 
 def _decl_type(src: str, name: str) -> str:
     """Тип переменной из ОБЪЯВЛЕНИЯ, включая списки `uint32_t offset, len, size;`."""
+    # 1) ПАРАМЕТРЫ ФУНКЦИИ: `uint32_t buf_size` в сигнатуре встречается чаще,
+    #    чем объявление в теле (ИЗМЕРЕНО: без этого контроль с параметрами
+    #    давал 0 вместо 1 — детектор молчал на самом частом случае).
+    for sig in re.finditer(r"\(([^()]{1,400})\)\s*\{", src):
+        for part in sig.group(1).split(","):
+            m2 = re.match(r"\s*(?:const\s+)?(" + _W32 +
+                          r"|uint64_t|size_t|uintptr_t)\s+\**\s*([A-Za-z_]\w*)", part)
+            if m2 and m2.group(2) == name:
+                return m2.group(1)
+    # 2) объявления в теле, включая списки `uint32_t offset, len, size;`
     for m in re.finditer(r"\b(" + _W32 + r"|uint64_t|size_t|uintptr_t)\s+([^;{}]{1,200});", src):
         head, rest = m.group(1), m.group(2)
         for part in rest.split(","):
