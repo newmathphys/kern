@@ -604,6 +604,62 @@ def _factor_taint(src, fn_start, pos, factor, params, is_static) -> str:
     return ""
 
 
+def _bounded_above(guard: str, name: str) -> int | None:
+    """Верхняя граница множителя как ЧИСЛО: `w <= 0xffffu`, `h < 65536`."""
+    pat = re.compile(r"\b" + re.escape(name) + r"\s*(<=|<)\s*(0[xX][0-9a-fA-F]+|\d+)\s*[uUlL]*")
+    for m in pat.finditer(guard):
+        try:
+            val = int(m.group(2), 0)
+        except ValueError:
+            continue
+        return val - 1 if m.group(1) == "<" else val
+    return None
+
+
+def _has_lower(guard: str, name: str) -> bool:
+    """Нижняя граница множителя: `w > 0`, `w >= 1`, `w >= 0`."""
+    return re.search(r"\b" + re.escape(name) + r"\s*(>|>=)\s*-?\d", guard) is not None
+
+
+def _paired_bound_ok(guard: str, factors, k_lit: int, scale: int,
+                     signed: bool) -> bool:
+    """КАЛИБРОВКА №22: парный гард на ОБОИХ множителях.
+
+    ИЗМЕРЕНО на `DCMTK/dcmdata/libsrc/dcddirif.cc:4543`:
+
+        if ((pgmWidth > 0) && (pgmHeight > 0) &&
+            (pgmWidth <= 0xffffu) && (pgmHeight <= 0xffffu))
+            const unsigned long pgmSize = pgmWidth * pgmHeight;
+
+    Оба множителя ограничены СВЕРХУ (и снизу, если тип знаковый), а
+    произведение потолков `65535 * 65535 * 1` < 2³² — переполнения нет.
+    Прежний фильтр видел только гард на ПЕРВОМ множителе и/или каст, поэтому
+    такие места попадали в кандидаты и требовали ручного чтения.
+
+    ЧЕГО ЭТО НЕ ДЕЛАЕТ (второй контроль): при `malloc(w * h * 4)` тот же
+    гард НЕ спасает — `65535² * 4 > 2³²`, и находка обязана остаться.
+    """
+    tops = []
+    for f in factors:
+        name = f.strip().split(".")[0].split("->")[0]
+        if not name or not re.fullmatch(r"[A-Za-z_]\w*", name):
+            continue
+        top = _bounded_above(guard, name)
+        if top is None:
+            return False                     # хоть один не ограничен сверху
+        if signed and not _has_lower(guard, name):
+            return False                     # знаковый без нижней границы
+        tops.append(top)
+    if len(tops) < 2:
+        return False
+    prod = 1
+    for t in tops:
+        prod *= t
+    prod *= max(1, k_lit) * max(1, scale)
+    limit = (1 << 31) - 1 if signed else (1 << 32) - 1
+    return prod <= limit
+
+
 def _alloc_witness(kind: str, k: int = 1, n_tainted: int = 2, cap=None,
                    scale: int = 1) -> str:
     """Делегирует в изолированный модуль `_witness` (проверен своим автотестом)."""
@@ -688,6 +744,7 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                 or "SIZE_MAX" in guard
             if upper_ok and (lower_ok or not signed):
                 continue                       # защита полная
+
             kind = "signed" if signed else kind
             # КАЛИБРОВКА №20: sizeof имеет тип size_t, поэтому в 32 битах
             # перемножается только префикс до него, а sizeof масштабирует уже
@@ -706,6 +763,9 @@ def analyse_z3_alloc(src: str, path: str) -> list:
                           "uint32": 4, "short": 2, "int16": 2, "uint16": 2,
                           "char": 1, "schar": 1, "uchar": 1, "int8": 1, "uint8": 1}
                 scale = widths.get(mt.group(1).removesuffix("_t"), 4) if mt else 4
+            # КАЛИБРОВКА №22: ПАРНЫЙ гард на обоих множителях (DCMTK).
+            if _paired_bound_ok(guard, factors, k_lit, scale, signed):
+                continue
             cap = 65535 if any("u16" in mk for mk in marks) else None
             # КАЛИБРОВКА №21: свидетель обязан опираться на РЕАЛЬНО tainted
             # множители. Прежний `max(..., n_vars)` ВЫДУМЫВАЛ второй

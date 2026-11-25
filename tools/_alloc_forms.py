@@ -66,6 +66,30 @@ def analyse_z3_alloc_staged(src: str, path: str) -> list:
         if not re.search(USE_OF + r"[^;]{0,80}\b" + re.escape(name) + r"\b",
                          src[m.end(): m.end() + 800]):
             continue
+        # КАЛИБРОВКА №22: парный гард обязан проверяться И ЗДЕСЬ. Форма E
+        # раньше вообще не смотрела на защиту — отсюда единственный кандидат
+        # аудита (`DCMTK/dcddirif.cc:4543`, где оба множителя ограничены).
+        # ВНИМАНИЕ: `_has_safe_left_wide_cast` живёт в `_witness`, а НЕ в api_hunt.
+        # ИЗМЕРЕНО: неверный импорт дал ImportError, который в api_hunt ловится
+        # как `except ImportError: pass` и МОЛЧА отключал всю форму E — все три
+        # контроля показывали 0, и это выглядело как «чисто». Это тот же класс,
+        # что #657/#661: тихий отказ, замаскированный под результат.
+        from api_hunt import _paired_bound_ok
+        from _witness import has_safe_left_wide_cast as _has_safe_left_wide_cast
+        _guard = src[max(0, m.start() - 1500): m.start()]
+        try:
+            # каст ищем только в ПРАВОЙ ЧАСТИ: объявление `unsigned long size = …`
+            # само по себе не защита (иначе форма E глушилась целиком)
+            _rhs = m.group(0).split("=", 1)[1] if "=" in m.group(0) else ""
+            if _has_safe_left_wide_cast(_rhs):
+                continue
+        except Exception:
+            pass
+        if re.search(r"SIZE_MAX\s*/", _guard):
+            continue
+        _signed = bool(re.search(r"int\s+" + re.escape(name) + r"", src))
+        if _paired_bound_ok(_guard, [a, b], int(k_lit) if k_lit else 1, 1, _signed):
+            continue
         marks = [mk for mk in (_window_taint(src, m.start(), a),
                                _window_taint(src, m.start(), b)) if mk]
         if not marks:
