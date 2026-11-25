@@ -568,6 +568,29 @@ core/src/data/key.rs:909:9: lookup by an equal key must hit
 
 Upstream: [#2096](https://github.com/gluesql/gluesql/issues/2096).
 
+
+## Case W — `Dicklesworthstone/fast_vector_similarity` (430 ★): `normalized_mutual_information` panics on `NaN` (`#2`)
+
+`src/lib.rs:303-306` compute the extrema of the input with
+`partial_cmp(...).unwrap()`. `f64::NAN` is a valid value of the parameter type, and
+`partial_cmp` returns `None` exactly then, so any caller whose data contains `NaN`
+(CSV imports, results of other float computations) gets an abort instead of a number.
+
+```rust
+let x = Array1::from(vec![1.0_f64, f64::NAN, 2.0]);
+let y = Array1::from(vec![1.0_f64, 2.0, 3.0]);
+normalized_mutual_information(&x, &y);
+// thread 'main' panicked at src/lib.rs:303:62: called `Option::unwrap()` on a `None` value
+```
+
+**Why this is not intended behaviour:** three other sites in the SAME file (`:16`, `:111`,
+`:417`) already use `unwrap_or(std::cmp::Ordering::Equal)`. The author has therefore
+already chosen the safe form elsewhere, and the proposed fix simply applies it to the
+remaining four lines.
+
+Reproduced locally: `cargo run --release`, commit `5048c1a`, x86_64 Linux.
+Upstream: [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2).
+
 ## Upstream outcomes
 
 Latest verified state of the reports above:
