@@ -373,3 +373,28 @@ olive.c: PNG-снимки тестов) и все три проверяют ра
 целях доказывать нечего. Следующие цели того же класса: `pydantic`, `starlette`,
 `tomli-w` + `tomllib`, `urllib.parse` (там `+` vs `%20` — исторический источник
 несимметричности).
+
+## 15. `pydantic` NaN round-trip: НЕ дефект, осознанный компромисс (проверено до репорта)
+
+Наблюдение (3 строки): `F.model_validate_json(F(f=nan).model_dump_json())` падает, потому
+что дефолт `ser_json_inf_nan="null"` пишет `{"f":null}`, а поле `f: float` принимает только
+число. Выглядит как нарушение `decode(encode(x)) == x`.
+
+**Проверено ДО любого обращения в трекер (урок `typst#9103`/`gleam#6524`):**
+
+| Проверка | Результат |
+|:--|:--|
+| трекер `pydantic/pydantic` по `ser_json_inf_nan` | **#10037 open** «`model_dump(mode="json")` can output non-serializable NaN», **#12260 open** «Unions do not respect `ser_json_inf_nan`», **#13996 closed** — тема известна и активно ведётся |
+| `ser_json_inf_nan="strings"`, lax | `{"f":"NaN"}` → чтение **OK** (`nan`) — штатный round-trip-режим |
+| `ser_json_inf_nan="strings"`, `strict=True` | **падает** `float_type`, потому что strict-режим отключает приведение `str -> float` — это его документированная семантика |
+| `bytes(b"\xff\xfe")` | `PydanticSerializationError` — bytes не представимы в JSON |
+
+**Вердикт: НЕ репорт.** `null` — единственное RFC-8259-совместимое представление
+нечислового float, выбор сделан осознанно и уже обсуждается в открытых тикетах;
+`strings` — документированный обход для round-trip, а его поведение в `strict=True`
+следует из определения strict. Отправка была бы четвёртым «закрыто как задумано».
+
+**Что осталось верным измерением:** `-0.0`, `2**63`, `-(2**63)-1`, `Decimal("1E+3")`,
+`Decimal("1.500")`, `Union[int,bool]` (`1` -> `1`, `True` -> `true`), `Literal[1, True]`,
+`datetime` наивный и `+00:00` — **все прошли round-trip**. TOML (`tomli-w`+`tomllib`,
+`tomlkit`) на корпусе `\r`, управляющих символов, `2**63`, `nan`, `inf`, пустых таблиц — **0 расхождений**.
