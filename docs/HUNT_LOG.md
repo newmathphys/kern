@@ -107,6 +107,14 @@ is **not a report**, and sending it would be the 25th report we should not write
 `confirm_c` / `live_replay`, which physically invoke the code. Rust laws have no such step
 yet — they match a shape. Until a reachability check exists, Rust hits are **candidates**,
 and the nightly report must say "candidate", never "CONFIRMED".
+**Closure of the `vger` candidate (same day): not a report, and not a bug either.**
+`self.layout` is `fontdue::layout::Layout` (line 1: `use fontdue::layout::{…}`), and that
+layout emits one glyph per character in order, so the index from `glyphs()` cannot exceed
+`text.chars().count()`. The invariant was **not** verified in source — `fontdue` is absent
+from the local crate registry — so the honest status is: *mechanism real, invariant believed
+by documentation, candidate archived*. It is not sent, and the nightly contour must not call
+it CONFIRMED.
+
 
 
 ## Bugs found in KERN itself during hunting
