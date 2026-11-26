@@ -172,11 +172,11 @@ Rule for tomorrow: no new languages/theories and no «improvements» before T1�
 - core tests <!-- fact:core_tests -->460
 - next tests <!-- fact:next_tests -->53
 - catalog <!-- fact:catalog -->502
-- CHECK targets <!-- fact:check_targets -->221
-- can-fail cases <!-- fact:canfail_cases -->268
+- CHECK targets <!-- fact:check_targets -->223
+- can-fail cases <!-- fact:canfail_cases -->270
 - anchors <!-- fact:anchors -->226
 - registry targets <!-- fact:registry_targets -->305
-- META targets <!-- fact:meta_targets -->58
+- META targets <!-- fact:meta_targets -->59
 - Lean theorems <!-- fact:lean_theorems -->147
 - QuixBugs SMT <!-- fact:quixbugs.smt -->6
 - QuixBugs differential <!-- fact:quixbugs.differential -->40

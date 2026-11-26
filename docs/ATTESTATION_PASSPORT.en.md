@@ -1,6 +1,6 @@
 # KERN — ATTESTATION PASSPORT (verified)
 
-> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->221 · cases <!-- fact:canfail_cases -->268 · anchors <!-- fact:anchors -->226 · registry <!-- fact:registry_targets -->305 · META <!-- fact:meta_targets -->58 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
+> **Facts (EN/RU, synced by `make sync`):** core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 · CHECK <!-- fact:check_targets -->223 · cases <!-- fact:canfail_cases -->270 · anchors <!-- fact:anchors -->226 · registry <!-- fact:registry_targets -->305 · META <!-- fact:meta_targets -->59 · Lean <!-- fact:lean_theorems -->147 · QuixBugs <!-- fact:quixbugs.smt -->6/40 SMT + <!-- fact:quixbugs.differential -->40/40 diff.
 
 > English mirror of [`ATTESTATION_PASSPORT.md`](ATTESTATION_PASSPORT.md). **Every number
 > is verified by a run.** Where an earlier claim disagreed with the fact, it is shown in
@@ -31,7 +31,7 @@ Checked: Ed25519 signature, `kid` == key fingerprint,
 > ⚠️ **THIS IS A SNAPSHOT DATED 2026-10-14** (attestation of the migration branch): the
 > numbers inside §0 belong to that revision and are NOT current. Current values (measured
 > by runs): core **402 / 402** (without `z3` in `PATH` — <!-- fact:cross_arch_passed -->443 passed + <!-- fact:cross_arch_skipped -->8 skipped),
-> KERN-Next **53 / 53**, can-fail **221 / 221 CHECK** (268 non-vacuous cases, 0 errors),
+> KERN-Next **53 / 53**, can-fail **223 / 223 CHECK** (270 non-vacuous cases, 0 errors),
 > registry **<!-- fact:registry_targets -->305 targets**, mutation score **100.0 %** (1345/1345), Lean 4 **8 files /
 > 147 theorems / 0 sorry**, test catalogue **425**. Also closed since then: the default
 > `hash_algo` is **BLAKE3** (defect #66), `deflate` (codec `0x02`) **is implemented**, and
@@ -67,7 +67,7 @@ The attestation was produced by the attestation-contour commands; every line is 
 | `make attest` | ✅ `[OK] IMAGE ATTESTED: Vital Kalinousky` — Ed25519 signature VALID, digest + Merkle matched (certificate 136 bytes) |
 | `make slsa` | ✅ `ATTESTATION VALID` — sha256 of `kernc`/`kernx`/`kern-attack` matched, commit matched |
 | `make cert` | ✅ 53 requirements in the traceability matrix (6 qualification files non-empty) |
-| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->268 cases, <!-- fact:check_targets -->221/<!-- fact:check_targets -->221 CHECK**, 0 vacuous |
+| `make canfail` | ✅ *(snapshot 2026-10-14: 60 cases, 56/56 CHECK)* — current: **<!-- fact:canfail_cases -->270 cases, <!-- fact:check_targets -->223/<!-- fact:check_targets -->223 CHECK**, 0 vacuous |
 | `make registry` | ✅ *(snapshot: 75 targets)* — current: **<!-- fact:registry_targets -->305 targets classified** |
 
 ### 0.3 Official benchmarks (EvalPlus, external API)

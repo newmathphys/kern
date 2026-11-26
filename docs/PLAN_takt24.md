@@ -76,7 +76,7 @@ for QF_BV a `[PROOF PARTIAL]` with a named count of trusted steps.
 ## 7. Facts of the tact (machine-checked)
 
 core <!-- fact:core_tests -->460 · next <!-- fact:next_tests -->53 · catalog <!-- fact:catalog -->502 ·
-CHECK targets <!-- fact:check_targets -->221 · can-fail cases <!-- fact:canfail_cases -->268 ·
+CHECK targets <!-- fact:check_targets -->223 · can-fail cases <!-- fact:canfail_cases -->270 ·
 anchors <!-- fact:anchors -->226 · registry targets <!-- fact:registry_targets -->305 ·
-META <!-- fact:meta_targets -->58 · Lean theorems <!-- fact:lean_theorems -->147 ·
+META <!-- fact:meta_targets -->59 · Lean theorems <!-- fact:lean_theorems -->147 ·
 QuixBugs SMT <!-- fact:quixbugs.smt -->6 · QuixBugs differential <!-- fact:quixbugs.differential -->40

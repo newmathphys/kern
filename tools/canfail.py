@@ -4540,6 +4540,39 @@ def case_lia_soundness():
     return "make lia-diff"
 
 
+def case_hunt_filter_guard():
+    """ОКНО №38: ворота ночного контура обязаны уметь ОТКАЗАТЬ.
+
+    ЛОМАЕМ: `div0_verdict` начинает всегда разрешать находку (снимаем правило
+    «внутреннее противоречие»). Тогда фикстура из жизни (#46, tradingview-mcp:
+    `period=0` без единой проверки в файле) снова считается пригодной к отправке,
+    и `tools/hunt_filter.py --selftest` ОБЯЗАН покраснеть. Если `make hunt-gates`
+    остаётся зелёным — ворота декоративны, а ночь снова принесёт шум.
+    """
+    patch("tools/hunt_filter.py",
+          "    return \"\" if div0_has_contradiction(source) else \"PY_DIV0_NO_CONTRADICTION\"",
+          "    return \"\"  # ЛОМАЕМ (#38): противоречие больше не требуется")
+    return "make hunt-gates"
+
+
+def case_transfer_guard():
+    """ОКНО №38: пакет переноса обязан ловить расхождение с деревом.
+
+    ЛОМАЕМ: нормализация волатильного поля `generated_at` отключена, поэтому
+    `--check` объявляет устаревшим уже собранный пакет. Если `make transfer-check`
+    при этом ЗЕЛЁНЫЙ — значит гейт сравнивает не содержимое, а ничего, и дрейф
+    паспорта проекта пройдёт молча (та же ошибка, что у scorecard трижды).
+    """
+    import subprocess as _sp
+    touch("tools/gen_transfer_bundle.py")
+    _sp.run([__import__("sys").executable, "tools/gen_transfer_bundle.py"],
+            cwd=str(ROOT), check=False, capture_output=True, timeout=300)
+    patch("tools/gen_transfer_bundle.py",
+          "    return _VOLATILE.sub(\"<generated_at>\", text)",
+          "    return text  # ЛОМАЕМ (#38): дата снова участвует в сравнении")
+    return "make transfer-check"
+
+
 def case_metrics_guard():
     """Счётчики на витрине (класс #220/#223). ЛОМАЕМ: число каталога в PROJECT.md.
 
@@ -4758,6 +4791,9 @@ CASES = [
     ("svg-overflow",  "SVG: подпись выходит за панель",     case_svg_overflow),
     ("evidence-gate",  "Свидетельства: лог с RC!=0",        case_evidence_gate),
     ("metrics-guard", "Счётчики витрины разошлись с фактами", case_metrics_guard),
+    ("hunt-filter-guard", "Ворота ночного контура перестали отказывать",
+     case_hunt_filter_guard),
+    ("transfer-guard", "Пакет переноса перестал ловить дрейф", case_transfer_guard),
     ("proof-hole",     "Пруф-чекер: правило hole",          case_proof_checker_hole),
     ("simd8-masking",  "SIMD-8: полосное маскирование",      case_simd8_masking),
     ("mcp-selftest",   "MCP: конфликт T⊔F схлопнут в T",    case_mcp_server),

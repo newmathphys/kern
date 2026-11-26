@@ -160,6 +160,12 @@ CLASS = {
     "ecosystem-check": "CHECK",
     "scorecard-check": "CHECK",
     "metrics-guard": "CHECK",
+    # окно №38: ворота ночного контура и пакет переноса. hunt-gates и transfer-check
+    # ОБЯЗАНЫ уметь падать (их can-fail кейсы ниже); transfer-bundle только собирает
+    # пакет — падать ему нечем, поэтому META.
+    "hunt-gates": "CHECK",
+    "transfer-check": "CHECK",
+    "transfer-bundle": "META",
     # Ступень 2 QuixBugs: AST-guided живой прогон. Утверждение — «расхождение
     # ловится, идентичные версии не обвиняются»; негативный контроль внутри
     # цели доказывает, что она способна упасть.
@@ -482,6 +488,8 @@ CASE_TARGET = {
     "svg-overflow": "svg-check",
     "evidence-guard": "evidence-gate",
     "metrics-guard": "metrics-guard",
+    "hunt-filter-guard": "hunt-gates",
+    "transfer-guard": "transfer-check",
     # хардкор-аудит C-ABI (дефект #103): публичный интерфейс теперь под покрытием
     "c-abi-null": "c-abi-test",
     "c-abi-hash": "c-abi-threads",

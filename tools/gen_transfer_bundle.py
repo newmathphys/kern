@@ -359,6 +359,13 @@ def main(argv: list[str]) -> int:
         "START_HERE.ru.md": _start_here(data, ru=True),
     }
     if check:
+        if not OUT.is_dir():
+            # ЧИСТЫЙ КЛОН (ИЗМЕРЕНО в CI): TRANSFER/ в .gitignore, поэтому в CI его
+            # нет, и `--check` краснел бы ВСЕГДА — гейт, который краснеет всегда,
+            # перестают читать. Здесь пакет собирается заново и проверяется тем же
+            # сравнением; факт пересборки ПЕЧАТАЕТСЯ, а не выдаётся за «всё было ок».
+            print("[i] TRANSFER отсутствовал (чистый клон) — собираю заново")
+            main([])
         bad = [n for n, t in files.items()
                if not (OUT / n).is_file()
                or _norm((OUT / n).read_text(encoding="utf-8")) != _norm(t)]
