@@ -1348,7 +1348,16 @@ docs-map-check:
 # ПЕРЕНОСИМЫЙ ПАКЕТ ДОКУМЕНТАЦИИ: TRANSFER/ (START_HERE EN/RU, project.json,
 # INDEX.json, MANIFEST.sha256). `transfer-check` — гейт по образцу scorecard-check:
 # перегенерировать и сравнить, чтобы паспорт не отставал от дерева (трижды краснело).
-.PHONY: transfer-bundle transfer-check
+# ВОРОТА НОЧНОГО КОНТУРА: три selftest в одном месте, чтобы фильтр не сгнил.
+# Каждый из них проверяет и ПОЛОЖИТЕЛЬНЫЙ, и ОТРИЦАТЕЛЬНЫЙ случай: ворота,
+# которые не умеют отказать, — декорация (урок #475).
+.PHONY: hunt-gates
+hunt-gates:
+	@"$(PYTHON)" tools/hunt_filter.py --selftest
+	@"$(PYTHON)" tools/rust_laws_extra.py --selftest
+	@"$(PYTHON)" tools/nightly_hunter.py --selftest
+
+
 transfer-bundle:
 	@"$(PYTHON)" tools/gen_transfer_bundle.py
 transfer-check:
