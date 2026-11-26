@@ -70,6 +70,7 @@ Every one of these was found because the report disagreed with the artifact:
 | `#657` | the histogram cut its tail | 64 of 103 skip reasons were invisible |
 | `#661` | the skip reason named the wrong stage | the note pointed at a decoder instead of the recogniser |
 | `#663` | the proof-category sum did not equal the step count | the centrepiece number was arithmetically wrong |
+| `#522` | assignments **inside blocks that unconditionally exit** cancelled a valid path predicate | `lg/src/util/tsort.c::collapse` gave 3 false `[BOUNDS PATH]`: the guard `if (stack_curr <= 1) break;` yields `stack_curr > 1`, but `stack_curr--` from two later blocks that both `break` out silently dropped it. Fixed by masking the spans of exiting blocks (measured: fixture `1 → 0`, `tsort.c` `6 → 3`, `lg/src/util` `7 → 4`, `cmark-gfm` unchanged at 79 checked / 0 findings) |
 | — | the wasm artifact lagged behind the code | the browser demo reported a verdict for the previous version |
 | — | `except ImportError` silently disabled a detector | the guard did not verify the thing it declared |
 | — | Russian prose in an English README | the limit was not readable by the audience it was written for |

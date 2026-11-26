@@ -8787,6 +8787,78 @@ def _clike_loop_assigned(body: str) -> set[str]:
     return out
 
 
+def _exiting_spans(if_blocks: list, lo: int, hi: int, body: str) -> list:
+    """Спаны ВЫШЕДШИХ блоков внутри `[lo, hi)`, чьи присваивания до `hi` НЕ ДОХОДЯТ.
+
+    ДЕФЕКТ #522 (ИЗМЕРЕНО на `lg/src/util/tsort.c::collapse`: 3 ЛОЖНЫХ
+    `[BOUNDS PATH]`). Гард `if (stack_curr <= 1) break;` даёт предикат
+    `stack_curr > 1`. Но между концом этого блока и точкой анализа лежат блоки,
+    которые ТОЖЕ безусловно выходят и внутри себя делают `stack_curr--;`.
+    Проверка «имя переприсвоено между гардом и позицией» видела эти присваивания
+    как обычные и ВЫБРАСЫВАЛА действующий предикат — после чего
+    `stack[stack_curr - 3]` объявлялся отрицательным индексом.
+
+    ПРИНЦИП. Присваивание в блоке, который безусловно уводит управление
+    (`return`/`break`/`continue` в конце блока), на путь, доходящий до `hi`, не
+    попадает — его нельзя считать переприсваиванием.
+
+    ПОЧЕМУ СКАН ТЕКСТА, А НЕ `if_blocks` (проверено замером). Блоки с условием,
+    которое не переводится в SMT (`(stack_curr == 2) && (stack[0].length + …)`),
+    в `if_blocks` НЕ РЕГИСТРИРУЮТСЯ — именно они и терялись: после первой
+    версии правки `tsort.c` по-прежнему давал 6 находок, хотя минимальная
+    фикстура (`/tmp/col.c`) уходила 1 → 0. Для МАСКИ нужен только СПАН, а не
+    предикат, поэтому спаны собираются по тексту тем же шаблоном `if (...)`,
+    которым пользуется регистрация.
+
+    ЗВУЧИМОЕ ОГРАНИЧЕНИЕ. Маскировать можно только блок, который НЕ вложен в
+    цикл или `switch`, НАЧИНАЮЩИЙСЯ внутри `[lo, hi)`: `break` оттуда `hi` не
+    уводит, и присваивание там исполняется ДО `hi`. Такой блок не маскируется —
+    лучше сохранить консервативный пропуск, чем выдумать предикат (урок
+    #178/#183).
+    """
+    spans = []
+    for m in _RE_CLIKE_IF.finditer(body, lo, hi):
+        ce = m.end()
+        be = _clike_block_end(body, ce, "")
+        if be <= lo or be > hi:
+            continue
+        blk = body[ce:be]
+        exits = bool(re.match(r"\s*\{?\s*(return|break|continue)\b", blk))
+        if not exits and blk.lstrip().startswith("{"):
+            _stmts = [s.strip() for s in re.split(r"[;}\n]", blk.lstrip()[1:]) if s.strip()]
+            exits = bool(_stmts) and bool(re.match(r"(return|break|continue)\b", _stmts[-1]))
+        if exits:
+            spans.append((ce, be))
+    for (_ce, _be, _c, _e) in if_blocks:
+        if _e and lo <= _ce and _be <= hi:
+            spans.append((_ce, _be))
+    if not spans:
+        return []
+    # Области циклов и `switch`, начинающихся ВНУТРИ [lo, hi).
+    loops = []
+    for m in re.finditer(r"\b(?:for|while|switch)\s*\(", body[lo:hi]):
+        _p = lo + m.end() - 1
+        depth, j = 0, _p
+        while j < len(body):
+            if body[j] == "(":
+                depth += 1
+            elif body[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        if depth == 0:
+            loops.append((_p, _clike_block_end(body, j + 1, "")))
+    out = []
+    for s0, s1 in spans:
+        if any(l0 < s0 and s1 <= l1 for l0, l1 in loops):
+            continue          # выход из вложенного цикла: присваивание ДОЙДЁТ
+        if (s0, s1) not in out:
+            out.append((s0, s1))
+    return out
+
+
+
 def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
     """Условия, действующие В ПОЗИЦИИ `pos` (дефекты #318 и #401).
 
@@ -8850,7 +8922,19 @@ def _clike_conds_at(pos: int, if_blocks: list, body: str = "") -> list[str]:
         # fe->mask = …; if (fd == L->maxfd && fe->mask == 0)` -> ЛОЖНЫЙ
         # `[DEAD BRANCH]` (UNSAT). Та же ошибка давала 3 из 5 FP на слепом
         # замере (redis: ae.c, acl.c; tigerbeetle: samples/main.c).
-        _mut = _assigned_between(body, be, pos)
+        # ДЕФЕКТ #522: присваивания ВНУТРИ выведших блоков до `pos` не доходят —
+        # см. `_exiting_spans`. Без этой маски предикат от предыдущего гарда
+        # выбрасывался, и `tsort.c::collapse` давал 3 ЛОЖНЫХ `[BOUNDS PATH]`.
+        _spans = _exiting_spans(if_blocks, be, pos, body)
+        _mut_region = body
+        if _spans:
+            _buf = list(body)
+            for _s0, _s1 in _spans:
+                for _k in range(_s0, min(_s1, len(_buf))):
+                    if _buf[_k] != "\n":
+                        _buf[_k] = " "
+            _mut_region = "".join(_buf)
+        _mut = _assigned_between(_mut_region, be, pos)
         if _mut and (_mut_names_for(set(re.findall(r"[A-Za-z_]\w*", cond))) & _mut):
             continue
         par = _parent(i)
