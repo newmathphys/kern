@@ -10,7 +10,7 @@
 
 | Class | Count | Meaning |
 | --- | --- | --- |
-| Targets, total | <!-- fact:registry_targets -->302 | every goal this repository claims to verify |
+| Targets, total | <!-- fact:registry_targets -->305 | every goal this repository claims to verify |
 | CHECK | <!-- fact:check_targets -->221 | must be able to fail |
 | MEASURE | 4 | cannot fail — therefore not a proof |
 | BUILD | <!-- fact:build_targets -->14 | L0 only: it compiles |

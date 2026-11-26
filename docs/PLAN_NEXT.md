@@ -175,7 +175,7 @@ Rule for tomorrow: no new languages/theories and no «improvements» before T1�
 - CHECK targets <!-- fact:check_targets -->221
 - can-fail cases <!-- fact:canfail_cases -->268
 - anchors <!-- fact:anchors -->226
-- registry targets <!-- fact:registry_targets -->302
+- registry targets <!-- fact:registry_targets -->305
 - META targets <!-- fact:meta_targets -->58
 - Lean theorems <!-- fact:lean_theorems -->147
 - QuixBugs SMT <!-- fact:quixbugs.smt -->6
