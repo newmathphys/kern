@@ -1,0 +1,164 @@
+# Copyright (c) 2026 Vital Kalinousky. SPDX-License-Identifier: AGPL-3.0-or-later. Commercial use requires a separate license — see LICENSE-COMMERCIAL.md
+#
+# ЧТО ЭТО. Гейт PR, который работает на ГОТОВОМ АРХИВЕ РЕЛИЗА
+# (`kerna-dist-v<ver>.tar.gz`), а не на сборке из исходников: клиенту не нужны
+# ни `.venv`, ни Zig, ни `pip install`. Апплаенс (`./kerna`) НЕ требует Python;
+# Python раннера используется ТОЛЬКО шагом отчёта (та же логика дельты, что
+# `make audit-delta` — одна реализация на оба пути, `tools/audit_delta.py`).
+#
+# ПОЧЕМУ ДЕЛЬТА, А НЕ «ВСЕ НАХОДКИ». Полный аудит чужого репозитория даёт
+# находки, которые были там ДО PR: блокировать по ним — значит запретить
+# пользоваться инструментом. Гейт падает на находках, которые внесло ИМЕННО это
+# изменение. Если `base` не задан, базой считается ПУСТОЕ дерево — тогда
+# «новой» является каждая находка (режим полного аудита).
+#
+# SARIF 2.1.0 (`sarif-file`). Дефект #497 закрыт ДЕЛОМ, а не вырезанием
+# обещания: раньше `--sarif` принимался, а файл не создавался. Теперь и
+# `--xray DIR --sarif OUT`, и `--delta BASE HEAD --sarif OUT` пишут валидный
+# SARIF 2.1.0 с ПРАВИЛАМИ KERN005–KERN009 и РЕАЛЬНЫМ номером строки (из текста
+# находки, «строка 12»). Если строка в находке не указана — `startLine: 1` и это
+# написано в сообщении (догадка не выдаётся за факт). Файл создаётся только
+# когда он запрошен; проверяется гейтом `make action-check` (файл на диске,
+# `version == "2.1.0"`, число results == числу регрессов, `startLine >= 1`).
+#
+# КОДЫ ВОЗВРАТА (проверяются гейтом `make action-check`, а не «на глаз»):
+#   0 — новых находок нет;  1 — есть (PR блокируется);
+#   2 — ДИСТРИБУТИВ НЕПОЛОН / нет решателя (`--doctor`), это НЕ «код чист»;
+#   3 — артефакт релиза не сошёлся по SHA-256 или не распаковался.
+#
+# `KERN_RELEASE_BASE` — точка подмены источника релиза (локальный `file://` в
+# гейте `make action-check`: те же шаги без сети). В CI она не задаётся.
+name: 'KERN verification gate'
+description: 'Zero-trust gate for AI-generated code: downloads the KERN appliance archive, VERIFIES its SHA-256 before extracting, then blocks a pull request only on findings that THIS change introduced (audit delta base -> head). The appliance needs no Python or Zig; the delta report step uses the runner python3.'
+author: 'Vital Kalinousky'
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  path:
+    description: 'Directory or file to audit (the head side).'
+    required: false
+    default: '.'
+  base:
+    description: 'Git ref to compare against (e.g. origin/main). Empty = empty tree, so EVERY finding counts as new.'
+    required: false
+    default: ''
+  sarif-file:
+    description: 'If set, write a SARIF 2.1.0 report of findings INTRODUCED by this change to this path (upload it with github/codeql-action/upload-sarif).'
+    required: false
+    default: ''
+  block-on-diverged:
+    description: 'Also fail when the CHANGE alters a function behaviour (semantic delta), not only on new --xray threats. Off by default: a fix and a bug look the same without tests.'
+    required: false
+    default: 'false'
+  version:
+    description: 'KERN release tag whose kerna-dist archive is downloaded.'
+    required: false
+    default: 'v2.8.26'
+
+outputs:
+  report:
+    description: 'Path to the audit-delta JSON report.'
+    value: ${{ steps.delta.outputs.report }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download the appliance archive, VERIFY SHA-256, extract, doctor
+      id: install
+      shell: bash
+      run: |
+        set -euo pipefail
+        base_url="${KERN_RELEASE_BASE:-https://github.com/newmathphys/kern/releases/download/${{ inputs.version }}}"
+        asset="kerna-dist-${{ inputs.version }}.tar.gz"
+        rel="$RUNNER_TEMP/kern-release"
+        app="$RUNNER_TEMP/kerna-app"
+        rm -rf "$rel" "$app"
+        mkdir -p "$rel"
+        curl -fsSL -o "$rel/$asset" "$base_url/$asset" \
+          || { echo "::error::нет ассета $asset в релизе ${{ inputs.version }}"; exit 3; }
+        curl -fsSL -o "$rel/SHA256SUMS" "$base_url/SHA256SUMS" \
+          || { echo "::error::нет SHA256SUMS в релизе ${{ inputs.version }}"; exit 3; }
+        # SUPPLY-CHAIN: архив не распаковывается до сверки с опубликованной суммой.
+        ( cd "$rel"
+          grep " ${asset}\$" SHA256SUMS > sums.release \
+            || { echo "::error::SHA256SUMS релиза не объявляет $asset"; exit 3; }
+          sha256sum -c sums.release \
+            || { echo "::error::архив НЕ сошёлся по SHA-256 — распаковка запрещена"; exit 3; } )
+        mkdir -p "$app"
+        tar -xzf "$rel/$asset" -C "$app" \
+          || { echo "::error::архив не распаковался"; exit 3; }
+        root="$app/kerna-dist-${{ inputs.version }}"
+        [ -x "$root/kerna" ] || { echo "::error::в архиве нет ./kerna"; exit 3; }
+        # ВНУТРЕННЯЯ ЦЕЛОСТНОСТЬ: каждая распакованная часть (kernc, z3, LIMITS) сверена.
+        ( cd "$root" && sha256sum -c SHA256SUMS >/dev/null ) \
+          || { echo "::error::содержимое архива не сошлось по SHA-256"; exit 3; }
+        echo "[i] архив распакован и сверен: $root"
+        # НАЗВАННЫЙ ОТКАЗ, а не «находок 0»: rc=2 = неполный дистрибутив.
+        "$root/kerna" --doctor
+        echo "KERNA_APP=$root" >> "$GITHUB_ENV"
+        echo "$root" >> "$GITHUB_PATH"
+
+    - name: Materialise the base tree (empty when no base is given)
+      id: base_tree
+      shell: bash
+      run: |
+        set -euo pipefail
+        base_dir="$RUNNER_TEMP/kern-base"
+        rm -rf "$base_dir"
+        mkdir -p "$base_dir"
+        ref="${{ inputs.base }}"
+        if [ -n "$ref" ]; then
+          git fetch --no-tags --depth=1 origin "$ref"
+          git archive --format=tar FETCH_HEAD | tar -x -C "$base_dir"
+          echo "[i] база: $ref (файлов: $(find "$base_dir" -type f | wc -l))"
+        else
+          echo "[i] база не задана: пустое дерево, КАЖДАЯ находка считается новой"
+        fi
+        echo "KERN_BASE=$base_dir" >> "$GITHUB_ENV"
+
+    - name: 'Audit delta: base -> head (rc=1 only on findings this change introduced)'
+      id: delta
+      shell: bash
+      run: |
+        set -euo pipefail
+        report="$RUNNER_TEMP/kern-delta.json"
+        # #511/#513: дельту считает САМ бинарник (`./kerna --delta`, вшитый
+        # `audit_delta`), поэтому Action не зависит ни от чекаута репозитория
+        # KERN, ни от python-окружения. `--block-on-diverged` НЕ передаётся:
+        # изменение поведения — это и баг, и починка; по умолчанию блокируют
+        # только НОВЫЕ находки `--xray` (см. input `block-on-diverged`).
+        flag=""
+        [ "${{ inputs.block-on-diverged }}" = "true" ] && flag="--block-on-diverged"
+        # #513 (ИЗМЕРЕНО и ЗАКРЫТО). Причина «тихого зелёного» была двойной:
+        #   (1) `kernc` в архиве собирался под ISA раннера GitHub (165 инструкций
+        #       AVX-512) → на CPU без AVX-512 SIGILL(132), `--diff-equiv` печатал
+        #       `[TOOL_ERROR]`; теперь сборка `-Dcpu=baseline` (+гейт ISA при
+        #       упаковке), а отказ инструмента в `audit_delta` — это rc=2, а не
+        #       «поведение НЕ разошлось» (класс #499);
+        #   (2) проверка гонялась с `PYTHONPATH` на репозиторий, где лежали
+        #       исходники, — то есть мерила не то, что уезжает клиенту.
+        # Поэтому теперь честный путь — САМ апплаенс, и он же покрыт
+        # `make action-check REAL=1` и `kerna-check` (R6 — DIVERGED,
+        # R7 — сломанный `kernc` обязан дать rc=2, а не «НЕ разошлось»).
+        sarif="${{ inputs.sarif-file }}"
+        sarif_arg=""
+        [ -n "$sarif" ] && sarif_arg="--sarif $sarif"
+        rc=0
+        "$KERNA_APP/kerna" --delta "$KERN_BASE" "${{ inputs.path }}" $flag $sarif_arg --json \
+          > "$report" || rc=$?
+        if [ -n "$sarif" ]; then
+          if [ -s "$sarif" ]; then
+            echo "::notice::KERN: SARIF 2.1.0 записан в $sarif"
+          else
+            echo "::error::KERN: запрошен sarif-file, но файл НЕ создан ($sarif)"
+            exit 2
+          fi
+        fi
+        cat "$report"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        if [ "$rc" -eq 1 ]; then
+          echo "::error::KERN: это изменение ВНЕСЛО новое обвинение (список выше)"
+        fi
+        exit "$rc"

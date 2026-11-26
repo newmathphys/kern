@@ -86,6 +86,9 @@ def is_library(root: Path) -> bool:
 
 sys.path.insert(0, str(TOOLS))
 import live_replay as LR  # noqa: E402  — запечатанный контур из окна №16
+import hunt_filter as HF  # noqa: E402  — три ворот перед публикацией
+import law_hunter as LH    # noqa: E402  — три проверенных Rust-класса
+import rust_laws_extra as RLX  # noqa: E402  — nan-sort и utf8-nth (их не было)
 
 
 def _run(cmd, cwd=None, timeout=300):
@@ -259,6 +262,12 @@ def confirm_c(path: Path, finding: dict, work: Path) -> tuple:
 
 def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
     """Один репозиторий: клон -> рентген -> подтверждение. Возвращает результат."""
+    _blocked = HF.is_blocked(repo, HF.load_blocklist())
+    if _blocked:
+        # ОКНО №38. ИЗМЕРЕНО на #44/#46: ночь дважды принесла ОДИН И ТОТ ЖЕ
+        # пакет. Отчёт по нему уже отправлен, значит цикл потрачен дважды.
+        return {"repo": repo, "sha": "", "error": "blocked: " + _blocked,
+                "items": [], "errors": 0, "artifacts": 0}
     dest = work_root / repo.replace("/", "__")
     sha = clone(repo, dest)
     if not sha:
@@ -270,7 +279,7 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
              if p.suffix in SRC_EXT and p.is_file() and ".git" not in p.parts
              and is_public_path(p.relative_to(dest))]
     files.sort(key=lambda p: p.stat().st_size)
-    items, errors, artifacts = [], 0, 0
+    items, errors, artifacts, suppressed, misattributed = [], 0, 0, 0, 0
     for p in files[:max_files]:
         try:
             findings = _scan_file(p)
@@ -284,11 +293,27 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                 if row["verdict"] == "TYPE_ARTIFACT":
                     artifacts += 1
                     continue
+                if row["verdict"] == "BRANCH_MISMATCH":
+                    # ОКНО №38. ИЗМЕРЕНО (#46, calc_bollinger): tb=99 при
+                    # заявленной строке 106 — падение НЕ на той строке, которую
+                    # мы называем. Это дефект ТРАССИРОВКИ, а не находка: пока
+                    # он попадал в отчёт как SMT_CANDIDATE, человек шёл читать
+                    # несуществующую строку. Считаем отдельно и НЕ публикуем.
+                    misattributed += 1
+                    continue
                 if row["verdict"] == "CONFIRMED":
                     level = "CONFIRMED" if is_public(row["fn"]) else "PRIVATE_HELPER"
                     items.append({"level": level, "file": str(p.relative_to(dest)),
                                   "line": row["line"], "fn": row["fn"],
                                   "detail": row["detail"], "model": row.get("model") or {}})
+                elif row["kind"] == "div0" and HF.div0_verdict(
+                        p.read_text(encoding="utf-8", errors="replace")):
+                    # ОКНО №38. ИЗМЕРЕНО (#46, tradingview-mcp): 4 «CONFIRMED»
+                    # были ZeroDivisionError при period=0, и проверки period в
+                    # файле НЕТ НИ ОДНОЙ — это контракт вызывающего, а не
+                    # противоречие внутри библиотеки. Такую находку не несём
+                    # людям: считаем её и НАЗЫВАЕМ причину.
+                    suppressed += 1
                 elif row["kind"] in ("div0", "bounds", "none_attr", "none_type"):
                     items.append({"level": "SMT_CANDIDATE",
                                   "file": str(p.relative_to(dest)), "line": row["line"],
@@ -304,6 +329,39 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                               "line": f["line"], "fn": f["fn"], "detail": detail,
                               "model": f.get("model") or {}})
         elif p.suffix == ".rs":
+            # ТРИ ПРОВЕРЕННЫХ КЛАССА (окно №38): eq-hash, eq-ord, ord-non-total
+            # живут в law_hunter и уже дали влитые фиксы в Zed и Woxi. Именно
+            # они, а не Python-деление, приносят готовое к отправке.
+            try:
+                _src = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                _src = ""
+            if _src:
+                for _law in (LH.check_rust_eq_hash, LH.check_rust_derive_ord,
+                             LH.check_rust_ord_non_total):
+                    try:
+                        for it in _law(_src):
+                            items.append({"level": "LAW_CONFIRMED", "file": str(
+                                p.relative_to(dest)), "line": 0,
+                                "fn": it.get("symbol", "") or "",
+                                "detail": "%s :: %s" % (it.get("law"),
+                                                        str(it.get("detail", ""))[:160]),
+                                "model": {}})
+                    except Exception:
+                        errors += 1
+                # ЕЩЁ ДВА КЛАССА (окно №38). ИЗМЕРЕНО: law_hunter на `fvs`
+                # давал 0 находок, хотя nan-sort найден там руками; эти два
+                # детектора дают fvs 4, iced 3, nushell 2 (2011 файлов).
+                try:
+                    for it in RLX.find_all(_src):
+                        items.append({"level": "LAW_CONFIRMED", "file": str(
+                            p.relative_to(dest)), "line": it.get("line", 0),
+                            "fn": it.get("symbol", ""),
+                            "detail": "%s :: %s" % (it.get("law"),
+                                                    str(it.get("detail", ""))[:150]),
+                            "model": {}})
+                except Exception:
+                    errors += 1
             for f in findings:
                 level, detail = confirm_rust(p, f, work_root / repo.replace("/", "__") / "w")
                 items.append({"level": level, "file": str(p.relative_to(dest)),
@@ -316,7 +374,63 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                               "model": f.get("model") or {}})
     (work_root / repo.replace("/", "__") / "w").mkdir(parents=True, exist_ok=True)
     return {"repo": repo, "sha": sha, "error": "", "items": items,
-            "errors": errors, "artifacts": artifacts}
+            "errors": errors, "artifacts": artifacts, "suppressed": suppressed,
+            "misattributed": misattributed}
+
+
+def _fetch_policy(repo: str) -> str:
+    """Тексты CONTRIBUTING/SECURITY (или пусто). Сеть падает — пусто."""
+    out = []
+    for name in ("CONTRIBUTING.md", "SECURITY.md", ".github/CONTRIBUTING.md"):
+        url = "https://raw.githubusercontent.com/%s/HEAD/%s" % (repo, name)
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                out.append(r.read(200_000).decode("utf-8", "replace"))
+        except Exception:
+            continue
+    return "\n".join(out)
+
+
+def _publish_gates(results: list) -> dict:
+    """ВОРОТА 2 и 3 перед публикацией: политика репозитория и дубли тикетов.
+
+    ИЗМЕРЕНО на разборе #46: два из шести репозиториев ночи выпадали либо по
+    политике, либо как дубль уже известного тикета — и оба дошли до выпуска,
+    потому что проверка была ручной. Здесь она обязательна и с причиной.
+    Отсутствие `gh` — это `not_checked`, а не «всё хорошо».
+    """
+    stats = {"policy_ban": 0, "duplicate": 0, "not_checked": 0}
+    pol_cache = {}
+    for r in results:
+        repo = r.get("repo", "")
+        if not r.get("items"):
+            continue
+        if repo not in pol_cache:
+            pol_cache[repo] = HF.policy_verdict(_fetch_policy(repo))
+        ban = pol_cache[repo]
+        kept = []
+        for it in r["items"]:
+            if it.get("level") not in ("CONFIRMED", "RUNTIME_CONFIRMED", "LAW_CONFIRMED"):
+                kept.append(it)
+                continue
+            if ban:
+                stats["policy_ban"] += 1
+                it["level"], it["detail"] = "SUPPRESSED_POLICY", ban
+                kept.append(it)
+                continue
+            sig = "%s %s" % (it.get("file", ""), it.get("fn", ""))
+            try:
+                rows = HF.gh_issues(repo, str(it.get("fn") or it.get("file") or "bug"))
+            except Exception:
+                stats["not_checked"] += 1
+                rows = []
+            dup = HF.duplicate_of(rows, sig)
+            if dup:
+                stats["duplicate"] += 1
+                it["level"], it["detail"] = "SUPPRESSED_DUPLICATE", dup
+            kept.append(it)
+        r["items"] = kept
+    return stats
 
 
 def _slug(repo: str, it: dict) -> str:
@@ -497,7 +611,30 @@ def selftest() -> int:
         ok = _scan_file(safe) == []
         print("[%s] safe code -> 0 findings" % ("OK" if ok else "FAIL"))
         bad += 0 if ok else 1
-    print("[NIGHTLY-HUNTER-SELFTEST] точек 10 | провалов: %d" % bad)
+    # 11-я точка (окно №38): репозиторий из чёрного списка не клонируется.
+    _r = hunt_repo("zed-industries/zed", w, 1)
+    ok = str(_r.get("error", "")).startswith("blocked")
+    print("[%s] blocklist -> %s" % ("OK" if ok else "FAIL", _r.get("error", "")[:60]))
+    bad += 0 if ok else 1
+
+    # 12-я точка: Python div0 БЕЗ внутреннего противоречия не доходит до отчёта.
+    ok = HF.div0_verdict(SELFTEST_PY) == "PY_DIV0_NO_CONTRADICTION"
+    print("[%s] div0 без противоречия -> подавлен" % ("OK" if ok else "FAIL"))
+    bad += 0 if ok else 1
+
+    # 13-я точка: ворота 2 и 3 снимают находку, а не помечают её «наверное ок».
+    fake = [{"repo": "example/lib", "sha": "x", "items": [
+        {"level": "CONFIRMED", "file": "a.py", "line": 1, "fn": "f",
+         "detail": "d", "model": {}}]}]
+    _orig = globals()["_fetch_policy"]
+    globals()["_fetch_policy"] = lambda repo: "We do not accept AI-generated PRs."
+    st = _publish_gates(fake)
+    globals()["_fetch_policy"] = _orig
+    ok = st.get("policy_ban") == 1 and fake[0]["items"][0]["level"] == "SUPPRESSED_POLICY"
+    print("[%s] политика репозитория -> SUPPRESSED_POLICY" % ("OK" if ok else "FAIL"))
+    bad += 0 if ok else 1
+
+    print("[NIGHTLY-HUNTER-SELFTEST] точек 13 | провалов: %d" % bad)
     return 0 if bad == 0 else 1
 
 
@@ -509,11 +646,14 @@ SHARD_TOPICS = {
           "portfolio", "orderbook", "amm"),
     "1": ("statistics", "numerical", "geometry", "combinatorics",
           "calculator", "fractions"),
-    "2": ("algorithms", "math", "fixed-point", "dsp", "matrix"),
-    "3": ("amm", "decimal", "fixed-point", "math", "cryptography"),
+    # ОКНО №38: шарды 2 и 3 — RUST. Причина измерена: три класса, которые дали
+    # ВЛИТЫЕ фиксы (nan-sort в fast_vector_similarity, eq-hash в Zed, eq-ord в
+    # Woxi), живут в Rust и находятся детерминированно; Python-деление давало
+    # шум (4 из 4 «CONFIRMED» в #46 — контракт вызывающего).
+    "2": ("rust", "numerical", "geometry", "audio", "graphics"),
+    "3": ("rust", "parser", "compiler", "finance", "physics"),
 }
-TOPICS = ("backtesting", "technical-indicators", "numerical", "fixed-point",
-          "amm", "statistics")
+TOPICS = ("numerical", "statistics", "rust", "geometry", "audio")
 
 
 def main(argv) -> int:
@@ -610,6 +750,7 @@ def main(argv) -> int:
     with tempfile.TemporaryDirectory(prefix="kern_hunt_") as td:
         work = Path(td)
         results = [hunt_repo(r, work, a.max_files) for r in repos]
+        gstats = _publish_gates(results)
         counts = render(results, outdir)
     for r in results:
         if r.get("sha"):
@@ -620,6 +761,9 @@ def main(argv) -> int:
     except OSError:
         pass
     total = sum(counts.values())
+    print("[HUNT] ворота: политика %d | дубли %d | не проверено (нет gh) %d"
+          % (gstats.get("policy_ban", 0), gstats.get("duplicate", 0),
+             gstats.get("not_checked", 0)))
     print("[HUNT] мишеней %d | находок %d | CONFIRMED %d | RUNTIME_CONFIRMED %d | SMT_CANDIDATE %d"
           % (len(results), total, counts.get("CONFIRMED", 0),
              counts.get("RUNTIME_CONFIRMED", 0), counts.get("SMT_CANDIDATE", 0)))

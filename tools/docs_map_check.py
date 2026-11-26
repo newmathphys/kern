@@ -73,6 +73,8 @@ EXEMPT = {
     "HUNT_LOG.md": "рабочий журнал охоты (не ограничение верификатора)",
     "HUNT_LOG.ru.md": "RU-зеркало HUNT_LOG.md",
     "PILOT_T7.ru.md": "RU-зеркало PILOT_T7.md",
+    "ACTION_PR_DELTA.md": "дельта на PR: action, workflow, границы",
+    "ACTION_PR_DELTA.ru.md": "RU-зеркало ACTION_PR_DELTA.md",
     "BELNAP_SOURCES.en.md": "EN-зеркало описано в строке BELNAP_SOURCES.md",
     "CORPORA.en.md": "EN-зеркало описано в строке CORPORA.md",
     "SELF_VERIFICATION.ru.md": "RU-зеркало описано в строке SELF_VERIFICATION.md",

@@ -1,0 +1,17 @@
+# ЧЁРНЫЙ СПИСОК НОЧНОЙ ОХОТЫ: репозитории, по которым мы УЖЕ отправили отчёт.
+#
+# Зачем файл, а не память: ночь находила то же самое второй раз, и на разбор
+# уходило окно (измерено: #44 и #46 — один и тот же пакет, одни и те же строки).
+#
+# Формат: `owner/name  # причина`. Строка `owner/*` закрывает всю организацию.
+# Проверка: python3 tools/hunt_filter.py --selftest (нужно >= 6 записей).
+
+zed-industries/zed                # PR #67346 (Eq≠Hash) влит
+ad-si/Woxi                        # Eq≠Ord, влито апстримом dd05bc2
+Dicklesworthstone/fast_vector_similarity  # #2 (nan-sort) закрыт как completed
+ghdl/*                            # utf8-nth, PR #3521
+mnhrdt/iio                        # PR #24 (13 мест), открыт
+TheAlgorithms/C                   # #1595, #1596 открыты; CI требует ручного апрува
+zqfang/GSEApy                     # паника недостижима (доказано своим же кодом)
+atilaahmettaner/tradingview-mcp   # #46: period=0 — контракт вызывающего, не противоречие
+kernc/backtesting.py              # #46: только NOT_REPLAYABLE (import_failed)

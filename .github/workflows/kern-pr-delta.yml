@@ -1,0 +1,61 @@
+# KERN ДЕЛЬТА НА PULL REQUEST: находки только из ЭТОГО изменения, в интерфейсе ревью.
+#
+# ЗАЧЕМ. Аудит «всего репозитория» на PR бесполезен: ревьюер не может отделить
+# старые находки от новых. `--delta BASE HEAD` отвечает на другой вопрос —
+# «что стало хуже В ЭТОМ изменении» — и выкладывает результат в SARIF 2.1.0,
+# откуда GitHub сам рисует аннотации в файлах PR.
+#
+# ЧЕСТНАЯ ГРАНИЦА (записана в docs/ACTION_PR_DELTA.md): межпроцедурные выводы не
+# моделируются, поэтому «новая находка» = «новый детектор сработал», а не
+# «раньше было безопасно». Гейт блокирует PR только на НОВЫХ находках.
+name: kern-pr-delta
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  security-events: write      # для upload-sarif
+  pull-requests: write
+
+concurrency:
+  group: kern-pr-delta-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  delta:
+    name: verification delta
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # нужна база PR
+
+      - name: KERN delta (SARIF for findings introduced by this change)
+        id: kern
+        uses: ./
+        with:
+          path: .
+          base: ${{ github.event.pull_request.base.sha }}
+          sarif-file: kern-delta.sarif
+          version: v2.8.26
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('kern-delta.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: kern-delta.sarif
+          category: kern-delta
+
+      - name: Keep the delta report as an artifact
+        if: always() && hashFiles('kern-delta.sarif') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: kern-delta-${{ github.event.pull_request.number }}
+          path: |
+            kern-delta.sarif
+            ${{ steps.kern.outputs.report }}
+          retention-days: 14
+          if-no-files-found: warn
