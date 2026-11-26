@@ -52,6 +52,7 @@ jobs:
           python3 tools/canfail.py --selftest
           python3 tools/hunt_filter.py --selftest
           python3 tools/rust_laws_extra.py --selftest
+          python3 tools/confirm_rust.py --selftest
           # #679: 4 воркера = 4 ядра раннера; 258 кейсов x ~9 с = ~39 мин -> ~10 мин.
           # Вердикты те же (кейсы независимы, у каждого свой worktree).
           python3 tools/canfail.py --jobs 4 --skip lean-sorry

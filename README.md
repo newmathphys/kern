@@ -908,6 +908,20 @@ Two clean builds each (`rm -rf .zig-cache` in between):
 
 ---
 
+## Verify a pull request (GitHub Action)
+
+One composite action audits **only what this change introduced** and publishes
+SARIF 2.1.0, so findings appear as annotations inside the review:
+
+```yaml
+- uses: newmathphys/kern-action@v1
+  with:
+    base: ${{ github.event.pull_request.base.sha }}
+    sarif-file: kern-delta.sarif
+```
+
+Details and the honest limits of the gate: `docs/ACTION_PR_DELTA.md`.
+
 ## Quick start
 
 **Requirements:** Zig **0.17.0**, Python 3.12+, `z3` (via `pip install z3-solver`),

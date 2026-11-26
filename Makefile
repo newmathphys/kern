@@ -1356,6 +1356,7 @@ hunt-gates:
 	@"$(PYTHON)" tools/hunt_filter.py --selftest
 	@"$(PYTHON)" tools/rust_laws_extra.py --selftest
 	@"$(PYTHON)" tools/nightly_hunter.py --selftest
+	@"$(PYTHON)" tools/confirm_rust.py --selftest
 
 
 transfer-bundle:

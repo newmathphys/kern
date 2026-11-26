@@ -145,3 +145,17 @@ this repository check documents against artifacts before a push, and why
   report is a cost;
 - **repositories whose policy forbids machine-generated reports** — read first; three
   candidate repositories were dropped for this reason alone.
+
+**Correction about `fvs` (owner's note, 2026-11-26).** The four `nan-sort` hits are
+**historical, not current**: the cached clone is `5048c1a`, older than the upstream fix
+`2ccb3a3` that put `has_non_finite` in front of seven functions. The blacklist rule did
+exactly what it should — the repository is reported and silenced — and the hits only prove
+the detector sees the pre-fix shape. No second issue is opened.
+
+**Reachability stage for Rust exists now.** `tools/confirm_rust.py` builds a probe crate
+depending on the target by path and runs it: `RUNTIME_CONFIRMED` (panic, rc=101),
+`SURVIVED` (ran clean), `NOT_REPLAYABLE` (no Cargo.toml / build failed / no snippet).
+Measured on a crate created inside the test: unguarded `partial_cmp().unwrap()` -> panic
+reproduced; the same code behind `is_finite` -> `SURVIVED`. A `LAW_CANDIDATE` can therefore
+become a proven crash — but only with a probe snippet, since the detector does not know the
+public signature. Without one the honest answer stays `needs_probe`.

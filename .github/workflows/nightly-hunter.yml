@@ -69,6 +69,7 @@ jobs:
         run: |
           python3 tools/hunt_filter.py --selftest
           python3 tools/rust_laws_extra.py --selftest
+          python3 tools/confirm_rust.py --selftest
           python3 tools/nightly_hunter.py --selftest
 
       - name: Охота (шард ${{ matrix.shard }}/4)
