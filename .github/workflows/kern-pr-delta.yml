@@ -51,7 +51,7 @@ jobs:
 
       - name: Keep the delta report as an artifact
         if: always() && hashFiles('kern-delta.sarif') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kern-delta-${{ github.event.pull_request.number }}
           path: |
