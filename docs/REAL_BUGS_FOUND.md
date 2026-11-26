@@ -589,6 +589,10 @@ already chosen the safe form elsewhere, and the proposed fix simply applies it t
 remaining four lines.
 
 Reproduced locally: `cargo run --release`, commit `5048c1a`, x86_64 Linux.
+
+**Fixed upstream:** the issue was closed as completed and the guard was applied to the whole
+file, not only to the reported function - a `has_non_finite` helper now precedes seven
+entry points (`lib.rs:95, 192, 228, 302, 329, 366`), returning `f64::NAN` instead of aborting.
 Upstream: [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2).
 
 

@@ -121,7 +121,7 @@ KERN заблокировал 5/5
 > | `typst/typst` | [#9103](https://github.com/typst/typst/issues/9103) | Closed - by design |
 > | `zed-industries/zed` | [#67334](https://github.com/zed-industries/zed/issues/67334) | Fixed - PR merged |
 > | `gluesql/gluesql` | [#2096](https://github.com/gluesql/gluesql/issues/2096) | Open |
-> | `Dicklesworthstone/fast_vector_similarity` | [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2) | Open |
+> | `Dicklesworthstone/fast_vector_similarity` | [#2](https://github.com/Dicklesworthstone/fast_vector_similarity/issues/2) | Fixed - closed as completed |
 > | `ghdl/ghdl` | [#3521](https://github.com/ghdl/ghdl/issues/3521) | Open |
 
 > **Where the 24 reports stand:** 2 merged upstream (Zed, Woxi) · 6 awaiting a reply (iio PR, Dagster, Boltons, Lance, fast_vector_similarity, ghdl) · 3 blocked by CI (TheAlgorithms/C) · 2 closed by their authors as intended (typst, gleam) · the rest are open issues with no answer yet.
