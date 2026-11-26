@@ -1,109 +1,112 @@
-# Внешняя проверка T7: что запустить и что прислать обратно
+# External check T7: what to run, and what to send back
 
-Эта записка — для человека, который **не участвовал** в разработке KERN. Её цель
-одна: получить числа, снятые на **чужой машине**, и сравнить с нашими. Если числа
-совпадут — воспроизводимость подтверждена чужими руками. Если нет — расхождение
-само по себе дефект, и мы его разбираем.
+This note is for someone who took **no part** in developing KERN. It has one goal:
+numbers produced on **someone else's machine**, compared with ours. If they match,
+reproducibility is confirmed by a stranger. If they do not, the divergence is itself a
+defect and we investigate it.
 
-**Что НЕ нужно:** клонировать репозиторий, ставить Python/Zig/пакеты, читать код.
-**Что нужно:** интернет, ~120 МБ свободного места и 10 минут.
+**What you do NOT need:** cloning the repository, installing Python/Zig/packages,
+reading the code. **What you need:** internet, ~120 MB of free space, and 10 minutes.
 
-## Шаг 1. Скачать релиз и скрипт
+## Step 1. Download the release and the script
 
 ```bash
 mkdir -p ~/kern-t7 && cd ~/kern-t7
 base=https://github.com/newmathphys/kern/releases/download/v2.8.26
 curl -fSLO "$base/kerna-dist-v2.8.26.tar.gz"
 curl -fSLO "$base/SHA256SUMS"
-# скрипт берём из ветки main, а НЕ из тега: в теге v2.8.26 лежит его прежняя
-# версия, которая искала ключ под другим именем и не проверяла подпись.
+# the script comes from the main branch, NOT from the tag: the tag v2.8.26 carries an
+# earlier copy that looked for the key under a different name and did not verify it.
 curl -fSLO https://raw.githubusercontent.com/newmathphys/kern/main/tools/pilot_receipt.sh
 ```
 
-## Шаг 2. Запустить квитанцию
+## Step 2. Run the receipt
 
 ```bash
 KERN_VER=v2.8.26 bash pilot_receipt.sh kerna-dist-v2.8.26.tar.gz 2>&1 | tee receipt.log
 ```
 
-Запуск через `bash` — намеренно: скачанный файл не имеет бита исполнения, а
-`./pilot_receipt.sh` дал бы `Permission denied`. Архив передаётся аргументом,
-поэтому 27 МБ повторно не скачиваются; ключ `kern-owner.pub` скрипт возьмёт из
-релиза сам.
+Invoking through `bash` is deliberate: a file pulled with `curl` has no execute bit, and
+`./pilot_receipt.sh` would answer `Permission denied`. The archive is passed as an
+argument, so the same 25 MB are not downloaded twice; the script fetches the key
+`kern-owner.pub` from the release by itself.
 
-Скрипт сам: сверит SHA-256 архива с опубликованным, проверит Ed25519-подпись
-аттестата, распакует архив, запустит `kerna --doctor`, проверит отсутствие
-AVX-512 (`zmm`) в бэкенде, прогонит контрольную пару (внесённый баг → `rc=1`,
-чистый код → `rc=0`), проверит SARIF 2.1.0 и отказ на несуществующем пути.
+The script will: compare the archive's SHA-256 with the published one, verify the
+attestation's Ed25519 signature, unpack the archive, run `kerna --doctor`, check that the
+binary carries no AVX-512 (`zmm`) instructions, run a control pair (a deliberately broken
+file must give `rc=1`, a clean one `rc=0`), validate SARIF 2.1.0, and confirm that a
+missing path yields `rc=2` rather than a success.
 
-## Шаг 3. Прислать обратно
+## Step 3. Send back
 
-Пришлите `receipt.log` целиком. Интересует две строки:
+Send `receipt.log` in full. Two lines matter:
 
 ```
 PILOT RECEIPT: PASS (9/9) — пришлите этот вывод целиком
 ```
 
-или
+or
 
 ```
 PILOT RECEIPT: FAIL (k/9) — пришлите вывод: расхождение и есть дефект
 ```
 
-Если `FAIL` — ничего не чините и не перезапускайте; именно этот вывод и нужен.
+If it says `FAIL`, do not fix anything and do not re-run: that output is exactly what is
+needed.
 
-## Что подтверждает квитанция
+## What the receipt proves
 
-| Проверка | Что доказывает |
+| Check | What it establishes |
 |---|---|
-| `sha256 == опубликованный` | байты архива не подменены при доставке |
-| подпись Ed25519 | аттестат выпущен владельцем ключа `kern-owner.pub` из того же релиза |
-| `kerna --doctor` | апплаенс самодостаточен: несёт свой Python и решатель |
-| `zmm = 0` | бинарь запустится на процессоре без AVX-512 |
-| контрольная пара `rc=1 / rc=0` | гейт различает «баг внесён» и «код чист» |
-| SARIF + `startLine` | результат пригоден для GitHub Code Scanning |
-| `rc=2` на несуществующем пути | отказ не выглядит успехом |
+| `sha256 == published` | the archive bytes were not substituted in transit |
+| Ed25519 signature | the attestation was issued by the owner of `kern-owner.pub` from the same release |
+| `kerna --doctor` | the appliance is self-contained: it carries its own Python and solver |
+| `zmm = 0` | the binary runs on a CPU without AVX-512 |
+| control pair `rc=1 / rc=0` | the gate distinguishes "a bug was introduced" from "the code is clean" |
+| SARIF + `startLine` | the result is usable by GitHub Code Scanning |
+| `rc=2` on a missing path | a refusal does not look like success |
 
-## Чего квитанция НЕ доказывает
+## What the receipt does NOT prove
 
-- **не** доказывает, что KERN находит все баги (у него измеренный охват формы; см.
+- it does **not** prove that KERN finds all bugs (its coverage is measured; see
   `formal/certification/KNOWN_LIMITATIONS.md`);
-- **не** проверяет точность на вашем коде — для этого нужен отдельный прогон;
-- **не** является аудитом безопасности: она подтверждает целостность артефакта и
-  самодостаточность запуска, а не отсутствие уязвимостей в самом KERN.
+- it does **not** check accuracy on your code — that needs a separate run;
+- it is **not** a security audit: it confirms the integrity of the artifact and the
+  self-sufficiency of the run, not the absence of vulnerabilities in KERN itself.
 
-## Шаблон ответа
+## Reply template
 
 ```
-Дата:
-ОС / CPU:            (uname -a)
-python3 / tar / openssl / xxd:   (версии)
-Строка итога:        PILOT RECEIPT: ...
-Расхождения:         (если были — какие строки)
+Date:
+OS / CPU:            (uname -a)
+python3 / tar / openssl / xxd:   (versions)
+Verdict line:        PILOT RECEIPT: ...
+Divergences:         (if any — which lines)
 ```
 
-Присылать: `receipt.log` + этот шаблон. Этого достаточно, чтобы T7 считался
-закрытым, а расхождение — заведённым дефектом.
+Send: `receipt.log` plus this template. That is enough for T7 to be considered closed, and
+for any divergence to be filed as a defect.
 
-## Проверено на этой самой инструкции (2026-11-24)
+## Verified on this very instruction (2026-11-24)
 
-Команды выше прогнаны буквально, в пустом каталоге, без репозитория:
+The commands above were executed literally, in an empty directory, with no repository:
 
 ```
 -rw-r--r-- 25502314  kerna-dist-v2.8.26.tar.gz
 -rw-r--r--      182  SHA256SUMS
--rw-r--r--     8048  pilot_receipt.sh          ← из main, не из тега
+-rw-r--r--     8048  pilot_receipt.sh          <- from main, not from the tag
 
-── 1b. Подпись аттестата (Ed25519) ──
-  [OK]   подпись аттестата (Ed25519) 0
+-- 1b. Attestation signature (Ed25519) --
+  [OK]   attestation signature (Ed25519) 0
 PILOT RECEIPT: PASS (9/9)
 ```
 
-Две нестыковки, найденные при этой проверке и уже исправленные в инструкции:
+Two mismatches were found by that check and are already fixed in the instruction:
 
-- **скрипт в теге `v2.8.26` — прежней версии.** Он искал ключ под именем
-  `kern_owner_public.pem`, а в релизе лежит `kern-owner.pub`, и подпись честно
-  помечалась пропуском (`PASS 8/8`). Поэтому скрипт берётся из `main`;
-- **скачанный файл без бита исполнения** → `./pilot_receipt.sh` даёт
-  `Permission denied`. Поэтому запуск через `bash`, а архив передаётся
-  аргументом (иначе скрипт качает те же 27 МБ во временный каталог).
+- **the script inside the tag `v2.8.26` is an older copy.** It looked for the key under
+  the name `kern_owner_public.pem`, while the release ships `kern-owner.pub`, so the
+  signature was honestly reported as a skip (`PASS 8/8`). The script is therefore taken
+  from `main`;
+- **a downloaded file has no execute bit** → `./pilot_receipt.sh` answers
+  `Permission denied`. Hence `bash`, and the archive is passed as an argument (otherwise
+  the script downloads the same 27 MB into a temporary directory).
