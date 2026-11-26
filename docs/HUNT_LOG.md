@@ -61,6 +61,54 @@ what is being claimed there.
 - **open, no response yet:** `ghdl` #3521, `iio` PR #24;
 - **blocked by CI approval:** TheAlgorithms/C #1595, #1596.
 
+## 2026-11-26 — Rust laws: precision measured, one candidate reproduced, one report withheld
+
+The nightly contour was rebuilt into a filter (three mandatory gates) and the shards moved
+to Rust. Turning detectors on immediately produced a result about **the detectors**:
+
+| Repository | Hits before reading | Hits after the `is_finite` fix |
+|---|--:|--:|
+| `fvs` | 4 | 4 |
+| `vger` | 2 | 2 |
+| `iced` | 3 | **0** |
+| `nushell` | 2 (of 2011 files) | 2 (of 1594, `examples/` excluded) |
+
+**The three `iced` hits were MY false positives, not their bugs.** `core/src/gradient.rs:70`
+sorts by `partial_cmp(&offset).unwrap()`, and one line above stands
+`if offset.is_finite() && (0.0..=1.0).contains(&offset)` — the guard makes `partial_cmp`
+total, so no panic is possible. The detector did not know `is_finite`; now it does, and the
+shape is pinned as a calibration case (`_FINITE`), so the same mistake cannot return
+silently. `examples/`, `tests/`, `benches/` are excluded: a panic in an example is not a
+public API contract.
+
+**`vger/src/lib.rs:707` — mechanism proven, report withheld.** The code takes the index from
+an iterator over **glyphs** and applies it to the **string**:
+
+```rust
+for (i, glyph) in self.layout.glyphs().iter().enumerate() {
+    let c = text.chars().nth(i).unwrap();
+```
+
+The mechanism is proven by execution, not by reading — a dependency-free reproducer panics
+exactly there:
+
+```
+glyph 0 -> 'é'
+--- glyphs outnumber characters ---
+thread 'main' panicked at main.rs:7:37: called `Option::unwrap()` on a `None` value   rc=101
+```
+
+What is **not** proven is reachability: nothing shows that `layout.glyphs()` can return more
+glyphs than `text.chars().count()` in this renderer. Under the project's own rule ("the
+defect must be reachable from a call the library exposes") a mechanism without reachability
+is **not a report**, and sending it would be the 25th report we should not write.
+
+**Rule learned, and it is the price of the Rust switch:** a C or Python finding goes through
+`confirm_c` / `live_replay`, which physically invoke the code. Rust laws have no such step
+yet — they match a shape. Until a reachability check exists, Rust hits are **candidates**,
+and the nightly report must say "candidate", never "CONFIRMED".
+
+
 ## Bugs found in KERN itself during hunting
 
 Every one of these was found because the report disagreed with the artifact:

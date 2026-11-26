@@ -34,7 +34,12 @@ from pathlib import Path
 # `partial_cmp(...)` с `.unwrap()`/`.expect(` в той же цепочке, но НЕ `unwrap_or`.
 _NAN_SORT = re.compile(
     r"partial_cmp\s*\([^)]*\)\s*\.\s*(?:unwrap\s*\(\s*\)|expect\s*\()")
-_NAN_OK = re.compile(r"unwrap_or|total_cmp|is_nan|NAN|is_none")
+_NAN_OK = re.compile(r"unwrap_or|total_cmp|is_nan|NAN|is_none|is_finite")
+# ДЕФЕКТ, НАЙДЕННЫЙ ЧТЕНИЕМ (iced/core/src/gradient.rs:70): гард
+# `if offset.is_finite() && (0.0..=1.0).contains(&offset)` делает
+# `partial_cmp` тотальным, а детектор без `is_finite` объявлял панику — ЛОЖНО.
+# Такие примеры идут в калибровку (`_FINITE`), а не в отчёт.
+
 _NO_NAN_TYPES = re.compile(r"\b(Instant|Duration|SystemTime|SystemTimeError)\b")
 # `chars().nth(k).unwrap()` / `.expect(`.
 _UTF8_NTH = re.compile(
@@ -121,6 +126,17 @@ _GUARDED = _FVS_PREFIX.replace(
     "a.1.partial_cmp(&b.1).unwrap()",
     "if a.1.is_nan() { std::cmp::Ordering::Equal } else { "
     "a.1.partial_cmp(&b.1).unwrap() }")
+_FINITE = """
+impl Gradient {
+    pub fn add_stop(mut self, offset: f32) -> Self {
+        if offset.is_finite() && (0.0..=1.0).contains(&offset) {
+            let idx = self.stops.binary_search_by(|s| s.offset.partial_cmp(&offset).unwrap());
+            let _ = idx;
+        }
+        self
+    }
+}
+"""
 _INSTANT = """
 pub fn oldest(times: &[(u64, Instant)]) -> Instant {
     times.iter().min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap().1
@@ -157,19 +173,22 @@ def _selftest() -> int:
 
     ok(len(nan_sort(_FVS_PREFIX)) == 1, "nan-sort: форма из fvs найдена (1)")
     ok(len(nan_sort(_FVS_FIXED)) == 0, "nan-sort: unwrap_or(Equal) — не находка")
-    ok(len(nan_sort(_GUARDED)) == 0, "nan-sort: проверка is_nan — не находка")
+    ok(len(nan_sort(_GUARDED)) == 0, "nan-sort: гард is_finite — не находка (iced)")
+    ok(len(nan_sort(_FINITE)) == 0, "nan-sort: гард is_finite — не находка (iced)")
     ok(len(nan_sort(_INSTANT)) == 0, "nan-sort: Instant/Duration отсеян")
     ok(len(nan_sort(_PRIVATE)) == 0, "nan-sort: приватная функция не отчёт")
 
     ok(len(utf8_nth(_VGER)) == 1, "utf8-nth: форма из vger найдена (1)")
     ok(len(utf8_nth(_VGER_FIXED)) == 0, "utf8-nth: проверка длины рядом — не находка")
     ok(len(utf8_nth(_FVS_PREFIX)) == 0, "utf8-nth: чужой класс не срабатывает")
-    print(f"[RUST-LAWS-SELFTEST] точек 8 | провалов: {bad}")
+    print(f"[RUST-LAWS-SELFTEST] точек 9 | провалов: {bad}")
     return 0 if bad == 0 else 1
 
 
 def _scan_dir(root: Path) -> None:
-    files = [p for p in root.rglob("*.rs") if ".git" not in p.parts]
+    skip = {"examples", "example", "tests", "test", "benches", "bench"}
+    files = [p for p in root.rglob("*.rs")
+             if ".git" not in p.parts and not (skip & set(p.parts))]
     total = 0
     for p in files:
         try:

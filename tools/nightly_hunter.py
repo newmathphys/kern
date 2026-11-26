@@ -341,7 +341,7 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                              LH.check_rust_ord_non_total):
                     try:
                         for it in _law(_src):
-                            items.append({"level": "LAW_CONFIRMED", "file": str(
+                            items.append({"level": "LAW_CANDIDATE", "file": str(
                                 p.relative_to(dest)), "line": 0,
                                 "fn": it.get("symbol", "") or "",
                                 "detail": "%s :: %s" % (it.get("law"),
@@ -354,7 +354,7 @@ def hunt_repo(repo: str, work_root: Path, max_files: int = 40) -> dict:
                 # детектора дают fvs 4, iced 3, nushell 2 (2011 файлов).
                 try:
                     for it in RLX.find_all(_src):
-                        items.append({"level": "LAW_CONFIRMED", "file": str(
+                        items.append({"level": "LAW_CANDIDATE", "file": str(
                             p.relative_to(dest)), "line": it.get("line", 0),
                             "fn": it.get("symbol", ""),
                             "detail": "%s :: %s" % (it.get("law"),
@@ -410,7 +410,7 @@ def _publish_gates(results: list) -> dict:
         ban = pol_cache[repo]
         kept = []
         for it in r["items"]:
-            if it.get("level") not in ("CONFIRMED", "RUNTIME_CONFIRMED", "LAW_CONFIRMED"):
+            if it.get("level") not in ("CONFIRMED", "RUNTIME_CONFIRMED", "LAW_CANDIDATE"):
                 kept.append(it)
                 continue
             if ban:
