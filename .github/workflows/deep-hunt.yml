@@ -67,7 +67,7 @@ jobs:
             --out report-${{ matrix.shard }}.md
       - name: Upload shard report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deep-hunt-${{ matrix.shard }}
           path: report-${{ matrix.shard }}.md
@@ -100,7 +100,7 @@ jobs:
         run: python3 tools/zed_probe.py zed-probe-report.md
       - name: Upload zed probe report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zed-probe-report
           path: zed-probe-report.md
@@ -131,7 +131,7 @@ jobs:
             for f in $(ls brief/report-*.md 2>/dev/null | sort); do echo "<!-- $f -->"; cat "$f"; echo; done; } > morning-brief.md
           cat morning-brief.md
       - name: Upload brief
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: morning-brief
           path: morning-brief.md
