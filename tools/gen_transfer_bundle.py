@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -50,6 +51,16 @@ GATES = (
 
 def _git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+
+
+_VOLATILE = re.compile(r"20\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ")
+
+
+def _norm(text: str) -> str:
+    """Убрать ВОЛАТИЛЬНОЕ поле `generated_at`: иначе `--check` краснеет на каждом
+    прогоне, и гейт перестают читать (та же ошибка, что у гейтов, которые
+    сравнивали дату вместо содержимого)."""
+    return _VOLATILE.sub("<generated_at>", text)
 
 
 def _sha256(path: Path) -> str:
@@ -349,7 +360,8 @@ def main(argv: list[str]) -> int:
     }
     if check:
         bad = [n for n, t in files.items()
-               if not (OUT / n).is_file() or (OUT / n).read_text(encoding="utf-8") != t]
+               if not (OUT / n).is_file()
+               or _norm((OUT / n).read_text(encoding="utf-8")) != _norm(t)]
         if bad:
             print(f"[FAIL] пакет устарел: {', '.join(bad)} — перегенерируйте "
                   "`python3 tools/gen_transfer_bundle.py`")
