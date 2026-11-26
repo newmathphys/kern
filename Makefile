@@ -1345,6 +1345,16 @@ readme-link-check:
 docs-map-check:
 	@"$(PYTHON)" tools/docs_map_check.py --selftest
 	@"$(PYTHON)" tools/docs_map_check.py
+# ПЕРЕНОСИМЫЙ ПАКЕТ ДОКУМЕНТАЦИИ: TRANSFER/ (START_HERE EN/RU, project.json,
+# INDEX.json, MANIFEST.sha256). `transfer-check` — гейт по образцу scorecard-check:
+# перегенерировать и сравнить, чтобы паспорт не отставал от дерева (трижды краснело).
+.PHONY: transfer-bundle transfer-check
+transfer-bundle:
+	@"$(PYTHON)" tools/gen_transfer_bundle.py
+transfer-check:
+	@"$(PYTHON)" tools/gen_transfer_bundle.py --check
+
+
 
 # ЭТАП 3: ПАРНЫЙ БЕНЧМАРК NIST Juliet-style (bad vs good) по девяти классам
 # MITRE CWE. Требуются обе мировые метрики идеальными: индекс Юдена NIST SARD

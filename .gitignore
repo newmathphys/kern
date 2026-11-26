@@ -118,3 +118,6 @@ kerna-dist-*.tar.gz
 # секреты локальной разработки (ключи LLM) — никогда не коммитить
 .env.local
 .env
+
+# TRANSFER/ — генерируется tools/gen_transfer_bundle.py (см. архив переноса)
+TRANSFER/
